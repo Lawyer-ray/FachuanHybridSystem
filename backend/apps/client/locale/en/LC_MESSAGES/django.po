@@ -918,3 +918,10 @@ msgstr "Applying..."
 #: apps/client/templates/admin/client/identity_recognition_dialog.html:114
 msgid "重新上传"
 msgstr "Re-upload"
+
+#: apps/client/services/client_resolve_service.py
+msgid "当事人数据验证失败: %(name)s"
+msgstr "Client data validation failed: %(name)s"
+
+msgid "导入"
+msgstr "Import"

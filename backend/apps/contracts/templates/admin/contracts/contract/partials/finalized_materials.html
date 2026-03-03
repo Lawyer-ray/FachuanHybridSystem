@@ -1,49 +1,118 @@
 {% load i18n %}
-<!-- 定稿材料标签页 -->
 <div x-show="activeTab === 'finalized'" x-cloak>
-    <div class="info-grid">
-        <div class="info-card" style="grid-column: 1 / -1;">
+    {% if finalized_materials %}
+        {% for category, materials in finalized_materials_grouped.items %}
+        <div class="info-card fm-card" style="margin-bottom: 16px;">
             <div class="card-header">
                 <span class="card-icon">📎</span>
-                <h3 class="card-title">{% translate "定稿材料" %}</h3>
+                <h3 class="card-title">
+                    {% for m in materials %}{% if forloop.first %}{{ m.get_category_display }}{% endif %}{% endfor %}
+                </h3>
+                <span class="fm-count">{{ materials|length }}</span>
             </div>
-
-            {% if finalized_materials %}
-                {% for category, materials in finalized_materials_grouped.items %}
-                <div class="finalized-group" style="margin-bottom: 20px;">
-                    <h4 style="font-size: 13px; color: #666; margin: 0 0 8px 0; padding-bottom: 6px; border-bottom: 1px solid #eee;">
-                        {% for material in materials %}{% if forloop.first %}{{ material.get_category_display }}{% endif %}{% endfor %}
-                    </h4>
-                    <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-                        <thead>
-                            <tr style="background: #f8f8f8;">
-                                <th style="padding: 8px 12px; text-align: left; font-weight: 500;">{% translate "文件名" %}</th>
-                                <th style="padding: 8px 12px; text-align: left; font-weight: 500;">{% translate "上传时间" %}</th>
-                                <th style="padding: 8px 12px; text-align: left; font-weight: 500;">{% translate "备注" %}</th>
-                                <th style="padding: 8px 12px; text-align: left; font-weight: 500;">{% translate "操作" %}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for material in materials %}
-                            <tr style="border-bottom: 1px solid #f0f0f0;">
-                                <td style="padding: 8px 12px;">{{ material.original_filename }}</td>
-                                <td style="padding: 8px 12px; color: #888;">{{ material.uploaded_at|date:"Y-m-d H:i" }}</td>
-                                <td style="padding: 8px 12px; color: #666;">{{ material.remark|default:"—" }}</td>
-                                <td style="padding: 8px 12px;">
-                                    <a href="{{ media_url }}{{ material.file_path }}" target="_blank" download="{{ material.original_filename }}"
-                                       style="color: #417690; text-decoration: none; font-size: 12px;">
-                                        ⬇ {% translate "下载" %}
-                                    </a>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+            <div class="fm-list" data-contract-id="{{ contract.pk }}">
+                {% for material in materials %}
+                <div class="fm-item" data-id="{{ material.pk }}">
+                    <span class="fm-handle" title="{% trans '拖拽排序' %}">⠿</span>
+                    <span class="fm-icon">📄</span>
+                    <a class="fm-name" href="{{ media_url }}{{ material.file_path }}" target="_blank">{{ material.original_filename }}</a>
+                    <span class="fm-date">{{ material.uploaded_at|date:"Y-m-d" }}</span>
                 </div>
                 {% endfor %}
-            {% else %}
-                <p class="empty-state">{% translate "暂无定稿材料" %}</p>
-            {% endif %}
+            </div>
         </div>
-    </div>
+        {% endfor %}
+    {% else %}
+        <div class="info-card" style="grid-column: 1 / -1;">
+            <p class="empty-state">{% translate "暂无定稿材料" %}</p>
+        </div>
+    {% endif %}
 </div>
+
+<style>
+.fm-count {
+    margin-left: 8px;
+    background: #e5e7eb;
+    color: #374151;
+    border-radius: 10px;
+    padding: 1px 8px;
+    font-size: 11px;
+    font-weight: 500;
+}
+.fm-list { display: flex; flex-direction: column; gap: 6px; padding-top: 4px; }
+.fm-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 7px;
+    transition: background 0.15s, border-color 0.15s;
+}
+.fm-item:hover { background: #eff6ff; border-color: #93c5fd; }
+.fm-handle {
+    cursor: grab;
+    color: #9ca3af;
+    font-size: 16px;
+    flex-shrink: 0;
+    user-select: none;
+    padding: 0 2px;
+}
+.fm-handle:active { cursor: grabbing; }
+.fm-icon { font-size: 15px; flex-shrink: 0; }
+.fm-name {
+    flex: 1;
+    font-size: 13px;
+    color: #1f2937;
+    text-decoration: none;
+    word-break: break-all;
+}
+.fm-item:hover .fm-name { color: #2563eb; text-decoration: underline; }
+.fm-date { font-size: 12px; color: #9ca3af; white-space: nowrap; flex-shrink: 0; }
+.sortable-ghost { opacity: 0.4; background: #dbeafe !important; }
+.sortable-chosen { box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+</style>
+
+<script>
+(function () {
+    function loadSortable(cb) {
+        if (typeof Sortable !== 'undefined') { cb(); return; }
+        var s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js';
+        s.onload = cb;
+        document.head.appendChild(s);
+    }
+
+    function getCSRF() {
+        return (window.FachuanCSRF && window.FachuanCSRF.getToken && window.FachuanCSRF.getToken()) || '';
+    }
+
+    function initLists() {
+        document.querySelectorAll('.fm-list').forEach(function (list) {
+            var contractId = list.dataset.contractId;
+            new Sortable(list, {
+                handle: '.fm-handle',
+                animation: 150,
+                ghostClass: 'sortable-ghost',
+                chosenClass: 'sortable-chosen',
+                onEnd: function () {
+                    var ids = Array.from(list.querySelectorAll('.fm-item')).map(function (el) {
+                        return parseInt(el.dataset.id);
+                    });
+                    fetch('/admin/contracts/contract/' + contractId + '/reorder-materials/', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
+                        body: JSON.stringify({ ids: ids })
+                    });
+                }
+            });
+        });
+    }
+
+    // 等 Alpine 渲染完 tab 再初始化
+    document.addEventListener('DOMContentLoaded', function () {
+        loadSortable(initLists);
+    });
+})();
+</script>

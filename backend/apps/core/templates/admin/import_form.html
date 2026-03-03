@@ -1,0 +1,28 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "导入 JSON" %} | {{ block.super }}{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">{% trans "首页" %}</a>
+  &rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_label }}</a>
+  &rsaquo; <a href="{% url 'admin:'|add:opts.app_label|add:'_'|add:opts.model_name|add:'_changelist' %}">{{ opts.verbose_name_plural }}</a>
+  &rsaquo; {% trans "导入 JSON" %}
+</div>
+{% endblock %}
+
+{% block content %}
+<h1>{% trans "导入 JSON" %}</h1>
+<form method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+  <div class="form-row">
+    <label for="json_file">{% trans "选择 JSON 文件" %}：</label>
+    <input type="file" name="json_file" id="json_file" accept=".json" required>
+  </div>
+  <div class="submit-row">
+    <input type="submit" value="{% trans '开始导入' %}" class="default">
+    <a href="{% url 'admin:'|add:opts.app_label|add:'_'|add:opts.model_name|add:'_changelist' %}" class="button cancel-link">{% trans "取消" %}</a>
+  </div>
+</form>
+{% endblock %}

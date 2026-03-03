@@ -11,6 +11,9 @@ from django.utils.translation import gettext_lazy as _
 
 logger = logging.getLogger(__name__)
 
+from apps.contracts.admin.mixins.action_mixin import ContractActionMixin
+from apps.contracts.admin.mixins.display_mixin import ContractDisplayMixin
+from apps.contracts.admin.mixins.save_mixin import ContractSaveMixin
 from apps.contracts.models import (
     Contract,
     ContractAssignment,
@@ -19,15 +22,14 @@ from apps.contracts.models import (
     SupplementaryAgreement,
     SupplementaryAgreementParty,
 )
-from apps.contracts.admin.mixins.action_mixin import ContractActionMixin
-from apps.contracts.admin.mixins.display_mixin import ContractDisplayMixin
-from apps.contracts.admin.mixins.save_mixin import ContractSaveMixin
+from apps.core.admin.mixins import AdminImportExportMixin
 from apps.core.enums import CaseStage, CaseStatus
 
 if TYPE_CHECKING:
     BaseModelAdmin = admin.ModelAdmin
     BaseStackedInline = admin.StackedInline
     BaseTabularInline = admin.TabularInline
+    from django.db.models import QuerySet
 else:
     try:
         import nested_admin
@@ -50,10 +52,7 @@ class FinalizedMaterialAdminForm(forms.ModelForm[FinalizedMaterial]):
 
     class Meta:
         model = FinalizedMaterial
-        fields = ("file", "category", "remark", "original_filename")
-        widgets = {
-            "remark": forms.Textarea(attrs={"rows": 2, "cols": 20, "style": "width:160px;resize:vertical;"}),
-        }
+        fields = ("file", "category")
 
     def save(self, commit: bool = True) -> FinalizedMaterial:
         instance = super().save(commit=False)
@@ -75,8 +74,17 @@ class FinalizedMaterialInline(BaseTabularInline):  # type: ignore[type-arg]
     model = FinalizedMaterial
     form = FinalizedMaterialAdminForm
     extra = 1
-    fields: ClassVar = ("file", "category", "remark", "original_filename", "uploaded_at")
-    readonly_fields: ClassVar = ("original_filename", "uploaded_at")
+    fields: ClassVar = ("file", "category", "filename_link", "uploaded_at")
+    readonly_fields: ClassVar = ("filename_link", "uploaded_at")
+
+    @admin.display(description=_("原始文件名"))
+    def filename_link(self, obj: FinalizedMaterial) -> str:
+        from django.utils.html import format_html
+
+        if obj.file_path and obj.original_filename:
+            url = f"/media/{obj.file_path}"
+            return format_html('<a href="{}" target="_blank">{}</a>', url, obj.original_filename)
+        return obj.original_filename or "-"
 
     def delete_model(self, request: HttpRequest, obj: FinalizedMaterial) -> None:
         from apps.contracts.admin.wiring_admin import get_material_service
@@ -128,8 +136,98 @@ if BaseModelAdmin is not admin.ModelAdmin:
     SupplementaryAgreementInline.inlines = [SupplementaryAgreementPartyInline]  # type: ignore[attr-defined]
 
 
+def _serialize_contract_client(client: Any) -> dict[str, Any]:
+    from apps.client.admin.client_admin import serialize_client_obj
+    return serialize_client_obj(client)
+
+
+def serialize_contract_obj(obj: Any) -> dict[str, Any]:
+    """将单个 Contract 实例序列化为 dict（供 ContractAdmin 和 CaseAdmin 共用）。"""
+    from apps.cases.admin.case_admin import serialize_case_obj
+    return {
+        "name": obj.name,
+        "case_type": obj.case_type,
+        "filing_number": obj.filing_number,
+        "status": obj.status,
+        "specified_date": str(obj.specified_date) if obj.specified_date else None,
+        "start_date": str(obj.start_date) if obj.start_date else None,
+        "end_date": str(obj.end_date) if obj.end_date else None,
+        "is_archived": obj.is_archived,
+        "fee_mode": obj.fee_mode,
+        "fixed_amount": str(obj.fixed_amount) if obj.fixed_amount is not None else None,
+        "risk_rate": str(obj.risk_rate) if obj.risk_rate is not None else None,
+        "custom_terms": obj.custom_terms,
+        "representation_stages": obj.representation_stages,
+        "parties": [
+            {"role": p.role, "client": _serialize_contract_client(p.client)}
+            for p in obj.contract_parties.all()
+        ],
+        "assignments": [
+            {"is_primary": a.is_primary, "order": a.order,
+             "lawyer": {"real_name": a.lawyer.real_name, "phone": a.lawyer.phone, "username": a.lawyer.username}}
+            for a in obj.assignments.all()
+        ],
+        "finalized_materials": [
+            {"file_path": m.file_path, "original_filename": m.original_filename,
+             "category": m.category, "remark": m.remark}
+            for m in obj.finalized_materials.all() if m.file_path
+        ],
+        "supplementary_agreements": [
+            {
+                "name": sa.name,
+                "parties": [
+                    {"role": sp.role, "client": {
+                        "name": sp.client.name, "client_type": sp.client.client_type,
+                        "id_number": sp.client.id_number, "phone": sp.client.phone,
+                        "legal_representative": sp.client.legal_representative,
+                        "is_our_client": sp.client.is_our_client,
+                    }}
+                    for sp in sa.parties.all()
+                ],
+            }
+            for sa in obj.supplementary_agreements.all()
+        ],
+        "payments": [
+            {
+                "amount": str(p.amount), "received_at": str(p.received_at),
+                "invoice_status": p.invoice_status, "invoiced_amount": str(p.invoiced_amount),
+                "note": p.note,
+                "invoices": [
+                    {
+                        "file_path": inv.file_path, "original_filename": inv.original_filename,
+                        "remark": inv.remark, "invoice_code": inv.invoice_code,
+                        "invoice_number": inv.invoice_number,
+                        "invoice_date": str(inv.invoice_date) if inv.invoice_date else None,
+                        "amount": str(inv.amount) if inv.amount is not None else None,
+                        "tax_amount": str(inv.tax_amount) if inv.tax_amount is not None else None,
+                        "total_amount": str(inv.total_amount) if inv.total_amount is not None else None,
+                    }
+                    for inv in p.invoices.all()
+                ],
+            }
+            for p in obj.payments.all()
+        ],
+        "finance_logs": [
+            {"action": fl.action, "level": fl.level, "payload": fl.payload,
+             "actor": {"real_name": fl.actor.real_name, "phone": fl.actor.phone, "username": fl.actor.username}}
+            for fl in obj.finance_logs.all()
+        ],
+        "reminders": [
+            {"reminder_type": r.reminder_type, "content": r.content,
+             "due_at": r.due_at.isoformat(), "metadata": r.metadata}
+            for r in obj.reminders.filter(case_log__isnull=True)
+        ],
+        "client_payment_records": [
+            {"amount": str(r.amount), "image_path": r.image_path,
+             "note": r.note, "created_at": r.created_at.isoformat()}
+            for r in obj.client_payment_records.all()
+        ],
+        "cases": [serialize_case_obj(c) for c in obj.cases.all()],
+    }
+
+
 @admin.register(Contract)
-class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin, BaseModelAdmin):  # type: ignore[type-arg]
+class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin, AdminImportExportMixin, BaseModelAdmin):  # type: ignore[type-arg]
     class ContractAdminForm(forms.ModelForm[Contract]):
         representation_stages = forms.MultipleChoiceField(
             choices=CaseStage.choices,
@@ -180,6 +278,9 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
     list_filter = ("case_type", "status", "fee_mode", "is_archived")
     search_fields = ("name",)
     readonly_fields = ("get_primary_lawyer_display", "filing_number")
+    export_model_name = "contract"
+    import_required_fields = ("name",)
+    actions: ClassVar = ["export_selected_as_json", "export_all_as_json"]
 
     inlines: ClassVar = [
         ContractPartyInline,
@@ -194,5 +295,131 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
     change_form_template = "admin/contracts/contract/change_form.html"
 
     def get_queryset(self, request: HttpRequest) -> Any:
-        return super().get_queryset(request).prefetch_related("assignments__lawyer")
+        return super().get_queryset(request).prefetch_related(
+            "assignments__lawyer", "contract_parties__client"
+        )
 
+    def get_urls(self) -> list[Any]:
+        from django.urls import path as urlpath
+
+        urls = super().get_urls()
+        custom = [
+            urlpath(
+                "<int:contract_id>/reorder-materials/",
+                self.admin_site.admin_view(self.reorder_materials_view),
+                name="contracts_contract_reorder_materials",
+            ),
+        ]
+        return custom + urls
+
+    def reorder_materials_view(self, request: HttpRequest, contract_id: int) -> Any:
+        import json as json_mod
+
+        from django.http import JsonResponse
+
+        if request.method != "POST":
+            return JsonResponse({"error": "Method not allowed"}, status=405)
+        if not self.has_change_permission(request):
+            return JsonResponse({"error": "Permission denied"}, status=403)
+        try:
+            data = json_mod.loads(request.body)
+            ids: list[int] = data.get("ids", [])
+            for i, pk in enumerate(ids):
+                FinalizedMaterial.objects.filter(pk=pk, contract_id=contract_id).update(order=i)
+            return JsonResponse({"ok": True})
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=400)
+
+    def handle_json_import(
+        self, data_list: list[dict[str, Any]], user: str, zip_file: Any
+    ) -> tuple[int, int, list[str]]:
+        from apps.cases.services.case_import_service import CaseImportService
+        from apps.client.services.client_resolve_service import ClientResolveService
+        from apps.contracts.services.contract_import_service import ContractImportService
+        from apps.organization.services.lawyer_resolve_service import LawyerResolveService
+
+        client_svc = ClientResolveService()
+        lawyer_svc = LawyerResolveService()
+        case_svc = CaseImportService(
+            contract_import=None,  # type: ignore[arg-type]
+            client_resolve=client_svc,
+            lawyer_resolve=lawyer_svc,
+        )
+        contract_svc = ContractImportService(
+            client_resolve=client_svc,
+            lawyer_resolve=lawyer_svc,
+            case_import_fn=case_svc.import_one,
+        )
+        case_svc._contract_import = contract_svc
+
+        success = skipped = 0
+        errors: list[str] = []
+        for i, item in enumerate(data_list, 1):
+            try:
+                filing_number = item.get("filing_number")
+                before = Contract.objects.filter(filing_number=filing_number).exists() if filing_number else False
+                contract_svc.resolve(item)
+                if before:
+                    skipped += 1
+                else:
+                    success += 1
+            except Exception as exc:
+                logger.exception("导入合同失败", extra={"index": i, "contract_name": item.get("name", "?")})
+                errors.append(f"[{i}] {item.get('name', '?')} ({type(exc).__name__}): {exc}")
+        return success, skipped, errors
+
+    def serialize_queryset(self, queryset: QuerySet[Contract]) -> list[dict[str, Any]]:  # type: ignore[override]
+        result = []
+        for obj in queryset.prefetch_related(
+            "contract_parties__client__identity_docs",
+            "contract_parties__client__property_clues__attachments",
+            "assignments__lawyer",
+            "finalized_materials",
+            "supplementary_agreements__parties__client",
+            "payments__invoices",
+            "finance_logs__actor",
+            "reminders",
+            "client_payment_records",
+            "cases__parties__client__identity_docs",
+            "cases__parties__client__property_clues__attachments",
+            "cases__assignments__lawyer",
+            "cases__supervising_authorities",
+            "cases__case_numbers",
+            "cases__chats",
+            "cases__logs__actor",
+            "cases__logs__attachments",
+            "cases__logs__reminders",
+        ):
+            result.append(serialize_contract_obj(obj))
+        return result
+
+    def get_file_paths(self, queryset: QuerySet[Contract]) -> list[str]:  # type: ignore[override]
+        seen: set[str] = set()
+        paths: list[str] = []
+
+        def _add(p: str) -> None:
+            if p and p not in seen:
+                seen.add(p)
+                paths.append(p)
+
+        for obj in queryset.prefetch_related(
+            "finalized_materials",
+            "client_payment_records",
+            "payments__invoices",
+            "contract_parties__client__identity_docs",
+            "contract_parties__client__property_clues__attachments",
+        ):
+            for m in obj.finalized_materials.all():
+                _add(m.file_path)
+            for r in obj.client_payment_records.all():
+                _add(r.image_path)
+            for p in obj.payments.all():
+                for inv in p.invoices.all():
+                    _add(inv.file_path)
+            for p in obj.contract_parties.all():
+                for d in p.client.identity_docs.all():
+                    _add(d.file_path)
+                for c in p.client.property_clues.all():
+                    for a in c.attachments.all():
+                        _add(a.file_path)
+        return paths

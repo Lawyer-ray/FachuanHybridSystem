@@ -1,49 +1,27 @@
-/* 定稿材料 Inline 列宽控制 */
-#finalizedmaterial_set-group .form-row {
-    display: table-row;
+/* 隐藏 __str__ 列 */
+#finalized_materials-group td.original,
+#finalized_materials-group th.original {
+    display: none;
 }
 
-/* 上传文件列：固定宽度，不换行 */
-#finalizedmaterial_set-group .field-file {
-    width: 200px;
-    min-width: 160px;
+/* 上传文件列 */
+#finalized_materials-group .field-file {
+    width: 220px;
     white-space: nowrap;
 }
 
 /* 材料分类列 */
-#finalizedmaterial_set-group .field-category {
+#finalized_materials-group .field-category {
     width: 120px;
-    min-width: 100px;
 }
 
-/* 备注列：弹性伸缩 */
-#finalizedmaterial_set-group .field-remark {
-    min-width: 160px;
-}
-
-#finalizedmaterial_set-group .field-remark textarea {
-    width: 100%;
-    min-width: 140px;
-    resize: vertical;
-    box-sizing: border-box;
-}
-
-/* 原始文件名列 */
-#finalizedmaterial_set-group .field-original_filename {
-    width: 160px;
-    min-width: 120px;
+/* 原始文件名列：自动伸缩 */
+#finalized_materials-group .field-filename_link {
     word-break: break-all;
 }
 
 /* 上传时间列 */
-#finalizedmaterial_set-group .field-uploaded_at {
+#finalized_materials-group .field-uploaded_at {
     width: 140px;
-    min-width: 120px;
     white-space: nowrap;
-}
-
-/* 整体表格不超出容器 */
-#finalizedmaterial_set-group table {
-    table-layout: fixed;
-    width: 100%;
 }

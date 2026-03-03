@@ -34,7 +34,7 @@
 
   function bindClientSelect(select) {
     const $ = window.django && window.django.jQuery;
-    
+
     // 普通 change 事件（只绑定一次）
     if (!select.dataset.partyRoleBound) {
       select.dataset.partyRoleBound = "1";
@@ -198,7 +198,10 @@
     if (!match) return;
     const suppIndex = parseInt(match[1], 10);
 
-    const label = suppIndex === 0 ? "填充合同当事人" : "填充上一份补充协议当事人";
+    const i18n = window.CONTRACTS_I18N || {};
+    const label = suppIndex === 0
+      ? (i18n.fillContractParties || "填充合同当事人")
+      : (i18n.fillPrevSuppParties || "填充上一份补充协议当事人");
 
     const btn = document.createElement("a");
     btn.href = "javascript://";
