@@ -787,3 +787,6 @@ msgstr "Fill Contract Parties"
 
 msgid "填充上一份补充协议当事人"
 msgstr "Fill Previous Supplementary Agreement Parties"
+
+msgid "暂无关联案件"
+msgstr "No associated cases"
