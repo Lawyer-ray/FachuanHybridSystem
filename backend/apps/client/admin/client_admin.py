@@ -71,6 +71,35 @@ class ClientAdminForm(forms.ModelForm[Client]):
         self.fields["id_number"].label = _("身份证号码") if ct == "natural" else _("统一社会信用代码")
 
 
+def serialize_client_obj(obj: Any) -> dict[str, Any]:
+    """将单个 Client 实例序列化为 dict（供 ClientAdmin、CaseAdmin、ContractAdmin 共用）。"""
+    return {
+        "name": obj.name,
+        "client_type": obj.client_type,
+        "id_number": obj.id_number,
+        "phone": obj.phone,
+        "address": getattr(obj, "address", None),
+        "legal_representative": obj.legal_representative,
+        "legal_representative_id_number": getattr(obj, "legal_representative_id_number", None),
+        "is_our_client": obj.is_our_client,
+        "identity_docs": [
+            {"doc_type": doc.doc_type, "file_path": doc.file_path}
+            for doc in obj.identity_docs.all() if doc.file_path
+        ],
+        "property_clues": [
+            {
+                "clue_type": clue.clue_type,
+                "content": clue.content,
+                "attachments": [
+                    {"file_path": att.file_path, "file_name": att.file_name}
+                    for att in clue.attachments.all() if att.file_path
+                ],
+            }
+            for clue in obj.property_clues.all()
+        ],
+    }
+
+
 @admin.register(Client)
 class ClientAdmin(AdminImportExportMixin, admin.ModelAdmin[Client]):
     list_display: ClassVar = ("id", "name", "client_type", "is_our_client", "phone", "legal_representative")
@@ -146,29 +175,9 @@ class ClientAdmin(AdminImportExportMixin, admin.ModelAdmin[Client]):
         return success, skipped, errors
 
     def serialize_queryset(self, queryset: QuerySet[Client]) -> list[dict[str, Any]]:
-        fields = ("name", "client_type", "id_number", "phone", "address",
-                  "legal_representative", "legal_representative_id_number", "is_our_client")
         result = []
         for obj in queryset.prefetch_related("identity_docs", "property_clues__attachments"):
-            d = {f: getattr(obj, f) for f in fields}
-            d["identity_docs"] = [
-                {"doc_type": doc.doc_type, "file_path": doc.file_path}
-                for doc in obj.identity_docs.all()
-                if doc.file_path
-            ]
-            d["property_clues"] = [
-                {
-                    "clue_type": clue.clue_type,
-                    "content": clue.content,
-                    "attachments": [
-                        {"file_path": att.file_path, "file_name": att.file_name}
-                        for att in clue.attachments.all()
-                        if att.file_path
-                    ],
-                }
-                for clue in obj.property_clues.all()
-            ]
-            result.append(d)
+            result.append(serialize_client_obj(obj))
         return result
 
     def get_file_paths(self, queryset: QuerySet[Client]) -> list[str]:  # type: ignore[override]
