@@ -85,31 +85,8 @@ class CaseLogInline(BaseStackedInline):
 
 
 def _serialize_client(client: Any) -> dict[str, Any]:
-    return {
-        "name": client.name,
-        "client_type": client.client_type,
-        "id_number": client.id_number,
-        "phone": client.phone,
-        "address": getattr(client, "address", None),
-        "legal_representative": client.legal_representative,
-        "legal_representative_id_number": getattr(client, "legal_representative_id_number", None),
-        "is_our_client": client.is_our_client,
-        "identity_docs": [
-            {"doc_type": d.doc_type, "file_path": d.file_path}
-            for d in client.identity_docs.all() if d.file_path
-        ],
-        "property_clues": [
-            {
-                "clue_type": cl.clue_type,
-                "content": cl.content,
-                "attachments": [
-                    {"file_path": a.file_path, "file_name": a.file_name}
-                    for a in cl.attachments.all() if a.file_path
-                ],
-            }
-            for cl in client.property_clues.all()
-        ],
-    }
+    from apps.client.admin.client_admin import serialize_client_obj
+    return serialize_client_obj(client)
 
 
 def serialize_case_obj(obj: Any) -> dict[str, Any]:
