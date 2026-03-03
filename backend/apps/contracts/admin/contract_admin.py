@@ -11,6 +11,9 @@ from django.utils.translation import gettext_lazy as _
 
 logger = logging.getLogger(__name__)
 
+from apps.contracts.admin.mixins.action_mixin import ContractActionMixin
+from apps.contracts.admin.mixins.display_mixin import ContractDisplayMixin
+from apps.contracts.admin.mixins.save_mixin import ContractSaveMixin
 from apps.contracts.models import (
     Contract,
     ContractAssignment,
@@ -19,15 +22,14 @@ from apps.contracts.models import (
     SupplementaryAgreement,
     SupplementaryAgreementParty,
 )
-from apps.contracts.admin.mixins.action_mixin import ContractActionMixin
-from apps.contracts.admin.mixins.display_mixin import ContractDisplayMixin
-from apps.contracts.admin.mixins.save_mixin import ContractSaveMixin
+from apps.core.admin.mixins import AdminImportExportMixin
 from apps.core.enums import CaseStage, CaseStatus
 
 if TYPE_CHECKING:
     BaseModelAdmin = admin.ModelAdmin
     BaseStackedInline = admin.StackedInline
     BaseTabularInline = admin.TabularInline
+    from django.db.models import QuerySet
 else:
     try:
         import nested_admin
@@ -129,7 +131,7 @@ if BaseModelAdmin is not admin.ModelAdmin:
 
 
 @admin.register(Contract)
-class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin, BaseModelAdmin):  # type: ignore[type-arg]
+class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin, AdminImportExportMixin, BaseModelAdmin):  # type: ignore[type-arg]
     class ContractAdminForm(forms.ModelForm[Contract]):
         representation_stages = forms.MultipleChoiceField(
             choices=CaseStage.choices,
@@ -180,6 +182,8 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
     list_filter = ("case_type", "status", "fee_mode", "is_archived")
     search_fields = ("name",)
     readonly_fields = ("get_primary_lawyer_display", "filing_number")
+    export_model_name = "contract"
+    actions: ClassVar = ["export_selected_as_json", "export_all_as_json"]
 
     inlines: ClassVar = [
         ContractPartyInline,
@@ -194,5 +198,78 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
     change_form_template = "admin/contracts/contract/change_form.html"
 
     def get_queryset(self, request: HttpRequest) -> Any:
-        return super().get_queryset(request).prefetch_related("assignments__lawyer")
+        return super().get_queryset(request).prefetch_related(
+            "assignments__lawyer", "contract_parties__client"
+        )
 
+    def handle_json_import(
+        self, data_list: list[dict[str, Any]], user: str
+    ) -> tuple[int, int, list[str]]:
+        from apps.client.services.client_resolve_service import ClientResolveService
+        from apps.contracts.services.contract_import_service import ContractImportService
+        from apps.organization.services.lawyer_resolve_service import LawyerResolveService
+
+        client_svc = ClientResolveService()
+        lawyer_svc = LawyerResolveService()
+        contract_svc = ContractImportService(client_resolve=client_svc, lawyer_resolve=lawyer_svc)
+
+        success = skipped = 0
+        errors: list[str] = []
+        for item in data_list:
+            try:
+                filing_number = item.get("filing_number")
+                before = Contract.objects.filter(filing_number=filing_number).exists() if filing_number else False
+                contract_svc.resolve(item)
+                if before:
+                    skipped += 1
+                else:
+                    success += 1
+            except Exception as exc:
+                errors.append(str(exc))
+        return success, skipped, errors
+
+    def serialize_queryset(self, queryset: QuerySet[Contract]) -> list[dict[str, Any]]:  # type: ignore[override]
+        result = []
+        for obj in queryset.prefetch_related("contract_parties__client", "assignments__lawyer"):
+            result.append({
+                "name": obj.name,
+                "case_type": obj.case_type,
+                "filing_number": obj.filing_number,
+                "status": obj.status,
+                "specified_date": str(obj.specified_date) if obj.specified_date else None,
+                "start_date": str(obj.start_date) if obj.start_date else None,
+                "end_date": str(obj.end_date) if obj.end_date else None,
+                "is_archived": obj.is_archived,
+                "fee_mode": obj.fee_mode,
+                "fixed_amount": str(obj.fixed_amount) if obj.fixed_amount is not None else None,
+                "risk_rate": str(obj.risk_rate) if obj.risk_rate is not None else None,
+                "custom_terms": obj.custom_terms,
+                "representation_stages": obj.representation_stages,
+                "parties": [
+                    {
+                        "role": p.role,
+                        "client": {
+                            "name": p.client.name,
+                            "client_type": p.client.client_type,
+                            "id_number": p.client.id_number,
+                            "phone": p.client.phone,
+                            "address": p.client.address,
+                            "legal_representative": p.client.legal_representative,
+                            "is_our_client": p.client.is_our_client,
+                        },
+                    }
+                    for p in obj.contract_parties.all()
+                ],
+                "assignments": [
+                    {
+                        "is_primary": a.is_primary,
+                        "order": a.order,
+                        "lawyer": {
+                            "real_name": a.lawyer.real_name,
+                            "phone": a.lawyer.phone,
+                        },
+                    }
+                    for a in obj.assignments.all()
+                ],
+            })
+        return result

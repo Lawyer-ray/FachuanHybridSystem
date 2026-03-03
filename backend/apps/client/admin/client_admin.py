@@ -11,8 +11,10 @@ from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
 from apps.client.models import Client, ClientIdentityDoc
+from apps.core.admin.mixins import AdminImportExportMixin
 
 if TYPE_CHECKING:
+    from django.db.models import QuerySet
     from django.forms import ModelForm
 
 logger = logging.getLogger("apps.client")
@@ -70,12 +72,14 @@ class ClientAdminForm(forms.ModelForm[Client]):
 
 
 @admin.register(Client)
-class ClientAdmin(admin.ModelAdmin[Client]):
+class ClientAdmin(AdminImportExportMixin, admin.ModelAdmin[Client]):
     list_display: ClassVar = ("id", "name", "client_type", "is_our_client", "phone", "legal_representative")
     search_fields: ClassVar = ("name", "phone", "id_number")
     list_filter: ClassVar = ("client_type", "is_our_client")
     form = ClientAdminForm
     inlines: ClassVar = []
+    export_model_name = "client"
+    actions: ClassVar = ["export_selected_as_json", "export_all_as_json"]
 
     def get_changeform_initial_data(self, request: HttpRequest) -> dict[str, Any]:
         return {"client_type": "legal"}
@@ -119,3 +123,32 @@ class ClientAdmin(admin.ModelAdmin[Client]):
                         doc_type=info["doc_type"],
                         uploaded_file=info["uploaded_file"],
                     )
+
+    def handle_json_import(
+        self, data_list: list[dict[str, Any]], user: str
+    ) -> tuple[int, int, list[str]]:
+        from apps.client.services.client_resolve_service import ClientResolveService
+
+        svc = ClientResolveService()
+        success = skipped = 0
+        errors: list[str] = []
+        for item in data_list:
+            try:
+                id_number = item.get("id_number")
+                before = Client.objects.filter(id_number=id_number).exists() if id_number else False
+                svc.resolve(item)
+                if before:
+                    skipped += 1
+                else:
+                    success += 1
+            except Exception as exc:
+                errors.append(str(exc))
+        return success, skipped, errors
+
+    def serialize_queryset(self, queryset: QuerySet[Client]) -> list[dict[str, Any]]:
+        fields = ("id", "name", "client_type", "id_number", "phone", "address",
+                  "legal_representative", "legal_representative_id_number", "is_our_client")
+        return [
+            {f: getattr(obj, f) for f in fields}
+            for obj in queryset
+        ]
