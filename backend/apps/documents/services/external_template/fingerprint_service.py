@@ -169,7 +169,7 @@ class FingerprintService:
         Returns:
             去除文本内容后的 XML 字符串
         """
-        root: ET.Element = ET.fromstring(xml_content)  # noqa: S314
+        root: ET.Element = ET.fromstring(xml_content)
 
         for elem in root.iter():
             elem.text = None
@@ -190,7 +190,7 @@ class FingerprintService:
         Returns:
             去除样式属性后的 XML 字符串
         """
-        root: ET.Element = ET.fromstring(xml_content)  # noqa: S314
+        root: ET.Element = ET.fromstring(xml_content)
 
         self._remove_style_elements(root)
 

@@ -544,15 +544,19 @@ class JtnFilingScript:
 
         # 客户联系人（name 带动态 GUID，用 name 属性前缀匹配）
         if info.contact_name:
-            page.evaluate(f"""() => {{
+            page.evaluate(
+                f"""() => {{
                 var el = document.querySelector('input[name*="pro_pl_name"]');
                 if (el) el.value = {self._js_str(info.contact_name)};
-            }}""")
+            }}"""
+            )
         if info.contact_phone:
-            page.evaluate(f"""() => {{
+            page.evaluate(
+                f"""() => {{
                 var el = document.querySelector('input[name*="pro_pl_phone"]');
                 if (el) el.value = {self._js_str(info.contact_phone)};
-            }}""")
+            }}"""
+            )
 
         logger.info("案件信息填写完成")
 
@@ -582,14 +586,16 @@ class JtnFilingScript:
 
             # 获取第 idx 个利冲条目的 GUID
             guid: str = (
-                page.evaluate(f"""() => {{
+                page.evaluate(
+                    f"""() => {{
                 var tables = document.querySelectorAll(
                     '#divConfict table[id^="table_confilct_"]'
                 );
                 var t = tables[{idx}];
                 if (!t) return '';
                 return t.id.replace('table_confilct_', '');
-            }}""")
+            }}"""
+                )
                 or ""
             )
 
@@ -678,7 +684,8 @@ class JtnFilingScript:
         取 ID 最大的那个即为当前弹窗。
         """
         iframe_id: str = (
-            page.evaluate("""() => {
+            page.evaluate(
+                """() => {
             const iframes = document.querySelectorAll('iframe[id^="layui-layer-iframe"]');
             if (iframes.length === 0) return '';
             let maxId = '';
@@ -691,7 +698,8 @@ class JtnFilingScript:
                 }
             }
             return maxId;
-        }""")
+        }"""
+            )
             or ""
         )
         if not iframe_id:
