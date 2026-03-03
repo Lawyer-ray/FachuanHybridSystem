@@ -457,11 +457,14 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
 
         for obj in queryset.prefetch_related(
             "finalized_materials",
+            "client_payment_records",
             "contract_parties__client__identity_docs",
             "contract_parties__client__property_clues__attachments",
         ):
             for m in obj.finalized_materials.all():
                 _add(m.file_path)
+            for r in obj.client_payment_records.all():
+                _add(r.image_path)
             for p in obj.contract_parties.all():
                 for d in p.client.identity_docs.all():
                     _add(d.file_path)
