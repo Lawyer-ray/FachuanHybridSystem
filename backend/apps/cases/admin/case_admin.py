@@ -204,7 +204,8 @@ class CaseAdmin(CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminViewsMixin, 
                 else:
                     success += 1
             except Exception as exc:
-                errors.append(f"[{i}] {item.get('name', '?')}: {exc}")
+                logger.exception("导入案件失败", extra={"index": i, "case_name": item.get("name", "?")})
+                errors.append(f"[{i}] {item.get('name', '?')} ({type(exc).__name__}): {exc}")
         return success, skipped, errors
 
     def serialize_queryset(self, queryset: QuerySet[Case]) -> list[dict[str, Any]]:  # type: ignore[override]
