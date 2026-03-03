@@ -52,10 +52,7 @@ class FinalizedMaterialAdminForm(forms.ModelForm[FinalizedMaterial]):
 
     class Meta:
         model = FinalizedMaterial
-        fields = ("file", "category", "remark", "original_filename")
-        widgets = {
-            "remark": forms.Textarea(attrs={"rows": 2, "cols": 20, "style": "width:160px;resize:vertical;"}),
-        }
+        fields = ("file", "category")
 
     def save(self, commit: bool = True) -> FinalizedMaterial:
         instance = super().save(commit=False)
@@ -77,8 +74,17 @@ class FinalizedMaterialInline(BaseTabularInline):  # type: ignore[type-arg]
     model = FinalizedMaterial
     form = FinalizedMaterialAdminForm
     extra = 1
-    fields: ClassVar = ("file", "category", "remark", "original_filename", "uploaded_at")
-    readonly_fields: ClassVar = ("original_filename", "uploaded_at")
+    fields: ClassVar = ("file", "category", "filename_link", "uploaded_at")
+    readonly_fields: ClassVar = ("filename_link", "uploaded_at")
+
+    @admin.display(description=_("原始文件名"))
+    def filename_link(self, obj: FinalizedMaterial) -> str:
+        from django.utils.html import format_html
+
+        if obj.file_path and obj.original_filename:
+            url = f"/media/{obj.file_path}"
+            return format_html('<a href="{}" target="_blank">{}</a>', url, obj.original_filename)
+        return obj.original_filename or "-"
 
     def delete_model(self, request: HttpRequest, obj: FinalizedMaterial) -> None:
         from apps.contracts.admin.wiring_admin import get_material_service
