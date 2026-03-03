@@ -73,7 +73,7 @@ class CaseImportService:
         if contract is not None:
             case_data["contract"] = contract
         case = Case.objects.create(**case_data)
-        logger.info("创建新案件", extra={"case_id": case.pk, "name": case.name})
+        logger.info("创建新案件", extra={"case_id": case.pk, "case_name": case.name})
 
         for party_data in data.get("parties") or []:
             client_data = party_data.get("client")
