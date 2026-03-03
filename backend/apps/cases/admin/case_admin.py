@@ -172,6 +172,7 @@ class CaseAdmin(CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminViewsMixin, 
                                 "id_number": p.client.id_number,
                                 "phone": p.client.phone,
                                 "is_our_client": p.client.is_our_client,
+                                "legal_representative": p.client.legal_representative,
                             },
                         }
                         for p in c.contract_parties.all()
@@ -212,6 +213,7 @@ class CaseAdmin(CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminViewsMixin, 
                             "id_number": p.client.id_number,
                             "phone": p.client.phone,
                             "is_our_client": p.client.is_our_client,
+                            "legal_representative": p.client.legal_representative,
                         },
                     }
                     for p in obj.parties.all()
