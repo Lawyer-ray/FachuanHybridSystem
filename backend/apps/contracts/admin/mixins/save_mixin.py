@@ -4,7 +4,6 @@ Contract Admin - Save Mixin
 保存和删除钩子方法.
 """
 
-
 from __future__ import annotations
 
 import logging
@@ -14,7 +13,6 @@ from django.contrib import messages
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import BusinessException
-
 
 logger = logging.getLogger("apps.contracts")
 
@@ -89,57 +87,7 @@ class ContractSaveMixin:
             messages.error(request, _("同步关联案件律师指派失败: %(err)s") % {"err": e})
 
     def delete_model(self, request, obj) -> None:
-        """
-        删除合同前,先解除关联案件的引用
-
-        由于 SQLite 的外键约束处理问题,即使使用 SET_NULL,
-        在某些情况下仍会报 FOREIGN KEY constraint failed.
-        因此在删除前手动将关联案件的 contract 字段设为 NULL.
-
-        Requirements: 数据完整性
-        """
-        try:
-            action_service = _get_contract_admin_action_service()
-            case_count = action_service.unbind_cases_from_contract(obj.id)
-            if case_count > 0:
-                logger.info(
-                    f"删除合同 {obj.id} 前,已解除 {case_count} 个关联案件的引用",
-                    extra={"contract_id": obj.id, "case_count": case_count},
-                )
-
-            super().delete_model(request, obj)
-
-        except (BusinessException, RuntimeError, Exception) as e:
-            logger.error(
-                f"删除合同 {obj.id} 失败: {e!s}",
-                extra={"contract_id": obj.id},
-                exc_info=True,
-            )
-            messages.error(request, _("删除合同失败: %(err)s") % {"err": e})
-            raise
+        super().delete_model(request, obj)
 
     def delete_queryset(self, request, queryset) -> None:
-        """
-        批量删除合同前,先解除关联案件的引用
-
-        处理 Admin 列表页的批量删除操作.
-
-        Requirements: 数据完整性
-        """
-        try:
-            contract_ids = list(queryset.values_list("id", flat=True))
-
-            action_service = _get_contract_admin_action_service()
-            case_count = action_service.unbind_cases_from_contracts(contract_ids)
-            if case_count > 0:
-                logger.info(
-                    f"批量删除 {len(contract_ids)} 个合同前,已解除 {case_count} 个关联案件的引用",
-                    extra={"contract_ids": contract_ids, "case_count": case_count},
-                )
-
-            super().delete_queryset(request, queryset)
-
-        except (BusinessException, RuntimeError, Exception) as e:
-            logger.error("批量删除合同失败: %s", e, exc_info=True)
-            messages.error(request, _("批量删除合同失败: %(err)s") % {"err": e})
-            raise
+        super().delete_queryset(request, queryset)
