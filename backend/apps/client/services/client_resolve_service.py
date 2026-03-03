@@ -86,7 +86,7 @@ class ClientResolveService:
                 )
 
         for clue in data.get("property_clues") or []:
-            pc, _ = PropertyClue.objects.get_or_create(
+            pc, _created = PropertyClue.objects.get_or_create(
                 client=client,
                 clue_type=clue.get("clue_type", "other"),
                 defaults={"content": clue.get("content", "")},

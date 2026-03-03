@@ -107,7 +107,7 @@ class ContractImportService:
         from apps.contracts.models import SupplementaryAgreement, SupplementaryAgreementParty
 
         for sa_data in data.get("supplementary_agreements") or []:
-            sa, _ = SupplementaryAgreement.objects.get_or_create(
+            sa, _created = SupplementaryAgreement.objects.get_or_create(
                 contract=contract,
                 name=sa_data.get("name") or "",
             )
