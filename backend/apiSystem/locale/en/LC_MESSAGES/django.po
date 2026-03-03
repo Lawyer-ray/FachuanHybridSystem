@@ -781,3 +781,9 @@ msgstr "Save and Duplicate"
 
 msgid "保存并创建案件"
 msgstr "Save and Create Case"
+
+msgid "填充合同当事人"
+msgstr "Fill Contract Parties"
+
+msgid "填充上一份补充协议当事人"
+msgstr "Fill Previous Supplementary Agreement Parties"
