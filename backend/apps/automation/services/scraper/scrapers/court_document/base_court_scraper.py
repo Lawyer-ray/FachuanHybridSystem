@@ -77,8 +77,8 @@ class BaseCourtDocumentScraper(BaseScraper):
             页面元素分析结果
         """
         analysis: dict[str, Any] = {
-            "url": self.page.url, # type: ignore
-            "title": self.page.title(), # type: ignore
+            "url": self.page.url,  # type: ignore
+            "title": self.page.title(),  # type: ignore
             "buttons": [],
             "links": [],
             "download_elements": [],
@@ -87,7 +87,7 @@ class BaseCourtDocumentScraper(BaseScraper):
 
         try:
             # 分析按钮
-            buttons = self.page.locator("button").all() # type: ignore
+            buttons = self.page.locator("button").all()  # type: ignore
             for i, btn in enumerate(buttons[:10]):
                 try:
                     analysis["buttons"].append(
@@ -103,7 +103,7 @@ class BaseCourtDocumentScraper(BaseScraper):
                     pass
 
             # 分析链接
-            links = self.page.locator("a").all() # type: ignore
+            links = self.page.locator("a").all()  # type: ignore
             for i, link in enumerate(links[:10]):
                 try:
                     analysis["links"].append(
@@ -120,7 +120,7 @@ class BaseCourtDocumentScraper(BaseScraper):
                     pass
 
             # 分析包含"下载"的元素
-            download_elements = self.page.locator('*:has-text("下载")').all() # type: ignore
+            download_elements = self.page.locator('*:has-text("下载")').all()  # type: ignore
             for i, elem in enumerate(download_elements[:10]):
                 try:
                     tag = elem.evaluate("el => el.tagName")
@@ -138,7 +138,7 @@ class BaseCourtDocumentScraper(BaseScraper):
                     pass
 
             # 分析 iframe
-            iframes = self.page.locator("iframe").all() # type: ignore
+            iframes = self.page.locator("iframe").all()  # type: ignore
             for i, iframe in enumerate(iframes):
                 try:
                     analysis["iframes"].append(
@@ -176,7 +176,7 @@ class BaseCourtDocumentScraper(BaseScraper):
         # 保存 HTML
         html_path = download_dir / f"{name}_page.html"
         with open(html_path, "w", encoding="utf-8") as f:
-            f.write(self.page.content()) # type: ignore
+            f.write(self.page.content())  # type: ignore
 
         # 保存元素分析
         analysis = self._analyze_page_elements()
@@ -213,12 +213,7 @@ class BaseCourtDocumentScraper(BaseScraper):
         # 如果任务关联了案件,使用案件 ID 作为目录名
         case_id = self.task.case_id
         if case_id is not None:
-            download_dir = (
-                Path(settings.MEDIA_ROOT)
-                / "case_logs"
-                / str(case_id)
-                / "documents"
-            )
+            download_dir = Path(settings.MEDIA_ROOT) / "case_logs" / str(case_id) / "documents"
         else:
             download_dir = Path(settings.MEDIA_ROOT) / "automation" / "downloads" / f"task_{self.task.id}"
 
@@ -250,8 +245,8 @@ class BaseCourtDocumentScraper(BaseScraper):
             success, filepath, error = download_result
 
             # 先创建文书记录
-            task_id_value = cast(int, self.task.id) # type: ignore
-            task_case_id = cast(int | None, self.task.case_id) if self.task.case else None # type: ignore
+            task_id_value = cast(int, self.task.id)  # type: ignore
+            task_case_id = cast(int | None, self.task.case_id) if self.task.case else None  # type: ignore
             document = self.document_service.create_document_from_api_data(
                 scraper_task_id=task_id_value, api_data=document_data, case_id=task_case_id
             )

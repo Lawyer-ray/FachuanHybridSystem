@@ -46,7 +46,7 @@ class HeadingNumbering:
         for i, p in enumerate(doc.paragraphs):
             if i in heading_indices:
                 continue
-            num_pr = p._element.find(f'{{{ns}}}pPr/{{{ns}}}numPr')
+            num_pr = p._element.find(f"{{{ns}}}pPr/{{{ns}}}numPr")
             if num_pr is not None:
                 num_pr.getparent().remove(num_pr)
 
@@ -69,9 +69,7 @@ class HeadingNumbering:
 
         logger.info("已为 %d 个标题段落应用编号（%d 个编号区域）", applied, len([s for s in sections if s]))
 
-    def _identify_headings_via_llm(
-        self, doc: Document, model_name: str
-    ) -> list[tuple[int, int]]:
+    def _identify_headings_via_llm(self, doc: Document, model_name: str) -> list[tuple[int, int]]:
         """用 LLM 识别标题段落及层级，返回 (段落索引, 层级0/1/2)"""
         lines: list[str] = []
         for i, p in enumerate(doc.paragraphs):
@@ -118,21 +116,17 @@ class HeadingNumbering:
         return []
 
     @staticmethod
-    def _supplement_missed_headings(
-        doc: Document, headings: list[tuple[int, int]]
-    ) -> list[tuple[int, int]]:
+    def _supplement_missed_headings(doc: Document, headings: list[tuple[int, int]]) -> list[tuple[int, int]]:
         """补充 LLM 漏识别的编号段落：原始有 numPr 的段落（有真实编号或有编号前缀文本）"""
         heading_indices = {idx for idx, _ in headings}
         ns = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-        prefix_re = re.compile(
-            r"^(?:\d+[、．.]\s*|[（(]\d+[)）]\s*|\d+\)\s*)"
-        )
+        prefix_re = re.compile(r"^(?:\d+[、．.]\s*|[（(]\d+[)）]\s*|\d+\)\s*)")
 
         added = []
         for i, p in enumerate(doc.paragraphs):
             if i in heading_indices:
                 continue
-            num_pr = p._element.find(f'{{{ns}}}pPr/{{{ns}}}numPr')
+            num_pr = p._element.find(f"{{{ns}}}pPr/{{{ns}}}numPr")
             if num_pr is None:
                 continue
             num_id_elem = num_pr.find(qn("w:numId"))
@@ -164,9 +158,7 @@ class HeadingNumbering:
         return headings
 
     @staticmethod
-    def _parse_llm_response(
-        text: str, para_count: int
-    ) -> list[tuple[int, int]]:
+    def _parse_llm_response(text: str, para_count: int) -> list[tuple[int, int]]:
         text = text.strip()
         if "```" in text:
             start = text.find("[")
@@ -191,9 +183,7 @@ class HeadingNumbering:
         return results
 
     @staticmethod
-    def _strip_manual_numbers(
-        doc: Document, headings: list[tuple[int, int]]
-    ) -> None:
+    def _strip_manual_numbers(doc: Document, headings: list[tuple[int, int]]) -> None:
         """去掉标题段落开头的手动编号前缀"""
         # 长模式优先，避免短模式误匹配
         pattern = re.compile(
@@ -241,10 +231,7 @@ class HeadingNumbering:
         numbering_part = doc.part.numbering_part
         numbering_elem = numbering_part.element
 
-        existing_ids = {
-            int(a.get(qn("w:abstractNumId"), 0))
-            for a in numbering_elem.findall(qn("w:abstractNum"))
-        }
+        existing_ids = {int(a.get(qn("w:abstractNumId"), 0)) for a in numbering_elem.findall(qn("w:abstractNum"))}
         abstract_id = max(existing_ids, default=-1) + 1
 
         abstract_num = OxmlElement("w:abstractNum")
@@ -309,9 +296,7 @@ class HeadingNumbering:
         return num_id
 
     @staticmethod
-    def _apply_num_to_paragraphs(
-        doc: Document, headings: list[tuple[int, int]], num_id: int
-    ) -> None:
+    def _apply_num_to_paragraphs(doc: Document, headings: list[tuple[int, int]], num_id: int) -> None:
         """将编号样式应用到标题段落"""
         for para_idx, level in headings:
             para = doc.paragraphs[para_idx]

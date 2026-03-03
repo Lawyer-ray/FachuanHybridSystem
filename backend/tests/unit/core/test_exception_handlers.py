@@ -21,8 +21,8 @@ from apps.core.exceptions import (
     PermissionDenied,
     RateLimitError,
     ValidationException,
+    register_exception_handlers,
 )
-from apps.core.exceptions import register_exception_handlers
 from apps.core.llm.exceptions import LLMAPIError, LLMBackendUnavailableError, LLMTimeoutError
 
 # 创建测试用的 API 实例
@@ -570,6 +570,6 @@ class TestExceptionMapping:
 
             if handler:
                 response = handler(request, exc)
-                assert response.status_code == expected_status, (
-                    f"{type(exc).__name__} 应该返回 {expected_status}，实际返回 {response.status_code}"
-                )
+                assert (
+                    response.status_code == expected_status
+                ), f"{type(exc).__name__} 应该返回 {expected_status}，实际返回 {response.status_code}"

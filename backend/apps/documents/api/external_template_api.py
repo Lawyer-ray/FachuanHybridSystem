@@ -127,10 +127,7 @@ def fill_templates(request: HttpRequest, payload: FillRequestSchema) -> dict[str
         "batch_task_id": batch_task.id,
         "zip_file_path": batch_task.zip_file_path,
         "summary": batch_task.summary_json,
-        "records": [
-            {"id": r[0], "filename": r[1], "file_path": r[2]}
-            for r in records
-        ],
+        "records": [{"id": r[0], "filename": r[1], "file_path": r[2]} for r in records],
     }
 
 
@@ -184,17 +181,15 @@ def match_templates(
         results = service.match_by_case(case_id=case_id, law_firm_id=law_firm_id)
     elif source_name is not None:
         results = service.match_by_source_name(
-            source_name=source_name, law_firm_id=law_firm_id,
+            source_name=source_name,
+            law_firm_id=law_firm_id,
         )
     else:
         return {"success": False, "message": str(_("请提供 case_id 或 source_name 参数"))}
 
     return {
         "success": True,
-        "results": [
-            {"id": t.id, "name": t.name, "status": t.status, "version": t.version}
-            for t in results
-        ],
+        "results": [{"id": t.id, "name": t.name, "status": t.status, "version": t.version} for t in results],
     }
 
 
@@ -224,8 +219,13 @@ def get_fill_history(
 
     records = list(
         qs.values(
-            "id", "case_id", "template_id", "party_id",
-            "filled_at", "original_output_name", "file_available",
+            "id",
+            "case_id",
+            "template_id",
+            "party_id",
+            "filled_at",
+            "original_output_name",
+            "file_available",
         )
     )
     return {"success": True, "records": records}
@@ -277,9 +277,7 @@ def list_mappings(request: HttpRequest, template_id: int) -> list[dict[str, Any]
     """获取模板的所有字段映射"""
     from apps.documents.models.external_template import ExternalTemplateFieldMapping
 
-    mappings = ExternalTemplateFieldMapping.objects.filter(
-        template_id=template_id
-    ).order_by("sort_order", "id")
+    mappings = ExternalTemplateFieldMapping.objects.filter(template_id=template_id).order_by("sort_order", "id")
 
     return [
         {
@@ -295,14 +293,9 @@ def list_mappings(request: HttpRequest, template_id: int) -> list[dict[str, Any]
 
 
 @router.post("/{template_id}/mappings")
-def create_mapping(
-    request: HttpRequest, template_id: int, payload: MappingCreateSchema
-) -> dict[str, Any]:
+def create_mapping(request: HttpRequest, template_id: int, payload: MappingCreateSchema) -> dict[str, Any]:
     """手动添加字段映射"""
-    from apps.documents.models.external_template import (
-        ExternalTemplate,
-        ExternalTemplateFieldMapping,
-    )
+    from apps.documents.models.external_template import ExternalTemplate, ExternalTemplateFieldMapping
 
     template = ExternalTemplate.objects.get(pk=template_id)
     max_order: int = (
@@ -333,9 +326,7 @@ def create_mapping(
 
 
 @router.put("/mappings/{mapping_id}")
-def update_mapping(
-    request: HttpRequest, mapping_id: int, payload: MappingUpdateSchema
-) -> dict[str, Any]:
+def update_mapping(request: HttpRequest, mapping_id: int, payload: MappingUpdateSchema) -> dict[str, Any]:
     """更新字段映射"""
     from apps.documents.models.external_template import ExternalTemplateFieldMapping
 

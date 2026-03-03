@@ -22,6 +22,6 @@ def test_selected_services_do_not_import_service_locator():
     for path in targets:
         assert path.exists(), f"missing: {path}"
         content = path.read_text(encoding="utf-8")
-        assert "from apps.core.interfaces import ServiceLocator" not in content, (
-            f"{path} should not import ServiceLocator"
-        )
+        assert (
+            "from apps.core.interfaces import ServiceLocator" not in content
+        ), f"{path} should not import ServiceLocator"

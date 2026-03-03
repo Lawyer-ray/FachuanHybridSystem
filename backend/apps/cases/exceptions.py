@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from apps.core.exceptions import (  # noqa: F401
+from apps.core.exceptions import (
     ChatCreationException,
     ChatProviderException,
     ConfigurationException,

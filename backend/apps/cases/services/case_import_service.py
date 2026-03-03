@@ -82,9 +82,7 @@ class CaseImportService:
                 continue
             client = self._client_resolve.resolve_with_attachments(client_data)
             legal_status = party_data.get("legal_status")
-            CaseParty.objects.get_or_create(
-                case=case, client=client, defaults={"legal_status": legal_status}
-            )
+            CaseParty.objects.get_or_create(case=case, client=client, defaults={"legal_status": legal_status})
 
         for assign_data in data.get("assignments") or []:
             lawyer_data = assign_data.get("lawyer")
@@ -100,14 +98,16 @@ class CaseImportService:
 
         for sa_data in data.get("supervising_authorities") or []:
             SupervisingAuthority.objects.get_or_create(
-                case=case, name=sa_data.get("name"),
+                case=case,
+                name=sa_data.get("name"),
                 defaults={"authority_type": sa_data.get("authority_type", "TRIAL")},
             )
 
         for cn_data in data.get("case_numbers") or []:
             if cn_data.get("number"):
                 CaseNumber.objects.get_or_create(
-                    case=case, number=cn_data["number"],
+                    case=case,
+                    number=cn_data["number"],
                     defaults={"is_active": cn_data.get("is_active", False), "remarks": cn_data.get("remarks")},
                 )
 
@@ -145,15 +145,18 @@ class CaseImportService:
             for att_data in log_data.get("attachments") or []:
                 file_path = att_data.get("file_path")
                 if file_path:
-                    from django.core.files.base import ContentFile
                     from pathlib import Path
+
                     from django.conf import settings
+                    from django.core.files.base import ContentFile
+
                     full = Path(settings.MEDIA_ROOT) / file_path
                     if full.exists():
                         with full.open("rb") as f:
                             att = CaseLogAttachment(log=log)
                             att.file.save(att_data.get("filename", full.name), ContentFile(f.read()), save=True)
             from apps.reminders.models import Reminder
+
             for r_data in log_data.get("reminders") or []:
                 if r_data.get("due_at") and r_data.get("reminder_type"):
                     Reminder.objects.get_or_create(

@@ -1,13 +1,13 @@
 """Business logic services."""
 
 from __future__ import annotations
-from django.utils.translation import gettext_lazy as _
 
 import logging
 from typing import Any
 
 from django.db import transaction
 from django.db.models import QuerySet
+from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import CaseParty
 from apps.core.business_config import business_config
@@ -118,8 +118,7 @@ class CasePartyMutationService:
         )
         for existing_status, client_name in our_party_statuses:
             existing_in_opposing = (
-                existing_status in opposing_groups
-                and opposing_groups.get(existing_status) == new_group
+                existing_status in opposing_groups and opposing_groups.get(existing_status) == new_group
             )
             if existing_in_opposing:
                 new_status_label = business_config.get_legal_status_label(legal_status)

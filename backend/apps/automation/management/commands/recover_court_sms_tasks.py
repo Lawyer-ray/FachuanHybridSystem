@@ -282,9 +282,9 @@ class Command(BaseCommand):
             CourtSMSStatus.NOTIFYING,
         ]
 
-        incomplete_tasks = CourtSMS.objects.filter(
-            status__in=incomplete_statuses, created_at__gte=max_age
-        ).order_by("-created_at")
+        incomplete_tasks = CourtSMS.objects.filter(status__in=incomplete_statuses, created_at__gte=max_age).order_by(
+            "-created_at"
+        )
 
         recovered_count = 0
         for sms in incomplete_tasks:

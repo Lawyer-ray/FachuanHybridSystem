@@ -6,11 +6,12 @@
 Requirements: 4.5, 7.4
 """
 
-from django.utils.translation import gettext_lazy as _
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from typing import Any
+
+from django.utils.translation import gettext_lazy as _
 
 
 class DocumentType(str, Enum):

@@ -4,12 +4,12 @@
 负责页面抓取、下载和后续处理协调。
 """
 
-from django.utils.translation import gettext_lazy as _
 import logging
 import traceback
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional, cast
 
+from django.utils.translation import gettext_lazy as _
 from playwright.sync_api import Page
 
 from apps.automation.models import DocumentQueryHistory
@@ -101,6 +101,7 @@ class DocumentDeliveryService(
     def case_matcher(self) -> "CaseMatcher":
         if self._case_matcher is None:
             from apps.automation.services.sms.case_matcher import CaseMatcher
+
             self._case_matcher = CaseMatcher()
         return self._case_matcher
 
@@ -108,6 +109,7 @@ class DocumentDeliveryService(
     def document_renamer(self) -> "DocumentRenamer":
         if self._document_renamer is None:
             from apps.automation.services.sms.document_renamer import DocumentRenamer
+
             self._document_renamer = DocumentRenamer()
         return self._document_renamer
 
@@ -115,6 +117,7 @@ class DocumentDeliveryService(
     def notification_service(self) -> "SMSNotificationService":
         if self._notification_service is None:
             from apps.automation.services.sms.sms_notification_service import SMSNotificationService
+
             self._notification_service = SMSNotificationService()
         return self._notification_service
 
@@ -128,6 +131,7 @@ class DocumentDeliveryService(
     def api_client(self) -> "CourtDocumentApiClient":
         if self._api_client is None:
             from .court_document_api_client import CourtDocumentApiClient
+
             self._api_client = CourtDocumentApiClient(auto_login_service=self.auto_login_service)
         return self._api_client
 
@@ -135,6 +139,7 @@ class DocumentDeliveryService(
     def token_service(self) -> "DocumentDeliveryTokenService":
         if self._token_service is None:
             from .token.document_delivery_token_service import DocumentDeliveryTokenService
+
             self._token_service = DocumentDeliveryTokenService()
         return self._token_service
 
@@ -160,7 +165,10 @@ class DocumentDeliveryService(
             total_pages = math.ceil(total / page_size)
             self._process_document_page(
                 documents=first_response.documents,
-                token=token, cutoff_time=cutoff_time, credential_id=credential_id, result=result,
+                token=token,
+                cutoff_time=cutoff_time,
+                credential_id=credential_id,
+                result=result,
             )
             for page_num in range(2, total_pages + 1):
                 logger.info(f"处理第 {page_num}/{total_pages} 页")
@@ -170,7 +178,10 @@ class DocumentDeliveryService(
                     )
                     self._process_document_page(
                         documents=page_response.documents,
-                        token=token, cutoff_time=cutoff_time, credential_id=credential_id, result=result,
+                        token=token,
+                        cutoff_time=cutoff_time,
+                        credential_id=credential_id,
+                        result=result,
                     )
                 except Exception as e:
                     error_msg = f"处理第 {page_num} 页失败: {e!s}"
@@ -228,8 +239,12 @@ class DocumentDeliveryService(
 
         logger.info(f"开始 API 处理文书: {record.ah}, sdbh={record.sdbh}")
         result = DocumentProcessResult(
-            success=False, case_id=None, case_log_id=None,
-            renamed_path=None, notification_sent=False, error_message=None,
+            success=False,
+            case_id=None,
+            case_log_id=None,
+            renamed_path=None,
+            notification_sent=False,
+            error_message=None,
         )
         try:
             details = self.api_client.fetch_document_details(token=token, sdbh=record.sdbh)
@@ -260,17 +275,24 @@ class DocumentDeliveryService(
             send_time = record.parse_fssj()
             if send_time:
                 from django.utils import timezone
+
                 send_time = timezone.make_aware(send_time)
             else:
                 from django.utils import timezone
+
                 send_time = timezone.now()
             delivery_record = DocumentDeliveryRecord(
-                case_number=record.ah, send_time=send_time,
-                element_index=0, document_name=record.wsmc, court_name=record.fymc,
+                case_number=record.ah,
+                send_time=send_time,
+                element_index=0,
+                document_name=record.wsmc,
+                court_name=record.fymc,
             )
             process_result = self._process_sms_in_thread(
-                record=delivery_record, file_path=downloaded_files[0],
-                extracted_files=downloaded_files, credential_id=credential_id,
+                record=delivery_record,
+                file_path=downloaded_files[0],
+                extracted_files=downloaded_files,
+                credential_id=credential_id,
             )
             self._record_query_history_in_thread(credential_id, delivery_record)
             result.success = process_result.get("success", False)
@@ -292,6 +314,7 @@ class DocumentDeliveryService(
             logger.warning(f"无法解析发送时间: {record.fssj}, 默认处理")
             return True
         from django.utils import timezone
+
         if timezone.is_aware(cutoff_time):
             send_time = timezone.make_aware(send_time)
         if send_time <= cutoff_time:
@@ -309,7 +332,9 @@ class DocumentDeliveryService(
         def do_check() -> None:
             try:
                 from django.db import connection
+
                 from apps.automation.models import CourtSMS, CourtSMSStatus
+
                 connection.ensure_connection()
                 completed_sms = CourtSMS.objects.filter(
                     case_numbers__contains=[record.ah], status=CourtSMSStatus.COMPLETED
@@ -321,6 +346,7 @@ class DocumentDeliveryService(
                     send_time = record.parse_fssj()
                     if send_time:
                         from django.utils import timezone
+
                         send_time = timezone.make_aware(send_time)
                     if send_time:
                         existing_history = DocumentQueryHistory.objects.filter(
@@ -354,8 +380,10 @@ class DocumentDeliveryService(
             try:
                 logger.info(f"登录尝试 {attempt}/{max_retries}")
                 login_result = court_service.login(
-                    account=credential.account, password=credential.password,
-                    max_captcha_retries=3, save_debug=False,
+                    account=credential.account,
+                    password=credential.password,
+                    max_captcha_retries=3,
+                    save_debug=False,
                 )
                 if login_result.get("success"):
                     token = login_result.get("token")
@@ -368,6 +396,7 @@ class DocumentDeliveryService(
                 logger.warning(f"登录尝试 {attempt} 失败: {e!s}")
                 if attempt < max_retries:
                     import time
+
                     time.sleep(2)
         raise last_error or Exception("登录失败，已达最大重试次数")
 
@@ -398,28 +427,38 @@ class DocumentDeliveryService(
             token = self._acquire_token(credential_id)
             if not token:
                 AutomationLogger.log_fallback_triggered(
-                    from_method="api", to_method="playwright",
-                    reason="Token 获取失败", credential_id=credential_id,
+                    from_method="api",
+                    to_method="playwright",
+                    reason="Token 获取失败",
+                    credential_id=credential_id,
                 )
                 return None
             logger.info(f"✅ Token 获取成功: {token[:20]}...")
             result = self._query_via_api(token=token, cutoff_time=cutoff_time, credential_id=credential_id)
             AutomationLogger.log_document_query_statistics(
-                total_found=result.total_found, processed_count=result.processed_count,
-                skipped_count=result.skipped_count, failed_count=result.failed_count,
-                query_method="api", credential_id=credential_id,
+                total_found=result.total_found,
+                processed_count=result.processed_count,
+                skipped_count=result.skipped_count,
+                failed_count=result.failed_count,
+                query_method="api",
+                credential_id=credential_id,
             )
             return result
         except Exception as e:
             error_type = type(e).__name__
             error_msg = str(e)
             AutomationLogger.log_fallback_triggered(
-                from_method="api", to_method="playwright",
-                reason=error_msg, error_type=error_type, credential_id=credential_id,
+                from_method="api",
+                to_method="playwright",
+                reason=error_msg,
+                error_type=error_type,
+                credential_id=credential_id,
             )
             AutomationLogger.log_api_error_detail(
-                api_name="document_query_api", error_type=error_type,
-                error_message=error_msg, stack_trace=traceback.format_exc(),
+                api_name="document_query_api",
+                error_type=error_type,
+                error_message=error_msg,
+                stack_trace=traceback.format_exc(),
             )
             return None
 
@@ -441,21 +480,29 @@ class DocumentDeliveryService(
         try:
             result = self._query_via_api(token=token, cutoff_time=cutoff_time, credential_id=credential_id)
             AutomationLogger.log_document_query_statistics(
-                total_found=result.total_found, processed_count=result.processed_count,
-                skipped_count=result.skipped_count, failed_count=result.failed_count,
-                query_method="api_after_login", credential_id=credential_id,
+                total_found=result.total_found,
+                processed_count=result.processed_count,
+                skipped_count=result.skipped_count,
+                failed_count=result.failed_count,
+                query_method="api_after_login",
+                credential_id=credential_id,
             )
             return result
         except Exception as e:
             error_type = type(e).__name__
             error_msg = str(e)
             AutomationLogger.log_fallback_triggered(
-                from_method="api_after_login", to_method="playwright_page",
-                reason=error_msg, error_type=error_type, credential_id=credential_id,
+                from_method="api_after_login",
+                to_method="playwright_page",
+                reason=error_msg,
+                error_type=error_type,
+                credential_id=credential_id,
             )
             AutomationLogger.log_api_error_detail(
-                api_name="api_after_login", error_type=error_type,
-                error_message=error_msg, stack_trace=traceback.format_exc(),
+                api_name="api_after_login",
+                error_type=error_type,
+                error_message=error_msg,
+                stack_trace=traceback.format_exc(),
             )
             return None
 
@@ -527,8 +574,12 @@ class DocumentDeliveryService(
         """处理单个文书条目（Playwright 上下文）"""
         logger.info(f"开始处理文书: {entry.case_number} - {entry.send_time}")
         result = DocumentProcessResult(
-            success=False, case_id=None, case_log_id=None,
-            renamed_path=None, notification_sent=False, error_message=None,
+            success=False,
+            case_id=None,
+            case_log_id=None,
+            renamed_path=None,
+            notification_sent=False,
+            error_message=None,
         )
         try:
             file_path = self._download_document(page, entry)
@@ -568,6 +619,7 @@ class DocumentDeliveryService(
                 return result
 
             from apps.automation.services.scraper.core.browser_service import BrowserService
+
             browser_service = BrowserService()
             browser = browser_service.get_browser()
             page = browser.new_page()
@@ -615,8 +667,11 @@ class DocumentDeliveryService(
             )
 
         AutomationLogger.log_document_query_statistics(
-            total_found=result.total_found, processed_count=result.processed_count,
-            skipped_count=result.skipped_count, failed_count=result.failed_count,
-            query_method="playwright", credential_id=credential_id,
+            total_found=result.total_found,
+            processed_count=result.processed_count,
+            skipped_count=result.skipped_count,
+            failed_count=result.failed_count,
+            query_method="playwright",
+            credential_id=credential_id,
         )
         return result

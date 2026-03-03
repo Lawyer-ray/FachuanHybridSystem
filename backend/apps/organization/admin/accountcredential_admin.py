@@ -25,7 +25,6 @@ _credential_service = AccountCredentialService()
 
 @admin.register(AccountCredential)
 class AccountCredentialAdmin(admin.ModelAdmin[AccountCredential]):
-
     list_display: ClassVar[list[str]] = [
         "id",
         "lawyer",
@@ -35,13 +34,9 @@ class AccountCredentialAdmin(admin.ModelAdmin[AccountCredential]):
         "created_at",
     ]
 
-    search_fields: ClassVar[tuple[str, ...]] = (
-        "site_name", "url", "account", "lawyer__username", "lawyer__real_name"
-    )
+    search_fields: ClassVar[tuple[str, ...]] = ("site_name", "url", "account", "lawyer__username", "lawyer__real_name")
 
-    list_filter: ClassVar[list[str]] = [
-        "site_name", "is_preferred", "lawyer", "last_login_success_at", "created_at"
-    ]
+    list_filter: ClassVar[list[str]] = ["site_name", "is_preferred", "lawyer", "last_login_success_at", "created_at"]
 
     autocomplete_fields: ClassVar[tuple[str, ...]] = ("lawyer",)
 
@@ -71,7 +66,9 @@ class AccountCredentialAdmin(admin.ModelAdmin[AccountCredential]):
 
     actions: ClassVar[list[str]] = ["mark_as_preferred", "unmark_as_preferred"]
 
-    def get_form(self, request: HttpRequest, obj: AccountCredential | None = None, **kwargs: Any) -> type[forms.ModelForm]:  # type: ignore[override]
+    def get_form(
+        self, request: HttpRequest, obj: AccountCredential | None = None, **kwargs: Any
+    ) -> type[forms.ModelForm]:  # type: ignore[override]
         form = super().get_form(request, obj, **kwargs)
         if "password" in form.base_fields:
             form.base_fields["password"].widget = forms.PasswordInput(render_value=True)
@@ -145,9 +142,7 @@ class AccountCredentialAdmin(admin.ModelAdmin[AccountCredential]):
             return format_html('<span style="color: #999;">{}</span>', _("不支持"))
 
     @admin.action(description=_("标记为优先账号"))
-    def mark_as_preferred(
-        self, request: HttpRequest, queryset: QuerySet[AccountCredential]
-    ) -> None:
+    def mark_as_preferred(self, request: HttpRequest, queryset: QuerySet[AccountCredential]) -> None:
         credential_ids: list[int] = list(queryset.values_list("id", flat=True))
         count: int = _credential_service.batch_mark_preferred(credential_ids)
         self.message_user(
@@ -156,9 +151,7 @@ class AccountCredentialAdmin(admin.ModelAdmin[AccountCredential]):
         )
 
     @admin.action(description=_("取消优先标记"))
-    def unmark_as_preferred(
-        self, request: HttpRequest, queryset: QuerySet[AccountCredential]
-    ) -> None:
+    def unmark_as_preferred(self, request: HttpRequest, queryset: QuerySet[AccountCredential]) -> None:
         credential_ids: list[int] = list(queryset.values_list("id", flat=True))
         count: int = _credential_service.batch_unmark_preferred(credential_ids)
         self.message_user(

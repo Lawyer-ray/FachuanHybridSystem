@@ -12,7 +12,7 @@ Validates: Requirements 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone, UTC
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 
 import pytest

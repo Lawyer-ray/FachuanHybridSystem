@@ -101,8 +101,9 @@ class TestProperty2OrderingByUploadedAt(HypothesisTestCase):
     @settings(max_examples=100)
     def test_default_ordering_is_descending(self, n: int) -> None:
         # Feature: contract-finalized-materials, Property 2: 上传时间倒序排列
-        from django.utils import timezone
         import datetime
+
+        from django.utils import timezone
 
         contract = _make_contract()
         base = timezone.now()
@@ -116,9 +117,7 @@ class TestProperty2OrderingByUploadedAt(HypothesisTestCase):
             )
             # 手动设置 uploaded_at（auto_now_add 需绕过）
             m.save()
-            FinalizedMaterial.objects.filter(pk=m.pk).update(
-                uploaded_at=base + datetime.timedelta(seconds=i)
-            )
+            FinalizedMaterial.objects.filter(pk=m.pk).update(uploaded_at=base + datetime.timedelta(seconds=i))
 
         qs = list(FinalizedMaterial.objects.filter(contract=contract))
         uploaded_times = [m.uploaded_at for m in qs]
@@ -246,8 +245,15 @@ class TestProperty6TemplateRendering(HypothesisTestCase):
     """Property 6: 材料展示完整性 — Validates: Requirements 3.3, 3.4"""
 
     @given(
-        original_filename=st.text(min_size=1, max_size=50, alphabet=st.characters(whitelist_categories=("Lu", "Ll", "Nd"), whitelist_characters="._-")).filter(lambda s: s.strip() != ""),
-        remark=st.text(max_size=50, alphabet=st.characters(whitelist_categories=("Lu", "Ll", "Nd", "Zs"), whitelist_characters="._-，。")),
+        original_filename=st.text(
+            min_size=1,
+            max_size=50,
+            alphabet=st.characters(whitelist_categories=("Lu", "Ll", "Nd"), whitelist_characters="._-"),
+        ).filter(lambda s: s.strip() != ""),
+        remark=st.text(
+            max_size=50,
+            alphabet=st.characters(whitelist_categories=("Lu", "Ll", "Nd", "Zs"), whitelist_characters="._-，。"),
+        ),
         category=st.sampled_from([c.value for c in MaterialCategory]),
     )
     @settings(max_examples=100)
@@ -402,10 +408,12 @@ class TestFinalizedMaterialInlineIsTabular(TestCase):
 
     def test_finalized_material_inline_is_tabular(self) -> None:
         from django.contrib import admin
+
         from apps.contracts.admin.contract_admin import FinalizedMaterialInline
 
         try:
             import nested_admin
+
             assert issubclass(FinalizedMaterialInline, nested_admin.NestedTabularInline)
         except ImportError:
             assert issubclass(FinalizedMaterialInline, admin.TabularInline)
@@ -416,8 +424,9 @@ class TestDetailViewContextHasFinalizedMaterials(TestCase):
     """单元测试: detail_view 上下文包含 finalized_materials key"""
 
     def test_detail_view_context_has_finalized_materials_key(self) -> None:
-        from django.test import RequestFactory
         from django.contrib.admin.sites import AdminSite
+        from django.test import RequestFactory
+
         from apps.contracts.admin.contract_admin import ContractAdmin
 
         contract = _make_contract()
@@ -437,9 +446,7 @@ class TestDetailViewContextHasFinalizedMaterials(TestCase):
         site = AdminSite()
         admin_obj = ContractAdmin(model=contract.__class__, admin_site=site)
 
-        with patch(
-            "apps.contracts.admin.mixins.display_mixin._get_contract_admin_service"
-        ) as mock_svc_factory:
+        with patch("apps.contracts.admin.mixins.display_mixin._get_contract_admin_service") as mock_svc_factory:
             mock_svc = MagicMock()
             mock_svc.query_service.get_contract_detail.return_value = contract
             mock_svc.get_contract_detail_context.return_value = {

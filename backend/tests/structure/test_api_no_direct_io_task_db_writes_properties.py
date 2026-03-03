@@ -1,9 +1,8 @@
 import os
 import re
+from pathlib import Path
 
 import pytest
-
-from pathlib import Path
 
 
 @pytest.mark.property_test

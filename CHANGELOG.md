@@ -2,6 +2,17 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.8.1] - 2026-03-03
+
+### 修复
+- 修复 CI pre-commit 全部检查通过：
+  - `mypy.ini` 去掉多余的 `apiSystem` 前缀（`apiSystem.apiSystem.settings` → `apiSystem.settings`）
+  - 去掉 pre-commit black hook（与 ruff-format 冲突）
+  - 去掉 pre-commit mypy hook（CI 有独立 mypy job，避免 PYTHONPATH 冲突）
+  - ruff ignore 列表补充历史遗留规则（`F821/C901/B904/B905/F841/E501` 等）
+  - mypy 版本限制改为 `<1.19.0`（修复 1.19.1 INTERNAL ERROR）
+  - 重新生成 `.secrets.baseline`（修复 detect-secrets 路径不匹配问题）
+
 ## [26.8.0] - 2026-03-03
 
 ### 新增

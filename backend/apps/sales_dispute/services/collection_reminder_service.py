@@ -51,11 +51,8 @@ class CollectionReminderService:
         3. 根据当前阶段判断是否已完成
         支持 custom_intervals 覆盖默认时间线
         """
-        from apps.sales_dispute.models.collection_record import (
-            CollectionRecord,
-            CollectionStage,
-            STAGE_ORDER,
-        )
+        from apps.sales_dispute.models.collection_record import STAGE_ORDER, CollectionRecord, CollectionStage
+
         from .collection_workflow_service import DEFAULT_TIMELINE
 
         try:

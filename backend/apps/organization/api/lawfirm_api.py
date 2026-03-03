@@ -6,10 +6,10 @@
 from __future__ import annotations
 
 from django.http import HttpRequest
-from apps.organization.api._utils import get_request_user
 from ninja import Router
-from apps.core.auth import JWTOrSessionAuth
 
+from apps.core.auth import JWTOrSessionAuth
+from apps.organization.api._utils import get_request_user
 from apps.organization.dtos import LawFirmCreateDTO, LawFirmUpdateDTO
 from apps.organization.schemas import LawFirmIn, LawFirmOut, LawFirmUpdateIn
 from apps.organization.services import LawFirmService

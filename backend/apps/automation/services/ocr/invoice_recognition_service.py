@@ -15,9 +15,9 @@ from django.utils.translation import gettext as _
 
 from apps.automation.models.invoice_recognition import (
     InvoiceCategory,
-    InvoiceRecord,
     InvoiceRecognitionTask,
     InvoiceRecognitionTaskStatus,
+    InvoiceRecord,
     InvoiceRecordStatus,
 )
 from apps.automation.services.ocr.invoice_parser import InvoiceParser, ParsedInvoice
@@ -52,15 +52,11 @@ class InvoiceRecognitionService:
         name: str = file.name or ""
         ext = Path(name).suffix.lower()
         if ext not in self.ALLOWED_EXTENSIONS:
-            raise ValidationError(
-                _("不支持的文件格式：%(ext)s，仅允许 PDF、JPG、JPEG、PNG。")
-                % {"ext": ext}
-            )
+            raise ValidationError(_("不支持的文件格式：%(ext)s，仅允许 PDF、JPG、JPEG、PNG。") % {"ext": ext})
         size: int = file.size or 0
         if size > self.MAX_FILE_SIZE:
             raise ValidationError(
-                _("文件大小超过限制（最大 20 MB），当前文件大小：%(size).1f MB。")
-                % {"size": size / 1024 / 1024}
+                _("文件大小超过限制（最大 20 MB），当前文件大小：%(size).1f MB。") % {"size": size / 1024 / 1024}
             )
 
     def _save_file(self, task_id: int, file: UploadedFile) -> tuple[Path, str]:
@@ -109,9 +105,13 @@ class InvoiceRecognitionService:
             if orig:
                 return True, orig.id
             # 跨任务重复
-            orig = InvoiceRecord.objects.filter(
-                invoice_number=record.invoice_number,
-            ).exclude(task_id=record.task_id).first()
+            orig = (
+                InvoiceRecord.objects.filter(
+                    invoice_number=record.invoice_number,
+                )
+                .exclude(task_id=record.task_id)
+                .first()
+            )
             if orig:
                 return True, orig.id
 
@@ -133,9 +133,7 @@ class InvoiceRecognitionService:
     # 主流程
     # ------------------------------------------------------------------ #
 
-    def upload_and_recognize(
-        self, task_id: int, files: list[UploadedFile]
-    ) -> list[InvoiceRecord]:
+    def upload_and_recognize(self, task_id: int, files: list[UploadedFile]) -> list[InvoiceRecord]:
         """批量上传文件并触发识别流程"""
         task = InvoiceRecognitionTask.objects.get(pk=task_id)
         task.status = InvoiceRecognitionTaskStatus.PROCESSING
@@ -234,10 +232,7 @@ class InvoiceRecognitionService:
 
     def get_task_status(self, task_id: int) -> dict[str, Any]:
         """返回任务状态和所有发票记录"""
-        task = (
-            InvoiceRecognitionTask.objects.prefetch_related("records")
-            .get(pk=task_id)
-        )
+        task = InvoiceRecognitionTask.objects.prefetch_related("records").get(pk=task_id)
         task_dict: dict[str, Any] = {
             "id": task.id,
             "name": task.name,
@@ -273,13 +268,9 @@ class InvoiceRecognitionService:
 
     def get_grouped_records(self, task_id: int) -> dict[str, Any]:
         """按类目分组查询非重复发票，含小计和总计"""
-        non_dup = InvoiceRecord.objects.filter(
-            task_id=task_id, is_duplicate=False
-        ).order_by("category", "id")
+        non_dup = InvoiceRecord.objects.filter(task_id=task_id, is_duplicate=False).order_by("category", "id")
 
-        duplicates = list(
-            InvoiceRecord.objects.filter(task_id=task_id, is_duplicate=True)
-        )
+        duplicates = list(InvoiceRecord.objects.filter(task_id=task_id, is_duplicate=True))
 
         # 按 category 分组
         groups_map: dict[str, list[InvoiceRecord]] = {}

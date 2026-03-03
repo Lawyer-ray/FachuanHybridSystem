@@ -46,7 +46,8 @@ class EnhancedOpposingPartyService(BasePlaceholderService):
             return {"对方当事人名称案由与案件数量": result}
         except Exception as e:
             logger.warning(
-                "生成对方当事人占位符失败: %s", e,
+                "生成对方当事人占位符失败: %s",
+                e,
                 extra={"contract_id": getattr(context_data.get("contract"), "id", None)},
                 exc_info=True,
             )

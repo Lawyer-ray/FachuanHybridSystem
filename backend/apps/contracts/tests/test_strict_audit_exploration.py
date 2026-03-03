@@ -41,14 +41,10 @@ ADMIN_MIXIN_FILES: Final[list[Path]] = [
 ]
 
 # Category 3: Admin 直接实例化 Service 的文件
-CONTRACT_ADMIN_FILE: Final[Path] = (
-    BACKEND_DIR / "apps" / "contracts" / "admin" / "contract_admin.py"
-)
+CONTRACT_ADMIN_FILE: Final[Path] = BACKEND_DIR / "apps" / "contracts" / "admin" / "contract_admin.py"
 
 # Category 5: 引用已删除属性的文件
-DISPLAY_MIXIN_FILE: Final[Path] = (
-    BACKEND_DIR / "apps" / "contracts" / "admin" / "mixins" / "display_mixin.py"
-)
+DISPLAY_MIXIN_FILE: Final[Path] = BACKEND_DIR / "apps" / "contracts" / "admin" / "mixins" / "display_mixin.py"
 
 # ---------------------------------------------------------------------------
 # 正则模式
@@ -60,34 +56,25 @@ _RE_BARE_CHINESE: Final[re.Pattern[str]] = re.compile(
     r'raise\s+\w+(?:Exception|Error|Denied)\(\s*"[^"]*[\u4e00-\u9fff]'
 )
 # 已用 _() 包裹的合法模式
-_RE_WRAPPED_CHINESE: Final[re.Pattern[str]] = re.compile(
-    r'raise\s+\w+(?:Exception|Error|Denied)\(\s*_\(\s*"'
-)
+_RE_WRAPPED_CHINESE: Final[re.Pattern[str]] = re.compile(r'raise\s+\w+(?:Exception|Error|Denied)\(\s*_\(\s*"')
 
 # 匹配 except Exception
-_RE_BARE_EXCEPTION: Final[re.Pattern[str]] = re.compile(
-    r'except\s+Exception\b'
-)
+_RE_BARE_EXCEPTION: Final[re.Pattern[str]] = re.compile(r"except\s+Exception\b")
 
 # 匹配直接实例化 = ContractAssignmentQueryService()
-_RE_DIRECT_INSTANTIATION: Final[re.Pattern[str]] = re.compile(
-    r'=\s*ContractAssignmentQueryService\(\)'
-)
+_RE_DIRECT_INSTANTIATION: Final[re.Pattern[str]] = re.compile(r"=\s*ContractAssignmentQueryService\(\)")
 
 # 匹配 @staticmethod
-_RE_STATICMETHOD: Final[re.Pattern[str]] = re.compile(
-    r'@staticmethod'
-)
+_RE_STATICMETHOD: Final[re.Pattern[str]] = re.compile(r"@staticmethod")
 
 # 匹配 .primary_lawyer 属性访问（排除注释行）
-_RE_PRIMARY_LAWYER: Final[re.Pattern[str]] = re.compile(
-    r'\.primary_lawyer\b'
-)
+_RE_PRIMARY_LAWYER: Final[re.Pattern[str]] = re.compile(r"\.primary_lawyer\b")
 
 
 # ---------------------------------------------------------------------------
 # 辅助函数
 # ---------------------------------------------------------------------------
+
 
 def _scan_violations(
     files: list[Path],
@@ -130,9 +117,8 @@ def test_no_bare_chinese_strings_in_exceptions() -> None:
         _RE_BARE_CHINESE,
         exclude_pattern=_RE_WRAPPED_CHINESE,
     )
-    assert not violations, (
-        f"发现 {len(violations)} 处未用 _() 包裹的裸中文异常消息:\n"
-        + "\n".join(f"  - {v}" for v in violations)
+    assert not violations, f"发现 {len(violations)} 处未用 _() 包裹的裸中文异常消息:\n" + "\n".join(
+        f"  - {v}" for v in violations
     )
 
 
@@ -150,9 +136,8 @@ def test_no_bare_exception_in_admin_mixins() -> None:
         ADMIN_MIXIN_FILES,
         _RE_BARE_EXCEPTION,
     )
-    assert not violations, (
-        f"发现 {len(violations)} 处 bare Exception 捕获:\n"
-        + "\n".join(f"  - {v}" for v in violations)
+    assert not violations, f"发现 {len(violations)} 处 bare Exception 捕获:\n" + "\n".join(
+        f"  - {v}" for v in violations
     )
 
 
@@ -171,9 +156,8 @@ def test_no_direct_service_instantiation_in_admin() -> None:
         [CONTRACT_ADMIN_FILE],
         _RE_DIRECT_INSTANTIATION,
     )
-    assert not violations, (
-        f"发现 {len(violations)} 处直接实例化 ContractAssignmentQueryService:\n"
-        + "\n".join(f"  - {v}" for v in violations)
+    assert not violations, f"发现 {len(violations)} 处直接实例化 ContractAssignmentQueryService:\n" + "\n".join(
+        f"  - {v}" for v in violations
     )
 
 
@@ -191,10 +175,7 @@ def test_no_staticmethod_in_admin_mixins() -> None:
         ADMIN_MIXIN_FILES,
         _RE_STATICMETHOD,
     )
-    assert not violations, (
-        f"发现 {len(violations)} 处 @staticmethod:\n"
-        + "\n".join(f"  - {v}" for v in violations)
-    )
+    assert not violations, f"发现 {len(violations)} 处 @staticmethod:\n" + "\n".join(f"  - {v}" for v in violations)
 
 
 # ---------------------------------------------------------------------------
@@ -212,7 +193,6 @@ def test_no_deleted_primary_lawyer_reference() -> None:
         [DISPLAY_MIXIN_FILE],
         _RE_PRIMARY_LAWYER,
     )
-    assert not violations, (
-        f"发现 {len(violations)} 处已删除属性 .primary_lawyer 引用:\n"
-        + "\n".join(f"  - {v}" for v in violations)
+    assert not violations, f"发现 {len(violations)} 处已删除属性 .primary_lawyer 引用:\n" + "\n".join(
+        f"  - {v}" for v in violations
     )

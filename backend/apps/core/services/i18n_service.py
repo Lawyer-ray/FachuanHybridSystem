@@ -17,10 +17,7 @@ class I18nService:
 
     def get_supported_languages(self) -> list[dict[str, str]]:
         """返回系统支持的语言列表"""
-        languages: list[dict[str, str]] = [
-            {"code": code, "name": str(name)}
-            for code, name in settings.LANGUAGES
-        ]
+        languages: list[dict[str, str]] = [{"code": code, "name": str(name)} for code, name in settings.LANGUAGES]
         logger.info("获取支持语言列表", extra={"count": len(languages)})
         return languages
 

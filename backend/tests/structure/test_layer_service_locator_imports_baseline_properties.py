@@ -85,9 +85,10 @@ def test_api_layer_no_new_service_locator_imports():
         if has_service_locator_import(file_path)
     }
     extra = sorted(current - baseline)
-    assert len(extra) == 0, (
-        "发现新增 API 层 ServiceLocator 导入（请将依赖下沉到 wiring/composition，或显式更新 baseline）:\n"
-        + "\n".join(extra)
+    assert (
+        len(extra) == 0
+    ), "发现新增 API 层 ServiceLocator 导入（请将依赖下沉到 wiring/composition，或显式更新 baseline）:\n" + "\n".join(
+        extra
     )
 
 
@@ -101,7 +102,9 @@ def test_admin_layer_no_new_service_locator_imports():
         if has_service_locator_import(file_path)
     }
     extra = sorted(current - baseline)
-    assert len(extra) == 0, (
+    assert (
+        len(extra) == 0
+    ), (
         "发现新增 Admin 层 ServiceLocator 导入（请通过 wiring/composition 统一装配，或显式更新 baseline）:\n"
         + "\n".join(extra)
     )
@@ -117,7 +120,8 @@ def test_task_layer_no_new_service_locator_imports():
         if has_service_locator_import(file_path)
     }
     extra = sorted(current - baseline)
-    assert len(extra) == 0, (
-        "发现新增任务层 ServiceLocator 导入（请通过 wiring/composition 统一装配，或显式更新 baseline）:\n"
-        + "\n".join(extra)
+    assert (
+        len(extra) == 0
+    ), "发现新增任务层 ServiceLocator 导入（请通过 wiring/composition 统一装配，或显式更新 baseline）:\n" + "\n".join(
+        extra
     )

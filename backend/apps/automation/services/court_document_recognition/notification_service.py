@@ -171,7 +171,7 @@ class DocumentRecognitionNotificationService:
             chat_service = self.case_chat_service
 
             try:
-                chat = chat_service.get_or_create_chat(case_id=case_id, platform=platform) # type: ignore
+                chat = chat_service.get_or_create_chat(case_id=case_id, platform=platform)  # type: ignore
                 logger.info(
                     "获取或创建群聊成功",
                     extra={
@@ -206,7 +206,7 @@ class DocumentRecognitionNotificationService:
 
             # Requirements 3.1, 3.3: 发送消息和文件
             try:
-                result = chat_service.send_document_notification( # type: ignore
+                result = chat_service.send_document_notification(  # type: ignore
                     case_id=case_id,
                     sms_content=message_content,
                     document_paths=[file_path] if file_path else [],
@@ -216,6 +216,7 @@ class DocumentRecognitionNotificationService:
 
                 if result.success:
                     from django.utils import timezone as tz
+
                     sent_at = tz.now()
                     # 判断文件是否发送成功（根据消息内容判断）
                     file_sent = file_path and "文件发送成功" in (result.message or "")
@@ -232,7 +233,7 @@ class DocumentRecognitionNotificationService:
 
                     return NotificationResult.success_result(
                         sent_at=sent_at,
-                        file_sent=file_sent, # type: ignore
+                        file_sent=file_sent,  # type: ignore
                     )
                 else:
                     # Requirements 3.2: 消息发送失败

@@ -6,10 +6,10 @@
 
 import shutil
 import tempfile
+from pathlib import Path
 
 import pytest
 
-from pathlib import Path
 from scripts.refactoring.migrate_structure import (
     CreateDirectoryMigration,
     DeleteFileMigration,

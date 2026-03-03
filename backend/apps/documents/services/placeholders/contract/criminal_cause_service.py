@@ -51,7 +51,8 @@ class CriminalCauseService(BasePlaceholderService):
 
         except Exception as e:
             logger.warning(
-                "生成案由占位符失败: %s", e,
+                "生成案由占位符失败: %s",
+                e,
                 extra={"contract_id": getattr(context_data.get("contract"), "id", None)},
                 exc_info=True,
             )

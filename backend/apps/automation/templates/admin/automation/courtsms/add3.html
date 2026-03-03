@@ -16,22 +16,22 @@
         --success: #22c55e;
         --error: #ef4444;
     }
-    
+
     body {
         background: linear-gradient(135deg, #e0f2fe 0%, #f0fdfa 25%, #fdf4ff 50%, #fef3c7 75%, #fee2e2 100%);
         background-attachment: fixed;
         min-height: 100vh;
     }
-    
+
     #container { background: transparent; }
     #content { padding: 0; }
-    
+
     .add3-wrapper {
         max-width: 720px;
         margin: 60px auto;
         padding: 0 24px;
     }
-    
+
     /* 玻璃卡片 */
     .glass-card {
         background: var(--glass-bg);
@@ -40,17 +40,17 @@
         border: 1px solid var(--glass-border);
         border-radius: 24px;
         padding: 40px;
-        box-shadow: 
+        box-shadow:
             0 8px 32px rgba(0, 0, 0, 0.08),
             inset 0 1px 0 rgba(255, 255, 255, 0.6);
     }
-    
+
     /* 头部 */
     .header {
         text-align: center;
         margin-bottom: 36px;
     }
-    
+
     .header-badge {
         display: inline-flex;
         align-items: center;
@@ -63,7 +63,7 @@
         font-weight: 500;
         margin-bottom: 16px;
     }
-    
+
     .header h1 {
         font-size: 1.75rem;
         font-weight: 700;
@@ -71,18 +71,18 @@
         margin: 0 0 8px 0;
         letter-spacing: -0.02em;
     }
-    
+
     .header p {
         color: var(--text-muted);
         font-size: 0.95rem;
         margin: 0;
     }
-    
+
     /* 表单 */
     .form-field {
         margin-bottom: 24px;
     }
-    
+
     .field-label {
         display: block;
         font-size: 0.875rem;
@@ -90,11 +90,11 @@
         color: var(--text-dark);
         margin-bottom: 8px;
     }
-    
+
     .textarea-wrapper {
         position: relative;
     }
-    
+
     .sms-input {
         width: 100%;
         min-height: 200px;
@@ -110,18 +110,18 @@
         font-family: inherit;
         box-sizing: border-box;
     }
-    
+
     .sms-input:focus {
         outline: none;
         background: #ffffff;
         border-color: var(--accent);
         box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.15);
     }
-    
+
     .sms-input::placeholder {
         color: var(--text-muted);
     }
-    
+
     .input-footer {
         display: flex;
         justify-content: space-between;
@@ -129,12 +129,12 @@
         margin-top: 8px;
         padding: 0 4px;
     }
-    
+
     .char-count {
         font-size: 0.8rem;
         color: var(--text-muted);
     }
-    
+
     .input-hint {
         font-size: 0.8rem;
         color: var(--text-muted);
@@ -142,14 +142,14 @@
         align-items: center;
         gap: 4px;
     }
-    
+
     /* 按钮 */
     .actions {
         display: flex;
         gap: 12px;
         margin-top: 32px;
     }
-    
+
     .btn {
         flex: 1;
         padding: 16px 24px;
@@ -162,39 +162,39 @@
         text-decoration: none;
         text-align: center;
     }
-    
+
     .btn-submit {
         background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
         color: white;
         box-shadow: 0 4px 16px rgba(14, 165, 233, 0.4);
     }
-    
+
     .btn-submit:hover {
         transform: translateY(-2px);
         box-shadow: 0 6px 20px rgba(14, 165, 233, 0.5);
     }
-    
+
     .btn-submit:active {
         transform: translateY(0);
     }
-    
+
     .btn-submit:disabled {
         opacity: 0.7;
         cursor: not-allowed;
         transform: none;
     }
-    
+
     .btn-back {
         background: rgba(255, 255, 255, 0.5);
         color: var(--text-muted);
         border: 1px solid rgba(0, 0, 0, 0.1);
     }
-    
+
     .btn-back:hover {
         background: rgba(255, 255, 255, 0.8);
         color: var(--text-dark);
     }
-    
+
     /* 加载状态 */
     .btn-content {
         display: flex;
@@ -202,7 +202,7 @@
         justify-content: center;
         gap: 8px;
     }
-    
+
     .spinner {
         width: 18px;
         height: 18px;
@@ -212,12 +212,12 @@
         animation: spin 0.8s linear infinite;
         display: none;
     }
-    
+
     .btn-submit.loading .spinner { display: block; }
     .btn-submit.loading .btn-label { display: none; }
-    
+
     @keyframes spin { to { transform: rotate(360deg); } }
-    
+
     /* 消息 */
     .alert {
         padding: 14px 18px;
@@ -228,19 +228,19 @@
         align-items: center;
         gap: 10px;
     }
-    
+
     .alert-success {
         background: rgba(34, 197, 94, 0.15);
         border: 1px solid rgba(34, 197, 94, 0.3);
         color: #15803d;
     }
-    
+
     .alert-error {
         background: rgba(239, 68, 68, 0.15);
         border: 1px solid rgba(239, 68, 68, 0.3);
         color: #dc2626;
     }
-    
+
     /* 功能卡片 */
     .features {
         display: grid;
@@ -250,7 +250,7 @@
         padding-top: 24px;
         border-top: 1px solid rgba(0, 0, 0, 0.06);
     }
-    
+
     .feature {
         display: flex;
         align-items: center;
@@ -261,16 +261,16 @@
         font-size: 0.875rem;
         color: var(--text-muted);
     }
-    
+
     .feature-icon {
         font-size: 1.2rem;
     }
-    
+
     /* 最近记录 */
     .recent {
         margin-top: 40px;
     }
-    
+
     .recent-header {
         display: flex;
         align-items: center;
@@ -280,13 +280,13 @@
         font-weight: 600;
         color: var(--text-dark);
     }
-    
+
     .recent-list {
         display: flex;
         flex-direction: column;
         gap: 8px;
     }
-    
+
     .recent-item {
         display: flex;
         align-items: center;
@@ -299,28 +299,28 @@
         text-decoration: none;
         transition: all 0.2s ease;
     }
-    
+
     .recent-item:hover {
         background: rgba(255, 255, 255, 0.85);
         transform: translateX(4px);
     }
-    
+
     .status-dot {
         width: 8px;
         height: 8px;
         border-radius: 50%;
         flex-shrink: 0;
     }
-    
+
     .status-dot.completed { background: var(--success); }
     .status-dot.pending { background: #f59e0b; }
     .status-dot.failed { background: var(--error); }
-    
+
     .recent-info {
         flex: 1;
         min-width: 0;
     }
-    
+
     .recent-text {
         color: var(--text-dark);
         font-size: 0.9rem;
@@ -328,18 +328,18 @@
         overflow: hidden;
         text-overflow: ellipsis;
     }
-    
+
     .recent-meta {
         font-size: 0.75rem;
         color: var(--text-muted);
         margin-top: 2px;
     }
-    
+
     .recent-meta span {
         color: var(--accent);
         font-weight: 600;
     }
-    
+
     /* 响应式 */
     @media (max-width: 640px) {
         .add3-wrapper { margin: 30px auto; }
@@ -362,7 +362,7 @@
         </div>
         {% endfor %}
     {% endif %}
-    
+
     <!-- 主卡片 -->
     <div class="glass-card">
         <div class="header">
@@ -373,16 +373,16 @@
             <h1>添加新短信</h1>
             <p>粘贴短信内容，系统自动解析处理</p>
         </div>
-        
+
         <form method="post" id="smsForm">
             {% csrf_token %}
-            
+
             <div class="form-field">
                 <label class="field-label">短信内容</label>
                 <div class="textarea-wrapper">
-                    <textarea 
-                        name="content" 
-                        class="sms-input" 
+                    <textarea
+                        name="content"
+                        class="sms-input"
                         id="smsContent"
                         placeholder="在此粘贴法院短信内容..."
                         required
@@ -395,7 +395,7 @@
                     </span>
                 </div>
             </div>
-            
+
             <div class="actions">
                 <a href="{% url 'admin:automation_courtsms_changelist' %}" class="btn btn-back">
                     返回列表
@@ -408,7 +408,7 @@
                 </button>
             </div>
         </form>
-        
+
         <div class="features">
             <div class="feature">
                 <span class="feature-icon">🔗</span>
@@ -428,7 +428,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- 最近记录 -->
     {% if recent_sms %}
     <div class="recent">
@@ -459,11 +459,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const charCount = document.getElementById('charCount');
     const form = document.getElementById('smsForm');
     const submitBtn = document.getElementById('submitBtn');
-    
+
     textarea.addEventListener('input', function() {
         charCount.textContent = this.value.length + ' 字';
     });
-    
+
     form.addEventListener('submit', function(e) {
         if (!textarea.value.trim()) {
             e.preventDefault();
@@ -473,7 +473,7 @@ document.addEventListener('DOMContentLoaded', function() {
         submitBtn.classList.add('loading');
         submitBtn.disabled = true;
     });
-    
+
     textarea.focus();
 });
 </script>

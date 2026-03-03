@@ -28,7 +28,8 @@ def test_services_layer_does_not_use_getattr_service_hack():
             if GETATTR_SERVICE_PATTERN.search(line):
                 violations.append((rel, idx, line.strip()))
 
-    assert len(violations) == 0, (
-        "services 层禁止通过 getattr(..., 'service') 访问 Adapter 内部字段，请改为 wiring 显式注入:\n"
-        + "\n".join(f"  {path}:{line} - {stmt}" for path, line, stmt in violations)
+    assert (
+        len(violations) == 0
+    ), "services 层禁止通过 getattr(..., 'service') 访问 Adapter 内部字段，请改为 wiring 显式注入:\n" + "\n".join(
+        f"  {path}:{line} - {stmt}" for path, line, stmt in violations
     )

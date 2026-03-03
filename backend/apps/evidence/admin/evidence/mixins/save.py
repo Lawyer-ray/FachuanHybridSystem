@@ -93,7 +93,9 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
         if form.errors:
             logger.warning("EvidenceListAdmin form errors", extra={"errors": form.errors})
 
-    def _save_instances(self, instances: Any, max_order: int, items_need_page_count: list[Any], request: Any, messages: Any) -> Any:
+    def _save_instances(
+        self, instances: Any, max_order: int, items_need_page_count: list[Any], request: Any, messages: Any
+    ) -> Any:
         for obj in instances:
             if isinstance(obj, EvidenceItem):
                 self._prepare_evidence_item(obj, max_order, items_need_page_count)
@@ -154,7 +156,8 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
                 if error:
                     messages.warning(
                         request,
-                        _("文件 %(n)s 页数识别失败,将按 %(p)s 页处理:%(e)s") % {
+                        _("文件 %(n)s 页数识别失败,将按 %(p)s 页处理:%(e)s")
+                        % {
                             "n": obj.file_name or obj.file,
                             "p": page_count,
                             "e": error,
@@ -184,7 +187,9 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
                     instance.page_end = None
                     to_update.append(instance)
         if to_update:
-            EvidenceItem.objects.bulk_update(to_update, ["page_count", "file_name", "file_size", "page_start", "page_end"])
+            EvidenceItem.objects.bulk_update(
+                to_update, ["page_count", "file_name", "file_size", "page_start", "page_end"]
+            )
 
     def _reorder_items_after_delete(self, evidence_list: EvidenceList) -> None:
         items = list(evidence_list.items.order_by("order"))

@@ -12,7 +12,7 @@ from django.db.models.functions import TruncMonth, TruncQuarter, TruncYear
 from django.utils.translation import gettext as _
 
 from apps.sales_dispute.models.case_assessment import ContractBasisType
-from apps.sales_dispute.models.collection_record import CollectionStage, STAGE_ORDER
+from apps.sales_dispute.models.collection_record import STAGE_ORDER, CollectionStage
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,6 @@ class TrendItem:
     amount: Decimal
     count: int
     recovery_rate: Decimal
-
 
 
 @dataclass(frozen=True)
@@ -147,17 +146,13 @@ class DashboardService:
         cases = Case.objects.filter(start_date__range=(start_date, end_date))
 
         total_target: Decimal = (
-            cases.filter(target_amount__isnull=False)
-            .aggregate(s=Sum("target_amount"))["s"]
-            or _ZERO
+            cases.filter(target_amount__isnull=False).aggregate(s=Sum("target_amount"))["s"] or _ZERO
         )
 
         payments = PaymentRecord.objects.filter(
             payment_date__range=(start_date, end_date),
         )
-        total_recovery: Decimal = (
-            payments.aggregate(s=Sum("payment_amount"))["s"] or _ZERO
-        )
+        total_recovery: Decimal = payments.aggregate(s=Sum("payment_amount"))["s"] or _ZERO
 
         recovery_rate = _safe_rate(total_recovery, total_target)
 
@@ -175,9 +170,7 @@ class DashboardService:
 
         avg_cycle = sum(cycles) // len(cycles) if cycles else 0
 
-        recovered_ids = set(
-            payments.values_list("case_id", flat=True).distinct()
-        )
+        recovered_ids = set(payments.values_list("case_id", flat=True).distinct())
         total_case_ids = set(cases.values_list("id", flat=True))
         recovered_count = len(total_case_ids & recovered_ids)
         unrecovered_count = len(total_case_ids) - recovered_count
@@ -269,18 +262,12 @@ class DashboardService:
         cases = Case.objects.filter(start_date__range=(start_date, end_date))
 
         if group_by == "case_type":
-            groups = (
-                cases.values("case_type")
-                .annotate(case_count=Count("id"))
-                .order_by("case_type")
-            )
+            groups = cases.values("case_type").annotate(case_count=Count("id")).order_by("case_type")
             items: list[BreakdownItem] = []
             for g in groups:
                 ct: str | None = g["case_type"]
                 label = ct or _("未分类")
-                case_ids = list(
-                    cases.filter(case_type=ct).values_list("id", flat=True)
-                )
+                case_ids = list(cases.filter(case_type=ct).values_list("id", flat=True))
                 recovery: Decimal = (
                     PaymentRecord.objects.filter(
                         case_id__in=case_ids,
@@ -289,8 +276,7 @@ class DashboardService:
                     or _ZERO
                 )
                 target: Decimal = (
-                    cases.filter(case_type=ct, target_amount__isnull=False)
-                    .aggregate(s=Sum("target_amount"))["s"]
+                    cases.filter(case_type=ct, target_amount__isnull=False).aggregate(s=Sum("target_amount"))["s"]
                     or _ZERO
                 )
                 items.append(
@@ -317,11 +303,7 @@ class DashboardService:
                     ).aggregate(s=Sum("payment_amount"))["s"]
                     or _ZERO
                 )
-                target = (
-                    filtered.filter(target_amount__isnull=False)
-                    .aggregate(s=Sum("target_amount"))["s"]
-                    or _ZERO
-                )
+                target = filtered.filter(target_amount__isnull=False).aggregate(s=Sum("target_amount"))["s"] or _ZERO
                 items.append(
                     BreakdownItem(
                         group_label=label,
@@ -358,8 +340,7 @@ class DashboardService:
                     or _ZERO
                 )
                 target = (
-                    cases.filter(id__in=case_ids, target_amount__isnull=False)
-                    .aggregate(s=Sum("target_amount"))["s"]
+                    cases.filter(id__in=case_ids, target_amount__isnull=False).aggregate(s=Sum("target_amount"))["s"]
                     or _ZERO
                 )
                 items.append(
@@ -408,9 +389,7 @@ class DashboardService:
                 or _ZERO
             )
             target: Decimal = (
-                filtered.filter(target_amount__isnull=False)
-                .aggregate(s=Sum("target_amount"))["s"]
-                or _ZERO
+                filtered.filter(target_amount__isnull=False).aggregate(s=Sum("target_amount"))["s"] or _ZERO
             )
             debt_age_items.append(
                 FactorItem(
@@ -439,8 +418,9 @@ class DashboardService:
                 or _ZERO
             )
             target = (
-                cases.filter(id__in=assessed_case_ids, target_amount__isnull=False)
-                .aggregate(s=Sum("target_amount"))["s"]
+                cases.filter(id__in=assessed_case_ids, target_amount__isnull=False).aggregate(s=Sum("target_amount"))[
+                    "s"
+                ]
                 or _ZERO
             )
             contract_items.append(
@@ -468,11 +448,7 @@ class DashboardService:
                 ).aggregate(s=Sum("payment_amount"))["s"]
                 or _ZERO
             )
-            target = (
-                filtered.filter(target_amount__isnull=False)
-                .aggregate(s=Sum("target_amount"))["s"]
-                or _ZERO
-            )
+            target = filtered.filter(target_amount__isnull=False).aggregate(s=Sum("target_amount"))["s"] or _ZERO
             preservation_items.append(
                 FactorItem(
                     group_label=label,
@@ -496,11 +472,7 @@ class DashboardService:
                 ).aggregate(s=Sum("payment_amount"))["s"]
                 or _ZERO
             )
-            target = (
-                filtered.filter(target_amount__isnull=False)
-                .aggregate(s=Sum("target_amount"))["s"]
-                or _ZERO
-            )
+            target = filtered.filter(target_amount__isnull=False).aggregate(s=Sum("target_amount"))["s"] or _ZERO
             amount_items.append(
                 FactorItem(
                     group_label=label,
@@ -524,8 +496,8 @@ class DashboardService:
         sort_by: str,
     ) -> list[LawyerPerformanceItem]:
         """律师绩效分析（Req 5）"""
-        from apps.cases.models.party import CaseAssignment
         from apps.cases.models.case import Case
+        from apps.cases.models.party import CaseAssignment
         from apps.sales_dispute.models.payment_record import PaymentRecord
 
         logger.info("get_lawyer_performance: %s ~ %s, sort=%s", start_date, end_date, sort_by)
@@ -556,8 +528,7 @@ class DashboardService:
                 or _ZERO
             )
             target: Decimal = (
-                cases.filter(id__in=case_ids, target_amount__isnull=False)
-                .aggregate(s=Sum("target_amount"))["s"]
+                cases.filter(id__in=case_ids, target_amount__isnull=False).aggregate(s=Sum("target_amount"))["s"]
                 or _ZERO
             )
             closed = cases.filter(id__in=case_ids, status="closed").count()

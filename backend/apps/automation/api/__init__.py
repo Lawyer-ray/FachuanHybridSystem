@@ -4,16 +4,16 @@ Automation App API 模块
 
 from ninja import Router
 
-from .document_processor_api import router as document_processor_router
 from .auto_namer_api import router as auto_namer_router
-from .main_api import router as main_router
-from .preservation_quote_api import router as preservation_quote_router
 from .captcha_recognition_api import router as captcha_recognition_router
+from .court_document_recognition_api import router as court_document_recognition_router
 from .court_sms_api import router as court_sms_router
 from .document_delivery_api import router as document_delivery_router
-from .court_document_recognition_api import router as court_document_recognition_router
-from .invoice_recognition_api import router as invoice_recognition_router
+from .document_processor_api import router as document_processor_router
 from .image_rotation_api import router as image_rotation_router
+from .invoice_recognition_api import router as invoice_recognition_router
+from .main_api import router as main_router
+from .preservation_quote_api import router as preservation_quote_router
 
 # 创建模块路由器
 router = Router()

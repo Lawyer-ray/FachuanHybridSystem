@@ -157,7 +157,7 @@
             <h3 class="card-title">{% trans "客户回款" %}</h3>
             {% if client_payments %}
             <span style="margin-left: auto; font-size: 12px; color: #6b7280;">
-                {{ client_payments|length }} {% trans "笔" %} · 
+                {{ client_payments|length }} {% trans "笔" %} ·
                 {% trans "累计" %} ¥{{ total_client_payment|floatformat:2 }}
             </span>
             {% endif %}

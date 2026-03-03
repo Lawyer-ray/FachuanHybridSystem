@@ -80,7 +80,7 @@ document.addEventListener('alpine:init', () => {
             this.progress = 0;
             this.results = [];
             this.uploadMessage = '';
-            
+
             // 保存文件对象供后续使用
             this.uploadedFiles = files;
 
@@ -116,7 +116,7 @@ document.addEventListener('alpine:init', () => {
                     this.updateInvoicedAmount();
                     this.addInvoiceRows();
                     this.showMessage(
-                        gettext('识别完成！成功：') + this.successCount + 
+                        gettext('识别完成！成功：') + this.successCount +
                         gettext('，失败：') + this.failureCount,
                         this.failureCount > 0 ? 'warning' : 'success'
                     );
@@ -233,7 +233,7 @@ document.addEventListener('alpine:init', () => {
                         field.checked = false;
                     }
                 });
-                
+
                 // 清空所有只读显示元素（<p>标签）
                 newRow.querySelectorAll('td p').forEach(p => {
                     p.textContent = '-';
@@ -241,7 +241,7 @@ document.addEventListener('alpine:init', () => {
 
                 // 填充识别结果
                 const data = result.data;
-                
+
                 // 填充文件到file input（使用DataTransfer API）
                 const fileInput = newRow.querySelector(`input[type="file"][name*="-file"]`);
                 if (fileInput && this.uploadedFiles) {
@@ -271,7 +271,7 @@ document.addEventListener('alpine:init', () => {
 
             // 更新总表单数
             totalFormsInput.value = totalForms + successResults.length;
-            
+
             console.log(`Added ${successResults.length} invoice rows with files`);
         },
 
@@ -279,7 +279,7 @@ document.addEventListener('alpine:init', () => {
         showMessage(message, type) {
             this.uploadMessage = message;
             this.messageType = type;
-            
+
             // 3秒后自动清除成功消息
             if (type === 'success') {
                 setTimeout(() => {

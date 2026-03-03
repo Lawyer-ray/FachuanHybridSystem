@@ -1,3 +1,3 @@
-from .evidence_api import router as evidence_router  # noqa: F401
+from .evidence_api import router as evidence_router
 
 __all__ = ["evidence_router"]

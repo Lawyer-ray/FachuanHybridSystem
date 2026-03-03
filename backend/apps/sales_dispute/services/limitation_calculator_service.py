@@ -87,9 +87,7 @@ class LimitationCalculatorService:
         base_date = params.last_claim_date
 
         if params.interruptions:
-            sorted_events = sorted(
-                params.interruptions, key=lambda e: e.event_date
-            )
+            sorted_events = sorted(params.interruptions, key=lambda e: e.event_date)
             base_date = sorted_events[-1].event_date
 
         expiry_date = date(
@@ -111,9 +109,7 @@ class LimitationCalculatorService:
 
         guarantee_expiry: date | None = None
         if params.guarantee_debtor and params.principal_due_date:
-            guarantee_expiry = _add_months(
-                params.principal_due_date, GUARANTEE_MONTHS
-            )
+            guarantee_expiry = _add_months(params.principal_due_date, GUARANTEE_MONTHS)
 
         return LimitationResult(
             status=status,

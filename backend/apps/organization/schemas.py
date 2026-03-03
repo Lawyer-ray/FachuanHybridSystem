@@ -15,14 +15,12 @@ from .models import AccountCredential, LawFirm, Lawyer, Team
 
 
 class LawFirmOut(ModelSchema):
-
     class Meta:
         model = LawFirm
         fields: ClassVar[list[str]] = ["id", "name", "address", "phone", "social_credit_code"]
 
 
 class LawFirmIn(Schema):
-
     name: str
     address: str | None = None
     phone: str | None = None
@@ -30,7 +28,6 @@ class LawFirmIn(Schema):
 
 
 class LawFirmUpdateIn(Schema):
-
     name: str | None = None
     address: str | None = None
     phone: str | None = None
@@ -38,7 +35,6 @@ class LawFirmUpdateIn(Schema):
 
 
 class LawyerOut(ModelSchema, SchemaMixin):
-
     license_pdf_url: str | None = None
     law_firm_detail: LawFirmOut | None = None
 
@@ -66,7 +62,6 @@ class LawyerOut(ModelSchema, SchemaMixin):
 
 
 class LawyerCreateIn(Schema):
-
     username: str
     password: str
     real_name: str | None = None
@@ -80,7 +75,6 @@ class LawyerCreateIn(Schema):
 
 
 class LawyerUpdateIn(Schema):
-
     real_name: str | None = None
     phone: str | None = None
     license_no: str | None = None
@@ -93,33 +87,28 @@ class LawyerUpdateIn(Schema):
 
 
 class LoginIn(Schema):
-
     username: str
     password: str
 
 
 class LoginOut(Schema):
-
     success: bool
     user: LawyerOut | None = None
 
 
 class TeamOut(ModelSchema):
-
     class Meta:
         model = Team
         fields: ClassVar[list[str]] = ["id", "name", "team_type", "law_firm"]
 
 
 class TeamIn(Schema):
-
     name: str
     team_type: str
     law_firm_id: int
 
 
 class AccountCredentialOut(ModelSchema, SchemaMixin):
-
     class Meta:
         model = AccountCredential
         fields: ClassVar[list[str]] = [
@@ -142,7 +131,6 @@ class AccountCredentialOut(ModelSchema, SchemaMixin):
 
 
 class AccountCredentialIn(Schema):
-
     lawyer_id: int
     site_name: str
     url: str | None = None
@@ -151,7 +139,6 @@ class AccountCredentialIn(Schema):
 
 
 class AccountCredentialUpdateIn(Schema):
-
     site_name: str | None = None
     url: str | None = None
     account: str | None = None

@@ -39,11 +39,7 @@ class LprRateService:
         """查询指定日期生效的LPR利率（生效日期 <= query_date 的最近一条）"""
         from apps.sales_dispute.models import LPRRate
 
-        rate = (
-            LPRRate.objects.filter(effective_date__lte=query_date)
-            .order_by("-effective_date")
-            .first()
-        )
+        rate = LPRRate.objects.filter(effective_date__lte=query_date).order_by("-effective_date").first()
         if rate is None:
             raise ValidationException(
                 message=_("缺少 %(date)s 之前的LPR利率数据") % {"date": query_date},
@@ -57,9 +53,7 @@ class LprRateService:
 
         return LPRRate.objects.all()
 
-    def get_rate_segments(
-        self, start_date: date, end_date: date
-    ) -> list[RateSegment]:
+    def get_rate_segments(self, start_date: date, end_date: date) -> list[RateSegment]:
         """
         返回 [start_date, end_date) 区间内的利率分段列表
 
@@ -70,15 +64,11 @@ class LprRateService:
         """
         from apps.sales_dispute.models import LPRRate
 
-        rates = list(
-            LPRRate.objects.filter(effective_date__lte=end_date)
-            .order_by("effective_date")
-        )
+        rates = list(LPRRate.objects.filter(effective_date__lte=end_date).order_by("effective_date"))
 
         if not rates:
             raise ValidationException(
-                message=_("缺少 %(start)s 至 %(end)s 期间的LPR利率数据")
-                % {"start": start_date, "end": end_date},
+                message=_("缺少 %(start)s 至 %(end)s 期间的LPR利率数据") % {"start": start_date, "end": end_date},
                 code="LPR_RATE_NOT_FOUND",
             )
 
@@ -104,8 +94,7 @@ class LprRateService:
 
         if not segments:
             raise ValidationException(
-                message=_("缺少 %(start)s 至 %(end)s 期间的LPR利率数据")
-                % {"start": start_date, "end": end_date},
+                message=_("缺少 %(start)s 至 %(end)s 期间的LPR利率数据") % {"start": start_date, "end": end_date},
                 code="LPR_RATE_NOT_FOUND",
             )
 

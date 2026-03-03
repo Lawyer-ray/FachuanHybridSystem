@@ -4,12 +4,12 @@
 定义系统中所有配置项的模式，包括 Django 核心、第三方服务、群聊平台、业务功能配置
 """
 
-from .field import ConfigField
-from ._registry_django import register_django_configs
-from ._registry_services import register_service_configs
 from ._registry_chat import register_chat_configs
-from ._registry_performance import register_performance_configs
+from ._registry_django import register_django_configs
 from ._registry_features import register_feature_configs
+from ._registry_performance import register_performance_configs
+from ._registry_services import register_service_configs
+from .field import ConfigField
 
 
 def create_config_registry() -> dict[str, ConfigField]:

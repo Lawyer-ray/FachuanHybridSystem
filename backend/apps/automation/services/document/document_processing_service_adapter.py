@@ -40,6 +40,7 @@ class DocumentProcessingServiceAdapter(IDocumentProcessingService):
         """
         try:
             from apps.automation.services.document.document_processing import process_pdf
+
             image_url, text = process_pdf(file_path, limit, preview_page)
             return {"text": text, "image_url": image_url, "file_path": file_path, "file_type": "pdf"}
         except Exception as e:
@@ -64,6 +65,7 @@ class DocumentProcessingServiceAdapter(IDocumentProcessingService):
         """
         try:
             from apps.automation.services.document.document_processing import extract_docx_text
+
             return extract_docx_text(file_path, limit=limit)
         except Exception as e:
             from apps.core.exceptions import ValidationException
@@ -87,6 +89,7 @@ class DocumentProcessingServiceAdapter(IDocumentProcessingService):
         """
         try:
             from apps.automation.services.document.document_processing import extract_text_from_image_with_rapidocr
+
             text = extract_text_from_image_with_rapidocr(file_path)
 
             if limit is not None and len(text) > limit:
@@ -118,6 +121,7 @@ class DocumentProcessingServiceAdapter(IDocumentProcessingService):
         """
         try:
             from apps.automation.services.document.document_processing import process_uploaded_document
+
             result = process_uploaded_document(uploaded_file, limit=limit, preview_page=preview_page)
             return {
                 "text": result.text,
@@ -150,6 +154,7 @@ class DocumentProcessingServiceAdapter(IDocumentProcessingService):
         """
         try:
             from apps.automation.services.document.document_processing import extract_document_content
+
             result = extract_document_content(file_path, limit=limit, preview_page=preview_page)
             return {"text": result.text, "image_url": result.image_url, "file_path": file_path}
         except Exception as e:

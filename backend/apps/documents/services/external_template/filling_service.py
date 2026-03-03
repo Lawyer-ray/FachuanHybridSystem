@@ -76,17 +76,13 @@ class FillingService:
         3. 合并自定义值
         4. 返回每个字段的预览信息（位置、语义、值、来源）
         """
-        from apps.documents.models.external_template import (
-            ExternalTemplateFieldMapping,
-        )
+        from apps.documents.models.external_template import ExternalTemplateFieldMapping
 
         mappings = ExternalTemplateFieldMapping.objects.filter(
             template_id=template_id,
         ).order_by("sort_order", "id")
 
-        placeholder_values: dict[str, str] = self._get_placeholder_values(
-            case_id, party_id
-        )
+        placeholder_values: dict[str, str] = self._get_placeholder_values(case_id, party_id)
         merged_custom: dict[str, str] = custom_values or {}
 
         preview_items: list[FillPreviewItem] = []
@@ -122,9 +118,7 @@ class FillingService:
 
     def get_custom_fields(self, template_id: int) -> list[dict[str, Any]]:
         """获取所有字段映射列表（供填充页面展示）"""
-        from apps.documents.models.external_template import (
-            ExternalTemplateFieldMapping,
-        )
+        from apps.documents.models.external_template import ExternalTemplateFieldMapping
 
         mappings = ExternalTemplateFieldMapping.objects.filter(
             template_id=template_id,
@@ -132,12 +126,14 @@ class FillingService:
 
         fields: list[dict[str, Any]] = []
         for mapping in mappings:
-            fields.append({
-                "mapping_id": mapping.id,
-                "semantic_label": mapping.semantic_label,
-                "fill_type": mapping.fill_type,
-                "position_description": mapping.position_description,
-            })
+            fields.append(
+                {
+                    "mapping_id": mapping.id,
+                    "semantic_label": mapping.semantic_label,
+                    "fill_type": mapping.fill_type,
+                    "position_description": mapping.position_description,
+                }
+            )
 
         logger.info(
             "字段列表获取: template_id=%d, count=%d",
@@ -150,9 +146,7 @@ class FillingService:
     # 内部辅助
     # ------------------------------------------------------------------
 
-    def _get_placeholder_values(
-        self, case_id: int, party_id: int | None = None
-    ) -> dict[str, str]:
+    def _get_placeholder_values(self, case_id: int, party_id: int | None = None) -> dict[str, str]:
         """
         从占位符体系获取案件+当事人的所有占位符值。
 
@@ -214,10 +208,7 @@ class FillingService:
         """
         from docx import Document
 
-        from apps.documents.models.external_template import (
-            ExternalTemplate,
-            ExternalTemplateFieldMapping,
-        )
+        from apps.documents.models.external_template import ExternalTemplate, ExternalTemplateFieldMapping
         from apps.documents.models.fill_record import FillRecord
 
         template: ExternalTemplate = ExternalTemplate.objects.get(id=template_id)
@@ -226,9 +217,7 @@ class FillingService:
         ).order_by("sort_order", "id")
 
         # 1. 获取占位符值 + 合并自定义值
-        placeholder_values: dict[str, str] = self._get_placeholder_values(
-            case_id, party_id
-        )
+        placeholder_values: dict[str, str] = self._get_placeholder_values(case_id, party_id)
         merged_custom: dict[str, str] = custom_values or {}
 
         # 2. 打开模板 .docx 副本
@@ -266,9 +255,7 @@ class FillingService:
                 elif mapping.fill_type == "checkbox":
                     success = self._write_checkbox(doc, mapping.position_locator, value)
                 elif mapping.fill_type == "delete_inapplicable":
-                    success = self._write_delete_inapplicable(
-                        doc, mapping.position_locator, value
-                    )
+                    success = self._write_delete_inapplicable(doc, mapping.position_locator, value)
                 else:
                     logger.warning(
                         "未知填充类型: template_id=%d, fill_type=%s",
@@ -283,18 +270,14 @@ class FillingService:
                     template_id,
                     mapping.position_locator,
                 )
-                errors.append(
-                    str(_("位置 %(label)s 写入失败") % {"label": mapping.semantic_label})
-                )
+                errors.append(str(_("位置 %(label)s 写入失败") % {"label": mapping.semantic_label}))
                 continue
 
             if success:
                 filled_count += 1
             else:
                 skipped_count += 1
-                errors.append(
-                    str(_("位置 %(label)s 写入未成功") % {"label": mapping.semantic_label})
-                )
+                errors.append(str(_("位置 %(label)s 写入未成功") % {"label": mapping.semantic_label}))
 
         # 4. 保存生成文件
         output_dir: Path = Path(settings.MEDIA_ROOT) / "documents" / "external_filled" / str(case_id)
@@ -303,9 +286,7 @@ class FillingService:
         output_abs: Path = output_dir / f"{output_uuid}.docx"
         doc.save(str(output_abs))
 
-        output_relative: str = str(
-            Path("documents") / "external_filled" / str(case_id) / f"{output_uuid}.docx"
-        )
+        output_relative: str = str(Path("documents") / "external_filled" / str(case_id) / f"{output_uuid}.docx")
 
         # 5. 生成输出文件名
         party_name: str | None = None
@@ -318,9 +299,7 @@ class FillingService:
             except Exception:
                 logger.warning("获取当事人名称失败: party_id=%d", party_id)
 
-        output_name: str = self._generate_output_filename(
-            template.name, party_name
-        )
+        output_name: str = self._generate_output_filename(template.name, party_name)
         # 6. 构建填充报告
         report: dict[str, Any] = {
             "total_fields": len(list(mappings)),
@@ -343,8 +322,7 @@ class FillingService:
         )
 
         logger.info(
-            "填充完成: record_id=%d, template_id=%d, case_id=%d, "
-            "filled=%d, skipped=%d, errors=%d",
+            "填充完成: record_id=%d, template_id=%d, case_id=%d, filled=%d, skipped=%d, errors=%d",
             record.id,
             template_id,
             case_id,
@@ -358,9 +336,7 @@ class FillingService:
     # 写入方法
     # ------------------------------------------------------------------
 
-    def _write_text(
-        self, doc: Any, locator: dict[str, Any], value: str
-    ) -> bool:
+    def _write_text(self, doc: Any, locator: dict[str, Any], value: str) -> bool:
         """
         写入文本值，保留原有格式属性。
 
@@ -414,8 +390,7 @@ class FillingService:
                 table = doc.tables[table_index]
                 if row >= len(table.rows) or col >= len(table.columns):
                     logger.warning(
-                        "单元格索引越界: row=%d, col=%d, "
-                        "rows=%d, cols=%d",
+                        "单元格索引越界: row=%d, col=%d, rows=%d, cols=%d",
                         row,
                         col,
                         len(table.rows),
@@ -446,9 +421,7 @@ class FillingService:
             logger.exception("写入文本失败: locator=%s", locator)
             return False
 
-    def _write_checkbox(
-        self, doc: Any, locator: dict[str, Any], value: str
-    ) -> bool:
+    def _write_checkbox(self, doc: Any, locator: dict[str, Any], value: str) -> bool:
         """
         设置复选框勾选状态。
 
@@ -476,9 +449,7 @@ class FillingService:
 
             if checkbox_index >= len(checkboxes):
                 # 尝试旧版复选框格式 (w:fldChar + w:ffData)
-                ff_checkboxes: list[ET.Element] = root.findall(
-                    ".//w:ffData/w:checkBox", ns
-                )
+                ff_checkboxes: list[ET.Element] = root.findall(".//w:ffData/w:checkBox", ns)
                 if checkbox_index >= len(ff_checkboxes):
                     logger.warning(
                         "复选框索引越界: index=%d, w14=%d, ff=%d",
@@ -625,9 +596,7 @@ class FillingService:
         batch_task.templates.set(template_ids)
 
         # 2. 遍历 template_ids × party_ids 组合
-        effective_party_ids: list[int | None] = (
-            list(party_ids) if party_ids else [None]
-        )
+        effective_party_ids: list[int | None] = list(party_ids) if party_ids else [None]
         records: list[Any] = []
         summary_results: list[dict[str, Any]] = []
 
@@ -652,14 +621,16 @@ class FillingService:
                     record.batch_task = batch_task
                     record.save(update_fields=["batch_task"])
                     records.append(record)
-                    summary_results.append({
-                        "template_id": template_id,
-                        "party_id": party_id,
-                        "status": "success",
-                        "record_id": record.id,
-                        "filled_count": record.report_json.get("filled_count", 0),
-                        "skipped_count": record.report_json.get("skipped_count", 0),
-                    })
+                    summary_results.append(
+                        {
+                            "template_id": template_id,
+                            "party_id": party_id,
+                            "status": "success",
+                            "record_id": record.id,
+                            "filled_count": record.report_json.get("filled_count", 0),
+                            "skipped_count": record.report_json.get("skipped_count", 0),
+                        }
+                    )
                 except Exception:
                     logger.exception(
                         "批量填充失败: template_id=%d, party_id=%s, case_id=%d",
@@ -667,14 +638,14 @@ class FillingService:
                         party_id,
                         case_id,
                     )
-                    summary_results.append({
-                        "template_id": template_id,
-                        "party_id": party_id,
-                        "status": "failed",
-                        "error": str(
-                            _("模板 %(tid)s 填充失败") % {"tid": template_id}
-                        ),
-                    })
+                    summary_results.append(
+                        {
+                            "template_id": template_id,
+                            "party_id": party_id,
+                            "status": "failed",
+                            "error": str(_("模板 %(tid)s 填充失败") % {"tid": template_id}),
+                        }
+                    )
 
         # 5. 打包 ZIP
         zip_path: str = ""
@@ -682,12 +653,8 @@ class FillingService:
             zip_path = self._pack_to_zip(records)
 
         # 6. 汇总报告
-        success_count: int = sum(
-            1 for r in summary_results if r["status"] == "success"
-        )
-        failed_count: int = sum(
-            1 for r in summary_results if r["status"] == "failed"
-        )
+        success_count: int = sum(1 for r in summary_results if r["status"] == "success")
+        failed_count: int = sum(1 for r in summary_results if r["status"] == "failed")
         summary: dict[str, Any] = {
             "total": len(summary_results),
             "success": success_count,
@@ -702,8 +669,7 @@ class FillingService:
         batch_task.save(update_fields=["finished_at", "zip_file_path", "summary_json"])
 
         logger.info(
-            "批量填充完成: batch_task_id=%d, case_id=%d, "
-            "success=%d, failed=%d",
+            "批量填充完成: batch_task_id=%d, case_id=%d, success=%d, failed=%d",
             batch_task.id,
             case_id,
             success_count,
@@ -724,12 +690,7 @@ class FillingService:
         case_id: int = first_record.case_id
         batch_task_id: int = first_record.batch_task_id
 
-        zip_dir: Path = (
-            Path(settings.MEDIA_ROOT)
-            / "documents"
-            / "external_filled"
-            / str(case_id)
-        )
+        zip_dir: Path = Path(settings.MEDIA_ROOT) / "documents" / "external_filled" / str(case_id)
         zip_dir.mkdir(parents=True, exist_ok=True)
 
         zip_filename: str = f"batch_{batch_task_id}.zip"
@@ -747,12 +708,7 @@ class FillingService:
                         record.file_path,
                     )
 
-        zip_relative: str = str(
-            Path("documents")
-            / "external_filled"
-            / str(case_id)
-            / zip_filename
-        )
+        zip_relative: str = str(Path("documents") / "external_filled" / str(case_id) / zip_filename)
 
         logger.info(
             "ZIP 打包完成: path=%s, files=%d",

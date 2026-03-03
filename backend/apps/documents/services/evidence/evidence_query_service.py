@@ -50,9 +50,7 @@ class EvidenceQueryService:
     def list_evidence_item_ids_with_files_internal(self, evidence_item_ids: list[int]) -> list[EvidenceItemDigestDTO]:
         if not evidence_item_ids:
             return []
-        items = list(
-            EvidenceItem.objects.filter(id__in=evidence_item_ids, file__isnull=False).values(*_VALUES)
-        )
+        items = list(EvidenceItem.objects.filter(id__in=evidence_item_ids, file__isnull=False).values(*_VALUES))
         return self._build_dtos(items)
 
     def list_evidence_items_for_case_internal(self, case_id: int) -> list[EvidenceItemDigestDTO]:

@@ -33,11 +33,21 @@ class CourtZxfwFilingService:
 
     # 省份代码映射
     PROVINCE_CODES: dict[str, str] = {
-        "广东省": "440000", "北京市": "110000", "上海市": "310000",
-        "浙江省": "330000", "江苏省": "320000", "山东省": "370000",
-        "四川省": "510000", "湖北省": "420000", "湖南省": "430000",
-        "福建省": "350000", "河南省": "410000", "河北省": "130000",
-        "安徽省": "340000", "重庆市": "500000", "天津市": "120000",
+        "广东省": "440000",
+        "北京市": "110000",
+        "上海市": "310000",
+        "浙江省": "330000",
+        "江苏省": "320000",
+        "山东省": "370000",
+        "四川省": "510000",
+        "湖北省": "420000",
+        "湖南省": "430000",
+        "福建省": "350000",
+        "河南省": "410000",
+        "河北省": "130000",
+        "安徽省": "340000",
+        "重庆市": "500000",
+        "天津市": "120000",
     }
 
     # 申请执行 - 当事人区域标题映射
@@ -66,9 +76,8 @@ class CourtZxfwFilingService:
         """
         if token:
             try:
-                from apps.automation.services.scraper.sites.court_zxfw_filing_api import (
-                    CourtZxfwFilingApiService,
-                )
+                from apps.automation.services.scraper.sites.court_zxfw_filing_api import CourtZxfwFilingApiService
+
                 with CourtZxfwFilingApiService(token) as api_svc:
                     result = api_svc.file_civil_case(case_data)
                 logger.info("接口立案成功: %s", result)
@@ -112,9 +121,8 @@ class CourtZxfwFilingService:
         """
         if token:
             try:
-                from apps.automation.services.scraper.sites.court_zxfw_filing_api import (
-                    CourtZxfwFilingApiService,
-                )
+                from apps.automation.services.scraper.sites.court_zxfw_filing_api import CourtZxfwFilingApiService
+
                 with CourtZxfwFilingApiService(token) as api_svc:
                     result = api_svc.file_execution(case_data)
                 logger.info("接口立案成功: %s", result)
@@ -143,7 +151,11 @@ class CourtZxfwFilingService:
             self._step6_preview_submit()
 
             logger.info(str(_("申请执行立案流程执行完成")))
-            return {"success": True, "message": str(_("申请执行流程执行完成（已到预览页，未提交）")), "url": self.page.url}
+            return {
+                "success": True,
+                "message": str(_("申请执行流程执行完成（已到预览页，未提交）")),
+                "url": self.page.url,
+            }
 
         except Exception as e:
             logger.error("申请执行立案失败: %s", e, exc_info=True)
@@ -223,18 +235,14 @@ class CourtZxfwFilingService:
         self._random_wait(2, 3)
 
         # 选中搜索结果中的法院（checklist-box radio）
-        self.page.locator(
-            f'.checklist-box:has-text("{court_name}")'
-        ).first.click()
+        self.page.locator(f'.checklist-box:has-text("{court_name}")').first.click()
         self._random_wait(1, 2)
 
         # 关闭可能弹出的综治中心弹窗
         self._dismiss_popup()
 
         # 选择"为他人或公司等组织申请"
-        self.page.locator(
-            '.checklist-box:has-text("为他人或公司等组织申请")'
-        ).click()
+        self.page.locator('.checklist-box:has-text("为他人或公司等组织申请")').click()
         self._random_wait(0.5, 1)
 
         # 下一步
@@ -309,15 +317,11 @@ class CourtZxfwFilingService:
         self._select_dropdown_by_label("执行依据类别", basis_type)
 
         # 选择原审案号：先尝试从下拉列表匹配，找不到则手动输入
-        self.page.locator(
-            ".uni-forms-item:has(.uni-forms-item__label:has-text('原审案号')) .input-value"
-        ).first.click()
+        self.page.locator(".uni-forms-item:has(.uni-forms-item__label:has-text('原审案号')) .input-value").first.click()
         self._random_wait(1, 2)
 
         # 检查下拉列表中是否有匹配项
-        matched = self.page.locator(
-            f".item-text:has-text('{original_case_number}')"
-        )
+        matched = self.page.locator(f".item-text:has-text('{original_case_number}')")
         if original_case_number and matched.count() > 0:
             matched.first.click()
         else:
@@ -326,22 +330,21 @@ class CourtZxfwFilingService:
             self._random_wait(1, 2)
             # 案号格式：（2024）粤0106民初12345号 → 年份=2024，案号=粤0106民初12345号
             import re
-            year_match = re.search(r'[（(](\d{4})[）)]', original_case_number)
+
+            year_match = re.search(r"[（(](\d{4})[）)]", original_case_number)
             year = year_match.group(1) if year_match else ""
-            body = re.sub(r'^[（(]\d{4}[）)]\s*', '', original_case_number).rstrip('号')
+            body = re.sub(r"^[（(]\d{4}[）)]\s*", "", original_case_number).rstrip("号")
             # 选年份下拉
             if year:
                 self.page.locator(
-                    ".uni-forms-item:has(.uni-forms-item__label:has-text('输入案号'))"
-                    " .input-value"
+                    ".uni-forms-item:has(.uni-forms-item__label:has-text('输入案号')) .input-value"
                 ).first.click()
                 self._random_wait(0.5, 1)
                 self.page.locator(f".item-text:has-text('{year}')").first.click()
                 self._random_wait(0.5, 1)
             # 填案号主体（末尾"号"字是页面固定后缀，不需要输入）
             inp = self.page.locator(
-                ".uni-forms-item:has(.uni-forms-item__label:has-text('输入案号'))"
-                " .uni-input-input"
+                ".uni-forms-item:has(.uni-forms-item__label:has-text('输入案号')) .uni-input-input"
             ).first
             inp.fill(body)
             self._random_wait(0.3, 0.5)
@@ -359,7 +362,8 @@ class CourtZxfwFilingService:
         # 确认弹窗（按钮可能是 uni-button 或 .uni-modal__btn）
         try:
             self.page.locator(".uni-modal__btn_primary").wait_for(
-                state="visible", timeout=5000,
+                state="visible",
+                timeout=5000,
             )
             self.page.locator(".uni-modal__btn_primary").click()
         except Exception:
@@ -371,8 +375,7 @@ class CourtZxfwFilingService:
     def _select_dropdown_by_label(self, label_text: str, option_text: str) -> None:
         """通过 label 定位页面级下拉框（非表单内），选择选项"""
         self.page.locator(
-            f".uni-forms-item:has(.uni-forms-item__label:has-text('{label_text}'))"
-            " .input-value"
+            f".uni-forms-item:has(.uni-forms-item__label:has-text('{label_text}')) .input-value"
         ).first.click()
         self._random_wait(1, 2)
         self.page.locator(f".item-text:has-text('{option_text}')").first.click()
@@ -395,13 +398,15 @@ class CourtZxfwFilingService:
         logger.info(str(_("步骤4: 上传诉讼材料")))
 
         # 给上传按钮打标记
-        self.page.evaluate("""() => {
+        self.page.evaluate(
+            """() => {
             const containers = document.querySelectorAll('.fd-com-upload-grid-container');
             containers.forEach((c, i) => {
                 const b = c.querySelector('.fd-btn-add');
                 if (b) b.setAttribute('data-upload-index', String(i));
             });
-        }""")
+        }"""
+        )
 
         for idx_str, files in materials.items():
             idx = int(idx_str)
@@ -442,7 +447,10 @@ class CourtZxfwFilingService:
     # ==================== 步骤5: 完善案件信息（待实现） ====================
 
     def _step5_complete_info(
-        self, case_data: dict[str, Any], *, section_map: dict[str, str] | None = None,
+        self,
+        case_data: dict[str, Any],
+        *,
+        section_map: dict[str, str] | None = None,
     ) -> None:
         """完善案件信息：当事人、代理人，以及民事一审的标的金额"""
         logger.info(str(_("步骤: 完善案件信息")))
@@ -516,12 +524,8 @@ class CourtZxfwFilingService:
             logger.info("发现待补全的代理人信息，开始补全")
 
             # 点击待补全条目的编辑按钮
-            box = self.page.locator(
-                ".fd-wsla-ryxx-box:has-text('待补全')"
-            ).first
-            box.locator(
-                ".fd-sscyr-option-pc-icon:has-text('编辑')"
-            ).click()
+            box = self.page.locator(".fd-wsla-ryxx-box:has-text('待补全')").first
+            box.locator(".fd-sscyr-option-pc-icon:has-text('编辑')").click()
             self._random_wait(1, 2)
 
             # 勾选所有被代理人 checkbox（uni-app 隐藏元素，用 JS 点击 label）
@@ -578,12 +582,9 @@ class CourtZxfwFilingService:
         """通过 label 文本定位并填写当前编辑表单中的 input 字段"""
         if not value:
             return
-        form = self.page.locator(
-            ".fd-wsla-ryxx-box:has(uni-button:has-text('保存'))"
-        ).first
+        form = self.page.locator(".fd-wsla-ryxx-box:has(uni-button:has-text('保存'))").first
         inp = form.locator(
-            f".uni-forms-item:has(.uni-forms-item__label:has-text('{label_text}'))"
-            " .uni-input-input"
+            f".uni-forms-item:has(.uni-forms-item__label:has-text('{label_text}')) .uni-input-input"
         ).first
         try:
             inp.fill(value, timeout=5000)
@@ -593,13 +594,10 @@ class CourtZxfwFilingService:
 
     def _select_dropdown(self, label_text: str, option_text: str) -> None:
         """点击表单内下拉框并选择选项（.item-text 类型）"""
-        form = self.page.locator(
-            ".fd-wsla-ryxx-box:has(uni-button:has-text('保存'))"
-        ).first
+        form = self.page.locator(".fd-wsla-ryxx-box:has(uni-button:has-text('保存'))").first
         try:
             form.locator(
-                f".uni-forms-item:has(.uni-forms-item__label:has-text('{label_text}'))"
-                " .input-value"
+                f".uni-forms-item:has(.uni-forms-item__label:has-text('{label_text}')) .input-value"
             ).first.click(timeout=5000)
         except Exception:
             return
@@ -613,13 +611,8 @@ class CourtZxfwFilingService:
 
     def _select_tree_dropdown(self, label_text: str, option_text: str) -> None:
         """点击 uni-data-tree 下拉框并选择选项（.fd-item 类型）"""
-        form = self.page.locator(
-            ".fd-wsla-ryxx-box:has(uni-button:has-text('保存'))"
-        ).first
-        form.locator(
-            f".uni-forms-item:has(.uni-forms-item__label:has-text('{label_text}'))"
-            " .input-value"
-        ).first.click()
+        form = self.page.locator(".fd-wsla-ryxx-box:has(uni-button:has-text('保存'))").first
+        form.locator(f".uni-forms-item:has(.uni-forms-item__label:has-text('{label_text}')) .input-value").first.click()
         self._random_wait(1, 2)
         self.page.locator(f".fd-item:has-text('{option_text}')").first.click()
         self._random_wait(0.5, 1)
@@ -643,9 +636,7 @@ class CourtZxfwFilingService:
         """申请执行：从原审诉讼参与人中引入当事人，按名称匹配选择。返回是否成功引入"""
         logger.info(str(_("引入原审参与人: %s → %s")), name, section_title)
 
-        section = self.page.locator(
-            f".uni-section:has(.uni-section__content-title:has-text('{section_title}'))"
-        ).first
+        section = self.page.locator(f".uni-section:has(.uni-section__content-title:has-text('{section_title}'))").first
         try:
             section.locator(
                 '.fd-sscyr-add-btn:has-text("引入当事人"), .fd-sscyr-add-btn:has-text("引入原审诉讼参与人")'
@@ -734,9 +725,7 @@ class CourtZxfwFilingService:
         )
         if found:
             self.page.locator("[data-exact-fill='1']").fill(value)
-            self.page.evaluate(
-                "() => document.querySelector('[data-exact-fill]')?.removeAttribute('data-exact-fill')"
-            )
+            self.page.evaluate("() => document.querySelector('[data-exact-fill]')?.removeAttribute('data-exact-fill')")
         self._random_wait(0.3, 0.5)
 
     def _add_legal_person(
@@ -753,15 +742,14 @@ class CourtZxfwFilingService:
         **_: Any,
     ) -> None:
         """在指定区域添加法人信息"""
-        section = self.page.locator(
-            f".uni-section:has-text('{section_title}')"
-        ).first
+        section = self.page.locator(f".uni-section:has-text('{section_title}')").first
         section.locator('.fd-sscyr-add-btn:has-text("添加法人")').evaluate("el => el.click()")
         self._random_wait(1, 2)
 
         # 法定代表人手机号必须是11位手机号，座机号不符合，用代理律师手机号代替
         import re as _re
-        mobile = phone if _re.fullmatch(r'1\d{10}', phone) else agent_phone
+
+        mobile = phone if _re.fullmatch(r"1\d{10}", phone) else agent_phone
 
         self._fill_field("名称", name)
         self._fill_field("住所地", address)
@@ -790,9 +778,7 @@ class CourtZxfwFilingService:
         **_: Any,
     ) -> None:
         """在指定区域添加自然人信息"""
-        section = self.page.locator(
-            f".uni-section:has-text('{section_title}')"
-        ).first
+        section = self.page.locator(f".uni-section:has-text('{section_title}')").first
         section.locator('.fd-sscyr-add-btn:has-text("添加自然人")').evaluate("el => el.click()")
         self._random_wait(1, 2)
 
@@ -814,26 +800,20 @@ class CourtZxfwFilingService:
         """
         logger.info(str(_("填写执行标的信息")))
 
-        section = self.page.locator(
-            ".uni-section:has(.uni-section__content-title:has-text('执行标的信息'))"
-        ).first
+        section = self.page.locator(".uni-section:has(.uni-section__content-title:has-text('执行标的信息'))").first
         section.scroll_into_view_if_needed()
         self._random_wait(0.5, 1)
 
         # TODO: 执行理由从强制执行申请书中提取
         reason = case_data.get("execution_reason", "")
         if reason:
-            section.locator(
-                ".uni-forms-item:has(.uni-forms-item__label:has-text('执行理由')) textarea"
-            ).fill(reason)
+            section.locator(".uni-forms-item:has(.uni-forms-item__label:has-text('执行理由')) textarea").fill(reason)
             self._random_wait(0.3, 0.5)
 
         # TODO: 执行请求从强制执行申请书中提取
         request = case_data.get("execution_request", "")
         if request:
-            section.locator(
-                ".uni-forms-item:has(.uni-forms-item__label:has-text('执行请求')) textarea"
-            ).fill(request)
+            section.locator(".uni-forms-item:has(.uni-forms-item__label:has-text('执行请求')) textarea").fill(request)
             self._random_wait(0.3, 0.5)
 
         # 执行标的类型：永远勾选"金钱给付"

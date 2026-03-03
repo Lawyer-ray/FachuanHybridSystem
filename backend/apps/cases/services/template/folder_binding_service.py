@@ -1,12 +1,12 @@
 """Business logic services."""
 
 from __future__ import annotations
-from django.utils.translation import gettext_lazy as _
 
 import logging
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from django.db import transaction
+from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import Case, CaseFolderBinding
 from apps.cases.services.case.case_access_policy import CaseAccessPolicy
@@ -129,7 +129,6 @@ class CaseFolderBindingService(FolderBindingCrudService):
         if not user or not getattr(user, "is_authenticated", False):
             raise PermissionDenied(_("需要登录"))
 
-
     # 默认子目录配置(仅在没有文书模板绑定配置时使用)
     DEFAULT_SUBDIRS: ClassVar = {
         "case_documents": "案件文书",
@@ -185,7 +184,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
             raise
 
     @transaction.atomic
-    def create_binding( # type: ignore
+    def create_binding(  # type: ignore
         self,
         case_id: int,
         folder_path: str,
@@ -226,7 +225,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
         )
 
     @transaction.atomic
-    def update_binding( # type: ignore
+    def update_binding(  # type: ignore
         self,
         case_id: int,
         folder_path: str,
@@ -257,7 +256,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
         )
 
     @transaction.atomic
-    def delete_binding( # type: ignore
+    def delete_binding(  # type: ignore
         self,
         case_id: int,
         user: Any | None = None,
@@ -287,7 +286,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
             perm_open_access=ctx.perm_open_access,
         )
 
-    def get_binding( # type: ignore
+    def get_binding(  # type: ignore
         self,
         case_id: int,
         user: Any | None = None,
@@ -316,7 +315,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
             perm_open_access=ctx.perm_open_access,
         )
 
-    def save_file_to_bound_folder( # type: ignore
+    def save_file_to_bound_folder(  # type: ignore
         self,
         case_id: int,
         file_content: bytes,
@@ -348,7 +347,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
             perm_open_access=perm_open_access,
         )
 
-    def extract_zip_to_bound_folder( # type: ignore
+    def extract_zip_to_bound_folder(  # type: ignore
         self,
         case_id: int,
         zip_content: bytes,

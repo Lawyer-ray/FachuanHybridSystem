@@ -54,9 +54,15 @@ class ClientIdentityDoc(models.Model):
         (LEGAL_REP_ID_CARD, _("法定代表人/负责人身份证")),
     ]
 
-    _NATURAL_DOC_TYPES: ClassVar[frozenset[str]] = frozenset({
-        ID_CARD, PASSPORT, HK_MACAO_PERMIT, RESIDENCE_PERMIT, HOUSEHOLD_REGISTER,
-    })
+    _NATURAL_DOC_TYPES: ClassVar[frozenset[str]] = frozenset(
+        {
+            ID_CARD,
+            PASSPORT,
+            HK_MACAO_PERMIT,
+            RESIDENCE_PERMIT,
+            HOUSEHOLD_REGISTER,
+        }
+    )
     _LEGAL_DOC_TYPES: ClassVar[frozenset[str]] = frozenset({BUSINESS_LICENSE, LEGAL_REP_ID_CARD})
 
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="identity_docs", verbose_name=_("当事人"))

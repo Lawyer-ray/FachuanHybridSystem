@@ -57,7 +57,5 @@ class PDFTextExtractor:
             doc.close()
             return image_paths
         except Exception as exc:
-            logger.warning(
-                "PDFTextExtractor.pdf_to_images 失败: %s, 文件: %s", exc, pdf_path
-            )
+            logger.warning("PDFTextExtractor.pdf_to_images 失败: %s, 文件: %s", exc, pdf_path)
             return []

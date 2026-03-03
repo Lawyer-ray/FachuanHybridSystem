@@ -3,9 +3,9 @@ from __future__ import annotations
 import logging
 
 from docx import Document
+from docx.enum.text import WD_LINE_SPACING
 from docx.oxml.ns import qn
 from docx.shared import Pt
-from docx.enum.text import WD_LINE_SPACING
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +15,18 @@ _FONT_SIZE = {
     "小四": Pt(12),
 }
 
-_HEADING_STYLES = {"Heading 1", "Heading 2", "Heading 3", "Heading1", "Heading2", "Heading3", "标题 1", "标题 2", "标题 3", "Title"}
+_HEADING_STYLES = {
+    "Heading 1",
+    "Heading 2",
+    "Heading 3",
+    "Heading1",
+    "Heading2",
+    "Heading3",
+    "标题 1",
+    "标题 2",
+    "标题 3",
+    "Title",
+}
 
 
 class DocxFormatter:
@@ -94,11 +105,13 @@ class DocxFormatter:
             rpr = r_elem.find(qn("w:rPr"))
             if rpr is None:
                 from docx.oxml import OxmlElement
+
                 rpr = OxmlElement("w:rPr")
                 r_elem.insert(0, rpr)
             rfonts = rpr.find(qn("w:rFonts"))
             if rfonts is None:
                 from docx.oxml import OxmlElement
+
                 rfonts = OxmlElement("w:rFonts")
                 rpr.insert(0, rfonts)
             rfonts.set(qn("w:eastAsia"), font_name)

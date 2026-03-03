@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-
 from typing import TYPE_CHECKING, Any, cast
 
 from apps.core.dtos import DocumentTemplateDTO
@@ -53,7 +52,9 @@ class DocumentServiceAdapter:
     @property
     def template_binding_service(self) -> Any:
         if self._template_binding_service is None:
-            from apps.documents.services.template.contract_template.binding_service import DocumentTemplateBindingService
+            from apps.documents.services.template.contract_template.binding_service import (
+                DocumentTemplateBindingService,
+            )
 
             self._template_binding_service = DocumentTemplateBindingService()
         return self._template_binding_service

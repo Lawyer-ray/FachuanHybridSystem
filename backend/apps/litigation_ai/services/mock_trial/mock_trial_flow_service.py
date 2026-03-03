@@ -26,6 +26,7 @@ class MockTrialFlowService:
     def _get_conversation_service(self) -> Any:
         if not self._conversation_service:
             from apps.litigation_ai.services.conversation_service import ConversationService
+
             self._conversation_service = ConversationService()
         return self._conversation_service
 
@@ -76,21 +77,26 @@ class MockTrialFlowService:
         await self._send(
             send_cb,
             {"type": "system_message", "content": msg, "metadata": {"case_info": case_info}},
-            True, ctx.session_id, "system",
+            True,
+            ctx.session_id,
+            "system",
         )
         await self._set_step(ctx.session_id, MockTrialStep.MODE_SELECT)
 
     # ---- MODE_SELECT ----
 
-    async def handle_mode_select(
-        self, ctx: MockTrialContext, user_input: str, send_cb: Callable[..., Any]
-    ) -> None:
+    async def handle_mode_select(self, ctx: MockTrialContext, user_input: str, send_cb: Callable[..., Any]) -> None:
         mode = self._parse_mode(user_input)
         if not mode:
             await self._send(
                 send_cb,
-                {"type": "system_message", "content": "未识别模式，请回复 1（法官视角）、2（质证模拟）或 3（辩论模拟）。"},
-                False, ctx.session_id, "system",
+                {
+                    "type": "system_message",
+                    "content": "未识别模式，请回复 1（法官视角）、2（质证模拟）或 3（辩论模拟）。",
+                },
+                False,
+                ctx.session_id,
+                "system",
             )
             return
 
@@ -99,8 +105,14 @@ class MockTrialFlowService:
         if mode == MockTrialMode.JUDGE:
             await self._send(
                 send_cb,
-                {"type": "system_message", "content": "🔍 正在以法官视角分析案件，请稍候...", "metadata": {"mode": mode}},
-                True, ctx.session_id, "system",
+                {
+                    "type": "system_message",
+                    "content": "🔍 正在以法官视角分析案件，请稍候...",
+                    "metadata": {"mode": mode},
+                },
+                True,
+                ctx.session_id,
+                "system",
             )
             await self._set_step(ctx.session_id, MockTrialStep.SIMULATION)
             await self._run_judge_analysis(ctx, send_cb)
@@ -108,7 +120,9 @@ class MockTrialFlowService:
             await self._send(
                 send_cb,
                 {"type": "system_message", "content": "📋 质证模拟 — 正在加载证据清单...", "metadata": {"mode": mode}},
-                True, ctx.session_id, "system",
+                True,
+                ctx.session_id,
+                "system",
             )
             await self._set_step(ctx.session_id, MockTrialStep.SIMULATION)
             await self._start_cross_exam(ctx, send_cb)
@@ -116,16 +130,16 @@ class MockTrialFlowService:
             await self._send(
                 send_cb,
                 {"type": "system_message", "content": "💬 辩论模拟 — 正在归纳争议焦点...", "metadata": {"mode": mode}},
-                True, ctx.session_id, "system",
+                True,
+                ctx.session_id,
+                "system",
             )
             await self._set_step(ctx.session_id, MockTrialStep.FOCUS_ANALYSIS)
             await self._start_debate_focus(ctx, send_cb)
 
     # ---- SIMULATION dispatchers ----
 
-    async def handle_simulation(
-        self, ctx: MockTrialContext, user_input: str, send_cb: Callable[..., Any]
-    ) -> None:
+    async def handle_simulation(self, ctx: MockTrialContext, user_input: str, send_cb: Callable[..., Any]) -> None:
         metadata = await self.session_repo.get_metadata(ctx.session_id)
         mode = metadata.get("mock_trial_mode", "")
 
@@ -137,7 +151,9 @@ class MockTrialFlowService:
             await self._send(
                 send_cb,
                 {"type": "system_message", "content": "分析已完成。如需重新选择模式，请新建会话。"},
-                False, ctx.session_id, "system",
+                False,
+                ctx.session_id,
+                "system",
             )
 
     # ---- Judge perspective ----
@@ -146,23 +162,32 @@ class MockTrialFlowService:
         from .judge_perspective_service import JudgePerspectiveService
 
         try:
-            result = await JudgePerspectiveService().generate_analysis(
-                case_id=ctx.case_id, session_id=ctx.session_id
-            )
+            result = await JudgePerspectiveService().generate_analysis(case_id=ctx.case_id, session_id=ctx.session_id)
             report = result["report"]
             display = self._format_judge_report(report)
 
-            await send_cb({
-                "type": "assistant_complete",
-                "content": display,
-                "metadata": {"report": report, "model": result.get("model"), "token_usage": result.get("token_usage")},
-            })
+            await send_cb(
+                {
+                    "type": "assistant_complete",
+                    "content": display,
+                    "metadata": {
+                        "report": report,
+                        "model": result.get("model"),
+                        "token_usage": result.get("token_usage"),
+                    },
+                }
+            )
             await self.messenger.persist_message(ctx.session_id, "assistant", display, {"report": report})
 
             await self._send(
                 send_cb,
-                {"type": "system_message", "content": "✅ 法官视角分析完成。您可以针对某个焦点追问，或新建会话尝试其他模式。"},
-                True, ctx.session_id, "system",
+                {
+                    "type": "system_message",
+                    "content": "✅ 法官视角分析完成。您可以针对某个焦点追问，或新建会话尝试其他模式。",
+                },
+                True,
+                ctx.session_id,
+                "system",
             )
             await self._set_step(ctx.session_id, MockTrialStep.SUMMARY)
         except Exception as e:
@@ -170,7 +195,9 @@ class MockTrialFlowService:
             await self._send(
                 send_cb,
                 {"type": "error", "message": f"分析失败：{e}", "code": "JUDGE_ANALYSIS_FAILED"},
-                False, ctx.session_id, "system",
+                False,
+                ctx.session_id,
+                "system",
             )
 
     def _format_judge_report(self, report: dict[str, Any]) -> str:
@@ -195,7 +222,9 @@ class MockTrialFlowService:
             lines.append("## 证据强弱对比\n")
             for c in comparisons:
                 lines.append(f"**{c.get('focus', '')}**")
-                lines.append(f"- 原告证据：{c.get('plaintiff_strength', '')} | 被告证据：{c.get('defendant_strength', '')}")
+                lines.append(
+                    f"- 原告证据：{c.get('plaintiff_strength', '')} | 被告证据：{c.get('defendant_strength', '')}"
+                )
                 lines.append(f"- 分析：{c.get('analysis', '')}")
                 lines.append("")
 
@@ -223,22 +252,30 @@ class MockTrialFlowService:
             await self._send(
                 send_cb,
                 {"type": "system_message", "content": "⚠️ 本案暂无证据，无法进行质证模拟。请先上传证据。"},
-                True, ctx.session_id, "system",
+                True,
+                ctx.session_id,
+                "system",
             )
             await self._set_step(ctx.session_id, MockTrialStep.SUMMARY)
             return
 
-        await self.session_repo.update_metadata(ctx.session_id, {
-            "cross_exam_evidence": evidence_list,
-            "cross_exam_index": 0,
-            "cross_exam_results": [],
-        })
+        await self.session_repo.update_metadata(
+            ctx.session_id,
+            {
+                "cross_exam_evidence": evidence_list,
+                "cross_exam_index": 0,
+                "cross_exam_results": [],
+            },
+        )
 
         await self._send_evidence_menu(ctx, send_cb, evidence_list, 0)
 
     async def _send_evidence_menu(
-        self, ctx: MockTrialContext, send_cb: Callable[..., Any],
-        evidence_list: list[dict[str, Any]], current_index: int,
+        self,
+        ctx: MockTrialContext,
+        send_cb: Callable[..., Any],
+        evidence_list: list[dict[str, Any]],
+        current_index: int,
     ) -> None:
         total = len(evidence_list)
         ev = evidence_list[current_index]
@@ -253,7 +290,9 @@ class MockTrialFlowService:
         await self._send(
             send_cb,
             {"type": "system_message", "content": "\n".join(lines)},
-            True, ctx.session_id, "system",
+            True,
+            ctx.session_id,
+            "system",
         )
 
         from .cross_exam_service import CrossExamService
@@ -275,8 +314,13 @@ class MockTrialFlowService:
             if current_index + 1 < total:
                 await self._send(
                     send_cb,
-                    {"type": "system_message", "content": "回复 **下一份** 继续质证下一份证据，或回复 **跳过** 跳过剩余证据生成总结。"},
-                    False, ctx.session_id, "system",
+                    {
+                        "type": "system_message",
+                        "content": "回复 **下一份** 继续质证下一份证据，或回复 **跳过** 跳过剩余证据生成总结。",
+                    },
+                    False,
+                    ctx.session_id,
+                    "system",
                 )
             else:
                 await self._finish_cross_exam(ctx, send_cb)
@@ -285,13 +329,20 @@ class MockTrialFlowService:
             await self._send(
                 send_cb,
                 {"type": "error", "message": f"质证分析失败：{e}", "code": "CROSS_EXAM_FAILED"},
-                False, ctx.session_id, "system",
+                False,
+                ctx.session_id,
+                "system",
             )
 
     def _format_cross_exam_opinion(self, ev: dict[str, Any], opinion: dict[str, Any]) -> str:
         name = ev.get("name", "未命名")
         lines = [f"# 🔍 质证意见 — {name}\n"]
-        for dim, label in [("authenticity", "真实性"), ("legality", "合法性"), ("relevance", "关联性"), ("proof_power", "证明力")]:
+        for dim, label in [
+            ("authenticity", "真实性"),
+            ("legality", "合法性"),
+            ("relevance", "关联性"),
+            ("proof_power", "证明力"),
+        ]:
             d = opinion.get(dim, {})
             strength = d.get("challenge_strength", "")
             icon = {"strong": "🔴", "moderate": "🟡", "weak": "🟢"}.get(strength, "⚪")
@@ -352,16 +403,21 @@ class MockTrialFlowService:
                 await self._send(
                     send_cb,
                     {"type": "system_message", "content": "⚠️ 未能归纳出争议焦点，请确认案件信息和证据是否完整。"},
-                    True, ctx.session_id, "system",
+                    True,
+                    ctx.session_id,
+                    "system",
                 )
                 await self._set_step(ctx.session_id, MockTrialStep.SUMMARY)
                 return
 
-            await self.session_repo.update_metadata(ctx.session_id, {
-                "debate_focuses": focuses,
-                "debate_history": [],
-                "debate_selected_focus": None,
-            })
+            await self.session_repo.update_metadata(
+                ctx.session_id,
+                {
+                    "debate_focuses": focuses,
+                    "debate_history": [],
+                    "debate_selected_focus": None,
+                },
+            )
 
             lines = ["# 💬 争议焦点归纳\n"]
             for i, f in enumerate(focuses, 1):
@@ -373,7 +429,9 @@ class MockTrialFlowService:
             await self._send(
                 send_cb,
                 {"type": "system_message", "content": "\n".join(lines), "metadata": {"focuses": focuses}},
-                True, ctx.session_id, "system",
+                True,
+                ctx.session_id,
+                "system",
             )
             await self._set_step(ctx.session_id, MockTrialStep.SIMULATION)
         except Exception as e:
@@ -381,12 +439,12 @@ class MockTrialFlowService:
             await self._send(
                 send_cb,
                 {"type": "error", "message": f"争议焦点归纳失败：{e}", "code": "FOCUS_ANALYSIS_FAILED"},
-                False, ctx.session_id, "system",
+                False,
+                ctx.session_id,
+                "system",
             )
 
-    async def _handle_debate_turn(
-        self, ctx: MockTrialContext, user_input: str, send_cb: Callable[..., Any]
-    ) -> None:
+    async def _handle_debate_turn(self, ctx: MockTrialContext, user_input: str, send_cb: Callable[..., Any]) -> None:
         from .debate_service import DebateService
 
         metadata = await self.session_repo.get_metadata(ctx.session_id)
@@ -408,22 +466,31 @@ class MockTrialFlowService:
                     await self.session_repo.update_metadata(ctx.session_id, {"debate_selected_focus": selected})
                     await self._send(
                         send_cb,
-                        {"type": "system_message", "content": f"已选择焦点：**{selected.get('description', '')}**\n\n请发表您的第一轮论点。回复 **结束** 可结束辩论。"},
-                        True, ctx.session_id, "system",
+                        {
+                            "type": "system_message",
+                            "content": f"已选择焦点：**{selected.get('description', '')}**\n\n请发表您的第一轮论点。回复 **结束** 可结束辩论。",
+                        },
+                        True,
+                        ctx.session_id,
+                        "system",
                     )
                     return
                 else:
                     await self._send(
                         send_cb,
                         {"type": "system_message", "content": f"请输入 1-{len(focuses)} 之间的编号。"},
-                        False, ctx.session_id, "system",
+                        False,
+                        ctx.session_id,
+                        "system",
                     )
                     return
             except ValueError:
                 await self._send(
                     send_cb,
                     {"type": "system_message", "content": "请输入焦点编号（数字）。"},
-                    False, ctx.session_id, "system",
+                    False,
+                    ctx.session_id,
+                    "system",
                 )
                 return
 
@@ -433,7 +500,10 @@ class MockTrialFlowService:
 
         try:
             result = await DebateService().debate_turn(
-                case_info=case_info, focus=selected, user_argument=text, history=history,
+                case_info=case_info,
+                focus=selected,
+                user_argument=text,
+                history=history,
             )
             rebuttal = result.rebuttal
             history.append({"role": "opponent", "content": rebuttal})
@@ -446,15 +516,22 @@ class MockTrialFlowService:
             round_num = len([h for h in history if h["role"] == "user"])
             await self._send(
                 send_cb,
-                {"type": "system_message", "content": f"第 {round_num} 轮辩论完成。请继续发表论点，或回复 **结束** 结束辩论。"},
-                False, ctx.session_id, "system",
+                {
+                    "type": "system_message",
+                    "content": f"第 {round_num} 轮辩论完成。请继续发表论点，或回复 **结束** 结束辩论。",
+                },
+                False,
+                ctx.session_id,
+                "system",
             )
         except Exception as e:
             logger.error(f"辩论回合失败: {e}", exc_info=True)
             await self._send(
                 send_cb,
                 {"type": "error", "message": f"辩论回合失败：{e}", "code": "DEBATE_TURN_FAILED"},
-                False, ctx.session_id, "system",
+                False,
+                ctx.session_id,
+                "system",
             )
 
     async def _finish_debate(
@@ -469,9 +546,7 @@ class MockTrialFlowService:
         from apps.litigation_ai.services.context_service import LitigationContextService
         from apps.litigation_ai.services.evidence_digest_service import EvidenceDigestService
 
-        raw = await sync_to_async(
-            LitigationContextService.get_evidence_list_for_agent, thread_sensitive=True
-        )(case_id)
+        raw = await sync_to_async(LitigationContextService.get_evidence_list_for_agent, thread_sensitive=True)(case_id)
         if not raw:
             return ""
         list_ids = [e.get("list_id") for e in raw if e.get("list_id")]
@@ -504,6 +579,4 @@ class MockTrialFlowService:
     async def _get_case_brief(self, case_id: int) -> dict[str, Any]:
         from apps.litigation_ai.services.context_service import LitigationContextService
 
-        return await sync_to_async(
-            LitigationContextService().get_case_info_for_agent, thread_sensitive=True
-        )(case_id)
+        return await sync_to_async(LitigationContextService().get_case_info_for_agent, thread_sensitive=True)(case_id)

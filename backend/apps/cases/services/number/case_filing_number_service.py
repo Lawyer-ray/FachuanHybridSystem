@@ -1,13 +1,13 @@
 """Business logic services."""
 
 from __future__ import annotations
-from django.utils.translation import gettext_lazy as _
 
 import logging
 from typing import Any
 
 from django.db import connection, transaction
 from django.db.utils import OperationalError
+from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import Case, CaseFilingNumberSequence
 from apps.core.enums import SimpleCaseType
@@ -52,10 +52,12 @@ class CaseFilingNumberService:
                         message=_("建档编号生成失败(数据库未迁移)"),
                         code="FILING_NUMBER_MIGRATION_REQUIRED",
                         errors={
-                            "detail": str(_(
-                                "缺少表 cases_casefilingnumbersequence,"
-                                "请执行迁移 cases.0009_case_filing_number_sequence"
-                            )),
+                            "detail": str(
+                                _(
+                                    "缺少表 cases_casefilingnumbersequence,"
+                                    "请执行迁移 cases.0009_case_filing_number_sequence"
+                                )
+                            ),
                         },
                     ) from e
                 raise

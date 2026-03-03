@@ -91,8 +91,6 @@ class CaseChat(models.Model):
         return " | ".join(summary_parts)
 
 
-
-
 class ChatAuditLog(models.Model):
     """群聊审计日志"""
 
@@ -190,4 +188,3 @@ class ChatAuditLog(models.Model):
         if not self.success and self.error_message:
             summary_parts.append(f"错误:{self.error_message[:50]}...")
         return " | ".join(summary_parts)
-

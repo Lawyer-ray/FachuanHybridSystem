@@ -50,6 +50,7 @@ def reminder(contract: Contract) -> Reminder:
 
 # ── create ──────────────────────────────────────────────────────────────────
 
+
 @pytest.mark.django_db
 def test_create_reminder_rejects_nonexistent_contract() -> None:
     service = ReminderService()
@@ -116,6 +117,7 @@ def test_create_reminder_rejects_content_too_long(contract: Contract) -> None:
 
 # ── get ─────────────────────────────────────────────────────────────────────
 
+
 @pytest.mark.django_db
 def test_get_reminder_not_found_raises() -> None:
     with pytest.raises(NotFoundError):
@@ -129,6 +131,7 @@ def test_get_reminder_returns_instance(reminder: Reminder) -> None:
 
 
 # ── list ─────────────────────────────────────────────────────────────────────
+
 
 @pytest.mark.django_db
 def test_list_reminders_rejects_dual_binding_filters() -> None:
@@ -163,6 +166,7 @@ def test_list_reminders_filters_by_case_log(case_log: CaseLog) -> None:
 
 
 # ── update ───────────────────────────────────────────────────────────────────
+
 
 @pytest.mark.django_db
 def test_update_reminder_rejects_whitespace_content(contract: Contract) -> None:
@@ -226,6 +230,7 @@ def test_update_reminder_clears_metadata(reminder: Reminder) -> None:
 
 # ── delete ───────────────────────────────────────────────────────────────────
 
+
 @pytest.mark.django_db
 def test_delete_reminder_removes_record(reminder: Reminder) -> None:
     ReminderService().delete_reminder(reminder.id)
@@ -239,6 +244,7 @@ def test_delete_reminder_not_found_raises() -> None:
 
 
 # ── get_existing_due_times ───────────────────────────────────────────────────
+
 
 @pytest.mark.django_db
 def test_get_existing_due_times_returns_set(case_log: CaseLog) -> None:
@@ -254,6 +260,7 @@ def test_get_existing_due_times_returns_set(case_log: CaseLog) -> None:
 
 
 # ── adapter ──────────────────────────────────────────────────────────────────
+
 
 @pytest.mark.django_db
 def test_adapter_returns_stable_reminder_type_id() -> None:
@@ -347,9 +354,7 @@ def test_adapter_bulk_create_contract_reminders_skips_invalid_rows(contract: Con
 
 @pytest.mark.django_db
 def test_adapter_bulk_create_returns_zero_for_empty(contract: Contract) -> None:
-    assert ReminderServiceAdapter().create_contract_reminders_internal(
-        contract_id=contract.id, reminders=[]
-    ) == 0
+    assert ReminderServiceAdapter().create_contract_reminders_internal(contract_id=contract.id, reminders=[]) == 0
 
 
 @pytest.mark.django_db
@@ -368,6 +373,7 @@ def test_adapter_reminder_dto_uses_iso_datetime(case_log: CaseLog) -> None:
 
 
 # ── validators ───────────────────────────────────────────────────────────────
+
 
 @pytest.mark.django_db
 def test_normalize_target_id_rejects_non_int() -> None:
@@ -402,6 +408,7 @@ def test_normalize_metadata_rejects_non_serializable() -> None:
 
 
 # ── _apply_update_fields FK switching ────────────────────────────────────────
+
 
 @pytest.mark.django_db
 def test_update_reminder_switch_from_case_log_to_contract(case_log: CaseLog, contract: Contract) -> None:
@@ -481,6 +488,7 @@ def test_adapter_bulk_create_all_invalid_rows_returns_zero(contract: Contract) -
 
 
 # ── coverage gaps ─────────────────────────────────────────────────────────────
+
 
 def test_normalize_target_id_rejects_bool() -> None:
     from apps.reminders.services.validators import normalize_target_id

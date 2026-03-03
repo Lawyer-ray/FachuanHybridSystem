@@ -22,7 +22,6 @@ class RegisterResult:
 
 
 class AuthService:
-
     def login(self, request: HttpRequest, username: str, password: str) -> Lawyer:
         """
         Raises:

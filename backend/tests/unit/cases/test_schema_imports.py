@@ -55,8 +55,8 @@ class TestTemplateBindingSchemaImports:
             BindTemplateRequestSchema,
             GenerateTemplateRequestSchema,
             SuccessResponseSchema,
-            TemplateCategorySchema,
             TemplateBindingSchema,
+            TemplateCategorySchema,
         )
 
         for cls in (

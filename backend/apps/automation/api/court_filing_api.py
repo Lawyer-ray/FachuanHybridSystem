@@ -55,9 +55,7 @@ def get_case_filing_info(request: HttpRequest, case_id: int) -> Any:
 
     # 从 SupervisingAuthority 获取管辖法院名称
     court_name: str | None = None
-    sa = SupervisingAuthority.objects.filter(
-        case=case, authority_type="trial"
-    ).first()
+    sa = SupervisingAuthority.objects.filter(case=case, authority_type="trial").first()
     if sa:
         court_name = _resolve_court_name(sa.name)
 
@@ -142,9 +140,7 @@ def execute_court_filing(request: HttpRequest, payload: ExecuteCourtFilingIn) ->
         }
         if is_natural:
             party_data["id_number"] = c.id_number or ""
-            party_data["gender"] = (
-                IdCardUtils.extract_gender(c.id_number or "") or "男"
-            )
+            party_data["gender"] = IdCardUtils.extract_gender(c.id_number or "") or "男"
         else:
             party_data["uscc"] = c.id_number or ""
             party_data["legal_rep"] = c.legal_representative or ""
@@ -266,9 +262,7 @@ def _run_filing(account: str, password: str, case_data: dict[str, Any], filing_t
     from playwright.sync_api import sync_playwright
 
     from apps.automation.services.scraper.sites.court_zxfw import CourtZxfwService
-    from apps.automation.services.scraper.sites.court_zxfw_filing import (
-        CourtZxfwFilingService,
-    )
+    from apps.automation.services.scraper.sites.court_zxfw_filing import CourtZxfwFilingService
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=False)

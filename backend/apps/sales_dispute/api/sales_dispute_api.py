@@ -12,10 +12,9 @@ from decimal import Decimal
 from typing import Any
 
 from django.http import HttpRequest, HttpResponse
+from django.utils.translation import gettext as _
 from ninja import Query, Router
 from ninja.errors import HttpError
-
-from django.utils.translation import gettext as _
 
 from apps.sales_dispute.schemas import (
     AdvanceStageRequest,
@@ -70,9 +69,7 @@ router = Router()
 
 
 def _get_interest_calculator() -> Any:
-    from apps.sales_dispute.services.interest_calculator_service import (
-        InterestCalculatorService,
-    )
+    from apps.sales_dispute.services.interest_calculator_service import InterestCalculatorService
 
     return InterestCalculatorService()
 
@@ -90,81 +87,61 @@ def _get_lpr_rate_service() -> Any:
 
 
 def _get_case_assessment_service() -> Any:
-    from apps.sales_dispute.services.case_assessment_service import (
-        CaseAssessmentService,
-    )
+    from apps.sales_dispute.services.case_assessment_service import CaseAssessmentService
 
     return CaseAssessmentService()
 
 
 def _get_limitation_calculator() -> Any:
-    from apps.sales_dispute.services.limitation_calculator_service import (
-        LimitationCalculatorService,
-    )
+    from apps.sales_dispute.services.limitation_calculator_service import LimitationCalculatorService
 
     return LimitationCalculatorService()
 
 
 def _get_jurisdiction_analyzer() -> Any:
-    from apps.sales_dispute.services.jurisdiction_analyzer_service import (
-        JurisdictionAnalyzerService,
-    )
+    from apps.sales_dispute.services.jurisdiction_analyzer_service import JurisdictionAnalyzerService
 
     return JurisdictionAnalyzerService()
 
 
 def _get_strategy_recommender() -> Any:
-    from apps.sales_dispute.services.litigation_strategy_service import (
-        LitigationStrategyService,
-    )
+    from apps.sales_dispute.services.litigation_strategy_service import LitigationStrategyService
 
     return LitigationStrategyService()
 
 
 def _get_collection_workflow() -> Any:
-    from apps.sales_dispute.services.collection_workflow_service import (
-        CollectionWorkflowService,
-    )
+    from apps.sales_dispute.services.collection_workflow_service import CollectionWorkflowService
 
     return CollectionWorkflowService()
 
 
 def _get_collection_reminder() -> Any:
-    from apps.sales_dispute.services.collection_reminder_service import (
-        CollectionReminderService,
-    )
+    from apps.sales_dispute.services.collection_reminder_service import CollectionReminderService
 
     return CollectionReminderService()
 
 
 def _get_lawyer_letter_generator() -> Any:
-    from apps.sales_dispute.services.lawyer_letter_generator_service import (
-        LawyerLetterGeneratorService,
-    )
+    from apps.sales_dispute.services.lawyer_letter_generator_service import LawyerLetterGeneratorService
 
     return LawyerLetterGeneratorService()
 
 
 def _get_reconciliation_generator() -> Any:
-    from apps.sales_dispute.services.reconciliation_generator_service import (
-        ReconciliationGeneratorService,
-    )
+    from apps.sales_dispute.services.reconciliation_generator_service import ReconciliationGeneratorService
 
     return ReconciliationGeneratorService()
 
 
 def _get_settlement_generator() -> Any:
-    from apps.sales_dispute.services.settlement_generator_service import (
-        SettlementGeneratorService,
-    )
+    from apps.sales_dispute.services.settlement_generator_service import SettlementGeneratorService
 
     return SettlementGeneratorService()
 
 
 def _get_execution_doc_generator() -> Any:
-    from apps.sales_dispute.services.execution_doc_generator_service import (
-        ExecutionDocGeneratorService,
-    )
+    from apps.sales_dispute.services.execution_doc_generator_service import ExecutionDocGeneratorService
 
     return ExecutionDocGeneratorService()
 
@@ -315,10 +292,7 @@ def assess_case(
     """综合案件评估"""
     from apps.sales_dispute.services.case_assessment_service import AssessmentInput
     from apps.sales_dispute.services.evidence_scorer_service import EvidenceItem
-    from apps.sales_dispute.services.limitation_calculator_service import (
-        InterruptionEvent,
-        InterruptionType,
-    )
+    from apps.sales_dispute.services.limitation_calculator_service import InterruptionEvent, InterruptionType
 
     evidence_items = [
         EvidenceItem(
@@ -351,11 +325,7 @@ def assess_case(
         invalid_reason=data.invalid_reason,
         plaintiff_location=data.plaintiff_location,
         defendant_location=data.defendant_location,
-        local_avg_salary=(
-            Decimal(str(data.local_avg_salary))
-            if data.local_avg_salary is not None
-            else None
-        ),
+        local_avg_salary=(Decimal(str(data.local_avg_salary)) if data.local_avg_salary is not None else None),
         willing_to_mediate=data.willing_to_mediate,
         guarantee_debtor=data.guarantee_debtor,
         principal_due_date=data.principal_due_date,
@@ -516,9 +486,7 @@ def analyze_jurisdiction(
     data: JurisdictionRequest,
 ) -> JurisdictionResponseSchema:
     """管辖权分析"""
-    from apps.sales_dispute.services.jurisdiction_analyzer_service import (
-        JurisdictionParams,
-    )
+    from apps.sales_dispute.services.jurisdiction_analyzer_service import JurisdictionParams
 
     params = JurisdictionParams(
         has_agreed_jurisdiction=data.has_agreed_jurisdiction,
@@ -558,11 +526,7 @@ def recommend_strategy(
         principal_amount=Decimal(str(data.principal_amount)),
         evidence_score=Decimal(str(data.evidence_score)),
         solvency_rating=data.solvency_rating,
-        local_avg_salary=(
-            Decimal(str(data.local_avg_salary))
-            if data.local_avg_salary is not None
-            else None
-        ),
+        local_avg_salary=(Decimal(str(data.local_avg_salary)) if data.local_avg_salary is not None else None),
         willing_to_mediate=data.willing_to_mediate,
     )
 
@@ -608,9 +572,7 @@ def start_collection(
     )
 
 
-@router.post(
-    "/collection/{record_id}/advance", response=CollectionRecordResponse
-)
+@router.post("/collection/{record_id}/advance", response=CollectionRecordResponse)
 def advance_collection(
     request: HttpRequest,
     record_id: int,
@@ -668,10 +630,7 @@ def generate_lawyer_letter(
     data: LawyerLetterRequest,
 ) -> HttpResponse:
     """生成律师函"""
-    from apps.sales_dispute.services.lawyer_letter_generator_service import (
-        LawyerLetterParams,
-        LetterTone,
-    )
+    from apps.sales_dispute.services.lawyer_letter_generator_service import LawyerLetterParams, LetterTone
 
     params = LawyerLetterParams(
         case_id=data.case_id,
@@ -701,10 +660,7 @@ def generate_reconciliation(
     data: ReconciliationRequest,
 ) -> HttpResponse:
     """生成对账函"""
-    from apps.sales_dispute.services.reconciliation_generator_service import (
-        ReconciliationParams,
-        TransactionItem,
-    )
+    from apps.sales_dispute.services.reconciliation_generator_service import ReconciliationParams, TransactionItem
 
     transactions = [
         TransactionItem(
@@ -838,9 +794,7 @@ def generate_execution_doc(
             respondent_address=data.spending_restriction.respondent_address,
             legal_representative=data.spending_restriction.legal_representative,
             execution_case_number=data.spending_restriction.execution_case_number,
-            outstanding_amount=Decimal(
-                str(data.spending_restriction.outstanding_amount)
-            ),
+            outstanding_amount=Decimal(str(data.spending_restriction.outstanding_amount)),
         )
         doc = svc.generate_spending_restriction(params_sr)
 

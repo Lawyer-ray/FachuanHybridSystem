@@ -1,13 +1,13 @@
 """Business logic services."""
 
 from __future__ import annotations
-from django.utils.translation import gettext_lazy as _
 
 import contextlib
 from typing import Any
 
 from django.db import transaction
 from django.db.models import Max
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.error_catalog import case_not_found
 from apps.core.exceptions import ValidationException
@@ -108,6 +108,7 @@ class EvidenceMutationService:
         next_lists = list(EvidenceList.objects.filter(previous_list=evidence_list))
         if next_lists:
             from django.utils import timezone as _tz
+
             now = _tz.now()
             for nl in next_lists:
                 nl.previous_list = previous_list

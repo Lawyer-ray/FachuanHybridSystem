@@ -14,7 +14,7 @@
 {% block content %}
 <div style="max-width: 1200px; margin: 20px auto;">
     <h1>{{ title }}</h1>
-    
+
     <!-- 凭证信息 -->
     <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
         <h2 style="margin-top: 0;">凭证信息</h2>
@@ -39,10 +39,10 @@
             </tr>
         </table>
     </div>
-    
+
     <!-- 测试结果 -->
-    <div style="background: {% if result.success %}#d4edda{% else %}#f8d7da{% endif %}; 
-                padding: 20px; border-radius: 8px; margin-bottom: 20px; 
+    <div style="background: {% if result.success %}#d4edda{% else %}#f8d7da{% endif %};
+                padding: 20px; border-radius: 8px; margin-bottom: 20px;
                 border: 2px solid {% if result.success %}#28a745{% else %}#dc3545{% endif %};">
         <h2 style="margin-top: 0; color: {% if result.success %}#155724{% else %}#721c24{% endif %};">
             {% if result.success %}
@@ -54,11 +54,11 @@
         <p style="font-size: 16px; margin: 10px 0;">
             <strong>消息:</strong> {{ result.message }}
         </p>
-        
+
         {% if result.token %}
         <div style="margin-top: 15px; padding: 15px; background: rgba(255,255,255,0.7); border-radius: 4px;">
             <p style="margin: 0 0 10px 0; font-weight: bold; color: #155724;">🔑 捕获的 Token:</p>
-            <code style="background: #fff; padding: 10px; border-radius: 4px; display: block; 
+            <code style="background: #fff; padding: 10px; border-radius: 4px; display: block;
                         word-break: break-all; font-size: 12px; color: #333;">{{ result.token }}</code>
             <p style="margin: 10px 0 0 0; font-size: 13px; color: #155724;">
                 ✅ Token 已保存到 Redis 和数据库，其他脚本可以通过 <code>TokenService.get_token()</code> 获取
@@ -72,27 +72,27 @@
         </div>
         {% endif %}
     </div>
-    
+
     <!-- 执行日志 -->
     <div style="background: #fff; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ddd;">
         <h2 style="margin-top: 0;">执行日志</h2>
-        <div style="background: #f5f5f5; padding: 15px; border-radius: 4px; font-family: monospace; 
+        <div style="background: #f5f5f5; padding: 15px; border-radius: 4px; font-family: monospace;
                     font-size: 13px; max-height: 300px; overflow-y: auto;">
             {% for log in result.logs %}
                 <div style="margin: 5px 0;">{{ log }}</div>
             {% endfor %}
         </div>
     </div>
-    
+
     <!-- 错误详情 -->
     {% if result.error %}
     <div style="background: #fff3cd; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ffc107;">
         <h2 style="margin-top: 0; color: #856404;">错误详情</h2>
-        <pre style="background: #fff; padding: 15px; border-radius: 4px; overflow-x: auto; 
+        <pre style="background: #fff; padding: 15px; border-radius: 4px; overflow-x: auto;
                     font-size: 12px; border: 1px solid #ddd;">{{ result.error }}</pre>
     </div>
     {% endif %}
-    
+
     <!-- 截图 -->
     {% if result.screenshots %}
     <div style="background: #fff; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ddd;">
@@ -102,7 +102,7 @@
             {% for screenshot in result.screenshots %}
                 <div style="border: 1px solid #ddd; border-radius: 4px; overflow: hidden;">
                     <a href="{{ screenshot }}" target="_blank">
-                        <img src="{{ screenshot }}" 
+                        <img src="{{ screenshot }}"
                              style="width: 100%; height: auto; display: block; cursor: pointer;"
                              alt="截图">
                     </a>
@@ -114,13 +114,13 @@
         </div>
     </div>
     {% endif %}
-    
+
     <!-- Token 使用示例 -->
     {% if result.success and result.token %}
     <div style="background: #fff; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ddd;">
         <h2 style="margin-top: 0;">📝 Token 使用示例</h2>
         <p style="color: #666; margin-bottom: 15px;">在其他脚本中使用捕获的 Token：</p>
-        <pre style="background: #f5f5f5; padding: 15px; border-radius: 4px; overflow-x: auto; 
+        <pre style="background: #f5f5f5; padding: 15px; border-radius: 4px; overflow-x: auto;
                     font-size: 12px; color: #333;"><code>from apps.automation.services.scraper.core.token_service import TokenService
 
 # 获取 Token
@@ -137,31 +137,31 @@ else:
     print("Token 不存在或已过期")</code></pre>
     </div>
     {% endif %}
-    
+
     <!-- 操作按钮 -->
     <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
-        <a href="{% url 'admin:automation_testcourt_changelist' %}" 
-           class="button" 
-           style="padding: 10px 20px; background: #417690; color: white; text-decoration: none; 
+        <a href="{% url 'admin:automation_testcourt_changelist' %}"
+           class="button"
+           style="padding: 10px 20px; background: #417690; color: white; text-decoration: none;
                   border-radius: 4px; display: inline-block; margin-right: 10px;">
             ← 返回列表
         </a>
-        
-        <a href="{% url 'admin:organization_accountcredential_change' credential.id %}" 
-           class="button" 
-           style="padding: 10px 20px; background: #6c757d; color: white; text-decoration: none; 
+
+        <a href="{% url 'admin:organization_accountcredential_change' credential.id %}"
+           class="button"
+           style="padding: 10px 20px; background: #6c757d; color: white; text-decoration: none;
                   border-radius: 4px; display: inline-block; margin-right: 10px;">
             编辑凭证
         </a>
-        
-        <a href="{% url 'admin:automation_testcourt_test_login' credential.id %}" 
-           class="button" 
-           style="padding: 10px 20px; background: #28a745; color: white; text-decoration: none; 
+
+        <a href="{% url 'admin:automation_testcourt_test_login' credential.id %}"
+           class="button"
+           style="padding: 10px 20px; background: #28a745; color: white; text-decoration: none;
                   border-radius: 4px; display: inline-block;">
             🔄 重新测试
         </a>
     </div>
-    
+
     <!-- 提示信息 -->
     <div style="margin-top: 30px; padding: 15px; background: #e7f3ff; border-radius: 4px; border-left: 4px solid #2196F3;">
         <h3 style="margin-top: 0; color: #1976D2;">💡 提示</h3>

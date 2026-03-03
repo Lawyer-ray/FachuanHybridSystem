@@ -6,19 +6,19 @@
 Requirements: 2.1, 2.2, 2.3, 3.1, 3.2, 3.3, 3.4, 10.1, 10.2, 10.3, 10.4, 10.5, 10.6
 """
 
-from django.utils.translation import gettext_lazy as _
-from django.utils import timezone
 import io
 import logging
 import zipfile
 from typing import Any, cast
 
+from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 from docxtpl import DocxTemplate
 
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.path import Path
-from apps.documents.services.placeholders import EnhancedContextBuilder
 from apps.documents.services.infrastructure.wiring import get_case_service, get_document_service
+from apps.documents.services.placeholders import EnhancedContextBuilder
 
 logger = logging.getLogger("apps.documents.generation")
 FUNCTION_CODE_PRESERVATION_APPLICATION = "preservation_application"

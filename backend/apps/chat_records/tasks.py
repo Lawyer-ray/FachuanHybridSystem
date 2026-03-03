@@ -109,7 +109,6 @@ def export_chat_record_task(task_id: str) -> Any:
         return {"task_id": task_id, "status": "failed", "error": str(e)}
 
 
-
 def extract_recording_frames_task(
     recording_id: str,
     interval_seconds: float = 1.0,
@@ -119,12 +118,7 @@ def extract_recording_frames_task(
     from django.core.files.base import ContentFile
     from django.db.models import Max
 
-    from apps.chat_records.models import (
-        ChatRecordRecording,
-        ChatRecordScreenshot,
-        ExtractStatus,
-        ScreenshotSource,
-    )
+    from apps.chat_records.models import ChatRecordRecording, ChatRecordScreenshot, ExtractStatus, ScreenshotSource
     from apps.chat_records.services.extract_helpers import DedupState, ExtractParams
     from apps.chat_records.services.frame_processing_service import FrameProcessingService
     from apps.chat_records.services.frame_selection_service import FrameSelectionService
@@ -240,9 +234,16 @@ def extract_recording_frames_task(
 
         with tempfile.TemporaryDirectory(prefix="chat_records_frames_") as tmpdir:
             total_estimate, should_cancel = fps.run_ffmpeg_phase(
-                service, recording.video.path, str(recording.id),
-                info, params, cancel_token, ffmpeg_reporter, progress_updater,
-                soft_deadline, tmpdir,
+                service,
+                recording.video.path,
+                str(recording.id),
+                info,
+                params,
+                cancel_token,
+                ffmpeg_reporter,
+                progress_updater,
+                soft_deadline,
+                tmpdir,
             )
 
             frame_files = fps.collect_frame_files(tmpdir)
@@ -337,4 +338,3 @@ def extract_recording_frames_task(
             finished_at=timezone.now(),
         )
         return {"recording_id": recording_id, "status": "failed", "error": str(e)}
-

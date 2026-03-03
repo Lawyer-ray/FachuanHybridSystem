@@ -11,11 +11,11 @@ from django.utils.deprecation import MiddlewareMixin
 
 from apps.core.infrastructure.cache import CacheKeys, CacheTimeout
 from apps.organization.models import Lawyer
+
 from .services.wiring import build_org_access_computation_service
 
 
 class OrgAccessMiddleware(MiddlewareMixin):
-
     def process_request(self, request: HttpRequest) -> None:
         user = getattr(request, "user", None)
         if not user or not user.is_authenticated:
@@ -34,7 +34,6 @@ class OrgAccessMiddleware(MiddlewareMixin):
 
 
 class ApiTrailingSlashMiddleware(MiddlewareMixin):
-
     def process_request(self, request: HttpRequest) -> None:
         path = request.path_info or ""
         if path.startswith("/api/") and path != "/api/" and path.endswith("/"):

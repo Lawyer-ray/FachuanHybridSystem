@@ -73,9 +73,7 @@ def test_p1_resolve_datetime_calls_resolve_datetime_iso(method_index: int) -> No
     source: str = _read_source("schemas.py")
     tree: ast.Module = ast.parse(source)
 
-    func_def: ast.FunctionDef | None = _get_resolve_method_body(
-        tree, "AccountCredentialOut", method_name
-    )
+    func_def: ast.FunctionDef | None = _get_resolve_method_body(tree, "AccountCredentialOut", method_name)
     assert func_def is not None, f"未找到 AccountCredentialOut.{method_name}"
 
     # 提取方法体源码
@@ -89,9 +87,7 @@ def test_p1_resolve_datetime_calls_resolve_datetime_iso(method_index: int) -> No
     # 验证返回类型注解为 str | None
     if func_def.returns:
         return_annotation: str = ast.get_source_segment(source, func_def.returns) or ""
-        assert "str" in return_annotation, (
-            f"{method_name} 返回类型不包含 str"
-        )
+        assert "str" in return_annotation, f"{method_name} 返回类型不包含 str"
 
 
 # ---------------------------------------------------------------------------
@@ -198,22 +194,17 @@ def test_p3_lawfirm_permission_logic_equivalence(pair_index: int) -> None:
     service_source: str = _read_source("services/lawfirm_service.py")
 
     # 提取 CRUD 方法体
-    crud_body: str | None = _extract_permission_logic(
-        service_source, "LawFirmService", crud_method
-    )
+    crud_body: str | None = _extract_permission_logic(service_source, "LawFirmService", crud_method)
     assert crud_body is not None, f"LawFirmService.{crud_method} 未找到"
 
     # 验证 CRUD 方法中包含 _access_policy 委托调用
     assert "_access_policy" in crud_body or "can_" in crud_body, (
-        f"LawFirmService.{crud_method} 未委托给 _access_policy，"
-        f"权限检查可能仍使用内联逻辑"
+        f"LawFirmService.{crud_method} 未委托给 _access_policy，权限检查可能仍使用内联逻辑"
     )
 
     # 验证 OrganizationAccessPolicy 中对应方法存在
     policy_source: str = _read_source("services/organization_access_policy.py")
-    policy_body: str | None = _extract_permission_logic(
-        policy_source, "OrganizationAccessPolicy", policy_method
-    )
+    policy_body: str | None = _extract_permission_logic(policy_source, "OrganizationAccessPolicy", policy_method)
     assert policy_body is not None, f"OrganizationAccessPolicy.{policy_method} 未找到"
 
 
@@ -248,22 +239,17 @@ def test_p3_team_permission_logic_equivalence(pair_index: int) -> None:
     service_source: str = _read_source("services/team_service.py")
 
     # 提取 CRUD 方法体
-    crud_body: str | None = _extract_permission_logic(
-        service_source, "TeamService", crud_method
-    )
+    crud_body: str | None = _extract_permission_logic(service_source, "TeamService", crud_method)
     assert crud_body is not None, f"TeamService.{crud_method} 未找到"
 
     # 验证 CRUD 方法中包含 _access_policy 委托调用
     assert "_access_policy" in crud_body or "can_" in crud_body, (
-        f"TeamService.{crud_method} 未委托给 _access_policy，"
-        f"权限检查可能仍使用内联逻辑"
+        f"TeamService.{crud_method} 未委托给 _access_policy，权限检查可能仍使用内联逻辑"
     )
 
     # 验证 OrganizationAccessPolicy 中对应方法存在
     policy_source: str = _read_source("services/organization_access_policy.py")
-    policy_body: str | None = _extract_permission_logic(
-        policy_source, "OrganizationAccessPolicy", policy_method
-    )
+    policy_body: str | None = _extract_permission_logic(policy_source, "OrganizationAccessPolicy", policy_method)
     assert policy_body is not None, f"OrganizationAccessPolicy.{policy_method} 未找到"
 
 
@@ -357,9 +343,7 @@ def test_p5_admin_operation_messages_preserved(count: int) -> None:
     percent_mark: str = "已将 %(count)d 个账号标记为优先使用" % {"count": count}
     percent_unmark: str = "已取消 %(count)d 个账号的优先标记" % {"count": count}
 
-    assert fstring_mark == percent_mark, (
-        f"mark 消息不一致: f-string='{fstring_mark}', percent='{percent_mark}'"
-    )
+    assert fstring_mark == percent_mark, f"mark 消息不一致: f-string='{fstring_mark}', percent='{percent_mark}'"
     assert fstring_unmark == percent_unmark, (
         f"unmark 消息不一致: f-string='{fstring_unmark}', percent='{percent_unmark}'"
     )
@@ -392,9 +376,7 @@ def test_p5_admin_message_template_exists(method_index: int) -> None:
     assert method_body is not None, f"AccountCredentialAdmin.{method_name} 未找到"
 
     # 验证包含 message_user 调用
-    assert "message_user" in method_body, (
-        f"{method_name} 未调用 message_user"
-    )
+    assert "message_user" in method_body, f"{method_name} 未调用 message_user"
 
     # 验证委托给 credential service 执行 is_preferred 更新
     assert "credential_service" in method_body or "_get_credential_service" in method_body or "batch_" in method_body, (

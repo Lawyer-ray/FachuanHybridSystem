@@ -25,8 +25,11 @@ class OAConfigForm(forms.ModelForm[OAConfig]):
 
         site_names: list[str] = list(
             AccountCredential.objects.values_list(
-                "site_name", flat=True,
-            ).distinct().order_by("site_name")
+                "site_name",
+                flat=True,
+            )
+            .distinct()
+            .order_by("site_name")
         )
         choices: list[tuple[str, str]] = [("", "---------")]
         choices.extend((name, name) for name in site_names)

@@ -42,14 +42,16 @@ def auto_submit_preservation_quote(
 
         logger.info(
             "✅ 询价任务 #%s 已自动提交到队列，Task ID: %s",
-            instance.id, task_id,
+            instance.id,
+            task_id,
             extra={"action": "auto_submit_quote", "quote_id": instance.id, "task_id": task_id},
         )
 
     except Exception as e:
         logger.error(
             "❌ 自动提交询价任务 #%s 失败: %s",
-            instance.id, e,
+            instance.id,
+            e,
             extra={"action": "auto_submit_quote_failed", "quote_id": instance.id, "error": str(e)},
             exc_info=True,
         )
@@ -88,7 +90,10 @@ def _handle_sms_download_failed(sms: Any, instance: Any) -> bool:
     sms.error_message = instance.error_message or "下载任务失败"
     sms.save()
     logger.warning(
-        "⚠️ 下载任务失败: SMS ID=%s, Task ID=%s, 错误: %s", sms.id, instance.id, instance.error_message,
+        "⚠️ 下载任务失败: SMS ID=%s, Task ID=%s, 错误: %s",
+        sms.id,
+        instance.id,
+        instance.error_message,
     )
 
     if sms.retry_count < 3:
@@ -135,7 +140,8 @@ def handle_scraper_task_status_change(sender: type[Model], instance: ScraperTask
     except Exception as e:
         logger.error(
             "❌ 处理下载完成信号失败: Task ID=%s, 错误: %s",
-            instance.id, e,
+            instance.id,
+            e,
             extra={"action": "download_signal_failed", "task_id": instance.id, "error": str(e)},
             exc_info=True,
         )

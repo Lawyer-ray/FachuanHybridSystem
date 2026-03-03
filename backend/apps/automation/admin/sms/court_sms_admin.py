@@ -56,9 +56,7 @@ class CourtSMSAdmin(CourtSMSAdminThemedViews, CourtSMSAdminActions, CourtSMSAdmi
             custom_urls.append(
                 path(
                     f"add{n}/",
-                    self.admin_site.admin_view(
-                        lambda req, _n=n: self._add_numbered_view(req, _n)
-                    ),
+                    self.admin_site.admin_view(lambda req, _n=n: self._add_numbered_view(req, _n)),
                     name=f"automation_courtsms_add{n}",
                 )
             )
@@ -69,5 +67,6 @@ class CourtSMSAdmin(CourtSMSAdminThemedViews, CourtSMSAdminActions, CourtSMSAdmi
         method = getattr(self, f"add{n}_view", None)
         if method is None:
             from django.http import Http404
+
             raise Http404(f"add{n}_view not found")
         return method(request)  # type: ignore[no-any-return]

@@ -6,10 +6,10 @@ from __future__ import annotations
 
 from ninja import Router
 
-from .auth_api import router as auth_router
-from .lawyer_api import router as lawyer_router
 from .accountcredential_api import router as accountcredential_router
+from .auth_api import router as auth_router
 from .lawfirm_api import router as lawfirm_router
+from .lawyer_api import router as lawyer_router
 from .team_api import router as team_router
 
 # 创建模块路由器

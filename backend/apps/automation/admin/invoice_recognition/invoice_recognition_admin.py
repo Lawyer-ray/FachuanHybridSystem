@@ -12,10 +12,7 @@ from django.utils.html import format_html
 from django.utils.safestring import SafeString
 from django.utils.translation import gettext_lazy as _
 
-from apps.automation.models.invoice_recognition import (
-    InvoiceRecognitionTask,
-    InvoiceRecognitionTaskStatus,
-)
+from apps.automation.models.invoice_recognition import InvoiceRecognitionTask, InvoiceRecognitionTaskStatus
 
 logger = logging.getLogger("apps.automation")
 
@@ -44,9 +41,7 @@ class InvoiceRecognitionTaskAdmin(admin.ModelAdmin[InvoiceRecognitionTask]):
     def has_add_permission(self, request: HttpRequest) -> bool:
         return True
 
-    def has_change_permission(
-        self, request: HttpRequest, obj: InvoiceRecognitionTask | None = None
-    ) -> bool:
+    def has_change_permission(self, request: HttpRequest, obj: InvoiceRecognitionTask | None = None) -> bool:
         return True
 
     def get_fields(  # type: ignore[override]
@@ -56,9 +51,7 @@ class InvoiceRecognitionTaskAdmin(admin.ModelAdmin[InvoiceRecognitionTask]):
             return ["name"]
         return ["name", "status", "created_by", "created_at", "finished_at"]
 
-    def has_delete_permission(
-        self, request: HttpRequest, obj: InvoiceRecognitionTask | None = None
-    ) -> bool:
+    def has_delete_permission(self, request: HttpRequest, obj: InvoiceRecognitionTask | None = None) -> bool:
         return True
 
     def save_model(
@@ -74,6 +67,7 @@ class InvoiceRecognitionTaskAdmin(admin.ModelAdmin[InvoiceRecognitionTask]):
         merge_config_raw = request.POST.get("merge_config", "")
         if merge_config_raw:
             import json
+
             try:
                 obj.merge_config = json.loads(merge_config_raw)
             except (ValueError, TypeError):
@@ -113,9 +107,7 @@ class InvoiceRecognitionTaskAdmin(admin.ModelAdmin[InvoiceRecognitionTask]):
         }
         color = color_map.get(obj.status, "gray")
         label = label_map.get(obj.status, obj.status)
-        return format_html(
-            '<span style="color: {}; font-weight: bold;">{}</span>', color, label
-        )
+        return format_html('<span style="color: {}; font-weight: bold;">{}</span>', color, label)
 
     status_display.short_description = _("状态")  # type: ignore[attr-defined]
 

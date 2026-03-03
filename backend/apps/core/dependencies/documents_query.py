@@ -15,13 +15,13 @@ if TYPE_CHECKING:
 
 
 def build_folder_template_service() -> None:
-    from apps.documents.services.template.folder_service import FolderTemplateService
     from apps.documents.services.folder_template.command_service import FolderTemplateCommandService
     from apps.documents.services.folder_template.id_service import FolderTemplateIdService
     from apps.documents.services.folder_template.query_service import FolderTemplateQueryService
     from apps.documents.services.folder_template.repo import FolderTemplateRepo
     from apps.documents.services.folder_template.structure_rules import FolderTemplateStructureRules
     from apps.documents.services.folder_template.validation_service import FolderTemplateValidationService
+    from apps.documents.services.template.folder_service import FolderTemplateService
     from apps.documents.usecases.folder_template.folder_template_usecases import FolderTemplateUsecases
 
     id_service = FolderTemplateIdService()

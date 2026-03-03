@@ -4,16 +4,13 @@
 负责通过 Playwright 浏览器自动化查询文书。
 """
 
-from django.utils.translation import gettext_lazy as _
 import logging
 import traceback
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional, cast
 
+from django.utils.translation import gettext_lazy as _
 from playwright.sync_api import Page
-
-from apps.automation.utils.logging import AutomationLogger
-from apps.core.interfaces import ServiceLocator
 
 from apps.automation.services.document_delivery._downloading_mixin import DocumentDeliveryDownloadingMixin
 from apps.automation.services.document_delivery._matching_mixin import DocumentDeliveryMatchingMixin
@@ -23,6 +20,8 @@ from apps.automation.services.document_delivery.data_classes import (
     DocumentProcessResult,
     DocumentQueryResult,
 )
+from apps.automation.utils.logging import AutomationLogger
+from apps.core.interfaces import ServiceLocator
 
 if TYPE_CHECKING:
     from apps.automation.services.scraper.core.browser_service import BrowserService
@@ -92,6 +91,7 @@ class DocumentDeliveryPlaywrightService(
     def browser_service(self) -> "BrowserService":
         if self._browser_service is None:
             from apps.automation.services.scraper.core.browser_service import BrowserService
+
             self._browser_service = BrowserService()
         return self._browser_service
 
@@ -99,6 +99,7 @@ class DocumentDeliveryPlaywrightService(
     def case_matcher(self) -> "CaseMatcher":
         if self._case_matcher is None:
             from apps.automation.services.sms.case_matcher import CaseMatcher
+
             self._case_matcher = CaseMatcher()
         return self._case_matcher
 
@@ -106,6 +107,7 @@ class DocumentDeliveryPlaywrightService(
     def document_renamer(self) -> "DocumentRenamer":
         if self._document_renamer is None:
             from apps.automation.services.sms.document_renamer import DocumentRenamer
+
             self._document_renamer = DocumentRenamer()
         return self._document_renamer
 
@@ -113,6 +115,7 @@ class DocumentDeliveryPlaywrightService(
     def notification_service(self) -> "SMSNotificationService":
         if self._notification_service is None:
             from apps.automation.services.sms.sms_notification_service import SMSNotificationService
+
             self._notification_service = SMSNotificationService()
         return self._notification_service
 
@@ -128,8 +131,12 @@ class DocumentDeliveryPlaywrightService(
         """处理单个文书条目"""
         logger.info(f"开始处理文书: {entry.case_number} - {entry.send_time}")
         result = DocumentProcessResult(
-            success=False, case_id=None, case_log_id=None,
-            renamed_path=None, notification_sent=False, error_message=None,
+            success=False,
+            case_id=None,
+            case_log_id=None,
+            renamed_path=None,
+            notification_sent=False,
+            error_message=None,
         )
         try:
             file_path = self._download_document(page, entry)
@@ -202,6 +209,7 @@ class DocumentDeliveryPlaywrightService(
     def _sync_login_with_page(self, credential: Any, page: Page) -> str:
         """同步登录方法"""
         from apps.automation.services.scraper.sites.court_zxfw import CourtZxfwService
+
         court_service = CourtZxfwService(page=page, context=page.context, site_name=credential.site_name)
         max_retries = 3
         last_error: Exception | None = None
@@ -209,8 +217,10 @@ class DocumentDeliveryPlaywrightService(
             try:
                 logger.info(f"登录尝试 {attempt}/{max_retries}")
                 login_result = court_service.login(
-                    account=credential.account, password=credential.password,
-                    max_captcha_retries=3, save_debug=False,
+                    account=credential.account,
+                    password=credential.password,
+                    max_captcha_retries=3,
+                    save_debug=False,
                 )
                 if login_result.get("success"):
                     token = login_result.get("token")
@@ -223,6 +233,7 @@ class DocumentDeliveryPlaywrightService(
                 logger.warning(f"登录尝试 {attempt} 失败: {e!s}")
                 if attempt < max_retries:
                     import time
+
                     time.sleep(2)
         raise last_error or Exception("登录失败，已达最大重试次数")
 
@@ -274,9 +285,12 @@ class DocumentDeliveryPlaywrightService(
                 stack_trace=traceback.format_exc(),
             )
         AutomationLogger.log_document_query_statistics(
-            total_found=result.total_found, processed_count=result.processed_count,
-            skipped_count=result.skipped_count, failed_count=result.failed_count,
-            query_method="playwright", credential_id=credential_id,
+            total_found=result.total_found,
+            processed_count=result.processed_count,
+            skipped_count=result.skipped_count,
+            failed_count=result.failed_count,
+            query_method="playwright",
+            credential_id=credential_id,
         )
         return result
 

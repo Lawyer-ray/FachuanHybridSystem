@@ -7,11 +7,11 @@
 Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8
 """
 
-from django.utils.translation import gettext_lazy as _
 import logging
 from typing import Any
 
 from django.db import IntegrityError, transaction
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.documents.models import Placeholder

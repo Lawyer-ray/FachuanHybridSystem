@@ -62,20 +62,26 @@ class InsuranceQuoteInline(admin.TabularInline[InsuranceQuote, InsuranceQuote]):
 
         parts = []
         if obj.min_premium:
-            parts.append(format_html(
-                '最低收费: <span style="color: #28a745; font-weight: bold;">¥{}</span>',
-                f"{obj.min_premium:,.2f}",
-            ))
+            parts.append(
+                format_html(
+                    '最低收费: <span style="color: #28a745; font-weight: bold;">¥{}</span>',
+                    f"{obj.min_premium:,.2f}",
+                )
+            )
         if obj.min_amount:
-            parts.append(format_html(
-                '最低报价: <span style="color: #17a2b8; font-weight: bold;">¥{}</span>',
-                f"{obj.min_amount:,.2f}",
-            ))
+            parts.append(
+                format_html(
+                    '最低报价: <span style="color: #17a2b8; font-weight: bold;">¥{}</span>',
+                    f"{obj.min_amount:,.2f}",
+                )
+            )
         if obj.max_amount:
-            parts.append(format_html(
-                '最高收费: <span style="color: #dc3545; font-weight: bold;">¥{}</span>',
-                f"{obj.max_amount:,.2f}",
-            ))
+            parts.append(
+                format_html(
+                    '最高收费: <span style="color: #dc3545; font-weight: bold;">¥{}</span>',
+                    f"{obj.max_amount:,.2f}",
+                )
+            )
 
         if parts:
             return format_html_join("<br>", "{}", ((p,) for p in parts))
@@ -450,9 +456,7 @@ class PreservationQuoteAdmin(admin.ModelAdmin[PreservationQuote]):
         )
 
     @admin.action(description="执行选中的询价任务")
-    def execute_quotes(
-        self, request: HttpRequest, queryset: QuerySet[PreservationQuote]
-    ) -> None:
+    def execute_quotes(self, request: HttpRequest, queryset: QuerySet[PreservationQuote]) -> None:
         """批量执行询价任务"""
         try:
             service = _get_preservation_quote_admin_service()
@@ -473,9 +477,7 @@ class PreservationQuoteAdmin(admin.ModelAdmin[PreservationQuote]):
                 self.message_user(request, f"任务 #{error['quote_id']}: {error['error']}", level=messages.ERROR)
 
     @admin.action(description="重试失败的询价任务")
-    def retry_failed_quotes(
-        self, request: HttpRequest, queryset: QuerySet[PreservationQuote]
-    ) -> None:
+    def retry_failed_quotes(self, request: HttpRequest, queryset: QuerySet[PreservationQuote]) -> None:
         """重试失败的询价任务"""
         try:
             service = _get_preservation_quote_admin_service()
@@ -486,9 +488,7 @@ class PreservationQuoteAdmin(admin.ModelAdmin[PreservationQuote]):
         except Exception as e:
             self.message_user(request, f"❌ 重试失败: {e!s}", level=messages.ERROR)
 
-    def has_delete_permission(
-        self, request: HttpRequest, obj: PreservationQuote | None = None
-    ) -> bool:
+    def has_delete_permission(self, request: HttpRequest, obj: PreservationQuote | None = None) -> bool:
         """允许删除"""
         return True
 

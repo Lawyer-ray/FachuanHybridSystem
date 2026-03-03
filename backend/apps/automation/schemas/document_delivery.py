@@ -42,6 +42,7 @@ class DocumentDeliveryRecord:
         # 如果 send_time 仍然是 None，使用当前时间作为默认值
         if send_time is None:
             from django.utils import timezone
+
             send_time = timezone.now()
 
         # 确保字符串字段的类型安全

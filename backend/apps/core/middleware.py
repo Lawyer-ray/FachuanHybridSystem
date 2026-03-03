@@ -7,10 +7,10 @@
 import logging
 import os
 import time
+from collections.abc import Callable
 
 from django.conf import settings
 from django.http import HttpRequest, HttpResponse
-from collections.abc import Callable
 
 
 class RequestMetricsMiddleware:

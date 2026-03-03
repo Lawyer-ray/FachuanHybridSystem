@@ -9,8 +9,8 @@ if TYPE_CHECKING:
     from apps.documents.services.generation.outputs import ComplaintOutput, DefenseOutput
 
 from apps.core.enums import LegalStatus
-from apps.documents.services.placeholders import EnhancedContextBuilder
 from apps.documents.services.infrastructure.wiring import get_case_service
+from apps.documents.services.placeholders import EnhancedContextBuilder
 from apps.litigation_ai.placeholders.spec import LitigationPlaceholderKeys
 
 logger = logging.getLogger("apps.documents.generation")
@@ -73,7 +73,7 @@ class LitigationContextBuilder:
             LitigationPlaceholderKeys.COURT,
             LitigationPlaceholderKeys.COMPLAINT_SIGNATURE,
         ]
-        context = self.enhanced_context_builder.build_context(context_data, required_placeholders=required) # type: ignore[no-any-return]
+        context = self.enhanced_context_builder.build_context(context_data, required_placeholders=required)  # type: ignore[no-any-return]
         context.update(
             {
                 LitigationPlaceholderKeys.VARIABLE_LITIGATION_REQUEST: self.convert_to_paragraphs(
@@ -98,7 +98,7 @@ class LitigationContextBuilder:
             LitigationPlaceholderKeys.COURT,
             LitigationPlaceholderKeys.DEFENSE_SIGNATURE,
         ]
-        context = self.enhanced_context_builder.build_context(context_data, required_placeholders=required) # type: ignore[no-any-return]
+        context = self.enhanced_context_builder.build_context(context_data, required_placeholders=required)  # type: ignore[no-any-return]
         context.update(
             {
                 LitigationPlaceholderKeys.VARIABLE_DEFENSE_OPINION: llm_result.defense_opinion,

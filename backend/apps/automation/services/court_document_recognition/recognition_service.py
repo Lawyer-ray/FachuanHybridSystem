@@ -6,10 +6,11 @@
 Requirements: 4.5, 4.6, 4.7, 6.2, 7.1, 7.2, 7.3, 8.1, 8.2, 8.3, 8.4
 """
 
-from django.utils.translation import gettext_lazy as _
 import logging
 from datetime import date
 from typing import Any
+
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import RecognitionTimeoutError, ServiceUnavailableError, ValidationException
 
@@ -149,15 +150,18 @@ class CourtDocumentRecognitionService:
             )
         elif doc_type == DocumentType.OTHER:
             binding = BindingResult.failure_result(
-                message=_("暂时只支持传票识别，其他文书类型敬请期待"), error_code="UNSUPPORTED_DOCUMENT_TYPE" # type: ignore
+                message=_("暂时只支持传票识别，其他文书类型敬请期待"),
+                error_code="UNSUPPORTED_DOCUMENT_TYPE",  # type: ignore
             )
         elif doc_type == DocumentType.EXECUTION_RULING:
             binding = BindingResult.failure_result(
-                message=_("执行裁定书绑定功能开发中，敬请期待"), error_code="FEATURE_NOT_IMPLEMENTED" # type: ignore
+                message=_("执行裁定书绑定功能开发中，敬请期待"),
+                error_code="FEATURE_NOT_IMPLEMENTED",  # type: ignore
             )
         else:
             binding = BindingResult.failure_result(
-                message=_("未识别到案号，无法绑定案件"), error_code="CASE_NUMBER_NOT_FOUND" # type: ignore
+                message=_("未识别到案号，无法绑定案件"),
+                error_code="CASE_NUMBER_NOT_FOUND",  # type: ignore
             )
         return binding, renamed_file_path
 
@@ -190,7 +194,7 @@ class CourtDocumentRecognitionService:
                         extraction_method=extraction_result.extraction_method,
                     ),
                     binding=BindingResult.failure_result(
-                        message=_("无法从文书中提取文字"), # type: ignore
+                        message=_("无法从文书中提取文字"),  # type: ignore
                         error_code="TEXT_EXTRACTION_FAILED",
                     ),
                     file_path=file_path,
@@ -212,14 +216,17 @@ class CourtDocumentRecognitionService:
                 doc_type, case_number, key_time, file_path, extraction_result.text, user
             )
 
-            logger.info("文书识别完成", extra={
-                "action": "recognize_document",
-                "file_path": file_path,
-                "renamed_file_path": renamed_file_path,
-                "document_type": doc_type.value,
-                "case_number": case_number,
-                "binding_success": binding.success if binding else None,
-            })
+            logger.info(
+                "文书识别完成",
+                extra={
+                    "action": "recognize_document",
+                    "file_path": file_path,
+                    "renamed_file_path": renamed_file_path,
+                    "document_type": doc_type.value,
+                    "case_number": case_number,
+                    "binding_success": binding.success if binding else None,
+                },
+            )
 
             return RecognitionResponse(recognition=recognition, binding=binding, file_path=renamed_file_path)
 

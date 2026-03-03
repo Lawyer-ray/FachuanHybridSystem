@@ -36,9 +36,7 @@ class RecordingService:
 
     def get_recording(self, *, user: User, recording_id: str) -> ChatRecordRecording:
         try:
-            recording: ChatRecordRecording = (
-                ChatRecordRecording.objects.select_related("project").get(id=recording_id)
-            )
+            recording: ChatRecordRecording = ChatRecordRecording.objects.select_related("project").get(id=recording_id)
         except ChatRecordRecording.DoesNotExist:
             raise NotFoundError(f"录屏 {recording_id} 不存在") from None
         ensure_can_access_project(user=user, project=recording.project)

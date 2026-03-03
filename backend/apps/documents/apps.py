@@ -1,6 +1,7 @@
 """Django app configuration."""
 
 from __future__ import annotations
+
 import logging
 import sys
 from typing import Any
@@ -25,9 +26,9 @@ class DocumentsConfig(AppConfig):
         autodiscover_code_placeholders()
 
         # 注册信号处理器（包含缓存失效逻辑）
-        from . import signals  # noqa: F401
-
         from django.db.models.signals import post_migrate
+
+        from . import signals
 
         post_migrate.connect(self._on_post_migrate, sender=self)
 
@@ -56,6 +57,6 @@ class DocumentsConfig(AppConfig):
                 if created > 0:
                     logger.info("✅ 成功初始化 %d 个默认文件夹模板", created)
             else:
-                logger.warning("文件夹模板初始化失败: %s", result.get('error', '未知错误'))
+                logger.warning("文件夹模板初始化失败: %s", result.get("error", "未知错误"))
         except Exception as e:
             logger.warning("文件夹模板自动初始化跳过: %s", e)

@@ -73,7 +73,7 @@ class SMSRenamingStage(BaseSMSStage):
         return "重命名"
 
     def can_process(self, sms: CourtSMS) -> bool:
-        return cast(bool, sms.status == CourtSMSStatus.RENAMING) # type: ignore
+        return cast(bool, sms.status == CourtSMSStatus.RENAMING)  # type: ignore
 
     def process(self, sms: CourtSMS) -> CourtSMS:
         """处理文书重命名阶段"""
@@ -169,7 +169,7 @@ class SMSRenamingStage(BaseSMSStage):
                 logger.error("未找到管理员用户")
                 return False
 
-            user = self.lawyer_service.get_lawyer_internal(admin.id) # type: ignore
+            user = self.lawyer_service.get_lawyer_internal(admin.id)  # type: ignore
             case_log = case_log_service.create_log(
                 case_id=sms.case.id,
                 content=f"收到法院短信：{sms.content}",
@@ -208,7 +208,7 @@ class SMSRenamingStage(BaseSMSStage):
         # 同步到案件
         if case_numbers:
             self.case_number_extractor.sync_to_case(
-                case_id=sms.case.id, # type: ignore
+                case_id=sms.case.id,  # type: ignore
                 case_numbers=case_numbers,
                 sms_id=sms.id,
             )

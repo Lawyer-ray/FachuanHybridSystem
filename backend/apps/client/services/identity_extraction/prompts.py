@@ -2,9 +2,10 @@
 证件信息提取的 Ollama 提示词模板
 """
 
+from django.utils.translation import gettext_lazy as _
+
 from apps.client.models import ClientIdentityDoc
 from apps.core.exceptions import ValidationException
-from django.utils.translation import gettext_lazy as _
 
 # 身份证提示词模板
 ID_CARD_PROMPT = """
@@ -226,4 +227,3 @@ def get_prompt_for_doc_type(doc_type: str, raw_text: str = "") -> str:
         )
 
     return PROMPT_MAPPING[doc_type]
-

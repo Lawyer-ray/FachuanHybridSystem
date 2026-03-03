@@ -1,4 +1,5 @@
 from pathlib import Path
+
 from apps.documents.services.pdf_utils import _read_source_bytes
 
 

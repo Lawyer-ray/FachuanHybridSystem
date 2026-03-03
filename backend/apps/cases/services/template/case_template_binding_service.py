@@ -6,12 +6,12 @@
 
 from __future__ import annotations
 
-from django.utils.translation import gettext_lazy as _
 import logging
 from collections import defaultdict
 from typing import TYPE_CHECKING, Any, cast
 
 from django.db import transaction
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ConflictError
 
@@ -30,7 +30,7 @@ class CaseTemplateBindingService:
 
     def __init__(
         self,
-        document_service: "IDocumentService | None" = None,
+        document_service: IDocumentService | None = None,
         match_policy: CaseTemplateMatchPolicy | None = None,
         assembler: TemplateBindingAssembler | None = None,
         repo: CaseTemplateBindingRepo | None = None,
@@ -41,7 +41,7 @@ class CaseTemplateBindingService:
         self._repo = repo or CaseTemplateBindingRepo()
 
     @property
-    def document_service(self) -> "IDocumentService":
+    def document_service(self) -> IDocumentService:
         if self._document_service is None:
             raise RuntimeError("CaseTemplateBindingService.document_service 未注入")
         return self._document_service

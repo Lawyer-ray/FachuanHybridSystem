@@ -35,7 +35,7 @@ class ClientPaymentRecordAdminForm(forms.ModelForm[ClientPaymentRecord]):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        
+
         # 如果是编辑模式，根据已有的 contract_id 过滤案件
         if self.instance and self.instance.pk and self.instance.contract_id:
             from apps.cases.models import Case
@@ -80,7 +80,7 @@ class ClientPaymentRecordAdminForm(forms.ModelForm[ClientPaymentRecord]):
             from apps.contracts.services.client_payment import ClientPaymentImageService
 
             image_service = ClientPaymentImageService()
-            
+
             # 删除旧图片
             if instance.pk and instance.image_path:
                 image_service.delete_image(instance.image_path)
@@ -176,7 +176,7 @@ class ClientPaymentRecordAdmin(admin.ModelAdmin[ClientPaymentRecord]):
 
     def save_model(self, request: HttpRequest, obj: ClientPaymentRecord, form: Any, change: bool) -> None:
         """保存模型时调用 Service 层验证"""
-        from apps.contracts.services.client_payment import ClientPaymentRecordService, ClientPaymentImageService
+        from apps.contracts.services.client_payment import ClientPaymentImageService, ClientPaymentRecordService
 
         service = ClientPaymentRecordService()
         uploaded_file = form.cleaned_data.get("image")
@@ -193,7 +193,7 @@ class ClientPaymentRecordAdmin(admin.ModelAdmin[ClientPaymentRecord]):
             # 更新实例 ID
             obj.pk = created.pk
             obj.id = created.id
-            
+
             # 处理图片上传
             if uploaded_file:
                 image_service = ClientPaymentImageService()
@@ -209,7 +209,7 @@ class ClientPaymentRecordAdmin(admin.ModelAdmin[ClientPaymentRecord]):
                 case_id=case_id,
                 note=obj.note,
             )
-            
+
             # 处理图片上传
             if uploaded_file:
                 image_service = ClientPaymentImageService()
@@ -228,7 +228,9 @@ class ClientPaymentRecordAdmin(admin.ModelAdmin[ClientPaymentRecord]):
         service = ClientPaymentRecordService()
         service.delete_payment_record(obj.id)
 
-    def delete_queryset(self, request: HttpRequest, queryset: QuerySet[ClientPaymentRecord, ClientPaymentRecord]) -> None:
+    def delete_queryset(
+        self, request: HttpRequest, queryset: QuerySet[ClientPaymentRecord, ClientPaymentRecord]
+    ) -> None:
         """批量删除时调用 Service 层"""
         from apps.contracts.services.client_payment import ClientPaymentRecordService
 

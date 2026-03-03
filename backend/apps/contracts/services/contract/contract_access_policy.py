@@ -133,9 +133,7 @@ class ContractAccessPolicy(OrgAllowedLawyersMixin):
             message=message,
         )
 
-    def filter_queryset_ctx(
-        self, qs: QuerySet[Contract, Contract], ctx: AccessContext
-    ) -> QuerySet[Contract, Contract]:
+    def filter_queryset_ctx(self, qs: QuerySet[Contract, Contract], ctx: AccessContext) -> QuerySet[Contract, Contract]:
         return self.filter_queryset(
             qs=qs, user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access
         )

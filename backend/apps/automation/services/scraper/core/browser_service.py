@@ -74,7 +74,7 @@ class BrowserService:
             if not headless:
                 launch_options["slow_mo"] = 500
 
-            self._browser = self._playwright.chromium.launch(**launch_options) # type: ignore
+            self._browser = self._playwright.chromium.launch(**launch_options)  # type: ignore
             logger.info(f"浏览器启动成功（{mode}模式）")
         return self._browser
 
@@ -166,7 +166,7 @@ class BrowserServiceAdapter(IBrowserService):
         """
         return self.service.get_browser()
 
-    def close_browser(self) -> None: # type: ignore
+    def close_browser(self) -> None:  # type: ignore
         """
         关闭浏览器（同步版本）
         """

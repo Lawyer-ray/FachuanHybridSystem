@@ -5,16 +5,15 @@
 
 from __future__ import annotations
 
+from django.http import HttpRequest
 from ninja import File, Router
 from ninja.files import UploadedFile
-from django.http import HttpRequest
-from apps.organization.api._utils import get_request_user
 
+from apps.core.auth import JWTOrSessionAuth
+from apps.organization.api._utils import get_request_user
 from apps.organization.dtos import LawyerCreateDTO, LawyerListFiltersDTO, LawyerUpdateDTO
 from apps.organization.schemas import LawyerCreateIn, LawyerOut, LawyerUpdateIn
 from apps.organization.services import LawyerService
-
-from apps.core.auth import JWTOrSessionAuth
 
 router = Router(auth=JWTOrSessionAuth())
 

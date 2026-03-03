@@ -1,13 +1,13 @@
 """Business logic services."""
 
 from __future__ import annotations
-from django.utils.translation import gettext_lazy as _
 
 import contextlib
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.db import transaction
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ValidationException
 

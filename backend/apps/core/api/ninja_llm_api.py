@@ -19,7 +19,6 @@ from apps.core.infrastructure.throttling import rate_limit_from_settings
 from .llm_common import achat_with_context as achat_with_context_impl
 from .llm_common import get_conversation_history as get_conversation_history_impl
 
-
 logger = logging.getLogger(__name__)
 
 # 创建 LLM 路由
@@ -152,4 +151,3 @@ def get_conversation_history(request: Any, session_id: str) -> Any:
     ]
 
     return ConversationHistoryResponse(session_id=session_id, messages=messages)
-

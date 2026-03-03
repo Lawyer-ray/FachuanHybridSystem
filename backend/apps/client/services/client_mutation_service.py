@@ -26,8 +26,13 @@ logger = logging.getLogger("apps.client")
 class ClientMutationService:
     _VALID_CLIENT_TYPES: list[str] = [Client.NATURAL, Client.LEGAL, Client.NON_LEGAL_ORG]
     _UPDATABLE_FIELDS: set[str] = {
-        "name", "phone", "address", "client_type",
-        "id_number", "legal_representative", "legal_representative_id_number",
+        "name",
+        "phone",
+        "address",
+        "client_type",
+        "id_number",
+        "legal_representative",
+        "legal_representative_id_number",
         "is_our_client",
     }
 

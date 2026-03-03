@@ -1,7 +1,8 @@
 """Business logic services."""
 
-from django.utils.translation import gettext_lazy as _
 from typing import Any
+
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ValidationException
 from apps.core.path import Path

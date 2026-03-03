@@ -6,6 +6,7 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, cast
 
 from django.db import models, transaction
+from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import (
     CaseMaterial,
@@ -15,8 +16,6 @@ from apps.cases.models import (
     CaseMaterialType,
     CaseParty,
 )
-from django.utils.translation import gettext_lazy as _
-
 from apps.core.exceptions import ValidationException
 
 if TYPE_CHECKING:
@@ -104,6 +103,7 @@ class CaseMaterialService:
                 perm_open_access=perm_open_access,
             ),
         )
+
     def get_used_type_ids(self, case_id: int) -> set[int]:
         """获取案件已使用的材料类型 ID 集合。"""
         return cast(
@@ -126,7 +126,6 @@ class CaseMaterialService:
                 used_type_ids=used_type_ids,
             ),
         )
-
 
     def save_group_order(
         self,
@@ -198,7 +197,7 @@ class CaseMaterialService:
                 output_field=models.IntegerField(),
             )
         )
-        t = qs.first() # type: ignore
+        t = qs.first()  # type: ignore
         if t:
             return t
 
@@ -255,10 +254,10 @@ class CaseMaterialService:
         ordered_ids = order_map.get(key, [])
 
         ordered: list[dict[str, Any]] = []
-        remaining = dict[str, Any](groups_by_type_id) # type: ignore
+        remaining = dict[str, Any](groups_by_type_id)  # type: ignore
 
         for tid in ordered_ids:
-            g = remaining.pop(tid, None) # type: ignore
+            g = remaining.pop(tid, None)  # type: ignore
             if g:
                 ordered.append(g)
 

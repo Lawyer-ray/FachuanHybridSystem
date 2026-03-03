@@ -53,6 +53,4 @@ def build_contract_folder_binding_service() -> IContractFolderBindingService:
 
     from .documents_query import build_document_template_binding_service
 
-    return FolderBindingService(
-        document_template_binding_service=build_document_template_binding_service()
-    )
+    return FolderBindingService(document_template_binding_service=build_document_template_binding_service())

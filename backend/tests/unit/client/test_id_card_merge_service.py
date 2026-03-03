@@ -58,9 +58,9 @@ class TestPerspectiveTransform:
         min_ratio = self.expected_ratio * (1 - self.tolerance)
         max_ratio = self.expected_ratio * (1 + self.tolerance)
 
-        assert min_ratio <= actual_ratio <= max_ratio, (
-            f"宽高比 {actual_ratio:.4f} 不在允许范围 [{min_ratio:.4f}, {max_ratio:.4f}] 内"
-        )
+        assert (
+            min_ratio <= actual_ratio <= max_ratio
+        ), f"宽高比 {actual_ratio:.4f} 不在允许范围 [{min_ratio:.4f}, {max_ratio:.4f}] 内"
 
     def test_perspective_transform_standard_rectangle(self):
         """测试标准矩形的透视变换

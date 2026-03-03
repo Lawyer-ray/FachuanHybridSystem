@@ -89,7 +89,6 @@ class TemplateAuditLogAdmin(admin.ModelAdmin[TemplateAuditLog]):
             text = text[:50] + "..."
         return text
 
-
     @admin.display(description=_("变更详情"))
     def changes_display(self, obj: TemplateAuditLog) -> Any:
         """格式化显示变更内容"""
@@ -135,4 +134,3 @@ class TemplateAuditLogAdmin(admin.ModelAdmin[TemplateAuditLog]):
             _("新值"),
             rows_html,
         )
-

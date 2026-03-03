@@ -6,11 +6,12 @@
 
 from __future__ import annotations
 
-from django.utils.translation import gettext_lazy as _
 import logging
 import time
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
+
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ValidationException
 from apps.core.path import Path
@@ -38,7 +39,7 @@ class BaseGenerator(ABC):
     category: str = "general"  # 分类:litigation, non_litigation, general
     template_type: str = "contract"  # 模板类型:contract, case, authorization
 
-    def __init__(self, context_builder: "ContextBuilder" | None = None) -> None:
+    def __init__(self, context_builder: ContextBuilder | None = None) -> None:
         """
         初始化生成器
 
@@ -48,7 +49,7 @@ class BaseGenerator(ABC):
         self._context_builder = context_builder
 
     @property
-    def context_builder(self) -> "ContextBuilder":
+    def context_builder(self) -> ContextBuilder:
         """获取上下文构建器,支持延迟加载"""
         if self._context_builder is None:
             from .context_builder import ContextBuilder

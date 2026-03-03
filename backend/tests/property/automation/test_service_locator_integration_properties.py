@@ -243,17 +243,17 @@ class TestServiceLocatorAutomationIntegrationProperties:
         # 验证ServiceLocator具有所有必需的automation服务获取方法
         assert hasattr(ServiceLocator, "get_captcha_service"), "ServiceLocator应有get_captcha_service方法"
         assert hasattr(ServiceLocator, "get_token_service"), "ServiceLocator应有get_token_service方法"
-        assert hasattr(ServiceLocator, "get_auto_token_acquisition_service"), (
-            "ServiceLocator应有get_auto_token_acquisition_service方法"
-        )
+        assert hasattr(
+            ServiceLocator, "get_auto_token_acquisition_service"
+        ), "ServiceLocator应有get_auto_token_acquisition_service方法"
         assert hasattr(ServiceLocator, "get_court_document_service"), "ServiceLocator应有get_court_document_service方法"
         assert hasattr(ServiceLocator, "get_monitor_service"), "ServiceLocator应有get_monitor_service方法"
 
         # 验证方法可调用
         assert callable(ServiceLocator.get_captcha_service), "get_captcha_service方法应可调用"
         assert callable(ServiceLocator.get_token_service), "get_token_service方法应可调用"
-        assert callable(ServiceLocator.get_auto_token_acquisition_service), (
-            "get_auto_token_acquisition_service方法应可调用"
-        )
+        assert callable(
+            ServiceLocator.get_auto_token_acquisition_service
+        ), "get_auto_token_acquisition_service方法应可调用"
         assert callable(ServiceLocator.get_court_document_service), "get_court_document_service方法应可调用"
         assert callable(ServiceLocator.get_monitor_service), "get_monitor_service方法应可调用"

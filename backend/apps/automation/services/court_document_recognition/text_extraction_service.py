@@ -7,13 +7,14 @@
 Requirements: 3.1, 3.2, 3.3, 3.4, 3.5
 """
 
-from django.utils.translation import gettext_lazy as _
+import contextlib
 import logging
 from dataclasses import dataclass
 from pathlib import Path
 
+from django.utils.translation import gettext_lazy as _
+
 from apps.core.exceptions import ValidationException
-import contextlib
 
 logger = logging.getLogger(__name__)
 

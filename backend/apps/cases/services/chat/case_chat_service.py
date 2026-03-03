@@ -19,15 +19,15 @@
 """
 
 from __future__ import annotations
-from django.utils.translation import gettext_lazy as _
 
 import logging
 from typing import Any, cast
 
-from apps.core.exceptions import ChatCreationException, MessageSendException
+from django.utils.translation import gettext_lazy as _
+
 from apps.cases.services.case.case_access_policy import CaseAccessPolicy
 from apps.core.enums import ChatPlatform
-from apps.core.exceptions import ValidationException
+from apps.core.exceptions import ChatCreationException, MessageSendException, ValidationException
 from apps.core.security import AccessContext
 
 from .naming import ChatNameBuilder
@@ -145,7 +145,10 @@ class CaseChatService:
             )
             logger.info(
                 "群聊创建成功: case_id=%s, chat_id=%s, platform=%s, name=%s",
-                case_id, result.chat_id, platform.value, case_chat.name,
+                case_id,
+                result.chat_id,
+                platform.value,
+                case_chat.name,
             )
             return case_chat
         except ChatCreationException:
@@ -258,11 +261,15 @@ class CaseChatService:
         """
         logger.info(
             "发送文书通知: case_id=%s, platform=%s, file_count=%s",
-            case_id, platform.value, len(document_paths) if document_paths else 0,
+            case_id,
+            platform.value,
+            len(document_paths) if document_paths else 0,
         )
         if not sms_content or not sms_content.strip():
             raise ValidationException(
-                message=_("短信内容不能为空"), code="INVALID_SMS_CONTENT", errors={"sms_content": str(_("短信内容为必填项"))}
+                message=_("短信内容不能为空"),
+                code="INVALID_SMS_CONTENT",
+                errors={"sms_content": str(_("短信内容为必填项"))},
             )
         case = self.repo.get_case(case_id=case_id)
         self._require_case_access(case, user=user, org_access=org_access, perm_open_access=perm_open_access, ctx=ctx)
@@ -389,7 +396,10 @@ class CaseChatService:
             )
             logger.info(
                 "群聊绑定成功: case_id=%s, chat_id=%s, platform=%s, name=%s",
-                case_id, chat_id, platform.value, chat_name,
+                case_id,
+                chat_id,
+                platform.value,
+                chat_name,
             )
             return case_chat
         except ValidationException:

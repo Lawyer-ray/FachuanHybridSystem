@@ -10,6 +10,7 @@ from ninja.files import UploadedFile
 
 from apps.automation.schemas import MoonshotChatIn, MoonshotChatOut, OllamaChatIn, OllamaChatOut
 from apps.core.infrastructure.throttling import rate_limit_from_settings
+
 from .performance_monitor_api import router as performance_router
 
 router = Router(tags=["Main API"])

@@ -9,12 +9,8 @@ from django.utils.translation import gettext_lazy as _
 class LPRRate(models.Model):
     id: int
     effective_date = models.DateField(unique=True, verbose_name=_("生效日期"))
-    rate_1y = models.DecimalField(
-        max_digits=5, decimal_places=2, verbose_name=_("一年期LPR(%)")
-    )
-    rate_5y = models.DecimalField(
-        max_digits=5, decimal_places=2, verbose_name=_("五年期LPR(%)")
-    )
+    rate_1y = models.DecimalField(max_digits=5, decimal_places=2, verbose_name=_("一年期LPR(%)"))
+    rate_5y = models.DecimalField(max_digits=5, decimal_places=2, verbose_name=_("五年期LPR(%)"))
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
     updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
 

@@ -3,6 +3,7 @@
 from typing import Any
 
 from apps.core.config.exceptions import ConfigValidationError
+
 from .field import ConfigField
 
 
@@ -19,11 +20,7 @@ class ConfigSchema:
         return self._fields.get(key)
 
     def validate_and_raise(self, config: dict[str, Any]) -> None:
-        errors = [
-            f"缺少必填配置项: {f.name}"
-            for f in self._fields.values()
-            if f.required and f.name not in config
-        ]
+        errors = [f"缺少必填配置项: {f.name}" for f in self._fields.values() if f.required and f.name not in config]
         if errors:
             raise ConfigValidationError(errors)
 

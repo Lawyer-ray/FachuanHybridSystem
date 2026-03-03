@@ -16,7 +16,8 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-from hypothesis import given, settings as h_settings
+from hypothesis import given
+from hypothesis import settings as h_settings
 from hypothesis import strategies as st
 
 logger = logging.getLogger(__name__)
@@ -155,9 +156,7 @@ class TestParseBoolBehavior:
 
         result = LLMConfig._parse_bool(value, default)
         expected = _expected_parse_bool(value, default)
-        assert result == expected, (
-            f"_parse_bool({value!r}, {default!r}) = {result!r}, expected {expected!r}"
-        )
+        assert result == expected, f"_parse_bool({value!r}, {default!r}) = {result!r}, expected {expected!r}"
 
 
 # ==================== Property 4: _parse_int 行为保持 ====================
@@ -200,9 +199,7 @@ class TestParseIntBehavior:
 
         result = LLMConfig._parse_int(value, default)
         expected = _expected_parse_int(value, default)
-        assert result == expected, (
-            f"_parse_int({value!r}, {default!r}) = {result!r}, expected {expected!r}"
-        )
+        assert result == expected, f"_parse_int({value!r}, {default!r}) = {result!r}, expected {expected!r}"
 
 
 # ==================== 7.5 单元测试验证所有验收标准 ====================
@@ -225,9 +222,7 @@ class TestAcceptanceCriteria:
             # 允许 Django 内置方法（如 get_xxx_display），但不允许自定义业务方法
             if attr is not None:
                 # 确认不是在 SystemConfig 自身定义的
-                assert method_name not in SystemConfig.__dict__, (
-                    f"SystemConfig 不应包含业务方法 {method_name}"
-                )
+                assert method_name not in SystemConfig.__dict__, f"SystemConfig 不应包含业务方法 {method_name}"
 
     def test_legacy_files_deleted(self) -> None:
         """exceptions_types.py、health.py、models.py（根文件）不存在"""
@@ -248,9 +243,7 @@ class TestAcceptanceCriteria:
 
         # AST 检查：不存在名为 PerformanceMonitoringMiddleware 的类定义
         tree = ast.parse(source)
-        class_names = [
-            node.name for node in ast.walk(tree) if isinstance(node, ast.ClassDef)
-        ]
+        class_names = [node.name for node in ast.walk(tree) if isinstance(node, ast.ClassDef)]
         assert "PerformanceMonitoringMiddleware" not in class_names, (
             "middleware.py 不应包含 PerformanceMonitoringMiddleware 类"
         )
@@ -260,18 +253,14 @@ class TestAcceptanceCriteria:
         from apps.core.llm.config import LLMConfig
 
         attr = inspect.getattr_static(LLMConfig, "_parse_bool")
-        assert isinstance(attr, classmethod), (
-            f"_parse_bool 应为 classmethod，实际为 {type(attr).__name__}"
-        )
+        assert isinstance(attr, classmethod), f"_parse_bool 应为 classmethod，实际为 {type(attr).__name__}"
 
     def test_parse_int_is_classmethod(self) -> None:
         """_parse_int 是 classmethod"""
         from apps.core.llm.config import LLMConfig
 
         attr = inspect.getattr_static(LLMConfig, "_parse_int")
-        assert isinstance(attr, classmethod), (
-            f"_parse_int 应为 classmethod，实际为 {type(attr).__name__}"
-        )
+        assert isinstance(attr, classmethod), f"_parse_int 应为 classmethod，实际为 {type(attr).__name__}"
 
     def test_checker_class_has_staticmethod_comment(self) -> None:
         """_checker_class.py 中 staticmethod 赋值处有说明注释"""
@@ -284,11 +273,7 @@ class TestAcceptanceCriteria:
         assert "staticmethod(" in source, "_checker_class.py 应包含 staticmethod() 赋值"
 
         # 验证在 staticmethod 赋值附近有 NOTE 注释
-        assert "NOTE:" in source or "NOTE：" in source, (
-            "_checker_class.py 的 staticmethod 赋值处应有 NOTE 注释说明"
-        )
+        assert "NOTE:" in source or "NOTE：" in source, "_checker_class.py 的 staticmethod 赋值处应有 NOTE 注释说明"
 
         # 验证注释内容提到基础设施层
-        assert "基础设施" in source or "infrastructure" in source.lower(), (
-            "注释应说明基础设施层允许使用 staticmethod"
-        )
+        assert "基础设施" in source or "infrastructure" in source.lower(), "注释应说明基础设施层允许使用 staticmethod"

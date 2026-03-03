@@ -11,7 +11,11 @@ from tests.factories.organization_factories import LawyerFactory
 class TestContractMutationFacadeAdminOps:
     def _build_contract_service(self):
         from apps.client.services import ClientServiceAdapter
-        from apps.contracts.services import ContractPaymentService, ContractService, SupplementaryAgreementService  # type: ignore[attr-defined]
+        from apps.contracts.services import (  # type: ignore[attr-defined]
+            ContractPaymentService,
+            ContractService,
+            SupplementaryAgreementService,
+        )
         from apps.contracts.services.assignment.lawyer_assignment_service import LawyerAssignmentService
 
         case_service = ServiceLocator.get_case_service()

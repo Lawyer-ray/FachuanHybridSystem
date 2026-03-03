@@ -3,7 +3,6 @@
 负责处理财产保全询价的复杂管理逻辑
 """
 
-from django.utils.translation import gettext_lazy as _
 import asyncio
 import logging
 from datetime import timedelta
@@ -13,11 +12,11 @@ from typing import Any
 from django.db import transaction
 from django.db.models import Avg, Count, Max, Min, Q
 from django.utils import timezone
-
-from apps.core.exceptions import BusinessException, NotFoundError, ValidationException
-from apps.core.interfaces import ServiceLocator
+from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import InsuranceQuote, PreservationQuote, QuoteItemStatus, QuoteStatus
+from apps.core.exceptions import BusinessException, NotFoundError, ValidationException
+from apps.core.interfaces import ServiceLocator
 
 
 class PreservationQuoteAdminService:
@@ -468,9 +467,9 @@ class PreservationQuoteAdminService:
                 ) from e
 
             # 获取所有成功的报价
-            successful_quotes = quote.quotes.filter(
-                status=QuoteItemStatus.SUCCESS, min_amount__isnull=False
-            ).order_by("min_amount")
+            successful_quotes = quote.quotes.filter(status=QuoteItemStatus.SUCCESS, min_amount__isnull=False).order_by(
+                "min_amount"
+            )
 
             if not successful_quotes.exists():
                 return {

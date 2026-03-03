@@ -8,12 +8,12 @@ from typing import TYPE_CHECKING, Any
 
 from django.utils.translation import gettext_lazy as _
 
+from apps.client.services.client_admin_file_mixin import _DOC_TYPE_DISPLAY, ClientAdminFileMixin
 from apps.core.exceptions import ValidationException
-
-from apps.client.services.client_admin_file_mixin import ClientAdminFileMixin, _DOC_TYPE_DISPLAY
 
 if TYPE_CHECKING:
     from apps.client.models import Client
+
     from .client_identity_doc_service import ClientIdentityDocService
     from .client_internal_query_service import ClientInternalQueryService
 
@@ -34,14 +34,14 @@ class ClientAdminService(ClientAdminFileMixin):
 
     def __init__(
         self,
-        identity_doc_service: "ClientIdentityDocService | None" = None,
-        internal_query_service: "ClientInternalQueryService | None" = None,
+        identity_doc_service: ClientIdentityDocService | None = None,
+        internal_query_service: ClientInternalQueryService | None = None,
     ) -> None:
         self._identity_doc_service = identity_doc_service
         self._internal_query_service = internal_query_service
 
     @property
-    def identity_doc_service(self) -> "ClientIdentityDocService":
+    def identity_doc_service(self) -> ClientIdentityDocService:
         """延迟获取 ClientIdentityDocService"""
         if self._identity_doc_service is None:
             from .client_identity_doc_service import ClientIdentityDocService
@@ -50,7 +50,7 @@ class ClientAdminService(ClientAdminFileMixin):
         return self._identity_doc_service
 
     @property
-    def internal_query_service(self) -> "ClientInternalQueryService":
+    def internal_query_service(self) -> ClientInternalQueryService:
         """延迟获取 ClientInternalQueryService"""
         if self._internal_query_service is None:
             from .client_internal_query_service import ClientInternalQueryService
@@ -102,7 +102,7 @@ class ClientAdminService(ClientAdminFileMixin):
             return False
         return bool(form_data.get("file_path") or form_data.get("uploaded_file"))
 
-    def _process_single_form(self, client: "Client", form_data: dict[str, Any], admin_user: str) -> dict[str, Any] | None:
+    def _process_single_form(self, client: Client, form_data: dict[str, Any], admin_user: str) -> dict[str, Any] | None:
         """处理单个表单项。"""
         doc_type = form_data.get("doc_type")
         if not doc_type:

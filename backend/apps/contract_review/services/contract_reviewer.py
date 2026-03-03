@@ -218,9 +218,7 @@ class ContractReviewer:
             return ""
 
     @staticmethod
-    def _build_revision_prompt(
-        text: str, represented_party: str, party_a: str, party_b: str
-    ) -> str:
+    def _build_revision_prompt(text: str, represented_party: str, party_a: str, party_b: str) -> str:
         party_label = _PARTY_LABELS.get(represented_party, "甲方")
         party_name = party_a if represented_party == "party_a" else party_b
         return (
@@ -244,9 +242,7 @@ class ContractReviewer:
         )
 
     @staticmethod
-    def _build_report_prompt(
-        text: str, represented_party: str, party_a: str, party_b: str
-    ) -> str:
+    def _build_report_prompt(text: str, represented_party: str, party_a: str, party_b: str) -> str:
         party_label = _PARTY_LABELS.get(represented_party, "甲方")
         party_name = party_a if represented_party == "party_a" else party_b
         return (
@@ -288,11 +284,7 @@ class ContractReviewer:
 
         results: list[ReviewResult] = []
         for item in data:
-            if (
-                isinstance(item, dict)
-                and "original" in item
-                and "suggested" in item
-            ):
+            if isinstance(item, dict) and "original" in item and "suggested" in item:
                 results.append(
                     ReviewResult(
                         original=str(item["original"]),

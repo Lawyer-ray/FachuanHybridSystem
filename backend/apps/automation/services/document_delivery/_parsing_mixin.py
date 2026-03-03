@@ -53,6 +53,7 @@ class DocumentDeliveryParsingMixin:
             return None
         try:
             from django.utils import timezone
+
             naive_time = datetime.strptime(send_time_str, "%Y-%m-%d %H:%M:%S")
             send_time = timezone.make_aware(naive_time)
             logger.info(f"条目 {index} 时间解析成功: {send_time_str} -> {send_time}")
@@ -84,9 +85,7 @@ class DocumentDeliveryParsingMixin:
                 send_time = self._parse_send_time_str(send_time_str, index)
 
         if case_number and send_time:
-            entry = DocumentDeliveryRecord(
-                case_number=case_number, send_time=send_time, element_index=index
-            )
+            entry = DocumentDeliveryRecord(case_number=case_number, send_time=send_time, element_index=index)
             logger.info(f"✅ 提取文书条目: {entry.case_number} - {entry.send_time}")
             return entry
         logger.debug(f"❌ 条目 {index} 数据不完整: 案号={case_number}, 时间={send_time_str}")
@@ -100,19 +99,13 @@ class DocumentDeliveryParsingMixin:
             page.wait_for_timeout(2000)
             case_number_elements = page.locator(self.CASE_NUMBER_SELECTOR).all()
             send_time_elements = page.locator(self.SEND_TIME_SELECTOR).all()
-            logger.info(
-                f"找到 {len(case_number_elements)} 个案号元素, {len(send_time_elements)} 个时间元素"
-            )
+            logger.info(f"找到 {len(case_number_elements)} 个案号元素, {len(send_time_elements)} 个时间元素")
             if len(case_number_elements) != len(send_time_elements):
-                logger.warning(
-                    f"案号数量({len(case_number_elements)})与时间数量({len(send_time_elements)})不匹配"
-                )
+                logger.warning(f"案号数量({len(case_number_elements)})与时间数量({len(send_time_elements)})不匹配")
             count = min(len(case_number_elements), len(send_time_elements))
             for index in range(count):
                 try:
-                    entry = self._extract_single_doc_entry(
-                        index, case_number_elements, send_time_elements
-                    )
+                    entry = self._extract_single_doc_entry(index, case_number_elements, send_time_elements)
                     if entry:
                         entries.append(entry)
                 except Exception as e:

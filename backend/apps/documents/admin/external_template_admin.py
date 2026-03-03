@@ -18,10 +18,7 @@ from django.urls import reverse
 from django.utils.translation import gettext
 from django.utils.translation import gettext_lazy as _
 
-from apps.documents.models import (
-    ExternalTemplate,
-    ExternalTemplateFieldMapping,
-)
+from apps.documents.models import ExternalTemplate, ExternalTemplateFieldMapping
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -257,17 +254,13 @@ class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):  # type: ignore
         ]
         return custom_urls + urls
 
-    def analyze_view(
-        self, request: HttpRequest, template_id: int
-    ) -> HttpResponse:
+    def analyze_view(self, request: HttpRequest, template_id: int) -> HttpResponse:
         """触发 LLM 分析并重定向回详情页"""
         from apps.documents.models.external_template import ExternalTemplateFieldMapping
 
         service = _get_analysis_service()
         try:
-            has_mappings = ExternalTemplateFieldMapping.objects.filter(
-                template_id=template_id
-            ).exists()
+            has_mappings = ExternalTemplateFieldMapping.objects.filter(template_id=template_id).exists()
             if has_mappings:
                 service.retry_analysis(template_id)
             else:
@@ -286,9 +279,7 @@ class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):  # type: ignore
         )
         return HttpResponseRedirect(change_url)
 
-    def fill_action_view(
-        self, request: HttpRequest, template_id: int
-    ) -> HttpResponse:
+    def fill_action_view(self, request: HttpRequest, template_id: int) -> HttpResponse:
         """填充操作页面"""
         template_obj = self.get_object(request, str(template_id))
         if template_obj is None:
@@ -297,11 +288,10 @@ class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):  # type: ignore
             raise Http404(gettext("模板不存在"))
 
         service = _get_filling_service()
-        custom_fields: list[dict[str, Any]] = service.get_custom_fields(
-            template_id
-        )
+        custom_fields: list[dict[str, Any]] = service.get_custom_fields(template_id)
 
         import json as _json
+
         context: dict[str, Any] = {
             **self.admin_site.each_context(request),
             "opts": self.model._meta,
@@ -315,9 +305,7 @@ class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):  # type: ignore
             context,
         )
 
-    def mapping_editor_view(
-        self, request: HttpRequest, template_id: int
-    ) -> HttpResponse:
+    def mapping_editor_view(self, request: HttpRequest, template_id: int) -> HttpResponse:
         """映射可视化编辑页面"""
         template_obj = self.get_object(request, str(template_id))
         if template_obj is None:

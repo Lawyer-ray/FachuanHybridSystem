@@ -19,6 +19,7 @@ from .folder_binding_schemas import (
     FolderBrowseResponseSchema,
 )
 from .lawyer_schemas import LawyerOutFromDTO
+from .litigation_fee_schemas import FeeCalculationRequest, FeeCalculationResponse
 from .log_schemas import (
     CaseLogActorOut,
     CaseLogAttachmentCreate,
@@ -42,15 +43,14 @@ from .material_schemas import (
 from .number_schemas import CaseNumberIn, CaseNumberOut, CaseNumberUpdate
 from .party_schemas import CasePartyCreate, CasePartyIn, CasePartyOut, CasePartyUpdate
 from .supervising_authority_schemas import SupervisingAuthorityIn, SupervisingAuthorityOut, SupervisingAuthorityUpdate
-from .litigation_fee_schemas import FeeCalculationRequest, FeeCalculationResponse
 from .template_binding_schemas import (
     AvailableTemplateSchema,
     BindingsResponseSchema,
     BindTemplateRequestSchema,
     GenerateTemplateRequestSchema,
     SuccessResponseSchema,
-    TemplateCategorySchema,
     TemplateBindingSchema,
+    TemplateCategorySchema,
 )
 
 __all__ = [

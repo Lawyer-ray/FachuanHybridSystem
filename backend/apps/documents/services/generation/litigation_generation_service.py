@@ -11,10 +11,11 @@
 Requirements: 3.1, 3.2, 3.3
 """
 
-from django.utils.translation import gettext_lazy as _
 import logging
 from datetime import date
 from typing import Any
+
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.interfaces import ServiceLocator
@@ -227,10 +228,12 @@ class LitigationGenerationService:
             context = self.context_builder.build_defense_context(case_dto=case_dto, llm_result=llm_result)
         else:
             raise ValidationException(
-                message=_("不支持的诉讼类型: %(t)s") % {"t": litigation_type}, code="INVALID_LITIGATION_TYPE",
+                message=_("不支持的诉讼类型: %(t)s") % {"t": litigation_type},
+                code="INVALID_LITIGATION_TYPE",
             )
 
         from .pipeline import DocxPreviewService
+
         return DocxPreviewService().preview(template_path, context)
 
     def _generate_filename(self, case_id: int, doc_type: str) -> str:
@@ -256,7 +259,9 @@ class LitigationGenerationService:
             return filename_service.generate_defense_filename(case_id)
         else:
             raise ValidationException(
-                message=_("不支持的文档类型: %(t)s") % {"t": doc_type}, code="INVALID_DOC_TYPE", errors={"doc_type": doc_type}
+                message=_("不支持的文档类型: %(t)s") % {"t": doc_type},
+                code="INVALID_DOC_TYPE",
+                errors={"doc_type": doc_type},
             )
 
     def _get_mock_complaint_output(self, case_data: dict[str, Any]) -> ComplaintOutput:

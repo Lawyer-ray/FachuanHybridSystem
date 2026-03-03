@@ -272,11 +272,15 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
                     }.get(doc.download_status, "gray")
 
                     doc_url = reverse("admin:automation_courtdocument_change", args=[cast(int, doc.id)])
-                    parts.append(format_html(
-                        '<p><a href="{}" target="_blank">{}</a> '
-                        '<span style="color: {};">({}</span>)</p>',
-                        doc_url, doc.c_wsmc, status_color, doc.get_download_status_display(),
-                    ))
+                    parts.append(
+                        format_html(
+                            '<p><a href="{}" target="_blank">{}</a> <span style="color: {};">({}</span>)</p>',
+                            doc_url,
+                            doc.c_wsmc,
+                            status_color,
+                            doc.get_download_status_display(),
+                        )
+                    )
                 return format_html_join("", "{}", ((p,) for p in parts))
         return "-"
 
@@ -346,9 +350,7 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
         else:
             return [field.name for field in self.model._meta.fields if field.name != "id"]
 
-    def get_readonly_fields(
-        self, request: HttpRequest, obj: CourtSMS | None = None
-    ) -> list[str] | tuple[str, ...]:
+    def get_readonly_fields(self, request: HttpRequest, obj: CourtSMS | None = None) -> list[str] | tuple[str, ...]:
         """根据是否为新增页面返回不同的只读字段"""
         if obj is None:
             return ["received_at"]

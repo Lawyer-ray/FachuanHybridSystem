@@ -5,7 +5,6 @@ import logging
 from dataclasses import dataclass
 
 from apps.core.llm.exceptions import LLMBackendUnavailableError
-
 from apps.core.llm.service import LLMService
 
 logger = logging.getLogger(__name__)
@@ -24,18 +23,14 @@ class TypoChecker:
     def __init__(self, llm_service: LLMService) -> None:
         self._llm = llm_service
 
-    def check_typos(
-        self, paragraphs: list[str], model_name: str = ""
-    ) -> list[TypoResult]:
+    def check_typos(self, paragraphs: list[str], model_name: str = "") -> list[TypoResult]:
         """分段发送给 LLM 检测错别字，返回结构化结果"""
         all_results: list[TypoResult] = []
         # 每次发送一批段落（避免超长）
         batch_size = 20
         for start in range(0, len(paragraphs), batch_size):
             batch = paragraphs[start : start + batch_size]
-            text = "\n".join(
-                f"[段落{start + i}] {p}" for i, p in enumerate(batch)
-            )
+            text = "\n".join(f"[段落{start + i}] {p}" for i, p in enumerate(batch))
             prompt = self._build_prompt(text)
             try:
                 resp = self._llm.complete(
@@ -103,5 +98,6 @@ def _parse_int(val: object) -> int:
         return val
     s = str(val).strip()
     import re
+
     m = re.search(r"\d+", s)
     return int(m.group()) if m else 0

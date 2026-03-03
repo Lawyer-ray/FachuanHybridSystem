@@ -7,10 +7,11 @@
 Requirements: 1.4, 7.1, 7.2, 7.4, 7.5, 8.1, 8.2, 8.4, 8.5
 """
 
-from django.utils.translation import gettext_lazy as _
 import logging
 from collections.abc import Callable
 from typing import Any
+
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError
 from apps.litigation_ai.agent.interfaces import ILitigationAgentService

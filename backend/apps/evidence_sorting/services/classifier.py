@@ -20,14 +20,34 @@ TYPE_OTHER = "other"  # 其他
 _KEYWORDS: dict[str, list[str]] = {
     TYPE_STATEMENT: ["对账单", "对帐单", "对账", "月结", "月度汇总"],
     TYPE_DELIVERY: [
-        "出库单", "出仓单", "出货单", "发货单", "送货单",
-        "承运单", "提货单", "出库", "出仓",
+        "出库单",
+        "出仓单",
+        "出货单",
+        "发货单",
+        "送货单",
+        "承运单",
+        "提货单",
+        "出库",
+        "出仓",
     ],
     TYPE_RECEIPT: [
-        "收款", "转账", "付款", "汇款", "收到", "到账",
-        "银行回单", "电子回单", "交易成功", "支付成功",
-        "中国农业银行", "中国工商银行", "中国建设银行",
-        "中国银行", "招商银行", "微信支付", "支付宝",
+        "收款",
+        "转账",
+        "付款",
+        "汇款",
+        "收到",
+        "到账",
+        "银行回单",
+        "电子回单",
+        "交易成功",
+        "支付成功",
+        "中国农业银行",
+        "中国工商银行",
+        "中国建设银行",
+        "中国银行",
+        "招商银行",
+        "微信支付",
+        "支付宝",
     ],
 }
 
@@ -63,15 +83,12 @@ class ClassifierService:
 
     def _get_ocr_service(self) -> Any:
         if self._ocr_service is None:
-            from apps.automation.services.image_rotation.orientation.service import (
-                OrientationDetectionService,
-            )
+            from apps.automation.services.image_rotation.orientation.service import OrientationDetectionService
+
             self._ocr_service = OrientationDetectionService()
         return self._ocr_service
 
-    def classify_images(
-        self, images: list[dict[str, Any]]
-    ) -> ClassifyResult:
+    def classify_images(self, images: list[dict[str, Any]]) -> ClassifyResult:
         """
         批量 OCR + 分类
 
@@ -110,30 +127,35 @@ class ClassifierService:
                 if category == TYPE_STATEMENT:
                     signed = self._detect_signed(ocr_text)
 
-                result.images.append(ClassifiedImage(
-                    filename=filename,
-                    category=category,
-                    ocr_text=ocr_text,
-                    date=date,
-                    amount=amount,
-                    signed=signed,
-                    confidence=confidence,
-                    image_data=data,
-                    rotation=rotation,
-                ))
+                result.images.append(
+                    ClassifiedImage(
+                        filename=filename,
+                        category=category,
+                        ocr_text=ocr_text,
+                        date=date,
+                        amount=amount,
+                        signed=signed,
+                        confidence=confidence,
+                        image_data=data,
+                        rotation=rotation,
+                    )
+                )
             except Exception as e:
                 logger.warning("分类失败: %s - %s", filename, e)
                 result.errors.append(f"{filename}: {e!s}")
-                result.images.append(ClassifiedImage(
-                    filename=filename,
-                    category=TYPE_OTHER,
-                    ocr_text="",
-                    image_data=data,
-                ))
+                result.images.append(
+                    ClassifiedImage(
+                        filename=filename,
+                        category=TYPE_OTHER,
+                        ocr_text="",
+                        image_data=data,
+                    )
+                )
 
         logger.info(
             "分类完成: %d 张图片, %d 个错误",
-            len(result.images), len(result.errors),
+            len(result.images),
+            len(result.errors),
         )
         return result
 
@@ -145,7 +167,7 @@ class ClassifierService:
                 return TYPE_STATEMENT
             return TYPE_OTHER
 
-        scores: dict[str, int] = {k: 0 for k in _KEYWORDS}
+        scores: dict[str, int] = dict.fromkeys(_KEYWORDS, 0)
         for category, keywords in _KEYWORDS.items():
             for kw in keywords:
                 if kw in text:

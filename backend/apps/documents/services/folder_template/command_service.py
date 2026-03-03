@@ -1,12 +1,12 @@
 """Business logic services."""
 
 from __future__ import annotations
-from django.utils.translation import gettext_lazy as _
 
 from dataclasses import dataclass
 from typing import Any
 
 from django.db import transaction
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.documents.models import FolderTemplate
@@ -23,7 +23,7 @@ class FolderTemplateCommandService:
     structure_rules: FolderTemplateStructureRules
 
     @transaction.atomic
-    def create_template( # type: ignore[override]
+    def create_template(  # type: ignore[override]
         self,
         *,
         name: str,

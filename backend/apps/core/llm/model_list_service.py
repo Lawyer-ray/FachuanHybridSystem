@@ -58,9 +58,7 @@ class ModelListService:
             resp.raise_for_status()
             data: dict[str, Any] = resp.json()
             models: list[dict[str, str]] = [
-                {"id": m["id"], "name": m.get("id", "").split("/")[-1]}
-                for m in data.get("data", [])
-                if m.get("id")
+                {"id": m["id"], "name": m.get("id", "").split("/")[-1]} for m in data.get("data", []) if m.get("id")
             ]
             if models:
                 logger.info("从 SiliconFlow API 获取到 %d 个模型", len(models))

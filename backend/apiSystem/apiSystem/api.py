@@ -55,11 +55,12 @@ register_exception_handlers(api_v1)
 
 def _register_app_routers() -> None:
     from apps.automation.api import router as automation_router
+    from apps.automation.api.court_filing_api import router as court_filing_router
     from apps.cases.api import router as cases_router
     from apps.chat_records.api import router as chat_records_router
     from apps.client.api import router as client_router
-    from apps.contracts.api import router as contracts_router
     from apps.contract_review.api.review_api import router as contract_review_router
+    from apps.contracts.api import router as contracts_router
     from apps.core.api import router as config_router
     from apps.core.api.i18n_api import i18n_router
     from apps.core.api.ninja_llm_api import llm_router
@@ -78,7 +79,6 @@ def _register_app_routers() -> None:
     from apps.litigation_ai.api.mock_trial_api import router as mock_trial_router
     from apps.organization.api import router as organization_router
     from apps.reminders.api import router as reminders_router
-    from apps.automation.api.court_filing_api import router as court_filing_router
 
     api_v1.add_router("/config", config_router)
     api_v1.add_router("/llm", llm_router)
@@ -105,6 +105,7 @@ def _register_app_routers() -> None:
     api_v1.add_router("/contract-review", contract_review_router, auth=JWTOrSessionAuth(), tags=["合同审查"])
 
     from apps.sales_dispute.api import router as sales_dispute_router
+
     api_v1.add_router("/sales-dispute", sales_dispute_router, tags=["买卖纠纷计算"])
     api_v1.add_router("/court-filing", court_filing_router, auth=JWTOrSessionAuth(), tags=["一张网立案"])
 

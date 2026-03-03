@@ -186,7 +186,7 @@ class ZxfwDirectApiMixin:
                 import random
 
                 time.sleep(random.uniform(0.5, 1.5))
-        db_save_result = self._save_documents_batch(documents_with_results) # type: ignore
+        db_save_result = self._save_documents_batch(documents_with_results)  # type: ignore
         logger.info(
             "直接 API 方式下载完成",
             extra={

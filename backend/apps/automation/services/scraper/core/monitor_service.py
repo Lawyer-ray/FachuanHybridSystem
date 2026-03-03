@@ -9,9 +9,8 @@ from typing import Any
 from django.db.models import Count
 from django.utils import timezone
 
-from apps.core.interfaces import IMonitorService
-
 from apps.automation.models import ScraperTask, ScraperTaskStatus
+from apps.core.interfaces import IMonitorService
 
 logger = logging.getLogger("apps.automation")
 

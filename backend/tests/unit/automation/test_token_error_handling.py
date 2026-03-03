@@ -172,7 +172,9 @@ class TestTokenErrorHandling:
         )
 
         # Mock TokenService.get_token 返回 None
-        with patch("apps.automation.services.scraper.core.token_service.TokenService.get_token", return_value=None):  # noqa: SIM117
+        with patch(
+            "apps.automation.services.scraper.core.token_service.TokenService.get_token", return_value=None
+        ):  # noqa: SIM117
             # Mock get_or_create_token 也返回 None
             with patch(
                 "apps.automation.services.insurance.preservation_quote_service.get_or_create_token", return_value=None

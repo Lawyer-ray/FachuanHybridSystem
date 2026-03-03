@@ -54,6 +54,6 @@ def test_property_normalize_case_number_idempotent(
     first: str = normalize_case_number(raw, ensure_hao=ensure_hao)
     second: str = normalize_case_number(first, ensure_hao=ensure_hao)
 
-    assert second == first, (
-        f"幂等性失败:\n  原始输入: {raw!r}\n  ensure_hao={ensure_hao}\n  第一次: {first!r}\n  第二次: {second!r}"
-    )
+    assert (
+        second == first
+    ), f"幂等性失败:\n  原始输入: {raw!r}\n  ensure_hao={ensure_hao}\n  第一次: {first!r}\n  第二次: {second!r}"

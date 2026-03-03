@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from django.utils.functional import Promise
 
 
-def normalize_target_id(value: int | None, *, field_name: "str | Promise") -> int | None:
+def normalize_target_id(value: int | None, *, field_name: str | Promise) -> int | None:
     if value is None:
         return None
     if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
@@ -24,7 +24,7 @@ def normalize_target_id(value: int | None, *, field_name: "str | Promise") -> in
     return value
 
 
-def validate_positive_id(value: int, *, field_name: "str | Promise") -> None:
+def validate_positive_id(value: int, *, field_name: str | Promise) -> None:
     """校验 ID 为正整数（非 bool）。"""
     if isinstance(value, bool) or value <= 0:
         raise ValidationException(_("%(field_name)s 必须为正整数") % {"field_name": field_name})

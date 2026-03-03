@@ -65,74 +65,117 @@ class CasePartyService:
         return self._mutation_facade
 
     def get_available_legal_statuses(
-        self, case_id: int, user: Any | None = None,
-        org_access: dict[str, Any] | None = None, perm_open_access: bool = False,
+        self,
+        case_id: int,
+        user: Any | None = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
     ) -> list[dict[str, str]]:
         return self.query_facade.get_available_legal_statuses(
-            case_id=case_id, user=user, org_access=org_access, perm_open_access=perm_open_access,
+            case_id=case_id,
+            user=user,
+            org_access=org_access,
+            perm_open_access=perm_open_access,
         )
 
     def list_parties(
-        self, case_id: int | None = None, user: Any | None = None,
-        org_access: dict[str, Any] | None = None, perm_open_access: bool = False,
+        self,
+        case_id: int | None = None,
+        user: Any | None = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
     ) -> QuerySet[CaseParty, CaseParty]:
         return cast(
             QuerySet[CaseParty, CaseParty],
             self.query_facade.list_parties(
-                case_id=case_id, user=user, org_access=org_access, perm_open_access=perm_open_access,
+                case_id=case_id,
+                user=user,
+                org_access=org_access,
+                perm_open_access=perm_open_access,
             ),
         )
 
     def get_party(
-        self, party_id: int, user: Any | None = None,
-        org_access: dict[str, Any] | None = None, perm_open_access: bool = False,
+        self,
+        party_id: int,
+        user: Any | None = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
     ) -> CaseParty:
         return cast(
             CaseParty,
             self.query_facade.get_party(
-                party_id=party_id, user=user, org_access=org_access, perm_open_access=perm_open_access,
+                party_id=party_id,
+                user=user,
+                org_access=org_access,
+                perm_open_access=perm_open_access,
             ),
         )
 
     @transaction.atomic
     def create_party(
-        self, case_id: int, client_id: int, legal_status: str | None = None,
-        user: Any | None = None, org_access: dict[str, Any] | None = None, perm_open_access: bool = False,
+        self,
+        case_id: int,
+        client_id: int,
+        legal_status: str | None = None,
+        user: Any | None = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
     ) -> CaseParty:
         return cast(
             CaseParty,
             self.mutation_facade.create_party(
-                case_id=case_id, client_id=client_id, legal_status=legal_status,
-                user=user, org_access=org_access, perm_open_access=perm_open_access,
+                case_id=case_id,
+                client_id=client_id,
+                legal_status=legal_status,
+                user=user,
+                org_access=org_access,
+                perm_open_access=perm_open_access,
             ),
         )
 
     @transaction.atomic
     def update_party(
-        self, party_id: int, data: dict[str, Any],
-        user: Any | None = None, org_access: dict[str, Any] | None = None, perm_open_access: bool = False,
+        self,
+        party_id: int,
+        data: dict[str, Any],
+        user: Any | None = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
     ) -> CaseParty:
         return cast(
             CaseParty,
             self.mutation_facade.update_party(
-                party_id=party_id, data=data, user=user, org_access=org_access, perm_open_access=perm_open_access,
+                party_id=party_id,
+                data=data,
+                user=user,
+                org_access=org_access,
+                perm_open_access=perm_open_access,
             ),
         )
 
     @transaction.atomic
     def delete_party(
-        self, party_id: int, user: Any | None = None,
-        org_access: dict[str, Any] | None = None, perm_open_access: bool = False,
+        self,
+        party_id: int,
+        user: Any | None = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
     ) -> dict[str, bool]:
         return cast(
             dict[str, bool],
             self.mutation_facade.delete_party(
-                party_id=party_id, user=user, org_access=org_access, perm_open_access=perm_open_access,
+                party_id=party_id,
+                user=user,
+                org_access=org_access,
+                perm_open_access=perm_open_access,
             ),
         )
 
     @transaction.atomic
     def create_party_internal(self, case_id: int, client_id: int, legal_status: str | None = None) -> bool:
         return self.mutation_facade.create_party_internal(
-            case_id=case_id, client_id=client_id, legal_status=legal_status,
+            case_id=case_id,
+            client_id=client_id,
+            legal_status=legal_status,
         )

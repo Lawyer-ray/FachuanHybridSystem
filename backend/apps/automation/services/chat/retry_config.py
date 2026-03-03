@@ -206,7 +206,7 @@ class RetryConfig:
             delay = cfg.base_delay + (attempt_number * cfg.backoff_factor)
             return min(delay, cfg.max_delay)
         else:  # EXPONENTIAL_BACKOFF（含默认）
-            delay = cfg.base_delay * (cfg.backoff_factor ** attempt_number)
+            delay = cfg.base_delay * (cfg.backoff_factor**attempt_number)
             return min(delay, cfg.max_delay)
 
     def get_timeout_seconds(self) -> float:
