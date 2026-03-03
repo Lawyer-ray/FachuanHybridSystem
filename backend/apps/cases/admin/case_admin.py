@@ -150,6 +150,7 @@ class CaseAdmin(CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminViewsMixin, 
         for obj in queryset.prefetch_related(
             "parties__client", "assignments__lawyer",
             "contract__contract_parties__client", "contract__assignments__lawyer",
+            "contract__finalized_materials",
         ):
             contract_data = None
             if obj.contract:
@@ -179,6 +180,16 @@ class CaseAdmin(CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminViewsMixin, 
                         {"is_primary": a.is_primary, "order": a.order,
                          "lawyer": {"real_name": a.lawyer.real_name, "phone": a.lawyer.phone}}
                         for a in c.assignments.all()
+                    ],
+                    "finalized_materials": [
+                        {
+                            "file_path": m.file_path,
+                            "original_filename": m.original_filename,
+                            "category": m.category,
+                            "remark": m.remark,
+                        }
+                        for m in c.finalized_materials.all()
+                        if m.file_path
                     ],
                 }
             result.append({
@@ -211,3 +222,12 @@ class CaseAdmin(CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminViewsMixin, 
                 ],
             })
         return result
+
+    def get_file_paths(self, queryset: QuerySet[Case]) -> list[str]:  # type: ignore[override]
+        paths = []
+        for obj in queryset.prefetch_related("contract__finalized_materials"):
+            if obj.contract:
+                for m in obj.contract.finalized_materials.all():
+                    if m.file_path:
+                        paths.append(m.file_path)
+        return paths

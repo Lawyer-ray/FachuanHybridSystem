@@ -219,23 +219,10 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
             try:
                 filing_number = item.get("filing_number")
                 before = Contract.objects.filter(filing_number=filing_number).exists() if filing_number else False
-                contract = contract_svc.resolve(item)
+                contract_svc.resolve(item)
                 if before:
                     skipped += 1
                 else:
-                    # 还原 finalized_materials 记录
-                    from apps.contracts.models import FinalizedMaterial
-                    for m in item.get("finalized_materials") or []:
-                        if m.get("file_path"):
-                            FinalizedMaterial.objects.get_or_create(
-                                contract=contract,
-                                file_path=m["file_path"],
-                                defaults={
-                                    "original_filename": m.get("original_filename", ""),
-                                    "category": m.get("category", "other"),
-                                    "remark": m.get("remark", ""),
-                                },
-                            )
                     success += 1
             except Exception as exc:
                 errors.append(str(exc))

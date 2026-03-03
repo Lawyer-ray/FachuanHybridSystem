@@ -87,4 +87,18 @@ class ContractImportService:
                 },
             )
 
+        from apps.contracts.models import FinalizedMaterial
+
+        for m in data.get("finalized_materials") or []:
+            if m.get("file_path"):
+                FinalizedMaterial.objects.get_or_create(
+                    contract=contract,
+                    file_path=m["file_path"],
+                    defaults={
+                        "original_filename": m.get("original_filename", ""),
+                        "category": m.get("category", "other"),
+                        "remark": m.get("remark", ""),
+                    },
+                )
+
         return contract
