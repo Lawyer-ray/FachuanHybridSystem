@@ -92,9 +92,29 @@ class AdminImportExportMixin:
         with zipfile.ZipFile(io.BytesIO(raw_bytes)) as zf:
             if "data.json" not in zf.namelist():
                 raise ValueError(_("ZIP 中缺少 data.json"))
-            data_list = json.loads(zf.read("data.json").decode("utf-8"))
+            envelope = json.loads(zf.read("data.json").decode("utf-8"))
+            # 校验 _type 标记
+            if not isinstance(envelope, dict) or envelope.get("_type") != self.export_model_name:
+                raise ValueError(
+                    _("文件类型不匹配：期望 %(expected)s，实际 %(actual)s")
+                    % {
+                        "expected": self.export_model_name,
+                        "actual": envelope.get("_type") if isinstance(envelope, dict) else type(envelope).__name__,
+                    }
+                )
+            data_list = envelope.get("data", [])
             if not isinstance(data_list, list):
-                data_list = [data_list]
+                raise ValueError(_("data.json 格式错误：data 字段必须为数组"))
+            # 校验每条记录必填字段
+            required = getattr(self, "import_required_fields", ())
+            for i, item in enumerate(data_list, 1):
+                if not isinstance(item, dict):
+                    raise ValueError(_("第 %(i)d 条记录格式错误") % {"i": i})
+                missing = [f for f in required if not item.get(f)]
+                if missing:
+                    raise ValueError(
+                        _("第 %(i)d 条记录缺少必填字段: %(fields)s") % {"i": i, "fields": ", ".join(missing)}
+                    )
             self._extract_files(zf)
             return self.handle_json_import(data_list, user, zf)  # type: ignore[attr-defined]
 
@@ -111,8 +131,10 @@ class AdminImportExportMixin:
                 continue
             rel = name[len("files/"):]  # 去掉 files/ 前缀
             dest = (root / rel).resolve()
-            # 防止 Zip Slip 路径遍历攻击
-            if not str(dest).startswith(str(root)):
+            # 防止 Zip Slip 路径遍历攻击（relative_to 抛异常即拒绝）
+            try:
+                dest.relative_to(root)
+            except ValueError:
                 logger.warning("跳过可疑路径", extra={"path": name})
                 continue
             dest.parent.mkdir(parents=True, exist_ok=True)
@@ -144,7 +166,8 @@ class AdminImportExportMixin:
 
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-            zf.writestr("data.json", json.dumps(data, ensure_ascii=False, indent=2, default=str))
+            envelope = {"_type": self.export_model_name, "data": data}
+            zf.writestr("data.json", json.dumps(envelope, ensure_ascii=False, indent=2, default=str))
 
             if file_paths:
                 media_root = _get_media_root()

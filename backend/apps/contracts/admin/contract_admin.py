@@ -279,6 +279,7 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
     search_fields = ("name",)
     readonly_fields = ("get_primary_lawyer_display", "filing_number")
     export_model_name = "contract"
+    import_required_fields = ("name",)
     actions: ClassVar = ["export_selected_as_json", "export_all_as_json"]
 
     inlines: ClassVar = [
