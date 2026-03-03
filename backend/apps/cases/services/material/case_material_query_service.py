@@ -5,9 +5,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
-from django.db.models import Prefetch
-
 from django.db import models
+from django.db.models import Prefetch
 
 from apps.cases.models import (
     CaseLogAttachment,
@@ -163,12 +162,11 @@ class CaseMaterialQueryService:
                 }
             )
         return {"case_id": case.id, "party": party_payload, "non_party": non_party_payload}
+
     def get_used_type_ids(self, case_id: int) -> set[int]:
         """获取案件已使用的材料类型 ID 集合。"""
         return set(
-            CaseMaterial.objects.filter(
-                case_id=case_id, type_id__isnull=False
-            ).values_list("type_id", flat=True)
+            CaseMaterial.objects.filter(case_id=case_id, type_id__isnull=False).values_list("type_id", flat=True)
         )
 
     def get_material_types_by_category(
@@ -178,15 +176,10 @@ class CaseMaterialQueryService:
         used_type_ids: set[int],
     ) -> list[dict[str, Any]]:
         """按分类获取可用的材料类型列表。"""
-        qs = CaseMaterialType.objects.filter(
-            category=category, is_active=True
-        ).filter(
-            models.Q(law_firm_id=law_firm_id)
-            | models.Q(law_firm_id__isnull=True)
-            | models.Q(id__in=used_type_ids)
+        qs = CaseMaterialType.objects.filter(category=category, is_active=True).filter(
+            models.Q(law_firm_id=law_firm_id) | models.Q(law_firm_id__isnull=True) | models.Q(id__in=used_type_ids)
         )
         return list(qs.order_by("name").values("id", "name", "law_firm_id"))
-
 
     def _build_group_order_map(self, rows: Sequence[CaseMaterialGroupOrder]) -> dict[tuple[str, str, int], list[int]]:
         order_map: dict[tuple[str, str, int], list[int]] = {}

@@ -189,7 +189,10 @@ class ContractDisplayService:
 
             logger.debug(
                 "合同 %s 模板检查: 文件夹=%s, 文书=%s, 结果=%s",
-                contract.pk, has_folder, has_document, has_both,
+                contract.pk,
+                has_folder,
+                has_document,
+                has_both,
             )
             return has_both
 

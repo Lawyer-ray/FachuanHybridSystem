@@ -10,9 +10,9 @@ from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
-from apps.core.exceptions import ChatProviderException
 from apps.cases.models import Case
 from apps.core.enums import ChatPlatform
+from apps.core.exceptions import ChatProviderException
 
 from .service import CaseAdminServiceMixin
 
@@ -53,8 +53,7 @@ class CaseAdminActionsMixin(CaseAdminServiceMixin):
                 if existing_chat:
                     messages.warning(
                         request,
-                        _("案件 %(case)s 已存在飞书群聊: %(chat)s")
-                        % {"case": case.name, "chat": existing_chat.name},
+                        _("案件 %(case)s 已存在飞书群聊: %(chat)s") % {"case": case.name, "chat": existing_chat.name},
                     )
                     continue
 
@@ -63,24 +62,21 @@ class CaseAdminActionsMixin(CaseAdminServiceMixin):
 
                 messages.success(
                     request,
-                    _("成功为案件 %(case)s 创建飞书群聊: %(chat)s")
-                    % {"case": case.name, "chat": chat.name},
+                    _("成功为案件 %(case)s 创建飞书群聊: %(chat)s") % {"case": case.name, "chat": chat.name},
                 )
 
             except ChatProviderException as e:
                 error_count += 1
                 messages.error(
                     request,
-                    _("为案件 %(case)s 创建飞书群聊失败: %(error)s")
-                    % {"case": case.name, "error": str(e)},
+                    _("为案件 %(case)s 创建飞书群聊失败: %(error)s") % {"case": case.name, "error": str(e)},
                 )
             except Exception as e:
                 logger.exception("操作失败")
                 error_count += 1
                 messages.error(
                     request,
-                    _("为案件 %(case)s 创建群聊时发生未知错误: %(error)s")
-                    % {"case": case.name, "error": str(e)},
+                    _("为案件 %(case)s 创建群聊时发生未知错误: %(error)s") % {"case": case.name, "error": str(e)},
                 )
 
         if success_count > 0:

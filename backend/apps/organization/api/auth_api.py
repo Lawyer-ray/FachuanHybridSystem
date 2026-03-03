@@ -6,9 +6,9 @@
 from django.http import HttpRequest
 from ninja import Router
 
+from apps.core.infrastructure.throttling import rate_limit_from_settings
 from apps.organization.schemas import LoginIn, LoginOut
 from apps.organization.services import AuthService
-from apps.core.infrastructure.throttling import rate_limit_from_settings
 
 router = Router()
 

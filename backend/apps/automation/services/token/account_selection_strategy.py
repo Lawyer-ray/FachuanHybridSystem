@@ -124,7 +124,7 @@ class AccountSelectionStrategy:
             organization_service = ServiceLocator.get_organization_service()
 
             # 获取指定站点的凭证
-            credentials = organization_service.get_credentials_by_site_internal(site_name) # type: ignore
+            credentials = organization_service.get_credentials_by_site_internal(site_name)  # type: ignore
 
             # 排除指定账号
             all_excluded = set(exclude_accounts + self._blacklist)
@@ -241,24 +241,24 @@ class AccountSelectionStrategy:
                 organization_service = ServiceLocator.get_organization_service()
 
                 # 获取凭证
-                cred = organization_service.get_credential_by_account_internal(account, site_name) # type: ignore
+                cred = organization_service.get_credential_by_account_internal(account, site_name)  # type: ignore
 
                 # 更新登录统计
                 if success:
-                    organization_service.update_login_success_internal(cred.id) # type: ignore
-                    cred = organization_service.get_credential_internal(cred.id) # type: ignore
-                    return cred.login_success_count, None # type: ignore
+                    organization_service.update_login_success_internal(cred.id)  # type: ignore
+                    cred = organization_service.get_credential_internal(cred.id)  # type: ignore
+                    return cred.login_success_count, None  # type: ignore
                 else:
-                    organization_service.update_login_failure_internal(cred.id) # type: ignore
-                    cred = organization_service.get_credential_internal(cred.id) # type: ignore
-                    return None, cred.login_failure_count # type: ignore
+                    organization_service.update_login_failure_internal(cred.id)  # type: ignore
+                    cred = organization_service.get_credential_internal(cred.id)  # type: ignore
+                    return None, cred.login_failure_count  # type: ignore
 
             success_count, failure_count = await update_credential()
 
             # 更新缓存的统计信息
             stats = {
-                "success_count": success_count if success else None, # type: ignore
-                "failure_count": failure_count if not success else None, # type: ignore
+                "success_count": success_count if success else None,  # type: ignore
+                "failure_count": failure_count if not success else None,  # type: ignore
                 "last_updated": timezone.now().isoformat(),
             }
             cache_manager.cache_account_stats(account, site_name, stats)
@@ -274,7 +274,7 @@ class AccountSelectionStrategy:
                     extra={
                         "account": account,
                         "site_name": site_name,
-                        "success_count": success_count, # type: ignore
+                        "success_count": success_count,  # type: ignore
                     },
                 )
             else:
@@ -285,7 +285,7 @@ class AccountSelectionStrategy:
                     extra={
                         "account": account,
                         "site_name": site_name,
-                        "failure_count": failure_count, # type: ignore
+                        "failure_count": failure_count,  # type: ignore
                     },
                 )
 

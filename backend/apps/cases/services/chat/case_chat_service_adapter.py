@@ -5,9 +5,10 @@
 
 from __future__ import annotations
 
-from django.utils.translation import gettext_lazy as _
 import logging
 from typing import Any
+
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import BusinessException, NotFoundError
 from apps.core.interfaces import ICaseChatService
@@ -131,9 +132,7 @@ class CaseChatServiceAdapter(ICaseChatService):
             if platform is None:
                 platform = ChatPlatform.FEISHU
 
-            chat = self.service.get_or_create_chat(
-                case_id=case_id, platform=platform, perm_open_access=True
-            )
+            chat = self.service.get_or_create_chat(case_id=case_id, platform=platform, perm_open_access=True)
 
             logger.info(
                 "获取或创建群聊成功",

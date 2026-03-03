@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from django.utils.translation import gettext_lazy as _
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
+from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import Case, CaseChat
 from apps.core.enums import ChatPlatform

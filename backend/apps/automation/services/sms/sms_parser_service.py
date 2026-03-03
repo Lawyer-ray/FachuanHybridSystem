@@ -99,6 +99,7 @@ class SMSParserService:
         """获取客户服务实例"""
         if self._client_service is None:
             from apps.core.service_locator import ServiceLocator
+
             self._client_service = ServiceLocator.get_client_service()
         return self._client_service
 
@@ -107,6 +108,7 @@ class SMSParserService:
         """延迟加载客户服务"""
         if self._client_service is None:
             from apps.core.dependencies.automation_sms_wiring import build_sms_client_service
+
             self._client_service = build_sms_client_service()
         return self._client_service
 
@@ -345,16 +347,69 @@ class SMSParserService:
         return []
 
     # 排除关键词集合（类级别常量，避免重复创建）
-    _EXCLUDE_KEYWORDS = frozenset([
-        "法院", "人民法院", "中级法院", "高级法院", "最高法院", "政府", "委员会", "管理局", "监督局",
-        "书记员", "法官", "审判员", "执行员", "助理", "律师",
-        "通知", "短信", "系统", "平台", "网站", "服务",
-        "佛山市", "禅城区", "广东省", "深圳市", "北京市", "上海市",
-        "你好", "收到", "查收", "下载", "链接", "请于", "联系",
-        "裁定书", "判决书", "通知书", "执行书", "决定书",
-        "案件", "号码", "电话", "地址", "时间", "日期", "一案", "纠纷", "争议", "合同", "财产", "保全",
-        "关于", "涉及", "明日", "到庭", "立案", "已立案", "的案", "的",
-    ])
+    _EXCLUDE_KEYWORDS = frozenset(
+        [
+            "法院",
+            "人民法院",
+            "中级法院",
+            "高级法院",
+            "最高法院",
+            "政府",
+            "委员会",
+            "管理局",
+            "监督局",
+            "书记员",
+            "法官",
+            "审判员",
+            "执行员",
+            "助理",
+            "律师",
+            "通知",
+            "短信",
+            "系统",
+            "平台",
+            "网站",
+            "服务",
+            "佛山市",
+            "禅城区",
+            "广东省",
+            "深圳市",
+            "北京市",
+            "上海市",
+            "你好",
+            "收到",
+            "查收",
+            "下载",
+            "链接",
+            "请于",
+            "联系",
+            "裁定书",
+            "判决书",
+            "通知书",
+            "执行书",
+            "决定书",
+            "案件",
+            "号码",
+            "电话",
+            "地址",
+            "时间",
+            "日期",
+            "一案",
+            "纠纷",
+            "争议",
+            "合同",
+            "财产",
+            "保全",
+            "关于",
+            "涉及",
+            "明日",
+            "到庭",
+            "立案",
+            "已立案",
+            "的案",
+            "的",
+        ]
+    )
 
     # 无效片段集合
     _INVALID_FRAGMENTS = frozenset(["有限公司", "股份有限公司", "有限责任公司", "集团", "企业"])

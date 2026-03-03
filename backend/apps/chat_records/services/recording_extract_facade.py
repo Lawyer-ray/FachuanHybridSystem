@@ -38,9 +38,7 @@ class RecordingExtractFacade:
         from apps.chat_records.services.video_frame_extract_service import VideoFrameExtractService
 
         try:
-            recording: ChatRecordRecording = (
-                ChatRecordRecording.objects.select_for_update().get(id=recording_id)
-            )
+            recording: ChatRecordRecording = ChatRecordRecording.objects.select_for_update().get(id=recording_id)
         except ChatRecordRecording.DoesNotExist:
             raise NotFoundError(f"录屏 {recording_id} 不存在") from None
         ensure_can_access_project(user=user, project=recording.project)
@@ -79,9 +77,7 @@ class RecordingExtractFacade:
     @transaction.atomic
     def request_cancel(self, *, user: Any, recording_id: str) -> ChatRecordRecording:
         try:
-            recording: ChatRecordRecording = (
-                ChatRecordRecording.objects.select_for_update().get(id=recording_id)
-            )
+            recording: ChatRecordRecording = ChatRecordRecording.objects.select_for_update().get(id=recording_id)
         except ChatRecordRecording.DoesNotExist:
             raise NotFoundError(f"录屏 {recording_id} 不存在") from None
         ensure_can_access_project(user=user, project=recording.project)
@@ -99,9 +95,7 @@ class RecordingExtractFacade:
     @transaction.atomic
     def reset(self, *, user: Any, recording_id: str) -> ChatRecordRecording:
         try:
-            recording: ChatRecordRecording = (
-                ChatRecordRecording.objects.select_for_update().get(id=recording_id)
-            )
+            recording: ChatRecordRecording = ChatRecordRecording.objects.select_for_update().get(id=recording_id)
         except ChatRecordRecording.DoesNotExist:
             raise NotFoundError(f"录屏 {recording_id} 不存在") from None
         ensure_can_access_project(user=user, project=recording.project)
@@ -155,4 +149,3 @@ class RecordingExtractFacade:
         rows: int = ChatRecordRecording.objects.filter(id=recording_id).update(**fields)
         if rows == 0:
             logger.warning("录屏 %s 不存在，跳过进度更新", recording_id)
-

@@ -1,14 +1,7 @@
 """证据管理模型"""
 
 from .enums import EvidenceDirection, EvidenceType, OriginalStatus
-from .evidence import (
-    LIST_TYPE_ORDER,
-    LIST_TYPE_PREVIOUS,
-    EvidenceItem,
-    EvidenceList,
-    ListType,
-    MergeStatus,
-)
+from .evidence import LIST_TYPE_ORDER, LIST_TYPE_PREVIOUS, EvidenceItem, EvidenceList, ListType, MergeStatus
 from .group import EvidenceGroup
 from .hearing_note import HearingNote
 

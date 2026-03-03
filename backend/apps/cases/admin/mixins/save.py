@@ -12,7 +12,6 @@ from django.db import IntegrityError, connection
 from django.db.models import QuerySet
 from django.forms import ModelForm
 from django.http import HttpRequest
-
 from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import Case, CaseLog
@@ -40,6 +39,7 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
             model.objects.filter(case_id__in=case_ids).update(case=None)
 
         from apps.cases.utils import fix_sqlite_orphan_contract_fk
+
         fix_sqlite_orphan_contract_fk()
 
     def delete_model(self, request: HttpRequest, obj: Case) -> None:

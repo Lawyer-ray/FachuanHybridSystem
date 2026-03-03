@@ -8,11 +8,11 @@ and not in apps/*/tests/ directories.
 **Validates: Requirements 4.1, 4.2**
 """
 
+from pathlib import Path
+
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
-
-from pathlib import Path
 
 
 class TestDebugScriptLocationProperties:
@@ -112,9 +112,9 @@ class TestDebugScriptLocationProperties:
 
         # Verify that debug scripts are properly named
         for script in debug_scripts:
-            assert self._is_debug_script(script), (
-                f"Script {script.name} in development/ should follow debug script naming"
-            )
+            assert self._is_debug_script(
+                script
+            ), f"Script {script.name} in development/ should follow debug script naming"
 
     def test_automation_debug_scripts_in_automation_subdirectory(self, scripts_dir):
         """
@@ -129,18 +129,18 @@ class TestDebugScriptLocationProperties:
         automation_dev_dir = scripts_dir / "development" / "automation"
 
         # Check that automation subdirectory exists
-        assert automation_dev_dir.exists(), (
-            "scripts/development/automation/ directory should exist for automation-related debug scripts"
-        )
+        assert (
+            automation_dev_dir.exists()
+        ), "scripts/development/automation/ directory should exist for automation-related debug scripts"
 
         # Verify files in automation subdirectory are debug scripts
         for py_file in automation_dev_dir.glob("*.py"):
             if py_file.name == "__init__.py":
                 continue
 
-            assert self._is_debug_script(py_file), (
-                f"File {py_file.name} in development/automation/ should be a debug script"
-            )
+            assert self._is_debug_script(
+                py_file
+            ), f"File {py_file.name} in development/automation/ should be a debug script"
 
     def test_app_tests_directories_only_contain_tests(self, apps_dir):
         """

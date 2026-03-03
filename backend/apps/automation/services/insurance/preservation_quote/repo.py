@@ -1,6 +1,5 @@
 """Data repository layer."""
 
-from django.utils.translation import gettext_lazy as _
 import logging
 from decimal import Decimal
 from typing import Any
@@ -9,6 +8,7 @@ from asgiref.sync import sync_to_async
 from django.core.paginator import Paginator
 from django.db import connections
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import InsuranceQuote, PreservationQuote, QuoteItemStatus, QuoteStatus
 from apps.automation.services.insurance.court_insurance_client import PremiumResult
@@ -22,7 +22,7 @@ logger = logging.getLogger("apps.automation")
 def _configure_db_settings() -> None:
     raw_settings = getattr(connections, "_settings", None)
     configured_settings = connections.configure_settings(raw_settings)
-    connections._settings = configured_settings # type: ignore
+    connections._settings = configured_settings  # type: ignore
 
 
 async def _db_sync(func: Any, *args: Any, **kwargs: Any) -> Any:
@@ -47,7 +47,7 @@ class PreservationQuoteRepository:
         if credential_id is not None and credential_id <= 0:
             errors["credential_id"] = "凭证 ID 必须为正整数"
         if errors:
-            raise ValidationError(message=_("数据验证失败"), errors=errors) # type: ignore
+            raise ValidationError(message=_("数据验证失败"), errors=errors)  # type: ignore
 
     def create_quote(
         self, *, preserve_amount: Decimal, corp_id: str, category_id: str, credential_id: int | None
@@ -73,14 +73,14 @@ class PreservationQuoteRepository:
         if page_size is None:
             page_size = get_config("pagination.default_page_size", 20)
 
-        errors = ({},) # type: ignore
+        errors = ({},)  # type: ignore
         max_page_size = get_config("pagination.max_page_size", 100)
         if page < 1:
-            errors["page"] = "页码必须大于 0" # type: ignore
+            errors["page"] = "页码必须大于 0"  # type: ignore
         if page_size < 1 or page_size > max_page_size:
-            errors["page_size"] = f"每页数量必须在 1-{max_page_size} 之间" # type: ignore
+            errors["page_size"] = f"每页数量必须在 1-{max_page_size} 之间"  # type: ignore
         if errors:
-            raise ValidationError(message=_("参数验证失败"), errors=errors) # type: ignore
+            raise ValidationError(message=_("参数验证失败"), errors=errors)  # type: ignore
 
         queryset = PreservationQuote.objects.all()
         if status:
@@ -193,7 +193,7 @@ class PreservationQuoteRepository:
 
         for result in results:
             status = QuoteItemStatus.SUCCESS if result.status == "success" else QuoteItemStatus.FAILED
-            rate_data = {} # type: ignore
+            rate_data = {}  # type: ignore
             if result.response_data and isinstance(result.response_data, dict):
                 rate_data = result.response_data.get("data") or {}
             if not isinstance(rate_data, dict):

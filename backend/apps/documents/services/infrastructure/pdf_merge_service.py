@@ -1,15 +1,16 @@
 """Business logic services."""
 
 from __future__ import annotations
-from django.utils.translation import gettext_lazy as _
-from django.utils import timezone
+
 import contextlib
 import io
-from pathlib import Path
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any, ClassVar, cast
 
 from django.core.files.base import ContentFile
+from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import BusinessException, ValidationException
 from apps.documents.models import EvidenceList
@@ -131,7 +132,7 @@ class PDFMergeWorkflow:
         return add_page_numbers_util(pdf_input, start_page)
 
     def _generate_merged_filename(self, evidence_list: EvidenceList) -> str:
-        
+
         case_name = evidence_list.case.name
         date_str = timezone.now().strftime("%Y%m%d")
         list_suffix = ""

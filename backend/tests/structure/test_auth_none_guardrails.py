@@ -7,13 +7,17 @@ def test_auth_none_is_only_used_for_register_endpoint():  # noqa: C901
     apps_root = backend_root / "apps"
 
     allowed = {
-        (apps_root / "organization" / "api" / "auth_api.py").resolve().as_posix(): {
+        (apps_root / "organization" / "api" / "auth_api.py")
+        .resolve()
+        .as_posix(): {
             "register_view",
             "login_view",
             "logout_view",
         },
         # i18n 语言列表接口无需认证：用户登录前需要获取支持的语言列表
-        (apps_root / "core" / "api" / "i18n_api.py").resolve().as_posix(): {
+        (apps_root / "core" / "api" / "i18n_api.py")
+        .resolve()
+        .as_posix(): {
             "list_languages",
         },
     }

@@ -103,9 +103,7 @@ def test_c1_property_no_staticmethod_resolvers(method_index: int) -> None:
     methods = ["resolve_created_at", "resolve_updated_at"]
     method_name = methods[method_index]
     raw = inspect.getattr_static(AccountCredentialOut, method_name)
-    assert not isinstance(raw, staticmethod), (
-        f"BUG C1: AccountCredentialOut.{method_name} 使用了 @staticmethod"
-    )
+    assert not isinstance(raw, staticmethod), f"BUG C1: AccountCredentialOut.{method_name} 使用了 @staticmethod"
 
 
 # ---------------------------------------------------------------------------
@@ -162,8 +160,8 @@ def test_c3_api_uses_auth_or_user(rel_path: str) -> None:
     # 检查是否包含 auth 属性获取
     has_auth_pattern = 'getattr(request, "auth", None)' in source
     assert has_auth_pattern, (
-        f"BUG C3: {rel_path} 未使用 getattr(request, \"auth\", None) 获取用户，"
-        "应统一使用 getattr(request, \"auth\", None) or getattr(request, \"user\", None)"
+        f'BUG C3: {rel_path} 未使用 getattr(request, "auth", None) 获取用户，'
+        '应统一使用 getattr(request, "auth", None) or getattr(request, "user", None)'
     )
 
 
@@ -179,9 +177,7 @@ def test_c3_property_all_apis_use_auth_or_user(file_index: int) -> None:
     target_file = ORG_DIR / rel_path
     source = target_file.read_text(encoding="utf-8")
 
-    assert 'getattr(request, "auth", None)' in source, (
-        f"BUG C3: {rel_path} 未使用 auth 属性获取用户"
-    )
+    assert 'getattr(request, "auth", None)' in source, f"BUG C3: {rel_path} 未使用 auth 属性获取用户"
 
 
 # ---------------------------------------------------------------------------
@@ -223,9 +219,7 @@ def test_c4_property_no_type_ignore_arg_type(file_index: int) -> None:
     target_file = ORG_DIR / rel_path
     source = target_file.read_text(encoding="utf-8")
 
-    assert "# type: ignore[arg-type]" not in source, (
-        f"BUG C4: {rel_path} 中存在 # type: ignore[arg-type]"
-    )
+    assert "# type: ignore[arg-type]" not in source, f"BUG C4: {rel_path} 中存在 # type: ignore[arg-type]"
 
 
 # ---------------------------------------------------------------------------
@@ -255,8 +249,7 @@ def test_c5_adapter_no_todo_in_methods(method_name: str) -> None:
     assert method_source is not None, f"未找到 {method_name} 方法"
 
     assert "TODO" not in method_source, (
-        f"BUG C5: OrganizationServiceAdapter.{method_name}() 包含 TODO 注释，"
-        "应委托给对应 Service 返回实际数据"
+        f"BUG C5: OrganizationServiceAdapter.{method_name}() 包含 TODO 注释，应委托给对应 Service 返回实际数据"
     )
 
 
@@ -278,9 +271,7 @@ def test_c5_property_adapter_no_todo(method_index: int) -> None:
             if node.name == method_name:
                 method_source = ast.get_source_segment(source, node)
                 assert method_source is not None
-                assert "TODO" not in method_source, (
-                    f"BUG C5: OrganizationServiceAdapter.{method_name}() 包含 TODO"
-                )
+                assert "TODO" not in method_source, f"BUG C5: OrganizationServiceAdapter.{method_name}() 包含 TODO"
                 return
 
     pytest.fail(f"未找到 {method_name} 方法")
@@ -310,8 +301,7 @@ def test_c6_no_check_permission_methods(rel_path: str) -> None:
                 permission_methods.append(node.name)
 
     assert not permission_methods, (
-        f"BUG C6: {rel_path} 包含权限检查方法: {permission_methods}，"
-        "应委托给 OrganizationAccessPolicy"
+        f"BUG C6: {rel_path} 包含权限检查方法: {permission_methods}，应委托给 OrganizationAccessPolicy"
     )
 
 
@@ -452,10 +442,7 @@ def test_c9_no_unused_cast_import() -> None:
             uses_cast = True
             break
 
-    assert uses_cast, (
-        "BUG C9: lawfirm_service.py 导入了 cast 但未使用，"
-        "应移除未使用的导入"
-    )
+    assert uses_cast, "BUG C9: lawfirm_service.py 导入了 cast 但未使用，应移除未使用的导入"
 
 
 # ---------------------------------------------------------------------------
@@ -485,9 +472,9 @@ def test_c10_no_fstring_in_gettext() -> None:
                     # 检查是否使用了 _(f"...") 模式
                     has_fstring_gettext = bool(re.search(r'_\(f["\']', method_source))
                     assert not has_fstring_gettext, (
-                        f"BUG C10: {method_name} 使用了 _(f\"...\") 格式，"
+                        f'BUG C10: {method_name} 使用了 _(f"...") 格式，'
                         "i18n 工具无法正确提取翻译字符串，"
-                        "应使用 ngettext 或 _(\"...%(count)d...\") % {{...}} 格式"
+                        '应使用 ngettext 或 _("...%(count)d...") % {{...}} 格式'
                     )
 
 
@@ -511,9 +498,7 @@ def test_c10_property_no_fstring_in_gettext(method_index: int) -> None:
             if node.name == method_name:
                 method_source = ast.get_source_segment(source, node)
                 assert method_source is not None
-                assert not re.search(r'_\(f["\']', method_source), (
-                    f"BUG C10: {method_name} 使用了 _(f\"...\") 格式"
-                )
+                assert not re.search(r'_\(f["\']', method_source), f'BUG C10: {method_name} 使用了 _(f"...") 格式'
                 return
 
     pytest.fail(f"未找到 {method_name} 方法")

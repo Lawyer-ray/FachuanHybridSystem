@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import pytest
 from django.test import override_settings
-from hypothesis import given, settings as h_settings
+from hypothesis import given
+from hypothesis import settings as h_settings
 from hypothesis import strategies as st
-
 
 # ============================================================
 # 1. storage.py 的 _get_media_root() 行为不变
@@ -83,9 +83,7 @@ def test_existing_endpoint_identity_doc_detail_registered() -> None:
     from apps.client.api import clientidentitydoc_api
 
     source = inspect.getsource(clientidentitydoc_api)
-    assert "/identity-docs/{doc_id}" in source, (
-        "路由 /identity-docs/{doc_id} 未在 clientidentitydoc_api.py 中注册"
-    )
+    assert "/identity-docs/{doc_id}" in source, "路由 /identity-docs/{doc_id} 未在 clientidentitydoc_api.py 中注册"
 
 
 @pytest.mark.django_db
@@ -290,9 +288,7 @@ def test_client_service_adapter_has_full_methods() -> None:
         "get_identity_docs_by_client_internal",
     ]
     for method in expected_methods:
-        assert callable(getattr(ClientServiceAdapter, method, None)), (
-            f"ClientServiceAdapter 缺少方法: {method}"
-        )
+        assert callable(getattr(ClientServiceAdapter, method, None)), f"ClientServiceAdapter 缺少方法: {method}"
 
 
 # ============================================================
@@ -303,6 +299,7 @@ def test_client_service_adapter_has_full_methods() -> None:
 
 
 # ---- Test 2a: add_identity_doc 创建证件记录 ----
+
 
 @pytest.mark.django_db
 def test_2a_add_identity_doc_creates_record(tmp_path: object) -> None:
@@ -345,8 +342,8 @@ def test_2a_add_identity_doc_creates_record(tmp_path: object) -> None:
 @pytest.mark.django_db
 def test_2a_add_identity_doc_raises_not_found_for_missing_client() -> None:
     """add_identity_doc() 当事人不存在时抛出 NotFoundError。"""
-    from apps.core.exceptions import NotFoundError
     from apps.client.services.client_identity_doc_service import ClientIdentityDocService
+    from apps.core.exceptions import NotFoundError
 
     svc = ClientIdentityDocService()
     with pytest.raises(NotFoundError):
@@ -354,6 +351,7 @@ def test_2a_add_identity_doc_raises_not_found_for_missing_client() -> None:
 
 
 # ---- Test 2b: rename_uploaded_file 按标准格式重命名 ----
+
 
 @pytest.mark.django_db
 def test_2b_rename_uploaded_file_renames_correctly(tmp_path: object) -> None:
@@ -404,6 +402,7 @@ def test_2b_rename_uploaded_file_noop_when_no_file(tmp_path: object) -> None:
 
 # ---- Test 2c: IdCardMergeService 合并身份证（mock 文件 IO）----
 
+
 def test_2c_idcard_merge_service_returns_success_structure() -> None:
     """
     IdCardMergeService.merge_id_card() 成功时返回含 pdf_path 和 pdf_url 的字典。
@@ -420,10 +419,12 @@ def test_2c_idcard_merge_service_returns_success_structure() -> None:
     mock_file.name = "test.jpg"
     mock_file.content_type = "image/jpeg"
 
-    with patch.object(svc, "_validate_image_format", return_value=None), \
-         patch.object(svc, "_read_uploaded_image", return_value=MagicMock()), \
-         patch.object(svc, "_validate_image_size", return_value=None), \
-         patch.object(svc, "_generate_pdf", return_value="id_card_pdfs/output.pdf"):
+    with (
+        patch.object(svc, "_validate_image_format", return_value=None),
+        patch.object(svc, "_read_uploaded_image", return_value=MagicMock()),
+        patch.object(svc, "_validate_image_size", return_value=None),
+        patch.object(svc, "_generate_pdf", return_value="id_card_pdfs/output.pdf"),
+    ):
         result = svc.merge_id_card(mock_file, mock_file)
 
     assert result["success"] is True
@@ -453,6 +454,7 @@ def test_2c_idcard_merge_service_returns_error_on_invalid_format() -> None:
 
 
 # ---- Test 2d: PropertyClueService CRUD ----
+
 
 @pytest.mark.django_db
 def test_2d_property_clue_service_create_and_get() -> None:
@@ -521,6 +523,7 @@ def test_2d_property_clue_service_list_by_client() -> None:
 
 # ---- Test 2e: ClientDtoAssembler.to_dto() 返回完整 DTO ----
 
+
 @pytest.mark.django_db
 def test_2e_client_dto_assembler_returns_complete_dto() -> None:
     """
@@ -570,6 +573,7 @@ def test_2e_client_dto_assembler_handles_null_fields() -> None:
 
 
 # ---- Test 2f: ClientAdminService.import_from_json() 正确创建客户 ----
+
 
 @pytest.mark.django_db
 def test_2f_import_from_json_creates_client(tmp_path: object) -> None:
@@ -646,6 +650,7 @@ def test_2f_import_from_json_fails_on_invalid_data() -> None:
 
 
 # ---- Test 2g: ClientServiceAdapter 各方法正确转换 DTO ----
+
 
 @pytest.mark.django_db
 def test_2g_client_service_adapter_get_client_returns_dto() -> None:
@@ -740,15 +745,29 @@ def test_2g_client_service_adapter_get_identity_docs_by_client() -> None:
 
 # 预定义的角色标签
 _ROLE_LABELS: list[str] = [
-    "原告：", "被告：", "甲方：", "乙方：",
-    "申请人：", "被申请人：", "上诉人：", "被上诉人：",
-    "第三人：", "答辩人：", "被答辩人：",
-    "甲方（原告）：", "乙方（被告）：",
+    "原告：",
+    "被告：",
+    "甲方：",
+    "乙方：",
+    "申请人：",
+    "被申请人：",
+    "上诉人：",
+    "被上诉人：",
+    "第三人：",
+    "答辩人：",
+    "被答辩人：",
+    "甲方（原告）：",
+    "乙方（被告）：",
 ]
 
 # 结果必须包含的键
 _REQUIRED_KEYS: set[str] = {
-    "name", "phone", "address", "client_type", "id_number", "legal_representative",
+    "name",
+    "phone",
+    "address",
+    "client_type",
+    "id_number",
+    "legal_representative",
 }
 
 
@@ -792,27 +811,28 @@ def test_pbt_parse_client_text_returns_structured_result(
 
     # 结果必须是 dict 且包含所有必需键
     assert isinstance(result, dict), f"返回类型应为 dict，实际为 {type(result)}"
-    assert _REQUIRED_KEYS.issubset(result.keys()), (
-        f"缺少必需键: {_REQUIRED_KEYS - result.keys()}"
-    )
+    assert _REQUIRED_KEYS.issubset(result.keys()), f"缺少必需键: {_REQUIRED_KEYS - result.keys()}"
     # client_type 只能是 natural 或 legal
-    assert result["client_type"] in ("natural", "legal"), (
-        f"client_type 应为 natural 或 legal，实际为 {result['client_type']}"
-    )
+    assert result["client_type"] in (
+        "natural",
+        "legal",
+    ), f"client_type 应为 natural 或 legal，实际为 {result['client_type']}"
 
 
 @pytest.mark.property_test
 @given(
-    text=st.sampled_from([
-        "",
-        "   ",
-        "随机文本没有角色标签",
-        "原告：张三\n身份证号：110101199001011234",
-        "被告：北京科技有限公司\n统一社会信用代码：91110000123456789X",
-        "abc123",
-        "甲方：测试",
-        "原告：\n被告：",
-    ]),
+    text=st.sampled_from(
+        [
+            "",
+            "   ",
+            "随机文本没有角色标签",
+            "原告：张三\n身份证号：110101199001011234",
+            "被告：北京科技有限公司\n统一社会信用代码：91110000123456789X",
+            "abc123",
+            "甲方：测试",
+            "原告：\n被告：",
+        ]
+    ),
 )
 @h_settings(max_examples=5, deadline=None)
 def test_pbt_parse_client_text_never_crashes(text: str) -> None:
@@ -836,6 +856,7 @@ def test_pbt_parse_client_text_never_crashes(text: str) -> None:
 # ---------------------------------------------------------------------------
 # PBT 2.2: parse_multiple_clients_text 对任意多当事人文本返回列表
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.property_test
 @given(
@@ -874,15 +895,17 @@ def test_pbt_parse_multiple_clients_text_returns_list(
 
 @pytest.mark.property_test
 @given(
-    text=st.sampled_from([
-        "",
-        "   ",
-        "无角色标签文本",
-        "原告：张三\n被告：李四",
-        "甲方（原告）：北京公司\n乙方（被告）：上海公司",
-        "申请人：王五\n被申请人：赵六",
-        "上诉人：测试A\n被上诉人：测试B",
-    ]),
+    text=st.sampled_from(
+        [
+            "",
+            "   ",
+            "无角色标签文本",
+            "原告：张三\n被告：李四",
+            "甲方（原告）：北京公司\n乙方（被告）：上海公司",
+            "申请人：王五\n被申请人：赵六",
+            "上诉人：测试A\n被上诉人：测试B",
+        ]
+    ),
 )
 @h_settings(max_examples=5, deadline=None)
 def test_pbt_parse_multiple_clients_text_never_crashes(text: str) -> None:
@@ -904,6 +927,7 @@ def test_pbt_parse_multiple_clients_text_never_crashes(text: str) -> None:
 # ---------------------------------------------------------------------------
 # PBT 2.3: save_uploaded_file 返回正确的相对路径
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.property_test
 @given(
@@ -948,9 +972,7 @@ def test_pbt_save_uploaded_file_returns_relative_path(
             )
 
         # 返回的路径以 rel_dir 开头
-        assert result_path.startswith(rel_dir), (
-            f"返回路径 '{result_path}' 应以 '{rel_dir}' 开头"
-        )
+        assert result_path.startswith(rel_dir), f"返回路径 '{result_path}' 应以 '{rel_dir}' 开头"
         # 不含反斜杠
         assert "\\" not in result_path
         # safe_name 不为空
@@ -964,6 +986,7 @@ def test_pbt_save_uploaded_file_returns_relative_path(
 # ---------------------------------------------------------------------------
 # PBT 2.4: ClientInternalQueryService 查询方法对同一输入返回一致结果
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.django_db
 @pytest.mark.property_test
@@ -1015,6 +1038,7 @@ def test_pbt_internal_query_service_consistent_results(
 # ---------------------------------------------------------------------------
 # PBT 2.5: PropertyClueOut 正确序列化线索类型标签
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.django_db
 @pytest.mark.property_test

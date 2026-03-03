@@ -6,8 +6,6 @@ from typing import Any
 from django.http import HttpRequest
 from ninja import Router
 
-from apps.core.request_context import extract_request_context
-
 from apps.contracts.schemas import (
     ContractIn,
     ContractOut,
@@ -16,6 +14,7 @@ from apps.contracts.schemas import (
     ContractUpdate,
     UpdateLawyersIn,
 )
+from apps.core.request_context import extract_request_context
 
 logger = logging.getLogger("apps.contracts.api")
 router = Router()

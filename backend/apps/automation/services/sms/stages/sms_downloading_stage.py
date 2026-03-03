@@ -141,8 +141,8 @@ class SMSDownloadingStage(BaseSMSStage):
 
 def create_sms_downloading_stage() -> SMSDownloadingStage:
     """工厂函数：创建 SMS 下载阶段处理器"""
-    from apps.automation.tasks import execute_scraper_task
     from apps.automation.services.sms.task_queue import DjangoQTaskQueue
+    from apps.automation.tasks import execute_scraper_task
 
     return SMSDownloadingStage(
         task_queue=DjangoQTaskQueue(),

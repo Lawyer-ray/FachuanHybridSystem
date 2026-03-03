@@ -80,9 +80,9 @@ def test_all_valid_stages_for_civil(config: BusinessConfig) -> None:
     """civil 类型的所有有效阶段都应返回 True"""
     civil_stages = [s for s, _ in config.get_stages_for_case_type(CaseTypeCode.CIVIL)]
     for stage in civil_stages:
-        assert config.is_stage_valid_for_case_type(stage, CaseTypeCode.CIVIL) is True, (
-            f"Stage {stage} should be valid for civil"
-        )
+        assert (
+            config.is_stage_valid_for_case_type(stage, CaseTypeCode.CIVIL) is True
+        ), f"Stage {stage} should be valid for civil"
 
 
 def test_enforcement_not_valid_for_criminal(config: BusinessConfig) -> None:

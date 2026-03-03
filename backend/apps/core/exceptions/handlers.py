@@ -212,7 +212,9 @@ def _register_server_error_handlers(api: NinjaAPI, create_response: _CreateRespo
             "Service unavailable: %s",
             exc.message,
             extra=_log_extra(
-                request, code=exc.code, errors=exc.errors,
+                request,
+                code=exc.code,
+                errors=exc.errors,
                 service_name=getattr(exc, "service_name", None),
             ),
         )
@@ -224,7 +226,9 @@ def _register_server_error_handlers(api: NinjaAPI, create_response: _CreateRespo
             "Recognition timeout: %s",
             exc.message,
             extra=_log_extra(
-                request, code=exc.code, errors=exc.errors,
+                request,
+                code=exc.code,
+                errors=exc.errors,
                 timeout_seconds=getattr(exc, "timeout_seconds", None),
             ),
         )
@@ -246,9 +250,7 @@ def _register_llm_handlers(api: NinjaAPI, create_response: _CreateResponse) -> N
         from apps.core.llm.exceptions import LLMAPIError, LLMBackendUnavailableError, LLMTimeoutError
 
         @api.exception_handler(LLMBackendUnavailableError)
-        def handle_llm_backend_unavailable_error(
-            request: HttpRequest, exc: LLMBackendUnavailableError
-        ) -> HttpResponse:
+        def handle_llm_backend_unavailable_error(request: HttpRequest, exc: LLMBackendUnavailableError) -> HttpResponse:
             logger.error(
                 "LLM backend unavailable: %s",
                 exc.message,

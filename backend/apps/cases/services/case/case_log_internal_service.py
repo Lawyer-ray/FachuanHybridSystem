@@ -1,12 +1,12 @@
 """Business logic services."""
 
 from __future__ import annotations
-from django.utils.translation import gettext_lazy as _
 
 import logging
 from typing import Any, cast
 
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import Case, CaseLog
 from apps.core.exceptions import NotFoundError
@@ -37,7 +37,7 @@ class CaseLogInternalService:
             extra={
                 "action": "create_case_log_internal",
                 "case_id": case_id,
-                "log_id": cast(int, case_log.id), # type: ignore
+                "log_id": cast(int, case_log.id),  # type: ignore
                 "user_id": actor_id,
             },
         )

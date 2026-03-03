@@ -1,9 +1,10 @@
 """Business logic services."""
 
 from __future__ import annotations
-from django.utils.translation import gettext_lazy as _
 
 from typing import Any
+
+from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import CaseLogVersion
 

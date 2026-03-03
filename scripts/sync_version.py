@@ -25,7 +25,7 @@ def update_readme_version(readme_path: Path, version: str) -> bool:
     # 匹配 # 法穿AI案件管理系统V版本号
     pattern = r"(# 法穿AI案件管理系统V)\d+\.\d+(?:\.\d+)?"
     new_content = re.sub(pattern, rf"\g<1>{version}", content)
-    
+
     if new_content != content:
         readme_path.write_text(new_content, encoding="utf-8")
         return True
@@ -37,23 +37,23 @@ def main() -> int:
     root = Path(__file__).parent.parent
     changelog_path = root / "CHANGELOG.md"
     readme_path = root / "README.md"
-    
+
     if not changelog_path.exists():
         print(f"❌ 找不到 {changelog_path}")
         return 1
-    
+
     if not readme_path.exists():
         print(f"❌ 找不到 {readme_path}")
         return 1
-    
+
     # 提取最新版本号
     version = get_latest_version_from_changelog(changelog_path)
     if not version:
         print("❌ 无法从 CHANGELOG.md 提取版本号")
         return 1
-    
+
     print(f"📌 CHANGELOG.md 最新版本: {version}")
-    
+
     # 更新 README.md
     if update_readme_version(readme_path, version):
         print(f"✅ README.md 版本号已更新为 V{version}")

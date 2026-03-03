@@ -15,13 +15,13 @@ API文档参考：
 - FEISHU.TIMEOUT: API请求超时时间（可选，默认30秒）
 """
 
-from django.utils.translation import gettext_lazy as _
 import json
 import logging
 from datetime import datetime
 from typing import Any
 
 import httpx
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.enums import ChatPlatform
 from apps.core.exceptions import (

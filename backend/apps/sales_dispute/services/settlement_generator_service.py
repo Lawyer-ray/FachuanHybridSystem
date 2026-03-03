@@ -18,13 +18,7 @@ from .lawyer_letter_generator_service import GeneratedDocument
 
 logger = logging.getLogger(__name__)
 
-TEMPLATE_DIR: Path = (
-    Path(__file__).resolve().parents[3]
-    / "documents"
-    / "docx_templates"
-    / "2-案件材料"
-    / "3-催收材料"
-)
+TEMPLATE_DIR: Path = Path(__file__).resolve().parents[3] / "documents" / "docx_templates" / "2-案件材料" / "3-催收材料"
 TEMPLATE_FILE = "和解协议.docx"
 
 
@@ -84,10 +78,7 @@ class SettlementGeneratorService:
         5. 返回文件名和字节流
         """
         from apps.documents.services.generation.pipeline import DocxRenderer
-        from apps.sales_dispute.models.collection_record import (
-            CollectionLog,
-            CollectionRecord,
-        )
+        from apps.sales_dispute.models.collection_record import CollectionLog, CollectionRecord
 
         template_path = TEMPLATE_DIR / TEMPLATE_FILE
 
@@ -115,9 +106,7 @@ class SettlementGeneratorService:
                 document_filename=filename,
             )
         except CollectionRecord.DoesNotExist:
-            logger.warning(
-                "案件 %s 无催收记录，跳过日志创建", params.case_id
-            )
+            logger.warning("案件 %s 无催收记录，跳过日志创建", params.case_id)
 
         logger.info(
             "生成和解协议：案件=%s, 文件=%s",
@@ -153,9 +142,7 @@ class SettlementGeneratorService:
             "debtor_id_number": params.debtor_id_number,
             "total_debt": f"{params.total_debt:,.2f}",
             "installments": installments_list,
-            "acceleration_clause": params.acceleration_clause.replace(
-                "\n", "\a"
-            ),
+            "acceleration_clause": params.acceleration_clause.replace("\n", "\a"),
             "penalty_rate": penalty_rate_pct,
             "dispute_resolution": resolution_display,
             "arbitration_institution": params.arbitration_institution,

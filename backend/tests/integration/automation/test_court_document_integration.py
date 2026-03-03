@@ -5,13 +5,13 @@
 
 import time
 from datetime import datetime
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
 from apps.automation.models import CourtDocument, DocumentDownloadStatus, ScraperTask
 from apps.automation.services.scraper.scrapers.court_document import CourtDocumentScraper
-from pathlib import Path
 
 
 @pytest.mark.django_db

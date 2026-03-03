@@ -9,9 +9,10 @@ Requirements: 1.2, 1.3, 1.4, 1.5, 1.6, 2.3, 2.4
 
 from __future__ import annotations
 
-from django.utils.translation import gettext_lazy as _
 import logging
 from typing import TYPE_CHECKING, Any
+
+from django.utils.translation import gettext_lazy as _
 
 from .repo import CaseTemplateBindingRepo
 from .wiring import get_document_service
@@ -36,8 +37,8 @@ class CaseDocumentTemplateAdminService:
 
     def __init__(
         self,
-        document_service: "IDocumentService | None" = None,
-        binding_service: "CaseTemplateBindingService | None" = None,
+        document_service: IDocumentService | None = None,
+        binding_service: CaseTemplateBindingService | None = None,
         repo: CaseTemplateBindingRepo | None = None,
     ) -> None:
         self._document_service = document_service
@@ -45,14 +46,14 @@ class CaseDocumentTemplateAdminService:
         self._repo = repo or CaseTemplateBindingRepo()
 
     @property
-    def document_service(self) -> "IDocumentService":
+    def document_service(self) -> IDocumentService:
         """延迟加载文档服务"""
         if self._document_service is None:
             self._document_service = get_document_service()
         return self._document_service
 
     @property
-    def binding_service(self) -> "CaseTemplateBindingService":
+    def binding_service(self) -> CaseTemplateBindingService:
         """延迟加载绑定服务"""
         if self._binding_service is None:
             from .wiring import get_case_template_binding_service
@@ -143,7 +144,11 @@ class CaseDocumentTemplateAdminService:
 
         logger.info(
             "案件 %s 匹配到 %s 个文件模板,case_type=%s, case_stage=%s, legal_statuses=%s",
-            case_id, len(matched), case_type, case_stage, legal_statuses,
+            case_id,
+            len(matched),
+            case_type,
+            case_stage,
+            legal_statuses,
         )
 
         return matched

@@ -1,13 +1,13 @@
 """Business logic services."""
 
 from __future__ import annotations
-from django.utils.translation import gettext_lazy as _
-from django.utils import timezone
 
 import io
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 from docx import Document
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -369,6 +369,7 @@ class EvidenceExportService:
             doc.add_paragraph(f"页数:{item.page_count}")  # type: ignore[no-untyped-call]
         # 添加分隔线
         doc.add_paragraph("─" * 50)  # type: ignore[no-untyped-call]
+
     def _get_global_order_start(self, evidence_list: EvidenceList) -> int:
         """
         计算全局序号起始值

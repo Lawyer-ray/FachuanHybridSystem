@@ -4,8 +4,9 @@
 提供清晰的错误分类和错误信息，便于错误处理和调试。
 """
 
-from apps.core.exceptions import BusinessError
 from typing import Any
+
+from apps.core.exceptions import BusinessError
 
 
 class PreservationQuoteError(BusinessError):

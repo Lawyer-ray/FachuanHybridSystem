@@ -46,9 +46,9 @@ def _has_runtime_model_import(tree: ast.Module) -> list[dict[str, Any]]:
         if isinstance(node, ast.If):
             test = node.test
             is_type_checking: bool = False
-            if isinstance(test, ast.Name) and test.id == "TYPE_CHECKING":
-                is_type_checking = True
-            elif isinstance(test, ast.Attribute) and test.attr == "TYPE_CHECKING":
+            if (isinstance(test, ast.Name) and test.id == "TYPE_CHECKING") or (
+                isinstance(test, ast.Attribute) and test.attr == "TYPE_CHECKING"
+            ):
                 is_type_checking = True
             if is_type_checking:
                 continue
@@ -57,10 +57,12 @@ def _has_runtime_model_import(tree: ast.Module) -> list[dict[str, Any]]:
         if isinstance(node, ast.ImportFrom):
             if node.module and node.module.startswith("apps.client.models"):
                 names: list[str] = [alias.name for alias in (node.names or [])]
-                violations.append({
-                    "line": node.lineno,
-                    "names": names,
-                })
+                violations.append(
+                    {
+                        "line": node.lineno,
+                        "names": names,
+                    }
+                )
 
     return violations
 
@@ -91,13 +93,8 @@ def test_property1_service_no_runtime_model_import(file_rel_path: str) -> None:
     tree: ast.Module = _parse_file(file_rel_path)
     violations: list[dict[str, Any]] = _has_runtime_model_import(tree)
 
-    assert not violations, (
-        f"架构违规: {file_rel_path} 存在运行时 Model 导入 "
-        f"(不在 TYPE_CHECKING 块内):\n"
-        + "\n".join(
-            f"  第 {v['line']} 行: from apps.client.models import {', '.join(v['names'])}"
-            for v in violations
-        )
+    assert not violations, f"架构违规: {file_rel_path} 存在运行时 Model 导入 (不在 TYPE_CHECKING 块内):\n" + "\n".join(
+        f"  第 {v['line']} 行: from apps.client.models import {', '.join(v['names'])}" for v in violations
     )
 
 
@@ -125,10 +122,12 @@ def _find_getattr_fallbacks(tree: ast.Module) -> list[dict[str, Any]]:
         if len(node.args) >= 2:
             second_arg = node.args[1]
             if isinstance(second_arg, ast.Constant) and second_arg.value == "identity_doc_service":
-                violations.append({
-                    "line": node.lineno,
-                    "code": ast.dump(node),
-                })
+                violations.append(
+                    {
+                        "line": node.lineno,
+                        "code": ast.dump(node),
+                    }
+                )
     return violations
 
 
@@ -144,15 +143,17 @@ def _find_direct_service_instantiation(tree: ast.Module) -> list[dict[str, Any]]
             continue
         func = node.func
         is_direct: bool = False
-        if isinstance(func, ast.Name) and func.id == "ClientIdentityDocService":
-            is_direct = True
-        elif isinstance(func, ast.Attribute) and func.attr == "ClientIdentityDocService":
+        if (isinstance(func, ast.Name) and func.id == "ClientIdentityDocService") or (
+            isinstance(func, ast.Attribute) and func.attr == "ClientIdentityDocService"
+        ):
             is_direct = True
         if is_direct:
-            violations.append({
-                "line": node.lineno,
-                "code": ast.dump(node),
-            })
+            violations.append(
+                {
+                    "line": node.lineno,
+                    "code": ast.dump(node),
+                }
+            )
     return violations
 
 
@@ -170,12 +171,8 @@ def test_property2_admin_no_getattr_fallback() -> None:
     tree: ast.Module = _parse_file(ADMIN_MIXIN_FILE)
     violations: list[dict[str, Any]] = _find_getattr_fallbacks(tree)
 
-    assert not violations, (
-        f"架构违规: {ADMIN_MIXIN_FILE} 存在 getattr 回退:\n"
-        + "\n".join(
-            f"  第 {v['line']} 行: {v['code']}"
-            for v in violations
-        )
+    assert not violations, f"架构违规: {ADMIN_MIXIN_FILE} 存在 getattr 回退:\n" + "\n".join(
+        f"  第 {v['line']} 行: {v['code']}" for v in violations
     )
 
 
@@ -193,12 +190,8 @@ def test_property2_admin_no_direct_service_instantiation() -> None:
     tree: ast.Module = _parse_file(ADMIN_MIXIN_FILE)
     violations: list[dict[str, Any]] = _find_direct_service_instantiation(tree)
 
-    assert not violations, (
-        f"架构违规: {ADMIN_MIXIN_FILE} 存在直接 Service 实例化:\n"
-        + "\n".join(
-            f"  第 {v['line']} 行: {v['code']}"
-            for v in violations
-        )
+    assert not violations, f"架构违规: {ADMIN_MIXIN_FILE} 存在直接 Service 实例化:\n" + "\n".join(
+        f"  第 {v['line']} 行: {v['code']}" for v in violations
     )
 
 
@@ -207,9 +200,7 @@ def test_property2_admin_no_direct_service_instantiation() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _find_try_except_in_method(
-    tree: ast.Module, class_name: str, method_name: str
-) -> list[dict[str, Any]]:
+def _find_try_except_in_method(tree: ast.Module, class_name: str, method_name: str) -> list[dict[str, Any]]:
     """
     在指定类的指定方法体中查找 ``try/except`` 块。
 
@@ -244,16 +235,11 @@ def test_property3_no_exception_swallowing() -> None:
     **Validates: Requirements 3.1, 3.2**
     """
     tree: ast.Module = _parse_file(ADMIN_MIXIN_FILE)
-    violations: list[dict[str, Any]] = _find_try_except_in_method(
-        tree, "ClientAdminFileMixin", "_update_identity_doc"
-    )
+    violations: list[dict[str, Any]] = _find_try_except_in_method(tree, "ClientAdminFileMixin", "_update_identity_doc")
 
     assert not violations, (
         f"架构违规: {ADMIN_MIXIN_FILE} 的 _update_identity_doc 方法存在 try/except 块:\n"
-        + "\n".join(
-            f"  第 {v['line']} 行: try/except"
-            for v in violations
-        )
+        + "\n".join(f"  第 {v['line']} 行: try/except" for v in violations)
     )
 
 
@@ -285,12 +271,9 @@ def test_property4_resolve_media_url_correctness(file_path: str) -> None:
 
     if result is not None:
         assert result.startswith(django_settings.MEDIA_URL), (
-            f"resolve_media_url({file_path!r}) = {result!r} "
-            f"不以 MEDIA_URL ({django_settings.MEDIA_URL!r}) 开头"
+            f"resolve_media_url({file_path!r}) = {result!r} 不以 MEDIA_URL ({django_settings.MEDIA_URL!r}) 开头"
         )
-        assert "\\" not in result, (
-            f"resolve_media_url({file_path!r}) = {result!r} 包含反斜杠"
-        )
+        assert "\\" not in result, f"resolve_media_url({file_path!r}) = {result!r} 包含反斜杠"
 
 
 @pytest.mark.property_test
@@ -303,9 +286,7 @@ def test_property4_resolve_media_url_empty_returns_none() -> None:
     from apps.client.utils.media import resolve_media_url
 
     result: str | None = resolve_media_url("")
-    assert result is None, (
-        f"resolve_media_url('') 应返回 None，实际返回 {result!r}"
-    )
+    assert result is None, f"resolve_media_url('') 应返回 None，实际返回 {result!r}"
 
 
 # ---------------------------------------------------------------------------
@@ -435,10 +416,7 @@ def test_property6_no_media_url_method_calls(file_rel_path: str) -> None:
     assert not violations, (
         f"架构违规: {file_rel_path} 存在 media_url() 方法调用 "
         f"(应使用属性访问 .media_url 而非方法调用 .media_url()):\n"
-        + "\n".join(
-            f"  第 {v['line']} 行: obj.media_url()"
-            for v in violations
-        )
+        + "\n".join(f"  第 {v['line']} 行: obj.media_url()" for v in violations)
     )
 
 
@@ -454,16 +432,11 @@ from apps.client.models import Client
 from apps.client.models.identity_doc import ClientIdentityDoc
 from apps.client.models.property_clue import PropertyClue
 
-ALL_CHOICES_DISPLAYS: list[tuple[object, str]] = [
-    (display, "ClientIdentityDoc.DOC_TYPE_CHOICES")
-    for _, display in ClientIdentityDoc.DOC_TYPE_CHOICES
-] + [
-    (display, "PropertyClue.CLUE_TYPE_CHOICES")
-    for _, display in PropertyClue.CLUE_TYPE_CHOICES
-] + [
-    (display, "Client.CLIENT_TYPE_CHOICES")
-    for _, display in Client.CLIENT_TYPE_CHOICES
-]
+ALL_CHOICES_DISPLAYS: list[tuple[object, str]] = (
+    [(display, "ClientIdentityDoc.DOC_TYPE_CHOICES") for _, display in ClientIdentityDoc.DOC_TYPE_CHOICES]
+    + [(display, "PropertyClue.CLUE_TYPE_CHOICES") for _, display in PropertyClue.CLUE_TYPE_CHOICES]
+    + [(display, "Client.CLIENT_TYPE_CHOICES") for _, display in Client.CLIENT_TYPE_CHOICES]
+)
 
 CONTENT_TEMPLATE_VALUES: list[tuple[object, str]] = [
     (value, "PropertyClue.CONTENT_TEMPLATES")
@@ -492,8 +465,7 @@ def test_property7_choices_display_is_lazy_string(
     source: str = data[1]
 
     assert isinstance(display, Promise), (
-        f"{source} 中的显示文本 {display!r} 不是 lazy string "
-        f"(类型: {type(display).__name__})，应使用 gettext_lazy 包裹"
+        f"{source} 中的显示文本 {display!r} 不是 lazy string (类型: {type(display).__name__})，应使用 gettext_lazy 包裹"
     )
 
 
@@ -515,8 +487,7 @@ def test_property7_content_templates_is_lazy_string(
     source: str = data[1]
 
     assert isinstance(value, Promise), (
-        f"{source} 中的模板文本 {value!r} 不是 lazy string "
-        f"(类型: {type(value).__name__})，应使用 gettext_lazy 包裹"
+        f"{source} 中的模板文本 {value!r} 不是 lazy string (类型: {type(value).__name__})，应使用 gettext_lazy 包裹"
     )
 
 
@@ -556,11 +527,8 @@ def test_property8_identity_doc_clean_messages_are_lazy() -> None:
                                 if isinstance(arg, ast.Dict):
                                     for val in arg.values:
                                         assert isinstance(val, ast.Call) and (
-                                            (isinstance(val.func, ast.Name) and val.func.id == "_")
-                                        ), (
-                                            f"ValidationError 的消息值应使用 _() 包裹，"
-                                            f"发现: {ast.dump(val)}"
-                                        )
+                                            isinstance(val.func, ast.Name) and val.func.id == "_"
+                                        ), f"ValidationError 的消息值应使用 _() 包裹，发现: {ast.dump(val)}"
                     return
     pytest.fail("未找到 ClientIdentityDoc.clean() 方法")
 
@@ -591,11 +559,8 @@ def test_property8_client_clean_messages_are_lazy() -> None:
                                 if isinstance(arg, ast.Dict):
                                     for val in arg.values:
                                         assert isinstance(val, ast.Call) and (
-                                            (isinstance(val.func, ast.Name) and val.func.id == "_")
-                                        ), (
-                                            f"ValidationError 的消息值应使用 _() 包裹，"
-                                            f"发现: {ast.dump(val)}"
-                                        )
+                                            isinstance(val.func, ast.Name) and val.func.id == "_"
+                                        ), f"ValidationError 的消息值应使用 _() 包裹，发现: {ast.dump(val)}"
                     return
     pytest.fail("未找到 Client.clean() 方法")
 

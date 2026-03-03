@@ -10,10 +10,9 @@ from typing import TYPE_CHECKING
 from django.core.files.uploadedfile import UploadedFile
 from django.db import transaction
 from django.db.models import Case, F, IntegerField, Max, QuerySet, Value, When
-
-from apps.chat_records.models import ChatRecordRecording, ChatRecordScreenshot, ScreenshotSource
 from django.utils.translation import gettext_lazy as _
 
+from apps.chat_records.models import ChatRecordRecording, ChatRecordScreenshot, ScreenshotSource
 from apps.core.exceptions import NotFoundError, ValidationException
 
 from .access_policy import ensure_can_access_project
@@ -36,11 +35,10 @@ class ScreenshotService:
         self._project_service.get_project(user=user, project_id=project_id)
         return ChatRecordScreenshot.objects.filter(project_id=project_id).order_by("ordering", "created_at")
 
-
     def get_screenshot(self, *, user: User, screenshot_id: str) -> ChatRecordScreenshot:
         try:
-            screenshot: ChatRecordScreenshot = (
-                ChatRecordScreenshot.objects.select_related("project").get(id=screenshot_id)
+            screenshot: ChatRecordScreenshot = ChatRecordScreenshot.objects.select_related("project").get(
+                id=screenshot_id
             )
         except ChatRecordScreenshot.DoesNotExist:
             raise NotFoundError(f"截图 {screenshot_id} 不存在") from None
@@ -112,7 +110,7 @@ class ScreenshotService:
             content = file.read()
             file.seek(0)
         except Exception:
-            logger.exception("截图文件读取失败: %s", getattr(file, 'name', '<unknown>'))
+            logger.exception("截图文件读取失败: %s", getattr(file, "name", "<unknown>"))
             raise ValidationException(_("截图文件读取失败，无法进行去重"))
         if not content:
             return "", ""
@@ -133,8 +131,7 @@ class ScreenshotService:
         # Lock all rows for this project to prevent concurrent ordering conflicts.
         # The caller (upload_screenshots) already wraps this in @transaction.atomic.
         locked_qs: QuerySet[ChatRecordScreenshot, ChatRecordScreenshot] = (
-            ChatRecordScreenshot.objects.select_for_update()
-            .filter(project_id=project_id)
+            ChatRecordScreenshot.objects.select_for_update().filter(project_id=project_id)
         )
 
         insert_before = (
@@ -214,4 +211,3 @@ class ScreenshotService:
         ChatRecordScreenshot.objects.filter(project_id=project_id).update(
             ordering=Case(*cases, output_field=IntegerField())
         )
-

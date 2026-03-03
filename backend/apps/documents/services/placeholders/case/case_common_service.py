@@ -123,7 +123,7 @@ class CaseCommonPlaceholderService(BasePlaceholderService):
             logger.exception("操作失败")
             assignments = []
 
-        def sort_key(a: Any) -> tuple[Any, ...]: # type: ignore[no-any-return]
+        def sort_key(a: Any) -> tuple[Any, ...]:  # type: ignore[no-any-return]
             return (0 if getattr(a, "is_primary", False) else 1, getattr(a, "id", 0))
 
         assignments = sorted(assignments, key=sort_key)

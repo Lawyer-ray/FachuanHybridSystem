@@ -5,11 +5,11 @@ Feature: backend-structure-optimization, Property 8: Service 文件组织规范
 Validates: Requirements 6.4
 """
 
+from pathlib import Path
+
 import pytest
 from hypothesis import assume, given
 from hypothesis import strategies as st
-
-from pathlib import Path
 
 # 定义所有 Django app（排除 core 和 tests）
 DJANGO_APPS = ["automation", "cases", "client", "contracts", "organization"]
@@ -301,9 +301,9 @@ def test_services_directory_structure_property(app_name):
     service_files = list(services_dir.glob("*_service.py"))
     subdirs = [d for d in services_dir.iterdir() if d.is_dir() and not d.name.startswith("__")]
 
-    assert len(service_files) > 0 or len(subdirs) > 0, (
-        f"App {app_name} services/ directory has no *_service.py files or subdirectories"
-    )
+    assert (
+        len(service_files) > 0 or len(subdirs) > 0
+    ), f"App {app_name} services/ directory has no *_service.py files or subdirectories"
 
     # 验证没有根目录 services.py
     root_services = app_path / "services.py"

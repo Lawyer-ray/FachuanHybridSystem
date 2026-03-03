@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from copy import deepcopy
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 
 _CST = timezone(timedelta(hours=8))
 
@@ -20,7 +20,7 @@ _rev_id_counter = 1
 
 
 def _next_rev_id() -> str:
-    global _rev_id_counter  # noqa: PLW0603
+    global _rev_id_counter
     _rev_id_counter += 1
     return str(_rev_id_counter)
 
@@ -86,7 +86,7 @@ class DocxRevisionTool:
         text = run.text  # type: ignore[union-attr]
         start = text.index(original)
         prefix = text[:start]
-        suffix = text[start + len(original):]
+        suffix = text[start + len(original) :]
 
         parent = run_elem.getparent()
         idx = list(parent).index(run_elem)
@@ -150,8 +150,8 @@ class DocxRevisionTool:
         ref_elem = runs[first_run]._element
 
         # 计算前缀和后缀
-        prefix = full_text[offsets[first_run][0]:idx]
-        suffix = full_text[end_idx:offsets[last_run][1]]
+        prefix = full_text[offsets[first_run][0] : idx]
+        suffix = full_text[end_idx : offsets[last_run][1]]
 
         # 在 paragraph XML 中定位并替换
         p_elem = paragraph._element

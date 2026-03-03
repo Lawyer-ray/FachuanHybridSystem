@@ -25,7 +25,7 @@ class TeamService:
 
     def list_teams(
         self, law_firm_id: int | None = None, team_type: str | None = None, user: Lawyer | None = None
-    ) -> "QuerySet[Team, Team]":
+    ) -> QuerySet[Team, Team]:
         qs = Team.objects.select_related("law_firm").all()
 
         # 权限过滤：非超级用户只能看到自己律所的团队

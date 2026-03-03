@@ -59,7 +59,6 @@ def get_nested_config_value(config_dict: dict[str, Any], key: str, default: Any 
     return config_dict.get(key, default)
 
 
-
 def get_feishu_category_configs() -> dict[str, Any]:
     """
     批量获取飞书分类配置
@@ -97,7 +96,6 @@ def get_system_config_value(key: str, default: Any = None) -> Any:
     except Exception as e:
         logger.debug(f"从 SystemConfig 获取配置 {key} 失败: {e}")
         return default
-
 
 
 def get_feishu_config(key: str, default: Any = None) -> Any:

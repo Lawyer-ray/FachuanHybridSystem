@@ -88,9 +88,7 @@ class PerformanceMonitor:
                     )
 
                     # 检查性能问题
-                    cls._check_performance_issues(
-                        endpoint=endpoint, duration_ms=duration_ms, query_count=query_count
-                    )
+                    cls._check_performance_issues(endpoint=endpoint, duration_ms=duration_ms, query_count=query_count)
 
                     return result
 
@@ -160,9 +158,7 @@ class PerformanceMonitor:
             )
 
             # 检查性能问题
-            cls._check_performance_issues(
-                endpoint=operation_name, duration_ms=duration_ms, query_count=query_count
-            )
+            cls._check_performance_issues(endpoint=operation_name, duration_ms=duration_ms, query_count=query_count)
 
         except Exception as e:
             # 记录失败的性能日志
@@ -241,9 +237,7 @@ class PerformanceMonitor:
 
         # 检查查询次数
         if query_count > cls.MAX_QUERY_COUNT:
-            issues.append(
-                f"查询次数过多: {query_count} 次 (阈值: {cls.MAX_QUERY_COUNT} 次,可能存在 N+1 查询问题)"
-            )
+            issues.append(f"查询次数过多: {query_count} 次 (阈值: {cls.MAX_QUERY_COUNT} 次,可能存在 N+1 查询问题)")
 
         # 记录性能问题
         if issues:
@@ -256,4 +250,3 @@ class PerformanceMonitor:
                     "query_count": query_count,
                 },
             )
-

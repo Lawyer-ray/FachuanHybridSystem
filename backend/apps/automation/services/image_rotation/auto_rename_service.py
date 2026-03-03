@@ -312,6 +312,7 @@ class AutoRenameService:
             last_dot = filename.rfind(".")
             return filename[last_dot:]
         return ""
+
     def _get_ocr_channel(self) -> Any | None:
         """延迟初始化 RenameOCRChannel，失败时返回 None"""
         if self._ocr_channel is not None:
@@ -418,7 +419,10 @@ class AutoRenameService:
 
             if image_data:
                 suggestion = self.suggest_rename_with_image(
-                    item.filename, item.ocr_text, image_data, rotation,
+                    item.filename,
+                    item.ocr_text,
+                    image_data,
+                    rotation,
                 )
             else:
                 suggestion = self.suggest_rename(item.filename, item.ocr_text)

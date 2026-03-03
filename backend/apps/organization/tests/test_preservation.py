@@ -436,9 +436,7 @@ def test_p9_middleware_and_service_compute_same_result(
     **Validates: Requirements 3.4**
     """
     from apps.organization.middleware import OrgAccessMiddleware
-    from apps.organization.services.org_access_computation_service import (
-        OrgAccessComputationService,
-    )
+    from apps.organization.services.org_access_computation_service import OrgAccessComputationService
 
     # 构造测试数据
     teams = [_FakeTeam(tid, mids) for tid, mids in teams_data]

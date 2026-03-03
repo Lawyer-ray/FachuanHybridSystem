@@ -91,8 +91,8 @@ class ContractGenerationService:
 
     def __init__(
         self,
-        contract_service: "IContractService" | None = None,
-        folder_binding_service: "IContractFolderBindingService" | None = None,
+        contract_service: IContractService | None = None,
+        folder_binding_service: IContractFolderBindingService | None = None,
     ) -> None:
         """
         初始化服务(依赖注入)
@@ -105,7 +105,7 @@ class ContractGenerationService:
         self._last_saved_path: str | None = None
 
     @property
-    def contract_service(self) -> "IContractService":
+    def contract_service(self) -> IContractService:
         """
         延迟获取合同服务
 
@@ -119,7 +119,7 @@ class ContractGenerationService:
         return self._contract_service
 
     @property
-    def folder_binding_service(self) -> "IContractFolderBindingService" | None:
+    def folder_binding_service(self) -> IContractFolderBindingService | None:
         return self._folder_binding_service
 
     def get_preview_context(self, contract_id: int) -> list[dict[str, str]]:
@@ -194,7 +194,7 @@ class ContractGenerationService:
         content, filename, error = self.generate_contract_document(contract_id)
         return content, filename, self._last_saved_path, error
 
-    def find_matching_templates(self, case_type: str) -> list["DocumentTemplate"]:
+    def find_matching_templates(self, case_type: str) -> list[DocumentTemplate]:
         """
         查找所有匹配的文书模板(仅合同模板,不包括补充协议模板)
 
@@ -208,7 +208,7 @@ class ContractGenerationService:
 
         return ContractTemplateQueryService().find_matching_templates(case_type)
 
-    def find_matching_template(self, case_type: str) -> "DocumentTemplate" | None:
+    def find_matching_template(self, case_type: str) -> DocumentTemplate | None:
         """
         查找匹配的文书模板(返回第一个匹配的)
 
@@ -237,9 +237,9 @@ class ContractGenerationService:
         context_builder = EnhancedContextBuilder()
         context_data = {"contract": contract}
 
-        return context_builder.build_context(context_data) # type: ignore[no-any-return]
+        return context_builder.build_context(context_data)  # type: ignore[no-any-return]
 
-    def generate_filename(self, contract: Any, template: "DocumentTemplate", contract_id: int | None = None) -> str:
+    def generate_filename(self, contract: Any, template: DocumentTemplate, contract_id: int | None = None) -> str:
         """
         生成输出文件名
 
@@ -260,10 +260,10 @@ class ContractGenerationService:
 
         template_name = template.name or "合同"
         contract_name = getattr(contract, "name", None) or "未命名合同"
-        
+
         # 确定版本号
         version = self._get_next_version(contract_id, template_name, contract_name, "contract_documents")
-        
+
         filename = contract_docx_filename(template_name=template_name, contract_name=contract_name, version=version)
 
         logger.info(
@@ -360,14 +360,16 @@ class ContractGenerationService:
             )
         except Exception as e:
             logger.warning(
-                "保存到绑定文件夹失败: %s", e,
+                "保存到绑定文件夹失败: %s",
+                e,
                 extra={"contract_id": contract_id, "file_name": file_name, "error": str(e)},
             )
             return None
 
         if saved_path:
             logger.info(
-                "文件已保存到绑定文件夹: %s", saved_path,
+                "文件已保存到绑定文件夹: %s",
+                saved_path,
                 extra={"contract_id": contract_id, "file_name": file_name, "saved_path": saved_path},
             )
         return saved_path

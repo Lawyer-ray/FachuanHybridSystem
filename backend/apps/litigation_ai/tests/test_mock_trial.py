@@ -18,10 +18,10 @@ from apps.litigation_ai.chains.mock_trial_schemas import (
 from apps.litigation_ai.models.choices import MockTrialMode, SessionType
 from apps.litigation_ai.services.mock_trial.types import MockTrialContext, MockTrialStep
 
-
 # ============================================================
 # Fixtures
 # ============================================================
+
 
 @pytest.fixture
 def case_info() -> dict[str, Any]:
@@ -70,6 +70,7 @@ def ctx() -> MockTrialContext:
 # ============================================================
 # 1. Schema 验证
 # ============================================================
+
 
 class TestSchemas:
     def test_cross_exam_opinion_valid(self) -> None:
@@ -133,6 +134,7 @@ class TestSchemas:
 # 2. MockTrialStep 枚举 & MockTrialContext
 # ============================================================
 
+
 class TestTypes:
     def test_step_values(self) -> None:
         assert MockTrialStep.INIT.value == "mt_init"
@@ -150,9 +152,11 @@ class TestTypes:
 # 3. MockTrialFlowService — 模式解析
 # ============================================================
 
+
 class TestFlowServiceModeParsing:
     def setup_method(self) -> None:
         from apps.litigation_ai.services.mock_trial.mock_trial_flow_service import MockTrialFlowService
+
         self.flow = MockTrialFlowService()
 
     def test_parse_mode_number(self) -> None:
@@ -181,17 +185,19 @@ class TestFlowServiceModeParsing:
 # 4. MockTrialFlowService — handle_init
 # ============================================================
 
+
 class TestFlowServiceInit:
     @pytest.mark.asyncio
-    async def test_handle_init_sends_welcome(
-        self, ctx: MockTrialContext, mock_send_cb: AsyncMock
-    ) -> None:
+    async def test_handle_init_sends_welcome(self, ctx: MockTrialContext, mock_send_cb: AsyncMock) -> None:
         from apps.litigation_ai.services.mock_trial.mock_trial_flow_service import MockTrialFlowService
 
         flow = MockTrialFlowService()
-        flow._get_case_brief = AsyncMock(return_value={  # type: ignore[method-assign]
-            "case_name": "测试案件", "cause_of_action": "民间借贷纠纷",
-        })
+        flow._get_case_brief = AsyncMock(
+            return_value={  # type: ignore[method-assign]
+                "case_name": "测试案件",
+                "cause_of_action": "民间借贷纠纷",
+            }
+        )
         flow._messenger = MagicMock()
         flow._messenger.send = AsyncMock()
         flow._session_repo = MagicMock()
@@ -214,11 +220,10 @@ class TestFlowServiceInit:
 # 5. MockTrialFlowService — handle_mode_select
 # ============================================================
 
+
 class TestFlowServiceModeSelect:
     @pytest.mark.asyncio
-    async def test_invalid_mode_sends_error(
-        self, ctx: MockTrialContext, mock_send_cb: AsyncMock
-    ) -> None:
+    async def test_invalid_mode_sends_error(self, ctx: MockTrialContext, mock_send_cb: AsyncMock) -> None:
         from apps.litigation_ai.services.mock_trial.mock_trial_flow_service import MockTrialFlowService
 
         flow = MockTrialFlowService()
@@ -232,9 +237,7 @@ class TestFlowServiceModeSelect:
         assert "未识别" in payload["content"]
 
     @pytest.mark.asyncio
-    async def test_judge_mode_triggers_analysis(
-        self, ctx: MockTrialContext, mock_send_cb: AsyncMock
-    ) -> None:
+    async def test_judge_mode_triggers_analysis(self, ctx: MockTrialContext, mock_send_cb: AsyncMock) -> None:
         from apps.litigation_ai.services.mock_trial.mock_trial_flow_service import MockTrialFlowService
 
         flow = MockTrialFlowService()
@@ -248,13 +251,16 @@ class TestFlowServiceModeSelect:
 
         await flow.handle_mode_select(ctx, "1", mock_send_cb)
 
-        flow._session_repo.update_metadata.assert_called_once_with(ctx.session_id, {"mock_trial_mode": MockTrialMode.JUDGE})
+        flow._session_repo.update_metadata.assert_called_once_with(
+            ctx.session_id, {"mock_trial_mode": MockTrialMode.JUDGE}
+        )
         flow._run_judge_analysis.assert_called_once()
 
 
 # ============================================================
 # 6. CrossExamService
 # ============================================================
+
 
 class TestCrossExamService:
     @pytest.mark.asyncio
@@ -272,6 +278,7 @@ class TestCrossExamService:
         }
 
         from apps.litigation_ai.chains.mock_trial_chains import CrossExamResult
+
         mock_result = CrossExamResult(opinion=fake_opinion, model="test", token_usage={})
 
         with patch("apps.litigation_ai.services.mock_trial.cross_exam_service.CrossExamChain") as MockChain:
@@ -289,15 +296,24 @@ class TestCrossExamService:
 # 7. DebateService
 # ============================================================
 
+
 class TestDebateService:
     @pytest.mark.asyncio
     async def test_analyze_focuses(self, case_info: dict[str, Any]) -> None:
+        from apps.litigation_ai.chains.mock_trial_chains import DisputeFocusResult
         from apps.litigation_ai.services.mock_trial.debate_service import DebateService
 
-        from apps.litigation_ai.chains.mock_trial_chains import DisputeFocusResult
         mock_result = DisputeFocusResult(
-            focuses=[{"description": "借款事实", "focus_type": "事实争议", "plaintiff_position": "已交付",
-                       "defendant_position": "未收到", "key_evidence": [], "burden_of_proof": "原告"}],
+            focuses=[
+                {
+                    "description": "借款事实",
+                    "focus_type": "事实争议",
+                    "plaintiff_position": "已交付",
+                    "defendant_position": "未收到",
+                    "key_evidence": [],
+                    "burden_of_proof": "原告",
+                }
+            ],
             model="test",
         )
 
@@ -313,9 +329,9 @@ class TestDebateService:
 
     @pytest.mark.asyncio
     async def test_debate_turn(self, case_info: dict[str, Any]) -> None:
+        from apps.litigation_ai.chains.mock_trial_chains import DebateResult
         from apps.litigation_ai.services.mock_trial.debate_service import DebateService
 
-        from apps.litigation_ai.chains.mock_trial_chains import DebateResult
         mock_result = DebateResult(rebuttal="反驳内容", model="test")
 
         with patch("apps.litigation_ai.services.mock_trial.debate_service.DebateChain") as MockChain:
@@ -336,6 +352,7 @@ class TestDebateService:
 # ============================================================
 # 8. MockTrialReportService
 # ============================================================
+
 
 class TestReportService:
     @pytest.mark.asyncio
@@ -397,6 +414,7 @@ class TestReportService:
 # 9. Flow — format helpers
 # ============================================================
 
+
 class TestFormatHelpers:
     def test_format_judge_report(self) -> None:
         from apps.litigation_ai.services.mock_trial.mock_trial_flow_service import MockTrialFlowService
@@ -404,11 +422,22 @@ class TestFormatHelpers:
         flow = MockTrialFlowService()
         report = {
             "dispute_focuses": [
-                {"description": "借款事实", "focus_type": "事实争议", "plaintiff_position": "已交付",
-                 "defendant_position": "未收到", "burden_of_proof": "原告", "key_evidence": ["借条"]},
+                {
+                    "description": "借款事实",
+                    "focus_type": "事实争议",
+                    "plaintiff_position": "已交付",
+                    "defendant_position": "未收到",
+                    "burden_of_proof": "原告",
+                    "key_evidence": ["借条"],
+                },
             ],
             "evidence_strength_comparison": [
-                {"focus": "借款事实", "plaintiff_strength": "strong", "defendant_strength": "weak", "analysis": "原告证据充分"},
+                {
+                    "focus": "借款事实",
+                    "plaintiff_strength": "strong",
+                    "defendant_strength": "weak",
+                    "analysis": "原告证据充分",
+                },
             ],
             "judge_questions": ["借款交付方式？"],
             "risk_assessment": "风险较低",
@@ -444,11 +473,10 @@ class TestFormatHelpers:
 # 10. Flow — cross exam flow (mocked)
 # ============================================================
 
+
 class TestCrossExamFlow:
     @pytest.mark.asyncio
-    async def test_start_cross_exam_no_evidence(
-        self, ctx: MockTrialContext, mock_send_cb: AsyncMock
-    ) -> None:
+    async def test_start_cross_exam_no_evidence(self, ctx: MockTrialContext, mock_send_cb: AsyncMock) -> None:
         from apps.litigation_ai.services.mock_trial.mock_trial_flow_service import MockTrialFlowService
 
         flow = MockTrialFlowService()
@@ -457,7 +485,11 @@ class TestCrossExamFlow:
         flow._session_repo = MagicMock()
         flow._session_repo.set_step = AsyncMock()
 
-        with patch("apps.litigation_ai.services.mock_trial.cross_exam_service.CrossExamService.load_evidence_list", new_callable=AsyncMock, return_value=[]):
+        with patch(
+            "apps.litigation_ai.services.mock_trial.cross_exam_service.CrossExamService.load_evidence_list",
+            new_callable=AsyncMock,
+            return_value=[],
+        ):
             await flow._start_cross_exam(ctx, mock_send_cb)
 
         # 无证据时应提示并跳到 SUMMARY
@@ -466,20 +498,20 @@ class TestCrossExamFlow:
         flow._session_repo.set_step.assert_called_with(ctx.session_id, MockTrialStep.SUMMARY.value)
 
     @pytest.mark.asyncio
-    async def test_handle_cross_exam_skip(
-        self, ctx: MockTrialContext, mock_send_cb: AsyncMock
-    ) -> None:
+    async def test_handle_cross_exam_skip(self, ctx: MockTrialContext, mock_send_cb: AsyncMock) -> None:
         from apps.litigation_ai.services.mock_trial.mock_trial_flow_service import MockTrialFlowService
 
         flow = MockTrialFlowService()
         flow._messenger = MagicMock()
         flow._messenger.send = AsyncMock()
         flow._session_repo = MagicMock()
-        flow._session_repo.get_metadata = AsyncMock(return_value={
-            "cross_exam_evidence": [{"name": "a"}, {"name": "b"}],
-            "cross_exam_index": 0,
-            "cross_exam_results": [],
-        })
+        flow._session_repo.get_metadata = AsyncMock(
+            return_value={
+                "cross_exam_evidence": [{"name": "a"}, {"name": "b"}],
+                "cross_exam_index": 0,
+                "cross_exam_results": [],
+            }
+        )
         flow._session_repo.set_step = AsyncMock()
 
         await flow._handle_cross_exam_response(ctx, "跳过", mock_send_cb)
@@ -492,22 +524,23 @@ class TestCrossExamFlow:
 # 11. Flow — debate flow (mocked)
 # ============================================================
 
+
 class TestDebateFlow:
     @pytest.mark.asyncio
-    async def test_handle_debate_end(
-        self, ctx: MockTrialContext, mock_send_cb: AsyncMock
-    ) -> None:
+    async def test_handle_debate_end(self, ctx: MockTrialContext, mock_send_cb: AsyncMock) -> None:
         from apps.litigation_ai.services.mock_trial.mock_trial_flow_service import MockTrialFlowService
 
         flow = MockTrialFlowService()
         flow._messenger = MagicMock()
         flow._messenger.send = AsyncMock()
         flow._session_repo = MagicMock()
-        flow._session_repo.get_metadata = AsyncMock(return_value={
-            "debate_focuses": [{"description": "焦点1"}],
-            "debate_selected_focus": {"description": "焦点1"},
-            "debate_history": [{"role": "user", "content": "论点"}, {"role": "opponent", "content": "反驳"}],
-        })
+        flow._session_repo.get_metadata = AsyncMock(
+            return_value={
+                "debate_focuses": [{"description": "焦点1"}],
+                "debate_selected_focus": {"description": "焦点1"},
+                "debate_history": [{"role": "user", "content": "论点"}, {"role": "opponent", "content": "反驳"}],
+            }
+        )
         flow._session_repo.set_step = AsyncMock()
 
         await flow._handle_debate_turn(ctx, "结束", mock_send_cb)
@@ -517,20 +550,20 @@ class TestDebateFlow:
         assert "辩论模拟结束" in payload["content"]
 
     @pytest.mark.asyncio
-    async def test_handle_debate_select_focus(
-        self, ctx: MockTrialContext, mock_send_cb: AsyncMock
-    ) -> None:
+    async def test_handle_debate_select_focus(self, ctx: MockTrialContext, mock_send_cb: AsyncMock) -> None:
         from apps.litigation_ai.services.mock_trial.mock_trial_flow_service import MockTrialFlowService
 
         flow = MockTrialFlowService()
         flow._messenger = MagicMock()
         flow._messenger.send = AsyncMock()
         flow._session_repo = MagicMock()
-        flow._session_repo.get_metadata = AsyncMock(return_value={
-            "debate_focuses": [{"description": "焦点1"}, {"description": "焦点2"}],
-            "debate_selected_focus": None,
-            "debate_history": [],
-        })
+        flow._session_repo.get_metadata = AsyncMock(
+            return_value={
+                "debate_focuses": [{"description": "焦点1"}, {"description": "焦点2"}],
+                "debate_selected_focus": None,
+                "debate_history": [],
+            }
+        )
         flow._session_repo.update_metadata = AsyncMock()
 
         await flow._handle_debate_turn(ctx, "1", mock_send_cb)
@@ -544,6 +577,7 @@ class TestDebateFlow:
 # ============================================================
 # 12. Model — SessionType choices
 # ============================================================
+
 
 class TestModelChoices:
     def test_session_type_choices(self) -> None:
@@ -559,6 +593,7 @@ class TestModelChoices:
 # ============================================================
 # 13. DB integration — Session CRUD
 # ============================================================
+
 
 @pytest.mark.django_db
 class TestSessionDB:
@@ -592,6 +627,7 @@ class TestSessionDB:
 # 14. API — mock trial endpoints
 # ============================================================
 
+
 @pytest.mark.django_db
 class TestMockTrialAPI:
     def test_create_session(self, authenticated_client: Any, case: Any) -> None:
@@ -619,7 +655,9 @@ class TestMockTrialAPI:
         """直接验证 model 层获取."""
         from apps.litigation_ai.models import LitigationSession
 
-        session = LitigationSession.objects.create(case=case, user=lawyer, session_type="mock_trial", metadata={"test": True})
+        session = LitigationSession.objects.create(
+            case=case, user=lawyer, session_type="mock_trial", metadata={"test": True}
+        )
         fetched = LitigationSession.objects.filter(session_id=session.session_id, session_type="mock_trial").first()
         assert fetched is not None
         assert fetched.metadata["test"] is True

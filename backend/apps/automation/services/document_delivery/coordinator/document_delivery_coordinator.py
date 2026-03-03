@@ -12,9 +12,8 @@ import traceback
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
-from apps.automation.utils.logging import AutomationLogger
-
 from apps.automation.services.document_delivery.data_classes import DocumentQueryResult
+from apps.automation.utils.logging import AutomationLogger
 
 if TYPE_CHECKING:
     from apps.automation.services.document_delivery.api.document_delivery_api_service import DocumentDeliveryApiService

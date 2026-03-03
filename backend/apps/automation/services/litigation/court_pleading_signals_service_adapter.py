@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-
 from apps.core.dto import CourtPleadingSignalsDTO
 
 

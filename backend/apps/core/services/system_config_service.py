@@ -4,12 +4,12 @@
 提供系统配置的 CRUD 操作和缓存管理.
 """
 
-from django.utils.translation import gettext_lazy as _
 from collections.abc import Iterable
 from typing import Any
 
 from django.core.cache import cache
 from django.db import transaction
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.models.system_config import SystemConfig
@@ -162,6 +162,7 @@ class SystemConfigService:
         value = config.value
         if config.is_secret:
             from apps.core.security.secret_codec import SecretCodec
+
             codec = SecretCodec()
             if codec.is_encrypted(value):
                 value = codec.decrypt(value)
@@ -232,6 +233,7 @@ class SystemConfigService:
         stored_value = value
         if is_secret:
             from apps.core.security.secret_codec import SecretCodec
+
             stored_value = SecretCodec().encrypt(value)
 
         config = self._repository.update_or_create(

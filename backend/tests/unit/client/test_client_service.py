@@ -8,8 +8,8 @@ import pytest
 from django.contrib.auth import get_user_model
 
 from apps.client.models import Client
-from apps.client.services.client_service import ClientService
 from apps.client.services.client_mutation_service import ClientMutationService
+from apps.client.services.client_service import ClientService
 from apps.core.exceptions import NotFoundError, PermissionDenied, ValidationException
 from tests.factories.client_factories import ClientFactory
 

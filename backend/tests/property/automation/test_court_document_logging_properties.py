@@ -7,6 +7,7 @@
 import logging
 import time
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Any, Dict
 from unittest.mock import MagicMock, Mock, patch
 
@@ -16,7 +17,6 @@ from hypothesis import strategies as st
 
 from apps.automation.models import ScraperTask
 from apps.automation.services.scraper.scrapers.court_document import CourtDocumentScraper
-from pathlib import Path
 
 
 # 测试用的日志捕获器

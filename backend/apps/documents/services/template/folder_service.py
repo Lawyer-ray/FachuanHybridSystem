@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import re
+from typing import Any
 
 from apps.documents.models import FolderTemplate
 from apps.documents.usecases.folder_template.folder_template_usecases import FolderTemplateUsecases

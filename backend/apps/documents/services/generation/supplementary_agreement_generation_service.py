@@ -30,7 +30,7 @@ class SupplementaryAgreementGenerationService:
     def __init__(
         self,
         contract_service: IContractService | None = None,
-        folder_binding_service: "IContractFolderBindingService" | None = None,
+        folder_binding_service: IContractFolderBindingService | None = None,
     ) -> None:
         """
         初始化服务
@@ -52,7 +52,7 @@ class SupplementaryAgreementGenerationService:
         return self._contract_service
 
     @property
-    def folder_binding_service(self) -> "IContractFolderBindingService" | None:
+    def folder_binding_service(self) -> IContractFolderBindingService | None:
         return self._folder_binding_service
 
     def get_preview_context(self, contract_id: int, agreement_id: int) -> list[dict[str, str]]:
@@ -127,7 +127,7 @@ class SupplementaryAgreementGenerationService:
         content, filename, error = self.generate_supplementary_agreement(contract_id, agreement_id)
         return (content, filename, self._last_saved_path, error)
 
-    def find_supplementary_agreement_template(self, case_type: str) -> "DocumentTemplate" | None:
+    def find_supplementary_agreement_template(self, case_type: str) -> DocumentTemplate | None:
         """
         查找补充协议模板
 
@@ -183,16 +183,21 @@ class SupplementaryAgreementGenerationService:
 
         agreement_name = agreement.name or "补充协议"
         contract_name = contract.name or "未命名合同"
-        
+
         # 确定版本号
         version = self._get_next_version(contract_id, agreement_name, contract_name, "supplementary_agreements")
-        
+
         filename = supplementary_agreement_docx_filename(
             agreement_name=agreement_name, contract_name=contract_name, version=version
         )
         logger.info(
             "生成补充协议文件名",
-            extra={"agreement": agreement_name, "contract": contract_name, "version": version, "doc_filename": filename},
+            extra={
+                "agreement": agreement_name,
+                "contract": contract_name,
+                "version": version,
+                "doc_filename": filename,
+            },
         )
         return filename
 
@@ -312,12 +317,14 @@ class SupplementaryAgreementGenerationService:
             )
             if saved_path:
                 logger.info(
-                    "文件已保存到绑定文件夹: %s", saved_path,
+                    "文件已保存到绑定文件夹: %s",
+                    saved_path,
                     extra={"contract_id": contract_id, "file_name": file_name, "saved_path": saved_path},
                 )
         except Exception as e:
             logger.warning(
-                "保存到绑定文件夹失败: %s", e,
+                "保存到绑定文件夹失败: %s",
+                e,
                 extra={"contract_id": contract_id, "file_name": file_name, "error": str(e)},
             )
             return None

@@ -123,16 +123,16 @@ class MockTrialConsumer(AsyncWebsocketConsumer):
 
         if step == MockTrialStep.MODE_SELECT:
             await flow.handle_mode_select(ctx, content, self._send_message)
-        elif step == MockTrialStep.SIMULATION:
-            await flow.handle_simulation(ctx, content, self._send_message)
-        elif step == MockTrialStep.FOCUS_ANALYSIS:
+        elif step == MockTrialStep.SIMULATION or step == MockTrialStep.FOCUS_ANALYSIS:
             await flow.handle_simulation(ctx, content, self._send_message)
         else:
             # SUMMARY 或其他步骤：提示用户
-            await self._send_message({
-                "type": "system_message",
-                "content": "当前会话已结束。如需继续，请新建会话。",
-            })
+            await self._send_message(
+                {
+                    "type": "system_message",
+                    "content": "当前会话已结束。如需继续，请新建会话。",
+                }
+            )
 
     async def _handle_select_mode(self, message: dict[str, Any]) -> None:
         mode = message.get("mode", "")
@@ -194,11 +194,15 @@ class MockTrialConsumer(AsyncWebsocketConsumer):
     async def _send_error(self, error: Exception | str, code: str = "INVALID_REQUEST") -> None:
         if isinstance(error, Exception):
             from apps.core.error_presentation import ExceptionPresenter
+
             presenter = ExceptionPresenter()
             envelope, _ = presenter.present(error, channel="ws", debug=getattr(settings, "DEBUG", False))
             payload = {
-                "type": "error", "code": envelope.code, "message": envelope.message,
-                "errors": envelope.errors, "retryable": envelope.retryable,
+                "type": "error",
+                "code": envelope.code,
+                "message": envelope.message,
+                "errors": envelope.errors,
+                "retryable": envelope.retryable,
             }
             await self.send(text_data=json.dumps(payload, ensure_ascii=False))
             return
@@ -207,13 +211,17 @@ class MockTrialConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def _get_session(self, session_id: str) -> Any:
         from apps.litigation_ai.models import LitigationSession
+
         return LitigationSession.objects.filter(session_id=session_id, session_type="mock_trial").first()
 
     @database_sync_to_async
     def _add_message(self, role: str, content: str, metadata: dict[str, Any] | None = None) -> Any:
         from apps.litigation_ai.services import LitigationConversationService
+
         service = LitigationConversationService()
-        return service.add_message(session_id=self.session_id or "", role=role, content=content, metadata=metadata or {})
+        return service.add_message(
+            session_id=self.session_id or "", role=role, content=content, metadata=metadata or {}
+        )
 
     @database_sync_to_async
     def _get_current_step(self, flow: Any) -> Any:

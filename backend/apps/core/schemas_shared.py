@@ -62,4 +62,3 @@ class ClientLiteOut(SchemaMixin, Schema):
             client_type_label=SchemaMixin._get_display(obj, "client_type") or "",
             identity_docs=docs,
         )
-

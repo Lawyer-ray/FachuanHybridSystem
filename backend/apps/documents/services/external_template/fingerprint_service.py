@@ -33,41 +33,45 @@ _STYLE_ATTR_PATTERNS: list[re.Pattern[str]] = [
 ]
 
 # 需要忽略的样式相关元素标签
-_STYLE_ELEMENT_TAGS: frozenset[str] = frozenset({
-    f"{{{_WORD_NS}}}rFonts",
-    f"{{{_WORD_NS}}}sz",
-    f"{{{_WORD_NS}}}szCs",
-    f"{{{_WORD_NS}}}color",
-    f"{{{_WORD_NS}}}highlight",
-    f"{{{_WORD_NS}}}shd",
-    f"{{{_WORD_NS}}}lang",
-    f"{{{_WORD_NS}}}b",
-    f"{{{_WORD_NS}}}bCs",
-    f"{{{_WORD_NS}}}i",
-    f"{{{_WORD_NS}}}iCs",
-    f"{{{_WORD_NS}}}u",
-    f"{{{_WORD_NS}}}strike",
-    f"{{{_WORD_NS}}}dstrike",
-    f"{{{_WORD_NS}}}vanish",
-    f"{{{_WORD_NS}}}caps",
-    f"{{{_WORD_NS}}}smallCaps",
-    f"{{{_WORD_NS}}}spacing",
-    f"{{{_WORD_NS}}}kern",
-    f"{{{_WORD_NS}}}position",
-    f"{{{_WORD_NS}}}vertAlign",
-    f"{{{_WORD_NS}}}em",
-    f"{{{_WORD_NS}}}fitText",
-})
+_STYLE_ELEMENT_TAGS: frozenset[str] = frozenset(
+    {
+        f"{{{_WORD_NS}}}rFonts",
+        f"{{{_WORD_NS}}}sz",
+        f"{{{_WORD_NS}}}szCs",
+        f"{{{_WORD_NS}}}color",
+        f"{{{_WORD_NS}}}highlight",
+        f"{{{_WORD_NS}}}shd",
+        f"{{{_WORD_NS}}}lang",
+        f"{{{_WORD_NS}}}b",
+        f"{{{_WORD_NS}}}bCs",
+        f"{{{_WORD_NS}}}i",
+        f"{{{_WORD_NS}}}iCs",
+        f"{{{_WORD_NS}}}u",
+        f"{{{_WORD_NS}}}strike",
+        f"{{{_WORD_NS}}}dstrike",
+        f"{{{_WORD_NS}}}vanish",
+        f"{{{_WORD_NS}}}caps",
+        f"{{{_WORD_NS}}}smallCaps",
+        f"{{{_WORD_NS}}}spacing",
+        f"{{{_WORD_NS}}}kern",
+        f"{{{_WORD_NS}}}position",
+        f"{{{_WORD_NS}}}vertAlign",
+        f"{{{_WORD_NS}}}em",
+        f"{{{_WORD_NS}}}fitText",
+    }
+)
 
 # 需要跳过的文件（页眉页脚等）
-_SKIP_PARTS: frozenset[str] = frozenset({
-    "word/header1.xml",
-    "word/header2.xml",
-    "word/header3.xml",
-    "word/footer1.xml",
-    "word/footer2.xml",
-    "word/footer3.xml",
-})
+_SKIP_PARTS: frozenset[str] = frozenset(
+    {
+        "word/header1.xml",
+        "word/header2.xml",
+        "word/header3.xml",
+        "word/footer1.xml",
+        "word/footer2.xml",
+        "word/footer3.xml",
+    }
+)
 
 
 class FingerprintService:
@@ -97,9 +101,7 @@ class FingerprintService:
         logger.info("指纹计算完成: %s -> %s", file_path.name, fingerprint[:16])
         return fingerprint
 
-    def find_matching_template(
-        self, fingerprint: str, law_firm_id: int
-    ) -> ExternalTemplate | None:
+    def find_matching_template(self, fingerprint: str, law_firm_id: int) -> ExternalTemplate | None:
         """
         在同一律所范围内查找具有相同指纹的已有模板
 
@@ -151,9 +153,8 @@ class FingerprintService:
         Returns:
             document.xml 的文本内容
         """
-        with zipfile.ZipFile(file_path, "r") as zf:
-            with zf.open("word/document.xml") as f:
-                return f.read().decode("utf-8")
+        with zipfile.ZipFile(file_path, "r") as zf, zf.open("word/document.xml") as f:
+            return f.read().decode("utf-8")
 
     def _strip_text_content(self, xml_content: str) -> str:
         """

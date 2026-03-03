@@ -17,7 +17,6 @@ from hypothesis import strategies as st
 
 from apps.documents.services.contract_template_binding_service import DocumentTemplateBindingService
 
-
 # ── 策略 ──────────────────────────────────────────────────────────────────────
 
 # 节点 ID 策略

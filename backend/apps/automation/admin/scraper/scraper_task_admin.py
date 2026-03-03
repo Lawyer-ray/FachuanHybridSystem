@@ -152,8 +152,7 @@ class ScraperTaskAdmin(admin.ModelAdmin[ScraperTask]):
             if ss.startswith(str(settings.MEDIA_ROOT)):
                 ss_url = ss.replace(str(settings.MEDIA_ROOT), settings.MEDIA_URL)
                 return format_html(
-                    '<br><img src="{}" '
-                    'style="max-width: 600px; border: 1px solid #ddd; margin-top: 10px;">',
+                    '<br><img src="{}" style="max-width: 600px; border: 1px solid #ddd; margin-top: 10px;">',
                     ss_url,
                 )
             return format_html("{}", "")

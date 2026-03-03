@@ -14,6 +14,15 @@ from .court_document import CourtDocument, DocumentDeliverySchedule, DocumentDow
 # Court SMS
 from .court_sms import CourtSMS, CourtSMSStatus, CourtSMSType
 
+# Invoice Recognition
+from .invoice_recognition import (
+    InvoiceCategory,
+    InvoiceRecognitionTask,
+    InvoiceRecognitionTaskStatus,
+    InvoiceRecord,
+    InvoiceRecordStatus,
+)
+
 # Preservation Quote
 from .preservation import InsuranceQuote, PreservationQuote, QuoteItemStatus, QuoteStatus
 
@@ -25,15 +34,6 @@ from .scraper import ScraperTask, ScraperTaskStatus, ScraperTaskType
 
 # Token Management
 from .token import CourtToken, TokenAcquisitionHistory, TokenAcquisitionStatus
-
-# Invoice Recognition
-from .invoice_recognition import (
-    InvoiceCategory,
-    InvoiceRecord,
-    InvoiceRecognitionTask,
-    InvoiceRecognitionTaskStatus,
-    InvoiceRecordStatus,
-)
 
 __all__ = [
     # Base

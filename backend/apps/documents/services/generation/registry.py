@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from django.utils.translation import gettext_lazy as _
-
-
 import importlib
 import logging
 import pkgutil
 from typing import TYPE_CHECKING, Any, ClassVar
+
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ConflictError, NotFoundError
 from apps.core.path import Path

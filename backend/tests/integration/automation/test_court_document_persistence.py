@@ -3,13 +3,13 @@
 测试从 API 数据到数据库保存的完整流程
 """
 
+from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
 from apps.automation.models import CourtDocument, DocumentDownloadStatus, ScraperTask
 from apps.automation.services.scraper.scrapers.court_document import CourtDocumentScraper
-from pathlib import Path
 
 
 @pytest.mark.django_db

@@ -113,9 +113,9 @@ def test_api_get_service_uses_factory() -> None:
     has_factory_call: bool = "build_reminder_api_service" in func_source
     has_direct_instantiation: bool = bool(re.search(r"_?ReminderService\s*\(", func_source))
 
-    assert has_factory_call and not has_direct_instantiation, (
-        f"_get_service() 应通过工厂函数获取服务实例，而非直接实例化。\n当前实现:\n{func_source}"
-    )
+    assert (
+        has_factory_call and not has_direct_instantiation
+    ), f"_get_service() 应通过工厂函数获取服务实例，而非直接实例化。\n当前实现:\n{func_source}"
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -142,9 +142,9 @@ def test_adapter_init_accepts_injection() -> None:
     # 检查 __init__ 参数列表中是否有 service 参数（除 self 外）
     param_names: list[str] = [arg.arg for arg in init_node.args.args if arg.arg != "self"]
 
-    assert "service" in param_names, (
-        f"ReminderServiceAdapter.__init__ 应接受 'service' 注入参数。\n当前参数: {param_names}"
-    )
+    assert (
+        "service" in param_names
+    ), f"ReminderServiceAdapter.__init__ 应接受 'service' 注入参数。\n当前参数: {param_names}"
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -216,9 +216,9 @@ def test_service_get_existing_due_times_validates_none_input() -> None:
     # 期望: 对 None 输入 raise ValidationException
     has_validation_raise: bool = "ValidationException" in func_source and "raise" in func_source
 
-    assert has_validation_raise, (
-        "get_existing_due_times 应在 case_log_id 为 None 时 raise ValidationException，当前实现缺少此校验"
-    )
+    assert (
+        has_validation_raise
+    ), "get_existing_due_times 应在 case_log_id 为 None 时 raise ValidationException，当前实现缺少此校验"
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -358,9 +358,9 @@ def test_schema_no_redundant_validator() -> None:
     # 检查是否存在 validate_binding_exclusivity 方法
     has_redundant_validator: bool = _get_function_node(cls_node, "validate_binding_exclusivity") is not None
 
-    assert not has_redundant_validator, (
-        "ReminderUpdate 包含冗余的 validate_binding_exclusivity 方法，绑定互斥校验应由 Service 层统一负责"
-    )
+    assert (
+        not has_redundant_validator
+    ), "ReminderUpdate 包含冗余的 validate_binding_exclusivity 方法，绑定互斥校验应由 Service 层统一负责"
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -398,6 +398,6 @@ def test_all_normalize_target_id_field_names_use_i18n() -> None:
             if hardcoded_pattern.search(line) and not i18n_pattern.search(line):
                 violations.append(f"  - {rel_path}:{line_no} {line.strip()}")
 
-    assert not violations, (
-        f"发现 {len(violations)} 处 normalize_target_id 的 field_name 未使用 i18n 包装:\n" + "\n".join(violations)
-    )
+    assert (
+        not violations
+    ), f"发现 {len(violations)} 处 normalize_target_id 的 field_name 未使用 i18n 包装:\n" + "\n".join(violations)

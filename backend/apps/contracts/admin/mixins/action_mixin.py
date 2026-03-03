@@ -4,7 +4,6 @@ Contract Admin - Action Mixin
 操作处理方法:生成文档、复制合同、创建案件等.
 """
 
-
 from __future__ import annotations
 
 import logging
@@ -134,7 +133,7 @@ class ContractActionMixin:
             messages.error(request, _("创建案件失败: %(err)s") % {"err": e})
             return HttpResponseRedirect(request.path)
 
-    _build_docx_response = staticmethod(_build_docx_response)  # noqa: RUF012
+    _build_docx_response = staticmethod(_build_docx_response)
 
     def response_add(self, request, obj, post_url_continue=None) -> Any:
         """处理新建合同后的保存并创建案件按钮"""

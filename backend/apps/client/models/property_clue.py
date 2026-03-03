@@ -14,6 +14,7 @@ from .client import Client
 if TYPE_CHECKING:
     from django.db.models.fields.related_descriptors import RelatedManager
 
+
 class PropertyClue(models.Model):
     """财产线索模型"""
 

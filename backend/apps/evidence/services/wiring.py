@@ -14,8 +14,6 @@ def get_case_service() -> Any:
 
 def get_evidence_list_placeholder_service() -> Any:
     """获取证据清单占位符服务实例"""
-    from apps.evidence.services.evidence_list_placeholder_service import (
-        EvidenceListPlaceholderService,
-    )
+    from apps.evidence.services.evidence_list_placeholder_service import EvidenceListPlaceholderService
 
     return EvidenceListPlaceholderService()

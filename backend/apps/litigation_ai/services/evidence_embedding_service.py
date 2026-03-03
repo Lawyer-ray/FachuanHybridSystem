@@ -18,7 +18,7 @@ class EvidenceEmbeddingService:
 
         api_key = LLMConfig.get_api_key() or ""
         embeddings = OpenAIEmbeddings(
-            api_key=api_key, # type: ignore
+            api_key=api_key,  # type: ignore
             base_url=LLMConfig.get_base_url(),
             timeout=LLMConfig.get_timeout(),
         )

@@ -7,9 +7,10 @@ import logging
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
+from django.utils.translation import gettext_lazy as _
+
 from apps.core.exceptions import ValidationException
 from apps.core.path import Path
-from django.utils.translation import gettext_lazy as _
 
 logger = logging.getLogger("apps.cases")
 
@@ -32,7 +33,9 @@ class CauseCourtDataCache:
                     extra={"action": "load_json_file", "file_name": filename, "file_path": str(file_path)},
                 )
                 raise ValidationException(
-                    message=_("数据文件不存在: %(name)s") % {"name": filename}, code="FILE_NOT_FOUND", errors={"filename": filename}
+                    message=_("数据文件不存在: %(name)s") % {"name": filename},
+                    code="FILE_NOT_FOUND",
+                    errors={"filename": filename},
                 )
 
             with open(str(file_path), encoding="utf-8") as f:
@@ -104,7 +107,7 @@ class CauseCourtDataParser:
             if query in name:
                 matching_items.append(item)
 
-        def sort_key(item) -> tuple[Any, ...]: # type: ignore
+        def sort_key(item) -> tuple[Any, ...]:  # type: ignore
             name = item.get("name", "")
             if name == query:
                 return (0, name)
@@ -434,9 +437,9 @@ class CauseCourtDataService:
     def get_cause_by_id(self, cause_id: int) -> dict[str, Any] | None:
         """根据 ID 获取案由信息
 
-            cause_id: 案由 ID
+        cause_id: 案由 ID
 
-            案由信息字典,不存在则返回 None
+        案由信息字典,不存在则返回 None
         """
         from apps.core.interfaces import ServiceLocator
 

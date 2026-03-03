@@ -150,9 +150,7 @@ class CourtTokenAdmin(admin.ModelAdmin[CourtToken]):
 
         return actions
 
-    def delete_expired_tokens(
-        self, request: HttpRequest, queryset: QuerySet[CourtToken]
-    ) -> None:
+    def delete_expired_tokens(self, request: HttpRequest, queryset: QuerySet[CourtToken]) -> None:
         """批量删除过期的 Token"""
         expired_tokens = [token for token in queryset if token.is_expired()]
         count = len(expired_tokens)

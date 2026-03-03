@@ -4,7 +4,6 @@ import mimetypes
 from typing import Any
 
 from django.utils.translation import gettext_lazy as _
-
 from ninja import File, Form, Router
 from ninja.files import UploadedFile
 
@@ -171,7 +170,9 @@ def extract_recording(
 @router.post("/recordings/{recording_id}/extract/cancel", response=RecordingOut)
 @rate_limit_from_settings("TASK", by_user=True)
 def cancel_extract_recording(request: Any, recording_id: str) -> Any:
-    return _get_recording_extract_facade().request_cancel(user=getattr(request, "user", None), recording_id=recording_id)
+    return _get_recording_extract_facade().request_cancel(
+        user=getattr(request, "user", None), recording_id=recording_id
+    )
 
 
 @router.post("/recordings/{recording_id}/extract/reset", response=RecordingOut)

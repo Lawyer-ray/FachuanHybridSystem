@@ -176,5 +176,3 @@ def delete_attachment(request: Any, attachment_id: int) -> tuple[int, None]:
     service.delete_attachment(attachment_id=attachment_id, user=user)
 
     return 204, None
-
-

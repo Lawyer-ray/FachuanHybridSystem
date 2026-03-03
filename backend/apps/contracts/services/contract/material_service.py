@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path  # noqa: F401
+from pathlib import Path
 from typing import Any
 
 from apps.client.services import storage

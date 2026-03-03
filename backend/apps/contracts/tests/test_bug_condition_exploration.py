@@ -56,15 +56,9 @@ def test_1_1_contract_model_no_query_logic_in_properties() -> None:
             # 检查方法体中是否包含 .filter() 或 .all() 调用
             func_source: str = ast.get_source_segment(source, item) or ""
             if ".filter(" in func_source or ".all()" in func_source:
-                issues.append(
-                    f"Contract.{item.name} 包含查询逻辑 "
-                    f"(.filter()/.all())，违反 Model 层禁止业务方法规范"
-                )
+                issues.append(f"Contract.{item.name} 包含查询逻辑 (.filter()/.all())，违反 Model 层禁止业务方法规范")
 
-    assert not issues, (
-        f"BUG 1.1: {'; '.join(issues)}。"
-        "应将查询逻辑迁移到 ContractAssignmentQueryService"
-    )
+    assert not issues, f"BUG 1.1: {'; '.join(issues)}。应将查询逻辑迁移到 ContractAssignmentQueryService"
 
 
 # ---------------------------------------------------------------------------
@@ -78,9 +72,7 @@ def test_1_2_contract_admin_service_no_staticmethod() -> None:
 
     **Validates: Requirements 1.2**
     """
-    service_file: Path = (
-        BACKEND_DIR / "apps" / "contracts" / "services" / "contract" / "contract_admin_service.py"
-    )
+    service_file: Path = BACKEND_DIR / "apps" / "contracts" / "services" / "contract" / "contract_admin_service.py"
     source: str = service_file.read_text(encoding="utf-8")
     tree: ast.Module = ast.parse(source)
 
@@ -114,9 +106,7 @@ def test_1_3_contract_admin_service_no_direct_orm() -> None:
 
     **Validates: Requirements 1.3**
     """
-    service_file: Path = (
-        BACKEND_DIR / "apps" / "contracts" / "services" / "contract" / "contract_admin_service.py"
-    )
+    service_file: Path = BACKEND_DIR / "apps" / "contracts" / "services" / "contract" / "contract_admin_service.py"
     source: str = service_file.read_text(encoding="utf-8")
     tree: ast.Module = ast.parse(source)
 
@@ -138,15 +128,9 @@ def test_1_3_contract_admin_service_no_direct_orm() -> None:
             func_source: str = ast.get_source_segment(source, item) or ""
             matches: list[str] = orm_pattern.findall(func_source)
             if matches:
-                issues.append(
-                    f"{item.name} 直接调用 Model.objects: "
-                    f"{', '.join(set(matches))}"
-                )
+                issues.append(f"{item.name} 直接调用 Model.objects: {', '.join(set(matches))}")
 
-    assert not issues, (
-        f"BUG 1.3: {'; '.join(issues)}。"
-        "应委托给 ContractAdminMutationService"
-    )
+    assert not issues, f"BUG 1.3: {'; '.join(issues)}。应委托给 ContractAdminMutationService"
 
 
 # ---------------------------------------------------------------------------
@@ -159,30 +143,26 @@ def test_1_4_contract_payment_inline_i18n() -> None:
 
     **Validates: Requirements 1.4**
     """
-    admin_file: Path = (
-        BACKEND_DIR / "apps" / "contracts" / "admin" / "contractpayment_admin.py"
-    )
+    admin_file: Path = BACKEND_DIR / "apps" / "contracts" / "admin" / "contractpayment_admin.py"
     source: str = admin_file.read_text(encoding="utf-8")
 
     # 查找裸中文字符串 "开票金额不能大于收款金额"（未被 _() 包裹）
     # 如果被 _() 包裹，形式为 _("开票金额不能大于收款金额")
-    bare_chinese: re.Pattern[str] = re.compile(
-        r'(?<!_\()"开票金额不能大于收款金额"'
-    )
+    bare_chinese: re.Pattern[str] = re.compile(r'(?<!_\()"开票金额不能大于收款金额"')
     matches: list[str] = bare_chinese.findall(source)
 
-    assert not matches, (
-        'BUG 1.4: clean_fs 中 "开票金额不能大于收款金额" 未被 _() 包裹，'
-        "缺少 i18n 支持"
-    )
+    assert not matches, 'BUG 1.4: clean_fs 中 "开票金额不能大于收款金额" 未被 _() 包裹，缺少 i18n 支持'
 
 
 # ---------------------------------------------------------------------------
 # 检测 1.5: ContractAdminForm.representation_stages 的 label 不应硬编码中文
 # ---------------------------------------------------------------------------
-@pytest.mark.parametrize("rel_path", [
-    "apps/contracts/admin/contract_admin.py",
-])
+@pytest.mark.parametrize(
+    "rel_path",
+    [
+        "apps/contracts/admin/contract_admin.py",
+    ],
+)
 def test_1_5_contract_admin_form_label_i18n(rel_path: str) -> None:
     """
     期望行为：ContractAdminForm 的 representation_stages label
@@ -198,10 +178,7 @@ def test_1_5_contract_admin_form_label_i18n(rel_path: str) -> None:
     bare_label: re.Pattern[str] = re.compile(r'label\s*=\s*"代理阶段"')
     matches: list[str] = bare_label.findall(source)
 
-    assert not matches, (
-        f'BUG 1.5: {rel_path} 中 label="代理阶段" 未被 _() 包裹，'
-        "缺少 i18n 支持"
-    )
+    assert not matches, f'BUG 1.5: {rel_path} 中 label="代理阶段" 未被 _() 包裹，缺少 i18n 支持'
 
 
 # ---------------------------------------------------------------------------
@@ -216,10 +193,7 @@ def test_1_6_adapter_no_raw_model_return() -> None:
 
     **Validates: Requirements 1.6**
     """
-    adapter_file: Path = (
-        BACKEND_DIR / "apps" / "contracts" / "services"
-        / "contract" / "contract_service_adapter.py"
-    )
+    adapter_file: Path = BACKEND_DIR / "apps" / "contracts" / "services" / "contract" / "contract_service_adapter.py"
     source: str = adapter_file.read_text(encoding="utf-8")
     tree: ast.Module = ast.parse(source)
 
@@ -238,9 +212,7 @@ def test_1_6_adapter_no_raw_model_return() -> None:
             has_deprecated: bool = "deprecated" in func_source.lower()
             # 检查是否直接返回 Model 实例（Contract.objects...get）
             returns_model: bool = (
-                "Contract.objects" in func_source
-                and ".get(" in func_source
-                and "deprecated" not in func_source.lower()
+                "Contract.objects" in func_source and ".get(" in func_source and "deprecated" not in func_source.lower()
             )
             if returns_model and not has_deprecated:
                 pytest.fail(
@@ -261,10 +233,7 @@ def test_1_7_validate_fee_mode_i18n() -> None:
 
     **Validates: Requirements 1.7**
     """
-    mixin_file: Path = (
-        BACKEND_DIR / "apps" / "contracts" / "services"
-        / "contract" / "contract_validator.py"
-    )
+    mixin_file: Path = BACKEND_DIR / "apps" / "contracts" / "services" / "contract" / "contract_validator.py"
     source: str = mixin_file.read_text(encoding="utf-8")
     tree: ast.Module = ast.parse(source)
 
@@ -296,16 +265,11 @@ def test_1_7_validate_fee_mode_i18n() -> None:
     bare_strings: list[str] = []
     for s in expected_i18n_strings:
         # 裸字符串: "xxx" 但前面没有 _(
-        bare_pattern: re.Pattern[str] = re.compile(
-            rf'(?<!_\()"{re.escape(s)}"'
-        )
+        bare_pattern: re.Pattern[str] = re.compile(rf'(?<!_\()"{re.escape(s)}"')
         if bare_pattern.search(combined):
             bare_strings.append(s)
 
-    assert not bare_strings, (
-        f"BUG 1.7: _contract_helpers_mixin.py 中以下错误消息未被 _() 包裹: "
-        f"{bare_strings}"
-    )
+    assert not bare_strings, f"BUG 1.7: _contract_helpers_mixin.py 中以下错误消息未被 _() 包裹: {bare_strings}"
 
 
 # ---------------------------------------------------------------------------
@@ -320,9 +284,7 @@ def test_1_8_contract_admin_no_duplicate_response_methods() -> None:
 
     **Validates: Requirements 1.8**
     """
-    admin_file: Path = (
-        BACKEND_DIR / "apps" / "contracts" / "admin" / "contract_admin.py"
-    )
+    admin_file: Path = BACKEND_DIR / "apps" / "contracts" / "admin" / "contract_admin.py"
     source: str = admin_file.read_text(encoding="utf-8")
     tree: ast.Module = ast.parse(source)
 
@@ -354,10 +316,7 @@ def test_1_9_supplementary_agreement_party_inline_i18n() -> None:
 
     **Validates: Requirements 1.9**
     """
-    admin_file: Path = (
-        BACKEND_DIR / "apps" / "contracts" / "admin"
-        / "supplementary_agreement_admin.py"
-    )
+    admin_file: Path = BACKEND_DIR / "apps" / "contracts" / "admin" / "supplementary_agreement_admin.py"
     source: str = admin_file.read_text(encoding="utf-8")
     tree: ast.Module = ast.parse(source)
 
@@ -376,17 +335,10 @@ def test_1_9_supplementary_agreement_party_inline_i18n() -> None:
                 if target.id not in ("verbose_name", "verbose_name_plural"):
                     continue
                 # 如果值是字符串常量（非函数调用），则为硬编码
-                if isinstance(item.value, ast.Constant) and isinstance(
-                    item.value.value, str
-                ):
-                    issues.append(
-                        f'{target.id} = "{item.value.value}" 未被 _() 包裹'
-                    )
+                if isinstance(item.value, ast.Constant) and isinstance(item.value.value, str):
+                    issues.append(f'{target.id} = "{item.value.value}" 未被 _() 包裹')
 
-    assert not issues, (
-        f"BUG 1.9: SupplementaryAgreementPartyInline 中 "
-        f"{'; '.join(issues)}，缺少 i18n 支持"
-    )
+    assert not issues, f"BUG 1.9: SupplementaryAgreementPartyInline 中 {'; '.join(issues)}，缺少 i18n 支持"
 
 
 # ---------------------------------------------------------------------------
@@ -399,9 +351,7 @@ def test_1_10_domain_validators_no_value_error() -> None:
 
     **Validates: Requirements 1.10**
     """
-    validators_file: Path = (
-        BACKEND_DIR / "apps" / "contracts" / "domain" / "validators.py"
-    )
+    validators_file: Path = BACKEND_DIR / "apps" / "contracts" / "domain" / "validators.py"
     source: str = validators_file.read_text(encoding="utf-8")
     tree: ast.Module = ast.parse(source)
 
@@ -418,6 +368,5 @@ def test_1_10_domain_validators_no_value_error() -> None:
                 value_error_raises.append(node.lineno)
 
     assert not value_error_raises, (
-        f"BUG 1.10: domain/validators.py 在第 {value_error_raises} 行 "
-        f"抛出 ValueError 而非 ValidationException"
+        f"BUG 1.10: domain/validators.py 在第 {value_error_raises} 行 抛出 ValueError 而非 ValidationException"
     )

@@ -127,14 +127,14 @@ class TestAdapterInterfaceImplementationProperties:
 
             internal_method_name = f"{method_name}_internal"
 
-            assert hasattr(adapter_class, internal_method_name), (
-                f"适配器 {adapter_class.__name__} 应提供内部方法 {internal_method_name} 对应公开方法 {method_name}"
-            )
+            assert hasattr(
+                adapter_class, internal_method_name
+            ), f"适配器 {adapter_class.__name__} 应提供内部方法 {internal_method_name} 对应公开方法 {method_name}"
 
             internal_method = getattr(adapter_class, internal_method_name)
-            assert callable(internal_method), (
-                f"适配器 {adapter_class.__name__} 的内部方法 {internal_method_name} 应可调用"
-            )
+            assert callable(
+                internal_method
+            ), f"适配器 {adapter_class.__name__} 的内部方法 {internal_method_name} 应可调用"
 
     def test_all_adapters_have_proper_initialization(self):
         """
@@ -164,9 +164,9 @@ class TestAdapterInterfaceImplementationProperties:
                     or param.kind == inspect.Parameter.VAR_POSITIONAL  # *args
                     or param.kind == inspect.Parameter.VAR_KEYWORD  # **kwargs
                 )
-                assert is_valid_param, (
-                    f"适配器 {adapter_class.__name__} 的构造函数参数 {param.name} 应有默认值或为可变参数以支持依赖注入"
-                )
+                assert (
+                    is_valid_param
+                ), f"适配器 {adapter_class.__name__} 的构造函数参数 {param.name} 应有默认值或为可变参数以支持依赖注入"
 
     @given(st.integers(min_value=0, max_value=len(ADAPTER_INTERFACE_MAPPING) - 1))
     @settings(max_examples=50)
@@ -386,9 +386,9 @@ class TestAdapterInterfaceImplementationProperties:
 
             for internal_method_name in internal_methods:
                 # 验证命名约定
-                assert internal_method_name.endswith("_internal"), (
-                    f"适配器 {adapter_class.__name__} 的内部方法 {internal_method_name} 应以 '_internal' 结尾"
-                )
+                assert internal_method_name.endswith(
+                    "_internal"
+                ), f"适配器 {adapter_class.__name__} 的内部方法 {internal_method_name} 应以 '_internal' 结尾"
 
                 # 验证对应的公开方法存在
                 public_method_name = internal_method_name[:-9]  # 移除 '_internal'
@@ -397,6 +397,6 @@ class TestAdapterInterfaceImplementationProperties:
                     # 但如果有公开方法，应该验证其存在性
                     if hasattr(adapter_class, public_method_name):
                         public_method = getattr(adapter_class, public_method_name)
-                        assert callable(public_method), (
-                            f"适配器 {adapter_class.__name__} 的公开方法 {public_method_name} 应可调用"
-                        )
+                        assert callable(
+                            public_method
+                        ), f"适配器 {adapter_class.__name__} 的公开方法 {public_method_name} 应可调用"

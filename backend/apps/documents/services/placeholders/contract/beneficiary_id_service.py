@@ -51,7 +51,8 @@ class BeneficiaryIdService(BasePlaceholderService):
 
         except Exception as e:
             logger.warning(
-                "生成受益人证件号码占位符失败: %s", e,
+                "生成受益人证件号码占位符失败: %s",
+                e,
                 extra={"contract_id": getattr(context_data.get("contract"), "id", None)},
                 exc_info=True,
             )

@@ -96,7 +96,9 @@ class RenameOCRChannel:
             # 3. 低置信度重试
             if first_result.overall_confidence < RETRY_CONFIDENCE_THRESHOLD:
                 retry_result = self._do_ocr(
-                    ocr, rotated_data, config=ENHANCED_CONFIG,
+                    ocr,
+                    rotated_data,
+                    config=ENHANCED_CONFIG,
                 )
                 retried = True
                 # 选择更优结果
@@ -163,7 +165,8 @@ class RenameOCRChannel:
 
         # 置信度过滤
         filter_result = self._filter.filter(
-            list(result.txts), list(result.scores),
+            list(result.txts),
+            list(result.scores),
         )
 
         text = "\n".join(filter_result.texts)

@@ -145,7 +145,6 @@ class DocumentTemplateFolderBindingAdmin(admin.ModelAdmin[DocumentTemplateFolder
             return format_html('<span style="color: #666; font-family: monospace;">{}</span>', obj.folder_node_path)
         return "-"
 
-
     def save_model(self, request: HttpRequest, obj: DocumentTemplateFolderBinding, form: Any, change: bool) -> None:
         """保存时自动计算路径"""
         # 路径会在模型的save方法中自动计算

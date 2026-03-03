@@ -15,7 +15,6 @@ from typing import NamedTuple
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # 公共工具
 # ---------------------------------------------------------------------------
@@ -235,8 +234,9 @@ def test_p5_admin_actions_match_test_assertions() -> None:
     反射获取 AccountCredentialAdmin 的 actions，验证与测试文件断言一致。
     Validates: Requirements 3.1, 3.2
     """
-    import django
     import os
+
+    import django
 
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "apiSystem.settings")
     try:
@@ -244,9 +244,10 @@ def test_p5_admin_actions_match_test_assertions() -> None:
     except RuntimeError:
         pass  # 已初始化
 
+    from django.contrib.admin.sites import AdminSite
+
     from apps.organization.admin.accountcredential_admin import AccountCredentialAdmin
     from apps.organization.models import AccountCredential
-    from django.contrib.admin.sites import AdminSite
 
     site: AdminSite = AdminSite()
     admin_instance: AccountCredentialAdmin = AccountCredentialAdmin(
@@ -256,9 +257,9 @@ def test_p5_admin_actions_match_test_assertions() -> None:
     # 获取 actions（排除 delete_selected 内置 action）
     actual_actions: set[str] = {name for name in (admin_instance.actions or []) if name != "delete_selected"}
     expected_actions: set[str] = {"mark_as_preferred", "unmark_as_preferred"}
-    assert actual_actions == expected_actions, (
-        f"AccountCredentialAdmin actions 不匹配:\n  实际: {sorted(actual_actions)}\n  期望: {sorted(expected_actions)}"
-    )
+    assert (
+        actual_actions == expected_actions
+    ), f"AccountCredentialAdmin actions 不匹配:\n  实际: {sorted(actual_actions)}\n  期望: {sorted(expected_actions)}"
 
 
 # ---------------------------------------------------------------------------
@@ -365,10 +366,10 @@ def test_p7_user_visible_messages_wrapped_with_gettext() -> None:
     baseline_path: Path = backend / "tests" / "structure" / "baselines" / "unwrapped_chinese_strings_count.txt"
     if baseline_path.exists():
         baseline_count: int = int(baseline_path.read_text(encoding="utf-8").strip())
-        assert len(all_violations) <= baseline_count, (
-            f"未包裹中文字符串数量从 {baseline_count} 增加到 {len(all_violations)}，"
-            f"请用 gettext 包裹新增的中文消息:\n"
-            + "\n".join(f"  {v.file}:{v.line_no} {v.detail}" for v in all_violations[:20])
+        assert (
+            len(all_violations) <= baseline_count
+        ), f"未包裹中文字符串数量从 {baseline_count} 增加到 {len(all_violations)}，" f"请用 gettext 包裹新增的中文消息:\n" + "\n".join(
+            f"  {v.file}:{v.line_no} {v.detail}" for v in all_violations[:20]
         )
     else:
         # 首次运行：写入 baseline
@@ -446,13 +447,13 @@ def test_p9_settings_no_hardcoded_password() -> None:
     content: str = settings_path.read_text(encoding="utf-8")
 
     # 验证存在 ImproperlyConfigured 抛出逻辑
-    assert "ImproperlyConfigured" in content, (
-        "settings.py 中未找到 ImproperlyConfigured，SMOKE_ADMIN_PASSWORD 未做生产环境强制检查"
-    )
+    assert (
+        "ImproperlyConfigured" in content
+    ), "settings.py 中未找到 ImproperlyConfigured，SMOKE_ADMIN_PASSWORD 未做生产环境强制检查"
     # 验证 SMOKE_ADMIN_PASSWORD 从环境变量读取
-    assert 'os.environ.get("SMOKE_ADMIN_PASSWORD"' in content or "SMOKE_ADMIN_PASSWORD" in content, (
-        "settings.py 中未找到 SMOKE_ADMIN_PASSWORD 环境变量读取"
-    )
+    assert (
+        'os.environ.get("SMOKE_ADMIN_PASSWORD"' in content or "SMOKE_ADMIN_PASSWORD" in content
+    ), "settings.py 中未找到 SMOKE_ADMIN_PASSWORD 环境变量读取"
     # 验证非 DEBUG 时不允许空密码
     assert "not DEBUG" in content or "not _smoke_pw" in content, "settings.py 中未找到非 DEBUG 时的密码强制检查逻辑"
 
@@ -487,9 +488,9 @@ def test_p10_mypy_exemption_removed_file_has_annotations() -> None:
         if node.returns is None:
             missing.append(f"  行 {node.lineno}: def {node.name}() 缺少返回值注解")
 
-    assert not missing, (
-        f"token_acquisition_history_admin_service.py 有 {len(missing)} 个函数缺少返回值注解:\n" + "\n".join(missing)
-    )
+    assert (
+        not missing
+    ), f"token_acquisition_history_admin_service.py 有 {len(missing)} 个函数缺少返回值注解:\n" + "\n".join(missing)
 
 
 # ---------------------------------------------------------------------------

@@ -1,6 +1,5 @@
 """飞书文件上传与发送 Mixin"""
 
-from django.utils.translation import gettext_lazy as _
 import json
 import logging
 import mimetypes
@@ -8,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ConfigurationException, MessageSendException
 
@@ -198,4 +198,3 @@ class FeishuFileMixin:
         """根据文件扩展名确定 MIME 类型"""
         mime_type, _ = mimetypes.guess_type(file_path)
         return mime_type or "application/octet-stream"
-

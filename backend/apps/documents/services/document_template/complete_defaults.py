@@ -8,7 +8,7 @@ from typing import Any
 def get_complete_default_data() -> dict[str, Any]:
     """
     获取完整的默认数据配置
-    
+
     Returns:
         包含文件模板、文件夹模板和绑定关系的字典
     """
@@ -117,7 +117,11 @@ def get_complete_default_data() -> dict[str, Any]:
                                     "id": "folder_1767235143559_vaoblr4vv",
                                     "name": "3-结案文书",
                                     "children": [
-                                        {"id": "folder_1767235178392_9gto7zcyu", "name": "1-撤诉申请书", "children": []},
+                                        {
+                                            "id": "folder_1767235178392_9gto7zcyu",
+                                            "name": "1-撤诉申请书",
+                                            "children": [],
+                                        },
                                         {
                                             "id": "folder_1767235187390_v79wdfkh8",
                                             "name": "2-解除查封申请书",

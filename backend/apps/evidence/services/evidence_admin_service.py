@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from django.utils import timezone
-
 from typing import Any
+
+from django.utils import timezone
 
 from apps.evidence.services.evidence_export_service import EvidenceExportService
 from apps.evidence.services.evidence_service import EvidenceService
@@ -190,7 +190,7 @@ class EvidenceAdminService:
             文件名,格式:证据明细{序号}({案件名称})V{版本号}_{日期}.pdf
             示例:证据明细一(XX与YY纠纷)V1_20260115.pdf
         """
-        
+
         # 获取案件名称
         case_name = evidence_list.case.name
 

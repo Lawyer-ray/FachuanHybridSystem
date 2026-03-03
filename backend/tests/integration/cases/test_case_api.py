@@ -221,9 +221,9 @@ class TestCaseAPI:
         )
 
         # 断言结果
-        assert results.count() >= 1, (
-            f"Expected at least 1 result, got {results.count()}. Case number in DB: {case_number_obj.number}"
-        )
+        assert (
+            results.count() >= 1
+        ), f"Expected at least 1 result, got {results.count()}. Case number in DB: {case_number_obj.number}"
         assert case.id in [c.id for c in results]
 
     def test_permission_denied(self):

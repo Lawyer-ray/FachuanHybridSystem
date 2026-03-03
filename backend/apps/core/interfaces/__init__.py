@@ -191,4 +191,5 @@ __all__ = [
     "IConversationHistoryService",
     "IEvidenceListPlaceholderService",
     # Service Locator and Event Bus
-    "ServiceLocator",]
+    "ServiceLocator",
+]

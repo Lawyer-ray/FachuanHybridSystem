@@ -2,8 +2,8 @@
 CourtSMSRepository 单元测试
 """
 
-from django.utils import timezone
 import pytest
+from django.utils import timezone
 
 from apps.automation.models import CourtSMS
 from apps.automation.services.sms.court_sms_repository import CourtSMSRepository

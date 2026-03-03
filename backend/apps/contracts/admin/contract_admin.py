@@ -138,12 +138,14 @@ if BaseModelAdmin is not admin.ModelAdmin:
 
 def _serialize_contract_client(client: Any) -> dict[str, Any]:
     from apps.client.admin.client_admin import serialize_client_obj
+
     return serialize_client_obj(client)
 
 
 def serialize_contract_obj(obj: Any) -> dict[str, Any]:
     """将单个 Contract 实例序列化为 dict（供 ContractAdmin 和 CaseAdmin 共用）。"""
     from apps.cases.admin.case_admin import serialize_case_obj
+
     return {
         "name": obj.name,
         "case_type": obj.case_type,
@@ -159,29 +161,41 @@ def serialize_contract_obj(obj: Any) -> dict[str, Any]:
         "custom_terms": obj.custom_terms,
         "representation_stages": obj.representation_stages,
         "parties": [
-            {"role": p.role, "client": _serialize_contract_client(p.client)}
-            for p in obj.contract_parties.all()
+            {"role": p.role, "client": _serialize_contract_client(p.client)} for p in obj.contract_parties.all()
         ],
         "assignments": [
-            {"is_primary": a.is_primary, "order": a.order,
-             "lawyer": {"real_name": a.lawyer.real_name, "phone": a.lawyer.phone, "username": a.lawyer.username}}
+            {
+                "is_primary": a.is_primary,
+                "order": a.order,
+                "lawyer": {"real_name": a.lawyer.real_name, "phone": a.lawyer.phone, "username": a.lawyer.username},
+            }
             for a in obj.assignments.all()
         ],
         "finalized_materials": [
-            {"file_path": m.file_path, "original_filename": m.original_filename,
-             "category": m.category, "remark": m.remark}
-            for m in obj.finalized_materials.all() if m.file_path
+            {
+                "file_path": m.file_path,
+                "original_filename": m.original_filename,
+                "category": m.category,
+                "remark": m.remark,
+            }
+            for m in obj.finalized_materials.all()
+            if m.file_path
         ],
         "supplementary_agreements": [
             {
                 "name": sa.name,
                 "parties": [
-                    {"role": sp.role, "client": {
-                        "name": sp.client.name, "client_type": sp.client.client_type,
-                        "id_number": sp.client.id_number, "phone": sp.client.phone,
-                        "legal_representative": sp.client.legal_representative,
-                        "is_our_client": sp.client.is_our_client,
-                    }}
+                    {
+                        "role": sp.role,
+                        "client": {
+                            "name": sp.client.name,
+                            "client_type": sp.client.client_type,
+                            "id_number": sp.client.id_number,
+                            "phone": sp.client.phone,
+                            "legal_representative": sp.client.legal_representative,
+                            "is_our_client": sp.client.is_our_client,
+                        },
+                    }
                     for sp in sa.parties.all()
                 ],
             }
@@ -189,13 +203,17 @@ def serialize_contract_obj(obj: Any) -> dict[str, Any]:
         ],
         "payments": [
             {
-                "amount": str(p.amount), "received_at": str(p.received_at),
-                "invoice_status": p.invoice_status, "invoiced_amount": str(p.invoiced_amount),
+                "amount": str(p.amount),
+                "received_at": str(p.received_at),
+                "invoice_status": p.invoice_status,
+                "invoiced_amount": str(p.invoiced_amount),
                 "note": p.note,
                 "invoices": [
                     {
-                        "file_path": inv.file_path, "original_filename": inv.original_filename,
-                        "remark": inv.remark, "invoice_code": inv.invoice_code,
+                        "file_path": inv.file_path,
+                        "original_filename": inv.original_filename,
+                        "remark": inv.remark,
+                        "invoice_code": inv.invoice_code,
                         "invoice_number": inv.invoice_number,
                         "invoice_date": str(inv.invoice_date) if inv.invoice_date else None,
                         "amount": str(inv.amount) if inv.amount is not None else None,
@@ -208,18 +226,30 @@ def serialize_contract_obj(obj: Any) -> dict[str, Any]:
             for p in obj.payments.all()
         ],
         "finance_logs": [
-            {"action": fl.action, "level": fl.level, "payload": fl.payload,
-             "actor": {"real_name": fl.actor.real_name, "phone": fl.actor.phone, "username": fl.actor.username}}
+            {
+                "action": fl.action,
+                "level": fl.level,
+                "payload": fl.payload,
+                "actor": {"real_name": fl.actor.real_name, "phone": fl.actor.phone, "username": fl.actor.username},
+            }
             for fl in obj.finance_logs.all()
         ],
         "reminders": [
-            {"reminder_type": r.reminder_type, "content": r.content,
-             "due_at": r.due_at.isoformat(), "metadata": r.metadata}
+            {
+                "reminder_type": r.reminder_type,
+                "content": r.content,
+                "due_at": r.due_at.isoformat(),
+                "metadata": r.metadata,
+            }
             for r in obj.reminders.filter(case_log__isnull=True)
         ],
         "client_payment_records": [
-            {"amount": str(r.amount), "image_path": r.image_path,
-             "note": r.note, "created_at": r.created_at.isoformat()}
+            {
+                "amount": str(r.amount),
+                "image_path": r.image_path,
+                "note": r.note,
+                "created_at": r.created_at.isoformat(),
+            }
             for r in obj.client_payment_records.all()
         ],
         "cases": [serialize_case_obj(c) for c in obj.cases.all()],
@@ -227,7 +257,9 @@ def serialize_contract_obj(obj: Any) -> dict[str, Any]:
 
 
 @admin.register(Contract)
-class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin, AdminImportExportMixin, BaseModelAdmin):  # type: ignore[type-arg]
+class ContractAdmin(
+    ContractDisplayMixin, ContractSaveMixin, ContractActionMixin, AdminImportExportMixin, BaseModelAdmin
+):  # type: ignore[type-arg]
     class ContractAdminForm(forms.ModelForm[Contract]):
         representation_stages = forms.MultipleChoiceField(
             choices=CaseStage.choices,
@@ -295,9 +327,7 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
     change_form_template = "admin/contracts/contract/change_form.html"
 
     def get_queryset(self, request: HttpRequest) -> Any:
-        return super().get_queryset(request).prefetch_related(
-            "assignments__lawyer", "contract_parties__client"
-        )
+        return super().get_queryset(request).prefetch_related("assignments__lawyer", "contract_parties__client")
 
     def get_urls(self) -> list[Any]:
         from django.urls import path as urlpath

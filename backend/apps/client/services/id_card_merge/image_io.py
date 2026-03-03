@@ -6,10 +6,9 @@ import uuid
 from pathlib import Path
 from typing import Any, cast
 
-from django.core.files.uploadedfile import UploadedFile
-
 import cv2
 import numpy as np
+from django.core.files.uploadedfile import UploadedFile
 from numpy.typing import NDArray
 
 

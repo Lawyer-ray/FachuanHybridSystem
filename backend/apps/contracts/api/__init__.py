@@ -7,10 +7,10 @@ Contracts App API 模块
 from ninja import Router
 
 from .contract_api import router as contract_router
-from .contractpayment_api import router as contractpayment_router
 from .contractfinance_api import router as contractfinance_router
-from .supplementary_agreement_api import router as supplementary_agreement_router
+from .contractpayment_api import router as contractpayment_router
 from .folder_binding_api import router as folder_binding_router
+from .supplementary_agreement_api import router as supplementary_agreement_router
 
 # 创建模块路由器
 router = Router()

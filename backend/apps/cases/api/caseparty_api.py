@@ -10,9 +10,8 @@ from typing import Any, cast
 from django.http import HttpRequest
 from ninja import Router
 
-from apps.core.request_context import extract_request_context
-
 from apps.cases.schemas import CasePartyIn, CasePartyOut, CasePartyUpdate
+from apps.core.request_context import extract_request_context
 
 router = Router()
 

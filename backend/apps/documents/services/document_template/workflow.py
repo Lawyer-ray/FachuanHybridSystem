@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from django.utils.translation import gettext_lazy as _
-
 from typing import Any
 
 from django.db import transaction
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ValidationException
 from apps.documents.models import DocumentTemplate

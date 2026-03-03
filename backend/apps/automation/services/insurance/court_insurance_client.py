@@ -7,7 +7,6 @@
 - 并发查询所有保险公司报价
 """
 
-from django.utils.translation import gettext_lazy as _
 import asyncio
 import logging
 from dataclasses import dataclass
@@ -15,6 +14,7 @@ from decimal import Decimal
 from typing import Any, cast
 
 import httpx
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.config import get_config
 from apps.core.exceptions import APIError, NetworkError, TokenError
@@ -299,9 +299,7 @@ class CourtInsuranceClient(InsuranceHttpMixin):
 
         try:
             start_time = time.time()
-            response = await self._client.get(
-                self.insurance_list_url, headers=headers, params=params, timeout=timeout
-            )
+            response = await self._client.get(self.insurance_list_url, headers=headers, params=params, timeout=timeout)
             elapsed_time = time.time() - start_time
 
             logger.info(
@@ -412,9 +410,6 @@ class CourtInsuranceClient(InsuranceHttpMixin):
                 errors={"url": self.insurance_list_url, "error_type": type(e).__name__, "original_error": str(e)},
             ) from e
 
-
-
-
     async def fetch_premium(
         self, bearer_token: str, preserve_amount: Decimal, institution: str, corp_id: str, timeout: float | None = None
     ) -> PremiumResult:
@@ -483,8 +478,12 @@ class CourtInsuranceClient(InsuranceHttpMixin):
                     extra={"action": "fetch_premium_success", "institution": institution, "premium": str(premium)},
                 )
                 return PremiumResult(
-                    company=company, premium=premium, status="success",
-                    error_message=success_msg, response_data=data, request_info=request_info,
+                    company=company,
+                    premium=premium,
+                    status="success",
+                    error_message=success_msg,
+                    response_data=data,
+                    request_info=request_info,
                 )
 
             logger.warning(
@@ -492,23 +491,36 @@ class CourtInsuranceClient(InsuranceHttpMixin):
                 extra={"action": "fetch_premium_no_premium", "institution": institution},
             )
             return PremiumResult(
-                company=company, premium=None, status="failed",
-                error_message=_("响应中未找到费率数据"), response_data=data, request_info=request_info, # type: ignore
+                company=company,
+                premium=None,
+                status="failed",
+                error_message=_("响应中未找到费率数据"),
+                response_data=data,
+                request_info=request_info,  # type: ignore
             )
 
         except httpx.TimeoutException as e:
             return self._make_failed_result(
-                company, "查询超时", e, request_info,
+                company,
+                "查询超时",
+                e,
+                request_info,
                 extra={"institution": institution, "timeout": timeout},
             )
         except httpx.HTTPError as e:
             return self._make_failed_result(
-                company, "HTTP 错误", e, request_info,
+                company,
+                "HTTP 错误",
+                e,
+                request_info,
                 extra={"institution": institution},
             )
         except Exception as e:
             return self._make_failed_result(
-                company, "未知错误", e, request_info,
+                company,
+                "未知错误",
+                e,
+                request_info,
                 log_level="error",
                 extra={"institution": institution},
             )

@@ -20,7 +20,7 @@ document.addEventListener('alpine:init', () => {
 
         async loadBinding() {
             if (!this.contractId) return;
-            
+
             try {
                 const response = await fetch(`/api/v1/contracts/${this.contractId}/folder-binding`, {
                     headers: {
@@ -28,7 +28,7 @@ document.addEventListener('alpine:init', () => {
                     },
                     credentials: 'same-origin'
                 });
-                
+
                 if (response.ok) {
                     const data = await response.json();
                     if (data) {
@@ -77,7 +77,7 @@ document.addEventListener('alpine:init', () => {
                 }
 
                 const data = await response.json();
-                
+
                 if (!data.browsable) {
                     this.error = data.message || '无法访问根目录';
                     return;
@@ -99,27 +99,27 @@ document.addEventListener('alpine:init', () => {
         async selectFolder(columnIndex, entryIndex, entry) {
             // 防止重复点击（检查局部加载状态）
             if (this.loadingColumn) return;
-            
+
             // 检查是否已经选中
             if (this.columns[columnIndex].selectedIndex === entryIndex) {
                 return;
             }
-            
+
             // 更新选中状态（立即响应）
             this.columns[columnIndex].selectedIndex = entryIndex;
-            
+
             // 移除后续的列（使用 splice 避免创建新数组）
             const newLength = columnIndex + 1;
             if (this.columns.length > newLength) {
                 this.columns.splice(newLength);
             }
-            
+
             // 设置局部加载状态
             this.loadingColumn = entry.path;
-            
+
             // 加载子文件夹
             await this.loadSubfolders(entry.path);
-            
+
             // 滚动到最右边
             this.$nextTick(() => {
                 const container = this.$el.querySelector('.finder-columns');
@@ -147,7 +147,7 @@ document.addEventListener('alpine:init', () => {
                 }
 
                 const data = await response.json();
-                
+
                 if (!data.browsable) {
                     this.error = data.message || '无法访问此路径';
                     return;
@@ -161,7 +161,7 @@ document.addEventListener('alpine:init', () => {
                         selectedIndex: -1
                     });
                 }
-                
+
                 // 更新手动输入框
                 this.manualPath = path;
             } catch (error) {
@@ -203,7 +203,7 @@ document.addEventListener('alpine:init', () => {
 
                 this.binding = await response.json();
                 this.closeBrowser();
-                
+
                 // 显示成功消息
                 this.showMessage('文件夹绑定成功', 'success');
             } catch (error) {
@@ -276,7 +276,7 @@ document.addEventListener('alpine:init', () => {
                 messageItem.className = type === 'success' ? 'success' : 'error';
                 messageItem.textContent = message;
                 messagesDiv.appendChild(messageItem);
-                
+
                 setTimeout(() => {
                     messageItem.remove();
                 }, 3000);

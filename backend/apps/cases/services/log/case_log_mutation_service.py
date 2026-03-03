@@ -1,12 +1,12 @@
 """Business logic services."""
 
 from __future__ import annotations
-from django.utils.translation import gettext_lazy as _
 
 from datetime import datetime
 from typing import Any, cast
 
 from django.db import transaction
+from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import Case, CaseLog, CaseLogVersion
 from apps.core.exceptions import ForbiddenError, NotFoundError, ValidationException
@@ -54,6 +54,7 @@ class CaseLogMutationService:
 
         if reminder_type and reminder_time:
             from apps.core.interfaces import ServiceLocator
+
             reminder_service = ServiceLocator.get_reminder_service()
             reminder_service.create_reminder(
                 case_log_id=log.id,

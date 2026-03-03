@@ -8,11 +8,11 @@ after cleanup operations.
 **Validates: Requirements 6.4**
 """
 
+from pathlib import Path
+
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
-
-from pathlib import Path
 
 
 class TestModuleReadmePreservationProperties:

@@ -40,9 +40,7 @@ class Command(BaseCommand):
             help="强制执行指定任务（忽略是否到期）",
         )
 
-    def _execute_single_schedule(
-        self, schedule: Any, schedule_service: Any, verbose: bool
-    ) -> tuple[int, int]:
+    def _execute_single_schedule(self, schedule: Any, schedule_service: Any, verbose: bool) -> tuple[int, int]:
         """执行单个定时任务，返回 (processed, failed)"""
         try:
             if verbose:

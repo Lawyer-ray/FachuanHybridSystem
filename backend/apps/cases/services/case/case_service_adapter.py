@@ -120,9 +120,7 @@ class CaseServiceAdapter:
         return self._log_internal.get_case_log_model_internal(case_log_id=case_log_id)
 
     def get_case_parties_by_legal_status_internal(self, case_id: int, legal_status: str) -> Any:
-        return self._party_query.get_case_parties_by_legal_status_internal(
-            case_id=case_id, legal_status=legal_status
-        )
+        return self._party_query.get_case_parties_by_legal_status_internal(case_id=case_id, legal_status=legal_status)
 
     def get_case_parties_internal(self, case_id: int, legal_status: str | None = None) -> Any:
         return self._party_query.get_case_parties_internal(case_id=case_id, legal_status=legal_status)
@@ -183,9 +181,7 @@ class CaseServiceAdapter:
         )
 
     def add_case_number_internal(self, case_id: int, case_number: str, user_id: int | None = None) -> Any:
-        return self._number_internal.add_case_number_internal(
-            case_id=case_id, case_number=case_number, user_id=user_id
-        )
+        return self._number_internal.add_case_number_internal(case_id=case_id, case_number=case_number, user_id=user_id)
 
     def update_case_log_reminder_internal(self, case_log_id: int, reminder_time: Any, reminder_type: str) -> Any:
         return self._log_internal.update_case_log_reminder_internal(

@@ -274,9 +274,7 @@ class CaseMatcher:
 
         return filtered[0] if len(filtered) == 1 else None
 
-    def _extract_features_from_numbers(
-        self, case_numbers: list[str]
-    ) -> tuple[str | None, str | None, bool]:
+    def _extract_features_from_numbers(self, case_numbers: list[str]) -> tuple[str | None, str | None, bool]:
         """从案号列表中提取类型、阶段和是否破产"""
         case_type = None
         case_stage = None

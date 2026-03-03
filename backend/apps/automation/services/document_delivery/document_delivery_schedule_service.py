@@ -198,6 +198,7 @@ class DocumentDeliveryScheduleService:
 
         logger.info(f"找到 {due_schedules.count()} 个到期的定时任务")
         return list(due_schedules)
+
     def _get_execution_lock_key(self, schedule_id: int) -> str:
         """生成执行锁的缓存键"""
         return f"automation:document_delivery_schedule:{schedule_id}:lock"
@@ -225,8 +226,6 @@ class DocumentDeliveryScheduleService:
 
         key = self._get_execution_lock_key(schedule_id)
         django.core.cache.cache.delete(key)
-
-
 
     def execute_scheduled_task(self, schedule_id: int) -> DocumentQueryResult:
         """

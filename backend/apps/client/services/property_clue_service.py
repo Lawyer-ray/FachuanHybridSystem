@@ -8,10 +8,9 @@ from typing import TYPE_CHECKING, Any
 from django.db import transaction
 from django.utils.translation import gettext_lazy as _
 
-from apps.core.exceptions import NotFoundError, ValidationException
-
 from apps.client.models import PropertyClue, PropertyClueAttachment
 from apps.client.services.storage import delete_media_file, save_uploaded_file
+from apps.core.exceptions import NotFoundError, ValidationException
 
 if TYPE_CHECKING:
     from .client_internal_query_service import ClientInternalQueryService
@@ -25,11 +24,11 @@ _VALID_CLUE_TYPES: dict[str, str] = dict(PropertyClue.CLUE_TYPE_CHOICES)
 class PropertyClueService:
     """财产线索服务。"""
 
-    def __init__(self, internal_query_service: "ClientInternalQueryService | None" = None) -> None:
+    def __init__(self, internal_query_service: ClientInternalQueryService | None = None) -> None:
         self._internal_query_service = internal_query_service
 
     @property
-    def internal_query_service(self) -> "ClientInternalQueryService":
+    def internal_query_service(self) -> ClientInternalQueryService:
         """延迟获取 ClientInternalQueryService"""
         if self._internal_query_service is None:
             from .client_internal_query_service import ClientInternalQueryService
@@ -241,7 +240,7 @@ class PropertyClueService:
         clue_id: int,
         uploaded_file: Any,
         user: Any = None,
-    ) -> "PropertyClueAttachment":
+    ) -> PropertyClueAttachment:
         """从上传文件添加附件（文件 IO 在 Service 层处理）"""
         from apps.core.services.file_upload_service import FileUploadService
 

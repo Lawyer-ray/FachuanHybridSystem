@@ -25,12 +25,9 @@ class ExportTaskService:
         self._task_submission_service = task_submission_service
         self._project_service = project_service
 
-
     def get_task(self, *, user: Any, task_id: str) -> ChatRecordExportTask:
         try:
-            task: ChatRecordExportTask = (
-                ChatRecordExportTask.objects.select_related("project").get(id=task_id)
-            )
+            task: ChatRecordExportTask = ChatRecordExportTask.objects.select_related("project").get(id=task_id)
         except ChatRecordExportTask.DoesNotExist:
             raise NotFoundError(f"导出任务 {task_id} 不存在") from None
         ensure_can_access_project(user=user, project=task.project)
@@ -116,4 +113,3 @@ class ExportTaskService:
         rows = ChatRecordExportTask.objects.filter(id=task_id).update(**fields)
         if rows == 0:
             logger.warning("导出任务 %s 不存在，跳过进度更新", task_id)
-

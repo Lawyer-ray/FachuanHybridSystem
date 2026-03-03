@@ -114,12 +114,12 @@ def test_1e_no_fstring_logger_in_facade() -> None:
 
     # 检查是否存在 logger.xxx(f"..." 模式
     import re
+
     fstring_logger_pattern = re.compile(r'logger\.\w+\(\s*f["\']', re.MULTILINE)
     matches = fstring_logger_pattern.findall(source)
 
     assert not matches, (
-        f"BUG 1.5: facade.py 中存在 {len(matches)} 处 f-string logger 调用: {matches}。"
-        "应使用 %s 占位符替代 f-string"
+        f"BUG 1.5: facade.py 中存在 {len(matches)} 处 f-string logger 调用: {matches}。应使用 %s 占位符替代 f-string"
     )
 
 
@@ -134,6 +134,7 @@ def test_1e_no_fstring_logger_in_client_admin() -> None:
     source = admin_file.read_text(encoding="utf-8")
 
     import re
+
     fstring_logger_pattern = re.compile(r'logger\.\w+\(\s*f["\']', re.MULTILINE)
     matches = fstring_logger_pattern.findall(source)
 
@@ -151,6 +152,7 @@ def test_1e_no_fstring_logger_in_client_admin_service() -> None:
     Validates: Requirements 1.7
     """
     import re
+
     service_file = BACKEND_DIR / "apps" / "client" / "services" / "client_admin_service.py"
     source = service_file.read_text(encoding="utf-8")
 
@@ -207,8 +209,9 @@ def test_1g_property_clue_service_no_type_ignore() -> None:
     source = service_file.read_text(encoding="utf-8")
 
     import re
+
     # 统计 # type: ignore 出现次数
-    type_ignore_count = len(re.findall(r'#\s*type:\s*ignore', source))
+    type_ignore_count = len(re.findall(r"#\s*type:\s*ignore", source))
 
     assert type_ignore_count == 0, (
         f"BUG 1.9: property_clue_service.py 中存在 {type_ignore_count} 处 # type: ignore 注释。"
@@ -219,20 +222,23 @@ def test_1g_property_clue_service_no_type_ignore() -> None:
 # ---------------------------------------------------------------------------
 # Test 1h: 4 个文件的模块文档字符串不应为 "External service client."
 # ---------------------------------------------------------------------------
-@pytest.mark.parametrize("rel_path,expected_docstring_hint", [
-    (
-        "apps/client/services/client_internal_query_service.py",
-        "当事人内部查询服务",
-    ),
-    (
-        "apps/client/services/client_service_adapter.py",
-        "当事人服务适配器",
-    ),
-    (
-        "apps/client/services/client_dto_assembler.py",
-        "当事人 DTO 组装器",
-    ),
-])
+@pytest.mark.parametrize(
+    "rel_path,expected_docstring_hint",
+    [
+        (
+            "apps/client/services/client_internal_query_service.py",
+            "当事人内部查询服务",
+        ),
+        (
+            "apps/client/services/client_service_adapter.py",
+            "当事人服务适配器",
+        ),
+        (
+            "apps/client/services/client_dto_assembler.py",
+            "当事人 DTO 组装器",
+        ),
+    ],
+)
 def test_1h_module_docstring_not_external_service_client(rel_path: str, expected_docstring_hint: str) -> None:
     """
     期望行为：4 个文件的模块文档字符串应与各自职责匹配，
@@ -244,7 +250,7 @@ def test_1h_module_docstring_not_external_service_client(rel_path: str, expected
     target_file = BACKEND_DIR / rel_path
     source = target_file.read_text(encoding="utf-8")
 
-    assert 'External service client.' not in source, (
+    assert "External service client." not in source, (
         f"BUG 1.10: {rel_path} 的模块文档字符串为 'External service client.'，"
         f"应改为描述实际职责（如包含 '{expected_docstring_hint}'）"
     )

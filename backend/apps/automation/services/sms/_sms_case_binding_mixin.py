@@ -39,10 +39,10 @@ class SMSCaseBindingMixin:
             if not admin_lawyer_dto:
                 logger.error("未找到管理员用户，无法创建案件日志")
                 return False
-            
+
             logger.info(f"获取管理员律师成功: {admin_lawyer_dto.real_name}, ID={admin_lawyer_dto.id}")
 
-            system_user = self.lawyer_service.get_lawyer_internal(admin_lawyer_dto.id) # type: ignore
+            system_user = self.lawyer_service.get_lawyer_internal(admin_lawyer_dto.id)  # type: ignore
             logger.info(f"获取系统用户成功: SMS ID={sms.id}")
 
             if sms.case_numbers:

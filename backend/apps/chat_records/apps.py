@@ -12,4 +12,4 @@ class ChatRecordsConfig(AppConfig):
     verbose_name = _("梳理聊天记录")
 
     def ready(self) -> None:
-        from . import signals  # noqa: F401  # 注册 post_delete 和 pre_save 信号处理器
+        from . import signals  # 注册 post_delete 和 pre_save 信号处理器

@@ -12,13 +12,12 @@ Requirements: 1.2, 2.2, 3.4, 4.3, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6
 import ast
 import inspect
 import re
+from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
 
 import pytest
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
-
-from pathlib import Path
 
 
 def get_backend_path() -> Path:

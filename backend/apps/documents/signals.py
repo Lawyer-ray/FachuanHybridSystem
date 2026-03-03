@@ -101,9 +101,7 @@ def _create_audit_log(instance: Any, action: str, changes: dict[str, Any] | None
     if svc is None:
         return
 
-    svc.create_audit_log(
-        content_type, instance.pk, str(instance)[:500], action, changes or {}
-    )
+    svc.create_audit_log(content_type, instance.pk, str(instance)[:500], action, changes or {})
 
 
 # ============================================================

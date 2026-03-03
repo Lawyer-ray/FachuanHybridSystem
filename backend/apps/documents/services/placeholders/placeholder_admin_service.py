@@ -33,9 +33,7 @@ class PlaceholderAdminService:
             definitions: 代码占位符定义字典 {key: CodePlaceholderDefinition}
         """
 
-        existing_keys: set[str] = set(
-            Placeholder.objects.values_list("key", flat=True)
-        )
+        existing_keys: set[str] = set(Placeholder.objects.values_list("key", flat=True))
         to_create: list[Placeholder] = []
         for key, definition in definitions.items():
             if key in existing_keys:
@@ -95,6 +93,7 @@ class PlaceholderAdminService:
             description=placeholder.description,
             is_active=False,
         )
+
     def filter_by_usage(
         self,
         queryset: QuerySet[Any],

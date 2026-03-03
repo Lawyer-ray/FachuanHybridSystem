@@ -17,24 +17,18 @@ class CauseCourtRepository:
         return Court.objects.filter(is_active=True).exists()
 
     def get_cause_by_name(self, name: str) -> CauseOfAction | None:
-        return CauseOfAction.objects.filter(
-            is_active=True, is_deprecated=False, name=name.strip()
-        ).first()
+        return CauseOfAction.objects.filter(is_active=True, is_deprecated=False, name=name.strip()).first()
 
     def get_cause_by_id(self, cause_id: int) -> CauseOfAction | None:
         return CauseOfAction.objects.filter(id=cause_id).select_related("parent").first()
 
     def get_active_cause_by_id(self, cause_id: int) -> CauseOfAction | None:
-        return CauseOfAction.objects.filter(
-            id=cause_id, is_active=True, is_deprecated=False
-        ).first()
+        return CauseOfAction.objects.filter(id=cause_id, is_active=True, is_deprecated=False).first()
 
-    def search_causes(
-        self, query: str, case_type_filter: list[str] | None = None
-    ) -> QuerySet[CauseOfAction]:
-        qs = CauseOfAction.objects.filter(
-            is_active=True, is_deprecated=False
-        ).filter(Q(name__icontains=query) | Q(code__icontains=query))
+    def search_causes(self, query: str, case_type_filter: list[str] | None = None) -> QuerySet[CauseOfAction]:
+        qs = CauseOfAction.objects.filter(is_active=True, is_deprecated=False).filter(
+            Q(name__icontains=query) | Q(code__icontains=query)
+        )
 
         if case_type_filter:
             qs = qs.filter(case_type__in=case_type_filter)
@@ -67,9 +61,7 @@ class CauseCourtRepository:
             .order_by("relevance", "name")
         )
 
-    def get_causes_by_parent(
-        self, parent_id: int | None, case_type: str | None = None
-    ) -> QuerySet[CauseOfAction]:
+    def get_causes_by_parent(self, parent_id: int | None, case_type: str | None = None) -> QuerySet[CauseOfAction]:
         qs = CauseOfAction.objects.filter(is_active=True, is_deprecated=False)
         if parent_id is None:
             qs = qs.filter(parent__isnull=True)
