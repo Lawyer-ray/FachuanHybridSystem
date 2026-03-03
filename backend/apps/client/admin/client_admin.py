@@ -125,30 +125,54 @@ class ClientAdmin(AdminImportExportMixin, admin.ModelAdmin[Client]):
                     )
 
     def handle_json_import(
-        self, data_list: list[dict[str, Any]], user: str
+        self, data_list: list[dict[str, Any]], user: str, zip_file: Any
     ) -> tuple[int, int, list[str]]:
         from apps.client.services.client_resolve_service import ClientResolveService
+        from apps.client.services.client_identity_doc_service import ClientIdentityDocService
 
         svc = ClientResolveService()
+        doc_svc = ClientIdentityDocService()
         success = skipped = 0
         errors: list[str] = []
         for item in data_list:
             try:
                 id_number = item.get("id_number")
                 before = Client.objects.filter(id_number=id_number).exists() if id_number else False
-                svc.resolve(item)
-                if before:
-                    skipped += 1
-                else:
+                client = svc.resolve(item)
+                # 还原 identity_docs（仅新建的 client 才导入，跳过的不重复添加）
+                if not before:
+                    for doc in item.get("identity_docs") or []:
+                        if doc.get("file_path"):
+                            doc_svc.add_identity_doc(
+                                client_id=client.pk,
+                                doc_type=doc["doc_type"],
+                                file_path=doc["file_path"],
+                            )
                     success += 1
+                else:
+                    skipped += 1
             except Exception as exc:
                 errors.append(str(exc))
         return success, skipped, errors
 
     def serialize_queryset(self, queryset: QuerySet[Client]) -> list[dict[str, Any]]:
-        fields = ("id", "name", "client_type", "id_number", "phone", "address",
+        fields = ("name", "client_type", "id_number", "phone", "address",
                   "legal_representative", "legal_representative_id_number", "is_our_client")
-        return [
-            {f: getattr(obj, f) for f in fields}
-            for obj in queryset
-        ]
+        result = []
+        for obj in queryset.prefetch_related("identity_docs"):
+            d = {f: getattr(obj, f) for f in fields}
+            d["identity_docs"] = [
+                {"doc_type": doc.doc_type, "file_path": doc.file_path}
+                for doc in obj.identity_docs.all()
+                if doc.file_path
+            ]
+            result.append(d)
+        return result
+
+    def get_file_paths(self, queryset: QuerySet[Client]) -> list[str]:  # type: ignore[override]
+        paths = []
+        for obj in queryset.prefetch_related("identity_docs"):
+            for doc in obj.identity_docs.all():
+                if doc.file_path:
+                    paths.append(doc.file_path)
+        return paths

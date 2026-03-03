@@ -5,7 +5,7 @@
 <li>
   <form id="json-import-form" method="post" action="import/" enctype="multipart/form-data" style="display:none">
     {% csrf_token %}
-    <input type="file" name="json_file" id="json-import-input" accept=".json">
+    <input type="file" name="json_file" id="json-import-input" accept=".json,.zip">
   </form>
   <a href="#" class="addlink" onclick="document.getElementById('json-import-input').click();return false;">{% trans "导入 JSON" %}</a>
   <script>
