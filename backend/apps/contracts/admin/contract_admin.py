@@ -208,6 +208,37 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
             "assignments__lawyer", "contract_parties__client"
         )
 
+    def get_urls(self) -> list[Any]:
+        from django.urls import path as urlpath
+
+        urls = super().get_urls()
+        custom = [
+            urlpath(
+                "<int:contract_id>/reorder-materials/",
+                self.admin_site.admin_view(self.reorder_materials_view),
+                name="contracts_contract_reorder_materials",
+            ),
+        ]
+        return custom + urls
+
+    def reorder_materials_view(self, request: HttpRequest, contract_id: int) -> Any:
+        import json as json_mod
+
+        from django.http import JsonResponse
+
+        if request.method != "POST":
+            return JsonResponse({"error": "Method not allowed"}, status=405)
+        if not self.has_change_permission(request):
+            return JsonResponse({"error": "Permission denied"}, status=403)
+        try:
+            data = json_mod.loads(request.body)
+            ids: list[int] = data.get("ids", [])
+            for i, pk in enumerate(ids):
+                FinalizedMaterial.objects.filter(pk=pk, contract_id=contract_id).update(order=i)
+            return JsonResponse({"ok": True})
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=400)
+
     def handle_json_import(
         self, data_list: list[dict[str, Any]], user: str, zip_file: Any
     ) -> tuple[int, int, list[str]]:
