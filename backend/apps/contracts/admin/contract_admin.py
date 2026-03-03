@@ -215,7 +215,7 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
 
         success = skipped = 0
         errors: list[str] = []
-        for item in data_list:
+        for i, item in enumerate(data_list, 1):
             try:
                 filing_number = item.get("filing_number")
                 before = Contract.objects.filter(filing_number=filing_number).exists() if filing_number else False
@@ -225,7 +225,7 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
                 else:
                     success += 1
             except Exception as exc:
-                errors.append(str(exc))
+                errors.append(f"[{i}] {item.get('name', '?')}: {exc}")
         return success, skipped, errors
 
     def serialize_queryset(self, queryset: QuerySet[Contract]) -> list[dict[str, Any]]:  # type: ignore[override]
