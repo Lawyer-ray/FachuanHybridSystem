@@ -90,6 +90,8 @@ class AdminImportExportMixin:
             raise ValueError(_("请上传 ZIP 文件"))
 
         with zipfile.ZipFile(io.BytesIO(raw_bytes)) as zf:
+            if "data.json" not in zf.namelist():
+                raise ValueError(_("ZIP 中缺少 data.json"))
             data_list = json.loads(zf.read("data.json").decode("utf-8"))
             if not isinstance(data_list, list):
                 data_list = [data_list]

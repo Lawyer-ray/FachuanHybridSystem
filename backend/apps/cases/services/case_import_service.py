@@ -67,6 +67,9 @@ class CaseImportService:
             contract = self._contract_import.resolve(contract_data)
 
         case_data = {f: data[f] for f in _CASE_FIELDS if f in data}
+        # 空字符串 filing_number 转 None，避免 unique 冲突
+        if not case_data.get("filing_number"):
+            case_data["filing_number"] = None
         if contract is not None:
             case_data["contract"] = contract
         case = Case.objects.create(**case_data)

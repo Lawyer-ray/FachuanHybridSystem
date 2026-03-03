@@ -36,7 +36,7 @@ class ClientResolveService:
         self._validator = ClientJsonImportValidator()
 
     def resolve(self, data: dict[str, Any]) -> Client:
-        id_number: str | None = data.get("id_number")
+        id_number: str | None = data.get("id_number") or None
 
         # 有 id_number 时先查缓存再查库
         if id_number:
@@ -60,6 +60,9 @@ class ClientResolveService:
 
         client_data = {f: data[f] for f in _CLIENT_FIELDS if f in data}
         client_data.setdefault("is_our_client", False)
+        # 空字符串 id_number 转 None，避免 unique 冲突
+        if not client_data.get("id_number"):
+            client_data["id_number"] = None
         client = Client.objects.create(**client_data)
 
         if id_number:

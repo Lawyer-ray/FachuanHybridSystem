@@ -60,6 +60,9 @@ class ContractImportService:
                 return existing
 
         contract_data = {f: data[f] for f in _CONTRACT_FIELDS if f in data}
+        # 空字符串 filing_number 转 None，避免 unique 冲突
+        if not contract_data.get("filing_number"):
+            contract_data["filing_number"] = None
         contract = Contract.objects.create(**contract_data)
         logger.info("创建新合同", extra={"contract_id": contract.pk, "name": contract.name})
 
