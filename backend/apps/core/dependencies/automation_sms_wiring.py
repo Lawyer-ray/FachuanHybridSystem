@@ -31,23 +31,23 @@ def build_court_sms_service_with_deps(
         client_service=client_service,
         lawyer_service=lawyer_service,
     )
-    
+
     document_parser_service = DocumentParserService(
         client_service=client_service,
         lawyer_service=lawyer_service,
     )
-    
+
     parser = SMSParserService(
         client_service=client_service,
         party_matching_service=party_matching_service,
     )
-    
+
     matcher = CaseMatcher(
         case_service=case_service,
         document_parser_service=document_parser_service,
         party_matching_service=party_matching_service,
     )
-    
+
     case_number_extractor = CaseNumberExtractorService(
         document_processing_service=document_processing_service,
         case_service=case_service,
@@ -55,7 +55,7 @@ def build_court_sms_service_with_deps(
     )
 
     document_attachment = DocumentAttachmentService(case_service=case_service)
-    
+
     notification = SMSNotificationService(
         case_chat_service=case_chat_service,
     )

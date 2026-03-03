@@ -53,7 +53,7 @@ def build_token_service() -> ITokenService:
     return TokenServiceAdapter()
 
 
-def build_court_token_store_service() -> "ICourtTokenStoreService":
+def build_court_token_store_service() -> ICourtTokenStoreService:
     from apps.automation.services.token.court_token_store_service import CourtTokenStoreService
 
     return CourtTokenStoreService()  # type: ignore[return-value]

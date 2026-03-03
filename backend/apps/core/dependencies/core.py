@@ -15,19 +15,19 @@ if TYPE_CHECKING:
     )
 
 
-def build_system_config_service() -> "ISystemConfigService":
+def build_system_config_service() -> ISystemConfigService:
     from apps.core.services import SystemConfigService
 
     return SystemConfigService()
 
 
-def build_business_config_service() -> "IBusinessConfigService":
+def build_business_config_service() -> IBusinessConfigService:
     from apps.core.services import BusinessConfigService
 
     return BusinessConfigService()
 
 
-def build_llm_service() -> "ILLMService":
+def build_llm_service() -> ILLMService:
     from apps.core.llm.config import LLMConfig
     from apps.core.llm.service import LLMService
 
@@ -43,7 +43,7 @@ def build_prompt_template_service() -> Any:
     return PromptTemplateService()
 
 
-def build_conversation_history_service() -> "IConversationHistoryService":
+def build_conversation_history_service() -> IConversationHistoryService:
     from apps.core.services.conversation_history_service import ConversationHistoryService
 
     return ConversationHistoryService()
@@ -56,7 +56,7 @@ def build_cause_court_query_service() -> ICauseCourtQueryService:
     return cast(ICauseCourtQueryService, CauseCourtQueryService())
 
 
-def build_baoquan_token_service() -> "IBaoquanTokenService":
+def build_baoquan_token_service() -> IBaoquanTokenService:
     from apps.core.services.court_tokens.baoquan_token_service import BaoquanTokenService
 
     return BaoquanTokenService()
