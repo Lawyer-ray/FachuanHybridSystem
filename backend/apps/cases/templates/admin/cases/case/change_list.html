@@ -3,7 +3,16 @@
 
 {% block object-tools-items %}
 <li>
-  <a href="import/" class="addlink">{% trans "导入 JSON" %}</a>
+  <form id="json-import-form" method="post" action="import/" enctype="multipart/form-data" style="display:none">
+    {% csrf_token %}
+    <input type="file" name="json_file" id="json-import-input" accept=".json">
+  </form>
+  <a href="#" class="addlink" onclick="document.getElementById('json-import-input').click();return false;">{% trans "导入 JSON" %}</a>
+  <script>
+    document.getElementById('json-import-input').addEventListener('change', function(){
+      if(this.files.length) document.getElementById('json-import-form').submit();
+    });
+  </script>
 </li>
 <li>
     <a href="{% url 'admin:cases_litigation_fee_calculator' %}" class="addlink" style="background: linear-gradient(135deg, #417690 0%, #205067 100%);">

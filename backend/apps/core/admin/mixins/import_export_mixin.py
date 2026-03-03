@@ -8,8 +8,8 @@ from datetime import date
 from typing import TYPE_CHECKING, Any
 
 from django.contrib import messages
-from django.http import HttpRequest, HttpResponse, JsonResponse
-from django.shortcuts import render
+from django.http import HttpRequest, HttpResponse
+from django.shortcuts import redirect
 from django.urls import path
 from django.utils.translation import gettext_lazy as _
 
@@ -40,41 +40,23 @@ class AdminImportExportMixin:
         return custom + urls
 
     def import_view(self, request: HttpRequest) -> HttpResponse:
-        if request.method == "GET":
-            return render(request, "admin/import_form.html", {
-                "title": _("导入 JSON"),
-                "model_name": self.export_model_name,
-                "opts": self.model._meta,  # type: ignore[attr-defined]
-            })
+        if request.method == "POST":
+            uploaded = request.FILES.get("json_file")
+            if not uploaded:
+                messages.error(request, _("请选择 JSON 文件"))
+            else:
+                try:
+                    raw = json.loads(uploaded.read().decode("utf-8"))
+                except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+                    messages.error(request, _("JSON 解析失败: %(err)s") % {"err": str(exc)})
+                else:
+                    data_list: list[dict[str, Any]] = raw if isinstance(raw, list) else [raw]
+                    user = str(request.user)
+                    success, skipped, errors = self.handle_json_import(data_list, user)  # type: ignore[attr-defined]
+                    messages.success(request, _("导入完成：成功 %(s)d 条，跳过 %(k)d 条") % {"s": success, "k": skipped})
+                    for err in errors:
+                        messages.warning(request, err)
 
-        uploaded = request.FILES.get("json_file")
-        if not uploaded:
-            messages.error(request, _("请选择 JSON 文件"))
-            return render(request, "admin/import_form.html", {
-                "title": _("导入 JSON"),
-                "model_name": self.export_model_name,
-                "opts": self.model._meta,  # type: ignore[attr-defined]
-            })
-
-        try:
-            raw = json.loads(uploaded.read().decode("utf-8"))
-        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
-            messages.error(request, _("JSON 解析失败: %(err)s") % {"err": str(exc)})
-            return render(request, "admin/import_form.html", {
-                "title": _("导入 JSON"),
-                "model_name": self.export_model_name,
-                "opts": self.model._meta,  # type: ignore[attr-defined]
-            })
-
-        data_list: list[dict[str, Any]] = raw if isinstance(raw, list) else [raw]
-        user = str(request.user)
-        success, skipped, errors = self.handle_json_import(data_list, user)  # type: ignore[attr-defined]
-
-        messages.success(request, _("导入完成：成功 %(s)d 条，跳过 %(k)d 条") % {"s": success, "k": skipped})
-        for err in errors:
-            messages.warning(request, err)
-
-        from django.shortcuts import redirect
         return redirect(f"admin:{self.model._meta.app_label}_{self.model._meta.model_name}_changelist")  # type: ignore[attr-defined]
 
     def export_selected_as_json(self, request: HttpRequest, queryset: QuerySet[Any]) -> HttpResponse:
