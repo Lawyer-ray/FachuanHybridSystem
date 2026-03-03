@@ -70,7 +70,7 @@ class ContractImportService:
             client_data = party_data.get("client")
             if not client_data:
                 continue
-            client = self._client_resolve.resolve(client_data)
+            client = self._client_resolve.resolve_with_attachments(client_data)
             role = party_data.get("role", "PRINCIPAL")
             ContractParty.objects.get_or_create(contract=contract, client=client, defaults={"role": role})
 
@@ -115,7 +115,7 @@ class ContractImportService:
                 client_data = sp_data.get("client")
                 if not client_data:
                     continue
-                client = self._client_resolve.resolve(client_data)
+                client = self._client_resolve.resolve_with_attachments(client_data)
                 SupplementaryAgreementParty.objects.get_or_create(
                     supplementary_agreement=sa,
                     client=client,
@@ -180,7 +180,7 @@ class ContractImportService:
                 client_data = p_data.get("client")
                 if not client_data:
                     continue
-                client = self._client_resolve.resolve(client_data)
+                client = self._client_resolve.resolve_with_attachments(client_data)
                 CaseParty.objects.get_or_create(
                     case=case, client=client,
                     defaults={"legal_status": p_data.get("legal_status")},
@@ -191,7 +191,13 @@ class ContractImportService:
                     continue
                 lawyer = self._lawyer_resolve.resolve(lawyer_data)
                 if lawyer:
-                    CaseAssignment.objects.get_or_create(case=case, lawyer=lawyer)
+                    CaseAssignment.objects.get_or_create(
+                        case=case, lawyer=lawyer,
+                        defaults={
+                            "is_primary": a_data.get("is_primary", False),
+                            "order": a_data.get("order", 0),
+                        },
+                    )
             for sa_data in case_data.get("supervising_authorities") or []:
                 SupervisingAuthority.objects.get_or_create(
                     case=case, name=sa_data.get("name"),

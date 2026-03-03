@@ -127,7 +127,6 @@ class ClientAdmin(AdminImportExportMixin, admin.ModelAdmin[Client]):
     def handle_json_import(
         self, data_list: list[dict[str, Any]], user: str, zip_file: Any
     ) -> tuple[int, int, list[str]]:
-        from apps.client.models import PropertyClue, PropertyClueAttachment
         from apps.client.services.client_resolve_service import ClientResolveService
 
         svc = ClientResolveService()
@@ -137,28 +136,8 @@ class ClientAdmin(AdminImportExportMixin, admin.ModelAdmin[Client]):
             try:
                 id_number = item.get("id_number")
                 before = Client.objects.filter(id_number=id_number).exists() if id_number else False
-                client = svc.resolve(item)
+                svc.resolve_with_attachments(item)
                 if not before:
-                    for doc in item.get("identity_docs") or []:
-                        if doc.get("file_path"):
-                            ClientIdentityDoc.objects.get_or_create(
-                                client=client,
-                                file_path=doc["file_path"],
-                                defaults={"doc_type": doc.get("doc_type", "id_card_front")},
-                            )
-                    for clue in item.get("property_clues") or []:
-                        pc, _ = PropertyClue.objects.get_or_create(
-                            client=client,
-                            clue_type=clue.get("clue_type", "other"),
-                            defaults={"content": clue.get("content", "")},
-                        )
-                        for att in clue.get("attachments") or []:
-                            if att.get("file_path"):
-                                PropertyClueAttachment.objects.get_or_create(
-                                    property_clue=pc,
-                                    file_path=att["file_path"],
-                                    defaults={"file_name": att.get("file_name", "")},
-                                )
                     success += 1
                 else:
                     skipped += 1
