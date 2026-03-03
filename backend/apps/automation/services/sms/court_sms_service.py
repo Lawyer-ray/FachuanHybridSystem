@@ -4,13 +4,13 @@
 负责协调整个短信处理流程，包括短信提交、异步处理、状态管理等。
 """
 
-from django.utils.translation import gettext_lazy as _
 import logging
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from django.db import transaction
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 from django_q.tasks import async_task
 
 from apps.automation.models import CourtSMS, CourtSMSStatus
@@ -68,6 +68,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
     def case_service(self) -> "ICaseService":
         if self._case_service is None:
             from apps.core.dependencies.automation_sms_wiring import build_sms_case_service
+
             self._case_service = build_sms_case_service()
         return self._case_service
 
@@ -75,6 +76,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
     def client_service(self) -> "IClientService":
         if self._client_service is None:
             from apps.core.dependencies.automation_sms_wiring import build_sms_client_service
+
             self._client_service = build_sms_client_service()
         return self._client_service
 
@@ -82,6 +84,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
     def lawyer_service(self) -> "ILawyerService":
         if self._lawyer_service is None:
             from apps.core.dependencies.automation_sms_wiring import build_sms_lawyer_service
+
             self._lawyer_service = build_sms_lawyer_service()
         return self._lawyer_service
 
@@ -89,6 +92,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
     def case_chat_service(self) -> "ICaseChatService":
         if self._case_chat_service is None:
             from apps.core.dependencies.automation_sms_wiring import build_sms_case_chat_service
+
             self._case_chat_service = build_sms_case_chat_service()
         return self._case_chat_service
 
@@ -96,6 +100,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
     def case_number_extractor(self) -> "CaseNumberExtractorService":
         if self._case_number_extractor is None:
             from .case_number_extractor_service import CaseNumberExtractorService
+
             self._case_number_extractor = CaseNumberExtractorService()
         return self._case_number_extractor
 
@@ -103,6 +108,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
     def document_attachment(self) -> "DocumentAttachmentService":
         if self._document_attachment is None:
             from .document_attachment_service import DocumentAttachmentService
+
             self._document_attachment = DocumentAttachmentService()
         return self._document_attachment
 
@@ -110,6 +116,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
     def notification(self) -> "SMSNotificationService":
         if self._notification is None:
             from .sms_notification_service import SMSNotificationService
+
             self._notification = SMSNotificationService()
         return self._notification
 
@@ -438,7 +445,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
 
             case_chat_success = False
             error_detail = None
-            
+
             if sms.case:
                 case_chat_success, error_detail = self.notification.send_case_chat_notification(sms, document_paths)
 
@@ -477,22 +484,26 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
 def process_sms_async(sms_id: int) -> Any:
     """异步处理短信的入口函数"""
     from apps.automation.workers import court_sms_tasks
+
     return court_sms_tasks.process_sms(sms_id)
 
 
 def process_sms_from_matching(sms_id: int) -> Any:
     """从匹配阶段开始处理短信"""
     from apps.automation.workers import court_sms_tasks
+
     return court_sms_tasks.process_sms_from_matching(sms_id)
 
 
 def process_sms_from_renaming(sms_id: int) -> Any:
     """从重命名阶段开始处理短信"""
     from apps.automation.workers import court_sms_tasks
+
     return court_sms_tasks.process_sms_from_renaming(sms_id)
 
 
 def retry_download_task(sms_id: Any, **kwargs: Any) -> Any:
     """重试下载任务"""
     from apps.automation.workers import court_sms_tasks
+
     return court_sms_tasks.retry_download_task(sms_id, **kwargs)
