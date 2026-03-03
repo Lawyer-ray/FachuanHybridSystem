@@ -4,6 +4,8 @@
 {% trans "未绑定" as label_unbound %}
 {% trans "保存并复制" as label_duplicate %}
 {% trans "保存并创建案件" as label_create_case %}
+{% trans "填充合同当事人" as label_fill_contract_parties %}
+{% trans "填充上一份补充协议当事人" as label_fill_prev_supp_parties %}
 
 {% block extrahead %}
 {{ block.super }}
@@ -109,7 +111,13 @@
 {% endif %}
 
 <script>
-(function() {
+window.CONTRACTS_I18N = {
+    fillContractParties: '{{ label_fill_contract_parties }}',
+    fillPrevSuppParties: '{{ label_fill_prev_supp_parties }}'
+};
+</script>
+
+<script>
     var submitRow = document.querySelector('.submit-row');
     if (!submitRow) return;
 
