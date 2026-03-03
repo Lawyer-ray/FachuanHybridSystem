@@ -38,7 +38,7 @@ class CaseImportService:
 
     def __init__(
         self,
-        contract_import: ContractImportService,
+        contract_import: ContractImportService | None,
         client_resolve: ClientResolveService,
         lawyer_resolve: LawyerResolveService,
     ) -> None:
@@ -47,7 +47,7 @@ class CaseImportService:
         self._lawyer_resolve = lawyer_resolve
 
     @transaction.atomic
-    def import_one(self, data: dict[str, Any]) -> Case:
+    def import_one(self, data: dict[str, Any], contract: Any = None) -> Case:
         from apps.cases.models import Case, CaseAssignment, CaseParty
 
         if not data.get("name"):
@@ -60,14 +60,13 @@ class CaseImportService:
                 logger.info("复用已有案件", extra={"case_id": existing.pk, "filing_number": filing_number})
                 return existing
 
-        # 解析关联合同（可选）
-        contract = None
-        contract_data = data.get("contract")
-        if contract_data:
-            contract = self._contract_import.resolve(contract_data)
+        # 解析关联合同（可选，外部传入时优先）
+        if contract is None:
+            contract_data = data.get("contract")
+            if contract_data and self._contract_import is not None:
+                contract = self._contract_import.resolve(contract_data)
 
         case_data = {f: data[f] for f in _CASE_FIELDS if f in data}
-        # 空字符串 filing_number 转 None，避免 unique 冲突
         if not case_data.get("filing_number"):
             case_data["filing_number"] = None
         if contract is not None:

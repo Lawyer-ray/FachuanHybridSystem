@@ -333,13 +333,24 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
     def handle_json_import(
         self, data_list: list[dict[str, Any]], user: str, zip_file: Any
     ) -> tuple[int, int, list[str]]:
+        from apps.cases.services.case_import_service import CaseImportService
         from apps.client.services.client_resolve_service import ClientResolveService
         from apps.contracts.services.contract_import_service import ContractImportService
         from apps.organization.services.lawyer_resolve_service import LawyerResolveService
 
         client_svc = ClientResolveService()
         lawyer_svc = LawyerResolveService()
-        contract_svc = ContractImportService(client_resolve=client_svc, lawyer_resolve=lawyer_svc)
+        case_svc = CaseImportService(
+            contract_import=None,  # type: ignore[arg-type]
+            client_resolve=client_svc,
+            lawyer_resolve=lawyer_svc,
+        )
+        contract_svc = ContractImportService(
+            client_resolve=client_svc,
+            lawyer_resolve=lawyer_svc,
+            case_import_fn=case_svc.import_one,
+        )
+        case_svc._contract_import = contract_svc
 
         success = skipped = 0
         errors: list[str] = []

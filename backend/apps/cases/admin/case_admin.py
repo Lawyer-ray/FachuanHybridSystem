@@ -190,6 +190,7 @@ class CaseAdmin(CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminViewsMixin, 
         case_svc = CaseImportService(
             contract_import=contract_svc, client_resolve=client_svc, lawyer_resolve=lawyer_svc
         )
+        contract_svc._case_import_fn = case_svc.import_one
 
         success = skipped = 0
         errors: list[str] = []
