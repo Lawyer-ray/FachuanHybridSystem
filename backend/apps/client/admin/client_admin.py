@@ -11,8 +11,10 @@ from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
 from apps.client.models import Client, ClientIdentityDoc
+from apps.core.admin.mixins import AdminImportExportMixin
 
 if TYPE_CHECKING:
+    from django.db.models import QuerySet
     from django.forms import ModelForm
 
 logger = logging.getLogger("apps.client")
@@ -69,13 +71,45 @@ class ClientAdminForm(forms.ModelForm[Client]):
         self.fields["id_number"].label = _("身份证号码") if ct == "natural" else _("统一社会信用代码")
 
 
+def serialize_client_obj(obj: Any) -> dict[str, Any]:
+    """将单个 Client 实例序列化为 dict（供 ClientAdmin、CaseAdmin、ContractAdmin 共用）。"""
+    return {
+        "name": obj.name,
+        "client_type": obj.client_type,
+        "id_number": obj.id_number,
+        "phone": obj.phone,
+        "address": getattr(obj, "address", None),
+        "legal_representative": obj.legal_representative,
+        "legal_representative_id_number": getattr(obj, "legal_representative_id_number", None),
+        "is_our_client": obj.is_our_client,
+        "identity_docs": [
+            {"doc_type": doc.doc_type, "file_path": doc.file_path}
+            for doc in obj.identity_docs.all() if doc.file_path
+        ],
+        "property_clues": [
+            {
+                "clue_type": clue.clue_type,
+                "content": clue.content,
+                "attachments": [
+                    {"file_path": att.file_path, "file_name": att.file_name}
+                    for att in clue.attachments.all() if att.file_path
+                ],
+            }
+            for clue in obj.property_clues.all()
+        ],
+    }
+
+
 @admin.register(Client)
-class ClientAdmin(admin.ModelAdmin[Client]):
+class ClientAdmin(AdminImportExportMixin, admin.ModelAdmin[Client]):
     list_display: ClassVar = ("id", "name", "client_type", "is_our_client", "phone", "legal_representative")
     search_fields: ClassVar = ("name", "phone", "id_number")
     list_filter: ClassVar = ("client_type", "is_our_client")
     form = ClientAdminForm
     inlines: ClassVar = []
+    export_model_name = "client"
+    import_required_fields = ("name",)
+    actions: ClassVar = ["export_selected_as_json", "export_all_as_json"]
 
     def get_changeform_initial_data(self, request: HttpRequest) -> dict[str, Any]:
         return {"client_type": "legal"}
@@ -119,3 +153,43 @@ class ClientAdmin(admin.ModelAdmin[Client]):
                         doc_type=info["doc_type"],
                         uploaded_file=info["uploaded_file"],
                     )
+
+    def handle_json_import(
+        self, data_list: list[dict[str, Any]], user: str, zip_file: Any
+    ) -> tuple[int, int, list[str]]:
+        from apps.client.services.client_resolve_service import ClientResolveService
+
+        svc = ClientResolveService()
+        success = skipped = 0
+        errors: list[str] = []
+        for i, item in enumerate(data_list, 1):
+            try:
+                id_number = item.get("id_number")
+                before = Client.objects.filter(id_number=id_number).exists() if id_number else False
+                svc.resolve_with_attachments(item)
+                if not before:
+                    success += 1
+                else:
+                    skipped += 1
+            except Exception as exc:
+                logger.exception("导入客户失败", extra={"index": i, "client_name": item.get("name", "?")})
+                errors.append(f"[{i}] {item.get('name', '?')} ({type(exc).__name__}): {exc}")
+        return success, skipped, errors
+
+    def serialize_queryset(self, queryset: QuerySet[Client]) -> list[dict[str, Any]]:
+        result = []
+        for obj in queryset.prefetch_related("identity_docs", "property_clues__attachments"):
+            result.append(serialize_client_obj(obj))
+        return result
+
+    def get_file_paths(self, queryset: QuerySet[Client]) -> list[str]:  # type: ignore[override]
+        paths = []
+        for obj in queryset.prefetch_related("identity_docs", "property_clues__attachments"):
+            for doc in obj.identity_docs.all():
+                if doc.file_path:
+                    paths.append(doc.file_path)
+            for clue in obj.property_clues.all():
+                for att in clue.attachments.all():
+                    if att.file_path:
+                        paths.append(att.file_path)
+        return paths

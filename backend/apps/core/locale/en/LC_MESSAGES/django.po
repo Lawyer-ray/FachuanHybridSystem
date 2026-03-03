@@ -772,3 +772,31 @@ msgstr ": Config items marked as sensitive will be masked in the list"
 #: apps/core/templates/admin/core/systemconfig/change_list.html:56
 msgid "增加配置"
 msgstr "Add Config"
+
+#: apps/core/admin/mixins/import_export_mixin.py
+msgid "请上传 ZIP 文件"
+msgstr "Please upload a ZIP file"
+
+#: apps/core/admin/mixins/import_export_mixin.py
+msgid "请选择文件"
+msgstr "Please select a file"
+
+#: apps/core/admin/mixins/import_export_mixin.py
+msgid "导入失败: %(err)s"
+msgstr "Import failed: %(err)s"
+
+#: apps/core/admin/mixins/import_export_mixin.py
+msgid "导入完成：成功 %(s)d 条，跳过 %(k)d 条"
+msgstr "Import complete: %(s)d created, %(k)d skipped"
+
+#: apps/core/admin/mixins/import_export_mixin.py
+msgid "导出选中"
+msgstr "Export selected"
+
+#: apps/core/admin/mixins/import_export_mixin.py
+msgid "导出全部"
+msgstr "Export all"
+
+#: apps/core/admin/mixins/import_export_mixin.py
+msgid "导入"
+msgstr "Import"

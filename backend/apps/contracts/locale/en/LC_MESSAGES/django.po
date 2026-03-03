@@ -1345,3 +1345,10 @@ msgstr "Cumulative Amount"
 msgid ""
 "提示：识别结果已自动填充到下方的发票列表中，请检查后点击保存按钮保存数据。"
 msgstr ""
+
+#: apps/contracts/services/contract_import_service.py
+msgid "合同名称不能为空"
+msgstr "Contract name is required"
+
+msgid "导入"
+msgstr "Import"

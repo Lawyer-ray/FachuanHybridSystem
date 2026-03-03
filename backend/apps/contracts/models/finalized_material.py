@@ -40,13 +40,14 @@ class FinalizedMaterial(models.Model):
     )
     uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name=_("上传时间"))
     remark = models.TextField(blank=True, default="", verbose_name=_("备注"))
+    order = models.PositiveIntegerField(default=0, verbose_name=_("排序"))
 
     class Meta:
-        ordering: ClassVar = ["-uploaded_at"]
+        ordering: ClassVar = ["order", "-uploaded_at"]
         verbose_name = _("定稿材料")
         verbose_name_plural = _("定稿材料")
         indexes: ClassVar = [
-            models.Index(fields=["contract", "-uploaded_at"]),
+            models.Index(fields=["contract", "order", "-uploaded_at"]),
         ]
 
     def __str__(self) -> str:

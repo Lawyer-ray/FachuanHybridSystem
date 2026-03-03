@@ -2371,3 +2371,10 @@ msgstr "Mediation/withdrawal/summary procedure: half"
 #: apps/cases/templates/admin/cases/litigation_fee_calculator.html:338
 msgid "反诉合并审理：减半"
 msgstr "Counterclaim consolidated: half"
+
+#: apps/cases/services/case_import_service.py
+msgid "案件名称不能为空"
+msgstr "Case name is required"
+
+msgid "导入"
+msgstr "Import"

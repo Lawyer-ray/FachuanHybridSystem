@@ -4,6 +4,12 @@
 {% block extrahead %}
     {{ block.super }}
     <link rel="stylesheet" type="text/css" href="{% static 'client/identity_recognition_inline.css' %}?v=5">
+    <script>
+    window.CLIENT_I18N = {
+        idCardLabel: '{% trans "身份证号码:" %}',
+        creditCodeLabel: '{% trans "统一社会信用代码:" %}'
+    };
+    </script>
     <style>
         /* 文本解析区域样式 */
         .text-parser-section {
@@ -152,7 +158,7 @@
                     class="parse-btn"
                     @click="smartParse()"
                     :disabled="isParsing"
-                    x-text="isParsing ? '解析中...' : '解析并填充'">
+                    x-text="isParsing ? '{% trans "解析中..." %}' : '{% trans "解析并填充" %}'">
             </button>
             <label style="font-size: 12px; color: #6c757d;">
                 <input type="checkbox" x-model="autoParse"> {% trans "粘贴时自动解析" %}
@@ -441,7 +447,7 @@
 
                 if (legalRepRow) legalRepRow.style.display = isNatural ? 'none' : '';
                 if (legalRepIdRow) legalRepIdRow.style.display = isNatural ? 'none' : '';
-                if (idNumberLabel) idNumberLabel.textContent = isNatural ? '身份证号码:' : '统一社会信用代码:';
+                if (idNumberLabel) idNumberLabel.textContent = isNatural ? (window.CLIENT_I18N?.idCardLabel || '身份证号码:') : (window.CLIENT_I18N?.creditCodeLabel || '统一社会信用代码:');
 
                 if (clearFields) {
                     ['name', 'phone', 'address', 'id_number', 'legal_representative', 'legal_representative_id_number'].forEach(fieldName => {
@@ -632,7 +638,7 @@
 
                 // 更新证件号码标签
                 if (idNumberLabel) {
-                    idNumberLabel.textContent = isNatural ? '身份证号码:' : '统一社会信用代码:';
+                    idNumberLabel.textContent = isNatural ? (window.CLIENT_I18N?.idCardLabel || '身份证号码:') : (window.CLIENT_I18N?.creditCodeLabel || '统一社会信用代码:');
                 }
             }
 
