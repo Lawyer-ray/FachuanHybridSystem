@@ -156,4 +156,52 @@ class ContractImportService:
                 },
             )
 
+        # 还原关联案件
+        from apps.cases.models import Case, CaseAssignment, CaseNumber, CaseParty
+        from apps.cases.models.case import SupervisingAuthority
+
+        _CASE_FIELDS: tuple[str, ...] = (
+            "name", "status", "effective_date", "specified_date", "cause_of_action",
+            "target_amount", "preservation_amount", "case_type", "current_stage",
+            "is_archived", "filing_number",
+        )
+        for case_data in data.get("cases") or []:
+            if not case_data.get("name"):
+                continue
+            fn: str | None = case_data.get("filing_number") or None
+            if fn and Case.objects.filter(filing_number=fn).exists():
+                continue
+            cd = {f: case_data[f] for f in _CASE_FIELDS if f in case_data}
+            if not cd.get("filing_number"):
+                cd["filing_number"] = None
+            cd["contract"] = contract
+            case = Case.objects.create(**cd)
+            for p_data in case_data.get("parties") or []:
+                client_data = p_data.get("client")
+                if not client_data:
+                    continue
+                client = self._client_resolve.resolve(client_data)
+                CaseParty.objects.get_or_create(
+                    case=case, client=client,
+                    defaults={"legal_status": p_data.get("legal_status")},
+                )
+            for a_data in case_data.get("assignments") or []:
+                lawyer_data = a_data.get("lawyer")
+                if not lawyer_data:
+                    continue
+                lawyer = self._lawyer_resolve.resolve(lawyer_data)
+                if lawyer:
+                    CaseAssignment.objects.get_or_create(case=case, lawyer=lawyer)
+            for sa_data in case_data.get("supervising_authorities") or []:
+                SupervisingAuthority.objects.get_or_create(
+                    case=case, name=sa_data.get("name"),
+                    defaults={"authority_type": sa_data.get("authority_type", "TRIAL")},
+                )
+            for cn_data in case_data.get("case_numbers") or []:
+                if cn_data.get("number"):
+                    CaseNumber.objects.get_or_create(
+                        case=case, number=cn_data["number"],
+                        defaults={"is_active": cn_data.get("is_active", False), "remarks": cn_data.get("remarks")},
+                    )
+
         return contract

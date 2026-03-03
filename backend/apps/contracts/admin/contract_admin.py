@@ -238,6 +238,10 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
             "supplementary_agreements__parties__client",
             "payments",
             "finance_logs__actor",
+            "cases__parties__client",
+            "cases__assignments__lawyer",
+            "cases__supervising_authorities",
+            "cases__case_numbers",
         ):
             result.append({
                 "name": obj.name,
@@ -339,6 +343,48 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
                         "actor": {"real_name": fl.actor.real_name, "phone": fl.actor.phone},
                     }
                     for fl in obj.finance_logs.all()
+                ],
+                "cases": [
+                    {
+                        "name": c.name,
+                        "filing_number": c.filing_number,
+                        "status": c.status,
+                        "case_type": c.case_type,
+                        "cause_of_action": c.cause_of_action,
+                        "target_amount": str(c.target_amount) if c.target_amount is not None else None,
+                        "preservation_amount": str(c.preservation_amount) if c.preservation_amount is not None else None,
+                        "current_stage": c.current_stage,
+                        "is_archived": c.is_archived,
+                        "effective_date": str(c.effective_date) if c.effective_date else None,
+                        "specified_date": str(c.specified_date) if c.specified_date else None,
+                        "parties": [
+                            {
+                                "legal_status": p.legal_status,
+                                "client": {
+                                    "name": p.client.name,
+                                    "client_type": p.client.client_type,
+                                    "id_number": p.client.id_number,
+                                    "phone": p.client.phone,
+                                    "legal_representative": p.client.legal_representative,
+                                    "is_our_client": p.client.is_our_client,
+                                },
+                            }
+                            for p in c.parties.all()
+                        ],
+                        "assignments": [
+                            {"lawyer": {"real_name": a.lawyer.real_name, "phone": a.lawyer.phone}}
+                            for a in c.assignments.all()
+                        ],
+                        "supervising_authorities": [
+                            {"name": sa.name, "authority_type": sa.authority_type}
+                            for sa in c.supervising_authorities.all()
+                        ],
+                        "case_numbers": [
+                            {"number": cn.number, "is_active": cn.is_active, "remarks": cn.remarks}
+                            for cn in c.case_numbers.all()
+                        ],
+                    }
+                    for c in obj.cases.all()
                 ],
             })
         return result
