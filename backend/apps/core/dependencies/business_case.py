@@ -71,7 +71,7 @@ def build_case_filing_number_service() -> ICaseFilingNumberService:
     return CaseFilingNumberServiceAdapter()
 
 
-def build_case_chat_service() -> "ICaseChatService":
+def build_case_chat_service() -> ICaseChatService:
     from apps.cases.services.chat.case_chat_service_adapter import CaseChatServiceAdapter
 
     return CaseChatServiceAdapter()
@@ -89,7 +89,7 @@ def build_case_search_service() -> ICaseSearchService:
     return CaseSearchServiceAdapter()
 
 
-def build_case_log_service() -> "ICaseLogService":
+def build_case_log_service() -> ICaseLogService:
     from apps.cases.services.log.caselog_service_adapter import CaseLogServiceAdapter
 
     return CaseLogServiceAdapter()

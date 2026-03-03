@@ -117,7 +117,7 @@ llm_benchmark/
 /split_index.py
 # Docker volumes (auto-created on first run)
 docker-volumes/
-backend/scripts/
+# backend/scripts/ — removed: pre-commit hooks depend on scripts/refactoring/structure_precommit_guardrails.py
 backend/tests/screenshots/
 backend/tests/
 
@@ -131,7 +131,6 @@ backend/deploy/
 backend/logs/
 backend/tests/
 backend/.dockerignore
-backend/.secrets.baseline
 
 # Cookies (sensitive data)
 backend/apiSystem/cookies/

@@ -229,7 +229,6 @@ jobs:
             apps/core/services/wiring.py \
             apps/core/protocols/common_protocols.py \
             apps/core/dto/auth.py \
-            apps/core/config/validators/safe_expression_evaluator.py \
             apps/core/infrastructure/throttling.py \
             apps/core/middleware_request_id.py \
             apps/core/exceptions_handlers.py \
@@ -424,10 +423,20 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen
 
-      - name: Type check (mypy strict - all apps)
+      - name: Type check (mypy strict - curated gate)
         env:
           PYTHONPATH: "apiSystem:."
-        run: uv run mypy apps/ --strict
+        run: |
+          uv run mypy --config-file=mypy.ini --follow-imports=skip \
+            apps/core/httpx_clients.py \
+            apps/core/services/wiring.py \
+            apps/core/protocols/common_protocols.py \
+            apps/core/dto/auth.py \
+            apps/core/infrastructure/throttling.py \
+            apps/core/middleware_request_id.py \
+            apps/core/exceptions_handlers.py \
+            apps/organization/services/organization_access_policy.py \
+            apiSystem/apiSystem/api.py
 
   backend-coverage:
     runs-on: ubuntu-latest

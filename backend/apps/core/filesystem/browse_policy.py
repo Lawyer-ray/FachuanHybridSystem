@@ -25,13 +25,11 @@ class FolderBrowsePolicy:
     def _get_user_downloads_path(self) -> Path | None:
         """获取用户下载目录路径（跨平台）"""
         try:
-            if sys.platform == "darwin":  # macOS
-                downloads = Path("~/Downloads").expanduser()
-            elif sys.platform.startswith("win"):  # Windows
+            if sys.platform == "darwin" or sys.platform.startswith("win"):  # macOS
                 downloads = Path("~/Downloads").expanduser()
             else:  # Linux
                 downloads = Path("~/Downloads").expanduser()
-            
+
             if downloads.isdir():
                 return downloads
         except (OSError, PermissionError):
@@ -45,12 +43,12 @@ class FolderBrowsePolicy:
         roots = roots or []
 
         resolved: list[Path] = []
-        
+
         # 优先添加用户下载目录
         downloads = self._get_user_downloads_path()
         if downloads:
             resolved.append(downloads)
-        
+
         # 添加配置的根目录
         for root in roots:
             try:
