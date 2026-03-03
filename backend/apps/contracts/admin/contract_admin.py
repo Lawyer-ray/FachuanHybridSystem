@@ -282,6 +282,7 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
             "cases__assignments__lawyer",
             "cases__supervising_authorities",
             "cases__case_numbers",
+            "cases__chats",
         ):
             result.append({
                 "name": obj.name,
@@ -454,6 +455,11 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
                         "case_numbers": [
                             {"number": cn.number, "is_active": cn.is_active, "remarks": cn.remarks}
                             for cn in c.case_numbers.all()
+                        ],
+                        "chats": [
+                            {"platform": ch.platform, "chat_id": ch.chat_id, "name": ch.name,
+                             "is_active": ch.is_active, "owner_id": ch.owner_id}
+                            for ch in c.chats.all()
                         ],
                     }
                     for c in obj.cases.all()

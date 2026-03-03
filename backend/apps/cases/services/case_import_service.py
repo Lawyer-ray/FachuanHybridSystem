@@ -110,4 +110,19 @@ class CaseImportService:
                     defaults={"is_active": cn_data.get("is_active", False), "remarks": cn_data.get("remarks")},
                 )
 
+        from apps.cases.models.chat import CaseChat
+
+        for ch_data in data.get("chats") or []:
+            if ch_data.get("chat_id"):
+                CaseChat.objects.get_or_create(
+                    case=case,
+                    platform=ch_data.get("platform", "feishu"),
+                    chat_id=ch_data["chat_id"],
+                    defaults={
+                        "name": ch_data.get("name", ""),
+                        "is_active": ch_data.get("is_active", True),
+                        "owner_id": ch_data.get("owner_id"),
+                    },
+                )
+
         return case
