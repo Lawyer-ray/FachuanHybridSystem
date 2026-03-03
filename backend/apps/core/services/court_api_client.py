@@ -5,12 +5,12 @@
 使用 httpx 异步客户端进行 HTTP 请求.
 """
 
-from django.utils.translation import gettext_lazy as _
 import logging
 from dataclasses import dataclass, field
 from typing import Any, ClassVar, cast
 
 import httpx
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ValidationException
 

@@ -6,9 +6,10 @@
 Requirements: 2.1, 2.2
 """
 
-from django.utils.translation import gettext_lazy as _
 import logging
 from typing import Any
+
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError
 

@@ -19,9 +19,7 @@ from hypothesis import strategies as st
 
 from apps.automation.models import ScraperTask
 from apps.automation.services.scraper.scrapers.court_document import ZxfwCourtScraper
-from apps.automation.services.scraper.scrapers.court_document.base_court_scraper import (
-    BaseCourtDocumentScraper,
-)
+from apps.automation.services.scraper.scrapers.court_document.base_court_scraper import BaseCourtDocumentScraper
 
 
 # 定义策略

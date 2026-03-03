@@ -5,10 +5,10 @@ Pytest 配置文件
 
 import os
 import sys
+from typing import Any, Generator, Iterator
 
 import django
 import pytest
-from typing import Any, Generator, Iterator
 
 from apps.core.path import Path
 

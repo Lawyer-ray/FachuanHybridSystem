@@ -4,7 +4,6 @@
 提供验证码识别的业务逻辑封装，支持 Base64 图片输入。
 """
 
-from django.utils.translation import gettext_lazy as _
 import base64
 import logging
 import time
@@ -12,6 +11,7 @@ from dataclasses import dataclass
 from io import BytesIO
 from typing import Any
 
+from django.utils.translation import gettext_lazy as _
 from PIL import Image
 
 from apps.automation.services.scraper.core.captcha_recognizer import DdddocrRecognizer
@@ -23,6 +23,7 @@ logger = logging.getLogger("apps.automation")
 @dataclass
 class CaptchaResult:
     """验证码识别结果"""
+
     success: bool
     text: str | None
     processing_time: float
@@ -193,25 +194,19 @@ class CaptchaRecognitionService:
             try:
                 image_bytes = self._decode_base64_image(image_base64)
             except ValueError as e:
-                return CaptchaResult(
-                    success=False, text=None, processing_time=time.time() - start_time, error=str(e)
-                )
+                return CaptchaResult(success=False, text=None, processing_time=time.time() - start_time, error=str(e))
 
             # 3. 验证图片大小
             try:
                 self._validate_image_size(image_bytes)
             except ValueError as e:
-                return CaptchaResult(
-                    success=False, text=None, processing_time=time.time() - start_time, error=str(e)
-                )
+                return CaptchaResult(success=False, text=None, processing_time=time.time() - start_time, error=str(e))
 
             # 4. 验证图片格式
             try:
                 self._validate_image_format(image_bytes)
             except ValueError as e:
-                return CaptchaResult(
-                    success=False, text=None, processing_time=time.time() - start_time, error=str(e)
-                )
+                return CaptchaResult(success=False, text=None, processing_time=time.time() - start_time, error=str(e))
 
             # 5. 执行识别
             from apps.automation.utils.logging import AutomationLogger
@@ -239,11 +234,11 @@ class CaptchaRecognitionService:
                 return CaptchaResult(success=True, text=result, processing_time=processing_time, error=None)
             else:
                 AutomationLogger.log_captcha_recognition_failed(
-                    processing_time=processing_time, error_message=_("无法识别验证码"), image_size=len(image_bytes) # type: ignore
+                    processing_time=processing_time,
+                    error_message=_("无法识别验证码"),
+                    image_size=len(image_bytes),  # type: ignore
                 )
-                return CaptchaResult(
-                    success=False, text=None, processing_time=processing_time, error="无法识别验证码"
-                )
+                return CaptchaResult(success=False, text=None, processing_time=processing_time, error="无法识别验证码")
 
         except Exception as e:
             # 捕获所有未预期的异常

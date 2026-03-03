@@ -9,6 +9,7 @@ import importlib
 import inspect
 from pathlib import Path
 from typing import Any
+
 from django.test import SimpleTestCase
 
 
@@ -18,11 +19,7 @@ class TestCaseAdminMRO(SimpleTestCase):
     def test_case_admin_mro(self) -> None:
         """验证 CaseAdmin.__mro__ 包含三个 mixin"""
         from apps.cases.admin.case_admin import CaseAdmin
-        from apps.cases.admin.mixins import (
-            CaseAdminActionsMixin,
-            CaseAdminSaveMixin,
-            CaseAdminViewsMixin,
-        )
+        from apps.cases.admin.mixins import CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminViewsMixin
 
         mro_names = [cls.__name__ for cls in CaseAdmin.__mro__]
         self.assertIn("CaseAdminActionsMixin", mro_names)

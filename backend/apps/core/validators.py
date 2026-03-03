@@ -236,7 +236,7 @@ class Validators:
 
     # 可执行文件 magic bytes（PE/ELF/Mach-O）
     EXECUTABLE_MAGIC: tuple[bytes, ...] = (
-        b"MZ",       # Windows PE
+        b"MZ",  # Windows PE
         b"\x7fELF",  # Linux ELF
         b"\xfe\xed\xfa\xce",  # Mach-O 32-bit
         b"\xfe\xed\xfa\xcf",  # Mach-O 64-bit

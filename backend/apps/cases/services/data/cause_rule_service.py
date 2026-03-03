@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
-
 import logging
 from decimal import Decimal
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 

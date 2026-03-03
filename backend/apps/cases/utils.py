@@ -50,14 +50,12 @@ def fix_sqlite_orphan_contract_fk() -> None:
 
     if connection.vendor == "sqlite":
         with connection.cursor() as cursor:
-            cursor.execute(
-                """
+            cursor.execute("""
                 UPDATE cases_case
                 SET contract_id = NULL
                 WHERE contract_id IS NOT NULL
                   AND contract_id NOT IN (SELECT id FROM contracts_contract)
-                """
-            )
+                """)
 
 
 def normalize_case_number(number: str, ensure_hao: bool = False) -> str:

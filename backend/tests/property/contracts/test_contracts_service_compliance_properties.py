@@ -6,12 +6,11 @@ Validates: Requirements 6.3, 6.4
 """
 
 import re
+from pathlib import Path
 
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
-
-from pathlib import Path
 
 # 合同模块 Service 文件列表
 CONTRACTS_SERVICE_FILES = [
@@ -215,9 +214,9 @@ class TestContractsServiceCompliance:
         property_count = content.count("@property")
 
         # ContractService 应该有多个 property 访问器
-        assert property_count >= 3, (
-            f"ContractService 应有多个 @property 访问器用于延迟获取依赖，当前只有 {property_count} 个"
-        )
+        assert (
+            property_count >= 3
+        ), f"ContractService 应有多个 @property 访问器用于延迟获取依赖，当前只有 {property_count} 个"
 
     def test_service_no_http_error(self):
         """

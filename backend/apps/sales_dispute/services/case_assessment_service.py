@@ -16,25 +16,10 @@ from django.db import transaction
 
 from apps.core.exceptions import ValidationException
 
-from .evidence_scorer_service import (
-    EvidenceItem,
-    EvidenceItemResult,
-    EvidenceScorerService,
-)
-from .jurisdiction_analyzer_service import (
-    JurisdictionAnalyzerService,
-    JurisdictionParams,
-    JurisdictionResult,
-)
-from .limitation_calculator_service import (
-    InterruptionEvent,
-    LimitationCalculatorService,
-    LimitationCalcParams,
-)
-from .litigation_strategy_service import (
-    LitigationStrategyService,
-    StrategyParams,
-)
+from .evidence_scorer_service import EvidenceItem, EvidenceItemResult, EvidenceScorerService
+from .jurisdiction_analyzer_service import JurisdictionAnalyzerService, JurisdictionParams, JurisdictionResult
+from .limitation_calculator_service import InterruptionEvent, LimitationCalcParams, LimitationCalculatorService
+from .litigation_strategy_service import LitigationStrategyService, StrategyParams
 
 logger = logging.getLogger(__name__)
 
@@ -97,15 +82,9 @@ class CaseAssessmentService:
         strategy_recommender: LitigationStrategyService | None = None,
     ) -> None:
         self._evidence_scorer = evidence_scorer or EvidenceScorerService()
-        self._limitation_calculator = (
-            limitation_calculator or LimitationCalculatorService()
-        )
-        self._jurisdiction_analyzer = (
-            jurisdiction_analyzer or JurisdictionAnalyzerService()
-        )
-        self._strategy_recommender = (
-            strategy_recommender or LitigationStrategyService()
-        )
+        self._limitation_calculator = limitation_calculator or LimitationCalculatorService()
+        self._jurisdiction_analyzer = jurisdiction_analyzer or JurisdictionAnalyzerService()
+        self._strategy_recommender = strategy_recommender or LitigationStrategyService()
 
     @transaction.atomic
     def assess(self, input_data: AssessmentInput) -> AssessmentOutput:
@@ -116,12 +95,7 @@ class CaseAssessmentService:
         5. 保存/更新数据库记录
         """
         from apps.cases.models import Case
-        from apps.sales_dispute.models import (
-            CaseAssessment,
-            EvidenceScore,
-            JurisdictionAnalysis,
-            LitigationStrategy,
-        )
+        from apps.sales_dispute.models import CaseAssessment, EvidenceScore, JurisdictionAnalysis, LitigationStrategy
 
         if not Case.objects.filter(id=input_data.case_id).exists():
             raise ValidationException(
@@ -130,9 +104,7 @@ class CaseAssessmentService:
             )
 
         # 1. 证据评分
-        evidence_result = self._evidence_scorer.calculate(
-            input_data.evidence_items
-        )
+        evidence_result = self._evidence_scorer.calculate(input_data.evidence_items)
 
         # 2. 时效计算
         limitation_params = LimitationCalcParams(
@@ -141,9 +113,7 @@ class CaseAssessmentService:
             guarantee_debtor=input_data.guarantee_debtor,
             principal_due_date=input_data.principal_due_date,
         )
-        limitation_result = self._limitation_calculator.calculate(
-            limitation_params
-        )
+        limitation_result = self._limitation_calculator.calculate(limitation_params)
 
         # 3. 管辖权分析
         jurisdiction_params = JurisdictionParams(
@@ -154,9 +124,7 @@ class CaseAssessmentService:
             plaintiff_location=input_data.plaintiff_location,
             defendant_location=input_data.defendant_location,
         )
-        jurisdiction_result = self._jurisdiction_analyzer.analyze(
-            jurisdiction_params
-        )
+        jurisdiction_result = self._jurisdiction_analyzer.analyze(jurisdiction_params)
 
         # 4. 策略推荐
         strategy_params = StrategyParams(
@@ -258,12 +226,16 @@ class CaseAssessmentService:
         from apps.sales_dispute.models import CaseAssessment
 
         try:
-            assessment = CaseAssessment.objects.select_related(
-                "jurisdiction_analysis",
-                "litigation_strategy",
-            ).prefetch_related(
-                "evidence_scores",
-            ).get(case_id=case_id)
+            assessment = (
+                CaseAssessment.objects.select_related(
+                    "jurisdiction_analysis",
+                    "litigation_strategy",
+                )
+                .prefetch_related(
+                    "evidence_scores",
+                )
+                .get(case_id=case_id)
+            )
         except CaseAssessment.DoesNotExist:
             raise ValidationException(
                 message="该案件暂无评估记录",

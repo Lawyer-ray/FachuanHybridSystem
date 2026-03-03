@@ -50,7 +50,8 @@ def test_services_layer_does_not_import_service_locator():
 
     current = {f"{path}:{line}:{stmt}" for path, line, stmt in violations}
     extra = sorted(current - baseline)
-    assert len(extra) == 0, (
-        "发现新增 services 层 ServiceLocator 导入（请通过依赖注入/组合根装配，或显式更新 baseline）:\n"
-        + "\n".join(extra)
+    assert (
+        len(extra) == 0
+    ), "发现新增 services 层 ServiceLocator 导入（请通过依赖注入/组合根装配，或显式更新 baseline）:\n" + "\n".join(
+        extra
     )

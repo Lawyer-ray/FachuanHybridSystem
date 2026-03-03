@@ -8,8 +8,8 @@
 <style>
 /* 容器和介绍 */
 .recognition-container { max-width: 800px; margin: 0 auto; padding: 20px; }
-.recognition-intro { color: #666; margin-bottom: 24px; font-size: 14px; line-height: 1.6; 
-    background: linear-gradient(135deg, #f0f7ff 0%, #e8f4f8 100%); padding: 16px 20px; 
+.recognition-intro { color: #666; margin-bottom: 24px; font-size: 14px; line-height: 1.6;
+    background: linear-gradient(135deg, #f0f7ff 0%, #e8f4f8 100%); padding: 16px 20px;
     border-radius: 10px; border-left: 4px solid #417690; }
 
 /* 拖拽上传区域 */
@@ -38,11 +38,11 @@
 .loading-state p { color: #555; font-size: 16px; }
 
 /* 结果卡片 */
-.result-card { 
-    background: #fff; border: none; border-radius: 16px; 
+.result-card {
+    background: #fff; border: none; border-radius: 16px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.08); overflow: hidden;
 }
-.result-header { 
+.result-header {
     font-size: 18px; font-weight: 600; color: white; padding: 18px 24px;
     background: linear-gradient(135deg, #417690 0%, #2c5f7c 100%);
     display: flex; align-items: center; gap: 10px;
@@ -52,7 +52,7 @@
 .result-row:last-child { border-bottom: none; }
 .result-label { width: 100px; font-weight: 600; color: #5a6c7d; font-size: 14px; flex-shrink: 0; }
 .result-value { flex: 1; color: #2c3e50; font-size: 14px; }
-.result-edit-btn { 
+.result-edit-btn {
     width: 32px; height: 32px; border: 1px solid #ddd; border-radius: 6px;
     background: #fff; cursor: pointer; margin-left: 10px; transition: all 0.2s;
     display: flex; align-items: center; justify-content: center; font-size: 14px;
@@ -74,11 +74,11 @@
 .tag-red { background: #ffebee; color: #c62828; }
 
 /* 编辑区域 */
-.edit-actions { display: flex; gap: 10px; margin-top: 10px; padding: 12px; background: #f8fafc; 
+.edit-actions { display: flex; gap: 10px; margin-top: 10px; padding: 12px; background: #f8fafc;
     border-radius: 8px; border: 1px solid #e8eef3; align-items: center; }
 .edit-input { flex: 1; padding: 8px 12px; border: 1px solid #417690; border-radius: 6px; font-size: 14px; }
 .edit-input:focus { outline: none; box-shadow: 0 0 0 2px rgba(65, 118, 144, 0.15); }
-.btn { padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; border: none; 
+.btn { padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; border: none;
     font-weight: 500; transition: all 0.2s; display: inline-flex; align-items: center; gap: 4px; }
 .btn-primary { background: #417690; color: white; }
 .btn-primary:hover { background: #2c5f7c; }
@@ -99,13 +99,13 @@
 .case-selector { margin: 20px 0 0; padding: 16px; background: #f8fafc; border-radius: 10px; border: 1px solid #e0e8ef; }
 .case-selector h4 { margin: 0 0 12px; color: #2c3e50; font-size: 15px; font-weight: 600; }
 .search-box { position: relative; display: flex; align-items: center; gap: 8px; }
-.search-input { 
+.search-input {
     flex: 1; padding: 10px 12px; border: 1px solid #d0dbe5; border-radius: 8px;
     font-size: 14px; box-sizing: border-box; background: white; height: 40px;
 }
 .search-input:focus { border-color: #417690; outline: none; }
-.dropdown-btn { 
-    width: 40px; height: 40px; border: 1px solid #d0dbe5; background: #f0f4f8; 
+.dropdown-btn {
+    width: 40px; height: 40px; border: 1px solid #d0dbe5; background: #f0f4f8;
     cursor: pointer; color: #5a6c7d; border-radius: 8px; transition: all 0.2s;
     flex-shrink: 0; display: flex; align-items: center; justify-content: center;
 }
@@ -113,9 +113,9 @@
 .dropdown-btn.active { background: #417690; color: white; border-color: #417690; }
 
 /* 下拉列表 - 向上展开避免遮挡按钮 */
-.dropdown-list { 
+.dropdown-list {
     position: absolute; left: 0; right: 48px; bottom: 100%; z-index: 1000; margin-bottom: 4px; background: white;
-    border: 1px solid #417690; border-radius: 8px; max-height: 200px; overflow-y: auto; 
+    border: 1px solid #417690; border-radius: 8px; max-height: 200px; overflow-y: auto;
     display: none; box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
 }
 .dropdown-list.show { display: block; }
@@ -129,7 +129,7 @@
 .dropdown-loading { padding: 16px; text-align: center; color: #7f8c8d; font-size: 13px; }
 
 /* 选中案件 */
-.selected-case { 
+.selected-case {
     margin-top: 12px; padding: 12px; background: white; border: 1px solid #417690; border-radius: 8px;
     display: flex; justify-content: space-between; align-items: center;
 }
@@ -163,7 +163,7 @@
     <p class="recognition-intro">
         {% trans "将法院文书（目前只支持传票）拖入下方区域，系统将自动识别文书类型和关键信息，并绑定到对应案件。" %}
     </p>
-    
+
     <!-- 上传区域 -->
     <div id="uploadZone" class="upload-zone">
         <svg viewBox="0 0 24 24"><path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>
@@ -171,13 +171,13 @@
         <p>{% trans "支持 PDF、JPG、PNG 格式" %}</p>
         <label class="upload-btn">{% trans "选择文件" %}<input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png"></label>
     </div>
-    
+
     <!-- 加载状态 -->
     <div id="loadingState" class="loading-state hidden">
         <div class="spinner"></div>
         <p id="loadingText">正在上传文件...</p>
     </div>
-    
+
     <!-- 识别结果 -->
     <div id="resultCard" class="result-card hidden">
         <div class="result-header">{% trans "识别结果" %}</div>
@@ -186,7 +186,7 @@
                 <span class="result-label">{% trans "文书类型" %}</span>
                 <span class="result-value"><span id="docTypeTag" class="tag tag-blue">{% trans "传票" %}</span></span>
             </div>
-            
+
             <div class="result-row">
                 <span class="result-label">{% trans "案号" %}</span>
                 <span class="result-value" id="caseNumberDisplay">{% trans "未识别" %}</span>
@@ -197,7 +197,7 @@
                 <button class="btn btn-success" onclick="saveEdit('caseNumber')">{% trans "保存" %}</button>
                 <button class="btn btn-secondary" onclick="cancelEdit('caseNumber')">{% trans "取消" %}</button>
             </div>
-            
+
             <div class="result-row">
                 <span class="result-label">{% trans "关键时间" %}</span>
                 <span class="result-value" id="keyTimeDisplay">{% trans "未识别" %}</span>
@@ -208,7 +208,7 @@
                 <button class="btn btn-success" onclick="saveEdit('keyTime')">{% trans "保存" %}</button>
                 <button class="btn btn-secondary" onclick="cancelEdit('keyTime')">{% trans "取消" %}</button>
             </div>
-            
+
             <div class="result-row">
                 <span class="result-label">{% trans "识别置信度" %}</span>
                 <span class="result-value">
@@ -220,17 +220,17 @@
                     </div>
                 </span>
             </div>
-            
+
             <div class="result-row">
                 <span class="result-label">{% trans "提取方式" %}</span>
                 <span class="result-value" id="extractionMethod">{% trans "正则表达式" %}</span>
             </div>
-            
+
             <div class="result-row">
                 <span class="result-label">{% trans "绑定状态" %}</span>
                 <span class="result-value" id="bindingStatus"><span class="tag tag-yellow">{% trans "待绑定" %}</span></span>
             </div>
-            
+
             <!-- 案件选择 -->
             <div id="caseSelector" class="case-selector hidden">
                 <h4>{% trans "选择要绑定的案件" %}</h4>
@@ -248,13 +248,13 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="action-buttons">
             <button class="btn btn-primary" onclick="resetPage()">{% trans "识别新文书" %}</button>
             <a id="taskDetailLink" href="#" class="btn btn-secondary hidden">{% trans "查看任务详情" %}</a>
         </div>
     </div>
-    
+
     <!-- 错误状态 -->
     <div id="errorState" class="error-state hidden">
         <div class="icon">✕</div>

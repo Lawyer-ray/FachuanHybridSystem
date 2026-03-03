@@ -4,7 +4,6 @@
 负责下载后的文书处理:解压、案件匹配、重命名、通知等.
 """
 
-from django.utils.translation import gettext_lazy as _
 import logging
 import queue
 import tempfile
@@ -14,10 +13,11 @@ from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, cast
 
-from apps.automation.models import DocumentQueryHistory
-from apps.core.interfaces import ServiceLocator
+from django.utils.translation import gettext_lazy as _
 
+from apps.automation.models import DocumentQueryHistory
 from apps.automation.services.document_delivery.data_classes import DocumentDeliveryRecord, DocumentProcessResult
+from apps.core.interfaces import ServiceLocator
 
 if TYPE_CHECKING:
     from apps.automation.services.sms.case_matcher import CaseMatcher
@@ -241,7 +241,7 @@ class DocumentProcessor:
                 # 1. 创建 CourtSMS 记录
                 logger.info(f"创建 CourtSMS 记录: 案号={record.case_number}")
                 case_numbers_list: list[Any] = [record.case_number]
-                sms = CourtSMS.objects.create( # type: ignore
+                sms = CourtSMS.objects.create(  # type: ignore
                     content=f"文书送达自动下载: {record.case_number}",
                     received_at=record.send_time,
                     status=CourtSMSStatus.MATCHING,
@@ -298,7 +298,7 @@ class DocumentProcessor:
                         logger.info(f"通知发送成功: SMS ID={sms_id}")
                     else:
                         sms.status = CourtSMSStatus.FAILED
-                        sms.error_message = _("通知发送失败") # type: ignore
+                        sms.error_message = _("通知发送失败")  # type: ignore
                         sms_id = sms.id
                         logger.warning(f"通知发送失败: SMS ID={sms_id}")
 

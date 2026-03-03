@@ -137,11 +137,13 @@ class DocumentTemplateForm(forms.ModelForm):
         required=False,
         label=_("适用机构"),
         help_text=_("输入机构名称后回车添加,支持搜索法院名称"),
-        widget=forms.Textarea(attrs={
-            "id": "id_applicable_institutions_field",
-            "style": "display:none;",
-            "rows": "1",
-        }),
+        widget=forms.Textarea(
+            attrs={
+                "id": "id_applicable_institutions_field",
+                "style": "display:none;",
+                "rows": "1",
+            }
+        ),
     )
 
     # 从已有文件中选择(新增)
@@ -189,9 +191,7 @@ class DocumentTemplateForm(forms.ModelForm):
 
             # 加载适用机构
             institutions = self.instance.applicable_institutions or []
-            self.fields["applicable_institutions_field"].initial = json.dumps(
-                institutions, ensure_ascii=False
-            )
+            self.fields["applicable_institutions_field"].initial = json.dumps(institutions, ensure_ascii=False)
 
             if initial_values["file_path"] == "":
                 self.initial["file_path"] = ""
@@ -486,7 +486,7 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):  # type: ignore
         from django.urls import reverse
 
         extra_context = extra_context or {}
-        extra_context['initialize_url'] = reverse('admin:documents_documenttemplate_initialize')
+        extra_context["initialize_url"] = reverse("admin:documents_documenttemplate_initialize")
         return super().changelist_view(request, extra_context=extra_context)
 
     @admin.display(description=_("模板类型"))
@@ -521,7 +521,9 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):  # type: ignore
             absolute_path = obj.file.path if hasattr(obj.file, "path") else str(obj.file)
             return format_html('<span style="color: #2e7d32;" title="{}">📄 {}</span>', absolute_path, obj.file.name)
         elif obj.file_path:
-            return format_html('<span style="color: #1565c0;" title="{}">📁 {}</span>', obj.absolute_file_path, obj.file_path)
+            return format_html(
+                '<span style="color: #1565c0;" title="{}">📁 {}</span>', obj.absolute_file_path, obj.file_path
+            )
         return format_html('<span style="color: #c62828;">{}</span>', "⚠️ 未设置文件")
 
     @admin.display(description=_("文件位置"))

@@ -98,9 +98,7 @@ class StructureMigrator:
         self.project_root = project_root
         self.migrations: list[MoveFileMigration | CreateDirectoryMigration | DeleteFileMigration] = []
 
-    def add_migration(
-        self, migration: MoveFileMigration | CreateDirectoryMigration | DeleteFileMigration
-    ) -> None:
+    def add_migration(self, migration: MoveFileMigration | CreateDirectoryMigration | DeleteFileMigration) -> None:
         self.migrations.append(migration)
 
     def execute(self, dry_run: bool = False) -> None:

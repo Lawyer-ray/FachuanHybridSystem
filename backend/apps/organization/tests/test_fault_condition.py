@@ -83,8 +83,7 @@ def test_c1_uses_permission_denied_import() -> None:
     source = policy_file.read_text(encoding="utf-8")
 
     assert "PermissionDenied" in source, (
-        "BUG C1: organization_access_policy.py 未导入 PermissionDenied，"
-        "应从 apps.core.exceptions 导入 PermissionDenied"
+        "BUG C1: organization_access_policy.py 未导入 PermissionDenied，应从 apps.core.exceptions 导入 PermissionDenied"
     )
 
 
@@ -213,8 +212,7 @@ def test_c4_dto_assemblers_no_cast_type_ignore() -> None:
         issues.append("使用了 # type: ignore")
 
     assert not issues, (
-        f"BUG C4: dto_assemblers.py 中存在类型注解问题: {', '.join(issues)}。"
-        "应使用正确的类型注解替代 cast/type: ignore"
+        f"BUG C4: dto_assemblers.py 中存在类型注解问题: {', '.join(issues)}。应使用正确的类型注解替代 cast/type: ignore"
     )
 
 
@@ -272,8 +270,7 @@ def test_c5_middleware_delegates_to_org_access_service() -> None:
 
     # 检查是否委托给 OrgAccessComputationService 或通过 wiring 工厂函数
     delegates = (
-        "OrgAccessComputationService" in method_source
-        or "build_org_access_computation_service" in method_source
+        "OrgAccessComputationService" in method_source or "build_org_access_computation_service" in method_source
     )
     assert delegates, (
         "BUG C5: _compute_org_access() 未委托给 OrgAccessComputationService，"

@@ -1,7 +1,7 @@
 """Module for validators."""
 
-
 from __future__ import annotations
+
 from collections.abc import Iterable
 
 from django.utils.translation import gettext_lazy as _
@@ -20,9 +20,7 @@ def normalize_representation_stages(
     if not case_type or case_type not in APPLICABLE_TYPES:
         rep = list(representation_stages or [])
         if strict and rep:
-            raise ValidationException(
-                _("代理阶段不适用于此合同类型"), code="STAGES_NOT_APPLICABLE"
-            )
+            raise ValidationException(_("代理阶段不适用于此合同类型"), code="STAGES_NOT_APPLICABLE")
         return []
 
     rep = list(representation_stages or [])

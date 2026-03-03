@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, cast
 
-from django.utils.functional import Promise
-
 from django.db.models import Q, QuerySet
+from django.utils.functional import Promise
 
 from apps.core.exceptions import ForbiddenError
 from apps.core.security import OrgAllowedLawyersMixin

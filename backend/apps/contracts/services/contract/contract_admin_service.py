@@ -15,12 +15,13 @@ from apps.core.enums import CaseStage
 from apps.core.interfaces import CaseDTO
 
 if TYPE_CHECKING:
+    from apps.contracts.services.assignment.filing_number_service import FilingNumberService
+
     from .contract_admin_document_service import ContractAdminDocumentService
     from .contract_admin_mutation_service import ContractAdminMutationService
     from .contract_admin_query_service import ContractAdminQueryService
     from .contract_display_service import ContractDisplayService
     from .contract_progress_service import ContractProgressService
-    from apps.contracts.services.assignment.filing_number_service import FilingNumberService
 
 logger = logging.getLogger("apps.contracts")
 

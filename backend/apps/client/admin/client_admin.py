@@ -83,8 +83,7 @@ def serialize_client_obj(obj: Any) -> dict[str, Any]:
         "legal_representative_id_number": getattr(obj, "legal_representative_id_number", None),
         "is_our_client": obj.is_our_client,
         "identity_docs": [
-            {"doc_type": doc.doc_type, "file_path": doc.file_path}
-            for doc in obj.identity_docs.all() if doc.file_path
+            {"doc_type": doc.doc_type, "file_path": doc.file_path} for doc in obj.identity_docs.all() if doc.file_path
         ],
         "property_clues": [
             {
@@ -92,7 +91,8 @@ def serialize_client_obj(obj: Any) -> dict[str, Any]:
                 "content": clue.content,
                 "attachments": [
                     {"file_path": att.file_path, "file_name": att.file_name}
-                    for att in clue.attachments.all() if att.file_path
+                    for att in clue.attachments.all()
+                    if att.file_path
                 ],
             }
             for clue in obj.property_clues.all()

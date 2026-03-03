@@ -5,6 +5,7 @@ BrowserManager 属性测试
 """
 
 import os
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 # Django setup
@@ -13,8 +14,6 @@ import psutil
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
-
-from pathlib import Path
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "apiSystem.settings")
 django.setup()
@@ -116,7 +115,9 @@ class TestBrowserCleanupNormalExit:
         page_created = False
         context_created = False
 
-        with patch("apps.automation.services.scraper.core.browser_manager.sync_playwright", return_value=mock_sync_pw):  # noqa: SIM117
+        with patch(
+            "apps.automation.services.scraper.core.browser_manager.sync_playwright", return_value=mock_sync_pw
+        ):  # noqa: SIM117
             with browser_manager.create_browser(config, use_anti_detection=False) as (page, context):
                 assert page is not None
                 assert context is not None
@@ -169,7 +170,9 @@ class TestBrowserCleanupOnError:
         page_created = False
         context_created = False
 
-        with patch("apps.automation.services.scraper.core.browser_manager.sync_playwright", return_value=mock_sync_pw):  # noqa: SIM117
+        with patch(
+            "apps.automation.services.scraper.core.browser_manager.sync_playwright", return_value=mock_sync_pw
+        ):  # noqa: SIM117
             with pytest.raises(BrowserCreationError):
                 with browser_manager.create_browser(config, use_anti_detection=False) as (page, context):
                     assert page is not None
@@ -239,7 +242,9 @@ class TestConfigurationApplication:
         mock_page.viewport_size = {"width": viewport_width, "height": viewport_height}
         mock_page.evaluate = MagicMock(return_value=user_agent)
 
-        with patch("apps.automation.services.scraper.core.browser_manager.sync_playwright", return_value=mock_sync_pw):  # noqa: SIM117
+        with patch(
+            "apps.automation.services.scraper.core.browser_manager.sync_playwright", return_value=mock_sync_pw
+        ):  # noqa: SIM117
             with browser_manager.create_browser(config, use_anti_detection=False) as (page, context):
                 viewport = page.viewport_size
                 assert viewport["width"] == viewport_width, (  # type: ignore
@@ -250,9 +255,9 @@ class TestConfigurationApplication:
                 )
 
                 actual_user_agent = page.evaluate("navigator.userAgent")
-                assert actual_user_agent == user_agent, (
-                    f"User Agent 不匹配: 期望={user_agent}, 实际={actual_user_agent}"
-                )
+                assert (
+                    actual_user_agent == user_agent
+                ), f"User Agent 不匹配: 期望={user_agent}, 实际={actual_user_agent}"
 
 
 # =============================================================================
@@ -292,7 +297,9 @@ class TestBrowserManagerErrorHandling:
 
             defaults = BrowserConfig()
             mock_sync_pw = _make_mock_playwright()
-            mock_page = mock_sync_pw.start.return_value.chromium.launch.return_value.new_context.return_value.new_page.return_value  # noqa: E501
+            mock_page = (
+                mock_sync_pw.start.return_value.chromium.launch.return_value.new_context.return_value.new_page.return_value
+            )  # noqa: E501
             mock_page.viewport_size = {"width": defaults.viewport_width, "height": defaults.viewport_height}
 
             with (

@@ -219,9 +219,7 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin[DocumentDeliverySchedule]):
         return "-"
 
     @admin.action(description=_("🚀 手动触发选中的查询任务"))
-    def trigger_manual_query_action(
-        self, request: HttpRequest, queryset: QuerySet[DocumentDeliverySchedule]
-    ) -> None:
+    def trigger_manual_query_action(self, request: HttpRequest, queryset: QuerySet[DocumentDeliverySchedule]) -> None:
         """手动触发查询操作（异步执行，不阻塞 Admin）"""
         service = _get_document_delivery_schedule_service()
         triggered_count = 0
@@ -250,18 +248,14 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin[DocumentDeliverySchedule]):
             messages.error(request, f"触发失败 {error_count} 个任务（无账号凭证）")
 
     @admin.action(description=_("✓ 启用选中的定时任务"))
-    def activate_schedules_action(
-        self, request: HttpRequest, queryset: QuerySet[DocumentDeliverySchedule]
-    ) -> None:
+    def activate_schedules_action(self, request: HttpRequest, queryset: QuerySet[DocumentDeliverySchedule]) -> None:
         """启用定时任务操作"""
         updated = queryset.update(is_active=True)
         messages.success(request, _(f"成功启用 {updated} 个定时任务"))
         logger.info(f"管理员批量启用定时任务: Count={updated}, User={request.user}")
 
     @admin.action(description=_("✗ 禁用选中的定时任务"))
-    def deactivate_schedules_action(
-        self, request: HttpRequest, queryset: QuerySet[DocumentDeliverySchedule]
-    ) -> None:
+    def deactivate_schedules_action(self, request: HttpRequest, queryset: QuerySet[DocumentDeliverySchedule]) -> None:
         """禁用定时任务操作"""
         updated = queryset.update(is_active=False)
         messages.success(request, _(f"成功禁用 {updated} 个定时任务"))
@@ -274,6 +268,7 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin[DocumentDeliverySchedule]):
         if not schedule.credential:
             messages.error(request, "该定时任务没有关联的账号凭证")
         else:
+
             def run_task() -> None:
                 try:
                     service = _get_document_delivery_schedule_service()
@@ -288,9 +283,7 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin[DocumentDeliverySchedule]):
             messages.success(request, "查询任务已在后台启动，请查看日志了解执行结果（不阻塞页面）")
             logger.info(f"管理员触发后台文书查询: Schedule ID={schedule_id}, User={request.user}")
 
-        return HttpResponseRedirect(
-            reverse("admin:automation_documentdeliveryschedule_change", args=[schedule_id])
-        )
+        return HttpResponseRedirect(reverse("admin:automation_documentdeliveryschedule_change", args=[schedule_id]))
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[DocumentDeliverySchedule]:
         """优化查询性能"""
@@ -317,9 +310,7 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin[DocumentDeliverySchedule]):
 
         return form
 
-    def save_model(
-        self, request: HttpRequest, obj: DocumentDeliverySchedule, form: Any, change: bool
-    ) -> None:
+    def save_model(self, request: HttpRequest, obj: DocumentDeliverySchedule, form: Any, change: bool) -> None:
         """保存模型时的处理"""
         super().save_model(request, obj, form, change)
 

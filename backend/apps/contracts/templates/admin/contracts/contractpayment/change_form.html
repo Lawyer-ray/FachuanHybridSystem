@@ -15,12 +15,12 @@
 {{ block.super }}
 <div class="module invoice-recognition-module" x-data="invoiceRecognition()">
     <h2>{% translate "发票识别" %}</h2>
-    
+
     <!-- 上传消息 -->
     <template x-if="uploadMessage">
         <div class="ir-message" :class="messageType" x-text="uploadMessage"></div>
     </template>
-    
+
     <!-- 文件上传区域 -->
     <div class="ir-upload-section">
         <div class="ir-upload-zone"
@@ -39,7 +39,7 @@
                    style="display: none;"
                    @change="handleFileSelect($event)">
         </div>
-        
+
         <button type="button"
                 class="button ir-upload-btn"
                 @click="$refs.fileInput.click()"
@@ -48,7 +48,7 @@
             <span x-show="uploading">⏳ {% translate "上传中..." %}</span>
         </button>
     </div>
-    
+
     <!-- 上传进度条 -->
     <div x-show="uploading" class="ir-progress-section">
         <div class="ir-progress-label">
@@ -58,7 +58,7 @@
             <div class="ir-progress-fill" :style="'width: ' + progress + '%'"></div>
         </div>
     </div>
-    
+
     <!-- 识别结果预览 -->
     <template x-if="results.length > 0">
         <div class="ir-results-section">
@@ -91,7 +91,7 @@
                     </template>
                 </tbody>
             </table>
-            
+
             <div class="ir-summary">
                 <span class="summary-label">{% translate "识别成功" %}:</span>
                 <span class="summary-value" x-text="successCount"></span>
@@ -100,7 +100,7 @@
                 <span class="summary-label">{% translate "累计金额" %}:</span>
                 <span class="summary-amount">¥<span x-text="totalAmount.toFixed(2)"></span></span>
             </div>
-            
+
             <div class="ir-hint">
                 <p>{% translate "提示：识别结果已自动填充到下方的发票列表中，请检查后点击保存按钮保存数据。" %}</p>
             </div>

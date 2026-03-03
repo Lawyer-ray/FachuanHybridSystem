@@ -17,9 +17,8 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from apps.automation.utils.text_utils import TextUtils
 from apps.automation.tasking.retry_policy import ExponentialBackoffRetryPolicy
-
+from apps.automation.utils.text_utils import TextUtils
 
 # ── 策略 ──────────────────────────────────────────────────────────────────────
 
@@ -139,9 +138,9 @@ def test_property_exponential_backoff_non_decreasing(base_seconds: int, max_seco
     prev_delay = policy.compute_delay_seconds(retry_count=0)
     for i in range(1, n + 1):
         curr_delay = policy.compute_delay_seconds(retry_count=i)
-        assert curr_delay >= prev_delay, (
-            f"retry_count={i} 的延迟 {curr_delay} < retry_count={i - 1} 的延迟 {prev_delay}"
-        )
+        assert (
+            curr_delay >= prev_delay
+        ), f"retry_count={i} 的延迟 {curr_delay} < retry_count={i - 1} 的延迟 {prev_delay}"
         prev_delay = curr_delay
 
 

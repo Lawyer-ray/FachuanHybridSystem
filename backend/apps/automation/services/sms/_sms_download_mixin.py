@@ -129,8 +129,7 @@ class SMSDownloadMixin:
             or task.status in [ScraperTaskStatus.PENDING, ScraperTaskStatus.RUNNING]
         )
         logger.info(
-            f"短信 {sms.id} "
-            f"{'还有文书在下载中或任务进行中，需要等待' if should_wait else '下载状态检查完成，无需等待'}"
+            f"短信 {sms.id} {'还有文书在下载中或任务进行中，需要等待' if should_wait else '下载状态检查完成，无需等待'}"
         )
         return should_wait
 

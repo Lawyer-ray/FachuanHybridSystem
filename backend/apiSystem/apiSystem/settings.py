@@ -200,9 +200,10 @@ elif DB_ENGINE in ("mysql", "django.db.backends.mysql"):
 else:
     raise RuntimeError(f"不支持的 DB_ENGINE: {DB_ENGINE}")
 
+from typing import Any
+
 # 启用 SQLite 外键约束
 from django.db.backends.signals import connection_created
-from typing import Any
 
 
 def activate_foreign_keys(sender: Any, connection: Any, **kwargs: Any) -> None:

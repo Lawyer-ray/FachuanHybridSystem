@@ -249,7 +249,7 @@ class CourtDocumentService:
         """
         try:
             document = CourtDocument.objects.select_related("scraper_task", "case").get(id=document_id)
-            return document # type: ignore
+            return document  # type: ignore
         except CourtDocument.DoesNotExist:
             return None
 

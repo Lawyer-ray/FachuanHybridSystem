@@ -2,7 +2,6 @@ import logging
 from typing import Any
 
 from django.utils.translation import gettext_lazy as _
-
 from ninja import File, Router, Schema
 from ninja.files import UploadedFile
 

@@ -159,6 +159,7 @@ class CauseOfActionAdmin(admin.ModelAdmin[CauseOfAction]):
             ),
         ]
         return custom_urls + urls
+
     def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> HttpResponse:
         """自定义列表页面"""
         extra_context = extra_context or {}

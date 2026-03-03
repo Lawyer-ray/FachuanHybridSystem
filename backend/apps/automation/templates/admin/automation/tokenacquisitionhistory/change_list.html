@@ -5,13 +5,13 @@
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <h1>Token获取历史记录</h1>
         <div>
-            <a href="{% url 'admin:automation_tokenacquisitionhistory_dashboard' %}" 
+            <a href="{% url 'admin:automation_tokenacquisitionhistory_dashboard' %}"
                class="button default" style="margin-right: 10px;">
                 📊 查看仪表板
             </a>
         </div>
     </div>
-    
+
     {% if statistics %}
     <div class="module" style="margin-bottom: 20px;">
         <h2>📊 统计概览</h2>
@@ -22,14 +22,14 @@
                 <div style="font-size: 14px; line-height: 1.6;">
                     <div><strong>总记录数:</strong> {{ statistics.total_records }}</div>
                     <div><strong>成功记录:</strong> <span style="color: #28a745;">{{ statistics.success_records }}</span></div>
-                    <div><strong>成功率:</strong> 
+                    <div><strong>成功率:</strong>
                         <span style="color: {% if statistics.success_rate >= 80 %}#28a745{% elif statistics.success_rate >= 50 %}#ffc107{% else %}#dc3545{% endif %}; font-weight: bold;">
                             {{ statistics.success_rate|floatformat:1 }}%
                         </span>
                     </div>
                 </div>
             </div>
-            
+
             <!-- 最近24小时 -->
             <div class="card" style="background: #e3f2fd; padding: 15px; border-radius: 8px; min-width: 200px;">
                 <h3 style="margin: 0 0 10px 0; color: #1976d2;">🕐 最近24小时</h3>
@@ -37,7 +37,7 @@
                     <div><strong>获取次数:</strong> {{ statistics.recent_count }}</div>
                     <div><strong>成功次数:</strong> <span style="color: #28a745;">{{ statistics.recent_success }}</span></div>
                     {% if statistics.recent_count > 0 %}
-                    <div><strong>成功率:</strong> 
+                    <div><strong>成功率:</strong>
                         {% if statistics.recent_count > 0 %}
                             {% widthratio statistics.recent_success statistics.recent_count 100 as recent_rate %}
                             <span style="color: {% if recent_rate >= 80 %}#28a745{% elif recent_rate >= 50 %}#ffc107{% else %}#dc3545{% endif %}; font-weight: bold;">
@@ -50,12 +50,12 @@
                     {% endif %}
                 </div>
             </div>
-            
+
             <!-- 性能指标 -->
             <div class="card" style="background: #f3e5f5; padding: 15px; border-radius: 8px; min-width: 200px;">
                 <h3 style="margin: 0 0 10px 0; color: #7b1fa2;">⚡ 性能指标</h3>
                 <div style="font-size: 14px; line-height: 1.6;">
-                    <div><strong>平均耗时:</strong> 
+                    <div><strong>平均耗时:</strong>
                         <span style="font-weight: bold;">
                             {{ statistics.avg_duration|floatformat:1 }}秒
                         </span>
@@ -65,25 +65,25 @@
                     </div>
                 </div>
             </div>
-            
+
             <!-- 快速操作 -->
             <div class="card" style="background: #fff3e0; padding: 15px; border-radius: 8px; min-width: 200px;">
                 <h3 style="margin: 0 0 10px 0; color: #f57c00;">🔧 快速操作</h3>
                 <div style="font-size: 14px; line-height: 1.6;">
                     <div style="margin-bottom: 8px;">
-                        <a href="{% url 'admin:organization_accountcredential_changelist' %}" 
+                        <a href="{% url 'admin:organization_accountcredential_changelist' %}"
                            style="color: #007bff; text-decoration: none;">
                             🔑 管理账号凭证
                         </a>
                     </div>
                     <div style="margin-bottom: 8px;">
-                        <a href="{% url 'admin:automation_courttoken_changelist' %}" 
+                        <a href="{% url 'admin:automation_courttoken_changelist' %}"
                            style="color: #007bff; text-decoration: none;">
                             🎫 查看Token状态
                         </a>
                     </div>
                     <div>
-                        <a href="{% url 'admin:automation_preservationquote_changelist' %}" 
+                        <a href="{% url 'admin:automation_preservationquote_changelist' %}"
                            style="color: #007bff; text-decoration: none;">
                             💰 财产保全询价
                         </a>
@@ -104,11 +104,11 @@
             当系统需要获取Token时，相关记录会显示在这里。
         </p>
         <div style="margin-top: 20px;">
-            <a href="{% url 'admin:organization_accountcredential_changelist' %}" 
+            <a href="{% url 'admin:organization_accountcredential_changelist' %}"
                class="button default" style="margin-right: 10px;">
                 配置账号凭证
             </a>
-            <a href="{% url 'admin:automation_preservationquote_changelist' %}" 
+            <a href="{% url 'admin:automation_preservationquote_changelist' %}"
                class="button">
                 创建询价任务
             </a>
@@ -130,7 +130,7 @@
             transform: translateY(-2px);
             box-shadow: 0 4px 8px rgba(0,0,0,0.15);
         }
-        
+
         /* 响应式设计 */
         @media (max-width: 768px) {
             .card {
@@ -138,7 +138,7 @@
                 margin-bottom: 10px;
             }
         }
-        
+
         /* 状态指示器样式 */
         .status-indicator {
             display: inline-block;
@@ -147,7 +147,7 @@
             border-radius: 50%;
             margin-right: 5px;
         }
-        
+
         .status-success { background-color: #28a745; }
         .status-warning { background-color: #ffc107; }
         .status-danger { background-color: #dc3545; }

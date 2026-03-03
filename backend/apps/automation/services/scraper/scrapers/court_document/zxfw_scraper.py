@@ -8,12 +8,13 @@
 """
 
 from __future__ import annotations
-from django.utils.translation import gettext_lazy as _
 
 import logging
 import time
 from pathlib import Path
 from typing import Any
+
+from django.utils.translation import gettext_lazy as _
 
 from ._zxfw_direct_api_mixin import ZxfwDirectApiMixin
 from ._zxfw_fallback_mixin import ZxfwFallbackMixin
@@ -23,7 +24,7 @@ from .base_court_scraper import BaseCourtDocumentScraper
 logger = logging.getLogger("apps.automation")
 
 
-class ZxfwCourtScraper(ZxfwDirectApiMixin, ZxfwInterceptMixin, ZxfwFallbackMixin, BaseCourtDocumentScraper): # type: ignore
+class ZxfwCourtScraper(ZxfwDirectApiMixin, ZxfwInterceptMixin, ZxfwFallbackMixin, BaseCourtDocumentScraper):  # type: ignore
     """
     法院执行网 (zxfw.court.gov.cn) 文书下载爬虫
 

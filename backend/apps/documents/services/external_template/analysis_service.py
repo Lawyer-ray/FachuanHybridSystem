@@ -141,13 +141,9 @@ class AnalysisService:
                 file_path.name,
                 str(exc),
             )
-            raise ValidationError(
-                _("文件无法解析，请检查文件是否损坏或加密")
-            ) from exc
+            raise ValidationError(_("文件无法解析，请检查文件是否损坏或加密")) from exc
 
-    def _save_file(
-        self, file: UploadedFile, law_firm_id: int
-    ) -> tuple[Path, str]:
+    def _save_file(self, file: UploadedFile, law_firm_id: int) -> tuple[Path, str]:
         """
         UUID 重命名保存文件
 
@@ -193,15 +189,11 @@ class AnalysisService:
             source_name=source_name,
         )
 
-        max_version: int | None = existing.order_by("-version").values_list(
-            "version", flat=True
-        ).first()
+        max_version: int | None = existing.order_by("-version").values_list("version", flat=True).first()
 
         new_version: int = (max_version or 0) + 1
 
-        deactivated: int = existing.filter(is_active=True).update(
-            is_active=False
-        )
+        deactivated: int = existing.filter(is_active=True).update(is_active=False)
 
         return new_version, deactivated
 
@@ -321,9 +313,7 @@ class AnalysisService:
                 if tc_pr is not None:
                     gs = tc_pr.find("w:gridSpan", ns)
                     if gs is not None:
-                        grid_span = int(
-                            gs.get(f"{{{ns['w']}}}val", "1")
-                        )
+                        grid_span = int(gs.get(f"{{{ns['w']}}}val", "1"))
                     vm = tc_pr.find("w:vMerge", ns)
                     if vm is not None:
                         val = vm.get(f"{{{ns['w']}}}val", "continue")
@@ -423,9 +413,7 @@ class AnalysisService:
             label_text = ""
             if sdt_content is not None:
                 runs = sdt_content.iter(f"{{{ns['w']}}}t")
-                label_parts: list[str] = [
-                    r.text for r in runs if r.text
-                ]
+                label_parts: list[str] = [r.text for r in runs if r.text]
                 label_text = "".join(label_parts)
 
             # 尝试获取 checked 状态
@@ -434,13 +422,9 @@ class AnalysisService:
             if checkbox_el is None:
                 checkbox_el = sdt_pr.find(f"{{{ns['w']}}}checkbox", ns)
             if checkbox_el is not None:
-                checked_el = checkbox_el.find(
-                    f"{{{ns['w14']}}}checked", ns
-                )
+                checked_el = checkbox_el.find(f"{{{ns['w14']}}}checked", ns)
                 if checked_el is None:
-                    checked_el = checkbox_el.find(
-                        f"{{{ns['w']}}}checked", ns
-                    )
+                    checked_el = checkbox_el.find(f"{{{ns['w']}}}checked", ns)
                 if checked_el is not None:
                     val = checked_el.get(
                         f"{{{ns['w14']}}}val",
@@ -448,15 +432,17 @@ class AnalysisService:
                     )
                     checked = val in ("1", "true")
 
-            checkboxes.append({
-                "checkbox_index": checkbox_index,
-                "label": label_text,
-                "checked": checked,
-                "position_locator": {
-                    "type": "checkbox",
+            checkboxes.append(
+                {
                     "checkbox_index": checkbox_index,
-                },
-            })
+                    "label": label_text,
+                    "checked": checked,
+                    "position_locator": {
+                        "type": "checkbox",
+                        "checkbox_index": checkbox_index,
+                    },
+                }
+            )
             checkbox_index += 1
 
         logger.info("复选框提取完成: 共 %d 个", len(checkboxes))
@@ -479,9 +465,7 @@ class AnalysisService:
         options: list[str] = re.split(r"[/／]", matched_text)
 
         # 过滤：每个选项至少 1 个中文字符，才认为是"删除不适用项"
-        has_chinese = all(
-            re.search(r"[\u4e00-\u9fff]", opt) for opt in options
-        )
+        has_chinese = all(re.search(r"[\u4e00-\u9fff]", opt) for opt in options)
         if not has_chinese:
             return None
 
@@ -491,9 +475,7 @@ class AnalysisService:
     # LLM 分析 (Requirements: 3.3, 3.4, 3.5, 4.1–4.8, 5.6, 5.7, 11.2, 11.6)
     # ------------------------------------------------------------------
 
-    def analyze_template(
-        self, template_id: int
-    ) -> list[Any]:
+    def analyze_template(self, template_id: int) -> list[Any]:
         """
         分析模板并生成字段映射：
         1. 提取结构 → 计算指纹
@@ -503,10 +485,7 @@ class AnalysisService:
         5. 更新模板状态为 ready
         """
         from apps.documents.models.choices import TemplateStatus
-        from apps.documents.models.external_template import (
-            ExternalTemplate,
-            ExternalTemplateFieldMapping,
-        )
+        from apps.documents.models.external_template import ExternalTemplate, ExternalTemplateFieldMapping
 
         template: ExternalTemplate = ExternalTemplate.objects.get(pk=template_id)
 
@@ -525,10 +504,8 @@ class AnalysisService:
             template.save(update_fields=["structure_fingerprint", "updated_at"])
 
             # 3. 查找匹配模板
-            matched: ExternalTemplate | None = (
-                self._fingerprint_service.find_matching_template(
-                    fingerprint, template.law_firm_id
-                )
+            matched: ExternalTemplate | None = self._fingerprint_service.find_matching_template(
+                fingerprint, template.law_firm_id
             )
 
             # 排除自身
@@ -555,18 +532,12 @@ class AnalysisService:
                 prompt: str = self._build_llm_prompt(structure_json)
                 response = self._llm_service.complete(
                     prompt=prompt,
-                    system_prompt=(
-                        "你是一个法律文书模板分析专家。请分析模板结构并返回字段映射的 JSON 数组。"
-                    ),
+                    system_prompt=("你是一个法律文书模板分析专家。请分析模板结构并返回字段映射的 JSON 数组。"),
                     temperature=0.1,
                     max_tokens=4096,
                 )
-                raw_mappings: list[dict[str, Any]] = self._parse_llm_response(
-                    response.content
-                )
-                created_mappings = self._create_field_mappings(
-                    template, raw_mappings
-                )
+                raw_mappings: list[dict[str, Any]] = self._parse_llm_response(response.content)
+                created_mappings = self._create_field_mappings(template, raw_mappings)
                 logger.info(
                     "LLM 分析完成: template_id=%d, mappings=%d",
                     template_id,
@@ -588,14 +559,10 @@ class AnalysisService:
 
         except Exception:
             # 分析失败：设置状态并重新抛出
-            logger.exception(
-                "模板分析失败: template_id=%d", template_id
-            )
+            logger.exception("模板分析失败: template_id=%d", template_id)
             template.refresh_from_db()
             template.status = TemplateStatus.ANALYSIS_FAILED
-            template.save(
-                update_fields=["status", "status_changed_at", "updated_at"]
-            )
+            template.save(update_fields=["status", "status_changed_at", "updated_at"])
             raise
 
     def _copy_mappings_from(
@@ -604,13 +571,9 @@ class AnalysisService:
         target_template: Any,
     ) -> list[Any]:
         """从源模板复制映射到目标模板"""
-        from apps.documents.models.external_template import (
-            ExternalTemplateFieldMapping,
-        )
+        from apps.documents.models.external_template import ExternalTemplateFieldMapping
 
-        source_mappings = ExternalTemplateFieldMapping.objects.filter(
-            template=source_template
-        )
+        source_mappings = ExternalTemplateFieldMapping.objects.filter(template=source_template)
         created: list[ExternalTemplateFieldMapping] = []
         for m in source_mappings:
             new_mapping = ExternalTemplateFieldMapping.objects.create(
@@ -624,15 +587,11 @@ class AnalysisService:
             created.append(new_mapping)
         return created
 
-    def _build_llm_prompt(
-        self, structure_json: dict[str, Any]
-    ) -> str:
+    def _build_llm_prompt(self, structure_json: dict[str, Any]) -> str:
         """
         构建 LLM 提示词：结构 JSON + fill_type 说明
         """
-        structure_text: str = json.dumps(
-            structure_json, ensure_ascii=False, indent=2
-        )
+        structure_text: str = json.dumps(structure_json, ensure_ascii=False, indent=2)
 
         prompt: str = (
             f"请分析以下法律文书模板的结构，识别所有可填充位置。\n\n"
@@ -684,11 +643,13 @@ class AnalysisService:
         for item in parsed:
             if not isinstance(item, dict):
                 continue
-            result.append({
-                "position_locator": item.get("position_locator", {}),
-                "semantic_label": str(item.get("semantic_label", "")),
-                "fill_type": str(item.get("fill_type", "text")),
-            })
+            result.append(
+                {
+                    "position_locator": item.get("position_locator", {}),
+                    "semantic_label": str(item.get("semantic_label", "")),
+                    "fill_type": str(item.get("fill_type", "text")),
+                }
+            )
 
         return result
 
@@ -699,9 +660,7 @@ class AnalysisService:
     ) -> list[Any]:
         """根据解析后的映射数据创建 FieldMapping 记录"""
         from apps.documents.models.choices import FillType
-        from apps.documents.models.external_template import (
-            ExternalTemplateFieldMapping,
-        )
+        from apps.documents.models.external_template import ExternalTemplateFieldMapping
 
         valid_fill_types: set[str] = {ft.value for ft in FillType}
         created: list[ExternalTemplateFieldMapping] = []
@@ -744,17 +703,11 @@ class AnalysisService:
     # 重新分析
     # ------------------------------------------------------------------
 
-    def retry_analysis(
-        self, template_id: int
-    ) -> list[Any]:
+    def retry_analysis(self, template_id: int) -> list[Any]:
         """重新触发 LLM 分析：删除旧映射后重新分析。"""
-        from apps.documents.models.external_template import (
-            ExternalTemplateFieldMapping,
-        )
+        from apps.documents.models.external_template import ExternalTemplateFieldMapping
 
-        deleted_count, _ = ExternalTemplateFieldMapping.objects.filter(
-            template_id=template_id
-        ).delete()
+        deleted_count, _ = ExternalTemplateFieldMapping.objects.filter(template_id=template_id).delete()
         logger.info(
             "重新分析: template_id=%d, 已删除旧映射 %d 条",
             template_id,

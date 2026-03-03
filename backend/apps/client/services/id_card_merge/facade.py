@@ -6,11 +6,10 @@ import logging
 from pathlib import Path
 from typing import Any, ClassVar
 
-from django.core.files.uploadedfile import UploadedFile
-from django.utils.translation import gettext_lazy as _
-
 import cv2
 import numpy as np
+from django.core.files.uploadedfile import UploadedFile
+from django.utils.translation import gettext_lazy as _
 from numpy.typing import NDArray
 
 from apps.core.exceptions import ValidationException
@@ -42,9 +41,17 @@ class IdCardMergeService:
         front_cv_image = self._read_uploaded_image(front_image)
         back_cv_image = self._read_uploaded_image(back_image)
         if front_cv_image is None:
-            return {"success": False, "error": "INVALID_IMAGE_FORMAT", "message": _("无法读取正面图片，请确保图片格式正确")}
+            return {
+                "success": False,
+                "error": "INVALID_IMAGE_FORMAT",
+                "message": _("无法读取正面图片，请确保图片格式正确"),
+            }
         if back_cv_image is None:
-            return {"success": False, "error": "INVALID_IMAGE_FORMAT", "message": _("无法读取反面图片，请确保图片格式正确")}
+            return {
+                "success": False,
+                "error": "INVALID_IMAGE_FORMAT",
+                "message": _("无法读取反面图片，请确保图片格式正确"),
+            }
         for cv_image, name in [(front_cv_image, "正面"), (back_cv_image, "反面")]:
             size_error = self._validate_image_size(cv_image, name)
             if size_error:
@@ -96,14 +103,22 @@ class IdCardMergeService:
             validation = self._validate_corners(corners)
             if validation is not None:
                 logger.warning("%s四角坐标无效", label, extra={"corners": corners, "reason": validation})
-                return {"success": False, "error": "INVALID_CORNERS", "message": _("%(label)s四角坐标无效: %(reason)s") % {"label": label, "reason": validation}}
+                return {
+                    "success": False,
+                    "error": "INVALID_CORNERS",
+                    "message": _("%(label)s四角坐标无效: %(reason)s") % {"label": label, "reason": validation},
+                }
         media_root = get_media_root()
         front_full_path, front_rel_path = self._resolve_image_path(front_image_path, media_root)
         back_full_path, back_rel_path = self._resolve_image_path(back_image_path, media_root)
         for label, full_path in [("正面", front_full_path), ("反面", back_full_path)]:
             if not full_path.exists():
                 logger.warning("%s图片不存在", label, extra={"path": str(full_path)})
-                return {"success": False, "error": "INVALID_CORNERS", "message": _("%(label)s图片不存在，请重新上传") % {"label": label}}
+                return {
+                    "success": False,
+                    "error": "INVALID_CORNERS",
+                    "message": _("%(label)s图片不存在，请重新上传") % {"label": label},
+                }
         front_cv_image = cv2.imread(str(front_full_path))
         back_cv_image = cv2.imread(str(back_full_path))
         for label, img in [("正面", front_cv_image), ("反面", back_cv_image)]:
@@ -162,7 +177,9 @@ class IdCardMergeService:
         return detection.detect_id_card_corners(image, id_card_aspect_ratio=self.ID_CARD_ASPECT_RATIO, logger=logger)
 
     def _perspective_transform(self, image: NDArray[np.uint8], corners: NDArray[np.float32]) -> NDArray[np.uint8]:
-        return perspective_transform(image, corners, id_card_aspect_ratio=self.ID_CARD_ASPECT_RATIO, min_output_width=400, logger=logger)
+        return perspective_transform(
+            image, corners, id_card_aspect_ratio=self.ID_CARD_ASPECT_RATIO, min_output_width=400, logger=logger
+        )
 
     def _generate_pdf(self, front_image: NDArray[np.uint8], back_image: NDArray[np.uint8]) -> str:
         media_root = get_media_root()

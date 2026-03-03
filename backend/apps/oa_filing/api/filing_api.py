@@ -6,11 +6,7 @@ from typing import Any
 from django.http import HttpRequest
 from ninja import Router
 
-from apps.oa_filing.schemas.filing_schemas import (
-    ExecuteFilingIn,
-    OAConfigOut,
-    SessionOut,
-)
+from apps.oa_filing.schemas.filing_schemas import ExecuteFilingIn, OAConfigOut, SessionOut
 
 logger = logging.getLogger("apps.oa_filing.api")
 router = Router()
@@ -27,13 +23,8 @@ def _get_configs(user: Any) -> list[dict[str, Any]]:
     from apps.organization.models import AccountCredential
 
     configs = OAConfig.objects.filter(is_enabled=True)
-    user_sites: set[str] = set(
-        AccountCredential.objects.filter(lawyer=user).values_list("site_name", flat=True)
-    )
-    return [
-        {"id": c.id, "oa_system_name": c.site_name, "has_credential": c.site_name in user_sites}
-        for c in configs
-    ]
+    user_sites: set[str] = set(AccountCredential.objects.filter(lawyer=user).values_list("site_name", flat=True))
+    return [{"id": c.id, "oa_system_name": c.site_name, "has_credential": c.site_name in user_sites} for c in configs]
 
 
 @router.get("/configs", response=list[OAConfigOut])

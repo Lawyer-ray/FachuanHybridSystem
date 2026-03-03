@@ -11,10 +11,14 @@ from typing import Any
 from django.db import transaction
 from django.utils.translation import gettext_lazy as _
 
-from apps.core.exceptions import NotFoundError
 from apps.client.models import Client, ClientIdentityDoc
-from apps.client.services.storage import _get_media_root, delete_media_file, sanitize_upload_filename, save_uploaded_file
-
+from apps.client.services.storage import (
+    _get_media_root,
+    delete_media_file,
+    sanitize_upload_filename,
+    save_uploaded_file,
+)
+from apps.core.exceptions import NotFoundError
 
 logger = logging.getLogger("apps.client")
 

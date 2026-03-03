@@ -1,8 +1,7 @@
 import time
 from textwrap import dedent
 
-DEFAULT_FILENAME_PROMPT = dedent(
-    """
+DEFAULT_FILENAME_PROMPT = dedent("""
 请你作为一名专业的文件管理员，按照以下严格规则为我提供的法律文件命名。
 
 1.  **命名结构**：`[文件核心类型]（[案件双方]）_[年月日]收`
@@ -36,8 +35,7 @@ DEFAULT_FILENAME_PROMPT = dedent(
     *   请严格按照上述规则生成一个唯一的文件名。
     *   直接返回最终的文件名字符串，不要添加任何额外的解释、说明、标点符号或代码块标记。
     *   请删除所有空格。
-"""
-).strip()
+""").strip()
 
 # 2. 生成当前日期，并将其格式化到模板中
 current_date_str = time.strftime("%Y%m%d")

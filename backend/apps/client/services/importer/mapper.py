@@ -19,8 +19,13 @@ class ClientImportCommand:
 
 class ClientJsonImportMapper:
     _CLIENT_FIELDS: tuple[str, ...] = (
-        "name", "phone", "address", "client_type",
-        "id_number", "legal_representative", "is_our_client",
+        "name",
+        "phone",
+        "address",
+        "client_type",
+        "id_number",
+        "legal_representative",
+        "is_our_client",
     )
 
     def to_command(self, json_data: dict[str, Any], admin_user: str) -> ClientImportCommand:

@@ -164,9 +164,7 @@ class TestArchitectureViolationsAbsent:
         tree: ast.Module = _parse_file("apps/documents/api/generation_api.py")
         func_node: ast.FunctionDef | None = _get_function_node(tree, func_name)
         assert func_node is not None, f"未找到函数 {func_name}"
-        has_violation: bool = _has_local_import_in_func(
-            func_node, "apps.core.exceptions", "ValidationException"
-        )
+        has_violation: bool = _has_local_import_in_func(func_node, "apps.core.exceptions", "ValidationException")
         assert not has_violation, (
             f"{func_name} 函数体内仍包含局部 'from apps.core.exceptions import ValidationException' 导入"
         )
@@ -196,9 +194,7 @@ class TestArchitectureViolationsAbsent:
         prop_node: ast.FunctionDef | None = _get_property_node(tree, "EvidenceList", prop_name)
         assert prop_node is not None, f"未找到 EvidenceList.{prop_name} 属性"
         has_violation: bool = _func_body_contains_while(prop_node, "current")
-        assert not has_violation, (
-            f"EvidenceList.{prop_name} 仍包含 'while current:' 循环"
-        )
+        assert not has_violation, f"EvidenceList.{prop_name} 仍包含 'while current:' 循环"
 
     # ----------------------------------------------------------
     # Issue 5: signals.py _create_audit_log 不应包含 TemplateAuditLog.objects.create()
@@ -210,9 +206,7 @@ class TestArchitectureViolationsAbsent:
         func_node: ast.FunctionDef | None = _get_function_node(tree, "_create_audit_log")
         assert func_node is not None, "未找到函数 _create_audit_log"
         has_violation: bool = _func_body_contains_call(func_node, "TemplateAuditLog.objects.create")
-        assert not has_violation, (
-            "_create_audit_log 仍包含 TemplateAuditLog.objects.create() 调用"
-        )
+        assert not has_violation, "_create_audit_log 仍包含 TemplateAuditLog.objects.create() 调用"
 
     # ----------------------------------------------------------
     # Issue 6: signals.py capture_pre_save_state 不应包含 sender.objects.get()
@@ -224,9 +218,7 @@ class TestArchitectureViolationsAbsent:
         func_node: ast.FunctionDef | None = _get_function_node(tree, "capture_pre_save_state")
         assert func_node is not None, "未找到函数 capture_pre_save_state"
         has_violation: bool = _func_body_contains_call(func_node, "sender.objects.get")
-        assert not has_violation, (
-            "capture_pre_save_state 仍包含 sender.objects.get() 调用"
-        )
+        assert not has_violation, "capture_pre_save_state 仍包含 sender.objects.get() 调用"
 
     # ----------------------------------------------------------
     # Issue 7: signals.py _invalidate_template_matching_cache 不应包含 cache.get()/cache.set()
@@ -249,9 +241,7 @@ class TestArchitectureViolationsAbsent:
     def test_placeholder_admin_no_direct_queryset_filter(self) -> None:
         """PlaceholderUsageFilter.queryset() 不应包含 queryset.filter(key__in=...)"""
         tree: ast.Module = _parse_file("apps/documents/admin/placeholder_admin.py")
-        method_node: ast.FunctionDef | None = _get_method_node(
-            tree, "PlaceholderUsageFilter", "queryset"
-        )
+        method_node: ast.FunctionDef | None = _get_method_node(tree, "PlaceholderUsageFilter", "queryset")
         assert method_node is not None, "未找到 PlaceholderUsageFilter.queryset 方法"
         has_violation: bool = _func_source_contains(
             "apps/documents/admin/placeholder_admin.py", method_node, "queryset.filter(key__in="
@@ -259,12 +249,8 @@ class TestArchitectureViolationsAbsent:
         has_exclude: bool = _func_source_contains(
             "apps/documents/admin/placeholder_admin.py", method_node, "queryset.exclude(key__in="
         )
-        assert not has_violation, (
-            "PlaceholderUsageFilter.queryset() 仍包含 queryset.filter(key__in=...) 调用"
-        )
-        assert not has_exclude, (
-            "PlaceholderUsageFilter.queryset() 仍包含 queryset.exclude(key__in=...) 调用"
-        )
+        assert not has_violation, "PlaceholderUsageFilter.queryset() 仍包含 queryset.filter(key__in=...) 调用"
+        assert not has_exclude, "PlaceholderUsageFilter.queryset() 仍包含 queryset.exclude(key__in=...) 调用"
 
     # ----------------------------------------------------------
     # Issue 9: document_template_admin.py current_file_display 不应包含 Path(obj.file_path).resolve()
@@ -273,18 +259,14 @@ class TestArchitectureViolationsAbsent:
     def test_document_template_admin_current_file_no_path_resolve(self) -> None:
         """current_file_display 不应包含 Path(obj.file_path).resolve()"""
         tree: ast.Module = _parse_file("apps/documents/admin/document_template_admin.py")
-        method_node: ast.FunctionDef | None = _get_method_node(
-            tree, "DocumentTemplateAdmin", "current_file_display"
-        )
+        method_node: ast.FunctionDef | None = _get_method_node(tree, "DocumentTemplateAdmin", "current_file_display")
         assert method_node is not None, "未找到 DocumentTemplateAdmin.current_file_display 方法"
         has_violation: bool = _func_source_contains(
             "apps/documents/admin/document_template_admin.py",
             method_node,
             "Path(obj.file_path).resolve()",
         )
-        assert not has_violation, (
-            "current_file_display 仍包含 Path(obj.file_path).resolve() 调用"
-        )
+        assert not has_violation, "current_file_display 仍包含 Path(obj.file_path).resolve() 调用"
 
     # ----------------------------------------------------------
     # Issue 10: document_template_admin.py file_location_display 不应包含 Path(obj.file_path).resolve()
@@ -293,15 +275,11 @@ class TestArchitectureViolationsAbsent:
     def test_document_template_admin_file_location_no_path_resolve(self) -> None:
         """file_location_display 不应包含 Path(obj.file_path).resolve()"""
         tree: ast.Module = _parse_file("apps/documents/admin/document_template_admin.py")
-        method_node: ast.FunctionDef | None = _get_method_node(
-            tree, "DocumentTemplateAdmin", "file_location_display"
-        )
+        method_node: ast.FunctionDef | None = _get_method_node(tree, "DocumentTemplateAdmin", "file_location_display")
         assert method_node is not None, "未找到 DocumentTemplateAdmin.file_location_display 方法"
         has_violation: bool = _func_source_contains(
             "apps/documents/admin/document_template_admin.py",
             method_node,
             "Path(obj.file_path).resolve()",
         )
-        assert not has_violation, (
-            "file_location_display 仍包含 Path(obj.file_path).resolve() 调用"
-        )
+        assert not has_violation, "file_location_display 仍包含 Path(obj.file_path).resolve() 调用"

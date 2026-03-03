@@ -1,10 +1,11 @@
 """Business logic services."""
 
 from __future__ import annotations
-from django.utils.translation import gettext_lazy as _
 
 import logging
 from typing import Any, ClassVar, TypeVar
+
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ConflictError, NotFoundError
 

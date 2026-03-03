@@ -11,7 +11,7 @@ from .cache import (
 )
 from .health import HealthChecker
 from .monitoring import PerformanceMonitor
-from .resource_monitor import resource_monitor, get_resource_usage, get_resource_status, ResourceUsage
+from .resource_monitor import ResourceUsage, get_resource_status, get_resource_usage, resource_monitor
 from .throttling import rate_limit, rate_limit_from_settings
 
 __all__ = [

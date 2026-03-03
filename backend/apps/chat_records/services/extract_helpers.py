@@ -78,20 +78,12 @@ class ExtractParams:
     ocr_min_new_chars: int = 8
 
     @classmethod
-    def from_recording(
-        cls, recording: Any, interval_seconds: float
-    ) -> ExtractParams:
+    def from_recording(cls, recording: Any, interval_seconds: float) -> ExtractParams:
         interval_seconds = safe_float(interval_seconds or 1.0, 1.0, lo=0.01)
-        strategy = (
-            str(getattr(recording, "extract_strategy", "") or "interval")
-            .strip()
-            .lower()
-        )
+        strategy = str(getattr(recording, "extract_strategy", "") or "interval").strip().lower()
         dedup_threshold = max(
             0,
-            safe_int(
-                getattr(recording, "extract_dedup_threshold", None), 8
-            ),
+            safe_int(getattr(recording, "extract_dedup_threshold", None), 8),
         )
         ocr_similarity_threshold = safe_float(
             getattr(recording, "extract_ocr_similarity_threshold", None),
@@ -101,9 +93,7 @@ class ExtractParams:
         )
         ocr_min_new_chars = max(
             0,
-            safe_int(
-                getattr(recording, "extract_ocr_min_new_chars", None), 8
-            ),
+            safe_int(getattr(recording, "extract_ocr_min_new_chars", None), 8),
         )
         return cls(
             interval_seconds=interval_seconds,

@@ -71,9 +71,7 @@ class TestNormalizeRepresentationStagesPreservation:
         stages=valid_stages_st,
     )
     @settings(max_examples=50, suppress_health_check=[HealthCheck.too_slow])
-    def test_valid_stages_returned_unchanged(
-        self, case_type: str, stages: list[str]
-    ) -> None:
+    def test_valid_stages_returned_unchanged(self, case_type: str, stages: list[str]) -> None:
         """
         对适用类型 + 合法阶段值，normalize_representation_stages 应原样返回。
 
@@ -89,9 +87,7 @@ class TestNormalizeRepresentationStagesPreservation:
         stages=valid_stages_st,
     )
     @settings(max_examples=20)
-    def test_non_applicable_type_returns_empty(
-        self, case_type: str, stages: list[str]
-    ) -> None:
+    def test_non_applicable_type_returns_empty(self, case_type: str, stages: list[str]) -> None:
         """
         对不适用类型，normalize_representation_stages 应返回空列表。
 
@@ -120,9 +116,7 @@ class TestNormalizeRepresentationStagesPreservation:
         stages=valid_stages_st,
     )
     @settings(max_examples=30)
-    def test_strict_mode_valid_input_same_result(
-        self, case_type: str, stages: list[str]
-    ) -> None:
+    def test_strict_mode_valid_input_same_result(self, case_type: str, stages: list[str]) -> None:
         """
         strict=True 时，合法输入的返回值与 strict=False 一致。
 
@@ -159,9 +153,7 @@ positive_rate_st: st.SearchStrategy[str] = st.decimals(
 ).map(str)
 
 # 非空文本策略
-non_empty_text_st: st.SearchStrategy[str] = st.text(
-    min_size=1, max_size=200
-).filter(lambda s: s.strip() != "")
+non_empty_text_st: st.SearchStrategy[str] = st.text(min_size=1, max_size=200).filter(lambda s: s.strip() != "")
 
 
 class TestValidateFeeModePreservation:
@@ -192,9 +184,7 @@ class TestValidateFeeModePreservation:
         risk_rate=positive_rate_st,
     )
     @settings(max_examples=30)
-    def test_semi_risk_valid_no_error(
-        self, fixed_amount: str, risk_rate: str
-    ) -> None:
+    def test_semi_risk_valid_no_error(self, fixed_amount: str, risk_rate: str) -> None:
         """
         SEMI_RISK 模式 + 正金额 + 正比例 → 不抛异常。
 
@@ -336,9 +326,8 @@ class TestLawyerQueryPreservation:
         return contract, lawyers
 
     def _get_query_service(self) -> Any:
-        from apps.contracts.services.assignment.contract_assignment_query_service import (
-            ContractAssignmentQueryService,
-        )
+        from apps.contracts.services.assignment.contract_assignment_query_service import ContractAssignmentQueryService
+
         return ContractAssignmentQueryService()
 
     def test_primary_lawyer_returns_correct_lawyer(self) -> None:
@@ -347,9 +336,7 @@ class TestLawyerQueryPreservation:
 
         **Validates: Requirements 3.1, 3.2**
         """
-        contract, lawyers = self._create_contract_with_assignments(
-            num_lawyers=3, primary_index=1
-        )
+        contract, lawyers = self._create_contract_with_assignments(num_lawyers=3, primary_index=1)
         svc = self._get_query_service()
         primary = svc.get_primary_lawyer(contract.id)
         assert primary is not None
@@ -428,9 +415,7 @@ payment_amount_st: st.SearchStrategy[Decimal] = st.decimals(
 )
 
 
-def _compute_invoice_status(
-    amount: Decimal, invoiced_amount: Decimal
-) -> str | None:
+def _compute_invoice_status(amount: Decimal, invoiced_amount: Decimal) -> str | None:
     """
     复现 clean_fs 中的发票状态计算逻辑（基线快照）。
 
@@ -454,9 +439,7 @@ class TestPaymentValidationPreservation:
         invoiced_amount=payment_amount_st,
     )
     @settings(max_examples=50)
-    def test_invoice_status_calculation_consistent(
-        self, amount: Decimal, invoiced_amount: Decimal
-    ) -> None:
+    def test_invoice_status_calculation_consistent(self, amount: Decimal, invoiced_amount: Decimal) -> None:
         """
         发票状态计算逻辑应与基线快照一致。
 

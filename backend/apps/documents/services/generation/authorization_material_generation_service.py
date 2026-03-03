@@ -1,12 +1,13 @@
 """Business logic services."""
 
-from django.utils.translation import gettext_lazy as _
-from django.utils import timezone
 import io
 import logging
 import zipfile
 from pathlib import Path as StdPath
 from typing import Any, ClassVar, cast
+
+from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.path import Path
@@ -66,7 +67,7 @@ class AuthorizationMaterialGenerationService:
             # 后备:使用硬编码路径
             template_path = self.AUTHORITY_LETTER_TEMPLATE
 
-        content = self._render_template(template_path, context) # type: ignore[no-any-return]
+        content = self._render_template(template_path, context)  # type: ignore[no-any-return]
         filename = self._build_authority_letter_filename(case_name=getattr(case, "name", "") or "")
         return content, filename
 
@@ -81,7 +82,7 @@ class AuthorizationMaterialGenerationService:
             # 后备:使用硬编码路径
             template_path = self.LEGAL_REP_CERT_TEMPLATE
 
-        content = self._render_template(template_path, context) # type: ignore[no-any-return]
+        content = self._render_template(template_path, context)  # type: ignore[no-any-return]
         filename = self._build_legal_rep_certificate_filename(company_name=getattr(client, "name", "") or "")
         return content, filename
 
@@ -151,6 +152,7 @@ class AuthorizationMaterialGenerationService:
         with zipfile.ZipFile(buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
             self._zip_add_generated_docs(zf, case=case, our_parties=our_parties)
             from django.conf import settings as django_settings
+
             media_root = str(django_settings.MEDIA_ROOT)
             self._zip_add_client_identity_docs(
                 zf, our_parties=our_parties, media_root=str(media_root), missing_lines=missing_lines
@@ -210,7 +212,11 @@ class AuthorizationMaterialGenerationService:
                     content, filename = self.generate_legal_rep_certificate_document(int(case_id), int(client_id))
                     zf.writestr(self._safe_arcname(f"法定代表人身份证明书/{filename}"), content)
                 except ValidationException as e:
-                    logger.warning("跳过法定代表人身份证明书生成: %s", e.message, extra={"case_id": case_id, "client_id": client_id})
+                    logger.warning(
+                        "跳过法定代表人身份证明书生成: %s",
+                        e.message,
+                        extra={"case_id": case_id, "client_id": client_id},
+                    )
 
     # 证件类型标签映射
     _DOC_TYPE_LABELS: ClassVar[dict[str, str]] = {
@@ -259,7 +265,7 @@ class AuthorizationMaterialGenerationService:
                 missing_lines=missing_lines,
             )
 
-        self._check_missing_required_docs( # type: ignore[no-any-return]
+        self._check_missing_required_docs(  # type: ignore[no-any-return]
             identity_docs,
             client=client,
             client_name=client_name,
@@ -289,8 +295,7 @@ class AuthorizationMaterialGenerationService:
         zf.write(abs_path, arcname=arc_name)
 
     def _check_missing_required_docs(
-        self,
-        identity_docs: list[Any], *, client: Any, client_name: str, missing_lines: list[str]
+        self, identity_docs: list[Any], *, client: Any, client_name: str, missing_lines: list[str]
     ) -> None:
         doc_types = {doc.doc_type for doc in identity_docs}
         if getattr(client, "client_type", "") == "natural":
@@ -371,7 +376,7 @@ class AuthorizationMaterialGenerationService:
         context_data: dict[str, Any] = {"case": case}
         if client is not None:
             context_data["client"] = client
-        return EnhancedContextBuilder().build_context(context_data) # type: ignore[no-any-return]
+        return EnhancedContextBuilder().build_context(context_data)  # type: ignore[no-any-return]
 
     def _build_power_of_attorney_context(self, *, case: Any, selected_clients: list[Any]) -> dict[str, Any]:
         context_data: dict[str, Any] = {
@@ -384,7 +389,7 @@ class AuthorizationMaterialGenerationService:
             "指定日期",
             "年份",
         ]
-        return EnhancedContextBuilder().build_context(context_data, required_placeholders=required_placeholders) # type: ignore[no-any-return]
+        return EnhancedContextBuilder().build_context(context_data, required_placeholders=required_placeholders)  # type: ignore[no-any-return]
 
     def _validate_power_of_attorney_context(self, context: dict[str, Any]) -> None:
         pass  # 代理事项为空时允许生成，占位符留空
@@ -398,7 +403,8 @@ class AuthorizationMaterialGenerationService:
         )
         if not template:
             raise ValidationException(
-                message=_("未找到%(n)s模板(请在后台上传/启用名称为'%(n)s'的模板)") % {"n": TEMPLATE_NAME_POWER_OF_ATTORNEY},
+                message=_("未找到%(n)s模板(请在后台上传/启用名称为'%(n)s'的模板)")
+                % {"n": TEMPLATE_NAME_POWER_OF_ATTORNEY},
                 code="TEMPLATE_NOT_FOUND",
                 errors={"template_name": TEMPLATE_NAME_POWER_OF_ATTORNEY},
             )
@@ -436,7 +442,9 @@ class AuthorizationMaterialGenerationService:
         case_stage = case_dto.current_stage
 
         # 查询匹配的通用模板
-        templates = DocumentTemplate.objects.filter(name=template_name, is_active=True, template_type=DocumentTemplateType.CASE)
+        templates = DocumentTemplate.objects.filter(
+            name=template_name, is_active=True, template_type=DocumentTemplateType.CASE
+        )
 
         for template in templates:
             case_types = template.case_types or []
@@ -477,7 +485,7 @@ class AuthorizationMaterialGenerationService:
             raise ValidationException(
                 message=_("模板文件路径为空"),
                 code="TEMPLATE_FILE_EMPTY",
-                errors={"template_id": str(cast(int, template.pk))}, # type: ignore[no-any-return]
+                errors={"template_id": str(cast(int, template.pk))},  # type: ignore[no-any-return]
             )
         return Path(location)
 

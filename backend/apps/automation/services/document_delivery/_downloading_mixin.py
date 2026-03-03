@@ -1,12 +1,12 @@
 """文书送达下载 Mixin — 文件下载、解压、历史记录"""
 
 import logging
-from datetime import datetime
-from pathlib import Path
 import queue
 import tempfile
 import threading
 import zipfile
+from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from playwright.sync_api import Page
@@ -34,9 +34,7 @@ class DocumentDeliveryDownloadingMixin:
     ) -> dict[str, Any]:
         raise NotImplementedError
 
-    def _should_process(
-        self, record: DocumentDeliveryRecord, cutoff_time: Any, credential_id: int
-    ) -> bool:
+    def _should_process(self, record: DocumentDeliveryRecord, cutoff_time: Any, credential_id: int) -> bool:
         raise NotImplementedError
 
     def _download_document(self, page: Page, entry: DocumentDeliveryRecord) -> str | None:
@@ -46,9 +44,7 @@ class DocumentDeliveryDownloadingMixin:
             download_buttons = page.locator(self.DOWNLOAD_BUTTON_SELECTOR).all()
             logger.info(f"找到 {len(download_buttons)} 个下载按钮")
             if entry.element_index >= len(download_buttons):
-                logger.error(
-                    f"下载按钮索引超出范围: {entry.element_index} >= {len(download_buttons)}"
-                )
+                logger.error(f"下载按钮索引超出范围: {entry.element_index} >= {len(download_buttons)}")
                 return None
             download_button = download_buttons[entry.element_index]
             if not download_button.is_visible():
@@ -59,9 +55,7 @@ class DocumentDeliveryDownloadingMixin:
                 download_button.click()
             download = download_info.value
             temp_dir = tempfile.mkdtemp(prefix="court_document_")
-            file_path = str(
-                Path(temp_dir) / (download.suggested_filename or f"{entry.case_number}.pdf")
-            )
+            file_path = str(Path(temp_dir) / (download.suggested_filename or f"{entry.case_number}.pdf"))
             download.save_as(file_path)
             logger.info(f"文书下载成功: {file_path}")
             return file_path
@@ -131,9 +125,7 @@ class DocumentDeliveryDownloadingMixin:
             logger.error(f"ZIP 解压失败: {e!s}")
             return None
 
-    def _check_not_processed_in_thread(
-        self, credential_id: int, record: DocumentDeliveryRecord
-    ) -> bool:
+    def _check_not_processed_in_thread(self, credential_id: int, record: DocumentDeliveryRecord) -> bool:
         """在独立线程中检查文书是否已成功处理完成"""
         result_queue: queue.Queue[bool] = queue.Queue()
         send_time: datetime | None = record.send_time
@@ -141,6 +133,7 @@ class DocumentDeliveryDownloadingMixin:
         def do_check() -> None:
             try:
                 from django.db import connection
+
                 from apps.automation.models import CourtSMS, CourtSMSStatus
 
                 connection.ensure_connection()
@@ -149,9 +142,7 @@ class DocumentDeliveryDownloadingMixin:
                     status=CourtSMSStatus.COMPLETED,
                 ).first()
                 if completed_sms:
-                    logger.info(
-                        f"🔄 文书已成功处理完成: {record.case_number}, SMS ID={completed_sms.id}"
-                    )
+                    logger.info(f"🔄 文书已成功处理完成: {record.case_number}, SMS ID={completed_sms.id}")
                     result_queue.put(False)
                     return
                 if send_time is not None:
@@ -177,9 +168,7 @@ class DocumentDeliveryDownloadingMixin:
         logger.warning("检查文书处理历史超时，默认处理")
         return True
 
-    def _record_query_history_in_thread(
-        self, credential_id: int, entry: DocumentDeliveryRecord
-    ) -> None:
+    def _record_query_history_in_thread(self, credential_id: int, entry: DocumentDeliveryRecord) -> None:
         """在独立线程中记录查询历史"""
         send_time: datetime | None = entry.send_time
 

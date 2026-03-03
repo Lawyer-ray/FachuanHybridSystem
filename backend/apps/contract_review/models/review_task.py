@@ -40,12 +40,8 @@ class ReviewTask(models.Model):
         verbose_name=_("用户"),
     )
     original_file = models.CharField(max_length=512, verbose_name=_("原始文件路径"))
-    output_file = models.CharField(
-        max_length=512, blank=True, verbose_name=_("输出文件路径")
-    )
-    contract_title = models.CharField(
-        max_length=256, blank=True, verbose_name=_("合同标题")
-    )
+    output_file = models.CharField(max_length=512, blank=True, verbose_name=_("输出文件路径"))
+    contract_title = models.CharField(max_length=256, blank=True, verbose_name=_("合同标题"))
     party_a = models.CharField(max_length=256, blank=True, verbose_name=_("甲方"))
     party_b = models.CharField(max_length=256, blank=True, verbose_name=_("乙方"))
     party_c = models.CharField(max_length=256, blank=True, verbose_name=_("丙方"))
@@ -70,12 +66,8 @@ class ReviewTask(models.Model):
     )
     error_message = models.TextField(blank=True, verbose_name=_("错误信息"))
     review_report = models.TextField(blank=True, verbose_name=_("评估报告"))
-    model_name = models.CharField(
-        max_length=128, blank=True, verbose_name=_("LLM 模型名称")
-    )
-    reviewer_name = models.CharField(
-        max_length=128, blank=True, default="法穿AI", verbose_name=_("修订人名称")
-    )
+    model_name = models.CharField(max_length=128, blank=True, verbose_name=_("LLM 模型名称"))
+    reviewer_name = models.CharField(max_length=128, blank=True, default="法穿AI", verbose_name=_("修订人名称"))
     selected_steps = models.JSONField(
         default=list,
         blank=True,

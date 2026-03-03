@@ -107,7 +107,11 @@ def execute_scraper_task(task_id: int, **kwargs: Any) -> None:
 
             logger.info(
                 "任务 %s 将在 %s 秒后重试（第 %s/%s 次，指数退避），计划执行时间: %s",
-                task_id, delay_seconds, task.retry_count, task.max_retries, next_run_time,
+                task_id,
+                delay_seconds,
+                task.retry_count,
+                task.max_retries,
+                next_run_time,
             )
 
 
@@ -288,11 +292,15 @@ def _send_recognition_notification(task: Any, result: Any) -> None:
         if not notification_result.success:
             task.notification_error = notification_result.message
             logger.warning(
-                "文书识别通知发送失败: task_id=%s, error=%s", task.id, notification_result.message,
+                "文书识别通知发送失败: task_id=%s, error=%s",
+                task.id,
+                notification_result.message,
             )
         else:
             logger.info(
-                "📨 文书识别通知发送成功: task_id=%s, file_sent=%s", task.id, notification_result.file_sent,
+                "📨 文书识别通知发送成功: task_id=%s, file_sent=%s",
+                task.id,
+                notification_result.file_sent,
             )
 
         task.save(

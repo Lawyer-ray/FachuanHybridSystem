@@ -14,9 +14,7 @@ from typing import TYPE_CHECKING
 from django.utils.translation import gettext_lazy as _
 
 if TYPE_CHECKING:
-    from apps.cases.services.data.litigation_fee_calculator_service import (
-        LitigationFeeCalculatorService,
-    )
+    from apps.cases.services.data.litigation_fee_calculator_service import LitigationFeeCalculatorService
 
 logger = logging.getLogger(__name__)
 
@@ -44,18 +42,10 @@ class CostBenefitParams:
     notary_fee: Decimal = _ZERO
     case_type: str | None = None
     cause_of_action: str | None = None
-    recovery_rate: Decimal = field(
-        default_factory=lambda: DEFAULT_RATES["principal_recovery_rate"]
-    )
-    support_rate: Decimal = field(
-        default_factory=lambda: DEFAULT_RATES["interest_support_rate"]
-    )
-    fee_transfer_rate: Decimal = field(
-        default_factory=lambda: DEFAULT_RATES["litigation_fee_transfer_rate"]
-    )
-    lawyer_transfer_rate: Decimal = field(
-        default_factory=lambda: DEFAULT_RATES["lawyer_fee_transfer_rate"]
-    )
+    recovery_rate: Decimal = field(default_factory=lambda: DEFAULT_RATES["principal_recovery_rate"])
+    support_rate: Decimal = field(default_factory=lambda: DEFAULT_RATES["interest_support_rate"])
+    fee_transfer_rate: Decimal = field(default_factory=lambda: DEFAULT_RATES["litigation_fee_transfer_rate"])
+    lawyer_transfer_rate: Decimal = field(default_factory=lambda: DEFAULT_RATES["lawyer_fee_transfer_rate"])
 
 
 @dataclass
@@ -74,17 +64,13 @@ class CostBenefitResult:
 class CostBenefitService:
     """成本收益分析服务"""
 
-    def __init__(
-        self, fee_calculator: LitigationFeeCalculatorService | None = None
-    ) -> None:
+    def __init__(self, fee_calculator: LitigationFeeCalculatorService | None = None) -> None:
         self._fee_calculator = fee_calculator
 
     def _get_fee_calculator(self) -> LitigationFeeCalculatorService:
         """延迟获取 LitigationFeeCalculatorService 实例"""
         if self._fee_calculator is None:
-            from apps.cases.services.data.litigation_fee_calculator_service import (
-                LitigationFeeCalculatorService,
-            )
+            from apps.cases.services.data.litigation_fee_calculator_service import LitigationFeeCalculatorService
 
             self._fee_calculator = LitigationFeeCalculatorService()
         return self._fee_calculator
@@ -108,61 +94,40 @@ class CostBenefitService:
 
         preservation_fee = _ZERO
         if params.preservation_amount > _ZERO:
-            preservation_fee = calculator.calculate_preservation_fee(
-                params.preservation_amount
-            )
+            preservation_fee = calculator.calculate_preservation_fee(params.preservation_amount)
 
-        guarantee_fee = (
-            params.preservation_amount * params.guarantee_rate
-        ).quantize(_TWO_PLACES, rounding=ROUND_HALF_UP)
+        guarantee_fee = (params.preservation_amount * params.guarantee_rate).quantize(
+            _TWO_PLACES, rounding=ROUND_HALF_UP
+        )
 
         total_cost = (
-            params.lawyer_fee
-            + litigation_fee
-            + preservation_fee
-            + guarantee_fee
-            + params.notary_fee
+            params.lawyer_fee + litigation_fee + preservation_fee + guarantee_fee + params.notary_fee
         ).quantize(_TWO_PLACES, rounding=ROUND_HALF_UP)
 
         cost_details: dict[str, Decimal] = {
-            "lawyer_fee": params.lawyer_fee.quantize(
-                _TWO_PLACES, rounding=ROUND_HALF_UP
-            ),
-            "litigation_fee": litigation_fee.quantize(
-                _TWO_PLACES, rounding=ROUND_HALF_UP
-            ),
-            "preservation_fee": preservation_fee.quantize(
-                _TWO_PLACES, rounding=ROUND_HALF_UP
-            ),
+            "lawyer_fee": params.lawyer_fee.quantize(_TWO_PLACES, rounding=ROUND_HALF_UP),
+            "litigation_fee": litigation_fee.quantize(_TWO_PLACES, rounding=ROUND_HALF_UP),
+            "preservation_fee": preservation_fee.quantize(_TWO_PLACES, rounding=ROUND_HALF_UP),
             "guarantee_fee": guarantee_fee,
-            "notary_fee": params.notary_fee.quantize(
-                _TWO_PLACES, rounding=ROUND_HALF_UP
-            ),
+            "notary_fee": params.notary_fee.quantize(_TWO_PLACES, rounding=ROUND_HALF_UP),
         }
 
         # --- 收益计算 ---
-        revenue_principal = (
-            params.principal * params.recovery_rate
-        ).quantize(_TWO_PLACES, rounding=ROUND_HALF_UP)
+        revenue_principal = (params.principal * params.recovery_rate).quantize(_TWO_PLACES, rounding=ROUND_HALF_UP)
 
-        revenue_interest = (
-            params.interest_amount * params.support_rate
-        ).quantize(_TWO_PLACES, rounding=ROUND_HALF_UP)
+        revenue_interest = (params.interest_amount * params.support_rate).quantize(_TWO_PLACES, rounding=ROUND_HALF_UP)
 
-        revenue_litigation_fee = (
-            litigation_fee * params.fee_transfer_rate
-        ).quantize(_TWO_PLACES, rounding=ROUND_HALF_UP)
+        revenue_litigation_fee = (litigation_fee * params.fee_transfer_rate).quantize(
+            _TWO_PLACES, rounding=ROUND_HALF_UP
+        )
 
-        revenue_lawyer_fee = (
-            params.lawyer_fee * params.lawyer_transfer_rate
-        ).quantize(_TWO_PLACES, rounding=ROUND_HALF_UP)
+        revenue_lawyer_fee = (params.lawyer_fee * params.lawyer_transfer_rate).quantize(
+            _TWO_PLACES, rounding=ROUND_HALF_UP
+        )
 
-        total_revenue = (
-            revenue_principal
-            + revenue_interest
-            + revenue_litigation_fee
-            + revenue_lawyer_fee
-        ).quantize(_TWO_PLACES, rounding=ROUND_HALF_UP)
+        total_revenue = (revenue_principal + revenue_interest + revenue_litigation_fee + revenue_lawyer_fee).quantize(
+            _TWO_PLACES, rounding=ROUND_HALF_UP
+        )
 
         revenue_details: dict[str, Decimal] = {
             "principal": revenue_principal,
@@ -172,22 +137,16 @@ class CostBenefitService:
         }
 
         # --- 净收益 & 投入产出比 ---
-        net_profit = (total_revenue - total_cost).quantize(
-            _TWO_PLACES, rounding=ROUND_HALF_UP
-        )
+        net_profit = (total_revenue - total_cost).quantize(_TWO_PLACES, rounding=ROUND_HALF_UP)
 
         roi = _ZERO
         if total_cost > _ZERO:
-            roi = (total_revenue / total_cost).quantize(
-                _TWO_PLACES, rounding=ROUND_HALF_UP
-            )
+            roi = (total_revenue / total_cost).quantize(_TWO_PLACES, rounding=ROUND_HALF_UP)
 
         # --- 风险提示 ---
         risk_warning: str | None = None
         if net_profit < _ZERO:
-            risk_warning = str(
-                _("净收益为负，诉讼经济效益较低，建议谨慎评估")
-            )
+            risk_warning = str(_("净收益为负，诉讼经济效益较低，建议谨慎评估"))
 
         logger.info(
             "成本收益分析: cost=%s revenue=%s net=%s roi=%s",

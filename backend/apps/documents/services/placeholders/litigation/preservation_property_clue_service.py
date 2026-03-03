@@ -10,8 +10,8 @@ import logging
 from collections import defaultdict
 from typing import Any, ClassVar
 
-from apps.documents.services.placeholders import BasePlaceholderService, PlaceholderRegistry
 from apps.core.enums import LegalStatus
+from apps.documents.services.placeholders import BasePlaceholderService, PlaceholderRegistry
 
 logger = logging.getLogger(__name__)
 

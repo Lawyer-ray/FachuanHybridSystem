@@ -58,11 +58,7 @@ class CollectionWorkflowService:
         5. 创建初始 CollectionLog
         """
         from apps.cases.models import Case
-        from apps.sales_dispute.models.collection_record import (
-            CollectionLog,
-            CollectionRecord,
-            CollectionStage,
-        )
+        from apps.sales_dispute.models.collection_record import CollectionLog, CollectionRecord, CollectionStage
 
         if not Case.objects.filter(id=case_id).exists():
             raise ValidationException(
@@ -77,9 +73,7 @@ class CollectionWorkflowService:
             )
 
         actual_start = start_date or date.today()
-        next_due = actual_start + timedelta(
-            days=DEFAULT_TIMELINE["written_collection"]
-        )
+        next_due = actual_start + timedelta(days=DEFAULT_TIMELINE["written_collection"])
 
         record = CollectionRecord.objects.create(
             case_id=case_id,
@@ -116,16 +110,14 @@ class CollectionWorkflowService:
         5. 创建 CollectionLog
         """
         from apps.sales_dispute.models.collection_record import (
+            STAGE_ORDER,
             CollectionLog,
             CollectionRecord,
             CollectionStage,
-            STAGE_ORDER,
         )
 
         try:
-            record = CollectionRecord.objects.select_for_update().get(
-                id=record_id
-            )
+            record = CollectionRecord.objects.select_for_update().get(id=record_id)
         except CollectionRecord.DoesNotExist:
             raise ValidationException(
                 message=_("催收记录不存在"),
@@ -146,26 +138,24 @@ class CollectionWorkflowService:
         next_next_idx = current_idx + 2
         if next_next_idx < len(STAGE_ORDER):
             next_next_stage = STAGE_ORDER[next_next_idx]
-            next_due = record.start_date + timedelta(
-                days=DEFAULT_TIMELINE[next_next_stage]
-            )
+            next_due = record.start_date + timedelta(days=DEFAULT_TIMELINE[next_next_stage])
         else:
             next_due = None
 
         record.current_stage = next_stage_value
         record.last_action_date = today
         record.next_due_date = next_due
-        record.save(update_fields=[
-            "current_stage",
-            "last_action_date",
-            "next_due_date",
-            "updated_at",
-        ])
+        record.save(
+            update_fields=[
+                "current_stage",
+                "last_action_date",
+                "next_due_date",
+                "updated_at",
+            ]
+        )
 
         stage_display = CollectionStage(next_stage_value).label
-        log_desc = description or str(
-            _("推进至%(stage)s阶段") % {"stage": stage_display}
-        )
+        log_desc = description or str(_("推进至%(stage)s阶段") % {"stage": stage_display})
 
         CollectionLog.objects.create(
             record=record,
@@ -174,16 +164,12 @@ class CollectionWorkflowService:
             description=log_desc,
         )
 
-        logger.info(
-            "催收记录 %s 推进至 %s", record_id, next_stage_value
-        )
+        logger.info("催收记录 %s 推进至 %s", record_id, next_stage_value)
         return self._to_output(record)
 
     def get_collection(self, case_id: int) -> CollectionRecordOutput:
         """获取案件的催收记录"""
-        from apps.sales_dispute.models.collection_record import (
-            CollectionRecord,
-        )
+        from apps.sales_dispute.models.collection_record import CollectionRecord
 
         try:
             record = CollectionRecord.objects.get(case_id=case_id)
@@ -195,13 +181,9 @@ class CollectionWorkflowService:
 
         return self._to_output(record)
 
-    def _to_output(
-        self, record: object
-    ) -> CollectionRecordOutput:
+    def _to_output(self, record: object) -> CollectionRecordOutput:
         """将 CollectionRecord ORM 对象转为输出 dataclass"""
-        from apps.sales_dispute.models.collection_record import (
-            CollectionRecord,
-        )
+        from apps.sales_dispute.models.collection_record import CollectionRecord
 
         assert isinstance(record, CollectionRecord)
         return CollectionRecordOutput(
@@ -218,10 +200,7 @@ class CollectionWorkflowService:
 
     def get_logs(self, record_id: int) -> list[dict[str, object]]:
         """获取催收记录的操作日志列表"""
-        from apps.sales_dispute.models.collection_record import (
-            CollectionLog,
-            CollectionRecord,
-        )
+        from apps.sales_dispute.models.collection_record import CollectionLog, CollectionRecord
 
         if not CollectionRecord.objects.filter(id=record_id).exists():
             raise ValidationException(
@@ -229,9 +208,7 @@ class CollectionWorkflowService:
                 code="COLLECTION_NOT_FOUND",
             )
 
-        logs = CollectionLog.objects.filter(record_id=record_id).order_by(
-            "-action_date", "-created_at"
-        )
+        logs = CollectionLog.objects.filter(record_id=record_id).order_by("-action_date", "-created_at")
         return [
             {
                 "action_type": log.action_type,
@@ -242,4 +219,3 @@ class CollectionWorkflowService:
             }
             for log in logs
         ]
-

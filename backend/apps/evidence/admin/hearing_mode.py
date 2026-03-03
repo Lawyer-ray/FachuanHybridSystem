@@ -12,13 +12,7 @@ from django.template.response import TemplateResponse
 from django.urls import path
 from django.utils.translation import gettext_lazy as _
 
-from apps.evidence.models import (
-    EvidenceDirection,
-    EvidenceItem,
-    EvidenceList,
-    EvidenceType,
-    HearingNote,
-)
+from apps.evidence.models import EvidenceDirection, EvidenceItem, EvidenceList, EvidenceType, HearingNote
 
 logger = logging.getLogger("apps.evidence")
 
@@ -53,23 +47,25 @@ class HearingModeAdminMixin:
             start_order = el.start_order
             for item in el.items.order_by("order"):
                 global_order = start_order + item.order - 1
-                items.append({
-                    "global_order": global_order,
-                    "name": item.name,
-                    "purpose": item.purpose,
-                    "direction": item.direction,
-                    "evidence_type": item.evidence_type,
-                    "evidence_type_display": item.get_evidence_type_display() if item.evidence_type else "",
-                    "original_status": item.original_status,
-                    "original_location": item.original_location,
-                    "page_range": item.page_range_display,
-                    "page_count": item.page_count,
-                    "ocr_text": item.ocr_text or "",
-                    "three_properties": item.three_properties,
-                    "three_properties_display": _format_properties(item.three_properties),
-                    "cross_examination": item.cross_examination,
-                    "cross_examination_display": _format_properties(item.cross_examination),
-                })
+                items.append(
+                    {
+                        "global_order": global_order,
+                        "name": item.name,
+                        "purpose": item.purpose,
+                        "direction": item.direction,
+                        "evidence_type": item.evidence_type,
+                        "evidence_type_display": item.get_evidence_type_display() if item.evidence_type else "",
+                        "original_status": item.original_status,
+                        "original_location": item.original_location,
+                        "page_range": item.page_range_display,
+                        "page_count": item.page_count,
+                        "ocr_text": item.ocr_text or "",
+                        "three_properties": item.three_properties,
+                        "three_properties_display": _format_properties(item.three_properties),
+                        "cross_examination": item.cross_examination,
+                        "cross_examination_display": _format_properties(item.cross_examination),
+                    }
+                )
 
         context = {
             "case_id": case_id,

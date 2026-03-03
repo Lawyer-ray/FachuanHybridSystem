@@ -13,6 +13,7 @@ from typing import Any
 import yaml
 
 from apps.core.config.exceptions import ConfigException, ConfigFileError
+
 from .base import ConfigProvider
 
 
@@ -154,4 +155,3 @@ class YamlProvider(ConfigProvider):
                 items.append((new_key, value))
 
         return dict(items)
-

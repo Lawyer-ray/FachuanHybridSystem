@@ -8,11 +8,7 @@ from uuid import UUID
 from django.http import FileResponse, HttpRequest
 from ninja import File, Form, Router, UploadedFile
 
-from apps.contract_review.schemas.review_schemas import (
-    ConfirmPartyIn,
-    TaskCreatedOut,
-    TaskStatusOut,
-)
+from apps.contract_review.schemas.review_schemas import ConfirmPartyIn, TaskCreatedOut, TaskStatusOut
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -58,7 +54,9 @@ def confirm_party(
     payload: ConfirmPartyIn,
 ) -> dict[str, Any]:
     svc = _get_review_service()
-    task = svc.confirm_party(task_id, payload.represented_party, request.user, payload.reviewer_name, payload.selected_steps)
+    task = svc.confirm_party(
+        task_id, payload.represented_party, request.user, payload.reviewer_name, payload.selected_steps
+    )
     return {
         "task_id": task.id,
         "status": task.status,
@@ -87,7 +85,7 @@ def download_result(request: HttpRequest, task_id: UUID) -> FileResponse:
     svc = _get_review_service()
     path = svc.get_result_file(task_id)
     return FileResponse(
-        open(path, "rb"),  # noqa: SIM115
+        open(path, "rb"),
         as_attachment=True,
         filename=path.name,
     )
@@ -98,7 +96,7 @@ def download_original(request: HttpRequest, task_id: UUID) -> FileResponse:
     svc = _get_review_service()
     path = svc.get_original_file(task_id)
     return FileResponse(
-        open(path, "rb"),  # noqa: SIM115
+        open(path, "rb"),
         as_attachment=True,
         filename=path.name,
     )

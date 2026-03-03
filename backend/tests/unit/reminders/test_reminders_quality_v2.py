@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import ast
-from datetime import datetime, timezone, UTC
+from datetime import UTC, datetime, timezone
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -207,9 +207,9 @@ class TestImportAndI18nCompliance:
                 if is_type_checking:
                     for child in ast.walk(node):
                         if isinstance(child, ast.ImportFrom) and child.module:
-                            assert not child.module.startswith("apps.reminders"), (
-                                f"TYPE_CHECKING 块内应使用相对导入，发现: from {child.module}"
-                            )
+                            assert not child.module.startswith(
+                                "apps.reminders"
+                            ), f"TYPE_CHECKING 块内应使用相对导入，发现: from {child.module}"
 
     # --- 需求 2.1: API 层 Schema 导入使用相对导入 ---
 

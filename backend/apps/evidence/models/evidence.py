@@ -271,7 +271,6 @@ class EvidenceList(models.Model):
         return f"{self.start_order}-{end_order}"
 
 
-
 class EvidenceItem(models.Model):
     """
     证据明细

@@ -53,9 +53,7 @@ class JurisdictionAnalyzerService:
         """
         if params.has_agreed_jurisdiction and params.is_agreed_valid:
             recommended_court = params.agreed_court
-            recommendation_reason = (
-                "合同中有明确的管辖约定且约定有效，应按约定确定管辖法院"
-            )
+            recommendation_reason = "合同中有明确的管辖约定且约定有效，应按约定确定管辖法院"
             legal_basis = (
                 "《中华人民共和国民事诉讼法》第三十五条：合同或者其他财产权益纠纷的当事人"
                 "可以书面协议选择被告住所地、合同履行地、合同签订地、原告住所地、"
@@ -77,8 +75,7 @@ class JurisdictionAnalyzerService:
             # 约定管辖无效
             recommended_court = f"{params.plaintiff_location}人民法院"
             recommendation_reason = (
-                f"合同约定管辖无效（{params.invalid_reason}），"
-                "按法定管辖，以原告所在地（合同履行地）法院管辖"
+                f"合同约定管辖无效（{params.invalid_reason}），按法定管辖，以原告所在地（合同履行地）法院管辖"
             )
             legal_basis = (
                 "《中华人民共和国民事诉讼法》第三十五条、"

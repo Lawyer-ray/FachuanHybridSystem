@@ -18,9 +18,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 class MatchingService:
     """模板匹配与推荐"""
 
-    def match_by_case(
-        self, case_id: int, law_firm_id: int
-    ) -> list[Any]:
+    def match_by_case(self, case_id: int, law_firm_id: int) -> list[Any]:
         """根据案件审理机构名称查询可用模板。"""
         from apps.cases.models import Case
 
@@ -37,9 +35,7 @@ class MatchingService:
         logger.info("案件无关联机构: case_id=%d", case_id)
         return []
 
-    def match_by_source_name(
-        self, source_name: str, law_firm_id: int
-    ) -> list[Any]:
+    def match_by_source_name(self, source_name: str, law_firm_id: int) -> list[Any]:
         """
         按来源机构名称查询模板。
         精确匹配优先，无结果时尝试上级法院回退。
@@ -55,9 +51,7 @@ class MatchingService:
         if not templates.exists():
             from apps.core.models.court import Court
 
-            court: Court | None = Court.objects.filter(
-                name=source_name, is_active=True
-            ).first()
+            court: Court | None = Court.objects.filter(name=source_name, is_active=True).first()
             if court and court.parent_id:
                 parent: Court | None = Court.objects.filter(pk=court.parent_id).first()
                 if parent:
@@ -69,9 +63,7 @@ class MatchingService:
 
         return list(templates)
 
-    def get_template_statistics(
-        self, law_firm_id: int
-    ) -> dict[str, Any]:
+    def get_template_statistics(self, law_firm_id: int) -> dict[str, Any]:
         """模板统计"""
         from apps.documents.models.choices import TemplateStatus
         from apps.documents.models.external_template import ExternalTemplate
@@ -82,10 +74,7 @@ class MatchingService:
         )
 
         by_source: list[dict[str, Any]] = list(
-            base_qs.exclude(source_name="")
-            .values("source_name")
-            .annotate(count=Count("id"))
-            .order_by("-count")
+            base_qs.exclude(source_name="").values("source_name").annotate(count=Count("id")).order_by("-count")
         )
 
         total: int = base_qs.count()
@@ -102,12 +91,10 @@ class MatchingService:
         """从案件获取审理机构名称。"""
         from apps.cases.models.case import SupervisingAuthority
 
-        authority: SupervisingAuthority | None = (
-            SupervisingAuthority.objects.filter(
-                case=case,
-                authority_type="trial",
-            ).first()
-        )
+        authority: SupervisingAuthority | None = SupervisingAuthority.objects.filter(
+            case=case,
+            authority_type="trial",
+        ).first()
 
         if authority and authority.name:
             return authority.name

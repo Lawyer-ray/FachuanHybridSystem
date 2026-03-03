@@ -15,7 +15,6 @@ from .facade import LawyerService
 
 
 class LawyerServiceAdapter(ILawyerService):
-
     _assembler: ClassVar[LawyerDtoAssembler] = LawyerDtoAssembler()
 
     def __init__(self, service: LawyerService | None = None) -> None:
@@ -39,9 +38,7 @@ class LawyerServiceAdapter(ILawyerService):
         return [self._to_dto(m) for m in members]
 
     def get_admin_lawyer_internal(self) -> LawyerDTO | None:
-        admin_lawyer = (
-            self.service.get_lawyer_queryset().filter(is_admin=True).first()
-        )
+        admin_lawyer = self.service.get_lawyer_queryset().filter(is_admin=True).first()
         if admin_lawyer is not None:
             return self._to_dto(admin_lawyer)
         return None

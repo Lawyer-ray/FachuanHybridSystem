@@ -1,9 +1,10 @@
 """Business workflow orchestration."""
 
-from django.utils.translation import gettext_lazy as _
 import logging
 import time
 from typing import Any, cast
+
+from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import QuoteStatus
 from apps.automation.services.insurance.court_insurance_client import CourtInsuranceClient

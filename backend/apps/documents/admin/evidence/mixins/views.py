@@ -4,19 +4,12 @@ import logging
 from typing import Any
 
 from django.contrib import admin
-
-from django.contrib import admin
 from django.http import FileResponse, Http404, HttpResponse
 from django.urls import path, reverse
 from django.utils.html import format_html, format_html_join
 from django.utils.translation import gettext_lazy as _
 
-from apps.documents.models import (
-    DocumentCaseFileSubType,
-    DocumentTemplateType,
-    EvidenceList,
-    ListType,
-)
+from apps.documents.models import DocumentCaseFileSubType, DocumentTemplateType, EvidenceList, ListType
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +22,9 @@ class EvidenceListAdminServiceMixin:
 
 
 class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
-    def changeform_view(self, request: Any, object_id: Any = None, form_url: str = "", extra_context: Any = None) -> Any:
+    def changeform_view(
+        self, request: Any, object_id: Any = None, form_url: str = "", extra_context: Any = None
+    ) -> Any:
         if request.method == "POST":
             logger.info(
                 "EvidenceListAdmin changeform POST",
@@ -53,7 +48,6 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
         if not obj.total_pages:
             return ""
         return obj.total_pages
-
 
     def formfield_for_foreignkey(self, db_field: Any, request: Any, **kwargs: Any) -> Any:
         if db_field.name == "export_template":
@@ -157,22 +151,18 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
     def case_display(self, obj: Any) -> Any:
         return obj.case.name
 
-
     @admin.display(description=_("证据数量"))
     def item_count_display(self, obj: Any) -> Any:
         count = obj.items.count()
         return count
 
-
     @admin.display(description=_("页码范围"))
     def page_range_display(self, obj: Any) -> Any:
         return obj.page_range_display
 
-
     @admin.display(description=_("序号范围"))
     def order_range_display(self, obj: Any) -> Any:
         return obj.order_range_display
-
 
     @admin.display(description=_("合并状态"))
     def has_merged_pdf_display(self, obj: Any) -> Any:
@@ -195,7 +185,6 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
         elif obj.merged_pdf:
             return format_html('<span style="color: #2e7d32;">{}</span>', "✓ 已合并")
         return format_html('<span style="color: #999;">{}</span>', "未合并")
-
 
     def actions_display(self, obj: Any) -> Any:
         merge_url = reverse("admin:documents_evidencelist_merge", args=[obj.pk])
@@ -395,7 +384,11 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
             result = admin_service.recount_pages(pk)
 
             if result["updated"] > 0:
-                messages.success(request, _("已重新识别 %(n)s 个文件的页数,总页数:%(p)s") % {"n": result['updated'], "p": result['total_pages']})
+                messages.success(
+                    request,
+                    _("已重新识别 %(n)s 个文件的页数,总页数:%(p)s")
+                    % {"n": result["updated"], "p": result["total_pages"]},
+                )
             else:
                 messages.info(request, "没有需要更新的文件")
 

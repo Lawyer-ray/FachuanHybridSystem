@@ -43,19 +43,27 @@ class CollectionRecord(models.Model):
         verbose_name=_("催收启动日期"),
     )
     last_action_date: date | None = models.DateField(  # type: ignore[assignment]
-        blank=True, null=True, verbose_name=_("最近操作日期"),
+        blank=True,
+        null=True,
+        verbose_name=_("最近操作日期"),
     )
     next_due_date: date | None = models.DateField(  # type: ignore[assignment]
-        blank=True, null=True, verbose_name=_("下一节点到期日"),
+        blank=True,
+        null=True,
+        verbose_name=_("下一节点到期日"),
     )
     remarks: str = models.TextField(  # type: ignore[assignment]
-        blank=True, default="", verbose_name=_("催收备注"),
+        blank=True,
+        default="",
+        verbose_name=_("催收备注"),
     )
     created_at: datetime = models.DateTimeField(  # type: ignore[assignment]
-        auto_now_add=True, verbose_name=_("创建时间"),
+        auto_now_add=True,
+        verbose_name=_("创建时间"),
     )
     updated_at: datetime = models.DateTimeField(  # type: ignore[assignment]
-        auto_now=True, verbose_name=_("更新时间"),
+        auto_now=True,
+        verbose_name=_("更新时间"),
     )
 
     if TYPE_CHECKING:
@@ -106,13 +114,20 @@ class CollectionLog(models.Model):
         verbose_name=_("操作描述"),
     )
     document_type: str = models.CharField(  # type: ignore[assignment]
-        max_length=64, blank=True, default="", verbose_name=_("文书类型"),
+        max_length=64,
+        blank=True,
+        default="",
+        verbose_name=_("文书类型"),
     )
     document_filename: str = models.CharField(  # type: ignore[assignment]
-        max_length=255, blank=True, default="", verbose_name=_("文书文件名"),
+        max_length=255,
+        blank=True,
+        default="",
+        verbose_name=_("文书文件名"),
     )
     created_at: datetime = models.DateTimeField(  # type: ignore[assignment]
-        auto_now_add=True, verbose_name=_("创建时间"),
+        auto_now_add=True,
+        verbose_name=_("创建时间"),
     )
 
     class Meta:

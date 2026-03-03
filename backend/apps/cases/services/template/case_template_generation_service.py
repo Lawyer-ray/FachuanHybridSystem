@@ -8,13 +8,13 @@ Requirements: 2.1, 3.1, 3.2, 3.3, 3.4, 4.1, 4.2, 4.3, 4.4, 4.5, 6.2, 6.3, 7.4
 
 from __future__ import annotations
 
-from django.utils.translation import gettext_lazy as _
 import io
 import logging
 import re
 from datetime import datetime
 from typing import Any, cast
 
+from django.utils.translation import gettext_lazy as _
 from docxtpl import DocxTemplate
 
 from apps.core.exceptions import NotFoundError, ValidationException
@@ -274,9 +274,7 @@ class CaseTemplateGenerationService:
         Requirements: 3.2, 3.3, 3.4
         """
         try:
-            logger.info(
-                "渲染模板", extra={"template_path": str(template_path), "context_keys": list(context.keys())}
-            )
+            logger.info("渲染模板", extra={"template_path": str(template_path), "context_keys": list(context.keys())})
             doc = DocxTemplate(str(template_path))
             doc.render(context)
             buffer = io.BytesIO()
@@ -286,7 +284,9 @@ class CaseTemplateGenerationService:
         except Exception as e:
             logger.error("模板渲染失败", exc_info=True, extra={"template_path": str(template_path), "error": str(e)})
             raise ValidationException(
-                message=_("模板渲染失败: %(err)s") % {"err": str(e)}, code="TEMPLATE_RENDER_ERROR", errors={"error": str(e)}
+                message=_("模板渲染失败: %(err)s") % {"err": str(e)},
+                code="TEMPLATE_RENDER_ERROR",
+                errors={"error": str(e)},
             ) from e
 
     def _build_filename(

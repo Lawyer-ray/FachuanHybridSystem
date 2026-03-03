@@ -93,10 +93,11 @@ class EvidenceSearchService:
         """在案件的所有证据中搜索"""
         from apps.evidence.models import EvidenceItem
 
-        return EvidenceItem.objects.filter(
-            evidence_list__case_id=case_id,
-        ).filter(
-            Q(name__icontains=query)
-            | Q(purpose__icontains=query)
-            | Q(ocr_text__icontains=query)
-        ).select_related("evidence_list").order_by("evidence_list__order", "order")
+        return (
+            EvidenceItem.objects.filter(
+                evidence_list__case_id=case_id,
+            )
+            .filter(Q(name__icontains=query) | Q(purpose__icontains=query) | Q(ocr_text__icontains=query))
+            .select_related("evidence_list")
+            .order_by("evidence_list__order", "order")
+        )

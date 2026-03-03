@@ -22,7 +22,7 @@
         content: '';
         position: fixed;
         top: 0; left: 0; right: 0; bottom: 0;
-        background: 
+        background:
             url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.05'/%3E%3C/svg%3E");
         pointer-events: none;
     }
@@ -273,35 +273,35 @@ document.addEventListener('DOMContentLoaded', function() {
     const trail = document.createElement('div');
     trail.className = 'ink-trail';
     document.body.appendChild(trail);
-    
+
     let lastX = 0, lastY = 0, lastTime = 0;
     const throttle = 50; // 控制生成频率
-    
+
     document.addEventListener('mousemove', function(e) {
         const now = Date.now();
         if (now - lastTime < throttle) return;
-        
+
         const dx = e.clientX - lastX;
         const dy = e.clientY - lastY;
         const dist = Math.sqrt(dx*dx + dy*dy);
-        
+
         if (dist > 20) { // 移动足够距离才生成墨点
             const particle = document.createElement('div');
             particle.className = 'ink-particle';
             const size = Math.min(20, 8 + dist * 0.1); // 速度越快墨点越大
             particle.style.cssText = `left:${e.clientX}px;top:${e.clientY}px;width:${size}px;height:${size}px;`;
             trail.appendChild(particle);
-            
+
             // 清理旧粒子
             setTimeout(() => particle.remove(), 1500);
             if (trail.children.length > 30) trail.firstChild.remove();
-            
+
             lastX = e.clientX;
             lastY = e.clientY;
             lastTime = now;
         }
     });
-    
+
     // 点击涟漪效果
     document.addEventListener('click', function(e) {
         const ripple = document.createElement('div');

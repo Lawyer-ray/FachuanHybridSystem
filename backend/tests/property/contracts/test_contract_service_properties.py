@@ -73,9 +73,9 @@ class TestContractServiceProperties:
 
         # 验证：应该只有少量查询（不超过 10 次）
         # 1 次主查询 + select_related 的 JOIN + prefetch_related 的额外查询
-        assert query_count <= 10, (
-            f"查询次数过多: {query_count} 次，可能存在 N+1 问题。查询详情: {[q['sql'] for q in connection.queries]}"
-        )
+        assert (
+            query_count <= 10
+        ), f"查询次数过多: {query_count} 次，可能存在 N+1 问题。查询详情: {[q['sql'] for q in connection.queries]}"
 
     @given(st.integers(min_value=1, max_value=10))
     @settings(max_examples=100, deadline=None)
@@ -153,6 +153,6 @@ class TestContractServiceProperties:
         # 验证：查询次数应该是线性的，不应该是 O(n²)
         # 每个合同大约 5-6 次查询（获取合同 + 获取收款记录 + 聚合查询）
         max_expected_queries = contract_count * 6 + 2
-        assert query_count <= max_expected_queries, (
-            f"查询次数过多: {query_count} 次，预期不超过 {max_expected_queries} 次"
-        )
+        assert (
+            query_count <= max_expected_queries
+        ), f"查询次数过多: {query_count} 次，预期不超过 {max_expected_queries} 次"

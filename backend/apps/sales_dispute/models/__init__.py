@@ -1,18 +1,7 @@
 from __future__ import annotations
 
-from .case_assessment import (
-    AssessmentGrade,
-    CaseAssessment,
-    ContractBasisType,
-    LimitationStatus,
-    SolvencyRating,
-)
-from .collection_record import (
-    STAGE_ORDER,
-    CollectionLog,
-    CollectionRecord,
-    CollectionStage,
-)
+from .case_assessment import AssessmentGrade, CaseAssessment, ContractBasisType, LimitationStatus, SolvencyRating
+from .collection_record import STAGE_ORDER, CollectionLog, CollectionRecord, CollectionStage
 from .evidence_score import EvidenceScore, EvidenceType
 from .jurisdiction_analysis import JurisdictionAnalysis
 from .litigation_strategy import LitigationStrategy, StrategyType

@@ -7,10 +7,11 @@
 Requirements: 4.3, 4.4, 4.7
 """
 
-from django.utils.translation import gettext_lazy as _
 import logging
 from datetime import datetime
 from typing import Any
+
+from django.utils.translation import gettext_lazy as _
 
 from apps.automation.services.ai import get_ollama_base_url, get_ollama_model
 from apps.automation.services.ai.ollama_client import chat

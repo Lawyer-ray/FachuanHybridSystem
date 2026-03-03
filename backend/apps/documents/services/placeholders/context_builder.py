@@ -1,10 +1,11 @@
 """Business logic services."""
 
 from __future__ import annotations
-from django.utils.translation import gettext_lazy as _
 
 import logging
 from typing import Any
+
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ValidationException
 
@@ -54,7 +55,8 @@ class EnhancedContextBuilder:
                     logger.debug("服务 %s 生成了 %s 个占位符", service.name, len(service_result))
             except Exception as e:
                 logger.error(
-                    "占位符服务执行失败: %s", service.name,
+                    "占位符服务执行失败: %s",
+                    service.name,
                     extra={
                         "service_name": service.name,
                         "error": str(e),

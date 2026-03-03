@@ -200,6 +200,7 @@ class DocumentTemplate(models.Model):
         statuses = self.legal_statuses or []
         labels = [str(choices.get(code, code)) for code in statuses]
         return "、".join([x for x in labels if x]) or "任意"
+
     @property
     def absolute_file_path(self) -> str:
         """文件的绝对路径"""
@@ -209,7 +210,6 @@ class DocumentTemplate(models.Model):
         if path_obj.is_absolute():
             return self.file_path
         return str(path_obj.resolve())
-
 
 
 class DocumentTemplateFolderBinding(models.Model):

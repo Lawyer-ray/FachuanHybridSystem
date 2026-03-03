@@ -108,6 +108,7 @@ class PlaywrightDeliveryService:
             return None
         try:
             from django.utils import timezone
+
             naive_time = datetime.strptime(send_time_str, "%Y-%m-%d %H:%M:%S")
             send_time = timezone.make_aware(naive_time)
             logger.info(f"条目 {index} 时间解析成功: {send_time_str} -> {send_time}")
@@ -239,9 +240,7 @@ class PlaywrightDeliveryService:
                 ).first()
 
                 if completed_sms:
-                    logger.info(
-                        f"🔄 文书已成功处理完成: {record.case_number} - {send_time}, SMS ID={completed_sms.id}"
-                    )
+                    logger.info(f"🔄 文书已成功处理完成: {record.case_number} - {send_time}, SMS ID={completed_sms.id}")
                     result_queue.put(False)
                 else:
                     # 检查是否有未完成的记录,如果有则删除重新处理

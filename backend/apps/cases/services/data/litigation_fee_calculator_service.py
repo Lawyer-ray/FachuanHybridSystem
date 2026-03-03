@@ -95,7 +95,7 @@ class LitigationFeeCalculatorService:
     支持财产案件、保全、执行、支付令、知识产权、离婚、人格权侵权、破产等案件类型.
     """
 
-    def __init__(self, cause_rule_service: "CauseRuleService | None" = None) -> None:
+    def __init__(self, cause_rule_service: CauseRuleService | None = None) -> None:
         """
         初始化诉讼费用计算服务
 
@@ -104,7 +104,7 @@ class LitigationFeeCalculatorService:
         self._cause_rule_service = cause_rule_service
 
     @property
-    def cause_rule_service(self) -> "CauseRuleService":
+    def cause_rule_service(self) -> CauseRuleService:
         """延迟加载案由规则服务"""
         if self._cause_rule_service is None:
             from .cause_rule_service import CauseRuleService
@@ -584,6 +584,7 @@ class LitigationFeeCalculatorService:
             f"减半后受理费: {result['acceptance_fee_half']:.2f} 元(调解/撤诉/简易程序)"
         )
         result["calculation_details"].append(f"支付令申请费: {result['payment_order_fee']:.2f} 元(受理费的1/3)")
+
     def validate_and_convert_fee_inputs(
         self,
         target_amount: float | None,
@@ -605,14 +606,8 @@ class LitigationFeeCalculatorService:
         if preservation_amount is not None and preservation_amount < 0:
             raise ValidationException(_("财产保全金额不能为负数"))
 
-        converted_target = (
-            Decimal(str(target_amount)) if target_amount is not None else None
-        )
-        converted_preservation = (
-            Decimal(str(preservation_amount))
-            if preservation_amount is not None
-            else None
-        )
+        converted_target = Decimal(str(target_amount)) if target_amount is not None else None
+        converted_preservation = Decimal(str(preservation_amount)) if preservation_amount is not None else None
 
         return converted_target, converted_preservation
 

@@ -2,7 +2,13 @@
 
 from typing import Any
 
-from apps.documents.models import DocumentTemplate, DocumentTemplateFolderBinding, FolderTemplate, DocumentTemplateType, FolderTemplateType
+from apps.documents.models import (
+    DocumentTemplate,
+    DocumentTemplateFolderBinding,
+    DocumentTemplateType,
+    FolderTemplate,
+    FolderTemplateType,
+)
 
 
 class DocumentTemplateBindingService:

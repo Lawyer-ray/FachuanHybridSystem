@@ -1,6 +1,7 @@
 """Business logic services."""
 
 from __future__ import annotations
+
 from django.utils.translation import gettext_lazy as _
 
 """
@@ -17,7 +18,11 @@ from typing import Any
 from django.db import transaction
 
 from apps.core.exceptions import NotFoundError, ValidationException
-from apps.litigation_ai.services.wiring import get_case_service, get_conversation_history_service, get_court_pleading_signals_service
+from apps.litigation_ai.services.wiring import (
+    get_case_service,
+    get_conversation_history_service,
+    get_court_pleading_signals_service,
+)
 
 from .session_shared import SessionDTO
 

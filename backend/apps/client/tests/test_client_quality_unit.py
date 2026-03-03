@@ -23,9 +23,7 @@ class TestResolveMediaUrl:
         assert resolve_media_url("") is None
 
     @patch("apps.client.utils.media.settings")
-    def test_resolve_media_url_absolute_path_under_media_root(
-        self, mock_settings: Any
-    ) -> None:
+    def test_resolve_media_url_absolute_path_under_media_root(self, mock_settings: Any) -> None:
         """绝对路径在 MEDIA_ROOT 下，返回正确 URL。验证: 需求 4.1, 4.2"""
         mock_settings.MEDIA_ROOT = "/tmp/media"
         mock_settings.MEDIA_URL = "/media/"
@@ -35,9 +33,7 @@ class TestResolveMediaUrl:
         assert result == "/media/docs/file.pdf"
 
     @patch("apps.client.utils.media.settings")
-    def test_resolve_media_url_relative_path(
-        self, mock_settings: Any
-    ) -> None:
+    def test_resolve_media_url_relative_path(self, mock_settings: Any) -> None:
         """相对路径直接拼接 MEDIA_URL。验证: 需求 4.1, 4.2"""
         mock_settings.MEDIA_ROOT = "/tmp/media"
         mock_settings.MEDIA_URL = "/media/"
@@ -58,9 +54,7 @@ class TestUpdateIdentityDoc:
         mixin = ClientAdminFileMixin()
 
         with pytest.raises(ClientIdentityDoc.DoesNotExist):
-            mixin._update_identity_doc(
-                doc_id=999999, file_path="test.pdf", admin_user="test"
-            )
+            mixin._update_identity_doc(doc_id=999999, file_path="test.pdf", admin_user="test")
 
 
 class TestSaveAndRenameFile:

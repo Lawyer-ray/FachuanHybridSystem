@@ -69,7 +69,7 @@ def _find_logger_fstring_calls(source: str) -> list[str]:
         # 检查第一个参数是否为 JoinedStr (f-string)
         if node.args and isinstance(node.args[0], ast.JoinedStr):
             line_no = node.lineno
-            hits.append(f"L{line_no}: logger.{func.attr}(f\"...\")")
+            hits.append(f'L{line_no}: logger.{func.attr}(f"...")')
     return hits
 
 
@@ -92,10 +92,10 @@ def _find_errors_dict_without_i18n(source: str) -> list[str]:
         for val in node.value.values:
             # 硬编码字符串 → 违规
             if isinstance(val, ast.Constant) and isinstance(val.value, str):
-                hits.append(f"L{val.lineno}: \"{val.value}\"")
+                hits.append(f'L{val.lineno}: "{val.value}"')
             # f-string → 也是违规（未用 _() 包装）
             elif isinstance(val, ast.JoinedStr):
-                hits.append(f"L{val.lineno}: f\"...\"")
+                hits.append(f'L{val.lineno}: f"..."')
     return hits
 
 
@@ -113,7 +113,7 @@ def _find_permission_denied_without_i18n(source: str) -> list[str]:
         if isinstance(func, ast.Name) and func.id == "PermissionDenied":
             for arg in node.args:
                 if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
-                    hits.append(f"L{arg.lineno}: \"{arg.value}\"")
+                    hits.append(f'L{arg.lineno}: "{arg.value}"')
     return hits
 
 
@@ -207,9 +207,9 @@ def test_access_policy_i18n() -> None:
     hardcoded = _find_permission_denied_without_i18n(source)
 
     assert not hardcoded, (
-        f"BUG 1.4: organization_access_policy.py 中 PermissionDenied 使用硬编码字符串，"
-        f"未用 _() 包装，不支持 i18n。\n"
-        f"  违规位置:\n    " + "\n    ".join(hardcoded)
+        "BUG 1.4: organization_access_policy.py 中 PermissionDenied 使用硬编码字符串，"
+        "未用 _() 包装，不支持 i18n。\n"
+        "  违规位置:\n    " + "\n    ".join(hardcoded)
     )
 
 
@@ -224,9 +224,8 @@ def test_property_access_policy_all_permission_denied_i18n(dummy: int) -> None:
     """
     source = _read_source("services/organization_access_policy.py")
     hardcoded = _find_permission_denied_without_i18n(source)
-    assert not hardcoded, (
-        f"BUG 1.4: 发现 {len(hardcoded)} 处硬编码 PermissionDenied 消息:\n    "
-        + "\n    ".join(hardcoded)
+    assert not hardcoded, f"BUG 1.4: 发现 {len(hardcoded)} 处硬编码 PermissionDenied 消息:\n    " + "\n    ".join(
+        hardcoded
     )
 
 
@@ -255,9 +254,9 @@ def test_views_no_model_objects() -> None:
             matches.append(f"L{i}: {m}")
 
     assert not matches, (
-        f"BUG 1.5: views.py 直接调用 Model.objects，违反视图层架构规范。\n"
-        f"  违规位置:\n    " + "\n    ".join(matches) + "\n"
-        f"  应委托给 AuthService"
+        "BUG 1.5: views.py 直接调用 Model.objects，违反视图层架构规范。\n"
+        "  违规位置:\n    " + "\n    ".join(matches) + "\n"
+        "  应委托给 AuthService"
     )
 
 
@@ -283,9 +282,9 @@ def test_admin_service_no_direct_model_objects() -> None:
             matches.append(f"L{i}: {stripped}")
 
     assert not matches, (
-        f"BUG 1.6: account_credential_admin_service.py 直接使用 AccountCredential.objects。\n"
-        f"  违规位置:\n    " + "\n    ".join(matches) + "\n"
-        f"  应通过 AccountCredentialService 查询"
+        "BUG 1.6: account_credential_admin_service.py 直接使用 AccountCredential.objects。\n"
+        "  违规位置:\n    " + "\n    ".join(matches) + "\n"
+        "  应通过 AccountCredentialService 查询"
     )
 
 
@@ -307,12 +306,8 @@ def test_service_logger_no_fstring() -> None:
         if hits:
             all_hits[rel_path] = hits
 
-    assert not all_hits, (
-        f"BUG 1.7: 服务层 logger 使用 f-string 插值，应使用惰性格式化。\n"
-        + "\n".join(
-            f"  {path}:\n    " + "\n    ".join(lines)
-            for path, lines in all_hits.items()
-        )
+    assert not all_hits, "BUG 1.7: 服务层 logger 使用 f-string 插值，应使用惰性格式化。\n" + "\n".join(
+        f"  {path}:\n    " + "\n    ".join(lines) for path, lines in all_hits.items()
     )
 
 
@@ -327,10 +322,7 @@ def test_property_logger_no_fstring(file_index: int) -> None:
     rel_path = LOGGER_FSTRING_FILES[file_index]
     source = _read_source(rel_path)
     hits = _find_logger_fstring_calls(source)
-    assert not hits, (
-        f"BUG 1.7: {rel_path} 中 logger 使用 f-string:\n    "
-        + "\n    ".join(hits)
-    )
+    assert not hits, f"BUG 1.7: {rel_path} 中 logger 使用 f-string:\n    " + "\n    ".join(hits)
 
 
 # ---------------------------------------------------------------------------
@@ -351,12 +343,8 @@ def test_errors_dict_i18n() -> None:
         if hits:
             all_hits[rel_path] = hits
 
-    assert not all_hits, (
-        f"BUG 1.8: errors 字典中存在硬编码字符串，未用 _() 包装。\n"
-        + "\n".join(
-            f"  {path}:\n    " + "\n    ".join(lines)
-            for path, lines in all_hits.items()
-        )
+    assert not all_hits, "BUG 1.8: errors 字典中存在硬编码字符串，未用 _() 包装。\n" + "\n".join(
+        f"  {path}:\n    " + "\n    ".join(lines) for path, lines in all_hits.items()
     )
 
 
@@ -371,7 +359,4 @@ def test_property_errors_dict_i18n(file_index: int) -> None:
     rel_path = ERRORS_I18N_FILES[file_index]
     source = _read_source(rel_path)
     hits = _find_errors_dict_without_i18n(source)
-    assert not hits, (
-        f"BUG 1.8: {rel_path} 中 errors 字典存在硬编码字符串:\n    "
-        + "\n    ".join(hits)
-    )
+    assert not hits, f"BUG 1.8: {rel_path} 中 errors 字典存在硬编码字符串:\n    " + "\n    ".join(hits)

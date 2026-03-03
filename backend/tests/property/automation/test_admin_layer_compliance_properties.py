@@ -97,9 +97,9 @@ class TestAdminLayerCompliance:
 
             if admin_actions:
                 # 如果有Admin Action，必须有对应的工厂函数
-                assert factory_functions, (
-                    f"{admin_class.__name__} 包含Admin Action但缺少工厂函数 _get_xxx_admin_service()"
-                )
+                assert (
+                    factory_functions
+                ), f"{admin_class.__name__} 包含Admin Action但缺少工厂函数 _get_xxx_admin_service()"
 
                 # 检查Admin Action中是否正确使用工厂函数
                 for action_name in admin_actions:
@@ -111,9 +111,9 @@ class TestAdminLayerCompliance:
                         factory_call_pattern = r"service\s*=\s*_get_.*_service\(\)"
                         factory_calls = re.findall(factory_call_pattern, action_source)
 
-                        assert factory_calls, (
-                            f"{admin_class.__name__}.{action_name} 必须使用工厂函数获取AdminService实例"
-                        )
+                        assert (
+                            factory_calls
+                        ), f"{admin_class.__name__}.{action_name} 必须使用工厂函数获取AdminService实例"
 
                         # 检查是否委托给AdminService处理
                         service_delegation_patterns = [
@@ -129,9 +129,9 @@ class TestAdminLayerCompliance:
                                 has_delegation = True
                                 break
 
-                        assert has_delegation, (
-                            f"{admin_class.__name__}.{action_name} 必须委托给AdminService处理复杂逻辑"
-                        )
+                        assert (
+                            has_delegation
+                        ), f"{admin_class.__name__}.{action_name} 必须委托给AdminService处理复杂逻辑"
 
                     except (AttributeError, OSError):
                         # 如果无法获取方法源代码，跳过
@@ -346,9 +346,9 @@ class TestAdminLayerCompliance:
 
                         if servicelocator_calls:
                             for call in servicelocator_calls:
-                                assert "get_" in call and "_service()" in call, (
-                                    f"{admin_class.__name__} ServiceLocator调用模式不正确: {call}"
-                                )
+                                assert (
+                                    "get_" in call and "_service()" in call
+                                ), f"{admin_class.__name__} ServiceLocator调用模式不正确: {call}"
 
         except (OSError, TypeError):
             # 如果无法获取类源代码，跳过此测试
@@ -432,7 +432,9 @@ class TestAdminLayerCompliance:
                             break
 
                     if has_complex_handling:
-                        assert False, (  # noqa: B011
+                        assert (
+                            False
+                        ), (  # noqa: B011
                             f"{admin_class.__name__}.{method_name} 包含复杂的异常处理逻辑，应该委托给AdminService处理"
                         )
 
@@ -912,9 +914,9 @@ class TestAdminLayerPropertyBasedCompliance:
                     if hasattr(assignment.func, "id"):
                         func_name_called = assignment.func.id
                         # 符合规范：使用工厂函数
-                        assert func_name_called.startswith("_get_") and func_name_called.endswith("_service"), (
-                            f"符合规范的Admin Action应该使用工厂函数: {func_name_called}"
-                        )
+                        assert func_name_called.startswith("_get_") and func_name_called.endswith(
+                            "_service"
+                        ), f"符合规范的Admin Action应该使用工厂函数: {func_name_called}"
 
             # 验证异常处理简单化
             try_blocks = [node for node in ast.walk(func_def) if isinstance(node, ast.Try)]

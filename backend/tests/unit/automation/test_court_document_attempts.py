@@ -1,7 +1,7 @@
+from pathlib import Path
 from types import SimpleNamespace
 
 from apps.automation.services.scraper.scrapers.court_document import CourtDocumentScraper
-from pathlib import Path
 
 
 def _make_scraper(tmp_path, direct_api=None, api_intercept=None, fallback=None):

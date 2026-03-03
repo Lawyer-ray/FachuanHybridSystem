@@ -244,7 +244,7 @@ class SupplementaryAgreementPrincipalService(BasePlaceholderService):
                     id_number = getattr(client, "id_number", "") or ""
                     if id_number:
                         lines.append(f"统一社会信用代码：{id_number}")
-                    
+
                     legal_rep = getattr(client, "legal_representative", "") or ""
                     if legal_rep:
                         lines.append(f"法定代表人：{legal_rep}")
@@ -252,7 +252,7 @@ class SupplementaryAgreementPrincipalService(BasePlaceholderService):
             address = getattr(client, "address", "") or ""
             if address:
                 lines.append(f"地址：{address}")
-            
+
             phone = getattr(client, "phone", "") or ""
             if phone:
                 lines.append(f"电话：{phone}")

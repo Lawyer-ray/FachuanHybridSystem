@@ -19,14 +19,24 @@ DATETIME_PATTERNS = [
 
 HEARING_HIGH_WEIGHT_KEYWORDS = ["开庭", "庭审", "定于", "传唤"]
 HEARING_MEDIUM_WEIGHT_KEYWORDS = [
-    "审理", "出庭", "到庭", "准时到", "按时到", "应诉", "参加诉讼",
-    "审判庭", "法庭", "第一审判庭", "第二审判庭", "第三审判庭",
-    "应到时间", "到庭时间", "开庭时间",
+    "审理",
+    "出庭",
+    "到庭",
+    "准时到",
+    "按时到",
+    "应诉",
+    "参加诉讼",
+    "审判庭",
+    "法庭",
+    "第一审判庭",
+    "第二审判庭",
+    "第三审判庭",
+    "应到时间",
+    "到庭时间",
+    "开庭时间",
 ]
 HEARING_LOW_WEIGHT_KEYWORDS = ["本院", "通知", "届时", "如期", "依法"]
-HEARING_CONTEXT_KEYWORDS = (
-    HEARING_HIGH_WEIGHT_KEYWORDS + HEARING_MEDIUM_WEIGHT_KEYWORDS + HEARING_LOW_WEIGHT_KEYWORDS
-)
+HEARING_CONTEXT_KEYWORDS = HEARING_HIGH_WEIGHT_KEYWORDS + HEARING_MEDIUM_WEIGHT_KEYWORDS + HEARING_LOW_WEIGHT_KEYWORDS
 
 
 class DatetimeExtractionMixin:
@@ -34,9 +44,7 @@ class DatetimeExtractionMixin:
 
     import re as _re
 
-    def _parse_datetime_groups(
-        self, groups: tuple[Any, ...], has_am_pm: bool, matched_text: str
-    ) -> datetime | None:
+    def _parse_datetime_groups(self, groups: tuple[Any, ...], has_am_pm: bool, matched_text: str) -> datetime | None:
         """解析正则分组为 datetime"""
         if has_am_pm and len(groups) == 6:
             year, month, day = int(groups[0]), int(groups[1]), int(groups[2])
@@ -65,6 +73,7 @@ class DatetimeExtractionMixin:
     def _extract_datetime_by_regex(self, text: str) -> list[tuple[datetime, str, float]]:
         """使用正则表达式从文本中提取日期时间"""
         import re
+
         results: list[tuple[datetime, str, float]] = []
         for pattern, has_am_pm in DATETIME_PATTERNS:
             for match in re.finditer(pattern, text):
@@ -153,23 +162,23 @@ class DatetimeExtractionMixin:
         score = max(0, min(100, score))
         return score > 30, score, "; ".join(reasons)
 
-    def _validate_regex_results(
-        self, regex_results: list[tuple[datetime, str, int | float]]
-    ) -> list[dict[str, Any]]:
+    def _validate_regex_results(self, regex_results: list[tuple[datetime, str, int | float]]) -> list[dict[str, Any]]:
         """对正则结果进行合理性校验和综合评分"""
         validated: list[dict[str, Any]] = []
         for dt, matched_text, context_score in regex_results:
             is_valid, validity_score, validity_reason = self._validate_hearing_datetime(dt)
             combined_score = context_score * 0.6 + validity_score * 0.4
-            validated.append({
-                "datetime": dt,
-                "matched_text": matched_text,
-                "context_score": context_score,
-                "validity_score": validity_score,
-                "validity_reason": validity_reason,
-                "combined_score": combined_score,
-                "is_valid": is_valid,
-            })
+            validated.append(
+                {
+                    "datetime": dt,
+                    "matched_text": matched_text,
+                    "context_score": context_score,
+                    "validity_score": validity_score,
+                    "validity_reason": validity_reason,
+                    "combined_score": combined_score,
+                    "is_valid": is_valid,
+                }
+            )
             logger.debug(
                 f"正则候选: {dt}, 上下文={context_score}, 合理性={validity_score}({validity_reason}), "
                 f"综合={combined_score:.1f}, 有效={is_valid}"
@@ -225,8 +234,8 @@ class DatetimeExtractionMixin:
         ollama_validity_score = 0
         ollama_validity_reason = ""
         if ollama_datetime:
-            ollama_valid, ollama_validity_score, ollama_validity_reason = (
-                self._validate_hearing_datetime(ollama_datetime)
+            ollama_valid, ollama_validity_score, ollama_validity_reason = self._validate_hearing_datetime(
+                ollama_datetime
             )
             logger.debug(
                 f"Ollama候选: {ollama_datetime},"

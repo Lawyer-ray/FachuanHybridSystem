@@ -5,11 +5,11 @@ Feature: contracts-module-compliance
 Validates: Requirements 1.1, 1.2, 6.1, 6.2
 """
 
+from pathlib import Path
+
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
-
-from pathlib import Path
 
 # 合同模块 API 文件列表
 CONTRACTS_API_FILES = [

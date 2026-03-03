@@ -78,9 +78,7 @@ class JudgePerspectiveChain:
     def __init__(self, model: str | None = None) -> None:
         self._model = model
 
-    def _build_messages(
-        self, case_info: dict[str, Any], evidence_text: str
-    ) -> list[SystemMessage | HumanMessage]:
+    def _build_messages(self, case_info: dict[str, Any], evidence_text: str) -> list[SystemMessage | HumanMessage]:
         cause = case_info.get("cause_of_action", "")
         cause_knowledge = _get_cause_knowledge(cause)
         cause_section = f"\n\n## 本案由特定关注点\n\n{cause_knowledge}" if cause_knowledge else ""
@@ -107,19 +105,21 @@ class JudgePerspectiveChain:
             side = "我方" if p.get("is_our_side") else "对方"
             parties_text += f"- {p.get('name', '')}（{p.get('legal_status', '')}，{side}）\n"
 
-        user = "\n".join([
-            "# 案件信息",
-            f"案件名称：{case_info.get('case_name', '')}",
-            f"案由：{cause}",
-            f"标的额：{case_info.get('target_amount') or '未知'}",
-            f"案件阶段：{case_info.get('case_stage', '')}",
-            "",
-            "# 当事人",
-            parties_text or "无",
-            "",
-            "# 证据概要",
-            evidence_text or "无证据信息",
-        ])
+        user = "\n".join(
+            [
+                "# 案件信息",
+                f"案件名称：{case_info.get('case_name', '')}",
+                f"案由：{cause}",
+                f"标的额：{case_info.get('target_amount') or '未知'}",
+                f"案件阶段：{case_info.get('case_stage', '')}",
+                "",
+                "# 当事人",
+                parties_text or "无",
+                "",
+                "# 证据概要",
+                evidence_text or "无证据信息",
+            ]
+        )
 
         return [SystemMessage(content=system), HumanMessage(content=user)]
 
@@ -172,10 +172,9 @@ class CrossExamChain:
     def __init__(self, model: str | None = None) -> None:
         self._model = model
 
-    async def arun(
-        self, *, case_info: dict[str, Any], evidence_info: dict[str, Any]
-    ) -> CrossExamResult:
+    async def arun(self, *, case_info: dict[str, Any], evidence_info: dict[str, Any]) -> CrossExamResult:
         from asgiref.sync import sync_to_async
+
         from apps.litigation_ai.services.wiring import get_llm_service
 
         cause = case_info.get("cause_of_action", "")
@@ -195,16 +194,18 @@ class CrossExamChain:
             f"{cause_section}"
         )
 
-        user = "\n".join([
-            "# 案件背景",
-            f"案件名称：{case_info.get('case_name', '')}",
-            f"案由：{cause}",
-            "",
-            "# 待质证的证据",
-            f"证据名称：{evidence_info.get('name', '')}",
-            f"证据描述/证明目的：{evidence_info.get('description', '')}",
-            f"证据类型：{evidence_info.get('evidence_type', '书证')}",
-        ])
+        user = "\n".join(
+            [
+                "# 案件背景",
+                f"案件名称：{case_info.get('case_name', '')}",
+                f"案由：{cause}",
+                "",
+                "# 待质证的证据",
+                f"证据名称：{evidence_info.get('name', '')}",
+                f"证据描述/证明目的：{evidence_info.get('description', '')}",
+                f"证据类型：{evidence_info.get('evidence_type', '书证')}",
+            ]
+        )
 
         llm_service = await sync_to_async(get_llm_service, thread_sensitive=True)()
         llm = await sync_to_async(llm_service.get_langchain_llm, thread_sensitive=True)(model=self._model)
@@ -222,7 +223,11 @@ class CrossExamChain:
         return CrossExamResult(
             opinion=opinion.model_dump(),
             model=model_name,
-            token_usage={"prompt_tokens": tu.get("prompt_tokens", 0), "completion_tokens": tu.get("completion_tokens", 0), "total_tokens": tu.get("total_tokens", 0)},
+            token_usage={
+                "prompt_tokens": tu.get("prompt_tokens", 0),
+                "completion_tokens": tu.get("completion_tokens", 0),
+                "total_tokens": tu.get("total_tokens", 0),
+            },
         )
 
 
@@ -240,7 +245,9 @@ class DisputeFocusChain:
 
     async def arun(self, *, case_info: dict[str, Any], evidence_text: str) -> DisputeFocusResult:
         from asgiref.sync import sync_to_async
+
         from apps.litigation_ai.services.wiring import get_llm_service
+
         from .mock_trial_schemas import DisputeFocus
 
         schema_text = json.dumps(DisputeFocus.model_json_schema(), ensure_ascii=False)
@@ -253,12 +260,16 @@ class DisputeFocusChain:
             f"{schema_text}"
         )
 
-        user = "\n".join([
-            f"案件名称：{case_info.get('case_name', '')}",
-            f"案由：{case_info.get('cause_of_action', '')}",
-            f"标的额：{case_info.get('target_amount') or '未知'}",
-            "", "# 证据概要", evidence_text or "无",
-        ])
+        user = "\n".join(
+            [
+                f"案件名称：{case_info.get('case_name', '')}",
+                f"案由：{case_info.get('cause_of_action', '')}",
+                f"标的额：{case_info.get('target_amount') or '未知'}",
+                "",
+                "# 证据概要",
+                evidence_text or "无",
+            ]
+        )
 
         llm_service = await sync_to_async(get_llm_service, thread_sensitive=True)()
         llm = await sync_to_async(llm_service.get_langchain_llm, thread_sensitive=True)(model=self._model)
@@ -291,6 +302,7 @@ class DebateChain:
         self, *, case_info: dict[str, Any], focus: dict[str, Any], user_argument: str, history: list[dict[str, str]]
     ) -> DebateResult:
         from asgiref.sync import sync_to_async
+
         from apps.litigation_ai.services.wiring import get_llm_service
 
         difficulty_prompt = {
@@ -305,16 +317,25 @@ class DebateChain:
             "回复应当简洁有力，200-400字，直接反驳对方观点。不要输出 JSON，直接输出反驳文本。"
         )
 
-        history_text = "\n".join([f"{'我方' if h['role'] == 'opponent' else '对方'}：{h['content']}" for h in history[-6:]])
+        history_text = "\n".join(
+            [f"{'我方' if h['role'] == 'opponent' else '对方'}：{h['content']}" for h in history[-6:]]
+        )
 
-        user = "\n".join([
-            f"案由：{case_info.get('cause_of_action', '')}",
-            f"争议焦点：{focus.get('description', '')}",
-            f"我方立场：{focus.get('defendant_position', '')}",
-            "", "# 辩论历史", history_text or "（首轮辩论）",
-            "", "# 对方律师刚才的论点", user_argument,
-            "", "请针对以上论点进行反驳：",
-        ])
+        user = "\n".join(
+            [
+                f"案由：{case_info.get('cause_of_action', '')}",
+                f"争议焦点：{focus.get('description', '')}",
+                f"我方立场：{focus.get('defendant_position', '')}",
+                "",
+                "# 辩论历史",
+                history_text or "（首轮辩论）",
+                "",
+                "# 对方律师刚才的论点",
+                user_argument,
+                "",
+                "请针对以上论点进行反驳：",
+            ]
+        )
 
         llm_service = await sync_to_async(get_llm_service, thread_sensitive=True)()
         llm = await sync_to_async(llm_service.get_langchain_llm, thread_sensitive=True)(model=self._model)

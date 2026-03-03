@@ -8,16 +8,15 @@ from __future__ import annotations
 from typing import Any
 
 from django.utils.translation import gettext_lazy as _
-
 from ninja import File, Router
 from ninja.files import UploadedFile
 from pydantic import BaseModel
 
+from apps.client.schemas import ClientIn, ClientOut, ClientUpdateIn
+from apps.client.services.text_parser import parse_client_text as _parse_client
+from apps.client.services.text_parser import parse_multiple_clients_text as _parse_multi
 from apps.core.exceptions import ValidationException
 from apps.core.request_context import extract_request_context
-
-from apps.client.schemas import ClientIn, ClientOut, ClientUpdateIn
-from apps.client.services.text_parser import parse_client_text as _parse_client, parse_multiple_clients_text as _parse_multi
 
 
 class ParseTextRequest(BaseModel):

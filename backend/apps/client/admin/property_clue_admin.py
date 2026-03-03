@@ -110,9 +110,7 @@ class PropertyClueAdmin(admin.ModelAdmin[PropertyClue]):
             for f in formset.forms:
                 if f.instance == instance and f.cleaned_data.get("file_upload"):
                     uploaded_file = f.cleaned_data["file_upload"]
-                    rel_path, _ = service.save_uploaded_file_to_dir(
-                        uploaded_file, rel_dir="property_clue_attachments"
-                    )
+                    rel_path, _ = service.save_uploaded_file_to_dir(uploaded_file, rel_dir="property_clue_attachments")
                     instance.file_path = rel_path
                     instance.file_name = uploaded_file.name
                     break

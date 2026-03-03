@@ -16,10 +16,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from apps.sales_dispute.models.payment_record import PaymentRecord
-    from apps.sales_dispute.services.interest_calculator_service import (
-        InterestCalcParams,
-        InterestCalculatorService,
-    )
+    from apps.sales_dispute.services.interest_calculator_service import InterestCalcParams, InterestCalculatorService
 
 logger = logging.getLogger(__name__)
 
@@ -71,17 +68,13 @@ class PaymentInput:
 class RepaymentOffsetService:
     """还款冲抵引擎"""
 
-    def __init__(
-        self, interest_calculator: InterestCalculatorService | None = None
-    ) -> None:
+    def __init__(self, interest_calculator: InterestCalculatorService | None = None) -> None:
         self._interest_calculator = interest_calculator
 
     def _get_interest_calculator(self) -> InterestCalculatorService:
         """延迟获取 InterestCalculatorService 实例"""
         if self._interest_calculator is None:
-            from apps.sales_dispute.services.interest_calculator_service import (
-                InterestCalculatorService,
-            )
+            from apps.sales_dispute.services.interest_calculator_service import InterestCalculatorService
 
             self._interest_calculator = InterestCalculatorService()
         return self._interest_calculator
@@ -166,13 +159,11 @@ class RepaymentOffsetService:
                 )
                 continue
 
-            offset_fee, offset_interest, offset_principal, rem_principal = (
-                self.offset_single_debt(
-                    remaining,
-                    debt.accrued_fee,
-                    debt.accrued_interest,
-                    debt.principal,
-                )
+            offset_fee, offset_interest, offset_principal, rem_principal = self.offset_single_debt(
+                remaining,
+                debt.accrued_fee,
+                debt.accrued_interest,
+                debt.principal,
             )
 
             used = offset_fee + offset_interest + offset_principal
@@ -232,9 +223,7 @@ class RepaymentOffsetService:
             # 计算从上次还款日到本次还款日的利息
             accrued_interest = _ZERO
             if payment.payment_date > last_date:
-                from apps.sales_dispute.services.interest_calculator_service import (
-                    InterestCalcParams as _ICP,
-                )
+                from apps.sales_dispute.services.interest_calculator_service import InterestCalcParams as _ICP
 
                 calc_params = _ICP(
                     principal=current_principal,
@@ -249,13 +238,11 @@ class RepaymentOffsetService:
                 accrued_interest = result.total_interest
 
             # 冲抵：费用=0，利息=计算所得，本金=当前剩余
-            offset_fee, offset_interest, offset_principal, remaining = (
-                self.offset_single_debt(
-                    payment.payment_amount,
-                    _ZERO,
-                    accrued_interest,
-                    current_principal,
-                )
+            offset_fee, offset_interest, offset_principal, remaining = self.offset_single_debt(
+                payment.payment_amount,
+                _ZERO,
+                accrued_interest,
+                current_principal,
             )
 
             record = PaymentRecord(

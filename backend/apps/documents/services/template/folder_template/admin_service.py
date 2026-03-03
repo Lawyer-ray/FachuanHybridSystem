@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-from apps.documents.models.choices import FolderTemplateType, LegalStatusMatchMode
-from apps.documents.models import FolderTemplate
-
 import logging
 from typing import Any
 
 from django.db import transaction
 
 from apps.core.exceptions import NotFoundError
+from apps.documents.models import FolderTemplate
+from apps.documents.models.choices import FolderTemplateType, LegalStatusMatchMode
 
 from ..folder_service import FolderTemplateService
 
@@ -143,14 +142,13 @@ class FolderTemplateAdminService:
             初始化结果
         """
         try:
-
             from .folder_template.default_templates import get_default_folder_templates
 
             default_templates = get_default_folder_templates()
             existing_names = set(
-                FolderTemplate.objects.filter(
-                    name__in=[t["name"] for t in default_templates]
-                ).values_list("name", flat=True)
+                FolderTemplate.objects.filter(name__in=[t["name"] for t in default_templates]).values_list(
+                    "name", flat=True
+                )
             )
 
             to_create = [
@@ -408,4 +406,3 @@ class FolderTemplateAdminService:
                 code="FOLDER_TEMPLATE_NOT_FOUND",
                 errors={"pk": pk},
             )
-

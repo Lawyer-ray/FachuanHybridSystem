@@ -12,13 +12,7 @@ from typing import Any
 
 from apps.core.path import Path
 
-from .reconciler import (
-    STATUS_UNMATCHED,
-    DeliveryNote,
-    MonthGroup,
-    ReconcileResult,
-    StatementInfo,
-)
+from .reconciler import STATUS_UNMATCHED, DeliveryNote, MonthGroup, ReconcileResult, StatementInfo
 
 logger = logging.getLogger("apps.evidence_sorting")
 
@@ -97,9 +91,7 @@ class ExporterService:
             name = self._build_delivery_filename(dn, date_counter)
             self._write_image(zf, f"{folder}/{name}", dn.image_data)
 
-    def _build_delivery_filename(
-        self, dn: DeliveryNote, date_counter: dict[str, int]
-    ) -> str:
+    def _build_delivery_filename(self, dn: DeliveryNote, date_counter: dict[str, int]) -> str:
         date_str = dn.date or "未知日期"
         amount_str = f"_{dn.amount}" if dn.amount else ""
         ext = self._get_ext(dn.filename)
@@ -117,9 +109,7 @@ class ExporterService:
         doc_type = "出库单" if "出库" in dn.ocr_text else "出仓单"
         return f"{date_str}_{doc_type}{seq}{amount_str}{remark}{ext}"
 
-    def _write_unsigned(
-        self, zf: zipfile.ZipFile, statements: list[StatementInfo]
-    ) -> None:
+    def _write_unsigned(self, zf: zipfile.ZipFile, statements: list[StatementInfo]) -> None:
         folder = "未签名"
         for st in statements:
             if not st.image_data:
@@ -131,18 +121,14 @@ class ExporterService:
             name = f"{st.month or '未知月份'}对账单{total_str}（未签名）{ext}"
             self._write_image(zf, f"{folder}/{name}", st.image_data)
 
-    def _write_category(
-        self, zf: zipfile.ZipFile, folder: str, items: list[dict[str, Any]]
-    ) -> None:
+    def _write_category(self, zf: zipfile.ZipFile, folder: str, items: list[dict[str, Any]]) -> None:
         for item in items:
             filename = item.get("filename", "unknown.jpg")
             data = item.get("image_data", "")
             if data:
                 self._write_image(zf, f"{folder}/{filename}", data)
 
-    def _write_unmatched(
-        self, zf: zipfile.ZipFile, deliveries: list[DeliveryNote]
-    ) -> None:
+    def _write_unmatched(self, zf: zipfile.ZipFile, deliveries: list[DeliveryNote]) -> None:
         folder = "未匹配出库单"
         date_counter: dict[str, int] = {}
         for dn in deliveries:
@@ -162,7 +148,7 @@ class ExporterService:
     @staticmethod
     def _get_ext(filename: str) -> str:
         if "." in filename:
-            return filename[filename.rfind("."):]
+            return filename[filename.rfind(".") :]
         return ".jpg"
 
     @staticmethod

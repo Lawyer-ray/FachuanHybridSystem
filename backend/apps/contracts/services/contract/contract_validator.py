@@ -15,6 +15,7 @@ class ContractValidator:
     def __init__(self, config: BusinessConfig | None = None) -> None:
         if config is None:
             from apps.core.business_config import business_config
+
             config = business_config
         self.config = config
 

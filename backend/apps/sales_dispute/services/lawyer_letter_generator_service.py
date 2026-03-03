@@ -16,13 +16,7 @@ from apps.core.exceptions import ValidationException
 
 logger = logging.getLogger(__name__)
 
-TEMPLATE_DIR: Path = (
-    Path(__file__).resolve().parents[3]
-    / "documents"
-    / "docx_templates"
-    / "2-案件材料"
-    / "3-催收材料"
-)
+TEMPLATE_DIR: Path = Path(__file__).resolve().parents[3] / "documents" / "docx_templates" / "2-案件材料" / "3-催收材料"
 
 
 class LetterTone(str, Enum):
@@ -83,10 +77,7 @@ class LawyerLetterGeneratorService:
         6. 返回文件名和字节流
         """
         from apps.documents.services.generation.pipeline import DocxRenderer
-        from apps.sales_dispute.models.collection_record import (
-            CollectionLog,
-            CollectionRecord,
-        )
+        from apps.sales_dispute.models.collection_record import CollectionLog, CollectionRecord
 
         template_file = TONE_TEMPLATE_MAP[params.tone]
         template_path = TEMPLATE_DIR / template_file
@@ -111,16 +102,12 @@ class LawyerLetterGeneratorService:
                 record=record,
                 action_type="lawyer_letter",
                 action_date=date.today(),
-                description=str(
-                    _("生成律师函（%(tone)s）") % {"tone": tone_display}
-                ),
+                description=str(_("生成律师函（%(tone)s）") % {"tone": tone_display}),
                 document_type=f"律师函-{tone_display}",
                 document_filename=filename,
             )
         except CollectionRecord.DoesNotExist:
-            logger.warning(
-                "案件 %s 无催收记录，跳过日志创建", params.case_id
-            )
+            logger.warning("案件 %s 无催收记录，跳过日志创建", params.case_id)
 
         logger.info(
             "生成律师函：案件=%s, 语气=%s, 文件=%s",

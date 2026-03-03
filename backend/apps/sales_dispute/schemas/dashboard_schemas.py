@@ -6,7 +6,6 @@ from datetime import date
 
 from ninja import Schema
 
-
 # ── 请求 Schema ──
 
 
@@ -43,7 +42,6 @@ class QueryPeriodSchema(Schema):
 
     start_date: date
     end_date: date
-
 
 
 class SummaryResponse(Schema):

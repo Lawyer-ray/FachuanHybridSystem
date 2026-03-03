@@ -58,13 +58,10 @@ class SMSDocumentMixin:
             sms.party_names = list(dict.fromkeys(party_names))
             sms.save()
             logger.info(
-                f"已更新短信记录的案号和当事人: SMS ID={sms.id}, "
-                f"案号={sms.case_numbers}, 当事人={sms.party_names}"
+                f"已更新短信记录的案号和当事人: SMS ID={sms.id}, 案号={sms.case_numbers}, 当事人={sms.party_names}"
             )
 
-    def _extract_from_single_document(
-        self, doc_path: str, case_numbers: list[str], party_names: list[str]
-    ) -> bool:
+    def _extract_from_single_document(self, doc_path: str, case_numbers: list[str], party_names: list[str]) -> bool:
         """从单个文书中提取案号和当事人，返回是否有更新"""
         updated = False
         try:

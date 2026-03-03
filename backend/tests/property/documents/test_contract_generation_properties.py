@@ -81,9 +81,9 @@ class TestContractGenerationServiceProperties:
 
             # 验证模板的 contract_types 包含 case_type 或 "all"
             contract_types = result.contract_types or []
-            assert case_type in contract_types or "all" in contract_types, (
-                f"模板的 contract_types {contract_types} 应该包含 {case_type} 或 'all'"
-            )
+            assert (
+                case_type in contract_types or "all" in contract_types
+            ), f"模板的 contract_types {contract_types} 应该包含 {case_type} 或 'all'"
         else:
             # 应该没有找到模板
             assert result is None, f"不应该找到匹配 {case_type} 的模板"

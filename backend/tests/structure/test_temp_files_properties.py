@@ -146,9 +146,9 @@ def test_temporary_files_not_in_version_control_property(file_path):
     # 断言：临时文件不应该被 Git 跟踪
     is_tracked = is_tracked_by_git(file_path)
 
-    assert not is_tracked, (
-        f"Temporary/generated file is tracked by Git: {file_path}\nThis file should be added to .gitignore"
-    )
+    assert (
+        not is_tracked
+    ), f"Temporary/generated file is tracked by Git: {file_path}\nThis file should be added to .gitignore"
 
 
 def test_gitignore_exists():

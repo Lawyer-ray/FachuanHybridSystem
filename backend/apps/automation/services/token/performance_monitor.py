@@ -397,6 +397,7 @@ class PerformanceMonitor:
 
     def _concurrent_key(self) -> str:
         from apps.core.infrastructure import CacheKeys
+
         return CacheKeys.automation_token_perf_concurrent()
 
     def _increment_concurrent_count(self) -> None:
@@ -435,6 +436,7 @@ class PerformanceMonitor:
 
     def _counter_key(self, metric: str) -> str:
         from apps.core.infrastructure import CacheKeys
+
         date = timezone.localdate().strftime("%Y%m%d")
         return CacheKeys.automation_token_perf_counter(date=date, site_name="all", metric=metric)
 

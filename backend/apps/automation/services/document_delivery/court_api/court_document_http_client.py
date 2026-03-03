@@ -1,10 +1,10 @@
 """API endpoints."""
 
-from django.utils.translation import gettext_lazy as _
 import logging
 from typing import Any, cast
 
 import httpx
+from django.utils.translation import gettext_lazy as _
 
 from apps.automation.utils.logging_mixins.common import sanitize_url
 from apps.core.exceptions import NetworkError

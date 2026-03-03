@@ -3,10 +3,9 @@
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 from django.core.files.uploadedfile import UploadedFile
 from django.utils.translation import gettext as _
-
-import numpy as np
 from numpy.typing import NDArray
 
 
@@ -42,7 +41,8 @@ def validate_image_size(image: NDArray[np.uint8], name: str, *, min_image_size: 
         return {
             "success": False,
             "error": "IMAGE_TOO_SMALL",
-            "message": _("%(name)s图片分辨率太低 (%(w)sx%(h)s)，请上传更高分辨率的图片") % {"name": name, "w": width, "h": height},
+            "message": _("%(name)s图片分辨率太低 (%(w)sx%(h)s)，请上传更高分辨率的图片")
+            % {"name": name, "w": width, "h": height},
         }
     return None
 

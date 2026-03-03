@@ -105,9 +105,7 @@ class ConcurrencyOptimizer:
                         "elapsed": elapsed,
                     },
                 )
-                raise TokenAcquisitionTimeoutError(
-                    f"获取资源锁超时: {self.config.lock_timeout}秒"
-                ) from e
+                raise TokenAcquisitionTimeoutError(f"获取资源锁超时: {self.config.lock_timeout}秒") from e
 
             # 更新资源使用情况
             self._update_resource_usage(site_name, account, increment=True)

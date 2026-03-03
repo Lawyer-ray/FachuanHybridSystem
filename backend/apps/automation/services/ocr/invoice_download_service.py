@@ -13,11 +13,7 @@ from typing import Any
 import fitz
 from django.conf import settings
 
-from apps.automation.models.invoice_recognition import (
-    InvoiceCategory,
-    InvoiceRecord,
-    InvoiceRecognitionTask,
-)
+from apps.automation.models.invoice_recognition import InvoiceCategory, InvoiceRecognitionTask, InvoiceRecord
 
 logger = logging.getLogger(__name__)
 
@@ -36,9 +32,7 @@ class InvoiceDownloadService:
             raise FileNotFoundError(f"文件不存在: {abs_path}")
         return abs_path, record.original_filename
 
-    def download_by_category(
-        self, task_id: int, category: str, fmt: str = "zip"
-    ) -> tuple[bytes, str]:
+    def download_by_category(self, task_id: int, category: str, fmt: str = "zip") -> tuple[bytes, str]:
         """下载同类目下所有非重复发票"""
         records = list(
             InvoiceRecord.objects.filter(
@@ -119,9 +113,7 @@ class InvoiceDownloadService:
                 zf.write(str(abs_path), arcname=arcname)
         return buf.getvalue()
 
-    def _generate_filename(
-        self, task_name: str, category: str | None, fmt: str
-    ) -> str:
+    def _generate_filename(self, task_name: str, category: str | None, fmt: str) -> str:
         """生成下载文件名：{任务名}_{类目/全部}_{日期}.{ext}"""
         category_part = category if category is not None else "全部"
         today = date.today().strftime("%Y%m%d")

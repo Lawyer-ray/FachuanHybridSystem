@@ -1,10 +1,10 @@
 /**
  * 案件 Admin 表单动态过滤脚本
- * 
+ *
  * 功能：
  * 1. 根据案件类型显示/隐藏相关字段
  * 2. 当案件绑定合同时，动态过滤 CaseParty inline 的 client 选择框
- * 
+ *
  * Requirements: 3.1, 3.2, 3.3, 3.4
  */
 ;(function(){
@@ -39,7 +39,7 @@
   // 合同当事人动态过滤逻辑
   // Requirements: 3.1, 3.2, 3.3, 3.4
   // ============================================================
-  
+
   // 缓存所有客户选项（用于恢复）
   var allClientOptions = null;
   // 缓存合同当事人数据
@@ -60,7 +60,7 @@
       'select.contract-party-client-select, ' +
       'select[data-contract-party-filter="true"]'
     );
-    
+
     // 如果没有找到，使用兼容选择器
     if (selects.length === 0) {
       selects = document.querySelectorAll(
@@ -68,7 +68,7 @@
         '#caseparty_set-group select[id$="-client"]'
       );
     }
-    
+
     // 过滤掉模板行（name 包含 __prefix__）
     var result = [];
     for (var i = 0; i < selects.length; i++) {
@@ -77,7 +77,7 @@
         result.push(select);
       }
     }
-    
+
     return result;
   }
 
@@ -86,13 +86,13 @@
    */
   function saveAllClientOptions() {
     if (allClientOptions !== null) return;
-    
+
     var selects = getClientSelects();
     if (selects.length === 0) return;
-    
+
     var firstSelect = selects[0];
     allClientOptions = [];
-    
+
     for (var i = 0; i < firstSelect.options.length; i++) {
       var opt = firstSelect.options[i];
       allClientOptions.push({
@@ -109,7 +109,7 @@
   function setLoadingState(loading) {
     isLoading = loading;
     var selects = getClientSelects();
-    
+
     // 更新 inline 容器的过滤状态类
     var inlineGroup = document.querySelector('.contract-party-inline, #caseparty_set-group');
     if (inlineGroup) {
@@ -119,14 +119,14 @@
         inlineGroup.classList.remove('contract-party-loading-state');
       }
     }
-    
+
     selects.forEach(function(select) {
       select.disabled = loading;
-      
+
       // 更新加载提示
       var wrapper = select.closest('td') || select.parentElement;
       var loadingIndicator = wrapper.querySelector('.contract-party-loading');
-      
+
       if (loading) {
         if (!loadingIndicator) {
           loadingIndicator = document.createElement('span');
@@ -150,25 +150,25 @@
    */
   function updateClientOptions(parties) {
     console.log('[updateOptions] 开始更新选项，当事人数量:', parties.length);
-    
+
     // 构建当事人 ID 到信息的映射
     var partyMap = {};
     parties.forEach(function(party) {
       partyMap[String(party.id)] = party;
     });
-    
+
     var selects = getClientSelects();
-    
+
     selects.forEach(function(select) {
       // 先保存当前选中的值（在清空选项之前）
       var currentValue = select.value;
       console.log('[updateOptions] 处理选择框:', select.name, '当前值:', currentValue);
-      
+
       // 清空现有选项（保留空选项）
       while (select.options.length > 1) {
         select.remove(1);
       }
-      
+
       // 添加新选项
       parties.forEach(function(party) {
         var opt = document.createElement('option');
@@ -178,7 +178,7 @@
         opt.text = party.name + ' ' + sourceLabel;
         select.appendChild(opt);
       });
-      
+
       // 恢复之前选中的值
       if (currentValue) {
         var party = partyMap[currentValue];
@@ -199,7 +199,7 @@
         }
       }
     });
-    
+
     console.log('[updateOptions] 更新完成');
   }
 
@@ -209,15 +209,15 @@
    */
   function restoreAllClientOptions() {
     if (!allClientOptions) return;
-    
+
     var selects = getClientSelects();
-    
+
     selects.forEach(function(select) {
       var currentValue = select.value;
-      
+
       // 清空现有选项
       select.innerHTML = '';
-      
+
       // 恢复所有选项
       allClientOptions.forEach(function(opt) {
         var option = document.createElement('option');
@@ -225,7 +225,7 @@
         option.text = opt.text;
         select.appendChild(option);
       });
-      
+
       // 恢复之前选中的值
       if (currentValue) {
         select.value = currentValue;
@@ -240,15 +240,15 @@
   function copyContractNameToCaseName(contractSelect) {
     var caseNameInput = byId('id_name');
     if (!caseNameInput) return;
-    
+
     // 获取选中的合同名称（从 option 的 text 中提取）
     var selectedOption = contractSelect.options[contractSelect.selectedIndex];
     if (!selectedOption || !selectedOption.value) {
       return;
     }
-    
+
     var contractName = selectedOption.text;
-    
+
     // 只在案件名称为空时自动填充，避免覆盖用户已输入的内容
     if (!caseNameInput.value || caseNameInput.value.trim() === '') {
       caseNameInput.value = contractName;
@@ -257,22 +257,22 @@
 
   /**
    * 自动填充合同当事人到案件当事人 inline
-   * 
+   *
    * 简化逻辑：直接遍历现有选择框填充
-   * 
+   *
    * @param {Array} parties - 当事人列表 [{id, name, source}, ...]
    */
   function autoFillCaseParties(parties) {
     console.log('[autoFill] 开始，原始当事人数量:', parties ? parties.length : 0);
-    
+
     if (!parties || parties.length === 0) {
       console.log('[autoFill] 没有当事人，退出');
       return;
     }
-    
+
     // 设置自动填充标志，防止 handleInlineAdded 干扰
     isAutoFilling = true;
-    
+
     // ========== 步骤 1 & 2: 基于 client ID 去重 ==========
     var seenIds = {};
     var uniqueParties = [];
@@ -284,12 +284,12 @@
         uniqueParties.push(party);
       }
     }
-    
+
     console.log('[autoFill] 步骤1&2: 去重后当事人数量:', uniqueParties.length);
     for (var i = 0; i < uniqueParties.length; i++) {
       console.log('[autoFill]   -', uniqueParties[i].name, '(ID:', uniqueParties[i].id, ')');
     }
-    
+
     // ========== 步骤 3: 获取已存在的当事人，过滤出需要添加的 ==========
     var existingClientIds = {};
     var selects = getClientSelects();
@@ -298,7 +298,7 @@
         existingClientIds[String(selects[i].value)] = true;
       }
     }
-    
+
     var partiesToAdd = [];
     for (var i = 0; i < uniqueParties.length; i++) {
       var party = uniqueParties[i];
@@ -306,15 +306,15 @@
         partiesToAdd.push(party);
       }
     }
-    
+
     console.log('[autoFill] 步骤3: 需要添加的当事人数量:', partiesToAdd.length);
-    
+
     if (partiesToAdd.length === 0) {
       console.log('[autoFill] 没有需要添加的当事人，退出');
       isAutoFilling = false;
       return;
     }
-    
+
     // ========== 步骤 4: 查找添加按钮 ==========
     // 查找 CaseParty inline 的添加按钮（支持多种选择器）
     var addButton = document.querySelector(
@@ -324,7 +324,7 @@
       '#caseparty_set-group a.add-row, ' +
       '[data-inline-type="tabular"] .add-row a'
     );
-    
+
     if (!addButton) {
       // 尝试通过 client 选择框找到 inline 容器，再找添加按钮
       var firstSelect = getClientSelects()[0];
@@ -335,25 +335,25 @@
         }
       }
     }
-    
+
     if (!addButton) {
       console.error('[autoFill] 找不到添加按钮');
       isAutoFilling = false;
       return;
     }
-    
+
     console.log('[autoFill] 找到添加按钮:', addButton);
-    
+
     var currentIndex = 0;
     // 记录已填充的选择框（通过 name 属性）
     var filledSelectNames = {};
-    
+
     /**
      * 填充一个选择框
      */
     function fillSelect(select, party) {
       var partyIdStr = String(party.id);
-      
+
       // 检查选项是否存在
       var optionExists = false;
       for (var i = 0; i < select.options.length; i++) {
@@ -362,7 +362,7 @@
           break;
         }
       }
-      
+
       // 如果选项不存在，添加它
       if (!optionExists) {
         console.log('[autoFill]   选项不存在，添加新选项');
@@ -372,14 +372,14 @@
         opt.text = party.name + ' ' + sourceLabel;
         select.appendChild(opt);
       }
-      
+
       // 设置选中值
       select.value = partyIdStr;
       filledSelectNames[select.name] = true;
       console.log('[autoFill]   已填充:', party.name, '(ID:', party.id, '), select.name:', select.name);
       return true;
     }
-    
+
     /**
      * 查找一个空的选择框（未填充且值为空）
      */
@@ -398,7 +398,7 @@
       }
       return null;
     }
-    
+
     /**
      * 处理单个当事人
      */
@@ -409,13 +409,13 @@
         isAutoFilling = false;
         return;
       }
-      
+
       var party = partiesToAdd[currentIndex];
       console.log('[autoFill] 步骤4: 处理第', currentIndex + 1, '/', partiesToAdd.length, '个当事人:', party.name);
-      
+
       // 查找空的选择框
       var emptySelect = findEmptySelect();
-      
+
       if (emptySelect) {
         // 有空选择框，直接填充
         console.log('[autoFill]   找到空选择框:', emptySelect.name);
@@ -427,12 +427,12 @@
         var selectCountBefore = getClientSelects().length;
         console.log('[autoFill]   没有空选择框，创建新行，当前选择框数量:', selectCountBefore);
         addButton.click();
-        
+
         // 等待新行创建
         setTimeout(function() {
           var selectCountAfter = getClientSelects().length;
           console.log('[autoFill]   点击后选择框数量:', selectCountAfter);
-          
+
           if (selectCountAfter > selectCountBefore) {
             // 找到新创建的空选择框
             var newEmptySelect = findEmptySelect();
@@ -452,23 +452,23 @@
         }, 300);
       }
     }
-    
+
     // 开始处理
     console.log('[autoFill] 步骤4: 开始逐个添加当事人...');
     processNextParty();
   }
-  
+
   /**
    * 清空所有案件当事人
    * 点击每一行的删除按钮来删除当事人
    */
   function clearAllCaseParties() {
     console.log('[clearParties] 开始清空当事人...');
-    
+
     // 使用更精确的选择器：查找 name 以 parties- 开头且以 -client 结尾的选择框
     // 这样可以确保只获取 CaseParty inline 的选择框
     var allSelects = document.querySelectorAll('select[name^="parties-"][name$="-client"]');
-    
+
     // 过滤掉模板行
     var realSelects = [];
     for (var i = 0; i < allSelects.length; i++) {
@@ -476,9 +476,9 @@
         realSelects.push(allSelects[i]);
       }
     }
-    
+
     console.log('[clearParties] 当前当事人数量:', realSelects.length);
-    
+
     // 收集所有需要删除的行
     var rowsToDelete = [];
     for (var i = 0; i < realSelects.length; i++) {
@@ -491,14 +491,14 @@
         }
       }
     }
-    
+
     console.log('[clearParties] 需要删除的行数:', rowsToDelete.length);
-    
+
     // 逐个删除（从后往前删除，避免索引问题）
     for (var i = rowsToDelete.length - 1; i >= 0; i--) {
       var item = rowsToDelete[i];
       var row = item.row;
-      
+
       // 尝试找删除按钮（Django Admin / nested_admin 的删除按钮）
       var deleteBtn = row.querySelector('.inline-deletelink, .delete-handler, a.delete, .djn-remove-handler');
       if (deleteBtn) {
@@ -521,10 +521,10 @@
         }
       }
     }
-    
+
     console.log('[clearParties] 清空完成');
   }
-  
+
   /**
    * 处理合同字段变化
    * Requirements: 3.1, 3.2, 3.3
@@ -532,21 +532,21 @@
   function handleContractChange() {
     var contractSelect = byId('id_contract');
     if (!contractSelect) return;
-    
+
     var contractId = contractSelect.value;
     var previousContractId = contractSelect.dataset.previousValue;
-    
+
     // 如果值没有变化，跳过处理（防止重复触发）
     if (contractId === previousContractId) {
       console.log('[handleContractChange] 合同值未变化，跳过');
       return;
     }
-    
+
     console.log('[handleContractChange] 合同变化:', previousContractId, '->', contractId);
-    
+
     // 复制合同名称到案件名称
     copyContractNameToCaseName(contractSelect);
-    
+
     // 更新 inline 容器的过滤激活状态
     var inlineGroup = document.querySelector('.contract-party-inline, #caseparty_set-group');
     if (inlineGroup) {
@@ -556,17 +556,17 @@
         inlineGroup.classList.remove('contract-party-filter-active');
       }
     }
-    
+
     // 如果切换了合同（从一个合同切换到另一个合同），先清空当事人
     var isContractChanged = previousContractId && contractId && contractId !== previousContractId;
     if (isContractChanged) {
       console.log('[handleContractChange] 合同已切换，清空当事人');
       clearAllCaseParties();
     }
-    
+
     // 记录当前值，用于下次比较（在处理之前记录，防止重复触发）
     contractSelect.dataset.previousValue = contractId;
-    
+
     if (contractId) {
       // 有合同，获取合同当事人并过滤
       // 如果是切换合同，需要等待清空完成后再填充
@@ -584,7 +584,7 @@
       restoreAllClientOptions();
     }
   }
-  
+
   /**
    * 获取合同当事人并可选自动填充
    * @param {string} contractId - 合同 ID
@@ -592,13 +592,13 @@
    */
   function fetchContractPartiesAndFill(contractId, shouldAutoFill) {
     console.log('[fetch] 开始获取合同当事人, contractId:', contractId, 'shouldAutoFill:', shouldAutoFill);
-    
+
     // 防止重复请求
     if (isLoading) {
       console.log('[fetch] 正在加载中，跳过');
       return;
     }
-    
+
     // 检查缓存
     if (contractPartiesCache[contractId]) {
       console.log('[fetch] 使用缓存数据，当事人数量:', contractPartiesCache[contractId].length);
@@ -614,12 +614,12 @@
       }
       return;
     }
-    
+
     setLoadingState(true);
     console.log('[fetch] 发起 API 请求...');
-    
+
     var url = '/api/v1/contracts/contracts/' + contractId + '/all-parties';
-    
+
     fetch(url)
       .then(function(response) {
         if (!response.ok) {
@@ -632,10 +632,10 @@
         for (var i = 0; i < parties.length; i++) {
           console.log('[fetch]   -', parties[i].name, '(ID:', parties[i].id, ', source:', parties[i].source, ')');
         }
-        
+
         // 缓存结果
         contractPartiesCache[contractId] = parties;
-        
+
         // 如果需要自动填充，先填充再更新选项
         if (shouldAutoFill) {
           console.log('[fetch] 开始自动填充...');
@@ -665,13 +665,13 @@
   function initContractPartyFilter() {
     var contractSelect = byId('id_contract');
     if (!contractSelect) return;
-    
+
     // 保存所有客户选项
     saveAllClientOptions();
-    
+
     // 监听合同字段变化
     contractSelect.addEventListener('change', handleContractChange);
-    
+
     // 初始化时检查是否已有合同
     if (contractSelect.value) {
       // 已有案件（INITIAL_FORMS > 0）时，只更新选项过滤，不自动填充
@@ -695,13 +695,13 @@
       console.log('[handleInlineAdded] 自动填充进行中，跳过');
       return;
     }
-    
+
     var contractSelect = byId('id_contract');
     if (!contractSelect || !contractSelect.value) {
       // 无合同，使用所有选项
       return;
     }
-    
+
     var contractId = contractSelect.value;
     if (contractPartiesCache[contractId]) {
       // 有缓存，直接更新新行的选项
@@ -719,10 +719,10 @@
       sel.addEventListener('change', toggle)
       toggle()
     }
-    
+
     // 合同当事人过滤逻辑
     initContractPartyFilter();
-    
+
     // 监听 inline 行添加事件（Django Admin 使用 formset:added 事件）
     document.body.addEventListener('formset:added', function(e) {
       if (e.detail && e.detail[0]) {
@@ -734,5 +734,5 @@
       }
     });
   });
-  
+
 })();

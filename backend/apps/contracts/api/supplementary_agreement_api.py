@@ -12,7 +12,6 @@ from django.http import HttpRequest
 from ninja import Router
 
 from apps.client.services import ClientServiceAdapter
-
 from apps.contracts.schemas import SupplementaryAgreementIn, SupplementaryAgreementOut, SupplementaryAgreementUpdate
 from apps.contracts.services.supplementary.supplementary_agreement_service import SupplementaryAgreementService
 
@@ -25,7 +24,9 @@ def _get_supplementary_agreement_service() -> SupplementaryAgreementService:
 
 
 @router.post("/supplementary-agreements", response=SupplementaryAgreementOut)
-def create_supplementary_agreement(request: HttpRequest, payload: SupplementaryAgreementIn) -> SupplementaryAgreementOut:
+def create_supplementary_agreement(
+    request: HttpRequest, payload: SupplementaryAgreementIn
+) -> SupplementaryAgreementOut:
     """
     创建补充协议
 

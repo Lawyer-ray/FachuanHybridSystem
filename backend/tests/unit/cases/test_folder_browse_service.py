@@ -1,10 +1,10 @@
 import tempfile
+from pathlib import Path
 
 from django.test import SimpleTestCase, override_settings
 
 from apps.cases.services.folder_binding_service import CaseFolderBindingService
 from apps.core.exceptions import ValidationException
-from pathlib import Path
 
 
 class CaseFolderBrowseServiceTests(SimpleTestCase):

@@ -118,9 +118,9 @@ class TestAPILayerCompliance:
                             if violations:
                                 # 允许在工厂函数内部导入，但不允许在视图函数中直接导入
                                 if "def _get_" not in view_source:
-                                    assert not violations, (
-                                        f"{api_module.__name__}.{view_name} 不应该直接实例化Service: {violations}"
-                                    )
+                                    assert (
+                                        not violations
+                                    ), f"{api_module.__name__}.{view_name} 不应该直接实例化Service: {violations}"
 
                         # 如果视图函数需要Service，必须使用工厂函数
                         if "service" in view_source.lower():
@@ -176,9 +176,9 @@ class TestAPILayerCompliance:
                     if servicelocator_calls:
                         # 验证调用模式正确
                         for call in servicelocator_calls:
-                            assert "get_" in call and "_service()" in call, (
-                                f"{api_module.__name__} ServiceLocator调用模式不正确: {call}"
-                            )
+                            assert (
+                                "get_" in call and "_service()" in call
+                            ), f"{api_module.__name__} ServiceLocator调用模式不正确: {call}"
 
             # 检查是否有禁止的跨模块直接导入
             prohibited_import_patterns = [
@@ -324,9 +324,9 @@ class TestAPILayerCompliance:
                                     continue
                                 filtered_violations.append(violation)
 
-                        assert not filtered_violations, (
-                            f"{api_module.__name__}.{view_name} 不应该直接进行数据库操作: {filtered_violations}"
-                        )
+                        assert (
+                            not filtered_violations
+                        ), f"{api_module.__name__}.{view_name} 不应该直接进行数据库操作: {filtered_violations}"
 
         except (OSError, TypeError):
             # 如果无法获取模块源代码，跳过此测试
@@ -372,9 +372,9 @@ class TestAPILayerCompliance:
             for full_match, method, view_name, view_body in view_matches:
                 for pattern in transaction_decorator_patterns:
                     violations = re.findall(pattern, full_match)
-                    assert not violations, (
-                        f"{api_module.__name__}.{view_name} 不应该使用事务装饰器，事务管理应该在Service层: {violations}"
-                    )
+                    assert (
+                        not violations
+                    ), f"{api_module.__name__}.{view_name} 不应该使用事务装饰器，事务管理应该在Service层: {violations}"
 
             # 检查整个模块是否导入了transaction
             transaction_import_patterns = [
@@ -388,9 +388,9 @@ class TestAPILayerCompliance:
                     # 检查是否在视图函数中使用
                     for _, _, view_name, view_body in view_matches:
                         transaction_usage = re.findall(r"transaction\.", view_body)
-                        assert not transaction_usage, (
-                            f"{api_module.__name__}.{view_name} 不应该使用transaction: {transaction_usage}"
-                        )
+                        assert (
+                            not transaction_usage
+                        ), f"{api_module.__name__}.{view_name} 不应该使用transaction: {transaction_usage}"
 
         except (OSError, TypeError):
             # 如果无法获取模块源代码，跳过此测试
@@ -673,9 +673,9 @@ class TestAPILayerPropertyBasedCompliance:
                     if hasattr(assignment.func, "id"):
                         func_name_called = assignment.func.id
                         # 符合规范：使用工厂函数
-                        assert func_name_called.startswith("_get_") and func_name_called.endswith("_service"), (
-                            f"符合规范的API视图函数应该使用工厂函数: {func_name_called}"
-                        )
+                        assert func_name_called.startswith("_get_") and func_name_called.endswith(
+                            "_service"
+                        ), f"符合规范的API视图函数应该使用工厂函数: {func_name_called}"
 
     @given(non_compliant_api_view_source())
     @settings(max_examples=20)

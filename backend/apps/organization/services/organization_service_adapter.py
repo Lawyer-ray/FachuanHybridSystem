@@ -24,7 +24,6 @@ _assembler = LawyerDtoAssembler()
 
 
 class OrganizationServiceAdapter(IOrganizationService):
-
     def __init__(self, account_credential_service: AccountCredentialService | None = None) -> None:
         self._account_credential_service = account_credential_service
         self._lawfirm_service: LawFirmService | None = None

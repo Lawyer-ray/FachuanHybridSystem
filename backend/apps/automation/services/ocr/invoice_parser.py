@@ -27,33 +27,19 @@ class InvoiceParser:
     """通过正则表达式和关键词匹配从 OCR/PDF 文本中提取结构化发票字段"""
 
     # 发票代码：10-12 位数字，前面有关键词
-    _CODE_PATTERN: re.Pattern[str] = re.compile(
-        r"(?:发票代码|No\.)[^\d]*(\d{10,12})"
-    )
+    _CODE_PATTERN: re.Pattern[str] = re.compile(r"(?:发票代码|No\.)[^\d]*(\d{10,12})")
     # 发票号码：20位（新版电子）或8位（旧版），前面有关键词
-    _NUMBER_PATTERN: re.Pattern[str] = re.compile(
-        r"(?:发票号码|No\.)[^\d]*(\d{20}|\d{8})(?!\d)"
-    )
+    _NUMBER_PATTERN: re.Pattern[str] = re.compile(r"(?:发票号码|No\.)[^\d]*(\d{20}|\d{8})(?!\d)")
     # 项目名称：*类目*具体名称 格式，截止到空格/换行
-    _PROJECT_PATTERN: re.Pattern[str] = re.compile(
-        r"\*[^*]+\*([^\s\n\r]{2,50})"
-    )
+    _PROJECT_PATTERN: re.Pattern[str] = re.compile(r"\*[^*]+\*([^\s\n\r]{2,50})")
     # 日期：YYYY年MM月DD日 或 YYYY-MM-DD
-    _DATE_CN_PATTERN: re.Pattern[str] = re.compile(
-        r"(\d{4})年(\d{1,2})月(\d{1,2})日"
-    )
-    _DATE_ISO_PATTERN: re.Pattern[str] = re.compile(
-        r"(\d{4})-(\d{2})-(\d{2})"
-    )
+    _DATE_CN_PATTERN: re.Pattern[str] = re.compile(r"(\d{4})年(\d{1,2})月(\d{1,2})日")
+    _DATE_ISO_PATTERN: re.Pattern[str] = re.compile(r"(\d{4})-(\d{2})-(\d{2})")
     # 金额（不含税）：合计行中 ¥xxx.xx 第一个
-    _AMOUNT_PATTERN: re.Pattern[str] = re.compile(
-        r"合\s*计\s*[¥￥]([\d,]+\.\d{2})\s*[¥￥]([\d,]+\.\d{2})"
-    )
+    _AMOUNT_PATTERN: re.Pattern[str] = re.compile(r"合\s*计\s*[¥￥]([\d,]+\.\d{2})\s*[¥￥]([\d,]+\.\d{2})")
     # 税额：合计行中 ¥xxx.xx 第二个（见上）
     # 价税合计：小写金额
-    _TOTAL_PATTERN: re.Pattern[str] = re.compile(
-        r"[（(]小写[）)]\s*[¥￥]([\d,]+\.\d{2})"
-    )
+    _TOTAL_PATTERN: re.Pattern[str] = re.compile(r"[（(]小写[）)]\s*[¥￥]([\d,]+\.\d{2})")
     # 购买方名称：取"名称：xxx"中第一个，截止到空格或"销"字
     _BUYER_PATTERN: re.Pattern[str] = re.compile(
         r"(?:购买方名称|购方名称)[：:]\s*([^\n\r]{2,50})"
@@ -62,8 +48,7 @@ class InvoiceParser:
     )
     # 销售方名称
     _SELLER_PATTERN: re.Pattern[str] = re.compile(
-        r"(?:销售方名称|销方名称)[：:]\s*([^\n\r]{2,50})"
-        r"|销\s*名称[：:]\s*([^\n\r]{2,50})"
+        r"(?:销售方名称|销方名称)[：:]\s*([^\n\r]{2,50})" r"|销\s*名称[：:]\s*([^\n\r]{2,50})"
     )
 
     # 类目关键词映射（顺序重要，长关键词优先）
@@ -131,25 +116,13 @@ class InvoiceParser:
         lines.append(f"发票号码:{parsed.invoice_number}")
         if parsed.invoice_date is not None:
             lines.append(
-                f"开票日期:{parsed.invoice_date.year}年"
-                f"{parsed.invoice_date.month:02d}月"
-                f"{parsed.invoice_date.day:02d}日"
+                f"开票日期:{parsed.invoice_date.year}年{parsed.invoice_date.month:02d}月{parsed.invoice_date.day:02d}日"
             )
         else:
             lines.append("开票日期:")
-        lines.append(
-            f"金额:{parsed.amount:.2f}" if parsed.amount is not None else "金额:"
-        )
-        lines.append(
-            f"税额:{parsed.tax_amount:.2f}"
-            if parsed.tax_amount is not None
-            else "税额:"
-        )
-        lines.append(
-            f"价税合计:{parsed.total_amount:.2f}"
-            if parsed.total_amount is not None
-            else "价税合计:"
-        )
+        lines.append(f"金额:{parsed.amount:.2f}" if parsed.amount is not None else "金额:")
+        lines.append(f"税额:{parsed.tax_amount:.2f}" if parsed.tax_amount is not None else "税额:")
+        lines.append(f"价税合计:{parsed.total_amount:.2f}" if parsed.total_amount is not None else "价税合计:")
         lines.append(f"购买方名称:{parsed.buyer_name}")
         lines.append(f"销售方名称:{parsed.seller_name}")
         lines.append(f"发票类目:{parsed.category}")

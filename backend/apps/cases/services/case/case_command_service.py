@@ -1,12 +1,12 @@
 """案件命令服务 - 负责所有案件写操作（创建、更新、删除）。"""
 
 from __future__ import annotations
-from django.utils.translation import gettext_lazy as _
 
 import logging
 from typing import Any
 
 from django.db import transaction
+from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import Case
 from apps.core.business_config import business_config
@@ -103,11 +103,11 @@ class CaseCommandService(PermissionMixin):
     ) -> Case:
         """创建案件。
 
-            ForbiddenError: 用户未认证
-            ValidationException: 合同无效或阶段不合法
+        ForbiddenError: 用户未认证
+        ValidationException: 合同无效或阶段不合法
         """
         ctx = AccessContext(user=user, org_access=org_access, perm_open_access=perm_open_access)
-        self.check_authenticated(ctx) # type: ignore
+        self.check_authenticated(ctx)  # type: ignore
 
         contract_id: int | None = data.get("contract_id")
         if contract_id:
@@ -150,9 +150,9 @@ class CaseCommandService(PermissionMixin):
     ) -> Case:
         """更新案件。
 
-            NotFoundError: 案件不存在
-            ForbiddenError: 无权限
-            ValidationException: 合同无效或阶段不合法
+        NotFoundError: 案件不存在
+        ForbiddenError: 无权限
+        ValidationException: 合同无效或阶段不合法
         """
         try:
             case = get_case_queryset().select_related("contract").get(id=case_id)
@@ -161,7 +161,7 @@ class CaseCommandService(PermissionMixin):
 
         ctx = AccessContext(user=user, org_access=org_access, perm_open_access=perm_open_access)
         if not perm_open_access:
-            self.check_authenticated(ctx) # type: ignore
+            self.check_authenticated(ctx)  # type: ignore
             self._access_policy.ensure_access(
                 case_id=case.id,
                 user=user,
@@ -222,8 +222,8 @@ class CaseCommandService(PermissionMixin):
     ) -> None:
         """删除案件。
 
-            NotFoundError: 案件不存在
-            ForbiddenError: 无权限
+        NotFoundError: 案件不存在
+        ForbiddenError: 无权限
         """
         try:
             case = Case.objects.get(id=case_id)
@@ -232,7 +232,7 @@ class CaseCommandService(PermissionMixin):
 
         ctx = AccessContext(user=user, org_access=org_access, perm_open_access=perm_open_access)
         if not perm_open_access:
-            self.check_authenticated(ctx) # type: ignore
+            self.check_authenticated(ctx)  # type: ignore
             self._access_policy.ensure_access(
                 case_id=case.id,
                 user=user,
@@ -251,6 +251,7 @@ class CaseCommandService(PermissionMixin):
             },
         )
         from apps.cases.utils import fix_sqlite_orphan_contract_fk
+
         fix_sqlite_orphan_contract_fk()
         case.delete()
 
@@ -272,8 +273,8 @@ class CaseCommandService(PermissionMixin):
     ) -> dict[str, Any]:
         """创建完整案件（包含当事人、指派、日志）。
 
-            ValidationException: 数据验证失败
-            ForbiddenError: 权限不足
+        ValidationException: 数据验证失败
+        ForbiddenError: 权限不足
         """
         from .workflows.case_full_create_workflow import CaseFullCreateWorkflow
 

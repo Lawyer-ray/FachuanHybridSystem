@@ -71,10 +71,7 @@ def parse_statement(request: HttpRequest) -> dict[str, Any]:
         "month": info.month,
         "total_amount": info.total_amount,
         "signed": info.signed,
-        "line_items": [
-            {"date": li.date, "amount": li.amount, "description": li.description}
-            for li in info.line_items
-        ],
+        "line_items": [{"date": li.date, "amount": li.amount, "description": li.description} for li in info.line_items],
     }
 
 
@@ -108,13 +105,17 @@ def reconcile(request: HttpRequest) -> dict[str, Any]:
                 "month": g.month,
                 "folder_name": g.folder_name,
                 "issues": g.issues,
-                "statement": {
-                    "filename": g.statement.filename,
-                    "month": g.statement.month,
-                    "total_amount": g.statement.total_amount,
-                    "signed": g.statement.signed,
-                    "line_items_count": len(g.statement.line_items),
-                } if g.statement else None,
+                "statement": (
+                    {
+                        "filename": g.statement.filename,
+                        "month": g.statement.month,
+                        "total_amount": g.statement.total_amount,
+                        "signed": g.statement.signed,
+                        "line_items_count": len(g.statement.line_items),
+                    }
+                    if g.statement
+                    else None
+                ),
                 "deliveries": [
                     {
                         "filename": d.filename,
@@ -139,8 +140,7 @@ def reconcile(request: HttpRequest) -> dict[str, Any]:
         "receipts_count": len(result.receipts),
         "others_count": len(result.others),
         "unmatched_deliveries": [
-            {"filename": d.filename, "date": d.date, "amount": d.amount}
-            for d in result.unmatched_deliveries
+            {"filename": d.filename, "date": d.date, "amount": d.amount} for d in result.unmatched_deliveries
         ],
     }
 
@@ -185,12 +185,14 @@ def llm_options(request: HttpRequest) -> dict[str, Any]:
     # Ollama
     try:
         ollama_backend = llm.get_backend("ollama")
-        backends.append({
-            "name": "ollama",
-            "label": "Ollama (本地)",
-            "available": ollama_backend.is_available(),
-            "default_model": ollama_backend.get_default_model(),
-        })
+        backends.append(
+            {
+                "name": "ollama",
+                "label": "Ollama (本地)",
+                "available": ollama_backend.is_available(),
+                "default_model": ollama_backend.get_default_model(),
+            }
+        )
     except Exception:
         pass
 
@@ -199,13 +201,15 @@ def llm_options(request: HttpRequest) -> dict[str, Any]:
         sf_backend = llm.get_backend("siliconflow")
         model_svc = ModelListService()
         models = model_svc.get_models()
-        backends.append({
-            "name": "siliconflow",
-            "label": "硅基流动",
-            "available": sf_backend.is_available(),
-            "default_model": sf_backend.get_default_model(),
-            "models": models,
-        })
+        backends.append(
+            {
+                "name": "siliconflow",
+                "label": "硅基流动",
+                "available": sf_backend.is_available(),
+                "default_model": sf_backend.get_default_model(),
+                "models": models,
+            }
+        )
     except Exception:
         pass
 

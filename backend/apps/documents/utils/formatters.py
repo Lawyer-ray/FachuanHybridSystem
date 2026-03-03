@@ -29,6 +29,7 @@ def format_date(d: date | str | None, fmt: str = DEFAULT_DATE_FORMAT) -> str:
     try:
         if isinstance(d, str):
             from datetime import datetime
+
             d = datetime.strptime(d, "%Y-%m-%d").date()
         return d.strftime(fmt)
     except Exception as e:

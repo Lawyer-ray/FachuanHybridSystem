@@ -1,11 +1,11 @@
 """Business logic services."""
 
 from __future__ import annotations
-from django.utils.translation import gettext_lazy as _
 
 from typing import Any
 
 from django.core.files.uploadedfile import UploadedFile
+from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import CaseLogAttachment
 from apps.cases.utils import validate_case_log_attachment

@@ -6,8 +6,9 @@
 
 from __future__ import annotations
 
-import django
 import os
+
+import django
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "apiSystem.settings")
 django.setup()

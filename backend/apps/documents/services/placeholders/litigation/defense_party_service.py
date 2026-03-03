@@ -7,10 +7,10 @@ Requirements: 3.1, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 8.3
 import logging
 from typing import Any, ClassVar
 
+from apps.core.enums import LegalStatus
 from apps.documents.services.placeholders.base import BasePlaceholderService
 from apps.documents.services.placeholders.registry import PlaceholderRegistry
 from apps.litigation_ai.placeholders.spec import LitigationPlaceholderKeys
-from apps.core.enums import LegalStatus
 
 logger = logging.getLogger(__name__)
 
@@ -221,9 +221,7 @@ class DefensePartyService(BasePlaceholderService):
 
         # 答辩人格式:信用代码在前;被答辩人/其他格式:地址在前
         if role_label.startswith("答辩人"):
-            return (
-                f"{role_label}：{company_name}\n统一社会信用代码：{credit_code}\n法定代表人：{legal_rep}\n地址：{address}"
-            )
+            return f"{role_label}：{company_name}\n统一社会信用代码：{credit_code}\n法定代表人：{legal_rep}\n地址：{address}"
         return (
             f"{role_label}：{company_name}\n"
             f"地址：{address}\n"

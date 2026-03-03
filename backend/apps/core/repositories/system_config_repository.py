@@ -56,4 +56,3 @@ class SystemConfigRepository:
 
     def delete(self, config_id: int) -> tuple[int, dict[str, int]]:
         return SystemConfig.objects.filter(id=config_id).delete()
-

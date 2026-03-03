@@ -16,7 +16,7 @@
 <div class="content-main">
     <h1>📱 {{ title }}</h1>
     <p class="subtitle">{% trans "粘贴法院发送的短信全文，系统将自动处理下载、匹配案件、重命名文书并推送到飞书" %}</p>
-    
+
     {% if messages %}
         {% for message in messages %}
             <div class="alert alert-{{ message.tags }}">
@@ -24,19 +24,19 @@
             </div>
         {% endfor %}
     {% endif %}
-    
+
     <div class="module aligned">
         <form method="post" novalidate>
             {% csrf_token %}
-            
+
             <div class="form-row">
                 <div>
                     <label for="id_content" class="required">📝 {% trans "短信内容" %}:</label>
-                    <textarea 
-                        name="content" 
-                        id="id_content" 
-                        rows="12" 
-                        cols="80" 
+                    <textarea
+                        name="content"
+                        id="id_content"
+                        rows="12"
+                        cols="80"
                         required
                         placeholder="请粘贴完整的法院短信内容，例如：
 
@@ -46,27 +46,27 @@
                     <p class="help">{% trans "请粘贴完整的短信内容，包括法院名称、案号、下载链接等信息" %}</p>
                 </div>
             </div>
-            
+
             <div class="form-row">
                 <div>
                     <label for="id_received_at">📅 {% trans "收到时间（可选）" %}:</label>
-                    <input 
-                        type="datetime-local" 
-                        name="received_at" 
+                    <input
+                        type="datetime-local"
+                        name="received_at"
                         id="id_received_at"
                         style="width: 300px;"
                     />
                     <p class="help">{% trans "留空则使用当前时间" %}</p>
                 </div>
             </div>
-            
+
             <div class="submit-row">
                 <input type="submit" value="🚀 {% trans "提交处理" %}" class="default" />
                 <a href="{% url 'admin:automation_courtsms_changelist' %}" class="button cancel-link">{% trans "取消" %}</a>
             </div>
         </form>
     </div>
-    
+
     {% if recent_sms %}
     <div class="module">
         <h2>📋 {% trans "最近提交的短信" %}</h2>
@@ -115,7 +115,7 @@
                                     {{ sms.case.name|truncatechars:30 }}
                                 </a>
                             {% elif sms.status == 'pending_manual' %}
-                                <a href="{% url 'admin:automation_courtsms_assign_case' sms.id %}" 
+                                <a href="{% url 'admin:automation_courtsms_assign_case' sms.id %}"
                                    style="color: orange; font-weight: bold;">
                                     🔗 {% trans "需要指定案件" %}
                                 </a>
@@ -130,7 +130,7 @@
                         </td>
                         <td>{{ sms.created_at|date:"m-d H:i" }}</td>
                         <td>
-                            <a href="{% url 'admin:automation_courtsms_change' sms.id %}" 
+                            <a href="{% url 'admin:automation_courtsms_change' sms.id %}"
                                class="button" target="_blank">{% trans "查看详情" %}</a>
                         </td>
                     </tr>

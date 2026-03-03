@@ -11,9 +11,7 @@ from typing import TYPE_CHECKING, Any, Protocol
 from playwright.sync_api import BrowserContext, Page
 
 if TYPE_CHECKING:
-    from apps.automation.services.captcha.captcha_recognition_service import ( # type: ignore
-        CaptchaRecognizer,
-    )
+    from apps.automation.services.captcha.captcha_recognition_service import CaptchaRecognizer  # type: ignore
     from apps.automation.services.scraper.core.token_service import TokenService
 
 
@@ -27,6 +25,7 @@ class CookieServiceProtocol(Protocol):
     def save(self, context: Any, storage_path: str | None = None) -> str:
         """保存浏览器上下文中的 Cookie，返回存储路径"""
         ...
+
 
 logger = logging.getLogger("apps.automation")
 
@@ -108,7 +107,7 @@ class CourtZxfwService:
         if self._token_service is None:
             from apps.core.interfaces import ServiceLocator
 
-            self._token_service = ServiceLocator.get_token_service() # type: ignore
+            self._token_service = ServiceLocator.get_token_service()  # type: ignore
             logger.info("使用 ServiceLocator 获取 TokenService")
         return self._token_service
 
@@ -240,7 +239,9 @@ class CourtZxfwService:
 
             self._fill_login_form(account, password, save_debug)
 
-            if not self._try_captcha_login(max_captcha_retries=max_captcha_retries, save_debug=save_debug, captured_token=captured_token):
+            if not self._try_captcha_login(
+                max_captcha_retries=max_captcha_retries, save_debug=save_debug, captured_token=captured_token
+            ):
                 raise ValueError("登录失败")
 
             # 登录成功后保存 Cookie
@@ -268,7 +269,9 @@ class CourtZxfwService:
         self._cookie_service.save(self.context, cookie_path)
         logger.info("Cookie 已保存", extra={"account": account, "path": cookie_path})
 
-    def _try_captcha_login(self, max_captcha_retries: int, save_debug: bool, captured_token: dict[str, Any] | None = None) -> bool:
+    def _try_captcha_login(
+        self, max_captcha_retries: int, save_debug: bool, captured_token: dict[str, Any] | None = None
+    ) -> bool:
         """
         带重试的验证码识别和登录
 

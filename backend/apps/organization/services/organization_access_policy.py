@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from apps.organization.models import Lawyer, LawFirm, Team
+from apps.organization.models import LawFirm, Lawyer, Team
 
 
 class OrganizationAccessPolicy:

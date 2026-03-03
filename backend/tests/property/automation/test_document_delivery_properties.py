@@ -4,7 +4,7 @@
 使用 Hypothesis 进行属性测试，验证文书送达相关数据类的正确性属性。
 """
 
-from datetime import datetime, timezone, UTC
+from datetime import UTC, datetime, timezone
 from typing import Any, Dict
 
 import pytest

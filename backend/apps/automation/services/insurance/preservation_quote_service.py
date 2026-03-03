@@ -8,7 +8,6 @@
 - 列表查询
 """
 
-from django.utils.translation import gettext_lazy as _
 import logging
 from decimal import Decimal
 from typing import Any, Optional, cast
@@ -16,11 +15,12 @@ from typing import Any, Optional, cast
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import PreservationQuote, QuoteStatus
+from apps.automation.services.insurance._quote_execution_mixin import QuoteExecutionMixin
 from apps.automation.services.insurance.court_insurance_client import CourtInsuranceClient
 from apps.automation.services.insurance.exceptions import ValidationError
-from apps.automation.services.insurance._quote_execution_mixin import QuoteExecutionMixin
 from apps.core.config import get_config
 from apps.core.exceptions import NotFoundError
 from apps.core.interfaces import IAutoTokenAcquisitionService, ITokenService
@@ -107,7 +107,7 @@ class PreservationQuoteService(QuoteExecutionMixin):
                 preserve_amount=preserve_amount,
                 corp_id=corp_id,
                 category_id=category_id,
-                credential_id=credential_id, # type: ignore
+                credential_id=credential_id,  # type: ignore
             )
         except ValidationError as e:
             # 记录验证失败日志
@@ -253,7 +253,7 @@ class PreservationQuoteService(QuoteExecutionMixin):
             # 根据成功/失败情况设置状态
             if success_count == 0:
                 quote.status = QuoteStatus.FAILED
-                quote.error_message = _("所有保险公司查询均失败") # type: ignore
+                quote.error_message = _("所有保险公司查询均失败")  # type: ignore
             elif failed_count == 0:
                 quote.status = QuoteStatus.SUCCESS
             else:

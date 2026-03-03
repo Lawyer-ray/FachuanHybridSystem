@@ -92,7 +92,7 @@ class CaseNumberExtractorService:
         try:
             # 读取 PDF 内容
             logger.info(f"开始从文书提取内容: {document_path}")
-            result = self.document_processing_service.extract_document_content_by_path_internal( # type: ignore
+            result = self.document_processing_service.extract_document_content_by_path_internal(  # type: ignore
                 document_path,
                 limit=3000,  # 限制字符数以提高处理效率
             )
@@ -279,7 +279,7 @@ class CaseNumberExtractorService:
 
             if is_valid:
                 logger.debug(f"案号验证通过: {original} -> {normalized}")
-                return normalized # type: ignore
+                return normalized  # type: ignore
             else:
                 logger.warning(f"案号格式不正确，跳过: {original} -> {normalized}")
                 return None

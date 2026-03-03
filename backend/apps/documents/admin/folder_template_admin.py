@@ -117,7 +117,9 @@ class FolderTemplateForm(forms.ModelForm):
             self.fields["case_stage_field"].initial = case_stages[0] if case_stages else ""
             # 诉讼地位字段
             self.fields["legal_statuses_field"].initial = self.instance.legal_statuses or []
-            self.fields["legal_status_match_mode"].initial = self.instance.legal_status_match_mode or LegalStatusMatchMode.ANY
+            self.fields["legal_status_match_mode"].initial = (
+                self.instance.legal_status_match_mode or LegalStatusMatchMode.ANY
+            )
 
     def clean_structure(self) -> Any:
         """验证并自动修复文件夹结构中的重复ID"""
@@ -426,6 +428,7 @@ class FolderTemplateAdmin(admin.ModelAdmin[FolderTemplate]):  # type: ignore[typ
 
         html = self._render_structure_tree(obj.structure)
         from django.utils.safestring import mark_safe
+
         return mark_safe(f'<div class="folder-structure-preview">{html}</div>')
 
     def _render_structure_tree(self, structure: Any, level: int = 0) -> Any:

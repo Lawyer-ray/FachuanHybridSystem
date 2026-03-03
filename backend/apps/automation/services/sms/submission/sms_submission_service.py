@@ -7,7 +7,6 @@ SMS 提交服务
 Requirements: 2.1, 2.3, 5.1, 5.2, 5.5
 """
 
-from django.utils.translation import gettext_lazy as _
 import logging
 import re
 from datetime import datetime
@@ -15,6 +14,7 @@ from typing import TYPE_CHECKING, Optional
 
 from django.db import transaction
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 from django_q.tasks import async_task
 
 from apps.automation.models import CourtSMS, CourtSMSStatus
@@ -62,6 +62,7 @@ class SMSSubmissionService:
         """延迟加载案件服务"""
         if self._case_service is None:
             from apps.core.dependencies.automation_sms_wiring import build_sms_case_service
+
             self._case_service = build_sms_case_service()
         return self._case_service
 
@@ -70,6 +71,7 @@ class SMSSubmissionService:
         """延迟加载律师服务"""
         if self._lawyer_service is None:
             from apps.core.dependencies.automation_sms_wiring import build_sms_lawyer_service
+
             self._lawyer_service = build_sms_lawyer_service()
         return self._lawyer_service
 
@@ -164,7 +166,7 @@ class SMSSubmissionService:
                 logger.info(f"案件绑定创建成功，进入重命名阶段: SMS ID={sms_id}")
             else:
                 sms.status = CourtSMSStatus.FAILED
-                sms.error_message = _("创建案件绑定失败") # type: ignore
+                sms.error_message = _("创建案件绑定失败")  # type: ignore
                 sms.save()
                 logger.error(f"案件绑定创建失败: SMS ID={sms_id}")
                 return sms
@@ -269,7 +271,7 @@ class SMSSubmissionService:
                 return False
 
             # 通过 ServiceLocator 获取 Lawyer 服务，避免跨模块 Model 导入
-            system_user = self.lawyer_service.get_lawyer_internal(admin_lawyer_dto.id) # type: ignore
+            system_user = self.lawyer_service.get_lawyer_internal(admin_lawyer_dto.id)  # type: ignore
 
             # 如果短信提取到案号，自动写入案件（如果不存在）
             if sms.case_numbers:

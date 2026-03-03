@@ -17,7 +17,6 @@ from hypothesis.extra.django import TestCase as HypothesisTestCase
 from apps.core.exceptions import ValidationException
 from apps.core.services.i18n_service import I18nService
 
-
 # ─── Property 1: Model verbose_name 国际化完整性 ──────────────────────────────
 
 
