@@ -1,43 +1,43 @@
 /* 隐藏 __str__ 列（tabular inline 第一列） */
-#finalizedmaterial_set-group .original,
-#finalizedmaterial_set-group th.original,
-#finalizedmaterial_set-group td.original {
+#finalized_materials-group .original,
+#finalized_materials-group th.original,
+#finalized_materials-group td.original {
     display: none;
 }
 
 /* 定稿材料 Inline 列宽控制 */
-#finalizedmaterial_set-group .form-row {
+#finalized_materials-group .form-row {
     display: table-row;
 }
 
 /* 上传文件列：固定宽度，不换行 */
-#finalizedmaterial_set-group .field-file {
+#finalized_materials-group .field-file {
     width: 200px;
     min-width: 160px;
     white-space: nowrap;
 }
 
 /* 材料分类列 */
-#finalizedmaterial_set-group .field-category {
+#finalized_materials-group .field-category {
     width: 120px;
     min-width: 100px;
 }
 
 /* 原始文件名列 */
-#finalizedmaterial_set-group .field-filename_link {
+#finalized_materials-group .field-filename_link {
     min-width: 160px;
     word-break: break-all;
 }
 
 /* 上传时间列 */
-#finalizedmaterial_set-group .field-uploaded_at {
+#finalized_materials-group .field-uploaded_at {
     width: 140px;
     min-width: 120px;
     white-space: nowrap;
 }
 
 /* 整体表格不超出容器 */
-#finalizedmaterial_set-group table {
+#finalized_materials-group table {
     table-layout: fixed;
     width: 100%;
 }

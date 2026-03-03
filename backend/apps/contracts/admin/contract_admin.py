@@ -93,7 +93,7 @@ class FinalizedMaterialInline(BaseTabularInline):  # type: ignore[type-arg]
         obj.delete()
 
     class Media:
-        css = {"all": ("contracts/css/finalized_material_inline.css",)}
+        css = {"all": ("contracts/css/finalized_material_inline.css?v=2",)}
 
 
 class ContractPartyInline(BaseTabularInline):  # type: ignore[type-arg]
