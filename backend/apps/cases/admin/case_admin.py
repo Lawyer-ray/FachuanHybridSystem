@@ -153,12 +153,13 @@ class CaseAdmin(CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminViewsMixin, 
             "assignments__lawyer",
             "supervising_authorities",
             "case_numbers",
+            "chats",
             "contract__contract_parties__client__identity_docs",
             "contract__contract_parties__client__property_clues__attachments",
             "contract__assignments__lawyer",
             "contract__finalized_materials",
             "contract__supplementary_agreements__parties__client",
-            "contract__payments",
+            "contract__payments__invoices",
             "contract__finance_logs__actor",
         ):
             contract_data = None
@@ -305,6 +306,11 @@ class CaseAdmin(CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminViewsMixin, 
                 "case_numbers": [
                     {"number": cn.number, "is_active": cn.is_active, "remarks": cn.remarks}
                     for cn in obj.case_numbers.all()
+                ],
+                "chats": [
+                    {"platform": ch.platform, "chat_id": ch.chat_id, "name": ch.name,
+                     "is_active": ch.is_active, "owner_id": ch.owner_id}
+                    for ch in obj.chats.all()
                 ],
             })
         return result
