@@ -211,7 +211,7 @@ class CaseAdmin(CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminViewsMixin, 
                     ],
                     "assignments": [
                         {"is_primary": a.is_primary, "order": a.order,
-                         "lawyer": {"real_name": a.lawyer.real_name, "phone": a.lawyer.phone}}
+                         "lawyer": {"real_name": a.lawyer.real_name, "phone": a.lawyer.phone, "username": a.lawyer.username}}
                         for a in c.assignments.all()
                     ],
                     "finalized_materials": [
@@ -247,7 +247,7 @@ class CaseAdmin(CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminViewsMixin, 
                     ],
                     "finance_logs": [
                         {"action": fl.action, "level": fl.level, "payload": fl.payload,
-                         "actor": {"real_name": fl.actor.real_name, "phone": fl.actor.phone}}
+                         "actor": {"real_name": fl.actor.real_name, "phone": fl.actor.phone, "username": fl.actor.username}}
                         for fl in c.finance_logs.all()
                     ],
                 }
@@ -295,7 +295,7 @@ class CaseAdmin(CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminViewsMixin, 
                     for p in obj.parties.all()
                 ],
                 "assignments": [
-                    {"lawyer": {"real_name": a.lawyer.real_name, "phone": a.lawyer.phone}}
+                    {"lawyer": {"real_name": a.lawyer.real_name, "phone": a.lawyer.phone, "username": a.lawyer.username}}
                     for a in obj.assignments.all()
                 ],
                 "supervising_authorities": [

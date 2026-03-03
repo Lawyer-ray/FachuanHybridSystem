@@ -22,23 +22,41 @@ class LawyerResolveService:
 
     def resolve(self, data: dict[str, Any]) -> Lawyer | None:
         phone: str | None = data.get("phone")
-        if not phone:
-            logger.warning("律师数据缺少 phone，跳过", extra={"data": data})
+        username: str | None = data.get("username")
+
+        if not phone and not username:
+            logger.warning("律师数据缺少 phone 和 username，跳过", extra={"data": data})
             return None
 
-        if phone in self._cache:
-            return self._cache[phone]
+        # 优先按 phone 查找
+        if phone:
+            if phone in self._cache:
+                return self._cache[phone]
+            existing = Lawyer.objects.filter(phone=phone).first()
+            if existing:
+                self._cache[phone] = existing
+                logger.info("复用已有律师", extra={"lawyer_id": existing.pk, "phone": phone})
+                return existing
 
-        existing = Lawyer.objects.filter(phone=phone).first()
-        if existing:
-            self._cache[phone] = existing
-            logger.info("复用已有律师", extra={"lawyer_id": existing.pk, "phone": phone})
-            return existing
+        # phone 找不到时按 username 查找（不创建新账号，避免覆盖系统账号）
+        if username:
+            cache_key = f"__username__{username}"
+            if cache_key in self._cache:
+                return self._cache[cache_key]
+            existing = Lawyer.objects.filter(username=username).first()
+            if existing:
+                self._cache[cache_key] = existing
+                logger.info("按 username 复用已有律师", extra={"lawyer_id": existing.pk, "username": username})
+                return existing
+
+        if not phone:
+            logger.warning("律师数据缺少 phone 且 username 未找到，跳过", extra={"data": data})
+            return None
 
         real_name: str = data.get("real_name") or data.get("name") or phone
-        username = self._unique_username(real_name)
+        new_username = self._unique_username(real_name)
         lawyer = Lawyer.objects.create_user(
-            username=username,
+            username=new_username,
             password=_DEFAULT_PASSWORD,
             real_name=real_name,
             phone=phone,
@@ -47,7 +65,7 @@ class LawyerResolveService:
             is_superuser=False,
         )
         self._cache[phone] = lawyer
-        logger.info("创建新律师", extra={"lawyer_id": lawyer.pk, "username": username, "phone": phone})
+        logger.info("创建新律师", extra={"lawyer_id": lawyer.pk, "username": new_username, "phone": phone})
         return lawyer
 
     def _unique_username(self, base: str) -> str:
