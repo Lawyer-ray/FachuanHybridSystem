@@ -28,8 +28,12 @@ class ConfigField:
 
     def __post_init__(self) -> None:
         if self.min_value is not None and self.max_value is not None and self.min_value > self.max_value:
-            raise ValueError(f"字段 '{self.name}' 的 min_value ({self.min_value}) 不能大于 max_value ({self.max_value})")
+            raise ValueError(
+                f"字段 '{self.name}' 的 min_value ({self.min_value}) 不能大于 max_value ({self.max_value})"
+            )
         if self.min_length is not None and self.max_length is not None and self.min_length > self.max_length:
-            raise ValueError(f"字段 '{self.name}' 的 min_length ({self.min_length}) 不能大于 max_length ({self.max_length})")
+            raise ValueError(
+                f"字段 '{self.name}' 的 min_length ({self.min_length}) 不能大于 max_length ({self.max_length})"
+            )
         if self.required and self.default is not None:
             raise ValueError(f"字段 '{self.name}' 不能同时设置为必需字段和提供默认值")
