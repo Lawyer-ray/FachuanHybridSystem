@@ -131,7 +131,6 @@ backend/deploy/
 backend/logs/
 backend/tests/
 backend/.dockerignore
-backend/.secrets.baseline
 
 # Cookies (sensitive data)
 backend/apiSystem/cookies/

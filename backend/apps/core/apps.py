@@ -14,4 +14,4 @@ class CoreConfig(AppConfig):
     verbose_name = _("核心系统")
 
     def ready(self) -> None:
-        from . import admin  # noqa: F401 — 触发 admin 注册
+        from . import admin

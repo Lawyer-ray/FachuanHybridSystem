@@ -663,9 +663,8 @@ class TestPerformanceMonitorPreservation:
         """monitor_operation 上下文管理器不吞掉异常"""
         from apps.core.infrastructure.monitoring import PerformanceMonitor
 
-        with pytest.raises(RuntimeError, match="test error"):
-            with PerformanceMonitor.monitor_operation("test_op"):
-                raise RuntimeError("test error")
+        with pytest.raises(RuntimeError, match="test error"), PerformanceMonitor.monitor_operation("test_op"):
+            raise RuntimeError("test error")
 
     @given(return_val=st.integers(min_value=-1000, max_value=1000))
     @settings(max_examples=20)
