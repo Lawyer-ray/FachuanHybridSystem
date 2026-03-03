@@ -146,14 +146,12 @@ class ContractImportService:
             actor = self._lawyer_resolve.resolve(actor_data)
             if actor is None:
                 continue
-            ContractFinanceLog.objects.get_or_create(
+            ContractFinanceLog.objects.create(
                 contract=contract,
                 action=fl_data.get("action", ""),
                 actor=actor,
-                defaults={
-                    "level": fl_data.get("level", "INFO"),
-                    "payload": fl_data.get("payload", {}),
-                },
+                level=fl_data.get("level", "INFO"),
+                payload=fl_data.get("payload", {}),
             )
 
         # 还原关联案件
@@ -191,13 +189,7 @@ class ContractImportService:
                     continue
                 lawyer = self._lawyer_resolve.resolve(lawyer_data)
                 if lawyer:
-                    CaseAssignment.objects.get_or_create(
-                        case=case, lawyer=lawyer,
-                        defaults={
-                            "is_primary": a_data.get("is_primary", False),
-                            "order": a_data.get("order", 0),
-                        },
-                    )
+                    CaseAssignment.objects.get_or_create(case=case, lawyer=lawyer)
             for sa_data in case_data.get("supervising_authorities") or []:
                 SupervisingAuthority.objects.get_or_create(
                     case=case, name=sa_data.get("name"),

@@ -132,7 +132,7 @@ class ClientAdmin(AdminImportExportMixin, admin.ModelAdmin[Client]):
         svc = ClientResolveService()
         success = skipped = 0
         errors: list[str] = []
-        for item in data_list:
+        for i, item in enumerate(data_list, 1):
             try:
                 id_number = item.get("id_number")
                 before = Client.objects.filter(id_number=id_number).exists() if id_number else False
@@ -142,7 +142,7 @@ class ClientAdmin(AdminImportExportMixin, admin.ModelAdmin[Client]):
                 else:
                     skipped += 1
             except Exception as exc:
-                errors.append(str(exc))
+                errors.append(f"[{i}] {item.get('name', '?')}: {exc}")
         return success, skipped, errors
 
     def serialize_queryset(self, queryset: QuerySet[Client]) -> list[dict[str, Any]]:

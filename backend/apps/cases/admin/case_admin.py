@@ -132,7 +132,7 @@ class CaseAdmin(CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminViewsMixin, 
 
         success = skipped = 0
         errors: list[str] = []
-        for item in data_list:
+        for i, item in enumerate(data_list, 1):
             try:
                 filing_number = item.get("filing_number")
                 before = Case.objects.filter(filing_number=filing_number).exists() if filing_number else False
@@ -142,7 +142,7 @@ class CaseAdmin(CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminViewsMixin, 
                 else:
                     success += 1
             except Exception as exc:
-                errors.append(str(exc))
+                errors.append(f"[{i}] {item.get('name', '?')}: {exc}")
         return success, skipped, errors
 
     def serialize_queryset(self, queryset: QuerySet[Case]) -> list[dict[str, Any]]:  # type: ignore[override]
@@ -295,8 +295,7 @@ class CaseAdmin(CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminViewsMixin, 
                     for p in obj.parties.all()
                 ],
                 "assignments": [
-                    {"is_primary": a.is_primary, "order": a.order,
-                     "lawyer": {"real_name": a.lawyer.real_name, "phone": a.lawyer.phone}}
+                    {"lawyer": {"real_name": a.lawyer.real_name, "phone": a.lawyer.phone}}
                     for a in obj.assignments.all()
                 ],
                 "supervising_authorities": [

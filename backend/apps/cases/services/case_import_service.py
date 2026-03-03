@@ -92,13 +92,7 @@ class CaseImportService:
             lawyer = self._lawyer_resolve.resolve(lawyer_data)
             if lawyer is None:
                 continue
-            CaseAssignment.objects.get_or_create(
-                case=case, lawyer=lawyer,
-                defaults={
-                    "is_primary": assign_data.get("is_primary", False),
-                    "order": assign_data.get("order", 0),
-                },
-            )
+            CaseAssignment.objects.get_or_create(case=case, lawyer=lawyer)
 
         from apps.cases.models import CaseNumber
         from apps.cases.models.case import SupervisingAuthority
