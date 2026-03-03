@@ -116,7 +116,7 @@ class CaseAdmin(CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminViewsMixin, 
     ]
 
     def handle_json_import(
-        self, data_list: list[dict[str, Any]], user: str
+        self, data_list: list[dict[str, Any]], user: str, zip_file: Any
     ) -> tuple[int, int, list[str]]:
         from apps.cases.services.case_import_service import CaseImportService
         from apps.client.services.client_resolve_service import ClientResolveService

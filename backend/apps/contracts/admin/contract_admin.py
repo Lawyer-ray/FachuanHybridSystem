@@ -203,7 +203,7 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
         )
 
     def handle_json_import(
-        self, data_list: list[dict[str, Any]], user: str
+        self, data_list: list[dict[str, Any]], user: str, zip_file: Any
     ) -> tuple[int, int, list[str]]:
         from apps.client.services.client_resolve_service import ClientResolveService
         from apps.contracts.services.contract_import_service import ContractImportService
@@ -219,10 +219,23 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
             try:
                 filing_number = item.get("filing_number")
                 before = Contract.objects.filter(filing_number=filing_number).exists() if filing_number else False
-                contract_svc.resolve(item)
+                contract = contract_svc.resolve(item)
                 if before:
                     skipped += 1
                 else:
+                    # 还原 finalized_materials 记录
+                    from apps.contracts.models import FinalizedMaterial
+                    for m in item.get("finalized_materials") or []:
+                        if m.get("file_path"):
+                            FinalizedMaterial.objects.get_or_create(
+                                contract=contract,
+                                file_path=m["file_path"],
+                                defaults={
+                                    "original_filename": m.get("original_filename", ""),
+                                    "category": m.get("category", "other"),
+                                    "remark": m.get("remark", ""),
+                                },
+                            )
                     success += 1
             except Exception as exc:
                 errors.append(str(exc))
@@ -230,7 +243,9 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
 
     def serialize_queryset(self, queryset: QuerySet[Contract]) -> list[dict[str, Any]]:  # type: ignore[override]
         result = []
-        for obj in queryset.prefetch_related("contract_parties__client", "assignments__lawyer"):
+        for obj in queryset.prefetch_related(
+            "contract_parties__client", "assignments__lawyer", "finalized_materials"
+        ):
             result.append({
                 "name": obj.name,
                 "case_type": obj.case_type,
@@ -264,12 +279,27 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
                     {
                         "is_primary": a.is_primary,
                         "order": a.order,
-                        "lawyer": {
-                            "real_name": a.lawyer.real_name,
-                            "phone": a.lawyer.phone,
-                        },
+                        "lawyer": {"real_name": a.lawyer.real_name, "phone": a.lawyer.phone},
                     }
                     for a in obj.assignments.all()
                 ],
+                "finalized_materials": [
+                    {
+                        "file_path": m.file_path,
+                        "original_filename": m.original_filename,
+                        "category": m.category,
+                        "remark": m.remark,
+                    }
+                    for m in obj.finalized_materials.all()
+                    if m.file_path
+                ],
             })
         return result
+
+    def get_file_paths(self, queryset: QuerySet[Contract]) -> list[str]:  # type: ignore[override]
+        paths = []
+        for obj in queryset.prefetch_related("finalized_materials"):
+            for m in obj.finalized_materials.all():
+                if m.file_path:
+                    paths.append(m.file_path)
+        return paths
