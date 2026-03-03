@@ -54,22 +54,30 @@ class AdminImportExportMixin:
         return custom + urls
 
     def import_view(self, request: HttpRequest) -> HttpResponse:
-        if request.method == "POST":
-            uploaded = request.FILES.get("json_file")
-            if not uploaded:
-                messages.error(request, _("请选择文件"))
-            else:
-                try:
-                    success, skipped, errors = self._process_import(uploaded, str(request.user))
-                    messages.success(
-                        request,
-                        _("导入完成：成功 %(s)d 条，跳过 %(k)d 条") % {"s": success, "k": skipped},
-                    )
-                    for err in errors:
-                        messages.warning(request, err)
-                except Exception as exc:
-                    logger.exception("导入失败")
-                    messages.error(request, _("导入失败: %(err)s") % {"err": str(exc)})
+        if request.method != "POST":
+            return redirect(  # type: ignore[return-value]
+                f"admin:{self.model._meta.app_label}_{self.model._meta.model_name}_changelist"  # type: ignore[attr-defined]
+            )
+        if not self.has_add_permission(request):  # type: ignore[attr-defined]
+            from django.core.exceptions import PermissionDenied
+
+            raise PermissionDenied
+
+        uploaded = request.FILES.get("json_file")
+        if not uploaded:
+            messages.error(request, _("请选择文件"))
+        else:
+            try:
+                success, skipped, errors = self._process_import(uploaded, str(request.user))
+                messages.success(
+                    request,
+                    _("导入完成：成功 %(s)d 条，跳过 %(k)d 条") % {"s": success, "k": skipped},
+                )
+                for err in errors:
+                    messages.warning(request, err)
+            except Exception as exc:
+                logger.exception("导入失败")
+                messages.error(request, _("导入失败: %(err)s") % {"err": str(exc)})
 
         return redirect(  # type: ignore[return-value]
             f"admin:{self.model._meta.app_label}_{self.model._meta.model_name}_changelist"  # type: ignore[attr-defined]
@@ -95,12 +103,16 @@ class AdminImportExportMixin:
         media_root = _get_media_root()
         if not media_root:
             return
-        root = Path(media_root)
+        root = Path(media_root).resolve()
         for name in zf.namelist():
             if not name.startswith("files/") or name.endswith("/"):
                 continue
             rel = name[len("files/"):]  # 去掉 files/ 前缀
-            dest = root / rel
+            dest = (root / rel).resolve()
+            # 防止 Zip Slip 路径遍历攻击
+            if not str(dest).startswith(str(root)):
+                logger.warning("跳过可疑路径", extra={"path": name})
+                continue
             dest.parent.mkdir(parents=True, exist_ok=True)
             if not dest.exists():  # 已存在则不覆盖
                 dest.write_bytes(zf.read(name))
