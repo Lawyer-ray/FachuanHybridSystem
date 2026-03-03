@@ -148,9 +148,18 @@ class CaseAdmin(CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminViewsMixin, 
     def serialize_queryset(self, queryset: QuerySet[Case]) -> list[dict[str, Any]]:  # type: ignore[override]
         result = []
         for obj in queryset.prefetch_related(
-            "parties__client", "assignments__lawyer",
-            "contract__contract_parties__client", "contract__assignments__lawyer",
+            "parties__client__identity_docs",
+            "parties__client__property_clues__attachments",
+            "assignments__lawyer",
+            "supervising_authorities",
+            "case_numbers",
+            "contract__contract_parties__client__identity_docs",
+            "contract__contract_parties__client__property_clues__attachments",
+            "contract__assignments__lawyer",
             "contract__finalized_materials",
+            "contract__supplementary_agreements__parties__client",
+            "contract__payments",
+            "contract__finance_logs__actor",
         ):
             contract_data = None
             if obj.contract:
@@ -160,9 +169,15 @@ class CaseAdmin(CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminViewsMixin, 
                     "case_type": c.case_type,
                     "filing_number": c.filing_number,
                     "status": c.status,
+                    "specified_date": str(c.specified_date) if c.specified_date else None,
+                    "start_date": str(c.start_date) if c.start_date else None,
+                    "end_date": str(c.end_date) if c.end_date else None,
+                    "is_archived": c.is_archived,
                     "fee_mode": c.fee_mode,
                     "fixed_amount": str(c.fixed_amount) if c.fixed_amount is not None else None,
                     "risk_rate": str(c.risk_rate) if c.risk_rate is not None else None,
+                    "custom_terms": c.custom_terms,
+                    "representation_stages": c.representation_stages,
                     "parties": [
                         {
                             "role": p.role,
@@ -171,8 +186,25 @@ class CaseAdmin(CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminViewsMixin, 
                                 "client_type": p.client.client_type,
                                 "id_number": p.client.id_number,
                                 "phone": p.client.phone,
-                                "is_our_client": p.client.is_our_client,
+                                "address": p.client.address,
                                 "legal_representative": p.client.legal_representative,
+                                "legal_representative_id_number": p.client.legal_representative_id_number,
+                                "is_our_client": p.client.is_our_client,
+                                "identity_docs": [
+                                    {"doc_type": d.doc_type, "file_path": d.file_path}
+                                    for d in p.client.identity_docs.all() if d.file_path
+                                ],
+                                "property_clues": [
+                                    {
+                                        "clue_type": cl.clue_type,
+                                        "content": cl.content,
+                                        "attachments": [
+                                            {"file_path": a.file_path, "file_name": a.file_name}
+                                            for a in cl.attachments.all() if a.file_path
+                                        ],
+                                    }
+                                    for cl in p.client.property_clues.all()
+                                ],
                             },
                         }
                         for p in c.contract_parties.all()
@@ -183,14 +215,40 @@ class CaseAdmin(CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminViewsMixin, 
                         for a in c.assignments.all()
                     ],
                     "finalized_materials": [
+                        {"file_path": m.file_path, "original_filename": m.original_filename,
+                         "category": m.category, "remark": m.remark}
+                        for m in c.finalized_materials.all() if m.file_path
+                    ],
+                    "supplementary_agreements": [
                         {
-                            "file_path": m.file_path,
-                            "original_filename": m.original_filename,
-                            "category": m.category,
-                            "remark": m.remark,
+                            "name": sa.name,
+                            "parties": [
+                                {
+                                    "role": sp.role,
+                                    "client": {
+                                        "name": sp.client.name,
+                                        "client_type": sp.client.client_type,
+                                        "id_number": sp.client.id_number,
+                                        "phone": sp.client.phone,
+                                        "legal_representative": sp.client.legal_representative,
+                                        "is_our_client": sp.client.is_our_client,
+                                    },
+                                }
+                                for sp in sa.parties.all()
+                            ],
                         }
-                        for m in c.finalized_materials.all()
-                        if m.file_path
+                        for sa in c.supplementary_agreements.all()
+                    ],
+                    "payments": [
+                        {"amount": str(p.amount), "received_at": str(p.received_at),
+                         "invoice_status": p.invoice_status, "invoiced_amount": str(p.invoiced_amount),
+                         "note": p.note}
+                        for p in c.payments.all()
+                    ],
+                    "finance_logs": [
+                        {"action": fl.action, "level": fl.level, "payload": fl.payload,
+                         "actor": {"real_name": fl.actor.real_name, "phone": fl.actor.phone}}
+                        for fl in c.finance_logs.all()
                     ],
                 }
             result.append({
@@ -203,6 +261,8 @@ class CaseAdmin(CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminViewsMixin, 
                 "preservation_amount": str(obj.preservation_amount) if obj.preservation_amount is not None else None,
                 "current_stage": obj.current_stage,
                 "is_archived": obj.is_archived,
+                "effective_date": str(obj.effective_date) if obj.effective_date else None,
+                "specified_date": str(obj.specified_date) if obj.specified_date else None,
                 "contract": contract_data,
                 "parties": [
                     {
@@ -212,24 +272,71 @@ class CaseAdmin(CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminViewsMixin, 
                             "client_type": p.client.client_type,
                             "id_number": p.client.id_number,
                             "phone": p.client.phone,
-                            "is_our_client": p.client.is_our_client,
                             "legal_representative": p.client.legal_representative,
+                            "legal_representative_id_number": p.client.legal_representative_id_number,
+                            "is_our_client": p.client.is_our_client,
+                            "identity_docs": [
+                                {"doc_type": d.doc_type, "file_path": d.file_path}
+                                for d in p.client.identity_docs.all() if d.file_path
+                            ],
+                            "property_clues": [
+                                {
+                                    "clue_type": cl.clue_type,
+                                    "content": cl.content,
+                                    "attachments": [
+                                        {"file_path": a.file_path, "file_name": a.file_name}
+                                        for a in cl.attachments.all() if a.file_path
+                                    ],
+                                }
+                                for cl in p.client.property_clues.all()
+                            ],
                         },
                     }
                     for p in obj.parties.all()
                 ],
                 "assignments": [
-                    {"lawyer": {"real_name": a.lawyer.real_name, "phone": a.lawyer.phone}}
+                    {"is_primary": a.is_primary, "order": a.order,
+                     "lawyer": {"real_name": a.lawyer.real_name, "phone": a.lawyer.phone}}
                     for a in obj.assignments.all()
+                ],
+                "supervising_authorities": [
+                    {"name": sa.name, "authority_type": sa.authority_type}
+                    for sa in obj.supervising_authorities.all()
+                ],
+                "case_numbers": [
+                    {"number": cn.number, "is_active": cn.is_active, "remarks": cn.remarks}
+                    for cn in obj.case_numbers.all()
                 ],
             })
         return result
 
     def get_file_paths(self, queryset: QuerySet[Case]) -> list[str]:  # type: ignore[override]
         paths = []
-        for obj in queryset.prefetch_related("contract__finalized_materials"):
+        for obj in queryset.prefetch_related(
+            "contract__finalized_materials",
+            "parties__client__identity_docs",
+            "parties__client__property_clues__attachments",
+            "contract__contract_parties__client__identity_docs",
+            "contract__contract_parties__client__property_clues__attachments",
+        ):
             if obj.contract:
                 for m in obj.contract.finalized_materials.all():
                     if m.file_path:
                         paths.append(m.file_path)
+                for p in obj.contract.contract_parties.all():
+                    for d in p.client.identity_docs.all():
+                        if d.file_path:
+                            paths.append(d.file_path)
+                    for cl in p.client.property_clues.all():
+                        for a in cl.attachments.all():
+                            if a.file_path:
+                                paths.append(a.file_path)
+            for p in obj.parties.all():
+                for d in p.client.identity_docs.all():
+                    if d.file_path:
+                        paths.append(d.file_path)
+                for cl in p.client.property_clues.all():
+                    for a in cl.attachments.all():
+                        if a.file_path:
+                            paths.append(a.file_path)
         return paths

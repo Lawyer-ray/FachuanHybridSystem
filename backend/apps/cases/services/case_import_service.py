@@ -92,6 +92,28 @@ class CaseImportService:
             lawyer = self._lawyer_resolve.resolve(lawyer_data)
             if lawyer is None:
                 continue
-            CaseAssignment.objects.get_or_create(case=case, lawyer=lawyer)
+            CaseAssignment.objects.get_or_create(
+                case=case, lawyer=lawyer,
+                defaults={
+                    "is_primary": assign_data.get("is_primary", False),
+                    "order": assign_data.get("order", 0),
+                },
+            )
+
+        from apps.cases.models import CaseNumber
+        from apps.cases.models.case import SupervisingAuthority
+
+        for sa_data in data.get("supervising_authorities") or []:
+            SupervisingAuthority.objects.get_or_create(
+                case=case, name=sa_data.get("name"),
+                defaults={"authority_type": sa_data.get("authority_type", "TRIAL")},
+            )
+
+        for cn_data in data.get("case_numbers") or []:
+            if cn_data.get("number"):
+                CaseNumber.objects.get_or_create(
+                    case=case, number=cn_data["number"],
+                    defaults={"is_active": cn_data.get("is_active", False), "remarks": cn_data.get("remarks")},
+                )
 
         return case
