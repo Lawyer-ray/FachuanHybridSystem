@@ -127,6 +127,7 @@ class ClientAdmin(AdminImportExportMixin, admin.ModelAdmin[Client]):
     def handle_json_import(
         self, data_list: list[dict[str, Any]], user: str, zip_file: Any
     ) -> tuple[int, int, list[str]]:
+        from apps.client.models import PropertyClue, PropertyClueAttachment
         from apps.client.services.client_resolve_service import ClientResolveService
 
         svc = ClientResolveService()
@@ -138,7 +139,6 @@ class ClientAdmin(AdminImportExportMixin, admin.ModelAdmin[Client]):
                 before = Client.objects.filter(id_number=id_number).exists() if id_number else False
                 client = svc.resolve(item)
                 if not before:
-                    # 直接创建记录，不走 add_identity_doc（避免触发文件重命名）
                     for doc in item.get("identity_docs") or []:
                         if doc.get("file_path"):
                             ClientIdentityDoc.objects.get_or_create(
@@ -146,6 +146,19 @@ class ClientAdmin(AdminImportExportMixin, admin.ModelAdmin[Client]):
                                 file_path=doc["file_path"],
                                 defaults={"doc_type": doc.get("doc_type", "id_card_front")},
                             )
+                    for clue in item.get("property_clues") or []:
+                        pc, _ = PropertyClue.objects.get_or_create(
+                            client=client,
+                            clue_type=clue.get("clue_type", "other"),
+                            defaults={"content": clue.get("content", "")},
+                        )
+                        for att in clue.get("attachments") or []:
+                            if att.get("file_path"):
+                                PropertyClueAttachment.objects.get_or_create(
+                                    property_clue=pc,
+                                    file_path=att["file_path"],
+                                    defaults={"file_name": att.get("file_name", "")},
+                                )
                     success += 1
                 else:
                     skipped += 1
@@ -157,20 +170,36 @@ class ClientAdmin(AdminImportExportMixin, admin.ModelAdmin[Client]):
         fields = ("name", "client_type", "id_number", "phone", "address",
                   "legal_representative", "legal_representative_id_number", "is_our_client")
         result = []
-        for obj in queryset.prefetch_related("identity_docs"):
+        for obj in queryset.prefetch_related("identity_docs", "property_clues__attachments"):
             d = {f: getattr(obj, f) for f in fields}
             d["identity_docs"] = [
                 {"doc_type": doc.doc_type, "file_path": doc.file_path}
                 for doc in obj.identity_docs.all()
                 if doc.file_path
             ]
+            d["property_clues"] = [
+                {
+                    "clue_type": clue.clue_type,
+                    "content": clue.content,
+                    "attachments": [
+                        {"file_path": att.file_path, "file_name": att.file_name}
+                        for att in clue.attachments.all()
+                        if att.file_path
+                    ],
+                }
+                for clue in obj.property_clues.all()
+            ]
             result.append(d)
         return result
 
     def get_file_paths(self, queryset: QuerySet[Client]) -> list[str]:  # type: ignore[override]
         paths = []
-        for obj in queryset.prefetch_related("identity_docs"):
+        for obj in queryset.prefetch_related("identity_docs", "property_clues__attachments"):
             for doc in obj.identity_docs.all():
                 if doc.file_path:
                     paths.append(doc.file_path)
+            for clue in obj.property_clues.all():
+                for att in clue.attachments.all():
+                    if att.file_path:
+                        paths.append(att.file_path)
         return paths
