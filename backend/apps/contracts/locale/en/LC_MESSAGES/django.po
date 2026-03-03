@@ -1349,3 +1349,6 @@ msgstr ""
 #: apps/contracts/services/contract_import_service.py
 msgid "合同名称不能为空"
 msgstr "Contract name is required"
+
+msgid "导入"
+msgstr "Import"

@@ -2375,3 +2375,6 @@ msgstr "Counterclaim consolidated: half"
 #: apps/cases/services/case_import_service.py
 msgid "案件名称不能为空"
 msgstr "Case name is required"
+
+msgid "导入"
+msgstr "Import"
