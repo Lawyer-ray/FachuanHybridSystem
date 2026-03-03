@@ -78,21 +78,15 @@ class AdminImportExportMixin:
     def _process_import(self, uploaded: Any, user: str) -> tuple[int, int, list[str]]:
         raw_bytes: bytes = uploaded.read()
 
-        # ZIP 格式
-        if zipfile.is_zipfile(io.BytesIO(raw_bytes)):
-            with zipfile.ZipFile(io.BytesIO(raw_bytes)) as zf:
-                data_list = json.loads(zf.read("data.json").decode("utf-8"))
-                if not isinstance(data_list, list):
-                    data_list = [data_list]
-                # 先把 ZIP 内文件写入 MEDIA_ROOT
-                self._extract_files(zf)
-                return self.handle_json_import(data_list, user, zf)  # type: ignore[attr-defined]
+        if not zipfile.is_zipfile(io.BytesIO(raw_bytes)):
+            raise ValueError(_("请上传 ZIP 文件"))
 
-        # 纯 JSON 格式（向后兼容）
-        data_list = json.loads(raw_bytes.decode("utf-8"))
-        if not isinstance(data_list, list):
-            data_list = [data_list]
-        return self.handle_json_import(data_list, user, None)  # type: ignore[attr-defined]
+        with zipfile.ZipFile(io.BytesIO(raw_bytes)) as zf:
+            data_list = json.loads(zf.read("data.json").decode("utf-8"))
+            if not isinstance(data_list, list):
+                data_list = [data_list]
+            self._extract_files(zf)
+            return self.handle_json_import(data_list, user, zf)  # type: ignore[attr-defined]
 
     def _extract_files(self, zf: zipfile.ZipFile) -> None:
         """把 ZIP 内 files/ 目录下的文件写入 MEDIA_ROOT。"""
