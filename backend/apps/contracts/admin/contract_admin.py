@@ -275,6 +275,7 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
             "supplementary_agreements__parties__client",
             "payments",
             "finance_logs__actor",
+            "reminders",
             "cases__parties__client",
             "cases__assignments__lawyer",
             "cases__supervising_authorities",
@@ -380,6 +381,15 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
                         "actor": {"real_name": fl.actor.real_name, "phone": fl.actor.phone, "username": fl.actor.username},
                     }
                     for fl in obj.finance_logs.all()
+                ],
+                "reminders": [
+                    {
+                        "reminder_type": r.reminder_type,
+                        "content": r.content,
+                        "due_at": r.due_at.isoformat(),
+                        "metadata": r.metadata,
+                    }
+                    for r in obj.reminders.filter(case_log__isnull=True)
                 ],
                 "cases": [
                     {
