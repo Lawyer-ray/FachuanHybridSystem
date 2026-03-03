@@ -123,10 +123,11 @@ class ContractImportService:
                 )
 
         from apps.contracts.models import ContractPayment
+        from apps.contracts.models.invoice import Invoice
 
         for p_data in data.get("payments") or []:
             if p_data.get("amount") and p_data.get("received_at"):
-                ContractPayment.objects.get_or_create(
+                payment, _ = ContractPayment.objects.get_or_create(
                     contract=contract,
                     received_at=p_data["received_at"],
                     amount=p_data["amount"],
@@ -136,6 +137,22 @@ class ContractImportService:
                         "note": p_data.get("note"),
                     },
                 )
+                for inv_data in p_data.get("invoices") or []:
+                    if inv_data.get("file_path"):
+                        Invoice.objects.get_or_create(
+                            payment=payment,
+                            file_path=inv_data["file_path"],
+                            defaults={
+                                "original_filename": inv_data.get("original_filename", ""),
+                                "remark": inv_data.get("remark", ""),
+                                "invoice_code": inv_data.get("invoice_code", ""),
+                                "invoice_number": inv_data.get("invoice_number", ""),
+                                "invoice_date": inv_data.get("invoice_date"),
+                                "amount": inv_data.get("amount"),
+                                "tax_amount": inv_data.get("tax_amount"),
+                                "total_amount": inv_data.get("total_amount"),
+                            },
+                        )
 
         from apps.contracts.models import ContractFinanceLog
 

@@ -274,6 +274,7 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
             "finalized_materials",
             "supplementary_agreements__parties__client",
             "payments",
+            "payments__invoices",
             "finance_logs__actor",
             "reminders",
             "client_payment_records",
@@ -371,6 +372,20 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
                         "invoice_status": p.invoice_status,
                         "invoiced_amount": str(p.invoiced_amount),
                         "note": p.note,
+                        "invoices": [
+                            {
+                                "file_path": inv.file_path,
+                                "original_filename": inv.original_filename,
+                                "remark": inv.remark,
+                                "invoice_code": inv.invoice_code,
+                                "invoice_number": inv.invoice_number,
+                                "invoice_date": str(inv.invoice_date) if inv.invoice_date else None,
+                                "amount": str(inv.amount) if inv.amount is not None else None,
+                                "tax_amount": str(inv.tax_amount) if inv.tax_amount is not None else None,
+                                "total_amount": str(inv.total_amount) if inv.total_amount is not None else None,
+                            }
+                            for inv in p.invoices.all()
+                        ],
                     }
                     for p in obj.payments.all()
                 ],
@@ -458,6 +473,7 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
         for obj in queryset.prefetch_related(
             "finalized_materials",
             "client_payment_records",
+            "payments__invoices",
             "contract_parties__client__identity_docs",
             "contract_parties__client__property_clues__attachments",
         ):
@@ -465,6 +481,9 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
                 _add(m.file_path)
             for r in obj.client_payment_records.all():
                 _add(r.image_path)
+            for p in obj.payments.all():
+                for inv in p.invoices.all():
+                    _add(inv.file_path)
             for p in obj.contract_parties.all():
                 for d in p.client.identity_docs.all():
                     _add(d.file_path)
