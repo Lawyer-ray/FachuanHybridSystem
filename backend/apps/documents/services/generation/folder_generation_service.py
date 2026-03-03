@@ -8,13 +8,14 @@ Requirements: 2.1, 2.6, 2.7, 3.1, 4.1
 
 from __future__ import annotations
 
-from django.utils.translation import gettext_lazy as _
 import logging
 import zipfile
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
+
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.enums import CaseType
 from apps.core.exceptions import NotFoundError, ValidationException
@@ -30,7 +31,7 @@ logger = logging.getLogger(__name__)
 class DocumentPlacement:
     """文书放置配置"""
 
-    document_template: "DocumentTemplate"
+    document_template: DocumentTemplate
     folder_path: str  # 相对于根目录的路径
     file_name: str  # 生成的文件名
 
@@ -46,7 +47,7 @@ class FolderGenerationService:
 
     def __init__(
         self,
-        contract_service: "IContractService" | None = None,
+        contract_service: IContractService | None = None,
         folder_binding_service: Any | None = None,
     ) -> None:
         """
@@ -60,7 +61,7 @@ class FolderGenerationService:
         self._last_extract_path: str | None = None
 
     @property
-    def contract_service(self) -> "IContractService":
+    def contract_service(self) -> IContractService:
         """
         延迟获取合同服务
 
@@ -75,7 +76,7 @@ class FolderGenerationService:
     def folder_binding_service(self) -> Any | None:
         return self._folder_binding_service
 
-    def find_matching_folder_template(self, case_type: str) -> "FolderTemplate" | None:
+    def find_matching_folder_template(self, case_type: str) -> FolderTemplate | None:
         """
         根据合同类型查找匹配的文件夹模板
 
@@ -107,14 +108,14 @@ class FolderGenerationService:
 
         # 获取合同类型中文显示名
         case_type = getattr(contract, "case_type", None)
-        case_type_display = dict(CaseType.choices).get(case_type, case_type or "未知类型") # type: ignore[no-any-return]
+        case_type_display = dict(CaseType.choices).get(case_type, case_type or "未知类型")  # type: ignore[no-any-return]
         # 获取合同名称
         contract_name = getattr(contract, "name", None) or "未命名合同"
 
         # 组合格式化名称
         return f"{today}-[{case_type_display}]{contract_name}"
 
-    def generate_folder_structure(self, template: "FolderTemplate", root_name: str) -> dict[str, Any]:
+    def generate_folder_structure(self, template: FolderTemplate, root_name: str) -> dict[str, Any]:
         """
         根据模板生成文件夹结构
 
@@ -141,10 +142,10 @@ class FolderGenerationService:
 
         return cast(dict[str, Any], structure)
 
-    def get_document_placements(self, contract: Any, folder_template: "FolderTemplate") -> list[DocumentPlacement]:
+    def get_document_placements(self, contract: Any, folder_template: FolderTemplate) -> list[DocumentPlacement]:
         """
         获取文书放置配置
-        
+
         查询所有绑定到该文件夹模板的文件模板，并根据合同类型进行匹配
 
         Args:
@@ -166,7 +167,7 @@ class FolderGenerationService:
 
         for binding in bindings:
             template = binding.document_template
-            
+
             # 检查模板是否启用
             if not template.is_active:
                 continue
@@ -178,7 +179,7 @@ class FolderGenerationService:
 
             # 使用绑定配置的路径
             folder_path = binding.folder_node_path or ""
-            
+
             logger.info(
                 "找到绑定配置: 模板=%s, 节点ID=%s, 路径=%s",
                 template.name,
@@ -200,7 +201,7 @@ class FolderGenerationService:
 
         return placements
 
-    def _find_contract_folder_path(self, folder_template: "FolderTemplate") -> str:
+    def _find_contract_folder_path(self, folder_template: FolderTemplate) -> str:
         """
         在文件夹模板中查找"1-合同"文件夹的路径
 
@@ -304,7 +305,7 @@ class FolderGenerationService:
         from .pipeline import DocxRenderer, PipelineContextBuilder
 
         documents: list[Any] = []
-        
+
         # 获取合同数据用于构建上下文
         contract_model = self.contract_service.get_contract_model_internal(contract_id)
         if not contract_model:
@@ -316,7 +317,8 @@ class FolderGenerationService:
                 file_location = placement.document_template.get_file_location()
                 if not file_location or not Path(file_location).exists():
                     logger.warning(
-                        "模板文件不存在: %s", placement.document_template.name,
+                        "模板文件不存在: %s",
+                        placement.document_template.name,
                         extra={"template_name": placement.document_template.name},
                     )
                     continue
@@ -343,7 +345,9 @@ class FolderGenerationService:
                     )
             except Exception as e:
                 logger.warning(
-                    "生成文书异常: %s - %s", placement.document_template.name, e,
+                    "生成文书异常: %s - %s",
+                    placement.document_template.name,
+                    e,
                     extra={"template_name": placement.document_template.name, "error": str(e)},
                 )
 
@@ -366,7 +370,7 @@ class FolderGenerationService:
         zip_content, zip_filename, error = self.generate_folder_with_documents(contract_id)
         return zip_content, zip_filename, self._last_extract_path, error
 
-    def _generate_document_filename(self, contract: Any, template: "DocumentTemplate") -> str:
+    def _generate_document_filename(self, contract: Any, template: DocumentTemplate) -> str:
         """
         生成文书文件名
 
@@ -432,7 +436,8 @@ class FolderGenerationService:
 
             if extract_path:
                 logger.info(
-                    "文件夹ZIP已自动解压到绑定文件夹: %s", extract_path,
+                    "文件夹ZIP已自动解压到绑定文件夹: %s",
+                    extract_path,
                     extra={
                         "contract_id": contract_id,
                         "extract_path": extract_path,
