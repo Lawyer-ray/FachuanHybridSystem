@@ -128,10 +128,8 @@ class ClientAdmin(AdminImportExportMixin, admin.ModelAdmin[Client]):
         self, data_list: list[dict[str, Any]], user: str, zip_file: Any
     ) -> tuple[int, int, list[str]]:
         from apps.client.services.client_resolve_service import ClientResolveService
-        from apps.client.services.client_identity_doc_service import ClientIdentityDocService
 
         svc = ClientResolveService()
-        doc_svc = ClientIdentityDocService()
         success = skipped = 0
         errors: list[str] = []
         for item in data_list:
@@ -139,14 +137,14 @@ class ClientAdmin(AdminImportExportMixin, admin.ModelAdmin[Client]):
                 id_number = item.get("id_number")
                 before = Client.objects.filter(id_number=id_number).exists() if id_number else False
                 client = svc.resolve(item)
-                # 还原 identity_docs（仅新建的 client 才导入，跳过的不重复添加）
                 if not before:
+                    # 直接创建记录，不走 add_identity_doc（避免触发文件重命名）
                     for doc in item.get("identity_docs") or []:
                         if doc.get("file_path"):
-                            doc_svc.add_identity_doc(
-                                client_id=client.pk,
-                                doc_type=doc["doc_type"],
+                            ClientIdentityDoc.objects.get_or_create(
+                                client=client,
                                 file_path=doc["file_path"],
+                                defaults={"doc_type": doc.get("doc_type", "id_card_front")},
                             )
                     success += 1
                 else:
