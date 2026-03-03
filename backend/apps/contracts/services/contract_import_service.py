@@ -104,4 +104,56 @@ class ContractImportService:
                     },
                 )
 
+        from apps.contracts.models import SupplementaryAgreement, SupplementaryAgreementParty
+
+        for sa_data in data.get("supplementary_agreements") or []:
+            sa, _ = SupplementaryAgreement.objects.get_or_create(
+                contract=contract,
+                name=sa_data.get("name") or "",
+            )
+            for sp_data in sa_data.get("parties") or []:
+                client_data = sp_data.get("client")
+                if not client_data:
+                    continue
+                client = self._client_resolve.resolve(client_data)
+                SupplementaryAgreementParty.objects.get_or_create(
+                    supplementary_agreement=sa,
+                    client=client,
+                    defaults={"role": sp_data.get("role", "PRINCIPAL")},
+                )
+
+        from apps.contracts.models import ContractPayment
+
+        for p_data in data.get("payments") or []:
+            if p_data.get("amount") and p_data.get("received_at"):
+                ContractPayment.objects.get_or_create(
+                    contract=contract,
+                    received_at=p_data["received_at"],
+                    amount=p_data["amount"],
+                    defaults={
+                        "invoice_status": p_data.get("invoice_status", "UNINVOICED"),
+                        "invoiced_amount": p_data.get("invoiced_amount", 0),
+                        "note": p_data.get("note"),
+                    },
+                )
+
+        from apps.contracts.models import ContractFinanceLog
+
+        for fl_data in data.get("finance_logs") or []:
+            actor_data = fl_data.get("actor")
+            if not actor_data:
+                continue
+            actor = self._lawyer_resolve.resolve(actor_data)
+            if actor is None:
+                continue
+            ContractFinanceLog.objects.get_or_create(
+                contract=contract,
+                action=fl_data.get("action", ""),
+                actor=actor,
+                defaults={
+                    "level": fl_data.get("level", "INFO"),
+                    "payload": fl_data.get("payload", {}),
+                },
+            )
+
         return contract
