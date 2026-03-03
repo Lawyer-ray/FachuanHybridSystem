@@ -2,6 +2,30 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.8.0] - 2026-03-03
+
+### 新增
+- **ZIP 格式导入导出**：Client / Contract / Case 三个模块支持完整的 ZIP 格式导入导出
+  - ZIP 内含 `data.json`（带 `_type` 类型标记）+ `files/` 媒体文件目录
+  - 导出包含所有关联数据：当事人（含身份证件/财产线索附件）、律师指派、付款记录、发票、补充协议、定稿材料、案件日志（含附件/提醒）、群聊绑定等
+  - 导入按唯一键 get_or_create，重复数据跳过，已存在文件不覆盖
+  - 严格校验文件类型（`_type` 标记），拒绝跨模块导入
+  - 修复 Zip Slip 路径遍历安全漏洞
+- **定稿材料拖拽排序**：FinalizedMaterial 新增 `order` 字段，detail 页按分类分卡片 + SortableJS 拖拽排序
+- **删除合同级联删除案件**：合同删除时关联案件自动级联删除（`SET_NULL` → `CASCADE`）
+
+### 重构
+- 抽出 `serialize_client_obj` / `serialize_case_obj` / `serialize_contract_obj` 共享序列化函数，三个模块导出逻辑统一复用
+- 合同导入 cases 改为复用 `CaseImportService.import_one`，不再内联重复逻辑
+
+### 修复
+- 合同导入时 cases 的 logs / chats / reminders 不再丢失
+- `ContractFinanceLog` 导入改为 get_or_create，避免重复导入产生重复记录
+- 案件无 `filing_number` 时从合同导入不再重复创建
+- 案件导入时去掉 `contract.cases`，避免合同还原时重复创建案件
+- 删除合同前手动 unbind cases 的旧逻辑已移除，CASCADE 接管
+- 导入错误信息补充异常类型名，server 日志记录完整 traceback
+
 ## [26.7.5] - 2026-03-03
 
 ### 修复
