@@ -64,7 +64,7 @@ class ContractImportService:
         if not contract_data.get("filing_number"):
             contract_data["filing_number"] = None
         contract = Contract.objects.create(**contract_data)
-        logger.info("创建新合同", extra={"contract_id": contract.pk, "name": contract.name})
+        logger.info("创建新合同", extra={"contract_id": contract.pk, "contract_name": contract.name})
 
         for party_data in data.get("parties") or []:
             client_data = party_data.get("client")

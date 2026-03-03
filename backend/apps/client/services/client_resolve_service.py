@@ -68,7 +68,7 @@ class ClientResolveService:
         if id_number:
             self._cache[id_number] = client
 
-        logger.info("创建新当事人", extra={"client_id": client.pk, "name": client.name})
+        logger.info("创建新当事人", extra={"client_id": client.pk, "client_name": client.name})
         return client
 
     def resolve_with_attachments(self, data: dict[str, Any]) -> Client:
