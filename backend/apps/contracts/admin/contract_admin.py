@@ -398,6 +398,7 @@ class ContractAdmin(ContractDisplayMixin, ContractSaveMixin, ContractActionMixin
             "cases__chats",
             "cases__logs__actor",
             "cases__logs__attachments",
+            "cases__logs__reminders",
         ):
             result.append(serialize_contract_obj(obj))
         return result

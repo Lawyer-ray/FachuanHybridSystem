@@ -156,6 +156,11 @@ def serialize_case_obj(obj: Any) -> dict[str, Any]:
                     {"file_path": att.file.name, "filename": att.file.name.split("/")[-1]}
                     for att in log.attachments.all() if att.file
                 ],
+                "reminders": [
+                    {"reminder_type": r.reminder_type, "content": r.content,
+                     "due_at": r.due_at.isoformat(), "metadata": r.metadata}
+                    for r in log.reminders.all()
+                ],
             }
             for log in obj.logs.all()
         ],
@@ -235,6 +240,7 @@ class CaseAdmin(CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminViewsMixin, 
             "chats",
             "logs__actor",
             "logs__attachments",
+            "logs__reminders",
             "contract__contract_parties__client__identity_docs",
             "contract__contract_parties__client__property_clues__attachments",
             "contract__assignments__lawyer",

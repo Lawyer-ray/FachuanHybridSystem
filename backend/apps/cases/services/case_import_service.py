@@ -152,5 +152,14 @@ class CaseImportService:
                         with full.open("rb") as f:
                             att = CaseLogAttachment(log=log)
                             att.file.save(att_data.get("filename", full.name), ContentFile(f.read()), save=True)
+            from apps.reminders.models import Reminder
+            for r_data in log_data.get("reminders") or []:
+                if r_data.get("due_at") and r_data.get("reminder_type"):
+                    Reminder.objects.get_or_create(
+                        case_log=log,
+                        reminder_type=r_data["reminder_type"],
+                        due_at=r_data["due_at"],
+                        defaults={"content": r_data.get("content", ""), "metadata": r_data.get("metadata", {})},
+                    )
 
         return case
