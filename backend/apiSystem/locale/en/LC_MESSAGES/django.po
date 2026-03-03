@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-03-02 20:03+0800\n"
+"POT-Creation-Date: 2026-03-03 18:17+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -18,11 +18,11 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: apiSystem/settings.py:245
+#: apiSystem/settings.py:246
 msgid "简体中文"
 msgstr "Simplified Chinese"
 
-#: apiSystem/settings.py:246
+#: apiSystem/settings.py:247
 msgid "English"
 msgstr "English"
 
@@ -68,8 +68,7 @@ msgstr "Contact Author"
 
 #: templates/admin/base_site.html:273
 msgid "扫码关注 <span class=\"highlight\">「法穿」</span> 公众号反馈问题"
-msgstr ""
-"Scan to follow <span class=\"highlight\">Fachuan</span> WeChat for feedback"
+msgstr "Scan to follow <span class=\"highlight\">Fachuan</span> WeChat for feedback"
 
 #: templates/admin/base_site.html:274
 msgid "或直接添加作者微信进行交流"
@@ -85,8 +84,7 @@ msgstr "Auto Filing · OA & Court Dual-Channel"
 
 #: templates/index/_auto_filing.html:8
 msgid "Playwright 驱动，两套系统同时自动填写，效率翻倍"
-msgstr ""
-"Playwright-powered, both systems filled simultaneously, double efficiency"
+msgstr "Playwright-powered, both systems filled simultaneously, double efficiency"
 
 #: templates/index/_auto_filing.html:15
 msgid "系统立案"
@@ -124,8 +122,7 @@ msgstr "Full Case Lifecycle Management & Smart Document Generation"
 
 #: templates/index/_case_flow.html:8
 msgid "一次录入、全局复用，文件夹自动生成，文书自动归档到指定位置"
-msgstr ""
-"Enter once, reuse everywhere. Auto folder creation and document archiving."
+msgstr "Enter once, reuse everywhere. Auto folder creation and document archiving."
 
 #: templates/index/_chat_record.html:6
 msgid "证据整理"
@@ -253,8 +250,7 @@ msgstr "Smart Evidence Classification · AI Auto-Sort"
 
 #: templates/index/_evidence_sorting.html:8
 msgid "LLM 驱动的证据分类器，自动识别证据类型并归类整理"
-msgstr ""
-"LLM-powered evidence classifier, auto-identifies and categorizes evidence"
+msgstr "LLM-powered evidence classifier, auto-identifies and categorizes evidence"
 
 #: templates/index/_evidence_sorting.html:54
 msgid "等待开始"
@@ -290,21 +286,15 @@ msgstr "Intelligent Tools Built for Lawyers"
 
 #: templates/index/_features.html:7
 msgid "从案件管理到文书生成，全方位提升工作效率"
-msgstr ""
-"From case management to document generation, boosting efficiency end-to-end"
+msgstr "From case management to document generation, boosting efficiency end-to-end"
 
 #: templates/index/_features.html:16
 msgid "案件管理"
 msgstr "Case Management"
 
 #: templates/index/_features.html:18
-msgid ""
-"全生命周期案件管理，从立案到结案。支持案件创建、分配、进度跟踪、案号管理，多"
-"维度数据统计分析。"
-msgstr ""
-"Full lifecycle case management from filing to closure. Supports case "
-"creation, assignment, progress tracking, case number management, and multi-"
-"dimensional analytics."
+msgid "全生命周期案件管理，从立案到结案。支持案件创建、分配、进度跟踪、案号管理，多维度数据统计分析。"
+msgstr "Full lifecycle case management from filing to closure. Supports case creation, assignment, progress tracking, case number management, and multi-dimensional analytics."
 
 #: templates/index/_features.html:30
 msgid "张某诉李某民间借贷纠纷"
@@ -348,37 +338,24 @@ msgid "AI 文书生成"
 msgstr "AI Document Generation"
 
 #: templates/index/_features.html:65
-msgid ""
-"基于 LangChain + LangGraph 的智能文书生成，支持起诉状、答辩状、代理词、财产保"
-"全申请书等，对话式交互引导。"
-msgstr ""
-"LangChain + LangGraph powered document generation. Supports complaints, "
-"defenses, legal briefs, preservation applications, with conversational "
-"guidance."
+msgid "基于 LangChain + LangGraph 的智能文书生成，支持起诉状、答辩状、代理词、财产保全申请书等，对话式交互引导。"
+msgstr "LangChain + LangGraph powered document generation. Supports complaints, defenses, legal briefs, preservation applications, with conversational guidance."
 
 #: templates/index/_features.html:74
 msgid "合同管理"
 msgstr "Contract Management"
 
 #: templates/index/_features.html:76
-msgid ""
-"合同创建、补充协议、付款跟踪、律师分配、收费进度，完整的合同生命周期管理。"
-msgstr ""
-"Contract creation, supplementary agreements, payment tracking, lawyer "
-"assignment, and fee progress — complete contract lifecycle management."
+msgid "合同创建、补充协议、付款跟踪、律师分配、收费进度，完整的合同生命周期管理。"
+msgstr "Contract creation, supplementary agreements, payment tracking, lawyer assignment, and fee progress — complete contract lifecycle management."
 
 #: templates/index/_features.html:85
 msgid "自动化引擎"
 msgstr "Automation Engine"
 
 #: templates/index/_features.html:87
-msgid ""
-"法院短信智能解析与文书自动下载、法院文书定时抓取、财产保全保险自动询价、飞书"
-"群消息实时通知、验证码自动识别。7×24 小时无人值守运行，解放双手。"
-msgstr ""
-"Smart court SMS parsing, auto document download, scheduled court document "
-"fetching, preservation insurance auto-inquiry, Feishu notifications, captcha "
-"recognition. 7×24 unattended operation."
+msgid "法院短信智能解析与文书自动下载、法院文书定时抓取、财产保全保险自动询价、飞书群消息实时通知、验证码自动识别。7×24 小时无人值守运行，解放双手。"
+msgstr "Smart court SMS parsing, auto document download, scheduled court document fetching, preservation insurance auto-inquiry, Feishu notifications, captcha recognition. 7×24 unattended operation."
 
 #: templates/index/_features.html:96
 msgid "客户管理"
@@ -393,11 +370,8 @@ msgid "文档模板系统"
 msgstr "Document Template System"
 
 #: templates/index/_features.html:109
-msgid ""
-"可视化模板配置，支持占位符、条件渲染、案件类型匹配、批量生成 Word 文档。"
-msgstr ""
-"Visual template configuration with placeholders, conditional rendering, case "
-"type matching, and batch Word document generation."
+msgid "可视化模板配置，支持占位符、条件渲染、案件类型匹配、批量生成 Word 文档。"
+msgstr "Visual template configuration with placeholders, conditional rendering, case type matching, and batch Word document generation."
 
 #: templates/index/_features.html:118
 msgid "聊天记录取证"
@@ -405,9 +379,7 @@ msgstr "Chat Record Forensics"
 
 #: templates/index/_features.html:120
 msgid "微信/QQ 聊天记录视频录制、智能截帧、OCR 文字提取，一键生成证据材料。"
-msgstr ""
-"WeChat/QQ chat video recording, smart frame capture, OCR extraction — one-"
-"click evidence generation."
+msgstr "WeChat/QQ chat video recording, smart frame capture, OCR extraction — one-click evidence generation."
 
 #: templates/index/_features.html:129
 msgid "数据安全"
@@ -415,9 +387,7 @@ msgstr "Data Security"
 
 #: templates/index/_features.html:131
 msgid "端到端加密传输，支持本地私有化部署，数据完全掌控在您手中。"
-msgstr ""
-"End-to-end encrypted transmission, self-hosted deployment, full data "
-"ownership."
+msgstr "End-to-end encrypted transmission, self-hosted deployment, full data ownership."
 
 #: templates/index/_hero.html:11
 msgid "免费开源 · 持续更新"
@@ -489,9 +459,7 @@ msgstr "Mock Trial · Multi-Role AI Debate"
 
 #: templates/index/_mock_trial.html:8
 msgid "原告、被告、法官三方 AI 实时对话，WebSocket 驱动的沉浸式庭审模拟"
-msgstr ""
-"Plaintiff, defendant, and judge AI in real-time dialogue, WebSocket-powered "
-"immersive trial simulation"
+msgstr "Plaintiff, defendant, and judge AI in real-time dialogue, WebSocket-powered immersive trial simulation"
 
 #: templates/index/_mock_trial.html:16 templates/index/_mock_trial.html:33
 msgid "审判长"
@@ -555,8 +523,7 @@ msgstr "Court SMS Smart Processing Flow"
 
 #: templates/index/_sms_flow.html:8
 msgid "从收到短信到文书归档，全程自动化处理，7×24 小时无人值守"
-msgstr ""
-"From SMS receipt to document archiving, fully automated, 7×24 unattended"
+msgstr "From SMS receipt to document archiving, fully automated, 7×24 unattended"
 
 #: templates/index/_sms_flow.html:26
 msgid "浦东法院"
@@ -660,8 +627,7 @@ msgstr "Modern Tech Architecture"
 
 #: templates/index/_tech_stack.html:7
 msgid "基于成熟稳定的技术栈构建，确保系统可靠性与可扩展性"
-msgstr ""
-"Built on a mature, stable tech stack ensuring reliability and scalability"
+msgstr "Built on a mature, stable tech stack ensuring reliability and scalability"
 
 #: templates/index/_tech_stack.html:16
 msgid "后端核心"
@@ -758,3 +724,33 @@ msgstr "Pattern"
 #: templates/index/_tech_stack.html:170
 msgid "自动化部署"
 msgstr "Automated Deployment"
+
+msgid "导入"
+msgstr "Import"
+
+msgid "导出选中"
+msgstr "Export selected"
+
+msgid "导出全部"
+msgstr "Export all"
+
+msgid "请上传 ZIP 文件"
+msgstr "Please upload a ZIP file"
+
+msgid "请选择文件"
+msgstr "Please select a file"
+
+msgid "导入失败: %(err)s"
+msgstr "Import failed: %(err)s"
+
+msgid "导入完成：成功 %(s)d 条，跳过 %(k)d 条"
+msgstr "Import complete: %(s)d created, %(k)d skipped"
+
+msgid "合同名称不能为空"
+msgstr "Contract name is required"
+
+msgid "案件名称不能为空"
+msgstr "Case name is required"
+
+msgid "当事人数据验证失败: %(name)s"
+msgstr "Client data validation failed: %(name)s"
