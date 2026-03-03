@@ -5,11 +5,11 @@ Feature: backend-structure-optimization, Property 4: 文档分类存放
 Validates: Requirements 4.1, 4.5
 """
 
+from pathlib import Path
+
 import pytest
 from hypothesis import assume, given
 from hypothesis import strategies as st
-
-from pathlib import Path
 
 # 定义文档类型和对应的目录映射
 DOC_TYPE_MAPPING = {

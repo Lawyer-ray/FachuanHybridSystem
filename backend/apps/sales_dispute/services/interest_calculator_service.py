@@ -152,9 +152,7 @@ class InterestCalculatorService:
             warnings=warnings,
         )
 
-    def _calc_batch_delivery(
-        self, params: InterestCalcParams, warnings: list[str]
-    ) -> InterestCalcResult:
+    def _calc_batch_delivery(self, params: InterestCalcParams, warnings: list[str]) -> InterestCalcResult:
         """分批交货：每批独立计算并累加"""
         if not params.batch_deliveries:
             return InterestCalcResult(
@@ -189,9 +187,7 @@ class InterestCalculatorService:
                 agreed_payment_date=None,
             )
 
-            batch_total, batch_segments = self._dispatch_calc(
-                batch_params, batch_start, params.end_date
-            )
+            batch_total, batch_segments = self._dispatch_calc(batch_params, batch_start, params.end_date)
             total += batch_total
             all_segments.extend(batch_segments)
 
@@ -203,23 +199,15 @@ class InterestCalculatorService:
             warnings=warnings,
         )
 
-    def _dispatch_calc(
-        self, params: InterestCalcParams, start: date, end: date
-    ) -> tuple[Decimal, list[SegmentDetail]]:
+    def _dispatch_calc(self, params: InterestCalcParams, start: date, end: date) -> tuple[Decimal, list[SegmentDetail]]:
         """根据利率类型分发到对应计算方法"""
         if params.rate_type == RateType.LPR:
-            return self._calc_lpr_interest(
-                params.principal, start, end, params.lpr_markup
-            )
+            return self._calc_lpr_interest(params.principal, start, end, params.lpr_markup)
         elif params.rate_type == RateType.AGREED_RATE:
             if params.agreed_rate is None:
                 logger.info("合同约定利率未提供，使用LPR利率计算")
-                return self._calc_lpr_interest(
-                    params.principal, start, end, params.lpr_markup
-                )
-            return self._calc_agreed_rate(
-                params.principal, start, end, params.agreed_rate
-            )
+                return self._calc_lpr_interest(params.principal, start, end, params.lpr_markup)
+            return self._calc_agreed_rate(params.principal, start, end, params.agreed_rate)
         elif params.rate_type == RateType.PENALTY_FIXED:
             if params.penalty_amount is None:
                 return _ZERO, []
@@ -227,15 +215,10 @@ class InterestCalculatorService:
         elif params.rate_type == RateType.PENALTY_DAILY:
             if params.penalty_daily_rate is None:
                 return _ZERO, []
-            return self._calc_penalty_daily(
-                params.principal, start, end, params.penalty_daily_rate
-            )
+            return self._calc_penalty_daily(params.principal, start, end, params.penalty_daily_rate)
         return _ZERO, []
 
-
-    def _determine_start_date(
-        self, params: InterestCalcParams
-    ) -> date | list[tuple[date, Decimal]]:
+    def _determine_start_date(self, params: InterestCalcParams) -> date | list[tuple[date, Decimal]]:
         """根据 interest_start_type 确定计息起算日"""
         if params.interest_start_type == InterestStartType.AGREED_DATE:
             # 合同约定付款日的次日
@@ -246,9 +229,7 @@ class InterestCalculatorService:
         elif params.interest_start_type == InterestStartType.DEMAND_NOTICE:
             # 催告日期 + 合理期限天数 的次日
             if params.demand_date is not None:
-                return params.demand_date + timedelta(
-                    days=params.reasonable_period_days + 1
-                )
+                return params.demand_date + timedelta(days=params.reasonable_period_days + 1)
             return params.start_date
 
         elif params.interest_start_type == InterestStartType.BATCH_DELIVERY:
@@ -283,9 +264,7 @@ class InterestCalculatorService:
             days = (pre_end - start).days
             if days > 0:
                 annual_rate = OLD_BENCHMARK_RATE_1Y + markup
-                interest = (
-                    principal * annual_rate / _HUNDRED / _DAYS_PER_YEAR * Decimal(days)
-                )
+                interest = principal * annual_rate / _HUNDRED / _DAYS_PER_YEAR * Decimal(days)
                 interest = interest.quantize(_TWO_PLACES, rounding=ROUND_HALF_UP)
                 total += interest
                 segments.append(
@@ -299,16 +278,12 @@ class InterestCalculatorService:
                 )
             # 分水岭之后的部分
             if end > LPR_WATERSHED:
-                lpr_total, lpr_segments = self._calc_lpr_segments(
-                    principal, LPR_WATERSHED, end, markup
-                )
+                lpr_total, lpr_segments = self._calc_lpr_segments(principal, LPR_WATERSHED, end, markup)
                 total += lpr_total
                 segments.extend(lpr_segments)
         else:
             # 全部在分水岭之后
-            lpr_total, lpr_segments = self._calc_lpr_segments(
-                principal, start, end, markup
-            )
+            lpr_total, lpr_segments = self._calc_lpr_segments(principal, start, end, markup)
             total += lpr_total
             segments.extend(lpr_segments)
 
@@ -333,9 +308,7 @@ class InterestCalculatorService:
             if days <= 0:
                 continue
             annual_rate = seg.rate_1y + markup
-            interest = (
-                principal * annual_rate / _HUNDRED / _DAYS_PER_YEAR * Decimal(days)
-            )
+            interest = principal * annual_rate / _HUNDRED / _DAYS_PER_YEAR * Decimal(days)
             interest = interest.quantize(_TWO_PLACES, rounding=ROUND_HALF_UP)
             total += interest
             segments.append(
@@ -374,9 +347,7 @@ class InterestCalculatorService:
         )
         return interest, [segment]
 
-    def _calc_penalty_fixed(
-        self, amount: Decimal
-    ) -> tuple[Decimal, list[SegmentDetail]]:
+    def _calc_penalty_fixed(self, amount: Decimal) -> tuple[Decimal, list[SegmentDetail]]:
         """固定违约金"""
         rounded = amount.quantize(_TWO_PLACES, rounding=ROUND_HALF_UP)
         return rounded, []

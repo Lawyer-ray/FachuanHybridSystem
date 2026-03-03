@@ -16,7 +16,7 @@
 {% block content %}
 <div class="content-main">
     <h1>🔗 {{ title }}</h1>
-    
+
     {% if messages %}
         {% for message in messages %}
             <div class="alert alert-{{ message.tags }}">
@@ -24,7 +24,7 @@
             </div>
         {% endfor %}
     {% endif %}
-    
+
     <!-- 短信信息 -->
     <div class="module">
         <h2>📱 {% trans "短信信息" %}</h2>
@@ -33,7 +33,7 @@
                 <strong>{% trans "短信ID" %}:</strong> {{ sms.id }}
             </div>
             <div class="info-row">
-                <strong>{% trans "当前状态" %}:</strong> 
+                <strong>{% trans "当前状态" %}:</strong>
                 <span class="status-{{ sms.status }}">{{ sms.get_status_display }}</span>
             </div>
             <div class="info-row">
@@ -65,16 +65,16 @@
             {% endif %}
         </div>
     </div>
-    
+
     <!-- 案件选择表单 -->
     <div class="module">
         <h2>🎯 {% trans "选择案件" %}</h2>
         <form method="post" id="assign-case-form">
             {% csrf_token %}
-            
+
             <div class="form-section">
                 <label for="case-search">🔍 {% trans "搜索案件" %}:</label>
-                <input type="text" id="case-search" placeholder="{% trans '输入案件名称、案号或当事人姓名进行搜索...' %}" 
+                <input type="text" id="case-search" placeholder="{% trans '输入案件名称、案号或当事人姓名进行搜索...' %}"
                        style="width: 100%; padding: 8px; margin-bottom: 10px;">
                 <div id="search-results" style="display: none; border: 1px solid #ddd; border-radius: 4px; max-height: 300px; overflow-y: auto; background: white; margin-top: 5px;">
                     <!-- AJAX 搜索结果将显示在这里 -->
@@ -83,7 +83,7 @@
                     🔄 {% trans "搜索中..." %}
                 </div>
             </div>
-            
+
             <div class="form-section">
                 <label for="id_case_id" class="required">{% trans "选择案件" %}:</label>
                 <select name="case_id" id="id_case_id" required style="width: 100%; padding: 8px;">
@@ -91,14 +91,14 @@
                 </select>
                 <p class="help">{% trans "选择要关联的案件，系统将自动创建案件日志并绑定文书" %}</p>
             </div>
-            
+
             <div class="submit-row">
                 <input type="submit" value="✅ {% trans "确认指定" %}" class="default" />
                 <a href="{% url 'admin:automation_courtsms_change' sms.id %}" class="button cancel-link">{% trans "取消" %}</a>
             </div>
         </form>
     </div>
-    
+
     <!-- 推荐案件 -->
     {% if suggested_cases %}
     <div class="module">
@@ -112,7 +112,7 @@
                 </div>
                 <div class="case-details">
                     {% if case.case_numbers.all %}
-                        <div><strong>{% trans "案号" %}:</strong> 
+                        <div><strong>{% trans "案号" %}:</strong>
                             {% for cn in case.case_numbers.all %}
                                 {{ cn.case_number }}{% if not forloop.last %}, {% endif %}
                             {% endfor %}
@@ -147,7 +147,7 @@
         </p>
     </div>
     {% endif %}
-    
+
     <!-- 最近案件 -->
     {% if recent_cases %}
     <div class="module">
@@ -161,7 +161,7 @@
                 </div>
                 <div class="case-details">
                     {% if case.case_numbers.all %}
-                        <div><strong>{% trans "案号" %}:</strong> 
+                        <div><strong>{% trans "案号" %}:</strong>
                             {% for cn in case.case_numbers.all %}
                                 {{ cn.case_number }}{% if not forloop.last %}, {% endif %}
                             {% endfor %}
@@ -336,20 +336,20 @@ document.addEventListener('DOMContentLoaded', function() {
     const caseSelect = document.getElementById('id_case_id');
     const selectButtons = document.querySelectorAll('.select-case');
     const caseItems = document.querySelectorAll('.case-item');
-    
+
     // 收集所有案件数据
     const allCases = [];
     caseItems.forEach(item => {
         const caseId = item.dataset.caseId;
         if (!caseId) return; // 跳过没有ID的项目
-        
+
         const caseNameElement = item.querySelector('.case-header strong');
         const caseName = caseNameElement ? caseNameElement.textContent.trim() : '';
-        
+
         const caseNumberElements = item.querySelectorAll('.case-details div');
         let caseNumbers = '';
         let parties = '';
-        
+
         caseNumberElements.forEach(div => {
             const text = div.textContent || '';
             if (text.includes('案号:')) {
@@ -358,10 +358,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 parties = text.replace('当事人:', '').trim();
             }
         });
-        
+
         // 构建搜索文本，包含案件名称、案号、当事人
         const searchText = (caseName + ' ' + caseNumbers + ' ' + parties).toLowerCase();
-        
+
         allCases.push({
             id: caseId,
             name: caseName,
@@ -370,7 +370,7 @@ document.addEventListener('DOMContentLoaded', function() {
             searchText: searchText
         });
     });
-    
+
     // 初始化下拉框
     function updateCaseSelect(cases = allCases) {
         caseSelect.innerHTML = '<option value="">{% trans "请选择一个案件..." %}</option>';
@@ -381,22 +381,22 @@ document.addEventListener('DOMContentLoaded', function() {
             caseSelect.appendChild(option);
         });
     }
-    
+
     updateCaseSelect();
-    
+
     // AJAX 搜索功能
     let searchTimeout;
     const searchResults = document.getElementById('search-results');
     const searchLoading = document.getElementById('search-loading');
-    
+
     caseSearch.addEventListener('input', function() {
         const searchTerm = this.value.trim();
-        
+
         // 清除之前的定时器
         if (searchTimeout) {
             clearTimeout(searchTimeout);
         }
-        
+
         if (searchTerm === '') {
             // 显示所有原始案件
             searchResults.style.display = 'none';
@@ -408,28 +408,28 @@ document.addEventListener('DOMContentLoaded', function() {
             updateCaseSelect();
             return;
         }
-        
+
         // 先进行本地搜索（即时响应）
         performLocalSearch(searchTerm);
-        
+
         // 延迟进行 AJAX 搜索（避免频繁请求）
         searchTimeout = setTimeout(() => {
             performAjaxSearch(searchTerm);
         }, 500);
     });
-    
+
     function performLocalSearch(searchTerm) {
         const keywords = searchTerm.toLowerCase().split(/\s+/).filter(k => k.length > 0);
-        
+
         const filteredCases = allCases.filter(case => {
-            return keywords.every(keyword => 
+            return keywords.every(keyword =>
                 case.searchText.includes(keyword) ||
                 case.name.toLowerCase().includes(keyword) ||
                 case.caseNumbers.toLowerCase().includes(keyword) ||
                 case.parties.toLowerCase().includes(keyword)
             );
         });
-        
+
         // 更新显示
         caseItems.forEach(item => {
             const caseId = item.dataset.caseId;
@@ -437,32 +437,32 @@ document.addEventListener('DOMContentLoaded', function() {
                 item.style.display = 'none';
                 return;
             }
-            
+
             const shouldShow = filteredCases.some(case => case.id === caseId);
             item.style.display = shouldShow ? 'block' : 'none';
         });
-        
+
         updateCaseSelect(filteredCases);
     }
-    
+
     function performAjaxSearch(searchTerm) {
         if (searchTerm.length < 2) return; // 至少2个字符才进行 AJAX 搜索
-        
+
         searchLoading.style.display = 'block';
         searchResults.style.display = 'none';
-        
+
         const searchUrl = `{% url 'admin:automation_courtsms_search_cases' sms.id %}?q=${encodeURIComponent(searchTerm)}`;
-        
+
         fetch(searchUrl)
             .then(response => response.json())
             .then(data => {
                 searchLoading.style.display = 'none';
-                
+
                 if (data.error) {
                     console.error('搜索错误:', data.error);
                     return;
                 }
-                
+
                 displaySearchResults(data.cases);
                 updateCaseSelectFromAjax(data.cases);
             })
@@ -471,19 +471,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('AJAX 搜索失败:', error);
             });
     }
-    
+
     function displaySearchResults(cases) {
         if (cases.length === 0) {
             searchResults.innerHTML = '<div style="padding: 10px; color: #666;">未找到匹配的案件</div>';
             searchResults.style.display = 'block';
             return;
         }
-        
+
         let html = '';
         cases.forEach(case => {
             const caseNumbers = case.case_numbers.join(', ');
             const parties = case.parties.join(', ');
-            
+
             html += `
                 <div class="search-result-item" data-case-id="${case.id}" style="padding: 10px; border-bottom: 1px solid #eee; cursor: pointer;">
                     <div style="font-weight: bold;">${case.name} <span style="color: #666; font-size: 12px;">#${case.id}</span></div>
@@ -493,46 +493,46 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             `;
         });
-        
+
         searchResults.innerHTML = html;
         searchResults.style.display = 'block';
-        
+
         // 添加点击事件
         searchResults.querySelectorAll('.search-result-item').forEach(item => {
             item.addEventListener('click', function() {
                 const caseId = this.dataset.caseId;
                 const caseName = this.querySelector('div').textContent.split('#')[0].trim();
-                
+
                 // 选择案件
                 caseSelect.value = caseId;
-                
+
                 // 高亮选中的案件
                 caseItems.forEach(caseItem => {
                     caseItem.style.backgroundColor = caseItem.dataset.caseId === caseId ? '#e7f3ff' : '#fff';
                 });
-                
+
                 // 隐藏搜索结果
                 searchResults.style.display = 'none';
                 caseSearch.value = caseName;
-                
+
                 // 滚动到表单
-                document.getElementById('assign-case-form').scrollIntoView({ 
+                document.getElementById('assign-case-form').scrollIntoView({
                     behavior: 'smooth',
                     block: 'start'
                 });
             });
-            
+
             // 添加悬停效果
             item.addEventListener('mouseenter', function() {
                 this.style.backgroundColor = '#f0f0f0';
             });
-            
+
             item.addEventListener('mouseleave', function() {
                 this.style.backgroundColor = 'white';
             });
         });
     }
-    
+
     function updateCaseSelectFromAjax(cases) {
         caseSelect.innerHTML = '<option value="">{% trans "请选择一个案件..." %}</option>';
         cases.forEach(case => {
@@ -542,26 +542,26 @@ document.addEventListener('DOMContentLoaded', function() {
             caseSelect.appendChild(option);
         });
     }
-    
+
     // 选择案件按钮
     selectButtons.forEach(button => {
         button.addEventListener('click', function() {
             const caseId = this.dataset.caseId;
             caseSelect.value = caseId;
-            
+
             // 高亮选中的案件
             caseItems.forEach(item => {
                 item.style.backgroundColor = item.dataset.caseId === caseId ? '#e7f3ff' : '#fff';
             });
-            
+
             // 滚动到表单
-            document.getElementById('assign-case-form').scrollIntoView({ 
+            document.getElementById('assign-case-form').scrollIntoView({
                 behavior: 'smooth',
                 block: 'start'
             });
         });
     });
-    
+
     // 表单提交确认
     document.getElementById('assign-case-form').addEventListener('submit', function(e) {
         const selectedCaseId = caseSelect.value;
@@ -570,7 +570,7 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('请选择一个案件');
             return;
         }
-        
+
         const selectedCase = allCases.find(case => case.id === selectedCaseId);
         if (selectedCase && !confirm(`确认要将短信关联到案件"${selectedCase.name}"吗？\n\n这将触发后续的文书重命名和飞书推送流程。`)) {
             e.preventDefault();

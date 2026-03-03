@@ -62,7 +62,7 @@ class CaseChatAdmin(CaseAdminServiceMixin, admin.ModelAdmin[CaseChat]):
             url = reverse("admin:cases_case_change", args=[case_id])
             case_name = getattr(obj.case, "name", str(case_id))
             return format_html('<a href="{}" target="_blank">{}</a>', url, case_name)
-        return format_html('<span>{}</span>', "-")
+        return format_html("<span>{}</span>", "-")
 
     case_link.short_description = _("关联案件")  # type: ignore[attr-defined]
 
@@ -160,7 +160,7 @@ class CaseChatInline(BaseTabularInline):
     def status_display(self, obj: CaseChat) -> SafeString:
         """状态显示"""
         if not obj.pk:
-            return format_html('<span>{}</span>', "")
+            return format_html("<span>{}</span>", "")
 
         if obj.is_active:
             return format_html('<span style="color: green;">●</span> {}', "有效")

@@ -6,10 +6,10 @@ Cases App Admin模块主文件
 from __future__ import annotations
 
 from .case_admin import CaseAdmin
-from .caseparty_admin import CasePartyAdmin
+from .case_chat_admin import CaseChatAdmin
 from .caseassignment_admin import CaseAssignmentAdmin
 from .caselog_admin import CaseLogAdmin, CaseLogAttachmentAdmin
-from .case_chat_admin import CaseChatAdmin
+from .caseparty_admin import CasePartyAdmin
 
 # 所有Admin类通过装饰器自动注册
 # 无需手动注册，admin/__init__.py中的类会自动处理

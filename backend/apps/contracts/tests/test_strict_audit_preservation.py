@@ -37,7 +37,8 @@ positive_amount_st: st.SearchStrategy[Decimal] = st.decimals(
 )
 
 non_empty_text_st: st.SearchStrategy[str] = st.text(
-    min_size=1, max_size=100,
+    min_size=1,
+    max_size=100,
 ).filter(lambda s: s.strip() != "")
 
 contract_id_st: st.SearchStrategy[int] = st.integers(min_value=1, max_value=999999)
@@ -58,25 +59,23 @@ class TestServiceExceptionTypesPreservation:
     **Validates: Requirements 3.1**
     """
 
-    @given(amount=st.decimals(
-        min_value=Decimal("-100"),
-        max_value=Decimal("0"),
-        places=2,
-        allow_nan=False,
-        allow_infinity=False,
-    ))
+    @given(
+        amount=st.decimals(
+            min_value=Decimal("-100"),
+            max_value=Decimal("0"),
+            places=2,
+            allow_nan=False,
+            allow_infinity=False,
+        )
+    )
     @settings(max_examples=10, suppress_health_check=[HealthCheck.too_slow])
-    def test_payment_service_validation_on_non_positive_amount(
-        self, amount: Decimal
-    ) -> None:
+    def test_payment_service_validation_on_non_positive_amount(self, amount: Decimal) -> None:
         """
         create_payment 对非正金额抛出 ValidationException。
 
         **Validates: Requirements 3.1**
         """
-        from apps.contracts.services.payment.contract_payment_service import (
-            ContractPaymentService,
-        )
+        from apps.contracts.services.payment.contract_payment_service import ContractPaymentService
 
         svc = ContractPaymentService()
         mock_user = MagicMock()
@@ -86,20 +85,17 @@ class TestServiceExceptionTypesPreservation:
         # 需要先 mock _get_contract 以跳过合同查找
         mock_contract = MagicMock()
         mock_contract.fixed_amount = None
-        with patch.object(svc, "_get_contract", return_value=mock_contract):
-            with pytest.raises(ValidationException):
-                svc.create_payment(
-                    contract_id=1,
-                    amount=amount,
-                    user=mock_user,
-                    confirm=True,
-                )
+        with patch.object(svc, "_get_contract", return_value=mock_contract), pytest.raises(ValidationException):
+            svc.create_payment(
+                contract_id=1,
+                amount=amount,
+                user=mock_user,
+                confirm=True,
+            )
 
     def test_payment_service_validation_no_confirm(self) -> None:
         """create_payment 未确认时抛出 ValidationException。"""
-        from apps.contracts.services.payment.contract_payment_service import (
-            ContractPaymentService,
-        )
+        from apps.contracts.services.payment.contract_payment_service import ContractPaymentService
 
         svc = ContractPaymentService()
         mock_user = MagicMock()
@@ -155,9 +151,7 @@ class TestAdminSuccessResponsePreservation:
 
     @given(filename=non_empty_text_st)
     @settings(max_examples=15, suppress_health_check=[HealthCheck.too_slow])
-    def test_build_docx_response_always_returns_http_response(
-        self, filename: str
-    ) -> None:
+    def test_build_docx_response_always_returns_http_response(self, filename: str) -> None:
         """
         对任意非空文件名，_build_docx_response 始终返回 HttpResponse。
 
@@ -194,9 +188,9 @@ class TestAdminErrorMessagePreservation:
 
         factory = RequestFactory()
         request: Any = factory.post("/admin/contracts/contract/1/change/")
-        setattr(request, "session", {})
+        request.session = {}
         messages_storage = FallbackStorage(request)
-        setattr(request, "_messages", messages_storage)
+        request._messages = messages_storage
         return request
 
     def test_handle_generate_contract_error_shows_message(self) -> None:
@@ -212,12 +206,8 @@ class TestAdminErrorMessagePreservation:
         mock_obj = MagicMock()
         mock_obj.pk = 1
 
-        with patch(
-            "apps.contracts.admin.mixins.action_mixin._get_contract_admin_service"
-        ) as mock_svc:
-            mock_svc.return_value.generate_contract_document.side_effect = (
-                Exception("测试错误")
-            )
+        with patch("apps.contracts.admin.mixins.action_mixin._get_contract_admin_service") as mock_svc:
+            mock_svc.return_value.generate_contract_document.side_effect = Exception("测试错误")
             response = mixin._handle_generate_contract(request, mock_obj)
 
         assert isinstance(response, HttpResponseRedirect)
@@ -238,12 +228,8 @@ class TestAdminErrorMessagePreservation:
         mock_obj = MagicMock()
         mock_obj.pk = 1
 
-        with patch(
-            "apps.contracts.admin.mixins.action_mixin._get_contract_mutation_facade"
-        ) as mock_facade:
-            mock_facade.return_value.duplicate_contract_ctx.side_effect = (
-                Exception("复制失败")
-            )
+        with patch("apps.contracts.admin.mixins.action_mixin._get_contract_mutation_facade") as mock_facade:
+            mock_facade.return_value.duplicate_contract_ctx.side_effect = Exception("复制失败")
             response = mixin._handle_duplicate(request, mock_obj)
 
         assert isinstance(response, HttpResponseRedirect)
@@ -282,9 +268,7 @@ class TestPrimaryLawyerDisplayPreservation:
             law_firm=firm,
         )
         contract = Contract.objects.create(name="主办律师测试", case_type=CaseType.CIVIL)
-        ContractAssignment.objects.create(
-            contract=contract, lawyer=lawyer, is_primary=True, order=0
-        )
+        ContractAssignment.objects.create(contract=contract, lawyer=lawyer, is_primary=True, order=0)
 
         admin_instance = ContractAdmin(Contract, MagicMock())
         result: str = admin_instance.get_primary_lawyer(contract)
@@ -315,9 +299,7 @@ class TestPrimaryLawyerDisplayPreservation:
             law_firm=firm,
         )
         contract = Contract.objects.create(name="display测试", case_type=CaseType.CIVIL)
-        ContractAssignment.objects.create(
-            contract=contract, lawyer=lawyer, is_primary=True, order=0
-        )
+        ContractAssignment.objects.create(contract=contract, lawyer=lawyer, is_primary=True, order=0)
 
         admin_instance = ContractAdmin(Contract, MagicMock())
         result: str = admin_instance.get_primary_lawyer_display(contract)
@@ -357,9 +339,9 @@ class TestSaveModelFilingNumberPreservation:
 
         factory = RequestFactory()
         request: Any = factory.post("/admin/contracts/contract/1/change/")
-        setattr(request, "session", {})
+        request.session = {}
         messages_storage = FallbackStorage(request)
-        setattr(request, "_messages", messages_storage)
+        request._messages = messages_storage
         return request
 
     def test_save_model_sets_filing_number_on_success(self) -> None:
@@ -372,9 +354,7 @@ class TestSaveModelFilingNumberPreservation:
         mock_obj.is_archived = True
         mock_obj.filing_number = None
 
-        with patch(
-            "apps.contracts.admin.mixins.save_mixin._get_contract_admin_service"
-        ) as mock_svc_fn:
+        with patch("apps.contracts.admin.mixins.save_mixin._get_contract_admin_service") as mock_svc_fn:
             mock_svc = mock_svc_fn.return_value
             mock_svc.handle_contract_filing_change.return_value = "2024_civil_HT_001"
 
@@ -387,9 +367,7 @@ class TestSaveModelFilingNumberPreservation:
                 mock_obj.filing_number = filing_number
 
         assert mock_obj.filing_number == "2024_civil_HT_001"
-        mock_svc.handle_contract_filing_change.assert_called_once_with(
-            contract_id=1, is_archived=True
-        )
+        mock_svc.handle_contract_filing_change.assert_called_once_with(contract_id=1, is_archived=True)
 
     def test_save_model_error_shows_message(self) -> None:
         """建档编号处理失败时，通过 messages.error 提示。"""
@@ -402,18 +380,14 @@ class TestSaveModelFilingNumberPreservation:
         mock_obj.id = 1
         mock_obj.is_archived = True
 
-        with patch(
-            "apps.contracts.admin.mixins.save_mixin._get_contract_admin_service"
-        ) as mock_svc_fn:
+        with patch("apps.contracts.admin.mixins.save_mixin._get_contract_admin_service") as mock_svc_fn:
             mock_svc = mock_svc_fn.return_value
             mock_svc.handle_contract_filing_change.side_effect = Exception("DB error")
 
             # 模拟 save_model 中的 except 分支
             try:
                 service = mock_svc
-                service.handle_contract_filing_change(
-                    contract_id=mock_obj.id, is_archived=mock_obj.is_archived
-                )
+                service.handle_contract_filing_change(contract_id=mock_obj.id, is_archived=mock_obj.is_archived)
             except Exception as e:
                 django_messages.error(request, f"处理建档编号失败: {e!s}")
 
@@ -481,18 +455,11 @@ class TestDetailViewContextPreservation:
         # 通过读取源码验证这些键确实存在于 detail_view 中
         from pathlib import Path
 
-        display_mixin_path = (
-            Path(__file__).resolve().parent.parent
-            / "admin"
-            / "mixins"
-            / "display_mixin.py"
-        )
+        display_mixin_path = Path(__file__).resolve().parent.parent / "admin" / "mixins" / "display_mixin.py"
         source: str = display_mixin_path.read_text(encoding="utf-8")
 
         for key in expected_keys:
-            assert f'"{key}"' in source, (
-                f"detail_view 上下文缺少键: {key}"
-            )
+            assert f'"{key}"' in source, f"detail_view 上下文缺少键: {key}"
 
     def test_detail_view_renders_with_mock_context(self) -> None:
         """detail_view 使用 mock 数据能正确调用 render。"""
@@ -536,11 +503,10 @@ class TestDetailViewContextPreservation:
             "related_cases": [],
         }
 
-        with patch(
-            "apps.contracts.admin.mixins.display_mixin._get_contract_admin_service"
-        ) as mock_admin_svc, patch(
-            "apps.contracts.admin.mixins.display_mixin.render"
-        ) as mock_render:
+        with (
+            patch("apps.contracts.admin.mixins.display_mixin._get_contract_admin_service") as mock_admin_svc,
+            patch("apps.contracts.admin.mixins.display_mixin.render") as mock_render,
+        ):
             mock_svc = mock_admin_svc.return_value
             mock_svc.query_service.get_contract_detail.return_value = mock_contract
             mock_svc.get_contract_detail_context.return_value = ctx_data
@@ -578,12 +544,8 @@ class TestTemplateDisplayGracefulDegradation:
         mock_obj.pk = 1
         mock_obj.id = 1
 
-        with patch(
-            "apps.contracts.admin.mixins.display_mixin._get_contract_display_service"
-        ) as mock_svc_fn:
-            mock_svc_fn.return_value.get_matched_document_template.side_effect = (
-                Exception("DB error")
-            )
+        with patch("apps.contracts.admin.mixins.display_mixin._get_contract_display_service") as mock_svc_fn:
+            mock_svc_fn.return_value.get_matched_document_template.side_effect = Exception("DB error")
             result: str = mixin.get_matched_template_display(mock_obj)
 
         assert result == "查询失败"
@@ -599,12 +561,8 @@ class TestTemplateDisplayGracefulDegradation:
         mock_obj.pk = 1
         mock_obj.id = 1
 
-        with patch(
-            "apps.contracts.admin.mixins.display_mixin._get_contract_display_service"
-        ) as mock_svc_fn:
-            mock_svc_fn.return_value.get_matched_folder_templates.side_effect = (
-                Exception("DB error")
-            )
+        with patch("apps.contracts.admin.mixins.display_mixin._get_contract_display_service") as mock_svc_fn:
+            mock_svc_fn.return_value.get_matched_folder_templates.side_effect = Exception("DB error")
             result: str = mixin.get_matched_folder_templates_display(mock_obj)
 
         assert result == "查询失败"
@@ -618,12 +576,8 @@ class TestTemplateDisplayGracefulDegradation:
         mock_contract.pk = 1
         mock_contract.id = 1
 
-        with patch(
-            "apps.contracts.admin.mixins.display_mixin._get_contract_display_service"
-        ) as mock_svc_fn:
-            mock_svc_fn.return_value.get_matched_document_template.side_effect = (
-                Exception("error")
-            )
+        with patch("apps.contracts.admin.mixins.display_mixin._get_contract_display_service") as mock_svc_fn:
+            mock_svc_fn.return_value.get_matched_document_template.side_effect = Exception("error")
             result: bool = mixin._check_contract_template(mock_contract)
 
         assert result is False
@@ -637,12 +591,8 @@ class TestTemplateDisplayGracefulDegradation:
         mock_contract.pk = 1
         mock_contract.id = 1
 
-        with patch(
-            "apps.contracts.admin.mixins.display_mixin._get_contract_display_service"
-        ) as mock_svc_fn:
-            mock_svc_fn.return_value.get_matched_folder_templates.side_effect = (
-                Exception("error")
-            )
+        with patch("apps.contracts.admin.mixins.display_mixin._get_contract_display_service") as mock_svc_fn:
+            mock_svc_fn.return_value.get_matched_folder_templates.side_effect = Exception("error")
             result: bool = mixin._check_folder_template(mock_contract)
 
         assert result is False
@@ -651,9 +601,7 @@ class TestTemplateDisplayGracefulDegradation:
         self,
     ) -> None:
         """ContractDisplayService.get_matched_document_template 异常时返回 '查询失败'。"""
-        from apps.contracts.services.contract.contract_display_service import (
-            ContractDisplayService,
-        )
+        from apps.contracts.services.contract.contract_display_service import ContractDisplayService
 
         svc = ContractDisplayService()
         mock_contract = MagicMock()
@@ -662,9 +610,9 @@ class TestTemplateDisplayGracefulDegradation:
 
         # mock document_service 抛异常
         with patch.object(
-            type(svc), "document_service", new_callable=lambda: property(
-                lambda self: (_ for _ in ()).throw(Exception("service error"))
-            )
+            type(svc),
+            "document_service",
+            new_callable=lambda: property(lambda self: (_ for _ in ()).throw(Exception("service error"))),
         ):
             result: str = svc.get_matched_document_template(mock_contract)
 
@@ -674,9 +622,7 @@ class TestTemplateDisplayGracefulDegradation:
         self,
     ) -> None:
         """ContractDisplayService.get_matched_folder_templates 异常时返回 '查询失败'。"""
-        from apps.contracts.services.contract.contract_display_service import (
-            ContractDisplayService,
-        )
+        from apps.contracts.services.contract.contract_display_service import ContractDisplayService
 
         svc = ContractDisplayService()
         mock_contract = MagicMock()
@@ -684,9 +630,9 @@ class TestTemplateDisplayGracefulDegradation:
         mock_contract.case_type = "civil"
 
         with patch.object(
-            type(svc), "document_service", new_callable=lambda: property(
-                lambda self: (_ for _ in ()).throw(Exception("service error"))
-            )
+            type(svc),
+            "document_service",
+            new_callable=lambda: property(lambda self: (_ for _ in ()).throw(Exception("service error"))),
         ):
             result: str = svc.get_matched_folder_templates(mock_contract)
 
@@ -694,17 +640,13 @@ class TestTemplateDisplayGracefulDegradation:
 
     @given(case_type=st.sampled_from(["civil", "criminal", "administrative", "labor"]))
     @settings(max_examples=10, suppress_health_check=[HealthCheck.too_slow])
-    def test_display_service_graceful_degradation_any_case_type(
-        self, case_type: str
-    ) -> None:
+    def test_display_service_graceful_degradation_any_case_type(self, case_type: str) -> None:
         """
         对任意案件类型，document_service 异常时始终返回 '查询失败'。
 
         **Validates: Requirements 3.7**
         """
-        from apps.contracts.services.contract.contract_display_service import (
-            ContractDisplayService,
-        )
+        from apps.contracts.services.contract.contract_display_service import ContractDisplayService
 
         svc = ContractDisplayService()
         mock_contract = MagicMock()

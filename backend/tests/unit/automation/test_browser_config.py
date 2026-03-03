@@ -5,14 +5,13 @@ BrowserConfig 属性测试
 """
 
 import os
+from pathlib import Path
 
 # Django setup
 import django
 import pytest
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
-
-from pathlib import Path
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "apiSystem.settings")
 django.setup()

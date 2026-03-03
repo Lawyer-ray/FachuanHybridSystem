@@ -45,9 +45,7 @@ class LawyerQueryService:
                 return queryset.none()
 
         if filters and filters.search:
-            queryset = queryset.filter(
-                Q(username__icontains=filters.search) | Q(real_name__icontains=filters.search)
-            )
+            queryset = queryset.filter(Q(username__icontains=filters.search) | Q(real_name__icontains=filters.search))
 
         if filters and filters.law_firm_id is not None:
             queryset = queryset.filter(law_firm_id=filters.law_firm_id)
@@ -67,9 +65,7 @@ class LawyerQueryService:
 
     def get_team_member_ids(self, user: Lawyer) -> set[int]:
         member_ids = set(
-            Lawyer.objects.filter(lawyer_teams__in=user.lawyer_teams.all())
-            .values_list("id", flat=True)
-            .distinct()
+            Lawyer.objects.filter(lawyer_teams__in=user.lawyer_teams.all()).values_list("id", flat=True).distinct()
         )
         if not member_ids:
             member_ids.add(user.pk)

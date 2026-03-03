@@ -181,7 +181,9 @@ class ClientPaymentRecordService:
         Returns:
             回款记录查询集
         """
-        return ClientPaymentRecord.objects.filter(contract_id=contract_id).select_related("case").order_by("-created_at")
+        return (
+            ClientPaymentRecord.objects.filter(contract_id=contract_id).select_related("case").order_by("-created_at")
+        )
 
     def calculate_total_amount(self, contract_id: int) -> Decimal:
         """

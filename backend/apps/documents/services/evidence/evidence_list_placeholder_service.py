@@ -9,8 +9,9 @@ Requirements: 7.1, 7.2, 7.4
 
 from __future__ import annotations
 
-from django.utils.translation import gettext_lazy as _
 from typing import TYPE_CHECKING, Any, ClassVar
+
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError
 
@@ -71,7 +72,7 @@ class EvidenceListPlaceholderService:
         "证据清单签名盖章信息",
     ]
 
-    def __init__(self, case_service: "ICaseService" | None = None) -> None:
+    def __init__(self, case_service: ICaseService | None = None) -> None:
         """
         初始化服务
 
@@ -81,7 +82,7 @@ class EvidenceListPlaceholderService:
         self._case_service = case_service
 
     @property
-    def case_service(self) -> "ICaseService":
+    def case_service(self) -> ICaseService:
         """
         获取案件服务(延迟加载)
 
@@ -201,11 +202,11 @@ class EvidenceListPlaceholderService:
         if not parties:
             return ""
 
-        groups = self._group_parties_by_status(parties) # type: ignore[no-any-return]
+        groups = self._group_parties_by_status(parties)  # type: ignore[no-any-return]
         if not groups:
             return ""
 
-        lines = self._format_ordered_groups(groups) # type: ignore[no-any-return]
+        lines = self._format_ordered_groups(groups)  # type: ignore[no-any-return]
         return "\n".join(lines)
 
         for party in parties:

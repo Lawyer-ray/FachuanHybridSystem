@@ -18,12 +18,12 @@ class ZxfwFallbackMixin:
     page: Page
 
     def _save_page_state(self, name: str) -> dict[str, Any]:
-        if hasattr(super(), '_save_page_state'):
+        if hasattr(super(), "_save_page_state"):
             return super()._save_page_state(name)
         return {}
 
     def random_wait(self, min_s: float, max_s: float) -> None:
-        if hasattr(super(), 'random_wait'):
+        if hasattr(super(), "random_wait"):
             super().random_wait(min_s, max_s)
 
     def _find_pdf_iframe(self) -> Any | None:
@@ -141,8 +141,13 @@ class ZxfwFallbackMixin:
             raise ValueError("所有下载策略均失败，请查看调试文件")
         logger.info(
             "回退方式下载完成",
-            extra={"operation_type": "fallback_download_summary", "timestamp": __import__("time").time(),
-                   "total_count": doc_count, "success_count": success_count, "failed_count": failed_count},
+            extra={
+                "operation_type": "fallback_download_summary",
+                "timestamp": __import__("time").time(),
+                "total_count": doc_count,
+                "success_count": success_count,
+                "failed_count": failed_count,
+            },
         )
         return {
             "source": "zxfw.court.gov.cn",

@@ -15,7 +15,6 @@ from typing import NamedTuple
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # 公共工具
 # ---------------------------------------------------------------------------
@@ -57,9 +56,9 @@ def test_ruff_zero_errors() -> None:
         text=True,
         cwd=str(_backend_path()),
     )
-    assert result.returncode == 0, (
-        f"ruff check apps/ 发现错误（returncode={result.returncode}）:\n{result.stdout}{result.stderr}"
-    )
+    assert (
+        result.returncode == 0
+    ), f"ruff check apps/ 发现错误（returncode={result.returncode}）:\n{result.stdout}{result.stderr}"
 
 
 # ---------------------------------------------------------------------------

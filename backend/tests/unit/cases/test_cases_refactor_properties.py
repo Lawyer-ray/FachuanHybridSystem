@@ -7,13 +7,13 @@
 from __future__ import annotations
 
 import ast
+import os
 import re
 import unicodedata
 from pathlib import Path
 from typing import Any
 
 import django
-import os
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "apiSystem.settings")
 django.setup()
@@ -310,8 +310,8 @@ def test_property4_file_validation_consistency(filename: str, size: int | None) 
     使用 hypothesis 生成随机 filename 和 size，
     对比 utils.validate_case_log_attachment 和 CaseLogService._validate_attachment 结果一致。
     """
-    from apps.cases.utils import validate_case_log_attachment
     from apps.cases.services.caselog_service import CaseLogService
+    from apps.cases.utils import validate_case_log_attachment
     from apps.core.exceptions import ValidationException
 
     # utils 函数结果

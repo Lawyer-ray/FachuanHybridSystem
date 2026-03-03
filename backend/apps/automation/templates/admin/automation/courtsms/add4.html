@@ -19,27 +19,27 @@
         --text: #e2e8f0;
         --text-dim: #64748b;
     }
-    
+
     body {
         background: var(--bg-dark);
         min-height: 100vh;
         position: relative;
         overflow-x: hidden;
     }
-    
+
     /* 网格背景 */
     body::before {
         content: '';
         position: fixed;
         top: 0; left: 0; right: 0; bottom: 0;
-        background-image: 
+        background-image:
             linear-gradient(rgba(0, 245, 255, 0.03) 1px, transparent 1px),
             linear-gradient(90deg, rgba(0, 245, 255, 0.03) 1px, transparent 1px);
         background-size: 50px 50px;
         pointer-events: none;
         z-index: 0;
     }
-    
+
     /* 扫描线效果 */
     body::after {
         content: '';
@@ -51,21 +51,21 @@
         pointer-events: none;
         z-index: 1000;
     }
-    
+
     @keyframes scan {
         0% { top: 0; opacity: 1; }
         100% { top: 100vh; opacity: 0; }
     }
-    
+
     #container { background: transparent; }
     #content { padding: 0; position: relative; z-index: 1; }
-    
+
     .terminal-wrapper {
         max-width: 800px;
         margin: 40px auto;
         padding: 0 20px;
     }
-    
+
     /* 终端头部 */
     .terminal-header {
         display: flex;
@@ -77,7 +77,7 @@
         border: 1px solid var(--border);
         border-radius: 12px;
     }
-    
+
     .terminal-icon {
         width: 48px;
         height: 48px;
@@ -89,7 +89,7 @@
         font-size: 24px;
         box-shadow: 0 0 20px rgba(0, 245, 255, 0.3);
     }
-    
+
     .terminal-title h1 {
         font-size: 1.25rem;
         font-weight: 700;
@@ -97,14 +97,14 @@
         margin: 0;
         font-family: 'SF Mono', 'Consolas', monospace;
     }
-    
+
     .terminal-title p {
         font-size: 0.8rem;
         color: var(--cyan);
         margin: 4px 0 0 0;
         font-family: monospace;
     }
-    
+
     .status-indicator {
         margin-left: auto;
         display: flex;
@@ -114,7 +114,7 @@
         color: var(--green);
         font-family: monospace;
     }
-    
+
     .status-dot {
         width: 8px;
         height: 8px;
@@ -123,23 +123,23 @@
         animation: pulse 2s ease-in-out infinite;
         box-shadow: 0 0 10px var(--green);
     }
-    
+
     @keyframes pulse {
         0%, 100% { opacity: 1; }
         50% { opacity: 0.5; }
     }
-    
+
     /* 主卡片 */
     .terminal-card {
         background: var(--bg-card);
         border: 1px solid var(--border);
         border-radius: 16px;
         overflow: hidden;
-        box-shadow: 
+        box-shadow:
             0 0 40px rgba(0, 245, 255, 0.05),
             inset 0 1px 0 rgba(255, 255, 255, 0.05);
     }
-    
+
     .card-header {
         padding: 12px 20px;
         background: var(--bg-input);
@@ -148,38 +148,38 @@
         align-items: center;
         gap: 8px;
     }
-    
+
     .window-dots {
         display: flex;
         gap: 6px;
     }
-    
+
     .window-dot {
         width: 10px;
         height: 10px;
         border-radius: 50%;
     }
-    
+
     .window-dot.red { background: #ff5f57; }
     .window-dot.yellow { background: #febc2e; }
     .window-dot.green { background: #28c840; }
-    
+
     .card-title {
         margin-left: 12px;
         font-size: 0.8rem;
         color: var(--text-dim);
         font-family: monospace;
     }
-    
+
     .card-body {
         padding: 24px;
     }
-    
+
     /* 输入区域 */
     .input-section {
         margin-bottom: 20px;
     }
-    
+
     .input-label {
         display: flex;
         align-items: center;
@@ -189,12 +189,12 @@
         margin-bottom: 10px;
         font-family: monospace;
     }
-    
+
     .input-label::before {
         content: '>';
         color: var(--purple);
     }
-    
+
     .cyber-textarea {
         width: 100%;
         min-height: 200px;
@@ -210,19 +210,19 @@
         box-sizing: border-box;
         transition: all 0.3s ease;
     }
-    
+
     .cyber-textarea:focus {
         outline: none;
         border-color: var(--cyan);
-        box-shadow: 
+        box-shadow:
             0 0 0 3px rgba(0, 245, 255, 0.1),
             0 0 20px rgba(0, 245, 255, 0.1);
     }
-    
+
     .cyber-textarea::placeholder {
         color: var(--text-dim);
     }
-    
+
     .input-meta {
         display: flex;
         justify-content: space-between;
@@ -231,14 +231,14 @@
         font-family: monospace;
         color: var(--text-dim);
     }
-    
+
     /* 按钮 */
     .actions {
         display: flex;
         gap: 12px;
         margin-top: 24px;
     }
-    
+
     .cyber-btn {
         flex: 1;
         padding: 14px 24px;
@@ -258,7 +258,7 @@
         justify-content: center;
         gap: 8px;
     }
-    
+
     .cyber-btn-primary {
         background: linear-gradient(135deg, var(--cyan), #0891b2);
         color: var(--bg-dark);
@@ -266,7 +266,7 @@
         position: relative;
         overflow: hidden;
     }
-    
+
     .cyber-btn-primary::before {
         content: '';
         position: absolute;
@@ -275,27 +275,27 @@
         background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
         transition: left 0.5s ease;
     }
-    
+
     .cyber-btn-primary:hover::before {
         left: 100%;
     }
-    
+
     .cyber-btn-primary:hover {
         box-shadow: 0 0 30px rgba(0, 245, 255, 0.6);
         transform: translateY(-2px);
     }
-    
+
     .cyber-btn-secondary {
         background: transparent;
         color: var(--text-dim);
         border: 1px solid var(--border);
     }
-    
+
     .cyber-btn-secondary:hover {
         border-color: var(--cyan);
         color: var(--cyan);
     }
-    
+
     /* 加载动画 */
     .loading-bar {
         display: none;
@@ -306,14 +306,14 @@
         margin-top: 12px;
         border-radius: 1px;
     }
-    
+
     .loading-bar.active { display: block; }
-    
+
     @keyframes loading {
         0% { background-position: 200% 0; }
         100% { background-position: -200% 0; }
     }
-    
+
     /* 功能模块 */
     .modules {
         display: grid;
@@ -323,7 +323,7 @@
         padding-top: 20px;
         border-top: 1px solid var(--border);
     }
-    
+
     .module {
         padding: 14px 12px;
         background: var(--bg-input);
@@ -332,23 +332,23 @@
         text-align: center;
         transition: all 0.3s ease;
     }
-    
+
     .module:hover {
         border-color: var(--cyan);
         box-shadow: 0 0 15px rgba(0, 245, 255, 0.1);
     }
-    
+
     .module-icon {
         font-size: 1.5rem;
         margin-bottom: 6px;
     }
-    
+
     .module-name {
         font-size: 0.7rem;
         color: var(--text-dim);
         font-family: monospace;
     }
-    
+
     /* 消息 */
     .alert {
         padding: 12px 16px;
@@ -360,24 +360,24 @@
         align-items: center;
         gap: 10px;
     }
-    
+
     .alert-success {
         background: rgba(34, 197, 94, 0.1);
         border: 1px solid rgba(34, 197, 94, 0.3);
         color: var(--green);
     }
-    
+
     .alert-error {
         background: rgba(239, 68, 68, 0.1);
         border: 1px solid rgba(239, 68, 68, 0.3);
         color: var(--red);
     }
-    
+
     /* 最近记录 */
     .recent-section {
         margin-top: 24px;
     }
-    
+
     .recent-header {
         font-size: 0.8rem;
         color: var(--cyan);
@@ -387,18 +387,18 @@
         align-items: center;
         gap: 8px;
     }
-    
+
     .recent-header::before {
         content: '//';
         color: var(--text-dim);
     }
-    
+
     .recent-list {
         display: flex;
         flex-direction: column;
         gap: 8px;
     }
-    
+
     .recent-item {
         display: flex;
         align-items: center;
@@ -411,27 +411,27 @@
         transition: all 0.2s ease;
         font-family: monospace;
     }
-    
+
     .recent-item:hover {
         border-color: var(--cyan);
         background: var(--bg-input);
     }
-    
+
     .recent-status {
         width: 6px;
         height: 6px;
         border-radius: 50%;
     }
-    
+
     .recent-status.completed { background: var(--green); box-shadow: 0 0 8px var(--green); }
     .recent-status.pending { background: #f59e0b; box-shadow: 0 0 8px #f59e0b; }
     .recent-status.failed { background: var(--red); box-shadow: 0 0 8px var(--red); }
-    
+
     .recent-content {
         flex: 1;
         min-width: 0;
     }
-    
+
     .recent-text {
         color: var(--text);
         font-size: 0.85rem;
@@ -439,15 +439,15 @@
         overflow: hidden;
         text-overflow: ellipsis;
     }
-    
+
     .recent-meta {
         font-size: 0.7rem;
         color: var(--text-dim);
         margin-top: 2px;
     }
-    
+
     .recent-meta .id { color: var(--purple); }
-    
+
     /* 响应式 */
     @media (max-width: 640px) {
         .terminal-wrapper { margin: 20px auto; }
@@ -469,7 +469,7 @@
         </div>
         {% endfor %}
     {% endif %}
-    
+
     <!-- 终端头部 -->
     <div class="terminal-header">
         <div class="terminal-icon">📡</div>
@@ -482,7 +482,7 @@
             SYSTEM ONLINE
         </div>
     </div>
-    
+
     <!-- 主卡片 -->
     <div class="terminal-card">
         <div class="card-header">
@@ -493,16 +493,16 @@
             </div>
             <span class="card-title">sms_input.terminal</span>
         </div>
-        
+
         <div class="card-body">
             <form method="post" id="smsForm">
                 {% csrf_token %}
-                
+
                 <div class="input-section">
                     <label class="input-label">INPUT_SMS_CONTENT</label>
-                    <textarea 
-                        name="content" 
-                        class="cyber-textarea" 
+                    <textarea
+                        name="content"
+                        class="cyber-textarea"
                         id="smsContent"
                         placeholder="// 在此粘贴法院短信内容..."
                         required
@@ -512,7 +512,7 @@
                         <span>ENCODING: UTF-8</span>
                     </div>
                 </div>
-                
+
                 <div class="actions">
                     <a href="{% url 'admin:automation_courtsms_changelist' %}" class="cyber-btn cyber-btn-secondary">
                         ← BACK
@@ -521,10 +521,10 @@
                         <span class="btn-text">⚡ EXECUTE</span>
                     </button>
                 </div>
-                
+
                 <div class="loading-bar" id="loadingBar"></div>
             </form>
-            
+
             <div class="modules">
                 <div class="module">
                     <div class="module-icon">🔗</div>
@@ -545,7 +545,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- 最近记录 -->
     {% if recent_sms %}
     <div class="recent-section">
@@ -574,11 +574,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('smsForm');
     const submitBtn = document.getElementById('submitBtn');
     const loadingBar = document.getElementById('loadingBar');
-    
+
     textarea.addEventListener('input', function() {
         charCount.textContent = 'CHARS: ' + this.value.length;
     });
-    
+
     form.addEventListener('submit', function(e) {
         if (!textarea.value.trim()) {
             e.preventDefault();
@@ -589,7 +589,7 @@ document.addEventListener('DOMContentLoaded', function() {
         submitBtn.disabled = true;
         loadingBar.classList.add('active');
     });
-    
+
     textarea.focus();
 });
 </script>

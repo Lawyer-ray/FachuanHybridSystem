@@ -31,9 +31,7 @@ def _make_user(*, is_authenticated: bool = True, is_admin: bool = False) -> Any:
 
 def _build_service() -> Any:
     """通过工厂函数获取 FolderBindingService 实例。"""
-    from apps.cases.services.template.folder_binding_service import (
-        CaseFolderBindingService,
-    )
+    from apps.cases.services.template.folder_binding_service import CaseFolderBindingService
 
     class _Stub:
         """提供 Service 构造所需的最小桩对象。"""

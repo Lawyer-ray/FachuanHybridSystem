@@ -7,10 +7,10 @@ from typing import TYPE_CHECKING, Any
 
 from apps.evidence.models import EvidenceItem, EvidenceList
 from apps.evidence.services import (
+    EvidenceBasicQueryService,
     EvidenceFileService,
     EvidenceMutationService,
     EvidencePageRangeCalculator,
-    EvidenceBasicQueryService,
 )
 
 if TYPE_CHECKING:
@@ -179,4 +179,3 @@ class EvidenceService:
             current = current.previous_list
 
         return total_pages + 1
-

@@ -84,10 +84,7 @@ class AutoNamerToolAdmin(admin.ModelAdmin[NamerTool]):
         """渲染无文字内容错误页"""
         error_msg = "文档中没有提取到文字内容，无法生成命名。"
         if extraction.kind == "image":
-            error_msg += (
-                "<br><em>提示：图片文件可能包含手写文字、复杂排版或图片质量较差，"
-                "建议尝试更清晰的扫描件。</em>"
-            )
+            error_msg += "<br><em>提示：图片文件可能包含手写文字、复杂排版或图片质量较差，建议尝试更清晰的扫描件。</em>"
         elif extraction.kind == "pdf":
             error_msg += "<br><em>提示：PDF可能是扫描版或图片格式，系统已尝试OCR识别但未成功。</em>"
 
@@ -103,9 +100,7 @@ class AutoNamerToolAdmin(admin.ModelAdmin[NamerTool]):
             <li>文件类型: {extraction.kind.upper()}</li>
             <li>文件路径: {extraction.file_path}</li>
             <li>预览图: {
-            '<a href="' + extraction.image_url + '" target="_blank">查看预览图</a>'
-            if extraction.image_url
-            else "无"
+            '<a href="' + extraction.image_url + '" target="_blank">查看预览图</a>' if extraction.image_url else "无"
         }</li>
         </ul>
         <p><a href='{return_url}'>← 返回重新上传</a></p>
@@ -117,6 +112,7 @@ class AutoNamerToolAdmin(admin.ModelAdmin[NamerTool]):
         try:
             msg_list = [{"role": "system", "content": prompt}, {"role": "user", "content": text}]
             from django.conf import settings as django_settings
+
             base_url = getattr(django_settings, "OLLAMA_BASE_URL", "http://localhost:11434")
             ollama_result = ollama_chat(model=model, messages=msg_list, base_url=base_url)
 
@@ -130,6 +126,7 @@ class AutoNamerToolAdmin(admin.ModelAdmin[NamerTool]):
                     response_text = ollama_result["content"]
                 else:
                     import json
+
                     response_text = json.dumps(ollama_result, ensure_ascii=False, indent=2)
 
             html = f"""
@@ -162,6 +159,7 @@ class AutoNamerToolAdmin(admin.ModelAdmin[NamerTool]):
             return HttpResponse(html)
         except Exception as e:
             import traceback
+
             error_detail = str(e)
             error_traceback = traceback.format_exc()
             html = f"""

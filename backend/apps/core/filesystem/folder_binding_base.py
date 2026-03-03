@@ -61,11 +61,10 @@ class BaseFolderBindingService:
 
     def get_browse_roots(self) -> list[Path]:
         return self.browse_policy.get_browse_roots()
+
     def get_default_browse_path(self) -> Path | None:
         """获取默认浏览路径（用户下载目录）"""
         return self.browse_policy._get_user_downloads_path()
-
-
 
     def resolve_under_allowed_roots(self, path: str) -> Path:
         return self.browse_policy.resolve_under_allowed_roots(path)

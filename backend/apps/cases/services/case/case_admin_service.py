@@ -1,12 +1,12 @@
 """Business logic services."""
 
 from __future__ import annotations
-from django.utils.translation import gettext_lazy as _
 
 import logging
 from typing import TYPE_CHECKING, Any
 
 from django.db import transaction
+from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import Case, CaseAssignment, CaseNumber, CaseParty, SupervisingAuthority
 
@@ -82,11 +82,15 @@ class CaseAdminService:
             )
             return str(_("查询失败"))
 
-    def get_matched_folder_templates_list(self, case_type: str, legal_statuses: list[str] | None = None) -> list[dict[str, Any]]:
+    def get_matched_folder_templates_list(
+        self, case_type: str, legal_statuses: list[str] | None = None
+    ) -> list[dict[str, Any]]:
         try:
             from apps.documents.services.template.template_matching_service import TemplateMatchingService
+
             return TemplateMatchingService().find_matching_case_folder_templates_list(
-                case_type=case_type, legal_statuses=legal_statuses,
+                case_type=case_type,
+                legal_statuses=legal_statuses,
             )
         except Exception:
             logger.exception("get_matched_folder_templates_list_failed", extra={"case_type": case_type})
@@ -225,7 +229,7 @@ class CaseAdminService:
         created_year = case.start_date.year
         filing_number = self.filing_number_service.generate_case_filing_number_internal(
             case_id=case_id,
-            case_type=case.case_type, # type: ignore
+            case_type=case.case_type,  # type: ignore
             created_year=created_year,
         )
 

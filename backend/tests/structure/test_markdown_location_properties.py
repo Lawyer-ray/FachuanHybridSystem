@@ -5,11 +5,10 @@ Feature: backend-structure-optimization, Property 5: Markdown 文档位置正确
 Validates: Requirements 5.5, 8.3, 8.4
 """
 
+from pathlib import Path
 from typing import List
 
 import pytest
-
-from pathlib import Path
 
 
 def get_all_markdown_files(root_path: Path) -> list[Path]:

@@ -5,10 +5,10 @@ Organization App Admin模块主文件
 
 from __future__ import annotations
 
-from .lawfirm_admin import LawFirmAdmin
-from .lawyer_admin import LawyerAdmin, LawyerAdminForm, AccountCredentialInline, AccountCredentialInlineForm
-from .team_admin import TeamAdmin
 from .accountcredential_admin import AccountCredentialAdmin
+from .lawfirm_admin import LawFirmAdmin
+from .lawyer_admin import AccountCredentialInline, AccountCredentialInlineForm, LawyerAdmin, LawyerAdminForm
+from .team_admin import TeamAdmin
 
 # 所有Admin类通过装饰器自动注册
 # 无需手动注册，admin/__init__.py中的类会自动处理

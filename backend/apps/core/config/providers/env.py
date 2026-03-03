@@ -8,6 +8,7 @@ import os
 from typing import Any
 
 from apps.core.config.exceptions import ConfigException
+
 from .base import ConfigProvider
 
 
@@ -201,4 +202,3 @@ class EnvProvider(ConfigProvider):
                 key, val = pair.split("=", 1)
                 result[key.strip()] = val.strip()
         return result
-

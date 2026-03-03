@@ -58,6 +58,7 @@ def is_absolute_path(path_str: str) -> bool:
 def _get_media_root() -> str | None:
     """优先从 django settings 获取 MEDIA_ROOT，回退到 config。"""
     from django.conf import settings as django_settings
+
     media_root = getattr(django_settings, "MEDIA_ROOT", None)
     if media_root:
         return str(media_root)
@@ -137,7 +138,9 @@ def save_uploaded_file(
     allowed_extensions: list[str] | None = None,
 ) -> tuple[str, str]:
     if not hasattr(uploaded_file, "name"):
-        raise ValidationException(message=_("上传文件缺少文件名"), code="INVALID_UPLOAD", errors={"file": _("缺少文件名")})
+        raise ValidationException(
+            message=_("上传文件缺少文件名"), code="INVALID_UPLOAD", errors={"file": _("缺少文件名")}
+        )
 
     original_name = str(getattr(uploaded_file, "name", "") or "")
     safe_original_name = sanitize_upload_filename(original_name)
@@ -187,7 +190,6 @@ def save_uploaded_file(
     return str(rel_path).replace("\\", "/"), safe_original_name
 
 
-
 def delete_media_file(file_path: str) -> bool:
     if not file_path:
         return False
@@ -218,4 +220,3 @@ def delete_media_file(file_path: str) -> bool:
         return False
 
     return True
-

@@ -7,10 +7,9 @@ from typing import Any, cast
 
 from django.db import transaction
 from django.db.models import QuerySet
-
-from apps.cases.models import Case, CaseAssignment
 from django.utils.translation import gettext_lazy as _
 
+from apps.cases.models import Case, CaseAssignment
 from apps.core.exceptions import ConflictError, NotFoundError
 from apps.core.interfaces import ICaseService
 from apps.core.protocols import IContractAssignmentQueryService
@@ -298,7 +297,7 @@ class CaseAssignmentService(DjangoPermsMixin):
             },
         )
 
-        return assignment # type: ignore
+        return assignment  # type: ignore
 
     @transaction.atomic
     def delete_assignment(

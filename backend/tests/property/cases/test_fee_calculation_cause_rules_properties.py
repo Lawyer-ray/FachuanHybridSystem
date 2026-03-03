@@ -101,24 +101,24 @@ class TestPersonalityRightsFeeWithRangeProperties:
             extra_fee = (amount - threshold_1) * Decimal("0.01")
             expected_min = base_min + extra_fee
             expected_max = base_max + extra_fee
-            assert result["fee_min"] == expected_min, (
-                f"金额 {amount} 的最小费用应为 {expected_min}，但得到 {result['fee_min']}"
-            )
-            assert result["fee_max"] == expected_max, (
-                f"金额 {amount} 的最大费用应为 {expected_max}，但得到 {result['fee_max']}"
-            )
+            assert (
+                result["fee_min"] == expected_min
+            ), f"金额 {amount} 的最小费用应为 {expected_min}，但得到 {result['fee_min']}"
+            assert (
+                result["fee_max"] == expected_max
+            ), f"金额 {amount} 的最大费用应为 {expected_max}，但得到 {result['fee_max']}"
         else:
             # 金额 > 10万：基础费用 + 500 + (金额 - 100000) × 0.5%
             tier_2_fee = Decimal("500")  # (100000 - 50000) × 1%
             extra_fee = (amount - threshold_2) * Decimal("0.005")
             expected_min = base_min + tier_2_fee + extra_fee
             expected_max = base_max + tier_2_fee + extra_fee
-            assert result["fee_min"] == expected_min, (
-                f"金额 {amount} 的最小费用应为 {expected_min}，但得到 {result['fee_min']}"
-            )
-            assert result["fee_max"] == expected_max, (
-                f"金额 {amount} 的最大费用应为 {expected_max}，但得到 {result['fee_max']}"
-            )
+            assert (
+                result["fee_min"] == expected_min
+            ), f"金额 {amount} 的最小费用应为 {expected_min}，但得到 {result['fee_min']}"
+            assert (
+                result["fee_max"] == expected_max
+            ), f"金额 {amount} 的最大费用应为 {expected_max}，但得到 {result['fee_max']}"
 
     def test_personality_rights_no_amount(self, fee_calculator_service):
         """
@@ -182,9 +182,9 @@ class TestIPFeeWithRangeProperties:
         property_fee = service.calculate_property_case_fee(amount)
 
         # 有金额时，知识产权案件费用应等于财产案件费用
-        assert ip_result["fee"] == property_fee, (
-            f"知识产权案件费用 {ip_result['fee']} 应等于财产案件费用 {property_fee}"
-        )
+        assert (
+            ip_result["fee"] == property_fee
+        ), f"知识产权案件费用 {ip_result['fee']} 应等于财产案件费用 {property_fee}"
         assert ip_result["fee_min"] == property_fee
         assert ip_result["fee_max"] == property_fee
 
@@ -245,9 +245,9 @@ class TestFixedFeeProperties:
         }
 
         assert case_type in FIXED_FEES, f"案件类型 {case_type} 应在固定费用配置中"
-        assert FIXED_FEES[case_type] == expected_fees[case_type], (
-            f"案件类型 {case_type} 的固定费用应为 {expected_fees[case_type]}，但配置为 {FIXED_FEES[case_type]}"
-        )
+        assert (
+            FIXED_FEES[case_type] == expected_fees[case_type]
+        ), f"案件类型 {case_type} 的固定费用应为 {expected_fees[case_type]}，但配置为 {FIXED_FEES[case_type]}"
 
     def test_revoke_arbitration_fixed_fee(self):
         """

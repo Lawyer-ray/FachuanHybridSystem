@@ -181,7 +181,7 @@ class ConfigManager:
             prefix_with_dot = f"{prefix}."
             for key, value in self._raw_config.items():
                 if key.startswith(prefix_with_dot):
-                    result[key[len(prefix_with_dot):]] = value
+                    result[key[len(prefix_with_dot) :]] = value
                 elif key == prefix:
                     result[key] = value
             return result

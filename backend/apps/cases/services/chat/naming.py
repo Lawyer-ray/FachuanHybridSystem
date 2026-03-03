@@ -1,10 +1,11 @@
 """Business logic services."""
 
 from __future__ import annotations
-from django.utils.translation import gettext_lazy as _
 
 import logging
 from typing import Any, cast
+
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ValidationException
 
@@ -54,5 +55,5 @@ class ChatNameBuilder:
         chat_name = self.config_service.render_chat_name(
             case_name=case.name, stage=stage_display, case_type=case_type_display
         )
-        logger.debug("生成群聊名称: %s (案件ID: %s)", chat_name, getattr(case, 'id', None))
+        logger.debug("生成群聊名称: %s (案件ID: %s)", chat_name, getattr(case, "id", None))
         return cast(str, chat_name)

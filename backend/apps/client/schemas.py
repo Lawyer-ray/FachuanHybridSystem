@@ -4,7 +4,6 @@ Client App Schemas
 """
 
 from datetime import datetime
-
 from typing import Any, ClassVar
 
 from ninja import ModelSchema, Schema

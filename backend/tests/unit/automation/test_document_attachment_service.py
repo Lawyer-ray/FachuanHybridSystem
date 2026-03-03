@@ -3,11 +3,11 @@ DocumentAttachmentService 服务单元测试
 """
 
 import tempfile
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from apps.automation.services.sms.document_attachment_service import DocumentAttachmentService
-from pathlib import Path
 
 
 class TestDocumentAttachmentService:

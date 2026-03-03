@@ -206,7 +206,7 @@ class AutoLoginService:
                 raise e
 
             except Exception as e:
-                last_exception = e # type: ignore
+                last_exception = e  # type: ignore
                 logger.error(f"登录过程中发生未预期错误: {e!s}")
                 break
 

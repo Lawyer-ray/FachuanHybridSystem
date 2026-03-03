@@ -9,19 +9,12 @@ from django.core.files.uploadedfile import UploadedFile
 from django.db.models import QuerySet
 from docx import Document
 
-from apps.contract_review.models.review_task import (
-    ProcessStep,
-    ReviewTask,
-    TaskStatus,
-)
+from apps.contract_review.models.review_task import ProcessStep, ReviewTask, TaskStatus
 from apps.contract_review.services.content_extractor import ContentExtractor
 from apps.contract_review.services.contract_reviewer import ContractReviewer
 from apps.contract_review.services.docx_formatter import DocxFormatter
 from apps.contract_review.services.docx_revision_tool import DocxRevisionTool
-from apps.contract_review.services.exceptions import (
-    ContractReviewError,
-    ExtractionError,
-)
+from apps.contract_review.services.exceptions import ContractReviewError, ExtractionError
 from apps.contract_review.services.heading_numbering import HeadingNumbering
 from apps.contract_review.services.page_numbering import PageNumbering
 from apps.contract_review.services.party_identifier import PartyIdentifier
@@ -115,9 +108,7 @@ class ReviewService:
             TaskStatus.PARTIES_IDENTIFIED,
             TaskStatus.EXTRACTION_FAILED,
         ):
-            raise ContractReviewError(
-                f"当前状态 {task.status} 不允许确认代表方"
-            )
+            raise ContractReviewError(f"当前状态 {task.status} 不允许确认代表方")
 
         # 默认全选
         default_steps = ["typo_check", "format_document", "contract_review", "review_report"]
@@ -196,7 +187,12 @@ def process_review(task_id_str: str) -> None:
         # 启用修订模式（Track Changes）
         revision_tool.enable_track_changes(doc)
 
-        steps = getattr(task, "selected_steps", None) or ["typo_check", "format_document", "contract_review", "review_report"]
+        steps = getattr(task, "selected_steps", None) or [
+            "typo_check",
+            "format_document",
+            "contract_review",
+            "review_report",
+        ]
 
         # Step 1: 标题提取（始终执行）
         _update_step(task, ProcessStep.TITLE_EXTRACTION)
@@ -213,7 +209,9 @@ def process_review(task_id_str: str) -> None:
             typos = typo_checker.check_typos(paragraphs, model_name=task.model_name)
             typo_applied = 0
             for typo in typos:
-                applied = _apply_to_any_paragraph(doc, revision_tool, typo.original, typo.corrected, author=task.reviewer_name)
+                applied = _apply_to_any_paragraph(
+                    doc, revision_tool, typo.original, typo.corrected, author=task.reviewer_name
+                )
                 if applied:
                     typo_applied += 1
             logger.info("错别字修订: %d/%d 处成功", typo_applied, len(typos))
@@ -231,7 +229,9 @@ def process_review(task_id_str: str) -> None:
             )
             review_applied = 0
             for review in reviews:
-                applied = _apply_to_any_paragraph(doc, revision_tool, review.original, review.suggested, author=task.reviewer_name)
+                applied = _apply_to_any_paragraph(
+                    doc, revision_tool, review.original, review.suggested, author=task.reviewer_name
+                )
                 if applied:
                     review_applied += 1
             logger.info("合同审查修订: %d/%d 处成功", review_applied, len(reviews))
@@ -265,7 +265,8 @@ def process_review(task_id_str: str) -> None:
 
         # 保存输出文件
         output_name = title_extractor.generate_output_filename(
-            task.contract_title, task_id=str(task.id),
+            task.contract_title,
+            task_id=str(task.id),
         )
         output_path = _output_dir() / output_name
         doc.save(str(output_path))

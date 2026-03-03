@@ -146,9 +146,7 @@ def extract_pdf_text(file_path: str, limit: int | None = None) -> str:
     return text
 
 
-def _apply_pdf_limits(
-    limit: int | None, preview_page: int | None, config: dict[str, Any]
-) -> tuple[int, int]:
+def _apply_pdf_limits(limit: int | None, preview_page: int | None, config: dict[str, Any]) -> tuple[int, int]:
     """应用配置默认值和范围限制"""
     lim = limit if limit is not None else config["DEFAULT_TEXT_LIMIT"]
     page = preview_page if preview_page is not None else config["DEFAULT_PREVIEW_PAGE"]

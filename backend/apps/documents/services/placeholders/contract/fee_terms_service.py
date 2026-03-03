@@ -80,7 +80,9 @@ class FeeTermsService(BasePlaceholderService):
         if fixed_amount:
             fixed_amount_1 = str(float(fixed_amount))
             fixed_amount_2 = self._number_to_chinese(fixed_amount)
-            return f"本合同签订之日起5日内，甲方向乙方一次性支付律师费{fixed_amount_1}元（大写：人民币{fixed_amount_2}）。"
+            return (
+                f"本合同签订之日起5日内，甲方向乙方一次性支付律师费{fixed_amount_1}元（大写：人民币{fixed_amount_2}）。"
+            )
         else:
             return "本合同签订之日起5日内，甲方向乙方一次性支付律师费[金额待定]元。"
 

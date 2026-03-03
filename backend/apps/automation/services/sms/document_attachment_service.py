@@ -45,6 +45,7 @@ class DocumentAttachmentService:
         """延迟加载案件服务"""
         if self._case_service is None:
             from apps.core.dependencies.automation_sms_wiring import build_sms_case_service
+
             self._case_service = build_sms_case_service()
         return self._case_service
 
@@ -83,7 +84,7 @@ class DocumentAttachmentService:
         paths: list[str] = []
         if not hasattr(sms.scraper_task, "documents"):
             return paths
-        for doc in sms.scraper_task.documents.filter(download_status="success"): # type: ignore
+        for doc in sms.scraper_task.documents.filter(download_status="success"):  # type: ignore
             if doc.local_file_path and Path(doc.local_file_path).exists():
                 paths.append(doc.local_file_path)
                 logger.debug(f"从 CourtDocument 获取路径: {doc.local_file_path}")
@@ -92,7 +93,7 @@ class DocumentAttachmentService:
     def _paths_from_task_result(self, sms: "CourtSMS") -> list[str]:
         """从 ScraperTask.result 获取路径（降级）"""
         paths: list[str] = []
-        result = sms.scraper_task.result # type: ignore
+        result = sms.scraper_task.result  # type: ignore
         if not result or not isinstance(result, dict):
             return paths
         files = result.get("files", [])
@@ -158,13 +159,11 @@ class DocumentAttachmentService:
                     logger.debug(f"收集路径: {fp}")
         return added
 
-    def _collect_from_court_documents(
-        self, sms: "CourtSMS", target: list[str], seen: set[str]
-    ) -> None:
+    def _collect_from_court_documents(self, sms: "CourtSMS", target: list[str], seen: set[str]) -> None:
         """从 CourtDocument 记录收集路径"""
         if not hasattr(sms.scraper_task, "documents"):
             return
-        for doc in sms.scraper_task.documents.filter(download_status="success"): # type: ignore
+        for doc in sms.scraper_task.documents.filter(download_status="success"):  # type: ignore
             if doc.local_file_path and Path(doc.local_file_path).exists():
                 abs_path = str(Path(doc.local_file_path).resolve())
                 if abs_path not in seen:
@@ -271,7 +270,7 @@ class DocumentAttachmentService:
             relative_path = f"case_logs/{renamed_filename}"
 
             success = self.case_service.add_case_log_attachment_internal(
-                case_log_id=sms.case_log.id, # type: ignore
+                case_log_id=sms.case_log.id,  # type: ignore
                 file_path=relative_path,
                 file_name=renamed_filename,
             )

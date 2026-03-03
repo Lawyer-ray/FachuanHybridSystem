@@ -76,7 +76,8 @@ def test_no_fixme_or_hack_markers() -> None:
     for file_path in py_files:
         all_violations.extend(_scan_file(file_path, backend_path))
 
-    assert not all_violations, (
-        f"发现 {len(all_violations)} 处 FIXME/HACK 标记（应修复或转为 TODO(issue-NNN)）：\n"
-        + "\n".join(f"  - {v.file}:{v.line_no} [{v.marker}] {v.line_content}" for v in all_violations)
+    assert (
+        not all_violations
+    ), f"发现 {len(all_violations)} 处 FIXME/HACK 标记（应修复或转为 TODO(issue-NNN)）：\n" + "\n".join(
+        f"  - {v.file}:{v.line_no} [{v.marker}] {v.line_content}" for v in all_violations
     )

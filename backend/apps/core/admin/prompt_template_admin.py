@@ -191,9 +191,7 @@ class PromptTemplateAdmin(admin.ModelAdmin[PromptTemplate]):
             )
             return JsonResponse({"success": False, "error": str(e)})
 
-    def save_model(
-        self, request: HttpRequest, obj: PromptTemplate, form: Any, change: bool
-    ) -> None:
+    def save_model(self, request: HttpRequest, obj: PromptTemplate, form: Any, change: bool) -> None:
         """保存模型时验证模板"""
         try:
             super().save_model(request, obj, form, change)

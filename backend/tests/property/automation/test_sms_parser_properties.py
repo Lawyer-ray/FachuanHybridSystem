@@ -464,9 +464,9 @@ class TestSMSParserServiceProperties:
         # 验证：如果原始内容包含案号，应该能提取到相应的规范化案号
         if original_case_numbers:
             # 至少应该提取到一些案号
-            assert len(extracted_case_numbers) > 0, (
-                f"应该提取到案号，但返回空列表。原始案号: {original_case_numbers}, 内容: {content[:100]}..."
-            )
+            assert (
+                len(extracted_case_numbers) > 0
+            ), f"应该提取到案号，但返回空列表。原始案号: {original_case_numbers}, 内容: {content[:100]}..."
 
             # 验证提取的案号数量不超过原始案号数量（可能因为去重而减少）
             assert len(extracted_case_numbers) <= len(original_case_numbers), "提取的案号数量不应超过原始数量"
@@ -484,9 +484,9 @@ class TestSMSParserServiceProperties:
 
         # 验证：去重功能正常工作
         # 如果有重复的规范化案号，应该被去重
-        assert len(extracted_case_numbers) == len(set(extracted_case_numbers)), (
-            f"案号列表应该去重: {extracted_case_numbers}"
-        )
+        assert len(extracted_case_numbers) == len(
+            set(extracted_case_numbers)
+        ), f"案号列表应该去重: {extracted_case_numbers}"
 
         # 验证：规范化的一致性
         # 对每个提取的案号再次调用规范化，结果应该相同
@@ -573,9 +573,9 @@ class TestSMSParserServiceProperties:
                 Exception,  # 其他一般错误
             ]
 
-            assert any(isinstance(e, error_type) for error_type in expected_error_types), (
-                f"错误类型应该是预期的类型之一: {type(e)}"
-            )
+            assert any(
+                isinstance(e, error_type) for error_type in expected_error_types
+            ), f"错误类型应该是预期的类型之一: {type(e)}"
 
         # 验证：消息格式的一致性
         # 构建符合Ollama API要求的消息格式
@@ -630,9 +630,9 @@ class TestSMSParserServiceProperties:
         # 提示词应该不同（因为包含不同的内容）
         assert different_prompt != manual_prompt, "不同内容应产生不同提示词"
         # 但结构应该相似（除了内容部分）
-        assert len(different_prompt) - len(different_content) == len(manual_prompt) - len(test_content), (
-            "不同内容的提示词应该有相似的结构长度差异"
-        )
+        assert len(different_prompt) - len(different_content) == len(manual_prompt) - len(
+            test_content
+        ), "不同内容的提示词应该有相似的结构长度差异"
 
     @settings(max_examples=100, deadline=None)
     @given(sms_data=sms_with_links_strategy())
@@ -662,9 +662,9 @@ class TestSMSParserServiceProperties:
         # 核心属性：短信类型判定一致性
         if result.has_valid_download_link:
             # 如果有有效下载链接，类型必须是文书送达
-            assert result.sms_type == CourtSMSType.DOCUMENT_DELIVERY, (
-                f"有下载链接时类型应为 DOCUMENT_DELIVERY，实际为: {result.sms_type}"
-            )
+            assert (
+                result.sms_type == CourtSMSType.DOCUMENT_DELIVERY
+            ), f"有下载链接时类型应为 DOCUMENT_DELIVERY，实际为: {result.sms_type}"
 
             # 验证：download_links 不为空
             assert len(result.download_links) > 0, "has_valid_download_link=True 时 download_links 不应为空"
@@ -723,9 +723,9 @@ class TestSMSParserServiceProperties:
         # 多次解析相同内容应该得到相同的类型
         result2 = self.service.parse(content)
         assert result2.sms_type == result.sms_type, f"重复解析应得到相同类型: {result.sms_type} != {result2.sms_type}"
-        assert result2.has_valid_download_link == result.has_valid_download_link, (
-            f"重复解析应得到相同的链接状态: {result.has_valid_download_link} != {result2.has_valid_download_link}"
-        )
+        assert (
+            result2.has_valid_download_link == result.has_valid_download_link
+        ), f"重复解析应得到相同的链接状态: {result.has_valid_download_link} != {result2.has_valid_download_link}"
 
         # 验证：类型判定的逻辑完整性
         # 确保所有可能的情况都被覆盖
@@ -734,9 +734,9 @@ class TestSMSParserServiceProperties:
             CourtSMSType.INFO_NOTIFICATION,
             CourtSMSType.FILING_NOTIFICATION,
         }
-        assert result.sms_type in [t.value for t in all_possible_types], (
-            f"SMS类型必须是预定义的类型之一: {result.sms_type}"
-        )
+        assert result.sms_type in [
+            t.value for t in all_possible_types
+        ], f"SMS类型必须是预定义的类型之一: {result.sms_type}"
 
         # 验证：边界条件
         # 空内容的处理
@@ -757,9 +757,9 @@ class TestSMSParserServiceProperties:
         # 这个属性对于系统的可靠性很重要
         for _ in range(3):  # 多次验证确定性
             repeated_result = self.service.parse(content)
-            assert repeated_result.sms_type == result.sms_type, (
-                f"类型判定应该是确定性的: {result.sms_type} != {repeated_result.sms_type}"
-            )
-            assert repeated_result.has_valid_download_link == result.has_valid_download_link, (
-                "链接状态判定应该是确定性的"
-            )
+            assert (
+                repeated_result.sms_type == result.sms_type
+            ), f"类型判定应该是确定性的: {result.sms_type} != {repeated_result.sms_type}"
+            assert (
+                repeated_result.has_valid_download_link == result.has_valid_download_link
+            ), "链接状态判定应该是确定性的"

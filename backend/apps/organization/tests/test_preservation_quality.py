@@ -17,7 +17,6 @@ import pytest
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-
 # ---------------------------------------------------------------------------
 # 常量：模型类和服务类定义
 # ---------------------------------------------------------------------------
@@ -94,6 +93,7 @@ LAWYER_SUBMODULE_EXPORTS: list[str] = [
 # Property Test: 模型导入保全 (Requirement 3.1)
 # ---------------------------------------------------------------------------
 
+
 @given(class_index=st.integers(min_value=0, max_value=len(MODEL_CLASSES) - 1))
 @settings(max_examples=5)
 def test_property_model_import_preserved(class_index: int) -> None:
@@ -105,9 +105,7 @@ def test_property_model_import_preserved(class_index: int) -> None:
     class_name = MODEL_CLASSES[class_index]
     module = importlib.import_module("apps.organization.models")
     cls: Any = getattr(module, class_name, None)
-    assert cls is not None, (
-        f"模型类 {class_name} 无法通过 apps.organization.models 导入"
-    )
+    assert cls is not None, f"模型类 {class_name} 无法通过 apps.organization.models 导入"
 
 
 def test_all_model_classes_importable() -> None:
@@ -116,13 +114,7 @@ def test_all_model_classes_importable() -> None:
 
     **Validates: Requirements 3.1**
     """
-    from apps.organization.models import (
-        AccountCredential,
-        LawFirm,
-        Lawyer,
-        Team,
-        TeamType,
-    )
+    from apps.organization.models import AccountCredential, LawFirm, Lawyer, Team, TeamType
 
     assert Lawyer is not None
     assert LawFirm is not None
@@ -156,19 +148,13 @@ def test_property_service_import_and_methods_preserved(service_index: int) -> No
 
     module = importlib.import_module("apps.organization.services")
     cls: Any = getattr(module, service_name, None)
-    assert cls is not None, (
-        f"服务类 {service_name} 无法通过 apps.organization.services 导入"
-    )
+    assert cls is not None, f"服务类 {service_name} 无法通过 apps.organization.services 导入"
 
     # 验证公开方法存在
     for method_name in expected_methods:
-        assert hasattr(cls, method_name), (
-            f"{service_name} 缺少公开方法 {method_name}"
-        )
+        assert hasattr(cls, method_name), f"{service_name} 缺少公开方法 {method_name}"
         member: Any = getattr(cls, method_name)
-        assert callable(member), (
-            f"{service_name}.{method_name} 不是可调用对象"
-        )
+        assert callable(member), f"{service_name}.{method_name} 不是可调用对象"
 
 
 def test_services_init_exports_all_expected() -> None:
@@ -181,14 +167,13 @@ def test_services_init_exports_all_expected() -> None:
     all_exports: list[str] = getattr(module, "__all__", [])
 
     for service_name in _SERVICE_NAMES:
-        assert service_name in all_exports, (
-            f"{service_name} 未在 services/__init__.py 的 __all__ 中导出"
-        )
+        assert service_name in all_exports, f"{service_name} 未在 services/__init__.py 的 __all__ 中导出"
 
 
 # ---------------------------------------------------------------------------
 # Property Test: services/lawyer/ 子模块导出保全 (Requirement 3.2)
 # ---------------------------------------------------------------------------
+
 
 @given(export_index=st.integers(min_value=0, max_value=len(LAWYER_SUBMODULE_EXPORTS) - 1))
 @settings(max_examples=3)
@@ -201,17 +186,14 @@ def test_property_lawyer_submodule_exports_preserved(export_index: int) -> None:
     class_name = LAWYER_SUBMODULE_EXPORTS[export_index]
     module = importlib.import_module("apps.organization.services.lawyer")
     cls: Any = getattr(module, class_name, None)
-    assert cls is not None, (
-        f"{class_name} 无法通过 apps.organization.services.lawyer 导入"
-    )
-    assert inspect.isclass(cls), (
-        f"{class_name} 不是类"
-    )
+    assert cls is not None, f"{class_name} 无法通过 apps.organization.services.lawyer 导入"
+    assert inspect.isclass(cls), f"{class_name} 不是类"
 
 
 # ---------------------------------------------------------------------------
 # Test: AccountCredentialService batch operations (Requirement 3.4)
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.django_db
 def test_credential_is_preferred_update_via_queryset(db: Any) -> None:
@@ -268,11 +250,11 @@ def test_credential_is_preferred_update_via_queryset(db: Any) -> None:
 
 @pytest.mark.django_db
 @given(
-    preferred_flags=st.lists(
-        st.booleans(), min_size=1, max_size=5
-    ),
+    preferred_flags=st.lists(st.booleans(), min_size=1, max_size=5),
 )
-@settings(max_examples=5, deadline=None, suppress_health_check=[HealthCheck.too_slow, HealthCheck.function_scoped_fixture])
+@settings(
+    max_examples=5, deadline=None, suppress_health_check=[HealthCheck.too_slow, HealthCheck.function_scoped_fixture]
+)
 def test_property_is_preferred_batch_update_correct(
     preferred_flags: list[bool],
     db: Any,
@@ -326,6 +308,7 @@ def test_property_is_preferred_batch_update_correct(
 # ---------------------------------------------------------------------------
 # Test: 首个用户判断逻辑保全 (Requirement 3.5)
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.django_db
 def test_first_user_detection_no_users(db: Any) -> None:

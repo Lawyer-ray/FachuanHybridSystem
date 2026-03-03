@@ -200,9 +200,9 @@ class TestDocumentRenamerProperties:
         assert len(actual_title) <= 20, f"标题部分长度不应超过20字符: {len(actual_title)}, {actual_title}"
 
         # 验证：案件名称长度限制（最多30个字符）
-        assert len(actual_case_name) <= 30, (
-            f"案件名称部分长度不应超过30字符: {len(actual_case_name)}, {actual_case_name}"
-        )
+        assert (
+            len(actual_case_name) <= 30
+        ), f"案件名称部分长度不应超过30字符: {len(actual_case_name)}, {actual_case_name}"
 
         # 验证：日期部分正确
         assert actual_date == expected_date_str, f"日期部分应正确: {actual_date} != {expected_date_str}"
@@ -215,13 +215,13 @@ class TestDocumentRenamerProperties:
                 # 如果原始标题很长，实际标题应该是截断版本
                 if len(cleaned_original_title) > 20:
                     expected_truncated = cleaned_original_title[:20]
-                    assert actual_title == expected_truncated, (
-                        f"长标题应被正确截断: {actual_title} != {expected_truncated}"
-                    )
+                    assert (
+                        actual_title == expected_truncated
+                    ), f"长标题应被正确截断: {actual_title} != {expected_truncated}"
                 else:
-                    assert actual_title == cleaned_original_title, (
-                        f"短标题应保持不变: {actual_title} != {cleaned_original_title}"
-                    )
+                    assert (
+                        actual_title == cleaned_original_title
+                    ), f"短标题应保持不变: {actual_title} != {cleaned_original_title}"
 
         # 验证：如果原始案件名称不为空，实际案件名称应该包含原始案件名称的内容
         if case_name.strip():
@@ -229,13 +229,13 @@ class TestDocumentRenamerProperties:
             if cleaned_original_case_name:
                 if len(cleaned_original_case_name) > 30:
                     expected_truncated = cleaned_original_case_name[:30]
-                    assert actual_case_name == expected_truncated, (
-                        f"长案件名称应被正确截断: {actual_case_name} != {expected_truncated}"
-                    )
+                    assert (
+                        actual_case_name == expected_truncated
+                    ), f"长案件名称应被正确截断: {actual_case_name} != {expected_truncated}"
                 else:
-                    assert actual_case_name == cleaned_original_case_name, (
-                        f"短案件名称应保持不变: {actual_case_name} != {cleaned_original_case_name}"
-                    )
+                    assert (
+                        actual_case_name == cleaned_original_case_name
+                    ), f"短案件名称应保持不变: {actual_case_name} != {cleaned_original_case_name}"
 
         # 验证：特殊字符处理
         # 验证实际的标题和案件名称不包含非法字符

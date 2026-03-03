@@ -25,7 +25,6 @@ from hypothesis import strategies as st
 from apps.chat_records.models import ChatRecordProject, ChatRecordScreenshot, ScreenshotSource
 from apps.chat_records.services.screenshot_service import ScreenshotService
 
-
 # ========== Strategies ==========
 
 # 截图条目：capture_time_seconds 可为 None（NULL last）或正浮点数

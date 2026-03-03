@@ -25,6 +25,7 @@ class LanguageItemSchema(Schema):
 
 def _get_i18n_service() -> Any:
     from apps.core.services.i18n_service import I18nService
+
     return I18nService()
 
 

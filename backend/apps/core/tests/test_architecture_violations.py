@@ -185,12 +185,8 @@ def test_service_layer_no_try_except_in_target_methods() -> None:
                     )
                 )
 
-    assert not violations, (
-        f"Service 层发现 {len(violations)} 处 try/except 违规:\n"
-        + "\n".join(
-            f"  - {v.file}:{v.line_no} method={v.method}"
-            for v in violations
-        )
+    assert not violations, f"Service 层发现 {len(violations)} 处 try/except 违规:\n" + "\n".join(
+        f"  - {v.file}:{v.line_no} method={v.method}" for v in violations
     )
 
 
@@ -211,9 +207,7 @@ def test_service_layer_no_staticmethod_in_target_classes() -> None:
         assert tree is not None, f"文件不存在: {rel_path}"
 
         for class_name in classes:
-            hits: list[tuple[str, int]] = _find_staticmethod_in_class(
-                tree, class_name
-            )
+            hits: list[tuple[str, int]] = _find_staticmethod_in_class(tree, class_name)
             for method_name, line_no in hits:
                 violations.append(
                     StaticMethodViolation(
@@ -224,10 +218,6 @@ def test_service_layer_no_staticmethod_in_target_classes() -> None:
                     )
                 )
 
-    assert not violations, (
-        f"Service 层发现 {len(violations)} 处 @staticmethod 违规:\n"
-        + "\n".join(
-            f"  - {v.file}:{v.line_no} {v.class_name}.{v.method}"
-            for v in violations
-        )
+    assert not violations, f"Service 层发现 {len(violations)} 处 @staticmethod 违规:\n" + "\n".join(
+        f"  - {v.file}:{v.line_no} {v.class_name}.{v.method}" for v in violations
     )

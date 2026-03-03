@@ -5,12 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from apps.litigation_ai.chains.mock_trial_chains import (
-    DebateChain,
-    DebateResult,
-    DisputeFocusChain,
-    DisputeFocusResult,
-)
+from apps.litigation_ai.chains.mock_trial_chains import DebateChain, DebateResult, DisputeFocusChain, DisputeFocusResult
 
 logger = logging.getLogger("apps.litigation_ai")
 
@@ -18,9 +13,7 @@ logger = logging.getLogger("apps.litigation_ai")
 class DebateService:
     """辩论模拟：围绕争议焦点进行多轮辩论."""
 
-    async def analyze_focuses(
-        self, *, case_info: dict[str, Any], evidence_text: str
-    ) -> DisputeFocusResult:
+    async def analyze_focuses(self, *, case_info: dict[str, Any], evidence_text: str) -> DisputeFocusResult:
         """归纳争议焦点."""
         chain = DisputeFocusChain()
         return await chain.arun(case_info=case_info, evidence_text=evidence_text)

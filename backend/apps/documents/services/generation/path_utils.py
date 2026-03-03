@@ -16,7 +16,7 @@ def resolve_media_path(media_root: str, file_path: str) -> str:
         if value.startswith("http://") or value.startswith("https://"):
             return ""
         if value.startswith("/media/"):
-            value = value[len("/media/"):]
+            value = value[len("/media/") :]
         p = Path(value)
         if p.is_absolute():
             return str(p)

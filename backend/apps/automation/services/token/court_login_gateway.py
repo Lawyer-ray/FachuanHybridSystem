@@ -1,21 +1,22 @@
 """Business logic services."""
 
 from __future__ import annotations
-from django.utils.translation import gettext_lazy as _
 
 from dataclasses import dataclass
 from typing import Any, Protocol
+
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.dtos import AccountCredentialDTO
 
 
 class CourtLoginGateway(Protocol):
-    def login(self, *, credential: AccountCredentialDTO, browser_context) -> str: ... # type: ignore
+    def login(self, *, credential: AccountCredentialDTO, browser_context) -> str: ...  # type: ignore
 
 
 @dataclass(frozen=True)
 class CourtZxfwLoginGateway:
-    def login(self, *, credential: AccountCredentialDTO, browser_context) -> Any: # type: ignore
+    def login(self, *, credential: AccountCredentialDTO, browser_context) -> Any:  # type: ignore
         from apps.automation.services.scraper.sites.court_zxfw import CourtZxfwService
 
         page = browser_context.new_page()
@@ -36,5 +37,5 @@ class CourtZxfwLoginGateway:
         if not token:
             from apps.automation.exceptions import LoginFailedError
 
-            raise LoginFailedError(message=_("登录成功但未获取到token"), attempts=[]) # type: ignore
+            raise LoginFailedError(message=_("登录成功但未获取到token"), attempts=[])  # type: ignore
         return token

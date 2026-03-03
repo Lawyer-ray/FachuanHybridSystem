@@ -31,9 +31,7 @@ from apps.documents.models import (
     TemplateStatus,
 )
 from apps.documents.models.fill_record import BatchFillTask, FillRecord
-from apps.documents.services.external_template.fingerprint_service import (
-    FingerprintService,
-)
+from apps.documents.services.external_template.fingerprint_service import FingerprintService
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -54,9 +52,9 @@ def _make_law_firm(**kwargs: Any) -> Any:
 
 def _make_lawyer(law_firm: Any, **kwargs: Any) -> Any:
     """创建测试用律师。"""
-    from apps.organization.models.lawyer import Lawyer
-
     import uuid
+
+    from apps.organization.models.lawyer import Lawyer
 
     username = kwargs.pop("username", f"lawyer_{uuid.uuid4().hex[:8]}")
     defaults: dict[str, Any] = {
@@ -69,9 +67,9 @@ def _make_lawyer(law_firm: Any, **kwargs: Any) -> Any:
 
 def _make_court(parent: Any = None, **kwargs: Any) -> Any:
     """创建测试用法院。"""
-    from apps.core.models.court import Court
-
     import uuid
+
+    from apps.core.models.court import Court
 
     defaults: dict[str, Any] = {
         "code": f"court_{uuid.uuid4().hex[:8]}",
@@ -96,9 +94,9 @@ def _make_case(**kwargs: Any) -> Any:
 
 def _make_client(**kwargs: Any) -> Any:
     """创建测试用当事人(Client)。"""
-    from apps.client.models.client import Client
-
     import uuid
+
+    from apps.client.models.client import Client
 
     defaults: dict[str, Any] = {
         "name": f"当事人_{uuid.uuid4().hex[:6]}",
@@ -196,9 +194,14 @@ class TestEnumValues(TestCase):
         values = [c.value for c in TemplateCategory]
         assert len(values) == 8
         expected = {
-            "property_declaration", "service_address", "creditor_declaration",
-            "element_complaint", "power_of_attorney", "legal_aid",
-            "preservation_application", "other",
+            "property_declaration",
+            "service_address",
+            "creditor_declaration",
+            "element_complaint",
+            "power_of_attorney",
+            "legal_aid",
+            "preservation_application",
+            "other",
         }
         assert set(values) == expected
 
@@ -224,9 +227,7 @@ class TestEnumValues(TestCase):
         assert str(ExternalTemplate._meta.verbose_name) == "外部模板"
 
     def test_field_mapping_indexes_configured(self) -> None:
-        index_fields = [
-            tuple(idx.fields) for idx in ExternalTemplateFieldMapping._meta.indexes
-        ]
+        index_fields = [tuple(idx.fields) for idx in ExternalTemplateFieldMapping._meta.indexes]
         assert ("template", "sort_order") in index_fields
 
 
@@ -322,9 +323,7 @@ class TestProperty2VersionAutoIncrement(HypothesisTestCase):
         n_uploads: int,
         category: str,
     ) -> None:
-        from apps.documents.services.external_template.analysis_service import (
-            AnalysisService,
-        )
+        from apps.documents.services.external_template.analysis_service import AnalysisService
 
         law_firm = _make_law_firm()
         court = _make_court()
@@ -367,9 +366,7 @@ class TestProperty2VersionAutoIncrement(HypothesisTestCase):
                 assert deactivated >= 1
 
         # 最终只有最后一个版本是 active
-        active_count = ExternalTemplate.objects.filter(
-            pk__in=created_ids, is_active=True
-        ).count()
+        active_count = ExternalTemplate.objects.filter(pk__in=created_ids, is_active=True).count()
         assert active_count == 1
 
         last_template = ExternalTemplate.objects.get(pk=created_ids[-1])
@@ -392,12 +389,20 @@ class TestProperty3FingerprintConsistency(HypothesisTestCase):
     """
 
     @given(
-        text_a=st.text(min_size=1, max_size=50, alphabet=st.characters(
-            whitelist_categories=("L", "N"),
-        )),
-        text_b=st.text(min_size=1, max_size=50, alphabet=st.characters(
-            whitelist_categories=("L", "N"),
-        )),
+        text_a=st.text(
+            min_size=1,
+            max_size=50,
+            alphabet=st.characters(
+                whitelist_categories=("L", "N"),
+            ),
+        ),
+        text_b=st.text(
+            min_size=1,
+            max_size=50,
+            alphabet=st.characters(
+                whitelist_categories=("L", "N"),
+            ),
+        ),
     )
     @settings(max_examples=30, suppress_health_check=[HealthCheck.too_slow])
     def test_same_structure_different_text_same_fingerprint(
@@ -463,9 +468,7 @@ class TestProperty4FingerprintReuseMappings(HypothesisTestCase):
         self,
         n_mappings: int,
     ) -> None:
-        from apps.documents.services.external_template.analysis_service import (
-            AnalysisService,
-        )
+        from apps.documents.services.external_template.analysis_service import AnalysisService
 
         law_firm = _make_law_firm()
         source_template = _make_template(
@@ -508,12 +511,8 @@ class TestProperty4FingerprintReuseMappings(HypothesisTestCase):
             assert m.template_id == target_template.pk
 
         # 验证映射内容一致
-        target_mappings = ExternalTemplateFieldMapping.objects.filter(
-            template=target_template
-        ).order_by("sort_order")
-        source_mappings = ExternalTemplateFieldMapping.objects.filter(
-            template=source_template
-        ).order_by("sort_order")
+        target_mappings = ExternalTemplateFieldMapping.objects.filter(template=target_template).order_by("sort_order")
+        source_mappings = ExternalTemplateFieldMapping.objects.filter(template=source_template).order_by("sort_order")
 
         for src, tgt in zip(source_mappings, target_mappings):
             assert tgt.semantic_label == src.semantic_label
@@ -530,7 +529,14 @@ class TestProperty4FingerprintReuseMappings(HypothesisTestCase):
 
 # 非 .docx 扩展名
 _NON_DOCX_EXTENSIONS: list[str] = [
-    ".doc", ".pdf", ".txt", ".xlsx", ".pptx", ".zip", ".png", ".jpg",
+    ".doc",
+    ".pdf",
+    ".txt",
+    ".xlsx",
+    ".pptx",
+    ".zip",
+    ".png",
+    ".jpg",
 ]
 
 
@@ -544,9 +550,7 @@ class TestProperty5FileValidation(HypothesisTestCase):
     @given(ext=st.sampled_from(_NON_DOCX_EXTENSIONS))
     @settings(max_examples=30, suppress_health_check=[HealthCheck.too_slow])
     def test_non_docx_rejected(self, ext: str) -> None:
-        from apps.documents.services.external_template.analysis_service import (
-            AnalysisService,
-        )
+        from apps.documents.services.external_template.analysis_service import AnalysisService
 
         svc = AnalysisService(
             fingerprint_service=MagicMock(),
@@ -569,9 +573,7 @@ class TestProperty5FileValidation(HypothesisTestCase):
     )
     @settings(max_examples=30, suppress_health_check=[HealthCheck.too_slow])
     def test_oversized_file_rejected(self, file_size: int) -> None:
-        from apps.documents.services.external_template.analysis_service import (
-            AnalysisService,
-        )
+        from apps.documents.services.external_template.analysis_service import AnalysisService
 
         svc = AnalysisService(
             fingerprint_service=MagicMock(),
@@ -588,9 +590,7 @@ class TestProperty5FileValidation(HypothesisTestCase):
 
     def test_valid_docx_passes(self) -> None:
         """合法的 .docx 文件应通过校验。"""
-        from apps.documents.services.external_template.analysis_service import (
-            AnalysisService,
-        )
+        from apps.documents.services.external_template.analysis_service import AnalysisService
 
         svc = AnalysisService(
             fingerprint_service=MagicMock(),
@@ -622,13 +622,15 @@ class TestProperty6FillFilenameFormat(HypothesisTestCase):
 
     @given(
         template_name=st.text(
-            min_size=1, max_size=30,
+            min_size=1,
+            max_size=30,
             alphabet=st.characters(whitelist_categories=("L", "N")),
         ),
         party_name=st.one_of(
             st.none(),
             st.text(
-                min_size=1, max_size=20,
+                min_size=1,
+                max_size=20,
                 alphabet=st.characters(whitelist_categories=("L", "N")),
             ),
         ),
@@ -641,14 +643,10 @@ class TestProperty6FillFilenameFormat(HypothesisTestCase):
         party_name: str | None,
         is_confirmed: bool,
     ) -> None:
-        from apps.documents.services.external_template.filling_service import (
-            FillingService,
-        )
+        from apps.documents.services.external_template.filling_service import FillingService
 
         svc = FillingService(placeholder_registry=MagicMock())
-        filename = svc._generate_output_filename(
-            template_name, party_name, is_confirmed
-        )
+        filename = svc._generate_output_filename(template_name, party_name, is_confirmed)
 
         # 文件名应以 .docx 结尾
         assert filename.endswith(".docx")
@@ -692,9 +690,7 @@ class TestProperty7BatchFillFileCount(HypothesisTestCase):
         n_templates: int,
         n_parties: int,
     ) -> None:
-        from apps.documents.services.external_template.filling_service import (
-            FillingService,
-        )
+        from apps.documents.services.external_template.filling_service import FillingService
 
         law_firm = _make_law_firm()
         case = _make_case()
@@ -835,9 +831,7 @@ class TestProperty9CourtFallback(HypothesisTestCase):
         self,
         category: str,
     ) -> None:
-        from apps.documents.services.external_template.matching_service import (
-            MatchingService,
-        )
+        from apps.documents.services.external_template.matching_service import MatchingService
 
         law_firm = _make_law_firm()
         parent_court = _make_court(name="上级法院")
@@ -864,9 +858,7 @@ class TestProperty9CourtFallback(HypothesisTestCase):
 
     def test_direct_court_match(self) -> None:
         """法院有模板时应直接返回。"""
-        from apps.documents.services.external_template.matching_service import (
-            MatchingService,
-        )
+        from apps.documents.services.external_template.matching_service import MatchingService
 
         law_firm = _make_law_firm()
         court = _make_court()
@@ -885,9 +877,7 @@ class TestProperty9CourtFallback(HypothesisTestCase):
 
     def test_no_court_no_parent_returns_empty(self) -> None:
         """无模板且无上级法院时应返回空。"""
-        from apps.documents.services.external_template.matching_service import (
-            MatchingService,
-        )
+        from apps.documents.services.external_template.matching_service import MatchingService
 
         law_firm = _make_law_firm()
         court = _make_court()  # 无上级法院
@@ -920,9 +910,7 @@ class TestProperty10DataIsolation(HypothesisTestCase):
         n_templates_a: int,
         n_templates_b: int,
     ) -> None:
-        from apps.documents.services.external_template.matching_service import (
-            MatchingService,
-        )
+        from apps.documents.services.external_template.matching_service import MatchingService
 
         law_firm_a = _make_law_firm(name="律所A")
         law_firm_b = _make_law_firm(name="律所B")
@@ -975,15 +963,11 @@ class TestProperty10DataIsolation(HypothesisTestCase):
         tpl_b = _make_template(law_firm_b, name="B的模板")
 
         # 按律所A查询
-        qs_a = ExternalTemplate.objects.filter(
-            law_firm=law_firm_a, is_active=True
-        )
+        qs_a = ExternalTemplate.objects.filter(law_firm=law_firm_a, is_active=True)
         assert qs_a.count() == 1
         assert qs_a.first().pk == tpl_a.pk  # type: ignore[union-attr]
 
         # 按律所B查询
-        qs_b = ExternalTemplate.objects.filter(
-            law_firm=law_firm_b, is_active=True
-        )
+        qs_b = ExternalTemplate.objects.filter(law_firm=law_firm_b, is_active=True)
         assert qs_b.count() == 1
         assert qs_b.first().pk == tpl_b.pk  # type: ignore[union-attr]

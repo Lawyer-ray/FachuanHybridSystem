@@ -4,8 +4,8 @@ Prompt 模板服务
 提供 Prompt 模板的 CRUD 操作和缓存管理.
 """
 
-from django.utils.translation import gettext_lazy as _
 from django.db import transaction
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.infrastructure import CacheKeys, delete_cache_key

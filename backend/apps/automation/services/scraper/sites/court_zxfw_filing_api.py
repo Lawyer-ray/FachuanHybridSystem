@@ -3,6 +3,7 @@
 登录由外部传入 token，本模块只负责立案接口调用。
 失败时抛出异常，由调用方决定是否回退到 Playwright 版。
 """
+
 from __future__ import annotations
 
 import base64
@@ -21,11 +22,21 @@ _OSS_BUCKET = "https://zxfy2-oss.oss-cn-north-2-gov-1.aliyuncs.com"
 
 # ── 省份代码 ──────────────────────────────────────────────────
 PROVINCE_CODES: dict[str, str] = {
-    "广东省": "440000", "北京市": "110000", "上海市": "310000",
-    "浙江省": "330000", "江苏省": "320000", "湖南省": "430000",
-    "湖北省": "420000", "四川省": "510000", "福建省": "350000",
-    "山东省": "370000", "河南省": "410000", "河北省": "130000",
-    "陕西省": "610000", "重庆市": "500000", "天津市": "120000",
+    "广东省": "440000",
+    "北京市": "110000",
+    "上海市": "310000",
+    "浙江省": "330000",
+    "江苏省": "320000",
+    "湖南省": "430000",
+    "湖北省": "420000",
+    "四川省": "510000",
+    "福建省": "350000",
+    "山东省": "370000",
+    "河南省": "410000",
+    "河北省": "130000",
+    "陕西省": "610000",
+    "重庆市": "500000",
+    "天津市": "120000",
 }
 
 # ── 案件类型代码 ──────────────────────────────────────────────
@@ -48,16 +59,16 @@ PARTY_ROLE_CODES: dict[str, str] = {
 
 # ── 当事人诉讼地位（申请执行） ─────────────────────────────────
 EXEC_PARTY_ROLE_CODES: dict[str, str] = {
-    "plaintiff": "1501_100225-1",   # 申请执行人
-    "defendant": "1501_100225-2",   # 被执行人
+    "plaintiff": "1501_100225-1",  # 申请执行人
+    "defendant": "1501_100225-2",  # 被执行人
 }
 
 # ── 材料类型代码（民事一审，槽位索引 → cllx）────────────────────
 MATERIAL_CLLX: dict[str, str] = {
-    "0": "11800016-2",    # 起诉状
-    "1": "11800016-1",    # 当事人身份证明
-    "2": "11800016-9",    # 委托代理人委托手续和身份材料
-    "3": "11800016-4",    # 证据目录及证据材料
+    "0": "11800016-2",  # 起诉状
+    "1": "11800016-1",  # 当事人身份证明
+    "2": "11800016-9",  # 委托代理人委托手续和身份材料
+    "3": "11800016-4",  # 证据目录及证据材料
     "4": "11800016-254",  # 送达地址确认书
 }
 MATERIAL_CLMC: dict[str, str] = {
@@ -70,10 +81,10 @@ MATERIAL_CLMC: dict[str, str] = {
 
 # ── 材料类型代码（申请执行）────────────────────────────────────
 EXEC_MATERIAL_CLLX: dict[str, str] = {
-    "0": "11800016-2",    # 执行申请书
-    "1": "11800016-8",    # 执行依据文书
-    "2": "11800016-9",    # 授权委托书及代理人身份证明
-    "3": "11800016-1",    # 申请人身份材料
+    "0": "11800016-2",  # 执行申请书
+    "1": "11800016-8",  # 执行依据文书
+    "2": "11800016-9",  # 授权委托书及代理人身份证明
+    "3": "11800016-1",  # 申请人身份材料
     "4": "11800016-254",  # 送达地址确认书
 }
 EXEC_MATERIAL_CLMC: dict[str, str] = {
@@ -107,7 +118,7 @@ class CourtZxfwFilingApiService:
     def close(self) -> None:
         self._client.close()
 
-    def __enter__(self) -> "CourtZxfwFilingApiService":
+    def __enter__(self) -> CourtZxfwFilingApiService:
         return self
 
     def __exit__(self, *_: Any) -> None:
@@ -147,28 +158,44 @@ class CourtZxfwFilingApiService:
         if is_exec:
             # 3a. 填原审案号
             original_case_number = case_data.get("original_case_number", "")
-            self._patch("/yzw-zxfw-lafw/api/v3/layy/ysxx", {
-                "layyId": layyid, "fyId": fyid,
-                "ysfyid": "", "ysajbh": "", "ysfymc": "",
-                "ysajAjbs": None, "ysajah": original_case_number,
-            })
+            self._patch(
+                "/yzw-zxfw-lafw/api/v3/layy/ysxx",
+                {
+                    "layyId": layyid,
+                    "fyId": fyid,
+                    "ysfyid": "",
+                    "ysajbh": "",
+                    "ysfymc": "",
+                    "ysajAjbs": None,
+                    "ysajah": original_case_number,
+                },
+            )
             # 3b. 填执行依据
             basis_type = case_data.get("execution_basis_type", "民商")
-            self._patch("/yzw-zxfw-lafw/api/v3/zxyj", {
-                "jbjg": fyid, "jbjgMc": court_name,
-                "zxyjAh": original_case_number,
-                "zxyjlb": "1501_11400101-1",
-                "zxyjmc": basis_type,
-                "layyId": layyid, "fyId": fyid,
-            })
+            self._patch(
+                "/yzw-zxfw-lafw/api/v3/zxyj",
+                {
+                    "jbjg": fyid,
+                    "jbjgMc": court_name,
+                    "zxyjAh": original_case_number,
+                    "zxyjlb": "1501_11400101-1",
+                    "zxyjmc": basis_type,
+                    "layyId": layyid,
+                    "fyId": fyid,
+                },
+            )
         else:
             # 3a. 更新案由
             cause = case_data.get("cause_of_action", "")
             if cause:
-                self._patch_layy(layyid, {
-                    "laayMz": self._lookup_cause_code(cause),
-                    "laay": cause, "gxhYs": "",
-                })
+                self._patch_layy(
+                    layyid,
+                    {
+                        "laayMz": self._lookup_cause_code(cause),
+                        "laay": cause,
+                        "gxhYs": "",
+                    },
+                )
 
         # 4. 上传材料
         cllx_map = EXEC_MATERIAL_CLLX if is_exec else MATERIAL_CLLX
@@ -246,11 +273,16 @@ class CourtZxfwFilingApiService:
     def _create_layy(self, fyid: str, ajlx: str, sfid: str, *, is_exec: bool = False) -> str:
         payload: dict[str, Any] = {
             "ajcx": "zx" if is_exec else "sp",
-            "ajlx": ajlx, "tjcgsqsfqr": "1",
-            "fyid": fyid, "sqrsf": "11800010-2",
+            "ajlx": ajlx,
+            "tjcgsqsfqr": "1",
+            "fyid": fyid,
+            "sqrsf": "11800010-2",
             "ajlb": "zx" if is_exec else "sp",
-            "pcSqrLx": "", "sqrlx": "11800011-1", "sfid": sfid,
-            "ftmc": "", "sfzscq": "1501_000010-2",
+            "pcSqrLx": "",
+            "sqrlx": "11800011-1",
+            "sfid": sfid,
+            "ftmc": "",
+            "sfzscq": "1501_000010-2",
             "sfysla": "1501_000010-2",
         }
         if not is_exec:
@@ -281,14 +313,19 @@ class CourtZxfwFilingApiService:
             pass
         return ""
 
-    def _upload_material(self, layyid: str, fyid: str, file_path: str,
-                         cllx: str, clmc: str) -> None:
+    def _upload_material(self, layyid: str, fyid: str, file_path: str, cllx: str, clmc: str) -> None:
         """获取 OSS 签名 → 上传文件 → 登记附件。"""
         ext = Path(file_path).suffix  # e.g. ".pdf"
         # 1. 拿签名
-        sig = self._post("/yzw-zxfw-ajfw/api/v1/file/upload/signature", {
-            "path": "layy", "ext": ext, "fydm": fyid, "cllx": cllx,
-        })
+        sig = self._post(
+            "/yzw-zxfw-ajfw/api/v1/file/upload/signature",
+            {
+                "path": "layy",
+                "ext": ext,
+                "fydm": fyid,
+                "cllx": cllx,
+            },
+        )
         key: str = sig["storeAs"]
         oss_url: str = sig.get("ossPath", _OSS_BUCKET)
         # 2. 上传到 OSS（multipart/form-data，使用 STS token）
@@ -313,22 +350,36 @@ class CourtZxfwFilingApiService:
 
         # 3. 登记附件
         fname = Path(file_path).name
-        self._post("/yzw-zxfw-lafw/api/v3/layy/ssclfj", {
-            "wjbh": key, "layyid": layyid, "fyId": fyid,
-            "wjmc": fname, "path": key,
-            "ssclid": uuid.uuid4().hex,
-            "cllx": cllx, "clmc": clmc,
-            "bccl": None, "name": fname,
-            "extname": ext.lstrip("."),
-            "url": f"blob:https://zxfw.court.gov.cn/{uuid.uuid4()}",
-            "xh": 1,
-        })
+        self._post(
+            "/yzw-zxfw-lafw/api/v3/layy/ssclfj",
+            {
+                "wjbh": key,
+                "layyid": layyid,
+                "fyId": fyid,
+                "wjmc": fname,
+                "path": key,
+                "ssclid": uuid.uuid4().hex,
+                "cllx": cllx,
+                "clmc": clmc,
+                "bccl": None,
+                "name": fname,
+                "extname": ext.lstrip("."),
+                "url": f"blob:https://zxfw.court.gov.cn/{uuid.uuid4()}",
+                "xh": 1,
+            },
+        )
         logger.info("材料上传完成: %s", fname)
 
-    def _add_party(self, layyid: str, fyid: str,
-                   party: dict[str, Any], role: str,
-                   role_codes: dict[str, str],
-                   *, is_exec: bool = False) -> str:
+    def _add_party(
+        self,
+        layyid: str,
+        fyid: str,
+        party: dict[str, Any],
+        role: str,
+        role_codes: dict[str, str],
+        *,
+        is_exec: bool = False,
+    ) -> str:
         """添加当事人，返回 dsrid。"""
         ssdw = role_codes.get(role, role_codes.get("plaintiff", ""))
         client_type = party.get("client_type", "natural")
@@ -342,16 +393,27 @@ class CourtZxfwFilingApiService:
                 csrq = f"{id_num[6:10]}-{id_num[10:12]}-{id_num[12:14]}"
             address = party.get("address", "")
             payload: dict[str, Any] = {
-                "xm": party["name"], "xb": xb,
-                "gj": "1501_GB0006-156", "cgj": "中国",
-                "zjlx": "1501_000015-1", "zjhm": id_num,
-                "csrq": csrq, "nl": "",
-                "gzdw": "", "mz": "1501_GB0002-01", "cmz": "汉族",
-                "zy": "", "sjhm": party.get("phone", ""),
-                "dsrlx": "1501_000011-1", "ssdw": ssdw,
-                "cdsrlx": "自然人", "cxb": gender_raw,
+                "xm": party["name"],
+                "xb": xb,
+                "gj": "1501_GB0006-156",
+                "cgj": "中国",
+                "zjlx": "1501_000015-1",
+                "zjhm": id_num,
+                "csrq": csrq,
+                "nl": "",
+                "gzdw": "",
+                "mz": "1501_GB0002-01",
+                "cmz": "汉族",
+                "zy": "",
+                "sjhm": party.get("phone", ""),
+                "dsrlx": "1501_000011-1",
+                "ssdw": ssdw,
+                "cdsrlx": "自然人",
+                "cxb": gender_raw,
                 "czjlx": "居民身份证",
-                "layyid": layyid, "fyId": fyid, "zt": "",
+                "layyid": layyid,
+                "fyId": fyid,
+                "zt": "",
             }
             if is_exec:
                 payload["hjszd"] = address  # 申请执行用户籍所在地
@@ -362,7 +424,8 @@ class CourtZxfwFilingApiService:
             payload = {
                 "dwmc": party["name"],
                 "dwzsd": party.get("address", ""),
-                "gj": "1501_GB0006-156", "cgj": "中国",
+                "gj": "1501_GB0006-156",
+                "cgj": "中国",
                 "zzlx": "1501_000031-4",
                 "zzhm": party.get("uscc", ""),
                 "fddbrxm": party.get("legal_rep", ""),
@@ -372,10 +435,14 @@ class CourtZxfwFilingApiService:
                 "fddbrsjhm": party.get("phone", ""),
                 "fddbrgddh": party.get("phone", ""),
                 "dwxz": "",
-                "dsrlx": "1501_000011-2", "ssdw": ssdw,
-                "cdsrlx": "法人", "czzlx": "统一社会信用代码证",
+                "dsrlx": "1501_000011-2",
+                "ssdw": ssdw,
+                "cdsrlx": "法人",
+                "czzlx": "统一社会信用代码证",
                 "cfddbrzjlx": "居民身份证",
-                "layyid": layyid, "fyId": fyid, "zt": "",
+                "layyid": layyid,
+                "fyId": fyid,
+                "zt": "",
             }
             if is_exec:
                 payload["zcdq"] = "1501_GB0006-156"
@@ -385,9 +452,9 @@ class CourtZxfwFilingApiService:
         logger.info("添加当事人: %s → %s", party["name"], dsrid)
         return str(dsrid)
 
-    def _update_agent(self, layyid: str, fyid: str,
-                      bdlrid: str, agent: dict[str, Any],
-                      *, is_exec: bool = False) -> None:
+    def _update_agent(
+        self, layyid: str, fyid: str, bdlrid: str, agent: dict[str, Any], *, is_exec: bool = False
+    ) -> None:
         """更新代理人信息（绑定到第一个原告）。"""
         detail = self._get(f"/yzw-zxfw-lafw/api/v3/layy/layyxq/{layyid}/0")
         dlr_list = (detail or {}).get("dlr") or []
@@ -405,11 +472,13 @@ class CourtZxfwFilingApiService:
             "id": dlr_id,
             "layyid": layyid,
             "czjlx": "居民身份证",
-            "gj": "1501_GB0006-156", "cgj": "中国",
+            "gj": "1501_GB0006-156",
+            "cgj": "中国",
             "sfsqr": "1501_000010-1",
             "noDelete": True,
             "dlrType": "fls",
-            "zt": "", "edit": True,
+            "zt": "",
+            "edit": True,
             "cdlrlx": "执业律师",
             "fyId": fyid,
             "bdlrMc": "",

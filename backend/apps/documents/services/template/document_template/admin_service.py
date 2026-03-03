@@ -231,12 +231,16 @@ class DocumentTemplateAdminService:
             else:
                 status = format_html('<span style="color: #2e7d32;">{}</span>', "✓ 已定义")
                 row_style = ""
-            rows.append(format_html(
-                '<tr style="{}"><td style="padding: 8px; border: 1px solid #ddd;'
-                ' font-family: monospace;">{{{{ {} }}}}</td>'
-                '<td style="padding: 8px; border: 1px solid #ddd;">{}</td></tr>',
-                row_style, placeholder, status,
-            ))
+            rows.append(
+                format_html(
+                    '<tr style="{}"><td style="padding: 8px; border: 1px solid #ddd;'
+                    ' font-family: monospace;">{{{{ {} }}}}</td>'
+                    '<td style="padding: 8px; border: 1px solid #ddd;">{}</td></tr>',
+                    row_style,
+                    placeholder,
+                    status,
+                )
+            )
         table = format_html(
             '<div style="max-height: 300px; overflow-y: auto;">'
             '<table style="width: 100%; border-collapse: collapse;">'
@@ -314,7 +318,10 @@ class DocumentTemplateAdminService:
         return count
 
     def match_legal_status(
-        self, template_legal_statuses: list[str], case_legal_statuses: list[str], match_mode: str = LegalStatusMatchMode.ANY
+        self,
+        template_legal_statuses: list[str],
+        case_legal_statuses: list[str],
+        match_mode: str = LegalStatusMatchMode.ANY,
     ) -> bool:
         """
         检查案件诉讼地位是否匹配模板配置
@@ -402,4 +409,3 @@ class DocumentTemplateAdminService:
             实际禁用的数量
         """
         return queryset.filter(is_active=True).update(is_active=False)
-

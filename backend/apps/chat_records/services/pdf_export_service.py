@@ -21,7 +21,7 @@ _LANCZOS: Any = None
 
 def _get_lanczos() -> Any:
     """延迟获取 Pillow LANCZOS 常量，避免模块级副作用。"""
-    global _LANCZOS  # noqa: PLW0603
+    global _LANCZOS
     if _LANCZOS is None:
         from PIL import Image as _Img
 
@@ -144,23 +144,22 @@ class PdfExportService:
         max_h = cell_h - 28
 
         try:
-            with shot.image.open("rb") as fh:
-                with Image.open(fh) as img:
-                    rgb_img = img.convert("RGB")
-                    iw, ih = rgb_img.size
+            with shot.image.open("rb") as fh, Image.open(fh) as img:
+                rgb_img = img.convert("RGB")
+                iw, ih = rgb_img.size
 
-                    scale = min(max_w / iw, max_h / ih, 1.0)
-                    draw_w = iw * scale
-                    draw_h = ih * scale
+                scale = min(max_w / iw, max_h / ih, 1.0)
+                draw_w = iw * scale
+                draw_h = ih * scale
 
-                    rgb_img.thumbnail(
-                        (max(1, int(draw_w * 2)), max(1, int(draw_h * 2))),
-                        _get_lanczos(),
-                    )
-                    img_buf = io.BytesIO()
-                    rgb_img.save(img_buf, format="JPEG", quality=82, optimize=True)
-                    img_buf.seek(0)
-                    img_reader = ImageReader(img_buf)
+                rgb_img.thumbnail(
+                    (max(1, int(draw_w * 2)), max(1, int(draw_h * 2))),
+                    _get_lanczos(),
+                )
+                img_buf = io.BytesIO()
+                rgb_img.save(img_buf, format="JPEG", quality=82, optimize=True)
+                img_buf.seek(0)
+                img_reader = ImageReader(img_buf)
         except Exception:
             logger.exception(
                 "PDF 截图图片处理失败",
@@ -172,8 +171,12 @@ class PdfExportService:
         draw_y = y0 + (cell_h - draw_h) / 2
 
         c.drawImage(
-            img_reader, draw_x, draw_y,
-            width=draw_w, height=draw_h, preserveAspectRatio=True,
+            img_reader,
+            draw_x,
+            draw_y,
+            width=draw_w,
+            height=draw_h,
+            preserveAspectRatio=True,
         )
 
         caption = (shot.title or "").strip()

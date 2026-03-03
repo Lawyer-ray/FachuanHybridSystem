@@ -215,14 +215,10 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin[DocumentQueryHistory]):
     def has_add_permission(self, request: HttpRequest) -> bool:
         return False
 
-    def has_change_permission(
-        self, request: HttpRequest, obj: DocumentQueryHistory | None = None
-    ) -> bool:
+    def has_change_permission(self, request: HttpRequest, obj: DocumentQueryHistory | None = None) -> bool:
         return False
 
-    def has_delete_permission(
-        self, request: HttpRequest, obj: DocumentQueryHistory | None = None
-    ) -> bool:
+    def has_delete_permission(self, request: HttpRequest, obj: DocumentQueryHistory | None = None) -> bool:
         return True
 
     def get_actions(self, request: HttpRequest) -> dict[str, Any]:
@@ -231,9 +227,7 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin[DocumentQueryHistory]):
         actions["delete_old_records"] = (self.delete_old_records, "delete_old_records", _("删除30天前的记录"))
         return actions
 
-    def delete_old_records(
-        self, request: HttpRequest, queryset: QuerySet[DocumentQueryHistory]
-    ) -> None:
+    def delete_old_records(self, request: HttpRequest, queryset: QuerySet[DocumentQueryHistory]) -> None:
         """批量删除30天前的记录"""
         cutoff_date = timezone.now() - timedelta(days=30)
         old_records = queryset.filter(queried_at__lt=cutoff_date)

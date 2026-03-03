@@ -148,8 +148,7 @@ class ContractServiceAdapter:
             请使用 ``get_contract_with_details_internal`` 获取字典格式数据。
         """
         warnings.warn(
-            "get_contract_model_internal 已弃用，请使用 "
-            "get_contract_with_details_internal 替代",
+            "get_contract_model_internal 已弃用，请使用 get_contract_with_details_internal 替代",
             DeprecationWarning,
             stacklevel=2,
         )

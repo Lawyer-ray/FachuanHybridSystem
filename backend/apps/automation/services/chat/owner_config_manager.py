@@ -91,6 +91,7 @@ class OwnerConfigManager:
 
             # 从 SystemConfigService 补充 CASE_CHAT 相关配置
             from apps.core.services.system_config_service import SystemConfigService
+
             svc = SystemConfigService()
             config.setdefault("APP_ID", svc.get_value("FEISHU_APP_ID") or None)
             config.setdefault("APP_SECRET", svc.get_value("FEISHU_APP_SECRET") or None)

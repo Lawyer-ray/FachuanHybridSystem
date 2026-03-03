@@ -120,7 +120,7 @@ def get_monitor_service() -> Any:
     return ServiceLocator.get_monitor_service()
 
 
-def get_invoice_recognition_service() -> "InvoiceRecognitionService":
+def get_invoice_recognition_service() -> InvoiceRecognitionService:
     from apps.automation.services.ocr.invoice_parser import InvoiceParser
     from apps.automation.services.ocr.invoice_recognition_service import InvoiceRecognitionService
     from apps.automation.services.ocr.ocr_service import OCRService
@@ -133,13 +133,13 @@ def get_invoice_recognition_service() -> "InvoiceRecognitionService":
     )
 
 
-def get_invoice_download_service() -> "InvoiceDownloadService":
+def get_invoice_download_service() -> InvoiceDownloadService:
     from apps.automation.services.ocr.invoice_download_service import InvoiceDownloadService
 
     return InvoiceDownloadService()
 
 
-def get_quick_recognition_service() -> "QuickRecognitionService":
+def get_quick_recognition_service() -> QuickRecognitionService:
     from apps.automation.services.ocr.invoice_parser import InvoiceParser
     from apps.automation.services.ocr.ocr_service import OCRService
     from apps.automation.services.ocr.pdf_text_extractor import PDFTextExtractor

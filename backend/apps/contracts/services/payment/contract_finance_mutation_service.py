@@ -28,9 +28,9 @@ class ContractFinanceMutationService(DjangoPermsMixin):
         self,
         *,
         get_contract_internal: Callable[[int], Contract],
-        get_mutation_service: Callable[[], "ContractMutationService"] | None = None,
-        supplementary_agreement_service: "SupplementaryAgreementService",
-        payment_service: "ContractPaymentService",
+        get_mutation_service: Callable[[], ContractMutationService] | None = None,
+        supplementary_agreement_service: SupplementaryAgreementService,
+        payment_service: ContractPaymentService,
     ) -> None:
         self.get_contract_internal = get_contract_internal
         self._get_mutation_service = get_mutation_service

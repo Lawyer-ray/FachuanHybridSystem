@@ -30,34 +30,41 @@ def _log_inline_formset(inline_formset: Any, logger: logging.Logger) -> None:
         if f.errors:
             logger.warning(
                 "[CaseAdmin.changeform_view] Inline %s form[%s] errors: %s",
-                formset.prefix, i, f.errors,
+                formset.prefix,
+                i,
+                f.errors,
             )
     logger.info(
         "[CaseAdmin.changeform_view] Inline %s errors: %s, non_form_errors: %s",
-        formset.prefix, formset.errors, formset.non_form_errors(),
+        formset.prefix,
+        formset.errors,
+        formset.non_form_errors(),
     )
     logger.info(
         "[CaseAdmin.changeform_view] Inline %s is_valid: %s",
-        formset.prefix, formset.is_valid(),
+        formset.prefix,
+        formset.is_valid(),
     )
     for nested in getattr(inline_formset, "inline_admin_formsets", []):
         nested_formset = nested.formset
         logger.info(
             "[CaseAdmin.changeform_view] Nested %s errors: %s",
-            nested_formset.prefix, nested_formset.errors,
+            nested_formset.prefix,
+            nested_formset.errors,
         )
         logger.info(
             "[CaseAdmin.changeform_view] Nested %s is_valid: %s",
-            nested_formset.prefix, nested_formset.is_valid(),
+            nested_formset.prefix,
+            nested_formset.is_valid(),
         )
         for i, nf in enumerate(nested_formset.forms):
             if nf.errors:
                 logger.warning(
                     "[CaseAdmin.changeform_view] Nested %s form[%s] errors: %s",
-                    nested_formset.prefix, i, nf.errors,
+                    nested_formset.prefix,
+                    i,
+                    nf.errors,
                 )
-
-
 
 
 class CaseAdminViewsMixin:
@@ -108,11 +115,13 @@ class CaseAdminViewsMixin:
         if not self.has_view_permission(request, case):  # type: ignore[attr-defined]
             raise PermissionDenied
         context = self.admin_site.each_context(request)  # type: ignore[attr-defined]
-        context.update({
-            "case": case,
-            "title": _("模拟庭审: %(name)s") % {"name": case.name},
-            "opts": self.model._meta,  # type: ignore[attr-defined]
-        })
+        context.update(
+            {
+                "case": case,
+                "title": _("模拟庭审: %(name)s") % {"name": case.name},
+                "opts": self.model._meta,  # type: ignore[attr-defined]
+            }
+        )
         return render(request, "litigation_ai/mock_trial.html", context)
 
     def litigation_fee_calculator_view(self, request: HttpRequest) -> HttpResponse:
@@ -150,7 +159,9 @@ class CaseAdminViewsMixin:
 
         matched_case_file_templates, case_file_templates_missing_reason = self._get_case_file_templates(service, case)
 
-        matched_folder_templates_list = service.get_matched_folder_templates_list(case.case_type, our_legal_statuses) if case.case_type else []
+        matched_folder_templates_list = (
+            service.get_matched_folder_templates_list(case.case_type, our_legal_statuses) if case.case_type else []
+        )
 
         our_legal_entities_json, our_legal_entities = self._build_our_legal_entities(case, json_mod)
         our_parties_json, our_parties = self._build_our_parties(case, json_mod)
@@ -277,10 +288,14 @@ class CaseAdminViewsMixin:
         used_type_ids = material_service.get_used_type_ids(case_id=object_id)
 
         party_types = material_service.get_material_types_by_category(
-            category="party", law_firm_id=law_firm_id, used_type_ids=used_type_ids,
+            category="party",
+            law_firm_id=law_firm_id,
+            used_type_ids=used_type_ids,
         )
         non_party_types = material_service.get_material_types_by_category(
-            category="non_party", law_firm_id=law_firm_id, used_type_ids=used_type_ids,
+            category="non_party",
+            law_firm_id=law_firm_id,
+            used_type_ids=used_type_ids,
         )
 
         our_parties: list[dict[str, Any]] = []

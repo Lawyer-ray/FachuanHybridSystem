@@ -4,7 +4,6 @@ Contract Admin - Display Mixin
 显示相关的方法:详情页视图、字段显示等.
 """
 
-
 from __future__ import annotations
 
 import logging

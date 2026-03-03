@@ -20,10 +20,7 @@ logger = logging.getLogger("apps.oa_filing.jtn")
 # 常量：URL 和 XPath
 # ============================================================
 _LOGIN_URL = "https://ims.jtn.com/member/login.aspx"
-_FILING_URL = (
-    "https://ims.jtn.com/projflw/ProjectAppRegNew.aspx"
-    "?t=1&&FirstModel=PROJECT&SecondModel=PROJECT003"
-)
+_FILING_URL = "https://ims.jtn.com/projflw/ProjectAppRegNew.aspx?t=1&&FirstModel=PROJECT&SecondModel=PROJECT003"
 
 # 立案页
 _XPATH_ADD_CLIENT_BTN = '//*[@id="wrap"]/div[1]/div[2]/div/div[5]/div/div[1]/div[2]/a'
@@ -48,15 +45,15 @@ _XPATH_CREATE_NEW_BTN = '//*[@id="form1"]/div[5]/div[1]/div[1]/div/a[2]'
 
 # 客户类型 select 值映射（Chosen.js 组件，需通过 JS 操作）
 _CUSTOMER_TYPE_MAP: dict[str, str] = {
-    "natural": "11",       # 自然人
-    "legal": "01",         # 企业（法人）
-    "non_legal_org": "01", # 企业（非法人组织也选企业）
+    "natural": "11",  # 自然人
+    "legal": "01",  # 企业（法人）
+    "non_legal_org": "01",  # 企业（非法人组织也选企业）
 }
 
 # 客户类型细分映射
 _CUSTOMER_TYPE_SUB_MAP: dict[str, str] = {
-    "natural": "11-01",      # 境内自然人
-    "legal": "01-08",        # 其他企业
+    "natural": "11-01",  # 境内自然人
+    "legal": "01-08",  # 其他企业
     "non_legal_org": "01-08",
 }
 
@@ -96,10 +93,10 @@ class ConflictPartyInfo:
     """利益冲突方信息。"""
 
     name: str
-    category: str = "11"          # 11=对方当事人
-    legal_position: str = "02"    # 01=原告 02=被告 09=第三人
-    customer_type: str = "01"     # 01=企业 11=自然人
-    is_payer: str = "0"           # 0=否 1=是
+    category: str = "11"  # 11=对方当事人
+    legal_position: str = "02"  # 01=原告 02=被告 09=第三人
+    customer_type: str = "01"  # 01=企业 11=自然人
+    is_payer: str = "0"  # 0=否 1=是
     id_number: str | None = None
     contact_name: str | None = None
     contact_phone: str | None = None
@@ -109,18 +106,18 @@ class ConflictPartyInfo:
 class CaseInfo:
     """案件信息。"""
 
-    manager_id: str                # 案件负责人 empid（可为空）
-    manager_name: str              # 案件负责人姓名（按名字匹配 option）
-    category: str                  # 案件类型: 01~06
-    stage: str                     # 案件阶段: 0301 等
-    which_side: str                # 代理何方: 01=原告 02=被告
-    kindtype: str                  # 业务类型一级
-    kindtype_sed: str              # 业务类型二级
-    kindtype_thr: str              # 业务类型三级
-    case_name: str                 # 案件名称
-    case_desc: str = ""            # 案情简介
-    resource: str = "01"           # 案源: 01=主动开拓
-    language: str = "01"           # 语言: 01=中文
+    manager_id: str  # 案件负责人 empid（可为空）
+    manager_name: str  # 案件负责人姓名（按名字匹配 option）
+    category: str  # 案件类型: 01~06
+    stage: str  # 案件阶段: 0301 等
+    which_side: str  # 代理何方: 01=原告 02=被告
+    kindtype: str  # 业务类型一级
+    kindtype_sed: str  # 业务类型二级
+    kindtype_thr: str  # 业务类型三级
+    case_name: str  # 案件名称
+    case_desc: str = ""  # 案情简介
+    resource: str = "01"  # 案源: 01=主动开拓
+    language: str = "01"  # 语言: 01=中文
     is_foreign: str = "N"
     is_help: str = "N"
     is_publicgood: str = "0"
@@ -129,18 +126,18 @@ class CaseInfo:
     is_emergency: str = "0"
     isunion: str = "0"
     isforeigncoop: str = "0"
-    start_date: str = ""           # 收案日期 yyyy-MM-dd（必填，空则取当天）
-    contact_name: str = ""         # 客户联系人姓名
-    contact_phone: str = ""        # 客户联系人电话
+    start_date: str = ""  # 收案日期 yyyy-MM-dd（必填，空则取当天）
+    contact_name: str = ""  # 客户联系人姓名
+    contact_phone: str = ""  # 客户联系人电话
 
 
 @dataclass
 class ContractInfo:
     """委托合同信息。"""
 
-    rec_type: str = "01"           # 收费方式: 01=定额 02=按标的比例 03=按小时
+    rec_type: str = "01"  # 收费方式: 01=定额 02=按标的比例 03=按小时
     currency: str = "RMB"
-    contract_type: str = "30"      # 30=书面合同
+    contract_type: str = "30"  # 30=书面合同
     is_free: str = "N"
     start_date: str = ""
     end_date: str = ""
@@ -213,14 +210,13 @@ class JtnFilingScript:
     def _login(self) -> None:
         """通过 requests 接口登录，将 cookie 注入 Playwright context。"""
         import re
+
         import requests as _requests
 
         logger.info("接口登录: %s", _LOGIN_URL)
 
         session = _requests.Session()
-        session.headers["User-Agent"] = (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-        )
+        session.headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 
         # 1. GET 登录页，拿 ASP.NET_SessionId + CSRFToken
         r = session.get(_LOGIN_URL, timeout=15)
@@ -241,12 +237,16 @@ class JtnFilingScript:
         # 3. 将 requests session cookies 注入 Playwright context
         assert self._context is not None
         for cookie in session.cookies:
-            self._context.add_cookies([{
-                "name": cookie.name,
-                "value": cookie.value,
-                "domain": cookie.domain or "ims.jtn.com",
-                "path": cookie.path or "/",
-            }])
+            self._context.add_cookies(
+                [
+                    {
+                        "name": cookie.name,
+                        "value": cookie.value,
+                        "domain": cookie.domain or "ims.jtn.com",
+                        "path": cookie.path or "/",
+                    }
+                ]
+            )
 
         logger.info("接口登录成功，cookie 已注入，当前重定向URL: %s", r2.url)
 
@@ -327,13 +327,17 @@ class JtnFilingScript:
         is_natural: bool = client.client_type == "natural"
 
         # ── 1. 选择客户类型（触发 change 事件加载客户类型细分） ──
-        self._eval_create_iframe(page, """(typeValue) => {
+        self._eval_create_iframe(
+            page,
+            """(typeValue) => {
             const $ = iframe.contentWindow.jQuery;
             const doc = iframe.contentDocument;
             $('#customer_Type', doc).val(typeValue);
             $('#customer_Type', doc).trigger('chosen:updated');
             $('#customer_Type', doc).trigger('change');
-        }""", type_value)
+        }""",
+            type_value,
+        )
         time.sleep(_AJAX_WAIT)
 
         # ── 2. 客户类型细分 ──
@@ -346,8 +350,8 @@ class JtnFilingScript:
         self._set_input(page, "customer_callNo", client.phone or "/")
 
         # ── 4. 固定默认值下拉框 ──
-        self._set_chosen(page, "customer_country", "01")    # 中国
-        self._set_chosen(page, "customer_Source", "01")      # 主动开拓获得客户
+        self._set_chosen(page, "customer_country", "01")  # 中国
+        self._set_chosen(page, "customer_Source", "01")  # 主动开拓获得客户
 
         if is_natural:
             self._fill_natural_person(page, client)
@@ -355,32 +359,40 @@ class JtnFilingScript:
             self._fill_enterprise(page, client)
 
         # ── 5. 点击确定提交（使用原生 click 确保事件冒泡到委托处理器） ──
-        self._eval_create_iframe(page, """() => {
+        self._eval_create_iframe(
+            page,
+            """() => {
             const doc = iframe.contentDocument;
             const btn = doc.getElementById('btnSaveCustomer');
             if (btn) btn.click();
-        }""")
+        }""",
+        )
         time.sleep(_MEDIUM_WAIT)
         logger.info("已提交创建客户: %s (%s)", client.name, client.client_type)
 
     def _fill_enterprise(self, page: Page, client: ClientInfo) -> None:
         """填充企业类型特有的必填字段。"""
-        self._set_chosen(page, "customer_is_IPO", "0")              # 否
-        self._set_chosen(page, "customer_is_FiveQ", "0")            # 否
-        self._set_chosen(page, "customer_is_ChinaTopFiveH", "0")    # 否
+        self._set_chosen(page, "customer_is_IPO", "0")  # 否
+        self._set_chosen(page, "customer_is_FiveQ", "0")  # 否
+        self._set_chosen(page, "customer_is_ChinaTopFiveH", "0")  # 否
 
         # 行业 - 随便选"批发和零售业"，触发 change 加载行业细分
-        self._eval_create_iframe(page, """() => {
+        self._eval_create_iframe(
+            page,
+            """() => {
             const $ = iframe.contentWindow.jQuery;
             const doc = iframe.contentDocument;
             $('#customer_hangye', doc).val('06');
             $('#customer_hangye', doc).trigger('chosen:updated');
             $('#customer_hangye', doc).trigger('change');
-        }""")
+        }""",
+        )
         time.sleep(_AJAX_WAIT)
 
         # 行业细分 - 选第一个非空选项
-        self._eval_create_iframe(page, """() => {
+        self._eval_create_iframe(
+            page,
+            """() => {
             const $ = iframe.contentWindow.jQuery;
             const doc = iframe.contentDocument;
             const opts = $('#customer_hangye_zj option', doc);
@@ -388,13 +400,15 @@ class JtnFilingScript:
                 $('#customer_hangye_zj', doc).val(opts.eq(1).val());
                 $('#customer_hangye_zj', doc).trigger('chosen:updated');
             }
-        }""")
+        }""",
+        )
 
         # 法定代表人信息
-        self._set_chosen(page, "customer_Statutory", "01")           # 法定代表人
-        self._set_chosen(page, "customer_Statutory_Positions", "01") # 董事长
+        self._set_chosen(page, "customer_Statutory", "01")  # 法定代表人
+        self._set_chosen(page, "customer_Statutory_Positions", "01")  # 董事长
         self._set_input(
-            page, "customer_Statutory_name",
+            page,
+            "customer_Statutory_name",
             client.legal_representative or "/",
         )
         self._set_input(page, "customer_Statutory_tel", "/")
@@ -409,15 +423,20 @@ class JtnFilingScript:
         self._set_input(page, "customer_PersonCard", id_number)
         # 出生日期由 OA 页面的 getBirth 事件自动从身份证号提取，
         # 但需要触发 blur 事件
-        self._eval_create_iframe(page, """() => {
+        self._eval_create_iframe(
+            page,
+            """() => {
             const $ = iframe.contentWindow.jQuery;
             const doc = iframe.contentDocument;
             $('#customer_PersonCard', doc).trigger('blur');
-        }""")
+        }""",
+        )
         time.sleep(_SHORT_WAIT)
 
         # 如果出生日期仍为空，手动从身份证号提取
-        self._eval_create_iframe(page, f"""() => {{
+        self._eval_create_iframe(
+            page,
+            f"""() => {{
             const $ = iframe.contentWindow.jQuery;
             const doc = iframe.contentDocument;
             if (!$('#customer_PersonBirth', doc).val()) {{
@@ -429,11 +448,13 @@ class JtnFilingScript:
                     $('#customer_PersonBirth', doc).val(y + '-' + m + '-' + d);
                 }}
             }}
-        }}""")
+        }}""",
+        )
 
         # 身份证地址 = 客户地址
         self._set_input(
-            page, "customer_PersonAddress",
+            page,
+            "customer_PersonAddress",
             client.address or "/",
         )
 
@@ -458,7 +479,8 @@ class JtnFilingScript:
         if info.manager_id:
             self._set_select(page, f"{_p}manager_id", info.manager_id)
         else:
-            page.evaluate(f"""(name) => {{
+            page.evaluate(
+                f"""(name) => {{
                 const sel = document.getElementById('{_p}manager_id');
                 if (!sel) return;
                 for (let i = 0; i < sel.options.length; i++) {{
@@ -468,7 +490,9 @@ class JtnFilingScript:
                         break;
                     }}
                 }}
-            }}""", info.manager_name)
+            }}""",
+                info.manager_name,
+            )
         time.sleep(_AJAX_WAIT)
 
         # 案件类型（触发 stage + kindtype 加载）
@@ -514,20 +538,25 @@ class JtnFilingScript:
         start_date: str = info.start_date
         if not start_date:
             from datetime import date as _date
+
             start_date = _date.today().isoformat()
         self._set_field(page, f"{_p}start_date", start_date)
 
         # 客户联系人（name 带动态 GUID，用 name 属性前缀匹配）
         if info.contact_name:
-            page.evaluate(f"""() => {{
+            page.evaluate(
+                f"""() => {{
                 var el = document.querySelector('input[name*="pro_pl_name"]');
                 if (el) el.value = {self._js_str(info.contact_name)};
-            }}""")
+            }}"""
+            )
         if info.contact_phone:
-            page.evaluate(f"""() => {{
+            page.evaluate(
+                f"""() => {{
                 var el = document.querySelector('input[name*="pro_pl_phone"]');
                 if (el) el.value = {self._js_str(info.contact_phone)};
-            }}""")
+            }}"""
+            )
 
         logger.info("案件信息填写完成")
 
@@ -556,14 +585,19 @@ class JtnFilingScript:
                 time.sleep(_MEDIUM_WAIT)
 
             # 获取第 idx 个利冲条目的 GUID
-            guid: str = page.evaluate(f"""() => {{
+            guid: str = (
+                page.evaluate(
+                    f"""() => {{
                 var tables = document.querySelectorAll(
                     '#divConfict table[id^="table_confilct_"]'
                 );
                 var t = tables[{idx}];
                 if (!t) return '';
                 return t.id.replace('table_confilct_', '');
-            }}""") or ""
+            }}"""
+                )
+                or ""
+            )
 
             if not guid:
                 logger.info("未找到第 %d 条利冲条目", idx + 1)
@@ -611,6 +645,7 @@ class JtnFilingScript:
             self._set_field(page, f"{_p}amount", info.amount)
 
         logger.info("合同信息填写完成")
+
     def _save_draft(self) -> None:
         """点击存草稿按钮。
 
@@ -625,9 +660,7 @@ class JtnFilingScript:
         # 覆盖 confirm，自动返回 true
         page.evaluate("window.confirm = () => true")
 
-        page.click(
-            "#ctl00_ctl00_mainContentPlaceHolder_projmainPlaceHolder_btnSave"
-        )
+        page.click("#ctl00_ctl00_mainContentPlaceHolder_projmainPlaceHolder_btnSave")
         time.sleep(_MEDIUM_WAIT)
 
         page.wait_for_load_state("domcontentloaded", timeout=15_000)
@@ -650,7 +683,9 @@ class JtnFilingScript:
         每次打开搜索弹窗，iframe ID 会递增（100002, 100003, ...）。
         取 ID 最大的那个即为当前弹窗。
         """
-        iframe_id: str = page.evaluate("""() => {
+        iframe_id: str = (
+            page.evaluate(
+                """() => {
             const iframes = document.querySelectorAll('iframe[id^="layui-layer-iframe"]');
             if (iframes.length === 0) return '';
             let maxId = '';
@@ -663,7 +698,10 @@ class JtnFilingScript:
                 }
             }
             return maxId;
-        }""") or ""
+        }"""
+            )
+            or ""
+        )
         if not iframe_id:
             logger.warning("未找到 layui-layer-iframe，回退到默认 ID")
             iframe_id = "layui-layer-iframe100002"
@@ -672,27 +710,36 @@ class JtnFilingScript:
 
     def _set_select(self, page: Page, element_id: str, value: str) -> None:
         """设置主页面 select 的值并触发 change 事件（非 Chosen.js）。"""
-        page.evaluate(f"""(val) => {{
+        page.evaluate(
+            f"""(val) => {{
             var el = document.getElementById('{element_id}');
             if (el) {{
                 el.value = val;
                 el.dispatchEvent(new Event('change', {{bubbles: true}}));
             }}
-        }}""", value)
+        }}""",
+            value,
+        )
 
     def _set_field(self, page: Page, element_id: str, value: str) -> None:
         """通过 id 设置 input/textarea 的值。"""
-        page.evaluate(f"""(val) => {{
+        page.evaluate(
+            f"""(val) => {{
             var el = document.getElementById('{element_id}');
             if (el) el.value = val;
-        }}""", value)
+        }}""",
+            value,
+        )
 
     def _set_field_by_name(self, page: Page, name: str, value: str) -> None:
         """通过 name 属性设置 select/input 的值。"""
-        page.evaluate(f"""(val) => {{
+        page.evaluate(
+            f"""(val) => {{
             var el = document.querySelector('[name="{name}"]');
             if (el) el.value = val;
-        }}""", value)
+        }}""",
+            value,
+        )
 
     @staticmethod
     def _js_str(value: str) -> str:
@@ -717,18 +764,26 @@ class JtnFilingScript:
 
     def _set_chosen(self, page: Page, field_id: str, value: str) -> None:
         """设置 Chosen.js 下拉框的值并触发更新事件。"""
-        self._eval_create_iframe(page, f"""(val) => {{
+        self._eval_create_iframe(
+            page,
+            f"""(val) => {{
             const $ = iframe.contentWindow.jQuery;
             const doc = iframe.contentDocument;
             $('#{field_id}', doc).val(val);
             $('#{field_id}', doc).trigger('chosen:updated');
             $('#{field_id}', doc).trigger('change');
-        }}""", value)
+        }}""",
+            value,
+        )
 
     def _set_input(self, page: Page, field_id: str, value: str) -> None:
         """通过 jQuery 设置输入框的值。"""
-        self._eval_create_iframe(page, f"""(val) => {{
+        self._eval_create_iframe(
+            page,
+            f"""(val) => {{
             const $ = iframe.contentWindow.jQuery;
             const doc = iframe.contentDocument;
             $('#{field_id}', doc).val(val);
-        }}""", value)
+        }}""",
+            value,
+        )

@@ -7,9 +7,8 @@
 
 import re
 import sys
-from typing import List, Tuple
-
 from pathlib import Path
+from typing import List, Tuple
 
 # 添加项目根目录到 Python 路径
 project_root = Path(__file__).resolve().parent.parent.parent

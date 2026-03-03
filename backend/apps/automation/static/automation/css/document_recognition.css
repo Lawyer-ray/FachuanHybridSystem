@@ -1,6 +1,6 @@
 /**
  * 法院文书智能识别 - 样式文件
- * 
+ *
  * 实现拖拽区域、结果展示等样式
  */
 
@@ -396,28 +396,28 @@
     .document-recognition-page {
         padding: 15px;
     }
-    
+
     .drop-zone {
         padding: 40px 20px;
     }
-    
+
     .main-text {
         font-size: 16px;
     }
-    
+
     .result-item {
         flex-direction: column;
         gap: 5px;
     }
-    
+
     .result-item label {
         min-width: auto;
     }
-    
+
     .result-actions {
         flex-direction: column;
     }
-    
+
     .btn {
         width: 100%;
         text-align: center;
@@ -734,17 +734,17 @@
     .manual-binding-section {
         padding: 15px;
     }
-    
+
     .case-info {
         flex-direction: column;
         gap: 5px;
     }
-    
+
     .binding-actions {
         flex-direction: column;
         align-items: flex-start;
     }
-    
+
     .binding-actions .btn {
         width: 100%;
     }

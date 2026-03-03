@@ -1,6 +1,5 @@
 """文书下载与 SMS 处理逻辑"""
 
-from django.utils.translation import gettext_lazy as _
 import logging
 import queue
 import tempfile
@@ -9,6 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 from apps.automation.services.document_delivery.data_classes import (
     DocumentDeliveryRecord,

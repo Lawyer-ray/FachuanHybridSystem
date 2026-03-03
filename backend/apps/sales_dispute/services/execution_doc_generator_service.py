@@ -18,13 +18,7 @@ from .lawyer_letter_generator_service import GeneratedDocument
 
 logger = logging.getLogger(__name__)
 
-TEMPLATE_DIR: Path = (
-    Path(__file__).resolve().parents[3]
-    / "documents"
-    / "docx_templates"
-    / "2-案件材料"
-    / "3-催收材料"
-)
+TEMPLATE_DIR: Path = Path(__file__).resolve().parents[3] / "documents" / "docx_templates" / "2-案件材料" / "3-催收材料"
 
 
 class ExecutionDocType(str, Enum):
@@ -131,9 +125,7 @@ class AddExecuteeParams:
 class ExecutionDocGeneratorService:
     """执行阶段文书生成服务"""
 
-    def generate_enforcement(
-        self, params: EnforcementParams
-    ) -> GeneratedDocument:
+    def generate_enforcement(self, params: EnforcementParams) -> GeneratedDocument:
         """生成强制执行申请书"""
         today_str = date.today().strftime("%Y年%m月%d日")
         context: dict[str, Any] = {
@@ -145,18 +137,14 @@ class ExecutionDocGeneratorService:
             "respondent_id_number": params.respondent_id_number,
             "judgment_number": params.judgment_number,
             "execution_amount": f"{params.execution_amount:,.2f}",
-            "execution_requests": params.execution_requests.replace(
-                "\n", "\a"
-            ),
+            "execution_requests": params.execution_requests.replace("\n", "\a"),
             "date": today_str,
         }
 
         doc_type = ExecutionDocType.ENFORCEMENT
         content = self._render(doc_type, context)
         filename = self._generate_filename(doc_type, params.case_id)
-        self._log_generation(
-            params.case_id, _DOC_TYPE_DISPLAY[doc_type], filename
-        )
+        self._log_generation(params.case_id, _DOC_TYPE_DISPLAY[doc_type], filename)
 
         logger.info(
             "生成强制执行申请书：案件=%s, 文件=%s",
@@ -165,16 +153,11 @@ class ExecutionDocGeneratorService:
         )
         return GeneratedDocument(filename=filename, content=content)
 
-    def generate_property_investigation(
-        self, params: PropertyInvestigationParams
-    ) -> GeneratedDocument:
+    def generate_property_investigation(self, params: PropertyInvestigationParams) -> GeneratedDocument:
         """生成财产调查申请书"""
         today_str = date.today().strftime("%Y年%m月%d日")
 
-        property_types_text = "、".join(
-            _PROPERTY_TYPE_DISPLAY.get(pt, pt)
-            for pt in params.property_types
-        )
+        property_types_text = "、".join(_PROPERTY_TYPE_DISPLAY.get(pt, pt) for pt in params.property_types)
 
         context: dict[str, Any] = {
             "applicant_name": params.applicant_name,
@@ -189,9 +172,7 @@ class ExecutionDocGeneratorService:
         doc_type = ExecutionDocType.PROPERTY_INVESTIGATION
         content = self._render(doc_type, context)
         filename = self._generate_filename(doc_type, params.case_id)
-        self._log_generation(
-            params.case_id, _DOC_TYPE_DISPLAY[doc_type], filename
-        )
+        self._log_generation(params.case_id, _DOC_TYPE_DISPLAY[doc_type], filename)
 
         logger.info(
             "生成财产调查申请书：案件=%s, 文件=%s",
@@ -200,9 +181,7 @@ class ExecutionDocGeneratorService:
         )
         return GeneratedDocument(filename=filename, content=content)
 
-    def generate_spending_restriction(
-        self, params: SpendingRestrictionParams
-    ) -> GeneratedDocument:
+    def generate_spending_restriction(self, params: SpendingRestrictionParams) -> GeneratedDocument:
         """生成限制高消费申请书"""
         today_str = date.today().strftime("%Y年%m月%d日")
         context: dict[str, Any] = {
@@ -219,9 +198,7 @@ class ExecutionDocGeneratorService:
         doc_type = ExecutionDocType.SPENDING_RESTRICTION
         content = self._render(doc_type, context)
         filename = self._generate_filename(doc_type, params.case_id)
-        self._log_generation(
-            params.case_id, _DOC_TYPE_DISPLAY[doc_type], filename
-        )
+        self._log_generation(params.case_id, _DOC_TYPE_DISPLAY[doc_type], filename)
 
         logger.info(
             "生成限制高消费申请书：案件=%s, 文件=%s",
@@ -230,15 +207,11 @@ class ExecutionDocGeneratorService:
         )
         return GeneratedDocument(filename=filename, content=content)
 
-    def generate_add_executee(
-        self, params: AddExecuteeParams
-    ) -> GeneratedDocument:
+    def generate_add_executee(self, params: AddExecuteeParams) -> GeneratedDocument:
         """生成追加被执行人申请书"""
         today_str = date.today().strftime("%Y年%m月%d日")
 
-        add_reason_text = _ADD_REASON_DISPLAY.get(
-            params.add_reason, params.add_reason
-        )
+        add_reason_text = _ADD_REASON_DISPLAY.get(params.add_reason, params.add_reason)
 
         context: dict[str, Any] = {
             "applicant_name": params.applicant_name,
@@ -256,9 +229,7 @@ class ExecutionDocGeneratorService:
         doc_type = ExecutionDocType.ADD_EXECUTEE
         content = self._render(doc_type, context)
         filename = self._generate_filename(doc_type, params.case_id)
-        self._log_generation(
-            params.case_id, _DOC_TYPE_DISPLAY[doc_type], filename
-        )
+        self._log_generation(params.case_id, _DOC_TYPE_DISPLAY[doc_type], filename)
 
         logger.info(
             "生成追加被执行人申请书：案件=%s, 文件=%s",
@@ -267,9 +238,7 @@ class ExecutionDocGeneratorService:
         )
         return GeneratedDocument(filename=filename, content=content)
 
-    def _render(
-        self, doc_type: ExecutionDocType, context: dict[str, object]
-    ) -> bytes:
+    def _render(self, doc_type: ExecutionDocType, context: dict[str, object]) -> bytes:
         """
         通用渲染方法：
         1. 根据 doc_type 查找模板文件
@@ -283,22 +252,16 @@ class ExecutionDocGeneratorService:
 
         if not template_path.exists():
             raise ValidationException(
-                message=_("模板文件不存在：%(path)s")
-                % {"path": str(template_path)},
+                message=_("模板文件不存在：%(path)s") % {"path": str(template_path)},
                 code="TEMPLATE_NOT_FOUND",
             )
 
         renderer = DocxRenderer()
         return renderer.render(str(template_path), context)
 
-    def _log_generation(
-        self, case_id: int, doc_type: str, filename: str
-    ) -> None:
+    def _log_generation(self, case_id: int, doc_type: str, filename: str) -> None:
         """创建 CollectionLog 记录"""
-        from apps.sales_dispute.models.collection_record import (
-            CollectionLog,
-            CollectionRecord,
-        )
+        from apps.sales_dispute.models.collection_record import CollectionLog, CollectionRecord
 
         try:
             record = CollectionRecord.objects.get(case_id=case_id)
@@ -306,20 +269,14 @@ class ExecutionDocGeneratorService:
                 record=record,
                 action_type="litigation",
                 action_date=date.today(),
-                description=str(
-                    _("生成%(doc_type)s") % {"doc_type": doc_type}
-                ),
+                description=str(_("生成%(doc_type)s") % {"doc_type": doc_type}),
                 document_type=doc_type,
                 document_filename=filename,
             )
         except CollectionRecord.DoesNotExist:
-            logger.warning(
-                "案件 %s 无催收记录，跳过日志创建", case_id
-            )
+            logger.warning("案件 %s 无催收记录，跳过日志创建", case_id)
 
-    def _generate_filename(
-        self, doc_type: ExecutionDocType, case_id: int
-    ) -> str:
+    def _generate_filename(self, doc_type: ExecutionDocType, case_id: int) -> str:
         """生成文件名：{文书类型}-{案件ID}-{日期}.docx"""
         display = _DOC_TYPE_DISPLAY[doc_type]
         date_str = date.today().strftime("%Y%m%d")

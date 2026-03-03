@@ -204,7 +204,7 @@ class FeeComparisonService:
         keyword = keyword.strip()
 
         # 使用 case_service 搜索案件
-        case_dtos = self.case_service.search_cases_internal(keyword, limit=limit) # type: ignore
+        case_dtos = self.case_service.search_cases_internal(keyword, limit=limit)  # type: ignore
 
         case_ids: list[Any] = []
         case_number_map: dict[int, str | None] = {}

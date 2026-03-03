@@ -22,14 +22,16 @@ class Command(BaseCommand):
         # 检查表大小
         self.stdout.write(self.style.WARNING("表大小统计:"))
         with connection.cursor() as cursor:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT
                     name,
                     (SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND tbl_name=m.name) as index_count
                 FROM sqlite_master m
                 WHERE type='table' AND name NOT LIKE 'sqlite_%'
                 ORDER BY name;
-            """)
+            """
+            )
             for row in cursor.fetchall():
                 table_name, index_count = row
                 cursor.execute(f"SELECT COUNT(*) FROM {table_name}")  # nosec B608
@@ -39,12 +41,14 @@ class Command(BaseCommand):
         # 检查未使用的索引
         self.stdout.write(self.style.WARNING("\n索引列表:"))
         with connection.cursor() as cursor:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT name, tbl_name, sql
                 FROM sqlite_master
                 WHERE type='index' AND name NOT LIKE 'sqlite_%'
                 ORDER BY tbl_name, name;
-            """)
+            """
+            )
             for row in cursor.fetchall():
                 index_name, table_name, sql = row
                 self.stdout.write(f"  [{table_name}] {index_name}")

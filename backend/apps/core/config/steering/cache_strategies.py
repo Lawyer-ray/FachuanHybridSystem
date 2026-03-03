@@ -10,6 +10,7 @@ Steering 缓存策略实现
 Requirements: 8.2
 """
 
+import contextlib
 import logging
 import os
 import threading
@@ -18,7 +19,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
-import contextlib
 
 logger = logging.getLogger(__name__)
 

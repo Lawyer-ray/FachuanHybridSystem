@@ -20,11 +20,7 @@ def build_court_sms_service_ctx() -> ICourtSMSService:
 
     from .automation_adapters import build_document_processing_service
     from .automation_sms_wiring import build_court_sms_service_with_deps
-    from .business_case import (
-        build_case_chat_service,
-        build_case_log_service,
-        build_case_number_service,
-    )
+    from .business_case import build_case_chat_service, build_case_log_service, build_case_number_service
     from .business_organization import build_reminder_service
 
     return build_court_sms_service_with_deps(

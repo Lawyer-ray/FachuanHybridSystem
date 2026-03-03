@@ -26,32 +26,32 @@ def quick_recognize(
     files: list[UploadedFile] = File(...),  # type: ignore[type-arg]
 ) -> dict[str, Any]:
     """快速识别发票文件（不创建任务）
-    
+
     接收多个发票文件，直接返回识别结果，不保存到数据库。
     用于合同付款页面的实时发票识别。
-    
+
     Args:
         request: HTTP 请求对象
         files: 上传的发票文件列表
-        
+
     Returns:
         包含识别结果列表的字典
-        
+
     Raises:
         HttpError: 400 - 未提供文件
         HttpError: 500 - 服务器内部错误
     """
     if not files:
         raise HttpError(400, _("未提供文件"))
-    
+
     service = _get_quick_recognition_service()
-    
+
     try:
         results = service.recognize_files(files)
     except Exception as exc:
         logger.error("快速识别失败: %s", exc, exc_info=True)
         raise HttpError(500, _("服务器内部错误"))
-    
+
     # 序列化结果
     results_data: list[dict[str, Any]] = []
     for result in results:
@@ -59,19 +59,19 @@ def quick_recognize(
             "filename": result.filename,
             "success": result.success,
         }
-        
+
         if result.success and result.data:
             # 序列化 ParsedInvoice 数据
             import datetime
             from decimal import Decimal
-            
+
             def _serialize_value(value: Any) -> Any:
                 if isinstance(value, (datetime.datetime, datetime.date)):
                     return str(value)
                 if isinstance(value, Decimal):
                     return str(value)
                 return value
-            
+
             result_dict["data"] = {
                 "invoice_code": _serialize_value(result.data.invoice_code),
                 "invoice_number": _serialize_value(result.data.invoice_number),
@@ -86,9 +86,9 @@ def quick_recognize(
             }
         else:
             result_dict["error"] = result.error
-        
+
         results_data.append(result_dict)
-    
+
     return {"results": results_data}
 
 

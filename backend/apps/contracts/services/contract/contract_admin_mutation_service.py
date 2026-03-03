@@ -135,7 +135,9 @@ class ContractAdminMutationService:
             raise ValidationException(
                 message=_("该合同类型不支持创建案件"),
                 code="INVALID_CONTRACT_TYPE",
-                errors={"case_type": _("合同类型 %(type)s 不支持创建案件") % {"type": contract.get_case_type_display()}},
+                errors={
+                    "case_type": _("合同类型 %(type)s 不支持创建案件") % {"type": contract.get_case_type_display()}
+                },
             )
 
         from apps.core.enums import SimpleCaseType
@@ -177,7 +179,9 @@ class ContractAdminMutationService:
             raise ValidationException(
                 message=_("只有常法顾问合同才能续签"),
                 code="INVALID_CONTRACT_TYPE",
-                errors={"case_type": _("合同类型为 %(type)s，不是常法顾问合同") % {"type": original.get_case_type_display()}},
+                errors={
+                    "case_type": _("合同类型为 %(type)s，不是常法顾问合同") % {"type": original.get_case_type_display()}
+                },
             )
 
         new_start_date = original.start_date + relativedelta(years=1) if original.start_date else None

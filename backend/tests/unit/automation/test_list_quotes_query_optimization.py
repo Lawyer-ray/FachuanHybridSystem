@@ -147,9 +147,9 @@ class TestListQuotesQueryOptimization:
 
         # 访问预加载的关系不应该产生额外查询
         additional_queries = len(connection.queries)
-        assert additional_queries == 0, (
-            f"访问预加载的关系产生了 {additional_queries} 次额外查询！这表明 prefetch_related 没有正确工作。"
-        )
+        assert (
+            additional_queries == 0
+        ), f"访问预加载的关系产生了 {additional_queries} 次额外查询！这表明 prefetch_related 没有正确工作。"
 
     @override_settings(DEBUG=True)
     def test_list_quotes_query_count_baseline(self, service, mock_credential):

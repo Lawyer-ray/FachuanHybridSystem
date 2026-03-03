@@ -4,9 +4,10 @@
 提供自动命名服务的统一接口实现
 """
 
-from django.utils.translation import gettext_lazy as _
 import logging
 from typing import Any
+
+from django.utils.translation import gettext_lazy as _
 
 from apps.automation.services.ai.ollama_client import chat as ollama_chat
 from apps.automation.services.ai.prompts import DEFAULT_FILENAME_PROMPT
@@ -37,6 +38,7 @@ class AutoNamerServiceAdapter(IAutoNamerService):
         """获取文档处理服务（延迟加载）"""
         if self._document_service is None:
             from apps.core.interfaces import ServiceLocator  # 延迟导入，避免循环依赖
+
             self._document_service = ServiceLocator.get_document_processing_service()
         return self._document_service
 

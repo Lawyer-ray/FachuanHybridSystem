@@ -97,11 +97,9 @@ class Contract(models.Model):
 
     def clean(self) -> None:
         from apps.contracts.validators import normalize_representation_stages
-
         from apps.core.exceptions import ValidationException
 
         ctype = getattr(self, "case_type", None)
         rep = getattr(self, "representation_stages", None)
         with contextlib.suppress(ValidationException):
             self.representation_stages = normalize_representation_stages(ctype, rep, strict=False)
-

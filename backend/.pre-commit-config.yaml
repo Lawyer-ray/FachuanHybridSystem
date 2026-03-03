@@ -24,15 +24,6 @@ repos:
       - id: mixed-line-ending
         args: ['--fix=lf']
 
-  # Python code formatting
-  - repo: https://github.com/psf/black
-    rev: 24.10.0
-    hooks:
-      - id: black
-        language_version: python3.12
-        args: ['--line-length=120']
-        exclude: ^.*/(migrations|\.venv)/.*$
-
   # Import sorting
   - repo: https://github.com/PyCQA/isort
     rev: 5.13.2
@@ -46,7 +37,7 @@ repos:
     rev: v0.15.0
     hooks:
       - id: ruff-check
-        args: ['--config=backend/ruff.toml', '--fix', '--exit-non-zero-on-fix']
+        args: ['--config=backend/ruff.toml', '--fix']
         files: ^backend/(apps|apiSystem)/.*\.py$
         exclude: ^.*/(migrations|\.venv)/.*$
       - id: ruff-format
@@ -54,18 +45,10 @@ repos:
         files: ^backend/(apps|apiSystem)/.*\.py$
         exclude: ^.*/(migrations|\.venv)/.*$
 
-  # Type checking
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.8.0
-    hooks:
-      - id: mypy
-        files: ^backend/(apps/.*\.py|apiSystem/apiSystem/.*\.py)$
-        args: ['--config-file=backend/mypy.ini']
-        exclude: ^.*/(migrations|tests|\.venv)/.*$
-        additional_dependencies: [
-          'django-stubs',
-          'django-stubs-ext',
-        ]
+  # Type checking (handled by dedicated CI job, skip in pre-commit to avoid env issues)
+  # - repo: local
+  #   hooks:
+  #     - id: mypy
 
   # Secrets scanning
   - repo: https://github.com/Yelp/detect-secrets

@@ -9,6 +9,7 @@ from apps.core.path import Path
 
 def ensure_output_dir() -> Any:
     from django.conf import settings
+
     media_root = getattr(settings, "MEDIA_ROOT", None)
     if not media_root:
         raise RuntimeError("MEDIA_ROOT 未配置")

@@ -22,16 +22,19 @@ def _body(request: HttpRequest) -> dict[str, Any]:
 
 def _get_pdf_service() -> Any:
     from apps.automation.services.image_rotation.pdf_extraction_service import PDFExtractionService
+
     return PDFExtractionService()
 
 
 def _get_rotation_service() -> Any:
     from apps.automation.services.image_rotation.facade import ImageRotationService
+
     return ImageRotationService()
 
 
 def _get_rename_service() -> Any:
     from apps.automation.services.image_rotation.auto_rename_service import AutoRenameService
+
     return AutoRenameService()
 
 
@@ -76,6 +79,7 @@ def detect_orientation(request: HttpRequest) -> dict[str, Any]:
             if "," in data:
                 data = data.split(",", 1)[1]
             import base64 as _b64
+
             image_bytes = _b64.b64decode(data)
             result: dict[str, Any] = pdf_service.orientation_service.detect_orientation_with_text(image_bytes)
             result["filename"] = img.get("filename", "")
@@ -160,11 +164,13 @@ def _handle_multipart_export_pdf(request: HttpRequest) -> dict[str, Any]:
                 filename = request.POST.get(f"filename_{idx}", file_obj.name)
 
                 image_data = base64.b64encode(file_obj.read()).decode("utf-8")
-                pages.append({
-                    "filename": filename,
-                    "data": image_data,
-                    "rotation": 0,
-                })
+                pages.append(
+                    {
+                        "filename": filename,
+                        "data": image_data,
+                        "rotation": 0,
+                    }
+                )
 
         if not pages:
             return {"success": False, "message": "没有页面数据"}
@@ -211,11 +217,13 @@ def _handle_multipart_export(request: HttpRequest) -> dict[str, Any]:
                 format_type = request.POST.get(f"format_{idx}", "jpeg")
 
                 image_data = base64.b64encode(file_obj.read()).decode("utf-8")
-                images.append({
-                    "filename": filename,
-                    "data": image_data,
-                    "format": format_type,
-                })
+                images.append(
+                    {
+                        "filename": filename,
+                        "data": image_data,
+                        "format": format_type,
+                    }
+                )
 
         if not images:
             return {"success": False, "message": "没有图片数据"}

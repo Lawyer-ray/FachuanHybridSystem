@@ -24,7 +24,7 @@ def get_ai_configs() -> list[dict[str, Any]]:
             "key": "OLLAMA_MODEL",
             "category": "ai",
             "description": "Ollama 模型名称",
-            "value": "qwen3:0.6b",
+            "value": "qwen3.5:0.8b",
             "is_secret": False,
         },
         {

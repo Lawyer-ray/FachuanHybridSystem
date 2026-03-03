@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import logging
@@ -19,7 +18,9 @@ logger = logging.getLogger("apps.organization")
 
 
 class LawyerMutationService:
-    def __init__(self, access_policy: OrganizationAccessPolicy, upload_service: LawyerUploadService | None = None) -> None:
+    def __init__(
+        self, access_policy: OrganizationAccessPolicy, upload_service: LawyerUploadService | None = None
+    ) -> None:
         self.access_policy = access_policy
         self.upload_service = upload_service or LawyerUploadService()
 

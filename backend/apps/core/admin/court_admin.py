@@ -179,8 +179,7 @@ class CourtAdmin(admin.ModelAdmin[Court]):
                     messages.warning(request, warning)
             else:
                 msg = (
-                    f"法院数据初始化部分失败.新增 {result.created} 条,"
-                    f"更新 {result.updated} 条,失败 {result.failed} 条."
+                    f"法院数据初始化部分失败.新增 {result.created} 条,更新 {result.updated} 条,失败 {result.failed} 条."
                 )
                 messages.warning(request, msg)
                 for error in result.errors[:5]:

@@ -89,6 +89,7 @@ class ReminderOut(SchemaMixin, Schema):
     def resolve_updated_at(obj: Reminder) -> str:
         return SchemaMixin._resolve_datetime_iso(obj.updated_at) or ""
 
+
 class ReminderTypeItem(Schema):
     value: str
     label: str

@@ -77,7 +77,7 @@ class InvoiceInline(BaseTabularInline):  # type: ignore[type-arg]
         "total_amount",
     )
     readonly_fields: ClassVar = ("file_link",)
-    
+
     # 隐藏 verbose_name_plural，避免显示识别结果
     verbose_name = _("发票")
     verbose_name_plural = _("发票")
@@ -91,7 +91,7 @@ class InvoiceInline(BaseTabularInline):  # type: ignore[type-arg]
         # 确保 file_path 不为空字符串
         if not obj.file_path.strip():
             return "-"
-            
+
         url = f"{settings.MEDIA_URL}{obj.file_path}"
         return format_html('<a href="{}" target="_blank">{}</a>', url, obj.original_filename or _("查看"))
 

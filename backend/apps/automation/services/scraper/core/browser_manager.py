@@ -4,15 +4,16 @@
 Requirements: 1.1, 1.2, 1.3, 1.4, 1.5
 """
 
-from django.utils.translation import gettext_lazy as _
 import logging
 from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Any
 
+from django.utils.translation import gettext_lazy as _
 from playwright.sync_api import Browser, BrowserContext, Page, Playwright, sync_playwright
 
 from apps.automation.services.scraper.config.browser_config import BrowserConfig
+
 from .exceptions import BrowserCreationError
 
 logger = logging.getLogger("apps.automation")

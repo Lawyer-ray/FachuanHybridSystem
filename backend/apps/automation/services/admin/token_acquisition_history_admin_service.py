@@ -3,7 +3,6 @@ Token获取历史记录 Admin Service
 负责处理Token获取历史记录的复杂管理逻辑
 """
 
-from django.utils.translation import gettext_lazy as _
 import csv
 import logging
 from datetime import datetime, timedelta
@@ -13,10 +12,10 @@ from django.db import transaction
 from django.db.models import Avg, Count, Q, QuerySet
 from django.http import HttpResponse
 from django.utils import timezone
-
-from apps.core.exceptions import BusinessException, ValidationException
+from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import TokenAcquisitionHistory, TokenAcquisitionStatus
+from apps.core.exceptions import BusinessException, ValidationException
 
 
 class TokenAcquisitionHistoryAdminService:

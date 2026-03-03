@@ -113,7 +113,9 @@ class CourtSMSAdminActions:
             if sms.case_numbers:
                 for case_number in sms.case_numbers:
                     if case_number.strip():
-                        suggested_cases.extend(case_service.search_cases_by_case_number_internal(case_number.strip())[:5])
+                        suggested_cases.extend(
+                            case_service.search_cases_by_case_number_internal(case_number.strip())[:5]
+                        )
             seen_ids: set[int] = set()
             unique: list[Any] = []
             for case in suggested_cases:

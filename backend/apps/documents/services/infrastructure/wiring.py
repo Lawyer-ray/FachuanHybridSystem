@@ -3,6 +3,7 @@ Infrastructure wiring - 服务依赖注入配置
 
 此模块提供 documents services 所需的各种服务实例。
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -73,8 +74,6 @@ def get_matching_service() -> Any:
 
 def get_evidence_list_placeholder_service() -> Any:
     """获取证据清单占位符服务实例"""
-    from apps.evidence.services.evidence_list_placeholder_service import (
-        EvidenceListPlaceholderService,
-    )
+    from apps.evidence.services.evidence_list_placeholder_service import EvidenceListPlaceholderService
 
     return EvidenceListPlaceholderService()

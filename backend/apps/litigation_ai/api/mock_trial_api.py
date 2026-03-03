@@ -25,6 +25,7 @@ router = Router(tags=["模拟庭审"], auth=JWTOrSessionAuth())
 
 def _get_service() -> Any:
     from apps.litigation_ai.services import LitigationConversationService
+
     return LitigationConversationService()
 
 
@@ -35,6 +36,7 @@ def _get_service() -> Any:
 @rate_limit_from_settings("TASK", by_user=True)
 def create_session(request: HttpRequest, payload: CreateMockTrialSessionRequest) -> Any:
     from apps.litigation_ai.models import LitigationSession
+
     user = getattr(request, "user", None)
     session = LitigationSession.objects.create(
         case_id=payload.case_id,
@@ -56,9 +58,7 @@ def create_session(request: HttpRequest, payload: CreateMockTrialSessionRequest)
 
 
 @router.get("/sessions", response={200: MockTrialSessionListResponse, 403: ErrorResponse})
-def list_sessions(
-    request: HttpRequest, case_id: int | None = None, limit: int = 20, offset: int = 0
-) -> Any:
+def list_sessions(request: HttpRequest, case_id: int | None = None, limit: int = 20, offset: int = 0) -> Any:
     service = _get_service()
     user = getattr(request, "user", None)
     data = service.list_sessions(
@@ -100,6 +100,7 @@ def get_session(request: HttpRequest, session_id: str) -> Any:
 )
 def get_report(request: HttpRequest, session_id: str) -> Any:
     from asgiref.sync import async_to_sync
+
     from apps.litigation_ai.services.mock_trial.report_service import MockTrialReportService
 
     report_data = async_to_sync(MockTrialReportService().get_report)(session_id)

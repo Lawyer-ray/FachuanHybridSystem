@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from django.utils.translation import gettext_lazy as _
 from collections.abc import Sequence
 from typing import Any
 
 from django.db import models, transaction
+from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import (
     CaseLogAttachment,
@@ -138,7 +138,7 @@ class CaseMaterialBindingWorkflow:
                 output_field=models.IntegerField(),
             )
         )
-        t: CaseMaterialType | None = qs.first() # type: ignore
+        t: CaseMaterialType | None = qs.first()  # type: ignore
         if t is not None:
             return t
         return CaseMaterialType.objects.create(

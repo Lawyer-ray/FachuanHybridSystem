@@ -22,7 +22,6 @@ logger = logging.getLogger("apps.organization")
 
 
 class AccountCredentialService:
-
     SITE_URL_MAPPING: ClassVar[dict[str, str]] = {
         "court_zxfw": "zxfw.court.gov.cn",
     }
@@ -30,7 +29,7 @@ class AccountCredentialService:
     def __init__(self) -> None:
         self._access_policy = OrganizationAccessPolicy()
 
-    def _get_base_queryset(self) -> "QuerySet[AccountCredential, AccountCredential]":
+    def _get_base_queryset(self) -> QuerySet[AccountCredential, AccountCredential]:
         return AccountCredential.objects.select_related("lawyer", "lawyer__law_firm")
 
     def list_credentials(
@@ -38,7 +37,7 @@ class AccountCredentialService:
         lawyer_id: int | None = None,
         lawyer_name: str | None = None,
         user: Lawyer | None = None,
-    ) -> "QuerySet[AccountCredential, AccountCredential]":
+    ) -> QuerySet[AccountCredential, AccountCredential]:
         qs = self._get_base_queryset()
 
         # 权限过滤：非超级用户只能看到同一律所的凭证
@@ -206,13 +205,13 @@ class AccountCredentialService:
         self,
         credential_ids: list[int],
         site_name: str,
-    ) -> "QuerySet[AccountCredential, AccountCredential]":
+    ) -> QuerySet[AccountCredential, AccountCredential]:
         return self._get_base_queryset().filter(
             id__in=credential_ids,
             site_name=site_name,
         )
 
-    def get_credentials_by_site(self, site_name: str) -> "QuerySet[AccountCredential, AccountCredential]":
+    def get_credentials_by_site(self, site_name: str) -> QuerySet[AccountCredential, AccountCredential]:
         url_keyword = self.SITE_URL_MAPPING.get(site_name, site_name)
         return (
             self._get_base_queryset()
@@ -233,5 +232,3 @@ class AccountCredentialService:
                 code="CREDENTIAL_NOT_FOUND",
             )
         return credential
-
-

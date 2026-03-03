@@ -27,7 +27,7 @@ def _parse_streaming_response(text: str, original_error: json.JSONDecodeError) -
 def _parse_response(resp: httpx.Response) -> dict[str, Any]:
     """解析 Ollama HTTP 响应"""
     try:
-        return resp.json() # type: ignore
+        return resp.json()  # type: ignore
     except json.JSONDecodeError as e:
         text = resp.text.strip()
         if text:

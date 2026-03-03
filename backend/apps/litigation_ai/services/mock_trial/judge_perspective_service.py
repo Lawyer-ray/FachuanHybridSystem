@@ -44,11 +44,14 @@ class JudgePerspectiveService:
 
         # 持久化报告到 session metadata
         repo = LitigationSessionRepository()
-        await repo.update_metadata(session_id, {
-            "report": result.report,
-            "report_model": result.model,
-            "report_token_usage": result.token_usage,
-        })
+        await repo.update_metadata(
+            session_id,
+            {
+                "report": result.report,
+                "report_model": result.model,
+                "report_token_usage": result.token_usage,
+            },
+        )
 
         return {
             "report": result.report,

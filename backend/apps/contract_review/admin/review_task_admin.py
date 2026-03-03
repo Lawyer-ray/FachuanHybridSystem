@@ -59,20 +59,30 @@ class ReviewTaskAdmin(admin.ModelAdmin[ReviewTask]):
         labels = [self._STEP_LABELS.get(s, s) for s in steps]
         return "、".join(labels)
 
-    def get_readonly_fields(
-        self, request: HttpRequest, obj: ReviewTask | None = None
-    ) -> tuple[str, ...]:
+    def get_readonly_fields(self, request: HttpRequest, obj: ReviewTask | None = None) -> tuple[str, ...]:
         base = (
-            "id", "original_file_link", "output_file_link",
-            "error_message", "current_step", "review_report_html",
+            "id",
+            "original_file_link",
+            "output_file_link",
+            "error_message",
+            "current_step",
+            "review_report_html",
             "selected_steps_display",
-            "created_at", "updated_at",
+            "created_at",
+            "updated_at",
         )
         if obj and obj.status in ("completed", "failed", "processing"):
             return base + (
-                "user", "contract_title", "model_name", "reviewer_name",
-                "party_a", "party_b", "party_c", "party_d",
-                "represented_party", "status",
+                "user",
+                "contract_title",
+                "model_name",
+                "reviewer_name",
+                "party_a",
+                "party_b",
+                "party_c",
+                "party_d",
+                "represented_party",
+                "status",
             )
         return base
 
@@ -130,15 +140,15 @@ class ReviewTaskAdmin(admin.ModelAdmin[ReviewTask]):
             style += "background:var(--darkened-bg,#f5f5f5);color:var(--body-fg,#333);border:1px solid var(--border-color,#ddd);"
         return format_html(
             '<a href="{}" style="{}" download>📥 {}</a>',
-            url, style, name,
+            url,
+            style,
+            name,
         )
 
     def get_fieldsets(
         self, request: HttpRequest, obj: ReviewTask | None = None
     ) -> list[tuple[str | None, dict[str, Any]]]:
-        party_fields = tuple(
-            f for f in _PARTY_FIELDS if obj and getattr(obj, f, "")
-        ) or ("party_a", "party_b")
+        party_fields = tuple(f for f in _PARTY_FIELDS if obj and getattr(obj, f, "")) or ("party_a", "party_b")
 
         fieldsets = [
             (None, {"fields": ("id", "user", "contract_title", "model_name", "reviewer_name")}),
@@ -225,8 +235,11 @@ class ReviewTaskAdmin(admin.ModelAdmin[ReviewTask]):
 
         html_string = render_to_string(
             "admin/contract_review/reviewtask/report_pdf.html",
-            {"task": task, "report_html": mark_safe(report_html),
-             "title": f"评估报告 - {task.contract_title or task.id}"},
+            {
+                "task": task,
+                "report_html": mark_safe(report_html),
+                "title": f"评估报告 - {task.contract_title or task.id}",
+            },
         )
         pdf = HTML(string=html_string).write_pdf()
         filename = f"评估报告-{task.contract_title or task.id}.pdf"

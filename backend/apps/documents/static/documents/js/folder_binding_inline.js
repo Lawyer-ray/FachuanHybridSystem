@@ -41,12 +41,12 @@
         $(selectors.join(', ')).each(function() {
             var $nodeInput = $(this);
             var fieldName = $nodeInput.attr('name') || $nodeInput.attr('id') || 'unknown';
-            
+
             // 跳过模板行（__prefix__）
             if (fieldName.indexOf('__prefix__') !== -1) {
                 return;
             }
-            
+
             console.log('[FolderBinding] 找到字段:', fieldName);
 
             // 检查是否已经有选择器UI，并且该UI的input与当前input是同一个

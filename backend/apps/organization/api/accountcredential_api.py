@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from django.http import HttpRequest
-from apps.organization.api._utils import get_request_user
 from ninja import Router
-from apps.core.auth import JWTOrSessionAuth
 
+from apps.core.auth import JWTOrSessionAuth
+from apps.organization.api._utils import get_request_user
+from apps.organization.dtos import AccountCredentialCreateDTO, AccountCredentialUpdateDTO
 from apps.organization.schemas import AccountCredentialIn, AccountCredentialOut, AccountCredentialUpdateIn
 from apps.organization.services import AccountCredentialService
-from apps.organization.dtos import AccountCredentialCreateDTO, AccountCredentialUpdateDTO
 
 router = Router(auth=JWTOrSessionAuth())
 
@@ -20,11 +20,13 @@ def list_credentials(
     lawyer_id: int | None = None,
     lawyer_name: str | None = None,
 ) -> list[AccountCredentialOut]:
-    return list(_credential_service.list_credentials(
-        lawyer_id=lawyer_id,
-        lawyer_name=lawyer_name,
-        user=get_request_user(request),
-    ))
+    return list(
+        _credential_service.list_credentials(
+            lawyer_id=lawyer_id,
+            lawyer_name=lawyer_name,
+            user=get_request_user(request),
+        )
+    )
 
 
 @router.get("/credentials/{cred_id}", response=AccountCredentialOut)

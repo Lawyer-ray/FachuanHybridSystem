@@ -86,6 +86,7 @@ class CaseLogInline(BaseStackedInline):
 
 def _serialize_client(client: Any) -> dict[str, Any]:
     from apps.client.admin.client_admin import serialize_client_obj
+
     return serialize_client_obj(client)
 
 
@@ -103,25 +104,25 @@ def serialize_case_obj(obj: Any) -> dict[str, Any]:
         "is_archived": obj.is_archived,
         "effective_date": str(obj.effective_date) if obj.effective_date else None,
         "specified_date": str(obj.specified_date) if obj.specified_date else None,
-        "parties": [
-            {"legal_status": p.legal_status, "client": _serialize_client(p.client)}
-            for p in obj.parties.all()
-        ],
+        "parties": [{"legal_status": p.legal_status, "client": _serialize_client(p.client)} for p in obj.parties.all()],
         "assignments": [
             {"lawyer": {"real_name": a.lawyer.real_name, "phone": a.lawyer.phone, "username": a.lawyer.username}}
             for a in obj.assignments.all()
         ],
         "supervising_authorities": [
-            {"name": sa.name, "authority_type": sa.authority_type}
-            for sa in obj.supervising_authorities.all()
+            {"name": sa.name, "authority_type": sa.authority_type} for sa in obj.supervising_authorities.all()
         ],
         "case_numbers": [
-            {"number": cn.number, "is_active": cn.is_active, "remarks": cn.remarks}
-            for cn in obj.case_numbers.all()
+            {"number": cn.number, "is_active": cn.is_active, "remarks": cn.remarks} for cn in obj.case_numbers.all()
         ],
         "chats": [
-            {"platform": ch.platform, "chat_id": ch.chat_id, "name": ch.name,
-             "is_active": ch.is_active, "owner_id": ch.owner_id}
+            {
+                "platform": ch.platform,
+                "chat_id": ch.chat_id,
+                "name": ch.name,
+                "is_active": ch.is_active,
+                "owner_id": ch.owner_id,
+            }
             for ch in obj.chats.all()
         ],
         "logs": [
@@ -131,11 +132,16 @@ def serialize_case_obj(obj: Any) -> dict[str, Any]:
                 "actor": {"real_name": log.actor.real_name, "phone": log.actor.phone, "username": log.actor.username},
                 "attachments": [
                     {"file_path": att.file.name, "filename": att.file.name.split("/")[-1]}
-                    for att in log.attachments.all() if att.file
+                    for att in log.attachments.all()
+                    if att.file
                 ],
                 "reminders": [
-                    {"reminder_type": r.reminder_type, "content": r.content,
-                     "due_at": r.due_at.isoformat(), "metadata": r.metadata}
+                    {
+                        "reminder_type": r.reminder_type,
+                        "content": r.content,
+                        "due_at": r.due_at.isoformat(),
+                        "metadata": r.metadata,
+                    }
                     for r in log.reminders.all()
                 ],
             }
@@ -145,7 +151,14 @@ def serialize_case_obj(obj: Any) -> dict[str, Any]:
 
 
 @admin.register(Case)
-class CaseAdmin(CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminViewsMixin, CaseAdminServiceMixin, AdminImportExportMixin, BaseModelAdmin):
+class CaseAdmin(
+    CaseAdminActionsMixin,
+    CaseAdminSaveMixin,
+    CaseAdminViewsMixin,
+    CaseAdminServiceMixin,
+    AdminImportExportMixin,
+    BaseModelAdmin,
+):
     form = CaseAdminForm
     list_display = ("id_link", "name_link", "status", "start_date", "effective_date", "is_archived")
     list_display_links = None
@@ -187,9 +200,7 @@ class CaseAdmin(CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminViewsMixin, 
         client_svc = ClientResolveService()
         lawyer_svc = LawyerResolveService()
         contract_svc = ContractImportService(client_resolve=client_svc, lawyer_resolve=lawyer_svc)
-        case_svc = CaseImportService(
-            contract_import=contract_svc, client_resolve=client_svc, lawyer_resolve=lawyer_svc
-        )
+        case_svc = CaseImportService(contract_import=contract_svc, client_resolve=client_svc, lawyer_resolve=lawyer_svc)
         contract_svc._case_import_fn = case_svc.import_one
 
         success = skipped = 0
@@ -210,6 +221,7 @@ class CaseAdmin(CaseAdminActionsMixin, CaseAdminSaveMixin, CaseAdminViewsMixin, 
 
     def serialize_queryset(self, queryset: QuerySet[Case]) -> list[dict[str, Any]]:  # type: ignore[override]
         from apps.contracts.admin.contract_admin import serialize_contract_obj
+
         result = []
         for obj in queryset.prefetch_related(
             "parties__client__identity_docs",

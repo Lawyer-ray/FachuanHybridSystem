@@ -1,7 +1,6 @@
 """Business logic services."""
 
 from __future__ import annotations
-from django.utils.translation import gettext_lazy as _
 
 import logging
 import time
@@ -10,6 +9,7 @@ from typing import Any
 
 from django.db import transaction
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 from apps.evidence.services.wiring import get_case_service
 

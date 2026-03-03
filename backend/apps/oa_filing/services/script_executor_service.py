@@ -44,9 +44,7 @@ class ScriptExecutorService:
             site_name=oa_config.site_name,
         ).first()
         if credential is None:
-            raise ScriptExecutionError(
-                f"未找到匹配凭证: 站点名称={oa_config.site_name}"
-            )
+            raise ScriptExecutionError(f"未找到匹配凭证: 站点名称={oa_config.site_name}")
 
         session: FilingSession = FilingSession.objects.create(
             contract_id=contract_id,
@@ -60,7 +58,12 @@ class ScriptExecutorService:
 
         # 在后台线程执行 Playwright（避免 async 上下文的 SynchronousOnlyOperation）
         _executor.submit(
-            self._run_in_thread, session.id, oa_config.site_name, credential, contract_id, case_id,
+            self._run_in_thread,
+            session.id,
+            oa_config.site_name,
+            credential,
+            contract_id,
+            case_id,
         )
 
         return FilingSession.objects.get(pk=session.id)
@@ -144,7 +147,9 @@ class ScriptExecutorService:
             ContractAssignment.objects.filter(
                 contract_id=contract_id,
                 is_primary=True,
-            ).select_related("lawyer").first()
+            )
+            .select_related("lawyer")
+            .first()
         )
         manager_name: str = ""
         if primary_assignment is not None:
@@ -217,15 +222,15 @@ class ScriptExecutorService:
                04=行政（复议）, 05=刑事, 06=仲裁
         """
         mapping: dict[str | None, str] = {
-            "civil": "03",           # 民商事
-            "criminal": "05",        # 刑事
+            "civil": "03",  # 民商事
+            "criminal": "05",  # 刑事
             "administrative": "04",  # 行政（复议）
-            "labor": "03",           # 劳动仲裁 → 民商事
-            "intl": "06",            # 商事仲裁
-            "execution": "03",       # 申请执行 → 民商事
-            "bankruptcy": "03",      # 破产 → 民商事
-            "special": "02",         # 专项服务
-            "advisor": "01",         # 常法顾问
+            "labor": "03",  # 劳动仲裁 → 民商事
+            "intl": "06",  # 商事仲裁
+            "execution": "03",  # 申请执行 → 民商事
+            "bankruptcy": "03",  # 破产 → 民商事
+            "special": "02",  # 专项服务
+            "advisor": "01",  # 常法顾问
         }
         return mapping.get(case.case_type, "03")
 
@@ -316,9 +321,9 @@ class ScriptExecutorService:
         OA 只有: 01=定额收费, 02=按标的比例收费, 03=按小时收费
         """
         mapping: dict[str | None, str] = {
-            "FIXED": "01",       # 定额收费
-            "SEMI_RISK": "02",   # 半风险 → 按标的比例
-            "FULL_RISK": "02",   # 全风险 → 按标的比例
-            "CUSTOM": "01",      # 自定义 → 定额
+            "FIXED": "01",  # 定额收费
+            "SEMI_RISK": "02",  # 半风险 → 按标的比例
+            "FULL_RISK": "02",  # 全风险 → 按标的比例
+            "CUSTOM": "01",  # 自定义 → 定额
         }
         return mapping.get(contract.fee_mode, "01")

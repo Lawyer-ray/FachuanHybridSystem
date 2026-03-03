@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 
 def _make_contract(**kwargs: Any) -> Any:
     from apps.contracts.models import Contract
+
     defaults: dict[str, Any] = {"name": "测试合同", "case_type": "civil"}
     defaults.update(kwargs)
     return Contract.objects.create(**defaults)
@@ -244,9 +245,7 @@ class TestProperty6ListDeleteRoundTrip(HypothesisTestCase):
 class TestProperty7ListByContract(HypothesisTestCase):
     """Property 7: list_invoices_by_contract 覆盖所有收款 — Validates: Requirements 5.2"""
 
-    @given(
-        payment_counts=st.lists(st.integers(min_value=1, max_value=3), min_size=1, max_size=3)
-    )
+    @given(payment_counts=st.lists(st.integers(min_value=1, max_value=3), min_size=1, max_size=3))
     @settings(max_examples=100)
     def test_list_by_contract_covers_all(self, payment_counts: list[int]) -> None:
         # Feature: contract-invoice-upload, Property 7: 按合同查询覆盖所有收款
@@ -275,7 +274,8 @@ class TestProperty8TemplateRendering(HypothesisTestCase):
 
     @given(
         original_filename=st.text(
-            min_size=1, max_size=40,
+            min_size=1,
+            max_size=40,
             alphabet=st.characters(whitelist_categories=("Lu", "Ll", "Nd"), whitelist_characters="._-"),
         ).filter(lambda s: s.strip() != ""),
         remark=st.text(max_size=30, alphabet=st.characters(whitelist_categories=("Lu", "Ll", "Nd", "Zs"))),
@@ -344,9 +344,12 @@ class TestProperty9DeleteCleansFile(HypothesisTestCase):
 class TestInvoiceInlineIsTabular(TestCase):
     def test_invoice_inline_is_tabular(self) -> None:
         from django.contrib import admin
+
         from apps.contracts.admin.contractpayment_admin import InvoiceInline
+
         try:
             import nested_admin
+
             assert issubclass(InvoiceInline, nested_admin.NestedTabularInline)
         except ImportError:
             assert issubclass(InvoiceInline, admin.TabularInline)
@@ -355,12 +358,14 @@ class TestInvoiceInlineIsTabular(TestCase):
 class TestInvoiceAdminFormHasFileField(TestCase):
     def test_form_has_file_field(self) -> None:
         from apps.contracts.admin.contractpayment_admin import InvoiceAdminForm
+
         assert "file" in InvoiceAdminForm().fields
 
 
 class TestInvoiceInlineFields(TestCase):
     def test_inline_fields_contain_required(self) -> None:
         from apps.contracts.admin.contractpayment_admin import InvoiceInline
+
         for field in ("original_filename", "uploaded_at", "remark"):
             assert field in InvoiceInline.fields
 
@@ -368,6 +373,7 @@ class TestInvoiceInlineFields(TestCase):
 class TestInvoiceInlineExtra(TestCase):
     def test_extra_is_one(self) -> None:
         from apps.contracts.admin.contractpayment_admin import InvoiceInline
+
         assert InvoiceInline.extra == 1
 
 
@@ -383,6 +389,7 @@ class TestListByPaymentNonexistent(TestCase):
 class TestDeleteNonexistentInvoiceRaises(TestCase):
     def test_delete_nonexistent_raises(self) -> None:
         from apps.core.exceptions import NotFoundError
+
         svc = InvoiceUploadService()
         with pytest.raises(NotFoundError):
             svc.delete_invoice(999999)
@@ -392,6 +399,7 @@ class TestDeleteNonexistentInvoiceRaises(TestCase):
 class TestNoInvoicesTemplateShowsPlaceholder(TestCase):
     def test_no_invoices_shows_placeholder(self) -> None:
         from django.template.loader import render_to_string
+
         contract = _make_contract()
         payment = _make_payment(contract)
         html = render_to_string(

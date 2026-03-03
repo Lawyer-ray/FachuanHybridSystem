@@ -5,11 +5,11 @@ Feature: backend-structure-optimization, Property 7: API 文件组织规范
 Validates: Requirements 6.3
 """
 
+from pathlib import Path
+
 import pytest
 from hypothesis import assume, given
 from hypothesis import strategies as st
-
-from pathlib import Path
 
 # 定义所有 Django app（排除 core 和 tests）
 DJANGO_APPS = ["automation", "cases", "client", "contracts", "organization"]

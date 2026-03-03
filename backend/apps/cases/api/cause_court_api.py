@@ -13,9 +13,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from django.utils.translation import gettext_lazy as _
-
 from django.http import HttpRequest
+from django.utils.translation import gettext_lazy as _
 from ninja import Router, Schema
 
 from apps.core.exceptions import NotFoundError

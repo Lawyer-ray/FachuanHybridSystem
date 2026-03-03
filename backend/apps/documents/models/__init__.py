@@ -93,10 +93,16 @@ __all__ = [
 GenerationTaskStatus = GenerationStatus
 
 # 证据清单模型已迁移到 apps.evidence，延迟导入避免循环依赖
-_EVIDENCE_NAMES = frozenset({
-    "LIST_TYPE_ORDER", "LIST_TYPE_PREVIOUS", "EvidenceItem",
-    "EvidenceList", "ListType", "MergeStatus",
-})
+_EVIDENCE_NAMES = frozenset(
+    {
+        "LIST_TYPE_ORDER",
+        "LIST_TYPE_PREVIOUS",
+        "EvidenceItem",
+        "EvidenceList",
+        "ListType",
+        "MergeStatus",
+    }
+)
 
 
 def __getattr__(name: str) -> Any:

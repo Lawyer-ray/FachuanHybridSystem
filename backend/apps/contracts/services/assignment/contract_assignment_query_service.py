@@ -1,7 +1,7 @@
 """Business logic services."""
 
-
 from __future__ import annotations
+
 from apps.contracts.models import Contract, ContractAssignment
 
 
@@ -19,11 +19,7 @@ class ContractAssignmentQueryService:
     def get_primary_lawyer(self, contract_id: int) -> ContractAssignment | None:
         """获取合同的主办律师指派记录。"""
         return (
-            ContractAssignment.objects.filter(
-                contract_id=contract_id, is_primary=True
-            )
-            .select_related("lawyer")
-            .first()
+            ContractAssignment.objects.filter(contract_id=contract_id, is_primary=True).select_related("lawyer").first()
         )
 
     def get_all_lawyers(self, contract_id: int) -> list[ContractAssignment]:

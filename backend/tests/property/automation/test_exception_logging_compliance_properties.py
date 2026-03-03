@@ -242,9 +242,9 @@ class TestLoggingComplianceProperties:
             log_method(**kwargs)  # type: ignore[operator]
 
             # 验证日志被调用
-            assert mock_logger.info.called or mock_logger.error.called or mock_logger.debug.called, (
-                f"日志方法 {log_method.__name__} 没有调用logger"
-            )
+            assert (
+                mock_logger.info.called or mock_logger.error.called or mock_logger.debug.called
+            ), f"日志方法 {log_method.__name__} 没有调用logger"
 
             # 获取调用参数
             if mock_logger.info.called:
@@ -319,9 +319,9 @@ class TestLoggingComplianceProperties:
             extra = call_args.kwargs["extra"]
 
             # 验证错误日志的必需上下文字段
-            assert "success" in extra and extra["success"] is False, (
-                f"错误日志 {log_method.__name__} 缺少success=False字段"
-            )
+            assert (
+                "success" in extra and extra["success"] is False
+            ), f"错误日志 {log_method.__name__} 缺少success=False字段"
             assert "error_message" in extra, f"错误日志 {log_method.__name__} 缺少error_message字段"
             assert "timestamp" in extra, f"错误日志 {log_method.__name__} 缺少timestamp字段"
 
@@ -385,9 +385,9 @@ class TestLoggingComplianceProperties:
             log_method(**kwargs)  # type: ignore[operator]
 
             # 验证日志被调用
-            assert mock_logger.info.called or mock_logger.debug.called, (
-                f"性能日志方法 {log_method.__name__} 没有调用logger"
-            )
+            assert (
+                mock_logger.info.called or mock_logger.debug.called
+            ), f"性能日志方法 {log_method.__name__} 没有调用logger"
 
             # 获取调用参数
             if mock_logger.info.called:
@@ -452,9 +452,9 @@ class TestLoggingComplianceProperties:
             log_method(**kwargs)  # type: ignore[operator]
 
             # 验证日志被调用
-            assert mock_logger.info.called or mock_logger.error.called or mock_logger.debug.called, (
-                f"业务日志方法 {log_method.__name__} 没有调用logger"
-            )
+            assert (
+                mock_logger.info.called or mock_logger.error.called or mock_logger.debug.called
+            ), f"业务日志方法 {log_method.__name__} 没有调用logger"
 
             # 获取调用参数
             if mock_logger.info.called:
@@ -476,9 +476,9 @@ class TestLoggingComplianceProperties:
                     assert "scraper_task_id" in extra, f"文档创建日志 {log_method.__name__} 缺少scraper_task_id"
                 elif "status" in log_method.__name__:
                     assert "document_id" in extra, f"文档状态日志 {log_method.__name__} 缺少document_id"
-                    assert "old_status" in extra and "new_status" in extra, (
-                        f"文档状态日志 {log_method.__name__} 缺少状态字段"
-                    )
+                    assert (
+                        "old_status" in extra and "new_status" in extra
+                    ), f"文档状态日志 {log_method.__name__} 缺少状态字段"
 
             elif "admin_operation" in log_method.__name__:
                 assert "operation" in extra, f"Admin操作日志 {log_method.__name__} 缺少operation字段"
@@ -556,9 +556,9 @@ class TestExceptionLoggingIntegration:
                 if word in exception_code_parts:
                     # 对于失败的情况，日志action应该包含相关词汇
                     if word == "failed" and "failed" in exception_code_parts:
-                        assert "failed" in log_action_parts, (
-                            f"异常代码包含'failed'但日志action不包含: {exception.code} vs {extra['action']}"
-                        )
+                        assert (
+                            "failed" in log_action_parts
+                        ), f"异常代码包含'failed'但日志action不包含: {exception.code} vs {extra['action']}"
 
     def test_exception_error_dict_structure(self):
         """
@@ -588,6 +588,6 @@ class TestExceptionLoggingIntegration:
             for key, value in errors.items():
                 assert isinstance(key, str), f"异常 {method.__name__} 的errors键不是字符串: {key}"
                 # 值可以是字符串、数字、列表等基本类型
-                assert isinstance(value, (str, int, float, list, dict, bool)), (
-                    f"异常 {method.__name__} 的errors值类型不合理: {type(value)}"
-                )
+                assert isinstance(
+                    value, (str, int, float, list, dict, bool)
+                ), f"异常 {method.__name__} 的errors值类型不合理: {type(value)}"

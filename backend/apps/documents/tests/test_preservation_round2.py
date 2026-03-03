@@ -14,12 +14,11 @@
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
-from hypothesis import given, settings, assume, HealthCheck
+from hypothesis import HealthCheck, assume, given, settings
 from hypothesis import strategies as st
-
 
 # ---------------------------------------------------------------------------
 # 1. EvidenceList start_order / start_page 保持性测试
@@ -52,6 +51,7 @@ class TestStartOrderPreservation:
 
     def _get_service(self) -> Any:
         from apps.documents.services.evidence_service import EvidenceService
+
         return EvidenceService()
 
     def test_no_previous_list_returns_1(self) -> None:
@@ -96,6 +96,7 @@ class TestStartPagePreservation:
 
     def _get_service(self) -> Any:
         from apps.documents.services.evidence_service import EvidenceService
+
         return EvidenceService()
 
     def test_no_previous_list_returns_1(self) -> None:
@@ -127,7 +128,6 @@ class TestStartPagePreservation:
         el_target = _make_evidence_list_mock(pk=3, previous_list=el_a, previous_list_id=1, item_count=2, total_pages=6)
         result = self._get_service().calculate_start_page(el_target)
         assert result == 1
-
 
 
 # ---------------------------------------------------------------------------
@@ -164,6 +164,7 @@ class TestStartOrderProperty:
 
     def _get_service(self) -> Any:
         from apps.documents.services.evidence_service import EvidenceService
+
         return EvidenceService()
 
     @given(
@@ -246,11 +247,10 @@ class TestAuditLogPreservation:
             mock_get_svc.return_value = mock_svc
 
             from apps.documents.signals import _create_audit_log
+
             _create_audit_log(mock_instance, "update", changes=changes)
 
-            mock_svc.create_audit_log.assert_called_once_with(
-                "document_template", 42, "测试模板", "update", changes
-            )
+            mock_svc.create_audit_log.assert_called_once_with("document_template", 42, "测试模板", "update", changes)
 
     def test_create_audit_log_truncates_object_repr_to_500(self) -> None:
         """object_repr 超过 500 字符时截断。"""
@@ -267,6 +267,7 @@ class TestAuditLogPreservation:
             mock_get_svc.return_value = mock_svc
 
             from apps.documents.signals import _create_audit_log
+
             _create_audit_log(mock_instance, "create")
 
             call_args = mock_svc.create_audit_log.call_args
@@ -284,6 +285,7 @@ class TestAuditLogPreservation:
             mock_get_svc.return_value = mock_svc
 
             from apps.documents.signals import _create_audit_log
+
             _create_audit_log(mock_instance, "create")
 
             mock_svc.create_audit_log.assert_not_called()
@@ -302,7 +304,8 @@ class TestAuditLogPreservation:
             mock_svc.get_instance_by_pk.return_value = old_instance
             mock_get_svc.return_value = mock_svc
 
-            from apps.documents.signals import capture_pre_save_state, _pre_save_state
+            from apps.documents.signals import _pre_save_state, capture_pre_save_state
+
             capture_pre_save_state(DocumentTemplate, mock_instance)
 
             mock_svc.get_instance_by_pk.assert_called_once_with(DocumentTemplate, 10)
@@ -330,6 +333,7 @@ class TestCacheInvalidationPreservation:
 
         with patch("apps.core.infrastructure.cache.bump_cache_version") as mock_bump:
             from apps.documents.signals import _invalidate_template_matching_cache
+
             _invalidate_template_matching_cache(DocumentTemplate)
 
             mock_bump.assert_called_once()
@@ -342,6 +346,7 @@ class TestCacheInvalidationPreservation:
 
         with patch("apps.core.infrastructure.cache.bump_cache_version") as mock_bump:
             from apps.documents.signals import _invalidate_template_matching_cache
+
             _invalidate_template_matching_cache(FolderTemplate)
 
             mock_bump.assert_called_once()
@@ -354,19 +359,21 @@ class TestCacheInvalidationPreservation:
 
         with patch("apps.core.infrastructure.cache.bump_cache_version") as mock_bump:
             from apps.documents.signals import _invalidate_template_matching_cache
+
             _invalidate_template_matching_cache(Placeholder)
 
             mock_bump.assert_not_called()
 
     def test_bump_uses_day_timeout(self) -> None:
         """缓存版本号使用 CacheTimeout.get_day() 超时。"""
-        from apps.documents.models import DocumentTemplate
         from apps.core.infrastructure import CacheTimeout
+        from apps.documents.models import DocumentTemplate
 
         expected_timeout = CacheTimeout.get_day()
 
         with patch("apps.core.infrastructure.cache.bump_cache_version") as mock_bump:
             from apps.documents.signals import _invalidate_template_matching_cache
+
             _invalidate_template_matching_cache(DocumentTemplate)
 
             call_kwargs = mock_bump.call_args[1]
@@ -387,6 +394,7 @@ class TestPlaceholderFilterPreservation:
 
     def _get_service(self) -> Any:
         from apps.documents.services.placeholder_admin_service import PlaceholderAdminService
+
         return PlaceholderAdminService()
 
     def _make_usage_map(self) -> dict[str, set[str]]:
@@ -502,10 +510,16 @@ class TestPlaceholderFilterProperty:
 
     def _get_service(self) -> Any:
         from apps.documents.services.placeholder_admin_service import PlaceholderAdminService
+
         return PlaceholderAdminService()
 
     @given(
-        keys=st.lists(st.text(alphabet="abcdefghijklmnopqrstuvwxyz_", min_size=1, max_size=20), min_size=0, max_size=10, unique=True),
+        keys=st.lists(
+            st.text(alphabet="abcdefghijklmnopqrstuvwxyz_", min_size=1, max_size=20),
+            min_size=0,
+            max_size=10,
+            unique=True,
+        ),
         usage_types=st.lists(
             st.frozensets(st.sampled_from(["contract", "case"]), min_size=1, max_size=2),
             min_size=0,
@@ -521,9 +535,7 @@ class TestPlaceholderFilterProperty:
         keys = keys[:min_len]
         usage_types_list = list(usage_types[:min_len])
 
-        usage_map: dict[str, set[str]] = {
-            k: set(ut) for k, ut in zip(keys, usage_types_list)
-        }
+        usage_map: dict[str, set[str]] = {k: set(ut) for k, ut in zip(keys, usage_types_list)}
 
         contract_only = {k for k, v in usage_map.items() if v == {"contract"}}
         case_only = {k for k, v in usage_map.items() if v == {"case"}}
@@ -560,8 +572,9 @@ class TestFilePathDisplayPreservation:
 
     def test_absolute_file_path_resolves_relative_path(self) -> None:
         """相对路径通过 Path.resolve() 解析为绝对路径。"""
-        from apps.documents.models import DocumentTemplate
         from pathlib import Path as StdPath
+
+        from apps.documents.models import DocumentTemplate
 
         obj = DocumentTemplate.__new__(DocumentTemplate)
         obj.file_path = "templates/contract.docx"
@@ -582,8 +595,8 @@ class TestFilePathDisplayPreservation:
 
     def test_current_file_display_uses_absolute_file_path_for_file_path_mode(self) -> None:
         """current_file_display 在 file_path 模式下使用 obj.absolute_file_path。"""
-        from apps.documents.models import DocumentTemplate
         from apps.documents.admin.document_template_admin import DocumentTemplateAdmin
+        from apps.documents.models import DocumentTemplate
 
         obj = MagicMock(spec=DocumentTemplate)
         obj.pk = 1
@@ -601,8 +614,8 @@ class TestFilePathDisplayPreservation:
 
     def test_file_location_display_uses_absolute_file_path_for_file_path_mode(self) -> None:
         """file_location_display 在 file_path 模式下使用 obj.absolute_file_path。"""
-        from apps.documents.models import DocumentTemplate
         from apps.documents.admin.document_template_admin import DocumentTemplateAdmin
+        from apps.documents.models import DocumentTemplate
 
         obj = MagicMock(spec=DocumentTemplate)
         obj.pk = 1
@@ -622,8 +635,8 @@ class TestFilePathDisplayPreservation:
 
     def test_current_file_display_no_file_shows_warning(self) -> None:
         """无文件时显示警告。"""
-        from apps.documents.models import DocumentTemplate
         from apps.documents.admin.document_template_admin import DocumentTemplateAdmin
+        from apps.documents.models import DocumentTemplate
 
         obj = MagicMock(spec=DocumentTemplate)
         obj.pk = 1
@@ -637,8 +650,8 @@ class TestFilePathDisplayPreservation:
 
     def test_file_location_display_no_file_shows_placeholder(self) -> None:
         """无文件时显示占位文本。"""
-        from apps.documents.models import DocumentTemplate
         from apps.documents.admin.document_template_admin import DocumentTemplateAdmin
+        from apps.documents.models import DocumentTemplate
 
         obj = MagicMock(spec=DocumentTemplate)
         obj.pk = 1
@@ -679,8 +692,9 @@ class TestAbsoluteFilePathProperty:
     @settings(max_examples=50)
     def test_absolute_file_path_result_is_absolute_or_resolved(self, filename: str) -> None:
         """非空 file_path 的 absolute_file_path 结果是绝对路径或原始绝对路径。"""
-        from apps.documents.models import DocumentTemplate
         from pathlib import Path as StdPath
+
+        from apps.documents.models import DocumentTemplate
 
         assume(filename.strip() != "")
         assume(not filename.startswith(".."))

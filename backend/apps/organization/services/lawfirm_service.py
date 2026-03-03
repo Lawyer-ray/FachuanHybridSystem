@@ -12,9 +12,15 @@ from django.db import transaction
 from django.db.models import QuerySet
 from django.utils.translation import gettext_lazy as _
 
-from apps.core.exceptions import AuthenticationError, ConflictError, NotFoundError, PermissionDenied, ValidationException
-from apps.organization.dtos import LawFirmCreateDTO, LawFirmUpdateDTO
+from apps.core.exceptions import (
+    AuthenticationError,
+    ConflictError,
+    NotFoundError,
+    PermissionDenied,
+    ValidationException,
+)
 from apps.core.interfaces import ILawFirmService, LawFirmDTO
+from apps.organization.dtos import LawFirmCreateDTO, LawFirmUpdateDTO
 from apps.organization.models import LawFirm, Lawyer
 from apps.organization.services.dto_assemblers import LawFirmDtoAssembler
 from apps.organization.services.organization_access_policy import OrganizationAccessPolicy
@@ -23,11 +29,10 @@ logger = logging.getLogger("apps.organization")
 
 
 class LawFirmService:
-
     def __init__(self) -> None:
         self._access_policy = OrganizationAccessPolicy()
 
-    def get_lawfirm_queryset(self) -> "QuerySet[LawFirm, LawFirm]":
+    def get_lawfirm_queryset(self) -> QuerySet[LawFirm, LawFirm]:
         return LawFirm.objects.all()
 
     def get_lawfirm(self, lawfirm_id: int, user: Lawyer | None) -> LawFirm:
@@ -58,7 +63,7 @@ class LawFirmService:
         page_size: int = 20,
         name: str | None = None,
         user: Lawyer | None = None,
-    ) -> "QuerySet[LawFirm, LawFirm]":
+    ) -> QuerySet[LawFirm, LawFirm]:
         queryset = self.get_lawfirm_queryset()
 
         # 应用权限过滤
@@ -236,7 +241,6 @@ class LawFirmService:
 
 
 class LawFirmServiceAdapter(ILawFirmService):
-
     _assembler: ClassVar[LawFirmDtoAssembler] = LawFirmDtoAssembler()
 
     def __init__(self, lawfirm_service: LawFirmService | None = None) -> None:

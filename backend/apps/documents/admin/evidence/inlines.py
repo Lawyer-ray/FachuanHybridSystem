@@ -39,13 +39,11 @@ class EvidenceItemInline(admin.TabularInline[EvidenceItem, EvidenceItem]):
         global_order = evidence_list.start_order + obj.order - 1
         return global_order
 
-
     @admin.display(description=_("页码范围"))
     def page_range_display(self, obj: EvidenceItem) -> Any:
         if obj.pk:
             return obj.page_range_display
         return "-"
-
 
     class Media:
         css: ClassVar[dict[str, tuple[str, ...]]] = {"all": ("documents/css/evidence_inline.css",)}

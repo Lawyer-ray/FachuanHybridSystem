@@ -49,9 +49,7 @@ def normalize_stages(
     allowed = _allowed_stages()
     invalid = set(rep) - allowed
     if invalid:
-        raise ValueError(
-            _("invalid_rep:%(stages)s") % {"stages": ",".join(sorted(invalid))}
-        )
+        raise ValueError(_("invalid_rep:%(stages)s") % {"stages": ",".join(sorted(invalid))})
     if cur:
         if cur not in allowed:
             raise ValueError(_("invalid_cur"))

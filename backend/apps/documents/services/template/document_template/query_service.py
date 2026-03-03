@@ -36,16 +36,13 @@ class DocumentTemplateQueryService:
     ) -> Any:
         """
         通过功能代码获取模板(已废弃,保留接口兼容性)
-        
+
         注意: function_code字段已删除,此方法通过模板名称匹配实现
         """
         # 功能代码到名称关键词的映射
-        name_keywords = {
-            "preservation_application": "财产保全申请书",
-            "delay_delivery_application": "暂缓送达申请书"
-        }
+        name_keywords = {"preservation_application": "财产保全申请书", "delay_delivery_application": "暂缓送达申请书"}
         name_keyword = name_keywords.get(function_code, "")
-        
+
         if not name_keyword:
             return None
 
@@ -68,16 +65,13 @@ class DocumentTemplateQueryService:
     ) -> list[Any]:
         """
         通过功能代码列出模板(已废弃,保留接口兼容性)
-        
+
         注意: function_code字段已删除,此方法通过模板名称匹配实现
         """
         # 功能代码到名称关键词的映射
-        name_keywords = {
-            "preservation_application": "财产保全申请书",
-            "delay_delivery_application": "暂缓送达申请书"
-        }
+        name_keywords = {"preservation_application": "财产保全申请书", "delay_delivery_application": "暂缓送达申请书"}
         name_keyword = name_keywords.get(function_code, "")
-        
+
         if not name_keyword:
             return []
 

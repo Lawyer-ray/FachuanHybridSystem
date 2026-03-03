@@ -15,9 +15,7 @@ logger = logging.getLogger("apps.evidence_sorting")
 class EvidenceSortingAdmin(admin.ModelAdmin):
     """案件材料整理工具 Admin，使用虚拟模型作为入口"""
 
-    def changelist_view(
-        self, request: Any, extra_context: dict[str, Any] | None = None
-    ) -> TemplateResponse:
+    def changelist_view(self, request: Any, extra_context: dict[str, Any] | None = None) -> TemplateResponse:
         context: dict[str, Any] = {
             "title": "案件材料整理",
             "opts": self.model._meta,

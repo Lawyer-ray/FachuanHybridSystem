@@ -53,9 +53,7 @@ class CaseAssessment(models.Model):
         choices=ContractBasisType.choices,
         verbose_name=_("合同基础类型"),
     )
-    principal_amount = models.DecimalField(
-        max_digits=14, decimal_places=2, verbose_name=_("债权本金")
-    )
+    principal_amount = models.DecimalField(max_digits=14, decimal_places=2, verbose_name=_("债权本金"))
     evidence_total_score = models.DecimalField(
         max_digits=5, decimal_places=2, default=0, verbose_name=_("证据完整度总分")
     )
@@ -65,9 +63,7 @@ class CaseAssessment(models.Model):
         default=LimitationStatus.NORMAL,
         verbose_name=_("诉讼时效状态"),
     )
-    limitation_expiry_date = models.DateField(
-        blank=True, null=True, verbose_name=_("时效届满日期")
-    )
+    limitation_expiry_date = models.DateField(blank=True, null=True, verbose_name=_("时效届满日期"))
     solvency_rating = models.CharField(
         max_length=32,
         choices=SolvencyRating.choices,

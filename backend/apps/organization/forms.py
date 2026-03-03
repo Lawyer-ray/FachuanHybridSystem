@@ -12,7 +12,6 @@ from .models import Lawyer
 
 
 class LawyerRegistrationForm(UserCreationForm[Lawyer]):
-
     bootstrap_token = forms.CharField(
         required=False,
         label=_("Bootstrap Token"),

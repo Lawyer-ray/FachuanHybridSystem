@@ -1,11 +1,11 @@
 """飞书 Token 与配置加载 Mixin"""
 
-from django.utils.translation import gettext_lazy as _
 import logging
 from datetime import datetime, timedelta
 from typing import Any
 
 import httpx
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ChatProviderException, ConfigurationException
 

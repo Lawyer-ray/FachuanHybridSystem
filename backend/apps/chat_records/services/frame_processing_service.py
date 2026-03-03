@@ -10,18 +10,10 @@ from difflib import SequenceMatcher
 from hashlib import sha256
 from pathlib import Path
 
-from apps.chat_records.services.extract_helpers import (
-    DedupState,
-    ExtractParams,
-    jaccard_sets,
-    shingles,
-)
+from apps.chat_records.services.extract_helpers import DedupState, ExtractParams, jaccard_sets, shingles
 from apps.chat_records.services.frame_selection_service import FrameSelectionService
 from apps.chat_records.services.protocols import ProgressUpdater, ScreenshotCreator
-from apps.chat_records.services.video_frame_extract_service import (
-    FFProbeInfo,
-    VideoFrameExtractService,
-)
+from apps.chat_records.services.video_frame_extract_service import FFProbeInfo, VideoFrameExtractService
 from apps.core.protocols.automation_protocols import IOcrService
 from apps.core.tasking.runtime import CancellationToken, ProgressReporter
 
@@ -180,11 +172,7 @@ class FrameProcessingService:
         if skip_score is not None:
             return ocr_text, skip_score, True
 
-        frame_score = (
-            self.get_ocr_frame_score(0.0, ocr_text, state)
-            if ocr_text and state.kept_ocr_texts
-            else None
-        )
+        frame_score = self.get_ocr_frame_score(0.0, ocr_text, state) if ocr_text and state.kept_ocr_texts else None
         return ocr_text, frame_score, False
 
     # ------------------------------------------------------------------
@@ -206,9 +194,7 @@ class FrameProcessingService:
     ) -> tuple[int, Callable[[], bool]]:
         """运行 ffmpeg 抽帧阶段。"""
         total_estimate: int = (
-            service.estimate_total_frames(
-                info.duration_seconds, params.interval_seconds
-            )
+            service.estimate_total_frames(info.duration_seconds, params.interval_seconds)
             if params.interval_based
             else 0
         )
@@ -222,10 +208,7 @@ class FrameProcessingService:
 
         last_progress = -1
         ffmpeg_timeout = max(30.0, float(soft_deadline) - time.monotonic() - 5.0)
-        output_pattern = str(
-            Path(tmpdir)
-            / ("frame_%010d.jpg" if not params.interval_based else "frame_%06d.jpg")
-        )
+        output_pattern = str(Path(tmpdir) / ("frame_%010d.jpg" if not params.interval_based else "frame_%06d.jpg"))
 
         def should_cancel() -> bool:
             return cancel_token.is_cancelled()
@@ -249,11 +232,7 @@ class FrameProcessingService:
                 )
                 continue
             out_seconds = out_time_us / 1_000_000.0
-            progress = (
-                int(out_seconds * 100 / info.duration_seconds)
-                if info.duration_seconds
-                else 0
-            )
+            progress = int(out_seconds * 100 / info.duration_seconds) if info.duration_seconds else 0
             progress = min(max(progress, 0), 99)
             if progress != last_progress:
                 ffmpeg_reporter.report_extra(
@@ -290,11 +269,7 @@ class FrameProcessingService:
         """计算帧的捕获时间。"""
         if not params.interval_based and info.time_base_seconds:
             m = re.search(r"(\d+)", Path(path).name)
-            return (
-                float(int(m.group(1)) * float(info.time_base_seconds))
-                if m
-                else None
-            )
+            return float(int(m.group(1)) * float(info.time_base_seconds)) if m else None
         return float(index - 1) * float(params.interval_seconds)
 
     # ------------------------------------------------------------------

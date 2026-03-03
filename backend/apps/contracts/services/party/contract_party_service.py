@@ -1,6 +1,5 @@
 """Business logic services."""
 
-
 from __future__ import annotations
 
 from typing import Any
@@ -22,7 +21,9 @@ class ContractPartyService:
     def remove_party(self, contract_id: int, client_id: int) -> None:
         deleted, _ = ContractParty.objects.filter(contract_id=contract_id, client_id=client_id).delete()
         if not deleted:
-            raise NotFoundError(_("合同 %(cid)s 中不存在客户 %(pid)s 的当事人记录") % {"cid": contract_id, "pid": client_id})
+            raise NotFoundError(
+                _("合同 %(cid)s 中不存在客户 %(pid)s 的当事人记录") % {"cid": contract_id, "pid": client_id}
+            )
 
     def get_all_parties(self, contract_id: int) -> list[dict[str, Any]]:
         contract = Contract.objects.filter(id=contract_id).prefetch_related("contract_parties__client").first()

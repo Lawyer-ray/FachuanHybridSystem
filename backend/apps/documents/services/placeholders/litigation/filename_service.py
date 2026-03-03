@@ -4,9 +4,10 @@
 Requirements: 1.1, 1.2, 1.3, 1.4
 """
 
-from django.utils.translation import gettext_lazy as _
-from django.utils import timezone
 import logging
+
+from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 from apps.documents.services.infrastructure.wiring import get_case_service
 

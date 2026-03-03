@@ -31,9 +31,7 @@ class SecurityService:
         key: bytes
         if not raw_key:
             if not getattr(settings, "DEBUG", False):
-                raise RuntimeError(
-                    "生产环境必须配置 SCRAPER_ENCRYPTION_KEY，请在系统配置中设置固定密钥！"
-                )
+                raise RuntimeError("生产环境必须配置 SCRAPER_ENCRYPTION_KEY，请在系统配置中设置固定密钥！")
             key = Fernet.generate_key()
             logger.warning("未配置 SCRAPER_ENCRYPTION_KEY，使用临时密钥。生产环境请在系统配置中设置固定密钥！")
         else:

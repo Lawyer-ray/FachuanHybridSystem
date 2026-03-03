@@ -60,8 +60,7 @@ _ROLE_SPLIT_PATTERNS: list[re.Pattern[str]] = [re.compile(p, re.IGNORECASE) for 
 # 角色标签 + 名称捕获模式（用于提取名称）
 # 捕获到下一个换行为止，不用单字排除（避免截断含"电"等字的公司名）
 _ROLE_NAME_PATTERNS: list[re.Pattern[str]] = [
-    re.compile(p.replace(r"[:：]", r"[:：]\s*([^\n]+)"), re.IGNORECASE)
-    for p in _ROLE_SPLIT_STRS
+    re.compile(p.replace(r"[:：]", r"[:：]\s*([^\n]+)"), re.IGNORECASE) for p in _ROLE_SPLIT_STRS
 ]
 
 
@@ -75,27 +74,28 @@ _ETHNICITY_PATTERN = re.compile(
 )
 _BIRTH_DATE_PATTERN = re.compile(r"[，,]\s*\d{4}年\d{1,2}月\d{1,2}日.*")
 
-_CREDIT_CODE_PATTERN = re.compile(
-    r"(?:统一社会信用代码|信用代码|社会信用代码)\s*[:：]\s*([A-Z0-9]{18})", re.IGNORECASE
-)
-_ID_NUMBER_PATTERN = re.compile(
-    r"(?:身份证号码|身份证号|身份证|证件号码)\s*[:：]\s*([0-9Xx]{15,18})", re.IGNORECASE
-)
-_ADDRESS_PATTERN = re.compile(
-    r"(?:地址|住址|住所地|住所)\s*[:：]\s*([^\n]*?)(?=\n|$)", re.IGNORECASE
-)
-_PHONE_PATTERN = re.compile(
-    r"(?:联系电话|电话|联系方式|手机)\s*[:：]\s*([0-9\-\+\s]{7,20})", re.IGNORECASE
-)
-_LEGAL_REP_PATTERN = re.compile(
-    r"(?:法定代表人|法人代表|负责人)\s*[:：]\s*([^\n]*?)(?=\n|$)", re.IGNORECASE
-)
+_CREDIT_CODE_PATTERN = re.compile(r"(?:统一社会信用代码|信用代码|社会信用代码)\s*[:：]\s*([A-Z0-9]{18})", re.IGNORECASE)
+_ID_NUMBER_PATTERN = re.compile(r"(?:身份证号码|身份证号|身份证|证件号码)\s*[:：]\s*([0-9Xx]{15,18})", re.IGNORECASE)
+_ADDRESS_PATTERN = re.compile(r"(?:地址|住址|住所地|住所)\s*[:：]\s*([^\n]*?)(?=\n|$)", re.IGNORECASE)
+_PHONE_PATTERN = re.compile(r"(?:联系电话|电话|联系方式|手机)\s*[:：]\s*([0-9\-\+\s]{7,20})", re.IGNORECASE)
+_LEGAL_REP_PATTERN = re.compile(r"(?:法定代表人|法人代表|负责人)\s*[:：]\s*([^\n]*?)(?=\n|$)", re.IGNORECASE)
 _PAREN_CLEANUP_PATTERN = re.compile(r"（[^）]*）|\([^)]*\)")
 _WHITESPACE_PATTERN = re.compile(r"\s+")
 
 _LEGAL_KEYWORDS: tuple[str, ...] = (
-    "有限公司", "股份公司", "集团", "企业", "厂", "店", "中心",
-    "协会", "基金会", "研究院", "学校", "医院", "银行",
+    "有限公司",
+    "股份公司",
+    "集团",
+    "企业",
+    "厂",
+    "店",
+    "中心",
+    "协会",
+    "基金会",
+    "研究院",
+    "学校",
+    "医院",
+    "银行",
 )
 
 
@@ -128,9 +128,7 @@ def parse_multiple_clients_text(text: str) -> list[dict[str, Any]]:
     return _extract_parties(text)
 
 
-_FIELD_KEYWORDS_PATTERN = re.compile(
-    r"(?<!\n)(" + "|".join(re.escape(kw) for kw in _FIELD_KEYWORDS) + r")\s*[:：]"
-)
+_FIELD_KEYWORDS_PATTERN = re.compile(r"(?<!\n)(" + "|".join(re.escape(kw) for kw in _FIELD_KEYWORDS) + r")\s*[:：]")
 
 
 def _normalize_text(text: str) -> str:

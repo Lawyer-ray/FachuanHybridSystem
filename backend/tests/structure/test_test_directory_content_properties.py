@@ -8,11 +8,11 @@ and not excessive report files.
 **Validates: Requirements 5.3**
 """
 
+from pathlib import Path
+
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
-
-from pathlib import Path
 
 
 class TestTestDirectoryContentProperties:
@@ -208,6 +208,6 @@ class TestTestDirectoryContentProperties:
         """
         mock_path = Path(filename)
 
-        assert not self._is_report_file(mock_path), (
-            f"File {filename} should NOT be identified as a report file to archive"
-        )
+        assert not self._is_report_file(
+            mock_path
+        ), f"File {filename} should NOT be identified as a report file to archive"

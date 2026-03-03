@@ -4,17 +4,8 @@ from __future__ import annotations
 
 from django.contrib import admin
 
-from apps.cases.admin.base import (
-    BaseModelAdmin,
-    BaseStackedInline,
-    BaseTabularInline,
-)
-from apps.sales_dispute.models import (
-    CaseAssessment,
-    EvidenceScore,
-    JurisdictionAnalysis,
-    LitigationStrategy,
-)
+from apps.cases.admin.base import BaseModelAdmin, BaseStackedInline, BaseTabularInline
+from apps.sales_dispute.models import CaseAssessment, EvidenceScore, JurisdictionAnalysis, LitigationStrategy
 
 
 class EvidenceScoreInline(BaseTabularInline):

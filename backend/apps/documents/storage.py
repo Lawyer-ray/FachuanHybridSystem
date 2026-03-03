@@ -17,6 +17,7 @@ USER_CUSTOM_TEMPLATE_DIR = "0-用户自定义模板"
 def get_docx_templates_root() -> Path:
     """获取docx_templates根目录"""
     from typing import cast as _cast
+
     base_path = Path(str(settings.BASE_DIR)).parent / "apps" / "documents" / "docx_templates"
     return _cast(Path, base_path)
 

@@ -143,18 +143,15 @@ class PlaceholderAdmin(admin.ModelAdmin):
             return format_html('<span style="color: #999;">{}</span>', "-")
         return " / ".join(parts)
 
-
     @admin.display(description=_("来源服务"))
     def code_service_display(self, obj: Any) -> Any:
         definition = self._catalog_cache().get(obj.key)
         return definition.source if definition else ""
 
-
     @admin.display(description=_("分类"))
     def code_category_display(self, obj: Any) -> Any:
         definition = self._catalog_cache().get(obj.key)
         return definition.category if definition else ""
-
 
     @admin.display(description=_("示例值"))
     def example_value_display(self, obj: Any) -> Any:
@@ -168,7 +165,6 @@ class PlaceholderAdmin(admin.ModelAdmin):
                 '<span title="{}" style="color: #666; font-style: italic;">{}</span>', obj.example_value, value
             )
         return format_html('<span style="color: #999;">{}</span>', "-")
-
 
     @admin.action(description=_("启用选中的替换词"))
     def activate_placeholders(self, request: Any, queryset: Any) -> None:

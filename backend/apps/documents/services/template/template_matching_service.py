@@ -2,17 +2,21 @@
 
 from __future__ import annotations
 
-from apps.documents.models.choices import LegalStatusMatchMode, DocumentCaseStage, DocumentTemplateType, FolderTemplateType
-from apps.documents.models.folder_template import FolderTemplate
-from apps.documents.models.document_template import DocumentTemplate
-from django.utils.translation import gettext_lazy as _
-
 import logging
 from typing import Any, cast
 
 from django.core.cache import cache
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.infrastructure import CacheKeys, CacheTimeout
+from apps.documents.models.choices import (
+    DocumentCaseStage,
+    DocumentTemplateType,
+    FolderTemplateType,
+    LegalStatusMatchMode,
+)
+from apps.documents.models.document_template import DocumentTemplate
+from apps.documents.models.folder_template import FolderTemplate
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +36,6 @@ class TemplateMatchingService:
 
     def find_matching_case_document_template_names(self, case_type: str) -> list[str]:
         try:
-
             templates = DocumentTemplate.objects.filter(template_type=DocumentTemplateType.CASE, is_active=True)
             matched: list[str] = []
             for template in templates:
@@ -121,7 +124,6 @@ class TemplateMatchingService:
                 return []
             return cast(list[dict[str, Any]], cached)
         try:
-
             if not template_type:
                 raise ValidationException(message=_("模板类型不能为空"), code="INVALID_TEMPLATE_TYPE")
 
@@ -129,7 +131,9 @@ class TemplateMatchingService:
 
             matched: list[dict[str, Any]] = []
             for template in templates:
-                type_list = template.contract_types if template_type == FolderTemplateType.CONTRACT else template.case_types
+                type_list = (
+                    template.contract_types if template_type == FolderTemplateType.CONTRACT else template.case_types
+                )
                 type_list = type_list or []
                 if not type_list or LegalStatusMatchMode.ALL in type_list or (case_type and case_type in type_list):
                     matched.append({"id": template.id, "name": template.name})
@@ -146,9 +150,7 @@ class TemplateMatchingService:
 
         folder_templates = self.find_matching_folder_templates(FolderTemplateType.CONTRACT, case_type)
         document_templates = self.find_matching_contract_templates(case_type)
-        return cast(
-            dict[str, bool], {"has_folder": bool(folder_templates), "has_document": bool(document_templates)}
-        )
+        return cast(dict[str, bool], {"has_folder": bool(folder_templates), "has_document": bool(document_templates)})
 
     def find_matching_case_file_templates(self, case_type: str, case_stage: str) -> list[dict[str, Any]]:
         version = self._get_document_templates_cache_version()
@@ -163,7 +165,6 @@ class TemplateMatchingService:
                 return []
             return cast(list[dict[str, Any]], cached)
         try:
-
             if not case_type or not case_stage:
                 return []
 

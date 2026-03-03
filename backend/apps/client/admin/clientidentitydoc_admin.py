@@ -67,9 +67,7 @@ class ClientIdentityDocAdmin(admin.ModelAdmin[ClientIdentityDoc]):
         service = _get_identity_doc_service()
         uploaded_file = form.cleaned_data.get("file_upload")
         if uploaded_file:
-            obj.file_path = service.save_uploaded_file_to_dir(
-                uploaded_file, rel_dir="client_identity_docs"
-            )
+            obj.file_path = service.save_uploaded_file_to_dir(uploaded_file, rel_dir="client_identity_docs")
 
         super().save_model(request, obj, form, change)
 

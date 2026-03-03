@@ -25,7 +25,7 @@
         sortBtn.className = 'case-log-sort-btn';
         sortBtn.textContent = '倒序';
         sortBtn.dataset.order = 'desc'; // 默认倒序
-        
+
         // 插入到标题后面
         h2.appendChild(sortBtn);
 
@@ -36,10 +36,10 @@
         sortBtn.addEventListener('click', function() {
             const currentOrder = this.dataset.order;
             const newOrder = currentOrder === 'desc' ? 'asc' : 'desc';
-            
+
             this.dataset.order = newOrder;
             this.textContent = newOrder === 'desc' ? '倒序' : '正序';
-            
+
             sortLogs(newOrder);
         });
     }
@@ -61,7 +61,7 @@
         logItems.sort((a, b) => {
             const aId = parseInt(a.id.replace('logs-', '')) || 0;
             const bId = parseInt(b.id.replace('logs-', '')) || 0;
-            
+
             if (order === 'desc') {
                 return bId - aId; // 倒序：最新的在前
             } else {
@@ -72,20 +72,20 @@
         // 重新排列 DOM
         const emptyForm = itemsContainer.querySelector('.djn-empty-form');
         const separator = itemsContainer.querySelector('.djn-item.djn-no-drag');
-        
+
         // 清空容器
         itemsContainer.innerHTML = '';
-        
+
         // 添加分隔符（如果存在）
         if (separator) {
             itemsContainer.appendChild(separator);
         }
-        
+
         // 按新顺序添加日志条目
         logItems.forEach(item => {
             itemsContainer.appendChild(item);
         });
-        
+
         // 添加空表单（如果存在）
         if (emptyForm) {
             itemsContainer.appendChild(emptyForm);

@@ -157,11 +157,13 @@ class ReconcilerService:
 
         items: list[LineItem] = []
         for item in data.get("line_items") or []:
-            items.append(LineItem(
-                date=self._normalize_date(item.get("date")),
-                amount=self._to_float(item.get("amount")),
-                description=item.get("description", ""),
-            ))
+            items.append(
+                LineItem(
+                    date=self._normalize_date(item.get("date")),
+                    amount=self._to_float(item.get("amount")),
+                    description=item.get("description", ""),
+                )
+            )
 
         return StatementInfo(
             month=data.get("month", ""),
@@ -212,13 +214,15 @@ class ReconcilerService:
         # 2. 构建出库单列表
         delivery_notes: list[DeliveryNote] = []
         for d in deliveries:
-            delivery_notes.append(DeliveryNote(
-                filename=d.get("filename", ""),
-                date=d.get("date"),
-                amount=d.get("amount"),
-                ocr_text=d.get("ocr_text", ""),
-                image_data=d.get("image_data", ""),
-            ))
+            delivery_notes.append(
+                DeliveryNote(
+                    filename=d.get("filename", ""),
+                    date=d.get("date"),
+                    amount=d.get("amount"),
+                    ocr_text=d.get("ocr_text", ""),
+                    image_data=d.get("image_data", ""),
+                )
+            )
 
         # 3. 按月份分组对账单
         month_map: dict[str, StatementInfo] = {}
@@ -303,7 +307,8 @@ class ReconcilerService:
 
         logger.info(
             "比对完成: %d 个月份组, %d 张未匹配出库单",
-            len(result.month_groups), len(result.unmatched_deliveries),
+            len(result.month_groups),
+            len(result.unmatched_deliveries),
         )
         return result
 
@@ -371,9 +376,7 @@ class ReconcilerService:
             status = "_".join(issues)
 
         # 统计具体问题数量
-        unmatched_count = sum(
-            1 for d in group.deliveries if d.match_status == STATUS_UNMATCHED
-        )
+        unmatched_count = sum(1 for d in group.deliveries if d.match_status == STATUS_UNMATCHED)
         if unmatched_count > 0 and FOLDER_DELIVERY_MISMATCH not in status:
             status += f"_{unmatched_count}张出库单无法确认"
         elif unmatched_count > 0:

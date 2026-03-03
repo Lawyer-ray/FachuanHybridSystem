@@ -63,9 +63,9 @@ def _has_runtime_model_import(tree: ast.Module) -> list[dict[str, Any]]:
         if isinstance(node, ast.If):
             test = node.test
             is_type_checking: bool = False
-            if isinstance(test, ast.Name) and test.id == "TYPE_CHECKING":
-                is_type_checking = True
-            elif isinstance(test, ast.Attribute) and test.attr == "TYPE_CHECKING":
+            if (isinstance(test, ast.Name) and test.id == "TYPE_CHECKING") or (
+                isinstance(test, ast.Attribute) and test.attr == "TYPE_CHECKING"
+            ):
                 is_type_checking = True
             if is_type_checking:
                 continue
@@ -74,10 +74,12 @@ def _has_runtime_model_import(tree: ast.Module) -> list[dict[str, Any]]:
         if isinstance(node, ast.ImportFrom):
             if node.module and node.module.startswith("apps.client.models"):
                 names: list[str] = [alias.name for alias in (node.names or [])]
-                violations.append({
-                    "line": node.lineno,
-                    "names": names,
-                })
+                violations.append(
+                    {
+                        "line": node.lineno,
+                        "names": names,
+                    }
+                )
 
     return violations
 
@@ -94,10 +96,12 @@ def _has_private_method_call(tree: ast.Module, method_name: str) -> list[dict[st
         if isinstance(node, ast.Call):
             func = node.func
             if isinstance(func, ast.Attribute) and func.attr == method_name:
-                violations.append({
-                    "line": node.lineno,
-                    "call": f"*.{method_name}()",
-                })
+                violations.append(
+                    {
+                        "line": node.lineno,
+                        "call": f"*.{method_name}()",
+                    }
+                )
 
     return violations
 
@@ -170,13 +174,8 @@ def test_service_no_runtime_model_import(file_rel_path: str) -> None:
     tree: ast.Module = _parse_file(file_rel_path)
     violations: list[dict[str, Any]] = _has_runtime_model_import(tree)
 
-    assert not violations, (
-        f"架构违规: {file_rel_path} 存在运行时 Model 导入 "
-        f"(不在 TYPE_CHECKING 块内):\n"
-        + "\n".join(
-            f"  第 {v['line']} 行: from apps.client.models import {', '.join(v['names'])}"
-            for v in violations
-        )
+    assert not violations, f"架构违规: {file_rel_path} 存在运行时 Model 导入 (不在 TYPE_CHECKING 块内):\n" + "\n".join(
+        f"  第 {v['line']} 行: from apps.client.models import {', '.join(v['names'])}" for v in violations
     )
 
 
@@ -201,10 +200,7 @@ def test_no_private_method_call_in_adapter() -> None:
 
     assert not violations, (
         f"封装违规: {rel_path} 存在私有方法调用:\n"
-        + "\n".join(
-            f"  第 {v['line']} 行: {v['call']}"
-            for v in violations
-        )
+        + "\n".join(f"  第 {v['line']} 行: {v['call']}" for v in violations)
         + "\n应通过 self.internal_query_service.get_client() 查询"
     )
 

@@ -26,16 +26,10 @@ class LitigationStrategy(models.Model):
         verbose_name=_("推荐策略类型"),
     )
     recommendation_reason = models.TextField(verbose_name=_("推荐理由"))
-    estimated_duration = models.CharField(
-        max_length=64, verbose_name=_("预计周期")
-    )
+    estimated_duration = models.CharField(max_length=64, verbose_name=_("预计周期"))
     applicable_conditions = models.TextField(verbose_name=_("适用条件说明"))
-    suggest_preservation = models.BooleanField(
-        default=False, verbose_name=_("是否建议财产保全")
-    )
-    preservation_reason = models.TextField(
-        blank=True, default="", verbose_name=_("保全建议理由")
-    )
+    suggest_preservation = models.BooleanField(default=False, verbose_name=_("是否建议财产保全"))
+    preservation_reason = models.TextField(blank=True, default="", verbose_name=_("保全建议理由"))
 
     class Meta:
         verbose_name = _("起诉策略推荐")

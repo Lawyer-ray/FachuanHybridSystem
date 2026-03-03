@@ -129,7 +129,7 @@ class AdminImportExportMixin:
         for name in zf.namelist():
             if not name.startswith("files/") or name.endswith("/"):
                 continue
-            rel = name[len("files/"):]  # 去掉 files/ 前缀
+            rel = name[len("files/") :]  # 去掉 files/ 前缀
             dest = (root / rel).resolve()
             # 防止 Zip Slip 路径遍历攻击（relative_to 抛异常即拒绝）
             try:

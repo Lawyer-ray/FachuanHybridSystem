@@ -10,11 +10,12 @@ SMS 匹配阶段处理器
 Requirements: 2.1, 2.2, 5.1, 5.2, 5.5
 """
 
-from django.utils.translation import gettext_lazy as _
 import logging
-from pathlib import Path
 import re
+from pathlib import Path
 from typing import TYPE_CHECKING, Optional, cast
+
+from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import CourtSMS, CourtSMSStatus, ScraperTaskStatus
 
@@ -84,7 +85,7 @@ class SMSMatchingStage(BaseSMSStage):
         return "匹配"
 
     def can_process(self, sms: CourtSMS) -> bool:
-        return cast(bool, sms.status == CourtSMSStatus.MATCHING) # type: ignore
+        return cast(bool, sms.status == CourtSMSStatus.MATCHING)  # type: ignore
 
     def process(self, sms: CourtSMS) -> CourtSMS:
         """处理案件匹配阶段"""
@@ -119,10 +120,10 @@ class SMSMatchingStage(BaseSMSStage):
                     sms.status = CourtSMSStatus.RENAMING
                 else:
                     sms.status = CourtSMSStatus.FAILED
-                    sms.error_message = _("创建案件绑定失败") # type: ignore
+                    sms.error_message = _("创建案件绑定失败")  # type: ignore
             else:
                 sms.status = CourtSMSStatus.PENDING_MANUAL
-                sms.error_message = _("未能匹配到唯一的在办案件，需要人工处理") # type: ignore
+                sms.error_message = _("未能匹配到唯一的在办案件，需要人工处理")  # type: ignore
 
             sms.save()
             self._log_complete(sms)
@@ -137,12 +138,12 @@ class SMSMatchingStage(BaseSMSStage):
 
     def _handle_manual_case(self, sms: CourtSMS) -> CourtSMS:
         """处理已手动指定案件的情况"""
-        logger.info(f"短信 {sms.id} 已手动指定案件: {sms.case.id}") # type: ignore
+        logger.info(f"短信 {sms.id} 已手动指定案件: {sms.case.id}")  # type: ignore
         if self._create_case_binding(sms):
             sms.status = CourtSMSStatus.RENAMING
         else:
             sms.status = CourtSMSStatus.FAILED
-            sms.error_message = _("创建案件绑定失败") # type: ignore
+            sms.error_message = _("创建案件绑定失败")  # type: ignore
         sms.save()
         self._log_complete(sms)
         return sms
@@ -212,9 +213,7 @@ class SMSMatchingStage(BaseSMSStage):
             sms.party_names = list(dict.fromkeys(party_names))
             sms.save()
 
-    def _extract_from_single_doc(
-        self, path: str, case_numbers: list[str], party_names: list[str]
-    ) -> bool:
+    def _extract_from_single_doc(self, path: str, case_numbers: list[str], party_names: list[str]) -> bool:
         """从单个文书提取案号和当事人，返回是否有更新"""
         changed = False
         try:
@@ -266,7 +265,7 @@ class SMSMatchingStage(BaseSMSStage):
                 logger.error("未找到管理员用户")
                 return False
 
-            user = self.lawyer_service.get_lawyer_internal(admin.id) # type: ignore
+            user = self.lawyer_service.get_lawyer_internal(admin.id)  # type: ignore
 
             if sms.case_numbers:
                 self._add_case_numbers_to_case(sms)

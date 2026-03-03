@@ -17,11 +17,9 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 if TYPE_CHECKING:
-    from apps.core.interfaces import IAutoTokenAcquisitionService, IAutomationService
+    from apps.core.interfaces import IAutomationService, IAutoTokenAcquisitionService
     from apps.organization.models import AccountCredential
-    from apps.organization.services.account_credential_service import (
-        AccountCredentialService,
-    )
+    from apps.organization.services.account_credential_service import AccountCredentialService
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +38,6 @@ def _run_async(coro: Coroutine[Any, Any, Any]) -> Any:
 
 @dataclass
 class LoginResult:
-
     success: bool
     duration: float
     token: str | None = None
@@ -49,7 +46,6 @@ class LoginResult:
 
 @dataclass
 class BatchLoginResult:
-
     success_count: int
     error_count: int
     total_duration: float
@@ -57,7 +53,6 @@ class BatchLoginResult:
 
 
 class AccountCredentialAdminService:
-
     SUPPORTED_SITE: ClassVar[str] = "court_zxfw"
 
     def __init__(self) -> None:
@@ -66,17 +61,15 @@ class AccountCredentialAdminService:
         self._credential_service: AccountCredentialService | None = None
 
     @property
-    def credential_service(self) -> "AccountCredentialService":
+    def credential_service(self) -> AccountCredentialService:
         if self._credential_service is None:
-            from apps.organization.services.account_credential_service import (
-                AccountCredentialService,
-            )
+            from apps.organization.services.account_credential_service import AccountCredentialService
 
             self._credential_service = AccountCredentialService()
         return self._credential_service
 
     @property
-    def token_service(self) -> "IAutoTokenAcquisitionService":
+    def token_service(self) -> IAutoTokenAcquisitionService:
         if self._token_service is None:
             from apps.core.dependencies import build_auto_token_acquisition_service
 
@@ -84,7 +77,7 @@ class AccountCredentialAdminService:
         return self._token_service
 
     @property
-    def automation_service(self) -> "IAutomationService":
+    def automation_service(self) -> IAutomationService:
         if self._automation_service is None:
             from apps.core.interfaces import ServiceLocator
 
@@ -102,7 +95,8 @@ class AccountCredentialAdminService:
             return LoginResult(
                 success=False,
                 duration=0,
-                error_message=str(_("账号 %(account)s 不支持自动登录（仅支持法院一张网）")) % {"account": credential.account},
+                error_message=str(_("账号 %(account)s 不支持自动登录（仅支持法院一张网）"))
+                % {"account": credential.account},
             )
 
         logger.info(
@@ -200,7 +194,7 @@ class AccountCredentialAdminService:
 
     def _execute_single_login(
         self,
-        credential: "AccountCredential",
+        credential: AccountCredential,
         admin_user: str,
         trigger_reason: str,
     ) -> LoginResult:
@@ -294,7 +288,7 @@ class AccountCredentialAdminService:
 
     def _record_login_history(
         self,
-        credential: "AccountCredential",
+        credential: AccountCredential,
         success: bool,
         duration: float,
         trigger_reason: str,
