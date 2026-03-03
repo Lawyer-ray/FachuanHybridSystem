@@ -56,7 +56,8 @@ class AntiDetection:
             page: Playwright Page 对象
         """
         # 隐藏 webdriver 特征
-        page.add_init_script("""
+        page.add_init_script(
+            """
             Object.defineProperty(navigator, 'webdriver', {
                 get: () => undefined
             });
@@ -83,7 +84,8 @@ class AntiDetection:
                     Promise.resolve({ state: Notification.permission }) :
                     originalQuery(parameters)
             );
-        """)
+        """
+        )
 
     def random_delay(self, min_seconds: float = 0.5, max_seconds: float = 2.0) -> None:
         """

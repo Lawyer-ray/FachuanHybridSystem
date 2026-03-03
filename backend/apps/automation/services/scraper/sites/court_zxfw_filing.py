@@ -398,13 +398,15 @@ class CourtZxfwFilingService:
         logger.info(str(_("步骤4: 上传诉讼材料")))
 
         # 给上传按钮打标记
-        self.page.evaluate("""() => {
+        self.page.evaluate(
+            """() => {
             const containers = document.querySelectorAll('.fd-com-upload-grid-container');
             containers.forEach((c, i) => {
                 const b = c.querySelector('.fd-btn-add');
                 if (b) b.setAttribute('data-upload-index', String(i));
             });
-        }""")
+        }"""
+        )
 
         for idx_str, files in materials.items():
             idx = int(idx_str)
@@ -527,7 +529,8 @@ class CourtZxfwFilingService:
             self._random_wait(1, 2)
 
             # 勾选所有被代理人 checkbox（uni-app 隐藏元素，用 JS 点击 label）
-            self.page.evaluate("""() => {
+            self.page.evaluate(
+                """() => {
                     const form = document.querySelector(
                         '.fd-wsla-ryxx-box:has(uni-button)'
                     );
@@ -538,7 +541,8 @@ class CourtZxfwFilingService:
                             uc.click();
                         }
                     });
-                }""")
+                }"""
+            )
             self._random_wait(0.5, 1)
 
             # 选择代理人类型 → 执业律师
@@ -552,7 +556,8 @@ class CourtZxfwFilingService:
             self._fill_field("现住址", agent.get("address", ""))
 
             # 是否法律援助 → 否；同意电子送达 → 是（点击 label 文字触发 radio）
-            self.page.evaluate("""() => {
+            self.page.evaluate(
+                """() => {
                     const form = document.querySelector('.fd-wsla-ryxx-box:has(uni-button)');
                     if (!form) return;
                     form.querySelectorAll('.uni-forms-item').forEach(item => {
@@ -567,7 +572,8 @@ class CourtZxfwFilingService:
                             if (l.textContent.trim() === target) l.click();
                         });
                     });
-                }""")
+                }"""
+            )
             self._random_wait(0.5, 1)
 
             self._click_save()
@@ -658,7 +664,8 @@ class CourtZxfwFilingService:
 
         if not clicked:
             # 弹窗中没有匹配的人，用 JS 关闭（× 图标或取消按钮）
-            self.page.evaluate("""() => {
+            self.page.evaluate(
+                """() => {
                     const selectors = [
                         '.fd-dialog-close', '[class*="dialog"] [class*="close"]',
                         '.uni-popup .uni-icons', '.uni-popup [class*="close"]',
@@ -671,7 +678,8 @@ class CourtZxfwFilingService:
                     document.querySelectorAll('*').forEach(el => {
                         if (el.children.length === 0 && el.textContent.trim() === '×') el.click();
                     });
-                }""")
+                }"""
+            )
             self._random_wait(1, 2)
             return False
 

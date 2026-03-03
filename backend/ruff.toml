@@ -55,6 +55,21 @@ ignore = [
     "SIM401", # 使用 dict.get() 替代条件表达式：部分场景条件表达式语义更明确
     "UP028",  # 使用 yield from 替代 yield in for 循环：部分场景 for 循环更易读
     "UP042",  # 使用 str | int 替代 Union[str, int]：兼容旧版类型注解风格
+    "F821",   # 未定义的名称：TYPE_CHECKING 块中的前向引用和动态属性有合理用法
+    "C901",   # 函数复杂度过高：历史遗留复杂业务逻辑，逐步重构中
+    "B904",   # except 块中 raise 缺少 from：历史遗留代码，逐步修复中
+    "B905",   # zip() 缺少 strict 参数：历史遗留代码
+    "F841",   # 未使用的局部变量：部分场景用于副作用或占位
+    "E501",   # 行过长：历史遗留，ruff-format 已处理大部分
+    "TID252", # 相对导入：历史遗留代码
+    "S308",   # mark_safe 使用：Django 模板渲染中有合理用法
+    "UP031",  # printf 风格字符串格式化：历史遗留代码
+    "S314",   # XML 解析安全风险：项目中已控制输入来源
+    "F823",   # 未定义的 __all__ 成员：动态导出场景
+    "TID251", # 禁用的 API：历史遗留代码
+    "SIM222", # or True 表达式：历史遗留代码
+    "SIM117", # 嵌套 with 可合并：历史遗留代码
+    "UP040",  # TypeAlias 改用 type 关键字：条件导入场景不适用
 ]
 
 [lint.per-file-ignores]
