@@ -544,3 +544,7 @@ msgid "注册成功！请等待管理员开通权限后再登录。"
 msgstr ""
 "Registration successful! Please wait for admin to grant permissions before "
 "logging in."
+
+#: apps/organization/services/lawyer_resolve_service.py
+msgid "律师数据缺少 phone，跳过"
+msgstr "Lawyer data missing phone, skipped"
