@@ -17,6 +17,13 @@ logger = logging.getLogger("apps.organization")
 
 
 class LawyerAdminForm(forms.ModelForm[Lawyer]):
+    new_password = forms.CharField(
+        required=False,
+        label=_("新密码"),
+        widget=forms.PasswordInput(render_value=False),
+        help_text=_("留空则不修改密码"),
+    )
+
     class Meta:
         model = Lawyer
         fields = "__all__"
@@ -34,6 +41,16 @@ class LawyerAdminForm(forms.ModelForm[Lawyer]):
             if bad_lt or bad_bt:
                 raise ValidationError(str(_("所选团队的所属律所必须与律师所属律所一致")))
         return cleaned
+
+    def save(self, commit: bool = True) -> Lawyer:
+        user = super().save(commit=False)
+        new_password = self.cleaned_data.get("new_password")
+        if new_password:
+            user.set_password(new_password)
+        if commit:
+            user.save()
+            self.save_m2m()
+        return user
 
 
 class AccountCredentialInlineForm(forms.ModelForm[AccountCredential]):
