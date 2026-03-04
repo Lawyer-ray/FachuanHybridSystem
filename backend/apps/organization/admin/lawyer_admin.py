@@ -61,7 +61,6 @@ class LawyerAdminForm(forms.ModelForm[Lawyer]):
         new_password = self.cleaned_data.get("new_password")
         if new_password:
             user.set_password(new_password)
-        # 从选中团队推断律所
         lt = self.cleaned_data.get("lawyer_team")
         if lt and lt.law_firm:
             user.law_firm = lt.law_firm
@@ -71,22 +70,6 @@ class LawyerAdminForm(forms.ModelForm[Lawyer]):
                 user.lawyer_teams.set([lt])
             bt = self.cleaned_data.get("biz_team")
             user.biz_teams.set([bt] if bt else [])
-            self.save_m2m()
-        return user
-
-    def clean(self) -> dict[str, Any]:
-        cleaned: dict[str, Any] = super().clean() or {}
-        if not cleaned.get("lawyer_team"):
-            raise ValidationError({"lawyer_team": str(_("律师必须至少关联一个律师团队"))})
-        return cleaned
-
-    def save(self, commit: bool = True) -> Lawyer:
-        user = super().save(commit=False)
-        new_password = self.cleaned_data.get("new_password")
-        if new_password:
-            user.set_password(new_password)
-        if commit:
-            user.save()
             self.save_m2m()
         return user
 
