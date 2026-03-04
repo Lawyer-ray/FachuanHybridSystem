@@ -21,7 +21,7 @@ class LawyerAdminForm(forms.ModelForm[Lawyer]):
     new_password = forms.CharField(
         required=False,
         label=_("新密码"),
-        widget=forms.PasswordInput(render_value=False),
+        widget=forms.PasswordInput(render_value=False, attrs={"autocomplete": "new-password"}),
         help_text=_("留空则不修改密码"),
     )
     lawyer_team = forms.ModelChoiceField(
@@ -88,6 +88,12 @@ class AccountCredentialInline(admin.TabularInline[AccountCredential, AccountCred
     extra = 1
     fields = ("site_name", "url", "account", "password")
     autocomplete_fields = ()
+    show_change_link = False
+    verbose_name = _("账号密码")
+    verbose_name_plural = _("账号密码")
+
+    def get_extra(self, request: Any, obj: Any = None, **kwargs: Any) -> int:
+        return 1 if not obj or not obj.credentials.exists() else 0
 
 
 @admin.register(Lawyer)
@@ -106,6 +112,9 @@ class LawyerAdmin(AdminImportExportMixin, admin.ModelAdmin[Lawyer]):
         (_("权限"), {"fields": ("is_active", "is_admin", "is_staff", "is_superuser")}),
     )
 
+    class Media:
+        css = {"all": ("admin/css/lawyer_admin.css",)}
+
     def save_related(self, request: Any, form: Any, formsets: Any, change: Any) -> None:
         super().save_related(request, form, formsets, change)
         # save_m2m() 会清空未在 Meta.fields 里的 M2M，在此之后重新设置
@@ -114,6 +123,13 @@ class LawyerAdmin(AdminImportExportMixin, admin.ModelAdmin[Lawyer]):
         bt = getattr(form, "_pending_biz_team", None)
         obj.lawyer_teams.set([lt] if lt else [])
         obj.biz_teams.set([bt] if bt else [])
+
+    def get_file_paths(self, queryset: Any) -> list[str]:
+        return [
+            str(obj.license_pdf)
+            for obj in queryset
+            if obj.license_pdf
+        ]
 
     def serialize_queryset(self, queryset: Any) -> list[dict[str, Any]]:
         result = []
@@ -124,10 +140,15 @@ class LawyerAdmin(AdminImportExportMixin, admin.ModelAdmin[Lawyer]):
                 "phone": obj.phone or "",
                 "license_no": obj.license_no,
                 "id_card": obj.id_card,
+                "license_pdf": str(obj.license_pdf) if obj.license_pdf else "",
+                "password": "",  # 导入时填写明文密码，留空则随机生成
                 "is_admin": obj.is_admin,
                 "is_active": obj.is_active,
                 "law_firm": obj.law_firm.name if obj.law_firm else None,
-                "lawyer_teams": [t.name for t in obj.lawyer_teams.all()],
+                "lawyer_teams": [
+                    {"name": t.name, "law_firm": t.law_firm.name if t.law_firm else None}
+                    for t in obj.lawyer_teams.all()
+                ],
                 "biz_teams": [t.name for t in obj.biz_teams.all()],
                 "credentials": [
                     {"site_name": c.site_name, "url": c.url or "", "account": c.account, "password": c.password}
@@ -139,6 +160,8 @@ class LawyerAdmin(AdminImportExportMixin, admin.ModelAdmin[Lawyer]):
     def handle_json_import(
         self, data_list: list[dict[str, Any]], user: str, zip_file: zipfile.ZipFile | None
     ) -> tuple[int, int, list[str]]:
+        import secrets
+
         success = skipped = 0
         errors: list[str] = []
         for i, item in enumerate(data_list, 1):
@@ -147,14 +170,16 @@ class LawyerAdmin(AdminImportExportMixin, admin.ModelAdmin[Lawyer]):
                 if Lawyer.objects.filter(username=username).exists():
                     skipped += 1
                     continue
-                law_firm = None
-                if item.get("law_firm"):
-                    law_firm = LawFirm.objects.filter(name=item["law_firm"]).first()
 
-                import secrets
+                # 自动创建律所
+                law_firm: LawFirm | None = None
+                if item.get("law_firm"):
+                    law_firm, _ = LawFirm.objects.get_or_create(name=item["law_firm"])
+
+                password = item.get("password") or secrets.token_urlsafe(16)
                 lawyer = Lawyer.objects.create_user(
                     username=username,
-                    password=secrets.token_urlsafe(16),
+                    password=password,
                     real_name=item.get("real_name", ""),
                     phone=item.get("phone") or None,
                     license_no=item.get("license_no", ""),
@@ -164,12 +189,39 @@ class LawyerAdmin(AdminImportExportMixin, admin.ModelAdmin[Lawyer]):
                     is_staff=item.get("is_admin", False),
                     law_firm=law_firm,
                 )
+
+                # license_pdf：文件已由 _extract_files 还原到 MEDIA_ROOT，直接赋相对路径
+                if item.get("license_pdf"):
+                    lawyer.license_pdf = item["license_pdf"]
+                    lawyer.save(update_fields=["license_pdf"])
+
+                # 自动创建律师团队（含律所关联）
                 if item.get("lawyer_teams"):
-                    teams = Team.objects.filter(name__in=item["lawyer_teams"])
-                    lawyer.lawyer_teams.set(teams)
+                    lawyer_team_objs: list[Team] = []
+                    for t in item["lawyer_teams"]:
+                        t_name = t if isinstance(t, str) else t.get("name", "")
+                        t_firm_name = None if isinstance(t, str) else t.get("law_firm")
+                        t_firm = LawFirm.objects.get_or_create(name=t_firm_name)[0] if t_firm_name else law_firm
+                        team, _ = Team.objects.get_or_create(
+                            name=t_name,
+                            team_type=TeamType.LAWYER,
+                            defaults={"law_firm": t_firm},
+                        )
+                        lawyer_team_objs.append(team)
+                    lawyer.lawyer_teams.set(lawyer_team_objs)
+
+                # 自动创建业务团队
                 if item.get("biz_teams"):
-                    teams = Team.objects.filter(name__in=item["biz_teams"])
-                    lawyer.biz_teams.set(teams)
+                    biz_team_objs: list[Team] = []
+                    for t_name in item["biz_teams"]:
+                        team, _ = Team.objects.get_or_create(
+                            name=t_name,
+                            team_type=TeamType.BIZ,
+                            defaults={"law_firm": law_firm},
+                        )
+                        biz_team_objs.append(team)
+                    lawyer.biz_teams.set(biz_team_objs)
+
                 for cred in item.get("credentials", []):
                     AccountCredential.objects.create(
                         lawyer=lawyer,
