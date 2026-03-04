@@ -2,6 +2,19 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.8.2] - 2026-03-04
+
+### 修复
+- 修复 mypy INTERNAL ERROR（`mypy_django_plugin` + `django-stubs 5.x` 的 `_AnyUser` TypeAlias 触发断言，注释掉 plugin）
+- 修复 CI `exceptions_handlers.py` 路径错误（改为 `exceptions/handlers.py`）
+- 修复 `organization_access_policy` 缺少 `ensure_*` 方法及权限逻辑错误
+- 修复 `middleware_request_id` 未捕获 response header 设置异常
+- 新增 `backend/deploy/docker/Dockerfile`（container-scan CI 所需）
+- 修复 `.gitignore` 允许 Dockerfile 被追踪
+
+### 文档
+- 重写中英文 README 及 LICENSE 商业授权说明（个人/≤10人免费，>10人按 200元/人 捐赠授权，捐赠即授权）
+
 ## [26.8.1] - 2026-03-03
 
 ### 修复
