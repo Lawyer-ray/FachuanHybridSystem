@@ -15,7 +15,7 @@ from ninja_jwt.routers.verify import verify_router
 
 from apps.core.auth import JWTOrSessionAuth
 from apps.core.exceptions import register_exception_handlers
-from apps.core.infrastructure import (  # type: ignore
+from apps.core.infrastructure import (
     HealthChecker,
     ResourceUsage,
     get_resource_status,
@@ -222,7 +222,7 @@ def resource_recommendations(request: HttpRequest) -> dict[str, Any]:
     Requirements: 4.1, 4.2 - 动态资源分配建议
     """
     _require_admin(request)
-    return resource_monitor.get_resource_recommendations()
+    return resource_monitor.get_resource_recommendations()  # type: ignore[no-any-return]
 
 
 @api_v1.get("/resource/health", tags=["资源监控"], auth=JWTOrSessionAuth())
@@ -232,7 +232,7 @@ def resource_health(request: HttpRequest) -> dict[str, Any]:
     Requirements: 4.3, 4.4 - 资源健康状态检查
     """
     _require_admin(request)
-    return resource_monitor.check_resource_health()
+    return resource_monitor.check_resource_health()  # type: ignore[no-any-return]
 
 
 @api_v1.get("/resource/metrics", tags=["资源监控"], auth=JWTOrSessionAuth())
@@ -241,7 +241,7 @@ def resource_metrics(request: HttpRequest, window_minutes: int = 10, top: int = 
     _require_admin(request)
     from apps.core.telemetry.metrics import snapshot
 
-    return snapshot(window_minutes=int(window_minutes or 10), top=int(top or 10))
+    return snapshot(window_minutes=int(window_minutes or 10), top=int(top or 10))  # type: ignore[no-any-return]
 
 
 @api_v1.get("/resource/metrics/prometheus", tags=["资源监控"], auth=JWTOrSessionAuth())

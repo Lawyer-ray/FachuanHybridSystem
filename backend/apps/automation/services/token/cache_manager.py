@@ -408,7 +408,7 @@ class TokenCacheManager:
             return
 
         try:
-            import redis  # type: ignore[import-untyped]
+            import redis
 
             client = redis.from_url(str(location))
             pattern = f"{self.cache_prefix}:*"
