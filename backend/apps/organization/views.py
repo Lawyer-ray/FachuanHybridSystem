@@ -6,7 +6,6 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.utils.translation import gettext_lazy as _
 
-from apps.core.exceptions import PermissionDenied
 from apps.organization.services.auth_service import AuthService
 
 from .forms import LawyerRegistrationForm
@@ -22,21 +21,14 @@ def register(request: HttpRequest) -> HttpResponse:
         if form.is_valid():
             username: str = form.cleaned_data["username"]
             password: str = form.cleaned_data["password1"]
-            bootstrap_token: str | None = form.cleaned_data.get("bootstrap_token") or None
             try:
                 result = _auth_service.register(
                     username=username,
                     password=password,
                     real_name=username,
-                    bootstrap_token=bootstrap_token,
                 )
-            except PermissionDenied as e:
-                messages.error(request, str(e.message))
-                return render(
-                    request,
-                    "admin/register.html",
-                    {"form": form, "title": _("用户注册"), "is_first_user": is_first_user},
-                )
+            except Exception as e:
+                messages.error(request, str(e))
             user = result.user
             if user.is_admin:
                 login(request, user)
