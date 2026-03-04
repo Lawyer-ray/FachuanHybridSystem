@@ -76,16 +76,8 @@ class LawyerAdminForm(forms.ModelForm[Lawyer]):
 
     def clean(self) -> dict[str, Any]:
         cleaned: dict[str, Any] = super().clean() or {}
-        law_firm = cleaned.get("law_firm")
-        lawyer_teams = cleaned.get("lawyer_teams")
-        biz_teams = cleaned.get("biz_teams")
-        if not lawyer_teams or lawyer_teams.count() == 0:
-            raise ValidationError({"lawyer_teams": str(_("律师必须至少关联一个律师团队"))})
-        if law_firm:
-            bad_lt = [t for t in (lawyer_teams or []) if t.law_firm_id != law_firm.id]
-            bad_bt = [t for t in (biz_teams or []) if t and t.law_firm_id != law_firm.id]
-            if bad_lt or bad_bt:
-                raise ValidationError(str(_("所选团队的所属律所必须与律师所属律所一致")))
+        if not cleaned.get("lawyer_team"):
+            raise ValidationError({"lawyer_team": str(_("律师必须至少关联一个律师团队"))})
         return cleaned
 
     def save(self, commit: bool = True) -> Lawyer:
