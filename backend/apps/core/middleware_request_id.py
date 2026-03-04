@@ -44,7 +44,7 @@ class RequestIdMiddleware:
             response = self.get_response(request)
             try:
                 response.headers["X-Request-ID"] = request_id
-            except (AttributeError, TypeError, KeyError):
+            except Exception:
                 with contextlib.suppress(Exception):
                     response["X-Request-ID"] = request_id
             return response
