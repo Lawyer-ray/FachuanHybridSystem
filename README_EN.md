@@ -158,6 +158,10 @@ See [LICENSE](LICENSE) for details.
 
 Issues and Pull Requests are welcome.
 
+## 💡 Open Source Philosophy
+
+Those who came before did not light the way for me — but this project will light the way for those who come after. Open source benefits both the giver and the receiver. May this project help advance the legal tech industry in China.
+
 ## 💝 Acknowledgements
 
 This project was primarily built with **[Kiro](https://kiro.dev)** and **[Trae](https://trae.ai)** — two AI-powered IDEs that dramatically accelerated development. Thank you.

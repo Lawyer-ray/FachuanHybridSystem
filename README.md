@@ -160,6 +160,10 @@ https://github.com/Lawyer-ray/FachuanHybridSystem
 
 欢迎提交 Issue 和 Pull Request。
 
+## 💡 开源理念
+
+前人虽未照我，但本项目必定照后人。开源利己利他，愿以此推动中国法律科技行业进步。
+
 ## 💝 致谢
 
 本项目主要通过 **[Kiro](https://kiro.dev)** 和 **[Trae](https://trae.ai)** 两款 AI IDE 完成开发，感谢它们极大地提升了开发效率。
