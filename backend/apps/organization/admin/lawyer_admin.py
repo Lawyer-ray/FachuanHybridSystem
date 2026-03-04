@@ -167,8 +167,60 @@ class LawyerAdmin(AdminImportExportMixin, admin.ModelAdmin[Lawyer]):
         for i, item in enumerate(data_list, 1):
             username = item.get("username", "")
             try:
-                if Lawyer.objects.filter(username=username).exists():
-                    skipped += 1
+                existing = Lawyer.objects.filter(username=username).first()
+                if existing:
+                    update_fields: list[str] = []
+                    for field, json_key in [
+                        ("real_name", "real_name"),
+                        ("phone", "phone"),
+                        ("license_no", "license_no"),
+                        ("id_card", "id_card"),
+                    ]:
+                        if not getattr(existing, field) and item.get(json_key):
+                            setattr(existing, field, item[json_key])
+                            update_fields.append(field)
+                    if not existing.license_pdf and item.get("license_pdf"):
+                        existing.license_pdf = item["license_pdf"]
+                        update_fields.append("license_pdf")
+                    if not existing.law_firm and item.get("law_firm"):
+                        existing.law_firm, _ = LawFirm.objects.get_or_create(name=item["law_firm"])
+                        update_fields.append("law_firm")
+                    if update_fields:
+                        existing.save(update_fields=update_fields)
+
+                    # lawyer_teams：只补充不存在的
+                    if item.get("lawyer_teams"):
+                        existing_lt_names = set(existing.lawyer_teams.values_list("name", flat=True))
+                        for t in item["lawyer_teams"]:
+                            t_name = t if isinstance(t, str) else t.get("name", "")
+                            if t_name not in existing_lt_names:
+                                t_firm_name = None if isinstance(t, str) else t.get("law_firm")
+                                t_firm = LawFirm.objects.get_or_create(name=t_firm_name)[0] if t_firm_name else existing.law_firm
+                                team, _ = Team.objects.get_or_create(name=t_name, team_type=TeamType.LAWYER, defaults={"law_firm": t_firm})
+                                existing.lawyer_teams.add(team)
+
+                    # biz_teams：只补充不存在的
+                    if item.get("biz_teams"):
+                        existing_bt_names = set(existing.biz_teams.values_list("name", flat=True))
+                        for t_name in item["biz_teams"]:
+                            if t_name not in existing_bt_names:
+                                team, _ = Team.objects.get_or_create(name=t_name, team_type=TeamType.BIZ, defaults={"law_firm": existing.law_firm})
+                                existing.biz_teams.add(team)
+
+                    # credentials：只补充 site_name 不存在的
+                    if item.get("credentials"):
+                        existing_sites = set(existing.credentials.values_list("site_name", flat=True))
+                        for cred in item["credentials"]:
+                            if cred.get("site_name") not in existing_sites:
+                                AccountCredential.objects.create(
+                                    lawyer=existing,
+                                    site_name=cred.get("site_name", ""),
+                                    url=cred.get("url", ""),
+                                    account=cred.get("account", ""),
+                                    password=cred.get("password", ""),
+                                )
+
+                    success += 1
                     continue
 
                 # 自动创建律所
