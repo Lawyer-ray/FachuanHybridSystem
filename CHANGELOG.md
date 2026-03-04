@@ -2,6 +2,15 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.9.0] - 2026-03-04
+
+### 重构
+- core 模块目录整理：将根目录散落的 11 个文件移入对应子目录（`middleware/`、`services/`、`exceptions/`、`filesystem/`、`http/`、`infrastructure/`、`models/`、`api/`），原位置保留 re-export 兼容模块
+- 删除根目录冗余的 `config.yaml` 和 `config.example.yaml`（`config/` 子目录已有新版本）
+
+### 修复
+- 律师导入：已存在的律师不再跳过，改为补全 JSON 中有值而数据库为空的字段（基本信息、律所、团队、账号密码）
+
 ## [26.8.6] - 2026-03-04
 
 ### 修复
