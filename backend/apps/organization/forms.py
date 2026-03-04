@@ -12,13 +12,6 @@ from .models import Lawyer
 
 
 class LawyerRegistrationForm(UserCreationForm[Lawyer]):
-    bootstrap_token = forms.CharField(
-        required=False,
-        label=_("Bootstrap Token"),
-        widget=forms.PasswordInput(attrs={"class": "form-input", "placeholder": str(_("首次注册管理员时填写"))}),
-        help_text=_("仅首个管理员注册时需要"),
-    )
-
     class Meta:
         model = Lawyer
         fields = ("username", "password1", "password2")
