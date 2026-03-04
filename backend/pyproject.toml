@@ -5,23 +5,23 @@ description = "法穿AI案件管理系统 - Backend"
 requires-python = ">=3.12"
 dependencies = [
     # --- Django 核心 ---
-    "django==6.0.2",
+    "django==6.0.3",
     "django-cors-headers==4.9.0",
     "django-nested-admin==4.1.6",
     "django-ninja==1.5.3",
     "django-ninja-jwt==5.4.4",
     "django-q2==1.9.0",
     # --- ASGI / WebSocket ---
-    "uvicorn[standard]==0.34.3",
+    "uvicorn[standard]==0.41.0",
     "channels==4.3.2",
     "channels-redis==4.3.0",
-    "redis==7.2.0",
+    "redis==7.2.1",
     # --- 数据库 ---
     "psycopg[binary]==3.3.3",
     # --- HTTP 客户端 ---
     "httpx==0.28.1",
     # --- LLM / AI ---
-    "langchain-core==1.2.15",
+    "langchain-core==1.2.17",
     "langchain-openai==1.1.10",
     # --- 文档处理 ---
     "docxtpl==0.20.2",
@@ -36,7 +36,7 @@ dependencies = [
     "Pillow",
     # --- OCR ---
     "rapidocr==3.6.0",
-    "ddddocr==1.5.6",
+    "ddddocr==1.6.0",
     # --- 浏览器自动化 ---
     "playwright==1.58.0",
     # --- 数据处理 ---
@@ -50,7 +50,7 @@ dependencies = [
     "psutil==7.2.2",
     "sentry-sdk",
     # --- 配置 ---
-    "python-dotenv==1.2.1",
+    "python-dotenv==1.2.2",
     # --- 热重载 ---
     "watchdog==6.0.0",
     "watchfiles==1.1.1",
@@ -66,14 +66,14 @@ dependencies = [
 dev = [
     # --- 代码格式化 ---
     "black==26.1.0",
-    "isort==8.0.0",
-    "ruff==0.15.2",
+    "isort==8.0.1",
+    "ruff==0.15.4",
     # --- 类型检查 ---
-    "mypy==1.16.1",
+    "mypy==1.19.1",
     "django-stubs==5.2.9",
     "django-stubs-ext==5.2.9",
     # --- 安全扫描 ---
-    "bandit==1.9.3",
+    "bandit==1.9.4",
     "detect-secrets==1.5.0",
     "pip-audit==2.10.0",
     # --- Pre-commit ---
