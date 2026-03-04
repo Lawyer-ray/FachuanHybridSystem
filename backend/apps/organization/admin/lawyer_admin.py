@@ -62,12 +62,16 @@ class LawyerAdminForm(forms.ModelForm[Lawyer]):
         if new_password:
             user.set_password(new_password)
         lt = self.cleaned_data.get("lawyer_team")
+        bt = self.cleaned_data.get("biz_team")
         if lt and lt.law_firm:
             user.law_firm = lt.law_firm
         if commit:
             user.save()
-            self._pending_lawyer_team = lt
-            self._pending_biz_team = self.cleaned_data.get("biz_team")
+            user.lawyer_teams.set([lt] if lt else [])
+            user.biz_teams.set([bt] if bt else [])
+        # 存起来供 save_related 用（save_m2m 会清空，需要再设一次）
+        self._pending_lawyer_team = lt
+        self._pending_biz_team = bt
         return user
 
 
