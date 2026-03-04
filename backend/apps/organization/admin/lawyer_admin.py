@@ -27,6 +27,9 @@ class LawyerAdminForm(forms.ModelForm[Lawyer]):
     class Meta:
         model = Lawyer
         fields = "__all__"
+        widgets: ClassVar[dict[str, Any]] = {
+            "password": forms.TextInput(attrs={"readonly": True, "style": "color:#999;background:#f5f5f5;"}),
+        }
 
     def clean(self) -> dict[str, Any]:
         cleaned: dict[str, Any] = super().clean() or {}
@@ -78,6 +81,12 @@ class LawyerAdmin(AdminImportExportMixin, admin.ModelAdmin[Lawyer]):
     inlines: ClassVar[list[type[admin.TabularInline]]] = [AccountCredentialInline]  # type: ignore[type-arg]
     export_model_name = "lawyer"
     actions: ClassVar = ["export_selected_as_json", "export_all_as_json"]
+    fieldsets: ClassVar = (
+        (_("账号信息"), {"fields": ("username", "password", "new_password")}),
+        (_("个人信息"), {"fields": ("real_name", "phone", "license_no", "id_card", "license_pdf")}),
+        (_("组织关系"), {"fields": ("law_firm", "lawyer_teams", "biz_teams")}),
+        (_("权限"), {"fields": ("is_active", "is_admin", "is_staff", "is_superuser")}),
+    )
 
     def serialize_queryset(self, queryset: Any) -> list[dict[str, Any]]:
         result = []
