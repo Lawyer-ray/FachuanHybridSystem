@@ -66,11 +66,8 @@ class LawyerAdminForm(forms.ModelForm[Lawyer]):
             user.law_firm = lt.law_firm
         if commit:
             user.save()
-            if lt:
-                user.lawyer_teams.set([lt])
-            bt = self.cleaned_data.get("biz_team")
-            user.biz_teams.set([bt] if bt else [])
-            self.save_m2m()
+            self._pending_lawyer_team = lt
+            self._pending_biz_team = self.cleaned_data.get("biz_team")
         return user
 
 
@@ -104,6 +101,15 @@ class LawyerAdmin(AdminImportExportMixin, admin.ModelAdmin[Lawyer]):
         (_("组织关系"), {"fields": ("lawyer_team", "biz_team")}),
         (_("权限"), {"fields": ("is_active", "is_admin", "is_staff", "is_superuser")}),
     )
+
+    def save_related(self, request: Any, form: Any, formsets: Any, change: Any) -> None:
+        super().save_related(request, form, formsets, change)
+        # save_m2m() 会清空未在 Meta.fields 里的 M2M，在此之后重新设置
+        obj = form.instance
+        lt = getattr(form, "_pending_lawyer_team", None)
+        bt = getattr(form, "_pending_biz_team", None)
+        obj.lawyer_teams.set([lt] if lt else [])
+        obj.biz_teams.set([bt] if bt else [])
 
     def serialize_queryset(self, queryset: Any) -> list[dict[str, Any]]:
         result = []
