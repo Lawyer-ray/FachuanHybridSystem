@@ -147,10 +147,10 @@ Paste this URL along with your question into ChatGPT, Claude, Kiro, or any AI as
 
 Custom commercial source license:
 
-- ✅ **Free**: Personal use, research, commercial use by teams ≤ 10 people
-- 💰 **Commercial license**: Teams > 10 people require a donation of **¥200 per person**
+- ✅ **Free**: Individual (single user) or teams ≤ 10 people — free commercial use
+- 💰 **Paid license**: Teams > 10 people — donate **¥200 per person**
 
-**How to obtain a commercial license**: Donate via the WeChat appreciation code below (note "commercial license + headcount"). The donation itself constitutes authorization — no further confirmation needed.
+**How to license**: Donate via the WeChat appreciation code below (note "commercial license + headcount"). The donation itself constitutes authorization — no further confirmation needed.
 
 See [LICENSE](LICENSE) for details.
 
