@@ -98,9 +98,10 @@ class LawyerAdmin(AdminImportExportMixin, admin.ModelAdmin[Lawyer]):
                 if item.get("law_firm"):
                     law_firm = LawFirm.objects.filter(name=item["law_firm"]).first()
 
+                import secrets
                 lawyer = Lawyer.objects.create_user(
                     username=username,
-                    password=Lawyer.objects.make_random_password(),
+                    password=secrets.token_urlsafe(16),
                     real_name=item.get("real_name", ""),
                     phone=item.get("phone") or None,
                     license_no=item.get("license_no", ""),
