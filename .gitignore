@@ -127,7 +127,10 @@ backend/apps/automation/services/ocr/models/*.onnx
 # macOS paths (user-specific)
 MacOS_FC/
 frontend/
-backend/deploy/
+backend/deploy/*
+!backend/deploy/docker/
+backend/deploy/docker/*
+!backend/deploy/docker/Dockerfile
 backend/logs/
 backend/tests/
 backend/.dockerignore

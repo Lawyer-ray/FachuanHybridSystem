@@ -8,20 +8,24 @@
     python ../scripts/filing/test_filing_real.py
 """
 import sys
+
 sys.path.insert(0, "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apiSystem")
 sys.path.insert(0, "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend")
 
 import os
+
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "apiSystem.settings")
 
 import django
+
 django.setup()
 
 import pathlib
+
 from django.core.files.base import ContentFile
 
 # ==================== 1. 获取律师账号 ====================
-from apps.organization.models import Lawyer, AccountCredential
+from apps.organization.models import AccountCredential, Lawyer
 
 lawyer = Lawyer.objects.filter(username="黄崧").first()
 if not lawyer:
