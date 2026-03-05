@@ -1,4 +1,4 @@
-# FaChuanAI Case Management System V26.11.0
+# FaChuanAI Case Management System V26.11.1
 
 Fully automated court document processing and generation. Less is more.
 

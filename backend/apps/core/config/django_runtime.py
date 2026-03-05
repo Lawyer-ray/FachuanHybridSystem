@@ -212,6 +212,7 @@ def resolve_q_cluster() -> dict[str, object]:
         "orm": os.environ.get("DJANGO_Q_ORM", "default") or "default",
         "max_attempts": int(os.environ.get("DJANGO_Q_MAX_ATTEMPTS", "3") or "3"),
         "catch_up": (os.environ.get("DJANGO_Q_CATCH_UP", "False") or "").lower() in _TRUE_VALUES,
+        "poll": float(os.environ.get("DJANGO_Q_POLL", "2") or "2"),  # 轮询间隔（秒），降低 SQLite 写锁竞争
     }
 
 

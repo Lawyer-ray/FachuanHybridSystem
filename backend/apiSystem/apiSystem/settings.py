@@ -163,7 +163,7 @@ if DB_ENGINE in ("", "sqlite", "sqlite3", "django.db.backends.sqlite3"):
             "ENGINE": "django.db.backends.sqlite3",
             "NAME": db_name,
             "AUTOCOMMIT": True,
-            "CONN_MAX_AGE": 600,
+            "CONN_MAX_AGE": 0,
             "CONN_HEALTH_CHECKS": False,
             "OPTIONS": {
                 "timeout": 20,
