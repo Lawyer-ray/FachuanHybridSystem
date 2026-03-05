@@ -11,7 +11,6 @@ from __future__ import annotations
 from typing import Any
 
 from .base import BackendConfig, ILLMBackend, LLMResponse, LLMStreamChunk, LLMUsage
-from .moonshot import MoonshotBackend
 from .ollama import OllamaBackend
 
 _siliconflow_import_error: Exception | None = None
@@ -70,5 +69,4 @@ __all__ = [
     # 后端实现
     "SiliconFlowBackend",
     "OllamaBackend",
-    "MoonshotBackend",
 ]

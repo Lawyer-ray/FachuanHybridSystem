@@ -166,3 +166,16 @@
     border-color: #4caf50 !important;
     box-shadow: 0 0 5px rgba(76, 175, 80, 0.3);
 }
+
+
+/* 隐藏当事人证件文件 inline 行首空白标题列，压缩行高 */
+#identity_docs-group td.original {
+    width: 0;
+    padding: 0;
+    overflow: hidden;
+}
+#identity_docs-group td {
+    vertical-align: middle;
+    padding-top: 4px;
+    padding-bottom: 4px;
+}

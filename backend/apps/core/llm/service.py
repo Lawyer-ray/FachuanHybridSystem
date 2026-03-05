@@ -9,7 +9,7 @@ Requirements: 1.2, 1.4, 1.5
 import logging
 from typing import Any, ClassVar, cast
 
-from .backends import BackendConfig, ILLMBackend, LLMResponse, MoonshotBackend, OllamaBackend
+from .backends import BackendConfig, ILLMBackend, LLMResponse, OllamaBackend
 from .client import LLMClient
 from .fallback_policy import LLMFallbackPolicy
 from .router import LLMBackendRouter
@@ -44,13 +44,11 @@ class LLMService:
     # 后端名称常量
     BACKEND_SILICONFLOW = "siliconflow"
     BACKEND_OLLAMA = "ollama"
-    BACKEND_MOONSHOT = "moonshot"
 
     # 默认后端优先级(数字越小优先级越高)
     DEFAULT_PRIORITIES: ClassVar = {
         BACKEND_SILICONFLOW: 1,
         BACKEND_OLLAMA: 2,
-        BACKEND_MOONSHOT: 3,
     }
 
     def __init__(

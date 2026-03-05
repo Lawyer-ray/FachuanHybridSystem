@@ -8,7 +8,7 @@ from typing import Any
 from ninja import File, Router
 from ninja.files import UploadedFile
 
-from apps.automation.schemas import MoonshotChatIn, MoonshotChatOut, OllamaChatIn, OllamaChatOut
+from apps.automation.schemas import OllamaChatIn, OllamaChatOut
 from apps.core.infrastructure.throttling import rate_limit_from_settings
 
 from .performance_monitor_api import router as performance_router
@@ -52,18 +52,6 @@ def ai_ollama(request: Any, payload: OllamaChatIn) -> OllamaChatOut:
     result = service.chat_with_ollama(model=payload.model, prompt=payload.prompt, text=payload.text)
 
     return OllamaChatOut(data=result)
-
-
-@router.post("/ai/moonshot", response=MoonshotChatOut)
-def ai_moonshot(request: Any, payload: MoonshotChatIn) -> MoonshotChatOut:
-    """Moonshot AI接口"""
-    # 使用工厂函数获取服务
-    service = _get_ai_service()
-
-    # 调用服务处理Moonshot聊天
-    result = service.chat_with_moonshot(model=payload.model, prompt=payload.prompt, text=payload.text)
-
-    return MoonshotChatOut(data=result)
 
 
 # ============================================================================

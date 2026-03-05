@@ -12,7 +12,6 @@ class LLMBackendRouter:
     DEFAULT_PRIORITIES: ClassVar = {
         "siliconflow": 1,
         "ollama": 2,
-        "moonshot": 3,
     }
 
     def __init__(self, *, backend_configs: dict[str, BackendConfig] | None = None) -> None:
@@ -41,7 +40,7 @@ class LLMBackendRouter:
         return backend
 
     def get_backends_by_priority(self, names: list[str] | None = None) -> list[tuple[str, ILLMBackend]]:
-        backend_names = names or ["siliconflow", "ollama", "moonshot"]
+        backend_names = names or ["siliconflow", "ollama"]
 
         backends_with_priority: list[tuple[int, str]] = []
         for name in backend_names:

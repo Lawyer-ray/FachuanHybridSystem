@@ -49,10 +49,6 @@ class LLMConfig:
     DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
     DEFAULT_OLLAMA_TIMEOUT = 120
 
-    DEFAULT_MOONSHOT_MODEL = "moonshot-v1-auto"
-    DEFAULT_MOONSHOT_BASE_URL = "https://api.moonshot.cn/v1"
-    DEFAULT_MOONSHOT_TIMEOUT = 120
-
     DEFAULT_AVAILABLE_MODELS: ClassVar[list[str]] = [
         # Qwen 系列
         "Qwen/Qwen2.5-7B-Instruct",
@@ -360,60 +356,6 @@ class LLMConfig:
             return raw_value.strip()
         return cls.DEFAULT_OLLAMA_BASE_URL
 
-    # ============================================================
-    # Moonshot 配置方法
-    # ============================================================
-
-    @classmethod
-    def get_moonshot_api_key(cls) -> str:
-        raw = cls._get_system_config("MOONSHOT_API_KEY", "")
-        if raw:
-            return cls._normalize_api_key(raw)
-
-        moonshot_config = getattr(settings, "MOONSHOT", {} or {})
-        raw_value = moonshot_config.get("API_KEY", "")
-        return cls._normalize_api_key(
-            raw_value if isinstance(raw_value, str) else ("" if raw_value is None else str(raw_value))
-        )
-
-    @classmethod
-    def get_moonshot_base_url(cls) -> str:
-        raw = cls._get_system_config("MOONSHOT_BASE_URL", "")
-        if raw:
-            return cls._normalize_base_url(raw)
-
-        moonshot_config = getattr(settings, "MOONSHOT", {} or {})
-        raw_value = moonshot_config.get("BASE_URL", cls.DEFAULT_MOONSHOT_BASE_URL)
-        return cls._normalize_base_url(
-            raw_value if isinstance(raw_value, str) else ("" if raw_value is None else str(raw_value))
-        )
-
-    @classmethod
-    def get_moonshot_default_model(cls) -> str:
-        raw = cls._get_system_config("MOONSHOT_DEFAULT_MODEL", "")
-        if raw:
-            return (raw or "").strip() or cls.DEFAULT_MOONSHOT_MODEL
-
-        moonshot_config = getattr(settings, "MOONSHOT", {} or {})
-        model = moonshot_config.get("DEFAULT_MODEL", cls.DEFAULT_MOONSHOT_MODEL)
-        return (model or "").strip() or cls.DEFAULT_MOONSHOT_MODEL
-
-    @classmethod
-    def get_moonshot_timeout(cls) -> int:
-        timeout_str = cls._get_system_config("MOONSHOT_TIMEOUT", "")
-        if timeout_str:
-            try:
-                return int(timeout_str)
-            except (ValueError, TypeError):
-                return cls.DEFAULT_MOONSHOT_TIMEOUT
-
-        moonshot_config = getattr(settings, "MOONSHOT", {} or {})
-        value = moonshot_config.get("TIMEOUT", cls.DEFAULT_MOONSHOT_TIMEOUT)
-        try:
-            return int(value)
-        except (ValueError, TypeError):
-            return cls.DEFAULT_MOONSHOT_TIMEOUT
-
     @classmethod
     def get_ollama_timeout(cls) -> int:
         timeout_str = cls._get_system_config("OLLAMA_TIMEOUT", "")
@@ -454,11 +396,11 @@ class LLMConfig:
         def priority_key(name: str) -> str:
             return f"LLM_BACKEND_{name.upper()}_PRIORITY"
 
-        default_priorities = {"siliconflow": 1, "ollama": 2, "moonshot": 3}
-        default_enabled = {"siliconflow": True, "ollama": True, "moonshot": True}
+        default_priorities = {"siliconflow": 1, "ollama": 2}
+        default_enabled = {"siliconflow": True, "ollama": True}
 
         configs: dict[str, BackendConfig] = {}
-        for name in ("siliconflow", "ollama", "moonshot"):
+        for name in ("siliconflow", "ollama"):
             enabled_raw = cls._get_system_config(enabled_key(name), "")
             enabled = cls._parse_bool(enabled_raw, default_enabled[name])
 
@@ -475,7 +417,7 @@ class LLMConfig:
                     api_key=cls.get_api_key(),
                     timeout=cls.get_timeout(),
                 )
-            elif name == "ollama":
+            else:
                 configs[name] = BackendConfig(
                     name=name,
                     enabled=enabled,
@@ -483,16 +425,6 @@ class LLMConfig:
                     default_model=cls.get_ollama_model(),
                     base_url=cls.get_ollama_base_url(),
                     timeout=cls.get_ollama_timeout(),
-                )
-            else:
-                configs[name] = BackendConfig(
-                    name=name,
-                    enabled=enabled,
-                    priority=priority,
-                    default_model=cls.get_moonshot_default_model(),
-                    base_url=cls.get_moonshot_base_url(),
-                    api_key=cls.get_moonshot_api_key(),
-                    timeout=cls.get_moonshot_timeout(),
                 )
         return configs
 
