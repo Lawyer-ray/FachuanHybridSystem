@@ -2,6 +2,19 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.11.1] - 2026-03-05
+
+### 修复
+- 163 IMAP 收取报告：修复 `SEARCH` 命令不支持中文导致 `UnicodeEncodeError`，改为扫描专用文件夹全部邮件
+- 163 IMAP 收取报告：修复文件夹硬编码问题，文件夹不存在时自动回退到 INBOX
+- 163 IMAP 收取报告：`_decode_header_value` 加 `errors="replace"`，防止非标准编码抛异常跳过邮件
+- Django-Q 延迟任务：`q_options={"countdown": 60}` 对 Django-Q 无效，改用 `Schedule.ONCE + next_run` 实现真正的60秒延迟
+- 报告申请成功后 `async_task` 在 async 上下文报错，改用 `sync_to_async` 包装
+- `gsxt_report_service.py`：`click_company_detail` 和 `request_report` 改用 `wait_for_selector` 替代固定 sleep，防止 `#btn_send_pdf` 超时
+- `apps.py`：移除启动时自动恢复法院短信任务逻辑，彻底解决先启动 Django 后启动 qcluster 时的 SQLite 写锁卡死问题
+- SQLite 连接：`CONN_MAX_AGE` 从 600 改为 0，避免多进程长连接持锁
+- Django-Q 轮询间隔：`poll` 从默认 0.2s 改为 2s，降低 SQLite 写操作频率
+
 ## [26.11.0] - 2026-03-05
 
 ### 新增

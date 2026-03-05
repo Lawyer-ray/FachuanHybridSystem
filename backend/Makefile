@@ -46,7 +46,7 @@ venv: ## 创建虚拟环境
 run: ## 启动开发服务器 (默认端口 8002, 使用 uvicorn, 可通过 PORT=8003 修改)
 	cd apiSystem && ../$(UVICORN) apiSystem.asgi:application --host 0.0.0.0 --port $(PORT)
 
-run-dev: ## 启动开发服务器 (带自动重载, 推荐开发时使用)
+run-dev: ## 启动开发服务器 (带自动重载, ⚠️ 必须先 make qcluster 再 make run-dev，否则 SQLite 写锁会导致卡死)
 	cd apiSystem && ../$(UVICORN) apiSystem.asgi:application --host 0.0.0.0 --port $(PORT) --reload --reload-dir ../apps --reload-dir . --reload-include '*.html'
 
 run-port: ## 启动开发服务器 (自定义端口, 使用 PORT=8001)

@@ -200,9 +200,27 @@ async def _run_full_flow(task_id: int) -> None:
             await request_report(page)
 
             task.status = GsxtReportStatus.WAITING_EMAIL
-            task.error_message = "报告已发送到邮箱，收到后请在此页面手动上传 PDF"
+            task.error_message = "报告已发送到邮箱，正在自动轮询收取…"
             await save_task(task, ["status", "error_message"])
-            logger.info("任务 %d：报告申请成功，等待手动上传", task_id)
+            logger.info("任务 %d：报告申请成功，启动邮件轮询", task_id)
+
+            # 60 秒后开始轮询邮箱
+            from datetime import timedelta
+
+            from asgiref.sync import sync_to_async
+            from django.utils import timezone
+            from django_q.models import Schedule
+
+            def _schedule_email_check() -> None:
+                Schedule.objects.create(
+                    func="apps.automation.tasks.gsxt_tasks.check_gsxt_report_email",
+                    args=f"{task_id},{repr(task.company_name)}",
+                    schedule_type=Schedule.ONCE,
+                    next_run=timezone.now() + timedelta(seconds=60),
+                    name=f"gsxt_email_first_{task_id}",
+                )
+
+            await sync_to_async(_schedule_email_check)()
 
         except Exception as e:
             task.status = GsxtReportStatus.FAILED

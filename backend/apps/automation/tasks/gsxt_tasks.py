@@ -53,9 +53,15 @@ def check_gsxt_report_email(task_id: int, company_name: str) -> None:
     else:
         # 未收到，60 秒后重试
         logger.info("任务 %d：未收到报告邮件，60秒后重试", task_id)
-        async_task(
-            "apps.automation.tasks.gsxt_tasks.check_gsxt_report_email",
-            task_id,
-            company_name,
-            q_options={"countdown": 60},
+        from datetime import timedelta
+
+        from django.utils import timezone
+        from django_q.models import Schedule
+
+        Schedule.objects.create(
+            func="apps.automation.tasks.gsxt_tasks.check_gsxt_report_email",
+            args=f"{task_id},{repr(company_name)}",
+            schedule_type=Schedule.ONCE,
+            next_run=timezone.now() + timedelta(seconds=60),
+            name=f"gsxt_email_retry_{task_id}_{timezone.now().timestamp():.0f}",
         )
