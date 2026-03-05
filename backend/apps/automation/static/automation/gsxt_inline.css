@@ -1,0 +1,15 @@
+/* 隐藏 GsxtReportTask inline 行首的空白对象标题列 */
+#gsxt_report_tasks-group td.original {
+    width: 0;
+    padding: 0;
+    overflow: hidden;
+}
+/* 压缩行高 */
+#gsxt_report_tasks-group td {
+    vertical-align: middle;
+    padding-top: 4px;
+    padding-bottom: 4px;
+}
+#gsxt_report_tasks-group .field-report_upload input[type=file] {
+    font-size: 12px;
+}

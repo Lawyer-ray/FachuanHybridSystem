@@ -59,7 +59,17 @@ def _ensure_chrome_running() -> None:
 async def _do_login_and_wait(credential: AccountCredential, task_id: int) -> None:
     """连接 Chrome，填账号密码，等待用户完成验证码，检测登录成功后更新任务状态。"""
     from apps.automation.models.gsxt_report import GsxtReportStatus, GsxtReportTask
+    from asgiref.sync import sync_to_async
     from playwright.async_api import async_playwright
+
+    get_task = sync_to_async(GsxtReportTask.objects.get)
+
+    def _save_cred() -> None:
+        credential.last_login_success_at = timezone.now()
+        credential.save(update_fields=["last_login_success_at"])
+
+    def _save_task(t: GsxtReportTask, fields: list[str]) -> None:
+        t.save(update_fields=fields)
 
     async with async_playwright() as p:
         browser = await p.chromium.connect_over_cdp(CDP_URL)
@@ -77,7 +87,6 @@ async def _do_login_and_wait(credential: AccountCredential, task_id: int) -> Non
 
             logger.info("已点击登录，等待用户完成验证码（最多 %d 秒）...", CAPTCHA_TIMEOUT)
 
-            # 轮询检测：URL 跳转离开登录页即为成功
             deadline = asyncio.get_event_loop().time() + CAPTCHA_TIMEOUT
             success = False
             while asyncio.get_event_loop().time() < deadline:
@@ -86,22 +95,19 @@ async def _do_login_and_wait(credential: AccountCredential, task_id: int) -> Non
                     success = True
                     break
 
-            task = await asyncio.to_thread(GsxtReportTask.objects.get, pk=task_id)
+            task = await get_task(pk=task_id)
             if success:
                 logger.info("登录成功，URL: %s", page.url)
-                credential.last_login_success_at = timezone.now()
-                credential.login_success_count += 1
-                await asyncio.to_thread(
-                    credential.save, update_fields=["last_login_success_at", "login_success_count"]
-                )
-                task.status = GsxtReportStatus.PENDING  # 等待后续搜索报告步骤
-                await asyncio.to_thread(task.save, update_fields=["status"])
+                await sync_to_async(_save_cred)()
+                task.status = GsxtReportStatus.PENDING
+                await sync_to_async(_save_task)(task, ["status"])
+
+                from apps.automation.services.gsxt.gsxt_report_service import start_report_flow
+                start_report_flow(task_id)
             else:
-                credential.login_failure_count += 1
-                await asyncio.to_thread(credential.save, update_fields=["login_failure_count"])
                 task.status = GsxtReportStatus.FAILED
                 task.error_message = f"等待验证码超时（{CAPTCHA_TIMEOUT}秒）"
-                await asyncio.to_thread(task.save, update_fields=["status", "error_message"])
+                await sync_to_async(_save_task)(task, ["status", "error_message"])
                 logger.warning("等待验证码超时，任务 %d 失败", task_id)
 
         finally:

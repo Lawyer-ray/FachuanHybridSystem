@@ -202,13 +202,13 @@ collectstatic: ## 收集静态文件
 # 后台任务
 # ============================================================
 
-qcluster: ## 启动 Django-Q 任务队列
+qcluster: ## 启动 Django-Q 任务队列（请先启动 qcluster，再启动 Django）
 	@pkill -9 -f 'multiprocessing.spawn|multiprocessing.resource_tracker' 2>/dev/null || true
 	@pkill -9 -f qcluster 2>/dev/null || true
 	@sleep 1
 	$(MANAGE) qcluster
 
-qcluster-start: ## 启动 Django-Q 并处理待处理任务
+qcluster-start: ## 启动 Django-Q 并处理待处理任务（请先启动 qcluster，再启动 Django）
 	@pkill -9 -f 'multiprocessing.spawn|multiprocessing.resource_tracker' 2>/dev/null || true
 	@pkill -9 -f qcluster 2>/dev/null || true
 	@sleep 1
