@@ -110,10 +110,17 @@
     border: 1px solid var(--unfold-primary, #3b82f6);
 }
 
-.btn-primary:hover {
+.btn-primary:hover:not(:disabled) {
     background: var(--unfold-primary-dark, #2563eb);
     color: #fff !important;
     border-color: var(--unfold-primary-dark, #2563eb);
+}
+
+.btn-primary:disabled,
+.btn-primary.btn-disabled {
+    background: #9ca3af;
+    border-color: #9ca3af;
+    color: #fff !important;
 }
 
 .btn-secondary {

@@ -28,6 +28,14 @@ function contractDetailApp(config = {}) {
         generating: false,
         generatingType: null,
 
+        // 文件夹生成锁定
+        folderUnlocked: false,
+        get folderLockIcon() {
+            const locked = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>';
+            const unlocked = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 019.9-1"/></svg>';
+            return this.folderUnlocked ? unlocked : locked;
+        },
+
         // 补充协议选择对话框
         showAgreementDialog: false,
         selectedAgreementId: null,
@@ -205,7 +213,7 @@ function contractDetailApp(config = {}) {
          * 调用 API: /api/v1/documents/contracts/{id}/folder/download
          */
         async generateFolder() {
-            if (this.generating || !contractId) return;
+            if (this.generating || !this.folderUnlocked || !contractId) return;
 
             this.generating = true;
             this.generatingType = 'folder';
@@ -227,6 +235,7 @@ function contractDetailApp(config = {}) {
             } finally {
                 this.generating = false;
                 this.generatingType = null;
+                this.folderUnlocked = false;
             }
         },
 

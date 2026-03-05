@@ -499,15 +499,148 @@
                 </div>
             </div>
 
+            <!-- 匹配模板快速下载 -->
+            <div class="action-group">
+                <h4 class="action-group-title">{% trans "匹配模板快速下载" %}</h4>
+                <div class="action-item" x-data="caseTemplateDownloadApp({{ case.pk }})">
+                    {% if grouped_case_file_templates %}
+                        {% for group_label, templates in grouped_case_file_templates %}
+                        <div style="margin-bottom: 12px;">
+                            <div style="font-size: 12px; color: #6b7280; font-weight: 600; margin-bottom: 6px;">{{ group_label }}</div>
+                            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                                {% for t in templates %}
+                                <button type="button"
+                                        class="btn btn-secondary"
+                                        :class="downloading === {{ t.id }} ? 'btn-disabled' : ''"
+                                        :disabled="downloading === {{ t.id }}"
+                                        @click="download({{ t.id }}, '{{ t.name|escapejs }}')">
+                                    <span x-show="downloading !== {{ t.id }}">{{ t.name }}</span>
+                                    <span x-show="downloading === {{ t.id }}" x-cloak>{% trans "生成中..." %}</span>
+                                </button>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <span style="color: #9ca3af;">{% if case_file_templates_missing_reason %}{{ case_file_templates_missing_reason }}{% else %}{% trans "无匹配模板" %}{% endif %}</span>
+                    {% endif %}
+                    <div class="litigation-success-message"
+                         x-show="msg" x-cloak x-text="msg"
+                         x-transition:enter="transition ease-out duration-300"
+                         x-transition:leave="transition ease-in duration-200"></div>
+                    <div class="litigation-error"
+                         x-show="err" x-cloak x-text="err"
+                         x-transition:enter="transition ease-out duration-300"
+                         x-transition:leave="transition ease-in duration-200"></div>
+                </div>
+                <script>
+                function caseTemplateDownloadApp(caseId) {
+                    return {
+                        downloading: null,
+                        msg: '',
+                        err: '',
+                        async download(templateId, templateName) {
+                            this.downloading = templateId;
+                            this.msg = '';
+                            this.err = '';
+                            try {
+                                const csrf = (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || '';
+                                const r = await fetch(`/api/v1/documents/cases/${caseId}/templates/${templateId}/download`, {
+                                    method: 'POST',
+                                    headers: {'X-CSRFToken': csrf}
+                                });
+                                if (!r.ok) {
+                                    const d = await r.json().catch(() => ({}));
+                                    throw new Error(d.detail || d.message || r.statusText);
+                                }
+                                const blob = await r.blob();
+                                const a = document.createElement('a');
+                                a.href = URL.createObjectURL(blob);
+                                const cd = r.headers.get('content-disposition') || '';
+                                const m = cd.match(/filename\*=UTF-8''(.+)/);
+                                a.download = m ? decodeURIComponent(m[1]) : `${templateName}.docx`;
+                                a.click();
+                                URL.revokeObjectURL(a.href);
+                                this.msg = `${templateName} 下载成功`;
+                                setTimeout(() => this.msg = '', 3000);
+                            } catch(e) {
+                                this.err = e.message;
+                                setTimeout(() => this.err = '', 5000);
+                            } finally {
+                                this.downloading = null;
+                            }
+                        }
+                    };
+                }
+                </script>
+            </div>
+
             <!-- 文件夹生成 -->
             <div class="action-group">
                 <h4 class="action-group-title">{% trans "文件夹生成" %}</h4>
-                <div class="action-item">
-                    <button type="button" class="btn btn-secondary btn-disabled" disabled title="{% trans '功能开发中' %}">
+                <div class="action-item" x-data="caseFolderGenApp({{ case.pk }})" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    {% if can_generate_folder %}
+                    <span style="display: inline-flex; border-radius: 8px; overflow: hidden;">
+                        <button type="button" class="btn btn-primary" :class="(!unlocked || generating) && 'btn-disabled'" :disabled="!unlocked || generating" @click="generate()" style="border-radius: 8px 0 0 8px; margin: 0; border: none;">
+                            <span x-show="!generating">{% trans "生成文件夹" %}</span>
+                            <span x-show="generating" x-cloak><span class="spinner"></span></span>
+                        </button>
+                        <button type="button" @click="unlocked = !unlocked" :title="unlocked ? '{% trans "点击锁定" %}' : '{% trans "点击解锁后才能生成" %}'" :style="'border-radius:0 8px 8px 0;margin:0;border:none;padding:4px 10px;cursor:pointer;display:flex;align-items:center;' + (unlocked ? 'background:#2563eb;color:#fff' : 'background:#d1d5db;color:#6b7280')">
+                            <span x-html="lockIcon"></span>
+                        </button>
+                    </span>
+                    <span x-show="message" x-text="message" style="color:#059669;font-size:13px;" x-cloak></span>
+                    <span x-show="error" x-text="error" style="color:#dc2626;font-size:13px;" x-cloak></span>
+                    {% else %}
+                    <button type="button" class="btn btn-primary btn-disabled" disabled title="{{ folder_disabled_reason|default:'无匹配的文件夹模板' }}">
                         {% trans "生成文件夹" %}
                     </button>
+                    {% endif %}
                 </div>
             </div>
+            <script>
+            function caseFolderGenApp(caseId) {
+                const svgLocked = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>';
+                const svgUnlocked = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 019.9-1"/></svg>';
+                return {
+                    generating: false,
+                    unlocked: false,
+                    message: '',
+                    error: '',
+                    get lockIcon() { return this.unlocked ? svgUnlocked : svgLocked; },
+                    async generate() {
+                        this.generating = true;
+                        this.message = '';
+                        this.error = '';
+                        try {
+                            const csrf = (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || '';
+                            const r = await fetch('/api/v1/cases/' + caseId + '/generate-folder', {
+                                method: 'POST',
+                                headers: {'X-CSRFToken': csrf}
+                            });
+                            const ct = r.headers.get('content-type') || '';
+                            if (ct.includes('application/zip')) {
+                                const blob = await r.blob();
+                                const a = document.createElement('a');
+                                a.href = URL.createObjectURL(blob);
+                                const cd = r.headers.get('content-disposition') || '';
+                                a.download = (cd.match(/filename="(.+)"/) || [])[1] || 'folder.zip';
+                                a.click();
+                                this.message = '{% trans "文件夹已下载" %}';
+                            } else {
+                                const d = await r.json();
+                                if (d.success) this.message = d.message;
+                                else this.error = d.message || '{% trans "生成失败" %}';
+                            }
+                        } catch(e) {
+                            this.error = e.message;
+                        } finally {
+                            this.generating = false;
+                        }
+                    }
+                };
+            }
+            </script>
         </div>
     </div>
 </div>

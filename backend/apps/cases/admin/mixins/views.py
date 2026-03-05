@@ -159,6 +159,8 @@ class CaseAdminViewsMixin:
 
         matched_case_file_templates, case_file_templates_missing_reason = self._get_case_file_templates(service, case)
 
+        grouped_case_file_templates = self._group_templates_by_sub_type(matched_case_file_templates)
+
         matched_folder_templates_list = (
             service.get_matched_folder_templates_list(case.case_type, our_legal_statuses) if case.case_type else []
         )
@@ -196,6 +198,7 @@ class CaseAdminViewsMixin:
                 "matched_case_file_templates": matched_case_file_templates,
                 "matched_folder_templates_list": matched_folder_templates_list,
                 "case_file_templates_missing_reason": case_file_templates_missing_reason,
+                "grouped_case_file_templates": grouped_case_file_templates,
                 "can_generate_folder": bool(matched_folder_templates and "无匹配" not in matched_folder_templates),
                 "folder_disabled_reason": self._get_folder_disabled_reason_v2(matched_folder_templates),
                 "our_legal_entities_json": our_legal_entities_json,
@@ -223,6 +226,23 @@ class CaseAdminViewsMixin:
         if not case.current_stage:
             return [], str(_("未设置案件阶段"))
         return service.get_matched_case_file_templates(case_type=case.case_type, case_stage=case.current_stage), ""
+
+    @staticmethod
+    def _group_templates_by_sub_type(templates: list[dict[str, Any]]) -> list[tuple[str, list[dict[str, Any]]]]:
+        from apps.documents.models.choices import DocumentCaseFileSubType
+
+        # 上面硬编码区域已覆盖的 sub_type，自动排除
+        HARDCODED_SUB_TYPES = {"power_of_attorney_materials", "property_preservation_materials"}
+
+        label_map = dict(DocumentCaseFileSubType.choices)
+        groups: dict[str, list[dict[str, Any]]] = {}
+        for t in templates:
+            sub = t.get("case_sub_type", "other_materials")
+            if sub in HARDCODED_SUB_TYPES:
+                continue
+            groups.setdefault(sub, []).append(t)
+        order = [c[0] for c in DocumentCaseFileSubType.choices]
+        return [(label_map.get(k, k), v) for k in order if (v := groups.get(k))]
 
     @staticmethod
     def _build_our_legal_entities(case: Case, json: ModuleType) -> tuple[str, list[dict[str, Any]]]:
