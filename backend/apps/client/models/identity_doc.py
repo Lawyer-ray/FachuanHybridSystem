@@ -72,7 +72,7 @@ class ClientIdentityDoc(models.Model):
     uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name=_("上传时间"))
 
     def __str__(self) -> str:
-        return f"{self.client.name}-{self.doc_type}"
+        return ""
 
     @property
     def media_url(self) -> str | None:

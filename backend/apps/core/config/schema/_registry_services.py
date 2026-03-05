@@ -4,29 +4,6 @@ from .field import ConfigField
 
 
 def register_service_configs(registry: dict[str, ConfigField]) -> None:
-    registry["services.moonshot.base_url"] = ConfigField(
-        name="services.moonshot.base_url",
-        type=str,
-        default="https://api.moonshot.cn/v1",
-        env_var="MOONSHOT_BASE_URL",
-        description="Moonshot AI API 基础 URL",
-    )
-    registry["services.moonshot.api_key"] = ConfigField(
-        name="services.moonshot.api_key",
-        type=str,
-        required=False,
-        sensitive=True,
-        env_var="MOONSHOT_API_KEY",
-        description="Moonshot AI API 密钥",
-    )
-    registry["services.moonshot.timeout"] = ConfigField(
-        name="services.moonshot.timeout",
-        type=int,
-        default=30,
-        min_value=1,
-        max_value=300,
-        description="Moonshot AI API 超时时间（秒）",
-    )
     registry["services.ollama.model"] = ConfigField(
         name="services.ollama.model",
         type=str,

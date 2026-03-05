@@ -29,16 +29,6 @@ class OllamaChatOut(BaseModel):
     data: dict[str, Any]
 
 
-class MoonshotChatIn(BaseModel):
-    model: str = Field(...)
-    prompt: str = Field(...)
-    text: str = Field(...)
-
-
-class MoonshotChatOut(BaseModel):
-    data: dict[str, Any]
-
-
 class AutoToolProcessIn(BaseModel):
     file_path: str = Field(...)
     prompt: str = Field(default=DEFAULT_FILENAME_PROMPT)

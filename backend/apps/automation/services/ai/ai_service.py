@@ -18,13 +18,3 @@ class AIService:
             "content": resp.content,
             "raw": getattr(resp, "raw", None),
         }
-
-    def chat_with_moonshot(self, *, model: str, prompt: str, text: str) -> dict[str, Any]:
-        messages: list[Any] = []
-        resp = self._llm_service.chat(messages=messages, backend="moonshot", model=model, fallback=False)
-        return {
-            "backend": "moonshot",
-            "model": model,
-            "content": resp.content,
-            "raw": getattr(resp, "raw", None),
-        }

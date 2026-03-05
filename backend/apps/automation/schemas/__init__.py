@@ -28,8 +28,6 @@ from .document import (
     AutoToolProcessOut,
     DocumentProcessIn,
     DocumentProcessOut,
-    MoonshotChatIn,
-    MoonshotChatOut,
     OllamaChatIn,
     OllamaChatOut,
 )
@@ -56,8 +54,6 @@ __all__ = [
     "DocumentProcessOut",
     "OllamaChatIn",
     "OllamaChatOut",
-    "MoonshotChatIn",
-    "MoonshotChatOut",
     "AutoToolProcessIn",
     "AutoToolProcessOut",
     "AsyncTaskSubmitOut",

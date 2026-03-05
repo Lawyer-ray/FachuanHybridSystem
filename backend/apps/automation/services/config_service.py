@@ -14,10 +14,6 @@ class AutomationConfigService:
                 "model": LLMConfig.get_ollama_model(),
                 "base_url": LLMConfig.get_ollama_base_url(),
             },
-            "moonshot": {
-                "model": LLMConfig.get_moonshot_default_model(),
-                "base_url": LLMConfig.get_moonshot_base_url(),
-            },
         }
 
     def get_system_status(self) -> dict[str, Any]:
