@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from django import forms
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.http import HttpRequest
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
@@ -110,6 +110,65 @@ class ClientAdmin(AdminImportExportMixin, admin.ModelAdmin[Client]):
     export_model_name = "client"
     import_required_fields = ("name",)
     actions: ClassVar = ["export_selected_as_json", "export_all_as_json"]
+
+    def get_urls(self) -> list[Any]:
+        from django.urls import path
+
+        urls = super().get_urls()
+        custom = [
+            path(
+                "<int:client_id>/fetch-gsxt-report/",
+                self.admin_site.admin_view(self._fetch_gsxt_report_view),
+                name="client_client_fetch_gsxt_report",
+            ),
+        ]
+        return custom + urls
+
+    def _fetch_gsxt_report_view(self, request: HttpRequest, client_id: int) -> Any:
+        from django.shortcuts import redirect
+
+        from apps.automation.models.gsxt_report import GsxtReportStatus, GsxtReportTask
+        from apps.automation.services.gsxt.gsxt_login_service import GsxtLoginError, start_login_gsxt
+        from apps.organization.models.credential import AccountCredential
+
+        client = Client.objects.get(pk=client_id)
+
+        if client.client_type != "legal":
+            self.message_user(request, _("仅法人/非法人组织当事人支持获取企业信用报告"), messages.WARNING)
+            return redirect(f"../../{client_id}/change/")
+
+        credential = (
+            AccountCredential.objects.filter(site_name="国家企业信用信息公示系统")
+            .order_by("-is_preferred", "-last_login_success_at")
+            .first()
+        )
+        if not credential:
+            self.message_user(request, _("未找到国家企业信用信息公示系统账号，请先在账号密码管理中添加"), messages.ERROR)
+            return redirect(f"../../{client_id}/change/")
+
+        # 创建任务记录
+        task = GsxtReportTask.objects.create(
+            client=client,
+            company_name=client.name,
+            status=GsxtReportStatus.WAITING_CAPTCHA,
+        )
+
+        # 非阻塞：启动 Chrome、填账号密码，立即返回
+        try:
+            start_login_gsxt(credential, task.id)
+        except GsxtLoginError as e:
+            task.status = GsxtReportStatus.FAILED
+            task.error_message = str(e)
+            task.save(update_fields=["status", "error_message"])
+            self.message_user(request, str(e), messages.ERROR)
+            return redirect(f"../../{client_id}/change/")
+
+        self.message_user(
+            request,
+            _("Chrome 已打开登录页，请在浏览器中完成验证码，系统将自动继续后续流程"),
+            messages.SUCCESS,
+        )
+        return redirect(f"../../{client_id}/change/")
 
     def get_changeform_initial_data(self, request: HttpRequest) -> dict[str, Any]:
         return {"client_type": "legal"}

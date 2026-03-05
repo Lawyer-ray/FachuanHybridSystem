@@ -132,6 +132,19 @@
     </style>
 {% endblock %}
 
+{% block object-tools-items %}
+    {{ block.super }}
+    {% if original and original.client_type == "legal" %}
+    <li>
+        <a href="{% url 'admin:client_client_fetch_gsxt_report' original.pk %}"
+           class="historylink"
+           onclick="return confirm('将打开浏览器登录国家企业信用信息公示系统，请准备好手动完成验证码。继续？')">
+            🏢 {% trans "获取企业信用报告" %}
+        </a>
+    </li>
+    {% endif %}
+{% endblock %}
+
 {% block form_top %}
     {% if not original %}
     <!-- 文本解析区域 - Alpine.js 版本 -->
