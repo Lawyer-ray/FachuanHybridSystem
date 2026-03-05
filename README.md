@@ -1,4 +1,4 @@
-# 法穿AI案件管理系统V26.8.6
+# 法穿AI案件管理系统V26.10.0
 
 全自动处理/生成法院文书，Less is more
 
@@ -27,7 +27,43 @@
 
 ## 🚀 快速开始
 
-### 🍎 macOS 用户 (推荐使用 Make 命令)
+### 🐳 Docker 启动（最简单，推荐）
+
+只需要安装 [Docker Desktop](https://www.docker.com/products/docker-desktop/)，无需配置 Python 环境：
+
+```bash
+# 1. 克隆项目
+git clone https://github.com/Lawyer-ray/FachuanHybridSystem.git
+cd FachuanHybridSystem/backend
+
+# 2. 配置环境变量
+cp .env.example .env
+# 编辑 .env，至少修改 DJANGO_SECRET_KEY
+
+# 3. 构建并启动（首次构建约 5~10 分钟，会下载 Playwright 浏览器）
+docker compose up -d
+
+# 4. 创建管理员账号
+docker compose exec web uv run python manage.py createsuperuser
+
+# 5. 访问后台
+# http://localhost:8002/admin
+```
+
+常用命令：
+
+```bash
+docker compose logs -f          # 查看日志
+docker compose down             # 停止
+docker compose up -d --build    # 代码更新后重新构建
+```
+
+> 数据库和上传文件通过 Docker volume 持久化，`docker compose down` 不会丢数据。
+> 如需清空数据：`docker compose down -v`
+
+---
+
+### 🍎 macOS 用户 (本地开发，推荐使用 Make 命令)
 
 macOS 默认支持 Make 命令，使用更简单高效：
 

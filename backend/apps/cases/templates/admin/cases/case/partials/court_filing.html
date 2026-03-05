@@ -34,7 +34,8 @@
                 <!-- 操作按钮 -->
                 <div style="margin-bottom: 16px;">
                     <button type="button" class="btn btn-primary"
-                            :disabled="executing || !caseInfo.court_name"
+                            :class="{ 'btn-disabled': executing || !caseInfo.court_name || !caseInfo.our_party_is_plaintiff_side || !caseInfo.has_court_credential }"
+                            :disabled="executing || !caseInfo.court_name || !caseInfo.our_party_is_plaintiff_side || !caseInfo.has_court_credential"
                             @click="executeCourtFiling()">
                         <span x-show="!executing">🚀 {% translate "开始一张网立案" %}</span>
                         <span x-show="executing"><span class="spinner"></span> {% translate "执行中..." %}</span>
@@ -42,6 +43,14 @@
                     <span x-show="!caseInfo.court_name"
                           style="margin-left: 12px; font-size: 12px; color: #dc2626;">
                         {% translate "请先设置管辖法院（案件管辖机关）" %}
+                    </span>
+                    <span x-show="caseInfo.court_name && !caseInfo.our_party_is_plaintiff_side"
+                          style="margin-left: 12px; font-size: 12px; color: #dc2626;">
+                        {% translate "我方当事人为被告/被申请人，无需立案" %}
+                    </span>
+                    <span x-show="caseInfo.court_name && caseInfo.our_party_is_plaintiff_side && !caseInfo.has_court_credential"
+                          style="margin-left: 12px; font-size: 12px; color: #dc2626;">
+                        {% translate "您没有一张网账号密码，请先在律师管理中添加" %}
                     </span>
                 </div>
 

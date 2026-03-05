@@ -33,7 +33,9 @@ class FilingSession(models.Model):
     )
     oa_config = models.ForeignKey(
         "oa_filing.OAConfig",
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="filing_sessions",
         verbose_name=_("OA配置"),
     )

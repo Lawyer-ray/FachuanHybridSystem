@@ -94,7 +94,7 @@ class ConflictPartyInfo:
 
     name: str
     category: str = "11"  # 11=对方当事人
-    legal_position: str = "02"  # 01=原告 02=被告 09=第三人
+    legal_position: str = "02"  # 01=原告 02=被告 09=第三人（对方诉讼地位）
     customer_type: str = "01"  # 01=企业 11=自然人
     is_payer: str = "0"  # 0=否 1=是
     id_number: str | None = None
@@ -114,8 +114,8 @@ class CaseInfo:
     kindtype: str  # 业务类型一级
     kindtype_sed: str  # 业务类型二级
     kindtype_thr: str  # 业务类型三级
-    case_name: str  # 案件名称
-    case_desc: str = ""  # 案情简介
+    case_name: str  # 案件名称（填合同名称）
+    case_desc: str = ""  # 案情简介（填合同名称）
     resource: str = "01"  # 案源: 01=主动开拓
     language: str = "01"  # 语言: 01=中文
     is_foreign: str = "N"
@@ -123,12 +123,11 @@ class CaseInfo:
     is_publicgood: str = "0"
     is_factory: str = "N"
     is_secret: str = "N"
-    is_emergency: str = "0"
     isunion: str = "0"
     isforeigncoop: str = "0"
     start_date: str = ""  # 收案日期 yyyy-MM-dd（必填，空则取当天）
-    contact_name: str = ""  # 客户联系人姓名
-    contact_phone: str = ""  # 客户联系人电话
+    contact_name: str = "/"  # 客户联系人姓名
+    contact_phone: str = "/"  # 客户联系人电话
 
 
 @dataclass
@@ -142,6 +141,7 @@ class ContractInfo:
     start_date: str = ""
     end_date: str = ""
     amount: str = ""
+    stamp_count: int = 3  # 预盖章份数，默认 3（1人+2）
 
 
 class JtnFilingScript:
@@ -169,7 +169,7 @@ class JtnFilingScript:
             contract_info: 合同信息（可选）。
         """
         pw = sync_playwright().start()
-        browser = pw.chromium.launch(headless=False)
+        browser = pw.chromium.launch(headless=True)
         self._context = browser.new_context()
         self._context.set_default_timeout(30_000)
         self._context.set_default_navigation_timeout(30_000)
@@ -205,48 +205,47 @@ class JtnFilingScript:
         # ── 存草稿 ──
         self._save_draft()
 
-        logger.info("立案流程完成，浏览器保持打开")
+        browser.close()
+        pw.stop()
+        logger.info("立案流程完成，浏览器已关闭")
 
     def _login(self) -> None:
-        """通过 requests 接口登录，将 cookie 注入 Playwright context。"""
+        """通过 httpx 接口登录，将 cookie 注入 Playwright context。"""
         import re
 
-        import requests as _requests
+        import httpx
 
         logger.info("接口登录: %s", _LOGIN_URL)
 
-        session = _requests.Session()
-        session.headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+        with httpx.Client(headers=headers, follow_redirects=True, timeout=15) as client:
+            # 1. GET 登录页，拿 ASP.NET_SessionId + CSRFToken
+            r = client.get(_LOGIN_URL)
+            csrf_match = re.search(r'name=["\']CSRFToken["\'] value=["\']([^"\']+)["\']', r.text)
+            csrf = csrf_match.group(1) if csrf_match else ""
 
-        # 1. GET 登录页，拿 ASP.NET_SessionId + CSRFToken
-        r = session.get(_LOGIN_URL, timeout=15)
-        csrf_match = re.search(r'name=["\']CSRFToken["\'] value=["\']([^"\']+)["\']', r.text)
-        csrf = csrf_match.group(1) if csrf_match else ""
-
-        # 2. POST 登录
-        r2 = session.post(
-            _LOGIN_URL,
-            data={"CSRFToken": csrf, "userid": self._account, "password": self._password},
-            allow_redirects=True,
-            timeout=15,
-        )
-
-        if "login" in r2.url.lower() or "logout" in r2.text.lower()[:200]:
-            raise RuntimeError(f"OA 登录失败，账号或密码错误: {self._account}")
-
-        # 3. 将 requests session cookies 注入 Playwright context
-        assert self._context is not None
-        for cookie in session.cookies:
-            self._context.add_cookies(
-                [
-                    {
-                        "name": cookie.name,
-                        "value": cookie.value,
-                        "domain": cookie.domain or "ims.jtn.com",
-                        "path": cookie.path or "/",
-                    }
-                ]
+            # 2. POST 登录
+            r2 = client.post(
+                _LOGIN_URL,
+                data={"CSRFToken": csrf, "userid": self._account, "password": self._password},
             )
+
+            if "login" in str(r2.url).lower() or "logout" in r2.text.lower()[:200]:
+                raise RuntimeError(f"OA 登录失败，账号或密码错误: {self._account}")
+
+            # 3. 将 cookie 注入 Playwright context
+            assert self._context is not None
+            for cookie in client.cookies.jar:
+                self._context.add_cookies(
+                    [
+                        {
+                            "name": cookie.name,
+                            "value": cookie.value or "",
+                            "domain": cookie.domain or "ims.jtn.com",
+                            "path": cookie.path or "/",
+                        }
+                    ]
+                )
 
         logger.info("接口登录成功，cookie 已注入，当前重定向URL: %s", r2.url)
 
@@ -526,7 +525,10 @@ class JtnFilingScript:
         self._set_select(page, f"{_p}is_publicgood", info.is_publicgood)
         self._set_select(page, f"{_p}is_factory", info.is_factory)
         self._set_select(page, f"{_p}is_secret", info.is_secret)
-        self._set_select(page, f"{_p}is_emergency", info.is_emergency)
+        # 是否加急 → 是，并填写原因
+        self._set_select(page, f"{_p}is_emergency", "1")
+        time.sleep(_SHORT_WAIT)
+        self._set_field(page, f"{_p}urgentmemo", "着急将合同盖章拿给客户付款")
         self._set_select(page, f"{_p}isunion", info.isunion)
         self._set_select(page, f"{_p}isforeigncoop", info.isforeigncoop)
 
@@ -643,6 +645,8 @@ class JtnFilingScript:
             self._set_field(page, f"{_p}end_date", info.end_date)
         if info.amount:
             self._set_field(page, f"{_p}amount", info.amount)
+
+        self._set_field(page, f"{_p}stamp_count", str(info.stamp_count))
 
         logger.info("合同信息填写完成")
 

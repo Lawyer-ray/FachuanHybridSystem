@@ -6,7 +6,7 @@ from ninja import Schema
 
 
 class ExecuteFilingIn(Schema):
-    oa_config_id: int
+    site_name: str
     contract_id: int
     case_id: int
 
@@ -19,6 +19,6 @@ class SessionOut(Schema):
 
 
 class OAConfigOut(Schema):
-    id: int
+    id: str
     oa_system_name: str
     has_credential: bool

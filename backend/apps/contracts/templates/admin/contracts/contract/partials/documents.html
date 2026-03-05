@@ -172,13 +172,29 @@
                 </div>
 
                 <div class="action-item">
-                    <button type="button" class="btn-action {% if not has_folder_template %}btn-disabled{% endif %}"
-                            {% if has_folder_template %}@click="generateFolder()"{% else %}disabled title="{% trans '无匹配的文件夹模板' %}"{% endif %}
-                            :disabled="generating">
+                    {% if has_folder_template %}
+                    <span style="display: inline-flex; border-radius: 8px; overflow: hidden;">
+                        <button type="button" class="btn-action"
+                                @click="generateFolder()"
+                                :class="(!folderUnlocked || generating) && 'btn-disabled'"
+                                :disabled="!folderUnlocked || generating"
+                                style="border-radius: 8px 0 0 8px; margin: 0; border: none;">
+                            <span class="action-icon">📁</span>
+                            <span class="action-text" x-show="generatingType !== 'folder'">{% trans "生成文件夹" %}</span>
+                            <span class="action-loading" x-show="generatingType === 'folder'" x-cloak><span class="spinner"></span></span>
+                        </button>
+                        <button type="button" @click="folderUnlocked = !folderUnlocked"
+                                :title="folderUnlocked ? '{% trans "点击锁定" %}' : '{% trans "点击解锁后才能生成" %}'"
+                                :style="'border-radius:0 8px 8px 0;margin:0;border:none;padding:4px 10px;cursor:pointer;display:flex;align-items:center;' + (folderUnlocked ? 'background:#2563eb;color:#fff' : 'background:#d1d5db;color:#6b7280')">
+                            <span x-html="folderLockIcon"></span>
+                        </button>
+                    </span>
+                    {% else %}
+                    <button type="button" class="btn-action btn-disabled" disabled title="{% trans '无匹配的文件夹模板' %}">
                         <span class="action-icon">📁</span>
                         <span class="action-text">{% trans "生成文件夹" %}</span>
-                        <span class="action-loading" x-show="generatingType === 'folder'" x-cloak><span class="spinner"></span></span>
                     </button>
+                    {% endif %}
                 </div>
             </div>
         </div>
