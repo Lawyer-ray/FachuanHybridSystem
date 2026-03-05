@@ -32,6 +32,9 @@ from .recognition import DocumentRecognitionStatus, DocumentRecognitionTask
 # Scraper Tasks
 from .scraper import ScraperTask, ScraperTaskStatus, ScraperTaskType
 
+# GSXT Report
+from .gsxt_report import GsxtReportStatus, GsxtReportTask
+
 # Token Management
 from .token import CourtToken, TokenAcquisitionHistory, TokenAcquisitionStatus
 
@@ -75,4 +78,7 @@ __all__ = [
     "InvoiceRecordStatus",
     "InvoiceRecognitionTask",
     "InvoiceRecord",
+    # GSXT
+    "GsxtReportStatus",
+    "GsxtReportTask",
 ]
