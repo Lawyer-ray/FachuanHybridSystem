@@ -1,4 +1,4 @@
-# FaChuanAI Case Management System V26.7.4
+# FaChuanAI Case Management System V26.11.0
 
 Fully automated court document processing and generation. Less is more.
 
@@ -57,13 +57,13 @@ make migrations
 # 8. Collect static files (important!)
 make collectstatic
 
-# 9. Start the server
-make run              # default port 8002
+# 9. Start services (⚠️ Start task queue FIRST, then Django)
+make qcluster         # Terminal 1: start task queue first
+make run              # Terminal 2: then start Django (default port 8002)
 # or
 make run-port PORT=8080
 
 # 10. Start task queue (new terminal)
-make qcluster
 ```
 
 ### 🐧 Linux / Windows
