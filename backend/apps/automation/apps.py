@@ -87,26 +87,21 @@ class AutomationConfig(AppConfig):
 
 
 def _delayed_recovery_task(*args: Any, **kwargs: Any) -> None:
-    """延迟执行的恢复任务（使用线程定时器，避免应用初始化时的数据库查询）"""
+    """延迟执行的恢复任务（提交到 Django-Q，避免与 qcluster 启动时的写锁竞争）"""
     import logging
-
-    from django.core.management import call_command
 
     logger = logging.getLogger("apps.automation")
 
     try:
-        logger.debug("开始执行延迟的法院短信任务恢复...")
-
-        # 调用管理命令进行恢复
-        call_command(
+        from django_q.tasks import async_task
+        async_task(
+            "django.core.management.call_command",
             "recover_court_sms_tasks",
-            "--reset",  # 重置卡住的任务
-            "--max-age-hours",
-            "24",  # 只恢复24小时内的任务
-            verbosity=0,  # 静默输出，减少日志
+            "--reset",
+            "--max-age-hours", "24",
+            verbosity=0,
+            task_name="startup_recover_court_sms",
         )
-
-        logger.debug("延迟的法院短信任务恢复完成")
-
+        logger.debug("法院短信任务恢复已提交到 Django-Q")
     except Exception as e:
         logger.error("延迟的法院短信任务恢复失败: %s", e, exc_info=True)

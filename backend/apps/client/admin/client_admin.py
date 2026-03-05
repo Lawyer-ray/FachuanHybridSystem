@@ -5,11 +5,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from django import forms
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.http import HttpRequest
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
+from apps.automation.models.gsxt_report import GsxtReportTask
 from apps.client.models import Client, ClientIdentityDoc
 from apps.core.admin.mixins import AdminImportExportMixin
 
@@ -25,6 +26,67 @@ def _get_admin_service() -> Any:
     from apps.client.services import ClientAdminService
 
     return ClientAdminService()
+
+
+class GsxtReportTaskInlineForm(forms.ModelForm[GsxtReportTask]):
+    class Meta:
+        model = GsxtReportTask
+        fields: ClassVar = []
+
+    class Media:
+        css: ClassVar = {"all": ("automation/gsxt_inline.css",)}
+
+
+class GsxtReportTaskInline(admin.TabularInline):  # type: ignore[type-arg]
+    model = GsxtReportTask
+    form = GsxtReportTaskInlineForm
+    extra = 0
+    can_delete = False
+    fields: ClassVar = ("created_at", "status", "error_message", "inbox_link")
+    readonly_fields: ClassVar = ("created_at", "status", "error_message", "inbox_link")
+    ordering = ("-created_at",)
+    verbose_name = _("企业信用报告任务")
+    verbose_name_plural = _("企业信用报告任务")
+
+    def inbox_link(self, obj: GsxtReportTask) -> str:
+        from apps.automation.models.gsxt_report import GsxtReportStatus
+        from apps.organization.models.credential import AccountCredential
+        if obj.status != GsxtReportStatus.WAITING_EMAIL:
+            return "—"
+        cred = AccountCredential.objects.filter(pk=4).first()
+        email = cred.account if cred else "huangsong94@163.com"
+        return format_html('<a href="https://mail.163.com" target="_blank">📬 打开 {} 收件箱</a>', email)
+
+    inbox_link.short_description = _("收件箱")  # type: ignore[attr-defined]
+
+    def save_formset(self, request: HttpRequest, form: Any, formset: Any, change: bool) -> None:  # type: ignore[override]
+        from apps.automation.models.gsxt_report import GsxtReportStatus
+        from django.conf import settings
+
+        instances = formset.save(commit=False)
+        for f in formset.forms:
+            uploaded = f.cleaned_data.get("report_upload") if f.cleaned_data else None
+            if not uploaded:
+                continue
+            obj: GsxtReportTask = f.instance
+            if not obj.pk:
+                continue
+            client = obj.client
+            rel_path = f"client_docs/{client.pk}/{client.name[:20]}_企业信用报告.pdf"
+            abs_path = Path(settings.MEDIA_ROOT) / rel_path
+            abs_path.parent.mkdir(parents=True, exist_ok=True)
+            with abs_path.open("wb") as fp:
+                for chunk in uploaded.chunks():
+                    fp.write(chunk)
+            doc, _ = ClientIdentityDoc.objects.get_or_create(
+                client=client, doc_type=ClientIdentityDoc.BUSINESS_LICENSE
+            )
+            doc.file_path = str(rel_path)
+            doc.save(update_fields=["file_path"])
+            obj.status = GsxtReportStatus.SUCCESS
+            obj.error_message = ""
+            obj.save(update_fields=["status", "error_message"])
+        formset.save_m2m()
 
 
 class ClientIdentityDocInlineForm(forms.ModelForm[ClientIdentityDoc]):
@@ -111,11 +173,113 @@ class ClientAdmin(AdminImportExportMixin, admin.ModelAdmin[Client]):
     import_required_fields = ("name",)
     actions: ClassVar = ["export_selected_as_json", "export_all_as_json"]
 
+    def get_urls(self) -> list[Any]:
+        from django.urls import path
+
+        urls = super().get_urls()
+        custom = [
+            path(
+                "<int:client_id>/fetch-gsxt-report/",
+                self.admin_site.admin_view(self._fetch_gsxt_report_view),
+                name="client_client_fetch_gsxt_report",
+            ),
+            path(
+                "<int:client_id>/upload-gsxt-report/<int:task_id>/",
+                self.admin_site.admin_view(self._upload_gsxt_report_view),
+                name="client_client_upload_gsxt_report",
+            ),
+        ]
+        return custom + urls
+
+    def _fetch_gsxt_report_view(self, request: HttpRequest, client_id: int) -> Any:
+        from django.shortcuts import redirect
+
+        from apps.automation.models.gsxt_report import GsxtReportStatus, GsxtReportTask
+        from apps.automation.services.gsxt.gsxt_login_service import GsxtLoginError, start_login_gsxt
+        from apps.organization.models.credential import AccountCredential
+
+        client = Client.objects.get(pk=client_id)
+
+        if client.client_type != "legal":
+            self.message_user(request, _("仅法人/非法人组织当事人支持获取企业信用报告"), messages.WARNING)
+            return redirect(f"../../{client_id}/change/")
+
+        credential = (
+            AccountCredential.objects.filter(site_name="国家企业信用信息公示系统")
+            .order_by("-is_preferred", "-last_login_success_at")
+            .first()
+        )
+        if not credential:
+            self.message_user(request, _("未找到国家企业信用信息公示系统账号，请先在账号密码管理中添加"), messages.ERROR)
+            return redirect(f"../../{client_id}/change/")
+
+        # 创建任务记录
+        task = GsxtReportTask.objects.create(
+            client=client,
+            company_name=client.name,
+            status=GsxtReportStatus.WAITING_CAPTCHA,
+        )
+
+        # 非阻塞：启动 Chrome、填账号密码，立即返回
+        try:
+            start_login_gsxt(credential, task.id)
+        except GsxtLoginError as e:
+            task.status = GsxtReportStatus.FAILED
+            task.error_message = str(e)
+            task.save(update_fields=["status", "error_message"])
+            self.message_user(request, str(e), messages.ERROR)
+            return redirect(f"../../{client_id}/change/")
+
+        self.message_user(
+            request,
+            _("Chrome 已打开登录页，请在浏览器中完成验证码，系统将自动继续后续流程"),
+            messages.SUCCESS,
+        )
+        return redirect(f"../../{client_id}/change/")
+
+    def _upload_gsxt_report_view(self, request: HttpRequest, client_id: int, task_id: int) -> Any:
+        from django.shortcuts import redirect
+
+        from apps.automation.models.gsxt_report import GsxtReportStatus, GsxtReportTask
+        from django.conf import settings
+
+        if request.method != "POST" or not request.FILES.get("report_file"):
+            self.message_user(request, _("请选择 PDF 文件"), messages.WARNING)
+            return redirect(f"../../{client_id}/change/")
+
+        task = GsxtReportTask.objects.select_related("client").get(pk=task_id)
+        client = task.client
+        uploaded = request.FILES["report_file"]
+
+        rel_path = f"client_docs/{client.pk}/{client.name[:20]}_企业信用报告.pdf"
+        abs_path = Path(settings.MEDIA_ROOT) / rel_path
+        abs_path.parent.mkdir(parents=True, exist_ok=True)
+        with abs_path.open("wb") as f:
+            for chunk in uploaded.chunks():
+                f.write(chunk)
+
+        doc, _ = ClientIdentityDoc.objects.get_or_create(
+            client=client,
+            doc_type=ClientIdentityDoc.BUSINESS_LICENSE,
+        )
+        doc.file_path = str(rel_path)
+        doc.save(update_fields=["file_path"])
+
+        task.status = GsxtReportStatus.SUCCESS
+        task.error_message = ""
+        task.save(update_fields=["status", "error_message"])
+
+        self.message_user(request, _("报告已上传并保存为营业执照附件"), messages.SUCCESS)
+        return redirect(f"../../{client_id}/change/")
+
     def get_changeform_initial_data(self, request: HttpRequest) -> dict[str, Any]:
         return {"client_type": "legal"}
 
     def get_inlines(self, request: HttpRequest, obj: Client | None = None) -> list[type[Any]]:
-        return [ClientIdentityDocInline]
+        inlines = [ClientIdentityDocInline]
+        if obj and obj.client_type == "legal":
+            inlines.append(GsxtReportTaskInline)
+        return inlines
 
     def save_formset(self, request: HttpRequest, form: ModelForm[Client], formset: Any, change: bool) -> None:
         # 收集需要处理的上传文件信息（在 save 之前）
@@ -153,6 +317,17 @@ class ClientAdmin(AdminImportExportMixin, admin.ModelAdmin[Client]):
                         doc_type=info["doc_type"],
                         uploaded_file=info["uploaded_file"],
                     )
+
+            # 如果上传了营业执照，把 WAITING_EMAIL 的报告任务标记为成功
+            has_business_license = any(
+                info["doc_type"] == ClientIdentityDoc.BUSINESS_LICENSE for info in upload_info
+            )
+            if has_business_license:
+                from apps.automation.models.gsxt_report import GsxtReportStatus, GsxtReportTask
+                GsxtReportTask.objects.filter(
+                    client=form.instance,
+                    status=GsxtReportStatus.WAITING_EMAIL,
+                ).update(status=GsxtReportStatus.SUCCESS, error_message="")
 
     def handle_json_import(
         self, data_list: list[dict[str, Any]], user: str, zip_file: Any

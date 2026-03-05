@@ -1,4 +1,4 @@
-# 法穿AI案件管理系统V26.10.0
+# 法穿AI案件管理系统V26.11.0
 
 全自动处理/生成法院文书，Less is more
 
@@ -95,13 +95,13 @@ make migrations        # 创建并运行迁移
 # 7. 收集静态文件 (重要!)
 make collectstatic    # 收集静态文件到正确位置
 
-# 8. 启动服务
-make run              # 启动开发服务器 (8002端口)
+# 8. 启动服务（⚠️ 必须先启动任务队列，再启动 Django）
+make qcluster       # 终端1：先启动任务队列
+make run            # 终端2：再启动开发服务器 (8002端口)
 # 或者
 make run-port PORT=8080  # 自定义端口
 
 # 9. 启动任务队列 (要在新终端运行)
-make qcluster
 ```
 
 ### 🐧 Linux/Windows 用户
