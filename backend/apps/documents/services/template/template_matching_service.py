@@ -193,6 +193,7 @@ class TemplateMatchingService:
                         "type_display": template.template_type_display,
                         "case_types_display": template.case_types_display,
                         "case_stages_display": template.case_stages_display,
+                        "case_sub_type": template.case_sub_type or "other_materials",
                     }
                 )
 

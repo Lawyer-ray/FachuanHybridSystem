@@ -1,0 +1,34 @@
+services:
+  web:
+    build: .
+    ports:
+      - "8002:8002"
+    volumes:
+      - db-data:/app/apiSystem
+      - media-data:/app/apiSystem/media
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/admin/login/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  qcluster:
+    build: .
+    entrypoint: ["sh", "-c", "cd /app/apiSystem && uv run python manage.py qcluster"]
+    volumes:
+      - db-data:/app/apiSystem
+      - media-data:/app/apiSystem/media
+    env_file:
+      - .env
+    depends_on:
+      web:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  db-data:
+  media-data:

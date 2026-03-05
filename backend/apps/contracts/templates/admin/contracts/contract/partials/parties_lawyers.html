@@ -129,7 +129,7 @@
                 </div>
                 <div class="detail-section">
                     <div class="detail-label">{% trans "当事人类型" %}</div>
-                    <div class="detail-value" x-text="currentParty.isOurClient ? {% trans '我方当事人' %} : {% trans '对方当事人' %}"></div>
+                    <div class="detail-value" x-text="currentParty.isOurClient ? '{% trans "我方当事人" %}' : '{% trans "对方当事人" %}'"></div>
                 </div>
 
                 <!-- 自然人：身份证号码 -->

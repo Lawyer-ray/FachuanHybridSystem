@@ -102,7 +102,7 @@
                             'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
                         },
                         body: JSON.stringify({
-                            oa_config_id: parseInt(this.selectedConfigId),
+                            site_name: this.selectedConfigId,
                             contract_id: this.contractId,
                             case_id: this.caseId
                         })

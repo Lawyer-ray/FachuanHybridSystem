@@ -8,59 +8,45 @@ logger = logging.getLogger("apps.oa_filing")
 
 _executor = ThreadPoolExecutor(max_workers=2)
 
+# 系统支持的 OA 站点（site_name 需与账号密码管理中的「网站名称」一致）
+SUPPORTED_SITES: list[str] = ["金诚同达OA"]
+
 
 class ScriptExecutorService:
     """OA 立案执行服务。按 site_name 分发到对应律所脚本。"""
 
     def execute(
         self,
-        oa_config_id: int,
+        site_name: str,
         contract_id: int,
         case_id: int,
         user: Any,
     ) -> Any:
-        """执行立案。
-
-        Args:
-            oa_config_id: OAConfig ID。
-            contract_id: 合同 ID。
-            case_id: 案件 ID。
-            user: Lawyer 实例。
-
-        Returns:
-            FilingSession 实例。
-        """
-        from apps.oa_filing.models import FilingSession, OAConfig, SessionStatus
+        from apps.oa_filing.models import FilingSession, SessionStatus
         from apps.oa_filing.services.exceptions import ScriptExecutionError
         from apps.organization.models import AccountCredential
 
-        try:
-            oa_config: OAConfig = OAConfig.objects.get(pk=oa_config_id, is_enabled=True)
-        except OAConfig.DoesNotExist as exc:
-            raise ScriptExecutionError(f"OA配置不存在或已禁用: id={oa_config_id}") from exc
-
         credential: AccountCredential | None = AccountCredential.objects.filter(
             lawyer=user,
-            site_name=oa_config.site_name,
+            site_name=site_name,
         ).first()
         if credential is None:
-            raise ScriptExecutionError(f"未找到匹配凭证: 站点名称={oa_config.site_name}")
+            raise ScriptExecutionError(f"未找到匹配凭证: 站点名称={site_name}")
 
         session: FilingSession = FilingSession.objects.create(
             contract_id=contract_id,
             case_id=case_id,
-            oa_config=oa_config,
+            oa_config=None,
             credential=credential,
             user=user,
             status=SessionStatus.IN_PROGRESS,
         )
-        logger.info("开始立案: session=%d, site=%s", session.id, oa_config.site_name)
+        logger.info("开始立案: session=%d, site=%s", session.id, site_name)
 
-        # 在后台线程执行 Playwright（避免 async 上下文的 SynchronousOnlyOperation）
         _executor.submit(
             self._run_in_thread,
             session.id,
-            oa_config.site_name,
+            site_name,
             credential,
             contract_id,
             case_id,
@@ -164,15 +150,15 @@ class ScriptExecutorService:
             manager_name=manager_name,
             category=self._map_case_category(case),
             stage=self._map_case_stage(case),
-            which_side=self._map_which_side(case),
+            which_side=self._map_which_side(case, contract_id),
             kindtype="",
             kindtype_sed="",
             kindtype_thr="",
-            case_name=case.name,
-            case_desc=str(case.cause_of_action or ""),
+            case_name=contract.name,
+            case_desc=contract.name,
             start_date=str(case.start_date) if case.start_date else "",
-            contact_name=clients[0].name if clients else "",
-            contact_phone=clients[0].phone or "" if clients else "",
+            contact_name="/",
+            contact_phone="/",
         )
 
         # ── 对方当事人（OPPOSING → 利冲） ──
@@ -188,12 +174,14 @@ class ScriptExecutorService:
             conflict_parties.append(
                 ConflictPartyInfo(
                     name=c.name,
+                    legal_position=self._map_legal_position(party),
                     customer_type="11" if c.client_type == "natural" else "01",
                     id_number=c.id_number,
                 )
             )
 
-        # ── 合同信息 ──
+        # ── 合同信息（预盖章份数 = 我方当事人数 + 2） ──
+        stamp_count: int = len(principal_parties) + 2
         contract_info = ContractInfo(
             rec_type=self._map_fee_mode(contract),
             currency="RMB",
@@ -202,6 +190,7 @@ class ScriptExecutorService:
             start_date=str(contract.start_date) if contract.start_date else "",
             end_date=str(contract.end_date) if contract.end_date else "",
             amount=str(int(contract.fixed_amount)) if contract.fixed_amount else "",
+            stamp_count=stamp_count,
         )
 
         script = JtnFilingScript(
@@ -311,9 +300,29 @@ class ScriptExecutorService:
         # 05 刑事 / 06 仲裁
         return criminal_mapping.get(stage, "0503")
 
-    def _map_which_side(self, case: Any) -> str:
-        """推断代理何方。默认原告。"""
-        return "01"
+    def _map_which_side(self, case: Any, contract_id: int) -> str:
+        """从案件我方当事人诉讼地位推断代理何方。取第一个我方当事人的诉讼地位。"""
+        from apps.cases.models import CaseParty
+        from apps.contracts.models import ContractParty
+
+        our_client_ids = set(
+            ContractParty.objects.filter(
+                contract_id=contract_id, role="PRINCIPAL"
+            ).values_list("client_id", flat=True)
+        )
+        party = CaseParty.objects.filter(case=case, client_id__in=our_client_ids).first()
+        mapping = {"plaintiff": "01", "defendant": "02", "third": "09"}
+        return mapping.get(getattr(party, "legal_status", None) or "", "01")
+
+    def _map_legal_position(self, contract_party: Any) -> str:
+        """从 CaseParty 取对方当事人诉讼地位，映射到 OA 法律地位值。"""
+        from apps.cases.models import CaseParty
+
+        case_party = CaseParty.objects.filter(
+            client_id=contract_party.client_id
+        ).first()
+        mapping = {"plaintiff": "01", "defendant": "02", "third": "09"}
+        return mapping.get(getattr(case_party, "legal_status", None) or "", "02")
 
     def _map_fee_mode(self, contract: Any) -> str:
         """将系统收费模式映射到 OA rec_type。

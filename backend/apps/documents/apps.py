@@ -47,16 +47,6 @@ class DocumentsConfig(AppConfig):
 
             if FolderTemplate.objects.exists():
                 return
-            from .services.folder_template_admin_service import FolderTemplateAdminService
-
-            logger.info("首次迁移完成,自动初始化默认文件夹模板...")
-            service = FolderTemplateAdminService()
-            result = service.initialize_default_templates()
-            if result.get("success"):
-                created = result.get("created_count", 0)
-                if created > 0:
-                    logger.info("✅ 成功初始化 %d 个默认文件夹模板", created)
-            else:
-                logger.warning("文件夹模板初始化失败: %s", result.get("error", "未知错误"))
+            logger.info("首次迁移完成，暂无默认文件夹模板，请手动在后台创建。")
         except Exception as e:
-            logger.warning("文件夹模板自动初始化跳过: %s", e)
+            logger.warning("文件夹模板初始化检查跳过: %s", e)
