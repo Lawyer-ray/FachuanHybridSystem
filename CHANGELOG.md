@@ -2,6 +2,21 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.10.0] - 2026-03-05
+
+### 新增
+- Docker 支持：新增 `Dockerfile`、`docker-compose.yml`、`docker-entrypoint.sh`，一键启动 web + qcluster 两个服务，数据库和媒体文件通过 volume 持久化
+- Docker healthcheck：qcluster 等待 web 健康后再启动，避免 `django_q_ormq` 表未就绪报错
+
+### 重构
+- OA 立案简化：去掉 OAConfig 表依赖，直接从 AccountCredential 读取支持站点，`execute` 接口改用 `site_name` 字段
+- `jtn_filing.py`：改用 `httpx`，`headless=True`，新增 `stamp_count`（预盖章份数）和 `legal_position`（法律地位）字段填写
+- `script_executor_service.py`：新增 `_map_which_side` / `_map_legal_position` 从 CaseParty 查诉讼地位
+- 合同详情页文件夹生成按钮加锁，防止重复点击
+
+### 删除
+- `oa_config_admin.py`：后台"OA系统配置"菜单移除
+
 ## [26.9.0] - 2026-03-04
 
 ### 重构

@@ -66,6 +66,7 @@ def _register_app_routers() -> None:
     from apps.core.api.ninja_llm_api import llm_router
     from apps.documents.api import (
         authorization_material_router,
+        case_template_download_router,
         document_router,
         external_template_router,
         folder_template_router,
@@ -98,11 +99,15 @@ def _register_app_routers() -> None:
     api_v1.add_router("/documents", litigation_generation_router, tags=["诉讼文书生成"])
     api_v1.add_router("/documents", authorization_material_router, tags=["授权委托材料生成"])
     api_v1.add_router("/documents", preservation_materials_router, tags=["财产保全材料生成"])
+    api_v1.add_router("/documents", case_template_download_router, tags=["案件模板下载"])
     api_v1.add_router("/documents/external-templates", external_template_router, tags=["外部模板"])
     api_v1.add_router("/evidence", evidence_router, tags=["证据管理"])
     api_v1.add_router("/litigation", ai_litigation_router, tags=["AI 诉讼文书生成"])  # AI 诉讼文书生成
     api_v1.add_router("/mock-trial", mock_trial_router, tags=["模拟庭审"])
     api_v1.add_router("/contract-review", contract_review_router, auth=JWTOrSessionAuth(), tags=["合同审查"])
+
+    from apps.oa_filing.api.filing_api import router as oa_filing_router
+    api_v1.add_router("/oa-filing", oa_filing_router, auth=JWTOrSessionAuth(), tags=["OA立案"])
 
     from apps.sales_dispute.api import router as sales_dispute_router
 

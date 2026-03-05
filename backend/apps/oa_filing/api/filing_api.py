@@ -7,6 +7,7 @@ from django.http import HttpRequest
 from ninja import Router
 
 from apps.oa_filing.schemas.filing_schemas import ExecuteFilingIn, OAConfigOut, SessionOut
+from apps.oa_filing.services.script_executor_service import SUPPORTED_SITES
 
 logger = logging.getLogger("apps.oa_filing.api")
 router = Router()
@@ -18,21 +19,20 @@ def _get_executor_service() -> Any:
     return ScriptExecutorService()
 
 
-def _get_configs(user: Any) -> list[dict[str, Any]]:
-    from apps.oa_filing.models import OAConfig
-    from apps.organization.models import AccountCredential
-
-    configs = OAConfig.objects.filter(is_enabled=True)
-    user_sites: set[str] = set(AccountCredential.objects.filter(lawyer=user).values_list("site_name", flat=True))
-    return [{"id": c.id, "oa_system_name": c.site_name, "has_credential": c.site_name in user_sites} for c in configs]
-
-
 @router.get("/configs", response=list[OAConfigOut])
 def list_configs(request: HttpRequest) -> Any:
-    """获取当前用户可用的OA配置列表。"""
+    """返回当前用户有凭证且系统支持的 OA 站点列表。"""
     if not request.user.is_authenticated:
         return []
-    return _get_configs(request.user)
+    from apps.organization.models import AccountCredential
+
+    user_sites: set[str] = set(
+        AccountCredential.objects.filter(lawyer=request.user).values_list("site_name", flat=True)
+    )
+    return [
+        {"id": name, "oa_system_name": name, "has_credential": name in user_sites}
+        for name in SUPPORTED_SITES
+    ]
 
 
 @router.post("/execute", response=SessionOut)
@@ -40,7 +40,7 @@ def execute_filing(request: HttpRequest, payload: ExecuteFilingIn) -> Any:
     """执行OA立案。"""
     service = _get_executor_service()
     return service.execute(
-        payload.oa_config_id,
+        payload.site_name,
         payload.contract_id,
         payload.case_id,
         request.user,

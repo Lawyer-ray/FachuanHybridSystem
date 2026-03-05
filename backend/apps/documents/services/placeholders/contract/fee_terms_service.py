@@ -81,23 +81,23 @@ class FeeTermsService(BasePlaceholderService):
             fixed_amount_1 = str(float(fixed_amount))
             fixed_amount_2 = self._number_to_chinese(fixed_amount)
             return (
-                f"本合同签订之日起5日内，甲方向乙方一次性支付律师费{fixed_amount_1}元（大写：人民币{fixed_amount_2}）。"
+                f"本合同签订之日起5日内，甲方向乙方一次性支付律师费{fixed_amount_1}元（大写：人民币{fixed_amount_2}整）。"
             )
         else:
-            return "本合同签订之日起5日内，甲方向乙方一次性支付律师费[金额待定]元。"
+            return "本合同签订之日起5日内，甲方向乙方一次性支付律师费  ,000元（大写：人民币    整）。"
 
     def _generate_semi_risk_fee_terms(self, contract: Any) -> str:
         """生成半风险收费条款"""
         fixed_amount = getattr(contract, "fixed_amount", None)
         risk_rate = getattr(contract, "risk_rate", None)
 
-        fixed_amount_1 = str(fixed_amount) if fixed_amount else "[前期费用待定]"
-        fixed_amount_2 = self._number_to_chinese(fixed_amount) if fixed_amount else "[前期费用大写待定]"
-        risk_rate_str = str(risk_rate) if risk_rate else "[风险比例待定]"
+        fixed_amount_1 = str(fixed_amount) if fixed_amount else "       "
+        fixed_amount_2 = self._number_to_chinese(fixed_amount) if fixed_amount else "      "
+        risk_rate_str = str(risk_rate) if risk_rate else "12"
 
         return (
             f"本合同为风险代理收费，前期款为本合同签订之日起5日内，甲方向乙方一次性支付本案前期律师代理服务费{fixed_amount_1}元"
-            f"（大写：人民币{fixed_amount_2}）。后期风险律师费自甲方通过诉讼、和解、调解、执行、案外收款等途径收到相关款项的5日内"
+            f"（大写：人民币{fixed_amount_2}整）。后期风险律师费自甲方通过诉讼、和解、调解、执行、案外收款等途径收到相关款项的5日内"
             f"按照实际收款金额的{risk_rate_str}%支付风险律师费。上述前期和后期律师代理服务费不重叠，计收后不再退还。"
         )
 

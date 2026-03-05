@@ -6,32 +6,42 @@
 <script src="{% static 'cases/js/autocomplete.js' %}"></script>
 <script src="{% static 'cases/js/autocomplete_init.js' %}"></script>
 <script src="{% static 'cases/js/litigation_fee.js' %}"></script>
+<link rel="stylesheet" href="{% static 'cases/css/case_folder_browser.css' %}">
+<script src="{% static 'cases/js/case_folder_browser.js' %}"></script>
 <style>
 .inline-group .tabular td { font-size: 0.8125rem; }
+[x-cloak] { display: none !important; }
 </style>
 {% endblock %}
 
 {% block submit_buttons_bottom %}
 {{ block.super }}
+
 {% if original %}
+<!-- 文件夹绑定组件 -->
+{% with folder_browser_component="caseFolderBrowser" folder_browser_entity_pk=original.pk %}
+{% include "admin/core/includes/folder_binding_widget.html" %}
+{% endwith %}
+{% endif %}
+
 <script>
 (function() {
     var submitRow = document.querySelector('.submit-row');
-    if (submitRow) {
-        var duplicateBtn = document.createElement('input');
-        duplicateBtn.type = 'submit';
-        duplicateBtn.value = '{% trans "保存并复制" %}';
-        duplicateBtn.name = '_save_and_duplicate';
-        duplicateBtn.className = '';
-        // 插入到删除链接之前（如果有的话），否则插入到最后
-        var deleteBox = submitRow.querySelector('.deletelink-box');
-        if (deleteBox) {
-            submitRow.insertBefore(duplicateBtn, deleteBox);
-        } else {
-            submitRow.appendChild(duplicateBtn);
-        }
+    if (!submitRow) return;
+
+    {% if original %}
+    var duplicateBtn = document.createElement('input');
+    duplicateBtn.type = 'submit';
+    duplicateBtn.value = '{% trans "保存并复制" %}';
+    duplicateBtn.name = '_save_and_duplicate';
+    duplicateBtn.className = '';
+    var deleteBox = submitRow.querySelector('.deletelink-box');
+    if (deleteBox) {
+        submitRow.insertBefore(duplicateBtn, deleteBox);
+    } else {
+        submitRow.appendChild(duplicateBtn);
     }
+    {% endif %}
 })();
 </script>
-{% endif %}
 {% endblock %}

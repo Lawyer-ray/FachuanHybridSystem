@@ -113,24 +113,28 @@ def browse_folders(request: HttpRequest, path: str | None = None, include_hidden
     service.require_admin(ctx)
 
     if not path or not str(path).strip():
-        roots = service.get_browse_roots()
-        entries = [FolderBrowseEntrySchema(name=(p.name or str(p)), path=str(p)) for p in roots]
-        logger.info(
-            "case_folder_browse_roots",
-            extra={
-                "action": "case_folder_browse_roots",
-                "include_hidden": bool(include_hidden),
-                "roots_count": len(roots),
-                "user_id": getattr(getattr(ctx, "user", None), "id", None),
-            },
-        )
-        return FolderBrowseResponseSchema(
-            browsable=True,
-            message=None,
-            path=None,
-            parent_path=None,
-            entries=entries,
-        )
+        default_path = service.get_default_browse_path()
+        if default_path:
+            path = str(default_path)
+        else:
+            roots = service.get_browse_roots()
+            entries = [FolderBrowseEntrySchema(name=(p.name or str(p)), path=str(p)) for p in roots]
+            logger.info(
+                "case_folder_browse_roots",
+                extra={
+                    "action": "case_folder_browse_roots",
+                    "include_hidden": bool(include_hidden),
+                    "roots_count": len(roots),
+                    "user_id": getattr(getattr(ctx, "user", None), "id", None),
+                },
+            )
+            return FolderBrowseResponseSchema(
+                browsable=True,
+                message=None,
+                path=None,
+                parent_path=None,
+                entries=entries,
+            )
 
     browsable, browse_message = service.is_browsable_path(str(path))
     if not browsable:

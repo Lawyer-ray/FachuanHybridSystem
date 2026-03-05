@@ -25,6 +25,8 @@ class CaseFilingInfoOut(Schema):
     target_amount: str | None
     plaintiff_name: str | None
     defendant_name: str | None
+    our_party_is_plaintiff_side: bool = False
+    has_court_credential: bool = False
 
 
 class ExecuteCourtFilingIn(Schema):
@@ -50,24 +52,32 @@ class ExecuteCourtFilingOut(Schema):
 def get_case_filing_info(request: HttpRequest, case_id: int) -> Any:
     """获取案件立案所需信息"""
     from apps.cases.models import Case, CaseParty, SupervisingAuthority
+    from apps.organization.models import AccountCredential
+
+    PLAINTIFF_SIDE = {"plaintiff", "applicant", "appellant", "orig_plaintiff"}
 
     case = Case.objects.get(pk=case_id)
 
-    # 从 SupervisingAuthority 获取管辖法院名称
-    court_name: str | None = None
     sa = SupervisingAuthority.objects.filter(case=case, authority_type="trial").first()
-    if sa:
-        court_name = _resolve_court_name(sa.name)
+    court_name: str | None = _resolve_court_name(sa.name) if sa else None
 
-    # 获取原被告
     parties = CaseParty.objects.filter(case=case).select_related("client")
     plaintiff_name: str | None = None
     defendant_name: str | None = None
+    our_party_is_plaintiff_side = False
+
     for p in parties:
         if p.legal_status == "plaintiff":
             plaintiff_name = p.client.name
         elif p.legal_status == "defendant":
             defendant_name = p.client.name
+        if getattr(getattr(p, "client", None), "is_our_client", False):
+            if p.legal_status in PLAINTIFF_SIDE:
+                our_party_is_plaintiff_side = True
+
+    has_court_credential = AccountCredential.objects.filter(
+        lawyer=request.user, site_name="一张网"
+    ).exists()
 
     return {
         "case_id": case.id,
@@ -77,6 +87,8 @@ def get_case_filing_info(request: HttpRequest, case_id: int) -> Any:
         "target_amount": str(case.target_amount) if case.target_amount else None,
         "plaintiff_name": plaintiff_name,
         "defendant_name": defendant_name,
+        "our_party_is_plaintiff_side": our_party_is_plaintiff_side,
+        "has_court_credential": has_court_credential,
     }
 
 

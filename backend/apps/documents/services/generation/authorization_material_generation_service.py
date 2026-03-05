@@ -132,9 +132,7 @@ class AuthorizationMaterialGenerationService:
         return content, filename
 
     def generate_full_authorization_package(self, case_id: int) -> tuple[bytes, str]:
-
         case = self._get_case(case_id)
-
         our_parties = self._get_our_parties(case)
         if not our_parties:
             raise ValidationException(
@@ -144,20 +142,28 @@ class AuthorizationMaterialGenerationService:
             )
 
         missing_lines: list[str] = []
-
         now = timezone.now()
         zip_filename = f"全套授权委托材料({getattr(case, 'name', '') or '案件'})V1_{now.strftime('%Y%m%d')}.zip"
 
+        from django.conf import settings as django_settings
+        media_root = str(django_settings.MEDIA_ROOT)
+
         buffer = io.BytesIO()
         with zipfile.ZipFile(buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
-            self._zip_add_generated_docs(zf, case=case, our_parties=our_parties)
-            from django.conf import settings as django_settings
+            # ① 当事人身份证明（我方 + 对方，所有文件平铺）
+            all_parties = self._get_all_parties(case)
+            for party in all_parties:
+                client = getattr(party, "client", None)
+                if not client:
+                    continue
+                is_our = getattr(client, "is_our_client", False)
+                self._zip_add_identity_docs_flat(
+                    zf, client=client, is_our=is_our, media_root=media_root, missing_lines=missing_lines
+                )
 
-            media_root = str(django_settings.MEDIA_ROOT)
-            self._zip_add_client_identity_docs(
-                zf, our_parties=our_parties, media_root=str(media_root), missing_lines=missing_lines
-            )
-            self._zip_add_lawyer_licenses(zf, case=case, missing_lines=missing_lines)
+            # ② 委托材料（授权委托书 + 所函 + 律师证件）
+            self._zip_add_entrust_docs(zf, case=case, our_parties=our_parties, missing_lines=missing_lines)
+
             if missing_lines:
                 self._zip_add_missing_markdown(zf, missing_lines=missing_lines)
 
@@ -172,51 +178,12 @@ class AuthorizationMaterialGenerationService:
             parties: list[Any] = []
         return [p for p in parties if getattr(getattr(p, "client", None), "is_our_client", False)]
 
-    def _zip_add_generated_docs(self, zf: zipfile.ZipFile, *, case: Any, our_parties: list[Any]) -> None:
-        case_id = getattr(case, "id", None)
-        if not case_id:
-            raise ValidationException(message=_("案件 ID 无效"), code="INVALID_CASE_ID", errors={})
-
-        # 检查案件绑定的模板中是否有所函
-        has_authority_letter = self._has_template_in_case_bindings(int(case_id), TEMPLATE_NAME_AUTHORITY_LETTER)
-        if has_authority_letter:
-            try:
-                authority_bytes, authority_filename = self.generate_authority_letter_document(int(case_id))
-                zf.writestr(self._safe_arcname(f"所函/{authority_filename}"), authority_bytes)
-            except ValidationException as e:
-                logger.warning("跳过所函生成: %s", e.message, extra={"case_id": case_id})
-
-        # 检查案件绑定的模板中是否有授权委托书
-        has_power_of_attorney = self._has_template_in_case_bindings(int(case_id), TEMPLATE_NAME_POWER_OF_ATTORNEY)
-        if has_power_of_attorney:
-            client_ids = [int(p.client_id) for p in our_parties if getattr(p, "client_id", None)]
-            try:
-                poa_bytes, poa_filename = self.generate_power_of_attorney_combined_document(int(case_id), client_ids)
-                zf.writestr(self._safe_arcname(f"授权委托书/{poa_filename}"), poa_bytes)
-            except ValidationException as e:
-                logger.warning("跳过授权委托书生成: %s", e.message, extra={"case_id": case_id})
-
-        # 检查案件绑定的模板中是否有法定代表人身份证明书
-        has_legal_rep_cert = self._has_template_in_case_bindings(int(case_id), TEMPLATE_NAME_LEGAL_REP_CERT)
-        if has_legal_rep_cert:
-            legal_parties = [
-                p
-                for p in our_parties
-                if getattr(getattr(p, "client", None), "client_type", "") in {"legal", "non_legal_org"}
-            ]
-            for party in legal_parties:
-                client_id = getattr(party, "client_id", None)
-                if not client_id:
-                    continue
-                try:
-                    content, filename = self.generate_legal_rep_certificate_document(int(case_id), int(client_id))
-                    zf.writestr(self._safe_arcname(f"法定代表人身份证明书/{filename}"), content)
-                except ValidationException as e:
-                    logger.warning(
-                        "跳过法定代表人身份证明书生成: %s",
-                        e.message,
-                        extra={"case_id": case_id, "client_id": client_id},
-                    )
+    def _get_all_parties(self, case: Any) -> list[Any]:
+        try:
+            return list(case.parties.select_related("client").all())
+        except Exception as e:
+            logger.warning("获取案件当事人失败", extra={"case_id": getattr(case, "id", None), "error": str(e)})
+            return []
 
     # 证件类型标签映射
     _DOC_TYPE_LABELS: ClassVar[dict[str, str]] = {
@@ -228,98 +195,103 @@ class AuthorizationMaterialGenerationService:
         "other": "其他证件",
     }
 
-    def _zip_add_client_identity_docs(
+    # 我方法人需要的证件类型
+    _OUR_LEGAL_REQUIRED: ClassVar[set[str]] = {"business_license", "legal_rep_id_card"}
+    # 我方自然人需要的证件类型
+    _OUR_NATURAL_REQUIRED: ClassVar[set[str]] = {"id_card"}
+    # 对方法人需要的证件类型
+    _OPP_LEGAL_REQUIRED: ClassVar[set[str]] = {"business_license"}
+    # 对方自然人需要的证件类型
+    _OPP_NATURAL_REQUIRED: ClassVar[set[str]] = {"id_card"}
+
+    def _zip_add_identity_docs_flat(
         self,
         zf: zipfile.ZipFile,
         *,
-        our_parties: list[Any],
+        client: Any,
+        is_our: bool,
         media_root: str,
         missing_lines: list[str],
     ) -> None:
-        for party in our_parties:
-            client = getattr(party, "client", None)
-            if not client:
-                continue
-            self._zip_add_single_client_docs(zf, client=client, media_root=media_root, missing_lines=missing_lines)
-
-    def _zip_add_single_client_docs(
-        self, zf: zipfile.ZipFile, *, client: Any, media_root: str, missing_lines: list[str]
-    ) -> None:
+        """将当事人证件文件平铺写入"当事人身份证明"文件夹"""
         client_name = getattr(client, "name", "") or "未知当事人"
-        safe_client_name = self._safe_name(client_name)
+        client_type = getattr(client, "client_type", "natural")
+        is_legal = client_type in {"legal", "non_legal_org"}
+
+        # 确定需要的证件类型
+        if is_our:
+            required = self._OUR_LEGAL_REQUIRED if is_legal else self._OUR_NATURAL_REQUIRED
+        else:
+            required = self._OPP_LEGAL_REQUIRED if is_legal else self._OPP_NATURAL_REQUIRED
 
         try:
             identity_docs = self.client_service.get_identity_docs_by_client_internal(client.id)
         except Exception:
             logger.exception("操作失败")
+            identity_docs = []
 
-            identity_docs: list[Any] = []
-
+        uploaded_types: set[str] = set()
         for doc in identity_docs:
-            self._zip_write_identity_doc(
-                zf,
-                doc=doc,
-                client_name=client_name,
-                safe_client_name=safe_client_name,
-                media_root=media_root,
-                missing_lines=missing_lines,
-            )
+            if doc.doc_type not in required:
+                continue
+            file_path = doc.file_path or ""
+            if not file_path.strip():
+                continue
+            abs_path = self._resolve_media_path(media_root, file_path)
+            if not abs_path or not StdPath(abs_path).exists():
+                doc_label = self._DOC_TYPE_LABELS.get(doc.doc_type, doc.doc_type)
+                missing_lines.append(f"缺少{client_name}的{doc_label}")
+                continue
+            uploaded_types.add(doc.doc_type)
+            arc_name = self._safe_arcname(f"当事人身份证明/{StdPath(abs_path).name}")
+            zf.write(abs_path, arcname=arc_name)
 
-        self._check_missing_required_docs(  # type: ignore[no-any-return]
-            identity_docs,
-            client=client,
-            client_name=client_name,
-            missing_lines=missing_lines,
-        )
+        # 检查缺失
+        for doc_type in required:
+            if doc_type not in uploaded_types:
+                doc_label = self._DOC_TYPE_LABELS.get(doc_type, doc_type)
+                missing_lines.append(f"缺少{client_name}的{doc_label}")
 
-    def _zip_write_identity_doc(
-        self,
-        zf: zipfile.ZipFile,
-        *,
-        doc: Any,
-        client_name: str,
-        safe_client_name: str,
-        media_root: str,
-        missing_lines: list[str],
-    ) -> None:
-        file_path = doc.file_path or ""
-        if not file_path.strip():
-            return
-        abs_path = self._resolve_media_path(media_root, file_path)
-        doc_label = self._DOC_TYPE_LABELS.get(doc.doc_type, doc.doc_type_display or doc.doc_type)
-        if not abs_path or not StdPath(abs_path).exists():
-            missing_lines.append(f"缺少{client_name}的{doc_label}")
-            return
-        arc_dir = f"当事人证件材料/{safe_client_name}"
-        arc_name = self._safe_arcname(f"{arc_dir}/{StdPath(abs_path).name}")
-        zf.write(abs_path, arcname=arc_name)
-
-    def _check_missing_required_docs(
-        self, identity_docs: list[Any], *, client: Any, client_name: str, missing_lines: list[str]
-    ) -> None:
-        doc_types = {doc.doc_type for doc in identity_docs}
-        if getattr(client, "client_type", "") == "natural":
-            if "id_card" not in doc_types:
-                missing_lines.append(f"缺少{client_name}的身份证")
-        else:
-            if "business_license" not in doc_types:
-                missing_lines.append(f"缺少{client_name}的营业执照")
-            if "legal_rep_id_card" not in doc_types:
-                missing_lines.append(f"缺少{client_name}的法定代表人身份证")
-
-    def _zip_add_lawyer_licenses(
+    def _zip_add_entrust_docs(
         self,
         zf: zipfile.ZipFile,
         *,
         case: Any,
+        our_parties: list[Any],
         missing_lines: list[str],
     ) -> None:
+        """委托材料：授权委托书 + 所函 + 律师证件"""
+        case_id = int(getattr(case, "id", 0))
+
+        # 授权委托书
+        if self._has_template_in_case_bindings(case_id, TEMPLATE_NAME_POWER_OF_ATTORNEY):
+            client_ids = [int(p.client_id) for p in our_parties if getattr(p, "client_id", None)]
+            try:
+                poa_bytes, poa_filename = self.generate_power_of_attorney_combined_document(case_id, client_ids)
+                zf.writestr(self._safe_arcname(f"委托材料/{poa_filename}"), poa_bytes)
+            except ValidationException as e:
+                logger.warning("跳过授权委托书生成: %s", e.message, extra={"case_id": case_id})
+                missing_lines.append("缺少授权委托书（模板渲染失败）")
+        else:
+            missing_lines.append("缺少授权委托书（未绑定模板）")
+
+        # 所函
+        if self._has_template_in_case_bindings(case_id, TEMPLATE_NAME_AUTHORITY_LETTER):
+            try:
+                auth_bytes, auth_filename = self.generate_authority_letter_document(case_id)
+                zf.writestr(self._safe_arcname(f"委托材料/{auth_filename}"), auth_bytes)
+            except ValidationException as e:
+                logger.warning("跳过所函生成: %s", e.message, extra={"case_id": case_id})
+                missing_lines.append("缺少所函（模板渲染失败）")
+        else:
+            missing_lines.append("缺少所函（未绑定模板）")
+
+        # 律师证件
         try:
             assignments = list(case.assignments.select_related("lawyer").all())
         except Exception:
             logger.exception("操作失败")
-
-            assignments: list[Any] = []
+            assignments = []
 
         seen: set[int] = set()
         for assignment in assignments:
@@ -328,40 +300,24 @@ class AuthorizationMaterialGenerationService:
             if not lawyer or not lawyer_id or lawyer_id in seen:
                 continue
             seen.add(int(lawyer_id))
-
             lawyer_name = getattr(lawyer, "real_name", None) or getattr(lawyer, "username", "") or f"律师{lawyer_id}"
             license_field = getattr(lawyer, "license_pdf", None)
-            if not license_field:
+            if not license_field or not getattr(license_field, "name", ""):
                 missing_lines.append(f"缺少{lawyer_name}的律师执业证")
                 continue
-            if not getattr(license_field, "name", ""):
-                missing_lines.append(f"缺少{lawyer_name}的律师执业证")
-                continue
-
             ext = StdPath(getattr(license_field, "name", "") or "").suffix or ".pdf"
-            arc_name = self._safe_arcname(f"律师执业证/律师证({lawyer_name}){ext}")
+            arc_name = self._safe_arcname(f"委托材料/律师证({lawyer_name}){ext}")
             try:
                 with license_field.open("rb") as f:
                     zf.writestr(arc_name, f.read())
             except Exception:
                 logger.exception("操作失败")
-
                 missing_lines.append(f"缺少{lawyer_name}的律师执业证")
 
     def _zip_add_missing_markdown(self, zf: zipfile.ZipFile, *, missing_lines: list[str]) -> None:
-        title = "# 当前授权手续所缺材料\n\n"
-        if not missing_lines:
-            body = "- 当前授权手续材料齐全\n"
-        else:
-            unique: list[Any] = []
-            seen = set()
-            for line in missing_lines:
-                if line in seen:
-                    continue
-                seen.add(line)
-                unique.append(line)
-            body = "\n".join([f"- {x}" for x in unique]) + "\n"
-        zf.writestr("当前授权手续所缺材料.md", title + body)
+        unique: list[str] = list(dict.fromkeys(missing_lines))
+        body = "# 当前授权手续所缺材料\n\n" + "\n".join(f"- {x}" for x in unique) + "\n"
+        zf.writestr("当前授权手续所缺材料.md", body)
 
     def _resolve_media_path(self, media_root: str, file_path: str) -> str:
         return resolve_media_path(media_root, file_path)
