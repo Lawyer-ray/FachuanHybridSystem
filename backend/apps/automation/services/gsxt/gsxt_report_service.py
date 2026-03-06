@@ -176,6 +176,7 @@ async def _run_full_flow(task_id: int) -> None:
 
     task = await get_task(pk=task_id)
     company_name: str = task.company_name
+    credit_code: str = task.credit_code or ""
 
     async with async_playwright() as p:
         browser = await p.chromium.connect_over_cdp("http://localhost:9222")
@@ -192,7 +193,17 @@ async def _run_full_flow(task_id: int) -> None:
             task.error_message = "已找到搜索结果，正在进入详情页"
             await save_task(task, ["error_message"])
 
-            await click_company_detail(page, company_name)
+            # 先用公司名匹配，失败时用信用代码兜底
+            try:
+                await click_company_detail(page, company_name)
+            except GsxtReportError:
+                if not credit_code:
+                    raise
+                logger.info("公司名匹配失败，改用信用代码搜索: %s", credit_code)
+                task.error_message = f"名称未匹配，改用信用代码 {credit_code} 重新搜索，请完成验证码"
+                await save_task(task, ["error_message"])
+                await search_company(page, credit_code)
+                await click_company_detail(page, company_name)
 
             task.error_message = "已进入详情页，请完成发送报告验证码"
             await save_task(task, ["error_message"])
