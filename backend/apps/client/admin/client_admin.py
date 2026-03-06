@@ -217,6 +217,7 @@ class ClientAdmin(AdminImportExportMixin, admin.ModelAdmin[Client]):
         task = GsxtReportTask.objects.create(
             client=client,
             company_name=client.name,
+            credit_code=client.id_number or "",
             status=GsxtReportStatus.WAITING_CAPTCHA,
         )
 

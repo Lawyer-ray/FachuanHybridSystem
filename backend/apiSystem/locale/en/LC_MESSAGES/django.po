@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-03-03 18:17+0800\n"
+"POT-Creation-Date: 2026-03-05 21:06+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -18,11 +18,11 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: apiSystem/settings.py:246
+#: apiSystem/settings.py:234
 msgid "简体中文"
 msgstr "Simplified Chinese"
 
-#: apiSystem/settings.py:247
+#: apiSystem/settings.py:235
 msgid "English"
 msgstr "English"
 
@@ -101,14 +101,16 @@ msgstr "Court Online Filing"
 #: templates/index/_auto_filing.html:54 templates/index/_case_flow.html:262
 #: templates/index/_chat_record.html:99
 #: templates/index/_evidence_sorting.html:104
-#: templates/index/_mock_trial.html:71 templates/index/_sms_flow.html:214
+#: templates/index/_gsxt_flow.html:111 templates/index/_mock_trial.html:71
+#: templates/index/_sms_flow.html:214
 msgid "播放演示"
 msgstr "Play Demo"
 
 #: templates/index/_auto_filing.html:57 templates/index/_case_flow.html:265
 #: templates/index/_chat_record.html:102
 #: templates/index/_evidence_sorting.html:107
-#: templates/index/_mock_trial.html:74 templates/index/_sms_flow.html:217
+#: templates/index/_gsxt_flow.html:114 templates/index/_mock_trial.html:74
+#: templates/index/_sms_flow.html:217
 msgid "重置"
 msgstr "Reset"
 
@@ -388,6 +390,140 @@ msgstr "Data Security"
 #: templates/index/_features.html:131
 msgid "端到端加密传输，支持本地私有化部署，数据完全掌控在您手中。"
 msgstr "End-to-end encrypted transmission, self-hosted deployment, full data ownership."
+
+#: templates/index/_gsxt_flow.html:6
+#, fuzzy
+#| msgid "获取企业信用报告"
+msgid "企业信用报告"
+msgstr "Get Enterprise Credit Report"
+
+#: templates/index/_gsxt_flow.html:7
+msgid "企业信用报告 · 全流程自动化"
+msgstr "Enterprise Credit Report · Fully Automated"
+
+#: templates/index/_gsxt_flow.html:8
+msgid "Playwright 自动登录→搜索→申请，用户只需完成 3 次验证码，报告通过邮件自动回收"
+msgstr "Playwright auto login→search→request. User only completes 3 CAPTCHAs, report auto-retrieved via email"
+
+#: templates/index/_gsxt_flow.html:28 templates/index/_gsxt_flow.html:413
+msgid "打开登录页"
+msgstr "Open Login Page"
+
+#: templates/index/_gsxt_flow.html:32
+msgid "填写账号"
+msgstr "Fill Credentials"
+
+#: templates/index/_gsxt_flow.html:36
+msgid "验证码 ①"
+msgstr "CAPTCHA ①"
+
+#: templates/index/_gsxt_flow.html:40 templates/index/_gsxt_flow.html:416
+msgid "搜索企业"
+msgstr "Search Company"
+
+#: templates/index/_gsxt_flow.html:44
+msgid "验证码 ②"
+msgstr "CAPTCHA ②"
+
+#: templates/index/_gsxt_flow.html:48
+msgid "进入详情"
+msgstr "Enter Details"
+
+#: templates/index/_gsxt_flow.html:52 templates/index/_gsxt_flow.html:419
+msgid "申请报告"
+msgstr "Request Report"
+
+#: templates/index/_gsxt_flow.html:56
+msgid "验证码 ③"
+msgstr "CAPTCHA ③"
+
+#: templates/index/_gsxt_flow.html:60
+msgid "邮件轮询"
+msgstr "Email Polling"
+
+#: templates/index/_gsxt_flow.html:64
+msgid "完成"
+msgstr "Done"
+
+#: templates/index/_gsxt_flow.html:72 templates/index/_gsxt_flow.html:510
+msgid "等待启动"
+msgstr "Waiting"
+
+#: templates/index/_gsxt_flow.html:76
+msgid "目标企业"
+msgstr "Target Company"
+
+#: templates/index/_gsxt_flow.html:80
+msgid "信用代码"
+msgstr "Credit Code"
+
+#: templates/index/_gsxt_flow.html:84
+msgid "当前阶段"
+msgstr "Current Phase"
+
+#: templates/index/_gsxt_flow.html:88
+msgid "邮件状态"
+msgstr "Email Status"
+
+#: templates/index/_gsxt_flow.html:97
+msgid "已保存为营业执照文档"
+msgstr "Saved as business license document"
+
+#: templates/index/_gsxt_flow.html:106
+msgid "自动执行"
+msgstr "Automated"
+
+#: templates/index/_gsxt_flow.html:107
+msgid "需手动验证码"
+msgstr "Manual CAPTCHA"
+
+#: templates/index/_gsxt_flow.html:414
+msgid "填写账号密码"
+msgstr "Filling credentials"
+
+#: templates/index/_gsxt_flow.html:415
+msgid "等待验证码 ①"
+msgstr "Waiting for CAPTCHA ①"
+
+#: templates/index/_gsxt_flow.html:417
+msgid "等待验证码 ②"
+msgstr "Waiting for CAPTCHA ②"
+
+#: templates/index/_gsxt_flow.html:418
+msgid "进入详情页"
+msgstr "Entering detail page"
+
+#: templates/index/_gsxt_flow.html:419
+msgid "等待发送..."
+msgstr "Waiting to send..."
+
+#: templates/index/_gsxt_flow.html:420
+msgid "等待验证码 ③"
+msgstr "Waiting for CAPTCHA ③"
+
+#: templates/index/_gsxt_flow.html:421
+msgid "IMAP 轮询"
+msgstr "IMAP Polling"
+
+#: templates/index/_gsxt_flow.html:421
+msgid "收到报告邮件 ✅"
+msgstr "Report email received ✅"
+
+#: templates/index/_gsxt_flow.html:422
+msgid "归档完成"
+msgstr "Archived"
+
+#: templates/index/_gsxt_flow.html:422
+msgid "已归档"
+msgstr "Archived"
+
+#: templates/index/_gsxt_flow.html:449
+msgid "执行中"
+msgstr "Running"
+
+#: templates/index/_gsxt_flow.html:456
+msgid "全部完成"
+msgstr "All Done"
 
 #: templates/index/_hero.html:11
 msgid "免费开源 · 持续更新"
@@ -725,68 +861,78 @@ msgstr "Pattern"
 msgid "自动化部署"
 msgstr "Automated Deployment"
 
-msgid "导入"
-msgstr "Import"
+#, fuzzy
+#~| msgid "法穿AI 智能处理"
+#~ msgid "法穿AI 自动处理"
+#~ msgstr "Fachuan AI Processing"
 
-msgid "导出选中"
-msgstr "Export selected"
+#, fuzzy
+#~| msgid "案件自动归档"
+#~ msgid "自动归档"
+#~ msgstr "Auto Case Archiving"
 
-msgid "导出全部"
-msgstr "Export all"
+#~ msgid "导入"
+#~ msgstr "Import"
 
-msgid "请上传 ZIP 文件"
-msgstr "Please upload a ZIP file"
+#~ msgid "导出选中"
+#~ msgstr "Export selected"
 
-msgid "请选择文件"
-msgstr "Please select a file"
+#~ msgid "导出全部"
+#~ msgstr "Export all"
 
-msgid "导入失败: %(err)s"
-msgstr "Import failed: %(err)s"
+#~ msgid "请上传 ZIP 文件"
+#~ msgstr "Please upload a ZIP file"
 
-msgid "导入完成：成功 %(s)d 条，跳过 %(k)d 条"
-msgstr "Import complete: %(s)d created, %(k)d skipped"
+#~ msgid "请选择文件"
+#~ msgstr "Please select a file"
 
-msgid "合同名称不能为空"
-msgstr "Contract name is required"
+#~ msgid "导入失败: %(err)s"
+#~ msgstr "Import failed: %(err)s"
 
-msgid "案件名称不能为空"
-msgstr "Case name is required"
+#~ msgid "导入完成：成功 %(s)d 条，跳过 %(k)d 条"
+#~ msgstr "Import complete: %(s)d created, %(k)d skipped"
 
-msgid "当事人数据验证失败: %(name)s"
-msgstr "Client data validation failed: %(name)s"
+#~ msgid "合同名称不能为空"
+#~ msgstr "Contract name is required"
 
-msgid "解析中..."
-msgstr "Parsing..."
+#~ msgid "案件名称不能为空"
+#~ msgstr "Case name is required"
 
-msgid "解析并填充"
-msgstr "Parse & Fill"
+#~ msgid "当事人数据验证失败: %(name)s"
+#~ msgstr "Client data validation failed: %(name)s"
 
-msgid "身份证号码:"
-msgstr "ID Number:"
+#~ msgid "解析中..."
+#~ msgstr "Parsing..."
 
-msgid "统一社会信用代码:"
-msgstr "Unified Social Credit Code:"
+#~ msgid "解析并填充"
+#~ msgstr "Parse & Fill"
 
-msgid "暂无补充协议"
-msgstr "No supplementary agreements"
+#~ msgid "身份证号码:"
+#~ msgstr "ID Number:"
 
-msgid "已绑定"
-msgstr "Bound"
+#~ msgid "暂无补充协议"
+#~ msgstr "No supplementary agreements"
 
-msgid "未绑定"
-msgstr "Unbound"
+#~ msgid "已绑定"
+#~ msgstr "Bound"
 
-msgid "保存并复制"
-msgstr "Save and Duplicate"
+#~ msgid "未绑定"
+#~ msgstr "Unbound"
 
-msgid "保存并创建案件"
-msgstr "Save and Create Case"
+#~ msgid "保存并复制"
+#~ msgstr "Save and Duplicate"
 
-msgid "填充合同当事人"
-msgstr "Fill Contract Parties"
+#~ msgid "保存并创建案件"
+#~ msgstr "Save and Create Case"
 
-msgid "填充上一份补充协议当事人"
-msgstr "Fill Previous Supplementary Agreement Parties"
+#~ msgid "填充合同当事人"
+#~ msgstr "Fill Contract Parties"
 
-msgid "暂无关联案件"
-msgstr "No associated cases"
+#~ msgid "填充上一份补充协议当事人"
+#~ msgstr "Fill Previous Supplementary Agreement Parties"
+
+#~ msgid "暂无关联案件"
+#~ msgstr "No associated cases"
+
+#~ msgid "上传身份证、护照、营业执照等证件，系统将自动识别并提取关键信息，快速填充表单。"
+#~ msgstr "Upload ID card, passport, business license, etc. The system will automatically recognize and extract key information to quickly fill in the form."

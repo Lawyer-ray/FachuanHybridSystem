@@ -1,0 +1,517 @@
+{% load i18n %}
+    <!-- 企业信用报告自动获取 — 终端风格 -->
+    <section class="gsxt-section" id="gsxt-flow">
+        <div class="gsxt-container">
+            <div class="section-header reveal">
+                <span class="section-tag">🏢 {% trans "企业信用报告" %}</span>
+                <h2 class="section-title">{% trans "企业信用报告 · 全流程半自动化" %}</h2>
+                <p class="section-desc">{% trans "Playwright 自动登录→搜索→申请，用户只需完成 3 次验证码，报告通过邮件自动回收" %}</p>
+            </div>
+
+            <div class="gsxt-theater reveal" id="gsxtTheater">
+                <!-- 左：终端日志 -->
+                <div class="gsxt-terminal">
+                    <div class="gsxt-term-bar">
+                        <div class="gsxt-term-dots"><span></span><span></span><span></span></div>
+                        <span class="gsxt-term-title">gsxt_report_service.py — Playwright</span>
+                    </div>
+                    <div class="gsxt-term-body" id="gsxtTermBody">
+                        <div class="gsxt-term-line gsxt-line-dim">$ python manage.py qcluster &amp;</div>
+                        <div class="gsxt-term-line gsxt-line-dim">[Q] Starting worker cluster...</div>
+                    </div>
+                </div>
+
+                <!-- 中：垂直时间线 -->
+                <div class="gsxt-timeline" id="gsxtTimeline">
+                    <div class="gsxt-tl-node" data-idx="0">
+                        <span class="gsxt-tl-pip auto"><span class="gsxt-tl-num">1</span></span>
+                        <span class="gsxt-tl-label">{% trans "打开登录页" %}<i class="gsxt-tl-badge auto">AUTO</i></span>
+                    </div>
+                    <div class="gsxt-tl-node" data-idx="1">
+                        <span class="gsxt-tl-pip auto"><span class="gsxt-tl-num">2</span></span>
+                        <span class="gsxt-tl-label">{% trans "填写账号" %}<i class="gsxt-tl-badge auto">AUTO</i></span>
+                    </div>
+                    <div class="gsxt-tl-node" data-idx="2">
+                        <span class="gsxt-tl-pip manual"><span class="gsxt-tl-num">3</span></span>
+                        <span class="gsxt-tl-label">{% trans "验证码 ①" %}<i class="gsxt-tl-badge manual">手动</i></span>
+                    </div>
+                    <div class="gsxt-tl-node" data-idx="3">
+                        <span class="gsxt-tl-pip auto"><span class="gsxt-tl-num">4</span></span>
+                        <span class="gsxt-tl-label">{% trans "搜索企业" %}<i class="gsxt-tl-badge auto">AUTO</i></span>
+                    </div>
+                    <div class="gsxt-tl-node" data-idx="4">
+                        <span class="gsxt-tl-pip manual"><span class="gsxt-tl-num">5</span></span>
+                        <span class="gsxt-tl-label">{% trans "验证码 ②" %}<i class="gsxt-tl-badge manual">手动</i></span>
+                    </div>
+                    <div class="gsxt-tl-node" data-idx="5">
+                        <span class="gsxt-tl-pip auto"><span class="gsxt-tl-num">6</span></span>
+                        <span class="gsxt-tl-label">{% trans "进入详情" %}<i class="gsxt-tl-badge auto">AUTO</i></span>
+                    </div>
+                    <div class="gsxt-tl-node" data-idx="6">
+                        <span class="gsxt-tl-pip auto"><span class="gsxt-tl-num">7</span></span>
+                        <span class="gsxt-tl-label">{% trans "申请报告" %}<i class="gsxt-tl-badge auto">AUTO</i></span>
+                    </div>
+                    <div class="gsxt-tl-node" data-idx="7">
+                        <span class="gsxt-tl-pip manual"><span class="gsxt-tl-num">8</span></span>
+                        <span class="gsxt-tl-label">{% trans "验证码 ③" %}<i class="gsxt-tl-badge manual">手动</i></span>
+                    </div>
+                    <div class="gsxt-tl-node" data-idx="8">
+                        <span class="gsxt-tl-pip auto"><span class="gsxt-tl-num">9</span></span>
+                        <span class="gsxt-tl-label">{% trans "邮件轮询" %}<i class="gsxt-tl-badge auto">AUTO</i></span>
+                    </div>
+                    <div class="gsxt-tl-node" data-idx="9">
+                        <span class="gsxt-tl-pip auto"><span class="gsxt-tl-num">✓</span></span>
+                        <span class="gsxt-tl-label">{% trans "完成" %}</span>
+                    </div>
+                </div>
+
+                <!-- 右：实时状态面板 -->
+                <div class="gsxt-status-panel">
+                    <div class="gsxt-sp-header">
+                        <span class="gsxt-sp-indicator" id="gsxtIndicator"></span>
+                        <span id="gsxtSpTitle">{% trans "等待启动" %}</span>
+                    </div>
+                    <div class="gsxt-sp-cards">
+                        <div class="gsxt-sp-card" id="gsxtCardTarget">
+                            <div class="gsxt-sp-card-label">{% trans "目标企业" %}</div>
+                            <div class="gsxt-sp-card-value">小米科技有限责任公司</div>
+                        </div>
+                        <div class="gsxt-sp-card" id="gsxtCardCode">
+                            <div class="gsxt-sp-card-label">{% trans "信用代码" %}</div>
+                            <div class="gsxt-sp-card-value" style="font-family:monospace;">91110108551385082Q</div>
+                        </div>
+                        <div class="gsxt-sp-card" id="gsxtCardPhase">
+                            <div class="gsxt-sp-card-label">{% trans "当前阶段" %}</div>
+                            <div class="gsxt-sp-card-value" id="gsxtPhaseText">—</div>
+                        </div>
+                        <div class="gsxt-sp-card" id="gsxtCardEmail">
+                            <div class="gsxt-sp-card-label">{% trans "邮件状态" %}</div>
+                            <div class="gsxt-sp-card-value" id="gsxtEmailText">—</div>
+                        </div>
+                    </div>
+                    <!-- 最终结果 -->
+                    <div class="gsxt-sp-result" id="gsxtResult">
+                        <div class="gsxt-sp-result-icon">📄</div>
+                        <div>
+                            <div class="gsxt-sp-result-title">小米科技有限责任公司报告.pdf</div>
+                            <div class="gsxt-sp-result-sub">{% trans "已保存为营业执照文档" %}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 图例 + 控制 -->
+            <div class="gsxt-footer">
+                <div class="gsxt-legend">
+                    <span><span class="gsxt-legend-dot auto"></span>{% trans "自动执行" %}</span>
+                    <span><span class="gsxt-legend-dot manual"></span>{% trans "需手动验证码" %}</span>
+                </div>
+                <div class="gsxt-controls">
+                    <button class="flow-btn flow-btn-play" id="gsxtPlayBtn" onclick="startGsxtAnimation()">
+                        <span>▶</span> {% trans "播放演示" %}
+                    </button>
+                    <button class="flow-btn flow-btn-reset" id="gsxtResetBtn" onclick="resetGsxtAnimation()">
+                        <span>↺</span> {% trans "重置" %}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <style>
+        /* ========== 企业信用报告 — 终端风格 ========== */
+        .gsxt-section {
+            padding: 8rem 2rem;
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(180deg, transparent, rgba(34, 197, 94, 0.02), transparent);
+        }
+        .gsxt-container { max-width: 1400px; margin: 0 auto; }
+
+        .gsxt-theater {
+            display: grid;
+            grid-template-columns: 1fr 200px 1fr;
+            gap: 0;
+            margin-top: 3rem;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            overflow: hidden;
+            background: rgba(0, 0, 0, 0.5);
+            min-height: 520px;
+        }
+
+        /* --- 终端 --- */
+        .gsxt-terminal {
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border);
+        }
+        .gsxt-term-bar {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.6rem 1rem;
+            background: rgba(255,255,255,0.03);
+            border-bottom: 1px solid var(--border);
+            font-size: 0.72rem;
+            color: var(--text-muted);
+        }
+        .gsxt-term-dots { display: flex; gap: 5px; }
+        .gsxt-term-dots span { width: 9px; height: 9px; border-radius: 50%; }
+        .gsxt-term-dots span:nth-child(1) { background: #ef4444; }
+        .gsxt-term-dots span:nth-child(2) { background: #eab308; }
+        .gsxt-term-dots span:nth-child(3) { background: #22c55e; }
+        .gsxt-term-title { font-family: monospace; }
+
+        .gsxt-term-body {
+            flex: 1;
+            padding: 1rem;
+            overflow-y: auto;
+            font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+            font-size: 0.72rem;
+            line-height: 1.7;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255,255,255,0.1) transparent;
+        }
+        .gsxt-term-line {
+            white-space: pre-wrap;
+            word-break: break-all;
+            opacity: 0;
+            transform: translateY(6px);
+            animation: gsxtLineIn 0.3s forwards;
+        }
+        .gsxt-line-dim { color: var(--text-muted); opacity: 1; transform: none; animation: none; }
+        .gsxt-line-info { color: #22d3ee; }
+        .gsxt-line-ok { color: #4ade80; }
+        .gsxt-line-warn { color: #fbbf24; }
+        .gsxt-line-err { color: #f87171; }
+        .gsxt-line-accent { color: #c084fc; }
+
+        @keyframes gsxtLineIn {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* --- 垂直时间线 --- */
+        .gsxt-timeline {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            padding: 1.5rem 0.75rem;
+            background: rgba(0,0,0,0.3);
+        }
+        .gsxt-tl-node {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            flex: 1;
+            padding: 0.15rem 0;
+            opacity: 0.3;
+            transition: all 0.4s ease;
+        }
+        .gsxt-tl-node.reached { opacity: 1; }
+        .gsxt-tl-node.active { opacity: 1; }
+
+        .gsxt-tl-pip {
+            width: 26px; height: 26px;
+            border-radius: 50%;
+            border: 2px solid var(--border);
+            background: var(--bg-dark);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: all 0.4s ease;
+            position: relative;
+        }
+        .gsxt-tl-pip.auto { border-color: rgba(34,197,94,0.3); }
+        .gsxt-tl-pip.manual { border-color: rgba(251,191,36,0.3); }
+
+        .gsxt-tl-num {
+            font-size: 0.6rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            transition: color 0.3s;
+        }
+
+        .gsxt-tl-node.reached .gsxt-tl-pip.auto {
+            background: rgba(34,197,94,0.15);
+            border-color: #22c55e;
+            box-shadow: 0 0 12px rgba(34,197,94,0.4);
+        }
+        .gsxt-tl-node.reached .gsxt-tl-pip.auto .gsxt-tl-num { color: #4ade80; }
+
+        .gsxt-tl-node.reached .gsxt-tl-pip.manual {
+            background: rgba(251,191,36,0.15);
+            border-color: #fbbf24;
+            box-shadow: 0 0 12px rgba(251,191,36,0.4);
+        }
+        .gsxt-tl-node.reached .gsxt-tl-pip.manual .gsxt-tl-num { color: #fbbf24; }
+
+        .gsxt-tl-node.active .gsxt-tl-pip {
+            transform: scale(1.15);
+            animation: gsxtPulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes gsxtPulse {
+            0%, 100% { box-shadow: 0 0 12px rgba(99,102,241,0.3); }
+            50% { box-shadow: 0 0 24px rgba(99,102,241,0.6); }
+        }
+
+        .gsxt-tl-label {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+            transition: color 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+        .gsxt-tl-node.reached .gsxt-tl-label { color: var(--text-primary); }
+        .gsxt-tl-node.active .gsxt-tl-label { color: #f8fafc; font-weight: 600; }
+
+        .gsxt-tl-badge {
+            font-size: 0.5rem;
+            font-style: normal;
+            font-weight: 600;
+            padding: 0.1rem 0.35rem;
+            border-radius: 4px;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+        }
+        .gsxt-tl-badge.auto {
+            background: rgba(34,197,94,0.12);
+            color: rgba(34,197,94,0.6);
+            border: 1px solid rgba(34,197,94,0.15);
+        }
+        .gsxt-tl-badge.manual {
+            background: rgba(251,191,36,0.12);
+            color: rgba(251,191,36,0.6);
+            border: 1px solid rgba(251,191,36,0.15);
+        }
+        .gsxt-tl-node.reached .gsxt-tl-badge.auto { color: #4ade80; border-color: rgba(34,197,94,0.3); }
+        .gsxt-tl-node.reached .gsxt-tl-badge.manual { color: #fbbf24; border-color: rgba(251,191,36,0.3); }
+
+        /* --- 状态面板 --- */
+        .gsxt-status-panel {
+            display: flex;
+            flex-direction: column;
+            padding: 1.5rem;
+            border-left: 1px solid var(--border);
+        }
+        .gsxt-sp-header {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            color: var(--text-primary);
+        }
+        .gsxt-sp-indicator {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            background: var(--text-muted);
+            transition: background 0.3s;
+        }
+        .gsxt-sp-indicator.running { background: #22c55e; animation: gsxtPulse 1.2s infinite; }
+        .gsxt-sp-indicator.waiting { background: #fbbf24; animation: gsxtPulse 1.2s infinite; }
+        .gsxt-sp-indicator.done { background: #22c55e; }
+
+        .gsxt-sp-cards {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+            flex: 1;
+        }
+        .gsxt-sp-card {
+            padding: 0.75rem;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            transition: border-color 0.3s;
+        }
+        .gsxt-sp-card.highlight { border-color: rgba(99,102,241,0.4); }
+        .gsxt-sp-card-label {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            margin-bottom: 0.3rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .gsxt-sp-card-value {
+            font-size: 0.8rem;
+            color: var(--text-primary);
+            word-break: break-all;
+        }
+
+        .gsxt-sp-result {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-top: 1rem;
+            padding: 1rem;
+            background: rgba(34,197,94,0.08);
+            border: 1px solid rgba(34,197,94,0.3);
+            border-radius: 12px;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.5s ease;
+        }
+        .gsxt-sp-result.show { opacity: 1; transform: translateY(0); }
+        .gsxt-sp-result-icon { font-size: 2rem; }
+        .gsxt-sp-result-title { font-size: 0.85rem; font-weight: 600; color: #4ade80; }
+        .gsxt-sp-result-sub { font-size: 0.7rem; color: var(--text-muted); margin-top: 0.15rem; }
+
+        /* --- 底部 --- */
+        .gsxt-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 2rem;
+        }
+        .gsxt-legend {
+            display: flex;
+            gap: 1.5rem;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+        }
+        .gsxt-legend > span { display: flex; align-items: center; gap: 0.4rem; }
+        .gsxt-legend-dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .gsxt-legend-dot.auto { background: #22c55e; }
+        .gsxt-legend-dot.manual { background: #fbbf24; }
+        .gsxt-controls { display: flex; gap: 1rem; }
+
+        @media (max-width: 1024px) {
+            .gsxt-theater {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto auto;
+            }
+            .gsxt-terminal { border-right: none; border-bottom: 1px solid var(--border); }
+            .gsxt-timeline {
+                flex-direction: row;
+                flex-wrap: wrap;
+                padding: 1rem;
+                gap: 0.25rem 0.75rem;
+                justify-content: center;
+            }
+            .gsxt-tl-track { display: none; }
+            .gsxt-status-panel { border-left: none; border-top: 1px solid var(--border); }
+            .gsxt-footer { flex-direction: column; gap: 1rem; }
+        }
+    </style>
+
+    <script>
+    (function() {
+        const STEPS = [
+            { log: ['[INFO] page.goto("https://gsxt.gov.cn/login")', '[INFO] 等待登录页加载...'], cls: 'info', phase: '{% trans "打开登录页" %}', delay: 800 },
+            { log: ['[INFO] 填写账号: huang****@163.com', '[INFO] 填写密码: ********'], cls: 'info', phase: '{% trans "填写账号密码" %}', delay: 700 },
+            { log: ['[WAIT] ⏳ 等待用户完成极验验证码...', '[USER] 🖱️ 用户拖动滑块...', '[OK]   ✅ 验证码通过'], cls: 'warn', phase: '{% trans "等待验证码 ①" %}', indicator: 'waiting', delay: 2000 },
+            { log: ['[INFO] #keyword.fill("小米科技有限责任公司")', '[INFO] #btn_query.click()', '[INFO] 等待搜索结果...'], cls: 'info', phase: '{% trans "搜索企业" %}', delay: 900 },
+            { log: ['[WAIT] ⏳ 等待用户完成搜索验证码...', '[USER] 🖱️ 用户点击验证图片...', '[OK]   ✅ 验证码通过'], cls: 'warn', phase: '{% trans "等待验证码 ②" %}', indicator: 'waiting', delay: 2000 },
+            { log: ['[INFO] 找到搜索结果，点击进入详情', '[INFO] page.goto("shiming.gsxt.gov.cn/...")'], cls: 'info', phase: '{% trans "进入详情页" %}', delay: 800 },
+            { log: ['[INFO] #btn_send_pdf.click()', '[INFO] 弹出发送对话框', '[INFO] sendPdf() — 发送报告至邮箱'], cls: 'accent', phase: '{% trans "申请报告" %}', email: '{% trans "等待发送..." %}', delay: 900 },
+            { log: ['[WAIT] ⏳ 等待用户完成极验验证码...', '[USER] 🖱️ 用户完成拼图...', '[OK]   ✅ 报告已发送至邮箱'], cls: 'warn', phase: '{% trans "等待验证码 ③" %}', indicator: 'waiting', delay: 2000 },
+            { log: ['[INFO] Schedule.ONCE — 60s 后轮询邮箱', '[INFO] IMAP imap.163.com:993 连接中...', '[INFO] ID command sent (Coremail)', '[INFO] 扫描文件夹: &TwFOGk,hdShP4WBv-', '[OK]   📧 找到附件: 小米科技有限责任公司报告.pdf'], cls: 'ok', phase: '{% trans "IMAP 轮询" %}', email: '{% trans "收到报告邮件 ✅" %}', delay: 1500 },
+            { log: ['[OK]   📄 保存为营业执照文档', '[OK]   ✅ GsxtReportTask 状态 → success', '[OK]   🎉 任务完成'], cls: 'ok', phase: '{% trans "归档完成" %}', email: '{% trans "已归档" %}', delay: 800 },
+        ];
+
+        let timer = null;
+        const termBody = document.getElementById('gsxtTermBody');
+        const nodes = document.querySelectorAll('.gsxt-tl-node');
+
+        function addLine(text, cls) {
+            const div = document.createElement('div');
+            div.className = 'gsxt-term-line gsxt-line-' + cls;
+            div.textContent = text;
+            termBody.appendChild(div);
+            termBody.scrollTop = termBody.scrollHeight;
+        }
+
+        function setTrackProgress(idx) {
+            const pct = Math.min(100, ((idx + 1) / nodes.length) * 100);
+            track.style.setProperty('--gsxt-track', pct + '%');
+            track.querySelector('::after') // CSS handles it
+            // Use inline style on pseudo via CSS variable
+        }
+
+        window.startGsxtAnimation = function() {
+            resetGsxtAnimation();
+            document.getElementById('gsxtPlayBtn').disabled = true;
+            const indicator = document.getElementById('gsxtIndicator');
+            indicator.classList.add('running');
+            document.getElementById('gsxtSpTitle').textContent = '{% trans "执行中" %}';
+
+            let i = 0;
+            function tick() {
+                if (i >= STEPS.length) {
+                    indicator.classList.remove('running', 'waiting');
+                    indicator.classList.add('done');
+                    document.getElementById('gsxtSpTitle').textContent = '{% trans "全部完成" %}';
+                    document.getElementById('gsxtResult').classList.add('show');
+                    document.getElementById('gsxtPlayBtn').disabled = false;
+                    return;
+                }
+                const step = STEPS[i];
+
+                // 时间线
+                nodes.forEach((n, ni) => {
+                    n.classList.remove('active');
+                    if (ni < i) n.classList.add('reached');
+                    else if (ni === i) { n.classList.add('reached', 'active'); }
+                });
+
+                // indicator
+                if (step.indicator === 'waiting') {
+                    indicator.classList.remove('running');
+                    indicator.classList.add('waiting');
+                } else {
+                    indicator.classList.remove('waiting');
+                    indicator.classList.add('running');
+                }
+
+                // phase
+                document.getElementById('gsxtPhaseText').textContent = step.phase;
+                document.getElementById('gsxtCardPhase').classList.add('highlight');
+                setTimeout(() => document.getElementById('gsxtCardPhase').classList.remove('highlight'), 600);
+
+                // email
+                if (step.email) {
+                    document.getElementById('gsxtEmailText').textContent = step.email;
+                    document.getElementById('gsxtCardEmail').classList.add('highlight');
+                    setTimeout(() => document.getElementById('gsxtCardEmail').classList.remove('highlight'), 600);
+                }
+
+                // terminal lines (staggered)
+                step.log.forEach((line, li) => {
+                    setTimeout(() => addLine(line, step.cls), li * 200);
+                });
+
+                i++;
+                timer = setTimeout(tick, step.delay);
+            }
+            tick();
+        };
+
+        window.resetGsxtAnimation = function() {
+            if (timer) clearTimeout(timer);
+            // clear terminal
+            termBody.innerHTML = '<div class="gsxt-term-line gsxt-line-dim">$ python manage.py qcluster &amp;</div><div class="gsxt-term-line gsxt-line-dim">[Q] Starting worker cluster...</div>';
+            // reset timeline
+            nodes.forEach(n => n.classList.remove('reached', 'active'));
+            // reset panel
+            document.getElementById('gsxtIndicator').className = 'gsxt-sp-indicator';
+            document.getElementById('gsxtSpTitle').textContent = '{% trans "等待启动" %}';
+            document.getElementById('gsxtPhaseText').textContent = '—';
+            document.getElementById('gsxtEmailText').textContent = '—';
+            document.getElementById('gsxtResult').classList.remove('show');
+            document.getElementById('gsxtPlayBtn').disabled = false;
+        };
+    })();
+    </script>

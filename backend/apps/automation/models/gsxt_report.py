@@ -30,6 +30,7 @@ class GsxtReportTask(models.Model):
         verbose_name=_("当事人"),
     )
     company_name = models.CharField(max_length=255, verbose_name=_("企业名称"))
+    credit_code = models.CharField(max_length=64, blank=True, verbose_name=_("统一社会信用代码"))
     status = models.CharField(
         max_length=32,
         choices=GsxtReportStatus.choices,
