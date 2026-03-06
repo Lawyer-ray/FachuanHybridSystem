@@ -273,3 +273,24 @@ class DocumentTemplateFolderBinding(models.Model):
             f"{self.document_template.name} → "
             f"{self.folder_template.name}/{self.folder_node_path or self.folder_node_id}"
         )
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        """保存时自动根据 folder_node_id 计算 folder_node_path"""
+        if self.folder_node_id and self.folder_template_id:
+            try:
+                structure = self.folder_template.structure or {}
+                path = self._find_node_path(structure.get("children", []), self.folder_node_id, [])
+                self.folder_node_path = "/".join(path) if path else ""
+            except Exception:
+                pass
+        super().save(*args, **kwargs)
+
+    def _find_node_path(self, children: list[Any], target_id: str, current_path: list[str]) -> list[str]:
+        for child in children:
+            path = current_path + [child.get("name", "")]
+            if child.get("id") == target_id:
+                return path
+            result = self._find_node_path(child.get("children", []), target_id, path)
+            if result:
+                return result
+        return []
