@@ -138,12 +138,13 @@ class ContractGenerationService:
         context = PipelineContextBuilder().build_contract_context(contract)
         return DocxPreviewService().preview(file_location, context)
 
-    def generate_contract_document(self, contract_id: int) -> tuple[bytes | None, str | None, str | None]:
+    def generate_contract_document(self, contract_id: int, split_fee: bool = True) -> tuple[bytes | None, str | None, str | None]:
         """
         生成合同文书
 
         Args:
             contract_id: 合同 ID
+            split_fee: 是否拆分律师费
 
         Returns:
             Tuple[文件内容, 文件名, 错误信息]
@@ -169,7 +170,7 @@ class ContractGenerationService:
             return None, None, "模板文件不存在"
 
         # 4. 构建上下文
-        context = PipelineContextBuilder().build_contract_context(contract)
+        context = PipelineContextBuilder().build_contract_context(contract, split_fee=split_fee)
 
         # 5. 使用 docxtpl 渲染模板
         try:
@@ -189,9 +190,9 @@ class ContractGenerationService:
         return content, filename, None
 
     def generate_contract_document_result(
-        self, contract_id: int
+        self, contract_id: int, split_fee: bool = True
     ) -> tuple[bytes | None, str | None, str | None, str | None]:
-        content, filename, error = self.generate_contract_document(contract_id)
+        content, filename, error = self.generate_contract_document(contract_id, split_fee=split_fee)
         return content, filename, self._last_saved_path, error
 
     def find_matching_templates(self, case_type: str) -> list[DocumentTemplate]:

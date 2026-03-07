@@ -24,54 +24,100 @@ class FeeTermsService(BasePlaceholderService):
     placeholder_keys: ClassVar = ["合同收费条款"]
 
     def generate(self, context_data: dict[str, Any]) -> dict[str, Any]:
-        """
-        生成收费条款占位符
-
-        Args:
-            context_data: 包含 contract 等数据的上下文
-
-        Returns:
-            包含收费条款占位符的字典
-        """
         result: dict[str, Any] = {}
         contract = context_data.get("contract")
 
         if contract:
-            # {{合同收费条款}} - 根据收费模式生成收费条款
-            result["合同收费条款"] = self.generate_fee_terms(contract)
+            split_fee: bool = bool(context_data.get("split_fee", True))
+            result["合同收费条款"] = self.generate_fee_terms(contract, split_fee=split_fee)
 
         return result
 
-    def generate_fee_terms(self, contract: Any) -> str:
-        """
-        根据收费模式格式化收费条款
-
-        Args:
-            contract: Contract 实例
-
-        Returns:
-            格式化的收费条款字符串
-        """
+    def generate_fee_terms(self, contract: Any, split_fee: bool = True) -> str:
         try:
             fee_mode = getattr(contract, "fee_mode", None)
-
-            # 使用字符串常量代替直接导入 FeeMode 枚举
-            # Requirements: 3.2
             fee_mode_upper = (fee_mode or "").upper()
             if fee_mode_upper == "FIXED":
-                return self._generate_fixed_fee_terms(contract)
+                base = self._generate_fixed_fee_terms(contract)
             elif fee_mode_upper == "SEMI_RISK":
-                return self._generate_semi_risk_fee_terms(contract)
+                base = self._generate_semi_risk_fee_terms(contract)
             elif fee_mode_upper == "FULL_RISK":
-                return self._generate_full_risk_fee_terms(contract)
+                base = self._generate_full_risk_fee_terms(contract)
             elif fee_mode_upper == "CUSTOM":
-                return self._generate_custom_fee_terms(contract)
+                base = self._generate_custom_fee_terms(contract)
             else:
                 return "收费条款待定。"
+
+            if split_fee and fee_mode_upper in ("FIXED", "SEMI_RISK"):
+                split_text = self._generate_split_fee_text(contract)
+                if split_text:
+                    return f"{base}\a{split_text}"
+            return base
 
         except Exception as e:
             logger.warning("生成收费条款失败: %s", e, extra={"contract_id": getattr(contract, "id", None)})
             return "收费条款待定。"
+
+    def _generate_split_fee_text(self, contract: Any) -> str:
+        """生成拆分律师费段落，案件数 < 2 或无 fixed_amount 时返回空字符串"""
+        fixed_amount = getattr(contract, "fixed_amount", None)
+        if not fixed_amount:
+            return ""
+
+        cases = list(contract.cases.all())
+        if len(cases) < 2:
+            return ""
+
+        total_target = sum(float(getattr(c, "target_amount", 0) or 0) for c in cases)
+        if total_target <= 0:
+            return ""
+
+        fixed = float(fixed_amount)
+        case_lines: list[str] = []
+
+        # 取第一个案件的原告名作为"甲方"
+        first_case = cases[0]
+        plaintiff_party = next(
+            (p for p in first_case.parties.all() if (getattr(p, "legal_status", "") or "") == "plaintiff"),
+            None,
+        )
+        client_name: str = plaintiff_party.client.name if plaintiff_party else "甲方"
+
+        for i, case in enumerate(cases):
+            t = float(getattr(case, "target_amount", 0) or 0)
+            amount = round(fixed * t / total_target)
+
+            defendants = [
+                p.client.name
+                for p in case.parties.all()
+                if (getattr(p, "legal_status", "") or "") == "defendant"
+            ]
+            opponent = "、".join(defendants) if defendants else "对方当事人"
+
+            amount_cn = self._number_to_chinese(amount)
+            t_wan = round(t / 10000)
+            case_lines.append(
+                f"    案件{self._to_chinese_ordinal(i + 1)}"
+                f"（{client_name}诉{opponent}），"
+                f"争议金额约{t_wan}万元，"
+                f"对应律师费为人民币{amount:.2f}元（大写：人民币{amount_cn}）；"
+            )
+
+        # 最后一项改分号为句号
+        case_lines[-1] = case_lines[-1][:-1] + "。"
+
+        count_cn = {1: "一", 2: "两", 3: "三"}.get(len(cases), str(len(cases)))
+        lines_text = "\n".join(case_lines)
+        return (
+            f"上述费用系甲方委托乙方代理以下{count_cn}案的全部律师代理费，"
+            f"按争议金额比例分摊如下：\n{lines_text}"
+        )
+
+    @staticmethod
+    def _to_chinese_ordinal(n: int) -> str:
+        mapping = {1: "一", 2: "二", 3: "三", 4: "四", 5: "五",
+                   6: "六", 7: "七", 8: "八", 9: "九", 10: "十"}
+        return mapping.get(n, str(n))
 
     def _generate_fixed_fee_terms(self, contract: Any) -> str:
         """生成固定收费条款"""
@@ -81,7 +127,7 @@ class FeeTermsService(BasePlaceholderService):
             fixed_amount_1 = str(float(fixed_amount))
             fixed_amount_2 = self._number_to_chinese(fixed_amount)
             return (
-                f"本合同签订之日起5日内，甲方向乙方一次性支付律师费{fixed_amount_1}元（大写：人民币{fixed_amount_2}整）。"
+                f"本合同签订之日起5日内，甲方向乙方一次性支付律师费{fixed_amount_1}元（大写：人民币{fixed_amount_2}）。"
             )
         else:
             return "本合同签订之日起5日内，甲方向乙方一次性支付律师费  ,000元（大写：人民币    整）。"
@@ -97,7 +143,7 @@ class FeeTermsService(BasePlaceholderService):
 
         return (
             f"本合同为风险代理收费，前期款为本合同签订之日起5日内，甲方向乙方一次性支付本案前期律师代理服务费{fixed_amount_1}元"
-            f"（大写：人民币{fixed_amount_2}整）。后期风险律师费自甲方通过诉讼、和解、调解、执行、案外收款等途径收到相关款项的5日内"
+            f"（大写：人民币{fixed_amount_2}）。后期风险律师费自甲方通过诉讼、和解、调解、执行、案外收款等途径收到相关款项的5日内"
             f"按照实际收款金额的{risk_rate_str}%支付风险律师费。上述前期和后期律师代理服务费不重叠，计收后不再退还。"
         )
 

@@ -19,7 +19,7 @@ class ScriptExecutorService:
         self,
         site_name: str,
         contract_id: int,
-        case_id: int,
+        case_id: int | None,
         user: Any,
     ) -> Any:
         from apps.oa_filing.models import FilingSession, SessionStatus
@@ -60,7 +60,7 @@ class ScriptExecutorService:
         site_name: str,
         credential: Any,
         contract_id: int,
-        case_id: int,
+        case_id: int | None,
     ) -> None:
         """后台线程：执行脚本并更新会话状态。"""
         from apps.oa_filing.models import FilingSession, SessionStatus
@@ -81,7 +81,7 @@ class ScriptExecutorService:
         site_name: str,
         credential: Any,
         contract_id: int,
-        case_id: int,
+        case_id: int | None,
     ) -> None:
         """按 site_name 分发到对应脚本。"""
         from apps.oa_filing.services.exceptions import ScriptExecutionError
@@ -91,7 +91,7 @@ class ScriptExecutorService:
         else:
             raise ScriptExecutionError(f"不支持的OA系统: {site_name}")
 
-    def _run_jtn(self, credential: Any, contract_id: int, case_id: int) -> None:
+    def _run_jtn(self, credential: Any, contract_id: int, case_id: int | None) -> None:
         """执行金诚同达 OA 立案。"""
         from apps.cases.models import Case
         from apps.client.models import Client
@@ -142,21 +142,40 @@ class ScriptExecutorService:
             manager_name = primary_assignment.lawyer.real_name or ""
 
         # ── 案件信息 ──
-        case: Case = Case.objects.get(pk=case_id)
         contract: Contract = Contract.objects.get(pk=contract_id)
+
+        if case_id is not None:
+            case: Case | None = Case.objects.get(pk=case_id)
+            category = self._map_case_category(case)
+            stage = self._map_case_stage(case)
+            which_side = self._map_which_side(case, contract_id)
+            start_date = str(case.start_date) if case.start_date else ""
+        else:
+            case = None
+            # 常法/专项合同无案件，按合同类型推断
+            contract_type_map: dict[str, str] = {
+                "advisor": "01",
+                "special": "02",
+            }
+            category = contract_type_map.get(contract.case_type or "", "01")
+            stage = ""
+            which_side = "01"
+            start_date = str(contract.start_date) if contract.start_date else ""
+
+        kindtype, kindtype_sed = self._map_kindtype(category, principal_parties)
 
         case_info = CaseInfo(
             manager_id="",
             manager_name=manager_name,
-            category=self._map_case_category(case),
-            stage=self._map_case_stage(case),
-            which_side=self._map_which_side(case, contract_id),
-            kindtype="",
-            kindtype_sed="",
+            category=category,
+            stage=stage,
+            which_side=which_side,
+            kindtype=kindtype,
+            kindtype_sed=kindtype_sed,
             kindtype_thr="",
             case_name=contract.name,
             case_desc=contract.name,
-            start_date=str(case.start_date) if case.start_date else "",
+            start_date=start_date,
             contact_name="/",
             contact_phone="/",
         )
@@ -336,3 +355,33 @@ class ScriptExecutorService:
             "CUSTOM": "01",  # 自定义 → 定额
         }
         return mapping.get(contract.fee_mode, "01")
+
+    def _map_kindtype(self, category: str, principal_parties: list[Any]) -> tuple[str, str]:
+        """根据案件类型和委托方推断业务种类一级/二级。
+
+        category 01（常年法律顾问）：
+          一级 KindType01_01=企业 / KindType01_05=个人
+          二级 KindType01_0103=民营企业（默认）
+        category 02（专项法律服务）：
+          一级 KindType02_01=企业专项 / KindType02_05=个人专项
+        诉讼类（03/04/05/06）：无业务种类，返回空。
+        """
+        if category not in ("01", "02"):
+            return "", ""
+
+        # 判断委托方是否为自然人
+        has_natural = any(
+            getattr(p, "client", None) and getattr(p.client, "client_type", "") == "natural"
+            for p in principal_parties
+        )
+
+        if category == "01":
+            if has_natural:
+                return "KindType01_05", ""
+            # 企业：默认民营企业
+            return "KindType01_01", "KindType01_0103"
+
+        # category == "02"
+        if has_natural:
+            return "KindType02_05", ""
+        return "KindType02_01", ""

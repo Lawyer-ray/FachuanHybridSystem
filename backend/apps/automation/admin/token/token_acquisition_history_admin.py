@@ -153,19 +153,19 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin[TokenAcquisitionHistory]):
             TokenAcquisitionStatus.CREDENTIAL_ERROR: "#e83e8c",
         }
         icons: dict[str, str] = {
-            TokenAcquisitionStatus.SUCCESS: "✅",
-            TokenAcquisitionStatus.FAILED: "❌",
-            TokenAcquisitionStatus.TIMEOUT: "⏰",
-            TokenAcquisitionStatus.NETWORK_ERROR: "🌐",
-            TokenAcquisitionStatus.CAPTCHA_ERROR: "🔤",
-            TokenAcquisitionStatus.CREDENTIAL_ERROR: "🔑",
+            TokenAcquisitionStatus.SUCCESS: "",
+            TokenAcquisitionStatus.FAILED: "",
+            TokenAcquisitionStatus.TIMEOUT: "",
+            TokenAcquisitionStatus.NETWORK_ERROR: "",
+            TokenAcquisitionStatus.CAPTCHA_ERROR: "",
+            TokenAcquisitionStatus.CREDENTIAL_ERROR: "",
         }
 
         color = colors.get(obj.status, "#666")
         icon = icons.get(obj.status, "")
 
         return format_html(
-            '<span style="color: {}; font-weight: bold;">{} {}</span>',
+            '<span style="color: {}; font-weight: bold;">{}{}</span>',
             color,
             icon,
             obj.get_status_display(),
@@ -175,11 +175,11 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin[TokenAcquisitionHistory]):
     def trigger_reason_display(self, obj: TokenAcquisitionHistory) -> SafeString:
         """格式化触发原因"""
         reason_map: dict[str, str] = {
-            "token_expired": "🕐 Token过期",
-            "no_token": "🚫 无Token",
-            "manual_trigger": "👤 手动触发",
-            "auto_refresh": "🔄 自动刷新",
-            "system_startup": "🚀 系统启动",
+            "token_expired": "Token过期",
+            "no_token": "无Token",
+            "manual_trigger": "手动触发",
+            "auto_refresh": "自动刷新",
+            "system_startup": "系统启动",
         }
 
         display_text = reason_map.get(obj.trigger_reason, obj.trigger_reason)
@@ -262,7 +262,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin[TokenAcquisitionHistory]):
 
             return format_html(
                 '<details style="cursor: pointer;">'
-                '<summary style="color: #007bff; font-weight: bold;">📋 查看详情</summary>'
+                '<summary style="color: #007bff; font-weight: bold;">查看详情</summary>'
                 '<pre style="max-height: 400px; overflow: auto; background: #f5f5f5; '
                 'padding: 10px; border-radius: 4px; font-size: 12px;">{}</pre>'
                 "</details>",
@@ -330,11 +330,11 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin[TokenAcquisitionHistory]):
         # 性能评级
         duration = float(obj.total_duration)
         if duration < 10:
-            rating: SafeString = format_html('<span style="color: #28a745; font-weight: bold;">🚀 {}</span>', _("优秀"))
+            rating: SafeString = format_html('<span style="color: #28a745; font-weight: bold;">{}</span>', _("优秀"))
         elif duration < 30:
-            rating = format_html('<span style="color: #ffc107; font-weight: bold;">⚡ {}</span>', _("良好"))
+            rating = format_html('<span style="color: #ffc107; font-weight: bold;">{}</span>', _("良好"))
         else:
-            rating = format_html('<span style="color: #dc3545; font-weight: bold;">🐌 {}</span>', _("需优化"))
+            rating = format_html('<span style="color: #dc3545; font-weight: bold;">{}</span>', _("需优化"))
 
         return format_html(
             '{}<p style="margin-top: 10px;">{}: {}</p>',
@@ -368,12 +368,12 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin[TokenAcquisitionHistory]):
             if count > 0:
                 self.message_user(
                     request,
-                    _("✅ 成功清理 %(count)d 条30天前的历史记录") % {"count": count},
+                    _("成功清理 %(count)d 条30天前的历史记录") % {"count": count},
                 )
             else:
-                self.message_user(request, _("ℹ️ 没有找到需要清理的历史记录"))
+                self.message_user(request, _("没有找到需要清理的历史记录"))
         except Exception as e:
-            self.message_user(request, _("❌ 清理失败: %(error)s") % {"error": str(e)}, level=messages.ERROR)
+            self.message_user(request, _("清理失败: %(error)s") % {"error": str(e)}, level=messages.ERROR)
 
     @admin.action(description=_("导出为CSV文件"))
     def export_to_csv(
@@ -388,12 +388,12 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin[TokenAcquisitionHistory]):
 
             self.message_user(
                 request,
-                _("✅ 成功导出 %(count)d 条记录") % {"count": queryset.count()},
+                _("成功导出 %(count)d 条记录") % {"count": queryset.count()},
             )
 
             return response
         except Exception as e:
-            self.message_user(request, _("❌ 导出失败: %(error)s") % {"error": str(e)}, level=messages.ERROR)
+            self.message_user(request, _("导出失败: %(error)s") % {"error": str(e)}, level=messages.ERROR)
             return None
 
     @admin.action(description=_("重新分析性能数据"))
@@ -409,21 +409,21 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin[TokenAcquisitionHistory]):
             self._display_analysis_results(request, result)
             self._provide_performance_suggestions(request, result)
         except Exception as e:
-            self.message_user(request, f"❌ 分析失败: {e!s}", level=messages.ERROR)
+            self.message_user(request, f"分析失败: {e!s}", level=messages.ERROR)
 
     def _display_analysis_results(self, request: HttpRequest, result: dict[str, Any]) -> None:
         """显示分析结果"""
         result_parts = [
-            f"📊 分析完成：共 {result['total_count']} 条记录",
-            f"✅ 成功率：{result['success_rate']:.1f}% ({result['success_count']}/{result['total_count']})",
+            f"分析完成：共 {result['total_count']} 条记录",
+            f"成功率：{result['success_rate']:.1f}% ({result['success_count']}/{result['total_count']})",
         ]
 
         if result["avg_duration"] > 0:
-            result_parts.append(f"⏱️ 平均耗时：{result['avg_duration']:.1f}秒")
+            result_parts.append(f"平均耗时：{result['avg_duration']:.1f}秒")
 
         if result["error_stats"]:
             error_summary = "、".join([f"{k}({v})" for k, v in result["error_stats"].items()])
-            result_parts.append(f"❌ 错误分布：{error_summary}")
+            result_parts.append(f"错误分布：{error_summary}")
 
         self.message_user(request, " | ".join(result_parts))
 
@@ -432,14 +432,14 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin[TokenAcquisitionHistory]):
         if result["success_rate"] < 80:
             self.message_user(
                 request,
-                "💡 建议：成功率较低，请检查账号配置和网络环境",
+                "建议：成功率较低，请检查账号配置和网络环境",
                 level=messages.WARNING,
             )
 
         if result["avg_duration"] > 30:
             self.message_user(
                 request,
-                "💡 建议：平均耗时较长，请检查网络连接和服务器性能",
+                "建议：平均耗时较长，请检查网络连接和服务器性能",
                 level=messages.WARNING,
             )
 
