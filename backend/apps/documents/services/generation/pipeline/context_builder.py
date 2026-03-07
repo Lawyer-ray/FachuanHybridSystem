@@ -4,12 +4,12 @@ from typing import Any
 
 
 class PipelineContextBuilder:
-    def build_contract_context(self, contract: Any) -> dict[str, Any]:
+    def build_contract_context(self, contract: Any, split_fee: bool = True) -> dict[str, Any]:
         from apps.documents.services.placeholders import EnhancedContextBuilder
         from apps.documents.services.placeholders.types import PlaceholderContextData
 
         context_builder = EnhancedContextBuilder()
-        context_data: PlaceholderContextData = {"contract": contract}
+        context_data: PlaceholderContextData = {"contract": contract, "split_fee": split_fee}
         return context_builder.build_context(context_data)
 
     def build_supplementary_agreement_context(

@@ -8,7 +8,7 @@ from ninja import Schema
 class ExecuteFilingIn(Schema):
     site_name: str
     contract_id: int
-    case_id: int
+    case_id: int | None = None
 
 
 class SessionOut(Schema):

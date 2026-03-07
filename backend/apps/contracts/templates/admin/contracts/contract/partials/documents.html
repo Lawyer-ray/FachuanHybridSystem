@@ -128,10 +128,17 @@
                         <button type="button" class="btn-action btn-split-main"
                                 @click="generateContract()"
                                 :disabled="generating">
-                            <span class="action-icon">📄</span>
                             <span class="action-text">{% trans "生成合同" %}</span>
                             <span class="action-loading" x-show="generatingType === 'contract'" x-cloak><span class="spinner"></span></span>
                         </button>
+                        {% if related_cases|length >= 2 and contract.fixed_amount and contract.fixed_amount > 0 %}
+                        <button type="button" class="btn-action btn-split-side btn-split-toggle"
+                                :class="splitFee ? 'btn-split-toggle-on' : 'btn-split-toggle-off'"
+                                @click.stop="splitFee = !splitFee"
+                                :title="splitFee ? '{% trans "已启用拆分律师费，点击关闭" %}' : '{% trans "已关闭拆分律师费，点击启用" %}'">
+                            <span style="font-size:12px;white-space:nowrap;" x-text="splitFee ? '{% trans "拆分律师费 ✓" %}' : '{% trans "拆分律师费" %}'"></span>
+                        </button>
+                        {% endif %}
                         <button type="button" class="btn-action btn-split-side"
                                 @click.stop="previewContract()"
                                 :disabled="generating"
@@ -141,7 +148,6 @@
                     </div>
                     {% else %}
                     <button type="button" class="btn-action btn-disabled" disabled title="{% trans '无匹配的合同模板' %}">
-                        <span class="action-icon">📄</span>
                         <span class="action-text">{% trans "生成合同" %}</span>
                     </button>
                     {% endif %}
@@ -153,7 +159,6 @@
                         <button type="button" class="btn-action btn-split-main"
                                 @click="showAgreementDialog = true"
                                 :disabled="generating">
-                            <span class="action-icon">📝</span>
                             <span class="action-text">{% trans "生成补充协议" %}</span>
                         </button>
                         <button type="button" class="btn-action btn-split-side"
@@ -165,7 +170,6 @@
                     </div>
                     {% else %}
                     <button type="button" class="btn-action btn-disabled" disabled title="{% trans "暂无补充协议" %}">
-                        <span class="action-icon">📝</span>
                         <span class="action-text">{% trans "生成补充协议" %}</span>
                     </button>
                     {% endif %}
@@ -179,7 +183,6 @@
                                 :class="(!folderUnlocked || generating) && 'btn-disabled'"
                                 :disabled="!folderUnlocked || generating"
                                 style="border-radius: 8px 0 0 8px; margin: 0; border: none;">
-                            <span class="action-icon">📁</span>
                             <span class="action-text" x-show="generatingType !== 'folder'">{% trans "生成文件夹" %}</span>
                             <span class="action-loading" x-show="generatingType === 'folder'" x-cloak><span class="spinner"></span></span>
                         </button>
@@ -191,7 +194,6 @@
                     </span>
                     {% else %}
                     <button type="button" class="btn-action btn-disabled" disabled title="{% trans '无匹配的文件夹模板' %}">
-                        <span class="action-icon">📁</span>
                         <span class="action-text">{% trans "生成文件夹" %}</span>
                     </button>
                     {% endif %}

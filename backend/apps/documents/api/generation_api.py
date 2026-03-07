@@ -71,7 +71,7 @@ def preview_supplementary_agreement_context(request: Any, contract_id: int, agre
 
 @router.get("/contracts/{contract_id}/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
-def download_contract_document(request: Any, contract_id: int) -> Any:
+def download_contract_document(request: Any, contract_id: int, split_fee: bool = True) -> Any:
     """
     下载合同文档(DOCX 格式)
 
@@ -89,7 +89,7 @@ def download_contract_document(request: Any, contract_id: int) -> Any:
     service = _get_contract_generation_service()
 
     # 生成合同文档
-    content, filename, saved_path, error = service.generate_contract_document_result(contract_id)
+    content, filename, saved_path, error = service.generate_contract_document_result(contract_id, split_fee=split_fee)
 
     if error:
         logger.warning("生成合同文档失败: %s", error, extra={"contract_id": contract_id, "error": error})
