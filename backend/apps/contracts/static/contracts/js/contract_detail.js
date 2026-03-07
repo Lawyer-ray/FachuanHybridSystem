@@ -28,6 +28,9 @@ function contractDetailApp(config = {}) {
         generating: false,
         generatingType: null,
 
+        // 拆分律师费（多案件时显示）
+        splitFee: true,
+
         // 文件夹生成锁定
         folderUnlocked: false,
         get folderLockIcon() {
@@ -139,7 +142,7 @@ function contractDetailApp(config = {}) {
             this.generatingType = 'contract';
 
             try {
-                const response = await fetch(`/api/v1/documents/contracts/${contractId}/download`);
+                const response = await fetch(`/api/v1/documents/contracts/${contractId}/download?split_fee=${this.splitFee}`);
 
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));

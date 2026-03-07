@@ -28,6 +28,8 @@ class FilingSession(models.Model):
     case = models.ForeignKey(
         "cases.Case",
         on_delete=models.CASCADE,
+        null=True,
+        blank=True,
         related_name="filing_sessions",
         verbose_name=_("案件"),
     )
