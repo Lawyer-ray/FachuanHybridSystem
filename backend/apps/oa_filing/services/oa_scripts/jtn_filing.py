@@ -169,7 +169,7 @@ class JtnFilingScript:
             contract_info: 合同信息（可选）。
         """
         pw = sync_playwright().start()
-        browser = pw.chromium.launch(headless=True)
+        browser = pw.chromium.launch(headless=False)
         self._context = browser.new_context()
         self._context.set_default_timeout(30_000)
         self._context.set_default_navigation_timeout(30_000)
@@ -281,29 +281,72 @@ class JtnFilingScript:
         iframe.locator(f"xpath={_XPATH_NAME_INPUT}").fill(client.name)
 
         iframe.locator(f"xpath={_XPATH_SEARCH_BTN}").click()
-        time.sleep(_MEDIUM_WAIT)
+        time.sleep(_AJAX_WAIT)
 
-        found = self._try_select_client(iframe)
+        found = self._try_select_client(page, iframe)
 
-        if found:
-            iframe.locator(f"xpath={_XPATH_CONFIRM_BTN}").click()
-            time.sleep(_SHORT_WAIT)
-            logger.info("已选中已有客户: %s", client.name)
-        else:
+        if not found:
             logger.info("未找到客户 %s，进入创建流程", client.name)
             self._create_new_client(iframe, client)
 
-    def _try_select_client(self, iframe: FrameLocator) -> bool:
-        """尝试在搜索结果中勾选第一个客户。"""
+    def _try_select_client(self, page: Page, iframe: FrameLocator) -> bool:
+        """尝试在搜索结果中选中第一个客户并确认。
+
+        layui table radio 选中需通过内部缓存 LAY_CHECKED 标志，
+        然后直接调用 parent.projectAppReg.loadCustomer 并关闭弹窗。
+        """
         try:
-            checkbox = iframe.locator(f"xpath={_XPATH_RESULT_CHECKBOX}")
-            if checkbox.count() > 0 and checkbox.first.is_visible():
-                checkbox.first.click()
-                time.sleep(_SHORT_WAIT)
-                return True
+            # 检查客户名称列（第4列，index=3）是否有实际内容
+            name_cells = iframe.locator(
+                'xpath=//*[@id="form1"]/div[5]/div[2]/div[2]/table/tbody/tr/td[4]/div'
+            )
+            if name_cells.count() == 0:
+                return False
+            first_name = name_cells.first.inner_text().strip()
+            if not first_name:
+                return False
+
+            # 通过 JS 设置 layui table 内部缓存的选中状态，然后调用确认逻辑
+            iframe_id = self._get_latest_iframe_id(page)
+            page.evaluate(
+                f"""(iframeId) => {{
+                const iframe = document.getElementById(iframeId);
+                if (!iframe) return;
+                const layui = iframe.contentWindow.layui;
+                const cache = layui.table.cache['custable'];
+                if (!cache || cache.length === 0) return;
+                cache[0]['LAY_CHECKED'] = true;
+                const data = [cache[0]];
+                data[0]['istemp'] = 'Z';
+                iframe.contentWindow.parent.projectAppReg.loadCustomer(data);
+                const index = iframe.contentWindow.parent.layer.getFrameIndex(iframe.contentWindow.name);
+                iframe.contentWindow.parent.layer.close(index);
+            }}""",
+                iframe_id,
+            )
+            time.sleep(_MEDIUM_WAIT)
+            logger.info("已选中已有客户: %s", first_name)
+            return True
         except Exception as exc:
-            logger.info("搜索结果为空或无法勾选: %s", exc)
+            logger.info("搜索结果检查异常: %s", exc)
         return False
+
+    def _get_latest_iframe_id(self, page: Page) -> str:
+        """获取当前最新弹窗 iframe 的 id。"""
+        return (
+            page.evaluate(
+                """() => {
+            const iframes = document.querySelectorAll('iframe[id^="layui-layer-iframe"]');
+            let maxId = '', maxNum = -1;
+            for (const f of iframes) {
+                const num = parseInt(f.id.replace('layui-layer-iframe', ''), 10);
+                if (num > maxNum) { maxNum = num; maxId = f.id; }
+            }
+            return maxId;
+        }"""
+            )
+            or "layui-layer-iframe100002"
+        )
 
     def _create_new_client(
         self,

@@ -738,6 +738,20 @@
     border-left: 1px solid rgba(255, 255, 255, 0.3);
 }
 
+.btn-split .btn-split-toggle {
+    border-radius: 0;
+    min-width: auto;
+    border-left: 1px solid rgba(255, 255, 255, 0.3);
+    padding: 12px 10px;
+    font-size: 12px;
+    white-space: nowrap;
+    transition: opacity 0.15s;
+}
+
+.btn-split .btn-split-toggle-off {
+    opacity: 0.5;
+}
+
 .action-text {
     flex: 1;
 }

@@ -2,6 +2,24 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.11.4] - 2026-03-07
+
+### 新增
+- 合同文档生成支持"拆分律师费"：多案件合同（≥2个关联案件且有固定金额）可在生成合同时按争议金额比例自动拆分律师费，追加到收费条款后
+- 文档生成区域新增"拆分律师费"切换按钮（满足条件时显示）
+
+### 修复
+- 常法合同无需关联案件即可发起 OA 立案（`case_id` 改为可选）
+- `script_executor_service`：修复 `contract.contract_type` 错误，改为 `contract.case_type`
+- OA 立案客户搜索：修复 layui table toolbar confirm 按钮无法通过 Playwright pointer click 触发的问题，改用 JS 直接操作 layui 内部缓存并调用 `loadCustomer()`
+- 收费条款模板：修复固定收费和半风险收费"整整"重复问题
+
+### 完善
+- 金诚同达 OA 立案改用有头浏览器（`headless=False`）
+- 常法合同 OA 立案自动推断业务种类（`kindtype`/`kindtype_sed`）
+- 文档生成区域按钮移除所有 emoji
+- Token 获取历史页面 UI 优化：移除 emoji、统一卡片样式
+
 ## [26.11.3] - 2026-03-06
 
 ### 修复
