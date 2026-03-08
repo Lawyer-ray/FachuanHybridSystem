@@ -548,3 +548,27 @@ msgstr ""
 #: apps/organization/services/lawyer_resolve_service.py
 msgid "律师数据缺少 phone，跳过"
 msgstr "Lawyer data missing phone, skipped"
+
+#: apps/organization/admin/lawyer_admin.py
+msgid "账号信息"
+msgstr "Account Info"
+
+#: apps/organization/admin/lawyer_admin.py
+msgid "个人信息"
+msgstr "Personal Info"
+
+#: apps/organization/admin/lawyer_admin.py
+msgid "新密码"
+msgstr "New Password"
+
+#: apps/organization/admin/lawyer_admin.py
+msgid "留空则不修改密码"
+msgstr "Leave blank to keep current password"
+
+#: apps/organization/admin/lawyer_admin.py
+msgid "组织关系"
+msgstr "Organization"
+
+#: apps/organization/admin/lawyer_admin.py
+msgid "权限"
+msgstr "Permissions"
