@@ -20,26 +20,26 @@ msgstr ""
 
 #: apps/oa_filing/admin/filing_session_admin.py:37
 msgid "会话信息"
-msgstr ""
+msgstr "Session Info"
 
 #: apps/oa_filing/admin/filing_session_admin.py:41
 #: apps/oa_filing/models/filing_session.py:62
 msgid "错误信息"
-msgstr ""
+msgstr "Error Info"
 
 #: apps/oa_filing/admin/filing_session_admin.py:45
 #: apps/oa_filing/admin/oa_config_admin.py:58
 msgid "时间信息"
-msgstr ""
+msgstr "Timestamps"
 
 #: apps/oa_filing/admin/oa_config_admin.py:14
 #: apps/oa_filing/models/oa_config.py:17
 msgid "凭证站点名称"
-msgstr ""
+msgstr "Credential Site Name"
 
 #: apps/oa_filing/admin/oa_config_admin.py:15
 msgid "从账号密码管理中已有的站点名称选择"
-msgstr ""
+msgstr "Select from existing site names in credential management"
 
 #: apps/oa_filing/admin/oa_config_admin.py:50
 msgid "基本信息"
@@ -47,91 +47,95 @@ msgstr "Basic Info"
 
 #: apps/oa_filing/admin/oa_config_admin.py:54
 msgid "字段映射"
-msgstr ""
+msgstr "Field Mapping"
 
 #: apps/oa_filing/apps.py:10
 msgid "OA立案"
-msgstr ""
+msgstr "OA Filing"
 
 #: apps/oa_filing/models/filing_session.py:10
 msgid "待开始"
-msgstr ""
+msgstr "Pending"
 
 #: apps/oa_filing/models/filing_session.py:11
 msgid "进行中"
-msgstr ""
+msgstr "In Progress"
 
 #: apps/oa_filing/models/filing_session.py:12
 msgid "已完成"
-msgstr ""
+msgstr "Completed"
 
 #: apps/oa_filing/models/filing_session.py:13
 msgid "失败"
-msgstr ""
+msgstr "Failed"
 
 #: apps/oa_filing/models/filing_session.py:14
 msgid "已取消"
-msgstr ""
+msgstr "Cancelled"
 
 #: apps/oa_filing/models/filing_session.py:26
 msgid "合同"
-msgstr "Contracts"
+msgstr "Contract"
 
 #: apps/oa_filing/models/filing_session.py:32
 msgid "案件"
-msgstr "Cases"
+msgstr "Case"
 
 #: apps/oa_filing/models/filing_session.py:38
 msgid "OA配置"
-msgstr ""
+msgstr "OA Config"
 
 #: apps/oa_filing/models/filing_session.py:45
 msgid "登录凭证"
-msgstr ""
+msgstr "Credential"
 
 #: apps/oa_filing/models/filing_session.py:51
 msgid "发起用户"
-msgstr ""
+msgstr "Initiated By"
 
 #: apps/oa_filing/models/filing_session.py:57
 msgid "状态"
 msgstr "Status"
 
+#: apps/oa_filing/models/filing_session.py:62
+msgid "错误详情"
+msgstr "Error Detail"
+
 #: apps/oa_filing/models/filing_session.py:66
 #: apps/oa_filing/models/oa_config.py:32
 msgid "创建时间"
-msgstr ""
+msgstr "Created At"
 
 #: apps/oa_filing/models/filing_session.py:70
 #: apps/oa_filing/models/oa_config.py:36
 msgid "更新时间"
-msgstr ""
+msgstr "Updated At"
 
 #: apps/oa_filing/models/filing_session.py:74
 #: apps/oa_filing/models/filing_session.py:75
 msgid "立案记录"
-msgstr ""
+msgstr "Filing Session"
 
 #: apps/oa_filing/models/oa_config.py:18
 msgid "与账号密码管理中的「网站名称」一致，用于自动匹配凭证"
-msgstr ""
+msgstr "Must match the site name in credential management for auto-matching"
 
 #: apps/oa_filing/models/oa_config.py:22
 msgid "是否启用"
-msgstr ""
+msgstr "Enabled"
 
 #: apps/oa_filing/models/oa_config.py:27
 msgid "字段映射规则"
-msgstr ""
+msgstr "Field Mapping Rules"
 
 #: apps/oa_filing/models/oa_config.py:28
 msgid "本系统字段到OA表单字段的映射"
-msgstr ""
+msgstr "Mapping from system fields to OA form fields"
 
 #: apps/oa_filing/models/oa_config.py:40 apps/oa_filing/models/oa_config.py:41
 msgid "OA系统配置"
-msgstr ""
+msgstr "OA System Config"
 
 #: apps/oa_filing/services/exceptions.py:17
 msgid "脚本执行失败"
-msgstr ""
+msgstr "Script execution failed"
