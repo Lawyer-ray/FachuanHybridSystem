@@ -79,7 +79,10 @@ class AccountCredentialInlineForm(forms.ModelForm[AccountCredential]):
     class Meta:
         model = AccountCredential
         fields = "__all__"
-        widgets: ClassVar[dict[str, Any]] = {"password": forms.PasswordInput(render_value=True)}
+        widgets: ClassVar[dict[str, Any]] = {
+            "password": forms.PasswordInput(render_value=True),
+            "url": forms.TextInput(attrs={"class": "vTextField"}),
+        }
 
 
 class AccountCredentialInline(admin.TabularInline[AccountCredential, AccountCredential]):
