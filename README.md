@@ -1,4 +1,4 @@
-# 法穿AI案件管理系统V26.11.5
+# 法穿AI案件管理系统V26.12.0
 
 全自动处理/生成法院文书，Less is more
 
@@ -15,6 +15,7 @@
   - 法院文书自动抓取
   - 财产保全保险询价
   - 飞书群消息通知
+- **MCP Server** - 支持 OpenClaw 等 AI Agent 通过自然语言操作系统
 
 ## 🛠 技术栈
 
@@ -24,6 +25,7 @@
 - **任务队列**: Django-Q2
 - **浏览器自动化**: Playwright
 - **包管理**: uv
+- **MCP Server**: 基于 [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk)，支持 AI Agent 集成
 
 ## 🚀 快速开始
 
@@ -172,6 +174,65 @@ https://github.com/Lawyer-ray/FachuanHybridSystem
 把这个地址和你的问题一起发给 ChatGPT、Claude、Kiro 等任何 AI，它们可以读取完整代码后给出针对性的解答，效果远比搜索引擎好。
 
 > 代码开源意味着你可以自己动手改、自己动手查。遇到问题先读代码、问 AI，培养独立解决问题的能力。
+
+## 🤖 MCP Server（AI Agent 集成）
+
+通过 MCP Server，OpenClaw、Claude Desktop 等 AI Agent 工具可以用自然语言直接操作法穿系统。
+
+### 支持的操作
+
+| 分类 | Tool | 说明 |
+|------|------|------|
+| 案件 | `list_cases` | 查询案件列表 |
+| 案件 | `search_cases` | 关键词搜索案件 |
+| 案件 | `get_case` | 获取案件详情 |
+| 案件 | `create_case` | 创建新案件 |
+| 客户 | `list_clients` | 查询客户列表 |
+| 客户 | `get_client` | 获取客户详情 |
+| 客户 | `create_client` | 创建新客户 |
+| 客户 | `parse_client_text` | 从文本解析客户信息 |
+| 合同 | `list_contracts` | 查询合同列表 |
+| 合同 | `get_contract` | 获取合同详情 |
+| OA 立案 | `list_oa_configs` | 查询可用 OA 系统 |
+| OA 立案 | `trigger_oa_filing` | 发起 OA 立案 |
+| OA 立案 | `get_filing_status` | 查询立案进度 |
+
+### 配置
+
+在 `backend/.env` 中添加：
+
+```bash
+FACHUAN_BASE_URL=http://127.0.0.1:8002/api/v1
+FACHUAN_USERNAME=你的账号
+FACHUAN_PASSWORD=你的密码
+```
+
+### 启动方式
+
+```bash
+cd backend
+
+# 开发调试（MCP Inspector）
+uv run mcp dev mcp_server/server.py
+
+# 直接运行（stdio 模式）
+uv run python -m mcp_server
+```
+
+### 在 OpenClaw / Claude Desktop 中注册
+
+在 MCP 配置文件中添加：
+
+```json
+{
+  "mcpServers": {
+    "fachuan": {
+      "command": "uv",
+      "args": ["run", "--directory", "/path/to/FachuanHybridSystem/backend", "python", "-m", "mcp_server"]
+    }
+  }
+}
+```
 
 ## 📚 相关文档
 

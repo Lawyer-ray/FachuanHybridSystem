@@ -2,7 +2,18 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
-## [26.11.5] - 2026-03-08
+## [26.12.0] - 2026-03-08
+
+### 新增
+- MCP Server：支持 OpenClaw、Claude Desktop 等 AI Agent 通过自然语言操作法穿系统
+  - 案件：list_cases、search_cases、get_case、create_case
+  - 客户：list_clients、get_client、create_client、parse_client_text
+  - 合同：list_contracts、get_contract
+  - OA 立案：list_oa_configs、trigger_oa_filing、get_filing_status
+  - 自动 JWT 认证（用户名密码配置，自动获取/刷新 token）
+  - 支持 `uv run mcp dev mcp_server/server.py` 开发调试
+
+
 
 ### 修复
 - Lawyer 管理页账号密码内联表格：URL 字段隐藏 "Currently/Change" 提示，改用普通文本输入框
