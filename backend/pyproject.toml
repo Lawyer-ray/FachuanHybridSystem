@@ -60,6 +60,8 @@ dependencies = [
     "mammoth>=1.11.0",
     "markdown>=3.10.2",
     "weasyprint>=68.1",
+    # --- MCP Server ---
+    "mcp[cli]>=1.0.0",
 ]
 
 [dependency-groups]
