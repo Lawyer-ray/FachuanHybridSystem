@@ -2,7 +2,18 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
-## [26.12.1] - 2026-03-09
+## [26.13.0] - 2026-03-09
+
+### 新增
+- MCP Server 扩展：新增 8 个 tools，从 14 个扩展到 22 个
+  - 案件当事人：`list_case_parties`、`add_case_party`
+  - 案件进展日志：`list_case_logs`、`create_case_log`
+  - 合同：`create_contract`
+  - 客户财产线索：`list_property_clues`
+  - 财务：`list_payments`、`get_finance_stats`
+  - 催收提醒：`list_reminders`
+
+
 
 ### 修复
 - 身份证裁剪合并页面：合并后自动保存到客户证件附件，显示返回客户页面按钮
