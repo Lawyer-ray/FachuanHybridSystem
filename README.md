@@ -1,4 +1,4 @@
-# 法穿AI案件管理系统V26.12.1
+# 法穿AI案件管理系统V26.13.0
 
 全自动处理/生成法院文书，Less is more
 
@@ -187,12 +187,21 @@ https://github.com/Lawyer-ray/FachuanHybridSystem
 | 案件 | `search_cases` | 关键词搜索案件 |
 | 案件 | `get_case` | 获取案件详情 |
 | 案件 | `create_case` | 创建新案件 |
+| 案件当事人 | `list_case_parties` | 查询案件当事人 |
+| 案件当事人 | `add_case_party` | 添加案件当事人 |
+| 案件日志 | `list_case_logs` | 查询案件进展日志 |
+| 案件日志 | `create_case_log` | 添加案件进展日志 |
 | 客户 | `list_clients` | 查询客户列表 |
 | 客户 | `get_client` | 获取客户详情 |
 | 客户 | `create_client` | 创建新客户 |
 | 客户 | `parse_client_text` | 从文本解析客户信息 |
+| 客户财产 | `list_property_clues` | 查询客户财产线索 |
 | 合同 | `list_contracts` | 查询合同列表 |
 | 合同 | `get_contract` | 获取合同详情 |
+| 合同 | `create_contract` | 创建新合同 |
+| 财务 | `list_payments` | 查询付款记录 |
+| 财务 | `get_finance_stats` | 获取财务统计概览 |
+| 催收提醒 | `list_reminders` | 查询催收提醒待办 |
 | OA 立案 | `list_oa_configs` | 查询可用 OA 系统 |
 | OA 立案 | `trigger_oa_filing` | 发起 OA 立案 |
 | OA 立案 | `get_filing_status` | 查询立案进度 |
