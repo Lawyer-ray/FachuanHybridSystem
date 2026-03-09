@@ -97,9 +97,9 @@ async def click_company_detail(page: Page, company_name: str) -> str:
         raise GsxtReportError(f"搜索结果中未找到企业：{company_name}")
 
     logger.info("找到企业链接，跳转详情页: %s", href)
-    await page.goto(href, timeout=30000, wait_until="domcontentloaded")
+    await page.goto(href, timeout=60000, wait_until="commit")
     # 等待详情页核心内容加载完成
-    await page.wait_for_selector("#btn_send_pdf", timeout=30000)
+    await page.wait_for_selector("#btn_send_pdf", timeout=60000)
 
     return page.url
 
