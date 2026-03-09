@@ -1,4 +1,4 @@
-# 法穿AI案件管理系统V26.13.1
+# 法穿AI案件管理系统V26.13.2
 
 全自动处理/生成法院文书，Less is more
 
@@ -235,6 +235,20 @@ uv run mcp dev mcp_server/server.py
 # 直接运行（stdio 模式）
 uv run python -m mcp_server
 ```
+
+### 扩展 Tools
+
+Tools 按业务域组织在 `backend/mcp_server/tools/` 下：
+
+```
+tools/
+├── cases/          案件（案件、当事人、日志、案号、律师指派）
+├── clients/        客户（客户、财产线索）
+├── contracts/      合同（合同、财务、催收提醒）
+└── organization/   组织（律师、团队、OA立案）
+```
+
+新增 tool：在对应域的文件中添加函数 → 在该域的 `__init__.py` 导出 → 在 `server.py` 注册。
 
 ### 在 OpenClaw / Claude Desktop 中注册
 
