@@ -134,6 +134,11 @@
 
 {% block object-tools-items %}
     {{ block.super }}
+    <li>
+        <a href="{% url 'admin:id_card_merge' %}{% if original %}?client_id={{ original.pk }}{% endif %}" class="historylink" target="_blank">
+            🪪 {% trans "身份证裁剪合并" %}
+        </a>
+    </li>
     {% if original and original.client_type == "legal" %}
     <li>
         <a href="{% url 'admin:client_client_fetch_gsxt_report' original.pk %}"
