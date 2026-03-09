@@ -62,8 +62,8 @@
     .success-box { background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 24px; text-align: center; }
     .success-icon { font-size: 56px; margin-bottom: 16px; }
     .success-text { font-size: 18px; color: #166534; margin-bottom: 20px; }
-    .download-link { display: inline-flex; align-items: center; gap: 8px; background: #059669; color: #fff; padding: 14px 28px; border-radius: 6px; text-decoration: none; font-weight: 500; font-size: 16px; }
-    .download-link:hover { background: #047857; color: #fff; }
+    .download-link { display: inline-flex; align-items: center; gap: 8px; background: #1d4ed8; color: #fff; padding: 14px 28px; border-radius: 6px; text-decoration: none; font-weight: 500; font-size: 16px; }
+    .download-link:hover { background: #1e40af; color: #fff; }
 
     .loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.9); display: flex; align-items: center; justify-content: center; z-index: 9999; }
     .loading-spinner { width: 48px; height: 48px; border: 4px solid #e5e7eb; border-top-color: #417690; border-radius: 50%; animation: spin 0.8s linear infinite; }
@@ -191,7 +191,15 @@
             <div class="success-box">
                 <div class="success-icon">✅</div>
                 <div class="success-text">{% trans "身份证合并成功！" %}</div>
-                <a :href="pdfUrl" target="_blank" class="download-link">📥 {% trans "下载 PDF" %}</a>
+                <template x-if="savedToClient">
+                    <p style="color:#166534;margin-bottom:16px">✅ {% trans "已自动保存到客户证件附件" %}</p>
+                </template>
+                <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+                    <a :href="pdfUrl" target="_blank" class="download-link">📥 {% trans "下载 PDF" %}</a>
+                    <template x-if="clientId">
+                        <a :href="'/admin/client/client/' + clientId + '/change/'" class="download-link" style="background:#6d28d9">← {% trans "返回客户页面" %}</a>
+                    </template>
+                </div>
             </div>
             <div class="form-actions">
                 <button class="btn-secondary" @click="resetAll()">{% trans "继续合并" %}</button>
@@ -209,6 +217,8 @@ function idCardMergeApp() {
         frontScale: 1, backScale: 1,
         frontCorners: [], backCorners: [],  // 原图坐标
         cursorPos: { front: null, back: null },
+        clientId: new URLSearchParams(location.search).get('client_id') || '',
+        savedToClient: false,
 
         handleSelect(e, side) {
             const file = e.target.files[0];
@@ -396,15 +406,18 @@ function idCardMergeApp() {
                 const formData = new FormData();
                 formData.append('front_image', this.dataURLtoBlob(frontData), 'front.jpg');
                 formData.append('back_image', this.dataURLtoBlob(backData), 'back.jpg');
+                if (this.clientId) formData.append('client_id', this.clientId);
 
-                const response = await fetch('/api/v1/client/identity-docs/merge-id-card', {
+                const response = await fetch('/api/v1/client/identity-docs/merge-id-card-direct', {
                     method: 'POST', body: formData,
                     headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || '' }
                 });
                 const result = await response.json();
 
                 if (result.success || result.pdf_url) {
-                    this.pdfUrl = result.pdf_url; this.step = 3;
+                    this.pdfUrl = result.pdf_url;
+                    this.savedToClient = !!result.doc_id;
+                    this.step = 3;
                 } else {
                     alert('合并失败: ' + (result.message || '未知错误'));
                 }

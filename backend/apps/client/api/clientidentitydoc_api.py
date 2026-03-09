@@ -85,10 +85,40 @@ def merge_id_card(
     request: Any,
     front_image: UploadedFile = File(...),  # type: ignore[arg-type]
     back_image: UploadedFile = File(...),  # type: ignore[arg-type]
+    client_id: int | None = None,
 ) -> dict[str, Any]:
-    """自动检测并合并身份证正反面为 PDF"""
+    """自动检测并合并身份证正反面为 PDF，可选保存到客户证件"""
     service = _get_id_card_merge_service()
     result: dict[str, Any] = service.merge_id_card_with_detection(front_image, back_image)
+    if result.get("success") and client_id:
+        doc_service = _get_identity_doc_service()
+        doc = doc_service.add_identity_doc(
+            client_id=client_id,
+            doc_type="id_card",
+            file_path=result["pdf_path"],
+        )
+        result["doc_id"] = doc.id
+    return result
+
+
+@router.post("/identity-docs/merge-id-card-direct")
+def merge_id_card_direct(
+    request: Any,
+    front_image: UploadedFile = File(...),  # type: ignore[arg-type]
+    back_image: UploadedFile = File(...),  # type: ignore[arg-type]
+    client_id: int | None = None,
+) -> dict[str, Any]:
+    """直接合并已裁剪的身份证正反面为 PDF（前端已完成裁剪），可选保存到客户证件"""
+    service = _get_id_card_merge_service()
+    result: dict[str, Any] = service.merge_id_card(front_image, back_image)
+    if result.get("success") and client_id:
+        doc_service = _get_identity_doc_service()
+        doc = doc_service.add_identity_doc(
+            client_id=client_id,
+            doc_type="id_card",
+            file_path=result["pdf_path"],
+        )
+        result["doc_id"] = doc.id
     return result
 
 
