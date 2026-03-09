@@ -1,8 +1,0 @@
-apps/automation/api/auto_namer_api.py
-apps/automation/api/captcha_recognition_api.py
-apps/automation/api/court_sms_api.py
-apps/automation/api/document_processor_api.py
-apps/automation/api/main_api.py
-apps/automation/api/performance_monitor_api.py
-apps/automation/api/preservation_quote_api.py
-apps/core/api/ninja_llm_api.py
