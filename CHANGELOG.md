@@ -4,7 +4,7 @@
 
 ## [26.13.1] - 2026-03-09
 
-### 新增 / Added
+### 新增
 - MCP Server 扩展至 30 个 tools（新增 16 个）
   - 案号：`list_case_numbers`、`create_case_number`
   - 律师指派：`list_case_assignments`、`assign_lawyer`
@@ -15,30 +15,16 @@
   - 财务：`list_payments`、`get_finance_stats`
   - 催收提醒：`list_reminders`、`create_reminder`
   - 组织架构：`list_lawyers`、`list_teams`
-- MCP Server expanded to 30 tools (16 new tools added)
-  - Case numbers: `list_case_numbers`, `create_case_number`
-  - Lawyer assignment: `list_case_assignments`, `assign_lawyer`
-  - Case parties: `list_case_parties`, `add_case_party`
-  - Case logs: `list_case_logs`, `create_case_log`
-  - Contracts: `create_contract`
-  - Property clues: `list_property_clues`, `create_property_clue`
-  - Finance: `list_payments`, `get_finance_stats`
-  - Collection reminders: `list_reminders`, `create_reminder`
-  - Organization: `list_lawyers`, `list_teams`
 
-### 修复 / Fixed
+### 修复
 - 身份证裁剪合并页面：合并后自动保存到客户证件附件，显示返回客户页面按钮
 - 客户详情页：去掉重复的"身份证裁剪合并"按钮
 - 企业信用报告：详情页跳转改用 `commit` 模式，修复因页面持续加载导致卡住的问题
-- ID card merge page: auto-save merged PDF to client identity docs, add back-to-client button
-- Client detail page: remove duplicate "ID card merge" button
-- GSXT report: use `commit` wait mode for detail page navigation to fix hang issue
 
 ## [26.12.0] - 2026-03-08
 
-### 新增 / Added
+### 新增
 - MCP Server：支持 OpenClaw、Claude Desktop 等 AI Agent 通过自然语言操作法穿系统（14 个 tools）
-- MCP Server: support AI Agent integration via OpenClaw, Claude Desktop (14 tools)
   - 案件：list_cases、search_cases、get_case、create_case
   - 客户：list_clients、get_client、create_client、parse_client_text
   - 合同：list_contracts、get_contract
