@@ -1,10 +1,15 @@
-"""OA 立案相关 MCP tools"""
+"""OA 立案 MCP tools"""
 
 from __future__ import annotations
 
 from typing import Any
 
 from mcp_server.client import client
+
+
+def list_oa_configs() -> list[dict[str, Any]]:
+    """获取当前用户可用的 OA 系统列表（需要有对应账号凭证）。"""
+    return client.get("/oa-filing/configs")  # type: ignore[return-value]
 
 
 def trigger_oa_filing(
@@ -22,8 +27,3 @@ def trigger_oa_filing(
 def get_filing_status(session_id: int) -> dict[str, Any]:
     """查询 OA 立案进度。返回状态（pending/running/completed/failed）和错误信息。"""
     return client.get(f"/oa-filing/session/{session_id}")  # type: ignore[return-value]
-
-
-def list_oa_configs() -> list[dict[str, Any]]:
-    """获取当前用户可用的 OA 系统列表（需要有对应账号凭证）。"""
-    return client.get("/oa-filing/configs")  # type: ignore[return-value]

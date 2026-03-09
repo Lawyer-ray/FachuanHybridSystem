@@ -1,4 +1,4 @@
-"""合同相关 MCP tools"""
+"""合同 CRUD MCP tools"""
 
 from __future__ import annotations
 

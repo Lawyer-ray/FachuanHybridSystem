@@ -1,4 +1,4 @@
-"""案件相关 MCP tools"""
+"""案件 CRUD MCP tools"""
 
 from __future__ import annotations
 
