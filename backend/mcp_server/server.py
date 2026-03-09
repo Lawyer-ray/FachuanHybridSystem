@@ -4,23 +4,38 @@ from __future__ import annotations
 
 from mcp.server.fastmcp import FastMCP
 
-from mcp_server.tools.case_logs import (
+from mcp_server.tools import (
+    add_case_party,
     assign_lawyer,
+    create_case,
     create_case_log,
     create_case_number,
+    create_client,
+    create_contract,
+    create_property_clue,
+    create_reminder,
+    get_case,
+    get_client,
+    get_contract,
+    get_filing_status,
+    get_finance_stats,
     list_case_assignments,
     list_case_logs,
     list_case_numbers,
+    list_case_parties,
+    list_cases,
+    list_clients,
+    list_contracts,
+    list_lawyers,
+    list_oa_configs,
+    list_payments,
+    list_property_clues,
+    list_reminders,
+    list_teams,
+    parse_client_text,
+    search_cases,
+    trigger_oa_filing,
 )
-from mcp_server.tools.case_parties import add_case_party, list_case_parties
-from mcp_server.tools.cases import create_case, get_case, list_cases, search_cases
-from mcp_server.tools.clients import create_client, get_client, list_clients, parse_client_text
-from mcp_server.tools.contracts import create_contract, get_contract, list_contracts
-from mcp_server.tools.filing import get_filing_status, list_oa_configs, trigger_oa_filing
-from mcp_server.tools.finance import get_finance_stats, list_payments
-from mcp_server.tools.organization import list_lawyers, list_teams
-from mcp_server.tools.property_clues import create_property_clue, list_property_clues
-from mcp_server.tools.reminders import create_reminder, list_reminders
 
 mcp = FastMCP("法穿AI案件管理系统")
 

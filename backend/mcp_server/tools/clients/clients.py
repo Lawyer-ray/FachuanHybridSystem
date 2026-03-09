@@ -1,4 +1,4 @@
-"""客户相关 MCP tools"""
+"""客户 CRUD MCP tools"""
 
 from __future__ import annotations
 
