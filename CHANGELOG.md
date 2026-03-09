@@ -2,7 +2,17 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
-## [26.13.0] - 2026-03-09
+## [26.13.1] - 2026-03-09
+
+### 新增
+- MCP Server 继续扩展：从 22 个扩展到 30 个 tools
+  - 案号：`list_case_numbers`、`create_case_number`
+  - 律师指派：`list_case_assignments`、`assign_lawyer`
+  - 催收提醒：`create_reminder`
+  - 客户财产：`create_property_clue`
+  - 组织架构：`list_lawyers`、`list_teams`
+
+
 
 ### 新增
 - MCP Server 扩展：新增 8 个 tools，从 14 个扩展到 22 个
