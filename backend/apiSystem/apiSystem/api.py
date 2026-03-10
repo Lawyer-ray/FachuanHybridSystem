@@ -4,6 +4,8 @@ API 主入口
 支持 API 版本控制
 """
 
+from __future__ import annotations
+
 import json
 from typing import Any
 
@@ -52,6 +54,10 @@ api_v1 = NinjaAPI(
 # 注册全局异常处理器
 register_exception_handlers(api_v1)
 
+
+# ============================================================
+# 注册应用路由
+# ============================================================
 
 def _register_app_routers() -> None:
     from apps.automation.api import router as automation_router
@@ -112,10 +118,22 @@ def _register_app_routers() -> None:
     from apps.sales_dispute.api import router as sales_dispute_router
 
     api_v1.add_router("/sales-dispute", sales_dispute_router, tags=["买卖纠纷计算"])
+
+    # LPR金融工具
+    from apps.finance.api.lpr_api import router as lpr_router
+    api_v1.add_router("/lpr", lpr_router, auth=JWTOrSessionAuth(), tags=["LPR利率"])
+
     api_v1.add_router("/court-filing", court_filing_router, auth=JWTOrSessionAuth(), tags=["一张网立案"])
 
 
-_register_app_routers()
+# 防止 uvicorn reload 导致重复注册 - 在 api_v1 对象上设置标志
+def _ensure_routers_registered() -> None:
+    if getattr(api_v1, "_routers_registered", False):
+        return
+    api_v1._routers_registered = True  # type: ignore[attr-defined]
+    _register_app_routers()
+
+_ensure_routers_registered()
 
 # JWT 认证路由
 api_v1.add_router("/token", router=obtain_pair_router, tags=["JWT认证"])

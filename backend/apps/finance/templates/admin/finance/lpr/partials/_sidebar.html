@@ -1,0 +1,65 @@
+{% load i18n %}
+
+<div class="lpr-calc__sidebar">
+    <!-- 计算结果 -->
+    <div class="lpr-calc__result-card lpr-calc__result-card--highlight" x-show="result && result.success" style="display: none;">
+        <div class="lpr-calc__result-label">{% trans "总利息" %}</div>
+        <div class="lpr-calc__result-value" x-text="'¥' + formatMoney(result.total_interest)"></div>
+        <div class="lpr-calc__result-grid">
+            <div class="lpr-calc__result-item">
+                <div class="lpr-calc__result-item-value" x-text="result.total_days"></div>
+                <div class="lpr-calc__result-item-label">{% trans "计息天数" %}</div>
+            </div>
+            <div class="lpr-calc__result-item">
+                <div class="lpr-calc__result-item-value" x-text="'¥' + formatMoney(result.total_principal)"></div>
+                <div class="lpr-calc__result-item-label">{% trans "本金" %}</div>
+            </div>
+        </div>
+        <button type="button" class="lpr-calc__copy-btn" @click="copyResult">
+            {% trans "复制计算结果" %}
+        </button>
+    </div>
+
+    <!-- 错误提示 -->
+    <div class="lpr-calc__result-card" x-show="result && !result.success" style="display: none;">
+        <div class="lpr-calc__error" x-text="result.message"></div>
+    </div>
+
+    <!-- 初始状态提示 -->
+    <div class="lpr-calc__result-card" x-show="!result">
+        <div style="text-align: center; padding: 40px 20px; color: #9ca3af;">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 12px;">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 6v6l4 2"/>
+            </svg>
+            <p>{% trans "填写左侧表单并点击计算" %}</p>
+        </div>
+    </div>
+
+    <!-- 参考利率 -->
+    <div class="lpr-calc__result-card">
+        <div class="lpr-calc__ref-title">{% trans "近期 LPR 利率参考" %}</div>
+        <table class="lpr-calc__ref-table">
+            <thead>
+                <tr>
+                    <th>{% trans "生效日期" %}</th>
+                    <th>{% trans "一年期" %}</th>
+                    <th>{% trans "五年期" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for rate in recent_rates %}
+                <tr>
+                    <td>{{ rate.effective_date|date:"Y-m-d" }}</td>
+                    <td>{{ rate.rate_1y }}%</td>
+                    <td>{{ rate.rate_5y }}%</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="3" style="text-align: center; color: #9ca3af; padding: 20px;">{% trans "暂无数据" %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>

@@ -86,9 +86,11 @@
             <button type="button" @click="activeTab = 'non_party_materials'" :class="{ active: activeTab === 'non_party_materials' }">
                 {% trans "非当事人材料" %}
             </button>
+            {% if not is_our_party_all_defendant %}
             <button type="button" @click="activeTab = 'court_filing'" :class="{ active: activeTab === 'court_filing' }">
                 {% trans "一张网立案" %}
             </button>
+            {% endif %}
         </nav>
 
         <div class="tab-content">
@@ -121,9 +123,11 @@
             </div>
 
             <!-- 一张网立案标签页 -->
+            {% if not is_our_party_all_defendant %}
             <div x-show="activeTab === 'court_filing'" x-transition>
                 {% include "admin/cases/case/partials/court_filing.html" %}
             </div>
+            {% endif %}
         </div>
     </div>
 
