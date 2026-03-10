@@ -1,0 +1,116 @@
+{% load i18n %}
+
+<div class="lpr-calc__input">
+    <!-- 模式切换 -->
+    <div class="lpr-calc__mode">
+        <button type="button" class="lpr-calc__mode-btn" :class="{active: !useChanges}" @click="useChanges = false">
+            {% trans "固定本金" %}
+        </button>
+        <button type="button" class="lpr-calc__mode-btn" :class="{active: useChanges}" @click="useChanges = true">
+            {% trans "变动本金" %}
+        </button>
+    </div>
+
+    <!-- 固定本金 -->
+    <div x-show="!useChanges" class="lpr-calc__section">
+        <div class="lpr-calc__section-title">{% trans "本金与期限" %}</div>
+        <div class="lpr-calc__row lpr-calc__row--2">
+            <div class="lpr-calc__field">
+                <label>{% trans "开始日期" %}</label>
+                <input type="date" x-model="form.start_date">
+            </div>
+            <div class="lpr-calc__field">
+                <label>{% trans "结束日期" %}</label>
+                <input type="date" x-model="form.end_date">
+            </div>
+        </div>
+        <div class="lpr-calc__row" style="margin-top: 10px;">
+            <div class="lpr-calc__field">
+                <label>{% trans "本金金额（元）" %}</label>
+                <input type="number" x-model="form.principal" step="0.01" placeholder="{% trans '请输入本金金额' %}">
+            </div>
+            <div class="lpr-calc__field">
+                <label>{% trans "日期计算方式" %}</label>
+                <select x-model="form.date_inclusion">
+                    <option value="both">{% trans "起止日期均计算在内" %}</option>
+                    <option value="start_only">{% trans "只计起始日" %}</option>
+                    <option value="end_only">{% trans "只计截止日" %}</option>
+                    <option value="neither">{% trans "起止均不计" %}</option>
+                </select>
+            </div>
+            <div class="lpr-calc__field"></div>
+        </div>
+    </div>
+
+    <!-- 变动本金 -->
+    <div x-show="useChanges" class="lpr-calc__section">
+        <div class="lpr-calc__section-title">{% trans "本金变动记录" %}</div>
+        <div class="lpr-calc__changes">
+            <template x-for="(item, i) in form.changes" :key="i">
+                <div class="lpr-calc__change-row">
+                    <div class="lpr-calc__field">
+                        <label x-show="i === 0">{% trans "开始日期" %}</label>
+                        <input type="date" x-model="item.start_date">
+                    </div>
+                    <div class="lpr-calc__field">
+                        <label x-show="i === 0">{% trans "结束日期" %}</label>
+                        <input type="date" x-model="item.end_date">
+                    </div>
+                    <div class="lpr-calc__field">
+                        <label x-show="i === 0">{% trans "本金（元）" %}</label>
+                        <input type="number" x-model="item.principal" step="0.01" placeholder="{% trans '本金金额' %}">
+                    </div>
+                    <button type="button" class="lpr-calc__btn-remove" @click="removeChange(i)" x-show="form.changes.length > 1">×</button>
+                </div>
+            </template>
+            <button type="button" class="lpr-calc__btn-add" @click="addChange">
+                + {% trans "添加本金变动" %}
+            </button>
+        </div>
+        <div class="lpr-calc__field" style="margin-top: 10px;">
+            <label>{% trans "日期计算方式" %}</label>
+            <select x-model="form.date_inclusion">
+                <option value="both">{% trans "起止日期均计算在内" %}</option>
+                <option value="start_only">{% trans "只计起始日" %}</option>
+                <option value="end_only">{% trans "只计截止日" %}</option>
+                <option value="neither">{% trans "起止均不计" %}</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- 利率设置 -->
+    <div class="lpr-calc__section">
+        <div class="lpr-calc__section-title">{% trans "利率设置" %}</div>
+        <div class="lpr-calc__row">
+            <div class="lpr-calc__field">
+                <label>{% trans "利率类型" %}</label>
+                <select x-model="form.rate_type">
+                    <option value="1y">{% trans "一年期 LPR" %}</option>
+                    <option value="5y">{% trans "五年期以上 LPR" %}</option>
+                </select>
+            </div>
+            <div class="lpr-calc__field">
+                <label>{% trans "利率倍数" %}</label>
+                <input type="number" x-model="form.multiplier" step="0.1" placeholder="{% trans '如 1.5' %}">
+            </div>
+            <div class="lpr-calc__field">
+                <label>{% trans "计息基准" %}</label>
+                <select x-model="form.year_days">
+                    <option value="360">{% trans "360 天/年" %}</option>
+                    <option value="365">{% trans "365 天/年" %}</option>
+                    <option value="0">{% trans "实际天数" %}</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- 操作按钮 -->
+    <div class="lpr-calc__actions">
+        <button type="button" class="lpr-calc__btn lpr-calc__btn--primary" @click="calculate">
+            {% trans "计算利息" %}
+        </button>
+        <button type="button" class="lpr-calc__btn lpr-calc__btn--secondary" @click="reset">
+            {% trans "重置表单" %}
+        </button>
+    </div>
+</div>

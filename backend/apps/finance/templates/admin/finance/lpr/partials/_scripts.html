@@ -1,0 +1,109 @@
+{% load i18n %}
+<script>
+function lprCalculator() {
+    return {
+        useChanges: false,
+        form: {
+            start_date: '',
+            end_date: '',
+            principal: '',
+            rate_type: '1y',
+            multiplier: 1,
+            year_days: 360,
+            date_inclusion: 'both',
+            changes: [{start_date: '', end_date: '', principal: ''}]
+        },
+        result: null,
+
+        init() {
+            const today = new Date();
+            const lastYear = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
+            this.form.end_date = this.formatDate(today);
+            this.form.start_date = this.formatDate(lastYear);
+        },
+
+        formatDate(d) {
+            return d.toISOString().split('T')[0];
+        },
+
+        formatMoney(n) {
+            return parseFloat(n || 0).toLocaleString('zh-CN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        },
+
+        addChange() {
+            // 新行默认继承上一行的结束日期作为开始日期
+            const last = this.form.changes[this.form.changes.length - 1];
+            const newChange = {start_date: last ? last.end_date : '', end_date: '', principal: last ? last.principal : ''};
+            this.form.changes.push(newChange);
+        },
+
+        removeChange(i) {
+            this.form.changes.splice(i, 1);
+            if (this.form.changes.length === 0) {
+                this.form.changes.push({start_date: '', end_date: '', principal: ''});
+            }
+        },
+
+        async calculate() {
+            this.result = null;
+            const data = {
+                rate_type: this.form.rate_type,
+                multiplier: parseFloat(this.form.multiplier) || 1,
+                year_days: parseInt(this.form.year_days),
+                date_inclusion: this.form.date_inclusion
+            };
+
+            if (this.useChanges) {
+                data.principal_changes = this.form.changes.filter(c => c.start_date && c.end_date && c.principal);
+                if (!data.principal_changes.length) {
+                    this.result = {success: false, message: '{% trans "请填写完整的本金变动信息" %}'}
+                    return;
+                }
+            } else {
+                data.start_date = this.form.start_date;
+                data.end_date = this.form.end_date;
+                data.principal = this.form.principal;
+                if (!data.start_date || !data.end_date || !data.principal) {
+                    this.result = {success: false, message: '{% trans "请填写日期和本金" %}'}
+                    return;
+                }
+            }
+
+            try {
+                const res = await fetch('/api/v1/lpr/calculate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.cookie.match(/csrftoken=([^;]+)/)?.[1] || ''
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify(data)
+                });
+                this.result = await res.json();
+            } catch (e) {
+                this.result = {success: false, message: '{% trans "计算失败" %}'}
+            }
+        },
+
+        copyResult() {
+            if (!this.result?.success) return;
+            const text = `LPR利息计算结果\n总利息: ¥${this.formatMoney(this.result.total_interest)}\n计息天数: ${this.result.total_days}天\n本金: ¥${this.formatMoney(this.result.total_principal)}`;
+            navigator.clipboard.writeText(text).then(() => {
+                alert('{% trans "已复制到剪贴板" %}');
+            });
+        },
+
+        reset() {
+            this.useChanges = false;
+            this.form.principal = '';
+            this.form.rate_type = '1y';
+            this.form.multiplier = 1;
+            this.form.year_days = 360;
+            this.form.date_inclusion = 'both';
+            this.form.changes = [{start_date: '', end_date: '', principal: ''}];
+            this.result = null;
+            this.init();
+        }
+    }
+}
+</script>

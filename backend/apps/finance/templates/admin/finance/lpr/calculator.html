@@ -1,0 +1,251 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block title %}{% trans "LPR利息计算器" %}{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    #content > h1 { display: none; }
+
+    .lpr-calc { padding: 24px; max-width: 1400px; margin: 0 auto; }
+
+    .lpr-calc__nav {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    .lpr-calc__nav-title { font-size: 20px; font-weight: 600; color: #111; }
+    .lpr-calc__nav-back { color: #417690; font-size: 13px; text-decoration: none; }
+    .lpr-calc__nav-back:hover { text-decoration: underline; }
+
+    .lpr-calc__main {
+        display: grid;
+        grid-template-columns: 1fr 380px;
+        gap: 24px;
+    }
+
+    .lpr-calc__input {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        padding: 28px;
+    }
+
+    .lpr-calc__mode {
+        display: inline-flex;
+        gap: 0;
+        margin-bottom: 24px;
+        background: #f3f4f6;
+        padding: 4px;
+        border-radius: 8px;
+    }
+    .lpr-calc__mode-btn {
+        padding: 8px 20px;
+        border: none;
+        background: transparent;
+        color: #6b7280;
+        font-size: 13px;
+        cursor: pointer;
+        border-radius: 6px;
+        transition: all 0.2s;
+    }
+    .lpr-calc__mode-btn.active {
+        background: #fff;
+        color: #111;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+
+    .lpr-calc__section {
+        margin-bottom: 24px;
+        padding-bottom: 24px;
+        border-bottom: 1px solid #f3f4f6;
+    }
+    .lpr-calc__section:last-of-type { border-bottom: none; margin-bottom: 0; }
+    .lpr-calc__section-title {
+        font-size: 12px;
+        font-weight: 600;
+        color: #9ca3af;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 16px;
+    }
+
+    .lpr-calc__row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+    }
+    .lpr-calc__row--2 { grid-template-columns: repeat(2, 1fr); }
+
+    .lpr-calc__field { margin-bottom: 4px; }
+    .lpr-calc__field label {
+        display: block;
+        font-size: 13px;
+        font-weight: 500;
+        color: #374151;
+        margin-bottom: 6px;
+    }
+    .lpr-calc__field input,
+    .lpr-calc__field select {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        font-size: 14px;
+        box-sizing: border-box;
+        height: 42px;
+        transition: all 0.2s;
+    }
+    .lpr-calc__field input:focus,
+    .lpr-calc__field select:focus {
+        outline: none;
+        border-color: #417690;
+        box-shadow: 0 0 0 3px rgba(65, 118, 144, 0.08);
+    }
+
+    .lpr-calc__changes {
+        background: #f9fafb;
+        border-radius: 8px;
+        padding: 16px;
+    }
+    .lpr-calc__change-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr auto;
+        gap: 10px;
+        align-items: end;
+        margin-bottom: 10px;
+    }
+    .lpr-calc__btn-remove {
+        width: 36px;
+        height: 42px;
+        background: #fee2e2;
+        border: none;
+        border-radius: 6px;
+        color: #dc2626;
+        font-size: 16px;
+        cursor: pointer;
+    }
+    .lpr-calc__btn-add {
+        width: 100%;
+        padding: 10px;
+        background: #fff;
+        border: 1px dashed #d1d5db;
+        border-radius: 6px;
+        color: #6b7280;
+        font-size: 13px;
+        cursor: pointer;
+        margin-top: 8px;
+    }
+    .lpr-calc__btn-add:hover { border-color: #417690; color: #417690; }
+
+    .lpr-calc__actions {
+        display: flex;
+        gap: 12px;
+        margin-top: 8px;
+    }
+    .lpr-calc__btn {
+        padding: 12px 28px;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        height: 44px;
+    }
+    .lpr-calc__btn--primary { background: #417690; color: #fff; }
+    .lpr-calc__btn--primary:hover { background: #205067; }
+    .lpr-calc__btn--secondary { background: #f3f4f6; color: #374151; }
+
+    .lpr-calc__sidebar { display: flex; flex-direction: column; gap: 16px; }
+
+    .lpr-calc__result-card {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        padding: 24px;
+    }
+    .lpr-calc__result-card--highlight {
+        background: linear-gradient(135deg, #417690 0%, #205067 100%);
+        color: #fff;
+    }
+
+    .lpr-calc__result-label { font-size: 13px; color: #6b7280; margin-bottom: 8px; }
+    .lpr-calc__result-card--highlight .lpr-calc__result-label { color: rgba(255,255,255,0.8); }
+
+    .lpr-calc__result-value { font-size: 32px; font-weight: 600; color: #111; }
+    .lpr-calc__result-card--highlight .lpr-calc__result-value { color: #fff; }
+
+    .lpr-calc__result-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-top: 20px;
+        padding-top: 20px;
+        border-top: 1px solid rgba(255,255,255,0.2);
+    }
+    .lpr-calc__result-item { text-align: center; }
+    .lpr-calc__result-item-value { font-size: 18px; font-weight: 600; color: #fff; }
+    .lpr-calc__result-item-label { font-size: 11px; color: rgba(255,255,255,0.7); margin-top: 4px; }
+
+    .lpr-calc__copy-btn {
+        width: 100%;
+        padding: 12px;
+        background: rgba(255,255,255,0.15);
+        border: 1px solid rgba(255,255,255,0.25);
+        border-radius: 8px;
+        color: #fff;
+        font-size: 13px;
+        cursor: pointer;
+        margin-top: 20px;
+    }
+    .lpr-calc__copy-btn:hover { background: rgba(255,255,255,0.25); }
+
+    .lpr-calc__ref-title { font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 12px; }
+    .lpr-calc__ref-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+    }
+    .lpr-calc__ref-table th,
+    .lpr-calc__ref-table td {
+        padding: 10px 8px;
+        text-align: left;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    .lpr-calc__ref-table th { color: #6b7280; font-weight: 500; background: #f9fafb; }
+
+    .lpr-calc__error {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        color: #dc2626;
+        padding: 12px;
+        border-radius: 8px;
+        font-size: 13px;
+    }
+
+    @media (max-width: 1024px) {
+        .lpr-calc__main { grid-template-columns: 1fr; }
+        .lpr-calc__row { grid-template-columns: 1fr; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="lpr-calc" x-data="lprCalculator()" x-init="init()">
+    <div class="lpr-calc__nav">
+        <h1 class="lpr-calc__nav-title">{% trans "LPR利息计算器" %}</h1>
+        <a href="{% url 'admin:finance_lprrate_changelist' %}" class="lpr-calc__nav-back">{% trans "← 返回" %}</a>
+    </div>
+
+    <div class="lpr-calc__main">
+        {% include "admin/finance/lpr/partials/_form.html" %}
+        {% include "admin/finance/lpr/partials/_sidebar.html" %}
+    </div>
+</div>
+
+{% include "admin/finance/lpr/partials/_scripts.html" %}
+{% endblock %}

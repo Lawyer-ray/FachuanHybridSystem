@@ -151,6 +151,10 @@ class CaseAdminViewsMixin:
             if getattr(party.client, "is_our_client", False) and party.legal_status
         ]
 
+        is_our_party_all_defendant = bool(our_legal_statuses) and all(
+            status == "defendant" for status in our_legal_statuses
+        )
+
         matched_folder_templates = (
             service.get_matched_folder_templates(case.case_type, our_legal_statuses)
             if case.case_type
@@ -215,6 +219,7 @@ class CaseAdminViewsMixin:
                 "has_respondents": bool(respondents),
                 "has_preservation_template": has_preservation_template,
                 "has_delay_delivery_template": has_delay_delivery_template,
+                "is_our_party_all_defendant": is_our_party_all_defendant,
             }
         )
 
