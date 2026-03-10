@@ -1,0 +1,38 @@
+---
+description: 
+alwaysApply: true
+enabled: true
+updatedAt: 2026-03-10T11:48:23.661Z
+provider: 
+---
+
+# Django 后端开发规范
+
+## 重要事项
+
+- 禁止使用"python -c"或"python3 -c"
+- 输出中文，回答要精简，别说废话
+- 我用的是django6.0，你的知识库老了
+- 使用虚拟环境：`backend/.venv/bin/activate`
+- 使用 uv 代替 pip3
+- API 开头：`/api/v1/`
+- 后台地址：`127.0.0.1:8002/admin`（账号：黄崧，密码：1234qwer）
+- Django 后台全局已引用 Alpine.js
+- SPEC 任务最后再测试，不要穿插在开发过程中
+- 禁止生成任何文档
+- 禁止使用 `print()`，改用 `logger.info()`
+- 使用pathlib处理路径（from pathlib import Path）
+- 所有Python代码必须包含完整的类型注解，并通过 mypy --strict 检查无错误。
+- 不要在'/backend'根目录下随意创建mypy的测试文件和脚本，请保持根目录清洁
+- 这个项目是i18n的，写代码的时候要支持中文和英文两种语言
+- 从 main 分支新建功能或修复分支，按 GitHub 规范开发合并，同步更新 README 版本号与 CHANGELOG 后推送到 GitHub（推送前需要用户确认）
+- 修复bug的版本号都是第三位小数，例如26.1.2, 26.1.3, 功能更新是26.2.0， 26.3.0这样的
+
+## 四层架构
+
+| 层级    | 职责                 | 禁止                            |
+| ------- | -------------------- | ------------------------------- |
+| API     | 工厂函数、参数提取   | Model.objects、try/except       |
+| Service | 业务逻辑、事务、权限 | @staticmethod、跨模块导入 Model |
+| Admin   | UI 配置、工厂函数    | 直接实例化 Service              |
+| Model   | 字段定义、@property  | 业务方法、save()                |
