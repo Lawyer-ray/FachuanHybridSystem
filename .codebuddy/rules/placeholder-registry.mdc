@@ -1,0 +1,274 @@
+---
+description: 替换词/占位符注册规范，所有占位符必须通过代码自动发现，禁止手动在Admin后台添加
+alwaysApply: false
+enabled: true
+updatedAt: 2026-03-10T11:50:42.374Z
+provider: 
+---
+
+# 替换词/占位符注册规范
+
+> **重要**: 本项目的替换词模块 `/admin/documents/placeholder/` 不允许用户手动新增，所有可用替换词必须由代码自动发现。
+
+## 核心原则
+
+**代码即配置** - 占位符的可见性必须由代码声明驱动，不允许依赖"人工去后台新增一条 Placeholder"。
+
+## 1. 目标（必须达成）
+
+- ✅ 新增或修改的占位符（模板 `{{...}}` 变量名）必须能够**自动出现**在 `/admin/documents/placeholder/`
+- ✅ 占位符信息（名称、描述、示例）必须在代码中声明
+- ❌ 不允许手动在 Admin 后台添加占位符记录
+
+## 2. 强制使用装饰器声明
+
+### 方式一：使用 `@expose_placeholders` 装饰器（推荐）
+
+```python
+from apps.documents.services.code_placeholder_registry import expose_placeholders
+
+@expose_placeholders(
+    keys=["起诉方信息", "被诉方信息", "案由"],
+    source="诉讼文书-起诉状",
+    category="litigation",
+    metadata={
+        "起诉方信息": {
+            "display_name": "起诉方信息",
+            "description": "原告/申请人的详细信息",
+            "example_value": "原告：张三，男，1980年1月1日出生..."
+        },
+        "被诉方信息": {
+            "display_name": "被诉方信息", 
+            "description": "被告/被申请人的详细信息",
+            "example_value": "被告：李四，男，1985年5月5日出生..."
+        },
+        "案由": {
+            "display_name": "案由",
+            "description": "案件的案由",
+            "example_value": "民间借贷纠纷"
+        }
+    }
+)
+class ComplaintPlaceholderService:
+    """起诉状占位符生成服务"""
+    
+    def generate(self, context: dict) -> dict:
+        """生成占位符值"""
+        return {
+            "起诉方信息": self._format_plaintiff(context),
+            "被诉方信息": self._format_defendant(context),
+            "案由": context.get("cause_of_action", "")
+        }
+```
+
+### 方式二：使用 `@PlaceholderRegistry.register` 装饰器
+
+```python
+from apps.documents.services.placeholders import PlaceholderRegistry, BasePlaceholderService
+
+@PlaceholderRegistry.register
+class FeeTermsService(BasePlaceholderService):
+    """收费条款服务"""
+    
+    name = "fee_terms_service"
+    display_name = "收费条款服务"
+    description = "根据收费模式生成收费条款"
+    category = "contract"
+    placeholder_keys = ["合同收费条款"]
+    placeholder_metadata = {
+        "合同收费条款": {
+            "display_name": "合同收费条款",
+            "description": "根据收费模式自动生成的收费条款",
+            "example_value": "本合同签订之日起5日内，甲方向乙方一次性支付律师费..."
+        }
+    }
+    
+    def generate(self, context_data: dict) -> dict:
+        """生成占位符值"""
+        contract = context_data.get('contract')
+        return {
+            "合同收费条款": self.generate_fee_terms(contract)
+        }
+```
+
+## 3. 文件放置位置（决定能否被自动加载）
+
+### 必须遵守的目录结构
+
+```
+backend/apps/<你的app>/
+├── placeholders/              # 占位符目录（必须）
+│   ├── __init__.py           # 必须存在，用于自动导入
+│   ├── complaint.py          # 起诉状占位符
+│   ├── defense.py            # 答辩状占位符
+│   └── contract.py           # 合同占位符
+```
+
+### 为什么必须放在 `placeholders/` 目录？
+
+系统启动时会自动导入 `apps.*.placeholders` 及其子模块，只有这样装饰器才会执行，后台才能发现占位符。
+
+### ❌ 错误示例
+
+```python
+# ❌ 放在 services/ 目录下 - 不会被自动发现
+backend/apps/documents/services/my_placeholder.py
+
+# ❌ 没有 __init__.py - 不是 Python package
+backend/apps/documents/placeholders/
+└── complaint.py  # 缺少 __init__.py
+```
+
+## 4. 装饰器参数规范
+
+### `@expose_placeholders` 参数说明
+
+| 参数          | 必填 | 类型        | 说明                                        | 示例                     |
+| ------------- | ---- | ----------- | ------------------------------------------- | ------------------------ |
+| `keys`        | ✅    | `List[str]` | 占位符键列表，必须与模板 `{{key}}` 完全一致 | `["起诉方信息", "案由"]` |
+| `source`      | ✅    | `str`       | 来源服务/模块名称（后台展示）               | `"诉讼文书-起诉状"`      |
+| `category`    | ✅    | `str`       | 分类标签（后台筛选）                        | `"litigation"`           |
+| `metadata`    | 推荐 | `Dict`      | 每个 key 的详细信息                         | 见下方示例               |
+| `description` | 可选 | `str`       | 服务整体描述                                | `"起诉状占位符生成"`     |
+
+### `category` 建议取值
+
+- `contract` - 合同相关
+- `litigation` - 诉讼文书相关
+- `evidence` - 证据清单相关
+- `basic` - 基础占位符（日期、数字等）
+- `party` - 当事人信息
+- `lawyer` - 律师信息
+- `custom` - 自定义
+
+### `metadata` 结构
+
+```python
+metadata = {
+    "占位符key": {
+        "display_name": "友好的中文名",      # 后台展示名称
+        "description": "用途说明",           # 详细说明
+        "example_value": "示例值"            # 示例数据
+    }
+}
+```
+
+## 5. 生成逻辑实现要求
+
+### ✅ 推荐做法
+
+```python
+@expose_placeholders(
+    keys=["委托人信息", "委托人数量"],
+    source="合同-委托人",
+    category="contract"
+)
+class PrincipalPlaceholderService:
+    """委托人信息占位符服务"""
+    
+    def generate(self, context: dict) -> dict:
+        """
+        生成占位符值
+        
+        Args:
+            context: 上下文数据，包含 contract, clients 等
+            
+        Returns:
+            占位符键值对字典
+        """
+        clients = context.get('clients', [])
+        
+        return {
+            "委托人信息": self._format_clients(clients),
+            "委托人数量": len(clients)
+        }
+    
+    def _format_clients(self, clients: list) -> str:
+        """格式化委托人信息"""
+        if not clients:
+            return ""
+        
+        # 使用现有 service 获取数据
+        from apps.core.interfaces import ServiceLocator
+        client_service = ServiceLocator.get_client_service()
+        
+        result = []
+        for client in clients:
+            info = client_service.format_client_info(client)
+            result.append(info)
+        
+        return "\n".join(result)
+```
+
+### ❌ 禁止做法
+
+```python
+# ❌ 动态生成 key 名（不稳定）
+def generate(self, context):
+    result = {}
+    for i, client in enumerate(context['clients']):
+        result[f"委托人{i+1}"] = client.name  # key 不固定
+    return result
+
+# ❌ 引入外部网络调用
+def generate(self, context):
+    import requests
+    data = requests.get("https://api.example.com/data")  # 不允许
+    return {"占位符": data.json()}
+
+# ❌ 直接操作数据库（应该通过 Service）
+def generate(self, context):
+    from apps.clients.models import Client
+    clients = Client.objects.all()  # 应该用 ServiceLocator
+    return {"委托人": str(clients)}
+```
+
+## 6. 交付内容清单
+
+每次提交占位符相关改动，必须包含：
+
+### ✅ 必须提供
+
+1. **文件路径**
+
+   ```
+   backend/apps/documents/placeholders/complaint.py
+   ```
+
+2. **装饰器声明**（完整代码）
+
+   ```python
+   @expose_placeholders(
+       keys=["起诉方信息", "被诉方信息"],
+       source="诉讼文书-起诉状",
+       category="litigation",
+       metadata={...}
+   )
+   ```
+
+3. **新增/修改的 keys 列表**
+
+   ```
+   - 起诉方信息
+   - 被诉方信息
+   - 案由
+   ```
+
+4. **模板对应关系**（如果涉及模板）
+
+   ```
+   模板文件: backend/apps/documents/docx_templates/起诉状.docx
+   占位符: {{起诉方信息}}, {{被诉方信息}}, {{案由}}
+   ```
+
+## 7. 验收清单（自检）
+
+提交前必须确认：
+
+- [ ] 新增 keys 能在 `/admin/documents/placeholder/` 自动出现（无需手工建记录）
+- [ ] keys 与模板 `{{...}}` 完全一致（大小写、中文、符号都一致）
+- [ ] 文件位于 `apps/<app>/placeholders/` 且可被 import
+- [ ] 装饰器参数完整（keys, source, category, metadata）
+- [ ] 生成逻辑不依赖外部网络调用
+- [ ] 不破坏现有测试
+- [ ] 不引入新的外部依赖
