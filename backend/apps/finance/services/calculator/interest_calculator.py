@@ -301,7 +301,7 @@ class InterestCalculator:
 
                 # 确定利率
                 rate = rs.rate_1y if rate_type == "1y" else rs.rate_5y
-                rate = rate * multiplier
+                rate = rate * Decimal(str(multiplier))
 
                 # 确定年基准天数
                 actual_year_days = self._get_year_days(seg_start, seg_end, year_days)
@@ -334,9 +334,9 @@ class InterestCalculator:
 
         # 计算加权平均本金
         total_principal_weighted = sum(
-            p.principal * p.days for p in periods
+            Decimal(str(p.principal)) * p.days for p in periods
         )
-        total_principal = total_principal_weighted / total_days if total_days > 0 else Decimal("0")
+        total_principal = (total_principal_weighted / Decimal(str(total_days))).quantize(Decimal("0.01")) if total_days > 0 else Decimal("0")
 
         return InterestCalculationResult(
             total_interest=total_interest.quantize(Decimal("0.01")),
@@ -356,24 +356,25 @@ class InterestCalculator:
         Raises:
             ValidationException: 验证失败
         """
-        for i in range(len(periods) - 1):
-            current = periods[i]
-            next_period = periods[i + 1]
+        for i in range(len(periods)):
+            period = periods[i]
 
-            if current.end_date != next_period.start_date:
+            # 验证本金大于0
+            if period.principal <= 0:
                 raise ValidationException(
-                    message=_("本金时间段必须连续，%(end)s 与 %(start)s 之间有空隙") % {
-                        "end": current.end_date,
-                        "start": next_period.start_date
-                    },
-                    code="INVALID_PRINCIPAL_PERIODS"
-                )
-
-            if current.principal <= 0 or next_period.principal <= 0:
-                raise ValidationException(
-                    message=_("本金必须大于0"),
+                    message=_("第%(index)s段本金必须大于0") % {"index": i + 1},
                     code="INVALID_PRINCIPAL"
                 )
+
+            # 验证开始日期不晚于结束日期
+            if period.start_date > period.end_date:
+                raise ValidationException(
+                    message=_("第%(index)s段开始日期不能晚于结束日期") % {"index": i + 1},
+                    code="INVALID_DATE_RANGE"
+                )
+
+        # 注意：时间段之间允许有空隙，不强制连续
+        # 例如：第一段10/01-10/31，第二段11/01-11/30 是合法的（即使中间有空隙）
 
     def _get_year_days(self, start_date: date, end_date: date, year_days: int) -> int:
         """确定年基准天数.
