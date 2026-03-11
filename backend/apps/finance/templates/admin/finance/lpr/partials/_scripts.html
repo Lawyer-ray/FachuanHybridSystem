@@ -3,6 +3,8 @@
 function lprCalculator() {
     return {
         useChanges: false,
+        showDetail: false,
+        showHistory: false,
         form: {
             start_date: '',
             end_date: '',
@@ -14,27 +16,187 @@ function lprCalculator() {
             changes: [{start_date: '', end_date: '', principal: ''}]
         },
         result: null,
+        history: [],
 
         init() {
             const today = new Date();
             const lastYear = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
             this.form.end_date = this.formatDate(today);
             this.form.start_date = this.formatDate(lastYear);
+            this.loadHistory();
+        },
+
+        loadHistory() {
+            const saved = localStorage.getItem('lpr_calculator_history');
+            this.history = saved ? JSON.parse(saved) : [];
+        },
+
+        saveToHistory() {
+            if (!this.result || !this.result.success) return;
+            
+            const historyItem = {
+                id: Date.now(),
+                timestamp: new Date().toISOString(),
+                useChanges: this.useChanges,
+                form: JSON.parse(JSON.stringify(this.form)),
+                result: {
+                    total_interest: this.result.total_interest,
+                    total_days: this.result.total_days,
+                    total_principal: this.result.total_principal
+                }
+            };
+            
+            this.history.unshift(historyItem);
+            if (this.history.length > 20) {
+                this.history = this.history.slice(0, 20);
+            }
+            
+            localStorage.setItem('lpr_calculator_history', JSON.stringify(this.history));
+        },
+
+        loadFromHistory(item) {
+            this.useChanges = item.useChanges;
+            this.form = JSON.parse(JSON.stringify(item.form));
+            this.showHistory = false;
+            // 标记为从历史记录加载，计算后不保存
+            this._skipHistorySave = true;
+            this.calculate();
+        },
+
+        deleteHistoryItem(id) {
+            this.history = this.history.filter(h => h.id !== id);
+            localStorage.setItem('lpr_calculator_history', JSON.stringify(this.history));
+        },
+
+        clearHistory() {
+            if (confirm('{% trans "确定要清空所有历史记录吗？" %}')) {
+                this.history = [];
+                localStorage.removeItem('lpr_calculator_history');
+            }
+        },
+
+        formatHistoryTime(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleString('zh-CN', {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
         },
 
         formatDate(d) {
-            return d.toISOString().split('T')[0];
+            if (typeof d === 'string' && d.includes('T')) {
+                d = new Date(d);
+            }
+            if (d instanceof Date) {
+                return d.toISOString().split('T')[0];
+            }
+            return d;
         },
 
         formatMoney(n) {
             return parseFloat(n || 0).toLocaleString('zh-CN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
         },
 
+        get groupedByPrincipal() {
+            // 按本金连续性分组
+            // 同一笔本金的多段LPR分段在时间上是连续的
+            // 不同笔本金之间时间段有重叠或间隔
+            if (!this.result || !this.result.periods) return [];
+            
+            const groups = [];
+            let currentGroup = null;
+            let lastEndDate = null;
+            
+            for (let i = 0; i < this.result.periods.length; i++) {
+                const period = this.result.periods[i];
+                const principal = parseFloat(period.principal);
+                
+                // 判断是否需要创建新分组：
+                // 1. 第一段
+                // 2. 本金金额变化
+                // 3. 时间段重叠（当前段开始日期 <= 上一段结束日期）
+                // 4. 时间段有间隔（当前段开始日期 > 上一段结束日期 + 1天）
+                const startDate = new Date(period.start_date);
+                const endDate = new Date(period.end_date);
+                
+                let isNewGroup = !currentGroup;
+                
+                if (!isNewGroup && currentGroup) {
+                    const lastEndDateObj = new Date(lastEndDate);
+                    
+                    // 时间段重叠（当前段开始日期 <= 上一段结束日期）
+                    if (startDate <= lastEndDateObj) {
+                        isNewGroup = true;
+                    }
+                    // 本金金额变化
+                    else if (currentGroup.principal !== principal) {
+                        isNewGroup = true;
+                    }
+                }
+                
+                if (isNewGroup) {
+                    if (currentGroup) groups.push(currentGroup);
+                    currentGroup = {
+                        key: `group_${groups.length}`,
+                        principal: principal,
+                        periods: [period],
+                        totalDays: period.days,
+                        totalInterest: parseFloat(period.interest)
+                    };
+                } else {
+                    currentGroup.periods.push(period);
+                    currentGroup.totalDays += period.days;
+                    currentGroup.totalInterest += parseFloat(period.interest);
+                }
+                
+                lastEndDate = period.end_date;
+            }
+            if (currentGroup) groups.push(currentGroup);
+            
+            return groups;
+        },
+
         addChange() {
-            // 新行默认继承上一行的结束日期作为开始日期
+            // 新行默认继承上一行的结束日期的下一天作为开始日期
             const last = this.form.changes[this.form.changes.length - 1];
-            const newChange = {start_date: last ? last.end_date : '', end_date: '', principal: last ? last.principal : ''};
+            let nextStartDate = '';
+            if (last && last.end_date) {
+                const endDate = new Date(last.end_date);
+                endDate.setDate(endDate.getDate() + 1);
+                nextStartDate = this.formatDate(endDate);
+            }
+            const newChange = {start_date: nextStartDate, end_date: '', principal: last ? last.principal : ''};
             this.form.changes.push(newChange);
+        },
+
+        onChangeStartDate(index) {
+            // 如果当前行有开始日期和结束日期，确保结束日期不早于开始日期
+            const item = this.form.changes[index];
+            if (item.start_date && item.end_date && item.end_date < item.start_date) {
+                item.end_date = item.start_date;
+            }
+            // 更新下一行的开始日期为当前行结束日期的下一天
+            if (index < this.form.changes.length - 1 && item.end_date) {
+                const endDate = new Date(item.end_date);
+                endDate.setDate(endDate.getDate() + 1);
+                this.form.changes[index + 1].start_date = this.formatDate(endDate);
+            }
+        },
+
+        onChangeEndDate(index) {
+            // 如果当前行有开始日期和结束日期，确保结束日期不早于开始日期
+            const item = this.form.changes[index];
+            if (item.start_date && item.end_date && item.end_date < item.start_date) {
+                item.end_date = item.start_date;
+            }
+            // 更新下一行的开始日期为当前行结束日期的下一天
+            if (index < this.form.changes.length - 1 && item.end_date) {
+                const endDate = new Date(item.end_date);
+                endDate.setDate(endDate.getDate() + 1);
+                this.form.changes[index + 1].start_date = this.formatDate(endDate);
+            }
         },
 
         removeChange(i) {
@@ -54,9 +216,26 @@ function lprCalculator() {
             };
 
             if (this.useChanges) {
-                data.principal_changes = this.form.changes.filter(c => c.start_date && c.end_date && c.principal);
+                // 过滤掉无效日期（如11月31日）
+                const validChanges = [];
+                for (let i = 0; i < this.form.changes.length; i++) {
+                    const c = this.form.changes[i];
+                    if (!c.start_date || !c.end_date || !c.principal) continue;
+                    
+                    // 验证日期有效性
+                    const startDate = new Date(c.start_date);
+                    const endDate = new Date(c.end_date);
+                    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+                        console.warn(`第${i+1}行日期无效:`, c.start_date, c.end_date);
+                        continue;
+                    }
+                    
+                    validChanges.push(c);
+                }
+                
+                data.principal_changes = validChanges;
                 if (!data.principal_changes.length) {
-                    this.result = {success: false, message: '{% trans "请填写完整的本金变动信息" %}'}
+                    this.result = {success: false, message: '{% trans "请填写完整的本金变动信息（注意日期有效性）" %}'}
                     return;
                 }
             } else {
@@ -79,9 +258,33 @@ function lprCalculator() {
                     credentials: 'same-origin',
                     body: JSON.stringify(data)
                 });
+                
+                if (!res.ok) {
+                    const errorData = await res.json().catch(() => ({}));
+                    console.error('API Error:', res.status, errorData);
+                    
+                    if (res.status === 422) {
+                        // 验证错误（如无效日期）
+                        const detail = errorData.detail || [];
+                        const errors = detail.map(d => `${d.loc?.join('.')} - ${d.msg}`).join('; ');
+                        this.result = {success: false, message: '{% trans "数据验证失败" %}: ' + (errors || JSON.stringify(errorData))};
+                    } else {
+                        this.result = {success: false, message: '{% trans "请求失败" %}: ' + (errorData.message || res.statusText)};
+                    }
+                    return;
+                }
+                
                 this.result = await res.json();
+                
+                // 计算成功后保存到历史记录（如果不是从历史记录加载的）
+                if (this.result.success && !this._skipHistorySave) {
+                    this.saveToHistory();
+                }
+                // 重置标记
+                this._skipHistorySave = false;
             } catch (e) {
-                this.result = {success: false, message: '{% trans "计算失败" %}'}
+                console.error('Fetch Error:', e);
+                this.result = {success: false, message: '{% trans "计算失败" %}: ' + e.message}
             }
         },
 
@@ -90,6 +293,117 @@ function lprCalculator() {
             const text = `LPR利息计算结果\n总利息: ¥${this.formatMoney(this.result.total_interest)}\n计息天数: ${this.result.total_days}天\n本金: ¥${this.formatMoney(this.result.total_principal)}`;
             navigator.clipboard.writeText(text).then(() => {
                 alert('{% trans "已复制到剪贴板" %}');
+            });
+        },
+
+        copyDetail() {
+            if (!this.result?.success) return;
+            
+            const isDetail = this.showDetail;
+            
+            let html = '<table border="1" cellspacing="0" cellpadding="8" style="border-collapse: collapse; font-family: 宋体, SimSun; font-size: 12pt; width: 100%;">';
+            
+            if (isDetail) {
+                // 展开状态 - 按本金分组复制
+                for (const group of this.groupedByPrincipal) {
+                    // 分组标题行
+                    html += '<tr style="background-color: #417690; color: #ffffff; font-weight: bold;">';
+                    html += `<td colspan="4" style="border: 1px solid #000; padding: 8px; background-color: #417690; color: #ffffff; font-weight: bold;">本金: ¥${this.formatMoney(group.principal)} | 天数: ${group.totalDays} | 利息: ¥${this.formatMoney(group.totalInterest)}</td>`;
+                    html += '</tr>';
+                    
+                    // 表头
+                    html += '<tr style="background-color: #f2f2f2; font-weight: bold;">';
+                    html += '<td style="border: 1px solid #000; padding: 8px;">期间</td>';
+                    html += '<td style="border: 1px solid #000; padding: 8px;">天数</td>';
+                    html += '<td style="border: 1px solid #000; padding: 8px;">利率</td>';
+                    html += '<td style="border: 1px solid #000; padding: 8px;">利息</td>';
+                    html += '</tr>';
+                    
+                    // 数据行
+                    for (const p of group.periods) {
+                        html += '<tr>';
+                        html += `<td style="border: 1px solid #000; padding: 8px;">${this.formatDate(p.start_date)} ~ ${this.formatDate(p.end_date)}</td>`;
+                        html += `<td style="border: 1px solid #000; padding: 8px;">${p.days}</td>`;
+                        html += `<td style="border: 1px solid #000; padding: 8px;">${p.rate}%</td>`;
+                        html += `<td style="border: 1px solid #000; padding: 8px;">¥${this.formatMoney(p.interest)}</td>`;
+                        html += '</tr>';
+                    }
+                }
+                
+                // 总计行
+                html += '<tr style="background-color: #417690; color: #ffffff; font-weight: bold;">';
+                html += `<td style="border: 1px solid #000; padding: 10px; background-color: #417690; color: #ffffff; font-weight: bold;">总计</td>`;
+                html += `<td style="border: 1px solid #000; padding: 10px; background-color: #417690; color: #ffffff; font-weight: bold;">${this.result.total_days}</td>`;
+                html += `<td style="border: 1px solid #000; padding: 10px; background-color: #417690; color: #ffffff; font-weight: bold;">-</td>`;
+                html += `<td style="border: 1px solid #000; padding: 10px; background-color: #417690; color: #ffffff; font-weight: bold; font-size: 14px;">¥${this.formatMoney(this.result.total_interest)}</td>`;
+                html += '</tr>';
+            } else {
+                // 收起状态 - 按本金汇总复制
+                html += '<tr style="background-color: #f2f2f2; font-weight: bold;">';
+                html += '<td style="border: 1px solid #000; padding: 8px;">本金</td>';
+                html += '<td style="border: 1px solid #000; padding: 8px;">计息期间</td>';
+                html += '<td style="border: 1px solid #000; padding: 8px;">天数</td>';
+                html += '<td style="border: 1px solid #000; padding: 8px;">利息</td>';
+                html += '</tr>';
+                
+                for (const group of this.groupedByPrincipal) {
+                    const start = this.formatDate(group.periods[0].start_date);
+                    const end = this.formatDate(group.periods[group.periods.length - 1].end_date);
+                    html += '<tr>';
+                    html += `<td style="border: 1px solid #000; padding: 8px;">¥${this.formatMoney(group.principal)}</td>`;
+                    html += `<td style="border: 1px solid #000; padding: 8px;">${start} ~ ${end}</td>`;
+                    html += `<td style="border: 1px solid #000; padding: 8px;">${group.totalDays}</td>`;
+                    html += `<td style="border: 1px solid #000; padding: 8px;">¥${this.formatMoney(group.totalInterest)}</td>`;
+                    html += '</tr>';
+                }
+                
+                // 汇总行
+                html += '<tr style="background-color: #417690; color: #ffffff; font-weight: bold;">';
+                html += `<td style="border: 1px solid #000; padding: 10px; background-color: #417690; color: #ffffff; font-weight: bold;">合计</td>`;
+                html += `<td style="border: 1px solid #000; padding: 10px; background-color: #417690; color: #ffffff; font-weight: bold;">-</td>`;
+                html += `<td style="border: 1px solid #000; padding: 10px; background-color: #417690; color: #ffffff; font-weight: bold;">${this.result.total_days}</td>`;
+                html += `<td style="border: 1px solid #000; padding: 10px; background-color: #417690; color: #ffffff; font-weight: bold; font-size: 14px;">¥${this.formatMoney(this.result.total_interest)}</td>`;
+                html += '</tr>';
+            }
+            
+            html += '</table>';
+            
+            // 复制HTML到剪贴板
+            const blob = new Blob([html], { type: 'text/html' });
+            const data = new ClipboardItem({ 'text/html': blob });
+            
+            navigator.clipboard.write([data]).then(() => {
+                alert('{% trans "明细表格已复制，可直接粘贴到Word" %}');
+            }).catch(() => {
+                // 降级为纯文本
+                let text = 'LPR利息计算明细\n\n';
+                
+                if (isDetail) {
+                    for (const group of this.groupedByPrincipal) {
+                        text += `本金: ¥${this.formatMoney(group.principal)} | 天数: ${group.totalDays} | 利息: ¥${this.formatMoney(group.totalInterest)}\n`;
+                        text += '期间 | 天数 | 利率 | 利息\n';
+                        text += '-'.repeat(50) + '\n';
+                        for (const p of group.periods) {
+                            text += `${this.formatDate(p.start_date)}~${this.formatDate(p.end_date)} | ${p.days} | ${p.rate}% | ¥${this.formatMoney(p.interest)}\n`;
+                        }
+                        text += '\n';
+                    }
+                    text += `总计 | ${this.result.total_days} | - | ¥${this.formatMoney(this.result.total_interest)}\n`;
+                } else {
+                    text += '本金 | 计息期间 | 天数 | 利息\n';
+                    text += '-'.repeat(60) + '\n';
+                    for (const group of this.groupedByPrincipal) {
+                        const start = this.formatDate(group.periods[0].start_date);
+                        const end = this.formatDate(group.periods[group.periods.length - 1].end_date);
+                        text += `¥${this.formatMoney(group.principal)} | ${start}~${end} | ${group.totalDays} | ¥${this.formatMoney(group.totalInterest)}\n`;
+                    }
+                    text += '-'.repeat(60) + '\n';
+                    text += `合计 | - | ${this.result.total_days} | ¥${this.formatMoney(this.result.total_interest)}\n`;
+                }
+                
+                navigator.clipboard.writeText(text).then(() => {
+                    alert('{% trans "明细已复制（纯文本格式）" %}');
+                });
             });
         },
 

@@ -50,11 +50,11 @@
                 <div class="lpr-calc__change-row">
                     <div class="lpr-calc__field">
                         <label x-show="i === 0">{% trans "开始日期" %}</label>
-                        <input type="date" x-model="item.start_date">
+                        <input type="date" x-model="item.start_date" @change="onChangeStartDate(i)">
                     </div>
                     <div class="lpr-calc__field">
                         <label x-show="i === 0">{% trans "结束日期" %}</label>
-                        <input type="date" x-model="item.end_date">
+                        <input type="date" x-model="item.end_date" @change="onChangeEndDate(i)">
                     </div>
                     <div class="lpr-calc__field">
                         <label x-show="i === 0">{% trans "本金（元）" %}</label>
@@ -112,5 +112,45 @@
         <button type="button" class="lpr-calc__btn lpr-calc__btn--secondary" @click="reset">
             {% trans "重置表单" %}
         </button>
+        <button type="button" class="lpr-calc__btn lpr-calc__btn--secondary" @click="showHistory = !showHistory" style="margin-left: auto;">
+            {% trans "历史记录" %} <span x-show="history.length > 0" x-text="'(' + history.length + ')'" style="font-size: 11px; opacity: 0.7;"></span>
+        </button>
+    </div>
+
+    <!-- 历史记录列表 -->
+    <div x-show="showHistory" style="display: none; margin-top: 16px; background: #f9fafb; border-radius: 8px; padding: 16px; border: 1px solid #e5e7eb;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <div style="font-size: 13px; font-weight: 600; color: #374151;">{% trans "计算历史" %}</div>
+            <button type="button" @click="clearHistory" x-show="history.length > 0" style="font-size: 11px; color: #dc2626; background: none; border: none; cursor: pointer;">
+                {% trans "清空" %}
+            </button>
+        </div>
+        
+        <div x-show="history.length === 0" style="text-align: center; padding: 20px; color: #9ca3af; font-size: 13px;">
+            {% trans "暂无历史记录" %}
+        </div>
+        
+        <div x-show="history.length > 0" style="max-height: 300px; overflow-y: auto;">
+            <template x-for="item in history" :key="item.id">
+                <div style="display: flex; align-items: center; gap: 12px; padding: 10px; background: #fff; border-radius: 6px; margin-bottom: 8px; border: 1px solid #e5e7eb;">
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-size: 12px; font-weight: 500; color: #111; margin-bottom: 2px;">
+                            <span x-text="item.useChanges ? '{% trans "变动本金" %}' : '{% trans "固定本金" %}'"></span>
+                            <span x-text="'· ¥' + formatMoney(item.result.total_interest)" style="color: #417690;"></span>
+                        </div>
+                        <div style="font-size: 11px; color: #6b7280;">
+                            <span x-text="formatHistoryTime(item.timestamp)"></span>
+                            <span x-text="'· ' + item.result.total_days + '{% trans "天" %}'"></span>
+                        </div>
+                    </div>
+                    <button type="button" @click="loadFromHistory(item)" style="font-size: 11px; color: #417690; background: #f0f7fa; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; white-space: nowrap;">
+                        {% trans "加载" %}
+                    </button>
+                    <button type="button" @click="deleteHistoryItem(item.id)" style="font-size: 11px; color: #dc2626; background: #fee2e2; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer;">
+                        ×
+                    </button>
+                </div>
+            </template>
+        </div>
     </div>
 </div>

@@ -1,0 +1,98 @@
+{% load i18n %}
+
+<!-- 计算结果区 -->
+<div class="lpr-calc__result-section" x-show="result && result.success" style="display: none;">
+    <!-- 计算明细 -->
+    <div class="lpr-calc__result-card">
+        <div class="lpr-calc__detail-header">
+            <div class="lpr-calc__detail-title">{% trans "计算明细" %}</div>
+            <div style="display: flex; gap: 12px; align-items: center;">
+                <button type="button" class="lpr-calc__detail-toggle" @click="showDetail = !showDetail" x-text="showDetail ? '{% trans "收起" %}' : '{% trans "展开" %}'"></button>
+                <button type="button" @click="copyDetail" style="font-size: 12px; color: #417690; background: #f0f7fa; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;">
+                    {% trans "复制明细" %}
+                </button>
+            </div>
+        </div>
+        
+        <!-- 简化展示 - 按本金分组汇总 -->
+        <div x-show="!showDetail">
+            <table class="lpr-calc__detail-table" id="detailTable">
+                <thead>
+                    <tr>
+                        <th>{% trans "本金" %}</th>
+                        <th>{% trans "计息期间" %}</th>
+                        <th>{% trans "天数" %}</th>
+                        <th>{% trans "利息" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="(group, index) in groupedByPrincipal" :key="index">
+                        <tr>
+                            <td x-text="'¥' + formatMoney(group.principal)"></td>
+                            <td x-text="formatDate(group.periods[0].start_date) + ' ~ ' + formatDate(group.periods[group.periods.length - 1].end_date)"></td>
+                            <td x-text="group.totalDays"></td>
+                            <td x-text="'¥' + formatMoney(group.totalInterest)"></td>
+                        </tr>
+                    </template>
+                </tbody>
+                <tbody class="lpr-calc__table-summary">
+                    <tr>
+                        <td>{% trans "合计" %}</td>
+                        <td>-</td>
+                        <td x-text="result.total_days"></td>
+                        <td x-text="'¥' + formatMoney(result.total_interest)"></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 详细展示 - 按本金分组 -->
+        <div x-show="showDetail" style="display: none;">
+            <template x-for="(group, groupIndex) in groupedByPrincipal" :key="groupIndex">
+                <div style="margin-bottom: 16px;">
+                    <!-- 分组标题 -->
+                    <div style="background: #f0f7fa; padding: 8px 12px; border-radius: 6px 6px 0 0; font-weight: 600; color: #417690; border: 1px solid #e0eff5; border-bottom: none;">
+                        <span x-text="'本金: ¥' + formatMoney(group.principal) + ' | 天数: ' + group.totalDays + ' | 利息: ¥' + formatMoney(group.totalInterest)"></span>
+                    </div>
+                    <!-- 分组明细表格 -->
+                    <table class="lpr-calc__detail-table" style="border-top-left-radius: 0; border-top-right-radius: 0;">
+                        <thead>
+                            <tr>
+                                <th>{% trans "期间" %}</th>
+                                <th>{% trans "天数" %}</th>
+                                <th>{% trans "利率" %}</th>
+                                <th style="text-align: right;">{% trans "利息" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="period in group.periods" :key="period.start_date + period.end_date">
+                                <tr>
+                                    <td x-text="formatDate(period.start_date) + ' ~ ' + formatDate(period.end_date)"></td>
+                                    <td x-text="period.days"></td>
+                                    <td x-text="period.rate + '%'" style="white-space: nowrap;"></td>
+                                    <td x-text="'¥' + formatMoney(period.interest)"></td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </template>
+            <!-- 总计 -->
+            <table class="lpr-calc__detail-table">
+                <tbody class="lpr-calc__table-summary">
+                    <tr>
+                        <td>{% trans "总计" %}</td>
+                        <td x-text="result.total_days"></td>
+                        <td>-</td>
+                        <td x-text="'¥' + formatMoney(result.total_interest)"></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 错误提示 -->
+<div class="lpr-calc__result-card" x-show="result && !result.success" style="display: none; margin-top: 20px;">
+    <div class="lpr-calc__error" x-text="result.message"></div>
+</div>
