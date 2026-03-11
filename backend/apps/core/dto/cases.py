@@ -67,7 +67,7 @@ class CaseTemplateBindingDTO:
             case_id=binding.case_id,
             template_id=binding.template_id,
             template_name=binding.template.name if binding.template else "",
-            template_function_code=binding.template.function_code if binding.template else None,
+            template_function_code=None,
             binding_source=binding.binding_source,
             created_at=str(binding.created_at) if binding.created_at else None,
         )
