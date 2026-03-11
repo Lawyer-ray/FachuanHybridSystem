@@ -198,74 +198,65 @@ def calculate_interest(
     Returns:
         计算结果或错误信息
     """
-    try:
-        from apps.finance.services.calculator import InterestCalculator
+    from apps.finance.services.calculator import InterestCalculator
 
-        calculator = InterestCalculator()
+    calculator = InterestCalculator()
 
-        # 检查是否使用变动本金
-        if data.principal_changes:
-            # 变动本金计算
-            principal_periods = [
-                PrincipalPeriod(
-                    start_date=p.start_date,
-                    end_date=p.end_date,
-                    principal=p.principal,
-                )
-                for p in data.principal_changes
-            ]
-
-            result = calculator.calculate_with_principal_changes(
-                principal_periods=principal_periods,
-                rate_type=data.rate_type,
-                year_days=data.year_days,
-                multiplier=data.multiplier,
-                date_inclusion=data.date_inclusion,
+    # 检查是否使用变动本金
+    if data.principal_changes:
+        # 变动本金计算
+        principal_periods = [
+            PrincipalPeriod(
+                start_date=p.start_date,
+                end_date=p.end_date,
+                principal=p.principal,
             )
-        else:
-            # 固定本金计算 - 验证必需参数
-            if data.start_date is None or data.end_date is None or data.principal is None:
-                return InterestCalculateResponse(
-                    success=False,
-                    message="固定本金模式需要填写开始日期、结束日期和本金金额",
-                    code="MISSING_REQUIRED_FIELDS",
-                )
+            for p in data.principal_changes
+        ]
 
-            result = calculator.calculate(
-                start_date=data.start_date,
-                end_date=data.end_date,
-                principal=data.principal,
-                rate_type=data.rate_type,
-                year_days=data.year_days,
-                multiplier=data.multiplier,
-                date_inclusion=data.date_inclusion,
+        result = calculator.calculate_with_principal_changes(
+            principal_periods=principal_periods,
+            rate_type=data.rate_type,
+            year_days=data.year_days,
+            multiplier=data.multiplier,
+            date_inclusion=data.date_inclusion,
+        )
+    else:
+        # 固定本金计算 - 验证必需参数
+        if data.start_date is None or data.end_date is None or data.principal is None:
+            return InterestCalculateResponse(
+                success=False,
+                message="固定本金模式需要填写开始日期、结束日期和本金金额",
+                code="MISSING_REQUIRED_FIELDS",
             )
 
-        return InterestCalculateResponse(
-            success=True,
-            total_interest=result.total_interest,
-            total_principal=result.total_principal,
-            total_days=result.total_days,
-            start_date=result.start_date,
-            end_date=result.end_date,
-            periods=[
-                {
-                    "start_date": p.start_date,
-                    "end_date": p.end_date,
-                    "principal": p.principal,
-                    "rate": p.rate,
-                    "days": p.days,
-                    "year_days": p.year_days,
-                    "interest": p.interest,
-                }
-                for p in result.periods
-            ],
+        result = calculator.calculate(
+            start_date=data.start_date,
+            end_date=data.end_date,
+            principal=data.principal,
+            rate_type=data.rate_type,
+            year_days=data.year_days,
+            multiplier=data.multiplier,
+            date_inclusion=data.date_inclusion,
         )
 
-    except Exception as e:
-        logger.error(f"[LPRCalculate] Calculation failed: {e}")
-        return InterestCalculateResponse(
-            success=False,
-            message=str(e),
-            code="CALCULATION_ERROR",
-        )
+    return InterestCalculateResponse(
+        success=True,
+        total_interest=result.total_interest,
+        total_principal=result.total_principal,
+        total_days=result.total_days,
+        start_date=result.start_date,
+        end_date=result.end_date,
+        periods=[
+            {
+                "start_date": p.start_date,
+                "end_date": p.end_date,
+                "principal": p.principal,
+                "rate": p.rate,
+                "days": p.days,
+                "year_days": p.year_days,
+                "interest": p.interest,
+            }
+            for p in result.periods
+        ],
+    )
