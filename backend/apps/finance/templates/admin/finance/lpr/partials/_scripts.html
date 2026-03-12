@@ -9,8 +9,11 @@ function lprCalculator() {
             start_date: '',
             end_date: '',
             principal: '',
+            rate_mode: 'lpr',
             rate_type: '1y',
             multiplier: 1,
+            custom_rate_unit: 'percent',
+            custom_rate_value: '',
             year_days: 360,
             date_inclusion: 'both',
             changes: [{start_date: '', end_date: '', principal: ''}]
@@ -97,6 +100,27 @@ function lprCalculator() {
 
         formatMoney(n) {
             return parseFloat(n || 0).toLocaleString('zh-CN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        },
+
+        formatRateDisplay(rate, rateUnit) {
+            // 根据利率模式显示不同的格式
+            // rateUnit 可以是 period 对象中的 rate_unit，或者是当前表单的 custom_rate_unit
+            const unit = rateUnit || this.form.custom_rate_unit;
+            const rateNum = parseFloat(rate) || 0;
+
+            if (this.form.rate_mode === 'lpr') {
+                return rateNum.toFixed(2) + '%/年';
+            } else {
+                // 自定义利率模式
+                if (unit === 'percent') {
+                    return rateNum.toFixed(2) + '%/年';
+                } else if (unit === 'permille') {
+                    return rateNum.toFixed(2) + '‰/天';
+                } else if (unit === 'permyriad') {
+                    return rateNum.toFixed(2) + '‱/天';
+                }
+                return rateNum.toFixed(2) + '%';
+            }
         },
 
         get groupedByPrincipal() {
@@ -209,11 +233,20 @@ function lprCalculator() {
         async calculate() {
             this.result = null;
             const data = {
-                rate_type: this.form.rate_type,
-                multiplier: parseFloat(this.form.multiplier) || 1,
                 year_days: parseInt(this.form.year_days),
                 date_inclusion: this.form.date_inclusion
             };
+
+            // 利率设置
+            if (this.form.rate_mode === 'lpr') {
+                data.rate_mode = 'lpr';
+                data.rate_type = this.form.rate_type;
+                data.multiplier = parseFloat(this.form.multiplier) || 1;
+            } else {
+                data.rate_mode = 'custom';
+                data.custom_rate_unit = this.form.custom_rate_unit;
+                data.custom_rate_value = parseFloat(this.form.custom_rate_value) || 0;
+            }
 
             if (this.useChanges) {
                 // 过滤掉无效日期（如11月31日）
@@ -324,7 +357,7 @@ function lprCalculator() {
                         html += '<tr>';
                         html += `<td style="border: 1px solid #000; padding: 8px;">${this.formatDate(p.start_date)} ~ ${this.formatDate(p.end_date)}</td>`;
                         html += `<td style="border: 1px solid #000; padding: 8px;">${p.days}</td>`;
-                        html += `<td style="border: 1px solid #000; padding: 8px;">${p.rate}%</td>`;
+                        html += `<td style="border: 1px solid #000; padding: 8px;">${this.formatRateDisplay(p.rate, p.rate_unit)}</td>`;
                         html += `<td style="border: 1px solid #000; padding: 8px;">¥${this.formatMoney(p.interest)}</td>`;
                         html += '</tr>';
                     }
@@ -384,7 +417,7 @@ function lprCalculator() {
                         text += '期间 | 天数 | 利率 | 利息\n';
                         text += '-'.repeat(50) + '\n';
                         for (const p of group.periods) {
-                            text += `${this.formatDate(p.start_date)}~${this.formatDate(p.end_date)} | ${p.days} | ${p.rate}% | ¥${this.formatMoney(p.interest)}\n`;
+                            text += `${this.formatDate(p.start_date)}~${this.formatDate(p.end_date)} | ${p.days} | ${this.formatRateDisplay(p.rate, p.rate_unit)} | ¥${this.formatMoney(p.interest)}\n`;
                         }
                         text += '\n';
                     }
@@ -410,8 +443,11 @@ function lprCalculator() {
         reset() {
             this.useChanges = false;
             this.form.principal = '';
+            this.form.rate_mode = 'lpr';
             this.form.rate_type = '1y';
             this.form.multiplier = 1;
+            this.form.custom_rate_unit = 'percent';
+            this.form.custom_rate_value = '';
             this.form.year_days = 360;
             this.form.date_inclusion = 'both';
             this.form.changes = [{start_date: '', end_date: '', principal: ''}];

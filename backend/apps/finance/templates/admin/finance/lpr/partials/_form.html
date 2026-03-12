@@ -81,7 +81,19 @@
     <!-- 利率设置 -->
     <div class="lpr-calc__section">
         <div class="lpr-calc__section-title">{% trans "利率设置" %}</div>
-        <div class="lpr-calc__row">
+        
+        <!-- 利率模式切换 -->
+        <div class="lpr-calc__mode" style="margin-bottom: 16px;">
+            <button type="button" class="lpr-calc__mode-btn" :class="{active: form.rate_mode === 'lpr'}" @click="form.rate_mode = 'lpr'">
+                {% trans "LPR 利率" %}
+            </button>
+            <button type="button" class="lpr-calc__mode-btn" :class="{active: form.rate_mode === 'custom'}" @click="form.rate_mode = 'custom'">
+                {% trans "自定义利率" %}
+            </button>
+        </div>
+        
+        <!-- LPR 模式 -->
+        <div x-show="form.rate_mode === 'lpr'" class="lpr-calc__row">
             <div class="lpr-calc__field">
                 <label>{% trans "利率类型" %}</label>
                 <select x-model="form.rate_type">
@@ -92,6 +104,30 @@
             <div class="lpr-calc__field">
                 <label>{% trans "利率倍数" %}</label>
                 <input type="number" x-model="form.multiplier" step="0.1" placeholder="{% trans '如 1.5' %}">
+            </div>
+            <div class="lpr-calc__field">
+                <label>{% trans "计息基准" %}</label>
+                <select x-model="form.year_days">
+                    <option value="360">{% trans "360 天/年" %}</option>
+                    <option value="365">{% trans "365 天/年" %}</option>
+                    <option value="0">{% trans "实际天数" %}</option>
+                </select>
+            </div>
+        </div>
+        
+        <!-- 自定义利率模式 -->
+        <div x-show="form.rate_mode === 'custom'" class="lpr-calc__row">
+            <div class="lpr-calc__field">
+                <label>{% trans "利率单位" %}</label>
+                <select x-model="form.custom_rate_unit">
+                    <option value="percent">{% trans "百分之（%/年）" %}</option>
+                    <option value="permille">{% trans "千分之（‰/天）" %}</option>
+                    <option value="permyriad">{% trans "万分之（‱/天）" %}</option>
+                </select>
+            </div>
+            <div class="lpr-calc__field">
+                <label>{% trans "利率数值" %}</label>
+                <input type="number" x-model="form.custom_rate_value" step="0.01" placeholder="{% trans '请输入具体数值' %}">
             </div>
             <div class="lpr-calc__field">
                 <label>{% trans "计息基准" %}</label>

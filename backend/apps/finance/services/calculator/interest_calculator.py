@@ -113,6 +113,7 @@ class InterestCalculator:
     """LPR利息计算器.
 
     支持固定本金和变动本金两种计算模式。
+    支持LPR利率和自定义利率（百分之/千分之/万分之）。
     """
 
     def __init__(self, rate_service: LPRRateService | None = None) -> None:
@@ -136,6 +137,8 @@ class InterestCalculator:
         year_days: int = 365,
         multiplier: Decimal = Decimal("1"),
         date_inclusion: str = "both",
+        custom_rate_unit: str | None = None,
+        custom_rate_value: Decimal | None = None,
     ) -> InterestCalculationResult:
         """计算固定本金的利息.
 
@@ -143,10 +146,12 @@ class InterestCalculator:
             start_date: 开始日期
             end_date: 结束日期
             principal: 本金
-            rate_type: 利率类型，"1y" 或 "5y"
+            rate_type: 利率类型，"1y" 或 "5y"（LPR模式使用）
             year_days: 年基准天数，360/365/0(实际天数)
-            multiplier: 利率倍数（如逾期按LPR的1.5倍计算）
+            multiplier: 利率倍数（如逾期按LPR的1.5倍计算，LPR模式使用）
             date_inclusion: 日期计算方式，both/start_only/end_only/neither
+            custom_rate_unit: 自定义利率单位，percent/permille/permyriad
+            custom_rate_value: 自定义利率数值
 
         Returns:
             计算结果
@@ -166,16 +171,24 @@ class InterestCalculator:
         # 根据日期包含模式调整计算用日期
         calc_start, calc_end = self._apply_date_inclusion(start_date, end_date, date_inclusion)
 
-        # 获取利率分段
-        rate_segments = self.rate_service.get_rate_segments(calc_start, calc_end)
-
         # 创建本金时间段（固定本金只有一个时间段）
         principal_periods = [PrincipalPeriod(calc_start, calc_end, principal)]
 
-        # 交叉分段计算
-        return self._calculate_cross_segments(
-            principal_periods, rate_segments, rate_type, year_days, multiplier
-        )
+        # 判断使用自定义利率还是LPR利率
+        if custom_rate_unit and custom_rate_value is not None:
+            # 自定义利率模式
+            return self._calculate_with_custom_rate(
+                principal_periods, custom_rate_unit, custom_rate_value, year_days
+            )
+        else:
+            # LPR利率模式
+            # 获取利率分段
+            rate_segments = self.rate_service.get_rate_segments(calc_start, calc_end)
+
+            # 交叉分段计算
+            return self._calculate_cross_segments(
+                principal_periods, rate_segments, rate_type, year_days, multiplier
+            )
 
     def _apply_date_inclusion(
         self, start_date: date, end_date: date, date_inclusion: str
@@ -220,6 +233,8 @@ class InterestCalculator:
         year_days: int = 365,
         multiplier: Decimal = Decimal("1"),
         date_inclusion: str = "both",
+        custom_rate_unit: str | None = None,
+        custom_rate_value: Decimal | None = None,
     ) -> InterestCalculationResult:
         """计算变动本金的利息.
 
@@ -227,10 +242,12 @@ class InterestCalculator:
 
         Args:
             principal_periods: 本金变动时间段列表
-            rate_type: 利率类型，"1y" 或 "5y"
+            rate_type: 利率类型，"1y" 或 "5y"（LPR模式使用）
             year_days: 年基准天数，360/365/0(实际天数)
-            multiplier: 利率倍数
+            multiplier: 利率倍数（LPR模式使用）
             date_inclusion: 日期计算方式
+            custom_rate_unit: 自定义利率单位，percent/permille/permyriad
+            custom_rate_value: 自定义利率数值
 
         Returns:
             计算结果
@@ -253,16 +270,24 @@ class InterestCalculator:
             )
             adjusted_periods.append(PrincipalPeriod(calc_start, calc_end, pp.principal))
 
-        start_date = adjusted_periods[0].start_date
-        end_date = adjusted_periods[-1].end_date
+        # 判断使用自定义利率还是LPR利率
+        if custom_rate_unit and custom_rate_value is not None:
+            # 自定义利率模式
+            return self._calculate_with_custom_rate(
+                adjusted_periods, custom_rate_unit, custom_rate_value, year_days
+            )
+        else:
+            # LPR利率模式
+            start_date = adjusted_periods[0].start_date
+            end_date = adjusted_periods[-1].end_date
 
-        # 获取利率分段
-        rate_segments = self.rate_service.get_rate_segments(start_date, end_date)
+            # 获取利率分段
+            rate_segments = self.rate_service.get_rate_segments(start_date, end_date)
 
-        # 交叉分段计算
-        return self._calculate_cross_segments(
-            adjusted_periods, rate_segments, rate_type, year_days, multiplier
-        )
+            # 交叉分段计算
+            return self._calculate_cross_segments(
+                adjusted_periods, rate_segments, rate_type, year_days, multiplier
+            )
 
     def _calculate_cross_segments(
         self,
@@ -375,6 +400,97 @@ class InterestCalculator:
 
         # 注意：时间段之间允许有空隙，不强制连续
         # 例如：第一段10/01-10/31，第二段11/01-11/30 是合法的（即使中间有空隙）
+
+    def _calculate_with_custom_rate(
+        self,
+        principal_periods: list[PrincipalPeriod],
+        custom_rate_unit: str,
+        custom_rate_value: Decimal,
+        year_days: int,
+    ) -> InterestCalculationResult:
+        """使用自定义利率计算.
+
+        百分之X = X%每年，千分之X和万分之X = X每天。
+
+        Args:
+            principal_periods: 本金时间段列表
+            custom_rate_unit: 自定义利率单位
+            custom_rate_value: 自定义利率数值
+            year_days: 年基准天数（仅百分之模式使用）
+
+        Returns:
+            计算结果
+        """
+        periods: list[CalculationPeriod] = []
+        total_interest = Decimal("0")
+        total_days = 0
+
+        for pp in principal_periods:
+            # 计算天数（闭区间，包含起止日期）
+            days = (pp.end_date - pp.start_date).days + 1
+
+            # 根据利率单位类型计算利息
+            if custom_rate_unit == "percent":
+                # 百分之X = X%每年
+                annual_rate = custom_rate_value
+                actual_year_days = self._get_year_days(pp.start_date, pp.end_date, year_days)
+                # 利息 = 本金 × 年利率% × 天数 / 年基准天数
+                rate_decimal = annual_rate / Decimal("100")
+                interest = pp.principal * rate_decimal * Decimal(days) / Decimal(actual_year_days)
+            elif custom_rate_unit == "permille":
+                # 千分之X = X每天（直接乘以天数）
+                # 利息 = 本金 × 千分之X × 天数
+                rate_decimal = custom_rate_value / Decimal("1000")
+                interest = pp.principal * rate_decimal * Decimal(days)
+            elif custom_rate_unit == "permyriad":
+                # 万分之X = X每天（直接乘以天数）
+                # 利息 = 本金 × 万分之X × 天数
+                rate_decimal = custom_rate_value / Decimal("10000")
+                interest = pp.principal * rate_decimal * Decimal(days)
+            else:
+                # 默认按百分之处理
+                annual_rate = custom_rate_value
+                actual_year_days = self._get_year_days(pp.start_date, pp.end_date, year_days)
+                rate_decimal = annual_rate / Decimal("100")
+                interest = pp.principal * rate_decimal * Decimal(days) / Decimal(actual_year_days)
+
+            # 创建计算单元（保存原始利率值和利率单位类型）
+            period = CalculationPeriod(
+                start_date=pp.start_date,
+                end_date=pp.end_date,
+                principal=pp.principal,
+                rate=custom_rate_value,  # 保存原始利率值
+                days=days,
+                year_days=actual_year_days if custom_rate_unit == "percent" else 0,
+            )
+            # 保存利率单位信息供前端显示使用
+            period.rate_unit = custom_rate_unit  # type: ignore[attr-defined]
+            period.interest = interest.quantize(Decimal("0.01"))
+            periods.append(period)
+
+            total_interest += period.interest
+            total_days += days
+
+        if not periods:
+            raise ValidationException(
+                message=_("无法计算利息，请检查日期范围"),
+                code="CALCULATION_FAILED"
+            )
+
+        # 计算加权平均本金
+        total_principal_weighted = sum(
+            Decimal(str(p.principal)) * p.days for p in periods
+        )
+        total_principal = (total_principal_weighted / Decimal(str(total_days))).quantize(Decimal("0.01")) if total_days > 0 else Decimal("0")
+
+        return InterestCalculationResult(
+            total_interest=total_interest.quantize(Decimal("0.01")),
+            total_principal=total_principal.quantize(Decimal("0.01")),
+            total_days=total_days,
+            periods=periods,
+            start_date=periods[0].start_date,
+            end_date=periods[-1].end_date,
+        )
 
     def _get_year_days(self, start_date: date, end_date: date, year_days: int) -> int:
         """确定年基准天数.

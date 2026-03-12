@@ -220,6 +220,8 @@ def calculate_interest(
             year_days=data.year_days,
             multiplier=data.multiplier,
             date_inclusion=data.date_inclusion,
+            custom_rate_unit=data.custom_rate_unit if data.rate_mode == "custom" else None,
+            custom_rate_value=data.custom_rate_value if data.rate_mode == "custom" else None,
         )
     else:
         # 固定本金计算 - 验证必需参数
@@ -238,6 +240,8 @@ def calculate_interest(
             year_days=data.year_days,
             multiplier=data.multiplier,
             date_inclusion=data.date_inclusion,
+            custom_rate_unit=data.custom_rate_unit if data.rate_mode == "custom" else None,
+            custom_rate_value=data.custom_rate_value if data.rate_mode == "custom" else None,
         )
 
     return InterestCalculateResponse(
@@ -253,6 +257,7 @@ def calculate_interest(
                 "end_date": p.end_date,
                 "principal": p.principal,
                 "rate": p.rate,
+                "rate_unit": getattr(p, "rate_unit", None),
                 "days": p.days,
                 "year_days": p.year_days,
                 "interest": p.interest,
