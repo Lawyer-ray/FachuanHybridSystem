@@ -195,12 +195,6 @@ class AccountCredentialService:
             raise NotFoundError(message=_("凭证不存在"), code="CREDENTIAL_NOT_FOUND")
         logger.info("登录失败统计已更新", extra={"credential_id": credential_id, "action": "update_login_failure"})
 
-    def batch_mark_preferred(self, credential_ids: list[int]) -> int:
-        return AccountCredential.objects.filter(id__in=credential_ids).update(is_preferred=True)
-
-    def batch_unmark_preferred(self, credential_ids: list[int]) -> int:
-        return AccountCredential.objects.filter(id__in=credential_ids).update(is_preferred=False)
-
     def filter_by_ids_and_site(
         self,
         credential_ids: list[int],
@@ -216,7 +210,7 @@ class AccountCredentialService:
         return (
             self._get_base_queryset()
             .filter(Q(site_name=site_name) | Q(url__icontains=url_keyword))
-            .order_by("-is_preferred", "-last_login_success_at")
+            .order_by("-last_login_success_at")
         )
 
     def get_credential_by_account(self, account: str, site_name: str) -> AccountCredential:

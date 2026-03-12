@@ -30,13 +30,12 @@ class AccountCredentialAdmin(admin.ModelAdmin[AccountCredential]):
         "lawyer",
         "site_name",
         "account",
-        "is_preferred",
         "created_at",
     ]
 
     search_fields: ClassVar[tuple[str, ...]] = ("site_name", "url", "account", "lawyer__username", "lawyer__real_name")
 
-    list_filter: ClassVar[list[str]] = ["site_name", "is_preferred", "lawyer", "last_login_success_at", "created_at"]
+    list_filter: ClassVar[list[str]] = ["site_name", "lawyer", "last_login_success_at", "created_at"]
 
     autocomplete_fields: ClassVar[tuple[str, ...]] = ("lawyer",)
 
@@ -53,7 +52,7 @@ class AccountCredentialAdmin(admin.ModelAdmin[AccountCredential]):
         (_("基本信息"), {"fields": ("id", "lawyer", "site_name", "url", "account", "password")}),
         (
             _("登录统计"),
-            {"fields": ("login_statistics_display", "success_rate_display", "last_login_display", "is_preferred")},
+            {"fields": ("login_statistics_display", "success_rate_display", "last_login_display")},
         ),
         (_("时间信息"), {"fields": ("created_at", "updated_at")}),
     )
@@ -64,14 +63,15 @@ class AccountCredentialAdmin(admin.ModelAdmin[AccountCredential]):
 
     list_per_page = 50
 
-    actions: ClassVar[list[str]] = ["mark_as_preferred", "unmark_as_preferred"]
-
     def get_form(
         self, request: HttpRequest, obj: AccountCredential | None = None, **kwargs: Any
     ) -> type[forms.ModelForm]:  # type: ignore[override]
         form = super().get_form(request, obj, **kwargs)
         if "password" in form.base_fields:
             form.base_fields["password"].widget = forms.PasswordInput(render_value=True)
+        # URL 字段使用普通文本输入框，隐藏 "Currently" 和 "Change"
+        if "url" in form.base_fields:
+            form.base_fields["url"].widget = forms.TextInput(attrs={"class": "vTextField"})
         return form
 
     @admin.display(description=_("成功/失败次数"))
@@ -140,24 +140,6 @@ class AccountCredentialAdmin(admin.ModelAdmin[AccountCredential]):
             )
         else:
             return format_html('<span style="color: #999;">{}</span>', _("不支持"))
-
-    @admin.action(description=_("标记为优先账号"))
-    def mark_as_preferred(self, request: HttpRequest, queryset: QuerySet[AccountCredential]) -> None:
-        credential_ids: list[int] = list(queryset.values_list("id", flat=True))
-        count: int = _credential_service.batch_mark_preferred(credential_ids)
-        self.message_user(
-            request,
-            _("已将 %(count)d 个账号标记为优先使用") % {"count": count},
-        )
-
-    @admin.action(description=_("取消优先标记"))
-    def unmark_as_preferred(self, request: HttpRequest, queryset: QuerySet[AccountCredential]) -> None:
-        credential_ids: list[int] = list(queryset.values_list("id", flat=True))
-        count: int = _credential_service.batch_unmark_preferred(credential_ids)
-        self.message_user(
-            request,
-            _("已取消 %(count)d 个账号的优先标记") % {"count": count},
-        )
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[AccountCredential]:
         return super().get_queryset(request).select_related("lawyer")

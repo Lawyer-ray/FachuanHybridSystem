@@ -1,0 +1,307 @@
+# Finance Module Translation
+# Copyright (C) 2026
+# This file is distributed under the same license as the PACKAGE package.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-12 20:00+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: zh_Hans\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#: apps/finance/apps.py:12
+msgid "金融工具"
+msgstr ""
+
+#: apps/finance/models/lpr_rate.py:29
+msgid "生效日期"
+msgstr ""
+
+#: apps/finance/models/lpr_rate.py:30
+msgid "LPR利率生效日期，通常为每月20日"
+msgstr ""
+
+#: apps/finance/models/lpr_rate.py:35
+msgid "一年期LPR(%)"
+msgstr ""
+
+#: apps/finance/models/lpr_rate.py:36
+msgid "一年期贷款市场报价利率"
+msgstr ""
+
+#: apps/finance/models/lpr_rate.py:41
+msgid "五年期LPR(%)"
+msgstr ""
+
+#: apps/finance/models/lpr_rate.py:42
+msgid "五年期以上贷款市场报价利率"
+msgstr ""
+
+#: apps/finance/models/lpr_rate.py:47
+msgid "数据来源"
+msgstr ""
+
+#: apps/finance/models/lpr_rate.py:48
+msgid "数据来源说明，如：中国人民银行官网"
+msgstr ""
+
+#: apps/finance/models/lpr_rate.py:52
+msgid "自动同步"
+msgstr ""
+
+#: apps/finance/models/lpr_rate.py:53
+msgid "是否通过系统自动同步获取"
+msgstr ""
+
+#: apps/finance/models/lpr_rate.py:57
+msgid "创建时间"
+msgstr ""
+
+#: apps/finance/models/lpr_rate.py:61
+msgid "更新时间"
+msgstr ""
+
+#: apps/finance/models/lpr_rate.py:68 apps/finance/models/lpr_rate.py:69
+msgid "LPR利率"
+msgstr ""
+
+#: apps/finance/admin/lpr_admin.py:87
+msgid "元数据"
+msgstr ""
+
+#: apps/finance/admin/lpr_admin.py:150
+#, python-format
+msgid ""
+"LPR数据同步成功：新增 %(created)s 条，更新 %(updated)s 条，跳过 %(skipped)s 条"
+msgstr ""
+
+#: apps/finance/admin/lpr_admin.py:173
+msgid "LPR利息计算器"
+msgstr ""
+
+#: apps/finance/services/lpr/sync_service.py:83
+msgid "Chrome 启动失败，请手动启动后重试"
+msgstr ""
+
+#: apps/finance/services/lpr/sync_service.py:110
+msgid "无法从央行官网获取LPR数据，未找到有效数据"
+msgstr ""
+
+#: apps/finance/services/lpr/rate_service.py:71
+#, python-format
+msgid "缺少 %(date)s 之前的LPR利率数据"
+msgstr ""
+
+#: apps/finance/services/lpr/rate_service.py:125
+#: apps/finance/services/lpr/rate_service.py:152
+#, python-format
+msgid "缺少 %(start)s 至 %(end)s 期间的LPR利率数据"
+msgstr ""
+
+#: apps/finance/services/lpr/rate_service.py:172
+msgid "系统中没有LPR利率数据"
+msgstr ""
+
+#: apps/finance/services/calculator/interest_calculator.py:161
+msgid "开始日期必须早于或等于结束日期"
+msgstr ""
+
+#: apps/finance/services/calculator/interest_calculator.py:167
+msgid "本金必须大于0"
+msgstr ""
+
+#: apps/finance/services/calculator/interest_calculator.py:257
+msgid "本金时间段不能为空"
+msgstr ""
+
+#: apps/finance/services/calculator/interest_calculator.py:356
+#: apps/finance/services/calculator/interest_calculator.py:476
+msgid "无法计算利息，请检查日期范围和利率数据"
+msgstr ""
+
+#: apps/finance/services/calculator/interest_calculator.py:390
+#, python-format
+msgid "第%(index)s段本金必须大于0"
+msgstr ""
+
+#: apps/finance/services/calculator/interest_calculator.py:397
+#, python-format
+msgid "第%(index)s段开始日期不能晚于结束日期"
+msgstr ""
+
+# Templates
+msgid "利息/违约金计算器"
+msgstr ""
+
+msgid "← 返回"
+msgstr ""
+
+msgid "固定本金"
+msgstr ""
+
+msgid "变动本金"
+msgstr ""
+
+msgid "本金与期限"
+msgstr ""
+
+msgid "开始日期"
+msgstr ""
+
+msgid "结束日期"
+msgstr ""
+
+msgid "本金金额（元）"
+msgstr ""
+
+msgid "请输入本金金额"
+msgstr ""
+
+msgid "日期计算方式"
+msgstr ""
+
+msgid "起止日期均计算在内"
+msgstr ""
+
+msgid "只计起始日"
+msgstr ""
+
+msgid "只计截止日"
+msgstr ""
+
+msgid "起止均不计"
+msgstr ""
+
+msgid "本金变动记录"
+msgstr ""
+
+msgid "本金（元）"
+msgstr ""
+
+msgid "本金金额"
+msgstr ""
+
+msgid "添加本金变动"
+msgstr ""
+
+msgid "利率设置"
+msgstr ""
+
+msgid "LPR 利率"
+msgstr ""
+
+msgid "自定义利率"
+msgstr ""
+
+msgid "利率类型"
+msgstr ""
+
+msgid "一年期 LPR"
+msgstr ""
+
+msgid "五年期以上 LPR"
+msgstr ""
+
+msgid "利率倍数"
+msgstr ""
+
+msgid "如 1.5"
+msgstr ""
+
+msgid "计息基准"
+msgstr ""
+
+msgid "360 天/年"
+msgstr ""
+
+msgid "365 天/年"
+msgstr ""
+
+msgid "实际天数"
+msgstr ""
+
+msgid "利率单位"
+msgstr ""
+
+msgid "百分之（%/年）"
+msgstr ""
+
+msgid "千分之（‰/天）"
+msgstr ""
+
+msgid "万分之（‱/天）"
+msgstr ""
+
+msgid "利率数值"
+msgstr ""
+
+msgid "请输入具体数值"
+msgstr ""
+
+msgid "计算利息"
+msgstr ""
+
+msgid "重置表单"
+msgstr ""
+
+msgid "历史记录"
+msgstr ""
+
+msgid "计算历史"
+msgstr ""
+
+msgid "清空"
+msgstr ""
+
+msgid "暂无历史记录"
+msgstr ""
+
+msgid "加载"
+msgstr ""
+
+msgid "计算明细"
+msgstr ""
+
+msgid "收起"
+msgstr ""
+
+msgid "展开"
+msgstr ""
+
+msgid "复制明细"
+msgstr ""
+
+msgid "本金"
+msgstr ""
+
+msgid "计息期间"
+msgstr ""
+
+msgid "天数"
+msgstr ""
+
+msgid "利息"
+msgstr ""
+
+msgid "合计"
+msgstr ""
+
+msgid "期间"
+msgstr ""
+
+msgid "利率"
+msgstr ""
+
+msgid "总计"
+msgstr ""
+
+msgid "天"
+msgstr ""

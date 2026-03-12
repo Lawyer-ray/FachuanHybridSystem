@@ -240,13 +240,14 @@
     margin: 16px 0;
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    gap: 20px;
 }
 
 .ir-total-section .total-label {
     font-size: 0.9rem;
     color: #4a7a5e;
     font-weight: 500;
+    flex-shrink: 0;
 }
 
 .ir-total-section .total-amount {
@@ -254,6 +255,13 @@
     font-weight: 700;
     color: #1a6b3c;
     letter-spacing: -0.02em;
+}
+
+.ir-total-section .total-amount-cn {
+    font-size: 1rem;
+    color: #3d6b52;
+    margin-left: auto;
+    font-weight: 500;
 }
 
 /* Download Buttons (全部下载) */

@@ -195,6 +195,7 @@
             <div class="ir-total-section">
                 <span class="total-label">{% trans "非重复发票总金额" %}</span>
                 <span class="total-amount">¥<span x-text="parseFloat(total || 0).toFixed(2)"></span></span>
+                <span class="total-amount-cn" x-text="numberToChinese(total)"></span>
             </div>
 
             <div class="ir-section-title">{% trans "下载全部发票" %}</div>
@@ -498,6 +499,35 @@ function invoiceApp() {
 
         downloadAll(fmt) {
             window.location.href = `/api/v1/automation/invoice-recognition/${this.taskId}/download?scope=all&fmt=${fmt}`;
+        },
+
+        numberToChinese(amount) {
+            if (!amount || parseFloat(amount) === 0) return '零元整';
+            const num = parseFloat(amount);
+            const chineseNums = ['零', '壹', '贰', '叁', '肆', '伍', '陆', '柒', '捌', '玖'];
+            const chineseUnits = ['', '拾', '佰', '仟', '万', '拾', '佰', '仟', '亿'];
+            const integerPart = Math.floor(num).toString().padStart(9, '0');
+            let result = '';
+            for (let i = 0; i < 9; i++) {
+                const digit = parseInt(integerPart[i]);
+                if (digit !== 0) {
+                    result += chineseNums[digit] + chineseUnits[8 - i];
+                } else if (result && !result.endsWith('零')) {
+                    result += '零';
+                }
+            }
+            result = result.replace(/零+$/, '') || '零';
+            result += '元';
+            const decimal = Math.round((num - Math.floor(num)) * 100);
+            const jiao = Math.floor(decimal / 10);
+            const fen = decimal % 10;
+            if (jiao === 0 && fen === 0) {
+                result += '整';
+            } else {
+                if (jiao !== 0) result += chineseNums[jiao] + '角';
+                if (fen !== 0) result += chineseNums[fen] + '分';
+            }
+            return result;
         }
     };
 }

@@ -20,7 +20,6 @@ class AccountCredentialDTO:
     last_login_success_at: str | None = None
     login_success_count: int = 0
     login_failure_count: int = 0
-    is_preferred: bool = False
     created_at: str | None = None
     updated_at: str | None = None
 
@@ -36,7 +35,6 @@ class AccountCredentialDTO:
             last_login_success_at=(str(credential.last_login_success_at) if credential.last_login_success_at else None),
             login_success_count=credential.login_success_count,
             login_failure_count=credential.login_failure_count,
-            is_preferred=credential.is_preferred,
             created_at=(str(credential.created_at) if credential.created_at else None),
             updated_at=(str(credential.updated_at) if credential.updated_at else None),
         )
