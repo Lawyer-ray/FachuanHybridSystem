@@ -69,9 +69,18 @@ class InterestCalculateRequest(Schema):
     start_date: date | None = Field(None, description="开始日期（固定本金模式必填）")
     end_date: date | None = Field(None, description="结束日期（固定本金模式必填）")
     principal: Decimal | None = Field(None, description="本金（固定本金模式必填）")
-    rate_type: Literal["1y", "5y"] = Field("1y", description="利率类型")
+    # 利率模式
+    rate_mode: Literal["lpr", "custom"] = Field("lpr", description="利率模式: lpr=LPR利率, custom=自定义利率")
+    # LPR模式参数
+    rate_type: Literal["1y", "5y"] = Field("1y", description="利率类型（LPR模式）")
+    multiplier: Decimal = Field(Decimal("1"), description="利率倍数（LPR模式）")
+    # 自定义利率模式参数
+    custom_rate_unit: Literal["percent", "permille", "permyriad"] = Field(
+        "percent", description="自定义利率单位: percent=百分之, permille=千分之, permyriad=万分之"
+    )
+    custom_rate_value: Decimal | None = Field(None, description="自定义利率数值（如5表示千分之5）")
+    # 通用参数
     year_days: int = Field(360, description="年基准天数(360/365/0实际天数)")
-    multiplier: Decimal = Field(Decimal("1"), description="利率倍数")
     date_inclusion: Literal["both", "start_only", "end_only", "neither"] = Field(
         "both", description="日期计算方式: both=均计算在内, start_only=仅起始日期, end_only=仅截止日期, neither=均不计算"
     )
@@ -87,6 +96,7 @@ class CalculationPeriodSchema(Schema):
     end_date: date
     principal: Decimal
     rate: Decimal
+    rate_unit: str | None = Field(None, description="利率单位: percent/permille/permyriad")
     days: int
     year_days: int
     interest: Decimal

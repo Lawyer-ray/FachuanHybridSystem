@@ -1,7 +1,7 @@
 {% extends "admin/base_site.html" %}
 {% load i18n static %}
 
-{% block title %}{% trans "LPR利息计算器" %}{% endblock %}
+{% block title %}{% trans "利息/违约金计算器" %}{% endblock %}
 
 {% block extrahead %}
 {{ block.super }}
@@ -310,7 +310,7 @@
 {% block content %}
 <div class="lpr-calc" x-data="lprCalculator()" x-init="init()">
     <div class="lpr-calc__nav">
-        <h1 class="lpr-calc__nav-title">{% trans "LPR利息计算器" %}</h1>
+        <h1 class="lpr-calc__nav-title">{% trans "利息/违约金计算器" %}</h1>
         <a href="{% url 'admin:finance_lprrate_changelist' %}" class="lpr-calc__nav-back">{% trans "← 返回" %}</a>
     </div>
 

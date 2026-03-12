@@ -6,13 +6,16 @@ URL configuration for apiSystem project.
 - /api/ - 重定向到 /api/v1/
 """
 
+from typing import Any
+
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import render
-from django.urls import include, path
+from django.template.response import TemplateResponse
+from django.urls import URLPattern, include, path
 from django.utils.translation import gettext_lazy as _
 
 from apps.organization.views import register
@@ -45,10 +48,64 @@ _original_get_app_list = admin.site.__class__.get_app_list
 def _sorted_get_app_list(self: admin.AdminSite, request: HttpRequest, app_label: str | None = None) -> list:  # type: ignore[override]
     app_list = _original_get_app_list(self, request, app_label)
     app_list.sort(key=lambda a: _APP_ORDER.index(a["app_label"]) if a["app_label"] in _APP_ORDER else 999)
+
+    # 向 finance app 添加 LPR 计算器链接
+    for app in app_list:
+        if app.get("app_label") == "finance":
+            # 添加计算器作为虚拟模型项
+            calculator_model = {
+                "name": _("利息/违约金计算器"),
+                "object_name": "LPRCalculator",
+                "perms": {"add": False, "change": False, "delete": False, "view": True},
+                "admin_url": "/admin/finance/calculator/",
+                "add_url": None,
+                "view_only": True,
+            }
+            # 插入到 models 列表开头
+            if "models" in app:
+                app["models"].insert(0, calculator_model)
+            else:
+                app["models"] = [calculator_model]
+            break
+
     return app_list
 
 
 admin.site.__class__.get_app_list = _sorted_get_app_list  # type: ignore[method-assign]
+
+
+def lpr_calculator_view(request: HttpRequest) -> TemplateResponse:
+    """LPR利息计算器独立视图."""
+    from apps.finance.models.lpr_rate import LPRRate
+
+    # 获取最新的几条利率记录用于参考
+    recent_rates = LPRRate.objects.all()[:10]
+
+    context: dict[str, Any] = {
+        **admin.site.each_context(request),
+        "title": _("利息/违约金计算器"),
+        "recent_rates": recent_rates,
+    }
+    return render(request, "admin/finance/lpr/calculator.html", context)
+
+
+# 注册 LPR 计算器 URL 到 admin site
+_original_get_urls = admin.site.get_urls
+
+
+def _get_urls_with_calculator() -> list[URLPattern]:
+    urls = _original_get_urls()
+    custom_urls: list[URLPattern] = [
+        path(
+            "finance/calculator/",
+            admin.site.admin_view(lpr_calculator_view),
+            name="finance_lpr_calculator",
+        ),
+    ]
+    return custom_urls + urls
+
+
+admin.site.get_urls = _get_urls_with_calculator  # type: ignore[method-assign]
 
 
 def index_view(request: HttpRequest) -> HttpResponse:

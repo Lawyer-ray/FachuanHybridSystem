@@ -69,7 +69,7 @@
                                 <tr>
                                     <td x-text="formatDate(period.start_date) + ' ~ ' + formatDate(period.end_date)"></td>
                                     <td x-text="period.days"></td>
-                                    <td x-text="period.rate + '%'" style="white-space: nowrap;"></td>
+                                    <td x-text="formatRateDisplay(period.rate, period.rate_unit)" style="white-space: nowrap;"></td>
                                     <td x-text="'¥' + formatMoney(period.interest)"></td>
                                 </tr>
                             </template>
