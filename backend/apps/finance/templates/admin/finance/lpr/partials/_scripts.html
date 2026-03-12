@@ -46,7 +46,8 @@ function lprCalculator() {
                     total_interest: this.result.total_interest,
                     total_days: this.result.total_days,
                     total_principal: this.result.total_principal
-                }
+                },
+                rateInfo: this.getRateInfo()
             };
             
             this.history.unshift(historyItem);
@@ -55,6 +56,27 @@ function lprCalculator() {
             }
             
             localStorage.setItem('lpr_calculator_history', JSON.stringify(this.history));
+        },
+
+        getRateInfo() {
+            // 生成利率信息的简短描述
+            if (this.form.rate_mode === 'lpr') {
+                const rateType = this.form.rate_type === '1y' ? "{% trans '一年期' %}" : "{% trans '五年期' %}";
+                return `LPR ${rateType} · ${this.form.multiplier}{% trans '倍' %}`;
+            } else if (this.form.rate_mode === 'delay') {
+                return "{% trans '迟延履行' %} · 1.75‱/{% trans '天' %}";
+            } else {
+                // 自定义利率
+                let unitText = '';
+                if (this.form.custom_rate_unit === 'percent') {
+                    unitText = '%/{% trans '年' %}';
+                } else if (this.form.custom_rate_unit === 'permille') {
+                    unitText = '‰/{% trans '天' %}';
+                } else if (this.form.custom_rate_unit === 'permyriad') {
+                    unitText = '‱/{% trans '天' %}';
+                }
+                return "{% trans '自定义' %} · " + this.form.custom_rate_value + unitText;
+            }
         },
 
         loadFromHistory(item) {
@@ -244,6 +266,11 @@ function lprCalculator() {
                 data.rate_mode = 'lpr';
                 data.rate_type = this.form.rate_type;
                 data.multiplier = parseFloat(this.form.multiplier) || 1;
+            } else if (this.form.rate_mode === 'delay') {
+                // 迟延履行利率：固定万分之1.75/天
+                data.rate_mode = 'custom';
+                data.custom_rate_unit = 'permyriad';
+                data.custom_rate_value = 1.75;
             } else {
                 data.rate_mode = 'custom';
                 data.custom_rate_unit = this.form.custom_rate_unit;

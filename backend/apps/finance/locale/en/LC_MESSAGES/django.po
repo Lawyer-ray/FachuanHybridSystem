@@ -202,6 +202,24 @@ msgstr "LPR Rate"
 msgid "自定义利率"
 msgstr "Custom Rate"
 
+msgid "迟延履行利率"
+msgstr "Delay Performance Rate"
+
+msgid "一年期"
+msgstr "1-Year"
+
+msgid "五年期"
+msgstr "5-Year"
+
+msgid "倍"
+msgstr "x"
+
+msgid "迟延履行"
+msgstr "Delay Performance"
+
+msgid "自定义"
+msgstr "Custom"
+
 msgid "利率类型"
 msgstr "Rate Type"
 
