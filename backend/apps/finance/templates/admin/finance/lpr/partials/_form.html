@@ -90,6 +90,9 @@
             <button type="button" class="lpr-calc__mode-btn" :class="{active: form.rate_mode === 'custom'}" @click="form.rate_mode = 'custom'">
                 {% trans "自定义利率" %}
             </button>
+            <button type="button" class="lpr-calc__mode-btn" :class="{active: form.rate_mode === 'delay'}" @click="form.rate_mode = 'delay'">
+                {% trans "迟延履行利率" %}
+            </button>
         </div>
         
         <!-- LPR 模式 -->
@@ -138,6 +141,26 @@
                 </select>
             </div>
         </div>
+        
+        <!-- 迟延履行利率模式 -->
+        <div x-show="form.rate_mode === 'delay'" class="lpr-calc__row">
+            <div class="lpr-calc__field">
+                <label>{% trans "利率单位" %}</label>
+                <input type="text" value="{% trans '万分之（‱/天）' %}" disabled style="background: #f3f4f6; color: #6b7280;">
+            </div>
+            <div class="lpr-calc__field">
+                <label>{% trans "利率数值" %}</label>
+                <input type="number" value="1.75" disabled style="background: #f3f4f6; color: #6b7280;">
+            </div>
+            <div class="lpr-calc__field">
+                <label>{% trans "计息基准" %}</label>
+                <select x-model="form.year_days">
+                    <option value="360">{% trans "360 天/年" %}</option>
+                    <option value="365">{% trans "365 天/年" %}</option>
+                    <option value="0">{% trans "实际天数" %}</option>
+                </select>
+            </div>
+        </div>
     </div>
 
     <!-- 操作按钮 -->
@@ -174,9 +197,12 @@
                             <span x-text="item.useChanges ? '{% trans "变动本金" %}' : '{% trans "固定本金" %}'"></span>
                             <span x-text="'· ¥' + formatMoney(item.result.total_interest)" style="color: #417690;"></span>
                         </div>
-                        <div style="font-size: 11px; color: #6b7280;">
+                        <div style="font-size: 11px; color: #6b7280; margin-bottom: 2px;">
                             <span x-text="formatHistoryTime(item.timestamp)"></span>
                             <span x-text="'· ' + item.result.total_days + '{% trans "天" %}'"></span>
+                        </div>
+                        <div style="font-size: 10px; color: #9ca3af;">
+                            <span x-text="item.rateInfo" style="background: #f3f4f6; padding: 1px 6px; border-radius: 4px;"></span>
                         </div>
                     </div>
                     <button type="button" @click="loadFromHistory(item)" style="font-size: 11px; color: #417690; background: #f0f7fa; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; white-space: nowrap;">
