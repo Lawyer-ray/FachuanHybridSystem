@@ -25,7 +25,6 @@ class AccountCredential(models.Model):
     last_login_success_at = models.DateTimeField(null=True, blank=True, verbose_name=_("最后成功登录时间"))
     login_success_count = models.PositiveIntegerField(default=0, verbose_name=_("成功登录次数"))
     login_failure_count = models.PositiveIntegerField(default=0, verbose_name=_("失败登录次数"))
-    is_preferred = models.BooleanField(default=False, verbose_name=_("是否优先使用"))
 
     class Meta:
         verbose_name = _("账号密码")
@@ -33,7 +32,6 @@ class AccountCredential(models.Model):
         ordering: ClassVar = ["-last_login_success_at", "-login_success_count", "login_failure_count"]
         indexes: ClassVar = [
             models.Index(fields=["site_name", "-last_login_success_at"]),
-            models.Index(fields=["site_name", "is_preferred"]),
         ]
 
     def __str__(self) -> str:
