@@ -75,11 +75,6 @@ msgstr "Not Supported"
 msgid "标记为优先账号"
 msgstr "Mark as Preferred Account"
 
-#: apps/organization/admin/accountcredential_admin.py:155
-#, python-format
-msgid "已将 %(count)d 个账号标记为优先使用"
-msgstr "Marked %(count)d accounts as preferred"
-
 #: apps/organization/admin/accountcredential_admin.py:158
 msgid "取消优先标记"
 msgstr "Remove Preferred Mark"
@@ -183,10 +178,6 @@ msgstr "Successful Login Count"
 #: apps/organization/models/credential.py:27
 msgid "失败登录次数"
 msgstr "Failed Login Count"
-
-#: apps/organization/models/credential.py:28
-msgid "是否优先使用"
-msgstr "Is Preferred"
 
 #: apps/organization/models/credential.py:31
 #: apps/organization/models/credential.py:32
