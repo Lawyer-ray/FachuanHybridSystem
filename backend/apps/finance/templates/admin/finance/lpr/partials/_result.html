@@ -52,7 +52,7 @@
                 <div style="margin-bottom: 16px;">
                     <!-- 分组标题 -->
                     <div style="background: #f0f7fa; padding: 8px 12px; border-radius: 6px 6px 0 0; font-weight: 600; color: #417690; border: 1px solid #e0eff5; border-bottom: none;">
-                        <span x-text="'本金: ¥' + formatMoney(group.principal) + ' | 天数: ' + group.totalDays + ' | 利息: ¥' + formatMoney(group.totalInterest)"></span>
+                        <span x-text="'{% trans "本金" %}: ¥' + formatMoney(group.principal) + ' | {% trans "天数" %}: ' + group.totalDays + ' | {% trans "利息" %}: ¥' + formatMoney(group.totalInterest)"></span>
                     </div>
                     <!-- 分组明细表格 -->
                     <table class="lpr-calc__detail-table" style="border-top-left-radius: 0; border-top-right-radius: 0;">

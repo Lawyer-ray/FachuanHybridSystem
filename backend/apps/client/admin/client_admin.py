@@ -206,7 +206,7 @@ class ClientAdmin(AdminImportExportMixin, admin.ModelAdmin[Client]):
 
         credential = (
             AccountCredential.objects.filter(site_name="国家企业信用信息公示系统")
-            .order_by("-is_preferred", "-last_login_success_at")
+            .order_by("-last_login_success_at")
             .first()
         )
         if not credential:

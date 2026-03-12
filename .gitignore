@@ -71,6 +71,8 @@ backend/apiSystem/htmlcov/
 .trae/
 # CodeBuddy IDE
 .codebuddy/
+CODEBUDDY.md
+AGENTS.md
 # Agent/skill artifacts
 .agents/
 # Logs

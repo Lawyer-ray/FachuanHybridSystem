@@ -153,10 +153,7 @@ class AccountSelectionStrategy:
 
         # 按优先级排序
         def sort_key(account: AccountCredentialDTO) -> float:
-            # 1. 优先使用preferred账号
-            preferred_score = 1000.0 if account.is_preferred else 0.0
-
-            # 2. 最近成功登录时间（越近越好）
+            # 1. 最近成功登录时间（越近越好）
             if account.last_login_success_at:
                 from datetime import datetime
 
@@ -168,17 +165,17 @@ class AccountSelectionStrategy:
             else:
                 recency_score = 0.0  # 从未成功登录
 
-            # 3. 成功次数
+            # 2. 成功次数
             success_score = min(float(account.login_success_count), 50.0)  # 最多50分
 
-            # 4. 成功率（避免除零）
+            # 3. 成功率（避免除零）
             total_attempts = account.login_success_count + account.login_failure_count
             if total_attempts > 0:
                 success_rate_score = (account.login_success_count / total_attempts) * 20
             else:
                 success_rate_score = 10.0  # 新账号给予中等分数
 
-            return -(preferred_score + recency_score + success_score + success_rate_score)
+            return -(recency_score + success_score + success_rate_score)
 
         # 排序并选择最优账号
         sorted_accounts = sorted(accounts, key=sort_key)

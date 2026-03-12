@@ -107,17 +107,19 @@ function lprCalculator() {
             // rateUnit 可以是 period 对象中的 rate_unit，或者是当前表单的 custom_rate_unit
             const unit = rateUnit || this.form.custom_rate_unit;
             const rateNum = parseFloat(rate) || 0;
+            const yearLabel = "{% trans '年' %}";
+            const dayLabel = "{% trans '天' %}";
 
             if (this.form.rate_mode === 'lpr') {
-                return rateNum.toFixed(2) + '%/年';
+                return rateNum.toFixed(2) + '%/' + yearLabel;
             } else {
                 // 自定义利率模式
                 if (unit === 'percent') {
-                    return rateNum.toFixed(2) + '%/年';
+                    return rateNum.toFixed(2) + '%/' + yearLabel;
                 } else if (unit === 'permille') {
-                    return rateNum.toFixed(2) + '‰/天';
+                    return rateNum.toFixed(2) + '‰/' + dayLabel;
                 } else if (unit === 'permyriad') {
-                    return rateNum.toFixed(2) + '‱/天';
+                    return rateNum.toFixed(2) + '‱/' + dayLabel;
                 }
                 return rateNum.toFixed(2) + '%';
             }
@@ -323,7 +325,11 @@ function lprCalculator() {
 
         copyResult() {
             if (!this.result?.success) return;
-            const text = `LPR利息计算结果\n总利息: ¥${this.formatMoney(this.result.total_interest)}\n计息天数: ${this.result.total_days}天\n本金: ¥${this.formatMoney(this.result.total_principal)}`;
+            const title = "{% trans 'LPR利息计算结果' %}";
+            const totalInterestLabel = "{% trans '总利息' %}";
+            const totalDaysLabel = "{% trans '计息天数' %}";
+            const principalLabel = "{% trans '本金' %}";
+            const text = `${title}\n${totalInterestLabel}: ¥${this.formatMoney(this.result.total_interest)}\n${totalDaysLabel}: ${this.result.total_days}{% trans '天' %}\n${principalLabel}: ¥${this.formatMoney(this.result.total_principal)}`;
             navigator.clipboard.writeText(text).then(() => {
                 alert('{% trans "已复制到剪贴板" %}');
             });
@@ -333,23 +339,31 @@ function lprCalculator() {
             if (!this.result?.success) return;
             
             const isDetail = this.showDetail;
+            const principalLabel = "{% trans '本金' %}";
+            const daysLabel = "{% trans '天数' %}";
+            const interestLabel = "{% trans '利息' %}";
+            const periodLabel = "{% trans '期间' %}";
+            const rateLabel = "{% trans '利率' %}";
+            const totalLabel = "{% trans '总计' %}";
+            const sumLabel = "{% trans '合计' %}";
+            const interestPeriodLabel = "{% trans '计息期间' %}";
             
-            let html = '<table border="1" cellspacing="0" cellpadding="8" style="border-collapse: collapse; font-family: 宋体, SimSun; font-size: 12pt; width: 100%;">';
+            let html = '<table border="1" cellspacing="0" cellpadding="8" style="border-collapse: collapse; font-size: 12pt; width: 100%;">';
             
             if (isDetail) {
                 // 展开状态 - 按本金分组复制
                 for (const group of this.groupedByPrincipal) {
                     // 分组标题行
                     html += '<tr style="background-color: #417690; color: #ffffff; font-weight: bold;">';
-                    html += `<td colspan="4" style="border: 1px solid #000; padding: 8px; background-color: #417690; color: #ffffff; font-weight: bold;">本金: ¥${this.formatMoney(group.principal)} | 天数: ${group.totalDays} | 利息: ¥${this.formatMoney(group.totalInterest)}</td>`;
+                    html += `<td colspan="4" style="border: 1px solid #000; padding: 8px; background-color: #417690; color: #ffffff; font-weight: bold;">${principalLabel}: ¥${this.formatMoney(group.principal)} | ${daysLabel}: ${group.totalDays} | ${interestLabel}: ¥${this.formatMoney(group.totalInterest)}</td>`;
                     html += '</tr>';
                     
                     // 表头
                     html += '<tr style="background-color: #f2f2f2; font-weight: bold;">';
-                    html += '<td style="border: 1px solid #000; padding: 8px;">期间</td>';
-                    html += '<td style="border: 1px solid #000; padding: 8px;">天数</td>';
-                    html += '<td style="border: 1px solid #000; padding: 8px;">利率</td>';
-                    html += '<td style="border: 1px solid #000; padding: 8px;">利息</td>';
+                    html += `<td style="border: 1px solid #000; padding: 8px;">${periodLabel}</td>`;
+                    html += `<td style="border: 1px solid #000; padding: 8px;">${daysLabel}</td>`;
+                    html += `<td style="border: 1px solid #000; padding: 8px;">${rateLabel}</td>`;
+                    html += `<td style="border: 1px solid #000; padding: 8px;">${interestLabel}</td>`;
                     html += '</tr>';
                     
                     // 数据行
@@ -365,7 +379,7 @@ function lprCalculator() {
                 
                 // 总计行
                 html += '<tr style="background-color: #417690; color: #ffffff; font-weight: bold;">';
-                html += `<td style="border: 1px solid #000; padding: 10px; background-color: #417690; color: #ffffff; font-weight: bold;">总计</td>`;
+                html += `<td style="border: 1px solid #000; padding: 10px; background-color: #417690; color: #ffffff; font-weight: bold;">${totalLabel}</td>`;
                 html += `<td style="border: 1px solid #000; padding: 10px; background-color: #417690; color: #ffffff; font-weight: bold;">${this.result.total_days}</td>`;
                 html += `<td style="border: 1px solid #000; padding: 10px; background-color: #417690; color: #ffffff; font-weight: bold;">-</td>`;
                 html += `<td style="border: 1px solid #000; padding: 10px; background-color: #417690; color: #ffffff; font-weight: bold; font-size: 14px;">¥${this.formatMoney(this.result.total_interest)}</td>`;
@@ -373,10 +387,10 @@ function lprCalculator() {
             } else {
                 // 收起状态 - 按本金汇总复制
                 html += '<tr style="background-color: #f2f2f2; font-weight: bold;">';
-                html += '<td style="border: 1px solid #000; padding: 8px;">本金</td>';
-                html += '<td style="border: 1px solid #000; padding: 8px;">计息期间</td>';
-                html += '<td style="border: 1px solid #000; padding: 8px;">天数</td>';
-                html += '<td style="border: 1px solid #000; padding: 8px;">利息</td>';
+                html += `<td style="border: 1px solid #000; padding: 8px;">${principalLabel}</td>`;
+                html += `<td style="border: 1px solid #000; padding: 8px;">${interestPeriodLabel}</td>`;
+                html += `<td style="border: 1px solid #000; padding: 8px;">${daysLabel}</td>`;
+                html += `<td style="border: 1px solid #000; padding: 8px;">${interestLabel}</td>`;
                 html += '</tr>';
                 
                 for (const group of this.groupedByPrincipal) {
@@ -392,7 +406,7 @@ function lprCalculator() {
                 
                 // 汇总行
                 html += '<tr style="background-color: #417690; color: #ffffff; font-weight: bold;">';
-                html += `<td style="border: 1px solid #000; padding: 10px; background-color: #417690; color: #ffffff; font-weight: bold;">合计</td>`;
+                html += `<td style="border: 1px solid #000; padding: 10px; background-color: #417690; color: #ffffff; font-weight: bold;">${sumLabel}</td>`;
                 html += `<td style="border: 1px solid #000; padding: 10px; background-color: #417690; color: #ffffff; font-weight: bold;">-</td>`;
                 html += `<td style="border: 1px solid #000; padding: 10px; background-color: #417690; color: #ffffff; font-weight: bold;">${this.result.total_days}</td>`;
                 html += `<td style="border: 1px solid #000; padding: 10px; background-color: #417690; color: #ffffff; font-weight: bold; font-size: 14px;">¥${this.formatMoney(this.result.total_interest)}</td>`;
@@ -405,25 +419,27 @@ function lprCalculator() {
             const blob = new Blob([html], { type: 'text/html' });
             const data = new ClipboardItem({ 'text/html': blob });
             
+            const detailTitle = "{% trans 'LPR利息计算明细' %}";
+            
             navigator.clipboard.write([data]).then(() => {
                 alert('{% trans "明细表格已复制，可直接粘贴到Word" %}');
             }).catch(() => {
                 // 降级为纯文本
-                let text = 'LPR利息计算明细\n\n';
+                let text = detailTitle + '\n\n';
                 
                 if (isDetail) {
                     for (const group of this.groupedByPrincipal) {
-                        text += `本金: ¥${this.formatMoney(group.principal)} | 天数: ${group.totalDays} | 利息: ¥${this.formatMoney(group.totalInterest)}\n`;
-                        text += '期间 | 天数 | 利率 | 利息\n';
+                        text += `${principalLabel}: ¥${this.formatMoney(group.principal)} | ${daysLabel}: ${group.totalDays} | ${interestLabel}: ¥${this.formatMoney(group.totalInterest)}\n`;
+                        text += `${periodLabel} | ${daysLabel} | ${rateLabel} | ${interestLabel}\n`;
                         text += '-'.repeat(50) + '\n';
                         for (const p of group.periods) {
                             text += `${this.formatDate(p.start_date)}~${this.formatDate(p.end_date)} | ${p.days} | ${this.formatRateDisplay(p.rate, p.rate_unit)} | ¥${this.formatMoney(p.interest)}\n`;
                         }
                         text += '\n';
                     }
-                    text += `总计 | ${this.result.total_days} | - | ¥${this.formatMoney(this.result.total_interest)}\n`;
+                    text += `${totalLabel} | ${this.result.total_days} | - | ¥${this.formatMoney(this.result.total_interest)}\n`;
                 } else {
-                    text += '本金 | 计息期间 | 天数 | 利息\n';
+                    text += `${principalLabel} | ${interestPeriodLabel} | ${daysLabel} | ${interestLabel}\n`;
                     text += '-'.repeat(60) + '\n';
                     for (const group of this.groupedByPrincipal) {
                         const start = this.formatDate(group.periods[0].start_date);
@@ -431,7 +447,7 @@ function lprCalculator() {
                         text += `¥${this.formatMoney(group.principal)} | ${start}~${end} | ${group.totalDays} | ¥${this.formatMoney(group.totalInterest)}\n`;
                     }
                     text += '-'.repeat(60) + '\n';
-                    text += `合计 | - | ${this.result.total_days} | ¥${this.formatMoney(this.result.total_interest)}\n`;
+                    text += `${sumLabel} | - | ${this.result.total_days} | ¥${this.formatMoney(this.result.total_interest)}\n`;
                 }
                 
                 navigator.clipboard.writeText(text).then(() => {
