@@ -73,6 +73,9 @@ backend/apiSystem/htmlcov/
 .codebuddy/
 CODEBUDDY.md
 AGENTS.md
+**/AGENTS.md
+agents.md
+**/agents.md
 # Agent/skill artifacts
 .agents/
 # Logs
@@ -92,6 +95,8 @@ backend/tests/screenshots/*.png
 backend/tests/screenshots/*.jpg
 backend/tests/screenshots/*.jpeg
 backend/tests/screenshots/*.webp
+# App tests (privacy: do not upload tests under backend/apps)
+backend/apps/**/tests/
 # Jupyter
 .ipynb_checkpoints/
 # mypy
@@ -177,6 +182,10 @@ media/
 
 # API 结构快照（含接口细节，不应公开）
 backend/tests/structure/snapshots/
+
+# legal_research 私有 API 检索实现（本地保留，不入库）
+backend/apps/legal_research/services/sources/weike_api_private/
+backend/apps/legal_research/services/sources/weike/api_private/
 
 # 临时脚本文件
 /tmp/openclaw_*.js

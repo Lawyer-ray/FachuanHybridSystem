@@ -84,6 +84,7 @@ def _register_app_routers() -> None:
     from apps.evidence.api import evidence_router
     from apps.litigation_ai.api.litigation_api import router as ai_litigation_router
     from apps.litigation_ai.api.mock_trial_api import router as mock_trial_router
+    from apps.legal_research.api import router as legal_research_router
     from apps.organization.api import router as organization_router
     from apps.reminders.api import router as reminders_router
 
@@ -111,6 +112,7 @@ def _register_app_routers() -> None:
     api_v1.add_router("/litigation", ai_litigation_router, tags=["AI 诉讼文书生成"])  # AI 诉讼文书生成
     api_v1.add_router("/mock-trial", mock_trial_router, tags=["模拟庭审"])
     api_v1.add_router("/contract-review", contract_review_router, auth=JWTOrSessionAuth(), tags=["合同审查"])
+    api_v1.add_router("/legal-research", legal_research_router, auth=JWTOrSessionAuth(), tags=["案例检索"])
 
     from apps.oa_filing.api.filing_api import router as oa_filing_router
     api_v1.add_router("/oa-filing", oa_filing_router, auth=JWTOrSessionAuth(), tags=["OA立案"])

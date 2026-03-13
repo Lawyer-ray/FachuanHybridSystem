@@ -86,6 +86,7 @@ INSTALLED_APPS = [
     "apps.sales_dispute",  # 6.3 买卖纠纷计算
     "apps.finance",  # 6.3.1 金融工具(LPR计算器)
     "apps.oa_filing",  # 6.4 OA立案
+    "apps.legal_research",  # 6.5 案例检索（威科先行）
     "apps.core",  # 7. 核心系统
     "django_q",  # 8. DJANGO Q
 ]
