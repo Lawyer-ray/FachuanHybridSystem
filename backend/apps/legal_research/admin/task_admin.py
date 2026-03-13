@@ -65,6 +65,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
         "scanned_count",
         "matched_count",
         "candidate_count",
+        "candidate_pool_hint",
         "result_attachments",
         "message",
         "error",
@@ -256,6 +257,46 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
             items,
             all_url,
         )
+
+    @admin.display(description="候选池提示")
+    def candidate_pool_hint(self, obj: LegalResearchTask) -> str:
+        if obj.status != LegalResearchTaskStatus.COMPLETED:
+            return "—"
+
+        if obj.matched_count >= obj.target_count:
+            return format_html(
+                '<span style="color:#389e0d;font-weight:600;">'
+                "已达到目标案例数（{}/{}），任务已提前结束。"
+                "</span>",
+                obj.matched_count,
+                obj.target_count,
+            )
+
+        if obj.candidate_count <= 0:
+            return format_html(
+                '<span style="color:#d4380d;font-weight:600;">'
+                "当前关键词未检索到候选案例，请放宽关键词后重试。"
+                "</span>"
+            )
+
+        if obj.scanned_count >= obj.candidate_count and obj.candidate_count < obj.max_candidates:
+            return format_html(
+                '<span style="color:#d4380d;font-weight:600;">'
+                "当前关键词仅检索到 {} 篇候选案例（设置上限为 {}），已全部扫描。"
+                "</span>",
+                obj.candidate_count,
+                obj.max_candidates,
+            )
+
+        if obj.scanned_count >= obj.max_candidates:
+            return format_html(
+                '<span style="color:#1677ff;font-weight:600;">'
+                "已扫描到最大上限 {}，可按需提高“最大扫描案例数”。"
+                "</span>",
+                obj.max_candidates,
+            )
+
+        return "—"
 
     @staticmethod
     def _reset_task_for_dispatch(obj: LegalResearchTask, *, message: str) -> None:
