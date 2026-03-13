@@ -43,13 +43,13 @@ venv: ## 创建虚拟环境
 # 开发服务器
 # ============================================================
 
-run: ## 启动开发服务器 (默认端口 8002, 使用 uvicorn, 可通过 PORT=8003 修改)
+run: migrate ## 启动开发服务器 (默认端口 8002, 使用 uvicorn, 可通过 PORT=8003 修改)
 	cd apiSystem && ../$(UVICORN) apiSystem.asgi:application --host 0.0.0.0 --port $(PORT)
 
-run-dev: ## 启动开发服务器 (带自动重载, ⚠️ 必须先 make qcluster 再 make run-dev，否则 SQLite 写锁会导致卡死)
+run-dev: migrate ## 启动开发服务器 (带自动重载, ⚠️ 必须先 make qcluster 再 make run-dev，否则 SQLite 写锁会导致卡死)
 	cd apiSystem && ../$(UVICORN) apiSystem.asgi:application --host 0.0.0.0 --port $(PORT) --reload --reload-dir ../apps --reload-dir . --reload-include '*.html'
 
-run-port: ## 启动开发服务器 (自定义端口, 使用 PORT=8001)
+run-port: migrate ## 启动开发服务器 (自定义端口, 使用 PORT=8001)
 	cd apiSystem && ../$(UVICORN) apiSystem.asgi:application --host 0.0.0.0 --port $(PORT)
 
 # ============================================================
@@ -202,13 +202,13 @@ collectstatic: ## 收集静态文件
 # 后台任务
 # ============================================================
 
-qcluster: ## 启动 Django-Q 任务队列（请先启动 qcluster，再启动 Django）
+qcluster: migrate ## 启动 Django-Q 任务队列（请先启动 qcluster，再启动 Django）
 	@pkill -9 -f 'multiprocessing.spawn|multiprocessing.resource_tracker' 2>/dev/null || true
 	@pkill -9 -f qcluster 2>/dev/null || true
 	@sleep 1
 	$(MANAGE) qcluster
 
-qcluster-start: ## 启动 Django-Q 并处理待处理任务（请先启动 qcluster，再启动 Django）
+qcluster-start: migrate ## 启动 Django-Q 并处理待处理任务（请先启动 qcluster，再启动 Django）
 	@pkill -9 -f 'multiprocessing.spawn|multiprocessing.resource_tracker' 2>/dev/null || true
 	@pkill -9 -f qcluster 2>/dev/null || true
 	@sleep 1
