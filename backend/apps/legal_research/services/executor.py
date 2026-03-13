@@ -97,12 +97,24 @@ class LegalResearchExecutor:
 
                     self._update_progress(task=task, scanned=scanned, matched=matched)
 
-            if matched > 0:
-                self._mark_completed(task, message=f"完成，命中 {matched} 篇相似案例")
+            if matched >= task.target_count:
+                self._mark_completed(task, message=f"达到目标，命中 {matched}/{task.target_count} 篇相似案例")
             elif scanned >= task.max_candidates:
-                self._mark_completed(task, message=f"达到最大扫描上限 {task.max_candidates}，未找到满足阈值的相似案例")
+                self._mark_completed(
+                    task,
+                    message=(
+                        f"达到最大扫描上限 {task.max_candidates}，"
+                        f"命中 {matched}/{task.target_count}，未达到目标"
+                    ),
+                )
             else:
-                self._mark_completed(task, message="候选案例已扫描完毕，但未找到满足阈值的相似案例")
+                self._mark_completed(
+                    task,
+                    message=(
+                        f"候选案例已扫描完毕（共 {task.candidate_count} 篇），"
+                        f"命中 {matched}/{task.target_count}，未达到目标"
+                    ),
+                )
 
             return {
                 "task_id": str(task.id),
