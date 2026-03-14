@@ -71,15 +71,6 @@ https://github.com/Lawyer-ray/FachuanHybridSystem
 
 > 代码开源意味着你可以自己动手改、自己动手查。遇到问题先读代码、问 AI，培养独立解决问题的能力。
 
-## 📚 相关文档
-
-- [安装与部署指南](INSTALL.md) - Docker / 本地开发完整步骤
-- [更新日志](CHANGELOG.md) - 版本更新记录
-- [Django 官方文档](https://docs.djangoproject.com/)
-- [Django Ninja API 文档](https://django-ninja.rest-framework.com/)
-- [uv 包管理器文档](https://docs.astral.sh/uv/)
-- [Make 命令教程](https://www.gnu.org/software/make/manual/make.html)
-
 ## 📄 许可证
 
 本项目采用自定义商业源码许可证：
