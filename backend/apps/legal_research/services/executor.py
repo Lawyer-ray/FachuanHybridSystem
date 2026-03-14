@@ -3,6 +3,7 @@ from __future__ import annotations
 import inspect
 import logging
 import re
+import time
 from typing import Any
 
 from django.core.files.base import ContentFile
@@ -20,6 +21,10 @@ class LegalResearchExecutor:
     CANDIDATE_BATCH_SIZE = 100
     PAGE_SIZE_HINT = 20
     MAX_PAGE_WINDOW = 2000
+    SEARCH_RETRY_ATTEMPTS = 3
+    DETAIL_RETRY_ATTEMPTS = 3
+    DOWNLOAD_RETRY_ATTEMPTS = 3
+    RETRY_BACKOFF_SECONDS = 0.8
 
     def run(self, *, task_id: str) -> dict[str, Any]:
         task, early_result = self._acquire_task(task_id=task_id)
@@ -43,19 +48,27 @@ class LegalResearchExecutor:
             scanned = 0
             matched = 0
             fetched = 0
+            skipped = 0
 
             while fetched < task.max_candidates and matched < task.target_count:
                 if self._is_cancel_requested(task.id):
-                    self._mark_cancelled(task=task, scanned=scanned, matched=matched)
-                    return {"task_id": str(task.id), "status": task.status, "scanned_count": scanned, "matched_count": matched}
+                    self._mark_cancelled(task=task, scanned=scanned, matched=matched, skipped=skipped)
+                    return {
+                        "task_id": str(task.id),
+                        "status": task.status,
+                        "scanned_count": scanned,
+                        "matched_count": matched,
+                        "skipped_count": skipped,
+                    }
 
                 batch_size = min(self.CANDIDATE_BATCH_SIZE, task.max_candidates - fetched)
-                items = self._fetch_candidate_batch(
+                items = self._fetch_candidate_batch_with_retry(
                     source_client=source_client,
                     session=session,
                     keyword=task.keyword,
                     offset=fetched,
                     batch_size=batch_size,
+                    task_id=str(task.id),
                 )
 
                 if not items:
@@ -71,12 +84,13 @@ class LegalResearchExecutor:
 
                 for item in items:
                     if self._is_cancel_requested(task.id):
-                        self._mark_cancelled(task=task, scanned=scanned, matched=matched)
+                        self._mark_cancelled(task=task, scanned=scanned, matched=matched, skipped=skipped)
                         return {
                             "task_id": str(task.id),
                             "status": task.status,
                             "scanned_count": scanned,
                             "matched_count": matched,
+                            "skipped_count": skipped,
                         }
 
                     if matched >= task.target_count:
@@ -84,7 +98,17 @@ class LegalResearchExecutor:
 
                     scanned += 1
 
-                    detail = source_client.fetch_case_detail(session=session, item=item)
+                    detail = self._fetch_case_detail_with_retry(
+                        source_client=source_client,
+                        session=session,
+                        item=item,
+                        task_id=str(task.id),
+                    )
+                    if detail is None:
+                        skipped += 1
+                        self._update_progress(task=task, scanned=scanned, matched=matched, skipped=skipped)
+                        continue
+
                     sim = similarity.score_case(
                         keyword=task.keyword,
                         case_summary=task.case_summary,
@@ -98,8 +122,14 @@ class LegalResearchExecutor:
                         task.llm_model = sim.model
 
                     if sim.score >= task.min_similarity_score:
-                        pdf = source_client.download_pdf(session=session, detail=detail)
+                        pdf = self._download_pdf_with_retry(
+                            source_client=source_client,
+                            session=session,
+                            detail=detail,
+                            task_id=str(task.id),
+                        )
                         if pdf is None:
+                            skipped += 1
                             logger.info(
                                 "案例命中但PDF下载失败，跳过",
                                 extra={"task_id": str(task.id), "doc_id": detail.doc_id_raw},
@@ -109,28 +139,37 @@ class LegalResearchExecutor:
                             self._save_result(task=task, detail=detail, similarity=sim, rank=matched, pdf=pdf)
 
                     if self._is_cancel_requested(task.id):
-                        self._mark_cancelled(task=task, scanned=scanned, matched=matched)
+                        self._mark_cancelled(task=task, scanned=scanned, matched=matched, skipped=skipped)
                         return {
                             "task_id": str(task.id),
                             "status": task.status,
                             "scanned_count": scanned,
                             "matched_count": matched,
+                            "skipped_count": skipped,
                         }
 
-                    self._update_progress(task=task, scanned=scanned, matched=matched)
+                    self._update_progress(task=task, scanned=scanned, matched=matched, skipped=skipped)
 
             if self._is_cancel_requested(task.id):
-                self._mark_cancelled(task=task, scanned=scanned, matched=matched)
-                return {"task_id": str(task.id), "status": task.status, "scanned_count": scanned, "matched_count": matched}
+                self._mark_cancelled(task=task, scanned=scanned, matched=matched, skipped=skipped)
+                return {
+                    "task_id": str(task.id),
+                    "status": task.status,
+                    "scanned_count": scanned,
+                    "matched_count": matched,
+                    "skipped_count": skipped,
+                }
+
+            skip_suffix = f"（跳过异常案例 {skipped} 篇）" if skipped else ""
 
             if matched >= task.target_count:
-                self._mark_completed(task, message=f"达到目标，命中 {matched}/{task.target_count} 篇相似案例")
+                self._mark_completed(task, message=f"达到目标，命中 {matched}/{task.target_count} 篇相似案例{skip_suffix}")
             elif scanned >= task.max_candidates:
                 self._mark_completed(
                     task,
                     message=(
                         f"达到最大扫描上限 {task.max_candidates}，"
-                        f"命中 {matched}/{task.target_count}，未达到目标"
+                        f"命中 {matched}/{task.target_count}，未达到目标{skip_suffix}"
                     ),
                 )
             else:
@@ -138,7 +177,7 @@ class LegalResearchExecutor:
                     task,
                     message=(
                         f"候选案例已扫描完毕（共 {task.candidate_count} 篇），"
-                        f"命中 {matched}/{task.target_count}，未达到目标"
+                        f"命中 {matched}/{task.target_count}，未达到目标{skip_suffix}"
                     ),
                 )
 
@@ -147,6 +186,7 @@ class LegalResearchExecutor:
                 "status": task.status,
                 "scanned_count": task.scanned_count,
                 "matched_count": task.matched_count,
+                "skipped_count": skipped,
             }
         except Exception as e:
             logger.exception("案例检索任务失败", extra={"task_id": str(task.id)})
@@ -225,23 +265,166 @@ class LegalResearchExecutor:
         return status == LegalResearchTaskStatus.CANCELLED
 
     @staticmethod
-    def _mark_cancelled(*, task: LegalResearchTask, scanned: int, matched: int) -> None:
+    def _mark_cancelled(*, task: LegalResearchTask, scanned: int, matched: int, skipped: int = 0) -> None:
         task.status = LegalResearchTaskStatus.CANCELLED
         task.scanned_count = scanned
         task.matched_count = matched
-        task.message = f"任务已取消，停止于扫描 {scanned}/{task.max_candidates}，命中 {matched}/{task.target_count}"
+        skip_suffix = f"，跳过 {skipped}" if skipped else ""
+        task.message = f"任务已取消，停止于扫描 {scanned}/{task.max_candidates}，命中 {matched}/{task.target_count}{skip_suffix}"
         task.finished_at = timezone.now()
         task.save(update_fields=["status", "scanned_count", "matched_count", "message", "finished_at", "updated_at"])
 
     @classmethod
-    def _update_progress(cls, *, task: LegalResearchTask, scanned: int, matched: int) -> None:
+    def _update_progress(cls, *, task: LegalResearchTask, scanned: int, matched: int, skipped: int = 0) -> None:
         total = max(task.max_candidates, 1)
         progress = min(95, int(scanned * 100 / total))
         task.scanned_count = scanned
         task.matched_count = matched
         task.progress = progress
-        task.message = f"扫描 {scanned}/{task.max_candidates}，已获取候选 {task.candidate_count}，命中 {matched}/{task.target_count}"
+        skip_suffix = f"，跳过 {skipped}" if skipped else ""
+        task.message = (
+            f"扫描 {scanned}/{task.max_candidates}，已获取候选 {task.candidate_count}，"
+            f"命中 {matched}/{task.target_count}{skip_suffix}"
+        )
         task.save(update_fields=["scanned_count", "matched_count", "progress", "message", "updated_at", "llm_model"])
+
+    @classmethod
+    def _fetch_candidate_batch_with_retry(
+        cls,
+        *,
+        source_client: Any,
+        session: Any,
+        keyword: str,
+        offset: int,
+        batch_size: int,
+        task_id: str,
+    ) -> list[Any]:
+        for attempt in range(1, cls.SEARCH_RETRY_ATTEMPTS + 1):
+            try:
+                return cls._fetch_candidate_batch(
+                    source_client=source_client,
+                    session=session,
+                    keyword=keyword,
+                    offset=offset,
+                    batch_size=batch_size,
+                )
+            except Exception as exc:
+                if attempt >= cls.SEARCH_RETRY_ATTEMPTS:
+                    raise
+                logger.warning(
+                    "候选案例检索失败，准备重试",
+                    extra={
+                        "task_id": task_id,
+                        "offset": offset,
+                        "batch_size": batch_size,
+                        "attempt": attempt,
+                        "max_attempts": cls.SEARCH_RETRY_ATTEMPTS,
+                        "error": str(exc),
+                    },
+                )
+                cls._sleep_for_retry(attempt=attempt)
+        return []
+
+    @classmethod
+    def _fetch_case_detail_with_retry(
+        cls,
+        *,
+        source_client: Any,
+        session: Any,
+        item: Any,
+        task_id: str,
+    ) -> CaseDetail | None:
+        doc_id = str(getattr(item, "doc_id_unquoted", "") or getattr(item, "doc_id_raw", ""))
+        for attempt in range(1, cls.DETAIL_RETRY_ATTEMPTS + 1):
+            try:
+                return source_client.fetch_case_detail(session=session, item=item)
+            except Exception as exc:
+                if attempt >= cls.DETAIL_RETRY_ATTEMPTS:
+                    logger.warning(
+                        "案例详情获取失败，已跳过该案例",
+                        extra={
+                            "task_id": task_id,
+                            "doc_id": doc_id,
+                            "attempt": attempt,
+                            "max_attempts": cls.DETAIL_RETRY_ATTEMPTS,
+                            "error": str(exc),
+                        },
+                    )
+                    return None
+                logger.warning(
+                    "案例详情获取失败，准备重试",
+                    extra={
+                        "task_id": task_id,
+                        "doc_id": doc_id,
+                        "attempt": attempt,
+                        "max_attempts": cls.DETAIL_RETRY_ATTEMPTS,
+                        "error": str(exc),
+                    },
+                )
+                cls._sleep_for_retry(attempt=attempt)
+        return None
+
+    @classmethod
+    def _download_pdf_with_retry(
+        cls,
+        *,
+        source_client: Any,
+        session: Any,
+        detail: CaseDetail,
+        task_id: str,
+    ) -> tuple[bytes, str] | None:
+        doc_id = str(detail.doc_id_unquoted or detail.doc_id_raw)
+        for attempt in range(1, cls.DOWNLOAD_RETRY_ATTEMPTS + 1):
+            try:
+                pdf = source_client.download_pdf(session=session, detail=detail)
+                if pdf is not None:
+                    return pdf
+
+                if attempt >= cls.DOWNLOAD_RETRY_ATTEMPTS:
+                    return None
+                logger.info(
+                    "PDF下载返回空结果，准备重试",
+                    extra={
+                        "task_id": task_id,
+                        "doc_id": doc_id,
+                        "attempt": attempt,
+                        "max_attempts": cls.DOWNLOAD_RETRY_ATTEMPTS,
+                    },
+                )
+                cls._sleep_for_retry(attempt=attempt)
+            except Exception as exc:
+                if "C_001_009" in str(exc):
+                    raise RuntimeError("wk会话被限制访问(C_001_009)，请稍后重试") from exc
+                if attempt >= cls.DOWNLOAD_RETRY_ATTEMPTS:
+                    logger.warning(
+                        "PDF下载失败，已跳过该案例",
+                        extra={
+                            "task_id": task_id,
+                            "doc_id": doc_id,
+                            "attempt": attempt,
+                            "max_attempts": cls.DOWNLOAD_RETRY_ATTEMPTS,
+                            "error": str(exc),
+                        },
+                    )
+                    return None
+                logger.warning(
+                    "PDF下载失败，准备重试",
+                    extra={
+                        "task_id": task_id,
+                        "doc_id": doc_id,
+                        "attempt": attempt,
+                        "max_attempts": cls.DOWNLOAD_RETRY_ATTEMPTS,
+                        "error": str(exc),
+                    },
+                )
+                cls._sleep_for_retry(attempt=attempt)
+        return None
+
+    @classmethod
+    def _sleep_for_retry(cls, *, attempt: int) -> None:
+        if cls.RETRY_BACKOFF_SECONDS <= 0:
+            return
+        time.sleep(cls.RETRY_BACKOFF_SECONDS * max(1, attempt))
 
     @classmethod
     def _fetch_candidate_batch(
