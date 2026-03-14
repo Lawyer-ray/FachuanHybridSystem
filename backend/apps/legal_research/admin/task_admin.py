@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import logging
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from django import forms
 from django.contrib import admin
 from django.contrib import messages
 from django.db.models import Q, QuerySet
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
+from django.urls import path, reverse
 from django.utils.html import format_html, format_html_join
 from django.utils import timezone
 
@@ -66,6 +68,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
         "matched_count",
         "candidate_count",
         "candidate_pool_hint",
+        "cancel_task_button",
         "result_attachments",
         "message",
         "error",
@@ -129,6 +132,50 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
         model_field.help_text = "选择用于案例相似度评估的硅基流动模型。"
         self._attach_keyword_cleaner(form)
         return form
+
+    def get_urls(self):  # type: ignore[override]
+        urls = super().get_urls()
+        opts = self.model._meta
+        custom_urls = [
+            path(
+                "<path:object_id>/cancel/",
+                self.admin_site.admin_view(self.cancel_task_view),
+                name=f"{opts.app_label}_{opts.model_name}_cancel",
+            )
+        ]
+        return custom_urls + urls
+
+    def cancel_task_view(self, request: HttpRequest, object_id: str) -> HttpResponse:
+        obj = self.get_object(request, object_id)
+        if obj is None:
+            messages.error(request, "任务不存在")
+            return HttpResponseRedirect(reverse("admin:legal_research_legalresearchtask_changelist"))
+
+        if not self.has_change_permission(request, obj):
+            messages.error(request, "无权限取消该任务")
+            return HttpResponseRedirect(reverse("admin:legal_research_legalresearchtask_change", args=[obj.pk]))
+
+        if not self._is_cancellable_status(obj.status):
+            messages.warning(request, f"当前状态为“{obj.get_status_display()}”，无需取消。")
+            return HttpResponseRedirect(reverse("admin:legal_research_legalresearchtask_change", args=[obj.pk]))
+
+        cancel_info = self._cancel_task(obj=obj)
+        queue_deleted = int(cancel_info.get("queue_deleted", 0))
+        running = bool(cancel_info.get("running", False))
+
+        msg = f"任务已取消，队列撤销 {queue_deleted} 条。"
+        if running:
+            msg += " 任务正在运行，将在下一轮取消检查时停止。"
+        messages.success(request, msg)
+        return HttpResponseRedirect(reverse("admin:legal_research_legalresearchtask_change", args=[obj.pk]))
+
+    @staticmethod
+    def _is_cancellable_status(status: str) -> bool:
+        return status in {
+            LegalResearchTaskStatus.PENDING,
+            LegalResearchTaskStatus.QUEUED,
+            LegalResearchTaskStatus.RUNNING,
+        }
 
     @staticmethod
     def _attach_keyword_cleaner(form: type[forms.ModelForm]) -> None:
@@ -258,6 +305,19 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
             all_url,
         )
 
+    @admin.display(description="任务控制")
+    def cancel_task_button(self, obj: LegalResearchTask) -> str:
+        if not self._is_cancellable_status(obj.status):
+            return "—"
+
+        cancel_url = reverse("admin:legal_research_legalresearchtask_cancel", args=[obj.pk])
+        return format_html(
+            '<a class="button" href="{}" '
+            'onclick="return confirm(\'确定取消这个任务吗？已执行部分将保留，后续扫描会停止。\')">'
+            "取消任务</a>",
+            cancel_url,
+        )
+
     @admin.display(description="候选池提示")
     def candidate_pool_hint(self, obj: LegalResearchTask) -> str:
         if obj.status != LegalResearchTaskStatus.COMPLETED:
@@ -314,6 +374,21 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
         obj.llm_backend = "siliconflow"
         if not obj.llm_model:
             obj.llm_model = LLMConfig.get_default_model()
+
+    def _cancel_task(self, *, obj: LegalResearchTask) -> dict[str, Any]:
+        cancel_info: dict[str, Any] = {"queue_deleted": 0, "running": False, "finished": False, "exists": False}
+        if obj.q_task_id:
+            try:
+                cancel_info = ServiceLocator.get_task_submission_service().cancel(obj.q_task_id)
+            except Exception:
+                logger.exception("撤销DjangoQ任务失败", extra={"task_id": str(obj.id), "q_task_id": obj.q_task_id})
+
+        obj.status = LegalResearchTaskStatus.CANCELLED
+        obj.message = "任务已取消（用户手动）"
+        obj.error = ""
+        obj.finished_at = timezone.now()
+        obj.save(update_fields=["status", "message", "error", "finished_at", "updated_at"])
+        return cancel_info
 
     def _mark_precheck_failed(self, *, obj: LegalResearchTask, error_message: str) -> None:
         obj.status = LegalResearchTaskStatus.FAILED

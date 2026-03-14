@@ -59,3 +59,25 @@ class TaskSubmissionService:
                 q_options=q_options,
             ),
         )
+
+    def cancel(self, task_id: str) -> dict[str, Any]:
+        """Best-effort cancellation for a Django-Q task id.
+
+        - Queued tasks can be removed from OrmQ.
+        - Running tasks cannot be force-killed here; caller should use cooperative
+          cancellation in business logic.
+        """
+        from django_q.models import OrmQ, Task
+
+        queue_deleted, _ = OrmQ.objects.filter(key=task_id).delete()
+        task = Task.objects.filter(id=task_id).first()
+
+        running = bool(task and task.started and not task.stopped)
+        finished = bool(task and task.stopped)
+        return {
+            "task_id": task_id,
+            "queue_deleted": int(queue_deleted),
+            "running": running,
+            "finished": finished,
+            "exists": task is not None,
+        }
