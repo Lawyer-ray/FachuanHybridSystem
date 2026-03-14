@@ -45,6 +45,10 @@ class LegalResearchExecutor:
             fetched = 0
 
             while fetched < task.max_candidates and matched < task.target_count:
+                if self._is_cancel_requested(task.id):
+                    self._mark_cancelled(task=task, scanned=scanned, matched=matched)
+                    return {"task_id": str(task.id), "status": task.status, "scanned_count": scanned, "matched_count": matched}
+
                 batch_size = min(self.CANDIDATE_BATCH_SIZE, task.max_candidates - fetched)
                 items = self._fetch_candidate_batch(
                     source_client=source_client,
@@ -66,6 +70,15 @@ class LegalResearchExecutor:
                 task.save(update_fields=["candidate_count", "message", "updated_at"])
 
                 for item in items:
+                    if self._is_cancel_requested(task.id):
+                        self._mark_cancelled(task=task, scanned=scanned, matched=matched)
+                        return {
+                            "task_id": str(task.id),
+                            "status": task.status,
+                            "scanned_count": scanned,
+                            "matched_count": matched,
+                        }
+
                     if matched >= task.target_count:
                         break
 
@@ -95,7 +108,20 @@ class LegalResearchExecutor:
                             matched += 1
                             self._save_result(task=task, detail=detail, similarity=sim, rank=matched, pdf=pdf)
 
+                    if self._is_cancel_requested(task.id):
+                        self._mark_cancelled(task=task, scanned=scanned, matched=matched)
+                        return {
+                            "task_id": str(task.id),
+                            "status": task.status,
+                            "scanned_count": scanned,
+                            "matched_count": matched,
+                        }
+
                     self._update_progress(task=task, scanned=scanned, matched=matched)
+
+            if self._is_cancel_requested(task.id):
+                self._mark_cancelled(task=task, scanned=scanned, matched=matched)
+                return {"task_id": str(task.id), "status": task.status, "scanned_count": scanned, "matched_count": matched}
 
             if matched >= task.target_count:
                 self._mark_completed(task, message=f"达到目标，命中 {matched}/{task.target_count} 篇相似案例")
@@ -192,6 +218,20 @@ class LegalResearchExecutor:
         task.error = error_message
         task.finished_at = timezone.now()
         task.save(update_fields=["status", "message", "error", "finished_at", "updated_at"])
+
+    @staticmethod
+    def _is_cancel_requested(task_id: str | int) -> bool:
+        status = LegalResearchTask.objects.filter(id=task_id).values_list("status", flat=True).first()
+        return status == LegalResearchTaskStatus.CANCELLED
+
+    @staticmethod
+    def _mark_cancelled(*, task: LegalResearchTask, scanned: int, matched: int) -> None:
+        task.status = LegalResearchTaskStatus.CANCELLED
+        task.scanned_count = scanned
+        task.matched_count = matched
+        task.message = f"任务已取消，停止于扫描 {scanned}/{task.max_candidates}，命中 {matched}/{task.target_count}"
+        task.finished_at = timezone.now()
+        task.save(update_fields=["status", "scanned_count", "matched_count", "message", "finished_at", "updated_at"])
 
     @classmethod
     def _update_progress(cls, *, task: LegalResearchTask, scanned: int, matched: int) -> None:
