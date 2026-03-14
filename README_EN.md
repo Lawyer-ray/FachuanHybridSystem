@@ -1,8 +1,14 @@
-# FaChuanAI Case Management System V26.16.1
+# FaChuanAI Case Management System V26.16.2
 
 Fully automated court document processing and generation. Less is more.
 
 [中文版](README.md)
+
+## Notes
+
+- This system is updated almost every day; the codebase changes frequently and may not be beginner-friendly.
+- For the latest updates from the author, follow the WeChat official account: 法穿.
+- This project is an entry for the Guangzhou Legal Tech Innovation & Entrepreneurship Competition, shortlisted for the finals. Team name: GGBond.
 
 ## ✨ Features
 
@@ -10,11 +16,13 @@ Fully automated court document processing and generation. Less is more.
 - **Client Management** - Client info, identity documents, asset clue management
 - **Contract Management** - Contract creation, supplementary agreements, payment tracking, lawyer assignment
 - **Organization Management** - Teams, lawyers, account credentials
+- **Legal Research** - Joint keyword search, similar case matching, PDF archive/download
 - **Automation**
   - Court SMS parsing and document download
   - Automated court document retrieval
   - Property preservation insurance inquiry
   - Feishu group message notifications
+- **MCP Server** - Supports OpenClaw and other AI agents to operate the system in natural language
 
 ## 🛠 Tech Stack
 
@@ -24,6 +32,7 @@ Fully automated court document processing and generation. Less is more.
 - **Task Queue**: Django-Q2
 - **Browser Automation**: Playwright
 - **Package Manager**: uv
+- **MCP Server**: Based on [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk)
 
 ## 🚀 Quick Start
 
@@ -121,6 +130,32 @@ brew install uv
 
 # verify
 uv --version
+```
+
+## 🔎 Legal Case Research (`legal_research`)
+
+- Entry: Django Admin `legal_research` task management
+- Inputs: keywords + case summary
+- Keyword separators: spaces, commas, semicolons, and newlines are all supported; they are normalized to spaces and sent as one combined query
+- Configurable parameters:
+  - `max_candidates` (default `100`)
+  - `min_similarity_score` (default `0.9`)
+  - `llm_model` (SiliconFlow model for similarity scoring)
+- Reliability:
+  - Pre-flight SiliconFlow connectivity/model check before queueing
+  - Task-level retries for search/detail/PDF stages; failed single cases are skipped without crashing the whole task
+- Output: matched cases are stored with PDF attachments and can be downloaded per-case or as a package
+
+## 🤖 MCP Server (AI Agent Integration)
+
+OpenClaw, Claude Desktop, and other AI agents can call FaChuan tools through MCP.
+
+Basic env config in `backend/.env`:
+
+```bash
+FACHUAN_BASE_URL=http://127.0.0.1:8002/api/v1
+FACHUAN_USERNAME=your_username
+FACHUAN_PASSWORD=your_password
 ```
 
 ## 🤖 Got a question? Ask AI.
