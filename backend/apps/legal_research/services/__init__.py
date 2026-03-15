@@ -1,4 +1,5 @@
 from .executor import LegalResearchExecutor
+from .feedback_loop import LegalResearchFeedbackLoopService
 from .keywords import KEYWORD_INPUT_HELP_TEXT, normalize_keyword_query
 from .llm_preflight import verify_siliconflow_connectivity
 from .similarity_service import CaseSimilarityService, SimilarityResult
@@ -7,6 +8,7 @@ from .task_service import LegalResearchTaskService
 __all__ = [
     "CaseSimilarityService",
     "KEYWORD_INPUT_HELP_TEXT",
+    "LegalResearchFeedbackLoopService",
     "LegalResearchExecutor",
     "LegalResearchTaskService",
     "SimilarityResult",

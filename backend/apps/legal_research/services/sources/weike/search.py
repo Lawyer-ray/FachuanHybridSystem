@@ -13,6 +13,10 @@ logger = logging.getLogger(__name__)
 
 
 class WeikeSearchMixin:
+    LAW_LOGIN_REQUIRED_TEXT = "抱歉，此功能需要登录后操作"
+    LAW_LOGIN_MODAL_USERNAME_SELECTOR = "#login-username"
+    LAW_LOGIN_BUTTON_SELECTOR = "button.wk-banner-action-bar-item.wkb-btn-green:has-text('登录')"
+
     def search_cases(
         self,
         *,
@@ -36,11 +40,9 @@ class WeikeSearchMixin:
                     )
                     if items:
                         return items
-                    if offset > 0:
-                        return []
-                    logger.warning("私有wk API检索返回空结果，回退DOM检索", extra={"keyword": keyword})
+                    logger.warning("私有wk API检索返回空结果，回退DOM检索", extra={"keyword": keyword, "offset": offset})
                 except Exception:
-                    logger.exception("私有wk API检索失败，回退DOM检索", extra={"keyword": keyword})
+                    logger.exception("私有wk API检索失败，回退DOM检索", extra={"keyword": keyword, "offset": offset})
 
         self._ensure_playwright_session(session)
         return self._search_cases_via_dom(
@@ -65,9 +67,10 @@ class WeikeSearchMixin:
         page = session.page
         page.goto(self.LAW_LIST_URL, wait_until="domcontentloaded", timeout=120000)
         page.wait_for_selector("input[name='keyword']", timeout=60000)
-        page.fill("input[name='keyword'][placeholder='在裁判文书中搜索...']", keyword)
-        page.get_by_role("button", name="搜索", exact=True).click()
+        page.fill("input[name='keyword']", keyword)
+        page.locator("button.wk-banner-action-bar-item.wkb-btn-green:has-text('搜索')").first.click(timeout=10000)
         page.wait_for_timeout(3500)
+        self._raise_if_login_required(page)
 
         items: list[WeikeSearchItem] = []
         seen: set[str] = set()
@@ -118,6 +121,20 @@ class WeikeSearchMixin:
                 break
 
         return items
+
+    @classmethod
+    def _raise_if_login_required(cls, page: Page) -> None:
+        body_text = page.locator("body").inner_text(timeout=30000)
+        if cls.LAW_LOGIN_REQUIRED_TEXT in body_text:
+            raise RuntimeError("wk登录态失效或账号未登录，请检查账号密码")
+
+        modal_locator = page.locator(cls.LAW_LOGIN_MODAL_USERNAME_SELECTOR)
+        if modal_locator.count() > 0 and modal_locator.first.is_visible():
+            raise RuntimeError("wk登录态失效或账号未登录，请检查账号密码")
+
+        login_btn = page.locator(cls.LAW_LOGIN_BUTTON_SELECTOR)
+        if login_btn.count() > 0 and login_btn.first.is_visible() and "账户登录" in body_text:
+            raise RuntimeError("wk登录态失效或账号未登录，请检查账号密码")
 
     @staticmethod
     def _parse_detail_url(url: str) -> WeikeSearchItem | None:

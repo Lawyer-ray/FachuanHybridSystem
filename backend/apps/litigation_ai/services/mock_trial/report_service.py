@@ -28,9 +28,77 @@ class MockTrialReportService:
             return self._debate_report(metadata)
         return {"mode": mode, "status": "no_data"}
 
+    async def save_judge_report(
+        self,
+        session_id: str,
+        report: dict[str, Any],
+        model: str,
+        token_usage: dict[str, int],
+    ) -> None:
+        """保存法官视角分析报告."""
+        from apps.litigation_ai.services.flow.session_repository import LitigationSessionRepository
+
+        repo = LitigationSessionRepository()
+        await repo.update_metadata(
+            session_id,
+            {
+                "judge_report": report,
+                "judge_report_model": model,
+                "judge_report_token_usage": token_usage,
+                "judge_report_saved_at": self._now_iso(),
+            },
+        )
+        logger.info(f"法官视角报告已保存: {session_id}")
+
+    async def save_cross_exam_result(
+        self,
+        session_id: str,
+        evidence_name: str,
+        opinion: dict[str, Any],
+    ) -> None:
+        """保存质证结果."""
+        from apps.litigation_ai.services.flow.session_repository import LitigationSessionRepository
+
+        repo = LitigationSessionRepository()
+        metadata = await repo.get_metadata(session_id)
+        results = metadata.get("cross_exam_results", [])
+        results.append({"evidence_name": evidence_name, "opinion": opinion})
+        await repo.update_metadata(
+            session_id,
+            {
+                "cross_exam_results": results,
+                "cross_exam_last_updated": self._now_iso(),
+            },
+        )
+
+    async def save_debate_history(
+        self,
+        session_id: str,
+        history: list[dict[str, str]],
+        focus: dict[str, Any] | None = None,
+    ) -> None:
+        """保存辩论历史."""
+        from apps.litigation_ai.services.flow.session_repository import LitigationSessionRepository
+
+        repo = LitigationSessionRepository()
+        update_data: dict[str, Any] = {
+            "debate_history": history,
+            "debate_last_updated": self._now_iso(),
+        }
+        if focus:
+            update_data["debate_selected_focus"] = focus
+        await repo.update_metadata(session_id, update_data)
+
     def _judge_report(self, metadata: dict[str, Any]) -> dict[str, Any]:
-        report = metadata.get("judge_report", {})
-        return {"mode": "judge", "report": report, "status": "complete" if report else "no_data"}
+        report = metadata.get("report", {})  # 使用 flow service 保存的 key
+        return {
+            "mode": "judge",
+            "report": report,
+            "status": "complete" if report else "no_data",
+            "model": metadata.get("report_model", ""),
+            "token_usage": metadata.get("report_token_usage", {}),
+            "saved_at": metadata.get("judge_report_saved_at", ""),
+        }
 
     def _cross_exam_report(self, metadata: dict[str, Any]) -> dict[str, Any]:
         results = metadata.get("cross_exam_results", [])
@@ -42,6 +110,7 @@ class MockTrialReportService:
             "status": "complete" if results else "no_data",
             "summary": {"total": total, "high_risk": high, "medium_risk": medium, "low_risk": total - high - medium},
             "results": results,
+            "last_updated": metadata.get("cross_exam_last_updated", ""),
         }
 
     def _debate_report(self, metadata: dict[str, Any]) -> dict[str, Any]:
@@ -54,4 +123,11 @@ class MockTrialReportService:
             "focus": focus,
             "rounds": rounds,
             "history": history,
+            "last_updated": metadata.get("debate_last_updated", ""),
         }
+
+    def _now_iso(self) -> str:
+        """获取当前时间的 ISO 格式字符串."""
+        from datetime import datetime, timezone
+
+        return datetime.now(timezone.utc).isoformat()

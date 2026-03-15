@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 from pathlib import Path
 from typing import Any
@@ -12,7 +13,9 @@ from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
-from apps.contract_review.models import ReviewTask
+from apps.contract_review.models import ReviewTask, TaskStatus
+
+logger = logging.getLogger(__name__)
 
 _PARTY_FIELDS = ("party_a", "party_b", "party_c", "party_d")
 
@@ -33,6 +36,58 @@ class ReviewTaskAdmin(admin.ModelAdmin[ReviewTask]):
         "updated_at",
     )
     ordering = ("-created_at",)
+    actions = ["retry_selected_tasks", "delete_selected_with_files"]
+
+    @admin.action(description=_("重新执行选中的审查任务"))
+    def retry_selected_tasks(self, request: HttpRequest, queryset: Any) -> None:
+        from django_q.tasks import async_task
+
+        count = 0
+        for task in queryset:
+            if task.status in [TaskStatus.FAILED, TaskStatus.COMPLETED]:
+                task.status = TaskStatus.CONFIRMED
+                task.save(update_fields=["status"])
+                async_task(
+                    "apps.contract_review.services.review_service.process_review",
+                    str(task.id),
+                    timeout=1800,
+                )
+                count += 1
+        self.message_user(request, f"已重新提交 {count} 个审查任务")
+
+    @admin.action(description=_("删除选中任务及关联文件"))
+    def delete_selected_with_files(self, request: HttpRequest, queryset: Any) -> None:
+        from apps.contract_review.repositories.review_task_repository import ReviewTaskRepository
+
+        repository = ReviewTaskRepository()
+        deleted_count = 0
+        file_count = 0
+
+        for task in queryset:
+            # 删除文件
+            if task.original_file:
+                original_path = Path(task.original_file)
+                if original_path.exists():
+                    try:
+                        original_path.unlink()
+                        file_count += 1
+                    except OSError as e:
+                        logger.warning("删除上传文件失败: %s - %s", original_path, e)
+
+            if task.output_file:
+                output_path = Path(task.output_file)
+                if output_path.exists():
+                    try:
+                        output_path.unlink()
+                        file_count += 1
+                    except OSError as e:
+                        logger.warning("删除输出文件失败: %s - %s", output_path, e)
+
+            # 删除数据库记录
+            repository.delete_by_id(task.id)
+            deleted_count += 1
+
+        self.message_user(request, f"已删除 {deleted_count} 个任务及 {file_count} 个关联文件")
 
     @admin.display(description=_("当前处理步骤"))
     def current_step_display(self, obj: ReviewTask) -> str:
@@ -224,10 +279,24 @@ class ReviewTaskAdmin(admin.ModelAdmin[ReviewTask]):
 
     def report_pdf_view(self, request: HttpRequest, task_id: UUID) -> HttpResponse:
         import markdown
+        from django.conf import settings
         from django.template.loader import render_to_string
         from weasyprint import HTML
 
         task = ReviewTask.objects.get(id=task_id)
+
+        # 检查缓存是否存在
+        cache_path = Path(task.pdf_cache_file) if task.pdf_cache_file else None
+        if cache_path and cache_path.exists():
+            # 返回缓存的 PDF
+            with open(cache_path, "rb") as f:
+                pdf = f.read()
+            filename = f"评估报告-{task.contract_title or task.id}.pdf"
+            response = HttpResponse(pdf, content_type="application/pdf")
+            response["Content-Disposition"] = f'inline; filename="{filename}"'
+            return response
+
+        # 生成 PDF
         text = task.review_report or ""
         text = re.sub(r"^```\w*\n?", "", text.strip())
         text = re.sub(r"\n?```$", "", text)
@@ -242,6 +311,18 @@ class ReviewTaskAdmin(admin.ModelAdmin[ReviewTask]):
             },
         )
         pdf = HTML(string=html_string).write_pdf()
+
+        # 保存到缓存
+        pdf_dir = Path(settings.MEDIA_ROOT) / "contract_review" / "pdf_cache"
+        pdf_dir.mkdir(parents=True, exist_ok=True)
+        cache_path = pdf_dir / f"{task_id}.pdf"
+        with open(cache_path, "wb") as f:
+            f.write(pdf)
+
+        # 更新数据库记录
+        task.pdf_cache_file = str(cache_path)
+        task.save(update_fields=["pdf_cache_file"])
+
         filename = f"评估报告-{task.contract_title or task.id}.pdf"
         response = HttpResponse(pdf, content_type="application/pdf")
         response["Content-Disposition"] = f'inline; filename="{filename}"'

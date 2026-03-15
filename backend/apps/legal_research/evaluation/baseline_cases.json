@@ -1,0 +1,17 @@
+{
+  "name": "legal_research_baseline_v1",
+  "description": "请替换为你自己的标注样本。expected_relevant_doc_ids 为空时，该样本仅用于可用性回放，不参与 PRF 统计。",
+  "cases": [
+    {
+      "case_id": "sample-001",
+      "credential_id": 6,
+      "keyword": "佛山市顺德区人民法院 买卖合同纠纷",
+      "case_summary": "卖方违约转卖货物导致买方价差损失，买方请求赔偿损失并承担违约责任。",
+      "target_count": 3,
+      "max_candidates": 100,
+      "min_similarity_score": 0.82,
+      "llm_model": "Qwen/Qwen2.5-7B-Instruct",
+      "expected_relevant_doc_ids": []
+    }
+  ]
+}

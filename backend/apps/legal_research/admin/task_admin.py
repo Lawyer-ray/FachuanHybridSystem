@@ -12,14 +12,16 @@ from django.urls import path, reverse
 from django.utils.html import format_html, format_html_join
 from django.utils import timezone
 
-from apps.core.exceptions import ValidationException
 from apps.core.interfaces import ServiceLocator
 from apps.core.llm.config import LLMConfig
 from apps.core.llm.model_list_service import ModelListService
 from apps.legal_research.models import LegalResearchResult, LegalResearchTask
 from apps.legal_research.models.task import LegalResearchTaskStatus
+from apps.legal_research.services.feedback_loop import LegalResearchFeedbackLoopService
 from apps.legal_research.services.keywords import KEYWORD_INPUT_HELP_TEXT, normalize_keyword_query
 from apps.legal_research.services.llm_preflight import verify_siliconflow_connectivity
+from apps.legal_research.services.task_service import LegalResearchTaskService
+from apps.legal_research.services.task_state_sync import sync_failed_queue_state
 from apps.organization.models import AccountCredential, Lawyer
 
 logger = logging.getLogger(__name__)
@@ -90,6 +92,14 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
         "min_similarity_score",
         "llm_model",
     ]
+    actions: ClassVar[list[str]] = ["mark_as_missed_case_feedback"]
+
+    def get_object(self, request, object_id, from_field=None):  # type: ignore[override]
+        obj = super().get_object(request, object_id, from_field=from_field)
+        if obj is None:
+            return None
+        self._sync_failed_queue_state(obj=obj)
+        return obj
 
     def get_readonly_fields(self, request, obj: LegalResearchTask | None = None) -> list[str]:  # type: ignore[override]
         if obj is None:
@@ -358,23 +368,6 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
 
         return "—"
 
-    @staticmethod
-    def _reset_task_for_dispatch(obj: LegalResearchTask, *, message: str) -> None:
-        obj.status = LegalResearchTaskStatus.PENDING
-        obj.progress = 0
-        obj.scanned_count = 0
-        obj.matched_count = 0
-        obj.candidate_count = 0
-        obj.error = ""
-        obj.message = message
-        obj.started_at = None
-        obj.finished_at = None
-        obj.q_task_id = ""
-        obj.source = "weike"
-        obj.llm_backend = "siliconflow"
-        if not obj.llm_model:
-            obj.llm_model = LLMConfig.get_default_model()
-
     def _cancel_task(self, *, obj: LegalResearchTask) -> dict[str, Any]:
         cancel_info: dict[str, Any] = {"queue_deleted": 0, "running": False, "finished": False, "exists": False}
         if obj.q_task_id:
@@ -390,70 +383,47 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
         obj.save(update_fields=["status", "message", "error", "finished_at", "updated_at"])
         return cancel_info
 
-    def _mark_precheck_failed(self, *, obj: LegalResearchTask, error_message: str) -> None:
-        obj.status = LegalResearchTaskStatus.FAILED
-        obj.message = "LLM连通性检查失败，请更换模型后重试"
-        obj.error = error_message
-        obj.finished_at = timezone.now()
-        obj.save(update_fields=["status", "message", "error", "finished_at", "updated_at"])
+    @staticmethod
+    def _sync_failed_queue_state(*, obj: LegalResearchTask) -> None:
+        sync_failed_queue_state(task=obj, failed_message="任务执行失败（队列状态自动回填）")
 
-    def _submit_to_queue(self, *, obj: LegalResearchTask) -> None:
-        q_task_id = ServiceLocator.get_task_submission_service().submit(
-            "apps.legal_research.tasks.execute_legal_research_task",
-            args=[str(obj.id)],
-            task_name=f"legal_research_{obj.id}",
-            timeout=3600,
-        )
-        obj.q_task_id = q_task_id
-        obj.status = LegalResearchTaskStatus.QUEUED
-        obj.message = "任务已提交到队列"
-        obj.save(update_fields=["q_task_id", "status", "message", "updated_at"])
+    @admin.action(description="标记为漏命中（在线负反馈）")
+    def mark_as_missed_case_feedback(self, request: HttpRequest, queryset) -> None:
+        service = LegalResearchFeedbackLoopService()
+        operator = str(getattr(request.user, "id", "") or "")
+        count = 0
+        for task in queryset:
+            service.record_task_missed_feedback(task=task, operator=operator)
+            count += 1
+        self.message_user(request, f"已记录 {count} 个任务的漏命中反馈，并完成在线微调。")
 
     def save_model(self, request, obj: LegalResearchTask, form, change) -> None:  # type: ignore[override]
+        task_service = LegalResearchTaskService()
+
         if change and obj.status != LegalResearchTaskStatus.FAILED:
             super().save_model(request, obj, form, change)
             return
 
         if change and obj.status == LegalResearchTaskStatus.FAILED:
             super().save_model(request, obj, form, change)
-            LegalResearchResult.objects.filter(task=obj).delete()
-            self._reset_task_for_dispatch(obj, message="任务已重置，等待调度")
-            obj.save(
-                update_fields=[
-                    "status",
-                    "progress",
-                    "scanned_count",
-                    "matched_count",
-                    "candidate_count",
-                    "error",
-                    "message",
-                    "started_at",
-                    "finished_at",
-                    "q_task_id",
-                    "source",
-                    "llm_backend",
-                    "llm_model",
-                    "updated_at",
-                ]
+            task_service.reset_task_for_dispatch(
+                task=obj,
+                pending_message=task_service.RETRY_PENDING_MESSAGE,
+                clear_results=True,
             )
 
-            try:
-                verify_siliconflow_connectivity(model=obj.llm_model)
-            except ValidationException as exc:
-                self._mark_precheck_failed(obj=obj, error_message=str(exc))
-                messages.error(request, f"LLM连通性检查失败，任务未启动: {exc}")
-                return
-
-            try:
-                self._submit_to_queue(obj=obj)
+            queued = task_service.dispatch_task(
+                task=obj,
+                queue_failure_message="任务重新提交失败",
+                precheck=verify_siliconflow_connectivity,
+            )
+            if queued:
                 messages.success(request, "任务已重新提交到队列。")
-            except Exception as exc:
-                obj.status = LegalResearchTaskStatus.FAILED
-                obj.message = "任务重新提交失败"
-                obj.error = str(exc)
-                obj.finished_at = timezone.now()
-                obj.save(update_fields=["status", "message", "error", "finished_at", "updated_at"])
-                messages.error(request, f"任务重新提交失败: {exc}")
+            else:
+                if obj.message == task_service.PRECHECK_FAILED_MESSAGE:
+                    messages.error(request, f"LLM连通性检查失败，任务未启动: {obj.error}")
+                else:
+                    messages.error(request, f"{obj.message}: {obj.error}")
             return
 
         obj.keyword = normalize_keyword_query(obj.keyword)
@@ -465,23 +435,20 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
         if obj.created_by_id is None and isinstance(request.user, Lawyer):
             obj.created_by = request.user
 
-        self._reset_task_for_dispatch(obj, message="任务已创建，等待调度")
-
         super().save_model(request, obj, form, change)
+        task_service.reset_task_for_dispatch(
+            task=obj,
+            pending_message=task_service.CREATE_PENDING_MESSAGE,
+            clear_results=False,
+        )
 
-        try:
-            verify_siliconflow_connectivity(model=obj.llm_model)
-        except ValidationException as exc:
-            self._mark_precheck_failed(obj=obj, error_message=str(exc))
-            messages.error(request, f"LLM连通性检查失败，任务未启动: {exc}")
-            return
-
-        try:
-            self._submit_to_queue(obj=obj)
-        except Exception as exc:
-            obj.status = LegalResearchTaskStatus.FAILED
-            obj.message = "任务提交失败"
-            obj.error = str(exc)
-            obj.finished_at = timezone.now()
-            obj.save(update_fields=["status", "message", "error", "finished_at", "updated_at"])
-            messages.error(request, f"任务已创建但提交队列失败: {exc}")
+        queued = task_service.dispatch_task(
+            task=obj,
+            queue_failure_message="任务提交失败",
+            precheck=verify_siliconflow_connectivity,
+        )
+        if not queued:
+            if obj.message == task_service.PRECHECK_FAILED_MESSAGE:
+                messages.error(request, f"LLM连通性检查失败，任务未启动: {obj.error}")
+            else:
+                messages.error(request, f"任务已创建但提交队列失败: {obj.error}")
