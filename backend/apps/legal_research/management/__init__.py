@@ -1,0 +1,2 @@
+"""Legal research management package."""
+

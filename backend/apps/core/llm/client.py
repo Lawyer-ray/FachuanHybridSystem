@@ -22,6 +22,7 @@ class LLMClient:
         temperature: float = 0.7,
         max_tokens: int | None = None,
         fallback: bool = True,
+        **kwargs: Any,
     ) -> LLMResponse:
         messages: list[dict[str, str]] = []
         if system_prompt:
@@ -35,6 +36,7 @@ class LLMClient:
             temperature=temperature,
             max_tokens=max_tokens,
             fallback=fallback,
+            **kwargs,
         )
 
     def chat(
@@ -47,9 +49,10 @@ class LLMClient:
         temperature: float = 0.7,
         max_tokens: int | None = None,
         fallback: bool = True,
+        **kwargs: Any,
     ) -> LLMResponse:
         def operation(b: ILLMBackend) -> LLMResponse:
-            return b.chat(messages=messages, model=model, temperature=temperature, max_tokens=max_tokens)
+            return b.chat(messages=messages, model=model, temperature=temperature, max_tokens=max_tokens, **kwargs)
 
         backend_name = backend or self._default_backend
         return cast(LLMResponse, fallback_policy.execute(operation=operation, backend=backend_name, fallback=fallback))
@@ -64,9 +67,10 @@ class LLMClient:
         temperature: float = 0.7,
         max_tokens: int | None = None,
         fallback: bool = True,
+        **kwargs: Any,
     ) -> LLMResponse:
         async def operation(b: ILLMBackend) -> LLMResponse:
-            return await b.achat(messages=messages, model=model, temperature=temperature, max_tokens=max_tokens)
+            return await b.achat(messages=messages, model=model, temperature=temperature, max_tokens=max_tokens, **kwargs)
 
         backend_name = backend or self._default_backend
         return cast(

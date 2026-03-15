@@ -41,6 +41,7 @@ class ReviewTask(models.Model):
     )
     original_file = models.CharField(max_length=512, verbose_name=_("原始文件路径"))
     output_file = models.CharField(max_length=512, blank=True, verbose_name=_("输出文件路径"))
+    pdf_cache_file = models.CharField(max_length=512, blank=True, verbose_name=_("PDF 缓存文件路径"))
     contract_title = models.CharField(max_length=256, blank=True, verbose_name=_("合同标题"))
     party_a = models.CharField(max_length=256, blank=True, verbose_name=_("甲方"))
     party_b = models.CharField(max_length=256, blank=True, verbose_name=_("乙方"))

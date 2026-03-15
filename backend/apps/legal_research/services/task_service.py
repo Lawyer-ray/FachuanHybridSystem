@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 
 from django.utils import timezone
 
@@ -11,6 +12,7 @@ from apps.legal_research.models import LegalResearchResult, LegalResearchTask, L
 from apps.legal_research.schemas import LegalResearchTaskCreateIn
 from apps.legal_research.services.keywords import normalize_keyword_query
 from apps.legal_research.services.llm_preflight import verify_siliconflow_connectivity
+from apps.legal_research.services.task_state_sync import sync_failed_queue_state
 from apps.organization.models import AccountCredential, Lawyer
 
 logger = logging.getLogger(__name__)
@@ -18,6 +20,10 @@ logger = logging.getLogger(__name__)
 
 class LegalResearchTaskService:
     _WEIKE_URL_KEYWORD = "wkinfo.com.cn"
+    PRECHECK_FAILED_MESSAGE = "LLM连通性检查失败，请更换模型后重试"
+    QUEUED_MESSAGE = "任务已提交到队列"
+    CREATE_PENDING_MESSAGE = "任务已创建，等待调度"
+    RETRY_PENDING_MESSAGE = "任务已重置，等待调度"
 
     def create_task(self, *, payload: LegalResearchTaskCreateIn, user: Lawyer | None) -> LegalResearchTask:
         credential = AccountCredential.objects.select_related("lawyer", "lawyer__law_firm").filter(id=payload.credential_id).first()
@@ -46,44 +52,14 @@ class LegalResearchTaskService:
             max_candidates=payload.max_candidates,
             min_similarity_score=payload.min_similarity_score,
             status=LegalResearchTaskStatus.PENDING,
-            message="任务已创建，等待调度",
+            message=self.CREATE_PENDING_MESSAGE,
             llm_backend="siliconflow",
             llm_model=(payload.llm_model.strip() if payload.llm_model else LLMConfig.get_default_model()),
         )
 
-        try:
-            verify_siliconflow_connectivity(model=task.llm_model)
-        except ValidationException as exc:
-            task.status = LegalResearchTaskStatus.FAILED
-            task.message = "LLM连通性检查失败，请更换模型后重试"
-            task.error = str(exc)
-            task.finished_at = timezone.now()
-            task.save(update_fields=["status", "message", "error", "finished_at", "updated_at"])
-            logger.warning(
-                "案例检索任务创建失败：LLM连通性检查未通过",
-                extra={"task_id": str(task.id), "llm_model": task.llm_model, "error": str(exc)},
-            )
+        queued = self.dispatch_task(task=task, queue_failure_message="任务提交失败", raise_on_submit_error=True)
+        if not queued:
             return task
-
-        try:
-            q_task_id = ServiceLocator.get_task_submission_service().submit(
-                "apps.legal_research.tasks.execute_legal_research_task",
-                args=[str(task.id)],
-                task_name=f"legal_research_{task.id}",
-                timeout=3600,
-            )
-        except Exception as exc:
-            task.status = LegalResearchTaskStatus.FAILED
-            task.message = "任务提交失败"
-            task.error = str(exc)
-            task.finished_at = timezone.now()
-            task.save(update_fields=["status", "message", "error", "finished_at", "updated_at"])
-            raise
-
-        task.q_task_id = q_task_id
-        task.status = LegalResearchTaskStatus.QUEUED
-        task.message = "任务已提交到队列"
-        task.save(update_fields=["q_task_id", "status", "message", "updated_at"])
 
         logger.info(
             "案例检索任务已创建",
@@ -95,6 +71,87 @@ class LegalResearchTaskService:
         )
         return task
 
+    def reset_task_for_dispatch(
+        self,
+        *,
+        task: LegalResearchTask,
+        pending_message: str | None = None,
+        clear_results: bool = False,
+    ) -> None:
+        if clear_results:
+            LegalResearchResult.objects.filter(task=task).delete()
+
+        task.status = LegalResearchTaskStatus.PENDING
+        task.progress = 0
+        task.scanned_count = 0
+        task.matched_count = 0
+        task.candidate_count = 0
+        task.error = ""
+        task.message = (pending_message or self.RETRY_PENDING_MESSAGE)[:255]
+        task.started_at = None
+        task.finished_at = None
+        task.q_task_id = ""
+        task.source = "weike"
+        task.llm_backend = "siliconflow"
+        if not task.llm_model:
+            task.llm_model = LLMConfig.get_default_model()
+        task.save(
+            update_fields=[
+                "status",
+                "progress",
+                "scanned_count",
+                "matched_count",
+                "candidate_count",
+                "error",
+                "message",
+                "started_at",
+                "finished_at",
+                "q_task_id",
+                "source",
+                "llm_backend",
+                "llm_model",
+                "updated_at",
+            ]
+        )
+
+    def dispatch_task(
+        self,
+        *,
+        task: LegalResearchTask,
+        queue_failure_message: str = "任务提交失败",
+        raise_on_submit_error: bool = False,
+        precheck: Callable[..., None] | None = None,
+    ) -> bool:
+        checker = precheck or verify_siliconflow_connectivity
+        try:
+            checker(model=task.llm_model)
+        except ValidationException as exc:
+            self._mark_precheck_failed(task=task, error_message=str(exc))
+            logger.warning(
+                "案例检索任务启动失败：LLM连通性检查未通过",
+                extra={"task_id": str(task.id), "llm_model": task.llm_model, "error": str(exc)},
+            )
+            return False
+
+        try:
+            q_task_id = ServiceLocator.get_task_submission_service().submit(
+                "apps.legal_research.tasks.execute_legal_research_task",
+                args=[str(task.id)],
+                task_name=f"legal_research_{task.id}",
+                timeout=3600,
+            )
+        except Exception as exc:
+            self._mark_submit_failed(task=task, error_message=str(exc), queue_failure_message=queue_failure_message)
+            if raise_on_submit_error:
+                raise
+            return False
+
+        task.q_task_id = q_task_id
+        task.status = LegalResearchTaskStatus.QUEUED
+        task.message = self.QUEUED_MESSAGE
+        task.save(update_fields=["q_task_id", "status", "message", "updated_at"])
+        return True
+
     def get_task(self, *, task_id: int, user: Lawyer | None) -> LegalResearchTask:
         task = (
             LegalResearchTask.objects.select_related("credential", "credential__lawyer", "credential__lawyer__law_firm")
@@ -105,6 +162,7 @@ class LegalResearchTaskService:
             raise NotFoundError("任务不存在")
 
         self._check_permission(task=task, user=user)
+        sync_failed_queue_state(task=task, failed_message="任务执行失败（队列状态自动回填）")
         return task
 
     def list_results(self, *, task_id: int, user: Lawyer | None) -> list[LegalResearchResult]:
@@ -147,3 +205,23 @@ class LegalResearchTaskService:
         return ("wkxx" in site_name) or (site_name == "wk") or ("weike" in site_name) or ("wkinfo" in site_name) or (
             cls._WEIKE_URL_KEYWORD in url
         )
+
+    def _mark_precheck_failed(self, *, task: LegalResearchTask, error_message: str) -> None:
+        task.status = LegalResearchTaskStatus.FAILED
+        task.message = self.PRECHECK_FAILED_MESSAGE
+        task.error = error_message
+        task.finished_at = timezone.now()
+        task.save(update_fields=["status", "message", "error", "finished_at", "updated_at"])
+
+    @staticmethod
+    def _mark_submit_failed(
+        *,
+        task: LegalResearchTask,
+        error_message: str,
+        queue_failure_message: str,
+    ) -> None:
+        task.status = LegalResearchTaskStatus.FAILED
+        task.message = queue_failure_message[:255] or "任务提交失败"
+        task.error = error_message
+        task.finished_at = timezone.now()
+        task.save(update_fields=["status", "message", "error", "finished_at", "updated_at"])

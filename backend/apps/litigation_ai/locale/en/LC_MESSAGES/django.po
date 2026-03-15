@@ -237,3 +237,31 @@ msgstr "Enter message... (Enter to send)"
 #: apps/litigation_ai/templates/litigation_ai/mock_trial.html:102
 msgid "发送"
 msgstr "Send"
+
+#: apps/litigation_ai/templates/litigation_ai/mock_trial.html:25
+msgid "导出报告"
+msgstr "Export Report"
+
+#: apps/litigation_ai/templates/litigation_ai/mock_trial.html:25
+msgid "导出中..."
+msgstr "Exporting..."
+
+#: apps/litigation_ai/templates/litigation_ai/mock_trial.html:55
+msgid "选择难度:"
+msgstr "Select Difficulty:"
+
+#: apps/litigation_ai/templates/litigation_ai/mock_trial.html:57
+msgid "简单 - 温和反驳"
+msgstr "Easy - Gentle Rebuttal"
+
+#: apps/litigation_ai/templates/litigation_ai/mock_trial.html:58
+msgid "中等 - 有理有据"
+msgstr "Medium - Reasoned Argument"
+
+#: apps/litigation_ai/templates/litigation_ai/mock_trial.html:59
+msgid "困难 - 犀利精准"
+msgstr "Hard - Sharp and Precise"
+
+#: apps/litigation_ai/templates/litigation_ai/mock_trial.html:91
+msgid "AI 分析中..."
+msgstr "AI Analyzing..."
