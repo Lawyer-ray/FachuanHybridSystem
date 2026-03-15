@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from django.db import transaction
 from django.db.models import QuerySet
@@ -25,7 +25,32 @@ from apps.reminders.services.validators import (
 logger: logging.Logger = logging.getLogger(__name__)
 
 
+if TYPE_CHECKING:
+    from apps.reminders.ports import CaseLogTargetQueryPort, ContractTargetQueryPort
+
+
 class ReminderService:
+    def __init__(
+        self,
+        *,
+        contract_target_query: ContractTargetQueryPort | None = None,
+        case_log_target_query: CaseLogTargetQueryPort | None = None,
+    ) -> None:
+        self._contract_target_query = contract_target_query or self._build_contract_target_query()
+        self._case_log_target_query = case_log_target_query or self._build_case_log_target_query()
+
+    @staticmethod
+    def _build_contract_target_query() -> ContractTargetQueryPort:
+        from apps.contracts.adapters import ContractReminderTargetQueryAdapter
+
+        return ContractReminderTargetQueryAdapter()
+
+    @staticmethod
+    def _build_case_log_target_query() -> CaseLogTargetQueryPort:
+        from apps.cases.adapters import CaseLogReminderTargetQueryAdapter
+
+        return CaseLogReminderTargetQueryAdapter()
+
     def list_reminders(
         self,
         contract_id: int | None = None,
@@ -66,7 +91,12 @@ class ReminderService:
         metadata: dict[str, Any] | None = None,
     ) -> Reminder:
         validate_binding_exclusive(contract_id=contract_id, case_log_id=case_log_id)
-        validate_fk_exists(contract_id=contract_id, case_log_id=case_log_id)
+        validate_fk_exists(
+            contract_id=contract_id,
+            case_log_id=case_log_id,
+            contract_target_query=self._contract_target_query,
+            case_log_target_query=self._case_log_target_query,
+        )
         # 处理枚举类型或字符串类型
         if hasattr(reminder_type, "value"):
             reminder_type = reminder_type.value
@@ -112,6 +142,8 @@ class ReminderService:
             validate_fk_exists(
                 contract_id=new_contract_id if "contract_id" in data else None,
                 case_log_id=new_case_log_id if "case_log_id" in data else None,
+                contract_target_query=self._contract_target_query,
+                case_log_target_query=self._case_log_target_query,
             )
             if "contract_id" in data:
                 reminder.contract_id = new_contract_id

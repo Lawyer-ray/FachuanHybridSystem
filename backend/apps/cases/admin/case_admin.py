@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.contrib import admin
@@ -90,8 +91,47 @@ def _serialize_client(client: Any) -> dict[str, Any]:
     return serialize_client_obj(client)
 
 
+def _export_case_log_reminders_map(logs: list[Any]) -> dict[int, list[dict[str, Any]]]:
+    log_ids = [int(log.id) for log in logs if getattr(log, "id", None)]
+    if not log_ids:
+        return {}
+
+    from apps.core.interfaces import ServiceLocator
+
+    reminder_service = ServiceLocator.get_reminder_service()
+    return reminder_service.export_case_log_reminders_batch_internal(case_log_ids=log_ids)
+
+
+def _serialize_exported_reminders(reminders: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    result: list[dict[str, Any]] = []
+    for reminder in reminders:
+        due_at = reminder.get("due_at")
+        if isinstance(due_at, datetime):
+            due_at_value = due_at.isoformat()
+        elif due_at is None:
+            due_at_value = ""
+        else:
+            due_at_value = str(due_at)
+
+        metadata = reminder.get("metadata")
+        metadata_value = metadata if isinstance(metadata, dict) else {}
+
+        result.append(
+            {
+                "reminder_type": reminder.get("reminder_type"),
+                "content": reminder.get("content"),
+                "due_at": due_at_value,
+                "metadata": metadata_value,
+            }
+        )
+    return result
+
+
 def serialize_case_obj(obj: Any) -> dict[str, Any]:
     """将单个 Case 实例序列化为 dict（供 CaseAdmin 和 ContractAdmin 共用）。"""
+    logs = list(obj.logs.all())
+    reminders_by_log_id = _export_case_log_reminders_map(logs)
+
     return {
         "name": obj.name,
         "filing_number": obj.filing_number,
@@ -135,17 +175,9 @@ def serialize_case_obj(obj: Any) -> dict[str, Any]:
                     for att in log.attachments.all()
                     if att.file
                 ],
-                "reminders": [
-                    {
-                        "reminder_type": r.reminder_type,
-                        "content": r.content,
-                        "due_at": r.due_at.isoformat(),
-                        "metadata": r.metadata,
-                    }
-                    for r in log.reminders.all()
-                ],
+                "reminders": _serialize_exported_reminders(reminders_by_log_id.get(log.id) or []),
             }
-            for log in obj.logs.all()
+            for log in logs
         ],
     }
 

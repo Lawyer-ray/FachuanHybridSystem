@@ -201,7 +201,7 @@ class CaseBindingService:
 
         根据文书类型设置对应的提醒类型：
         - 传票 -> hearing（开庭）
-        - 执行裁定书 -> asset_preservation（财产保全）
+        - 执行裁定书 -> asset_preservation_expires（财产保全到期）
         - 其他 -> other（其他）
 
         Args:
@@ -210,22 +210,24 @@ class CaseBindingService:
             document_type: 文书类型
         """
         try:
-            from apps.core.enums import CaseLogReminderType
-            from apps.core.interfaces import ServiceLocator
-
-            # 根据文书类型确定提醒类型
             if document_type == DocumentType.SUMMONS:
-                reminder_type = CaseLogReminderType.HEARING
+                reminder_type = "hearing"
             elif document_type == DocumentType.EXECUTION_RULING:
-                reminder_type = CaseLogReminderType.ASSET_PRESERVATION
+                reminder_type = "asset_preservation_expires"
             else:
-                reminder_type = CaseLogReminderType.OTHER
+                reminder_type = "other"
 
-            case_log = ServiceLocator.get_case_service().get_case_log_model_internal(case_log_id)
-            if case_log is not None:
-                case_log.reminder_time = reminder_time
-                case_log.reminder_type = reminder_type
-                case_log.save(update_fields=["reminder_time", "reminder_type"])
+            updated = self.case_service.update_case_log_reminder_internal(
+                case_log_id=case_log_id,
+                reminder_time=reminder_time,
+                reminder_type=reminder_type,
+            )
+            if not updated:
+                logger.warning(
+                    "更新日志提醒失败",
+                    extra={"action": "_update_log_reminder", "case_log_id": case_log_id},
+                )
+                return
 
             logger.debug(
                 "更新日志提醒成功",
