@@ -2,6 +2,62 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.16.6] - 2026-03-15
+
+### 新增
+- **法律检索事件模型与可视化观测链路**
+  - 新增 `LegalResearchTaskEvent` 模型与迁移（记录阶段、来源、接口名、URL、状态码、耗时、请求/响应摘要、错误信息）
+  - 新增事件写入服务 `LegalResearchTaskEventService`，统一进行请求/响应脱敏与截断
+  - `LegalResearchTaskAdmin` 详情页新增：
+    - API 阶段指标（命中率、DOM 回退率、错误码分布、`C_001_009` 计数）
+    - 流程时间线视图
+    - 接口返回可视化面板（Request/Response/Meta）
+  - 私有 API 观测面板增加能力门禁：仅在目标法律数据源且私有 API 能力可用时展示
+
+### 优化
+- **法律检索链路稳定性增强**
+  - 检索阶段新增短时熔断与冷却逻辑，连续空结果/异常时优先走 DOM，降低 API 抖动影响
+  - 明确 `offset > 0` 空页视为翻页结束，不再回退 DOM
+  - 详情阶段补充 `document_meta` / `document_html` / `dom_detail` 结构化事件记录
+  - 执行器会话增加 `task_id` 透传，支持全链路事件关联追踪
+
+- **评测基线与可解释评估输出增强**
+  - `benchmark_legal_research_retrieval` 支持样本 `query_type` 归一化（`primary/expansion/feedback/other`）
+  - 汇总报告新增按查询类型统计：`tp/fp/fn/precision/recall/f1/contribution_rate`
+  - Matrix 与 CSV 输出增加查询类型贡献率字段，便于策略预算化对比
+  - 基线样本结构升级为 `v2`，补充 `query_type_notes` 与分层骨架字段
+
+### 维护
+- **Git 追踪策略清理**
+  - `backend/apps/legal_research/evaluation/baseline_cases.json` 改为本地标注文件，不再纳入 Git 跟踪
+  - `.gitignore` 明确补充 legal_research 评测样本与报告目录忽略规则
+
+## [26.16.5] - 2026-03-15
+
+### 优化
+- **organization 模块代码规范整改**
+  - **Service 层内部方法规范化**：将 `_get_lawyer_internal`、`_get_lawfirm_internal`、`_get_credential_internal` 改为公共方法 `get_lawyer_by_id()`、`get_lawfirm_by_id()`、`get_credential_by_id()`
+  - **Adapter 层调用更新**：所有 Adapter 统一使用新的公共方法，移除对内部方法的直接访问
+  - **API 层工厂函数规范化**：`lawyer_api`、`team_api`、`lawfirm_api`、`accountcredential_api`、`auth_api` 均添加 `_get_xxx_service()` 工厂函数，符合四层架构规范
+  - **业务逻辑保持可用**：37个单元测试全部通过，无破坏性变更
+
+## [26.16.4] - 2026-03-15
+
+### 重构
+- **client 模块架构解耦**：引入 Ports/Adapters 模式，彻底解耦跨模块依赖
+  - **Admin 层解耦**：`ClientAdmin` 不再直接导入 `automation` / `organization` 模块
+    - 新增 `GsxtReportPort` / `CredentialPort` 接口
+    - 新增 `GsxtReportAdapter` / `CredentialAdapter` 实现
+    - 企业信用报告功能通过端口调用，支持独立测试和替换
+  - **Service 层解耦**：移除 `FileUploadService` / `Validators` 硬编码依赖
+    - 新增 `FileUploadPort` / `FileValidatorPort` 接口
+    - 通过构造函数或属性注入，支持 mock 测试
+  - **API 层解耦**：移除 `django_q_tasks` 直接导入
+    - 新增 `TaskServicePort` 接口
+    - 异步任务提交/查询通过端口封装
+  - **文件结构优化**：`dependencies.py` 迁移至 `utils/ocr_provider.py`，职责更清晰
+  - **工厂函数统一**：`services/wiring.py` 集中管理所有端口/适配器/服务工厂
+
 ## [26.16.3] - 2026-03-15
 
 ### 新增

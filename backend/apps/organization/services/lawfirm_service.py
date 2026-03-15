@@ -47,7 +47,7 @@ class LawFirmService:
         if user is None:
             raise AuthenticationError(message=_("请先登录"), code="AUTHENTICATION_REQUIRED")
 
-        lawfirm = self._get_lawfirm_internal(lawfirm_id)
+        lawfirm = self.get_lawfirm_by_id(lawfirm_id)
 
         if lawfirm is None:
             raise NotFoundError(message=_("律所不存在"), code="LAWFIRM_NOT_FOUND")
@@ -236,7 +236,8 @@ class LawFirmService:
                 message=_("律所名称已存在"), code="DUPLICATE_NAME", errors={"name": str(_("该名称已被使用"))}
             )
 
-    def _get_lawfirm_internal(self, lawfirm_id: int) -> LawFirm | None:
+    def get_lawfirm_by_id(self, lawfirm_id: int) -> LawFirm | None:
+        """根据ID获取律所（公共方法，供Adapter层调用）"""
         return self.get_lawfirm_queryset().filter(id=lawfirm_id).first()
 
 
@@ -247,7 +248,7 @@ class LawFirmServiceAdapter(ILawFirmService):
         self.service = lawfirm_service or LawFirmService()
 
     def get_lawfirm(self, lawfirm_id: int) -> LawFirmDTO | None:
-        lawfirm = self.service._get_lawfirm_internal(lawfirm_id)
+        lawfirm = self.service.get_lawfirm_by_id(lawfirm_id)
         if lawfirm is None:
             return None
         return self._assembler.to_dto(lawfirm)

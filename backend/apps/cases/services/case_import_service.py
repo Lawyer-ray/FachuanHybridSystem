@@ -155,15 +155,31 @@ class CaseImportService:
                         with full.open("rb") as f:
                             att = CaseLogAttachment(log=log)
                             att.file.save(att_data.get("filename", full.name), ContentFile(f.read()), save=True)
-            from apps.reminders.models import Reminder
-
+            # 批量创建案件日志提醒
+            reminders_list = []
             for r_data in log_data.get("reminders") or []:
                 if r_data.get("due_at") and r_data.get("reminder_type"):
-                    Reminder.objects.get_or_create(
-                        case_log=log,
-                        reminder_type=r_data["reminder_type"],
-                        due_at=r_data["due_at"],
-                        defaults={"content": r_data.get("content", ""), "metadata": r_data.get("metadata", {})},
-                    )
+                    from datetime import datetime
+
+                    due_at = r_data["due_at"]
+                    if isinstance(due_at, str):
+                        from django.utils.dateparse import parse_datetime
+
+                        due_at = parse_datetime(due_at)
+                    if isinstance(due_at, datetime):
+                        reminders_list.append({
+                            "reminder_type": r_data["reminder_type"],
+                            "content": r_data.get("content", ""),
+                            "due_at": due_at,
+                            "metadata": r_data.get("metadata", {}),
+                        })
+            if reminders_list:
+                from apps.cases.services.case.wiring import get_reminder_service
+
+                reminder_service = get_reminder_service()
+                reminder_service.create_case_log_reminders_internal(
+                    case_log_id=log.id,
+                    reminders=reminders_list,
+                )
 
         return case

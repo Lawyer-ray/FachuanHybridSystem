@@ -17,7 +17,13 @@ from apps.organization.services import LawyerService
 
 router = Router(auth=JWTOrSessionAuth())
 
-_lawyer_service = LawyerService()
+
+def _get_lawyer_service() -> LawyerService:
+    """工厂函数：获取律师服务实例"""
+    return LawyerService()
+
+
+_lawyer_service = _get_lawyer_service()
 
 
 @router.get("/lawyers", response=list[LawyerOut])

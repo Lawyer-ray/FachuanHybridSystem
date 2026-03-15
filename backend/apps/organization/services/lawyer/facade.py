@@ -91,7 +91,8 @@ class LawyerService:
             raise AuthenticationError(message=_("请先登录"), code="AUTHENTICATION_REQUIRED")
         self._mutation.delete_lawyer(lawyer=lawyer, user=user)
 
-    # ---- 内部方法 ----
+    # ---- 公共查询方法 ----
 
-    def _get_lawyer_internal(self, lawyer_id: int) -> Lawyer | None:
+    def get_lawyer_by_id(self, lawyer_id: int) -> Lawyer | None:
+        """根据ID获取律师（公共方法，供Adapter层调用）"""
         return self.get_lawyer_queryset().filter(id=lawyer_id).first()
