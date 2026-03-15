@@ -11,6 +11,12 @@ logger = logging.getLogger(__name__)
 
 
 class WeikeAuthMixin:
+    LAW_LOGIN_BUTTON_SELECTOR = "button.wk-banner-action-bar-item.wkb-btn-green:has-text('登录')"
+    LAW_LOGIN_MODAL_USERNAME_SELECTOR = "#login-username"
+    LAW_LOGIN_MODAL_PASSWORD_SELECTOR = "#login-password"
+    LAW_LOGIN_MODAL_SUBMIT_SELECTOR = "button.login-submit-btn"
+    LAW_LOGIN_REQUIRED_TEXT = "抱歉，此功能需要登录后操作"
+
     def _normalize_login_url(self, login_url: str | None) -> str | None:
         if not login_url:
             return None
@@ -59,6 +65,22 @@ class WeikeAuthMixin:
             raise
 
     def _login_and_enter_law(self, *, page: Page, username: str, password: str, login_url: str | None) -> None:
+        self._login_via_legacy_home(page=page, username=username, password=password, login_url=login_url)
+        page.goto(self.LAW_LIST_URL, wait_until="domcontentloaded", timeout=120000)
+        page.wait_for_selector("input[name='keyword']", timeout=60000)
+
+        if self._contains_invalid_credential_hint(page):
+            raise RuntimeError("wk登录失败：账号或密码错误")
+
+        if not self._is_law_authenticated(page):
+            self._login_via_law_modal(page=page, username=username, password=password)
+            page.goto(self.LAW_LIST_URL, wait_until="domcontentloaded", timeout=120000)
+            page.wait_for_selector("input[name='keyword']", timeout=60000)
+
+        if not self._is_law_authenticated(page):
+            raise RuntimeError("wk登录失败：账号未进入已登录状态")
+
+    def _login_via_legacy_home(self, *, page: Page, username: str, password: str, login_url: str | None) -> None:
         page.goto(login_url or self.LOGIN_URL, wait_until="domcontentloaded", timeout=120000)
         page.wait_for_selector("#firstname", timeout=60000)
         page.fill("#firstname", username)
@@ -87,7 +109,6 @@ class WeikeAuthMixin:
             page.keyboard.press("Enter")
 
         page.wait_for_timeout(2500)
-
         page.evaluate(
             """
             (() => {
@@ -102,11 +123,68 @@ class WeikeAuthMixin:
             })();
             """
         )
-
         page.wait_for_timeout(2500)
-        page.goto(self.LAW_LIST_URL, wait_until="domcontentloaded", timeout=120000)
-        page.wait_for_selector("input[name='keyword']", timeout=60000)
 
+        if self._contains_invalid_credential_hint(page):
+            raise RuntimeError("wk登录失败：账号或密码错误")
+
+    def _login_via_law_modal(self, *, page: Page, username: str, password: str) -> None:
+        if not self._has_visible_locator(page, self.LAW_LOGIN_BUTTON_SELECTOR):
+            return
+
+        page.locator(self.LAW_LOGIN_BUTTON_SELECTOR).first.click(timeout=10000)
+        page.wait_for_selector(self.LAW_LOGIN_MODAL_USERNAME_SELECTOR, timeout=20000)
+        page.fill(self.LAW_LOGIN_MODAL_USERNAME_SELECTOR, username)
+        page.fill(self.LAW_LOGIN_MODAL_PASSWORD_SELECTOR, password)
+        self._check_law_login_agreement(page)
+        page.locator(self.LAW_LOGIN_MODAL_SUBMIT_SELECTOR).first.click(timeout=10000, force=True)
+        page.wait_for_timeout(3500)
+
+    @staticmethod
+    def _check_law_login_agreement(page: Page) -> None:
+        page.evaluate(
+            """
+            (() => {
+              const cb = document.querySelector('input.wk-field-choice');
+              if (!cb) return false;
+              cb.checked = true;
+              cb.dispatchEvent(new Event('input', {bubbles: true}));
+              cb.dispatchEvent(new Event('change', {bubbles: true}));
+              return cb.checked;
+            })();
+            """
+        )
+
+    def _contains_invalid_credential_hint(self, page: Page) -> bool:
         body_text = page.locator("body").inner_text(timeout=30000)
-        if "抱歉，此功能需要登录后操作" in body_text:
-            raise RuntimeError("wk登录失败：账号未进入已登录状态")
+        hints = (
+            "用户名或密码输入错误",
+            "账号或密码错误",
+            "用户名或密码错误",
+            "login.validateerror",
+        )
+        if any(h in body_text for h in hints):
+            return True
+        return "message=login.validateerror" in page.url
+
+    def _is_law_authenticated(self, page: Page) -> bool:
+        body_text = page.locator("body").inner_text(timeout=30000)
+        if self.LAW_LOGIN_REQUIRED_TEXT in body_text:
+            return False
+
+        if self._has_visible_locator(page, self.LAW_LOGIN_MODAL_USERNAME_SELECTOR):
+            return False
+
+        if self._has_visible_locator(page, self.LAW_LOGIN_BUTTON_SELECTOR):
+            return False
+
+        return True
+
+    @staticmethod
+    def _has_visible_locator(page: Page, selector: str) -> bool:
+        locator = page.locator(selector)
+        count = locator.count()
+        for i in range(min(count, 5)):
+            if locator.nth(i).is_visible():
+                return True
+        return False

@@ -13,6 +13,25 @@ function mockTrialApp(config = {}) {
         selectedMode: null,
         ws: null,
         statusText: '',
+        // 进度条相关
+        progress: {
+            show: false,
+            current: 0,
+            total: 0,
+            percentage: 0,
+            message: ''
+        },
+        // 批量处理
+        batchMode: false,
+        // 导出
+        exporting: false,
+        // 错误重试
+        lastError: null,
+        retryCount: 0,
+        maxRetries: 3,
+        // 辩论难度
+        debateDifficulty: 'medium',
+        showDifficultySelector: false,
 
         async init() {
             await this.loadSessions();
@@ -33,6 +52,10 @@ function mockTrialApp(config = {}) {
         async selectMode(mode) {
             if (this.sessionId) return;
             this.selectedMode = mode;
+            // 辩论模式显示难度选择
+            if (mode === 'debate') {
+                this.showDifficultySelector = true;
+            }
             this.loading = true;
             try {
                 const resp = await fetch('/api/v1/mock-trial/sessions', {
@@ -46,6 +69,15 @@ function mockTrialApp(config = {}) {
                 this.sessionId = data.session_id;
                 this.statusText = '进行中';
                 this.connectWebSocket(data.session_id);
+                // 发送难度设置
+                if (mode === 'debate') {
+                    this.ws.onopen = () => {
+                        this.ws.send(JSON.stringify({
+                            type: 'set_difficulty',
+                            difficulty: this.debateDifficulty
+                        }));
+                    };
+                }
                 await this.loadSessions();
             } catch (e) {
                 console.error(e);
@@ -58,6 +90,7 @@ function mockTrialApp(config = {}) {
             this.sessionId = sessionId;
             this.messages = [];
             this.loading = true;
+            this.resetProgress();
             try {
                 const resp = await fetch(`/api/v1/mock-trial/sessions/${sessionId}`, { credentials: 'include' });
                 if (!resp.ok) return;
@@ -85,10 +118,38 @@ function mockTrialApp(config = {}) {
                     this.sessionId = null;
                     this.messages = [];
                     this.selectedMode = null;
+                    this.resetProgress();
                     if (this.ws) { this.ws.close(); this.ws = null; }
                 }
                 await this.loadSessions();
             } catch (e) { console.error(e); }
+        },
+
+        // ========== 导出报告 ==========
+        async exportReport() {
+            if (!this.sessionId || this.exporting) return;
+            this.exporting = true;
+            try {
+                const resp = await fetch(`/api/v1/mock-trial/sessions/${this.sessionId}/export`, {
+                    credentials: 'include'
+                });
+                if (!resp.ok) throw new Error('导出失败');
+                
+                // 下载文件
+                const blob = await resp.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `模拟庭审报告_${this.caseName}.docx`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            } catch (e) {
+                console.error('导出失败:', e);
+                alert('导出失败，请重试');
+            }
+            this.exporting = false;
         },
 
         // ========== WebSocket ==========
@@ -97,10 +158,26 @@ function mockTrialApp(config = {}) {
             const url = `${protocol}//${location.host}/ws/mock-trial/sessions/${sessionId}/`;
             this.ws = new WebSocket(url);
 
-            this.ws.onopen = () => { this.loading = false; };
+            this.ws.onopen = () => { 
+                this.loading = false; 
+                this.retryCount = 0;
+            };
             this.ws.onmessage = (e) => this.handleWsMessage(JSON.parse(e.data));
-            this.ws.onerror = (e) => { console.error('WS error:', e); this.loading = false; };
-            this.ws.onclose = () => { this.loading = false; };
+            this.ws.onerror = (e) => { 
+                console.error('WS error:', e); 
+                this.loading = false;
+                this.lastError = e;
+            };
+            this.ws.onclose = () => { 
+                this.loading = false;
+                // 自动重连
+                if (this.retryCount < this.maxRetries && this.sessionId) {
+                    this.retryCount++;
+                    setTimeout(() => {
+                        if (this.sessionId) this.connectWebSocket(this.sessionId);
+                    }, 2000 * this.retryCount);
+                }
+            };
         },
 
         handleWsMessage(data) {
@@ -113,6 +190,9 @@ function mockTrialApp(config = {}) {
                     break;
                 case 'error':
                     this.messages.push({ role: 'system', content: `❌ ${data.message}`, created_at: new Date().toISOString() });
+                    break;
+                case 'progress':
+                    this.updateProgress(data.current, data.total, data.percentage, data.message);
                     break;
             }
             this.loading = false;
@@ -128,6 +208,41 @@ function mockTrialApp(config = {}) {
             this.$nextTick(() => this.scrollToBottom());
         },
 
+        // ========== 批量处理 ==========
+        startBatchMode() {
+            this.batchMode = true;
+            this.ws.send(JSON.stringify({ type: 'start_batch' }));
+        },
+
+        stopBatchMode() {
+            this.batchMode = false;
+        },
+
+        // ========== 进度条 ==========
+        updateProgress(current, total, percentage, message) {
+            this.progress = {
+                show: true,
+                current: current || 0,
+                total: total || 0,
+                percentage: percentage || 0,
+                message: message || `处理中 ${current}/${total}`
+            };
+            // 完成时隐藏
+            if (current >= total && total > 0) {
+                setTimeout(() => this.resetProgress(), 2000);
+            }
+        },
+
+        resetProgress() {
+            this.progress = {
+                show: false,
+                current: 0,
+                total: 0,
+                percentage: 0,
+                message: ''
+            };
+        },
+
         // ========== 工具方法 ==========
         scrollToBottom() {
             const el = this.$refs.messagesContainer;
@@ -136,7 +251,11 @@ function mockTrialApp(config = {}) {
 
         renderMarkdown(text) {
             if (!text) return '';
-            // 简单 markdown：标题、加粗、列表、换行
+            // 使用更完善的 markdown 渲染
+            if (typeof marked !== 'undefined') {
+                return marked.parse(text);
+            }
+            // 降级到简单渲染
             return text
                 .replace(/^### (.+)$/gm, '<h4>$1</h4>')
                 .replace(/^## (.+)$/gm, '<h3>$1</h3>')
@@ -149,6 +268,16 @@ function mockTrialApp(config = {}) {
 
         getModeLabel(mode) {
             return { judge: '🔍 法官视角', cross_exam: '📋 质证模拟', debate: '💬 辩论模拟' }[mode] || mode || '';
+        },
+
+        getSessionPreview(session) {
+            // 获取会话预览文本
+            const messages = session.messages || [];
+            const lastMsg = messages[messages.length - 1];
+            if (lastMsg) {
+                return lastMsg.content.substring(0, 50) + (lastMsg.content.length > 50 ? '...' : '');
+            }
+            return '暂无消息';
         },
 
         formatTime(dateStr) {

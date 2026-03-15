@@ -13,6 +13,7 @@ class WeikeDocumentMixin:
     DETAIL_RETRY_HTTP_STATUSES = frozenset({400, 408, 409, 425, 429, 500, 502, 503, 504})
     DOWNLOAD_RETRY_ATTEMPTS = 3
     DOWNLOAD_RETRY_HTTP_STATUSES = frozenset({408, 409, 425, 429, 500, 502, 503, 504})
+    DOM_DETAIL_MAX_CHARS = 60000
 
     def fetch_case_detail(self, *, session: WeikeSession, item: WeikeSearchItem) -> WeikeCaseDetail:
         errors: list[str] = []
@@ -80,6 +81,10 @@ class WeikeDocumentMixin:
                 content_text=self._html_to_text(html_content),
                 raw_meta=meta_payload or {},
             )
+
+        fallback_detail = self._fetch_case_detail_via_dom(session=session, item=item, errors=errors)
+        if fallback_detail is not None:
+            return fallback_detail
 
         error_text = "；".join(errors[:4])
         raise RuntimeError(f"获取案例详情失败: {error_text or '未知错误'}")
@@ -231,3 +236,109 @@ class WeikeDocumentMixin:
         text = re.sub(r"[\\t\\r ]+", " ", text)
         text = re.sub(r"\\n{3,}", "\\n\\n", text)
         return text.strip()
+
+    def _fetch_case_detail_via_dom(
+        self,
+        *,
+        session: WeikeSession,
+        item: WeikeSearchItem,
+        errors: list[str],
+    ) -> WeikeCaseDetail | None:
+        if not item.detail_url:
+            return None
+
+        try:
+            ensure_playwright = getattr(self, "_ensure_playwright_session", None)
+            if callable(ensure_playwright):
+                ensure_playwright(session)
+            page = session.page
+            if page is None:
+                return None
+
+            page.goto(item.detail_url, wait_until="domcontentloaded", timeout=120000)
+            page.wait_for_timeout(1200)
+            body_text = page.locator("body").inner_text(timeout=60000)
+            normalized = self._normalize_dom_text(body_text)
+            if not normalized:
+                raise RuntimeError("详情页正文为空")
+            if "抱歉，此功能需要登录后操作" in normalized:
+                raise RuntimeError("详情页提示需要登录")
+
+            title = self._extract_dom_title(body_text=normalized, item=item)
+            court_text = self._extract_dom_field(
+                text=normalized,
+                patterns=(r"(?:审理法院|法院)[:：]\s*([^\n]+)",),
+            )
+            document_number = self._extract_dom_field(
+                text=normalized,
+                patterns=(r"(?:案号|文号)[:：]\s*([^\n]+)",),
+            )
+            judgment_date = self._extract_dom_field(
+                text=normalized,
+                patterns=(
+                    r"(?:裁判日期|判决日期)[:：]\s*([0-9]{4}[年\-/][0-9]{1,2}[月\-/][0-9]{1,2}日?)",
+                    r"([0-9]{4}年[0-9]{1,2}月[0-9]{1,2}日)",
+                ),
+            )
+            case_digest = self._build_dom_digest(normalized)
+            content_text = normalized[: self.DOM_DETAIL_MAX_CHARS]
+
+            return WeikeCaseDetail(
+                doc_id_raw=item.doc_id_raw,
+                doc_id_unquoted=item.doc_id_unquoted,
+                detail_url=item.detail_url,
+                search_id=item.search_id,
+                module=item.module,
+                title=title,
+                court_text=court_text,
+                document_number=document_number,
+                judgment_date=judgment_date,
+                case_digest=case_digest,
+                content_text=content_text,
+                raw_meta={
+                    "detail_source": "playwright_dom_fallback",
+                    "fallback_errors": errors[:4],
+                },
+            )
+        except Exception as exc:
+            errors.append(f"DOM兜底异常: {self._compact_error(exc)}")
+            return None
+
+    @staticmethod
+    def _normalize_dom_text(text: str) -> str:
+        normalized = str(text or "").replace("\xa0", " ").strip()
+        normalized = re.sub(r"[ \t]+", " ", normalized)
+        normalized = re.sub(r"\n{3,}", "\n\n", normalized)
+        return normalized
+
+    @classmethod
+    def _extract_dom_title(cls, *, body_text: str, item: WeikeSearchItem) -> str:
+        title = cls._extract_dom_field(
+            text=body_text,
+            patterns=(
+                r"(?:标题|案由)[:：]\s*([^\n]{4,120})",
+                r"([^\n]{6,120}?(?:判决书|裁定书|调解书))",
+            ),
+        )
+        if title:
+            return title
+        if item.title_hint:
+            return item.title_hint
+        return item.doc_id_unquoted or item.doc_id_raw
+
+    @staticmethod
+    def _extract_dom_field(*, text: str, patterns: tuple[str, ...]) -> str:
+        for pattern in patterns:
+            match = re.search(pattern, text)
+            if match:
+                return re.sub(r"\s+", " ", match.group(1)).strip()
+        return ""
+
+    @staticmethod
+    def _build_dom_digest(text: str) -> str:
+        compact = re.sub(r"\s+", " ", text).strip()
+        if not compact:
+            return ""
+        if len(compact) <= 220:
+            return compact
+        return f"{compact[:220]}..."

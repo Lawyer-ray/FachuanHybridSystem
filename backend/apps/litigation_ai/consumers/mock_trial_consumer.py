@@ -99,6 +99,7 @@ class MockTrialConsumer(AsyncWebsocketConsumer):
             "select_mode": self._handle_select_mode,
             "skip_evidence": self._handle_skip_evidence,
             "end_debate": self._handle_end_debate,
+            "set_difficulty": self._handle_set_difficulty,
         }.get(msg_type)
 
     async def _handle_user_message(self, message: dict[str, Any]) -> None:
@@ -186,10 +187,38 @@ class MockTrialConsumer(AsyncWebsocketConsumer):
         )
         await flow.handle_simulation(ctx, "结束", self._send_message)
 
+    async def _handle_set_difficulty(self, message: dict[str, Any]) -> None:
+        """设置辩论难度."""
+        difficulty = message.get("difficulty", "medium")
+        if difficulty not in ("easy", "medium", "hard"):
+            await self._send_error("无效的难度设置")
+            return
+
+        from apps.litigation_ai.services.flow.session_repository import LitigationSessionRepository
+
+        repo = LitigationSessionRepository()
+        await repo.update_metadata(self.session_id or "", {"debate_difficulty": difficulty})
+        logger.info(f"辩论难度已设置为: {difficulty}")
+
     # ---- Helpers ----
 
     async def _send_message(self, payload: dict[str, Any]) -> None:
         await self.send(text_data=json.dumps(payload, ensure_ascii=False))
+
+    async def _send_progress(self, current: int, total: int, message: str = "") -> None:
+        """发送进度更新."""
+        await self.send(
+            text_data=json.dumps(
+                {
+                    "type": "progress",
+                    "current": current,
+                    "total": total,
+                    "percentage": int(current * 100 / total) if total > 0 else 0,
+                    "message": message,
+                },
+                ensure_ascii=False,
+            )
+        )
 
     async def _send_error(self, error: Exception | str, code: str = "INVALID_REQUEST") -> None:
         if isinstance(error, Exception):

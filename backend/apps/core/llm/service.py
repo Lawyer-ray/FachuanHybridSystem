@@ -114,6 +114,7 @@ class LLMService:
         temperature: float = 0.7,
         max_tokens: int | None = None,
         fallback: bool = True,
+        **kwargs: Any,
     ) -> LLMResponse:
         """
         简化的补全接口
@@ -141,6 +142,7 @@ class LLMService:
             temperature=temperature,
             max_tokens=max_tokens,
             fallback=fallback,
+            **kwargs,
         )
 
     def chat(
@@ -151,6 +153,7 @@ class LLMService:
         temperature: float = 0.7,
         max_tokens: int | None = None,
         fallback: bool = True,
+        **kwargs: Any,
     ) -> LLMResponse:
         """
         聊天接口
@@ -176,6 +179,7 @@ class LLMService:
             temperature=temperature,
             max_tokens=max_tokens,
             fallback=fallback,
+            **kwargs,
         )
 
     async def achat(
@@ -186,6 +190,7 @@ class LLMService:
         temperature: float = 0.7,
         max_tokens: int | None = None,
         fallback: bool = True,
+        **kwargs: Any,
     ) -> LLMResponse:
         """
         异步聊天接口
@@ -209,6 +214,7 @@ class LLMService:
             temperature=temperature,
             max_tokens=max_tokens,
             fallback=fallback,
+            **kwargs,
         )
 
     def get_langchain_llm(

@@ -6,6 +6,7 @@ from .service_locator_base import BaseServiceLocator
 from .service_locator_mixins import (
     AutomationServiceLocatorMixin,
     BusinessServiceLocatorMixin,
+    ContractReviewServiceLocatorMixin,
     CoreServiceLocatorMixin,
     DocumentsServiceLocatorMixin,
 )
@@ -17,5 +18,6 @@ class ServiceLocator(
     AutomationServiceLocatorMixin,
     DocumentsServiceLocatorMixin,
     CoreServiceLocatorMixin,
+    ContractReviewServiceLocatorMixin,
 ):
     pass

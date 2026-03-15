@@ -16,7 +16,7 @@ from apps.legal_research.schemas import (
     LegalResearchTaskCreateIn,
     LegalResearchTaskOut,
 )
-from apps.legal_research.services import LegalResearchTaskService
+from apps.legal_research.services.task_service import LegalResearchTaskService
 
 router = Router(tags=["案例检索"], auth=JWTOrSessionAuth())
 

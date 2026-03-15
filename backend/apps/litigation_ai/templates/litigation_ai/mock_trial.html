@@ -5,7 +5,8 @@
 
 {% block extrahead %}
 {{ block.super }}
-<link rel="stylesheet" href="{% static 'litigation_ai/css/mock_trial.css' %}?v=20260301">
+<link rel="stylesheet" href="{% static 'litigation_ai/css/mock_trial.css' %}?v=20260315">
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 {% endblock %}
 
 {% block content %}
@@ -21,6 +22,14 @@
         </div>
         <div class="mt-header-right">
             <span class="session-status" x-show="sessionId" x-text="statusText"></span>
+            <!-- 导出按钮 -->
+            <button x-show="sessionId && statusText === '已完成'" 
+                    @click="exportReport()" 
+                    :disabled="exporting"
+                    class="btn-export">
+                <span x-show="!exporting">📥 {% trans "导出报告" %}</span>
+                <span x-show="exporting">{% trans "导出中..." %}</span>
+            </button>
         </div>
     </header>
 
@@ -47,6 +56,16 @@
                     <span class="mode-name">{% trans "辩论模拟" %}</span>
                     <span class="mode-desc">{% trans "围绕争议焦点与 AI 对方律师多轮辩论" %}</span>
                 </button>
+
+                <!-- 辩论难度选择器 -->
+                <div x-show="showDifficultySelector && selectedMode === 'debate' && !sessionId" class="difficulty-selector">
+                    <label>{% trans "选择难度:" %}</label>
+                    <select x-model="debateDifficulty">
+                        <option value="easy">{% trans "简单 - 温和反驳" %}</option>
+                        <option value="medium">{% trans "中等 - 有理有据" %}</option>
+                        <option value="hard">{% trans "困难 - 犀利精准" %}</option>
+                    </select>
+                </div>
             </div>
 
             <!-- 历史会话 -->
@@ -57,6 +76,8 @@
                          @click="loadSession(s.session_id)">
                         <span class="history-mode" x-text="getModeLabel(s.metadata?.mock_trial_mode)"></span>
                         <span class="history-time" x-text="formatTime(s.created_at)"></span>
+                        <!-- 会话预览 -->
+                        <div class="history-preview" x-text="getSessionPreview(s)"></div>
                         <button class="history-delete" @click.stop="deleteSession(s.session_id)">🗑️</button>
                     </div>
                 </template>
@@ -66,6 +87,17 @@
 
         <!-- 右侧：对话区域 -->
         <main class="mt-chat">
+            <!-- 进度条 -->
+            <div x-show="progress.show" class="mt-progress-bar">
+                <div class="progress-info">
+                    <span x-text="progress.message"></span>
+                    <span x-text="progress.percentage + '%'"></span>
+                </div>
+                <div class="progress-track">
+                    <div class="progress-fill" :style="'width: ' + progress.percentage + '%'"></div>
+                </div>
+            </div>
+
             <!-- 消息列表 -->
             <div class="mt-messages" x-ref="messagesContainer">
                 <div x-show="!sessionId && messages.length === 0" class="mt-empty">
@@ -107,5 +139,5 @@
 </div>
 
 {% csrf_token %}
-<script src="{% static 'litigation_ai/js/mock_trial_app.js' %}?v=20260301"></script>
+<script src="{% static 'litigation_ai/js/mock_trial_app.js' %}?v=20260315"></script>
 {% endblock %}
