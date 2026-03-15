@@ -50,19 +50,9 @@ class ContractCloneWorkflow:
             ]
         )
 
-        reminders: list[dict[str, Any]] = []
-        for reminder in source_contract.reminders.all():  # type: ignore[attr-defined]
-            due_at = reminder.due_at
-            if due_at_transform is not None:
-                due_at = due_at_transform(due_at)
-            reminders.append(
-                {
-                    "reminder_type": reminder.reminder_type,
-                    "content": reminder.content,
-                    "due_at": due_at,
-                    "metadata": reminder.metadata,
-                }
-            )
+        reminders = self.reminder_service.export_contract_reminders_internal(contract_id=source_contract.id)
+        if due_at_transform is not None and reminders:
+            reminders = [{**item, "due_at": due_at_transform(item.get("due_at"))} for item in reminders]
 
         if reminders:
             self.reminder_service.create_contract_reminders_internal(

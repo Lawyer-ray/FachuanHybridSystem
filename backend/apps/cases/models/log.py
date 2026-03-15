@@ -50,11 +50,8 @@ class CaseLog(models.Model):
     updated_at = models.DateTimeField(auto_now=True, verbose_name=_("修改日期"))
 
     if TYPE_CHECKING:
-        from apps.reminders.models import Reminder
-
         attachments: RelatedManager[CaseLogAttachment]
         versions: RelatedManager[CaseLogVersion]
-        reminders: RelatedManager[Reminder]
 
     class Meta:
         verbose_name = _("案件日志")
@@ -67,13 +64,57 @@ class CaseLog(models.Model):
     def __str__(self) -> str:
         return f"{self.case_id}-{self.actor_id}-{self.created_at}"
 
+    def _exported_reminders(self) -> list[dict[str, Any]]:
+        cached = getattr(self, "_cached_exported_reminders", _SENTINEL)
+        if cached is not _SENTINEL:
+            return cached
+        if not getattr(self, "id", None):
+            self._cached_exported_reminders = []
+            return []
+
+        reminders: list[dict[str, Any]]
+        try:
+            from apps.core.interfaces import ServiceLocator
+
+            reminder_service = ServiceLocator.get_reminder_service()
+            reminders = reminder_service.export_case_log_reminders_internal(case_log_id=int(self.id))
+        except Exception:
+            reminders = []
+        self._cached_exported_reminders = reminders
+        return reminders
+
+    @property
+    def reminder_entries(self) -> list[dict[str, Any]]:
+        return self._exported_reminders()
+
+    @property
+    def has_reminders(self) -> bool:
+        return bool(self._exported_reminders())
+
+    @property
+    def reminder_count(self) -> int:
+        return len(self._exported_reminders())
+
     @property
     def _latest_reminder(self) -> Any | None:
         """缓存最近的提醒记录，避免重复查询。"""
         cached = getattr(self, "_cached_latest_reminder", _SENTINEL)
         if cached is not _SENTINEL:
             return cached
-        reminder = self.reminders.order_by("-due_at").first()
+        if not getattr(self, "id", None):
+            self._cached_latest_reminder = None
+            return None
+
+        reminder: dict[str, Any] | None = None
+        try:
+            from apps.core.interfaces import ServiceLocator
+
+            reminder_service = ServiceLocator.get_reminder_service()
+            reminder = reminder_service.get_latest_case_log_reminder_internal(case_log_id=int(self.id))
+        except Exception:
+            reminders = self._exported_reminders()
+            reminder = reminders[-1] if reminders else None
+
         self._cached_latest_reminder = reminder
         return reminder
 
@@ -83,6 +124,8 @@ class CaseLog(models.Model):
         reminder = self._latest_reminder
         if reminder is None:
             return None
+        if isinstance(reminder, dict):
+            return str(reminder.get("reminder_type") or "")
         return str(getattr(reminder, "reminder_type", ""))
 
     @property
@@ -91,7 +134,7 @@ class CaseLog(models.Model):
         reminder = self._latest_reminder
         if reminder is None:
             return None
-        due_at = getattr(reminder, "due_at", None)
+        due_at = reminder.get("due_at") if isinstance(reminder, dict) else getattr(reminder, "due_at", None)
         return due_at if isinstance(due_at, datetime) else None
 
 

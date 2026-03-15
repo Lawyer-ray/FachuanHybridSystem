@@ -20,11 +20,11 @@
                         <div class="timeline-body">
                             {{ log.content|linebreaks }}
                         </div>
-                        {% if log.reminders.exists %}
+                        {% if log.has_reminders %}
                         <div class="timeline-reminder">
-                            {% for r in log.reminders.all %}
+                            {% for r in log.reminder_entries %}
                             <div>
-                                <span class="reminder-type">{{ r.get_reminder_type_display }}</span>
+                                <span class="reminder-type">{{ r.reminder_type_label|default:r.reminder_type }}</span>
                                 <span class="reminder-time">{{ r.due_at|date:"Y-m-d H:i" }}</span>
                             </div>
                             {% endfor %}

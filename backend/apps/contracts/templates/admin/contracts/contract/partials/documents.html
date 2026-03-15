@@ -73,7 +73,7 @@
             <div class="reminder-list">
                 {% for reminder in reminders %}
                 <div class="reminder-item {% if reminder.due_at <= soon_due_date and reminder.due_at >= today %}reminder-soon{% endif %} {% if reminder.due_at < today %}reminder-overdue{% endif %}">
-                    <span class="reminder-type">{{ reminder.get_reminder_type_display }}</span>
+                    <span class="reminder-type">{{ reminder.reminder_type_label|default:reminder.reminder_type }}</span>
                     <span class="reminder-content">{{ reminder.content }}</span>
                     <span class="reminder-due-date">
                         {% if reminder.due_at < today %}<span class="overdue-badge">{% trans "已过期" %}</span>
