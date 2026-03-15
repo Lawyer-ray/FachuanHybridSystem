@@ -6,11 +6,7 @@
 - 每天都在更新后端，等后端功能完善后会用React写前端，请不要着急
 - 关心最新动态，请关注公众号：法穿
 - 这是参加广州法律科技创新创业大赛的作品，已入选决赛，参赛队伍名称为GGBond，我要将GGBond乐于奉献的精神发挥到极致
-- [点击观看 GGBond 参赛视频](assets/videos/ggbond-competition-20260128.mp4)
-
-<video src="assets/videos/ggbond-competition-20260128.mp4" controls width="900">
-  您的浏览器不支持内嵌视频播放，请点击上方链接观看。
-</video>
+- [观看/下载 GGBond 参赛视频（MP4）](assets/videos/ggbond-competition-20260128.mp4?raw=1)
 
 ## 📌 本版本更新（26.16.3）
 
