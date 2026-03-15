@@ -12,12 +12,14 @@ from django.db import transaction
 from django.utils.translation import gettext_lazy as _
 
 from apps.client.models import Client, ClientIdentityDoc
+from apps.client.ports import FileUploadPort
 from apps.client.services.storage import (
     _get_media_root,
     delete_media_file,
     sanitize_upload_filename,
     save_uploaded_file,
 )
+from apps.client.services.wiring import get_file_upload_port
 from apps.core.exceptions import NotFoundError
 
 logger = logging.getLogger("apps.client")
@@ -25,6 +27,21 @@ logger = logging.getLogger("apps.client")
 
 class ClientIdentityDocService:
     """当事人证件服务"""
+
+    def __init__(self, file_upload_port: FileUploadPort | None = None) -> None:
+        """初始化服务。
+
+        Args:
+            file_upload_port: 可选的文件上传端口，用于依赖注入
+        """
+        self._file_upload_port = file_upload_port
+
+    @property
+    def file_upload_port(self) -> FileUploadPort:
+        """获取文件上传端口（延迟初始化）。"""
+        if self._file_upload_port is None:
+            self._file_upload_port = get_file_upload_port()
+        return self._file_upload_port
 
     @transaction.atomic
     def add_identity_doc(self, client_id: int, doc_type: str, file_path: str, user: Any = None) -> ClientIdentityDoc:
@@ -147,11 +164,8 @@ class ClientIdentityDocService:
         uploaded_file: Any,
         user: Any = None,
     ) -> ClientIdentityDoc:
-        """从上传文件添加当事人证件（文件 IO 在 Service 层处理）"""
-        from apps.core.services.file_upload_service import FileUploadService
-
-        upload_service = FileUploadService()
-        saved_path: Path = upload_service.save_file(
+        """从上传文件添加当事人证件（文件 IO 在 Service 层处理）。"""
+        saved_path: Path = self.file_upload_port.save_file(
             uploaded_file,
             base_dir=f"client_docs/{client_id}",
             preserve_name=True,

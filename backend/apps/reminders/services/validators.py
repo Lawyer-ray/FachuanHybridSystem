@@ -40,12 +40,12 @@ def validate_binding_exclusive(*, contract_id: int | None, case_log_id: int | No
 def validate_fk_exists(*, contract_id: int | None, case_log_id: int | None) -> None:
     """校验外键引用的记录是否存在。"""
     if contract_id is not None:
-        from apps.contracts.models import Contract
+        from apps.contracts.models import Contract  # pylint: disable=import-outside-toplevel
 
         if not Contract.objects.filter(id=contract_id).exists():
             raise ValidationException(_("合同 %(id)s 不存在") % {"id": contract_id})
     if case_log_id is not None:
-        from apps.cases.models import CaseLog
+        from apps.cases.models import CaseLog  # pylint: disable=import-outside-toplevel
 
         if not CaseLog.objects.filter(id=case_log_id).exists():
             raise ValidationException(_("案件日志 %(id)s 不存在") % {"id": case_log_id})

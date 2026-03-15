@@ -6,7 +6,7 @@ import logging
 import math
 import re
 import time
-from collections import Counter
+from collections import Counter, OrderedDict
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -44,7 +44,9 @@ class CaseSimilarityService:
     MIN_EVIDENCE_SPAN_CHARS = 4
     SIMILARITY_CACHE_PREFIX = "legal_research:similarity"
     SIMILARITY_PROMPT_VERSION = "v2-structured"
+    SIMILARITY_LOCAL_CACHE_MAX_SIZE = 1024
     SEMANTIC_EMBEDDING_CACHE_PREFIX = "legal_research:semantic_embedding"
+    SEMANTIC_VECTOR_LOCAL_CACHE_MAX_SIZE = 2048
     SEMANTIC_EMBEDDING_TEXT_MAX_CHARS = 1400
     SEMANTIC_EMBEDDING_TIMEOUT_SECONDS = 8
     SEMANTIC_EMBEDDING_FAIL_COOLDOWN_SECONDS = 120
@@ -58,11 +60,16 @@ class CaseSimilarityService:
     HARD_CONFLICT_NEEDLES = (
         "主体",
         "身份",
+        "当事人关系",
         "法律关系",
         "合同类型",
+        "交易对象",
         "违约方式",
+        "违约行为",
         "损失类型",
+        "损失原因",
         "请求权基础",
+        "法律后果",
         "交易结构",
     )
 
@@ -74,14 +81,28 @@ class CaseSimilarityService:
         self._passage_preview_max_chars = max(300, int(self._tuning.passage_preview_max_chars))
         self._recall_weights = self._tuning.normalized_recall_weights
         self._similarity_cache_ttl = max(60, int(getattr(self._tuning, "similarity_cache_ttl_seconds", 86400)))
-        self._similarity_local_cache: dict[str, SimilarityResult] = {}
+        self._similarity_local_cache_max_size = max(
+            32,
+            int(getattr(self._tuning, "similarity_local_cache_max_size", self.SIMILARITY_LOCAL_CACHE_MAX_SIZE)),
+        )
+        self._similarity_local_cache: OrderedDict[str, SimilarityResult] = OrderedDict()
         self._semantic_vector_enabled = bool(getattr(self._tuning, "semantic_vector_enabled", True))
         self._semantic_vector_model = str(getattr(self._tuning, "semantic_vector_model", "") or "").strip()
         self._semantic_vector_cache_ttl = max(
             60,
             int(getattr(self._tuning, "semantic_vector_cache_ttl_seconds", 86400)),
         )
-        self._semantic_vector_local_cache: dict[str, list[float]] = {}
+        self._semantic_vector_local_cache_max_size = max(
+            64,
+            int(
+                getattr(
+                    self._tuning,
+                    "semantic_vector_local_cache_max_size",
+                    self.SEMANTIC_VECTOR_LOCAL_CACHE_MAX_SIZE,
+                )
+            ),
+        )
+        self._semantic_vector_local_cache: OrderedDict[str, list[float]] = OrderedDict()
         self._semantic_vector_fail_until: float = 0.0
         self._embedding_client: openai.OpenAI | None = None
 
@@ -95,6 +116,7 @@ class CaseSimilarityService:
         content_text: str,
         model: str | None = None,
     ) -> SimilarityResult:
+        started = time.monotonic()
         passages = self._select_relevant_passages(
             keyword=keyword,
             case_summary=case_summary,
@@ -115,10 +137,22 @@ class CaseSimilarityService:
             case_digest=case_digest,
             candidate_excerpt=candidate_excerpt,
         )
-        cached_result = self._load_similarity_cache(cache_key)
+        cached_result, cache_probe = self._load_similarity_cache_with_probe(cache_key)
         if cached_result is not None:
+            self._log_similarity_metrics(
+                mode="score",
+                elapsed_ms=int((time.monotonic() - started) * 1000),
+                cache_hit=True,
+                cache_source=str(cache_probe.get("source", "")),
+                cache_probe=str(cache_probe.get("probe", "")),
+                model=cached_result.model,
+                score=cached_result.score,
+                metadata=cached_result.metadata,
+            )
             return cached_result
 
+        target_tags = ", ".join(self._extract_transaction_tags(case_summary)) or "无"
+        candidate_tags = ", ".join(self._extract_transaction_tags(f"{title} {case_digest}")) or "无"
         prompt = (
             "你是法律案例匹配评估器。必须只输出严格JSON，不允许任何额外文本。\n"
             "输出字段:\n"
@@ -139,6 +173,8 @@ class CaseSimilarityService:
             "3) evidence_spans 至少给出2条，且必须来自候选相关段落的原文短语。\n\n"
             f"关键词: {keyword}\n"
             f"目标案情: {case_summary}\n\n"
+            f"目标交易标签: {target_tags}\n"
+            f"候选交易标签: {candidate_tags}\n\n"
             f"候选标题: {title}\n"
             f"候选摘要: {case_digest}\n"
             f"候选相关段落: {candidate_excerpt}\n"
@@ -197,6 +233,16 @@ class CaseSimilarityService:
             reason = "模型未返回理由"
         result = SimilarityResult(score=score, reason=reason, model=response.model, metadata=metadata)
         self._save_similarity_cache(cache_key=cache_key, result=result)
+        self._log_similarity_metrics(
+            mode="score",
+            elapsed_ms=int((time.monotonic() - started) * 1000),
+            cache_hit=False,
+            cache_source=str(cache_probe.get("source", "")),
+            cache_probe=str(cache_probe.get("probe", "")),
+            model=result.model,
+            score=result.score,
+            metadata=result.metadata,
+        )
         return result
 
     def rescore_borderline_case(
@@ -211,6 +257,7 @@ class CaseSimilarityService:
         first_reason: str,
         model: str | None = None,
     ) -> SimilarityResult:
+        started = time.monotonic()
         passages = self._select_relevant_passages(
             keyword=keyword,
             case_summary=case_summary,
@@ -233,10 +280,22 @@ class CaseSimilarityService:
             first_score=first_score,
             first_reason=first_reason,
         )
-        cached_result = self._load_similarity_cache(cache_key)
+        cached_result, cache_probe = self._load_similarity_cache_with_probe(cache_key)
         if cached_result is not None:
+            self._log_similarity_metrics(
+                mode="rescore",
+                elapsed_ms=int((time.monotonic() - started) * 1000),
+                cache_hit=True,
+                cache_source=str(cache_probe.get("source", "")),
+                cache_probe=str(cache_probe.get("probe", "")),
+                model=cached_result.model,
+                score=cached_result.score,
+                metadata=cached_result.metadata,
+            )
             return cached_result
 
+        target_tags = ", ".join(self._extract_transaction_tags(case_summary)) or "无"
+        candidate_tags = ", ".join(self._extract_transaction_tags(f"{title} {case_digest}")) or "无"
         prompt = (
             "你要做第二次复判。必须只输出严格JSON，不允许任何额外文本。\n"
             "输出字段:\n"
@@ -255,6 +314,8 @@ class CaseSimilarityService:
             "若存在关键冲突，score 不得高于 0.60。\n\n"
             f"关键词: {keyword}\n"
             f"目标案情: {case_summary}\n"
+            f"目标交易标签: {target_tags}\n"
+            f"候选交易标签: {candidate_tags}\n"
             f"首轮分数: {first_score:.3f}\n"
             f"首轮理由: {first_reason}\n\n"
             f"候选标题: {title}\n"
@@ -306,6 +367,16 @@ class CaseSimilarityService:
             metadata=metadata,
         )
         self._save_similarity_cache(cache_key=cache_key, result=result)
+        self._log_similarity_metrics(
+            mode="rescore",
+            elapsed_ms=int((time.monotonic() - started) * 1000),
+            cache_hit=False,
+            cache_source=str(cache_probe.get("source", "")),
+            cache_probe=str(cache_probe.get("probe", "")),
+            model=result.model,
+            score=result.score,
+            metadata=result.metadata,
+        )
         return result
 
     def coarse_recall_score(
@@ -638,7 +709,7 @@ class CaseSimilarityService:
             model=self._semantic_vector_model,
             text=normalized,
         )
-        local = self._semantic_vector_local_cache.get(cache_key)
+        local = self._read_semantic_vector_local_cache(cache_key)
         if local is not None:
             return local
 
@@ -649,7 +720,7 @@ class CaseSimilarityService:
         if isinstance(payload, list) and payload:
             vector = self._coerce_float_list(payload)
             if vector:
-                self._semantic_vector_local_cache[cache_key] = vector
+                self._write_semantic_vector_local_cache(cache_key=cache_key, vector=vector)
                 return vector
 
         try:
@@ -661,7 +732,7 @@ class CaseSimilarityService:
             vector = self._coerce_float_list(getattr(data[0], "embedding", None))
             if not vector:
                 return None
-            self._semantic_vector_local_cache[cache_key] = vector
+            self._write_semantic_vector_local_cache(cache_key=cache_key, vector=vector)
             try:
                 cache.set(cache_key, vector, timeout=self._semantic_vector_cache_ttl)
             except Exception:
@@ -1047,6 +1118,63 @@ class CaseSimilarityService:
         normalized = re.sub(r"[，。；：、“”‘’\"'（）()【】\[\]《》<>、,.!?！？:;·\-]", "", normalized)
         return normalized.lower()
 
+    @staticmethod
+    def _extract_transaction_tags(text: str) -> list[str]:
+        normalized = (text or "").strip().lower()
+        if not normalized:
+            return []
+
+        tag_rules: tuple[tuple[str, tuple[str, ...]], ...] = (
+            ("转卖", ("转卖", "转售", "另行出售", "卖给他人")),
+            ("交货迟延", ("未按时", "逾期交货", "迟延交货", "延迟交货", "未交货", "不交货")),
+            ("质量瑕疵", ("质量", "瑕疵", "不合格")),
+            ("价差争议", ("价格", "价差", "高价另购", "市场价格", "固定价格")),
+            ("付款迟延", ("逾期付款", "迟延付款", "未付款", "不付款", "拖欠")),
+        )
+        tags: list[str] = []
+        for label, needles in tag_rules:
+            if any(needle in normalized for needle in needles):
+                tags.append(label)
+        return tags
+
+    @classmethod
+    def _log_similarity_metrics(
+        cls,
+        *,
+        mode: str,
+        elapsed_ms: int,
+        cache_hit: bool,
+        cache_source: str = "",
+        cache_probe: str = "",
+        model: str,
+        score: float,
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
+        extra_payload: dict[str, Any] = {
+            "mode": str(mode or ""),
+            "elapsed_ms": max(0, int(elapsed_ms)),
+            "cache_hit": bool(cache_hit),
+            "model": str(model or ""),
+            "score": round(max(0.0, min(1.0, float(score))), 4),
+        }
+        normalized_cache_source = str(cache_source or "").strip().lower()
+        if normalized_cache_source:
+            extra_payload["cache_source"] = normalized_cache_source
+        normalized_cache_probe = str(cache_probe or "").strip().lower()
+        if normalized_cache_probe:
+            extra_payload["cache_probe"] = normalized_cache_probe
+        if isinstance(metadata, dict):
+            decision = str(metadata.get("decision", "") or "").strip().lower()
+            if decision:
+                extra_payload["decision"] = decision
+            conflicts = metadata.get("key_conflicts")
+            if isinstance(conflicts, list):
+                normalized_conflicts = [str(item).strip() for item in conflicts if str(item).strip()]
+                extra_payload["has_conflict"] = bool(normalized_conflicts)
+                if normalized_conflicts:
+                    extra_payload["conflict_count"] = len(normalized_conflicts)
+        logger.info("案例相似度评分", extra=extra_payload)
+
     def _build_similarity_cache_key(
         self,
         *,
@@ -1079,33 +1207,73 @@ class CaseSimilarityService:
         return f"{self.SIMILARITY_CACHE_PREFIX}:{digest}"
 
     def _load_similarity_cache(self, cache_key: str) -> SimilarityResult | None:
+        cached, _ = self._load_similarity_cache_with_probe(cache_key)
+        return cached
+
+    def _load_similarity_cache_with_probe(self, cache_key: str) -> tuple[SimilarityResult | None, dict[str, str]]:
         if not cache_key:
-            return None
-        local = self._similarity_local_cache.get(cache_key)
+            return None, {"source": "none", "probe": "empty_key"}
+        local = self._read_similarity_local_cache(cache_key)
         if local is not None:
-            return local
+            return local, {"source": "local", "probe": "local_hit"}
 
         try:
             payload = cache.get(cache_key)
         except Exception:
-            return None
+            return None, {"source": "none", "probe": "shared_error"}
+        if payload is None:
+            return None, {"source": "none", "probe": "shared_miss"}
         if not isinstance(payload, dict):
-            return None
+            return None, {"source": "none", "probe": "shared_invalid_payload"}
         cached = self._deserialize_similarity_result(payload)
         if cached is None:
-            return None
-        self._similarity_local_cache[cache_key] = cached
-        return cached
+            return None, {"source": "none", "probe": "shared_invalid_result"}
+        self._write_similarity_local_cache(cache_key=cache_key, result=cached)
+        return cached, {"source": "shared", "probe": "shared_hit"}
 
     def _save_similarity_cache(self, *, cache_key: str, result: SimilarityResult) -> None:
         if not cache_key:
             return
-        self._similarity_local_cache[cache_key] = result
+        self._write_similarity_local_cache(cache_key=cache_key, result=result)
         payload = self._serialize_similarity_result(result)
         try:
             cache.set(cache_key, payload, timeout=self._similarity_cache_ttl)
         except Exception:
             return
+
+    def _read_similarity_local_cache(self, cache_key: str) -> SimilarityResult | None:
+        if not cache_key:
+            return None
+        cached = self._similarity_local_cache.get(cache_key)
+        if cached is None:
+            return None
+        self._similarity_local_cache.move_to_end(cache_key, last=True)
+        return cached
+
+    def _write_similarity_local_cache(self, *, cache_key: str, result: SimilarityResult) -> None:
+        if not cache_key:
+            return
+        self._similarity_local_cache[cache_key] = result
+        self._similarity_local_cache.move_to_end(cache_key, last=True)
+        while len(self._similarity_local_cache) > self._similarity_local_cache_max_size:
+            self._similarity_local_cache.popitem(last=False)
+
+    def _read_semantic_vector_local_cache(self, cache_key: str) -> list[float] | None:
+        if not cache_key:
+            return None
+        cached = self._semantic_vector_local_cache.get(cache_key)
+        if cached is None:
+            return None
+        self._semantic_vector_local_cache.move_to_end(cache_key, last=True)
+        return cached
+
+    def _write_semantic_vector_local_cache(self, *, cache_key: str, vector: list[float]) -> None:
+        if not cache_key:
+            return
+        self._semantic_vector_local_cache[cache_key] = vector
+        self._semantic_vector_local_cache.move_to_end(cache_key, last=True)
+        while len(self._semantic_vector_local_cache) > self._semantic_vector_local_cache_max_size:
+            self._semantic_vector_local_cache.popitem(last=False)
 
     @staticmethod
     def _serialize_similarity_result(result: SimilarityResult) -> dict[str, Any]:

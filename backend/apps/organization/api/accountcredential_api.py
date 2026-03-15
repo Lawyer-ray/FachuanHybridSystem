@@ -11,7 +11,13 @@ from apps.organization.services import AccountCredentialService
 
 router = Router(auth=JWTOrSessionAuth())
 
-_credential_service = AccountCredentialService()
+
+def _get_credential_service() -> AccountCredentialService:
+    """工厂函数：获取账号凭证服务实例"""
+    return AccountCredentialService()
+
+
+_credential_service = _get_credential_service()
 
 
 @router.get("/credentials", response=list[AccountCredentialOut])

@@ -65,7 +65,7 @@ class AccountCredentialService:
             NotFoundError: 凭证不存在
             PermissionDenied: 无权限访问该凭证
         """
-        credential = self._get_credential_internal(credential_id)
+        credential = self.get_credential_by_id(credential_id)
 
         # 权限检查：复用 OrganizationAccessPolicy 的律师读取权限
         if not self._access_policy.can_read_lawyer(user=user, lawyer=credential.lawyer):
@@ -167,8 +167,8 @@ class AccountCredentialService:
 
         logger.info("凭证删除成功", extra={"credential_id": credential_id, "action": "delete_credential"})
 
-    def _get_credential_internal(self, credential_id: int) -> AccountCredential:
-        """内部方法：获取凭证（无权限检查），供 Adapter 调用。
+    def get_credential_by_id(self, credential_id: int) -> AccountCredential:
+        """根据ID获取凭证（无权限检查，供Adapter调用）
 
         Raises:
             NotFoundError: 凭证不存在

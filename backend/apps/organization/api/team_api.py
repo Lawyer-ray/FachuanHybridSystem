@@ -16,7 +16,13 @@ from apps.organization.services import TeamService
 
 router = Router(auth=JWTOrSessionAuth())
 
-_team_service = TeamService()
+
+def _get_team_service() -> TeamService:
+    """工厂函数：获取团队服务实例"""
+    return TeamService()
+
+
+_team_service = _get_team_service()
 
 
 @router.get("/teams", response=list[TeamOut])

@@ -4,6 +4,8 @@ import logging
 
 from playwright.sync_api import sync_playwright
 
+from apps.legal_research.services.tuning_config import LegalResearchTuningConfig
+
 from . import api_optional
 from .auth import WeikeAuthMixin
 from .document import WeikeDocumentMixin
@@ -20,6 +22,27 @@ class WeikeCaseClient(WeikeAuthMixin, WeikeSearchMixin, WeikeDocumentMixin, Weik
     LAW_SSO_URL = "https://law.wkinfo.com.cn/boldUsers/checkValidate"
     HOME_URL = "https://www.wkinfo.com.cn/?lang="
     HOME_LOGIN_URL = "https://www.wkinfo.com.cn/login/checkValidate?lang=zh_CN"
+
+    def __init__(self, *, tuning: LegalResearchTuningConfig | None = None) -> None:
+        if tuning is not None:
+            config = tuning
+        else:
+            try:
+                config = LegalResearchTuningConfig.load()
+            except Exception:
+                config = LegalResearchTuningConfig()
+        self._session_restrict_cooldown_seconds = max(
+            30,
+            int(getattr(config, "weike_session_restrict_cooldown_seconds", self.SESSION_RESTRICT_COOLDOWN_SECONDS)),
+        )
+        self._search_api_degrade_streak_threshold = max(
+            1,
+            int(getattr(config, "weike_search_api_degrade_streak_threshold", 2)),
+        )
+        self._search_api_degrade_cooldown_seconds = max(
+            30,
+            int(getattr(config, "weike_search_api_degrade_cooldown_seconds", 180)),
+        )
 
     def open_session(
         self,

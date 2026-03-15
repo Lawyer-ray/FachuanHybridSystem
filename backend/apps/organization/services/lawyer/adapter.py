@@ -24,7 +24,7 @@ class LawyerServiceAdapter(ILawyerService):
         return self._assembler.to_dto(lawyer)
 
     def get_lawyer(self, lawyer_id: int) -> LawyerDTO | None:
-        lawyer = self.service._get_lawyer_internal(lawyer_id)
+        lawyer = self.service.get_lawyer_by_id(lawyer_id)
         if lawyer is None:
             return None
         return self._to_dto(lawyer)
@@ -53,4 +53,4 @@ class LawyerServiceAdapter(ILawyerService):
         return list(names)
 
     def get_lawyer_internal(self, lawyer_id: int) -> Lawyer | None:
-        return self.service._get_lawyer_internal(lawyer_id)
+        return self.service.get_lawyer_by_id(lawyer_id)

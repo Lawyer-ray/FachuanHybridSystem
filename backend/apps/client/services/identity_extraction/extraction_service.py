@@ -13,8 +13,8 @@ from typing import Any
 
 from django.utils.translation import gettext_lazy as _
 
-from apps.client.dependencies import get_ocr_engine
 from apps.client.services.wiring import get_llm_service
+from apps.client.utils import get_ocr_engine
 from apps.core.exceptions import ServiceUnavailableError, ValidationException
 from apps.core.llm.config import LLMConfig
 

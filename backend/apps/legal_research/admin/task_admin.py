@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any, ClassVar
 
@@ -15,7 +16,7 @@ from django.utils import timezone
 from apps.core.interfaces import ServiceLocator
 from apps.core.llm.config import LLMConfig
 from apps.core.llm.model_list_service import ModelListService
-from apps.legal_research.models import LegalResearchResult, LegalResearchTask
+from apps.legal_research.models import LegalResearchResult, LegalResearchTask, LegalResearchTaskEvent
 from apps.legal_research.models.task import LegalResearchTaskStatus
 from apps.legal_research.services.feedback_loop import LegalResearchFeedbackLoopService
 from apps.legal_research.services.keywords import KEYWORD_INPUT_HELP_TEXT, normalize_keyword_query
@@ -36,6 +37,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
         | Q(site_name__icontains="wkinfo")
         | Q(url__icontains="wkinfo.com.cn")
     )
+    PRIVATE_API_VISUAL_FIELD_PREFIX = "private_api_"
 
     list_display: ClassVar[list[str]] = [
         "id",
@@ -69,6 +71,9 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
         "scanned_count",
         "matched_count",
         "candidate_count",
+        "private_api_stage_metrics",
+        "private_api_event_timeline",
+        "private_api_event_panel",
         "candidate_pool_hint",
         "cancel_task_button",
         "result_attachments",
@@ -104,9 +109,10 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
     def get_readonly_fields(self, request, obj: LegalResearchTask | None = None) -> list[str]:  # type: ignore[override]
         if obj is None:
             return []
+        readonly_fields = list(self.readonly_fields)
         if obj.status == LegalResearchTaskStatus.FAILED:
-            return [name for name in self.readonly_fields if name != "llm_model"]
-        return self.readonly_fields
+            readonly_fields = [name for name in readonly_fields if name != "llm_model"]
+        return self._filter_private_api_visual_fields(readonly_fields, obj=obj)
 
     def get_fields(self, request, obj: LegalResearchTask | None = None) -> list[str]:  # type: ignore[override]
         if obj is None:
@@ -114,7 +120,19 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
             if self._get_weike_credential_queryset(request).count() == 1:
                 fields.remove("credential")
             return fields
-        return self.readonly_fields
+        return self._filter_private_api_visual_fields(list(self.readonly_fields), obj=obj)
+
+    def render_change_form(self, request, context, add=False, change=False, form_url="", obj=None):
+        extra = dict(context or {})
+        extra["private_weike_api_enabled"] = self._should_show_private_api_visuals(obj=obj)
+        return super().render_change_form(
+            request=request,
+            context=extra,
+            add=add,
+            change=change,
+            form_url=form_url,
+            obj=obj,
+        )
 
     def get_form(self, request, obj: LegalResearchTask | None = None, **kwargs):  # type: ignore[override]
         form = super().get_form(request, obj, **kwargs)
@@ -253,6 +271,29 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
                 return qs.none()
         return qs.order_by("-last_login_success_at", "-login_success_count", "login_failure_count", "-id")
 
+    @classmethod
+    def _filter_private_api_visual_fields(
+        cls, fields: list[str], *, obj: LegalResearchTask | None = None
+    ) -> list[str]:
+        if cls._should_show_private_api_visuals(obj=obj):
+            return fields
+        return [name for name in fields if not str(name).startswith(cls.PRIVATE_API_VISUAL_FIELD_PREFIX)]
+
+    @classmethod
+    def _should_show_private_api_visuals(cls, *, obj: LegalResearchTask | None = None) -> bool:
+        if obj is not None and str(getattr(obj, "source", "") or "").strip().lower() != "weike":
+            return False
+        return cls._private_weike_api_enabled()
+
+    @staticmethod
+    def _private_weike_api_enabled() -> bool:
+        try:
+            from apps.legal_research.services.sources.weike import api_optional
+
+            return api_optional.get_private_weike_api() is not None
+        except Exception:
+            return False
+
     @staticmethod
     def _build_llm_model_choices() -> list[tuple[str, str]]:
         choices: list[tuple[str, str]] = []
@@ -314,6 +355,107 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
             items,
             all_url,
         )
+
+    @admin.display(description="API阶段指标")
+    def private_api_stage_metrics(self, obj: LegalResearchTask) -> str:
+        events = self._get_private_api_events(obj=obj)
+        if not events:
+            return "—"
+
+        total = len(events)
+        search_api_events = [event for event in events if event.stage == "search" and event.source == "api"]
+        search_api_success = [event for event in search_api_events if event.success]
+        dom_fallback_events = [
+            event
+            for event in events
+            if (event.stage == "search" and event.source == "dom")
+            or event.interface_name == "search_fallback_dom"
+        ]
+        c001009_events = [event for event in events if str(event.error_code or "").strip().upper() == "C_001_009"]
+        api_hit_rate = (
+            (len(search_api_success) / len(search_api_events) * 100.0)
+            if search_api_events
+            else 0.0
+        )
+        dom_fallback_rate = (
+            (len(dom_fallback_events) / max(1, len(search_api_events) + len(dom_fallback_events)) * 100.0)
+            if events
+            else 0.0
+        )
+        error_distribution = self._build_error_distribution(events=events)
+        error_html = "、".join(f"{code}:{count}" for code, count in error_distribution) if error_distribution else "无"
+        api_hit_rate_text = f"{api_hit_rate:.1f}%"
+        dom_fallback_rate_text = f"{dom_fallback_rate:.1f}%"
+
+        return format_html(
+            '<div>'
+            '<div>总事件: <strong>{}</strong></div>'
+            '<div>检索API命中率: <strong>{}</strong>（{}/{}）</div>'
+            '<div>DOM回退率: <strong>{}</strong>（{}）</div>'
+            '<div>C_001_009: <strong>{}</strong></div>'
+            '<div>错误码分布: {}</div>'
+            "</div>",
+            total,
+            api_hit_rate_text,
+            len(search_api_success),
+            len(search_api_events),
+            dom_fallback_rate_text,
+            len(dom_fallback_events),
+            len(c001009_events),
+            error_html,
+        )
+
+    @admin.display(description="流程时间线")
+    def private_api_event_timeline(self, obj: LegalResearchTask) -> str:
+        events = self._get_private_api_events(obj=obj)
+        if not events:
+            return "—"
+
+        rows: list[tuple[str, str, str, str, str, str]] = []
+        for event in events[-60:]:
+            created = timezone.localtime(event.created_at).strftime("%H:%M:%S")
+            status = str(event.status_code) if event.status_code is not None else "—"
+            duration = f"{max(0, int(event.duration_ms or 0))}ms"
+            result = "成功" if event.success else "失败"
+            rows.append((created, event.stage, event.source, event.interface_name, status, f"{result} / {duration}"))
+
+        items = format_html_join(
+            "",
+            "<li>{} | {} / {} | {} | HTTP {} | {}</li>",
+            rows,
+        )
+        return format_html('<ul style="margin:0 0 8px 18px;padding:0;">{}</ul>', items)
+
+    @admin.display(description="接口返回可视化")
+    def private_api_event_panel(self, obj: LegalResearchTask) -> str:
+        events = self._get_private_api_events(obj=obj)
+        if not events:
+            return "—"
+
+        blocks: list[tuple[str, str, str, str]] = []
+        for event in events[-24:]:
+            title = (
+                f"{timezone.localtime(event.created_at).strftime('%H:%M:%S')} | "
+                f"{event.stage}/{event.source} | {event.interface_name}"
+            )
+            request_preview = self._render_json_preview(event.request_summary)
+            response_preview = self._render_json_preview(event.response_summary)
+            meta_preview = self._render_json_preview(event.event_metadata)
+            blocks.append((title, request_preview, response_preview, meta_preview))
+
+        sections = format_html_join(
+            "",
+            (
+                '<details style="margin-bottom:8px;">'
+                "<summary>{}</summary>"
+                "<div><strong>Request</strong><pre>{}</pre></div>"
+                "<div><strong>Response</strong><pre>{}</pre></div>"
+                "<div><strong>Meta</strong><pre>{}</pre></div>"
+                "</details>"
+            ),
+            blocks,
+        )
+        return format_html("{}", sections)
 
     @admin.display(description="任务控制")
     def cancel_task_button(self, obj: LegalResearchTask) -> str:
@@ -386,6 +528,33 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
     @staticmethod
     def _sync_failed_queue_state(*, obj: LegalResearchTask) -> None:
         sync_failed_queue_state(task=obj, failed_message="任务执行失败（队列状态自动回填）")
+
+    @staticmethod
+    def _get_private_api_events(*, obj: LegalResearchTask) -> list[LegalResearchTaskEvent]:
+        return list(
+            LegalResearchTaskEvent.objects.filter(task=obj, stage__in=("search", "detail"))
+            .order_by("created_at", "id")
+        )
+
+    @staticmethod
+    def _build_error_distribution(*, events: list[LegalResearchTaskEvent]) -> list[tuple[str, int]]:
+        counts: dict[str, int] = {}
+        for event in events:
+            code = str(event.error_code or "").strip().upper()
+            if not code:
+                continue
+            counts[code] = counts.get(code, 0) + 1
+        return sorted(counts.items(), key=lambda item: (-item[1], item[0]))[:8]
+
+    @staticmethod
+    def _render_json_preview(payload: object, *, max_chars: int = 2200) -> str:
+        try:
+            text = json.dumps(payload or {}, ensure_ascii=False, indent=2)
+        except Exception:
+            text = str(payload or "")
+        if len(text) <= max_chars:
+            return text
+        return f"{text[: max_chars - 3]}..."
 
     @admin.action(description="标记为漏命中（在线负反馈）")
     def mark_as_missed_case_feedback(self, request: HttpRequest, queryset) -> None:
