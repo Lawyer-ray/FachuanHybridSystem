@@ -56,11 +56,11 @@ class CaseLogMutationService:
             from apps.core.interfaces import ServiceLocator
 
             reminder_service = ServiceLocator.get_reminder_service()
-            reminder_service.create_reminder(
+            reminder_service.create_case_log_reminder_internal(
                 case_log_id=log.id,
                 reminder_type=reminder_type,
                 content=content,
-                due_at=reminder_time,
+                reminder_time=reminder_time,
             )
 
         return log

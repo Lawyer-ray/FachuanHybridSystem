@@ -4,6 +4,8 @@
 实现 IReminderService 接口，供其他模块（如案件模块、自动化模块）调用。
 """
 
+from __future__ import annotations
+
 import logging
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, ClassVar
@@ -25,6 +27,7 @@ from apps.reminders.services.validators import (
 
 if TYPE_CHECKING:
     from apps.core.dtos import ReminderDTO, ReminderTypeDTO
+    from apps.reminders.ports import CaseLogTargetQueryPort, ContractTargetQueryPort
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +49,17 @@ class ReminderServiceAdapter(ReminderService):
     _REMINDER_TYPE_CODE_TO_ID: ClassVar[dict[str, int]] = {
         code: idx + 1 for idx, code in enumerate(ReminderType.values)
     }
+
+    def __init__(
+        self,
+        *,
+        contract_target_query: ContractTargetQueryPort | None = None,
+        case_log_target_query: CaseLogTargetQueryPort | None = None,
+    ) -> None:
+        super().__init__(
+            contract_target_query=contract_target_query,
+            case_log_target_query=case_log_target_query,
+        )
 
     def create_reminder_internal(
         self, case_log_id: int, reminder_type: str, reminder_time: datetime | None, user_id: int | None = None
@@ -79,6 +93,26 @@ class ReminderServiceAdapter(ReminderService):
         )
         return self._to_reminder_dto(reminder)
 
+    def create_case_log_reminder_internal(
+        self,
+        *,
+        case_log_id: int,
+        reminder_type: str,
+        content: str,
+        reminder_time: datetime,
+        user_id: int | None = None,
+    ) -> "ReminderDTO":
+        """内部方法：按调用方提供的内容创建案件日志提醒。"""
+        metadata = {"created_by_user_id": user_id} if user_id is not None else {}
+        reminder = super().create_reminder(
+            case_log_id=case_log_id,
+            reminder_type=reminder_type,
+            content=content,
+            due_at=reminder_time,
+            metadata=metadata,
+        )
+        return self._to_reminder_dto(reminder)
+
     def get_reminder_type_by_code_internal(self, code: str) -> "ReminderTypeDTO | None":
         """内部方法：根据代码获取提醒类型。"""
         from apps.core.dtos import ReminderTypeDTO
@@ -107,7 +141,12 @@ class ReminderServiceAdapter(ReminderService):
         if not reminders:
             return 0
 
-        validate_fk_exists(contract_id=contract_id, case_log_id=None)
+        validate_fk_exists(
+            contract_id=contract_id,
+            case_log_id=None,
+            contract_target_query=self._contract_target_query,
+            case_log_target_query=self._case_log_target_query,
+        )
 
         objs: list[Reminder] = []
         for item in reminders:
@@ -145,7 +184,12 @@ class ReminderServiceAdapter(ReminderService):
         if not reminders:
             return 0
 
-        validate_fk_exists(contract_id=None, case_log_id=case_log_id)
+        validate_fk_exists(
+            contract_id=None,
+            case_log_id=case_log_id,
+            contract_target_query=self._contract_target_query,
+            case_log_target_query=self._case_log_target_query,
+        )
 
         objs: list[Reminder] = []
         for item in reminders:
@@ -175,6 +219,77 @@ class ReminderServiceAdapter(ReminderService):
 
         Reminder.objects.bulk_create(objs)
         return len(objs)
+
+    def export_contract_reminders_internal(self, *, contract_id: int) -> list[dict[str, Any]]:
+        """内部方法：导出合同直接关联的提醒数据。"""
+        validate_positive_id(contract_id, field_name=_("合同ID"))
+        rows = list(
+            Reminder.objects.filter(contract_id=contract_id, case_log_id__isnull=True)
+            .order_by("due_at", "id")
+            .values("id", "contract_id", "case_log_id", "reminder_type", "content", "due_at", "metadata")
+        )
+        return [self._enrich_export_row(row) for row in rows]
+
+    def export_case_log_reminders_internal(self, *, case_log_id: int) -> list[dict[str, Any]]:
+        """内部方法：导出案件日志关联的提醒数据。"""
+        validate_positive_id(case_log_id, field_name=_("案件日志ID"))
+        rows = list(
+            Reminder.objects.filter(case_log_id=case_log_id)
+            .order_by("due_at", "id")
+            .values("id", "contract_id", "case_log_id", "reminder_type", "content", "due_at", "metadata")
+        )
+        return [self._enrich_export_row(row) for row in rows]
+
+    def export_case_log_reminders_batch_internal(self, *, case_log_ids: list[int]) -> dict[int, list[dict[str, Any]]]:
+        """内部方法：批量导出案件日志关联的提醒数据。"""
+        if not case_log_ids:
+            return {}
+
+        normalized_ids: list[int] = []
+        seen_ids: set[int] = set()
+        for case_log_id in case_log_ids:
+            validate_positive_id(case_log_id, field_name=_("案件日志ID"))
+            if case_log_id in seen_ids:
+                continue
+            seen_ids.add(case_log_id)
+            normalized_ids.append(case_log_id)
+
+        results: dict[int, list[dict[str, Any]]] = {case_log_id: [] for case_log_id in normalized_ids}
+        rows = Reminder.objects.filter(case_log_id__in=normalized_ids).order_by("case_log_id", "due_at", "id").values(
+            "id",
+            "contract_id",
+            "case_log_id",
+            "reminder_type",
+            "content",
+            "due_at",
+            "metadata",
+        )
+        for row in rows:
+            case_log_id = int(row["case_log_id"])
+            results[case_log_id].append(self._enrich_export_row(row))
+        return results
+
+    def get_latest_case_log_reminder_internal(self, *, case_log_id: int) -> dict[str, Any] | None:
+        """内部方法：获取案件日志最近一条提醒。"""
+        validate_positive_id(case_log_id, field_name=_("案件日志ID"))
+        row = (
+            Reminder.objects.filter(case_log_id=case_log_id)
+            .order_by("-due_at", "-id")
+            .values("id", "contract_id", "case_log_id", "reminder_type", "content", "due_at", "metadata")
+            .first()
+        )
+        if row is None:
+            return None
+        return self._enrich_export_row(row)
+
+    @staticmethod
+    def _enrich_export_row(row: dict[str, Any]) -> dict[str, Any]:
+        reminder_type = str(row.get("reminder_type") or "")
+        try:
+            reminder_type_label = str(ReminderType(reminder_type).label)
+        except Exception:
+            reminder_type_label = reminder_type
+        return {**row, "reminder_type_label": reminder_type_label}
 
     def _to_reminder_dto(self, reminder: Reminder) -> "ReminderDTO":
         """将 Reminder Model 转换为 DTO。"""
