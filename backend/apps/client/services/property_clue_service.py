@@ -9,7 +9,9 @@ from django.db import transaction
 from django.utils.translation import gettext_lazy as _
 
 from apps.client.models import PropertyClue, PropertyClueAttachment
+from apps.client.ports import FileUploadPort
 from apps.client.services.storage import delete_media_file, save_uploaded_file
+from apps.client.services.wiring import get_file_upload_port
 from apps.core.exceptions import NotFoundError, ValidationException
 
 if TYPE_CHECKING:
@@ -24,8 +26,13 @@ _VALID_CLUE_TYPES: dict[str, str] = dict(PropertyClue.CLUE_TYPE_CHOICES)
 class PropertyClueService:
     """财产线索服务。"""
 
-    def __init__(self, internal_query_service: ClientInternalQueryService | None = None) -> None:
+    def __init__(
+        self,
+        internal_query_service: ClientInternalQueryService | None = None,
+        file_upload_port: FileUploadPort | None = None,
+    ) -> None:
         self._internal_query_service = internal_query_service
+        self._file_upload_port = file_upload_port
 
     @property
     def internal_query_service(self) -> ClientInternalQueryService:
@@ -35,6 +42,13 @@ class PropertyClueService:
 
             self._internal_query_service = ClientInternalQueryService()
         return self._internal_query_service
+
+    @property
+    def file_upload_port(self) -> FileUploadPort:
+        """获取文件上传端口（延迟初始化）。"""
+        if self._file_upload_port is None:
+            self._file_upload_port = get_file_upload_port()
+        return self._file_upload_port
 
     def _validate_clue_type(self, clue_type: str) -> None:
         """验证线索类型是否有效。"""
@@ -241,11 +255,10 @@ class PropertyClueService:
         uploaded_file: Any,
         user: Any = None,
     ) -> PropertyClueAttachment:
-        """从上传文件添加附件（文件 IO 在 Service 层处理）"""
-        from apps.core.services.file_upload_service import FileUploadService
+        """从上传文件添加附件（文件 IO 在 Service 层处理）。"""
+        from pathlib import Path
 
-        upload_service = FileUploadService()
-        saved_path = upload_service.save_file(
+        saved_path: Path = self.file_upload_port.save_file(
             uploaded_file,
             base_dir=f"property_clue_attachments/{clue_id}",
             preserve_name=True,

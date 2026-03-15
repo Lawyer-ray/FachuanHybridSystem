@@ -117,7 +117,7 @@ class ExecutorSourceGatewayMixin:
                 cls._sleep_for_retry(attempt=attempt)
             except Exception as exc:
                 if "C_001_009" in str(exc):
-                    raise RuntimeError("wk会话被限制访问(C_001_009)，请稍后重试") from exc
+                    raise RuntimeError(str(exc)) from exc
                 if attempt >= cls.DOWNLOAD_RETRY_ATTEMPTS:
                     logger.warning(
                         "PDF下载失败，已跳过该案例",

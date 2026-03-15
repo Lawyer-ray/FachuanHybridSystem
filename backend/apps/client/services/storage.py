@@ -8,6 +8,8 @@ from typing import Any
 
 from django.utils.translation import gettext_lazy as _
 
+from apps.client.ports import FileValidatorPort
+from apps.client.services.wiring import get_file_validator_port
 from apps.core.config import get_config
 from apps.core.exceptions import ValidationException
 
@@ -136,6 +138,7 @@ def save_uploaded_file(
     use_uuid_name: bool = True,
     max_size_bytes: int | None = None,
     allowed_extensions: list[str] | None = None,
+    file_validator: FileValidatorPort | None = None,
 ) -> tuple[str, str]:
     if not hasattr(uploaded_file, "name"):
         raise ValidationException(
@@ -144,10 +147,11 @@ def save_uploaded_file(
 
     original_name = str(getattr(uploaded_file, "name", "") or "")
     safe_original_name = sanitize_upload_filename(original_name)
-    from apps.core.validators import Validators
 
+    # 使用端口验证文件
+    validator = file_validator if file_validator is not None else get_file_validator_port()
     _max_size_bytes = max_size_bytes if max_size_bytes is not None else 20 * 1024 * 1024
-    Validators.validate_uploaded_file(
+    validator.validate_uploaded_file(
         uploaded_file,
         field_name="file",
         max_size_bytes=_max_size_bytes,

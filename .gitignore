@@ -187,7 +187,15 @@ backend/tests/structure/snapshots/
 backend/apps/legal_research/services/sources/weike_api_private/
 backend/apps/legal_research/services/sources/weike/api_private/
 
+# legal_research 基线评估样本（本地标注数据，不入库）
+backend/apps/legal_research/evaluation/
+backend/apps/legal_research/evaluation/baseline_cases.json
+backend/apps/legal_research/evaluation/reports/
+
 # 临时脚本文件
 /tmp/openclaw_*.js
 backend/apiSystem/apps
 .screenshots/
+
+# 整改方案文档（本地参考，不入库）
+docs/refactor-plans/

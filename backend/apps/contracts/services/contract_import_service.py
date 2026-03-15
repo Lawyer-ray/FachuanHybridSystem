@@ -175,19 +175,31 @@ class ContractImportService:
             )
 
         # 还原重要日期提醒
-        from apps.reminders.models import Reminder
-
+        reminders_list = []
         for r_data in data.get("reminders") or []:
             if r_data.get("due_at") and r_data.get("reminder_type"):
-                Reminder.objects.get_or_create(
-                    contract=contract,
-                    reminder_type=r_data["reminder_type"],
-                    due_at=r_data["due_at"],
-                    defaults={
+                from datetime import datetime
+
+                due_at = r_data["due_at"]
+                if isinstance(due_at, str):
+                    from django.utils.dateparse import parse_datetime
+
+                    due_at = parse_datetime(due_at)
+                if isinstance(due_at, datetime):
+                    reminders_list.append({
+                        "reminder_type": r_data["reminder_type"],
                         "content": r_data.get("content", ""),
+                        "due_at": due_at,
                         "metadata": r_data.get("metadata", {}),
-                    },
-                )
+                    })
+        if reminders_list:
+            from apps.contracts.services.contract.wiring import get_reminder_service
+
+            reminder_service = get_reminder_service()
+            reminder_service.create_contract_reminders_internal(
+                contract_id=contract.id,
+                reminders=reminders_list,
+            )
 
         # 还原客户回款记录
         from apps.contracts.models import ClientPaymentRecord

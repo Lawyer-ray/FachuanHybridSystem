@@ -89,7 +89,7 @@ class AccountCredentialAdminService:
         credential_id: int,
         admin_user: str,
     ) -> LoginResult:
-        credential = self.credential_service._get_credential_internal(credential_id)
+        credential = self.credential_service.get_credential_by_id(credential_id)
 
         if credential.site_name != self.SUPPORTED_SITE:
             return LoginResult(

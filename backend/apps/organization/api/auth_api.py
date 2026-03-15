@@ -12,7 +12,13 @@ from apps.organization.services import AuthService
 
 router = Router()
 
-_auth_service = AuthService()
+
+def _get_auth_service() -> AuthService:
+    """工厂函数：获取认证服务实例"""
+    return AuthService()
+
+
+_auth_service = _get_auth_service()
 
 
 @router.post("/login", response=LoginOut, auth=None)
