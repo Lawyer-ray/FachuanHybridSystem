@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from django import forms
@@ -142,9 +143,43 @@ def _serialize_contract_client(client: Any) -> dict[str, Any]:
     return serialize_client_obj(client)
 
 
+def _export_contract_reminders(contract: Any) -> list[dict[str, Any]]:
+    from apps.core.interfaces import ServiceLocator
+
+    reminder_service = ServiceLocator.get_reminder_service()
+    return reminder_service.export_contract_reminders_internal(contract_id=contract.id)
+
+
+def _serialize_exported_contract_reminders(reminders: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    result: list[dict[str, Any]] = []
+    for reminder in reminders:
+        due_at = reminder.get("due_at")
+        if isinstance(due_at, datetime):
+            due_at_value = due_at.isoformat()
+        elif due_at is None:
+            due_at_value = ""
+        else:
+            due_at_value = str(due_at)
+
+        metadata = reminder.get("metadata")
+        metadata_value = metadata if isinstance(metadata, dict) else {}
+
+        result.append(
+            {
+                "reminder_type": reminder.get("reminder_type"),
+                "content": reminder.get("content"),
+                "due_at": due_at_value,
+                "metadata": metadata_value,
+            }
+        )
+    return result
+
+
 def serialize_contract_obj(obj: Any) -> dict[str, Any]:
     """将单个 Contract 实例序列化为 dict（供 ContractAdmin 和 CaseAdmin 共用）。"""
     from apps.cases.admin.case_admin import serialize_case_obj
+
+    exported_reminders = _export_contract_reminders(obj)
 
     return {
         "name": obj.name,
@@ -234,15 +269,7 @@ def serialize_contract_obj(obj: Any) -> dict[str, Any]:
             }
             for fl in obj.finance_logs.all()
         ],
-        "reminders": [
-            {
-                "reminder_type": r.reminder_type,
-                "content": r.content,
-                "due_at": r.due_at.isoformat(),
-                "metadata": r.metadata,
-            }
-            for r in obj.reminders.filter(case_log__isnull=True)
-        ],
+        "reminders": _serialize_exported_contract_reminders(exported_reminders),
         "client_payment_records": [
             {
                 "amount": str(r.amount),

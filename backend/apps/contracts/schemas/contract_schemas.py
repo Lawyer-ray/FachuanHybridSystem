@@ -14,7 +14,7 @@ from pydantic import field_validator, model_validator
 
 from apps.contracts.models import Contract, FeeMode
 from apps.core.enums import CaseStage
-from apps.reminders.schemas import ReminderOut
+from apps.core.schemas_shared import ReminderLiteOut as ReminderOut
 
 from .lawyer_schemas import CaseOut, LawyerOut
 from .party_schemas import ContractPartyIn, ContractPartyOut
@@ -197,8 +197,10 @@ class ContractOut(ModelSchema):
 
     @staticmethod
     def resolve_reminders(obj: Contract) -> list[Any]:
-        reminders = obj.reminders  # type: ignore[attr-defined]
-        return list(reminders.all())
+        from apps.core.interfaces import ServiceLocator
+
+        reminder_service = ServiceLocator.get_reminder_service()
+        return reminder_service.export_contract_reminders_internal(contract_id=obj.id)
 
     @staticmethod
     def resolve_payments(obj: Contract) -> list[Any]:
