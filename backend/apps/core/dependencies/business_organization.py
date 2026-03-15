@@ -27,6 +27,6 @@ def build_organization_service() -> IOrganizationService:
 
 
 def build_reminder_service() -> IReminderService:
-    from apps.reminders.services.reminder_service_adapter import ReminderServiceAdapter
+    from apps.reminders.services.wiring import get_reminder_service
 
-    return ReminderServiceAdapter()
+    return get_reminder_service()
