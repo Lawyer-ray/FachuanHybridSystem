@@ -6,7 +6,7 @@ from ninja import File, Router, Schema
 from ninja.files import UploadedFile
 
 from apps.client.schemas import IdentityDocDetailOut, IdentityRecognizeOut
-from apps.core.services.django_q_tasks import get_q_task_status, submit_q_task
+from apps.client.services.wiring import get_task_service_port
 
 logger = logging.getLogger(__name__)
 
@@ -189,7 +189,8 @@ def submit_recognize_task(
     """提交证件识别异步任务"""
     service = _get_identity_doc_service()
     rel_path = service.save_uploaded_file_to_dir(file, rel_dir="client_docs/recognize")
-    task_id: str = submit_q_task(
+    task_service = get_task_service_port()
+    task_id: str = task_service.submit_task(
         "apps.client.tasks.execute_identity_doc_recognition",
         rel_path,
     )
@@ -203,5 +204,6 @@ def get_recognize_task_status(
     task_id: str,
 ) -> dict[str, Any]:
     """查询证件识别任务状态"""
-    result: dict[str, Any] = get_q_task_status(task_id)
+    task_service = get_task_service_port()
+    result: dict[str, Any] = task_service.get_task_status(task_id)
     return result

@@ -34,10 +34,16 @@ class LegalResearchTuningConfig:
 
     detail_cache_ttl_seconds: int = 21600
     similarity_cache_ttl_seconds: int = 86400
+    similarity_local_cache_max_size: int = 1024
 
     semantic_vector_enabled: bool = True
     semantic_vector_model: str = ""
     semantic_vector_cache_ttl_seconds: int = 86400
+    semantic_vector_local_cache_max_size: int = 2048
+
+    weike_session_restrict_cooldown_seconds: int = 180
+    weike_search_api_degrade_streak_threshold: int = 2
+    weike_search_api_degrade_cooldown_seconds: int = 180
 
     dual_review_enabled: bool = True
     dual_review_model: str = "Qwen/Qwen2.5-14B-Instruct"
@@ -115,6 +121,13 @@ class LegalResearchTuningConfig:
                 60,
                 604800,
             ),
+            similarity_local_cache_max_size=cls._get_int(
+                config_service,
+                "LEGAL_RESEARCH_SIMILARITY_LOCAL_CACHE_MAX_SIZE",
+                1024,
+                32,
+                10000,
+            ),
             semantic_vector_enabled=cls._get_bool(config_service, "LEGAL_RESEARCH_SEMANTIC_VECTOR_ENABLED", True),
             semantic_vector_model=cls._get_text(
                 config_service,
@@ -128,6 +141,34 @@ class LegalResearchTuningConfig:
                 86400,
                 60,
                 604800,
+            ),
+            semantic_vector_local_cache_max_size=cls._get_int(
+                config_service,
+                "LEGAL_RESEARCH_SEMANTIC_VECTOR_LOCAL_CACHE_MAX_SIZE",
+                2048,
+                64,
+                20000,
+            ),
+            weike_session_restrict_cooldown_seconds=cls._get_int(
+                config_service,
+                "LEGAL_RESEARCH_WEIKE_SESSION_RESTRICT_COOLDOWN_SECONDS",
+                180,
+                30,
+                1800,
+            ),
+            weike_search_api_degrade_streak_threshold=cls._get_int(
+                config_service,
+                "LEGAL_RESEARCH_WEIKE_SEARCH_API_DEGRADE_STREAK_THRESHOLD",
+                2,
+                1,
+                10,
+            ),
+            weike_search_api_degrade_cooldown_seconds=cls._get_int(
+                config_service,
+                "LEGAL_RESEARCH_WEIKE_SEARCH_API_DEGRADE_COOLDOWN_SECONDS",
+                180,
+                30,
+                3600,
             ),
             dual_review_enabled=cls._get_bool(config_service, "LEGAL_RESEARCH_DUAL_REVIEW_ENABLED", True),
             dual_review_model=cls._get_text(

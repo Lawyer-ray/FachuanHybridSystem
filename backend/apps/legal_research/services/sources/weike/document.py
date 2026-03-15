@@ -1,11 +1,17 @@
 from __future__ import annotations
 
 import html
+import logging
 import re
+import time
 from datetime import datetime
 from typing import Any
 
+from apps.legal_research.services.task_event_service import LegalResearchTaskEventService
+
 from .types import WeikeCaseDetail, WeikeSearchItem, WeikeSession
+
+logger = logging.getLogger(__name__)
 
 
 class WeikeDocumentMixin:
@@ -14,8 +20,11 @@ class WeikeDocumentMixin:
     DOWNLOAD_RETRY_ATTEMPTS = 3
     DOWNLOAD_RETRY_HTTP_STATUSES = frozenset({408, 409, 425, 429, 500, 502, 503, 504})
     DOM_DETAIL_MAX_CHARS = 60000
+    SESSION_RESTRICT_CODE = "C_001_009"
+    SESSION_RESTRICT_COOLDOWN_SECONDS = 180
 
     def fetch_case_detail(self, *, session: WeikeSession, item: WeikeSearchItem) -> WeikeCaseDetail:
+        self._raise_if_session_restricted(session=session, stage="fetch_case_detail")
         errors: list[str] = []
         for doc_id in self._detail_doc_id_candidates(item):
             meta_url = f"https://law.wkinfo.com.cn/csi/document/{doc_id}?indexId=law.case"
@@ -28,6 +37,7 @@ class WeikeDocumentMixin:
             html_payload: dict[str, Any] | None = None
 
             try:
+                meta_started = time.monotonic()
                 meta_resp = self._request_get_with_retry(
                     session=session,
                     url=meta_url,
@@ -36,15 +46,63 @@ class WeikeDocumentMixin:
                     retry_statuses=self.DETAIL_RETRY_HTTP_STATUSES,
                 )
                 meta_status = self._response_status(meta_resp)
+                meta_payload = self._response_json(meta_resp)
+                self._record_detail_event(
+                    session=session,
+                    interface_name="document_meta",
+                    method="GET",
+                    url=meta_url,
+                    status_code=meta_status,
+                    duration_ms=int((time.monotonic() - meta_started) * 1000),
+                    success=meta_status == 200,
+                    request_summary={"doc_id": doc_id, "url": meta_url},
+                    response_summary=self._summarize_meta_payload(meta_payload),
+                    error_code="" if meta_status == 200 else f"HTTP_{meta_status}",
+                )
+                if self._is_session_restricted_response(status=meta_status, payload=meta_payload):
+                    self._mark_session_restricted(
+                        session=session,
+                        stage="detail_meta",
+                        status=meta_status,
+                        payload=meta_payload,
+                    )
+                    raise RuntimeError("wk会话被限制访问(C_001_009)，请稍后重试")
                 if meta_status != 200:
                     errors.append(f"docId={doc_id} 元信息 HTTP {meta_status}")
                     continue
-                meta_payload = self._response_json(meta_resp)
+            except RuntimeError as exc:
+                self._record_detail_event(
+                    session=session,
+                    interface_name="document_meta",
+                    method="GET",
+                    url=meta_url,
+                    duration_ms=0,
+                    success=False,
+                    error_code="RUNTIME_ERROR",
+                    error_message=self._compact_error(exc),
+                    request_summary={"doc_id": doc_id, "url": meta_url},
+                )
+                if self.SESSION_RESTRICT_CODE in str(exc):
+                    raise
+                errors.append(f"docId={doc_id} 元信息异常: {self._compact_error(exc)}")
+                continue
             except Exception as exc:
+                self._record_detail_event(
+                    session=session,
+                    interface_name="document_meta",
+                    method="GET",
+                    url=meta_url,
+                    duration_ms=0,
+                    success=False,
+                    error_code="REQUEST_ERROR",
+                    error_message=self._compact_error(exc),
+                    request_summary={"doc_id": doc_id, "url": meta_url},
+                )
                 errors.append(f"docId={doc_id} 元信息异常: {self._compact_error(exc)}")
                 continue
 
             try:
+                html_started = time.monotonic()
                 html_resp = self._request_get_with_retry(
                     session=session,
                     url=html_url,
@@ -53,11 +111,58 @@ class WeikeDocumentMixin:
                     retry_statuses=self.DETAIL_RETRY_HTTP_STATUSES,
                 )
                 html_status = self._response_status(html_resp)
+                html_payload = self._response_json(html_resp)
+                self._record_detail_event(
+                    session=session,
+                    interface_name="document_html",
+                    method="GET",
+                    url=html_url,
+                    status_code=html_status,
+                    duration_ms=int((time.monotonic() - html_started) * 1000),
+                    success=html_status == 200,
+                    request_summary={"doc_id": doc_id, "url": html_url},
+                    response_summary=self._summarize_html_payload(html_payload),
+                    error_code="" if html_status == 200 else f"HTTP_{html_status}",
+                )
+                if self._is_session_restricted_response(status=html_status, payload=html_payload):
+                    self._mark_session_restricted(
+                        session=session,
+                        stage="detail_html",
+                        status=html_status,
+                        payload=html_payload,
+                    )
+                    raise RuntimeError("wk会话被限制访问(C_001_009)，请稍后重试")
                 if html_status != 200:
                     errors.append(f"docId={doc_id} 正文 HTTP {html_status}")
                     continue
-                html_payload = self._response_json(html_resp)
+            except RuntimeError as exc:
+                self._record_detail_event(
+                    session=session,
+                    interface_name="document_html",
+                    method="GET",
+                    url=html_url,
+                    duration_ms=0,
+                    success=False,
+                    error_code="RUNTIME_ERROR",
+                    error_message=self._compact_error(exc),
+                    request_summary={"doc_id": doc_id, "url": html_url},
+                )
+                if self.SESSION_RESTRICT_CODE in str(exc):
+                    raise
+                errors.append(f"docId={doc_id} 正文异常: {self._compact_error(exc)}")
+                continue
             except Exception as exc:
+                self._record_detail_event(
+                    session=session,
+                    interface_name="document_html",
+                    method="GET",
+                    url=html_url,
+                    duration_ms=0,
+                    success=False,
+                    error_code="REQUEST_ERROR",
+                    error_message=self._compact_error(exc),
+                    request_summary={"doc_id": doc_id, "url": html_url},
+                )
                 errors.append(f"docId={doc_id} 正文异常: {self._compact_error(exc)}")
                 continue
 
@@ -84,12 +189,26 @@ class WeikeDocumentMixin:
 
         fallback_detail = self._fetch_case_detail_via_dom(session=session, item=item, errors=errors)
         if fallback_detail is not None:
+            self._record_detail_event(
+                session=session,
+                interface_name="dom_detail",
+                method="GET",
+                url=item.detail_url,
+                status_code=200,
+                success=True,
+                request_summary={"doc_id": item.doc_id_unquoted or item.doc_id_raw},
+                response_summary={
+                    "title": fallback_detail.title,
+                    "content_length": len(fallback_detail.content_text or ""),
+                },
+            )
             return fallback_detail
 
         error_text = "；".join(errors[:4])
         raise RuntimeError(f"获取案例详情失败: {error_text or '未知错误'}")
 
     def download_pdf(self, *, session: WeikeSession, detail: WeikeCaseDetail) -> tuple[bytes, str] | None:
+        self._raise_if_session_restricted(session=session, stage="download_pdf")
         # 与前端真实调用保持一致：优先使用 unquoted docId + showType=0 + filename。
         filename = self._build_download_filename(detail)
         attempts = [
@@ -128,12 +247,20 @@ class WeikeDocumentMixin:
                 max_attempts=self.DOWNLOAD_RETRY_ATTEMPTS,
                 retry_statuses=self.DOWNLOAD_RETRY_HTTP_STATUSES,
             )
-            if self._response_status(limit_resp) != 200:
-                continue
-
+            limit_status = self._response_status(limit_resp)
             try:
                 limit_payload_json = self._response_json(limit_resp)
             except Exception:
+                limit_payload_json = {}
+            if self._is_session_restricted_response(status=limit_status, payload=limit_payload_json):
+                self._mark_session_restricted(
+                    session=session,
+                    stage="download_limit",
+                    status=limit_status,
+                    payload=limit_payload_json,
+                )
+                raise RuntimeError("wk会话被限制访问(C_001_009)，请稍后重试")
+            if limit_status != 200:
                 continue
 
             if not bool(limit_payload_json.get("result")):
@@ -166,7 +293,13 @@ class WeikeDocumentMixin:
                 response_json = {}
 
             path_status = self._response_status(path_resp)
-            if path_status == 400 and response_json.get("code") == "C_001_009":
+            if self._is_session_restricted_response(status=path_status, payload=response_json):
+                self._mark_session_restricted(
+                    session=session,
+                    stage="download_path",
+                    status=path_status,
+                    payload=response_json,
+                )
                 raise RuntimeError("wk会话被限制访问(C_001_009)，请稍后重试")
 
             if path_status != 200:
@@ -216,6 +349,56 @@ class WeikeDocumentMixin:
         if len(message) <= max_len:
             return message
         return f"{message[: max_len - 3]}..."
+
+    @classmethod
+    def _is_session_restricted_response(cls, *, status: int, payload: dict[str, Any] | None) -> bool:
+        code = str((payload or {}).get("code") or "").strip().upper()
+        if code == cls.SESSION_RESTRICT_CODE:
+            return True
+        return status == 400 and code == cls.SESSION_RESTRICT_CODE
+
+    def _mark_session_restricted(
+        self,
+        *,
+        session: WeikeSession,
+        stage: str,
+        status: int | None = None,
+        payload: dict[str, Any] | None = None,
+    ) -> None:
+        cooldown_seconds = self._resolve_session_restrict_cooldown_seconds()
+        session.restricted_until_epoch = time.time() + cooldown_seconds
+        logger.warning(
+            "wk会话触发访问限制",
+            extra={
+                "stage": stage,
+                "status": int(status or 0),
+                "code": str((payload or {}).get("code") or ""),
+                "cooldown_seconds": cooldown_seconds,
+            },
+        )
+
+    def _raise_if_session_restricted(self, *, session: WeikeSession, stage: str) -> None:
+        restricted_until = float(getattr(session, "restricted_until_epoch", 0.0) or 0.0)
+        now = time.time()
+        if restricted_until <= now:
+            return
+        wait_seconds = max(1, int(restricted_until - now))
+        logger.info(
+            "wk会话限制冷却中，跳过请求",
+            extra={
+                "stage": stage,
+                "wait_seconds": wait_seconds,
+            },
+        )
+        raise RuntimeError(f"wk会话被限制访问(C_001_009)，请{wait_seconds}秒后重试")
+
+    def _resolve_session_restrict_cooldown_seconds(self) -> int:
+        raw = getattr(self, "_session_restrict_cooldown_seconds", self.SESSION_RESTRICT_COOLDOWN_SECONDS)
+        try:
+            seconds = int(raw)
+        except (TypeError, ValueError):
+            seconds = self.SESSION_RESTRICT_COOLDOWN_SECONDS
+        return max(30, seconds)
 
     @staticmethod
     def _build_download_filename(detail: WeikeCaseDetail) -> str:
@@ -301,6 +484,17 @@ class WeikeDocumentMixin:
                 },
             )
         except Exception as exc:
+            self._record_detail_event(
+                session=session,
+                interface_name="dom_detail",
+                method="GET",
+                url=item.detail_url,
+                success=False,
+                error_code="DOM_DETAIL_ERROR",
+                error_message=self._compact_error(exc),
+                request_summary={"doc_id": item.doc_id_unquoted or item.doc_id_raw},
+                response_summary={"errors": errors[:3]},
+            )
             errors.append(f"DOM兜底异常: {self._compact_error(exc)}")
             return None
 
@@ -342,3 +536,53 @@ class WeikeDocumentMixin:
         if len(compact) <= 220:
             return compact
         return f"{compact[:220]}..."
+
+    @staticmethod
+    def _summarize_meta_payload(payload: dict[str, Any] | None) -> dict[str, Any]:
+        current_doc = (payload or {}).get("currentDoc") or {}
+        additional = current_doc.get("additionalFields") or {}
+        return {
+            "title": str(current_doc.get("title") or additional.get("title") or ""),
+            "court_text": str(additional.get("courtText") or ""),
+            "document_number": str(additional.get("documentNumber") or ""),
+            "judgment_date": str(additional.get("judgmentDate") or ""),
+        }
+
+    @staticmethod
+    def _summarize_html_payload(payload: dict[str, Any] | None) -> dict[str, Any]:
+        content = str((payload or {}).get("content") or "")
+        return {
+            "content_length": len(content),
+            "has_content": bool(content),
+        }
+
+    @staticmethod
+    def _record_detail_event(
+        *,
+        session: WeikeSession,
+        interface_name: str,
+        method: str = "",
+        url: str = "",
+        status_code: int | None = None,
+        duration_ms: int = 0,
+        success: bool,
+        error_code: str = "",
+        error_message: str = "",
+        request_summary: object = None,
+        response_summary: object = None,
+    ) -> None:
+        LegalResearchTaskEventService.record_event(
+            task_id=getattr(session, "task_id", ""),
+            stage="detail",
+            source="dom" if interface_name == "dom_detail" else "api",
+            interface_name=interface_name,
+            method=method,
+            url=url,
+            status_code=status_code,
+            duration_ms=duration_ms,
+            success=success,
+            error_code=error_code,
+            error_message=error_message,
+            request_summary=request_summary,
+            response_summary=response_summary,
+        )

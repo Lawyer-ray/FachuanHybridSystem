@@ -29,8 +29,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class ReminderServiceAdapter:
-    """提醒服务适配器，提供提醒模块的核心功能给其他模块使用。"""
+class ReminderServiceAdapter(ReminderService):
+    """提醒服务适配器，继承 ReminderService 提供 API 方法，同时实现 IReminderService 供其他模块调用。"""
 
     DOCUMENT_TYPE_TO_REMINDER_TYPE: ClassVar[dict[str, str]] = {
         "court_summons": "hearing",
@@ -47,9 +47,6 @@ class ReminderServiceAdapter:
         code: idx + 1 for idx, code in enumerate(ReminderType.values)
     }
 
-    def __init__(self) -> None:
-        self._service = ReminderService()
-
     def create_reminder_internal(
         self, case_log_id: int, reminder_type: str, reminder_time: datetime | None, user_id: int | None = None
     ) -> "ReminderDTO | None":
@@ -65,7 +62,7 @@ class ReminderServiceAdapter:
         metadata = {"created_by_user_id": user_id} if user_id is not None else {}
 
         try:
-            reminder = self._service.create_reminder(
+            reminder = super().create_reminder(
                 case_log_id=case_log_id,
                 reminder_type=reminder_type,
                 content=str(reminder_type_label),
@@ -101,7 +98,7 @@ class ReminderServiceAdapter:
 
     def get_existing_reminder_times_internal(self, case_log_id: int, reminder_type: str) -> set[datetime]:
         """内部方法：获取案件日志已存在的提醒时间集合。"""
-        return self._service.get_existing_due_times(case_log_id, reminder_type)
+        return super().get_existing_due_times(case_log_id, reminder_type)
 
     @transaction.atomic
     def create_contract_reminders_internal(self, *, contract_id: int, reminders: list[dict[str, Any]]) -> int:
@@ -128,6 +125,44 @@ class ReminderServiceAdapter:
             objs.append(
                 Reminder(
                     contract_id=contract_id,
+                    reminder_type=reminder_type,
+                    content=content,
+                    due_at=due_at,
+                    metadata=metadata,
+                )
+            )
+
+        if not objs:
+            return 0
+
+        Reminder.objects.bulk_create(objs)
+        return len(objs)
+
+    @transaction.atomic
+    def create_case_log_reminders_internal(self, *, case_log_id: int, reminders: list[dict[str, Any]]) -> int:
+        """内部方法：批量创建案件日志提醒。"""
+        validate_positive_id(case_log_id, field_name=_("案件日志ID"))
+        if not reminders:
+            return 0
+
+        validate_fk_exists(contract_id=None, case_log_id=case_log_id)
+
+        objs: list[Reminder] = []
+        for item in reminders:
+            try:
+                reminder_type = normalize_reminder_type(item.get("reminder_type") or "")
+                content = normalize_content(item.get("content") or "")
+                due_at = item.get("due_at")
+                if due_at is None or not isinstance(due_at, datetime):
+                    continue
+                due_at = normalize_due_at(due_at)
+                metadata = normalize_metadata(item.get("metadata"))
+            except (ValidationException, ValueError, TypeError):
+                continue
+
+            objs.append(
+                Reminder(
+                    case_log_id=case_log_id,
                     reminder_type=reminder_type,
                     content=content,
                     due_at=due_at,

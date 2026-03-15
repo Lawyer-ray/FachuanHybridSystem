@@ -185,6 +185,8 @@ class LegalResearchExecutor(
                 password=task.credential.password,
                 login_url=task.credential.url or None,
             )
+            if hasattr(session, "task_id"):
+                setattr(session, "task_id", str(task.id))
             keyword_candidates = self._build_search_keywords(task.keyword, task.case_summary)
             if query_variant_enabled and query_variant_max_count > 0:
                 llm_variants = self._generate_llm_query_variants(

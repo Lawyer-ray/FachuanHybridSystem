@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import time
 from collections.abc import Callable, Iterable
@@ -145,12 +146,22 @@ class WeikeTransportMixin:
             return int(status)
         return 0
 
-    @staticmethod
-    def _response_json(response: Any) -> dict[str, Any]:
-        data = response.json()
-        if isinstance(data, dict):
-            return data
-        return {}
+    @classmethod
+    def _response_json(cls, response: Any) -> dict[str, Any]:
+        try:
+            data = response.json()
+        except Exception:
+            data = None
+
+        normalized = cls._coerce_json_dict(data)
+        if normalized is not None:
+            return normalized
+
+        body = cls._response_body(response)
+        if not body:
+            return {}
+        decoded = cls._decode_response_body(body)
+        return cls._parse_json_from_text(decoded)
 
     @staticmethod
     def _response_headers(response: Any) -> dict[str, str]:
@@ -158,6 +169,55 @@ class WeikeTransportMixin:
         if headers is None:
             return {}
         return dict(headers)
+
+    @staticmethod
+    def _coerce_json_dict(value: Any) -> dict[str, Any] | None:
+        if isinstance(value, dict):
+            return value
+        if not isinstance(value, str):
+            return None
+        text = value.strip()
+        if not text:
+            return None
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError:
+            return None
+        if isinstance(parsed, dict):
+            return parsed
+        return None
+
+    @staticmethod
+    def _decode_response_body(body: bytes) -> str:
+        if not body:
+            return ""
+        for encoding in ("utf-8-sig", "utf-8", "gb18030"):
+            try:
+                return body.decode(encoding)
+            except UnicodeDecodeError:
+                continue
+        return body.decode("latin-1", errors="ignore")
+
+    @classmethod
+    def _parse_json_from_text(cls, text: str) -> dict[str, Any]:
+        candidate = (text or "").strip()
+        if not candidate:
+            return {}
+
+        direct = cls._coerce_json_dict(candidate)
+        if direct is not None:
+            return direct
+
+        start = candidate.find("{")
+        end = candidate.rfind("}")
+        if start < 0 or end <= start:
+            return {}
+
+        clipped = candidate[start : end + 1]
+        repaired = cls._coerce_json_dict(clipped)
+        if repaired is not None:
+            return repaired
+        return {}
 
     @staticmethod
     def _response_body(response: Any) -> bytes:

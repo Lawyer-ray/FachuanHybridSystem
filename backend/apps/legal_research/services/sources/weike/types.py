@@ -42,7 +42,13 @@ class WeikeSession:
     username: str = ""
     password: str = ""
     login_url: str | None = None
+    task_id: str = ""
     search_via_api_enabled: bool = False
+    restricted_until_epoch: float = 0.0
+    last_search_doc_count: int = 0
+    search_api_empty_streak: int = 0
+    search_api_error_streak: int = 0
+    search_api_degraded_until_epoch: float = 0.0
 
     def close(self) -> None:
         try:

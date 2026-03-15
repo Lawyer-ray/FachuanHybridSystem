@@ -55,7 +55,7 @@ class OrganizationServiceAdapter(IOrganizationService):
         return self._lawyer_service
 
     def get_law_firm(self, law_firm_id: int) -> LawFirmDTO | None:
-        lawfirm = self.lawfirm_service._get_lawfirm_internal(law_firm_id)
+        lawfirm = self.lawfirm_service.get_lawfirm_by_id(law_firm_id)
         if lawfirm is None:
             return None
         return LawFirmDTO.from_model(lawfirm)
@@ -76,7 +76,7 @@ class OrganizationServiceAdapter(IOrganizationService):
         return [AccountCredentialDTO.from_model(credential) for credential in credentials]
 
     def get_credential_internal(self, credential_id: int) -> AccountCredentialDTO:
-        credential = self.account_credential_service._get_credential_internal(credential_id)
+        credential = self.account_credential_service.get_credential_by_id(credential_id)
         return AccountCredentialDTO.from_model(credential)
 
     def get_credentials_by_site_internal(self, site_name: str) -> list[AccountCredentialDTO]:
@@ -94,7 +94,7 @@ class OrganizationServiceAdapter(IOrganizationService):
         self.account_credential_service.update_login_failure(credential_id)
 
     def get_lawyer_by_id_internal(self, lawyer_id: int) -> LawyerDTO | None:
-        lawyer = self.lawyer_service._get_lawyer_internal(lawyer_id)
+        lawyer = self.lawyer_service.get_lawyer_by_id(lawyer_id)
         if lawyer is None:
             return None
         return _assembler.to_dto(lawyer)

@@ -16,7 +16,13 @@ from apps.organization.services import LawFirmService
 
 router = Router(auth=JWTOrSessionAuth())
 
-_lawfirm_service = LawFirmService()
+
+def _get_lawfirm_service() -> LawFirmService:
+    """工厂函数：获取律所服务实例"""
+    return LawFirmService()
+
+
+_lawfirm_service = _get_lawfirm_service()
 
 
 @router.get("/lawfirms", response=list[LawFirmOut])
