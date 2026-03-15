@@ -32,8 +32,8 @@
                             {% if inline_admin_form.original.actor %}
                             <span class="log-author">{{ inline_admin_form.original.actor }}</span>
                             {% endif %}
-                            {% if inline_admin_form.original.reminders.exists %}
-                            <span class="log-reminder-badge">{% trans "提醒" %} {{ inline_admin_form.original.reminders.count }} {% trans "条" %}</span>
+                            {% if inline_admin_form.original.has_reminders %}
+                            <span class="log-reminder-badge">{% trans "提醒" %} {{ inline_admin_form.original.reminder_count }} {% trans "条" %}</span>
                             {% endif %}
                         </div>
                         <div class="log-actions">
@@ -48,10 +48,10 @@
                         <div class="log-content-preview">{{ inline_admin_form.original.content|truncatechars:100 }}</div>
                         <div class="log-content-full" style="display: none;">{{ inline_admin_form.original.content|linebreaksbr }}</div>
 
-                        {% if inline_admin_form.original.reminders.exists %}
+                        {% if inline_admin_form.original.has_reminders %}
                         <div class="log-reminder-info">
-                            {% for r in inline_admin_form.original.reminders.all %}
-                            <div>{% trans "提醒" %}：{{ r.get_reminder_type_display }} {{ r.due_at|date:"Y-m-d H:i" }}（{{ r.content }}）</div>
+                            {% for r in inline_admin_form.original.reminder_entries %}
+                            <div>{% trans "提醒" %}：{{ r.reminder_type_label|default:r.reminder_type }} {{ r.due_at|date:"Y-m-d H:i" }}（{{ r.content }}）</div>
                             {% endfor %}
                         </div>
                         {% endif %}

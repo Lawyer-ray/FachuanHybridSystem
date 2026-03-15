@@ -76,7 +76,10 @@ class CaseLogOut(ModelSchema, SchemaMixin):
 
     @staticmethod
     def resolve_reminders(obj: CaseLog) -> Any:
-        return obj.reminders.all()
+        from apps.core.interfaces import ServiceLocator
+
+        reminder_service = ServiceLocator.get_reminder_service()
+        return reminder_service.export_case_log_reminders_internal(case_log_id=obj.id)
 
     @staticmethod
     def resolve_actor(obj: CaseLog) -> int:

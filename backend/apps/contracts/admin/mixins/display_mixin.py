@@ -40,6 +40,13 @@ def _get_contract_display_service() -> Any:
     return get_contract_display_service()
 
 
+def _get_contract_detail_reminders(contract: Any) -> list[dict[str, Any]]:
+    from apps.core.interfaces import ServiceLocator
+
+    reminder_service = ServiceLocator.get_reminder_service()
+    return reminder_service.export_contract_reminders_internal(contract_id=contract.id)
+
+
 class ContractDisplayMixin:
     """合同 Admin 显示相关方法的 Mixin"""
 
@@ -172,7 +179,7 @@ class ContractDisplayMixin:
                 "assignments": contract.assignments.all(),
                 "payments": ctx_data["payments"],
                 "total_payment_amount": ctx_data["total_payment_amount"],
-                "reminders": contract.reminders.all().order_by("due_at"),
+                "reminders": _get_contract_detail_reminders(contract),
                 "supplementary_agreements": ctx_data["supplementary_agreements"],
                 "folder_binding": getattr(contract, "folder_binding", None),
                 "show_representation_stages": ctx_data["show_representation_stages"],
