@@ -77,3 +77,27 @@
 .btn-send { padding: 10px 20px; background: #417690; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 0.92em; align-self: flex-end; }
 .btn-send:hover:not(:disabled) { background: #356580; }
 .btn-send:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* 导出按钮 */
+.mt-header-right { display: flex; align-items: center; gap: 10px; }
+.btn-export { padding: 6px 14px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85em; }
+.btn-export:hover:not(:disabled) { background: #218838; }
+.btn-export:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* 进度条 */
+.mt-progress-bar { padding: 12px 20px; background: #f8f9fa; border-bottom: 1px solid #e0e0e0; }
+.progress-info { display: flex; justify-content: space-between; font-size: 0.85em; color: #666; margin-bottom: 6px; }
+.progress-track { height: 6px; background: #e0e0e0; border-radius: 3px; overflow: hidden; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, #417690, #5a9ab8); border-radius: 3px; transition: width 0.3s ease; }
+
+/* 历史会话预览 */
+.history-preview { font-size: 0.75em; color: #999; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
+.history-item { flex-wrap: wrap; }
+.history-item .history-mode { flex: 0 0 auto; }
+.history-item .history-time { flex: 0 0 auto; }
+.history-item .history-delete { margin-left: auto; }
+
+/* 难度选择器 */
+.difficulty-selector { padding: 10px; background: #f8f9fa; border-radius: 6px; margin-top: 8px; }
+.difficulty-selector label { font-size: 0.85em; color: #666; margin-right: 8px; }
+.difficulty-selector select { padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.85em; }

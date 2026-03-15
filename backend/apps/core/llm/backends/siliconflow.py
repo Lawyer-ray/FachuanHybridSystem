@@ -143,7 +143,11 @@ class SiliconFlowBackend:
         )
 
     def _create_llm(
-        self, model: str | None = None, temperature: float = 0.7, max_tokens: int | None = None
+        self,
+        model: str | None = None,
+        temperature: float = 0.7,
+        max_tokens: int | None = None,
+        timeout_seconds: float | None = None,
     ) -> ChatOpenAI:
         """
         创建 ChatOpenAI 实例
@@ -162,7 +166,7 @@ class SiliconFlowBackend:
             model=model or self.default_model,
             temperature=temperature,
             max_tokens=max_tokens,
-            timeout=self.timeout,
+            timeout=timeout_seconds or self.timeout,
         )
 
     def chat(
@@ -193,7 +197,13 @@ class SiliconFlowBackend:
             LLMTimeoutError: 请求超时
         """
         used_model = model or self.default_model
-        llm = self._create_llm(model=used_model, temperature=temperature, max_tokens=max_tokens)
+        request_timeout = kwargs.pop("timeout_seconds", None)
+        llm = self._create_llm(
+            model=used_model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            timeout_seconds=request_timeout,
+        )
         langchain_messages = self._convert_messages(messages)
         start_time = time.time()
         try:
@@ -202,9 +212,11 @@ class SiliconFlowBackend:
             logger.warning("SiliconFlow 认证失败", extra={"error": str(e)})
             raise LLMAuthenticationError(message="SiliconFlow API Key 无效或缺失", errors={"detail": str(e)}) from e
         except (openai.APITimeoutError, httpx.TimeoutException) as e:
-            logger.warning("SiliconFlow 请求超时", extra={"timeout": self.timeout, "error": str(e)})
+            logger.warning("SiliconFlow 请求超时", extra={"timeout": request_timeout or self.timeout, "error": str(e)})
             raise LLMTimeoutError(
-                message="LLM 请求超时", timeout_seconds=self.timeout, errors={"detail": str(e)}
+                message="LLM 请求超时",
+                timeout_seconds=request_timeout or self.timeout,
+                errors={"detail": str(e)},
             ) from e
         except httpx.ConnectError as e:
             logger.warning("SiliconFlow 网络连接失败", extra={"base_url": self.base_url, "error": str(e)})
@@ -264,7 +276,8 @@ class SiliconFlowBackend:
             if self._config and self._config.default_model
             else await LLMConfig.get_default_model_async()
         )
-        timeout = self._config.timeout if self._config and self._config.timeout else await LLMConfig.get_timeout_async()
+        default_timeout = self._config.timeout if self._config and self._config.timeout else await LLMConfig.get_timeout_async()
+        request_timeout = kwargs.pop("timeout_seconds", None) or default_timeout
         used_model = model or default_model
         llm = ChatOpenAI(  # type: ignore[call-arg]
             api_key=SecretStr(api_key),
@@ -272,7 +285,7 @@ class SiliconFlowBackend:
             model=used_model,
             temperature=temperature,
             max_tokens=max_tokens,
-            timeout=timeout,
+            timeout=request_timeout,
         )
         langchain_messages = self._convert_messages(messages)
         start_time = time.time()
@@ -282,8 +295,12 @@ class SiliconFlowBackend:
             logger.warning("SiliconFlow 认证失败", extra={"error": str(e)})
             raise LLMAuthenticationError(message="SiliconFlow API Key 无效或缺失", errors={"detail": str(e)}) from e
         except httpx.TimeoutException as e:
-            logger.warning("SiliconFlow 请求超时", extra={"timeout": timeout, "error": str(e)})
-            raise LLMTimeoutError(message="LLM 请求超时", timeout_seconds=timeout, errors={"detail": str(e)}) from e
+            logger.warning("SiliconFlow 请求超时", extra={"timeout": request_timeout, "error": str(e)})
+            raise LLMTimeoutError(
+                message="LLM 请求超时",
+                timeout_seconds=int(request_timeout),
+                errors={"detail": str(e)},
+            ) from e
         except httpx.ConnectError as e:
             logger.warning("SiliconFlow 网络连接失败", extra={"base_url": base_url, "error": str(e)})
             raise LLMNetworkError(message="LLM 网络连接失败", errors={"detail": str(e)}) from e

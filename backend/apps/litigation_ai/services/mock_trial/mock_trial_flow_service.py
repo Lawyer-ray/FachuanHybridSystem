@@ -295,6 +295,15 @@ class MockTrialFlowService:
             "system",
         )
 
+        # 发送进度更新
+        await send_cb({
+            "type": "progress",
+            "current": current_index + 1,
+            "total": total,
+            "percentage": int((current_index + 1) * 100 / total),
+            "message": f"正在分析证据 {current_index + 1}/{total}: {ev.get('name', '未命名')}",
+        })
+
         from .cross_exam_service import CrossExamService
 
         case_info = await self._get_case_brief(ctx.case_id)
@@ -498,12 +507,17 @@ class MockTrialFlowService:
         history.append({"role": "user", "content": text})
         case_info = await self._get_case_brief(ctx.case_id)
 
+        # 获取设置的难度
+        metadata = await self.session_repo.get_metadata(ctx.session_id)
+        difficulty = metadata.get("debate_difficulty", "medium")
+
         try:
             result = await DebateService().debate_turn(
                 case_info=case_info,
                 focus=selected,
                 user_argument=text,
                 history=history,
+                difficulty=difficulty,
             )
             rebuttal = result.rebuttal
             history.append({"role": "opponent", "content": rebuttal})
