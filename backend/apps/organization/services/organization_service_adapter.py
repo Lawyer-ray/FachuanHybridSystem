@@ -100,5 +100,9 @@ class OrganizationServiceAdapter(IOrganizationService):
         return _assembler.to_dto(lawyer)
 
     def get_default_lawyer_id_internal(self) -> int | None:
-        admin = self.lawyer_service.get_lawyer_queryset().filter(is_admin=True).first()
-        return admin.id if admin is not None else None
+        queryset = self.lawyer_service.get_lawyer_queryset()
+        admin = queryset.filter(is_admin=True).order_by("id").first()
+        if admin is not None:
+            return int(admin.id)
+        fallback = queryset.order_by("id").first()
+        return int(fallback.id) if fallback is not None else None
