@@ -2,6 +2,33 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.16.7] - 2026-03-15
+
+### 重构
+- **Reminders 模块边界收敛（写侧 + 读侧）**
+  - 写侧完成端口化：`reminders` 通过 `ports + adapters` 校验 `contract/case_log` 目标，不再在服务层直接导入外部模块 Model
+  - 组合根统一：`build_reminder_service()` 与 reminders wiring 对齐，`ServiceLocator` 获取到的是完整装配服务
+  - 协议补齐：`IReminderService` 增加合同/案件日志导出与案件日志最新提醒查询能力
+- **消费侧迁移到 ReminderService**
+  - `cases/contracts` 的 admin/schema/模板主路径改为调用 reminder service 读取提醒数据
+  - `CaseLog` 提供 `reminder_entries/has_reminders/reminder_count` 投影属性，读取逻辑统一走 service
+  - 合同克隆流程改为强依赖 `export_contract_reminders_internal`，移除 reverse ORM 读提醒主逻辑
+- **automation 提醒桥接修复**
+  - 法院文书绑定流程不再写 `CaseLog` 临时属性，改为委托 `case_service.update_case_log_reminder_internal(...)`
+  - 保持业务语义不变：传票/执行裁定/其他文书仍映射到对应提醒类型
+
+### 新增
+- **共享 Reminder Schema**
+  - `apps.core.api.schemas_shared` 新增 `ReminderLiteOut`（并保留 `ReminderOut` 兼容别名），供 `cases/contracts` 复用
+
+### 测试
+- 新增 reminders/cases/contracts/core/automation 多组回归测试，覆盖：
+  - 端口注入与组合根行为
+  - admin/schema 读路径迁移
+  - contract clone 提醒导出链路
+  - automation 手动绑定提醒桥接
+  - shared schema 输出兼容
+
 ## [26.16.6] - 2026-03-15
 
 ### 新增
