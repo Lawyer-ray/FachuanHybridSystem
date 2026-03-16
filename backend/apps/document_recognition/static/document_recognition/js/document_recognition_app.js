@@ -210,7 +210,7 @@ function documentRecognitionApp() {
                 });
 
                 // 配置请求
-                xhr.open('POST', '/api/v1/automation/court-document/recognize');
+                xhr.open('POST', '/api/v1/document-recognition/court-document/recognize');
                 xhr.setRequestHeader('X-CSRFToken', this.getCsrfToken());
                 xhr.timeout = 60000; // 60秒超时
                 xhr.send(formData);
@@ -230,7 +230,7 @@ function documentRecognitionApp() {
                 attempts++;
 
                 try {
-                    const response = await fetch(`/api/v1/automation/court-document/task/${taskId}`);
+                    const response = await fetch(`/api/v1/document-recognition/court-document/task/${taskId}`);
                     const data = await response.json();
 
                     if (!response.ok) {
@@ -490,7 +490,7 @@ function documentRecognitionApp() {
          * @returns {string}
          */
         getTaskDetailLink() {
-            return this.taskId ? `/admin/automation/documentrecognitiontask/${this.taskId}/change/` : '#';
+            return this.taskId ? `/admin/document_recognition/documentrecognitiontask/${this.taskId}/change/` : '#';
         },
 
         /**
@@ -547,7 +547,7 @@ function documentRecognitionApp() {
             }
 
             try {
-                const response = await fetch(`/api/v1/automation/court-document/task/${this.taskId}/update-info`, {
+                const response = await fetch(`/api/v1/document-recognition/court-document/task/${this.taskId}/update-info`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -606,7 +606,7 @@ function documentRecognitionApp() {
 
             try {
                 // 使用文书识别专用的案件搜索 API
-                const response = await fetch(`/api/v1/automation/court-document/search-cases?q=${encodeURIComponent(query)}&limit=10`);
+                const response = await fetch(`/api/v1/document-recognition/court-document/search-cases?q=${encodeURIComponent(query)}&limit=10`);
 
                 if (!response.ok) {
                     throw new Error('搜索失败');
@@ -642,7 +642,7 @@ function documentRecognitionApp() {
 
             try {
                 // 使用文书识别专用的案件搜索 API（空查询返回最近案件）
-                const response = await fetch('/api/v1/automation/court-document/search-cases?q=&limit=20');
+                const response = await fetch('/api/v1/document-recognition/court-document/search-cases?q=&limit=20');
 
                 if (!response.ok) {
                     throw new Error('加载失败');
@@ -699,7 +699,7 @@ function documentRecognitionApp() {
             this.isBindingCase = true;
 
             try {
-                const response = await fetch(`/api/v1/automation/court-document/task/${this.taskId}/bind`, {
+                const response = await fetch(`/api/v1/document-recognition/court-document/task/${this.taskId}/bind`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

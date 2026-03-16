@@ -13,7 +13,7 @@ from .extractor import FeeAmountExtractor
 from .models import FeeNoticeExtractionResult, FeeNoticeInfo
 
 if TYPE_CHECKING:
-    from apps.automation.services.court_document_recognition.text_extraction_service import TextExtractionService
+    from apps.document_recognition.services.text_extraction_service import TextExtractionService
 logger = logging.getLogger("apps.fee_notice")
 
 
@@ -51,7 +51,7 @@ class FeeNoticeExtractionService:
     def text_service(self) -> TextExtractionService:
         """延迟加载文本提取服务"""
         if self._text_service is None:
-            from apps.automation.services.court_document_recognition.text_extraction_service import (
+            from apps.document_recognition.services.text_extraction_service import (
                 TextExtractionService,
             )
 

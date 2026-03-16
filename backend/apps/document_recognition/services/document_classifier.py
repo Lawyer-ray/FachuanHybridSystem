@@ -14,10 +14,11 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.automation.services.ai import get_ollama_base_url, get_ollama_model
 from apps.automation.services.ai.ollama_client import chat
-from apps.automation.services.court_document_recognition.data_classes import DocumentType
 from apps.core.exceptions import RecognitionTimeoutError, ServiceUnavailableError
 
-logger = logging.getLogger("apps.automation")
+from .data_classes import DocumentType
+
+logger = logging.getLogger("apps.document_recognition")
 
 
 class DocumentClassifier:

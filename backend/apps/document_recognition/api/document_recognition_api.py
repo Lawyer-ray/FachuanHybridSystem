@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 
 from apps.core.exceptions import ValidationException
 
-logger = logging.getLogger("apps.automation")
+logger = logging.getLogger("apps.document_recognition")
 
 router = Router(tags=["法院文书识别"])
 
@@ -45,7 +45,7 @@ def _save_uploaded_file(file: UploadedFile) -> str:
     from apps.core.services.file_upload_service import FileUploadService
 
     upload_service = FileUploadService()
-    saved_path = upload_service.save_file(file, base_dir="automation/document_recognition")
+    saved_path = upload_service.save_file(file, base_dir="document_recognition")
     logger.info("文件已保存: %s", saved_path)
     return str(saved_path)
 
@@ -160,23 +160,26 @@ def recognize_document(request: Any, file: UploadedFile = File(...)) -> TaskSubm
     """
     from django_q.tasks import async_task
 
-    logger.info(f"收到文书识别请求: {file.name}, 大小: {file.size}")
+    filename = str(file.name)
+    logger.info("收到文书识别请求: %s, 大小: %s", filename, file.size)
 
     # 1. 验证文件格式
-    _validate_file_format(file.name)  # type: ignore[arg-type]
+    _validate_file_format(filename)
 
     # 2. 保存文件
     file_path = _save_uploaded_file(file)
 
     # 3. 创建任务记录
-    task = _get_task_service().create_task(file_path=file_path, original_filename=file.name)  # type: ignore[arg-type]
+    task = _get_task_service().create_task(file_path=file_path, original_filename=filename)
 
     # 4. 提交异步任务
     async_task(
-        "apps.automation.tasks.execute_document_recognition_task", task.id, task_name=f"document_recognition_{task.id}"
+        "apps.document_recognition.tasks.execute_document_recognition_task",
+        task.id,
+        task_name=f"document_recognition_{task.id}",
     )
 
-    logger.info(f"文书识别任务已提交: task_id={task.id}")
+    logger.info("文书识别任务已提交: task_id=%s", task.id)
 
     return TaskSubmitResponseSchema(task_id=task.id, status="pending", message="任务已提交，正在后台处理")
 
@@ -230,21 +233,14 @@ def get_task_status(request: Any, task_id: int) -> TaskStatusResponseSchema:
 
 def _get_case_binding_service() -> Any:
     """工厂函数：获取案件绑定服务"""
-    from apps.automation.services.court_document_recognition import CaseBindingService
+    from apps.document_recognition.services import CaseBindingService
 
     return CaseBindingService()
 
 
-def _get_recognition_service() -> Any:
-    """工厂函数：获取识别服务"""
-    from apps.automation.services.court_document_recognition import CourtDocumentRecognitionService
-
-    return CourtDocumentRecognitionService()
-
-
 def _get_task_service() -> Any:
     """工厂函数：获取任务管理服务"""
-    from apps.automation.services.court_document_recognition.task_service import DocumentRecognitionTaskService
+    from apps.document_recognition.services.task_service import DocumentRecognitionTaskService
 
     return DocumentRecognitionTaskService()
 

@@ -26,7 +26,7 @@ from .models import PreservationExtractionResult, PreservationMeasure, ReminderD
 from .prompts import DEFAULT_PENDING_NOTE, PENDING_KEYWORDS, PRESERVATION_DATE_EXTRACTION_PROMPT
 
 if TYPE_CHECKING:
-    from apps.automation.services.court_document_recognition import TextExtractionService
+    from apps.document_recognition.services import TextExtractionService
 
 logger = logging.getLogger("apps.automation.preservation_date")
 
@@ -60,7 +60,7 @@ class PreservationDateExtractionService:
     def text_service(self) -> TextExtractionService:
         """延迟加载文本提取服务,不限制提取字数"""
         if self._text_service is None:
-            from apps.automation.services.court_document_recognition import TextExtractionService
+            from apps.document_recognition.services import TextExtractionService
 
             # 传入一个很大的值来绕过默认限制
             self._text_service = TextExtractionService(text_limit=100000)

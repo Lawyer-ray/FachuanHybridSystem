@@ -4,7 +4,7 @@ import logging
 from datetime import datetime
 from typing import Any, cast
 
-logger = logging.getLogger("apps.automation")
+logger = logging.getLogger("apps.document_recognition")
 
 # 开庭时间正则表达式模式
 DATETIME_PATTERNS = [

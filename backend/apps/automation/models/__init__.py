@@ -26,9 +26,6 @@ from .invoice_recognition import (
 # Preservation Quote
 from .preservation import InsuranceQuote, PreservationQuote, QuoteItemStatus, QuoteStatus
 
-# Document Recognition
-from .recognition import DocumentRecognitionStatus, DocumentRecognitionTask
-
 # Scraper Tasks
 from .scraper import ScraperTask, ScraperTaskStatus, ScraperTaskType
 
@@ -59,9 +56,6 @@ __all__ = [
     "QuoteItemStatus",
     "PreservationQuote",
     "InsuranceQuote",
-    # Recognition
-    "DocumentRecognitionStatus",
-    "DocumentRecognitionTask",
     # Court Document
     "DocumentDownloadStatus",
     "CourtDocument",

@@ -16,7 +16,7 @@ from apps.core.exceptions import RecognitionTimeoutError, ServiceUnavailableErro
 
 from .data_classes import BindingResult, DocumentType, RecognitionResponse, RecognitionResult
 
-logger = logging.getLogger("apps.automation")
+logger = logging.getLogger("apps.document_recognition")
 
 
 class CourtDocumentRecognitionService:
@@ -122,7 +122,7 @@ class CourtDocumentRecognitionService:
         user: Any,
     ) -> tuple[Any, str]:
         """绑定案件，返回 (binding_result, renamed_file_path)"""
-        from apps.automation.services.court_document_recognition.models import DocumentType
+        from .data_classes import DocumentType
 
         renamed_file_path = file_path
 

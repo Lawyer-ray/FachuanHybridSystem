@@ -13,7 +13,7 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError, ValidationException
 
-logger = logging.getLogger("apps.automation")
+logger = logging.getLogger("apps.document_recognition")
 
 
 class DocumentRecognitionTaskService:
@@ -29,7 +29,7 @@ class DocumentRecognitionTaskService:
         Returns:
             DocumentRecognitionTask 实例
         """
-        from apps.automation.models import DocumentRecognitionStatus, DocumentRecognitionTask
+        from apps.document_recognition.models import DocumentRecognitionStatus, DocumentRecognitionTask
 
         task = DocumentRecognitionTask.objects.create(
             file_path=file_path,
@@ -52,7 +52,7 @@ class DocumentRecognitionTaskService:
         Raises:
             NotFoundError: 任务不存在
         """
-        from apps.automation.models import DocumentRecognitionTask
+        from apps.document_recognition.models import DocumentRecognitionTask
 
         qs = DocumentRecognitionTask.objects.all()
         if select_case:

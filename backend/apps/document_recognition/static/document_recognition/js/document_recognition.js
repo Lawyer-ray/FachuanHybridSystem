@@ -110,7 +110,7 @@ class DocumentRecognition {
         formData.append('file', file);
 
         try {
-            const response = await fetch('/admin/automation/documentrecognitionproxy/recognition/upload/', {
+            const response = await fetch('/api/v1/document-recognition/court-document/recognize', {
                 method: 'POST',
                 body: formData,
                 headers: {

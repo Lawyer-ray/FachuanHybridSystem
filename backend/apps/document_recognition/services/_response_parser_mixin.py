@@ -6,7 +6,7 @@ import re
 from datetime import datetime
 from typing import Any, cast
 
-logger = logging.getLogger("apps.automation")
+logger = logging.getLogger("apps.document_recognition")
 
 
 class ResponseParserMixin:

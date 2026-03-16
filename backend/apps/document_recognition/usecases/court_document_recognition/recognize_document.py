@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-from apps.automation.services.court_document_recognition.data_classes import (
+from apps.document_recognition.services.data_classes import (
     BindingResult,
     DocumentType,
     RecognitionResponse,
@@ -15,7 +15,7 @@ from apps.automation.services.court_document_recognition.data_classes import (
 )
 from apps.core.exceptions import RecognitionTimeoutError, ServiceUnavailableError, ValidationException
 
-logger = logging.getLogger("apps.automation")
+logger = logging.getLogger("apps.document_recognition")
 
 
 @dataclass(frozen=True)

@@ -7,8 +7,8 @@ from typing import Any
 
 import pytest
 
-from apps.automation.services.court_document_recognition.case_binding_service import CaseBindingService
-from apps.automation.services.court_document_recognition.data_classes import DocumentType
+from apps.document_recognition.services.case_binding_service import CaseBindingService
+from apps.document_recognition.services.data_classes import DocumentType
 
 
 class _CaseServiceSpy:
