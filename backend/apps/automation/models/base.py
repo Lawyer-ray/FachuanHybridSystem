@@ -52,18 +52,6 @@ class TestToolsHub(models.Model):
         verbose_name_plural = _("测试工具")
 
 
-class PreservationDateTest(models.Model):
-    """财产保全日期识别测试虚拟模型"""
-
-    id: int
-    name = models.CharField(max_length=64, default="Preservation Date Test")
-
-    class Meta:
-        managed = False
-        verbose_name = _("财产保全日期识别")
-        verbose_name_plural = _("财产保全日期识别")
-
-
 class ImageRotation(models.Model):
     """图片自动旋转工具虚拟模型"""
 
