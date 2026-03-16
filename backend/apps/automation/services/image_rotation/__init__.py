@@ -1,19 +1,17 @@
-"""
-图片自动旋转模块
+"""Compatibility shim for moved image rotation services."""
 
-提供图片 EXIF 方向识别、旋转处理、PDF 页面提取和导出功能.
-"""
+from importlib import import_module
+from typing import Any
 
-from .auto_rename_service import AutoRenameService, ExtractionResult, RenameSuggestion
-from .facade import ImageRotationService
-from .orientation.service import OrientationDetectionService
-from .pdf_extraction_service import PDFExtractionService
+_IMPL = import_module("apps.image_rotation.services")
 
-__all__ = [
-    "AutoRenameService",
-    "ExtractionResult",
-    "ImageRotationService",
-    "OrientationDetectionService",
-    "PDFExtractionService",
-    "RenameSuggestion",
-]
+
+def __getattr__(name: str) -> Any:
+    return getattr(_IMPL, name)
+
+
+def __dir__() -> list[str]:
+    return sorted(set(globals()) | set(dir(_IMPL)))
+
+
+__all__ = getattr(_IMPL, "__all__", [n for n in dir(_IMPL) if not n.startswith("_")])

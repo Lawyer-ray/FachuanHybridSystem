@@ -1,33 +1,17 @@
-"""Business logic services."""
+"""Compatibility shim for moved image rotation services."""
 
-import uuid
-from datetime import datetime
+from importlib import import_module
 from typing import Any
 
-from apps.core.path import Path
+_IMPL = import_module("apps.image_rotation.services.storage")
 
 
-def ensure_output_dir() -> Any:
-    from django.conf import settings
-
-    media_root = getattr(settings, "MEDIA_ROOT", None)
-    if not media_root:
-        raise RuntimeError("MEDIA_ROOT 未配置")
-    output_dir = Path(str(media_root)) / "image_rotation"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    return output_dir
+def __getattr__(name: str) -> Any:
+    return getattr(_IMPL, name)
 
 
-def build_zip_filename(*, prefix: str = "rotated_images") -> str:
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    unique_id = uuid.uuid4().hex[:8]
-    return f"{prefix}_{timestamp}_{unique_id}.zip"
+def __dir__() -> list[str]:
+    return sorted(set(globals()) | set(dir(_IMPL)))
 
 
-def build_pdf_filename(*, prefix: str = "rotated_pages") -> str:
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    return f"{prefix}_{timestamp}.pdf"
-
-
-def to_media_url(filename: str) -> str:
-    return f"/media/image_rotation/{filename}"
+__all__ = getattr(_IMPL, "__all__", [n for n in dir(_IMPL) if not n.startswith("_")])

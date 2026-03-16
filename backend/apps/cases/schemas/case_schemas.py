@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from typing import ClassVar
 
 from .assignment_schemas import CaseAssignmentCreate, CaseAssignmentOut
-from .base import Case, ModelSchema, Schema
+from .base import Case, CaseAssignment, CaseLog, CaseParty, ModelSchema, Schema
 from .log_schemas import CaseLogCreate, CaseLogOut
 from .number_schemas import CaseNumberIn, CaseNumberOut
 from .party_schemas import CasePartyCreate, CasePartyOut
@@ -53,15 +53,15 @@ class CaseOut(ModelSchema):
         ]
 
     @staticmethod
-    def resolve_parties(obj: Case) -> Any:
+    def resolve_parties(obj: Case) -> list[CaseParty]:
         return list(obj.parties.all())
 
     @staticmethod
-    def resolve_assignments(obj: Case) -> Any:
+    def resolve_assignments(obj: Case) -> list[CaseAssignment]:
         return list(obj.assignments.all())
 
     @staticmethod
-    def resolve_logs(obj: Case) -> Any:
+    def resolve_logs(obj: Case) -> list[CaseLog]:
         return list(obj.logs.all())
 
     @staticmethod

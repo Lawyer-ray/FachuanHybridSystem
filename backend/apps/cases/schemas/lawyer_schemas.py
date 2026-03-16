@@ -2,9 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Protocol
 
 from .base import Schema
+
+
+class LawyerLike(Protocol):
+    id: int
+    username: str
+    real_name: str | None
+    phone: str | None
 
 
 class LawyerOutFromDTO(Schema):
@@ -14,7 +21,7 @@ class LawyerOutFromDTO(Schema):
     phone: str | None = None
 
     @classmethod
-    def from_model(cls, lawyer: Any) -> LawyerOutFromDTO:
+    def from_model(cls, lawyer: LawyerLike) -> LawyerOutFromDTO:
         return cls(
             id=lawyer.id,
             username=lawyer.username,

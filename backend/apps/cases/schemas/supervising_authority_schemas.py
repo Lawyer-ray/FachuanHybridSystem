@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from datetime import datetime
+from typing import ClassVar
 
 from .base import ModelSchema, Schema, SchemaMixin, SupervisingAuthority
 
@@ -24,7 +25,7 @@ class SupervisingAuthorityOut(ModelSchema, SchemaMixin):
         return obj.get_authority_type_display() if obj.authority_type else None
 
     @staticmethod
-    def resolve_created_at(obj: SupervisingAuthority) -> Any:
+    def resolve_created_at(obj: SupervisingAuthority) -> datetime | None:
         return SchemaMixin._resolve_datetime(getattr(obj, "created_at", None))
 
 

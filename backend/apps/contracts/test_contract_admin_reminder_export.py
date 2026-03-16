@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import inspect
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
 
-from apps.contracts.admin.contract_admin import serialize_contract_obj
+from apps.contracts.admin.contract_admin import ContractAdmin, serialize_contract_obj
 from apps.core.interfaces import ServiceLocator
 from apps.reminders.models import ReminderType
 from tests.factories import ContractFactory
@@ -42,3 +43,9 @@ def test_serialize_contract_obj_uses_reminder_service_export(monkeypatch: pytest
     assert fake.calls == [contract.id]
     assert data["reminders"][0]["content"] == "from-service"
     assert data["reminders"][0]["due_at"] == due_at.isoformat()
+
+
+def test_contract_admin_serialize_queryset_does_not_prefetch_reminder_reverse_relations() -> None:
+    source = inspect.getsource(ContractAdmin.serialize_queryset)
+    assert "reminders" not in source
+    assert "cases__logs__reminders" not in source

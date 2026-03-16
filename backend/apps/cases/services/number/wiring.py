@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any
-
-from apps.core.interfaces import ServiceLocator
+from apps.core.interfaces import ICaseService, ServiceLocator
 
 
-def get_case_service() -> Any:
+def get_case_service() -> ICaseService:
     return ServiceLocator.get_case_service()

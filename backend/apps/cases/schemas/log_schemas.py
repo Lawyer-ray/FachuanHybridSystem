@@ -2,9 +2,20 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from datetime import datetime
+from typing import ClassVar, Protocol
 
 from .base import CaseLog, CaseLogAttachment, ModelSchema, ReminderOut, Schema, SchemaMixin
+
+
+class LawyerLike(Protocol):
+    id: int
+    username: str
+    real_name: str | None
+    phone: str | None
+
+
+ReminderPayload = dict[str, object]
 
 
 class CaseLogIn(Schema):
@@ -34,7 +45,7 @@ class CaseLogAttachmentOut(ModelSchema, SchemaMixin):
         return SchemaMixin._get_file_url(obj.file)
 
     @staticmethod
-    def resolve_uploaded_at(obj: CaseLogAttachment) -> Any:
+    def resolve_uploaded_at(obj: CaseLogAttachment) -> datetime | None:
         return SchemaMixin._resolve_datetime(getattr(obj, "uploaded_at", None))
 
 
@@ -45,7 +56,7 @@ class CaseLogActorOut(Schema):
     phone: str | None = None
 
     @classmethod
-    def from_model(cls, lawyer: Any) -> CaseLogActorOut:
+    def from_model(cls, lawyer: LawyerLike) -> CaseLogActorOut:
         return cls(
             id=lawyer.id,
             username=lawyer.username,
@@ -75,7 +86,7 @@ class CaseLogOut(ModelSchema, SchemaMixin):
         return list(obj.attachments.all())
 
     @staticmethod
-    def resolve_reminders(obj: CaseLog) -> Any:
+    def resolve_reminders(obj: CaseLog) -> list[ReminderPayload]:
         from apps.core.interfaces import ServiceLocator
 
         reminder_service = ServiceLocator.get_reminder_service()
@@ -93,11 +104,11 @@ class CaseLogOut(ModelSchema, SchemaMixin):
         return CaseLogActorOut(id=obj.actor_id, username=f"lawyer_{obj.actor_id}", real_name=None, phone=None)
 
     @staticmethod
-    def resolve_created_at(obj: CaseLog) -> Any:
+    def resolve_created_at(obj: CaseLog) -> datetime | None:
         return SchemaMixin._resolve_datetime(getattr(obj, "created_at", None))
 
     @staticmethod
-    def resolve_updated_at(obj: CaseLog) -> Any:
+    def resolve_updated_at(obj: CaseLog) -> datetime | None:
         return SchemaMixin._resolve_datetime(getattr(obj, "updated_at", None))
 
 

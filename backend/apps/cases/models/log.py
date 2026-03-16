@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
@@ -22,6 +23,7 @@ if TYPE_CHECKING:
 
 # 案件日志附件存储
 case_log_storage = KeepOriginalNameStorage()
+logger = logging.getLogger(__name__)
 
 
 def validate_log_attachment(file: UploadedFile) -> None:
@@ -79,6 +81,7 @@ class CaseLog(models.Model):
             reminder_service = ServiceLocator.get_reminder_service()
             reminders = reminder_service.export_case_log_reminders_internal(case_log_id=int(self.id))
         except Exception:
+            logger.exception("case_log_export_reminders_failed", extra={"case_log_id": int(self.id)})
             reminders = []
         self._cached_exported_reminders = reminders
         return reminders
@@ -112,6 +115,7 @@ class CaseLog(models.Model):
             reminder_service = ServiceLocator.get_reminder_service()
             reminder = reminder_service.get_latest_case_log_reminder_internal(case_log_id=int(self.id))
         except Exception:
+            logger.exception("case_log_latest_reminder_failed", extra={"case_log_id": int(self.id)})
             reminders = self._exported_reminders()
             reminder = reminders[-1] if reminders else None
 

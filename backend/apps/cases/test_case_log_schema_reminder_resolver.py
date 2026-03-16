@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from typing import Any
 
 import pytest
 
@@ -13,11 +12,11 @@ from tests.factories import CaseLogFactory
 
 
 class _ReminderServiceExportFake:
-    def __init__(self, exported: list[dict[str, Any]]) -> None:
+    def __init__(self, exported: list[dict[str, object]]) -> None:
         self.exported = exported
         self.calls: list[int] = []
 
-    def export_case_log_reminders_internal(self, *, case_log_id: int) -> list[dict[str, Any]]:
+    def export_case_log_reminders_internal(self, *, case_log_id: int) -> list[dict[str, object]]:
         self.calls.append(case_log_id)
         return self.exported
 
