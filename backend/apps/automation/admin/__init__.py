@@ -15,14 +15,10 @@ from .document_recognition import DocumentRecognitionAdmin, DocumentRecognitionT
 # 交费通知书识别 Admin
 from .fee_notice import FeeNoticeTestAdmin
 
-# 图片自动旋转 Admin
-from .image_rotation import ImageRotationAdmin
 
 # 财产保全询价 Admin
 from .insurance import PreservationQuoteAdmin
 
-# 发票识别 Admin
-from .invoice_recognition import InvoiceRecognitionTaskAdmin
 
 # 财产保全日期识别 Admin
 from .preservation_date import PreservationDateTestAdmin
@@ -64,6 +60,4 @@ __all__ = [
     "TestToolsHubAdmin",
     "FeeNoticeTestAdmin",
     "PreservationDateTestAdmin",
-    "ImageRotationAdmin",
-    "InvoiceRecognitionTaskAdmin",
 ]

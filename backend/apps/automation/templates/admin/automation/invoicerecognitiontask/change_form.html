@@ -317,7 +317,7 @@ function invoiceApp() {
             for (const f of files) formData.append('files', f);
             try {
                 this.uploadProgress = 40;
-                const resp = await fetch(`/api/v1/automation/invoice-recognition/${this.taskId}/upload`, {
+                const resp = await fetch(`/api/v1/invoice-recognition/${this.taskId}/upload`, {
                     method: 'POST',
                     body: formData,
                     headers: { 'X-CSRFToken': this.getCsrfToken() }
@@ -351,7 +351,7 @@ function invoiceApp() {
 
         async loadStatus() {
             try {
-                const resp = await fetch(`/api/v1/automation/invoice-recognition/${this.taskId}/status`);
+                const resp = await fetch(`/api/v1/invoice-recognition/${this.taskId}/status`);
                 const data = await resp.json();
                 if (resp.ok) {
                     this.taskStatus = data.task.status;
@@ -490,15 +490,15 @@ function invoiceApp() {
         },
 
         downloadSingle(invoiceId) {
-            window.location.href = `/api/v1/automation/invoice-recognition/${this.taskId}/download?scope=single&invoice_id=${invoiceId}`;
+            window.location.href = `/api/v1/invoice-recognition/${this.taskId}/download?scope=single&invoice_id=${invoiceId}`;
         },
 
         downloadCategory(category, fmt) {
-            window.location.href = `/api/v1/automation/invoice-recognition/${this.taskId}/download?scope=category&category=${encodeURIComponent(category)}&fmt=${fmt}`;
+            window.location.href = `/api/v1/invoice-recognition/${this.taskId}/download?scope=category&category=${encodeURIComponent(category)}&fmt=${fmt}`;
         },
 
         downloadAll(fmt) {
-            window.location.href = `/api/v1/automation/invoice-recognition/${this.taskId}/download?scope=all&fmt=${fmt}`;
+            window.location.href = `/api/v1/invoice-recognition/${this.taskId}/download?scope=all&fmt=${fmt}`;
         },
 
         numberToChinese(amount) {

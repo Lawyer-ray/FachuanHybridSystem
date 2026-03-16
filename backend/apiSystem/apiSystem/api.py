@@ -82,6 +82,8 @@ def _register_app_routers() -> None:
         preservation_materials_router,
     )
     from apps.evidence.api import evidence_router
+    from apps.image_rotation.api import router as image_rotation_router
+    from apps.invoice_recognition.api import router as invoice_recognition_router
     from apps.litigation_ai.api.litigation_api import router as ai_litigation_router
     from apps.litigation_ai.api.mock_trial_api import router as mock_trial_router
     from apps.legal_research.api import router as legal_research_router
@@ -96,6 +98,8 @@ def _register_app_routers() -> None:
     api_v1.add_router("/cases", cases_router, auth=JWTOrSessionAuth())
     api_v1.add_router("/contracts", contracts_router, auth=JWTOrSessionAuth())
     api_v1.add_router("/automation", automation_router, auth=JWTOrSessionAuth())
+    api_v1.add_router("/image-rotation", image_rotation_router, auth=JWTOrSessionAuth())
+    api_v1.add_router("/invoice-recognition", invoice_recognition_router, auth=JWTOrSessionAuth())
     api_v1.add_router("/reminders", reminders_router)
     api_v1.add_router("/chat-records", chat_records_router, tags=["梳理聊天记录"])
 

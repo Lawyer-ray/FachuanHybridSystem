@@ -396,7 +396,7 @@ function imageRotationApp() {
             const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
 
             // 使用快速提取 API（不检测方向）
-            const response = await fetch('/api/v1/automation/image-rotation/extract-pdf-fast', {
+            const response = await fetch('/api/v1/image-rotation/extract-pdf-fast', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -463,7 +463,7 @@ function imageRotationApp() {
                 this.images[idx].status = 'detecting';
 
                 try {
-                    const response = await fetch('/api/v1/automation/image-rotation/detect-page-orientation', {
+                    const response = await fetch('/api/v1/image-rotation/detect-page-orientation', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -502,7 +502,7 @@ function imageRotationApp() {
                     const base64 = await this.fileToBase64(img.file);
                     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
 
-                    const response = await fetch('/api/v1/automation/image-rotation/detect-orientation', {
+                    const response = await fetch('/api/v1/image-rotation/detect-orientation', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -555,7 +555,7 @@ function imageRotationApp() {
             const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
 
             try {
-                const response = await fetch('/api/v1/automation/image-rotation/suggest-rename', {
+                const response = await fetch('/api/v1/image-rotation/suggest-rename', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -962,7 +962,7 @@ function imageRotationApp() {
                 }
 
                 const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
-                const response = await fetch('/api/v1/automation/image-rotation/export-pdf', {
+                const response = await fetch('/api/v1/image-rotation/export-pdf', {
                     method: 'POST',
                     headers: {
                         'X-CSRFToken': csrfToken
@@ -1073,7 +1073,7 @@ function imageRotationApp() {
                 }
 
                 const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
-                const response = await fetch('/api/v1/automation/image-rotation/export', {
+                const response = await fetch('/api/v1/image-rotation/export', {
                     method: 'POST',
                     headers: {
                         'X-CSRFToken': csrfToken
