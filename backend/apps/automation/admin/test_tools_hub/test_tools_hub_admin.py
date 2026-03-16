@@ -64,7 +64,7 @@ class TestToolsHubAdmin(admin.ModelAdmin):
             {
                 "name": "交费通知书识别",
                 "description": "测试交费通知书 PDF 的 OCR 识别和信息提取功能",
-                "url": "automation_feenoticetest_changelist",
+                "url": "fee_notice_feenoticetool_changelist",
                 "icon": icon_document,
                 "color": "primary",
             },

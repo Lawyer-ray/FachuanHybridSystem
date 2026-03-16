@@ -14,7 +14,7 @@ from typing import Any, ClassVar
 
 from .models import DetectionResult
 
-logger = logging.getLogger("apps.automation")
+logger = logging.getLogger("apps.fee_notice")
 
 
 class FeeNoticeDetector:

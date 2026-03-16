@@ -14,7 +14,7 @@ from typing import Any
 
 from .models import FeeAmountResult
 
-logger = logging.getLogger("apps.automation")
+logger = logging.getLogger("apps.fee_notice")
 
 
 # 费用名称映射

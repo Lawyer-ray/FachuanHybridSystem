@@ -1011,7 +1011,7 @@ function feeNoticeApp() {
                 });
                 formData.append('debug', this.debugMode);
 
-                const response = await fetch('/api/v1/automation/fee-notice/extract?debug=' + this.debugMode, {
+                const response = await fetch('/api/v1/fee-notice/extract?debug=' + this.debugMode, {
                     method: 'POST',
                     headers: {
                         'X-CSRFToken': this.getCsrfToken(),
@@ -1095,7 +1095,7 @@ function feeNoticeApp() {
 
             try {
                 const response = await fetch(
-                    `/api/v1/automation/fee-notice/cases/search?keyword=${encodeURIComponent(this.caseSearchKeyword)}`,
+                    `/api/v1/fee-notice/cases/search?keyword=${encodeURIComponent(this.caseSearchKeyword)}`,
                     {
                         method: 'GET',
                         headers: {
@@ -1140,7 +1140,7 @@ function feeNoticeApp() {
             try {
                 const notice = this.notices[this.selectedNoticeIndex];
 
-                const response = await fetch('/api/v1/automation/fee-notice/compare', {
+                const response = await fetch('/api/v1/fee-notice/compare', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
