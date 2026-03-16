@@ -209,6 +209,4 @@ class ClientPaymentRecordService:
         Returns:
             是否属于该合同
         """
-        from apps.cases.models import Case
-
-        return Case.objects.filter(id=case_id, contract_id=contract_id).exists()
+        return Contract.objects.filter(id=contract_id, cases__id=case_id).exists()

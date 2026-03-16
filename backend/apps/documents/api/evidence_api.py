@@ -20,9 +20,9 @@ router = Router(tags=["证据清单"], auth=JWTOrSessionAuth())
 
 def _get_evidence_service() -> Any:
     """工厂函数获取证据服务"""
-    from apps.core.interfaces import ServiceLocator
+    from apps.evidence.services.wiring import get_evidence_service
 
-    return ServiceLocator.get_evidence_service()
+    return get_evidence_service()
 
 
 class ReorderItemsRequest(Schema):

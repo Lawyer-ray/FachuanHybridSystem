@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import logging
 from pathlib import Path
 from typing import Any
@@ -8,15 +6,17 @@ from uuid import UUID
 from django.http import FileResponse, HttpRequest
 from ninja import File, Form, Router, UploadedFile
 
+from apps.core.infrastructure.throttling import rate_limit_from_settings
 from apps.contract_review.schemas.review_schemas import ConfirmPartyIn, TaskCreatedOut, TaskStatusOut
-from apps.core.interfaces import ServiceLocator
 
 logger = logging.getLogger(__name__)
 router = Router()
 
 
 def _get_review_service() -> Any:
-    return ServiceLocator.get_review_service()
+    from apps.contract_review.services.wiring import get_review_service
+
+    return get_review_service()
 
 
 def _get_model_list_service() -> Any:
@@ -37,6 +37,7 @@ def _check_task_access(task: Any, user: Any) -> bool:
 
 
 @router.post("/upload", response=TaskCreatedOut)
+@rate_limit_from_settings("TASK", by_user=True)
 def upload_contract(
     request: HttpRequest,
     file: UploadedFile = File(...),
@@ -101,6 +102,7 @@ def get_task_status(request: HttpRequest, task_id: UUID) -> dict[str, Any]:
 
 
 @router.get("/{task_id}/download")
+@rate_limit_from_settings("EXPORT", by_user=True)
 def download_result(request: HttpRequest, task_id: UUID) -> FileResponse:
     svc = _get_review_service()
     # 权限检查
@@ -110,12 +112,11 @@ def download_result(request: HttpRequest, task_id: UUID) -> FileResponse:
 
         return HttpResponseForbidden("无权下载此文件")
     path = svc.get_result_file(task_id)
-    # 使用上下文管理器确保文件句柄关闭
-    f = open(path, "rb")
-    return FileResponse(f, as_attachment=True, filename=path.name)
+    return FileResponse(path.open("rb"), as_attachment=True, filename=path.name)
 
 
 @router.get("/{task_id}/download-original")
+@rate_limit_from_settings("EXPORT", by_user=True)
 def download_original(request: HttpRequest, task_id: UUID) -> FileResponse:
     svc = _get_review_service()
     # 权限检查
@@ -125,9 +126,7 @@ def download_original(request: HttpRequest, task_id: UUID) -> FileResponse:
 
         return HttpResponseForbidden("无权下载此文件")
     path = svc.get_original_file(task_id)
-    # 使用上下文管理器确保文件句柄关闭
-    f = open(path, "rb")
-    return FileResponse(f, as_attachment=True, filename=path.name)
+    return FileResponse(path.open("rb"), as_attachment=True, filename=path.name)
 
 
 @router.get("/models")

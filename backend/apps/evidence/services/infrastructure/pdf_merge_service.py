@@ -5,6 +5,7 @@ from __future__ import annotations
 import contextlib
 import io
 from collections.abc import Callable
+from importlib import import_module
 from pathlib import Path
 from typing import Any, ClassVar, cast
 
@@ -13,9 +14,11 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import BusinessException, ValidationException
-from apps.documents.services.infrastructure.pdf_merge_utils import add_page_numbers as add_page_numbers_util
-from apps.documents.services.infrastructure.pdf_merge_utils import convert_docx_to_pdf, convert_image_to_pdf
 from apps.evidence.models import EvidenceList
+
+
+def _get_pdf_merge_utils_module() -> Any:
+    return import_module("apps.documents.services.infrastructure.pdf_merge_utils")
 
 
 class PDFMergeValidator:
@@ -122,14 +125,16 @@ class PDFMergeWorkflow:
     def convert_to_pdf(self, file_path: str) -> str:
         ext = Path(file_path).suffix.lower()
         self.validator.assert_supported_format(ext, file_path)
+        utils = _get_pdf_merge_utils_module()
         if ext in self.validator.IMAGE_FORMATS:
-            return convert_image_to_pdf(file_path)
+            return utils.convert_image_to_pdf(file_path)
         if ext in self.validator.WORD_FORMATS:
-            return convert_docx_to_pdf(file_path)
+            return utils.convert_docx_to_pdf(file_path)
         return file_path
 
     def add_page_numbers(self, pdf_input: io.BytesIO, start_page: int = 1) -> bytes:
-        return add_page_numbers_util(pdf_input, start_page)
+        utils = _get_pdf_merge_utils_module()
+        return utils.add_page_numbers(pdf_input, start_page)
 
     def _generate_merged_filename(self, evidence_list: EvidenceList) -> str:
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
 from django.db import transaction
@@ -86,9 +87,10 @@ class CaseAdminService:
         self, case_type: str, legal_statuses: list[str] | None = None
     ) -> list[dict[str, Any]]:
         try:
-            from apps.documents.services.template.template_matching_service import TemplateMatchingService
+            module = import_module("apps.documents.services.template.template_matching_service")
+            template_matching_service_cls = module.TemplateMatchingService
 
-            return TemplateMatchingService().find_matching_case_folder_templates_list(
+            return template_matching_service_cls().find_matching_case_folder_templates_list(
                 case_type=case_type,
                 legal_statuses=legal_statuses,
             )

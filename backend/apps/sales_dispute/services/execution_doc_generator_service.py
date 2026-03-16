@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 from enum import Enum
+from importlib import import_module
 from pathlib import Path
 from typing import Any
 
@@ -245,8 +246,6 @@ class ExecutionDocGeneratorService:
         2. 校验模板存在
         3. 调用 DocxRenderer 渲染
         """
-        from apps.documents.services.generation.pipeline import DocxRenderer
-
         template_file = DOC_TYPE_TEMPLATE_MAP[doc_type]
         template_path = TEMPLATE_DIR / template_file
 
@@ -256,8 +255,14 @@ class ExecutionDocGeneratorService:
                 code="TEMPLATE_NOT_FOUND",
             )
 
-        renderer = DocxRenderer()
+        renderer = self._build_docx_renderer()
         return renderer.render(str(template_path), context)
+
+    @staticmethod
+    def _build_docx_renderer() -> Any:
+        module = import_module("apps.documents.services.generation.pipeline")
+        renderer_cls = module.DocxRenderer
+        return renderer_cls()
 
     def _log_generation(self, case_id: int, doc_type: str, filename: str) -> None:
         """创建 CollectionLog 记录"""

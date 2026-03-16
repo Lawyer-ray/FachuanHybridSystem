@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from apps.core.protocols import IReviewService
 
 
-def get_review_service() -> "IReviewService":
+def get_review_service() -> IReviewService:
     """获取合同审查服务实例"""
     from apps.contract_review.services.review_service import ReviewService
 

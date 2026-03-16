@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal
 
+from django.apps import apps as django_apps
 from django.db.models import Count, Max, Q, Sum
 from django.db.models.functions import TruncMonth, TruncQuarter, TruncYear
 from django.utils.translation import gettext as _
@@ -129,6 +130,14 @@ def _amount_range_q(
     return q
 
 
+def _get_case_model() -> object:
+    return django_apps.get_model("cases", "Case")
+
+
+def _get_case_assignment_model() -> object:
+    return django_apps.get_model("cases", "CaseAssignment")
+
+
 class DashboardService:
     """回款统计看板服务"""
 
@@ -138,12 +147,12 @@ class DashboardService:
         end_date: date,
     ) -> SummaryOutput:
         """核心指标统计（Req 1）"""
-        from apps.cases.models.case import Case
         from apps.sales_dispute.models.payment_record import PaymentRecord
 
         logger.info("get_summary: %s ~ %s", start_date, end_date)
 
-        cases = Case.objects.filter(start_date__range=(start_date, end_date))
+        case_model = _get_case_model()
+        cases = case_model.objects.filter(start_date__range=(start_date, end_date))
 
         total_target: Decimal = (
             cases.filter(target_amount__isnull=False).aggregate(s=Sum("target_amount"))["s"] or _ZERO
@@ -192,7 +201,6 @@ class DashboardService:
         dimension: str,
     ) -> list[TrendItem]:
         """回款趋势统计（Req 2）"""
-        from apps.cases.models.case import Case
         from apps.sales_dispute.models.payment_record import PaymentRecord
 
         logger.info("get_trend: %s ~ %s, dim=%s", start_date, end_date, dimension)
@@ -217,8 +225,9 @@ class DashboardService:
             .order_by("period")
         )
 
+        case_model = _get_case_model()
         total_target: Decimal = (
-            Case.objects.filter(
+            case_model.objects.filter(
                 start_date__range=(start_date, end_date),
                 target_amount__isnull=False,
             ).aggregate(s=Sum("target_amount"))["s"]
@@ -254,12 +263,12 @@ class DashboardService:
         group_by: str,
     ) -> list[BreakdownItem]:
         """多维度分组统计（Req 3）"""
-        from apps.cases.models.case import Case
         from apps.sales_dispute.models.payment_record import PaymentRecord
 
         logger.info("get_breakdown: %s ~ %s, group=%s", start_date, end_date, group_by)
 
-        cases = Case.objects.filter(start_date__range=(start_date, end_date))
+        case_model = _get_case_model()
+        cases = case_model.objects.filter(start_date__range=(start_date, end_date))
 
         if group_by == "case_type":
             groups = cases.values("case_type").annotate(case_count=Count("id")).order_by("case_type")
@@ -315,9 +324,8 @@ class DashboardService:
             return items
 
         else:  # lawyer
-            from apps.cases.models.party import CaseAssignment
-
-            assignments = CaseAssignment.objects.filter(
+            case_assignment_model = _get_case_assignment_model()
+            assignments = case_assignment_model.objects.filter(
                 case__in=cases,
             ).select_related("lawyer")
             lawyer_map: dict[int, tuple[str, list[int]]] = {}
@@ -359,13 +367,13 @@ class DashboardService:
         end_date: date,
     ) -> dict[str, list[FactorItem]]:
         """回款影响因素分析（Req 4）"""
-        from apps.cases.models.case import Case
         from apps.sales_dispute.models.case_assessment import CaseAssessment
         from apps.sales_dispute.models.payment_record import PaymentRecord
 
         logger.info("get_factors: %s ~ %s", start_date, end_date)
 
-        cases = Case.objects.filter(start_date__range=(start_date, end_date))
+        case_model = _get_case_model()
+        cases = case_model.objects.filter(start_date__range=(start_date, end_date))
         today = date.today()
 
         # ── 欠款时间区间 ──
@@ -496,14 +504,14 @@ class DashboardService:
         sort_by: str,
     ) -> list[LawyerPerformanceItem]:
         """律师绩效分析（Req 5）"""
-        from apps.cases.models.case import Case
-        from apps.cases.models.party import CaseAssignment
         from apps.sales_dispute.models.payment_record import PaymentRecord
 
         logger.info("get_lawyer_performance: %s ~ %s, sort=%s", start_date, end_date, sort_by)
 
-        cases = Case.objects.filter(start_date__range=(start_date, end_date))
-        assignments = CaseAssignment.objects.filter(
+        case_model = _get_case_model()
+        case_assignment_model = _get_case_assignment_model()
+        cases = case_model.objects.filter(start_date__range=(start_date, end_date))
+        assignments = case_assignment_model.objects.filter(
             case__in=cases,
         ).select_related("lawyer")
 
@@ -573,12 +581,12 @@ class DashboardService:
         end_date: date,
     ) -> CaseStatsOutput:
         """案件数据统计（Req 6）"""
-        from apps.cases.models.case import Case
         from apps.sales_dispute.models.collection_record import CollectionRecord
 
         logger.info("get_case_stats: %s ~ %s", start_date, end_date)
 
-        cases = Case.objects.filter(start_date__range=(start_date, end_date))
+        case_model = _get_case_model()
+        cases = case_model.objects.filter(start_date__range=(start_date, end_date))
         total = cases.count()
         active = cases.filter(status="active").count()
         closed = cases.filter(status="closed").count()

@@ -18,7 +18,7 @@ from django.template.response import TemplateResponse
 from django.urls import URLPattern, path
 from django.utils.translation import gettext_lazy as _
 
-from apps.cases.admin.base import BaseModelAdmin
+from apps.cases.admin.base_admin import BaseModelAdmin
 from apps.finance.models.lpr_rate import LPRRate
 
 if TYPE_CHECKING:

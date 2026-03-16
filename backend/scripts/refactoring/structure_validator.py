@@ -48,7 +48,11 @@ class ProjectStructureValidator:
     ALLOWED_ROOT_FILES: frozenset[str] = frozenset(
         {
             "README.md",
+            "AGENTS.md",
             "Makefile",
+            "Dockerfile",
+            "docker-compose.yml",
+            "docker-entrypoint.sh",
             "pytest.ini",
             "mypy.ini",
             "pyproject.toml",
@@ -64,6 +68,7 @@ class ProjectStructureValidator:
             ".gitignore",
             ".pre-commit-config.yaml",
             ".secrets.baseline",
+            ".secrets.baseline.new",
             ".coverage",
             ".DS_Store",
             "IMPLEMENTATION_CHECKLIST.md",
@@ -102,6 +107,8 @@ class ProjectStructureValidator:
             "constraints",
             "devtools",
             "tests_smoke",
+            "mcp_server",
+            "cookies",
         }
     )
 

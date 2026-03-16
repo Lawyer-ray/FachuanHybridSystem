@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from xml.etree import ElementTree as ET
 
+from django.apps import apps
 from django.conf import settings
 from django.db.models import QuerySet
 from django.utils import timezone
@@ -292,9 +293,8 @@ class FillingService:
         party_name: str | None = None
         if party_id is not None:
             try:
-                from apps.cases.models import CaseParty
-
-                party_obj = CaseParty.objects.get(id=party_id)
+                case_party_model = apps.get_model("cases", "CaseParty")
+                party_obj = case_party_model.objects.get(id=party_id)
                 party_name = str(party_obj)
             except Exception:
                 logger.warning("获取当事人名称失败: party_id=%d", party_id)

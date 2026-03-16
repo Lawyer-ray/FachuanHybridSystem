@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import logging
+from importlib import import_module
 from pathlib import Path
+
+from django.apps import apps as django_apps
 
 logger = logging.getLogger("apps.automation")
 
@@ -18,8 +21,6 @@ def check_gsxt_report_email(task_id: int, company_name: str) -> None:
         EMAIL_CREDENTIAL_ID,
         _fetch_report_attachment,
     )
-    from apps.client.models.identity_doc import ClientIdentityDoc
-    from apps.organization.models.credential import AccountCredential
     from django.conf import settings
     from django_q.tasks import async_task
 
@@ -29,7 +30,8 @@ def check_gsxt_report_email(task_id: int, company_name: str) -> None:
     if task.status not in (GsxtReportStatus.WAITING_EMAIL,):
         return
 
-    cred = AccountCredential.objects.get(pk=EMAIL_CREDENTIAL_ID)
+    account_credential_model = django_apps.get_model("organization", "AccountCredential")
+    cred = account_credential_model.objects.get(pk=EMAIL_CREDENTIAL_ID)
     pdf_bytes = _fetch_report_attachment(cred.account, cred.password, company_name)
 
     if pdf_bytes:
@@ -39,12 +41,14 @@ def check_gsxt_report_email(task_id: int, company_name: str) -> None:
         abs_path.parent.mkdir(parents=True, exist_ok=True)
         abs_path.write_bytes(pdf_bytes)
 
-        doc, _ = ClientIdentityDoc.objects.get_or_create(
-            client=client,
-            doc_type=ClientIdentityDoc.BUSINESS_LICENSE,
+        identity_doc_service_cls = import_module(
+            "apps.client.services.client_identity_doc_service"
+        ).ClientIdentityDocService
+        identity_doc_service_cls().upsert_identity_doc_file(
+            client_id=client.pk,
+            doc_type="business_license",
+            file_path=str(rel_path),
         )
-        doc.file_path = str(rel_path)
-        doc.save(update_fields=["file_path"])
 
         task.status = GsxtReportStatus.SUCCESS
         task.error_message = ""
@@ -60,7 +64,7 @@ def check_gsxt_report_email(task_id: int, company_name: str) -> None:
 
         Schedule.objects.create(
             func="apps.automation.tasks.gsxt_tasks.check_gsxt_report_email",
-            args=f"{task_id},{repr(company_name)}",
+            args=f"{task_id},{company_name!r}",
             schedule_type=Schedule.ONCE,
             next_run=timezone.now() + timedelta(seconds=60),
             name=f"gsxt_email_retry_{task_id}_{timezone.now().timestamp():.0f}",

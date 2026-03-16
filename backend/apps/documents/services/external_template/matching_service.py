@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from django.apps import apps
 from django.db.models import Count, QuerySet
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -20,11 +21,11 @@ class MatchingService:
 
     def match_by_case(self, case_id: int, law_firm_id: int) -> list[Any]:
         """根据案件审理机构名称查询可用模板。"""
-        from apps.cases.models import Case
+        case_model = apps.get_model("cases", "Case")
 
         try:
-            case: Case = Case.objects.get(pk=case_id)
-        except Case.DoesNotExist:
+            case = case_model.objects.get(pk=case_id)
+        except case_model.DoesNotExist:
             logger.warning("案件不存在: case_id=%d", case_id)
             return []
 
@@ -49,11 +50,10 @@ class MatchingService:
         ).order_by("-updated_at")
 
         if not templates.exists():
-            from apps.core.models.court import Court
-
-            court: Court | None = Court.objects.filter(name=source_name, is_active=True).first()
+            court_model = apps.get_model("core", "Court")
+            court = court_model.objects.filter(name=source_name, is_active=True).first()
             if court and court.parent_id:
-                parent: Court | None = Court.objects.filter(pk=court.parent_id).first()
+                parent = court_model.objects.filter(pk=court.parent_id).first()
                 if parent:
                     logger.info("机构无模板，回退上级法院: %s -> %s", source_name, parent.name)
                     return self.match_by_source_name(parent.name, law_firm_id)
@@ -89,9 +89,8 @@ class MatchingService:
 
     def _get_source_name_from_case(self, case: Any) -> str | None:
         """从案件获取审理机构名称。"""
-        from apps.cases.models.case import SupervisingAuthority
-
-        authority: SupervisingAuthority | None = SupervisingAuthority.objects.filter(
+        authority_model = apps.get_model("cases", "SupervisingAuthority")
+        authority = authority_model.objects.filter(
             case=case,
             authority_type="trial",
         ).first()

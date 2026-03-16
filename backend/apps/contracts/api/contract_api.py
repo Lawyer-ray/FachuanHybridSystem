@@ -21,9 +21,9 @@ router = Router()
 
 
 def _get_contract_service() -> Any:
-    from apps.core.interfaces import ServiceLocator
+    from apps.contracts.services.contract.wiring import get_contract_service
 
-    return ServiceLocator.get_contract_service()
+    return get_contract_service()
 
 
 @router.get("/contracts", response=list[ContractOut])

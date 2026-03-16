@@ -138,6 +138,23 @@ class ClientIdentityDocService:
         doc.save(update_fields=["expiry_date"])
 
     @transaction.atomic
+    def upsert_identity_doc_file(self, *, client_id: int, doc_type: str, file_path: str) -> ClientIdentityDoc:
+        """按 client+doc_type 更新或创建证件记录，并写入文件路径。"""
+        client = Client.objects.filter(id=client_id).first()
+        if not client:
+            raise NotFoundError(
+                message=_("当事人不存在"),
+                code="CLIENT_NOT_FOUND",
+                errors={"client_id": _("ID 为 %(id)s 的当事人不存在") % {"id": client_id}},
+            )
+
+        doc, _ = ClientIdentityDoc.objects.get_or_create(client=client, doc_type=doc_type)
+        if doc.file_path != file_path:
+            doc.file_path = file_path
+            doc.save(update_fields=["file_path"])
+        return doc
+
+    @transaction.atomic
     def delete_identity_doc(self, doc_id: int, user: Any) -> None:
         """删除证件文档及其磁盘文件。"""
 
