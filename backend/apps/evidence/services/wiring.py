@@ -7,9 +7,9 @@ from typing import Any
 
 def get_case_service() -> Any:
     """获取案件服务实例"""
-    from apps.cases.services.case.wiring import get_case_service as _get_case_service
+    from apps.core.service_locator import ServiceLocator
 
-    return _get_case_service()
+    return ServiceLocator.get_case_service()
 
 
 def get_evidence_list_placeholder_service() -> Any:
@@ -17,3 +17,10 @@ def get_evidence_list_placeholder_service() -> Any:
     from apps.evidence.services.evidence_list_placeholder_service import EvidenceListPlaceholderService
 
     return EvidenceListPlaceholderService()
+
+
+def get_evidence_service() -> Any:
+    """获取证据服务实例"""
+    from apps.evidence.services.evidence_service import EvidenceService
+
+    return EvidenceService(case_service=get_case_service())

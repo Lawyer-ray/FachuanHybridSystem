@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from django.contrib import admin
 
-from apps.cases.admin.base import BaseModelAdmin
+from apps.cases.admin.base_admin import BaseModelAdmin
 from apps.sales_dispute.models import LPRRate
 
 

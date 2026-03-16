@@ -15,4 +15,4 @@ class AutomationConfig(AppConfig):
 
         customize_admin_index(admin.site)
 
-        from . import signals  # noqa: F401
+        from . import signals

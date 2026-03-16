@@ -283,8 +283,8 @@ def _register_llm_handlers(api: NinjaAPI, create_response: _CreateResponse) -> N
 
     except ImportError:
         pass
-    except (AttributeError, TypeError):
-        logger.warning("Failed to register LLM exception handlers")
+    except Exception:
+        logger.exception("Failed to register LLM exception handlers")
 
 
 def _register_django_handlers(api: NinjaAPI, create_response: _CreateResponse) -> None:

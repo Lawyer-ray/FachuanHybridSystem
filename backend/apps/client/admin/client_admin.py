@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from django import forms
+from django.apps import apps as django_apps
 from django.contrib import admin, messages
 from django.http import HttpRequest
 from django.utils.html import format_html
@@ -12,6 +13,7 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.client.models import Client, ClientIdentityDoc
 from apps.client.ports import CredentialPort, GsxtReportPort
+from apps.client.services.client_export_serializer_service import serialize_client_obj
 from apps.client.services.wiring import get_credential_port, get_gsxt_report_port
 from apps.core.admin.mixins import AdminImportExportMixin
 
@@ -31,8 +33,7 @@ def _get_admin_service() -> Any:
 
 def _get_gsxt_report_task_model() -> type[Any]:
     """延迟获取 GsxtReportTask 模型。"""
-    from apps.automation.models.gsxt_report import GsxtReportTask
-    return GsxtReportTask
+    return django_apps.get_model("automation", "GsxtReportTask")
 
 
 class GsxtReportTaskInlineForm(forms.ModelForm[Any]):
@@ -173,35 +174,6 @@ class ClientAdminForm(forms.ModelForm[Client]):
         elif self.initial.get("client_type"):
             ct = self.initial.get("client_type")
         self.fields["id_number"].label = _("身份证号码") if ct == "natural" else _("统一社会信用代码")
-
-
-def serialize_client_obj(obj: Any) -> dict[str, Any]:
-    """将单个 Client 实例序列化为 dict（供 ClientAdmin、CaseAdmin、ContractAdmin 共用）。"""
-    return {
-        "name": obj.name,
-        "client_type": obj.client_type,
-        "id_number": obj.id_number,
-        "phone": obj.phone,
-        "address": getattr(obj, "address", None),
-        "legal_representative": obj.legal_representative,
-        "legal_representative_id_number": getattr(obj, "legal_representative_id_number", None),
-        "is_our_client": obj.is_our_client,
-        "identity_docs": [
-            {"doc_type": doc.doc_type, "file_path": doc.file_path} for doc in obj.identity_docs.all() if doc.file_path
-        ],
-        "property_clues": [
-            {
-                "clue_type": clue.clue_type,
-                "content": clue.content,
-                "attachments": [
-                    {"file_path": att.file_path, "file_name": att.file_name}
-                    for att in clue.attachments.all()
-                    if att.file_path
-                ],
-            }
-            for clue in obj.property_clues.all()
-        ],
-    }
 
 
 @admin.register(Client)

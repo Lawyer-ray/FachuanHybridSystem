@@ -7,13 +7,10 @@ import logging
 import subprocess
 import threading
 import time
-from typing import TYPE_CHECKING
+from typing import Any, Protocol
 
 import httpx
 from django.utils import timezone
-
-if TYPE_CHECKING:
-    from apps.organization.models.credential import AccountCredential
 
 logger = logging.getLogger("apps.automation")
 
@@ -22,6 +19,14 @@ CDP_URL = "http://localhost:9222"
 CHROME_PATH = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 CHROME_USER_DATA_DIR = "/tmp/chrome_debug_profile"
 CAPTCHA_TIMEOUT = 120  # 等待用户手动完成验证码的最长时间（秒）
+
+
+class GsxtCredentialProtocol(Protocol):
+    account: str
+    password: str
+    last_login_success_at: Any
+
+    def save(self, *, update_fields: list[str]) -> None: ...
 
 
 class GsxtLoginError(Exception):
@@ -56,7 +61,7 @@ def _ensure_chrome_running() -> None:
     raise GsxtLoginError("Chrome 启动失败，请手动启动后重试")
 
 
-async def _do_login_and_wait(credential: AccountCredential, task_id: int) -> None:
+async def _do_login_and_wait(credential: GsxtCredentialProtocol, task_id: int) -> None:
     """连接 Chrome，填账号密码，等待用户完成验证码，检测登录成功后更新任务状态。"""
     from apps.automation.models.gsxt_report import GsxtReportStatus, GsxtReportTask
     from asgiref.sync import sync_to_async
@@ -114,12 +119,19 @@ async def _do_login_and_wait(credential: AccountCredential, task_id: int) -> Non
             await page.close()
 
 
-def _run_in_thread(credential: AccountCredential, task_id: int) -> None:
+def _run_in_thread(credential: GsxtCredentialProtocol, task_id: int) -> None:
     """在独立线程中运行异步登录流程（避免阻塞 Django 请求）。"""
     asyncio.run(_do_login_and_wait(credential, task_id))
 
 
-def start_login_gsxt(credential: AccountCredential, task_id: int) -> None:
+class GsxtLoginService:
+    """Class-based facade for GSXT login workflow."""
+
+    def start_login(self, credential: GsxtCredentialProtocol, task_id: int) -> None:
+        start_login_gsxt(credential, task_id)
+
+
+def start_login_gsxt(credential: GsxtCredentialProtocol, task_id: int) -> None:
     """
     非阻塞入口：启动 Chrome，填账号密码，在后台线程等待验证码完成。
     立即返回，不阻塞 Django 请求。

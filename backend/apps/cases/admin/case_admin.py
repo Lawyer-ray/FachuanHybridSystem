@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from django.contrib import admin
 from django.http import HttpRequest
 
-from apps.cases.admin.base import BaseModelAdmin, BaseStackedInline, BaseTabularInline
+from apps.cases.admin.base_admin import BaseModelAdmin, BaseStackedInline, BaseTabularInline
 from apps.cases.admin.case_chat_admin import CaseChatInline
 from apps.cases.admin.case_forms_admin import CaseAdminForm, SupervisingAuthorityInlineForm
 from apps.cases.admin.mixins import (
@@ -86,7 +86,7 @@ class CaseLogInline(BaseStackedInline):
 
 
 def _serialize_client(client: Any) -> dict[str, Any]:
-    from apps.client.admin.client_admin import serialize_client_obj
+    from apps.client.services.client_export_serializer_service import serialize_client_obj
 
     return serialize_client_obj(client)
 

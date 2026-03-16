@@ -11,6 +11,8 @@ from typing import Any
 from django.http import HttpRequest
 from ninja import Router
 
+from apps.core.infrastructure.throttling import rate_limit_from_settings
+
 logger = logging.getLogger("apps.automation")
 
 router = Router(tags=["图片旋转"])
@@ -39,6 +41,7 @@ def _get_rename_service() -> Any:
 
 
 @router.post("/extract-pdf-fast")
+@rate_limit_from_settings("UPLOAD", by_user=True)
 def extract_pdf_fast(request: HttpRequest) -> dict[str, Any]:
     payload = _body(request)
     filename: str = payload.get("filename", "file.pdf")
@@ -91,6 +94,7 @@ def detect_orientation(request: HttpRequest) -> dict[str, Any]:
 
 
 @router.post("/suggest-rename")
+@rate_limit_from_settings("LLM", by_user=True)
 def suggest_rename(request: HttpRequest) -> dict[str, Any]:
     payload = _body(request)
     items: list[dict[str, Any]] = payload.get("items", [])
@@ -133,6 +137,7 @@ def suggest_rename(request: HttpRequest) -> dict[str, Any]:
 
 
 @router.post("/export-pdf")
+@rate_limit_from_settings("EXPORT", by_user=True)
 def export_pdf(request: HttpRequest) -> dict[str, Any]:
     content_type = request.content_type or ""
 
@@ -182,6 +187,7 @@ def _handle_multipart_export_pdf(request: HttpRequest) -> dict[str, Any]:
 
 
 @router.post("/export")
+@rate_limit_from_settings("EXPORT", by_user=True)
 def export_images(request: HttpRequest) -> dict[str, Any]:
     content_type = request.content_type or ""
 

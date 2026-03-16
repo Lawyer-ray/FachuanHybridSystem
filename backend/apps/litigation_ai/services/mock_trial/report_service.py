@@ -6,6 +6,7 @@ import logging
 from typing import Any
 
 from asgiref.sync import sync_to_async
+from datetime import UTC
 
 logger = logging.getLogger("apps.litigation_ai")
 
@@ -130,4 +131,4 @@ class MockTrialReportService:
         """获取当前时间的 ISO 格式字符串."""
         from datetime import datetime, timezone
 
-        return datetime.now(timezone.utc).isoformat()
+        return datetime.now(UTC).isoformat()

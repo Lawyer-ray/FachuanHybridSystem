@@ -168,11 +168,11 @@
 }
 
 
-/* 隐藏当事人证件文件 inline 行首空白标题列，压缩行高 */
-#identity_docs-group td.original {
-    width: 0;
-    padding: 0;
-    overflow: hidden;
+/* 强制隐藏 identity_docs inline 的原始对象文案，避免显示 "<client> - <doc_type>" */
+#identity_docs-group th.original,
+#identity_docs-group td.original,
+#identity_docs-group td.original p {
+    display: none !important;
 }
 #identity_docs-group td {
     vertical-align: middle;

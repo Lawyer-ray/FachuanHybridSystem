@@ -6,6 +6,7 @@ import base64
 import logging
 import re
 from dataclasses import dataclass, field
+from importlib import import_module
 from typing import Any
 
 logger = logging.getLogger("apps.evidence_sorting")
@@ -83,9 +84,9 @@ class ClassifierService:
 
     def _get_ocr_service(self) -> Any:
         if self._ocr_service is None:
-            from apps.automation.services.image_rotation.orientation.service import OrientationDetectionService
-
-            self._ocr_service = OrientationDetectionService()
+            module = import_module("apps.automation.services.image_rotation.orientation.service")
+            orientation_service_cls = module.OrientationDetectionService
+            self._ocr_service = orientation_service_cls()
         return self._ocr_service
 
     def classify_images(self, images: list[dict[str, Any]]) -> ClassifyResult:

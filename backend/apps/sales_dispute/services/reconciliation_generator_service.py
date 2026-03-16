@@ -6,6 +6,7 @@ import logging
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
+from importlib import import_module
 from pathlib import Path
 from typing import Any
 
@@ -55,7 +56,6 @@ class ReconciliationGeneratorService:
         4. 创建 CollectionLog 记录
         5. 返回文件名和字节流
         """
-        from apps.documents.services.generation.pipeline import DocxRenderer
         from apps.sales_dispute.models.collection_record import CollectionLog, CollectionRecord
 
         template_path = TEMPLATE_DIR / TEMPLATE_FILE
@@ -67,7 +67,7 @@ class ReconciliationGeneratorService:
             )
 
         context = self._build_context(params)
-        renderer = DocxRenderer()
+        renderer = self._build_docx_renderer()
         content = renderer.render(str(template_path), context)
 
         filename = self._generate_filename(params)
@@ -92,6 +92,12 @@ class ReconciliationGeneratorService:
             filename,
         )
         return GeneratedDocument(filename=filename, content=content)
+
+    @staticmethod
+    def _build_docx_renderer() -> Any:
+        module = import_module("apps.documents.services.generation.pipeline")
+        renderer_cls = module.DocxRenderer
+        return renderer_cls()
 
     def _build_context(self, params: ReconciliationParams) -> dict[str, Any]:
         """构建模板上下文"""

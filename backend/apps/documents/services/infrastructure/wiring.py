@@ -11,16 +11,37 @@ from typing import Any
 
 def get_case_service() -> Any:
     """获取案件服务实例"""
-    from apps.cases.services.case.wiring import get_case_service as _get_case_service
+    from apps.core.service_locator import ServiceLocator
 
-    return _get_case_service()
+    return ServiceLocator.get_case_service()
 
 
 def get_contract_service() -> Any:
     """获取合同服务实例"""
-    from apps.contracts.services.contract.wiring import get_contract_service as _get_contract_service
+    from apps.core.service_locator import ServiceLocator
 
-    return _get_contract_service()
+    return ServiceLocator.get_contract_service()
+
+
+def get_contract_folder_binding_service() -> Any:
+    """获取合同文件夹绑定服务实例"""
+    from apps.core.service_locator import ServiceLocator
+
+    return ServiceLocator.get_contract_folder_binding_service()
+
+
+def get_contract_generation_service() -> Any:
+    """获取合同文档生成服务实例"""
+    from apps.core.service_locator import ServiceLocator
+
+    return ServiceLocator.get_contract_generation_service()
+
+
+def get_supplementary_agreement_generation_service() -> Any:
+    """获取补充协议生成服务实例"""
+    from apps.core.service_locator import ServiceLocator
+
+    return ServiceLocator.get_supplementary_agreement_generation_service()
 
 
 def get_client_service() -> Any:
@@ -74,6 +95,6 @@ def get_matching_service() -> Any:
 
 def get_evidence_list_placeholder_service() -> Any:
     """获取证据清单占位符服务实例"""
-    from apps.evidence.services.evidence_list_placeholder_service import EvidenceListPlaceholderService
+    from apps.core.service_locator import ServiceLocator
 
-    return EvidenceListPlaceholderService()
+    return ServiceLocator.get_evidence_list_placeholder_service()

@@ -35,20 +35,16 @@ def _get_service() -> Any:
 )
 @rate_limit_from_settings("TASK", by_user=True)
 def create_session(request: HttpRequest, payload: CreateMockTrialSessionRequest) -> Any:
-    from apps.litigation_ai.models import LitigationSession
-
     user = getattr(request, "user", None)
-    session = LitigationSession.objects.create(
+    session = _get_service().create_session(
         case_id=payload.case_id,
         user_id=user.id if user else None,
         session_type="mock_trial",
-        status="active",
-        metadata={},
     )
     return {
         "session_id": str(session.session_id),
         "case_id": session.case_id,
-        "session_type": session.session_type,
+        "session_type": "mock_trial",
         "status": session.status,
         "metadata": session.metadata,
         "created_at": session.created_at,
@@ -126,6 +122,7 @@ def delete_session(request: HttpRequest, session_id: str) -> Any:
     "/sessions/{session_id}/export",
     response={200: None, 404: ErrorResponse, 500: ErrorResponse},
 )
+@rate_limit_from_settings("EXPORT", by_user=True)
 def export_report(request: HttpRequest, session_id: str) -> Any:
     """导出模拟庭审报告为Word文档."""
     from asgiref.sync import async_to_sync
@@ -147,15 +144,16 @@ def export_report(request: HttpRequest, session_id: str) -> Any:
     if not session:
         return 404, {"message": "会话不存在"}
 
-    from apps.cases.models import Case
+    from apps.litigation_ai.services.wiring import get_case_service
 
-    case = Case.objects.filter(pk=session.case_id).first()
-    if not case:
+    case_dto = get_case_service().get_case(session.case_id)
+    if not case_dto:
         return 404, {"message": "案件不存在"}
 
+    case_name = case_dto.name or ""
     case_info = {
-        "case_name": case.name,
-        "cause_of_action": case.cause_of_action or "",
+        "case_name": case_name,
+        "cause_of_action": case_dto.cause_of_action or "",
     }
 
     # 生成导出文件
@@ -171,10 +169,10 @@ def export_report(request: HttpRequest, session_id: str) -> Any:
         from django.http import FileResponse
 
         response = FileResponse(
-            open(file_path, "rb"),
+            Path(file_path).open("rb"),
             content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         )
-        response["Content-Disposition"] = f'attachment; filename="模拟庭审报告_{case.name}.docx"'
+        response["Content-Disposition"] = f'attachment; filename="模拟庭审报告_{case_name}.docx"'
         return response
     except Exception as e:
         logger.error(f"导出报告失败: {e}", exc_info=True)

@@ -7,6 +7,7 @@ from ninja.files import UploadedFile
 
 from apps.client.schemas import IdentityDocDetailOut, IdentityRecognizeOut
 from apps.client.services.wiring import get_task_service_port
+from apps.core.infrastructure.throttling import rate_limit_from_settings
 
 logger = logging.getLogger(__name__)
 
@@ -182,6 +183,7 @@ def delete_identity_doc(request: Any, doc_id: int) -> dict[str, Any]:
 
 
 @router.post("/identity-doc/recognize/submit")
+@rate_limit_from_settings("TASK", by_user=True)
 def submit_recognize_task(
     request: Any,
     file: UploadedFile = File(...),  # type: ignore[arg-type]

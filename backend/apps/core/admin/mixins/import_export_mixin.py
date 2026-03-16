@@ -120,7 +120,7 @@ class AdminImportExportMixin:
 
     def _extract_files(self, zf: zipfile.ZipFile) -> None:
         """把 ZIP 内 files/ 目录下的文件写入 MEDIA_ROOT。"""
-        from apps.client.services.storage import _get_media_root
+        from apps.core.services.storage_service import _get_media_root
 
         media_root = _get_media_root()
         if not media_root:
@@ -159,7 +159,7 @@ class AdminImportExportMixin:
     export_all_as_json.short_description = _("导出全部")  # type: ignore[attr-defined]
 
     def _build_zip_response(self, queryset: QuerySet[Any], filename: str) -> HttpResponse:
-        from apps.client.services.storage import _get_media_root
+        from apps.core.services.storage_service import _get_media_root
 
         data = self.serialize_queryset(queryset)  # type: ignore[attr-defined]
         file_paths = self.get_file_paths(queryset)

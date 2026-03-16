@@ -309,7 +309,7 @@ class JtnFilingScript:
             # 通过 JS 设置 layui table 内部缓存的选中状态，然后调用确认逻辑
             iframe_id = self._get_latest_iframe_id(page)
             page.evaluate(
-                f"""(iframeId) => {{
+                """(iframeId) => {
                 const iframe = document.getElementById(iframeId);
                 if (!iframe) return;
                 const layui = iframe.contentWindow.layui;
@@ -321,7 +321,7 @@ class JtnFilingScript:
                 iframe.contentWindow.parent.projectAppReg.loadCustomer(data);
                 const index = iframe.contentWindow.parent.layer.getFrameIndex(iframe.contentWindow.name);
                 iframe.contentWindow.parent.layer.close(index);
-            }}""",
+            }""",
                 iframe_id,
             )
             time.sleep(_MEDIUM_WAIT)
