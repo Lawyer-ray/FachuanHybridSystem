@@ -639,7 +639,7 @@ function preservationDateApp() {
                 const formData = new FormData();
                 formData.append('file', this.file);
 
-                const response = await fetch('/api/v1/automation/preservation-date/extract', {
+                const response = await fetch('/api/v1/preservation-date/extract', {
                     method: 'POST',
                     headers: {
                         'X-CSRFToken': this.getCsrfToken(),

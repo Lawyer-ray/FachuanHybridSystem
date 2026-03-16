@@ -28,7 +28,7 @@ from .prompts import DEFAULT_PENDING_NOTE, PENDING_KEYWORDS, PRESERVATION_DATE_E
 if TYPE_CHECKING:
     from apps.document_recognition.services import TextExtractionService
 
-logger = logging.getLogger("apps.automation.preservation_date")
+logger = logging.getLogger("apps.preservation_date")
 
 
 class PreservationDateExtractionService:
@@ -184,7 +184,7 @@ class PreservationDateExtractionService:
 
         Requirements: 6.1, 6.2, 6.4
         """
-        from apps.automation.services.wiring import get_llm_service
+        from apps.core.services.wiring import get_llm_service
 
         prompt = PRESERVATION_DATE_EXTRACTION_PROMPT.format(text=text)
 
@@ -483,7 +483,7 @@ class PreservationDateExtractionService:
         from apps.core.filesystem import FolderPathValidator
         from apps.core.path import Path
 
-        temp_dir = Path(str(settings.MEDIA_ROOT)) / "automation" / "temp" / "preservation_date"
+        temp_dir = Path(str(settings.MEDIA_ROOT)) / "preservation_date" / "temp"
         temp_dir.mkdir(parents=True, exist_ok=True)
 
         batch_id = uuid.uuid4().hex[:8]

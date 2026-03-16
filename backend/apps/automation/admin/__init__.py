@@ -13,9 +13,6 @@ from .document_delivery import DocumentDeliveryScheduleAdmin, DocumentQueryHisto
 from .insurance import PreservationQuoteAdmin
 
 
-# 财产保全日期识别 Admin
-from .preservation_date import PreservationDateTestAdmin
-
 # 爬虫 Admin
 from .scraper import CourtDocumentAdmin, QuickDownloadAdmin, ScraperTaskAdmin, TestCourtAdmin
 
@@ -48,5 +45,4 @@ __all__ = [
     "DocumentQueryHistoryAdmin",
     # 测试工具
     "TestToolsHubAdmin",
-    "PreservationDateTestAdmin",
 ]

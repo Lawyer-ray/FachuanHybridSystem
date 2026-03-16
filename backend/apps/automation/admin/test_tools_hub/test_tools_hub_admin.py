@@ -71,7 +71,7 @@ class TestToolsHubAdmin(admin.ModelAdmin):
             {
                 "name": "财产保全日期识别",
                 "description": "从法院文书中识别财产保全措施的到期时间",
-                "url": "automation_preservationdatetest_changelist",
+                "url": "preservation_date_preservationdatetool_changelist",
                 "icon": icon_calendar,
                 "color": "warning",
             },
