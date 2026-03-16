@@ -63,7 +63,7 @@ class ReminderServiceAdapter(ReminderService):
 
     def create_reminder_internal(
         self, case_log_id: int, reminder_type: str, reminder_time: datetime | None, user_id: int | None = None
-    ) -> "ReminderDTO | None":
+    ) -> ReminderDTO | None:
         """内部方法：为案件日志创建提醒。"""
         if reminder_type not in ReminderType.values:
             logger.warning("无效的提醒类型: %s", reminder_type, extra={"case_log_id": case_log_id})
@@ -101,7 +101,7 @@ class ReminderServiceAdapter(ReminderService):
         content: str,
         reminder_time: datetime,
         user_id: int | None = None,
-    ) -> "ReminderDTO":
+    ) -> ReminderDTO:
         """内部方法：按调用方提供的内容创建案件日志提醒。"""
         metadata = {"created_by_user_id": user_id} if user_id is not None else {}
         reminder = super().create_reminder(
@@ -113,7 +113,7 @@ class ReminderServiceAdapter(ReminderService):
         )
         return self._to_reminder_dto(reminder)
 
-    def get_reminder_type_by_code_internal(self, code: str) -> "ReminderTypeDTO | None":
+    def get_reminder_type_by_code_internal(self, code: str) -> ReminderTypeDTO | None:
         """内部方法：根据代码获取提醒类型。"""
         from apps.core.dtos import ReminderTypeDTO
 
@@ -123,7 +123,7 @@ class ReminderServiceAdapter(ReminderService):
         rt = ReminderType(code)
         return ReminderTypeDTO(id=self._REMINDER_TYPE_CODE_TO_ID[code], code=code, name=str(rt.label), description=None)
 
-    def get_reminder_type_for_document_internal(self, document_type: str) -> "ReminderTypeDTO | None":
+    def get_reminder_type_for_document_internal(self, document_type: str) -> ReminderTypeDTO | None:
         """内部方法：根据文书类型获取对应的提醒类型。"""
         reminder_type_code = self.DOCUMENT_TYPE_TO_REMINDER_TYPE.get(document_type)
         if reminder_type_code is None:
@@ -291,7 +291,7 @@ class ReminderServiceAdapter(ReminderService):
             reminder_type_label = reminder_type
         return {**row, "reminder_type_label": reminder_type_label}
 
-    def _to_reminder_dto(self, reminder: Reminder) -> "ReminderDTO":
+    def _to_reminder_dto(self, reminder: Reminder) -> ReminderDTO:
         """将 Reminder Model 转换为 DTO。"""
         from apps.core.dtos import ReminderDTO
 

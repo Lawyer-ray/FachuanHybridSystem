@@ -23,32 +23,36 @@ router = Router(auth=JWTOrSessionAuth())
 
 
 def _require_contract_access(request: Any, contract_id: int) -> None:
-    from apps.core.interfaces import ServiceLocator
     from apps.core.security.access_context import get_request_access_context
+    from apps.documents.services.infrastructure.wiring import get_contract_service
 
     ctx = get_request_access_context(request)
-    ServiceLocator.get_contract_query_service().ensure_contract_access_ctx(contract_id=contract_id, ctx=ctx)
+    get_contract_service().ensure_contract_access_ctx(contract_id=contract_id, ctx=ctx)
 
 
 def _get_folder_generation_service() -> Any:
-    """工厂函数:通过 ServiceLocator 获取 FolderGenerationService 实例"""
-    from apps.core.interfaces import ServiceLocator
+    """工厂函数:获取 FolderGenerationService 实例"""
+    from apps.documents.services.generation.folder_generation_service import FolderGenerationService
+    from apps.documents.services.infrastructure.wiring import get_contract_folder_binding_service, get_contract_service
 
-    return ServiceLocator.get_folder_generation_service()
+    return FolderGenerationService(
+        contract_service=get_contract_service(),
+        folder_binding_service=get_contract_folder_binding_service(),
+    )
 
 
 def _get_supplementary_agreement_service() -> Any:
-    """工厂函数:通过 ServiceLocator 获取 SupplementaryAgreementGenerationService 实例"""
-    from apps.core.interfaces import ServiceLocator
+    """工厂函数:获取 SupplementaryAgreementGenerationService 实例"""
+    from apps.documents.services.infrastructure.wiring import get_supplementary_agreement_generation_service
 
-    return ServiceLocator.get_supplementary_agreement_generation_service()
+    return get_supplementary_agreement_generation_service()
 
 
 def _get_contract_generation_service() -> Any:
-    """工厂函数:通过 ServiceLocator 获取 ContractGenerationService 实例"""
-    from apps.core.interfaces import ServiceLocator
+    """工厂函数:获取 ContractGenerationService 实例"""
+    from apps.documents.services.infrastructure.wiring import get_contract_generation_service
 
-    return ServiceLocator.get_contract_generation_service()
+    return get_contract_generation_service()
 
 
 @router.get("/contracts/{contract_id}/preview")

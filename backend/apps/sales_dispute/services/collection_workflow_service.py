@@ -6,6 +6,7 @@ import logging
 from dataclasses import dataclass
 from datetime import date, timedelta
 
+from django.apps import apps as django_apps
 from django.db import transaction
 from django.utils.translation import gettext_lazy as _
 
@@ -57,10 +58,10 @@ class CollectionWorkflowService:
         4. 计算下一节点到期日（written_collection 的到期日）
         5. 创建初始 CollectionLog
         """
-        from apps.cases.models import Case
         from apps.sales_dispute.models.collection_record import CollectionLog, CollectionRecord, CollectionStage
 
-        if not Case.objects.filter(id=case_id).exists():
+        case_model = django_apps.get_model("cases", "Case")
+        if not case_model.objects.filter(id=case_id).exists():
             raise ValidationException(
                 message=_("案件不存在"),
                 code="CASE_NOT_FOUND",

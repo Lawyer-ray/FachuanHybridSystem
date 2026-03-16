@@ -50,8 +50,10 @@ class LitigationConversationSessionService:
 
     # ---- 生命周期方法 ----
 
-    def create_session(self, case_id: int, user_id: int | None = None) -> SessionDTO:
-        return self._lifecycle.create_session(case_id, user_id)
+    def create_session(
+        self, case_id: int, user_id: int | None = None, session_type: str | None = None
+    ) -> SessionDTO:
+        return self._lifecycle.create_session(case_id, user_id, session_type=session_type)
 
     def get_session(self, session_id: str) -> SessionDTO:
         return self._lifecycle.get_session(session_id)

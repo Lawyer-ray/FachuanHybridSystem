@@ -138,7 +138,7 @@ if BaseModelAdmin is not admin.ModelAdmin:
 
 
 def _serialize_contract_client(client: Any) -> dict[str, Any]:
-    from apps.client.admin.client_admin import serialize_client_obj
+    from apps.client.services.client_export_serializer_service import serialize_client_obj
 
     return serialize_client_obj(client)
 

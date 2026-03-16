@@ -6,7 +6,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from apps.client.services import storage
+from apps.core.services import storage_service as storage
 
 logger = logging.getLogger(__name__)
 

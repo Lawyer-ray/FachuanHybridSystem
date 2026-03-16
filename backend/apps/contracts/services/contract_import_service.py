@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, Protocol
 
 from django.db import transaction
 from django.utils.translation import gettext_lazy as _
@@ -11,10 +11,15 @@ from django.utils.translation import gettext_lazy as _
 from apps.core.exceptions import ValidationException
 
 if TYPE_CHECKING:
-    from apps.cases.models import Case
-    from apps.client.services.client_resolve_service import ClientResolveService
     from apps.contracts.models import Contract
-    from apps.organization.services.lawyer_resolve_service import LawyerResolveService
+
+
+class ClientResolverProtocol(Protocol):
+    def resolve_with_attachments(self, data: dict[str, Any]) -> Any: ...
+
+
+class LawyerResolverProtocol(Protocol):
+    def resolve(self, data: dict[str, Any]) -> Any: ...
 
 logger = logging.getLogger("apps.contracts")
 
@@ -40,9 +45,9 @@ class ContractImportService:
 
     def __init__(
         self,
-        client_resolve: ClientResolveService,
-        lawyer_resolve: LawyerResolveService,
-        case_import_fn: Callable[[dict[str, Any], Any], Case] | None = None,
+        client_resolve: ClientResolverProtocol,
+        lawyer_resolve: LawyerResolverProtocol,
+        case_import_fn: Callable[[dict[str, Any], Any], Any] | None = None,
     ) -> None:
         self._client_resolve = client_resolve
         self._lawyer_resolve = lawyer_resolve

@@ -67,9 +67,9 @@ class SMSMatchingStage(BaseSMSStage):
     @property
     def case_service(self) -> "ICaseService":
         if self._case_service is None:
-            from apps.core.interfaces import ServiceLocator
+            from apps.automation.services.wiring import get_case_service
 
-            self._case_service = ServiceLocator.get_case_service()
+            self._case_service = get_case_service()
         return self._case_service
 
     @property

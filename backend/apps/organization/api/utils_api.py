@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 from django.http import HttpRequest
+from ninja import Router
 
 from apps.organization.models import Lawyer
+
+router = Router(tags=["组织管理辅助"])
 
 
 def get_request_user(request: HttpRequest) -> Lawyer | None:

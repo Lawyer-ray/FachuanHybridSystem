@@ -167,6 +167,7 @@ articles/
 backend/bilibili_screenshot.png
 *.png
 !backend/apps/**/static/**/*.png
+/assets/videos/ggbond-competition-20260128.mp4
 
 # docs 目录（个人分析文档，不公开）
 docs/

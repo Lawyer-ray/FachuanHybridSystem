@@ -72,6 +72,7 @@ class ClientIdentityDoc(models.Model):
     uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name=_("上传时间"))
 
     def __str__(self) -> str:
+        # Admin inline 的首列会直接渲染 __str__，这里保持空字符串避免泄露冗余文案。
         return ""
 
     @property

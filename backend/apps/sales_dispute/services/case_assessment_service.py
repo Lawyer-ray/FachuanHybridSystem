@@ -12,6 +12,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
+from django.apps import apps as django_apps
 from django.db import transaction
 
 from apps.core.exceptions import ValidationException
@@ -94,10 +95,10 @@ class CaseAssessmentService:
         1. 证据评分 → 2. 时效计算 → 3. 管辖权分析 → 4. 策略推荐
         5. 保存/更新数据库记录
         """
-        from apps.cases.models import Case
         from apps.sales_dispute.models import CaseAssessment, EvidenceScore, JurisdictionAnalysis, LitigationStrategy
 
-        if not Case.objects.filter(id=input_data.case_id).exists():
+        case_model = django_apps.get_model("cases", "Case")
+        if not case_model.objects.filter(id=input_data.case_id).exists():
             raise ValidationException(
                 message="案件不存在",
                 code="CASE_NOT_FOUND",

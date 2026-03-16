@@ -11,6 +11,7 @@ from apps.documents.services.placeholders.base import BasePlaceholderService
 from apps.documents.services.placeholders.registry import PlaceholderRegistry
 
 logger = logging.getLogger(__name__)
+_NATURAL_CLIENT_TYPE = "natural"
 
 
 @PlaceholderRegistry.register
@@ -141,10 +142,8 @@ class PrincipalInfoService(BasePlaceholderService):
         lines: list[Any] = []
 
         try:
-            from apps.client.models import Client
-
             client_type = getattr(client, "client_type", None)
-            is_natural = client_type == Client.NATURAL
+            is_natural = client_type == _NATURAL_CLIENT_TYPE
 
             if client_type is not None:
                 if is_natural:

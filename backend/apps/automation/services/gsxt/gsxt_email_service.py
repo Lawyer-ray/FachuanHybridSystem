@@ -85,3 +85,10 @@ def _fetch_report_attachment(
     except Exception:
         logger.exception("163 IMAP 收取报告失败")
     return None
+
+
+class GsxtEmailService:
+    """Class-based facade for GSXT email retrieval."""
+
+    def fetch_report_attachment(self, user: str, password: str, company_name: str) -> bytes | None:
+        return _fetch_report_attachment(user, password, company_name)

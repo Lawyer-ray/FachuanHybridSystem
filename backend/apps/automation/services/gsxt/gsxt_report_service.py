@@ -225,7 +225,7 @@ async def _run_full_flow(task_id: int) -> None:
             def _schedule_email_check() -> None:
                 Schedule.objects.create(
                     func="apps.automation.tasks.gsxt_tasks.check_gsxt_report_email",
-                    args=f"{task_id},{repr(task.company_name)}",
+                    args=f"{task_id},{task.company_name!r}",
                     schedule_type=Schedule.ONCE,
                     next_run=timezone.now() + timedelta(seconds=60),
                     name=f"gsxt_email_first_{task_id}",
@@ -251,3 +251,10 @@ def start_report_flow(task_id: int) -> None:
     t = threading.Thread(target=_run, daemon=True)
     t.start()
     logger.info("报告申请后台线程已启动，task_id=%d", task_id)
+
+
+class GsxtReportService:
+    """Class-based facade for GSXT report workflow."""
+
+    def start_report_flow(self, task_id: int) -> None:
+        start_report_flow(task_id)

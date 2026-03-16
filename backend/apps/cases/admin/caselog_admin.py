@@ -4,7 +4,7 @@ from django.contrib import admin
 from django.forms import ModelForm
 from django.http import HttpRequest
 
-from apps.cases.admin.base import BaseModelAdmin
+from apps.cases.admin.base_admin import BaseModelAdmin
 from apps.cases.models import CaseLog, CaseLogAttachment
 
 

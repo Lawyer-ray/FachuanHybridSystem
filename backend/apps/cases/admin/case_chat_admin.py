@@ -10,7 +10,7 @@ from django.utils.html import format_html
 from django.utils.safestring import SafeString
 from django.utils.translation import gettext_lazy as _
 
-from apps.cases.admin.base import BaseTabularInline
+from apps.cases.admin.base_admin import BaseTabularInline
 from apps.cases.admin.mixins import CaseAdminServiceMixin
 from apps.cases.models import CaseChat
 

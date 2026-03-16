@@ -4,6 +4,8 @@ import logging
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
+from django.apps import apps as django_apps
+
 logger = logging.getLogger("apps.oa_filing")
 
 _executor = ThreadPoolExecutor(max_workers=2)
@@ -24,9 +26,9 @@ class ScriptExecutorService:
     ) -> Any:
         from apps.oa_filing.models import FilingSession, SessionStatus
         from apps.oa_filing.services.exceptions import ScriptExecutionError
-        from apps.organization.models import AccountCredential
 
-        credential: AccountCredential | None = AccountCredential.objects.filter(
+        credential_model = django_apps.get_model("organization", "AccountCredential")
+        credential = credential_model.objects.filter(
             lawyer=user,
             site_name=site_name,
         ).first()
@@ -93,9 +95,6 @@ class ScriptExecutorService:
 
     def _run_jtn(self, credential: Any, contract_id: int, case_id: int | None) -> None:
         """执行金诚同达 OA 立案。"""
-        from apps.cases.models import Case
-        from apps.client.models import Client
-        from apps.contracts.models import Contract, ContractAssignment, ContractParty
         from apps.oa_filing.services.exceptions import ScriptExecutionError
         from apps.oa_filing.services.oa_scripts.jtn_filing import (
             CaseInfo,
@@ -104,17 +103,21 @@ class ScriptExecutorService:
             ContractInfo,
             JtnFilingScript,
         )
+        case_model = django_apps.get_model("cases", "Case")
+        contract_model = django_apps.get_model("contracts", "Contract")
+        contract_assignment_model = django_apps.get_model("contracts", "ContractAssignment")
+        contract_party_model = django_apps.get_model("contracts", "ContractParty")
 
         # ── 委托方（PRINCIPAL） ──
-        principal_parties: list[ContractParty] = list(
-            ContractParty.objects.filter(
+        principal_parties: list[Any] = list(
+            contract_party_model.objects.filter(
                 contract_id=contract_id,
                 role="PRINCIPAL",
             ).select_related("client")
         )
         clients: list[ClientInfo] = []
         for party in principal_parties:
-            c: Client = party.client
+            c = party.client
             clients.append(
                 ClientInfo(
                     name=c.name,
@@ -129,8 +132,8 @@ class ScriptExecutorService:
             raise ScriptExecutionError("合同没有委托方当事人")
 
         # ── 案件负责人（主办律师 real_name） ──
-        primary_assignment: ContractAssignment | None = (
-            ContractAssignment.objects.filter(
+        primary_assignment = (
+            contract_assignment_model.objects.filter(
                 contract_id=contract_id,
                 is_primary=True,
             )
@@ -142,10 +145,10 @@ class ScriptExecutorService:
             manager_name = primary_assignment.lawyer.real_name or ""
 
         # ── 案件信息 ──
-        contract: Contract = Contract.objects.get(pk=contract_id)
+        contract = contract_model.objects.get(pk=contract_id)
 
         if case_id is not None:
-            case: Case | None = Case.objects.get(pk=case_id)
+            case = case_model.objects.get(pk=case_id)
             category = self._map_case_category(case)
             stage = self._map_case_stage(case)
             which_side = self._map_which_side(case, contract_id)
@@ -181,8 +184,8 @@ class ScriptExecutorService:
         )
 
         # ── 对方当事人（OPPOSING → 利冲） ──
-        opposing_parties: list[ContractParty] = list(
-            ContractParty.objects.filter(
+        opposing_parties: list[Any] = list(
+            contract_party_model.objects.filter(
                 contract_id=contract_id,
                 role="OPPOSING",
             ).select_related("client")
@@ -321,23 +324,21 @@ class ScriptExecutorService:
 
     def _map_which_side(self, case: Any, contract_id: int) -> str:
         """从案件我方当事人诉讼地位推断代理何方。取第一个我方当事人的诉讼地位。"""
-        from apps.cases.models import CaseParty
-        from apps.contracts.models import ContractParty
-
+        case_party_model = django_apps.get_model("cases", "CaseParty")
+        contract_party_model = django_apps.get_model("contracts", "ContractParty")
         our_client_ids = set(
-            ContractParty.objects.filter(
+            contract_party_model.objects.filter(
                 contract_id=contract_id, role="PRINCIPAL"
             ).values_list("client_id", flat=True)
         )
-        party = CaseParty.objects.filter(case=case, client_id__in=our_client_ids).first()
+        party = case_party_model.objects.filter(case=case, client_id__in=our_client_ids).first()
         mapping = {"plaintiff": "01", "defendant": "02", "third": "09"}
         return mapping.get(getattr(party, "legal_status", None) or "", "01")
 
     def _map_legal_position(self, contract_party: Any) -> str:
         """从 CaseParty 取对方当事人诉讼地位，映射到 OA 法律地位值。"""
-        from apps.cases.models import CaseParty
-
-        case_party = CaseParty.objects.filter(
+        case_party_model = django_apps.get_model("cases", "CaseParty")
+        case_party = case_party_model.objects.filter(
             client_id=contract_party.client_id
         ).first()
         mapping = {"plaintiff": "01", "defendant": "02", "third": "09"}

@@ -155,11 +155,11 @@ class Command(BaseCommand):
         labeled_cases_in_dataset = self._count_labeled_cases(cases=cases)
         if min_labeled_cases > 0 and labeled_cases_in_dataset < min_labeled_cases:
             raise CommandError(
-                (
+
                     f"标注样本不足: {labeled_cases_in_dataset}/{len(cases)}，"
                     f"要求至少 {min_labeled_cases} 条。"
                     "可用 --min-labeled-cases 0 跳过校验。"
-                )
+
             )
 
         credential_override = options.get("credential_id")
@@ -418,13 +418,13 @@ class Command(BaseCommand):
             self.stdout.write("=== Query Type Contribution ===")
             for metric in query_type_metrics:
                 self.stdout.write(
-                    (
+
                         f"{metric['query_type']}({metric['query_type_label']}): "
                         f"cases={metric['total_cases']} labeled={metric['labeled_cases']} "
                         f"tp/fp/fn={metric['tp']}/{metric['fp']}/{metric['fn']} "
                         f"f1={float(metric['f1']):.4f} "
                         f"贡献率={float(metric['contribution_rate']):.4f}"
-                    )
+
                 )
         return {"summary": summary, "cases": reports}
 
@@ -722,11 +722,11 @@ class Command(BaseCommand):
                 return base
             return replace(base, **filtered)
 
-        setattr(LegalResearchTuningConfig, "load", classmethod(_patched_load))
+        LegalResearchTuningConfig.load = classmethod(_patched_load)
         try:
             yield
         finally:
-            setattr(LegalResearchTuningConfig, "load", original)
+            LegalResearchTuningConfig.load = original
 
     @classmethod
     def _load_cases(cls, *, path: Path) -> list[dict[str, Any]]:
