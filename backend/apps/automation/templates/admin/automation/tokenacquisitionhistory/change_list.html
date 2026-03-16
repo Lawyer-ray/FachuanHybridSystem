@@ -3,7 +3,7 @@
 
 {% block content_title %}
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <h1>Token获取历史记录</h1>
+        <h1>一张网/保全Token获取历史记录</h1>
         <a href="{% url 'admin:automation_tokenacquisitionhistory_dashboard' %}" class="button default">查看仪表板</a>
     </div>
 
@@ -37,7 +37,7 @@
             <div class="stat-card">
                 <div class="stat-title">快速操作</div>
                 <div><a href="{% url 'admin:organization_accountcredential_changelist' %}">管理账号凭证</a></div>
-                <div><a href="{% url 'admin:automation_courttoken_changelist' %}">查看Token状态</a></div>
+                <div><a href="{% url 'admin:automation_courttoken_changelist' %}">查看一张网/保全Token状态</a></div>
                 <div><a href="{% url 'admin:automation_preservationquote_changelist' %}">财产保全询价</a></div>
             </div>
         </div>
@@ -48,7 +48,7 @@
 {% block result_list %}
     {% if statistics.total_records == 0 %}
     <div class="module" style="text-align: center; padding: 40px;">
-        <p style="color: #666; margin-bottom: 20px;">当系统需要获取Token时，相关记录会显示在这里。</p>
+        <p style="color: #666; margin-bottom: 20px;">当系统需要获取一张网/保全系统Token时，相关记录会显示在这里。</p>
         <a href="{% url 'admin:organization_accountcredential_changelist' %}" class="button default" style="margin-right: 10px;">配置账号凭证</a>
         <a href="{% url 'admin:automation_preservationquote_changelist' %}" class="button">创建询价任务</a>
     </div>

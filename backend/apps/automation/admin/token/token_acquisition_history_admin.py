@@ -19,9 +19,14 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import TokenAcquisitionHistory, TokenAcquisitionStatus
 
+SITE_NAME_LABELS: dict[str, str] = {
+    "court_zxfw": "人民法院在线服务网（一张网）",
+    "court_baoquan": "人民法院保全系统",
+}
+
 
 def _get_token_history_admin_service() -> Any:
-    """工厂函数：创建Token历史管理服务"""
+    """工厂函数：创建一张网/保全Token历史管理服务"""
     from apps.automation.services.admin import TokenAcquisitionHistoryAdminService
 
     return TokenAcquisitionHistoryAdminService()
@@ -30,10 +35,10 @@ def _get_token_history_admin_service() -> Any:
 @admin.register(TokenAcquisitionHistory)
 class TokenAcquisitionHistoryAdmin(admin.ModelAdmin[TokenAcquisitionHistory]):
     """
-    Token获取历史记录管理 Admin
+    一张网/保全系统 Token获取历史记录管理 Admin
 
     功能：
-    - 查看所有Token获取历史记录
+    - 查看所有一张网/保全系统 Token 获取历史记录
     - 按网站、账号、状态搜索和过滤
     - 显示详细的执行统计信息
     - 查看错误详情和性能指标
@@ -41,7 +46,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin[TokenAcquisitionHistory]):
 
     list_display: ClassVar[list[str]] = [  # type: ignore[assignment,misc]
         "id",
-        "site_name",
+        "site_name_display",
         "account",
         "status_display",
         "trigger_reason_display",
@@ -141,6 +146,11 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin[TokenAcquisitionHistory]):
 
     list_per_page = 50
 
+    @admin.display(description=_("站点"))
+    def site_name_display(self, obj: TokenAcquisitionHistory) -> str:
+        """显示可读站点名称"""
+        return SITE_NAME_LABELS.get(obj.site_name, obj.site_name)
+
     @admin.display(description=_("状态"))
     def status_display(self, obj: TokenAcquisitionHistory) -> SafeString:
         """带颜色的状态显示"""
@@ -175,8 +185,8 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin[TokenAcquisitionHistory]):
     def trigger_reason_display(self, obj: TokenAcquisitionHistory) -> SafeString:
         """格式化触发原因"""
         reason_map: dict[str, str] = {
-            "token_expired": "Token过期",
-            "no_token": "无Token",
+            "token_expired": "Token已过期",
+            "no_token": "无可用Token",
             "manual_trigger": "手动触发",
             "auto_refresh": "自动刷新",
             "system_startup": "系统启动",
@@ -354,7 +364,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin[TokenAcquisitionHistory]):
     # 定义批量操作
     actions: ClassVar[list[str]] = ["cleanup_old_records", "export_to_csv", "reanalyze_performance"]  # type: ignore[misc]
 
-    @admin.action(description=_("清理30天前的历史记录"))
+    @admin.action(description=_("清理30天前的一张网/保全Token历史记录"))
     def cleanup_old_records(
         self,
         request: HttpRequest,
@@ -458,7 +468,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin[TokenAcquisitionHistory]):
         return custom_urls + urls
 
     def dashboard_view(self, request: HttpRequest) -> HttpResponse:
-        """Token获取仪表板视图"""
+        """一张网/保全Token获取仪表板视图"""
         try:
             service = _get_token_history_admin_service()
             stats: dict[str, Any] = service.get_dashboard_statistics()
@@ -470,7 +480,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin[TokenAcquisitionHistory]):
     def _build_dashboard_context(self, stats: dict[str, Any]) -> dict[str, Any]:
         """构建仪表板上下文"""
         return {
-            "title": "Token获取仪表板",
+            "title": "一张网/保全Token获取仪表板",
             "total_records": stats["total_records"],
             "success_records": stats["success_records"],
             "success_rate": stats["success_rate"],
@@ -497,7 +507,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin[TokenAcquisitionHistory]):
         from django.shortcuts import render
 
         context: dict[str, Any] = {
-            "title": "Token获取仪表板",
+            "title": "一张网/保全Token获取仪表板",
             "error": error,
             "opts": self.model._meta,
         }

@@ -18,13 +18,19 @@ from django.utils.translation import gettext_lazy as _
 from apps.automation.models import CourtToken
 
 
+SITE_NAME_LABELS: dict[str, str] = {
+    "court_zxfw": "人民法院在线服务网（一张网）",
+    "court_baoquan": "人民法院保全系统",
+}
+
+
 @admin.register(CourtToken)
 class CourtTokenAdmin(admin.ModelAdmin[CourtToken]):
     """
-    Token 管理 Admin
+    一张网/保全系统 Token 管理 Admin
 
     功能：
-    - 查看所有 Token
+    - 查看所有一张网/保全系统 Token
     - 按网站、账号搜索
     - 按过期状态过滤
     - 显示 Token 状态（有效/过期）
@@ -32,7 +38,7 @@ class CourtTokenAdmin(admin.ModelAdmin[CourtToken]):
 
     list_display: ClassVar[list[str]] = [
         "id",
-        "site_name",
+        "site_name_display",
         "account",
         "token_preview",
         "token_type",
@@ -65,7 +71,13 @@ class CourtTokenAdmin(admin.ModelAdmin[CourtToken]):
     ]
 
     fieldsets: ClassVar[tuple[Any, ...]] = (
-        (_("基本信息"), {"fields": ("id", "site_name", "account", "token_type")}),
+        (
+            _("基本信息"),
+            {
+                "description": _("该模块用于管理人民法院在线服务网（一张网）和保全系统的认证Token。"),
+                "fields": ("id", "site_name", "account", "token_type"),
+            },
+        ),
         (_("Token 信息"), {"fields": ("token_full", "status_display", "remaining_time")}),
         (_("时间信息"), {"fields": ("expires_at", "created_at", "updated_at")}),
     )
@@ -74,6 +86,11 @@ class CourtTokenAdmin(admin.ModelAdmin[CourtToken]):
     date_hierarchy = "created_at"
 
     list_per_page = 50
+
+    @admin.display(description=_("站点"))
+    def site_name_display(self, obj: CourtToken) -> str:
+        """显示可读站点名称"""
+        return SITE_NAME_LABELS.get(obj.site_name, obj.site_name)
 
     @admin.display(description=_("Token 预览"))
     def token_preview(self, obj: CourtToken) -> str:
@@ -131,11 +148,11 @@ class CourtTokenAdmin(admin.ModelAdmin[CourtToken]):
         return format_html('<span style="color: {}; font-weight: bold;">{}</span>', color, time_str)
 
     def has_add_permission(self, request: HttpRequest) -> bool:
-        """禁用添加功能（Token 应该由系统自动创建）"""
+        """禁用添加功能（Token 由系统自动创建）"""
         return False
 
     def has_change_permission(self, request: HttpRequest, obj: CourtToken | None = None) -> bool:
-        """禁用修改功能（Token 应该由系统管理）"""
+        """禁用修改功能（Token 由系统管理）"""
         return False
 
     def get_actions(self, request: HttpRequest) -> dict[str, Any]:
@@ -145,17 +162,17 @@ class CourtTokenAdmin(admin.ModelAdmin[CourtToken]):
         actions["delete_expired_tokens"] = (
             self.delete_expired_tokens,
             "delete_expired_tokens",
-            _("删除已过期的 Token"),
+            _("删除已过期的一张网/保全Token"),
         )
 
         return actions
 
     def delete_expired_tokens(self, request: HttpRequest, queryset: QuerySet[CourtToken]) -> None:
-        """批量删除过期的 Token"""
+        """批量删除过期的一张网/保全Token"""
         expired_tokens = [token for token in queryset if token.is_expired()]
         count = len(expired_tokens)
 
         for token in expired_tokens:
             token.delete()
 
-        self.message_user(request, _(f"成功删除 {count} 个已过期的 Token"))
+        self.message_user(request, _(f"成功删除 {count} 个已过期的一张网/保全Token"))
