@@ -2,14 +2,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from apps.core.interfaces import ServiceLocator
-
-if TYPE_CHECKING:
-    from apps.invoice_recognition.services.invoice_download_service import InvoiceDownloadService
-    from apps.invoice_recognition.services.invoice_recognition_service import InvoiceRecognitionService
-    from apps.invoice_recognition.services.quick_recognition_service import QuickRecognitionService
 
 
 def get_case_service() -> Any:
@@ -118,21 +113,3 @@ def get_security_service() -> Any:
 
 def get_monitor_service() -> Any:
     return ServiceLocator.get_monitor_service()
-
-
-def get_invoice_recognition_service() -> InvoiceRecognitionService:
-    from apps.invoice_recognition.services.wiring import get_invoice_recognition_service as _get_invoice_recognition_service
-
-    return _get_invoice_recognition_service()
-
-
-def get_invoice_download_service() -> InvoiceDownloadService:
-    from apps.invoice_recognition.services.wiring import get_invoice_download_service as _get_invoice_download_service
-
-    return _get_invoice_download_service()
-
-
-def get_quick_recognition_service() -> QuickRecognitionService:
-    from apps.invoice_recognition.services.wiring import get_quick_recognition_service as _get_quick_recognition_service
-
-    return _get_quick_recognition_service()

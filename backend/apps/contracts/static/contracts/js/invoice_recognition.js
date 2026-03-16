@@ -94,7 +94,7 @@ document.addEventListener('alpine:init', () => {
                 const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
 
                 // 调用快速识别 API
-                const response = await fetch('/api/v1/automation/invoice-recognition/quick-recognize', {
+                const response = await fetch('/api/v1/invoice-recognition/quick-recognize', {
                     method: 'POST',
                     headers: {
                         'X-CSRFToken': csrfToken

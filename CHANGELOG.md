@@ -17,14 +17,12 @@
 - **类型边界与容错可观测性增强（不改变业务语义）**
   - `cases` 的 `wiring/dependencies/schemas/admin/service` 多处 `Any` 收紧为协议类型或 `dict[str, object]`
   - `CaseLog` 提醒读取异常路径补充日志，保持原有 fallback 行为
-- **Automation 工具独立拆分（保持业务流程兼容）**
+- **Automation 工具独立拆分（新场景直连，无兼容层）**
   - 新增独立应用：`apps.image_rotation`、`apps.invoice_recognition`，分别承接原 `apps.automation` 中对应模块的 `models/admin/api/services/templates`
   - `invoice_recognition` 采用 `managed=False + db_table` 映射既有表（`automation_invoicerecognitiontask` / `automation_invoicerecord`），不改动业务数据结构
-  - 保留原业务入口兼容层：
-    - Admin：旧入口 `/admin/automation/imagerotation/`、`/admin/automation/invoicerecognitiontask/` 重定向到新 app
-    - API：`/api/v1/automation/image-rotation/*`、`/api/v1/automation/invoice-recognition/*` 路径保持不变，旧模块改为 shim 转发
-    - Service Import：`apps.automation.services.image_rotation.*` 与 `apps.automation.services.ocr.invoice_*` 保留兼容 shim，避免历史导入路径失效
-  - `apps.automation.services.wiring` 中发票识别装配改为转发新 app wiring，调用方无感切换
+  - 移除旧入口兼容层：删除 `automation` 下 image/invoice 的 admin 重定向、API shim、service shim
+  - API 入口改为新路径：`/api/v1/image-rotation/*`、`/api/v1/invoice-recognition/*`
+  - 测试工具导航中的图片旋转入口改为新 admin 路由（`image_rotation_imagerotationtool_changelist`）
 
 ### 测试
 - 新增回归测试：

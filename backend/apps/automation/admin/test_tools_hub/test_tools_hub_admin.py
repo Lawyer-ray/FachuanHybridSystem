@@ -78,7 +78,7 @@ class TestToolsHubAdmin(admin.ModelAdmin):
             {
                 "name": "图片自动旋转",
                 "description": "批量处理图片方向,自动识别 EXIF 信息并旋转校正,支持手动调整和 ZIP 导出",
-                "url": "automation_imagerotation_changelist",
+                "url": "image_rotation_imagerotationtool_changelist",
                 "icon": icon_rotate,
                 "color": "info",
             },
