@@ -9,19 +9,9 @@ from .document import DocumentProcessorAdmin
 # 文书送达 Admin
 from .document_delivery import DocumentDeliveryScheduleAdmin, DocumentQueryHistoryAdmin
 
-# 文书识别 Admin
-from .document_recognition import DocumentRecognitionAdmin, DocumentRecognitionTaskAdmin
-
-# 交费通知书识别 Admin
-from .fee_notice import FeeNoticeTestAdmin
-
-
 # 财产保全询价 Admin
 from .insurance import PreservationQuoteAdmin
 
-
-# 财产保全日期识别 Admin
-from .preservation_date import PreservationDateTestAdmin
 
 # 爬虫 Admin
 from .scraper import CourtDocumentAdmin, QuickDownloadAdmin, ScraperTaskAdmin, TestCourtAdmin
@@ -53,11 +43,6 @@ __all__ = [
     # 文书送达
     "DocumentDeliveryScheduleAdmin",
     "DocumentQueryHistoryAdmin",
-    # 文书识别
-    "DocumentRecognitionAdmin",
-    "DocumentRecognitionTaskAdmin",
     # 测试工具
     "TestToolsHubAdmin",
-    "FeeNoticeTestAdmin",
-    "PreservationDateTestAdmin",
 ]

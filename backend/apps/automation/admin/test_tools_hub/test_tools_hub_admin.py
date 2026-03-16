@@ -64,14 +64,14 @@ class TestToolsHubAdmin(admin.ModelAdmin):
             {
                 "name": "交费通知书识别",
                 "description": "测试交费通知书 PDF 的 OCR 识别和信息提取功能",
-                "url": "automation_feenoticetest_changelist",
+                "url": "fee_notice_feenoticetool_changelist",
                 "icon": icon_document,
                 "color": "primary",
             },
             {
                 "name": "财产保全日期识别",
                 "description": "从法院文书中识别财产保全措施的到期时间",
-                "url": "automation_preservationdatetest_changelist",
+                "url": "preservation_date_preservationdatetool_changelist",
                 "icon": icon_calendar,
                 "color": "warning",
             },
