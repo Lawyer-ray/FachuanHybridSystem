@@ -265,13 +265,13 @@ class SMSSubmissionService:
             case_log_service = build_sms_case_log_service()
 
             # 获取系统用户（使用管理员用户作为系统操作人）
-            admin_lawyer_dto = self.lawyer_service.get_admin_lawyer_internal()
+            admin_lawyer_dto = self.lawyer_service.get_admin_lawyer()
             if not admin_lawyer_dto:
                 logger.error("未找到管理员用户，无法创建案件日志")
                 return False
 
             # 通过 ServiceLocator 获取 Lawyer 服务，避免跨模块 Model 导入
-            system_user = self.lawyer_service.get_lawyer_internal(admin_lawyer_dto.id)  # type: ignore
+            system_user = self.lawyer_service.get_lawyer_model(admin_lawyer_dto.id)  # type: ignore
 
             # 如果短信提取到案号，自动写入案件（如果不存在）
             if sms.case_numbers:
@@ -305,7 +305,7 @@ class SMSSubmissionService:
                 logger.info(f"短信 {sms.id} 没有有效的案号需要写入")
                 return
 
-            admin_lawyer_dto = self.lawyer_service.get_admin_lawyer_internal()
+            admin_lawyer_dto = self.lawyer_service.get_admin_lawyer()
             user_id = admin_lawyer_dto.id if admin_lawyer_dto else None
 
             added_count = sum(

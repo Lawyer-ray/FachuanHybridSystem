@@ -611,7 +611,7 @@ class DocumentDeliveryService(
         page = None
         try:
             organization_service = ServiceLocator.get_organization_service()
-            credential = organization_service.get_credential_internal(credential_id)
+            credential = organization_service.get_credential(credential_id)
             if not credential:
                 error_msg = f"账号凭证不存在: {credential_id}"
                 logger.error(error_msg)

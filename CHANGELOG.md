@@ -2,6 +2,37 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.16.9] - 2026-03-16
+
+### 重构
+- **Organization 模块边界收敛执行完成（兼容优先）**
+  - `IOrganizationService` / `ILawyerService` 增加正式命名方法，保留 `_internal` 兼容层并完成主要运行时调用迁移
+  - `LawyerAdmin.handle_json_import` 业务逻辑下沉到 `LawyerImportService`，Admin 保持入口编排职责
+  - `OrganizationServiceAdapter` 改为通过 `AccountCredentialService` 公开查询方法读取数据，减少对私有查询接口依赖
+- **跨模块运行时调用收敛**
+  - `automation/api`、`oa_filing/api`、`legal_research` admin/command、`documents/evidence/core/cases` 部分运行时调用已迁移到 organization service 边界
+  - `automation` 的 scraper admin 入口改为工厂构建 organization service，不再在入口层直接使用 `ServiceLocator`
+
+### 修复
+- **注册引导与组织 API 回归修复**
+  - `AuthService.register` 增加 `bootstrap_token` 契约支持，修复首个管理员注册生产环境校验回归
+  - 修复 `lawfirm` 更新路径测试回归（404）
+- **SMS 解析回归修复**
+  - 修复当“现有客户未命中”时提前返回的问题，恢复候选提取 + 匹配服务回退路径
+  - `SMSParserService` 改为惰性读取 Ollama 配置，避免初始化阶段触发不必要依赖
+- **敏感字符串保护增强**
+  - 保持 DTO `repr` 隐藏密码、Admin 密码输入遮罩、只读密码展示等行为，并补充兼容性注释，防止后续重构恢复明文展示
+
+### 测试
+- 新增 organization 兼容与导入回归测试：
+  - `apps/organization/test_lawyer_import_service.py`
+  - `apps/organization/test_lawyer_service_adapter_compat.py`
+  - `apps/organization/test_organization_service_adapter_compat.py`
+- 新增 automation 回归测试：
+  - `apps/automation/test_sms_parser_lazy_config.py`
+- 关键组合回归：
+  - `organization + structure + legal_research + sms`：`162 passed, 1 warning`
+
 ## [26.16.8] - 2026-03-16
 
 ### 重构

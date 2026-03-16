@@ -23,7 +23,6 @@ from apps.legal_research.services.keywords import KEYWORD_INPUT_HELP_TEXT, norma
 from apps.legal_research.services.llm_preflight import verify_siliconflow_connectivity
 from apps.legal_research.services.task_service import LegalResearchTaskService
 from apps.legal_research.services.task_state_sync import sync_failed_queue_state
-from apps.organization.models import AccountCredential, Lawyer
 
 logger = logging.getLogger(__name__)
 
@@ -261,12 +260,19 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
 
         credential_field.help_text = "仅显示wkxx账号。"
 
-    def _get_weike_credential_queryset(self, request) -> QuerySet[AccountCredential, AccountCredential]:
-        qs = AccountCredential.objects.select_related("lawyer", "lawyer__law_firm").filter(self.WEIKE_SITE_FILTER)
+    @staticmethod
+    def _get_credential_model() -> Any:
+        credential_field = LegalResearchTask._meta.get_field("credential")
+        return credential_field.remote_field.model
+
+    def _get_weike_credential_queryset(self, request) -> QuerySet[Any, Any]:
+        credential_model = self._get_credential_model()
+        qs = credential_model.objects.select_related("lawyer", "lawyer__law_firm").filter(self.WEIKE_SITE_FILTER)
         user = getattr(request, "user", None)
         if not getattr(user, "is_superuser", False):
-            if isinstance(user, Lawyer):
-                qs = qs.filter(lawyer__law_firm_id=user.law_firm_id)
+            is_lawyer_user = getattr(getattr(user, "_meta", None), "label_lower", "") == "organization.lawyer"
+            if is_lawyer_user:
+                qs = qs.filter(lawyer__law_firm_id=getattr(user, "law_firm_id", None))
             else:
                 return qs.none()
         return qs.order_by("-last_login_success_at", "-login_success_count", "login_failure_count", "-id")
@@ -600,8 +606,9 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
             if default_credential is not None:
                 obj.credential = default_credential
 
-        if obj.created_by_id is None and isinstance(request.user, Lawyer):
-            obj.created_by = request.user
+        is_lawyer_user = getattr(getattr(request.user, "_meta", None), "label_lower", "") == "organization.lawyer"
+        if obj.created_by_id is None and is_lawyer_user and getattr(request.user, "id", None) is not None:
+            obj.created_by_id = int(request.user.id)
 
         super().save_model(request, obj, form, change)
         task_service.reset_task_for_dispatch(

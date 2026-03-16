@@ -37,13 +37,13 @@ class LawyerServiceAdapter(ILawyerService):
         members = self.service.get_team_members(team_id)
         return [self._to_dto(m) for m in members]
 
-    def get_admin_lawyer_internal(self) -> LawyerDTO | None:
+    def get_admin_lawyer(self) -> LawyerDTO | None:
         admin_lawyer = self.service.get_lawyer_queryset().filter(is_admin=True).first()
         if admin_lawyer is not None:
             return self._to_dto(admin_lawyer)
         return None
 
-    def get_all_lawyer_names_internal(self) -> list[str]:
+    def get_all_lawyer_names(self) -> list[str]:
         names = (
             self.service.get_lawyer_queryset()
             .filter(real_name__isnull=False)
@@ -52,5 +52,14 @@ class LawyerServiceAdapter(ILawyerService):
         )
         return list(names)
 
-    def get_lawyer_internal(self, lawyer_id: int) -> Lawyer | None:
+    def get_lawyer_model(self, lawyer_id: int) -> Lawyer | None:
         return self.service.get_lawyer_by_id(lawyer_id)
+
+    def get_admin_lawyer_internal(self) -> LawyerDTO | None:
+        return self.get_admin_lawyer()
+
+    def get_all_lawyer_names_internal(self) -> list[str]:
+        return self.get_all_lawyer_names()
+
+    def get_lawyer_internal(self, lawyer_id: int) -> Lawyer | None:
+        return self.get_lawyer_model(lawyer_id)

@@ -234,9 +234,9 @@ class CauseCourtInitializationService:
         token_store = get_court_token_store_service()
 
         if credential_id:
-            credential = await sync_to_async(organization_service.get_credential_internal)(credential_id)
+            credential = await sync_to_async(organization_service.get_credential)(credential_id)
         else:
-            all_credentials = await sync_to_async(organization_service.get_all_credentials_internal)()
+            all_credentials = await sync_to_async(organization_service.get_all_credentials)()
             credentials = [c for c in all_credentials if "zxfw.court.gov.cn" in (c.url or "")]
             if not credentials:
                 raise TokenError("没有找到法院一张网的账号凭证")

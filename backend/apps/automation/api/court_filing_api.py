@@ -48,11 +48,16 @@ class ExecuteCourtFilingOut(Schema):
 # ==================== API ====================
 
 
+def _get_organization_service() -> Any:
+    from apps.core.dependencies import build_organization_service
+
+    return build_organization_service()
+
+
 @router.get("/case-info/{case_id}", response=CaseFilingInfoOut)
 def get_case_filing_info(request: HttpRequest, case_id: int) -> Any:
     """获取案件立案所需信息"""
     from apps.cases.models import Case, CaseParty, SupervisingAuthority
-    from apps.organization.models import AccountCredential
 
     PLAINTIFF_SIDE = {"plaintiff", "applicant", "appellant", "orig_plaintiff"}
 
@@ -75,9 +80,10 @@ def get_case_filing_info(request: HttpRequest, case_id: int) -> Any:
             if p.legal_status in PLAINTIFF_SIDE:
                 our_party_is_plaintiff_side = True
 
-    has_court_credential = AccountCredential.objects.filter(
-        lawyer=request.user, site_name="一张网"
-    ).exists()
+    lawyer_id = getattr(request.user, "id", None)
+    has_court_credential = bool(
+        lawyer_id and _get_organization_service().has_credential_for_lawyer(int(lawyer_id), "一张网")
+    )
 
     return {
         "case_id": case.id,
@@ -98,15 +104,17 @@ def execute_court_filing(request: HttpRequest, payload: ExecuteCourtFilingIn) ->
     from concurrent.futures import ThreadPoolExecutor
 
     from apps.cases.models import Case, CaseParty, SupervisingAuthority
-    from apps.organization.models import AccountCredential
 
     case = Case.objects.get(pk=payload.case_id)
+    organization_service = _get_organization_service()
+    lawyer_id = getattr(request.user, "id", None)
 
     # 获取一张网凭证
-    credential = AccountCredential.objects.filter(
-        lawyer=request.user,
-        site_name="一张网",
-    ).first()
+    credential = (
+        organization_service.get_credential_for_lawyer(int(lawyer_id), "一张网")
+        if lawyer_id is not None
+        else None
+    )
     if not credential:
         return {"success": False, "message": "未找到一张网账号凭证", "session_id": None}
 

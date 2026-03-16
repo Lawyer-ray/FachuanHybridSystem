@@ -41,7 +41,7 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
                         raise ValueError("unauthenticated user")
 
                     org_service = ServiceLocator.get_organization_service()
-                    lawyer_dto = org_service.get_lawyer_by_id_internal(getattr(user, "id", None))
+                    lawyer_dto = org_service.get_lawyer_by_id(getattr(user, "id", None))
                     if (
                         lawyer_dto
                         and getattr(user, "_meta", None)

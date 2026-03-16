@@ -176,7 +176,7 @@ class PartyMatchingService:
         """
         try:
             # 通过律师服务获取所有律师姓名
-            lawyer_names = self.lawyer_service.get_all_lawyer_names_internal()
+            lawyer_names = self.lawyer_service.get_all_lawyer_names()
 
             logger.info(f"获取到 {len(lawyer_names)} 个律师姓名: {lawyer_names}")
             return lawyer_names

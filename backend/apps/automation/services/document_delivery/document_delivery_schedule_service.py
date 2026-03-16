@@ -72,7 +72,7 @@ class DocumentDeliveryScheduleService:
         from apps.core.interfaces import ServiceLocator
 
         organization_service = ServiceLocator.get_organization_service()
-        organization_service.get_credential_internal(credential_id)
+        organization_service.get_credential(credential_id)
 
         # 检查是否已存在该凭证的定时任务
         existing_schedule = DocumentDeliverySchedule.objects.filter(credential_id=credential_id).first()

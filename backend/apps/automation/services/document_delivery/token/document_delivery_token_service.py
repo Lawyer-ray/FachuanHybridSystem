@@ -91,7 +91,7 @@ class DocumentDeliveryTokenService:
         try:
             # 1. 获取凭证信息以确定 site_name 和 account
             organization_service = ServiceLocator.get_organization_service()
-            credential = organization_service.get_credential_internal(credential_id)
+            credential = organization_service.get_credential(credential_id)
 
             if not credential:
                 logger.warning(f"凭证不存在: credential_id={credential_id}")
@@ -215,7 +215,7 @@ class DocumentDeliveryTokenService:
 
             # 获取凭证信息
             organization_service = ServiceLocator.get_organization_service()
-            credential = organization_service.get_credential_internal(credential_id)
+            credential = organization_service.get_credential(credential_id)
 
             if not credential:
                 logger.warning("凭证不存在，无法刷新 Token")
@@ -252,7 +252,7 @@ class DocumentDeliveryTokenService:
         try:
             # 获取凭证信息
             organization_service = ServiceLocator.get_organization_service()
-            credential = organization_service.get_credential_internal(credential_id)
+            credential = organization_service.get_credential(credential_id)
 
             if not credential:
                 logger.warning(f"凭证不存在: credential_id={credential_id}")

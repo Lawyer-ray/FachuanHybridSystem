@@ -22,6 +22,13 @@ def _get_test_service():
     return TestService()
 
 
+def _get_organization_service():
+    """工厂函数：创建组织服务实例"""
+    from apps.core.dependencies.business_organization import build_organization_service
+
+    return build_organization_service()
+
+
 @admin.register(TestCourt)
 class TestCourtAdmin(admin.ModelAdmin):
     """
@@ -41,13 +48,10 @@ class TestCourtAdmin(admin.ModelAdmin):
     # 自定义列表页
     def changelist_view(self, request, extra_context=None):
         """自定义列表页 - 显示测试选项"""
-        # 通过ServiceLocator获取organization服务
-        from apps.core.interfaces import ServiceLocator
-
-        organization_service = ServiceLocator.get_organization_service()
+        organization_service = _get_organization_service()
 
         # 获取所有账号凭证
-        credentials = organization_service.get_all_credentials_internal()
+        credentials = organization_service.get_all_credentials()
 
         context = {
             "title": "测试法院系统",
@@ -97,11 +101,8 @@ class TestCourtAdmin(admin.ModelAdmin):
 
         # 1. 获取凭证（用于显示）
         try:
-            # 通过ServiceLocator获取organization服务
-            from apps.core.interfaces import ServiceLocator
-
-            organization_service = ServiceLocator.get_organization_service()
-            credential = organization_service.get_credential_internal(credential_id)
+            organization_service = _get_organization_service()
+            credential = organization_service.get_credential(credential_id)
         except Exception:
             logger.warning("凭证 ID %s 不存在或获取失败", credential_id, exc_info=True)
             messages.error(request, f"凭证 ID {credential_id} 不存在")

@@ -191,7 +191,7 @@ class Command(BaseCommand):
             from apps.core.interfaces import ServiceLocator
 
             organization_service = ServiceLocator.get_organization_service()
-            credential = organization_service.get_credential_internal(credential_id)
+            credential = organization_service.get_credential(credential_id)
             return f"凭证{credential_id}({credential.username})"  # type: ignore[attr-defined]
         except Exception:
             return f"凭证{credential_id}"

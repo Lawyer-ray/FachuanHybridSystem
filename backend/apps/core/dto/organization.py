@@ -16,6 +16,7 @@ class AccountCredentialDTO:
     site_name: str
     url: str | None
     account: str
+    # Keep credential secret out of repr()/debug output during refactors.
     password: str = field(repr=False)
     last_login_success_at: str | None = None
     login_success_count: int = 0

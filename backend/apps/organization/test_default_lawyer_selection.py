@@ -26,7 +26,7 @@ def test_get_default_lawyer_prefers_admin() -> None:
     admin = _create_lawyer(law_firm=law_firm, is_admin=True)
     service = OrganizationServiceAdapter()
 
-    default_id = service.get_default_lawyer_id_internal()
+    default_id = service.get_default_lawyer_id()
 
     assert default_id == admin.id
     assert default_id != regular.id
@@ -39,7 +39,7 @@ def test_get_default_lawyer_falls_back_to_first_lawyer_when_no_admin() -> None:
     _create_lawyer(law_firm=law_firm, is_admin=False)
     service = OrganizationServiceAdapter()
 
-    default_id = service.get_default_lawyer_id_internal()
+    default_id = service.get_default_lawyer_id()
 
     assert default_id == first.id
 
@@ -48,6 +48,6 @@ def test_get_default_lawyer_falls_back_to_first_lawyer_when_no_admin() -> None:
 def test_get_default_lawyer_returns_none_when_no_lawyers() -> None:
     service = OrganizationServiceAdapter()
 
-    default_id = service.get_default_lawyer_id_internal()
+    default_id = service.get_default_lawyer_id()
 
     assert default_id is None

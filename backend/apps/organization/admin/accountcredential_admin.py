@@ -18,9 +18,6 @@ from django.utils.safestring import SafeString
 from django.utils.translation import gettext_lazy as _
 
 from apps.organization.models import AccountCredential
-from apps.organization.services import AccountCredentialService
-
-_credential_service = AccountCredentialService()
 
 
 @admin.register(AccountCredential)
@@ -68,6 +65,7 @@ class AccountCredentialAdmin(admin.ModelAdmin[AccountCredential]):
     ) -> type[forms.ModelForm]:  # type: ignore[override]
         form = super().get_form(request, obj, **kwargs)
         if "password" in form.base_fields:
+            # Preserve masked credential input; do not regress to plain text rendering.
             form.base_fields["password"].widget = forms.PasswordInput(render_value=True)
         # URL 字段使用普通文本输入框，隐藏 "Currently" 和 "Change"
         if "url" in form.base_fields:

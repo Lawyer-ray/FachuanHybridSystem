@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from typing import Any, ClassVar
 
 import zipfile
@@ -11,16 +10,20 @@ from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.admin.mixins import AdminImportExportMixin
-from apps.organization.models import AccountCredential, Lawyer, LawFirm, Team
+from apps.organization.models import AccountCredential, Lawyer, Team
 from apps.organization.models.team import TeamType
+from apps.organization.services.lawyer_import_service import LawyerImportService
 
-logger = logging.getLogger("apps.organization")
+
+def _get_lawyer_import_service() -> LawyerImportService:
+    return LawyerImportService()
 
 
 class LawyerAdminForm(forms.ModelForm[Lawyer]):
     new_password = forms.CharField(
         required=False,
         label=_("新密码"),
+        # Keep password entry masked to avoid accidental plain text exposure in admin.
         widget=forms.PasswordInput(render_value=False, attrs={"autocomplete": "new-password"}),
         help_text=_("留空则不修改密码"),
     )
@@ -39,6 +42,7 @@ class LawyerAdminForm(forms.ModelForm[Lawyer]):
         model = Lawyer
         fields = ("username", "password", "real_name", "phone", "license_no", "id_card", "license_pdf", "is_active", "is_admin", "is_staff", "is_superuser")
         widgets: ClassVar[dict[str, Any]] = {
+            # Existing password value remains read-only; do not turn this back into editable plain text.
             "password": forms.TextInput(attrs={"readonly": True, "style": "color:#999;background:#f5f5f5;"}),
         }
 
@@ -163,130 +167,6 @@ class LawyerAdmin(AdminImportExportMixin, admin.ModelAdmin[Lawyer]):
     def handle_json_import(
         self, data_list: list[dict[str, Any]], user: str, zip_file: zipfile.ZipFile | None
     ) -> tuple[int, int, list[str]]:
-        import secrets
-
-        success = skipped = 0
-        errors: list[str] = []
-        for i, item in enumerate(data_list, 1):
-            username = item.get("username", "")
-            try:
-                existing = Lawyer.objects.filter(username=username).first()
-                if existing:
-                    update_fields: list[str] = []
-                    for field, json_key in [
-                        ("real_name", "real_name"),
-                        ("phone", "phone"),
-                        ("license_no", "license_no"),
-                        ("id_card", "id_card"),
-                    ]:
-                        if not getattr(existing, field) and item.get(json_key):
-                            setattr(existing, field, item[json_key])
-                            update_fields.append(field)
-                    if not existing.license_pdf and item.get("license_pdf"):
-                        existing.license_pdf = item["license_pdf"]
-                        update_fields.append("license_pdf")
-                    if not existing.law_firm and item.get("law_firm"):
-                        existing.law_firm, _ = LawFirm.objects.get_or_create(name=item["law_firm"])
-                        update_fields.append("law_firm")
-                    if update_fields:
-                        existing.save(update_fields=update_fields)
-
-                    # lawyer_teams：只补充不存在的
-                    if item.get("lawyer_teams"):
-                        existing_lt_names = set(existing.lawyer_teams.values_list("name", flat=True))
-                        for t in item["lawyer_teams"]:
-                            t_name = t if isinstance(t, str) else t.get("name", "")
-                            if t_name not in existing_lt_names:
-                                t_firm_name = None if isinstance(t, str) else t.get("law_firm")
-                                t_firm = LawFirm.objects.get_or_create(name=t_firm_name)[0] if t_firm_name else existing.law_firm
-                                team, _ = Team.objects.get_or_create(name=t_name, team_type=TeamType.LAWYER, defaults={"law_firm": t_firm})
-                                existing.lawyer_teams.add(team)
-
-                    # biz_teams：只补充不存在的
-                    if item.get("biz_teams"):
-                        existing_bt_names = set(existing.biz_teams.values_list("name", flat=True))
-                        for t_name in item["biz_teams"]:
-                            if t_name not in existing_bt_names:
-                                team, _ = Team.objects.get_or_create(name=t_name, team_type=TeamType.BIZ, defaults={"law_firm": existing.law_firm})
-                                existing.biz_teams.add(team)
-
-                    # credentials：只补充 site_name 不存在的
-                    if item.get("credentials"):
-                        existing_sites = set(existing.credentials.values_list("site_name", flat=True))
-                        for cred in item["credentials"]:
-                            if cred.get("site_name") not in existing_sites:
-                                AccountCredential.objects.create(
-                                    lawyer=existing,
-                                    site_name=cred.get("site_name", ""),
-                                    url=cred.get("url", ""),
-                                    account=cred.get("account", ""),
-                                    password=cred.get("password", ""),
-                                )
-
-                    success += 1
-                    continue
-
-                # 自动创建律所
-                law_firm: LawFirm | None = None
-                if item.get("law_firm"):
-                    law_firm, _ = LawFirm.objects.get_or_create(name=item["law_firm"])
-
-                password = item.get("password") or secrets.token_urlsafe(16)
-                lawyer = Lawyer.objects.create_user(
-                    username=username,
-                    password=password,
-                    real_name=item.get("real_name", ""),
-                    phone=item.get("phone") or None,
-                    license_no=item.get("license_no", ""),
-                    id_card=item.get("id_card", ""),
-                    is_admin=item.get("is_admin", False),
-                    is_active=item.get("is_active", False),
-                    is_staff=item.get("is_admin", False),
-                    law_firm=law_firm,
-                )
-
-                # license_pdf：文件已由 _extract_files 还原到 MEDIA_ROOT，直接赋相对路径
-                if item.get("license_pdf"):
-                    lawyer.license_pdf = item["license_pdf"]
-                    lawyer.save(update_fields=["license_pdf"])
-
-                # 自动创建律师团队（含律所关联）
-                if item.get("lawyer_teams"):
-                    lawyer_team_objs: list[Team] = []
-                    for t in item["lawyer_teams"]:
-                        t_name = t if isinstance(t, str) else t.get("name", "")
-                        t_firm_name = None if isinstance(t, str) else t.get("law_firm")
-                        t_firm = LawFirm.objects.get_or_create(name=t_firm_name)[0] if t_firm_name else law_firm
-                        team, _ = Team.objects.get_or_create(
-                            name=t_name,
-                            team_type=TeamType.LAWYER,
-                            defaults={"law_firm": t_firm},
-                        )
-                        lawyer_team_objs.append(team)
-                    lawyer.lawyer_teams.set(lawyer_team_objs)
-
-                # 自动创建业务团队
-                if item.get("biz_teams"):
-                    biz_team_objs: list[Team] = []
-                    for t_name in item["biz_teams"]:
-                        team, _ = Team.objects.get_or_create(
-                            name=t_name,
-                            team_type=TeamType.BIZ,
-                            defaults={"law_firm": law_firm},
-                        )
-                        biz_team_objs.append(team)
-                    lawyer.biz_teams.set(biz_team_objs)
-
-                for cred in item.get("credentials", []):
-                    AccountCredential.objects.create(
-                        lawyer=lawyer,
-                        site_name=cred.get("site_name", ""),
-                        url=cred.get("url", ""),
-                        account=cred.get("account", ""),
-                        password=cred.get("password", ""),
-                    )
-                success += 1
-            except Exception as exc:
-                logger.exception("导入律师失败", extra={"index": i, "username": username})
-                errors.append(f"[{i}] {username} ({type(exc).__name__}): {exc}")
-        return success, skipped, errors
+        del zip_file  # kept for AdminImportExportMixin compatibility
+        # Keep admin thin: import behavior lives in LawyerImportService, preserving existing business rules.
+        return _get_lawyer_import_service().import_from_json(data_list, actor=user)

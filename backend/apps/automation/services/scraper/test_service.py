@@ -96,7 +96,7 @@ class TestService:
         try:
             # 1. 获取凭证
             try:
-                credential = self.organization_service.get_credential_internal(credential_id)
+                credential = self.organization_service.get_credential(credential_id)
                 result["logs"].append(f"✅ 获取凭证成功: {credential.site_name}")  # type: ignore
                 result["logs"].append(f"   账号: {credential.account}")  # type: ignore
             except Exception as e:
