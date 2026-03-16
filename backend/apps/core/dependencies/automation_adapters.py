@@ -40,7 +40,7 @@ def build_performance_monitor_service() -> IPerformanceMonitorService:
 
 
 def build_court_document_recognition_service() -> ICourtDocumentRecognitionService:
-    from apps.automation.services.court_document_recognition.adapter import CourtDocumentRecognitionServiceAdapter
+    from apps.document_recognition.services.adapter import CourtDocumentRecognitionServiceAdapter
 
     return CourtDocumentRecognitionServiceAdapter()
 

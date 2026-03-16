@@ -1,0 +1,708 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block title %}财产保全日期识别测试{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    .preservation-container {
+        max-width: 1200px;
+        margin: 20px auto;
+        padding: 20px;
+    }
+    .preservation-card {
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        padding: 24px;
+        margin-bottom: 20px;
+    }
+    .preservation-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 24px;
+    }
+    .preservation-title {
+        font-size: 24px;
+        font-weight: 600;
+        color: #1a1a1a;
+        margin-bottom: 8px;
+    }
+    .preservation-subtitle {
+        color: #666;
+        margin: 0;
+    }
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: #417690;
+        text-decoration: none;
+        font-size: 14px;
+        padding: 8px 12px;
+        border-radius: 6px;
+        background: #f0f7fa;
+        transition: background 0.2s;
+    }
+    .back-link:hover {
+        background: #e0eff5;
+        text-decoration: none;
+    }
+
+    /* 上传区域样式 */
+    .upload-zone {
+        border: 2px dashed #d1d5db;
+        border-radius: 8px;
+        padding: 40px 20px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        background: #fafafa;
+    }
+    .upload-zone:hover, .upload-zone.dragover {
+        border-color: #417690;
+        background: #f0f7fa;
+    }
+    .upload-zone-icon {
+        font-size: 48px;
+        color: #9ca3af;
+        margin-bottom: 12px;
+    }
+    .upload-zone-text {
+        color: #6b7280;
+        margin-bottom: 8px;
+    }
+    .upload-zone-hint {
+        font-size: 12px;
+        color: #9ca3af;
+    }
+
+    /* 文件列表样式 */
+    .file-list {
+        margin-top: 16px;
+    }
+    .file-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 14px;
+        background: #f8f9fa;
+        border-radius: 6px;
+        margin-bottom: 8px;
+    }
+    .file-item-info {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .file-item-icon {
+        color: #dc2626;
+        font-size: 20px;
+    }
+    .file-item-name {
+        font-size: 14px;
+        color: #333;
+    }
+    .file-item-size {
+        font-size: 12px;
+        color: #9ca3af;
+    }
+    .file-item-remove {
+        background: none;
+        border: none;
+        color: #9ca3af;
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 4px;
+        transition: all 0.2s;
+    }
+    .file-item-remove:hover {
+        color: #dc2626;
+        background: #fef2f2;
+    }
+
+    /* 按钮样式 */
+    .btn-primary {
+        background: #417690;
+        color: #fff;
+        border: none;
+        padding: 12px 28px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    .btn-primary:hover {
+        background: #205067;
+    }
+    .btn-primary:disabled {
+        background: #9ca3af;
+        cursor: not-allowed;
+    }
+    .btn-secondary {
+        background: #f5f5f5;
+        color: #333;
+        border: 1px solid #ddd;
+        padding: 12px 28px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+    }
+    .btn-secondary:hover {
+        background: #eee;
+    }
+    .btn-small {
+        padding: 6px 12px;
+        font-size: 12px;
+    }
+    .btn-success {
+        background: #10b981;
+        color: #fff;
+        border: none;
+    }
+    .btn-success:hover {
+        background: #059669;
+    }
+
+    /* 表单控件 */
+    .form-actions {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 20px;
+    }
+
+    /* 结果表格样式 */
+    .results-section {
+        margin-top: 24px;
+        padding-top: 24px;
+        border-top: 1px solid #eee;
+    }
+    .results-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: #1a1a1a;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .results-count {
+        font-size: 14px;
+        font-weight: normal;
+        color: #666;
+    }
+    .results-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+    }
+    .results-table th {
+        background: #f8f9fa;
+        padding: 12px 14px;
+        text-align: left;
+        font-weight: 600;
+        color: #333;
+        border-bottom: 2px solid #e5e7eb;
+        white-space: nowrap;
+    }
+    .results-table td {
+        padding: 12px 14px;
+        border-bottom: 1px solid #e5e7eb;
+        color: #555;
+    }
+    .results-table tr:hover {
+        background: #f8f9fa;
+    }
+
+    /* 状态标签 */
+    .status-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 500;
+    }
+    .status-pending {
+        background: #fef3c7;
+        color: #92400e;
+    }
+    .status-normal {
+        background: #d1fae5;
+        color: #065f46;
+    }
+    .method-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        background: #e0e7ff;
+        color: #3730a3;
+    }
+    .model-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        background: #f0fdf4;
+        color: #166534;
+    }
+
+    /* 元信息区域 */
+    .meta-info {
+        display: flex;
+        gap: 16px;
+        margin-bottom: 16px;
+        padding: 12px 16px;
+        background: #f8f9fa;
+        border-radius: 6px;
+    }
+    .meta-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 13px;
+        color: #666;
+    }
+    .meta-label {
+        font-weight: 500;
+    }
+
+    /* 错误信息样式 */
+    .error-box {
+        padding: 16px;
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        border-radius: 6px;
+        margin-top: 16px;
+    }
+    .error-title {
+        font-weight: 600;
+        color: #991b1b;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .error-message {
+        font-size: 14px;
+        color: #7f1d1d;
+    }
+
+    /* 加载状态 */
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255,255,255,0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+    }
+    .loading-spinner {
+        width: 40px;
+        height: 40px;
+        border: 3px solid #e5e7eb;
+        border-top-color: #417690;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    .loading-text {
+        margin-top: 12px;
+        color: #666;
+        font-size: 14px;
+    }
+
+    /* 原始文本展示 */
+    .raw-text {
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 12px;
+        color: #666;
+        cursor: pointer;
+    }
+    .raw-text:hover {
+        white-space: normal;
+        word-break: break-all;
+    }
+
+    /* JSON 复制区域 */
+    .json-section {
+        margin-top: 24px;
+        padding-top: 24px;
+        border-top: 1px solid #eee;
+    }
+    .json-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+    }
+    .json-content {
+        background: #1e293b;
+        border-radius: 8px;
+        padding: 16px;
+        overflow-x: auto;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    .json-text {
+        font-family: 'Menlo', 'Monaco', monospace;
+        font-size: 12px;
+        color: #e2e8f0;
+        white-space: pre-wrap;
+        word-break: break-all;
+        line-height: 1.6;
+    }
+    .copy-success {
+        color: #10b981;
+        font-size: 13px;
+        margin-left: 12px;
+    }
+
+    /* 响应式 */
+    @media (max-width: 768px) {
+        .preservation-header {
+            flex-direction: column;
+            gap: 16px;
+        }
+        .results-table {
+            font-size: 12px;
+        }
+        .results-table th, .results-table td {
+            padding: 8px 10px;
+        }
+        .meta-info {
+            flex-direction: column;
+            gap: 8px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="preservation-container" x-data="preservationDateApp()">
+    <!-- 加载遮罩 -->
+    <div class="loading-overlay" x-show="loading" x-cloak>
+        <div style="text-align: center;">
+            <div class="loading-spinner"></div>
+            <div class="loading-text" x-text="loadingText">处理中...</div>
+        </div>
+    </div>
+
+    <div class="preservation-card">
+        <div class="preservation-header">
+            <div>
+                <h1 class="preservation-title">财产保全日期识别Test</h1>
+                <p class="preservation-subtitle">上传法院PDF文书，自动识别财产保全措施的到期时间</p>
+            </div>
+            <a href="{% url 'admin:automation_testtoolshub_changelist' %}" class="back-link">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 12H5M12 19l-7-7 7-7"/>
+                </svg>
+                返回测试工具
+            </a>
+        </div>
+
+        <!-- 文件上传区域 -->
+        <div class="upload-zone"
+             :class="{ 'dragover': isDragging }"
+             @click="$refs.fileInput.click()"
+             @dragover.prevent="isDragging = true"
+             @dragleave.prevent="isDragging = false"
+             @drop.prevent="handleDrop($event)">
+            <div class="upload-zone-icon">📄</div>
+            <div class="upload-zone-text">
+                <strong>点击上传</strong> 或将PDF文件拖拽到此处
+            </div>
+            <div class="upload-zone-hint">仅支持 PDF 格式文件</div>
+            <input type="file"
+                   x-ref="fileInput"
+                   @change="handleFileSelect($event)"
+                   accept=".pdf"
+                   style="display: none;">
+        </div>
+
+        <!-- 已上传文件 -->
+        <div class="file-list" x-show="file">
+            <div class="file-item" x-show="file">
+                <div class="file-item-info">
+                    <span class="file-item-icon">📕</span>
+                    <span class="file-item-name" x-text="file?.name"></span>
+                    <span class="file-item-size" x-text="formatFileSize(file?.size)"></span>
+                </div>
+                <button class="file-item-remove" @click="removeFile()" title="移除文件">
+                    ✕
+                </button>
+            </div>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="form-actions">
+            <button class="btn-primary"
+                    @click="submitExtraction()"
+                    :disabled="!file || loading">
+                开始识别
+            </button>
+            <button class="btn-secondary" @click="clearAll()" :disabled="loading">
+                清空
+            </button>
+        </div>
+    </div>
+
+    <!-- 错误信息 -->
+    <div class="preservation-card" x-show="error">
+        <div class="error-box" style="margin-top: 0;">
+            <div class="error-title">
+                ⚠️ 处理错误
+            </div>
+            <div class="error-message" x-text="error"></div>
+        </div>
+    </div>
+
+    <!-- 识别结果 -->
+    <div class="preservation-card" x-show="result && result.success">
+        <div class="results-section" style="border-top: none; padding-top: 0; margin-top: 0;">
+            <h2 class="results-title">
+                📋 识别结果
+                <span class="results-count">
+                    (共识别到 <span x-text="result?.measures?.length || 0"></span> 项保全措施)
+                </span>
+            </h2>
+
+            <!-- 元信息 -->
+            <div class="meta-info">
+                <div class="meta-item">
+                    <span class="meta-label">使用模型:</span>
+                    <span class="model-badge" x-text="result?.model_used || '-'"></span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">提取方式:</span>
+                    <span class="method-badge" x-text="result?.extraction_method || '-'"></span>
+                </div>
+            </div>
+
+            <!-- 结果表格 -->
+            <div style="overflow-x: auto;" x-show="result?.measures?.length > 0">
+                <table class="results-table">
+                    <thead>
+                        <tr>
+                            <th>保全类型</th>
+                            <th>财产描述</th>
+                            <th>期限</th>
+                            <th>起算日期</th>
+                            <th>到期日期</th>
+                            <th>状态</th>
+                            <th>原始文本</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="(measure, index) in result?.measures" :key="index">
+                            <tr>
+                                <td x-text="measure.measure_type"></td>
+                                <td x-text="measure.property_description"></td>
+                                <td x-text="measure.duration || '-'"></td>
+                                <td x-text="measure.start_date || '-'"></td>
+                                <td x-text="measure.end_date || '-'"></td>
+                                <td>
+                                    <span class="status-badge"
+                                          :class="measure.is_pending ? 'status-pending' : 'status-normal'"
+                                          x-text="measure.is_pending ? '轮候' : '正式'"></span>
+                                    <div x-show="measure.pending_note"
+                                         style="font-size: 11px; color: #92400e; margin-top: 4px;"
+                                         x-text="measure.pending_note"></div>
+                                </td>
+                                <td>
+                                    <div class="raw-text"
+                                         x-text="measure.raw_text || '-'"
+                                         :title="measure.raw_text"></div>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 无结果提示 -->
+            <div x-show="result?.measures?.length === 0"
+                 style="text-align: center; padding: 40px; color: #666;">
+                未在文书中识别到财产保全措施
+            </div>
+        </div>
+
+        <!-- JSON 复制区域 -->
+        <div class="json-section" x-show="result?.reminders?.length > 0">
+            <div class="json-header">
+                <h3 class="results-title" style="margin-bottom: 0;">
+                    📅 Reminder 格式数据
+                    <span class="results-count">
+                        (<span x-text="result?.reminders?.length || 0"></span> 条提醒)
+                    </span>
+                </h3>
+                <div style="display: flex; align-items: center;">
+                    <button class="btn-secondary btn-small btn-success" @click="copyRemindersJson()">
+                        复制为 JSON
+                    </button>
+                    <span class="copy-success" x-show="copySuccess" x-cloak>✓ 已复制</span>
+                </div>
+            </div>
+            <div class="json-content">
+                <pre class="json-text" x-text="formatRemindersJson()"></pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function preservationDateApp() {
+    return {
+        // 状态
+        file: null,
+        isDragging: false,
+        loading: false,
+        loadingText: '处理中...',
+
+        // 结果
+        result: null,
+        error: null,
+        copySuccess: false,
+
+        // 文件处理方法
+        handleFileSelect(event) {
+            const selectedFile = event.target.files[0];
+            if (selectedFile) {
+                this.addFile(selectedFile);
+            }
+            event.target.value = '';
+        },
+
+        handleDrop(event) {
+            this.isDragging = false;
+            const droppedFile = event.dataTransfer.files[0];
+            if (droppedFile) {
+                this.addFile(droppedFile);
+            }
+        },
+
+        addFile(newFile) {
+            if (!newFile.name.toLowerCase().endsWith('.pdf')) {
+                alert('仅支持 PDF 格式文件');
+                return;
+            }
+            this.file = newFile;
+            this.result = null;
+            this.error = null;
+        },
+
+        removeFile() {
+            this.file = null;
+            this.result = null;
+            this.error = null;
+        },
+
+        formatFileSize(bytes) {
+            if (!bytes) return '';
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        },
+
+        clearAll() {
+            this.file = null;
+            this.result = null;
+            this.error = null;
+            this.copySuccess = false;
+        },
+
+        // 提交识别请求
+        async submitExtraction() {
+            if (!this.file) return;
+
+            this.loading = true;
+            this.loadingText = '正在识别财产保全日期...';
+            this.result = null;
+            this.error = null;
+
+            try {
+                const formData = new FormData();
+                formData.append('file', this.file);
+
+                const response = await fetch('/api/v1/preservation-date/extract', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': this.getCsrfToken(),
+                    },
+                    body: formData,
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || data.error || '识别请求失败');
+                }
+
+                if (data.success) {
+                    this.result = data;
+                } else {
+                    this.error = data.error || '识别失败';
+                }
+
+            } catch (err) {
+                console.error('识别失败:', err);
+                this.error = err.message || '识别请求失败';
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        getCsrfToken() {
+            return (window.FachuanCSRF && window.FachuanCSRF.getToken && window.FachuanCSRF.getToken()) || '';
+        },
+
+        // JSON 格式化和复制
+        formatRemindersJson() {
+            if (!this.result?.reminders) return '';
+            return JSON.stringify(this.result.reminders, null, 2);
+        },
+
+        async copyRemindersJson() {
+            const json = this.formatRemindersJson();
+            if (!json) return;
+
+            try {
+                await navigator.clipboard.writeText(json);
+                this.copySuccess = true;
+                setTimeout(() => {
+                    this.copySuccess = false;
+                }, 2000);
+            } catch (err) {
+                console.error('复制失败:', err);
+                // 降级方案：使用 textarea
+                const textarea = document.createElement('textarea');
+                textarea.value = json;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                this.copySuccess = true;
+                setTimeout(() => {
+                    this.copySuccess = false;
+                }, 2000);
+            }
+        },
+    };
+}
+</script>
+{% endblock %}

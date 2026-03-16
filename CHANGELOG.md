@@ -2,6 +2,25 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.16.11] - 2026-03-16
+
+### 重构
+- **Preservation Date 模块独立拆分（无兼容层）**
+  - 新增独立应用：`apps.preservation_date`，迁移原 `apps.automation` 下财产保全日期识别的 `models/admin/api/services/templates`
+  - 新增独立 API 路径：`/api/v1/preservation-date/*`，测试页提取接口改为 `/api/v1/preservation-date/extract`
+  - 新应用接入 `INSTALLED_APPS` 与 `apiSystem/api.py` 路由注册
+  - 识别服务的 `get_llm_service` 依赖改走 `apps.core.services.wiring`，不再依赖 `apps.automation.services.wiring`
+  - 临时文件目录调整为 `MEDIA_ROOT/preservation_date/temp`
+
+### 清理
+- 删除 `apps.automation` 中旧的 `preservation_date` admin/service/template 目录与入口
+- `automation` 测试工具导航改为新 admin 路由：`preservation_date_preservationdatetool_changelist`
+- `apps.automation.models.base` 移除 `PreservationDateTest` 占位模型，并同步更新 `models/__init__.py`、`admin/__init__.py` 导出
+
+### 测试
+- `backend/.venv/bin/python backend/apiSystem/manage.py check`：`System check identified no issues (0 silenced)`
+- Admin URL reverse 验证：`admin:preservation_date_preservationdatetool_changelist`、`admin:automation_testtoolshub_changelist` 可正常解析
+
 ## [26.16.10] - 2026-03-16
 
 ### 重构

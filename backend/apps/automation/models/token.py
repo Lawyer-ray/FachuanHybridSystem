@@ -9,14 +9,18 @@ from django.utils.translation import gettext_lazy as _
 
 
 class CourtToken(models.Model):
-    """法院系统 Token 存储"""
+    """人民法院在线服务网（一张网）/保全系统 Token 存储"""
 
     id: int
-    site_name = models.CharField(max_length=128, verbose_name=_("网站名称"), help_text=_("如:court_zxfw"))
-    account = models.CharField(max_length=128, verbose_name=_("账号"))
-    token = models.TextField(verbose_name=_("Token"), help_text=_("JWT Token 或其他认证令牌"))
+    site_name = models.CharField(
+        max_length=128,
+        verbose_name=_("站点标识"),
+        help_text=_("如:court_zxfw（人民法院在线服务网/一张网）, court_baoquan（保全系统）"),
+    )
+    account = models.CharField(max_length=128, verbose_name=_("登录账号"))
+    token = models.TextField(verbose_name=_("认证Token"), help_text=_("一张网/保全系统返回的 JWT Token 或其他认证令牌"))
     token_type = models.CharField(
-        max_length=32, default="Bearer", verbose_name=_("Token 类型"), help_text=_("如:Bearer, JWT")
+        max_length=32, default="Bearer", verbose_name=_("Token类型"), help_text=_("如:Bearer, JWT")
     )
     expires_at = models.DateTimeField(verbose_name=_("过期时间"))
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
@@ -24,8 +28,8 @@ class CourtToken(models.Model):
 
     class Meta:
         app_label = "automation"
-        verbose_name = _("Token管理")
-        verbose_name_plural = _("Token管理")
+        verbose_name = _("一张网/保全Token管理")
+        verbose_name_plural = _("一张网/保全Token管理")
         unique_together: ClassVar = [["site_name", "account"]]
         indexes: ClassVar = [
             models.Index(fields=["site_name", "account"]),
@@ -43,7 +47,7 @@ class CourtToken(models.Model):
 
 
 class TokenAcquisitionStatus(models.TextChoices):
-    """Token获取状态"""
+    """一张网/保全系统 Token 获取状态"""
 
     SUCCESS = "success", _("成功")
     FAILED = "failed", _("失败")
@@ -54,10 +58,14 @@ class TokenAcquisitionStatus(models.TextChoices):
 
 
 class TokenAcquisitionHistory(models.Model):
-    """Token获取历史记录"""
+    """一张网/保全系统 Token 获取历史记录"""
 
     id: int
-    site_name = models.CharField(max_length=128, verbose_name=_("网站名称"), help_text=_("如:court_zxfw"))
+    site_name = models.CharField(
+        max_length=128,
+        verbose_name=_("站点标识"),
+        help_text=_("如:court_zxfw（人民法院在线服务网/一张网）, court_baoquan（保全系统）"),
+    )
     account = models.CharField(max_length=128, verbose_name=_("使用账号"))
     credential_id = models.IntegerField(
         null=True, blank=True, verbose_name=_("凭证ID"), help_text=_("关联的AccountCredential ID")
@@ -72,7 +80,7 @@ class TokenAcquisitionHistory(models.Model):
     captcha_attempts = models.IntegerField(default=0, verbose_name=_("验证码尝试次数"))
     network_retries = models.IntegerField(default=0, verbose_name=_("网络重试次数"))
     token_preview = models.CharField(
-        max_length=50, null=True, blank=True, verbose_name=_("Token预览"), help_text=_("Token的前50个字符")
+        max_length=50, null=True, blank=True, verbose_name=_("Token预览"), help_text=_("Token 前50个字符")
     )
     token_fingerprint = models.CharField(
         max_length=64,
@@ -98,8 +106,8 @@ class TokenAcquisitionHistory(models.Model):
 
     class Meta:
         app_label = "automation"
-        verbose_name = _("Token获取历史")
-        verbose_name_plural = _("Token获取历史")
+        verbose_name = _("一张网/保全Token获取历史")
+        verbose_name_plural = _("一张网/保全Token获取历史")
         ordering: ClassVar = ["-created_at"]
         indexes: ClassVar = [
             models.Index(fields=["site_name", "-created_at"]),

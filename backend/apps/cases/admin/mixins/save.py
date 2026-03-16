@@ -29,7 +29,7 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
         for app_label, model_name in (
             ("automation", "CourtDocument"),
             ("automation", "CourtSMS"),
-            ("automation", "DocumentRecognitionTask"),
+            ("document_recognition", "DocumentRecognitionTask"),
             ("automation", "ScraperTask"),
         ):
             try:

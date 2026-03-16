@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 # Base (Virtual Models)
-from .base import AutomationTool, FeeNoticeTest, ImageRotation, NamerTool, PreservationDateTest, TestCourt, TestToolsHub
+from .base import AutomationTool, ImageRotation, NamerTool, TestCourt, TestToolsHub
 
 # Court Document
 from .court_document import CourtDocument, DocumentDeliverySchedule, DocumentDownloadStatus, DocumentQueryHistory
@@ -26,9 +26,6 @@ from .invoice_recognition import (
 # Preservation Quote
 from .preservation import InsuranceQuote, PreservationQuote, QuoteItemStatus, QuoteStatus
 
-# Document Recognition
-from .recognition import DocumentRecognitionStatus, DocumentRecognitionTask
-
 # Scraper Tasks
 from .scraper import ScraperTask, ScraperTaskStatus, ScraperTaskType
 
@@ -43,9 +40,7 @@ __all__ = [
     "AutomationTool",
     "NamerTool",
     "TestCourt",
-    "FeeNoticeTest",
     "TestToolsHub",
-    "PreservationDateTest",
     "ImageRotation",
     # Token
     "CourtToken",
@@ -60,9 +55,6 @@ __all__ = [
     "QuoteItemStatus",
     "PreservationQuote",
     "InsuranceQuote",
-    # Recognition
-    "DocumentRecognitionStatus",
-    "DocumentRecognitionTask",
     # Court Document
     "DocumentDownloadStatus",
     "CourtDocument",
