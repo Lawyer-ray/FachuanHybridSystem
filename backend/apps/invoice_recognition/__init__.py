@@ -1,0 +1,2 @@
+"""Invoice recognition app."""
+

@@ -1,0 +1,2 @@
+"""Image rotation app."""
+

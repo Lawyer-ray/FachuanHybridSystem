@@ -2,6 +2,48 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.16.10] - 2026-03-16
+
+### 重构
+- **Cases/Contracts 边界收敛（相较 26.16.9 的增量）**
+  - 本版本聚焦 `cases/contracts`，不延续 `26.16.9` 的 organization 主线
+  - `CaseAdmin` 导入/导出逻辑下沉到 `CaseAdminService`，Admin 保持入口编排职责
+  - 新增导出桥接与序列化服务：`case_admin_export_bridge`、`case_contract_export_bridge`、`case_export_serializer_service`、`contract_export_serializer_service`
+  - `CaseAdminViewsMixin` 的详情页/材料页聚合逻辑继续下沉至 `CaseAdminService`，控制层更薄
+- **导入链路协作方式收敛（去隐式 monkey-patch）**
+  - 新增 `build_case_and_contract_import_services_for_admin()` 统一组装函数
+  - `CaseImportService`/`ContractImportService` 改为显式 `bind_*` 双向绑定，替代直接写入私有属性回调
+  - 导入链路 payload 新增/补全 `TypedDict`，合同与案件提醒恢复数据解析改为显式结构
+- **类型边界与容错可观测性增强（不改变业务语义）**
+  - `cases` 的 `wiring/dependencies/schemas/admin/service` 多处 `Any` 收紧为协议类型或 `dict[str, object]`
+  - `CaseLog` 提醒读取异常路径补充日志，保持原有 fallback 行为
+- **Automation 工具独立拆分（保持业务流程兼容）**
+  - 新增独立应用：`apps.image_rotation`、`apps.invoice_recognition`，分别承接原 `apps.automation` 中对应模块的 `models/admin/api/services/templates`
+  - `invoice_recognition` 采用 `managed=False + db_table` 映射既有表（`automation_invoicerecognitiontask` / `automation_invoicerecord`），不改动业务数据结构
+  - 保留原业务入口兼容层：
+    - Admin：旧入口 `/admin/automation/imagerotation/`、`/admin/automation/invoicerecognitiontask/` 重定向到新 app
+    - API：`/api/v1/automation/image-rotation/*`、`/api/v1/automation/invoice-recognition/*` 路径保持不变，旧模块改为 shim 转发
+    - Service Import：`apps.automation.services.image_rotation.*` 与 `apps.automation.services.ocr.invoice_*` 保留兼容 shim，避免历史导入路径失效
+  - `apps.automation.services.wiring` 中发票识别装配改为转发新 app wiring，调用方无感切换
+
+### 测试
+- 新增回归测试：
+  - `apps/cases/test_case_admin_export_guards.py`
+  - `apps/cases/test_case_admin_import_wiring.py`
+  - `apps/cases/test_case_admin_service_party_projection.py`
+  - `apps/cases/test_case_import_binding.py`
+  - `apps/contracts/test_contract_admin_import_wiring.py`
+  - `apps/contracts/test_contract_import_binding.py`
+- 增补提醒/导出回归：
+  - `apps/cases/test_case_log_reminder_projection.py`
+  - `apps/cases/test_case_log_schema_reminder_resolver.py`
+  - `apps/contracts/test_contract_admin_reminder_export.py`
+- 关键组合回归：
+  - `apps/cases + apps/contracts`：`47 passed`
+- 工具拆分验证：
+  - `manage.py check`：`System check identified no issues (0 silenced)`
+  - `ruff check`（拆分影响范围）：`All checks passed`
+
 ## [26.16.9] - 2026-03-16
 
 ### 重构

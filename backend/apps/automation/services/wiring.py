@@ -7,9 +7,9 @@ from typing import TYPE_CHECKING, Any
 from apps.core.interfaces import ServiceLocator
 
 if TYPE_CHECKING:
-    from apps.automation.services.ocr.invoice_download_service import InvoiceDownloadService
-    from apps.automation.services.ocr.invoice_recognition_service import InvoiceRecognitionService
-    from apps.automation.services.ocr.quick_recognition_service import QuickRecognitionService
+    from apps.invoice_recognition.services.invoice_download_service import InvoiceDownloadService
+    from apps.invoice_recognition.services.invoice_recognition_service import InvoiceRecognitionService
+    from apps.invoice_recognition.services.quick_recognition_service import QuickRecognitionService
 
 
 def get_case_service() -> Any:
@@ -121,32 +121,18 @@ def get_monitor_service() -> Any:
 
 
 def get_invoice_recognition_service() -> InvoiceRecognitionService:
-    from apps.automation.services.ocr.invoice_parser import InvoiceParser
-    from apps.automation.services.ocr.invoice_recognition_service import InvoiceRecognitionService
-    from apps.automation.services.ocr.ocr_service import OCRService
-    from apps.automation.services.ocr.pdf_text_extractor import PDFTextExtractor
+    from apps.invoice_recognition.services.wiring import get_invoice_recognition_service as _get_invoice_recognition_service
 
-    return InvoiceRecognitionService(
-        ocr_service=OCRService(),
-        pdf_extractor=PDFTextExtractor(),
-        parser=InvoiceParser(),
-    )
+    return _get_invoice_recognition_service()
 
 
 def get_invoice_download_service() -> InvoiceDownloadService:
-    from apps.automation.services.ocr.invoice_download_service import InvoiceDownloadService
+    from apps.invoice_recognition.services.wiring import get_invoice_download_service as _get_invoice_download_service
 
-    return InvoiceDownloadService()
+    return _get_invoice_download_service()
 
 
 def get_quick_recognition_service() -> QuickRecognitionService:
-    from apps.automation.services.ocr.invoice_parser import InvoiceParser
-    from apps.automation.services.ocr.ocr_service import OCRService
-    from apps.automation.services.ocr.pdf_text_extractor import PDFTextExtractor
-    from apps.automation.services.ocr.quick_recognition_service import QuickRecognitionService
+    from apps.invoice_recognition.services.wiring import get_quick_recognition_service as _get_quick_recognition_service
 
-    return QuickRecognitionService(
-        ocr_service=OCRService(),
-        pdf_extractor=PDFTextExtractor(),
-        parser=InvoiceParser(),
-    )
+    return _get_quick_recognition_service()

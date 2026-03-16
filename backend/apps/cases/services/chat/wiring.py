@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any
-
-from apps.core.interfaces import ServiceLocator
+from apps.core.interfaces import ISystemConfigService, ServiceLocator
 
 
-def get_system_config_service() -> Any:
+def get_system_config_service() -> ISystemConfigService:
     return ServiceLocator.get_system_config_service()

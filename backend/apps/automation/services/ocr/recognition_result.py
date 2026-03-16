@@ -1,25 +1,18 @@
-from __future__ import annotations
+"""Compatibility shim for moved invoice recognition services."""
 
-from dataclasses import dataclass
+from importlib import import_module
+from typing import Any
 
-from .invoice_parser import ParsedInvoice
+_IMPL = import_module("apps.invoice_recognition.services.recognition_result")
 
 
-@dataclass
-class RecognitionResult:
-    """发票识别结果数据类
+def __getattr__(name: str) -> Any:
+    return getattr(_IMPL, name)
 
-    用于表示单个发票文件的识别结果，包含文件名、成功状态、
-    解析后的发票数据或错误信息。
 
-    Attributes:
-        filename: 原始文件名
-        success: 识别是否成功
-        data: 识别成功时的解析结果（ParsedInvoice 对象）
-        error: 识别失败时的错误信息
-    """
+def __dir__() -> list[str]:
+    return sorted(set(globals()) | set(dir(_IMPL)))
 
-    filename: str
-    success: bool
-    data: ParsedInvoice | None = None
-    error: str | None = None
+
+__all__ = getattr(_IMPL, "__all__", [n for n in dir(_IMPL) if not n.startswith("_")])
+

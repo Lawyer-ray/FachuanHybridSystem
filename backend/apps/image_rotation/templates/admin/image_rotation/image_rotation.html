@@ -1,0 +1,1116 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block title %}图片/PDF 自动旋转{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    .rotation-container { max-width: 1200px; margin: 20px auto; padding: 20px; }
+    .rotation-card { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 24px; margin-bottom: 20px; }
+    .rotation-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
+    .rotation-title { font-size: 24px; font-weight: 600; color: #1a1a1a; margin-bottom: 8px; }
+    .rotation-subtitle { color: #666; margin: 0; }
+    .back-link { display: inline-flex; align-items: center; gap: 6px; color: #417690; text-decoration: none; font-size: 14px; padding: 8px 12px; border-radius: 6px; background: #f0f7fa; }
+    .back-link:hover { background: #e0eff5; }
+
+    /* 上传区域 */
+    .upload-box { border: 2px dashed #d1d5db; border-radius: 8px; padding: 60px 20px; text-align: center; cursor: pointer; background: #fafafa; transition: all 0.2s; }
+    .upload-box:hover, .upload-box.dragover { border-color: #417690; background: #f0f7fa; }
+    .upload-box-icon { font-size: 56px; margin-bottom: 16px; }
+    .upload-box-title { font-weight: 600; color: #333; margin-bottom: 8px; font-size: 18px; }
+    .upload-box-hint { font-size: 13px; color: #9ca3af; }
+
+    /* 图片网格 */
+    .image-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-top: 20px; }
+    .image-item { background: #f8f9fa; border-radius: 8px; padding: 12px; position: relative; }
+    .image-item:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .image-preview { width: 100%; aspect-ratio: 1; background: #1a1a1a; border-radius: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+    .image-preview canvas { max-width: 100%; max-height: 100%; object-fit: contain; }
+    .image-info { margin-top: 10px; }
+    .image-filename { font-size: 13px; color: #333; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .image-status { font-size: 12px; color: #666; margin-top: 4px; display: flex; align-items: center; gap: 6px; }
+    .rotation-badge { background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
+    .rotation-badge.auto { background: #dcfce7; color: #166534; }
+    .pdf-badge { background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 500; }
+
+    /* 图片操作按钮 */
+    .image-actions { display: flex; gap: 4px; margin-top: 10px; flex-wrap: wrap; }
+    .action-btn { padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; background: #fff; cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 4px; }
+    .action-btn:hover { background: #f5f5f5; }
+    .action-btn.danger { color: #dc2626; border-color: #fecaca; }
+    .action-btn.danger:hover { background: #fef2f2; }
+    .remove-btn { position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; border-radius: 50%; background: rgba(0,0,0,0.5); color: #fff; border: none; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; }
+    .image-item:hover .remove-btn { opacity: 1; }
+    .remove-btn:hover { background: #dc2626; }
+
+    /* 主操作按钮 */
+    .rotation-container .btn-primary {
+        background: #417690 !important; color: #fff !important; border: none !important;
+        padding: 12px 28px !important; border-radius: 6px !important; font-size: 14px !important;
+        font-weight: 500 !important; cursor: pointer !important; line-height: 1.4 !important;
+        display: inline-flex !important; align-items: center !important; gap: 8px !important;
+        text-decoration: none !important;
+    }
+    .rotation-container .btn-primary:hover { background: #205067 !important; }
+    .rotation-container .btn-primary:disabled { background: #9ca3af !important; cursor: not-allowed !important; }
+
+    .rotation-container .btn-secondary {
+        background: #f5f5f5 !important; color: #333 !important; border: 1px solid #ddd !important;
+        padding: 12px 28px !important; border-radius: 6px !important; font-size: 14px !important;
+        cursor: pointer !important; line-height: 1.4 !important;
+        display: inline-flex !important; align-items: center !important; gap: 8px !important;
+        text-decoration: none !important;
+    }
+    .rotation-container .btn-secondary:hover { background: #eee !important; }
+
+    .form-actions { display: flex; align-items: center; gap: 12px; margin-top: 24px; justify-content: center; }
+
+    /* 统计信息 */
+    .stats-bar { display: flex; gap: 20px; padding: 16px; background: #f8f9fa; border-radius: 8px; margin-bottom: 20px; }
+    .stat-item { display: flex; align-items: center; gap: 8px; }
+    .stat-label { font-size: 13px; color: #666; }
+    .stat-value { font-size: 16px; font-weight: 600; color: #333; }
+
+    /* 加载状态 */
+    .loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.9); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+    .loading-spinner { width: 48px; height: 48px; border: 4px solid #e5e7eb; border-top-color: #417690; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { margin-top: 16px; color: #666; font-size: 16px; }
+
+    /* 提示框 */
+    .hint-box { background: #dbeafe; border: 1px solid #93c5fd; border-radius: 6px; padding: 12px 16px; margin-bottom: 20px; color: #1e40af; font-size: 14px; }
+    .hint-box.warning { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
+    .hint-box.error { background: #fee2e2; border-color: #fca5a5; color: #dc2626; }
+    .hint-box.success { background: #dcfce7; border-color: #86efac; color: #166534; }
+
+    /* 大图预览模态框 */
+    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 10000; }
+    .modal-content { background: #fff; border-radius: 12px; padding: 20px; max-width: 90vw; max-height: 90vh; overflow: auto; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .modal-title { font-size: 18px; font-weight: 600; }
+    .modal-close { width: 32px; height: 32px; border-radius: 50%; background: #f5f5f5; border: none; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; }
+    .modal-close:hover { background: #e5e5e5; }
+    .modal-image { max-width: 80vw; max-height: 70vh; display: block; margin: 0 auto; }
+    .modal-actions { display: flex; gap: 8px; justify-content: center; margin-top: 16px; }
+
+    /* 进度条 */
+    .progress-bar { width: 100%; height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden; margin-top: 8px; }
+    .progress-fill { height: 100%; background: #417690; transition: width 0.3s; }
+
+    @media (max-width: 768px) {
+        .image-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+        .stats-bar { flex-wrap: wrap; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="rotation-container" x-data="imageRotationApp()" x-cloak>
+    <!-- 加载遮罩 -->
+    <div class="loading-overlay" x-show="loading">
+        <div style="text-align: center;">
+            <div class="loading-spinner"></div>
+            <div class="loading-text" x-text="loadingText">处理中...</div>
+            <div class="progress-bar" x-show="progress > 0" style="width: 200px; margin-top: 12px;">
+                <div class="progress-fill" :style="'width: ' + progress + '%'"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 大图预览模态框 -->
+    <div class="modal-overlay" x-show="selectedImage" @click.self="selectedImage = null" x-cloak>
+        <div class="modal-content" x-show="selectedImage">
+            <div class="modal-header">
+                <span class="modal-title" x-text="selectedImage?.filename"></span>
+                <button class="modal-close" @click="selectedImage = null">×</button>
+            </div>
+            <canvas x-ref="modalCanvas" class="modal-image"></canvas>
+            <div class="modal-actions">
+                <button class="action-btn" @click="rotateLeft(selectedImage?.id)">↺ 左转90°</button>
+                <button class="action-btn" @click="rotateRight(selectedImage?.id)">↻ 右转90°</button>
+                <button class="action-btn" @click="rotate180(selectedImage?.id)">⟳ 旋转180°</button>
+                <button class="action-btn" @click="resetRotation(selectedImage?.id)">↩ 恢复原始</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="rotation-card">
+        <div class="rotation-header">
+            <div>
+                <h1 class="rotation-title">图片/PDF 自动旋转</h1>
+                <p class="rotation-subtitle">上传图片或 PDF 后自动识别方向并旋转，支持手动调整，最终导出为 PDF</p>
+            </div>
+            <a href="{% url 'admin:automation_testtoolshub_changelist' %}" class="back-link">← 返回工具列表</a>
+        </div>
+
+        <!-- 提示信息 -->
+        <div class="hint-box" x-show="images.length === 0">
+            📷 支持 JPG、JPEG、PNG、PDF 格式，图片最大 20MB，PDF 最大 50MB
+        </div>
+
+        <!-- 错误提示 -->
+        <template x-for="error in errors" :key="error">
+            <div class="hint-box error" x-text="error"></div>
+        </template>
+
+        <!-- 上传区域 -->
+        <div class="upload-box"
+             :class="{ 'dragover': isDragging }"
+             @click="$refs.fileInput.click()"
+             @dragover.prevent="isDragging = true"
+             @dragleave.prevent="isDragging = false"
+             @drop.prevent="handleDrop($event)"
+             x-show="images.length === 0">
+            <div class="upload-box-icon">📁</div>
+            <div class="upload-box-title">点击或拖拽上传图片/PDF</div>
+            <div class="upload-box-hint">支持多选</div>
+            <input type="file" x-ref="fileInput" @change="handleFileSelect($event)" accept="image/jpeg,image/jpg,image/png,.pdf" multiple style="display:none">
+        </div>
+
+        <!-- 已上传图片区域 -->
+        <div x-show="images.length > 0">
+            <!-- 统计栏 -->
+            <div class="stats-bar">
+                <div class="stat-item">
+                    <span class="stat-label">图片数量:</span>
+                    <span class="stat-value" x-text="images.length"></span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">需要旋转:</span>
+                    <span class="stat-value" x-text="images.filter(i => i.rotation !== 0).length"></span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">自动检测:</span>
+                    <span class="stat-value" x-text="images.filter(i => i.autoRotation !== 0).length"></span>
+                </div>
+                <div class="stat-item" x-show="images.filter(i => i.suggestedFilename).length > 0">
+                    <span class="stat-label">已重命名:</span>
+                    <span class="stat-value" x-text="images.filter(i => i.suggestedFilename).length"></span>
+                </div>
+                <div style="flex: 1;"></div>
+                <button class="action-btn" @click="$refs.fileInput.click()">➕ 添加更多</button>
+            </div>
+
+            <!-- 图片网格 -->
+            <div class="image-grid">
+                <template x-for="image in images" :key="image.id">
+                    <div class="image-item">
+                        <button class="remove-btn" @click.stop="removeImage(image.id)" title="删除">×</button>
+                        <div class="image-preview" @click="openPreview(image)">
+                            <canvas :id="'canvas-' + image.id" width="180" height="180"></canvas>
+                        </div>
+                        <div class="image-info">
+                            <div class="image-filename" :title="image.suggestedFilename || image.filename">
+                                <span x-text="image.suggestedFilename || image.filename"></span>
+                                <span x-show="image.suggestedFilename" style="color: #22c55e; font-size: 10px; margin-left: 4px;">✓ AI</span>
+                            </div>
+                            <div class="image-status">
+                                <template x-if="image.sourceType === 'pdf_page'">
+                                    <span class="pdf-badge">📄 PDF</span>
+                                </template>
+                                <template x-if="image.status === 'detecting'">
+                                    <span class="rotation-badge" style="background: #e0e7ff; color: #4338ca;">🔄 检测中...</span>
+                                </template>
+                                <template x-if="image.autoRotation !== 0 && image.status !== 'detecting'">
+                                    <span class="rotation-badge auto">自动 <span x-text="image.autoRotation + '°'"></span></span>
+                                </template>
+                                <template x-if="image.rotation !== 0 && image.status !== 'detecting'">
+                                    <span class="rotation-badge">总计 <span x-text="image.rotation + '°'"></span></span>
+                                </template>
+                                <template x-if="image.rotation === 0 && image.autoRotation === 0 && image.sourceType !== 'pdf_page' && image.status !== 'detecting'">
+                                    <span style="color: #9ca3af; font-size: 12px;">无需旋转</span>
+                                </template>
+                            </div>
+                        </div>
+                        <div class="image-actions">
+                            <button class="action-btn" @click="rotateLeft(image.id)" title="左转90°">↺</button>
+                            <button class="action-btn" @click="rotateRight(image.id)" title="右转90°">↻</button>
+                            <button class="action-btn" @click="rotate180(image.id)" title="旋转180°">⟳</button>
+                            <button class="action-btn" @click="resetRotation(image.id)" title="恢复原始">↩</button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- 操作按钮 -->
+            <div class="form-actions">
+                <button class="btn-secondary" @click="resetAllRotations()">↩ 全部恢复</button>
+                <button class="btn-secondary" @click="clearAll()">🗑️ 清除全部</button>
+
+                <!-- 尺寸选择 -->
+                <select x-model="paperSize" class="paper-size-select" style="padding: 10px 16px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; background: #fff; cursor: pointer; height: 44px; line-height: 1.4;">
+                    <option value="original">原始尺寸</option>
+                    <option value="a4">A4 尺寸</option>
+                    <option value="a3">A3 尺寸</option>
+                    <option value="letter">Letter 尺寸</option>
+                </select>
+
+                <button class="btn-primary" @click="exportZip()" :disabled="images.length === 0 || processing">
+                    <span x-show="!processing">📦 导出 ZIP</span>
+                    <span x-show="processing">处理中...</span>
+                </button>
+                <button class="btn-primary" @click="exportPdf()" :disabled="images.length === 0 || processing">
+                    <span x-show="!processing">📄 导出 PDF</span>
+                    <span x-show="processing">处理中...</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function imageRotationApp() {
+    return {
+        images: [],           // {id, file, filename, preview, rotation, autoRotation, format, size, status, suggestedFilename, ocrText}
+        loading: false,
+        loadingText: '处理中...',
+        processing: false,
+        progress: 0,
+        isDragging: false,
+        selectedImage: null,
+        errors: [],
+        paperSize: 'original',  // 导出纸张尺寸: original, a4, a3, letter
+
+        // 配置
+        MAX_SIZE: 20 * 1024 * 1024,  // 20MB
+        MAX_PDF_SIZE: 50 * 1024 * 1024,  // 50MB
+        SUPPORTED_FORMATS: ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'],
+
+        // EXIF Orientation 映射表
+        ORIENTATION_MAP: {
+            1: 0,    // 正常
+            2: 0,    // 水平翻转 (简化为0)
+            3: 180,  // 旋转180°
+            4: 0,    // 垂直翻转 (简化为0)
+            5: 270,  // 顺时针90° + 水平翻转 (简化为270)
+            6: 270,  // 顺时针90°
+            7: 90,   // 逆时针90° + 水平翻转 (简化为90)
+            8: 90    // 逆时针90°
+        },
+
+        // 生成唯一ID
+        generateId() {
+            return 'img-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+        },
+
+        // 处理文件选择
+        handleFileSelect(event) {
+            const files = Array.from(event.target.files);
+            this.handleFiles(files);
+            event.target.value = '';  // 重置input
+        },
+
+        // 处理拖拽
+        handleDrop(event) {
+            this.isDragging = false;
+            const files = Array.from(event.dataTransfer.files);
+            this.handleFiles(files);
+        },
+
+        // 处理文件列表
+        async handleFiles(files) {
+            this.errors = [];
+
+            this.loading = true;
+            this.loadingText = '正在处理文件...';
+            this.progress = 0;
+
+            const validImageFiles = [];
+            const validPdfFiles = [];
+
+            // 验证并分类文件
+            for (const file of files) {
+                if (!this.SUPPORTED_FORMATS.includes(file.type)) {
+                    this.errors.push(`文件 ${file.name} 格式不支持，已跳过`);
+                    continue;
+                }
+
+                // PDF 文件
+                if (file.type === 'application/pdf') {
+                    if (file.size > this.MAX_PDF_SIZE) {
+                        this.errors.push(`文件 ${file.name} 超过 50MB 限制，已跳过`);
+                        continue;
+                    }
+                    validPdfFiles.push(file);
+                } else {
+                    // 图片文件
+                    if (file.size > this.MAX_SIZE) {
+                        this.errors.push(`文件 ${file.name} 超过 20MB 限制，已跳过`);
+                        continue;
+                    }
+                    validImageFiles.push(file);
+                }
+            }
+
+            const totalFiles = validImageFiles.length + validPdfFiles.length;
+            let processedCount = 0;
+
+            // 处理图片文件
+            for (let i = 0; i < validImageFiles.length; i++) {
+                const file = validImageFiles[i];
+                processedCount++;
+                this.progress = Math.round((processedCount / totalFiles) * 100);
+                this.loadingText = `处理图片 (${processedCount}/${totalFiles})...`;
+
+                try {
+                    const imageItem = await this.processFile(file);
+                    this.images.push(imageItem);
+
+                    // 等待DOM更新后渲染Canvas
+                    await this.$nextTick();
+                    this.renderThumbnail(imageItem);
+                } catch (err) {
+                    this.errors.push(`文件 ${file.name} 处理失败: ${err.message}`);
+                }
+            }
+
+            // 处理 PDF 文件
+            for (let i = 0; i < validPdfFiles.length; i++) {
+                const file = validPdfFiles[i];
+                processedCount++;
+                this.progress = Math.round((processedCount / totalFiles) * 100);
+                this.loadingText = `处理 PDF (${processedCount}/${totalFiles})...`;
+
+                try {
+                    await this.processPdfFile(file);
+                } catch (err) {
+                    this.errors.push(`文件 ${file.name} 处理失败: ${err.message}`);
+                }
+            }
+
+            // 对没有 EXIF 数据的图片，调用后端检测方向（逐张异步，不阻塞）
+            const noExifImages = this.images.filter(img => img.autoRotation === 0 && img.needsDetection && img.sourceType !== 'pdf_page');
+            if (noExifImages.length > 0) {
+                // 异步检测，不等待完成
+                this.detectOrientationAsync(noExifImages);
+            }
+
+            this.progress = 100;
+            this.loading = false;
+        },
+
+        // 处理 PDF 文件（快速模式：先显示，再异步检测方向）
+        async processPdfFile(file) {
+            const base64 = await this.fileToBase64(file);
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+
+            // 使用快速提取 API（不检测方向）
+            const response = await fetch('/api/v1/automation/image-rotation/extract-pdf-fast', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({ filename: file.name, data: base64 })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                // 先将每页添加到 images 数组并显示
+                const pdfPages = [];
+                for (const page of result.pages) {
+                    const img = new Image();
+                    await new Promise((resolve, reject) => {
+                        img.onload = resolve;
+                        img.onerror = reject;
+                        img.src = page.data;
+                    });
+
+                    const imageItem = {
+                        id: this.generateId(),
+                        filename: `${file.name}_page_${page.page_number}`,
+                        img: img,
+                        data: page.data,
+                        rotation: 0,
+                        autoRotation: 0,
+                        sourceType: 'pdf_page',
+                        pdfFilename: file.name,
+                        pageNumber: page.page_number,
+                        format: 'png',
+                        size: Math.round(page.data.length * 0.75),
+                        status: 'detecting',  // 标记为正在检测
+                        needsDetection: true
+                    };
+
+                    this.images.push(imageItem);
+                    pdfPages.push(imageItem);
+
+                    await this.$nextTick();
+                    this.renderThumbnail(imageItem);
+                }
+
+                // 异步检测每页方向（不阻塞 UI）
+                this.detectPdfPagesOrientationAsync(pdfPages);
+            } else {
+                throw new Error(result.message || 'PDF 解析失败');
+            }
+        },
+
+        // 异步检测 PDF 页面方向
+        async detectPdfPagesOrientationAsync(pages) {
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+
+            for (const page of pages) {
+                if (!page.needsDetection) continue;
+
+                // 找到在 images 数组中的索引
+                const idx = this.images.findIndex(img => img.id === page.id);
+                if (idx === -1) continue;
+
+                // 更新状态
+                this.images[idx].status = 'detecting';
+
+                try {
+                    const response = await fetch('/api/v1/automation/image-rotation/detect-page-orientation', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrfToken
+                        },
+                        body: JSON.stringify({ data: page.data })
+                    });
+
+                    const result = await response.json();
+
+                    if (result.rotation !== 0) {
+                        this.images[idx].autoRotation = result.rotation;
+                        this.images[idx].rotation = result.rotation;
+                        this.renderThumbnail(this.images[idx]);
+                    }
+
+                    this.images[idx].status = 'processed';
+                    this.images[idx].needsDetection = false;
+                } catch (err) {
+                    console.warn(`检测 ${page.filename} 方向失败:`, err);
+                    this.images[idx].status = 'processed';
+                    this.images[idx].needsDetection = false;
+                }
+            }
+        },
+
+        // 异步逐张检测图片方向（不阻塞 UI），检测完成后自动重命名
+        async detectOrientationAsync(images) {
+            const itemsForRename = [];  // 收集需要重命名的项目
+
+            for (const img of images) {
+                // 标记正在检测
+                img.detecting = true;
+
+                try {
+                    const base64 = await this.fileToBase64(img.file);
+                    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+
+                    const response = await fetch('/api/v1/automation/image-rotation/detect-orientation', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrfToken
+                        },
+                        body: JSON.stringify({
+                            images: [{ filename: img.filename, data: base64 }]
+                        })
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success && result.results && result.results[0]) {
+                        const detection = result.results[0];
+                        if (detection.rotation !== 0 && detection.confidence > 0.2) {
+                            img.autoRotation = detection.rotation;
+                            img.rotation = detection.rotation;
+                            img.detectionMethod = detection.method;
+                            this.renderThumbnail(img);
+                        }
+
+                        // 保存 OCR 文本用于重命名
+                        if (detection.ocr_text) {
+                            img.ocrText = detection.ocr_text;
+                            itemsForRename.push({
+                                filename: img.filename,
+                                ocr_text: detection.ocr_text,
+                                image_data: base64,
+                                rotation: img.rotation || 0
+                            });
+                        }
+                    }
+                } catch (err) {
+                    console.warn(`检测 ${img.filename} 方向失败:`, err);
+                } finally {
+                    img.detecting = false;
+                }
+            }
+
+            // 方向检测完成后，自动调用重命名
+            if (itemsForRename.length > 0) {
+                await this.autoRenameFromOcr(itemsForRename);
+            }
+        },
+
+        // 根据已有的 OCR 文本自动重命名（不重复调用 OCR）
+        async autoRenameFromOcr(items) {
+            if (items.length === 0) return;
+
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+
+            try {
+                const response = await fetch('/api/v1/automation/image-rotation/suggest-rename', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify({ items })
+                });
+
+                const result = await response.json();
+
+                if (result.success && result.suggestions) {
+                    for (const suggestion of result.suggestions) {
+                        if (suggestion.success && suggestion.suggested_filename !== suggestion.original_filename) {
+                            const img = this.images.find(i => i.filename === suggestion.original_filename);
+                            if (img) {
+                                img.suggestedFilename = suggestion.suggested_filename;
+                                img.extractedDate = suggestion.date;
+                                img.extractedAmount = suggestion.amount;
+                            }
+                        }
+                    }
+                }
+            } catch (err) {
+                console.warn('自动重命名失败:', err);
+            }
+        },
+
+        // 文件转 Base64
+        fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const base64 = reader.result.split(',')[1];
+                    resolve(base64);
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        },
+
+        // 处理单个文件
+        async processFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    try {
+                        const arrayBuffer = e.target.result;
+                        const orientation = this.readExifOrientation(arrayBuffer);
+                        const autoRotation = this.ORIENTATION_MAP[orientation] || 0;
+
+                        // 标记是否需要后端检测（EXIF 为默认值 1 或读取失败）
+                        const needsDetection = (orientation === 1);
+
+                        // 创建图片对象
+                        const img = new Image();
+                        img.onload = () => {
+                            const format = file.type === 'image/png' ? 'png' : 'jpeg';
+                            resolve({
+                                id: this.generateId(),
+                                file: file,
+                                filename: file.name,
+                                img: img,
+                                rotation: autoRotation,  // 当前总旋转角度
+                                autoRotation: autoRotation,  // EXIF检测的旋转角度
+                                needsDetection: needsDetection,  // 是否需要后端检测
+                                format: format,
+                                size: file.size,
+                                status: 'processed'
+                            });
+                        };
+                        img.onerror = () => reject(new Error('图片加载失败'));
+                        img.src = URL.createObjectURL(file);
+                    } catch (err) {
+                        reject(err);
+                    }
+                };
+                reader.onerror = () => reject(new Error('文件读取失败'));
+                reader.readAsArrayBuffer(file);
+            });
+        },
+
+        // 读取EXIF Orientation标签 (纯JavaScript实现)
+        readExifOrientation(arrayBuffer) {
+            const view = new DataView(arrayBuffer);
+
+            // 检查JPEG标记
+            if (view.getUint16(0, false) !== 0xFFD8) {
+                return 1;  // 不是JPEG，返回默认值
+            }
+
+            let offset = 2;
+            const length = view.byteLength;
+
+            while (offset < length) {
+                if (view.getUint8(offset) !== 0xFF) {
+                    return 1;
+                }
+
+                const marker = view.getUint8(offset + 1);
+
+                // APP1 标记 (EXIF)
+                if (marker === 0xE1) {
+                    const exifOffset = offset + 4;
+
+                    // 检查 "Exif\0\0" 标识
+                    if (view.getUint32(exifOffset, false) !== 0x45786966 ||
+                        view.getUint16(exifOffset + 4, false) !== 0x0000) {
+                        return 1;
+                    }
+
+                    const tiffOffset = exifOffset + 6;
+                    const littleEndian = view.getUint16(tiffOffset, false) === 0x4949;
+
+                    // 检查TIFF标记
+                    if (view.getUint16(tiffOffset + 2, littleEndian) !== 0x002A) {
+                        return 1;
+                    }
+
+                    const firstIFDOffset = view.getUint32(tiffOffset + 4, littleEndian);
+                    const ifdOffset = tiffOffset + firstIFDOffset;
+                    const numEntries = view.getUint16(ifdOffset, littleEndian);
+
+                    // 遍历IFD条目查找Orientation标签 (0x0112)
+                    for (let i = 0; i < numEntries; i++) {
+                        const entryOffset = ifdOffset + 2 + (i * 12);
+                        const tag = view.getUint16(entryOffset, littleEndian);
+
+                        if (tag === 0x0112) {  // Orientation标签
+                            return view.getUint16(entryOffset + 8, littleEndian);
+                        }
+                    }
+                    return 1;
+                }
+
+                // 跳过其他标记
+                if (marker === 0xD8 || marker === 0xD9) {
+                    offset += 2;
+                } else {
+                    offset += 2 + view.getUint16(offset + 2, false);
+                }
+            }
+
+            return 1;  // 未找到Orientation，返回默认值
+        },
+
+        // 渲染缩略图到Canvas
+        renderThumbnail(imageItem) {
+            const canvas = document.getElementById('canvas-' + imageItem.id);
+            if (!canvas) return;
+
+            const ctx = canvas.getContext('2d');
+            const img = imageItem.img;
+            const rotation = imageItem.rotation;
+
+            // 计算旋转后的尺寸
+            const isRotated90 = rotation === 90 || rotation === 270;
+            const srcW = img.naturalWidth;
+            const srcH = img.naturalHeight;
+            const displayW = isRotated90 ? srcH : srcW;
+            const displayH = isRotated90 ? srcW : srcH;
+
+            // 计算缩放比例以适应canvas
+            const scale = Math.min(canvas.width / displayW, canvas.height / displayH);
+            const drawW = displayW * scale;
+            const drawH = displayH * scale;
+
+            // 清空canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 居中绘制
+            ctx.save();
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.rotate(rotation * Math.PI / 180);
+
+            // 根据旋转调整绘制位置
+            if (isRotated90) {
+                ctx.drawImage(img, -drawH / 2, -drawW / 2, drawH, drawW);
+            } else {
+                ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+            }
+
+            ctx.restore();
+        },
+
+        // 渲染大图预览
+        renderModalPreview() {
+            if (!this.selectedImage) return;
+
+            const canvas = this.$refs.modalCanvas;
+            if (!canvas) return;
+
+            const ctx = canvas.getContext('2d');
+            const img = this.selectedImage.img;
+            const rotation = this.selectedImage.rotation;
+
+            const isRotated90 = rotation === 90 || rotation === 270;
+            const srcW = img.naturalWidth;
+            const srcH = img.naturalHeight;
+            // 旋转后显示的宽高
+            const displayW = isRotated90 ? srcH : srcW;
+            const displayH = isRotated90 ? srcW : srcH;
+
+            // 限制最大尺寸
+            const maxW = window.innerWidth * 0.7;
+            const maxH = window.innerHeight * 0.6;
+            const scale = Math.min(1, maxW / displayW, maxH / displayH);
+
+            // Canvas 尺寸为旋转后的显示尺寸
+            canvas.width = displayW * scale;
+            canvas.height = displayH * scale;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.save();
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.rotate(rotation * Math.PI / 180);
+
+            // 绘制时使用原始图片的宽高（缩放后）
+            const drawW = srcW * scale;
+            const drawH = srcH * scale;
+
+            // 绘制图片，始终以原始图片的宽高绘制
+            ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+
+            ctx.restore();
+        },
+
+        // 打开大图预览
+        openPreview(image) {
+            this.selectedImage = image;
+            this.$nextTick(() => this.renderModalPreview());
+        },
+
+        // 左转90°
+        rotateLeft(id) {
+            const image = this.images.find(i => i.id === id);
+            if (image) {
+                image.rotation = (image.rotation + 270) % 360;
+                this.renderThumbnail(image);
+                if (this.selectedImage && this.selectedImage.id === id) {
+                    this.renderModalPreview();
+                }
+            }
+        },
+
+        // 右转90°
+        rotateRight(id) {
+            const image = this.images.find(i => i.id === id);
+            if (image) {
+                image.rotation = (image.rotation + 90) % 360;
+                this.renderThumbnail(image);
+                if (this.selectedImage && this.selectedImage.id === id) {
+                    this.renderModalPreview();
+                }
+            }
+        },
+
+        // 旋转180°
+        rotate180(id) {
+            const image = this.images.find(i => i.id === id);
+            if (image) {
+                image.rotation = (image.rotation + 180) % 360;
+                this.renderThumbnail(image);
+                if (this.selectedImage && this.selectedImage.id === id) {
+                    this.renderModalPreview();
+                }
+            }
+        },
+
+        // 恢复原始方向
+        resetRotation(id) {
+            const image = this.images.find(i => i.id === id);
+            if (image) {
+                image.rotation = 0;
+                image.autoRotation = 0;
+                this.renderThumbnail(image);
+                if (this.selectedImage && this.selectedImage.id === id) {
+                    this.renderModalPreview();
+                }
+            }
+        },
+
+        // 删除单个图片
+        removeImage(id) {
+            const index = this.images.findIndex(i => i.id === id);
+            if (index !== -1) {
+                // 释放URL对象
+                if (this.images[index].img) {
+                    URL.revokeObjectURL(this.images[index].img.src);
+                }
+                this.images.splice(index, 1);
+            }
+            if (this.selectedImage && this.selectedImage.id === id) {
+                this.selectedImage = null;
+            }
+        },
+
+        // 清除全部
+        clearAll() {
+            // 释放所有URL对象
+            this.images.forEach(img => {
+                if (img.img) {
+                    URL.revokeObjectURL(img.img.src);
+                }
+            });
+            this.images = [];
+            this.selectedImage = null;
+            this.errors = [];
+        },
+
+        // 全部恢复原始方向
+        resetAllRotations() {
+            this.images.forEach(img => {
+                img.rotation = 0;
+                img.autoRotation = 0;
+                this.renderThumbnail(img);
+            });
+            if (this.selectedImage) {
+                this.renderModalPreview();
+            }
+        },
+
+        // 获取图片的Base64数据（应用旋转，使用 JPEG 压缩）
+        async getRotatedImageData(imageItem) {
+            return new Promise((resolve) => {
+                const img = imageItem.img;
+                const rotation = imageItem.rotation;
+
+                const isRotated90 = rotation === 90 || rotation === 270;
+                const srcW = img.naturalWidth;
+                const srcH = img.naturalHeight;
+
+                // 创建临时canvas
+                const canvas = document.createElement('canvas');
+                canvas.width = isRotated90 ? srcH : srcW;
+                canvas.height = isRotated90 ? srcW : srcH;
+
+                const ctx = canvas.getContext('2d');
+                ctx.translate(canvas.width / 2, canvas.height / 2);
+                ctx.rotate(rotation * Math.PI / 180);
+
+                if (isRotated90) {
+                    ctx.drawImage(img, -srcW / 2, -srcH / 2, srcW, srcH);
+                } else {
+                    ctx.drawImage(img, -srcW / 2, -srcH / 2, srcW, srcH);
+                }
+
+                // 强制使用 JPEG 格式压缩，减小文件大小
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+                // 移除data:image/xxx;base64,前缀
+                const base64 = dataUrl.split(',')[1];
+                resolve(base64);
+            });
+        },
+
+        // 导出PDF
+        async exportPdf() {
+            if (this.images.length === 0) return;
+
+            this.processing = true;
+            this.loading = true;
+            this.loadingText = '正在生成 PDF...';
+            this.progress = 0;
+            this.errors = [];
+
+            try {
+                // 准备页面数据
+                const pagesData = [];
+                for (let i = 0; i < this.images.length; i++) {
+                    const img = this.images[i];
+                    this.progress = Math.round((i / this.images.length) * 50);
+                    this.loadingText = `处理页面 (${i + 1}/${this.images.length})...`;
+
+                    // 前端已经在 Canvas 上应用了旋转，传 rotation: 0 避免后端重复旋转
+                    const base64Data = await this.getRotatedImageData(img);
+                    pagesData.push({
+                        filename: img.filename,
+                        data: base64Data,
+                        rotation: 0,  // 前端已旋转，后端不需要再旋转
+                        source_type: img.sourceType || 'image'
+                    });
+                }
+
+                this.progress = 60;
+                this.loadingText = '正在生成 PDF 文件...';
+
+                // 使用 FormData 方式提交，避免请求体大小限制
+                const formData = new FormData();
+                formData.append('paper_size', this.paperSize);
+
+                for (let i = 0; i < pagesData.length; i++) {
+                    const pageData = pagesData[i];
+                    // 将 base64 转为 Blob
+                    const byteCharacters = atob(pageData.data);
+                    const byteNumbers = new Array(byteCharacters.length);
+                    for (let j = 0; j < byteCharacters.length; j++) {
+                        byteNumbers[j] = byteCharacters.charCodeAt(j);
+                    }
+                    const byteArray = new Uint8Array(byteNumbers);
+                    const blob = new Blob([byteArray], { type: 'image/jpeg' });
+
+                    formData.append(`page_${i}`, blob, pageData.filename);
+                    formData.append(`filename_${i}`, pageData.filename);
+                }
+
+                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+                const response = await fetch('/api/v1/automation/image-rotation/export-pdf', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: formData
+                });
+
+                this.progress = 90;
+
+                const result = await response.json();
+
+                if (result.success && result.pdf_url) {
+                    this.progress = 100;
+                    this.loadingText = '下载中...';
+
+                    // 触发下载
+                    const link = document.createElement('a');
+                    link.href = result.pdf_url;
+                    link.download = '';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+
+                    // 显示成功提示
+                    this.errors = [];
+                } else {
+                    this.errors.push('导出失败: ' + (result.message || '未知错误'));
+                }
+            } catch (err) {
+                this.errors.push('导出失败: ' + err.message);
+            } finally {
+                this.processing = false;
+                this.loading = false;
+                this.progress = 0;
+            }
+        },
+
+        // 导出 ZIP（仅图片）
+        async exportZip() {
+            if (this.images.length === 0) return;
+
+            this.processing = true;
+            this.loading = true;
+            this.loadingText = '正在生成 ZIP...';
+            this.progress = 0;
+            this.errors = [];
+
+            try {
+                // 准备图片数据和重命名映射
+                const imagesData = [];
+                const renameMap = {};
+
+                for (let i = 0; i < this.images.length; i++) {
+                    const img = this.images[i];
+                    this.progress = Math.round((i / this.images.length) * 50);
+                    this.loadingText = `处理图片 (${i + 1}/${this.images.length})...`;
+
+                    // 前端已经在 Canvas 上应用了旋转
+                    const base64Data = await this.getRotatedImageData(img);
+
+                    // 确保文件名有正确的扩展名
+                    let filename = img.filename;
+                    if (!filename.match(/\.(jpg|jpeg|png)$/i)) {
+                        filename = filename + '.jpg';
+                    }
+
+                    imagesData.push({
+                        filename: filename,
+                        data: base64Data,
+                        rotation: 0,  // 前端已旋转
+                        format: 'jpeg'
+                    });
+
+                    // 如果有智能重命名的建议，添加到映射（确保建议文件名有扩展名）
+                    if (img.suggestedFilename) {
+                        let suggested = img.suggestedFilename;
+                        if (!suggested.match(/\.(jpg|jpeg|png)$/i)) {
+                            suggested = suggested + '.jpg';
+                        }
+                        renameMap[filename] = suggested;
+                    }
+                }
+
+                this.progress = 60;
+                this.loadingText = '正在生成 ZIP 文件...';
+
+                // 使用 FormData 方式提交，避免请求体大小限制
+                const formData = new FormData();
+                formData.append('paper_size', this.paperSize);
+                if (Object.keys(renameMap).length > 0) {
+                    formData.append('rename_map', JSON.stringify(renameMap));
+                }
+
+                for (let i = 0; i < imagesData.length; i++) {
+                    const imgData = imagesData[i];
+                    // 将 base64 转为 Blob
+                    const byteCharacters = atob(imgData.data);
+                    const byteNumbers = new Array(byteCharacters.length);
+                    for (let j = 0; j < byteCharacters.length; j++) {
+                        byteNumbers[j] = byteCharacters.charCodeAt(j);
+                    }
+                    const byteArray = new Uint8Array(byteNumbers);
+                    const blob = new Blob([byteArray], { type: 'image/jpeg' });
+
+                    formData.append(`image_${i}`, blob, imgData.filename);
+                    formData.append(`filename_${i}`, imgData.filename);
+                    formData.append(`format_${i}`, imgData.format);
+                }
+
+                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+                const response = await fetch('/api/v1/automation/image-rotation/export', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: formData
+                });
+
+                this.progress = 90;
+
+                const result = await response.json();
+
+                if (result.success && result.zip_url) {
+                    this.progress = 100;
+                    this.loadingText = '下载中...';
+
+                    // 触发下载
+                    const link = document.createElement('a');
+                    link.href = result.zip_url;
+                    link.download = '';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+
+                    this.errors = [];
+                } else {
+                    this.errors.push('导出失败: ' + (result.message || '未知错误'));
+                }
+            } catch (err) {
+                this.errors.push('导出失败: ' + err.message);
+            } finally {
+                this.processing = false;
+                this.loading = false;
+                this.progress = 0;
+            }
+        }
+    }
+}
+</script>
+{% csrf_token %}
+{% endblock %}

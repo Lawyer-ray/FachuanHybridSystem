@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json as json_mod
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from django.core.exceptions import PermissionDenied
 from django.http import Http404, HttpRequest, HttpResponse
@@ -13,17 +13,15 @@ from django.urls import URLPattern, path, reverse
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
-from apps.cases.models import Case, CaseLog
+from apps.cases.models import Case
 
 if TYPE_CHECKING:
-    from types import ModuleType
-
     from apps.cases.services.case.case_admin_service import CaseAdminService
 
 logger = logging.getLogger("apps.cases")
 
 
-def _log_inline_formset(inline_formset: Any, logger: logging.Logger) -> None:
+def _log_inline_formset(inline_formset: object, logger: logging.Logger) -> None:
     """记录 inline formset 的错误信息"""
     formset = inline_formset.formset
     for i, f in enumerate(formset.forms):
@@ -161,17 +159,23 @@ class CaseAdminViewsMixin:
             else str(_("未设置案件类型"))
         )
 
-        matched_case_file_templates, case_file_templates_missing_reason = self._get_case_file_templates(service, case)
+        matched_case_file_templates, case_file_templates_missing_reason = service.get_case_file_templates_for_detail(case)
 
-        grouped_case_file_templates = self._group_templates_by_sub_type(matched_case_file_templates)
+        grouped_case_file_templates = service.group_templates_by_sub_type(
+            matched_case_file_templates,
+            service.get_case_file_sub_type_choices(),
+        )
 
         matched_folder_templates_list = (
             service.get_matched_folder_templates_list(case.case_type, our_legal_statuses) if case.case_type else []
         )
 
-        our_legal_entities_json, our_legal_entities = self._build_our_legal_entities(case, json_mod)
-        our_parties_json, our_parties = self._build_our_parties(case, json_mod)
-        respondents_json, respondents = self._build_respondents(case, json_mod)
+        our_legal_entities = service.build_our_legal_entities(case)
+        our_legal_entities_json = json_mod.dumps(our_legal_entities, ensure_ascii=False)
+        our_parties = service.build_our_parties(case)
+        our_parties_json = json_mod.dumps(our_parties, ensure_ascii=False)
+        respondents = service.build_respondents(case)
+        respondents_json = json_mod.dumps(respondents, ensure_ascii=False)
 
         case_materials_view = self._build_case_materials_view(request, case)
 
@@ -182,14 +186,7 @@ class CaseAdminViewsMixin:
         unified_templates = template_binding_service.get_unified_templates(case.id)
         unified_templates_json = json_mod.dumps(unified_templates, ensure_ascii=False)
 
-        has_preservation_template = any(
-            t.get("function_code") == "preservation_application" or "财产保全申请书" in (t.get("name") or "")
-            for t in unified_templates
-        )
-        has_delay_delivery_template = any(
-            t.get("function_code") == "delay_delivery_application" or "暂缓送达申请书" in (t.get("name") or "")
-            for t in unified_templates
-        )
+        has_preservation_template, has_delay_delivery_template = service.detect_special_template_flags(unified_templates)
 
         context = self.admin_site.each_context(request)  # type: ignore[attr-defined]
         context.update(
@@ -225,71 +222,16 @@ class CaseAdminViewsMixin:
 
         return render(request, "admin/cases/case/detail.html", context)
 
-    def _get_case_file_templates(self, service: CaseAdminService, case: Case) -> tuple[list[dict[str, Any]], str]:
-        if not case.case_type:
-            return [], str(_("未设置案件类型"))
-        if not case.current_stage:
-            return [], str(_("未设置案件阶段"))
-        return service.get_matched_case_file_templates(case_type=case.case_type, case_stage=case.current_stage), ""
-
     @staticmethod
-    def _group_templates_by_sub_type(templates: list[dict[str, Any]]) -> list[tuple[str, list[dict[str, Any]]]]:
-        from apps.documents.models.choices import DocumentCaseFileSubType
+    def _group_templates_by_sub_type(
+        templates: list[dict[str, object]],
+        sub_type_choices: list[tuple[str, str]],
+    ) -> list[tuple[str, list[dict[str, object]]]]:
+        from apps.cases.services.case.case_admin_service import CaseAdminService
 
-        # 上面硬编码区域已覆盖的 sub_type，自动排除
-        HARDCODED_SUB_TYPES = {"power_of_attorney_materials", "property_preservation_materials"}
+        return CaseAdminService().group_templates_by_sub_type(templates, sub_type_choices)
 
-        label_map = dict(DocumentCaseFileSubType.choices)
-        groups: dict[str, list[dict[str, Any]]] = {}
-        for t in templates:
-            sub = t.get("case_sub_type", "other_materials")
-            if sub in HARDCODED_SUB_TYPES:
-                continue
-            groups.setdefault(sub, []).append(t)
-        order = [c[0] for c in DocumentCaseFileSubType.choices]
-        return [(label_map.get(k, k), v) for k in order if (v := groups.get(k))]
-
-    @staticmethod
-    def _build_our_legal_entities(case: Case, json: ModuleType) -> tuple[str, list[dict[str, Any]]]:
-        entities: list[dict[str, Any]] = [
-            {"id": p.client.id, "name": p.client.name}
-            for p in case.parties.all()
-            if getattr(p.client, "is_our_client", False) and getattr(p.client, "client_type", "") == "legal"
-        ]
-        return json.dumps(entities, ensure_ascii=False), entities
-
-    @staticmethod
-    def _build_our_parties(case: Case, json: ModuleType) -> tuple[str, list[dict[str, Any]]]:
-        parties: list[dict[str, Any]] = []
-        for party in case.parties.all():
-            client = party.client
-            if not getattr(client, "is_our_client", False):
-                continue
-            parties.append(
-                {
-                    "id": client.id,
-                    "name": client.name,
-                    "client_type": getattr(client, "client_type", "") or "",
-                    "legal_status": getattr(party, "legal_status", None),
-                    "legal_status_display": (
-                        getattr(party, "get_legal_status_display", lambda: "")()
-                        if getattr(party, "legal_status", None)
-                        else ""
-                    ),
-                }
-            )
-        return json.dumps(parties, ensure_ascii=False), parties
-
-    @staticmethod
-    def _build_respondents(case: Case, json: ModuleType) -> tuple[str, list[dict[str, Any]]]:
-        respondents: list[dict[str, Any]] = [
-            {"id": p.client.id, "name": p.client.name}
-            for p in case.parties.all()
-            if not getattr(p.client, "is_our_client", False)
-        ]
-        return json.dumps(respondents, ensure_ascii=False), respondents
-
-    def _build_case_materials_view(self, request: HttpRequest, case: Case) -> dict[str, Any]:
+    def _build_case_materials_view(self, request: HttpRequest, case: Case) -> dict[str, object]:
         material_service = self._get_case_material_service()  # type: ignore[attr-defined]
         return material_service.get_case_materials_view(
             case_id=case.id,
@@ -310,48 +252,12 @@ class CaseAdminViewsMixin:
         law_firm_id = getattr(user, "law_firm_id", None) if user else None
 
         material_service = self._get_case_material_service()  # type: ignore[attr-defined]
-        used_type_ids = material_service.get_used_type_ids(case_id=object_id)
-
-        party_types = material_service.get_material_types_by_category(
-            category="party",
+        admin_service = self._get_case_admin_service()  # type: ignore[attr-defined]
+        payload = admin_service.build_materials_view_payload(
+            case=case,
+            material_service=material_service,
             law_firm_id=law_firm_id,
-            used_type_ids=used_type_ids,
         )
-        non_party_types = material_service.get_material_types_by_category(
-            category="non_party",
-            law_firm_id=law_firm_id,
-            used_type_ids=used_type_ids,
-        )
-
-        our_parties: list[dict[str, Any]] = []
-        opponent_parties: list[dict[str, Any]] = []
-        for party in case.parties.all():
-            client = party.client
-            item: dict[str, Any] = {
-                "id": party.id,
-                "name": getattr(client, "name", "") or "",
-                "legal_status": getattr(party, "legal_status", None),
-                "legal_status_display": (
-                    getattr(party, "get_legal_status_display", lambda: "")()
-                    if getattr(party, "legal_status", None)
-                    else ""
-                ),
-            }
-            if getattr(client, "is_our_client", False):
-                our_parties.append(item)
-            else:
-                opponent_parties.append(item)
-
-        authorities: list[dict[str, Any]] = []
-        for auth in case.supervising_authorities.all().order_by("created_at"):
-            authorities.append(
-                {
-                    "id": auth.id,
-                    "name": auth.name or "",
-                    "authority_type": auth.authority_type or "",
-                    "authority_type_display": auth.get_authority_type_display() if auth.authority_type else "",
-                }
-            )
 
         context = self.admin_site.each_context(request)  # type: ignore[attr-defined]
         context.update(
@@ -360,42 +266,19 @@ class CaseAdminViewsMixin:
                 "title": _("上传/绑定材料: %(name)s") % {"name": case.name},
                 "opts": self.model._meta,  # type: ignore[attr-defined]
                 "detail_url": reverse("admin:cases_case_detail", args=[case.pk]),
-                "party_types_json": json_mod.dumps(party_types, ensure_ascii=False),
-                "non_party_types_json": json_mod.dumps(non_party_types, ensure_ascii=False),
-                "our_case_parties_json": json_mod.dumps(our_parties, ensure_ascii=False),
-                "opponent_case_parties_json": json_mod.dumps(opponent_parties, ensure_ascii=False),
-                "supervising_authorities_json": json_mod.dumps(authorities, ensure_ascii=False),
+                "party_types_json": json_mod.dumps(payload["party_types"], ensure_ascii=False),
+                "non_party_types_json": json_mod.dumps(payload["non_party_types"], ensure_ascii=False),
+                "our_case_parties_json": json_mod.dumps(payload["our_parties"], ensure_ascii=False),
+                "opponent_case_parties_json": json_mod.dumps(payload["opponent_parties"], ensure_ascii=False),
+                "supervising_authorities_json": json_mod.dumps(payload["authorities"], ensure_ascii=False),
             }
         )
 
         return render(request, "admin/cases/case/materials.html", context)
 
     def _get_case_with_relations(self, case_id: int) -> Case | None:
-        from django.db.models import Prefetch
-
-        try:
-            return (  # type: ignore[no-any-return]
-                Case.objects.select_related(
-                    "contract",
-                    "folder_binding",
-                )
-                .prefetch_related(
-                    "case_numbers",
-                    "supervising_authorities",
-                    "parties__client",
-                    "assignments__lawyer",
-                    Prefetch(
-                        "logs",
-                        queryset=CaseLog.objects.select_related("actor")
-                        .prefetch_related("attachments", "reminders")
-                        .order_by("-created_at"),
-                    ),
-                    "chats",
-                )
-                .get(pk=case_id)
-            )
-        except Case.DoesNotExist:
-            return None
+        service = self._get_case_admin_service()  # type: ignore[attr-defined]
+        return service.get_case_with_admin_relations(case_id)
 
     def _get_folder_disabled_reason(self, case: Case) -> str:
         service = self._get_case_admin_service()  # type: ignore[attr-defined]
@@ -414,7 +297,7 @@ class CaseAdminViewsMixin:
         request: HttpRequest,
         object_id: str | None = None,
         form_url: str = "",
-        extra_context: dict[str, Any] | None = None,
+        extra_context: dict[str, object] | None = None,
     ) -> HttpResponse:
         logger = logging.getLogger(__name__)
 

@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any
-
-from apps.core.interfaces import ServiceLocator
+from apps.core.interfaces import ICauseCourtQueryService, ServiceLocator
 
 
-def get_cause_court_query_service() -> Any:
+def get_cause_court_query_service() -> ICauseCourtQueryService:
     return ServiceLocator.get_cause_court_query_service()

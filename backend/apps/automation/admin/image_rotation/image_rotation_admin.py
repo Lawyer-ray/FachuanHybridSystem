@@ -7,7 +7,8 @@ import logging
 from typing import Any
 
 from django.contrib import admin
-from django.template.response import TemplateResponse
+from django.http import HttpResponseRedirect
+from django.urls import reverse
 
 from apps.automation.models import ImageRotation
 
@@ -23,26 +24,10 @@ class ImageRotationAdmin(admin.ModelAdmin):
     提供图片自动旋转功能的入口
     """
 
-    def changelist_view(self, request, extra_context=None) -> None:
-        """
-        自定义列表页 - 显示图片自动旋转工具页面
-
-        Admin 层只负责:
-        1. 渲染工具页面
-        2. 提供 API 端点供前端调用
-        """
-        context = {
-            "title": "图片自动旋转",
-            "opts": self.model._meta,
-            "has_view_permission": self.has_view_permission(request),
-            "site_header": self.admin_site.site_header,
-            "site_title": self.admin_site.site_title,
-        }
-
-        return TemplateResponse(
-            request,
-            "admin/automation/image_rotation.html",
-            context,
+    def changelist_view(self, request, extra_context=None) -> HttpResponseRedirect:
+        """兼容旧 URL，重定向到独立 app 的新入口。"""
+        return HttpResponseRedirect(
+            reverse("admin:image_rotation_imagerotationtool_changelist"),
         )
 
     def has_add_permission(self, request: Any) -> bool:
@@ -55,4 +40,5 @@ class ImageRotationAdmin(admin.ModelAdmin):
         return False
 
     def get_model_perms(self, request: Any) -> dict[str, bool]:
-        return {"view": True}
+        # Hide legacy entry from admin index but keep URL-compatible redirect.
+        return {}

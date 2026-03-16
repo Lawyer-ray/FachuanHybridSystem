@@ -84,7 +84,7 @@ class ClassifierService:
 
     def _get_ocr_service(self) -> Any:
         if self._ocr_service is None:
-            module = import_module("apps.automation.services.image_rotation.orientation.service")
+            module = import_module("apps.image_rotation.services.orientation.service")
             orientation_service_cls = module.OrientationDetectionService
             self._ocr_service = orientation_service_cls()
         return self._ocr_service

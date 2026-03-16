@@ -78,6 +78,8 @@ INSTALLED_APPS = [
     "apps.reminders",  # 3.5 Reminders（重要日期提醒）
     "apps.onboarding",  # 4. 立案引导
     "apps.automation",  # 5. 自动化工具
+    "apps.image_rotation",  # 5.1 图片自动旋转（从 automation 拆分）
+    "apps.invoice_recognition",  # 5.2 发票识别（从 automation 拆分）
     "apps.evidence",  # 5.5 证据管理
     "apps.documents",  # 6. 文书生成
     "apps.chat_records",  # 6.0 聊天记录梳理

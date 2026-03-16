@@ -32,6 +32,21 @@ class _LegacyReminderServiceFake:
     pass
 
 
+class _ReminderServiceLatestRaisesFake:
+    def __init__(self, exported: list[dict[str, Any]]) -> None:
+        self.exported = exported
+        self.export_calls: list[int] = []
+        self.latest_calls: list[int] = []
+
+    def export_case_log_reminders_internal(self, *, case_log_id: int) -> list[dict[str, Any]]:
+        self.export_calls.append(case_log_id)
+        return self.exported
+
+    def get_latest_case_log_reminder_internal(self, *, case_log_id: int) -> dict[str, Any] | None:
+        self.latest_calls.append(case_log_id)
+        raise RuntimeError("boom")
+
+
 @pytest.mark.django_db
 def test_case_log_projection_uses_reminder_service(monkeypatch: pytest.MonkeyPatch) -> None:
     log = CaseLogFactory()
@@ -70,3 +85,21 @@ def test_case_log_projection_returns_empty_when_service_missing_export_api(
     assert log.reminder_entries == []
     assert log.reminder_type is None
     assert log.reminder_time is None
+
+
+@pytest.mark.django_db
+def test_case_log_projection_falls_back_to_exported_when_latest_lookup_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    log = CaseLogFactory()
+    exported = [
+        {"reminder_type": ReminderType.HEARING.value, "due_at": None},
+        {"reminder_type": ReminderType.OTHER.value, "due_at": None},
+    ]
+    fake = _ReminderServiceLatestRaisesFake(exported=exported)
+    monkeypatch.setattr(ServiceLocator, "get_reminder_service", classmethod(lambda cls: fake))
+
+    assert log.reminder_type == ReminderType.OTHER.value
+    assert log.reminder_count == 2
+    assert fake.latest_calls == [log.id]
+    assert fake.export_calls == [log.id]

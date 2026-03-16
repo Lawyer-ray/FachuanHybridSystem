@@ -1,4 +1,17 @@
-from .pdf_exporter import generate_pdf
-from .zip_exporter import generate_zip
+"""Compatibility shim for moved image rotation services."""
 
-__all__ = ["generate_pdf", "generate_zip"]
+from importlib import import_module
+from typing import Any
+
+_IMPL = import_module("apps.image_rotation.services.export")
+
+
+def __getattr__(name: str) -> Any:
+    return getattr(_IMPL, name)
+
+
+def __dir__() -> list[str]:
+    return sorted(set(globals()) | set(dir(_IMPL)))
+
+
+__all__ = getattr(_IMPL, "__all__", [n for n in dir(_IMPL) if not n.startswith("_")])

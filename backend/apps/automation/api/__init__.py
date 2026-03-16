@@ -10,10 +10,10 @@ from .court_document_recognition_api import router as court_document_recognition
 from .court_sms_api import router as court_sms_router
 from .document_delivery_api import router as document_delivery_router
 from .document_processor_api import router as document_processor_router
-from .image_rotation_api import router as image_rotation_router
-from .invoice_recognition_api import router as invoice_recognition_router
 from .main_api import router as main_router
 from .preservation_quote_api import router as preservation_quote_router
+from apps.image_rotation.api import router as image_rotation_router
+from apps.invoice_recognition.api import router as invoice_recognition_router
 
 # 创建模块路由器
 router = Router()

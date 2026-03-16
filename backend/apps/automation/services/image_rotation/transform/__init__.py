@@ -1,9 +1,17 @@
-from .image_transform import clean_image, resize_to_paper_size, rotate_image_for_output
-from .pdf_transform import apply_rotation_for_pdf
+"""Compatibility shim for moved image rotation services."""
 
-__all__ = [
-    "apply_rotation_for_pdf",
-    "clean_image",
-    "resize_to_paper_size",
-    "rotate_image_for_output",
-]
+from importlib import import_module
+from typing import Any
+
+_IMPL = import_module("apps.image_rotation.services.transform")
+
+
+def __getattr__(name: str) -> Any:
+    return getattr(_IMPL, name)
+
+
+def __dir__() -> list[str]:
+    return sorted(set(globals()) | set(dir(_IMPL)))
+
+
+__all__ = getattr(_IMPL, "__all__", [n for n in dir(_IMPL) if not n.startswith("_")])
