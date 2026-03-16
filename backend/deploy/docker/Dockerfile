@@ -4,7 +4,8 @@ ARG INSTALL_FULL_DEPS=true
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    UV_SYSTEM_PYTHON=1
+    UV_SYSTEM_PYTHON=1 \
+    DJANGO_DEBUG=0
 
 # 系统依赖
 RUN apt-get update && apt-get install -y --no-install-recommends \

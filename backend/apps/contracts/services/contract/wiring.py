@@ -7,8 +7,12 @@ from typing import Any
 from apps.core.interfaces import ServiceLocator
 
 
+def get_contract_service() -> Any:
+    return ServiceLocator.get_contract_service()
+
+
 def get_contract_domain_service() -> Any:
-    return ServiceLocator.get_contract_service().contract_service  # type: ignore
+    return get_contract_service().contract_service  # type: ignore
 
 
 def get_contract_mutation_facade() -> Any:

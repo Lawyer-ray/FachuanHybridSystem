@@ -9,7 +9,7 @@ from typing import Any
 from django.conf import settings
 from django.utils.translation import gettext as _
 
-from apps.client.services import storage
+from apps.core.services import storage_service as storage
 from apps.core.exceptions import ValidationException
 
 logger = logging.getLogger("apps.contracts")

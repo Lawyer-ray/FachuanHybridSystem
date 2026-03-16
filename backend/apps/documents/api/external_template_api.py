@@ -295,24 +295,13 @@ def list_mappings(request: HttpRequest, template_id: int) -> list[dict[str, Any]
 @router.post("/{template_id}/mappings")
 def create_mapping(request: HttpRequest, template_id: int, payload: MappingCreateSchema) -> dict[str, Any]:
     """手动添加字段映射"""
-    from apps.documents.models.external_template import ExternalTemplate, ExternalTemplateFieldMapping
-
-    template = ExternalTemplate.objects.get(pk=template_id)
-    max_order: int = (
-        ExternalTemplateFieldMapping.objects.filter(template=template)
-        .order_by("-sort_order")
-        .values_list("sort_order", flat=True)
-        .first()
-        or 0
-    )
-
-    m = ExternalTemplateFieldMapping.objects.create(
-        template=template,
+    service = _get_analysis_service()
+    m = service.create_manual_mapping(
+        template_id=template_id,
         position_locator=payload.position_locator,
         position_description=payload.position_description,
         semantic_label=payload.semantic_label,
         fill_type=payload.fill_type,
-        sort_order=max_order + 1,
     )
     logger.info("手动添加映射: template_id=%d, mapping_id=%d", template_id, m.id)
     return {
@@ -358,8 +347,7 @@ def update_mapping(request: HttpRequest, mapping_id: int, payload: MappingUpdate
 @router.delete("/mappings/{mapping_id}")
 def delete_mapping(request: HttpRequest, mapping_id: int) -> dict[str, bool]:
     """删除字段映射"""
-    from apps.documents.models.external_template import ExternalTemplateFieldMapping
-
-    ExternalTemplateFieldMapping.objects.filter(pk=mapping_id).delete()
+    service = _get_analysis_service()
+    service.delete_mapping(mapping_id)
     logger.info("删除映射: mapping_id=%d", mapping_id)
     return {"success": True}

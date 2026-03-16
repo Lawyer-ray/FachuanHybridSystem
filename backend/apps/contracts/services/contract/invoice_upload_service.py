@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from apps.client.services import storage
+from apps.core.services import storage_service as storage
 from apps.core.exceptions import NotFoundError
 
 logger = logging.getLogger(__name__)

@@ -10,7 +10,6 @@ from django.http import HttpRequest, HttpResponse
 from django.template.response import TemplateResponse
 from django.urls import path
 from django.utils.html import format_html
-from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
 from apps.contract_review.models import ReviewTask, TaskStatus
@@ -268,7 +267,7 @@ class ReviewTaskAdmin(admin.ModelAdmin[ReviewTask]):
         context = {
             **self.admin_site.each_context(request),
             "task": task,
-            "report_html": mark_safe(report_html),
+            "report_html": report_html,
             "title": f"评估报告 - {task.contract_title or task.id}",
         }
         return TemplateResponse(
@@ -306,7 +305,7 @@ class ReviewTaskAdmin(admin.ModelAdmin[ReviewTask]):
             "admin/contract_review/reviewtask/report_pdf.html",
             {
                 "task": task,
-                "report_html": mark_safe(report_html),
+                "report_html": report_html,
                 "title": f"评估报告 - {task.contract_title or task.id}",
             },
         )

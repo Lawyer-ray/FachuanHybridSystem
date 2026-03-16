@@ -39,15 +39,21 @@ class SessionLifecycleService:
         self.conversation_history_service = get_conversation_history_service()
         self.session_repo = LitigationSessionRepository()
 
-    def create_session(self, case_id: int, user_id: int | None = None) -> SessionDTO:
+    def create_session(
+        self, case_id: int, user_id: int | None = None, session_type: str | None = None
+    ) -> SessionDTO:
         from apps.litigation_ai.models import LitigationSession
 
-        session = LitigationSession.objects.create(
-            case_id=case_id,
-            user_id=user_id,
-            status="active",
-            metadata={},
-        )
+        create_payload: dict[str, Any] = {
+            "case_id": case_id,
+            "user_id": user_id,
+            "status": "active",
+            "metadata": {},
+        }
+        if session_type:
+            create_payload["session_type"] = session_type
+
+        session = LitigationSession.objects.create(**create_payload)
         return self._to_session_dto(session)
 
     def get_session(self, session_id: str) -> SessionDTO:

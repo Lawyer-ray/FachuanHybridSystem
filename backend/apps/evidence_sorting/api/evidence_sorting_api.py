@@ -9,6 +9,8 @@ from typing import Any
 from django.http import HttpRequest
 from ninja import Router
 
+from apps.core.infrastructure.throttling import rate_limit_from_settings
+
 logger = logging.getLogger("apps.evidence_sorting")
 
 router = Router(tags=["案件材料整理"])
@@ -146,6 +148,7 @@ def reconcile(request: HttpRequest) -> dict[str, Any]:
 
 
 @router.post("/export")
+@rate_limit_from_settings("EXPORT", by_user=True)
 def export_zip(request: HttpRequest) -> dict[str, Any]:
     """导出 ZIP"""
     payload = _body(request)
@@ -174,6 +177,7 @@ def export_zip(request: HttpRequest) -> dict[str, Any]:
 
 
 @router.get("/llm-options")
+@rate_limit_from_settings("LLM", by_user=True)
 def llm_options(request: HttpRequest) -> dict[str, Any]:
     """获取可用的 LLM 后端和模型列表"""
     from apps.core.llm import get_llm_service

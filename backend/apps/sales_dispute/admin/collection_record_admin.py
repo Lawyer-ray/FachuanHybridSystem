@@ -5,7 +5,7 @@ from __future__ import annotations
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 
-from apps.cases.admin.base import BaseModelAdmin, BaseTabularInline
+from apps.cases.admin.base_admin import BaseModelAdmin, BaseTabularInline
 from apps.sales_dispute.models import CollectionLog, CollectionRecord
 
 

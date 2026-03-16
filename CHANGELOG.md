@@ -2,6 +2,29 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.16.8] - 2026-03-16
+
+### 重构
+- **跨模块边界与结构治理持续收敛**
+  - `client/cases/contracts/documents/automation` 等模块继续推进服务边界拆分与兼容适配，减少跨层直接耦合
+  - 补齐部分历史兼容导出与结构基线，统一在 `wiring/service` 路径收口依赖访问
+
+### 修复
+- **Client 管理页回归修复**
+  - 修复当事人编辑页 inline 暴露 `"<当事人名> - business_license"` 文案的问题
+  - `ClientIdentityDoc.__str__` 保持为空字符串，并在 admin 样式层增加兜底隐藏规则，避免后续回归
+- **验证码识别接口稳定性修复**
+  - `/api/v1/automation/captcha/recognize` 明确改为 `auth=None`，确保自动化调用不受 JWT/Session/CSRF 影响
+  - 在接口处增加强约束注释，避免后续误加认证/限流导致再次 403/401
+- **仓库体积治理**
+  - 删除参赛视频文件 `assets/videos/ggbond-competition-20260128.mp4`
+  - README 移除视频链接，并在 `.gitignore` 增加对应忽略规则
+
+### 测试
+- `tests/unit/client + tests/integration/client`：`160 passed`
+- `tests/integration/automation/test_captcha_recognition_open_access.py`：`2 passed`
+- `tests/structure/test_auth_none_guardrails.py`：`1 passed`
+
 ## [26.16.7] - 2026-03-15
 
 ### 重构

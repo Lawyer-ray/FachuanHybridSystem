@@ -4,9 +4,8 @@
 提供发票文件上传、识别状态查询和下载接口。
 """
 
-from __future__ import annotations
-
 import logging
+from pathlib import Path
 from typing import Any
 
 from django.http import HttpResponse
@@ -14,6 +13,8 @@ from django.utils.translation import gettext as _
 from ninja import File, Router
 from ninja.errors import HttpError
 from ninja.files import UploadedFile
+
+from apps.core.infrastructure.throttling import rate_limit_from_settings
 
 logger = logging.getLogger("apps.automation")
 
@@ -111,6 +112,7 @@ def _get_quick_recognition_service() -> Any:
 
 
 @router.post("/{task_id}/upload")
+@rate_limit_from_settings("UPLOAD", by_user=True)
 def upload_invoices(
     request: Any,
     task_id: int,
@@ -177,6 +179,7 @@ def get_task_status(
 
 
 @router.get("/{task_id}/download")
+@rate_limit_from_settings("EXPORT", by_user=True)
 def download_invoices(
     request: Any,
     task_id: int,
@@ -201,7 +204,7 @@ def download_invoices(
             if invoice_id is None:
                 raise HttpError(400, _("scope=single 时必须提供 invoice_id"))
             file_path, filename = download_service.download_single(invoice_id)
-            with open(file_path, "rb") as f:
+            with Path(file_path).open("rb") as f:
                 data = f.read()
         elif scope == "category":
             if category is None:

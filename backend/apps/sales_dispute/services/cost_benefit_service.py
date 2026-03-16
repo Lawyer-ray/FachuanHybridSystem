@@ -9,12 +9,10 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from decimal import ROUND_HALF_UP, Decimal
-from typing import TYPE_CHECKING
+from importlib import import_module
+from typing import Protocol
 
 from django.utils.translation import gettext_lazy as _
-
-if TYPE_CHECKING:
-    from apps.cases.services.data.litigation_fee_calculator_service import LitigationFeeCalculatorService
 
 logger = logging.getLogger(__name__)
 
@@ -61,18 +59,26 @@ class CostBenefitResult:
     risk_warning: str | None = None
 
 
+class LitigationFeeCalculatorPort(Protocol):
+    def calculate_property_case_fee(self, claim_amount: Decimal) -> Decimal:
+        ...
+
+    def calculate_preservation_fee(self, amount: Decimal) -> Decimal:
+        ...
+
+
 class CostBenefitService:
     """成本收益分析服务"""
 
-    def __init__(self, fee_calculator: LitigationFeeCalculatorService | None = None) -> None:
+    def __init__(self, fee_calculator: LitigationFeeCalculatorPort | None = None) -> None:
         self._fee_calculator = fee_calculator
 
-    def _get_fee_calculator(self) -> LitigationFeeCalculatorService:
+    def _get_fee_calculator(self) -> LitigationFeeCalculatorPort:
         """延迟获取 LitigationFeeCalculatorService 实例"""
         if self._fee_calculator is None:
-            from apps.cases.services.data.litigation_fee_calculator_service import LitigationFeeCalculatorService
-
-            self._fee_calculator = LitigationFeeCalculatorService()
+            module = import_module("apps.cases.services.data.litigation_fee_calculator_service")
+            calculator_cls = module.LitigationFeeCalculatorService
+            self._fee_calculator = calculator_cls()
         return self._fee_calculator
 
     def analyze(self, params: CostBenefitParams) -> CostBenefitResult:

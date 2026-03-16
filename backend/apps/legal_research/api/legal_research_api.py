@@ -10,6 +10,7 @@ from django.utils.translation import gettext_lazy as _
 from ninja import Router
 
 from apps.core.auth import JWTOrSessionAuth
+from apps.core.infrastructure.throttling import rate_limit_from_settings
 from apps.legal_research.schemas import (
     LegalResearchCreateOut,
     LegalResearchResultOut,
@@ -89,6 +90,7 @@ def list_results(request: Any, task_id: int) -> list[LegalResearchResultOut]:
 
 
 @router.get("/tasks/{task_id}/results/{result_id}/download")
+@rate_limit_from_settings("EXPORT", by_user=True)
 def download_single_result(request: Any, task_id: int, result_id: int) -> FileResponse:
     result = _get_service().get_result(task_id=task_id, result_id=result_id, user=getattr(request, "user", None))
     if not result.pdf_file:
@@ -99,6 +101,7 @@ def download_single_result(request: Any, task_id: int, result_id: int) -> FileRe
 
 
 @router.get("/tasks/{task_id}/results/download")
+@rate_limit_from_settings("EXPORT", by_user=True)
 def download_all_results(request: Any, task_id: int) -> HttpResponse:
     service = _get_service()
     service.ensure_task_ready_for_download(task_id=task_id, user=getattr(request, "user", None))

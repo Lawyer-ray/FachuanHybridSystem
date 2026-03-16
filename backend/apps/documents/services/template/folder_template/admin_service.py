@@ -6,6 +6,7 @@ import logging
 from typing import Any
 
 from django.db import transaction
+from django.utils.safestring import mark_safe
 
 from apps.core.exceptions import NotFoundError
 from apps.documents.models import FolderTemplate
@@ -284,6 +285,10 @@ class FolderTemplateAdminService:
             html_parts.append("</div>")
 
         return "".join(html_parts)
+
+    def render_structure_preview(self, structure: dict[str, Any]) -> Any:
+        html = self.render_structure_tree(structure)
+        return mark_safe(f'<div class="folder-structure-preview">{html}</div>')
 
     def duplicate_template(self, template: Any) -> Any:
         """

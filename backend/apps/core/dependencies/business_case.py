@@ -47,10 +47,11 @@ def build_case_assignment_service_with_deps(
 ) -> ICaseAssignmentService:
     from apps.cases.services import CaseAssignmentService
 
-    return CaseAssignmentService(  # type: ignore
+    service = CaseAssignmentService(
         case_service=case_service,
         contract_assignment_query_service=contract_assignment_query_service,
     )
+    return cast("ICaseAssignmentService", service)
 
 
 def build_case_material_service() -> ICaseMaterialService:

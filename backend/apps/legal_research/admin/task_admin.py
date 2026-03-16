@@ -214,7 +214,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
                 raise forms.ValidationError("请至少输入一个有效检索关键词")
             return normalized
 
-        setattr(form, "clean_keyword", clean_keyword)
+        form.clean_keyword = clean_keyword
 
     @staticmethod
     def _configure_keyword_field(*, form: type[forms.ModelForm]) -> None:
@@ -486,9 +486,8 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
 
         if obj.candidate_count <= 0:
             return format_html(
-                '<span style="color:#d4380d;font-weight:600;">'
-                "当前关键词未检索到候选案例，请放宽关键词后重试。"
-                "</span>"
+                '<span style="color:#d4380d;font-weight:600;">{}</span>',
+                "当前关键词未检索到候选案例，请放宽关键词后重试。",
             )
 
         if obj.scanned_count >= obj.candidate_count and obj.candidate_count < obj.max_candidates:

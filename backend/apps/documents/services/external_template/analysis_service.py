@@ -714,3 +714,38 @@ class AnalysisService:
             deleted_count,
         )
         return self.analyze_template(template_id)
+
+    def create_manual_mapping(
+        self,
+        *,
+        template_id: int,
+        position_locator: dict[str, Any],
+        position_description: str,
+        semantic_label: str,
+        fill_type: str = "text",
+    ) -> Any:
+        """手动新增单条映射。"""
+        from apps.documents.models.external_template import ExternalTemplate, ExternalTemplateFieldMapping
+
+        template = ExternalTemplate.objects.get(pk=template_id)
+        max_order: int = (
+            ExternalTemplateFieldMapping.objects.filter(template=template)
+            .order_by("-sort_order")
+            .values_list("sort_order", flat=True)
+            .first()
+            or 0
+        )
+        return ExternalTemplateFieldMapping.objects.create(
+            template=template,
+            position_locator=position_locator,
+            position_description=position_description,
+            semantic_label=semantic_label,
+            fill_type=fill_type,
+            sort_order=max_order + 1,
+        )
+
+    def delete_mapping(self, mapping_id: int) -> None:
+        """删除单条映射。"""
+        from apps.documents.models.external_template import ExternalTemplateFieldMapping
+
+        ExternalTemplateFieldMapping.objects.filter(pk=mapping_id).delete()
