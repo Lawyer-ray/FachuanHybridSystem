@@ -5,7 +5,7 @@ import json
 import re
 import time
 from contextlib import contextmanager
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from itertools import product
 from pathlib import Path
 from typing import Any
@@ -13,10 +13,16 @@ from typing import Any
 from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
+from apps.core.dependencies import build_organization_service
 from apps.legal_research.models import LegalResearchResult, LegalResearchTask, LegalResearchTaskStatus
 from apps.legal_research.services.executor import LegalResearchExecutor
 from apps.legal_research.services.tuning_config import LegalResearchTuningConfig
-from apps.organization.models import AccountCredential
+
+
+@dataclass(frozen=True)
+class CredentialRef:
+    id: int
+    lawyer_id: int
 
 
 class Command(BaseCommand):
@@ -810,25 +816,27 @@ class Command(BaseCommand):
         path.write_text(json.dumps(template, ensure_ascii=False, indent=2), encoding="utf-8")
 
     @staticmethod
-    def _resolve_credential(*, case: dict[str, Any], credential_override: int | None) -> AccountCredential:
+    def _resolve_credential(*, case: dict[str, Any], credential_override: int | None) -> CredentialRef:
         credential_id = credential_override or case.get("credential_id")
         if not credential_id:
             raise CommandError("缺少 credential_id（可通过 --credential-id 覆盖）")
-        credential = AccountCredential.objects.select_related("lawyer").filter(id=credential_id).first()
-        if credential is None:
-            raise CommandError(f"账号不存在: credential_id={credential_id}")
-        return credential
+        organization_service = build_organization_service()
+        try:
+            credential = organization_service.get_credential(int(credential_id))
+        except Exception as exc:
+            raise CommandError(f"账号不存在: credential_id={credential_id}") from exc
+        return CredentialRef(id=int(credential.id), lawyer_id=int(credential.lawyer_id))
 
     @staticmethod
     def _create_task(
         *,
         case: dict[str, Any],
-        credential: AccountCredential,
+        credential: CredentialRef,
         llm_model_override: str,
     ) -> LegalResearchTask:
         return LegalResearchTask.objects.create(
-            created_by=credential.lawyer,
-            credential=credential,
+            created_by_id=credential.lawyer_id,
+            credential_id=credential.id,
             source=str(case.get("source") or "weike"),
             keyword=str(case.get("keyword") or "").strip(),
             case_summary=str(case.get("case_summary") or "").strip(),

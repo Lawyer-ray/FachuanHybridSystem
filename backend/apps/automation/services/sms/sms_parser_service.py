@@ -88,20 +88,25 @@ class SMSParserService:
             party_matching_service: 当事人匹配服务，用于依赖注入
             party_candidate_extractor: 当事人候选提取器，用于依赖注入
         """
-        self.ollama_model = ollama_model or get_ollama_model()
-        self.ollama_base_url = ollama_base_url or get_ollama_base_url()
+        self._ollama_model = ollama_model
+        self._ollama_base_url = ollama_base_url
         self._client_service = client_service
         self._party_matching_service = party_matching_service
         self._party_candidate_extractor = party_candidate_extractor
 
     @property
-    def client_service(self) -> Optional["IClientService"]:
-        """获取客户服务实例"""
-        if self._client_service is None:
-            from apps.core.service_locator import ServiceLocator
+    def ollama_model(self) -> str:
+        """延迟加载 Ollama 模型配置，避免初始化阶段触发外部依赖。"""
+        if self._ollama_model is None:
+            self._ollama_model = get_ollama_model()
+        return self._ollama_model
 
-            self._client_service = ServiceLocator.get_client_service()
-        return self._client_service
+    @property
+    def ollama_base_url(self) -> str:
+        """延迟加载 Ollama 服务地址配置。"""
+        if self._ollama_base_url is None:
+            self._ollama_base_url = get_ollama_base_url()
+        return self._ollama_base_url
 
     @property
     def client_service(self) -> "IClientService":
@@ -111,6 +116,24 @@ class SMSParserService:
 
             self._client_service = build_sms_client_service()
         return self._client_service
+
+    @property
+    def party_matching_service(self) -> object:
+        """延迟加载当事人匹配服务"""
+        if self._party_matching_service is None:
+            from apps.automation.services.sms.matching import _get_party_matching_service
+
+            self._party_matching_service = _get_party_matching_service()
+        return self._party_matching_service
+
+    @property
+    def party_candidate_extractor(self) -> object:
+        """延迟加载当事人候选提取器"""
+        if self._party_candidate_extractor is None:
+            from apps.automation.services.sms.parsing import PartyCandidateExtractor
+
+            self._party_candidate_extractor = PartyCandidateExtractor()
+        return self._party_candidate_extractor
 
     def parse(self, content: str) -> SMSParseResult:
         """
@@ -249,7 +272,7 @@ class SMSParserService:
         """
         提取当事人名称
 
-        直接在现有客户数据中查找匹配（最可靠的方式）
+        优先在现有客户中精确查找；未命中时回退到候选提取 + 匹配服务。
 
         Args:
             content: 短信内容
@@ -264,14 +287,45 @@ class SMSParserService:
             logger.info(f"在短信中找到现有客户: {existing_parties}")
             return existing_parties
 
-        logger.info("在短信中未找到现有客户，返回空列表")
-        return []
+        logger.info("在短信中未找到现有客户，尝试候选提取与匹配")
 
-        if existing_parties:
-            logger.info(f"在短信中找到现有客户: {existing_parties}")
-            return existing_parties
+        candidates: list[str] = []
+        try:
+            extractor = self.party_candidate_extractor
+            if hasattr(extractor, "extract"):
+                candidates = list(extractor.extract(content))
+        except Exception as exc:
+            logger.warning(f"提取当事人候选失败: {exc!s}")
+            return []
 
-        logger.info("在短信中未找到现有客户，返回空列表，等待文书下载后提取当事人")
+        if not candidates:
+            logger.info("候选当事人为空，返回空列表")
+            return []
+
+        try:
+            matcher = self.party_matching_service
+            if not hasattr(matcher, "extract_and_match_parties_from_sms"):
+                logger.warning("当事人匹配服务缺少 extract_and_match_parties_from_sms 接口，返回空列表")
+                return []
+            matched_clients = matcher.extract_and_match_parties_from_sms(candidates)
+        except Exception as exc:
+            logger.warning(f"匹配当事人失败: {exc!s}")
+            return []
+
+        names: list[str] = []
+        seen: set[str] = set()
+        for client in matched_clients or []:
+            name = str(getattr(client, "name", "")).strip()
+            if not name or name in seen:
+                continue
+            seen.add(name)
+            names.append(name)
+
+        if names:
+            logger.info(f"通过候选匹配找到当事人: {names}")
+            return names
+
+        logger.info("候选匹配未找到当事人，返回空列表")
         return []
 
     def _find_existing_clients_in_sms(self, content: str) -> list[str]:

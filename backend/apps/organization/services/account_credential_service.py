@@ -32,6 +32,10 @@ class AccountCredentialService:
     def _get_base_queryset(self) -> QuerySet[AccountCredential, AccountCredential]:
         return AccountCredential.objects.select_related("lawyer", "lawyer__law_firm")
 
+    def list_all_credentials(self) -> QuerySet[AccountCredential, AccountCredential]:
+        """返回不带权限过滤的凭证查询集，供跨模块适配器读取。"""
+        return self._get_base_queryset()
+
     def list_credentials(
         self,
         lawyer_id: int | None = None,
@@ -226,3 +230,11 @@ class AccountCredentialService:
                 code="CREDENTIAL_NOT_FOUND",
             )
         return credential
+
+    def list_sites_for_lawyer(self, lawyer_id: int) -> list[str]:
+        return list(
+            self._get_base_queryset()
+            .filter(lawyer_id=lawyer_id)
+            .values_list("site_name", flat=True)
+            .distinct()
+        )

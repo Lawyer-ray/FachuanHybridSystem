@@ -124,7 +124,7 @@ class AccountSelectionStrategy:
             organization_service = ServiceLocator.get_organization_service()
 
             # 获取指定站点的凭证
-            credentials = organization_service.get_credentials_by_site_internal(site_name)  # type: ignore
+            credentials = organization_service.get_credentials_by_site(site_name)  # type: ignore
 
             # 排除指定账号
             all_excluded = set(exclude_accounts + self._blacklist)
@@ -238,16 +238,16 @@ class AccountSelectionStrategy:
                 organization_service = ServiceLocator.get_organization_service()
 
                 # 获取凭证
-                cred = organization_service.get_credential_by_account_internal(account, site_name)  # type: ignore
+                cred = organization_service.get_credential_by_account(account, site_name)  # type: ignore
 
                 # 更新登录统计
                 if success:
-                    organization_service.update_login_success_internal(cred.id)  # type: ignore
-                    cred = organization_service.get_credential_internal(cred.id)  # type: ignore
+                    organization_service.update_login_success(cred.id)  # type: ignore
+                    cred = organization_service.get_credential(cred.id)  # type: ignore
                     return cred.login_success_count, None  # type: ignore
                 else:
-                    organization_service.update_login_failure_internal(cred.id)  # type: ignore
-                    cred = organization_service.get_credential_internal(cred.id)  # type: ignore
+                    organization_service.update_login_failure(cred.id)  # type: ignore
+                    cred = organization_service.get_credential(cred.id)  # type: ignore
                     return None, cred.login_failure_count  # type: ignore
 
             success_count, failure_count = await update_credential()

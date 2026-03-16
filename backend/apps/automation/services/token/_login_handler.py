@@ -408,7 +408,7 @@ class LoginHandler:
             from apps.core.dependencies import build_organization_service
 
             organization_service = build_organization_service()
-            credential = await organization_service.get_credential_internal(credential_id)  # type: ignore
+            credential = await organization_service.get_credential(credential_id)  # type: ignore
             return AccountCredentialDTO.from_model(credential)
         except Exception:
             return None

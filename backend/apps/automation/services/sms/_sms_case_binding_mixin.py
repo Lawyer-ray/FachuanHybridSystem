@@ -35,14 +35,14 @@ class SMSCaseBindingMixin:
             case_log_service = build_sms_case_log_service()
             logger.info(f"获取 case_log_service 成功: SMS ID={sms.id}")
 
-            admin_lawyer_dto = self.lawyer_service.get_admin_lawyer_internal()
+            admin_lawyer_dto = self.lawyer_service.get_admin_lawyer()
             if not admin_lawyer_dto:
                 logger.error("未找到管理员用户，无法创建案件日志")
                 return False
 
             logger.info(f"获取管理员律师成功: {admin_lawyer_dto.real_name}, ID={admin_lawyer_dto.id}")
 
-            system_user = self.lawyer_service.get_lawyer_internal(admin_lawyer_dto.id)  # type: ignore
+            system_user = self.lawyer_service.get_lawyer_model(admin_lawyer_dto.id)  # type: ignore
             logger.info(f"获取系统用户成功: SMS ID={sms.id}")
 
             if sms.case_numbers:
@@ -77,7 +77,7 @@ class SMSCaseBindingMixin:
                 logger.info(f"短信 {sms.id} 没有有效的案号需要写入")
                 return
 
-            admin_lawyer_dto = self.lawyer_service.get_admin_lawyer_internal()
+            admin_lawyer_dto = self.lawyer_service.get_admin_lawyer()
             user_id = admin_lawyer_dto.id if admin_lawyer_dto else None
 
             added_count = sum(

@@ -164,12 +164,12 @@ class SMSRenamingStage(BaseSMSStage):
             from apps.core.dependencies.business_case import build_case_log_service
 
             case_log_service = build_case_log_service()
-            admin = self.lawyer_service.get_admin_lawyer_internal()
+            admin = self.lawyer_service.get_admin_lawyer()
             if not admin:
                 logger.error("未找到管理员用户")
                 return False
 
-            user = self.lawyer_service.get_lawyer_internal(admin.id)  # type: ignore
+            user = self.lawyer_service.get_lawyer_model(admin.id)  # type: ignore
             case_log = case_log_service.create_log(
                 case_id=sms.case.id,
                 content=f"收到法院短信：{sms.content}",

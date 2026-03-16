@@ -19,15 +19,20 @@ def _get_executor_service() -> Any:
     return ScriptExecutorService()
 
 
+def _get_organization_service() -> Any:
+    from apps.core.dependencies import build_organization_service
+
+    return build_organization_service()
+
+
 @router.get("/configs", response=list[OAConfigOut])
 def list_configs(request: HttpRequest) -> Any:
     """返回当前用户有凭证且系统支持的 OA 站点列表。"""
     if not request.user.is_authenticated:
         return []
-    from apps.organization.models import AccountCredential
-
-    user_sites: set[str] = set(
-        AccountCredential.objects.filter(lawyer=request.user).values_list("site_name", flat=True)
+    lawyer_id = getattr(request.user, "id", None)
+    user_sites: set[str] = (
+        set(_get_organization_service().list_sites_for_lawyer(int(lawyer_id))) if lawyer_id is not None else set()
     )
     return [
         {"id": name, "oa_system_name": name, "has_credential": name in user_sites}

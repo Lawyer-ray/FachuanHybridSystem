@@ -24,7 +24,7 @@ class CaseLogInternalService:
             raise NotFoundError(_("案件 %(id)s 不存在") % {"id": case_id}) from None
         actor_id = user_id
         if not actor_id:
-            actor_id = get_organization_service().get_default_lawyer_id_internal()
+            actor_id = get_organization_service().get_default_lawyer_id()
             if not actor_id:
                 raise NotFoundError(
                     message=_("系统中没有律师用户,无法创建日志"),

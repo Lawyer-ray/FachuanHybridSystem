@@ -23,9 +23,9 @@ class BaoquanTokenService:
         token_store = get_court_token_store_service()
 
         if credential_id:
-            credential = await sync_to_async(organization_service.get_credential_internal)(credential_id)
+            credential = await sync_to_async(organization_service.get_credential)(credential_id)
         else:
-            all_credentials = await sync_to_async(organization_service.get_all_credentials_internal)()
+            all_credentials = await sync_to_async(organization_service.get_all_credentials)()
             credentials = [
                 c
                 for c in all_credentials

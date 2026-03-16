@@ -78,7 +78,7 @@ class QuoteExecutionMixin:
                     from apps.core.interfaces import ServiceLocator
 
                     organization_service = ServiceLocator.get_organization_service()
-                    credential = await organization_service.get_credential_internal(credential_id)  # type: ignore
+                    credential = await organization_service.get_credential(credential_id)  # type: ignore
                     account = credential.account
 
                     from apps.automation.services.scraper.core.token_service import TokenService

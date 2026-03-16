@@ -260,12 +260,12 @@ class SMSMatchingStage(BaseSMSStage):
             from apps.core.dependencies.business_case import build_case_log_service
 
             case_log_service = build_case_log_service()
-            admin = self.lawyer_service.get_admin_lawyer_internal()
+            admin = self.lawyer_service.get_admin_lawyer()
             if not admin:
                 logger.error("未找到管理员用户")
                 return False
 
-            user = self.lawyer_service.get_lawyer_internal(admin.id)  # type: ignore
+            user = self.lawyer_service.get_lawyer_model(admin.id)  # type: ignore
 
             if sms.case_numbers:
                 self._add_case_numbers_to_case(sms)
@@ -293,7 +293,7 @@ class SMSMatchingStage(BaseSMSStage):
             if not valid_nums:
                 return
 
-            admin = self.lawyer_service.get_admin_lawyer_internal()
+            admin = self.lawyer_service.get_admin_lawyer()
             user_id = admin.id if admin else None
 
             for num in valid_nums:
