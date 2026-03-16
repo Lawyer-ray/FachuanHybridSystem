@@ -14,7 +14,7 @@ from .models import FeeNoticeExtractionResult, FeeNoticeInfo
 
 if TYPE_CHECKING:
     from apps.automation.services.court_document_recognition.text_extraction_service import TextExtractionService
-logger = logging.getLogger("apps.automation")
+logger = logging.getLogger("apps.fee_notice")
 
 
 class FeeNoticeExtractionService:

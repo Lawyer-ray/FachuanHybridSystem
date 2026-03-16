@@ -12,10 +12,6 @@ from .document_delivery import DocumentDeliveryScheduleAdmin, DocumentQueryHisto
 # 文书识别 Admin
 from .document_recognition import DocumentRecognitionAdmin, DocumentRecognitionTaskAdmin
 
-# 交费通知书识别 Admin
-from .fee_notice import FeeNoticeTestAdmin
-
-
 # 财产保全询价 Admin
 from .insurance import PreservationQuoteAdmin
 
@@ -58,6 +54,5 @@ __all__ = [
     "DocumentRecognitionTaskAdmin",
     # 测试工具
     "TestToolsHubAdmin",
-    "FeeNoticeTestAdmin",
     "PreservationDateTestAdmin",
 ]

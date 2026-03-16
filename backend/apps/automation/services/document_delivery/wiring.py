@@ -28,7 +28,7 @@ def build_document_delivery_coordinator(
     history_repo: DocumentHistoryRepo | None = None,
 ) -> DocumentDeliveryCoordinator:
     from apps.automation.integrations.chat.message_sender import ChatProviderMessageSender
-    from apps.automation.services.fee_notice import FeeNoticeCheckService
+    from apps.fee_notice.services import FeeNoticeCheckService
     from apps.automation.services.sms.case_matcher import CaseMatcher
     from apps.automation.services.sms.document_renamer import DocumentRenamer
     from apps.automation.services.sms.matching import DocumentParserService, PartyMatchingService

@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from .comparison_service import CaseComparisonInfo, FeeComparisonService
     from .extraction_service import FeeNoticeExtractionService
 
-logger = logging.getLogger("apps.automation")
+logger = logging.getLogger("apps.fee_notice")
 
 
 @dataclass

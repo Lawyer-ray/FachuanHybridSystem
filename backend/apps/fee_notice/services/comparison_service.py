@@ -20,7 +20,7 @@ from .models import CaseComparisonInfo, CaseSearchResult, FeeComparisonResult
 if TYPE_CHECKING:
     from apps.core.interfaces import ICaseService, ILitigationFeeCalculatorService
 
-logger = logging.getLogger("apps.automation")
+logger = logging.getLogger("apps.fee_notice")
 
 
 def _to_decimal(value: Any) -> Decimal | None:

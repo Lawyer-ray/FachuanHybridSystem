@@ -8,7 +8,7 @@
 - FeeComparisonService: 费用比对服务
 
 使用示例:
-    from apps.automation.services.fee_notice import FeeNoticeExtractionService
+    from apps.fee_notice.services import FeeNoticeExtractionService
 
     service = FeeNoticeExtractionService()
     result = service.extract_from_files(file_paths, debug=True)
