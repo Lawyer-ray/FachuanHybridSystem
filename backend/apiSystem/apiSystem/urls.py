@@ -36,6 +36,7 @@ _APP_ORDER = [
     "onboarding",  # 5. 立案引导
     "automation",  # 6. 自动化工具
     "fee_notice",  # 6.1 交费通知书识别
+    "document_recognition",  # 6.2 文书智能识别
     "documents",  # 7. 文书生成
     "chat_records",  # 8. 聊天记录
     "litigation_ai",  # 9. AI 诉讼文书

@@ -3,7 +3,7 @@
 import logging
 import re
 
-logger = logging.getLogger("apps.automation")
+logger = logging.getLogger("apps.document_recognition")
 
 # 案号正则表达式模式
 CASE_NUMBER_PATTERNS = [

@@ -153,7 +153,7 @@
 {% block breadcrumbs %}
 <div class="breadcrumbs">
     <a href="{% url 'admin:index' %}">{% trans "首页" %}</a>
-    &rsaquo; <a href="{% url 'admin:app_list' app_label='automation' %}">{% trans "自动化工具" %}</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label='document_recognition' %}">{% trans "文书智能识别" %}</a>
     &rsaquo; {% trans "文书识别" %}
 </div>
 {% endblock %}
@@ -283,7 +283,7 @@ function uploadFile(file) {
     document.getElementById('loadingText').textContent = '正在上传文件...';
     var formData = new FormData();
     formData.append('file', file);
-    fetch('/api/v1/automation/court-document/recognize', {
+    fetch('/api/v1/document-recognition/court-document/recognize', {
         method: 'POST', body: formData, headers: { 'X-CSRFToken': getCsrfToken() }
     }).then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error(d.detail || '识别失败'); return d; }); })
     .then(function(d) { document.getElementById('loadingText').textContent = '正在识别文书...'; pollTaskStatus(d.task_id); })
@@ -295,7 +295,7 @@ function pollTaskStatus(id) {
     var attempts = 0, maxAttempts = 60;
     function poll() {
         attempts++;
-        fetch('/api/v1/automation/court-document/task/' + id)
+        fetch('/api/v1/document-recognition/court-document/task/' + id)
         .then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error(d.detail || '获取状态失败'); return d; }); })
         .then(function(d) {
             if (d.status === 'success' || d.status === 'failed') {
@@ -316,8 +316,8 @@ function showResult() {
     showState('result');
     var rec = result.recognition || {};
     // 文书类型
-    var types = { 'summons': '传票', 'execution_ruling': '执行裁定书', 'unknown': '未知' };
-    var classes = { 'summons': 'tag-blue', 'execution_ruling': 'tag-purple', 'unknown': 'tag-gray' };
+    var types = { 'summons': '传票', 'execution': '执行裁定书', 'execution_ruling': '执行裁定书', 'other': '其他文书', 'unknown': '未知' };
+    var classes = { 'summons': 'tag-blue', 'execution': 'tag-purple', 'execution_ruling': 'tag-purple', 'other': 'tag-gray', 'unknown': 'tag-gray' };
     var tag = document.getElementById('docTypeTag');
     tag.textContent = types[rec.document_type] || '未知';
     tag.className = 'tag ' + (classes[rec.document_type] || 'tag-gray');
@@ -348,7 +348,7 @@ function showResult() {
     // 任务链接
     if (result.task_id) {
         var link = document.getElementById('taskDetailLink');
-        link.href = '/admin/automation/documentrecognitiontask/' + result.task_id + '/change/';
+        link.href = '/admin/document_recognition/documentrecognitiontask/' + result.task_id + '/change/';
         link.classList.remove('hidden');
     }
 }
@@ -371,7 +371,7 @@ function saveEdit(f) {
     var payload = {};
     if (f === 'caseNumber') payload.case_number = document.getElementById('caseNumberInput').value;
     else if (f === 'keyTime') { var v = document.getElementById('keyTimeInput').value; if (v) payload.key_time = new Date(v).toISOString(); }
-    fetch('/api/v1/automation/court-document/task/' + taskId + '/update-info', {
+    fetch('/api/v1/document-recognition/court-document/task/' + taskId + '/update-info', {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() }, body: JSON.stringify(payload)
     }).then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error(d.detail || '保存失败'); return d; }); })
     .then(function() {
@@ -462,7 +462,7 @@ function bindCase() {
     if (!selectedCaseData || !taskId) return;
     var btn = document.getElementById('bindBtn');
     btn.disabled = true; btn.textContent = '绑定中...';
-    fetch('/api/v1/automation/court-document/task/' + taskId + '/bind', {
+    fetch('/api/v1/document-recognition/court-document/task/' + taskId + '/bind', {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
         body: JSON.stringify({ case_id: selectedCaseData.id })
     }).then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error(d.detail || '绑定失败'); return d; }); })

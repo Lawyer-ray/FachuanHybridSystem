@@ -21,7 +21,7 @@ from ._case_number_mixin import CaseNumberMixin
 from ._datetime_extraction_mixin import DatetimeExtractionMixin
 from ._response_parser_mixin import ResponseParserMixin
 
-logger = logging.getLogger("apps.automation")
+logger = logging.getLogger("apps.document_recognition")
 
 
 class InfoExtractor(CaseNumberMixin, DatetimeExtractionMixin, ResponseParserMixin):

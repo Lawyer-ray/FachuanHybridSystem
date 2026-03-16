@@ -23,7 +23,7 @@ from .data_classes import BindingResult, DocumentType
 if TYPE_CHECKING:
     from apps.core.interfaces import ICaseService
 
-logger = logging.getLogger("apps.automation")
+logger = logging.getLogger("apps.document_recognition")
 
 
 class CaseBindingService:
@@ -409,7 +409,7 @@ class CaseBindingService:
 
         Requirements: 3.1, 3.2, 4.1, 4.2, 4.3, 4.4
         """
-        from apps.automation.models import DocumentRecognitionTask
+        from apps.document_recognition.models import DocumentRecognitionTask
 
         logger.info(
             "开始手动绑定文书到案件",
