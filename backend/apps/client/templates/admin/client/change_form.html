@@ -531,22 +531,19 @@
                     if (data.success && data.client) {
                         this.fillFormWithData(data.client);
 
-                        let message = '文本解析成功，表单已自动填充！';
-                        let messageType = 'success';
-
-                        if (data.parse_method === 'ollama') {
-                            message = '🤖 正则匹配失败，Ollama AI解析成功！表单已自动填充';
-                            messageType = 'success-ai';
-                        } else if (data.parse_method === 'regex') {
-                            message = '✅ 正则匹配成功，表单已自动填充！';
-                            messageType = 'success';
-                        }
+                        const message = data.parse_method === 'regex'
+                            ? '✅ 规则解析成功，表单已自动填充！'
+                            : '✅ 文本解析成功，表单已自动填充！';
+                        const messageType = 'success';
 
                         this.showMessage(message, messageType);
                         this.parseText = '';
                         this.detectedFormat = null;
                     } else {
-                        this.showMessage('❌ ' + (data.error || '解析失败：正则匹配和Ollama解析都失败'), 'error');
+                        this.showMessage(
+                            '❌ ' + (data.error || '解析失败，请补充“名称/证件号码/电话/地址”等字段后重试'),
+                            'error'
+                        );
                     }
                 } catch (error) {
                     console.error('[TextParserApp] 解析请求失败:', error);

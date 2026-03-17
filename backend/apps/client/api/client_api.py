@@ -73,7 +73,7 @@ def parse_client_text(request: Any, payload: ParseTextRequest) -> dict[str, Any]
     else:
         result = _parse_client(payload.text)
         if result.get("name"):
-            return {"success": True, "client": result}
+            return {"success": True, "client": result, "parse_method": "regex"}
         else:
             return {"success": False, "error": _("未能解析出客户信息")}
 

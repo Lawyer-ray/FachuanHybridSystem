@@ -8,7 +8,12 @@ from typing import Any
 # 关键字列表，用于智能分割无换行文本
 _FIELD_KEYWORDS: list[str] = [
     "名称",
+    "企业名称",
+    "公司名称",
+    "单位名称",
+    "姓名",
     "类型",
+    "当事人",
     "法定代表人",
     "法人代表",
     "负责人",
@@ -20,6 +25,9 @@ _FIELD_KEYWORDS: list[str] = [
     "身份证",
     "证件号码",
     "地址",
+    "注册地址",
+    "经营地址",
+    "联系地址",
     "住址",
     "住所地",
     "住所",
@@ -48,8 +56,13 @@ _ROLE_SPLIT_STRS: list[str] = [
     r"第三人\s*[:：]",
     r"申请人\s*[:：]",
     r"被申请人\s*[:：]",
+    r"申请执行人\s*[:：]",
+    r"被执行人\s*[:：]",
     r"答辩人\s*[:：]",
     r"被答辩人\s*[:：]",
+    r"当事人\s*[:：]",
+    r"委托人\s*[:：]",
+    r"委托方\s*[:：]",
     r"甲方\s*[一二三四五六七八九十\d]?\s*[:：]",
     r"乙方\s*[一二三四五六七八九十\d]?\s*[:：]",
     r"丙方\s*[一二三四五六七八九十\d]?\s*[:：]",
@@ -74,13 +87,57 @@ _ETHNICITY_PATTERN = re.compile(
 )
 _BIRTH_DATE_PATTERN = re.compile(r"[，,]\s*\d{4}年\d{1,2}月\d{1,2}日.*")
 
-_CREDIT_CODE_PATTERN = re.compile(r"(?:统一社会信用代码|信用代码|社会信用代码)\s*[:：]\s*([A-Z0-9]{18})", re.IGNORECASE)
-_ID_NUMBER_PATTERN = re.compile(r"(?:身份证号码|身份证号|身份证|证件号码)\s*[:：]\s*([0-9Xx]{15,18})", re.IGNORECASE)
-_ADDRESS_PATTERN = re.compile(r"(?:地址|住址|住所地|住所)\s*[:：]\s*([^\n]*?)(?=\n|$)", re.IGNORECASE)
-_PHONE_PATTERN = re.compile(r"(?:联系电话|电话|联系方式|手机)\s*[:：]\s*([0-9\-\+\s]{7,20})", re.IGNORECASE)
-_LEGAL_REP_PATTERN = re.compile(r"(?:法定代表人|法人代表|负责人)\s*[:：]\s*([^\n]*?)(?=\n|$)", re.IGNORECASE)
+_CREDIT_CODE_PATTERN = re.compile(
+    r"(?:统一社会信用代码|信用代码|社会信用代码)\s*(?:[:：]|为|是)?\s*([A-Z0-9]{18})",
+    re.IGNORECASE,
+)
+_CREDIT_CODE_FALLBACK_PATTERN = re.compile(r"\b([A-Z0-9]{18})\b", re.IGNORECASE)
+_ID_NUMBER_PATTERN = re.compile(
+    r"(?:身份证号码|身份证号|身份证|证件号码)\s*(?:[:：]|为|是)?\s*([0-9Xx]{15,18})",
+    re.IGNORECASE,
+)
+_ID_NUMBER_FALLBACK_PATTERN = re.compile(r"\b([1-9]\d{16}[0-9Xx]|[1-9]\d{14})\b")
+_ADDRESS_PATTERN = re.compile(
+    r"(?:注册地址|经营地址|联系地址|地址|住址|住所地|住所)\s*(?:[:：]|为|是)?\s*([^\n；;。]*?)"
+    r"(?=\n|$|；|;|。|(?:联系电话|电话|联系方式|手机|法定代表人|法人代表|法定负责人|负责人)\s*(?:[:：]|为|是)?)",
+    re.IGNORECASE,
+)
+_PHONE_PATTERN = re.compile(
+    r"(?:联系电话|电话|联系方式|手机|联系电话号码|联系人电话)\s*(?:[:：]|为|是)?\s*([0-9\-\+\s]{7,20})",
+    re.IGNORECASE,
+)
+_PHONE_FALLBACK_PATTERN = re.compile(r"(?<!\d)(1[3-9]\d{9}|(?:0\d{2,3}-?)?\d{7,8})(?!\d)")
+_LEGAL_REP_PATTERN = re.compile(
+    r"(?:法定代表人|法人代表|法定负责人|负责人)\s*(?:[:：]|为|是)?\s*([^\n；;。]*?)"
+    r"(?=\n|$|；|;|。|(?:联系电话|电话|联系方式|手机|注册地址|经营地址|联系地址|地址|住址|住所地|住所)\s*(?:[:：]|为|是)?)",
+    re.IGNORECASE,
+)
 _PAREN_CLEANUP_PATTERN = re.compile(r"（[^）]*）|\([^)]*\)")
 _WHITESPACE_PATTERN = re.compile(r"\s+")
+
+_ROLE_NAME_FALLBACK_PATTERN = re.compile(
+    r"(?:^|\n)\s*"
+    r"(?:原告|被告|上诉人|被上诉人|第三人|申请人|被申请人|申请执行人|被执行人|答辩人|被答辩人|"
+    r"甲方\s*[一二三四五六七八九十\d]?|乙方\s*[一二三四五六七八九十\d]?|丙方\s*[一二三四五六七八九十\d]?|"
+    r"当事人|委托人|委托方)"
+    r"\s*(?:（[^）]*）)?\s*(?:[:：])?\s*([^\n，,；;。]+)",
+    re.IGNORECASE,
+)
+_ROLE_PREFIX_CLEANUP_PATTERN = re.compile(
+    r"^(?:原告|被告|上诉人|被上诉人|第三人|申请人|被申请人|申请执行人|被执行人|答辩人|被答辩人|"
+    r"甲方\s*[一二三四五六七八九十\d]?|乙方\s*[一二三四五六七八九十\d]?|丙方\s*[一二三四五六七八九十\d]?|"
+    r"当事人|委托人|委托方)\s*(?:（[^）]*）)?\s*(?:[:：])?\s*",
+    re.IGNORECASE,
+)
+_LEGAL_ENTITY_NAME_PATTERN = re.compile(
+    r"([\u4e00-\u9fa5A-Za-z0-9（）()·]{4,}"
+    r"(?:有限责任公司|有限公司|股份有限公司|股份公司|集团有限公司|集团|合伙企业|律师事务所|研究院|银行|医院|学校|中心|店|厂))"
+)
+_NATURAL_PERSON_NAME_PATTERN = re.compile(r"([\u4e00-\u9fa5·]{2,10})\s*[，,]\s*(?:男|女)")
+_ADDRESS_LINE_FALLBACK_PATTERN = re.compile(
+    r"^(?:中国)?(?:北京市|天津市|上海市|重庆市|[\u4e00-\u9fa5]{2,}(?:省|自治区|特别行政区))"
+    r"[\u4e00-\u9fa5A-Za-z0-9\-（）()#号室栋单元路街道区县乡镇村]{4,}$"
+)
 
 _LEGAL_KEYWORDS: tuple[str, ...] = (
     "有限公司",
@@ -146,8 +203,31 @@ _SMART_NAME_PATTERN = re.compile(
     re.DOTALL,
 )
 
-# 支持 "名称: xxx" / "名称：xxx" 格式
-_NAME_FIELD_PATTERN = re.compile(r"(?:^|\n)\s*名称\s*[:：]\s*([^\n]+)", re.IGNORECASE)
+# 支持字段式名称（保留冒号约束，避免过度吞并整段文本）
+_NAME_FIELD_PATTERN = re.compile(
+    r"(?:^|\n)\s*(?:名称|企业名称|公司名称|单位名称|姓名|当事人名称)\s*[:：]\s*([^\n]+)",
+    re.IGNORECASE,
+)
+_NON_NAME_KEYWORDS: tuple[str, ...] = (
+    "统一社会信用代码",
+    "社会信用代码",
+    "信用代码",
+    "身份证",
+    "证件号码",
+    "法定代表人",
+    "法人代表",
+    "负责人",
+    "联系电话",
+    "联系方式",
+    "电话",
+    "手机",
+    "地址",
+    "住址",
+    "住所",
+    "注册地址",
+    "经营地址",
+    "联系地址",
+)
 
 
 def _extract_name_smart(text: str) -> str | None:
@@ -159,15 +239,82 @@ def _extract_name_smart(text: str) -> str | None:
     # 支持 "名称: xxx" 格式
     match = _NAME_FIELD_PATTERN.search(text)
     if match:
-        name = match.group(1).strip()
-        if name:
+        name = _clean_name_candidate(match.group(1))
+        if _is_valid_name_candidate(name):
             return name
 
     match2 = _SMART_NAME_PATTERN.search(text)
     if match2:
-        name = _WHITESPACE_PATTERN.sub("", match2.group(1).strip())
-        if name:
+        name = _clean_name_candidate(_WHITESPACE_PATTERN.sub("", match2.group(1).strip()))
+        if _is_valid_name_candidate(name):
             return name
+
+    # 兼容无冒号的角色写法：如 "被告 张三，男..."
+    role_match = _ROLE_NAME_FALLBACK_PATTERN.search(text)
+    if role_match:
+        name = _clean_name_candidate(role_match.group(1))
+        if _is_valid_name_candidate(name):
+            return name
+
+    # 兼容仅出现公司全称的文本
+    legal_name_match = _LEGAL_ENTITY_NAME_PATTERN.search(text)
+    if legal_name_match:
+        name = _clean_name_candidate(legal_name_match.group(1))
+        if _is_valid_name_candidate(name):
+            return name
+
+    # 兼容自然人常见写法：如 "李四，男..."
+    person_match = _NATURAL_PERSON_NAME_PATTERN.search(text)
+    if person_match:
+        name = _clean_name_candidate(person_match.group(1))
+        if _is_valid_name_candidate(name):
+            return name
+
+    # 兜底：第一行即名称
+    first_line_name = _extract_name_from_first_meaningful_line(text)
+    if first_line_name:
+        return first_line_name
+
+    return None
+
+
+def _clean_name_candidate(name_part: str) -> str:
+    """清洗名称候选值（保留公司括号地名，不做激进删减）"""
+    name = _ROLE_PREFIX_CLEANUP_PATTERN.sub("", name_part.strip())
+    name = _ETHNICITY_PATTERN.sub("", name)
+    name = _BIRTH_DATE_PATTERN.sub("", name)
+    return name.strip().strip("，,；;。")
+
+
+def _is_valid_name_candidate(name: str) -> bool:
+    """判断名称候选值是否有效，避免把字段值误判为名称"""
+    if not name or len(name) < 2 or len(name) > 120:
+        return False
+
+    if any(keyword in name for keyword in _NON_NAME_KEYWORDS):
+        return False
+
+    compact = _WHITESPACE_PATTERN.sub("", name)
+    if not compact:
+        return False
+    if compact.isdigit():
+        return False
+    if _ID_NUMBER_FALLBACK_PATTERN.fullmatch(compact):
+        return False
+    if _CREDIT_CODE_FALLBACK_PATTERN.fullmatch(compact) and any(ch.isalpha() for ch in compact):
+        return False
+    return True
+
+
+def _extract_name_from_first_meaningful_line(text: str) -> str | None:
+    """从第一条有效信息行提取名称"""
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        line = _clean_name_candidate(line)
+        if _is_valid_name_candidate(line):
+            return line
 
     return None
 
@@ -212,13 +359,13 @@ def _extract_parties(text: str) -> list[dict[str, Any]]:
             role_label = text[match.start() : match.end()]
             full_party_text = role_label + party_text
 
-            party_info = _parse_single_party(full_party_text)
+            party_info = _parse_single_party(full_party_text, use_smart_name=True)
             if party_info["name"]:  # 只有名称不为空才添加
                 parties.append(party_info)
 
     # 如果没有找到角色标签，尝试直接解析
     if not parties:
-        party_info = _parse_single_party(text)
+        party_info = _parse_single_party(text, use_smart_name=True)
         if party_info["name"]:
             parties.append(party_info)
 
@@ -275,13 +422,8 @@ def _extract_name(text: str) -> str | None:
     for compiled in role_patterns:
         match = compiled.search(text)
         if match:
-            name_part = match.group(1).strip()
-
-            # 去除性别、民族、出生日期等个人信息
-            name = _ETHNICITY_PATTERN.sub("", name_part)
-            name = _BIRTH_DATE_PATTERN.sub("", name)
-
-            if name.strip():
+            name = _clean_name_candidate(match.group(1))
+            if _is_valid_name_candidate(name):
                 return name.strip()
 
     return None
@@ -290,31 +432,62 @@ def _extract_name(text: str) -> str | None:
 def _extract_credit_code(text: str) -> str | None:
     """提取统一社会信用代码"""
     match = _CREDIT_CODE_PATTERN.search(text)
-    return match.group(1).strip() if match else None
+    if match:
+        return match.group(1).strip().upper()
+
+    # 无标签兜底：仅接受含字母的18位编码，避免误判身份证号
+    for fallback_match in _CREDIT_CODE_FALLBACK_PATTERN.finditer(text):
+        code = fallback_match.group(1).strip().upper()
+        if any(ch.isalpha() for ch in code):
+            return code
+
+    return None
 
 
 def _extract_id_number(text: str) -> str | None:
     """提取身份证号码"""
     match = _ID_NUMBER_PATTERN.search(text)
-    return match.group(1).strip() if match else None
+    if match:
+        return match.group(1).strip().upper()
+
+    fallback = _ID_NUMBER_FALLBACK_PATTERN.search(text)
+    return fallback.group(1).strip().upper() if fallback else None
 
 
 def _extract_address(text: str) -> str | None:
     """提取地址"""
     match = _ADDRESS_PATTERN.search(text)
-    if not match:
-        return None
-    address = match.group(1).strip()
-    return address or None
+    if match:
+        address = match.group(1).strip()
+        if address:
+            return address
+
+    # 无标签兜底：从明显的省市开头行提取
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if line and _ADDRESS_LINE_FALLBACK_PATTERN.fullmatch(line):
+            return line
+    return None
 
 
 def _extract_phone(text: str) -> str | None:
     """提取电话号码"""
     match = _PHONE_PATTERN.search(text)
-    if not match:
-        return None
-    phone = _WHITESPACE_PATTERN.sub("", match.group(1).strip())
-    return phone or None
+    if match:
+        phone = _WHITESPACE_PATTERN.sub("", match.group(1).strip())
+        if phone:
+            return phone
+
+    # 无标签兜底：优先手机号，其次座机
+    fallback_phone: str | None = None
+    for fallback in _PHONE_FALLBACK_PATTERN.finditer(text):
+        candidate = _WHITESPACE_PATTERN.sub("", fallback.group(1).strip())
+        digits_only = re.sub(r"\D", "", candidate)
+        if len(digits_only) == 11 and digits_only.startswith("1"):
+            return candidate
+        if fallback_phone is None:
+            fallback_phone = candidate
+    return fallback_phone
 
 
 def _extract_legal_representative(text: str) -> str | None:
@@ -322,7 +495,7 @@ def _extract_legal_representative(text: str) -> str | None:
     match = _LEGAL_REP_PATTERN.search(text)
     if not match:
         return None
-    legal_rep = match.group(1).strip()
+    legal_rep = _clean_name_candidate(match.group(1))
     return legal_rep or None
 
 
