@@ -1,4 +1,3 @@
-from .mcp_transport import McpToolTransport
+from .mcp_transport import McpToolClient, McpToolTransport
 
-__all__ = ["McpToolTransport"]
-
+__all__ = ["McpToolClient", "McpToolTransport"]

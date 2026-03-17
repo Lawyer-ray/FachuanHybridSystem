@@ -97,6 +97,8 @@ backend/tests/screenshots/*.jpeg
 backend/tests/screenshots/*.webp
 # App tests (privacy: do not upload tests under backend/apps)
 backend/apps/**/tests/
+# enterprise_data tests（单独显式标注，便于团队检索）
+backend/apps/enterprise_data/tests/
 # Jupyter
 .ipynb_checkpoints/
 # mypy
