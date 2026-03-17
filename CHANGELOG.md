@@ -2,6 +2,22 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.17.1] - 2026-03-17
+
+### 优化
+- **Client 当事人文本规则解析增强**
+  - `apps.client.services.text_parser` 升级为“归一化 + 分段 + 字段提取 + 候选校验”的更完整规则链，减少对大模型兜底的依赖
+  - 支持更多角色标签与编号形式：`被告一`、`申请执行人`、`原审原告`、`再审申请人`、`委托方`、`受托方` 等
+  - 支持更多输入格式：无冒号字段、首行直接写主体名称、列表编号、项目符号、分号/句号混排、括号角色别名
+  - 增加伪名称过滤，避免把 `统一社会信用代码`、`电话` 等字段头误识别成当事人名称
+- **Client Admin 提示文案收敛**
+  - `/admin/client/client/add/` 的“快速填充当事人信息”成功提示明确为规则解析成功，不再暗示频繁走 Ollama 兜底
+
+### 测试
+- 新增 `backend/apps/client/test_text_parser.py`
+- `uv run pytest apps/client/test_text_parser.py -o addopts='--tb=short -q'`：`10 passed`
+- `uv run python apiSystem/manage.py check`：`System check identified no issues (0 silenced)`
+
 ## [26.17.0] - 2026-03-17
 
 ### 新增
