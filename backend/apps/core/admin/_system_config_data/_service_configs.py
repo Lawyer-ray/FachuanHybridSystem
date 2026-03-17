@@ -1,8 +1,8 @@
-"""法院短信、AI、爬虫等服务配置数据"""
+"""法院短信、AI、企业数据、爬虫等服务配置数据"""
 
 from typing import Any
 
-__all__ = ["get_court_sms_configs", "get_ai_configs", "get_scraper_configs"]
+__all__ = ["get_court_sms_configs", "get_ai_configs", "get_enterprise_data_configs", "get_scraper_configs"]
 
 
 def get_court_sms_configs() -> list[dict[str, Any]]:
@@ -385,6 +385,173 @@ def get_scraper_configs() -> list[dict[str, Any]]:
             "category": "scraper",
             "description": "Token 缓存有效期（秒）",
             "value": "3600",
+            "is_secret": False,
+        },
+    ]
+
+
+def get_enterprise_data_configs() -> list[dict[str, Any]]:
+    """获取企业数据配置项（天眼查等外部企业数据源）"""
+    return [
+        {
+            "key": "ENTERPRISE_DATA_DEFAULT_PROVIDER",
+            "category": "enterprise_data",
+            "description": "企业数据默认提供商（如 tianyancha）",
+            "value": "tianyancha",
+            "is_secret": False,
+        },
+        {
+            "key": "ENTERPRISE_DATA_CACHE_TTL_SECONDS",
+            "category": "enterprise_data",
+            "description": "企业数据查询缓存时长（秒）",
+            "value": "300",
+            "is_secret": False,
+        },
+        {
+            "key": "TIANYANCHA_MCP_ENABLED",
+            "category": "enterprise_data",
+            "description": "是否启用天眼查 MCP 提供商",
+            "value": "True",
+            "is_secret": False,
+        },
+        {
+            "key": "TIANYANCHA_MCP_TRANSPORT",
+            "category": "enterprise_data",
+            "description": "天眼查 MCP 传输协议（streamable_http/sse）",
+            "value": "streamable_http",
+            "is_secret": False,
+        },
+        {
+            "key": "TIANYANCHA_MCP_BASE_URL",
+            "category": "enterprise_data",
+            "description": "天眼查 MCP Streamable-HTTP 地址",
+            "value": "https://mcp-service.tianyancha.com/mcp",
+            "is_secret": False,
+        },
+        {
+            "key": "TIANYANCHA_MCP_SSE_URL",
+            "category": "enterprise_data",
+            "description": "天眼查 MCP SSE 地址",
+            "value": "https://mcp-service.tianyancha.com/sse",
+            "is_secret": False,
+        },
+        {
+            "key": "TIANYANCHA_MCP_API_KEY",
+            "category": "enterprise_data",
+            "description": "天眼查 MCP API Key（Bearer Token）",
+            "value": "",
+            "is_secret": True,
+        },
+        {
+            "key": "TIANYANCHA_MCP_TIMEOUT_SECONDS",
+            "category": "enterprise_data",
+            "description": "天眼查 MCP 调用超时时间（秒）",
+            "value": "30",
+            "is_secret": False,
+        },
+        {
+            "key": "ENTERPRISE_DATA_RATE_LIMIT_REQUESTS",
+            "category": "enterprise_data",
+            "description": "企业数据每窗口最大请求数（按 provider+tool）",
+            "value": "60",
+            "is_secret": False,
+        },
+        {
+            "key": "ENTERPRISE_DATA_RATE_LIMIT_WINDOW_SECONDS",
+            "category": "enterprise_data",
+            "description": "企业数据限流窗口时长（秒）",
+            "value": "60",
+            "is_secret": False,
+        },
+        {
+            "key": "ENTERPRISE_DATA_RETRY_MAX_ATTEMPTS",
+            "category": "enterprise_data",
+            "description": "企业数据单协议重试上限（含首次）",
+            "value": "2",
+            "is_secret": False,
+        },
+        {
+            "key": "ENTERPRISE_DATA_RETRY_BACKOFF_SECONDS",
+            "category": "enterprise_data",
+            "description": "企业数据重试退避基数（秒）",
+            "value": "0.25",
+            "is_secret": False,
+        },
+        {
+            "key": "ENTERPRISE_DATA_METRICS_WINDOW_SECONDS",
+            "category": "enterprise_data",
+            "description": "企业数据指标聚合窗口（秒）",
+            "value": "300",
+            "is_secret": False,
+        },
+        {
+            "key": "ENTERPRISE_DATA_ALERT_MIN_SAMPLES",
+            "category": "enterprise_data",
+            "description": "企业数据告警最小样本数",
+            "value": "20",
+            "is_secret": False,
+        },
+        {
+            "key": "ENTERPRISE_DATA_ALERT_SUCCESS_RATE_THRESHOLD",
+            "category": "enterprise_data",
+            "description": "企业数据成功率告警阈值（0-1）",
+            "value": "0.9",
+            "is_secret": False,
+        },
+        {
+            "key": "ENTERPRISE_DATA_ALERT_FALLBACK_RATE_THRESHOLD",
+            "category": "enterprise_data",
+            "description": "企业数据协议回退比例告警阈值（0-1）",
+            "value": "0.35",
+            "is_secret": False,
+        },
+        {
+            "key": "ENTERPRISE_DATA_ALERT_AVG_LATENCY_MS_THRESHOLD",
+            "category": "enterprise_data",
+            "description": "企业数据平均耗时告警阈值（毫秒）",
+            "value": "3000",
+            "is_secret": False,
+        },
+        {
+            "key": "QICHACHA_MCP_ENABLED",
+            "category": "enterprise_data",
+            "description": "是否启用企查查 MCP 提供商",
+            "value": "False",
+            "is_secret": False,
+        },
+        {
+            "key": "QICHACHA_MCP_TRANSPORT",
+            "category": "enterprise_data",
+            "description": "企查查 MCP 传输协议（streamable_http/sse）",
+            "value": "streamable_http",
+            "is_secret": False,
+        },
+        {
+            "key": "QICHACHA_MCP_BASE_URL",
+            "category": "enterprise_data",
+            "description": "企查查 MCP Streamable-HTTP 地址",
+            "value": "https://mcp-service.qichacha.com/mcp",
+            "is_secret": False,
+        },
+        {
+            "key": "QICHACHA_MCP_SSE_URL",
+            "category": "enterprise_data",
+            "description": "企查查 MCP SSE 地址",
+            "value": "https://mcp-service.qichacha.com/sse",
+            "is_secret": False,
+        },
+        {
+            "key": "QICHACHA_MCP_API_KEY",
+            "category": "enterprise_data",
+            "description": "企查查 MCP API Key（Bearer Token）",
+            "value": "",
+            "is_secret": True,
+        },
+        {
+            "key": "QICHACHA_MCP_TIMEOUT_SECONDS",
+            "category": "enterprise_data",
+            "description": "企查查 MCP 调用超时时间（秒）",
+            "value": "30",
             "is_secret": False,
         },
     ]

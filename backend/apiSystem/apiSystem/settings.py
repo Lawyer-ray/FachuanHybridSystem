@@ -92,6 +92,7 @@ INSTALLED_APPS = [
     "apps.finance",  # 6.3.1 金融工具(LPR计算器)
     "apps.oa_filing",  # 6.4 OA立案
     "apps.legal_research",  # 6.5 案例检索（法律数据源）
+    "apps.enterprise_data",  # 6.6 企业数据查询（天眼查/企查查等）
     "apps.core",  # 7. 核心系统
     "django_q",  # 8. DJANGO Q
 ]

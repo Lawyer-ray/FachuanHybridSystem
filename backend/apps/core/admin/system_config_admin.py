@@ -52,6 +52,7 @@ class SystemConfigAdmin(admin.ModelAdmin[SystemConfig]):
             "wechat_work": "#07c160",
             "court_sms": "#ff6b35",
             "ai": "#9c27b0",
+            "enterprise_data": "#0f766e",
             "scraper": "#ff9800",
             "general": "#607d8b",
         }

@@ -82,6 +82,7 @@ def _register_app_routers() -> None:
         preservation_materials_router,
     )
     from apps.document_recognition.api import router as document_recognition_router
+    from apps.enterprise_data.api import router as enterprise_data_router
     from apps.evidence.api import evidence_router
     from apps.fee_notice.api import router as fee_notice_router
     from apps.image_rotation.api import router as image_rotation_router
@@ -106,6 +107,7 @@ def _register_app_routers() -> None:
     api_v1.add_router("/fee-notice", fee_notice_router, auth=JWTOrSessionAuth())
     api_v1.add_router("/preservation-date", preservation_date_router, auth=JWTOrSessionAuth())
     api_v1.add_router("/document-recognition", document_recognition_router, auth=JWTOrSessionAuth())
+    api_v1.add_router("/enterprise-data", enterprise_data_router, auth=JWTOrSessionAuth(), tags=["企业数据查询"])
     api_v1.add_router("/reminders", reminders_router)
     api_v1.add_router("/chat-records", chat_records_router, tags=["梳理聊天记录"])
 

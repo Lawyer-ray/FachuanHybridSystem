@@ -1,0 +1,307 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}MCP 调试工作台{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% trans "首页" %}</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label='enterprise_data' %}">{% trans "企业数据查询" %}</a>
+    &rsaquo; MCP 调试工作台
+</div>
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    .mcp-wrap {
+        max-width: 1400px;
+        margin: 20px auto;
+    }
+    .mcp-panel {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 14px;
+        margin-bottom: 14px;
+    }
+    .mcp-panel h2 {
+        margin: 0 0 10px;
+        font-size: 18px;
+        color: #0f172a;
+    }
+    .mcp-row {
+        display: grid;
+        grid-template-columns: 1.2fr 1fr;
+        gap: 14px;
+    }
+    .mcp-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    .mcp-field {
+        min-width: 240px;
+    }
+    .mcp-btn {
+        background: #1d4ed8;
+        border: 1px solid #1d4ed8;
+        color: #fff;
+        border-radius: 8px;
+        padding: 8px 12px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+    }
+    .mcp-btn.secondary {
+        background: #0f766e;
+        border-color: #0f766e;
+    }
+    .mcp-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+    }
+    .mcp-table th,
+    .mcp-table td {
+        border-bottom: 1px solid #e2e8f0;
+        padding: 8px 6px;
+        vertical-align: top;
+    }
+    .mcp-table th {
+        text-align: left;
+        color: #334155;
+        background: #f8fafc;
+    }
+    .mcp-tool-name {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-size: 12px;
+        color: #1e3a8a;
+    }
+    .mcp-small {
+        font-size: 12px;
+        color: #64748b;
+    }
+    .mcp-error {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        color: #b91c1c;
+        border-radius: 8px;
+        padding: 10px 12px;
+        margin-bottom: 10px;
+    }
+    .mcp-form textarea {
+        width: 100%;
+        min-height: 220px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 10px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-size: 12px;
+        line-height: 1.6;
+        box-sizing: border-box;
+    }
+    .mcp-json {
+        background: #0b1220;
+        color: #e2e8f0;
+        border-radius: 8px;
+        padding: 12px;
+        overflow: auto;
+        max-height: 420px;
+        font-size: 12px;
+        line-height: 1.55;
+    }
+    .mcp-kv {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
+    }
+    .mcp-tag {
+        background: #e2e8f0;
+        color: #334155;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 12px;
+    }
+    @media (max-width: 980px) {
+        .mcp-row {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mcp-wrap">
+    <div class="mcp-panel">
+        <h2>MCP 调试工作台</h2>
+        <div class="mcp-small">
+            选择 provider 后可查看全部工具、参数 schema，并在线执行测试。结果会缓存每个工具最近一次成功样例。
+        </div>
+        <form method="get" class="mcp-toolbar" style="margin-top: 12px;">
+            <div class="mcp-field">
+                <label for="provider">{% trans "Provider" %}</label><br />
+                <select name="provider" id="provider" style="min-width: 220px;">
+                    {% for provider in providers %}
+                    <option value="{{ provider.name }}" {% if provider.name == selected_provider %}selected{% endif %}>
+                        {{ provider.name }} {% if provider.is_default %}(default){% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="mcp-btn">{% trans "加载工具列表" %}</button>
+        </form>
+    </div>
+
+    {% if load_error %}
+    <div class="mcp-error">加载工具失败：{{ load_error }}</div>
+    {% endif %}
+
+    <div class="mcp-row">
+        <div class="mcp-panel">
+            <h2>工具列表（{{ tools|length }}）</h2>
+            <table class="mcp-table">
+                <thead>
+                    <tr>
+                        <th style="width: 26%;">Tool</th>
+                        <th style="width: 44%;">描述</th>
+                        <th style="width: 30%;">参数</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tool in tools %}
+                    <tr>
+                        <td>
+                            <a class="mcp-tool-name" href="?provider={{ selected_provider|urlencode }}&tool={{ tool.name|urlencode }}">
+                                {{ tool.name }}
+                            </a>
+                            {% if tool.sample and tool.sample.captured_at %}
+                            <div class="mcp-small">样例时间：{{ tool.sample.captured_at }}</div>
+                            {% endif %}
+                        </td>
+                        <td>{{ tool.description|default:"-" }}</td>
+                        <td>
+                            {% if tool.required_fields %}
+                                {% for field in tool.required_fields %}
+                                <span class="mcp-tag">{{ field }}</span>
+                                {% endfor %}
+                            {% else %}
+                                <span class="mcp-small">无必填</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3" class="mcp-small">{% trans "暂无可用工具" %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="mcp-panel">
+            {% if selected_tool %}
+            <h2>执行工具：<span class="mcp-tool-name">{{ selected_tool.name }}</span></h2>
+            <div class="mcp-small" style="margin-bottom: 8px;">{{ selected_tool.description|default:"-" }}</div>
+            <form method="post" class="mcp-form">
+                {% csrf_token %}
+                <input type="hidden" name="_action" value="execute" />
+                <input type="hidden" name="provider" value="{{ selected_provider }}" />
+                <input type="hidden" name="tool_name" value="{{ selected_tool.name }}" />
+                <label for="arguments_json">参数（JSON Object）</label>
+                <textarea id="arguments_json" name="arguments_json">{{ arguments_json }}</textarea>
+                <div style="margin-top: 10px;">
+                    <button type="submit" class="mcp-btn secondary">执行测试</button>
+                </div>
+            </form>
+
+            <details style="margin-top: 12px;" open>
+                <summary><strong>参数 Schema</strong></summary>
+                <pre class="mcp-json">{{ selected_tool_schema_json }}</pre>
+            </details>
+
+            <details style="margin-top: 10px;" {% if selected_tool.sample %}open{% endif %}>
+                <summary><strong>最近成功样例</strong></summary>
+                {% if selected_tool.sample %}
+                <pre class="mcp-json">{{ selected_tool_sample_json }}</pre>
+                {% else %}
+                <div class="mcp-small" style="margin-top: 8px;">暂无样例，请先执行一次。</div>
+                {% endif %}
+            </details>
+            {% else %}
+            <h2>执行工具</h2>
+            <div class="mcp-small">请先从左侧工具列表选择一个 tool。</div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if execution_error %}
+    <div class="mcp-error">执行失败：{{ execution_error }}</div>
+    {% endif %}
+
+    {% if execution_result_json and execution_result_json != "{}" %}
+    <div class="mcp-panel">
+        <h2>本次执行结果</h2>
+        <pre class="mcp-json">{{ execution_result_json }}</pre>
+    </div>
+    {% endif %}
+
+    <div class="mcp-panel">
+        <h2>执行历史（{{ history|length }}）</h2>
+        <div class="mcp-small" style="margin-bottom: 10px;">仅展示当前 provider + tool 的最近 30 条，支持一键重放。</div>
+        <table class="mcp-table">
+            <thead>
+                <tr>
+                    <th style="width: 8%;">ID</th>
+                    <th style="width: 11%;">状态</th>
+                    <th style="width: 13%;">耗时</th>
+                    <th style="width: 22%;">协议</th>
+                    <th style="width: 18%;">操作人</th>
+                    <th style="width: 18%;">时间</th>
+                    <th style="width: 10%;">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in history %}
+                <tr>
+                    <td><span class="mcp-tool-name">#{{ row.id }}</span></td>
+                    <td>
+                        {% if row.success %}
+                        <span class="mcp-tag" style="background:#dcfce7;color:#166534;">success</span>
+                        {% else %}
+                        <span class="mcp-tag" style="background:#fee2e2;color:#b91c1c;">failed</span>
+                        {% endif %}
+                        {% if row.replay_of_id %}
+                        <div class="mcp-small">replay of #{{ row.replay_of_id }}</div>
+                        {% endif %}
+                    </td>
+                    <td>{{ row.duration_ms }} ms</td>
+                    <td>
+                        <span class="mcp-small">req: {{ row.requested_transport|default:"-" }}</span><br/>
+                        <span class="mcp-small">actual: {{ row.actual_transport|default:"-" }}</span>
+                    </td>
+                    <td>{{ row.operator_username|default:"-" }}</td>
+                    <td><span class="mcp-small">{{ row.created_at }}</span></td>
+                    <td>
+                        <form method="post" style="margin:0;">
+                            {% csrf_token %}
+                            <input type="hidden" name="_action" value="replay" />
+                            <input type="hidden" name="provider" value="{{ selected_provider }}" />
+                            <input type="hidden" name="tool_name" value="{{ selected_tool_name }}" />
+                            <input type="hidden" name="execution_id" value="{{ row.id }}" />
+                            <button type="submit" class="mcp-btn" style="padding: 6px 10px;">重放</button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="mcp-small">暂无执行记录。</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

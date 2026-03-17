@@ -35,6 +35,31 @@ _SENSITIVE_ATTR_NAMES = {
     "account",
 }
 
+_SENSITIVE_TOKENS = {
+    "token",
+    "password",
+    "secret",
+    "credential",
+    "credentials",
+    "authorization",
+    "auth",
+}
+
+_KEY_PREFIX_TOKENS = {
+    "api",
+    "app",
+    "access",
+    "secret",
+    "client",
+    "private",
+    "public",
+    "auth",
+    "authorization",
+}
+
+_CAMEL_BOUNDARY = re.compile(r"([a-z0-9])([A-Z])")
+_TOKEN_SPLIT = re.compile(r"[^a-z0-9]+")
+
 
 def _mask_match(match: re.Match[str]) -> str:
     groups = match.groups()
@@ -44,8 +69,26 @@ def _mask_match(match: re.Match[str]) -> str:
 
 
 def is_sensitive_key_name(name: str) -> bool:
-    n = name.lower()
-    return any(k in n for k in ("token", "key", "secret", "password", "auth", "credential"))
+    normalized = _CAMEL_BOUNDARY.sub(r"\1_\2", str(name or "")).lower().strip()
+    if not normalized:
+        return False
+    if normalized in _SENSITIVE_ATTR_NAMES:
+        return True
+
+    tokens = [item for item in _TOKEN_SPLIT.split(normalized) if item]
+    if not tokens:
+        return False
+
+    if any(token in _SENSITIVE_TOKENS for token in tokens):
+        return True
+
+    if "key" in tokens:
+        return True
+
+    for token in tokens:
+        if token.endswith("key") and token[:-3] in _KEY_PREFIX_TOKENS:
+            return True
+    return False
 
 
 def looks_like_token(value: str) -> bool:

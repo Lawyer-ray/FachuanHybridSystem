@@ -28,6 +28,7 @@ class SystemConfig(models.Model):
         COURT_SMS = "court_sms", _("法院短信配置")
         AI = "ai", _("AI 服务配置")
         LLM = "llm", _("LLM 大模型配置")
+        ENTERPRISE_DATA = "enterprise_data", _("企业数据配置")
         SCRAPER = "scraper", _("爬虫配置")
         GENERAL = "general", _("通用配置")
 
