@@ -457,7 +457,3 @@ class McpToolClient:
                 queue.append(context)
 
         return collected
-
-
-class McpToolTransport(McpToolClient):
-    """兼容旧名称，后续统一使用 McpToolClient。"""

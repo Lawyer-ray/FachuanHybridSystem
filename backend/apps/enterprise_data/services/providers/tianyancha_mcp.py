@@ -35,8 +35,6 @@ class TianyanchaMcpProvider:
             retry_max_attempts=config.retry_max_attempts,
             retry_backoff_seconds=config.retry_backoff_seconds,
         )
-        # 兼容既有测试/调用对私有属性 `_transport` 的访问
-        self._transport = self._client
         self._adapter = TianyanchaResponseAdapter()
 
     @classmethod
