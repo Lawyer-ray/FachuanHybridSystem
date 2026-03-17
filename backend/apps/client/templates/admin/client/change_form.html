@@ -229,14 +229,6 @@
             color: #1d4ed8;
             text-decoration: underline;
         }
-        .enterprise-apply-controls {
-            display: flex;
-            gap: 12px;
-            align-items: center;
-            margin-bottom: 10px;
-            font-size: 12px;
-            color: #334155;
-        }
         .enterprise-prefill-highlight {
             background-color: #e8f5e8 !important;
             border-color: #16a34a !important;
@@ -626,7 +618,7 @@
                 <span x-text="isSearching ? '搜索中...' : '搜索企业'"></span>
             </button>
         </div>
-        <div class="format-hint">💡 {% trans "先搜索企业，再选择条目加载工商信息并应用到表单" %}</div>
+        <div class="format-hint">💡 {% trans "先搜索企业，再点击候选项，系统会自动填充表单字段" %}</div>
 
         <div x-show="searchError" class="error-message" x-text="searchError"></div>
 
@@ -667,18 +659,13 @@
                         <a :href="existingClientUrl()" target="_blank" x-text="existingClient ? ('#' + existingClient.id + ' ' + existingClient.name) : ''"></a>
                     </div>
 
-                    <div class="enterprise-apply-controls">
-                        <label><input type="radio" value="fill_empty" x-model="applyMode"> 仅填空字段</label>
-                        <label><input type="radio" value="overwrite" x-model="applyMode"> 覆盖已有值</label>
-                    </div>
-                    <button type="button" class="parse-btn" @click="applyToForm()">应用到表单</button>
                     <div x-show="applyMessage" class="success-message" x-text="applyMessage"></div>
                 </div>
             </template>
         </div>
     </div>
 
-    <script src="{% static 'client/enterprise_prefill_app.js' %}?v=1"></script>
+    <script src="{% static 'client/enterprise_prefill_app.js' %}?v=2"></script>
     {% endif %}
 
     <!-- 身份材料智能识别内联区域 - Alpine.js 版本 -->

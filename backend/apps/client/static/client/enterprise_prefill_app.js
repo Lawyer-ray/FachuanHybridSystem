@@ -12,7 +12,6 @@ function enterprisePrefillApp() {
         profile: null,
         prefill: null,
         existingClient: null,
-        applyMode: 'fill_empty',
 
         init() {
             this.provider = 'tianyancha';
@@ -75,6 +74,7 @@ function enterprisePrefillApp() {
                 this.profile = payload.profile || null;
                 this.prefill = payload.prefill || null;
                 this.existingClient = payload.existing_client || null;
+                this.applyToForm();
             } catch (error) {
                 this.prefillError = error instanceof Error ? error.message : '企业详情加载失败';
             } finally {
@@ -108,11 +108,7 @@ function enterprisePrefillApp() {
                 }
 
                 const normalizedValue = String(value);
-                if (!normalizedValue.trim() && fieldName !== 'phone') {
-                    return;
-                }
-
-                if (this.applyMode === 'fill_empty' && this.hasFieldValue(field)) {
+                if (!normalizedValue.trim()) {
                     return;
                 }
 
@@ -125,17 +121,10 @@ function enterprisePrefillApp() {
                 this.highlightField(field);
             });
 
-            this.applyMessage = this.applyMode === 'overwrite' ? '已覆盖写入企业信息' : '已填充空白字段';
+            this.applyMessage = '已自动填充企业信息，可直接保存或继续编辑';
             setTimeout(() => {
                 this.applyMessage = '';
             }, 3000);
-        },
-
-        hasFieldValue(field) {
-            if (field.type === 'checkbox') {
-                return field.checked;
-            }
-            return String(field.value || '').trim() !== '';
         },
 
         highlightField(field) {
