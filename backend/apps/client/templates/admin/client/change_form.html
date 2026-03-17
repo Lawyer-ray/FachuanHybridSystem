@@ -16,14 +16,41 @@
             background: #f8f9fa;
             border: 1px solid #dee2e6;
             border-radius: 5px;
-            padding: 15px;
             margin-bottom: 20px;
+            overflow: hidden;
         }
-        .text-parser-section h3 {
-            margin-top: 0;
+        .text-parser-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 15px;
+            cursor: pointer;
+            user-select: none;
+            box-sizing: border-box;
+        }
+        .text-parser-header h3 {
+            margin: 0;
             color: #495057;
             font-size: 14px;
             font-weight: bold;
+        }
+        .text-parser-title {
+            display: flex;
+            align-items: center;
+        }
+        .text-parser-toggle {
+            font-size: 16px;
+            color: #64748b;
+            transform: rotate(-90deg);
+            transition: transform 0.2s ease;
+        }
+        .text-parser-toggle.expanded {
+            transform: rotate(0deg);
+        }
+        .text-parser-content {
+            padding: 0 15px 15px;
+            box-sizing: border-box;
+            border-top: 1px solid #e9ecef;
         }
         .text-parser-textarea {
             width: 100%;
@@ -266,42 +293,51 @@
 {% block form_top %}
     {% if not original %}
     <!-- 文本解析区域 - Alpine.js 版本 -->
-    <div class="text-parser-section" x-data="textParserApp()" x-init="init()"
-         @dragover.prevent="isDragOver = true"
-         @dragleave.prevent="isDragOver = false"
-         @drop.prevent="handleDrop($event)"
-         :style="isDragOver ? 'border-color:#007cba;background:#e8f4ff;' : ''">
-        <h3>🚀 {% trans "快速填充当事人信息" %}
-            <span class="format-badge"
-                  :class="detectedFormat"
-                  x-show="detectedFormat"
-                  x-text="detectedFormat === 'json' ? 'JSON' : '文本'">
-            </span>
-        </h3>
-
-        <textarea x-model="parseText"
-                  @input="detectFormat()"
-                  @paste="handlePaste($event)"
-                  class="text-parser-textarea"
-                  :placeholder="isDragOver ? '松开鼠标上传图片...' : '支持粘贴文本/JSON/图片，或拖拽图片到此处\n\n文本格式：\n原告：广东XXX公司\n被告：徐X，男，汉族，1977年9月10日出生\n地址：广东省XXX\n电话：0XXX53'"></textarea>
-        <div class="text-parser-controls">
-            <button type="button"
-                    class="parse-btn"
-                    @click="smartParse()"
-                    :disabled="isParsing"
-                    x-text="isParsing ? '{% trans "解析中..." %}' : '{% trans "解析并填充" %}'">
-            </button>
-            <label style="font-size: 12px; color: #6c757d;">
-                <input type="checkbox" x-model="autoParse"> {% trans "粘贴时自动解析" %}
-            </label>
+    <div class="text-parser-section" x-data="textParserApp()" x-init="init()">
+        <div class="text-parser-header" @click="toggleExpansion()">
+            <div class="text-parser-title">
+                <h3>🚀 {% trans "快速填充当事人信息" %}</h3>
+                <span class="format-badge"
+                      :class="detectedFormat"
+                      x-show="detectedFormat"
+                      x-text="detectedFormat === 'json' ? 'JSON' : '文本'">
+                </span>
+            </div>
+            <span class="text-parser-toggle" :class="{ 'expanded': isExpanded }">▾</span>
         </div>
-        <div class="format-hint">💡 {% trans "支持粘贴/拖拽图片自动 OCR，或粘贴文本/JSON 解析" %}</div>
 
-        <!-- 消息提示 -->
-        <div x-show="message"
-             :class="messageType + '-message'"
-             x-text="message"
-             x-transition>
+        <div class="text-parser-content"
+             x-show="isExpanded"
+             x-transition
+             style="display: none;"
+             @dragover.prevent="isDragOver = true"
+             @dragleave.prevent="isDragOver = false"
+             @drop.prevent="handleDrop($event)"
+             :style="isDragOver ? 'background:#e8f4ff;' : ''">
+            <textarea x-model="parseText"
+                      @input="detectFormat()"
+                      @paste="handlePaste($event)"
+                      class="text-parser-textarea"
+                      :placeholder="isDragOver ? '松开鼠标上传图片...' : '支持粘贴文本/JSON/图片，或拖拽图片到此处\n\n文本格式：\n原告：广东XXX公司\n被告：徐X，男，汉族，1977年9月10日出生\n地址：广东省XXX\n电话：0XXX53'"></textarea>
+            <div class="text-parser-controls">
+                <button type="button"
+                        class="parse-btn"
+                        @click="smartParse()"
+                        :disabled="isParsing"
+                        x-text="isParsing ? '{% trans "解析中..." %}' : '{% trans "解析并填充" %}'">
+                </button>
+                <label style="font-size: 12px; color: #6c757d;">
+                    <input type="checkbox" x-model="autoParse"> {% trans "粘贴时自动解析" %}
+                </label>
+            </div>
+            <div class="format-hint">💡 {% trans "支持粘贴/拖拽图片自动 OCR，或粘贴文本/JSON 解析" %}</div>
+
+            <!-- 消息提示 -->
+            <div x-show="message"
+                 :class="messageType + '-message'"
+                 x-text="message"
+                 x-transition>
+            </div>
         </div>
     </div>
 
@@ -317,6 +353,7 @@
             autoParse: true,
             isParsing: false,
             isDragOver: false,
+            isExpanded: false,
             detectedFormat: null,
             message: '',
             messageType: 'info',
@@ -325,6 +362,10 @@
             init() {
                 console.log('[TextParserApp] 初始化文本解析组件');
                 this.initClientTypeWatcher();
+            },
+
+            toggleExpansion() {
+                this.isExpanded = !this.isExpanded;
             },
 
             // ========== 格式检测 ==========

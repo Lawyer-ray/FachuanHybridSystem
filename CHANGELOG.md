@@ -2,6 +2,39 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.17.0] - 2026-03-17
+
+### 新增
+- **企业数据中台（Enterprise Data）上线**
+  - 新增 `apps.enterprise_data` provider 抽象，已接入 `tianyancha`，预留 `qichacha`
+  - 天眼查 MCP 支持 `streamable_http` 优先、`sse` 自动回退，Bearer Token 鉴权
+  - 新增统一企业数据 API：`/api/v1/enterprise-data/providers`、`/companies/search`、`/companies/profile`、`/companies/risks`、`/companies/shareholders`、`/companies/personnel`、`/persons/profile`、`/bidding/search`
+- **Admin MCP 工作台**
+  - 新增后台入口 `/admin/enterprise_data/mcpworkbench/`，支持 provider/tool 参数渲染、请求调试、结果查看、历史重放
+  - 支持展示工具定义、样例参数和原始响应，便于后续接入新 provider
+- **Client 新建页企业查询回填**
+  - `/admin/client/client/add/` 新增“企业信息查询并填充”区块
+  - 支持企业名模糊检索候选、选择企业后自动拉取详情并即时回填表单（无需二次“应用到表单”）
+  - 自动识别统一社会信用代码已存在的当事人并给出可跳转提示
+
+### 优化
+- **交互与展示优化**
+  - MCP 工作台修复长结果横向溢出，结果区域支持可读换行
+  - 天眼查响应解析增强：兼容 Markdown 包裹 JSON 返回，降低“有结果但解析失败”概率
+  - “🚀 快速填充当事人信息”调整为默认收起，支持点击标题栏展开/收起，并修复标题栏与输入区宽度不一致
+
+### 配置
+- **SystemConfig 配置增强**
+  - 初始化默认配置新增企业数据相关键位（天眼查/企查查、传输协议、超时、限流、告警阈值）
+  - `TIANYANCHA_MCP_API_KEY` 等敏感配置按 `is_secret=True` 加密存储（保存时加密，读取时解密）
+
+### 修复
+- **企业回填字段完整性**
+  - 回填手机号改为“企业详情优先，搜索结果兜底”，提升常见企业电话命中率
+
+### 测试
+- `uv run python apiSystem/manage.py check`：`System check identified no issues (0 silenced)`
+
 ## [26.16.11] - 2026-03-16
 
 ### 重构
