@@ -47,13 +47,18 @@ class ClientEnterprisePrefillService:
         )
         provider_name = self._pick_str(result.get("meta"), ("provider",)) or str(provider or "").strip()
         profile = self._normalize_company_profile(result.get("data"), fallback_company_id=normalized_company_id)
+        profile["phone"] = self._resolve_profile_phone(
+            company_id=normalized_company_id,
+            provider=provider_name or provider,
+            profile=profile,
+        )
         prefill = {
             "client_type": Client.LEGAL,
             "name": profile["company_name"],
             "id_number": profile["unified_social_credit_code"],
             "legal_representative": profile["legal_person"],
             "address": profile["address"],
-            "phone": "",
+            "phone": profile["phone"],
         }
 
         existing_client = self._find_existing_client_by_credit_code(prefill["id_number"])
@@ -86,6 +91,7 @@ class ClientEnterprisePrefillService:
                 "status": self._pick_str(item, ("status", "regStatus", "operatingStatus")),
                 "establish_date": self._pick_str(item, ("establish_date", "estiblishTime", "establishDate", "foundedDate")),
                 "registered_capital": self._pick_str(item, ("registered_capital", "regCapital", "registeredCapital", "capital")),
+                "phone": self._pick_str(item, ("phone", "phoneNumber", "contactPhone", "tel", "联系电话")),
             }
             if not normalized["company_id"] and not normalized["company_name"]:
                 continue
@@ -107,8 +113,42 @@ class ClientEnterprisePrefillService:
             "registered_capital": self._pick_str(item, ("registered_capital", "regCapital", "registeredCapital", "capital")),
             "address": self._pick_str(item, ("address", "regLocation", "registeredAddress")),
             "business_scope": self._pick_str(item, ("business_scope", "businessScope", "scope")),
+            "phone": self._pick_str(item, ("phone", "phoneNumber", "contactPhone", "tel", "联系电话")),
         }
         return profile
+
+    def _resolve_profile_phone(self, *, company_id: str, provider: str | None, profile: dict[str, str]) -> str:
+        direct_phone = str(profile.get("phone", "") or "").strip()
+        if direct_phone:
+            return direct_phone
+
+        company_name = str(profile.get("company_name", "") or "").strip()
+        if not company_name:
+            return ""
+
+        return self._lookup_phone_from_search(company_id=company_id, company_name=company_name, provider=provider)
+
+    def _lookup_phone_from_search(self, *, company_id: str, company_name: str, provider: str | None) -> str:
+        try:
+            result = self._enterprise_data_service.search_companies(
+                keyword=company_name,
+                provider=provider,
+                include_raw=False,
+            )
+        except Exception:
+            return ""
+
+        items = self._normalize_company_candidates(result.get("data"))
+        normalized_company_id = str(company_id or "").strip()
+        for item in items:
+            if str(item.get("company_id", "") or "").strip() == normalized_company_id:
+                return str(item.get("phone", "") or "").strip()
+
+        for item in items:
+            if str(item.get("company_name", "") or "").strip() == company_name:
+                return str(item.get("phone", "") or "").strip()
+
+        return ""
 
     @staticmethod
     def _pick_str(obj: Any, keys: tuple[str, ...]) -> str:

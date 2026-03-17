@@ -19,6 +19,7 @@ class _FakeEnterpriseDataService:
                         "status": "存续",
                         "establish_date": "1998-11-11",
                         "registered_capital": "6500万人民币",
+                        "phone": "0755-86013388",
                     },
                     {"company_id": "1002", "company_name": "腾讯云计算有限公司"},
                 ]
@@ -51,6 +52,7 @@ def test_search_companies_returns_normalized_candidates_with_limit() -> None:
     assert result["total"] == 1
     assert result["items"][0]["company_id"] == "1001"
     assert result["items"][0]["company_name"] == "腾讯科技（深圳）有限公司"
+    assert result["items"][0]["phone"] == "0755-86013388"
 
 
 @pytest.mark.django_db
@@ -68,4 +70,5 @@ def test_build_prefill_includes_existing_client_when_credit_code_exists() -> Non
     assert result["prefill"]["client_type"] == "legal"
     assert result["prefill"]["name"] == "腾讯科技（深圳）有限公司"
     assert result["prefill"]["id_number"] == "91440300708461136T"
+    assert result["prefill"]["phone"] == "0755-86013388"
     assert result["existing_client"] == {"id": existing.id, "name": existing.name}

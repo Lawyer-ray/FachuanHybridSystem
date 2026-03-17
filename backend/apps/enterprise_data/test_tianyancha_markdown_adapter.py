@@ -16,6 +16,7 @@ def test_parse_search_companies_markdown_extracts_candidates() -> None:
             "| **成立时间** | 1998-11-11 00:00:00.0 |\n"
             "| **注册资本** | 6500万人民币 |\n"
             "| **经营状态** | 存续 |\n"
+            "| **联系电话** | 0755-86013388 |\n"
         )
     }
 
@@ -25,6 +26,7 @@ def test_parse_search_companies_markdown_extracts_candidates() -> None:
     assert items[0]["company_id"] == "9519792"
     assert items[0]["company_name"] == "深圳市腾讯计算机系统有限公司"
     assert items[0]["legal_person"] == "马化腾"
+    assert items[0]["phone"] == "0755-86013388"
 
 
 def test_parse_company_profile_markdown_extracts_profile() -> None:
@@ -42,6 +44,7 @@ def test_parse_company_profile_markdown_extracts_profile() -> None:
             "| **成立日期** | 1998-11-10 |\n"
             "| **统一社会信用代码** | 91440300708461136T |\n"
             "| **注册地址** | 深圳市南山区粤海街道麻岭社区科技中一路腾讯大厦35层 |\n\n"
+            "| **联系电话** | 0755-86013388 |\n\n"
             "## 📄 经营范围\n\n"
             "计算机软、硬件的设计、技术开发、销售。\n"
         )
@@ -53,4 +56,5 @@ def test_parse_company_profile_markdown_extracts_profile() -> None:
     assert profile["company_name"] == "深圳市腾讯计算机系统有限公司"
     assert profile["unified_social_credit_code"] == "91440300708461136T"
     assert profile["legal_person"] == "马化腾"
+    assert profile["phone"] == "0755-86013388"
     assert "技术开发" in profile["business_scope"]

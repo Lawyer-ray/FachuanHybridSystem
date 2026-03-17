@@ -106,6 +106,7 @@ class EnterpriseCompanyCandidateOut(Schema):
     status: str = ""
     establish_date: str = ""
     registered_capital: str = ""
+    phone: str = ""
 
 
 class EnterpriseCompanySearchOut(Schema):
@@ -147,6 +148,7 @@ class EnterpriseCompanyProfileOut(Schema):
     registered_capital: str = ""
     address: str = ""
     business_scope: str = ""
+    phone: str = ""
 
 
 class EnterpriseClientPrefillOut(Schema):

@@ -89,6 +89,7 @@ class TianyanchaResponseAdapter:
                     "status": "",
                     "establish_date": "",
                     "registered_capital": "",
+                    "phone": "",
                 }
                 continue
 
@@ -113,6 +114,8 @@ class TianyanchaResponseAdapter:
                 current["establish_date"] = value
             elif "注册资本" in key:
                 current["registered_capital"] = value
+            elif "联系电话" in key:
+                current["phone"] = value
 
         if current and (current.get("company_id") or current.get("company_name")):
             results.append(current)
@@ -133,6 +136,7 @@ class TianyanchaResponseAdapter:
             "registered_capital": "",
             "address": "",
             "business_scope": "",
+            "phone": "",
         }
 
         for raw_line in markdown.splitlines():
@@ -167,6 +171,8 @@ class TianyanchaResponseAdapter:
                 profile["unified_social_credit_code"] = value
             elif key == "注册地址":
                 profile["address"] = value
+            elif key == "联系电话":
+                profile["phone"] = value
 
         scope_match = re.search(
             r"##\s*📄\s*经营范围\s*\n(?P<scope>.*?)(?:\n\*\*关于企业更多信息|$)",
@@ -210,6 +216,7 @@ class TianyanchaResponseAdapter:
             "status": self.pick_str(item, ("regStatus", "status", "operatingStatus")),
             "establish_date": self.pick_str(item, ("estiblishTime", "establishDate", "foundedDate")),
             "registered_capital": self.pick_str(item, ("regCapital", "registeredCapital", "capital")),
+            "phone": self.pick_str(item, ("phone", "phoneNumber", "contactPhone", "tel", "联系电话")),
         }
 
     def normalize_company_profile(self, item: dict[str, Any]) -> dict[str, str]:
@@ -226,6 +233,7 @@ class TianyanchaResponseAdapter:
             "registered_capital": self.pick_str(item, ("regCapital", "registeredCapital", "capital")),
             "address": self.pick_str(item, ("regLocation", "address", "registeredAddress")),
             "business_scope": self.pick_str(item, ("businessScope", "scope")),
+            "phone": self.pick_str(item, ("phone", "phoneNumber", "contactPhone", "tel", "联系电话")),
         }
 
     def normalize_risk_item(self, item: dict[str, Any], *, fallback_risk_type: str) -> dict[str, str]:
