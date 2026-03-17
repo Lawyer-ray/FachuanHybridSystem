@@ -39,41 +39,50 @@ _FIELD_KEYWORDS: list[str] = [
 
 
 # 角色标签模式（用于分割多当事人文本）
-# 带括号注释的模式优先（更具体），无括号的作为回退
-# 支持 甲方一、甲方二 等带序号格式
+# 统一支持：
+# - 带序号：被告一 / 被告1 / 甲方二
+# - 带括号注释：原告（反诉被告）
+# - 带冒号或仅空格分隔：原告：张三 / 原告 张三
+_ROLE_LABELS: tuple[str, ...] = (
+    "再审被申请人",
+    "再审申请人",
+    "申请再审人",
+    "被申请复议人",
+    "申请复议人",
+    "原审被告",
+    "原审原告",
+    "被申请执行人",
+    "申请执行人",
+    "被上诉人",
+    "被申请人",
+    "被执行人",
+    "被答辩人",
+    "申请人",
+    "上诉人",
+    "答辩人",
+    "第三人",
+    "委托方",
+    "受托方",
+    "委托人",
+    "当事人",
+    "原告",
+    "被告",
+    "甲方",
+    "乙方",
+    "丙方",
+    "丁方",
+)
+_ROLE_LABELS_ALT = "|".join(re.escape(label) for label in _ROLE_LABELS)
 _ROLE_SPLIT_STRS: list[str] = [
-    r"甲方\s*（[^）]*）\s*[:：]",
-    r"乙方\s*（[^）]*）\s*[:：]",
-    r"丙方\s*（[^）]*）\s*[:：]",
-    r"申请人\s*（[^）]*）\s*[:：]",
-    r"被申请人\s*（[^）]*）\s*[:：]",
-    r"答辩人\s*（[^）]*）\s*[:：]",
-    r"被答辩人\s*（[^）]*）\s*[:：]",
-    r"原告\s*[:：]",
-    r"被告\s*[:：]",
-    r"上诉人\s*[:：]",
-    r"被上诉人\s*[:：]",
-    r"第三人\s*[:：]",
-    r"申请人\s*[:：]",
-    r"被申请人\s*[:：]",
-    r"申请执行人\s*[:：]",
-    r"被执行人\s*[:：]",
-    r"答辩人\s*[:：]",
-    r"被答辩人\s*[:：]",
-    r"当事人\s*[:：]",
-    r"委托人\s*[:：]",
-    r"委托方\s*[:：]",
-    r"甲方\s*[一二三四五六七八九十\d]?\s*[:：]",
-    r"乙方\s*[一二三四五六七八九十\d]?\s*[:：]",
-    r"丙方\s*[一二三四五六七八九十\d]?\s*[:：]",
+    rf"(?:{re.escape(label)})\s*(?:[一二三四五六七八九十\d]+)?\s*(?:（[^）]*）|\([^)]*\))?\s*(?:[:：]\s*|\s+)"
+    for label in _ROLE_LABELS
 ]
 
 _ROLE_SPLIT_PATTERNS: list[re.Pattern[str]] = [re.compile(p, re.IGNORECASE) for p in _ROLE_SPLIT_STRS]
 
 # 角色标签 + 名称捕获模式（用于提取名称）
-# 捕获到下一个换行为止，不用单字排除（避免截断含"电"等字的公司名）
 _ROLE_NAME_PATTERNS: list[re.Pattern[str]] = [
-    re.compile(p.replace(r"[:：]", r"[:：]\s*([^\n]+)"), re.IGNORECASE) for p in _ROLE_SPLIT_STRS
+    re.compile(rf"{p}([^\n]+)", re.IGNORECASE) for p in _ROLE_SPLIT_STRS
 ]
 
 
@@ -117,16 +126,12 @@ _WHITESPACE_PATTERN = re.compile(r"\s+")
 
 _ROLE_NAME_FALLBACK_PATTERN = re.compile(
     r"(?:^|\n)\s*"
-    r"(?:原告|被告|上诉人|被上诉人|第三人|申请人|被申请人|申请执行人|被执行人|答辩人|被答辩人|"
-    r"甲方\s*[一二三四五六七八九十\d]?|乙方\s*[一二三四五六七八九十\d]?|丙方\s*[一二三四五六七八九十\d]?|"
-    r"当事人|委托人|委托方)"
-    r"\s*(?:（[^）]*）)?\s*(?:[:：])?\s*([^\n，,；;。]+)",
+    rf"(?:{_ROLE_LABELS_ALT})"
+    r"\s*(?:[一二三四五六七八九十\d]+)?\s*(?:（[^）]*）|\([^)]*\))?\s*(?:[:：]\s*|\s+)([^\n，,；;。]+)",
     re.IGNORECASE,
 )
 _ROLE_PREFIX_CLEANUP_PATTERN = re.compile(
-    r"^(?:原告|被告|上诉人|被上诉人|第三人|申请人|被申请人|申请执行人|被执行人|答辩人|被答辩人|"
-    r"甲方\s*[一二三四五六七八九十\d]?|乙方\s*[一二三四五六七八九十\d]?|丙方\s*[一二三四五六七八九十\d]?|"
-    r"当事人|委托人|委托方)\s*(?:（[^）]*）)?\s*(?:[:：])?\s*",
+    rf"^(?:{_ROLE_LABELS_ALT})\s*(?:[一二三四五六七八九十\d]+)?\s*(?:（[^）]*）|\([^)]*\))?\s*(?:[:：]\s*|\s+)",
     re.IGNORECASE,
 )
 _LEGAL_ENTITY_NAME_PATTERN = re.compile(
@@ -134,10 +139,23 @@ _LEGAL_ENTITY_NAME_PATTERN = re.compile(
     r"(?:有限责任公司|有限公司|股份有限公司|股份公司|集团有限公司|集团|合伙企业|律师事务所|研究院|银行|医院|学校|中心|店|厂))"
 )
 _NATURAL_PERSON_NAME_PATTERN = re.compile(r"([\u4e00-\u9fa5·]{2,10})\s*[，,]\s*(?:男|女)")
+_LEADING_NAME_BEFORE_FIELD_PATTERN = re.compile(
+    r"^\s*([^\n；;。]{2,80}?)"
+    r"(?=\s*(?:统一社会信用代码|社会信用代码|信用代码|身份证号码|身份证号|身份证|证件号码|"
+    r"法定代表人|法人代表|法定负责人|负责人|联系电话|电话|联系方式|手机|联系电话号码|联系人电话|"
+    r"地址|住址|住所地|住所|注册地址|经营地址|联系地址))"
+)
+_LEADING_PERSON_NAME_PATTERN = re.compile(
+    r"^\s*([\u4e00-\u9fa5·]{2,10})"
+    r"(?=\s*(?:[，,；;]?\s*(?:男|女|出生|身份证号码|身份证号|身份证|证件号码|联系电话|电话|联系方式|手机|地址|住址|住所)))"
+)
 _ADDRESS_LINE_FALLBACK_PATTERN = re.compile(
     r"^(?:中国)?(?:北京市|天津市|上海市|重庆市|[\u4e00-\u9fa5]{2,}(?:省|自治区|特别行政区))"
     r"[\u4e00-\u9fa5A-Za-z0-9\-（）()#号室栋单元路街道区县乡镇村]{4,}$"
 )
+_TRAILING_GENDER_PATTERN = re.compile(r"(?:\s|[，,])(?:男|女)\s*$")
+_TRAILING_BIRTH_INFO_PATTERN = re.compile(r"(?:\s|[，,])\d{4}年\d{1,2}月\d{1,2}日(?:出生)?\s*$")
+_ENUMERATION_PREFIX_PATTERN = re.compile(r"(?m)^\s*(?:[（(]?[一二三四五六七八九十\d]+[）)\.、]|[-*•])\s*")
 
 _LEGAL_KEYWORDS: tuple[str, ...] = (
     "有限公司",
@@ -186,11 +204,25 @@ def parse_multiple_clients_text(text: str) -> list[dict[str, Any]]:
 
 
 _FIELD_KEYWORDS_PATTERN = re.compile(r"(?<!\n)(" + "|".join(re.escape(kw) for kw in _FIELD_KEYWORDS) + r")\s*[:：]")
+_INLINE_BREAK_KEYWORDS_ALT = "|".join(
+    re.escape(keyword) for keyword in dict.fromkeys([*_FIELD_KEYWORDS, *_ROLE_LABELS])
+)
+_INLINE_BREAK_PATTERN = re.compile(
+    rf"(?<!\n)(?<=\S)\s+(?=(?:{_INLINE_BREAK_KEYWORDS_ALT})\s*(?:[:：]|为|是|\S))"
+)
+_FULL_STOP_BREAK_PATTERN = re.compile(r"[。]+(?=\s*\S)")
 
 
 def _normalize_text(text: str) -> str:
-    """预处理文本：在关键字前插入换行"""
-    return _FIELD_KEYWORDS_PATTERN.sub(r"\n\g<0>", text)
+    """预处理文本：统一换行、拆分内联字段、清理列表序号"""
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    text = text.replace("；", "\n").replace(";", "\n")
+    text = _FULL_STOP_BREAK_PATTERN.sub("\n", text)
+    text = _ENUMERATION_PREFIX_PATTERN.sub("", text)
+    text = _INLINE_BREAK_PATTERN.sub("\n", text)
+    text = _FIELD_KEYWORDS_PATTERN.sub(r"\n\g<0>", text)
+    text = re.sub(r"\n{2,}", "\n", text)
+    return text.strip()
 
 
 def _parse_fields_directly(text: str) -> dict[str, Any]:
@@ -205,7 +237,7 @@ _SMART_NAME_PATTERN = re.compile(
 
 # 支持字段式名称（保留冒号约束，避免过度吞并整段文本）
 _NAME_FIELD_PATTERN = re.compile(
-    r"(?:^|\n)\s*(?:名称|企业名称|公司名称|单位名称|姓名|当事人名称)\s*[:：]\s*([^\n]+)",
+    r"(?:^|\n)\s*(?:名称|企业名称|公司名称|单位名称|姓名|当事人名称)\s*(?:[:：]|为|是)?\s*([^\n]+)",
     re.IGNORECASE,
 )
 _NON_NAME_KEYWORDS: tuple[str, ...] = (
@@ -249,10 +281,22 @@ def _extract_name_smart(text: str) -> str | None:
         if _is_valid_name_candidate(name):
             return name
 
+    leading_name_match = _LEADING_NAME_BEFORE_FIELD_PATTERN.search(text)
+    if leading_name_match:
+        name = _clean_name_candidate(leading_name_match.group(1))
+        if _is_valid_name_candidate(name):
+            return name
+
     # 兼容无冒号的角色写法：如 "被告 张三，男..."
     role_match = _ROLE_NAME_FALLBACK_PATTERN.search(text)
     if role_match:
         name = _clean_name_candidate(role_match.group(1))
+        if _is_valid_name_candidate(name):
+            return name
+
+    leading_person_match = _LEADING_PERSON_NAME_PATTERN.search(text)
+    if leading_person_match:
+        name = _clean_name_candidate(leading_person_match.group(1))
         if _is_valid_name_candidate(name):
             return name
 
@@ -283,6 +327,8 @@ def _clean_name_candidate(name_part: str) -> str:
     name = _ROLE_PREFIX_CLEANUP_PATTERN.sub("", name_part.strip())
     name = _ETHNICITY_PATTERN.sub("", name)
     name = _BIRTH_DATE_PATTERN.sub("", name)
+    name = _TRAILING_BIRTH_INFO_PATTERN.sub("", name)
+    name = _TRAILING_GENDER_PATTERN.sub("", name)
     return name.strip().strip("，,；;。")
 
 
@@ -292,6 +338,10 @@ def _is_valid_name_candidate(name: str) -> bool:
         return False
 
     if any(keyword in name for keyword in _NON_NAME_KEYWORDS):
+        return False
+    if any(keyword.startswith(name) for keyword in _NON_NAME_KEYWORDS):
+        return False
+    if any(role.startswith(name) for role in _ROLE_LABELS):
         return False
 
     compact = _WHITESPACE_PATTERN.sub("", name)
