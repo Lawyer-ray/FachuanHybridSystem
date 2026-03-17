@@ -5,7 +5,7 @@ from django.utils.translation import gettext_lazy as _
 class AutomationConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "apps.automation"
-    verbose_name = _("自动化工具")
+    verbose_name = _("法院自动化工具")
 
     def ready(self) -> None:
         """应用启动时的配置"""
