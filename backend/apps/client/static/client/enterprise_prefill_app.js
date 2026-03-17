@@ -43,7 +43,7 @@ function enterprisePrefillApp() {
                 const payload = await this.fetchJson('/api/v1/client/clients/enterprise/search?' + params.toString());
                 this.companies = Array.isArray(payload.items) ? payload.items : [];
                 if (!this.companies.length) {
-                    this.searchError = '未找到匹配企业，请尝试更精确的公司名称';
+                    this.searchError = '暂未检索到匹配企业，可换关键词继续搜索，或直接手工填写';
                 }
             } catch (error) {
                 this.searchError = error instanceof Error ? error.message : '企业搜索失败';

@@ -75,6 +75,9 @@ class TianyanchaMcpProvider:
         result = self._client.call_tool(tool_name=self.TOOL_SEARCH_COMPANIES, arguments={"keyword": keyword})
         items = self._adapter.extract_items(result["payload"])
         normalized_items = [self._adapter.normalize_company_summary(item) for item in items]
+        normalized_items = [item for item in normalized_items if item.get("company_id") or item.get("company_name")]
+        if not normalized_items:
+            normalized_items = self._adapter.parse_search_companies_markdown(result["payload"])
         data = {"items": normalized_items, "total": len(normalized_items)}
         return ProviderResponse(
             data=data,
@@ -87,6 +90,13 @@ class TianyanchaMcpProvider:
         result = self._client.call_tool(tool_name=self.TOOL_GET_COMPANY_INFO, arguments={"company_id": company_id})
         item = self._adapter.extract_primary_dict(result["payload"])
         data = self._adapter.normalize_company_profile(item)
+        has_key_fields = bool(
+            data.get("company_name") or data.get("unified_social_credit_code") or data.get("legal_person") or data.get("address")
+        )
+        if not has_key_fields:
+            parsed_markdown_profile = self._adapter.parse_company_profile_markdown(result["payload"])
+            if parsed_markdown_profile:
+                data = parsed_markdown_profile
         if not data["company_id"]:
             data["company_id"] = company_id
         return ProviderResponse(

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 
@@ -15,6 +16,9 @@ class TianyanchaResponseAdapter:
         "data",
         "result",
     )
+    _MARKDOWN_TABLE_ROW_RE = re.compile(r"^\|\s*\*\*(?P<key>[^*]+)\*\*\s*\|\s*(?P<value>.*?)\s*\|\s*$")
+    _MARKDOWN_COMPANY_HEADER_RE = re.compile(r"^##\s+\d+\.\s+(?P<name>.+?)\s*$")
+    _MARKDOWN_PROFILE_HEADER_RE = re.compile(r"^#\s+🏢\s+(?P<name>.+?)\s*$")
 
     @staticmethod
     def pick_str(obj: dict[str, Any], keys: tuple[str, ...]) -> str:
@@ -60,6 +64,143 @@ class TianyanchaResponseAdapter:
                 if isinstance(item, dict):
                     return item
         return {}
+
+    def parse_search_companies_markdown(self, payload: Any) -> list[dict[str, str]]:
+        markdown = self._extract_markdown_result(payload)
+        if not markdown or "企业搜索结果" not in markdown:
+            return []
+
+        results: list[dict[str, str]] = []
+        current: dict[str, str] | None = None
+
+        for raw_line in markdown.splitlines():
+            line = str(raw_line or "").strip()
+            if not line:
+                continue
+
+            header_match = self._MARKDOWN_COMPANY_HEADER_RE.match(line)
+            if header_match:
+                if current and (current.get("company_id") or current.get("company_name")):
+                    results.append(current)
+                current = {
+                    "company_id": "",
+                    "company_name": self._clean_markdown_value(header_match.group("name")),
+                    "legal_person": "",
+                    "status": "",
+                    "establish_date": "",
+                    "registered_capital": "",
+                }
+                continue
+
+            if current is None:
+                continue
+
+            row_match = self._MARKDOWN_TABLE_ROW_RE.match(line)
+            if not row_match:
+                continue
+            key = self._clean_markdown_value(row_match.group("key"))
+            value = self._clean_markdown_value(row_match.group("value"))
+            if not value:
+                continue
+
+            if "企业ID" in key:
+                current["company_id"] = value
+            elif "法定代表人" in key:
+                current["legal_person"] = value
+            elif "经营状态" in key:
+                current["status"] = value
+            elif "成立时间" in key or "成立日期" in key:
+                current["establish_date"] = value
+            elif "注册资本" in key:
+                current["registered_capital"] = value
+
+        if current and (current.get("company_id") or current.get("company_name")):
+            results.append(current)
+        return results
+
+    def parse_company_profile_markdown(self, payload: Any) -> dict[str, str]:
+        markdown = self._extract_markdown_result(payload)
+        if not markdown:
+            return {}
+
+        profile = {
+            "company_id": "",
+            "company_name": "",
+            "unified_social_credit_code": "",
+            "legal_person": "",
+            "status": "",
+            "establish_date": "",
+            "registered_capital": "",
+            "address": "",
+            "business_scope": "",
+        }
+
+        for raw_line in markdown.splitlines():
+            line = str(raw_line or "").strip()
+            if not line:
+                continue
+
+            header_match = self._MARKDOWN_PROFILE_HEADER_RE.match(line)
+            if header_match and not profile["company_name"]:
+                profile["company_name"] = self._clean_markdown_value(header_match.group("name"))
+                continue
+
+            row_match = self._MARKDOWN_TABLE_ROW_RE.match(line)
+            if not row_match:
+                continue
+            key = self._clean_markdown_value(row_match.group("key"))
+            value = self._clean_markdown_value(row_match.group("value"))
+            if not value:
+                continue
+
+            if key == "企业ID":
+                profile["company_id"] = value
+            elif key == "法定代表人":
+                profile["legal_person"] = value
+            elif key == "经营状态":
+                profile["status"] = value
+            elif key in ("成立日期", "成立时间"):
+                profile["establish_date"] = value
+            elif key == "注册资本":
+                profile["registered_capital"] = value
+            elif key == "统一社会信用代码":
+                profile["unified_social_credit_code"] = value
+            elif key == "注册地址":
+                profile["address"] = value
+
+        scope_match = re.search(
+            r"##\s*📄\s*经营范围\s*\n(?P<scope>.*?)(?:\n\*\*关于企业更多信息|$)",
+            markdown,
+            re.DOTALL,
+        )
+        if scope_match:
+            scope = self._clean_markdown_value(scope_match.group("scope"))
+            profile["business_scope"] = scope
+
+        has_meaningful_fields = any(
+            profile.get(field) for field in ("company_name", "unified_social_credit_code", "legal_person", "address")
+        )
+        return profile if has_meaningful_fields else {}
+
+    def _extract_markdown_result(self, payload: Any) -> str:
+        if isinstance(payload, str):
+            return payload.strip()
+        if isinstance(payload, dict):
+            for key in ("result", "text", "message"):
+                value = payload.get(key)
+                if isinstance(value, str) and value.strip():
+                    return value.strip()
+        return ""
+
+    @staticmethod
+    def _clean_markdown_value(value: Any) -> str:
+        text = str(value or "").strip()
+        if not text:
+            return ""
+        text = text.replace("**", "").replace("`", "")
+        text = text.replace("\t", " ").replace("\r", " ").strip()
+        text = re.sub(r"\s+", " ", text)
+        return text
 
     def normalize_company_summary(self, item: dict[str, Any]) -> dict[str, str]:
         return {
