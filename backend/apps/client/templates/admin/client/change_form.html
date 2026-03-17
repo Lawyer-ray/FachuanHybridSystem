@@ -129,6 +129,127 @@
                 opacity: 1;
             }
         }
+
+        .enterprise-prefill-section {
+            background: #f8fafc;
+            border: 1px solid #dbeafe;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .enterprise-prefill-section h3 {
+            margin-top: 0;
+            color: #1e3a8a;
+            font-size: 14px;
+            font-weight: 700;
+        }
+        .enterprise-prefill-toolbar {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .enterprise-prefill-select {
+            min-width: 150px;
+            height: 34px;
+        }
+        .enterprise-prefill-input {
+            flex: 1;
+            min-width: 260px;
+            height: 34px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            padding: 6px 10px;
+            box-sizing: border-box;
+        }
+        .enterprise-prefill-results {
+            margin-top: 12px;
+            border: 1px solid #dbeafe;
+            border-radius: 6px;
+            background: #fff;
+            max-height: 240px;
+            overflow-y: auto;
+        }
+        .enterprise-company-item {
+            width: 100%;
+            text-align: left;
+            padding: 10px 12px;
+            border: 0;
+            border-bottom: 1px solid #eff6ff;
+            background: #fff;
+            cursor: pointer;
+        }
+        .enterprise-company-item:last-child {
+            border-bottom: 0;
+        }
+        .enterprise-company-item:hover {
+            background: #eff6ff;
+        }
+        .enterprise-company-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #0f172a;
+            margin-bottom: 2px;
+        }
+        .enterprise-company-meta {
+            font-size: 12px;
+            color: #475569;
+            line-height: 1.5;
+        }
+        .enterprise-prefill-detail {
+            margin-top: 12px;
+            background: #fff;
+            border: 1px solid #dbeafe;
+            border-radius: 6px;
+            padding: 12px;
+        }
+        .enterprise-profile-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px 12px;
+            margin-bottom: 10px;
+        }
+        .enterprise-profile-item {
+            font-size: 12px;
+            color: #334155;
+        }
+        .enterprise-profile-item strong {
+            color: #1e293b;
+        }
+        .enterprise-existing-warning {
+            background: #fff7ed;
+            border: 1px solid #fed7aa;
+            color: #9a3412;
+            border-radius: 4px;
+            padding: 8px 10px;
+            font-size: 12px;
+            margin-bottom: 10px;
+        }
+        .enterprise-existing-warning a {
+            color: #1d4ed8;
+            text-decoration: underline;
+        }
+        .enterprise-apply-controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 10px;
+            font-size: 12px;
+            color: #334155;
+        }
+        .enterprise-prefill-highlight {
+            background-color: #e8f5e8 !important;
+            border-color: #16a34a !important;
+            transition: all 0.2s ease;
+        }
+        @media (max-width: 980px) {
+            .enterprise-profile-grid {
+                grid-template-columns: 1fr;
+            }
+            .enterprise-prefill-input {
+                min-width: 100%;
+            }
+        }
     </style>
 {% endblock %}
 
@@ -157,7 +278,7 @@
          @dragover.prevent="isDragOver = true"
          @dragleave.prevent="isDragOver = false"
          @drop.prevent="handleDrop($event)"
-         :style="isDragOver ? 'border-color:#007cba;background:#e8f4ff;' : ''"
+         :style="isDragOver ? 'border-color:#007cba;background:#e8f4ff;' : ''">
         <h3>🚀 {% trans "快速填充当事人信息" %}
             <span class="format-badge"
                   :class="detectedFormat"
@@ -486,6 +607,78 @@
         };
     }
     </script>
+
+    <div class="enterprise-prefill-section" x-data="enterprisePrefillApp()" x-init="init()">
+        <h3>🏢 {% trans "企业信息查询并填充" %}</h3>
+        <div class="enterprise-prefill-toolbar">
+            <select x-model="provider" class="enterprise-prefill-select">
+                <option value="tianyancha">{% trans "天眼查" %}</option>
+                <option value="qichacha">{% trans "企查查（预留）" %}</option>
+            </select>
+            <input
+                type="text"
+                class="enterprise-prefill-input"
+                x-model="keyword"
+                @keydown.enter.prevent="searchCompanies()"
+                placeholder="输入企业名称关键词，例如：腾讯科技（深圳）有限公司"
+            />
+            <button type="button" class="parse-btn" @click="searchCompanies()" :disabled="isSearching">
+                <span x-text="isSearching ? '搜索中...' : '搜索企业'"></span>
+            </button>
+        </div>
+        <div class="format-hint">💡 {% trans "先搜索企业，再选择条目加载工商信息并应用到表单" %}</div>
+
+        <div x-show="searchError" class="error-message" x-text="searchError"></div>
+
+        <div class="enterprise-prefill-results" x-show="companies.length > 0">
+            <template x-for="company in companies" :key="company.company_id">
+                <button type="button" class="enterprise-company-item" @click="selectCompany(company)">
+                    <div class="enterprise-company-title" x-text="company.company_name"></div>
+                    <div class="enterprise-company-meta">
+                        <div><span x-text="'ID: ' + (company.company_id || '-')"></span></div>
+                        <div>
+                            <span x-text="'法人: ' + (company.legal_person || '-')"></span> |
+                            <span x-text="'状态: ' + (company.status || '-')"></span>
+                        </div>
+                    </div>
+                </button>
+            </template>
+        </div>
+
+        <div class="enterprise-prefill-detail" x-show="selectedCompany">
+            <div class="info-message" x-show="isLoadingPrefill">正在加载企业详情...</div>
+            <div x-show="prefillError" class="error-message" x-text="prefillError"></div>
+            <template x-if="profile && !isLoadingPrefill">
+                <div>
+                    <div class="enterprise-profile-grid">
+                        <div class="enterprise-profile-item"><strong>企业名称：</strong><span x-text="profile.company_name || '-'"></span></div>
+                        <div class="enterprise-profile-item"><strong>统一社会信用代码：</strong><span x-text="profile.unified_social_credit_code || '-'"></span></div>
+                        <div class="enterprise-profile-item"><strong>法定代表人：</strong><span x-text="profile.legal_person || '-'"></span></div>
+                        <div class="enterprise-profile-item"><strong>成立日期：</strong><span x-text="profile.establish_date || '-'"></span></div>
+                        <div class="enterprise-profile-item"><strong>企业状态：</strong><span x-text="profile.status || '-'"></span></div>
+                        <div class="enterprise-profile-item"><strong>注册资本：</strong><span x-text="profile.registered_capital || '-'"></span></div>
+                    </div>
+                    <div class="enterprise-profile-item" style="margin-bottom: 10px;">
+                        <strong>注册地址：</strong><span x-text="profile.address || '-'"></span>
+                    </div>
+
+                    <div class="enterprise-existing-warning" x-show="existingClient">
+                        检测到当前统一社会信用代码已存在于当事人：
+                        <a :href="existingClientUrl()" target="_blank" x-text="existingClient ? ('#' + existingClient.id + ' ' + existingClient.name) : ''"></a>
+                    </div>
+
+                    <div class="enterprise-apply-controls">
+                        <label><input type="radio" value="fill_empty" x-model="applyMode"> 仅填空字段</label>
+                        <label><input type="radio" value="overwrite" x-model="applyMode"> 覆盖已有值</label>
+                    </div>
+                    <button type="button" class="parse-btn" @click="applyToForm()">应用到表单</button>
+                    <div x-show="applyMessage" class="success-message" x-text="applyMessage"></div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <script src="{% static 'client/enterprise_prefill_app.js' %}?v=1"></script>
     {% endif %}
 
     <!-- 身份材料智能识别内联区域 - Alpine.js 版本 -->
