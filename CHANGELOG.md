@@ -2,6 +2,21 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.17.4] - 2026-03-18
+
+### 优化
+- **开发收尾与分支整合**
+  - 已确认历史 worktree 分支变更全部纳入 `main`，并在主分支完成收尾发布
+  - 清理本地附加 worktree，仅保留主工作目录，减少后续维护干扰
+
+### 测试
+- 按 CI 分层命令复测通过：
+  - `tests/ci/structure`（collect-only）
+  - `tests/ci/unit`、`tests/ci/integration`、`tests/ci/property`
+  - `manage.py smoke_check --skip-admin --skip-websocket --skip-q`
+  - unit coverage gate：`87.28%`（`--cov-fail-under=85`）
+  - baseline coverage gate：`26.75%`（`--cov-fail-under=25`）
+
 ## [26.17.3] - 2026-03-18
 
 ### 新增
