@@ -13,6 +13,7 @@ from unittest.mock import patch
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connections
@@ -95,7 +96,7 @@ class Command(BaseCommand):
         username = "smoke_admin"
         user = User.objects.filter(username=username).first()
         if user:
-            if not user.is_staff:
+            if not bool(getattr(user, "is_staff", False)):
                 user.is_staff = True
                 user.save(update_fields=["is_staff"])
             return user
@@ -112,17 +113,35 @@ class Command(BaseCommand):
                 raise CommandError(f"Admin 冒烟失败:GET {p} -> {resp.status_code}")
 
     def _check_upload_endpoints(self, client: Client) -> None:
+        def _build_smoke_upload(filename: str) -> SimpleUploadedFile:
+            return SimpleUploadedFile(filename, b"smoke", content_type="text/plain")
+
         with patch("apps.core.dependencies.build_auto_namer_service", return_value=_DummyAutoNamerService()):
-            resp = client.post("/api/v1/automation/auto-namer/process", data={}, HTTP_HOST="localhost")
+            resp = client.post(
+                "/api/v1/automation/auto-namer/process",
+                data={"file": _build_smoke_upload("smoke-auto-namer.txt")},
+                HTTP_HOST="localhost",
+            )
         if resp.status_code != 200:
             raise CommandError(f"上传冒烟失败:auto-namer/process: {resp.status_code}")
         payload = resp.json()
         if payload.get("text") != "ok" or payload.get("error") is not None:
             raise CommandError(f"上传冒烟失败:auto-namer 返回异常 {json.dumps(payload, ensure_ascii=False)}")
-        with patch(
-            "apps.core.dependencies.build_document_processing_service", return_value=_DummyDocumentProcessorService()
+        with (
+            patch(
+                "apps.core.dependencies.build_document_processing_service",
+                return_value=_DummyDocumentProcessorService(),
+            ),
+            patch(
+                "apps.core.dependencies.automation_adapters.build_document_processing_service",
+                return_value=_DummyDocumentProcessorService(),
+            ),
         ):
-            resp2 = client.post("/api/v1/automation/file/upload", data={}, HTTP_HOST="localhost")
+            resp2 = client.post(
+                "/api/v1/automation/file/upload",
+                data={"file": _build_smoke_upload("smoke-file-upload.txt")},
+                HTTP_HOST="localhost",
+            )
         if resp2.status_code != 200:
             raise CommandError(f"上传冒烟失败:file/upload: {resp2.status_code}")
         payload2 = resp2.json()

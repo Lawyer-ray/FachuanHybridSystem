@@ -202,3 +202,12 @@ backend/apiSystem/apps
 
 # 整改方案文档（本地参考，不入库）
 docs/refactor-plans/
+
+# CI tracked test tree (four-layer hardening)
+!backend/tests/
+backend/tests/*
+!backend/tests/__init__.py
+!backend/tests/ci/
+!backend/tests/ci/**
+backend/tests/ci/**/__pycache__/
+backend/tests/ci/**/*.pyc

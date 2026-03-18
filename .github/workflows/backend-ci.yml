@@ -140,14 +140,14 @@ jobs:
           DJANGO_DEBUG: "1"
           DATABASE_PATH: "/tmp/fachuan_ci.sqlite3"
           PYTHONPATH: "apiSystem:."
-        run: uv run pytest -c pytest.ini --no-cov --collect-only -q apps
+        run: uv run pytest -c pytest.ini --no-cov --collect-only -q tests/ci/structure/
 
       - name: Tests (unit)
         env:
           DJANGO_DEBUG: "1"
           DATABASE_PATH: "/tmp/fachuan_ci.sqlite3"
           PYTHONPATH: "apiSystem:."
-        run: uv run pytest -c pytest.ini --no-cov -q apps
+        run: uv run pytest -c pytest.ini --no-cov -q tests/ci/unit/
 
       - name: Smoke check (minimal)
         env:
@@ -157,7 +157,6 @@ jobs:
         run: |
           uv run python apiSystem/manage.py smoke_check \
             --database-path /tmp/fachuan_ci.sqlite3 \
-            --skip-upload \
             --skip-admin \
             --skip-websocket \
             --skip-q
@@ -275,10 +274,7 @@ jobs:
             --cov=apps.client.services.text_parser \
             --cov=apps.enterprise_data.services.clients.api_key_pool \
             --cov-report=term-missing --cov-fail-under=85 \
-            apps/cases/test_case_admin_export_guards.py \
-            apps/contracts/test_clone_workflow_reminder_export.py \
-            apps/client/test_text_parser.py \
-            apps/enterprise_data/test_mcp_tool_client.py
+            tests/ci/unit/
 
   backend-integration-smoke:
     runs-on: ubuntu-latest
@@ -308,12 +304,7 @@ jobs:
           DJANGO_DEBUG: "1"
           DATABASE_PATH: "/tmp/fachuan_ci.sqlite3"
           PYTHONPATH: "apiSystem:."
-        run: |
-          uv run python apiSystem/manage.py smoke_check \
-            --database-path /tmp/fachuan_ci.sqlite3 \
-            --skip-upload \
-            --skip-websocket \
-            --skip-q
+        run: uv run pytest -c pytest.ini --no-cov -q tests/ci/integration/
 
   backend-property-smoke:
     runs-on: ubuntu-latest
@@ -344,7 +335,7 @@ jobs:
           DATABASE_PATH: "/tmp/fachuan_ci.sqlite3"
           PYTHONPATH: "apiSystem:."
           HYPOTHESIS_PROFILE: "default"
-        run: uv run pytest -c pytest.ini --no-cov -q apps/client/test_text_parser.py
+        run: uv run pytest -c pytest.ini --no-cov -q tests/ci/property/
 
   backend-e2e-nightly:
     if: github.event_name == 'schedule'
@@ -378,7 +369,6 @@ jobs:
         run: |
           uv run python apiSystem/manage.py smoke_check \
             --database-path /tmp/fachuan_ci.sqlite3 \
-            --skip-upload \
             --skip-websocket \
             --skip-q
 
@@ -491,4 +481,4 @@ jobs:
             --reuse-db --import-mode=importlib \
             --cov=apps \
             --cov-report=term-missing --cov-fail-under=25 \
-            -q apps
+            -q tests/ci/unit/
