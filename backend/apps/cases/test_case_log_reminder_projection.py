@@ -9,7 +9,7 @@ import pytest
 
 from apps.core.interfaces import ServiceLocator
 from apps.reminders.models import ReminderType
-from tests.factories import CaseLogFactory
+from apps.testing.factories import CaseLogFactory
 
 
 class _ReminderServiceProjectionFake:
@@ -51,16 +51,18 @@ class _ReminderServiceLatestRaisesFake:
 def test_case_log_projection_uses_reminder_service(monkeypatch: pytest.MonkeyPatch) -> None:
     log = CaseLogFactory()
     due_at = datetime.now(tz=UTC) + timedelta(days=1)
-    exported = [{
-        "id": 1,
-        "contract_id": None,
-        "case_log_id": log.id,
-        "reminder_type": ReminderType.HEARING.value,
-        "reminder_type_label": "开庭",
-        "content": "from-service",
-        "due_at": due_at,
-        "metadata": {"source": "svc"},
-    }]
+    exported = [
+        {
+            "id": 1,
+            "contract_id": None,
+            "case_log_id": log.id,
+            "reminder_type": ReminderType.HEARING.value,
+            "reminder_type_label": "开庭",
+            "content": "from-service",
+            "due_at": due_at,
+            "metadata": {"source": "svc"},
+        }
+    ]
     fake = _ReminderServiceProjectionFake(exported=exported, latest=exported[0])
     monkeypatch.setattr(ServiceLocator, "get_reminder_service", classmethod(lambda cls: fake))
 

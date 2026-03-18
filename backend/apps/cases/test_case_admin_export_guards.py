@@ -22,7 +22,7 @@ from apps.cases.services.case.case_contract_export_bridge import (
     get_case_admin_contract_file_prefetches,
 )
 from apps.contracts.models import ContractParty, FinalizedMaterial
-from tests.factories import CaseFactory, CaseLogFactory, ClientFactory, ClientIdentityDocFactory
+from apps.testing.factories import CaseFactory, CaseLogFactory, ClientFactory, ClientIdentityDocFactory
 
 
 @pytest.mark.django_db

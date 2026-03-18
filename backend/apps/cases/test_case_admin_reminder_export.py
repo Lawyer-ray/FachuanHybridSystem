@@ -10,7 +10,7 @@ import pytest
 from apps.cases.admin.case_admin import serialize_case_obj
 from apps.core.interfaces import ServiceLocator
 from apps.reminders.models import ReminderType
-from tests.factories import CaseFactory, CaseLogFactory
+from apps.testing.factories import CaseFactory, CaseLogFactory
 
 
 class _ReminderServiceBatchFake:
@@ -31,18 +31,22 @@ def test_serialize_case_obj_uses_reminder_service_batch_export(monkeypatch: pyte
     due_at = datetime.now(tz=UTC) + timedelta(days=1)
     fake = _ReminderServiceBatchFake(
         exported={
-            first_log.id: [{
-                "reminder_type": ReminderType.HEARING.value,
-                "content": "from-service-1",
-                "due_at": due_at,
-                "metadata": {"source": "svc"},
-            }],
-            second_log.id: [{
-                "reminder_type": ReminderType.OTHER.value,
-                "content": "from-service-2",
-                "due_at": due_at + timedelta(hours=1),
-                "metadata": {"source": "svc"},
-            }],
+            first_log.id: [
+                {
+                    "reminder_type": ReminderType.HEARING.value,
+                    "content": "from-service-1",
+                    "due_at": due_at,
+                    "metadata": {"source": "svc"},
+                }
+            ],
+            second_log.id: [
+                {
+                    "reminder_type": ReminderType.OTHER.value,
+                    "content": "from-service-2",
+                    "due_at": due_at + timedelta(hours=1),
+                    "metadata": {"source": "svc"},
+                }
+            ],
         }
     )
     monkeypatch.setattr(ServiceLocator, "get_reminder_service", classmethod(lambda cls: fake))

@@ -11,7 +11,7 @@ from django.utils import timezone
 from apps.cases.models import Case, CaseLogAttachment, CaseParty, SupervisingAuthority
 from apps.cases.services.case.case_admin_service import CaseAdminService
 from apps.contracts.models import ContractParty, FinalizedMaterial
-from tests.factories import CaseFactory, CaseLogFactory, ClientFactory, ClientIdentityDocFactory
+from apps.testing.factories import CaseFactory, CaseLogFactory, ClientFactory, ClientIdentityDocFactory
 
 
 class _MaterialServiceFake:

@@ -11,7 +11,7 @@ import pytest
 from apps.contracts.admin.contract_admin import ContractAdmin, serialize_contract_obj
 from apps.core.interfaces import ServiceLocator
 from apps.reminders.models import ReminderType
-from tests.factories import ContractFactory
+from apps.testing.factories import ContractFactory
 
 
 class _ReminderServiceExportFake:
@@ -29,12 +29,14 @@ def test_serialize_contract_obj_uses_reminder_service_export(monkeypatch: pytest
     contract = ContractFactory(name="contract-export")
     due_at = datetime.now(tz=UTC) + timedelta(days=1)
     fake = _ReminderServiceExportFake(
-        exported=[{
-            "reminder_type": ReminderType.HEARING.value,
-            "content": "from-service",
-            "due_at": due_at,
-            "metadata": {"source": "svc"},
-        }]
+        exported=[
+            {
+                "reminder_type": ReminderType.HEARING.value,
+                "content": "from-service",
+                "due_at": due_at,
+                "metadata": {"source": "svc"},
+            }
+        ]
     )
     monkeypatch.setattr(ServiceLocator, "get_reminder_service", classmethod(lambda cls: fake))
 

@@ -59,6 +59,7 @@ register_exception_handlers(api_v1)
 # 注册应用路由
 # ============================================================
 
+
 def _register_app_routers() -> None:
     from apps.automation.api import router as automation_router
     from apps.automation.api.court_filing_api import router as court_filing_router
@@ -70,6 +71,7 @@ def _register_app_routers() -> None:
     from apps.core.api import router as config_router
     from apps.core.api.i18n_api import i18n_router
     from apps.core.api.ninja_llm_api import llm_router
+    from apps.document_recognition.api import router as document_recognition_router
     from apps.documents.api import (
         authorization_material_router,
         case_template_download_router,
@@ -81,15 +83,14 @@ def _register_app_routers() -> None:
         placeholder_router,
         preservation_materials_router,
     )
-    from apps.document_recognition.api import router as document_recognition_router
     from apps.enterprise_data.api import router as enterprise_data_router
     from apps.evidence.api import evidence_router
     from apps.fee_notice.api import router as fee_notice_router
     from apps.image_rotation.api import router as image_rotation_router
     from apps.invoice_recognition.api import router as invoice_recognition_router
+    from apps.legal_research.api import router as legal_research_router
     from apps.litigation_ai.api.litigation_api import router as ai_litigation_router
     from apps.litigation_ai.api.mock_trial_api import router as mock_trial_router
-    from apps.legal_research.api import router as legal_research_router
     from apps.organization.api import router as organization_router
     from apps.preservation_date.api import router as preservation_date_router
     from apps.reminders.api import router as reminders_router
@@ -127,6 +128,7 @@ def _register_app_routers() -> None:
     api_v1.add_router("/legal-research", legal_research_router, auth=JWTOrSessionAuth(), tags=["案例检索"])
 
     from apps.oa_filing.api.filing_api import router as oa_filing_router
+
     api_v1.add_router("/oa-filing", oa_filing_router, auth=JWTOrSessionAuth(), tags=["OA立案"])
 
     from apps.sales_dispute.api import router as sales_dispute_router
@@ -135,6 +137,7 @@ def _register_app_routers() -> None:
 
     # LPR金融工具
     from apps.finance.api.lpr_api import router as lpr_router
+
     api_v1.add_router("/lpr", lpr_router, auth=JWTOrSessionAuth(), tags=["LPR利率"])
 
     api_v1.add_router("/court-filing", court_filing_router, auth=JWTOrSessionAuth(), tags=["一张网立案"])
@@ -144,8 +147,9 @@ def _register_app_routers() -> None:
 def _ensure_routers_registered() -> None:
     if getattr(api_v1, "_routers_registered", False):
         return
-    api_v1._routers_registered = True  # type: ignore[attr-defined]
+    api_v1._routers_registered = True
     _register_app_routers()
+
 
 _ensure_routers_registered()
 

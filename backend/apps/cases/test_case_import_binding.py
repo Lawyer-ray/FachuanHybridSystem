@@ -10,7 +10,7 @@ from apps.cases.models import Case as CaseModel
 from apps.cases.services.case_import_service import CaseImportService
 from apps.contracts.models import Contract as ContractModel
 from apps.contracts.services.contract_import_service import ContractImportService
-from tests.factories import ContractFactory
+from apps.testing.factories import ContractFactory
 
 
 class _ClientResolverNoop:

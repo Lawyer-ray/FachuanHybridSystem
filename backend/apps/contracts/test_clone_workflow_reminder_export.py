@@ -11,7 +11,7 @@ from dateutil.relativedelta import relativedelta
 from apps.contracts.models import Contract
 from apps.contracts.services.contract.admin_workflows import ContractCloneWorkflow
 from apps.reminders.models import Reminder
-from tests.factories import ContractFactory
+from apps.testing.factories import ContractFactory
 
 
 class _ReminderServiceFake:
@@ -43,12 +43,14 @@ def test_clone_workflow_uses_reminder_service_export_path() -> None:
     target_contract: Contract = ContractFactory(name="target")
     due_at = datetime(2026, 5, 1, tzinfo=UTC)
     fake = _ReminderServiceFake(
-        exported_reminders=[{
-            "reminder_type": "hearing",
-            "content": "exported reminder",
-            "due_at": due_at,
-            "metadata": {"from": "export"},
-        }]
+        exported_reminders=[
+            {
+                "reminder_type": "hearing",
+                "content": "exported reminder",
+                "due_at": due_at,
+                "metadata": {"from": "export"},
+            }
+        ]
     )
     workflow = ContractCloneWorkflow(reminder_service=fake)
 
@@ -68,12 +70,14 @@ def test_clone_workflow_applies_due_at_transform_to_exported_reminders() -> None
     target_contract: Contract = ContractFactory(name="target")
     due_at = datetime(2026, 5, 1, tzinfo=UTC)
     fake = _ReminderServiceFake(
-        exported_reminders=[{
-            "reminder_type": "hearing",
-            "content": "exported reminder",
-            "due_at": due_at,
-            "metadata": {"from": "export"},
-        }]
+        exported_reminders=[
+            {
+                "reminder_type": "hearing",
+                "content": "exported reminder",
+                "due_at": due_at,
+                "metadata": {"from": "export"},
+            }
+        ]
     )
     workflow = ContractCloneWorkflow(reminder_service=fake)
 

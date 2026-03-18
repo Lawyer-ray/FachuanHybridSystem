@@ -11,7 +11,7 @@ from apps.contracts.schemas.contract_schemas import ReminderOut as ContractRemin
 from apps.core.api.schemas_shared import ReminderLiteOut
 from apps.reminders.models import Reminder, ReminderType
 from apps.reminders.schemas import ReminderOut as LegacyReminderOut
-from tests.factories import ContractFactory
+from apps.testing.factories import ContractFactory
 
 
 @pytest.mark.django_db

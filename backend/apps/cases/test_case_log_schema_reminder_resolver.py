@@ -8,7 +8,7 @@ import pytest
 
 from apps.cases.schemas.log_schemas import CaseLogOut
 from apps.core.interfaces import ServiceLocator
-from tests.factories import CaseLogFactory
+from apps.testing.factories import CaseLogFactory
 
 
 class _ReminderServiceExportFake:
@@ -26,16 +26,18 @@ def test_case_log_out_resolve_reminders_uses_service_export(monkeypatch: pytest.
     log = CaseLogFactory()
     due_at = datetime.now(tz=UTC) + timedelta(days=1)
     fake = _ReminderServiceExportFake(
-        exported=[{
-            "id": 1,
-            "contract_id": None,
-            "case_log_id": log.id,
-            "reminder_type": "hearing",
-            "reminder_type_label": "开庭",
-            "content": "from-service",
-            "due_at": due_at,
-            "metadata": {"source": "svc"},
-        }]
+        exported=[
+            {
+                "id": 1,
+                "contract_id": None,
+                "case_log_id": log.id,
+                "reminder_type": "hearing",
+                "reminder_type_label": "开庭",
+                "content": "from-service",
+                "due_at": due_at,
+                "metadata": {"source": "svc"},
+            }
+        ]
     )
     monkeypatch.setattr(ServiceLocator, "get_reminder_service", classmethod(lambda cls: fake))
 

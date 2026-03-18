@@ -10,7 +10,7 @@ import pytest
 from apps.contracts.admin.mixins.display_mixin import _get_contract_detail_reminders
 from apps.core.interfaces import ServiceLocator
 from apps.reminders.models import ReminderType
-from tests.factories import ContractFactory
+from apps.testing.factories import ContractFactory
 
 
 class _ReminderServiceExportFake:
@@ -28,16 +28,18 @@ def test_contract_detail_uses_reminder_service_export(monkeypatch: pytest.Monkey
     contract = ContractFactory(name="detail-export")
     due_at = datetime.now(tz=UTC) + timedelta(days=1)
     fake = _ReminderServiceExportFake(
-        exported=[{
-            "id": 1,
-            "contract_id": contract.id,
-            "case_log_id": None,
-            "reminder_type": ReminderType.HEARING.value,
-            "reminder_type_label": "开庭",
-            "content": "from-service",
-            "due_at": due_at,
-            "metadata": {"source": "svc"},
-        }]
+        exported=[
+            {
+                "id": 1,
+                "contract_id": contract.id,
+                "case_log_id": None,
+                "reminder_type": ReminderType.HEARING.value,
+                "reminder_type_label": "开庭",
+                "content": "from-service",
+                "due_at": due_at,
+                "metadata": {"source": "svc"},
+            }
+        ]
     )
     monkeypatch.setattr(ServiceLocator, "get_reminder_service", classmethod(lambda cls: fake))
 
