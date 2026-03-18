@@ -442,7 +442,6 @@ SECURE_REFERRER_POLICY = "same-origin"
 X_FRAME_OPTIONS = "SAMEORIGIN"
 
 PERMISSIONS_POLICY = {
-    "unload": ["self"],
     "geolocation": [],
     "camera": [],
     "microphone": [],

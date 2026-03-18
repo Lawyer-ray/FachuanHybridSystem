@@ -11,10 +11,16 @@ from hmac import compare_digest
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.http import HttpRequest
+from django.db import transaction
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import AuthenticationError, PermissionDenied
+from apps.core.services.system_config_service import SystemConfigService
 from apps.organization.models import Lawyer
+
+AUTO_REGISTER_BOOTSTRAP_USED_KEY = "ADMIN_REGISTER_AUTO_BOOTSTRAP_USED"
+AUTO_REGISTER_BOOTSTRAP_USERNAME = "法穿"
+AUTO_REGISTER_BOOTSTRAP_PASSWORD = "1234qwer"
 
 
 @dataclass
@@ -23,6 +29,9 @@ class RegisterResult:
 
 
 class AuthService:
+    def __init__(self, *, config_service: SystemConfigService | None = None) -> None:
+        self._config_service = config_service or SystemConfigService()
+
     def login(self, request: HttpRequest, username: str, password: str) -> Lawyer:
         """
         Raises:
@@ -42,6 +51,10 @@ class AuthService:
     def is_first_user(self) -> bool:
         return not Lawyer.objects.exists()
 
+    def should_show_auto_register(self) -> bool:
+        return self.is_first_user() and not self._is_auto_register_consumed()
+
+    @transaction.atomic
     def register(
         self,
         username: str,
@@ -71,4 +84,38 @@ class AuthService:
             is_admin=should_grant_admin,
             is_active=should_grant_admin,
         )
+        self._mark_auto_register_consumed()
         return RegisterResult(user=user)
+
+    @transaction.atomic
+    def auto_register_superadmin(self) -> RegisterResult:
+        if not self.should_show_auto_register():
+            raise PermissionDenied(
+                message=_("自动注册仅在系统初始化时可用"),
+                code="AUTO_REGISTER_UNAVAILABLE",
+            )
+
+        user = Lawyer.objects.create_user(
+            username=AUTO_REGISTER_BOOTSTRAP_USERNAME,
+            password=AUTO_REGISTER_BOOTSTRAP_PASSWORD,
+            real_name=AUTO_REGISTER_BOOTSTRAP_USERNAME,
+            is_superuser=True,
+            is_staff=True,
+            is_admin=True,
+            is_active=True,
+        )
+        self._mark_auto_register_consumed()
+        return RegisterResult(user=user)
+
+    def _is_auto_register_consumed(self) -> bool:
+        raw = str(self._config_service.get_value(AUTO_REGISTER_BOOTSTRAP_USED_KEY, "false") or "").strip().lower()
+        return raw in {"true", "1", "yes", "y", "on"}
+
+    def _mark_auto_register_consumed(self) -> None:
+        self._config_service.set_value(
+            AUTO_REGISTER_BOOTSTRAP_USED_KEY,
+            "true",
+            category="general",
+            description="管理员注册页自动注册入口是否已被消费",
+            is_secret=False,
+        )

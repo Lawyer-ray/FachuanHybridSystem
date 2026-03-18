@@ -157,6 +157,60 @@
             border: 1px solid rgba(251, 191, 36, 0.3);
         }
 
+        .quick-start {
+            margin-bottom: 24px;
+            padding: 18px;
+            border-radius: 16px;
+            background: rgba(15, 23, 42, 0.28);
+            border: 1px solid rgba(102, 126, 234, 0.26);
+        }
+
+        .quick-start-title {
+            color: #fff;
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .quick-start-desc {
+            color: rgba(255, 255, 255, 0.72);
+            font-size: 13px;
+            line-height: 1.6;
+            margin-bottom: 14px;
+        }
+
+        .quick-start-credentials {
+            color: rgba(255, 255, 255, 0.82);
+            font-size: 12px;
+            line-height: 1.7;
+            margin-bottom: 14px;
+            padding: 10px 12px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .quick-start-credentials strong {
+            color: #fff;
+        }
+
+        .quick-start-btn {
+            width: 100%;
+            padding: 14px 16px;
+            border-radius: 12px;
+            border: 1px solid rgba(74, 222, 128, 0.4);
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.95) 0%, rgba(22, 163, 74, 0.92) 100%);
+            color: #fff;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .quick-start-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 12px 30px rgba(34, 197, 94, 0.24);
+        }
+
         /* 表单样式 */
         .form-group {
             margin-bottom: 20px;
@@ -336,6 +390,22 @@
                 <p class="approval-hint">⏳ {% trans "注册后需等待管理员开通权限" %}</p>
                 {% endif %}
             </div>
+
+            {% if show_auto_register %}
+            <div class="quick-start">
+                <div class="quick-start-title">{% trans "自动注册" %}</div>
+                <p class="quick-start-desc">{% trans "用于系统首次初始化，点击后会立即创建默认超级管理员并自动登录。" %}</p>
+                <div class="quick-start-credentials">
+                    <div><strong>{% trans "用户名" %}：</strong>法穿</div>
+                    <div><strong>{% trans "密码" %}：</strong>1234qwer</div>
+                </div>
+                <form method="post" action="">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="auto_register">
+                    <button type="submit" class="quick-start-btn">{% trans "自动注册默认超级管理员" %}</button>
+                </form>
+            </div>
+            {% endif %}
 
             <!-- 表单 -->
             <form method="post" action="">

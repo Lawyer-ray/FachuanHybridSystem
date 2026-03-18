@@ -18,9 +18,27 @@ class LawyerRegistrationForm(UserCreationForm[Lawyer]):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self.fields["username"].widget.attrs.update({"class": "form-input", "placeholder": str(_("请输入中文姓名"))})
-        self.fields["password1"].widget.attrs.update({"class": "form-input", "placeholder": str(_("请输入密码"))})
-        self.fields["password2"].widget.attrs.update({"class": "form-input", "placeholder": str(_("请确认密码"))})
+        self.fields["username"].widget.attrs.update(
+            {
+                "class": "form-input",
+                "placeholder": str(_("请输入中文姓名")),
+                "autocomplete": "username",
+            }
+        )
+        self.fields["password1"].widget.attrs.update(
+            {
+                "class": "form-input",
+                "placeholder": str(_("请输入密码")),
+                "autocomplete": "new-password",
+            }
+        )
+        self.fields["password2"].widget.attrs.update(
+            {
+                "class": "form-input",
+                "placeholder": str(_("请确认密码")),
+                "autocomplete": "new-password",
+            }
+        )
 
         self.fields["username"].label = _("用户名/真实姓名")
         self.fields["password1"].label = _("密码")

@@ -7,6 +7,7 @@
 import logging
 import os
 import time
+from collections.abc import Iterable, Mapping
 from collections.abc import Callable
 
 from django.conf import settings
@@ -84,8 +85,36 @@ class PermissionsPolicyMiddleware:
         response = self.get_response(request)
         policy = getattr(settings, "PERMISSIONS_POLICY", "")
         if policy:
-            response["Permissions-Policy"] = policy
+            response["Permissions-Policy"] = self._serialize_policy(policy)
         return response
+
+    def _serialize_policy(self, policy: str | Mapping[str, object]) -> str:
+        if isinstance(policy, str):
+            return policy
+        if not isinstance(policy, Mapping):
+            return str(policy)
+
+        directives: list[str] = []
+        for feature, allowlist in policy.items():
+            directives.append(f"{feature}={self._serialize_allowlist(allowlist)}")
+        return ", ".join(directives)
+
+    def _serialize_allowlist(self, allowlist: object) -> str:
+        if allowlist in (None, [], (), set()):
+            return "()"
+        if allowlist == "*":
+            return "*"
+        if isinstance(allowlist, str):
+            return f"({self._serialize_source(allowlist)})"
+        if isinstance(allowlist, Iterable):
+            values = " ".join(self._serialize_source(value) for value in allowlist)
+            return f"({values})" if values else "()"
+        return f"({self._serialize_source(allowlist)})"
+
+    def _serialize_source(self, value: object) -> str:
+        if value in {"self", "src", "*"}:
+            return str(value)
+        return f'"{value}"'
 
 
 class ServiceLocatorScopeMiddleware:

@@ -2,6 +2,29 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.17.3] - 2026-03-18
+
+### 新增
+- **注册页首次自动初始化能力**
+  - `/admin/register/` 新增“自动注册默认超级管理员”按钮
+  - 首次点击后会自动创建默认超级管理员账户：`法穿 / 1234qwer`
+  - 自动注册成功后立即登录，并通过数据库配置标记确保该按钮在当前数据库生命周期内只出现一次
+
+### 优化
+- **注册流程交互收敛**
+  - 手动注册成功后也会同步消费首次初始化标记，避免删除账号后又重新出现自动注册入口
+  - 修复注册异常分支下仍继续访问结果对象的潜在错误路径
+- **注册页浏览器兼容性修复**
+  - 为用户名和密码输入框补充标准 `autocomplete` 属性
+  - `Permissions-Policy` 响应头改为标准序列化格式，并移除导致浏览器控制台报错的默认 `unload` 指令
+
+### 测试
+- 新增 `backend/apps/organization/test_register_view.py`
+- `uv run pytest apps/organization/test_register_view.py -o addopts='--tb=short -q'`：`4 passed`
+- `uv run ruff check apiSystem/apiSystem/settings.py apps/organization/forms.py apps/core/middleware/security.py apps/organization/test_register_view.py`：`All checks passed`
+- `uv run python apiSystem/manage.py check`：`System check identified no issues (0 silenced)`
+- Playwright 复查 `http://127.0.0.1:8012/admin/register/`：`0 errors / 0 warnings`
+
 ## [26.17.2] - 2026-03-18
 
 ### 优化
