@@ -31,6 +31,7 @@ class ProviderConfig:
     sse_url: str
     api_key: str
     timeout_seconds: int
+    api_keys: tuple[str, ...] = ()
     rate_limit_requests: int = DEFAULT_RATE_LIMIT_REQUESTS
     rate_limit_window_seconds: int = DEFAULT_RATE_LIMIT_WINDOW_SECONDS
     retry_max_attempts: int = DEFAULT_RETRY_MAX_ATTEMPTS

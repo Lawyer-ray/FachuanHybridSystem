@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import time
 from contextlib import asynccontextmanager
-from typing import Any
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 import httpx
 from asgiref.sync import async_to_sync
@@ -16,11 +18,14 @@ from mcp.client.sse import sse_client
 from mcp.client.streamable_http import streamable_http_client
 
 from apps.core.exceptions import AuthenticationError, ExternalServiceError, ValidationException
+from apps.enterprise_data.services.clients.api_key_pool import McpApiKeyPool
 
 logger = logging.getLogger(__name__)
 
 _TRANSPORT_STREAMABLE_HTTP = "streamable_http"
 _TRANSPORT_SSE = "sse"
+_ResultT = TypeVar("_ResultT")
+_TRANSPORT_UNHEALTHY_TTL_SECONDS = 10 * 60
 
 
 class McpToolClient:
@@ -34,6 +39,7 @@ class McpToolClient:
         base_url: str,
         sse_url: str,
         api_key: str,
+        api_keys: tuple[str, ...] | list[str] | None = None,
         timeout_seconds: int = 30,
         rate_limit_requests: int = 60,
         rate_limit_window_seconds: int = 60,
@@ -44,7 +50,11 @@ class McpToolClient:
         self._transport = (transport or _TRANSPORT_STREAMABLE_HTTP).strip().lower()
         self._base_url = (base_url or "").strip()
         self._sse_url = (sse_url or "").strip()
-        self._api_key = (api_key or "").strip()
+        normalized_api_keys = [str(item or "").strip() for item in (api_keys or ()) if str(item or "").strip()]
+        if not normalized_api_keys and api_key:
+            normalized_api_keys = [str(api_key).strip()]
+        self._api_key = normalized_api_keys[0] if normalized_api_keys else ""
+        self._api_key_pool = McpApiKeyPool(provider_name=provider_name, api_keys=normalized_api_keys)
         self._timeout_seconds = max(5, int(timeout_seconds or 30))
         self._rate_limit_requests = max(1, int(rate_limit_requests or 1))
         self._rate_limit_window_seconds = max(1, int(rate_limit_window_seconds or 1))
@@ -54,69 +64,17 @@ class McpToolClient:
     def call_tool(self, *, tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         """调用 MCP 工具并返回标准化结果。"""
         self._acquire_rate_limit(action=f"call_tool:{tool_name}")
-        attempts = self._transport_attempts()
-        result: dict[str, Any] | None = None
-        used_transport = self._transport
-        total_attempt_count = 0
         started = time.perf_counter()
-        for index, transport in enumerate(attempts):
-            last_error: Exception | None = None
-            for retry_index in range(self._retry_max_attempts):
-                total_attempt_count += 1
-                try:
-                    result = async_to_sync(self._call_tool_async)(
-                        transport=transport,
-                        tool_name=tool_name,
-                        arguments=arguments,
-                    )
-                    used_transport = transport
-                    break
-                except Exception as exc:
-                    last_error = exc
-                    has_more_retry = retry_index < self._retry_max_attempts - 1
-                    if has_more_retry and self._should_retry(exc):
-                        delay = self._retry_backoff_seconds * (2**retry_index)
-                        if delay > 0:
-                            time.sleep(delay)
-                        logger.warning(
-                            "MCP call failed, retry with same transport",
-                            extra={
-                                "provider": self._provider_name,
-                                "tool": tool_name,
-                                "transport": transport,
-                                "retry_index": retry_index + 1,
-                                "retry_max_attempts": self._retry_max_attempts,
-                                "error_type": type(exc).__name__,
-                            },
-                        )
-                        continue
-                    break
-
-            if result is not None:
-                break
-
-            has_fallback = index < len(attempts) - 1
-            if has_fallback and last_error is not None:
-                logger.warning(
-                    "MCP call failed on primary transport, retry with fallback",
-                    extra={
-                        "provider": self._provider_name,
-                        "tool": tool_name,
-                        "primary_transport": transport,
-                        "fallback_transport": attempts[index + 1],
-                        "error_type": type(last_error).__name__,
-                    },
-                )
-                continue
-            if last_error is not None:
-                self._raise_transport_error(action=f"call_tool:{tool_name}", exc=last_error)
-
-        if result is None:
-            raise ExternalServiceError(
-                message=f"{self._provider_name} 调用异常",
-                code="MCP_TRANSPORT_ERROR",
-                errors={"provider": self._provider_name, "action": f"call_tool:{tool_name}"},
-            )
+        result, execution_meta = self._execute_with_api_key_failover(
+            action=f"call_tool:{tool_name}",
+            operation=lambda api_key, transport: async_to_sync(self._call_tool_async)(
+                transport=transport,
+                tool_name=tool_name,
+                arguments=arguments,
+                api_key=api_key,
+            ),
+            log_context={"tool": tool_name},
+        )
 
         payload = result["payload"]
         raw = result["raw"]
@@ -128,11 +86,14 @@ class McpToolClient:
             )
 
         duration_ms = int((time.perf_counter() - started) * 1000)
-        result["transport"] = used_transport
+        result["transport"] = str(execution_meta.get("transport") or self._transport)
         result["requested_transport"] = self._transport
-        result["fallback_used"] = used_transport != self._transport
+        result["fallback_used"] = result["transport"] != self._transport
         result["duration_ms"] = max(0, duration_ms)
-        result["attempt_count"] = max(1, total_attempt_count)
+        result["attempt_count"] = max(1, int(execution_meta.get("attempt_count", 1) or 1))
+        result["api_key_pool_size"] = max(1, int(execution_meta.get("api_key_pool_size", 1) or 1))
+        result["api_key_attempt_count"] = max(1, int(execution_meta.get("api_key_attempt_count", 1) or 1))
+        result["api_key_switched"] = bool(execution_meta.get("api_key_switched", False))
         return result
 
     def list_tools(self) -> list[str]:
@@ -142,47 +103,14 @@ class McpToolClient:
     def describe_tools(self) -> list[dict[str, Any]]:
         """获取远端 MCP 工具定义（名称、描述、参数 schema）。"""
         self._acquire_rate_limit(action="describe_tools")
-        attempts = self._transport_attempts()
-        for index, transport in enumerate(attempts):
-            last_error: Exception | None = None
-            for retry_index in range(self._retry_max_attempts):
-                try:
-                    return async_to_sync(self._describe_tools_async)(transport=transport)
-                except Exception as exc:
-                    last_error = exc
-                    has_more_retry = retry_index < self._retry_max_attempts - 1
-                    if has_more_retry and self._should_retry(exc):
-                        delay = self._retry_backoff_seconds * (2**retry_index)
-                        if delay > 0:
-                            time.sleep(delay)
-                        logger.warning(
-                            "MCP describe_tools failed, retry with same transport",
-                            extra={
-                                "provider": self._provider_name,
-                                "transport": transport,
-                                "retry_index": retry_index + 1,
-                                "retry_max_attempts": self._retry_max_attempts,
-                                "error_type": type(exc).__name__,
-                            },
-                        )
-                        continue
-                    break
-
-            has_fallback = index < len(attempts) - 1
-            if has_fallback and last_error is not None:
-                logger.warning(
-                    "MCP describe_tools failed on primary transport, retry with fallback",
-                    extra={
-                        "provider": self._provider_name,
-                        "primary_transport": transport,
-                        "fallback_transport": attempts[index + 1],
-                        "error_type": type(last_error).__name__,
-                    },
-                )
-                continue
-            if last_error is not None:
-                self._raise_transport_error(action="describe_tools", exc=last_error)
-        return []
+        tools, _meta = self._execute_with_api_key_failover(
+            action="describe_tools",
+            operation=lambda api_key, transport: async_to_sync(self._describe_tools_async)(
+                transport=transport,
+                api_key=api_key,
+            ),
+        )
+        return tools
 
     async def _call_tool_async(
         self,
@@ -190,8 +118,9 @@ class McpToolClient:
         transport: str,
         tool_name: str,
         arguments: dict[str, Any],
+        api_key: str,
     ) -> dict[str, Any]:
-        async with self._open_session(transport=transport) as session:
+        async with self._open_session(transport=transport, api_key=api_key) as session:
             result = await session.call_tool(name=tool_name, arguments=arguments)
         payload = self._extract_payload(result)
         return {
@@ -203,8 +132,8 @@ class McpToolClient:
             },
         }
 
-    async def _describe_tools_async(self, *, transport: str) -> list[dict[str, Any]]:
-        async with self._open_session(transport=transport) as session:
+    async def _describe_tools_async(self, *, transport: str, api_key: str) -> list[dict[str, Any]]:
+        async with self._open_session(transport=transport, api_key=api_key) as session:
             result = await session.list_tools()
         tools: list[dict[str, Any]] = []
         for item in result.tools:
@@ -227,8 +156,8 @@ class McpToolClient:
         return tools
 
     @asynccontextmanager
-    async def _open_session(self, *, transport: str) -> Any:
-        headers = self._headers(transport=transport)
+    async def _open_session(self, *, transport: str, api_key: str) -> Any:
+        headers = self._headers(transport=transport, api_key=api_key)
         if transport == _TRANSPORT_SSE:
             async with sse_client(
                 self._sse_url,
@@ -252,18 +181,161 @@ class McpToolClient:
                     await session.initialize()
                     yield session
 
-    def _headers(self, *, transport: str) -> dict[str, str]:
-        # 兼容天眼查当前网关行为：
-        # - streamable-http 对小写 bearer 更稳定
-        # - SSE 对标准 Bearer 更稳定
+    def _headers(self, *, transport: str, api_key: str) -> dict[str, str]:
+        # 天眼查当前网关对不同传输协议的鉴权兼容性并不稳定：
+        # - SSE 持续使用标准 Bearer
+        # - streamable-http 仍沿用既有 lowercase bearer，并在异常时快速回退到 SSE
         scheme = "bearer" if transport == _TRANSPORT_STREAMABLE_HTTP else "Bearer"
-        return {"Authorization": f"{scheme} {self._api_key}"}
+        return {"Authorization": f"{scheme} {str(api_key or self._api_key).strip()}"}
 
     def _transport_attempts(self) -> list[str]:
+        if self._transport == _TRANSPORT_STREAMABLE_HTTP and self._sse_url and self._is_transport_unhealthy(self._transport):
+            return [_TRANSPORT_SSE]
         attempts = [self._transport]
         if self._transport == _TRANSPORT_STREAMABLE_HTTP and self._sse_url:
             attempts.append(_TRANSPORT_SSE)
         return attempts
+
+    def _execute_with_api_key_failover(
+        self,
+        *,
+        action: str,
+        operation: Callable[[str, str], _ResultT],
+        log_context: dict[str, Any] | None = None,
+    ) -> tuple[_ResultT, dict[str, Any]]:
+        api_keys = self._api_key_pool.ordered_keys()
+        if not api_keys:
+            raise ExternalServiceError(
+                message=f"{self._provider_name} API Key 未配置",
+                code="MCP_API_KEY_MISSING",
+                errors={"provider": self._provider_name, "action": action},
+            )
+
+        total_attempt_count = 0
+        api_key_attempt_count = 0
+        last_error: Exception | None = None
+        extra = dict(log_context or {})
+        for api_key_index, api_key in enumerate(api_keys):
+            api_key_attempt_count += 1
+            fingerprint = self._api_key_pool.fingerprint(api_key)
+            result, transport_used, transport_attempt_count, current_error = self._run_transport_attempts(
+                action=action,
+                operation=operation,
+                api_key=api_key,
+                log_context=extra,
+            )
+            total_attempt_count += transport_attempt_count
+            if current_error is None and result is not None:
+                self._api_key_pool.mark_success(api_key)
+                return result, {
+                    "transport": transport_used,
+                    "attempt_count": total_attempt_count,
+                    "api_key_pool_size": len(api_keys),
+                    "api_key_attempt_count": api_key_attempt_count,
+                    "api_key_switched": api_key_attempt_count > 1,
+                }
+            if current_error is None:
+                continue
+            last_error = current_error
+            if self._should_switch_api_key(current_error):
+                self._mark_api_key_failure(api_key=api_key, exc=current_error)
+                has_more_keys = api_key_index < len(api_keys) - 1
+                if has_more_keys:
+                    logger.warning(
+                        "MCP request failed with current api key, switch to next key",
+                        extra={
+                            "provider": self._provider_name,
+                            "action": action,
+                            "api_key_fingerprint": fingerprint,
+                            "api_key_index": api_key_index + 1,
+                            "api_key_pool_size": len(api_keys),
+                            "error_type": type(current_error).__name__,
+                            **extra,
+                        },
+                    )
+                    continue
+            self._raise_transport_error(action=action, exc=current_error)
+
+        if last_error is not None:
+            self._raise_transport_error(action=action, exc=last_error)
+        raise ExternalServiceError(
+            message=f"{self._provider_name} 调用异常",
+            code="MCP_TRANSPORT_ERROR",
+            errors={"provider": self._provider_name, "action": action},
+        )
+
+    def _run_transport_attempts(
+        self,
+        *,
+        action: str,
+        operation: Callable[[str, str], _ResultT],
+        api_key: str,
+        log_context: dict[str, Any] | None = None,
+    ) -> tuple[_ResultT | None, str, int, Exception | None]:
+        attempts = self._transport_attempts()
+        last_error: Exception | None = None
+        total_attempt_count = 0
+        extra = dict(log_context or {})
+        for index, transport in enumerate(attempts):
+            for retry_index in range(self._retry_max_attempts):
+                total_attempt_count += 1
+                try:
+                    result = operation(api_key, transport)
+                    self._clear_transport_unhealthy(transport)
+                    return result, transport, total_attempt_count, None
+                except Exception as exc:
+                    last_error = exc
+                    has_more_retry = retry_index < self._retry_max_attempts - 1
+                    if has_more_retry and self._should_retry(exc):
+                        delay = self._retry_backoff_seconds * (2**retry_index)
+                        if delay > 0:
+                            time.sleep(delay)
+                        logger.warning(
+                            "MCP request failed, retry with same transport",
+                            extra={
+                                "provider": self._provider_name,
+                                "action": action,
+                                "transport": transport,
+                                "retry_index": retry_index + 1,
+                                "retry_max_attempts": self._retry_max_attempts,
+                                "error_type": type(exc).__name__,
+                                **extra,
+                            },
+                        )
+                        continue
+                    break
+
+            has_fallback = index < len(attempts) - 1
+            if has_fallback and last_error is not None:
+                self._mark_transport_unhealthy(transport=transport, exc=last_error)
+                logger.warning(
+                    "MCP request failed on primary transport, retry with fallback",
+                    extra={
+                        "provider": self._provider_name,
+                        "action": action,
+                        "primary_transport": transport,
+                        "fallback_transport": attempts[index + 1],
+                        "error_type": type(last_error).__name__,
+                        **extra,
+                    },
+                )
+                continue
+        return None, self._transport, total_attempt_count, last_error
+
+    def _mark_transport_unhealthy(self, *, transport: str, exc: Exception) -> None:
+        if not self._should_quarantine_transport(transport=transport, exc=exc):
+            return
+        cache.set(self._transport_unhealthy_cache_key(transport), True, timeout=_TRANSPORT_UNHEALTHY_TTL_SECONDS)
+
+    def _clear_transport_unhealthy(self, transport: str) -> None:
+        cache.delete(self._transport_unhealthy_cache_key(transport))
+
+    def _is_transport_unhealthy(self, transport: str) -> bool:
+        return bool(cache.get(self._transport_unhealthy_cache_key(transport)))
+
+    def _transport_unhealthy_cache_key(self, transport: str) -> str:
+        base_digest = hashlib.md5(self._base_url.encode("utf-8"), usedforsecurity=False).hexdigest()
+        return f"enterprise_data:transport_unhealthy:{self._provider_name}:{transport}:{base_digest}"
 
     @staticmethod
     def _serialize_content_item(item: Any) -> dict[str, Any]:
@@ -349,9 +421,49 @@ class McpToolClient:
             if isinstance(item, httpx.HTTPStatusError):
                 status_code = int(getattr(item.response, "status_code", 0) or 0)
                 if status_code == 429:
-                    return True
+                    return False
                 return 500 <= status_code < 600
         return False
+
+    def _should_switch_api_key(self, exc: Exception) -> bool:
+        for item in self._collect_related_exceptions(exc):
+            if isinstance(item, AuthenticationError):
+                return True
+            if isinstance(item, ExternalServiceError):
+                status_code = int((getattr(item, "errors", {}) or {}).get("status_code") or 0)
+                if str(getattr(item, "code", "") or "").strip() == "MCP_HTTP_ERROR" and status_code == 429:
+                    return True
+            if isinstance(item, httpx.HTTPStatusError):
+                status_code = int(getattr(item.response, "status_code", 0) or 0)
+                if status_code == 429 or self._is_auth_like_http_error(item):
+                    return True
+        return False
+
+    def _mark_api_key_failure(self, *, api_key: str, exc: Exception) -> None:
+        if not api_key:
+            return
+        for item in self._collect_related_exceptions(exc):
+            if isinstance(item, AuthenticationError):
+                self._api_key_pool.mark_auth_failed(api_key)
+                return
+            if isinstance(item, ExternalServiceError):
+                status_code = int((getattr(item, "errors", {}) or {}).get("status_code") or 0)
+                if str(getattr(item, "code", "") or "").strip() == "MCP_HTTP_ERROR" and status_code == 429:
+                    self._api_key_pool.mark_rate_limited(api_key)
+                    return
+            if isinstance(item, httpx.HTTPStatusError):
+                status_code = int(getattr(item.response, "status_code", 0) or 0)
+                if self._is_auth_like_http_error(item):
+                    self._api_key_pool.mark_auth_failed(api_key)
+                    return
+                if status_code == 429:
+                    self._api_key_pool.mark_rate_limited(api_key)
+                    return
+
+    def _should_quarantine_transport(self, *, transport: str, exc: Exception) -> bool:
+        if transport != _TRANSPORT_STREAMABLE_HTTP:
+            return False
+        return True
 
     def _raise_transport_error(self, *, action: str, exc: Exception) -> None:
         collected = self._collect_related_exceptions(exc)

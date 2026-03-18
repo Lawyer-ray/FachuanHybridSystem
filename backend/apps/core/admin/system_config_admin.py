@@ -15,14 +15,17 @@ from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.models import SystemConfig
+from apps.core.security.secret_codec import SecretCodec
 
 from ._system_config_data import get_default_configs, get_env_mappings
+from .forms import SystemConfigAdminForm
 
 
 @admin.register(SystemConfig)
 class SystemConfigAdmin(admin.ModelAdmin[SystemConfig]):
     """系统配置 Admin"""
 
+    form = SystemConfigAdminForm
     list_display = [
         "key",
         "category_display",
@@ -73,10 +76,7 @@ class SystemConfigAdmin(admin.ModelAdmin[SystemConfig]):
             return format_html('<span style="color: #999;">{}</span>', "未设置")
 
         if obj.is_secret:
-            if len(obj.value) > 8:
-                masked = obj.value[:4] + "*" * (len(obj.value) - 8) + obj.value[-4:]
-            else:
-                masked = "*" * len(obj.value)
+            masked = self._mask_secret_value(obj.value)
             return format_html('<span style="font-family: monospace;">{}</span>', masked)
         else:
             if len(obj.value) > 50:
@@ -107,9 +107,18 @@ class SystemConfigAdmin(admin.ModelAdmin[SystemConfig]):
         """自定义列表页面"""
         extra_context = extra_context or {}
         extra_context["show_init_button"] = True
+        extra_context["show_sync_button"] = True
         extra_context["show_clear_cache_button"] = True
         extra_context["has_add_permission"] = self.has_add_permission(request)
         return super().changelist_view(request, extra_context=extra_context)
+
+    def save_model(self, request: Any, obj: SystemConfig, form: Any, change: bool) -> None:
+        previous_key = ""
+        if change and obj.pk:
+            previous = SystemConfig.objects.filter(pk=obj.pk).only("key").first()
+            previous_key = str(previous.key or "") if previous else ""
+        super().save_model(request, obj, form, change)
+        self._clear_config_cache(obj.key, previous_key=previous_key)
 
     def init_defaults_view(self, request: Any) -> HttpResponseRedirect:
         """初始化默认配置项"""
@@ -144,15 +153,19 @@ class SystemConfigAdmin(admin.ModelAdmin[SystemConfig]):
         for env_key, config_info in env_mappings.items():
             env_value = os.environ.get(env_key)
             if env_value:
+                stored_value = env_value
+                if config_info.get("is_secret", False):
+                    stored_value = SecretCodec().encrypt(env_value)
                 SystemConfig.objects.update_or_create(
                     key=config_info["key"],
                     defaults={
-                        "value": env_value,
+                        "value": stored_value,
                         "category": config_info["category"],
                         "description": config_info["description"],
                         "is_secret": config_info.get("is_secret", False),
                     },
                 )
+                self._clear_config_cache(config_info["key"])
                 synced_count += 1
 
         if synced_count > 0:
@@ -177,3 +190,27 @@ class SystemConfigAdmin(admin.ModelAdmin[SystemConfig]):
     def _get_env_mappings(self) -> dict[str, dict[str, Any]]:
         """委托给模块级函数"""
         return get_env_mappings()
+
+    def _mask_secret_value(self, value: str) -> str:
+        plain_value = value
+        codec = SecretCodec()
+        if codec.is_encrypted(value):
+            try:
+                plain_value = codec.try_decrypt(value)
+            except Exception:
+                plain_value = value
+
+        segments = [segment.strip() for segment in plain_value.replace(";", "\n").replace(",", "\n").splitlines() if segment.strip()]
+        if len(segments) > 1:
+            return f"已配置 {len(segments)} 个值"
+
+        target = segments[0] if segments else plain_value
+        if len(target) > 8:
+            return target[:4] + "*" * (len(target) - 8) + target[-4:]
+        return "*" * len(target)
+
+    @staticmethod
+    def _clear_config_cache(key: str, *, previous_key: str = "") -> None:
+        if previous_key and previous_key != key:
+            cache.delete(f"system_config:{previous_key}")
+        cache.delete(f"system_config:{key}")

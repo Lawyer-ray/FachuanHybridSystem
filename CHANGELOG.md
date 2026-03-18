@@ -2,6 +2,29 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.17.2] - 2026-03-18
+
+### 优化
+- **天眼查 MCP 多 API Key 自动切换**
+  - `TIANYANCHA_MCP_API_KEY` 现支持在一项配置中录入多个值，兼容换行、逗号、分号分隔
+  - 天眼查调用链新增 key 池能力，鉴权失败或远端 `429` 时自动切换下一把可用 key
+  - 成功 key 会被短期优先复用，失效或限流 key 会进入短期熔断，减少重复踩同一把坏 key
+- **天眼查 Streamable-HTTP 失败隔离**
+  - 已确认天眼查当前 `streamable_http` 网关存在鉴权阶段异常时，会自动回退到 `sse`
+  - 新增短期传输隔离：首次识别到 `streamable_http` 故障后，后续请求会暂时直接优先走 `sse`，避免每次先耗在坏链路上
+
+### 配置
+- **SystemConfig Admin 录入体验增强**
+  - `TIANYANCHA_MCP_API_KEY` / `QICHACHA_MCP_API_KEY` 在后台编辑页改为多行输入并补充多 key 提示
+  - 敏感配置编辑时回显解密后的值，保存时继续加密，列表页多 key 显示为“已配置 N 个值”
+  - 从环境变量同步 secret 配置时统一按加密值入库，并同步清理对应缓存
+
+### 测试
+- 新增 `backend/apps/enterprise_data/test_mcp_tool_client.py`
+- `uv run pytest apps/enterprise_data/test_mcp_tool_client.py -o addopts='--tb=short -q'`：`5 passed`
+- `uv run pytest apps/client/test_client_enterprise_prefill_service.py -o addopts='--tb=short -q'`：`2 passed`
+- `uv run python apiSystem/manage.py check`：`System check identified no issues (0 silenced)`
+
 ## [26.17.1] - 2026-03-17
 
 ### 优化

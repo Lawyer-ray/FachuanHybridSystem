@@ -1,0 +1,48 @@
+"""SystemConfig Admin 表单。"""
+
+from __future__ import annotations
+
+from django import forms
+from django.core.exceptions import ValidationError
+
+from apps.core.models import SystemConfig
+from apps.core.security.secret_codec import SecretCodec
+
+_MULTI_KEY_CONFIGS = {"TIANYANCHA_MCP_API_KEY", "QICHACHA_MCP_API_KEY"}
+
+
+class SystemConfigAdminForm(forms.ModelForm):
+    class Meta:
+        model = SystemConfig
+        fields = "__all__"
+        widgets = {
+            "value": forms.Textarea(attrs={"rows": 6}),
+        }
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        super().__init__(*args, **kwargs)
+        self.fields["value"].widget.attrs.setdefault("rows", 6)
+
+        instance = self.instance
+        if not instance or not instance.pk:
+            return
+
+        if instance.is_secret and instance.value:
+            try:
+                self.initial["value"] = SecretCodec().try_decrypt(instance.value)
+            except Exception:
+                self.initial["value"] = instance.value
+
+        if instance.key in _MULTI_KEY_CONFIGS:
+            self.fields["value"].help_text = "支持多个 API Key，每行一个；也兼容逗号或分号分隔，调用时会自动切换可用 Key。"
+
+    def clean_value(self) -> str:
+        value = str(self.cleaned_data.get("value") or "")
+        if not value:
+            return ""
+        if not bool(self.cleaned_data.get("is_secret")):
+            return value
+        try:
+            return SecretCodec().encrypt(value)
+        except RuntimeError as exc:
+            raise ValidationError("缺少敏感配置加密密钥，无法保存 secret 配置。") from exc

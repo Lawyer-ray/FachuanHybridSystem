@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 
 from apps.core.exceptions import ValidationException
 from apps.core.services.system_config_service import SystemConfigService
@@ -27,6 +28,7 @@ from apps.enterprise_data.services.types import (
 )
 
 _TRUE_VALUES = ("true", "1", "yes", "y", "on")
+_MULTI_VALUE_SPLIT_PATTERN = re.compile(r"[\r\n,;]+")
 logger = logging.getLogger(__name__)
 
 
@@ -182,14 +184,19 @@ class EnterpriseProviderRegistry:
         timeout_key: str,
         enabled: bool,
     ) -> ProviderConfig:
-        api_key = self._read_sensitive_str(api_key_key)
-        if not api_key:
-            api_key = (os.environ.get(api_key_key, "") or "").strip()
-        if not api_key:
+        api_keys = self._read_sensitive_values(
+            api_key_key,
+            env_keys=(api_key_key, f"{api_key_key}S"),
+        )
+        if not api_keys:
             raise ValidationException(
                 message=f"{provider_name} MCP API Key 未配置",
                 code="PROVIDER_API_KEY_MISSING",
-                errors={"provider": provider_name, "config_key": api_key_key, "env_key": api_key_key},
+                errors={
+                    "provider": provider_name,
+                    "config_key": api_key_key,
+                    "env_keys": [api_key_key, f"{api_key_key}S"],
+                },
             )
 
         return ProviderConfig(
@@ -198,8 +205,9 @@ class EnterpriseProviderRegistry:
             transport=self._normalize_transport(str(self._config.get_value(transport_key, DEFAULT_TRANSPORT) or "").strip()),
             base_url=str(self._config.get_value(base_url_key, base_url_default) or "").strip(),
             sse_url=str(self._config.get_value(sse_url_key, sse_url_default) or "").strip(),
-            api_key=api_key,
+            api_key=api_keys[0],
             timeout_seconds=self._read_int(timeout_key, DEFAULT_TIMEOUT_SECONDS, min_value=5),
+            api_keys=api_keys,
             rate_limit_requests=self.get_rate_limit_requests(),
             rate_limit_window_seconds=self.get_rate_limit_window_seconds(),
             retry_max_attempts=self.get_retry_max_attempts(),
@@ -245,6 +253,32 @@ class EnterpriseProviderRegistry:
                 extra={"key": key, "error_type": type(exc).__name__},
             )
             return ""
+
+    def _read_sensitive_values(self, key: str, *, env_keys: tuple[str, ...]) -> tuple[str, ...]:
+        stored_values = self._split_secret_values(self._read_sensitive_str(key))
+        if stored_values:
+            return stored_values
+
+        for env_key in env_keys:
+            env_value = (os.environ.get(env_key, "") or "").strip()
+            parsed_values = self._split_secret_values(env_value)
+            if parsed_values:
+                return parsed_values
+        return ()
+
+    @staticmethod
+    def _split_secret_values(raw_value: str) -> tuple[str, ...]:
+        if not raw_value:
+            return ()
+        values: list[str] = []
+        seen: set[str] = set()
+        for item in _MULTI_VALUE_SPLIT_PATTERN.split(raw_value):
+            normalized = str(item or "").strip()
+            if not normalized or normalized in seen:
+                continue
+            values.append(normalized)
+            seen.add(normalized)
+        return tuple(values)
 
     @staticmethod
     def _normalize_transport(raw: str) -> str:

@@ -1,4 +1,4 @@
-# 法穿AI案件管理系统V26.17.1
+# 法穿AI案件管理系统V26.17.2
 
 全自动处理/生成法院文书，Less is more
 
@@ -25,7 +25,7 @@
 - **企业数据中台（Enterprise Data）**
   - 已接入天眼查 MCP（`streamable_http` 优先，`sse` 自动回退），企查查 provider 骨架预留
   - 提供标准化企业查询 API 与 Admin MCP 工作台调试能力
-  - 支持 SystemConfig 密钥加密存储、默认配置初始化与可观测统计
+  - 支持 SystemConfig 密钥加密存储、多 API Key 自动切换、默认配置初始化与可观测统计
 - **文书与内容生产（Documents + Litigation AI）**
   - 诉讼文书模板化生成与结构化填充
   - AI 诉讼文书生成、证据清单组织、外部模板映射

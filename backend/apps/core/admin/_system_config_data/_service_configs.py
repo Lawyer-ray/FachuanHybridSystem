@@ -438,7 +438,7 @@ def get_enterprise_data_configs() -> list[dict[str, Any]]:
         {
             "key": "TIANYANCHA_MCP_API_KEY",
             "category": "enterprise_data",
-            "description": "天眼查 MCP API Key（Bearer Token）",
+            "description": "天眼查 MCP API Key（Bearer Token，支持多 Key；每行一个）",
             "value": "",
             "is_secret": True,
         },
@@ -543,7 +543,7 @@ def get_enterprise_data_configs() -> list[dict[str, Any]]:
         {
             "key": "QICHACHA_MCP_API_KEY",
             "category": "enterprise_data",
-            "description": "企查查 MCP API Key（Bearer Token）",
+            "description": "企查查 MCP API Key（Bearer Token，支持多 Key；每行一个）",
             "value": "",
             "is_secret": True,
         },

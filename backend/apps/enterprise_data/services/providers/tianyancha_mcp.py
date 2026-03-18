@@ -29,6 +29,7 @@ class TianyanchaMcpProvider:
             base_url=config.base_url,
             sse_url=config.sse_url,
             api_key=config.api_key,
+            api_keys=config.api_keys,
             timeout_seconds=config.timeout_seconds,
             rate_limit_requests=config.rate_limit_requests,
             rate_limit_window_seconds=config.rate_limit_window_seconds,
@@ -198,4 +199,7 @@ class TianyanchaMcpProvider:
             "fallback_used": actual_transport != requested_transport,
             "duration_ms": max(0, int(transport_result.get("duration_ms", 0) or 0)),
             "attempt_count": max(1, int(transport_result.get("attempt_count", 1) or 1)),
+            "api_key_pool_size": max(1, int(transport_result.get("api_key_pool_size", 1) or 1)),
+            "api_key_attempt_count": max(1, int(transport_result.get("api_key_attempt_count", 1) or 1)),
+            "api_key_switched": bool(transport_result.get("api_key_switched", False)),
         }
