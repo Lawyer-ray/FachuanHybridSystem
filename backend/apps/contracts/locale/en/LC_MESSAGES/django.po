@@ -1352,3 +1352,54 @@ msgstr "Contract name is required"
 
 msgid "导入"
 msgstr "Import"
+
+msgid "自动捕获"
+msgstr "Auto Capture"
+
+msgid "开始扫描"
+msgstr "Start Scan"
+
+msgid "重新扫描"
+msgstr "Rescan"
+
+msgid "确认导入"
+msgstr "Confirm Import"
+
+msgid "正在扫描文件夹"
+msgstr "Scanning bound folder"
+
+msgid "正在 AI 分类"
+msgstr "Running AI classification"
+
+msgid "扫描完成"
+msgstr "Scan completed"
+
+msgid "扫描失败"
+msgstr "Scan failed"
+
+msgid "绑定文件夹不可访问"
+msgstr "Bound folder is not accessible"
+
+msgid "未绑定文件夹"
+msgstr "No folder binding"
+
+msgid "未找到可导入的 PDF"
+msgstr "No importable PDF found"
+
+msgid "导入失败，请稍后重试"
+msgstr "Import failed, please try again later"
+
+msgid "扫描会话不存在"
+msgstr "Scan session does not exist"
+
+msgid "扫描尚未完成"
+msgstr "Scan is not completed yet"
+
+msgid "候选文件不存在"
+msgstr "Candidate file does not exist"
+
+msgid "源文件不存在"
+msgstr "Source file does not exist"
+
+msgid "文件夹自动捕获"
+msgstr "Folder Auto Capture"

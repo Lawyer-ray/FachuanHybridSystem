@@ -1,0 +1,69 @@
+{% load i18n %}
+<div class="modal-overlay" x-show="isOpen" x-cloak @click.self="closeModal()">
+    <div class="modal-dialog fm-scan-modal">
+        <div class="modal-header">
+            <h3>{% trans "自动捕获" %}</h3>
+            <button type="button" class="modal-close" @click="closeModal()">&times;</button>
+        </div>
+
+        <div class="modal-body fm-scan-body">
+            <div class="fm-scan-actions">
+                <button type="button" class="btn btn-primary" :disabled="isScanning" @click="startScan(false)">{% trans "开始扫描" %}</button>
+                <button type="button" class="btn btn-secondary" :disabled="isScanning" @click="startScan(true)">{% trans "重新扫描" %}</button>
+            </div>
+
+            <div class="fm-scan-status" x-show="scanStatusText">
+                <span class="fm-status-pill" :class="scanStatusClass" x-text="scanStatusText"></span>
+                <span class="fm-scan-file" x-show="scanCurrentFile" x-text="scanCurrentFile"></span>
+            </div>
+
+            <div class="fm-scan-progress" x-show="isScanning">
+                <div class="fm-progress-track">
+                    <div class="fm-progress-bar" :style="`width: ${scanProgress}%`"></div>
+                </div>
+                <div class="fm-progress-text" x-text="`${scanProgress}%`"></div>
+            </div>
+
+            <div class="fm-scan-empty" x-show="!isScanning && scanSessionId && !scanCandidates.length">
+                {% trans "未找到可导入的 PDF" %}
+            </div>
+
+            <div class="fm-scan-table-wrap" x-show="scanCandidates.length">
+                <table class="fm-scan-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 60px;">{% trans "导入" %}</th>
+                            <th>{% trans "文件" %}</th>
+                            <th style="width: 220px;">{% trans "材料分类" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="candidate in scanCandidates" :key="candidate.source_path">
+                            <tr>
+                                <td><input type="checkbox" x-model="candidate.selected" /></td>
+                                <td>
+                                    <div class="fm-file-cell">
+                                        <span x-text="candidate.filename"></span>
+                                        <span class="fm-file-reason" x-show="candidate.reason" x-text="candidate.reason"></span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <select x-model="candidate.category">
+                                        <option value="contract_original">{% trans "合同正本" %}</option>
+                                        <option value="supplementary_agreement">{% trans "补充协议" %}</option>
+                                        <option value="other">{% trans "其他" %}</option>
+                                    </select>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" @click="closeModal()">{% trans "取消" %}</button>
+            <button type="button" class="btn btn-primary" :disabled="isScanning || isConfirming || !selectedCount" @click="confirmImport()">{% trans "确认导入" %}</button>
+        </div>
+    </div>
+</div>

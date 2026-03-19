@@ -18,6 +18,16 @@ from .folder_binding_schemas import (
     FolderBrowseEntrySchema,
     FolderBrowseResponseSchema,
 )
+from .folder_scan_schemas import (
+    CaseFolderScanCandidateOut,
+    CaseFolderScanStageIn,
+    CaseFolderScanStageItemIn,
+    CaseFolderScanStageOut,
+    CaseFolderScanStartIn,
+    CaseFolderScanStartOut,
+    CaseFolderScanStatusOut,
+    CaseFolderScanSummaryOut,
+)
 from .lawyer_schemas import LawyerOutFromDTO
 from .litigation_fee_schemas import FeeCalculationRequest, FeeCalculationResponse
 from .log_schemas import (
@@ -64,6 +74,14 @@ __all__ = [
     "CaseCreateFull",
     "CaseFolderBindingCreateSchema",
     "CaseFolderBindingResponseSchema",
+    "CaseFolderScanCandidateOut",
+    "CaseFolderScanStartIn",
+    "CaseFolderScanStartOut",
+    "CaseFolderScanSummaryOut",
+    "CaseFolderScanStatusOut",
+    "CaseFolderScanStageItemIn",
+    "CaseFolderScanStageIn",
+    "CaseFolderScanStageOut",
     "CaseFullOut",
     "CaseIn",
     "CaseLogActorOut",

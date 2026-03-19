@@ -17,6 +17,16 @@ from .folder_binding_schemas import (
     FolderBrowseEntrySchema,
     FolderBrowseResponseSchema,
 )
+from .folder_scan_schemas import (
+    ContractFolderScanCandidateOut,
+    ContractFolderScanConfirmIn,
+    ContractFolderScanConfirmItemIn,
+    ContractFolderScanConfirmOut,
+    ContractFolderScanStartIn,
+    ContractFolderScanStartOut,
+    ContractFolderScanStatusOut,
+    ContractFolderScanSummaryOut,
+)
 
 # Lawyer, Reminder, Case Schemas
 from .lawyer_schemas import CaseOut, LawyerOut
@@ -75,6 +85,15 @@ __all__ = [
     "FolderBindingResponseSchema",
     "FolderBrowseEntrySchema",
     "FolderBrowseResponseSchema",
+    # Folder Scan
+    "ContractFolderScanStartIn",
+    "ContractFolderScanStartOut",
+    "ContractFolderScanSummaryOut",
+    "ContractFolderScanCandidateOut",
+    "ContractFolderScanStatusOut",
+    "ContractFolderScanConfirmItemIn",
+    "ContractFolderScanConfirmIn",
+    "ContractFolderScanConfirmOut",
     # Contract Core
     "UpdateLawyersIn",
     "ContractIn",

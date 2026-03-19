@@ -10,11 +10,13 @@ from .case_api import router as case_router
 from .caseaccess_api import router as caseaccess_router
 from .caseassignment_api import router as caseassignment_router
 from .caselog_api import router as caselog_router
+from .case_material_api import router as case_material_router
 from .casenumber_api import router as casenumber_router
 from .caseparty_api import router as caseparty_router
 from .cause_court_api import router as cause_court_router
 from .folder_binding_api import router as folder_binding_router
 from .folder_generation_api import router as folder_generation_router
+from .folder_scan_api import router as folder_scan_router
 from .litigation_fee_api import router as litigation_fee_router
 
 # 创建模块路由器
@@ -31,5 +33,7 @@ router.add_router("", cause_court_router, tags=["案由主管机关"])
 router.add_router("", litigation_fee_router, tags=["诉讼费计算"])
 router.add_router("", folder_generation_router, tags=["案件文件夹生成"])
 router.add_router("", folder_binding_router, tags=["案件文件夹绑定"])
+router.add_router("", case_material_router, tags=["案件材料"])
+router.add_router("", folder_scan_router, tags=["案件文件夹自动捕获"])
 
 __all__ = ["router"]

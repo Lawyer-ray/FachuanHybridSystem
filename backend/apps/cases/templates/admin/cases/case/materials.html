@@ -3,7 +3,7 @@
 
 {% block extrahead %}
 {{ block.super }}
-<link rel="stylesheet" type="text/css" href="{% static 'cases/css/case_materials_manage.css' %}?v=20260125f">
+<link rel="stylesheet" type="text/css" href="{% static 'cases/css/case_materials_manage.css' %}?v=20260319a">
 {% endblock %}
 
 {% block content_title %}{% endblock %}
@@ -26,7 +26,21 @@
         nonPartyTypes: JSON.parse('{{ non_party_types_json|escapejs }}'),
         ourParties: JSON.parse('{{ our_case_parties_json|escapejs }}'),
         opponentParties: JSON.parse('{{ opponent_case_parties_json|escapejs }}'),
-        supervisingAuthorities: JSON.parse('{{ supervising_authorities_json|escapejs }}')
+        supervisingAuthorities: JSON.parse('{{ supervising_authorities_json|escapejs }}'),
+        openScan: {{ open_scan|yesno:'true,false' }},
+        scanSessionId: '{{ scan_session_id|default:''|escapejs }}',
+        scanTexts: {
+            scanningFolder: '{% trans "正在扫描文件夹" %}',
+            extractingText: '{% trans "正在提取文本" %}',
+            classifying: '{% trans "正在 AI 分类" %}',
+            completed: '{% trans "扫描完成" %}',
+            failed: '{% trans "扫描失败" %}',
+            noBinding: '{% trans "未绑定文件夹" %}',
+            folderInaccessible: '{% trans "绑定文件夹不可访问" %}',
+            noPdf: '{% trans "未找到可导入的 PDF" %}',
+            aiUnavailable: '{% trans "AI 分类不可用，请手动确认" %}',
+            importFailed: '{% trans "导入失败，请稍后重试" %}'
+        }
      })"
      x-init="init()">
 
@@ -42,6 +56,102 @@
             <button type="button" class="button default" @click="save()">{% trans "保存" %}</button>
         </div>
     </header>
+
+    <section class="cm-card cm-scan-card">
+        <div class="cm-card-header cm-scan-header">
+            <div>
+                <div class="cm-card-title">{% trans "从绑定文件夹捕获" %}</div>
+                <div class="cm-card-subtitle">{% trans "扫描绑定目录中的 PDF，导入附件池后继续使用当前页面完成材料绑定。" %}</div>
+            </div>
+            <div class="cm-actions">
+                <button type="button"
+                        class="button default"
+                        :disabled="isScanning"
+                        @click="startFolderScan(false)">{% trans "开始扫描" %}</button>
+                <button type="button"
+                        class="button"
+                        :disabled="isScanning"
+                        @click="startFolderScan(true)">{% trans "重新扫描" %}</button>
+                <button type="button"
+                        class="button default"
+                        :disabled="isScanning || isStaging || !selectedScanCount"
+                        @click="stageSelectedScanCandidates()">{% trans "导入附件" %}</button>
+            </div>
+        </div>
+
+        <div class="cm-scan-status" x-show="scanStatusText">
+            <span class="cm-status-pill" :class="scanStatusClass" x-text="scanStatusText"></span>
+            <span class="cm-scan-file" x-show="scanCurrentFile" x-text="scanCurrentFile"></span>
+        </div>
+
+        <div class="cm-scan-progress" x-show="isScanning">
+            <div class="cm-progress-track">
+                <div class="cm-progress-bar" :style="`width: ${scanProgress}%`"></div>
+            </div>
+            <div class="cm-progress-text">
+                <span x-text="`${scanProgress}%`"></span>
+                <span x-show="scanSummary.total_files">
+                    {% trans "总文件" %}: <span x-text="scanSummary.total_files"></span>
+                </span>
+            </div>
+        </div>
+
+        <div class="cm-scan-empty" x-show="!isScanning && scanSessionId && !scanCandidates.length">
+            {% trans "未找到可导入的 PDF" %}
+        </div>
+
+        <div class="cm-scan-list" x-show="scanCandidates.length">
+            <div class="cm-scan-meta">
+                <span>{% trans "候选文件" %}: <strong x-text="scanCandidates.length"></strong></span>
+                <span>{% trans "已选择" %}: <strong x-text="selectedScanCount"></strong></span>
+            </div>
+            <div class="cm-scan-table-wrap">
+                <table class="cm-scan-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 52px;">{% trans "导入" %}</th>
+                            <th>{% trans "文件" %}</th>
+                            <th style="width: 140px;">{% trans "材料大类" %}</th>
+                            <th style="width: 160px;">{% trans "方向" %}</th>
+                            <th style="width: 200px;">{% trans "类型提示" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="candidate in scanCandidates" :key="candidate.source_path">
+                            <tr>
+                                <td>
+                                    <input type="checkbox" x-model="candidate.selected" />
+                                </td>
+                                <td>
+                                    <div class="cm-scan-file-name">
+                                        <span x-text="candidate.filename"></span>
+                                        <span class="cm-scan-reason" x-show="candidate.reason" x-text="candidate.reason"></span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <select x-model="candidate.category">
+                                        <option value="">{% trans "请选择" %}</option>
+                                        <option value="party">{% trans "当事人材料" %}</option>
+                                        <option value="non_party">{% trans "非当事人材料" %}</option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <select x-model="candidate.side" :disabled="candidate.category !== 'party'">
+                                        <option value="">{% trans "请选择" %}</option>
+                                        <option value="our">{% trans "我方" %}</option>
+                                        <option value="opponent">{% trans "对方" %}</option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <input type="text" x-model.trim="candidate.type_name_hint" placeholder="{% trans '类型名称提示' %}" />
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
 
     <div class="materials-manage-top">
         <section class="cm-card">
@@ -279,5 +389,5 @@
 </div>
 
 {% csrf_token %}
-<script src="{% static 'cases/js/case_materials_manage.js' %}?v=20260125f"></script>
+<script src="{% static 'cases/js/case_materials_manage.js' %}?v=20260319a"></script>
 {% endblock %}

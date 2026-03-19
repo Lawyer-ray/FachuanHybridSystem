@@ -508,3 +508,140 @@
 .cm-stat-value--warn {
   color: #d97706;
 }
+
+.cm-scan-card {
+  margin-bottom: 12px;
+}
+
+.cm-scan-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cm-scan-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.cm-status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.cm-status-pill.is-pending {
+  color: #1d4ed8;
+  background: rgba(37, 99, 235, 0.12);
+}
+
+.cm-status-pill.is-success {
+  color: #15803d;
+  background: rgba(22, 163, 74, 0.12);
+}
+
+.cm-status-pill.is-error {
+  color: #b91c1c;
+  background: rgba(220, 38, 38, 0.12);
+}
+
+.cm-scan-file {
+  font-size: 12px;
+  color: var(--cm-muted);
+}
+
+.cm-scan-progress {
+  margin-top: 8px;
+}
+
+.cm-progress-track {
+  height: 8px;
+  background: rgba(15, 23, 42, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.cm-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #1d4ed8, #2563eb);
+  transition: width 0.2s ease;
+}
+
+.cm-progress-text {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--cm-muted);
+  display: flex;
+  gap: 12px;
+}
+
+.cm-scan-empty {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px dashed var(--cm-border);
+  color: var(--cm-muted);
+  font-size: 13px;
+}
+
+.cm-scan-list {
+  margin-top: 10px;
+}
+
+.cm-scan-meta {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--cm-muted);
+  margin-bottom: 6px;
+}
+
+.cm-scan-table-wrap {
+  overflow-x: auto;
+}
+
+.cm-scan-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.cm-scan-table th,
+.cm-scan-table td {
+  border-top: 1px solid var(--cm-border);
+  padding: 8px 6px;
+  vertical-align: top;
+}
+
+.cm-scan-table th {
+  font-size: 12px;
+  color: var(--cm-muted);
+  text-align: left;
+}
+
+.cm-scan-table select,
+.cm-scan-table input[type="text"] {
+  width: 100%;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--cm-border);
+  padding: 4px 8px;
+  box-sizing: border-box;
+}
+
+.cm-scan-file-name {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cm-scan-reason {
+  font-size: 12px;
+  color: var(--cm-muted);
+}

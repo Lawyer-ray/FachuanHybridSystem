@@ -2,6 +2,30 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.18.0] - 2026-03-19
+
+### 新增
+- **案件/合同材料文件夹自动捕获（Folder Auto Capture）**
+  - 新增合同与案件“自动捕获”入口及引导弹窗/面板，支持指定已绑定目录一键扫描
+  - 新增会话化扫描与确认机制：扫描结果可查看、可二次确认后入库，避免误收录
+  - 新增扫描会话数据模型：`ContractFolderScanSession`、`CaseFolderScanSession`
+- **通用扫描与分类能力**
+  - 新增递归扫描服务 `BoundFolderScanService`，支持子目录检索 PDF、版本后缀去重、进度回调
+  - 新增材料智能分类服务 `MaterialClassificationService`，基于文本片段给出合同/案件材料归类建议
+
+### 优化
+- **文档识别链路**
+  - PDF 文本抽取新增 `max_pages`，扫描阶段默认仅读取前 3 页以控制耗时
+  - OCR/直抽路径统一支持页数上限，提升大目录扫描稳定性与响应速度
+- **Cases/Contracts API 扩展**
+  - 合同新增 `folder-scan` 扫描、会话查询、确认入库接口
+  - 案件新增 `folder-scan` 扫描、会话查询、分阶段确认接口
+  - 案件 API 路由补齐 `case_material_api` 注册，避免扫描后流程断链
+
+### 测试
+- 新增 `backend/apps/document_recognition/test_text_extraction_max_pages.py`
+- 本地检查通过：`manage.py check`、`makemigrations --check --dry-run`、`node --check`（相关前端脚本）
+
 ## [26.17.5] - 2026-03-19
 
 ### 新增

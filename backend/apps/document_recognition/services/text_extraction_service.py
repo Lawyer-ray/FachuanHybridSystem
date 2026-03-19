@@ -67,16 +67,18 @@ class TextExtractionService:
     Requirements: 3.1, 3.2, 3.3, 3.4, 3.5
     """
 
-    def __init__(self, text_limit: int | None = None):
+    def __init__(self, text_limit: int | None = None, max_pages: int | None = None):
         """
         初始化文本提取服务
 
         Args:
             text_limit: 文本提取字数限制，None 表示不限制
+            max_pages: 最大提取页数限制，None 表示不限制
         """
         self._text_limit = text_limit
+        self._max_pages = max_pages
 
-    def extract_text(self, file_path: str) -> TextExtractionResult:
+    def extract_text(self, file_path: str, max_pages: int | None = None) -> TextExtractionResult:
         """
         从文件中提取文本
 
@@ -86,6 +88,7 @@ class TextExtractionService:
 
         Args:
             file_path: 文件路径
+            max_pages: 最大提取页数限制，None 时使用构造函数配置
 
         Returns:
             TextExtractionResult: 提取结果
@@ -111,13 +114,15 @@ class TextExtractionService:
                 errors={"file": f"不支持 {ext} 格式，请上传 PDF 或图片（jpg, jpeg, png）"},
             )
 
+        effective_max_pages = self._max_pages if max_pages is None else max_pages
+
         # 根据文件类型选择提取策略
         if ext in SUPPORTED_PDF_EXTENSIONS:
-            return self._extract_from_pdf(file_path)
+            return self._extract_from_pdf(file_path, max_pages=effective_max_pages)
         else:
             return self._extract_from_image(file_path)
 
-    def _extract_from_pdf(self, file_path: str) -> TextExtractionResult:
+    def _extract_from_pdf(self, file_path: str, max_pages: int | None = None) -> TextExtractionResult:
         """
         从 PDF 文件提取文本
 
@@ -134,7 +139,7 @@ class TextExtractionService:
         Requirements: 3.1, 3.2, 3.3
         """
         # 先尝试直接提取
-        text = self._extract_pdf_text_direct(file_path)
+        text = self._extract_pdf_text_direct(file_path, max_pages=max_pages)
 
         if text and text.strip():
             # 删除所有空格后再返回
@@ -144,9 +149,9 @@ class TextExtractionService:
 
         # 直接提取失败，降级到 OCR
         logger.info(f"PDF 直接提取失败，降级到 OCR: {file_path}")
-        return self._extract_pdf_with_ocr(file_path)
+        return self._extract_pdf_with_ocr(file_path, max_pages=max_pages)
 
-    def _extract_pdf_text_direct(self, file_path: str) -> str:
+    def _extract_pdf_text_direct(self, file_path: str, max_pages: int | None = None) -> str:
         """
         直接从 PDF 提取文字
 
@@ -161,12 +166,12 @@ class TextExtractionService:
         try:
             from apps.automation.services.document.document_processing import extract_pdf_text
 
-            return extract_pdf_text(file_path, limit=self._text_limit)
+            return extract_pdf_text(file_path, limit=self._text_limit, max_pages=max_pages)
         except Exception as e:
             logger.warning(f"PDF 直接提取异常: {e}")
             return ""
 
-    def _extract_pdf_with_ocr(self, file_path: str) -> TextExtractionResult:
+    def _extract_pdf_with_ocr(self, file_path: str, max_pages: int | None = None) -> TextExtractionResult:
         """
         使用 OCR 从 PDF 提取文字
 
@@ -181,7 +186,7 @@ class TextExtractionService:
         Requirements: 3.3
         """
         try:
-            text = self._ocr_pdf_pages(file_path)
+            text = self._ocr_pdf_pages(file_path, max_pages=max_pages)
 
             if text and text.strip():
                 # 删除所有空格
@@ -200,7 +205,7 @@ class TextExtractionService:
             logger.error(f"PDF OCR 提取异常: {e}")
             return TextExtractionResult(text="", extraction_method="ocr", success=False)
 
-    def _ocr_pdf_pages(self, file_path: str) -> str:
+    def _ocr_pdf_pages(self, file_path: str, max_pages: int | None = None) -> str:
         """
         对 PDF 所有页面进行 OCR
 
@@ -223,6 +228,8 @@ class TextExtractionService:
         try:
             with fitz.open(file_path) as doc:
                 for page_num in range(doc.page_count):
+                    if max_pages is not None and max_pages > 0 and page_num >= max_pages:
+                        break
                     # 渲染页面为图片
                     page = doc.load_page(page_num)
                     pix = page.get_pixmap()

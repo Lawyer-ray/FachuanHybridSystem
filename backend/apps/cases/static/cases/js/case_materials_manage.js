@@ -21,8 +21,9 @@
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
 
-  function normalizeCandidate(candidate, prefillCategory) {
+  function normalizeCandidate(candidate, prefill) {
     const material = candidate.material || null;
+    const draft = prefill || {};
     const row = {
       attachmentId: candidate.attachment_id,
       fileName: candidate.file_name,
@@ -31,16 +32,25 @@
       uploadedAtDisplay: formatTime(candidate.uploaded_at),
       isBound: Boolean(material),
       materialId: material ? material.id : null,
-      category: material ? material.category : (prefillCategory || ''),
-      lastCategory: material ? material.category : (prefillCategory || ''),
-      side: material ? (material.side || '') : '',
+      category: material ? material.category : (draft.category || ''),
+      lastCategory: material ? material.category : (draft.category || ''),
+      side: material ? (material.side || '') : (draft.side || ''),
       partyIds: material ? (material.party_ids || []).map(String) : [],
       supervisingAuthorityId: material ? (material.supervising_authority_id || '') : '',
       typeSelect: material && material.type_id ? String(material.type_id) : '',
-      customTypeName: material && !material.type_id ? (material.type_name || '') : '',
+      customTypeName: material && !material.type_id ? (material.type_name || '') : (draft.type_name_hint || ''),
     };
     if (!row.typeSelect && row.customTypeName) row.typeSelect = '__custom__';
     return row;
+  }
+
+  function readQueryValue(name) {
+    try {
+      const url = new URL(window.location.href);
+      return url.searchParams.get(name) || '';
+    } catch (_) {
+      return '';
+    }
   }
 
   function mergeFiles(existing, incoming) {
@@ -86,6 +96,21 @@
         onlyUnfinished: false,
         onlyUnbound: false,
         selectedIds: [],
+        scanTexts: config.scanTexts || {},
+        scanPanelVisible: Boolean(config.openScan),
+        scanSessionId: config.scanSessionId || '',
+        scanStatus: '',
+        scanProgress: 0,
+        scanCurrentFile: '',
+        scanSummary: { total_files: 0, deduped_files: 0, classified_files: 0 },
+        scanCandidates: [],
+        scanPrefillMap: {},
+        prefillAppliedSessionId: '',
+        scanPollTimer: null,
+        isScanning: false,
+        isStaging: false,
+        scanStatusMessage: '',
+        scanErrorMessage: '',
 
         get uploadButtonText() {
           if (this.isUploading) return '上传中...';
@@ -109,6 +134,26 @@
           const n = (this.pendingFiles || []).length;
           if (n) return '点击右侧“上传”开始上传，或继续拖拽追加文件';
           return '';
+        },
+
+        get selectedScanCount() {
+          return (this.scanCandidates || []).filter((item) => item.selected).length;
+        },
+
+        get scanStatusText() {
+          if (this.scanStatusMessage) return this.scanStatusMessage;
+          if (this.scanErrorMessage) return this.scanErrorMessage;
+          if (this.scanStatus === 'running') return this.scanTexts.scanningFolder || '正在扫描文件夹';
+          if (this.scanStatus === 'classifying') return this.scanTexts.classifying || '正在 AI 分类';
+          if (this.scanStatus === 'completed' || this.scanStatus === 'staged') return this.scanTexts.completed || '扫描完成';
+          if (this.scanStatus === 'failed') return this.scanTexts.failed || '扫描失败';
+          return '';
+        },
+
+        get scanStatusClass() {
+          if (this.scanStatus === 'failed') return 'is-error';
+          if (this.scanStatus === 'completed' || this.scanStatus === 'staged') return 'is-success';
+          return 'is-pending';
         },
 
         get filteredRows() {
@@ -154,7 +199,15 @@
         },
 
         init() {
+          const sessionFromQuery = readQueryValue('scan_session');
+          if (sessionFromQuery) {
+            this.scanSessionId = sessionFromQuery;
+            this.scanPanelVisible = true;
+          }
           this.load();
+          if (this.scanSessionId) {
+            this.fetchScanStatus(this.scanSessionId, true);
+          }
         },
 
         showMessage(message, type) {
@@ -403,8 +456,12 @@
             })
             .then((data) => {
               const uploadedSet = new Set(this.lastUploadedIds.map(String));
+              const prefillMap = this.scanPrefillMap || {};
               this.rows = (data || []).map((c) => {
-                const prefill = uploadedSet.has(String(c.attachment_id)) ? this.uploadCategory : '';
+                let prefill = prefillMap[String(c.attachment_id)] || null;
+                if (!prefill && uploadedSet.has(String(c.attachment_id))) {
+                  prefill = { category: this.uploadCategory };
+                }
                 return normalizeCandidate(c, prefill);
               });
               const existing = new Set((this.rows || []).map((row) => String(row.attachmentId)));
@@ -416,6 +473,187 @@
             .finally(() => {
               this.isLoading = false;
             });
+        },
+
+        clearScanPollTimer() {
+          if (!this.scanPollTimer) return;
+          window.clearTimeout(this.scanPollTimer);
+          this.scanPollTimer = null;
+        },
+
+        startFolderScan(rescan) {
+          this.scanPanelVisible = true;
+          this.scanErrorMessage = '';
+          this.scanStatusMessage = '';
+          this.isScanning = true;
+          this.clearScanPollTimer();
+          fetch(`/api/v1/cases/${this.caseId}/folder-scan`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': getCsrfToken(),
+            },
+            body: JSON.stringify({ rescan: Boolean(rescan) }),
+          })
+            .then(async (resp) => {
+              const data = await resp.json().catch(() => ({}));
+              if (!resp.ok) {
+                throw new Error(data.message || data.detail || this.scanTexts.failed || '扫描失败');
+              }
+              return data;
+            })
+            .then((data) => {
+              this.scanSessionId = (data && data.session_id) || '';
+              this.scanStatus = (data && data.status) || 'running';
+              this.scanProgress = 0;
+              this.scanCandidates = [];
+              this.scanPrefillMap = {};
+              this.prefillAppliedSessionId = '';
+              this.syncScanSessionToUrl(this.scanSessionId);
+              this.fetchScanStatus(this.scanSessionId, true);
+            })
+            .catch((err) => {
+              this.isScanning = false;
+              this.scanStatus = 'failed';
+              this.scanErrorMessage = (err && err.message) || (this.scanTexts.failed || '扫描失败');
+              this.showMessage(this.scanErrorMessage, 'error');
+            });
+        },
+
+        fetchScanStatus(sessionId, keepPolling) {
+          if (!sessionId) return;
+          fetch(`/api/v1/cases/${this.caseId}/folder-scan/${sessionId}`, {
+            headers: { 'X-CSRFToken': getCsrfToken() },
+          })
+            .then(async (resp) => {
+              const data = await resp.json().catch(() => ({}));
+              if (!resp.ok) {
+                throw new Error(data.message || data.detail || this.scanTexts.failed || '扫描失败');
+              }
+              return data;
+            })
+            .then((data) => {
+              this.scanStatus = (data && data.status) || '';
+              this.scanProgress = (data && data.progress) || 0;
+              this.scanCurrentFile = (data && data.current_file) || '';
+              this.scanSummary = (data && data.summary) || { total_files: 0, deduped_files: 0, classified_files: 0 };
+              this.scanCandidates = this.normalizeScanCandidates((data && data.candidates) || []);
+              this.scanErrorMessage = (data && data.error_message) || '';
+              if (data && data.prefill_map && typeof data.prefill_map === 'object') {
+                this.scanPrefillMap = data.prefill_map;
+              }
+
+              this.isScanning = ['pending', 'running', 'classifying'].includes(this.scanStatus);
+
+              if (this.scanStatus === 'staged' && this.prefillAppliedSessionId !== String(sessionId)) {
+                this.prefillAppliedSessionId = String(sessionId);
+                this.load();
+              }
+
+              if (keepPolling && this.isScanning) {
+                this.clearScanPollTimer();
+                this.scanPollTimer = window.setTimeout(() => {
+                  this.fetchScanStatus(sessionId, true);
+                }, 1200);
+              } else {
+                this.clearScanPollTimer();
+              }
+            })
+            .catch((err) => {
+              this.isScanning = false;
+              this.clearScanPollTimer();
+              this.scanStatus = 'failed';
+              this.scanErrorMessage = (err && err.message) || (this.scanTexts.failed || '扫描失败');
+              this.showMessage(this.scanErrorMessage, 'error');
+            });
+        },
+
+        normalizeScanCandidates(candidates) {
+          return (candidates || []).map((candidate) => {
+            const category = ['party', 'non_party'].includes(candidate.suggested_category) ? candidate.suggested_category : '';
+            const side = category === 'party' && ['our', 'opponent'].includes(candidate.suggested_side) ? candidate.suggested_side : '';
+            return {
+              source_path: candidate.source_path,
+              filename: candidate.filename,
+              selected: candidate.selected !== false,
+              category: category,
+              side: side,
+              type_name_hint: candidate.type_name_hint || '',
+              reason: candidate.reason || '',
+            };
+          });
+        },
+
+        stageSelectedScanCandidates() {
+          if (this.isStaging || !this.scanSessionId) return;
+          const items = (this.scanCandidates || [])
+            .filter((candidate) => candidate.selected)
+            .map((candidate) => ({
+              source_path: candidate.source_path,
+              selected: true,
+              category: candidate.category || 'unknown',
+              side: candidate.side || 'unknown',
+              type_name_hint: candidate.type_name_hint || '',
+            }));
+
+          if (!items.length) {
+            this.showMessage(this.scanTexts.noPdf || '未找到可导入的 PDF', 'error');
+            return;
+          }
+
+          this.isStaging = true;
+          fetch(`/api/v1/cases/${this.caseId}/folder-scan/${this.scanSessionId}/stage`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': getCsrfToken(),
+            },
+            body: JSON.stringify({ items }),
+          })
+            .then(async (resp) => {
+              const data = await resp.json().catch(() => ({}));
+              if (!resp.ok) {
+                throw new Error(data.message || data.detail || this.scanTexts.importFailed || '导入失败，请稍后重试');
+              }
+              return data;
+            })
+            .then((data) => {
+              this.scanStatus = (data && data.status) || 'staged';
+              this.scanSessionId = (data && data.session_id) || this.scanSessionId;
+              this.scanPrefillMap = (data && data.prefill_map) || {};
+              this.prefillAppliedSessionId = this.scanSessionId;
+              this.lastUploadedIds = (data && data.attachment_ids) || [];
+
+              if (data && data.materials_url) {
+                window.history.replaceState({}, '', data.materials_url);
+              } else {
+                this.syncScanSessionToUrl(this.scanSessionId);
+              }
+
+              this.showMessage('导入附件成功，请完善分类后保存', 'success');
+              this.load();
+            })
+            .catch((err) => {
+              this.showMessage((err && err.message) || (this.scanTexts.importFailed || '导入失败，请稍后重试'), 'error');
+            })
+            .finally(() => {
+              this.isStaging = false;
+            });
+        },
+
+        syncScanSessionToUrl(sessionId) {
+          if (!window || !window.history || !window.location) return;
+          try {
+            const url = new URL(window.location.href);
+            if (sessionId) {
+              url.searchParams.set('scan_session', sessionId);
+            } else {
+              url.searchParams.delete('scan_session');
+            }
+            url.searchParams.delete('open_scan');
+            window.history.replaceState({}, '', url.toString());
+          } catch (_) {
+          }
         },
 
         buildBindPayload() {

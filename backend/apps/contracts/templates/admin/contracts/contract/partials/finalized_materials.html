@@ -1,5 +1,20 @@
 {% load i18n %}
-<div x-show="activeTab === 'finalized'" x-cloak>
+<div x-show="activeTab === 'finalized'"
+     x-cloak
+     x-data="contractFolderScanApp({
+        contractId: {{ contract.pk }},
+        texts: {
+            scanningFolder: '{% trans "正在扫描文件夹" %}',
+            classifying: '{% trans "正在 AI 分类" %}',
+            completed: '{% trans "扫描完成" %}',
+            failed: '{% trans "扫描失败" %}',
+            importFailed: '{% trans "导入失败，请稍后重试" %}'
+        }
+     })">
+    <div class="fm-toolbar">
+        <button type="button" class="btn btn-secondary btn-sm" @click="openModal()">{% trans "自动捕获" %}</button>
+    </div>
+
     {% if finalized_materials %}
         {% for category, materials in finalized_materials_grouped.items %}
         <div class="info-card fm-card" style="margin-bottom: 16px;">
@@ -27,9 +42,17 @@
             <p class="empty-state">{% translate "暂无定稿材料" %}</p>
         </div>
     {% endif %}
+
+    {% include "admin/contracts/contract/partials/folder_scan_modal.html" %}
 </div>
 
 <style>
+.fm-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 10px;
+}
+
 .fm-count {
     margin-left: 8px;
     background: #e5e7eb;
@@ -72,6 +95,118 @@
 .fm-date { font-size: 12px; color: #9ca3af; white-space: nowrap; flex-shrink: 0; }
 .sortable-ghost { opacity: 0.4; background: #dbeafe !important; }
 .sortable-chosen { box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+
+.fm-scan-modal {
+    max-width: 880px;
+}
+
+.fm-scan-body {
+    display: grid;
+    gap: 10px;
+}
+
+.fm-scan-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.fm-scan-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.fm-status-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.fm-status-pill.is-pending {
+    color: #1d4ed8;
+    background: rgba(37, 99, 235, 0.12);
+}
+
+.fm-status-pill.is-success {
+    color: #15803d;
+    background: rgba(22, 163, 74, 0.12);
+}
+
+.fm-status-pill.is-error {
+    color: #b91c1c;
+    background: rgba(220, 38, 38, 0.12);
+}
+
+.fm-scan-file {
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.fm-progress-track {
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.08);
+    overflow: hidden;
+}
+
+.fm-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #1d4ed8, #2563eb);
+}
+
+.fm-progress-text {
+    margin-top: 4px;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.fm-scan-empty {
+    padding: 10px 12px;
+    border: 1px dashed #d1d5db;
+    border-radius: 8px;
+    color: #6b7280;
+    font-size: 13px;
+}
+
+.fm-scan-table-wrap {
+    max-height: 360px;
+    overflow: auto;
+}
+
+.fm-scan-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.fm-scan-table th,
+.fm-scan-table td {
+    border-top: 1px solid #e5e7eb;
+    padding: 8px 6px;
+}
+
+.fm-scan-table th {
+    text-align: left;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.fm-scan-table select {
+    width: 100%;
+}
+
+.fm-file-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.fm-file-reason {
+    font-size: 12px;
+    color: #6b7280;
+}
 </style>
 
 <script>
