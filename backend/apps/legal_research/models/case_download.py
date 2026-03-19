@@ -115,4 +115,4 @@ class CaseDownloadResult(models.Model):
         ]
 
     def __str__(self) -> str:
-        return f"{self.case_number} | {self.status}"
+        return ""

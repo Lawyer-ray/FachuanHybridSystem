@@ -1,0 +1,54 @@
+{% extends "admin/change_form.html" %}
+{% load i18n admin_urls %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+/* 隐藏 __str__ 的空白第一列 */
+.inline-group .tabular .original {
+    width: 1px !important;
+    min-width: 1px !important;
+    max-width: 1px !important;
+    padding: 0 !important;
+    border: none !important;
+}
+.inline-group .tabular .original * {
+    display: none !important;
+}
+/* 当 case_number 为空时隐藏 padding */
+.inline-group .tabular td.field-case_number:empty {
+    padding: 0 !important;
+}
+/* 成功结果行高亮 */
+.inline-group .tabular tr.row-success {
+    background-color: rgba(82, 196, 26, 0.08);
+}
+/* 下载按钮样式 */
+.download-all-btn {
+    display: inline-block;
+    padding: 6px 16px;
+    background-color: #52c41a;
+    color: white !important;
+    border-radius: 4px;
+    text-decoration: none;
+    font-size: 13px;
+    margin-bottom: 10px;
+}
+.download-all-btn:hover {
+    background-color: #73d13d;
+}
+</style>
+{% endblock %}
+
+{% block before_inline %}{% endblock %}
+
+{% block after_inline %}
+{% if original and original.success_count > 0 %}
+<div style="margin: 10px 0;">
+    <a href="{% url 'admin:legal_research_casedownloadtask_download_zip' original.pk %}" target="_blank" class="download-all-btn">
+        打包下载全部 ({{ original.success_count }} 个文件)
+    </a>
+</div>
+{% endif %}
+{{ block.super }}
+{% endblock %}

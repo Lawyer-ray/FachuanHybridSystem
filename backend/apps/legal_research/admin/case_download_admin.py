@@ -10,6 +10,7 @@ from django.db.models import Q, QuerySet
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.urls import path, reverse
 from django.utils.html import format_html, format_html_join
+from django.utils.safestring import mark_safe
 
 from apps.core.interfaces import ServiceLocator
 from apps.legal_research.models import (
@@ -344,7 +345,7 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin[CaseDownloadTask]):
                 f'<a href="{download_url}" target="_blank" style="margin-right:8px;">打包下载</a>'
             )
 
-        if obj.status in (CaseDownloadStatus.FAILED, CaseDownloadStatus.COMPLETED):
+        if obj.failed_count > 0:
             retry_url = reverse("admin:legal_research_casedownloadtask_retry", args=[obj.pk])
             buttons.append(f'<a href="{retry_url}" style="margin-right:8px;">重试失败项</a>')
 
@@ -353,7 +354,7 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin[CaseDownloadTask]):
 
         if not buttons:
             return "—"
-        return "".join(buttons)
+        return mark_safe("&nbsp;".join(buttons))
 
     def download_zip_view(self, request, object_id) -> HttpResponse:
         obj = self.get_object(request, object_id)
