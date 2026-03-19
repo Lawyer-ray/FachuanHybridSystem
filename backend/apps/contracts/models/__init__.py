@@ -22,6 +22,9 @@ from .finance import ContractFinanceLog, LogLevel
 # folder_binding.py - 文件夹绑定相关模型
 from .folder_binding import ContractFolderBinding
 
+# folder_scan_session.py - 文件夹扫描会话
+from .folder_scan_session import ContractFolderScanSession, ContractFolderScanStatus
+
 # invoice.py - 发票相关模型
 from .invoice import Invoice
 
@@ -53,6 +56,9 @@ __all__ = [
     "SupplementaryAgreementParty",
     # folder_binding.py
     "ContractFolderBinding",
+    # folder_scan_session.py
+    "ContractFolderScanSession",
+    "ContractFolderScanStatus",
     # finalized_material.py
     "FinalizedMaterial",
     "MaterialCategory",

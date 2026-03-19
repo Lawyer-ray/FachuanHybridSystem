@@ -14,6 +14,7 @@ from .contract_progress_service import ContractProgressService
 from .contract_service import ContractService
 from .contract_service_adapter import ContractServiceAdapter
 from .contract_validator import ContractValidator
+from .folder_scan_service import ContractFolderScanService
 from .mutation import ContractMutationFacade
 from .query import ContractQueryFacade
 
@@ -24,6 +25,7 @@ __all__ = [
     "ContractAdminQueryService",
     "ContractAdminService",
     "ContractDisplayService",
+    "ContractFolderScanService",
     "ContractMutationFacade",
     "ContractProgressService",
     "ContractQueryFacade",

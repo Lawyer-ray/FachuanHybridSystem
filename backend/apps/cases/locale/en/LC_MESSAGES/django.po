@@ -2378,3 +2378,84 @@ msgstr "Case name is required"
 
 msgid "导入"
 msgstr "Import"
+
+msgid "自动捕获"
+msgstr "Auto Capture"
+
+msgid "从绑定文件夹捕获"
+msgstr "Capture From Bound Folder"
+
+msgid "开始扫描"
+msgstr "Start Scan"
+
+msgid "重新扫描"
+msgstr "Rescan"
+
+msgid "导入附件"
+msgstr "Import Attachments"
+
+msgid "确认导入"
+msgstr "Confirm Import"
+
+msgid "正在扫描文件夹"
+msgstr "Scanning bound folder"
+
+msgid "正在提取文本"
+msgstr "Extracting text"
+
+msgid "正在 AI 分类"
+msgstr "Running AI classification"
+
+msgid "扫描完成"
+msgstr "Scan completed"
+
+msgid "扫描失败"
+msgstr "Scan failed"
+
+msgid "绑定文件夹不可访问"
+msgstr "Bound folder is not accessible"
+
+msgid "未找到可导入的 PDF"
+msgstr "No importable PDF found"
+
+msgid "AI 分类不可用，请手动确认"
+msgstr "AI classification unavailable, please review manually"
+
+msgid "导入失败，请稍后重试"
+msgstr "Import failed, please try again later"
+
+msgid "自动捕获材料"
+msgstr "Auto-captured materials"
+
+msgid "扫描绑定目录中的 PDF，导入附件池后继续使用当前页面完成材料绑定。"
+msgstr "Scan PDFs in the bound folder and import them into attachments, then continue binding on this page."
+
+msgid "候选文件"
+msgstr "Candidates"
+
+msgid "已选择"
+msgstr "Selected"
+
+msgid "方向"
+msgstr "Direction"
+
+msgid "类型提示"
+msgstr "Type hint"
+
+msgid "类型名称提示"
+msgstr "Type name hint"
+
+msgid "总文件"
+msgstr "Total files"
+
+msgid "扫描会话不存在"
+msgstr "Scan session does not exist"
+
+msgid "扫描尚未完成"
+msgstr "Scan is not completed yet"
+
+msgid "候选文件不存在"
+msgstr "Candidate file does not exist"
+
+msgid "源文件不存在"
+msgstr "Source file does not exist"

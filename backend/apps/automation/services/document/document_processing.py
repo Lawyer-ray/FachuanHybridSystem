@@ -119,7 +119,7 @@ def extract_docx_text(file_path: str, limit: int | None = None) -> str:
     return text
 
 
-def extract_pdf_text(file_path: str, limit: int | None = None) -> str:
+def extract_pdf_text(file_path: str, limit: int | None = None, max_pages: int | None = None) -> str:
     # 如果没有指定限制，使用配置的默认值
     if limit is None:
         config = get_doc_config()
@@ -134,6 +134,8 @@ def extract_pdf_text(file_path: str, limit: int | None = None) -> str:
     parts: list[str] = []
     with fitz.open(p) as doc:
         for i in range(doc.page_count):
+            if max_pages is not None and max_pages > 0 and i >= max_pages:
+                break
             page = doc.load_page(i)
             t = page.get_text()
             if t:

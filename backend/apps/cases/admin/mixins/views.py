@@ -262,6 +262,9 @@ class CaseAdminViewsMixin:
             material_service=material_service,
             law_firm_id=law_firm_id,
         )
+        scan_session_id = (request.GET.get("scan_session") or "").strip()
+        open_scan_flag = (request.GET.get("open_scan") or "").strip().lower() in {"1", "true", "yes", "on"}
+        open_scan = bool(scan_session_id) or open_scan_flag
 
         context = self.admin_site.each_context(request)  # type: ignore[attr-defined]
         context.update(
@@ -275,6 +278,8 @@ class CaseAdminViewsMixin:
                 "our_case_parties_json": json_mod.dumps(payload["our_parties"], ensure_ascii=False),
                 "opponent_case_parties_json": json_mod.dumps(payload["opponent_parties"], ensure_ascii=False),
                 "supervising_authorities_json": json_mod.dumps(payload["authorities"], ensure_ascii=False),
+                "scan_session_id": scan_session_id,
+                "open_scan": open_scan,
             }
         )
 

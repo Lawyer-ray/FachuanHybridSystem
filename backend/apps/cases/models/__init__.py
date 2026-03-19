@@ -16,6 +16,9 @@ from .case import Case, CaseFilingNumberSequence, CaseNumber, SupervisingAuthori
 # chat.py - 群聊相关模型
 from .chat import CaseChat, ChatAuditLog
 
+# folder_scan_session.py - 文件夹扫描会话
+from .folder_scan_session import CaseFolderScanSession, CaseFolderScanStatus
+
 # log.py - 日志相关模型
 from .log import CaseLog, CaseLogAttachment, CaseLogVersion, validate_log_attachment
 
@@ -59,6 +62,9 @@ __all__ = [
     # chat.py
     "CaseChat",
     "ChatAuditLog",
+    # folder_scan_session.py
+    "CaseFolderScanSession",
+    "CaseFolderScanStatus",
     # material.py
     "CaseMaterialCategory",
     "CaseMaterialSide",
