@@ -112,4 +112,3 @@ class InvoiceDownloadService:
         today = date.today().strftime("%Y%m%d")
         raw = f"{task_name}_{category_part}_{today}.{fmt}"
         return _ILLEGAL_CHARS_RE.sub("_", raw)
-

@@ -120,9 +120,7 @@ class EnterpriseDataMetricsService:
         message: str,
         snapshot: dict[str, Any],
     ) -> None:
-        alert_key = (
-            f"enterprise_data:metrics_alert:{provider}:{capability}:{metric}:{int(snapshot.get('window_start_epoch', 0))}"
-        )
+        alert_key = f"enterprise_data:metrics_alert:{provider}:{capability}:{metric}:{int(snapshot.get('window_start_epoch', 0))}"
         if not cache.add(alert_key, "1", timeout=max(60, self._window_seconds)):
             return
         logger.warning(

@@ -12,11 +12,15 @@ from ninja import Router
 from apps.core.auth import JWTOrSessionAuth
 from apps.core.infrastructure.throttling import rate_limit_from_settings
 from apps.legal_research.schemas import (
+    AgentSearchRequestV1,
+    AgentSearchResponseV1,
     LegalResearchCreateOut,
     LegalResearchResultOut,
     LegalResearchTaskCreateIn,
     LegalResearchTaskOut,
 )
+from apps.legal_research.services.capability_mcp_wrapper import LegalResearchCapabilityMcpWrapper
+from apps.legal_research.services.capability_service import LegalResearchCapabilityService
 from apps.legal_research.services.task_service import LegalResearchTaskService
 
 router = Router(tags=["案例检索"], auth=JWTOrSessionAuth())
@@ -26,12 +30,21 @@ def _get_service() -> LegalResearchTaskService:
     return LegalResearchTaskService()
 
 
+def _get_capability_service() -> LegalResearchCapabilityService:
+    return LegalResearchCapabilityService()
+
+
+def _get_capability_mcp_wrapper() -> LegalResearchCapabilityMcpWrapper:
+    return LegalResearchCapabilityMcpWrapper()
+
+
 def _serialize_task(task: Any) -> LegalResearchTaskOut:
     return LegalResearchTaskOut(
         id=task.id,
         credential_id=task.credential_id,
         keyword=task.keyword,
         case_summary=task.case_summary,
+        search_mode=task.search_mode,
         target_count=task.target_count,
         max_candidates=task.max_candidates,
         min_similarity_score=task.min_similarity_score,
@@ -75,6 +88,28 @@ def _serialize_result(result: Any) -> LegalResearchResultOut:
 def create_task(request: Any, payload: LegalResearchTaskCreateIn) -> LegalResearchCreateOut:
     task = _get_service().create_task(payload=payload, user=getattr(request, "user", None))
     return LegalResearchCreateOut(task_id=task.id, status=task.status)
+
+
+@router.post("/capability/search", response=AgentSearchResponseV1)
+def capability_search(request: Any, payload: AgentSearchRequestV1) -> AgentSearchResponseV1:
+    headers = getattr(request, "headers", {}) or {}
+    idempotency_key = str(headers.get("Idempotency-Key", "") or "").strip()
+    return _get_capability_service().search(
+        payload=payload,
+        user=getattr(request, "user", None),
+        idempotency_key=idempotency_key,
+    )
+
+
+@router.post("/capability/search/mcp", response=dict[str, Any])
+def capability_search_mcp(request: Any, payload: AgentSearchRequestV1) -> dict[str, Any]:
+    headers = getattr(request, "headers", {}) or {}
+    idempotency_key = str(headers.get("Idempotency-Key", "") or "").strip()
+    return _get_capability_mcp_wrapper().search(
+        payload=payload,
+        user=getattr(request, "user", None),
+        idempotency_key=idempotency_key,
+    )
 
 
 @router.get("/tasks/{task_id}", response=LegalResearchTaskOut)

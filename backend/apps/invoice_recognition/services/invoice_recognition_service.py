@@ -300,4 +300,3 @@ class InvoiceRecognitionService:
             is_duplicate=False,
         ).aggregate(total=Sum("total_amount"))
         return result["total"] or Decimal("0")
-

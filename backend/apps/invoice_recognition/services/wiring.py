@@ -40,4 +40,3 @@ def get_quick_recognition_service() -> QuickRecognitionService:
         pdf_extractor=PDFTextExtractor(),
         parser=InvoiceParser(),
     )
-

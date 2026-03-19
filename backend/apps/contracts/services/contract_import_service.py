@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 import logging
+from datetime import datetime
 from typing import TYPE_CHECKING, Callable, NotRequired, Protocol, TypedDict
 
 from django.db import transaction
@@ -128,6 +128,7 @@ class ClientResolverProtocol(Protocol):
 
 class LawyerResolverProtocol(Protocol):
     def resolve(self, data: ImportData) -> Lawyer | None: ...
+
 
 logger = logging.getLogger("apps.contracts")
 

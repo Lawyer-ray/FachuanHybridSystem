@@ -408,7 +408,9 @@ class CaseSimilarityService:
             query_text=query_text,
             document_text=document_text,
         )
-        vector_lexical_score = self._vector_similarity_score(text_a=query_text, text_b=document_text, allow_semantic=False)
+        vector_lexical_score = self._vector_similarity_score(
+            text_a=query_text, text_b=document_text, allow_semantic=False
+        )
         passage_score = self._passage_alignment_score(
             keyword=keyword,
             case_summary=case_summary,

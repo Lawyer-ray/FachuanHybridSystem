@@ -14,7 +14,7 @@ logger = logging.getLogger("apps.automation")
 
 GSXT_SEARCH_URL = "https://shiming.gsxt.gov.cn/corp-query-homepage.html"
 CAPTCHA_TIMEOUT = 180  # 等待用户手动完成验证码（秒）
-SEARCH_TIMEOUT = 60    # 等待搜索结果（秒）
+SEARCH_TIMEOUT = 60  # 等待搜索结果（秒）
 
 
 class GsxtReportError(Exception):
@@ -24,6 +24,7 @@ class GsxtReportError(Exception):
 # ──────────────────────────────────────────────
 # 内部辅助：等待极验验证码完成
 # ──────────────────────────────────────────────
+
 
 async def _wait_captcha_success(page: Page, captcha_selector: str, timeout: int = CAPTCHA_TIMEOUT) -> bool:
     """
@@ -45,6 +46,7 @@ async def _wait_captcha_success(page: Page, captcha_selector: str, timeout: int 
 # ──────────────────────────────────────────────
 # Step 1: 搜索企业
 # ──────────────────────────────────────────────
+
 
 async def search_company(page: Page, company_name: str) -> None:
     """
@@ -75,6 +77,7 @@ async def search_company(page: Page, company_name: str) -> None:
 # ──────────────────────────────────────────────
 # Step 2: 点击企业详情
 # ──────────────────────────────────────────────
+
 
 async def click_company_detail(page: Page, company_name: str) -> str:
     """
@@ -108,6 +111,7 @@ async def click_company_detail(page: Page, company_name: str) -> str:
 # Step 3: 申请发送报告
 # ──────────────────────────────────────────────
 
+
 async def request_report(page: Page) -> None:
     """
     在详情页点击"发送报告"按钮，等待用户完成极验验证码，
@@ -138,6 +142,7 @@ async def request_report(page: Page) -> None:
     # 等待 alert 弹出（sendPdf 成功后调用 alert(result)）
     try:
         dialog_msg = ""
+
         async def handle_dialog(dialog: object) -> None:  # type: ignore[type-arg]
             nonlocal dialog_msg
             dialog_msg = getattr(dialog, "message", "")
@@ -161,11 +166,13 @@ async def request_report(page: Page) -> None:
 # 完整流程串联
 # ──────────────────────────────────────────────
 
+
 async def _run_full_flow(task_id: int) -> None:
     """登录后执行：搜索→详情→申请报告，全程等待用户手动打验证码。"""
-    from apps.automation.models.gsxt_report import GsxtReportStatus, GsxtReportTask
     from asgiref.sync import sync_to_async
     from playwright.async_api import async_playwright
+
+    from apps.automation.models.gsxt_report import GsxtReportStatus, GsxtReportTask
 
     get_task = sync_to_async(GsxtReportTask.objects.select_related("client").get)
 
@@ -245,6 +252,7 @@ async def _run_full_flow(task_id: int) -> None:
 
 def start_report_flow(task_id: int) -> None:
     """非阻塞入口：在后台线程运行完整报告申请流程。"""
+
     def _run() -> None:
         asyncio.run(_run_full_flow(task_id))
 

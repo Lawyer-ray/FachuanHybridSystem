@@ -138,7 +138,9 @@ class ContractGenerationService:
         context = PipelineContextBuilder().build_contract_context(contract)
         return DocxPreviewService().preview(file_location, context)
 
-    def generate_contract_document(self, contract_id: int, split_fee: bool = True) -> tuple[bytes | None, str | None, str | None]:
+    def generate_contract_document(
+        self, contract_id: int, split_fee: bool = True
+    ) -> tuple[bytes | None, str | None, str | None]:
         """
         生成合同文书
 

@@ -73,9 +73,7 @@ def execute_document_recognition_task(task_id: int) -> dict[str, Any] | None:
 def _send_recognition_notification(task: Any, result: Any) -> None:
     """Send recognition notification after successful binding."""
     try:
-        from apps.document_recognition.services.notification_service import (
-            DocumentRecognitionNotificationService,
-        )
+        from apps.document_recognition.services.notification_service import DocumentRecognitionNotificationService
 
         notification_service = DocumentRecognitionNotificationService()
         file_path = task.renamed_file_path or task.file_path

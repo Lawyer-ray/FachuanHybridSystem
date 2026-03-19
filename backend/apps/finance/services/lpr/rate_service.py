@@ -11,8 +11,9 @@ from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING, NamedTuple
 
-from apps.core.exceptions import ValidationException
 from django.utils.translation import gettext_lazy as _
+
+from apps.core.exceptions import ValidationException
 
 if TYPE_CHECKING:
     from apps.finance.models.lpr_rate import LPRRate
@@ -73,12 +74,7 @@ class LPRRateService:
             )
         return rate
 
-    def get_rate_by_date_range(
-        self,
-        start_date: date,
-        end_date: date,
-        rate_type: str = "1y"
-    ) -> Decimal:
+    def get_rate_by_date_range(self, start_date: date, end_date: date, rate_type: str = "1y") -> Decimal:
         """查询日期范围内的适用利率.
 
         如果范围内利率发生变化，返回最新生效的利率。
@@ -175,10 +171,7 @@ class LPRRateService:
         return rate
 
     def get_rate_history(
-        self,
-        start_date: date | None = None,
-        end_date: date | None = None,
-        limit: int | None = None
+        self, start_date: date | None = None, end_date: date | None = None, limit: int | None = None
     ) -> list[LPRRate]:
         """获取利率历史记录.
 

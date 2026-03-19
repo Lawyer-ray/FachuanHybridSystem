@@ -365,7 +365,9 @@ class McpWorkbenchService:
             "captured_at": record.created_at.isoformat() if record.created_at else "",
             "data": record.response_data if isinstance(record.response_data, (dict, list)) else {},
         }
-        cache.set(self._sample_cache_key(provider=provider, tool_name=tool_name), sample, timeout=self._sample_ttl_seconds)
+        cache.set(
+            self._sample_cache_key(provider=provider, tool_name=tool_name), sample, timeout=self._sample_ttl_seconds
+        )
         return sample
 
     def _store_sample(self, *, provider: str, tool_name: str, data: Any, captured_at: datetime) -> None:

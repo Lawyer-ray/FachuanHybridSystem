@@ -7,20 +7,11 @@
 
 from __future__ import annotations
 
-# LPR模块
-from apps.finance.services.lpr import (
-    LPRRateService,
-    LPRSyncService,
-    PrincipalPeriod,
-    RateSegment,
-)
-
 # 计算模块
-from apps.finance.services.calculator import (
-    CalculationPeriod,
-    InterestCalculationResult,
-    InterestCalculator,
-)
+from apps.finance.services.calculator import CalculationPeriod, InterestCalculationResult, InterestCalculator
+
+# LPR模块
+from apps.finance.services.lpr import LPRRateService, LPRSyncService, PrincipalPeriod, RateSegment
 
 __all__ = [
     # LPR模块

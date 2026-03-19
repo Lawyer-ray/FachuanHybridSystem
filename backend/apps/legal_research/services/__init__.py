@@ -1,3 +1,5 @@
+from .capability_mcp_wrapper import LegalResearchCapabilityMcpWrapper
+from .capability_service import LegalResearchCapabilityService
 from .executor import LegalResearchExecutor
 from .feedback_loop import LegalResearchFeedbackLoopService
 from .keywords import KEYWORD_INPUT_HELP_TEXT, normalize_keyword_query
@@ -8,6 +10,8 @@ from .task_service import LegalResearchTaskService
 __all__ = [
     "CaseSimilarityService",
     "KEYWORD_INPUT_HELP_TEXT",
+    "LegalResearchCapabilityService",
+    "LegalResearchCapabilityMcpWrapper",
     "LegalResearchFeedbackLoopService",
     "LegalResearchExecutor",
     "LegalResearchTaskService",

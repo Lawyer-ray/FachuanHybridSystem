@@ -17,7 +17,6 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import CourtToken
 
-
 SITE_NAME_LABELS: dict[str, str] = {
     "court_zxfw": "人民法院在线服务网（一张网）",
     "court_baoquan": "人民法院保全系统",

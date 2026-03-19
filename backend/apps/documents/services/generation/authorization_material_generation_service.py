@@ -146,6 +146,7 @@ class AuthorizationMaterialGenerationService:
         zip_filename = f"全套授权委托材料({getattr(case, 'name', '') or '案件'})V1_{now.strftime('%Y%m%d')}.zip"
 
         from django.conf import settings as django_settings
+
         media_root = str(django_settings.MEDIA_ROOT)
 
         buffer = io.BytesIO()

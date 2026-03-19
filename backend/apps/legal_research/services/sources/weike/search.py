@@ -108,7 +108,9 @@ class WeikeSearchMixin:
                             error_message="私有wk API检索失败",
                             request_summary={"keyword": keyword, "offset": offset},
                         )
-                        logger.exception("私有wk API检索失败，回退DOM检索", extra={"keyword": keyword, "offset": offset})
+                        logger.exception(
+                            "私有wk API检索失败，回退DOM检索", extra={"keyword": keyword, "offset": offset}
+                        )
 
         self._ensure_playwright_session(session)
         return self._search_cases_via_dom(

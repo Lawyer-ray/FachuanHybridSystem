@@ -97,21 +97,25 @@ def test_adapter_bulk_create_keeps_behavior_with_injected_queries() -> None:
 
     created_contract = adapter.create_contract_reminders_internal(
         contract_id=contract_id,
-        reminders=[{
-            "reminder_type": ReminderType.OTHER,
-            "content": "contract reminder",
-            "due_at": due_at,
-            "metadata": {"source": "test"},
-        }],
+        reminders=[
+            {
+                "reminder_type": ReminderType.OTHER,
+                "content": "contract reminder",
+                "due_at": due_at,
+                "metadata": {"source": "test"},
+            }
+        ],
     )
     created_case_log = adapter.create_case_log_reminders_internal(
         case_log_id=case_log_id,
-        reminders=[{
-            "reminder_type": ReminderType.HEARING,
-            "content": "case log reminder",
-            "due_at": due_at,
-            "metadata": {"source": "test"},
-        }],
+        reminders=[
+            {
+                "reminder_type": ReminderType.HEARING,
+                "content": "case log reminder",
+                "due_at": due_at,
+                "metadata": {"source": "test"},
+            }
+        ],
     )
 
     assert created_contract == 1

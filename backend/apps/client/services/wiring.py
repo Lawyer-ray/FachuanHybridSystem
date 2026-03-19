@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from apps.core.interfaces import ServiceLocator
-
 from apps.client.adapters import (
     CredentialAdapter,
     FileUploadAdapter,
@@ -13,13 +11,8 @@ from apps.client.adapters import (
     GsxtReportAdapter,
     TaskServiceAdapter,
 )
-from apps.client.ports import (
-    CredentialPort,
-    FileUploadPort,
-    FileValidatorPort,
-    GsxtReportPort,
-    TaskServicePort,
-)
+from apps.client.ports import CredentialPort, FileUploadPort, FileValidatorPort, GsxtReportPort, TaskServicePort
+from apps.core.interfaces import ServiceLocator
 
 if TYPE_CHECKING:
     from apps.core.protocols import ILLMService

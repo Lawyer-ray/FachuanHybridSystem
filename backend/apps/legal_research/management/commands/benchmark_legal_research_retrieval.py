@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import json
+import math
 import re
 import time
 from contextlib import contextmanager
@@ -14,7 +15,12 @@ from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
 from apps.core.dependencies import build_organization_service
-from apps.legal_research.models import LegalResearchResult, LegalResearchTask, LegalResearchTaskStatus
+from apps.legal_research.models import (
+    LegalResearchResult,
+    LegalResearchSearchMode,
+    LegalResearchTask,
+    LegalResearchTaskStatus,
+)
 from apps.legal_research.services.executor import LegalResearchExecutor
 from apps.legal_research.services.tuning_config import LegalResearchTuningConfig
 
@@ -28,6 +34,9 @@ class CredentialRef:
 class Command(BaseCommand):
     help = "回放法律检索标注样本并输出 precision/recall/F1 基线报告"
     DEFAULT_DATASET = "apps/legal_research/evaluation/baseline_cases.json"
+    EVAL_MODE_CLOSED = "closed"
+    EVAL_MODE_POOLED = "pooled"
+    EVAL_MODE_CHOICES = (EVAL_MODE_CLOSED, EVAL_MODE_POOLED)
     QUERY_TYPE_PRIMARY = "primary"
     QUERY_TYPE_EXPANSION = "expansion"
     QUERY_TYPE_FEEDBACK = "feedback"
@@ -75,6 +84,19 @@ class Command(BaseCommand):
             type=int,
             default=1,
             help="最少标注样本数（默认1；设为0可跳过校验）",
+        )
+        parser.add_argument(
+            "--evaluation-mode",
+            type=str,
+            default=self.EVAL_MODE_POOLED,
+            choices=self.EVAL_MODE_CHOICES,
+            help="评测口径：closed=闭集PRF（未标注视为不相关），pooled=池化评测（未标注不计FP，默认）",
+        )
+        parser.add_argument(
+            "--eval-top-k",
+            type=int,
+            default=20,
+            help="仅评测前K条结果（默认20，<=0 表示全量预测结果）",
         )
         parser.add_argument(
             "--keep-artifacts",
@@ -158,14 +180,14 @@ class Command(BaseCommand):
             raise CommandError("样本为空，无法回放")
 
         min_labeled_cases = max(0, int(options.get("min_labeled_cases") or 0))
-        labeled_cases_in_dataset = self._count_labeled_cases(cases=cases)
+        evaluation_mode = self._normalize_evaluation_mode(options.get("evaluation_mode"))
+        eval_top_k = self._normalize_eval_top_k(options.get("eval_top_k"))
+        labeled_cases_in_dataset = self._count_labeled_cases(cases=cases, evaluation_mode=evaluation_mode)
         if min_labeled_cases > 0 and labeled_cases_in_dataset < min_labeled_cases:
             raise CommandError(
-
-                    f"标注样本不足: {labeled_cases_in_dataset}/{len(cases)}，"
-                    f"要求至少 {min_labeled_cases} 条。"
-                    "可用 --min-labeled-cases 0 跳过校验。"
-
+                f"标注样本不足: {labeled_cases_in_dataset}/{len(cases)}，"
+                f"要求至少 {min_labeled_cases} 条。"
+                "可用 --min-labeled-cases 0 跳过校验。"
             )
 
         credential_override = options.get("credential_id")
@@ -177,6 +199,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f"开始回放: {dataset_path}"))
         self.stdout.write(f"样本数: {len(cases)}")
         self.stdout.write(f"标注样本: {labeled_cases_in_dataset}/{len(cases)}")
+        self.stdout.write(f"评测模式: {evaluation_mode} (top_k={eval_top_k if eval_top_k > 0 else 'all'})")
         if len(scenarios) > 1:
             self.stdout.write(f"场景数: {len(scenarios)}")
         self.stdout.write("")
@@ -196,6 +219,8 @@ class Command(BaseCommand):
                     llm_model_override=llm_model_override,
                     keep_artifacts=keep_artifacts,
                     stop_on_error=stop_on_error,
+                    evaluation_mode=evaluation_mode,
+                    eval_top_k=eval_top_k,
                 )
             scenario_reports.append(
                 {
@@ -271,6 +296,8 @@ class Command(BaseCommand):
         llm_model_override: str,
         keep_artifacts: bool,
         stop_on_error: bool,
+        evaluation_mode: str,
+        eval_top_k: int,
     ) -> dict[str, Any]:
         executor = LegalResearchExecutor()
         reports: list[dict[str, Any]] = []
@@ -279,6 +306,10 @@ class Command(BaseCommand):
         total_fn = 0
         labeled_cases = 0
         errors = 0
+        total_judged_count = 0
+        total_unjudged_count = 0
+        total_ndcg = 0.0
+        ndcg_cases = 0
         query_type_stats: dict[str, dict[str, int]] = {}
 
         for index, case in enumerate(cases, start=1):
@@ -307,7 +338,9 @@ class Command(BaseCommand):
                 task.refresh_from_db()
 
                 results = list(
-                    LegalResearchResult.objects.filter(task=task).order_by("rank").values(
+                    LegalResearchResult.objects.filter(task=task)
+                    .order_by("rank")
+                    .values(
                         "rank",
                         "source_doc_id",
                         "similarity_score",
@@ -316,18 +349,39 @@ class Command(BaseCommand):
                 )
                 predicted_doc_ids = [str(row["source_doc_id"]) for row in results]
                 expected_doc_ids = self._to_str_list(case.get("expected_relevant_doc_ids"))
-                tp, fp, fn = self._count_confusion(predicted_doc_ids=predicted_doc_ids, expected_doc_ids=expected_doc_ids)
-                precision, recall, f1 = self._compute_prf(tp=tp, fp=fp, fn=fn)
-                labeled = len(expected_doc_ids) > 0
+                relevance_judgments = self._parse_relevance_judgments(case.get("relevance_judgments"))
+                eval_result = self._evaluate_case(
+                    predicted_doc_ids=predicted_doc_ids,
+                    expected_doc_ids=expected_doc_ids,
+                    relevance_judgments=relevance_judgments,
+                    evaluation_mode=evaluation_mode,
+                    eval_top_k=eval_top_k,
+                )
+                tp = int(eval_result["tp"])
+                fp = int(eval_result["fp"])
+                fn = int(eval_result["fn"])
+                precision = float(eval_result["precision"])
+                recall = float(eval_result["recall"])
+                f1 = float(eval_result["f1"])
+                judged_count = int(eval_result["judged_count"])
+                unjudged_count = int(eval_result["unjudged_count"])
+                labeled = bool(eval_result["labeled"])
+                ndcg_at_k = float(eval_result["ndcg_at_k"])
                 if labeled:
                     labeled_cases += 1
                     total_tp += tp
                     total_fp += fp
                     total_fn += fn
+                    total_judged_count += judged_count
+                    total_unjudged_count += unjudged_count
+                    total_ndcg += ndcg_at_k
+                    ndcg_cases += 1
                     query_type_metric["labeled_cases"] += 1
                     query_type_metric["tp"] += tp
                     query_type_metric["fp"] += fp
                     query_type_metric["fn"] += fn
+                    query_type_metric["judged_count"] += judged_count
+                    query_type_metric["unjudged_count"] += unjudged_count
 
                 elapsed_seconds = time.monotonic() - started
                 case_report = {
@@ -341,19 +395,27 @@ class Command(BaseCommand):
                     "matched_count": int(task.matched_count),
                     "predicted_doc_ids": predicted_doc_ids,
                     "expected_relevant_doc_ids": expected_doc_ids,
+                    "relevance_judgments": relevance_judgments,
                     "tp": tp,
                     "fp": fp,
                     "fn": fn,
                     "precision": precision,
                     "recall": recall,
                     "f1": f1,
+                    "evaluation_mode": evaluation_mode,
+                    "eval_top_k": eval_top_k,
+                    "judged_count": judged_count,
+                    "unjudged_count": unjudged_count,
+                    "anchor_hit_at_k": bool(eval_result["anchor_hit_at_k"]),
+                    "ndcg_at_k": ndcg_at_k,
                     "labeled": labeled,
                     "executor_payload": run_payload,
                 }
                 self.stdout.write(
                     f"[{index}/{len(cases)}] {case_id} -> status={task.status} "
                     f"pred={len(predicted_doc_ids)} exp={len(expected_doc_ids)} "
-                    f"tp={tp} fp={fp} fn={fn} f1={f1:.3f}"
+                    f"tp={tp} fp={fp} fn={fn} f1={f1:.3f} "
+                    f"judged/unjudged={judged_count}/{unjudged_count}"
                 )
             except KeyboardInterrupt as exc:
                 errors += 1
@@ -400,6 +462,8 @@ class Command(BaseCommand):
         summary = {
             "generated_at": timezone.now().isoformat(),
             "dataset_path": str(dataset_path),
+            "evaluation_mode": evaluation_mode,
+            "eval_top_k": eval_top_k,
             "total_cases": len(cases),
             "labeled_cases": labeled_cases,
             "labeled_ratio": round(float(labeled_cases / max(1, len(cases))), 4),
@@ -410,33 +474,48 @@ class Command(BaseCommand):
             "precision": precision,
             "recall": recall,
             "f1": f1,
+            "judged_count": total_judged_count,
+            "unjudged_count": total_unjudged_count,
+            "ndcg_at_k": round(total_ndcg / max(1, ndcg_cases), 4) if ndcg_cases > 0 else 0.0,
             "query_type_metrics": query_type_metrics,
         }
         self.stdout.write("=== Benchmark Summary ===")
         self.stdout.write(f"labeled_cases: {labeled_cases}/{len(cases)}")
         self.stdout.write(f"labeled_ratio: {summary['labeled_ratio']:.4f}")
+        self.stdout.write(f"evaluation_mode: {evaluation_mode} (top_k={eval_top_k if eval_top_k > 0 else 'all'})")
         self.stdout.write(f"errors: {errors}")
         self.stdout.write(f"tp/fp/fn: {total_tp}/{total_fp}/{total_fn}")
         self.stdout.write(f"precision: {precision:.4f}")
         self.stdout.write(f"recall:    {recall:.4f}")
         self.stdout.write(f"f1:        {f1:.4f}")
+        self.stdout.write(f"ndcg@k:    {float(summary['ndcg_at_k']):.4f}")
         if query_type_metrics:
             self.stdout.write("=== Query Type Contribution ===")
             for metric in query_type_metrics:
                 self.stdout.write(
-
-                        f"{metric['query_type']}({metric['query_type_label']}): "
-                        f"cases={metric['total_cases']} labeled={metric['labeled_cases']} "
-                        f"tp/fp/fn={metric['tp']}/{metric['fp']}/{metric['fn']} "
-                        f"f1={float(metric['f1']):.4f} "
-                        f"贡献率={float(metric['contribution_rate']):.4f}"
-
+                    f"{metric['query_type']}({metric['query_type_label']}): "
+                    f"cases={metric['total_cases']} labeled={metric['labeled_cases']} "
+                    f"judged/unjudged={metric['judged_count']}/{metric['unjudged_count']} "
+                    f"tp/fp/fn={metric['tp']}/{metric['fp']}/{metric['fn']} "
+                    f"f1={float(metric['f1']):.4f} "
+                    f"贡献率={float(metric['contribution_rate']):.4f}"
                 )
         return {"summary": summary, "cases": reports}
 
-    @staticmethod
-    def _count_labeled_cases(*, cases: list[dict[str, Any]]) -> int:
-        return sum(1 for case in cases if len(Command._to_str_list(case.get("expected_relevant_doc_ids"))) > 0)
+    @classmethod
+    def _count_labeled_cases(cls, *, cases: list[dict[str, Any]], evaluation_mode: str) -> int:
+        mode = cls._normalize_evaluation_mode(evaluation_mode)
+        count = 0
+        for case in cases:
+            expected = cls._to_str_list(case.get("expected_relevant_doc_ids"))
+            if mode == cls.EVAL_MODE_CLOSED:
+                if expected:
+                    count += 1
+                continue
+            judgments = cls._parse_relevance_judgments(case.get("relevance_judgments"))
+            if expected or judgments:
+                count += 1
+        return count
 
     @staticmethod
     def _init_query_type_metric() -> dict[str, int]:
@@ -447,6 +526,8 @@ class Command(BaseCommand):
             "tp": 0,
             "fp": 0,
             "fn": 0,
+            "judged_count": 0,
+            "unjudged_count": 0,
         }
 
     @classmethod
@@ -462,6 +543,167 @@ class Command(BaseCommand):
         if token in {"feedback", "反馈", "反馈查询", "回馈"}:
             return cls.QUERY_TYPE_FEEDBACK
         return cls.QUERY_TYPE_OTHER
+
+    @staticmethod
+    def _normalize_search_mode(raw: Any) -> str:
+        text = str(raw or "").strip().lower()
+        if not text:
+            return LegalResearchSearchMode.EXPANDED
+        token = re.sub(r"[\s_\-]+", "", text)
+        if token in {"single", "singlequery", "strict", "单检索", "单一检索", "不扩展"}:
+            return LegalResearchSearchMode.SINGLE
+        return LegalResearchSearchMode.EXPANDED
+
+    @classmethod
+    def _normalize_evaluation_mode(cls, raw: Any) -> str:
+        token = str(raw or "").strip().lower()
+        return token if token in cls.EVAL_MODE_CHOICES else cls.EVAL_MODE_POOLED
+
+    @staticmethod
+    def _normalize_eval_top_k(raw: Any) -> int:
+        try:
+            value = int(raw or 0)
+        except (TypeError, ValueError):
+            value = 0
+        return max(0, value)
+
+    @classmethod
+    def _parse_relevance_judgments(cls, value: Any) -> dict[str, int]:
+        out: dict[str, int] = {}
+        if isinstance(value, dict):
+            for doc_id_raw, grade_raw in value.items():
+                doc_id = str(doc_id_raw or "").strip()
+                if not doc_id:
+                    continue
+                grade = cls._normalize_relevance_grade(grade_raw)
+                if grade is None:
+                    continue
+                out[doc_id] = max(out.get(doc_id, 0), grade)
+            return out
+
+        if isinstance(value, list):
+            for item in value:
+                if isinstance(item, dict):
+                    doc_id = str(item.get("doc_id") or item.get("id") or "").strip()
+                    grade_raw = item.get("grade")
+                else:
+                    doc_id = str(item or "").strip()
+                    grade_raw = 1
+                if not doc_id:
+                    continue
+                grade = cls._normalize_relevance_grade(grade_raw)
+                if grade is None:
+                    continue
+                out[doc_id] = max(out.get(doc_id, 0), grade)
+        return out
+
+    @staticmethod
+    def _normalize_relevance_grade(value: Any) -> int | None:
+        if isinstance(value, bool):
+            return 1 if value else 0
+        if isinstance(value, (int, float)):
+            return max(0, min(2, int(value)))
+        token = str(value or "").strip().lower()
+        if not token:
+            return None
+        if token in {"2", "high", "strong", "relevant", "高度相关", "强相关", "相关"}:
+            return 2
+        if token in {"1", "partial", "weak", "一般相关", "部分相关"}:
+            return 1
+        if token in {"0", "irrelevant", "none", "不相关"}:
+            return 0
+        return None
+
+    @classmethod
+    def _evaluate_case(
+        cls,
+        *,
+        predicted_doc_ids: list[str],
+        expected_doc_ids: list[str],
+        relevance_judgments: dict[str, int],
+        evaluation_mode: str,
+        eval_top_k: int,
+    ) -> dict[str, Any]:
+        predicted = cls._to_str_list(predicted_doc_ids)
+        top_k = max(0, int(eval_top_k))
+        if top_k > 0:
+            predicted = predicted[:top_k]
+        expected_set = set(cls._to_str_list(expected_doc_ids))
+        mode = cls._normalize_evaluation_mode(evaluation_mode)
+
+        merged_judgments = {str(doc_id): max(0, min(2, int(grade))) for doc_id, grade in relevance_judgments.items()}
+        for doc_id in expected_set:
+            if doc_id not in merged_judgments:
+                merged_judgments[doc_id] = 1
+
+        if mode == cls.EVAL_MODE_CLOSED:
+            tp, fp, fn = cls._count_confusion(predicted_doc_ids=predicted, expected_doc_ids=list(expected_set))
+            precision, recall, f1 = cls._compute_prf(tp=tp, fp=fp, fn=fn)
+            return {
+                "tp": tp,
+                "fp": fp,
+                "fn": fn,
+                "precision": precision,
+                "recall": recall,
+                "f1": f1,
+                "labeled": len(expected_set) > 0,
+                "judged_count": len(predicted),
+                "unjudged_count": 0,
+                "anchor_hit_at_k": len(expected_set.intersection(predicted)) > 0,
+                "ndcg_at_k": cls._compute_ndcg_at_k(predicted=predicted, relevance_map=merged_judgments, top_k=top_k),
+            }
+
+        positive_pool = {doc_id for doc_id, grade in merged_judgments.items() if grade > 0}
+        predicted_set = set(predicted)
+        tp = 0
+        fp = 0
+        judged_count = 0
+        unjudged_count = 0
+        for doc_id in predicted:
+            if doc_id not in merged_judgments:
+                unjudged_count += 1
+                continue
+            judged_count += 1
+            if merged_judgments[doc_id] > 0:
+                tp += 1
+            else:
+                fp += 1
+        fn = len(positive_pool - predicted_set)
+        precision, recall, f1 = cls._compute_prf(tp=tp, fp=fp, fn=fn)
+        return {
+            "tp": tp,
+            "fp": fp,
+            "fn": fn,
+            "precision": precision,
+            "recall": recall,
+            "f1": f1,
+            "labeled": bool(merged_judgments),
+            "judged_count": judged_count,
+            "unjudged_count": unjudged_count,
+            "anchor_hit_at_k": len(expected_set.intersection(predicted_set)) > 0,
+            "ndcg_at_k": cls._compute_ndcg_at_k(predicted=predicted, relevance_map=merged_judgments, top_k=top_k),
+        }
+
+    @staticmethod
+    def _compute_ndcg_at_k(*, predicted: list[str], relevance_map: dict[str, int], top_k: int) -> float:
+        if not predicted:
+            return 0.0
+        k = len(predicted) if top_k <= 0 else min(top_k, len(predicted))
+        if k <= 0:
+            return 0.0
+        gains = [max(0, int(relevance_map.get(predicted[idx], 0))) for idx in range(k)]
+        dcg = 0.0
+        for idx, grade in enumerate(gains, start=1):
+            dcg += (2**grade - 1) / math.log2(idx + 1)
+        ideal_gains = sorted((max(0, int(x)) for x in relevance_map.values()), reverse=True)[:k]
+        if not ideal_gains:
+            return 0.0
+        idcg = 0.0
+        for idx, grade in enumerate(ideal_gains, start=1):
+            idcg += (2**grade - 1) / math.log2(idx + 1)
+        if idcg <= 0:
+            return 0.0
+        return dcg / idcg
 
     @classmethod
     def _query_type_label(cls, query_type: str) -> str:
@@ -489,6 +731,8 @@ class Command(BaseCommand):
             tp = int(stats.get("tp", 0))
             fp = int(stats.get("fp", 0))
             fn = int(stats.get("fn", 0))
+            judged_count = int(stats.get("judged_count", 0))
+            unjudged_count = int(stats.get("unjudged_count", 0))
             precision, recall, f1 = cls._compute_prf(tp=tp, fp=fp, fn=fn)
             total_cases_for_type = int(stats.get("total_cases", 0))
             labeled_cases_for_type = int(stats.get("labeled_cases", 0))
@@ -507,6 +751,8 @@ class Command(BaseCommand):
                     "tp": tp,
                     "fp": fp,
                     "fn": fn,
+                    "judged_count": judged_count,
+                    "unjudged_count": unjudged_count,
                     "precision": round(precision, 4),
                     "recall": round(recall, 4),
                     "f1": round(f1, 4),
@@ -539,6 +785,8 @@ class Command(BaseCommand):
     def _write_summary_csv(self, *, path: Path, scenario_reports: list[dict[str, Any]]) -> None:
         fieldnames = [
             "scenario_id",
+            "evaluation_mode",
+            "eval_top_k",
             "similarity_local_cache_max_size",
             "semantic_vector_local_cache_max_size",
             "weike_session_restrict_cooldown_seconds",
@@ -546,12 +794,15 @@ class Command(BaseCommand):
             "labeled_cases",
             "labeled_ratio",
             "errors",
+            "judged_count",
+            "unjudged_count",
             "tp",
             "fp",
             "fn",
             "precision",
             "recall",
             "f1",
+            "ndcg_at_k",
             "primary_contribution_rate",
             "expansion_contribution_rate",
             "feedback_contribution_rate",
@@ -567,6 +818,8 @@ class Command(BaseCommand):
                 writer.writerow(
                     {
                         "scenario_id": str(item.get("scenario_id") or ""),
+                        "evaluation_mode": str(summary.get("evaluation_mode") or self.EVAL_MODE_POOLED),
+                        "eval_top_k": int(summary.get("eval_top_k", 0)),
                         "similarity_local_cache_max_size": int(
                             overrides.get(
                                 "similarity_local_cache_max_size",
@@ -589,12 +842,15 @@ class Command(BaseCommand):
                         "labeled_cases": int(summary.get("labeled_cases", 0)),
                         "labeled_ratio": float(summary.get("labeled_ratio", 0.0)),
                         "errors": int(summary.get("errors", 0)),
+                        "judged_count": int(summary.get("judged_count", 0)),
+                        "unjudged_count": int(summary.get("unjudged_count", 0)),
                         "tp": int(summary.get("tp", 0)),
                         "fp": int(summary.get("fp", 0)),
                         "fn": int(summary.get("fn", 0)),
                         "precision": float(summary.get("precision", 0.0)),
                         "recall": float(summary.get("recall", 0.0)),
                         "f1": float(summary.get("f1", 0.0)),
+                        "ndcg_at_k": float(summary.get("ndcg_at_k", 0.0)),
                         "primary_contribution_rate": self._query_type_metric_value(
                             summary=summary,
                             query_type=self.QUERY_TYPE_PRIMARY,
@@ -748,7 +1004,7 @@ class Command(BaseCommand):
         elif isinstance(payload, dict) and isinstance(payload.get("cases"), list):
             cases = payload["cases"]
         else:
-            raise CommandError("样本文件格式错误：应为 list 或 {\"cases\": [...]} ")
+            raise CommandError('样本文件格式错误：应为 list 或 {"cases": [...]} ')
 
         normalized: list[dict[str, Any]] = []
         for item in cases:
@@ -771,8 +1027,9 @@ class Command(BaseCommand):
             "schema_version": "v2",
             "name": "legal_research_baseline_v1",
             "description": (
-                "请替换为你自己的标注样本。expected_relevant_doc_ids 为空时，"
-                "该样本仅用于可用性回放，不参与 PRF 统计。"
+                "请替换为你自己的标注样本。默认采用 pooled 评测："
+                "expected_relevant_doc_ids 作为锚点，relevance_judgments 作为判定池，"
+                "未标注文档不计 FP。"
             ),
             "query_type_notes": {
                 "primary": "主查询（核心检索词）",
@@ -786,15 +1043,14 @@ class Command(BaseCommand):
                     "credential_id": 6,
                     "query_type": "primary",
                     "keyword": "佛山市顺德区人民法院 买卖合同纠纷",
-                    "case_summary": (
-                        "卖方违约转卖货物导致买方价差损失，"
-                        "买方请求赔偿损失并承担违约责任。"
-                    ),
+                    "case_summary": ("卖方违约转卖货物导致买方价差损失，买方请求赔偿损失并承担违约责任。"),
                     "target_count": 3,
                     "max_candidates": 100,
                     "min_similarity_score": 0.82,
+                    "search_mode": "expanded",
                     "llm_model": "Qwen/Qwen2.5-7B-Instruct",
                     "expected_relevant_doc_ids": [],
+                    "relevance_judgments": {"DOC-EXAMPLE-1": 2, "DOC-EXAMPLE-2": 1, "DOC-EXAMPLE-3": 0},
                     "notes": "示例样本，请替换为真实标注",
                 },
                 {
@@ -806,8 +1062,10 @@ class Command(BaseCommand):
                     "target_count": 3,
                     "max_candidates": 100,
                     "min_similarity_score": 0.82,
+                    "search_mode": "expanded",
                     "llm_model": "Qwen/Qwen2.5-7B-Instruct",
                     "expected_relevant_doc_ids": [],
+                    "relevance_judgments": {},
                     "notes": "示例样本，请替换为真实标注",
                 },
             ],
@@ -840,6 +1098,7 @@ class Command(BaseCommand):
             source=str(case.get("source") or "weike"),
             keyword=str(case.get("keyword") or "").strip(),
             case_summary=str(case.get("case_summary") or "").strip(),
+            search_mode=Command._normalize_search_mode(case.get("search_mode")),
             target_count=max(1, int(case.get("target_count") or 3)),
             max_candidates=max(1, int(case.get("max_candidates") or 100)),
             min_similarity_score=float(case.get("min_similarity_score") or 0.9),

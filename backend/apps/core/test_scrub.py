@@ -19,8 +19,8 @@ def test_is_sensitive_key_name_keeps_sensitive_key_detection() -> None:
 def test_scrub_for_storage_masks_sensitive_fields_only() -> None:
     payload = {
         "keyword": "阿里巴巴",
-        "api_key": "sk_example_abcdefghijklmnopqrstuvwxyz",
-        "nested": {"accessKey": "abcde12345FGHIJ67890KLMN"},
+        "api_key": "sk_example_abcdefghijklmnopqrstuvwxyz",  # pragma: allowlist secret
+        "nested": {"accessKey": "abcde12345FGHIJ67890KLMN"},  # pragma: allowlist secret
     }
 
     scrubbed = scrub_for_storage(payload)

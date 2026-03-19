@@ -233,8 +233,5 @@ class AccountCredentialService:
 
     def list_sites_for_lawyer(self, lawyer_id: int) -> list[str]:
         return list(
-            self._get_base_queryset()
-            .filter(lawyer_id=lawyer_id)
-            .values_list("site_name", flat=True)
-            .distinct()
+            self._get_base_queryset().filter(lawyer_id=lawyer_id).values_list("site_name", flat=True).distinct()
         )

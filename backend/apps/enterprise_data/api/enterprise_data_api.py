@@ -98,9 +98,7 @@ def get_person_profile(
     provider: str | None = None,
     include_raw: bool = False,
 ) -> EnterpriseQueryOut:
-    return EnterpriseQueryOut(
-        **_service().get_person_profile(hcgid=hcgid, provider=provider, include_raw=include_raw)
-    )
+    return EnterpriseQueryOut(**_service().get_person_profile(hcgid=hcgid, provider=provider, include_raw=include_raw))
 
 
 @router.get("/biddings/search", response=EnterpriseQueryOut)

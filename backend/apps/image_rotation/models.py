@@ -16,4 +16,3 @@ class ImageRotationTool(models.Model):
         managed = False
         verbose_name = _("图片自动旋转")
         verbose_name_plural = _("图片自动旋转")
-

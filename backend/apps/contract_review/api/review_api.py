@@ -4,10 +4,11 @@ from typing import Any
 from uuid import UUID
 
 from django.http import FileResponse, HttpRequest
-from ninja import File, Form, Router, UploadedFile
+from ninja import File, Form, Router
+from ninja.files import UploadedFile
 
-from apps.core.infrastructure.throttling import rate_limit_from_settings
 from apps.contract_review.schemas.review_schemas import ConfirmPartyIn, TaskCreatedOut, TaskStatusOut
+from apps.core.infrastructure.throttling import rate_limit_from_settings
 
 logger = logging.getLogger(__name__)
 router = Router()

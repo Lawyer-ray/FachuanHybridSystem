@@ -8,7 +8,7 @@ from types import SimpleNamespace
 from typing import Any
 
 from apps.core.interfaces import ServiceLocator
-from apps.legal_research.models import LegalResearchTask, LegalResearchTaskStatus
+from apps.legal_research.models import LegalResearchSearchMode, LegalResearchTask, LegalResearchTaskStatus
 from apps.legal_research.services.executor_components import (
     ExecutorResultPersistenceMixin,
     ExecutorSourceGatewayMixin,
@@ -54,6 +54,7 @@ class LegalResearchExecutor(
     SCORE_RETRY_ATTEMPTS = 3
     BORDERLINE_RECHECK_GAP = 0.08
     RETRY_BACKOFF_SECONDS = 0.8
+    RETRY_BACKOFF_MAX_SECONDS = 6.0
     COARSE_RECALL_KEEP_MIN = 20
     COARSE_RECALL_MULTIPLIER = 6
     COARSE_RECALL_THRESHOLD_RATIO = 0.5
@@ -155,10 +156,16 @@ class LegalResearchExecutor(
             similarity = CaseSimilarityService(tuning=tuning)
         except TypeError:
             similarity = CaseSimilarityService()
+        search_mode = str(
+            getattr(task, "search_mode", LegalResearchSearchMode.EXPANDED) or LegalResearchSearchMode.EXPANDED
+        )
+        single_search_mode = search_mode.strip().lower() == LegalResearchSearchMode.SINGLE
         query_variant_enabled = bool(getattr(tuning, "query_variant_enabled", True))
         query_variant_max_count = max(0, int(getattr(tuning, "query_variant_max_count", self.QUERY_VARIANT_MAX)))
         query_variant_model = str(getattr(tuning, "query_variant_model", "") or "").strip()
-        detail_cache_ttl_seconds = max(60, int(getattr(tuning, "detail_cache_ttl_seconds", self.DETAIL_CACHE_TTL_SECONDS)))
+        detail_cache_ttl_seconds = max(
+            60, int(getattr(tuning, "detail_cache_ttl_seconds", self.DETAIL_CACHE_TTL_SECONDS))
+        )
         feedback_query_limit = max(0, int(tuning.feedback_query_limit))
         feedback_min_terms = max(1, int(tuning.feedback_min_terms))
         feedback_min_score_floor = max(0.0, min(1.0, float(tuning.feedback_min_score_floor)))
@@ -176,6 +183,10 @@ class LegalResearchExecutor(
         adaptive_checkpoint_scanned = 0
         adaptive_checkpoint_matched = 0
         lowest_min_similarity_threshold = min_similarity_threshold
+        primary_queries: list[str] = []
+        initial_expansion_queries: list[str] = []
+        feedback_queries: list[str] = []
+        query_stats: dict[str, dict[str, int]] = {}
 
         session = None
         try:
@@ -187,8 +198,12 @@ class LegalResearchExecutor(
             )
             if hasattr(session, "task_id"):
                 session.task_id = str(task.id)
-            keyword_candidates = self._build_search_keywords(task.keyword, task.case_summary)
-            if query_variant_enabled and query_variant_max_count > 0:
+            if single_search_mode:
+                primary_query = re.sub(r"\s+", " ", str(task.keyword or "")).strip()
+                keyword_candidates = [primary_query] if primary_query else []
+            else:
+                keyword_candidates = self._build_search_keywords(task.keyword, task.case_summary)
+            if (not single_search_mode) and query_variant_enabled and query_variant_max_count > 0:
                 llm_variants = self._generate_llm_query_variants(
                     keyword=task.keyword,
                     case_summary=task.case_summary,
@@ -198,12 +213,13 @@ class LegalResearchExecutor(
                 if llm_variants:
                     keyword_candidates = self._merge_query_candidates(keyword_candidates, llm_variants)
             search_keywords = keyword_candidates[:1]
-            expansion_keywords = keyword_candidates[1:]
+            expansion_keywords = [] if single_search_mode else keyword_candidates[1:]
+            primary_queries = [query for query in search_keywords if str(query).strip()]
+            initial_expansion_queries = [query for query in expansion_keywords if str(query).strip()]
             search_query_set = {q.strip().lower() for q in search_keywords if q.strip()}
             scoring_keyword = self._build_scoring_keyword(task.keyword, task.case_summary)
             feedback_term_weights: dict[str, int] = {}
             feedback_queries_added = 0
-            query_stats: dict[str, dict[str, int]] = {}
             detail_cache_local: dict[str, CaseDetail] = {}
 
             scanned = 0
@@ -231,6 +247,12 @@ class LegalResearchExecutor(
                             "scanned_count": scanned,
                             "matched_count": matched,
                             "skipped_count": skipped,
+                            "query_trace": self._build_query_trace_payload(
+                                primary_queries=primary_queries,
+                                expansion_queries=initial_expansion_queries,
+                                feedback_queries=feedback_queries,
+                                query_stats=query_stats,
+                            ),
                         }
 
                     fetch_limit = self._effective_fetch_limit(max_candidates=task.max_candidates, skipped=skipped)
@@ -262,7 +284,7 @@ class LegalResearchExecutor(
                         f"（检索式 {query_index + 1}/{len(search_keywords)}"
                         f"，本批新增 {len(unique_items)} 篇{duplicate_suffix}）"
                     )
-                    task.save(update_fields=["candidate_count", "message", "updated_at"])
+                    self._save_task_safely(task, update_fields=["candidate_count", "message", "updated_at"])
 
                     rerank_threshold = self._coarse_threshold(effective_min_similarity_threshold)
                     rerank_budget = self._coarse_rerank_budget(task=task, matched=matched, batch_size=len(unique_items))
@@ -373,7 +395,7 @@ class LegalResearchExecutor(
                             dual_review_policy=dual_review_policy,
                         )
                         query_metric["matched"] += max(0, matched - previous_matched)
-                        if feedback_updated:
+                        if (not single_search_mode) and feedback_updated:
                             feedback_queries_added, feedback_query = self._maybe_append_feedback_query(
                                 search_keywords=search_keywords,
                                 search_query_set=search_query_set,
@@ -385,8 +407,10 @@ class LegalResearchExecutor(
                                 feedback_min_terms=feedback_min_terms,
                             )
                             if feedback_query:
+                                if feedback_query not in feedback_queries:
+                                    feedback_queries.append(feedback_query)
                                 task.message = f"已触发伪相关反馈扩展检索：{feedback_query}"
-                                task.save(update_fields=["message", "updated_at"])
+                                self._save_task_safely(task, update_fields=["message", "updated_at"])
                         self._update_progress(task=task, scanned=scanned, matched=matched, skipped=skipped)
                         (
                             effective_min_similarity_threshold,
@@ -426,6 +450,12 @@ class LegalResearchExecutor(
                                     "scanned_count": scanned,
                                     "matched_count": matched,
                                     "skipped_count": skipped,
+                                    "query_trace": self._build_query_trace_payload(
+                                        primary_queries=primary_queries,
+                                        expansion_queries=initial_expansion_queries,
+                                        feedback_queries=feedback_queries,
+                                        query_stats=query_stats,
+                                    ),
                                 }
                             if matched >= task.target_count:
                                 break
@@ -449,7 +479,7 @@ class LegalResearchExecutor(
                                 dual_review_policy=dual_review_policy,
                             )
                             query_metric["matched"] += max(0, matched - previous_matched)
-                            if feedback_updated:
+                            if (not single_search_mode) and feedback_updated:
                                 feedback_queries_added, feedback_query = self._maybe_append_feedback_query(
                                     search_keywords=search_keywords,
                                     search_query_set=search_query_set,
@@ -461,8 +491,10 @@ class LegalResearchExecutor(
                                     feedback_min_terms=feedback_min_terms,
                                 )
                                 if feedback_query:
+                                    if feedback_query not in feedback_queries:
+                                        feedback_queries.append(feedback_query)
                                     task.message = f"已触发伪相关反馈扩展检索：{feedback_query}"
-                                    task.save(update_fields=["message", "updated_at"])
+                                    self._save_task_safely(task, update_fields=["message", "updated_at"])
                             self._update_progress(task=task, scanned=scanned, matched=matched, skipped=skipped)
                             (
                                 effective_min_similarity_threshold,
@@ -484,9 +516,10 @@ class LegalResearchExecutor(
                                 )
 
                 if (
-                    query_index == 0
+                    not single_search_mode
                     and expansion_keywords
                     and matched < task.target_count
+                    and query_index == 0
                     and fetched < min(task.max_candidates, self.QUERY_EXPANSION_TRIGGER_CANDIDATES)
                 ):
                     for query in expansion_keywords:
@@ -501,26 +534,29 @@ class LegalResearchExecutor(
                         if query_new_candidates > 0
                         else "主检索式未召回候选，切换扩展检索式重试"
                     )
-                    task.save(update_fields=["message", "updated_at"])
+                    self._save_task_safely(task, update_fields=["message", "updated_at"])
 
                 self._apply_query_performance_feedback(
                     search_keyword=search_keyword,
                     metric=query_metric,
                     feedback_term_weights=feedback_term_weights,
                 )
-                feedback_queries_added, feedback_query = self._maybe_append_feedback_query(
-                    search_keywords=search_keywords,
-                    search_query_set=search_query_set,
-                    feedback_term_weights=feedback_term_weights,
-                    keyword=task.keyword,
-                    case_summary=task.case_summary,
-                    feedback_queries_added=feedback_queries_added,
-                    feedback_query_limit=feedback_query_limit,
-                    feedback_min_terms=feedback_min_terms,
-                )
-                if feedback_query:
-                    task.message = f"已触发检索式反馈扩展：{feedback_query}"
-                    task.save(update_fields=["message", "updated_at"])
+                if not single_search_mode:
+                    feedback_queries_added, feedback_query = self._maybe_append_feedback_query(
+                        search_keywords=search_keywords,
+                        search_query_set=search_query_set,
+                        feedback_term_weights=feedback_term_weights,
+                        keyword=task.keyword,
+                        case_summary=task.case_summary,
+                        feedback_queries_added=feedback_queries_added,
+                        feedback_query_limit=feedback_query_limit,
+                        feedback_min_terms=feedback_min_terms,
+                    )
+                    if feedback_query:
+                        if feedback_query not in feedback_queries:
+                            feedback_queries.append(feedback_query)
+                        task.message = f"已触发检索式反馈扩展：{feedback_query}"
+                        self._save_task_safely(task, update_fields=["message", "updated_at"])
 
                 query_index += 1
 
@@ -532,6 +568,12 @@ class LegalResearchExecutor(
                     "scanned_count": scanned,
                     "matched_count": matched,
                     "skipped_count": skipped,
+                    "query_trace": self._build_query_trace_payload(
+                        primary_queries=primary_queries,
+                        expansion_queries=initial_expansion_queries,
+                        feedback_queries=feedback_queries,
+                        query_stats=query_stats,
+                    ),
                 }
 
             skip_suffix = f"（跳过异常案例 {skipped} 篇）" if skipped else ""
@@ -579,6 +621,12 @@ class LegalResearchExecutor(
                 "scanned_count": task.scanned_count,
                 "matched_count": task.matched_count,
                 "skipped_count": skipped,
+                "query_trace": self._build_query_trace_payload(
+                    primary_queries=primary_queries,
+                    expansion_queries=initial_expansion_queries,
+                    feedback_queries=feedback_queries,
+                    query_stats=query_stats,
+                ),
             }
         except Exception as e:
             logger.exception("案例检索任务失败", extra={"task_id": str(task.id)})
@@ -587,6 +635,12 @@ class LegalResearchExecutor(
                 "task_id": str(task.id),
                 "status": "failed",
                 "error": str(e),
+                "query_trace": self._build_query_trace_payload(
+                    primary_queries=primary_queries,
+                    expansion_queries=initial_expansion_queries,
+                    feedback_queries=feedback_queries,
+                    query_stats=query_stats,
+                ),
             }
         finally:
             if session is not None:
@@ -765,7 +819,9 @@ class LegalResearchExecutor(
         if not task.llm_model and sim.model:
             task.llm_model = sim.model
 
-        if sim.score < min_similarity_threshold and sim.score >= max(0.0, min_similarity_threshold - cls.BORDERLINE_RECHECK_GAP):
+        if sim.score < min_similarity_threshold and sim.score >= max(
+            0.0, min_similarity_threshold - cls.BORDERLINE_RECHECK_GAP
+        ):
             rescored = cls._rescore_borderline_with_retry(
                 similarity=similarity,
                 task=task,
@@ -1166,7 +1222,9 @@ class LegalResearchExecutor(
             query_parts.append([*keyword_terms[:2], *low_conf_pool[:low_conf_limit], *summary_terms[:2]])
         elif keyword_terms and summary_terms:
             query_parts.append([*keyword_terms[:3], *summary_terms[:3]])
-        intent_pool = cls._dedupe_tokens([*relation_terms, *breach_terms, *damage_terms, *remedy_terms, *summary_terms], max_tokens=8)
+        intent_pool = cls._dedupe_tokens(
+            [*relation_terms, *breach_terms, *damage_terms, *remedy_terms, *summary_terms], max_tokens=8
+        )
         if intent_pool:
             query_parts.append(intent_pool[:6])
 
@@ -1187,7 +1245,9 @@ class LegalResearchExecutor(
         return queries
 
     @classmethod
-    def _merge_query_candidates(cls, base_queries: list[str], extra_queries: list[str], *, max_queries: int = 14) -> list[str]:
+    def _merge_query_candidates(
+        cls, base_queries: list[str], extra_queries: list[str], *, max_queries: int = 14
+    ) -> list[str]:
         merged: list[str] = []
         seen: set[str] = set()
         for query in [*base_queries, *extra_queries]:
@@ -1430,7 +1490,9 @@ class LegalResearchExecutor(
         semantic_tokens = cls._extract_summary_terms(normalized)
 
         relation_high = cls._collect_intent_terms(normalized, relation_mapping)
-        relation_high.extend(cls._extract_relation_terms_dynamic(normalized, extra_regexes=rule_overrides["relation_regex_extra"]))
+        relation_high.extend(
+            cls._extract_relation_terms_dynamic(normalized, extra_regexes=rule_overrides["relation_regex_extra"])
+        )
         relation_high.extend([cls._normalize_relation_term(term) for term in rule_overrides["relation_term_extra"]])
         relation_low = [token for token in semantic_tokens if cls._looks_like_relation_term(token)]
 
@@ -1439,19 +1501,34 @@ class LegalResearchExecutor(
         remedy_hints = cls._merge_hint_overrides(cls.INTENT_REMEDY_HINTS, rule_overrides["remedy_hint_extra"])
 
         breach_high = cls._collect_intent_terms(normalized, breach_mapping)
-        dyn_breach_high, dyn_breach_low = cls._extract_slot_terms_by_hints_with_confidence(normalized, hints=breach_hints)
+        dyn_breach_high, dyn_breach_low = cls._extract_slot_terms_by_hints_with_confidence(
+            normalized, hints=breach_hints
+        )
         breach_high.extend(dyn_breach_high)
-        breach_low = [*dyn_breach_low, *[token for token in semantic_tokens if cls._contains_any_hint(token, breach_hints)]]
+        breach_low = [
+            *dyn_breach_low,
+            *[token for token in semantic_tokens if cls._contains_any_hint(token, breach_hints)],
+        ]
 
         damage_high = cls._collect_intent_terms(normalized, damage_mapping)
-        dyn_damage_high, dyn_damage_low = cls._extract_slot_terms_by_hints_with_confidence(normalized, hints=damage_hints)
+        dyn_damage_high, dyn_damage_low = cls._extract_slot_terms_by_hints_with_confidence(
+            normalized, hints=damage_hints
+        )
         damage_high.extend(dyn_damage_high)
-        damage_low = [*dyn_damage_low, *[token for token in semantic_tokens if cls._contains_any_hint(token, damage_hints)]]
+        damage_low = [
+            *dyn_damage_low,
+            *[token for token in semantic_tokens if cls._contains_any_hint(token, damage_hints)],
+        ]
 
         remedy_high = cls._collect_intent_terms(normalized, remedy_mapping)
-        dyn_remedy_high, dyn_remedy_low = cls._extract_slot_terms_by_hints_with_confidence(normalized, hints=remedy_hints)
+        dyn_remedy_high, dyn_remedy_low = cls._extract_slot_terms_by_hints_with_confidence(
+            normalized, hints=remedy_hints
+        )
         remedy_high.extend(dyn_remedy_high)
-        remedy_low = [*dyn_remedy_low, *[token for token in semantic_tokens if cls._contains_any_hint(token, remedy_hints)]]
+        remedy_low = [
+            *dyn_remedy_low,
+            *[token for token in semantic_tokens if cls._contains_any_hint(token, remedy_hints)],
+        ]
 
         relation_high_deduped = cls._dedupe_tokens(
             [cls._normalize_relation_term(term) for term in relation_high if term],
@@ -1468,11 +1545,17 @@ class LegalResearchExecutor(
                 max_tokens=8,
             ),
             "breach_high": cls._dedupe_tokens(breach_high, max_tokens=8),
-            "breach_low": cls._dedupe_tokens([term for term in breach_low if term and term not in breach_high], max_tokens=8),
+            "breach_low": cls._dedupe_tokens(
+                [term for term in breach_low if term and term not in breach_high], max_tokens=8
+            ),
             "damage_high": cls._dedupe_tokens(damage_high, max_tokens=8),
-            "damage_low": cls._dedupe_tokens([term for term in damage_low if term and term not in damage_high], max_tokens=8),
+            "damage_low": cls._dedupe_tokens(
+                [term for term in damage_low if term and term not in damage_high], max_tokens=8
+            ),
             "remedy_high": cls._dedupe_tokens(remedy_high, max_tokens=8),
-            "remedy_low": cls._dedupe_tokens([term for term in remedy_low if term and term not in remedy_high], max_tokens=8),
+            "remedy_low": cls._dedupe_tokens(
+                [term for term in remedy_low if term and term not in remedy_high], max_tokens=8
+            ),
             "low_conf_limit": rule_overrides["low_conf_limit"],
         }
 
@@ -1713,7 +1796,9 @@ class LegalResearchExecutor(
             return
 
         hit_rate = matched / max(1, scanned)
-        keyword_tokens = [token for token in cls._split_tokens(search_keyword) if not cls._is_location_or_court_token(token)]
+        keyword_tokens = [
+            token for token in cls._split_tokens(search_keyword) if not cls._is_location_or_court_token(token)
+        ]
         if not keyword_tokens:
             return
 
@@ -1762,6 +1847,21 @@ class LegalResearchExecutor(
         preview = re.sub(r"\s+", " ", best_query).strip()[:18]
         return f"（最佳检索式 {best_matched}/{best_scanned}: {preview}）"
 
+    @staticmethod
+    def _build_query_trace_payload(
+        *,
+        primary_queries: list[str],
+        expansion_queries: list[str],
+        feedback_queries: list[str],
+        query_stats: dict[str, dict[str, int]],
+    ) -> dict[str, Any]:
+        return {
+            "primary_queries": [str(query).strip() for query in primary_queries if str(query).strip()],
+            "expansion_queries": [str(query).strip() for query in expansion_queries if str(query).strip()],
+            "feedback_queries": [str(query).strip() for query in feedback_queries if str(query).strip()],
+            "query_stats": query_stats,
+        }
+
     @classmethod
     def _maybe_append_feedback_query(
         cls,
@@ -1781,7 +1881,9 @@ class LegalResearchExecutor(
         if len(feedback_terms) < max(1, feedback_min_terms):
             return feedback_queries_added, ""
 
-        query = cls._build_feedback_search_keyword(keyword=keyword, case_summary=case_summary, feedback_terms=feedback_terms)
+        query = cls._build_feedback_search_keyword(
+            keyword=keyword, case_summary=case_summary, feedback_terms=feedback_terms
+        )
         normalized = query.strip().lower()
         if not normalized or normalized in search_query_set:
             return feedback_queries_added, ""

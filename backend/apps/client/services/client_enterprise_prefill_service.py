@@ -89,8 +89,12 @@ class ClientEnterprisePrefillService:
                 "company_name": self._pick_str(item, ("company_name", "companyName", "name", "company")),
                 "legal_person": self._pick_str(item, ("legal_person", "legalPersonName", "legalRepresentative")),
                 "status": self._pick_str(item, ("status", "regStatus", "operatingStatus")),
-                "establish_date": self._pick_str(item, ("establish_date", "estiblishTime", "establishDate", "foundedDate")),
-                "registered_capital": self._pick_str(item, ("registered_capital", "regCapital", "registeredCapital", "capital")),
+                "establish_date": self._pick_str(
+                    item, ("establish_date", "estiblishTime", "establishDate", "foundedDate")
+                ),
+                "registered_capital": self._pick_str(
+                    item, ("registered_capital", "regCapital", "registeredCapital", "capital")
+                ),
                 "phone": self._pick_str(item, ("phone", "phoneNumber", "contactPhone", "tel", "联系电话")),
             }
             if not normalized["company_id"] and not normalized["company_name"]:
@@ -101,7 +105,8 @@ class ClientEnterprisePrefillService:
     def _normalize_company_profile(self, payload: Any, *, fallback_company_id: str) -> dict[str, str]:
         item = payload if isinstance(payload, dict) else {}
         profile = {
-            "company_id": self._pick_str(item, ("company_id", "companyId", "id", "cid", "tycId")) or fallback_company_id,
+            "company_id": self._pick_str(item, ("company_id", "companyId", "id", "cid", "tycId"))
+            or fallback_company_id,
             "company_name": self._pick_str(item, ("company_name", "companyName", "name", "company")),
             "unified_social_credit_code": self._pick_str(
                 item,
@@ -110,7 +115,9 @@ class ClientEnterprisePrefillService:
             "legal_person": self._pick_str(item, ("legal_person", "legalPersonName", "legalRepresentative")),
             "status": self._pick_str(item, ("status", "regStatus", "operatingStatus")),
             "establish_date": self._pick_str(item, ("establish_date", "estiblishTime", "establishDate", "foundedDate")),
-            "registered_capital": self._pick_str(item, ("registered_capital", "regCapital", "registeredCapital", "capital")),
+            "registered_capital": self._pick_str(
+                item, ("registered_capital", "regCapital", "registeredCapital", "capital")
+            ),
             "address": self._pick_str(item, ("address", "regLocation", "registeredAddress")),
             "business_scope": self._pick_str(item, ("business_scope", "businessScope", "scope")),
             "phone": self._pick_str(item, ("phone", "phoneNumber", "contactPhone", "tel", "联系电话")),

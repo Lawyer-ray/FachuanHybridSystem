@@ -12,7 +12,7 @@ def test_import_updates_only_missing_fields_for_existing_lawyer() -> None:
     old_firm = LawFirm.objects.create(name="旧律所")
     existing = Lawyer.objects.create_user(
         username="existing-lawyer",
-        password="secret",
+        password="secret",  # pragma: allowlist secret
         real_name="保留原姓名",
         phone=None,
         license_no="",
@@ -28,7 +28,7 @@ def test_import_updates_only_missing_fields_for_existing_lawyer() -> None:
         site_name="court_zxfw",
         url="https://old.example.com",
         account="old-account",
-        password="old-password",
+        password="old-password",  # pragma: allowlist secret
     )
 
     payload = [
@@ -42,8 +42,18 @@ def test_import_updates_only_missing_fields_for_existing_lawyer() -> None:
             "lawyer_teams": [{"name": "新律师团队", "law_firm": "新律所"}],
             "biz_teams": ["旧业务团队", "新业务团队"],
             "credentials": [
-                {"site_name": "court_zxfw", "url": "https://dup.example.com", "account": "dup", "password": "dup"},
-                {"site_name": "wkxx", "url": "https://wkxx.example.com", "account": "wk-account", "password": "wk"},
+                {  # pragma: allowlist secret
+                    "site_name": "court_zxfw",
+                    "url": "https://dup.example.com",
+                    "account": "dup",
+                    "password": "dup",  # pragma: allowlist secret
+                },
+                {  # pragma: allowlist secret
+                    "site_name": "wkxx",
+                    "url": "https://wkxx.example.com",
+                    "account": "wk-account",
+                    "password": "wk",  # pragma: allowlist secret
+                },
             ],
         }
     ]
@@ -81,7 +91,12 @@ def test_import_creates_new_lawyer_with_related_entities() -> None:
             "lawyer_teams": [{"name": "导入律师团队", "law_firm": "导入律所"}],
             "biz_teams": ["导入业务团队"],
             "credentials": [
-                {"site_name": "wkxx", "url": "https://wkxx.example.com", "account": "wk-new", "password": "wk-pass"},
+                {  # pragma: allowlist secret
+                    "site_name": "wkxx",
+                    "url": "https://wkxx.example.com",
+                    "account": "wk-new",
+                    "password": "wk-pass",  # pragma: allowlist secret
+                },
             ],
         }
     ]

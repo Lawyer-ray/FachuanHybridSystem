@@ -25,18 +25,23 @@ class _ReminderServiceSpy:
         reminder_time: datetime,
         user_id: int | None = None,
     ) -> object:
-        self.calls.append({
-            "case_log_id": case_log_id,
-            "reminder_type": reminder_type,
-            "content": content,
-            "reminder_time": reminder_time,
-            "user_id": user_id,
-        })
+        self.calls.append(
+            {
+                "case_log_id": case_log_id,
+                "reminder_type": reminder_type,
+                "content": content,
+                "reminder_time": reminder_time,
+                "user_id": user_id,
+            }
+        )
         return object()
 
 
 def _ensure_actor() -> Lawyer:
-    return Lawyer.objects.create_user(username=f"caselog-user-{uuid4().hex[:12]}", password="test1234")
+    return Lawyer.objects.create_user(
+        username=f"caselog-user-{uuid4().hex[:12]}",
+        password="test1234",  # pragma: allowlist secret
+    )
 
 
 @pytest.mark.django_db

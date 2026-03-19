@@ -34,10 +34,7 @@ def list_configs(request: HttpRequest) -> Any:
     user_sites: set[str] = (
         set(_get_organization_service().list_sites_for_lawyer(int(lawyer_id))) if lawyer_id is not None else set()
     )
-    return [
-        {"id": name, "oa_system_name": name, "has_credential": name in user_sites}
-        for name in SUPPORTED_SITES
-    ]
+    return [{"id": name, "oa_system_name": name, "has_credential": name in user_sites} for name in SUPPORTED_SITES]
 
 
 @router.post("/execute", response=SessionOut)

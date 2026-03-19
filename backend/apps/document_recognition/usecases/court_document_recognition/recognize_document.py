@@ -7,13 +7,13 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
+from apps.core.exceptions import RecognitionTimeoutError, ServiceUnavailableError, ValidationException
 from apps.document_recognition.services.data_classes import (
     BindingResult,
     DocumentType,
     RecognitionResponse,
     RecognitionResult,
 )
-from apps.core.exceptions import RecognitionTimeoutError, ServiceUnavailableError, ValidationException
 
 logger = logging.getLogger("apps.document_recognition")
 

@@ -42,7 +42,9 @@ class EnterpriseProviderRegistry:
         return self._read_int("ENTERPRISE_DATA_CACHE_TTL_SECONDS", DEFAULT_CACHE_TTL_SECONDS, min_value=30)
 
     def get_default_provider_name(self) -> str:
-        value = str(self._config.get_value("ENTERPRISE_DATA_DEFAULT_PROVIDER", DEFAULT_PROVIDER_NAME) or "").strip().lower()
+        value = (
+            str(self._config.get_value("ENTERPRISE_DATA_DEFAULT_PROVIDER", DEFAULT_PROVIDER_NAME) or "").strip().lower()
+        )
         return value or DEFAULT_PROVIDER_NAME
 
     def list_providers(self) -> list[ProviderDescriptor]:
@@ -87,7 +89,7 @@ class EnterpriseProviderRegistry:
                 base_url_default="https://mcp-service.tianyancha.com/mcp",
                 sse_url_key="TIANYANCHA_MCP_SSE_URL",
                 sse_url_default="https://mcp-service.tianyancha.com/sse",
-                api_key_key="TIANYANCHA_MCP_API_KEY",
+                api_key_key="TIANYANCHA_MCP_API_KEY",  # pragma: allowlist secret
                 timeout_key="TIANYANCHA_MCP_TIMEOUT_SECONDS",
                 enabled=enabled,
             )
@@ -108,7 +110,7 @@ class EnterpriseProviderRegistry:
                 base_url_default="https://mcp-service.qichacha.com/mcp",
                 sse_url_key="QICHACHA_MCP_SSE_URL",
                 sse_url_default="https://mcp-service.qichacha.com/sse",
-                api_key_key="QICHACHA_MCP_API_KEY",
+                api_key_key="QICHACHA_MCP_API_KEY",  # pragma: allowlist secret
                 timeout_key="QICHACHA_MCP_TIMEOUT_SECONDS",
                 enabled=enabled,
             )
@@ -202,7 +204,9 @@ class EnterpriseProviderRegistry:
         return ProviderConfig(
             name=provider_name,
             enabled=enabled,
-            transport=self._normalize_transport(str(self._config.get_value(transport_key, DEFAULT_TRANSPORT) or "").strip()),
+            transport=self._normalize_transport(
+                str(self._config.get_value(transport_key, DEFAULT_TRANSPORT) or "").strip()
+            ),
             base_url=str(self._config.get_value(base_url_key, base_url_default) or "").strip(),
             sse_url=str(self._config.get_value(sse_url_key, sse_url_default) or "").strip(),
             api_key=api_keys[0],

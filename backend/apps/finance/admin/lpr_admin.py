@@ -72,6 +72,7 @@ class LPRRateAdmin(BaseModelAdmin):
     def has_delete_permission(self, request: HttpRequest, obj=None) -> bool:
         """禁止删除LPR数据."""
         return False
+
     fieldsets = (
         (
             None,
@@ -147,10 +148,7 @@ class LPRRateAdmin(BaseModelAdmin):
 
             self.message_user(
                 request,
-                _(
-                    "LPR数据同步成功：新增 %(created)s 条，更新 %(updated)s 条，跳过 %(skipped)s 条"
-                )
-                % result,
+                _("LPR数据同步成功：新增 %(created)s 条，更新 %(updated)s 条，跳过 %(skipped)s 条") % result,
             )
         except BusinessException as e:
             logger.error(f"[LPRAdmin] Sync failed: {e}")

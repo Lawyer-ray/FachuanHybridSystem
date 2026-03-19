@@ -14,6 +14,9 @@ from .court_document import CourtDocument, DocumentDeliverySchedule, DocumentDow
 # Court SMS
 from .court_sms import CourtSMS, CourtSMSStatus, CourtSMSType
 
+# GSXT Report
+from .gsxt_report import GsxtReportStatus, GsxtReportTask
+
 # Invoice Recognition
 from .invoice_recognition import (
     InvoiceCategory,
@@ -28,9 +31,6 @@ from .preservation import InsuranceQuote, PreservationQuote, QuoteItemStatus, Qu
 
 # Scraper Tasks
 from .scraper import ScraperTask, ScraperTaskStatus, ScraperTaskType
-
-# GSXT Report
-from .gsxt_report import GsxtReportStatus, GsxtReportTask
 
 # Token Management
 from .token import CourtToken, TokenAcquisitionHistory, TokenAcquisitionStatus

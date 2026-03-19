@@ -103,6 +103,7 @@ class ScriptExecutorService:
             ContractInfo,
             JtnFilingScript,
         )
+
         case_model = django_apps.get_model("cases", "Case")
         contract_model = django_apps.get_model("contracts", "Contract")
         contract_assignment_model = django_apps.get_model("contracts", "ContractAssignment")
@@ -327,9 +328,9 @@ class ScriptExecutorService:
         case_party_model = django_apps.get_model("cases", "CaseParty")
         contract_party_model = django_apps.get_model("contracts", "ContractParty")
         our_client_ids = set(
-            contract_party_model.objects.filter(
-                contract_id=contract_id, role="PRINCIPAL"
-            ).values_list("client_id", flat=True)
+            contract_party_model.objects.filter(contract_id=contract_id, role="PRINCIPAL").values_list(
+                "client_id", flat=True
+            )
         )
         party = case_party_model.objects.filter(case=case, client_id__in=our_client_ids).first()
         mapping = {"plaintiff": "01", "defendant": "02", "third": "09"}
@@ -338,9 +339,7 @@ class ScriptExecutorService:
     def _map_legal_position(self, contract_party: Any) -> str:
         """从 CaseParty 取对方当事人诉讼地位，映射到 OA 法律地位值。"""
         case_party_model = django_apps.get_model("cases", "CaseParty")
-        case_party = case_party_model.objects.filter(
-            client_id=contract_party.client_id
-        ).first()
+        case_party = case_party_model.objects.filter(client_id=contract_party.client_id).first()
         mapping = {"plaintiff": "01", "defendant": "02", "third": "09"}
         return mapping.get(getattr(case_party, "legal_status", None) or "", "02")
 
@@ -372,8 +371,7 @@ class ScriptExecutorService:
 
         # 判断委托方是否为自然人
         has_natural = any(
-            getattr(p, "client", None) and getattr(p.client, "client_type", "") == "natural"
-            for p in principal_parties
+            getattr(p, "client", None) and getattr(p.client, "client_type", "") == "natural" for p in principal_parties
         )
 
         if category == "01":

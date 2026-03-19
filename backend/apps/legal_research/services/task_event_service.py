@@ -1,14 +1,19 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
 from collections.abc import Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
+
+from django.db import close_old_connections
 
 from apps.legal_research.models import LegalResearchTaskEvent
 
 logger = logging.getLogger(__name__)
+_EVENT_ORM_FALLBACK_EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="legal-research-event")
 
 
 class LegalResearchTaskEventService:
@@ -59,7 +64,7 @@ class LegalResearchTaskEventService:
         if normalized_task_id is None:
             return
 
-        try:
+        def _operation() -> None:
             LegalResearchTaskEvent.objects.create(
                 task_id=normalized_task_id,
                 stage=cls._normalize_stage(stage),
@@ -76,6 +81,9 @@ class LegalResearchTaskEventService:
                 response_summary=cls._sanitize_payload(response_summary),
                 event_metadata=cls._sanitize_payload(event_metadata),
             )
+
+        try:
+            cls._run_orm_safely(_operation)
         except Exception:
             logger.exception(
                 "写入法律检索事件失败",
@@ -86,6 +94,25 @@ class LegalResearchTaskEventService:
                     "interface_name": interface_name,
                 },
             )
+
+    @staticmethod
+    def _run_orm_safely(operation: Any) -> Any:
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop is not None and loop.is_running():
+
+            def _wrapped() -> Any:
+                close_old_connections()
+                try:
+                    return operation()
+                finally:
+                    close_old_connections()
+
+            return _EVENT_ORM_FALLBACK_EXECUTOR.submit(_wrapped).result()
+        return operation()
 
     @staticmethod
     def _normalize_task_id(task_id: object) -> int | None:

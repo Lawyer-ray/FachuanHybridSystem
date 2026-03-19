@@ -81,7 +81,7 @@
     <!-- 利率设置 -->
     <div class="lpr-calc__section">
         <div class="lpr-calc__section-title">{% trans "利率设置" %}</div>
-        
+
         <!-- 利率模式切换 -->
         <div class="lpr-calc__mode" style="margin-bottom: 16px;">
             <button type="button" class="lpr-calc__mode-btn" :class="{active: form.rate_mode === 'lpr'}" @click="form.rate_mode = 'lpr'">
@@ -94,7 +94,7 @@
                 {% trans "迟延履行利率" %}
             </button>
         </div>
-        
+
         <!-- LPR 模式 -->
         <div x-show="form.rate_mode === 'lpr'" class="lpr-calc__row">
             <div class="lpr-calc__field">
@@ -117,7 +117,7 @@
                 </select>
             </div>
         </div>
-        
+
         <!-- 自定义利率模式 -->
         <div x-show="form.rate_mode === 'custom'" class="lpr-calc__row">
             <div class="lpr-calc__field">
@@ -141,7 +141,7 @@
                 </select>
             </div>
         </div>
-        
+
         <!-- 迟延履行利率模式 -->
         <div x-show="form.rate_mode === 'delay'" class="lpr-calc__row">
             <div class="lpr-calc__field">
@@ -184,11 +184,11 @@
                 {% trans "清空" %}
             </button>
         </div>
-        
+
         <div x-show="history.length === 0" style="text-align: center; padding: 20px; color: #9ca3af; font-size: 13px;">
             {% trans "暂无历史记录" %}
         </div>
-        
+
         <div x-show="history.length > 0" style="max-height: 300px; overflow-y: auto;">
             <template x-for="item in history" :key="item.id">
                 <div style="display: flex; align-items: center; gap: 12px; padding: 10px; background: #fff; border-radius: 6px; margin-bottom: 8px; border: 1px solid #e5e7eb;">

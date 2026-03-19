@@ -77,7 +77,9 @@ class McpWorkbenchAdmin(admin.ModelAdmin[McpWorkbench]):
                     actor_username=actor_username,
                     actor_is_superuser=actor_is_superuser,
                 )
-                selected_provider = str(execution_result.get("provider", selected_provider) or selected_provider).strip()
+                selected_provider = str(
+                    execution_result.get("provider", selected_provider) or selected_provider
+                ).strip()
                 selected_tool_name = str(execution_result.get("tool", selected_tool_name) or selected_tool_name).strip()
                 arguments_payload = execution_result.get("arguments")
                 if isinstance(arguments_payload, dict):

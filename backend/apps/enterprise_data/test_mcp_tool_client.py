@@ -36,7 +36,11 @@ def _build_client(*, api_keys: tuple[str, ...]) -> McpToolClient:
 
 def _http_status_error(status_code: int) -> httpx.HTTPStatusError:
     request = httpx.Request("POST", "https://example.com/mcp")
-    body = '{"detail":"Internal server error during authentication","type":"auth_error"}' if status_code == 500 else f"status={status_code}"
+    body = (
+        '{"detail":"Internal server error during authentication","type":"auth_error"}'
+        if status_code == 500
+        else f"status={status_code}"
+    )
     response = httpx.Response(status_code=status_code, request=request, text=body)
     return httpx.HTTPStatusError(message=f"HTTP {status_code}", request=request, response=response)
 
@@ -49,7 +53,7 @@ def test_provider_registry_parses_multiple_tianyancha_api_keys() -> None:
                 "TIANYANCHA_MCP_TRANSPORT": "streamable_http",
                 "TIANYANCHA_MCP_BASE_URL": "https://example.com/mcp",
                 "TIANYANCHA_MCP_SSE_URL": "https://example.com/sse",
-                "TIANYANCHA_MCP_API_KEY": " key-a \nkey-b,key-c;key-b ",
+                "TIANYANCHA_MCP_API_KEY": " key-a \nkey-b,key-c;key-b ",  # pragma: allowlist secret
                 "TIANYANCHA_MCP_TIMEOUT_SECONDS": "30",
             }
         )
@@ -57,7 +61,7 @@ def test_provider_registry_parses_multiple_tianyancha_api_keys() -> None:
 
     provider = registry.get_provider("tianyancha")
 
-    assert provider._client._api_key == "key-a"
+    assert provider._client._api_key == "key-a"  # pragma: allowlist secret
     assert provider._client._api_key_pool.ordered_keys() == ["key-a", "key-b", "key-c"]
 
 
@@ -65,9 +69,11 @@ def test_call_tool_switches_to_next_api_key_after_auth_failure(monkeypatch: pyte
     client = _build_client(api_keys=("key-a", "key-b"))
     attempts: list[str] = []
 
-    async def fake_call_tool_async(*, transport: str, tool_name: str, arguments: dict[str, str], api_key: str) -> dict[str, object]:
+    async def fake_call_tool_async(
+        *, transport: str, tool_name: str, arguments: dict[str, str], api_key: str
+    ) -> dict[str, object]:
         attempts.append(api_key)
-        if api_key == "key-a":
+        if api_key == "key-a":  # pragma: allowlist secret
             raise AuthenticationError(message="bad key", code="MCP_AUTH_ERROR")
         return {
             "payload": {"selected_key": api_key},
@@ -97,7 +103,7 @@ def test_describe_tools_switches_to_next_api_key_after_remote_429(monkeypatch: p
 
     async def fake_describe_tools_async(*, transport: str, api_key: str) -> list[dict[str, object]]:
         attempts.append(api_key)
-        if api_key == "key-a":
+        if api_key == "key-a":  # pragma: allowlist secret
             raise _http_status_error(429)
         return [{"name": "search_companies", "description": "ok", "input_schema": {}}]
 
@@ -119,7 +125,9 @@ def test_call_tool_does_not_switch_api_key_for_validation_error(monkeypatch: pyt
     client = _build_client(api_keys=("key-a", "key-b"))
     attempts: list[str] = []
 
-    async def fake_call_tool_async(*, transport: str, tool_name: str, arguments: dict[str, str], api_key: str) -> dict[str, object]:
+    async def fake_call_tool_async(
+        *, transport: str, tool_name: str, arguments: dict[str, str], api_key: str
+    ) -> dict[str, object]:
         attempts.append(api_key)
         raise ValidationException(message="invalid arguments", code="INVALID_ARGUMENTS")
 
@@ -139,8 +147,8 @@ def test_streamable_http_unhealthy_cache_prefers_sse_after_known_gateway_failure
         transport="streamable_http",
         base_url="https://example.com/mcp",
         sse_url="https://example.com/sse",
-        api_key="key-a",
-        api_keys=("key-a",),
+        api_key="key-a",  # pragma: allowlist secret
+        api_keys=("key-a",),  # pragma: allowlist secret
         retry_max_attempts=1,
     )
     attempts: list[str] = []

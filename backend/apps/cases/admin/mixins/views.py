@@ -159,7 +159,9 @@ class CaseAdminViewsMixin:
             else str(_("未设置案件类型"))
         )
 
-        matched_case_file_templates, case_file_templates_missing_reason = service.get_case_file_templates_for_detail(case)
+        matched_case_file_templates, case_file_templates_missing_reason = service.get_case_file_templates_for_detail(
+            case
+        )
 
         grouped_case_file_templates = service.group_templates_by_sub_type(
             matched_case_file_templates,
@@ -186,7 +188,9 @@ class CaseAdminViewsMixin:
         unified_templates = template_binding_service.get_unified_templates(case.id)
         unified_templates_json = json_mod.dumps(unified_templates, ensure_ascii=False)
 
-        has_preservation_template, has_delay_delivery_template = service.detect_special_template_flags(unified_templates)
+        has_preservation_template, has_delay_delivery_template = service.detect_special_template_flags(
+            unified_templates
+        )
 
         context = self.admin_site.each_context(request)  # type: ignore[attr-defined]
         context.update(

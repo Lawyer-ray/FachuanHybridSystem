@@ -4,8 +4,8 @@ import logging
 import uuid
 import zipfile
 
-from apps.image_rotation.services import storage
 from apps.core.path import Path
+from apps.image_rotation.services import storage
 
 logger = logging.getLogger("apps.image_rotation")
 

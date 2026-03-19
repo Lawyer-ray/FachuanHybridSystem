@@ -296,13 +296,15 @@ class MockTrialFlowService:
         )
 
         # 发送进度更新
-        await send_cb({
-            "type": "progress",
-            "current": current_index + 1,
-            "total": total,
-            "percentage": int((current_index + 1) * 100 / total),
-            "message": f"正在分析证据 {current_index + 1}/{total}: {ev.get('name', '未命名')}",
-        })
+        await send_cb(
+            {
+                "type": "progress",
+                "current": current_index + 1,
+                "total": total,
+                "percentage": int((current_index + 1) * 100 / total),
+                "message": f"正在分析证据 {current_index + 1}/{total}: {ev.get('name', '未命名')}",
+            }
+        )
 
         from .cross_exam_service import CrossExamService
 

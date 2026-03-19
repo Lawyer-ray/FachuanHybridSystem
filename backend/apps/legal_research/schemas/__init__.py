@@ -1,4 +1,6 @@
 from .legal_research_schemas import (
+    AgentSearchRequestV1,
+    AgentSearchResponseV1,
     LegalResearchCreateOut,
     LegalResearchResultOut,
     LegalResearchTaskCreateIn,
@@ -6,6 +8,8 @@ from .legal_research_schemas import (
 )
 
 __all__ = [
+    "AgentSearchRequestV1",
+    "AgentSearchResponseV1",
     "LegalResearchCreateOut",
     "LegalResearchResultOut",
     "LegalResearchTaskCreateIn",

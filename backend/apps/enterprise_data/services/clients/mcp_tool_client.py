@@ -6,8 +6,8 @@ import hashlib
 import json
 import logging
 import time
-from contextlib import asynccontextmanager
 from collections.abc import Callable
+from contextlib import asynccontextmanager
 from typing import Any, TypeVar
 
 import httpx
@@ -189,7 +189,11 @@ class McpToolClient:
         return {"Authorization": f"{scheme} {str(api_key or self._api_key).strip()}"}
 
     def _transport_attempts(self) -> list[str]:
-        if self._transport == _TRANSPORT_STREAMABLE_HTTP and self._sse_url and self._is_transport_unhealthy(self._transport):
+        if (
+            self._transport == _TRANSPORT_STREAMABLE_HTTP
+            and self._sse_url
+            and self._is_transport_unhealthy(self._transport)
+        ):
             return [_TRANSPORT_SSE]
         attempts = [self._transport]
         if self._transport == _TRANSPORT_STREAMABLE_HTTP and self._sse_url:

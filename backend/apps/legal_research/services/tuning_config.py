@@ -68,12 +68,20 @@ class LegalResearchTuningConfig:
             return cls()
 
         return cls(
-            recall_weight_keyword=cls._get_float(config_service, "LEGAL_RESEARCH_RECALL_WEIGHT_KEYWORD", 0.18, 0.0, 3.0),
-            recall_weight_summary=cls._get_float(config_service, "LEGAL_RESEARCH_RECALL_WEIGHT_SUMMARY", 0.22, 0.0, 3.0),
+            recall_weight_keyword=cls._get_float(
+                config_service, "LEGAL_RESEARCH_RECALL_WEIGHT_KEYWORD", 0.18, 0.0, 3.0
+            ),
+            recall_weight_summary=cls._get_float(
+                config_service, "LEGAL_RESEARCH_RECALL_WEIGHT_SUMMARY", 0.22, 0.0, 3.0
+            ),
             recall_weight_bm25=cls._get_float(config_service, "LEGAL_RESEARCH_RECALL_WEIGHT_BM25", 0.22, 0.0, 3.0),
             recall_weight_vector=cls._get_float(config_service, "LEGAL_RESEARCH_RECALL_WEIGHT_VECTOR", 0.18, 0.0, 3.0),
-            recall_weight_passage=cls._get_float(config_service, "LEGAL_RESEARCH_RECALL_WEIGHT_PASSAGE", 0.16, 0.0, 3.0),
-            recall_weight_metadata=cls._get_float(config_service, "LEGAL_RESEARCH_RECALL_WEIGHT_METADATA", 0.04, 0.0, 3.0),
+            recall_weight_passage=cls._get_float(
+                config_service, "LEGAL_RESEARCH_RECALL_WEIGHT_PASSAGE", 0.16, 0.0, 3.0
+            ),
+            recall_weight_metadata=cls._get_float(
+                config_service, "LEGAL_RESEARCH_RECALL_WEIGHT_METADATA", 0.04, 0.0, 3.0
+            ),
             passage_top_k=cls._get_int(config_service, "LEGAL_RESEARCH_PASSAGE_TOP_K", 5, 1, 10),
             passage_max_chars=cls._get_int(config_service, "LEGAL_RESEARCH_PASSAGE_MAX_CHARS", 18000, 3000, 40000),
             passage_preview_max_chars=cls._get_int(
@@ -92,7 +100,9 @@ class LegalResearchTuningConfig:
                 0.0,
                 1.0,
             ),
-            feedback_score_margin=cls._get_float(config_service, "LEGAL_RESEARCH_FEEDBACK_SCORE_MARGIN", 0.22, 0.01, 0.6),
+            feedback_score_margin=cls._get_float(
+                config_service, "LEGAL_RESEARCH_FEEDBACK_SCORE_MARGIN", 0.22, 0.01, 0.6
+            ),
             query_variant_enabled=cls._get_bool(config_service, "LEGAL_RESEARCH_QUERY_VARIANT_ENABLED", True),
             query_variant_max_count=cls._get_int(
                 config_service,
@@ -275,7 +285,9 @@ class LegalResearchTuningConfig:
         return max(min_value, min(max_value, value))
 
     @staticmethod
-    def _get_float(config_service: _ConfigGetter, key: str, default: float, min_value: float, max_value: float) -> float:
+    def _get_float(
+        config_service: _ConfigGetter, key: str, default: float, min_value: float, max_value: float
+    ) -> float:
         raw = str(config_service.get_value(key, str(default)) or "").strip()
         try:
             value = float(raw)

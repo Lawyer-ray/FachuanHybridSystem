@@ -13,7 +13,7 @@ from apps.organization.services.organization_service_adapter import Organization
 def _create_lawyer(*, law_firm: LawFirm, is_admin: bool = False) -> Lawyer:
     return Lawyer.objects.create_user(
         username=f"lawyer-{uuid4().hex[:12]}",
-        password="testpass123",
+        password="testpass123",  # pragma: allowlist secret
         law_firm=law_firm,
         is_admin=is_admin,
     )

@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from ninja import Router
+
 from apps.client.schemas import EnterpriseClientPrefillOut, EnterpriseCompanySearchOut
 from apps.client.services.client_enterprise_prefill_service import ClientEnterprisePrefillService
 from apps.core.exceptions import ValidationException
-from ninja import Router
 
 router = Router(tags=["客户管理"])
 

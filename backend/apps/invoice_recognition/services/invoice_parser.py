@@ -186,4 +186,3 @@ class InvoiceParser:
     def _extract_project_name(self, text: str) -> str:
         m = self._PROJECT_PATTERN.search(text)
         return m.group(1).strip() if m else ""
-

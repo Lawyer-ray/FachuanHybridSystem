@@ -1,7 +1,5 @@
 """Fee notice recognition API."""
 
-from __future__ import annotations
-
 import logging
 from decimal import Decimal
 from pathlib import Path

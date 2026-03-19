@@ -79,10 +79,7 @@ class LPRSyncService:
             except Exception:
                 pass
 
-        raise BusinessException(
-            message=_("Chrome 启动失败，请手动启动后重试"),
-            code="CHROME_START_FAILED"
-        )
+        raise BusinessException(message=_("Chrome 启动失败，请手动启动后重试"), code="CHROME_START_FAILED")
 
     def sync_latest(self) -> dict:
         """同步最新LPR数据.
@@ -100,16 +97,10 @@ class LPRSyncService:
             lpr_data_list = self._fetch_with_playwright()
         except Exception as e:
             logger.error(f"[LPRSync] Fetch failed: {e}")
-            raise BusinessException(
-                message=_(f"获取LPR数据失败: {e}"),
-                code="LPR_SYNC_FAILED"
-            )
+            raise BusinessException(message=_(f"获取LPR数据失败: {e}"), code="LPR_SYNC_FAILED")
 
         if not lpr_data_list:
-            raise BusinessException(
-                message=_("无法从央行官网获取LPR数据，未找到有效数据"),
-                code="LPR_SYNC_FAILED"
-            )
+            raise BusinessException(message=_("无法从央行官网获取LPR数据，未找到有效数据"), code="LPR_SYNC_FAILED")
 
         # 保存到数据库
         return self._save_lpr_data(lpr_data_list)
@@ -195,11 +186,9 @@ class LPRSyncService:
                 if rate_1y is None:
                     continue
 
-                lpr_data_list.append(LPRData(
-                    effective_date=effective_date,
-                    rate_1y=rate_1y,
-                    rate_5y=rate_5y or rate_1y
-                ))
+                lpr_data_list.append(
+                    LPRData(effective_date=effective_date, rate_1y=rate_1y, rate_5y=rate_5y or rate_1y)
+                )
 
             except Exception as e:
                 logger.debug(f"[LPRSync] Failed to parse row: {e}")
@@ -291,7 +280,7 @@ class LPRSyncService:
                             "rate_5y": data.rate_5y,
                             "source": self.source,
                             "is_auto_synced": True,
-                        }
+                        },
                     )
                     if created:
                         created_count += 1

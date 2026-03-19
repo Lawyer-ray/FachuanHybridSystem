@@ -133,4 +133,3 @@ class InvoiceRecord(models.Model):
 
     def __str__(self) -> str:
         return f"{self.original_filename} ({self.get_status_display()})"
-

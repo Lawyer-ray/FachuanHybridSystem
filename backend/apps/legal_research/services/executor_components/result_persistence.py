@@ -12,6 +12,8 @@ from apps.legal_research.services.sources import CaseDetail
 
 
 class ExecutorResultPersistenceMixin:
+    CONTENT_EXCERPT_MAX_CHARS = 12000
+
     @staticmethod
     @transaction.atomic
     def _save_result(
@@ -37,6 +39,9 @@ class ExecutorResultPersistenceMixin:
             metadata["coarse_reason"] = str(coarse_reason)[:240]
         if extra_metadata:
             metadata.update(extra_metadata)
+        content_excerpt = ExecutorResultPersistenceMixin._build_content_excerpt(detail.content_text)
+        if content_excerpt:
+            metadata["content_excerpt"] = content_excerpt
 
         result, _ = LegalResearchResult.objects.get_or_create(
             task=task,
@@ -56,7 +61,9 @@ class ExecutorResultPersistenceMixin:
         )
 
         if not result.pdf_file:
-            safe_filename = ExecutorResultPersistenceMixin._sanitize_pdf_filename(filename, fallback=detail.doc_id_unquoted)
+            safe_filename = ExecutorResultPersistenceMixin._sanitize_pdf_filename(
+                filename, fallback=detail.doc_id_unquoted
+            )
             result.pdf_file.save(safe_filename, ContentFile(pdf_bytes), save=False)
 
         result.rank = rank
@@ -88,6 +95,16 @@ class ExecutorResultPersistenceMixin:
         if not normalized:
             return {}
         return {"similarity_structured": normalized}
+
+    @staticmethod
+    def _build_content_excerpt(content_text: str) -> str:
+        text = str(content_text or "").strip()
+        if not text:
+            return ""
+        normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+        normalized = re.sub(r"[ \t]+", " ", normalized)
+        normalized = re.sub(r"\n{3,}", "\n\n", normalized).strip()
+        return normalized[: ExecutorResultPersistenceMixin.CONTENT_EXCERPT_MAX_CHARS]
 
     @staticmethod
     def _sanitize_pdf_filename(filename: str, *, fallback: str) -> str:

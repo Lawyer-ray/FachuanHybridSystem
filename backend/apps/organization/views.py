@@ -6,7 +6,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.utils.translation import gettext_lazy as _
 
-from apps.organization.services.auth_service import AuthService, AUTO_REGISTER_BOOTSTRAP_USERNAME
+from apps.organization.services.auth_service import AUTO_REGISTER_BOOTSTRAP_USERNAME, AuthService
 
 from .forms import LawyerRegistrationForm
 
@@ -29,7 +29,8 @@ def register(request: HttpRequest) -> HttpResponse:
             login(request, user)
             messages.success(
                 request,
-                _("已自动创建超级管理员账户“%(name)s”，并为您完成登录。") % {"name": user.real_name or AUTO_REGISTER_BOOTSTRAP_USERNAME},
+                _("已自动创建超级管理员账户“%(name)s”，并为您完成登录。")
+                % {"name": user.real_name or AUTO_REGISTER_BOOTSTRAP_USERNAME},
             )
             return redirect("admin:index")
 

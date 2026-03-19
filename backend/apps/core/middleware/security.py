@@ -7,8 +7,7 @@
 import logging
 import os
 import time
-from collections.abc import Iterable, Mapping
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Mapping
 
 from django.conf import settings
 from django.http import HttpRequest, HttpResponse

@@ -52,9 +52,7 @@ class GsxtReportAdapter:
 
     def start_login(self, credential_id: int, task_id: int) -> None:
         """启动登录流程。"""
-        from apps.automation.services.gsxt.gsxt_login_service import (
-            start_login_gsxt,
-        )
+        from apps.automation.services.gsxt.gsxt_login_service import start_login_gsxt
 
         account_credential_model = _get_account_credential_model()
         credential = account_credential_model.objects.get(pk=credential_id)

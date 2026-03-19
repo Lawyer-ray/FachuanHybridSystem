@@ -125,11 +125,12 @@ def delete_session(request: HttpRequest, session_id: str) -> Any:
 @rate_limit_from_settings("EXPORT", by_user=True)
 def export_report(request: HttpRequest, session_id: str) -> Any:
     """导出模拟庭审报告为Word文档."""
-    from asgiref.sync import async_to_sync
     from pathlib import Path
 
-    from apps.litigation_ai.services.mock_trial.report_service import MockTrialReportService
+    from asgiref.sync import async_to_sync
+
     from apps.litigation_ai.services.mock_trial.export_service import MockTrialExportService
+    from apps.litigation_ai.services.mock_trial.report_service import MockTrialReportService
 
     # 获取报告数据
     report_data = async_to_sync(MockTrialReportService().get_report)(session_id)

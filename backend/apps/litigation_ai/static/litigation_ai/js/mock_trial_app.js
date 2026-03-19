@@ -134,7 +134,7 @@ function mockTrialApp(config = {}) {
                     credentials: 'include'
                 });
                 if (!resp.ok) throw new Error('导出失败');
-                
+
                 // 下载文件
                 const blob = await resp.blob();
                 const url = window.URL.createObjectURL(blob);
@@ -158,17 +158,17 @@ function mockTrialApp(config = {}) {
             const url = `${protocol}//${location.host}/ws/mock-trial/sessions/${sessionId}/`;
             this.ws = new WebSocket(url);
 
-            this.ws.onopen = () => { 
-                this.loading = false; 
+            this.ws.onopen = () => {
+                this.loading = false;
                 this.retryCount = 0;
             };
             this.ws.onmessage = (e) => this.handleWsMessage(JSON.parse(e.data));
-            this.ws.onerror = (e) => { 
-                console.error('WS error:', e); 
+            this.ws.onerror = (e) => {
+                console.error('WS error:', e);
                 this.loading = false;
                 this.lastError = e;
             };
-            this.ws.onclose = () => { 
+            this.ws.onclose = () => {
                 this.loading = false;
                 // 自动重连
                 if (this.retryCount < this.maxRetries && this.sessionId) {

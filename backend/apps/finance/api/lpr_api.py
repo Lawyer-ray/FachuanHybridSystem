@@ -1,5 +1,4 @@
-"""LPR相关API端点.
-"""
+"""LPR相关API端点."""
 
 from __future__ import annotations
 
@@ -94,6 +93,7 @@ def get_latest_lpr_rate(request: HttpRequest) -> LPRRateSchema:
     rate = LPRRate.objects.first()
     if not rate:
         from apps.core.exceptions import NotFoundException
+
         raise NotFoundException(message="暂无LPR利率数据", code="LPR_RATE_NOT_FOUND")
 
     return LPRRateSchema(
@@ -130,10 +130,8 @@ def sync_lpr_rates(
     # 检查权限
     if not user.is_staff:
         from apps.core.exceptions import PermissionDeniedException
-        raise PermissionDeniedException(
-            message="需要管理员权限才能同步LPR数据",
-            code="PERMISSION_DENIED"
-        )
+
+        raise PermissionDeniedException(message="需要管理员权限才能同步LPR数据", code="PERMISSION_DENIED")
 
     logger.info(f"[LPRSync] User {user.id} triggered manual LPR sync")
 

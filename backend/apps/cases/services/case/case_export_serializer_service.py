@@ -84,7 +84,9 @@ def serialize_case_obj(obj: Case) -> SerializedPayload:
         "supervising_authorities": [
             {"name": sa.name, "authority_type": sa.authority_type} for sa in obj.supervising_authorities.all()
         ],
-        "case_numbers": [{"number": cn.number, "is_active": cn.is_active, "remarks": cn.remarks} for cn in obj.case_numbers.all()],
+        "case_numbers": [
+            {"number": cn.number, "is_active": cn.is_active, "remarks": cn.remarks} for cn in obj.case_numbers.all()
+        ],
         "chats": [
             {
                 "platform": ch.platform,

@@ -16,13 +16,11 @@ def check_gsxt_report_email(task_id: int, company_name: str) -> None:
     Django-Q 任务：检查邮箱是否收到企业信用报告，收到则保存为营业执照附件。
     未收到时重新入队（60秒后再试），直到任务状态不再是 WAITING_EMAIL 为止。
     """
-    from apps.automation.models.gsxt_report import GsxtReportStatus, GsxtReportTask
-    from apps.automation.services.gsxt.gsxt_email_service import (
-        EMAIL_CREDENTIAL_ID,
-        _fetch_report_attachment,
-    )
     from django.conf import settings
     from django_q.tasks import async_task
+
+    from apps.automation.models.gsxt_report import GsxtReportStatus, GsxtReportTask
+    from apps.automation.services.gsxt.gsxt_email_service import EMAIL_CREDENTIAL_ID, _fetch_report_attachment
 
     task = GsxtReportTask.objects.select_related("client").get(pk=task_id)
 

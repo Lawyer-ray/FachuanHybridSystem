@@ -3,4 +3,3 @@
 from .image_rotation_api import router
 
 __all__ = ["router"]
-

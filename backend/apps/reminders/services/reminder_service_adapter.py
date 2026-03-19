@@ -255,14 +255,18 @@ class ReminderServiceAdapter(ReminderService):
             normalized_ids.append(case_log_id)
 
         results: dict[int, list[dict[str, Any]]] = {case_log_id: [] for case_log_id in normalized_ids}
-        rows = Reminder.objects.filter(case_log_id__in=normalized_ids).order_by("case_log_id", "due_at", "id").values(
-            "id",
-            "contract_id",
-            "case_log_id",
-            "reminder_type",
-            "content",
-            "due_at",
-            "metadata",
+        rows = (
+            Reminder.objects.filter(case_log_id__in=normalized_ids)
+            .order_by("case_log_id", "due_at", "id")
+            .values(
+                "id",
+                "contract_id",
+                "case_log_id",
+                "reminder_type",
+                "content",
+                "due_at",
+                "metadata",
+            )
         )
         for row in rows:
             case_log_id = int(row["case_log_id"])

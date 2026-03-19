@@ -92,7 +92,10 @@ class TianyanchaMcpProvider:
         item = self._adapter.extract_primary_dict(result["payload"])
         data = self._adapter.normalize_company_profile(item)
         has_key_fields = bool(
-            data.get("company_name") or data.get("unified_social_credit_code") or data.get("legal_person") or data.get("address")
+            data.get("company_name")
+            or data.get("unified_social_credit_code")
+            or data.get("legal_person")
+            or data.get("address")
         )
         if not has_key_fields:
             parsed_markdown_profile = self._adapter.parse_company_profile_markdown(result["payload"])
@@ -191,8 +194,12 @@ class TianyanchaMcpProvider:
         )
 
     def _build_response_meta(self, transport_result: dict[str, Any]) -> dict[str, Any]:
-        requested_transport = str(transport_result.get("requested_transport", self.transport) or "").strip() or self.transport
-        actual_transport = str(transport_result.get("transport", requested_transport) or "").strip() or requested_transport
+        requested_transport = (
+            str(transport_result.get("requested_transport", self.transport) or "").strip() or self.transport
+        )
+        actual_transport = (
+            str(transport_result.get("transport", requested_transport) or "").strip() or requested_transport
+        )
         return {
             "transport": actual_transport,
             "requested_transport": requested_transport,

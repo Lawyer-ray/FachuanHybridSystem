@@ -63,9 +63,10 @@ def _ensure_chrome_running() -> None:
 
 async def _do_login_and_wait(credential: GsxtCredentialProtocol, task_id: int) -> None:
     """连接 Chrome，填账号密码，等待用户完成验证码，检测登录成功后更新任务状态。"""
-    from apps.automation.models.gsxt_report import GsxtReportStatus, GsxtReportTask
     from asgiref.sync import sync_to_async
     from playwright.async_api import async_playwright
+
+    from apps.automation.models.gsxt_report import GsxtReportStatus, GsxtReportTask
 
     get_task = sync_to_async(GsxtReportTask.objects.get)
 
@@ -108,6 +109,7 @@ async def _do_login_and_wait(credential: GsxtCredentialProtocol, task_id: int) -
                 await sync_to_async(_save_task)(task, ["status"])
 
                 from apps.automation.services.gsxt.gsxt_report_service import start_report_flow
+
                 start_report_flow(task_id)
             else:
                 task.status = GsxtReportStatus.FAILED

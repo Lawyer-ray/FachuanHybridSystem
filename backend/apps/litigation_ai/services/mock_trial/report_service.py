@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import logging
+from datetime import UTC
 from typing import Any
 
 from asgiref.sync import sync_to_async
-from datetime import UTC
 
 logger = logging.getLogger("apps.litigation_ai")
 

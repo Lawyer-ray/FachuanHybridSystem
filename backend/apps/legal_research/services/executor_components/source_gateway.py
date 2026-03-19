@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import inspect
 import logging
+import random
 import time
 from typing import Any
 
@@ -147,7 +148,13 @@ class ExecutorSourceGatewayMixin:
     def _sleep_for_retry(cls, *, attempt: int) -> None:
         if cls.RETRY_BACKOFF_SECONDS <= 0:
             return
-        time.sleep(cls.RETRY_BACKOFF_SECONDS * max(1, attempt))
+        base = float(cls.RETRY_BACKOFF_SECONDS)
+        growth = 2 ** max(0, int(attempt) - 1)
+        delay = base * growth
+        max_delay = max(base, float(getattr(cls, "RETRY_BACKOFF_MAX_SECONDS", 6.0)))
+        delay = min(delay, max_delay)
+        jitter = random.uniform(0.0, delay * 0.25)
+        time.sleep(delay + jitter)
 
     @classmethod
     def _fetch_candidate_batch(

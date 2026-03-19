@@ -13,6 +13,7 @@ from apps.core.infrastructure import CacheKeys
 def _get_cache_version(version_key: str) -> int:
     return int(cache.get(version_key) or 1)
 
+
 logger = logging.getLogger("apps.contracts")
 
 # 缓存配置
@@ -83,11 +84,13 @@ class ContractTemplateCache:
         # 清除当前版本的缓存键
         doc_ver = self._get_document_version()
         folder_ver = self._get_folder_version()
-        cache.delete_many([
-            self._get_cache_key(case_type, "document_templates", doc_ver),
-            self._get_cache_key(case_type, "folder_templates", folder_ver),
-            self._get_cache_key(case_type, "check_templates", doc_ver),
-        ])
+        cache.delete_many(
+            [
+                self._get_cache_key(case_type, "document_templates", doc_ver),
+                self._get_cache_key(case_type, "folder_templates", folder_ver),
+                self._get_cache_key(case_type, "check_templates", doc_ver),
+            ]
+        )
         logger.info("清除案件类型 %s 的模板缓存", case_type)
 
     def clear_all_cache(self) -> None:

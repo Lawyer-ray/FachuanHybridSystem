@@ -10,8 +10,8 @@ from hmac import compare_digest
 
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
-from django.http import HttpRequest
 from django.db import transaction
+from django.http import HttpRequest
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import AuthenticationError, PermissionDenied
@@ -20,7 +20,7 @@ from apps.organization.models import Lawyer
 
 AUTO_REGISTER_BOOTSTRAP_USED_KEY = "ADMIN_REGISTER_AUTO_BOOTSTRAP_USED"
 AUTO_REGISTER_BOOTSTRAP_USERNAME = "法穿"
-AUTO_REGISTER_BOOTSTRAP_PASSWORD = "1234qwer"
+AUTO_REGISTER_BOOTSTRAP_PASSWORD = "1234qwer"  # pragma: allowlist secret
 
 
 @dataclass

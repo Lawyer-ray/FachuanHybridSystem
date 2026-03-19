@@ -200,7 +200,11 @@ class SystemConfigAdmin(admin.ModelAdmin[SystemConfig]):
             except Exception:
                 plain_value = value
 
-        segments = [segment.strip() for segment in plain_value.replace(";", "\n").replace(",", "\n").splitlines() if segment.strip()]
+        segments = [
+            segment.strip()
+            for segment in plain_value.replace(";", "\n").replace(",", "\n").splitlines()
+            if segment.strip()
+        ]
         if len(segments) > 1:
             return f"已配置 {len(segments)} 个值"
 

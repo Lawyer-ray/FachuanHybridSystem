@@ -70,7 +70,9 @@ class LLMClient:
         **kwargs: Any,
     ) -> LLMResponse:
         async def operation(b: ILLMBackend) -> LLMResponse:
-            return await b.achat(messages=messages, model=model, temperature=temperature, max_tokens=max_tokens, **kwargs)
+            return await b.achat(
+                messages=messages, model=model, temperature=temperature, max_tokens=max_tokens, **kwargs
+            )
 
         backend_name = backend or self._default_backend
         return cast(

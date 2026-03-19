@@ -2,6 +2,45 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.17.5] - 2026-03-19
+
+### 新增
+- **法律检索能力契约（Agent/MCP 可直接调用）**
+  - 新增能力请求/响应契约：`AgentSearchRequestV1`、`AgentSearchResponseV1`、`RetrievalHitV1`
+  - 新增能力接口：`/api/v1/legal-research/capability/search` 与 `/api/v1/legal-research/capability/search/mcp`
+  - 新增 `search_mode`（`expanded` / `single`）并落库到任务模型，支持“扩展检索”和“单检索”切换
+
+### 优化
+- **法律检索执行链路增强**
+  - Executor 新增查询轨迹输出：`primary_queries`、`expansion_queries`、`feedback_queries`、`query_stats`
+  - 单检索模式下禁用扩展词与反馈扩展，确保“仅原始检索式”执行语义
+  - 能力服务新增幂等键缓存、并发闸门、超时控制与短时失败熔断，并输出结构化降级标记（如 `partial_result` / `constraint_unsatisfied`）
+  - 检索结果新增四段片段抽取：`claims`、`findings`、`reasoning`、`holdings`，并补充 Agent 友好的摘要字段
+- **评测脚本升级（基线可量化）**
+  - benchmark 命令新增评测口径：`closed` / `pooled`
+  - 新增 `--eval-top-k`、`relevance_judgments`、`ndcg@k`、`anchor_hit_at_k`、`judged/unjudged` 统计
+  - 新增按查询类型贡献率输出（primary / expansion / feedback）
+- **稳定性与运行安全**
+  - ORM 写入路径新增异步上下文隔离兜底（线程执行 + 连接清理），降低同步 ORM 被异步上下文污染风险
+  - 检索与传输重试改为指数退避 + 抖动（jitter），并增加退避上限
+- **Admin 可观测性增强**
+  - 任务页增加 `search_mode` 展示与编辑
+  - 阶段指标增加能力直连成功率、超时/繁忙/降级计数，并保留 API 命中率、DOM 回退率与错误码分布
+- **预提交密钥扫描治理**
+  - 对保留的引导口令与测试样例口令补充 `# pragma: allowlist secret`，避免误报阻断提交
+  - 刷新 `backend/.secrets.baseline`，与当前仓库扫描结果保持一致
+- **跨模块规范化收敛（无业务语义变更）**
+  - 结合 `ruff/isort` 与结构约束，对若干模块进行导入顺序与代码格式统一，减少后续冲突与噪声 diff
+
+### 测试
+- 新增/更新能力与稳定性相关测试：
+  - `tests/ci/integration/test_legal_research_capability_api.py`
+  - `tests/ci/unit/test_legal_research_capability_service.py`
+  - `tests/ci/unit/test_legal_research_capability_mcp_wrapper.py`
+  - `tests/ci/unit/test_legal_research_retry_backoff.py`
+  - `tests/ci/unit/test_legal_research_task_admin_metrics.py`
+- 本地复跑：`pre-commit run --all-files` 通过
+
 ## [26.17.4] - 2026-03-18
 
 ### 优化

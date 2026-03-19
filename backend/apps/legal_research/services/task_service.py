@@ -10,7 +10,12 @@ from django.utils import timezone
 from apps.core.exceptions import NotFoundError, PermissionDenied, ValidationException
 from apps.core.interfaces import ServiceLocator
 from apps.core.llm.config import LLMConfig
-from apps.legal_research.models import LegalResearchResult, LegalResearchTask, LegalResearchTaskStatus
+from apps.legal_research.models import (
+    LegalResearchResult,
+    LegalResearchSearchMode,
+    LegalResearchTask,
+    LegalResearchTaskStatus,
+)
 from apps.legal_research.schemas import LegalResearchTaskCreateIn
 from apps.legal_research.services.keywords import normalize_keyword_query
 from apps.legal_research.services.llm_preflight import verify_siliconflow_connectivity
@@ -32,9 +37,11 @@ class LegalResearchTaskService:
 
     def create_task(self, *, payload: LegalResearchTaskCreateIn, user: Any | None) -> LegalResearchTask:
         credential_model = _get_account_credential_model()
-        credential = credential_model.objects.select_related("lawyer", "lawyer__law_firm").filter(
-            id=payload.credential_id
-        ).first()
+        credential = (
+            credential_model.objects.select_related("lawyer", "lawyer__law_firm")
+            .filter(id=payload.credential_id)
+            .first()
+        )
         if credential is None:
             raise NotFoundError("账号凭证不存在")
 
@@ -56,6 +63,7 @@ class LegalResearchTaskService:
             credential=credential,
             keyword=normalized_keyword,
             case_summary=payload.case_summary.strip(),
+            search_mode=payload.search_mode or LegalResearchSearchMode.EXPANDED,
             target_count=payload.target_count,
             max_candidates=payload.max_candidates,
             min_similarity_score=payload.min_similarity_score,
@@ -210,8 +218,12 @@ class LegalResearchTaskService:
     def _is_weike_credential(cls, credential: Any) -> bool:
         site_name = (credential.site_name or "").strip().lower()
         url = (credential.url or "").strip().lower()
-        return ("wkxx" in site_name) or (site_name == "wk") or ("weike" in site_name) or ("wkinfo" in site_name) or (
-            cls._WEIKE_URL_KEYWORD in url
+        return (
+            ("wkxx" in site_name)
+            or (site_name == "wk")
+            or ("weike" in site_name)
+            or ("wkinfo" in site_name)
+            or (cls._WEIKE_URL_KEYWORD in url)
         )
 
     def _mark_precheck_failed(self, *, task: LegalResearchTask, error_message: str) -> None:

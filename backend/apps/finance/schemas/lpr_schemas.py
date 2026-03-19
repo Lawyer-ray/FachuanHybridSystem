@@ -1,5 +1,4 @@
-"""LPR相关API Schema定义.
-"""
+"""LPR相关API Schema定义."""
 
 from __future__ import annotations
 
@@ -82,7 +81,8 @@ class InterestCalculateRequest(Schema):
     # 通用参数
     year_days: int = Field(360, description="年基准天数(360/365/0实际天数)")
     date_inclusion: Literal["both", "start_only", "end_only", "neither"] = Field(
-        "both", description="日期计算方式: both=均计算在内, start_only=仅起始日期, end_only=仅截止日期, neither=均不计算"
+        "both",
+        description="日期计算方式: both=均计算在内, start_only=仅起始日期, end_only=仅截止日期, neither=均不计算",
     )
     principal_changes: list[PrincipalChangeSchema] | None = Field(
         None, description="本金变动列表（如提供则使用变动本金计算，此时不需要start_date/end_date/principal）"

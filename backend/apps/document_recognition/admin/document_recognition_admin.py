@@ -101,7 +101,19 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin[DocumentRecognitionTask]):
     ]
     fieldsets = (
         (_("基本信息"), {"fields": ("id", "original_filename", "file_path", "status")}),
-        (_("识别结果"), {"fields": ("document_type", "case_number", "key_time", "confidence", "extraction_method", "renamed_file_path")}),
+        (
+            _("识别结果"),
+            {
+                "fields": (
+                    "document_type",
+                    "case_number",
+                    "key_time",
+                    "confidence",
+                    "extraction_method",
+                    "renamed_file_path",
+                )
+            },
+        ),
         (_("原始文本"), {"fields": ("raw_text_display",), "classes": ("collapse",)}),
         (_("绑定结果"), {"fields": ("binding_success", "case", "case_log", "binding_message", "binding_error_code")}),
         (

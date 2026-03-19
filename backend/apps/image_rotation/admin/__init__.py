@@ -3,4 +3,3 @@
 from .image_rotation_admin import ImageRotationAdmin
 
 __all__ = ["ImageRotationAdmin"]
-

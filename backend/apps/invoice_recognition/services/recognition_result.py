@@ -13,4 +13,3 @@ class RecognitionResult:
     success: bool
     data: ParsedInvoice | None = None
     error: str | None = None
-

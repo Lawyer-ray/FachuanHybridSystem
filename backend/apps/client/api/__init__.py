@@ -4,8 +4,8 @@ Client App API 模块
 
 from ninja import Router
 
-from .client_enterprise_api import router as client_enterprise_router
 from .client_api import router as client_router
+from .client_enterprise_api import router as client_enterprise_router
 from .clientidentitydoc_api import router as clientidentitydoc_router
 from .property_clue_api import router as property_clue_router
 

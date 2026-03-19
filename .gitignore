@@ -171,7 +171,7 @@ backend/bilibili_screenshot.png
 !backend/apps/**/static/**/*.png
 /assets/videos/ggbond-competition-20260128.mp4
 
-# docs 目录（个人分析文档，不公开）
+# docs 目录（个人分析文档，不公开；不要对白名单文件开放跟踪）
 docs/
 
 # SQLite 数据库（包括备份变体）

@@ -297,9 +297,7 @@ class JtnFilingScript:
         """
         try:
             # 检查客户名称列（第4列，index=3）是否有实际内容
-            name_cells = iframe.locator(
-                'xpath=//*[@id="form1"]/div[5]/div[2]/div[2]/table/tbody/tr/td[4]/div'
-            )
+            name_cells = iframe.locator('xpath=//*[@id="form1"]/div[5]/div[2]/div[2]/table/tbody/tr/td[4]/div')
             if name_cells.count() == 0:
                 return False
             first_name = name_cells.first.inner_text().strip()

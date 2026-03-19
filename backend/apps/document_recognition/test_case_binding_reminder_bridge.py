@@ -16,7 +16,9 @@ class _CaseServiceSpy:
         self.update_result = update_result
         self.calls: list[dict[str, Any]] = []
 
-    def update_case_log_reminder_internal(self, *, case_log_id: int, reminder_time: datetime, reminder_type: str) -> bool:
+    def update_case_log_reminder_internal(
+        self, *, case_log_id: int, reminder_time: datetime, reminder_type: str
+    ) -> bool:
         self.calls.append(
             {
                 "case_log_id": case_log_id,

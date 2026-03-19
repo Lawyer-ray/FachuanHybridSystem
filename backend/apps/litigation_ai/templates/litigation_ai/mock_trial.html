@@ -23,8 +23,8 @@
         <div class="mt-header-right">
             <span class="session-status" x-show="sessionId" x-text="statusText"></span>
             <!-- 导出按钮 -->
-            <button x-show="sessionId && statusText === '已完成'" 
-                    @click="exportReport()" 
+            <button x-show="sessionId && statusText === '已完成'"
+                    @click="exportReport()"
                     :disabled="exporting"
                     class="btn-export">
                 <span x-show="!exporting">📥 {% trans "导出报告" %}</span>

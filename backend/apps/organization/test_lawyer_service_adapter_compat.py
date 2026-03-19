@@ -11,14 +11,14 @@ def test_lawyer_service_adapter_public_and_internal_admin_lookup_are_compatible(
     law_firm = LawFirm.objects.create(name="测试律所")
     Lawyer.objects.create_user(
         username="normal-user",
-        password="secret",
+        password="secret",  # pragma: allowlist secret
         real_name="普通律师",
         law_firm=law_firm,
         is_admin=False,
     )
     admin_user = Lawyer.objects.create_user(
         username="admin-user",
-        password="secret",
+        password="secret",  # pragma: allowlist secret
         real_name="管理员律师",
         law_firm=law_firm,
         is_admin=True,
@@ -40,13 +40,13 @@ def test_lawyer_service_adapter_public_and_internal_name_listing_are_compatible(
     law_firm = LawFirm.objects.create(name="测试律所")
     Lawyer.objects.create_user(
         username="user-a",
-        password="secret",
+        password="secret",  # pragma: allowlist secret
         real_name="张三",
         law_firm=law_firm,
     )
     Lawyer.objects.create_user(
         username="user-b",
-        password="secret",
+        password="secret",  # pragma: allowlist secret
         real_name="李四",
         law_firm=law_firm,
     )
@@ -62,7 +62,7 @@ def test_lawyer_service_adapter_public_and_internal_model_lookup_are_compatible(
     law_firm = LawFirm.objects.create(name="测试律所")
     lawyer = Lawyer.objects.create_user(
         username="lookup-user",
-        password="secret",
+        password="secret",  # pragma: allowlist secret
         real_name="待查询律师",
         law_firm=law_firm,
     )

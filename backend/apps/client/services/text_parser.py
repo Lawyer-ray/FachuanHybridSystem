@@ -81,9 +81,7 @@ _ROLE_SPLIT_STRS: list[str] = [
 _ROLE_SPLIT_PATTERNS: list[re.Pattern[str]] = [re.compile(p, re.IGNORECASE) for p in _ROLE_SPLIT_STRS]
 
 # 角色标签 + 名称捕获模式（用于提取名称）
-_ROLE_NAME_PATTERNS: list[re.Pattern[str]] = [
-    re.compile(rf"{p}([^\n]+)", re.IGNORECASE) for p in _ROLE_SPLIT_STRS
-]
+_ROLE_NAME_PATTERNS: list[re.Pattern[str]] = [re.compile(rf"{p}([^\n]+)", re.IGNORECASE) for p in _ROLE_SPLIT_STRS]
 
 
 _ETHNICITY_PATTERN = re.compile(
@@ -207,9 +205,7 @@ _FIELD_KEYWORDS_PATTERN = re.compile(r"(?<!\n)(" + "|".join(re.escape(kw) for kw
 _INLINE_BREAK_KEYWORDS_ALT = "|".join(
     re.escape(keyword) for keyword in dict.fromkeys([*_FIELD_KEYWORDS, *_ROLE_LABELS])
 )
-_INLINE_BREAK_PATTERN = re.compile(
-    rf"(?<!\n)(?<=\S)\s+(?=(?:{_INLINE_BREAK_KEYWORDS_ALT})\s*(?:[:：]|为|是|\S))"
-)
+_INLINE_BREAK_PATTERN = re.compile(rf"(?<!\n)(?<=\S)\s+(?=(?:{_INLINE_BREAK_KEYWORDS_ALT})\s*(?:[:：]|为|是|\S))")
 _FULL_STOP_BREAK_PATTERN = re.compile(r"[。]+(?=\s*\S)")
 
 

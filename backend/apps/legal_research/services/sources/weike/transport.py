@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import random
 import time
 from collections.abc import Callable, Iterable
 from typing import Any
@@ -134,7 +135,10 @@ class WeikeTransportMixin:
     def _sleep_for_retry(*, attempt: int, base_seconds: float) -> None:
         if base_seconds <= 0:
             return
-        time.sleep(base_seconds * max(1, attempt))
+        delay = float(base_seconds) * (2 ** max(0, int(attempt) - 1))
+        delay = min(delay, max(float(base_seconds), 6.0))
+        jitter = random.uniform(0.0, delay * 0.25)
+        time.sleep(delay + jitter)
 
     @staticmethod
     def _response_status(response: Any) -> int:

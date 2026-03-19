@@ -51,9 +51,7 @@ class FeeNoticeExtractionService:
     def text_service(self) -> TextExtractionService:
         """延迟加载文本提取服务"""
         if self._text_service is None:
-            from apps.document_recognition.services.text_extraction_service import (
-                TextExtractionService,
-            )
+            from apps.document_recognition.services.text_extraction_service import TextExtractionService
 
             self._text_service = TextExtractionService()
         return self._text_service

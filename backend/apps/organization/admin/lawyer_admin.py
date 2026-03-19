@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, ClassVar
-
 import zipfile
+from typing import Any, ClassVar
 
 from django import forms
 from django.contrib import admin
@@ -40,7 +39,19 @@ class LawyerAdminForm(forms.ModelForm[Lawyer]):
 
     class Meta:
         model = Lawyer
-        fields = ("username", "password", "real_name", "phone", "license_no", "id_card", "license_pdf", "is_active", "is_admin", "is_staff", "is_superuser")
+        fields = (
+            "username",
+            "password",
+            "real_name",
+            "phone",
+            "license_no",
+            "id_card",
+            "license_pdf",
+            "is_active",
+            "is_admin",
+            "is_staff",
+            "is_superuser",
+        )
         widgets: ClassVar[dict[str, Any]] = {
             # Existing password value remains read-only; do not turn this back into editable plain text.
             "password": forms.TextInput(attrs={"readonly": True, "style": "color:#999;background:#f5f5f5;"}),
@@ -132,36 +143,34 @@ class LawyerAdmin(AdminImportExportMixin, admin.ModelAdmin[Lawyer]):
         obj.biz_teams.set([bt] if bt else [])
 
     def get_file_paths(self, queryset: Any) -> list[str]:
-        return [
-            str(obj.license_pdf)
-            for obj in queryset
-            if obj.license_pdf
-        ]
+        return [str(obj.license_pdf) for obj in queryset if obj.license_pdf]
 
     def serialize_queryset(self, queryset: Any) -> list[dict[str, Any]]:
         result = []
         for obj in queryset.prefetch_related("lawyer_teams", "biz_teams", "credentials"):
-            result.append({
-                "username": obj.username,
-                "real_name": obj.real_name,
-                "phone": obj.phone or "",
-                "license_no": obj.license_no,
-                "id_card": obj.id_card,
-                "license_pdf": str(obj.license_pdf) if obj.license_pdf else "",
-                "password": "",  # 导入时填写明文密码，留空则随机生成
-                "is_admin": obj.is_admin,
-                "is_active": obj.is_active,
-                "law_firm": obj.law_firm.name if obj.law_firm else None,
-                "lawyer_teams": [
-                    {"name": t.name, "law_firm": t.law_firm.name if t.law_firm else None}
-                    for t in obj.lawyer_teams.all()
-                ],
-                "biz_teams": [t.name for t in obj.biz_teams.all()],
-                "credentials": [
-                    {"site_name": c.site_name, "url": c.url or "", "account": c.account, "password": c.password}
-                    for c in obj.credentials.all()
-                ],
-            })
+            result.append(
+                {
+                    "username": obj.username,
+                    "real_name": obj.real_name,
+                    "phone": obj.phone or "",
+                    "license_no": obj.license_no,
+                    "id_card": obj.id_card,
+                    "license_pdf": str(obj.license_pdf) if obj.license_pdf else "",
+                    "password": "",  # 导入时填写明文密码，留空则随机生成
+                    "is_admin": obj.is_admin,
+                    "is_active": obj.is_active,
+                    "law_firm": obj.law_firm.name if obj.law_firm else None,
+                    "lawyer_teams": [
+                        {"name": t.name, "law_firm": t.law_firm.name if t.law_firm else None}
+                        for t in obj.lawyer_teams.all()
+                    ],
+                    "biz_teams": [t.name for t in obj.biz_teams.all()],
+                    "credentials": [
+                        {"site_name": c.site_name, "url": c.url or "", "account": c.account, "password": c.password}
+                        for c in obj.credentials.all()
+                    ],
+                }
+            )
         return result
 
     def handle_json_import(

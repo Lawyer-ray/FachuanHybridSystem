@@ -5,19 +5,18 @@ import logging
 from typing import Any, ClassVar
 
 from django import forms
-from django.contrib import admin
-from django.contrib import messages
+from django.contrib import admin, messages
 from django.db.models import Q, QuerySet
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.urls import path, reverse
-from django.utils.html import format_html, format_html_join
 from django.utils import timezone
+from django.utils.html import format_html, format_html_join
 
 from apps.core.interfaces import ServiceLocator
 from apps.core.llm.config import LLMConfig
 from apps.core.llm.model_list_service import ModelListService
 from apps.legal_research.models import LegalResearchResult, LegalResearchTask, LegalResearchTaskEvent
-from apps.legal_research.models.task import LegalResearchTaskStatus
+from apps.legal_research.models.task import LegalResearchSearchMode, LegalResearchTaskStatus
 from apps.legal_research.services.feedback_loop import LegalResearchFeedbackLoopService
 from apps.legal_research.services.keywords import KEYWORD_INPUT_HELP_TEXT, normalize_keyword_query
 from apps.legal_research.services.llm_preflight import verify_siliconflow_connectivity
@@ -41,6 +40,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
     list_display: ClassVar[list[str]] = [
         "id",
         "keyword",
+        "search_mode",
         "credential",
         "status",
         "progress",
@@ -62,6 +62,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
         "source",
         "keyword",
         "case_summary",
+        "search_mode",
         "target_count",
         "max_candidates",
         "min_similarity_score",
@@ -91,6 +92,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
         "credential",
         "keyword",
         "case_summary",
+        "search_mode",
         "target_count",
         "max_candidates",
         "min_similarity_score",
@@ -146,7 +148,9 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
 
         self._configure_credential_field(request=request, form=form)
         self._configure_keyword_field(form=form)
+        self._configure_search_mode_field(form=form)
         self._configure_scan_threshold_fields(form=form)
+        self._attach_search_mode_cleaner(form)
 
         model_field = form.base_fields.get("llm_model")
         if model_field is None:
@@ -238,6 +242,25 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
             if hasattr(min_similarity_field.widget, "attrs"):
                 min_similarity_field.widget.attrs["placeholder"] = "默认 0.9"
 
+    @staticmethod
+    def _configure_search_mode_field(*, form: type[forms.ModelForm]) -> None:
+        search_mode_field = form.base_fields.get("search_mode")
+        if search_mode_field is None:
+            return
+        search_mode_field.required = False
+        search_mode_field.initial = LegalResearchSearchMode.EXPANDED
+        search_mode_field.help_text = (
+            "默认“扩展检索”：会自动扩展检索式（同义词、意图、反馈）。切换为“单检索”后仅使用原始关键词检索。"
+        )
+
+    @staticmethod
+    def _attach_search_mode_cleaner(form: type[forms.ModelForm]) -> None:
+        def clean_search_mode(self) -> str:
+            raw = str(self.cleaned_data.get("search_mode", "") or "").strip().lower()
+            return raw or LegalResearchSearchMode.EXPANDED
+
+        form.clean_search_mode = clean_search_mode
+
     def _configure_credential_field(self, *, request, form: type[forms.ModelForm]) -> None:
         credential_field = form.base_fields.get("credential")
         if credential_field is None:
@@ -278,9 +301,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
         return qs.order_by("-last_login_success_at", "-login_success_count", "login_failure_count", "-id")
 
     @classmethod
-    def _filter_private_api_visual_fields(
-        cls, fields: list[str], *, obj: LegalResearchTask | None = None
-    ) -> list[str]:
+    def _filter_private_api_visual_fields(cls, fields: list[str], *, obj: LegalResearchTask | None = None) -> list[str]:
         if cls._should_show_private_api_visuals(obj=obj):
             return fields
         return [name for name in fields if not str(name).startswith(cls.PRIVATE_API_VISUAL_FIELD_PREFIX)]
@@ -337,7 +358,9 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
     @admin.display(description="案例附件")
     def result_attachments(self, obj: LegalResearchTask) -> str:
         results = list(
-            LegalResearchResult.objects.filter(task=obj, pdf_file__isnull=False).exclude(pdf_file="").order_by("rank", "created_at")
+            LegalResearchResult.objects.filter(task=obj, pdf_file__isnull=False)
+            .exclude(pdf_file="")
+            .order_by("rank", "created_at")
         )
         if not results:
             return "—"
@@ -371,18 +394,30 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
         total = len(events)
         search_api_events = [event for event in events if event.stage == "search" and event.source == "api"]
         search_api_success = [event for event in search_api_events if event.success]
+        capability_events = [event for event in events if event.interface_name == "capability_direct_call"]
+        capability_success = [event for event in capability_events if event.success]
+        capability_timeout = [
+            event
+            for event in capability_events
+            if str(event.error_code or "").strip().upper() == "LEGAL_RESEARCH_CAPABILITY_TIMEOUT"
+        ]
+        capability_busy = [
+            event
+            for event in capability_events
+            if str(event.error_code or "").strip().upper() == "LEGAL_RESEARCH_CAPABILITY_BUSY"
+        ]
+        capability_degraded = [
+            event
+            for event in capability_events
+            if str(event.error_code or "").strip().upper() == "LEGAL_RESEARCH_CAPABILITY_SOURCE_DEGRADED"
+        ]
         dom_fallback_events = [
             event
             for event in events
-            if (event.stage == "search" and event.source == "dom")
-            or event.interface_name == "search_fallback_dom"
+            if (event.stage == "search" and event.source == "dom") or event.interface_name == "search_fallback_dom"
         ]
         c001009_events = [event for event in events if str(event.error_code or "").strip().upper() == "C_001_009"]
-        api_hit_rate = (
-            (len(search_api_success) / len(search_api_events) * 100.0)
-            if search_api_events
-            else 0.0
-        )
+        api_hit_rate = (len(search_api_success) / len(search_api_events) * 100.0) if search_api_events else 0.0
         dom_fallback_rate = (
             (len(dom_fallback_events) / max(1, len(search_api_events) + len(dom_fallback_events)) * 100.0)
             if events
@@ -392,21 +427,33 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
         error_html = "、".join(f"{code}:{count}" for code, count in error_distribution) if error_distribution else "无"
         api_hit_rate_text = f"{api_hit_rate:.1f}%"
         dom_fallback_rate_text = f"{dom_fallback_rate:.1f}%"
+        capability_success_rate = (
+            (len(capability_success) / len(capability_events) * 100.0) if capability_events else 0.0
+        )
+        capability_success_rate_text = f"{capability_success_rate:.1f}%"
 
         return format_html(
-            '<div>'
-            '<div>总事件: <strong>{}</strong></div>'
-            '<div>检索API命中率: <strong>{}</strong>（{}/{}）</div>'
-            '<div>DOM回退率: <strong>{}</strong>（{}）</div>'
-            '<div>C_001_009: <strong>{}</strong></div>'
-            '<div>错误码分布: {}</div>'
+            "<div>"
+            "<div>总事件: <strong>{}</strong></div>"
+            "<div>检索API命中率: <strong>{}</strong>（{}/{}）</div>"
+            "<div>能力直连成功率: <strong>{}</strong>（{}/{}）</div>"
+            "<div>DOM回退率: <strong>{}</strong>（{}）</div>"
+            "<div>能力异常: timeout=<strong>{}</strong> / busy=<strong>{}</strong> / degraded=<strong>{}</strong></div>"
+            "<div>C_001_009: <strong>{}</strong></div>"
+            "<div>错误码分布: {}</div>"
             "</div>",
             total,
             api_hit_rate_text,
             len(search_api_success),
             len(search_api_events),
+            capability_success_rate_text,
+            len(capability_success),
+            len(capability_events),
             dom_fallback_rate_text,
             len(dom_fallback_events),
+            len(capability_timeout),
+            len(capability_busy),
+            len(capability_degraded),
             len(c001009_events),
             error_html,
         )
@@ -471,7 +518,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
         cancel_url = reverse("admin:legal_research_legalresearchtask_cancel", args=[obj.pk])
         return format_html(
             '<a class="button" href="{}" '
-            'onclick="return confirm(\'确定取消这个任务吗？已执行部分将保留，后续扫描会停止。\')">'
+            "onclick=\"return confirm('确定取消这个任务吗？已执行部分将保留，后续扫描会停止。')\">"
             "取消任务</a>",
             cancel_url,
         )
@@ -483,9 +530,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
 
         if obj.matched_count >= obj.target_count:
             return format_html(
-                '<span style="color:#389e0d;font-weight:600;">'
-                "已达到目标案例数（{}/{}），任务已提前结束。"
-                "</span>",
+                '<span style="color:#389e0d;font-weight:600;">已达到目标案例数（{}/{}），任务已提前结束。</span>',
                 obj.matched_count,
                 obj.target_count,
             )
@@ -507,9 +552,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
 
         if obj.scanned_count >= obj.max_candidates:
             return format_html(
-                '<span style="color:#1677ff;font-weight:600;">'
-                "已扫描到最大上限 {}，可按需提高“最大扫描案例数”。"
-                "</span>",
+                '<span style="color:#1677ff;font-weight:600;">已扫描到最大上限 {}，可按需提高“最大扫描案例数”。</span>',
                 obj.max_candidates,
             )
 
@@ -537,8 +580,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
     @staticmethod
     def _get_private_api_events(*, obj: LegalResearchTask) -> list[LegalResearchTaskEvent]:
         return list(
-            LegalResearchTaskEvent.objects.filter(task=obj, stage__in=("search", "detail"))
-            .order_by("created_at", "id")
+            LegalResearchTaskEvent.objects.filter(task=obj, stage__in=("search", "detail")).order_by("created_at", "id")
         )
 
     @staticmethod

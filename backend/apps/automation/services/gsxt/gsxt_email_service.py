@@ -33,17 +33,14 @@ def _decode_header_value(raw: str | None) -> str:
         return ""
     parts = decode_header(raw)
     return "".join(
-        part.decode(enc or "utf-8", errors="replace") if isinstance(part, bytes) else part
-        for part, enc in parts
+        part.decode(enc or "utf-8", errors="replace") if isinstance(part, bytes) else part for part, enc in parts
     )
 
 
 GSXT_REPORT_FOLDER = "&TwFOGk,hdShP4WBv-"  # 163 企业信用报告专用文件夹（modified UTF-7）
 
 
-def _fetch_report_attachment(
-    user: str, password: str, company_name: str
-) -> bytes | None:
+def _fetch_report_attachment(user: str, password: str, company_name: str) -> bytes | None:
     """
     从 163 企业信用报告文件夹中找含 company_name 的 PDF 附件，
     返回 bytes，未找到返回 None。

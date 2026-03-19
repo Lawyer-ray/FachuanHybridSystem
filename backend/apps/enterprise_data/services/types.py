@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-
 DEFAULT_PROVIDER_NAME = "tianyancha"
 DEFAULT_TRANSPORT = "streamable_http"
 DEFAULT_TIMEOUT_SECONDS = 30

@@ -4,8 +4,6 @@
 提供发票文件上传、识别状态查询和下载接口。
 """
 
-from __future__ import annotations
-
 import logging
 from pathlib import Path
 from typing import Any
@@ -204,4 +202,3 @@ def download_invoices(
     response = HttpResponse(data, content_type=content_type)
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
     return response
-

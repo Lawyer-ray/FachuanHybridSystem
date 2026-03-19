@@ -60,8 +60,8 @@ def test_manual_register_marks_bootstrap_as_consumed_even_if_user_deleted(client
         reverse("admin_register"),
         {
             "username": "张三",
-            "password1": "Strong1234!",
-            "password2": "Strong1234!",
+            "password1": "Strong1234!",  # pragma: allowlist secret
+            "password2": "Strong1234!",  # pragma: allowlist secret
         },
         follow=False,
     )

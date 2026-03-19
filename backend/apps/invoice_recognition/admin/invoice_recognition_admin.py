@@ -132,4 +132,3 @@ class InvoiceRecognitionTaskAdmin(admin.ModelAdmin[InvoiceRecognitionTask]):
         from apps.invoice_recognition.services.wiring import get_invoice_recognition_service
 
         return get_invoice_recognition_service()
-

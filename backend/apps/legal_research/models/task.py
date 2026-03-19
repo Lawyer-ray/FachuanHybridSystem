@@ -16,6 +16,11 @@ class LegalResearchTaskStatus(models.TextChoices):
     CANCELLED = "cancelled", _("已取消")
 
 
+class LegalResearchSearchMode(models.TextChoices):
+    EXPANDED = "expanded", _("扩展检索")
+    SINGLE = "single", _("单检索")
+
+
 class LegalResearchTask(models.Model):
     legacy_uuid = models.UUIDField(default=uuid4, editable=False, db_index=True, verbose_name=_("历史UUID"))
     created_by = models.ForeignKey(
@@ -36,6 +41,12 @@ class LegalResearchTask(models.Model):
     source = models.CharField(max_length=32, default="weike", verbose_name=_("数据源"))
     keyword = models.CharField(max_length=255, verbose_name=_("检索关键词"))
     case_summary = models.TextField(verbose_name=_("案情简述"))
+    search_mode = models.CharField(
+        max_length=16,
+        choices=LegalResearchSearchMode.choices,
+        default=LegalResearchSearchMode.EXPANDED,
+        verbose_name=_("检索模式"),
+    )
     target_count = models.PositiveIntegerField(default=3, verbose_name=_("目标案例数"))
     max_candidates = models.PositiveIntegerField(default=100, verbose_name=_("最大扫描案例数"))
     min_similarity_score = models.FloatField(default=0.9, verbose_name=_("最低相似度"))

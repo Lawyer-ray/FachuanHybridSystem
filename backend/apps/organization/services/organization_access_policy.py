@@ -50,9 +50,8 @@ class OrganizationAccessPolicy:
             return True
         if getattr(user, "id", None) == getattr(lawyer, "id", None):
             return True
-        return (
-            getattr(user, "is_admin", False)
-            and getattr(user, "law_firm_id", None) == getattr(lawyer, "law_firm_id", None)
+        return getattr(user, "is_admin", False) and getattr(user, "law_firm_id", None) == getattr(
+            lawyer, "law_firm_id", None
         )
 
     def ensure_can_update_lawyer(self, user: Any, lawyer: Any) -> None:
@@ -63,9 +62,8 @@ class OrganizationAccessPolicy:
             return False
         if getattr(user, "is_superuser", False):
             return True
-        return (
-            getattr(user, "is_admin", False)
-            and getattr(user, "law_firm_id", None) == getattr(lawyer, "law_firm_id", None)
+        return getattr(user, "is_admin", False) and getattr(user, "law_firm_id", None) == getattr(
+            lawyer, "law_firm_id", None
         )
 
     def ensure_can_delete_lawyer(self, user: Any, lawyer: Any) -> None:
@@ -88,10 +86,7 @@ class OrganizationAccessPolicy:
             return False
         if getattr(user, "is_superuser", False):
             return True
-        return (
-            getattr(user, "is_admin", False)
-            and getattr(user, "law_firm_id", None) == getattr(lawfirm, "id", None)
-        )
+        return getattr(user, "is_admin", False) and getattr(user, "law_firm_id", None) == getattr(lawfirm, "id", None)
 
     def ensure_can_update_lawfirm(self, user: Any, lawfirm: Any) -> None:
         self._ensure(self.can_update_lawfirm(user, lawfirm))
@@ -121,9 +116,8 @@ class OrganizationAccessPolicy:
             return False
         if getattr(user, "is_superuser", False):
             return True
-        return (
-            getattr(user, "is_admin", False)
-            and getattr(user, "law_firm_id", None) == getattr(team, "law_firm_id", None)
+        return getattr(user, "is_admin", False) and getattr(user, "law_firm_id", None) == getattr(
+            team, "law_firm_id", None
         )
 
     def ensure_can_update_team(self, user: Any, team: Any) -> None:

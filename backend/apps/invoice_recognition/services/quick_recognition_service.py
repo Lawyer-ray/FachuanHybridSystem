@@ -132,4 +132,3 @@ class QuickRecognitionService:
             return self._ocr.recognize(str(tmp_path))
         finally:
             tmp_path.unlink(missing_ok=True)
-

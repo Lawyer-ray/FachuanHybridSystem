@@ -1,2 +1,1 @@
 """Invoice recognition app."""
-

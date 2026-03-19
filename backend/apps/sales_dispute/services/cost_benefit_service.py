@@ -60,11 +60,9 @@ class CostBenefitResult:
 
 
 class LitigationFeeCalculatorPort(Protocol):
-    def calculate_property_case_fee(self, claim_amount: Decimal) -> Decimal:
-        ...
+    def calculate_property_case_fee(self, claim_amount: Decimal) -> Decimal: ...
 
-    def calculate_preservation_fee(self, amount: Decimal) -> Decimal:
-        ...
+    def calculate_preservation_fee(self, amount: Decimal) -> Decimal: ...
 
 
 class CostBenefitService:

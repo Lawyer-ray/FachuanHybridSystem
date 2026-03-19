@@ -11,7 +11,7 @@ def test_organization_service_adapter_public_and_internal_credential_methods_are
     law_firm = LawFirm.objects.create(name="兼容测试律所")
     lawyer = Lawyer.objects.create_user(
         username="compat-lawyer",
-        password="secret",
+        password="secret",  # pragma: allowlist secret
         real_name="兼容律师",
         law_firm=law_firm,
     )
@@ -20,29 +20,28 @@ def test_organization_service_adapter_public_and_internal_credential_methods_are
         site_name="wkxx",
         url="https://wkxx.example.com",
         account="wk-account",
-        password="wk-secret",
+        password="wk-secret",  # pragma: allowlist secret
     )
     AccountCredential.objects.create(
         lawyer=lawyer,
         site_name="court_zxfw",
         url="https://court.example.com",
         account="court-account",
-        password="court-secret",
+        password="court-secret",  # pragma: allowlist secret
     )
 
     adapter = OrganizationServiceAdapter()
 
-    assert {c.id for c in adapter.get_all_credentials()} == {
-        c.id for c in adapter.get_all_credentials_internal()
-    }
+    assert {c.id for c in adapter.get_all_credentials()} == {c.id for c in adapter.get_all_credentials_internal()}
 
     assert adapter.get_credential(cred_a.id).id == adapter.get_credential_internal(cred_a.id).id
     assert {c.id for c in adapter.get_credentials_by_site("wkxx")} == {
         c.id for c in adapter.get_credentials_by_site_internal("wkxx")
     }
-    assert adapter.get_credential_by_account("wk-account", "wkxx").id == adapter.get_credential_by_account_internal(
-        "wk-account", "wkxx"
-    ).id
+    assert (
+        adapter.get_credential_by_account("wk-account", "wkxx").id
+        == adapter.get_credential_by_account_internal("wk-account", "wkxx").id
+    )
 
     adapter.update_login_success(cred_a.id)
     adapter.update_login_failure_internal(cred_a.id)
@@ -56,14 +55,14 @@ def test_organization_service_adapter_public_and_internal_lawyer_methods_are_com
     law_firm = LawFirm.objects.create(name="律师兼容测试律所")
     admin = Lawyer.objects.create_user(
         username="admin-compat",
-        password="secret",
+        password="secret",  # pragma: allowlist secret
         real_name="管理员",
         law_firm=law_firm,
         is_admin=True,
     )
     normal = Lawyer.objects.create_user(
         username="normal-compat",
-        password="secret",
+        password="secret",  # pragma: allowlist secret
         real_name="普通律师",
         law_firm=law_firm,
         is_admin=False,

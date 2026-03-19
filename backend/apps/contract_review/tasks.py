@@ -45,9 +45,7 @@ def cleanup_old_files(days: int = 30) -> dict[str, int]:
     cutoff_date = timezone.now() - timedelta(days=days)
 
     # 查找需要清理的任务
-    old_tasks = ReviewTask.objects.filter(created_at__lt=cutoff_date).exclude(
-        status__in=[TaskStatus.PROCESSING]
-    )
+    old_tasks = ReviewTask.objects.filter(created_at__lt=cutoff_date).exclude(status__in=[TaskStatus.PROCESSING])
 
     upload_dir = Path(settings.MEDIA_ROOT) / "contract_review" / "uploads"
     output_dir = Path(settings.MEDIA_ROOT) / "contract_review" / "output"

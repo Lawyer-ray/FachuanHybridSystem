@@ -111,9 +111,7 @@ def execute_court_filing(request: HttpRequest, payload: ExecuteCourtFilingIn) ->
 
     # 获取一张网凭证
     credential = (
-        organization_service.get_credential_for_lawyer(int(lawyer_id), "一张网")
-        if lawyer_id is not None
-        else None
+        organization_service.get_credential_for_lawyer(int(lawyer_id), "一张网") if lawyer_id is not None else None
     )
     if not credential:
         return {"success": False, "message": "未找到一张网账号凭证", "session_id": None}

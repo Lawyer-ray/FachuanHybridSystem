@@ -86,9 +86,7 @@ class CaseLogInline(BaseStackedInline):
 
 def serialize_case_obj(obj: Case) -> dict[str, object]:
     """将单个 Case 实例序列化为 dict（供 CaseAdmin 和 ContractAdmin 共用）。"""
-    from apps.cases.services.case.case_export_serializer_service import (
-        serialize_case_obj as serialize_case_obj_service,
-    )
+    from apps.cases.services.case.case_export_serializer_service import serialize_case_obj as serialize_case_obj_service
 
     return serialize_case_obj_service(obj)
 

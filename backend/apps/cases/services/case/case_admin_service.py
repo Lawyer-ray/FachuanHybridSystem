@@ -281,9 +281,9 @@ class CaseAdminService:
                     "assignments__lawyer",
                     Prefetch(
                         "logs",
-                        queryset=CaseLog.objects.select_related("actor").prefetch_related("attachments").order_by(
-                            "-created_at"
-                        ),
+                        queryset=CaseLog.objects.select_related("actor")
+                        .prefetch_related("attachments")
+                        .order_by("-created_at"),
                     ),
                     "chats",
                 )

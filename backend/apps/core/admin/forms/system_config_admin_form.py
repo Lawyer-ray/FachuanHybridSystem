@@ -34,7 +34,9 @@ class SystemConfigAdminForm(forms.ModelForm):
                 self.initial["value"] = instance.value
 
         if instance.key in _MULTI_KEY_CONFIGS:
-            self.fields["value"].help_text = "支持多个 API Key，每行一个；也兼容逗号或分号分隔，调用时会自动切换可用 Key。"
+            self.fields[
+                "value"
+            ].help_text = "支持多个 API Key，每行一个；也兼容逗号或分号分隔，调用时会自动切换可用 Key。"
 
     def clean_value(self) -> str:
         value = str(self.cleaned_data.get("value") or "")

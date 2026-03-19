@@ -276,7 +276,9 @@ class SiliconFlowBackend:
             if self._config and self._config.default_model
             else await LLMConfig.get_default_model_async()
         )
-        default_timeout = self._config.timeout if self._config and self._config.timeout else await LLMConfig.get_timeout_async()
+        default_timeout = (
+            self._config.timeout if self._config and self._config.timeout else await LLMConfig.get_timeout_async()
+        )
         request_timeout = kwargs.pop("timeout_seconds", None) or default_timeout
         used_model = model or default_model
         llm = ChatOpenAI(  # type: ignore[call-arg]

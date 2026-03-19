@@ -88,9 +88,7 @@ class FeeTermsService(BasePlaceholderService):
             amount = round(fixed * t / total_target)
 
             defendants = [
-                p.client.name
-                for p in case.parties.all()
-                if (getattr(p, "legal_status", "") or "") == "defendant"
+                p.client.name for p in case.parties.all() if (getattr(p, "legal_status", "") or "") == "defendant"
             ]
             opponent = "、".join(defendants) if defendants else "对方当事人"
 
@@ -108,15 +106,11 @@ class FeeTermsService(BasePlaceholderService):
 
         count_cn = {1: "一", 2: "两", 3: "三"}.get(len(cases), str(len(cases)))
         lines_text = "\n".join(case_lines)
-        return (
-            f"上述费用系甲方委托乙方代理以下{count_cn}案的全部律师代理费，"
-            f"按争议金额比例分摊如下：\n{lines_text}"
-        )
+        return f"上述费用系甲方委托乙方代理以下{count_cn}案的全部律师代理费，按争议金额比例分摊如下：\n{lines_text}"
 
     @staticmethod
     def _to_chinese_ordinal(n: int) -> str:
-        mapping = {1: "一", 2: "二", 3: "三", 4: "四", 5: "五",
-                   6: "六", 7: "七", 8: "八", 9: "九", 10: "十"}
+        mapping = {1: "一", 2: "二", 3: "三", 4: "四", 5: "五", 6: "六", 7: "七", 8: "八", 9: "九", 10: "十"}
         return mapping.get(n, str(n))
 
     def _generate_fixed_fee_terms(self, contract: Any) -> str:

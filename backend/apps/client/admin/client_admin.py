@@ -361,9 +361,7 @@ class ClientAdmin(AdminImportExportMixin, admin.ModelAdmin[Client]):
                     )
 
             # 如果上传了营业执照，把 WAITING_EMAIL 的报告任务标记为成功
-            has_business_license = any(
-                info["doc_type"] == ClientIdentityDoc.BUSINESS_LICENSE for info in upload_info
-            )
+            has_business_license = any(info["doc_type"] == ClientIdentityDoc.BUSINESS_LICENSE for info in upload_info)
             if has_business_license:
                 gsxt_port: GsxtReportPort = get_gsxt_report_port()
                 task = gsxt_port.get_waiting_email_task(client_id=form.instance.id)

@@ -14,6 +14,7 @@ from apps.reminders.models import ReminderType
 
 if TYPE_CHECKING:
     from django.utils.functional import Promise
+
     from apps.reminders.ports import CaseLogTargetQueryPort, ContractTargetQueryPort
 
 

@@ -12,7 +12,6 @@ from .document_delivery import DocumentDeliveryScheduleAdmin, DocumentQueryHisto
 # 财产保全询价 Admin
 from .insurance import PreservationQuoteAdmin
 
-
 # 爬虫 Admin
 from .scraper import CourtDocumentAdmin, QuickDownloadAdmin, ScraperTaskAdmin, TestCourtAdmin
 
