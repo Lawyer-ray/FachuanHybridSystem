@@ -17,6 +17,7 @@ from apps.client.services.wiring import get_llm_service
 from apps.client.utils import get_ocr_engine
 from apps.core.exceptions import ServiceUnavailableError, ValidationException
 from apps.core.llm.config import LLMConfig
+from apps.core.llm.exceptions import LLMNetworkError, LLMTimeoutError
 
 from .data_classes import ExtractionResult, OCRExtractionError, OllamaExtractionError
 from .prompts import get_prompt_for_doc_type
@@ -261,18 +262,26 @@ class IdentityExtractionService:
 
             except json.JSONDecodeError as e:
                 logger.exception("Ollama 返回的 JSON 格式错误: %s", e)
-                raise OllamaExtractionError(_("Ollama 返回的 JSON 格式错误: %(e)s") % {"e": e}) from e
+                raise OllamaExtractionError(_("智能识别结果解析失败，请稍后重试")) from e
 
         except ConnectionError as e:
             logger.exception("Ollama 服务连接失败: %s", e)
             raise ServiceUnavailableError(
                 message=_("Ollama 服务连接失败: %(e)s") % {"e": e}, service_name="Ollama"
             ) from e
+        except LLMTimeoutError as e:
+            logger.warning("Ollama 请求超时: %s", e)
+            raise OllamaExtractionError(
+                _("智能识别超时，请稍后重试。若多次失败，请检查 Ollama 服务状态后重试")
+            ) from e
+        except LLMNetworkError as e:
+            logger.warning("Ollama 网络异常: %s", e)
+            raise OllamaExtractionError(_("无法连接智能识别服务，请检查 Ollama 服务或网络后重试")) from e
         except OllamaExtractionError:
             raise
         except Exception as e:
             logger.exception("Ollama 提取失败: %s", e)
-            raise OllamaExtractionError(_("Ollama 提取失败: %(e)s") % {"e": e}) from e
+            raise OllamaExtractionError(_("智能识别暂时不可用，请稍后重试")) from e
 
     def safe_extract(self, image_bytes: bytes, doc_type: str) -> dict[str, Any]:
         """
@@ -294,12 +303,13 @@ class IdentityExtractionService:
             result["extracted_data"] = extraction.extracted_data
             result["confidence"] = extraction.confidence
         except (OCRExtractionError, OllamaExtractionError) as e:
-            result["error"] = str(_("识别失败: %(e)s") % {"e": e})
+            result["error"] = str(e)
         except ServiceUnavailableError as e:
-            result["error"] = str(_("服务不可用: %(e)s") % {"e": e})
+            logger.warning("证件识别服务不可用: %s", e)
+            result["error"] = str(_("智能识别服务暂时不可用，请稍后重试"))
         except ValidationException as e:
             result["error"] = str(e)
         except Exception as e:
             logger.exception("证件识别未知错误: %s", e)
-            result["error"] = str(_("未知错误: %(e)s") % {"e": e})
+            result["error"] = str(_("识别过程中发生未知错误，请稍后重试"))
         return result

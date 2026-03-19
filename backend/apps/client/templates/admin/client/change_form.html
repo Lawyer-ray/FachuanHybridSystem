@@ -479,7 +479,7 @@
                     const data = await response.json();
 
                     if (!data.success) {
-                        this.showMessage('❌ OCR 识别失败：' + (data.error || '未知错误'), 'error');
+                        this.showMessage('❌ OCR 识别失败：' + this.getFriendlyOcrError(data.error), 'error');
                         return;
                     }
 
@@ -508,6 +508,18 @@
             _extractPhone(rawText) {
                 const m = rawText.match(/(?:联系电话|电话|手机|联系方式)\s*[:：]\s*([0-9\-\+\s]{7,20})/);
                 return m ? m[1].replace(/\s+/g, '').trim() : '';
+            },
+
+            getFriendlyOcrError(errorMessage) {
+                const message = (errorMessage || '').trim();
+                if (!message) return '暂时无法完成识别，请稍后重试';
+                if (message.includes('LLM_TIMEOUT') || message.includes('Ollama 请求超时')) {
+                    return '智能识别超时，请稍后重试；如反复出现，请检查 Ollama 服务状态';
+                }
+                if (message.includes('连接失败') || message.includes('Connection') || message.includes('网络')) {
+                    return '无法连接智能识别服务，请检查 Ollama 服务或网络后重试';
+                }
+                return message;
             },
 
             // ========== 文本 API 解析 ==========
