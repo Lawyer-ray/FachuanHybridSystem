@@ -331,6 +331,131 @@ class WeikeDocumentMixin:
 
         return None
 
+    def download_doc(self, *, session: WeikeSession, detail: WeikeCaseDetail) -> tuple[bytes, str] | None:
+        """下载 Word 文档（.doc 格式）"""
+        self._raise_if_session_restricted(session=session, stage="download_doc")
+        filename = self._build_download_filename(detail)
+        filename = filename.rsplit(".", 1)[0] + ".doc" if "." in filename else filename + ".doc"
+
+        attempts = [
+            {
+                "docId": detail.doc_id_unquoted,
+                "showType": 0,
+                "module": detail.module,
+            },
+            {
+                "docId": detail.doc_id_unquoted,
+                "showType": 0,
+                "module": "",
+            },
+            {
+                "docId": detail.doc_id_raw,
+                "showType": 0,
+                "module": detail.module,
+            },
+        ]
+
+        for attempt in attempts:
+            limit_payload = {
+                "indexId": "law.case",
+                "fileType": "doc",
+                "docId": attempt["docId"],
+                "showType": attempt["showType"],
+                "module": attempt["module"],
+                "cellList": None,
+            }
+
+            limit_resp = self._request_post_json_with_retry(
+                session=session,
+                url="https://law.wkinfo.com.cn/csi/document/downloadLimit",
+                payload=limit_payload,
+                timeout=30000,
+                max_attempts=self.DOWNLOAD_RETRY_ATTEMPTS,
+                retry_statuses=self.DOWNLOAD_RETRY_HTTP_STATUSES,
+            )
+            limit_status = self._response_status(limit_resp)
+            try:
+                limit_payload_json = self._response_json(limit_resp)
+            except Exception:
+                limit_payload_json = {}
+            if self._is_session_restricted_response(status=limit_status, payload=limit_payload_json):
+                self._mark_session_restricted(
+                    session=session,
+                    stage="download_doc_limit",
+                    status=limit_status,
+                    payload=limit_payload_json,
+                )
+                raise RuntimeError("wk会话被限制访问(C_001_009)，请稍后重试")
+            if limit_status != 200:
+                continue
+
+            if not bool(limit_payload_json.get("result")):
+                continue
+
+            path_payload = {
+                "indexId": "law.case",
+                "fileType": "doc",
+                "docId": attempt["docId"],
+                "showType": attempt["showType"],
+                "filename": filename,
+                "module": attempt["module"],
+            }
+            if detail.search_id:
+                path_payload["searchId"] = detail.search_id
+
+            path_resp = self._request_post_json_with_retry(
+                session=session,
+                url="https://law.wkinfo.com.cn/csi/document/downloadPath",
+                payload=path_payload,
+                timeout=30000,
+                max_attempts=self.DOWNLOAD_RETRY_ATTEMPTS,
+                retry_statuses=self.DOWNLOAD_RETRY_HTTP_STATUSES,
+            )
+
+            response_json: dict[str, Any] = {}
+            try:
+                response_json = self._response_json(path_resp)
+            except Exception:
+                response_json = {}
+
+            path_status = self._response_status(path_resp)
+            if self._is_session_restricted_response(status=path_status, payload=response_json):
+                self._mark_session_restricted(
+                    session=session,
+                    stage="download_doc_path",
+                    status=path_status,
+                    payload=response_json,
+                )
+                raise RuntimeError("wk会话被限制访问(C_001_009)，请稍后重试")
+
+            if path_status != 200:
+                continue
+
+            key = str((response_json.get("data") or {}).get("key") or "")
+            if not key:
+                continue
+
+            response_filename = str((response_json.get("data") or {}).get("filename") or "")
+            if response_filename:
+                filename = response_filename
+
+            doc_resp = self._request_get_with_retry(
+                session=session,
+                url=f"https://law.wkinfo.com.cn/api/download?key={key}",
+                timeout=30000,
+                max_attempts=self.DOWNLOAD_RETRY_ATTEMPTS,
+                retry_statuses=self.DOWNLOAD_RETRY_HTTP_STATUSES,
+            )
+            if self._response_status(doc_resp) != 200:
+                continue
+
+            headers = self._response_headers(doc_resp)
+            doc_bytes = self._response_body(doc_resp)
+            if doc_bytes and len(doc_bytes) > 0:
+                return doc_bytes, filename
+
+        return None
+
     @staticmethod
     def _detail_doc_id_candidates(item: WeikeSearchItem) -> list[str]:
         candidates: list[str] = []
