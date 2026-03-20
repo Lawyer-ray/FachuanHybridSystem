@@ -122,6 +122,26 @@ class CaseNumber(models.Model):
     id: int
     case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="case_numbers", verbose_name=_("案件"))
     number = models.CharField(max_length=128, verbose_name=_("案号"))
+    document_name = models.CharField(
+        max_length=128,
+        blank=True,
+        null=True,
+        verbose_name=_("文书名称"),
+        help_text=_("如：民事判决书、民事调解书、执行证书等"),
+    )
+    document_file = models.FileField(
+        upload_to="case_documents/%Y/%m/",
+        blank=True,
+        null=True,
+        verbose_name=_("裁判文书文件"),
+        help_text=_("上传PDF格式的裁判文书，用于自动提取执行依据主文"),
+    )
+    document_content = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name=_("执行依据主文"),
+        help_text=_("从裁判文书自动提取的判决/调解主文内容"),
+    )
     is_active = models.BooleanField(default=False, verbose_name=_("是否已生效"))
     remarks = models.TextField(blank=True, null=True, verbose_name=_("备注"))
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
@@ -133,6 +153,12 @@ class CaseNumber(models.Model):
 
     def __str__(self) -> str:
         return f"{self.number}"
+
+    def get_full_number(self) -> str:
+        """获取完整案号（案号+文书名称）"""
+        if self.document_name:
+            return f"{self.number}《{self.document_name}》"
+        return self.number
 
 
 class SupervisingAuthority(models.Model):

@@ -11,6 +11,63 @@
 <style>
 .inline-group .tabular td { font-size: 0.8125rem; }
 [x-cloak] { display: none !important; }
+/* 解析按钮样式 */
+.parse-document-btn {
+    background-color: #4175b8;
+    color: white;
+    border: none;
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    vertical-align: middle;
+    display: inline-block;
+    margin-left: 5px;
+}
+.parse-document-btn:hover {
+    background-color: #2d5a9e;
+}
+.parse-document-btn:disabled {
+    background-color: #a0a0a0;
+    cursor: not-allowed;
+}
+/* 案号列宽度优化 */
+.field-number input {
+    width: 200px;
+}
+/* 文书名称列宽度优化 */
+.field-document_name input {
+    width: 120px;
+}
+/* Toast 消息样式 */
+.toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 10000;
+}
+.toast {
+    background-color: #333;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    opacity: 0;
+    transform: translateX(100%);
+    transition: all 0.3s ease;
+    max-width: 350px;
+}
+.toast.show {
+    opacity: 1;
+    transform: translateX(0);
+}
+.toast.success {
+    background-color: #28a745;
+}
+.toast.error {
+    background-color: #dc3545;
+}
 </style>
 {% endblock %}
 
@@ -25,6 +82,30 @@
 {% endif %}
 
 <script>
+// Toast通知函数（全局定义，供所有脚本使用）
+function showToast(message, type) {
+    type = type || 'success';
+    var container = document.querySelector('.toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.className = 'toast-container';
+        document.body.appendChild(container);
+    }
+    var toast = document.createElement('div');
+    toast.className = 'toast ' + type;
+    toast.textContent = message;
+    container.appendChild(toast);
+    // 触发重绘以应用动画
+    toast.offsetHeight;
+    toast.classList.add('show');
+    setTimeout(function() {
+        toast.classList.remove('show');
+        setTimeout(function() {
+            container.removeChild(toast);
+        }, 300);
+    }, 3000);
+}
+
 (function() {
     var submitRow = document.querySelector('.submit-row');
     if (!submitRow) return;
@@ -42,6 +123,289 @@
         submitRow.appendChild(duplicateBtn);
     }
     {% endif %}
+})();
+
+// 解析裁判文书按钮逻辑
+(function() {
+    // 存储每行的临时文件路径
+    var tempFilePaths = {};
+
+    function getCSRFToken() {
+        var name = 'csrftoken';
+        var cookieValue = null;
+        var cookies = document.cookie.split(';');
+        for (var i = 0; i < cookies.length; i++) {
+            var cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+        return cookieValue;
+    }
+
+    function addParseButtons() {
+        var inlineTables = document.querySelectorAll('.inline-group');
+        for (var i = 0; i < inlineTables.length; i++) {
+            var inline = inlineTables[i];
+            var hasNumber = inline.querySelector('.field-number');
+            var hasFile = inline.querySelector('.field-document_file');
+            if (hasNumber && hasFile) {
+                addParseButtonToRows(inline);
+                addFileUploadListeners(inline);
+                break;
+            }
+        }
+        setTimeout(addParseButtons, 1000);
+    }
+
+    function addParseButtonToRows(inline) {
+        var rows = inline.querySelectorAll('tbody tr');
+        for (var i = 0; i < rows.length; i++) {
+            var row = rows[i];
+            if (row.classList.contains('empty-form')) continue;
+            if (row.querySelector('.parse-document-btn')) continue;
+
+            var documentFileCell = row.querySelector('.field-document_file');
+            if (!documentFileCell) continue;
+
+            var parseBtn = document.createElement('button');
+            parseBtn.type = 'button';
+            parseBtn.className = 'parse-document-btn';
+            parseBtn.textContent = '\u89e3\u6790';
+            parseBtn.title = '\u89e3\u6790\u88c1\u5224\u6587\u4e66\uff0c\u63d0\u53d6\u6267\u884c\u4f9d\u636e\u4e3b\u6587';
+            parseBtn.style.marginLeft = '5px';
+            parseBtn.style.backgroundColor = '#4175b8';
+            parseBtn.style.color = 'white';
+            parseBtn.style.border = 'none';
+            parseBtn.style.padding = '4px 10px';
+            parseBtn.style.borderRadius = '4px';
+            parseBtn.style.cursor = 'pointer';
+            parseBtn.style.fontSize = '12px';
+            parseBtn.disabled = true;
+
+            var deleteInput = row.querySelector('input[id$="-id"]');
+            var caseNumberId = deleteInput ? deleteInput.value : '';
+
+            if (caseNumberId) {
+                parseBtn.dataset.casenumberId = caseNumberId;
+                parseBtn.onclick = (function(id, btn) {
+                    return function() { parseDocument(id, btn, ''); };
+                })(caseNumberId, parseBtn);
+            } else {
+                parseBtn.dataset.isNewRow = 'true';
+                parseBtn.onclick = (function(btn, r) {
+                    return function() {
+                        var tempPath = tempFilePaths[r.dataset.tempId] || '';
+                        parseDocument('', btn, tempPath);
+                    };
+                })(parseBtn, row);
+            }
+
+            documentFileCell.appendChild(parseBtn);
+        }
+    }
+
+    function addFileUploadListeners(inline) {
+        var rows = inline.querySelectorAll('tbody tr');
+        for (var i = 0; i < rows.length; i++) {
+            var row = rows[i];
+            if (row.classList.contains('empty-form')) continue;
+
+            if (!row.dataset.tempId) {
+                row.dataset.tempId = 'row_' + Math.random().toString(36).substr(2, 9);
+            }
+
+            var documentFileCell = row.querySelector('.field-document_file');
+            if (!documentFileCell) continue;
+
+            var fileInput = documentFileCell.querySelector('input[type="file"]');
+            if (fileInput && !fileInput.dataset.uploadListener) {
+                fileInput.dataset.uploadListener = 'true';
+                fileInput.onchange = (function(r) {
+                    return function(e) { handleFileUpload(e.target, r); };
+                })(row);
+            }
+        }
+    }
+
+    function handleFileUpload(fileInput, row) {
+        var file = fileInput.files[0];
+        if (!file) return;
+
+        var tempId = row.dataset.tempId;
+        var parseBtn = row.querySelector('.parse-document-btn');
+
+        // 验证文件类型
+        if (!file.name.toLowerCase().endsWith('.pdf')) {
+            alert('\u4ec5\u652f\u6301PDF\u683c\u5f0f\u6587\u4ef6');
+            fileInput.value = '';
+            return;
+        }
+
+        // 禁用解析按钮
+        if (parseBtn) {
+            parseBtn.disabled = true;
+            parseBtn.textContent = '\u4e0a\u4f20\u4e2d...';
+        }
+
+        // 上传文件到临时目录
+        var formData = new FormData();
+        formData.append('file', file);
+
+        // 使用 XMLHttpRequest 以支持更好的错误处理
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/v1/cases/upload-temp-document', true);
+
+        xhr.setRequestHeader('X-CSRFToken', getCSRFToken());
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+
+        xhr.onload = function() {
+            if (parseBtn) {
+                parseBtn.disabled = false;
+                parseBtn.textContent = '\u89e3\u6790';
+            }
+
+            if (xhr.status === 200) {
+                try {
+                    var data = JSON.parse(xhr.responseText);
+                    if (data.success) {
+                        // 保存临时文件路径
+                        tempFilePaths[tempId] = data.temp_file_path;
+
+                        // 启用解析按钮
+                        if (parseBtn) {
+                            parseBtn.disabled = false;
+                            parseBtn.textContent = '解析';
+                            parseBtn.dataset.tempFilePath = data.temp_file_path;
+                        }
+                    } else {
+                        showToast('\u4e0a\u4f20\u5931\u8d25: ' + data.error, 'error');
+                    }
+                } catch (e) {
+                    showToast('\u4e0a\u4f20\u5931\u8d25: \u54cd\u5e94\u89e3\u6790\u9519\u8bef', 'error');
+                }
+            } else {
+                showToast('\u4e0a\u4f20\u5931\u8d25: HTTP ' + xhr.status, 'error');
+            }
+        };
+
+        xhr.onerror = function() {
+            if (parseBtn) {
+                parseBtn.disabled = false;
+                parseBtn.textContent = '\u89e3\u6790';
+            }
+            showToast('\u4e0a\u4f20\u5931\u8d25: \u7f51\u7edc\u9519\u8bef', 'error');
+        };
+
+        xhr.send(formData);
+    }
+
+    function parseDocument(caseNumberId, button, tempFilePath) {
+        button.disabled = true;
+        button.textContent = '\u89e3\u6790\u4e2d...';
+
+        var url;
+        var body = {};
+
+        if (caseNumberId) {
+            url = '/admin/cases/case/casenumber/' + caseNumberId + '/parse-document/';
+        } else {
+            url = '/admin/cases/case/casenumber/parse-document/';
+        }
+
+        if (tempFilePath) {
+            body = { temp_file_path: tempFilePath };
+        }
+
+        var xhr2 = new XMLHttpRequest();
+        xhr2.open('POST', url, true);
+        xhr2.setRequestHeader('X-CSRFToken', getCSRFToken());
+        xhr2.setRequestHeader('Content-Type', 'application/json');
+
+        xhr2.onload = function() {
+            if (xhr2.status === 200) {
+                try {
+                    var data = JSON.parse(xhr2.responseText);
+                    if (data.success) {
+                        var rows = document.querySelectorAll('.inline-group tbody tr');
+                        for (var i = 0; i < rows.length; i++) {
+                            var r = rows[i];
+                            var deleteInput = r.querySelector('input[id$="-id"]');
+                            var rowCaseNumberId = deleteInput ? deleteInput.value : '';
+                            var rowTempId = r.dataset.tempId;
+
+                            if ((caseNumberId && rowCaseNumberId == caseNumberId) ||
+                                (tempFilePath && tempFilePaths[rowTempId] === tempFilePath)) {
+                                // 填充案号
+                                var numberCell = r.querySelector('.field-number');
+                                if (numberCell && data.number) {
+                                    var numberInput = numberCell.querySelector('input');
+                                    if (numberInput) {
+                                        numberInput.value = data.number;
+                                    }
+                                }
+                                // 填充文书名称
+                                var documentNameCell = r.querySelector('.field-document_name');
+                                if (documentNameCell && data.document_name) {
+                                    var documentNameInput = documentNameCell.querySelector('input');
+                                    if (documentNameInput) {
+                                        documentNameInput.value = data.document_name;
+                                    }
+                                }
+                                // 填充执行依据主文
+                                var contentCell = r.querySelector('.field-document_content');
+                                if (contentCell && data.content) {
+                                    var textarea = contentCell.querySelector('textarea');
+                                    if (textarea) {
+                                        textarea.value = data.content;
+                                    }
+                                }
+                            }
+                        }
+                        showToast('\u89e3\u6790\u6210\u529f\uff01\u6848\u53f7\u3001\u6587\u4e66\u540d\u79f0\u3001\u6267\u884c\u4f9d\u636e\u4e3b\u6587\u5df2\u586b\u5145\u3002', 'success');
+                    } else {
+                        showToast('\u89e3\u6790\u5931\u8d25: ' + data.error, 'error');
+                    }
+                } catch (e) {
+                    showToast('\u89e3\u6790\u5931\u8d25: ' + e, 'error');
+                }
+            } else {
+                showToast('\u89e3\u6790\u5931\u8d25: HTTP ' + xhr2.status, 'error');
+            }
+            button.disabled = false;
+            button.textContent = '\u89e3\u6790';
+        };
+
+        xhr2.onerror = function() {
+            showToast('\u89e3\u6790\u5931\u8d25: \u7f51\u7edc\u9519\u8bef', 'error');
+            button.disabled = false;
+            button.textContent = '\u89e3\u6790';
+        };
+
+        xhr2.send(JSON.stringify(body));
+    }
+
+    // 页面加载后添加按钮和监听器
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', addParseButtons);
+    } else {
+        addParseButtons();
+    }
+
+    // 监听内联表单的动态添加
+    var observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.addedNodes.length > 0) {
+                addParseButtons();
+            }
+        });
+    });
+
+    var inlineGroups = document.querySelector('.inline-group');
+    if (inlineGroups) {
+        observer.observe(inlineGroups.parentElement, { childList: true, subtree: true });
+    }
 })();
 </script>
 {% endblock %}

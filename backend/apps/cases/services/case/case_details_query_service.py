@@ -54,6 +54,9 @@ class CaseDetailsQueryService:
                 {
                     "id": case_number.id,
                     "number": case_number.number,
+                    "document_name": case_number.document_name,
+                    "document_content": case_number.document_content,
+                    "is_active": case_number.is_active,
                     "remarks": case_number.remarks,
                     "created_at": str(case_number.created_at) if case_number.created_at else None,
                 }

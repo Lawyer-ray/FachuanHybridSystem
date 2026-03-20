@@ -5,9 +5,12 @@
 
 from __future__ import annotations
 
+import uuid
+from pathlib import Path
 from typing import Any, cast
 
-from django.http import HttpRequest
+from django.conf import settings
+from django.http import HttpRequest, JsonResponse
 from ninja import Router
 
 from apps.cases.schemas import CaseNumberIn, CaseNumberOut, CaseNumberUpdate
@@ -65,3 +68,41 @@ def delete_case_number(request: HttpRequest, number_id: int) -> Any:
     service = _get_case_number_service()
     ctx = extract_request_context(request)
     return service.delete_number(number_id=number_id, user=ctx.user)
+
+
+@router.post("/upload-temp-document")
+def upload_temp_document(request: HttpRequest) -> dict[str, Any]:
+    """上传裁判文书到临时目录（供前端解析使用）"""
+    import os
+
+    try:
+        file = request.FILES.get("file")
+        if not file:
+            return {"success": False, "error": "未上传文件"}
+
+        # 验证文件类型
+        ext = os.path.splitext(file.name)[1].lower()
+        if ext not in [".pdf"]:
+            return {"success": False, "error": "仅支持 PDF 格式"}
+
+        # 创建临时目录
+        temp_dir = Path(settings.MEDIA_ROOT) / "case_documents" / "temp"
+        temp_dir.mkdir(parents=True, exist_ok=True)
+
+        # 生成唯一文件名
+        temp_filename = f"{uuid.uuid4().hex}_{file.name}"
+        temp_path = temp_dir / temp_filename
+
+        # 保存文件
+        with open(temp_path, "wb+") as destination:
+            for chunk in file.chunks():
+                destination.write(chunk)
+
+        return {
+            "success": True,
+            "temp_file_path": str(temp_path),
+            "temp_file_name": file.name,
+        }
+
+    except Exception as e:
+        return {"success": False, "error": f"上传失败: {str(e)}"}

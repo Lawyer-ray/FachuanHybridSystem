@@ -66,6 +66,8 @@ def _log_inline_formset(inline_formset: object, logger: logging.Logger) -> None:
 
 
 class CaseAdminViewsMixin:
+    """案件管理后台视图Mixin，提供自定义URL和视图方法"""
+
     def id_link(self, obj: Case) -> str:
         change_url = reverse("admin:cases_case_change", args=[obj.pk])
         return format_html('<a href="{}">{}</a>', change_url, obj.pk)
@@ -81,7 +83,11 @@ class CaseAdminViewsMixin:
     name_link.admin_order_field = "name"  # type: ignore[attr-defined]
 
     def get_urls(self) -> list[URLPattern]:
-        urls: list[URLPattern] = super().get_urls()  # type: ignore[misc]
+        # 直接调用admin.ModelAdmin.get_urls，避免Mixin继承链问题
+        # Mixin没有定义get_urls时super()会找不到方法
+        from django.contrib.admin import ModelAdmin
+
+        urls = ModelAdmin.get_urls(self)
         custom_urls: list[URLPattern] = [
             path(
                 "<int:object_id>/detail/",
@@ -102,6 +108,21 @@ class CaseAdminViewsMixin:
                 "litigation-fee-calculator/",
                 self.admin_site.admin_view(self.litigation_fee_calculator_view),  # type: ignore[attr-defined]
                 name="cases_litigation_fee_calculator",
+            ),
+            path(
+                "casenumber/<int:casenumber_id>/parse-document/",
+                self.admin_site.admin_view(self.parse_document_view),  # type: ignore[attr-defined]
+                name="cases_casenumber_parse_document",
+            ),
+            path(
+                "casenumber/parse-document/",
+                self.admin_site.admin_view(self.parse_document_view_no_id),  # type: ignore[attr-defined]
+                name="cases_casenumber_parse_document_no_id",
+            ),
+            path(
+                "casenumber/upload-temp/",
+                self.admin_site.admin_view(self.upload_temp_document_view),  # type: ignore[attr-defined]
+                name="cases_casenumber_upload_temp",
             ),
         ]
         return custom_urls + urls
@@ -373,6 +394,156 @@ class CaseAdminViewsMixin:
         return str(service.get_matched_folder_templates(obj.case_type))
 
     get_matched_folder_templates_display.short_description = _("匹配的文件夹模板")  # type: ignore[attr-defined]
+
+    def parse_document_view(self, request: HttpRequest, casenumber_id: int) -> HttpResponse:
+        """解析裁判文书，提取案号、文书名称、执行依据主文"""
+        from django.contrib import messages
+        from django.http import JsonResponse
+
+        from apps.cases.models import CaseNumber
+        from apps.core.exceptions import BusinessException
+
+        try:
+            # 支持临时文件路径（未保存的情况）
+            temp_file_path = request.POST.get("temp_file_path")
+
+            if temp_file_path:
+                # 临时文件模式（未保存到数据库）
+                from pathlib import Path
+
+                file_path = temp_file_path
+                if not Path(file_path).exists():
+                    return JsonResponse({"success": False, "error": "临时文件不存在，请重新上传"}, status=400)
+            else:
+                # 已保存的文件模式
+                case_number = CaseNumber.objects.get(pk=casenumber_id)
+                if not case_number.document_file:
+                    return JsonResponse({"success": False, "error": "请先上传裁判文书文件"}, status=400)
+                file_path = case_number.document_file.path
+
+            # 调用解析服务
+            from apps.documents.services.extractors.judgment_pdf_extractor import JudgmentPdfExtractor
+
+            extractor = JudgmentPdfExtractor()
+            extraction_result = extractor.extract(file_path)
+
+            # 如果是已保存的文件，更新所有字段
+            if not temp_file_path:
+                if extraction_result.number:
+                    case_number.number = extraction_result.number
+                if extraction_result.document_name:
+                    case_number.document_name = extraction_result.document_name
+                if extraction_result.content:
+                    case_number.document_content = extraction_result.content
+                case_number.save(update_fields=["number", "document_name", "document_content"])
+                logger.info("成功解析裁判文书: case_number_id=%s", casenumber_id)
+            else:
+                logger.info("成功解析临时文件: %s", file_path)
+
+            return JsonResponse({
+                "success": True,
+                "number": extraction_result.number,
+                "document_name": extraction_result.document_name,
+                "content": extraction_result.content,
+            })
+
+        except CaseNumber.DoesNotExist:
+            return JsonResponse({"success": False, "error": "案号记录不存在"}, status=404)
+        except BusinessException as e:
+            logger.warning("解析裁判文书业务异常: case_number_id=%s, error=%s", casenumber_id, str(e))
+            return JsonResponse({"success": False, "error": str(e.message)}, status=400)
+        except Exception as e:
+            logger.exception("解析裁判文书失败: case_number_id=%s", casenumber_id)
+            return JsonResponse({"success": False, "error": f"解析失败: {str(e)}"}, status=500)
+
+    def parse_document_view_no_id(self, request: HttpRequest) -> HttpResponse:
+        """解析裁判文书（无需caseNumberId，用于临时文件）"""
+        from django.http import JsonResponse
+
+        from apps.core.exceptions import BusinessException
+
+        try:
+            import json
+
+            body = json.loads(request.body)
+            temp_file_path = body.get("temp_file_path")
+
+            if not temp_file_path:
+                return JsonResponse({"success": False, "error": "缺少临时文件路径"}, status=400)
+
+            from pathlib import Path
+
+            file_path = temp_file_path
+            if not Path(file_path).exists():
+                return JsonResponse({"success": False, "error": "临时文件不存在，请重新上传"}, status=400)
+
+            # 调用解析服务
+            from apps.documents.services.extractors.judgment_pdf_extractor import JudgmentPdfExtractor
+
+            extractor = JudgmentPdfExtractor()
+            extraction_result = extractor.extract(file_path)
+
+            logger.info("成功解析临时文件: %s", file_path)
+
+            return JsonResponse({
+                "success": True,
+                "number": extraction_result.number,
+                "document_name": extraction_result.document_name,
+                "content": extraction_result.content,
+            })
+
+        except BusinessException as e:
+            logger.warning("解析裁判文书业务异常: error=%s", str(e))
+            return JsonResponse({"success": False, "error": str(e.message)}, status=400)
+        except Exception as e:
+            logger.exception("解析裁判文书失败")
+            return JsonResponse({"success": False, "error": f"解析失败: {str(e)}"}, status=500)
+
+    def upload_temp_document_view(self, request: HttpRequest) -> HttpResponse:
+        """上传裁判文书到临时目录"""
+        from django.conf import settings
+        from django.http import JsonResponse
+        from pathlib import Path
+        import uuid
+        import os
+
+        try:
+            if request.method != "POST":
+                return JsonResponse({"success": False, "error": "仅支持 POST 请求"}, status=405)
+
+            file = request.FILES.get("file")
+            if not file:
+                return JsonResponse({"success": False, "error": "未上传文件"}, status=400)
+
+            # 验证文件类型
+            ext = os.path.splitext(file.name)[1].lower()
+            if ext not in [".pdf"]:
+                return JsonResponse({"success": False, "error": "仅支持 PDF 格式"}, status=400)
+
+            # 创建临时目录
+            temp_dir = Path(settings.MEDIA_ROOT) / "case_documents" / "temp"
+            temp_dir.mkdir(parents=True, exist_ok=True)
+
+            # 生成唯一文件名
+            temp_filename = f"{uuid.uuid4().hex}_{file.name}"
+            temp_path = temp_dir / temp_filename
+
+            # 保存文件
+            with open(temp_path, "wb+") as destination:
+                for chunk in file.chunks():
+                    destination.write(chunk)
+
+            logger.info("临时文件上传成功: %s", temp_path)
+
+            return JsonResponse({
+                "success": True,
+                "temp_file_path": str(temp_path),
+                "temp_file_name": file.name,
+            })
+
+        except Exception as e:
+            logger.exception("临时文件上传失败")
+            return JsonResponse({"success": False, "error": f"上传失败: {str(e)}"}, status=500)
 
 
 __all__: list[str] = ["CaseAdminViewsMixin"]
