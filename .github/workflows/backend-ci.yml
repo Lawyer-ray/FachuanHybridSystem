@@ -59,6 +59,14 @@ jobs:
             exit 1
           fi
 
+          forbidden_binary_in_source=$(git ls-files | grep -Ei '^(backend/(apps|apiSystem|scripts)/|scripts/).*\.(onnx|mp4|zip)$' || true)
+          if [ -n "${forbidden_binary_in_source}" ]; then
+            echo "Found forbidden binary suffixes in source directories:"
+            echo "${forbidden_binary_in_source}"
+            echo "Use artifact/object storage instead of tracking these files in Git history."
+            exit 1
+          fi
+
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 

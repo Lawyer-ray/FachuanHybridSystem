@@ -15,7 +15,7 @@ repos:
       - id: check-yaml
       - id: check-added-large-files
         args: ['--maxkb=1000']
-        exclude: ^backend/\.secrets\.baseline$|^backend/apps/automation/services/ocr/models/.*\.onnx$
+        exclude: ^backend/\.secrets\.baseline$
       - id: check-json
         exclude: ^frontend/tsconfig\.(app|node)\.json$
       - id: check-toml
@@ -71,3 +71,9 @@ repos:
         entry: python backend/scripts/refactoring/structure_precommit_guardrails.py --check print
         language: python
         types: [python]
+
+      - id: forbid-source-binary-artifacts
+        name: Forbid source binary artifacts (.onnx/.mp4/.zip)
+        entry: python backend/scripts/refactoring/structure_precommit_guardrails.py --check binary-ext
+        language: python
+        pass_filenames: false
