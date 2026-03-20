@@ -16,7 +16,7 @@
 
 ```bash
 # 1) 克隆项目
-git clone https://github.com/Lawyer-ray/FachuanHybridSystem.git
+git clone --depth 1 git@github.com:Lawyer-ray/FachuanHybridSystem.git
 cd FachuanHybridSystem/backend
 
 # 2) 配置环境变量
@@ -53,7 +53,7 @@ docker compose up -d --build    # 更新后重建
 
 ```bash
 # 1) 克隆项目
-git clone https://github.com/Lawyer-ray/FachuanHybridSystem.git
+git clone --depth 1 git@github.com:Lawyer-ray/FachuanHybridSystem.git
 cd FachuanHybridSystem/backend
 
 # 2) 安装 uv（若未安装）
@@ -96,7 +96,7 @@ make run-port PORT=8080
 
 ```bash
 # 1) 克隆项目
-git clone https://github.com/Lawyer-ray/FachuanHybridSystem.git
+git clone --depth 1 git@github.com:Lawyer-ray/FachuanHybridSystem.git
 cd FachuanHybridSystem/backend
 
 # 2) 安装 uv（若未安装）
