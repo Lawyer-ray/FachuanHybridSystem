@@ -1,11 +1,12 @@
 """Module for litigation goal intake chain."""
 
-import logging
-from typing import Any, cast
+from __future__ import annotations
 
-from langchain_core.prompts import ChatPromptTemplate
+import logging
+from typing import Any
 
 from apps.core.llm.config import LLMConfig
+from apps.core.llm.structured_output import json_schema_instructions, parse_model_content
 
 from .goal_schemas import GoalIntakeResult
 
@@ -29,40 +30,31 @@ class LitigationGoalIntakeChain:
             from apps.litigation_ai.services.wiring import get_llm_service
 
             llm_service = await sync_to_async(get_llm_service, thread_sensitive=True)()
-            llm = await sync_to_async(llm_service.get_langchain_llm, thread_sensitive=True)(model=self._model)
-            prompt = ChatPromptTemplate.from_messages(
-                [
-                    ("system", system_prompt),
-                    (
-                        "human",
-                        "\n".join(
-                            [
-                                "# 文书类型",
-                                "{document_type}",
-                                "",
-                                "# 案件信息",
-                                "案件名称:{case_name}",
-                                "案由:{cause_of_action}",
-                                "涉案金额(如有):{target_amount}",
-                                "",
-                                "# 用户输入(诉讼目标/诉讼请求)",
-                                "{user_input}",
-                            ]
-                        ),
-                    ),
-                ]
-            )
-            chain = prompt | llm.with_structured_output(GoalIntakeResult)
-            result = await chain.ainvoke(
+            messages = [
                 {
-                    "document_type": document_type,
-                    "case_name": case_info.get("case_name", ""),
-                    "cause_of_action": case_info.get("cause_of_action", ""),
-                    "target_amount": str(case_info.get("target_amount") or ""),
-                    "user_input": user_input or "",
-                }
-            )
-            return cast(GoalIntakeResult, result)
+                    "role": "system",
+                    "content": "\n\n".join([system_prompt, json_schema_instructions(GoalIntakeResult)]),
+                },
+                {
+                    "role": "user",
+                    "content": "\n".join(
+                        [
+                            "# 文书类型",
+                            document_type,
+                            "",
+                            "# 案件信息",
+                            f"案件名称:{case_info.get('case_name', '')}",
+                            f"案由:{case_info.get('cause_of_action', '')}",
+                            f"涉案金额(如有):{case_info.get('target_amount') or ''}",
+                            "",
+                            "# 用户输入(诉讼目标/诉讼请求)",
+                            user_input or "",
+                        ]
+                    ),
+                },
+            ]
+            llm_resp = await llm_service.achat(messages=messages, model=self._model, temperature=0.2)
+            return parse_model_content(llm_resp.content, GoalIntakeResult)
         except Exception:
             logger.exception("操作失败")
 

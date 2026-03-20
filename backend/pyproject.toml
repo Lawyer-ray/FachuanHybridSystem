@@ -21,8 +21,7 @@ dependencies = [
     # --- HTTP 客户端 ---
     "httpx==0.28.1",
     # --- LLM / AI ---
-    "langchain-core==1.2.15",
-    "langchain-openai==1.1.10",
+    "openai>=2.2.0",
     # --- 文档处理 ---
     "docxtpl==0.20.2",
     "python-docx==1.2.0",

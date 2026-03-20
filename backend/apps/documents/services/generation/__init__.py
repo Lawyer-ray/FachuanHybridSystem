@@ -10,8 +10,8 @@
 - PreservationMaterialsGenerationService: 财产保全材料生成服务
 - GeneratorRegistry: 生成器注册表
 - GenerationResult: 生成结果数据类
-- PromptTemplateFactory: Prompt 模板工厂(LangChain 优化)
-- PartyInfo, ComplaintOutput, DefenseOutput: Pydantic 输出模型(LangChain 优化)
+- PromptTemplateFactory: Prompt 模板工厂
+- PartyInfo, ComplaintOutput, DefenseOutput: Pydantic 输出模型
 """
 
 from .base_generator import BaseGenerator

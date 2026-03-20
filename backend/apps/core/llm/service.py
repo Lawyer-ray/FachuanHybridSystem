@@ -7,9 +7,9 @@ Requirements: 1.2, 1.4, 1.5
 """
 
 import logging
-from typing import Any, ClassVar, cast
+from typing import Any, ClassVar
 
-from .backends import BackendConfig, ILLMBackend, LLMResponse, OllamaBackend
+from .backends import BackendConfig, ILLMBackend, LLMResponse
 from .client import LLMClient
 from .fallback_policy import LLMFallbackPolicy
 from .router import LLMBackendRouter
@@ -215,77 +215,6 @@ class LLMService:
             max_tokens=max_tokens,
             fallback=fallback,
             **kwargs,
-        )
-
-    def get_langchain_llm(
-        self,
-        backend: str | None = None,
-        model: str | None = None,
-    ) -> Any:
-        """
-        获取 LangChain LLM 实例
-
-        用于构建复杂的 LCEL 链.
-
-        Args:
-            backend: 指定后端,None 使用默认后端
-            model: 指定模型,None 使用后端默认模型
-
-        Returns:
-            LangChain LLM 实例(ChatOpenAI 或兼容类型)
-
-        Raises:
-            ValueError: 后端不支持 LangChain
-
-        Requirements: 1.5
-        """
-        backend_name = backend or self._default_backend
-        backend_instance = self._get_backend(backend_name)
-
-        # 检查后端是否支持 get_langchain_llm
-        if not hasattr(backend_instance, "get_langchain_llm"):
-            raise ValueError(f"后端 {backend_name} 不支持 LangChain LLM")
-
-        return backend_instance.get_langchain_llm(model=model)
-
-    def get_structured_llm(
-        self,
-        schema: type,
-        backend: str | None = None,
-        model: str | None = None,
-        method: str = "json_mode",
-    ) -> Any:
-        """
-        获取结构化输出 LLM
-
-        使用 with_structured_output 方法绑定 Pydantic 模型,
-        让 LLM 直接返回结构化数据.
-
-        Args:
-            schema: Pydantic 模型类,定义输出结构
-            backend: 指定后端,None 使用默认后端
-            model: 指定模型,None 使用后端默认模型
-            method: 结构化输出方法 (json_mode/function_calling/json_schema)
-
-        Returns:
-            绑定了结构化输出的 Runnable 实例
-
-        Raises:
-            ValueError: 后端不支持结构化输出
-
-        Requirements: 1.5
-        """
-        backend_name = backend or self._default_backend
-        backend_instance = self._get_backend(backend_name)
-
-        # 检查后端是否支持 get_structured_llm
-        if not hasattr(backend_instance, "get_structured_llm"):
-            raise ValueError(f"后端 {backend_name} 不支持结构化输出")
-
-        return backend_instance.get_structured_llm(
-            schema=schema,
-            model=model,
-            method=method,
         )
 
     def get_backend(self, name: str) -> ILLMBackend:

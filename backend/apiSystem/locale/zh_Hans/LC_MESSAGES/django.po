@@ -343,7 +343,7 @@ msgstr ""
 
 #: templates/index/_features.html:65
 msgid ""
-"基于 LangChain + LangGraph 的智能文书生成，支持起诉状、答辩状、代理词、财产保"
+"基于统一 LLM 服务的智能文书生成，支持起诉状、答辩状、代理词、财产保"
 "全申请书等，对话式交互引导。"
 msgstr ""
 

@@ -1,7 +1,7 @@
 """
 法律文书生成系统 - Prompt 版本管理模型
 
-本模块定义 LangChain Prompt 模板的版本管理数据模型.
+本模块定义诉讼文书 Prompt 模板的版本管理数据模型.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ class PromptVersion(models.Model):
     """
     Prompt 版本管理
 
-    用于管理 LangChain Prompt 模板的不同版本,支持版本切换和回滚.
+    用于管理 Prompt 模板的不同版本,支持版本切换和回滚.
     同一名称只能有一个激活版本.
 
     Requirements: 5.1
@@ -27,7 +27,7 @@ class PromptVersion(models.Model):
 
     version = models.CharField(max_length=50, verbose_name=_("版本号"), help_text=_("如:v1.0, v1.1"))
 
-    template = models.TextField(verbose_name=_("模板内容"), help_text=_("LangChain Prompt 模板字符串"))
+    template = models.TextField(verbose_name=_("模板内容"), help_text=_("Prompt 模板字符串"))
 
     is_active = models.BooleanField(
         default=False, verbose_name=_("是否激活"), help_text=_("同一名称只能有一个激活版本")

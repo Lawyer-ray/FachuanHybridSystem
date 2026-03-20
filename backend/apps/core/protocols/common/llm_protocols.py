@@ -12,6 +12,18 @@ class ILLMService(Protocol):
         temperature: float = 0.7,
         max_tokens: int | None = None,
         fallback: bool = True,
+        **kwargs: Any,
+    ) -> Any: ...
+
+    async def achat(
+        self,
+        messages: list[dict[str, str]],
+        backend: str | None = None,
+        model: str | None = None,
+        temperature: float = 0.7,
+        max_tokens: int | None = None,
+        fallback: bool = True,
+        **kwargs: Any,
     ) -> Any: ...
 
     def complete(
@@ -23,13 +35,7 @@ class ILLMService(Protocol):
         temperature: float = 0.7,
         max_tokens: int | None = None,
         fallback: bool = True,
-    ) -> Any: ...
-
-    def get_langchain_llm(
-        self,
-        backend: str | None = None,
-        model: str | None = None,
-        temperature: float = 0.7,
+        **kwargs: Any,
     ) -> Any: ...
 
 

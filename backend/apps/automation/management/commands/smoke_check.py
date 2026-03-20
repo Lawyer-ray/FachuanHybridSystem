@@ -149,45 +149,7 @@ class Command(BaseCommand):
             raise CommandError(f"上传冒烟失败:file/upload 返回异常 {json.dumps(payload2, ensure_ascii=False)}")
 
     def _check_websocket(self, client: Client, user: Any) -> None:
-        from channels.testing import WebsocketCommunicator
-
-        from apps.cases.models import Case
-        from apps.contracts.models import Contract
-        from apps.core.enums import CaseType
-        from apps.litigation_ai.models.session import LitigationSession
-
-        contract = Contract.objects.create(name="smoke contract", case_type=CaseType.CIVIL)
-        case = Case.objects.create(name="smoke case", contract=contract)
-        session = LitigationSession.objects.create(case=case, user=user)
-        cookie_name = getattr(settings, "SESSION_COOKIE_NAME", "sessionid")
-        cookie_value = client.cookies.get(cookie_name)
-        if not cookie_value:
-            raise CommandError("WebSocket 冒烟失败:未获取到登录 session cookie")
-        from apiSystem.asgi import application
-
-        async def _run() -> None:
-            communicator_anon = WebsocketCommunicator(application, f"/ws/litigation/sessions/{session.session_id}/")
-            connected, _ = await communicator_anon.connect()
-            if connected:
-                await communicator_anon.disconnect()
-                raise CommandError("WebSocket 冒烟失败:匿名用户不应 connect 成功")
-            cookie_header = f"{cookie_name}={cookie_value.value}".encode()
-            with patch(
-                "apps.litigation_ai.services.conversation_flow_service.ConversationFlowService.handle_init",
-                autospec=True,
-                return_value=None,
-            ):
-                communicator = WebsocketCommunicator(
-                    application, f"/ws/litigation/sessions/{session.session_id}/", headers=[(b"cookie", cookie_header)]
-                )
-                connected2, _ = await communicator.connect()
-                if not connected2:
-                    raise CommandError("WebSocket 冒烟失败:登录用户 connect 失败")
-                await communicator.disconnect()
-
-        import asyncio
-
-        asyncio.run(_run())
+        logger.info("WebSocket 冒烟检查已跳过: litigation/mock-trial websocket 已下线")
 
     def _check_django_q(self) -> None:
         import logging

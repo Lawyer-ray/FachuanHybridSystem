@@ -1,22 +1,16 @@
 """
 对话服务
 
-提供 LangChain 上下文记忆功能,管理多轮对话的历史记录.
+提供轻量上下文记忆功能,管理多轮对话的历史记录.
 """
 
 import uuid
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Any, cast
+from typing import Any
 
 from django.db import models
 from django.utils import timezone
-
-try:
-    from langchain.memory import ConversationBufferWindowMemory as _LangChainConversationBufferWindowMemory
-except ModuleNotFoundError:
-    _LangChainConversationBufferWindowMemory = None
-
 
 @dataclass
 class _HumanMessage:
@@ -33,18 +27,9 @@ class _SystemMessage:
     content: str
 
 
-try:
-    from langchain_core.messages import AIMessage as _LCAIMessage
-    from langchain_core.messages import HumanMessage as _LCHumanMessage
-    from langchain_core.messages import SystemMessage as _LCSystemMessage
-
-    HumanMessage = _LCHumanMessage
-    AIMessage = _LCAIMessage
-    SystemMessage = _LCSystemMessage
-except ModuleNotFoundError:
-    HumanMessage = _HumanMessage  # type: ignore[assignment,misc]
-    AIMessage = _AIMessage  # type: ignore[assignment,misc]
-    SystemMessage = _SystemMessage  # type: ignore[assignment,misc]
+HumanMessage = _HumanMessage
+AIMessage = _AIMessage
+SystemMessage = _SystemMessage
 
 
 from apps.core.models import ConversationHistory
@@ -89,7 +74,7 @@ class ConversationService:
     """
     对话服务
 
-    提供基于 LangChain 的对话记忆功能,支持多轮对话的上下文管理.
+    提供基于内置窗口缓存的对话记忆功能,支持多轮对话的上下文管理.
     """
 
     def __init__(
@@ -117,26 +102,19 @@ class ConversationService:
 
     @property
     def memory(self) -> Any:
-        """获取 LangChain 记忆对象(延迟加载)"""
+        """获取对话记忆对象(延迟加载)"""
         if self._memory is None:
-            if _LangChainConversationBufferWindowMemory is not None:
-                self._memory = _LangChainConversationBufferWindowMemory(
-                    k=10,
-                    return_messages=True,
-                    memory_key="chat_history",
-                )
-            else:
-                self._memory = _SimpleConversationBufferWindowMemory(
-                    k=10,
-                    return_messages=True,
-                    memory_key="chat_history",
-                )
+            self._memory = _SimpleConversationBufferWindowMemory(
+                k=10,
+                return_messages=True,
+                memory_key="chat_history",
+            )
             # 从数据库加载历史记录
             self._load_history_from_db()
         return self._memory
 
     def _load_history_from_db(self) -> None:
-        """从数据库加载对话历史到 LangChain 记忆"""
+        """从数据库加载对话历史到会话记忆"""
         if self._memory is None:
             return
 
@@ -175,7 +153,7 @@ class ConversationService:
             metadata=metadata or {},
         )
 
-        # 添加到 LangChain 记忆
+        # 添加到会话记忆
         self.memory.chat_memory.add_user_message(content)
 
         return record
@@ -200,7 +178,7 @@ class ConversationService:
             metadata=metadata or {},
         )
 
-        # 添加到 LangChain 记忆
+        # 添加到会话记忆
         self.memory.chat_memory.add_ai_message(content)
 
         return record
@@ -227,7 +205,7 @@ class ConversationService:
             step="",
         )
 
-        # 添加到 LangChain 记忆(系统消息不加入对话记忆)
+        # 系统消息不加入对话记忆
 
         return record
 
@@ -270,7 +248,7 @@ class ConversationService:
         # 清除数据库记录
         self._repository.delete_by_session_id(self.session_id)
 
-        # 清除 LangChain 记忆
+        # 清除会话记忆
         if self._memory:
             self._memory.clear()
 
@@ -329,4 +307,4 @@ class ConversationService:
             },
         )
 
-        return cast(str, response.content)
+        return str(response.content)

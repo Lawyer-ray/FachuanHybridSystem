@@ -1,7 +1,7 @@
 """
 Pydantic 输出模型定义
 
-用于 LangChain JsonOutputParser 的结构化输出解析.
+用于诉讼文书结构化输出解析.
 """
 
 from pydantic import BaseModel, Field

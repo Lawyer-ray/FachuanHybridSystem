@@ -53,7 +53,7 @@ def generate_complaint(request: Any, data: ComplaintRequest) -> Any:
     """
     生成起诉状
 
-    使用 LangChain LCEL 链生成起诉状文书.
+    使用统一 LLM 结构化链生成起诉状文书.
 
     Args:
         data: 起诉状生成请求数据
@@ -88,7 +88,7 @@ def generate_defense(request: Any, data: DefenseRequest) -> Any:
     """
     生成答辩状
 
-    使用 LangChain LCEL 链生成答辩状文书.
+    使用统一 LLM 结构化链生成答辩状文书.
 
     Args:
         data: 答辩状生成请求数据

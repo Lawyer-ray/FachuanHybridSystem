@@ -1728,8 +1728,8 @@ msgid "如:v1.0, v1.1"
 msgstr "e.g.: v1.0, v1.1"
 
 #: apps/documents/models/prompt_version.py:30
-msgid "LangChain Prompt 模板字符串"
-msgstr "LangChain Prompt template string"
+msgid "Prompt 模板字符串"
+msgstr "Prompt template string"
 
 #: apps/documents/models/prompt_version.py:33
 msgid "是否激活"

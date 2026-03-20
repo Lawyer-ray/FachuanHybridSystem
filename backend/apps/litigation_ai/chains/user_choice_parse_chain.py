@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 import logging
-from typing import cast
-
-from langchain_core.prompts import ChatPromptTemplate
 
 from apps.core.llm.config import LLMConfig
+from apps.core.llm.structured_output import json_schema_instructions, parse_model_content
 
 from .goal_schemas import UserChoiceResult
 
@@ -40,36 +38,29 @@ class UserChoiceParseChain:
             from apps.litigation_ai.services.wiring import get_llm_service
 
             llm_service = await sync_to_async(get_llm_service, thread_sensitive=True)()
-            llm = await sync_to_async(llm_service.get_langchain_llm, thread_sensitive=True)(model=self._model)
-            prompt = ChatPromptTemplate.from_messages(
-                [
-                    ("system", system_prompt),
-                    (
-                        "human",
-                        "\n".join(
-                            [
-                                "# 默认要生成的文书",
-                                "{primary_document_type}",
-                                "",
-                                "# 可选的额外文书",
-                                "{optional_document_types}",
-                                "",
-                                "# 用户输入",
-                                "{user_input}",
-                            ]
-                        ),
-                    ),
-                ]
-            )
-            chain = prompt | llm.with_structured_output(UserChoiceResult)
-            result = await chain.ainvoke(
+            messages = [
                 {
-                    "primary_document_type": primary_document_type,
-                    "optional_document_types": ", ".join(optional_document_types),
-                    "user_input": user_input or "",
-                }
-            )
-            return cast(UserChoiceResult, result)
+                    "role": "system",
+                    "content": "\n\n".join([system_prompt, json_schema_instructions(UserChoiceResult)]),
+                },
+                {
+                    "role": "user",
+                    "content": "\n".join(
+                        [
+                            "# 默认要生成的文书",
+                            primary_document_type,
+                            "",
+                            "# 可选的额外文书",
+                            ", ".join(optional_document_types),
+                            "",
+                            "# 用户输入",
+                            user_input or "",
+                        ]
+                    ),
+                },
+            ]
+            llm_resp = await llm_service.achat(messages=messages, model=self._model, temperature=0.0)
+            return parse_model_content(llm_resp.content, UserChoiceResult)
         except Exception:
             logger.exception("操作失败")
 

@@ -7,12 +7,53 @@ Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6
 """
 
 import logging
+from functools import update_wrapper
 from typing import Any
 
-from langchain_core.tools import tool
+from asgiref.sync import sync_to_async
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger("apps.litigation_ai")
+
+
+class _SimpleTool:
+    def __init__(self, func: Any, args_schema: type[BaseModel] | None = None) -> None:
+        update_wrapper(self, func)
+        self._func = func
+        self.args_schema = args_schema
+        self.name = getattr(func, "__name__", "tool")
+        self.description = (getattr(func, "__doc__", "") or "").strip()
+
+    def _normalize_args(self, args: Any) -> dict[str, Any]:
+        if args is None:
+            payload: dict[str, Any] = {}
+        elif isinstance(args, BaseModel):
+            payload = args.model_dump()
+        elif isinstance(args, dict):
+            payload = dict(args)
+        else:
+            raise TypeError(f"Tool args must be dict/BaseModel/None, got {type(args).__name__}")
+
+        if self.args_schema is None:
+            return payload
+        validated = self.args_schema.model_validate(payload)
+        return validated.model_dump()
+
+    def invoke(self, args: Any | None = None) -> Any:
+        return self._func(**self._normalize_args(args))
+
+    async def ainvoke(self, args: Any | None = None) -> Any:
+        return await sync_to_async(self.invoke, thread_sensitive=True)(args)
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        return self._func(*args, **kwargs)
+
+
+def tool(*, args_schema: type[BaseModel] | None = None) -> Any:
+    def _decorator(func: Any) -> _SimpleTool:
+        return _SimpleTool(func=func, args_schema=args_schema)
+
+    return _decorator
 
 
 # ============================================================

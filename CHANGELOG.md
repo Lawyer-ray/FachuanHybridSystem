@@ -2,6 +2,30 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.21.0] - 2026-03-20
+
+### 重构
+
+- **LangChain/LangGraph 运行时拆除**
+  - 全面移除后端代码中的 `langchain` / `langgraph` 依赖调用，统一改为 `LLMService.chat/achat` 直连模式
+  - `backend/pyproject.toml` 删除 `langchain-core`、`langchain-openai`，改为显式依赖 `openai`
+  - 更新 `backend/uv.lock`，移除 LangChain 相关锁定条目
+- **结构化输出链路统一**
+  - 新增 `apps/core/llm/structured_output.py`，统一处理 JSON 清洗、提取与 Pydantic 校验
+  - 诉讼文书生成、诉讼流程解析、法院文书态势识别、模拟庭审链路全部切换到统一结构化解析
+- **Litigation 模块兼容下线**
+  - 下线 `/litigation` 与 `/mock-trial` 路由注册以及对应 WebSocket 路由挂载
+  - 前台首页移除 mock-trial 区块，案件详情页移除“模拟庭审”入口按钮
+
+### 修复
+
+- **smoke_check 回归修复**
+  - `WebSocket` 冒烟检查改为下线提示后，补回上传检查所需的 `patch` 导入
+  - CI 合同保持通过：`backend/tests` 全量 `115 passed`
+- **文案与多语言同步**
+  - 首页功能与技术栈文案更新为“统一 LLM 服务 / OpenAI SDK / Flow State Machine”
+  - Prompt 模板模型文案去除 LangChain 术语，避免与当前实现不一致
+
 ## [26.20.0] - 2026-03-20
 
 ### 新增

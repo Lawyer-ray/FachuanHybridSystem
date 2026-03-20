@@ -1,7 +1,7 @@
 """
 诉讼文书生成 Agent 模块
 
-基于 LangChain v1 的 Agent 架构,实现智能诉讼文书生成.
+基于统一 LLM 服务的 Agent 架构,实现智能诉讼文书生成.
 
 主要组件:
 - LitigationAgent: Agent 实例,封装 LLM 和工具调用

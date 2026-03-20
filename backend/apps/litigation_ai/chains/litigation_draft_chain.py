@@ -7,7 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from langchain_core.messages import HumanMessage, SystemMessage
+from apps.core.llm.structured_output import clean_text, parse_json_content
 
 logger = logging.getLogger("apps.litigation_ai")
 
@@ -26,7 +26,7 @@ class LitigationDraftChain:
 
     async def _build_messages(
         self, document_type: str, case_info: dict[str, Any], litigation_goal: str, evidence_text: str
-    ) -> list[SystemMessage | HumanMessage]:
+    ) -> list[dict[str, str]]:
         from apps.litigation_ai.services.prompt_template_service import PromptTemplateService
 
         template_service = PromptTemplateService()
@@ -77,16 +77,12 @@ class LitigationDraftChain:
         )
 
         return [
-            SystemMessage(content=f"{system}\n{output_contract}"),
-            HumanMessage(content=user),
+            {"role": "system", "content": f"{system}\n{output_contract}"},
+            {"role": "user", "content": user},
         ]
 
     def _clean_llm_output(self, text: str) -> str:
-        if not text:
-            return ""
-        for marker in ["```json", "```", "<|begin_of_text|>", "<|end_of_text|>", "<|begin_of_box|>", "<|end_of_box|>"]:
-            text = text.replace(marker, "")
-        return text.strip()
+        return clean_text(text)
 
     def _format_display_text(self, document_type: str, draft: dict[str, Any]) -> str:
         if document_type in ["complaint", "counterclaim"]:
@@ -125,27 +121,21 @@ class LitigationDraftChain:
         from apps.litigation_ai.services.wiring import get_llm_service
 
         llm_service = await sync_to_async(get_llm_service, thread_sensitive=True)()
-        llm = await sync_to_async(llm_service.get_langchain_llm, thread_sensitive=True)(model=self._model)
-        model_name = self._model or getattr(llm, "model", "") or getattr(llm, "model_name", "") or ""
 
         messages = await self._build_messages(document_type, case_info, litigation_goal, evidence_text)
 
-        response = await llm.ainvoke(messages)
-        content = self._clean_llm_output(getattr(response, "content", "") or "")
-
-        meta = getattr(response, "response_metadata", {}) or {}
-        tu = meta.get("token_usage", {}) if isinstance(meta, dict) else {}
+        response = await llm_service.achat(messages=messages, model=self._model, temperature=0.2)
+        model_name = response.model or self._model or ""
+        content = self._clean_llm_output(response.content or "")
         token_usage = {
-            "prompt_tokens": tu.get("prompt_tokens", 0),
-            "completion_tokens": tu.get("completion_tokens", 0),
-            "total_tokens": tu.get("total_tokens", 0),
+            "prompt_tokens": int(getattr(response, "prompt_tokens", 0) or 0),
+            "completion_tokens": int(getattr(response, "completion_tokens", 0) or 0),
+            "total_tokens": int(getattr(response, "total_tokens", 0) or 0),
         }
-
-        import json
 
         from .schemas import ComplaintDraft, DefenseDraft
 
-        parsed = json.loads(content) if content else {}
+        parsed = parse_json_content(content) if content else {}
         if document_type in ["complaint", "counterclaim"]:
             draft_obj: ComplaintDraft | DefenseDraft = ComplaintDraft.model_validate(parsed)
         else:

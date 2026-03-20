@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import logging
-from typing import cast
 
-from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
 
 from apps.core.llm.config import LLMConfig
+from apps.core.llm.structured_output import json_schema_instructions, parse_model_content
 
 logger = logging.getLogger(__name__)
 
@@ -34,29 +33,26 @@ class DocumentTypeParseChain:
             from apps.litigation_ai.services.wiring import get_llm_service
 
             llm_service = await sync_to_async(get_llm_service, thread_sensitive=True)()
-            llm = await sync_to_async(llm_service.get_langchain_llm, thread_sensitive=True)(model=self._model)
-            prompt = ChatPromptTemplate.from_messages(
-                [
-                    ("system", system_prompt),
-                    (
-                        "human",
-                        "\n".join(
-                            [
-                                "# 允许的文书类型(英文 code)",
-                                "{allowed_types}",
-                                "",
-                                "# 用户输入",
-                                "{user_input}",
-                            ]
-                        ),
+            messages = [
+                {
+                    "role": "system",
+                    "content": "\n\n".join([system_prompt, json_schema_instructions(DocumentTypeParseResult)]),
+                },
+                {
+                    "role": "user",
+                    "content": "\n".join(
+                        [
+                            "# 允许的文书类型(英文 code)",
+                            ", ".join(allowed_types or []),
+                            "",
+                            "# 用户输入",
+                            user_input or "",
+                        ]
                     ),
-                ]
-            )
-            chain = prompt | llm.with_structured_output(DocumentTypeParseResult)
-            result = await chain.ainvoke(
-                {"allowed_types": ", ".join(allowed_types or []), "user_input": user_input or ""}
-            )
-            return cast(DocumentTypeParseResult, result)
+                },
+            ]
+            llm_resp = await llm_service.achat(messages=messages, model=self._model, temperature=0.0)
+            return parse_model_content(llm_resp.content, DocumentTypeParseResult)
         except Exception:
             logger.exception("操作失败")
 

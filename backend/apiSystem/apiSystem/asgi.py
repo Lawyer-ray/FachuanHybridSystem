@@ -59,8 +59,8 @@ async def _on_startup() -> None:
         await sync_to_async(warm_llm_system_config_cache, thread_sensitive=True)(strict=_strict)
 
 
-# Import routing after Django is initialized
-from apps.litigation_ai.routing import websocket_urlpatterns
+# Litigation AI websocket routes are intentionally disabled.
+websocket_urlpatterns: list[object] = []
 
 application = ProtocolTypeRouter(
     {

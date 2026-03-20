@@ -340,8 +340,8 @@ msgid "AI 文书生成"
 msgstr "AI Document Generation"
 
 #: templates/index/_features.html:65
-msgid "基于 LangChain + LangGraph 的智能文书生成，支持起诉状、答辩状、代理词、财产保全申请书等，对话式交互引导。"
-msgstr "LangChain + LangGraph powered document generation. Supports complaints, defenses, legal briefs, preservation applications, with conversational guidance."
+msgid "基于统一 LLM 服务的智能文书生成，支持起诉状、答辩状、代理词、财产保全申请书等，对话式交互引导。"
+msgstr "Unified LLM service powered document generation. Supports complaints, defenses, legal briefs, preservation applications, with conversational guidance."
 
 #: templates/index/_features.html:74
 msgid "合同管理"

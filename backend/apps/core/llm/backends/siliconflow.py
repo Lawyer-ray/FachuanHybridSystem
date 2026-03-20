@@ -2,17 +2,13 @@
 
 from __future__ import annotations
 
-"\nSiliconFlow LLM 后端实现\n\n封装 SiliconFlow API 调用逻辑,实现 ILLMBackend 接口.\n\nRequirements: 1.2, 1.5\n"
 import logging
 import time
 from collections.abc import AsyncIterator, Iterator
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any
 
 import httpx
 import openai
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-from langchain_openai import ChatOpenAI
-from pydantic import SecretStr
 
 from apps.core.llm.config import LLMConfig
 from apps.core.llm.exceptions import LLMAPIError, LLMAuthenticationError, LLMNetworkError, LLMTimeoutError
@@ -26,25 +22,12 @@ class SiliconFlowBackend:
     """
     SiliconFlow LLM 后端
 
-    封装 LangChain + SiliconFlow API,实现 ILLMBackend 接口.
-
-    Example:
-        backend = SiliconFlowBackend()
-        response = backend.chat([{"role": "user", "content": "你好"}])
-        logger.info(response.content)
-
-    Requirements: 1.2, 1.5
+    封装 OpenAI 兼容 API 调用逻辑,实现 ILLMBackend 接口.
     """
 
     BACKEND_NAME = "siliconflow"
 
     def __init__(self, config: BackendConfig | None = None) -> None:
-        """
-        初始化 SiliconFlow 后端
-
-        Args:
-            config: 后端配置,None 时从 LLMConfig 读取
-        """
         self._config = config
         self._api_key: str | None = None
         self._base_url: str | None = None
@@ -53,7 +36,6 @@ class SiliconFlowBackend:
 
     @property
     def api_key(self) -> str:
-        """获取 API Key(延迟加载)"""
         if self._api_key is None:
             if self._config and self._config.api_key:
                 self._api_key = self._config.api_key
@@ -63,7 +45,6 @@ class SiliconFlowBackend:
 
     @property
     def base_url(self) -> str:
-        """获取 Base URL(延迟加载)"""
         if self._base_url is None:
             if self._config and self._config.base_url:
                 self._base_url = self._config.base_url
@@ -73,7 +54,6 @@ class SiliconFlowBackend:
 
     @property
     def default_model(self) -> str:
-        """获取默认模型(延迟加载)"""
         if self._default_model is None:
             if self._config and self._config.default_model:
                 self._default_model = self._config.default_model
@@ -83,7 +63,6 @@ class SiliconFlowBackend:
 
     @property
     def timeout(self) -> int:
-        """获取超时时间(延迟加载)"""
         if self._timeout is None:
             if self._config and self._config.timeout:
                 self._timeout = self._config.timeout
@@ -91,83 +70,79 @@ class SiliconFlowBackend:
                 self._timeout = LLMConfig.get_timeout()
         return self._timeout
 
-    def _convert_messages(self, messages: list[dict[str, str]]) -> list[Any]:
-        """
-        将消息字典列表转换为 LangChain 消息对象列表
-
-        Args:
-            messages: 消息列表 [{"role": "user", "content": "..."}]
-
-        Returns:
-            LangChain 消息对象列表
-        """
-        langchain_messages: list[Any] = []
+    def _normalize_messages(self, messages: list[dict[str, str]]) -> list[dict[str, str]]:
+        normalized: list[dict[str, str]] = []
         for msg in messages:
             role = msg.get("role", "user")
-            content = msg.get("content", "")
-            if role == "system":
-                langchain_messages.append(SystemMessage(content=content))
-            elif role == "assistant":
-                langchain_messages.append(AIMessage(content=content))
-            else:
-                langchain_messages.append(HumanMessage(content=content))
-        return langchain_messages
+            if role not in {"system", "user", "assistant"}:
+                role = "user"
+            normalized.append({"role": role, "content": msg.get("content", "")})
+        return normalized
 
-    def _extract_token_usage(self, response_metadata: dict[str, Any]) -> tuple[Any, ...]:
-        """
-        从响应元数据中提取 token 使用信息
-
-        Args:
-            response_metadata: 响应元数据
-
-        Returns:
-            (prompt_tokens, completion_tokens, total_tokens) 元组
-        """
-        token_usage = response_metadata.get("token_usage", {})
-        prompt_tokens = token_usage.get("prompt_tokens", 0)
-        completion_tokens = token_usage.get("completion_tokens", 0)
-        total_tokens = token_usage.get("total_tokens", prompt_tokens + completion_tokens)
-        return (prompt_tokens, completion_tokens, total_tokens)
-
-    def _extract_usage_from_chunk(self, chunk: Any) -> LLMUsage | None:
-        usage_metadata = getattr(chunk, "usage_metadata", None)
-        if not usage_metadata or not isinstance(usage_metadata, dict):
-            return None
-        prompt_tokens = usage_metadata.get("input_tokens") or usage_metadata.get("prompt_tokens") or 0
-        completion_tokens = usage_metadata.get("output_tokens") or usage_metadata.get("completion_tokens") or 0
-        total_tokens = usage_metadata.get("total_tokens")
-        if total_tokens is None:
-            total_tokens = int(prompt_tokens) + int(completion_tokens)
-        return LLMUsage(
-            prompt_tokens=int(prompt_tokens), completion_tokens=int(completion_tokens), total_tokens=int(total_tokens)
-        )
-
-    def _create_llm(
-        self,
-        model: str | None = None,
-        temperature: float = 0.7,
-        max_tokens: int | None = None,
-        timeout_seconds: float | None = None,
-    ) -> ChatOpenAI:
-        """
-        创建 ChatOpenAI 实例
-
-        Args:
-            model: 模型名称
-            temperature: 温度参数
-            max_tokens: 最大输出 token 数
-
-        Returns:
-            ChatOpenAI 实例
-        """
-        return ChatOpenAI(  # type: ignore[call-arg]
-            api_key=SecretStr(self.api_key),
+    def _build_sync_client(self, timeout_seconds: float | None = None) -> openai.OpenAI:
+        return openai.OpenAI(
+            api_key=self.api_key,
             base_url=self.base_url,
-            model=model or self.default_model,
-            temperature=temperature,
-            max_tokens=max_tokens,
             timeout=timeout_seconds or self.timeout,
         )
+
+    async def _build_async_client(self, timeout_seconds: float | None = None) -> openai.AsyncOpenAI:
+        api_key = self._config.api_key if self._config and self._config.api_key else await LLMConfig.get_api_key_async()
+        base_url = self._config.base_url if self._config and self._config.base_url else await LLMConfig.get_base_url_async()
+        return openai.AsyncOpenAI(
+            api_key=api_key,
+            base_url=base_url,
+            timeout=timeout_seconds or await LLMConfig.get_timeout_async(),
+        )
+
+    def _extract_usage(self, usage: Any) -> LLMUsage:
+        if usage is None:
+            return LLMUsage()
+        prompt_tokens = int(getattr(usage, "prompt_tokens", 0) or 0)
+        completion_tokens = int(getattr(usage, "completion_tokens", 0) or 0)
+        total_tokens = int(getattr(usage, "total_tokens", prompt_tokens + completion_tokens) or 0)
+        return LLMUsage(
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
+        )
+
+    def _extract_content(self, response: Any) -> str:
+        choices = getattr(response, "choices", None) or []
+        if not choices:
+            return ""
+        message = getattr(choices[0], "message", None)
+        if message is None:
+            return ""
+        content = getattr(message, "content", "")
+        if isinstance(content, str):
+            return content
+        return str(content)
+
+    def _raise_mapped_error(self, error: Exception, timeout_seconds: float, base_url: str) -> None:
+        if isinstance(error, openai.AuthenticationError):
+            logger.warning("SiliconFlow 认证失败", extra={"error": str(error)})
+            raise LLMAuthenticationError(message="SiliconFlow API Key 无效或缺失", errors={"detail": str(error)}) from error
+        if isinstance(error, (openai.APITimeoutError, httpx.TimeoutException)):
+            logger.warning("SiliconFlow 请求超时", extra={"timeout": timeout_seconds, "error": str(error)})
+            raise LLMTimeoutError(
+                message="LLM 请求超时",
+                timeout_seconds=timeout_seconds,
+                errors={"detail": str(error)},
+            ) from error
+        if isinstance(error, (openai.APIConnectionError, httpx.ConnectError)):
+            logger.warning("SiliconFlow 网络连接失败", extra={"base_url": base_url, "error": str(error)})
+            raise LLMNetworkError(message="LLM 网络连接失败", errors={"detail": str(error)}) from error
+        if isinstance(error, (openai.APIError, openai.APIStatusError)):
+            status_code = getattr(error, "status_code", None)
+            logger.warning("SiliconFlow API 错误", extra={"status_code": status_code, "error": str(error)})
+            raise LLMAPIError(
+                message=f"LLM API 调用错误: {error!s}",
+                status_code=status_code,
+                errors={"detail": str(error)},
+            ) from error
+        logger.warning("SiliconFlow 调用异常", extra={"error": str(error), "error_type": type(error).__name__})
+        raise LLMAPIError(message=f"LLM API 调用错误: {error!s}", errors={"detail": str(error)}) from error
 
     def chat(
         self,
@@ -177,65 +152,31 @@ class SiliconFlowBackend:
         max_tokens: int | None = None,
         **kwargs: Any,
     ) -> LLMResponse:
-        """
-        同步聊天接口
-
-        Args:
-            messages: 消息列表 [{"role": "user", "content": "..."}]
-            model: 模型名称,None 时使用默认模型
-            temperature: 温度参数
-            max_tokens: 最大输出 token 数
-            **kwargs: 额外参数(忽略)
-
-        Returns:
-            LLMResponse: 统一格式的响应对象
-
-        Raises:
-            LLMNetworkError: 网络连接失败
-            LLMAPIError: API 返回错误
-            LLMAuthenticationError: 认证失败
-            LLMTimeoutError: 请求超时
-        """
         used_model = model or self.default_model
-        request_timeout = kwargs.pop("timeout_seconds", None)
-        llm = self._create_llm(
-            model=used_model,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            timeout_seconds=request_timeout,
-        )
-        langchain_messages = self._convert_messages(messages)
+        request_timeout = float(kwargs.pop("timeout_seconds", self.timeout))
+        payload: dict[str, Any] = {
+            "model": used_model,
+            "messages": self._normalize_messages(messages),
+            "temperature": temperature,
+        }
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
+
         start_time = time.time()
         try:
-            response = llm.invoke(langchain_messages)
-        except openai.AuthenticationError as e:
-            logger.warning("SiliconFlow 认证失败", extra={"error": str(e)})
-            raise LLMAuthenticationError(message="SiliconFlow API Key 无效或缺失", errors={"detail": str(e)}) from e
-        except (openai.APITimeoutError, httpx.TimeoutException) as e:
-            logger.warning("SiliconFlow 请求超时", extra={"timeout": request_timeout or self.timeout, "error": str(e)})
-            raise LLMTimeoutError(
-                message="LLM 请求超时",
-                timeout_seconds=request_timeout or self.timeout,
-                errors={"detail": str(e)},
-            ) from e
-        except httpx.ConnectError as e:
-            logger.warning("SiliconFlow 网络连接失败", extra={"base_url": self.base_url, "error": str(e)})
-            raise LLMNetworkError(message="LLM 网络连接失败", errors={"detail": str(e)}) from e
-        except (openai.APIError, openai.APIStatusError) as e:
-            status_code = getattr(e, "status_code", None)
-            logger.warning("SiliconFlow API 错误", extra={"status_code": status_code, "error": str(e)})
-            raise LLMAPIError(
-                message=f"LLM API 调用错误: {e!s}", status_code=status_code, errors={"detail": str(e)}
-            ) from e
+            client = self._build_sync_client(timeout_seconds=request_timeout)
+            response = client.chat.completions.create(**payload)
+        except Exception as error:
+            self._raise_mapped_error(error, request_timeout, self.base_url)
+
         duration_ms = (time.time() - start_time) * 1000
-        prompt_tokens, completion_tokens, total_tokens = self._extract_token_usage(response.response_metadata)
-        content_str = response.content if isinstance(response.content, str) else str(response.content)
+        usage = self._extract_usage(getattr(response, "usage", None))
         return LLMResponse(
-            content=content_str,
+            content=self._extract_content(response),
             model=used_model,
-            prompt_tokens=prompt_tokens,
-            completion_tokens=completion_tokens,
-            total_tokens=total_tokens,
+            prompt_tokens=usage.prompt_tokens,
+            completion_tokens=usage.completion_tokens,
+            total_tokens=usage.total_tokens,
             duration_ms=duration_ms,
             backend=self.BACKEND_NAME,
         )
@@ -248,79 +189,32 @@ class SiliconFlowBackend:
         max_tokens: int | None = None,
         **kwargs: Any,
     ) -> LLMResponse:
-        """
-        异步聊天接口
+        used_model = model or (self._config.default_model if self._config else await LLMConfig.get_default_model_async())
+        request_timeout = float(kwargs.pop("timeout_seconds", self._config.timeout if self._config else await LLMConfig.get_timeout_async()))
+        payload: dict[str, Any] = {
+            "model": used_model,
+            "messages": self._normalize_messages(messages),
+            "temperature": temperature,
+        }
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
 
-        Args:
-            messages: 消息列表 [{"role": "user", "content": "..."}]
-            model: 模型名称,None 时使用默认模型
-            temperature: 温度参数
-            max_tokens: 最大输出 token 数
-            **kwargs: 额外参数(忽略)
-
-        Returns:
-            LLMResponse: 统一格式的响应对象
-
-        Raises:
-            LLMNetworkError: 网络连接失败
-            LLMAPIError: API 返回错误
-            LLMAuthenticationError: 认证失败
-            LLMTimeoutError: 请求超时
-        """
-        api_key = self._config.api_key if self._config and self._config.api_key else await LLMConfig.get_api_key_async()
-        base_url = (
-            self._config.base_url if self._config and self._config.base_url else await LLMConfig.get_base_url_async()
-        )
-        default_model = (
-            self._config.default_model
-            if self._config and self._config.default_model
-            else await LLMConfig.get_default_model_async()
-        )
-        default_timeout = (
-            self._config.timeout if self._config and self._config.timeout else await LLMConfig.get_timeout_async()
-        )
-        request_timeout = kwargs.pop("timeout_seconds", None) or default_timeout
-        used_model = model or default_model
-        llm = ChatOpenAI(  # type: ignore[call-arg]
-            api_key=SecretStr(api_key),
-            base_url=base_url,
-            model=used_model,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            timeout=request_timeout,
-        )
-        langchain_messages = self._convert_messages(messages)
         start_time = time.time()
         try:
-            response = await llm.ainvoke(langchain_messages)
-        except openai.AuthenticationError as e:
-            logger.warning("SiliconFlow 认证失败", extra={"error": str(e)})
-            raise LLMAuthenticationError(message="SiliconFlow API Key 无效或缺失", errors={"detail": str(e)}) from e
-        except httpx.TimeoutException as e:
-            logger.warning("SiliconFlow 请求超时", extra={"timeout": request_timeout, "error": str(e)})
-            raise LLMTimeoutError(
-                message="LLM 请求超时",
-                timeout_seconds=int(request_timeout),
-                errors={"detail": str(e)},
-            ) from e
-        except httpx.ConnectError as e:
-            logger.warning("SiliconFlow 网络连接失败", extra={"base_url": base_url, "error": str(e)})
-            raise LLMNetworkError(message="LLM 网络连接失败", errors={"detail": str(e)}) from e
-        except (openai.APIError, openai.APIStatusError) as e:
-            status_code = getattr(e, "status_code", None)
-            logger.warning("SiliconFlow API 错误", extra={"status_code": status_code, "error": str(e)})
-            raise LLMAPIError(
-                message=f"LLM API 调用错误: {e!s}", status_code=status_code, errors={"detail": str(e)}
-            ) from e
+            async_client = await self._build_async_client(timeout_seconds=request_timeout)
+            response = await async_client.chat.completions.create(**payload)
+        except Exception as error:
+            base_url = self._config.base_url if self._config and self._config.base_url else await LLMConfig.get_base_url_async()
+            self._raise_mapped_error(error, request_timeout, base_url)
+
         duration_ms = (time.time() - start_time) * 1000
-        prompt_tokens, completion_tokens, total_tokens = self._extract_token_usage(response.response_metadata)
-        content_str = response.content if isinstance(response.content, str) else str(response.content)
+        usage = self._extract_usage(getattr(response, "usage", None))
         return LLMResponse(
-            content=content_str,
+            content=self._extract_content(response),
             model=used_model,
-            prompt_tokens=prompt_tokens,
-            completion_tokens=completion_tokens,
-            total_tokens=total_tokens,
+            prompt_tokens=usage.prompt_tokens,
+            completion_tokens=usage.completion_tokens,
+            total_tokens=usage.total_tokens,
             duration_ms=duration_ms,
             backend=self.BACKEND_NAME,
         )
@@ -334,30 +228,32 @@ class SiliconFlowBackend:
         **kwargs: Any,
     ) -> Iterator[LLMStreamChunk]:
         used_model = model or self.default_model
-        llm = self._create_llm(model=used_model, temperature=temperature, max_tokens=max_tokens)
-        langchain_messages = self._convert_messages(messages)
+        request_timeout = float(kwargs.pop("timeout_seconds", self.timeout))
+        payload: dict[str, Any] = {
+            "model": used_model,
+            "messages": self._normalize_messages(messages),
+            "temperature": temperature,
+            "stream": True,
+            "stream_options": {"include_usage": True},
+        }
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
+
         try:
-            for chunk in llm.stream(langchain_messages):
-                content = getattr(chunk, "content", "") or ""
-                usage = self._extract_usage_from_chunk(chunk)
-                yield LLMStreamChunk(content=content, usage=usage, model=used_model, backend=self.BACKEND_NAME)
-        except openai.AuthenticationError as e:
-            logger.warning("SiliconFlow 认证失败", extra={"error": str(e)})
-            raise LLMAuthenticationError(message="SiliconFlow API Key 无效或缺失", errors={"detail": str(e)}) from e
-        except httpx.TimeoutException as e:
-            logger.warning("SiliconFlow 请求超时", extra={"timeout": self.timeout, "error": str(e)})
-            raise LLMTimeoutError(
-                message="LLM 请求超时", timeout_seconds=self.timeout, errors={"detail": str(e)}
-            ) from e
-        except httpx.ConnectError as e:
-            logger.warning("SiliconFlow 网络连接失败", extra={"base_url": self.base_url, "error": str(e)})
-            raise LLMNetworkError(message="LLM 网络连接失败", errors={"detail": str(e)}) from e
-        except (openai.APIError, openai.APIStatusError) as e:
-            status_code = getattr(e, "status_code", None)
-            logger.warning("SiliconFlow API 错误", extra={"status_code": status_code, "error": str(e)})
-            raise LLMAPIError(
-                message=f"LLM API 调用错误: {e!s}", status_code=status_code, errors={"detail": str(e)}
-            ) from e
+            client = self._build_sync_client(timeout_seconds=request_timeout)
+            for chunk in client.chat.completions.create(**payload):
+                choices = getattr(chunk, "choices", None) or []
+                if choices:
+                    delta = getattr(choices[0], "delta", None)
+                    content = getattr(delta, "content", "") if delta is not None else ""
+                    if content:
+                        yield LLMStreamChunk(content=content, model=used_model, backend=self.BACKEND_NAME)
+                usage = getattr(chunk, "usage", None)
+                if usage is not None:
+                    final_usage = self._extract_usage(usage)
+                    yield LLMStreamChunk(usage=final_usage, model=used_model, backend=self.BACKEND_NAME)
+        except Exception as error:
+            self._raise_mapped_error(error, request_timeout, self.base_url)
 
     async def astream(
         self,
@@ -367,115 +263,45 @@ class SiliconFlowBackend:
         max_tokens: int | None = None,
         **kwargs: Any,
     ) -> AsyncIterator[LLMStreamChunk]:
-        api_key = self._config.api_key if self._config and self._config.api_key else await LLMConfig.get_api_key_async()
-        base_url = (
-            self._config.base_url if self._config and self._config.base_url else await LLMConfig.get_base_url_async()
-        )
-        default_model = (
-            self._config.default_model
-            if self._config and self._config.default_model
-            else await LLMConfig.get_default_model_async()
-        )
-        timeout = self._config.timeout if self._config and self._config.timeout else await LLMConfig.get_timeout_async()
-        used_model = model or default_model
-        llm = ChatOpenAI(  # type: ignore[call-arg]
-            api_key=SecretStr(api_key),
-            base_url=base_url,
-            model=used_model,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            timeout=timeout,
-        )
-        langchain_messages = self._convert_messages(messages)
+        used_model = model or (self._config.default_model if self._config else await LLMConfig.get_default_model_async())
+        request_timeout = float(kwargs.pop("timeout_seconds", self._config.timeout if self._config else await LLMConfig.get_timeout_async()))
+        payload: dict[str, Any] = {
+            "model": used_model,
+            "messages": self._normalize_messages(messages),
+            "temperature": temperature,
+            "stream": True,
+            "stream_options": {"include_usage": True},
+        }
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
+
         try:
-            async for chunk in llm.astream(langchain_messages):
-                content = getattr(chunk, "content", "") or ""
-                usage = self._extract_usage_from_chunk(chunk)
-                yield LLMStreamChunk(content=content, usage=usage, model=used_model, backend=self.BACKEND_NAME)
-        except openai.AuthenticationError as e:
-            logger.warning("SiliconFlow 认证失败", extra={"error": str(e)})
-            raise LLMAuthenticationError(message="SiliconFlow API Key 无效或缺失", errors={"detail": str(e)}) from e
-        except httpx.TimeoutException as e:
-            logger.warning("SiliconFlow 请求超时", extra={"timeout": timeout, "error": str(e)})
-            raise LLMTimeoutError(message="LLM 请求超时", timeout_seconds=timeout, errors={"detail": str(e)}) from e
-        except httpx.ConnectError as e:
-            logger.warning("SiliconFlow 网络连接失败", extra={"base_url": base_url, "error": str(e)})
-            raise LLMNetworkError(message="LLM 网络连接失败", errors={"detail": str(e)}) from e
-        except (openai.APIError, openai.APIStatusError) as e:
-            status_code = getattr(e, "status_code", None)
-            logger.warning("SiliconFlow API 错误", extra={"status_code": status_code, "error": str(e)})
-            raise LLMAPIError(
-                message=f"LLM API 调用错误: {e!s}", status_code=status_code, errors={"detail": str(e)}
-            ) from e
+            async_client = await self._build_async_client(timeout_seconds=request_timeout)
+            stream = await async_client.chat.completions.create(**payload)
+            async for chunk in stream:
+                choices = getattr(chunk, "choices", None) or []
+                if choices:
+                    delta = getattr(choices[0], "delta", None)
+                    content = getattr(delta, "content", "") if delta is not None else ""
+                    if content:
+                        yield LLMStreamChunk(content=content, model=used_model, backend=self.BACKEND_NAME)
+                usage = getattr(chunk, "usage", None)
+                if usage is not None:
+                    final_usage = self._extract_usage(usage)
+                    yield LLMStreamChunk(usage=final_usage, model=used_model, backend=self.BACKEND_NAME)
+        except Exception as error:
+            base_url = self._config.base_url if self._config and self._config.base_url else await LLMConfig.get_base_url_async()
+            self._raise_mapped_error(error, request_timeout, base_url)
 
     def get_default_model(self) -> str:
-        """
-        获取默认模型名称
-
-        Returns:
-            str: 后端的默认模型名称
-        """
         return self.default_model
 
     def is_available(self) -> bool:
-        """
-        检查后端是否可用
-
-        检查 API Key 是否已配置.
-
-        Returns:
-            bool: True 表示后端可用,False 表示不可用
-        """
         api_key = self.api_key
         if not api_key:
             logger.debug("SiliconFlow 后端不可用:API Key 未配置")
             return False
         return True
-
-    def get_langchain_llm(
-        self, model: str | None = None, temperature: float | None = None, max_tokens: int | None = None
-    ) -> ChatOpenAI:
-        """
-        获取原生 LangChain LLM 实例
-
-        用于构建复杂的 LCEL 链.
-
-        Args:
-            model: 模型名称,None 时使用默认模型
-            temperature: 温度参数,None 时使用配置默认值
-            max_tokens: 最大输出 token 数,None 时使用配置默认值
-
-        Returns:
-            ChatOpenAI 实例
-        """
-        return ChatOpenAI(  # type: ignore[call-arg]
-            api_key=SecretStr(self.api_key),
-            base_url=self.base_url,
-            model=model or self.default_model,
-            temperature=temperature if temperature is not None else LLMConfig.get_temperature(),
-            max_tokens=max_tokens if max_tokens is not None else LLMConfig.get_max_tokens(),
-            timeout=self.timeout,
-        )
-
-    def get_structured_llm(
-        self,
-        schema: type,
-        model: str | None = None,
-        method: Literal["function_calling", "json_mode", "json_schema"] = "json_mode",
-    ) -> Any:
-        """
-        获取支持结构化输出的 LLM 实例
-
-        Args:
-            schema: Pydantic 模型类,定义输出结构
-            model: 模型名称,None 时使用默认模型
-            method: 结构化输出方法 (json_mode/function_calling/json_schema)
-
-        Returns:
-            绑定了结构化输出的 Runnable 实例
-        """
-        llm = self.get_langchain_llm(model=model)
-        return llm.with_structured_output(schema, method=method)
 
 
 if TYPE_CHECKING:

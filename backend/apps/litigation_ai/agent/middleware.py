@@ -85,7 +85,7 @@ class LitigationMemoryMiddleware(IMemoryMiddleware):
             )
 
             if history:
-                # 将历史消息转换为 LangChain 格式
+                # 将历史消息转换为统一消息格式
                 history_messages = []
                 for msg in history:
                     history_messages.append(
@@ -144,7 +144,7 @@ class LitigationMemoryMiddleware(IMemoryMiddleware):
             # 获取最后一条消息(应该是 assistant 的响应)
             last_message = messages[-1]
 
-            # 处理 LangChain BaseMessage 对象
+            # 兼容消息对象形式
             if hasattr(last_message, "type"):
                 role = last_message.type
                 content = last_message.content
@@ -268,7 +268,6 @@ class LitigationSummarizationMiddleware:
     Attributes:
         session_id: 会话 ID
         config: 摘要配置
-        _llm: LLM 实例(延迟加载)
     """
 
     def __init__(
@@ -285,40 +284,6 @@ class LitigationSummarizationMiddleware:
         """
         self.session_id = session_id
         self.config = config or SummarizationConfig.from_settings()
-        self._llm = None
-
-    @property
-    def llm(self) -> Any:
-        """延迟加载 LLM"""
-        if self._llm is None:
-            import asyncio
-
-            try:
-                asyncio.get_running_loop()
-                raise RuntimeError("async 上下文请使用 _get_llm_async()")
-            except RuntimeError as e:
-                if str(e) != "no running event loop":
-                    raise
-            from apps.litigation_ai.services.wiring import get_llm_service
-
-            llm_service = get_llm_service()
-            self._llm = llm_service.get_langchain_llm(model=self.config.model, temperature=0.3)
-        return self._llm
-
-    async def _get_llm_async(self) -> Any:
-        if self._llm is not None:
-            return self._llm
-
-        from asgiref.sync import sync_to_async
-
-        from apps.litigation_ai.services.wiring import get_llm_service
-
-        llm_service = await sync_to_async(get_llm_service, thread_sensitive=True)()
-        self._llm = await sync_to_async(llm_service.get_langchain_llm, thread_sensitive=True)(
-            model=self.config.model,
-            temperature=0.3,
-        )
-        return self._llm
 
     def should_summarize(self, messages: list[dict[str, Any]]) -> bool:
         """
@@ -362,15 +327,21 @@ class LitigationSummarizationMiddleware:
         summary_prompt = self._build_summary_prompt(to_summarize)
 
         try:
-            llm = await self._get_llm_async()
-            response = await llm.ainvoke(
-                [
+            from asgiref.sync import sync_to_async
+
+            from apps.litigation_ai.services.wiring import get_llm_service
+
+            llm_service = await sync_to_async(get_llm_service, thread_sensitive=True)()
+            response = await llm_service.achat(
+                messages=[
                     {"role": "system", "content": "你是一个对话摘要助手.请简洁地总结以下对话的要点."},
                     {"role": "user", "content": summary_prompt},
-                ]
+                ],
+                model=self.config.model,
+                temperature=0.3,
             )
 
-            summary = response.content
+            summary = response.content or ""
 
             # 构建新的消息列表
             new_messages = [

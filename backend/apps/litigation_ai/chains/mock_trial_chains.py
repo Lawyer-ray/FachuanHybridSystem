@@ -7,7 +7,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
-from langchain_core.messages import HumanMessage, SystemMessage
+from apps.core.llm.structured_output import clean_text, parse_json_content
 
 from .mock_trial_schemas import CrossExamOpinion, JudgePerspectiveReport
 
@@ -58,11 +58,7 @@ def _get_cause_knowledge(cause_of_action: str) -> str:
 
 def _clean_llm_output(text: str) -> str:
     """清理 LLM 输出中的 markdown 标记."""
-    if not text:
-        return ""
-    for marker in ["```json", "```", "<|begin_of_text|>", "<|end_of_text|>", "<|begin_of_box|>", "<|end_of_box|>"]:
-        text = text.replace(marker, "")
-    return text.strip()
+    return clean_text(text)
 
 
 @dataclass
@@ -78,7 +74,7 @@ class JudgePerspectiveChain:
     def __init__(self, model: str | None = None) -> None:
         self._model = model
 
-    def _build_messages(self, case_info: dict[str, Any], evidence_text: str) -> list[SystemMessage | HumanMessage]:
+    def _build_messages(self, case_info: dict[str, Any], evidence_text: str) -> list[dict[str, str]]:
         cause = case_info.get("cause_of_action", "")
         cause_knowledge = _get_cause_knowledge(cause)
         cause_section = f"\n\n## 本案由特定关注点\n\n{cause_knowledge}" if cause_knowledge else ""
@@ -121,7 +117,10 @@ class JudgePerspectiveChain:
             ]
         )
 
-        return [SystemMessage(content=system), HumanMessage(content=user)]
+        return [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ]
 
     async def arun(
         self,
@@ -134,22 +133,19 @@ class JudgePerspectiveChain:
         from apps.litigation_ai.services.wiring import get_llm_service
 
         llm_service = await sync_to_async(get_llm_service, thread_sensitive=True)()
-        llm = await sync_to_async(llm_service.get_langchain_llm, thread_sensitive=True)(model=self._model)
-        model_name = self._model or getattr(llm, "model", "") or getattr(llm, "model_name", "") or ""
+        model_name = self._model or ""
 
         messages = self._build_messages(case_info, evidence_text)
-        response = await llm.ainvoke(messages)
-        content = _clean_llm_output(getattr(response, "content", "") or "")
-
-        meta = getattr(response, "response_metadata", {}) or {}
-        tu = meta.get("token_usage", {}) if isinstance(meta, dict) else {}
+        response = await llm_service.achat(messages=messages, model=self._model, temperature=0.2)
+        model_name = response.model or model_name
+        content = _clean_llm_output(response.content or "")
         token_usage = {
-            "prompt_tokens": tu.get("prompt_tokens", 0),
-            "completion_tokens": tu.get("completion_tokens", 0),
-            "total_tokens": tu.get("total_tokens", 0),
+            "prompt_tokens": int(getattr(response, "prompt_tokens", 0) or 0),
+            "completion_tokens": int(getattr(response, "completion_tokens", 0) or 0),
+            "total_tokens": int(getattr(response, "total_tokens", 0) or 0),
         }
 
-        parsed = json.loads(content) if content else {}
+        parsed = parse_json_content(content) if content else {}
         report = JudgePerspectiveReport.model_validate(parsed)
 
         return JudgePerspectiveResult(
@@ -208,25 +204,26 @@ class CrossExamChain:
         )
 
         llm_service = await sync_to_async(get_llm_service, thread_sensitive=True)()
-        llm = await sync_to_async(llm_service.get_langchain_llm, thread_sensitive=True)(model=self._model)
-        model_name = self._model or getattr(llm, "model", "") or ""
-
-        response = await llm.ainvoke([SystemMessage(content=system), HumanMessage(content=user)])
-        content = _clean_llm_output(getattr(response, "content", "") or "")
-
-        meta = getattr(response, "response_metadata", {}) or {}
-        tu = meta.get("token_usage", {}) if isinstance(meta, dict) else {}
-
-        parsed = json.loads(content) if content else {}
+        response = await llm_service.achat(
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            model=self._model,
+            temperature=0.3,
+        )
+        model_name = response.model or self._model or ""
+        content = _clean_llm_output(response.content or "")
+        parsed = parse_json_content(content) if content else {}
         opinion = CrossExamOpinion.model_validate(parsed)
 
         return CrossExamResult(
             opinion=opinion.model_dump(),
             model=model_name,
             token_usage={
-                "prompt_tokens": tu.get("prompt_tokens", 0),
-                "completion_tokens": tu.get("completion_tokens", 0),
-                "total_tokens": tu.get("total_tokens", 0),
+                "prompt_tokens": int(getattr(response, "prompt_tokens", 0) or 0),
+                "completion_tokens": int(getattr(response, "completion_tokens", 0) or 0),
+                "total_tokens": int(getattr(response, "total_tokens", 0) or 0),
             },
         )
 
@@ -272,12 +269,17 @@ class DisputeFocusChain:
         )
 
         llm_service = await sync_to_async(get_llm_service, thread_sensitive=True)()
-        llm = await sync_to_async(llm_service.get_langchain_llm, thread_sensitive=True)(model=self._model)
-        model_name = self._model or getattr(llm, "model", "") or ""
-
-        response = await llm.ainvoke([SystemMessage(content=system), HumanMessage(content=user)])
-        content = _clean_llm_output(getattr(response, "content", "") or "")
-        parsed = json.loads(content) if content else []
+        response = await llm_service.achat(
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            model=self._model,
+            temperature=0.2,
+        )
+        model_name = response.model or self._model or ""
+        content = _clean_llm_output(response.content or "")
+        parsed = parse_json_content(content) if content else []
         if isinstance(parsed, dict):
             parsed = parsed.get("dispute_focuses", parsed.get("focuses", [parsed]))
         focuses = [DisputeFocus.model_validate(f).model_dump() for f in parsed]
@@ -338,10 +340,15 @@ class DebateChain:
         )
 
         llm_service = await sync_to_async(get_llm_service, thread_sensitive=True)()
-        llm = await sync_to_async(llm_service.get_langchain_llm, thread_sensitive=True)(model=self._model)
-        model_name = self._model or getattr(llm, "model", "") or ""
-
-        response = await llm.ainvoke([SystemMessage(content=system), HumanMessage(content=user)])
-        content = (getattr(response, "content", "") or "").strip()
+        response = await llm_service.achat(
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            model=self._model,
+            temperature=0.4,
+        )
+        model_name = response.model or self._model or ""
+        content = (response.content or "").strip()
 
         return DebateResult(rebuttal=content, model=model_name)

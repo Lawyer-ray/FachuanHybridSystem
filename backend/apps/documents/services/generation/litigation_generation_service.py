@@ -1,12 +1,12 @@
 """
 诉讼文书生成服务
 
-使用 LangChain v1.2+ with_structured_output 生成诉讼文书(起诉状、答辩状).
+使用统一 LLM 服务生成诉讼文书(起诉状、答辩状).
 
 主要改进(2026-01):
-- 使用 with_structured_output 替代手动 JSON 解析
-- 直接返回 Pydantic 对象,无需 _clean_llm_output
-- 更可靠的结构化输出,自动处理 schema 验证
+- 统一结构化输出解析
+- 直接返回 Pydantic 对象
+- 自动进行 schema 校验
 
 Requirements: 3.1, 3.2, 3.3
 """
@@ -32,8 +32,7 @@ class LitigationGenerationService:
     """
     诉讼文书生成服务
 
-    使用 LangChain Expression Language (LCEL) 构建生成链:
-    Prompt → LLM → Parser
+    使用提示词 + LLM + 结构化解析的生成链.
 
     遵循四层架构规范:
     - 依赖注入构造函数
@@ -76,7 +75,7 @@ class LitigationGenerationService:
         """
         生成起诉状
 
-        使用 LangChain v1.2+ with_structured_output 直接获取结构化输出.
+        使用统一 LLM 结构化输出流程直接获取结构化结果.
 
         Args:
             case_data: 案件数据字典,包含以下字段:
@@ -100,7 +99,7 @@ class LitigationGenerationService:
         """
         生成答辩状
 
-        使用 LangChain v1.2+ with_structured_output 直接获取结构化输出.
+        使用统一 LLM 结构化输出流程直接获取结构化结果.
 
         Args:
             case_data: 案件数据字典,包含以下字段:
