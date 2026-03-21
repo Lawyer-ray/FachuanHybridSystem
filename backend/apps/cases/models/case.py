@@ -119,6 +119,18 @@ class CaseFilingNumberSequence(models.Model):
 
 
 class CaseNumber(models.Model):
+    YEAR_DAYS_CHOICES: ClassVar = (
+        (360, _("360天")),
+        (365, _("365天")),
+        (0, _("按实际天数")),
+    )
+    DATE_INCLUSION_CHOICES: ClassVar = (
+        ("both", _("起止日都计入")),
+        ("start_only", _("仅计入起始日")),
+        ("end_only", _("仅计入截止日")),
+        ("neither", _("起止日都不计入")),
+    )
+
     id: int
     case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="case_numbers", verbose_name=_("案件"))
     number = models.CharField(max_length=128, verbose_name=_("案号"))
@@ -143,6 +155,43 @@ class CaseNumber(models.Model):
         help_text=_("从裁判文书自动提取的判决/调解主文内容"),
     )
     is_active = models.BooleanField(default=False, verbose_name=_("是否已生效"))
+    execution_cutoff_date = models.DateField(
+        blank=True,
+        null=True,
+        verbose_name=_("执行事项截止日"),
+        help_text=_("申请执行事项中利息计算截至日期；为空时优先按案件“指定日期”计算，未填写指定日期时按当天计算"),
+    )
+    execution_paid_amount = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=0,
+        verbose_name=_("已付款金额"),
+        help_text=_("用于按抵扣顺序重算未付款项，默认 0"),
+    )
+    execution_use_deduction_order = models.BooleanField(
+        default=False,
+        verbose_name=_("启用抵扣顺序"),
+        help_text=_("启用后按文书条款中的抵扣顺序处理已付款"),
+    )
+    execution_year_days = models.PositiveSmallIntegerField(
+        choices=YEAR_DAYS_CHOICES,
+        default=360,
+        verbose_name=_("年基准天数"),
+        help_text=_("利息计算参数：360 / 365 / 按实际天数"),
+    )
+    execution_date_inclusion = models.CharField(
+        max_length=16,
+        choices=DATE_INCLUSION_CHOICES,
+        default="both",
+        verbose_name=_("日期包含方式"),
+        help_text=_("利息计算参数：起止日期是否计入"),
+    )
+    execution_manual_text = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name=_("申请执行事项（手工最终文本）"),
+        help_text=_("有值时模板生成优先使用该文本"),
+    )
     remarks = models.TextField(blank=True, null=True, verbose_name=_("备注"))
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
 

@@ -67,7 +67,6 @@ option[data-source="supplementary"]::after {
 #parties-group > .tabular > fieldset > h2,
 #assignments-group > .tabular > fieldset > h2,
 #supervising_authorities-group > .tabular > fieldset > h2,
-#case_numbers-group > .tabular > fieldset > h2,
 #logs-group > fieldset > h2,
 #chats-group > .tabular > fieldset > h2 {
     padding: 10px 15px !important;
@@ -78,7 +77,6 @@ option[data-source="supplementary"]::after {
 #parties-group table,
 #assignments-group table,
 #supervising_authorities-group table,
-#case_numbers-group table,
 #chats-group table {
     padding: 10px 15px !important;
 }

@@ -67,10 +67,7 @@ class EnforcementApplicantPartyService(BasePlaceholderService):
         # 格式化所有申请人
         party_blocks: list[str] = []
         for idx, party_dict in enumerate(applicants):
-            if len(applicants) > 1:
-                role_label = f"申请人{chr(ord('一') + idx)}"  # 申请人一、申请人二...
-            else:
-                role_label = "申请人"
+            role_label = self.formatter.get_role_label("申请人", idx, len(applicants))
 
             if self.formatter.is_natural_person_from_dict(party_dict):
                 party_info = self.formatter.format_natural_person_from_dict(role_label, party_dict)
@@ -136,10 +133,7 @@ class EnforcementRespondentPartyService(BasePlaceholderService):
         # 格式化所有被申请人
         party_blocks: list[str] = []
         for idx, party_dict in enumerate(respondents):
-            if len(respondents) > 1:
-                role_label = f"被申请人{chr(ord('一') + idx)}"  # 被申请人一、被申请人二...
-            else:
-                role_label = "被申请人"
+            role_label = self.formatter.get_role_label("被申请人", idx, len(respondents))
 
             if self.formatter.is_natural_person_from_dict(party_dict):
                 party_info = self.formatter.format_natural_person_from_dict(role_label, party_dict)

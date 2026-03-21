@@ -253,7 +253,7 @@ class CaseTemplateGenerationService:
         """
         from apps.cases.dependencies import get_enhanced_context_builder
 
-        context_data: dict[str, Any] = {"case": case}
+        context_data: dict[str, Any] = {"case": case, "case_id": case.id}
         if client:
             context_data["client"] = client
         if clients:

@@ -74,6 +74,9 @@ class EnforcementJudgmentMainTextService(BasePlaceholderService):
             占位符字典
         """
         case_id = context.get("case_id")
+        if case_id is None:
+            case_obj = context.get("case")
+            case_id = getattr(case_obj, "id", None)
         if not case_id:
             return {LitigationPlaceholderKeys.ENFORCEMENT_JUDGMENT_MAIN_TEXT: ""}
 

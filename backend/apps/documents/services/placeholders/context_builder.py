@@ -44,6 +44,7 @@ class EnhancedContextBuilder:
             logger.warning("上下文数据为空")
             return {}
 
+        context_data = self._normalize_context_data(context_data)
         context: dict[str, Any] = {}
         services = self._get_relevant_services(required_placeholders)
 
@@ -81,6 +82,18 @@ class EnhancedContextBuilder:
 
         logger.info("上下文构建完成,生成了 %s 个占位符", len(context))
         return context
+
+    def _normalize_context_data(self, context_data: PlaceholderContextData) -> PlaceholderContextData:
+        """标准化上下文,对常见缺失键进行兜底补全."""
+        normalized: dict[str, Any] = dict(context_data)
+
+        if normalized.get("case_id") is None:
+            case_obj = normalized.get("case")
+            case_id = getattr(case_obj, "id", None)
+            if case_id is not None:
+                normalized["case_id"] = case_id
+
+        return normalized
 
     def build_contract_context(self, contract_id: int) -> dict[str, Any]:
         """

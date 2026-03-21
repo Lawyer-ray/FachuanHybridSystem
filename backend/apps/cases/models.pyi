@@ -58,6 +58,16 @@ class CaseNumber(models.Model):
     case_id: int
     case: Case
     number: str
+    document_name: str | None
+    document_file: FieldFile | None
+    document_content: str | None
+    is_active: bool
+    execution_cutoff_date: date | None
+    execution_paid_amount: Decimal
+    execution_use_deduction_order: bool
+    execution_year_days: int
+    execution_date_inclusion: str
+    execution_manual_text: str | None
     remarks: str | None
     created_at: datetime
 

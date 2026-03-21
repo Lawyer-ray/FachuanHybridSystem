@@ -31,3 +31,4 @@ class LitigationPlaceholderKeys:
     ENFORCEMENT_EFFECTIVE_DATE = "判决生效日期"
     ENFORCEMENT_TARGET_AMOUNT = "涉案金额"
     ENFORCEMENT_JUDGMENT_MAIN_TEXT = "执行依据主文"
+    ENFORCEMENT_EXECUTION_REQUEST = "申请执行事项"

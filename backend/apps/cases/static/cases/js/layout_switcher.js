@@ -121,8 +121,8 @@
         // 处理主要 fieldsets
         const fieldsets = document.querySelectorAll('fieldset.module');
         fieldsets.forEach((fieldset, index) => {
-            // 跳过 inline-related 内部的 fieldset
-            if (fieldset.closest('.inline-related')) {
+            // 跳过 inline 内部的 fieldset，避免与 inline-group 折叠逻辑重复包装
+            if (fieldset.closest('.inline-related') || fieldset.closest('.inline-group')) {
                 return;
             }
 
@@ -158,12 +158,18 @@
         // 处理 inline-group（案件当事人、主管机关、案件案号等）
         const inlineGroups = document.querySelectorAll('.inline-group');
         inlineGroups.forEach((group, index) => {
+            const groupId = group.id || '';
+
+            // 案件案号使用独立分组字段布局，不接入折叠包装，避免样式错位
+            if (groupId.includes('case_numbers')) {
+                return;
+            }
+
             // 获取标题
             const h2 = group.querySelector('h2');
             let title = h2 ? h2.textContent.trim() : '';
 
             // 从 ID 推断标题
-            const groupId = group.id || '';
             if (!title) {
                 if (groupId.includes('parties')) {
                     title = '案件当事人';

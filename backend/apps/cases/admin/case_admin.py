@@ -64,10 +64,32 @@ class CaseLogAttachmentInline(BaseTabularInline):
     extra = 0
 
 
-class CaseNumberInline(BaseTabularInline):
+class CaseNumberInline(BaseStackedInline):
     model = CaseNumber
     extra = 1
-    fields = ("number", "document_name", "document_file", "document_content", "is_active")
+    fieldsets = (
+        (
+            None,
+            {
+                "fields": (
+                    ("number", "document_name", "is_active"),
+                    "document_file",
+                    "document_content",
+                )
+            },
+        ),
+        (
+            None,
+            {
+                "classes": ("case-number-execution-fieldset",),
+                "fields": (
+                    ("execution_cutoff_date", "execution_paid_amount"),
+                    ("execution_use_deduction_order", "execution_year_days", "execution_date_inclusion"),
+                    "execution_manual_text",
+                )
+            },
+        ),
+    )
 
 
 class CaseLogInline(BaseStackedInline):
