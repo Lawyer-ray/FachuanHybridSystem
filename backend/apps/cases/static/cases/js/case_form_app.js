@@ -475,12 +475,9 @@ function caseFormApp() {
                 }
             });
 
-            // 如果不显示，清空 current_stage
-            if (!show) {
-                document.querySelectorAll('select[name$="current_stage"]').forEach(cur => {
-                    cur.value = '';
-                });
-            }
+            // 不再自动清空 current_stage，避免页面初始化时抹掉已保存值
+            // （例如 case_type=execution 且 current_stage=enforcement 的场景）
+            void show;
         },
 
         // ========== 监听器初始化 ==========

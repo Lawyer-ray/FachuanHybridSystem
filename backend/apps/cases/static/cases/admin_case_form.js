@@ -30,9 +30,9 @@
     inputsByNameSuffix('cause_of_action').forEach(function(inp){
       if(!inp.value || inp.value.trim() === ''){ inp.value = '合同纠纷' }
     })
-    if(!show){
-      selectsByNameSuffix('current_stage').forEach(function(cur){ cur.value='' })
-    }
+    // 不再自动清空 current_stage，避免页面初始化时抹掉已保存值
+    // （例如 case_type=execution 且 current_stage=enforcement 的场景）
+    void show
   }
 
   // ============================================================

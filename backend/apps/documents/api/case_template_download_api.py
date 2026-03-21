@@ -42,7 +42,7 @@ def download_case_template(request: Any, case_id: int, template_id: int) -> Any:
     if not file_path:
         raise ValidationException(message=_("模板文件路径为空"), code="TEMPLATE_FILE_EMPTY", errors={})
 
-    context = EnhancedContextBuilder().build_context({"case": case})
+    context = EnhancedContextBuilder().build_context({"case": case, "case_id": case.id})
     content = DocxRenderer().render(file_path, context)
 
     date_str = timezone.now().strftime("%Y%m%d")

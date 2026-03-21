@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json as json_mod
 import logging
+from datetime import date
+from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING
 
 from django.core.exceptions import PermissionDenied
@@ -113,6 +115,11 @@ class CaseAdminViewsMixin:
                 "casenumber/<int:casenumber_id>/parse-document/",
                 self.admin_site.admin_view(self.parse_document_view),  # type: ignore[attr-defined]
                 name="cases_casenumber_parse_document",
+            ),
+            path(
+                "casenumber/<int:casenumber_id>/parse-execution-request/",
+                self.admin_site.admin_view(self.parse_execution_request_view),  # type: ignore[attr-defined]
+                name="cases_casenumber_parse_execution_request",
             ),
             path(
                 "casenumber/parse-document/",
@@ -456,6 +463,58 @@ class CaseAdminViewsMixin:
             logger.exception("解析裁判文书失败: case_number_id=%s", casenumber_id)
             return JsonResponse({"success": False, "error": f"解析失败: {str(e)}"}, status=500)
 
+    def parse_execution_request_view(self, request: HttpRequest, casenumber_id: int) -> HttpResponse:
+        """解析执行依据主文并生成申请执行事项预览（规则引擎）"""
+        from django.http import JsonResponse
+
+        from apps.cases.models import CaseNumber
+        from apps.documents.services.placeholders.litigation.execution_request_service import ExecutionRequestService
+
+        if request.method != "POST":
+            return JsonResponse({"success": False, "error": "仅支持 POST 请求"}, status=405)
+
+        try:
+            body: dict[str, object] = {}
+            if request.body:
+                import json
+
+                body = json.loads(request.body.decode("utf-8"))
+
+            case_number = CaseNumber.objects.select_related("case").get(pk=casenumber_id)
+
+            cutoff_date = self._coerce_optional_date(body.get("cutoff_date"))
+            paid_amount = self._coerce_optional_decimal(body.get("paid_amount"))
+            use_deduction_order = self._coerce_optional_bool(body.get("use_deduction_order"))
+            year_days = self._coerce_optional_int(body.get("year_days"))
+            date_inclusion = self._coerce_optional_str(body.get("date_inclusion"))
+            enable_llm_fallback = self._coerce_optional_bool(body.get("enable_llm_fallback"))
+
+            service = ExecutionRequestService()
+            result = service.preview_for_case_number(
+                case=case_number.case,
+                case_number=case_number,
+                cutoff_date=cutoff_date,
+                paid_amount=paid_amount,
+                use_deduction_order=use_deduction_order,
+                year_days=year_days,
+                date_inclusion=date_inclusion,
+                enable_llm_fallback=enable_llm_fallback,
+            )
+
+            return JsonResponse(
+                {
+                    "success": True,
+                    "preview_text": result["preview_text"],
+                    "structured_params": result["structured_params"],
+                    "warnings": result["warnings"],
+                }
+            )
+        except CaseNumber.DoesNotExist:
+            return JsonResponse({"success": False, "error": "案号记录不存在"}, status=404)
+        except Exception as e:
+            logger.exception("解析申请执行事项失败: case_number_id=%s", casenumber_id)
+            return JsonResponse({"success": False, "error": f"解析失败: {str(e)}"}, status=500)
+
     def parse_document_view_no_id(self, request: HttpRequest) -> HttpResponse:
         """解析裁判文书（无需caseNumberId，用于临时文件）"""
         from django.http import JsonResponse
@@ -544,6 +603,64 @@ class CaseAdminViewsMixin:
         except Exception as e:
             logger.exception("临时文件上传失败")
             return JsonResponse({"success": False, "error": f"上传失败: {str(e)}"}, status=500)
+
+    def _coerce_optional_date(self, raw: object) -> date | None:
+        if raw is None:
+            return None
+        value = str(raw).strip()
+        if not value:
+            return None
+        try:
+            return date.fromisoformat(value)
+        except ValueError:
+            return None
+
+    def _coerce_optional_decimal(self, raw: object) -> Decimal | None:
+        if raw is None:
+            return None
+        value = str(raw).strip()
+        if not value:
+            return None
+        try:
+            return Decimal(value)
+        except (InvalidOperation, ValueError):
+            return None
+
+    @staticmethod
+    def _coerce_optional_bool(raw: object) -> bool | None:
+        if raw is None:
+            return None
+        if isinstance(raw, bool):
+            return raw
+        value = str(raw).strip().lower()
+        if not value:
+            return None
+        if value in {"1", "true", "yes", "on"}:
+            return True
+        if value in {"0", "false", "no", "off"}:
+            return False
+        return None
+
+    @staticmethod
+    def _coerce_optional_int(raw: object) -> int | None:
+        if raw is None:
+            return None
+        value = str(raw).strip()
+        if not value:
+            return None
+        try:
+            return int(value)
+        except ValueError:
+            return None
+
+    @staticmethod
+    def _coerce_optional_str(raw: object) -> str | None:
+        if raw is None:
+            return None
+        value = str(raw).strip()
+        if not value:
+            return None
+        return value
 
 
 __all__: list[str] = ["CaseAdminViewsMixin"]

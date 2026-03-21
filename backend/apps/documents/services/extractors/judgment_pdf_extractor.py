@@ -67,6 +67,21 @@ class JudgmentPdfExtractor:
         "民事裁定书",
     ]
 
+    # 页码与页脚噪声（避免混入“执行依据主文”）
+    _PAGE_NUMBER_CHARS = r"0-9零一二三四五六七八九十百千万〇○O"
+    PAGE_NOISE_PATTERNS = (
+        re.compile(
+            rf"第\s*[{_PAGE_NUMBER_CHARS}]{{1,6}}\s*页[／/|｜丨~～\-\s]*共\s*[{_PAGE_NUMBER_CHARS}]{{1,6}}\s*页",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            rf"共\s*[{_PAGE_NUMBER_CHARS}]{{1,6}}\s*页[／/|｜丨~～\-\s]*第\s*[{_PAGE_NUMBER_CHARS}]{{1,6}}\s*页",
+            re.IGNORECASE,
+        ),
+        re.compile(r"page\s*\d+\s*(?:/|of)\s*\d+", re.IGNORECASE),
+    )
+    PAGE_NOISE_LITERALS = ("本页无正文", "此页无正文")
+
     # Ollama prompt
     OLLAMA_EXTRACTION_PROMPT = """你是一个法律文书解析助手。请从以下裁判文书文本中提取信息，并以JSON格式返回：
 
@@ -116,8 +131,8 @@ class JudgmentPdfExtractor:
                 code="JUDGMENT_EXTRACT_FAILED",
             )
 
-        text = result.text
-        logger.info("PDF文本提取成功，字数: %d，提取方式: %s", len(text), result.extraction_method)
+        text = self._sanitize_extracted_text(result.text)
+        logger.info("PDF文本提取成功，清洗后字数: %d，提取方式: %s", len(text), result.extraction_method)
 
         # 提取案号（常见格式：括号年号省市代码类型序号号，如 (2024)粤0605民初3356号）
         case_number = self._extract_case_number(text)
@@ -147,7 +162,7 @@ class JudgmentPdfExtractor:
         return ExtractionResult(
             number=case_number,
             document_name=document_name,
-            content=content,
+            content=self._sanitize_extracted_text(content),
         )
 
     def _extract_with_ollama(self, text: str) -> ExtractionResult | None:
@@ -189,7 +204,7 @@ class JudgmentPdfExtractor:
             result = ExtractionResult(
                 number=data.get("案号") or data.get("number"),
                 document_name=data.get("文书名称") or data.get("document_name"),
-                content=data.get("执行依据主文") or data.get("content"),
+                content=self._sanitize_extracted_text(data.get("执行依据主文") or data.get("content")),
             )
 
             logger.info("Ollama提取成功: 案号=%s, 文书名称=%s, 主文长度=%d",
@@ -269,7 +284,23 @@ class JudgmentPdfExtractor:
                         logger.info("在'%s'处截断，提取主文长度: %d", end_keyword, len(main_text))
                         break
 
-                logger.info("提取主文长度: %d", len(main_text))
-                return main_text.strip()
+                cleaned = self._sanitize_extracted_text(main_text)
+                logger.info("提取主文长度: %d", len(cleaned))
+                return cleaned
 
         return None
+
+    def _sanitize_extracted_text(self, text: str | None) -> str:
+        """清洗提取文本中的常见噪声（页码、页脚等）。"""
+        if not text:
+            return ""
+
+        cleaned = text
+        for pattern in self.PAGE_NOISE_PATTERNS:
+            cleaned = pattern.sub("", cleaned)
+        for literal in self.PAGE_NOISE_LITERALS:
+            cleaned = cleaned.replace(literal, "")
+
+        # OCR/PDF混排下可能引入多余空行，做轻量归一化
+        cleaned = re.sub(r"\n{2,}", "\n", cleaned)
+        return cleaned.strip()

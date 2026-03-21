@@ -149,8 +149,8 @@
     display: none !important;
 }
 
-/* 保留 inline-group 的主标题（已被折叠组件处理） */
-.inline-group > h2 {
+/* 仅隐藏已接入折叠组件的 inline-group 主标题 */
+.inline-group.collapsible-processed > h2 {
     display: none;
 }
 

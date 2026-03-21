@@ -18,7 +18,7 @@ class TemplateContextBuilder:
         return self._enhanced_builder
 
     def build(self, *, case: Any, client: Any | None = None, clients: list[Any] | None = None) -> dict[str, Any]:
-        context_data: dict[str, Any] = {"case": case}
+        context_data: dict[str, Any] = {"case": case, "case_id": case.id}
         if client:
             context_data["client"] = client
         if clients:
