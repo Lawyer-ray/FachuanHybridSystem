@@ -43,12 +43,33 @@ _APP_ORDER = [
     "django_q",  # 11. 任务队列
 ]
 
+# 各 app 内模型顺序（按以下顺序显示）
+_MODEL_ORDER: dict[str, list[str]] = {
+    "cases": [  # 案件管理
+        "case",  # 案件
+        "caselog",  # 日志
+        "caselogattachment",  # 日志附件
+        "casechat",  # 群聊
+    ],
+}
+
 _original_get_app_list = admin.site.__class__.get_app_list
 
 
 def _sorted_get_app_list(self: admin.AdminSite, request: HttpRequest, app_label: str | None = None) -> list:  # type: ignore[override]
     app_list = _original_get_app_list(self, request, app_label)
     app_list.sort(key=lambda a: _APP_ORDER.index(a["app_label"]) if a["app_label"] in _APP_ORDER else 999)
+
+    # 按 app 内模型顺序排序
+    for app in app_list:
+        app_label_str = app.get("app_label", "")
+        if app_label_str in _MODEL_ORDER and "models" in app:
+            model_order = _MODEL_ORDER[app_label_str]
+            app["models"].sort(
+                key=lambda m: model_order.index(m["object_name"].lower())
+                if m["object_name"].lower() in model_order
+                else 999
+            )
 
     # 向 finance app 添加 LPR 计算器链接
     for app in app_list:
