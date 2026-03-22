@@ -100,7 +100,7 @@ class CaseLogInline(BaseStackedInline):
     readonly_fields = ("created_at",)
     show_change_link = True
     verbose_name = ""
-    verbose_name_plural = "案件日志"
+    verbose_name_plural = "日志"
 
     if BaseModelAdmin is not admin.ModelAdmin:
         pass

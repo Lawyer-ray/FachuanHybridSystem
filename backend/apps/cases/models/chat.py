@@ -51,8 +51,8 @@ class CaseChat(models.Model):
         audit_logs: RelatedManager[ChatAuditLog]
 
     class Meta:
-        verbose_name = _("案件群聊")
-        verbose_name_plural = _("案件群聊")
+        verbose_name = _("群聊")
+        verbose_name_plural = _("群聊")
         unique_together: ClassVar = [["case", "platform", "chat_id"]]
         indexes: ClassVar = [
             models.Index(fields=["case", "platform"]),

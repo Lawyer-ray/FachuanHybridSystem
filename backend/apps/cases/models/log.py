@@ -56,8 +56,8 @@ class CaseLog(models.Model):
         versions: RelatedManager[CaseLogVersion]
 
     class Meta:
-        verbose_name = _("案件日志")
-        verbose_name_plural = _("案件日志")
+        verbose_name = _("日志")
+        verbose_name_plural = _("日志")
         indexes: ClassVar = [
             models.Index(fields=["case", "-created_at"]),
             models.Index(fields=["actor"]),
@@ -154,8 +154,8 @@ class CaseLogAttachment(models.Model):
     uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name=_("上传时间"))
 
     class Meta:
-        verbose_name = _("案件日志附件")
-        verbose_name_plural = _("案件日志附件")
+        verbose_name = _("日志附件")
+        verbose_name_plural = _("日志附件")
 
 
 class CaseLogVersion(models.Model):
