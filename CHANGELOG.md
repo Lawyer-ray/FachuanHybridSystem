@@ -2,6 +2,21 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.22.5] - 2026-03-23
+
+### 清理
+
+- **Admin 菜单名称简化**
+  - `automation/CourtToken`：`一张网/保全Token管理` → `一张网保全Token管理`
+  - `cases/CaseLog`：`案件日志` → `日志`
+  - `cases/CaseLogAttachment`：`案件日志附件` → `日志附件`
+  - `cases/CaseChat`：`案件群聊` → `群聊`
+- **移除 CaseDownloadResult 独立 Admin 入口**
+  - 保留 `CaseDownloadResultInline` 内联入口（供 `CaseDownloadTaskAdmin` 使用）
+  - 业务逻辑和服务不受影响
+- **调整案件模块子菜单顺序**
+  - 按 `案件 → 日志 → 日志附件 → 群聊` 排序
+
 ## [26.22.4] - 2026-03-22
 
 ### 清理
