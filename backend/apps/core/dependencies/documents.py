@@ -18,7 +18,6 @@ from .documents_query import (
     build_evidence_list_placeholder_service,
     build_evidence_query_service,
     build_folder_template_service,
-    build_prompt_version_service,
 )
 
 __all__: list[str] = [
@@ -30,7 +29,6 @@ __all__: list[str] = [
     "build_evidence_query_service",
     "build_folder_template_service",
     "build_generation_task_service",
-    "build_prompt_version_service",
     "build_supplementary_agreement_generation_service",
     "build_supplementary_agreement_generation_service_with_deps",
 ]

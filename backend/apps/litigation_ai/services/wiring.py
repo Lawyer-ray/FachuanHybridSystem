@@ -15,12 +15,7 @@ if TYPE_CHECKING:
         IEvidenceQueryService,
         IGenerationTaskService,
         ILLMService,
-        IPromptVersionService,
     )
-
-
-def get_prompt_version_service() -> IPromptVersionService:
-    return ServiceLocator.get_prompt_version_service()
 
 
 def get_document_service() -> IDocumentService:

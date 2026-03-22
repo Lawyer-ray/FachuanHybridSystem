@@ -37,12 +37,6 @@ def build_llm_service() -> ILLMService:
     )
 
 
-def build_prompt_template_service() -> Any:
-    from apps.core.services.prompt_template_service import PromptTemplateService
-
-    return PromptTemplateService()
-
-
 def build_conversation_history_service() -> IConversationHistoryService:
     from apps.core.services.conversation_history_service import ConversationHistoryService
 

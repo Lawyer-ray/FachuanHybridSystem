@@ -311,21 +311,6 @@ class Placeholder(models.Model):
     # Meta
     objects: Manager[Placeholder]
 
-class PromptVersion(models.Model):
-    # 主键
-    id: int
-
-    # 字段
-    name: str
-    version: str
-    prompt_text: str
-    is_active: bool
-    created_at: datetime
-    updated_at: datetime
-
-    # Meta
-    objects: Manager[PromptVersion]
-
 class ProxyMatterRule(models.Model):
     # 主键
     id: int

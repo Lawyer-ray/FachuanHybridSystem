@@ -45,7 +45,6 @@ from .common_protocols import (
     ILLMService,
     IMonitorService,
     IPermissionService,
-    IPromptVersionService,
     IReminderService,
     ISecurityService,
     ISystemConfigService,
@@ -116,7 +115,6 @@ __all__ = [
     # Common protocols
     "ISystemConfigService",
     "ILLMService",
-    "IPromptVersionService",
     "IBusinessConfigService",
     "IMonitorService",
     "ISecurityService",

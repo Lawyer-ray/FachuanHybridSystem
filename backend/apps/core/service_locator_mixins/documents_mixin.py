@@ -14,7 +14,6 @@ if TYPE_CHECKING:
         IEvidenceListPlaceholderService,
         IEvidenceQueryService,
         IGenerationTaskService,
-        IPromptVersionService,
         ISupplementaryAgreementGenerationService,
     )
 
@@ -61,12 +60,6 @@ class DocumentsServiceLocatorMixin(_ServiceLocatorStub):
         from apps.core.dependencies import build_evidence_list_placeholder_service
 
         return cls.get_or_create("evidence_list_placeholder_service", build_evidence_list_placeholder_service)
-
-    @classmethod
-    def get_prompt_version_service(cls) -> IPromptVersionService:
-        from apps.core.dependencies import build_prompt_version_service
-
-        return cls.get_or_create("prompt_version_service", build_prompt_version_service)
 
     @classmethod
     def get_contract_generation_service(cls) -> IContractGenerationService:

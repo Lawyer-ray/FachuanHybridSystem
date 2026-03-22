@@ -79,10 +79,6 @@ def get_court_sms_service() -> Any:
     return ServiceLocator.get_court_sms_service()
 
 
-def get_prompt_version_service() -> Any:
-    return ServiceLocator.get_prompt_version_service()
-
-
 def get_token_service() -> Any:
     return ServiceLocator.get_token_service()
 

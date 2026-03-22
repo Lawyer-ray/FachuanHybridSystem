@@ -1,7 +1,7 @@
 """
 通用 Protocol 接口定义
 
-包含:ISystemConfigService, ILLMService, IPromptVersionService, IBusinessConfigService,
+包含:ISystemConfigService, ILLMService, IBusinessConfigService,
       IMonitorService, ISecurityService, IValidatorService, IPermissionService,
       IReminderService, ICaseChatService, IAccountSelectionStrategy, IEvidenceListPlaceholderService
 """
@@ -16,7 +16,6 @@ from .common import (
     ILLMService,
     IMonitorService,
     IPermissionService,
-    IPromptVersionService,
     IReminderService,
     ISecurityService,
     ISystemConfigService,
@@ -33,7 +32,6 @@ __all__: list[str] = [
     "ILLMService",
     "IMonitorService",
     "IPermissionService",
-    "IPromptVersionService",
     "IReminderService",
     "ISecurityService",
     "ISystemConfigService",

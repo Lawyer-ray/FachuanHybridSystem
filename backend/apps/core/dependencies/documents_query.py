@@ -10,7 +10,6 @@ if TYPE_CHECKING:
         IDocumentTemplateBindingService,
         IEvidenceListPlaceholderService,
         IEvidenceQueryService,
-        IPromptVersionService,
     )
 
 
@@ -69,7 +68,4 @@ def build_evidence_list_placeholder_service() -> IEvidenceListPlaceholderService
     return cast(IEvidenceListPlaceholderService, EvidenceListPlaceholderService())
 
 
-def build_prompt_version_service() -> IPromptVersionService:
-    from apps.documents.services.code_placeholders.adapter import PromptVersionServiceAdapter
 
-    return PromptVersionServiceAdapter()

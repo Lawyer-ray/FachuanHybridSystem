@@ -1,5 +1,5 @@
 from .conversation_protocols import ICaseChatService, IConversationHistoryService, IEvidenceListPlaceholderService
-from .llm_protocols import ILLMService, IPromptVersionService
+from .llm_protocols import ILLMService
 from .monitor_protocols import IMonitorService
 from .reference_data_protocols import ICauseCourtQueryService
 from .reminder_protocols import IReminderService
@@ -17,7 +17,6 @@ __all__ = [
     "ILLMService",
     "IMonitorService",
     "IPermissionService",
-    "IPromptVersionService",
     "IReminderService",
     "ISecurityService",
     "ISystemConfigService",

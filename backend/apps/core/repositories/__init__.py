@@ -6,12 +6,10 @@ Repository 层
 
 from .cause_court_repository import CauseCourtRepository
 from .conversation_repository import ConversationHistoryRepository
-from .prompt_template_repository import PromptTemplateRepository
 from .system_config_repository import SystemConfigRepository
 
 __all__ = [
     "SystemConfigRepository",
     "ConversationHistoryRepository",
-    "PromptTemplateRepository",
     "CauseCourtRepository",
 ]

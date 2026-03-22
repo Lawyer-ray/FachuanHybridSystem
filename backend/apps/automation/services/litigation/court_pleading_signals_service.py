@@ -37,11 +37,8 @@ class CourtPleadingSignalsService:
         return list(qs.values_list("c_wsmc", flat=True)[:200])
 
     def _get_prompt_template(self) -> Any:
-        from apps.automation.services.wiring import get_prompt_version_service
-
-        name = "litigation_ai.flow.classify_court_docs"
-        prompt_service = get_prompt_version_service()
-        return prompt_service.get_active_prompt_template(name)
+        # PromptVersionService 已移除，始终使用默认 prompt
+        return None
 
     def _classify_with_llm(self, system_prompt: str, doc_names: list[str]) -> Any:
         from apps.automation.services.wiring import get_llm_service

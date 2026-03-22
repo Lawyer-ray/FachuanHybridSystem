@@ -12,7 +12,7 @@ from apps.core.exceptions import ValidationException
 from apps.core.llm.structured_output import parse_model_content
 
 from .outputs import ComplaintOutput, DefenseOutput
-from .prompts import PromptSpec, PromptTemplateFactory
+from .prompts import PromptSpec, get_complaint_prompt, get_defense_prompt
 
 logger = logging.getLogger("apps.documents.generation")
 
@@ -20,9 +20,8 @@ TOutput = TypeVar("TOutput", bound=BaseModel)
 
 
 class LitigationLLMGenerator:
-    def __init__(self, llm_service: object | None = None, prompt_factory: PromptTemplateFactory | None = None) -> None:
+    def __init__(self, llm_service: object | None = None) -> None:
         self._llm_service = llm_service
-        self._prompt_factory = prompt_factory or PromptTemplateFactory()
 
     @property
     def llm_service(self) -> Any:
@@ -62,7 +61,7 @@ class LitigationLLMGenerator:
 
     def generate_complaint(self, case_data: dict[str, Any]) -> Any:
         try:
-            prompt = self._prompt_factory.get_complaint_prompt()
+            prompt = get_complaint_prompt()
             logger.info("开始生成起诉状", extra={"case_data_keys": list(case_data.keys())})
             result = self._invoke_structured(prompt=prompt, case_data=case_data, output_model=ComplaintOutput)
             logger.info("起诉状生成成功")
@@ -90,7 +89,7 @@ class LitigationLLMGenerator:
 
     def generate_defense(self, case_data: dict[str, Any]) -> Any:
         try:
-            prompt = self._prompt_factory.get_defense_prompt()
+            prompt = get_defense_prompt()
             logger.info("开始生成答辩状", extra={"case_data_keys": list(case_data.keys())})
             result = self._invoke_structured(prompt=prompt, case_data=case_data, output_model=DefenseOutput)
             logger.info("答辩状生成成功")

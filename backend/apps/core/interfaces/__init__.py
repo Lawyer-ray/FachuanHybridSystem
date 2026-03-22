@@ -90,7 +90,6 @@ from apps.core.protocols import (
     IPerformanceMonitorService,
     IPermissionService,
     IPreservationQuoteService,
-    IPromptVersionService,
     IReminderService,
     ISecurityService,
     ISupplementaryAgreementGenerationService,
@@ -187,7 +186,6 @@ __all__ = [
     "IBusinessConfigService",
     "IReminderService",
     "ILLMService",
-    "IPromptVersionService",
     "IConversationHistoryService",
     "IEvidenceListPlaceholderService",
     # Service Locator and Event Bus

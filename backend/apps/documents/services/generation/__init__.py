@@ -10,7 +10,6 @@
 - PreservationMaterialsGenerationService: 财产保全材料生成服务
 - GeneratorRegistry: 生成器注册表
 - GenerationResult: 生成结果数据类
-- PromptTemplateFactory: Prompt 模板工厂
 - PartyInfo, ComplaintOutput, DefenseOutput: Pydantic 输出模型
 """
 
@@ -21,7 +20,6 @@ from .folder_generation_service import FolderGenerationService
 from .litigation_generation_service import LitigationGenerationService
 from .outputs import ComplaintOutput, DefenseOutput, PartyInfo
 from .preservation_materials_generation_service import PreservationMaterialsGenerationService
-from .prompts import PromptTemplateFactory
 from .registry import GeneratorRegistry
 from .result import GenerationResult
 from .supplementary_agreement_generation_service import SupplementaryAgreementGenerationService
@@ -38,6 +36,5 @@ __all__ = [
     "LitigationGenerationService",
     "PartyInfo",
     "PreservationMaterialsGenerationService",
-    "PromptTemplateFactory",
     "SupplementaryAgreementGenerationService",
 ]

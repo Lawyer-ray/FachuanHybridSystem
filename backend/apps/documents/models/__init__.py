@@ -38,7 +38,6 @@ from .fill_record import BatchFillTask, FillRecord
 from .folder_template import FolderTemplate
 from .generation import GenerationConfig, GenerationMethod, GenerationStatus, GenerationTask
 from .placeholder import Placeholder
-from .prompt_version import PromptVersion
 from .proxy_matter_rule import ProxyMatterRule
 
 # 统一导出
@@ -67,8 +66,6 @@ __all__ = [
     "ListType",
     "LIST_TYPE_PREVIOUS",
     "LIST_TYPE_ORDER",
-    # Prompt 版本管理
-    "PromptVersion",
     # 文书生成
     "GenerationTask",
     "GenerationConfig",

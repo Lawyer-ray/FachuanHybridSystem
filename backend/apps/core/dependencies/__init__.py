@@ -54,7 +54,6 @@ from .core import (
     build_cause_court_query_service,
     build_conversation_history_service,
     build_llm_service,
-    build_prompt_template_service,
     build_system_config_service,
     build_task_submission_service,
 )
@@ -66,7 +65,6 @@ from .documents import (
     build_evidence_list_placeholder_service,
     build_evidence_query_service,
     build_generation_task_service,
-    build_prompt_version_service,
     build_supplementary_agreement_generation_service,
     build_supplementary_agreement_generation_service_with_deps,
 )
@@ -124,8 +122,6 @@ __all__ = [
     "build_organization_service",
     "build_performance_monitor_service",
     "build_preservation_quote_service",
-    "build_prompt_template_service",
-    "build_prompt_version_service",
     "build_reminder_service",
     "build_security_service",
     "build_supplementary_agreement_generation_service",

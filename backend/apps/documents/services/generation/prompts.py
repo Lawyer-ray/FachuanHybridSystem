@@ -31,26 +31,10 @@ class PromptSpec:
         return self.user_template.format_map(_SafeDict(normalized))
 
 
-class PromptTemplateFactory:
-    """Prompt template factory."""
-
-    def get_complaint_prompt(self) -> PromptSpec:
-        from .outputs import ComplaintOutput
-
-        format_instructions = json_schema_instructions(ComplaintOutput)
-        db_template = self._load_from_database("complaint")
-        if db_template:
-            logger.info("使用数据库中的起诉状 Prompt 模板")
-            return PromptSpec(
-                system_prompt="你是一位专业的法律文书撰写助手,擅长撰写各类诉讼文书.",
-                user_template=db_template,
-                format_instructions=format_instructions,
-            )
-
-        logger.warning("Prompt 版本不存在,使用默认起诉状模板", extra={"prompt_name": "complaint"})
-        return PromptSpec(
-            system_prompt="你是一位专业的法律文书撰写助手,擅长撰写各类诉讼文书.请根据提供的信息生成规范的起诉状.",
-            user_template="""请根据以下信息生成起诉状:
+# Hardcoded prompt specs for litigation documents
+COMPLAINT_PROMPT = PromptSpec(
+    system_prompt="你是一位专业的法律文书撰写助手,擅长撰写各类诉讼文书.",
+    user_template="""请根据以下信息生成起诉状:
 
 案由:{cause_of_action}
 原告:{plaintiff}
@@ -60,26 +44,12 @@ class PromptTemplateFactory:
 
 {format_instructions}
 """,
-            format_instructions=format_instructions,
-        )
+    format_instructions="",
+)
 
-    def get_defense_prompt(self) -> PromptSpec:
-        from .outputs import DefenseOutput
-
-        format_instructions = json_schema_instructions(DefenseOutput)
-        db_template = self._load_from_database("defense")
-        if db_template:
-            logger.info("使用数据库中的答辩状 Prompt 模板")
-            return PromptSpec(
-                system_prompt="你是一位专业的法律文书撰写助手,擅长撰写各类诉讼文书.",
-                user_template=db_template,
-                format_instructions=format_instructions,
-            )
-
-        logger.warning("Prompt 版本不存在,使用默认答辩状模板", extra={"prompt_name": "defense"})
-        return PromptSpec(
-            system_prompt="你是一位专业的法律文书撰写助手,擅长撰写各类诉讼文书.请根据提供的信息生成规范的答辩状.",
-            user_template="""请根据以下信息生成答辩状:
+DEFENSE_PROMPT = PromptSpec(
+    system_prompt="你是一位专业的法律文书撰写助手,擅长撰写各类诉讼文书.",
+    user_template="""请根据以下信息生成答辩状:
 
 案由:{cause_of_action}
 原告:{plaintiff}
@@ -89,18 +59,31 @@ class PromptTemplateFactory:
 
 {format_instructions}
 """,
-            format_instructions=format_instructions,
-        )
+    format_instructions="",
+)
 
-    def _load_from_database(self, name: str) -> Any:
-        try:
-            from apps.documents.services.prompt_version_service import PromptVersionService
 
-            service = PromptVersionService()
-            return service.get_active_template(name)
-        except ImportError:
-            logger.debug("PromptVersionService 未实现,使用默认模板")
-            return None
-        except Exception:
-            logger.exception("load_prompt_from_database_failed", extra={"prompt_name": name})
-            raise
+def get_complaint_prompt() -> PromptSpec:
+    """Get the complaint prompt spec."""
+    from .outputs import ComplaintOutput
+
+    format_instructions = json_schema_instructions(ComplaintOutput)
+    prompt = COMPLAINT_PROMPT
+    return PromptSpec(
+        system_prompt=prompt.system_prompt,
+        user_template=prompt.user_template,
+        format_instructions=format_instructions,
+    )
+
+
+def get_defense_prompt() -> PromptSpec:
+    """Get the defense prompt spec."""
+    from .outputs import DefenseOutput
+
+    format_instructions = json_schema_instructions(DefenseOutput)
+    prompt = DEFENSE_PROMPT
+    return PromptSpec(
+        system_prompt=prompt.system_prompt,
+        user_template=prompt.user_template,
+        format_instructions=format_instructions,
+    )

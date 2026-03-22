@@ -2,6 +2,19 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.22.4] - 2026-03-22
+
+### 清理
+
+- **彻底移除 PromptVersion / PromptTemplate 及相关代码**
+  - 删除 `PromptVersion` 模型及 `documents/prompt_version_admin.py`
+  - 删除 `PromptTemplate` 模型及 `core/prompt_template_admin.py`
+  - 删除相关 Service、Repository、Protocol、ServiceLocator 方法
+  - 迁移删除 `PromptVersion` 数据表
+  - `CourtPleadingSignalsService` 移除对 `PromptVersionServiceAdapter` 的依赖，始终使用内置默认 prompt
+- **Admin 菜单入口清理**
+  - `SystemConfigAdmin` 设置 `show_in_index=False`，从左侧菜单隐藏（保留 URL 访问）
+
 ## [26.22.3] - 2026-03-22
 
 ### 清理
