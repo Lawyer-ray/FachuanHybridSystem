@@ -2,6 +2,17 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.22.2] - 2026-03-22
+
+### 清理
+
+- **彻底移除 onboarding 模块（立案向导）**
+  - 删除 `apps/onboarding/` 整个目录（视图、URL、模板、静态文件、locale）
+  - 从 `INSTALLED_APPS` 移除 `apps.onboarding`
+  - 从 `urls.py` 移除 onboarding URL 路由
+  - 从 Admin 侧边栏移除"我要立案"按钮及 CSS 样式
+  - 更新 README 功能列表，移除 onboarding 描述
+
 ## [26.22.1] - 2026-03-22
 
 ### 清理

@@ -76,7 +76,6 @@ INSTALLED_APPS = [
     "apps.contracts",  # 2. Contracts（合同管理）
     "apps.cases",  # 3. CASES（案件管理）
     "apps.reminders",  # 3.5 Reminders（重要日期提醒）
-    "apps.onboarding",  # 4. 立案引导
     "apps.automation",  # 5. 自动化工具
     "apps.image_rotation",  # 5.1 图片自动旋转（从 automation 拆分）
     "apps.invoice_recognition",  # 5.2 发票识别（从 automation 拆分）

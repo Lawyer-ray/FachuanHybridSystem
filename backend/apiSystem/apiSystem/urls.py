@@ -33,7 +33,6 @@ _APP_ORDER = [
     "contracts",  # 2. 合同管理
     "cases",  # 3. 案件管理
     "reminders",  # 4. 重要日期提醒
-    "onboarding",  # 5. 立案引导
     "automation",  # 6. 自动化工具
     "fee_notice",  # 6.1 交费通知书识别
     "document_recognition",  # 6.2 文书智能识别
@@ -148,7 +147,6 @@ urlpatterns = [
     path("admin/register/", register, name="admin_register"),
     path("admin/", admin.site.urls),
     path("i18n/", include("django.conf.urls.i18n")),
-    path("onboarding/", include("apps.onboarding.urls")),
     path("api/v1/", api_v1.urls),
     path("api/", api_redirect),
     path("favicon.ico", favicon_view, name="favicon"),

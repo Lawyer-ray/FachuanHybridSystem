@@ -17,27 +17,6 @@
     /* Alpine.js x-cloak 防止闪烁 */
     [x-cloak] { display: none !important; }
 
-    /* 我要立案按钮样式 - 轻量边框风格 */
-    #user-tools .onboarding-btn {
-        color: #e0e7ff !important;
-        padding: 5px 14px;
-        border-radius: 6px;
-        margin-right: 15px;
-        font-weight: 500;
-        font-size: 13px;
-        text-decoration: none;
-        transition: all 0.2s ease;
-        display: inline-block;
-        border: 1px solid rgba(255,255,255,0.35);
-        background: rgba(255,255,255,0.08);
-    }
-
-    #user-tools .onboarding-btn:hover {
-        background: rgba(255,255,255,0.15);
-        border-color: rgba(255,255,255,0.5);
-        color: #fff !important;
-    }
-
     /* 关于链接样式 - 融入用户工具栏 */
     #user-tools .about-link {
         color: var(--header-link-color, #81d4fa);
@@ -246,7 +225,6 @@
         {% endfor %}
     </div>
 </div>
-<a href="{% url 'onboarding:wizard' %}" class="onboarding-btn">{% trans "我要立案" %}</a>
 {{ block.super }}
 {% endblock %}
 
