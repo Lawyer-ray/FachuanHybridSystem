@@ -14,7 +14,7 @@ from django.http import HttpRequest, HttpResponse, HttpResponseRedirect, JsonRes
 from django.shortcuts import render
 from django.urls import reverse
 
-from apps.automation.services.admin import DEFAULT_STYLE_ID, SMS_STYLE_CONFIG, CourtSMSAdminService
+from apps.automation.services.admin import CourtSMSAdminService
 
 logger = logging.getLogger("apps.automation")
 
@@ -85,52 +85,6 @@ class CourtSMSViewsMixin:
         }
 
         return render(request, "admin/automation/courtsms/submit_sms.html", context)
-
-    def add_style_view(self, request: HttpRequest, style_id: int) -> HttpResponse:
-        """
-        通用的样式添加视图,根据 style_id 选择模板
-
-        Args:
-            request: HTTP 请求
-            style_id: 样式ID(2-41)
-
-        Returns:
-            HttpResponse: 渲染的页面或重定向
-        """
-        style_config = SMS_STYLE_CONFIG.get(style_id, SMS_STYLE_CONFIG[DEFAULT_STYLE_ID])
-        template = style_config["template"]
-        title = style_config["title"]
-
-        if request.method == "POST":
-            content = request.POST.get("content", "").strip()
-
-            if not content:
-                messages.error(request, "短信内容不能为空")
-            else:
-                try:
-                    admin_service = _get_admin_service()
-                    sms = admin_service.submit_sms(content)
-
-                    messages.success(request, f"短信提交成功!记录ID: {sms.id}")
-                    logger.info(f"管理员通过样式{style_id}页面提交短信: SMS ID={sms.id}, User={request.user}")
-
-                    return HttpResponseRedirect(reverse("admin:automation_courtsms_change", args=[cast(int, sms.id)]))
-
-                except Exception as e:
-                    messages.error(request, f"提交失败: {e!s}")
-                    logger.error(f"管理员通过样式{style_id}页面提交短信失败: User={request.user}, 错误: {e!s}")
-
-        admin_service = _get_admin_service()
-        recent_sms = admin_service.get_recent_sms(limit=5)
-
-        context: dict[str, Any] = {
-            "title": title,
-            "recent_sms": recent_sms,
-            "opts": self.model._meta,  # type: ignore[attr-defined]
-            "has_view_permission": True,
-        }
-
-        return render(request, template, context)
 
     def assign_case_view(self, request: HttpRequest, sms_id: int) -> HttpResponse:
         """手动指定案件页面"""

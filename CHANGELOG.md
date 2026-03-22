@@ -2,6 +2,19 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.22.1] - 2026-03-22
+
+### 清理
+
+- **移除法院短信 41 套主题模板及相关死代码**
+  - 删除 `courtsms/add1.html` ~ `add41.html` 共 41 个未使用的 HTML 模板
+  - 删除 `test_login_result.html`、`test_tool_list.html` 等未引用模板
+  - 删除 `court_sms_admin_themed_views.py`（含 40 个 `add*_view` 方法）
+  - 清理 `court_sms_admin_service.py` 中的 `SMS_STYLE_CONFIG`、`DEFAULT_STYLE_ID`
+  - 清理 `court_sms_admin.py` 中的主题 URL 注册逻辑
+- **移除各模块未使用的 Admin 模板**
+  - 删除 `cases`、`client`、`contracts`、`core`、`documents`、`finance`、`organization`、`onboarding` 等模块下的未引用 `change_list.html`、`change_form.html`、局部模板
+
 ## [26.22.0] - 2026-03-21
 
 ### 新增
