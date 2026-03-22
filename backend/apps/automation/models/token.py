@@ -28,8 +28,8 @@ class CourtToken(models.Model):
 
     class Meta:
         app_label = "automation"
-        verbose_name = _("一张网/保全Token管理")
-        verbose_name_plural = _("一张网/保全Token管理")
+        verbose_name = _("一张网保全Token管理")
+        verbose_name_plural = _("一张网保全Token管理")
         unique_together: ClassVar = [["site_name", "account"]]
         indexes: ClassVar = [
             models.Index(fields=["site_name", "account"]),
