@@ -2,13 +2,11 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 
 from apps.oa_filing.models import FilingSession
 
 
-@admin.register(FilingSession)
 class FilingSessionAdmin(admin.ModelAdmin[FilingSession]):
     list_display: ClassVar = [
         "id",

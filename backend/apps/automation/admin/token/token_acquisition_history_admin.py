@@ -32,7 +32,6 @@ def _get_token_history_admin_service() -> Any:
     return TokenAcquisitionHistoryAdminService()
 
 
-@admin.register(TokenAcquisitionHistory)
 class TokenAcquisitionHistoryAdmin(admin.ModelAdmin[TokenAcquisitionHistory]):
     """
     一张网/保全系统 Token获取历史记录管理 Admin
@@ -452,70 +451,6 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin[TokenAcquisitionHistory]):
                 "建议：平均耗时较长，请检查网络连接和服务器性能",
                 level=messages.WARNING,
             )
-
-    def get_urls(self) -> list[Any]:
-        """添加自定义URL"""
-        urls = super().get_urls()
-        from django.urls import path
-
-        custom_urls = [
-            path(
-                "dashboard/",
-                self.admin_site.admin_view(self.dashboard_view),
-                name="automation_tokenacquisitionhistory_dashboard",
-            ),
-        ]
-        return custom_urls + urls
-
-    def dashboard_view(self, request: HttpRequest) -> HttpResponse:
-        """一张网/保全Token获取仪表板视图"""
-        try:
-            service = _get_token_history_admin_service()
-            stats: dict[str, Any] = service.get_dashboard_statistics()
-            context = self._build_dashboard_context(stats)
-            return self._render_dashboard(request, context)
-        except Exception as e:
-            return self._render_dashboard_error(request, str(e))
-
-    def _build_dashboard_context(self, stats: dict[str, Any]) -> dict[str, Any]:
-        """构建仪表板上下文"""
-        return {
-            "title": "一张网/保全Token获取仪表板",
-            "total_records": stats["total_records"],
-            "success_records": stats["success_records"],
-            "success_rate": stats["success_rate"],
-            "time_stats": stats["time_stats"],
-            "status_stats": stats["status_stats"],
-            "site_stats": stats["site_stats"],
-            "performance_stats": stats["performance_stats"],
-            "trend_data": json.dumps(stats["trend_data"]),
-            "opts": self.model._meta,
-        }
-
-    def _render_dashboard(self, request: HttpRequest, context: dict[str, Any]) -> HttpResponse:
-        """渲染仪表板"""
-        from django.shortcuts import render
-
-        return render(
-            request,
-            "admin/automation/tokenacquisitionhistory/dashboard.html",
-            context,
-        )
-
-    def _render_dashboard_error(self, request: HttpRequest, error: str) -> HttpResponse:
-        """渲染仪表板错误页面"""
-        from django.shortcuts import render
-
-        context: dict[str, Any] = {
-            "title": "一张网/保全Token获取仪表板",
-            "error": error,
-            "opts": self.model._meta,
-        }
-        return render(
-            request,
-            "admin/automation/tokenacquisitionhistory/dashboard.html",
-            context,
-        )
 
     def changelist_view(
         self,

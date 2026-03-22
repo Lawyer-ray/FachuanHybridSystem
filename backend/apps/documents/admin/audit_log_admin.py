@@ -16,7 +16,6 @@ from django.utils.translation import gettext_lazy as _
 from apps.documents.models import TemplateAuditLog
 
 
-@admin.register(TemplateAuditLog)
 class TemplateAuditLogAdmin(admin.ModelAdmin[TemplateAuditLog]):
     """
     模板审计日志管理

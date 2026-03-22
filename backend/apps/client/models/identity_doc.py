@@ -90,7 +90,7 @@ class ClientIdentityDoc(models.Model):
                 raise ValidationError({"doc_type": _("Invalid doc type for organization")})
 
     class Meta:
-        verbose_name = _("当事人证件文件")
-        verbose_name_plural = _("当事人证件文件")
+        verbose_name = _("证件")
+        verbose_name_plural = _("证件")
         db_table = "cases_clientidentitydoc"
         managed = True

@@ -22,7 +22,7 @@ from .sms import CourtSMSAdmin
 from .test_tools_hub import TestToolsHubAdmin
 
 # Token 管理 Admin
-from .token import CourtTokenAdmin, TokenAcquisitionHistoryAdmin
+from .token import CourtTokenAdmin
 
 __all__ = [
     # 文档处理
@@ -34,7 +34,6 @@ __all__ = [
     "TestCourtAdmin",
     # Token 管理
     "CourtTokenAdmin",
-    "TokenAcquisitionHistoryAdmin",
     # 财产保全询价
     "PreservationQuoteAdmin",
     # 法院短信

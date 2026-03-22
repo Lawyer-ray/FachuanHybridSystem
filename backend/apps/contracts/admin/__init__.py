@@ -5,20 +5,15 @@ Contracts App Admin模块主文件
 统一管理所有合同的Admin界面
 """
 
-from .client_payment_admin import ClientPaymentRecordAdmin
 from .contract_admin import ContractAdmin
-from .contractassignment_admin import ContractAssignmentAdmin
-from .contractpayment_admin import ContractPaymentAdmin, ContractPaymentInline
+from .contractpayment_admin import ContractPaymentInline
 from .supplementary_agreement_admin import SupplementaryAgreementAdmin
 
 # 所有Admin类通过装饰器自动注册
 # 无需手动注册，admin/__init__.py中的类会自动处理
 
 __all__ = [
-    "ClientPaymentRecordAdmin",
     "ContractAdmin",
-    "ContractAssignmentAdmin",
-    "ContractPaymentAdmin",
     "ContractPaymentInline",
     "SupplementaryAgreementAdmin",
 ]

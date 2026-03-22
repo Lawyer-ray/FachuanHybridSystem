@@ -96,7 +96,6 @@ class ClientPaymentRecordAdminForm(forms.ModelForm[ClientPaymentRecord]):
         return instance
 
 
-@admin.register(ClientPaymentRecord)
 class ClientPaymentRecordAdmin(admin.ModelAdmin[ClientPaymentRecord]):
     """客户回款记录 Admin"""
 

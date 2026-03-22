@@ -57,7 +57,6 @@ class PlaceholderUsageFilter(admin.SimpleListFilter):
         return _get_placeholder_admin_service().filter_by_usage(queryset, value, usage_map)
 
 
-@admin.register(Placeholder)
 class PlaceholderAdmin(admin.ModelAdmin):
     """
     替换词管理

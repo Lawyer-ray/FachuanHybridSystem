@@ -7,12 +7,9 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from django.contrib import admin
-
 from apps.contracts.models import ContractAssignment
 
 
-@admin.register(ContractAssignment)
 class ContractAssignmentAdmin(admin.ModelAdmin[ContractAssignment]):
     """合同律师指派 Admin"""
 

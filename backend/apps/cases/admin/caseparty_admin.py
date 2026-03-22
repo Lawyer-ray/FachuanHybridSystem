@@ -8,7 +8,6 @@ from django.utils.translation import gettext_lazy as _
 from apps.cases.models import CaseParty
 
 
-@admin.register(CaseParty)
 class CasePartyAdmin(admin.ModelAdmin[CaseParty]):
     list_display = ("id", "case", "client", "is_our_client", "legal_status")
     list_filter = ("legal_status",)

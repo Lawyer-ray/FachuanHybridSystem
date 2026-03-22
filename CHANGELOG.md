@@ -2,6 +2,23 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.22.3] - 2026-03-22
+
+### 清理
+
+- **移除多个 Admin 菜单入口（模型本身保留，业务不受影响）**
+  - `automation/TokenAcquisitionHistory`：移除 Dashboard 页面及模板，保留 Token 获取历史记录写入
+  - `contracts/ContractAssignment`：移除独立 Admin 入口（保留 Inline 供 ContractAdmin 使用）
+  - `contracts/ContractPayment`：移除独立 Admin 入口（保留 Inline 供 ContractAdmin 使用）
+  - `contracts/ClientPaymentRecord`：移除独立 Admin 入口
+  - `cases/CaseParty`：移除独立 Admin 入口（保留 Inline 供 CaseAdmin 使用）
+  - `cases/CaseAssignment`：移除独立 Admin 入口（保留 Inline 供 CaseAdmin 使用）
+  - `oa_filing/FilingSession`：移除整个 OA 立案模块 Admin 入口
+  - `documents/Placeholder`：移除替换词 Admin 入口
+  - `documents/TemplateAuditLog`：移除模板审计日志 Admin 入口
+- **文案调整**
+  - `ClientIdentityDoc` 模型 `verbose_name` 从"当事人证件文件"改为"证件"
+
 ## [26.22.2] - 2026-03-22
 
 ### 清理
