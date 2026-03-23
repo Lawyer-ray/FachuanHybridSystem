@@ -325,18 +325,24 @@ class CaseAdminService:
         self,
         templates: list[JSONDict],
         sub_type_choices: list[tuple[str, str]],
+        *,
+        exclude_special_sub_types: bool = True,
     ) -> list[tuple[str, list[JSONDict]]]:
         """按案件文件子类型分组模板。"""
-        hardcoded_sub_types = {"power_of_attorney_materials", "property_preservation_materials"}
+        special_sub_types = {"power_of_attorney_materials", "property_preservation_materials"}
         label_map = dict(sub_type_choices)
         groups: dict[str, list[JSONDict]] = {}
         for template in templates:
             sub_type = cast(str, template.get("case_sub_type", "other_materials"))
-            if sub_type in hardcoded_sub_types:
+            if exclude_special_sub_types and sub_type in special_sub_types:
                 continue
             groups.setdefault(sub_type, []).append(template)
         order = [choice[0] for choice in sub_type_choices]
-        return [(label_map.get(key, key), value) for key in order if (value := groups.get(key))]
+        order_set = set(order)
+        ordered_keys = [key for key in order if key in groups]
+        extra_keys = sorted(key for key in groups.keys() if key not in order_set)
+        ordered_keys.extend(extra_keys)
+        return [(label_map.get(key, key), groups[key]) for key in ordered_keys]
 
     def detect_special_template_flags(self, unified_templates: list[JSONDict]) -> tuple[bool, bool]:
         """识别详情页特殊模板标记。"""

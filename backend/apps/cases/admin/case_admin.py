@@ -72,8 +72,8 @@ class CaseNumberInline(BaseStackedInline):
             None,
             {
                 "fields": (
-                    ("number", "document_name", "is_active"),
                     "document_file",
+                    ("number", "document_name", "is_active"),
                     "document_content",
                 )
             },

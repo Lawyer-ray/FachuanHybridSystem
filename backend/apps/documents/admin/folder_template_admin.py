@@ -194,6 +194,7 @@ class FolderTemplateAdmin(admin.ModelAdmin[FolderTemplate]):  # type: ignore[typ
     form = FolderTemplateForm  # 使用自定义表单
 
     list_display: ClassVar[tuple[str, ...]] = (
+        "id",
         "name",
         "template_type_display",
         "contract_types_display",

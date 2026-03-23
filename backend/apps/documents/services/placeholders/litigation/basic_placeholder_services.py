@@ -98,6 +98,18 @@ class LitigationCauseOfActionPlaceholderService(BasePlaceholderService):
     placeholder_keys: ClassVar = [LitigationPlaceholderKeys.CAUSE_OF_ACTION]
 
     def generate(self, context_data: dict[str, Any]) -> dict[str, Any]:
+        cause_of_action = self._resolve_cause_of_action(context_data)
+        return {LitigationPlaceholderKeys.CAUSE_OF_ACTION: cause_of_action or "民事纠纷"}
+
+    def _resolve_cause_of_action(self, context_data: dict[str, Any]) -> str:
+        case_obj = context_data.get("case")
+        case_value = getattr(case_obj, "cause_of_action", None)
+        if case_value:
+            return str(case_value).strip()
+
         case_dto = context_data.get("case_dto")
-        cause_of_action = getattr(case_dto, "cause_of_action", None) or "民事纠纷"
-        return {LitigationPlaceholderKeys.CAUSE_OF_ACTION: cause_of_action}
+        dto_value = getattr(case_dto, "cause_of_action", None)
+        if dto_value:
+            return str(dto_value).strip()
+
+        return ""

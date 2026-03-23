@@ -1,6 +1,7 @@
 """Business logic services."""
 
 import io
+import logging
 import shutil
 import zipfile
 from collections.abc import Iterable
@@ -9,6 +10,8 @@ from apps.core.exceptions import ValidationException
 from apps.core.path import Path
 
 from .path_validator import FolderPathValidator
+
+logger = logging.getLogger("apps")
 
 
 class FolderFilesystemService:
@@ -40,7 +43,7 @@ class FolderFilesystemService:
         for part in relative_dir_parts:
             file_dir = file_dir / part
 
-        file_path = file_dir / safe_file_name
+        file_path = self._get_unique_path(file_dir, safe_file_name)
         self.validator.ensure_within_base(base_dir, file_path)
 
         parent_dir = file_path.parent if hasattr(file_path, "parent") else Path(str(file_path)).dirname()
@@ -50,6 +53,21 @@ class FolderFilesystemService:
             f.write(content)
 
         return str(file_path)
+
+    def _get_unique_path(self, parent_dir: Path, file_name: str) -> Path:
+        """如果文件已存在则返回带序号后缀的唯一路径，如 file.docx → file_1.docx"""
+        stem = Path(file_name).stem
+        suffix = Path(file_name).suffix
+        candidate = parent_dir / file_name
+        if not candidate.exists():
+            return candidate
+        counter = 1
+        while True:
+            new_name = f"{stem}_{counter}{suffix}"
+            candidate = parent_dir / new_name
+            if not candidate.exists():
+                return candidate
+            counter += 1
 
     def extract_zip_bytes(self, base_path: str, zip_content: bytes) -> str:
         base_dir = Path(base_path)
@@ -79,7 +97,9 @@ class FolderFilesystemService:
                         target_path.parent if hasattr(target_path, "parent") else Path(str(target_path)).dirname()
                     )
                     self.validator.mkdirs(parent_dir)
-                    with zip_file.open(info, "r") as src, open(str(target_path), "wb") as dst:
+                    # 文件使用唯一路径（防重名）
+                    unique_target_path = self._get_unique_path(parent_dir, target_path.name)
+                    with zip_file.open(info, "r") as src, open(str(unique_target_path), "wb") as dst:
                         shutil.copyfileobj(src, dst)
 
         except (zipfile.BadZipFile, OSError, PermissionError) as e:

@@ -318,7 +318,6 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):  # type: ignore
         "name",
         "template_type_display",
         "file_location_display",
-        "placeholder_count_display",
         "is_active",
         "updated_at",
     )
@@ -333,7 +332,7 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):  # type: ignore
         "description",
     )
 
-    ordering: ClassVar[list[str]] = ["-updated_at"]
+    ordering: ClassVar[list[str]] = ["-id"]
 
     readonly_fields: ClassVar[tuple[str, ...]] = (
         "current_file_display",

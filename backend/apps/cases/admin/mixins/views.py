@@ -190,10 +190,16 @@ class CaseAdminViewsMixin:
         matched_case_file_templates, case_file_templates_missing_reason = service.get_case_file_templates_for_detail(
             case
         )
+        case_file_sub_type_choices = service.get_case_file_sub_type_choices()
 
         grouped_case_file_templates = service.group_templates_by_sub_type(
             matched_case_file_templates,
-            service.get_case_file_sub_type_choices(),
+            case_file_sub_type_choices,
+        )
+        grouped_case_file_templates_for_display = service.group_templates_by_sub_type(
+            matched_case_file_templates,
+            case_file_sub_type_choices,
+            exclude_special_sub_types=False,
         )
 
         matched_folder_templates_list = (
@@ -232,6 +238,7 @@ class CaseAdminViewsMixin:
                 "matched_folder_templates_list": matched_folder_templates_list,
                 "case_file_templates_missing_reason": case_file_templates_missing_reason,
                 "grouped_case_file_templates": grouped_case_file_templates,
+                "grouped_case_file_templates_for_display": grouped_case_file_templates_for_display,
                 "can_generate_folder": bool(matched_folder_templates and "无匹配" not in matched_folder_templates),
                 "folder_disabled_reason": self._get_folder_disabled_reason_v2(matched_folder_templates),
                 "our_legal_entities_json": our_legal_entities_json,

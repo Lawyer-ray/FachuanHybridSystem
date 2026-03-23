@@ -11,36 +11,10 @@ from typing import Any
 from django.http import HttpRequest, HttpResponse
 from ninja import Router
 
-from apps.core.security import get_request_access_context
+from apps.documents.api.download_response_factory import build_download_response
 
 logger = logging.getLogger("apps.cases.api")
 router = Router()
-
-
-def _build_zip_from_structure(structure: dict[str, Any], parent: str = "") -> bytes:
-    """递归将文件夹结构打包为 ZIP（只含空目录）"""
-    buf = BytesIO()
-    with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-        _add_folders_to_zip(zf, structure, parent)
-    return buf.getvalue()
-
-
-def _add_folders_to_zip(zf: zipfile.ZipFile, node: dict[str, Any], parent: str) -> None:
-    name = node.get("name", "")
-    current = f"{parent}/{name}" if parent else name
-    zf.writestr(f"{current}/", "")
-    for child in node.get("children", []):
-        _add_folders_to_zip(zf, child, current)
-
-
-def _create_folders_on_disk(node: dict[str, Any], parent: Path) -> Path:
-    """递归在磁盘上创建文件夹结构，返回根目录路径"""
-    name = node.get("name", "")
-    current = parent / name
-    current.mkdir(parents=True, exist_ok=True)
-    for child in node.get("children", []):
-        _create_folders_on_disk(child, current)
-    return current
 
 
 @router.post("/{case_id}/generate-folder")
@@ -53,8 +27,6 @@ def generate_case_folder(request: HttpRequest, case_id: int) -> Any:
     from apps.cases.models import Case
     from apps.documents.models import FolderTemplate
     from apps.documents.services.generation.folder_generation_service import FolderGenerationService
-
-    ctx = get_request_access_context(request)
 
     try:
         case = Case.objects.select_related("contract__folder_binding", "folder_binding").get(pk=case_id)
@@ -86,24 +58,27 @@ def generate_case_folder(request: HttpRequest, case_id: int) -> Any:
     root_name = f"{today}-[{case_type_display}]{case.name}"
 
     svc = FolderGenerationService()
-    structure = svc.generate_folder_structure(matched, root_name)
 
     # 判断是否有合同绑定文件夹
     contract_folder_path: str | None = None
     if case.contract and hasattr(case.contract, "folder_binding") and case.contract.folder_binding:
         contract_folder_path = case.contract.folder_binding.folder_path
 
+    zip_bytes = svc.generate_case_folder_with_documents(case, matched, root_name)
+    filename = f"{root_name}.zip"
+
     if contract_folder_path:
         parent = Path(contract_folder_path)
         if not parent.exists():
             return {"success": False, "message": f"合同绑定文件夹不存在: {contract_folder_path}"}
-        created = _create_folders_on_disk(structure, parent)
-        logger.info("案件文件夹已创建", extra={"case_id": case_id, "path": str(created)})
-        return {"success": True, "message": f"案件文件夹已创建: {created}", "folder_path": str(created)}
+        try:
+            with zipfile.ZipFile(BytesIO(zip_bytes), "r") as zf:
+                zf.extractall(str(parent))
+        except (OSError, zipfile.BadZipFile) as e:
+            logger.error("ZIP 解压失败: %s", e, extra={"case_id": case_id})
+            return {"success": False, "message": f"ZIP 解压失败: {e}"}
+        logger.info("案件文件夹已解压到合同文件夹", extra={"case_id": case_id, "path": str(parent)})
+        return {"success": True, "message": f"文件已保存到: {parent}", "folder_path": str(parent)}
 
     # 无绑定 → 下载 ZIP
-    zip_bytes = _build_zip_from_structure(structure)
-    response = HttpResponse(zip_bytes, content_type="application/zip")
-    filename = f"{root_name}.zip"
-    response["Content-Disposition"] = f'attachment; filename="{filename}"'
-    return response
+    return build_download_response(content=zip_bytes, filename=filename, content_type="application/zip")
