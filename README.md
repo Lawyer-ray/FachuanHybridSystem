@@ -118,7 +118,7 @@ https://github.com/Lawyer-ray/FachuanHybridSystem
 
 ## 💝 致谢
 
-本项目主要通过 **[Kiro](https://kiro.dev)** 与 **[Codex](https://openai.com/zh-Hans-CN/codex/)** 协同完成开发，感谢它们极大地提升了开发效率。
+本项目主要通过[Kiro](https://kiro.dev)与[Codex](https://openai.com/zh-Hans-CN/codex/)协同完成开发，感谢它们极大地提升了开发效率。
 
 ## 💖 支持项目
 
