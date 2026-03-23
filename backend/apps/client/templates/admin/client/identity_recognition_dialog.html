@@ -1,0 +1,526 @@
+{% load static i18n %}
+<!-- 身份材料智能识别对话框 - Alpine.js 版本 -->
+<!-- Requirements: 2.1, 2.2, 2.3, 2.4, 2.5 -->
+
+<div x-data="identityApp()" x-init="init()">
+    <!-- 对话框 -->
+    <div class="identity-recognition-dialog"
+         :class="{ 'hidden': !isDialogOpen }"
+         @keydown.escape.window="closeDialog()">
+        <div class="dialog-overlay" @click="closeDialog()"></div>
+        <div class="dialog-content" @click.stop>
+            <div class="dialog-header">
+                <h3>{% trans "身份材料智能识别" %}</h3>
+                <button type="button" class="dialog-close" @click="closeDialog()">×</button>
+            </div>
+
+            <div class="dialog-body">
+                <!-- 介绍说明 -->
+                <div class="recognition-intro">
+                    <p>{% trans "上传身份证、护照、营业执照等证件，系统将自动识别并提取关键信息，帮助您快速完成当事人信息录入。" %}</p>
+                </div>
+
+                <!-- 证件类型选择 -->
+                <div class="doc-type-section">
+                    <label for="identityDocType">{% trans "证件类型" %}：</label>
+                    <select id="identityDocType" class="doc-type-select" x-model="docType">
+                        <option value="">{% trans "请选择证件类型" %}</option>
+                        <option value="id_card">{% trans "身份证" %}</option>
+                        <option value="passport">{% trans "护照" %}</option>
+                        <option value="hk_macao_permit">{% trans "港澳通行证" %}</option>
+                        <option value="residence_permit">{% trans "居住证" %}</option>
+                        <option value="household_register">{% trans "户口本" %}</option>
+                        <option value="business_license">{% trans "营业执照" %}</option>
+                        <option value="legal_rep_id_card">{% trans "法定代表人/负责人身份证" %}</option>
+                    </select>
+                </div>
+
+                <!-- 上传区域 -->
+                <div class="identity-upload-zone"
+                     x-show="showUploadZone()"
+                     :class="{ 'drag-over': isDragOver }"
+                     @dragenter="handleDragEnter($event)"
+                     @dragover="handleDragOver($event)"
+                     @dragleave="handleDragLeave($event)"
+                     @drop="handleDrop($event)">
+                    <div class="upload-content">
+                        <svg class="upload-icon" viewBox="0 0 24 24">
+                            <path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
+                        </svg>
+                        <h4>{% trans "拖拽证件图片到此处" %}</h4>
+                        <p>{% trans "支持 JPG、PNG、PDF 格式，文件大小不超过 10MB" %}</p>
+                        <label class="upload-btn">
+                            {% trans "选择文件" %}
+                            <input type="file"
+                                   accept=".jpg,.jpeg,.png,.pdf"
+                                   style="display: none;"
+                                   @change="handleFileSelect($event)">
+                        </label>
+                    </div>
+                </div>
+
+                <!-- 加载状态 -->
+                <div class="identity-loading-state" x-show="isLoading">
+                    <div class="loading-spinner"></div>
+                    <p x-text="loadingText">正在处理...</p>
+                </div>
+
+                <!-- 识别结果 -->
+                <div class="identity-result-card" x-show="showResult">
+                    <div class="result-header">
+                        <h4>{% trans "识别结果" %}</h4>
+                        <span class="confidence-tag"
+                              :class="getConfidenceClass()"
+                              x-text="'置信度: ' + confidence + '%'">
+                        </span>
+                    </div>
+
+                    <div class="result-body">
+                        <div class="result-grid">
+                            <template x-for="item in getExtractedDataEntries()" :key="item.key">
+                                <div class="result-field">
+                                    <label x-text="item.label + ':'"></label>
+                                    <span class="field-value" :data-field="item.key" x-text="item.value"></span>
+                                </div>
+                            </template>
+                            <div x-show="getExtractedDataEntries().length === 0"
+                                 class="text-muted text-center p-2">
+                                {% trans "未识别到有效信息" %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="result-actions">
+                        <button type="button"
+                                class="btn btn-primary"
+                                @click="confirmResult()"
+                                :disabled="isConfirming">
+                            <span x-show="!isConfirming">{% trans "确认并创建证件记录" %}</span>
+                            <span x-show="isConfirming">{% trans "应用中..." %}</span>
+                        </button>
+                        <button type="button"
+                                class="btn btn-secondary"
+                                @click="resetState()">
+                            {% trans "重新识别" %}
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 错误状态 -->
+                <div class="identity-error-state" x-show="showError">
+                    <div class="error-icon">⚠</div>
+                    <h4>{% trans "识别失败" %}</h4>
+                    <p x-text="errorMessage">{% trans "未知错误" %}</p>
+                    <button type="button" class="btn btn-primary" @click="resetState()">{% trans "重新上传" %}</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 触发按钮 -->
+    <div class="identity-recognition-trigger">
+        <button type="button" class="btn btn-outline-primary" @click="openDialog()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 1H5C3.89 1 3 1.89 3 3V21C3 22.1 3.89 23 5 23H11V21H5V3H13V9H21ZM14 15.5L16.5 18L21 13.5L19.59 12.09L16.5 15.17L15.41 14.09L14 15.5Z"/>
+            </svg>
+            {% trans "身份材料智能识别" %}
+        </button>
+    </div>
+</div>
+
+<!-- 引入 Alpine.js 组件 -->
+<script src="{% static 'client/identity_app.js' %}"></script>
+
+<!--
+@deprecated 以下是原有的原生 JS 实现，已被 Alpine.js 版本替代
+保留用于回滚参考
+原始文件: identity_recognition.js
+-->
+<script type="text/javascript" id="legacy-identity-recognition-script">
+// 全局变量
+let identityRecognitionResult = null;
+let identityUploadedFile = null;
+
+/**
+ * 打开身份识别对话框
+ */
+function openIdentityDialog() {
+    const dialog = document.getElementById('identityRecognitionDialog');
+    dialog.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+
+    // 重置状态
+    resetIdentityDialog();
+}
+
+/**
+ * 关闭身份识别对话框
+ */
+function closeIdentityDialog() {
+    const dialog = document.getElementById('identityRecognitionDialog');
+    dialog.classList.add('hidden');
+    document.body.style.overflow = '';
+
+    // 清理状态
+    identityRecognitionResult = null;
+    identityUploadedFile = null;
+}
+
+/**
+ * 重置对话框到初始状态
+ */
+function resetIdentityDialog() {
+    // 隐藏所有状态区域
+    document.getElementById('identityLoadingState').classList.add('hidden');
+    document.getElementById('identityResultCard').classList.add('hidden');
+    document.getElementById('identityErrorState').classList.add('hidden');
+
+    // 显示上传区域
+    document.getElementById('identityUploadZone').classList.remove('hidden');
+
+    // 重置表单
+    document.getElementById('identityDocType').value = '';
+    document.getElementById('identityFileInput').value = '';
+
+    // 清理状态
+    identityRecognitionResult = null;
+    identityUploadedFile = null;
+}
+
+/**
+ * 显示加载状态
+ */
+function showIdentityLoading(text = '正在处理...') {
+    document.getElementById('identityUploadZone').classList.add('hidden');
+    document.getElementById('identityResultCard').classList.add('hidden');
+    document.getElementById('identityErrorState').classList.add('hidden');
+
+    document.getElementById('identityLoadingText').textContent = text;
+    document.getElementById('identityLoadingState').classList.remove('hidden');
+}
+
+/**
+ * 显示错误状态
+ */
+function showIdentityError(message) {
+    document.getElementById('identityUploadZone').classList.add('hidden');
+    document.getElementById('identityLoadingState').classList.add('hidden');
+    document.getElementById('identityResultCard').classList.add('hidden');
+
+    document.getElementById('identityErrorMessage').textContent = message;
+    document.getElementById('identityErrorState').classList.remove('hidden');
+}
+
+/**
+ * 显示识别结果
+ */
+function showIdentityResult(result) {
+    document.getElementById('identityUploadZone').classList.add('hidden');
+    document.getElementById('identityLoadingState').classList.add('hidden');
+    document.getElementById('identityErrorState').classList.add('hidden');
+
+    // 更新置信度
+    const confidence = Math.round((result.confidence || 0) * 100);
+    document.getElementById('identityConfidenceTag').textContent = `置信度: ${confidence}%`;
+    document.getElementById('identityConfidenceTag').className = `confidence-tag ${getConfidenceClass(confidence)}`;
+
+    // 生成结果字段
+    const resultGrid = document.getElementById('identityResultGrid');
+    resultGrid.innerHTML = '';
+
+    if (result.extracted_data) {
+        Object.entries(result.extracted_data).forEach(([key, value]) => {
+            if (value && value.toString().trim()) {
+                const fieldDiv = document.createElement('div');
+                fieldDiv.className = 'result-field';
+                fieldDiv.innerHTML = `
+                    <label>${getFieldLabel(key)}:</label>
+                    <span class="field-value" data-field="${key}">${value}</span>
+                `;
+                resultGrid.appendChild(fieldDiv);
+            }
+        });
+    }
+
+    document.getElementById('identityResultCard').classList.remove('hidden');
+}
+
+/**
+ * 获取置信度样式类
+ */
+function getConfidenceClass(confidence) {
+    if (confidence >= 80) return 'high';
+    if (confidence >= 60) return 'medium';
+    return 'low';
+}
+
+/**
+ * 获取字段标签
+ */
+function getFieldLabel(key) {
+    const labels = {
+        'name': '姓名',
+        'id_number': '证件号码',
+        'address': '地址',
+        'expiry_date': '到期日期',
+        'gender': '性别',
+        'ethnicity': '民族',
+        'birth_date': '出生日期',
+        'passport_number': '护照号码',
+        'nationality': '国籍',
+        'permit_number': '通行证号码',
+        'household_head': '户主',
+        'company_name': '公司名称',
+        'credit_code': '统一社会信用代码',
+        'legal_representative': '法定代表人',
+        'business_scope': '经营范围',
+        'registration_date': '注册日期'
+    };
+    return labels[key] || key;
+}
+
+/**
+ * 确认识别结果并创建证件记录
+ */
+async function confirmIdentityResult() {
+    if (!identityRecognitionResult || !identityUploadedFile) {
+        showIdentityError('没有可确认的识别结果');
+        return;
+    }
+
+    const confirmBtn = document.getElementById('confirmIdentityBtn');
+    const originalText = confirmBtn.textContent;
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = '创建中...';
+
+    try {
+        // 1. 填充当事人表单
+        fillClientFormFromIdentity(identityRecognitionResult.extracted_data);
+
+        // 2. 创建证件记录（如果当事人已保存）
+        const clientId = getClientId();
+        if (clientId) {
+            await createIdentityDocRecord(clientId, identityRecognitionResult, identityUploadedFile);
+        }
+
+        // 显示成功消息
+        alert('识别结果已应用到表单，证件记录将在保存当事人后自动创建');
+        closeIdentityDialog();
+
+    } catch (error) {
+        console.error('确认识别结果失败:', error);
+        showIdentityError('应用识别结果失败: ' + error.message);
+    } finally {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = originalText;
+    }
+}
+
+/**
+ * 从识别结果填充当事人表单
+ */
+function fillClientFormFromIdentity(extractedData) {
+    if (!extractedData) return;
+
+    // 根据证件类型推断当事人类型
+    const docType = document.getElementById('identityDocType').value;
+    if (docType === 'business_license') {
+        setFieldValue('client_type', 'legal');
+        if (extractedData.company_name) setFieldValue('name', extractedData.company_name);
+        if (extractedData.credit_code) setFieldValue('id_number', extractedData.credit_code);
+        if (extractedData.legal_representative) setFieldValue('legal_representative', extractedData.legal_representative);
+    } else {
+        setFieldValue('client_type', 'natural');
+        if (extractedData.name) setFieldValue('name', extractedData.name);
+        if (extractedData.id_number) setFieldValue('id_number', extractedData.id_number);
+    }
+
+    // 通用字段
+    if (extractedData.address) setFieldValue('address', extractedData.address);
+
+    // 触发客户类型变更事件
+    const clientTypeField = document.getElementById('id_client_type');
+    if (clientTypeField) {
+        clientTypeField.dispatchEvent(new Event('change'));
+    }
+
+    // 高亮填充的字段
+    highlightFilledFields();
+}
+
+/**
+ * 设置表单字段值
+ */
+function setFieldValue(fieldName, value) {
+    const field = document.getElementById('id_' + fieldName);
+    if (field && value !== undefined && value !== null) {
+        if (field.type === 'checkbox') {
+            field.checked = !!value;
+        } else {
+            field.value = value;
+        }
+        field.dispatchEvent(new Event('change'));
+    }
+}
+
+/**
+ * 高亮填充的字段
+ */
+function highlightFilledFields() {
+    ['name', 'id_number', 'address', 'legal_representative'].forEach(function(fieldName) {
+        const field = document.getElementById('id_' + fieldName);
+        if (field && field.value) {
+            field.style.backgroundColor = '#e8f5e8';
+            field.style.borderColor = '#4caf50';
+            setTimeout(function() {
+                field.style.backgroundColor = '';
+                field.style.borderColor = '';
+            }, 3000);
+        }
+    });
+}
+
+/**
+ * 获取当前当事人ID（如果已保存）
+ */
+function getClientId() {
+    const url = window.location.pathname;
+    const match = url.match(/\/admin\/client\/client\/(\d+)\/change\//);
+    return match ? match[1] : null;
+}
+
+/**
+ * 创建证件记录
+ */
+async function createIdentityDocRecord(clientId, recognitionResult, file) {
+    const formData = new FormData();
+    formData.append('client', clientId);
+    formData.append('doc_type', document.getElementById('identityDocType').value);
+    formData.append('file', file);
+
+    // 添加识别到的到期日期
+    if (recognitionResult.extracted_data.expiry_date) {
+        formData.append('expiry_date', recognitionResult.extracted_data.expiry_date);
+    }
+
+    const response = await fetch('/api/v1/client/identity-docs/', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': getCsrfToken()
+        }
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || '创建证件记录失败');
+    }
+
+    return await response.json();
+}
+
+/**
+ * 获取CSRF Token
+ */
+function getCsrfToken() {
+    return (window.FachuanCSRF && window.FachuanCSRF.getToken && window.FachuanCSRF.getToken()) || '';
+}
+
+// 初始化事件监听器
+document.addEventListener('DOMContentLoaded', function() {
+    const uploadZone = document.getElementById('identityUploadZone');
+    const fileInput = document.getElementById('identityFileInput');
+
+    if (!uploadZone || !fileInput) return;
+
+    // 拖拽事件
+    uploadZone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        uploadZone.classList.add('drag-over');
+    });
+
+    uploadZone.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        if (!uploadZone.contains(e.relatedTarget)) {
+            uploadZone.classList.remove('drag-over');
+        }
+    });
+
+    uploadZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        uploadZone.classList.remove('drag-over');
+
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            handleIdentityFileUpload(files[0]);
+        }
+    });
+
+    // 文件选择事件
+    fileInput.addEventListener('change', function(e) {
+        if (e.target.files.length > 0) {
+            handleIdentityFileUpload(e.target.files[0]);
+        }
+    });
+});
+
+/**
+ * 处理文件上传和识别
+ */
+async function handleIdentityFileUpload(file) {
+    // 验证文件类型和大小
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+    if (!allowedTypes.includes(file.type)) {
+        showIdentityError('不支持的文件格式，请上传 JPG、PNG 或 PDF 文件');
+        return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) { // 10MB
+        showIdentityError('文件大小不能超过 10MB');
+        return;
+    }
+
+    // 检查是否选择了证件类型
+    const docType = document.getElementById('identityDocType').value;
+    if (!docType) {
+        showIdentityError('请先选择证件类型');
+        return;
+    }
+
+    identityUploadedFile = file;
+
+    try {
+        showIdentityLoading('正在上传文件...');
+
+        // 调用识别API
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('doc_type', docType);
+
+        const response = await fetch('/api/v1/client/identity-doc/recognize', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': getCsrfToken()
+            }
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.error || '识别失败');
+        }
+
+        if (!result.success) {
+            throw new Error(result.error || '识别失败');
+        }
+
+        identityRecognitionResult = result;
+        showIdentityResult(result);
+
+    } catch (error) {
+        console.error('身份识别失败:', error);
+        showIdentityError(error.message);
+    }
+}
+</script>

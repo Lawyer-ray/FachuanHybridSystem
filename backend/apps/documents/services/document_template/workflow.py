@@ -67,7 +67,6 @@ class DocumentTemplateWorkflow:
         contract_sub_type: str | None = None,
         file: Any | None = None,
         file_path: str | None = None,
-        description: str | None = None,
         case_types: list[str] | None = None,
         case_stages: list[str] | None = None,
         contract_types: list[str] | None = None,
@@ -80,7 +79,6 @@ class DocumentTemplateWorkflow:
                 "name": name,
                 "template_type": template_type,
                 "contract_sub_type": contract_sub_type,
-                "description": description,
                 "case_types": case_types,
                 "case_stages": case_stages,
                 "contract_types": contract_types,
@@ -109,7 +107,6 @@ class DocumentTemplateWorkflow:
             )
         return self.repo.create(
             name=data.get("name"),
-            description=data.get("description", ""),
             template_type=data.get("template_type", "contract"),
             file_path=file_path or "",
             case_types=data.get("case_types", []),
@@ -130,8 +127,6 @@ class DocumentTemplateWorkflow:
             template.file_path = file_path
         if data.get("name") is not None:
             template.name = data["name"]
-        if data.get("description") is not None:
-            template.description = data["description"]
         if data.get("template_type") is not None:
             template.template_type = data["template_type"]
         if data.get("case_types") is not None:

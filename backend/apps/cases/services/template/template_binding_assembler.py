@@ -46,7 +46,6 @@ class TemplateBindingAssembler:
         return {
             "template_id": template.id,
             "name": getattr(template, "name", "") or "",
-            "description": getattr(template, "description", "") or "",
             "case_sub_type": sub_type,
             "case_sub_type_display": self._config.sub_type_display.get(sub_type_key, sub_type_key),
         }

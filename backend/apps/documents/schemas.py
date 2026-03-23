@@ -93,7 +93,6 @@ class DocumentTemplateIn(Schema):
     """文书模板创建输入"""
 
     name: str
-    description: str = ""
     template_type: str = DocumentTemplateType.CONTRACT
     file_path: str | None = None
     case_types: list[str] = []
@@ -106,7 +105,6 @@ class DocumentTemplateUpdate(Schema):
     """文书模板更新输入"""
 
     name: str | None = None
-    description: str | None = None
     template_type: str | None = None
     file_path: str | None = None
     case_types: list[str] | None = None
@@ -141,7 +139,6 @@ class DocumentTemplateOut(ModelSchema):
         fields: ClassVar = [
             "id",
             "name",
-            "description",
             "template_type",
             "file_path",
             "case_types",

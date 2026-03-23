@@ -23,5 +23,4 @@ class DocumentTemplateDtoAssembler:
             legal_status_match_mode=getattr(template, "legal_status_match_mode", None),
             case_type=case_type,
             is_active=template.is_active,
-            description=template.description or None,
         )

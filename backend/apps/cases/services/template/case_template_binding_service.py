@@ -341,7 +341,6 @@ class CaseTemplateBindingService:
                         "template_id": t.id,
                         "name": t.name,
                         "function_code": getattr(t, "function_code", None),
-                        "description": t.description or "",
                         "binding_source": "general",
                         "binding_source_display": str(_("通用")),
                     }

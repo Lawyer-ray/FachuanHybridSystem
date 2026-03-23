@@ -225,7 +225,6 @@ def get_complete_default_data() -> dict[str, Any]:
         "document_templates": [
             {
                 "name": "补充协议",
-                "description": "",
                 "template_type": "contract",
                 "contract_sub_type": "supplementary_agreement",
                 "case_sub_type": None,
@@ -239,7 +238,6 @@ def get_complete_default_data() -> dict[str, Any]:
             },
             {
                 "name": "所函",
-                "description": "",
                 "template_type": "case",
                 "contract_sub_type": None,
                 "case_sub_type": "power_of_attorney_materials",
@@ -253,7 +251,6 @@ def get_complete_default_data() -> dict[str, Any]:
             },
             {
                 "name": "授权委托书",
-                "description": "",
                 "template_type": "case",
                 "contract_sub_type": None,
                 "case_sub_type": "power_of_attorney_materials",
@@ -267,7 +264,6 @@ def get_complete_default_data() -> dict[str, Any]:
             },
             {
                 "name": "法定代表人身份证明书",
-                "description": "",
                 "template_type": "case",
                 "contract_sub_type": None,
                 "case_sub_type": "power_of_attorney_materials",
@@ -281,7 +277,6 @@ def get_complete_default_data() -> dict[str, Any]:
             },
             {
                 "name": "民商事合同",
-                "description": "",
                 "template_type": "contract",
                 "contract_sub_type": "contract",
                 "case_sub_type": None,
@@ -295,7 +290,6 @@ def get_complete_default_data() -> dict[str, Any]:
             },
             {
                 "name": "顾问合同",
-                "description": "",
                 "template_type": "contract",
                 "contract_sub_type": "contract",
                 "case_sub_type": None,
@@ -309,7 +303,6 @@ def get_complete_default_data() -> dict[str, Any]:
             },
             {
                 "name": "刑事合同",
-                "description": "",
                 "template_type": "contract",
                 "contract_sub_type": "contract",
                 "case_sub_type": None,

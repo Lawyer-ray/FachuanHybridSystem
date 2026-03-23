@@ -2,6 +2,44 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.22.6] - 2026-03-23
+
+### 新增
+
+- **Client/Admin 自定义模板补齐**
+  - 新增 `apps/client/templates/admin/client/change_list.html`（客户列表 ZIP 导入入口）
+  - 新增 `apps/client/templates/admin/client/change_form.html` 与 `identity_recognition_dialog.html`（身份材料识别 UI）
+  - 新增 `apps/client/templates/admin/client/clientidentitydoc/change_list.html`（身份证合并入口）
+- **Documents/Admin 自定义模板补齐**
+  - 新增 `apps/documents/templates/admin/documents/documenttemplate/change_form.html`，增强模板编辑页文件来源互斥交互
+- **数据库迁移**
+  - 新增 `documents` 迁移 `0006_remove_documenttemplate_description`，删除 `DocumentTemplate.description`
+
+### 清理
+
+- **DocumentTemplate 描述字段全链路移除**
+  - 模型：移除 `DocumentTemplate.description`
+  - DTO/Schema：移除 `DocumentTemplateDTO.description`、`DocumentTemplateIn/Update/Out.description`
+  - 工作流与服务：移除 create/update/duplicate 的 `description` 入参与写入
+  - 案件模板绑定聚合输出：移除模板 description 回传字段
+  - 模板审计字段追踪：移除 `description` 跟踪项
+
+### 优化
+
+- **执行事项规则引擎增强**
+  - 当主文未命中“借款/货款本金”时，可从计息基数条款（如“以27334元为基数”）反推本金
+  - 支持“LPR/贷款市场报价利率的标准”场景，按 1 倍 LPR 识别利率描述
+  - 兜底触发条件细化为“按句判断费用+负担+预交语义”，减少非必要 Ollama 兜底调用
+- **文书模板 Admin 可见性优化**
+  - `DocumentTemplate` 列表新增主键 `id` 列
+  - 表单去除 `description` 输入，保持与模型一致
+
+### 测试
+
+- 新增执行事项规则回归测试：
+  - `test_execution_request_infers_principal_from_interest_base_and_lpr_standard`
+  - `test_execution_request_lpr_standard_clause_does_not_trigger_llm_fallback_when_rules_sufficient`
+
 ## [26.22.5] - 2026-03-23
 
 ### 清理

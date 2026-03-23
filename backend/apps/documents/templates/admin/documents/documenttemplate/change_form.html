@@ -1,0 +1,111 @@
+{% extends "admin/change_form.html" %}
+{% load i18n static %}
+
+{% block extrahead %}
+{{ block.super }}
+<link rel="stylesheet" type="text/css" href="{% static 'documents/css/folder_binding_inline.css' %}">
+<style>
+/* 文书模板编辑页面额外样式 */
+.folder-binding-section {
+    margin-top: 20px;
+}
+
+/* 确保内联表单样式正确 */
+.inline-group .tabular tr.form-row td {
+    vertical-align: top;
+}
+
+.folder-selector-box {
+    min-width: 200px;
+}
+
+/* 文件选择互斥提示样式 */
+.file-source-hint {
+    color: #666;
+    font-size: 12px;
+    margin-top: 5px;
+}
+
+.file-source-active {
+    background-color: #e8f5e9;
+    border-left: 3px solid #4caf50;
+    padding-left: 10px;
+}
+
+.file-source-disabled {
+    opacity: 0.5;
+}
+</style>
+{% endblock %}
+
+{% block admin_change_form_document_ready %}
+{{ block.super }}
+<script type="text/javascript" src="{% static 'documents/js/folder_binding_inline.js' %}"></script>
+<script type="text/javascript">
+(function($) {
+    $(document).ready(function() {
+        // 文件选择互斥逻辑
+        var existingFileSelect = $('#id_existing_file');
+        var fileInput = $('#id_file');
+        var filePathInput = $('#id_file_path');
+
+        function updateFileSourceState() {
+            var existingSelected = existingFileSelect.val() !== '';
+            var fileSelected = fileInput.val() !== '';
+            var pathEntered = filePathInput.val().trim() !== '';
+
+            // 根据选择状态更新UI
+            if (existingSelected) {
+                fileInput.closest('.form-row').addClass('file-source-disabled');
+                filePathInput.closest('.form-row').addClass('file-source-disabled');
+                existingFileSelect.closest('.form-row').addClass('file-source-active').removeClass('file-source-disabled');
+            } else if (fileSelected) {
+                existingFileSelect.closest('.form-row').addClass('file-source-disabled');
+                filePathInput.closest('.form-row').addClass('file-source-disabled');
+                fileInput.closest('.form-row').addClass('file-source-active').removeClass('file-source-disabled');
+            } else if (pathEntered) {
+                existingFileSelect.closest('.form-row').addClass('file-source-disabled');
+                fileInput.closest('.form-row').addClass('file-source-disabled');
+                filePathInput.closest('.form-row').addClass('file-source-active').removeClass('file-source-disabled');
+            } else {
+                // 都没选择，移除所有状态
+                existingFileSelect.closest('.form-row').removeClass('file-source-disabled file-source-active');
+                fileInput.closest('.form-row').removeClass('file-source-disabled file-source-active');
+                filePathInput.closest('.form-row').removeClass('file-source-disabled file-source-active');
+            }
+        }
+
+        // 当选择已有文件时，清空其他字段
+        existingFileSelect.on('change', function() {
+            if ($(this).val() !== '') {
+                // 清空文件上传（需要特殊处理）
+                fileInput.val('');
+                filePathInput.val('');
+            }
+            updateFileSourceState();
+        });
+
+        // 当上传文件时，清空其他字段
+        fileInput.on('change', function() {
+            if ($(this).val() !== '') {
+                existingFileSelect.val('');
+                filePathInput.val('');
+            }
+            updateFileSourceState();
+        });
+
+        // 当输入路径时，清空其他字段
+        filePathInput.on('input', function() {
+            if ($(this).val().trim() !== '') {
+                existingFileSelect.val('');
+                fileInput.val('');
+            }
+            updateFileSourceState();
+        });
+
+        // 初始化状态
+        updateFileSourceState();
+    });
+})(django.jQuery);
+</script>
+{% endblock %}

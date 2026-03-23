@@ -211,18 +211,27 @@ class ExecutionRequestService(BasePlaceholderService):
 
         normalized_text = self._normalize_text(main_text)
         amounts = self._parse_confirmed_amounts(normalized_text)
+        params = self._parse_interest_params(normalized_text)
         principal_fallback_to_target = False
         if amounts.principal is None:
-            target_amount = self._safe_decimal(case.target_amount)
-            if target_amount > 0:
-                amounts.principal = target_amount
+            inferred_principal = self._infer_principal_from_interest_base(params)
+            if inferred_principal is not None:
+                amounts.principal = inferred_principal
                 if "货款" in normalized_text:
                     amounts.principal_label = "货款本金"
-                warnings.append("未从文书解析到本金，已回退使用案件“涉案金额”。")
-                principal_fallback_to_target = True
+                elif "借款" not in normalized_text:
+                    amounts.principal_label = "款项本金"
             else:
-                warnings.append("未能确定本金，申请执行事项未生成。")
-                return ExecutionComputation(preview_text="", warnings=warnings, structured_params={})
+                target_amount = self._safe_decimal(case.target_amount)
+                if target_amount > 0:
+                    amounts.principal = target_amount
+                    if "货款" in normalized_text:
+                        amounts.principal_label = "货款本金"
+                    warnings.append("未从文书解析到本金，已回退使用案件“涉案金额”。")
+                    principal_fallback_to_target = True
+                else:
+                    warnings.append("未能确定本金，申请执行事项未生成。")
+                    return ExecutionComputation(preview_text="", warnings=warnings, structured_params={})
 
         paid = paid_amount if paid_amount is not None else self._safe_decimal(case_number.execution_paid_amount)
         paid = max(paid, Decimal("0"))
@@ -240,7 +249,6 @@ class ExecutionRequestService(BasePlaceholderService):
             deduction_order=deduction_order if use_order else [],
         )
 
-        params = self._parse_interest_params(normalized_text)
         has_double_interest_clause = self._has_double_interest_clause(normalized_text)
         llm_fallback_enabled = True if enable_llm_fallback is None else bool(enable_llm_fallback)
         llm_fallback_used = False
@@ -390,15 +398,30 @@ class ExecutionRequestService(BasePlaceholderService):
         if re.search(r"[0-9]+\s*万\s*元", text) and principal < Decimal("10000"):
             return True
 
-        if "受理费" in text and amounts.litigation_fee <= 0 and "负担" in text and any(k in text for k in ("预交", "已交")):
+        if amounts.litigation_fee <= 0 and self._has_fee_prepaid_context(text, fee_keywords=("受理费",)):
             return True
-        if any(k in text for k in ("保全费", "财产保全费")) and amounts.preservation_fee <= 0 and (
-            "负担" in text and any(k in text for k in ("预交", "已缴", "迳付"))
+        if amounts.preservation_fee <= 0 and self._has_fee_prepaid_context(
+            text,
+            fee_keywords=("保全费", "财产保全费", "财产保全申请费"),
         ):
             return True
 
         if params.start_date and params.multiplier is None and params.custom_rate_value is None:
             return True
+        return False
+
+    def _has_fee_prepaid_context(self, text: str, *, fee_keywords: tuple[str, ...]) -> bool:
+        prepaid_markers = ("预交", "已缴", "已交", "先行垫付")
+        for sentence in re.split(r"[。；\n]", text):
+            compact = sentence.replace(" ", "").strip()
+            if not compact:
+                continue
+            if not any(keyword in compact for keyword in fee_keywords):
+                continue
+            if "负担" not in compact:
+                continue
+            if any(marker in compact for marker in prepaid_markers):
+                return True
         return False
 
     def _merge_llm_fallback(
@@ -751,6 +774,10 @@ class ExecutionRequestService(BasePlaceholderService):
                 params.rate_description = (
                     f"全国银行间同业拆借中心公布的一年期贷款市场报价利率的{self._format_amount(multiplier)}倍"
                 )
+        elif re.search(r"(?:LPR|贷款市场报价利率|一年期贷款市场报价利率)", rate_text):
+            params.multiplier = Decimal("1")
+            params.rate_type = "1y"
+            params.rate_description = "全国银行间同业拆借中心公布的一年期贷款市场报价利率"
         elif fixed_match:
             annual_rate = self._parse_decimal(fixed_match.group(1))
             if annual_rate is not None:
@@ -795,6 +822,12 @@ class ExecutionRequestService(BasePlaceholderService):
 
         params.base_mode, params.base_amount = self._parse_interest_base_rule(rate_text=rate_text, full_text=main_text)
         return params
+
+    def _infer_principal_from_interest_base(self, params: ParsedInterestParams) -> Decimal | None:
+        if params.base_mode in {"fixed_amount", "fixed_amount_remaining"} and params.base_amount is not None:
+            if params.base_amount > 0:
+                return params.base_amount
+        return None
 
     def _parse_interest_base_rule(self, *, rate_text: str, full_text: str) -> tuple[str, Decimal | None]:
         base_match = re.search(r"以\s*([^，,；。\n]{1,60}?)\s*为(?:本金|基数)", rate_text)

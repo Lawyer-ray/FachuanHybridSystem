@@ -18,7 +18,6 @@ class DocumentTemplateDTO:
     legal_status_match_mode: str | None = None
     case_type: str | None = None
     is_active: bool = True
-    description: str | None = None
 
 
 @dataclass

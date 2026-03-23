@@ -292,7 +292,6 @@ class DocumentTemplateAdminService:
             suffix += 1
         return DocumentTemplate.objects.create(
             name=new_name,
-            description=template.description,
             template_type=template.template_type,
             file_path=template.file_path,
             contract_types=template.contract_types.copy() if template.contract_types else [],

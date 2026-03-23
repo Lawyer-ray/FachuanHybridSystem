@@ -44,7 +44,6 @@ class DocumentTemplate(models.Model):
 
     id: int
     name = models.CharField(max_length=200, verbose_name=_("模板名称"))
-    description = models.TextField(blank=True, verbose_name=_("描述"))
     template_type = models.CharField(
         max_length=20,
         choices=DocumentTemplateType.choices,

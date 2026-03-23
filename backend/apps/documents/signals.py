@@ -50,7 +50,7 @@ def _get_tracked_fields(model_class: type[Any]) -> list[str]:
 
     specific_fields = {
         FolderTemplate: ["case_type", "case_stage", "structure", "is_default"],
-        DocumentTemplate: ["description", "category", "file", "file_path", "case_types", "version"],
+        DocumentTemplate: ["category", "file", "file_path", "case_types", "version"],
         Placeholder: ["key", "display_name", "example_value"],
     }
 

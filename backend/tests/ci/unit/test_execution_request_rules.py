@@ -200,6 +200,74 @@ def test_execution_request_parses_lpr_markup_percent_as_multiplier(service: Exec
 
 
 @pytest.mark.django_db
+def test_execution_request_infers_principal_from_interest_base_and_lpr_standard(service: ExecutionRequestService) -> None:
+    _seed_lpr_rates()
+    case = Case.objects.create(name="租赁费用按LPR标准", target_amount=Decimal("0"))
+    case_number = CaseNumber.objects.create(
+        case=case,
+        number="（2025）测试4-1号",
+        document_name="民事判决书",
+        document_content=(
+            "一、被告应于本判决发生法律效力之日起五日内向原告支付吊车租赁费用27334元及利息"
+            "（利息以27334元为基数，自2024年8月11日起按同期全国银行间同业拆借中心公布的一年期贷款市场报价利率的标准，"
+            "计算至实际清偿完毕之日止）；"
+        ),
+        execution_cutoff_date=date(2024, 9, 10),
+        execution_year_days=360,
+        execution_date_inclusion="both",
+    )
+
+    result = service.preview_for_case_number(
+        case=case,
+        case_number=case_number,
+        enable_llm_fallback=False,
+    )
+    params = result["structured_params"]
+    warnings = result["warnings"]
+
+    assert params["principal"] == "27334"
+    assert params["interest_base"] == "27334"
+    assert params["interest_rate_description"] == "全国银行间同业拆借中心公布的一年期贷款市场报价利率"
+    assert Decimal(params["overdue_interest"]) > Decimal("0")
+    assert not any("回退使用案件“涉案金额”" in w for w in warnings)
+
+
+@pytest.mark.django_db
+def test_execution_request_lpr_standard_clause_does_not_trigger_llm_fallback_when_rules_sufficient(
+    service: ExecutionRequestService,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _seed_lpr_rates()
+    case = Case.objects.create(name="LPR标准不触发兜底", target_amount=Decimal("0"))
+    case_number = CaseNumber.objects.create(
+        case=case,
+        number="（2025）测试4-2号",
+        document_name="民事判决书",
+        document_content=(
+            "一、被告应于本判决发生法律效力之日起五日内向原告支付吊车租赁费用27334元及利息"
+            "（利息以27334元为基数，自2024年8月11日起按同期全国银行间同业拆借中心公布的一年期贷款市场报价利率的标准，"
+            "计算至实际清偿完毕之日止）；"
+            "本案受理费504元、保全费302元，由被告负担。"
+        ),
+        execution_cutoff_date=date(2024, 9, 10),
+        execution_year_days=360,
+        execution_date_inclusion="both",
+    )
+
+    def _should_not_call(_text: str) -> dict[str, object]:
+        raise AssertionError("llm fallback should not be called")
+
+    monkeypatch.setattr(service, "_extract_with_ollama_fallback", _should_not_call)
+
+    result = service.preview_for_case_number(case=case, case_number=case_number)
+    params = result["structured_params"]
+
+    assert params["principal"] == "27334"
+    assert params["interest_rate_description"] == "全国银行间同业拆借中心公布的一年期贷款市场报价利率"
+    assert params["llm_fallback_used"] is False
+
+
+@pytest.mark.django_db
 def test_execution_request_rules_case_34475_chinese_multiplier_and_fee_variants(
     service: ExecutionRequestService,
 ) -> None:
