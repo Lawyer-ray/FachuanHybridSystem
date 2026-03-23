@@ -78,6 +78,7 @@ agents.md
 **/agents.md
 # Agent/skill artifacts
 .agents/
+/.playwright-cli/
 # Logs
 logs/
 # Testing
