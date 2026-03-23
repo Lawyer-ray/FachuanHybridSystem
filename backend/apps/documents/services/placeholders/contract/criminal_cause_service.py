@@ -41,9 +41,18 @@ class CriminalCauseService(BasePlaceholderService):
             {"案由": "清理后的案由字符串"}
         """
         try:
+            case = context_data.get("case")
+            if case:
+                return {"案由": self._clean_cause_of_action(case)}
+
+            case_dto = context_data.get("case_dto")
+            dto_cause = getattr(case_dto, "cause_of_action", None)
+            if dto_cause:
+                return {"案由": str(dto_cause).strip()}
+
             contract = context_data.get("contract")
             if not contract:
-                logger.warning("合同对象为空")
+                logger.warning("合同对象为空，且未提供案件对象")
                 return {"案由": ""}
 
             result = self._extract_cause_of_action(contract)
@@ -94,9 +103,7 @@ class CriminalCauseService(BasePlaceholderService):
 
     def _clean_cause_of_action(self, case: Any) -> Any:
         """
-        清理案由,去除编号后缀
-
-        例如 "危险作业罪-4502" -> "危险作业罪"
+        清理案由,直接返回案件“案由”字段值
 
         Args:
             case: Case 实例
@@ -108,12 +115,7 @@ class CriminalCauseService(BasePlaceholderService):
             cause = getattr(case, "cause_of_action", None)
             if not cause:
                 return ""
-
-            # 去除 "-" 之后的编号后缀
-            if "-" in cause:
-                return cause.split("-")[0].strip()
-
-            return cause.strip()
+            return str(cause).strip()
 
         except Exception as e:
             logger.warning("清理案由失败: %s", e, extra={"case_id": getattr(case, "id", None)})

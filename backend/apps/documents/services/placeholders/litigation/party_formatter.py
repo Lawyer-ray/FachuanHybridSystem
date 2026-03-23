@@ -81,6 +81,7 @@ class PartyFormatter:
         name: str,
         id_number: str,
         address: str,
+        phone: str = "",
     ) -> str:
         id_info = IdCardUtils.parse_id_card_info(id_number)
 
@@ -96,6 +97,8 @@ class PartyFormatter:
                 f"地址：{address}",
                 f"身份证号码：{id_number}",
             ]
+        if phone:
+            lines.append(f"联系电话：{phone}")
 
         return "\n".join(lines)
 
@@ -139,6 +142,7 @@ class PartyFormatter:
             name=client.name or "",
             id_number=client.id_number or "",
             address=client.address or "",
+            phone=getattr(client, "phone", "") or "",
         )
 
     def format_legal_entity(self, role: str, party: Any) -> str:
@@ -188,6 +192,7 @@ class PartyFormatter:
             name=party_dict.get("client_name") or "",
             id_number=party_dict.get("id_number") or "",
             address=party_dict.get("address") or "",
+            phone=party_dict.get("phone") or "",
         )
 
     def format_legal_entity_from_dict(self, role: str, party_dict: dict[str, Any]) -> str:

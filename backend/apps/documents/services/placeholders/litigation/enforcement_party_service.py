@@ -81,6 +81,59 @@ class EnforcementApplicantPartyService(BasePlaceholderService):
 
 
 @PlaceholderRegistry.register
+class EnforcementApplicantBasicFieldsService(BasePlaceholderService):
+    """强制执行申请书申请人基础字段服务"""
+
+    name: str = "enforcement_applicant_basic_fields_service"
+    display_name: str = "诉讼文书-强制执行申请书申请人基础字段"
+    description: str = "生成强制执行申请书模板中的申请人名称、地址、电话、ID"
+    category: str = "litigation"
+    placeholder_keys: ClassVar = [
+        LitigationPlaceholderKeys.ENFORCEMENT_APPLICANT_NAME,
+        LitigationPlaceholderKeys.ENFORCEMENT_APPLICANT_ADDRESS,
+        LitigationPlaceholderKeys.ENFORCEMENT_APPLICANT_PHONE,
+        LitigationPlaceholderKeys.ENFORCEMENT_APPLICANT_ID,
+    ]
+
+    def __init__(self) -> None:
+        from .case_details_accessor import LitigationCaseDetailsAccessor
+
+        self.case_details_accessor = LitigationCaseDetailsAccessor()
+
+    def generate(self, context_data: dict[str, Any]) -> dict[str, Any]:
+        case_id = context_data.get("case_id") or getattr(context_data.get("case"), "id", None)
+        if not case_id:
+            return {}
+
+        applicants = self._get_applicants(case_id=int(case_id))
+        return {
+            LitigationPlaceholderKeys.ENFORCEMENT_APPLICANT_NAME: self._join_field(applicants, "client_name", "、"),
+            LitigationPlaceholderKeys.ENFORCEMENT_APPLICANT_ADDRESS: self._join_field(applicants, "address", "；"),
+            LitigationPlaceholderKeys.ENFORCEMENT_APPLICANT_PHONE: self._join_field(applicants, "phone", "；"),
+            LitigationPlaceholderKeys.ENFORCEMENT_APPLICANT_ID: self._join_field(applicants, "id_number", "；"),
+        }
+
+    def _get_applicants(self, *, case_id: int) -> list[dict[str, Any]]:
+        from apps.core.enums import LegalStatus
+
+        case_parties = self.case_details_accessor.get_case_parties(case_id=case_id)
+        return [
+            p for p in case_parties if p.get("legal_status") in (LegalStatus.PLAINTIFF, LegalStatus.APPLICANT)
+        ]
+
+    def _join_field(self, parties: list[dict[str, Any]], field: str, sep: str) -> str:
+        values: list[str] = []
+        seen: set[str] = set()
+        for party in parties:
+            value = str(party.get(field, "") or "").strip()
+            if not value or value in seen:
+                continue
+            seen.add(value)
+            values.append(value)
+        return sep.join(values)
+
+
+@PlaceholderRegistry.register
 class EnforcementRespondentPartyService(BasePlaceholderService):
     """强制执行申请书被申请人信息服务"""
 

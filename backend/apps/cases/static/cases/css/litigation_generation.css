@@ -183,6 +183,76 @@
     border-left: 4px solid #2e7d32;
 }
 
+/* Toast 容器 */
+.litigation-toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 10002;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Toast 消息样式 */
+.litigation-toast {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    animation: slideInRight 0.3s ease;
+    max-width: 400px;
+    min-width: 250px;
+    word-wrap: break-word;
+    line-height: 1.4;
+}
+
+.litigation-toast-success {
+    background: #4caf50;
+    color: white;
+    border-left: 4px solid #2e7d32;
+}
+
+.litigation-toast-error {
+    background: #f44336;
+    color: white;
+    border-left: 4px solid #c62828;
+}
+
+.litigation-toast-icon {
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.litigation-toast-message {
+    flex: 1;
+}
+
+/* 按钮加载中 spinner */
+.spinner-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
 @keyframes slideInRight {
     from {
         transform: translateX(100%);

@@ -16,6 +16,9 @@ function authorizationMaterialsApp(config = {}) {
         errorMessage: '',
         successMessage: '',
 
+        // Toast 消息队列
+        toasts: [],
+
         get hasLegalEntities() {
             return Array.isArray(this.legalEntities) && this.legalEntities.length > 0;
         },
@@ -171,6 +174,28 @@ function authorizationMaterialsApp(config = {}) {
             this.errorMessage = message;
         },
 
+        /**
+         * 显示 Toast 消息
+         * @param {string} message - 消息内容
+         * @param {string} type - 消息类型 ('success' | 'error')
+         */
+        showToast(message, type = 'success') {
+            const toast = { message, type, show: true };
+            this.toasts.push(toast);
+
+            // 3秒后自动隐藏
+            setTimeout(() => {
+                toast.show = false;
+                // 动画结束后移除
+                setTimeout(() => {
+                    const index = this.toasts.indexOf(toast);
+                    if (index > -1) {
+                        this.toasts.splice(index, 1);
+                    }
+                }, 300);
+            }, 3000);
+        },
+
         handleOverlayClick(e) {
             if (e.target === e.currentTarget && !this.isDownloading) {
                 this.closeEntityDialog();
@@ -292,12 +317,12 @@ function authorizationMaterialsApp(config = {}) {
                 );
 
                 if (result.type === 'json') {
-                    this.showSuccess(result.data?.message || '所函生成成功');
+                    this.showToast(result.data?.message || '所函生成成功', 'success');
                 } else {
-                    this.showSuccess('所函生成成功，正在下载...');
+                    this.showToast('所函生成成功，正在下载...', 'success');
                 }
             } catch (error) {
-                this.showError(error.message || '所函生成失败');
+                this.showToast(error.message || '所函生成失败', 'error');
             } finally {
                 this.isDownloading = false;
             }
@@ -311,13 +336,17 @@ function authorizationMaterialsApp(config = {}) {
             this.errorMessage = '';
 
             try {
-                await this.fetchAndDownload(
+                const result = await this.fetchAndDownload(
                     `${this.apiBasePath}/cases/${this.caseId}/authorization/package/download`,
                     { defaultFilename: '全套授权委托材料.zip' }
                 );
-                this.showSuccess('全套委托材料生成成功，正在下载...');
+                if (result.type === 'json') {
+                    this.showToast(result.data?.message || '全套委托材料已保存', 'success');
+                } else {
+                    this.showToast('全套委托材料生成成功，正在下载...', 'success');
+                }
             } catch (error) {
-                this.showError(error.message || '全套委托材料生成失败');
+                this.showToast(error.message || '全套委托材料生成失败', 'error');
             } finally {
                 this.isDownloading = false;
             }
@@ -329,16 +358,20 @@ function authorizationMaterialsApp(config = {}) {
             if (!silent) this.errorMessage = '';
 
             try {
-                await this.fetchAndDownload(
+                const result = await this.fetchAndDownload(
                     `${this.apiBasePath}/cases/${this.caseId}/authorization/power-of-attorney/${clientId}/download`,
                     { defaultFilename: '授权委托书.docx' }
                 );
                 if (!silent) {
-                    this.showSuccess('授权委托书生成成功，正在下载...');
+                    if (result.type === 'json') {
+                        this.showToast(result.data?.message || '授权委托书已保存', 'success');
+                    } else {
+                        this.showToast('授权委托书生成成功，正在下载...', 'success');
+                    }
                 }
             } catch (error) {
                 if (!silent) {
-                    this.showError(error.message || '授权委托书生成失败');
+                    this.showToast(error.message || '授权委托书生成失败', 'error');
                 } else {
                     throw error;
                 }
@@ -360,13 +393,14 @@ function authorizationMaterialsApp(config = {}) {
                         body: { client_ids: this.ourParties.map((x) => x.id) }
                     }
                 );
-                if (result?.type === 'json') {
-                    throw new Error(result.data?.message || '生成失败');
+                if (result.type === 'json') {
+                    this.showToast(result.data?.message || '授权委托书已保存', 'success');
+                } else {
+                    this.showToast('授权委托书生成成功，正在下载...', 'success');
                 }
-                this.showSuccess('授权委托书生成成功，正在下载...');
                 return true;
             } catch (error) {
-                this.showError(error.message || '授权委托书生成失败');
+                this.showToast(error.message || '授权委托书生成失败', 'error');
                 return false;
             } finally {
                 this.isDownloading = false;
@@ -385,10 +419,10 @@ function authorizationMaterialsApp(config = {}) {
                         { defaultFilename: '授权委托书.docx' }
                     );
                 }
-                this.showSuccess('授权委托书生成成功，正在下载...');
+                this.showToast('授权委托书生成成功，正在下载...', 'success');
                 return true;
             } catch (error) {
-                this.errorMessage = error.message || '授权委托书生成失败';
+                this.showToast(error.message || '授权委托书生成失败', 'error');
                 return false;
             } finally {
                 this.isDownloading = false;
@@ -401,16 +435,20 @@ function authorizationMaterialsApp(config = {}) {
             if (!silent) this.errorMessage = '';
 
             try {
-                await this.fetchAndDownload(
+                const result = await this.fetchAndDownload(
                     `${this.apiBasePath}/cases/${this.caseId}/authorization/legal-rep-certificate/${clientId}/download`,
                     { defaultFilename: '法定代表人身份证明书.docx' }
                 );
                 if (!silent) {
-                    this.showSuccess('身份证明书生成成功，正在下载...');
+                    if (result.type === 'json') {
+                        this.showToast(result.data?.message || '身份证明书已保存', 'success');
+                    } else {
+                        this.showToast('身份证明书生成成功，正在下载...', 'success');
+                    }
                 }
             } catch (error) {
                 if (!silent) {
-                    this.showError(error.message || '身份证明书生成失败');
+                    this.showToast(error.message || '身份证明书生成失败', 'error');
                 } else {
                     throw error;
                 }
@@ -437,9 +475,9 @@ function authorizationMaterialsApp(config = {}) {
                     );
                 }
                 this.closeEntityDialog();
-                this.showSuccess('身份证明书生成成功，正在下载...');
+                this.showToast('身份证明书生成成功，正在下载...', 'success');
             } catch (error) {
-                this.errorMessage = error.message || '身份证明书生成失败';
+                this.showToast(error.message || '身份证明书生成失败', 'error');
             } finally {
                 this.isDownloading = false;
             }

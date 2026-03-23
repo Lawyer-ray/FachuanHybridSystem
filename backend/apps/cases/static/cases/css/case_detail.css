@@ -195,8 +195,17 @@
     grid-template-columns: repeat(2, 1fr);
 }
 
+/* 文档生成页：匹配模板卡片占 3/4，文件夹绑定占 1/4 */
+.info-grid.two-columns.documents-layout-grid {
+    grid-template-columns: 3fr 1fr;
+}
+
 @media (max-width: 768px) {
     .info-grid.two-columns {
+        grid-template-columns: 1fr;
+    }
+
+    .info-grid.two-columns.documents-layout-grid {
         grid-template-columns: 1fr;
     }
 }
@@ -813,4 +822,9 @@
 .party-item:hover .view-detail-icon,
 .lawyer-item:hover .view-detail-icon {
     color: var(--unfold-primary, #3b82f6);
+}
+
+/* 可折叠箭头旋转 */
+.rotate-180 {
+    transform: rotate(180deg);
 }

@@ -16,6 +16,9 @@ function preservationMaterialsApp(config = {}) {
         errorMessage: '',
         successMessage: '',
 
+        // Toast 消息队列
+        toasts: [],
+
         get hasRespondents() {
             return Array.isArray(this.respondents) && this.respondents.length > 0;
         },
@@ -141,6 +144,28 @@ function preservationMaterialsApp(config = {}) {
             }, 5000);
         },
 
+        /**
+         * 显示 Toast 消息
+         * @param {string} message - 消息内容
+         * @param {string} type - 消息类型 ('success' | 'error')
+         */
+        showToast(message, type = 'success') {
+            const toast = { message, type, show: true };
+            this.toasts.push(toast);
+
+            // 3秒后自动隐藏
+            setTimeout(() => {
+                toast.show = false;
+                // 动画结束后移除
+                setTimeout(() => {
+                    const index = this.toasts.indexOf(toast);
+                    if (index > -1) {
+                        this.toasts.splice(index, 1);
+                    }
+                }, 300);
+            }, 3000);
+        },
+
         getPreservationButtonTitle() {
             if (!this.hasRespondents) {
                 return '案件没有被申请人（对方当事人）';
@@ -171,13 +196,17 @@ function preservationMaterialsApp(config = {}) {
             this.errorMessage = '';
 
             try {
-                await this.fetchAndDownload(
+                const result = await this.fetchAndDownload(
                     `${this.apiBasePath}/cases/${this.caseId}/preservation/application/download`,
                     { defaultFilename: '财产保全申请书.docx' }
                 );
-                this.showSuccess('财产保全申请书生成成功，正在下载...');
+                if (result.type === 'json') {
+                    this.showToast(result.data?.message || '财产保全申请书已保存', 'success');
+                } else {
+                    this.showToast('财产保全申请书生成成功，正在下载...', 'success');
+                }
             } catch (error) {
-                this.showError(error.message || '财产保全申请书生成失败');
+                this.showToast(error.message || '财产保全申请书生成失败', 'error');
             } finally {
                 this.isDownloading = false;
             }
@@ -189,13 +218,17 @@ function preservationMaterialsApp(config = {}) {
             this.errorMessage = '';
 
             try {
-                await this.fetchAndDownload(
+                const result = await this.fetchAndDownload(
                     `${this.apiBasePath}/cases/${this.caseId}/preservation/delay-delivery/download`,
                     { defaultFilename: '暂缓送达申请书.docx' }
                 );
-                this.showSuccess('暂缓送达申请书生成成功，正在下载...');
+                if (result.type === 'json') {
+                    this.showToast(result.data?.message || '暂缓送达申请书已保存', 'success');
+                } else {
+                    this.showToast('暂缓送达申请书生成成功，正在下载...', 'success');
+                }
             } catch (error) {
-                this.showError(error.message || '暂缓送达申请书生成失败');
+                this.showToast(error.message || '暂缓送达申请书生成失败', 'error');
             } finally {
                 this.isDownloading = false;
             }
@@ -207,13 +240,17 @@ function preservationMaterialsApp(config = {}) {
             this.errorMessage = '';
 
             try {
-                await this.fetchAndDownload(
+                const result = await this.fetchAndDownload(
                     `${this.apiBasePath}/cases/${this.caseId}/preservation/package/download`,
                     { defaultFilename: '全套保全材料.zip' }
                 );
-                this.showSuccess('全套财产保全材料生成成功，正在下载...');
+                if (result.type === 'json') {
+                    this.showToast(result.data?.message || '全套财产保全材料已保存', 'success');
+                } else {
+                    this.showToast('全套财产保全材料生成成功，正在下载...', 'success');
+                }
             } catch (error) {
-                this.showError(error.message || '全套财产保全材料生成失败');
+                this.showToast(error.message || '全套财产保全材料生成失败', 'error');
             } finally {
                 this.isDownloading = false;
             }

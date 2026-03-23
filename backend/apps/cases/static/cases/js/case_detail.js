@@ -133,10 +133,8 @@ function caseDetailApp() {
          */
         async generateFolder() {
             if (this.isLoading || !this.canGenerateFolder) return;
-
-            // 文件夹生成需要通过合同
-            if (!this.contractId) {
-                this.showMessage('案件未关联合同，无法生成文件夹', 'error');
+            if (!this.caseId) {
+                this.showMessage('案件ID不存在', 'error');
                 return;
             }
 
@@ -144,25 +142,24 @@ function caseDetailApp() {
             this.loadingType = 'folder';
 
             try {
-                const url = `/api/v1/documents/contracts/${this.contractId}/folder/download`;
+                const url = `/api/v1/cases/${this.caseId}/generate-folder`;
                 const response = await fetch(url, {
-                    method: 'GET',
+                    method: 'POST',
                     headers: {
                         'X-CSRFToken': this.getCsrfToken(),
                     },
                 });
 
-                // 检查响应类型
                 const contentType = response.headers.get('content-type');
 
                 if (response.ok) {
                     if (contentType && contentType.includes('application/json')) {
-                        // JSON 响应 - 文件已保存到绑定文件夹
+                        // JSON 响应 - 文件夹已创建到绑定目录
                         const data = await response.json();
-                        if (data.success && data.saved_to_folder) {
-                            this.showMessage(`文件夹已保存到: ${data.saved_path}`, 'success');
+                        if (data.success) {
+                            this.showMessage(data.message || '文件夹生成成功', 'success');
                         } else {
-                            this.showMessage(data.message || '生成成功', 'success');
+                            this.showMessage(data.message || '生成失败', 'error');
                         }
                     } else {
                         // ZIP 文件下载响应
@@ -172,7 +169,6 @@ function caseDetailApp() {
                         this.showMessage('文件夹生成成功，正在下载...', 'success');
                     }
                 } else {
-                    // 错误响应
                     let errorMessage = '生成失败';
                     try {
                         const data = await response.json();

@@ -14,13 +14,19 @@ from apps.documents.models.choices import LegalStatusMatchMode
 class ProxyMatterRule(models.Model):
     id: int
 
+    case_types: Any = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name=_("案件类型"),
+        help_text=_("可单选或多选;为空表示匹配任意案件类型"),
+    )
     case_type = models.CharField(
         max_length=32,
         choices=SimpleCaseType.choices,
         null=True,
         blank=True,
         verbose_name=_("案件类型"),
-        help_text=_("为空表示匹配任意案件类型"),
+        help_text=_("兼容旧数据字段，请使用“案件类型（多选）”"),
     )
     case_stage = models.CharField(
         max_length=64,
@@ -58,15 +64,21 @@ class ProxyMatterRule(models.Model):
         verbose_name_plural = _("代理事项规则")
         indexes: ClassVar = [
             models.Index(fields=["is_active", "priority"]),
-            models.Index(fields=["case_type", "case_stage", "is_active"]),
+            models.Index(fields=["case_stage", "is_active"]),
         ]
 
     def __str__(self) -> str:
-        case_type = self.get_case_type_display() if self.case_type else "任意类型"
+        case_type = self.get_case_types_display() or "任意类型"
         case_stage = self.get_case_stage_display() if self.case_stage else "任意阶段"
         legal_statuses = self.get_legal_statuses_display() or "任意地位"
         mode = self.get_legal_status_match_mode_display() or ""
         return f"{case_type}-{case_stage}-{legal_statuses}-{mode}"
+
+    def get_case_types_display(self) -> str:
+        choices = dict(SimpleCaseType.choices)
+        values = [str(x) for x in (self.case_types or []) if x]
+        labels = [str(choices.get(code, code)) for code in values]
+        return "、".join([x for x in labels if x])
 
     def get_legal_statuses_display(self) -> str:
         choices = dict(LegalStatus.choices)

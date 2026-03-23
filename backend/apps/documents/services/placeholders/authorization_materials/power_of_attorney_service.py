@@ -163,8 +163,6 @@ class PowerOfAttorneyPlaceholderService(BasePlaceholderService):
 
     def _query_candidate_rules(self, case_type: Any, case_stage: Any) -> list[Any]:
         candidates = ProxyMatterRule.objects.filter(is_active=True)
-        if case_type:
-            candidates = candidates.filter(case_type__in=[None, case_type])
         if case_stage:
             candidates = candidates.filter(case_stage__in=[None, case_stage])
         return list(candidates)
@@ -172,7 +170,8 @@ class PowerOfAttorneyPlaceholderService(BasePlaceholderService):
     def _filter_matching_rules(self, rules: Any, case_type: Any, case_stage: Any, party_statuses: Any) -> list[Any]:
         matched: list[Any] = []
         for rule in rules:
-            if rule.case_type and case_type and (rule.case_type != case_type):
+            rule_case_types = self._get_rule_case_types(rule)
+            if rule_case_types and case_type and (str(case_type) not in rule_case_types):
                 continue
             if rule.case_stage and case_stage and (rule.case_stage != case_stage):
                 continue
@@ -192,7 +191,7 @@ class PowerOfAttorneyPlaceholderService(BasePlaceholderService):
 
         matched.sort(
             key=lambda r: (
-                -int(bool(r.case_type)),
+                -int(bool(self._get_rule_case_types(r))),
                 -int(bool(r.case_stage)),
                 -int(bool(r.legal_statuses)),
                 -mode_rank(getattr(r, "legal_status_match_mode", "")),
@@ -238,6 +237,13 @@ class PowerOfAttorneyPlaceholderService(BasePlaceholderService):
         if mode == LegalStatusMatchMode.ALL:
             return rule_statuses.issubset(party_statuses)
         return bool(rule_statuses & party_statuses)
+
+    def _get_rule_case_types(self, rule: ProxyMatterRule) -> set[str]:
+        values: set[str] = {str(x) for x in (getattr(rule, "case_types", None) or []) if x}
+        legacy_value = getattr(rule, "case_type", None)
+        if legacy_value:
+            values.add(str(legacy_value))
+        return values
 
     def _format_signatures(self, clients: list[Any], *, specified_date_text: str) -> str:
         if not clients:

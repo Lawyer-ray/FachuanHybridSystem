@@ -316,13 +316,19 @@ class ProxyMatterRule(models.Model):
     id: int
 
     # 字段
-    case_type: str
+    case_types: list[str]
+    case_type: str | None
     case_stage: str
-    legal_status: str
-    matters: list[str]
+    legal_statuses: list[str]
+    legal_status_match_mode: str
+    items_text: str
+    priority: int
     is_active: bool
     created_at: datetime
     updated_at: datetime
 
     # Meta
     objects: Manager[ProxyMatterRule]
+
+    def get_case_types_display(self) -> str: ...
+    def get_legal_statuses_display(self) -> str: ...
