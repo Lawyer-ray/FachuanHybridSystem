@@ -14,12 +14,251 @@
     });
   </script>
 </li>
+<li id="oa-import-btn-wrapper" class="oa-import-hidden">
+  <a href="#"
+     class="addlink oa-import-trigger"
+     onclick="(window.__clientAdminAppInstance || window.clientAdminApp()).startOAImport(event);return false;">
+    {% trans "从OA导入" %}
+  </a>
+</li>
 {{ block.super }}
 {% endblock %}
 
 {% block extrahead %}
 {{ block.super }}
 <style>
+    .object-tools {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        float: none;
+        margin-left: auto;
+        list-style: none;
+        padding-left: 0;
+    }
+
+    .object-tools li {
+        float: none;
+        margin: 0;
+        list-style: none;
+    }
+
+    .object-tools li + li {
+        margin-left: 0;
+    }
+
+    #oa-import-btn-wrapper.oa-import-hidden {
+        display: none;
+    }
+
+    #oa-import-btn-wrapper.oa-import-visible {
+        display: block;
+    }
+
+    #oa-import-btn-wrapper .oa-import-trigger {
+        margin: 0;
+    }
+
+    .oa-import-option-card {
+        background: #fff;
+        border-radius: 12px;
+        padding: 22px 24px;
+        width: min(460px, calc(100vw - 32px));
+        box-shadow: 0 8px 28px rgba(0,0,0,0.2);
+        border: 1px solid #e5e7eb;
+    }
+
+    .oa-import-option-popover {
+        position: fixed;
+        z-index: 10020;
+    }
+
+    .oa-import-option-title {
+        margin: 0 0 16px;
+        font-size: 20px;
+        font-weight: 700;
+        color: #1f2937;
+    }
+
+    .oa-import-option-group {
+        margin-bottom: 14px;
+    }
+
+    .oa-import-option-label {
+        margin-bottom: 8px;
+        font-size: 13px;
+        color: #6b7280;
+    }
+
+    .oa-import-option-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .oa-import-option-chip {
+        border: 1px solid #d1d5db;
+        border-radius: 999px;
+        background: #fff;
+        color: #374151;
+        font-size: 14px;
+        font-weight: 600;
+        padding: 8px 14px;
+        cursor: pointer;
+    }
+
+    .oa-import-option-chip.active {
+        border-color: #2563eb;
+        color: #2563eb;
+        background: #eff6ff;
+    }
+
+    .oa-import-option-input {
+        width: 120px;
+        height: 36px;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        padding: 0 10px;
+        font-size: 14px;
+        box-sizing: border-box;
+    }
+
+    .oa-import-option-actions {
+        margin-top: 20px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+
+    .oa-import-option-btn {
+        height: 36px;
+        border: none;
+        border-radius: 8px;
+        padding: 0 16px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 600;
+    }
+
+    .oa-import-option-btn.cancel {
+        background: #e5e7eb;
+        color: #374151;
+    }
+
+    .oa-import-option-btn.confirm {
+        background: #2563eb;
+        color: #fff;
+    }
+
+    .oa-import-stage {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 16px;
+        justify-content: center;
+    }
+
+    .oa-import-stage-item {
+        font-size: 12px;
+        color: #7a7a7a;
+        background: #f1f3f5;
+        border: 1px solid #e5e7eb;
+        border-radius: 999px;
+        padding: 4px 10px;
+    }
+
+    .oa-import-stage-item.active {
+        color: #0b5f8c;
+        background: #e6f4fb;
+        border-color: #b6dff2;
+    }
+
+    .oa-import-stage-item.done {
+        color: #1f7a3d;
+        background: #eaf7ee;
+        border-color: #b9e5c8;
+    }
+
+    .oa-import-phase-block {
+        text-align: left;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        padding: 10px 12px;
+        margin-bottom: 10px;
+        background: #fafafa;
+    }
+
+    .oa-import-phase-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: #1f2937;
+        margin-bottom: 4px;
+    }
+
+    .oa-import-phase-text {
+        font-size: 12px;
+        color: #6b7280;
+        margin-bottom: 8px;
+        min-height: 18px;
+    }
+
+    .oa-import-progress-track {
+        background: #e9ecef;
+        border-radius: 4px;
+        height: 10px;
+        overflow: hidden;
+        width: 100%;
+        margin: 0;
+    }
+
+    .oa-import-progress-fill {
+        background: #28a745;
+        height: 100%;
+        transition: width 0.3s;
+    }
+
+    .oa-import-progress-fill.indeterminate {
+        width: 40%;
+        animation: oaImportIndeterminate 1.2s ease-in-out infinite;
+    }
+
+    .oa-import-progress-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 10000;
+    }
+
+    .oa-import-progress-dialog {
+        position: absolute;
+        top: 56px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #fff;
+        border-radius: 8px;
+        padding: 30px;
+        width: min(680px, calc(100vw - 32px));
+        box-sizing: border-box;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+
+    @keyframes oaImportIndeterminate {
+        0% {
+            transform: translateX(-120%);
+        }
+        50% {
+            transform: translateX(70%);
+        }
+        100% {
+            transform: translateX(220%);
+        }
+    }
+
     /* 当事人管理组件样式 */
     .client-admin-container {
         position: relative;
@@ -63,8 +302,164 @@
          x-transition:enter="transition ease-out duration-300"
          x-transition:leave="transition ease-in duration-200">
     </div>
+
+    <!-- OA 导入配置菜单 -->
+    <div x-show="oaImportOptions.show"
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:leave="transition ease-in duration-150"
+         @keydown.escape.window="closeOAImportOptions()"
+         :style="getOAImportOptionStyle()"
+         class="oa-import-option-popover"
+         style="display:none;">
+        <div class="oa-import-option-card">
+            <h3 class="oa-import-option-title">从金诚同达OA导入当事人</h3>
+
+            <div class="oa-import-option-group">
+                <div class="oa-import-option-label">浏览模式</div>
+                <div class="oa-import-option-row">
+                    <button type="button"
+                            class="oa-import-option-chip"
+                            :class="oaImportOptions.headless ? 'active' : ''"
+                            @click="oaImportOptions.headless = true">
+                        无头模式（推荐）
+                    </button>
+                    <button type="button"
+                            class="oa-import-option-chip"
+                            :class="!oaImportOptions.headless ? 'active' : ''"
+                            @click="oaImportOptions.headless = false">
+                        有头模式
+                    </button>
+                </div>
+            </div>
+
+            <div class="oa-import-option-group">
+                <div class="oa-import-option-label">导入数量</div>
+                <div class="oa-import-option-row">
+                    <button type="button"
+                            class="oa-import-option-chip"
+                            :class="oaImportOptions.importMode === 'all' ? 'active' : ''"
+                            @click="oaImportOptions.importMode = 'all'">
+                        导入全部
+                    </button>
+                    <button type="button"
+                            class="oa-import-option-chip"
+                            :class="oaImportOptions.importMode === 'partial' ? 'active' : ''"
+                            @click="oaImportOptions.importMode = 'partial'">
+                        限制数量
+                    </button>
+                    <input x-show="oaImportOptions.importMode === 'partial'"
+                           type="number"
+                           min="1"
+                           step="1"
+                           class="oa-import-option-input"
+                           x-model.number="oaImportOptions.limitValue"
+                           placeholder="例如 100">
+                    <span x-show="oaImportOptions.importMode === 'partial'" style="font-size:13px;color:#6b7280;">条</span>
+                </div>
+            </div>
+
+            <div class="oa-import-option-actions">
+                <button type="button" class="oa-import-option-btn cancel" @click="closeOAImportOptions()">取消</button>
+                <button type="button" class="oa-import-option-btn confirm" @click="confirmOAImportOptions()">确认并开始</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- OA 导入进度弹窗 -->
+    <div x-show="oaImport.showProgress"
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:leave="transition ease-in duration-200"
+         class="oa-import-progress-overlay"
+         style="display:none;">
+        <div class="oa-import-progress-dialog">
+            <h3 style="margin:0 0 20px;font-size:18px;">从金诚同达OA导入当事人</h3>
+            <template x-if="oaImport.status === 'pending'">
+                <div>
+                    <p style="color:#666;">正在启动导入任务...</p>
+                    <div style="text-align:center;margin:20px 0">
+                        <span style="font-size:32px">⏳</span>
+                    </div>
+                </div>
+            </template>
+            <template x-if="oaImport.status === 'in_progress'">
+                <div style="text-align:center;">
+                    <div class="oa-import-stage">
+                        <span class="oa-import-stage-item"
+                              :class="oaImport.phase === 'discovering' ? 'active' : ((oaImport.phase === 'importing' || oaImport.phase === 'completed') ? 'done' : '')">
+                            1. 查找并发现
+                        </span>
+                        <span class="oa-import-stage-item"
+                              :class="oaImport.phase === 'importing' ? 'active' : (oaImport.phase === 'completed' ? 'done' : '')">
+                            2. 导入
+                        </span>
+                    </div>
+                    <div class="oa-import-phase-block">
+                        <div class="oa-import-phase-title">步骤1：查找并发现</div>
+                        <div class="oa-import-phase-text"
+                             x-text="oaImport.phase === 'discovering' ? ('正在查找，已发现 ' + oaImport.discoveredCount + ' 条') : ('查找完成，共发现 ' + oaImport.discoveredCount + ' 条')"></div>
+                        <div class="oa-import-progress-track">
+                            <template x-if="oaImport.phase === 'discovering'">
+                                <div class="oa-import-progress-fill indeterminate"></div>
+                            </template>
+                            <template x-if="oaImport.phase !== 'discovering'">
+                                <div class="oa-import-progress-fill" style="width:100%;"></div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <div class="oa-import-phase-block" style="margin-bottom:8px;">
+                        <div class="oa-import-phase-title">步骤2：导入</div>
+                        <div class="oa-import-phase-text"
+                             x-text="oaImport.phase === 'discovering' ? '等待查找完成后开始导入' : ('正在导入，已处理 ' + oaImport.processed + ' / ' + oaImport.total + ' 条')"></div>
+                        <div class="oa-import-progress-track">
+                            <template x-if="oaImport.phase === 'discovering'">
+                                <div class="oa-import-progress-fill" style="width:0%;"></div>
+                            </template>
+                            <template x-if="oaImport.phase !== 'discovering'">
+                                <div class="oa-import-progress-fill"
+                                     :style="'width:' + getOAImportProgressPercent() + '%'"></div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <div style="margin-top:8px;font-size:13px;color:#666;text-align:center;">
+                        <span x-text="'成功: ' + oaImport.successCount + ' | 跳过: ' + oaImport.skipCount"></span>
+                    </div>
+                </div>
+            </template>
+            <template x-if="oaImport.status === 'completed'">
+                <div>
+                    <p style="color:#28a745;font-size:16px;font-weight:bold;">导入完成！</p>
+                    <div style="margin-top:15px;font-size:14px;color:#666;">
+                        步骤1（查找）：共发现 <span x-text="oaImport.discoveredCount || oaImport.total">0</span> 条<br>
+                        步骤2（导入）：共处理 <span x-text="oaImport.total">0</span> 条<br>
+                        成功: <span x-text="oaImport.successCount">0</span> 条<br>
+                        跳过: <span x-text="oaImport.skipCount">0</span> 条
+                    </div>
+                    <div style="margin-top:20px;text-align:right;">
+                        <button type="button" onclick="(window.__clientAdminAppInstance || window.clientAdminApp()).closeOAImport();location.reload();"
+                                style="background:#007cba;color:white;border:none;padding:8px 20px;border-radius:4px;cursor:pointer">
+                            关闭
+                        </button>
+                    </div>
+                </div>
+            </template>
+            <template x-if="oaImport.status === 'failed'">
+                <div>
+                    <p style="color:#dc3545;font-size:16px;font-weight:bold;">导入失败</p>
+                    <p style="color:#666;font-size:13px;margin-top:10px;" x-text="oaImport.errorMessage"></p>
+                    <div style="margin-top:20px;text-align:right;">
+                        <button type="button" onclick="(window.__clientAdminAppInstance || window.clientAdminApp()).closeOAImport()"
+                                style="background:#6c757d;color:white;border:none;padding:8px 20px;border-radius:4px;cursor:pointer">
+                            关闭
+                        </button>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
 </div>
 
 <!-- 引入 Alpine.js 当事人管理组件 -->
-<script src="{% static 'client/client_admin_app.js' %}?v=1"></script>
+<script src="{% static 'client/client_admin_app.js' %}?v=8"></script>
 {% endblock %}

@@ -12,7 +12,7 @@ from ninja import File, Router
 from ninja.files import UploadedFile
 from pydantic import BaseModel
 
-from apps.client.schemas import ClientIn, ClientOut, ClientUpdateIn
+from apps.client.schemas import ClientIn, ClientOut, ClientUpdateIn, OACredentialCheckOut
 from apps.client.services.text_parser import parse_client_text as _parse_client
 from apps.client.services.text_parser import parse_multiple_clients_text as _parse_multi
 from apps.core.exceptions import ValidationException
@@ -82,6 +82,25 @@ def parse_client_text(request: Any, payload: ParseTextRequest) -> dict[str, Any]
 def parse_text_get(request: Any, text: str = "") -> dict[str, Any]:
     """解析客户文本（GET 方式）。"""
     return _parse_client(text)
+
+
+@router.get("/clients/check-oa-credential", response=OACredentialCheckOut)
+def check_oa_credential(request: Any) -> OACredentialCheckOut:
+    """检查当前用户是否有金诚同达OA凭证。"""
+    from django.db.models import Q
+
+    from apps.organization.models import AccountCredential
+
+    lawyer_id = getattr(request.user, "id", None)
+    if lawyer_id is None:
+        return OACredentialCheckOut(has_credential=False)
+
+    credential = AccountCredential.objects.filter(
+        Q(account__icontains="jtn.com") | Q(url__icontains="jtn.com"),
+        lawyer_id=lawyer_id,
+    ).exists()
+
+    return OACredentialCheckOut(has_credential=credential)
 
 
 @router.get("/clients/{client_id}", response=ClientOut)

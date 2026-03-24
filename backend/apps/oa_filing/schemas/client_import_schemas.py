@@ -12,10 +12,13 @@ class ClientImportSessionOut(Schema):
 
     id: int
     status: str
+    phase: str
+    discovered_count: int
     total_count: int
     success_count: int
     skip_count: int
     error_message: str
+    progress_message: str
     started_at: datetime | None
     completed_at: datetime | None
     created_at: datetime

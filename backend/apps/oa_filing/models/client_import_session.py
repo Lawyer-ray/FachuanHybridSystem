@@ -14,6 +14,15 @@ class ClientImportStatus(models.TextChoices):
     CANCELLED = "cancelled", _("已取消")
 
 
+class ClientImportPhase(models.TextChoices):
+    PENDING = "pending", _("待开始")
+    DISCOVERING = "discovering", _("查找并发现")
+    IMPORTING = "importing", _("导入中")
+    COMPLETED = "completed", _("已完成")
+    FAILED = "failed", _("失败")
+    CANCELLED = "cancelled", _("已取消")
+
+
 class ClientImportSession(models.Model):
     """OA客户导入记录"""
 
@@ -38,6 +47,16 @@ class ClientImportSession(models.Model):
         default=ClientImportStatus.PENDING,
         verbose_name=_("状态"),
     )
+    phase = models.CharField(
+        max_length=16,
+        choices=ClientImportPhase.choices,
+        default=ClientImportPhase.PENDING,
+        verbose_name=_("阶段"),
+    )
+    discovered_count = models.IntegerField(
+        default=0,
+        verbose_name=_("已发现数量"),
+    )
     total_count = models.IntegerField(
         default=0,
         verbose_name=_("总数量"),
@@ -54,6 +73,12 @@ class ClientImportSession(models.Model):
         blank=True,
         default="",
         verbose_name=_("错误信息"),
+    )
+    progress_message = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        verbose_name=_("进度描述"),
     )
     started_at = models.DateTimeField(
         null=True,

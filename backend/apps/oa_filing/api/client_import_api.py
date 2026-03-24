@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
 
 from django.http import HttpRequest
@@ -13,10 +14,16 @@ from apps.oa_filing.schemas.client_import_schemas import ClientImportSessionOut
 logger = logging.getLogger("apps.oa_filing.api.client_import")
 router = Router()
 
+# Django-Q 默认 timeout=600 秒；OA 客户导入通常需要更长时间。
+# 保持小于默认 retry(1200) 以降低重复执行风险。
+CLIENT_IMPORT_TASK_TIMEOUT_SECONDS = int(os.environ.get("OA_CLIENT_IMPORT_TASK_TIMEOUT_SECONDS", "1100") or "1100")
+
 
 @router.post("/client-import", response=ClientImportSessionOut)
 def trigger_client_import(request: HttpRequest) -> Any:
     """触发从OA导入客户。"""
+    import json
+
     from django.db.models import Q
 
     from apps.oa_filing.models import ClientImportSession
@@ -28,6 +35,30 @@ def trigger_client_import(request: HttpRequest) -> Any:
     lawyer_id = getattr(request.user, "id", None)
     if lawyer_id is None:
         return {"error": "无效用户"}
+
+    headless = True
+    limit: int | None = None
+    raw_body = (request.body or b"").strip()
+    if raw_body:
+        try:
+            payload = json.loads(raw_body)
+            if isinstance(payload, dict):
+                if "headless" in payload:
+                    headless = bool(payload.get("headless"))
+                if "limit" in payload:
+                    raw_limit = payload.get("limit")
+                    if raw_limit not in (None, "", 0, "0"):
+                        try:
+                            parsed_limit = int(raw_limit)
+                        except (TypeError, ValueError):
+                            return {"error": "导入数量必须是大于 0 的整数"}
+                        if parsed_limit <= 0:
+                            return {"error": "导入数量必须是大于 0 的整数"}
+                        limit = parsed_limit
+        except Exception:
+            # 非 JSON 请求体时使用默认值
+            headless = True
+            limit = None
 
     # 查找用户的 jtn.com 凭证
     credential = AccountCredential.objects.filter(
@@ -51,9 +82,16 @@ def trigger_client_import(request: HttpRequest) -> Any:
     # 启动后台任务
     from django_q.tasks import async_task
 
-    async_task("apps.oa_filing.tasks.run_client_import_task", session.id)
+    async_task(
+        "apps.oa_filing.tasks.run_client_import_task",
+        session.id,
+        headless=headless,
+        limit=limit,
+        timeout=CLIENT_IMPORT_TASK_TIMEOUT_SECONDS,
+        task_name=f"oa_client_import_{session.id}",
+    )
 
-    logger.info("创建客户导入会话: session_id=%d", session.id)
+    logger.info("创建客户导入会话: session_id=%d headless=%s limit=%s", session.id, headless, limit)
     return session
 
 

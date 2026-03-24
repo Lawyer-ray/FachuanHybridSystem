@@ -16,11 +16,38 @@ function clientAdminApp() {
         errorMessage: '',           // 错误信息
         successMessage: '',         // 成功信息
 
+        // ========== OA 导入状态 ==========
+        oaImport: {
+            showProgress: false,
+            status: 'idle',  // idle / pending / in_progress / completed / failed
+            phase: 'pending', // pending / discovering / importing / completed / failed
+            sessionId: null,
+            discoveredCount: 0,
+            total: 0,
+            processed: 0,
+            successCount: 0,
+            skipCount: 0,
+            errorMessage: '',
+            progressMessage: '',
+        },
+        oaHeadlessMode: true,
+        oaImportOptions: {
+            show: false,
+            headless: true,
+            importMode: 'all',  // all / partial
+            limitValue: 100,
+            anchorTop: 88,
+            anchorRight: 24,
+        },
+
         // ========== 初始化 ==========
         init() {
             console.log('[ClientAdminApp] 初始化当事人管理组件');
+            window.__clientAdminAppInstance = this;
             this.initFormEnhancements();
             this.initPasteListener();
+            this.initOAImportPreference();
+            this.initOAImport();
         },
 
         // ========== 对话框管理 ==========
@@ -282,6 +309,215 @@ function clientAdminApp() {
         },
 
         // ========== 工具方法 ==========
+
+        // ========== OA 导入 ==========
+
+        initOAImportPreference() {
+            const storageKey = 'client_oa_import_headless_mode';
+            const storedValue = window.localStorage ? window.localStorage.getItem(storageKey) : null;
+            const initialValue = storedValue === null ? true : storedValue !== 'false';
+            this.oaHeadlessMode = initialValue;
+            this.oaImportOptions.headless = initialValue;
+        },
+
+        saveOAImportPreference(headless) {
+            this.oaHeadlessMode = !!headless;
+            if (window.localStorage) {
+                window.localStorage.setItem('client_oa_import_headless_mode', this.oaHeadlessMode ? 'true' : 'false');
+            }
+        },
+
+        /**
+         * 初始化 OA 导入：检查凭证并显示按钮
+         */
+        async initOAImport() {
+            try {
+                const response = await fetch('/api/v1/client/clients/check-oa-credential/', {
+                    method: 'GET',
+                    headers: {
+                        'X-CSRFToken': this.getCsrfToken()
+                    }
+                });
+                const data = await response.json();
+                if (data.has_credential) {
+                    const wrapper = document.getElementById('oa-import-btn-wrapper');
+                    if (wrapper) {
+                        wrapper.classList.remove('oa-import-hidden');
+                        wrapper.classList.add('oa-import-visible');
+                    }
+                }
+            } catch (error) {
+                console.error('[ClientAdminApp] 检查OA凭证失败:', error);
+            }
+        },
+
+        /**
+         * 开始 OA 导入
+         */
+        startOAImport(triggerEvent) {
+            this.openOAImportOptions(triggerEvent);
+        },
+
+        openOAImportOptions(triggerEvent) {
+            this.oaImportOptions.headless = !!this.oaHeadlessMode;
+            if (triggerEvent?.currentTarget?.getBoundingClientRect) {
+                const rect = triggerEvent.currentTarget.getBoundingClientRect();
+                this.oaImportOptions.anchorTop = Math.round(rect.bottom + 10);
+                this.oaImportOptions.anchorRight = Math.max(16, Math.round(window.innerWidth - rect.right));
+            }
+            this.oaImportOptions.show = true;
+        },
+
+        closeOAImportOptions() {
+            this.oaImportOptions.show = false;
+        },
+
+        getOAImportOptionStyle() {
+            const cardWidth = 460;
+            const cardHeight = 332;
+            const right = Math.max(16, this.oaImportOptions.anchorRight || 24);
+            const top = Math.max(16, this.oaImportOptions.anchorTop || 88);
+            const maxTop = Math.max(16, window.innerHeight - cardHeight - 16);
+            const clampedTop = Math.min(top, maxTop);
+            const maxRight = Math.max(16, window.innerWidth - cardWidth - 16);
+            const clampedRight = Math.min(right, maxRight);
+            return `top:${clampedTop}px;right:${clampedRight}px;`;
+        },
+
+        async confirmOAImportOptions() {
+            const headless = !!this.oaImportOptions.headless;
+            let limit = null;
+
+            if (this.oaImportOptions.importMode === 'partial') {
+                const parsedLimit = Number.parseInt(String(this.oaImportOptions.limitValue), 10);
+                if (!Number.isInteger(parsedLimit) || parsedLimit <= 0) {
+                    this.showError('导入数量必须是大于 0 的整数');
+                    return;
+                }
+                limit = parsedLimit;
+            }
+
+            this.saveOAImportPreference(headless);
+            this.closeOAImportOptions();
+            await this.beginOAImport({ headless, limit });
+        },
+
+        async beginOAImport({ headless, limit }) {
+            this.oaImport.showProgress = true;
+            this.oaImport.status = 'pending';
+            this.oaImport.phase = 'pending';
+            this.oaImport.sessionId = null;
+            this.oaImport.discoveredCount = 0;
+            this.oaImport.total = 0;
+            this.oaImport.processed = 0;
+            this.oaImport.successCount = 0;
+            this.oaImport.skipCount = 0;
+            this.oaImport.errorMessage = '';
+            this.oaImport.progressMessage = '';
+
+            try {
+                const payload = { headless };
+                if (Number.isInteger(limit) && limit > 0) {
+                    payload.limit = limit;
+                }
+                const response = await fetch('/api/v1/client-import', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': this.getCsrfToken()
+                    },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+
+                if (data.error) {
+                    this.oaImport.status = 'failed';
+                    this.oaImport.errorMessage = data.error;
+                    return;
+                }
+
+                this.oaImport.sessionId = data.id;
+                this.oaImport.status = 'in_progress';
+                this.pollOAImportSession();
+
+            } catch (error) {
+                console.error('[ClientAdminApp] 启动OA导入失败:', error);
+                this.oaImport.status = 'failed';
+                this.oaImport.errorMessage = '启动导入失败，请检查网络连接';
+            }
+        },
+
+        /**
+         * 轮询导入会话状态
+         */
+        async pollOAImportSession() {
+            if (!this.oaImport.sessionId) return;
+
+            try {
+                const response = await fetch(`/api/v1/client-import/${this.oaImport.sessionId}`, {
+                    method: 'GET',
+                    headers: {
+                        'X-CSRFToken': this.getCsrfToken()
+                    }
+                });
+                const data = await response.json();
+
+                this.oaImport.total = data.total_count || 0;
+                this.oaImport.processed = (data.success_count || 0) + (data.skip_count || 0);
+                this.oaImport.phase = data.phase || 'pending';
+                this.oaImport.discoveredCount = data.discovered_count || 0;
+                this.oaImport.successCount = data.success_count || 0;
+                this.oaImport.skipCount = data.skip_count || 0;
+                this.oaImport.progressMessage = data.progress_message || '';
+
+                if (data.status === 'completed') {
+                    this.oaImport.status = 'completed';
+                } else if (data.status === 'failed') {
+                    this.oaImport.status = 'failed';
+                    this.oaImport.errorMessage = data.error_message || '导入失败';
+                } else {
+                    // 继续轮询（加快频率，避免阶段切换太快看不到导入进度）
+                    const nextInterval = this.oaImport.phase === 'discovering' ? 800 : 1000;
+                    setTimeout(() => this.pollOAImportSession(), nextInterval);
+                }
+
+            } catch (error) {
+                console.error('[ClientAdminApp] 查询导入状态失败:', error);
+                setTimeout(() => this.pollOAImportSession(), 5000);
+            }
+        },
+
+        /**
+         * 关闭 OA 导入弹窗
+         */
+        closeOAImport() {
+            this.oaImport.showProgress = false;
+            this.oaImport.status = 'idle';
+        },
+
+        getOAImportProgressPercent() {
+            if (this.oaImport.total > 0) {
+                return (this.oaImport.processed / this.oaImport.total) * 100;
+            }
+            return 0;
+        },
+
+        getOAImportProgressLabel() {
+            if (this.oaImport.phase === 'discovering') {
+                return `正在查找并发现当事人，已发现 ${this.oaImport.discoveredCount} 条`;
+            }
+            if (this.oaImport.phase === 'importing') {
+                return `正在导入，已处理 ${this.oaImport.processed} / ${this.oaImport.total} 条`;
+            }
+            return this.oaImport.progressMessage || '正在准备导入任务...';
+        },
+
+        getOAImportSecondaryLabel() {
+            if (this.oaImport.phase === 'discovering') {
+                return `成功: ${this.oaImport.successCount} | 跳过: ${this.oaImport.skipCount}`;
+            }
+            return `已发现: ${this.oaImport.discoveredCount} | 成功: ${this.oaImport.successCount} | 跳过: ${this.oaImport.skipCount}`;
+        },
 
         /**
          * 获取 CSRF Token

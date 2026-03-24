@@ -203,6 +203,11 @@ class ClientAdmin(AdminImportExportMixin, admin.ModelAdmin[Client]):
                 self.admin_site.admin_view(self._upload_gsxt_report_view),
                 name="client_client_upload_gsxt_report",
             ),
+            path(
+                "check-oa-credential/",
+                self.admin_site.admin_view(self._check_oa_credential_view),
+                name="client_client_check_oa_credential",
+            ),
         ]
         return custom + urls
 
@@ -314,6 +319,24 @@ class ClientAdmin(AdminImportExportMixin, admin.ModelAdmin[Client]):
             messages.SUCCESS,
         )
         return redirect(f"../../{client_id}/change/")
+
+    def _check_oa_credential_view(self, request: HttpRequest) -> dict[str, Any]:
+        """检查当前用户是否有金诚同达OA凭证。"""
+        from django.db.models import Q
+        from django.http import JsonResponse
+
+        lawyer_id = getattr(request.user, "id", None)
+        if lawyer_id is None:
+            return JsonResponse({"has_credential": False, "error": "无效用户"})
+
+        from apps.organization.models import AccountCredential
+
+        credential = AccountCredential.objects.filter(
+            Q(account__icontains="jtn.com") | Q(url__icontains="jtn.com"),
+            lawyer_id=lawyer_id,
+        ).exists()
+
+        return JsonResponse({"has_credential": credential})
 
     def get_changeform_initial_data(self, request: HttpRequest) -> dict[str, Any]:
         return {"client_type": "legal"}

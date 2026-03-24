@@ -127,6 +127,11 @@ def _register_app_routers() -> None:
 
     api_v1.add_router("/oa-filing", oa_filing_router, auth=JWTOrSessionAuth(), tags=["OA立案"])
 
+    from apps.oa_filing.api.client_import_api import router as client_import_router
+
+    # client_import_router 内部路径已包含 /client-import，前缀保持空避免变成 /client-import/client-import
+    api_v1.add_router("", client_import_router, auth=JWTOrSessionAuth(), tags=["客户导入"])
+
     from apps.sales_dispute.api import router as sales_dispute_router
 
     api_v1.add_router("/sales-dispute", sales_dispute_router, tags=["买卖纠纷计算"])

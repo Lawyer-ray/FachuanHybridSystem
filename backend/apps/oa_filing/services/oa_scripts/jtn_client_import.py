@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass
-from typing import Generator
+from typing import Any, Callable, Generator
 
 from playwright.sync_api import BrowserContext, Page, sync_playwright
 
@@ -55,53 +55,111 @@ class CustomerListItem:
 class JtnClientImportScript:
     """金诚同达 OA 客户导入自动化。"""
 
-    def __init__(self, account: str, password: str) -> None:
+    def __init__(
+        self,
+        account: str,
+        password: str,
+        *,
+        headless: bool = True,
+        progress_callback: Callable[[dict[str, Any]], None] | None = None,
+    ) -> None:
         self._account = account
         self._password = password
+        self._headless = bool(headless)
+        self._progress_callback = progress_callback
         self._page: Page | None = None
         self._context: BrowserContext | None = None
 
-    def run(self) -> Generator[OACustomerData, None, None]:
+    def run(self, *, limit: int | None = None) -> Generator[OACustomerData, None, None]:
         """执行客户导入流程，yield 每条客户数据。
 
         优化策略：先翻页收集所有客户详情URL，再批量打开详情页提取数据。
         """
         pw = sync_playwright().start()
-        browser = pw.chromium.launch(headless=False)
-        self._context = browser.new_context()
-        self._context.set_default_timeout(30_000)
-        self._context.set_default_navigation_timeout(30_000)
-        self._page = self._context.new_page()
+        browser = None
+        try:
+            browser = pw.chromium.launch(headless=self._headless)
+            self._context = browser.new_context()
+            self._context.set_default_timeout(30_000)
+            self._context.set_default_navigation_timeout(30_000)
+            self._page = self._context.new_page()
 
-        self._login()
-        self._navigate_to_client_list()
+            self._emit_progress("discovery_started", message="正在登录OA并进入客户列表")
+            self._login()
+            self._navigate_to_client_list()
 
-        # 步骤1: 翻页收集所有客户的名称和详情URL
-        logger.info("=== 步骤1: 翻页收集客户列表 ===")
-        all_items: list[CustomerListItem] = []
-        while True:
-            items = self._extract_page_customers()
-            logger.info("本页共 %d 个客户，已累计 %d 个", len(items), len(all_items))
-            all_items.extend(items)
+            # 步骤1: 翻页收集所有客户的名称和详情URL
+            logger.info("=== 步骤1: 翻页收集客户列表 ===")
+            all_items: list[CustomerListItem] = []
+            page_index = 0
+            while True:
+                items = self._extract_page_customers()
+                page_index += 1
+                all_items.extend(items)
+                logger.info("本页共 %d 个客户，已累计 %d 个", len(items), len(all_items))
+                self._emit_progress(
+                    "discovery_progress",
+                    page=page_index,
+                    page_count=len(items),
+                    discovered_count=len(all_items),
+                    message=f"正在查找并发现当事人（第{page_index}页）",
+                )
 
-            # 点击下一页
-            if not self._click_next_page():
-                break
+                # 点击下一页
+                if limit is not None and limit > 0 and len(all_items) >= limit:
+                    all_items = all_items[:limit]
+                    self._emit_progress(
+                        "discovery_progress",
+                        page=page_index,
+                        page_count=len(items),
+                        discovered_count=len(all_items),
+                        message=f"已达到导入上限 {limit} 条",
+                    )
+                    break
 
-        logger.info("共收集到 %d 个客户", len(all_items))
+                if not self._click_next_page():
+                    break
 
-        # 步骤2: 批量打开详情页提取数据
-        logger.info("=== 步骤2: 批量打开详情页 ===")
-        for i, item in enumerate(all_items):
-            logger.info("处理详情 [%d/%d]: %s", i + 1, len(all_items), item.name)
-            data = self._fetch_customer_detail(item)
-            if data:
-                yield data
-            time.sleep(_SHORT_WAIT)
+            logger.info("共收集到 %d 个客户", len(all_items))
+            self._emit_progress(
+                "discovery_completed",
+                discovered_count=len(all_items),
+                total_count=len(all_items),
+                message=f"已发现 {len(all_items)} 条，准备开始导入",
+            )
 
-        browser.close()
-        pw.stop()
-        logger.info("客户导入完成，共处理 %d 个客户", len(all_items))
+            # 步骤2: 批量打开详情页提取数据
+            logger.info("=== 步骤2: 批量打开详情页 ===")
+            self._emit_progress("import_started", total_count=len(all_items), message="开始导入当事人")
+            for i, item in enumerate(all_items):
+                logger.info("处理详情 [%d/%d]: %s", i + 1, len(all_items), item.name)
+                self._emit_progress(
+                    "import_progress",
+                    index=i + 1,
+                    total_count=len(all_items),
+                    discovered_count=len(all_items),
+                    name=item.name,
+                    message=f"正在导入当事人 ({i + 1}/{len(all_items)})",
+                )
+                data = self._fetch_customer_detail(item)
+                if data:
+                    yield data
+                time.sleep(_SHORT_WAIT)
+
+            self._emit_progress("import_collected", total_count=len(all_items), message="当事人详情提取完成")
+            logger.info("客户导入完成，共处理 %d 个客户", len(all_items))
+        finally:
+            if browser is not None:
+                browser.close()
+            pw.stop()
+
+    def _emit_progress(self, event: str, **payload: Any) -> None:
+        if self._progress_callback is None:
+            return
+        try:
+            self._progress_callback({"event": event, **payload})
+        except Exception:
+            logger.debug("进度回调处理异常: event=%s", event, exc_info=True)
 
     def _login(self) -> None:
         """通过 httpx 接口登录，将 cookie 注入 Playwright context。"""

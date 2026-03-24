@@ -4,17 +4,17 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from django.db import transaction
+from django.utils import timezone
 
 from apps.client.models import Client
-from apps.oa_filing.models import ClientImportSession
+from apps.oa_filing.models import ClientImportPhase, ClientImportSession, ClientImportStatus
 from apps.oa_filing.services.oa_scripts.jtn_client_import import OACustomerData
 
 if TYPE_CHECKING:
-    from apps.organization.models import AccountCredential, Lawyer
+    from apps.organization.models import AccountCredential
 
 logger = logging.getLogger("apps.oa_filing.client_import_service")
 
@@ -42,25 +42,40 @@ class ClientImportService:
             self._credential = self._session.credential
         return self._credential
 
-    def run_import(self) -> None:
+    def run_import(self, *, headless: bool = True, limit: int | None = None) -> None:
         """执行导入流程。"""
         import django
         from apps.oa_filing.services.oa_scripts.jtn_client_import import JtnClientImportScript
 
-        logger.info("开始导入客户，session_id=%d", self._session.id)
+        logger.info("开始导入客户，session_id=%d headless=%s limit=%s", self._session.id, headless, limit)
 
         # 先关闭所有数据库连接，因为 Playwright 会创建 asyncio 事件循环
         django.db.connections.close_all()
 
         try:
+            started_at = self._session.started_at or timezone.now()
+            self._update_session(
+                status=ClientImportStatus.IN_PROGRESS,
+                phase=ClientImportPhase.DISCOVERING,
+                started_at=started_at,
+                discovered_count=0,
+                total_count=0,
+                success_count=0,
+                skip_count=0,
+                error_message="",
+                progress_message="正在登录OA并查找当事人列表",
+            )
+
             script = JtnClientImportScript(
                 account=self.credential.account,
                 password=self.credential.password,
+                headless=headless,
+                progress_callback=self._handle_script_progress,
             )
 
             # 先收集所有数据
-            all_customers = []
-            for customer_data in script.run():
+            all_customers: list[OACustomerData] = []
+            for customer_data in script.run(limit=limit):
                 all_customers.append(customer_data)
 
             logger.info("共收集到 %d 个客户", len(all_customers))
@@ -68,17 +83,20 @@ class ClientImportService:
             # 现在重新连接数据库并保存
             django.db.connections.close_all()  # 确保新连接
 
-            # 更新状态为进行中
-            self._session.status = "in_progress"
-            self._session.started_at = datetime.now()
-            self._session.total_count = len(all_customers)
-            self._session.save()
-
             total_count = len(all_customers)
             success_count = 0
             skip_count = 0
 
-            for customer_data in all_customers:
+            if total_count == 0:
+                self._update_session(
+                    status=ClientImportStatus.COMPLETED,
+                    phase=ClientImportPhase.COMPLETED,
+                    completed_at=timezone.now(),
+                    progress_message="未发现可导入的当事人",
+                )
+                return
+
+            for index, customer_data in enumerate(all_customers, start=1):
                 result = self._import_single_client(customer_data)
 
                 if result.status == "created":
@@ -86,19 +104,27 @@ class ClientImportService:
                 elif result.status == "skipped":
                     skip_count += 1
 
-                # 每10条更新一次状态
-                if (success_count + skip_count) % 10 == 0:
-                    self._session.success_count = success_count
-                    self._session.skip_count = skip_count
-                    self._session.save()
-                    logger.info("已处理 %d 条，成功 %d，跳过 %d", success_count + skip_count, success_count, skip_count)
+                processed_count = success_count + skip_count
+                self._update_session(
+                    phase=ClientImportPhase.IMPORTING,
+                    discovered_count=total_count,
+                    total_count=total_count,
+                    success_count=success_count,
+                    skip_count=skip_count,
+                    progress_message=f"正在导入当事人 ({processed_count}/{total_count})",
+                )
+                if index % 10 == 0:
+                    logger.info("已处理 %d 条，成功 %d，跳过 %d", processed_count, success_count, skip_count)
 
             # 更新最终状态
-            self._session.success_count = success_count
-            self._session.skip_count = skip_count
-            self._session.status = "completed"
-            self._session.completed_at = datetime.now()
-            self._session.save()
+            self._update_session(
+                success_count=success_count,
+                skip_count=skip_count,
+                status=ClientImportStatus.COMPLETED,
+                phase=ClientImportPhase.COMPLETED,
+                completed_at=timezone.now(),
+                progress_message="导入完成",
+            )
 
             logger.info(
                 "客户导入完成，total=%d, success=%d, skipped=%d",
@@ -109,10 +135,88 @@ class ClientImportService:
 
         except Exception as exc:
             logger.exception("客户导入失败: %s", exc)
-            self._session.status = "failed"
-            self._session.error_message = str(exc)
-            self._session.completed_at = datetime.now()
-            self._session.save()
+            self._update_session(
+                status=ClientImportStatus.FAILED,
+                phase=ClientImportPhase.FAILED,
+                error_message=str(exc),
+                completed_at=timezone.now(),
+                progress_message="导入失败",
+            )
+
+    def _handle_script_progress(self, payload: dict[str, Any]) -> None:
+        event = str(payload.get("event") or "")
+        message = str(payload.get("message") or "").strip()
+
+        if event == "discovery_started":
+            self._update_session(
+                phase=ClientImportPhase.DISCOVERING,
+                progress_message=message or "正在查找并发现当事人",
+            )
+            return
+
+        if event == "discovery_progress":
+            discovered_count = self._to_int(payload.get("discovered_count"))
+            page = self._to_int(payload.get("page"))
+            if not message:
+                message = f"正在查找并发现当事人（第{page}页）"
+            self._update_session(
+                phase=ClientImportPhase.DISCOVERING,
+                discovered_count=discovered_count,
+                progress_message=f"{message}，已发现 {discovered_count} 条",
+            )
+            return
+
+        if event == "discovery_completed":
+            total_count = self._to_int(payload.get("total_count") or payload.get("discovered_count"))
+            self._update_session(
+                phase=ClientImportPhase.DISCOVERING,
+                discovered_count=total_count,
+                total_count=total_count,
+                progress_message=message or f"查找完成，共发现 {total_count} 条，准备导入",
+            )
+            return
+
+        if event == "import_started":
+            total_count = self._to_int(payload.get("total_count") or payload.get("discovered_count"))
+            self._update_session(
+                phase=ClientImportPhase.IMPORTING,
+                discovered_count=total_count,
+                total_count=total_count,
+                progress_message=message or f"开始导入，共 {total_count} 条",
+            )
+            return
+
+        if event in {"import_progress", "import_collected"}:
+            total_count = self._to_int(payload.get("total_count")) or self._session.total_count
+            discovered_count = self._to_int(payload.get("discovered_count")) or self._session.discovered_count
+            index = self._to_int(payload.get("index"))
+            current_name = str(payload.get("name") or "").strip()
+            if not message and total_count > 0 and index > 0:
+                message = f"正在导入当事人 ({index}/{total_count})"
+            if current_name:
+                message = f"{message}：{current_name}" if message else current_name
+            self._update_session(
+                phase=ClientImportPhase.IMPORTING,
+                discovered_count=discovered_count,
+                total_count=total_count,
+                progress_message=message or "正在导入当事人",
+            )
+
+    def _update_session(self, **fields: Any) -> None:
+        if not fields:
+            return
+        fields["updated_at"] = timezone.now()
+        ClientImportSession.objects.filter(pk=self._session.pk).update(**fields)
+        for key, value in fields.items():
+            if key != "updated_at":
+                setattr(self._session, key, value)
+
+    @staticmethod
+    def _to_int(value: Any) -> int:
+        try:
+            return int(value)
+        except Exception:
+            return 0
 
     def _import_single_client(self, data: OACustomerData) -> ImportResult:
         """导入单条客户数据。"""

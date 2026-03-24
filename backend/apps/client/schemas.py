@@ -70,6 +70,12 @@ class ClientOut(ModelSchema, SchemaMixin):
         ]
 
 
+class OACredentialCheckOut(Schema):
+    """检查 OA 凭证结果"""
+
+    has_credential: bool
+
+
 class ClientIn(Schema):
     """客户创建输入 Schema"""
 
