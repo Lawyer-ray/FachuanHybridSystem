@@ -212,3 +212,4 @@ backend/tests/*
 !backend/tests/ci/**
 backend/tests/ci/**/__pycache__/
 backend/tests/ci/**/*.pyc
+backend/.playwright-cli/
