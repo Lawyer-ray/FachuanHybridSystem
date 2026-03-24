@@ -1,0 +1,19 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - img [ref=e6]
+    - heading "欢迎回来" [level=1] [ref=e8]
+    - paragraph [ref=e9]: 法穿AI案件管理系统
+  - generic [ref=e10]:
+    - generic [ref=e11]:
+      - generic [ref=e12]: 用户名/真实姓名
+      - textbox "用户名/真实姓名" [active] [ref=e13]:
+        - /placeholder: 请输入中文姓名
+    - generic [ref=e14]:
+      - generic [ref=e15]: 密码
+      - textbox "密码" [ref=e16]:
+        - /placeholder: 请输入密码
+    - button "登录" [ref=e17] [cursor=pointer]
+  - generic [ref=e18]:
+    - text: 还没有账号？
+    - link "立即注册" [ref=e19] [cursor=pointer]:
+      - /url: /admin/register/

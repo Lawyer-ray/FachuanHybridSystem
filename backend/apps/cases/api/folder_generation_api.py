@@ -29,24 +29,34 @@ def generate_case_folder(request: HttpRequest, case_id: int) -> Any:
     from apps.documents.services.generation.folder_generation_service import FolderGenerationService
 
     try:
-        case = Case.objects.select_related("contract__folder_binding", "folder_binding").get(pk=case_id)
+        case = Case.objects.select_related("contract__folder_binding", "folder_binding").prefetch_related(
+            "parties__client"
+        ).get(pk=case_id)
     except Case.DoesNotExist:
         return HttpResponse(status=404)
 
-    # 匹配文件夹模板（case 类型）
-    templates = FolderTemplate.objects.filter(
-        template_type="case",
-        is_active=True,
-    )
-    matched: FolderTemplate | None = None
-    for t in templates:
-        case_types: list[str] = t.case_types or []
-        if case.case_type in case_types or "all" in case_types:
-            matched = t
-            break
+    # 获取我方当事人的诉讼地位
+    our_legal_statuses = [
+        party.legal_status
+        for party in case.parties.all()
+        if getattr(party.client, "is_our_client", False) and party.legal_status
+    ]
 
-    if not matched:
+    # 使用 TemplateMatchingService 进行匹配（与前端一致）
+    from apps.documents.services.template.template_matching_service import TemplateMatchingService
+
+    template_service = TemplateMatchingService()
+    matched_candidates = template_service.find_matching_case_folder_templates_list(
+        case_type=case.case_type,
+        legal_statuses=our_legal_statuses,
+    )
+
+    if not matched_candidates:
         return {"success": False, "message": "无匹配的文件夹模板"}
+
+    # 取第一个匹配的模板（已按优先级排序）
+    matched_template_id = matched_candidates[0]["id"]
+    matched = FolderTemplate.objects.get(pk=matched_template_id)
 
     # 生成文件夹名称：日期-案件名
     from datetime import date

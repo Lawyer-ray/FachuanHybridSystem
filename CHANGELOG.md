@@ -2,6 +2,15 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.23.1] - 2026-03-24
+
+### 修复
+
+- **生成文件夹模板匹配逻辑**
+  - 修复 `generate-folder` API 使用简单 `case_type` 匹配导致模板选择错误的问题
+  - 现在后端 API 使用与前端一致的 `TemplateMatchingService.find_matching_case_folder_templates_list()` 方法
+  - 会根据我方当事人的诉讼地位（`legal_statuses`）正确选择匹配的文件夹模板（如被告→民事一审答辩）
+
 ## [26.23.0] - 2026-03-23
 
 ### 与 `main` 分支差异（摘要）
