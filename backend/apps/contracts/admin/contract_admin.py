@@ -100,6 +100,7 @@ class ContractPartyInline(BaseTabularInline):  # type: ignore[type-arg]
     model = ContractParty
     extra = 1
     fields = ("client", "role")
+    autocomplete_fields: ClassVar = ["client"]
     show_change_link = True
 
     class Media:

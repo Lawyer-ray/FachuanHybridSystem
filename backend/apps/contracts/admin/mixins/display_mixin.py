@@ -92,6 +92,45 @@ class ContractDisplayMixin:
             return f"{name} (ID: {lawyer.id})"
         return _("无")
 
+    @admin.display(description=_("律所OA链接"))
+    def law_firm_oa_link_display(self, obj: Any) -> Any:
+        """显示合同所属律所的 OA 登录链接（可点击）。"""
+        from apps.oa_filing.services.script_executor_service import SUPPORTED_SITES
+        from apps.organization.models import AccountCredential
+
+        law_firm_ids: list[int] = []
+        seen: set[int] = set()
+        for assignment in obj.assignments.select_related("lawyer").all():
+            lawyer = getattr(assignment, "lawyer", None)
+            law_firm_id = getattr(lawyer, "law_firm_id", None)
+            if not law_firm_id or law_firm_id in seen:
+                continue
+            seen.add(int(law_firm_id))
+            law_firm_ids.append(int(law_firm_id))
+
+        if not law_firm_ids:
+            return _("未配置")
+
+        credential = (
+            AccountCredential.objects.filter(
+                lawyer__law_firm_id__in=law_firm_ids,
+                site_name__in=SUPPORTED_SITES,
+            )
+            .exclude(url__isnull=True)
+            .exclude(url="")
+            .order_by("id")
+            .first()
+        )
+
+        if not credential:
+            return _("未配置")
+
+        return format_html(
+            '<a href="{}" target="_blank" rel="noopener noreferrer">{}</a>',
+            credential.url,
+            _("打开OA系统"),
+        )
+
     @admin.display(description=_("建档编号"))
     def filing_number_display(self, obj: Any) -> Any:
         """显示建档编号(只读)

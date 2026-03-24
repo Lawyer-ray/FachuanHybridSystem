@@ -181,6 +181,7 @@ class ClientAdmin(AdminImportExportMixin, admin.ModelAdmin[Client]):
     list_display: ClassVar = ("id", "name", "client_type", "is_our_client", "phone", "legal_representative")
     search_fields: ClassVar = ("name", "phone", "id_number")
     list_filter: ClassVar = ("client_type", "is_our_client")
+    ordering: ClassVar = ("-pk",)
     form = ClientAdminForm
     inlines: ClassVar = []
     export_model_name = "client"

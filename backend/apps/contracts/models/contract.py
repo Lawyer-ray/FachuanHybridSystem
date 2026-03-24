@@ -59,6 +59,13 @@ class Contract(models.Model):
         max_digits=5, decimal_places=2, blank=True, null=True, verbose_name=_("风险比例(%)")
     )
     custom_terms = models.TextField(blank=True, null=True, verbose_name=_("自定义收费条款"))
+    law_firm_oa_url = models.URLField(
+        max_length=500,
+        blank=True,
+        null=True,
+        verbose_name=_("律所OA链接"),
+        help_text=_("跳转至律所OA系统中该合同的页面"),
+    )
     representation_stages: Any = models.JSONField(default=list, blank=True, verbose_name=_("代理阶段"))
 
     if TYPE_CHECKING:
