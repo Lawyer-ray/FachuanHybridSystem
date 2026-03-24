@@ -60,7 +60,7 @@ def _save_or_download(
     if saved_path:
         logger.info(
             "文件已保存到合同文件夹",
-            extra={"case_id": case_id, "contract_id": contract_id, "filename": filename, "path": saved_path},
+            extra={"case_id": case_id, "contract_id": contract_id, "file_name": filename, "path": saved_path},
         )
         return {"success": True, "message": f"文件已保存到: {saved_path}", "filename": filename, "folder_path": saved_path}
 
