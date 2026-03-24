@@ -179,6 +179,10 @@ class IdentityExtractionService:
     def _extract_from_pdf(self, pdf_bytes: bytes) -> str:
         """从 PDF 提取文字(图片型PDF)"""
         import fitz  # pymupdf
+        from PIL import Image
+
+        # 禁用 PIL 的解压炸弹检查，避免超大 PDF 页面触发 DecompressionBombError
+        Image.MAX_IMAGE_PIXELS = None
 
         all_texts = []
 

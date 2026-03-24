@@ -482,10 +482,20 @@ def _extract_credit_code(text: str) -> str | None:
         return match.group(1).strip().upper()
 
     # 无标签兜底：仅接受含字母的18位编码，避免误判身份证号
+    # 但需要排除明显是身份证号的情况（文本中有"身份证"关键词）
     for fallback_match in _CREDIT_CODE_FALLBACK_PATTERN.finditer(text):
         code = fallback_match.group(1).strip().upper()
-        if any(ch.isalpha() for ch in code):
-            return code
+        if not any(ch.isalpha() for ch in code):
+            continue
+        # 排除身份证号：如果编码附近有"身份证"关键词，跳过
+        # 计算编码在文本中的位置
+        start_pos = fallback_match.start()
+        end_pos = fallback_match.end()
+        # 检查前面 20 个字符内是否有"身份证"
+        context_before = text[max(0, start_pos - 20) : start_pos].lower()
+        if "身份证" in context_before:
+            continue
+        return code
 
     return None
 

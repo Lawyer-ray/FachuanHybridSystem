@@ -441,6 +441,9 @@ class FolderGenerationService:
             # 法定代表人身份证明书：每个我方法人各生成一份
             if "法定代表人身份证明书" in template.name:
                 from apps.client.models import Client
+                from apps.documents.services.generation.authorization_material_generation_service import (
+                    AuthorizationMaterialGenerationService,
+                )
 
                 our_legal_entities = list(
                     case.parties.select_related("client").filter(
@@ -456,11 +459,15 @@ class FolderGenerationService:
 
                 for party in our_legal_entities:
                     try:
-                        # 每个法人单独构建上下文（设置 client）
-                        client_context = context.copy()
-                        client_context["client"] = party.client
+                        # 使用与单独点击"法定代表人身份证明书"相同的上下文构建逻辑
+                        auth_service = AuthorizationMaterialGenerationService()
+                        client_context = auth_service._build_context(case=case, client=party.client)
                         content = DocxRenderer().render(file_location, client_context)
-                        filename = f"{template.name}_{party.client.name}.docx"
+                        # 使用与单独点击"法定代表人身份证明书"相同的文件名生成逻辑
+                        # 日期使用今日日期
+                        from django.utils import timezone
+                        date_str = timezone.now().strftime("%Y%m%d")
+                        filename = f"法定代表人身份证明书({party.client.name})V1_{date_str}.docx"
                         documents.append((folder_path, content, filename))
                         logger.info(
                             "案件文件夹 - 法定代表人身份证明书已生成: %s → %s",
@@ -505,7 +512,11 @@ class FolderGenerationService:
                         selected_clients=[p.client for p in our_parties],
                     )
                     content = DocxRenderer().render(file_location, ctx)
-                    filename = f"{template.name}.docx"
+                    # 使用与单独点击"授权委托书"相同的文件名生成逻辑
+                    filename = auth_service._build_power_of_attorney_filename(  # type: ignore[attr-defined]
+                        case=case,
+                        selected_clients=[p.client for p in our_parties],
+                    )
                     documents.append((folder_path, content, filename))
                     logger.info(
                         "案件文件夹 - 授权委托书已生成: %s",
@@ -521,9 +532,48 @@ class FolderGenerationService:
                     )
                 continue
 
+            # 所函：使用 AuthorizationMaterialGenerationService 的文件名生成逻辑
+            if "所函" in template.name:
+                from apps.documents.services.generation.authorization_material_generation_service import (
+                    AuthorizationMaterialGenerationService,
+                )
+
+                try:
+                    auth_service = AuthorizationMaterialGenerationService()
+                    # 先渲染模板（使用与单独点击"所函"相同的上下文构建逻辑）
+                    ctx = auth_service._build_context(case=case)
+                    content = DocxRenderer().render(file_location, ctx)
+                    # 使用与单独点击"所函"相同的文件名生成逻辑
+                    filename = auth_service._build_authority_letter_filename(  # type: ignore[attr-defined]
+                        case_name=case.name or "案件",
+                    )
+                    documents.append((folder_path, content, filename))
+                    logger.info(
+                        "案件文件夹 - 所函已生成: %s",
+                        folder_path,
+                        extra={"case_id": case.id, "template_name": template.name},
+                    )
+                    continue
+                except Exception as e:
+                    logger.warning(
+                        "案件文件夹 - 所函渲染异常: %s - %s",
+                        template.name,
+                        e,
+                        extra={"template_name": template.name, "error": str(e)},
+                    )
+                    continue
+
             try:
                 content = DocxRenderer().render(file_location, context)
-                filename = f"{template.name}.docx"
+                # 生成文件名：模板名称(案件名称)V1_日期.docx
+                # 日期优先使用 specified_date，否则使用今日日期
+                from django.utils import timezone
+                if case.specified_date:
+                    date_str = case.specified_date.strftime("%Y%m%d")
+                else:
+                    date_str = timezone.now().strftime("%Y%m%d")
+                case_name = case.name or "案件"
+                filename = f"{template.name}({case_name})V1_{date_str}.docx"
                 documents.append((folder_path, content, filename))
                 logger.info(
                     "案件文件夹 - 文书生成成功: %s → %s",
@@ -568,7 +618,9 @@ class FolderGenerationService:
                         if abs_path.exists():
                             content = abs_path.read_bytes()
                             suffix = abs_path.suffix
-                            filename = f"{party.client.name}_{identity_doc.get_doc_type_display()}{suffix}"
+                            # 证件类型显示名称：去掉 "/" 避免路径问题，统一改为 "法定代表人身份证"
+                            doc_type_display = identity_doc.get_doc_type_display().replace("/", "身份证").replace("负责人身份证", "法定代表人身份证")
+                            filename = f"{party.client.name}_{doc_type_display}{suffix}"
                             documents.append((identity_path, content, filename))
                             logger.info(
                                 "案件文件夹 - 证件材料已添加: %s → %s",

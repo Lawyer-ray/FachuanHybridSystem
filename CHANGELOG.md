@@ -2,6 +2,17 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.23.2] - 2026-03-24
+
+### 修复
+
+- **当事人信息解析 - 自然人误识别为法人**
+  - 修复 `text_parser._extract_credit_code()` 的 fallback 模式将身份证号 `41020319850330101X` 误识别为统一社会信用代码的问题
+  - 当编码前 20 字符内存在"身份证"关键词时跳过，避免误判
+- **PDF 身份证识别 - 解压炸弹防护触发**
+  - 修复超大 PDF（218M 像素）在 OCR 识别时触发 PIL `DecompressionBombError` 的问题
+  - 在 `IdentityExtractionService._extract_from_pdf()` 中添加 `Image.MAX_IMAGE_PIXELS = None` 禁用解压炸弹检查
+
 ## [26.23.1] - 2026-03-24
 
 ### 修复
