@@ -188,6 +188,20 @@ def rate_limit(
     """
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        # 将字符串注解在原函数命名空间中提前解析，避免包装后在本模块命名空间解析失败。
+        try:
+            resolved_annotations = dict(inspect.get_annotations(func, eval_str=True))
+        except Exception:
+            resolved_annotations = dict(getattr(func, "__annotations__", {}))
+        original_signature = inspect.signature(func)
+        resolved_signature = original_signature.replace(
+            parameters=[
+                param.replace(annotation=resolved_annotations.get(param.name, param.annotation))
+                for param in original_signature.parameters.values()
+            ],
+            return_annotation=resolved_annotations.get("return", original_signature.return_annotation),
+        )
+
         if inspect.iscoroutinefunction(func):
 
             @wraps(func)
@@ -202,6 +216,8 @@ def rate_limit(
                     )
                 return await func(request, *args, **kwargs)
 
+            async_wrapper.__annotations__ = resolved_annotations
+            async_wrapper.__signature__ = resolved_signature  # type: ignore[attr-defined]
             return async_wrapper
 
         @wraps(func)
@@ -216,6 +232,8 @@ def rate_limit(
                 )
             return func(request, *args, **kwargs)
 
+        wrapper.__annotations__ = resolved_annotations
+        wrapper.__signature__ = resolved_signature  # type: ignore[attr-defined]
         return wrapper
 
     return decorator

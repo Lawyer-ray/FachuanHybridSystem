@@ -22,6 +22,8 @@ from .folder_scan_schemas import (
     ContractFolderScanConfirmIn,
     ContractFolderScanConfirmItemIn,
     ContractFolderScanConfirmOut,
+    ContractFolderScanSubfolderListOut,
+    ContractFolderScanSubfolderOptionOut,
     ContractFolderScanStartIn,
     ContractFolderScanStartOut,
     ContractFolderScanStatusOut,
@@ -88,6 +90,8 @@ __all__ = [
     # Folder Scan
     "ContractFolderScanStartIn",
     "ContractFolderScanStartOut",
+    "ContractFolderScanSubfolderOptionOut",
+    "ContractFolderScanSubfolderListOut",
     "ContractFolderScanSummaryOut",
     "ContractFolderScanCandidateOut",
     "ContractFolderScanStatusOut",

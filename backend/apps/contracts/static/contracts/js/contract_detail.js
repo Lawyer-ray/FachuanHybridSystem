@@ -62,6 +62,10 @@ function contractDetailApp(config = {}) {
             this.$watch('activeTab', (value) => {
                 localStorage.setItem(storageKey, value);
             });
+            window.addEventListener('contract-folder-scan-needs-binding', () => {
+                this.activeTab = 'documents';
+                this.showToast('请先在“文档与提醒”中完成文件夹绑定，再使用自动捕获', 'error');
+            });
         },
 
         /**

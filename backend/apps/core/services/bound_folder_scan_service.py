@@ -144,7 +144,7 @@ class BoundFolderScanService:
             )
             candidate.update(
                 {
-                    "suggested_category": suggestion.get("category", "other"),
+                    "suggested_category": suggestion.get("category", "invoice"),
                     "confidence": float(suggestion.get("confidence", 0.0) or 0.0),
                     "reason": str(suggestion.get("reason") or ""),
                 }

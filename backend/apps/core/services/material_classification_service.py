@@ -15,20 +15,43 @@ logger = logging.getLogger(__name__)
 class MaterialClassificationService:
     """为自动捕获场景提供合同/案件材料分类建议。"""
 
-    _CONTRACT_CATEGORIES = {"contract_original", "supplementary_agreement", "other"}
+    _CONTRACT_CATEGORIES = {"contract_original", "supplementary_agreement", "invoice"}
     _CASE_CATEGORIES = {"party", "non_party", "unknown"}
     _CASE_SIDES = {"our", "opponent", "unknown"}
+    _SUPPLEMENTARY_KEYWORDS = (
+        "补充协议",
+        "补充合同",
+        "变更协议",
+        "续签协议",
+        "补遗",
+        "补充条款",
+    )
+    _INVOICE_KEYWORDS = (
+        "发票",
+        "invoice",
+        "专票",
+        "普票",
+        "开票",
+    )
+    _CONTRACT_KEYWORDS = (
+        "合同",
+        "协议",
+    )
 
     def classify_contract_material(self, *, filename: str, text_excerpt: str) -> dict[str, Any]:
+        rule_suggestion = self._classify_contract_by_filename(filename)
+        if rule_suggestion is not None:
+            return rule_suggestion
+
         default = {
-            "category": "other",
+            "category": "invoice",
             "confidence": 0.0,
             "reason": "AI 分类不可用，请手动确认",
         }
         content = self._complete(
             system_prompt=(
                 "你是合同材料分类助手。仅输出 JSON，不要输出其他内容。"
-                'JSON 结构: {"category":"contract_original|supplementary_agreement|other","confidence":0-1,"reason":"..."}'
+                'JSON 结构: {"category":"contract_original|supplementary_agreement|invoice","confidence":0-1,"reason":"..."}'
             ),
             user_prompt=(
                 f"文件名: {filename}\n"
@@ -43,15 +66,46 @@ class MaterialClassificationService:
         if not isinstance(payload, dict):
             return default
 
-        category = str(payload.get("category") or "other").strip()
+        category = str(payload.get("category") or "invoice").strip()
         if category not in self._CONTRACT_CATEGORIES:
-            category = "other"
+            category = "invoice"
 
         return {
             "category": category,
             "confidence": self._to_confidence(payload.get("confidence")),
             "reason": str(payload.get("reason") or ""),
         }
+
+    def _classify_contract_by_filename(self, filename: str) -> dict[str, Any] | None:
+        normalized = (filename or "").strip().lower()
+        if not normalized:
+            return None
+
+        for keyword in self._SUPPLEMENTARY_KEYWORDS:
+            if keyword in normalized:
+                return {
+                    "category": "supplementary_agreement",
+                    "confidence": 0.98,
+                    "reason": f"命中文件名关键词：{keyword}",
+                }
+
+        for keyword in self._INVOICE_KEYWORDS:
+            if keyword in normalized:
+                return {
+                    "category": "invoice",
+                    "confidence": 0.98,
+                    "reason": f"命中文件名关键词：{keyword}",
+                }
+
+        for keyword in self._CONTRACT_KEYWORDS:
+            if keyword in normalized:
+                return {
+                    "category": "contract_original",
+                    "confidence": 0.96,
+                    "reason": f"命中文件名关键词：{keyword}",
+                }
+
+        return None
 
     def classify_case_material(self, *, filename: str, text_excerpt: str) -> dict[str, Any]:
         default = {
