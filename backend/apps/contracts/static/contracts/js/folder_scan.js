@@ -17,11 +17,14 @@
     Alpine.data('contractFolderScanApp', function (config) {
       return {
         contractId: config.contractId,
+        hasFolderBinding: config.hasFolderBinding !== false,
         texts: config.texts || {},
 
         isOpen: false,
         isScanning: false,
         isConfirming: false,
+        isLoadingSubfolders: false,
+
         scanSessionId: '',
         scanStatus: '',
         scanProgress: 0,
@@ -30,6 +33,12 @@
         scanCandidates: [],
         scanError: '',
         pollTimer: null,
+
+        scanScopeMode: 'all',
+        scanRootPath: '',
+        scanSubfolderOptions: [],
+        scanSubfolder: '',
+        subfoldersLoaded: false,
 
         get selectedCount() {
           return (this.scanCandidates || []).filter((item) => item.selected).length;
@@ -50,11 +59,22 @@
           return 'is-pending';
         },
 
+        get hasSubfolderOptions() {
+          return Array.isArray(this.scanSubfolderOptions) && this.scanSubfolderOptions.length > 0;
+        },
+
         openModal() {
+          if (!this.hasFolderBinding) {
+            this.scanError = this.texts.needBindFolder || '请先在“文档与提醒”中绑定文件夹';
+            window.dispatchEvent(
+              new CustomEvent('contract-folder-scan-needs-binding', { detail: { contractId: this.contractId } })
+            );
+            return;
+          }
           this.isOpen = true;
-          if (!this.scanSessionId && !this.isScanning) {
-            this.startScan(false);
-          } else if (this.scanSessionId) {
+          this.scanError = '';
+          this.loadSubfolders(false);
+          if (this.scanSessionId) {
             this.fetchStatus(true);
           }
         },
@@ -70,8 +90,65 @@
           this.pollTimer = null;
         },
 
-        startScan(rescan) {
+        async loadSubfolders(forceReload) {
+          if (!forceReload && this.subfoldersLoaded) return;
+          this.isLoadingSubfolders = true;
+          try {
+            const resp = await fetch(`/api/v1/contracts/${this.contractId}/folder-scan/subfolders`, {
+              headers: { 'X-CSRFToken': getCsrfToken() },
+            });
+            const data = await resp.json().catch(() => ({}));
+            if (!resp.ok) {
+              throw new Error(data.message || data.detail || this.texts.loadSubfoldersFailed || '加载子文件夹失败');
+            }
+
+            this.scanRootPath = (data && data.root_path) || '';
+            this.scanSubfolderOptions = Array.isArray(data && data.subfolders) ? data.subfolders : [];
+            const validSet = new Set((this.scanSubfolderOptions || []).map((item) => item.relative_path));
+            if (!validSet.has(this.scanSubfolder)) {
+              this.scanSubfolder = '';
+            }
+            if (!this.scanSubfolderOptions.length) {
+              this.scanScopeMode = 'all';
+            }
+            this.subfoldersLoaded = true;
+          } catch (err) {
+            this.scanSubfolderOptions = [];
+            this.scanSubfolder = '';
+            this.scanScopeMode = 'all';
+            this.scanError = (err && err.message) || (this.texts.loadSubfoldersFailed || '加载子文件夹失败');
+            this.subfoldersLoaded = false;
+          } finally {
+            this.isLoadingSubfolders = false;
+          }
+        },
+
+        buildScanPayload(rescan) {
+          const payload = { rescan: Boolean(rescan), scan_subfolder: '' };
+          if (this.scanScopeMode !== 'subfolder') return payload;
+
+          if (!this.hasSubfolderOptions) {
+            this.scanError = this.texts.noSubfolderOptions || '当前目录下没有可选子文件夹，将扫描全部内容';
+            this.scanScopeMode = 'all';
+            return payload;
+          }
+
+          if (!this.scanSubfolder) {
+            this.scanError = this.texts.needSelectSubfolder || '请选择要扫描的子文件夹';
+            return null;
+          }
+
+          payload.scan_subfolder = this.scanSubfolder;
+          return payload;
+        },
+
+        async startScan(rescan) {
+          if (this.isScanning) return;
           this.scanError = '';
+          await this.loadSubfolders(false);
+          const payload = this.buildScanPayload(rescan);
+          if (!payload) return;
+
           this.isScanning = true;
           this.scanStatus = 'running';
           this.scanProgress = 0;
@@ -85,11 +162,17 @@
               'Content-Type': 'application/json',
               'X-CSRFToken': getCsrfToken(),
             },
-            body: JSON.stringify({ rescan: Boolean(rescan) }),
+            body: JSON.stringify(payload),
           })
             .then(async (resp) => {
               const data = await resp.json().catch(() => ({}));
               if (!resp.ok) {
+                if ((data && data.message) === '未绑定文件夹') {
+                  this.hasFolderBinding = false;
+                  window.dispatchEvent(
+                    new CustomEvent('contract-folder-scan-needs-binding', { detail: { contractId: this.contractId } })
+                  );
+                }
                 throw new Error(data.message || data.detail || this.texts.failed || '扫描失败');
               }
               return data;
@@ -145,9 +228,11 @@
 
         normalizeCandidates(candidates) {
           return (candidates || []).map((candidate) => {
-            const category = ['contract_original', 'supplementary_agreement', 'other'].includes(candidate.suggested_category)
+            const category = ['contract_original', 'supplementary_agreement', 'invoice'].includes(
+              candidate.suggested_category
+            )
               ? candidate.suggested_category
-              : 'other';
+              : 'invoice';
             return {
               source_path: candidate.source_path,
               filename: candidate.filename,
@@ -163,7 +248,7 @@
           const items = (this.scanCandidates || []).map((candidate) => ({
             source_path: candidate.source_path,
             selected: candidate.selected,
-            category: candidate.category || 'other',
+            category: candidate.category || 'invoice',
           }));
 
           this.isConfirming = true;

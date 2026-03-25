@@ -3,17 +3,32 @@
      x-cloak
      x-data="contractFolderScanApp({
         contractId: {{ contract.pk }},
+        hasFolderBinding: {% if folder_binding %}true{% else %}false{% endif %},
         texts: {
             scanningFolder: '{% trans "正在扫描文件夹" %}',
             classifying: '{% trans "正在 AI 分类" %}',
             completed: '{% trans "扫描完成" %}',
             failed: '{% trans "扫描失败" %}',
-            importFailed: '{% trans "导入失败，请稍后重试" %}'
+            importFailed: '{% trans "导入失败，请稍后重试" %}',
+            needBindFolder: '{% trans "请先在“文档与提醒”中绑定文件夹" %}',
+            needSelectSubfolder: '{% trans "请选择要扫描的子文件夹" %}',
+            noSubfolderOptions: '{% trans "当前目录下没有可选子文件夹，将扫描全部内容" %}',
+            loadSubfoldersFailed: '{% trans "加载子文件夹失败" %}'
         }
      })">
     <div class="fm-toolbar">
-        <button type="button" class="btn btn-secondary btn-sm" @click="openModal()">{% trans "自动捕获" %}</button>
+        <button type="button"
+                class="btn btn-secondary btn-sm"
+                @click="openModal()"
+                :disabled="!hasFolderBinding"
+                :title="!hasFolderBinding ? texts.needBindFolder : ''">{% trans "自动捕获" %}</button>
     </div>
+    {% if not folder_binding %}
+    <p class="fm-binding-tip">
+        {% trans "当前未绑定文件夹，自动捕获不可用。" %}
+        <a href="{% url 'admin:contracts_contract_change' contract.pk %}" target="_blank">{% trans "去绑定文件夹" %}</a>
+    </p>
+    {% endif %}
 
     {% if finalized_materials %}
         {% for category, materials in finalized_materials_grouped.items %}
@@ -62,6 +77,18 @@
     font-size: 11px;
     font-weight: 500;
 }
+
+.fm-binding-tip {
+    margin: 0 0 10px;
+    font-size: 12px;
+    color: #b45309;
+}
+
+.fm-binding-tip a {
+    margin-left: 6px;
+    color: #2563eb;
+    text-decoration: underline;
+}
 .fm-list { display: flex; flex-direction: column; gap: 6px; padding-top: 4px; }
 .fm-item {
     display: flex;
@@ -103,6 +130,67 @@
 .fm-scan-body {
     display: grid;
     gap: 10px;
+}
+
+.fm-scope-card {
+    padding: 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #f9fafb;
+}
+
+.fm-scope-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.fm-scope-desc {
+    margin-top: 4px;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.fm-scope-root {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #374151;
+}
+
+.fm-scope-root code {
+    margin-left: 4px;
+    padding: 1px 4px;
+    border-radius: 4px;
+    background: #eef2ff;
+    color: #1e3a8a;
+}
+
+.fm-scope-row {
+    margin-top: 10px;
+    display: flex;
+    gap: 16px;
+}
+
+.fm-radio-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #374151;
+}
+
+.fm-scope-select {
+    margin-top: 10px;
+}
+
+.fm-scope-select select {
+    width: 100%;
+}
+
+.fm-scope-hint {
+    margin-top: 6px;
+    font-size: 12px;
+    color: #6b7280;
 }
 
 .fm-scan-actions {

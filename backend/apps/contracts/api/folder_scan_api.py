@@ -13,6 +13,7 @@ from apps.contracts.schemas import (
     ContractFolderScanStartIn,
     ContractFolderScanStartOut,
     ContractFolderScanStatusOut,
+    ContractFolderScanSubfolderListOut,
 )
 from apps.contracts.services.contract.folder_scan_service import ContractFolderScanService
 from apps.core.infrastructure.throttling import rate_limit_from_settings
@@ -42,12 +43,19 @@ def start_contract_scan(request: HttpRequest, contract_id: int, payload: Contrac
         contract_id=contract_id,
         started_by=ctx.user,
         rescan=bool(payload.rescan),
+        scan_subfolder=str(payload.scan_subfolder or ""),
     )
     return {
         "session_id": str(session.id),
         "status": str(session.status),
         "task_id": str(session.task_id or ""),
     }
+
+
+@router.get("/{contract_id}/folder-scan/subfolders", response=ContractFolderScanSubfolderListOut)
+def list_contract_scan_subfolders(request: HttpRequest, contract_id: int) -> dict[str, object]:
+    _require_contract_access(request, contract_id)
+    return _get_service().list_scan_subfolders(contract_id=contract_id)
 
 
 @router.get("/{contract_id}/folder-scan/{session_id}", response=ContractFolderScanStatusOut)

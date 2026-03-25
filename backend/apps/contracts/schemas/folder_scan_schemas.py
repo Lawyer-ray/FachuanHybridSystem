@@ -7,12 +7,23 @@ from ninja import Schema
 
 class ContractFolderScanStartIn(Schema):
     rescan: bool = False
+    scan_subfolder: str = ""
 
 
 class ContractFolderScanStartOut(Schema):
     session_id: str
     status: str
     task_id: str = ""
+
+
+class ContractFolderScanSubfolderOptionOut(Schema):
+    relative_path: str
+    display_name: str
+
+
+class ContractFolderScanSubfolderListOut(Schema):
+    root_path: str
+    subfolders: list[ContractFolderScanSubfolderOptionOut]
 
 
 class ContractFolderScanSummaryOut(Schema):
@@ -30,7 +41,7 @@ class ContractFolderScanCandidateOut(Schema):
     version_token: str
     extract_method: str
     text_excerpt: str
-    suggested_category: str = "other"
+    suggested_category: str = "invoice"
     confidence: float = 0.0
     reason: str = ""
     selected: bool = True
@@ -65,6 +76,8 @@ class ContractFolderScanConfirmOut(Schema):
 __all__ = [
     "ContractFolderScanStartIn",
     "ContractFolderScanStartOut",
+    "ContractFolderScanSubfolderOptionOut",
+    "ContractFolderScanSubfolderListOut",
     "ContractFolderScanSummaryOut",
     "ContractFolderScanCandidateOut",
     "ContractFolderScanStatusOut",

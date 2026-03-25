@@ -38,6 +38,28 @@ class TaskSubmissionService:
         if task_name and not ctx.task_name:
             ctx = replace(ctx, task_name=task_name)
 
+        task_kwargs: dict[str, Any] = {
+            "task_name": task_name,
+            "group": group,
+            "hook": hook,
+            "cached": cached,
+            "sync": sync,
+            "save": save,
+            "broker": broker,
+            "cluster": cluster,
+            "ack_failure": ack_failure,
+        }
+        if timeout is not None:
+            task_kwargs["timeout"] = timeout
+        if q_options is not None:
+            if isinstance(q_options, dict):
+                normalized_q_options = {k: v for k, v in q_options.items() if v is not None}
+                if normalized_q_options:
+                    task_kwargs["q_options"] = normalized_q_options
+            else:
+                task_kwargs["q_options"] = q_options
+        task_kwargs = {k: v for k, v in task_kwargs.items() if v is not None}
+
         return cast(
             str,
             async_task(
@@ -46,17 +68,7 @@ class TaskSubmissionService:
                 list(args or []),
                 kwargs or {},
                 ctx.to_dict(),
-                task_name=task_name,
-                timeout=timeout,
-                group=group,
-                hook=hook,
-                cached=cached,
-                sync=sync,
-                save=save,
-                broker=broker,
-                cluster=cluster,
-                ack_failure=ack_failure,
-                q_options=q_options,
+                **task_kwargs,
             ),
         )
 

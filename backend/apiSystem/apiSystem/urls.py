@@ -153,6 +153,11 @@ def favicon_view(request: HttpRequest) -> HttpResponse:
     return HttpResponse(status=204)  # No Content
 
 
+def chrome_devtools_probe_view(request: HttpRequest) -> HttpResponse:
+    """返回空响应，避免 Chrome DevTools 探测请求产生 404 日志。"""
+    return HttpResponse(status=204)  # No Content
+
+
 def health_view(request: HttpRequest) -> HttpResponse:
     """健康检查端点，用于 liveness probe"""
     from django.db import connection
@@ -171,6 +176,7 @@ urlpatterns = [
     path("api/v1/", api_v1.urls),
     path("api/", api_redirect),
     path("favicon.ico", favicon_view, name="favicon"),
+    path(".well-known/appspecific/com.chrome.devtools.json", chrome_devtools_probe_view, name="chrome_devtools_probe"),
     path("health/", health_view, name="health"),
     path("index/", index_view, name="index"),
     # 根路径重定向到首页 - 必须在最后

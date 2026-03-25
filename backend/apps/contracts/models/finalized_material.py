@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 class MaterialCategory(models.TextChoices):
     CONTRACT_ORIGINAL = "contract_original", _("合同正本")
     SUPPLEMENTARY_AGREEMENT = "supplementary_agreement", _("补充协议")
-    OTHER = "other", _("其他")
+    INVOICE = "invoice", _("发票")
 
 
 class FinalizedMaterial(models.Model):
@@ -35,7 +35,7 @@ class FinalizedMaterial(models.Model):
     category = models.CharField(
         max_length=32,
         choices=MaterialCategory.choices,
-        default=MaterialCategory.OTHER,
+        default=MaterialCategory.INVOICE,
         verbose_name=_("材料分类"),
     )
     uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name=_("上传时间"))
