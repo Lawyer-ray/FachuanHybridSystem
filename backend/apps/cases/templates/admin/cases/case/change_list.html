@@ -1,0 +1,29 @@
+{% extends "admin/change_list.html" %}
+{% load i18n admin_urls %}
+
+{% block object-tools-items %}
+<li>
+    <form id="json-import-form" method="post" action="import/" enctype="multipart/form-data" style="display:none">
+        {% csrf_token %}
+        <input type="file" name="json_file" id="json-import-input" accept=".zip">
+    </form>
+    <a href="#" class="addlink" onclick="document.getElementById('json-import-input').click();return false;">{% trans "导入" %}</a>
+    <script>
+        document.getElementById('json-import-input').addEventListener('change', function(){
+            if(this.files.length) document.getElementById('json-import-form').submit();
+        });
+    </script>
+</li>
+<li>
+    <a href="{% url 'admin:cases_litigation_fee_calculator' %}" class="addlink" style="background: linear-gradient(135deg, #417690 0%, #205067 100%);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 4px;">
+            <rect x="4" y="2" width="16" height="20" rx="2"/>
+            <line x1="8" y1="6" x2="16" y2="6"/>
+            <line x1="8" y1="10" x2="16" y2="10"/>
+            <line x1="8" y1="14" x2="12" y2="14"/>
+        </svg>
+        {% trans "诉讼费计算器" %}
+    </a>
+</li>
+{{ block.super }}
+{% endblock %}

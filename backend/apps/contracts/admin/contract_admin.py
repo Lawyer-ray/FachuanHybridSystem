@@ -215,6 +215,7 @@ class ContractAdmin(
         js = ("cases/admin_case_form.js",)
 
     change_form_template = "admin/contracts/contract/change_form.html"
+    change_list_template = "admin/contracts/contract/change_list.html"
 
     def get_queryset(self, request: HttpRequest) -> Any:
         return super().get_queryset(request).prefetch_related("assignments__lawyer", "contract_parties__client")

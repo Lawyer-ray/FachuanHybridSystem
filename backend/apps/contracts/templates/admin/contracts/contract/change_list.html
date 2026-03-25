@@ -1,0 +1,652 @@
+{% extends "admin/change_list.html" %}
+{% load i18n admin_urls static admin_list %}
+
+{% block object-tools-items %}
+<li>
+    <form id="json-import-form" method="post" action="import/" enctype="multipart/form-data" style="display:none">
+        {% csrf_token %}
+        <input type="file" name="json_file" id="json-import-input" accept=".zip">
+    </form>
+    <a href="#" class="addlink" onclick="document.getElementById('json-import-input').click();return false;">{% trans "导入" %}</a>
+    <script>
+        document.getElementById('json-import-input').addEventListener('change', function(){
+            if(this.files.length) document.getElementById('json-import-form').submit();
+        });
+    </script>
+</li>
+<li>
+    <a href="#"
+       class="addlink"
+       onclick="document.getElementById('oa-import-form').style.display = document.getElementById('oa-import-form').style.display === 'none' ? 'block' : 'none'; return false;">
+        {% trans "从OA导入" %}
+    </a>
+</li>
+{{ block.super }}
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    #oa-import-form {
+        display: none;
+        background: #f8f9fa;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 20px;
+        margin: 10px 0;
+    }
+
+    #oa-import-form h3 {
+        margin: 0 0 15px;
+        font-size: 16px;
+        color: #1f2937;
+    }
+
+    .oa-import-dropzone {
+        border: 2px dashed #ccc;
+        border-radius: 8px;
+        padding: 40px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        margin-bottom: 15px;
+    }
+
+    .oa-import-dropzone:hover {
+        border-color: #2563eb;
+        background: #eff6ff;
+    }
+
+    .oa-import-dropzone.dragover {
+        border-color: #2563eb;
+        background: #dbeafe;
+    }
+
+    .oa-import-dropzone input {
+        display: none;
+    }
+
+    .oa-import-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+
+    .oa-import-btn {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 600;
+    }
+
+    .oa-import-btn.cancel {
+        background: #e5e7eb;
+        color: #374151;
+    }
+
+    .oa-import-btn.confirm {
+        background: #2563eb;
+        color: #fff;
+    }
+
+    .oa-import-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    /* 进度弹窗 */
+    .oa-import-progress-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 10000;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .oa-import-progress-overlay.show {
+        display: flex;
+    }
+
+    .oa-import-progress-dialog {
+        background: #fff;
+        border-radius: 12px;
+        padding: 30px;
+        width: min(600px, calc(100vw - 32px));
+        max-height: calc(100vh - 100px);
+        overflow-y: auto;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+
+    .oa-import-progress-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: #1f2937;
+        margin: 0 0 20px;
+    }
+
+    .oa-import-progress-status {
+        font-size: 14px;
+        color: #6b7280;
+        margin-bottom: 8px;
+    }
+
+    .oa-import-progress-bar {
+        background: #e5e7eb;
+        border-radius: 4px;
+        height: 8px;
+        overflow: hidden;
+        margin-bottom: 15px;
+    }
+
+    .oa-import-progress-fill {
+        background: #2563eb;
+        height: 100%;
+        transition: width 0.3s;
+    }
+
+    .oa-import-progress-fill.indeterminate {
+        width: 40%;
+        animation: oaImportIndeterminate 1.2s ease-in-out infinite;
+    }
+
+    @keyframes oaImportIndeterminate {
+        0% { transform: translateX(-120%); }
+        50% { transform: translateX(70%); }
+        100% { transform: translateX(220%); }
+    }
+
+    /* 预览表格 */
+    .oa-import-preview-wrapper {
+        max-height: 400px;
+        overflow-y: auto;
+        margin: 15px 0;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+    }
+
+    .oa-import-preview-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+    }
+
+    .oa-import-preview-table th,
+    .oa-import-preview-table td {
+        border: 1px solid #e5e7eb;
+        padding: 8px 12px;
+        text-align: left;
+    }
+
+    .oa-import-preview-table th {
+        background: #f9fafb;
+        font-weight: 600;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+
+    .oa-import-preview-table tr.matched {
+        background: #ecfdf5;
+    }
+
+    .oa-import-preview-table tr.unmatched {
+        background: #fef3c7;
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .status-badge.matched {
+        background: #d1fae5;
+        color: #065f46;
+    }
+
+    .status-badge.unmatched {
+        background: #fef3c7;
+        color: #92400e;
+    }
+
+    .status-badge.error {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div x-data="caseImportApp()">
+    <!-- OA 导入表单 -->
+    <div id="oa-import-form" style="display:none;">
+        <h3>从金诚同达OA导入案件</h3>
+
+        <div class="oa-import-dropzone"
+             @dragover.prevent="onDragOver($event)"
+             @dragleave.prevent="onDragLeave($event)"
+             @drop.prevent="onDrop($event)"
+             @click="$refs.fileInput.click()">
+            <input type="file" x-ref="fileInput" @change="onFileSelect($event)" accept=".xlsx,.xls">
+            <p style="margin:0;color:#6b7280;">
+                <span style="font-size:24px;">📁</span><br>
+                拖拽Excel文件到此处，或点击选择<br>
+                <small>支持 .xlsx, .xls 格式</small>
+            </p>
+        </div>
+
+        <div x-show="selectedFile" style="margin-bottom:15px;font-size:13px;color:#374151;">
+            已选择: <span x-text="selectedFileName"></span>
+            (<span x-text="formatFileSize(selectedFileSize)"></span>)
+        </div>
+
+        <div class="oa-import-actions">
+            <button type="button" class="oa-import-btn cancel" @click="cancelImport()">取消</button>
+            <button type="button" class="oa-import-btn confirm"
+                    :disabled="!selectedFile || isUploading"
+                    @click="startPreview()">
+                <span x-show="isUploading">上传中...</span>
+                <span x-show="!isUploading">预览</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- 预览弹窗 -->
+    <div class="oa-import-progress-overlay" :class="showPreview ? 'show' : ''" @click.self="closePreview()">
+        <div class="oa-import-progress-dialog">
+            <h3 class="oa-import-progress-title">导入预览</h3>
+
+            <div x-show="previewLoading" style="text-align:center;padding:20px;">
+                <p>正在解析Excel...</p>
+            </div>
+
+            <div x-show="!previewLoading && previewData">
+                <p style="margin:0 0 15px;font-size:14px;color:#6b7280;">
+                    共 <strong x-text="previewTotalCases"></strong> 个案件，
+                    其中 <strong x-text="previewMatched"></strong> 个已匹配，
+                    <strong x-text="previewUnmatched"></strong> 个需从OA导入
+                </p>
+
+                <div class="oa-import-preview-wrapper">
+                    <table class="oa-import-preview-table">
+                        <thead>
+                            <tr>
+                                <th>案件编号</th>
+                                <th>状态</th>
+                                <th>客户</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="item in previewList" :key="item.case_no">
+                                <tr :class="item.status">
+                                    <td x-text="item.case_no"></td>
+                                    <td>
+                                        <span class="status-badge" :class="item.status"
+                                              x-text="item.status === 'matched' ? '已匹配' : (item.status === 'unmatched' ? '需导入' : '错误')"></span>
+                                    </td>
+                                    <td x-text="item.customer_names ? item.customer_names.join(', ') : '-'"></td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="oa-import-actions">
+                    <button type="button" class="oa-import-btn cancel" @click="closePreview()">取消</button>
+                    <button type="button" class="oa-import-btn confirm"
+                            :disabled="previewUnmatched === 0"
+                            @click="startImport()">
+                        开始导入
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导入进度弹窗 -->
+    <div class="oa-import-progress-overlay" :class="showProgress ? 'show' : ''">
+        <div class="oa-import-progress-dialog">
+            <h3 class="oa-import-progress-title">导入进度</h3>
+
+            <template x-if="importStatus === 'pending'">
+                <div style="text-align:center;padding:20px;">
+                    <p>正在启动导入任务...</p>
+                </div>
+            </template>
+
+            <template x-if="importStatus === 'in_progress'">
+                <div>
+                    <p class="oa-import-progress-status" x-text="progressMessage"></p>
+                    <div class="oa-import-progress-bar">
+                        <div class="oa-import-progress-fill" :style="'width:' + progressPercent + '%'"></div>
+                    </div>
+                    <p style="font-size:13px;color:#6b7280;margin:0;">
+                        已处理: <span x-text="processedCount"></span> / <span x-text="totalCount"></span>
+                    </p>
+                </div>
+            </template>
+
+            <template x-if="importStatus === 'completed'">
+                <div>
+                    <p style="color:#059669;font-size:16px;font-weight:bold;margin:0 0 15px;">导入完成！</p>
+                    <div style="font-size:14px;color:#6b7280;">
+                        <p>成功: <strong x-text="successCount"></strong></p>
+                        <p>跳过: <strong x-text="skipCount"></strong></p>
+                    </div>
+                    <div class="oa-import-actions">
+                        <button type="button" class="oa-import-btn confirm" @click="location.reload()">关闭</button>
+                    </div>
+                </div>
+            </template>
+
+            <template x-if="importStatus === 'failed'">
+                <div>
+                    <p style="color:#dc3545;font-size:16px;font-weight:bold;margin:0 0 15px;">导入失败</p>
+                    <p style="font-size:13px;color:#6b7280;" x-text="errorMessage"></p>
+                    <div class="oa-import-actions">
+                        <button type="button" class="oa-import-btn cancel" @click="closeProgress()">关闭</button>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+</div>
+
+<script>
+function caseImportApp() {
+    return {
+        selectedFile: null,
+        isUploading: false,
+        showPreview: false,
+        showProgress: false,
+        previewData: null,
+        previewLoading: false,
+        importStatus: 'pending',
+        progressMessage: '',
+        progressPercent: 0,
+        processedCount: 0,
+        totalCount: 0,
+        successCount: 0,
+        skipCount: 0,
+        errorMessage: '',
+        sessionId: null,
+        pollingInterval: null,
+
+        get selectedFileName() { return this.selectedFile?.name || ''; },
+        get selectedFileSize() { return this.selectedFile?.size || 0; },
+        get previewTotalCases() { return this.previewData?.total_cases || 0; },
+        get previewMatched() { return this.previewData?.matched || 0; },
+        get previewUnmatched() { return this.previewData?.unmatched || 0; },
+        get previewList() { return this.previewData?.preview || []; },
+
+        init() {
+            // 检查用户是否是jtn.com域
+            this.checkOAAccess();
+        },
+
+        checkOAAccess() {
+            // 根据用户账号判断是否显示OA导入按钮
+            // 如果需要，可以在这里检查
+        },
+
+        onDragOver(event) {
+            event.target.classList.add('dragover');
+        },
+
+        onDragLeave(event) {
+            event.target.classList.remove('dragover');
+        },
+
+        onDrop(event) {
+            event.target.classList.remove('dragover');
+            const files = event.dataTransfer.files;
+            if (files.length > 0) {
+                this.selectedFile = files[0];
+            }
+        },
+
+        onFileSelect(event) {
+            const files = event.target.files;
+            if (files.length > 0) {
+                this.selectedFile = files[0];
+            }
+        },
+
+        formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        },
+
+        cancelImport() {
+            this.selectedFile = null;
+            document.getElementById('oa-import-form').style.display = 'none';
+        },
+
+        async startPreview() {
+            if (!this.selectedFile) return;
+
+            this.isUploading = true;
+
+            const formData = new FormData();
+            formData.append('file', this.selectedFile);
+
+            try {
+                const response = await fetch('/api/v1/case-import', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': this.getCSRFToken(),
+                    },
+                    credentials: 'same-origin',
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    alert('错误: ' + data.error);
+                    return;
+                }
+
+                this.sessionId = data.id;
+                this.showPreview = true;
+                this.previewLoading = true;
+
+                // 轮询预览结果
+                await this.pollPreviewResult();
+
+            } catch (error) {
+                console.error('预览失败:', error);
+                alert('预览失败: ' + error.message);
+            } finally {
+                this.isUploading = false;
+            }
+        },
+
+        async pollPreviewResult() {
+            const maxAttempts = 60;
+            let attempts = 0;
+
+            const poll = async () => {
+                if (attempts >= maxAttempts) {
+                    this.previewLoading = false;
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`/api/v1/case-import/${this.sessionId}`, {
+                        credentials: 'same-origin',
+                    });
+                    const data = await response.json();
+
+                    // 根据 result_data 判断预览是否完成
+                    if (data.result_data && data.result_data.preview) {
+                        this.previewLoading = false;
+                        this.previewData = {
+                            total_cases: data.total_count,
+                            matched: data.matched_count,
+                            unmatched: data.unmatched_count,
+                            preview: data.result_data.preview
+                        };
+                    } else if (data.status === 'failed') {
+                        this.previewLoading = false;
+                        alert('预览失败: ' + (data.error_message || '未知错误'));
+                    } else {
+                        attempts++;
+                        setTimeout(poll, 1000);
+                    }
+                } catch (error) {
+                    console.error('轮询预览失败:', error);
+                    attempts++;
+                    setTimeout(poll, 2000);
+                }
+            };
+
+            setTimeout(poll, 1000);
+        },
+
+        closePreview() {
+            this.showPreview = false;
+            this.previewData = null;
+        },
+
+        async startImport() {
+            if (!this.previewData || this.previewData.unmatched === 0) return;
+
+            // 先提取数据，再关闭预览
+            const unmatchedCases = this.previewData.preview
+                .filter(item => item.status === 'unmatched')
+                .map(item => item.case_no);
+
+            const matchedCases = this.previewData.preview
+                .filter(item => item.status === 'matched')
+                .map(item => item.case_no);
+
+            this.closePreview();
+            this.showProgress = true;
+            this.importStatus = 'pending';
+
+            try {
+                const response = await fetch(`/api/v1/case-import/${this.sessionId}/execute`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        case_nos: unmatchedCases,
+                        matched_case_nos: matchedCases
+                    }),
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': this.getCSRFToken(),
+                    },
+                    credentials: 'same-origin',
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    this.importStatus = 'failed';
+                    this.errorMessage = data.error;
+                    return;
+                }
+
+                // 开始轮询导入进度
+                this.importStatus = 'in_progress';
+                this.totalCount = unmatchedCases.length;
+                this.pollImportResult();
+
+            } catch (error) {
+                console.error('启动导入失败:', error);
+                this.importStatus = 'failed';
+                this.errorMessage = error.message;
+            }
+        },
+
+        async pollImportResult() {
+            const maxAttempts = 300;
+            let attempts = 0;
+
+            const poll = async () => {
+                if (attempts >= maxAttempts) {
+                    this.importStatus = 'failed';
+                    this.errorMessage = '导入超时';
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`/api/v1/case-import/${this.sessionId}`, {
+                        credentials: 'same-origin',
+                    });
+                    const data = await response.json();
+
+                    this.progressMessage = data.progress_message || '处理中...';
+                    this.processedCount = (data.success_count || 0) + (data.skip_count || 0) + (data.error_count || 0);
+                    this.totalCount = data.total_count || this.totalCount;
+                    this.successCount = data.success_count || 0;
+                    this.skipCount = data.skip_count || 0;
+
+                    if (this.totalCount > 0) {
+                        this.progressPercent = Math.round((this.processedCount / this.totalCount) * 100);
+                    }
+
+                    if (data.status === 'completed') {
+                        this.importStatus = 'completed';
+                        clearInterval(this.pollingInterval);
+                        return;
+                    }
+
+                    if (data.status === 'failed') {
+                        this.importStatus = 'failed';
+                        this.errorMessage = data.error_message || '导入失败';
+                        clearInterval(this.pollingInterval);
+                        return;
+                    }
+
+                    attempts++;
+                    setTimeout(poll, 2000);
+
+                } catch (error) {
+                    console.error('轮询导入进度失败:', error);
+                    attempts++;
+                    setTimeout(poll, 3000);
+                }
+            };
+
+            setTimeout(poll, 2000);
+        },
+
+        closeProgress() {
+            this.showProgress = false;
+            if (this.pollingInterval) {
+                clearInterval(this.pollingInterval);
+            }
+        },
+
+        getCSRFToken() {
+            const name = 'csrftoken';
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    };
+}
+</script>
+
+{{ block.super }}
+{% endblock %}

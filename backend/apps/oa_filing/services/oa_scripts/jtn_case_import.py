@@ -1,0 +1,653 @@
+"""金诚同达 OA 案件导入脚本。
+
+通过 Playwright 自动化完成：
+登录 → 搜索案件编号 → 进入详情页 → 提取3个Tab的数据（客户信息、案件信息、利益冲突）。
+
+复用 JtnClientImportScript._login() 的登录逻辑。
+"""
+
+from __future__ import annotations
+
+import logging
+import re
+import time
+from dataclasses import dataclass, field
+from typing import Any, Callable, Generator
+
+from playwright.sync_api import BrowserContext, Page, sync_playwright
+
+logger = logging.getLogger("apps.oa_filing.jtn_case_import")
+
+# ============================================================
+# 常量：URL
+# ============================================================
+_LOGIN_URL = "https://ims.jtn.com/member/login.aspx"
+_CASE_LIST_URL = "https://ims.jtn.com/project/index.aspx?FirstModel=PROJECT&SecondModel=PROJECT002"
+_BASE_URL = "https://ims.jtn.com/project"
+_DETAIL_URL_TEMPLATE = "{base}/projectView.aspx?keyid={{keyid}}&FirstModel=PROJECT&SecondModel=PROJECT002"
+
+# 等待时间（秒）
+_SHORT_WAIT = 0.5
+_MEDIUM_WAIT = 1.5
+_AJAX_WAIT = 2.0
+
+
+# ============================================================
+# 数据结构
+# ============================================================
+@dataclass
+class OACaseCustomerData:
+    """OA客户数据（案件中提取）。"""
+
+    name: str  # 客户名称
+    customer_type: str  # natural=自然人 / legal=企业
+    address: str | None = None  # 地址
+    phone: str | None = None  # 联系电话
+    id_number: str | None = None  # 身份证号码（自然人）
+    industry: str | None = None  # 行业（企业）
+    legal_representative: str | None = None  # 法定代表人（企业）
+
+
+@dataclass
+class OACaseInfoData:
+    """OA案件信息数据。"""
+
+    case_no: str  # 案件编号
+    case_name: str | None = None  # 案件名称
+    case_stage: str | None = None  # 案件阶段（一审/二审/执行）
+    acceptance_date: str | None = None  # 收案日期
+    case_type: str | None = None  # 业务种类
+    responsible_lawyer: str | None = None  # 案件负责人
+    description: str | None = None  # 案情简介
+    client_side: str | None = None  # 代理何方
+
+
+@dataclass
+class OAConflictData:
+    """OA利益冲突数据。"""
+
+    name: str  # 冲突方名称
+    conflict_type: str | None = None  # 冲突类型
+
+
+@dataclass
+class OACaseData:
+    """OA案件完整数据。"""
+
+    case_no: str  # 案件编号（OA案件编号）
+    keyid: str  # OA系统KeyID
+    customers: list[OACaseCustomerData] = field(default_factory=list)  # 客户列表
+    case_info: OACaseInfoData | None = None  # 案件信息
+    conflicts: list[OAConflictData] = field(default_factory=list)  # 利益冲突列表
+
+
+@dataclass
+class CaseSearchItem:
+    """案件搜索结果项。"""
+
+    case_no: str  # 案件编号
+    keyid: str  # 详情页KeyID
+
+
+# ============================================================
+# Playwright 脚本
+# ============================================================
+class JtnCaseImportScript:
+    """金诚同达 OA 案件导入自动化。"""
+
+    def __init__(
+        self,
+        account: str,
+        password: str,
+        *,
+        headless: bool = True,
+        progress_callback: Callable[[dict[str, Any]], None] | None = None,
+    ) -> None:
+        self._account = account
+        self._password = password
+        self._headless = bool(headless)
+        self._progress_callback = progress_callback
+        self._page: Page | None = None
+        self._context: BrowserContext | None = None
+
+    def search_case(self, case_no: str) -> OACaseData | None:
+        """根据案件编号搜索并提取完整数据。
+
+        Args:
+            case_no: OA案件编号，如 2024GZM0501
+
+        Returns:
+            OACaseData 或 None（未找到）
+        """
+        pw = sync_playwright().start()
+        browser = None
+        try:
+            browser = pw.chromium.launch(headless=self._headless)
+            self._context = browser.new_context()
+            self._context.set_default_timeout(30_000)
+            self._context.set_default_navigation_timeout(30_000)
+            self._page = self._context.new_page()
+
+            self._login()
+            self._navigate_to_case_list()
+
+            # 搜索案件
+            search_item = self._search_case_by_no(case_no)
+            if not search_item:
+                logger.warning("未找到案件: %s", case_no)
+                return None
+
+            # 提取详情数据
+            case_data = self._fetch_case_detail(search_item)
+            return case_data
+
+        finally:
+            if browser is not None:
+                browser.close()
+            pw.stop()
+
+    def search_cases(
+        self,
+        case_nos: list[str],
+    ) -> Generator[tuple[str, OACaseData | None], None, None]:
+        """批量搜索案件。
+
+        Args:
+            case_nos: 案件编号列表
+
+        Yields:
+            (case_no, case_data) 元组
+        """
+        pw = sync_playwright().start()
+        browser = None
+        try:
+            browser = pw.chromium.launch(headless=self._headless)
+            self._context = browser.new_context()
+            self._context.set_default_timeout(30_000)
+            self._context.set_default_navigation_timeout(30_000)
+            self._page = self._context.new_page()
+
+            self._login()
+            self._navigate_to_case_list()
+
+            for case_no in case_nos:
+                logger.info("搜索案件: %s", case_no)
+                self._emit_progress(
+                    "searching",
+                    case_no=case_no,
+                    message=f"正在搜索案件 {case_no}",
+                )
+
+                search_item = self._search_case_by_no(case_no)
+                if not search_item:
+                    logger.warning("未找到案件: %s", case_no)
+                    yield (case_no, None)
+                    continue
+
+                case_data = self._fetch_case_detail(search_item)
+                yield (case_no, case_data)
+
+        finally:
+            if browser is not None:
+                browser.close()
+            pw.stop()
+
+    def _emit_progress(self, event: str, **payload: Any) -> None:
+        if self._progress_callback is None:
+            return
+        try:
+            self._progress_callback({"event": event, **payload})
+        except Exception:
+            logger.debug("进度回调处理异常: event=%s", event, exc_info=True)
+
+    def _login(self) -> None:
+        """通过 httpx 接口登录，将 cookie 注入 Playwright context。"""
+        import httpx
+
+        logger.info("接口登录: %s", _LOGIN_URL)
+
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+        with httpx.Client(headers=headers, follow_redirects=True, timeout=15) as client:
+            # 1. GET 登录页，拿 ASP.NET_SessionId + CSRFToken
+            r = client.get(_LOGIN_URL)
+            csrf_match = re.search(r'name=["\']CSRFToken["\'] value=["\']([^"\']+)["\']', r.text)
+            csrf = csrf_match.group(1) if csrf_match else ""
+
+            # 2. POST 登录
+            r2 = client.post(
+                _LOGIN_URL,
+                data={"CSRFToken": csrf, "userid": self._account, "password": self._password},
+            )
+
+            if "login" in str(r2.url).lower() or "logout" in r2.text.lower()[:200]:
+                raise RuntimeError(f"OA 登录失败，账号或密码错误: {self._account}")
+
+            # 3. 将 cookie 注入 Playwright context
+            assert self._context is not None
+            for cookie in client.cookies.jar:
+                self._context.add_cookies(
+                    [
+                        {
+                            "name": cookie.name,
+                            "value": cookie.value or "",
+                            "domain": cookie.domain or "ims.jtn.com",
+                            "path": cookie.path or "/",
+                        }
+                    ]
+                )
+
+        logger.info("接口登录成功，cookie 已注入")
+
+    def _navigate_to_case_list(self) -> None:
+        """导航到案件列表页。"""
+        page = self._page
+        assert page is not None
+
+        logger.info("导航到案件列表页: %s", _CASE_LIST_URL)
+        page.goto(_CASE_LIST_URL, wait_until="networkidle", timeout=60_000)
+        
+        # 关闭可能存在的模态对话框，并等待页面完全渲染
+        try:
+            confirm_btn = page.get_by_role("button", name="确定")
+            if confirm_btn.is_visible(timeout=3000):
+                logger.info("检测到模态对话框，关闭中...")
+                confirm_btn.click()
+                page.wait_for_load_state("networkidle")
+                time.sleep(_MEDIUM_WAIT)
+        except Exception:
+            pass  # 没有模态对话框，继续
+        
+        # 等待搜索输入框可见
+        try:
+            page.wait_for_selector(
+                "#ctl00_ctl00_mainContentPlaceHolder_projmainPlaceHolder_project_no",
+                state="visible",
+                timeout=15000
+            )
+            time.sleep(_MEDIUM_WAIT)
+        except Exception:
+            logger.warning("搜索输入框未找到")
+        
+        logger.info("已进入案件列表页面")
+
+    def _search_case_by_no(self, case_no: str) -> CaseSearchItem | None:
+        """在案件列表页搜索指定案件编号。"""
+        page = self._page
+        assert page is not None
+
+        try:
+            # 输入案件编号
+            # 输入框ID: ctl00_ctl00_mainContentPlaceHolder_projmainPlaceHolder_project_no
+            input_locator = page.locator(
+                "#ctl00_ctl00_mainContentPlaceHolder_projmainPlaceHolder_project_no"
+            )
+            
+            # 等待输入框可见
+            input_locator.wait_for(state="visible", timeout=10000)
+            input_locator.fill(case_no)
+            time.sleep(_SHORT_WAIT)
+
+            # 优先尝试按 Enter 键触发搜索（很多ASP.NET页面支持）
+            logger.info("尝试按 Enter 键触发搜索...")
+            input_locator.press("Enter")
+
+            # 立即检查Enter键是否成功触发搜索
+            search_triggered = False
+            try:
+                page.wait_for_selector("#table", timeout=3000)
+                logger.info("Enter 键成功触发搜索")
+                search_triggered = True
+            except Exception:
+                logger.info("Enter 键未触发搜索，尝试 JavaScript 调用 searchOk()...")
+                # 搜索按钮是 <A onclick='searchOk()'>查　询</A>
+                page.evaluate("searchOk()")
+
+            # 等待AJAX完成
+            time.sleep(_AJAX_WAIT)
+
+            # 等待表格加载 - 使用正确的表格选择器
+            # ASP.NET页面的数据在第8个表格（索引7）
+            page.wait_for_load_state("networkidle", timeout=15000)
+            time.sleep(_AJAX_WAIT)
+
+            # 等待数据行出现（通过检查表格行数）
+            data_table = page.locator("table").nth(7)  # 第8个表格是数据列表
+            data_table.wait_for(state="visible", timeout=15000)
+            
+            # 查找案件编号匹配的行（跳过表头行）
+            rows = data_table.locator("tr").all()
+            for row in rows[1:]:  # 跳过表头
+                try:
+                    # 案件编号在第4列(td[3])
+                    cells = row.locator("td").all()
+                    if len(cells) < 4:
+                        continue
+                    
+                    # td[3] 包含案件名称和案件编号（通过<br>分隔）
+                    cell_text = cells[3].inner_text().strip()
+
+                    if case_no in cell_text:
+                        # 从最后一个 td 的下拉菜单中找到"查看"链接
+                        # 格式: projectView.aspx?keyid=xxx&...
+                        last_cell = cells[-1]
+                        view_links = last_cell.locator("a").all()
+                        view_link_href = None
+                        for link in view_links:
+                            link_text = link.inner_text().strip()
+                            if link_text == "查看":
+                                view_link_href = link.get_attribute("href") or ""
+                                break
+                        
+                        if not view_link_href:
+                            continue
+                            
+                        keyid_match = re.search(r"keyid=([^&]+)", view_link_href)
+                        if keyid_match:
+                            keyid = keyid_match.group(1)
+                            logger.info("找到案件: %s, keyid: %s", cell_text, keyid)
+                            # 通过 JavaScript 导航到详情页，保持 ASP.NET session
+                            logger.info("通过 JavaScript 导航到详情页...")
+                            try:
+                                # 使用 JavaScript 导航，保持 session 状态
+                                detail_url = f"{_BASE_URL}/projectView.aspx?keyid={keyid}&FirstModel=PROJECT&SecondModel=PROJECT002"
+                                page.evaluate(f"window.location.href = '{detail_url}'")
+                                page.wait_for_load_state("networkidle", timeout=60000)
+                                time.sleep(_MEDIUM_WAIT)
+                                
+                                # 验证页面已经跳转到详情页（通过检查表格数量）
+                                tables = page.locator("table").all()
+                                logger.info("导航后表格数量: %d", len(tables))
+                                
+                                return CaseSearchItem(case_no=case_no, keyid=keyid)
+                            except Exception as exc:
+                                logger.warning("JavaScript 导航失败: %s", exc)
+                                return None
+
+                except Exception as exc:
+                    logger.debug("检查行异常: %s", exc)
+                    continue
+
+            logger.info("未在列表中找到案件: %s", case_no)
+            return None
+
+        except Exception as exc:
+            logger.warning("搜索案件异常 %s: %s", case_no, exc)
+            return None
+
+    def _fetch_case_detail(self, search_item: CaseSearchItem) -> OACaseData | None:
+        """打开案件详情页，提取3个Tab的数据。
+        
+        注意：如果页面已经在详情页（由 _search_case_by_no 通过 JavaScript 导航后），
+        则不需要再次 goto。
+        """
+        page = self._page
+        assert page is not None
+
+        detail_url = _DETAIL_URL_TEMPLATE.format(base=_BASE_URL, keyid=search_item.keyid)
+        logger.info("进入案件详情: %s (keyid: %s)", search_item.case_no, search_item.keyid)
+
+        try:
+            # 检查当前页面是否已经是详情页（通过表格数量判断）
+            tables = page.locator("table").all()
+            if len(tables) < 20:  # 详情页应该有 28 个表格，列表页只有 7 个
+                logger.info("当前不在详情页，执行 goto...")
+                page.goto(
+                    detail_url,
+                    wait_until="networkidle",
+                    timeout=60000,
+                )
+                time.sleep(_MEDIUM_WAIT)
+            else:
+                logger.info("当前已在详情页，直接提取数据...")
+
+            # 初始化返回数据
+            case_data = OACaseData(case_no=search_item.case_no, keyid=search_item.keyid)
+
+            # Tab 1: 客户信息
+            case_data.customers = self._extract_customer_tab()
+
+            # Tab 2: 案件信息
+            case_data.case_info = self._extract_case_info_tab()
+
+            # Tab 3: 利益冲突信息
+            case_data.conflicts = self._extract_conflict_tab()
+
+            logger.info(
+                "解析案件详情完成: case_no=%s, customers=%d, conflicts=%d",
+                case_data.case_no,
+                len(case_data.customers),
+                len(case_data.conflicts),
+            )
+            return case_data
+
+        except Exception as exc:
+            logger.warning("提取案件详情异常 %s: %s", search_item.case_no, exc)
+            return None
+
+    def _extract_customer_tab(self) -> list[OACaseCustomerData]:
+        """提取客户信息Tab（Tab 1）。"""
+        page = self._page
+        assert page is not None
+
+        customers: list[OACaseCustomerData] = []
+
+        try:
+            # 所有Tab内容都在一页上，不需要switchTab
+            # 表格1 (索引1): 客户信息 - 47行
+
+            tables = page.locator("table").all()
+            if len(tables) > 1:
+                customer_table = tables[1]  # 索引1是客户信息表
+                rows = customer_table.locator("tr").all()
+
+                current_customer: OACaseCustomerData | None = None
+
+                for row in rows:
+                    try:
+                        cells = row.locator("td").all()
+                        if not cells:
+                            continue
+
+                        row_text = row.inner_text()
+                        cell_count = len(cells)
+
+                        # 检查是否是标题行（包含"客户"和"信息"）
+                        if "客户" in row_text and "信息" in row_text and "（" in row_text:
+                            # 保存上一个客户
+                            if current_customer and current_customer.name:
+                                customers.append(current_customer)
+                            # 提取客户名称
+                            # 格式: "客户（XXX）信息"
+                            name_match = re.search(r"客户（([^）]+)）信息", row_text)
+                            if name_match:
+                                customer_name = name_match.group(1)
+                                # 判断是企业还是自然人
+                                is_legal = "企业" in row_text or "公司" in customer_name
+                                current_customer = OACaseCustomerData(
+                                    name=customer_name,
+                                    customer_type="legal" if is_legal else "natural",
+                                )
+                            else:
+                                current_customer = None
+                            continue
+
+                        # 数据行解析
+                        if current_customer and cell_count >= 2:
+                            # 尝试2列或4列布局
+                            for i in range(0, cell_count - 1, 2):
+                                label_cell = cells[i].inner_text().strip()
+                                value_cell = cells[i + 1].inner_text().strip() if i + 1 < cell_count else ""
+
+                                # 解析标签
+                                if "地址" in label_cell:
+                                    current_customer.address = value_cell
+                                elif any(x in label_cell for x in ("电话", "号码")):
+                                    current_customer.phone = value_cell
+                                elif "身份证" in label_cell:
+                                    current_customer.id_number = value_cell
+                                elif "行业" in label_cell:
+                                    current_customer.industry = value_cell
+                                elif any(x in label_cell for x in ("法定代表", "负责人", "姓名")):
+                                    current_customer.legal_representative = value_cell
+
+                    except Exception as exc:
+                        logger.debug("解析客户行异常: %s", exc)
+                        continue
+
+                # 保存最后一个客户
+                if current_customer and current_customer.name:
+                    customers.append(current_customer)
+
+            logger.info("提取客户信息: %d 个客户", len(customers))
+            return customers
+
+        except Exception as exc:
+            logger.warning("提取客户信息Tab异常: %s", exc)
+
+        return customers
+
+    def _extract_case_info_tab(self) -> OACaseInfoData | None:
+        """提取案件信息Tab（Tab 2）。"""
+        page = self._page
+        assert page is not None
+
+        try:
+            # 所有Tab内容都在一页上，不需要switchTab
+            # 表格2 (索引2): 案件基本信息 - 24行
+            # 表格结构: 每个单元格交替包含标签和值
+
+            tables = page.locator("table").all()
+            if len(tables) > 2:
+                case_table = tables[2]  # 索引2是案件基本信息表
+                rows = case_table.locator("tr").all()
+
+                case_info = OACaseInfoData(case_no="")
+
+                for row in rows:
+                    try:
+                        cells = row.locator("td").all()
+                        if len(cells) < 2:
+                            continue
+
+                        row_text = row.inner_text().strip()
+                        
+                        # 检查是否是案件基本信息标题行
+                        if "案件基本信息" in row_text:
+                            continue
+
+                        # 解析标签-值对（交错排列）
+                        for i in range(0, len(cells) - 1, 2):
+                            label = cells[i].inner_text().strip()
+                            value = cells[i + 1].inner_text().strip()
+
+                            if not label:
+                                continue
+
+                            if "案件名称" in label:
+                                case_info.case_name = value
+                            elif "案件阶段" in label:
+                                case_info.case_stage = value
+                            elif "收案日期" in label:
+                                case_info.acceptance_date = value
+                            elif "业务种类" in label:
+                                case_info.case_type = value
+                            elif "案件负责人" in label:
+                                case_info.responsible_lawyer = value
+                            elif "案情简介" in label:
+                                case_info.description = value[:500] if value else None
+                            elif "代理何方" in label:
+                                case_info.client_side = value
+                            elif "案件编号" in label:
+                                case_info.case_no = value
+
+                    except Exception as exc:
+                        logger.debug("解析案件信息行异常: %s", exc)
+                        continue
+
+                logger.info(
+                    "提取案件信息: no=%s, name=%s, stage=%s",
+                    case_info.case_no,
+                    case_info.case_name,
+                    case_info.case_stage,
+                )
+                return case_info
+
+        except Exception as exc:
+            logger.warning("提取案件信息Tab异常: %s", exc)
+
+        return None
+
+    def _extract_conflict_tab(self) -> list[OAConflictData]:
+        """提取利益冲突信息Tab（Tab 3）。"""
+        page = self._page
+        assert page is not None
+
+        conflicts: list[OAConflictData] = []
+
+        try:
+            # 所有Tab内容都在一页上，不需要switchTab
+            # 表格3 (索引3): 利益冲突信息 - 21行
+            # 表格结构: 每行4列 [标签1, 值1, 标签2, 值2]
+
+            tables = page.locator("table").all()
+            if len(tables) > 3:
+                conflict_table = tables[3]  # 索引3是利益冲突信息表
+                rows = conflict_table.locator("tr").all()
+
+                current_name = None
+                current_type = None
+
+                for row in rows:
+                    try:
+                        cells = row.locator("td").all()
+                        if not cells:
+                            continue
+                            
+                        row_text = row.inner_text().strip()
+                        
+                        # 检查是否是标题行
+                        if "利益冲突" in row_text:
+                            continue
+                        
+                        # 解析标签-值对
+                        for i in range(0, len(cells) - 1, 2):
+                            label = cells[i].inner_text().strip()
+                            value = cells[i + 1].inner_text().strip() if i + 1 < len(cells) else ""
+
+                            if not label:
+                                continue
+
+                            if "中文名称" in label and value:
+                                # 保存上一个冲突方（如果有）
+                                if current_name:
+                                    conflicts.append(
+                                        OAConflictData(
+                                            name=current_name,
+                                            conflict_type=current_type,
+                                        )
+                                    )
+                                current_name = value
+                                current_type = None
+                            elif "法律地位" in label and value:
+                                current_type = value
+                            elif "类型" in label and "客户类型" not in label and not "法律地位" in label and value:
+                                current_type = value
+
+                    except Exception as exc:
+                        logger.debug("解析利益冲突行异常: %s", exc)
+                        continue
+                
+                # 保存最后一个冲突方
+                if current_name:
+                    conflicts.append(
+                        OAConflictData(
+                            name=current_name,
+                            conflict_type=current_type,
+                        )
+                    )
+
+        except Exception as exc:
+            logger.warning("提取利益冲突Tab异常: %s", exc)
+
+        logger.info("提取利益冲突: %d 个", len(conflicts))
+        return conflicts

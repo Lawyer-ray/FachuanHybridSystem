@@ -66,6 +66,13 @@ class Contract(models.Model):
         verbose_name=_("律所OA链接"),
         help_text=_("跳转至律所OA系统中该合同的页面"),
     )
+    law_firm_oa_case_number = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name=_("律所OA案件编号"),
+        help_text=_("律所OA系统中的案件编号"),
+    )
     representation_stages: Any = models.JSONField(default=list, blank=True, verbose_name=_("代理阶段"))
 
     if TYPE_CHECKING:
