@@ -200,12 +200,28 @@ class CourtZxfwFilingApiService:
         # 4. 上传材料
         cllx_map = EXEC_MATERIAL_CLLX if is_exec else MATERIAL_CLLX
         clmc_map = EXEC_MATERIAL_CLMC if is_exec else MATERIAL_CLMC
+        slot_id_by_cllx = self._extract_material_slot_ids(layyid)
+        slot_upload_seq: dict[str, int] = {}
         materials: dict[str, list[str]] = case_data.get("materials", {})
+        if materials and not slot_id_by_cllx:
+            raise RuntimeError("接口上传前未能解析材料槽位ID")
         for slot, paths in materials.items():
             cllx = cllx_map.get(slot, "11800016-2")
             clmc = clmc_map.get(slot, "材料")
+            resolved_ssclid = slot_id_by_cllx.get(cllx)
+            if not resolved_ssclid:
+                raise RuntimeError(f"未找到材料槽位ID: cllx={cllx}, clmc={clmc}")
             for file_path in paths:
-                self._upload_material(layyid, fyid, file_path, cllx, clmc)
+                slot_upload_seq[cllx] = slot_upload_seq.get(cllx, 0) + 1
+                self._upload_material(
+                    layyid,
+                    fyid,
+                    file_path,
+                    cllx,
+                    clmc,
+                    ssclid=resolved_ssclid,
+                    xh=slot_upload_seq[cllx],
+                )
 
         # 5. 添加当事人
         role_codes = EXEC_PARTY_ROLE_CODES if is_exec else PARTY_ROLE_CODES
@@ -219,12 +235,28 @@ class CourtZxfwFilingApiService:
         for party in case_data.get("third_parties", []):
             self._add_party(layyid, fyid, party, "third_party", role_codes, is_exec=is_exec)
 
-        # 6. 更新代理人
-        agent = case_data.get("agent")
-        if agent and first_plaintiff_dsrid:
-            self._update_agent(layyid, fyid, first_plaintiff_dsrid, agent, is_exec=is_exec)
+        # 6. 更新代理人（支持多代理律师）
+        agents = [item for item in case_data.get("agents", []) if isinstance(item, dict)]
+        if not agents:
+            agent = case_data.get("agent")
+            if isinstance(agent, dict):
+                agents = [agent]
+        if agents and first_plaintiff_dsrid:
+            principal_name = str(((case_data.get("plaintiffs") or [{}])[0]).get("name", "") or "").strip()
+            self._update_agents(
+                layyid,
+                fyid,
+                first_plaintiff_dsrid,
+                agents,
+                is_exec=is_exec,
+                principal_name=principal_name,
+            )
 
-        # 7. 最终 PATCH（带诉讼标的额）
+        # 7. 执行标的信息（执行理由/执行请求）
+        if is_exec:
+            self._update_execution_target_info(layyid, case_data)
+
+        # 8. 最终 PATCH（带诉讼标的额）
         amount = case_data.get("target_amount", "")
         jbxx = self._get_jbxx(layyid)
         if amount:
@@ -298,6 +330,42 @@ class CourtZxfwFilingApiService:
         payload["id"] = layyid
         self._patch("/yzw-zxfw-lafw/api/v3/layy", payload)
 
+    def _extract_material_slot_ids(self, layyid: str) -> dict[str, str]:
+        """从立案详情中提取材料槽位ID映射：cllx -> ssclid。"""
+        detail = self._get(f"/yzw-zxfw-lafw/api/v3/layy/layyxq/{layyid}/0")
+        mapping: dict[str, str] = {}
+        id_keys = ("ssclid", "ssclId", "id", "clid")
+        cllx_keys = ("cllx", "cllxDm", "cllxdm", "cllxId", "cllxid")
+
+        def walk(node: Any) -> None:
+            if isinstance(node, dict):
+                node_cllx = ""
+                for key in cllx_keys:
+                    value = node.get(key)
+                    if value:
+                        node_cllx = str(value).strip()
+                        break
+
+                node_id = ""
+                for key in id_keys:
+                    value = node.get(key)
+                    if value:
+                        node_id = str(value).strip()
+                        break
+
+                if node_cllx and node_id:
+                    mapping.setdefault(node_cllx, node_id)
+
+                for value in node.values():
+                    walk(value)
+            elif isinstance(node, list):
+                for item in node:
+                    walk(item)
+
+        walk(detail)
+        logger.info("提取材料槽位映射完成: %d", len(mapping))
+        return mapping
+
     def _lookup_cause_code(self, cause: str) -> str:
         """从案由树查 laayMz（数字代码）。"""
         try:
@@ -313,7 +381,17 @@ class CourtZxfwFilingApiService:
             pass
         return ""
 
-    def _upload_material(self, layyid: str, fyid: str, file_path: str, cllx: str, clmc: str) -> None:
+    def _upload_material(
+        self,
+        layyid: str,
+        fyid: str,
+        file_path: str,
+        cllx: str,
+        clmc: str,
+        *,
+        ssclid: str | None = None,
+        xh: int = 1,
+    ) -> None:
         """获取 OSS 签名 → 上传文件 → 登记附件。"""
         ext = Path(file_path).suffix  # e.g. ".pdf"
         # 1. 拿签名
@@ -358,14 +436,14 @@ class CourtZxfwFilingApiService:
                 "fyId": fyid,
                 "wjmc": fname,
                 "path": key,
-                "ssclid": uuid.uuid4().hex,
+                "ssclid": ssclid or uuid.uuid4().hex,
                 "cllx": cllx,
                 "clmc": clmc,
                 "bccl": None,
                 "name": fname,
                 "extname": ext.lstrip("."),
-                "url": f"blob:https://zxfw.court.gov.cn/{uuid.uuid4()}",
-                "xh": 1,
+                "url": f"{oss_url.rstrip('/')}/{key}",
+                "xh": int(xh or 1),
             },
         )
         logger.info("材料上传完成: %s", fname)
@@ -417,7 +495,7 @@ class CourtZxfwFilingApiService:
             }
             if is_exec:
                 payload["hjszd"] = address  # 申请执行用户籍所在地
-                payload["dz"] = ""
+                payload["dz"] = address
             else:
                 payload["dz"] = address
         else:
@@ -452,13 +530,99 @@ class CourtZxfwFilingApiService:
         logger.info("添加当事人: %s → %s", party["name"], dsrid)
         return str(dsrid)
 
-    def _update_agent(
-        self, layyid: str, fyid: str, bdlrid: str, agent: dict[str, Any], *, is_exec: bool = False
+    def _update_agents(
+        self,
+        layyid: str,
+        fyid: str,
+        bdlrid: str,
+        agents: list[dict[str, Any]],
+        *,
+        is_exec: bool = False,
+        principal_name: str = "",
     ) -> None:
-        """更新代理人信息（绑定到第一个原告）。"""
         detail = self._get(f"/yzw-zxfw-lafw/api/v3/layy/layyxq/{layyid}/0")
-        dlr_list = (detail or {}).get("dlr") or []
-        dlr_id = dlr_list[0]["id"] if dlr_list else uuid.uuid4().hex
+        existing_dlr_ids: list[str] = []
+        for item in (detail or {}).get("dlr") or []:
+            agent_id = str(item.get("id") or "").strip()
+            if agent_id:
+                existing_dlr_ids.append(agent_id)
+
+        for idx, agent in enumerate(agents):
+            if not agent.get("name"):
+                continue
+            agent_id = existing_dlr_ids[idx] if idx < len(existing_dlr_ids) else uuid.uuid4().hex
+            self._update_agent(
+                layyid=layyid,
+                fyid=fyid,
+                bdlrid=bdlrid,
+                agent=agent,
+                is_exec=is_exec,
+                agent_id=agent_id,
+                principal_name=principal_name,
+            )
+
+    def _update_execution_target_info(self, layyid: str, case_data: dict[str, Any]) -> None:
+        reason = str(case_data.get("execution_reason") or "").strip()
+        request = str(case_data.get("execution_request") or "").strip()
+        if not reason and not request:
+            return
+
+        jbxx = self._get_jbxx(layyid)
+        if not jbxx:
+            return
+
+        reason_keys = ("zxyy", "zxly")
+        request_keys = ("zxqq", "sqzxsx", "zxqs", "zxqqnr")
+        updated_keys: set[str] = set()
+
+        def assign_known(keys: tuple[str, ...], value: str) -> None:
+            if not value:
+                return
+            for key in keys:
+                if key in jbxx:
+                    jbxx[key] = value
+                    updated_keys.add(key)
+                    return
+
+        assign_known(reason_keys, reason)
+        assign_known(request_keys, request)
+
+        # 若后端响应里未给出键，仍尝试使用常见键名补齐
+        fallback_added_keys: list[str] = []
+        if reason and not any(key in updated_keys for key in reason_keys):
+            jbxx["zxyy"] = reason
+            updated_keys.add("zxyy")
+            fallback_added_keys.append("zxyy")
+        if request and not any(key in updated_keys for key in request_keys):
+            jbxx["zxqq"] = request
+            updated_keys.add("zxqq")
+            fallback_added_keys.append("zxqq")
+
+        if not updated_keys:
+            return
+        try:
+            self._patch_layy(layyid, jbxx)
+        except Exception:
+            if not fallback_added_keys:
+                raise
+            for key in fallback_added_keys:
+                jbxx.pop(key, None)
+            self._patch_layy(layyid, jbxx)
+        logger.info("执行标的信息更新完成: keys=%s", ",".join(sorted(updated_keys)))
+
+    def _update_agent(
+        self,
+        layyid: str,
+        fyid: str,
+        bdlrid: str,
+        agent: dict[str, Any],
+        *,
+        is_exec: bool = False,
+        agent_id: str | None = None,
+        principal_name: str = "",
+    ) -> None:
+        """更新代理人信息（绑定到申请执行人/原告）。"""
+        dlr_id = str(agent_id or "").strip() or uuid.uuid4().hex
 
         payload: dict[str, Any] = {
             "bdlrid": bdlrid,
@@ -481,7 +645,7 @@ class CourtZxfwFilingApiService:
             "edit": True,
             "cdlrlx": "执业律师",
             "fyId": fyid,
-            "bdlrMc": "",
+            "bdlrMc": principal_name,
         }
         if is_exec:
             payload["dllx"] = "1501_100434-3"

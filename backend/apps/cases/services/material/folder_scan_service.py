@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
+import re
 from typing import Any
 from urllib.parse import urlencode
 from uuid import UUID
@@ -36,9 +38,19 @@ class CaseFolderScanService:
         self._scan_service = scan_service or BoundFolderScanService()
         self._case_log_service = CaseLogService()
 
-    def start_scan(self, *, case_id: int, started_by: Any | None, rescan: bool = False) -> CaseFolderScanSession:
+    def start_scan(
+        self,
+        *,
+        case_id: int,
+        started_by: Any | None,
+        rescan: bool = False,
+        scan_subfolder: str = "",
+        enable_recognition: bool = False,
+    ) -> CaseFolderScanSession:
         self._ensure_case_exists(case_id)
         binding = self._get_accessible_binding(case_id)
+        scan_scope = self._resolve_scan_scope(binding.folder_path, scan_subfolder)
+        scan_options = {"enable_recognition": bool(enable_recognition)}
 
         if not rescan:
             existing = (
@@ -47,14 +59,29 @@ class CaseFolderScanService:
                 .first()
             )
             if existing:
-                return existing
+                existing_subfolder = self._extract_scan_subfolder(existing.result_payload)
+                existing_enable_recognition = self._extract_enable_recognition(existing.result_payload)
+                if (
+                    existing_subfolder == scan_scope["scan_subfolder"]
+                    and existing_enable_recognition == scan_options["enable_recognition"]
+                ):
+                    return existing
+                raise ValidationException(
+                    message=_("已有进行中的扫描任务，请等待完成或使用“重新扫描”"),
+                    errors={"session_id": str(existing.id)},
+                )
 
         session = CaseFolderScanSession.objects.create(
             case_id=case_id,
             status=CaseFolderScanStatus.PENDING,
             progress=0,
             current_file="",
-            result_payload={"summary": {}, "candidates": []},
+            result_payload={
+                "summary": {},
+                "candidates": [],
+                "scan_scope": scan_scope,
+                "scan_options": scan_options,
+            },
             started_by=started_by if getattr(started_by, "is_authenticated", False) else None,
         )
 
@@ -70,10 +97,42 @@ class CaseFolderScanService:
             updated_at=timezone.now(),
         )
         session.refresh_from_db()
-        logger.info("case_folder_scan_submitted", extra={"case_id": case_id, "session_id": str(session.id)})
-
-        _ = binding
+        logger.info(
+            "case_folder_scan_submitted",
+            extra={
+                "case_id": case_id,
+                "session_id": str(session.id),
+                "scan_subfolder": scan_scope["scan_subfolder"],
+                "enable_recognition": scan_options["enable_recognition"],
+            },
+        )
         return session
+
+    def list_scan_subfolders(self, *, case_id: int) -> dict[str, Any]:
+        self._ensure_case_exists(case_id)
+        binding = self._get_accessible_binding(case_id)
+        root = Path(binding.folder_path).expanduser().resolve()
+
+        subfolders: list[dict[str, str]] = []
+        for child in sorted(root.iterdir(), key=lambda item: item.name.lower()):
+            if child.name.startswith("."):
+                continue
+            if not child.is_dir():
+                continue
+            resolved_child = child.resolve()
+            if not self._is_within_root(root, resolved_child):
+                continue
+            subfolders.append(
+                {
+                    "relative_path": child.name,
+                    "display_name": child.name,
+                }
+            )
+
+        return {
+            "root_path": root.as_posix(),
+            "subfolders": subfolders,
+        }
 
     def get_session(self, *, case_id: int, session_id: UUID) -> CaseFolderScanSession:
         try:
@@ -84,15 +143,19 @@ class CaseFolderScanService:
     def build_status_payload(self, *, session: CaseFolderScanSession) -> dict[str, Any]:
         payload = dict(session.result_payload or {})
         summary = payload.get("summary") or {}
-        candidates = payload.get("candidates") or []
+        candidates = self._normalize_candidates_for_scan_scope(payload.get("candidates") or [], payload)
         stage_result = payload.get("stage_result") or {}
         prefill_map = stage_result.get("prefill_map") or {}
+        scan_subfolder = self._extract_scan_subfolder(payload)
+        enable_recognition = self._extract_enable_recognition(payload)
 
         return {
             "session_id": str(session.id),
             "status": session.status,
             "progress": int(session.progress or 0),
             "current_file": session.current_file or "",
+            "scan_subfolder": scan_subfolder,
+            "enable_recognition": enable_recognition,
             "summary": {
                 "total_files": int(summary.get("total_files", 0) or 0),
                 "deduped_files": int(summary.get("deduped_files", 0) or 0),
@@ -135,7 +198,7 @@ class CaseFolderScanService:
         )
 
         uploads: list[SimpleUploadedFile] = []
-        prefill_entries: list[dict[str, str]] = []
+        prefill_entries: list[dict[str, Any]] = []
 
         for item in selected_items:
             source_path = str(item.get("source_path") or "").strip()
@@ -162,11 +225,28 @@ class CaseFolderScanService:
             if category != "party" or side not in {"our", "opponent"}:
                 side = ""
 
+            supervising_authority_id: int | None = None
+            if category == "non_party":
+                supervising_authority_id = self._to_int(item.get("supervising_authority_id"))
+
+            party_ids: list[int] = []
+            if category == "party":
+                raw_party_ids = item.get("party_ids") or []
+                if isinstance(raw_party_ids, list):
+                    seen_party_ids: set[int] = set()
+                    for raw_pid in raw_party_ids:
+                        pid = self._to_int(raw_pid)
+                        if pid and pid not in seen_party_ids:
+                            seen_party_ids.add(pid)
+                            party_ids.append(pid)
+
             prefill_entries.append(
                 {
                     "category": category,
                     "side": side,
                     "type_name_hint": str(item.get("type_name_hint") or "").strip(),
+                    "supervising_authority_id": supervising_authority_id,
+                    "party_ids": party_ids,
                 }
             )
 
@@ -178,7 +258,7 @@ class CaseFolderScanService:
             perm_open_access=perm_open_access,
         )
 
-        prefill_map: dict[str, dict[str, str]] = {}
+        prefill_map: dict[str, dict[str, Any]] = {}
         for attachment, prefill in zip(created_attachments, prefill_entries, strict=True):
             prefill_map[str(attachment.id)] = prefill
 
@@ -219,6 +299,13 @@ class CaseFolderScanService:
 
         try:
             binding = self._get_accessible_binding(session.case_id)
+            payload = dict(session.result_payload or {})
+            scan_scope = self._resolve_scan_scope(
+                binding.folder_path,
+                self._extract_scan_subfolder(payload),
+            )
+            enable_recognition = self._extract_enable_recognition(payload)
+            classification_context = self._build_classification_context(session.case)
 
             def _progress(status: str, progress: int, current_file: str | None) -> None:
                 mapped_status = CaseFolderScanStatus.RUNNING
@@ -235,10 +322,14 @@ class CaseFolderScanService:
                 )
 
             result = self._scan_service.scan_folder(
-                folder_path=binding.folder_path,
+                folder_path=scan_scope["scan_folder"],
                 domain="case",
                 progress_callback=_progress,
+                enable_recognition=enable_recognition,
+                classification_context=classification_context,
             )
+            result["scan_scope"] = scan_scope
+            result["scan_options"] = {"enable_recognition": enable_recognition}
 
             CaseFolderScanSession.objects.filter(id=session.id).update(
                 status=CaseFolderScanStatus.COMPLETED,
@@ -273,6 +364,132 @@ class CaseFolderScanService:
             raise ValidationException(message=_("绑定文件夹不可访问"), errors={"folder_path": binding.folder_path})
 
         return binding
+
+    def _extract_scan_subfolder(self, payload: dict[str, Any] | None) -> str:
+        scope = (payload or {}).get("scan_scope") or {}
+        return str(scope.get("scan_subfolder") or "").strip()
+
+    def _normalize_candidates_for_scan_scope(
+        self,
+        candidates: list[dict[str, Any]],
+        payload: dict[str, Any] | None,
+    ) -> list[dict[str, Any]]:
+        if not candidates:
+            return []
+        if not self._should_force_our_party_for_filing_materials(payload):
+            return candidates
+
+        normalized: list[dict[str, Any]] = []
+        for item in candidates:
+            candidate = dict(item or {})
+            candidate["suggested_category"] = "party"
+            candidate["suggested_side"] = "our"
+            if not str(candidate.get("reason") or "").strip():
+                candidate["reason"] = "命中目录规则：立案材料目录默认归类为我方当事人材料"
+            normalized.append(candidate)
+        return normalized
+
+    def _should_force_our_party_for_filing_materials(self, payload: dict[str, Any] | None) -> bool:
+        scope = (payload or {}).get("scan_scope") or {}
+        scan_subfolder = str(scope.get("scan_subfolder") or "").strip()
+        scan_folder = str(scope.get("scan_folder") or "").strip()
+        return ("立案材料" in scan_subfolder) or ("立案材料" in scan_folder)
+
+    def _extract_enable_recognition(self, payload: dict[str, Any] | None) -> bool:
+        options = (payload or {}).get("scan_options") or {}
+        if "enable_recognition" not in options:
+            return True
+        return bool(options.get("enable_recognition"))
+
+    def _resolve_scan_scope(self, root_folder: str, scan_subfolder: str) -> dict[str, str]:
+        root = Path(root_folder).expanduser().resolve()
+        normalized_subfolder = self._normalize_scan_subfolder(scan_subfolder)
+
+        scan_path = root
+        if normalized_subfolder:
+            scan_path = (root / normalized_subfolder).resolve()
+            if not self._is_within_root(root, scan_path):
+                raise ValidationException(
+                    message=_("扫描子文件夹越界"),
+                    errors={"scan_subfolder": normalized_subfolder},
+                )
+            if not scan_path.exists() or not scan_path.is_dir():
+                raise ValidationException(
+                    message=_("扫描子文件夹不可访问"),
+                    errors={"scan_subfolder": normalized_subfolder},
+                )
+
+        return {
+            "root_folder": root.as_posix(),
+            "scan_folder": scan_path.as_posix(),
+            "scan_subfolder": normalized_subfolder,
+        }
+
+    def _normalize_scan_subfolder(self, scan_subfolder: str) -> str:
+        raw = str(scan_subfolder or "").strip().replace("\\", "/")
+        if not raw:
+            return ""
+        if raw.startswith("/") or raw.startswith("~") or re.match(r"^[A-Za-z]:/", raw):
+            raise ValidationException(message=_("扫描子文件夹必须使用相对路径"), errors={"scan_subfolder": raw})
+
+        parts = [part for part in raw.split("/") if part not in {"", "."}]
+        if not parts:
+            return ""
+        if any(part == ".." for part in parts):
+            raise ValidationException(message=_("扫描子文件夹路径非法"), errors={"scan_subfolder": raw})
+        return "/".join(parts)
+
+    def _is_within_root(self, root: Path, target: Path) -> bool:
+        try:
+            return os.path.commonpath([root.as_posix(), target.as_posix()]) == root.as_posix()
+        except ValueError:
+            return False
+
+    def _build_classification_context(self, case: Case) -> dict[str, Any]:
+        our_party_ids: list[int] = []
+        opponent_party_ids: list[int] = []
+        our_party_names: list[str] = []
+        opponent_party_names: list[str] = []
+
+        for party in case.parties.select_related("client").all():
+            client = getattr(party, "client", None)
+            if not client:
+                continue
+            party_id = int(getattr(party, "id", 0) or 0)
+            party_name = str(getattr(client, "name", "") or "").strip()
+            is_our = bool(getattr(client, "is_our_client", False))
+            if is_our:
+                if party_id:
+                    our_party_ids.append(party_id)
+                if party_name:
+                    our_party_names.append(party_name)
+            else:
+                if party_id:
+                    opponent_party_ids.append(party_id)
+                if party_name:
+                    opponent_party_names.append(party_name)
+
+        authority_ids = [int(auth.id) for auth in case.supervising_authorities.all()]
+        primary_authority_id = authority_ids[0] if authority_ids else None
+
+        return {
+            "our_party_ids": our_party_ids,
+            "opponent_party_ids": opponent_party_ids,
+            "our_party_names": our_party_names,
+            "opponent_party_names": opponent_party_names,
+            "supervising_authority_ids": authority_ids,
+            "primary_supervising_authority_id": primary_authority_id,
+        }
+
+    @staticmethod
+    def _to_int(value: Any) -> int | None:
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError):
+            return None
+        if parsed <= 0:
+            return None
+        return parsed
 
     @staticmethod
     def _build_materials_url(*, case_id: int, session_id: UUID) -> str:

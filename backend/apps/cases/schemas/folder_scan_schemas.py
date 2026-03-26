@@ -8,12 +8,24 @@ from pydantic import Field
 
 class CaseFolderScanStartIn(Schema):
     rescan: bool = False
+    scan_subfolder: str = ""
+    enable_recognition: bool = False
 
 
 class CaseFolderScanStartOut(Schema):
     session_id: str
     status: str
     task_id: str = ""
+
+
+class CaseFolderScanSubfolderOptionOut(Schema):
+    relative_path: str
+    display_name: str
+
+
+class CaseFolderScanSubfolderListOut(Schema):
+    root_path: str
+    subfolders: list[CaseFolderScanSubfolderOptionOut]
 
 
 class CaseFolderScanSummaryOut(Schema):
@@ -34,9 +46,19 @@ class CaseFolderScanCandidateOut(Schema):
     suggested_category: str = "unknown"
     suggested_side: str = "unknown"
     type_name_hint: str = ""
+    suggested_supervising_authority_id: int | None = None
+    suggested_party_ids: list[int] = Field(default_factory=list)
     confidence: float = 0.0
     reason: str = ""
     selected: bool = True
+
+
+class CaseFolderScanPrefillOut(Schema):
+    category: str = ""
+    side: str = ""
+    type_name_hint: str = ""
+    supervising_authority_id: int | None = None
+    party_ids: list[int] = Field(default_factory=list)
 
 
 class CaseFolderScanStatusOut(Schema):
@@ -44,10 +66,12 @@ class CaseFolderScanStatusOut(Schema):
     status: str
     progress: int
     current_file: str = ""
+    scan_subfolder: str = ""
+    enable_recognition: bool = False
     summary: CaseFolderScanSummaryOut
     candidates: list[CaseFolderScanCandidateOut]
     error_message: str = ""
-    prefill_map: dict[str, dict[str, str]] = Field(default_factory=dict)
+    prefill_map: dict[str, CaseFolderScanPrefillOut] = Field(default_factory=dict)
 
 
 class CaseFolderScanStageItemIn(Schema):
@@ -56,6 +80,8 @@ class CaseFolderScanStageItemIn(Schema):
     category: str = "unknown"
     side: str = "unknown"
     type_name_hint: str = ""
+    supervising_authority_id: int | None = None
+    party_ids: list[int] = Field(default_factory=list)
 
 
 class CaseFolderScanStageIn(Schema):
@@ -68,14 +94,17 @@ class CaseFolderScanStageOut(Schema):
     log_id: int
     attachment_ids: list[int]
     materials_url: str
-    prefill_map: dict[str, dict[str, str]] = Field(default_factory=dict)
+    prefill_map: dict[str, CaseFolderScanPrefillOut] = Field(default_factory=dict)
 
 
 __all__ = [
     "CaseFolderScanStartIn",
     "CaseFolderScanStartOut",
+    "CaseFolderScanSubfolderOptionOut",
+    "CaseFolderScanSubfolderListOut",
     "CaseFolderScanSummaryOut",
     "CaseFolderScanCandidateOut",
+    "CaseFolderScanPrefillOut",
     "CaseFolderScanStatusOut",
     "CaseFolderScanStageItemIn",
     "CaseFolderScanStageIn",

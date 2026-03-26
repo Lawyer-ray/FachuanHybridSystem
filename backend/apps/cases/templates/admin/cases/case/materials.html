@@ -3,7 +3,7 @@
 
 {% block extrahead %}
 {{ block.super }}
-<link rel="stylesheet" type="text/css" href="{% static 'cases/css/case_materials_manage.css' %}?v=20260319a">
+<link rel="stylesheet" type="text/css" href="{% static 'cases/css/case_materials_manage.css' %}?v=20260326d">
 {% endblock %}
 
 {% block content_title %}{% endblock %}
@@ -22,6 +22,7 @@
 <div class="case-materials-manage-page"
      x-data="caseMaterialsManageApp({
         caseId: {{ case.pk }},
+        detailUrl: '{{ detail_url|escapejs }}',
         partyTypes: JSON.parse('{{ party_types_json|escapejs }}'),
         nonPartyTypes: JSON.parse('{{ non_party_types_json|escapejs }}'),
         ourParties: JSON.parse('{{ our_case_parties_json|escapejs }}'),
@@ -32,13 +33,17 @@
         scanTexts: {
             scanningFolder: '{% trans "正在扫描文件夹" %}',
             extractingText: '{% trans "正在提取文本" %}',
-            classifying: '{% trans "正在 AI 分类" %}',
+            classifying: '{% trans "正在材料分类" %}',
             completed: '{% trans "扫描完成" %}',
             failed: '{% trans "扫描失败" %}',
             noBinding: '{% trans "未绑定文件夹" %}',
             folderInaccessible: '{% trans "绑定文件夹不可访问" %}',
             noPdf: '{% trans "未找到可导入的 PDF" %}',
             aiUnavailable: '{% trans "AI 分类不可用，请手动确认" %}',
+            loadSubfoldersFailed: '{% trans "加载子文件夹失败" %}',
+            needSelectSubfolder: '{% trans "请选择要扫描的子文件夹" %}',
+            noSubfolderOptions: '{% trans "当前目录下没有可选子文件夹，将扫描全部内容" %}',
+            recognitionDisabled: '{% trans "已关闭 OCR 与智能识别，仅按文件名/路径关键词预分类" %}',
             importFailed: '{% trans "导入失败，请稍后重试" %}'
         }
      })"
@@ -53,15 +58,19 @@
         </div>
 
         <div class="materials-manage-actions">
-            <button type="button" class="button default" @click="save()">{% trans "保存" %}</button>
+            <button type="button" class="button default" :disabled="isSaving || isScanning || isStaging" @click="save()">
+                <span x-text="isSaving ? '{% trans "保存中..." %}' : '{% trans "保存" %}'">{% trans "保存" %}</span>
+            </button>
         </div>
     </header>
+
+    <div class="materials-manage-message" x-show="message" x-transition :class="messageType" x-text="message" aria-live="polite"></div>
 
     <section class="cm-card cm-scan-card">
         <div class="cm-card-header cm-scan-header">
             <div>
                 <div class="cm-card-title">{% trans "从绑定文件夹捕获" %}</div>
-                <div class="cm-card-subtitle">{% trans "扫描绑定目录中的 PDF，导入附件池后继续使用当前页面完成材料绑定。" %}</div>
+                <div class="cm-card-subtitle">{% trans "扫描绑定目录中的 PDF。扫描完成后直接点击右上角“保存”，系统会自动导入并完成材料绑定。" %}</div>
             </div>
             <div class="cm-actions">
                 <button type="button"
@@ -72,16 +81,55 @@
                         class="button"
                         :disabled="isScanning"
                         @click="startFolderScan(true)">{% trans "重新扫描" %}</button>
-                <button type="button"
-                        class="button default"
-                        :disabled="isScanning || isStaging || !selectedScanCount"
-                        @click="stageSelectedScanCandidates()">{% trans "导入附件" %}</button>
             </div>
         </div>
 
         <div class="cm-scan-status" x-show="scanStatusText">
             <span class="cm-status-pill" :class="scanStatusClass" x-text="scanStatusText"></span>
             <span class="cm-scan-file" x-show="scanCurrentFile" x-text="scanCurrentFile"></span>
+            <span class="cm-scan-scope" x-show="scanScopeDisplay" x-text="scanScopeDisplay"></span>
+        </div>
+
+        <div class="cm-scan-options">
+            <div class="cm-scan-option-row">
+                <span class="cm-label">{% trans "扫描范围" %}</span>
+                <label class="cm-radio-inline">
+                    <input type="radio" name="cm-scan-scope-mode" value="all" x-model="scanScopeMode" />
+                    <span>{% trans "全部文件夹" %}</span>
+                </label>
+                <label class="cm-radio-inline">
+                    <input type="radio"
+                           name="cm-scan-scope-mode"
+                           value="subfolder"
+                           :disabled="!scanSubfolderOptions.length || isLoadingScanSubfolders"
+                           x-model="scanScopeMode" />
+                    <span>{% trans "指定子文件夹" %}</span>
+                </label>
+            </div>
+            <div class="cm-scan-option-row" x-show="scanScopeMode === 'subfolder'">
+                <label class="cm-label" for="cm-scan-subfolder-select">{% trans "子文件夹" %}</label>
+                <select id="cm-scan-subfolder-select"
+                        x-model="scanSubfolder"
+                        :disabled="isLoadingScanSubfolders || !scanSubfolderOptions.length">
+                    <option value="">{% trans "请选择子文件夹" %}</option>
+                    <template x-for="item in scanSubfolderOptions" :key="item.relative_path">
+                        <option :value="item.relative_path" x-text="item.display_name"></option>
+                    </template>
+                </select>
+            </div>
+            <div class="cm-scan-tip" x-show="scanRootPath">
+                <span>{% trans "扫描根目录" %}：</span>
+                <code x-text="scanRootPath"></code>
+            </div>
+            <div class="cm-scan-option-row">
+                <label class="cm-check">
+                    <input id="cm-scan-enable-recognition" type="checkbox" x-model="scanEnableRecognition" />
+                    <span>{% trans "启用 OCR/PDF 识别与智能分类（较慢）" %}</span>
+                </label>
+            </div>
+            <div class="cm-scan-tip" x-show="!scanEnableRecognition">
+                {% trans "默认关闭识别，仅按文件名与路径关键词规则预分类，可显著提升扫描速度。" %}
+            </div>
         </div>
 
         <div class="cm-scan-progress" x-show="isScanning">
@@ -109,7 +157,7 @@
                 <table class="cm-scan-table">
                     <thead>
                         <tr>
-                            <th style="width: 52px;">{% trans "导入" %}</th>
+                            <th style="width: 52px;">{% trans "保存" %}</th>
                             <th>{% trans "文件" %}</th>
                             <th style="width: 140px;">{% trans "材料大类" %}</th>
                             <th style="width: 160px;">{% trans "方向" %}</th>
@@ -298,8 +346,6 @@
         </section>
     </div>
 
-    <div class="materials-manage-message" x-show="message" :class="messageType" x-text="message"></div>
-
     <div class="materials-table-wrapper">
         <table class="materials-table">
             <thead>
@@ -389,5 +435,5 @@
 </div>
 
 {% csrf_token %}
-<script src="{% static 'cases/js/case_materials_manage.js' %}?v=20260319a"></script>
+<script src="{% static 'cases/js/case_materials_manage.js' %}?v=20260326d"></script>
 {% endblock %}

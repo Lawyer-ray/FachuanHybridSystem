@@ -24,6 +24,8 @@
   function normalizeCandidate(candidate, prefill) {
     const material = candidate.material || null;
     const draft = prefill || {};
+    const draftPartyIds = Array.isArray(draft.party_ids) ? draft.party_ids.map(String) : [];
+    const draftAuthorityId = draft.supervising_authority_id ? String(draft.supervising_authority_id) : '';
     const row = {
       attachmentId: candidate.attachment_id,
       fileName: candidate.file_name,
@@ -35,8 +37,8 @@
       category: material ? material.category : (draft.category || ''),
       lastCategory: material ? material.category : (draft.category || ''),
       side: material ? (material.side || '') : (draft.side || ''),
-      partyIds: material ? (material.party_ids || []).map(String) : [],
-      supervisingAuthorityId: material ? (material.supervising_authority_id || '') : '',
+      partyIds: material ? (material.party_ids || []).map(String) : draftPartyIds,
+      supervisingAuthorityId: material ? (material.supervising_authority_id || '') : draftAuthorityId,
       typeSelect: material && material.type_id ? String(material.type_id) : '',
       customTypeName: material && !material.type_id ? (material.type_name || '') : (draft.type_name_hint || ''),
     };
@@ -72,6 +74,7 @@
     Alpine.data('caseMaterialsManageApp', function (config) {
       return {
         caseId: config.caseId,
+        detailUrl: config.detailUrl || '',
         partyTypes: config.partyTypes || [],
         nonPartyTypes: config.nonPartyTypes || [],
         ourParties: config.ourParties || [],
@@ -81,11 +84,13 @@
         rows: [],
         isLoading: false,
         isUploading: false,
+        isSaving: false,
         isDragging: false,
         flashDropzone: false,
         recentUploadedCount: 0,
         message: '',
         messageType: 'success',
+        messageTimer: null,
         uploadCategory: 'party',
         lastUploadedIds: [],
         pendingFiles: [],
@@ -109,8 +114,16 @@
         scanPollTimer: null,
         isScanning: false,
         isStaging: false,
+        isLoadingScanSubfolders: false,
         scanStatusMessage: '',
         scanErrorMessage: '',
+        scanScopeMode: 'all',
+        scanRootPath: '',
+        scanSubfolderOptions: [],
+        scanSubfolder: '',
+        scanSubfoldersLoaded: false,
+        scanEnableRecognition: false,
+        redirectTimer: null,
 
         get uploadButtonText() {
           if (this.isUploading) return '上传中...';
@@ -144,7 +157,7 @@
           if (this.scanStatusMessage) return this.scanStatusMessage;
           if (this.scanErrorMessage) return this.scanErrorMessage;
           if (this.scanStatus === 'running') return this.scanTexts.scanningFolder || '正在扫描文件夹';
-          if (this.scanStatus === 'classifying') return this.scanTexts.classifying || '正在 AI 分类';
+          if (this.scanStatus === 'classifying') return this.scanTexts.classifying || '正在材料分类';
           if (this.scanStatus === 'completed' || this.scanStatus === 'staged') return this.scanTexts.completed || '扫描完成';
           if (this.scanStatus === 'failed') return this.scanTexts.failed || '扫描失败';
           return '';
@@ -154,6 +167,11 @@
           if (this.scanStatus === 'failed') return 'is-error';
           if (this.scanStatus === 'completed' || this.scanStatus === 'staged') return 'is-success';
           return 'is-pending';
+        },
+
+        get scanScopeDisplay() {
+          if (!this.scanSubfolder) return '扫描范围：全部文件夹';
+          return `扫描范围：${this.scanSubfolder}`;
         },
 
         get filteredRows() {
@@ -205,17 +223,37 @@
             this.scanPanelVisible = true;
           }
           this.load();
+          if (this.scanPanelVisible) {
+            this.loadScanSubfolders(false);
+          }
           if (this.scanSessionId) {
             this.fetchScanStatus(this.scanSessionId, true);
           }
         },
 
         showMessage(message, type) {
+          if (this.messageTimer) {
+            window.clearTimeout(this.messageTimer);
+            this.messageTimer = null;
+          }
           this.message = message;
           this.messageType = type || 'success';
-          window.setTimeout(() => {
+          this.messageTimer = window.setTimeout(() => {
             this.message = '';
-          }, 4000);
+            this.messageTimer = null;
+          }, 5000);
+        },
+
+        redirectToDetailAfterSave() {
+          if (!this.detailUrl) return;
+          if (this.redirectTimer) {
+            window.clearTimeout(this.redirectTimer);
+            this.redirectTimer = null;
+          }
+          this.redirectTimer = window.setTimeout(() => {
+            this.redirectTimer = null;
+            window.location.href = this.detailUrl;
+          }, 900);
         },
 
         authTitle(auth) {
@@ -447,7 +485,7 @@
 
         load() {
           this.isLoading = true;
-          fetch(`/api/v1/cases/${this.caseId}/materials/bind-candidates`, {
+          return fetch(`/api/v1/cases/${this.caseId}/materials/bind-candidates`, {
             headers: { 'X-CSRFToken': getCsrfToken() },
           })
             .then((resp) => {
@@ -481,10 +519,70 @@
           this.scanPollTimer = null;
         },
 
-        startFolderScan(rescan) {
+        async loadScanSubfolders(forceReload) {
+          if (!forceReload && this.scanSubfoldersLoaded) return;
+          this.isLoadingScanSubfolders = true;
+          try {
+            const resp = await fetch(`/api/v1/cases/${this.caseId}/folder-scan/subfolders`, {
+              headers: { 'X-CSRFToken': getCsrfToken() },
+            });
+            const data = await resp.json().catch(() => ({}));
+            if (!resp.ok) {
+              throw new Error(data.message || data.detail || this.scanTexts.loadSubfoldersFailed || '加载子文件夹失败');
+            }
+
+            this.scanRootPath = (data && data.root_path) || '';
+            this.scanSubfolderOptions = Array.isArray(data && data.subfolders) ? data.subfolders : [];
+            const validSet = new Set((this.scanSubfolderOptions || []).map((item) => item.relative_path));
+            if (!validSet.has(this.scanSubfolder)) {
+              this.scanSubfolder = '';
+            }
+            if (!this.scanSubfolderOptions.length) {
+              this.scanScopeMode = 'all';
+            }
+            this.scanSubfoldersLoaded = true;
+          } catch (err) {
+            this.scanSubfolderOptions = [];
+            this.scanSubfolder = '';
+            this.scanScopeMode = 'all';
+            this.scanSubfoldersLoaded = false;
+            this.scanErrorMessage = (err && err.message) || (this.scanTexts.loadSubfoldersFailed || '加载子文件夹失败');
+          } finally {
+            this.isLoadingScanSubfolders = false;
+          }
+        },
+
+        buildScanPayload(rescan) {
+          const payload = {
+            rescan: Boolean(rescan),
+            scan_subfolder: '',
+            enable_recognition: Boolean(this.scanEnableRecognition),
+          };
+
+          if (this.scanScopeMode !== 'subfolder') return payload;
+          if (!Array.isArray(this.scanSubfolderOptions) || !this.scanSubfolderOptions.length) {
+            this.scanScopeMode = 'all';
+            this.scanSubfolder = '';
+            this.showMessage(this.scanTexts.noSubfolderOptions || '当前目录下没有可选子文件夹，将扫描全部内容', 'success');
+            return payload;
+          }
+          if (!this.scanSubfolder) {
+            this.scanErrorMessage = this.scanTexts.needSelectSubfolder || '请选择要扫描的子文件夹';
+            return null;
+          }
+
+          payload.scan_subfolder = this.scanSubfolder;
+          return payload;
+        },
+
+        async startFolderScan(rescan) {
           this.scanPanelVisible = true;
           this.scanErrorMessage = '';
           this.scanStatusMessage = '';
+          await this.loadScanSubfolders(false);
+          const payload = this.buildScanPayload(rescan);
+          if (!payload) return;
+
           this.isScanning = true;
           this.clearScanPollTimer();
           fetch(`/api/v1/cases/${this.caseId}/folder-scan`, {
@@ -493,7 +591,7 @@
               'Content-Type': 'application/json',
               'X-CSRFToken': getCsrfToken(),
             },
-            body: JSON.stringify({ rescan: Boolean(rescan) }),
+            body: JSON.stringify(payload),
           })
             .then(async (resp) => {
               const data = await resp.json().catch(() => ({}));
@@ -536,6 +634,9 @@
               this.scanStatus = (data && data.status) || '';
               this.scanProgress = (data && data.progress) || 0;
               this.scanCurrentFile = (data && data.current_file) || '';
+              this.scanSubfolder = (data && data.scan_subfolder) || '';
+              this.scanScopeMode = this.scanSubfolder ? 'subfolder' : 'all';
+              this.scanEnableRecognition = Boolean(data && data.enable_recognition);
               this.scanSummary = (data && data.summary) || { total_files: 0, deduped_files: 0, classified_files: 0 };
               this.scanCandidates = this.normalizeScanCandidates((data && data.candidates) || []);
               this.scanErrorMessage = (data && data.error_message) || '';
@@ -572,6 +673,12 @@
           return (candidates || []).map((candidate) => {
             const category = ['party', 'non_party'].includes(candidate.suggested_category) ? candidate.suggested_category : '';
             const side = category === 'party' && ['our', 'opponent'].includes(candidate.suggested_side) ? candidate.suggested_side : '';
+            const partyIds = Array.isArray(candidate.suggested_party_ids)
+              ? candidate.suggested_party_ids
+                  .map((item) => parseInt(item, 10))
+                  .filter((item) => Number.isInteger(item) && item > 0)
+              : [];
+            const supervisingAuthorityIdRaw = parseInt(candidate.suggested_supervising_authority_id, 10);
             return {
               source_path: candidate.source_path,
               filename: candidate.filename,
@@ -579,13 +686,19 @@
               category: category,
               side: side,
               type_name_hint: candidate.type_name_hint || '',
+              party_ids: category === 'party' ? partyIds : [],
+              supervising_authority_id:
+                category === 'non_party' && Number.isInteger(supervisingAuthorityIdRaw) && supervisingAuthorityIdRaw > 0
+                  ? supervisingAuthorityIdRaw
+                  : null,
               reason: candidate.reason || '',
             };
           });
         },
 
-        stageSelectedScanCandidates() {
-          if (this.isStaging || !this.scanSessionId) return;
+        async stageSelectedScanCandidates(options) {
+          const silent = Boolean(options && options.silent);
+          if (this.isStaging || !this.scanSessionId) return null;
           const items = (this.scanCandidates || [])
             .filter((candidate) => candidate.selected)
             .map((candidate) => ({
@@ -594,51 +707,62 @@
               category: candidate.category || 'unknown',
               side: candidate.side || 'unknown',
               type_name_hint: candidate.type_name_hint || '',
+              supervising_authority_id: candidate.category === 'non_party' ? candidate.supervising_authority_id || null : null,
+              party_ids: candidate.category === 'party' ? candidate.party_ids || [] : [],
             }));
 
           if (!items.length) {
-            this.showMessage(this.scanTexts.noPdf || '未找到可导入的 PDF', 'error');
-            return;
+            const message = this.scanTexts.noPdf || '未找到可导入的 PDF';
+            if (!silent) this.showMessage(message, 'error');
+            throw new Error(message);
           }
 
           this.isStaging = true;
-          fetch(`/api/v1/cases/${this.caseId}/folder-scan/${this.scanSessionId}/stage`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-CSRFToken': getCsrfToken(),
-            },
-            body: JSON.stringify({ items }),
-          })
-            .then(async (resp) => {
-              const data = await resp.json().catch(() => ({}));
-              if (!resp.ok) {
-                throw new Error(data.message || data.detail || this.scanTexts.importFailed || '导入失败，请稍后重试');
-              }
-              return data;
-            })
-            .then((data) => {
-              this.scanStatus = (data && data.status) || 'staged';
-              this.scanSessionId = (data && data.session_id) || this.scanSessionId;
-              this.scanPrefillMap = (data && data.prefill_map) || {};
-              this.prefillAppliedSessionId = this.scanSessionId;
-              this.lastUploadedIds = (data && data.attachment_ids) || [];
-
-              if (data && data.materials_url) {
-                window.history.replaceState({}, '', data.materials_url);
-              } else {
-                this.syncScanSessionToUrl(this.scanSessionId);
-              }
-
-              this.showMessage('导入附件成功，请完善分类后保存', 'success');
-              this.load();
-            })
-            .catch((err) => {
-              this.showMessage((err && err.message) || (this.scanTexts.importFailed || '导入失败，请稍后重试'), 'error');
-            })
-            .finally(() => {
-              this.isStaging = false;
+          try {
+            const resp = await fetch(`/api/v1/cases/${this.caseId}/folder-scan/${this.scanSessionId}/stage`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken(),
+              },
+              body: JSON.stringify({ items }),
             });
+            const data = await resp.json().catch(() => ({}));
+            if (!resp.ok) {
+              throw new Error(data.message || data.detail || this.scanTexts.importFailed || '导入失败，请稍后重试');
+            }
+
+            this.scanStatus = (data && data.status) || 'staged';
+            this.scanSessionId = (data && data.session_id) || this.scanSessionId;
+            this.scanPrefillMap = (data && data.prefill_map) || {};
+            this.prefillAppliedSessionId = this.scanSessionId;
+            this.lastUploadedIds = (data && data.attachment_ids) || [];
+
+            if (data && data.materials_url) {
+              window.history.replaceState({}, '', data.materials_url);
+            } else {
+              this.syncScanSessionToUrl(this.scanSessionId);
+            }
+
+            await this.load();
+            if (!silent) {
+              this.showMessage('导入附件成功，请完善分类后保存', 'success');
+            }
+            return data;
+          } catch (err) {
+            if (!silent) {
+              this.showMessage((err && err.message) || (this.scanTexts.importFailed || '导入失败，请稍后重试'), 'error');
+            }
+            throw err;
+          } finally {
+            this.isStaging = false;
+          }
+        },
+
+        async ensureScanPreparedForSave() {
+          if (!this.scanSessionId || !(this.scanCandidates || []).length) return;
+          if (this.scanStatus === 'staged') return;
+          await this.stageSelectedScanCandidates({ silent: true });
         },
 
         syncScanSessionToUrl(sessionId) {
@@ -694,35 +818,42 @@
           return { items };
         },
 
-        save() {
-          let payload;
+        async save() {
+          if (this.isSaving) return;
+          this.isSaving = true;
+
           try {
-            payload = this.buildBindPayload();
-          } catch (e) {
-            this.showMessage(e.message || '保存参数不完整', 'error');
-            return;
-          }
-          fetch(`/api/v1/cases/${this.caseId}/materials/bind`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-CSRFToken': getCsrfToken(),
-            },
-            body: JSON.stringify(payload),
-          })
-            .then((resp) => {
-              if (!resp.ok) throw new Error('save failed');
-              return resp.json();
-            })
-            .then((data) => {
-              const count = (data && data.saved_count) || 0;
-              this.showMessage(`已保存 ${count} 条材料分类`, 'success');
-              this.lastUploadedIds = [];
-              this.load();
-            })
-            .catch(() => {
-              this.showMessage('保存失败', 'error');
+            await this.ensureScanPreparedForSave();
+            let payload;
+            try {
+              payload = this.buildBindPayload();
+            } catch (e) {
+              throw new Error(e.message || '保存参数不完整');
+            }
+
+            if (!Array.isArray(payload.items) || !payload.items.length) {
+              throw new Error('没有可保存的材料。请先扫描文件或上传附件。');
+            }
+
+            const resp = await fetch(`/api/v1/cases/${this.caseId}/materials/bind`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken(),
+              },
+              body: JSON.stringify(payload),
             });
+            if (!resp.ok) throw new Error('保存失败');
+            const data = await resp.json();
+            const count = (data && data.saved_count) || 0;
+            this.showMessage(`已保存 ${count} 条材料分类，正在返回案件详情...`, 'success');
+            this.lastUploadedIds = [];
+            this.redirectToDetailAfterSave();
+          } catch (err) {
+            this.showMessage((err && err.message) || '保存失败', 'error');
+          } finally {
+            this.isSaving = false;
+          }
         },
 
         upload() {

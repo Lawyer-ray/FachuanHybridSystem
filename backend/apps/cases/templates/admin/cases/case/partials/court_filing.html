@@ -29,6 +29,21 @@
                             <span style="font-weight: 500;" x-text="caseInfo.target_amount ? '¥' + caseInfo.target_amount : '-'"></span>
                         </div>
                     </div>
+                    <div style="margin-top: 10px; font-size: 12px; color: #475569;">
+                        <span style="color: #6b7280;">{% translate "立案类型" %}：</span>
+                        <span x-text="caseInfo.suggested_filing_type === 'execution' ? '{% trans "申请执行" %}' : '{% trans "民事一审" %}'"></span>
+                    </div>
+                    <div style="margin-top: 10px; font-size: 12px; color: #475569; display: flex; align-items: center; gap: 14px;">
+                        <span style="color: #6b7280;">{% translate "立案引擎" %}：</span>
+                        <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
+                            <input type="radio" name="filing_engine" value="api" x-model="filingEngine" :disabled="executing">
+                            <span>API（{% translate "默认" %}）</span>
+                        </label>
+                        <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
+                            <input type="radio" name="filing_engine" value="playwright" x-model="filingEngine" :disabled="executing">
+                            <span>Playwright</span>
+                        </label>
+                    </div>
                 </div>
 
                 <!-- 操作按钮 -->
@@ -74,6 +89,7 @@
             loading: false,
             executing: false,
             lastResult: null,
+            filingEngine: 'api',
 
             async init() {
                 await this.loadCaseInfo();
@@ -85,6 +101,7 @@
                     const resp = await fetch(`/api/v1/court-filing/case-info/${this.caseId}`);
                     if (resp.ok) {
                         this.caseInfo = await resp.json();
+                        this.filingEngine = this.caseInfo.default_filing_engine || 'api';
                     }
                 } catch (e) {
                     console.error('loadCaseInfo error:', e);
@@ -104,7 +121,11 @@
                             'Content-Type': 'application/json',
                             'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
                         },
-                        body: JSON.stringify({ case_id: this.caseId })
+                        body: JSON.stringify({
+                            case_id: this.caseId,
+                            filing_type: this.caseInfo.suggested_filing_type || 'civil',
+                            filing_engine: this.filingEngine || 'api'
+                        })
                     });
                     const data = await resp.json();
                     this.lastResult = data;
