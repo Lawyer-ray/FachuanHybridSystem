@@ -62,18 +62,24 @@ repos:
     hooks:
       - id: forbid-added-todo-markers
         name: Forbid added TODO markers
-        entry: python backend/scripts/refactoring/structure_precommit_guardrails.py --check todo
+        entry: python backend/devtools/security_guard.py --check todo --mode staged
         language: python
         types: [python]
 
       - id: forbid-added-print
         name: Forbid added print/pprint
-        entry: python backend/scripts/refactoring/structure_precommit_guardrails.py --check print
+        entry: python backend/devtools/security_guard.py --check print --mode staged
         language: python
         types: [python]
 
       - id: forbid-source-binary-artifacts
         name: Forbid source binary artifacts (.onnx/.mp4/.zip)
-        entry: python backend/scripts/refactoring/structure_precommit_guardrails.py --check binary-ext
+        entry: python backend/devtools/security_guard.py --check binary-ext --mode staged
         language: python
         pass_filenames: false
+
+      - id: forbid-sensitive-patterns
+        name: Forbid sensitive patterns (ID/password/token)
+        entry: python backend/devtools/security_guard.py --check sensitive --mode staged
+        language: python
+        files: .*

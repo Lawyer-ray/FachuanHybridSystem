@@ -11,6 +11,35 @@ on:
     - cron: "0 2 * * *"
 
 jobs:
+  backend-security-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Security guard (ID/password/token in added lines)
+        run: |
+          set -euo pipefail
+          base=""
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ] && [ -n "${GITHUB_BASE_REF:-}" ]; then
+            git fetch origin "${GITHUB_BASE_REF}" --depth=1
+            base="$(git merge-base HEAD "origin/${GITHUB_BASE_REF}")"
+          else
+            base="$(git rev-parse HEAD~1 2>/dev/null || true)"
+          fi
+          if [ -z "${base}" ]; then
+            echo "No base commit found, skipping diff security guard."
+            exit 0
+          fi
+          python3 backend/devtools/security_guard.py \
+            --check sensitive \
+            --mode range \
+            --base "${base}" \
+            --head HEAD
+
   backend:
     runs-on: ubuntu-latest
     timeout-minutes: 30
