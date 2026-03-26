@@ -31,8 +31,8 @@ class OCRTextResult:
 
 logger = logging.getLogger(__name__)
 
-# 全局 OCR 引擎实例(懒加载)
-_ocr_engine = None
+# 全局 OCR 引擎实例缓存(按模型档位区分,避免 fast/accurate 串用同一引擎)
+_ocr_engine_cache: dict[bool, Any] = {}
 
 
 def get_ocr_engine(use_v5: bool = True) -> Any:
@@ -45,17 +45,16 @@ def get_ocr_engine(use_v5: bool = True) -> Any:
     Returns:
         RapidOCR 实例
     """
-    global _ocr_engine
-
-    if _ocr_engine is not None:
-        return _ocr_engine
+    global _ocr_engine_cache
+    if use_v5 in _ocr_engine_cache:
+        return _ocr_engine_cache[use_v5]
 
     from rapidocr import ModelType, OCRVersion, RapidOCR
 
     if use_v5:
         # 使用 PP-OCRv5 server 模型(精度更高)
         logger.info("初始化 RapidOCR 引擎 (PP-OCRv5 server)")
-        _ocr_engine = RapidOCR(
+        _ocr_engine_cache[use_v5] = RapidOCR(
             params={
                 "Det.ocr_version": OCRVersion.PPOCRV5,
                 "Det.model_type": ModelType.SERVER,
@@ -66,9 +65,9 @@ def get_ocr_engine(use_v5: bool = True) -> Any:
     else:
         # 使用默认 PP-OCRv4 模型
         logger.info("初始化 RapidOCR 引擎 (PP-OCRv4)")
-        _ocr_engine = RapidOCR()
+        _ocr_engine_cache[use_v5] = RapidOCR()
 
-    return _ocr_engine
+    return _ocr_engine_cache[use_v5]
 
 
 class OCRService:

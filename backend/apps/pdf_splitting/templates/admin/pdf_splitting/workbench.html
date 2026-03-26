@@ -1,0 +1,323 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}PDF 拆解{% endblock %}
+
+{% block alpine_script %}{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+.ps-workbench { max-width: 880px; margin: 0 auto; padding: 24px 0 40px; }
+.ps-card { background: #fff; border-radius: 16px; box-shadow: 0 8px 28px rgba(31, 41, 55, 0.08); overflow: hidden; }
+.ps-card-head { padding: 24px 28px; background: linear-gradient(135deg, #12344d 0%, #1b4d73 100%); color: #fff; }
+.ps-card-head h1 { margin: 0; font-size: 24px; }
+.ps-card-head p { margin: 10px 0 0; line-height: 1.7; opacity: .92; }
+.ps-form { padding: 28px; display: grid; gap: 20px; }
+.ps-field label { display: block; margin-bottom: 8px; font-weight: 700; color: #24435b; }
+.ps-field input[type="text"],
+.ps-field input[type="file"] { width: 100%; box-sizing: border-box; border: 1px solid #c9d7e3; border-radius: 10px; padding: 12px 14px; font-size: 14px; background: #fff; }
+.ps-source-box { border: 1px dashed #9db4c8; border-radius: 12px; background: #f8fbfe; padding: 14px; display: grid; gap: 10px; }
+.ps-source-box.is-dragover { border-color: #1b4d73; background: #eef6fd; }
+.ps-file-btn { width: fit-content; border: 1px solid #1b4d73; background: #fff; color: #1b4d73; border-radius: 8px; padding: 8px 12px; font-weight: 700; cursor: pointer; }
+.ps-file-btn:hover { background: #f3f8fc; }
+.ps-drop-title { color: #24435b; font-weight: 700; line-height: 1.5; }
+.ps-selected-file { color: #1f2937; font-size: 13px; line-height: 1.5; }
+.ps-selected-file.is-empty { color: #62788b; }
+.ps-static-field { width: 100%; box-sizing: border-box; border: 1px solid #c9d7e3; border-radius: 10px; padding: 12px 14px; font-size: 14px; background: #fff; color: #1f2937; }
+.ps-radio-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+.ps-radio-card input[type="radio"] { position: absolute; opacity: 0; pointer-events: none; }
+.ps-radio-label { display: grid; gap: 4px; border: 1px solid #c9d7e3; border-radius: 10px; padding: 12px 14px; cursor: pointer; background: #fff; transition: border-color .15s ease, box-shadow .15s ease, background .15s ease; }
+.ps-radio-title { font-weight: 700; color: #1f2937; font-size: 14px; line-height: 1.4; }
+.ps-radio-desc { color: #62788b; font-size: 12px; line-height: 1.5; }
+.ps-radio-card input[type="radio"]:checked + .ps-radio-label { border-color: #1b4d73; box-shadow: inset 0 0 0 1px #1b4d73; background: #f3f8fc; }
+.ps-radio-card input[type="radio"]:focus-visible + .ps-radio-label { outline: 2px solid #1e63b7; outline-offset: 2px; }
+.ps-help { margin-top: 8px; color: #62788b; font-size: 13px; line-height: 1.6; }
+.ps-tip { padding: 16px 18px; border-radius: 12px; background: #f3f8fc; color: #24435b; line-height: 1.7; }
+.ps-actions { display: flex; align-items: center; gap: 12px; }
+.ps-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 140px; padding: 12px 18px; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; text-decoration: none; }
+.ps-btn-primary { background: #1b4d73; color: #fff; }
+.ps-btn-primary:hover { background: #143b59; }
+.ps-btn-secondary { background: #eef3f7; color: #1f2937; }
+.ps-btn-secondary:hover { background: #dde6ee; }
+.ps-error { display: none; padding: 14px 16px; border-radius: 12px; background: #fff2f2; color: #b42318; }
+.ps-error.is-visible { display: block; }
+.ps-loading { display: none; color: #1b4d73; font-weight: 700; }
+.ps-loading.is-visible { display: inline-flex; }
+.ps-field.is-hidden { display: none; }
+</style>
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% trans "首页" %}</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label='pdf_splitting' %}">{% trans "PDF 拆解" %}</a>
+    &rsaquo; {% trans "新建任务" %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="ps-workbench">
+    <div class="ps-card">
+        <div class="ps-card-head">
+            <h1>{% trans "PDF 拆解" %}</h1>
+            <p>{% trans "用于拆解 merged PDF。支持内容识别拆分和纯按页拆分；创建任务后会进入任务详情页查看处理进度。" %}</p>
+        </div>
+
+        <form id="pdfSplitForm" class="ps-form">
+            <div class="ps-tip">
+                {% trans "内容识别拆分：按规则识别材料段后导出；按页拆分：每一页直接拆成独立 PDF 并自动打包 ZIP，不做内容分析。" %}
+            </div>
+
+            <div class="ps-field">
+                <label>{% trans "材料来源（统一入口）" %}</label>
+                <div id="sourceDropzone" class="ps-source-box">
+                    <input type="file" id="splitFile" name="file" accept=".pdf" hidden>
+                    <div class="ps-drop-title">{% trans "拖拽 PDF 到此处，或点击按钮选择文件" %}</div>
+                    <button type="button" id="filePickerBtn" class="ps-file-btn">{% trans "选择文件" %}</button>
+                    <div id="selectedFile" class="ps-selected-file is-empty">{% trans "当前未选择文件" %}</div>
+                </div>
+                <div class="ps-help">{% trans "仅支持上传 PDF（可拖拽）。上传文件最大 150MB，最多 300 页。" %}</div>
+            </div>
+
+            <div class="ps-field">
+                <label>{% trans "拆分模式" %}</label>
+                <div class="ps-radio-grid" role="radiogroup" aria-label="{% trans '拆分模式' %}">
+                    <div class="ps-radio-card">
+                        <input type="radio" id="splitModeContent" name="split_mode" value="content_analysis" checked>
+                        <label class="ps-radio-label" for="splitModeContent">
+                            <span class="ps-radio-title">{% trans "内容识别拆分" %}</span>
+                            <span class="ps-radio-desc">{% trans "关键词规则 + OCR/AI 辅助识别材料段" %}</span>
+                        </label>
+                    </div>
+                    <div class="ps-radio-card">
+                        <input type="radio" id="splitModePage" name="split_mode" value="page_split">
+                        <label class="ps-radio-label" for="splitModePage">
+                            <span class="ps-radio-title">{% trans "按页拆分（纯拆分）" %}</span>
+                            <span class="ps-radio-desc">{% trans "每页拆成独立 PDF，自动打包下载" %}</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="ps-help">{% trans "选择“按页拆分”时会跳过内容分析，直接按页导出 ZIP。" %}</div>
+            </div>
+
+            <div class="ps-field">
+                <label>{% trans "模板" %}</label>
+                <div class="ps-static-field">{% trans "立案材料模板 v1" %}</div>
+                <input type="hidden" id="templateKey" name="template_key" value="filing_materials_v1">
+            </div>
+
+            <div class="ps-field" id="ocrProfileField">
+                <label>{% trans "OCR 档位" %}</label>
+                <div class="ps-radio-grid" role="radiogroup" aria-label="{% trans 'OCR 档位' %}">
+                    <div class="ps-radio-card">
+                        <input type="radio" id="ocrProfileFast" name="ocr_profile" value="fast">
+                        <label class="ps-radio-label" for="ocrProfileFast">
+                            <span class="ps-radio-title">fast</span>
+                            <span class="ps-radio-desc">{% trans "优先速度" %}</span>
+                        </label>
+                    </div>
+                    <div class="ps-radio-card">
+                        <input type="radio" id="ocrProfileBalanced" name="ocr_profile" value="balanced" checked>
+                        <label class="ps-radio-label" for="ocrProfileBalanced">
+                            <span class="ps-radio-title">balanced</span>
+                            <span class="ps-radio-desc">{% trans "默认，速度/精度均衡" %}</span>
+                        </label>
+                    </div>
+                    <div class="ps-radio-card">
+                        <input type="radio" id="ocrProfileAccurate" name="ocr_profile" value="accurate">
+                        <label class="ps-radio-label" for="ocrProfileAccurate">
+                            <span class="ps-radio-title">accurate</span>
+                            <span class="ps-radio-desc">{% trans "优先精度" %}</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="ps-help">{% trans "fast 使用更低分辨率和轻量模型；accurate 使用更高分辨率和高精度模型。"%}</div>
+            </div>
+
+            <div id="splitError" class="ps-error"></div>
+
+            <div class="ps-actions">
+                <button type="submit" class="ps-btn ps-btn-primary">{% trans "创建拆解任务" %}</button>
+                <a class="ps-btn ps-btn-secondary" href="/admin/pdf_splitting/pdfsplitjob/">{% trans "查看任务列表" %}</a>
+                <span id="splitLoading" class="ps-loading">{% trans "正在创建任务..." %}</span>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+(function() {
+    const form = document.getElementById('pdfSplitForm');
+    const fileInput = document.getElementById('splitFile');
+    const dropzone = document.getElementById('sourceDropzone');
+    const filePickerBtn = document.getElementById('filePickerBtn');
+    const selectedFile = document.getElementById('selectedFile');
+    const splitModeInputs = form.querySelectorAll('input[name="split_mode"]');
+    const ocrProfileField = document.getElementById('ocrProfileField');
+    const templateInput = document.getElementById('templateKey');
+    const errorBox = document.getElementById('splitError');
+    const loading = document.getElementById('splitLoading');
+
+    function getCookie(name) {
+        const parts = document.cookie.split(';');
+        for (const part of parts) {
+            const trimmed = part.trim();
+            if (trimmed.startsWith(name + '=')) {
+                return decodeURIComponent(trimmed.substring(name.length + 1));
+            }
+        }
+        return '';
+    }
+
+    function showError(message) {
+        errorBox.textContent = message;
+        errorBox.classList.add('is-visible');
+    }
+
+    function clearError() {
+        errorBox.textContent = '';
+        errorBox.classList.remove('is-visible');
+    }
+
+    function isPdfFile(file) {
+        if (!file) {
+            return false;
+        }
+        const name = (file.name || '').toLowerCase();
+        return name.endsWith('.pdf') || file.type === 'application/pdf';
+    }
+
+    function setSelectedFile(file) {
+        if (!file) {
+            selectedFile.textContent = '当前未选择文件';
+            selectedFile.classList.add('is-empty');
+            return;
+        }
+        selectedFile.textContent = '已选择：' + file.name;
+        selectedFile.classList.remove('is-empty');
+    }
+
+    function clearSelectedFile() {
+        fileInput.value = '';
+        setSelectedFile(null);
+    }
+
+    function setFileFromDrop(file) {
+        if (!isPdfFile(file)) {
+            showError('仅支持 PDF 文件。');
+            return;
+        }
+        clearError();
+        const transfer = new DataTransfer();
+        transfer.items.add(file);
+        fileInput.files = transfer.files;
+        setSelectedFile(file);
+    }
+
+    function selectedSplitMode() {
+        const selected = form.querySelector('input[name="split_mode"]:checked');
+        return selected ? selected.value : 'content_analysis';
+    }
+
+    function refreshModeUI() {
+        const mode = selectedSplitMode();
+        const showOcr = mode === 'content_analysis';
+        ocrProfileField.classList.toggle('is-hidden', !showOcr);
+    }
+
+    filePickerBtn.addEventListener('click', function() {
+        fileInput.click();
+    });
+
+    fileInput.addEventListener('change', function() {
+        const file = fileInput.files && fileInput.files[0];
+        if (!file) {
+            setSelectedFile(null);
+            return;
+        }
+        if (!isPdfFile(file)) {
+            clearSelectedFile();
+            showError('仅支持 PDF 文件。');
+            return;
+        }
+        setSelectedFile(file);
+        clearError();
+    });
+
+    ['dragenter', 'dragover'].forEach(function(eventName) {
+        dropzone.addEventListener(eventName, function(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            dropzone.classList.add('is-dragover');
+        });
+    });
+
+    ['dragleave', 'drop'].forEach(function(eventName) {
+        dropzone.addEventListener(eventName, function(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            dropzone.classList.remove('is-dragover');
+        });
+    });
+
+    dropzone.addEventListener('drop', function(event) {
+        const files = event.dataTransfer && event.dataTransfer.files;
+        if (!files || files.length === 0) {
+            return;
+        }
+        setFileFromDrop(files[0]);
+    });
+
+    splitModeInputs.forEach(function(input) {
+        input.addEventListener('change', refreshModeUI);
+    });
+
+    form.addEventListener('submit', async function(event) {
+        event.preventDefault();
+        clearError();
+
+        const hasFile = fileInput.files && fileInput.files.length > 0;
+
+        if (!hasFile) {
+            showError('请先上传 PDF 文件。');
+            return;
+        }
+
+        loading.classList.add('is-visible');
+
+        try {
+            const formData = new FormData();
+            if (hasFile) {
+                formData.append('file', fileInput.files[0]);
+            }
+            formData.append('split_mode', selectedSplitMode());
+            formData.append('template_key', templateInput.value || 'filing_materials_v1');
+            const profileInput = form.querySelector('input[name="ocr_profile"]:checked');
+            formData.append('ocr_profile', profileInput ? profileInput.value : 'balanced');
+
+            const response = await fetch('/api/v1/pdf-splitting/jobs', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                credentials: 'same-origin'
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                const message = (data && (data.detail || data.message || data.error)) || '创建任务失败';
+                throw new Error(message);
+            }
+            window.location.href = '/admin/pdf_splitting/pdfsplitjob/' + data.job_id + '/change/';
+        } catch (error) {
+            showError(error.message || '创建任务失败');
+        } finally {
+            loading.classList.remove('is-visible');
+        }
+    });
+
+    refreshModeUI();
+})();
+</script>
+{% endblock %}

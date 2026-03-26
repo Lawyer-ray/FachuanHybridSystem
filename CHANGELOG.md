@@ -2,6 +2,36 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.26.0] - 2026-03-26
+
+### 新增
+
+- **新增独立 `pdf_splitting` App**
+  - 注册 `INSTALLED_APPS`、API 路由与 Admin 菜单入口，形成独立的 PDF 拆解工具能力
+- **新增 PDF 拆解任务与片段模型**
+  - 引入 `PdfSplitJob` / `PdfSplitSegment`，支持任务状态流转、片段持久化、复核与导出
+- **新增 PDF 拆解 API**
+  - 新增 `POST /api/v1/pdf-splitting/jobs`、`GET /api/v1/pdf-splitting/jobs/{id}`、`POST /api/v1/pdf-splitting/jobs/{id}/confirm`、`POST /api/v1/pdf-splitting/jobs/{id}/cancel`、`GET /api/v1/pdf-splitting/jobs/{id}/download`、`GET /api/v1/pdf-splitting/jobs/{id}/pages/{page_no}/preview`
+- **新增两种拆分模式**
+  - 内容识别拆分：基于立案材料模板（7 类）进行起始页识别、连续切段和人工复核后导出
+  - 纯按页拆分：`split_mode=page_split` 时跳过内容分析，直接按页拆分并自动导出 ZIP
+
+### 优化
+
+- **OCR 三档与并行处理能力**
+  - OCR 档位支持 `fast / balanced / accurate`，按档位控制分辨率、模型与并行 worker
+- **OCR 结果缓存**
+  - 基于 `PDF hash + profile + page_no` 缓存 OCR 结果，减少重复扫描时的处理耗时
+- **后台创建任务交互优化**
+  - PDF 拆解入口收敛为统一上传入口，支持拖拽上传；按页拆分模式自动隐藏 OCR 相关配置
+
+### 修复
+
+- **OCR 引擎缓存串用问题修复**
+  - OCR 引擎实例缓存改为按模型档位隔离，避免 fast/accurate 档位共享同一引擎
+- **Admin 模板脚本注入可覆写**
+  - `base_site` 新增 `alpine_script` 块，允许工具页按需关闭 Alpine 注入，减少 CSP 场景下无关脚本告警
+
 ## [26.25.1] - 2026-03-26
 
 ### 新增

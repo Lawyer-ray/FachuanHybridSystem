@@ -82,6 +82,7 @@ INSTALLED_APPS = [
     "apps.fee_notice",  # 5.3 交费通知书识别（从 automation 拆分）
     "apps.preservation_date",  # 5.35 财产保全日期识别（从 automation 拆分）
     "apps.document_recognition",  # 5.4 文书智能识别（从 automation 拆分）
+    "apps.pdf_splitting",  # 5.45 PDF 拆解
     "apps.evidence",  # 5.5 证据管理
     "apps.documents",  # 6. 文书生成
     "apps.chat_records",  # 6.0 聊天记录梳理

@@ -7,7 +7,9 @@
 {% block extrahead %}
 {{ block.super }}
 <!-- Alpine.js -->
+{% block alpine_script %}
 <script defer src="{% static 'admin/js/alpine.js' %}"></script>
+{% endblock %}
 <script defer src="{% static 'core/js/csrf.js' %}"></script>
 {% endblock %}
 

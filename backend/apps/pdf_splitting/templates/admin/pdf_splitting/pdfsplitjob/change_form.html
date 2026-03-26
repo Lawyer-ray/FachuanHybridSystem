@@ -1,0 +1,373 @@
+{% extends "admin/change_form.html" %}
+{% load i18n %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+.ps-detail { margin-top: 24px; }
+.ps-panel { background: #fff; border-radius: 16px; box-shadow: 0 8px 24px rgba(15, 23, 42, .08); overflow: hidden; margin-bottom: 20px; }
+.ps-panel-head { padding: 18px 22px; background: linear-gradient(135deg, #12344d 0%, #1b4d73 100%); color: #fff; font-size: 18px; font-weight: 700; }
+.ps-panel-body { padding: 22px; }
+.ps-status-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+.ps-stat { padding: 16px; border-radius: 14px; background: #f7fafc; }
+.ps-stat-label { color: #62788b; font-size: 13px; margin-bottom: 8px; }
+.ps-stat-value { color: #163047; font-size: 18px; font-weight: 700; word-break: break-all; }
+.ps-pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; font-weight: 700; font-size: 13px; }
+.ps-pill.pending { background: #f1ebe7; color: #7a4f36; }
+.ps-pill.processing { background: #e8f1fb; color: #1552a1; }
+.ps-pill.review_required { background: #fff3e6; color: #b45309; }
+.ps-pill.exporting { background: #efe7fb; color: #6d28d9; }
+.ps-pill.completed { background: #e8f7ed; color: #166534; }
+.ps-pill.failed { background: #fff1f1; color: #b42318; }
+.ps-pill.cancelled { background: #edf2f7; color: #475467; }
+.ps-progress-track { height: 12px; border-radius: 999px; background: #e6edf4; overflow: hidden; }
+.ps-progress-bar { height: 100%; background: linear-gradient(90deg, #1b4d73 0%, #2b6ca3 100%); transition: width .25s ease; }
+.ps-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
+.ps-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 140px; padding: 11px 16px; border-radius: 10px; border: none; font-weight: 700; cursor: pointer; text-decoration: none; }
+.ps-btn-primary { background: #1b4d73; color: #fff; }
+.ps-btn-secondary { background: #eef3f7; color: #1f2937; }
+.ps-btn-danger { background: #d92d20; color: #fff; }
+.ps-btn:disabled { opacity: .55; cursor: not-allowed; }
+.ps-message { margin-top: 14px; padding: 12px 14px; border-radius: 12px; display: none; }
+.ps-message.is-visible { display: block; }
+.ps-message.error { background: #fff1f1; color: #b42318; }
+.ps-message.info { background: #eef7ff; color: #1d4f91; }
+.ps-table-wrap { overflow-x: auto; }
+.ps-table { width: 100%; border-collapse: collapse; }
+.ps-table th, .ps-table td { padding: 12px 10px; border-bottom: 1px solid #eef2f6; vertical-align: middle; }
+.ps-table th { text-align: left; font-size: 13px; color: #62788b; }
+.ps-table input, .ps-table select { width: 100%; box-sizing: border-box; padding: 9px 10px; border: 1px solid #cbd5df; border-radius: 8px; }
+.ps-row-actions { display: flex; gap: 8px; }
+.ps-mini-btn { padding: 8px 10px; border-radius: 8px; border: none; cursor: pointer; font-size: 12px; font-weight: 700; }
+.ps-mini-btn.preview { background: #eaf2fb; color: #1d4f91; }
+.ps-mini-btn.delete { background: #fff1f1; color: #b42318; }
+.ps-empty { color: #62788b; line-height: 1.8; }
+.ps-readonly .submit-row { display: none; }
+</style>
+{% endblock %}
+
+{% block submit_buttons_top %}{% endblock %}
+{% block submit_buttons_bottom %}{% endblock %}
+
+{% block after_field_sets %}
+{{ block.super }}
+<div class="ps-detail">
+    <div class="ps-panel">
+        <div class="ps-panel-head">{% trans "任务状态" %}</div>
+        <div class="ps-panel-body">
+            <div class="ps-status-grid">
+                <div class="ps-stat">
+                    <div class="ps-stat-label">{% trans "当前状态" %}</div>
+                    <div class="ps-stat-value"><span id="jobStatusPill" class="ps-pill pending">{% trans "加载中" %}</span></div>
+                </div>
+                <div class="ps-stat">
+                    <div class="ps-stat-label">{% trans "处理进度" %}</div>
+                    <div class="ps-stat-value" id="jobProgressText">0%</div>
+                </div>
+                <div class="ps-stat">
+                    <div class="ps-stat-label">{% trans "总页数" %}</div>
+                    <div class="ps-stat-value" id="jobTotalPages">-</div>
+                </div>
+                <div class="ps-stat">
+                    <div class="ps-stat-label">{% trans "当前页" %}</div>
+                    <div class="ps-stat-value" id="jobCurrentPage">-</div>
+                </div>
+            </div>
+            <div style="margin-top:18px;">
+                <div class="ps-progress-track"><div id="jobProgressBar" class="ps-progress-bar" style="width:0%"></div></div>
+            </div>
+            <div class="ps-actions">
+                <button type="button" id="refreshStatusBtn" class="ps-btn ps-btn-secondary">{% trans "刷新状态" %}</button>
+                <button type="button" id="confirmExportBtn" class="ps-btn ps-btn-primary">{% trans "确认并导出 ZIP" %}</button>
+                <button type="button" id="cancelJobBtn" class="ps-btn ps-btn-danger">{% trans "请求取消" %}</button>
+                <a id="downloadZipBtn" class="ps-btn ps-btn-secondary" href="{{ pdf_split_download_api }}" target="_blank" style="display:none;">{% trans "下载 ZIP" %}</a>
+            </div>
+            <div id="jobMessage" class="ps-message info"></div>
+        </div>
+    </div>
+
+    <div class="ps-panel">
+        <div class="ps-panel-head">{% trans "片段复核" %}</div>
+        <div class="ps-panel-body">
+            <div id="segmentsEmpty" class="ps-empty">{% trans "分析完成后将在这里显示候选片段。处理中或导出中会自动轮询更新。" %}</div>
+            <div id="segmentsTableWrap" class="ps-table-wrap" style="display:none;">
+                <table class="ps-table">
+                    <thead>
+                        <tr>
+                            <th style="width:70px;">{% trans "序号" %}</th>
+                            <th style="width:110px;">{% trans "起始页" %}</th>
+                            <th style="width:110px;">{% trans "结束页" %}</th>
+                            <th style="width:220px;">{% trans "材料类型" %}</th>
+                            <th>{% trans "文件名" %}</th>
+                            <th style="width:110px;">{% trans "置信度" %}</th>
+                            <th style="width:120px;">{% trans "标记" %}</th>
+                            <th style="width:160px;">{% trans "操作" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody id="segmentsTbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const segmentChoices = [
+        { value: 'complaint', label: '起诉状' },
+        { value: 'evidence_list', label: '证据清单及明细' },
+        { value: 'preservation_materials', label: '财产保全资料' },
+        { value: 'party_identity', label: '双方当事人主体信息' },
+        { value: 'authorization_materials', label: '授权委托材料' },
+        { value: 'delivery_address_confirmation', label: '送达地址确认书' },
+        { value: 'refund_account_confirmation', label: '诉讼费用退费账户确认书' },
+        { value: 'unrecognized', label: '未识别材料' }
+    ];
+
+    const statusApi = '{{ pdf_split_status_api }}';
+    const confirmApi = '{{ pdf_split_confirm_api }}';
+    const cancelApi = '{{ pdf_split_cancel_api }}';
+    const previewApiBase = '{{ pdf_split_preview_api_base }}';
+    const downloadBtn = document.getElementById('downloadZipBtn');
+    const refreshBtn = document.getElementById('refreshStatusBtn');
+    const confirmBtn = document.getElementById('confirmExportBtn');
+    const cancelBtn = document.getElementById('cancelJobBtn');
+    const statusPill = document.getElementById('jobStatusPill');
+    const progressText = document.getElementById('jobProgressText');
+    const totalPages = document.getElementById('jobTotalPages');
+    const currentPage = document.getElementById('jobCurrentPage');
+    const progressBar = document.getElementById('jobProgressBar');
+    const messageBox = document.getElementById('jobMessage');
+    const tableWrap = document.getElementById('segmentsTableWrap');
+    const emptyBox = document.getElementById('segmentsEmpty');
+    const tbody = document.getElementById('segmentsTbody');
+    let currentStatus = '';
+    let pollTimer = null;
+
+    function getCookie(name) {
+        const parts = document.cookie.split(';');
+        for (const part of parts) {
+            const trimmed = part.trim();
+            if (trimmed.startsWith(name + '=')) {
+                return decodeURIComponent(trimmed.substring(name.length + 1));
+            }
+        }
+        return '';
+    }
+
+    function showMessage(text, kind) {
+        messageBox.textContent = text;
+        messageBox.className = 'ps-message is-visible ' + (kind || 'info');
+    }
+
+    function clearMessage() {
+        messageBox.textContent = '';
+        messageBox.className = 'ps-message info';
+    }
+
+    function renderStatus(status) {
+        const labels = {
+            pending: '待处理',
+            processing: '处理中',
+            review_required: '待复核',
+            exporting: '导出中',
+            completed: '已完成',
+            failed: '失败',
+            cancelled: '已取消'
+        };
+        statusPill.textContent = labels[status] || status;
+        statusPill.className = 'ps-pill ' + status;
+    }
+
+    function renderSegments(segments, splitMode) {
+        if (splitMode === 'page_split') {
+            tableWrap.style.display = 'none';
+            emptyBox.style.display = 'block';
+            emptyBox.textContent = '按页拆分模式：无需复核片段，任务完成后可直接下载 ZIP。';
+            return;
+        }
+        tbody.innerHTML = '';
+        if (!segments || !segments.length) {
+            tableWrap.style.display = 'none';
+            emptyBox.style.display = 'block';
+            return;
+        }
+
+        tableWrap.style.display = 'block';
+        emptyBox.style.display = 'none';
+        segments.forEach(function(segment, index) {
+            const tr = document.createElement('tr');
+            tr.dataset.segmentId = segment.id || '';
+            tr.innerHTML = `
+                <td>${index + 1}</td>
+                <td><input type="number" min="1" value="${segment.page_start}" data-field="page_start"></td>
+                <td><input type="number" min="1" value="${segment.page_end}" data-field="page_end"></td>
+                <td>
+                    <select data-field="segment_type">
+                        ${segmentChoices.map(function(choice) {
+                            const selected = choice.value === segment.segment_type ? 'selected' : '';
+                            return '<option value="' + choice.value + '" ' + selected + '>' + choice.label + '</option>';
+                        }).join('')}
+                    </select>
+                </td>
+                <td><input type="text" value="${segment.filename}" data-field="filename"></td>
+                <td>${(segment.confidence || 0).toFixed(3)}</td>
+                <td>${segment.review_flag_label || segment.review_flag || '-'}</td>
+                <td>
+                    <div class="ps-row-actions">
+                        <button type="button" class="ps-mini-btn preview" data-action="preview-start">预览首</button>
+                        <button type="button" class="ps-mini-btn preview" data-action="preview-end">预览尾</button>
+                        <button type="button" class="ps-mini-btn delete" data-action="delete">删除</button>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function collectSegments() {
+        return Array.from(tbody.querySelectorAll('tr')).map(function(tr, index) {
+            const read = function(field) {
+                const el = tr.querySelector('[data-field="' + field + '"]');
+                return el ? el.value : '';
+            };
+            return {
+                id: tr.dataset.segmentId ? Number(tr.dataset.segmentId) : null,
+                order: index + 1,
+                page_start: Number(read('page_start')),
+                page_end: Number(read('page_end')),
+                segment_type: read('segment_type'),
+                filename: read('filename'),
+                confidence: 0,
+                source_method: 'manual',
+                review_flag: 'normal'
+            };
+        });
+    }
+
+    async function fetchStatus() {
+        const response = await fetch(statusApi, { credentials: 'same-origin' });
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error((data && (data.detail || data.message || data.error_message)) || '加载状态失败');
+        }
+        currentStatus = data.status;
+        renderStatus(data.status);
+        progressText.textContent = String(data.progress || 0) + '%';
+        totalPages.textContent = String(data.total_pages || '-');
+        currentPage.textContent = String(data.current_page || '-');
+        progressBar.style.width = String(data.progress || 0) + '%';
+        renderSegments(data.segments || [], data.split_mode);
+
+        confirmBtn.disabled = data.split_mode === 'page_split' || !(data.status === 'review_required' || data.status === 'completed');
+        cancelBtn.disabled = !(data.status === 'pending' || data.status === 'processing' || data.status === 'exporting');
+        downloadBtn.style.display = data.status === 'completed' && data.download_url ? 'inline-flex' : 'none';
+        if (data.download_url) {
+            downloadBtn.href = data.download_url;
+        }
+        if (data.error_message) {
+            showMessage(data.error_message, 'error');
+        } else {
+            clearMessage();
+        }
+
+        if (pollTimer) {
+            window.clearTimeout(pollTimer);
+            pollTimer = null;
+        }
+        if (data.status === 'pending' || data.status === 'processing' || data.status === 'exporting') {
+            pollTimer = window.setTimeout(loadStatus, 3000);
+        }
+    }
+
+    async function loadStatus() {
+        try {
+            await fetchStatus();
+        } catch (error) {
+            showMessage(error.message || '加载状态失败', 'error');
+        }
+    }
+
+    async function postJson(url, payload) {
+        const response = await fetch(url, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(payload || {})
+        });
+        const data = await response.json().catch(function() { return {}; });
+        if (!response.ok) {
+            throw new Error((data && (data.detail || data.message || data.error)) || '请求失败');
+        }
+        return data;
+    }
+
+    refreshBtn.addEventListener('click', loadStatus);
+
+    confirmBtn.addEventListener('click', async function() {
+        const segments = collectSegments();
+        if (!segments.length) {
+            showMessage('当前没有可导出的片段。', 'error');
+            return;
+        }
+        confirmBtn.disabled = true;
+        showMessage('正在提交片段并开始导出，请稍候。', 'info');
+        try {
+            await postJson(confirmApi, { segments: segments });
+            await loadStatus();
+        } catch (error) {
+            showMessage(error.message || '确认导出失败', 'error');
+        } finally {
+            confirmBtn.disabled = false;
+        }
+    });
+
+    cancelBtn.addEventListener('click', async function() {
+        cancelBtn.disabled = true;
+        try {
+            await postJson(cancelApi, {});
+            await loadStatus();
+            showMessage('已提交取消请求。', 'info');
+        } catch (error) {
+            showMessage(error.message || '取消失败', 'error');
+        } finally {
+            cancelBtn.disabled = false;
+        }
+    });
+
+    tbody.addEventListener('click', function(event) {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) {
+            return;
+        }
+        const action = target.dataset.action;
+        if (!action) {
+            return;
+        }
+        const tr = target.closest('tr');
+        if (!tr) {
+            return;
+        }
+
+        if (action === 'delete') {
+            tr.remove();
+            return;
+        }
+
+        const start = tr.querySelector('[data-field="page_start"]');
+        const end = tr.querySelector('[data-field="page_end"]');
+        if (action === 'preview-start' && start) {
+            window.open(previewApiBase + '/' + start.value + '/preview', '_blank');
+        }
+        if (action === 'preview-end' && end) {
+            window.open(previewApiBase + '/' + end.value + '/preview', '_blank');
+        }
+    });
+
+    loadStatus();
+})();
+</script>
+{% endblock %}
