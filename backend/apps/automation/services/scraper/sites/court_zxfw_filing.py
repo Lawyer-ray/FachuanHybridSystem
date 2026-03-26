@@ -63,6 +63,23 @@ class CourtZxfwFilingService:
         "third_parties": "第三人信息",
     }
 
+    CIVIL_UPLOAD_SLOT_KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
+        ("0", ("起诉状", "诉状")),
+        ("1", ("当事人身份证明", "身份证明", "营业执照", "身份证")),
+        ("2", ("委托代理人委托手续和身份材料", "授权委托书", "律师执业证", "委托代理")),
+        ("3", ("证据目录及证据材料", "证据目录", "证据材料")),
+        ("4", ("送达地址确认书", "送达地址")),
+        ("5", ("其他材料",)),
+    ]
+
+    EXEC_UPLOAD_SLOT_KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
+        ("0", ("执行申请书", "申请执行书", "申请书")),
+        ("1", ("执行依据文书", "执行依据", "判决书", "裁定书", "调解书")),
+        ("2", ("授权委托书及代理人身份证明", "授权委托书", "律师执业证", "代理人身份证明")),
+        ("3", ("申请人身份材料", "身份证明", "营业执照", "身份证")),
+        ("4", ("送达地址确认书", "送达地址")),
+    ]
+
     def __init__(self, page: Page, *, save_debug: bool = False) -> None:
         self.page = page
         self.save_debug = save_debug
@@ -72,9 +89,12 @@ class CourtZxfwFilingService:
     def file_case(self, case_data: dict[str, Any], token: str | None = None) -> dict[str, Any]:
         """执行民事一审在线立案全流程。
 
-        优先尝试纯接口立案（需要 token），失败后回退到 Playwright。
+        支持按参数选择立案引擎：api / playwright。
         """
-        if token:
+        filing_engine = self._resolve_filing_engine(case_data)
+        if filing_engine == "api":
+            if not token:
+                raise ValueError(str(_("接口立案缺少登录令牌，请改用 Playwright 或重新登录")))
             try:
                 from apps.automation.services.scraper.sites.court_zxfw_filing_api import CourtZxfwFilingApiService
 
@@ -83,7 +103,8 @@ class CourtZxfwFilingService:
                 logger.info("接口立案成功: %s", result)
                 return result
             except Exception as api_err:
-                logger.warning("接口立案失败，回退 Playwright: %s", api_err)
+                logger.error("接口立案失败: %s", api_err, exc_info=True)
+                raise ValueError(str(_("接口立案失败: %(error)s")) % {"error": api_err}) from api_err
 
         court_name: str = case_data["court_name"]
         cause_of_action: str = case_data["cause_of_action"]
@@ -100,7 +121,7 @@ class CourtZxfwFilingService:
             self._step1_select_court(court_name)
             self._step2_read_notice()
             self._step3_select_cause(cause_of_action)
-            self._step4_upload_materials(case_data.get("materials", {}))
+            self._step4_upload_materials(case_data.get("materials", {}), is_execution=False)
             self._step5_complete_info(case_data, section_map=self.CIVIL_SECTION_MAP)
             self._click_next_step()
             self._step6_preview_submit()
@@ -117,9 +138,12 @@ class CourtZxfwFilingService:
     def file_execution(self, case_data: dict[str, Any], token: str | None = None) -> dict[str, Any]:
         """执行申请执行在线立案全流程。
 
-        优先尝试纯接口立案（需要 token），失败后回退到 Playwright。
+        支持按参数选择立案引擎：api / playwright。
         """
-        if token:
+        filing_engine = self._resolve_filing_engine(case_data)
+        if filing_engine == "api":
+            if not token:
+                raise ValueError(str(_("接口立案缺少登录令牌，请改用 Playwright 或重新登录")))
             try:
                 from apps.automation.services.scraper.sites.court_zxfw_filing_api import CourtZxfwFilingApiService
 
@@ -128,7 +152,8 @@ class CourtZxfwFilingService:
                 logger.info("接口立案成功: %s", result)
                 return result
             except Exception as api_err:
-                logger.warning("接口立案失败，回退 Playwright: %s", api_err)
+                logger.error("接口立案失败: %s", api_err, exc_info=True)
+                raise ValueError(str(_("接口立案失败: %(error)s")) % {"error": api_err}) from api_err
 
         court_name: str = case_data["court_name"]
 
@@ -144,7 +169,7 @@ class CourtZxfwFilingService:
             self._step1_select_court(court_name)
             self._step2_read_notice(has_prepared_doc=False)
             self._step_exec_select_basis(case_data)
-            self._step4_upload_materials(case_data.get("materials", {}))
+            self._step4_upload_materials(case_data.get("materials", {}), is_execution=True)
             self._step5_complete_info(case_data, section_map=self.EXEC_SECTION_MAP)
             self._fill_execution_target_info(case_data)
             self._click_next_step()
@@ -317,42 +342,46 @@ class CourtZxfwFilingService:
         self._select_dropdown_by_label("执行依据类别", basis_type)
 
         # 选择原审案号：先尝试从下拉列表匹配，找不到则手动输入
-        self.page.locator(".uni-forms-item:has(.uni-forms-item__label:has-text('原审案号')) .input-value").first.click()
-        self._random_wait(1, 2)
+        if self._open_dropdown_by_labels(("原审案号", "原审案件号"), required=False):
+            # 检查下拉列表中是否有匹配项
+            matched = self.page.locator(f".item-text:has-text('{original_case_number}')")
+            if original_case_number and matched.count() > 0:
+                matched.first.click()
+            else:
+                # 选择手动输入，再填写案号
+                manual_input = self.page.locator(".item-text:has-text('选择此项手动输入案号')")
+                if manual_input.count():
+                    manual_input.first.click()
+                self._random_wait(1, 2)
+                # 案号格式：（2024）粤0106民初12345号 → 年份=2024，案号=粤0106民初12345号
+                import re
 
-        # 检查下拉列表中是否有匹配项
-        matched = self.page.locator(f".item-text:has-text('{original_case_number}')")
-        if original_case_number and matched.count() > 0:
-            matched.first.click()
-        else:
-            # 选择手动输入，再填写案号
-            self.page.locator(".item-text:has-text('选择此项手动输入案号')").first.click()
-            self._random_wait(1, 2)
-            # 案号格式：（2024）粤0106民初12345号 → 年份=2024，案号=粤0106民初12345号
-            import re
-
-            year_match = re.search(r"[（(](\d{4})[）)]", original_case_number)
-            year = year_match.group(1) if year_match else ""
-            body = re.sub(r"^[（(]\d{4}[）)]\s*", "", original_case_number).rstrip("号")
-            # 选年份下拉
-            if year:
-                self.page.locator(
-                    ".uni-forms-item:has(.uni-forms-item__label:has-text('输入案号')) .input-value"
-                ).first.click()
-                self._random_wait(0.5, 1)
-                self.page.locator(f".item-text:has-text('{year}')").first.click()
-                self._random_wait(0.5, 1)
-            # 填案号主体（末尾"号"字是页面固定后缀，不需要输入）
-            inp = self.page.locator(
-                ".uni-forms-item:has(.uni-forms-item__label:has-text('输入案号')) .uni-input-input"
-            ).first
-            inp.fill(body)
-            self._random_wait(0.3, 0.5)
-            inp.press("Enter")
-            self._random_wait(0.5, 1)
+                year_match = re.search(r"[（(](\d{4})[）)]", original_case_number)
+                year = year_match.group(1) if year_match else ""
+                body = re.sub(r"^[（(]\d{4}[）)]\s*", "", original_case_number).rstrip("号")
+                # 选年份下拉
+                if year and self._open_dropdown_by_labels(("输入案号",), required=False):
+                    year_option = self.page.locator(f".item-text:has-text('{year}')")
+                    if year_option.count():
+                        year_option.first.click()
+                        self._random_wait(0.5, 1)
+                # 填案号主体（末尾"号"字是页面固定后缀，不需要输入）
+                input_locator = self.page.locator(
+                    ".uni-forms-item:has(.uni-forms-item__label:has-text('输入案号')) .uni-input-input"
+                )
+                if input_locator.count():
+                    inp = input_locator.first
+                    inp.fill(body)
+                    self._random_wait(0.3, 0.5)
+                    inp.press("Enter")
+                    self._random_wait(0.5, 1)
 
         # 作出执行依据单位（选法院）
-        self._select_dropdown_by_label("作出执行依据单位", case_data.get("court_name", ""))
+        self._select_dropdown_by_label(
+            ("作出执行依据单位", "作出执行依据文书单位", "执行依据单位"),
+            case_data.get("court_name", ""),
+            required=False,
+        )
         self._random_wait(0.5, 1)
 
         # 保存
@@ -372,18 +401,69 @@ class CourtZxfwFilingService:
 
         logger.info(str(_("执行依据选择完成: %s, %s")), basis_type, original_case_number)
 
-    def _select_dropdown_by_label(self, label_text: str, option_text: str) -> None:
+    def _open_dropdown_by_labels(self, labels: tuple[str, ...], *, required: bool) -> bool:
+        for label in labels:
+            trigger = self.page.locator(
+                f".uni-forms-item:has(.uni-forms-item__label:has-text('{label}')) .input-value"
+            )
+            if not trigger.count():
+                continue
+            try:
+                trigger.first.click(timeout=5000)
+                self._random_wait(1, 2)
+                return True
+            except Exception:
+                continue
+
+        message = f"未找到下拉字段: labels={labels}"
+        if required:
+            raise ValueError(message)
+        logger.warning(message)
+        return False
+
+    def _select_dropdown_by_label(
+        self,
+        label_text: str | tuple[str, ...],
+        option_text: str,
+        *,
+        required: bool = True,
+    ) -> bool:
         """通过 label 定位页面级下拉框（非表单内），选择选项"""
-        self.page.locator(
-            f".uni-forms-item:has(.uni-forms-item__label:has-text('{label_text}')) .input-value"
-        ).first.click()
+        labels = (label_text,) if isinstance(label_text, str) else tuple(label_text)
+        if not labels:
+            return False
+        if not self._open_dropdown_by_labels(labels, required=required):
+            return False
+
+        option = self.page.locator(f".item-text:has-text('{option_text}')")
+        if not option.count() and "人民法院" in str(option_text or ""):
+            option = self.page.locator(f".item-text:has-text('{str(option_text).replace('人民法院', '')}')")
+        if option.count():
+            option.first.click(timeout=5000)
+            self._random_wait(0.5, 1)
+            return True
+
+        message = f"下拉选项未命中: labels={labels}, option={option_text}"
+        if required:
+            raise ValueError(message)
+        logger.warning(message)
+        self.page.keyboard.press("Escape")
         self._random_wait(1, 2)
-        self.page.locator(f".item-text:has-text('{option_text}')").first.click()
-        self._random_wait(0.5, 1)
+        return False
 
     # ==================== 步骤4: 上传诉讼材料 ====================
 
-    def _step4_upload_materials(self, materials: dict[str, list[str]]) -> None:
+    def _infer_upload_slot_by_text(self, *, container_text: str, is_execution: bool) -> str | None:
+        normalized_text = "".join(str(container_text or "").split()).lower()
+        if not normalized_text:
+            return None
+        rules = self.EXEC_UPLOAD_SLOT_KEYWORDS if is_execution else self.CIVIL_UPLOAD_SLOT_KEYWORDS
+        for slot, keywords in rules:
+            if any("".join(keyword.split()).lower() in normalized_text for keyword in keywords):
+                return slot
+        return None
+
+    def _step4_upload_materials(self, materials: dict[str, list[str]], *, is_execution: bool) -> None:
         """上传诉讼材料
 
         Args:
@@ -408,13 +488,45 @@ class CourtZxfwFilingService:
         }"""
         )
 
+        container_meta = self.page.evaluate(
+            """() => {
+            const containers = Array.from(document.querySelectorAll('.fd-com-upload-grid-container'));
+            return containers.map((c, i) => ({
+                index: i,
+                text: (c.innerText || '').replace(/\\s+/g, '')
+            }));
+        }"""
+        )
+
+        slot_to_index: dict[str, int] = {}
+        if isinstance(container_meta, list):
+            for item in container_meta:
+                if not isinstance(item, dict):
+                    continue
+                idx = item.get("index")
+                if not isinstance(idx, int):
+                    continue
+                slot = self._infer_upload_slot_by_text(
+                    container_text=str(item.get("text") or ""),
+                    is_execution=is_execution,
+                )
+                if slot and slot not in slot_to_index:
+                    slot_to_index[slot] = idx
+
+        container_count = len(container_meta) if isinstance(container_meta, list) else 0
+
         for idx_str, files in materials.items():
-            idx = int(idx_str)
+            idx = int(idx_str) if str(idx_str).isdigit() else -1
             if not files:
                 continue
 
-            logger.info("上传材料 %d: %s", idx, [Path(f).name for f in files])
-            btn = self.page.locator(f'[data-upload-index="{idx}"]')
+            upload_idx = slot_to_index.get(str(idx_str), idx)
+            if upload_idx < 0 or (container_count > 0 and upload_idx >= container_count):
+                logger.warning("未找到可用上传槽位: slot=%s", idx_str)
+                continue
+
+            logger.info("上传材料 %s -> 槽位 %d: %s", idx_str, upload_idx, [Path(f).name for f in files])
+            btn = self.page.locator(f'[data-upload-index="{upload_idx}"]').first
 
             for file_path in files:
                 with self.page.expect_file_chooser() as fc_info:
@@ -423,7 +535,7 @@ class CourtZxfwFilingService:
                 # 等待单个文件上传完成
                 self.page.wait_for_timeout(2000)
 
-            logger.info("材料 %d 上传完成", idx)
+            logger.info("材料 %s 上传完成", idx_str)
 
         # 等待所有文件处理完成（"加载中"提示消失）
         loading = self.page.locator("text=加载中")
@@ -469,26 +581,40 @@ class CourtZxfwFilingService:
                 self._random_wait(0.5, 1)
 
         # 添加当事人
-        agent_phone = case_data.get("agent", {}).get("phone", "")
+        agents = [item for item in case_data.get("agents", []) if isinstance(item, dict)]
+        primary_agent = agents[0] if agents else case_data.get("agent", {})
+        agent_phone = str(primary_agent.get("phone", "") or "")
 
         for key, section_title in section_map.items():
             for party in case_data.get(key, []):
+                party_phone = str(party.get("phone", "") or "")
+                if not self._is_mobile_phone(party_phone):
+                    party_phone = agent_phone
+                party_address = str(party.get("address", "") or "")
                 if is_execution:
                     imported = self._import_original_party(
                         section_title=section_title,
                         name=party["name"],
-                        address=party.get("address", ""),
-                        phone=party.get("phone", ""),
+                        address=party_address,
+                        phone=party_phone,
                     )
                     if not imported:
                         if party.get("client_type") == "natural":
-                            self._add_natural_person(section_title=section_title, **party)
+                            self._add_natural_person(section_title=section_title, **{**party, "phone": party_phone})
                         else:
-                            self._add_legal_person(section_title=section_title, agent_phone=agent_phone, **party)
+                            self._add_legal_person(
+                                section_title=section_title,
+                                agent_phone=agent_phone,
+                                **{**party, "phone": party_phone},
+                            )
                 elif party.get("client_type") == "natural":
-                    self._add_natural_person(section_title=section_title, **party)
+                    self._add_natural_person(section_title=section_title, **{**party, "phone": party_phone})
                 else:
-                    self._add_legal_person(section_title=section_title, agent_phone=agent_phone, **party)
+                    self._add_legal_person(
+                        section_title=section_title,
+                        agent_phone=agent_phone,
+                        **{**party, "phone": party_phone},
+                    )
 
         # 兼容旧的单原告/单被告格式
         if "plaintiffs" not in case_data and case_data.get("plaintiff_name"):
@@ -516,67 +642,98 @@ class CourtZxfwFilingService:
         logger.info(str(_("完善案件信息: 当事人和代理人已填写")))
 
     def _complete_agent_info(self, case_data: dict[str, Any]) -> None:
-        """补全所有待补全的代理人信息"""
-        while True:
-            pending = self.page.locator("text=待补全")
-            if not pending.count():
+        """按案件绑定顺序补齐代理人（不足则新增）。"""
+        agents = [item for item in case_data.get("agents", []) if isinstance(item, dict)]
+        if not agents and isinstance(case_data.get("agent"), dict):
+            agents = [case_data.get("agent")]
+        if not agents:
+            return
+
+        for index, agent in enumerate(agents):
+            if not self._open_agent_form(index=index):
+                logger.warning("代理人表单无法打开: index=%s", index)
                 break
-            logger.info("发现待补全的代理人信息，开始补全")
-
-            # 点击待补全条目的编辑按钮
-            box = self.page.locator(".fd-wsla-ryxx-box:has-text('待补全')").first
-            box.locator(".fd-sscyr-option-pc-icon:has-text('编辑')").click()
-            self._random_wait(1, 2)
-
-            # 勾选所有被代理人 checkbox（uni-app 隐藏元素，用 JS 点击 label）
-            self.page.evaluate(
-                """() => {
-                    const form = document.querySelector(
-                        '.fd-wsla-ryxx-box:has(uni-button)'
-                    );
-                    if (!form) return;
-                    form.querySelectorAll('uni-checkbox').forEach(uc => {
-                        const input = uc.querySelector('.uni-checkbox-input');
-                        if (input && !input.classList.contains('uni-checkbox-input-checked')) {
-                            uc.click();
-                        }
-                    });
-                }"""
-            )
-            self._random_wait(0.5, 1)
-
-            # 选择代理人类型 → 执业律师
-            self._select_dropdown("代理人类型", "执业律师")
-
-            # 选择代理类型 → 委托代理
-            self._select_dropdown("代理类型", "委托代理")
-
-            # 填现住址
-            agent = case_data.get("agent", {})
-            self._fill_field("现住址", agent.get("address", ""))
-
-            # 是否法律援助 → 否；同意电子送达 → 是（点击 label 文字触发 radio）
-            self.page.evaluate(
-                """() => {
-                    const form = document.querySelector('.fd-wsla-ryxx-box:has(uni-button)');
-                    if (!form) return;
-                    form.querySelectorAll('.uni-forms-item').forEach(item => {
-                        const lbl = item.querySelector('.uni-forms-item__label');
-                        if (!lbl) return;
-                        const text = lbl.textContent.trim();
-                        let target = null;
-                        if (text === '是否法律援助') target = '否';
-                        if (text === '同意电子送达') target = '是';
-                        if (!target) return;
-                        item.querySelectorAll('uni-label').forEach(l => {
-                            if (l.textContent.trim() === target) l.click();
-                        });
-                    });
-                }"""
-            )
-            self._random_wait(0.5, 1)
-
+            self._fill_agent_form(case_data=case_data, agent=agent)
             self._click_save()
+
+    def _open_agent_form(self, *, index: int) -> bool:
+        section = self.page.locator(".uni-section:has(.uni-section__content-title:has-text('代理人信息'))").first
+        edit_cards = section.locator(".fd-wsla-ryxx-box:has(.fd-sscyr-option-pc-icon:has-text('编辑'))")
+        if edit_cards.count() > index:
+            edit_cards.nth(index).locator(".fd-sscyr-option-pc-icon:has-text('编辑')").first.click()
+            self._random_wait(1, 2)
+            return True
+
+        create_buttons = (
+            '.fd-sscyr-add-btn:has-text("添加律师"), '
+            '.fd-sscyr-add-btn:has-text("添加法律服务工作者"), '
+            '.fd-sscyr-add-btn:has-text("添加其他")'
+        )
+        add_btn = section.locator(create_buttons).first
+        if not add_btn.count():
+            return False
+        add_btn.scroll_into_view_if_needed()
+        add_btn.click(timeout=5000)
+        self._random_wait(1, 2)
+        return self.page.locator(".fd-wsla-ryxx-box:has(uni-button:has-text('保存'))").count() > 0
+
+    def _fill_agent_form(self, *, case_data: dict[str, Any], agent: dict[str, Any]) -> None:
+        self.page.evaluate(
+            """() => {
+                const form = document.querySelector('.fd-wsla-ryxx-box:has(uni-button)');
+                if (!form) return;
+                form.querySelectorAll('uni-checkbox').forEach(uc => {
+                    const input = uc.querySelector('.uni-checkbox-input');
+                    if (input && !input.classList.contains('uni-checkbox-input-checked')) {
+                        uc.click();
+                    }
+                });
+            }"""
+        )
+        self._random_wait(0.5, 1)
+
+        plaintiffs = [item for item in case_data.get("plaintiffs", []) if isinstance(item, dict)]
+        principal_name = str((plaintiffs[0].get("name") if plaintiffs else "") or "")
+        if principal_name:
+            if not self._select_dropdown("被代理人", principal_name):
+                self._select_tree_dropdown("被代理人", principal_name)
+
+        self._select_dropdown("代理人类型", "执业律师")
+        self._select_dropdown("代理类型", "委托代理")
+
+        phone = str(agent.get("phone", "") or "")
+        address = str(agent.get("address", "") or "")
+        self._fill_field("姓名", str(agent.get("name", "") or ""))
+        self._fill_field("代理人姓名", str(agent.get("name", "") or ""))
+        self._fill_field("证件号码", str(agent.get("id_number", "") or ""))
+        self._fill_field("代理人证件号码", str(agent.get("id_number", "") or ""))
+        self._fill_field("执业证号", str(agent.get("bar_number", "") or ""))
+        self._fill_field("执业机构", str(agent.get("law_firm", "") or ""))
+        self._fill_field("手机号码", phone)
+        self._fill_field("联系电话", phone)
+        self._fill_field_exact("联系电话", phone)
+        self._fill_field("现住址", address)
+        self._fill_field("住所地", address)
+
+        self.page.evaluate(
+            """() => {
+                const form = document.querySelector('.fd-wsla-ryxx-box:has(uni-button)');
+                if (!form) return;
+                form.querySelectorAll('.uni-forms-item').forEach(item => {
+                    const lbl = item.querySelector('.uni-forms-item__label');
+                    if (!lbl) return;
+                    const text = lbl.textContent.trim();
+                    let target = null;
+                    if (text === '是否法律援助') target = '否';
+                    if (text === '同意电子送达') target = '是';
+                    if (!target) return;
+                    item.querySelectorAll('uni-label').forEach(l => {
+                        if (l.textContent.trim() === target) l.click();
+                    });
+                });
+            }"""
+        )
+        self._random_wait(0.5, 1)
 
     def _fill_field(self, label_text: str, value: str) -> None:
         """通过 label 文本定位并填写当前编辑表单中的 input 字段"""
@@ -592,7 +749,7 @@ class CourtZxfwFilingService:
             return
         self._random_wait(0.3, 0.5)
 
-    def _select_dropdown(self, label_text: str, option_text: str) -> None:
+    def _select_dropdown(self, label_text: str, option_text: str) -> bool:
         """点击表单内下拉框并选择选项（.item-text 类型）"""
         form = self.page.locator(".fd-wsla-ryxx-box:has(uni-button:has-text('保存'))").first
         try:
@@ -600,22 +757,33 @@ class CourtZxfwFilingService:
                 f".uni-forms-item:has(.uni-forms-item__label:has-text('{label_text}')) .input-value"
             ).first.click(timeout=5000)
         except Exception:
-            return
+            return False
         self._random_wait(1, 2)
         try:
             self.page.locator(f".item-text:has-text('{option_text}')").first.click(timeout=5000)
         except Exception:
             self.page.keyboard.press("Escape")
-            return
+            return False
         self._random_wait(0.5, 1)
+        return True
 
-    def _select_tree_dropdown(self, label_text: str, option_text: str) -> None:
+    def _select_tree_dropdown(self, label_text: str, option_text: str) -> bool:
         """点击 uni-data-tree 下拉框并选择选项（.fd-item 类型）"""
         form = self.page.locator(".fd-wsla-ryxx-box:has(uni-button:has-text('保存'))").first
-        form.locator(f".uni-forms-item:has(.uni-forms-item__label:has-text('{label_text}')) .input-value").first.click()
+        try:
+            form.locator(
+                f".uni-forms-item:has(.uni-forms-item__label:has-text('{label_text}')) .input-value"
+            ).first.click(timeout=5000)
+        except Exception:
+            return False
         self._random_wait(1, 2)
-        self.page.locator(f".fd-item:has-text('{option_text}')").first.click()
+        try:
+            self.page.locator(f".fd-item:has-text('{option_text}')").first.click(timeout=5000)
+        except Exception:
+            self.page.keyboard.press("Escape")
+            return False
         self._random_wait(0.5, 1)
+        return True
 
     def _click_save(self) -> None:
         """点击当前表单的保存按钮"""
@@ -691,8 +859,12 @@ class CourtZxfwFilingService:
         # 补填引入后可能缺失的字段
         if address:
             self._fill_field("住所地", address)
+            self._fill_field("现住址", address)
+            self._fill_field_exact("现住址", address)
         if phone:
+            self._fill_field("联系电话", phone)
             self._fill_field_exact("联系电话", phone)
+            self._fill_field("手机号码", phone)
 
         self._click_save()
         return True
@@ -862,6 +1034,22 @@ class CourtZxfwFilingService:
     def _random_wait(self, min_sec: float = 0.5, max_sec: float = 2.0) -> None:
         """随机等待，模拟人工操作"""
         time.sleep(random.uniform(min_sec, max_sec))
+
+    @staticmethod
+    def _is_mobile_phone(value: str) -> bool:
+        import re as _re
+
+        return bool(_re.fullmatch(r"1\d{10}", str(value or "").strip()))
+
+    @staticmethod
+    def _resolve_filing_engine(case_data: dict[str, Any]) -> str:
+        engine = str(case_data.get("filing_engine", "") or "").strip().lower()
+        if engine in {"api", "playwright"}:
+            return engine
+        # 兼容旧参数
+        if "use_api_for_execution" in case_data:
+            return "api" if bool(case_data.get("use_api_for_execution")) else "playwright"
+        return "api"
 
     def _save_screenshot(self, name: str) -> str:
         """保存调试截图"""

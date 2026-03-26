@@ -13,6 +13,7 @@ from apps.cases.schemas import (
     CaseFolderScanStartIn,
     CaseFolderScanStartOut,
     CaseFolderScanStatusOut,
+    CaseFolderScanSubfolderListOut,
 )
 from apps.cases.services.case.case_access_policy import CaseAccessPolicy
 from apps.cases.services.case.case_query_service import CaseQueryService
@@ -43,12 +44,24 @@ def start_case_scan(request: HttpRequest, case_id: int, payload: CaseFolderScanS
     _require_case_access(request, case_id)
     ctx = get_request_access_context(request)
 
-    session = _get_service().start_scan(case_id=case_id, started_by=ctx.user, rescan=bool(payload.rescan))
+    session = _get_service().start_scan(
+        case_id=case_id,
+        started_by=ctx.user,
+        rescan=bool(payload.rescan),
+        scan_subfolder=str(payload.scan_subfolder or ""),
+        enable_recognition=bool(payload.enable_recognition),
+    )
     return {
         "session_id": str(session.id),
         "status": str(session.status),
         "task_id": str(session.task_id or ""),
     }
+
+
+@router.get("/{case_id}/folder-scan/subfolders", response=CaseFolderScanSubfolderListOut)
+def list_case_scan_subfolders(request: HttpRequest, case_id: int) -> dict[str, object]:
+    _require_case_access(request, case_id)
+    return _get_service().list_scan_subfolders(case_id=case_id)
 
 
 @router.get("/{case_id}/folder-scan/{session_id}", response=CaseFolderScanStatusOut)

@@ -58,6 +58,8 @@ class BoundFolderScanService:
         folder_path: str,
         domain: str,
         progress_callback: ProgressCallback | None = None,
+        enable_recognition: bool = True,
+        classification_context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         root = Path(folder_path).expanduser()
         if not root.exists() or not root.is_dir():
@@ -84,12 +86,13 @@ class BoundFolderScanService:
             self._notify(progress_callback, "extracting", progress, current_file)
             extraction_method = "none"
             text_excerpt = ""
-            try:
-                extraction = self._text_extraction_service.extract_text(item["path"].as_posix())
-                extraction_method = extraction.extraction_method if extraction.success else "none"
-                text_excerpt = (extraction.text or "")[: self._MAX_TEXT_EXCERPT]
-            except Exception:
-                logger.exception("scan_extract_failed", extra={"path": item["path"].as_posix()})
+            if enable_recognition:
+                try:
+                    extraction = self._text_extraction_service.extract_text(item["path"].as_posix())
+                    extraction_method = extraction.extraction_method if extraction.success else "none"
+                    text_excerpt = (extraction.text or "")[: self._MAX_TEXT_EXCERPT]
+                except Exception:
+                    logger.exception("scan_extract_failed", extra={"path": item["path"].as_posix()})
 
             self._notify(progress_callback, "classifying", progress, current_file)
             candidate = self._build_candidate(
@@ -99,6 +102,8 @@ class BoundFolderScanService:
                 extraction_method=extraction_method,
                 text_excerpt=text_excerpt,
                 domain=domain,
+                enable_recognition=enable_recognition,
+                classification_context=classification_context,
             )
             candidates.append(candidate)
 
@@ -122,6 +127,8 @@ class BoundFolderScanService:
         extraction_method: str,
         text_excerpt: str,
         domain: str,
+        enable_recognition: bool,
+        classification_context: dict[str, Any] | None,
     ) -> dict[str, Any]:
         stat = path.stat()
         modified_at = datetime.fromtimestamp(stat.st_mtime, tz=UTC).isoformat()
@@ -141,6 +148,7 @@ class BoundFolderScanService:
             suggestion = self._classification_service.classify_contract_material(
                 filename=path.name,
                 text_excerpt=text_excerpt,
+                enable_ai=enable_recognition,
             )
             candidate.update(
                 {
@@ -155,12 +163,17 @@ class BoundFolderScanService:
             suggestion = self._classification_service.classify_case_material(
                 filename=path.name,
                 text_excerpt=text_excerpt,
+                source_path=path.as_posix(),
+                enable_ai=enable_recognition,
+                context=classification_context,
             )
             candidate.update(
                 {
                     "suggested_category": suggestion.get("category", "unknown"),
                     "suggested_side": suggestion.get("side", "unknown"),
                     "type_name_hint": suggestion.get("type_name_hint", ""),
+                    "suggested_supervising_authority_id": suggestion.get("suggested_supervising_authority_id"),
+                    "suggested_party_ids": suggestion.get("suggested_party_ids", []),
                     "confidence": float(suggestion.get("confidence", 0.0) or 0.0),
                     "reason": str(suggestion.get("reason") or ""),
                 }

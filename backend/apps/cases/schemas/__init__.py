@@ -20,12 +20,15 @@ from .folder_binding_schemas import (
 )
 from .folder_scan_schemas import (
     CaseFolderScanCandidateOut,
+    CaseFolderScanPrefillOut,
     CaseFolderScanStageIn,
     CaseFolderScanStageItemIn,
     CaseFolderScanStageOut,
     CaseFolderScanStartIn,
     CaseFolderScanStartOut,
     CaseFolderScanStatusOut,
+    CaseFolderScanSubfolderListOut,
+    CaseFolderScanSubfolderOptionOut,
     CaseFolderScanSummaryOut,
 )
 from .lawyer_schemas import LawyerOutFromDTO
@@ -75,10 +78,13 @@ __all__ = [
     "CaseFolderBindingCreateSchema",
     "CaseFolderBindingResponseSchema",
     "CaseFolderScanCandidateOut",
+    "CaseFolderScanPrefillOut",
     "CaseFolderScanStartIn",
     "CaseFolderScanStartOut",
     "CaseFolderScanSummaryOut",
     "CaseFolderScanStatusOut",
+    "CaseFolderScanSubfolderOptionOut",
+    "CaseFolderScanSubfolderListOut",
     "CaseFolderScanStageItemIn",
     "CaseFolderScanStageIn",
     "CaseFolderScanStageOut",
