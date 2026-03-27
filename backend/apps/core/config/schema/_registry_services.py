@@ -26,6 +26,14 @@ def register_service_configs(registry: dict[str, ConfigField]) -> None:
         max_value=600,
         description="Ollama API 超时时间（秒）",
     )
+    registry["services.sms.document_title_extraction_limit"] = ConfigField(
+        name="services.sms.document_title_extraction_limit",
+        type=int,
+        default=150,
+        min_value=100,
+        max_value=5000,
+        description="短信文书重命名场景的标题提取文本长度（字符）",
+    )
     registry["services.scraper.encryption_key"] = ConfigField(
         name="services.scraper.encryption_key",
         type=str,

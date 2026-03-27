@@ -31,9 +31,11 @@ class DocumentRenamer:
 2. 不要包含案号
 3. 只返回标题文字，不要其他内容
 
-文书内容（前500字）：
+文书内容（前{limit}字）：
 {content}
 """
+
+    DEFAULT_TITLE_EXTRACTION_LIMIT = 150
 
     def __init__(self, ollama_model: str | None = None, ollama_base_url: str | None = None):
         """
@@ -45,6 +47,21 @@ class DocumentRenamer:
         """
         self.ollama_model = ollama_model or get_ollama_model()
         self.ollama_base_url = ollama_base_url or get_ollama_base_url()
+        self.title_extraction_limit = self._get_title_extraction_limit()
+
+    def _get_title_extraction_limit(self) -> int:
+        """
+        读取短信文书标题提取场景的专用文本限制
+
+        仅作用于短信文书重命名，不影响全局 PDF 提取限制。
+        """
+        raw_limit = get_config("services.sms.document_title_extraction_limit", self.DEFAULT_TITLE_EXTRACTION_LIMIT)
+        try:
+            limit = int(raw_limit)
+        except (TypeError, ValueError):
+            return self.DEFAULT_TITLE_EXTRACTION_LIMIT
+
+        return max(100, min(limit, 5000))
 
     def extract_document_title(self, document_path: str) -> str:
         """
@@ -64,8 +81,7 @@ class DocumentRenamer:
 
         try:
             # 使用 Document_Processor 读取文书内容
-            limit = get_config("validation.text_extraction_limit", 500)
-            extraction = extract_document_content(document_path, limit=limit)
+            extraction = extract_document_content(document_path, limit=self.title_extraction_limit)
 
             if not extraction.text:
                 logger.warning(f"无法从文书中提取文本内容: {document_path}")
@@ -96,7 +112,7 @@ class DocumentRenamer:
             Optional[str]: 提取的标题，失败时返回 None
         """
         try:
-            prompt = self.DOCUMENT_TITLE_PROMPT.format(content=content)
+            prompt = self.DOCUMENT_TITLE_PROMPT.format(content=content, limit=self.title_extraction_limit)
             messages = [{"role": "user", "content": prompt}]
 
             response = chat(model=self.ollama_model, messages=messages, base_url=self.ollama_base_url)
