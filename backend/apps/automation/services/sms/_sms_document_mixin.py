@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 from apps.automation.models import CourtSMS, CourtSMSStatus
 
 if TYPE_CHECKING:
+    from apps.automation.services.sms.case_folder_archive_service import CaseFolderArchiveService
     from apps.automation.services.sms.case_matcher import CaseMatcher
     from apps.automation.services.sms.matching.case_number_extractor_service import CaseNumberExtractorService
     from apps.automation.services.sms.matching.document_attachment_service import DocumentAttachmentService
@@ -27,6 +28,10 @@ class SMSDocumentMixin:
 
     @property
     def matcher(self) -> "CaseMatcher":
+        raise NotImplementedError
+
+    @property
+    def case_folder_archive(self) -> "CaseFolderArchiveService":
         raise NotImplementedError
 
     def _extract_and_update_sms_from_documents(self, sms: CourtSMS) -> None:
@@ -132,6 +137,7 @@ class SMSDocumentMixin:
 
             self._save_renamed_paths(sms, renamed_paths)
             self._attach_to_case_log(sms, renamed_paths)
+            self._archive_to_case_folder(sms, renamed_paths)
             self._sync_case_numbers_from_documents(sms, renamed_paths)
             self._sync_party_names_from_documents(sms, renamed_paths)
 
@@ -205,6 +211,17 @@ class SMSDocumentMixin:
                 sms_id=sms.id,
             )
             logger.info(f"案号同步完成: SMS ID={sms.id}, 写入 {count} 个新案号")
+
+    def _archive_to_case_folder(self, sms: CourtSMS, renamed_paths: list[str]) -> None:
+        """将短信和文书归档到案件绑定目录（非阻塞）"""
+        if not sms.case_id or not renamed_paths:
+            return
+        try:
+            archived = self.case_folder_archive.archive_sms_documents(sms, renamed_paths)
+            if archived:
+                logger.info(f"短信 {sms.id} 已归档到案件绑定目录")
+        except Exception as e:
+            logger.warning(f"短信 {sms.id} 归档到案件绑定目录失败，不影响主流程: {e!s}")
 
     def _sync_party_names_from_documents(self, sms: CourtSMS, renamed_paths: list[str]) -> None:
         """从文书中提取当事人并回写到 CourtSMS"""
