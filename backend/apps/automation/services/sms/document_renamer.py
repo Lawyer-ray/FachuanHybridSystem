@@ -35,7 +35,7 @@ class DocumentRenamer:
 {content}
 """
 
-    DEFAULT_TITLE_EXTRACTION_LIMIT = 150
+    DEFAULT_TITLE_EXTRACTION_LIMIT = 80
 
     def __init__(self, ollama_model: str | None = None, ollama_base_url: str | None = None):
         """
@@ -61,7 +61,7 @@ class DocumentRenamer:
         except (TypeError, ValueError):
             return self.DEFAULT_TITLE_EXTRACTION_LIMIT
 
-        return max(100, min(limit, 5000))
+        return max(20, min(limit, 5000))
 
     def extract_document_title(self, document_path: str) -> str:
         """
