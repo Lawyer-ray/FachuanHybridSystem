@@ -15,7 +15,7 @@ def test_private_api_stage_metrics_includes_capability_metrics(lawyer) -> None:
         site_name="wkxx",
         url="https://www.wkinfo.com.cn/login/index",
         account="admin-metrics-account",
-        password="admin-metrics-password",
+        password="admin-metrics-password",  # pragma: allowlist secret
     )
     task = LegalResearchTask.objects.create(
         created_by=lawyer,

@@ -23,6 +23,11 @@
 - **LLM 相关回归修复**
   - 修复 `ninja_llm_api` 模板同步路径缺失导致的集成测试失败。
   - 修复 `LLMConfig` Moonshot 兼容方法缺失导致的单测失败。
+- **CI 稳定性修复（Backend Pipeline）**
+  - 修复 `apps/core/llm/structured_output.py` 触发的 `ruff UP047` 检查失败，统一沿用 TypeVar 风格以兼容现有 mypy 策略。
+  - 修复 `tests/ci/unit/test_regression_suite.py` 动态导入失效模块导致的测试收集异常，改为对 tracked CI unit 模块执行 import smoke。
+  - `backend` 主 Job 的 pre-commit 改为基于 diff 的 changed-files 运行，避免被全仓历史格式债务阻塞。
+  - 为 CI 单测中的示例密码字段补充 `pragma: allowlist secret`，消除 `detect-secrets` 误报。
 
 ## [26.26.2] - 2026-03-27
 

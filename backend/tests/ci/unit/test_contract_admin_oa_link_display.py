@@ -16,7 +16,7 @@ def test_contract_admin_shows_law_firm_oa_link(contract, lawyer) -> None:
         site_name="金诚同达OA",
         url="https://oa.example.com/login",
         account="oa-user",
-        password="oa-pass",
+        password="oa-pass",  # pragma: allowlist secret
     )
 
     admin = ContractAdmin(Contract, AdminSite())
