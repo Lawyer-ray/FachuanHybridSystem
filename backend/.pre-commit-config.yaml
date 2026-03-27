@@ -79,7 +79,7 @@ repos:
         pass_filenames: false
 
       - id: forbid-sensitive-patterns
-        name: Forbid sensitive patterns (ID/password/token)
+        name: Forbid sensitive patterns (ID/mobile/email/password/token)
         entry: python backend/devtools/security_guard.py --check sensitive --mode staged
         language: python
         files: .*

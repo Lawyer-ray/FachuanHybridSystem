@@ -32,6 +32,8 @@ SENSITIVE_LITERAL_ASSIGN_PATTERN = re.compile(
     r"\s*[:=]\s*['\"][^'\"]{4,}['\"]"
 )
 BEARER_PATTERN = re.compile(r"(?i)\bbearer\s+[A-Za-z0-9._-]{12,}\b")
+CN_MOBILE_PATTERN = re.compile(r"(?<!\d)(?:\+?86[-\s]?)?1[3-9]\d{9}(?!\d)")
+EMAIL_PATTERN = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
 
 
 def _run_git(args: list[str]) -> str:
@@ -153,6 +155,14 @@ def _check_sensitive(files: list[str], mode: str, base: str | None, head: str) -
             if CN_ID_PATTERN.search(content):
                 errors.append(f"{filepath}:{lineno}: 检测到疑似身份证号，请脱敏或移除")
                 continue
+            if CN_MOBILE_PATTERN.search(content):
+                if not PLACEHOLDER_PATTERN.search(content):
+                    errors.append(f"{filepath}:{lineno}: 检测到疑似手机号，请脱敏或改为占位符")
+                    continue
+            if EMAIL_PATTERN.search(content):
+                if not PLACEHOLDER_PATTERN.search(content):
+                    errors.append(f"{filepath}:{lineno}: 检测到疑似邮箱地址，请脱敏或改为占位符")
+                    continue
             if BEARER_PATTERN.search(content):
                 errors.append(f"{filepath}:{lineno}: 检测到 Bearer Token 字符串，请移除")
                 continue
