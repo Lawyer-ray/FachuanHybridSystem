@@ -9,6 +9,7 @@ LLM Ninja API
 import logging
 from typing import Any, ClassVar
 
+from django.db import transaction
 from ninja import Router
 from ninja.schema import Schema
 
@@ -60,6 +61,44 @@ class ConversationHistoryResponse(Schema):
 
     session_id: str
     messages: list[ConversationMessage]
+
+
+class PromptTemplateSyncResponse(Schema):
+    """Prompt 模板同步响应"""
+
+    synced_count: int
+
+
+def sync_prompt_templates_impl(*, overwrite: bool = True) -> dict[str, int]:
+    """
+    将代码内置 Prompt 模板同步到数据库。
+
+    该函数保留模块级命名，兼容旧测试对 `sync_prompt_templates_impl` 的 monkeypatch。
+    """
+    from apps.core.llm.prompts import PromptManager
+    from apps.core.models import PromptTemplate
+
+    templates = list(PromptManager._templates.values())
+    synced_count = 0
+    with transaction.atomic():
+        for item in templates:
+            defaults = {
+                "title": (item.description or item.name)[:200],
+                "template": item.template,
+                "description": item.description,
+                "variables": item.variables,
+                "category": (item.name.split("_", maxsplit=1)[0] or "general"),
+                "is_active": True,
+                "version": "1.0",
+            }
+            if overwrite:
+                PromptTemplate.objects.update_or_create(name=item.name, defaults=defaults)
+                synced_count += 1
+                continue
+            _, created = PromptTemplate.objects.get_or_create(name=item.name, defaults=defaults)
+            if created:
+                synced_count += 1
+    return {"synced_count": synced_count}
 
 
 # ============================================================
@@ -151,3 +190,20 @@ def get_conversation_history(request: Any, session_id: str) -> Any:
     ]
 
     return ConversationHistoryResponse(session_id=session_id, messages=messages)
+
+
+@llm_router.post("/templates/sync", response=PromptTemplateSyncResponse)
+@rate_limit_from_settings("LLM", by_user=True)
+def sync_prompt_templates(request: Any) -> Any:
+    """
+    同步代码内置 Prompt 模板到数据库（仅管理员）。
+    """
+    user = getattr(request, "user", None)
+    if not user or not getattr(user, "is_authenticated", False):
+        user = getattr(request, "auth", None)
+    is_admin = bool(getattr(user, "is_superuser", False) or getattr(user, "is_staff", False))
+    if not is_admin:
+        raise PermissionDenied(message="需要管理员权限", code="PERMISSION_DENIED")
+
+    result = sync_prompt_templates_impl(overwrite=True)
+    return PromptTemplateSyncResponse(synced_count=int(result.get("synced_count", 0)))
