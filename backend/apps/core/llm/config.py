@@ -53,6 +53,10 @@ class LLMConfig:
     DEFAULT_OPENAI_COMPATIBLE_MODEL = "moonshot-v1-8k"
     DEFAULT_OPENAI_COMPATIBLE_BASE_URL = "https://api.moonshot.cn/v1"
     DEFAULT_OPENAI_COMPATIBLE_TIMEOUT = 120
+    # Moonshot 历史常量别名（兼容旧调用与测试）
+    DEFAULT_MOONSHOT_MODEL = DEFAULT_OPENAI_COMPATIBLE_MODEL
+    DEFAULT_MOONSHOT_BASE_URL = DEFAULT_OPENAI_COMPATIBLE_BASE_URL
+    DEFAULT_MOONSHOT_TIMEOUT = DEFAULT_OPENAI_COMPATIBLE_TIMEOUT
 
     DEFAULT_AVAILABLE_MODELS: ClassVar[list[str]] = [
         # Qwen 系列
@@ -405,37 +409,51 @@ class LLMConfig:
     @classmethod
     def get_openai_compatible_api_key(cls) -> str:
         raw = cls._get_system_config("OPENAI_COMPATIBLE_API_KEY", "")
-        if not raw:
-            raw = cls._get_system_config("MOONSHOT_API_KEY", "")
-        return cls._normalize_api_key(raw)
+        if raw:
+            return cls._normalize_api_key(raw)
+        return cls.get_moonshot_api_key()
 
     @classmethod
     async def get_openai_compatible_api_key_async(cls) -> str:
         raw = await cls._get_system_config_async("OPENAI_COMPATIBLE_API_KEY", "")
-        if not raw:
-            raw = await cls._get_system_config_async("MOONSHOT_API_KEY", "")
-        return cls._normalize_api_key(raw)
+        if raw:
+            return cls._normalize_api_key(raw)
+        raw = await cls._get_system_config_async("MOONSHOT_API_KEY", "")
+        if raw:
+            return cls._normalize_api_key(raw)
+        moonshot_config = getattr(settings, "MOONSHOT", {} or {})
+        fallback = moonshot_config.get("API_KEY", "")
+        if isinstance(fallback, str):
+            return cls._normalize_api_key(fallback)
+        return ""
 
     @classmethod
     def get_openai_compatible_base_url(cls) -> str:
         raw = cls._get_system_config("OPENAI_COMPATIBLE_BASE_URL", "")
-        if not raw:
-            raw = cls._get_system_config("MOONSHOT_BASE_URL", cls.DEFAULT_OPENAI_COMPATIBLE_BASE_URL)
-        return cls._normalize_base_url(raw)
+        if raw:
+            return cls._normalize_base_url(raw)
+        return cls.get_moonshot_base_url()
 
     @classmethod
     async def get_openai_compatible_base_url_async(cls) -> str:
         raw = await cls._get_system_config_async("OPENAI_COMPATIBLE_BASE_URL", "")
-        if not raw:
-            raw = await cls._get_system_config_async("MOONSHOT_BASE_URL", cls.DEFAULT_OPENAI_COMPATIBLE_BASE_URL)
-        return cls._normalize_base_url(raw)
+        if raw:
+            return cls._normalize_base_url(raw)
+        raw = await cls._get_system_config_async("MOONSHOT_BASE_URL", "")
+        if raw:
+            return cls._normalize_base_url(raw)
+        moonshot_config = getattr(settings, "MOONSHOT", {} or {})
+        fallback = moonshot_config.get("BASE_URL", cls.DEFAULT_MOONSHOT_BASE_URL)
+        if isinstance(fallback, str):
+            return cls._normalize_base_url(fallback)
+        return cls.DEFAULT_MOONSHOT_BASE_URL
 
     @classmethod
     def get_openai_compatible_model(cls) -> str:
         raw = cls._get_system_config("OPENAI_COMPATIBLE_DEFAULT_MODEL", "")
-        if not raw:
-            raw = cls._get_system_config("MOONSHOT_MODEL", cls.DEFAULT_OPENAI_COMPATIBLE_MODEL)
-        return (raw or "").strip() or cls.DEFAULT_OPENAI_COMPATIBLE_MODEL
+        if raw:
+            return (raw or "").strip() or cls.DEFAULT_OPENAI_COMPATIBLE_MODEL
+        return cls.get_moonshot_default_model()
 
     @classmethod
     def get_openai_compatible_embedding_model(cls) -> str:
@@ -447,22 +465,81 @@ class LLMConfig:
     @classmethod
     def get_openai_compatible_timeout(cls) -> int:
         timeout_str = cls._get_system_config("OPENAI_COMPATIBLE_TIMEOUT", "")
-        if not timeout_str:
-            timeout_str = cls._get_system_config("MOONSHOT_TIMEOUT", str(cls.DEFAULT_OPENAI_COMPATIBLE_TIMEOUT))
-        try:
-            return int(timeout_str)
-        except (ValueError, TypeError):
-            return cls.DEFAULT_OPENAI_COMPATIBLE_TIMEOUT
+        if timeout_str:
+            try:
+                return int(timeout_str)
+            except (ValueError, TypeError):
+                return cls.DEFAULT_OPENAI_COMPATIBLE_TIMEOUT
+        return cls.get_moonshot_timeout()
 
     @classmethod
     async def get_openai_compatible_timeout_async(cls) -> int:
         timeout_str = await cls._get_system_config_async("OPENAI_COMPATIBLE_TIMEOUT", "")
-        if not timeout_str:
-            timeout_str = await cls._get_system_config_async("MOONSHOT_TIMEOUT", str(cls.DEFAULT_OPENAI_COMPATIBLE_TIMEOUT))
+        if timeout_str:
+            try:
+                return int(timeout_str)
+            except (ValueError, TypeError):
+                return cls.DEFAULT_OPENAI_COMPATIBLE_TIMEOUT
+        timeout_str = await cls._get_system_config_async("MOONSHOT_TIMEOUT", "")
+        if timeout_str:
+            try:
+                return int(timeout_str)
+            except (ValueError, TypeError):
+                return cls.DEFAULT_OPENAI_COMPATIBLE_TIMEOUT
+        moonshot_config = getattr(settings, "MOONSHOT", {} or {})
+        fallback = moonshot_config.get("TIMEOUT", cls.DEFAULT_MOONSHOT_TIMEOUT)
         try:
-            return int(timeout_str)
+            return int(fallback)
         except (ValueError, TypeError):
-            return cls.DEFAULT_OPENAI_COMPATIBLE_TIMEOUT
+            return cls.DEFAULT_MOONSHOT_TIMEOUT
+
+    @classmethod
+    def get_moonshot_api_key(cls) -> str:
+        raw = cls._get_system_config("MOONSHOT_API_KEY", "")
+        if raw:
+            return cls._normalize_api_key(raw)
+        moonshot_config = getattr(settings, "MOONSHOT", {} or {})
+        fallback = moonshot_config.get("API_KEY", "")
+        if isinstance(fallback, str):
+            return cls._normalize_api_key(fallback)
+        return ""
+
+    @classmethod
+    def get_moonshot_base_url(cls) -> str:
+        raw = cls._get_system_config("MOONSHOT_BASE_URL", "")
+        if raw:
+            return cls._normalize_base_url(raw)
+        moonshot_config = getattr(settings, "MOONSHOT", {} or {})
+        fallback = moonshot_config.get("BASE_URL", cls.DEFAULT_MOONSHOT_BASE_URL)
+        if isinstance(fallback, str):
+            return cls._normalize_base_url(fallback)
+        return cls.DEFAULT_MOONSHOT_BASE_URL
+
+    @classmethod
+    def get_moonshot_default_model(cls) -> str:
+        raw = cls._get_system_config("MOONSHOT_MODEL", "")
+        if raw and raw.strip():
+            return raw.strip()
+        moonshot_config = getattr(settings, "MOONSHOT", {} or {})
+        fallback = moonshot_config.get("DEFAULT_MODEL", cls.DEFAULT_MOONSHOT_MODEL)
+        if isinstance(fallback, str) and fallback.strip():
+            return fallback.strip()
+        return cls.DEFAULT_MOONSHOT_MODEL
+
+    @classmethod
+    def get_moonshot_timeout(cls) -> int:
+        raw = cls._get_system_config("MOONSHOT_TIMEOUT", "")
+        if raw:
+            try:
+                return int(raw)
+            except (ValueError, TypeError):
+                return cls.DEFAULT_MOONSHOT_TIMEOUT
+        moonshot_config = getattr(settings, "MOONSHOT", {} or {})
+        fallback = moonshot_config.get("TIMEOUT", cls.DEFAULT_MOONSHOT_TIMEOUT)
+        try:
+            return int(fallback)
+        except (ValueError, TypeError):
+            return cls.DEFAULT_MOONSHOT_TIMEOUT
 
     @classmethod
     def get_default_backend(cls) -> str:
