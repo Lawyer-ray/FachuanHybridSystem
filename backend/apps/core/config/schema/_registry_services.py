@@ -29,7 +29,7 @@ def register_service_configs(registry: dict[str, ConfigField]) -> None:
     registry["services.sms.document_title_extraction_limit"] = ConfigField(
         name="services.sms.document_title_extraction_limit",
         type=int,
-        default=80,
+        default=50,
         min_value=20,
         max_value=5000,
         description="短信文书重命名场景的标题提取文本长度（字符）",

@@ -124,7 +124,7 @@ services:
   sms:
     # 文书重命名时，用于标题提取的文本截断长度（字符）
     # 仅作用于短信文书重命名，不影响全局 PDF 提取
-    document_title_extraction_limit: 80
+    document_title_extraction_limit: 50
 
   # 爬虫配置
   scraper:
