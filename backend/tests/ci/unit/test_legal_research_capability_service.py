@@ -6,7 +6,12 @@ import pytest
 from django.core.cache import cache
 
 from apps.core.exceptions import ConflictError, RecognitionTimeoutError, ServiceUnavailableError
-from apps.legal_research.models import LegalResearchResult, LegalResearchTask, LegalResearchTaskEvent, LegalResearchTaskStatus
+from apps.legal_research.models import (
+    LegalResearchResult,
+    LegalResearchTask,
+    LegalResearchTaskEvent,
+    LegalResearchTaskStatus,
+)
 from apps.legal_research.schemas import AgentSearchRequestV1
 from apps.legal_research.services.capability_service import LegalResearchCapabilityService
 from apps.organization.models import AccountCredential
@@ -18,12 +23,14 @@ def _build_credential(*, lawyer) -> AccountCredential:
         site_name="wkxx",
         url="https://www.wkinfo.com.cn/login/index",
         account="capability-account",
-        password="capability-password",
+        password="capability-password",  # pragma: allowlist secret
     )
 
 
 @pytest.mark.django_db
-def test_capability_search_returns_structured_response_and_idempotent_cache(monkeypatch: pytest.MonkeyPatch, lawyer) -> None:
+def test_capability_search_returns_structured_response_and_idempotent_cache(
+    monkeypatch: pytest.MonkeyPatch, lawyer
+) -> None:
     cache.clear()
     credential = _build_credential(lawyer=lawyer)
     calls = {"count": 0}
@@ -99,7 +106,9 @@ def test_capability_search_returns_structured_response_and_idempotent_cache(monk
     assert second.request_id == first.request_id
     task = LegalResearchTask.objects.order_by("-id").first()
     assert task is not None
-    assert LegalResearchTaskEvent.objects.filter(task_id=task.id, interface_name="capability_direct_call", success=True).exists()
+    assert LegalResearchTaskEvent.objects.filter(
+        task_id=task.id, interface_name="capability_direct_call", success=True
+    ).exists()
 
 
 @pytest.mark.django_db

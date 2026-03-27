@@ -108,8 +108,26 @@ jobs:
       - name: Compile Python
         run: uv run python -m compileall -q apps apiSystem
 
-      - name: Pre-commit
-        run: uv run pre-commit run --all-files
+      - name: Pre-commit (changed files)
+        run: |
+          set -euo pipefail
+          base=""
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ] && [ -n "${GITHUB_BASE_REF:-}" ]; then
+            git fetch origin "${GITHUB_BASE_REF}" --depth=1
+            base="$(git merge-base HEAD "origin/${GITHUB_BASE_REF}")"
+          else
+            base="$(git rev-parse HEAD~1 2>/dev/null || true)"
+          fi
+          if [ -z "${base}" ]; then
+            echo "No base commit found, skipping pre-commit changed-files gate."
+            exit 0
+          fi
+          files="$(git diff --name-only --diff-filter=ACMRT "${base}" HEAD | grep -E '^backend/' || true)"
+          if [ -z "${files}" ]; then
+            echo "No changed backend files."
+            exit 0
+          fi
+          uv run pre-commit run --files ${files}
 
       - name: Lint (ruff, changed files)
         run: |

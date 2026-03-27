@@ -87,6 +87,8 @@ ignore = [
 "apps/cases/admin/base.py" = ["UP040"]  # TypeAlias 在 TYPE_CHECKING 块中无法使用 type 关键字替代
 "apps/automation/services/ai/prompts.py" = ["E501"]
 "apps/core/utils/typing_helpers.py" = ["UP047"]  # TypeVar 方式与 mypy --strict 更兼容，暂不迁移到 PEP 695 type parameters 语法
+"apps/core/llm/structured_output.py" = ["UP047"]  # CI 在 backend 工作目录运行时使用该相对路径
+"backend/apps/core/llm/structured_output.py" = ["UP047"]  # 统一沿用 TypeVar 风格，避免单文件提前切换 PEP 695 语法
 
 [lint.mccabe]
 max-complexity = 10
