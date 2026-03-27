@@ -20,7 +20,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Security guard (ID/password/token in added lines)
+      - name: Security guard (ID/mobile/email/password/token in added lines)
         run: |
           set -euo pipefail
           base=""
