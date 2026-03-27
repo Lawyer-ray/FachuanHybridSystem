@@ -119,6 +119,15 @@ class SiliconFlowBackend:
             return content
         return str(content)
 
+    def _resolve_embedding_model(self, model: str | None = None) -> str:
+        if model and model.strip():
+            return model.strip()
+        if self._config and self._config.embedding_model and self._config.embedding_model.strip():
+            return self._config.embedding_model.strip()
+        if self._config and self._config.default_model and self._config.default_model.strip():
+            return self._config.default_model.strip()
+        return self.default_model
+
     def _raise_mapped_error(self, error: Exception, timeout_seconds: float, base_url: str) -> None:
         if isinstance(error, openai.AuthenticationError):
             logger.warning("SiliconFlow 认证失败", extra={"error": str(error)})
@@ -292,6 +301,30 @@ class SiliconFlowBackend:
         except Exception as error:
             base_url = self._config.base_url if self._config and self._config.base_url else await LLMConfig.get_base_url_async()
             self._raise_mapped_error(error, request_timeout, base_url)
+
+    def get_default_embedding_model(self) -> str:
+        return self._resolve_embedding_model()
+
+    def embed_texts(
+        self,
+        texts: list[str],
+        model: str | None = None,
+        **kwargs: Any,
+    ) -> list[list[float]]:
+        if not texts:
+            return []
+        used_model = self._resolve_embedding_model(model)
+        request_timeout = float(kwargs.pop("timeout_seconds", self.timeout))
+        try:
+            client = self._build_sync_client(timeout_seconds=request_timeout)
+            response = client.embeddings.create(model=used_model, input=texts)
+        except Exception as error:
+            self._raise_mapped_error(error, request_timeout, self.base_url)
+
+        vectors: list[list[float]] = []
+        for item in getattr(response, "data", None) or []:
+            vectors.append([float(v) for v in (getattr(item, "embedding", None) or [])])
+        return vectors
 
     def get_default_model(self) -> str:
         return self.default_model

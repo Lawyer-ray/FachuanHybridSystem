@@ -13,15 +13,47 @@ from typing import Any
 
 from django.utils.translation import gettext_lazy as _
 
-from apps.automation.services.ai import get_ollama_base_url, get_ollama_model
-from apps.automation.services.ai.ollama_client import chat
 from apps.core.exceptions import RecognitionTimeoutError, ServiceUnavailableError
+from apps.core.interfaces import ServiceLocator
+from apps.core.llm.config import LLMConfig
+from apps.core.llm.exceptions import LLMNetworkError, LLMTimeoutError
 
 from ._case_number_mixin import CaseNumberMixin
 from ._datetime_extraction_mixin import DatetimeExtractionMixin
 from ._response_parser_mixin import ResponseParserMixin
 
 logger = logging.getLogger("apps.document_recognition")
+
+
+def get_ollama_model() -> str:
+    """兼容旧测试与调用方：保留模块级配置读取入口。"""
+    return LLMConfig.get_ollama_model()
+
+
+def get_ollama_base_url() -> str:
+    """兼容旧测试与调用方：保留模块级配置读取入口。"""
+    return LLMConfig.get_ollama_base_url()
+
+
+def chat(
+    *,
+    messages: list[dict[str, str]],
+    model: str | None = None,
+    llm_service: Any | None = None,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """
+    兼容旧测试与调用方：保留模块级 chat 入口，内部转发到统一 LLM 服务。
+    """
+    service = llm_service or ServiceLocator.get_llm_service()
+    llm_response = service.chat(
+        messages=messages,
+        backend="ollama",
+        model=model,
+        fallback=False,
+        **kwargs,
+    )
+    return {"message": {"content": llm_response.content}}
 
 
 class InfoExtractor(CaseNumberMixin, DatetimeExtractionMixin, ResponseParserMixin):
@@ -89,9 +121,17 @@ class InfoExtractor(CaseNumberMixin, DatetimeExtractionMixin, ResponseParserMixi
         self,
         ollama_model: str | None = None,
         ollama_base_url: str | None = None,
+        llm_service: Any | None = None,
     ):
         self.ollama_model = ollama_model or get_ollama_model()
         self.ollama_base_url = ollama_base_url or get_ollama_base_url()
+        self._llm_service = llm_service
+
+    @property
+    def llm_service(self) -> Any:
+        if self._llm_service is None:
+            self._llm_service = ServiceLocator.get_llm_service()
+        return self._llm_service
 
     def extract_summons_info(self, text: str) -> dict[str, Any]:
         """
@@ -127,9 +167,9 @@ class InfoExtractor(CaseNumberMixin, DatetimeExtractionMixin, ResponseParserMixi
         try:
             prompt = self.SUMMONS_PROMPT.format(text=truncated_text)
             response = chat(
-                model=self.ollama_model,
                 messages=[{"role": "user", "content": prompt}],
-                base_url=self.ollama_base_url,
+                model=self.ollama_model,
+                llm_service=self.llm_service,
             )
             ollama_result = self._parse_summons_response(response)
             ollama_datetime = ollama_result.get("court_time")
@@ -137,9 +177,9 @@ class InfoExtractor(CaseNumberMixin, DatetimeExtractionMixin, ResponseParserMixi
                 logger.info(f"Ollama 提取到时间: {ollama_datetime}")
             if regex_case_number is None and ollama_result.get("case_number"):
                 logger.info(f"Ollama 提取到案号: {ollama_result.get('case_number')}")
-        except ConnectionError as e:
+        except (LLMNetworkError, ConnectionError) as e:
             logger.warning(f"Ollama 服务不可用，将仅使用正则结果: {e}")
-        except TimeoutError as e:
+        except LLMTimeoutError as e:
             logger.warning(f"Ollama 提取超时，将仅使用正则结果: {e}")
         except Exception as e:
             logger.warning(f"Ollama 提取失败，将仅使用正则结果: {e}")
@@ -193,9 +233,9 @@ class InfoExtractor(CaseNumberMixin, DatetimeExtractionMixin, ResponseParserMixi
         try:
             prompt = self.EXECUTION_PROMPT.format(text=truncated_text)
             response = chat(
-                model=self.ollama_model,
                 messages=[{"role": "user", "content": prompt}],
-                base_url=self.ollama_base_url,
+                model=self.ollama_model,
+                llm_service=self.llm_service,
             )
             result = self._parse_execution_response(response)
             logger.info(
@@ -209,7 +249,7 @@ class InfoExtractor(CaseNumberMixin, DatetimeExtractionMixin, ResponseParserMixi
                 },
             )
             return result
-        except ConnectionError as e:
+        except (LLMNetworkError, ConnectionError) as e:
             logger.error(
                 f"Ollama 服务不可用: {e}",
                 extra={"action": "extract_execution_info", "error_type": "connection_error", "error": str(e)},
@@ -220,7 +260,7 @@ class InfoExtractor(CaseNumberMixin, DatetimeExtractionMixin, ResponseParserMixi
                 errors={"service": "Ollama 服务连接失败"},
                 service_name="Ollama",
             ) from e
-        except TimeoutError as e:
+        except LLMTimeoutError as e:
             logger.error(
                 f"执行裁定书信息提取超时: {e}",
                 extra={"action": "extract_execution_info", "error_type": "timeout_error", "error": str(e)},

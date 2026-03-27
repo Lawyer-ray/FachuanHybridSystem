@@ -15,9 +15,9 @@ from django.middleware.csrf import get_token
 from django.urls import path, reverse
 
 from apps.automation.models import NamerTool
-from apps.automation.services.ai.ollama_client import chat as ollama_chat
 from apps.automation.services.ai.prompts import DEFAULT_FILENAME_PROMPT
 from apps.automation.services.document.document_processing import process_uploaded_document
+from apps.core.interfaces import ServiceLocator
 
 
 class AutoNamerToolForm(forms.Form):
@@ -111,23 +111,9 @@ class AutoNamerToolAdmin(admin.ModelAdmin[NamerTool]):
         """调用 AI 并渲染结果"""
         try:
             msg_list = [{"role": "system", "content": prompt}, {"role": "user", "content": text}]
-            from django.conf import settings as django_settings
-
-            base_url = getattr(django_settings, "OLLAMA_BASE_URL", "http://localhost:11434")
-            ollama_result = ollama_chat(model=model, messages=msg_list, base_url=base_url)
-
-            response_text = "无返回内容"
-            if isinstance(ollama_result, dict):
-                if "message" in ollama_result and isinstance(ollama_result["message"], dict):
-                    response_text = ollama_result["message"].get("content", "无返回内容")
-                elif "response" in ollama_result:
-                    response_text = ollama_result["response"]
-                elif "content" in ollama_result:
-                    response_text = ollama_result["content"]
-                else:
-                    import json
-
-                    response_text = json.dumps(ollama_result, ensure_ascii=False, indent=2)
+            llm_service = ServiceLocator.get_llm_service()
+            llm_response = llm_service.chat(messages=msg_list, backend="ollama", model=model, fallback=False)
+            response_text = llm_response.content or "无返回内容"
 
             html = f"""
             <h1>自动命名工具（上传文档 + 提示词 → 模型生成）</h1>

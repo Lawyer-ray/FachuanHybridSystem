@@ -10,9 +10,21 @@ class AutomationConfigService:
         from apps.core.llm.config import LLMConfig
 
         return {
+            "default_backend": LLMConfig.get_default_backend(),
+            "siliconflow": {
+                "model": LLMConfig.get_default_model(),
+                "embedding_model": LLMConfig.get_embedding_model(),
+                "base_url": LLMConfig.get_base_url(),
+            },
             "ollama": {
                 "model": LLMConfig.get_ollama_model(),
+                "embedding_model": LLMConfig.get_ollama_embedding_model(),
                 "base_url": LLMConfig.get_ollama_base_url(),
+            },
+            "openai_compatible": {
+                "model": LLMConfig.get_openai_compatible_model(),
+                "embedding_model": LLMConfig.get_openai_compatible_embedding_model(),
+                "base_url": LLMConfig.get_openai_compatible_base_url(),
             },
         }
 

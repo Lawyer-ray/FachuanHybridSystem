@@ -8,16 +8,42 @@ import re
 import time
 from collections import Counter, OrderedDict
 from dataclasses import dataclass, field
+from types import SimpleNamespace
 from typing import Any
 
-import openai
 from django.core.cache import cache
 
 from apps.core.interfaces import ServiceLocator
-from apps.core.llm.config import LLMConfig
 from apps.legal_research.services.tuning_config import LegalResearchTuningConfig
 
 logger = logging.getLogger(__name__)
+
+
+class _LLMEmbeddingClientAdapter:
+    """
+    将统一 llm_service.embed_texts 适配为历史 embeddings.create 形态。
+    保留该适配层，确保旧测试与局部调用约定稳定。
+    """
+
+    def __init__(self, llm_service: Any) -> None:
+        self._llm_service = llm_service
+        self.embeddings = self
+
+    def create(self, **kwargs: Any) -> Any:
+        raw_input = kwargs.get("input", "")
+        if isinstance(raw_input, list):
+            texts = [str(item or "") for item in raw_input]
+        else:
+            texts = [str(raw_input or "")]
+        model = kwargs.get("model")
+        vectors = self._llm_service.embed_texts(
+            texts=texts,
+            backend="siliconflow",
+            model=model,
+            fallback=False,
+        )
+        data = [SimpleNamespace(embedding=vector) for vector in vectors]
+        return SimpleNamespace(data=data)
 
 
 @dataclass
@@ -75,6 +101,7 @@ class CaseSimilarityService:
 
     def __init__(self, *, tuning: LegalResearchTuningConfig | None = None) -> None:
         self._llm = ServiceLocator.get_llm_service()
+        self._embedding_client: Any | None = None
         self._tuning = tuning or LegalResearchTuningConfig()
         self._passage_top_k = max(1, int(self._tuning.passage_top_k))
         self._passage_max_chars = max(1000, int(self._tuning.passage_max_chars))
@@ -104,7 +131,6 @@ class CaseSimilarityService:
         )
         self._semantic_vector_local_cache: OrderedDict[str, list[float]] = OrderedDict()
         self._semantic_vector_fail_until: float = 0.0
-        self._embedding_client: openai.OpenAI | None = None
 
     def score_case(
         self,
@@ -726,12 +752,16 @@ class CaseSimilarityService:
                 return vector
 
         try:
-            client = self._get_embedding_client()
-            resp = client.embeddings.create(model=self._semantic_vector_model, input=normalized)
-            data = getattr(resp, "data", None) or []
-            if not data:
+            embedding_client = self._get_embedding_client()
+            embedding_response = embedding_client.embeddings.create(
+                model=self._semantic_vector_model,
+                input=normalized,
+                timeout=self.SEMANTIC_EMBEDDING_TIMEOUT_SECONDS,
+            )
+            rows = getattr(embedding_response, "data", None) or []
+            if not rows:
                 return None
-            vector = self._coerce_float_list(getattr(data[0], "embedding", None))
+            vector = self._coerce_float_list(getattr(rows[0], "embedding", None) or [])
             if not vector:
                 return None
             self._write_semantic_vector_local_cache(cache_key=cache_key, vector=vector)
@@ -744,6 +774,11 @@ class CaseSimilarityService:
             self._semantic_vector_fail_until = time.time() + self.SEMANTIC_EMBEDDING_FAIL_COOLDOWN_SECONDS
             logger.info("语义向量调用失败，回退字符向量", extra={"error": str(exc)})
             return None
+
+    def _get_embedding_client(self) -> Any:
+        if self._embedding_client is None:
+            self._embedding_client = _LLMEmbeddingClientAdapter(self._llm)
+        return self._embedding_client
 
     @classmethod
     def _char_ngrams(cls, text: str) -> Counter[str]:
@@ -1303,22 +1338,6 @@ class CaseSimilarityService:
             model=model,
             metadata=metadata,
         )
-
-    def _get_embedding_client(self) -> openai.OpenAI:
-        if self._embedding_client is not None:
-            return self._embedding_client
-
-        api_key = LLMConfig.get_api_key()
-        base_url = LLMConfig.get_base_url()
-        if not api_key:
-            raise RuntimeError("SILICONFLOW_API_KEY 未配置")
-
-        self._embedding_client = openai.OpenAI(
-            api_key=api_key,
-            base_url=base_url,
-            timeout=self.SEMANTIC_EMBEDDING_TIMEOUT_SECONDS,
-        )
-        return self._embedding_client
 
     @classmethod
     def _build_semantic_embedding_cache_key(cls, *, model: str, text: str) -> str:

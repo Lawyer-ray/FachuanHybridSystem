@@ -8,12 +8,13 @@ import json
 import logging
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from apps.automation.models import CourtSMSType
-from apps.automation.services.ai import get_ollama_base_url, get_ollama_model
-from apps.automation.services.ai.ollama_client import chat
 from apps.automation.utils.text_utils import TextUtils
+from apps.core.interfaces import ServiceLocator
+from apps.core.llm.config import LLMConfig
+from apps.core.llm.exceptions import LLMError
 
 if TYPE_CHECKING:
     from apps.core.interfaces import IClientService
@@ -74,6 +75,7 @@ class SMSParserService:
         self,
         ollama_model: str | None = None,
         ollama_base_url: str | None = None,
+        llm_service: Any | None = None,
         client_service: Optional["IClientService"] = None,
         party_matching_service: object | None = None,
         party_candidate_extractor: object | None = None,
@@ -90,6 +92,7 @@ class SMSParserService:
         """
         self._ollama_model = ollama_model
         self._ollama_base_url = ollama_base_url
+        self._llm_service = llm_service
         self._client_service = client_service
         self._party_matching_service = party_matching_service
         self._party_candidate_extractor = party_candidate_extractor
@@ -98,15 +101,21 @@ class SMSParserService:
     def ollama_model(self) -> str:
         """延迟加载 Ollama 模型配置，避免初始化阶段触发外部依赖。"""
         if self._ollama_model is None:
-            self._ollama_model = get_ollama_model()
+            self._ollama_model = LLMConfig.get_ollama_model()
         return self._ollama_model
 
     @property
     def ollama_base_url(self) -> str:
         """延迟加载 Ollama 服务地址配置。"""
         if self._ollama_base_url is None:
-            self._ollama_base_url = get_ollama_base_url()
+            self._ollama_base_url = LLMConfig.get_ollama_base_url()
         return self._ollama_base_url
+
+    @property
+    def llm_service(self) -> Any:
+        if self._llm_service is None:
+            self._llm_service = ServiceLocator.get_llm_service()
+        return self._llm_service
 
     @property
     def client_service(self) -> "IClientService":
@@ -382,7 +391,12 @@ class SMSParserService:
         prompt = self.PARTY_EXTRACTION_PROMPT.format(content=content)
         messages = [{"role": "user", "content": prompt}]
 
-        response = chat(model=self.ollama_model, messages=messages, base_url=self.ollama_base_url)
+        try:
+            llm_response = self.llm_service.chat(messages=messages, backend="ollama", model=self.ollama_model, fallback=False)
+            response = {"message": {"content": llm_response.content}}
+        except LLMError as exc:
+            logger.warning(f"Ollama 提取当事人失败: {exc!s}")
+            return []
 
         # 解析响应
         if "message" in response and "content" in response["message"]:

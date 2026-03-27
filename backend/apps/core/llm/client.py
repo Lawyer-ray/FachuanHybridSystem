@@ -79,3 +79,22 @@ class LLMClient:
             LLMResponse,
             await fallback_policy.execute_async(operation=operation, backend=backend_name, fallback=fallback),
         )
+
+    def embed_texts(
+        self,
+        *,
+        fallback_policy: Any,
+        texts: list[str],
+        backend: str | None = None,
+        model: str | None = None,
+        fallback: bool = True,
+        **kwargs: Any,
+    ) -> list[list[float]]:
+        def operation(b: ILLMBackend) -> list[list[float]]:
+            return b.embed_texts(texts=texts, model=model, **kwargs)
+
+        backend_name = backend or self._default_backend
+        return cast(
+            list[list[float]],
+            fallback_policy.execute(operation=operation, backend=backend_name, fallback=fallback),
+        )

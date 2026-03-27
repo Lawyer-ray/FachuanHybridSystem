@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Awaitable, Callable
-from typing import Any
+from typing import Any, TypeVar
 
-from .backends import ILLMBackend, LLMResponse
+from .backends import ILLMBackend
 from .exceptions import (
     LLMAPIError,
     LLMAuthenticationError,
@@ -19,6 +19,7 @@ from .router import LLMBackendRouter
 logger = logging.getLogger("apps.core.llm.service")
 
 _RETRIABLE_ERRORS = (LLMTimeoutError, LLMNetworkError, LLMAPIError)
+TResult = TypeVar("TResult")
 
 
 def _resolve_backends_from_router(
@@ -64,13 +65,13 @@ class LLMFallbackPolicy:
     def __init__(self, *, router: LLMBackendRouter) -> None:
         self.router = router
 
-    def execute(  # type: ignore[return]
+    def execute(
         self,
         *,
-        operation: Callable[[ILLMBackend], LLMResponse],
+        operation: Callable[[ILLMBackend], TResult],
         backend: str | None = None,
         fallback: bool = True,
-    ) -> LLMResponse:
+    ) -> TResult:
         if backend and not fallback:
             return operation(self.router.get_backend(backend))
 
@@ -93,13 +94,13 @@ class LLMFallbackPolicy:
 
         _raise_all_unavailable(errors)
 
-    async def execute_async(  # type: ignore[return]
+    async def execute_async(
         self,
         *,
-        operation: Callable[[ILLMBackend], Awaitable[LLMResponse]],
+        operation: Callable[[ILLMBackend], Awaitable[TResult]],
         backend: str | None = None,
         fallback: bool = True,
-    ) -> LLMResponse:
+    ) -> TResult:
         if backend and not fallback:
             return await operation(self.router.get_backend(backend))
 

@@ -7,12 +7,14 @@ Requirements: 1.2, 1.4, 1.5
 """
 
 import logging
+from collections.abc import AsyncIterator, Iterator
 from typing import Any, ClassVar
 
-from .backends import BackendConfig, ILLMBackend, LLMResponse
+from .backends import BackendConfig, ILLMBackend, LLMResponse, LLMStreamChunk
 from .client import LLMClient
 from .fallback_policy import LLMFallbackPolicy
 from .router import LLMBackendRouter
+from .streaming import astream_with_fallback, stream_with_fallback
 
 logger = logging.getLogger("apps.core.llm.service")
 
@@ -22,7 +24,7 @@ class LLMService:
     统一 LLM 服务
 
     提供统一的 LLM 调用接口,支持:
-    - 多后端选择(siliconflow/ollama/moonshot)
+    - 多后端选择(siliconflow/ollama/openai_compatible)
     - 自动降级(按优先级尝试可用后端)
     - 统一的响应格式
 
@@ -44,11 +46,15 @@ class LLMService:
     # 后端名称常量
     BACKEND_SILICONFLOW = "siliconflow"
     BACKEND_OLLAMA = "ollama"
+    BACKEND_OPENAI_COMPATIBLE = "openai_compatible"
+    BACKEND_MOONSHOT = "moonshot"
 
     # 默认后端优先级(数字越小优先级越高)
     DEFAULT_PRIORITIES: ClassVar = {
         BACKEND_SILICONFLOW: 1,
         BACKEND_OLLAMA: 2,
+        BACKEND_OPENAI_COMPATIBLE: 3,
+        BACKEND_MOONSHOT: 3,
     }
 
     def __init__(
@@ -122,7 +128,7 @@ class LLMService:
         Args:
             prompt: 用户提示词
             system_prompt: 系统提示词
-            backend: 指定后端 (siliconflow/ollama/moonshot),None 使用默认
+            backend: 指定后端 (siliconflow/ollama/openai_compatible),None 使用默认
             model: 指定模型,None 使用后端默认模型
             temperature: 温度参数
             max_tokens: 最大输出 token 数
@@ -160,7 +166,7 @@ class LLMService:
 
         Args:
             messages: 消息列表 [{"role": "user", "content": "..."}]
-            backend: 指定后端 (siliconflow/ollama/moonshot),None 使用默认
+            backend: 指定后端 (siliconflow/ollama/openai_compatible),None 使用默认
             model: 指定模型,None 使用后端默认模型
             temperature: 温度参数
             max_tokens: 最大输出 token 数
@@ -197,7 +203,7 @@ class LLMService:
 
         Args:
             messages: 消息列表 [{"role": "user", "content": "..."}]
-            backend: 指定后端 (siliconflow/ollama/moonshot),None 使用默认
+            backend: 指定后端 (siliconflow/ollama/openai_compatible),None 使用默认
             model: 指定模型,None 使用后端默认模型
             temperature: 温度参数
             max_tokens: 最大输出 token 数
@@ -217,11 +223,73 @@ class LLMService:
             **kwargs,
         )
 
+    def stream(
+        self,
+        messages: list[dict[str, str]],
+        backend: str | None = None,
+        model: str | None = None,
+        temperature: float = 0.7,
+        max_tokens: int | None = None,
+        fallback: bool = True,
+        **kwargs: Any,
+    ) -> Iterator[LLMStreamChunk]:
+        yield from stream_with_fallback(
+            get_backend=self._get_backend,
+            get_backends_by_priority=self._get_backends_by_priority,
+            backend=backend,
+            fallback=fallback,
+            messages=messages,
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            **kwargs,
+        )
+
+    async def astream(
+        self,
+        messages: list[dict[str, str]],
+        backend: str | None = None,
+        model: str | None = None,
+        temperature: float = 0.7,
+        max_tokens: int | None = None,
+        fallback: bool = True,
+        **kwargs: Any,
+    ) -> AsyncIterator[LLMStreamChunk]:
+        async for chunk in astream_with_fallback(
+            get_backend=self._get_backend,
+            get_backends_by_priority=self._get_backends_by_priority,
+            backend=backend,
+            fallback=fallback,
+            messages=messages,
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            **kwargs,
+        ):
+            yield chunk
+
+    def embed_texts(
+        self,
+        texts: list[str],
+        backend: str | None = None,
+        model: str | None = None,
+        fallback: bool = True,
+        **kwargs: Any,
+    ) -> list[list[float]]:
+        return self._client.embed_texts(
+            fallback_policy=self._fallback_policy,
+            texts=texts,
+            backend=backend,
+            model=model,
+            fallback=fallback,
+            **kwargs,
+        )
+
     def get_backend(self, name: str) -> ILLMBackend:
         """
         获取指定后端实例
 
-        用于直接访问后端特有功能(如 Moonshot 的文件操作).
+        用于直接访问后端特有功能.
 
         Args:
             name: 后端名称

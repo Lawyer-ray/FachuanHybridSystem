@@ -110,6 +110,18 @@ def get_env_mappings() -> dict[str, dict[str, Any]]:
             "description": "硅基流动模型名称",
             "is_secret": False,
         },
+        "SILICONFLOW_DEFAULT_MODEL": {
+            "key": "SILICONFLOW_DEFAULT_MODEL",
+            "category": "ai",
+            "description": "硅基流动默认对话模型名称",
+            "is_secret": False,
+        },
+        "SILICONFLOW_EMBEDDING_MODEL": {
+            "key": "SILICONFLOW_EMBEDDING_MODEL",
+            "category": "ai",
+            "description": "硅基流动向量模型名称",
+            "is_secret": False,
+        },
         "OLLAMA_MODEL": {
             "key": "OLLAMA_MODEL",
             "category": "ai",
@@ -120,6 +132,42 @@ def get_env_mappings() -> dict[str, dict[str, Any]]:
             "key": "OLLAMA_BASE_URL",
             "category": "ai",
             "description": "Ollama API 地址",
+            "is_secret": False,
+        },
+        "OLLAMA_EMBEDDING_MODEL": {
+            "key": "OLLAMA_EMBEDDING_MODEL",
+            "category": "ai",
+            "description": "Ollama 向量模型名称",
+            "is_secret": False,
+        },
+        "OPENAI_COMPATIBLE_API_KEY": {
+            "key": "OPENAI_COMPATIBLE_API_KEY",
+            "category": "ai",
+            "description": "OpenAI-compatible API Key",
+            "is_secret": True,
+        },
+        "OPENAI_COMPATIBLE_BASE_URL": {
+            "key": "OPENAI_COMPATIBLE_BASE_URL",
+            "category": "ai",
+            "description": "OpenAI-compatible API 地址",
+            "is_secret": False,
+        },
+        "OPENAI_COMPATIBLE_DEFAULT_MODEL": {
+            "key": "OPENAI_COMPATIBLE_DEFAULT_MODEL",
+            "category": "ai",
+            "description": "OpenAI-compatible 默认对话模型名称",
+            "is_secret": False,
+        },
+        "OPENAI_COMPATIBLE_EMBEDDING_MODEL": {
+            "key": "OPENAI_COMPATIBLE_EMBEDDING_MODEL",
+            "category": "ai",
+            "description": "OpenAI-compatible 向量模型名称",
+            "is_secret": False,
+        },
+        "LLM_DEFAULT_BACKEND": {
+            "key": "LLM_DEFAULT_BACKEND",
+            "category": "ai",
+            "description": "默认 LLM 后端",
             "is_secret": False,
         },
         "ENTERPRISE_DATA_DEFAULT_PROVIDER": {

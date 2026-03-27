@@ -57,8 +57,17 @@ def _handle_stream_error(
             raise LLMAPIError(message=f"调用后端 {name} 时发生错误: {e!s}", errors={"detail": str(e)}) from e
 
 
-def _build_stream_kwargs(messages: Any, model: Any, temperature: Any, max_tokens: Any) -> dict[str, Any]:
-    return {"messages": messages, "model": model, "temperature": temperature, "max_tokens": max_tokens}
+def _build_stream_kwargs(
+    messages: Any,
+    model: Any,
+    temperature: Any,
+    max_tokens: Any,
+    extra_kwargs: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    kwargs = {"messages": messages, "model": model, "temperature": temperature, "max_tokens": max_tokens}
+    if extra_kwargs:
+        kwargs.update(extra_kwargs)
+    return kwargs
 
 
 def stream_with_fallback(
@@ -71,8 +80,9 @@ def stream_with_fallback(
     model: str | None,
     temperature: float,
     max_tokens: int | None,
+    **kwargs: Any,
 ) -> Iterator[LLMStreamChunk]:
-    kwargs = _build_stream_kwargs(messages, model, temperature, max_tokens)
+    kwargs = _build_stream_kwargs(messages, model, temperature, max_tokens, kwargs)
     if backend and (not fallback):
         yield from get_backend(backend).stream(**kwargs)
         return
@@ -113,8 +123,9 @@ async def astream_with_fallback(
     model: str | None,
     temperature: float,
     max_tokens: int | None,
+    **kwargs: Any,
 ) -> AsyncIterator[LLMStreamChunk]:
-    kwargs = _build_stream_kwargs(messages, model, temperature, max_tokens)
+    kwargs = _build_stream_kwargs(messages, model, temperature, max_tokens, kwargs)
     if backend and (not fallback):
         async for chunk in get_backend(backend).astream(**kwargs):  # type: ignore[attr-defined]
             yield chunk

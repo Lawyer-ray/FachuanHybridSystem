@@ -2,6 +2,28 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.26.3] - 2026-03-27
+
+### 优化
+
+- **统一 LLM 调用入口**
+  - 业务侧（Automation / Document Recognition / Legal Research / Litigation AI）统一接入 `apps.core.llm`，收敛分散的模型调用方式。
+  - 新增 `openai_compatible` 后端接入能力，并统一纳入后端路由、优先级与配置读取体系。
+
+### 兼容
+
+- **Moonshot 历史配置兼容**
+  - 恢复 `moonshot` 历史后端别名与配置兼容方法，兼容旧配置键与旧测试入口（如 `get_moonshot_*`）。
+
+### 修复
+
+- **LLM 模板同步接口恢复**
+  - 恢复 `POST /api/v1/llm/templates/sync` 接口，并补回 `sync_prompt_templates_impl` 兼容入口。
+  - 非管理员访问返回 403，管理员可执行模板同步。
+- **LLM 相关回归修复**
+  - 修复 `ninja_llm_api` 模板同步路径缺失导致的集成测试失败。
+  - 修复 `LLMConfig` Moonshot 兼容方法缺失导致的单测失败。
+
 ## [26.26.2] - 2026-03-27
 
 ### 新增

@@ -26,6 +26,51 @@ def register_service_configs(registry: dict[str, ConfigField]) -> None:
         max_value=600,
         description="Ollama API 超时时间（秒）",
     )
+    registry["services.ollama.embedding_model"] = ConfigField(
+        name="services.ollama.embedding_model",
+        type=str,
+        default="",
+        env_var="OLLAMA_EMBEDDING_MODEL",
+        description="Ollama 向量模型名称（留空沿用 services.ollama.model）",
+    )
+    registry["services.openai_compatible.base_url"] = ConfigField(
+        name="services.openai_compatible.base_url",
+        type=str,
+        default="https://api.moonshot.cn/v1",
+        env_var="OPENAI_COMPATIBLE_BASE_URL",
+        description="OpenAI-compatible API 基础 URL",
+    )
+    registry["services.openai_compatible.api_key"] = ConfigField(
+        name="services.openai_compatible.api_key",
+        type=str,
+        default="",
+        env_var="OPENAI_COMPATIBLE_API_KEY",
+        sensitive=True,
+        description="OpenAI-compatible API Key",
+    )
+    registry["services.openai_compatible.model"] = ConfigField(
+        name="services.openai_compatible.model",
+        type=str,
+        default="moonshot-v1-8k",
+        env_var="OPENAI_COMPATIBLE_DEFAULT_MODEL",
+        description="OpenAI-compatible 默认对话模型",
+    )
+    registry["services.openai_compatible.embedding_model"] = ConfigField(
+        name="services.openai_compatible.embedding_model",
+        type=str,
+        default="",
+        env_var="OPENAI_COMPATIBLE_EMBEDDING_MODEL",
+        description="OpenAI-compatible 向量模型（留空沿用 services.openai_compatible.model）",
+    )
+    registry["services.openai_compatible.timeout"] = ConfigField(
+        name="services.openai_compatible.timeout",
+        type=int,
+        default=120,
+        min_value=1,
+        max_value=600,
+        env_var="OPENAI_COMPATIBLE_TIMEOUT",
+        description="OpenAI-compatible API 超时时间（秒）",
+    )
     registry["services.sms.document_title_extraction_limit"] = ConfigField(
         name="services.sms.document_title_extraction_limit",
         type=int,
