@@ -48,6 +48,9 @@ development:
       base_url: http://localhost:11434
       timeout: 60
 
+    sms:
+      document_title_extraction_limit: 50
+
   chat_platforms:
     feishu:
       app_id: ${FEISHU_APP_ID:cli_dev_app_id}
@@ -97,6 +100,9 @@ testing:
       model: qwen2.5:7b
       base_url: http://localhost:11434
       timeout: 30
+
+    sms:
+      document_title_extraction_limit: 50
 
   chat_platforms:
     feishu:

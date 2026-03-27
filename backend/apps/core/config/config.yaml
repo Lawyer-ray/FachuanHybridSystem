@@ -120,6 +120,12 @@ services:
     # 取值范围：1-600
     timeout: 60
 
+  # 法院短信处理配置
+  sms:
+    # 文书重命名时，用于标题提取的文本截断长度（字符）
+    # 仅作用于短信文书重命名，不影响全局 PDF 提取
+    document_title_extraction_limit: 50
+
   # 爬虫配置
   scraper:
     # 加密密钥（必需，敏感）

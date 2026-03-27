@@ -23,6 +23,7 @@ from .case_matcher import CaseMatcher
 from .sms_parser_service import SMSParserService
 
 if TYPE_CHECKING:
+    from apps.automation.services.sms.case_folder_archive_service import CaseFolderArchiveService
     from apps.automation.services.sms.matching.case_number_extractor_service import CaseNumberExtractorService
     from apps.automation.services.sms.matching.document_attachment_service import DocumentAttachmentService
     from apps.automation.services.sms.matching.sms_notification_service import SMSNotificationService
@@ -45,6 +46,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
         client_service: "IClientService | None" = None,
         lawyer_service: "ILawyerService | None" = None,
         case_chat_service: "ICaseChatService | None" = None,
+        case_folder_archive: "CaseFolderArchiveService | None" = None,
         document_processing_service: Any | None = None,
         case_number_service: Any | None = None,
     ):
@@ -57,6 +59,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
         self._client_service = client_service
         self._lawyer_service = lawyer_service
         self._case_chat_service = case_chat_service
+        self._case_folder_archive = case_folder_archive
         self._document_processing_service = document_processing_service
         self._case_number_service = case_number_service
 
@@ -95,6 +98,14 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
 
             self._case_chat_service = build_sms_case_chat_service()
         return self._case_chat_service
+
+    @property
+    def case_folder_archive(self) -> "CaseFolderArchiveService":
+        if self._case_folder_archive is None:
+            from .case_folder_archive_service import CaseFolderArchiveService
+
+            self._case_folder_archive = CaseFolderArchiveService()
+        return self._case_folder_archive
 
     @property
     def case_number_extractor(self) -> "CaseNumberExtractorService":

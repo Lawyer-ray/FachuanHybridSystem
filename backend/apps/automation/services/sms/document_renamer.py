@@ -8,10 +8,7 @@ import logging
 import re
 from datetime import date
 from pathlib import Path
-from typing import cast
 
-from apps.automation.services.ai import get_ollama_base_url, get_ollama_model
-from apps.automation.services.ai.ollama_client import chat
 from apps.automation.services.document.document_processing import extract_document_content
 from apps.core.config import get_config
 from apps.core.exceptions import ValidationException
@@ -22,29 +19,97 @@ logger = logging.getLogger(__name__)
 class DocumentRenamer:
     """文书重命名服务"""
 
-    # 文书标题提取提示词
-    DOCUMENT_TITLE_PROMPT = """
-请从以下法律文书内容中提取文书主标题。
+    DEFAULT_TITLE_EXTRACTION_LIMIT = 50
 
-规则：
-1. 主标题通常是：判决书、裁定书、调解书、决定书、传票、通知书等
-2. 不要包含案号
-3. 只返回标题文字，不要其他内容
+    COURT_PREFIX_PATTERNS = [
+        r".*?人民法院",
+        r".*?法院",
+        r".*?仲裁委员会",
+        r".*?仲裁院",
+        r"广东",
+        r"佛山市",
+        r"禅城区",
+    ]
 
-文书内容（前500字）：
-{content}
-"""
+    # 长标题优先，防止被短词（如“通知书”）抢先命中
+    KNOWN_TITLES = [
+        "广东法院诉讼费用交费通知书",
+        "诉讼费用交纳通知书",
+        "交纳诉讼费用通知书",
+        "诉讼费用缴费通知书",
+        "诉讼费用交费通知书",
+        "诉讼材料提交告知书",
+        "诉讼权利义务告知书",
+        "诉讼法律责任风险提示书",
+        "诉讼风险提醒书",
+        "审判执行流程信息公开告知书",
+        "受理案件通知书",
+        "案件受理通知书",
+        "小额诉讼告知书",
+        "诉讼风险告知书",
+        "财产保全裁定书",
+        "虚假诉讼法律责任风险提示书",
+        "诚信诉讼承诺书",
+        "审判执行流程信息公开告知内容",
+        "交费通知书",
+        "缴费通知书",
+        "执行通知书",
+        "应诉通知书",
+        "举证通知书",
+        "执行裁定书",
+        "仲裁裁决书",
+        "开庭传票",
+        "廉政监督卡",
+        "受理通知书",
+        "判决书",
+        "裁定书",
+        "调解书",
+        "决定书",
+        "传票",
+        "通知书",
+        "支付令",
+        "告知书",
+    ]
+
+    TITLE_PATTERNS = [
+        r"([^，。；、:：\s]{2,30}?通知书)",
+        r"([^，。；、:：\s]{2,30}?告知书)",
+        r"([^，。；、:：\s]{2,30}?裁定书)",
+        r"([^，。；、:：\s]{2,30}?判决书)",
+        r"([^，。；、:：\s]{2,30}?调解书)",
+        r"([^，。；、:：\s]{2,30}?决定书)",
+        r"([^，。；、:：\s]{2,30}?传票)",
+        r"([^，。；、:：\s]{2,30}?支付令)",
+        r"([^，。；、:：\s]{2,30}?监督卡)",
+        r"([^，。；、:：\s]{2,30}?提示书)",
+        r"([^，。；、:：\s]{2,30}?承诺书)",
+    ]
 
     def __init__(self, ollama_model: str | None = None, ollama_base_url: str | None = None):
         """
         初始化文书重命名服务
 
         Args:
-            ollama_model: Ollama模型名称，默认从配置文件读取
-            ollama_base_url: Ollama服务地址，默认从配置文件读取
+            ollama_model: 兼容旧调用方，当前规则模式下忽略
+            ollama_base_url: 兼容旧调用方，当前规则模式下忽略
         """
-        self.ollama_model = ollama_model or get_ollama_model()
-        self.ollama_base_url = ollama_base_url or get_ollama_base_url()
+        if ollama_model or ollama_base_url:
+            logger.debug("DocumentRenamer 已切换为规则模式，忽略 ollama 参数")
+        self.title_extraction_limit = self._get_title_extraction_limit()
+
+    def _get_title_extraction_limit(self) -> int:
+        """
+        读取短信文书标题提取场景的专用文本限制
+
+        仅作用于短信文书重命名，不影响全局 PDF 提取限制。
+        """
+        raw_limit = get_config("services.sms.document_title_extraction_limit", self.DEFAULT_TITLE_EXTRACTION_LIMIT)
+        try:
+            limit = int(raw_limit)
+        except (TypeError, ValueError):
+            return self.DEFAULT_TITLE_EXTRACTION_LIMIT
+
+        return max(20, min(limit, 5000))
 
     def extract_document_title(self, document_path: str) -> str:
         """
@@ -64,164 +129,84 @@ class DocumentRenamer:
 
         try:
             # 使用 Document_Processor 读取文书内容
-            limit = get_config("validation.text_extraction_limit", 500)
-            extraction = extract_document_content(document_path, limit=limit)
+            extraction = extract_document_content(document_path, limit=self.title_extraction_limit)
 
             if not extraction.text:
                 logger.warning(f"无法从文书中提取文本内容: {document_path}")
                 return self._extract_title_from_filename(document_path)
 
-            # 使用 Ollama 提取标题
-            title = self._extract_title_with_ollama(extraction.text)
-
+            # 规则提取标题（不再调用 Ollama）
+            title = self._extract_title_from_text(extraction.text)
             if title:
+                logger.info(f"规则提取文书标题成功: {title}")
                 return title
-            else:
-                logger.warning(f"Ollama 未能提取到标题，使用文件名降级: {document_path}")
-                return self._extract_title_from_filename(document_path)
+
+            logger.warning(f"规则未能从正文提取标题，使用文件名降级: {document_path}")
+            return self._extract_title_from_filename(document_path)
 
         except Exception as e:
             logger.error(f"提取文书标题失败: {document_path}, 错误: {e!s}")
             # 抛出异常让调用方处理降级逻辑
             raise
 
-    def _extract_title_with_ollama(self, content: str) -> str | None:
+    def _normalize_title_candidate(self, text: str) -> str:
         """
-        使用 Ollama 从文书内容中提取标题
+        清理标题候选文本
 
         Args:
-            content: 文书内容
-
-        Returns:
-            Optional[str]: 提取的标题，失败时返回 None
-        """
-        try:
-            prompt = self.DOCUMENT_TITLE_PROMPT.format(content=content)
-            messages = [{"role": "user", "content": prompt}]
-
-            response = chat(model=self.ollama_model, messages=messages, base_url=self.ollama_base_url)
-
-            if response and "message" in response and "content" in response["message"]:
-                title = response["message"]["content"].strip()
-
-                # 清理提取的标题
-                title = self._clean_extracted_title(title)
-
-                if title:
-                    logger.info(f"成功提取文书标题: {title}")
-                    return cast(str | None, title)
-
-            logger.warning("Ollama 返回的响应格式不正确或为空")
-            return None
-
-        except Exception as e:
-            logger.error(f"调用 Ollama 提取标题失败: {e!s}")
-            return None
-
-    def _clean_extracted_title(self, title: str) -> str:
-        """
-        清理从 AI 提取的标题
-
-        Args:
-            title: 原始标题
+            text: 候选文本
 
         Returns:
             str: 清理后的标题
         """
-        if not title:
+        if not text:
             return ""
 
-        # 移除常见的无关内容
-        title = title.strip()
+        cleaned = text.strip().strip('"\'""')
+        cleaned = re.sub(r"^[^_]{1,20}_", "", cleaned)
+        cleaned = re.sub(r"[（(].*?[）)]", "", cleaned)
+        cleaned = re.sub(r"\.pdf$", "", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r"\s+", "", cleaned)
 
-        # 移除引号
-        title = title.strip('"\'""')
+        for prefix_pattern in self.COURT_PREFIX_PATTERNS:
+            cleaned = re.sub(prefix_pattern, "", cleaned)
 
-        # 移除案号模式（中英文括号内的内容）
-        title = re.sub(r"[（(].*?[）)]", "", title)
+        cleaned = re.sub(r"^(下载|文书|司法文书)", "", cleaned)
+        cleaned = re.sub(r"(副本|复件|\d+)$", "", cleaned)
+        return cleaned
 
-        # 移除多余空格
-        title = re.sub(r"\s+", "", title)
+    def _match_title_from_text(self, text: str) -> str | None:
+        cleaned = self._normalize_title_candidate(text)
+        if not cleaned:
+            return None
 
-        # 移除法院名称前缀（各种法院名称模式）
-        court_prefixes = [
-            r".*?人民法院",
-            r".*?法院",
-            r".*?仲裁委员会",
-            r".*?仲裁院",
-            r"广东",
-            r"佛山市",
-            r"禅城区",
-        ]
+        for known_title in self.KNOWN_TITLES:
+            if known_title in cleaned:
+                return known_title
 
-        for prefix_pattern in court_prefixes:
-            title = re.sub(prefix_pattern, "", title)
+        for pattern in self.TITLE_PATTERNS:
+            match = re.search(pattern, cleaned)
+            if not match:
+                continue
 
-        # 常见的文书类型（按长度排序，优先匹配更具体的类型）
-        valid_titles = [
-            # 完整的文书名称
-            "广东法院诉讼费用交费通知书",
-            "诉讼费用交费通知书",
-            "交费通知书",
-            "受理案件通知书",
-            "案件受理通知书",
-            "小额诉讼告知书",
-            "诉讼告知书",
-            "诉讼权利义务告知书",
-            "权利义务告知书",
-            "诉讼风险告知书",
-            "风险告知书",
-            "财产保全裁定书",
-            "执行通知书",
-            "应诉通知书",
-            "举证通知书",
-            "执行裁定书",
-            "仲裁裁决书",
-            "开庭传票",
-            "廉政监督卡",
-            "缴费通知书",
-            "受理通知书",
-            # 基础类型
-            "判决书",
-            "裁定书",
-            "调解书",
-            "决定书",
-            "传票",
-            "通知书",
-            "支付令",
-            "告知书",
-        ]
+            candidate = self._normalize_title_candidate(match.group(1))
+            if not candidate:
+                continue
 
-        # 检查是否包含有效的文书类型（优先匹配更长的类型）
-        for valid_title in valid_titles:
-            if valid_title in title:
-                return valid_title
+            for known_title in self.KNOWN_TITLES:
+                if known_title in candidate:
+                    return known_title
 
-        # 如果没有匹配到标准类型，尝试提取包含"书"、"通知"、"告知"等关键词的部分
-        patterns = [
-            r"([^，。]*?通知书)",
-            r"([^，。]*?告知书)",
-            r"([^，。]*?裁定书)",
-            r"([^，。]*?判决书)",
-            r"([^，。]*?调解书)",
-            r"([^，。]*?决定书)",
-            r"([^，。]*?传票)",
-            r"([^，。]*?支付令)",
-            r"([^，。]*?监督卡)",
-        ]
+            if len(candidate) <= 30:
+                return candidate
 
-        for pattern in patterns:
-            match = re.search(pattern, title)
-            if match:
-                extracted = match.group(1)
-                # 再次清理法院名称
-                for prefix_pattern in court_prefixes:
-                    extracted = re.sub(prefix_pattern, "", extracted)
-                if extracted and len(extracted) <= 20:
-                    return extracted
+        return None
 
-        # 如果没有匹配到标准类型，返回清理后的原标题
-        return title if len(title) <= 20 else title[:20]
+    def _extract_title_from_text(self, content: str) -> str | None:
+        """
+        从正文文本中提取标题（规则模式）
+        """
+        return self._match_title_from_text(content)
 
     def _extract_title_from_filename(self, document_path: str) -> str:
         """
@@ -234,68 +219,8 @@ class DocumentRenamer:
             str: 从文件名提取的标题
         """
         filename = Path(document_path).stem
-
-        # 移除常见的前缀和后缀
-        filename = re.sub(r"^(下载|文书|司法文书)", "", filename)
-        filename = re.sub(r"(副本|复件|\d+)$", "", filename)
-
-        # 移除法院名称前缀
-        court_prefixes = [
-            r".*?人民法院",
-            r".*?法院",
-            r"佛山市禅城区",
-            r"广东",
-            r"佛山市",
-            r"禅城区",
-        ]
-
-        for prefix_pattern in court_prefixes:
-            filename = re.sub(prefix_pattern, "", filename)
-
-        # 提取文书类型（按长度排序，优先匹配更具体的类型）
-        title_patterns = [
-            # 完整的文书名称
-            r"(广东法院诉讼费用交费通知书|诉讼费用交费通知书|交费通知书)",
-            r"(受理案件通知书|案件受理通知书)",
-            r"(小额诉讼告知书|诉讼告知书)",
-            r"(诉讼权利义务告知书|权利义务告知书)",
-            r"(诉讼风险告知书|风险告知书)",
-            r"(财产保全裁定书|执行通知书|应诉通知书|举证通知书|执行裁定书|仲裁裁决书|开庭传票|廉政监督卡)",
-            r"(缴费通知书|受理通知书)",
-            # 基础类型
-            r"(判决书|裁定书|调解书|决定书|传票|通知书|支付令|告知书)",
-        ]
-
-        for pattern in title_patterns:
-            match = re.search(pattern, filename)
-            if match:
-                return match.group(1)
-
-        # 如果没有匹配到，尝试提取包含关键词的部分
-        fallback_patterns = [
-            r"([^，。]*?通知书)",
-            r"([^，。]*?告知书)",
-            r"([^，。]*?裁定书)",
-            r"([^，。]*?判决书)",
-            r"([^，。]*?调解书)",
-            r"([^，。]*?决定书)",
-            r"([^，。]*?传票)",
-            r"([^，。]*?支付令)",
-            r"([^，。]*?监督卡)",
-        ]
-
-        for pattern in fallback_patterns:
-            match = re.search(pattern, filename)
-            if match:
-                extracted = match.group(1)
-                # 再次清理法院名称
-                for prefix_pattern in court_prefixes:
-                    extracted = re.sub(prefix_pattern, "", extracted)
-                if extracted and len(extracted) <= 20:
-                    return extracted
-
-        # 如果没有匹配到，返回默认标题
-        return "司法文书"
+        title = self._match_title_from_text(filename)
+        return title or "司法文书"
 
     def generate_filename(self, title: str, case_name: str, received_date: date) -> str:
         """
