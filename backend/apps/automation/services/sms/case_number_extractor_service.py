@@ -9,6 +9,10 @@ import logging
 import re
 from typing import TYPE_CHECKING, Any
 
+from apps.core.interfaces import ServiceLocator
+from apps.core.llm.config import LLMConfig
+from apps.core.llm.exceptions import LLMError
+
 if TYPE_CHECKING:
     from apps.core.interfaces import ICaseNumberService, ICaseService, IDocumentProcessingService
 
@@ -33,6 +37,7 @@ class CaseNumberExtractorService:
         case_service: "ICaseService | None" = None,
         case_number_service: "ICaseNumberService | None" = None,
         extraction_provider: Any | None = None,
+        llm_service: Any | None = None,
     ):
         """
         初始化服务，支持依赖注入
@@ -47,6 +52,7 @@ class CaseNumberExtractorService:
         self._case_service = case_service
         self._case_number_service = case_number_service
         self._extraction_provider = extraction_provider
+        self._llm_service = llm_service
 
     @property
     def document_processing_service(self) -> "IDocumentProcessingService":
@@ -74,6 +80,12 @@ class CaseNumberExtractorService:
 
             self._case_number_service = build_sms_case_number_service()
         return self._case_number_service
+
+    @property
+    def llm_service(self) -> Any:
+        if self._llm_service is None:
+            self._llm_service = ServiceLocator.get_llm_service()
+        return self._llm_service
 
     def extract_from_document(self, document_path: str) -> list[str]:
         """
@@ -144,8 +156,6 @@ class CaseNumberExtractorService:
         # 优先使用注入的 extraction_provider
         if self._extraction_provider is not None:
             try:
-                import json
-
                 response_text = self._extraction_provider.extract(content=content)
                 return self._parse_ollama_response(response_text)
             except Exception as e:
@@ -153,28 +163,26 @@ class CaseNumberExtractorService:
                 return []
 
         try:
-            from apps.automation.services.ai import get_ollama_model
-            from apps.automation.services.ai.ollama_client import chat
-
             prompt = self._build_extract_prompt(content)
             logger.info("开始调用 Ollama 提取案号")
-            model = get_ollama_model()
-            response = chat(model, [{"role": "user", "content": prompt}])
-
-            if not response or "message" not in response:
+            model = LLMConfig.get_ollama_model()
+            llm_response = self.llm_service.chat(
+                messages=[{"role": "user", "content": prompt}],
+                backend="ollama",
+                model=model,
+                fallback=False,
+            )
+            content_text = (llm_response.content or "").strip()
+            if not content_text:
                 logger.warning("Ollama 返回空响应")
                 return []
 
-            content_text = response["message"].get("content", "")
             logger.info(f"Ollama 案号提取响应: {content_text}")
 
             return self._parse_ollama_response(content_text)
 
-        except ConnectionError as e:
+        except LLMError as e:
             logger.error(f"Ollama 服务不可用: {e!s}")
-            return []
-        except ImportError as e:
-            logger.error(f"无法导入 Ollama 相关模块: {e!s}")
             return []
         except Exception as e:
             logger.error(f"使用 Ollama 提取案号失败: {e!s}")

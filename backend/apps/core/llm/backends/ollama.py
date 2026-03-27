@@ -68,6 +68,7 @@ class OllamaBackend(HttpxErrorMixin):
         self._config = config
         self._base_url: str | None = None
         self._default_model: str | None = None
+        self._default_embedding_model: str | None = None
         self._timeout: float | None = None
 
     @property
@@ -97,12 +98,27 @@ class OllamaBackend(HttpxErrorMixin):
             if self._config and self._config.timeout:
                 self._timeout = float(self._config.timeout)
             else:
-                self._timeout = self.DEFAULT_TIMEOUT
+                self._timeout = float(LLMConfig.get_ollama_timeout())
         return self._timeout
+
+    @property
+    def default_embedding_model(self) -> str:
+        if self._default_embedding_model is None:
+            if self._config and self._config.embedding_model:
+                self._default_embedding_model = self._config.embedding_model
+            else:
+                self._default_embedding_model = self.default_model
+        return self._default_embedding_model
 
     def _build_api_url(self) -> str:
         """构建 API URL"""
         return self.base_url.rstrip("/") + "/api/chat"
+
+    def _build_embed_url(self) -> str:
+        return self.base_url.rstrip("/") + "/api/embed"
+
+    def _build_legacy_embed_url(self) -> str:
+        return self.base_url.rstrip("/") + "/api/embeddings"
 
     def _handle_http_error(
         self,
@@ -596,6 +612,78 @@ class OllamaBackend(HttpxErrorMixin):
         duration_ms = (time.time() - start_time) * 1000
 
         return self._build_llm_response(data, used_model, duration_ms)
+
+    def get_default_embedding_model(self) -> str:
+        return self.default_embedding_model
+
+    def embed_texts(
+        self,
+        texts: list[str],
+        model: str | None = None,
+        **kwargs: Any,
+    ) -> list[list[float]]:
+        if not texts:
+            return []
+
+        used_model = (model or self.default_embedding_model).strip()
+        request_timeout = kwargs.pop("timeout", None) or self.timeout
+        payload = {"model": used_model, "input": texts}
+        url = self._build_embed_url()
+
+        try:
+            client = get_sync_http_client()
+            try:
+                resp = client.post(url, json=payload, timeout=request_timeout)
+                resp.raise_for_status()
+                data = resp.json()
+                embeddings = data.get("embeddings")
+                if not isinstance(embeddings, list):
+                    raise LLMAPIError(
+                        message="Ollama embeddings 返回格式异常",
+                        errors={"detail": f"invalid response: {data}"},
+                    )
+                vectors: list[list[float]] = []
+                for item in embeddings:
+                    if not isinstance(item, list):
+                        raise LLMAPIError(
+                            message="Ollama embeddings 返回格式异常",
+                            errors={"detail": f"invalid embedding item: {item}"},
+                        )
+                    vectors.append([float(v) for v in item])
+                return vectors
+            except httpx.HTTPStatusError as e:
+                # 兼容旧版 Ollama /api/embeddings 单文本接口
+                if e.response.status_code != 404:
+                    raise
+                vectors: list[list[float]] = []
+                legacy_url = self._build_legacy_embed_url()
+                for text in texts:
+                    legacy_resp = client.post(
+                        legacy_url,
+                        json={"model": used_model, "prompt": text},
+                        timeout=request_timeout,
+                    )
+                    legacy_resp.raise_for_status()
+                    legacy_data = legacy_resp.json()
+                    embedding = legacy_data.get("embedding")
+                    if not isinstance(embedding, list):
+                        raise LLMAPIError(
+                            message="Ollama embeddings 返回格式异常",
+                            errors={"detail": f"invalid legacy response: {legacy_data}"},
+                        )
+                    vectors.append([float(v) for v in embedding])
+                return vectors
+        except httpx.HTTPStatusError as e:
+            self._handle_http_error(e, used_model)
+        except httpx.ConnectError as e:
+            self._handle_connect_error(e)
+        except httpx.TimeoutException as e:
+            self._handle_timeout_error(e, request_timeout)
+        except LLMAPIError:
+            raise
+        except Exception as e:
+            logger.warning("Ollama embeddings 调用异常", extra={"error": str(e), "error_type": type(e).__name__})
+            raise LLMAPIError(message=f"调用 Ollama embeddings 时发生错误: {e!s}", errors={"detail": str(e)}) from e
 
     def get_default_model(self) -> str:
         """

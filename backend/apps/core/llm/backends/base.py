@@ -25,7 +25,7 @@ class LLMResponse:
         completion_tokens: 输出 token 数
         total_tokens: 总 token 数
         duration_ms: 调用耗时(毫秒)
-        backend: 使用的后端标识 (siliconflow/ollama/moonshot)
+        backend: 使用的后端标识 (siliconflow/ollama/openai_compatible)
 
     Requirements: 1.1, 1.5
     """
@@ -62,7 +62,7 @@ class BackendConfig:
     定义 LLM 后端的配置参数.
 
     Attributes:
-        name: 后端名称 (siliconflow/ollama/moonshot)
+        name: 后端名称 (siliconflow/ollama/openai_compatible)
         enabled: 是否启用
         priority: 降级优先级,数字越小优先级越高
         default_model: 默认模型名称
@@ -79,6 +79,7 @@ class BackendConfig:
     base_url: str | None = None
     api_key: str | None = None
     timeout: int = 60
+    embedding_model: str | None = None
     extra_options: dict[str, Any] = field(default_factory=dict)
 
 
@@ -176,6 +177,19 @@ class ILLMBackend(Protocol):
         Returns:
             str: 后端的默认模型名称
         """
+        ...
+
+    def get_default_embedding_model(self) -> str:
+        """获取默认向量模型名称。"""
+        ...
+
+    def embed_texts(
+        self,
+        texts: list[str],
+        model: str | None = None,
+        **kwargs: Any,
+    ) -> list[list[float]]:
+        """向量化文本列表。"""
         ...
 
     def is_available(self) -> bool:

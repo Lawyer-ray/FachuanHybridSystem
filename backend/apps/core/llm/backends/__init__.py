@@ -31,6 +31,9 @@ except ImportError as exc:
         def get_default_model(self) -> str:
             return ""
 
+        def get_default_embedding_model(self) -> str:
+            return ""
+
         def chat(self, *args: Any, **kwargs: Any) -> Any:
             from apps.core.llm.exceptions import LLMBackendUnavailableError
 
@@ -58,6 +61,74 @@ except ImportError as exc:
                 errors={"detail": str(self._import_error)},
             )
 
+        def embed_texts(self, *args: Any, **kwargs: Any) -> Any:
+            from apps.core.llm.exceptions import LLMBackendUnavailableError
+
+            raise LLMBackendUnavailableError(
+                message="SiliconFlow 后端依赖未安装或导入失败",
+                errors={"detail": str(self._import_error)},
+            )
+
+
+_openai_compatible_import_error: Exception | None = None
+try:
+    from .openai_compatible import MoonshotBackend, OpenAICompatibleBackend
+except ImportError as exc:
+    _openai_compatible_import_error = exc
+
+    class OpenAICompatibleBackend:  # type: ignore[no-redef]
+        BACKEND_NAME = "openai_compatible"
+
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            self._import_error = _openai_compatible_import_error
+
+        def is_available(self) -> bool:
+            return False
+
+        def get_default_model(self) -> str:
+            return ""
+
+        def get_default_embedding_model(self) -> str:
+            return ""
+
+        def chat(self, *args: Any, **kwargs: Any) -> Any:
+            from apps.core.llm.exceptions import LLMBackendUnavailableError
+
+            raise LLMBackendUnavailableError(
+                message="OpenAI-compatible 后端依赖未安装或导入失败",
+                errors={"detail": str(self._import_error)},
+            )
+
+    class MoonshotBackend(OpenAICompatibleBackend):  # type: ignore[no-redef]
+        BACKEND_NAME = "moonshot"
+
+        async def achat(self, *args: Any, **kwargs: Any) -> Any:
+            return self.chat(*args, **kwargs)
+
+        def stream(self, *args: Any, **kwargs: Any) -> Any:
+            from apps.core.llm.exceptions import LLMBackendUnavailableError
+
+            raise LLMBackendUnavailableError(
+                message="OpenAI-compatible 后端依赖未安装或导入失败",
+                errors={"detail": str(self._import_error)},
+            )
+
+        async def astream(self, *args: Any, **kwargs: Any) -> Any:
+            from apps.core.llm.exceptions import LLMBackendUnavailableError
+
+            raise LLMBackendUnavailableError(
+                message="OpenAI-compatible 后端依赖未安装或导入失败",
+                errors={"detail": str(self._import_error)},
+            )
+
+        def embed_texts(self, *args: Any, **kwargs: Any) -> Any:
+            from apps.core.llm.exceptions import LLMBackendUnavailableError
+
+            raise LLMBackendUnavailableError(
+                message="OpenAI-compatible 后端依赖未安装或导入失败",
+                errors={"detail": str(self._import_error)},
+            )
+
 
 __all__ = [
     # 基础类
@@ -69,4 +140,6 @@ __all__ = [
     # 后端实现
     "SiliconFlowBackend",
     "OllamaBackend",
+    "OpenAICompatibleBackend",
+    "MoonshotBackend",
 ]

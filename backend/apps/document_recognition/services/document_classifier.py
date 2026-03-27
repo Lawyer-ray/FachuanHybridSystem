@@ -12,13 +12,45 @@ from typing import Any, cast
 
 from django.utils.translation import gettext_lazy as _
 
-from apps.automation.services.ai import get_ollama_base_url, get_ollama_model
-from apps.automation.services.ai.ollama_client import chat
 from apps.core.exceptions import RecognitionTimeoutError, ServiceUnavailableError
+from apps.core.interfaces import ServiceLocator
+from apps.core.llm.config import LLMConfig
+from apps.core.llm.exceptions import LLMNetworkError, LLMTimeoutError
 
 from .data_classes import DocumentType
 
 logger = logging.getLogger("apps.document_recognition")
+
+
+def get_ollama_model() -> str:
+    """兼容旧测试与调用方：保留模块级配置读取入口。"""
+    return LLMConfig.get_ollama_model()
+
+
+def get_ollama_base_url() -> str:
+    """兼容旧测试与调用方：保留模块级配置读取入口。"""
+    return LLMConfig.get_ollama_base_url()
+
+
+def chat(
+    *,
+    messages: list[dict[str, str]],
+    model: str | None = None,
+    llm_service: Any | None = None,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """
+    兼容旧测试与调用方：保留模块级 chat 入口，内部转发到统一 LLM 服务。
+    """
+    service = llm_service or ServiceLocator.get_llm_service()
+    llm_response = service.chat(
+        messages=messages,
+        backend="ollama",
+        model=model,
+        fallback=False,
+        **kwargs,
+    )
+    return {"message": {"content": llm_response.content}}
 
 
 class DocumentClassifier:
@@ -54,6 +86,7 @@ class DocumentClassifier:
         self,
         ollama_model: str | None = None,
         ollama_base_url: str | None = None,
+        llm_service: Any | None = None,
     ):
         """
         初始化文书分类器
@@ -64,6 +97,13 @@ class DocumentClassifier:
         """
         self.ollama_model = ollama_model or get_ollama_model()
         self.ollama_base_url = ollama_base_url or get_ollama_base_url()
+        self._llm_service = llm_service
+
+    @property
+    def llm_service(self) -> Any:
+        if self._llm_service is None:
+            self._llm_service = ServiceLocator.get_llm_service()
+        return self._llm_service
 
     def classify(self, text: str) -> tuple[DocumentType, float]:
         """
@@ -97,11 +137,10 @@ class DocumentClassifier:
             prompt = self.CLASSIFICATION_PROMPT.format(text=truncated_text)
             messages = [{"role": "user", "content": prompt}]
 
-            # 调用 Ollama
             response = chat(
-                model=self.ollama_model,
                 messages=messages,
-                base_url=self.ollama_base_url,
+                model=self.ollama_model,
+                llm_service=self.llm_service,
             )
 
             # 解析响应
@@ -112,7 +151,7 @@ class DocumentClassifier:
             )
             return doc_type, confidence
 
-        except ConnectionError as e:
+        except (LLMNetworkError, ConnectionError) as e:
             logger.error(
                 f"Ollama 服务不可用: {e}",
                 extra={"action": "classify", "error_type": "connection_error", "error": str(e)},
@@ -123,7 +162,7 @@ class DocumentClassifier:
                 errors={"service": "Ollama 服务连接失败"},
                 service_name="Ollama",
             ) from e
-        except TimeoutError as e:
+        except LLMTimeoutError as e:
             logger.error(
                 f"文书分类超时: {e}", extra={"action": "classify", "error_type": "timeout_error", "error": str(e)}
             )

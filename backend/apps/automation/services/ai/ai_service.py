@@ -10,11 +10,14 @@ class AIService:
         self._llm_service = llm_service
 
     def chat_with_ollama(self, *, model: str, prompt: str, text: str) -> dict[str, Any]:
-        messages: list[Any] = []
+        messages: list[dict[str, str]] = [
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": text},
+        ]
         resp = self._llm_service.chat(messages=messages, backend="ollama", model=model, fallback=False)
         return {
             "backend": "ollama",
             "model": model,
             "content": resp.content,
-            "raw": getattr(resp, "raw", None),
+            "raw": {"message": {"content": resp.content}},
         }

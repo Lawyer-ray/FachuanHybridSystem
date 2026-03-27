@@ -9,7 +9,6 @@ from typing import Any
 
 from django.utils.translation import gettext_lazy as _
 
-from apps.automation.services.ai.ollama_client import chat as ollama_chat
 from apps.automation.services.ai.prompts import DEFAULT_FILENAME_PROMPT
 from apps.core.exceptions import BusinessException, ValidationException
 from apps.core.interfaces import IAutoNamerService, IDocumentProcessingService
@@ -24,7 +23,7 @@ class AutoNamerServiceAdapter(IAutoNamerService):
     实现 IAutoNamerService 接口，提供基于AI的自动命名功能
     """
 
-    def __init__(self, document_service: IDocumentProcessingService | None = None):
+    def __init__(self, document_service: IDocumentProcessingService | None = None, llm_service: Any | None = None):
         """
         初始化服务适配器
 
@@ -32,6 +31,7 @@ class AutoNamerServiceAdapter(IAutoNamerService):
             document_service: 文档处理服务（可选）
         """
         self._document_service = document_service
+        self._llm_service = llm_service
 
     @property
     def document_service(self) -> IDocumentProcessingService:
@@ -41,6 +41,14 @@ class AutoNamerServiceAdapter(IAutoNamerService):
 
             self._document_service = ServiceLocator.get_document_processing_service()
         return self._document_service
+
+    @property
+    def llm_service(self) -> Any:
+        if self._llm_service is None:
+            from apps.core.interfaces import ServiceLocator
+
+            self._llm_service = ServiceLocator.get_llm_service()
+        return self._llm_service
 
     def generate_filename(self, document_content: str, prompt: str | None = None, model: str = "qwen3:0.6b") -> str:
         """
@@ -80,14 +88,11 @@ class AutoNamerServiceAdapter(IAutoNamerService):
             # 调用AI服务生成文件名
             messages = [{"role": "system", "content": prompt}, {"role": "user", "content": document_content}]
 
-            from apps.core.llm.config import LLMConfig
-
-            base_url = LLMConfig.get_ollama_base_url()
-            ollama_result = ollama_chat(model=model, messages=messages, base_url=base_url)
+            llm_response = self.llm_service.chat(messages=messages, backend="ollama", model=model, fallback=False)
 
             # 提取生成的文件名
-            if ollama_result and "message" in ollama_result and "content" in ollama_result["message"]:
-                filename = ollama_result["message"]["content"].strip()
+            if llm_response and llm_response.content:
+                filename = llm_response.content.strip()
 
                 logger.info(
                     "文件名生成成功",
