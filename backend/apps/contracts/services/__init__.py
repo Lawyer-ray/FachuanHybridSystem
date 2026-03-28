@@ -9,6 +9,7 @@ Contracts Services Module
 
 # 新版服务（从子包导入）
 from .contract.contract_admin_service import ContractAdminService
+from .contract.batch_folder_binding_service import ContractBatchFolderBindingService
 from .contract.contract_display_service import ContractDisplayService
 from .contract.contract_progress_service import ContractProgressService
 from .contract.contract_service import ContractService
@@ -18,6 +19,7 @@ from .folder.folder_binding_service import FolderBindingService
 
 __all__ = [
     "ContractAdminService",
+    "ContractBatchFolderBindingService",
     "ContractDisplayService",
     "ContractProgressService",
     "ContractService",

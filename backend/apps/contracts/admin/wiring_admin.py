@@ -49,6 +49,18 @@ def get_contract_admin_service() -> Any:
     )
 
 
+def get_contract_batch_folder_binding_service() -> Any:
+    from apps.contracts.services import ContractBatchFolderBindingService
+
+    if ServiceLocator._scope.get() is None:
+        return ContractBatchFolderBindingService()
+
+    return ServiceLocator.get_or_create(
+        "contracts.contract_batch_folder_binding_service",
+        lambda: ContractBatchFolderBindingService(),
+    )
+
+
 def get_contract_mutation_facade() -> Any:
     from apps.contracts.services.contract.wiring import get_contract_mutation_facade as _get_contract_mutation_facade
 

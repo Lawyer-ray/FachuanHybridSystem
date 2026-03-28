@@ -5,6 +5,7 @@ Contract Services - 合同核心服务
 """
 
 from .contract_access_policy import ContractAccessPolicy
+from .batch_folder_binding_service import ContractBatchFolderBindingService
 from .contract_admin_document_service import ContractAdminDocumentService
 from .contract_admin_mutation_service import ContractAdminMutationService
 from .contract_admin_query_service import ContractAdminQueryService
@@ -20,6 +21,7 @@ from .query import ContractQueryFacade
 
 __all__ = [
     "ContractAccessPolicy",
+    "ContractBatchFolderBindingService",
     "ContractAdminDocumentService",
     "ContractAdminMutationService",
     "ContractAdminQueryService",

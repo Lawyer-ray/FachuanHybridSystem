@@ -22,6 +22,9 @@ from .finance import ContractFinanceLog, LogLevel
 # folder_binding.py - 文件夹绑定相关模型
 from .folder_binding import ContractFolderBinding
 
+# batch_folder_binding.py - 合同类型根目录预设
+from .batch_folder_binding import ContractTypeFolderRootPreset
+
 # folder_scan_session.py - 文件夹扫描会话
 from .folder_scan_session import ContractFolderScanSession, ContractFolderScanStatus
 
@@ -56,6 +59,8 @@ __all__ = [
     "SupplementaryAgreementParty",
     # folder_binding.py
     "ContractFolderBinding",
+    # batch_folder_binding.py
+    "ContractTypeFolderRootPreset",
     # folder_scan_session.py
     "ContractFolderScanSession",
     "ContractFolderScanStatus",

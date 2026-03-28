@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import json
 import logging
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from django import forms
 from django.contrib import admin
-from django.http import HttpRequest
+from django.http import HttpRequest, JsonResponse
+from django.template.response import TemplateResponse
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
@@ -226,6 +228,26 @@ class ContractAdmin(
         urls = super().get_urls()
         custom = [
             urlpath(
+                "batch-folder-binding/",
+                self.admin_site.admin_view(self.batch_folder_binding_view),
+                name="contracts_contract_batch_folder_binding",
+            ),
+            urlpath(
+                "batch-folder-binding/preview/",
+                self.admin_site.admin_view(self.batch_folder_binding_preview_view),
+                name="contracts_contract_batch_folder_binding_preview",
+            ),
+            urlpath(
+                "batch-folder-binding/save/",
+                self.admin_site.admin_view(self.batch_folder_binding_save_view),
+                name="contracts_contract_batch_folder_binding_save",
+            ),
+            urlpath(
+                "batch-folder-binding/open-folder/",
+                self.admin_site.admin_view(self.batch_folder_binding_open_folder_view),
+                name="contracts_contract_batch_folder_binding_open_folder",
+            ),
+            urlpath(
                 "<int:contract_id>/reorder-materials/",
                 self.admin_site.admin_view(self.reorder_materials_view),
                 name="contracts_contract_reorder_materials",
@@ -234,22 +256,115 @@ class ContractAdmin(
         return custom + urls
 
     def reorder_materials_view(self, request: HttpRequest, contract_id: int) -> Any:
-        import json as json_mod
-
-        from django.http import JsonResponse
-
         if request.method != "POST":
             return JsonResponse({"error": "Method not allowed"}, status=405)
         if not self.has_change_permission(request):
             return JsonResponse({"error": "Permission denied"}, status=403)
         try:
-            data = json_mod.loads(request.body)
+            data = json.loads(request.body)
             ids: list[int] = data.get("ids", [])
             for i, pk in enumerate(ids):
                 FinalizedMaterial.objects.filter(pk=pk, contract_id=contract_id).update(order=i)
             return JsonResponse({"ok": True})
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=400)
+
+    def batch_folder_binding_view(self, request: HttpRequest) -> TemplateResponse:
+        if not self.has_view_permission(request):
+            from django.core.exceptions import PermissionDenied
+
+            raise PermissionDenied
+
+        from apps.contracts.admin.wiring_admin import get_contract_batch_folder_binding_service
+
+        service = get_contract_batch_folder_binding_service()
+        context = self.admin_site.each_context(request)
+        context.update(
+            {
+                "title": _("合同批量绑定文件夹"),
+                "opts": self.model._meta,
+                "cards": service.list_unbound_case_type_cards(),
+                "batch_folder_binding_config": {
+                    "previewUrl": "/admin/contracts/contract/batch-folder-binding/preview/",
+                    "saveUrl": "/admin/contracts/contract/batch-folder-binding/save/",
+                    "openFolderUrl": "/admin/contracts/contract/batch-folder-binding/open-folder/",
+                    "changeListUrl": "/admin/contracts/contract/",
+                },
+            }
+        )
+        return TemplateResponse(request, "admin/contracts/contract/batch_folder_binding.html", context)
+
+    def batch_folder_binding_preview_view(self, request: HttpRequest) -> JsonResponse:
+        if request.method != "POST":
+            return JsonResponse({"success": False, "message": _("Method not allowed")}, status=405)
+        if not self.has_change_permission(request):
+            return JsonResponse({"success": False, "message": _("Permission denied")}, status=403)
+
+        from apps.contracts.admin.wiring_admin import get_contract_batch_folder_binding_service
+
+        payload = self._parse_json_payload(request)
+        case_type_roots = payload.get("case_type_roots")
+        if not isinstance(case_type_roots, list):
+            return JsonResponse({"success": False, "message": _("参数格式错误")}, status=400)
+
+        try:
+            data = get_contract_batch_folder_binding_service().preview(case_type_roots=case_type_roots)
+            return JsonResponse({"success": True, **data})
+        except Exception as exc:
+            logger.exception("contract_batch_folder_binding_preview_failed")
+            return JsonResponse({"success": False, "message": str(exc)}, status=400)
+
+    def batch_folder_binding_save_view(self, request: HttpRequest) -> JsonResponse:
+        if request.method != "POST":
+            return JsonResponse({"success": False, "message": _("Method not allowed")}, status=405)
+        if not self.has_change_permission(request):
+            return JsonResponse({"success": False, "message": _("Permission denied")}, status=403)
+
+        from apps.contracts.admin.wiring_admin import get_contract_batch_folder_binding_service
+
+        payload = self._parse_json_payload(request)
+        case_type_roots = payload.get("case_type_roots")
+        contract_selections = payload.get("contract_selections")
+        if not isinstance(case_type_roots, list) or not isinstance(contract_selections, list):
+            return JsonResponse({"success": False, "message": _("参数格式错误")}, status=400)
+
+        try:
+            result = get_contract_batch_folder_binding_service().save(
+                case_type_roots=case_type_roots,
+                contract_selections=contract_selections,
+            )
+            return JsonResponse({"success": True, **result})
+        except Exception as exc:
+            logger.exception("contract_batch_folder_binding_save_failed")
+            return JsonResponse({"success": False, "message": str(exc)}, status=400)
+
+    def batch_folder_binding_open_folder_view(self, request: HttpRequest) -> JsonResponse:
+        if request.method != "POST":
+            return JsonResponse({"success": False, "message": _("Method not allowed")}, status=405)
+        if not self.has_change_permission(request):
+            return JsonResponse({"success": False, "message": _("Permission denied")}, status=403)
+
+        from apps.contracts.admin.wiring_admin import get_contract_batch_folder_binding_service
+
+        payload = self._parse_json_payload(request)
+        root_path = str(payload.get("root_path") or "").strip()
+        folder_path = str(payload.get("folder_path") or "").strip()
+        if not root_path or not folder_path:
+            return JsonResponse({"success": False, "message": _("缺少路径参数")}, status=400)
+
+        try:
+            get_contract_batch_folder_binding_service().open_folder(root_path=root_path, folder_path=folder_path)
+            return JsonResponse({"success": True, "message": _("已打开文件夹")})
+        except Exception as exc:
+            logger.exception("contract_batch_folder_binding_open_folder_failed")
+            return JsonResponse({"success": False, "message": str(exc)}, status=400)
+
+    def _parse_json_payload(self, request: HttpRequest) -> dict[str, Any]:
+        try:
+            data = json.loads(request.body.decode("utf-8"))
+        except Exception:
+            return {}
+        return data if isinstance(data, dict) else {}
 
     def handle_json_import(
         self, data_list: list[dict[str, Any]], user: str, zip_file: Any

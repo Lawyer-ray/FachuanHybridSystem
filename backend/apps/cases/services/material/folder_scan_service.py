@@ -28,6 +28,13 @@ logger = logging.getLogger(__name__)
 class CaseFolderScanService:
     """案件自动捕获扫描、轮询、导入附件服务。"""
 
+    _FORCE_OUR_PARTY_FOLDER_KEYWORDS = (
+        "立案材料",
+        "递交给法院的资料",
+        "提交给法院的资料",
+    )
+    _FORCE_OUR_PARTY_REASON = "命中目录规则：立案材料/提交给法院的资料目录默认归类为我方当事人材料"
+
     _ACTIVE_STATUSES = {
         CaseFolderScanStatus.PENDING,
         CaseFolderScanStatus.RUNNING,
@@ -376,16 +383,19 @@ class CaseFolderScanService:
     ) -> list[dict[str, Any]]:
         if not candidates:
             return []
-        if not self._should_force_our_party_for_filing_materials(payload):
-            return candidates
 
+        should_force_for_scope = self._should_force_our_party_for_filing_materials(payload)
         normalized: list[dict[str, Any]] = []
         for item in candidates:
             candidate = dict(item or {})
+            should_force_for_candidate = self._should_force_our_party_for_candidate(candidate)
+            if not should_force_for_scope and not should_force_for_candidate:
+                normalized.append(candidate)
+                continue
             candidate["suggested_category"] = "party"
             candidate["suggested_side"] = "our"
             if not str(candidate.get("reason") or "").strip():
-                candidate["reason"] = "命中目录规则：立案材料目录默认归类为我方当事人材料"
+                candidate["reason"] = self._FORCE_OUR_PARTY_REASON
             normalized.append(candidate)
         return normalized
 
@@ -393,7 +403,22 @@ class CaseFolderScanService:
         scope = (payload or {}).get("scan_scope") or {}
         scan_subfolder = str(scope.get("scan_subfolder") or "").strip()
         scan_folder = str(scope.get("scan_folder") or "").strip()
-        return ("立案材料" in scan_subfolder) or ("立案材料" in scan_folder)
+        return self._contains_force_our_party_folder_keyword(scan_subfolder) or self._contains_force_our_party_folder_keyword(
+            scan_folder
+        )
+
+    def _should_force_our_party_for_candidate(self, candidate: dict[str, Any] | None) -> bool:
+        source_path = str((candidate or {}).get("source_path") or "").strip()
+        if not source_path:
+            return False
+        return self._contains_force_our_party_folder_keyword(source_path)
+
+    @classmethod
+    def _contains_force_our_party_folder_keyword(cls, text: str) -> bool:
+        normalized = str(text or "").strip()
+        if not normalized:
+            return False
+        return any(keyword in normalized for keyword in cls._FORCE_OUR_PARTY_FOLDER_KEYWORDS)
 
     def _extract_enable_recognition(self, payload: dict[str, Any] | None) -> bool:
         options = (payload or {}).get("scan_options") or {}

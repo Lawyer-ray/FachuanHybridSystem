@@ -848,11 +848,131 @@ def _run_filing(
     from apps.automation.services.scraper.sites.court_zxfw import CourtZxfwService
     from apps.automation.services.scraper.sites.court_zxfw_filing import CourtZxfwFilingService
 
-    _update_session_task(
-        session_id=session_id,
-        status=ScraperTaskStatus.RUNNING,
-        error_message="",
-        result={"message": "正在登录一张网..."},
+    progress_logs: list[dict[str, str]] = []
+    http_failure_reason = ""
+    fallback_used = False
+
+    def _phase_label(phase: str) -> str:
+        normalized = phase.strip().lower()
+        if normalized == "http":
+            return "HTTP阶段"
+        if normalized == "playwright":
+            return "回退阶段"
+        if normalized == "login":
+            return "登录阶段"
+        return "执行阶段"
+
+    def _build_progress_payload(*, message: str, stage: str, phase: str) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "message": message,
+            "stage": stage,
+            "phase": phase,
+            "progress_logs": progress_logs[-80:],
+        }
+        if http_failure_reason:
+            payload["http_failure_reason"] = http_failure_reason
+        if fallback_used:
+            payload["fallback_used"] = True
+        return payload
+
+    def _record_progress(
+        *,
+        phase: str,
+        stage: str,
+        message: str,
+        level: str = "info",
+        detail: str = "",
+        persist_running: bool = True,
+        set_started: bool = False,
+    ) -> None:
+        nonlocal http_failure_reason, fallback_used
+
+        normalized_phase = str(phase or "system").strip().lower() or "system"
+        normalized_stage = str(stage or "unknown").strip() or "unknown"
+        normalized_level = str(level or "info").strip().lower() or "info"
+        normalized_message = str(message or "").strip() or normalized_stage
+        normalized_detail = str(detail or "").strip()
+        if normalized_detail:
+            normalized_message = f"{normalized_message} | {normalized_detail}"
+
+        if progress_logs:
+            latest = progress_logs[-1]
+            if (
+                latest.get("phase") == normalized_phase
+                and latest.get("stage") == normalized_stage
+                and latest.get("level") == normalized_level
+                and latest.get("message") == normalized_message
+            ):
+                return
+
+        if normalized_phase == "http" and normalized_level == "error":
+            http_failure_reason = normalized_message
+        if normalized_phase == "playwright":
+            fallback_used = True
+
+        if normalized_level == "error":
+            logger.error(
+                "court_filing_progress[%s/%s] %s",
+                normalized_phase,
+                normalized_stage,
+                normalized_message,
+            )
+        elif normalized_level == "warning":
+            logger.warning(
+                "court_filing_progress[%s/%s] %s",
+                normalized_phase,
+                normalized_stage,
+                normalized_message,
+            )
+        else:
+            logger.info(
+                "court_filing_progress[%s/%s] %s",
+                normalized_phase,
+                normalized_stage,
+                normalized_message,
+            )
+
+        progress_logs.append(
+            {
+                "time": timezone.now().strftime("%H:%M:%S"),
+                "phase": normalized_phase,
+                "stage": normalized_stage,
+                "level": normalized_level,
+                "message": normalized_message,
+            }
+        )
+        if len(progress_logs) > 160:
+            del progress_logs[:-160]
+
+        if not persist_running:
+            return
+
+        display_message = f"{_phase_label(normalized_phase)}: {normalized_message}"
+        _update_session_task(
+            session_id=session_id,
+            status=ScraperTaskStatus.RUNNING,
+            error_message="",
+            result=_build_progress_payload(
+                message=display_message,
+                stage=normalized_stage,
+                phase=normalized_phase,
+            ),
+            set_started=set_started,
+        )
+
+    def _service_progress_reporter(event: dict[str, Any]) -> None:
+        _record_progress(
+            phase=str(event.get("phase") or "system"),
+            stage=str(event.get("stage") or "service"),
+            level=str(event.get("level") or "info"),
+            message=str(event.get("message") or ""),
+            detail=str(event.get("detail") or ""),
+        )
+
+    _record_progress(
+        phase="login",
+        stage="login.start",
+        message="正在登录一张网...",
         set_started=True,
     )
 
@@ -867,58 +987,123 @@ def _run_filing(
             if not login_result.get("success"):
                 message = str(login_result.get("message") or "一张网登录失败")
                 logger.error("一张网登录失败: %s", login_result)
+                _record_progress(
+                    phase="login",
+                    stage="login.failed",
+                    level="error",
+                    message=f"登录失败: {message}",
+                    persist_running=False,
+                )
+                failed_result = _build_progress_payload(
+                    message=f"登录阶段: 登录失败: {message}",
+                    stage="login.failed",
+                    phase="login",
+                )
+                failed_result["success"] = False
                 _update_session_task(
                     session_id=session_id,
                     status=ScraperTaskStatus.FAILED,
                     error_message=message,
-                    result={"success": False, "message": message},
+                    result=failed_result,
                     set_finished=True,
                 )
                 return
+
+            _record_progress(
+                phase="login",
+                stage="login.success",
+                message="一张网登录成功",
+            )
 
             token_value = str(login_result.get("token") or "").strip() or None
             filing_service = CourtZxfwFilingService(page=page, save_debug=True)
+            case_data_runtime = dict(case_data)
+            case_data_runtime["_progress_reporter"] = _service_progress_reporter
 
-            _update_session_task(
-                session_id=session_id,
-                status=ScraperTaskStatus.RUNNING,
-                error_message="",
-                result={"message": "正在执行立案流程..."},
+            _record_progress(
+                phase="system",
+                stage="filing.start",
+                message="开始执行立案流程",
             )
 
             if filing_type == _FILING_TYPE_EXECUTION:
-                result = filing_service.file_execution(case_data, token=token_value)
+                result = filing_service.file_execution(case_data_runtime, token=token_value)
             else:
-                result = filing_service.file_case(case_data, token=token_value)
+                result = filing_service.file_case(case_data_runtime, token=token_value)
 
             if not result.get("success", False):
                 message = str(result.get("message") or "立案失败")
+                _record_progress(
+                    phase="system",
+                    stage="filing.failed",
+                    level="error",
+                    message=message,
+                    persist_running=False,
+                )
+                failed_result = _build_progress_payload(
+                    message=f"执行阶段: {message}",
+                    stage="filing.failed",
+                    phase="system",
+                )
+                failed_result["success"] = False
                 _update_session_task(
                     session_id=session_id,
                     status=ScraperTaskStatus.FAILED,
                     error_message=message,
-                    result={"success": False, "message": message},
+                    result=failed_result,
                     set_finished=True,
                 )
                 return
 
+            success_message = str(result.get("message") or "立案流程执行完成")
+            if fallback_used and http_failure_reason:
+                success_message = f"{success_message}（HTTP失败后已回退Playwright）"
+            _record_progress(
+                phase="system",
+                stage="filing.success",
+                message=success_message,
+                persist_running=False,
+            )
+            final_result = dict(result)
+            final_result.update(
+                _build_progress_payload(
+                    message=f"执行阶段: {success_message}",
+                    stage="filing.success",
+                    phase="system",
+                )
+            )
+            final_result["success"] = True
+            final_result["message"] = success_message
             _update_session_task(
                 session_id=session_id,
                 status=ScraperTaskStatus.SUCCESS,
                 error_message="",
-                result=result,
+                result=final_result,
                 set_finished=True,
             )
-            logger.info("立案结果: %s", result)
+            logger.info("立案结果: %s", final_result)
 
         except Exception as exc:
             error_message = f"一张网立案执行失败: {exc}"
             logger.error(error_message, exc_info=True)
+            _record_progress(
+                phase="system",
+                stage="filing.exception",
+                level="error",
+                message=error_message,
+                persist_running=False,
+            )
+            failed_result = _build_progress_payload(
+                message=f"执行阶段: {error_message}",
+                stage="filing.exception",
+                phase="system",
+            )
+            failed_result["success"] = False
             _update_session_task(
                 session_id=session_id,
                 status=ScraperTaskStatus.FAILED,
                 error_message=error_message,
-                result={"success": False, "message": error_message},
+                result=failed_result,
                 set_finished=True,
             )
         finally:
