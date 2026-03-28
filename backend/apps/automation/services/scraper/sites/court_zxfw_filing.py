@@ -92,19 +92,66 @@ class CourtZxfwFilingService:
         支持按参数选择立案引擎：api / playwright。
         """
         filing_engine = self._resolve_filing_engine(case_data)
+        api_error: Exception | None = None
         if filing_engine == "api":
+            self._report_progress(
+                case_data,
+                phase="http",
+                stage="http.start",
+                message="HTTP主链路：开始民事一审立案",
+            )
             if not token:
-                raise ValueError(str(_("接口立案缺少登录令牌，请改用 Playwright 或重新登录")))
-            try:
-                from apps.automation.services.scraper.sites.court_zxfw_filing_api import CourtZxfwFilingApiService
+                api_error = ValueError(str(_("HTTP立案缺少登录令牌")))
+                if not self._allow_playwright_fallback(case_data):
+                    raise ValueError(str(_("接口立案失败: %(error)s")) % {"error": api_error}) from api_error
+                self._report_progress(
+                    case_data,
+                    phase="http",
+                    stage="http.failed",
+                    level="error",
+                    message=f"HTTP主链路失败: {api_error}",
+                )
+                logger.warning("HTTP立案缺少登录令牌，回退 Playwright")
+            else:
+                try:
+                    self._report_progress(
+                        case_data,
+                        phase="http",
+                        stage="http.submit",
+                        message="HTTP主链路：正在提交一张网草稿",
+                    )
+                    from apps.automation.services.scraper.sites.court_zxfw_filing_api import CourtZxfwFilingApiService
 
-                with CourtZxfwFilingApiService(token) as api_svc:
-                    result = api_svc.file_civil_case(case_data)
-                logger.info("接口立案成功: %s", result)
-                return result
-            except Exception as api_err:
-                logger.error("接口立案失败: %s", api_err, exc_info=True)
-                raise ValueError(str(_("接口立案失败: %(error)s")) % {"error": api_err}) from api_err
+                    with CourtZxfwFilingApiService(token) as api_svc:
+                        result = api_svc.file_civil_case(case_data)
+                    self._report_progress(
+                        case_data,
+                        phase="http",
+                        stage="http.success",
+                        message="HTTP主链路提交成功",
+                    )
+                    logger.info("HTTP立案成功: %s", result)
+                    return result
+                except Exception as api_err:
+                    api_error = api_err
+                    self._report_progress(
+                        case_data,
+                        phase="http",
+                        stage="http.failed",
+                        level="error",
+                        message=f"HTTP主链路失败: {api_err}",
+                    )
+                    if not self._allow_playwright_fallback(case_data):
+                        logger.error("HTTP立案失败: %s", api_err, exc_info=True)
+                        raise ValueError(str(_("接口立案失败: %(error)s")) % {"error": api_err}) from api_err
+                    logger.warning("HTTP立案失败，回退 Playwright: %s", api_err, exc_info=True)
+
+        self._report_progress(
+            case_data,
+            phase="playwright",
+            stage="playwright.start",
+            message="进入Playwright回退流程（民事一审）",
+        )
 
         court_name: str = case_data["court_name"]
         cause_of_action: str = case_data["cause_of_action"]
@@ -117,23 +164,81 @@ class CourtZxfwFilingService:
             province = case_data.get("province", "广东省")
             province_code = self.PROVINCE_CODES.get(province, "440000")
 
+            self._report_progress(
+                case_data,
+                phase="playwright",
+                stage="playwright.step.open_case_type",
+                message="回退阶段：打开案件类型页",
+            )
             self._open_case_type_page("民事一审", province_code)
+            self._report_progress(
+                case_data,
+                phase="playwright",
+                stage="playwright.step.select_court",
+                message="回退阶段：选择受理法院",
+            )
             self._step1_select_court(court_name)
+            self._report_progress(
+                case_data,
+                phase="playwright",
+                stage="playwright.step.read_notice",
+                message="回退阶段：确认立案须知",
+            )
             self._step2_read_notice()
+            self._report_progress(
+                case_data,
+                phase="playwright",
+                stage="playwright.step.select_cause",
+                message="回退阶段：选择案由",
+            )
             self._step3_select_cause(cause_of_action)
+            self._report_progress(
+                case_data,
+                phase="playwright",
+                stage="playwright.step.upload_materials",
+                message="回退阶段：上传诉讼材料",
+            )
             self._step4_upload_materials(case_data.get("materials", {}), is_execution=False)
+            self._report_progress(
+                case_data,
+                phase="playwright",
+                stage="playwright.step.fill_case_info",
+                message="回退阶段：完善当事人和代理人信息",
+            )
             self._step5_complete_info(case_data, section_map=self.CIVIL_SECTION_MAP)
+            self._report_progress(
+                case_data,
+                phase="playwright",
+                stage="playwright.step.next",
+                message="回退阶段：进入预览页",
+            )
             self._click_next_step()
             self._step6_preview_submit()
+            self._report_progress(
+                case_data,
+                phase="playwright",
+                stage="playwright.success",
+                message="Playwright回退流程完成（已到预览页）",
+            )
 
             logger.info(str(_("民事一审立案流程执行完成")))
             return {"success": True, "message": str(_("立案流程执行完成（已到预览页，未提交）")), "url": self.page.url}
 
         except Exception as e:
+            self._report_progress(
+                case_data,
+                phase="playwright",
+                stage="playwright.failed",
+                level="error",
+                message=f"Playwright回退失败: {e}",
+            )
             logger.error("民事一审立案失败: %s", e, exc_info=True)
             if self.save_debug:
                 self._save_screenshot("error_civil_filing")
-            raise ValueError(str(_("立案失败: %(error)s")) % {"error": e}) from e
+            merged_error = str(e)
+            if api_error is not None:
+                merged_error = f"HTTP主链路失败({api_error})，且Playwright回退失败({e})"
+            raise ValueError(str(_("立案失败: %(error)s")) % {"error": merged_error}) from e
 
     def file_execution(self, case_data: dict[str, Any], token: str | None = None) -> dict[str, Any]:
         """执行申请执行在线立案全流程。
@@ -141,19 +246,66 @@ class CourtZxfwFilingService:
         支持按参数选择立案引擎：api / playwright。
         """
         filing_engine = self._resolve_filing_engine(case_data)
+        api_error: Exception | None = None
         if filing_engine == "api":
+            self._report_progress(
+                case_data,
+                phase="http",
+                stage="http.start",
+                message="HTTP主链路：开始申请执行立案",
+            )
             if not token:
-                raise ValueError(str(_("接口立案缺少登录令牌，请改用 Playwright 或重新登录")))
-            try:
-                from apps.automation.services.scraper.sites.court_zxfw_filing_api import CourtZxfwFilingApiService
+                api_error = ValueError(str(_("HTTP立案缺少登录令牌")))
+                if not self._allow_playwright_fallback(case_data):
+                    raise ValueError(str(_("接口立案失败: %(error)s")) % {"error": api_error}) from api_error
+                self._report_progress(
+                    case_data,
+                    phase="http",
+                    stage="http.failed",
+                    level="error",
+                    message=f"HTTP主链路失败: {api_error}",
+                )
+                logger.warning("HTTP立案缺少登录令牌，回退 Playwright")
+            else:
+                try:
+                    self._report_progress(
+                        case_data,
+                        phase="http",
+                        stage="http.submit",
+                        message="HTTP主链路：正在提交一张网草稿",
+                    )
+                    from apps.automation.services.scraper.sites.court_zxfw_filing_api import CourtZxfwFilingApiService
 
-                with CourtZxfwFilingApiService(token) as api_svc:
-                    result = api_svc.file_execution(case_data)
-                logger.info("接口立案成功: %s", result)
-                return result
-            except Exception as api_err:
-                logger.error("接口立案失败: %s", api_err, exc_info=True)
-                raise ValueError(str(_("接口立案失败: %(error)s")) % {"error": api_err}) from api_err
+                    with CourtZxfwFilingApiService(token) as api_svc:
+                        result = api_svc.file_execution(case_data)
+                    self._report_progress(
+                        case_data,
+                        phase="http",
+                        stage="http.success",
+                        message="HTTP主链路提交成功",
+                    )
+                    logger.info("HTTP立案成功: %s", result)
+                    return result
+                except Exception as api_err:
+                    api_error = api_err
+                    self._report_progress(
+                        case_data,
+                        phase="http",
+                        stage="http.failed",
+                        level="error",
+                        message=f"HTTP主链路失败: {api_err}",
+                    )
+                    if not self._allow_playwright_fallback(case_data):
+                        logger.error("HTTP立案失败: %s", api_err, exc_info=True)
+                        raise ValueError(str(_("接口立案失败: %(error)s")) % {"error": api_err}) from api_err
+                    logger.warning("HTTP立案失败，回退 Playwright: %s", api_err, exc_info=True)
+
+        self._report_progress(
+            case_data,
+            phase="playwright",
+            stage="playwright.start",
+            message="进入Playwright回退流程（申请执行）",
+        )
 
         court_name: str = case_data["court_name"]
 
@@ -165,15 +317,69 @@ class CourtZxfwFilingService:
             province = case_data.get("province", "广东省")
             province_code = self.PROVINCE_CODES.get(province, "440000")
 
+            self._report_progress(
+                case_data,
+                phase="playwright",
+                stage="playwright.step.open_case_type",
+                message="回退阶段：打开案件类型页",
+            )
             self._open_case_type_page("申请执行", province_code)
+            self._report_progress(
+                case_data,
+                phase="playwright",
+                stage="playwright.step.select_court",
+                message="回退阶段：选择受理法院",
+            )
             self._step1_select_court(court_name)
+            self._report_progress(
+                case_data,
+                phase="playwright",
+                stage="playwright.step.read_notice",
+                message="回退阶段：确认立案须知",
+            )
             self._step2_read_notice(has_prepared_doc=False)
+            self._report_progress(
+                case_data,
+                phase="playwright",
+                stage="playwright.step.select_execution_basis",
+                message="回退阶段：填写执行依据信息",
+            )
             self._step_exec_select_basis(case_data)
+            self._report_progress(
+                case_data,
+                phase="playwright",
+                stage="playwright.step.upload_materials",
+                message="回退阶段：上传执行材料",
+            )
             self._step4_upload_materials(case_data.get("materials", {}), is_execution=True)
+            self._report_progress(
+                case_data,
+                phase="playwright",
+                stage="playwright.step.fill_case_info",
+                message="回退阶段：完善当事人和代理人信息",
+            )
             self._step5_complete_info(case_data, section_map=self.EXEC_SECTION_MAP)
+            self._report_progress(
+                case_data,
+                phase="playwright",
+                stage="playwright.step.fill_execution_target",
+                message="回退阶段：填写执行标的信息",
+            )
             self._fill_execution_target_info(case_data)
+            self._report_progress(
+                case_data,
+                phase="playwright",
+                stage="playwright.step.next",
+                message="回退阶段：进入预览页",
+            )
             self._click_next_step()
             self._step6_preview_submit()
+            self._report_progress(
+                case_data,
+                phase="playwright",
+                stage="playwright.success",
+                message="Playwright回退流程完成（已到预览页）",
+            )
 
             logger.info(str(_("申请执行立案流程执行完成")))
             return {
@@ -183,10 +389,20 @@ class CourtZxfwFilingService:
             }
 
         except Exception as e:
+            self._report_progress(
+                case_data,
+                phase="playwright",
+                stage="playwright.failed",
+                level="error",
+                message=f"Playwright回退失败: {e}",
+            )
             logger.error("申请执行立案失败: %s", e, exc_info=True)
             if self.save_debug:
                 self._save_screenshot("error_exec_filing")
-            raise ValueError(str(_("申请执行立案失败: %(error)s")) % {"error": e}) from e
+            merged_error = str(e)
+            if api_error is not None:
+                merged_error = f"HTTP主链路失败({api_error})，且Playwright回退失败({e})"
+            raise ValueError(str(_("申请执行立案失败: %(error)s")) % {"error": merged_error}) from e
 
     # ==================== 打开案件类型页 ====================
 
@@ -1050,6 +1266,39 @@ class CourtZxfwFilingService:
         if "use_api_for_execution" in case_data:
             return "api" if bool(case_data.get("use_api_for_execution")) else "playwright"
         return "api"
+
+    @staticmethod
+    def _allow_playwright_fallback(case_data: dict[str, Any]) -> bool:
+        value = case_data.get("playwright_fallback", True)
+        if isinstance(value, str):
+            return value.strip().lower() not in {"0", "false", "no", "off"}
+        return bool(value)
+
+    def _report_progress(
+        self,
+        case_data: dict[str, Any],
+        *,
+        phase: str,
+        stage: str,
+        message: str,
+        level: str = "info",
+        detail: str = "",
+    ) -> None:
+        reporter = case_data.get("_progress_reporter")
+        if not callable(reporter):
+            return
+        payload: dict[str, Any] = {
+            "phase": phase,
+            "stage": stage,
+            "level": level,
+            "message": message,
+        }
+        if detail:
+            payload["detail"] = detail
+        try:
+            reporter(payload)
+        except Exception:
+            logger.debug("court_filing_progress_report_failed", exc_info=True)
 
     def _save_screenshot(self, name: str) -> str:
         """保存调试截图"""

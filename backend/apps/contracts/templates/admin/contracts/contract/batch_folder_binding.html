@@ -1,0 +1,190 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block title %}{% trans "合同批量绑定文件夹" %}{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'contracts/css/batch_folder_binding_admin.css' %}">
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+{{ cards|json_script:"batch-folder-binding-cards" }}
+{{ batch_folder_binding_config|json_script:"batch-folder-binding-config" }}
+<script src="{% static 'contracts/js/batch_folder_binding_admin.js' %}"></script>
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% trans "首页" %}</a>
+    &rsaquo; <a href="/admin/contracts/contract/">{% trans "合同" %}</a>
+    &rsaquo; {% trans "批量绑定文件夹" %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="contract-batch-binding-page" x-data="contractBatchFolderBindingApp()" x-init="init()">
+    <section class="batch-hero">
+        <div class="batch-hero-main">
+            <h1>{% trans "合同批量绑定一级文件夹" %}</h1>
+            <p>{% trans "按合同类型配置根目录，系统会在该目录的一级子文件夹中自动推荐最接近的案件文件夹。" %}</p>
+            <div class="batch-hero-tips">
+                <span class="tip-pill">{% trans "1. 填写根目录" %}</span>
+                <span class="tip-pill">{% trans "2. 生成自动匹配" %}</span>
+                <span class="tip-pill">{% trans "3. 手动校准并保存" %}</span>
+            </div>
+        </div>
+        <div class="batch-overview">
+            <article class="overview-item">
+                <span class="overview-label">{% trans "待处理类型" %}</span>
+                <strong class="overview-value" x-text="cards.length"></strong>
+            </article>
+            <article class="overview-item">
+                <span class="overview-label">{% trans "未绑定合同" %}</span>
+                <strong class="overview-value" x-text="totalUnboundCount()"></strong>
+            </article>
+            <article class="overview-item">
+                <span class="overview-label">{% trans "已设置根目录" %}</span>
+                <strong class="overview-value" x-text="configuredRootCount()"></strong>
+            </article>
+            <article class="overview-item">
+                <span class="overview-label">{% trans "当前勾选应用" %}</span>
+                <strong class="overview-value" x-text="selectedApplyCount()"></strong>
+            </article>
+        </div>
+    </section>
+
+    <section class="batch-toolbar-card">
+        <div class="batch-toolbar">
+            <button type="button" class="button default" @click="goBack()">{% trans "返回合同列表" %}</button>
+            <button type="button" class="button" :disabled="isPreviewing || cards.length === 0" @click="previewAll()">
+                <span x-show="!isPreviewing">{% trans "生成自动匹配" %}</span>
+                <span x-show="isPreviewing">{% trans "匹配中..." %}</span>
+            </button>
+            <button type="button" class="button button-primary" :disabled="isSaving || cards.length === 0" @click="saveAll()">
+                <span x-show="!isSaving">{% trans "保存绑定" %}</span>
+                <span x-show="isSaving">{% trans "保存中..." %}</span>
+            </button>
+        </div>
+        <p class="batch-toolbar-hint">
+            {% trans "提示：保存时仅会处理勾选“应用”且已选择一级子文件夹的合同。" %}
+        </p>
+    </section>
+
+    <div class="batch-message" x-show="message.text" :class="'is-' + message.level" x-text="message.text"></div>
+
+    <div class="batch-empty" x-show="cards.length === 0">
+        {% trans "暂无未绑定合同。" %}
+    </div>
+
+    <template x-for="card in cards" :key="card.case_type">
+        <section class="batch-card">
+            <div class="batch-card-header">
+                <div class="batch-card-title">
+                    <h2 x-text="card.case_type_display"></h2>
+                    <div class="batch-card-badges">
+                        <span class="batch-badge is-warning" x-text="'未绑定 ' + card.unbound_count"></span>
+                        <span
+                            class="batch-badge"
+                            :class="(card.rows || []).length ? 'is-info' : 'is-muted'"
+                            x-text="(card.rows || []).length ? ('候选 ' + (card.options || []).length) : '等待预览'"
+                        ></span>
+                    </div>
+                </div>
+                <button type="button" class="button batch-secondary-btn" :disabled="isPreviewing" @click="previewSingle(card)">
+                    {% trans "仅预览此类型" %}
+                </button>
+            </div>
+
+            <div class="batch-root-row">
+                <div class="batch-root-label">
+                    <label>{% trans "根目录" %}</label>
+                    <span>{% trans "只会扫描该路径下的一级子文件夹作为合同候选目录。" %}</span>
+                </div>
+                <div class="batch-root-input-wrap">
+                    <input type="text" x-model.trim="card.root_path" placeholder="/Users/xxx/..." />
+                    <span
+                        class="batch-root-status"
+                        :class="card.root_path ? 'is-ready' : 'is-empty'"
+                        x-text="card.root_path ? '已设置根目录' : '待设置根目录'"
+                    ></span>
+                </div>
+            </div>
+
+            <div class="batch-error" x-show="card.error" x-text="card.error"></div>
+
+            <div class="batch-table-meta" x-show="card.rows && card.rows.length > 0">
+                <span x-text="'已选中 ' + selectedRowsCount(card) + ' / ' + card.rows.length + ' 条，可继续调整。'"></span>
+            </div>
+
+            <div class="batch-table-wrapper" x-show="card.rows && card.rows.length > 0">
+                <table class="batch-table">
+                    <thead>
+                        <tr>
+                            <th>{% trans "合同" %}</th>
+                            <th>{% trans "关联网件" %}</th>
+                            <th>{% trans "系统推荐" %}</th>
+                            <th>{% trans "手工调整" %}</th>
+                            <th>{% trans "操作" %}</th>
+                            <th>{% trans "本次应用" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="row in card.rows" :key="row.contract_id">
+                            <tr :class="{ 'is-selected': row.apply }">
+                                <td>
+                                    <div class="cell-main" x-text="row.contract_name"></div>
+                                    <div class="cell-sub" x-show="row.filing_number" x-text="'建档编号: ' + row.filing_number"></div>
+                                </td>
+                                <td>
+                                    <div class="cell-main" x-text="(row.case_names || []).join('；') || '-'"></div>
+                                    <div class="cell-sub" x-show="row.oa_case_number" x-text="'OA编号: ' + row.oa_case_number"></div>
+                                </td>
+                                <td>
+                                    <div class="cell-main" :class="{ 'is-muted': !row.recommended_folder_name }" x-text="row.recommended_folder_name || '未自动匹配'"></div>
+                                    <div class="cell-sub" x-show="row.reason" x-text="row.reason"></div>
+                                    <span
+                                        class="confidence-pill"
+                                        x-show="row.confidence !== null && row.confidence !== undefined"
+                                        :class="confidenceClass(row.confidence)"
+                                        x-text="'置信度 ' + formatConfidence(row.confidence)"
+                                    ></span>
+                                </td>
+                                <td>
+                                    <select x-model="row.selected_folder_path" @change="onSelectFolder(row)" :class="{ 'is-ready': !!row.selected_folder_path }">
+                                        <option value="">{% trans "请选择一级子文件夹" %}</option>
+                                        <template x-for="option in card.options" :key="option.path">
+                                            <option :value="option.path" x-text="option.name"></option>
+                                        </template>
+                                    </select>
+                                </td>
+                                <td>
+                                    <button
+                                        type="button"
+                                        class="button batch-open-btn"
+                                        :disabled="!row.selected_folder_path || isOpening"
+                                        @click="openFolder(card, row)"
+                                    >
+                                        {% trans "打开文件夹" %}
+                                    </button>
+                                </td>
+                                <td>
+                                    <label class="apply-toggle">
+                                        <input type="checkbox" x-model="row.apply" />
+                                        <span class="apply-toggle-ui"></span>
+                                        <span class="apply-toggle-text">{% trans "应用" %}</span>
+                                    </label>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+            <div class="batch-empty-card" x-show="card.rows && card.rows.length === 0 && !card.error">
+                {% trans "请先生成自动匹配，再按需手工调整后保存。" %}
+            </div>
+        </section>
+    </template>
+</div>
+{% endblock %}
