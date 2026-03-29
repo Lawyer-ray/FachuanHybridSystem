@@ -37,6 +37,19 @@
 - **Django 升级**
   - django: 6.0.2 → 6.0.3
 
+- **其他自动升级**
+  - numpy: 2.4.2 → 2.4.3
+  - coverage: 7.13.4 → 7.13.5
+  - packaging: 25.0 → 26.0
+  - platformdirs: 4.9.2 → 4.9.4
+  - wrapt: 2.1.1 → 2.1.2
+  - librt: 新增 0.8.1
+
+### 修复
+
+- **修复 pydantic-core 兼容性问题**
+  - 回退 pydantic-core 到 2.41.5 以兼容 pydantic 2.12.5
+
 ## [26.27.3] - 2026-03-29
 
 ### 变更

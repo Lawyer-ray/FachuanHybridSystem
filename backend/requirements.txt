@@ -115,7 +115,7 @@ py-serializable==2.1.0
 pyclipper==1.4.0
 pycparser==3.0
 pydantic==2.12.5
-pydantic-core==2.43.0
+pydantic-core==2.41.5
 pydantic-settings==2.13.1
 pydyf==0.12.1
 pyee==13.0.1
