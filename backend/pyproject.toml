@@ -1,11 +1,11 @@
 [project]
 name = "fachuan-backend"
-version = "1.0.0"
+version = "26.27.4"
 description = "法穿AI案件管理系统 - Backend"
 requires-python = ">=3.12"
 dependencies = [
     # --- Django 核心 ---
-    "django==6.0.2",
+    "django==6.0.3",
     "django-cors-headers==4.9.0",
     "django-nested-admin==4.1.6",
     "django-ninja==1.5.3",
@@ -27,27 +27,28 @@ dependencies = [
     "python-docx==1.2.0",
     "reportlab==4.4.10",
     "pdfplumber==0.11.9",
-    "pikepdf==10.3.0",
-    "pymupdf==1.27.1",
+    "pikepdf==10.5.1",
+    "pymupdf==1.27.2.2",
     "openpyxl==3.1.5",
     # --- 图像处理 ---
     "opencv-python==4.13.0.92",
     "Pillow",
     # --- OCR ---
-    "rapidocr==3.6.0",
+    "rapidocr==3.7.0",
     "ddddocr==1.5.6",
     # --- 浏览器自动化 ---
     "playwright==1.58.0",
+    "playwright-stealth==2.0.2",
     # --- 数据处理 ---
     "pandas==3.0.1",
     "pydantic==2.12.5",
     "python-dateutil==2.9.0.post0",
     "pyyaml==6.0.3",
     # --- 安全 / 加密 ---
-    "cryptography==46.0.5",
+    "cryptography==46.0.6",
     # --- 可观测性 ---
     "psutil==7.2.2",
-    "sentry-sdk",
+    "sentry-sdk>=2.56.0",
     # --- 配置 ---
     "python-dotenv==1.2.1",
     # --- 热重载 ---
@@ -56,7 +57,7 @@ dependencies = [
     # --- 生产部署 ---
     "gunicorn==25.1.0",
     "rapidocr-onnxruntime>=1.4.4",
-    "mammoth>=1.11.0",
+    "mammoth>=1.12.0",
     "markdown>=3.10.2",
     "weasyprint>=68.1",
     # --- MCP Server ---
@@ -66,11 +67,11 @@ dependencies = [
 [dependency-groups]
 dev = [
     # --- 代码格式化 ---
-    "black==26.1.0",
-    "isort==8.0.0",
-    "ruff==0.15.2",
+    "black==26.3.1",
+    "isort==8.0.1",
+    "ruff==0.15.8",
     # --- 类型检查 ---
-    "mypy==1.16.1",
+    "mypy==1.19.1",
     "django-stubs==5.2.9",
     "django-stubs-ext==5.2.9",
     # --- 安全扫描 ---
@@ -84,7 +85,7 @@ test = [
     # --- 测试框架 ---
     "pytest==9.0.2",
     "pytest-django==4.12.0",
-    "pytest-cov==7.0.0",
+    "pytest-cov==7.1.0",
     "pytest-asyncio==1.3.0",
     # --- Property-Based Testing ---
     "hypothesis==6.151.9",

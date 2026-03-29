@@ -2,9 +2,12 @@
 反爬虫检测对抗
 """
 
+import logging
 import random
 import time
 from typing import Any, ClassVar
+
+logger = logging.getLogger("apps.automation")
 
 
 class AntiDetection:
@@ -50,7 +53,25 @@ class AntiDetection:
 
     def inject_stealth_script(self, page: Any) -> None:
         """
-        注入反检测脚本
+        注入反检测脚本（使用 playwright-stealth）
+
+        Args:
+            page: Playwright Page 对象
+        """
+        try:
+            from playwright_stealth import Stealth
+
+            # 使用 playwright-stealth 的专业反检测
+            stealth = Stealth()
+            stealth.apply_stealth_sync(page)
+            logger.debug("已应用 playwright-stealth 反检测")
+        except ImportError:
+            logger.warning("playwright-stealth 未安装，使用基础反检测脚本")
+            self._inject_basic_stealth_script(page)
+
+    def _inject_basic_stealth_script(self, page: Any) -> None:
+        """
+        注入基础反检测脚本（备用方案）
 
         Args:
             page: Playwright Page 对象

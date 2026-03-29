@@ -221,6 +221,16 @@ class JtnFilingScript:
         try:
             browser = pw.chromium.launch(headless=False)
             self._context = browser.new_context()
+            
+            # 应用 playwright-stealth 反检测
+            try:
+                from playwright_stealth import Stealth
+                stealth = Stealth()
+                stealth.apply_stealth_sync(self._context)
+                logger.info("已应用 playwright-stealth 反检测")
+            except ImportError:
+                logger.warning("playwright-stealth 未安装，跳过反检测")
+            
             self._context.set_default_timeout(30_000)
             self._context.set_default_navigation_timeout(30_000)
             self._page = self._context.new_page()

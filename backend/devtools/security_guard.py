@@ -149,6 +149,9 @@ def _has_allowlist_marker(content: str) -> bool:
 def _check_sensitive(files: list[str], mode: str, base: str | None, head: str) -> list[str]:
     errors: list[str] = []
     for filepath in _resolve_candidates(files, mode, base, head):
+        # 跳过 lock 文件（自动生成，包含大量 URL 和哈希值）
+        if filepath.endswith(('.lock', 'uv.lock', 'poetry.lock', 'Pipfile.lock')):
+            continue
         for lineno, content in _get_added_lines(filepath, mode, base, head):
             if _has_allowlist_marker(content):
                 continue

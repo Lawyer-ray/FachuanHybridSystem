@@ -2,6 +2,54 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.27.4] - 2026-03-29
+
+### 优化
+
+- **集成 playwright-stealth 反爬虫检测**
+  - 添加 `playwright-stealth` 依赖用于绕过网站反爬虫检测
+  - 在所有 Playwright 使用场景中应用反检测（BrowserManager, BrowserService, OA 导入脚本, 法律研究模块）
+  - 支持自动降级到基础反检测脚本（当 playwright-stealth 未安装时）
+
+### 升级
+
+- **安全相关依赖升级**
+  - cryptography: 46.0.5 → 46.0.6
+  - certifi: 2026.1.4 → 2026.2.25
+  - requests: 2.32.5 → 2.33.0
+  - sentry-sdk: 2.53.0 → 2.56.0
+  - charset-normalizer: 3.4.4 → 3.4.6
+
+- **开发工具升级**
+  - black: 26.1.0 → 26.3.1
+  - ruff: 0.15.2 → 0.15.8
+  - mypy: 1.16.1 → 1.19.1
+  - isort: 8.0.0 → 8.0.1
+  - pytest-cov: 7.0.0 → 7.1.0
+
+- **文档处理库升级**
+  - pymupdf: 1.27.1 → 1.27.2.2
+  - pikepdf: 10.3.0 → 10.5.1
+  - mammoth: 1.11.0 → 1.12.0
+  - pdfminer-six: 20251230 → 20260107
+  - rapidocr: 3.6.0 → 3.7.0
+
+- **Django 升级**
+  - django: 6.0.2 → 6.0.3
+
+- **其他自动升级**
+  - numpy: 2.4.2 → 2.4.3
+  - coverage: 7.13.4 → 7.13.5
+  - packaging: 25.0 → 26.0
+  - platformdirs: 4.9.2 → 4.9.4
+  - wrapt: 2.1.1 → 2.1.2
+  - librt: 新增 0.8.1
+
+### 修复
+
+- **修复 pydantic-core 兼容性问题**
+  - 回退 pydantic-core 到 2.41.5 以兼容 pydantic 2.12.5
+
 ## [26.27.3] - 2026-03-29
 
 ### 变更
