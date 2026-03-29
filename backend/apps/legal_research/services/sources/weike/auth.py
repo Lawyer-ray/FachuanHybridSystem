@@ -42,6 +42,15 @@ class WeikeAuthMixin:
         playwright = sync_playwright().start()
         browser = playwright.chromium.launch(headless=True)
         context = browser.new_context()
+        
+        # 应用 playwright-stealth 反检测
+        try:
+            from playwright_stealth import stealth_sync
+            stealth_sync(context)
+            logger.debug("已应用 playwright-stealth 反检测")
+        except ImportError:
+            logger.warning("playwright-stealth 未安装，跳过反检测")
+        
         page = context.new_page()
         try:
             self._login_and_enter_law(

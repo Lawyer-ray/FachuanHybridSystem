@@ -113,7 +113,19 @@ class BrowserService:
         default_config.update(kwargs)
 
         context = browser.new_context(**default_config)
-        logger.info("创建新的浏览器上下文（反检测: %s）", use_anti_detection)
+        
+        # 应用 playwright-stealth 到上下文
+        if use_anti_detection:
+            try:
+                from playwright_stealth import stealth_sync
+                stealth_sync(context)
+                logger.info("创建新的浏览器上下文（已应用 playwright-stealth）")
+            except ImportError:
+                logger.warning("playwright-stealth 未安装，使用基础反检测")
+                logger.info("创建新的浏览器上下文（基础反检测）")
+        else:
+            logger.info("创建新的浏览器上下文（无反检测）")
+            
         return context
 
     def close(self) -> None:
