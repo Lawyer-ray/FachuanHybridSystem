@@ -42,7 +42,7 @@ _DEV_SECRET_KEY = "django-insecure-dev-only-do-not-use-in-production"
 _security = resolve_security_config(
     dev_secret_key=_DEV_SECRET_KEY,
     default_allowed_hosts_dev=["localhost", "127.0.0.1", "[::1]"],
-    default_allowed_hosts_prod=["localhost", "127.0.0.1"],
+    default_allowed_hosts_prod=["*"],
 )
 
 _is_production = _security.is_production
