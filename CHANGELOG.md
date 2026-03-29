@@ -2,6 +2,13 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.27.2] - 2026-03-29
+
+### 修复
+
+- **修复 CI 测试导入错误**
+  - 修复 `oa_filing/models/__init__.py` 中 `ClientImportPhase` 被错误别名为 `ClientImportPhase2`，导致 CI 使用 `--import-mode=importlib` 时触发 `ImportError`
+
 ## [26.27.1] - 2026-03-29
 
 ### 新增
