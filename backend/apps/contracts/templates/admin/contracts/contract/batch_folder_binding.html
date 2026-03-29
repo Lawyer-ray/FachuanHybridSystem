@@ -6,6 +6,9 @@
 {% block extrastyle %}
 {{ block.super }}
 <link rel="stylesheet" href="{% static 'contracts/css/batch_folder_binding_admin.css' %}">
+<style>
+[x-cloak] { display: none !important; }
+</style>
 {% endblock %}
 
 {% block extrahead %}
@@ -13,6 +16,7 @@
 {{ cards|json_script:"batch-folder-binding-cards" }}
 {{ batch_folder_binding_config|json_script:"batch-folder-binding-config" }}
 <script src="{% static 'contracts/js/batch_folder_binding_admin.js' %}"></script>
+<script src="{% static 'contracts/js/batch_folder_binding_browser.js' %}"></script>
 {% endblock %}
 
 {% block breadcrumbs %}
@@ -104,6 +108,15 @@
                 </div>
                 <div class="batch-root-input-wrap">
                     <input type="text" x-model.trim="card.root_path" placeholder="/Users/xxx/..." />
+                    <button
+                        type="button"
+                        class="button batch-select-folder-btn"
+                        @click="openFolderSelector(card)"
+                        :disabled="isPreviewing"
+                        title="{% trans "选择文件夹" %}"
+                    >
+                        {% trans "选择" %}
+                    </button>
                     <span
                         class="batch-root-status"
                         :class="card.root_path ? 'is-ready' : 'is-empty'"
@@ -187,4 +200,6 @@
         </section>
     </template>
 </div>
+
+{% include "admin/contracts/contract/batch_folder_selector_modal.html" %}
 {% endblock %}

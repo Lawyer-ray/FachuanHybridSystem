@@ -103,6 +103,17 @@
         row.apply = !!row.selected_folder_path;
       },
 
+      openFolderSelector: function openFolderSelector(card) {
+        window.__batchFolderSelectorCard = card;
+        var modal = document.querySelector('.folder-browser-modal');
+        if (modal && modal._x_dataStack && modal._x_dataStack[0]) {
+          var selectorData = modal._x_dataStack[0];
+          if (typeof selectorData.openBrowser === 'function') {
+            selectorData.openBrowser(card);
+          }
+        }
+      },
+
       buildCaseTypePayload: function buildCaseTypePayload(cards) {
         return (cards || []).map(function (card) {
           return {
