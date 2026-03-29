@@ -243,17 +243,20 @@
 }
 
 .batch-root-input-wrap {
-    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
     min-width: 0;
 }
 
 .batch-root-row input {
-    width: 100%;
+    flex: 1;
+    min-width: 0;
     box-sizing: border-box;
     min-height: 38px;
     border-radius: 8px;
     border: 1px solid #c6d3e0;
-    padding: 0 122px 0 10px;
+    padding: 0 10px;
     background: #fbfdff;
     font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
     font-size: 12px;
@@ -265,11 +268,32 @@
     outline: none;
 }
 
+.batch-select-folder-btn {
+    flex-shrink: 0;
+    border-radius: 6px;
+    min-height: 32px;
+    padding: 0 16px;
+    font-size: 13px;
+    font-weight: 500;
+    border: 1px solid var(--batch-primary);
+    background: #fff;
+    color: var(--batch-primary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.batch-select-folder-btn:hover {
+    background: var(--batch-primary);
+    color: #fff;
+}
+
+.batch-select-folder-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 .batch-root-status {
-    position: absolute;
-    right: 8px;
-    top: 50%;
-    transform: translateY(-50%);
+    flex-shrink: 0;
     border-radius: 999px;
     padding: 3px 10px;
     font-size: 11px;
@@ -417,16 +441,25 @@
 }
 
 .batch-open-btn {
-    border-radius: 7px;
-    min-height: 32px;
-    padding: 0 10px;
+    border-radius: 6px;
+    min-height: 28px;
+    width: 36px;
+    padding: 0;
     border-color: #c6d3e0;
     background: #f8fbff;
     color: #1f4c69;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .batch-open-btn:hover {
     background: #eaf3fc;
+}
+
+.batch-open-btn:disabled {
+    opacity: 0.4;
 }
 
 .apply-toggle {
@@ -445,12 +478,13 @@
 }
 
 .apply-toggle-ui {
-    width: 30px;
-    height: 18px;
+    width: 26px;
+    height: 16px;
     border-radius: 999px;
     background: #cbd5e1;
     position: relative;
     transition: background-color 0.15s ease;
+    flex-shrink: 0;
 }
 
 .apply-toggle-ui::after {
@@ -458,8 +492,8 @@
     position: absolute;
     top: 2px;
     left: 2px;
-    width: 14px;
-    height: 14px;
+    width: 12px;
+    height: 12px;
     border-radius: 50%;
     background: #fff;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
@@ -471,7 +505,7 @@
 }
 
 .apply-toggle input:checked + .apply-toggle-ui::after {
-    transform: translateX(12px);
+    transform: translateX(10px);
 }
 
 .apply-toggle-text {
@@ -518,14 +552,272 @@
         position: static;
     }
 
-    .batch-root-row input {
-        padding-right: 10px;
+    .batch-root-input-wrap {
+        flex-wrap: wrap;
     }
 
-    .batch-root-status {
-        position: static;
-        transform: none;
-        display: inline-flex;
-        margin-top: 8px;
+    .batch-select-folder-btn {
+        width: 100%;
+        margin-top: 4px;
+    }
+}
+
+/* 文件夹浏览器模态框 */
+.folder-browser-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.45);
+}
+
+.folder-browser-content {
+    width: 680px;
+    max-width: 95vw;
+    max-height: 85vh;
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.folder-browser-content.batch-folder-selector {
+    width: 720px;
+}
+
+.folder-browser-header {
+    padding: 16px 18px;
+    border-bottom: 1px solid #e8edf3;
+    background: linear-gradient(135deg, #f8fbff 0%, #f0f5fa 100%);
+}
+
+.folder-browser-header h2 {
+    margin: 0 0 12px;
+    font-size: 17px;
+    color: #0f2940;
+}
+
+.folder-browser-close {
+    position: absolute;
+    top: 14px;
+    right: 16px;
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 50%;
+    background: #f0f2f5;
+    color: #4a5568;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.folder-browser-close:hover {
+    background: #e2e6eb;
+}
+
+.manual-path-input {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.manual-path-input input {
+    flex: 1;
+    min-width: 0;
+    padding: 9px 12px;
+    border: 1px solid #c6d3e0;
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+
+.manual-path-input input:focus {
+    border-color: #85a7c3;
+    box-shadow: 0 0 0 2px rgba(75, 132, 170, 0.16);
+    outline: none;
+}
+
+.folder-browser-error {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 6px;
+    color: #b91c1c;
+    font-size: 13px;
+}
+
+.finder-toolbar {
+    padding: 8px 18px;
+    border-bottom: 1px solid #f0f2f5;
+    background: #fafbfc;
+    display: flex;
+    gap: 8px;
+}
+
+.btn-folder {
+    padding: 6px 12px;
+    font-size: 13px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background: #f5f5f5;
+    color: #333;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-folder:hover {
+    background: #e9ecef;
+    border-color: #cfcfcf;
+}
+
+.btn-folder:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.btn-folder.primary {
+    border-color: #417690;
+    background: #417690;
+    color: #fff;
+}
+
+.btn-folder.primary:hover {
+    background: #2e5984;
+    border-color: #2e5984;
+}
+
+.finder-columns {
+    display: flex;
+    flex: 1;
+    overflow-x: auto;
+    padding: 12px 18px;
+    gap: 2px;
+    min-height: 280px;
+    max-height: 400px;
+}
+
+.finder-columns.loading .finder-column:last-child {
+    opacity: 0.6;
+}
+
+.finder-column {
+    flex: 0 0 200px;
+    max-height: 100%;
+    overflow-y: auto;
+    border: 1px solid #e8edf3;
+    border-radius: 8px;
+    background: #fafbfc;
+}
+
+.finder-column.loading {
+    position: relative;
+}
+
+.finder-column.loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 24px;
+    height: 24px;
+    border: 2px solid #c6d3e0;
+    border-top-color: #417690;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+.finder-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 12px;
+    cursor: pointer;
+    transition: background 0.1s;
+}
+
+.finder-item:hover {
+    background: #eef5fb;
+}
+
+.finder-item.selected {
+    background: #ddeaf6;
+}
+
+.finder-item-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.finder-item-name {
+    font-size: 13px;
+    color: #1a202c;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.finder-empty {
+    padding: 20px;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 13px;
+}
+
+.folder-browser-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+    color: #64748b;
+    font-size: 14px;
+}
+
+.folder-browser-footer {
+    padding: 14px 18px;
+    border-top: 1px solid #e8edf3;
+    background: #f8fafc;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.selected-path-display {
+    flex: 1;
+    min-width: 0;
+    padding: 9px 12px;
+    background: #f0f5fa;
+    border: 1px solid #d8e4f0;
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    color: #2f5774;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+@media (max-width: 720px) {
+    .folder-browser-content.batch-folder-selector {
+        width: 95vw;
+    }
+
+    .finder-column {
+        flex: 0 0 160px;
     }
 }

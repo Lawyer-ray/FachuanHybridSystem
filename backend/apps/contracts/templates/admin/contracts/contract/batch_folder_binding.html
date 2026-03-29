@@ -6,6 +6,9 @@
 {% block extrastyle %}
 {{ block.super }}
 <link rel="stylesheet" href="{% static 'contracts/css/batch_folder_binding_admin.css' %}">
+<style>
+[x-cloak] { display: none !important; }
+</style>
 {% endblock %}
 
 {% block extrahead %}
@@ -13,6 +16,7 @@
 {{ cards|json_script:"batch-folder-binding-cards" }}
 {{ batch_folder_binding_config|json_script:"batch-folder-binding-config" }}
 <script src="{% static 'contracts/js/batch_folder_binding_admin.js' %}"></script>
+<script src="{% static 'contracts/js/batch_folder_binding_browser.js' %}"></script>
 {% endblock %}
 
 {% block breadcrumbs %}
@@ -104,10 +108,20 @@
                 </div>
                 <div class="batch-root-input-wrap">
                     <input type="text" x-model.trim="card.root_path" placeholder="/Users/xxx/..." />
+                    <button
+                        type="button"
+                        class="button batch-select-folder-btn"
+                        @click="openFolderSelector(card)"
+                        :disabled="isPreviewing"
+                        title="{% trans "选择文件夹" %}"
+                    >
+                        {% trans "选择" %}
+                    </button>
                     <span
                         class="batch-root-status"
                         :class="card.root_path ? 'is-ready' : 'is-empty'"
-                        x-text="card.root_path ? '已设置根目录' : '待设置根目录'"
+                        x-text="card.root_path ? '已设置根目录' : ''"
+                        x-show="card.root_path"
                     ></span>
                 </div>
             </div>
@@ -123,7 +137,7 @@
                     <thead>
                         <tr>
                             <th>{% trans "合同" %}</th>
-                            <th>{% trans "关联网件" %}</th>
+                            <th>{% trans "关联案件" %}</th>
                             <th>{% trans "系统推荐" %}</th>
                             <th>{% trans "手工调整" %}</th>
                             <th>{% trans "操作" %}</th>
@@ -165,15 +179,15 @@
                                         class="button batch-open-btn"
                                         :disabled="!row.selected_folder_path || isOpening"
                                         @click="openFolder(card, row)"
+                                        title="{% trans "打开文件夹" %}"
                                     >
-                                        {% trans "打开文件夹" %}
+                                        📂
                                     </button>
                                 </td>
                                 <td>
                                     <label class="apply-toggle">
                                         <input type="checkbox" x-model="row.apply" />
                                         <span class="apply-toggle-ui"></span>
-                                        <span class="apply-toggle-text">{% trans "应用" %}</span>
                                     </label>
                                 </td>
                             </tr>
@@ -187,4 +201,6 @@
         </section>
     </template>
 </div>
+
+{% include "admin/contracts/contract/batch_folder_selector_modal.html" %}
 {% endblock %}
