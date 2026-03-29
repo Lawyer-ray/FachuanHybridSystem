@@ -116,6 +116,11 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin[CaseDownloadTask]):
                 self.admin_site.admin_view(self.retry_view),
                 name=f"{opts.app_label}_{opts.model_name}_retry",
             ),
+            path(
+                "result/<path:object_id>/download/",
+                self.admin_site.admin_view(self.result_download_view),
+                name="legal_research_casedownloadresult_download",
+            ),
         ]
         return custom_urls + urls
 
@@ -418,6 +423,30 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin[CaseDownloadTask]):
             messages.error(request, f"重试失败: {exc}")
 
         return HttpResponseRedirect(reverse("admin:legal_research_casedownloadtask_changelist"))
+
+    def result_download_view(self, request: HttpRequest, object_id: str) -> HttpResponse:
+        try:
+            result = CaseDownloadResult.objects.select_related("task").get(pk=object_id)
+        except CaseDownloadResult.DoesNotExist:
+            messages.error(request, "下载结果不存在")
+            return HttpResponseRedirect(reverse("admin:legal_research_casedownloadtask_changelist"))
+
+        file_path = result.file_path
+        from pathlib import Path
+
+        if not Path(file_path).exists():
+            messages.error(request, "文件不存在")
+            return HttpResponseRedirect(
+                reverse("admin:legal_research_casedownloadtask_change", args=[result.task_id])
+            )
+
+        from django.http import FileResponse
+
+        return FileResponse(
+            open(file_path, "rb"),
+            as_attachment=True,
+            filename=f"{result.case_number}.{result.file_format}",
+        )
 
 
 # 避免循环导入

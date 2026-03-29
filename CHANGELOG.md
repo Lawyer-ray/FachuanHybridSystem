@@ -2,6 +2,15 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.27.2] - 2026-03-29
+
+### 修复
+
+- **修复 CI 测试导入错误**
+  - 修复 `oa_filing/models/__init__.py` 中 `ClientImportPhase` 被错误别名为 `ClientImportPhase2`，导致 CI 使用 `--import-mode=importlib` 时触发 `ImportError`
+- **修复案例下载结果下载链接 404**
+  - 在 `CaseDownloadTaskAdmin.get_urls()` 中注册缺失的 `casedownloadresult_download` URL 和视图，修复 `CaseDownloadResultInline.download_link()` 引用不存在的 URL 导致 `NoReverseMatch`
+
 ## [26.27.1] - 2026-03-29
 
 ### 新增
