@@ -120,7 +120,8 @@
                     <span
                         class="batch-root-status"
                         :class="card.root_path ? 'is-ready' : 'is-empty'"
-                        x-text="card.root_path ? '已设置根目录' : '待设置根目录'"
+                        x-text="card.root_path ? '已设置根目录' : ''"
+                        x-show="card.root_path"
                     ></span>
                 </div>
             </div>
