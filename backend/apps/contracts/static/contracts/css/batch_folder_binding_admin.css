@@ -441,16 +441,25 @@
 }
 
 .batch-open-btn {
-    border-radius: 7px;
-    min-height: 32px;
-    padding: 0 10px;
+    border-radius: 6px;
+    min-height: 28px;
+    width: 36px;
+    padding: 0;
     border-color: #c6d3e0;
     background: #f8fbff;
     color: #1f4c69;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .batch-open-btn:hover {
     background: #eaf3fc;
+}
+
+.batch-open-btn:disabled {
+    opacity: 0.4;
 }
 
 .apply-toggle {

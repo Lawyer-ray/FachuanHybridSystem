@@ -179,15 +179,15 @@
                                         class="button batch-open-btn"
                                         :disabled="!row.selected_folder_path || isOpening"
                                         @click="openFolder(card, row)"
+                                        title="{% trans "打开文件夹" %}"
                                     >
-                                        {% trans "打开" %}
+                                        📂
                                     </button>
                                 </td>
                                 <td>
                                     <label class="apply-toggle">
                                         <input type="checkbox" x-model="row.apply" />
                                         <span class="apply-toggle-ui"></span>
-                                        <span class="apply-toggle-text">{% trans "应用" %}</span>
                                     </label>
                                 </td>
                             </tr>
