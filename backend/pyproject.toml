@@ -45,10 +45,10 @@ dependencies = [
     "python-dateutil==2.9.0.post0",
     "pyyaml==6.0.3",
     # --- 安全 / 加密 ---
-    "cryptography==46.0.5",
+    "cryptography==46.0.6",
     # --- 可观测性 ---
     "psutil==7.2.2",
-    "sentry-sdk",
+    "sentry-sdk>=2.56.0",
     # --- 配置 ---
     "python-dotenv==1.2.1",
     # --- 热重载 ---
