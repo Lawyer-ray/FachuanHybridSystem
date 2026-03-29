@@ -117,8 +117,9 @@ class BrowserService:
         # 应用 playwright-stealth 到上下文
         if use_anti_detection:
             try:
-                from playwright_stealth import stealth_sync
-                stealth_sync(context)
+                from playwright_stealth import Stealth
+                stealth = Stealth()
+                stealth.apply_stealth_sync(context)
                 logger.info("创建新的浏览器上下文（已应用 playwright-stealth）")
             except ImportError:
                 logger.warning("playwright-stealth 未安装，使用基础反检测")

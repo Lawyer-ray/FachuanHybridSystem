@@ -59,10 +59,11 @@ class AntiDetection:
             page: Playwright Page 对象
         """
         try:
-            from playwright_stealth import stealth_sync
+            from playwright_stealth import Stealth
 
             # 使用 playwright-stealth 的专业反检测
-            stealth_sync(page)
+            stealth = Stealth()
+            stealth.apply_stealth_sync(page)
             logger.debug("已应用 playwright-stealth 反检测")
         except ImportError:
             logger.warning("playwright-stealth 未安装，使用基础反检测脚本")

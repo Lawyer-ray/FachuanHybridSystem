@@ -156,8 +156,9 @@ class JtnClientImportScript:
             
             # 应用 playwright-stealth 反检测
             try:
-                from playwright_stealth import stealth_sync
-                stealth_sync(self._context)
+                from playwright_stealth import Stealth
+                stealth = Stealth()
+                stealth.apply_stealth_sync(self._context)
                 logger.debug("已应用 playwright-stealth 反检测")
             except ImportError:
                 logger.warning("playwright-stealth 未安装，跳过反检测")
@@ -524,8 +525,9 @@ class JtnClientImportScript:
             
             # 应用 playwright-stealth 反检测
             try:
-                from playwright_stealth import stealth_sync
-                stealth_sync(self._context)
+                from playwright_stealth import Stealth
+                stealth = Stealth()
+                stealth.apply_stealth_sync(self._context)
                 logger.debug("已应用 playwright-stealth 反检测")
             except ImportError:
                 logger.warning("playwright-stealth 未安装，跳过反检测")
