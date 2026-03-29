@@ -1,6 +1,6 @@
 [project]
 name = "fachuan-backend"
-version = "1.0.0"
+version = "26.27.4"
 description = "法穿AI案件管理系统 - Backend"
 requires-python = ">=3.12"
 dependencies = [
