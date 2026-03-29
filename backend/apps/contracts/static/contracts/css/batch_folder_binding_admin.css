@@ -552,30 +552,6 @@
     }
 }
 
-/* 文件夹选择器按钮 */
-.batch-select-folder-btn {
-    position: absolute;
-    right: 70px;
-    top: 50%;
-    transform: translateY(-50%);
-    border-radius: 6px;
-    min-height: 30px;
-    padding: 0 10px;
-    font-size: 12px;
-    border-color: #b9cadd;
-    background: #f0f7fc;
-    color: #2f6682;
-}
-
-.batch-select-folder-btn:hover {
-    background: #e4eef7;
-}
-
-.batch-select-folder-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
 /* 文件夹浏览器模态框 */
 .folder-browser-modal {
     position: fixed;
