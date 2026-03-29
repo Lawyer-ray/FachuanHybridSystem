@@ -243,17 +243,20 @@
 }
 
 .batch-root-input-wrap {
-    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
     min-width: 0;
 }
 
 .batch-root-row input {
-    width: 100%;
+    flex: 1;
+    min-width: 0;
     box-sizing: border-box;
     min-height: 38px;
     border-radius: 8px;
     border: 1px solid #c6d3e0;
-    padding: 0 122px 0 10px;
+    padding: 0 10px;
     background: #fbfdff;
     font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
     font-size: 12px;
@@ -265,11 +268,32 @@
     outline: none;
 }
 
+.batch-select-folder-btn {
+    flex-shrink: 0;
+    border-radius: 6px;
+    min-height: 32px;
+    padding: 0 16px;
+    font-size: 13px;
+    font-weight: 500;
+    border: 1px solid var(--batch-primary);
+    background: #fff;
+    color: var(--batch-primary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.batch-select-folder-btn:hover {
+    background: var(--batch-primary);
+    color: #fff;
+}
+
+.batch-select-folder-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 .batch-root-status {
-    position: absolute;
-    right: 8px;
-    top: 50%;
-    transform: translateY(-50%);
+    flex-shrink: 0;
     border-radius: 999px;
     padding: 3px 10px;
     font-size: 11px;
@@ -518,15 +542,13 @@
         position: static;
     }
 
-    .batch-root-row input {
-        padding-right: 10px;
+    .batch-root-input-wrap {
+        flex-wrap: wrap;
     }
 
-    .batch-root-status {
-        position: static;
-        transform: none;
-        display: inline-flex;
-        margin-top: 8px;
+    .batch-select-folder-btn {
+        width: 100%;
+        margin-top: 4px;
     }
 }
 
