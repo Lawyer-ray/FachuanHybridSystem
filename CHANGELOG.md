@@ -2,6 +2,15 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.27.5] - 2026-03-30
+
+### 修复
+
+- **LLM 后端可用性检查增强**
+  - Ollama `is_available()` 增加 `/api/tags` 轻量探针验证服务连通性（3s 超时，结果缓存）
+  - SiliconFlow `is_available()` 增加默认模型非空检查
+  - fallback_policy 和 streaming 中被 `is_available()` 跳过的后端现在会记录原因到错误信息中，便于排查
+
 ## [26.27.4] - 2026-03-29
 
 ### 优化

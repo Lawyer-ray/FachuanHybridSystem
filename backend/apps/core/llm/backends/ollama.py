@@ -694,21 +694,51 @@ class OllamaBackend(HttpxErrorMixin):
         """
         return self.default_model
 
+    _availability_checked: bool = False
+    _availability_result: bool | None = None
+
     def is_available(self) -> bool:
         """
         检查后端是否可用
 
-        Ollama 是本地服务,只要配置了 base_url 就认为可用.
-        实际可用性在调用时检查.
+        Ollama 是本地服务,检查 base_url 配置并通过轻量探针验证连通性.
+        探针结果缓存,同一实例内只检查一次.
 
         Returns:
             bool: True 表示后端可用,False 表示不可用
         """
+        if self._availability_checked:
+            return self._availability_result is True
+
         base_url = self.base_url
         if not base_url:
             logger.debug("Ollama 后端不可用:Base URL 未配置")
+            self._availability_checked = True
+            self._availability_result = False
             return False
-        return True
+
+        # 轻量探针:请求 /api/tags 验证服务可达
+        try:
+            client = get_sync_http_client()
+            resp = client.get(
+                base_url.rstrip("/") + "/api/tags",
+                timeout=3.0,
+            )
+            self._availability_checked = True
+            if resp.status_code == 200:
+                self._availability_result = True
+                return True
+            logger.debug(
+                "Ollama 探针返回非 200",
+                extra={"status_code": resp.status_code, "base_url": base_url},
+            )
+            self._availability_result = False
+            return False
+        except Exception as e:
+            logger.debug("Ollama 后端不可用:连通性检查失败", extra={"base_url": base_url, "error": str(e)})
+            self._availability_checked = True
+            self._availability_result = False
+            return False
 
 
 if TYPE_CHECKING:
