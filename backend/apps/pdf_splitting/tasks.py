@@ -4,7 +4,7 @@ import logging
 from uuid import UUID
 
 from apps.core.services.storage_service import normalize_to_media_rel
-from apps.pdf_splitting.models import PdfSplitJobStatus, PdfSplitMode
+from apps.pdf_splitting.models import PdfSplitJob, PdfSplitJobStatus, PdfSplitMode
 from apps.pdf_splitting.services import PdfSplitJobService, PdfSplitService
 from apps.pdf_splitting.services.storage import PdfSplitStorage
 
@@ -17,6 +17,14 @@ def execute_pdf_split_job(job_id: str) -> None:
     job_uuid = UUID(job_id)
     try:
         job = job_service.get_job(job_uuid)
+        job.refresh_from_db(fields=["split_mode"])
+        # 手动拆分模式跳过后台分析，直接进入待复核状态
+        if job.split_mode == PdfSplitMode.MANUAL_SPLIT:
+            PdfSplitJob.objects.filter(id=job.id).update(
+                status=PdfSplitJobStatus.REVIEW_REQUIRED,
+                progress=100,
+            )
+            return
         split_service.analyze_job(job)
         job.refresh_from_db(fields=["split_mode", "status", "cancel_requested"])
         if (

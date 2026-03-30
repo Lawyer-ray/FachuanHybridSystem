@@ -84,7 +84,7 @@
                 <label>{% trans "拆分模式" %}</label>
                 <div class="ps-radio-grid" role="radiogroup" aria-label="{% trans '拆分模式' %}">
                     <div class="ps-radio-card">
-                        <input type="radio" id="splitModeContent" name="split_mode" value="content_analysis" checked>
+                        <input type="radio" id="splitModeContent" name="split_mode" value="content_analysis">
                         <label class="ps-radio-label" for="splitModeContent">
                             <span class="ps-radio-title">{% trans "内容识别拆分" %}</span>
                             <span class="ps-radio-desc">{% trans "关键词规则 + OCR/AI 辅助识别材料段" %}</span>
@@ -97,8 +97,15 @@
                             <span class="ps-radio-desc">{% trans "每页拆成独立 PDF，自动打包下载" %}</span>
                         </label>
                     </div>
+                    <div class="ps-radio-card">
+                        <input type="radio" id="splitModeManual" name="split_mode" value="manual_split" checked>
+                        <label class="ps-radio-label" for="splitModeManual">
+                            <span class="ps-radio-title">{% trans "手动拆分" %}</span>
+                            <span class="ps-radio-desc">{% trans "PDF.js 可视化操作，自行指定范围和命名" %}</span>
+                        </label>
+                    </div>
                 </div>
-                <div class="ps-help">{% trans "选择“按页拆分”时会跳过内容分析，直接按页导出 ZIP。" %}</div>
+                <div class="ps-help">{% trans "手动拆分无需 OCR，在页面内可视化操作，直接导出。" %}</div>
             </div>
 
             <div class="ps-field">

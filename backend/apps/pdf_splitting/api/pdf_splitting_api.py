@@ -40,6 +40,7 @@ class JobOut(BaseModel):
     summary: dict[str, Any]
     segments: list[SegmentOut]
     download_url: str = ""
+    pdf_url: str = ""
     error_message: str = ""
 
 
@@ -117,3 +118,44 @@ def get_pdf_split_download(request: Any, job_id: UUID) -> HttpResponse:
     if not storage.export_zip_path.exists():
         return HttpResponse(status=404)
     return FileResponse(storage.export_zip_path.open("rb"), content_type="application/zip", filename="split_result.zip")
+
+
+@router.get("/jobs/{job_id}/pdf")
+def get_pdf_split_raw(request: Any, job_id: UUID) -> HttpResponse:
+    """获取原始 PDF 二进制流，供 PDF.js 在浏览器中渲染"""
+    job = PdfSplitJobService().get_job(job_id)
+    storage = PdfSplitStorage(job.id)
+    if not storage.source_pdf_path.exists():
+        return HttpResponse(status=404)
+    return FileResponse(
+        storage.source_pdf_path.open("rb"),
+        content_type="application/pdf",
+        filename=job.source_original_name or "document.pdf",
+    )
+
+
+@router.get("/jobs/{job_id}/preview-page")
+def get_pdf_preview_page(
+    request: Any,
+    job_id: UUID,
+    start_page: int = 1,
+    end_page: int = 1,
+    filename: str = "片段",
+) -> HttpResponse:
+    """返回PDF预览页面（HTML）"""
+    from django.shortcuts import render
+
+    job = PdfSplitJobService().get_job(job_id)
+    storage = PdfSplitStorage(job.id)
+    pdf_url = f"/api/v1/pdf-splitting/jobs/{job_id}/pdf"
+
+    return render(
+        request,
+        "admin/pdf_splitting/pdf_preview.html",
+        {
+            "pdf_url": pdf_url,
+            "start_page": start_page,
+            "end_page": end_page,
+            "filename": filename,
+        },
+    )
