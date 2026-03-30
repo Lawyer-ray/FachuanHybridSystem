@@ -123,6 +123,7 @@ class PdfSplitJobService:
         download_url = ""
         if job.status == PdfSplitJobStatus.COMPLETED and job.export_zip_relpath:
             download_url = f"/api/v1/pdf-splitting/jobs/{job.id}/download"
+        pdf_url = f"/api/v1/pdf-splitting/jobs/{job.id}/pdf"
 
         return {
             "job_id": str(job.id),
@@ -136,6 +137,7 @@ class PdfSplitJobService:
             "summary": dict(job.summary_payload or {}),
             "segments": segments,
             "download_url": download_url,
+            "pdf_url": pdf_url,
             "error_message": job.error_message or "",
         }
 
