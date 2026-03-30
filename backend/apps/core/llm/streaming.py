@@ -82,15 +82,20 @@ def stream_with_fallback(
     max_tokens: int | None,
     **kwargs: Any,
 ) -> Iterator[LLMStreamChunk]:
+    from .fallback_policy import _diagnose_unavailable
+
     kwargs = _build_stream_kwargs(messages, model, temperature, max_tokens, kwargs)
     if backend and (not fallback):
         yield from get_backend(backend).stream(**kwargs)
         return
     backends_to_try = _resolve_backends(get_backend, get_backends_by_priority, backend, fallback)
     errors: list[tuple[str, Exception]] = []
+    skipped: list[tuple[str, str]] = []
     for name, backend_instance in backends_to_try:
         if not backend_instance.is_available():
-            logger.debug("后端不可用,跳过", extra={"backend": name})
+            reason = _diagnose_unavailable(name, backend_instance)
+            logger.warning("后端不可用,跳过", extra={"backend": name, "reason": reason})
+            skipped.append((name, reason))
             continue
         it = None
         try:
@@ -108,8 +113,11 @@ def stream_with_fallback(
         if it is not None:
             yield from it
         return
+    attempts_detail = [(n, str(e)) for n, e in errors]
+    attempts_detail.extend([(n, reason) for n, reason in skipped])
     raise LLMBackendUnavailableError(
-        message="所有 LLM 后端均不可用", errors={"attempts": [(n, str(e)) for n, e in errors]}
+        message="所有 LLM 后端均不可用",
+        errors={"attempts": attempts_detail, "skipped": skipped},
     )
 
 
@@ -125,6 +133,8 @@ async def astream_with_fallback(
     max_tokens: int | None,
     **kwargs: Any,
 ) -> AsyncIterator[LLMStreamChunk]:
+    from .fallback_policy import _diagnose_unavailable
+
     kwargs = _build_stream_kwargs(messages, model, temperature, max_tokens, kwargs)
     if backend and (not fallback):
         async for chunk in get_backend(backend).astream(**kwargs):  # type: ignore[attr-defined]
@@ -132,9 +142,12 @@ async def astream_with_fallback(
         return
     backends_to_try = _resolve_backends(get_backend, get_backends_by_priority, backend, fallback)
     errors: list[tuple[str, Exception]] = []
+    skipped: list[tuple[str, str]] = []
     for name, backend_instance in backends_to_try:
         if not backend_instance.is_available():
-            logger.debug("后端不可用,跳过", extra={"backend": name})
+            reason = _diagnose_unavailable(name, backend_instance)
+            logger.warning("后端不可用,跳过", extra={"backend": name, "reason": reason})
+            skipped.append((name, reason))
             continue
         try:
             ait = backend_instance.astream(**kwargs).__aiter__()  # type: ignore[attr-defined]
@@ -151,6 +164,9 @@ async def astream_with_fallback(
         async for chunk in ait:
             yield chunk
         return
+    attempts_detail = [(n, str(e)) for n, e in errors]
+    attempts_detail.extend([(n, reason) for n, reason in skipped])
     raise LLMBackendUnavailableError(
-        message="所有 LLM 后端均不可用", errors={"attempts": [(n, str(e)) for n, e in errors]}
+        message="所有 LLM 后端均不可用",
+        errors={"attempts": attempts_detail, "skipped": skipped},
     )

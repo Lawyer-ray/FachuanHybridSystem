@@ -334,6 +334,10 @@ class SiliconFlowBackend:
         if not api_key:
             logger.debug("SiliconFlow 后端不可用:API Key 未配置")
             return False
+        model = self.default_model
+        if not model:
+            logger.debug("SiliconFlow 后端不可用:默认模型未配置")
+            return False
         return True
 
 

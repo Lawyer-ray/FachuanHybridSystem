@@ -55,10 +55,43 @@ def _handle_call_error(name: str, e: Exception, fallback: bool, errors: list[Any
             raise LLMAPIError(message=f"调用后端 {name} 时发生错误: {e!s}", errors={"detail": str(e)}) from e
 
 
-def _raise_all_unavailable(errors: list[Any]) -> None:
+def _raise_all_unavailable(
+    errors: list[Any], skipped: list[tuple[str, str]] | None = None,
+) -> None:
+    attempts_detail = [(n, str(e)) for n, e in errors]
+    if skipped:
+        attempts_detail.extend([(n, reason) for n, reason in skipped])
     raise LLMBackendUnavailableError(
-        message="所有 LLM 后端均不可用", errors={"attempts": [(n, str(e)) for n, e in errors]}
+        message="所有 LLM 后端均不可用",
+        errors={"attempts": attempts_detail, "skipped": skipped or []},
     )
+
+
+def _diagnose_unavailable(name: str, backend: ILLMBackend) -> str:
+    """诊断后端不可用的原因,返回可读描述"""
+    try:
+        # SiliconFlow: 检查 API Key
+        if name == "siliconflow":
+            api_key = backend.api_key  # type: ignore[union-attr]
+            if not api_key:
+                return "API Key 未配置"
+            model = backend.default_model  # type: ignore[union-attr]
+            if not model:
+                return "默认模型未配置"
+            return f"is_available() 返回 False (api_key={'有' if api_key else '无'}, model={model!r})"
+        # Ollama: 检查 base_url
+        if name == "ollama":
+            base_url = backend.base_url  # type: ignore[union-attr]
+            if not base_url:
+                return "Base URL 未配置"
+            return f"is_available() 返回 False (base_url={base_url!r})"
+        # openai_compatible / moonshot
+        api_key = getattr(backend, "api_key", None)
+        if not api_key:
+            return "API Key 未配置"
+        return "is_available() 返回 False"
+    except Exception as e:
+        return f"诊断失败: {e}"
 
 
 class LLMFallbackPolicy:
@@ -77,10 +110,13 @@ class LLMFallbackPolicy:
 
         backends_to_try = _resolve_backends_from_router(self.router, backend, fallback)
         errors: list[tuple[str, Exception]] = []
+        skipped: list[tuple[str, str]] = []
 
         for name, backend_instance in backends_to_try:
             if not backend_instance.is_available():
-                logger.debug("后端不可用,跳过", extra={"backend": name})
+                reason = _diagnose_unavailable(name, backend_instance)
+                logger.warning("后端不可用,跳过", extra={"backend": name, "reason": reason})
+                skipped.append((name, reason))
                 continue
             try:
                 logger.debug("尝试使用后端", extra={"backend": name})
@@ -92,7 +128,7 @@ class LLMFallbackPolicy:
                 _handle_call_error(name, e, fallback, errors)
                 continue
 
-        _raise_all_unavailable(errors)
+        _raise_all_unavailable(errors, skipped)
 
     async def execute_async(
         self,
@@ -106,10 +142,13 @@ class LLMFallbackPolicy:
 
         backends_to_try = _resolve_backends_from_router(self.router, backend, fallback)
         errors: list[tuple[str, Exception]] = []
+        skipped: list[tuple[str, str]] = []
 
         for name, backend_instance in backends_to_try:
             if not backend_instance.is_available():
-                logger.debug("后端不可用,跳过", extra={"backend": name})
+                reason = _diagnose_unavailable(name, backend_instance)
+                logger.warning("后端不可用,跳过", extra={"backend": name, "reason": reason})
+                skipped.append((name, reason))
                 continue
             try:
                 logger.debug("异步尝试使用后端", extra={"backend": name})
@@ -121,4 +160,4 @@ class LLMFallbackPolicy:
                 _handle_call_error(name, e, fallback, errors)
                 continue
 
-        _raise_all_unavailable(errors)
+        _raise_all_unavailable(errors, skipped)
