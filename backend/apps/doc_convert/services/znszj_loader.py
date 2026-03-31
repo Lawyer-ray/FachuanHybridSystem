@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Protocol, runtime_checkable
+from typing import Protocol, cast, runtime_checkable
 
 logger = logging.getLogger(__name__)
 
@@ -58,9 +58,9 @@ def get_znszj_client() -> ZnszjClientProtocol | None:
         return _cached_client  # type: ignore[return-value]
 
     try:
-        from apps.doc_convert.services.znszj_private import get_znszj_client as _factory  # type: ignore[import]
+        from apps.doc_convert.services.znszj_private import get_znszj_client as _factory  # noqa: PLC0415
 
-        client = _factory()
+        client = cast(ZnszjClientProtocol, _factory())
         _cached_client = client
         logger.info("znszj 私有客户端加载成功")
         return client
