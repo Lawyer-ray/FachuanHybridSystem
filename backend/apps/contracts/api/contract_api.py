@@ -26,6 +26,12 @@ def _get_contract_service() -> Any:
     return get_contract_service()
 
 
+def _get_domain_service() -> Any:
+    from apps.contracts.services.contract.wiring import get_contract_domain_service
+
+    return get_contract_domain_service()
+
+
 @router.get("/contracts", response=list[ContractOut])
 def list_contracts(
     request: HttpRequest,

@@ -12,6 +12,9 @@ TASK_NAME = "message_hub:sync_all_sources"
 
 def sync_source_by_id(source_id: int) -> None:
     """同步单个消息来源，供 django-q async_task 调用。"""
+    import os
+    os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
+
     from apps.message_hub.models import MessageSource
     from apps.message_hub.services import get_fetcher
 
@@ -23,6 +26,9 @@ def sync_source_by_id(source_id: int) -> None:
 
 def sync_all_sources() -> None:
     """轮询所有启用的消息来源，拉取新消息。由 django-q2 定时调用。"""
+    import os
+    os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
+
     from apps.message_hub.models import MessageSource
     from apps.message_hub.services import get_fetcher
 
