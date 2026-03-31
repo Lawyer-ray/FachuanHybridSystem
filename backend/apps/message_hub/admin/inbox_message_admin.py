@@ -74,7 +74,7 @@ class InboxMessageAdmin(admin.ModelAdmin[InboxMessage]):
     @admin.display(description=_("主题"))
     def subject_display(self, obj: InboxMessage) -> SafeString:
         subject = obj.subject or _("(无主题)")
-        return format_html('<span>{}</span>', subject)
+        return format_html('<span style="display:inline-block;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{}</span>', subject)
 
     @admin.display(description=_("附件"))
     def attachments_display(self, obj: InboxMessage) -> SafeString:
