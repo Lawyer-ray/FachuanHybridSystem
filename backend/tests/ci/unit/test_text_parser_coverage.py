@@ -407,3 +407,188 @@ def test_extract_credit_code_fallback_skips_near_id_keyword() -> None:
     text = "91110000MA01ABCD12"
     result = _extract_credit_code(text)
     assert result == "91110000MA01ABCD12"
+
+
+# ── 精确覆盖剩余分支 ──────────────────────────────────────────────────────────
+
+def test_parse_client_text_no_role_label_direct_parse() -> None:
+    # 无角色标签，_extract_parties 返回空，走 _parse_fields_directly（覆盖 190, 226）
+    # 需要确保文本不含任何角色标签，且能提取到名称
+    text = "姓名：王小花\n联系电话：13800138000\n地址：北京市朝阳区"
+    result = parse_client_text(text)
+    assert result["name"] == "王小花"
+
+
+def test_extract_name_smart_smart_pattern_no_earlier_match() -> None:
+    # 甲方格式，且前面所有模式都不命中（覆盖 276-278）
+    # 确保 _extract_name、_NAME_FIELD_PATTERN 都不命中
+    text = "甲方：某某律师事务所地址：北京市"
+    result = _extract_name_smart(text)
+    assert result is not None
+
+
+def test_extract_name_smart_leading_before_field_no_earlier_match() -> None:
+    # leading name before field，且前面模式都不命中（覆盖 289-291）
+    text = "某某贸易公司法定代表人：王五"
+    result = _extract_name_smart(text)
+    assert result is not None
+
+
+def test_extract_name_smart_role_fallback_no_earlier_match() -> None:
+    # 无冒号角色写法，且前面模式都不命中（覆盖 297）
+    text = "\n申请人 王小二\n地址：北京市"
+    result = _extract_name_smart(text)
+    assert result is not None
+
+
+def test_extract_name_smart_legal_entity_no_earlier_match() -> None:
+    # 仅公司全称，无任何标签和字段（覆盖 309-311）
+    text = "广州某某贸易有限公司"
+    result = _extract_name_smart(text)
+    assert result is not None
+    assert "有限公司" in result
+
+
+def test_extract_name_from_first_line_valid() -> None:
+    # 第一行是有效名称（覆盖 334）
+    from apps.client.services.text_parser import _extract_name_from_first_meaningful_line
+    result = _extract_name_from_first_meaningful_line("\n\n某某律师\n联系电话：13800138000")
+    assert result == "某某律师"
+
+
+def test_is_valid_name_candidate_digit_string() -> None:
+    # compact.isdigit() 为 True（覆盖 349）
+    from apps.client.services.text_parser import _is_valid_name_candidate
+    assert not _is_valid_name_candidate("123456")
+
+
+def test_is_valid_name_candidate_valid_name_returns_true() -> None:
+    # 所有检查通过，return True（覆盖 360）
+    from apps.client.services.text_parser import _is_valid_name_candidate
+    assert _is_valid_name_candidate("某某律师事务所")
+
+
+def test_extract_name_no_role_label_returns_none() -> None:
+    # 无任何角色标签，_extract_name 返回 None（覆盖 458）
+    from apps.client.services.text_parser import _extract_name
+    result = _extract_name("地址：北京市朝阳区某路1号\n联系电话：13800138000")
+    assert result is None
+
+
+def test_extract_credit_code_fallback_returns_code_with_letters() -> None:
+    # 无标签但含字母的18位编码，且前面没有"身份证"关键词（覆盖 497）
+    from apps.client.services.text_parser import _extract_credit_code
+    result = _extract_credit_code("企业代码：91110000MA01ABCD12")
+    assert result == "91110000MA01ABCD12"
+
+
+# ── 精确覆盖最后剩余分支 ──────────────────────────────────────────────────────
+
+def test_parse_client_text_no_name_falls_back_to_direct_parse() -> None:
+    # _extract_parties 返回空（无名称），走 _parse_fields_directly（覆盖 190, 226）
+    text = "联系电话：13800138000\n地址：北京市朝阳区"
+    result = parse_client_text(text)
+    # 无名称，但不崩溃
+    assert result["name"] == ""
+    assert result["phone"] == "13800138000"
+
+
+def test_is_valid_name_candidate_short_digit_string() -> None:
+    # compact.isdigit() 为 True 且不被身份证 pattern 匹配（覆盖 349）
+    from apps.client.services.text_parser import _is_valid_name_candidate
+    assert not _is_valid_name_candidate("12345678")
+
+
+# ── 精确覆盖 annotate 发现的剩余 ! 行 ────────────────────────────────────────
+
+def test_parse_single_party_natural_with_legal_rep_upgrades_to_legal() -> None:
+    # natural 类型有法定代表人时升级为 legal（覆盖 _parse_single_party 中 client_type=legal）
+    from apps.client.services.text_parser import _parse_single_party
+    text = "原告：张三\n身份证号码：110101199001011234\n法定代表人：王五"
+    result = _parse_single_party(text, use_smart_name=True)
+    assert result["client_type"] == "legal"
+    assert result["legal_representative"] == "王五"
+
+
+def test_is_valid_name_candidate_id_number_fullmatch() -> None:
+    # _ID_NUMBER_FALLBACK_PATTERN.fullmatch 命中（覆盖 349 的 return False）
+    from apps.client.services.text_parser import _is_valid_name_candidate
+    # 18位纯数字，符合身份证格式
+    assert not _is_valid_name_candidate("110101199001011234")
+
+
+def test_extract_credit_code_skips_near_id_keyword() -> None:
+    # 信用代码前有"身份证"关键词时 continue（覆盖 497 的 continue 行）
+    from apps.client.services.text_parser import _extract_credit_code
+    # 身份证关键词在信用代码前20字符内
+    text = "身份证91110000MA01ABCD12"
+    result = _extract_credit_code(text)
+    # 被跳过，返回 None
+    assert result is None
+
+
+def test_extract_name_smart_role_fallback_valid_name() -> None:
+    # _ROLE_NAME_FALLBACK_PATTERN 命中且 valid（覆盖 297 body）
+    # 需要确保 _extract_name、NAME_FIELD、SMART_NAME、LEADING_NAME 都不命中
+    from apps.client.services.text_parser import _extract_name_smart
+    # 纯角色+名称，无冒号，无其他字段
+    text = "被申请人 某某律师"
+    result = _extract_name_smart(text)
+    assert result is not None
+
+
+def test_extract_name_smart_natural_person_pattern() -> None:
+    # _NATURAL_PERSON_NAME_PATTERN 命中（"姓名，性别"格式）
+    from apps.client.services.text_parser import _extract_name_smart
+    # 需要前面所有模式都不命中
+    text = "王小明，男"
+    result = _extract_name_smart(text)
+    assert result == "王小明"
+
+
+# ── 最后 9 行精确覆盖 ─────────────────────────────────────────────────────────
+
+def test_is_valid_name_too_short() -> None:
+    from apps.client.services.text_parser import _is_valid_name_candidate
+    assert not _is_valid_name_candidate("张")  # len < 2，覆盖 289 return False
+
+
+def test_is_valid_name_id_number_fullmatch_rejected() -> None:
+    from apps.client.services.text_parser import _is_valid_name_candidate
+    # 15位身份证格式，fullmatch 命中（覆盖 349 return False）
+    assert not _is_valid_name_candidate("110101900101123")
+
+
+def test_extract_credit_code_skips_when_id_keyword_before() -> None:
+    from apps.client.services.text_parser import _extract_credit_code
+    # "身份证" 在信用代码前 20 字符内，触发 continue（覆盖 497 continue）
+    # 后面再跟一个合法信用代码让函数能 return
+    text = "身份证91110000MA01ABCD12 然后 91220000MB02EFGH34"
+    result = _extract_credit_code(text)
+    assert result == "91220000MB02EFGH34"
+
+
+def test_extract_name_smart_leading_name_before_field_valid() -> None:
+    from apps.client.services.text_parser import _extract_name_smart
+    # 触发 289-291：_extract_name=None, NAME_FIELD=None, SMART_NAME=None
+    # LEADING_NAME_BEFORE_FIELD 命中且 valid
+    text = "某某贸易公司\n法定代表人：王五"
+    result = _extract_name_smart(text)
+    assert result is not None
+
+
+def test_extract_name_smart_legal_entity_pattern_valid() -> None:
+    from apps.client.services.text_parser import _extract_name_smart
+    # 触发 309-311：前5个模式都不命中，LEGAL_ENTITY 命中
+    # 纯公司名，无任何标签、字段、角色
+    text = "北京某某科技股份有限公司"
+    result = _extract_name_smart(text)
+    assert result is not None
+    assert "有限公司" in result
+
+
+def test_extract_name_from_first_meaningful_line_skips_empty() -> None:
+    from apps.client.services.text_parser import _extract_name_from_first_meaningful_line
+    # 覆盖 334：跳过空行后返回有效名称
+    result = _extract_name_from_first_meaningful_line("\n\n\n某某律师事务所")
+    assert result == "某某律师事务所"
