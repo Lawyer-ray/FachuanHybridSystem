@@ -93,6 +93,7 @@ INSTALLED_APPS = [
     "apps.oa_filing",  # 6.4 OA立案
     "apps.legal_research",  # 6.5 案例检索（法律数据源）
     "apps.enterprise_data",  # 6.6 企业数据查询（天眼查/企查查等）
+    "apps.doc_convert",  # 6.7 文书转换（传统文书转要素式文书）
     "apps.core",  # 7. 核心系统
     "django_q",  # 8. DJANGO Q
 ]
@@ -343,6 +344,13 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = DATA_UPLOAD_MAX_MEMORY_SIZE_MB * 1024 * 1024
 CONTRACT_FOLDER_BROWSE_ROOTS = resolve_contract_folder_browse_roots()
 
 FOLDER_BROWSE_ROOTS = CONTRACT_FOLDER_BROWSE_ROOTS
+
+# ============================================================
+# 文书转换（znszj）配置
+# ============================================================
+
+# 是否启用传统文书转要素式文书功能（需要私有实现模块，默认关闭）
+ZNSZJ_ENABLED = (os.environ.get("ZNSZJ_ENABLED", "False") or "").lower() not in ("false", "0", "no")
 
 # ============================================================
 # Django Q 配置

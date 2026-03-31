@@ -191,6 +191,9 @@ backend/tests/structure/snapshots/
 backend/apps/legal_research/services/sources/weike_api_private/
 backend/apps/legal_research/services/sources/weike/api_private/
 
+# doc_convert 私有 znszj 实现（本地保留，不入库）
+backend/apps/doc_convert/services/znszj_private/
+
 # legal_research 基线评估样本（本地标注数据，不入库）
 backend/apps/legal_research/evaluation/
 backend/apps/legal_research/evaluation/baseline_cases.json

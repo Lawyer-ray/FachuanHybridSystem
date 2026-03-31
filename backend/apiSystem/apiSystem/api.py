@@ -129,6 +129,10 @@ def _register_app_routers() -> None:
 
     api_v1.add_router("/oa-filing", oa_filing_router, auth=JWTOrSessionAuth(), tags=["OA立案"])
 
+    from apps.doc_convert.api import router as doc_convert_router
+
+    api_v1.add_router("/doc-convert", doc_convert_router, auth=JWTOrSessionAuth(), tags=["文书转换"])
+
     from apps.oa_filing.api.client_import_api import router as client_import_router
 
     # client_import_router 内部路径已包含 /client-import，前缀保持空避免变成 /client-import/client-import
