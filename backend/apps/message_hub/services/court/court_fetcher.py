@@ -40,16 +40,58 @@ def _api_post(url: str, token: str, data: dict[str, Any]) -> dict[str, Any]:
 
 
 def _acquire_token(credential_id: int) -> str:
-    """复用现有 token 获取链路。"""
-    from apps.automation.services.document_delivery.token.document_delivery_token_service import (
-        DocumentDeliveryTokenService,
-    )
+    """复用现有 token 获取链路（优先缓存 → DB → 自动登录）。"""
+    # 1. 尝试缓存
+    from apps.automation.services.token.cache_manager import cache_manager
+    from apps.core.interfaces import ServiceLocator
 
-    svc = DocumentDeliveryTokenService()
-    token = svc.acquire_token(credential_id)
-    if not token:
-        raise RuntimeError(_("无法获取一张网 Token"))
-    return token
+    org_svc = ServiceLocator.get_organization_service()
+    credential = org_svc.get_credential(credential_id)
+    if not credential:
+        raise RuntimeError(_("凭证不存在: %(id)s") % {"id": credential_id})
+
+    cached = cache_manager.get_cached_token(credential.site_name, credential.account)
+    if cached:
+        logger.info("一张网收件箱: 使用缓存 Token")
+        return cached
+
+    # 2. 尝试 DB 中已有的 Token
+    from apps.automation.models.token import CourtToken
+
+    db_token = (
+        CourtToken.objects.filter(site_name="court_zxfw", account=credential.account, is_valid=True)
+        .order_by("-created_at")
+        .first()
+    )
+    if db_token:
+        logger.info("一张网收件箱: 使用数据库 Token")
+        cache_manager.cache_token(credential.site_name, credential.account, db_token.token)
+        return str(db_token.token)
+
+    # 3. 执行 Playwright 登录
+    logger.info("一张网收件箱: 缓存和数据库均无有效 Token，执行 Playwright 登录")
+    from apps.automation.services.scraper.core.browser_service import BrowserService
+    from apps.automation.services.scraper.sites.court_zxfw import CourtZxfwService
+
+    browser_service = BrowserService()
+    browser = browser_service.get_browser()
+    page = browser.new_page()
+    try:
+        court_svc = CourtZxfwService(page=page, context=page.context, site_name="court_zxfw")
+        result = court_svc.login(account=credential.account, password=credential.password, max_captcha_retries=3)
+        if not result.get("success"):
+            raise RuntimeError(result.get("message", "登录失败"))
+        token = result.get("token")
+        if not token:
+            raise RuntimeError(_("登录成功但未获取到 Token"))
+        # 缓存
+        cache_manager.cache_token(credential.site_name, credential.account, token)
+        return str(token)
+    finally:
+        try:
+            page.close()
+        except Exception:
+            pass
 
 
 def _build_subject(record: dict[str, Any]) -> str:

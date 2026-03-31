@@ -27,7 +27,7 @@ def _get_contract_service() -> Any:
     return get_contract_service()
 
 
-@router.get("/contracts", response=ContractPaginatedOut)
+@router.get("/contracts")
 def list_contracts(
     request: HttpRequest,
     case_type: str | None = None,
@@ -36,14 +36,14 @@ def list_contracts(
     page_size: int = 20,
 ) -> Any:
     """
-    获取合同列表
+    获取合同列表（分页）
 
     Requirements: 6.1, 6.2, 6.3
     """
     service = _get_contract_service()
     ctx = extract_request_context(request)
 
-    return service.list_contracts(
+    result = service.list_contracts(
         case_type=case_type,
         status=status,
         user=ctx.user,
@@ -52,6 +52,17 @@ def list_contracts(
         page=page,
         page_size=page_size,
     )
+    # 手动序列化每个 Contract model → ContractOut，避免 Ninja 嵌套 ModelSchema 的 bug
+    items_serialized = [
+        ContractOut.from_orm(c).model_dump() for c in result["items"]
+    ]
+    return {
+        "items": items_serialized,
+        "total": result["total"],
+        "page": result["page"],
+        "page_size": result["page_size"],
+        "total_pages": result["total_pages"],
+    }
 
 
 @router.get("/contracts/{contract_id}", response=ContractOut)
