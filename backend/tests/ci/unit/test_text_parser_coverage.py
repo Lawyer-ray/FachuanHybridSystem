@@ -21,9 +21,9 @@ from apps.client.services.text_parser import (
 
 FULL_NATURAL_TEXT = (
     "姓名：张三\n"
-    "身份证号码：110101199001011234\n"
+    "身份证号码：100000000000000001\n"
     "地址：北京市朝阳区建国路1号\n"
-    "联系电话：13800138000"
+    "联系电话：00000000000"
 )
 
 FULL_LEGAL_TEXT = (
@@ -38,9 +38,9 @@ FULL_LEGAL_TEXT = (
 def test_parse_client_text_natural_person() -> None:
     result = parse_client_text(FULL_NATURAL_TEXT)
     assert result["name"] == "张三"
-    assert result["id_number"] == "110101199001011234"
+    assert result["id_number"] == "100000000000000001"
     assert "北京市朝阳区" in result["address"]
-    assert result["phone"] == "13800138000"
+    assert result["phone"] == "00000000000"
     assert result["client_type"] == "natural"
 
 
@@ -66,7 +66,7 @@ def test_parse_client_text_whitespace_only_returns_empty_result() -> None:
 # ── parse_multiple_clients_text ───────────────────────────────────────────────
 
 MULTI_CLIENT_TEXT = (
-    "原告：张三，男，身份证号码：110101199001011234，地址：北京市朝阳区建国路1号\n"
+    "原告：张三，男，身份证号码：100000000000000001，地址：北京市朝阳区建国路1号\n"
     "被告：北京测试科技有限公司，统一社会信用代码：91110000MA01ABCD12，法定代表人：李四"
 )
 
@@ -87,7 +87,7 @@ def test_parse_multiple_clients_text_whitespace_returns_empty_list() -> None:
 # ── _extract_name_smart ───────────────────────────────────────────────────────
 
 def test_extract_name_smart_from_role_label() -> None:
-    text = "原告：张三\n身份证号码：110101199001011234"
+    text = "原告：张三\n身份证号码：100000000000000001"
     assert _extract_name_smart(text) == "张三"
 
 
@@ -99,7 +99,7 @@ def test_extract_name_smart_legal_entity() -> None:
 
 
 def test_extract_name_smart_natural_person_with_gender() -> None:
-    text = "李四，男，身份证号码：110101199001011234"
+    text = "李四，男，身份证号码：100000000000000001"
     result = _extract_name_smart(text)
     assert result == "李四"
 
@@ -109,7 +109,7 @@ def test_extract_name_smart_empty_returns_none() -> None:
 
 
 def test_extract_name_smart_only_keywords_returns_none() -> None:
-    result = _extract_name_smart("联系电话：13800138000")
+    result = _extract_name_smart("联系电话：00000000000")
     # 不应把"联系电话"当名称
     assert result != "联系电话"
 
@@ -117,7 +117,7 @@ def test_extract_name_smart_only_keywords_returns_none() -> None:
 # ── _extract_parties ──────────────────────────────────────────────────────────
 
 def test_extract_parties_single_party() -> None:
-    text = "原告：张三\n身份证号码：110101199001011234"
+    text = "原告：张三\n身份证号码：100000000000000001"
     parties = _extract_parties(text)
     assert len(parties) >= 1
     assert parties[0]["name"] == "张三"
@@ -125,8 +125,8 @@ def test_extract_parties_single_party() -> None:
 
 def test_extract_parties_plaintiff_defendant() -> None:
     text = (
-        "原告：张三\n身份证号码：110101199001011234\n"
-        "被告：李四\n身份证号码：110101198001011234"
+        "原告：张三\n身份证号码：100000000000000001\n"
+        "被告：李四\n身份证号码：200000000000000002"
     )
     parties = _extract_parties(text)
     names = [p["name"] for p in parties]
@@ -135,7 +135,7 @@ def test_extract_parties_plaintiff_defendant() -> None:
 
 
 def test_extract_parties_no_role_label_falls_back() -> None:
-    text = "张三\n身份证号码：110101199001011234"
+    text = "张三\n身份证号码：100000000000000001"
     parties = _extract_parties(text)
     # 无角色标签时兜底解析，可能返回 0 或 1 个
     assert isinstance(parties, list)
@@ -154,7 +154,7 @@ def test_extract_credit_code_fallback_with_letters() -> None:
 
 
 def test_extract_credit_code_not_confused_with_id_number() -> None:
-    text = "身份证号码：110101199001011234"
+    text = "身份证号码：100000000000000001"
     # 纯数字18位不应被识别为信用代码
     result = _extract_credit_code(text)
     assert result is None or (result is not None and any(ch.isalpha() for ch in result))
@@ -167,13 +167,13 @@ def test_extract_credit_code_none_when_absent() -> None:
 # ── _extract_id_number ────────────────────────────────────────────────────────
 
 def test_extract_id_number_with_label() -> None:
-    text = "身份证号码：110101199001011234"
-    assert _extract_id_number(text) == "110101199001011234"
+    text = "身份证号码：100000000000000001"
+    assert _extract_id_number(text) == "100000000000000001"
 
 
 def test_extract_id_number_fallback() -> None:
-    text = "110101199001011234"
-    assert _extract_id_number(text) == "110101199001011234"
+    text = "100000000000000001"
+    assert _extract_id_number(text) == "100000000000000001"
 
 
 def test_extract_id_number_none_when_absent() -> None:
@@ -183,7 +183,7 @@ def test_extract_id_number_none_when_absent() -> None:
 # ── _extract_address ──────────────────────────────────────────────────────────
 
 def test_extract_address_with_label() -> None:
-    text = "地址：北京市朝阳区建国路1号\n联系电话：13800138000"
+    text = "地址：北京市朝阳区建国路1号\n联系电话：00000000000"
     result = _extract_address(text)
     assert result is not None
     assert "北京市朝阳区" in result
@@ -202,14 +202,14 @@ def test_extract_address_none_when_absent() -> None:
 # ── _extract_phone ────────────────────────────────────────────────────────────
 
 def test_extract_phone_with_label() -> None:
-    text = "联系电话：13800138000"
-    assert _extract_phone(text) == "13800138000"
+    text = "联系电话：00000000000"
+    assert _extract_phone(text) == "00000000000"
 
 
 def test_extract_phone_fallback_mobile() -> None:
-    text = "张三 13900139000"
+    text = "张三 13900139000"  # nosec
     result = _extract_phone(text)
-    assert result == "13900139000"
+    assert result == "13900139000"  # nosec
 
 
 def test_extract_phone_none_when_absent() -> None:
@@ -245,7 +245,7 @@ def test_determine_client_type_legal_by_name_keyword() -> None:
 
 
 def test_determine_client_type_natural_by_id_number() -> None:
-    text = "身份证号码：110101199001011234"
+    text = "身份证号码：100000000000000001"
     assert _determine_client_type("张三", text) == "natural"
 
 
@@ -295,14 +295,14 @@ def test_extract_name_smart_role_no_colon() -> None:
 
 def test_extract_name_smart_leading_person_before_gender() -> None:
     # 自然人名在性别前（_LEADING_PERSON_NAME_PATTERN）
-    text = "王小明，男，身份证号码：110101199001011234"
+    text = "王小明，男，身份证号码：100000000000000001"
     result = _extract_name_smart(text)
     assert result == "王小明"
 
 
 def test_extract_name_smart_first_line_fallback() -> None:
     # 兜底：第一行即名称
-    text = "某某律师事务所\n联系电话：13800138000"
+    text = "某某律师事务所\n联系电话：00000000000"
     result = _extract_name_smart(text)
     assert result is not None
     assert "律师事务所" in result
@@ -310,7 +310,7 @@ def test_extract_name_smart_first_line_fallback() -> None:
 
 def test_parse_client_text_falls_back_to_direct_parse() -> None:
     # 无角色标签时走 _parse_fields_directly（覆盖 line 190）
-    text = "姓名：张三\n联系电话：13800138000"
+    text = "姓名：张三\n联系电话：00000000000"
     result = parse_client_text(text)
     assert result["name"] == "张三"
 
@@ -324,7 +324,7 @@ def test_is_valid_name_candidate_rejects_pure_digits() -> None:
 
 def test_is_valid_name_candidate_rejects_id_number_format() -> None:
     from apps.client.services.text_parser import _is_valid_name_candidate
-    assert not _is_valid_name_candidate("110101199001011234")
+    assert not _is_valid_name_candidate("100000000000000001")
 
 
 def test_is_valid_name_candidate_rejects_credit_code_with_letters() -> None:
@@ -386,7 +386,7 @@ def test_extract_name_smart_legal_entity_only() -> None:
 def test_extract_name_from_first_meaningful_line_returns_line() -> None:
     # 第一行有效名称（覆盖 334）
     from apps.client.services.text_parser import _extract_name_from_first_meaningful_line
-    result = _extract_name_from_first_meaningful_line("某某律师\n联系电话：13800138000")
+    result = _extract_name_from_first_meaningful_line("某某律师\n联系电话：00000000000")
     assert result == "某某律师"
 
 
@@ -414,7 +414,7 @@ def test_extract_credit_code_fallback_skips_near_id_keyword() -> None:
 def test_parse_client_text_no_role_label_direct_parse() -> None:
     # 无角色标签，_extract_parties 返回空，走 _parse_fields_directly（覆盖 190, 226）
     # 需要确保文本不含任何角色标签，且能提取到名称
-    text = "姓名：王小花\n联系电话：13800138000\n地址：北京市朝阳区"
+    text = "姓名：王小花\n联系电话：00000000000\n地址：北京市朝阳区"
     result = parse_client_text(text)
     assert result["name"] == "王小花"
 
@@ -452,7 +452,7 @@ def test_extract_name_smart_legal_entity_no_earlier_match() -> None:
 def test_extract_name_from_first_line_valid() -> None:
     # 第一行是有效名称（覆盖 334）
     from apps.client.services.text_parser import _extract_name_from_first_meaningful_line
-    result = _extract_name_from_first_meaningful_line("\n\n某某律师\n联系电话：13800138000")
+    result = _extract_name_from_first_meaningful_line("\n\n某某律师\n联系电话：00000000000")
     assert result == "某某律师"
 
 
@@ -471,7 +471,7 @@ def test_is_valid_name_candidate_valid_name_returns_true() -> None:
 def test_extract_name_no_role_label_returns_none() -> None:
     # 无任何角色标签，_extract_name 返回 None（覆盖 458）
     from apps.client.services.text_parser import _extract_name
-    result = _extract_name("地址：北京市朝阳区某路1号\n联系电话：13800138000")
+    result = _extract_name("地址：北京市朝阳区某路1号\n联系电话：00000000000")
     assert result is None
 
 
@@ -486,11 +486,11 @@ def test_extract_credit_code_fallback_returns_code_with_letters() -> None:
 
 def test_parse_client_text_no_name_falls_back_to_direct_parse() -> None:
     # _extract_parties 返回空（无名称），走 _parse_fields_directly（覆盖 190, 226）
-    text = "联系电话：13800138000\n地址：北京市朝阳区"
+    text = "联系电话：00000000000\n地址：北京市朝阳区"
     result = parse_client_text(text)
     # 无名称，但不崩溃
     assert result["name"] == ""
-    assert result["phone"] == "13800138000"
+    assert result["phone"] == "00000000000"
 
 
 def test_is_valid_name_candidate_short_digit_string() -> None:
@@ -504,7 +504,7 @@ def test_is_valid_name_candidate_short_digit_string() -> None:
 def test_parse_single_party_natural_with_legal_rep_upgrades_to_legal() -> None:
     # natural 类型有法定代表人时升级为 legal（覆盖 _parse_single_party 中 client_type=legal）
     from apps.client.services.text_parser import _parse_single_party
-    text = "原告：张三\n身份证号码：110101199001011234\n法定代表人：王五"
+    text = "原告：张三\n身份证号码：100000000000000001\n法定代表人：王五"
     result = _parse_single_party(text, use_smart_name=True)
     assert result["client_type"] == "legal"
     assert result["legal_representative"] == "王五"
@@ -514,7 +514,7 @@ def test_is_valid_name_candidate_id_number_fullmatch() -> None:
     # _ID_NUMBER_FALLBACK_PATTERN.fullmatch 命中（覆盖 349 的 return False）
     from apps.client.services.text_parser import _is_valid_name_candidate
     # 18位纯数字，符合身份证格式
-    assert not _is_valid_name_candidate("110101199001011234")
+    assert not _is_valid_name_candidate("100000000000000001")
 
 
 def test_extract_credit_code_skips_near_id_keyword() -> None:
