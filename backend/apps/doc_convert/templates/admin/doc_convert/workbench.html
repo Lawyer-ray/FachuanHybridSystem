@@ -1,0 +1,301 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}传统文书转要素式文书{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+.dc-container { max-width: 860px; margin: 0 auto; padding: 20px; }
+.dc-intro {
+    color: #555; margin-bottom: 24px; font-size: 14px; line-height: 1.6;
+    background: linear-gradient(135deg, #f0f7ff, #e8f4f8);
+    padding: 14px 18px; border-radius: 10px; border-left: 4px solid #417690;
+}
+
+/* 文书类型选择 */
+.dc-select-row { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: nowrap; }
+.dc-select-row label { font-weight: 600; color: #2c3e50; white-space: nowrap; }
+.dc-select {
+    flex: 1; padding: 9px 12px; border: 1px solid #d0dbe5; border-radius: 8px;
+    font-size: 14px; background: white; height: 40px; min-width: 0;
+}
+.dc-select:focus { border-color: #417690; outline: none; }
+
+/* 上传区域 */
+.dc-upload-zone {
+    border: 3px dashed #b8d4e3; border-radius: 16px; padding: 60px 20px;
+    text-align: center; cursor: pointer; transition: all 0.3s;
+    background: linear-gradient(135deg, #f8fbfd, #eef5f9);
+    min-height: 260px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+}
+.dc-upload-zone:hover, .dc-upload-zone.dragging {
+    border-color: #417690; background: #e3f2fd; transform: scale(1.01);
+}
+.dc-upload-zone svg { width: 64px; height: 64px; color: #417690; margin-bottom: 16px; opacity: 0.8; }
+.dc-upload-zone h3 { margin: 0 0 8px; color: #2c3e50; font-size: 18px; font-weight: 600; }
+.dc-upload-zone p { margin: 0 0 18px; color: #7f8c8d; font-size: 13px; }
+.dc-upload-btn {
+    display: inline-block; padding: 12px 24px;
+    background: linear-gradient(135deg, #417690, #2c5f7c);
+    color: white; border-radius: 10px; cursor: pointer; font-weight: 500;
+    box-shadow: 0 4px 12px rgba(65,118,144,0.3); transition: all 0.3s;
+}
+.dc-upload-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(65,118,144,0.4); }
+.dc-upload-btn input { display: none; }
+
+/* 加载 */
+.dc-loading { text-align: center; padding: 70px 20px; }
+.dc-spinner {
+    width: 52px; height: 52px; border: 5px solid #e9ecef; border-top-color: #417690;
+    border-radius: 50%; animation: dc-spin 0.8s linear infinite; margin: 0 auto 18px;
+}
+@keyframes dc-spin { to { transform: rotate(360deg); } }
+.dc-loading p { color: #555; font-size: 15px; }
+
+/* 结果 */
+.dc-result {
+    background: #fff; border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08); overflow: hidden;
+}
+.dc-result-header {
+    font-size: 17px; font-weight: 600; color: white; padding: 16px 22px;
+    background: linear-gradient(135deg, #417690, #2c5f7c);
+    display: flex; align-items: center; gap: 8px;
+}
+.dc-result-body { padding: 22px; }
+.dc-info-row { display: flex; padding: 10px 0; border-bottom: 1px solid #f0f3f5; font-size: 14px; }
+.dc-info-row:last-child { border-bottom: none; }
+.dc-info-label { width: 110px; font-weight: 600; color: #5a6c7d; flex-shrink: 0; }
+.dc-info-value { flex: 1; color: #2c3e50; }
+.dc-actions { display: flex; gap: 12px; padding: 18px 22px; background: #f8fafc; border-top: 1px solid #e8eef3; align-items: center; }
+.dc-btn {
+    padding: 10px 22px; border-radius: 8px; cursor: pointer; font-size: 14px;
+    border: none; font-weight: 500; transition: all 0.2s; line-height: 1.4;
+    display: inline-flex; align-items: center; gap: 7px; white-space: nowrap;
+}
+.dc-btn:active { transform: scale(0.97); }
+.dc-btn-primary {
+    background: #417690; color: white;
+    box-shadow: 0 2px 6px rgba(65,118,144,0.35);
+}
+.dc-btn-primary:hover { background: #2c5f7c; box-shadow: 0 4px 10px rgba(65,118,144,0.4); }
+.dc-btn-secondary {
+    background: #fff; border: 1.5px solid #c5d5de; color: #4a6070;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+.dc-btn-secondary:hover { border-color: #417690; color: #417690; background: #f4f9fc; }
+.dc-btn-download {
+    background: #2e7d32; color: #fff !important;
+    text-decoration: none !important;
+    box-shadow: 0 2px 6px rgba(46,125,50,0.35);
+    font-size: 14px;
+}
+.dc-btn-download:hover { background: #1b5e20; box-shadow: 0 4px 10px rgba(46,125,50,0.4); color: #fff !important; }
+.dc-btn-download svg { fill: #fff; }
+
+/* 错误 */
+.dc-error {
+    background: #fff5f5; border: 1px solid #ffcdd2; border-radius: 12px;
+    padding: 36px 20px; text-align: center;
+}
+.dc-error .icon { font-size: 44px; margin-bottom: 14px; }
+.dc-error h3 { color: #c62828; margin: 0 0 8px; font-size: 17px; }
+.dc-error p { color: #e53935; margin: 0 0 18px; font-size: 13px; }
+
+.hidden { display: none !important; }
+</style>
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% trans "首页" %}</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label='doc_convert' %}">{% trans "传统文书转换" %}</a>
+    &rsaquo; {% trans "文书转换工作台" %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="dc-container">
+    <p class="dc-intro">
+        上传传统文书（.docx / .doc / .pdf），选择对应文书类型，系统将自动调用智能转写接口，生成要素式文书供下载。
+    </p>
+
+    <!-- 文书类型选择 -->
+    <div class="dc-select-row">
+        <label for="mbidSelect">文书类型：</label>
+        <select id="mbidSelect" class="dc-select">
+            <option value="">-- 加载中 --</option>
+        </select>
+    </div>
+
+    <!-- 上传区域 -->
+    <div id="uploadZone" class="dc-upload-zone">
+        <svg viewBox="0 0 24 24">
+            <path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
+        </svg>
+        <h3>将传统文书拖入此处</h3>
+        <p>支持 .docx / .doc / .pdf，最大 20MB</p>
+        <label class="dc-upload-btn">
+            选择文件
+            <input type="file" id="fileInput" accept=".docx,.doc,.pdf">
+        </label>
+    </div>
+
+    <!-- 加载 -->
+    <div id="loadingState" class="dc-loading hidden">
+        <div class="dc-spinner"></div>
+        <p id="loadingText">正在转换，请稍候…</p>
+    </div>
+
+    <!-- 结果 -->
+    <div id="resultCard" class="dc-result hidden">
+        <div class="dc-result-header">✅ 转换成功</div>
+        <div class="dc-result-body">
+            <div class="dc-info-row">
+                <span class="dc-info-label">原始文件</span>
+                <span class="dc-info-value" id="resFilename">—</span>
+            </div>
+            <div class="dc-info-row">
+                <span class="dc-info-label">文书类型</span>
+                <span class="dc-info-value" id="resMbid">—</span>
+            </div>
+            <div class="dc-info-row">
+                <span class="dc-info-label">输出文件大小</span>
+                <span class="dc-info-value" id="resSize">—</span>
+            </div>
+        </div>
+        <div class="dc-actions">
+            <a id="downloadLink" href="#" class="dc-btn dc-btn-download" download>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M5 20h14v-2H5v2zm7-18v10.17l-3.59-3.58L7 10l5 5 5-5-1.41-1.41L13 12.17V2h-2z"/></svg>
+                下载要素式文书
+            </a>
+            <button class="dc-btn dc-btn-secondary" onclick="resetPage()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+                重新转换
+            </button>
+        </div>
+    </div>
+
+    <!-- 错误 -->
+    <div id="errorState" class="dc-error hidden">
+        <div class="icon">✕</div>
+        <h3>转换失败</h3>
+        <p id="errorMessage">未知错误</p>
+        <button class="dc-btn dc-btn-primary" onclick="resetPage()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+                重新上传
+            </button>
+    </div>
+</div>
+
+<script>
+(function () {
+    var uploadZone = document.getElementById('uploadZone');
+    var fileInput  = document.getElementById('fileInput');
+    var mbidSelect = document.getElementById('mbidSelect');
+
+    // 加载 mbid 列表
+    fetch('/api/v1/doc-convert/mbid-list', {
+        headers: { 'X-CSRFToken': getCsrf() }
+    }).then(function(r) { return r.json(); })
+    .then(function(data) {
+        mbidSelect.innerHTML = '<option value="">-- 请选择文书类型 --</option>';
+        (data.categories || []).forEach(function(cat) {
+            var og = document.createElement('optgroup');
+            og.label = cat.category;
+            (cat.items || []).forEach(function(item) {
+                var opt = document.createElement('option');
+                opt.value = item.mbid;
+                opt.textContent = item.name;
+                og.appendChild(opt);
+            });
+            mbidSelect.appendChild(og);
+        });
+        // 默认选强制执行申请书
+        var def = mbidSelect.querySelector('option[value="qzzxsqs"]');
+        if (def) def.selected = true;
+    }).catch(function() {
+        mbidSelect.innerHTML = '<option value="">-- 加载失败，请刷新 --</option>';
+    });
+
+    // 拖拽
+    uploadZone.addEventListener('dragover', function(e) {
+        e.preventDefault(); uploadZone.classList.add('dragging');
+    });
+    uploadZone.addEventListener('dragleave', function(e) {
+        if (!uploadZone.contains(e.relatedTarget)) uploadZone.classList.remove('dragging');
+    });
+    uploadZone.addEventListener('drop', function(e) {
+        e.preventDefault(); uploadZone.classList.remove('dragging');
+        if (e.dataTransfer.files.length > 0) doConvert(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', function(e) {
+        if (e.target.files.length > 0) doConvert(e.target.files[0]);
+    });
+
+    function doConvert(file) {
+        var mbid = mbidSelect.value;
+        if (!mbid) { alert('请先选择文书类型'); return; }
+
+        showState('loading');
+        document.getElementById('loadingText').textContent = '正在转换，请稍候…';
+
+        var fd = new FormData();
+        fd.append('file', file);
+        fd.append('mbid', mbid);
+
+        fetch('/api/v1/doc-convert/convert', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCsrf() },
+            body: fd
+        }).then(function(r) {
+            if (!r.ok) {
+                return r.json().then(function(d) {
+                    throw new Error(d.message || d.detail || ('HTTP ' + r.status));
+                });
+            }
+            return r.blob();
+        }).then(function(blob) {
+            var url = URL.createObjectURL(blob);
+            var link = document.getElementById('downloadLink');
+            link.href = url;
+
+            // 生成文件名：要素式{文书类型}{原始后缀}.docx
+            var mbidName = mbidSelect.options[mbidSelect.selectedIndex].textContent.trim();
+            var baseName = file.name.replace(/\.[^.]+$/, ''); // 去掉扩展名
+            // 去掉原始文件名开头与文书类型相同的部分（如有），保留剩余后缀
+            var suffix = baseName.startsWith(mbidName) ? baseName.slice(mbidName.length) : baseName;
+            link.download = '要素式' + mbidName + suffix + '.docx';
+
+            document.getElementById('resFilename').textContent = file.name;
+            document.getElementById('resMbid').textContent = mbidSelect.options[mbidSelect.selectedIndex].textContent;
+            document.getElementById('resSize').textContent = (blob.size / 1024).toFixed(1) + ' KB';
+
+            showState('result');
+        }).catch(function(e) {
+            document.getElementById('errorMessage').textContent = e.message;
+            showState('error');
+        });
+    }
+
+    function showState(s) {
+        uploadZone.classList.toggle('hidden', s !== 'idle');
+        document.getElementById('loadingState').classList.toggle('hidden', s !== 'loading');
+        document.getElementById('resultCard').classList.toggle('hidden', s !== 'result');
+        document.getElementById('errorState').classList.toggle('hidden', s !== 'error');
+    }
+
+    window.resetPage = function() {
+        fileInput.value = '';
+        showState('idle');
+    };
+
+    function getCsrf() {
+        var c = document.cookie.split(';').find(function(x) { return x.trim().startsWith('csrftoken='); });
+        return c ? c.trim().split('=')[1] : '';
+    }
+})();
+</script>
+{% endblock %}
