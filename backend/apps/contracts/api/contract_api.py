@@ -9,7 +9,6 @@ from ninja import Router
 from apps.contracts.schemas import (
     ContractIn,
     ContractOut,
-    ContractPaginatedOut,
     ContractPartySourceOut,
     ContractPaymentIn,
     ContractUpdate,
@@ -27,7 +26,7 @@ def _get_contract_service() -> Any:
     return get_contract_service()
 
 
-@router.get("/contracts")
+@router.get("/contracts", response=list[ContractOut], exclude_none=False)
 def list_contracts(
     request: HttpRequest,
     case_type: str | None = None,
@@ -52,17 +51,7 @@ def list_contracts(
         page=page,
         page_size=page_size,
     )
-    # 手动序列化每个 Contract model → ContractOut，避免 Ninja 嵌套 ModelSchema 的 bug
-    items_serialized = [
-        ContractOut.from_orm(c).model_dump() for c in result["items"]
-    ]
-    return {
-        "items": items_serialized,
-        "total": result["total"],
-        "page": result["page"],
-        "page_size": result["page_size"],
-        "total_pages": result["total_pages"],
-    }
+    return result["items"]
 
 
 @router.get("/contracts/{contract_id}", response=ContractOut)

@@ -163,28 +163,40 @@ class CourtInboxFetcher(MessageFetcher):
             raise
 
         try:
-            new_count = 0
-            # 第一页
-            body = _api_post(_LIST_API, token, {"pageNum": 1, "pageSize": _PAGE_SIZE})
-            data = body.get("data", {})
-            total = data.get("total", 0)
-            total_pages = max(1, math.ceil(total / _PAGE_SIZE))
-            logger.info("一张网收件箱: 共 %d 条, %d 页", total, total_pages)
-
-            new_count += self._process_page(source, token, data.get("data", []))
-
-            for page_num in range(2, total_pages + 1):
-                try:
-                    body = _api_post(_LIST_API, token, {"pageNum": page_num, "pageSize": _PAGE_SIZE})
-                    new_count += self._process_page(source, token, body.get("data", {}).get("data", []))
-                except Exception as e:
-                    logger.error("处理第 %d 页失败: %s", page_num, e)
-
-            _mark_success(source)
-            return new_count
+            return self._fetch_with_token(source, token, credential_id)
+        except PermissionError:
+            # Token 过期，清除缓存后重新登录
+            logger.warning("一张网收件箱: Token 过期，重新登录")
+            _invalidate_token(credential_id)
+            try:
+                token = _acquire_token(credential_id)
+                return self._fetch_with_token(source, token, credential_id)
+            except Exception as e:
+                _mark_failed(source, str(e))
+                raise
         except Exception as e:
             _mark_failed(source, str(e))
             raise
+
+    def _fetch_with_token(self, source: MessageSource, token: str, credential_id: int) -> int:
+        new_count = 0
+        body = _api_post(_LIST_API, token, {"pageNum": 1, "pageSize": _PAGE_SIZE})
+        data = body.get("data", {})
+        total = data.get("total", 0)
+        total_pages = max(1, math.ceil(total / _PAGE_SIZE))
+        logger.info("一张网收件箱: 共 %d 条, %d 页", total, total_pages)
+
+        new_count += self._process_page(source, token, data.get("data", []))
+
+        for page_num in range(2, total_pages + 1):
+            try:
+                body = _api_post(_LIST_API, token, {"pageNum": page_num, "pageSize": _PAGE_SIZE})
+                new_count += self._process_page(source, token, body.get("data", {}).get("data", []))
+            except Exception as e:
+                logger.error("处理第 %d 页失败: %s", page_num, e)
+
+        _mark_success(source)
+        return new_count
 
     def _process_page(self, source: MessageSource, token: str, records: list[dict[str, Any]]) -> int:
         new_count = 0
@@ -264,6 +276,19 @@ class CourtInboxFetcher(MessageFetcher):
                 return resp.content, att["filename"], att.get("content_type", "application/octet-stream")
         raise ValueError(f"未找到 part_index={part_index} 的附件")
 
+
+
+def _invalidate_token(credential_id: int) -> None:
+    """清除缓存和 DB 中的 Token，强制下次重新登录。"""
+    from apps.automation.services.token.cache_manager import cache_manager
+    from apps.core.interfaces import ServiceLocator
+
+    credential = ServiceLocator.get_organization_service().get_credential(credential_id)
+    if credential:
+        cache_manager.invalidate_token_cache(credential.site_name, credential.account)
+    from apps.automation.models.token import CourtToken
+    CourtToken.objects.filter(site_name="court_zxfw", is_valid=True).update(is_valid=False)
+    logger.info("一张网收件箱: 已清除过期 Token")
 
 def _mark_success(source: MessageSource) -> None:
     source.last_sync_at = timezone.now()
