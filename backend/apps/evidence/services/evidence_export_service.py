@@ -92,7 +92,7 @@ class EvidenceExportService:
             )
 
         # 检查模板文件是否存在
-        from apps.core.path import Path
+        from apps.core.utils.path import Path
 
         if not Path(template_path).exists():
             raise NotFoundError(

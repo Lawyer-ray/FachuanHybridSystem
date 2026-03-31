@@ -12,7 +12,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-from apps.core.path import Path
+from apps.core.utils.path import Path
 from apps.documents.storage import document_template_storage
 
 from .choices import (
@@ -193,7 +193,7 @@ class DocumentTemplate(models.Model):
 
     def get_legal_statuses_display(self) -> str:
         """获取诉讼地位显示文本"""
-        from apps.core.enums import LegalStatus
+        from apps.core.models.enums import LegalStatus
 
         choices = dict(LegalStatus.choices)
         statuses = self.legal_statuses or []

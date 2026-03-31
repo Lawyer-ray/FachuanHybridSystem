@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from apps.cases.models import CaseParty
 
 if TYPE_CHECKING:
-    from apps.core.dtos import CasePartyDTO
+    from apps.core.dto import CasePartyDTO
 
 logger = logging.getLogger("apps.cases")
 
@@ -31,7 +31,7 @@ class CasePartyInternalQueryService:
 
     def get_case_parties_internal(self, case_id: int, legal_status: str | None = None) -> list[CasePartyDTO]:
         try:
-            from apps.core.dtos import CasePartyDTO
+            from apps.core.dto import CasePartyDTO
 
             qs = CaseParty.objects.select_related("client").filter(case_id=case_id)
             if legal_status:

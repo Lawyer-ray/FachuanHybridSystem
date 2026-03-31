@@ -133,15 +133,52 @@ class GsxtLoginService:
         start_login_gsxt(credential, task_id)
 
 
+def _try_reverse_login(credential: GsxtCredentialProtocol, task_id: int) -> bool:
+    """尝试使用逆向登录，成功返回 True，不可用或失败返回 False。"""
+    try:
+        from apps.automation.services.gsxt.gsxt_reverse_login import reverse_login
+    except ImportError:
+        return False
+
+    from apps.automation.models.gsxt_report import GsxtReportStatus, GsxtReportTask
+
+    try:
+        reverse_login(credential.account, credential.password)
+    except NotImplementedError:
+        logger.info("逆向登录模块存在但未配置打码平台，回退到 Playwright 模式")
+        return False
+    except Exception:
+        logger.exception("逆向登录失败，回退到 Playwright 模式")
+        return False
+
+    # 登录成功，更新状态
+    credential.last_login_success_at = timezone.now()
+    credential.save(update_fields=["last_login_success_at"])
+
+    task = GsxtReportTask.objects.get(pk=task_id)
+    task.status = GsxtReportStatus.PENDING
+    task.save(update_fields=["status"])
+    logger.info("逆向登录成功，task_id=%d", task_id)
+
+    from apps.automation.services.gsxt.gsxt_report_service import start_report_flow
+
+    start_report_flow(task_id)
+    return True
+
+
 def start_login_gsxt(credential: GsxtCredentialProtocol, task_id: int) -> None:
     """
-    非阻塞入口：启动 Chrome，填账号密码，在后台线程等待验证码完成。
-    立即返回，不阻塞 Django 请求。
+    非阻塞入口：优先尝试 HTTP 逆向登录，失败则回退到 Playwright 模式。
 
     Raises:
-        GsxtLoginError: Chrome 启动失败。
+        GsxtLoginError: Chrome 启动失败（仅 Playwright 模式）。
     """
+    # 优先尝试逆向登录（无需浏览器）
+    if _try_reverse_login(credential, task_id):
+        return
+
+    # 回退到 Playwright 手动验证码模式
     _ensure_chrome_running()
     t = threading.Thread(target=_run_in_thread, args=(credential, task_id), daemon=True)
     t.start()
-    logger.info("登录后台线程已启动，task_id=%d", task_id)
+    logger.info("登录后台线程已启动（Playwright 模式），task_id=%d", task_id)

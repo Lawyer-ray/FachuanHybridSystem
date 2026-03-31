@@ -9,7 +9,7 @@ from django.core.files.uploadedfile import UploadedFile
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError
-from apps.core.path import Path
+from apps.core.utils.path import Path
 from apps.documents.models import DocumentTemplate, Placeholder
 from apps.documents.services.document_template.placeholder_extractor import (
     extract_placeholders as extract_placeholders_from_file,

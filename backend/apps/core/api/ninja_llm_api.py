@@ -13,7 +13,7 @@ from django.db import transaction
 from ninja import Router
 from ninja.schema import Schema
 
-from apps.core.auth import JWTOrSessionAuth
+from apps.core.security.auth import JWTOrSessionAuth
 from apps.core.exceptions import PermissionDenied
 from apps.core.infrastructure.throttling import rate_limit_from_settings
 

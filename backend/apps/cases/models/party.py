@@ -7,7 +7,7 @@ from typing import ClassVar
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-from apps.core.enums import LegalStatus
+from apps.core.models.enums import LegalStatus
 
 from .case import Case
 

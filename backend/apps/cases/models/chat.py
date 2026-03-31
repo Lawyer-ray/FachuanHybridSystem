@@ -10,7 +10,7 @@ from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from apps.core.enums import ChatPlatform
+from apps.core.models.enums import ChatPlatform
 
 from .case import Case
 

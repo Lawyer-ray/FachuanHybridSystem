@@ -6,7 +6,7 @@ from django import forms
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 
-from apps.core.enums import LegalStatus, SimpleCaseType
+from apps.core.models.enums import LegalStatus, SimpleCaseType
 from apps.documents.models import ProxyMatterRule
 
 

@@ -266,7 +266,7 @@ class DocumentDeliveryProcessor:
         Requirements: 3.1
         """
         try:
-            from apps.core.enums import CaseStatus
+            from apps.core.models.enums import CaseStatus
 
             for doc_path in document_paths:
                 extracted_parties = self.case_matcher.extract_parties_from_document(doc_path)

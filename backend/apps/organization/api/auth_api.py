@@ -1,13 +1,14 @@
 """
 认证 API 模块
-提供用户登录和登出接口
+提供用户登录、登出和当前用户信息接口
 """
 
 from django.http import HttpRequest
 from ninja import Router
 
 from apps.core.infrastructure.throttling import rate_limit_from_settings
-from apps.organization.schemas import LoginIn, LoginOut
+from apps.core.security.auth import JWTOrSessionAuth
+from apps.organization.schemas import LawyerOut, LoginIn, LoginOut
 from apps.organization.services import AuthService
 
 router = Router()
@@ -32,3 +33,8 @@ def login_view(request: HttpRequest, payload: LoginIn) -> LoginOut:
 def logout_view(request: HttpRequest) -> dict[str, bool]:
     _auth_service.logout(request)
     return {"success": True}
+
+
+@router.get("/me", response=LawyerOut, auth=JWTOrSessionAuth())
+def me_view(request: HttpRequest) -> LawyerOut:
+    return LawyerOut.from_orm(request.user)  # type: ignore[arg-type]

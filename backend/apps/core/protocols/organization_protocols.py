@@ -6,7 +6,7 @@
 
 from typing import Protocol
 
-from apps.core.dtos import AccountCredentialDTO, LawFirmDTO, LawyerDTO, TeamDTO
+from apps.core.dto import AccountCredentialDTO, LawFirmDTO, LawyerDTO, TeamDTO
 
 
 class IOrganizationService(Protocol):

@@ -13,7 +13,7 @@ from django.http import HttpRequest, HttpResponse
 from django.utils.translation import gettext_lazy as _
 from ninja import Router, Schema
 
-from apps.core.auth import JWTOrSessionAuth
+from apps.core.security.auth import JWTOrSessionAuth
 
 logger = logging.getLogger("apps.documents.api")
 router = Router(auth=JWTOrSessionAuth())

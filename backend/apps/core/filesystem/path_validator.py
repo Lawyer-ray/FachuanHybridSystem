@@ -4,7 +4,7 @@ import re
 from typing import Any
 
 from apps.core.exceptions import ValidationException
-from apps.core.path import Path
+from apps.core.utils.path import Path
 
 
 class FolderPathValidator:

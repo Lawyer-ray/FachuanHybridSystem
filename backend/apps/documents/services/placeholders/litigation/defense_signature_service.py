@@ -63,7 +63,7 @@ class DefenseSignatureService(BasePlaceholderService):
 
         Requirements: 3.1, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 8.3
         """
-        from apps.core.enums import LegalStatus
+        from apps.core.models.enums import LegalStatus
 
         case_parties = self.case_details_accessor.get_case_parties(case_id=case_id)
 

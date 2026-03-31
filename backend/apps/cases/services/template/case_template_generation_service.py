@@ -18,7 +18,7 @@ from django.utils.translation import gettext_lazy as _
 from docxtpl import DocxTemplate
 
 from apps.core.exceptions import NotFoundError, ValidationException
-from apps.core.path import Path
+from apps.core.utils.path import Path
 
 from .wiring import get_case_service, get_client_service, get_document_service
 

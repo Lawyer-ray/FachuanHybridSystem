@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from apps.core.enums import LegalStatus
+from apps.core.models.enums import LegalStatus
 from apps.documents.services.placeholders.litigation.enforcement_party_service import (
     EnforcementApplicantPartyService,
     EnforcementRespondentPartyService,

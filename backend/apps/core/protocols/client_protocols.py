@@ -6,7 +6,7 @@
 
 from typing import Protocol
 
-from apps.core.dtos import ClientDTO, ClientIdentityDocDTO, PropertyClueDTO
+from apps.core.dto import ClientDTO, ClientIdentityDocDTO, PropertyClueDTO
 
 
 class IClientService(Protocol):

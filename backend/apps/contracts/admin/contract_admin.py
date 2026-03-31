@@ -25,7 +25,7 @@ from apps.contracts.models import (
     SupplementaryAgreementParty,
 )
 from apps.core.admin.mixins import AdminImportExportMixin
-from apps.core.enums import CaseStage, CaseStatus
+from apps.core.models.enums import CaseStage, CaseStatus
 
 if TYPE_CHECKING:
     BaseModelAdmin = admin.ModelAdmin

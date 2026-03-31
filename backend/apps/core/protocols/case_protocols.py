@@ -6,7 +6,7 @@
 
 from typing import Any, Protocol
 
-from apps.core.dtos import CaseDTO, CasePartyDTO, CaseSearchResultDTO, CaseTemplateBindingDTO
+from apps.core.dto import CaseDTO, CasePartyDTO, CaseSearchResultDTO, CaseTemplateBindingDTO
 
 
 class ICaseService(Protocol):

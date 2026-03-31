@@ -131,7 +131,7 @@ class CourtSMSViewsMixin:
     def _get_suggested_cases(self, sms: Any, case_service: Any, sms_id: int) -> list[Any]:
         """获取推荐案件列表"""
         suggested_cases: list[Any] = []
-        from apps.core.enums import CaseStatus
+        from apps.core.models.enums import CaseStatus
 
         try:
             if sms.party_names:
@@ -165,7 +165,7 @@ class CourtSMSViewsMixin:
 
     def _get_recent_cases(self, case_service: Any, sms_id: int) -> list[Any]:
         """获取最近案件列表"""
-        from apps.core.enums import CaseStatus
+        from apps.core.models.enums import CaseStatus
 
         try:
             result: list[Any] = case_service.list_cases_internal(status=CaseStatus.ACTIVE, limit=20)
@@ -206,7 +206,7 @@ class CourtSMSViewsMixin:
         search_term = request.GET.get("q", "").strip()
         if not search_term:
             try:
-                from apps.core.enums import CaseStatus
+                from apps.core.models.enums import CaseStatus
 
                 case_service = _get_case_service()
                 found_cases: list[Any] = case_service.list_cases_internal(status=CaseStatus.ACTIVE, limit=50)
@@ -228,7 +228,7 @@ class CourtSMSViewsMixin:
 
     def _search_cases(self, case_service: Any, search_term: str) -> list[Any]:
         """搜索案件并去重"""
-        from apps.core.enums import CaseStatus
+        from apps.core.models.enums import CaseStatus
 
         result: list[Any] = case_service.search_cases_internal(search_term, status=CaseStatus.ACTIVE, limit=30)
         return result

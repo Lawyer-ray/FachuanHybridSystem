@@ -5,7 +5,7 @@ import io
 import logging
 from typing import Any
 
-from apps.core.path import Path
+from apps.core.utils.path import Path
 
 logger = logging.getLogger("apps.documents")
 

@@ -41,7 +41,7 @@ class EnforcementExitRestrictionRequestService(BasePlaceholderService):
         return {LitigationPlaceholderKeys.ENFORCEMENT_EXIT_RESTRICTION_REQUEST: text}
 
     def _build_target_text(self, *, case_id: int) -> str:
-        from apps.core.enums import LegalStatus
+        from apps.core.models.enums import LegalStatus
 
         case_parties = self.case_details_accessor.get_case_parties(case_id=case_id)
         respondents = [

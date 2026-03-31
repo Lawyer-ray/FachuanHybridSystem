@@ -158,7 +158,7 @@ class CaseMatcher:
 
         # 只有一个匹配，检查是否在办
         if len(all_matched_cases) == 1:
-            from apps.core.enums import CaseStatus
+            from apps.core.models.enums import CaseStatus
 
             case = all_matched_cases[0]
             if case.status == CaseStatus.ACTIVE:
@@ -168,7 +168,7 @@ class CaseMatcher:
                 return None
 
         # 多个匹配，按状态分类
-        from apps.core.enums import CaseStatus
+        from apps.core.models.enums import CaseStatus
 
         active_cases = [c for c in all_matched_cases if c.status == CaseStatus.ACTIVE]
         closed_cases = [c for c in all_matched_cases if c.status == CaseStatus.CLOSED]
@@ -332,14 +332,14 @@ class CaseMatcher:
 
     def _get_active_cases_by_numbers(self, case_numbers: list[str]) -> list[Any]:
         """根据案号列表获取所有匹配的在办案件"""
-        from apps.core.enums import CaseStatus
+        from apps.core.models.enums import CaseStatus
 
         all_cases = self._get_all_cases_by_numbers(case_numbers)
         return [c for c in all_cases if c.status == CaseStatus.ACTIVE]
 
     def _find_all_matching_cases(self, matched_clients: list[Any]) -> list[Any]:
         """根据匹配的客户查找所有关联的在办案件（双向严格匹配）"""
-        from apps.core.enums import CaseStatus
+        from apps.core.models.enums import CaseStatus
 
         input_party_names = set(client.name.strip() for client in matched_clients)
         client_names = list(input_party_names)
@@ -375,7 +375,7 @@ class CaseMatcher:
         Returns:
             案件类型枚举值，如 'criminal'、'civil' 等
         """
-        from apps.core.enums import CaseType
+        from apps.core.models.enums import CaseType
 
         if not case_number:
             return None
@@ -420,7 +420,7 @@ class CaseMatcher:
         Returns:
             案件阶段枚举值，如 'enforcement'、'first_trial' 等
         """
-        from apps.core.enums import CaseStage
+        from apps.core.models.enums import CaseStage
 
         if not case_number:
             return None
@@ -507,7 +507,7 @@ class CaseMatcher:
 
     def _collect_closed_cases_by_number(self, sms: Any, closed_cases: set[Any]) -> None:
         """通过案号收集已结案案件"""
-        from apps.core.enums import CaseStatus
+        from apps.core.models.enums import CaseStatus
 
         if not sms.case_numbers:
             return
@@ -523,7 +523,7 @@ class CaseMatcher:
 
     def _collect_closed_cases_by_party(self, sms: Any, closed_cases: set[Any]) -> None:
         """通过当事人收集已结案案件"""
-        from apps.core.enums import CaseStatus
+        from apps.core.models.enums import CaseStatus
 
         if not sms.party_names:
             return

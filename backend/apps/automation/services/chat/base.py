@@ -8,7 +8,7 @@
 from abc import ABC, abstractmethod
 
 from apps.core.dto.chat import ChatResult, MessageContent
-from apps.core.enums import ChatPlatform
+from apps.core.models.enums import ChatPlatform
 
 __all__ = ["ChatResult", "MessageContent", "ChatProvider"]
 

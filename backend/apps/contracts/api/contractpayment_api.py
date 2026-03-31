@@ -13,7 +13,7 @@ from django.utils.dateparse import parse_date
 from ninja import Router
 
 from apps.contracts.schemas import ContractPaymentIn, ContractPaymentOut, ContractPaymentUpdate
-from apps.core.request_context import extract_request_context
+from apps.core.dto.request_context import extract_request_context
 
 router = Router()
 

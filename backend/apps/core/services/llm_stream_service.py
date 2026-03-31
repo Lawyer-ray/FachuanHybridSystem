@@ -14,7 +14,7 @@ from typing import Any
 
 from asgiref.sync import sync_to_async
 
-from apps.core.error_presentation import ExceptionPresenter
+from apps.core.exceptions.error_presentation import ExceptionPresenter
 
 logger = logging.getLogger(__name__)
 

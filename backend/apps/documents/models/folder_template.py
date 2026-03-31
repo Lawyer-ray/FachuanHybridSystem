@@ -125,7 +125,7 @@ class FolderTemplate(models.Model):
 
     def get_legal_statuses_display(self) -> str:
         """获取诉讼地位的显示文本"""
-        from apps.core.enums import LegalStatus
+        from apps.core.models.enums import LegalStatus
 
         choices = dict(LegalStatus.choices)
         statuses = self.legal_statuses or []

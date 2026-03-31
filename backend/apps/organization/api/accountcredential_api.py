@@ -3,7 +3,7 @@ from __future__ import annotations
 from django.http import HttpRequest
 from ninja import Router
 
-from apps.core.auth import JWTOrSessionAuth
+from apps.core.security.auth import JWTOrSessionAuth
 from apps.organization.api.utils_api import get_request_user
 from apps.organization.dtos import AccountCredentialCreateDTO, AccountCredentialUpdateDTO
 from apps.organization.schemas import AccountCredentialIn, AccountCredentialOut, AccountCredentialUpdateIn

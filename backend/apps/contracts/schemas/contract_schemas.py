@@ -13,8 +13,8 @@ from ninja import ModelSchema, Schema
 from pydantic import field_validator, model_validator
 
 from apps.contracts.models import Contract, FeeMode
-from apps.core.enums import CaseStage
-from apps.core.schemas_shared import ReminderLiteOut as ReminderOut
+from apps.core.models.enums import CaseStage
+from apps.core.api.schemas_shared import ReminderLiteOut as ReminderOut
 
 from .lawyer_schemas import CaseOut, LawyerOut
 from .party_schemas import ContractPartyIn, ContractPartyOut

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from apps.core.path import Path
+from apps.core.utils.path import Path
 
 
 class GeneratedDocumentStorage:

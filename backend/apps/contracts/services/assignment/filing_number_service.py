@@ -8,7 +8,7 @@ from typing import Any
 from django.db import connection, transaction
 from django.utils.translation import gettext_lazy as _
 
-from apps.core.enums import CaseType
+from apps.core.models.enums import CaseType
 from apps.core.exceptions import ConflictError, ValidationException
 
 logger = logging.getLogger("apps.contracts")

@@ -12,7 +12,7 @@ from typing import Any
 from apps.cases.models import Case, CaseLog
 from apps.client.models import Client, ClientIdentityDoc
 from apps.contracts.models import Contract
-from apps.core.enums import CaseType, SimpleCaseType
+from apps.core.models.enums import CaseType, SimpleCaseType
 from apps.organization.models import Lawyer
 
 _SEQUENCE = count(1)

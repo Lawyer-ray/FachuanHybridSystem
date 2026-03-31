@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 
 from apps.cases.models import CaseTemplateBinding
-from apps.core.dtos import CaseTemplateBindingDTO
+from apps.core.dto import CaseTemplateBindingDTO
 
 logger = logging.getLogger("apps.cases")
 

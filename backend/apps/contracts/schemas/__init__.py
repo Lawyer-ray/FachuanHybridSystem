@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from apps.core.schemas_shared import ReminderLiteOut as ReminderOut
+from apps.core.api.schemas_shared import ReminderLiteOut as ReminderOut
 
 # Client Schemas
 from .client_schemas import ClientIdentityDocOut, ClientOut

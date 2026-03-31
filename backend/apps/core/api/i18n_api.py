@@ -7,7 +7,7 @@ from django.http import HttpRequest
 from ninja import Router, Schema
 from ninja.responses import Response
 
-from apps.core.auth import JWTOrSessionAuth
+from apps.core.security.auth import JWTOrSessionAuth
 
 logger = logging.getLogger(__name__)
 

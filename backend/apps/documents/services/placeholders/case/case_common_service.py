@@ -4,7 +4,7 @@ import logging
 import re
 from typing import Any, ClassVar
 
-from apps.core.enums import AuthorityType
+from apps.core.models.enums import AuthorityType
 from apps.documents.services.placeholders.base import BasePlaceholderService
 from apps.documents.services.placeholders.registry import PlaceholderRegistry
 

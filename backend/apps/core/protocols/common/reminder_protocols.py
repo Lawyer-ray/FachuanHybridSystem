@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any, Protocol
 
-from apps.core.dtos import ReminderDTO, ReminderTypeDTO
+from apps.core.dto import ReminderDTO, ReminderTypeDTO
 
 
 class IReminderService(Protocol):

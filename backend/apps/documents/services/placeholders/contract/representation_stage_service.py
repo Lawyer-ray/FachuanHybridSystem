@@ -53,7 +53,7 @@ class RepresentationStageService(BasePlaceholderService):
             格式化的代理阶段字符串
         """
         try:
-            from apps.core.enums import CaseStage
+            from apps.core.models.enums import CaseStage
 
             stages = getattr(contract, "representation_stages", None) or []
 

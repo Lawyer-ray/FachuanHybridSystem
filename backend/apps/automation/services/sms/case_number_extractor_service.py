@@ -135,7 +135,7 @@ class CaseNumberExtractorService:
 
             return extracted_numbers
 
-        except ConnectionError as e:
+        except (ConnectionError, LLMError) as e:
             logger.error(f"Ollama 服务不可用，无法从文书提取案号: {document_path}, 错误: {e!s}")
             return []
         except FileNotFoundError as e:

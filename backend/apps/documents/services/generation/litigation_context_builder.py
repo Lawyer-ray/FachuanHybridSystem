@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from apps.documents.services.generation.outputs import ComplaintOutput, DefenseOutput
 
-from apps.core.enums import LegalStatus
+from apps.core.models.enums import LegalStatus
 from apps.documents.services.infrastructure.wiring import get_case_service
 from apps.documents.services.placeholders import EnhancedContextBuilder
 from apps.litigation_ai.placeholders.spec import LitigationPlaceholderKeys

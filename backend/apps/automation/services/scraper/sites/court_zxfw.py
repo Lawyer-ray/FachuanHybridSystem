@@ -155,6 +155,48 @@ class CourtZxfwService:
 
         return handle_response
 
+    def _try_http_login(self, account: str, password: str, max_retries: int) -> dict[str, Any] | None:
+        """
+        尝试纯 HTTP 逆向登录（无需 Playwright 浏览器）。
+
+        这是一个可插拔的加速方案：
+        - 插件位置: apps/automation/services/scraper/sites/court_zxfw_login_private/
+        - 插件不入 Git（已在 .gitignore 中忽略），需要手动部署
+        - 额外依赖: gmssl（SM2 国密加密）
+
+        可用条件（全部满足才走此路径）:
+        1. court_zxfw_login_private/ 目录存在且包含 __init__.py + login_service.py
+        2. gmssl 已安装（uv add gmssl）
+
+        不可用时（以下任一情况）自动回退到 Playwright 登录:
+        - 插件目录不存在（未部署）
+        - gmssl 未安装
+        - 纯逆向登录过程中发生异常
+
+        Returns:
+            登录结果 dict（成功时），或 None（插件不可用/失败，触发 Playwright 回退）
+        """
+        try:
+            from apps.automation.services.scraper.sites.court_zxfw_login_private import is_available
+
+            if not is_available():
+                logger.info("纯逆向登录插件不可用，回退到 Playwright")
+                return None
+
+            from apps.automation.services.scraper.sites.court_zxfw_login_private import (
+                CourtZxfwHttpLoginService,
+            )
+
+            svc = CourtZxfwHttpLoginService(captcha_recognizer=self.captcha_recognizer)
+            result = svc.login(account, password, max_retries=max_retries)
+            if result.get("success"):
+                result["message"] = "纯逆向登录成功"
+                result["url"] = self.page.url
+            return result
+        except Exception as e:
+            logger.warning("纯逆向登录异常，回退到 Playwright: %s", e)
+            return None
+
     def _fill_login_form(self, account: str, password: str, save_debug: bool) -> None:
         """填写登录表单（账号、密码、点击密码登录标签）"""
         password_login_xpath = (
@@ -207,7 +249,7 @@ class CourtZxfwService:
         logger.info("开始登录全国法院'一张网'...")
         logger.info("=" * 60)
 
-        # 尝试使用 Cookie 登录
+        # ── 第1优先: Cookie 登录（最快，无需任何请求）──
         if self._cookie_service is not None:
             cookie_path = self._get_cookie_path(account)
             loaded = self._cookie_service.load(self.context, cookie_path)
@@ -226,6 +268,15 @@ class CourtZxfwService:
                     }
                 logger.info("Cookie 无效，执行完整登录流程")
 
+        # ── 第2优先: 纯 HTTP 逆向登录（可插拔插件，无需浏览器，更快）──
+        # 插件位置: apps/automation/services/scraper/sites/court_zxfw_login_private/
+        # 没有此目录或 gmssl 未安装时，自动跳过，走下面的 Playwright 登录
+        http_result = self._try_http_login(account, password, max_captcha_retries)
+        if http_result and http_result.get("success"):
+            self.is_logged_in = True
+            return http_result
+
+        # ── 第3优先: Playwright 浏览器自动化登录（兜底方案）──
         captured_token: dict[str, Any] = {"value": None}
         try:
             self.page.on("response", self._make_response_handler(captured_token))

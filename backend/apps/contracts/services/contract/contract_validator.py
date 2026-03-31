@@ -7,14 +7,14 @@ from typing import Any
 from django.utils.translation import gettext_lazy as _
 
 from apps.contracts.models import FeeMode
-from apps.core.business_config import BusinessConfig
+from apps.core.config.business_config import BusinessConfig
 from apps.core.exceptions import ValidationException
 
 
 class ContractValidator:
     def __init__(self, config: BusinessConfig | None = None) -> None:
         if config is None:
-            from apps.core.business_config import business_config
+            from apps.core.config.business_config import business_config
 
             config = business_config
         self.config = config

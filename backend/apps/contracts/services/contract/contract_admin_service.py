@@ -11,7 +11,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from apps.contracts.models import Contract
-from apps.core.enums import CaseStage
+from apps.core.models.enums import CaseStage
 from apps.core.interfaces import CaseDTO
 
 if TYPE_CHECKING:

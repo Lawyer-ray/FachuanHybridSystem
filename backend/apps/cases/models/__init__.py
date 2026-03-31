@@ -8,7 +8,7 @@ Cases 模块模型层
 from __future__ import annotations
 
 # 从 core.enums 重新导出的枚举(向后兼容)
-from apps.core.enums import CaseStage, CaseStatus, CaseType, LegalStatus, SimpleCaseType
+from apps.core.models.enums import CaseStage, CaseStatus, CaseType, LegalStatus, SimpleCaseType
 
 # case.py - 案件核心模型
 from .case import Case, CaseFilingNumberSequence, CaseNumber, SupervisingAuthority

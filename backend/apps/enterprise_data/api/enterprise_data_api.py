@@ -7,7 +7,7 @@ from typing import Literal
 
 from ninja import Router
 
-from apps.core.auth import JWTOrSessionAuth
+from apps.core.security.auth import JWTOrSessionAuth
 from apps.enterprise_data.schemas import EnterpriseProvidersOut, EnterpriseQueryOut
 from apps.enterprise_data.services import EnterpriseDataService
 

@@ -9,7 +9,7 @@
 
 from typing import TYPE_CHECKING, Any, Optional, Protocol
 
-from apps.core.dtos import AccountCredentialDTO
+from apps.core.dto import AccountCredentialDTO
 
 if TYPE_CHECKING:
     from apps.automation.dtos import CourtTokenDTO

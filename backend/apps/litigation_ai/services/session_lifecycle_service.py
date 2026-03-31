@@ -93,7 +93,7 @@ class SessionLifecycleService:
         return self._to_session_dto(session)
 
     def get_recommended_document_types(self, case_id: int) -> list[str]:
-        from apps.core.enums import LegalStatus
+        from apps.core.models.enums import LegalStatus
         from apps.litigation_ai.models.choices import DocumentType
 
         case = self.case_service.get_case_internal(case_id)

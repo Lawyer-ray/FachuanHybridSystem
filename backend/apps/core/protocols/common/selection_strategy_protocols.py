@@ -2,7 +2,7 @@
 
 from typing import Protocol
 
-from apps.core.dtos import AccountCredentialDTO
+from apps.core.dto import AccountCredentialDTO
 
 
 class IAccountSelectionStrategy(Protocol):

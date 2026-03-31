@@ -361,7 +361,7 @@ class DocumentProcessor:
         Requirements: 3.1
         """
         try:
-            from apps.core.enums import CaseStatus
+            from apps.core.models.enums import CaseStatus
 
             for doc_path in document_paths:
                 logger.info(f"尝试从文书中提取当事人: {doc_path}")

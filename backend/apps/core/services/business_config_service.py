@@ -31,7 +31,7 @@ class BusinessConfigService:
     def _config(self) -> Any:
         """延迟加载 BusinessConfig 实例"""
         if self._config_instance is None:
-            from apps.core.business_config import BusinessConfig
+            from apps.core.config.business_config import BusinessConfig
 
             self._config_instance = BusinessConfig()
         return self._config_instance

@@ -61,7 +61,7 @@ def generate_case_folder(request: HttpRequest, case_id: int) -> Any:
     # 生成文件夹名称：日期-案件名
     from datetime import date
 
-    from apps.core.enums import CaseType
+    from apps.core.models.enums import CaseType
 
     today = date.today().strftime("%Y.%m.%d")
     case_type_display = dict(CaseType.choices).get(case.case_type, case.case_type or "")

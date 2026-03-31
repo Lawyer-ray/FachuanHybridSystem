@@ -8,7 +8,7 @@ from django.conf import settings
 from django.core.files.storage import FileSystemStorage
 from django.utils.deconstruct import deconstructible
 
-from apps.core.path import Path
+from apps.core.utils.path import Path
 
 # 用户自定义模板目录名称
 USER_CUSTOM_TEMPLATE_DIR = "0-用户自定义模板"

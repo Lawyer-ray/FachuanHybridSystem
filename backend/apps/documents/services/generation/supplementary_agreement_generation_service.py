@@ -12,7 +12,7 @@ import logging
 from typing import TYPE_CHECKING, Any, cast
 
 from apps.core.interfaces import IContractService
-from apps.core.path import Path
+from apps.core.utils.path import Path
 
 if TYPE_CHECKING:
     from apps.core.interfaces import IContractFolderBindingService

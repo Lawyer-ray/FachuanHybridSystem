@@ -33,7 +33,7 @@ class EvidenceOCRService:
 
     def _extract_text(self, item: Any) -> str:
         """从文件提取文本，PDF 逐页转图片后 OCR，图片直接 OCR"""
-        from apps.core.path import Path
+        from apps.core.utils.path import Path
 
         ext = Path(item.file_name).suffix.lower() if item.file_name else ""
 

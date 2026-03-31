@@ -2,7 +2,7 @@
 跨模块 DTO 兼容出口
 """
 
-from apps.core.dtos import (
+from apps.core.dto import (
     AccountCredentialDTO,
     CaseDTO,
     CasePartyDTO,

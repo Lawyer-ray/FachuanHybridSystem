@@ -4,7 +4,7 @@ import os
 import tempfile
 
 from apps.core.filesystem import FolderFilesystemService
-from apps.core.path import Path
+from apps.core.utils.path import Path
 
 
 def extract_zip_if_needed(file_path: str) -> list[str] | None | None:

@@ -44,7 +44,7 @@ class EnforcementMediaPublicationRequestService(BasePlaceholderService):
         return {LitigationPlaceholderKeys.ENFORCEMENT_MEDIA_PUBLICATION_REQUEST: text}
 
     def _get_respondent_names(self, *, case_id: int) -> str:
-        from apps.core.enums import LegalStatus
+        from apps.core.models.enums import LegalStatus
 
         case_parties = self.case_details_accessor.get_case_parties(case_id=case_id)
         respondents = [

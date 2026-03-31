@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from apps.core.dtos import DocumentTemplateDTO
+from apps.core.dto import DocumentTemplateDTO
 
 
 class DocumentTemplateDtoAssembler:

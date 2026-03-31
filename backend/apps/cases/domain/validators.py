@@ -6,7 +6,7 @@ from collections.abc import Iterable
 
 from django.utils.translation import gettext_lazy as _
 
-from apps.core.enums import CaseStage, CaseType
+from apps.core.models.enums import CaseStage, CaseType
 
 __all__: list[str] = [
     "APPLICABLE_TYPES",

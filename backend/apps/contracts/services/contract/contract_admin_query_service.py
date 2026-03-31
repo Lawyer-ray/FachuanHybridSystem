@@ -7,7 +7,7 @@ from typing import Any, ClassVar
 from django.utils.translation import gettext_lazy as _
 
 from apps.contracts.models import Contract
-from apps.core.enums import CaseType
+from apps.core.models.enums import CaseType
 from apps.core.exceptions import NotFoundError
 
 from .wiring import get_case_service
@@ -54,7 +54,7 @@ class ContractAdminQueryService:
         case_ids = [case.id for case in cases_dto]
         case_primary_lawyer_map = case_service.get_primary_lawyer_names_by_case_ids_internal(case_ids)
 
-        from apps.core.enums import CaseStatus
+        from apps.core.models.enums import CaseStatus
 
         status_map = dict(CaseStatus.choices)
         return [

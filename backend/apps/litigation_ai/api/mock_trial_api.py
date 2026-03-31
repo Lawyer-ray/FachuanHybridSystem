@@ -6,7 +6,7 @@ from typing import Any
 from django.http import HttpRequest
 from ninja import Router
 
-from apps.core.auth import JWTOrSessionAuth
+from apps.core.security.auth import JWTOrSessionAuth
 from apps.core.infrastructure.throttling import rate_limit_from_settings
 
 from .mock_trial_schemas import (

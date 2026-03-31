@@ -68,7 +68,7 @@ class DocumentDeliveryMatchingMixin:
     def _match_case_by_document_parties(self, document_paths: list[str]) -> Any:
         """从文书中提取当事人进行案件匹配"""
         try:
-            from apps.core.enums import CaseStatus
+            from apps.core.models.enums import CaseStatus
 
             for doc_path in document_paths:
                 logger.info(f"尝试从文书中提取当事人: {doc_path}")

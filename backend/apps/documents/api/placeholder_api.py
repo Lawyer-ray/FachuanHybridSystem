@@ -13,7 +13,7 @@ from typing import Any
 from django.utils.translation import gettext_lazy as _
 from ninja import Router
 
-from apps.core.auth import JWTOrSessionAuth
+from apps.core.security.auth import JWTOrSessionAuth
 from apps.documents.schemas import PlaceholderIn, PlaceholderOut, PlaceholderPreviewOut, PlaceholderUpdate
 from apps.documents.services.placeholders import EnhancedContextBuilder
 from apps.documents.services.placeholders.placeholder_service import PlaceholderService

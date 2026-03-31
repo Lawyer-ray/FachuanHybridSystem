@@ -22,6 +22,11 @@ class ExecutorSourceGatewayMixin:
         offset: int,
         batch_size: int,
         task_id: str,
+        advanced_query: list[dict[str, str]] | None = None,
+        court_filter: str = "",
+        cause_of_action_filter: str = "",
+        date_from: str = "",
+        date_to: str = "",
     ) -> list[Any]:
         for attempt in range(1, cls.SEARCH_RETRY_ATTEMPTS + 1):
             try:
@@ -31,6 +36,11 @@ class ExecutorSourceGatewayMixin:
                     keyword=keyword,
                     offset=offset,
                     batch_size=batch_size,
+                    advanced_query=advanced_query,
+                    court_filter=court_filter,
+                    cause_of_action_filter=cause_of_action_filter,
+                    date_from=date_from,
+                    date_to=date_to,
                 )
             except Exception as exc:
                 if attempt >= cls.SEARCH_RETRY_ATTEMPTS:
@@ -165,10 +175,27 @@ class ExecutorSourceGatewayMixin:
         keyword: str,
         offset: int,
         batch_size: int,
+        advanced_query: list[dict[str, str]] | None = None,
+        court_filter: str = "",
+        cause_of_action_filter: str = "",
+        date_from: str = "",
+        date_to: str = "",
     ) -> list[Any]:
         search_cases = source_client.search_cases
         max_pages = cls._estimate_max_pages(offset=offset, batch_size=batch_size)
         signature = inspect.signature(search_cases)
+        extra_kwargs: dict[str, Any] = {}
+        if "advanced_query" in signature.parameters:
+            extra_kwargs["advanced_query"] = advanced_query
+        if "court_filter" in signature.parameters:
+            extra_kwargs["court_filter"] = court_filter
+        if "cause_of_action_filter" in signature.parameters:
+            extra_kwargs["cause_of_action_filter"] = cause_of_action_filter
+        if "date_from" in signature.parameters:
+            extra_kwargs["date_from"] = date_from
+        if "date_to" in signature.parameters:
+            extra_kwargs["date_to"] = date_to
+
         if "offset" in signature.parameters:
             return search_cases(
                 session=session,
@@ -176,14 +203,15 @@ class ExecutorSourceGatewayMixin:
                 max_candidates=batch_size,
                 max_pages=max_pages,
                 offset=offset,
+                **extra_kwargs,
             )
 
-        # 兼容尚未实现 offset 的旧检索源：扩大上限后截取窗口。
         window = search_cases(
             session=session,
             keyword=keyword,
             max_candidates=offset + batch_size,
             max_pages=max_pages,
+            **extra_kwargs,
         )
         return window[offset : offset + batch_size]
 

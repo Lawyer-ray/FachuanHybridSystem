@@ -3,7 +3,7 @@
 import json
 from typing import Any
 
-from apps.core.path import Path
+from apps.core.utils.path import Path
 
 
 class CookieService:

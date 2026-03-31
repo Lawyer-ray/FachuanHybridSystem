@@ -2,7 +2,7 @@
 
 from typing import Any, Protocol
 
-from apps.core.dtos import ConversationHistoryDTO
+from apps.core.dto import ConversationHistoryDTO
 
 
 class IConversationHistoryService(Protocol):

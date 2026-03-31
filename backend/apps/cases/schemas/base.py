@@ -19,10 +19,10 @@ from apps.cases.models import (
     CaseParty,
     SupervisingAuthority,
 )
-from apps.core.schemas import SchemaMixin
-from apps.core.schemas_shared import ClientIdentityDocLiteOut as ClientIdentityDocOut
-from apps.core.schemas_shared import ClientLiteOut as ClientOut
-from apps.core.schemas_shared import ReminderLiteOut as ReminderOut
+from apps.core.api.schemas import SchemaMixin
+from apps.core.api.schemas_shared import ClientIdentityDocLiteOut as ClientIdentityDocOut
+from apps.core.api.schemas_shared import ClientLiteOut as ClientOut
+from apps.core.api.schemas_shared import ReminderLiteOut as ReminderOut
 
 __all__: list[str] = [
     "Any",

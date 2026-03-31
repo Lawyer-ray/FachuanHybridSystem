@@ -10,7 +10,7 @@ import zipfile
 from datetime import datetime
 from typing import Any
 
-from apps.core.path import Path
+from apps.core.utils.path import Path
 
 from .reconciler import STATUS_UNMATCHED, DeliveryNote, MonthGroup, ReconcileResult, StatementInfo
 

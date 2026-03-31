@@ -544,6 +544,10 @@ class McpToolClient:
         if not isinstance(body, dict):
             return False
 
+        # 天眼查 MCP 服务端把鉴权错误包装成 HTTP 500，type 字段为 "auth_error"
+        if str(body.get("type", "") or "").strip().lower() in ("auth_error", "authentication_error"):
+            return True
+
         hint = " ".join(str(body.get(key, "")) for key in ("type", "code", "detail", "message")).lower()
         return any(token in hint for token in ("auth", "unauthor", "api key", "token"))
 

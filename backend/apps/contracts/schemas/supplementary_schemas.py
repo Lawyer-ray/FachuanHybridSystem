@@ -11,7 +11,7 @@ from typing import Any, ClassVar
 from ninja import ModelSchema, Schema
 
 from apps.contracts.models import PartyRole, SupplementaryAgreement, SupplementaryAgreementParty
-from apps.core.schemas import SchemaMixin
+from apps.core.api.schemas import SchemaMixin
 
 from .client_schemas import ClientOut
 

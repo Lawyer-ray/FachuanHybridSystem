@@ -7,7 +7,7 @@ from typing import Any
 
 def get_case_service() -> Any:
     """获取案件服务实例"""
-    from apps.core.service_locator import ServiceLocator
+    from apps.core.infrastructure.service_locator import ServiceLocator
 
     return ServiceLocator.get_case_service()
 

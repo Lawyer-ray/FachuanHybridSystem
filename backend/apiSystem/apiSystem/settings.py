@@ -77,6 +77,7 @@ INSTALLED_APPS = [
     "apps.cases",  # 3. CASES（案件管理）
     "apps.reminders",  # 3.5 Reminders（重要日期提醒）
     "apps.automation",  # 5. 自动化工具
+    "apps.message_hub.apps.MessageHubConfig",  # 5.1 信息中转站
     "apps.image_rotation",  # 5.1 图片自动旋转（从 automation 拆分）
     "apps.invoice_recognition",  # 5.2 发票识别（从 automation 拆分）
     "apps.fee_notice",  # 5.3 交费通知书识别（从 automation 拆分）
@@ -92,6 +93,7 @@ INSTALLED_APPS = [
     "apps.finance",  # 6.3.1 金融工具(LPR计算器)
     "apps.oa_filing",  # 6.4 OA立案
     "apps.legal_research",  # 6.5 案例检索（法律数据源）
+    "apps.legal_solution",  # 6.6 法律服务方案
     "apps.enterprise_data",  # 6.6 企业数据查询（天眼查/企查查等）
     "apps.doc_convert",  # 6.7 文书转换（传统文书转要素式文书）
     "apps.core",  # 7. 核心系统
@@ -101,7 +103,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
-    "apps.core.middleware_request_id.RequestIdMiddleware",
+    "apps.core.middleware.request_id.RequestIdMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
     "apps.organization.middleware.ApiTrailingSlashMiddleware",
@@ -384,7 +386,7 @@ if not DEBUG:
 # ============================================================
 
 from apps.core.infrastructure import get_cache_config
-from apps.core.logging import get_logging_config
+from apps.core.infrastructure.logging import get_logging_config
 
 LOGGING = get_logging_config(BASE_DIR.parent, DEBUG)
 CACHES = get_cache_config()

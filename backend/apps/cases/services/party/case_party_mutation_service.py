@@ -10,7 +10,7 @@ from django.db.models import QuerySet
 from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import CaseParty
-from apps.core.business_config import business_config
+from apps.core.config.business_config import business_config
 from apps.core.exceptions import ConflictError, NotFoundError, ValidationException
 from apps.core.interfaces import IClientService, IContractService
 

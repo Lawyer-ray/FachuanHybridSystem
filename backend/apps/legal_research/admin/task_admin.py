@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 @admin.register(LegalResearchTask)
 class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
+    change_form_template = "admin/legal_research/legalresearchtask/change_form.html"
     WEIKE_SITE_FILTER = (
         Q(site_name__icontains="wkxx")
         | Q(site_name__iexact="wk")
@@ -91,6 +92,11 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
     add_fields: ClassVar[list[str]] = [
         "credential",
         "keyword",
+        "advanced_query",
+        "court_filter",
+        "cause_of_action_filter",
+        "date_from",
+        "date_to",
         "case_summary",
         "search_mode",
         "target_count",
@@ -148,6 +154,8 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
 
         self._configure_credential_field(request=request, form=form)
         self._configure_keyword_field(form=form)
+        self._configure_advanced_query_field(form=form)
+        self._configure_filter_fields(form=form)
         self._configure_search_mode_field(form=form)
         self._configure_scan_threshold_fields(form=form)
         self._attach_search_mode_cleaner(form)
@@ -218,6 +226,58 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
             return normalized
 
         form.clean_keyword = clean_keyword
+
+    @staticmethod
+    def _configure_advanced_query_field(*, form: type[forms.ModelForm]) -> None:
+        field = form.base_fields.get("advanced_query")
+        if field is None:
+            return
+        field.required = False
+        field.help_text = (
+            "可选。高级检索条件，JSON 数组格式，留空则使用上方关键词做全文检索。<br>"
+            "每项格式：<code>{\"field\": \"字段名\", \"keyword\": \"关键词\", \"op\": \"AND\"}</code><br>"
+            "字段名可选：<code>fullText</code>（全文）、<code>title</code>（标题）、"
+            "<code>courtOpinion</code>（本院认为）、<code>judgmentResult</code>（裁判结果）、"
+            "<code>disputeFocus</code>（争议焦点）、<code>causeOfAction</code>（案由）、"
+            "<code>caseNumber</code>（案号）<br>"
+            "示例：<code>[{\"field\":\"courtOpinion\",\"keyword\":\"逾期利息\",\"op\":\"AND\"},"
+            "{\"field\":\"title\",\"keyword\":\"借款合同\",\"op\":\"AND\"}]</code>"
+        )
+        field.widget = forms.Textarea(attrs={"rows": 4, "style": "font-family:monospace;font-size:12px;"})
+
+    @staticmethod
+    def _configure_filter_fields(*, form: type[forms.ModelForm]) -> None:
+        court_field = form.base_fields.get("court_filter")
+        if court_field is not None:
+            court_field.required = False
+            court_field.help_text = "可选。按法院名称精确筛选，例如：北京市第一中级人民法院"
+            if hasattr(court_field.widget, "attrs"):
+                court_field.widget.attrs["placeholder"] = "例如：北京市第一中级人民法院（留空不限）"
+
+        cause_field = form.base_fields.get("cause_of_action_filter")
+        if cause_field is not None:
+            cause_field.required = False
+            cause_field.help_text = "可选。按案由精确筛选，例如：民间借贷纠纷"
+            if hasattr(cause_field.widget, "attrs"):
+                cause_field.widget.attrs["placeholder"] = "例如：民间借贷纠纷（留空不限）"
+
+        date_from_field = form.base_fields.get("date_from")
+        if date_from_field is not None:
+            date_from_field.required = False
+            date_from_field.help_text = "可选。裁判日期起，格式：YYYY-MM-DD"
+            if hasattr(date_from_field.widget, "attrs"):
+                date_from_field.widget.attrs["placeholder"] = "例如：2020-01-01"
+
+        date_to_field = form.base_fields.get("date_to")
+        if date_to_field is not None:
+            date_to_field.required = False
+            date_to_field.help_text = "可选。裁判日期止，格式：YYYY-MM-DD"
+            if hasattr(date_to_field.widget, "attrs"):
+                date_to_field.widget.attrs["placeholder"] = "例如：2024-12-31"
+
+    @staticmethod
+    def _configure_search_field_field(*, form: type[forms.ModelForm]) -> None:
+        pass  # 已废弃，保留避免调用报错
 
     @staticmethod
     def _configure_keyword_field(*, form: type[forms.ModelForm]) -> None:

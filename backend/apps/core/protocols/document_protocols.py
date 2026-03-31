@@ -6,7 +6,7 @@
 
 from typing import Any, Protocol
 
-from apps.core.dtos import DocumentTemplateDTO, EvidenceItemDigestDTO, GenerationTaskDTO
+from apps.core.dto import DocumentTemplateDTO, EvidenceItemDigestDTO, GenerationTaskDTO
 
 
 class IDocumentService(Protocol):

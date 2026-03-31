@@ -49,7 +49,7 @@ class EnforcementApplicantPartyService(BasePlaceholderService):
 
         Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 3.1, 8.3, 9.1, 9.2
         """
-        from apps.core.enums import LegalStatus
+        from apps.core.models.enums import LegalStatus
 
         case_parties = self.case_details_accessor.get_case_parties(case_id=case_id)
 
@@ -114,7 +114,7 @@ class EnforcementApplicantBasicFieldsService(BasePlaceholderService):
         }
 
     def _get_applicants(self, *, case_id: int) -> list[dict[str, Any]]:
-        from apps.core.enums import LegalStatus
+        from apps.core.models.enums import LegalStatus
 
         case_parties = self.case_details_accessor.get_case_parties(case_id=case_id)
         return [
@@ -168,7 +168,7 @@ class EnforcementRespondentPartyService(BasePlaceholderService):
 
         Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 3.1, 8.3, 9.1, 9.2
         """
-        from apps.core.enums import LegalStatus
+        from apps.core.models.enums import LegalStatus
 
         case_parties = self.case_details_accessor.get_case_parties(case_id=case_id)
 
@@ -230,7 +230,7 @@ class EnforcementRespondentNameService(BasePlaceholderService):
         Returns:
             str: 被申请人名称，多个用"、"分隔
         """
-        from apps.core.enums import LegalStatus
+        from apps.core.models.enums import LegalStatus
 
         case_parties = self.case_details_accessor.get_case_parties(case_id=case_id)
 
