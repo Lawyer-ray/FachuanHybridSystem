@@ -16,7 +16,7 @@ from apps.message_hub.models import InboxMessage
 
 @admin.register(InboxMessage)
 class InboxMessageAdmin(admin.ModelAdmin[InboxMessage]):
-    list_display = ["subject_display", "source_badge", "sender", "received_at", "attachments_display"]
+    list_display = ["subject_display", "source_badge", "recipient_display", "received_at", "attachments_display"]
     list_display_links = ["subject_display"]
     list_filter: ClassVar = ["source", "has_attachments", "received_at"]
     search_fields: ClassVar = ("subject", "sender", "body_text")
@@ -24,7 +24,7 @@ class InboxMessageAdmin(admin.ModelAdmin[InboxMessage]):
     date_hierarchy = "received_at"
     list_per_page = 50
     ordering: ClassVar = ["-received_at"]
-    list_select_related: ClassVar = ["source"]
+    list_select_related: ClassVar = ["source", "source__credential"]
 
     fieldsets: ClassVar = (
         (_("基本信息"), {"fields": ("source", "message_id", "sender", "received_at", "created_at")}),
@@ -66,6 +66,10 @@ class InboxMessageAdmin(admin.ModelAdmin[InboxMessage]):
             f'padding:3px 10px;border-radius:12px;font-size:11px;white-space:nowrap">'
             f'{obj.source.display_name}</span>'
         )
+
+    @admin.display(description=_("收件人"))
+    def recipient_display(self, obj: InboxMessage) -> str:
+        return obj.source.credential.account
 
     @admin.display(description=_("主题"))
     def subject_display(self, obj: InboxMessage) -> SafeString:
