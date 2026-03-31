@@ -137,3 +137,20 @@ def test_fingerprint_same_key_same_result() -> None:
 def test_fingerprint_different_keys_different_results() -> None:
     pool = _pool("key1", "key2")
     assert pool.fingerprint("key1") != pool.fingerprint("key2")
+
+
+# ── 补充边缘分支 ──────────────────────────────────────────────────────────────
+
+def test_block_with_zero_ttl_does_nothing() -> None:
+    # _block ttl_seconds <= 0 不写 cache（覆盖 line 71）
+    pool = _pool("key1")
+    with patch("apps.enterprise_data.services.clients.api_key_pool.cache") as mock_cache:
+        pool._block("key1", ttl_seconds=0)
+    mock_cache.set.assert_not_called()
+
+
+def test_order_with_preferred_preferred_not_in_list() -> None:
+    # preferred fingerprint 不在 keys 里，返回原顺序（覆盖 line 90）
+    pool = _pool("key1", "key2")
+    result = pool._order_with_preferred(["key1", "key2"], "nonexistent_fp")
+    assert result == ["key1", "key2"]
