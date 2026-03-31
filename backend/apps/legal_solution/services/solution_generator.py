@@ -20,8 +20,8 @@ _RETRY = 2
 def _md_to_html(text: str) -> str:
     """markdown → HTML，优先用 markdown 库，回退手动转换。"""
     try:
-        import markdown
-        return markdown.markdown(text, extensions=["tables", "fenced_code"])
+        import markdown  # type: ignore[import-untyped]
+        return str(markdown.markdown(text, extensions=["tables", "fenced_code"]))
     except ImportError:
         pass
     # 回退：手动转换
@@ -35,19 +35,34 @@ def _md_to_html(text: str) -> str:
         ol_m = re.match(r"^\d+[.、]\s+(.*)", line)
         ul_m = re.match(r"^[-*•]\s+(.*)", line)
         if ol_m:
-            if in_ul: out.append("</ul>"); in_ul = False
-            if not in_ol: out.append("<ol>"); in_ol = True
+            if in_ul:
+                out.append("</ul>")
+                in_ul = False
+            if not in_ol:
+                out.append("<ol>")
+                in_ol = True
             out.append(f"<li>{ol_m.group(1)}</li>")
         elif ul_m:
-            if in_ol: out.append("</ol>"); in_ol = False
-            if not in_ul: out.append("<ul>"); in_ul = True
+            if in_ol:
+                out.append("</ol>")
+                in_ol = False
+            if not in_ul:
+                out.append("<ul>")
+                in_ul = True
             out.append(f"<li>{ul_m.group(1)}</li>")
         else:
-            if in_ul: out.append("</ul>"); in_ul = False
-            if in_ol: out.append("</ol>"); in_ol = False
-            if line.strip(): out.append(f"<p>{line}</p>")
-    if in_ul: out.append("</ul>")
-    if in_ol: out.append("</ol>")
+            if in_ul:
+                out.append("</ul>")
+                in_ul = False
+            if in_ol:
+                out.append("</ol>")
+                in_ol = False
+            if line.strip():
+                out.append(f"<p>{line}</p>")
+    if in_ul:
+        out.append("</ul>")
+    if in_ol:
+        out.append("</ol>")
     return "\n".join(out)
 
 
@@ -118,7 +133,7 @@ class SolutionGenerator:
                     raise ValueError("LLM 返回空内容")
                 section.content = content
                 section.html_content = _md_to_html(content)
-                if not task.llm_model and getattr(response, "model", ""):
+                if not task.llm_model and getattr(response, "model", False):
                     task.llm_model = response.model
                     task.save(update_fields=["llm_model", "updated_at"])
                 section.status = SectionStatus.COMPLETED

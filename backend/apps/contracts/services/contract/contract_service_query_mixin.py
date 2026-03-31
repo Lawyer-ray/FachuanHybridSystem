@@ -27,9 +27,11 @@ class ContractServiceQueryMixin:
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
-    ) -> list[Contract]:
+        page: int = 1,
+        page_size: int = 20,
+    ) -> dict[str, Any]:
         return cast(
-            list[Contract],
+            dict[str, Any],
             self.query_facade.list_contracts(
                 case_type=case_type,
                 status=status,
@@ -37,6 +39,8 @@ class ContractServiceQueryMixin:
                 user=user,
                 org_access=org_access,
                 perm_open_access=perm_open_access,
+                page=page,
+                page_size=page_size,
             ),
         )
 

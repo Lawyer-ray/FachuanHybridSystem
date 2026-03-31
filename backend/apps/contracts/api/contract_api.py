@@ -9,6 +9,7 @@ from ninja import Router
 from apps.contracts.schemas import (
     ContractIn,
     ContractOut,
+    ContractPaginatedOut,
     ContractPartySourceOut,
     ContractPaymentIn,
     ContractUpdate,
@@ -26,8 +27,14 @@ def _get_contract_service() -> Any:
     return get_contract_service()
 
 
-@router.get("/contracts", response=list[ContractOut])
-def list_contracts(request: HttpRequest, case_type: str | None = None, status: str | None = None) -> Any:
+@router.get("/contracts", response=ContractPaginatedOut)
+def list_contracts(
+    request: HttpRequest,
+    case_type: str | None = None,
+    status: str | None = None,
+    page: int = 1,
+    page_size: int = 20,
+) -> Any:
     """
     获取合同列表
 
@@ -42,6 +49,8 @@ def list_contracts(request: HttpRequest, case_type: str | None = None, status: s
         user=ctx.user,
         org_access=ctx.org_access,
         perm_open_access=ctx.perm_open_access,
+        page=page,
+        page_size=page_size,
     )
 
 

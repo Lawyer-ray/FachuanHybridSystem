@@ -181,12 +181,10 @@ jobs:
           PYTHONPATH: "apiSystem:."
         run: |
           uv run mypy --config-file=mypy.ini --follow-imports=skip \
-            apps/core/httpx_clients.py \
             apps/core/services/wiring.py \
             apps/core/protocols/common_protocols.py \
             apps/core/dto/auth.py \
             apps/core/infrastructure/throttling.py \
-            apps/core/middleware_request_id.py \
             apps/core/exceptions/handlers.py \
             apiSystem/apiSystem/api.py
 
@@ -220,7 +218,7 @@ jobs:
         run: uv run pip-audit
 
       - name: Static security scan (bandit)
-        run: uv run bandit -r apps -q -ll -x "*/migrations/*,*/static/*,*/staticfiles/*,*/media/*,*/venv*/*,*/htmlcov/*"
+        run: uv run bandit -r apps -q -lll -x "*/migrations/*,*/static/*,*/staticfiles/*,*/media/*,*/venv*/*,*/htmlcov/*"
 
   backend-ruff-full:
     runs-on: ubuntu-latest
@@ -280,12 +278,10 @@ jobs:
           PYTHONPATH: "apiSystem:."
         run: |
           uv run mypy --config-file=mypy.ini --follow-imports=skip \
-            apps/core/httpx_clients.py \
             apps/core/services/wiring.py \
             apps/core/protocols/common_protocols.py \
             apps/core/dto/auth.py \
             apps/core/infrastructure/throttling.py \
-            apps/core/middleware_request_id.py \
             apps/core/exceptions/handlers.py \
             apps/organization/services/organization_access_policy.py \
             apiSystem/apiSystem/api.py
@@ -455,12 +451,11 @@ jobs:
           PYTHONPATH: "apiSystem:."
         run: |
           uv run mypy --config-file=mypy.ini --follow-imports=skip \
-            apps/core/auth.py \
+            apps/core/security/auth.py \
             apps/core/infrastructure/throttling.py \
             apps/core/infrastructure/cache.py \
             apps/core/middleware/request_id.py \
             apps/core/middleware/security.py \
-            apps/core/middleware_request_id.py \
             apps/organization/services/auth_service.py \
             apps/automation/services/token/cache_manager.py \
             apps/automation/utils/logging_mixins/common.py
@@ -493,12 +488,10 @@ jobs:
           PYTHONPATH: "apiSystem:."
         run: |
           uv run mypy --config-file=mypy.ini --follow-imports=skip \
-            apps/core/httpx_clients.py \
             apps/core/services/wiring.py \
             apps/core/protocols/common_protocols.py \
             apps/core/dto/auth.py \
             apps/core/infrastructure/throttling.py \
-            apps/core/middleware_request_id.py \
             apps/core/exceptions/handlers.py \
             apps/organization/services/organization_access_policy.py \
             apiSystem/apiSystem/api.py

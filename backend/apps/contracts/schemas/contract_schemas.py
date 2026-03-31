@@ -164,34 +164,34 @@ class ContractOut(ModelSchema):
         dtos = getattr(obj, "case_dtos", None)
         if dtos is not None:
             return [CaseOut.from_dto(dto) for dto in dtos]
-        cases = obj.cases  # type: ignore[attr-defined]
+        cases = obj.cases
         return [CaseOut.from_model(item) for item in cases.all()]
 
     @staticmethod
     def resolve_fee_mode(obj: Contract) -> str:
-        return obj.get_fee_mode_display()  # type: ignore[attr-defined, no-any-return]
+        return str(obj.get_fee_mode_display())
 
     @staticmethod
     def resolve_contract_parties(obj: Contract) -> list[Any]:
-        contract_parties = obj.contract_parties  # type: ignore[attr-defined]
+        contract_parties = obj.contract_parties
         return list(contract_parties.all())
 
     @staticmethod
     def resolve_representation_stages(obj: Contract) -> list[str]:
         label_map = {m.value: m.label for m in CaseStage}
-        return [label_map.get(code, code) for code in (obj.representation_stages or [])]  # type: ignore[misc]
+        return [label_map.get(code, code) for code in (obj.representation_stages or [])]
 
     @staticmethod
     def resolve_case_type_label(obj: Contract) -> str | None:
         try:
-            return obj.get_case_type_display()  # type: ignore[no-any-return, attr-defined]
+            return str(obj.get_case_type_display())
         except (AttributeError, ValueError):
             return None
 
     @staticmethod
     def resolve_status_label(obj: Contract) -> str | None:
         try:
-            return obj.get_status_display()  # type: ignore[no-any-return, attr-defined]
+            return str(obj.get_status_display())
         except (AttributeError, ValueError):
             return None
 
@@ -200,12 +200,12 @@ class ContractOut(ModelSchema):
         from apps.core.interfaces import ServiceLocator
 
         reminder_service = ServiceLocator.get_reminder_service()
-        return reminder_service.export_contract_reminders_internal(contract_id=obj.id)
+        return list(reminder_service.export_contract_reminders_internal(contract_id=obj.id))
 
     @staticmethod
     def resolve_payments(obj: Contract) -> list[Any]:
         try:
-            return list(obj.payments.all())  # type: ignore[attr-defined]
+            return list(obj.payments.all())
         except Exception:
             logger.exception("操作失败")
             return []
@@ -213,7 +213,7 @@ class ContractOut(ModelSchema):
     @staticmethod
     def resolve_total_received(obj: Contract) -> float:
         try:
-            return float(sum(float(p.amount or 0) for p in obj.payments.all()))  # type: ignore[attr-defined]
+            return float(sum(float(p.amount or 0) for p in obj.payments.all()))
         except Exception:
             logger.exception("操作失败")
             return 0.0
@@ -221,7 +221,7 @@ class ContractOut(ModelSchema):
     @staticmethod
     def resolve_total_invoiced(obj: Contract) -> float:
         try:
-            return float(sum(float(p.invoiced_amount or 0) for p in obj.payments.all()))  # type: ignore[attr-defined]
+            return float(sum(float(p.invoiced_amount or 0) for p in obj.payments.all()))
         except Exception:
             logger.exception("操作失败")
             return 0.0
@@ -241,13 +241,13 @@ class ContractOut(ModelSchema):
     @staticmethod
     def resolve_supplementary_agreements(obj: Contract) -> list[Any]:
         """解析补充协议列表"""
-        supplementary_agreements = obj.supplementary_agreements  # type: ignore[attr-defined]
+        supplementary_agreements = obj.supplementary_agreements
         return list(supplementary_agreements.prefetch_related("parties__client").all())
 
     @staticmethod
     def resolve_assignments(obj: Contract) -> list[ContractAssignmentOut]:
         """解析律师指派列表"""
-        assignments = obj.assignments  # type: ignore[attr-defined]
+        assignments = obj.assignments
         return [ContractAssignmentOut.from_assignment(a) for a in assignments.select_related("lawyer").all()]
 
     @staticmethod
@@ -290,3 +290,13 @@ class ContractUpdate(Schema):
     representation_stages: list[Any] | None = None
     parties: list[ContractPartyIn] | None = None  # 当事人列表(含身份)
     supplementary_agreements: list[SupplementaryAgreementInput] | None = None  # 补充协议列表
+
+
+class ContractPaginatedOut(Schema):
+    """合同分页输出 Schema"""
+
+    items: list[ContractOut]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
