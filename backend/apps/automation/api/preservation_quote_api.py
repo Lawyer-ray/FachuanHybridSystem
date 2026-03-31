@@ -99,10 +99,12 @@ def list_preservation_quotes(
     # 创建 Service 实例（使用工厂函数）
     service = _get_preservation_quote_service()
 
+    actual_page_size = page_size or 20
+
     # 调用 Service 方法（参数验证在 Service 层）
     result = service.list_quotes(  # type: ignore[attr-defined]
         page=page,
-        page_size=page_size,
+        page_size=actual_page_size,
         status=status,
     )
     # adapter 返回 dict，兼容直接返回 (quotes, total) 元组的实现
@@ -113,7 +115,7 @@ def list_preservation_quotes(
         quotes, total = result
 
     # 计算总页数
-    total_pages = math.ceil(total / page_size) if total > 0 else 0
+    total_pages = math.ceil(total / actual_page_size) if total > 0 else 0
 
     # 转换为 Schema
     items = [QuoteListItemSchema.from_model(quote) for quote in quotes]
@@ -122,7 +124,7 @@ def list_preservation_quotes(
     return QuoteListSchema(
         total=total,
         page=page,
-        page_size=page_size,  # type: ignore[arg-type]
+        page_size=actual_page_size,
         total_pages=total_pages,
         items=items,
     )

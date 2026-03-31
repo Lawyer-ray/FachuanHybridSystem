@@ -142,7 +142,7 @@ class CourtSMSListOut(BaseModel):
             sms_type=obj.sms_type,
             status=obj.status,
             case_name=obj.case.name if obj.case else None,
-            has_documents=bool(obj.court_documents.exists()),
+            has_documents=bool(obj.scraper_task_id and obj.scraper_task.documents.exists()),
             feishu_sent=bool(obj.feishu_sent_at),
             created_at=cast(Any, obj.created_at),
         )
