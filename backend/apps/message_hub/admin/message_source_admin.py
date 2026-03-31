@@ -24,6 +24,8 @@ class MessageSourceAdmin(admin.ModelAdmin[MessageSource]):
 
     fieldsets: ClassVar = (
         (_("基本配置"), {"fields": ("display_name", "credential", "source_type", "is_enabled", "poll_interval_minutes", "sync_since")}),
+        (_("发件人过滤"), {"fields": ("sender_whitelist", "sender_blacklist"), "description": _("可输入邮箱地址或发件人名称，每行一个，大小写不敏感。白名单优先于黑名单。")}),
+        (_("IMAP 配置"), {"fields": ("imap_host", "imap_account"), "classes": ("collapse",)}),
         (_("同步状态"), {"fields": ("last_sync_at", "last_sync_status", "last_sync_error", "last_synced_uid", "created_at")}),
     )
 

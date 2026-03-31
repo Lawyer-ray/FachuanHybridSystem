@@ -45,7 +45,10 @@ class MessageSource(models.Model):
     # IMAP 专用：记录最后同步的 UID，用于增量拉取
     last_synced_uid = models.PositiveIntegerField(null=True, blank=True, verbose_name=_("最后同步 UID"))
 
-    # 同步状态
+    # 发件人过滤（邮箱或名称，每行一个，大小写不敏感）
+    sender_whitelist = models.TextField(blank=True, verbose_name=_("只同步这些发件人"), help_text=_("每行一个邮箱或名称，留空则不限制"))
+    sender_blacklist = models.TextField(blank=True, verbose_name=_("不同步这些发件人"), help_text=_("每行一个邮箱或名称，留空则不排除"))
+
     last_sync_at = models.DateTimeField(null=True, blank=True, verbose_name=_("最后同步时间"))
     last_sync_status = models.CharField(
         max_length=16,

@@ -2,6 +2,34 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.30.0] - 2026-03-31
+
+### 新增
+
+- **多 Agent 对抗模拟庭审（litigation_ai）**：全新对抗模式庭审模拟
+  - 三个独立 Agent（原告/被告/法官），各自使用不同大模型，激烈对抗 system prompt
+  - 完整庭审流程：开庭→原告陈述→被告答辩→法庭调查→辩论（≥10 轮）→总结
+  - 用户可代替任意角色发言，可随时切换角色；法官每 2 轮追问一次
+  - WebSocket consumer 支持对抗模式步骤分发
+  - 庭审报告生成（完整记录 + 法官总结）
+
+- **一张网收件箱拉取（message_hub）**：CourtInboxFetcher 完整实现
+  - 复用 DocumentDeliveryTokenService 获取一张网 Token
+  - 分页拉取文书送达消息，按 sdbh 去重写入 InboxMessage
+  - 自动获取文书详情并下载附件到本地，Admin 支持按需预览/下载（优先本地缓存）
+  - 拉取完成后自动触发 CourtSMS 推送流程
+
+- **信息中转站 REST API（message_hub）**：新增收件箱 API 模块，支持消息列表（按来源/附件/关键词筛选）、消息详情（含 HTML/纯文本正文）、附件下载与预览，JWT + Session 双认证
+
+- **发件人过滤（message_hub）**：消息来源新增白名单/黑名单配置，可按邮箱地址或发件人名称过滤，每行一个，大小写不敏感子串匹配；白名单优先于黑名单；Admin 编辑页新增"发件人过滤"配置分组
+
+- **合同列表分页（contracts）**：合同列表接口新增 `page`/`page_size` 参数，后端 queryset 切片返回
+
+### 修复
+
+- **合同 API 500 错误（contracts）**：修复 API 层通过 ContractServiceAdapter 调用时返回 ContractDTO 而非 Contract model，导致 Ninja ModelSchema 序列化失败的问题；API 层改用 domain service 直接返回 Contract model
+- **一张网 Token 获取（message_hub）**：修复 Token 过期自动重试（401 时清除缓存/DB 后重新 Playwright 登录）；修复 async 环境下 ORM 调用问题（DJANGO_ALLOW_ASYNC_UNSAFE）；CourtToken 用 expires_at 替代不存在的 is_valid 字段
+
 ## [26.29.1] - 2026-03-31
 
 ### 修复

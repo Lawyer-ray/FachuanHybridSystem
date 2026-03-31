@@ -136,6 +136,12 @@ class ImapFetcher(MessageFetcher):
                 msg = email.message_from_bytes(raw)
                 subject = _decode_header_value(msg.get("Subject"))
                 sender = _decode_header_value(msg.get("From"))
+
+                # 发件人过滤
+                if not _sender_allowed(sender, source):
+                    max_uid = max(max_uid, uid)
+                    continue
+
                 date_str = msg.get("Date", "")
                 received_at = _parse_date(date_str) or timezone.now()
                 body_text, body_html = _extract_body(msg)
@@ -224,3 +230,23 @@ def _mark_failed(source: MessageSource, error: str) -> None:
     source.last_sync_status = SyncStatus.FAILED
     source.last_sync_error = error[:1000]
     source.save(update_fields=["last_sync_at", "last_sync_status", "last_sync_error"])
+
+
+def _parse_filter_lines(text: str) -> list[str]:
+    """将多行文本解析为小写关键词列表，忽略空行。"""
+    return [line.strip().lower() for line in text.splitlines() if line.strip()]
+
+
+def _sender_allowed(sender: str, source: MessageSource) -> bool:
+    """根据白名单/黑名单判断发件人是否允许同步。"""
+    sender_lower = sender.lower()
+
+    whitelist = _parse_filter_lines(source.sender_whitelist)
+    if whitelist:
+        return any(kw in sender_lower for kw in whitelist)
+
+    blacklist = _parse_filter_lines(source.sender_blacklist)
+    if blacklist:
+        return not any(kw in sender_lower for kw in blacklist)
+
+    return True

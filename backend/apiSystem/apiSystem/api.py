@@ -89,6 +89,7 @@ def _register_app_routers() -> None:
     from apps.image_rotation.api import router as image_rotation_router
     from apps.invoice_recognition.api import router as invoice_recognition_router
     from apps.legal_research.api import router as legal_research_router
+    from apps.message_hub.api import router as inbox_router
     from apps.organization.api import router as organization_router
     from apps.pdf_splitting.api import router as pdf_splitting_router
     from apps.preservation_date.api import router as preservation_date_router
@@ -110,6 +111,7 @@ def _register_app_routers() -> None:
     api_v1.add_router("/pdf-splitting", pdf_splitting_router, auth=JWTOrSessionAuth())
     api_v1.add_router("/enterprise-data", enterprise_data_router, auth=JWTOrSessionAuth(), tags=["企业数据查询"])
     api_v1.add_router("/reminders", reminders_router)
+    api_v1.add_router("/inbox", inbox_router)
     api_v1.add_router("/chat-records", chat_records_router, tags=["梳理聊天记录"])
 
     api_v1.add_router("/documents", document_router, tags=["文件模板"])
