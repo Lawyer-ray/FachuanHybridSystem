@@ -124,9 +124,16 @@ class MockTrialConsumer(AsyncWebsocketConsumer):
 
         if step == MockTrialStep.MODE_SELECT:
             await flow.handle_mode_select(ctx, content, self._send_message)
-        elif step == MockTrialStep.SIMULATION or step == MockTrialStep.FOCUS_ANALYSIS:
+        elif step == MockTrialStep.MODEL_CONFIG:
+            await flow.handle_model_config(ctx, content, self._send_message)
+        elif step in (
+            MockTrialStep.SIMULATION, MockTrialStep.FOCUS_ANALYSIS,
+            MockTrialStep.COURT_OPENING, MockTrialStep.PLAINTIFF_STATEMENT,
+            MockTrialStep.DEFENDANT_RESPONSE, MockTrialStep.COURT_INVESTIGATION,
+            MockTrialStep.COURT_DEBATE, MockTrialStep.COURT_SUMMARY,
+        ):
             await flow.handle_simulation(ctx, content, self._send_message)
-        else:
+        elif step == MockTrialStep.SUMMARY:
             # SUMMARY 或其他步骤：提示用户
             await self._send_message(
                 {

@@ -22,6 +22,7 @@ class MockTrialFlowService:
         self._conversation_service: Any | None = None
         self._session_repo: LitigationSessionRepository | None = None
         self._messenger: FlowMessenger | None = None
+        self._adversarial_services: dict[str, Any] = {}  # session_id → AdversarialTrialService
 
     def _get_conversation_service(self) -> Any:
         if not self._conversation_service:
@@ -71,8 +72,9 @@ class MockTrialFlowService:
             "请选择模拟模式：\n"
             "1️⃣ 法官视角分析 — AI 扮演法官，分析争议焦点、证据强弱、胜诉概率\n"
             "2️⃣ 质证模拟 — AI 扮演对方律师，逐一质证您的证据\n"
-            "3️⃣ 辩论模拟 — AI 扮演对方律师，围绕争议焦点进行多轮辩论\n\n"
-            "请回复数字（1/2/3）或模式名称。"
+            "3️⃣ 辩论模拟 — AI 扮演对方律师，围绕争议焦点进行多轮辩论\n"
+            "4️⃣ 多Agent对抗 — 原告/被告/法官分别由不同大模型激烈对抗，你可随时介入\n\n"
+            "请回复数字（1/2/3/4）或模式名称。"
         )
         await self._send(
             send_cb,
@@ -92,7 +94,7 @@ class MockTrialFlowService:
                 send_cb,
                 {
                     "type": "system_message",
-                    "content": "未识别模式，请回复 1（法官视角）、2（质证模拟）或 3（辩论模拟）。",
+                    "content": "未识别模式，请回复 1（法官视角）、2（质证模拟）、3（辩论模拟）或 4（多Agent对抗）。",
                 },
                 False,
                 ctx.session_id,
@@ -101,6 +103,10 @@ class MockTrialFlowService:
             return
 
         await self.session_repo.update_metadata(ctx.session_id, {"mock_trial_mode": mode})
+
+        if mode == MockTrialMode.ADVERSARIAL:
+            await self._send_model_config_prompt(ctx, send_cb)
+            return
 
         if mode == MockTrialMode.JUDGE:
             await self._send(
@@ -143,7 +149,9 @@ class MockTrialFlowService:
         metadata = await self.session_repo.get_metadata(ctx.session_id)
         mode = metadata.get("mock_trial_mode", "")
 
-        if mode == MockTrialMode.CROSS_EXAM:
+        if mode == MockTrialMode.ADVERSARIAL:
+            await self._handle_adversarial_input(ctx, user_input, send_cb)
+        elif mode == MockTrialMode.CROSS_EXAM:
             await self._handle_cross_exam_response(ctx, user_input, send_cb)
         elif mode == MockTrialMode.DEBATE:
             await self._handle_debate_turn(ctx, user_input, send_cb)
@@ -586,6 +594,10 @@ class MockTrialFlowService:
             "3": MockTrialMode.DEBATE,
             "辩论": MockTrialMode.DEBATE,
             "辩论模拟": MockTrialMode.DEBATE,
+            "4": MockTrialMode.ADVERSARIAL,
+            "对抗": MockTrialMode.ADVERSARIAL,
+            "多agent对抗": MockTrialMode.ADVERSARIAL,
+            "多agent": MockTrialMode.ADVERSARIAL,
         }
         return mapping.get(text)
 
@@ -596,3 +608,245 @@ class MockTrialFlowService:
         from apps.litigation_ai.services.context_service import LitigationContextService
 
         return await sync_to_async(LitigationContextService().get_case_info_for_agent, thread_sensitive=True)(case_id)
+
+    # ── 多 Agent 对抗 ──
+
+    async def _send_model_config_prompt(self, ctx: MockTrialContext, send_cb: Callable[..., Any]) -> None:
+        """发送模型配置提示."""
+        from apps.core.llm.config import LLMConfig
+
+        models = LLMConfig.DEFAULT_AVAILABLE_MODELS[:10]  # 取前 10 个
+        model_list = "\n".join(f"  {i + 1}. `{m}`" for i, m in enumerate(models))
+
+        msg = (
+            "⚔️ **多 Agent 对抗模式配置**\n\n"
+            f"可用模型：\n{model_list}\n\n"
+            "请按以下格式配置（每行一项），或直接回复 **默认** 使用默认配置：\n\n"
+            "```\n"
+            "原告模型: 1\n"
+            "被告模型: 3\n"
+            "法官模型: 5\n"
+            "辩论轮数: 10\n"
+            "我的角色: 观看\n"
+            "```\n\n"
+            "角色可选：原告 / 被告 / 法官 / 观看\n"
+            "模型填编号或完整名称均可。"
+        )
+        await self._send(
+            send_cb,
+            {"type": "system_message", "content": msg, "metadata": {"available_models": models}},
+            True,
+            ctx.session_id,
+            "system",
+        )
+        await self._set_step(ctx.session_id, MockTrialStep.MODEL_CONFIG)
+
+    async def handle_model_config(self, ctx: MockTrialContext, user_input: str, send_cb: Callable[..., Any]) -> None:
+        """解析用户的模型配置并启动对抗庭审."""
+        from apps.core.llm.config import LLMConfig
+
+        from .adversarial_service import AdversarialTrialService
+        from .types import AdversarialConfig
+
+        models = LLMConfig.DEFAULT_AVAILABLE_MODELS[:10]
+        text = (user_input or "").strip()
+
+        # 快捷默认
+        if text in ("默认", "default", "开始"):
+            config = AdversarialConfig()
+        else:
+            config = self._parse_adversarial_config(text, models)
+
+        await self.session_repo.update_metadata(ctx.session_id, {
+            "adversarial_config": {
+                "plaintiff_model": config.plaintiff_model,
+                "defendant_model": config.defendant_model,
+                "judge_model": config.judge_model,
+                "debate_rounds": config.debate_rounds,
+                "user_role": config.user_role,
+            }
+        })
+
+        role_label = {"plaintiff": "原告律师", "defendant": "被告律师", "judge": "审判长", "observer": "观看模式"}.get(
+            config.user_role, "观看模式"
+        )
+        await self._send(
+            send_cb,
+            {
+                "type": "system_message",
+                "content": (
+                    f"✅ 配置完成！\n"
+                    f"- 原告模型：{config.plaintiff_model or '默认'}\n"
+                    f"- 被告模型：{config.defendant_model or '默认'}\n"
+                    f"- 法官模型：{config.judge_model or '默认'}\n"
+                    f"- 辩论轮数：{config.debate_rounds}\n"
+                    f"- 您的角色：{role_label}\n\n"
+                    "🔔 庭审即将开始..."
+                ),
+            },
+            True,
+            ctx.session_id,
+            "system",
+        )
+
+        # 加载案件信息和证据
+        case_info = await self._get_case_brief(ctx.case_id)
+        evidence_text = await self._get_evidence_text(ctx.case_id)
+
+        # 创建服务实例并缓存
+        service = AdversarialTrialService(config, case_info, evidence_text)
+        self._adversarial_services[ctx.session_id] = service
+
+        # 启动庭审
+        await service.run_full_trial(ctx, send_cb, self._set_step)
+
+    def _parse_adversarial_config(self, text: str, models: list[str]) -> "AdversarialConfig":
+        """解析用户输入的配置文本."""
+        from .types import AdversarialConfig
+
+        config = AdversarialConfig()
+
+        def resolve_model(val: str) -> str:
+            val = val.strip()
+            try:
+                idx = int(val) - 1
+                if 0 <= idx < len(models):
+                    return models[idx]
+            except ValueError:
+                pass
+            # 直接用名称
+            for m in models:
+                if val.lower() in m.lower():
+                    return m
+            return val
+
+        role_map = {"原告": "plaintiff", "被告": "defendant", "法官": "judge", "观看": "observer"}
+
+        for line in text.split("\n"):
+            line = line.strip()
+            if ":" in line or "：" in line:
+                key, _, val = line.replace("：", ":").partition(":")
+                key, val = key.strip(), val.strip()
+                if "原告" in key and "模型" in key:
+                    config.plaintiff_model = resolve_model(val)
+                elif "被告" in key and "模型" in key:
+                    config.defendant_model = resolve_model(val)
+                elif "法官" in key and "模型" in key:
+                    config.judge_model = resolve_model(val)
+                elif "轮数" in key:
+                    try:
+                        config.debate_rounds = max(3, int(val))
+                    except ValueError:
+                        pass
+                elif "角色" in key:
+                    config.user_role = role_map.get(val, "observer")
+
+        return config
+
+    async def _handle_adversarial_input(self, ctx: MockTrialContext, user_input: str, send_cb: Callable[..., Any]) -> None:
+        """处理对抗模式中的用户输入."""
+        text = (user_input or "").strip()
+
+        # 导出报告
+        if text in ("导出报告", "导出", "报告"):
+            await self._export_adversarial_report(ctx, send_cb)
+            return
+
+        # 结束辩论
+        if text in ("结束辩论", "结束"):
+            service = self._adversarial_services.get(ctx.session_id)
+            if service:
+                await self._set_step(ctx.session_id, MockTrialStep.COURT_SUMMARY)
+                await service.run_summary(send_cb)
+                await send_cb({
+                    "type": "system_message",
+                    "content": "✅ 庭审结束！回复 **导出报告** 下载庭审报告。",
+                    "metadata": {"stage": "finished"},
+                })
+                await self._set_step(ctx.session_id, MockTrialStep.SUMMARY)
+            return
+
+        # 切换角色
+        role_switch = {"我代替原告": "plaintiff", "我代替被告": "defendant", "我代替法官": "judge", "我观看": "observer"}
+        for keyword, role in role_switch.items():
+            if keyword in text:
+                metadata = await self.session_repo.get_metadata(ctx.session_id)
+                adv_config = metadata.get("adversarial_config", {})
+                adv_config["user_role"] = role
+                await self.session_repo.update_metadata(ctx.session_id, {"adversarial_config": adv_config})
+                service = self._adversarial_services.get(ctx.session_id)
+                if service:
+                    service.config.user_role = role
+                label = {"plaintiff": "原告律师", "defendant": "被告律师", "judge": "审判长", "observer": "观看模式"}
+                await send_cb({
+                    "type": "system_message",
+                    "content": f"✅ 已切换为 **{label.get(role, role)}**",
+                })
+                return
+
+        # 用户代替角色发言
+        service = self._adversarial_services.get(ctx.session_id)
+        if service:
+            await service.handle_user_input(ctx, text, send_cb, self._set_step)
+
+    async def _export_adversarial_report(self, ctx: MockTrialContext, send_cb: Callable[..., Any]) -> None:
+        """生成并推送对抗庭审报告."""
+        service = self._adversarial_services.get(ctx.session_id)
+        if not service or not service.transcript:
+            await send_cb({"type": "system_message", "content": "⚠️ 暂无庭审记录可导出。"})
+            return
+
+        from .adversarial_service import ROLE_LABELS
+
+        metadata = await self.session_repo.get_metadata(ctx.session_id)
+        adv_config = metadata.get("adversarial_config", {})
+        case_info = service.case_info
+
+        lines = [
+            "# ⚖️ 多Agent对抗模拟庭审报告\n",
+            f"**案件名称：** {case_info.get('case_name', '')}",
+            f"**案由：** {case_info.get('cause_of_action', '')}",
+            f"**原告模型：** {adv_config.get('plaintiff_model') or '默认'}",
+            f"**被告模型：** {adv_config.get('defendant_model') or '默认'}",
+            f"**法官模型：** {adv_config.get('judge_model') or '默认'}",
+            f"**辩论轮数：** {adv_config.get('debate_rounds', 10)}",
+            "",
+            "---\n",
+        ]
+
+        current_stage = ""
+        stage_labels = {
+            "opening": "一、开庭审理",
+            "plaintiff_statement": "二、原告陈述",
+            "defendant_response": "三、被告答辩",
+            "investigation": "四、法庭调查",
+            "debate": "五、法庭辩论",
+            "debate_judge": "五、法庭辩论（法官追问）",
+            "summary": "六、法庭总结",
+        }
+
+        for entry in service.transcript:
+            stage = entry.get("stage", "")
+            base_stage = stage.split("_judge")[0] if "_judge" in stage else stage
+            if base_stage != current_stage and base_stage in stage_labels:
+                current_stage = base_stage
+                lines.append(f"\n## {stage_labels.get(stage, stage)}\n")
+
+            role_label = ROLE_LABELS.get(entry["role"], entry["role"])
+            is_user = entry.get("is_user", False)
+            suffix = "（用户）" if is_user else ""
+            lines.append(f"### {role_label}{suffix}\n")
+            lines.append(entry["content"])
+            lines.append("")
+
+        report_text = "\n".join(lines)
+
+        # 保存到 session metadata
+        await self.session_repo.update_metadata(ctx.session_id, {"adversarial_report": report_text})
+
+        await send_cb({
+            "type": "assistant_complete",
+            "content": report_text,
+            "metadata": {"report_type": "adversarial_trial", "exportable": True},
+        })
+        await self.messenger.persist_message(ctx.session_id, "assistant", report_text, {"report_type": "adversarial_trial"})

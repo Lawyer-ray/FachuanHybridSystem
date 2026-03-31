@@ -101,3 +101,79 @@
 .difficulty-selector { padding: 10px; background: #f8f9fa; border-radius: 6px; margin-top: 8px; }
 .difficulty-selector label { font-size: 0.85em; color: #666; margin-right: 8px; }
 .difficulty-selector select { padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.85em; }
+
+/* ========== 多Agent对抗模式样式 ========== */
+
+/* 角色消息标识 */
+.msg-role-plaintiff { border-left: 4px solid #2563eb; background: #eff6ff; }
+.msg-role-defendant { border-left: 4px solid #dc2626; background: #fef2f2; }
+.msg-role-judge { border-left: 4px solid #7c3aed; background: #f5f3ff; }
+
+.msg-role-plaintiff .msg-role-badge { background: #2563eb; color: #fff; }
+.msg-role-defendant .msg-role-badge { background: #dc2626; color: #fff; }
+.msg-role-judge .msg-role-badge { background: #7c3aed; color: #fff; }
+
+.msg-role-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 10px; border-radius: 12px; font-size: 0.75em; font-weight: 600;
+    margin-bottom: 6px;
+}
+
+/* 庭审阶段标题 */
+.trial-stage-header {
+    text-align: center; padding: 12px 0; margin: 16px 0 8px;
+    font-size: 1.05em; font-weight: 700; color: #1e293b;
+    border-top: 2px solid #cbd5e1; border-bottom: 2px solid #cbd5e1;
+    background: linear-gradient(180deg, #f8fafc, #f1f5f9);
+}
+
+/* 辩论轮次标记 */
+.debate-round-marker {
+    text-align: center; padding: 6px 0; margin: 8px 0;
+    font-size: 0.85em; font-weight: 600; color: #ef4444;
+    letter-spacing: 1px;
+}
+
+/* 角色切换按钮组 */
+.role-switch-bar {
+    display: flex; gap: 8px; padding: 8px 12px;
+    background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;
+    margin-bottom: 12px;
+}
+.role-switch-btn {
+    padding: 6px 14px; border-radius: 6px; border: 1px solid #cbd5e1;
+    background: #fff; cursor: pointer; font-size: 0.8em; font-weight: 500;
+    transition: all 0.15s;
+}
+.role-switch-btn:hover { border-color: #94a3b8; background: #f1f5f9; }
+.role-switch-btn.active-plaintiff { background: #2563eb; color: #fff; border-color: #2563eb; }
+.role-switch-btn.active-defendant { background: #dc2626; color: #fff; border-color: #dc2626; }
+.role-switch-btn.active-judge { background: #7c3aed; color: #fff; border-color: #7c3aed; }
+.role-switch-btn.active-observer { background: #64748b; color: #fff; border-color: #64748b; }
+
+/* 模型配置面板 */
+.model-config-panel {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+    padding: 20px; margin: 12px 0;
+}
+.model-config-panel h3 { margin: 0 0 16px; font-size: 1em; color: #1e293b; }
+.model-config-row {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
+}
+.model-config-row label { width: 80px; font-weight: 600; font-size: 0.85em; color: #475569; }
+.model-config-row select {
+    flex: 1; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px;
+    font-size: 0.85em; background: #fff;
+}
+
+/* 庭审进度条 */
+.trial-progress {
+    display: flex; gap: 4px; padding: 10px 0; margin-bottom: 12px;
+}
+.trial-progress-step {
+    flex: 1; height: 6px; border-radius: 3px; background: #e2e8f0;
+    transition: background 0.3s;
+}
+.trial-progress-step.completed { background: #22c55e; }
+.trial-progress-step.active { background: #3b82f6; animation: pulse-step 1.5s infinite; }
+@keyframes pulse-step { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }

@@ -32,3 +32,4 @@ class MockTrialMode(models.TextChoices):
     JUDGE = "judge", _("法官视角")
     CROSS_EXAM = "cross_exam", _("质证模拟")
     DEBATE = "debate", _("辩论模拟")
+    ADVERSARIAL = "adversarial", _("多Agent对抗")
