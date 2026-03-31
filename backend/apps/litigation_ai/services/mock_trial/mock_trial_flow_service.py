@@ -627,8 +627,10 @@ class MockTrialFlowService:
             "被告模型: 3\n"
             "法官模型: 5\n"
             "辩论轮数: 10\n"
+            "审级: 一审\n"
             "我的角色: 观看\n"
             "```\n\n"
+            "审级可选：一审 / 二审（二审会增加上诉请求与答辩环节）\n"
             "角色可选：原告 / 被告 / 法官 / 观看\n"
             "模型填编号或完整名称均可。"
         )
@@ -667,6 +669,7 @@ class MockTrialFlowService:
             }
         })
 
+        level_label = {"first": "一审", "second": "二审"}.get(config.trial_level, "一审")
         role_label = {"plaintiff": "原告律师", "defendant": "被告律师", "judge": "审判长", "observer": "观看模式"}.get(
             config.user_role, "观看模式"
         )
@@ -676,6 +679,7 @@ class MockTrialFlowService:
                 "type": "system_message",
                 "content": (
                     f"✅ 配置完成！\n"
+                    f"- 审级：{level_label}\n"
                     f"- 原告模型：{config.plaintiff_model or '默认'}\n"
                     f"- 被告模型：{config.defendant_model or '默认'}\n"
                     f"- 法官模型：{config.judge_model or '默认'}\n"
@@ -721,6 +725,7 @@ class MockTrialFlowService:
             return val
 
         role_map = {"原告": "plaintiff", "被告": "defendant", "法官": "judge", "观看": "observer"}
+        level_map = {"一审": "first", "二审": "second"}
 
         for line in text.split("\n"):
             line = line.strip()
@@ -740,6 +745,8 @@ class MockTrialFlowService:
                         pass
                 elif "角色" in key:
                     config.user_role = role_map.get(val, "observer")
+                elif "审级" in key:
+                    config.trial_level = level_map.get(val, "first")
 
         return config
 

@@ -16,12 +16,27 @@ class MockTrialStep(str, Enum):
     SUMMARY = "mt_summary"
     # 多 Agent 对抗专用步骤
     MODEL_CONFIG = "mt_model_config"
-    COURT_OPENING = "mt_court_opening"
-    PLAINTIFF_STATEMENT = "mt_plaintiff_statement"
-    DEFENDANT_RESPONSE = "mt_defendant_response"
-    COURT_INVESTIGATION = "mt_court_investigation"
-    COURT_DEBATE = "mt_court_debate"
-    COURT_SUMMARY = "mt_court_summary"
+    # 一审/二审共用
+    COURT_OPENING = "mt_court_opening"          # 庭前准备+宣布开庭
+    IDENTITY_CHECK = "mt_identity_check"        # 核实当事人身份
+    RIGHTS_NOTICE = "mt_rights_notice"          # 告知权利义务+询问回避
+    # 二审特有
+    APPEAL_STATEMENT = "mt_appeal_statement"    # 上诉请求与答辩
+    # 一审/二审共用
+    PLAINTIFF_STATEMENT = "mt_plaintiff_statement"  # 原告陈述（一审）
+    DEFENDANT_RESPONSE = "mt_defendant_response"    # 被告答辩（一审）
+    COURT_INVESTIGATION = "mt_court_investigation"  # 法庭调查（举证质证）
+    COURT_DEBATE = "mt_court_debate"                # 法庭辩论
+    FINAL_STATEMENT = "mt_final_statement"          # 最后陈述
+    MEDIATION = "mt_mediation"                      # 法庭调解
+    COURT_SUMMARY = "mt_court_summary"              # 法官总结/宣判
+
+
+class TrialLevel(str, Enum):
+    """审级."""
+
+    FIRST = "first"    # 一审
+    SECOND = "second"  # 二审
 
 
 @dataclass
@@ -45,3 +60,4 @@ class AdversarialConfig:
     judge_model: str = ""
     debate_rounds: int = 10
     user_role: str = "observer"  # plaintiff / defendant / judge / observer
+    trial_level: str = "first"  # first / second
