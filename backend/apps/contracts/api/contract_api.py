@@ -26,7 +26,7 @@ def _get_contract_service() -> Any:
     return get_contract_service()
 
 
-@router.get("/contracts", response=list[ContractOut], exclude_none=False)
+@router.get("/contracts", response=list[ContractOut])
 def list_contracts(
     request: HttpRequest,
     case_type: str | None = None,

@@ -59,7 +59,7 @@ def _acquire_token(credential_id: int) -> str:
     from apps.automation.models.token import CourtToken
 
     db_token = (
-        CourtToken.objects.filter(site_name="court_zxfw", account=credential.account, is_valid=True)
+        CourtToken.objects.filter(site_name="court_zxfw", account=credential.account, expires_at__gt=timezone.now())
         .order_by("-created_at")
         .first()
     )
@@ -287,7 +287,7 @@ def _invalidate_token(credential_id: int) -> None:
     if credential:
         cache_manager.invalidate_token_cache(credential.site_name, credential.account)
     from apps.automation.models.token import CourtToken
-    CourtToken.objects.filter(site_name="court_zxfw", is_valid=True).update(is_valid=False)
+    CourtToken.objects.filter(site_name="court_zxfw").update(expires_at=timezone.now())
     logger.info("一张网收件箱: 已清除过期 Token")
 
 def _mark_success(source: MessageSource) -> None:
