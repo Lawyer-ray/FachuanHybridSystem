@@ -8,6 +8,7 @@ from mcp_server.tools import (
     add_case_party,
     assign_lawyer,
     assign_sms_case,
+    calculate_interest,
     cancel_pdf_split,
     capability_search,
     confirm_pdf_split,
@@ -17,20 +18,26 @@ from mcp_server.tools import (
     create_case_number,
     create_client,
     create_contract,
-    get_contract,
     create_delivery_schedule,
+    create_document_template,
+    create_export,
     create_new_reminder,
     create_pdf_split_job,
     create_preservation_quote,
+    create_project,
     create_property_clue,
     create_research_task,
     delete_reminder,
+    detect_orientation,
     download_all_research_results,
+    download_contract_document,
+    download_contract_folder,
     download_invoices,
     download_pdf_split_result,
     download_research_result,
     execute_case_import,
     execute_preservation_quote,
+    extract_pdf_pages,
     get_case,
     get_case_import_preview,
     get_case_import_session,
@@ -40,15 +47,21 @@ from mcp_server.tools import (
     get_company_profile,
     get_company_risks,
     get_company_shareholders,
+    get_contract,
     get_court_sms_detail,
+    get_document_template,
+    get_export_task,
     get_filing_status,
     get_finance_stats,
     get_invoice_task_status,
+    get_latest_lpr_rate,
     get_pdf_split_job,
     get_person_profile,
     get_preservation_quote,
     get_reminder,
     get_research_task,
+    get_review_models,
+    get_review_status,
     list_all_reminders,
     list_case_assignments,
     list_case_logs,
@@ -60,16 +73,25 @@ from mcp_server.tools import (
     list_court_sms,
     list_delivery_schedules,
     list_doc_convert_types,
+    list_document_templates,
     list_enterprise_providers,
+    list_folder_templates,
     list_lawyers,
+    list_lpr_rates,
     list_oa_configs,
     list_payments,
+    list_placeholders,
     list_preservation_quotes,
+    list_projects,
     list_property_clues,
+    list_recordings,
     list_reminder_types,
     list_research_results,
+    list_screenshots,
     list_teams,
     parse_client_text,
+    preview_contract_context,
+    preview_placeholders,
     query_document_delivery,
     quick_recognize_invoice,
     retry_sms_processing,
@@ -77,10 +99,12 @@ from mcp_server.tools import (
     search_cases,
     search_companies,
     submit_court_sms,
+    suggest_rename,
     trigger_case_import,
     trigger_client_import,
     trigger_oa_filing,
     update_reminder,
+    upload_contract_for_review,
     upload_invoices,
 )
 
@@ -204,3 +228,37 @@ mcp.tool()(quick_recognize_invoice)
 mcp.tool()(upload_invoices)
 mcp.tool()(get_invoice_task_status)
 mcp.tool()(download_invoices)
+
+# 聊天记录取证
+mcp.tool()(create_project)
+mcp.tool()(list_projects)
+mcp.tool()(list_recordings)
+mcp.tool()(list_screenshots)
+mcp.tool()(create_export)
+mcp.tool()(get_export_task)
+
+# 合同审查
+mcp.tool()(upload_contract_for_review)
+mcp.tool()(get_review_status)
+mcp.tool()(get_review_models)
+
+# 文书生产
+mcp.tool()(list_document_templates)
+mcp.tool()(get_document_template)
+mcp.tool()(create_document_template)
+mcp.tool()(list_folder_templates)
+mcp.tool()(list_placeholders)
+mcp.tool()(preview_placeholders)
+mcp.tool()(preview_contract_context)
+mcp.tool()(download_contract_document)
+mcp.tool()(download_contract_folder)
+
+# LPR 利率
+mcp.tool()(list_lpr_rates)
+mcp.tool()(get_latest_lpr_rate)
+mcp.tool()(calculate_interest)
+
+# 图片旋转
+mcp.tool()(extract_pdf_pages)
+mcp.tool()(detect_orientation)
+mcp.tool()(suggest_rename)

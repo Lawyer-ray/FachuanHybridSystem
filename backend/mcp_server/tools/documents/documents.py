@@ -21,12 +21,12 @@ def list_document_templates(
         params["case_type"] = case_type
     if is_active is not None:
         params["is_active"] = is_active
-    return client.get("/documents/templates", params=params)  # type: ignore[return-value]
+    return client.get("/documents/templates", params=params)  # type: ignore[no-any-return]
 
 
 def get_document_template(template_id: int) -> dict[str, Any]:
     """获取文件模板详情。"""
-    return client.get(f"/documents/templates/{template_id}")  # type: ignore[return-value]
+    return client.get(f"/documents/templates/{template_id}")  # type: ignore[no-any-return]
 
 
 def create_document_template(
@@ -41,7 +41,7 @@ def create_document_template(
         payload["case_type"] = case_type
     if content:
         payload["content"] = content
-    return client.post("/documents/templates", json=payload)  # type: ignore[return-value]
+    return client.post("/documents/templates", json=payload)  # type: ignore[no-any-return]
 
 
 def list_folder_templates(
@@ -57,7 +57,7 @@ def list_folder_templates(
         params["case_type"] = case_type
     if is_active is not None:
         params["is_active"] = is_active
-    return client.get("/documents/folder-templates", params=params)  # type: ignore[return-value]
+    return client.get("/documents/folder-templates", params=params)  # type: ignore[no-any-return]
 
 
 def list_placeholders(is_active: bool | None = None) -> list[dict[str, Any]]:
@@ -65,7 +65,7 @@ def list_placeholders(is_active: bool | None = None) -> list[dict[str, Any]]:
     params: dict[str, Any] = {}
     if is_active is not None:
         params["is_active"] = is_active
-    return client.get("/documents/placeholders", params=params)  # type: ignore[return-value]
+    return client.get("/documents/placeholders", params=params)  # type: ignore[no-any-return]
 
 
 def preview_placeholders(
@@ -76,12 +76,12 @@ def preview_placeholders(
     params: dict[str, Any] = {}
     if keys:
         params["keys"] = keys
-    return client.get(f"/documents/placeholders/preview/{contract_id}", params=params)  # type: ignore[return-value]
+    return client.get(f"/documents/placeholders/preview/{contract_id}", params=params)  # type: ignore[no-any-return]
 
 
 def preview_contract_context(contract_id: int) -> dict[str, Any]:
     """预览合同占位符上下文数据。"""
-    return client.get(f"/documents/contracts/{contract_id}/preview")  # type: ignore[return-value]
+    return client.get(f"/documents/contracts/{contract_id}/preview")  # type: ignore[no-any-return]
 
 
 def download_contract_document(contract_id: int) -> dict[str, Any]:

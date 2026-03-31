@@ -48,13 +48,15 @@ def list_contracts(
     service = _get_domain_service()
     ctx = extract_request_context(request)
 
-    return service.list_contracts(
+    result = service.list_contracts(
         case_type=case_type,
         status=status,
         user=ctx.user,
         org_access=ctx.org_access,
         perm_open_access=ctx.perm_open_access,
     )
+    # list_contracts 返回 dict（含分页），前端做客户端分页所以只返回 items
+    return result["items"] if isinstance(result, dict) else result
 
 
 @router.get("/contracts/{contract_id}", response=ContractOut)

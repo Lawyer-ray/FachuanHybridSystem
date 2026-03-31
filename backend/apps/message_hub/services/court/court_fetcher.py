@@ -200,6 +200,7 @@ class CourtInboxFetcher(MessageFetcher):
 
     def _process_page(self, source: MessageSource, token: str, records: list[dict[str, Any]]) -> int:
         new_count = 0
+        credential_id = source.credential.pk
         for record in records:
             sdbh = record.get("sdbh", "")
             if not sdbh:
@@ -223,18 +224,22 @@ class CourtInboxFetcher(MessageFetcher):
             )
             new_count += 1
 
-            # 触发附件下载
+            # 下载附件 + 触发推送流程
             if attachments_meta:
-                self._download_attachments(attachments_meta, sdbh)
+                downloaded = self._download_attachments(attachments_meta, sdbh)
+                ah = record.get("ah", "")
+                if ah and downloaded:
+                    self._trigger_sms_flow(record, downloaded, credential_id)
 
         return new_count
 
-    def _download_attachments(self, meta: list[dict[str, Any]], sdbh: str) -> None:
-        """下载文书附件到临时目录。"""
+    def _download_attachments(self, meta: list[dict[str, Any]], sdbh: str) -> list[str]:
+        """下载文书附件，返回下载成功的本地路径列表。"""
         from django.conf import settings
 
         save_dir = Path(settings.MEDIA_ROOT) / "message_hub" / "court_inbox" / sdbh
         save_dir.mkdir(parents=True, exist_ok=True)
+        downloaded: list[str] = []
 
         for att in meta:
             wjlj = att.get("wjlj", "")
@@ -249,9 +254,45 @@ class CourtInboxFetcher(MessageFetcher):
                     save_path.write_bytes(resp.content)
                 att["size"] = len(resp.content)
                 att["local_path"] = str(save_path)
+                downloaded.append(str(save_path))
                 logger.info("下载成功: %s → %s", filename, save_path)
             except Exception as e:
                 logger.warning("下载失败 %s: %s", filename, e)
+
+        return downloaded
+
+    def _trigger_sms_flow(self, record: dict[str, Any], downloaded_files: list[str], credential_id: int) -> None:
+        """触发 CourtSMS 推送流程：案件匹配 → 重命名 → 添加日志 → 通知。"""
+        from apps.automation.services.document_delivery.data_classes import DocumentDeliveryRecord
+        from apps.automation.services.document_delivery.processor.document_delivery_processor import (
+            DocumentDeliveryProcessor,
+        )
+
+        ah = record.get("ah", "")
+        received_at = _parse_datetime(record.get("fssj", ""))
+
+        delivery_record = DocumentDeliveryRecord(
+            case_number=ah,
+            send_time=received_at,
+            element_index=0,
+            document_name=record.get("wsmc", ""),
+            court_name=record.get("fymc", ""),
+        )
+
+        try:
+            processor = DocumentDeliveryProcessor()
+            result = processor.process_sms_in_thread(
+                record=delivery_record,
+                file_path=downloaded_files[0],
+                extracted_files=downloaded_files,
+                credential_id=credential_id,
+            )
+            if result.get("success"):
+                logger.info("推送流程完成: %s, case_id=%s", ah, result.get("case_id"))
+            else:
+                logger.warning("推送流程未完全成功: %s, %s", ah, result.get("error_message"))
+        except Exception as e:
+            logger.error("推送流程异常: %s, %s", ah, e)
 
     def download_attachment(
         self, source: MessageSource, message_id: str, part_index: int
