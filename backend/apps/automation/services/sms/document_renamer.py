@@ -257,7 +257,7 @@ class DocumentRenamer:
         if len(case_name) > case_name_max:
             import hashlib
 
-            suffix = hashlib.md5(case_name.encode()).hexdigest()[:case_name_hash_length]
+            suffix = hashlib.md5(case_name.encode(), usedforsecurity=False).hexdigest()[:case_name_hash_length]
             case_name = case_name[: case_name_max - case_name_hash_length - 1] + "_" + suffix
 
         # 格式化日期

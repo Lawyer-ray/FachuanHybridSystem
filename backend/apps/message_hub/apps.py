@@ -11,11 +11,11 @@ class MessageHubConfig(AppConfig):
     verbose_name = _("信息中转站")
 
     def ready(self) -> None:
-        from apps.message_hub import admin  # noqa: F401  触发 Admin 注册
+        from apps.message_hub import admin  # 触发 Admin 注册
 
         from django.db.models.signals import post_migrate
 
         def _on_post_migrate(sender: Any, **kwargs: Any) -> None:
-            from apps.message_hub import tasks  # noqa: F401
+            from apps.message_hub import tasks  # 触发任务注册
 
         post_migrate.connect(_on_post_migrate, sender=self)

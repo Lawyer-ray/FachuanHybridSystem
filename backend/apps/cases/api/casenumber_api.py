@@ -81,7 +81,7 @@ def upload_temp_document(request: HttpRequest) -> dict[str, Any]:
             return {"success": False, "error": "未上传文件"}
 
         # 验证文件类型
-        ext = os.path.splitext(file.name)[1].lower()
+        ext = os.path.splitext(file.name or "")[1].lower()
         if ext not in [".pdf"]:
             return {"success": False, "error": "仅支持 PDF 格式"}
 
@@ -105,4 +105,4 @@ def upload_temp_document(request: HttpRequest) -> dict[str, Any]:
         }
 
     except Exception as e:
-        return {"success": False, "error": f"上传失败: {str(e)}"}
+        return {"success": False, "error": f"上传失败: {e!s}"}

@@ -58,7 +58,7 @@ def get_znszj_client() -> ZnszjClientProtocol | None:
         return _cached_client  # type: ignore[return-value]
 
     try:
-        from apps.doc_convert.services.znszj_private import get_znszj_client as _factory  # noqa: PLC0415
+        from apps.doc_convert.services.znszj_private import get_znszj_client as _factory
 
         client = cast(ZnszjClientProtocol, _factory())
         _cached_client = client

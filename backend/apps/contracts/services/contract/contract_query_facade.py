@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 from django.db.models import QuerySet
@@ -45,7 +46,7 @@ class ContractQueryFacade:
         return self._list_assembler
 
     def get_contract_queryset(self) -> QuerySet[Contract, Contract]:
-        return self.query_service.get_contract_queryset()
+        return self.query_service.get_contract_queryset()  # type: ignore[no-any-return]
 
     def list_contracts(
         self,
@@ -55,7 +56,9 @@ class ContractQueryFacade:
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
-    ) -> list[Contract]:
+        page: int = 1,
+        page_size: int = 20,
+    ) -> dict[str, Any]:
         qs = self.query_service.list_contracts(
             case_type=case_type,
             status=status,
@@ -64,9 +67,18 @@ class ContractQueryFacade:
             org_access=org_access,
             perm_open_access=perm_open_access,
         )
-        contracts = list(qs)
+        total = qs.count()
+        total_pages = math.ceil(total / page_size) if total > 0 else 1
+        start = (page - 1) * page_size
+        contracts = list(qs[start : start + page_size])
         self.list_assembler.enrich(contracts)
-        return contracts
+        return {
+            "items": contracts,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": total_pages,
+        }
 
     def list_contracts_ctx(
         self,
@@ -103,7 +115,7 @@ class ContractQueryFacade:
             message=_("无权限访问该合同"),
         )
         self.list_assembler.enrich([contract])
-        return contract  # type: ignore[return-value]
+        return contract
 
     def get_contract_ctx(self, *, contract_id: int, ctx: AccessContext) -> Any:
         contract = self.query_service.get_contract_internal(contract_id)

@@ -2,6 +2,14 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.29.1] - 2026-03-31
+
+### 修复
+
+- CI 全绿修复：ruff E701/E702/RUF010/RUF100 lint 错误
+- CI mypy 配置更新：移除已迁移/删除的旧路径（auth.py → security/auth.py, middleware_request_id.py, httpx_clients.py）
+- security-guard：测试数据中身份证号和手机号脱敏
+
 ## [26.29.0] - 2026-03-31
 
 ### 新增

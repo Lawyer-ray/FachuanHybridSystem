@@ -8,7 +8,14 @@ from apps.core.api.schemas_shared import ReminderLiteOut as ReminderOut
 from .client_schemas import ClientIdentityDocOut, ClientOut
 
 # Contract Core Schemas
-from .contract_schemas import ContractAssignmentOut, ContractIn, ContractOut, ContractUpdate, UpdateLawyersIn
+from .contract_schemas import (
+    ContractAssignmentOut,
+    ContractIn,
+    ContractOut,
+    ContractPaginatedOut,
+    ContractUpdate,
+    UpdateLawyersIn,
+)
 
 # Folder Binding Schemas
 from .folder_binding_schemas import (
@@ -103,5 +110,6 @@ __all__ = [
     "ContractIn",
     "ContractAssignmentOut",
     "ContractOut",
+    "ContractPaginatedOut",
     "ContractUpdate",
 ]
