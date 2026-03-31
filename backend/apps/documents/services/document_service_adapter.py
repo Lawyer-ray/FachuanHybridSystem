@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any, cast
 
-from apps.core.dtos import DocumentTemplateDTO
+from apps.core.dto import DocumentTemplateDTO
 
 if TYPE_CHECKING:
     pass

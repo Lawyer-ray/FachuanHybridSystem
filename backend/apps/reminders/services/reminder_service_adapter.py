@@ -26,7 +26,7 @@ from apps.reminders.services.validators import (
 )
 
 if TYPE_CHECKING:
-    from apps.core.dtos import ReminderDTO, ReminderTypeDTO
+    from apps.core.dto import ReminderDTO, ReminderTypeDTO
     from apps.reminders.ports import CaseLogTargetQueryPort, ContractTargetQueryPort
 
 logger = logging.getLogger(__name__)
@@ -115,7 +115,7 @@ class ReminderServiceAdapter(ReminderService):
 
     def get_reminder_type_by_code_internal(self, code: str) -> ReminderTypeDTO | None:
         """内部方法：根据代码获取提醒类型。"""
-        from apps.core.dtos import ReminderTypeDTO
+        from apps.core.dto import ReminderTypeDTO
 
         if code not in ReminderType.values:
             return None
@@ -297,7 +297,7 @@ class ReminderServiceAdapter(ReminderService):
 
     def _to_reminder_dto(self, reminder: Reminder) -> ReminderDTO:
         """将 Reminder Model 转换为 DTO。"""
-        from apps.core.dtos import ReminderDTO
+        from apps.core.dto import ReminderDTO
 
         return ReminderDTO(
             id=reminder.pk,

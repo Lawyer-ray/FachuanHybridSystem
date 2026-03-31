@@ -9,7 +9,7 @@ from typing import ClassVar
 
 from ninja import ModelSchema, Schema
 
-from apps.core.schemas import SchemaMixin
+from apps.core.api.schemas import SchemaMixin
 
 from .models import AccountCredential, LawFirm, Lawyer, Team
 

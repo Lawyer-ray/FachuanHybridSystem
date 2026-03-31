@@ -11,7 +11,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.contracts.models import Contract
-from apps.core.enums import CaseType
+from apps.core.models.enums import CaseType
 from apps.oa_filing.models import CaseImportPhase, CaseImportSession, CaseImportStatus
 from apps.oa_filing.services.oa_scripts.jtn_case_import import (
     JtnCaseImportScript,

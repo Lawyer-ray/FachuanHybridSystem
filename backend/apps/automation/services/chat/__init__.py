@@ -25,7 +25,7 @@ from .factory import ChatProviderFactory
 # 自动注册群聊提供者
 def _register_providers() -> None:
     """自动注册所有可用的群聊提供者"""
-    from apps.core.enums import ChatPlatform
+    from apps.core.models.enums import ChatPlatform
 
     # 避免重复注册：检查是否已经注册过
     if ChatProviderFactory.is_platform_registered(ChatPlatform.FEISHU):

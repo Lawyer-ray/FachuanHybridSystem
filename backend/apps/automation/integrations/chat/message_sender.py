@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from apps.automation.services.chat.base import ChatResult, MessageContent
-from apps.core.enums import ChatPlatform
+from apps.core.models.enums import ChatPlatform
 
 
 class ChatMessageSender(Protocol):

@@ -9,7 +9,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from ninja import Router
 
-from apps.core.auth import JWTOrSessionAuth
+from apps.core.security.auth import JWTOrSessionAuth
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.infrastructure.throttling import rate_limit_from_settings
 

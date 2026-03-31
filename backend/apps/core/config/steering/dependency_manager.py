@@ -25,7 +25,7 @@ from typing import Any
 
 import yaml
 
-from apps.core.path import Path
+from apps.core.utils.path import Path
 
 logger = logging.getLogger(__name__)
 

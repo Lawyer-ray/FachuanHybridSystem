@@ -127,7 +127,7 @@ class CaseChatServiceAdapter(ICaseChatService):
             BusinessException: 群聊创建失败
         """
         try:
-            from apps.core.enums import ChatPlatform
+            from apps.core.models.enums import ChatPlatform
 
             if platform is None:
                 platform = ChatPlatform.FEISHU
@@ -177,7 +177,7 @@ class CaseChatServiceAdapter(ICaseChatService):
             BusinessException: 消息发送失败
         """
         try:
-            from apps.core.enums import ChatPlatform
+            from apps.core.models.enums import ChatPlatform
 
             if platform is None:
                 platform = ChatPlatform.FEISHU

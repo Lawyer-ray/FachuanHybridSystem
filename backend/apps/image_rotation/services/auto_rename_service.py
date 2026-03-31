@@ -13,6 +13,8 @@ import re
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from apps.core.llm.exceptions import LLMNetworkError, LLMTimeoutError
+
 logger = logging.getLogger("apps.image_rotation")
 
 
@@ -117,8 +119,14 @@ class AutoRenameService:
                 logger.warning("LLM 返回内容为空")
                 return ExtractionResult()
 
+        except LLMNetworkError as e:
+            logger.warning("Ollama 服务不可用，跳过 LLM 提取: %s", e)
+            return ExtractionResult()
+        except LLMTimeoutError as e:
+            logger.warning("Ollama 请求超时，跳过 LLM 提取: %s", e)
+            return ExtractionResult()
         except Exception as e:
-            logger.warning(f"Ollama 调用失败: {e}")
+            logger.warning("Ollama 调用失败: %s", e)
             return ExtractionResult()
 
         # 解析 JSON 响应

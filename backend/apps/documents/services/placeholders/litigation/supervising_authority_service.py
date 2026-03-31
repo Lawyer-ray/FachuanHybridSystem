@@ -47,7 +47,7 @@ class SupervisingAuthorityService(BasePlaceholderService):
 
         Requirements: 3.1, 3.2, 3.3, 3.4, 8.3
         """
-        from apps.core.enums import AuthorityType
+        from apps.core.models.enums import AuthorityType
 
         case_details = self.case_details_accessor.require_case_details(case_id=case_id)
 

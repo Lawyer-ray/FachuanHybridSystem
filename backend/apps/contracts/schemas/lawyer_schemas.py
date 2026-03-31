@@ -10,7 +10,7 @@ from typing import Any
 
 from ninja import Schema
 
-from apps.core.schemas import SchemaMixin
+from apps.core.api.schemas import SchemaMixin
 
 
 class LawyerOut(Schema):

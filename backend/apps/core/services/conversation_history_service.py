@@ -4,7 +4,7 @@ from typing import Any
 
 from django.db.models import Count
 
-from apps.core.dtos import ConversationHistoryDTO
+from apps.core.dto import ConversationHistoryDTO
 from apps.core.models import ConversationHistory
 from apps.core.repositories import ConversationHistoryRepository
 

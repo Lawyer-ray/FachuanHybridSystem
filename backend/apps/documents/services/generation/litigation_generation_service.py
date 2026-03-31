@@ -19,7 +19,7 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.interfaces import ServiceLocator
-from apps.core.path import Path
+from apps.core.utils.path import Path
 
 from .litigation_context_builder import LitigationContextBuilder
 from .litigation_llm_generator import LitigationLLMGenerator

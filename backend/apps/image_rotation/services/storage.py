@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from apps.core.path import Path
+from apps.core.utils.path import Path
 
 
 def ensure_output_dir() -> Any:

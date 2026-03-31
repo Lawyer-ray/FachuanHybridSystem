@@ -10,7 +10,7 @@ from django.utils.translation import gettext_lazy as _
 from docxtpl import DocxTemplate
 
 from apps.core.exceptions import ValidationException
-from apps.core.path import Path
+from apps.core.utils.path import Path
 
 logger = logging.getLogger("apps.cases.services")
 

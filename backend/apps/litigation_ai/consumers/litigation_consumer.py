@@ -267,7 +267,7 @@ class LitigationConsumer(AsyncWebsocketConsumer):
 
     async def send_error(self, error: Exception | str, code: str = "INVALID_REQUEST") -> None:
         if isinstance(error, Exception):
-            from apps.core.error_presentation import ExceptionPresenter
+            from apps.core.exceptions.error_presentation import ExceptionPresenter
 
             presenter = ExceptionPresenter()
             envelope, _ = presenter.present(error, channel="ws", debug=getattr(settings, "DEBUG", False))

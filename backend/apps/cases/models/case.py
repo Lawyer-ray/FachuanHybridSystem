@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, ClassVar
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-from apps.core.enums import AuthorityType, CaseStage, CaseStatus, SimpleCaseType
+from apps.core.models.enums import AuthorityType, CaseStage, CaseStatus, SimpleCaseType
 
 if TYPE_CHECKING:
     from django.db.models.fields.related_descriptors import RelatedManager

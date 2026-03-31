@@ -1,6 +1,6 @@
 from ninja import Router
 
-from apps.core.auth import JWTOrSessionAuth
+from apps.core.security.auth import JWTOrSessionAuth
 
 from .reminder_api import router as reminder_router
 

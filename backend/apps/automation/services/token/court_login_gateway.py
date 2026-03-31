@@ -7,7 +7,7 @@ from typing import Any, Protocol
 
 from django.utils.translation import gettext_lazy as _
 
-from apps.core.dtos import AccountCredentialDTO
+from apps.core.dto import AccountCredentialDTO
 
 
 class CourtLoginGateway(Protocol):

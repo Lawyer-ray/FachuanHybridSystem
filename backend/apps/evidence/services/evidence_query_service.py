@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from apps.core.dtos import EvidenceItemDigestDTO
+from apps.core.dto import EvidenceItemDigestDTO
 from apps.evidence.models import EvidenceItem
 
 _VALUES = ("id", "order", "name", "purpose", "page_start", "page_end", "file")

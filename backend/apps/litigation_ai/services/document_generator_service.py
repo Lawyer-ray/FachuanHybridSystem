@@ -8,7 +8,7 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from apps.core.dtos import GenerationTaskDTO
+from apps.core.dto import GenerationTaskDTO
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.litigation_ai.models import LitigationSession
 

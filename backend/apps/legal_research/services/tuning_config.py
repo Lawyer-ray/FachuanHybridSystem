@@ -53,6 +53,15 @@ class LegalResearchTuningConfig:
     dual_review_gap_tolerance: float = 0.18
     dual_review_required_min: float = 0.55
 
+    # ── 速度与准确率优化 V26.28 ──
+    title_prefilter_enabled: bool = True
+    title_prefilter_min_overlap: float = 0.15
+    coarse_recall_hard_floor: float = 0.20
+    llm_scoring_concurrency: int = 5
+    element_extraction_enabled: bool = True
+    element_extraction_model: str = ""
+    element_extraction_timeout_seconds: int = 20
+
     online_tuning_enabled: bool = True
     online_min_similarity_delta: float = 0.0
     adaptive_threshold_enabled: bool = True
@@ -221,6 +230,27 @@ class LegalResearchTuningConfig:
                 0.55,
                 0.0,
                 1.0,
+            ),
+            title_prefilter_enabled=cls._get_bool(
+                config_service, "LEGAL_RESEARCH_TITLE_PREFILTER_ENABLED", True
+            ),
+            title_prefilter_min_overlap=cls._get_float(
+                config_service, "LEGAL_RESEARCH_TITLE_PREFILTER_MIN_OVERLAP", 0.15, 0.0, 1.0
+            ),
+            coarse_recall_hard_floor=cls._get_float(
+                config_service, "LEGAL_RESEARCH_COARSE_RECALL_HARD_FLOOR", 0.20, 0.0, 1.0
+            ),
+            llm_scoring_concurrency=cls._get_int(
+                config_service, "LEGAL_RESEARCH_LLM_SCORING_CONCURRENCY", 5, 1, 20
+            ),
+            element_extraction_enabled=cls._get_bool(
+                config_service, "LEGAL_RESEARCH_ELEMENT_EXTRACTION_ENABLED", True
+            ),
+            element_extraction_model=cls._get_text(
+                config_service, "LEGAL_RESEARCH_ELEMENT_EXTRACTION_MODEL", "", max_len=128
+            ),
+            element_extraction_timeout_seconds=cls._get_int(
+                config_service, "LEGAL_RESEARCH_ELEMENT_EXTRACTION_TIMEOUT_SECONDS", 20, 5, 60
             ),
             online_tuning_enabled=cls._get_bool(config_service, "LEGAL_RESEARCH_ONLINE_TUNING_ENABLED", True),
             online_min_similarity_delta=cls._get_float(

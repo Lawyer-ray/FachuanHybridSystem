@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 from apps.contracts.models import Contract, ContractAssignment, ContractParty
 from apps.contracts.services.party.contract_party_service import ContractPartyService
 from apps.contracts.services.payment.contract_finance_mutation_service import ContractFinanceMutationService
-from apps.core.business_config import BusinessConfig, business_config
+from apps.core.config.business_config import BusinessConfig, business_config
 
 from .contract_admin_mutation_service import ContractAdminMutationService
 from .contract_mutation_facade import ContractMutationFacade

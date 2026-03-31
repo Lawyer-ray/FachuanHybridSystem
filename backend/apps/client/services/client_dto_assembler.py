@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from apps.core.dtos import ClientIdentityDocDTO, PropertyClueDTO
+from apps.core.dto import ClientIdentityDocDTO, PropertyClueDTO
 from apps.core.interfaces import ClientDTO
 
 if TYPE_CHECKING:

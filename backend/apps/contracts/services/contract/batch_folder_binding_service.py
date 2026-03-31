@@ -14,7 +14,7 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.contracts.models import Contract, ContractTypeFolderRootPreset
 from apps.contracts.services.folder.folder_binding_service import FolderBindingService
-from apps.core.enums import CaseType
+from apps.core.models.enums import CaseType
 from apps.core.exceptions import ValidationException
 from apps.core.infrastructure.subprocess_runner import SubprocessRunner
 

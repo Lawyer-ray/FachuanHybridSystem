@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ConflictError, NotFoundError
-from apps.core.path import Path
+from apps.core.utils.path import Path
 
 if TYPE_CHECKING:
     from .base_generator import BaseGenerator

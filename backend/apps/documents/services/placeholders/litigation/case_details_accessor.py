@@ -7,7 +7,7 @@ from typing import Any
 
 from django.utils import timezone
 
-from apps.core.error_catalog import case_not_found
+from apps.core.exceptions.error_catalog import case_not_found
 
 from .types import LitigationCaseDetails
 

@@ -10,7 +10,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError, ValidationException
-from apps.core.path import Path
+from apps.core.utils.path import Path
 from apps.documents.models import DocumentTemplate, DocumentTemplateType
 from apps.documents.services.generation.path_utils import resolve_media_path, safe_arcname, safe_name
 from apps.documents.services.placeholders import EnhancedContextBuilder

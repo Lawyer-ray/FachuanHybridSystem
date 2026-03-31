@@ -11,7 +11,7 @@ def list_all_reminders(
     contract_id: int | None = None,
     case_log_id: int | None = None,
 ) -> list[dict[str, Any]]:
-    """查询提醒列表。可按合同ID（contract_id）或案件日志ID（case_log_id）筛选。"""
+    """查询提醒列表。必须指定 contract_id（合同ID）或 case_log_id（案件日志ID）其中之一。"""
     params: dict[str, Any] = {}
     if contract_id is not None:
         params["contract_id"] = contract_id

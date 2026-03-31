@@ -14,7 +14,7 @@ from apps.contracts.schemas import (
     ContractUpdate,
     UpdateLawyersIn,
 )
-from apps.core.request_context import extract_request_context
+from apps.core.dto.request_context import extract_request_context
 
 logger = logging.getLogger("apps.contracts.api")
 router = Router()

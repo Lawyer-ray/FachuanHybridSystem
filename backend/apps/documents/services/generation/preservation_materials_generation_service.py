@@ -16,7 +16,7 @@ from django.utils.translation import gettext_lazy as _
 from docxtpl import DocxTemplate
 
 from apps.core.exceptions import NotFoundError, ValidationException
-from apps.core.path import Path
+from apps.core.utils.path import Path
 from apps.documents.services.infrastructure.wiring import get_case_service, get_document_service
 from apps.documents.services.placeholders import EnhancedContextBuilder
 
@@ -220,7 +220,7 @@ class PreservationMaterialsGenerationService:
         Returns:
             List: 被申请人 DTO 列表
         """
-        from apps.core.enums import LegalStatus
+        from apps.core.models.enums import LegalStatus
 
         case_service = get_case_service()
         return cast(list[Any], case_service.get_case_parties_internal(case_id, legal_status=LegalStatus.DEFENDANT))

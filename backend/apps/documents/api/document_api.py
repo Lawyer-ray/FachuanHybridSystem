@@ -13,7 +13,7 @@ from django.utils.translation import gettext_lazy as _
 from ninja import Router
 
 from apps.core.api.schema_utils import schema_to_update_dict
-from apps.core.auth import JWTOrSessionAuth
+from apps.core.security.auth import JWTOrSessionAuth
 from apps.documents.schemas import DocumentTemplateIn, DocumentTemplateOut, DocumentTemplateUpdate
 from apps.documents.services.template.template_service import DocumentTemplateService
 

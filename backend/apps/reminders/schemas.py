@@ -7,7 +7,7 @@ from django.utils.translation import gettext_lazy as _
 from ninja import Schema
 from pydantic import Field, field_validator, model_validator
 
-from apps.core.schemas import SchemaMixin
+from apps.core.api.schemas import SchemaMixin
 
 from .models import Reminder, ReminderType
 from .services.validators import _CONTENT_MAX_LENGTH

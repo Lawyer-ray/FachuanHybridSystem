@@ -50,8 +50,8 @@ except Exception:
     if (os.environ.get("DJANGO_LLM_WARMUP_STRICT", "") or "").lower().strip() in ("true", "1", "yes"):
         raise
 
-from apps.core.asgi_lifespan import LifespanApp
-from apps.core.httpx_clients import aclose_http_clients
+from apps.core.infrastructure.asgi_lifespan import LifespanApp
+from apps.core.http.httpx_clients import aclose_http_clients
 
 
 async def _on_startup() -> None:

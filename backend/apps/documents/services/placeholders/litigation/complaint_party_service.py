@@ -50,7 +50,7 @@ class ComplaintPartyService(BasePlaceholderService):
 
         Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 3.1, 8.3, 9.1, 9.2
         """
-        from apps.core.enums import LegalStatus
+        from apps.core.models.enums import LegalStatus
 
         case_parties = self.case_details_accessor.get_case_parties(case_id=case_id)
 

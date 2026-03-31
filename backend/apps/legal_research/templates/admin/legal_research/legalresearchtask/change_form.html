@@ -1,0 +1,187 @@
+{% extends "admin/change_form.html" %}
+{% load i18n %}
+
+{% block after_field_sets %}
+{{ block.super }}
+<style>
+#aq-builder { margin: 0; }
+.aq-row {
+  display: flex; gap: 8px; align-items: center;
+  margin-bottom: 8px; flex-wrap: wrap;
+}
+.aq-row select, .aq-row input[type=text] {
+  height: 32px; border: 1px solid #ccc; border-radius: 4px;
+  padding: 0 8px; font-size: 13px; background: #fff;
+}
+.aq-row select.aq-op { width: 80px; }
+.aq-row select.aq-field { width: 140px; }
+.aq-row input.aq-kw { flex: 1; min-width: 160px; }
+.aq-btn {
+  height: 28px; padding: 0 10px; border-radius: 4px; border: none;
+  cursor: pointer; font-size: 12px; font-weight: 600;
+}
+.aq-btn-add { background: #417690; color: #fff; }
+.aq-btn-add:hover { background: #205067; }
+.aq-btn-del { background: #ba2121; color: #fff; }
+.aq-btn-del:hover { background: #8a1a1a; }
+.aq-hint { font-size: 12px; color: #666; margin-top: 6px; }
+.aq-toggle {
+  display: inline-flex; align-items: center; gap: 6px;
+  cursor: pointer; font-size: 13px; color: #417690; font-weight: 600;
+  margin-bottom: 8px; user-select: none;
+}
+.aq-toggle:hover { color: #205067; }
+.aq-arrow { transition: transform .2s; display: inline-block; }
+.aq-arrow.open { transform: rotate(90deg); }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const textarea = document.querySelector('#id_advanced_query');
+  if (!textarea) return;
+
+  const FIELDS = [
+    ['fullText',       '全文'],
+    ['title',          '标题'],
+    ['courtOpinion',   '本院认为'],
+    ['judgmentResult', '裁判结果'],
+    ['disputeFocus',   '争议焦点'],
+    ['causeOfAction',  '案由'],
+    ['caseNumber',     '案号'],
+    ['causeFinding',   '本院查明'],
+  ];
+  const OPS = [['AND','AND（且）'], ['OR','OR（或）'], ['NOT','NOT（非）']];
+
+  // 隐藏原始 textarea 行
+  const originalRow = textarea.closest('.form-row') || textarea.closest('p') || textarea.parentElement;
+  originalRow.style.display = 'none';
+
+  // 解析已有值
+  let initial = [];
+  try { initial = JSON.parse(textarea.value || '[]'); } catch(e) {}
+  if (!Array.isArray(initial)) initial = [];
+
+  // 插入 UI
+  const wrapper = document.createElement('div');
+  wrapper.className = 'form-row field-advanced_query';
+  wrapper.innerHTML = `
+    <div>
+      <label>高级检索条件（可选）：</label>
+      <div id="aq-builder">
+        <span class="aq-toggle" id="aq-toggle">
+          <span class="aq-arrow" id="aq-arrow">▶</span>
+          <span id="aq-toggle-label">展开高级检索</span>
+        </span>
+        <div id="aq-panel" style="display:none;">
+          <div id="aq-rows"></div>
+          <button type="button" class="aq-btn aq-btn-add" id="aq-add">＋ 添加条件</button>
+          <p class="aq-hint">
+            多条件之间用 AND/OR/NOT 连接。留空则使用上方「检索关键词」做全文检索。<br>
+            示例：本院认为 包含「逾期利息」AND 标题 包含「借款合同纠纷」
+          </p>
+        </div>
+      </div>
+    </div>`;
+  originalRow.parentElement.insertBefore(wrapper, originalRow);
+
+  const rowsEl = document.getElementById('aq-rows');
+  const panel = document.getElementById('aq-panel');
+  const toggle = document.getElementById('aq-toggle');
+  const arrow = document.getElementById('aq-arrow');
+  const toggleLabel = document.getElementById('aq-toggle-label');
+
+  // 展开/收起
+  toggle.addEventListener('click', function () {
+    const open = panel.style.display === 'none';
+    panel.style.display = open ? 'block' : 'none';
+    arrow.classList.toggle('open', open);
+    toggleLabel.textContent = open ? '收起高级检索' : '展开高级检索';
+  });
+
+  function makeRow(data) {
+    const row = document.createElement('div');
+    row.className = 'aq-row';
+
+    // op（第一行不显示）
+    const opSel = document.createElement('select');
+    opSel.className = 'aq-op';
+    OPS.forEach(([v, l]) => {
+      const o = document.createElement('option');
+      o.value = v; o.textContent = l;
+      if ((data.op || 'AND') === v) o.selected = true;
+      opSel.appendChild(o);
+    });
+
+    // field
+    const fieldSel = document.createElement('select');
+    fieldSel.className = 'aq-field';
+    FIELDS.forEach(([v, l]) => {
+      const o = document.createElement('option');
+      o.value = v; o.textContent = l;
+      if ((data.field || 'fullText') === v) o.selected = true;
+      fieldSel.appendChild(o);
+    });
+
+    // keyword
+    const kw = document.createElement('input');
+    kw.type = 'text'; kw.className = 'aq-kw';
+    kw.placeholder = '输入关键词';
+    kw.value = data.keyword || '';
+
+    // delete
+    const del = document.createElement('button');
+    del.type = 'button'; del.className = 'aq-btn aq-btn-del';
+    del.textContent = '✕';
+    del.addEventListener('click', () => { row.remove(); syncToTextarea(); });
+
+    row.appendChild(opSel);
+    row.appendChild(fieldSel);
+    row.appendChild(kw);
+    row.appendChild(del);
+
+    // 第一行隐藏 op
+    function updateOpVisibility() {
+      opSel.style.display = row === rowsEl.firstElementChild ? 'none' : '';
+    }
+    // 监听 DOM 变化更新 op 可见性
+    const obs = new MutationObserver(updateOpVisibility);
+    obs.observe(rowsEl, { childList: true });
+    updateOpVisibility();
+
+    row.addEventListener('change', syncToTextarea);
+    row.addEventListener('input', syncToTextarea);
+    return row;
+  }
+
+  function syncToTextarea() {
+    const rows = rowsEl.querySelectorAll('.aq-row');
+    const result = [];
+    rows.forEach((row, i) => {
+      const op = row.querySelector('.aq-op').value;
+      const field = row.querySelector('.aq-field').value;
+      const keyword = row.querySelector('.aq-kw').value.trim();
+      if (!keyword) return;
+      result.push({ field, keyword, op: i === 0 ? 'AND' : op });
+    });
+    textarea.value = result.length ? JSON.stringify(result) : '[]';
+  }
+
+  document.getElementById('aq-add').addEventListener('click', function () {
+    rowsEl.appendChild(makeRow({}));
+    syncToTextarea();
+  });
+
+  // 初始化已有数据
+  if (initial.length > 0) {
+    initial.forEach(item => rowsEl.appendChild(makeRow(item)));
+    // 自动展开
+    panel.style.display = 'block';
+    arrow.classList.add('open');
+    toggleLabel.textContent = '收起高级检索';
+  }
+
+  // 表单提交前同步
+  textarea.form && textarea.form.addEventListener('submit', syncToTextarea);
+});
+</script>
+{% endblock %}

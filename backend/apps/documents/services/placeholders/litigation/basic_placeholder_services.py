@@ -3,7 +3,7 @@
 import logging
 from typing import Any, ClassVar
 
-from apps.core.enums import LegalStatus
+from apps.core.models.enums import LegalStatus
 from apps.documents.services.placeholders.base import BasePlaceholderService
 from apps.documents.services.placeholders.registry import PlaceholderRegistry
 from apps.litigation_ai.placeholders.spec import LitigationPlaceholderKeys

@@ -12,7 +12,7 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 from apps.cases.utils import CASE_LOG_ALLOWED_EXTENSIONS, CASE_LOG_MAX_FILE_SIZE
-from apps.core.storage import KeepOriginalNameStorage
+from apps.core.filesystem.storage import KeepOriginalNameStorage
 
 _SENTINEL = object()
 

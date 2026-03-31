@@ -132,7 +132,7 @@ class RecognizeCourtDocumentUsecase:
             new_filename = self.document_renamer.generate_filename(
                 title=title, case_name=case_name, received_date=date.today()
             )
-            from apps.core.path import Path
+            from apps.core.utils.path import Path
 
             original_path = Path(file_path)
             new_path = original_path.parent / new_filename

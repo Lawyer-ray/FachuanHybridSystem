@@ -2,6 +2,67 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.29.0] - 2026-03-31
+
+### 新增
+
+- **法律服务方案（legal_solution）**：全新模块，支持 AI 分段生成诉讼策略报告
+  - 7 段结构：案情分析、法律关系认定、争议焦点、类案参考、诉讼策略建议、风险评估、费用预估
+  - 异步任务生成（django-q），用户可单独调整每段内容（版本追踪）
+  - HTML 报告渲染（深色宇宙风格 + 玻璃拟态卡片）+ weasyprint PDF 导出
+  - Admin 支持预览、PDF 下载、段落调整
+
+- **信息中转站（message_hub）**：新增消息中转模块
+
+- **威科先行高级检索**：案例检索支持多字段组合检索
+  - 新增 `advanced_query` JSON 字段，支持多条件 AND/OR/NOT 组合（字段：全文/标题/本院认为/裁判结果/争议焦点/案由/案号）
+  - 新增 `court_filter`（法院筛选）、`cause_of_action_filter`（案由筛选）、`date_from`/`date_to`（裁判日期范围）
+  - Admin 表单新增交互式高级检索条件构建器（Alpine.js 动态增删行，展开/收起）
+  - 私有 API 适配器支持将条件转换为 `queryString` 字段限定语法 + `filterQueries` + `filterDates`
+
+- **案例检索优化**（legal_research executor）
+  - 新增标题预筛（`_title_prefilter`）：fetch_detail 前用 title_hint 快速过滤不相关案例
+  - 新增法律要素提取（`_extract_legal_elements`）：LLM 从案情简述提取案由/法律关系/争议焦点/损失类型，构造精准检索式
+  - 新增并发 LLM 评分（`_batch_rerank_candidates`）：ThreadPoolExecutor 并发评分，默认 5 并发
+  - 宽召回阈值调整：`COARSE_RECALL_THRESHOLD_RATIO` 0.5→0.6，`COARSE_RECALL_THRESHOLD_CEIL` 0.45→0.52
+  - 新增硬性下限：coarse_score < 0.20 直接跳过，避免低质量候选进入精排
+  - `tuning_config` 新增 7 个可调参数：`title_prefilter_enabled`、`title_prefilter_min_overlap`、`coarse_recall_hard_floor`、`llm_scoring_concurrency`、`element_extraction_enabled`、`element_extraction_model`、`element_extraction_timeout_seconds`
+
+- **法院执行网纯逆向登录插件**（court_zxfw_login_private，不入 Git）
+  - SM2 国密加密（Node.js sm-crypto）+ ddddocr OCR + 纯 HTTP 登录，无需 Playwright 浏览器
+  - 三级优先级：Cookie → 纯逆向 → Playwright
+  - 保全 Token 逆向获取：`POST /api/v1/oauth/code` → 保全平台 HS512 Token
+
+- **core 模块重构**：基础设施代码迁移至规范目录结构
+  - `core/infrastructure/`：`service_locator`、`event_bus`、`events`、`logging`
+  - `core/security/`：`auth`（JWTOrSessionAuth）、`permissions`（PermissionMixin）
+  - `core/utils/`：`path`、`validators`
+  - `core/models/enums`：枚举统一管理
+  - `core/config/business_config`：业务配置统一入口
+  - `core/dto/request_context`：请求上下文提取
+
+- **MCP 服务大幅扩展**（工具总数从 34 增至 77）
+  - 新增 `automation` 模块：法院短信解析、文书送达、财产保全询价
+  - 新增 `doc_convert` 模块：传统文书转要素式文书
+  - 新增 `enterprise_data` 模块：企业信息查询
+  - 新增 `invoice_recognition` 模块：发票识别
+  - 新增 `legal_research` 模块：类案检索
+  - 新增 `oa_filing` 模块：一张网立案（案件导入、当事人导入）
+  - 新增 `pdf_splitting` 模块：PDF 拆解
+  - 新增 `reminders` 模块：提醒管理、利息计算
+
+### 优化
+
+- `Q_CLUSTER poll` 从 2.0 秒降至 0.5 秒，异步任务响应更快
+- `markdown` 库替换手写 markdown 转 HTML，支持表格、代码块、引用块
+- 法律服务方案 HTML 报告去除 AI 相关提示文字，更专业
+
+### 修复
+
+- 修复天眼查 MCP 服务端 `auth_error` 响应格式识别问题
+- 修复 `court_sms` 和 `preservation_quote` 接口 500 错误（两轮修复）
+- 修复威科先行高级检索 DOM 回退逻辑：URL 参数无结果时自动回退搜索框方式
+
 ## [26.28.0] - 2026-03-31
 
 ### 新增

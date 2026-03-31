@@ -24,7 +24,7 @@ class ContractListAssembler:
             contract._computed_has_matched_templates = bool(info.get("has_templates", False))  # type: ignore
 
     def _attach_dtos(self, contracts: list[Contract]) -> None:
-        from apps.core.dtos import CaseDTO, LawyerDTO
+        from apps.core.dto import CaseDTO, LawyerDTO
 
         for contract in contracts:
             cases = getattr(contract, "cases", None)

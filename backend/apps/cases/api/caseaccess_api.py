@@ -17,7 +17,7 @@ from django.http import HttpRequest
 from ninja import Router
 
 from apps.cases.schemas import CaseAccessGrantIn, CaseAccessGrantOut, CaseAccessGrantUpdate
-from apps.core.request_context import extract_request_context
+from apps.core.dto.request_context import extract_request_context
 
 router = Router()
 

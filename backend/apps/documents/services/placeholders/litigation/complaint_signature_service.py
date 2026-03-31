@@ -63,7 +63,7 @@ class ComplaintSignatureService(BasePlaceholderService):
 
         Requirements: 3.1, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 8.3
         """
-        from apps.core.enums import LegalStatus
+        from apps.core.models.enums import LegalStatus
 
         case_parties = self.case_details_accessor.get_case_parties(case_id=case_id)
 

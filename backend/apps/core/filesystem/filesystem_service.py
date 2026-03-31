@@ -7,7 +7,7 @@ import zipfile
 from collections.abc import Iterable
 
 from apps.core.exceptions import ValidationException
-from apps.core.path import Path
+from apps.core.utils.path import Path
 
 from .path_validator import FolderPathValidator
 

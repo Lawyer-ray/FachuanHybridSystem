@@ -6,7 +6,7 @@ from typing import Any
 from django.conf import settings
 from django.utils import timezone
 
-from apps.core.dtos import GenerationTaskDTO
+from apps.core.dto import GenerationTaskDTO
 from apps.documents.models import GenerationMethod, GenerationStatus, GenerationTask
 
 logger = logging.getLogger(__name__)

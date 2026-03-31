@@ -14,7 +14,7 @@ from django.urls import path
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
-from apps.core.enums import LegalStatus
+from apps.core.models.enums import LegalStatus
 from apps.core.exceptions import NotFoundError
 from apps.documents.models import (
     DocumentCaseStage,

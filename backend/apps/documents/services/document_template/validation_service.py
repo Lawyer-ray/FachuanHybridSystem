@@ -5,7 +5,7 @@ from typing import Any
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ValidationException
-from apps.core.path import Path
+from apps.core.utils.path import Path
 
 
 class DocumentTemplateValidationService:

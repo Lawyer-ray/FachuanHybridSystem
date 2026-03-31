@@ -37,6 +37,22 @@ _NON_WORD_RE = re.compile(r"\s+")
 _TEXT_MIN_LENGTH = 12
 
 
+def _levenshtein_distance(s1: str, s2: str) -> int:
+    """计算两个字符串的 Levenshtein 编辑距离。"""
+    if len(s1) < len(s2):
+        return _levenshtein_distance(s2, s1)
+    if not s2:
+        return len(s1)
+    prev_row = list(range(len(s2) + 1))
+    for i, c1 in enumerate(s1):
+        curr_row = [i + 1]
+        for j, c2 in enumerate(s2):
+            cost = 0 if c1 == c2 else 1
+            curr_row.append(min(curr_row[j] + 1, prev_row[j + 1] + 1, prev_row[j] + cost))
+        prev_row = curr_row
+    return prev_row[-1]
+
+
 @dataclass
 class PageDescriptor:
     page_no: int
@@ -485,25 +501,57 @@ class PdfSplitService:
         candidates: list[dict[str, Any]] = []
         for rule in template.rules:
             score = 0.0
-            matched_strong = [kw for kw in rule.strong_keywords if self._contains_keyword(head_text, kw)]
-            matched_weak = [kw for kw in rule.weak_keywords if self._contains_keyword(normalized_text, kw)]
-            matched_negative = [kw for kw in rule.negative_keywords if self._contains_keyword(normalized_text, kw)]
-            if matched_strong:
-                score += min(0.75, 0.4 + 0.18 * len(matched_strong))
+            matched_strong: list[str] = []
+            matched_weak: list[str] = []
+
+            # strong_keywords：全文搜索 + 模糊匹配，每个关键词独立计算贡献
+            strong_score = 0.0
+            for kw in rule.strong_keywords:
+                hit, decay = self._fuzzy_contains_keyword(normalized_text, kw)
+                if hit:
+                    matched_strong.append(kw)
+                    strong_score += (0.4 + 0.18) * decay
+            score += min(0.75, strong_score)
+
+            # weak_keywords：全文搜索 + 模糊匹配
+            for kw in rule.weak_keywords:
+                hit, _decay = self._fuzzy_contains_keyword(normalized_text, kw)
+                if hit:
+                    matched_weak.append(kw)
             if matched_weak:
                 score += min(0.2, 0.08 * len(matched_weak))
+
+            # negative_keywords：仍用精确匹配
+            matched_negative = [kw for kw in rule.negative_keywords if self._contains_keyword(normalized_text, kw)]
             if matched_negative:
                 score -= min(0.4, 0.12 * len(matched_negative))
-            if matched_strong and score >= 0.42:
+
+            score = round(max(score, 0.0), 3)
+
+            if matched_strong and score >= 0.30:
+                # strong 命中，阈值从 0.42 降至 0.30
                 candidates.append(
                     {
                         "segment_type": rule.segment_type,
                         "label": rule.label,
-                        "score": round(max(score, 0.0), 3),
+                        "score": score,
                         "matched_strong": matched_strong,
                         "matched_weak": matched_weak,
                     }
                 )
+            elif not matched_strong and len(matched_weak) >= 2:
+                # 仅 weak 命中，生成低置信度候选
+                candidates.append(
+                    {
+                        "segment_type": rule.segment_type,
+                        "label": rule.label,
+                        "score": score,
+                        "matched_strong": [],
+                        "matched_weak": matched_weak,
+                        "weak_only": True,
+                    }
+                )
+
         candidates.sort(key=lambda item: item["score"], reverse=True)
         return candidates[:3]
 
@@ -519,12 +567,29 @@ class PdfSplitService:
                     "page_no": page.page_no,
                     "segment_type": top["segment_type"],
                     "score": float(top["score"]),
+                    "weak_only": bool(top.get("weak_only", False)),
                 }
             )
 
+        # 跨页上下文推理：将无候选但含 continuation_keywords 的页面归入前一段落
+        inferred = self._infer_continuation_pages(pages, start_candidates, template_key=template_key)
+        candidate_page_set = {c["page_no"] for c in start_candidates}
+        all_candidates = start_candidates + [c for c in inferred if c["page_no"] not in candidate_page_set]
+        all_candidates.sort(key=lambda c: c["page_no"])
+
         segments: list[SegmentDraft] = []
-        for index, start in enumerate(start_candidates):
-            next_start_page = start_candidates[index + 1]["page_no"] if index + 1 < len(start_candidates) else len(pages) + 1
+        for index, start in enumerate(all_candidates):
+            # 跨页推理出的候选不作为新段落起始点，跳过
+            if start.get("source") == "context_infer":
+                continue
+
+            next_start_page = len(pages) + 1
+            # 找下一个非推理候选的起始页作为真正的边界
+            for future in all_candidates[index + 1 :]:
+                if future.get("source") != "context_infer":
+                    next_start_page = future["page_no"]
+                    break
+
             end_page = next_start_page - 1
             if start["segment_type"] == PdfSplitSegmentType.COMPLAINT:
                 end_page = self._find_complaint_end(pages, start["page_no"], next_start_page - 1, template.rules[0])
@@ -534,14 +599,24 @@ class PdfSplitService:
                     and start["page_no"] == segments[-1].page_end + 1
                 ):
                     continue
+
             review_flag = PdfSplitReviewFlag.NORMAL
             source_method = "rule"
             confidence = start["score"]
-            if index > 0 and start_candidates[index - 1]["page_no"] == start["page_no"] - 1:
-                if start_candidates[index - 1]["segment_type"] == start["segment_type"]:
+
+            # weak_only 候选标记为低置信度
+            if start.get("weak_only"):
+                review_flag = PdfSplitReviewFlag.LOW_CONFIDENCE
+                source_method = "rule_weak_only"
+
+            # 相邻同类型候选降低置信度
+            prev_real = [c for c in all_candidates[:index] if c.get("source") != "context_infer"]
+            if prev_real and prev_real[-1]["page_no"] == start["page_no"] - 1:
+                if prev_real[-1]["segment_type"] == start["segment_type"]:
                     review_flag = PdfSplitReviewFlag.LOW_CONFIDENCE
                     source_method = "rule_adjacent_start"
                     confidence = min(confidence, 0.55)
+
             segments.append(
                 SegmentDraft(
                     order=len(segments) + 1,
@@ -557,6 +632,71 @@ class PdfSplitService:
 
         merged_segments = self._merge_adjacent_pack_segments(segments)
         return self._fill_unrecognized_gaps(segments=merged_segments, total_pages=len(pages))
+
+    def _infer_continuation_pages(
+        self,
+        pages: list[PageDescriptor],
+        start_candidates: list[dict[str, Any]],
+        *,
+        template_key: str,
+    ) -> list[dict[str, Any]]:
+        """
+        跨页上下文推理：将无候选但包含 continuation_keywords 的页面归入前一高置信度段落。
+
+        仅当前一候选 score >= 0.5 时触发，且段落页数不超过 30 页。
+        """
+        template = get_template_definition(template_key)
+        candidate_page_set = {c["page_no"] for c in start_candidates}
+        inferred: list[dict[str, Any]] = []
+
+        # 构建已知候选（含推理结果）的有序列表，用于查找前一候选
+        all_known: list[dict[str, Any]] = list(start_candidates)
+
+        for page in pages:
+            if page.page_no in candidate_page_set:
+                continue
+
+            # 找前一个有候选的页面（含已推理的）
+            prev_candidate: dict[str, Any] | None = None
+            for c in reversed(all_known):
+                if c["page_no"] < page.page_no:
+                    prev_candidate = c
+                    break
+
+            if prev_candidate is None or float(prev_candidate.get("score", 0.0)) < 0.5:
+                continue
+
+            # 检查段落页数限制（30页）
+            span_start: int = int(prev_candidate.get("span_start", prev_candidate["page_no"]))
+            if page.page_no - span_start >= 30:
+                continue
+
+            # 查找对应规则的 continuation_keywords
+            rule = next(
+                (r for r in template.rules if r.segment_type == prev_candidate["segment_type"]),
+                None,
+            )
+            if rule is None or not rule.continuation_keywords:
+                continue
+
+            has_continuation = any(
+                self._contains_keyword(page.normalized_text, kw)
+                for kw in rule.continuation_keywords
+            )
+            if has_continuation:
+                entry: dict[str, Any] = {
+                    "page_no": page.page_no,
+                    "segment_type": prev_candidate["segment_type"],
+                    "score": round(float(prev_candidate["score"]) * 0.9, 3),
+                    "source": "context_infer",
+                    "span_start": span_start,
+                    "weak_only": False,
+                }
+                inferred.append(entry)
+                all_known.append(entry)
+                all_known.sort(key=lambda c: c["page_no"])
+
+        return inferred
 
     def _find_complaint_end(
         self,
@@ -665,7 +805,7 @@ class PdfSplitService:
 
     def _render_page_bytes(self, page: fitz.Page, *, dpi: int) -> bytes:
         pix = page.get_pixmap(matrix=fitz.Matrix(dpi / 72, dpi / 72))
-        return pix.tobytes("png")
+        return pix.tobytes("png")  # type: ignore[no-any-return]
 
     def _export_segment_pdf(self, source_doc: fitz.Document, page_start: int, page_end: int, output_path: Path) -> None:
         segment_doc = fitz.open()
@@ -692,6 +832,46 @@ class PdfSplitService:
 
     def _contains_keyword(self, haystack: str, keyword: str) -> bool:
         return self._normalize_text(keyword) in haystack
+
+    def _fuzzy_contains_keyword(self, haystack: str, keyword: str) -> tuple[bool, float]:
+        """
+        模糊匹配关键词。
+
+        返回 (是否匹配, 衰减系数)。
+        - 精确匹配：系数 1.0
+        - 模糊匹配（编辑距离 > 0）：系数 0.8
+        - 不匹配：(False, 0.0)
+
+        编辑距离阈值规则：
+        - 关键词长度 ≤ 3：仅精确匹配
+        - 关键词长度 4-6：允许编辑距离 ≤ 1
+        - 关键词长度 > 6：允许编辑距离 ≤ 2
+        """
+        normalized_kw = self._normalize_text(keyword)
+        kw_len = len(normalized_kw)
+
+        if not normalized_kw:
+            return False, 0.0
+
+        # 精确匹配优先
+        if normalized_kw in haystack:
+            return True, 1.0
+
+        # 短关键词不做模糊匹配
+        if kw_len <= 3:
+            return False, 0.0
+
+        # 确定允许的编辑距离
+        max_dist = 1 if kw_len <= 6 else 2
+
+        # 滑动窗口匹配
+        window_size = kw_len + max_dist
+        for i in range(max(1, len(haystack) - window_size + 1)):
+            fragment = haystack[i : i + window_size]
+            if _levenshtein_distance(fragment, normalized_kw) <= max_dist:
+                return True, 0.8
+
+        return False, 0.0
 
     def _is_effective_text(self, value: str) -> bool:
         normalized = self._normalize_text(value)
@@ -744,9 +924,9 @@ class PdfSplitService:
             ),
             PdfSplitOcrProfile.BALANCED: OCRRuntimeProfile(
                 key=PdfSplitOcrProfile.BALANCED,
-                use_v5=False,
-                dpi=168,
-                workers=min(4, cpu),
+                use_v5=True,
+                dpi=200,
+                workers=min(3, cpu),
             ),
             PdfSplitOcrProfile.ACCURATE: OCRRuntimeProfile(
                 key=PdfSplitOcrProfile.ACCURATE,

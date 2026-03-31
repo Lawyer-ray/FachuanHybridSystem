@@ -9,7 +9,7 @@ from typing import Any
 
 from ninja import Router
 
-from apps.core.auth import JWTOrSessionAuth
+from apps.core.security.auth import JWTOrSessionAuth
 from apps.core.infrastructure.throttling import rate_limit_from_settings
 
 from .download_response_factory import build_download_response

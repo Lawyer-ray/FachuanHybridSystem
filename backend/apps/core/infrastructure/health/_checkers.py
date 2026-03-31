@@ -12,7 +12,7 @@ from django.core.cache import cache
 from django.db import connection
 
 from apps.core.infrastructure.cache import CacheTimeout
-from apps.core.path import Path
+from apps.core.utils.path import Path
 
 from ._models import ComponentHealth, HealthStatus
 

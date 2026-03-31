@@ -95,7 +95,7 @@ class ContractTemplateCache:
 
     def clear_all_cache(self) -> None:
         """清除所有模板缓存"""
-        from apps.core.enums import CaseType
+        from apps.core.models.enums import CaseType
 
         for case_type_choice in CaseType.choices:
             case_type = case_type_choice[0]

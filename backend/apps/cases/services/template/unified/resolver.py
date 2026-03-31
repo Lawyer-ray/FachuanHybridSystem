@@ -9,7 +9,7 @@ from typing import Any, cast
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError, ValidationException
-from apps.core.path import Path
+from apps.core.utils.path import Path
 
 from .wiring import get_document_service
 

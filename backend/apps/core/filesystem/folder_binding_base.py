@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import ClassVar
 
-from apps.core.path import Path
+from apps.core.utils.path import Path
 
 from .browse_policy import FolderBrowsePolicy
 from .filesystem_service import FolderFilesystemService

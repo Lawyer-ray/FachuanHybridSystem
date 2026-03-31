@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import Any
@@ -57,11 +58,16 @@ class LegalResearchExecutor(
     RETRY_BACKOFF_MAX_SECONDS = 6.0
     COARSE_RECALL_KEEP_MIN = 20
     COARSE_RECALL_MULTIPLIER = 6
-    COARSE_RECALL_THRESHOLD_RATIO = 0.5
-    COARSE_RECALL_THRESHOLD_CEIL = 0.45
-    DEFERRED_RERANK_KEEP_MIN = 25
-    DEFERRED_RERANK_MULTIPLIER = 10
+    COARSE_RECALL_THRESHOLD_RATIO = 0.6
+    COARSE_RECALL_THRESHOLD_CEIL = 0.52
+    DEFERRED_RERANK_KEEP_MIN = 15
+    DEFERRED_RERANK_MULTIPLIER = 6
     DETAIL_FAILURE_BACKFILL_MULTIPLIER = 2
+    LLM_SCORING_CONCURRENCY = 5
+    LLM_SCORING_BATCH_SIZE = 8
+    TITLE_PREFILTER_MIN_OVERLAP = 0.15
+    ELEMENT_EXTRACTION_MAX_TOKENS = 300
+    ELEMENT_EXTRACTION_TIMEOUT_SECONDS = 20
     QUERY_EXPANSION_TRIGGER_CANDIDATES = 80
     INTENT_QUERY_MAX = 5
     FEEDBACK_QUERY_LIMIT = 2
@@ -203,6 +209,21 @@ class LegalResearchExecutor(
                 keyword_candidates = [primary_query] if primary_query else []
             else:
                 keyword_candidates = self._build_search_keywords(task.keyword, task.case_summary)
+            # ── [3] AI 自动提取关键检索要素 ──
+            element_extraction_enabled = bool(getattr(tuning, "element_extraction_enabled", True))
+            if (not single_search_mode) and element_extraction_enabled:
+                element_model = str(getattr(tuning, "element_extraction_model", "") or "").strip()
+                element_timeout = max(5, int(getattr(tuning, "element_extraction_timeout_seconds", 20)))
+                elements = self._extract_legal_elements(
+                    case_summary=task.case_summary,
+                    model=(element_model or task.llm_model or None),
+                    timeout_seconds=element_timeout,
+                )
+                if elements:
+                    element_queries = self._build_element_based_queries(elements)
+                    if element_queries:
+                        keyword_candidates = self._merge_query_candidates(element_queries, keyword_candidates)
+                        logger.info("法律要素检索式: %s", element_queries, extra={"task_id": str(task.id)})
             if (not single_search_mode) and query_variant_enabled and query_variant_max_count > 0:
                 llm_variants = self._generate_llm_query_variants(
                     keyword=task.keyword,
@@ -218,6 +239,11 @@ class LegalResearchExecutor(
             initial_expansion_queries = [query for query in expansion_keywords if str(query).strip()]
             search_query_set = {q.strip().lower() for q in search_keywords if q.strip()}
             scoring_keyword = self._build_scoring_keyword(task.keyword, task.case_summary)
+            # ── 新配置项 ──
+            title_prefilter_enabled = bool(getattr(tuning, "title_prefilter_enabled", True))
+            title_prefilter_min_overlap = max(0.0, float(getattr(tuning, "title_prefilter_min_overlap", self.TITLE_PREFILTER_MIN_OVERLAP)))
+            coarse_recall_hard_floor = max(0.0, float(getattr(tuning, "coarse_recall_hard_floor", 0.20)))
+            llm_scoring_concurrency = max(1, int(getattr(tuning, "llm_scoring_concurrency", self.LLM_SCORING_CONCURRENCY)))
             feedback_term_weights: dict[str, int] = {}
             feedback_queries_added = 0
             detail_cache_local: dict[str, CaseDetail] = {}
@@ -264,6 +290,11 @@ class LegalResearchExecutor(
                         offset=query_offset,
                         batch_size=batch_size,
                         task_id=str(task.id),
+                        advanced_query=getattr(task, "advanced_query", None) or None,
+                        court_filter=str(getattr(task, "court_filter", "") or ""),
+                        cause_of_action_filter=str(getattr(task, "cause_of_action_filter", "") or ""),
+                        date_from=str(getattr(task, "date_from", "") or ""),
+                        date_to=str(getattr(task, "date_to", "") or ""),
                     )
 
                     if not items:
@@ -290,6 +321,8 @@ class LegalResearchExecutor(
                     rerank_budget = self._coarse_rerank_budget(task=task, matched=matched, batch_size=len(unique_items))
                     rerank_used = 0
                     deferred_candidates: list[tuple[CaseDetail, float, str]] = []
+                    # ── [4] 候选预筛 + 宽召回 → 收集待评分批次 ──
+                    pending_rerank: list[tuple[CaseDetail, float, str]] = []
                     for item in unique_items:
                         if self._is_cancel_requested(task.id):
                             self._mark_cancelled(task=task, scanned=scanned, matched=matched, skipped=skipped)
@@ -304,6 +337,19 @@ class LegalResearchExecutor(
                         if matched >= task.target_count:
                             break
 
+                        # ── [4] 标题预筛 ──
+                        if title_prefilter_enabled:
+                            title_hint = getattr(item, "title_hint", "") or ""
+                            if not self._title_prefilter(
+                                keyword=task.keyword,
+                                case_summary=task.case_summary,
+                                title_hint=title_hint,
+                                min_overlap=title_prefilter_min_overlap,
+                            ):
+                                skipped += 1
+                                query_metric["skipped"] = query_metric.get("skipped", 0) + 1
+                                continue
+
                         detail = self._fetch_case_detail_with_cache(
                             source_client=source_client,
                             session=session,
@@ -315,31 +361,14 @@ class LegalResearchExecutor(
                         )
                         if detail is None:
                             skipped += 1
-                            query_metric["skipped"] += 1
+                            query_metric["skipped"] = query_metric.get("skipped", 0) + 1
                             self._update_progress(task=task, scanned=scanned, matched=matched, skipped=skipped)
-                            (
-                                effective_min_similarity_threshold,
-                                adaptive_checkpoint_scanned,
-                                adaptive_checkpoint_matched,
-                                threshold_lowered,
-                            ) = self._maybe_decay_min_similarity_threshold(
-                                current_threshold=effective_min_similarity_threshold,
-                                scanned=scanned,
-                                matched=matched,
-                                checkpoint_scanned=adaptive_checkpoint_scanned,
-                                checkpoint_matched=adaptive_checkpoint_matched,
-                                policy=adaptive_threshold_policy,
-                            )
-                            if threshold_lowered:
-                                lowest_min_similarity_threshold = min(
-                                    lowest_min_similarity_threshold,
-                                    effective_min_similarity_threshold,
-                                )
                             continue
 
                         scanned += 1
                         query_metric["scanned"] += 1
 
+                        # ── [2] 宽召回（更激进过滤）──
                         coarse_score, coarse_reason = self._coarse_recall(
                             similarity=similarity,
                             keyword=scoring_keyword,
@@ -355,62 +384,116 @@ class LegalResearchExecutor(
                         if not should_rerank:
                             deferred_candidates.append((detail, coarse_score, coarse_reason))
                             self._update_progress(task=task, scanned=scanned, matched=matched, skipped=skipped)
-                            (
-                                effective_min_similarity_threshold,
-                                adaptive_checkpoint_scanned,
-                                adaptive_checkpoint_matched,
-                                threshold_lowered,
-                            ) = self._maybe_decay_min_similarity_threshold(
-                                current_threshold=effective_min_similarity_threshold,
-                                scanned=scanned,
-                                matched=matched,
-                                checkpoint_scanned=adaptive_checkpoint_scanned,
-                                checkpoint_matched=adaptive_checkpoint_matched,
-                                policy=adaptive_threshold_policy,
-                            )
-                            if threshold_lowered:
-                                lowest_min_similarity_threshold = min(
-                                    lowest_min_similarity_threshold,
-                                    effective_min_similarity_threshold,
-                                )
                             continue
                         rerank_used += 1
+                        pending_rerank.append((detail, coarse_score, coarse_reason))
 
-                        previous_matched = matched
-                        matched, skipped, feedback_updated = self._rerank_single_candidate(
+                    # ── [1] 并发 LLM 评分 ──
+                    if pending_rerank and matched < task.target_count:
+                        if self._is_cancel_requested(task.id):
+                            self._mark_cancelled(task=task, scanned=scanned, matched=matched, skipped=skipped)
+                            return {
+                                "task_id": str(task.id), "status": task.status,
+                                "scanned_count": scanned, "matched_count": matched, "skipped_count": skipped,
+                            }
+                        task.message = f"正在并发评分 {len(pending_rerank)} 篇候选（{llm_scoring_concurrency} 并发）"
+                        self._save_task_safely(task, update_fields=["message", "updated_at"])
+
+                        scored_results = self._batch_rerank_candidates(
+                            candidates=pending_rerank,
                             similarity=similarity,
-                            source_client=source_client,
-                            session=session,
                             task=task,
-                            detail=detail,
-                            coarse_score=coarse_score,
-                            coarse_reason=coarse_reason,
                             task_id=str(task.id),
-                            matched=matched,
-                            skipped=skipped,
-                            feedback_term_weights=feedback_term_weights,
-                            feedback_min_score_floor=feedback_min_score_floor,
-                            feedback_score_margin=feedback_score_margin,
-                            min_similarity_threshold=effective_min_similarity_threshold,
-                            dual_review_policy=dual_review_policy,
+                            concurrency=llm_scoring_concurrency,
                         )
-                        query_metric["matched"] += max(0, matched - previous_matched)
-                        if (not single_search_mode) and feedback_updated:
-                            feedback_queries_added, feedback_query = self._maybe_append_feedback_query(
-                                search_keywords=search_keywords,
-                                search_query_set=search_query_set,
-                                feedback_term_weights=feedback_term_weights,
-                                keyword=task.keyword,
-                                case_summary=task.case_summary,
-                                feedback_queries_added=feedback_queries_added,
-                                feedback_query_limit=feedback_query_limit,
-                                feedback_min_terms=feedback_min_terms,
+                        for detail, sim, coarse_score, coarse_reason in scored_results:
+                            if matched >= task.target_count:
+                                break
+                            if not task.llm_model and sim.model:
+                                task.llm_model = sim.model
+
+                            # 近阈值复判
+                            if sim.score < effective_min_similarity_threshold and sim.score >= max(
+                                0.0, effective_min_similarity_threshold - self.BORDERLINE_RECHECK_GAP
+                            ):
+                                rescored = self._rescore_borderline_with_retry(
+                                    similarity=similarity, task=task, detail=detail,
+                                    first_score=sim.score, first_reason=sim.reason, task_id=str(task.id),
+                                )
+                                if rescored is not None and rescored.score > sim.score:
+                                    sim = rescored
+
+                            # 双模型复核
+                            dual_review_metadata: dict[str, Any] | None = None
+                            similarity_metadata = self._extract_similarity_metadata(similarity=sim)
+                            if (
+                                dual_review_policy.enabled
+                                and sim.score >= dual_review_policy.trigger_floor
+                                and str(getattr(sim, "model", "") or "").strip() != dual_review_policy.review_model
+                            ):
+                                reviewed = self._review_case_with_retry(
+                                    similarity=similarity, task=task, detail=detail, task_id=str(task.id),
+                                    review_model=dual_review_policy.review_model,
+                                    primary_score=sim.score, primary_reason=sim.reason,
+                                )
+                                if reviewed is not None:
+                                    merged_score, merged_reason, merged_model, dual_review_metadata = (
+                                        self._merge_dual_review_scores(
+                                            primary=sim, reviewed=reviewed, dual_review_policy=dual_review_policy,
+                                        )
+                                    )
+                                    sim.score = merged_score
+                                    sim.reason = merged_reason
+                                    sim.model = merged_model
+
+                            # 反馈更新
+                            self._update_feedback_terms(
+                                feedback_term_weights=feedback_term_weights, detail=detail,
+                                reason=sim.reason, similarity_score=sim.score,
+                                min_similarity=effective_min_similarity_threshold,
+                                feedback_min_score_floor=feedback_min_score_floor,
+                                feedback_score_margin=feedback_score_margin,
                             )
-                            if feedback_query:
-                                if feedback_query not in feedback_queries:
-                                    feedback_queries.append(feedback_query)
-                                task.message = f"已触发伪相关反馈扩展检索：{feedback_query}"
-                                self._save_task_safely(task, update_fields=["message", "updated_at"])
+
+                            if sim.score < effective_min_similarity_threshold:
+                                continue
+
+                            # 命中 → 下载 PDF
+                            pdf = self._download_pdf_with_retry(
+                                source_client=source_client, session=session,
+                                detail=detail, task_id=str(task.id),
+                            )
+                            if pdf is None:
+                                skipped += 1
+                                continue
+
+                            matched += 1
+                            query_metric["matched"] += 1
+                            merged_metadata: dict[str, Any] | None = None
+                            if similarity_metadata or dual_review_metadata:
+                                merged_metadata = {}
+                                if similarity_metadata:
+                                    merged_metadata.update(similarity_metadata)
+                                if dual_review_metadata:
+                                    merged_metadata.update(dual_review_metadata)
+                            self._save_result(
+                                task=task, detail=detail, similarity=sim, rank=matched,
+                                pdf=pdf, coarse_score=coarse_score, coarse_reason=coarse_reason,
+                                extra_metadata=merged_metadata,
+                            )
+
+                        # 批量评分后更新反馈检索式
+                        if not single_search_mode:
+                            feedback_queries_added, feedback_query = self._maybe_append_feedback_query(
+                                search_keywords=search_keywords, search_query_set=search_query_set,
+                                feedback_term_weights=feedback_term_weights,
+                                keyword=task.keyword, case_summary=task.case_summary,
+                                feedback_queries_added=feedback_queries_added,
+                                feedback_query_limit=feedback_query_limit, feedback_min_terms=feedback_min_terms,
+                            )
+                            if feedback_query and feedback_query not in feedback_queries:
+                                feedback_queries.append(feedback_query)
+
                         self._update_progress(task=task, scanned=scanned, matched=matched, skipped=skipped)
                         (
                             effective_min_similarity_threshold,
@@ -419,16 +502,14 @@ class LegalResearchExecutor(
                             threshold_lowered,
                         ) = self._maybe_decay_min_similarity_threshold(
                             current_threshold=effective_min_similarity_threshold,
-                            scanned=scanned,
-                            matched=matched,
+                            scanned=scanned, matched=matched,
                             checkpoint_scanned=adaptive_checkpoint_scanned,
                             checkpoint_matched=adaptive_checkpoint_matched,
                             policy=adaptive_threshold_policy,
                         )
                         if threshold_lowered:
                             lowest_min_similarity_threshold = min(
-                                lowest_min_similarity_threshold,
-                                effective_min_similarity_threshold,
+                                lowest_min_similarity_threshold, effective_min_similarity_threshold,
                             )
 
                     if matched < task.target_count and deferred_candidates:
@@ -785,6 +866,8 @@ class LegalResearchExecutor(
 
     @staticmethod
     def _should_rerank(*, coarse_score: float, threshold: float, rerank_used: int, rerank_budget: int) -> bool:
+        if coarse_score < 0.20:
+            return False
         return coarse_score >= threshold or rerank_used < rerank_budget
 
     @classmethod
@@ -1124,6 +1207,157 @@ class LegalResearchExecutor(
             base_tokens = cls._split_tokens(case_summary)
         merged = cls._expand_terms_with_synonyms(base_tokens, max_tokens=12)
         return " ".join(merged).strip()
+
+    # ── 速度与准确率优化方法 ──────────────────────────────────
+
+    @classmethod
+    def _title_prefilter(cls, *, keyword: str, case_summary: str, title_hint: str, min_overlap: float) -> bool:
+        """标题预筛：在 fetch_detail 之前用 title_hint 快速过滤明显不相关的案例。"""
+        if not title_hint or not title_hint.strip():
+            return True  # 无标题信息，不过滤
+        query_tokens = cls._split_tokens(f"{keyword} {case_summary}")
+        if not query_tokens:
+            return True
+        title_lower = title_hint.lower()
+        matched = sum(1 for t in query_tokens if t.lower() in title_lower)
+        overlap = matched / len(query_tokens)
+        return overlap >= min_overlap
+
+    @classmethod
+    def _extract_legal_elements(
+        cls,
+        *,
+        case_summary: str,
+        model: str | None = None,
+        timeout_seconds: int = 20,
+    ) -> dict[str, Any]:
+        """用 LLM 从案情简述中提取结构化法律要素，用于构造精准检索式。"""
+        if not case_summary or len(case_summary.strip()) < 10:
+            return {}
+        try:
+            llm = ServiceLocator.get_llm_service()
+        except Exception:
+            return {}
+
+        prompt = (
+            "你是法律检索要素提取器。从案情简述中提取关键法律要素，只输出JSON。\n"
+            "{\n"
+            '  "cause_of_action": "案由（如：买卖合同纠纷、民间借贷纠纷）",\n'
+            '  "legal_relation": "法律关系（如：买卖合同、借款合同）",\n'
+            '  "dispute_focus": ["争议焦点1", "争议焦点2"],\n'
+            '  "damage_type": ["损失类型1", "损失类型2"],\n'
+            '  "key_facts": ["关键事实1", "关键事实2"]\n'
+            "}\n"
+            "规则：每个字段2-6个字，dispute_focus和damage_type各不超过3项，key_facts不超过3项。\n"
+            "若无法判断某字段，留空字符串或空数组。\n\n"
+            f"案情简述：{case_summary[:1500]}\n"
+        )
+        try:
+            response = llm.chat(
+                messages=[
+                    {"role": "system", "content": "你是法律检索要素提取器，只输出JSON。"},
+                    {"role": "user", "content": prompt},
+                ],
+                backend="siliconflow",
+                model=(model or None),
+                fallback=False,
+                temperature=0.0,
+                max_tokens=cls.ELEMENT_EXTRACTION_MAX_TOKENS,
+                timeout_seconds=timeout_seconds,
+            )
+        except Exception as exc:
+            logger.info("法律要素提取失败: %s", exc)
+            return {}
+
+        content = str(getattr(response, "content", "") or "").strip()
+        if not content:
+            return {}
+        try:
+            parsed = json.loads(content)
+            if isinstance(parsed, dict):
+                return parsed
+        except json.JSONDecodeError:
+            match = re.search(r"\{.*\}", content, flags=re.S)
+            if match:
+                try:
+                    parsed = json.loads(match.group(0))
+                    if isinstance(parsed, dict):
+                        return parsed
+                except json.JSONDecodeError:
+                    pass
+        return {}
+
+    @classmethod
+    def _build_element_based_queries(cls, elements: dict[str, Any]) -> list[str]:
+        """用提取的法律要素组合出精准检索式。"""
+        if not elements:
+            return []
+        cause = str(elements.get("cause_of_action", "") or "").strip()
+        relation = str(elements.get("legal_relation", "") or "").strip()
+        disputes = [str(d).strip() for d in (elements.get("dispute_focus") or []) if str(d).strip()]
+        damages = [str(d).strip() for d in (elements.get("damage_type") or []) if str(d).strip()]
+        facts = [str(f).strip() for f in (elements.get("key_facts") or []) if str(f).strip()]
+
+        queries: list[str] = []
+        # 查询1: 案由 + 争议焦点
+        if cause and disputes:
+            queries.append(f"{cause} {' '.join(disputes[:2])}")
+        # 查询2: 法律关系 + 损失类型
+        if relation and damages:
+            queries.append(f"{relation} {' '.join(damages[:2])}")
+        # 查询3: 案由 + 关键事实
+        if cause and facts:
+            queries.append(f"{cause} {' '.join(facts[:2])}")
+        # 查询4: 全要素组合
+        all_terms = [t for t in [cause, relation, *disputes[:1], *damages[:1]] if t]
+        if len(all_terms) >= 2:
+            queries.append(" ".join(all_terms[:5]))
+        return queries
+
+    def _batch_rerank_candidates(
+        self,
+        *,
+        candidates: list[tuple[Any, float, str]],
+        similarity: Any,
+        task: LegalResearchTask,
+        task_id: str,
+        concurrency: int,
+    ) -> list[tuple[Any, Any, float, str]]:
+        """
+        并发 LLM 评分。
+
+        Args:
+            candidates: [(detail, coarse_score, coarse_reason), ...]
+        Returns:
+            [(detail, sim_result, coarse_score, coarse_reason), ...] 按分数降序
+        """
+        if not candidates:
+            return []
+
+        results: list[tuple[Any, Any, float, str]] = []
+
+        def _score_one(detail: Any) -> Any | None:
+            return self._score_case_with_retry(
+                similarity=similarity, task=task, detail=detail, task_id=task_id
+            )
+
+        effective_concurrency = max(1, min(concurrency, len(candidates)))
+        with ThreadPoolExecutor(max_workers=effective_concurrency) as pool:
+            future_map = {
+                pool.submit(_score_one, detail): (detail, coarse_score, coarse_reason)
+                for detail, coarse_score, coarse_reason in candidates
+            }
+            for future in as_completed(future_map):
+                detail, coarse_score, coarse_reason = future_map[future]
+                try:
+                    sim = future.result()
+                    if sim is not None:
+                        results.append((detail, sim, coarse_score, coarse_reason))
+                except Exception:
+                    logger.warning("并发LLM评分异常", extra={"task_id": task_id})
+
+        results.sort(key=lambda x: getattr(x[1], "score", 0.0), reverse=True)
+        return results
 
     @classmethod
     def _build_search_keywords(cls, keyword: str, case_summary: str) -> list[str]:

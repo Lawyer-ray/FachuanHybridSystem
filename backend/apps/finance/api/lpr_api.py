@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 from django.http import HttpRequest
 from ninja import Router
 
-from apps.core.auth import JWTOrSessionAuth
+from apps.core.security.auth import JWTOrSessionAuth
 from apps.finance.schemas.lpr_schemas import (
     InterestCalculateRequest,
     InterestCalculateResponse,

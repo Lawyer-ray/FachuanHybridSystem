@@ -8,7 +8,7 @@ from apps.core.interfaces import ClientDTO, IClientService
 
 if TYPE_CHECKING:
     from apps.client.models import Client
-    from apps.core.dtos import ClientIdentityDocDTO, PropertyClueDTO
+    from apps.core.dto import ClientIdentityDocDTO, PropertyClueDTO
 
     from .client_dto_assembler import ClientDtoAssembler, ClientRelatedDtoAssembler
     from .client_internal_query_service import ClientInternalQueryService

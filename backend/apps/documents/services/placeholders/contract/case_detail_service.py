@@ -224,7 +224,7 @@ class CaseDetailService(BasePlaceholderService):
             审理机关名称
         """
         try:
-            from apps.core.enums import AuthorityType
+            from apps.core.models.enums import AuthorityType
 
             for authority in case.supervising_authorities.all():
                 if authority.authority_type == AuthorityType.TRIAL:

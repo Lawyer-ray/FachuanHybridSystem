@@ -12,7 +12,7 @@ from typing import Any
 from ninja import Router
 
 from apps.core.api.schema_utils import schema_to_update_dict
-from apps.core.auth import JWTOrSessionAuth
+from apps.core.security.auth import JWTOrSessionAuth
 from apps.documents.schemas import FolderTemplateIn, FolderTemplateOut, FolderTemplateUpdate
 
 logger = logging.getLogger("apps.documents.api")

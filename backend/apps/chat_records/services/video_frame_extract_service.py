@@ -19,7 +19,7 @@ from pathlib import Path
 from django.conf import settings
 
 from apps.core.exceptions import ValidationException
-from apps.core.subprocess_runner import SubprocessRunner
+from apps.core.infrastructure.subprocess_runner import SubprocessRunner
 
 logger = logging.getLogger(__name__)
 

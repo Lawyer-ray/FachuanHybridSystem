@@ -6,7 +6,7 @@
 
 from typing import Any, Protocol
 
-from apps.core.dtos import ContractDTO, LawyerDTO, PartyRoleDTO, SupplementaryAgreementDTO
+from apps.core.dto import ContractDTO, LawyerDTO, PartyRoleDTO, SupplementaryAgreementDTO
 from apps.core.security.access_context import AccessContext
 
 

@@ -6,7 +6,7 @@ from typing import Any
 from ninja import Schema
 from pydantic import Field
 
-from apps.core.schemas import SchemaMixin
+from apps.core.api.schemas import SchemaMixin
 
 __all__: list[str] = [
     "ClientIdentityDocLiteOut",

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from apps.core.dtos import CaseDTO
+from apps.core.dto import CaseDTO
 
 
 class CaseDtoAssembler:

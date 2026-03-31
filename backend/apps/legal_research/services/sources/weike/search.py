@@ -20,6 +20,17 @@ class WeikeSearchMixin:
     LAW_LOGIN_MODAL_USERNAME_SELECTOR = "#login-username"
     LAW_LOGIN_BUTTON_SELECTOR = "button.wk-banner-action-bar-item.wkb-btn-green:has-text('登录')"
 
+    # 威科先行检索字段名（用于 DOM 高级检索 URL 参数，仅单字段时使用）
+    SEARCH_FIELD_MAP: dict[str, str] = {
+        "fullText": "fullText",
+        "title": "title",
+        "causeOfAction": "causeOfAction",
+        "courtOpinion": "courtOpinion",
+        "judgmentResult": "judgmentResult",
+        "disputeFocus": "disputeFocus",
+        "caseNumber": "caseNumber",
+    }
+
     def search_cases(
         self,
         *,
@@ -28,6 +39,11 @@ class WeikeSearchMixin:
         max_candidates: int,
         max_pages: int = 10,
         offset: int = 0,
+        advanced_query: list[dict[str, str]] | None = None,
+        court_filter: str = "",
+        cause_of_action_filter: str = "",
+        date_from: str = "",
+        date_to: str = "",
     ) -> list[WeikeSearchItem]:
         if session.search_via_api_enabled:
             if self._is_search_api_degraded(session=session):
@@ -58,6 +74,11 @@ class WeikeSearchMixin:
                             max_candidates=max_candidates,
                             max_pages=max_pages,
                             offset=offset,
+                            advanced_query=advanced_query,
+                            court_filter=court_filter,
+                            cause_of_action_filter=cause_of_action_filter,
+                            date_from=date_from,
+                            date_to=date_to,
                         )
                         if items:
                             self._reset_search_api_health(session=session)
@@ -119,6 +140,11 @@ class WeikeSearchMixin:
             max_candidates=max_candidates,
             max_pages=max_pages,
             offset=offset,
+            advanced_query=advanced_query,
+            court_filter=court_filter,
+            cause_of_action_filter=cause_of_action_filter,
+            date_from=date_from,
+            date_to=date_to,
         )
 
     def _search_cases_via_dom(
@@ -129,6 +155,11 @@ class WeikeSearchMixin:
         max_candidates: int,
         max_pages: int,
         offset: int = 0,
+        advanced_query: list[dict[str, str]] | None = None,
+        court_filter: str = "",
+        cause_of_action_filter: str = "",
+        date_from: str = "",
+        date_to: str = "",
     ) -> list[WeikeSearchItem]:
         started = time.monotonic()
         if session.page is None:
@@ -144,12 +175,59 @@ class WeikeSearchMixin:
             raise RuntimeError("Playwright页面未就绪")
         page = session.page
         try:
-            page.goto(self.LAW_LIST_URL, wait_until="domcontentloaded", timeout=120000)
-            page.wait_for_selector("input[name='keyword']", timeout=60000)
-            page.fill("input[name='keyword']", keyword)
-            page.locator("button.wk-banner-action-bar-item.wkb-btn-green:has-text('搜索')").first.click(timeout=10000)
-            page.wait_for_timeout(3500)
-            self._raise_if_login_required(page)
+            # 判断是否有高级筛选参数
+            has_advanced = bool(advanced_query or court_filter or cause_of_action_filter or date_from or date_to)
+
+            if has_advanced:
+                # 高级检索：构造 URL 参数直接导航
+                from urllib.parse import urlencode
+                params: dict[str, str] = {"keyword": keyword}
+                # 单字段时加 searchField 参数（多字段组合 DOM 不支持，只能靠私有 API）
+                if advanced_query and len(advanced_query) == 1:
+                    field = str(advanced_query[0].get("field", "") or "")
+                    mapped = self.SEARCH_FIELD_MAP.get(field, "")
+                    if mapped and mapped != "fullText":
+                        params["searchField"] = mapped
+                        params["keyword"] = str(advanced_query[0].get("keyword", keyword) or keyword)
+                if court_filter:
+                    params["courtName"] = court_filter
+                if cause_of_action_filter:
+                    params["causeOfAction"] = cause_of_action_filter
+                if date_from:
+                    params["judgmentDateFrom"] = date_from
+                if date_to:
+                    params["judgmentDateTo"] = date_to
+                search_url = f"{self.LAW_LIST_URL}?{urlencode(params)}"
+                page.goto(search_url, wait_until="domcontentloaded", timeout=120000)
+                page.wait_for_timeout(4000)
+                self._raise_if_login_required(page)
+
+                # 验证结果是否加载出来，若无结果则 fallback 到普通关键词检索
+                anchor_count: int = page.eval_on_selector_all(
+                    "a[href*='/judgment-documents/detail/']",
+                    "els => els.length",
+                )
+                if anchor_count == 0:
+                    logger.warning(
+                        "高级检索 URL 参数未返回结果，回退普通关键词检索（keyword=%s, search_field=%s）",
+                        keyword, search_field,
+                        extra={"keyword": keyword, "search_field": search_field},
+                    )
+                    # fallback：普通搜索框方式
+                    page.goto(self.LAW_LIST_URL, wait_until="domcontentloaded", timeout=120000)
+                    page.wait_for_selector("input[name='keyword']", timeout=60000)
+                    page.fill("input[name='keyword']", keyword)
+                    page.locator("button.wk-banner-action-bar-item.wkb-btn-green:has-text('搜索')").first.click(timeout=10000)
+                    page.wait_for_timeout(3500)
+                    self._raise_if_login_required(page)
+            else:
+                # 普通检索：原有的搜索框交互方式，稳定可靠
+                page.goto(self.LAW_LIST_URL, wait_until="domcontentloaded", timeout=120000)
+                page.wait_for_selector("input[name='keyword']", timeout=60000)
+                page.fill("input[name='keyword']", keyword)
+                page.locator("button.wk-banner-action-bar-item.wkb-btn-green:has-text('搜索')").first.click(timeout=10000)
+                page.wait_for_timeout(3500)
+                self._raise_if_login_required(page)
 
             items: list[WeikeSearchItem] = []
             seen: set[str] = set()

@@ -11,7 +11,7 @@ from django.db import transaction
 from django.utils.translation import gettext_lazy as _
 
 from apps.contracts.models import Contract
-from apps.core.enums import CaseType
+from apps.core.models.enums import CaseType
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.interfaces import CaseDTO
 
@@ -140,7 +140,7 @@ class ContractAdminMutationService:
                 },
             )
 
-        from apps.core.enums import SimpleCaseType
+        from apps.core.models.enums import SimpleCaseType
 
         case_type_mapping = {
             CaseType.CIVIL: SimpleCaseType.CIVIL,

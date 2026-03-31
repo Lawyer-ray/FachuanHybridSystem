@@ -62,6 +62,7 @@ dependencies = [
     "weasyprint>=68.1",
     # --- MCP Server ---
     "mcp[cli]>=1.0.0",
+    "gmssl==3.2.2",
 ]
 
 [dependency-groups]

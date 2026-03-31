@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from apps.core.dtos import SupplementaryAgreementDTO
+from apps.core.dto import SupplementaryAgreementDTO
 
 logger = logging.getLogger("apps.contracts")
 

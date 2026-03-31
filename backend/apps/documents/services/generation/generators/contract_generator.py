@@ -8,7 +8,7 @@ import logging
 import time
 from typing import Any, ClassVar, cast
 
-from apps.core.path import Path
+from apps.core.utils.path import Path
 from apps.documents.services.generation.base_generator import BaseGenerator
 from apps.documents.services.generation.registry import GeneratorRegistry
 from apps.documents.services.generation.result import GenerationResult

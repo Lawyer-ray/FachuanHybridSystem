@@ -7,7 +7,7 @@ from typing import Any
 import fitz
 from PIL import Image
 
-from apps.core.path import Path
+from apps.core.utils.path import Path
 from apps.image_rotation.services import storage
 from apps.image_rotation.services.transform import apply_rotation_for_pdf
 

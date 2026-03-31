@@ -13,7 +13,7 @@ from typing import Any
 from django.http import HttpRequest
 from ninja import Router, Schema
 
-from apps.core.auth import JWTOrSessionAuth
+from apps.core.security.auth import JWTOrSessionAuth
 
 router = Router(tags=["证据清单"], auth=JWTOrSessionAuth())
 

@@ -7,7 +7,7 @@ Requirements: 3.1, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 8.3
 import logging
 from typing import Any, ClassVar
 
-from apps.core.enums import LegalStatus
+from apps.core.models.enums import LegalStatus
 from apps.documents.services.placeholders.base import BasePlaceholderService
 from apps.documents.services.placeholders.registry import PlaceholderRegistry
 from apps.litigation_ai.placeholders.spec import LitigationPlaceholderKeys

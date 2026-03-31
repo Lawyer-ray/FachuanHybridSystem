@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
-from apps.core.httpx_clients import get_async_http_client, get_sync_http_client
+from apps.core.http.httpx_clients import get_async_http_client, get_sync_http_client
 from apps.core.llm.config import LLMConfig
 from apps.core.llm.exceptions import LLMAPIError
 

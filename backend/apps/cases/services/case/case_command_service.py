@@ -9,10 +9,10 @@ from django.db import transaction
 from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import Case
-from apps.core.business_config import business_config
+from apps.core.config.business_config import business_config
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.interfaces import IContractService
-from apps.core.permissions import PermissionMixin
+from apps.core.security.permissions import PermissionMixin
 from apps.core.security.access_context import AccessContext
 
 from .case_access_policy import CaseAccessPolicy

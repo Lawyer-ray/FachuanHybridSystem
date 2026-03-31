@@ -9,7 +9,7 @@ from __future__ import annotations
 # Contract DTOs
 # Case DTOs
 # DTOs
-from apps.core.dtos import (
+from apps.core.dto import (
     AccountCredentialDTO,
     CaseDTO,
     CasePartyDTO,

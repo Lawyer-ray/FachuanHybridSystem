@@ -15,7 +15,7 @@ from ninja.renderers import BaseRenderer
 from ninja_jwt.routers.obtain import obtain_pair_router
 from ninja_jwt.routers.verify import verify_router
 
-from apps.core.auth import JWTOrSessionAuth
+from apps.core.security.auth import JWTOrSessionAuth
 from apps.core.exceptions import register_exception_handlers
 from apps.core.infrastructure import (
     HealthChecker,
