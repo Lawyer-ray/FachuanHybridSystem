@@ -28,6 +28,14 @@ from mcp_server.tools.cases import (
     list_cases,
     search_cases,
 )
+from mcp_server.tools.chat_records import (
+    create_export,
+    create_project,
+    get_export_task,
+    list_projects,
+    list_recordings,
+    list_screenshots,
+)
 from mcp_server.tools.clients import (
     create_client,
     create_property_clue,
@@ -36,12 +44,28 @@ from mcp_server.tools.clients import (
     list_property_clues,
     parse_client_text,
 )
+from mcp_server.tools.contract_review import (
+    get_review_models,
+    get_review_status,
+    upload_contract_for_review,
+)
 from mcp_server.tools.contracts import (
     create_contract,
     get_contract,
     list_contracts,
 )
 from mcp_server.tools.doc_convert import convert_document, list_doc_convert_types
+from mcp_server.tools.documents import (
+    create_document_template,
+    download_contract_document,
+    download_contract_folder,
+    get_document_template,
+    list_document_templates,
+    list_folder_templates,
+    list_placeholders,
+    preview_contract_context,
+    preview_placeholders,
+)
 from mcp_server.tools.enterprise_data import (
     get_company_personnel,
     get_company_profile,
@@ -51,6 +75,16 @@ from mcp_server.tools.enterprise_data import (
     list_enterprise_providers,
     search_bidding_info,
     search_companies,
+)
+from mcp_server.tools.finance import (
+    calculate_interest,
+    get_latest_lpr_rate,
+    list_lpr_rates,
+)
+from mcp_server.tools.image_rotation import (
+    detect_orientation,
+    extract_pdf_pages,
+    suggest_rename,
 )
 from mcp_server.tools.invoice_recognition import (
     download_invoices,
@@ -143,4 +177,17 @@ __all__ = [
     # 发票识别
     "quick_recognize_invoice", "upload_invoices",
     "get_invoice_task_status", "download_invoices",
+    # 聊天记录取证
+    "create_project", "list_projects", "list_recordings",
+    "list_screenshots", "create_export", "get_export_task",
+    # 合同审查
+    "upload_contract_for_review", "get_review_status", "get_review_models",
+    # 文书生产
+    "list_document_templates", "get_document_template", "create_document_template",
+    "list_folder_templates", "list_placeholders", "preview_placeholders",
+    "preview_contract_context", "download_contract_document", "download_contract_folder",
+    # LPR 利率
+    "list_lpr_rates", "get_latest_lpr_rate", "calculate_interest",
+    # 图片旋转
+    "extract_pdf_pages", "detect_orientation", "suggest_rename",
 ]

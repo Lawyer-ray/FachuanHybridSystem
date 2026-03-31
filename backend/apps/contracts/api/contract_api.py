@@ -45,19 +45,16 @@ def list_contracts(
 
     Requirements: 6.1, 6.2, 6.3
     """
-    service = _get_contract_service()
+    service = _get_domain_service()
     ctx = extract_request_context(request)
 
-    result = service.list_contracts(
+    return service.list_contracts(
         case_type=case_type,
         status=status,
         user=ctx.user,
         org_access=ctx.org_access,
         perm_open_access=ctx.perm_open_access,
-        page=page,
-        page_size=page_size,
     )
-    return result["items"]
 
 
 @router.get("/contracts/{contract_id}", response=ContractOut)
@@ -67,7 +64,7 @@ def get_contract(request: HttpRequest, contract_id: int) -> Any:
 
     Requirements: 6.1, 6.2, 6.3
     """
-    service = _get_contract_service()
+    service = _get_domain_service()
     ctx = extract_request_context(request)
 
     return service.get_contract(
@@ -84,24 +81,13 @@ class ContractWithCasesIn(ContractIn):
 
 @router.post("/contracts/full", response=ContractOut)
 def create_contract_with_cases(request: HttpRequest, payload: ContractWithCasesIn) -> Any:
-    """
-    创建合同并关联案件
-
-    Requirements: 4.1, 4.2, 4.3
-    """
-    service = _get_contract_service()
-
+    service = _get_domain_service()
     data = payload.model_dump()
     cases_data = data.pop("cases", None)
     lawyer_ids = data.pop("lawyer_ids", [])
-
-    contract = service.create_contract_with_cases(
-        contract_data=data,
-        cases_data=cases_data,
-        assigned_lawyer_ids=lawyer_ids,
+    return service.create_contract_with_cases(
+        contract_data=data, cases_data=cases_data, assigned_lawyer_ids=lawyer_ids,
     )
-
-    return contract
 
 
 @router.put("/contracts/{contract_id}", response=ContractOut)
@@ -113,24 +99,14 @@ def update_contract(
     confirm_finance: bool = False,
     new_payments: list[ContractPaymentIn] | None = None,
 ) -> Any:
-    """
-    更新合同
-
-    Requirements: 1.1, 1.2, 1.3, 4.3
-    """
-    service = _get_contract_service()
+    service = _get_domain_service()
     ctx = extract_request_context(request)
     data = payload.model_dump(exclude_unset=True)
-
-    contract = service.update_contract_with_finance(
-        contract_id=contract_id,
-        update_data=data,
-        user=ctx.user,
+    return service.update_contract_with_finance(
+        contract_id=contract_id, update_data=data, user=ctx.user,
         confirm_finance=confirm_finance,
         new_payments=[p.model_dump() for p in new_payments] if new_payments else None,
     )
-
-    return contract
 
 
 @router.post("/contracts", response=ContractOut)
@@ -140,60 +116,31 @@ def create_contract(
     payments: list[ContractPaymentIn] | None = None,
     confirm_finance: bool = False,
 ) -> Any:
-    """
-    创建合同
-
-    Requirements: 1.1, 5.1, 5.3
-    """
-    service = _get_contract_service()
+    service = _get_domain_service()
     ctx = extract_request_context(request)
-
     data = payload.model_dump()
     lawyer_ids = data.pop("lawyer_ids", [])
-
-    contract = service.create_contract_with_cases(
-        contract_data=data,
-        cases_data=None,
-        assigned_lawyer_ids=lawyer_ids,
+    return service.create_contract_with_cases(
+        contract_data=data, cases_data=None, assigned_lawyer_ids=lawyer_ids,
         payments_data=[p.model_dump() for p in payments] if payments else None,
-        confirm_finance=confirm_finance,
-        user=ctx.user,
+        confirm_finance=confirm_finance, user=ctx.user,
     )
-
-    return contract
 
 
 @router.put("/contracts/{contract_id}/lawyers", response=ContractOut)
 def update_contract_lawyers(request: HttpRequest, contract_id: int, payload: UpdateLawyersIn) -> Any:
-    """
-    更新合同律师指派
-
-    Requirements: 5.1, 5.2, 5.3
-    """
-    service = _get_contract_service()
-
-    contract = service.update_contract_lawyers(contract_id=contract_id, lawyer_ids=payload.lawyer_ids)
-    return contract
+    service = _get_domain_service()
+    return service.update_contract_lawyers(contract_id=contract_id, lawyer_ids=payload.lawyer_ids)
 
 
 @router.delete("/contracts/{contract_id}")
 def delete_contract(request: HttpRequest, contract_id: int) -> dict[str, bool]:
-    """删除合同"""
-    service = _get_contract_service()
-
+    service = _get_domain_service()
     service.delete_contract(contract_id)
     return {"success": True}
 
 
 @router.get("/contracts/{contract_id}/all-parties", response=list[ContractPartySourceOut])
 def get_contract_all_parties(request: HttpRequest, contract_id: int) -> Any:
-    """
-    获取合同及补充协议的所有当事人
-
-    Requirements: 5.1, 5.2, 5.3, 5.4
-    """
-    service = _get_contract_service()
-
-    parties = service.get_all_parties(contract_id)
-
-    return parties
+    service = _get_domain_service()
+    return service.get_all_parties(contract_id)
