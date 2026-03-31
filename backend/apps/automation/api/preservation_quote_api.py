@@ -100,11 +100,17 @@ def list_preservation_quotes(
     service = _get_preservation_quote_service()
 
     # 调用 Service 方法（参数验证在 Service 层）
-    quotes, total = service.list_quotes(  # type: ignore[attr-defined]
+    result = service.list_quotes(  # type: ignore[attr-defined]
         page=page,
         page_size=page_size,
         status=status,
     )
+    # adapter 返回 dict，兼容直接返回 (quotes, total) 元组的实现
+    if isinstance(result, dict):
+        quotes = result.get("quotes", [])
+        total = result.get("total", 0)
+    else:
+        quotes, total = result
 
     # 计算总页数
     total_pages = math.ceil(total / page_size) if total > 0 else 0
