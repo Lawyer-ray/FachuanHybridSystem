@@ -53,7 +53,7 @@ def _acquire_token(credential_id: int) -> str:
     cached = cache_manager.get_cached_token(credential.site_name, credential.account)
     if cached:
         logger.info("一张网收件箱: 使用缓存 Token")
-        return cached
+        return str(cached)
 
     # 2. 尝试 DB 中已有的 Token
     from apps.automation.models.token import CourtToken

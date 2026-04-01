@@ -35,15 +35,16 @@ class InboxMessageOut(SchemaMixin, Schema):
 
     @staticmethod
     def resolve_source_name(obj: InboxMessage) -> str:
-        return obj.source.display_name
+        return str(obj.source.display_name)
 
     @staticmethod
     def resolve_source_type(obj: InboxMessage) -> str:
-        return obj.source.source_type
+        return str(obj.source.source_type)
 
     @staticmethod
     def resolve_recipient(obj: InboxMessage) -> str:
-        return obj.source.credential.account
+        account: str = obj.source.credential.account
+        return account
 
     @staticmethod
     def resolve_received_at(obj: InboxMessage) -> str:

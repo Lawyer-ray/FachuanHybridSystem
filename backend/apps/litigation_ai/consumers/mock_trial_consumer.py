@@ -115,6 +115,7 @@ class MockTrialConsumer(AsyncWebsocketConsumer):
 
         flow = MockTrialFlowService()
         step = await self._get_current_step(flow)
+        assert self.session is not None and self.user is not None
         ctx = MockTrialContext(
             session_id=self.session_id or "",
             case_id=self.session.case_id,
@@ -157,6 +158,7 @@ class MockTrialConsumer(AsyncWebsocketConsumer):
         from apps.litigation_ai.services.mock_trial.types import MockTrialContext, MockTrialStep
 
         flow = MockTrialFlowService()
+        assert self.session is not None and self.user is not None
         ctx = MockTrialContext(
             session_id=self.session_id or "",
             case_id=self.session.case_id,
@@ -173,6 +175,7 @@ class MockTrialConsumer(AsyncWebsocketConsumer):
         from apps.litigation_ai.services.mock_trial.types import MockTrialContext, MockTrialStep
 
         flow = MockTrialFlowService()
+        assert self.session is not None and self.user is not None
         ctx = MockTrialContext(
             session_id=self.session_id or "",
             case_id=self.session.case_id,
@@ -189,6 +192,7 @@ class MockTrialConsumer(AsyncWebsocketConsumer):
         from apps.litigation_ai.services.mock_trial.types import MockTrialContext, MockTrialStep
 
         flow = MockTrialFlowService()
+        assert self.session is not None and self.user is not None
         ctx = MockTrialContext(
             session_id=self.session_id or "",
             case_id=self.session.case_id,

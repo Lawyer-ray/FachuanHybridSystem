@@ -40,14 +40,31 @@ class MessageSource(models.Model):
     sync_since = models.DateTimeField(verbose_name=_("同步起始时间"), help_text=_("只拉取此时间之后的消息"))
 
     # IMAP 专用：主机名（覆盖从 credential.url 推断的值）和最后同步 UID
-    imap_host = models.CharField(max_length=255, blank=True, verbose_name=_("IMAP 主机"), help_text=_("留空则从凭证 URL 自动推断，如 mail.jtn.com"))
-    imap_account = models.CharField(max_length=255, blank=True, verbose_name=_("IMAP 账号"), help_text=_("留空则使用凭证账号，如需覆盖填写完整邮箱地址"))
-    # IMAP 专用：记录最后同步的 UID，用于增量拉取
+    imap_host = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name=_("IMAP 主机"),
+        help_text=_("留空则从凭证 URL 自动推断，如 mail.jtn.com"),
+    )
+    imap_account = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name=_("IMAP 账号"),
+        help_text=_("留空则使用凭证账号，如需覆盖填写完整邮箱地址"),
+    )
     last_synced_uid = models.PositiveIntegerField(null=True, blank=True, verbose_name=_("最后同步 UID"))
 
     # 发件人过滤（邮箱或名称，每行一个，大小写不敏感）
-    sender_whitelist = models.TextField(blank=True, verbose_name=_("只同步这些发件人"), help_text=_("每行一个邮箱或名称，留空则不限制"))
-    sender_blacklist = models.TextField(blank=True, verbose_name=_("不同步这些发件人"), help_text=_("每行一个邮箱或名称，留空则不排除"))
+    sender_whitelist = models.TextField(
+        blank=True,
+        verbose_name=_("只同步这些发件人"),
+        help_text=_("每行一个邮箱或名称，留空则不限制"),
+    )
+    sender_blacklist = models.TextField(
+        blank=True,
+        verbose_name=_("不同步这些发件人"),
+        help_text=_("每行一个邮箱或名称，留空则不排除"),
+    )
 
     last_sync_at = models.DateTimeField(null=True, blank=True, verbose_name=_("最后同步时间"))
     last_sync_status = models.CharField(
@@ -57,7 +74,6 @@ class MessageSource(models.Model):
         verbose_name=_("同步状态"),
     )
     last_sync_error = models.TextField(blank=True, verbose_name=_("同步错误信息"))
-
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
 
     class Meta:
@@ -66,4 +82,4 @@ class MessageSource(models.Model):
         ordering: ClassVar = ["-created_at"]
 
     def __str__(self) -> str:
-        return f"{self.display_name} ({self.get_source_type_display()})"
+        return f"{self.display_name} ({self.source_type})"

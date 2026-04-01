@@ -5,10 +5,10 @@ from __future__ import annotations
 from typing import Any, ClassVar
 
 from django.contrib import admin
-from django.http import FileResponse, HttpRequest, HttpResponse
+from django.http import FileResponse, HttpRequest
 from django.urls import path
-from django.utils.html import format_html, mark_safe
-from django.utils.safestring import SafeString
+from django.utils.html import format_html
+from django.utils.safestring import SafeString, mark_safe
 from django.utils.translation import gettext_lazy as _
 
 from apps.message_hub.models import InboxMessage
@@ -40,7 +40,7 @@ class InboxMessageAdmin(admin.ModelAdmin[InboxMessage]):
         ]
         return custom + urls
 
-    def _attachment_view(self, request: HttpRequest, pk: int, part_index: int, inline: bool = False) -> HttpResponse:
+    def _attachment_view(self, request: HttpRequest, pk: int, part_index: int, inline: bool = False) -> FileResponse:
         from apps.message_hub.services import get_fetcher
 
         msg = InboxMessage.objects.select_related("source__credential").get(pk=pk)
@@ -69,7 +69,8 @@ class InboxMessageAdmin(admin.ModelAdmin[InboxMessage]):
 
     @admin.display(description=_("收件人"))
     def recipient_display(self, obj: InboxMessage) -> str:
-        return obj.source.credential.account
+        account: str = obj.source.credential.account
+        return account
 
     @admin.display(description=_("主题"))
     def subject_display(self, obj: InboxMessage) -> SafeString:

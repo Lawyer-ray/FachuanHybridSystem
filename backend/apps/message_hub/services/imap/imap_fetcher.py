@@ -5,6 +5,7 @@ from __future__ import annotations
 import email
 import imaplib
 import logging
+from datetime import datetime
 from email.header import decode_header
 from email.message import Message
 from typing import TYPE_CHECKING
@@ -127,7 +128,7 @@ class ImapFetcher(MessageFetcher):
 
             for uid_bytes in uid_list:
                 uid = int(uid_bytes)
-                _, msg_data = m.uid("fetch", uid_bytes, "(RFC822)")  # type: ignore[arg-type]
+                _, msg_data = m.uid("fetch", uid_bytes, "(RFC822)")
                 if not msg_data or not msg_data[0]:
                     continue
                 raw = msg_data[0][1]
@@ -206,7 +207,7 @@ def _extract_imap_host(url_or_name: str) -> str:
     return match.group(1) if match else url_or_name
 
 
-def _parse_date(date_str: str) -> timezone.datetime | None:
+def _parse_date(date_str: str) -> datetime | None:
     from email.utils import parsedate_to_datetime
 
     try:

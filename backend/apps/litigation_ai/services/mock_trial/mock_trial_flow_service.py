@@ -1,8 +1,10 @@
 """模拟庭审主流程服务（状态机驱动）."""
 
+from __future__ import annotations
+
 import logging
 from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 from asgiref.sync import sync_to_async
 
@@ -11,6 +13,9 @@ from apps.litigation_ai.services.flow.flow_messenger import FlowMessenger
 from apps.litigation_ai.services.flow.session_repository import LitigationSessionRepository
 
 from .types import MockTrialContext, MockTrialStep
+
+if TYPE_CHECKING:
+    from .types import AdversarialConfig
 
 logger = logging.getLogger("apps.litigation_ai")
 
@@ -576,9 +581,10 @@ class MockTrialFlowService:
         list_ids = [e.get("list_id") for e in raw if e.get("list_id")]
         if not list_ids:
             return "\n".join([f"- {e.get('name', '未命名')}: {e.get('description', '')}" for e in raw])
-        return await sync_to_async(EvidenceDigestService().build_evidence_text, thread_sensitive=True)(
+        result = await sync_to_async(EvidenceDigestService().build_evidence_text, thread_sensitive=True)(
             list_ids=list_ids, item_ids=[]
         )
+        return cast(str, result)
 
     # ---- Helpers ----
 
@@ -607,7 +613,8 @@ class MockTrialFlowService:
     async def _get_case_brief(self, case_id: int) -> dict[str, Any]:
         from apps.litigation_ai.services.context_service import LitigationContextService
 
-        return await sync_to_async(LitigationContextService().get_case_info_for_agent, thread_sensitive=True)(case_id)
+        result = await sync_to_async(LitigationContextService().get_case_info_for_agent, thread_sensitive=True)(case_id)
+        return cast(dict[str, Any], result)
 
     # ── 多 Agent 对抗 ──
 
@@ -704,7 +711,7 @@ class MockTrialFlowService:
         # 启动庭审
         await service.run_full_trial(ctx, send_cb, self._set_step)
 
-    def _parse_adversarial_config(self, text: str, models: list[str]) -> "AdversarialConfig":
+    def _parse_adversarial_config(self, text: str, models: list[str]) -> AdversarialConfig:
         """解析用户输入的配置文本."""
         from .types import AdversarialConfig
 

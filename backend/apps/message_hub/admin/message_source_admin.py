@@ -56,7 +56,7 @@ class MessageSourceAdmin(admin.ModelAdmin[MessageSource]):
     @admin.display(description=_("同步状态"))
     def sync_status_badge(self, obj: MessageSource) -> SafeString:
         colors = {SyncStatus.SUCCESS: "#28a745", SyncStatus.FAILED: "#dc3545", SyncStatus.PENDING: "#6c757d"}
-        color = colors.get(obj.last_sync_status, "#6c757d")  # type: ignore[arg-type]
+        color = colors.get(obj.last_sync_status, "#6c757d")
         return format_html(
             '<span style="background:{};color:#fff;padding:2px 8px;border-radius:4px;font-size:12px">{}</span>',
             color, obj.get_last_sync_status_display(),
