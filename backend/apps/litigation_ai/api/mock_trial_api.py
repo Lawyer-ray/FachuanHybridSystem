@@ -4,7 +4,7 @@ import logging
 from typing import Any
 
 from django.http import HttpRequest
-from ninja import Router
+from ninja import Router, Status
 
 from apps.core.security.auth import JWTOrSessionAuth
 from apps.core.infrastructure.throttling import rate_limit_from_settings
@@ -115,7 +115,7 @@ def delete_session(request: HttpRequest, session_id: str) -> Any:
     service = _get_service()
     user = getattr(request, "user", None)
     service.delete_session(session_id, user)
-    return 204, None
+    return Status(204, None)
 
 
 @router.get(
@@ -135,7 +135,7 @@ def export_report(request: HttpRequest, session_id: str) -> Any:
     # 获取报告数据
     report_data = async_to_sync(MockTrialReportService().get_report)(session_id)
     if not report_data:
-        return 404, {"message": "报告不存在"}
+        return Status(404, {"message": "报告不存在"})
 
     # 获取案件信息
     from apps.litigation_ai.services.flow.session_repository import LitigationSessionRepository
@@ -143,13 +143,13 @@ def export_report(request: HttpRequest, session_id: str) -> Any:
     repo = LitigationSessionRepository()
     session = repo.get_session_sync(session_id)
     if not session:
-        return 404, {"message": "会话不存在"}
+        return Status(404, {"message": "会话不存在"})
 
     from apps.litigation_ai.services.wiring import get_case_service
 
     case_dto = get_case_service().get_case(session.case_id)
     if not case_dto:
-        return 404, {"message": "案件不存在"}
+        return Status(404, {"message": "案件不存在"})
 
     case_name = case_dto.name or ""
     case_info = {
@@ -177,4 +177,4 @@ def export_report(request: HttpRequest, session_id: str) -> Any:
         return response
     except Exception as e:
         logger.error(f"导出报告失败: {e}", exc_info=True)
-        return 500, {"message": f"导出失败: {e}"}
+        return Status(500, {"message": f"导出失败: {e}"})

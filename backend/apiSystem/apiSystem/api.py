@@ -12,6 +12,13 @@ from typing import Any
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from ninja import NinjaAPI
 from ninja.renderers import BaseRenderer
+
+# 兼容 django-ninja 1.6 Router API 变更（ninja-extra 仍访问 Router.api）
+from ninja_extra.router import Router as NinjaExtraRouter
+
+if not hasattr(NinjaExtraRouter, "api"):
+    NinjaExtraRouter.api = None
+
 from ninja_jwt.routers.obtain import obtain_pair_router
 from ninja_jwt.routers.verify import verify_router
 

@@ -5,10 +5,10 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from django.utils.translation import gettext_lazy as _
-from ninja import File, Router
+from ninja import File, Router, Status
 from ninja.files import UploadedFile
 from pydantic import BaseModel
 
@@ -81,7 +81,7 @@ def parse_client_text(request: Any, payload: ParseTextRequest) -> dict[str, Any]
 @router.get("/parse-text")
 def parse_text_get(request: Any, text: str = "") -> dict[str, Any]:
     """解析客户文本（GET 方式）。"""
-    return _parse_client(text)
+    return cast(dict[str, Any], _parse_client(text))
 
 
 @router.get("/clients/check-oa-credential", response=OACredentialCheckOut)
@@ -124,7 +124,7 @@ def create_client_with_docs(
     request: Any,
     payload: ClientIn,
     doc_types: list[str],
-    files: list[UploadedFile] = File(...),  # type: ignore[call-overload]
+    files: list[UploadedFile] = File(...),
 ) -> Any:
     """创建客户并上传文档"""
     if doc_types and files and len(doc_types) != len(files):
@@ -154,10 +154,10 @@ def update_client(request: Any, client_id: int, payload: ClientUpdateIn) -> Any:
 
 
 @router.delete("/clients/{client_id}", response={204: None})
-def delete_client(request: Any, client_id: int) -> tuple[int, None]:
+def delete_client(request: Any, client_id: int) -> Any:
     """删除客户"""
     service = _get_mutation_service()
     user = getattr(request, "auth", None) or extract_request_context(request).user
     service.delete_client(client_id=client_id, user=user)
 
-    return 204, None
+    return Status(204, None)
