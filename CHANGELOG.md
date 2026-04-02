@@ -2,6 +2,12 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.30.1] - 2026-04-02
+
+### 修复
+
+- **YZW纯逆向登录 SM2 加密失败（automation）**：移除对 Node.js `sm-crypto` 模块的运行时依赖，改为使用 Python `gmssl` 执行 SM2（C1C3C2）加密；兼容公钥 `04` 前缀，避免因 `MODULE_NOT_FOUND` 导致纯逆向登录回退。
+
 ## [26.30.0] - 2026-03-31
 
 ### 新增
@@ -13,8 +19,8 @@
   - WebSocket consumer 支持对抗模式步骤分发
   - 庭审报告生成（完整记录 + 法官总结）
 
-- **一张网收件箱拉取（message_hub）**：CourtInboxFetcher 完整实现
-  - 复用 DocumentDeliveryTokenService 获取一张网 Token
+- **YZW收件箱拉取（message_hub）**：CourtInboxFetcher 完整实现
+  - 复用 DocumentDeliveryTokenService 获取YZW Token
   - 分页拉取文书送达消息，按 sdbh 去重写入 InboxMessage
   - 自动获取文书详情并下载附件到本地，Admin 支持按需预览/下载（优先本地缓存）
   - 拉取完成后自动触发 CourtSMS 推送流程
@@ -28,7 +34,7 @@
 ### 修复
 
 - **合同 API 500 错误（contracts）**：修复 API 层通过 ContractServiceAdapter 调用时返回 ContractDTO 而非 Contract model，导致 Ninja ModelSchema 序列化失败的问题；API 层改用 domain service 直接返回 Contract model
-- **一张网 Token 获取（message_hub）**：修复 Token 过期自动重试（401 时清除缓存/DB 后重新 Playwright 登录）；修复 async 环境下 ORM 调用问题（DJANGO_ALLOW_ASYNC_UNSAFE）；CourtToken 用 expires_at 替代不存在的 is_valid 字段
+- **YZW Token 获取（message_hub）**：修复 Token 过期自动重试（401 时清除缓存/DB 后重新 Playwright 登录）；修复 async 环境下 ORM 调用问题（DJANGO_ALLOW_ASYNC_UNSAFE）；CourtToken 用 expires_at 替代不存在的 is_valid 字段
 
 ## [26.29.1] - 2026-03-31
 
@@ -83,7 +89,7 @@
   - 新增 `enterprise_data` 模块：企业信息查询
   - 新增 `invoice_recognition` 模块：发票识别
   - 新增 `legal_research` 模块：类案检索
-  - 新增 `oa_filing` 模块：一张网立案（案件导入、当事人导入）
+  - 新增 `oa_filing` 模块：YZW立案（案件导入、当事人导入）
   - 新增 `pdf_splitting` 模块：PDF 拆解
   - 新增 `reminders` 模块：提醒管理、利息计算
 
@@ -274,7 +280,7 @@
   - 并发导入支持：支持多线程并发导入客户数据
   - 字段提取增强：优化客户信息提取逻辑，支持更多字段格式
 - **法院立案功能增强**
-  - 一张网立案 API 调用优化：改进请求重试和错误处理逻辑
+  - YZW立案 API 调用优化：改进请求重试和错误处理逻辑
   - Playwright 回退机制：API 失败时自动切换到浏览器操作
   - 案件材料扫描优化：文件夹扫描性能提升，支持子目录选择
 
@@ -348,8 +354,8 @@
 - **案件材料扫描范围能力增强**
   - 新增 `GET /api/v1/cases/{case_id}/folder-scan/subfolders`，前端可在扫描前加载并选择指定子文件夹
   - 扫描启动参数新增 `scan_subfolder` 与 `enable_recognition`，支持“全部目录 / 指定子目录”与识别开关
-- **一张网立案引擎切换**
-  - 案件详情“一张网立案”页新增 `API / Playwright` 立案引擎选择，默认 `API`
+- **YZW立案引擎切换**
+  - 案件详情“YZW立案”页新增 `API / Playwright` 立案引擎选择，默认 `API`
   - 立案执行接口新增 `filing_engine` 参数并透传到执行链路
 
 ### 优化
@@ -578,7 +584,7 @@
 ### 清理
 
 - **Admin 菜单名称简化**
-  - `automation/CourtToken`：`一张网/保全Token管理` → `一张网保全Token管理`
+  - `automation/CourtToken`：`YZW/保全Token管理` → `YZW保全Token管理`
   - `cases/CaseLog`：`案件日志` → `日志`
   - `cases/CaseLogAttachment`：`案件日志附件` → `日志附件`
   - `cases/CaseChat`：`案件群聊` → `群聊`
@@ -1580,7 +1586,7 @@
   - 案件详情页"模拟庭审"入口按钮
   - 独立前端页面（HTML + CSS + JS）
   - API 路由 `/api/v1/mock-trial/`
-- 法院一张网在线立案（automation/court_filing）
+- 法院YZW在线立案（automation/court_filing）
   - 登录：Playwright + ddddocr 识别图形验证码，拦截网络响应提取 JWT token
   - 立案：接口优先（httpx 纯 REST 流程：查法院→创建立案→上传附件→添加当事人→更新代理人→提交），接口失败自动回退 Playwright 全页面操作
   - 支持民事、行政、执行三类立案
