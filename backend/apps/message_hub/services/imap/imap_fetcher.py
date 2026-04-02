@@ -5,6 +5,7 @@ from __future__ import annotations
 import email
 import imaplib
 import logging
+import socket
 from datetime import datetime
 from email.header import decode_header
 from email.message import Message
@@ -92,12 +93,18 @@ class ImapFetcher(MessageFetcher):
         import ssl
 
         cred = source.credential
-        host = source.imap_host or _extract_imap_host(cred.url or cred.site_name)
+        host = (source.imap_host or _extract_imap_host(cred.url or cred.site_name)).strip()
         account = source.imap_account or cred.account
+        if not _looks_like_valid_host(host):
+            raise ValueError(f"IMAP 主机配置无效: {host or '(空)'}")
+
         ctx = ssl.create_default_context()
-        m = imaplib.IMAP4_SSL(host, IMAP_PORT, ssl_context=ctx, timeout=30)
-        m.login(account, cred.password)
-        return m
+        try:
+            m = imaplib.IMAP4_SSL(host, IMAP_PORT, ssl_context=ctx, timeout=30)
+            m.login(account, cred.password)
+            return m
+        except socket.gaierror as e:
+            raise ConnectionError(f"IMAP 主机无法解析: {host}") from e
 
     def fetch_new_messages(self, source: MessageSource) -> int:
         from apps.message_hub.models import InboxMessage
@@ -205,6 +212,16 @@ def _extract_imap_host(url_or_name: str) -> str:
 
     match = re.search(r"(?:https?://)?([^/]+)", url_or_name)
     return match.group(1) if match else url_or_name
+
+
+def _looks_like_valid_host(host: str) -> bool:
+    """基础 IMAP 主机名校验。"""
+    candidate = host.strip()
+    if not candidate:
+        return False
+    if "://" in candidate or "/" in candidate or " " in candidate:
+        return False
+    return True
 
 
 def _parse_date(date_str: str) -> datetime | None:
