@@ -5,7 +5,7 @@
 
 from typing import Any
 
-from ninja import File, Router
+from ninja import File, Router, Status
 from ninja.files import UploadedFile
 
 from apps.client.schemas import (
@@ -127,7 +127,7 @@ def update_property_clue(request: Any, clue_id: int, payload: PropertyClueUpdate
 
 
 @router.delete("/property-clues/{clue_id}", response={204: None})
-def delete_property_clue(request: Any, clue_id: int) -> tuple[int, None]:
+def delete_property_clue(request: Any, clue_id: int) -> Any:
     """
     删除财产线索
 
@@ -143,14 +143,14 @@ def delete_property_clue(request: Any, clue_id: int) -> tuple[int, None]:
 
     service.delete_clue(clue_id=clue_id, user=user)
 
-    return 204, None
+    return Status(204, None)
 
 
 @router.post("/property-clues/{clue_id}/attachments", response=PropertyClueAttachmentOut)
 def upload_attachment(
     request: Any,
     clue_id: int,
-    file: UploadedFile = File(...),  # type: ignore[arg-type]
+    file: UploadedFile = File(...),
 ) -> Any:
     """为财产线索上传附件"""
     service = _get_property_clue_service()
@@ -159,7 +159,7 @@ def upload_attachment(
 
 
 @router.delete("/property-clue-attachments/{attachment_id}", response={204: None})
-def delete_attachment(request: Any, attachment_id: int) -> tuple[int, None]:
+def delete_attachment(request: Any, attachment_id: int) -> Any:
     """
     删除财产线索附件
 
@@ -175,4 +175,4 @@ def delete_attachment(request: Any, attachment_id: int) -> tuple[int, None]:
 
     service.delete_attachment(attachment_id=attachment_id, user=user)
 
-    return 204, None
+    return Status(204, None)

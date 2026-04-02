@@ -4,7 +4,7 @@ import logging
 from typing import Any
 
 from django.http import HttpRequest
-from ninja import Router
+from ninja import Router, Status
 
 from apps.core.security.auth import JWTOrSessionAuth
 from apps.core.infrastructure.throttling import rate_limit_from_settings
@@ -168,7 +168,7 @@ def delete_session(request: HttpRequest, session_id: str) -> Any:
     service = _get_conversation_service()
     user = getattr(request, "user", None)
     service.delete_session(session_id, user)
-    return 204, None
+    return Status(204, None)
 
 
 @router.post(

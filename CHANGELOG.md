@@ -2,6 +2,15 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.30.6] - 2026-04-03
+
+### 优化
+
+- 依赖升级：`django-ninja` 升级至 `1.6.2`，`uvicorn[standard]` 升级至 `0.42.0`。
+- 依赖兼容：补齐 `django-ninja-extra` 并增加兼容处理，修复 `django-ninja-jwt` 在新版本 Ninja 下的路由初始化报错。
+- 常用依赖更新：`redis`、`gunicorn`、`mypy`、`django-stubs`、`django-stubs-ext`、`ddddocr`、`pandas`、`Pillow`、`bandit`、`mcp` 等完成升级并同步 `uv.lock`。
+- 依赖管理收敛：删除 `backend/requirements.txt`，统一使用 `uv`（`pyproject.toml` + `uv.lock`）。
+
 ## [26.30.5] - 2026-04-02
 
 ### 新增
