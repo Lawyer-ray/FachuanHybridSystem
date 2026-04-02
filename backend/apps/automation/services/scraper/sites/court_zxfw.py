@@ -8,10 +8,12 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
-from playwright.sync_api import BrowserContext, Page
+from playwright.sync_api import BrowserContext
+from playwright.sync_api import Error as PlaywrightError
+from playwright.sync_api import Page
 
 if TYPE_CHECKING:
-    from apps.automation.services.captcha.captcha_recognition_service import CaptchaRecognizer  # type: ignore
+    from apps.automation.services.captcha.captcha_recognition_service import CaptchaRecognizer
     from apps.automation.services.scraper.core.token_service import TokenService
 
 
@@ -107,7 +109,7 @@ class CourtZxfwService:
         if self._token_service is None:
             from apps.core.interfaces import ServiceLocator
 
-            self._token_service = ServiceLocator.get_token_service()  # type: ignore
+            self._token_service = ServiceLocator.get_token_service()
             logger.info("使用 ServiceLocator 获取 TokenService")
         return self._token_service
 
@@ -183,12 +185,13 @@ class CourtZxfwService:
                 logger.info("纯逆向登录插件不可用，回退到 Playwright")
                 return None
 
-            from apps.automation.services.scraper.sites.court_zxfw_login_private import (
-                CourtZxfwHttpLoginService,
-            )
+            from apps.automation.services.scraper.sites.court_zxfw_login_private import CourtZxfwHttpLoginService
 
             svc = CourtZxfwHttpLoginService(captcha_recognizer=self.captcha_recognizer)
-            result = svc.login(account, password, max_retries=max_retries)
+            result_raw: object = svc.login(account, password, max_retries=max_retries)
+            if not isinstance(result_raw, dict):
+                return None
+            result: dict[str, Any] = result_raw
             if result.get("success"):
                 result["message"] = "纯逆向登录成功"
                 result["url"] = self.page.url
@@ -235,6 +238,23 @@ class CourtZxfwService:
         self._random_wait(0.5, 1)
         if save_debug:
             self._save_screenshot("03_credentials_filled")
+
+    def _is_network_error(self, exc: Exception) -> bool:
+        """判断是否为网络相关异常。"""
+        if not isinstance(exc, PlaywrightError):
+            return False
+
+        msg = str(exc).lower()
+        network_tokens = (
+            "err_internet_disconnected",
+            "err_name_not_resolved",
+            "err_connection_timed_out",
+            "err_connection_closed",
+            "err_connection_refused",
+            "err_network_changed",
+            "timeout",
+        )
+        return any(token in msg for token in network_tokens)
 
     def login(
         self,
@@ -305,6 +325,8 @@ class CourtZxfwService:
             logger.error(f"登录失败: {e}", exc_info=True)
             if save_debug:
                 self._save_screenshot("error_login_failed")
+            if self._is_network_error(e):
+                raise ConnectionError(f"登录失败: 网络连接异常（{e}）") from e
             raise ValueError(f"登录失败: {e}") from e
 
     def _get_cookie_path(self, account: str) -> str:
@@ -435,7 +457,8 @@ class CourtZxfwService:
                 logger.info(f"验证码图片已保存: {captcha_path}")
 
             # 使用注入的识别器识别验证码
-            captcha_text = self.captcha_recognizer.recognize_from_element(self.page, f"xpath={captcha_img_xpath}")
+            captcha_text_raw = self.captcha_recognizer.recognize_from_element(self.page, f"xpath={captcha_img_xpath}")
+            captcha_text = str(captcha_text_raw) if captcha_text_raw else None
 
             if captcha_text:
                 logger.info(f"验证码识别结果: {captcha_text}")
