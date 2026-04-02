@@ -426,6 +426,228 @@
             });
         });
 
+        // ========== 收件箱智能处理中枢动画 ==========
+        let inboxFlowAnimationRunning = false;
+        let inboxFlowTimeline = null;
+
+        function setInboxStep(stepNum) {
+            document.querySelectorAll('.inbox-flow-step').forEach(step => {
+                const num = Number(step.dataset.step || '0');
+                step.classList.remove('active', 'completed');
+                if (num < stepNum) {
+                    step.classList.add('completed');
+                } else if (num === stepNum) {
+                    step.classList.add('active');
+                }
+            });
+        }
+
+        function activateInboxNode(id, className = 'active') {
+            const el = document.getElementById(id);
+            if (el) el.classList.add(className);
+        }
+
+        function setInboxText(id, text) {
+            const el = document.getElementById(id);
+            if (el) el.textContent = text;
+        }
+
+        function resetInboxFlowElements() {
+            [
+                'inboxAutoPollChip', 'inboxManualSyncChip', 'inboxParallelChip',
+                'inboxSyncStatus', 'inboxCourtMsg', 'inboxScannerFile',
+                'laneCourtIn', 'laneMaterialIn', 'laneCourtOut', 'laneMaterialOut',
+                'packetCourt', 'packetScanner', 'packetCourtOut', 'packetMaterialOut',
+                'inboxRouterCore', 'inboxFlowState', 'routeParse', 'routeClassify', 'routeMatch', 'routePolicy',
+                'inboxMetricCourt', 'inboxMetricMaterial', 'inboxMetricRisk',
+                'inboxBranchCourt', 'inboxBranchMaterial', 'inboxBranchIncoming', 'inboxBranchOutgoing',
+                'inboxCourtStep1', 'inboxCourtStep2', 'inboxCourtStep3',
+                'inboxIncomingStep1', 'inboxIncomingStep2', 'inboxIncomingStep3',
+                'inboxOutgoingStep1', 'inboxOutgoingStep2', 'inboxOutgoingStep3',
+                'inboxResultCard1', 'inboxResultCard2', 'inboxResultCard3', 'inboxResultCard4',
+                'inboxLog1', 'inboxLog2', 'inboxLog3', 'inboxLog4',
+                'inboxBranchCourtBadge', 'inboxBranchMaterialBadge'
+            ].forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.classList.remove('active', 'show', 'done');
+            });
+
+            setInboxText('inboxSyncStatus', '待同步 / Ready');
+            setInboxText('inboxFlowState', '待机 / Standby');
+            setInboxText('inboxBranchCourtBadge', '待命');
+            setInboxText('inboxBranchMaterialBadge', '待命');
+            setInboxText('inboxMetricCourtValue', '0%');
+            setInboxText('inboxMetricMaterialValue', '0');
+            setInboxText('inboxMetricRiskValue', '0');
+            setInboxText('inboxStatLinked', '0');
+            setInboxText('inboxStatSplit', '0');
+            setInboxText('inboxStatTodo', '0');
+            setInboxText('inboxStatFiled', '0');
+
+            document.querySelectorAll('.inbox-flow-step').forEach(step => {
+                step.classList.remove('active', 'completed');
+            });
+        }
+
+        function startInboxFlowAnimation() {
+            if (inboxFlowAnimationRunning) return;
+            inboxFlowAnimationRunning = true;
+
+            const playBtn = document.getElementById('inboxFlowPlayBtn');
+            if (playBtn) {
+                playBtn.disabled = true;
+                playBtn.innerHTML = '<span>⏸</span> 演示中...';
+            }
+
+            resetInboxFlowElements();
+
+            inboxFlowTimeline = gsap.timeline({
+                onComplete: () => {
+                    inboxFlowAnimationRunning = false;
+                    if (playBtn) {
+                        playBtn.disabled = false;
+                        playBtn.innerHTML = '<span>▶</span> 重新播放';
+                    }
+                    document.querySelectorAll('.inbox-flow-step').forEach(step => {
+                        step.classList.remove('active');
+                        step.classList.add('completed');
+                    });
+                }
+            });
+
+            inboxFlowTimeline
+                .call(() => setInboxStep(1))
+                .call(() => {
+                    activateInboxNode('inboxAutoPollChip');
+                    activateInboxNode('inboxManualSyncChip');
+                    activateInboxNode('inboxParallelChip');
+                    activateInboxNode('inboxFlowState');
+                    setInboxText('inboxSyncStatus', '监听启动 / Listening');
+                    setInboxText('inboxFlowState', '双线待命 / Parallel armed');
+                }, null, '+=0.2')
+
+                .call(() => setInboxStep(2), null, '+=0.35')
+                .call(() => {
+                    activateInboxNode('inboxCourtMsg');
+                    activateInboxNode('inboxScannerFile');
+                    activateInboxNode('laneCourtIn');
+                    activateInboxNode('laneMaterialIn');
+                    activateInboxNode('packetCourt');
+                    activateInboxNode('packetScanner');
+                    activateInboxNode('inboxRouterCore');
+                    activateInboxNode('inboxSyncStatus');
+                    setInboxText('inboxSyncStatus', '双线已入网 / Streams synced');
+                    setInboxText('inboxFlowState', '流量接入 / Streams ingress');
+                }, null, '+=0.15')
+
+                .call(() => setInboxStep(3), null, '+=0.3')
+                .call(() => activateInboxNode('routeParse'), null, '+=0.12')
+                .call(() => {
+                    activateInboxNode('routeClassify');
+                    activateInboxNode('inboxMetricCourt');
+                    setInboxText('inboxMetricCourtValue', '98%');
+                }, null, '+=0.12')
+                .call(() => {
+                    activateInboxNode('routeMatch');
+                    activateInboxNode('inboxMetricMaterial');
+                    setInboxText('inboxMetricMaterialValue', '12');
+                }, null, '+=0.12')
+                .call(() => {
+                    activateInboxNode('routePolicy');
+                    activateInboxNode('inboxMetricRisk');
+                    setInboxText('inboxMetricRiskValue', '1');
+                    setInboxText('inboxFlowState', '解析完成 / Routing ready');
+                }, null, '+=0.12')
+
+                .call(() => setInboxStep(4), null, '+=0.25')
+                .call(() => {
+                    activateInboxNode('laneCourtOut');
+                    activateInboxNode('packetCourtOut');
+                    activateInboxNode('inboxBranchCourt');
+                    setInboxText('inboxBranchCourtBadge', '处理中');
+                    setInboxText('inboxFlowState', '法院线闭环 / Court branch');
+                }, null, '+=0.08')
+                .call(() => activateInboxNode('inboxCourtStep1'), null, '+=0.15')
+                .call(() => activateInboxNode('inboxCourtStep2'), null, '+=0.15')
+                .call(() => activateInboxNode('inboxCourtStep3'), null, '+=0.15')
+                .call(() => {
+                    activateInboxNode('inboxBranchCourtBadge', 'done');
+                    setInboxText('inboxBranchCourtBadge', '已完成');
+                    setInboxText('inboxStatLinked', '2');
+                }, null, '+=0.08')
+
+                .call(() => setInboxStep(5), null, '+=0.22')
+                .call(() => {
+                    activateInboxNode('laneMaterialOut');
+                    activateInboxNode('packetMaterialOut');
+                    activateInboxNode('inboxBranchMaterial');
+                    activateInboxNode('inboxBranchIncoming');
+                    activateInboxNode('inboxBranchOutgoing');
+                    setInboxText('inboxBranchMaterialBadge', '处理中');
+                    setInboxText('inboxFlowState', '材料闭环 / Material branch');
+                }, null, '+=0.08')
+                .call(() => {
+                    activateInboxNode('inboxIncomingStep1');
+                    activateInboxNode('inboxOutgoingStep1');
+                }, null, '+=0.12')
+                .call(() => {
+                    activateInboxNode('inboxIncomingStep2');
+                    activateInboxNode('inboxOutgoingStep2');
+                }, null, '+=0.14')
+                .call(() => {
+                    activateInboxNode('inboxIncomingStep3');
+                    activateInboxNode('inboxOutgoingStep3');
+                }, null, '+=0.14')
+                .call(() => {
+                    activateInboxNode('inboxBranchMaterialBadge', 'done');
+                    setInboxText('inboxBranchMaterialBadge', '已完成');
+                    setInboxText('inboxStatSplit', '12');
+                    setInboxText('inboxStatTodo', '3');
+                    setInboxText('inboxStatFiled', '4');
+                }, null, '+=0.08')
+
+                .call(() => setInboxStep(6), null, '+=0.22')
+                .call(() => {
+                    setInboxText('inboxFlowState', '结果汇聚 / Closed loop');
+                    setInboxText('inboxSyncStatus', '闭环完成 / Completed');
+                    activateInboxNode('inboxResultCard1', 'show');
+                })
+                .call(() => activateInboxNode('inboxResultCard2', 'show'), null, '+=0.07')
+                .call(() => activateInboxNode('inboxResultCard3', 'show'), null, '+=0.07')
+                .call(() => activateInboxNode('inboxResultCard4', 'show'), null, '+=0.07')
+                .call(() => activateInboxNode('inboxLog1', 'show'), null, '+=0.12')
+                .call(() => activateInboxNode('inboxLog2', 'show'), null, '+=0.08')
+                .call(() => activateInboxNode('inboxLog3', 'show'), null, '+=0.08')
+                .call(() => activateInboxNode('inboxLog4', 'show'), null, '+=0.08');
+        }
+
+        function resetInboxFlowAnimation() {
+            if (inboxFlowTimeline) inboxFlowTimeline.kill();
+            inboxFlowAnimationRunning = false;
+            resetInboxFlowElements();
+
+            const playBtn = document.getElementById('inboxFlowPlayBtn');
+            if (playBtn) {
+                playBtn.disabled = false;
+                playBtn.innerHTML = '<span>▶</span> 播放演示';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            resetInboxFlowElements();
+            ScrollTrigger.create({
+                trigger: '#inboxFlowDemo',
+                start: 'top 70%',
+                onEnter: () => {
+                    if (!inboxFlowAnimationRunning) {
+                        setTimeout(startInboxFlowAnimation, 450);
+                    }
+                },
+                once: true
+            });
+        });
+
         // 1. 打字机效果
         (function() {
             const heroTitle = document.querySelector('.hero-title');

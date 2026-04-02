@@ -16,6 +16,9 @@ from apps.message_hub.models import InboxMessage
 
 @admin.register(InboxMessage)
 class InboxMessageAdmin(admin.ModelAdmin[InboxMessage]):
+    class Media:
+        css = {"all": ("admin/css/inbox_message_admin.css",)}
+
     list_display = ["subject_display", "source_badge", "recipient_display", "received_at", "attachments_display"]
     list_display_links = ["subject_display"]
     list_filter: ClassVar = ["source", "has_attachments", "received_at"]

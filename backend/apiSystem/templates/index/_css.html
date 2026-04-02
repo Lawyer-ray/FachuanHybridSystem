@@ -1873,6 +1873,862 @@
             }
         }
 
+        /* ========== 收件箱智能处理中枢动画 ========== */
+        .inbox-flow-section {
+            padding: 8rem 2rem;
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(180deg, transparent, rgba(99, 102, 241, 0.04), transparent);
+        }
+
+        .inbox-flow-container {
+            max-width: 1240px;
+            margin: 0 auto;
+        }
+
+        .inbox-demo {
+            margin-top: 3rem;
+            position: relative;
+            border: 1px solid rgba(148, 163, 184, 0.14);
+            border-radius: 28px;
+            padding: 1.5rem;
+            overflow: hidden;
+            background:
+                radial-gradient(circle at top right, rgba(99, 102, 241, 0.22), transparent 30%),
+                radial-gradient(circle at bottom left, rgba(6, 182, 212, 0.14), transparent 32%),
+                linear-gradient(145deg, rgba(5, 10, 28, 0.94), rgba(11, 17, 35, 0.86));
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 24px 70px rgba(0, 0, 0, 0.28);
+        }
+
+        .inbox-demo::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+            background-size: 38px 38px;
+            mask-image: radial-gradient(circle at center, #000 40%, transparent 100%);
+            pointer-events: none;
+            opacity: 0.45;
+        }
+
+        .inbox-demo-hud,
+        .inbox-result-strip,
+        .inbox-log-board,
+        .inbox-flow-steps,
+        .flow-controls {
+            position: relative;
+            z-index: 2;
+        }
+
+        .inbox-demo-hud {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+        }
+
+        .inbox-demo-mode-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.55rem;
+        }
+
+        .inbox-sync-chip,
+        .inbox-sync-status,
+        .inbox-router-state,
+        .inbox-branch-badge {
+            font-size: 0.68rem;
+            border-radius: 999px;
+            white-space: nowrap;
+        }
+
+        .inbox-sync-chip {
+            color: var(--text-muted);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            background: rgba(15, 23, 42, 0.6);
+            padding: 0.28rem 0.62rem;
+            opacity: 0.58;
+            transition: all 0.28s ease;
+        }
+
+        .inbox-sync-chip.active {
+            opacity: 1;
+            color: var(--text-primary);
+            border-color: rgba(99, 102, 241, 0.42);
+            background: rgba(99, 102, 241, 0.14);
+            box-shadow: 0 0 22px rgba(99, 102, 241, 0.16);
+        }
+
+        .inbox-sync-status {
+            color: var(--text-muted);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            padding: 0.3rem 0.7rem;
+            background: rgba(15, 23, 42, 0.65);
+            transition: all 0.28s ease;
+        }
+
+        .inbox-sync-status.active {
+            color: #86efac;
+            border-color: rgba(34, 197, 94, 0.36);
+            background: rgba(34, 197, 94, 0.12);
+            box-shadow: 0 0 22px rgba(34, 197, 94, 0.12);
+        }
+
+        .inbox-topology-board {
+            position: relative;
+            z-index: 1;
+            min-height: 430px;
+            padding: 1.25rem;
+            border-radius: 24px;
+            border: 1px solid rgba(148, 163, 184, 0.12);
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.72), rgba(2, 6, 23, 0.72));
+            overflow: hidden;
+        }
+
+        .inbox-topology-board::before,
+        .inbox-topology-board::after {
+            content: '';
+            position: absolute;
+            border-radius: 999px;
+            pointer-events: none;
+            filter: blur(70px);
+            opacity: 0.24;
+        }
+
+        .inbox-topology-board::before {
+            width: 260px;
+            height: 260px;
+            background: rgba(99, 102, 241, 0.8);
+            top: -140px;
+            left: 32%;
+        }
+
+        .inbox-topology-board::after {
+            width: 220px;
+            height: 220px;
+            background: rgba(6, 182, 212, 0.7);
+            bottom: -140px;
+            right: 10%;
+        }
+
+        .inbox-network-canvas {
+            position: relative;
+            z-index: 2;
+            min-height: 392px;
+            display: grid;
+            grid-template-columns: 228px 330px 360px;
+            gap: 1rem;
+            align-items: stretch;
+            justify-content: space-between;
+        }
+
+        .inbox-column {
+            position: relative;
+            z-index: 2;
+        }
+
+        .inbox-column-left,
+        .inbox-column-right {
+            display: grid;
+            gap: 0.85rem;
+            grid-auto-rows: max-content;
+        }
+
+        .inbox-column-left {
+            align-content: center;
+        }
+
+        .inbox-source-card,
+        .inbox-router-shell,
+        .inbox-route-node,
+        .inbox-metric-card,
+        .inbox-branch,
+        .inbox-result-card,
+        .inbox-log-board {
+            backdrop-filter: blur(14px);
+        }
+
+        .inbox-source-card {
+            display: flex;
+            gap: 0.68rem;
+            align-items: flex-start;
+            padding: 0.8rem 0.85rem;
+            border-radius: 18px;
+            border: 1px solid rgba(148, 163, 184, 0.14);
+            background: rgba(15, 23, 42, 0.56);
+            opacity: 0.52;
+            transform: scale(0.97);
+            transition: all 0.3s ease;
+        }
+
+        .inbox-source-main {
+            min-width: 0;
+        }
+
+        .inbox-source-card.active {
+            opacity: 1;
+            transform: scale(1);
+            border-color: rgba(99, 102, 241, 0.44);
+            box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.08), 0 0 26px rgba(99, 102, 241, 0.2);
+            background: rgba(30, 41, 59, 0.78);
+        }
+
+        .inbox-source-icon {
+            width: 38px;
+            height: 38px;
+            flex-shrink: 0;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.08rem;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .inbox-source-icon.court {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(99, 102, 241, 0.14));
+        }
+
+        .inbox-source-icon.scanner {
+            background: linear-gradient(135deg, rgba(6, 182, 212, 0.3), rgba(6, 182, 212, 0.14));
+        }
+
+        .inbox-source-title {
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .inbox-source-desc,
+        .inbox-source-meta,
+        .inbox-router-sub,
+        .inbox-result-card .title,
+        .inbox-log-item {
+            color: var(--text-muted);
+        }
+
+        .inbox-source-desc {
+            margin-top: 0.14rem;
+            font-size: 0.72rem;
+            line-height: 1.45;
+        }
+
+        .inbox-source-meta {
+            margin-top: 0.3rem;
+            font-size: 0.66rem;
+            letter-spacing: 0.02em;
+        }
+
+        .inbox-column-center {
+            display: grid;
+            justify-items: center;
+            gap: 0.85rem;
+        }
+
+        .inbox-router-shell {
+            width: 100%;
+            max-width: 340px;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 0.72rem;
+            text-align: center;
+            padding: 1.05rem 0.95rem 0.95rem;
+            border-radius: 22px;
+            border: 1px solid rgba(148, 163, 184, 0.14);
+            background: rgba(15, 23, 42, 0.55);
+            box-sizing: border-box;
+        }
+
+        .inbox-router-core {
+            width: 90px;
+            height: 90px;
+            align-self: center;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.15rem;
+            color: #fff;
+            border: 2px solid rgba(99, 102, 241, 0.28);
+            background:
+                radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.22), transparent 30%),
+                linear-gradient(145deg, rgba(59, 130, 246, 0.24), rgba(99, 102, 241, 0.12));
+            box-shadow: inset 0 0 28px rgba(255, 255, 255, 0.06);
+            transition: all 0.3s ease;
+        }
+
+        .inbox-router-core.active {
+            border-color: rgba(99, 102, 241, 0.7);
+            box-shadow: 0 0 0 8px rgba(99, 102, 241, 0.08), 0 0 38px rgba(99, 102, 241, 0.28);
+            transform: scale(1.05);
+        }
+
+        .inbox-router-title {
+            align-self: center;
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .inbox-router-sub {
+            align-self: center;
+            font-size: 0.72rem;
+            line-height: 1.58;
+            max-width: 280px;
+        }
+
+        .inbox-router-state {
+            align-self: center;
+            padding: 0.28rem 0.68rem;
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            color: var(--text-muted);
+            background: rgba(15, 23, 42, 0.7);
+            transition: all 0.25s ease;
+        }
+
+        .inbox-router-state.active {
+            color: #f8fafc;
+            border-color: rgba(99, 102, 241, 0.42);
+            background: rgba(99, 102, 241, 0.14);
+        }
+
+        .inbox-route-matrix {
+            width: 100%;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(120px, 1fr));
+            gap: 0.65rem;
+            margin-top: 0.1rem;
+        }
+
+        .inbox-route-node {
+            border: 1px solid rgba(148, 163, 184, 0.14);
+            border-radius: 16px;
+            padding: 0.72rem 0.8rem;
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.7), rgba(15, 23, 42, 0.46));
+            text-align: left;
+            color: var(--text-muted);
+            opacity: 0.5;
+            transition: all 0.25s ease;
+            display: grid;
+            gap: 0.18rem;
+        }
+
+        .inbox-route-code {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: fit-content;
+            min-width: 30px;
+            padding: 0.12rem 0.4rem;
+            border-radius: 999px;
+            border: 1px solid rgba(148, 163, 184, 0.16);
+            font-size: 0.62rem;
+            letter-spacing: 0.08em;
+            color: rgba(191, 219, 254, 0.9);
+            background: rgba(30, 41, 59, 0.72);
+        }
+
+        .inbox-route-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: 0.01em;
+        }
+
+        .inbox-route-node.active {
+            opacity: 1;
+            color: var(--text-primary);
+            border-color: rgba(99, 102, 241, 0.42);
+            background: linear-gradient(180deg, rgba(99, 102, 241, 0.16), rgba(99, 102, 241, 0.08));
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.12);
+        }
+
+        .inbox-route-node.active .inbox-route-code {
+            border-color: rgba(99, 102, 241, 0.3);
+            background: rgba(99, 102, 241, 0.18);
+        }
+
+        .inbox-router-metrics {
+            width: 100%;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.55rem;
+        }
+
+        .inbox-metric-card {
+            border: 1px solid rgba(148, 163, 184, 0.14);
+            border-radius: 14px;
+            padding: 0.72rem 0.68rem;
+            background: rgba(15, 23, 42, 0.56);
+            opacity: 0.6;
+            transition: all 0.25s ease;
+            box-sizing: border-box;
+        }
+
+        .inbox-metric-card.active {
+            opacity: 1;
+            border-color: rgba(6, 182, 212, 0.34);
+            background: rgba(6, 182, 212, 0.1);
+            box-shadow: 0 0 18px rgba(6, 182, 212, 0.12);
+        }
+
+        .inbox-metric-card.wide {
+            grid-column: 1 / -1;
+        }
+
+        .inbox-metric-card .label {
+            display: block;
+            font-size: 0.62rem;
+            color: var(--text-muted);
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        .inbox-metric-card .value {
+            display: block;
+            margin-top: 0.24rem;
+            font-size: 1.18rem;
+            font-weight: 800;
+            color: var(--text-primary);
+        }
+
+        .inbox-column-right {
+            align-content: center;
+        }
+
+        .inbox-branch-split-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.7rem;
+        }
+
+        .inbox-branch {
+            border-radius: 18px;
+            border: 1px solid rgba(148, 163, 184, 0.14);
+            background: rgba(15, 23, 42, 0.56);
+            padding: 0.88rem;
+            opacity: 0.5;
+            transform: translateY(4px);
+            transition: all 0.3s ease;
+        }
+
+        .inbox-branch.active {
+            opacity: 1;
+            transform: translateY(0);
+            box-shadow: 0 0 24px rgba(99, 102, 241, 0.12);
+        }
+
+        .inbox-branch.branch-court.active {
+            border-color: rgba(99, 102, 241, 0.42);
+            background: rgba(99, 102, 241, 0.1);
+        }
+
+        .inbox-branch.branch-material.active {
+            border-color: rgba(6, 182, 212, 0.34);
+            background: rgba(6, 182, 212, 0.08);
+            box-shadow: 0 0 24px rgba(6, 182, 212, 0.12);
+        }
+
+        .inbox-branch-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.42rem;
+            margin-bottom: 0.55rem;
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .inbox-branch-title {
+            white-space: nowrap;
+            font-size: 0.74rem;
+            line-height: 1;
+        }
+
+        .inbox-branch-badge {
+            color: var(--text-muted);
+            border: 1px solid rgba(148, 163, 184, 0.16);
+            background: rgba(15, 23, 42, 0.72);
+            padding: 0.18rem 0.42rem;
+            transition: all 0.25s ease;
+            flex-shrink: 0;
+        }
+
+        .inbox-branch-badge.done {
+            color: #86efac;
+            border-color: rgba(34, 197, 94, 0.34);
+            background: rgba(34, 197, 94, 0.12);
+        }
+
+        .inbox-branch-pane {
+            border-radius: 14px;
+            border: 1px solid rgba(148, 163, 184, 0.12);
+            background: rgba(255, 255, 255, 0.02);
+            padding: 0.72rem;
+            transition: all 0.25s ease;
+            box-sizing: border-box;
+        }
+
+        .inbox-branch-pane.active {
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+        }
+
+        .inbox-branch-pane.branch-incoming.active {
+            border-color: rgba(6, 182, 212, 0.32);
+            background: rgba(6, 182, 212, 0.08);
+        }
+
+        .inbox-branch-pane.branch-outgoing.active {
+            border-color: rgba(99, 102, 241, 0.32);
+            background: rgba(99, 102, 241, 0.08);
+        }
+
+        .inbox-branch-pane-title {
+            margin-bottom: 0.22rem;
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .inbox-branch-item {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            padding: 0.42rem 0.54rem;
+            border-radius: 12px;
+            border: 1px solid transparent;
+            background: rgba(255, 255, 255, 0.01);
+            margin-top: 0.3rem;
+            opacity: 0.46;
+            transition: all 0.25s ease;
+        }
+
+        .inbox-branch-item.active {
+            opacity: 1;
+            color: var(--text-primary);
+            border-color: rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .inbox-flow-lane,
+        .inbox-packet-stream {
+            position: absolute;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .inbox-flow-lane {
+            height: 2px;
+            opacity: 0.18;
+            border-radius: 999px;
+            background: linear-gradient(90deg, rgba(99, 102, 241, 0.05), rgba(99, 102, 241, 0.65), rgba(6, 182, 212, 0.08));
+            overflow: hidden;
+            transform-origin: left center;
+            transition: opacity 0.25s ease, box-shadow 0.25s ease;
+        }
+
+        .inbox-flow-lane::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.95), transparent);
+            transform: translateX(-120%);
+            opacity: 0;
+        }
+
+        .inbox-flow-lane.active {
+            opacity: 1;
+            box-shadow: 0 0 18px rgba(99, 102, 241, 0.32);
+        }
+
+        .inbox-flow-lane.active::after {
+            opacity: 1;
+            animation: inboxLaneSweep 1.8s linear infinite;
+        }
+
+        .lane-court-in {
+            top: 39.5%;
+            left: 20.5%;
+            width: 23.5%;
+        }
+
+        .lane-material-in {
+            top: 60.5%;
+            left: 20.5%;
+            width: 23.5%;
+            background: linear-gradient(90deg, rgba(6, 182, 212, 0.08), rgba(6, 182, 212, 0.7), rgba(99, 102, 241, 0.05));
+        }
+
+        .lane-court-out {
+            top: 29%;
+            left: 48.5%;
+            width: 25%;
+        }
+
+        .lane-material-out {
+            top: 62%;
+            left: 48.5%;
+            width: 25%;
+            background: linear-gradient(90deg, rgba(6, 182, 212, 0.08), rgba(6, 182, 212, 0.7), rgba(99, 102, 241, 0.08));
+        }
+
+        .inbox-packet-stream {
+            width: 42px;
+            height: 4px;
+            border-radius: 999px;
+            opacity: 0;
+            filter: drop-shadow(0 0 8px currentColor);
+        }
+
+        .packet-court-in,
+        .packet-court-out {
+            color: #a5b4fc;
+            background: linear-gradient(90deg, rgba(165, 180, 252, 0), rgba(165, 180, 252, 0.92), rgba(255, 255, 255, 0.95), rgba(165, 180, 252, 0));
+        }
+
+        .packet-material-in,
+        .packet-material-out {
+            color: #67e8f9;
+            background: linear-gradient(90deg, rgba(103, 232, 249, 0), rgba(103, 232, 249, 0.92), rgba(255, 255, 255, 0.95), rgba(103, 232, 249, 0));
+        }
+
+        .packet-court-in {
+            top: calc(39.5% - 4px);
+            left: 20.5%;
+        }
+
+        .packet-material-in {
+            top: calc(60.5% - 4px);
+            left: 20.5%;
+        }
+
+        .packet-court-out {
+            top: calc(29% - 4px);
+            left: 48.5%;
+        }
+
+        .packet-material-out {
+            top: calc(62% - 4px);
+            left: 48.5%;
+        }
+
+        .inbox-packet-stream.active {
+            opacity: 1;
+            animation: inboxPacketDash 1.35s linear infinite;
+        }
+
+        @keyframes inboxLaneSweep {
+            0% { transform: translateX(-120%); }
+            100% { transform: translateX(120%); }
+        }
+
+        @keyframes inboxPacketDash {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(172px); }
+        }
+
+
+        .inbox-log-board {
+            margin-top: 1rem;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            border: 1px solid rgba(148, 163, 184, 0.14);
+            border-radius: 18px;
+            background: rgba(15, 23, 42, 0.56);
+            padding: 0.75rem;
+        }
+
+        .inbox-log-label {
+            font-size: 0.68rem;
+            color: rgba(191, 219, 254, 0.9);
+            border: 1px solid rgba(99, 102, 241, 0.22);
+            border-radius: 999px;
+            padding: 0.22rem 0.55rem;
+            background: rgba(99, 102, 241, 0.1);
+            flex-shrink: 0;
+        }
+
+        .inbox-log-item {
+            font-size: 0.7rem;
+            border-radius: 999px;
+            border: 1px solid transparent;
+            padding: 0.36rem 0.68rem;
+            opacity: 0.34;
+            transform: translateY(4px);
+            transition: all 0.25s ease;
+            white-space: nowrap;
+        }
+
+        .inbox-log-item.show {
+            opacity: 1;
+            transform: translateY(0);
+            color: var(--text-primary);
+            border-color: rgba(99, 102, 241, 0.22);
+            background: rgba(99, 102, 241, 0.08);
+        }
+
+        .inbox-result-strip {
+            margin-top: 0.9rem;
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 0.75rem;
+        }
+
+        .inbox-result-card {
+            border: 1px solid rgba(148, 163, 184, 0.14);
+            border-radius: 18px;
+            background: rgba(15, 23, 42, 0.58);
+            padding: 0.9rem;
+            opacity: 0;
+            transform: translateY(8px) scale(0.98);
+            transition: all 0.32s ease;
+        }
+
+        .inbox-result-card.show {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            border-color: rgba(99, 102, 241, 0.28);
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.1);
+        }
+
+        .inbox-result-card .title {
+            font-size: 0.72rem;
+        }
+
+        .inbox-result-card .value {
+            margin-top: 0.22rem;
+            font-size: 1.45rem;
+            font-weight: 800;
+            color: var(--text-primary);
+        }
+
+        .inbox-flow-steps {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 0.55rem;
+            margin-top: 1.35rem;
+        }
+
+        .inbox-flow-step {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.46rem 0.92rem;
+            border-radius: 999px;
+            border: 1px solid rgba(148, 163, 184, 0.16);
+            background: rgba(15, 23, 42, 0.62);
+            color: var(--text-muted);
+            font-size: 0.76rem;
+            transition: all 0.25s ease;
+        }
+
+        .inbox-flow-step.active {
+            border-color: rgba(99, 102, 241, 0.42);
+            color: var(--text-primary);
+            background: rgba(99, 102, 241, 0.12);
+        }
+
+        .inbox-flow-step.completed {
+            border-color: rgba(34, 197, 94, 0.34);
+            color: #86efac;
+            background: rgba(34, 197, 94, 0.1);
+        }
+
+        .inbox-flow-step-num {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(148, 163, 184, 0.22);
+            color: var(--text-muted);
+            font-size: 0.67rem;
+            font-weight: 700;
+        }
+
+        .inbox-flow-step.active .inbox-flow-step-num {
+            background: var(--primary);
+            color: #fff;
+        }
+
+        .inbox-flow-step.completed .inbox-flow-step-num {
+            background: #22c55e;
+            color: #fff;
+        }
+
+        @media (max-width: 1180px) {
+            .inbox-network-canvas {
+                grid-template-columns: 210px 300px 320px;
+            }
+
+            .inbox-branch-split-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .inbox-result-strip {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 1024px) {
+            .inbox-topology-board {
+                min-height: auto;
+            }
+
+            .inbox-network-canvas {
+                min-height: auto;
+                grid-template-columns: 1fr;
+            }
+
+            .inbox-flow-lane,
+            .inbox-packet-stream {
+                display: none;
+            }
+
+            .inbox-column-left,
+            .inbox-column-right,
+            .inbox-column-center {
+                width: 100%;
+            }
+
+            .inbox-router-shell {
+                max-width: none;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .inbox-flow-section {
+                padding: 6rem 1.2rem;
+            }
+
+            .inbox-demo {
+                padding: 1.1rem;
+            }
+
+            .inbox-topology-board {
+                padding: 1rem;
+            }
+
+            .inbox-route-matrix,
+            .inbox-router-metrics,
+            .inbox-result-strip {
+                grid-template-columns: 1fr;
+            }
+
+            .inbox-flow-step {
+                font-size: 0.68rem;
+            }
+        }
+
         /* ========== 聊天记录梳理流程动画 - 紧凑版 ========== */
         .chat-record-section {
             padding: 5rem 2rem;
