@@ -197,6 +197,9 @@ backend/apps/doc_convert/services/znszj_private/
 # court_zxfw 纯逆向登录插件（本地保留，不入库）
 backend/apps/automation/services/scraper/sites/court_zxfw_login_private/
 
+# court_filing HTTP 链路插件核心文件（用户需单独获取）
+backend/plugins/court_filing_http/api_service.py
+
 # legal_research 基线评估样本（本地标注数据，不入库）
 backend/apps/legal_research/evaluation/
 backend/apps/legal_research/evaluation/baseline_cases.json

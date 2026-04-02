@@ -147,6 +147,7 @@ class CaseFilingInfoOut(Schema):
     defendant_name: str | None
     our_party_is_plaintiff_side: bool = False
     has_court_credential: bool = False
+    has_http_plugin: bool = False
     suggested_filing_type: str = _FILING_TYPE_CIVIL
     default_filing_engine: str = _FILING_ENGINE_API
 
@@ -210,6 +211,17 @@ def get_case_filing_info(request: HttpRequest, case_id: int) -> Any:
 
     suggested_filing_type = _infer_filing_type(case=case, parties=parties)
 
+    # 检测 HTTP 链路插件是否存在
+    has_http_plugin = False
+    default_filing_engine = _FILING_ENGINE_PLAYWRIGHT
+    try:
+        from plugins import has_court_filing_api_plugin
+
+        has_http_plugin = has_court_filing_api_plugin()
+        default_filing_engine = _FILING_ENGINE_API if has_http_plugin else _FILING_ENGINE_PLAYWRIGHT
+    except ImportError:
+        pass
+
     return {
         "case_id": case.id,
         "case_name": case.name,
@@ -220,8 +232,9 @@ def get_case_filing_info(request: HttpRequest, case_id: int) -> Any:
         "defendant_name": defendant_name,
         "our_party_is_plaintiff_side": our_party_is_plaintiff_side,
         "has_court_credential": has_court_credential,
+        "has_http_plugin": has_http_plugin,
         "suggested_filing_type": suggested_filing_type,
-        "default_filing_engine": _FILING_ENGINE_API,
+        "default_filing_engine": default_filing_engine,
     }
 
 
@@ -403,8 +416,8 @@ def _resolve_court_name(authority_name: str) -> str | None:
     from apps.core.models import Court
 
     court = Court.objects.filter(name__contains=authority_name).first()
-    if court:
-        return court.name
+    if court and court.name:
+        return str(court.name)
 
     return f"{authority_name}人民法院"
 

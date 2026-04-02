@@ -7,10 +7,13 @@ import logging
 import random
 import time
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 from django.utils.translation import gettext_lazy as _
 from playwright.sync_api import Page
+
+if TYPE_CHECKING:
+    from plugins.court_filing_http.api_service import CourtZxfwFilingApiService
 
 logger = logging.getLogger("apps.automation")
 
@@ -114,16 +117,22 @@ class CourtZxfwFilingService:
                 logger.warning("HTTP立案缺少登录令牌，回退 Playwright")
             else:
                 try:
+                    # 检测 HTTP 链路插件是否存在
+                    from plugins import has_court_filing_api_plugin
+
+                    if not has_court_filing_api_plugin():
+                        raise ImportError("HTTP链路插件未安装")
+
                     self._report_progress(
                         case_data,
                         phase="http",
                         stage="http.submit",
                         message="HTTP主链路：正在提交一张网草稿",
                     )
-                    from apps.automation.services.scraper.sites.court_zxfw_filing_api import CourtZxfwFilingApiService
+                    from plugins.court_filing_http.api_service import CourtZxfwFilingApiService
 
                     with CourtZxfwFilingApiService(token) as api_svc:
-                        result = api_svc.file_civil_case(case_data)
+                        result = cast(dict[str, Any], api_svc.file_civil_case(case_data))
                     self._report_progress(
                         case_data,
                         phase="http",
@@ -268,16 +277,22 @@ class CourtZxfwFilingService:
                 logger.warning("HTTP立案缺少登录令牌，回退 Playwright")
             else:
                 try:
+                    # 检测 HTTP 链路插件是否存在
+                    from plugins import has_court_filing_api_plugin
+
+                    if not has_court_filing_api_plugin():
+                        raise ImportError("HTTP链路插件未安装")
+
                     self._report_progress(
                         case_data,
                         phase="http",
                         stage="http.submit",
                         message="HTTP主链路：正在提交一张网草稿",
                     )
-                    from apps.automation.services.scraper.sites.court_zxfw_filing_api import CourtZxfwFilingApiService
+                    from plugins.court_filing_http.api_service import CourtZxfwFilingApiService
 
                     with CourtZxfwFilingApiService(token) as api_svc:
-                        result = api_svc.file_execution(case_data)
+                        result = cast(dict[str, Any], api_svc.file_execution(case_data))
                     self._report_progress(
                         case_data,
                         phase="http",
@@ -861,7 +876,9 @@ class CourtZxfwFilingService:
         """按案件绑定顺序补齐代理人（不足则新增）。"""
         agents = [item for item in case_data.get("agents", []) if isinstance(item, dict)]
         if not agents and isinstance(case_data.get("agent"), dict):
-            agents = [case_data.get("agent")]
+            agent_dict = case_data.get("agent")
+            if agent_dict is not None:
+                agents = [agent_dict]
         if not agents:
             return
 
@@ -891,7 +908,7 @@ class CourtZxfwFilingService:
         add_btn.scroll_into_view_if_needed()
         add_btn.click(timeout=5000)
         self._random_wait(1, 2)
-        return self.page.locator(".fd-wsla-ryxx-box:has(uni-button:has-text('保存'))").count() > 0
+        return bool(self.page.locator(".fd-wsla-ryxx-box:has(uni-button:has-text('保存'))").count() > 0)
 
     def _fill_agent_form(self, *, case_data: dict[str, Any], agent: dict[str, Any]) -> None:
         self.page.evaluate(
@@ -1265,7 +1282,15 @@ class CourtZxfwFilingService:
         # 兼容旧参数
         if "use_api_for_execution" in case_data:
             return "api" if bool(case_data.get("use_api_for_execution")) else "playwright"
-        return "api"
+        # 检测 HTTP 链路插件是否存在
+        try:
+            from plugins import has_court_filing_api_plugin
+
+            if has_court_filing_api_plugin():
+                return "api"
+        except ImportError:
+            pass
+        return "playwright"
 
     @staticmethod
     def _allow_playwright_fallback(case_data: dict[str, Any]) -> bool:
