@@ -5,7 +5,6 @@
 from .anti_detection import AntiDetection, anti_detection
 from .browser_service import BrowserService
 from .captcha_recognizer import CaptchaRecognizer, DdddocrRecognizer
-from .captcha_service import CaptchaService
 from .exceptions import (
     BrowserConfigurationError,
     BrowserCreationError,
@@ -22,7 +21,6 @@ __all__ = [
     "BrowserService",
     "anti_detection",
     "AntiDetection",
-    "CaptchaService",
     "CaptchaRecognizer",
     "DdddocrRecognizer",
     "SecurityService",
