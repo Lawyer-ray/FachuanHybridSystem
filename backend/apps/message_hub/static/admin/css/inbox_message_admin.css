@@ -1,0 +1,28 @@
+.field-body_preview {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+.field-body_preview > div,
+.field-body_preview .flex-container,
+.field-body_preview .readonly {
+  grid-column: 1 / -1 !important;
+  width: 100% !important;
+  max-width: none !important;
+  margin-left: 0 !important;
+}
+
+.field-body_preview > label,
+.field-body_preview .flex-container > label {
+  display: none !important;
+}
+
+.field-body_preview iframe {
+  width: 100% !important;
+  height: min(60vh, 750px) !important;
+}
+
+.field-body_preview .readonly > div {
+  width: 100% !important;
+  max-width: none !important;
+  max-height: min(60vh, 750px) !important;
+}

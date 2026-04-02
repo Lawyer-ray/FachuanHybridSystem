@@ -1,0 +1,178 @@
+{% load i18n %}
+<!-- 收件箱智能处理中枢演示 -->
+<section class="inbox-flow-section" id="inbox-flow">
+    <div class="inbox-flow-container">
+        <div class="section-header reveal">
+            <span class="section-tag">📥 {% trans "自动化演示" %}</span>
+            <h2 class="section-title">{% trans "收件箱智能处理中枢" %}</h2>
+            <p class="section-desc">{% trans "以拓扑网络图展示法院信息流与材料流双线并行处理，经过 AI 识别、案件匹配、分支派发后自动回写归档" %}</p>
+        </div>
+
+        <div class="inbox-demo" id="inboxFlowDemo">
+            <div class="inbox-demo-hud">
+                <div class="inbox-demo-mode-group">
+                    <div class="inbox-sync-chip" id="inboxAutoPollChip">⏱ {% trans "定时轮询" %}</div>
+                    <div class="inbox-sync-chip" id="inboxManualSyncChip">⚡ {% trans "事件触发" %}</div>
+                    <div class="inbox-sync-chip" id="inboxParallelChip">⇄ {% trans "双线并行" %}</div>
+                </div>
+                <div class="inbox-sync-status" id="inboxSyncStatus">{% trans "待同步 / Ready" %}</div>
+            </div>
+
+            <div class="inbox-topology-board">
+                <div class="inbox-flow-lane lane-court-in" id="laneCourtIn"></div>
+                <div class="inbox-flow-lane lane-material-in" id="laneMaterialIn"></div>
+                <div class="inbox-flow-lane lane-court-out" id="laneCourtOut"></div>
+                <div class="inbox-flow-lane lane-material-out" id="laneMaterialOut"></div>
+
+                <div class="inbox-packet-stream packet-court-in" id="packetCourt"></div>
+                <div class="inbox-packet-stream packet-material-in" id="packetScanner"></div>
+                <div class="inbox-packet-stream packet-court-out" id="packetCourtOut"></div>
+                <div class="inbox-packet-stream packet-material-out" id="packetMaterialOut"></div>
+
+                <div class="inbox-network-canvas">
+                    <div class="inbox-column inbox-column-left">
+                        <div class="inbox-source-card" id="inboxCourtMsg">
+                            <div class="inbox-source-icon court">🏛️</div>
+                            <div class="inbox-source-main">
+                                <div class="inbox-source-title">{% trans "法院信息流" %}</div>
+                                <div class="inbox-source-desc">{% trans "短信 / 通知 / 文书链接 / 开庭变更" %}</div>
+                                <div class="inbox-source-meta">{% trans "进入既有短信识别链路" %}</div>
+                            </div>
+                        </div>
+
+                        <div class="inbox-source-card" id="inboxScannerFile">
+                            <div class="inbox-source-icon scanner">🖨️</div>
+                            <div class="inbox-source-main">
+                                <div class="inbox-source-title">{% trans "材料流" %}</div>
+                                <div class="inbox-source-desc">{% trans "寄来材料 / 律师寄出材料 / 回执扫描件" %}</div>
+                                <div class="inbox-source-meta">{% trans "本地 OCR + 语义切分" %}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="inbox-column inbox-column-center">
+                        <div class="inbox-router-shell">
+                            <div class="inbox-router-core" id="inboxRouterCore">🧠</div>
+                            <div class="inbox-router-title">{% trans "AI 调度中枢" %}</div>
+                            <div class="inbox-router-sub">{% trans "法院信息流与材料流统一入枢，完成识别、拆解、映射与归档编排" %}</div>
+                            <div class="inbox-router-state" id="inboxFlowState">{% trans "待机 / Standby" %}</div>
+
+                            <div class="inbox-route-matrix">
+                                <div class="inbox-route-node" id="routeParse">
+                                    <span class="inbox-route-code">01</span>
+                                    <span class="inbox-route-title">{% trans "信源指纹" %}</span>
+                                </div>
+                                <div class="inbox-route-node" id="routeClassify">
+                                    <span class="inbox-route-code">02</span>
+                                    <span class="inbox-route-title">{% trans "语义解构" %}</span>
+                                </div>
+                                <div class="inbox-route-node" id="routeMatch">
+                                    <span class="inbox-route-code">03</span>
+                                    <span class="inbox-route-title">{% trans "案件映射" %}</span>
+                                </div>
+                                <div class="inbox-route-node" id="routePolicy">
+                                    <span class="inbox-route-code">04</span>
+                                    <span class="inbox-route-title">{% trans "归档编排" %}</span>
+                                </div>
+                            </div>
+
+                            <div class="inbox-router-metrics">
+                                <div class="inbox-metric-card" id="inboxMetricCourt">
+                                    <span class="label">{% trans "识别置信度" %}</span>
+                                    <span class="value" id="inboxMetricCourtValue">0%</span>
+                                </div>
+                                <div class="inbox-metric-card" id="inboxMetricMaterial">
+                                    <span class="label">{% trans "拆分页数" %}</span>
+                                    <span class="value" id="inboxMetricMaterialValue">0</span>
+                                </div>
+                                <div class="inbox-metric-card" id="inboxMetricRisk">
+                                    <span class="label">{% trans "人工复核" %}</span>
+                                    <span class="value" id="inboxMetricRiskValue">0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="inbox-column inbox-column-right">
+                        <div class="inbox-branch branch-court" id="inboxBranchCourt">
+                            <div class="inbox-branch-head">
+                                <span class="inbox-branch-title">🏛️ {% trans "法院闭环" %}</span>
+                                <span class="inbox-branch-badge" id="inboxBranchCourtBadge">{% trans "待命" %}</span>
+                            </div>
+                            <div class="inbox-branch-item" id="inboxCourtStep1">{% trans "复用短信解析结果" %}</div>
+                            <div class="inbox-branch-item" id="inboxCourtStep2">{% trans "自动绑定案件与案号" %}</div>
+                            <div class="inbox-branch-item" id="inboxCourtStep3">{% trans "回写文书与提醒日志" %}</div>
+                        </div>
+
+                        <div class="inbox-branch branch-material" id="inboxBranchMaterial">
+                            <div class="inbox-branch-head">
+                                <span class="inbox-branch-title">📦 {% trans "材料闭环" %}</span>
+                                <span class="inbox-branch-badge" id="inboxBranchMaterialBadge">{% trans "待命" %}</span>
+                            </div>
+                            <div class="inbox-branch-split-grid">
+                                <div class="inbox-branch-pane branch-incoming" id="inboxBranchIncoming">
+                                    <div class="inbox-branch-pane-title">📩 {% trans "寄来材料" %}</div>
+                                    <div class="inbox-branch-item" id="inboxIncomingStep1">{% trans "匹配本地案件库" %}</div>
+                                    <div class="inbox-branch-item" id="inboxIncomingStep2">{% trans "按上下文拆分 PDF" %}</div>
+                                    <div class="inbox-branch-item" id="inboxIncomingStep3">{% trans "自动入卷并生成待办" %}</div>
+                                </div>
+
+                                <div class="inbox-branch-pane branch-outgoing" id="inboxBranchOutgoing">
+                                    <div class="inbox-branch-pane-title">📤 {% trans "寄出材料" %}</div>
+                                    <div class="inbox-branch-item" id="inboxOutgoingStep1">{% trans "识别寄件对象与案件" %}</div>
+                                    <div class="inbox-branch-item" id="inboxOutgoingStep2">{% trans "写入案件文件夹" %}</div>
+                                    <div class="inbox-branch-item" id="inboxOutgoingStep3">{% trans "生成寄送追踪记录" %}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="inbox-log-board" id="inboxLogBoard">
+            <div class="inbox-log-label">{% trans "事件总线" %}</div>
+            <div class="inbox-log-item" id="inboxLog1">{% trans "法院流接入短信链路" %}</div>
+            <div class="inbox-log-item" id="inboxLog2">{% trans "材料流拆分为寄来件与寄出件" %}</div>
+            <div class="inbox-log-item" id="inboxLog3">{% trans "案件目录与待办已自动回写" %}</div>
+            <div class="inbox-log-item" id="inboxLog4">{% trans "闭环完成，进入下一轮监听" %}</div>
+        </div>
+
+        <div class="inbox-result-strip" id="inboxResultStrip">
+            <div class="inbox-result-card" id="inboxResultCard1">
+                <div class="title">{% trans "自动关联案件" %}</div>
+                <div class="value" id="inboxStatLinked">0</div>
+            </div>
+            <div class="inbox-result-card" id="inboxResultCard2">
+                <div class="title">{% trans "拆分页数" %}</div>
+                <div class="value" id="inboxStatSplit">0</div>
+            </div>
+            <div class="inbox-result-card" id="inboxResultCard3">
+                <div class="title">{% trans "生成待办" %}</div>
+                <div class="value" id="inboxStatTodo">0</div>
+            </div>
+            <div class="inbox-result-card" id="inboxResultCard4">
+                <div class="title">{% trans "回写归档" %}</div>
+                <div class="value" id="inboxStatFiled">0</div>
+            </div>
+        </div>
+
+        <div class="inbox-flow-steps" id="inboxFlowSteps">
+            <div class="inbox-flow-step" data-step="1"><span class="inbox-flow-step-num">1</span><span>{% trans "监听启动" %}</span></div>
+            <div class="inbox-flow-step" data-step="2"><span class="inbox-flow-step-num">2</span><span>{% trans "双线入网" %}</span></div>
+            <div class="inbox-flow-step" data-step="3"><span class="inbox-flow-step-num">3</span><span>{% trans "解析匹配" %}</span></div>
+            <div class="inbox-flow-step" data-step="4"><span class="inbox-flow-step-num">4</span><span>{% trans "法院线闭环" %}</span></div>
+            <div class="inbox-flow-step" data-step="5"><span class="inbox-flow-step-num">5</span><span>{% trans "材料线并行" %}</span></div>
+            <div class="inbox-flow-step" data-step="6"><span class="inbox-flow-step-num">6</span><span>{% trans "结果汇聚" %}</span></div>
+        </div>
+
+        <div class="flow-controls">
+            <button class="flow-btn flow-btn-play" id="inboxFlowPlayBtn" onclick="startInboxFlowAnimation()">
+                <span>▶</span> {% trans "播放演示" %}
+            </button>
+            <button class="flow-btn flow-btn-reset" id="inboxFlowResetBtn" onclick="resetInboxFlowAnimation()">
+                <span>↺</span> {% trans "重置" %}
+            </button>
+        </div>
+    </div>
+</section>
