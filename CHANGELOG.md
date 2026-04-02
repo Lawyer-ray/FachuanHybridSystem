@@ -2,6 +2,12 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.30.3] - 2026-04-02
+
+### 重构
+
+- **删除废弃的 CaptchaService（automation）**：移除已弃用的 `apps/automation/services/scraper/core/captcha_service.py` 及相关导入
+
 ## [26.30.2] - 2026-04-02
 
 ### 修复
