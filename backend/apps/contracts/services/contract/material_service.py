@@ -1,4 +1,4 @@
-"""定稿材料服务层。"""
+"""归档材料服务层。"""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class MaterialService:
     def save_material_file(self, uploaded_file: Any, contract_id: int) -> tuple[str, str]:
         """
-        保存定稿材料文件。
+        保存归档材料文件。
         Returns: (rel_path, original_filename)
         """
         return storage.save_uploaded_file(
@@ -26,10 +26,10 @@ class MaterialService:
 
     def delete_material_file(self, file_path: str) -> bool:
         """
-        删除定稿材料文件。失败时记录日志但不抛异常。
+        删除归档材料文件。失败时记录日志但不抛异常。
         """
         try:
             return storage.delete_media_file(file_path)
         except Exception:
-            logger.error("删除定稿材料文件失败: %s", file_path, exc_info=True)
+            logger.error("删除归档材料文件失败: %s", file_path, exc_info=True)
             return False

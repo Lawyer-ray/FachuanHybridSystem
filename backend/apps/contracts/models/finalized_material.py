@@ -20,7 +20,7 @@ class MaterialCategory(models.TextChoices):
 
 
 class FinalizedMaterial(models.Model):
-    """定稿材料模型，存储上传的 PDF 文件元数据。"""
+    """归档材料模型，存储上传的 PDF 文件元数据。"""
 
     id: int
     contract_id: int
@@ -44,8 +44,8 @@ class FinalizedMaterial(models.Model):
 
     class Meta:
         ordering: ClassVar = ["order", "-uploaded_at"]
-        verbose_name = _("定稿材料")
-        verbose_name_plural = _("定稿材料")
+        verbose_name = _("归档材料")
+        verbose_name_plural = _("归档材料")
         indexes: ClassVar = [
             models.Index(fields=["contract", "order", "-uploaded_at"]),
         ]
