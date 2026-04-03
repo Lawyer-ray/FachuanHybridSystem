@@ -69,7 +69,7 @@ class ContractOASyncService:
             return session
 
         task_id = build_task_submission_service().submit(
-            "apps.contracts.services.contract.contract_oa_sync_service.run_contract_oa_sync_task",
+            "apps.contracts.services.contract.integrations.contract_oa_sync_service.run_contract_oa_sync_task",
             args=[int(session.id)],
             task_name=f"contract_oa_sync_{session.id}",
         )

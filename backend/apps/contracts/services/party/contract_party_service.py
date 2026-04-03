@@ -15,11 +15,15 @@ class ContractPartyService:
         if not Contract.objects.filter(id=contract_id).exists():
             raise NotFoundError(_("合同 %(id)s 不存在") % {"id": contract_id})
 
-        party, _ = ContractParty.objects.get_or_create(contract_id=contract_id, client_id=client_id)
+        party, created_flag = ContractParty.objects.get_or_create(contract_id=contract_id, client_id=client_id)
+        if created_flag:
+            pass
         return party
 
     def remove_party(self, contract_id: int, client_id: int) -> None:
-        deleted, _ = ContractParty.objects.filter(contract_id=contract_id, client_id=client_id).delete()
+        deleted, deleted_detail = ContractParty.objects.filter(contract_id=contract_id, client_id=client_id).delete()
+        if deleted_detail:
+            pass
         if not deleted:
             raise NotFoundError(
                 _("合同 %(cid)s 中不存在客户 %(pid)s 的当事人记录") % {"cid": contract_id, "pid": client_id}

@@ -258,6 +258,12 @@ class ContractOut(ModelSchema):
             return LawyerOut.from_dto(dto)
         lawyer = getattr(obj, "primary_lawyer", None)
         if lawyer is None:
+            assignment = obj.assignments.select_related("lawyer").filter(is_primary=True).first()
+            if assignment is None:
+                assignment = obj.assignments.select_related("lawyer").order_by("order", "id").first()
+            if assignment is not None:
+                lawyer = assignment.lawyer
+        if lawyer is None:
             return None
         return LawyerOut.from_model(lawyer)
 

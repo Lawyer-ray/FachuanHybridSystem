@@ -15,7 +15,7 @@ from apps.contracts.schemas import (
     ContractFolderScanStatusOut,
     ContractFolderScanSubfolderListOut,
 )
-from apps.contracts.services.contract.folder_scan_service import ContractFolderScanService
+from apps.contracts.services.contract.integrations.folder_scan_service import ContractFolderScanService
 from apps.core.infrastructure.throttling import rate_limit_from_settings
 from apps.core.security import get_request_access_context
 

@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING, Any
 
 from django.utils.translation import gettext_lazy as _
 
-from .contract_template_cache import ContractTemplateCache
-from .wiring import get_document_service
+from .template_cache import ContractTemplateCache
+from ..wiring import get_document_service
 
 if TYPE_CHECKING:
     from apps.contracts.models import Contract

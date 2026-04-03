@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from apps.contracts.services.supplementary.supplementary_agreement_service import SupplementaryAgreementService
     from apps.core.protocols import ICaseService
 
-    from .mutation import ContractMutationService
+    from ..mutation import ContractMutationService
 
 
 class ContractWorkflowService:

@@ -38,7 +38,7 @@ def get_case_admin_contract_file_prefetches() -> tuple[str, ...]:
 def serialize_contract_for_case_export(contract: Contract) -> dict[str, object]:
     """在 Case 导出场景中序列化关联合同。"""
     from apps.cases.services.case.case_export_serializer_service import serialize_case_obj
-    from apps.contracts.services.contract.contract_export_serializer_service import serialize_contract_obj
+    from apps.contracts.services.contract.integrations import serialize_contract_obj
 
     return serialize_contract_obj(contract, case_serializer=serialize_case_obj)
 

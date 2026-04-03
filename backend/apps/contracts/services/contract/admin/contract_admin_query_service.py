@@ -10,7 +10,7 @@ from apps.contracts.models import Contract
 from apps.core.models.enums import CaseType
 from apps.core.exceptions import NotFoundError
 
-from .wiring import get_case_service
+from ..wiring import get_case_service
 
 
 class ContractAdminQueryService:

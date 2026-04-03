@@ -28,9 +28,9 @@ def _get_preservation_materials_service() -> Any:
 
 
 def _get_folder_binding_service() -> Any:
-    from apps.contracts.services.folder.folder_binding_service import FolderBindingService
+    from apps.core.interfaces import ServiceLocator
 
-    return FolderBindingService()
+    return ServiceLocator.get_contract_folder_binding_service()
 
 
 def _require_case_contract(request: Any, case_id: int) -> Any:

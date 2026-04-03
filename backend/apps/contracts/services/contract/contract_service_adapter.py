@@ -81,13 +81,22 @@ class ContractServiceAdapter:
         try:
             contract = self.contract_service.query_service.get_contract_internal(contract_id)
             primary_lawyer = getattr(contract, "primary_lawyer", None)
+            if primary_lawyer is None:
+                assignment = contract.assignments.filter(is_primary=True).select_related("lawyer").first()
+                if assignment is None:
+                    assignment = contract.assignments.select_related("lawyer").order_by("order", "id").first()
+                if assignment is not None:
+                    primary_lawyer = assignment.lawyer
             return getattr(primary_lawyer, "id", None)
         except NotFoundError:
             return None
 
     def get_contract_lawyers(self, contract_id: int) -> list[LawyerDTO]:
         contract = self.contract_service.query_service.get_contract_internal(contract_id)
-        all_lawyers = contract.all_lawyers
+        all_lawyers = getattr(contract, "all_lawyers", None)
+        if all_lawyers is None:
+            assignments = contract.assignments.select_related("lawyer").order_by("-is_primary", "order", "id")
+            all_lawyers = [assignment.lawyer for assignment in assignments]
         return [LawyerDTO.from_model(lawyer) for lawyer in all_lawyers]
 
     def get_all_parties(self, contract_id: int) -> list[dict[str, Any]]:

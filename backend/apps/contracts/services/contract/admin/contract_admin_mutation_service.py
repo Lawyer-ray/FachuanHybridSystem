@@ -15,8 +15,8 @@ from apps.core.models.enums import CaseType
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.interfaces import CaseDTO
 
-from .admin_workflows import ContractCaseCreationWorkflow, ContractCloneWorkflow, ContractFilingNumberWorkflow
-from .wiring import get_case_service, get_reminder_service
+from .workflows import ContractCaseCreationWorkflow, ContractCloneWorkflow, ContractFilingNumberWorkflow
+from ..wiring import get_case_service, get_reminder_service
 
 logger = logging.getLogger("apps.contracts")
 

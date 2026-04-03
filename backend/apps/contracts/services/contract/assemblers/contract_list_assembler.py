@@ -13,7 +13,7 @@ class ContractListAssembler:
         self._attach_dtos(contracts)
 
     def _attach_template_info(self, contracts: list[Contract]) -> None:
-        from apps.contracts.services.contract.contract_display_service import ContractDisplayService
+        from apps.contracts.services.contract.query import ContractDisplayService
 
         service = ContractDisplayService()
         info_map = service.batch_get_template_info(contracts)

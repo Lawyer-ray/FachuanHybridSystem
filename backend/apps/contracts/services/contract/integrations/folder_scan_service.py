@@ -89,7 +89,7 @@ class ContractFolderScanService:
         )
 
         task_id = build_task_submission_service().submit(
-            "apps.contracts.services.contract.folder_scan_service.run_contract_folder_scan_task",
+            "apps.contracts.services.contract.integrations.folder_scan_service.run_contract_folder_scan_task",
             args=[str(session.id)],
             task_name=f"contract_folder_scan_{session.id}",
         )

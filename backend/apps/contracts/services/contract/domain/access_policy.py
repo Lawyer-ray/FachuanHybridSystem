@@ -9,7 +9,7 @@ from django.db.models import Q, QuerySet
 from apps.core.exceptions import PermissionDenied
 from apps.core.security import OrgAllowedLawyersMixin
 
-from .repos.contract_access_repo import ContractAccessRepo
+from ..repos.contract_access_repo import ContractAccessRepo
 
 if TYPE_CHECKING:
     from apps.contracts.models import Contract
