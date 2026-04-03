@@ -72,7 +72,7 @@ class FinalizedMaterialAdminForm(forms.ModelForm[FinalizedMaterial]):
         return instance
 
 
-class FinalizedMaterialInline(BaseTabularInline):  # type: ignore[type-arg]
+class FinalizedMaterialInline(BaseTabularInline):
     model = FinalizedMaterial
     form = FinalizedMaterialAdminForm
     extra = 1
@@ -98,7 +98,7 @@ class FinalizedMaterialInline(BaseTabularInline):  # type: ignore[type-arg]
         css = {"all": ("contracts/css/finalized_material_inline.css",)}
 
 
-class ContractPartyInline(BaseTabularInline):  # type: ignore[type-arg]
+class ContractPartyInline(BaseTabularInline):
     model = ContractParty
     extra = 1
     fields = ("client", "role")
@@ -109,14 +109,14 @@ class ContractPartyInline(BaseTabularInline):  # type: ignore[type-arg]
         js = ("contracts/js/party_role_auto.js",)
 
 
-class ContractAssignmentInline(BaseTabularInline):  # type: ignore[type-arg]
+class ContractAssignmentInline(BaseTabularInline):
     model = ContractAssignment
     extra = 1
     fields = ("lawyer", "is_primary", "order")
     autocomplete_fields: ClassVar = ["lawyer"]
 
 
-class SupplementaryAgreementPartyInline(BaseTabularInline):  # type: ignore[type-arg]
+class SupplementaryAgreementPartyInline(BaseTabularInline):
     """补充协议当事人内联（嵌套在补充协议中）"""
 
     model = SupplementaryAgreementParty
@@ -125,7 +125,7 @@ class SupplementaryAgreementPartyInline(BaseTabularInline):  # type: ignore[type
     autocomplete_fields: ClassVar = ["client"]
 
 
-class SupplementaryAgreementInline(BaseStackedInline):  # type: ignore[type-arg]
+class SupplementaryAgreementInline(BaseStackedInline):
     """补充协议内联（在合同中）"""
 
     model = SupplementaryAgreement
@@ -145,13 +145,14 @@ def serialize_contract_obj(obj: Any) -> dict[str, Any]:
         serialize_contract_obj as serialize_contract_obj_service,
     )
 
-    return serialize_contract_obj_service(obj)
+    result: dict[str, Any] = serialize_contract_obj_service(obj)
+    return result
 
 
 @admin.register(Contract)
 class ContractAdmin(
     ContractDisplayMixin, ContractSaveMixin, ContractActionMixin, AdminImportExportMixin, BaseModelAdmin
-):  # type: ignore[type-arg]
+):
     class ContractAdminForm(forms.ModelForm[Contract]):
         representation_stages = forms.MultipleChoiceField(
             choices=CaseStage.choices,
@@ -204,7 +205,7 @@ class ContractAdmin(
     readonly_fields = ("get_primary_lawyer_display", "filing_number")
     export_model_name = "contract"
     import_required_fields = ("name",)
-    actions: ClassVar = ["export_selected_as_json", "export_all_as_json"]
+    actions = ["export_selected_as_json", "export_all_as_json"]
 
     inlines: ClassVar = [
         ContractPartyInline,
@@ -493,7 +494,7 @@ class ContractAdmin(
                 errors.append(f"[{i}] {item.get('name', '?')} ({type(exc).__name__}): {exc}")
         return success, skipped, errors
 
-    def serialize_queryset(self, queryset: QuerySet[Contract]) -> list[dict[str, Any]]:  # type: ignore[override]
+    def serialize_queryset(self, queryset: QuerySet[Contract]) -> list[dict[str, Any]]:
         result = []
         for obj in queryset.prefetch_related(
             "contract_parties__client__identity_docs",
@@ -516,7 +517,7 @@ class ContractAdmin(
             result.append(serialize_contract_obj(obj))
         return result
 
-    def get_file_paths(self, queryset: QuerySet[Contract]) -> list[str]:  # type: ignore[override]
+    def get_file_paths(self, queryset: QuerySet[Contract]) -> list[str]:
         seen: set[str] = set()
         paths: list[str] = []
 

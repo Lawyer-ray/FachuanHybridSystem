@@ -12,19 +12,19 @@ class CourtToken(models.Model):
     """人民法院在线服务网（一张网）/保全系统 Token 存储"""
 
     id: int
-    site_name = models.CharField(
+    site_name: models.CharField = models.CharField(
         max_length=128,
         verbose_name=_("站点标识"),
         help_text=_("如:court_zxfw（人民法院在线服务网/一张网）, court_baoquan（保全系统）"),
     )
-    account = models.CharField(max_length=128, verbose_name=_("登录账号"))
-    token = models.TextField(verbose_name=_("认证Token"), help_text=_("一张网/保全系统返回的 JWT Token 或其他认证令牌"))
-    token_type = models.CharField(
+    account: models.CharField = models.CharField(max_length=128, verbose_name=_("登录账号"))
+    token: models.TextField = models.TextField(verbose_name=_("认证Token"), help_text=_("一张网/保全系统返回的 JWT Token 或其他认证令牌"))
+    token_type: models.CharField = models.CharField(
         max_length=32, default="Bearer", verbose_name=_("Token类型"), help_text=_("如:Bearer, JWT")
     )
-    expires_at = models.DateTimeField(verbose_name=_("过期时间"))
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
-    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
+    expires_at: models.DateTimeField = models.DateTimeField(verbose_name=_("过期时间"))
+    created_at: models.DateTimeField = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
+    updated_at: models.DateTimeField = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
 
     class Meta:
         app_label = "automation"
@@ -43,7 +43,8 @@ class CourtToken(models.Model):
         """判断是否过期"""
         from django.utils import timezone
 
-        return self.expires_at <= timezone.now()
+        result: bool = self.expires_at <= timezone.now()
+        return result
 
 
 class TokenAcquisitionStatus(models.TextChoices):
@@ -61,48 +62,48 @@ class TokenAcquisitionHistory(models.Model):
     """一张网/保全系统 Token 获取历史记录"""
 
     id: int
-    site_name = models.CharField(
+    site_name: models.CharField = models.CharField(
         max_length=128,
         verbose_name=_("站点标识"),
         help_text=_("如:court_zxfw（人民法院在线服务网/一张网）, court_baoquan（保全系统）"),
     )
-    account = models.CharField(max_length=128, verbose_name=_("使用账号"))
-    credential_id = models.IntegerField(
+    account: models.CharField = models.CharField(max_length=128, verbose_name=_("使用账号"))
+    credential_id: models.IntegerField = models.IntegerField(
         null=True, blank=True, verbose_name=_("凭证ID"), help_text=_("关联的AccountCredential ID")
     )
-    status = models.CharField(max_length=32, choices=TokenAcquisitionStatus.choices, verbose_name=_("获取状态"))
-    trigger_reason = models.CharField(
+    status: models.CharField = models.CharField(max_length=32, choices=TokenAcquisitionStatus.choices, verbose_name=_("获取状态"))
+    trigger_reason: models.CharField = models.CharField(
         max_length=256, verbose_name=_("触发原因"), help_text=_("如:token_expired, no_token, manual_trigger")
     )
-    attempt_count = models.IntegerField(default=1, verbose_name=_("尝试次数"))
-    total_duration = models.FloatField(null=True, blank=True, verbose_name=_("总耗时(秒)"))
-    login_duration = models.FloatField(null=True, blank=True, verbose_name=_("登录耗时(秒)"))
-    captcha_attempts = models.IntegerField(default=0, verbose_name=_("验证码尝试次数"))
-    network_retries = models.IntegerField(default=0, verbose_name=_("网络重试次数"))
-    token_preview = models.CharField(
+    attempt_count: models.IntegerField = models.IntegerField(default=1, verbose_name=_("尝试次数"))
+    total_duration: models.FloatField = models.FloatField(null=True, blank=True, verbose_name=_("总耗时(秒)"))
+    login_duration: models.FloatField = models.FloatField(null=True, blank=True, verbose_name=_("登录耗时(秒)"))
+    captcha_attempts: models.IntegerField = models.IntegerField(default=0, verbose_name=_("验证码尝试次数"))
+    network_retries: models.IntegerField = models.IntegerField(default=0, verbose_name=_("网络重试次数"))
+    token_preview: models.CharField = models.CharField(
         max_length=50, null=True, blank=True, verbose_name=_("Token预览"), help_text=_("Token 前50个字符")
     )
-    token_fingerprint = models.CharField(
+    token_fingerprint: models.CharField = models.CharField(
         max_length=64,
         null=True,
         blank=True,
         verbose_name=_("Token指纹"),
         help_text=_("Token的SHA256指纹(用于排查重复/归因,不可反推Token)"),
     )
-    token_redacted = models.CharField(
+    token_redacted: models.CharField = models.CharField(
         max_length=32,
         null=True,
         blank=True,
         verbose_name=_("Token脱敏摘要"),
         help_text=_("脱敏后的Token摘要(仅用于人工排查)"),
     )
-    error_message = models.TextField(null=True, blank=True, verbose_name=_("错误信息"))
-    error_details = models.JSONField(
+    error_message: models.TextField = models.TextField(null=True, blank=True, verbose_name=_("错误信息"))
+    error_details: models.JSONField = models.JSONField(
         null=True, blank=True, verbose_name=_("详细错误信息"), help_text=_("包含完整的错误堆栈和上下文")
     )
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
-    started_at = models.DateTimeField(null=True, blank=True, verbose_name=_("开始时间"))
-    finished_at = models.DateTimeField(null=True, blank=True, verbose_name=_("完成时间"))
+    created_at: models.DateTimeField = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
+    started_at: models.DateTimeField = models.DateTimeField(null=True, blank=True, verbose_name=_("开始时间"))
+    finished_at: models.DateTimeField = models.DateTimeField(null=True, blank=True, verbose_name=_("完成时间"))
 
     class Meta:
         app_label = "automation"
@@ -118,7 +119,7 @@ class TokenAcquisitionHistory(models.Model):
         ]
 
     def __str__(self) -> str:
-        return f"{self.site_name} - {self.account} - {self.get_status_display()}"
+        return f"{self.site_name} - {self.account} - {self.get_status_display()}"  # type: ignore[attr-defined]
 
     def save(self, *args: Any, **kwargs: Any) -> None:
         """保存前对敏感字段进行脱敏处理"""

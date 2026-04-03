@@ -18,7 +18,7 @@ from urllib.parse import parse_qs, urljoin, urlparse
 
 import httpx
 from lxml import html as lxml_html
-from playwright.sync_api import BrowserContext, Page, sync_playwright
+from playwright.sync_api import Browser, BrowserContext, Page, Playwright, sync_playwright
 
 logger = logging.getLogger("apps.oa_filing.jtn_case_import")
 
