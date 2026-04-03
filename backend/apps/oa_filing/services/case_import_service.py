@@ -513,7 +513,7 @@ class CaseImportService:
             resolved_case_type = mapped_case_type or CaseType.CIVIL
 
             # 构建OA详情页URL
-            oa_detail_url = f"https://ims.jtn.com/projectView.aspx?keyid={oa_data.keyid}&FirstModel=PROJECT&SecondModel=PROJECT002"
+            oa_detail_url = f"https://ims.jtn.com/project/projectView.aspx?keyid={oa_data.keyid}&FirstModel=PROJECT&SecondModel=PROJECT002"
 
             # 3. 查找或创建合同（先创建Contract，因为它不依赖Case）
             existing_contract = Contract.objects.filter(

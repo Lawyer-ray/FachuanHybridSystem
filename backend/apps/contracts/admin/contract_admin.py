@@ -252,6 +252,26 @@ class ContractAdmin(
                 self.admin_site.admin_view(self.reorder_materials_view),
                 name="contracts_contract_reorder_materials",
             ),
+            urlpath(
+                "oa-sync/",
+                self.admin_site.admin_view(self.oa_sync_view),
+                name="contracts_contract_oa_sync",
+            ),
+            urlpath(
+                "oa-sync/start/",
+                self.admin_site.admin_view(self.oa_sync_start_view),
+                name="contracts_contract_oa_sync_start",
+            ),
+            urlpath(
+                "oa-sync/status/<int:session_id>/",
+                self.admin_site.admin_view(self.oa_sync_status_view),
+                name="contracts_contract_oa_sync_status",
+            ),
+            urlpath(
+                "oa-sync/save/",
+                self.admin_site.admin_view(self.oa_sync_save_view),
+                name="contracts_contract_oa_sync_save",
+            ),
         ]
         return custom + urls
 
@@ -293,6 +313,90 @@ class ContractAdmin(
             }
         )
         return TemplateResponse(request, "admin/contracts/contract/batch_folder_binding.html", context)
+
+    def oa_sync_view(self, request: HttpRequest) -> TemplateResponse:
+        if not self.has_view_permission(request):
+            from django.core.exceptions import PermissionDenied
+
+            raise PermissionDenied
+
+        from apps.contracts.admin.wiring_admin import get_contract_oa_sync_service
+
+        service = get_contract_oa_sync_service()
+        context = self.admin_site.each_context(request)
+        context.update(
+            {
+                "title": _("合同OA信息同步"),
+                "opts": self.model._meta,
+                "oa_sync_initial_contracts": service.list_missing_oa_contracts(),
+                "oa_sync_config": {
+                    "startUrl": "/admin/contracts/contract/oa-sync/start/",
+                    "statusUrl": "/admin/contracts/contract/oa-sync/status/__SESSION_ID__/",
+                    "saveUrl": "/admin/contracts/contract/oa-sync/save/",
+                    "changeListUrl": "/admin/contracts/contract/",
+                },
+            }
+        )
+        return TemplateResponse(request, "admin/contracts/contract/oa_sync.html", context)
+
+    def oa_sync_start_view(self, request: HttpRequest) -> JsonResponse:
+        if request.method != "POST":
+            return JsonResponse({"success": False, "message": _("Method not allowed")}, status=405)
+        if not self.has_change_permission(request):
+            return JsonResponse({"success": False, "message": _("Permission denied")}, status=403)
+
+        from apps.contracts.admin.wiring_admin import get_contract_oa_sync_service
+
+        try:
+            service = get_contract_oa_sync_service()
+            session = service.create_or_get_active_session(started_by=request.user)
+            session = service.submit_session_task(session=session)
+            return JsonResponse(
+                {
+                    "success": True,
+                    "message": _("同步任务已启动"),
+                    "session_id": int(session.id),
+                }
+            )
+        except Exception as exc:
+            logger.exception("contract_oa_sync_start_failed")
+            return JsonResponse({"success": False, "message": str(exc)}, status=400)
+
+    def oa_sync_save_view(self, request: HttpRequest) -> JsonResponse:
+        if request.method != "POST":
+            return JsonResponse({"success": False, "message": _("Method not allowed")}, status=405)
+        if not self.has_change_permission(request):
+            return JsonResponse({"success": False, "message": _("Permission denied")}, status=403)
+
+        from apps.contracts.admin.wiring_admin import get_contract_oa_sync_service
+
+        payload = self._parse_json_payload(request)
+        entries = payload.get("entries")
+        if not isinstance(entries, list):
+            return JsonResponse({"success": False, "message": _("参数格式错误")}, status=400)
+
+        try:
+            result = get_contract_oa_sync_service().save_manual_contract_oa_fields(updates=entries)
+            message = _("保存成功") if result.get("error_count", 0) == 0 else _("部分保存成功，请检查错误项")
+            return JsonResponse({"success": True, "message": message, **result})
+        except Exception as exc:
+            logger.exception("contract_oa_sync_save_failed")
+            return JsonResponse({"success": False, "message": str(exc)}, status=400)
+
+    def oa_sync_status_view(self, request: HttpRequest, session_id: int) -> JsonResponse:
+        if request.method != "GET":
+            return JsonResponse({"success": False, "message": _("Method not allowed")}, status=405)
+        if not self.has_view_permission(request):
+            return JsonResponse({"success": False, "message": _("Permission denied")}, status=403)
+
+        from apps.contracts.admin.wiring_admin import get_contract_oa_sync_service
+
+        service = get_contract_oa_sync_service()
+        session = service.get_session(session_id=session_id)
+        if session is None:
+            return JsonResponse({"success": False, "message": _("会话不存在")}, status=404)
+
+        return JsonResponse({"success": True, **service.build_status_payload(session=session)})
 
     def batch_folder_binding_preview_view(self, request: HttpRequest) -> JsonResponse:
         if request.method != "POST":

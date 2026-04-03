@@ -31,7 +31,9 @@ _BASE_URL = "https://ims.jtn.com/project"
 _DETAIL_URL_TEMPLATE = "{base}/projectView.aspx?keyid={keyid}&FirstModel=PROJECT&SecondModel=PROJECT002"
 _HTTP_HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 _DEFAULT_HTTP_TIMEOUT = 20
+_NAME_SEARCH_HTTP_ATTEMPTS = 2
 _SEARCH_CASE_NO_FIELD = "ctl00$ctl00$mainContentPlaceHolder$projmainPlaceHolder$project_no"
+_SEARCH_CASE_NAME_FIELD = "ctl00$ctl00$mainContentPlaceHolder$projmainPlaceHolder$project_name"
 _SEARCH_CURRENT_PAGE_FIELD = "currentPage"
 
 # 等待时间（秒）
@@ -99,6 +101,16 @@ class CaseSearchItem:
 
 
 @dataclass
+class OAListCaseCandidate:
+    """OA 列表页候选案件。"""
+
+    case_no: str
+    case_name: str
+    keyid: str
+    detail_url: str
+
+
+@dataclass
 class CaseListFormState:
     """案件列表表单状态。"""
 
@@ -126,6 +138,11 @@ class JtnCaseImportScript:
         self._progress_callback = progress_callback
         self._page: Page | None = None
         self._context: BrowserContext | None = None
+        self._http_cookies_cache: dict[str, str] | None = None
+        self._name_search_http_client: httpx.Client | None = None
+        self._name_search_form_state: CaseListFormState | None = None
+        self._name_search_pw: Playwright | None = None
+        self._name_search_browser: Browser | None = None
 
     def search_case(self, case_no: str) -> OACaseData | None:
         """根据案件编号搜索并提取完整数据。
@@ -143,6 +160,41 @@ class JtnCaseImportScript:
         for _, case_data in self.search_cases([normalized_case_no], workers=1):
             return case_data
         return None
+
+    def search_cases_by_name(self, contract_name: str, *, limit: int = 6) -> list[OAListCaseCandidate]:
+        """按案件名称查询 OA 列表候选项（仅在 HTTP 不可用时回退 Playwright）。"""
+        keyword = str(contract_name or "").strip()
+        if not keyword:
+            return []
+
+        effective_limit = max(1, int(limit))
+
+        last_http_error: Exception | None = None
+        for attempt in range(1, _NAME_SEARCH_HTTP_ATTEMPTS + 1):
+            try:
+                return self._search_cases_by_name_via_http(keyword=keyword, limit=effective_limit)
+            except Exception as exc:
+                last_http_error = exc
+                if attempt < _NAME_SEARCH_HTTP_ATTEMPTS:
+                    logger.warning(
+                        "HTTP 按名称查询异常，准备重试 HTTP: keyword=%s attempt=%d/%d err=%s",
+                        keyword,
+                        attempt,
+                        _NAME_SEARCH_HTTP_ATTEMPTS,
+                        exc,
+                    )
+                    continue
+
+        logger.warning("HTTP 按名称查询异常，准备回退 Playwright: keyword=%s err=%s", keyword, last_http_error)
+
+        playwright_candidates = self._search_cases_by_name_via_playwright(keyword=keyword, limit=effective_limit)
+        if playwright_candidates:
+            logger.info(
+                "按名称查询启用 Playwright 兜底成功: keyword=%s playwright_count=%d",
+                keyword,
+                len(playwright_candidates),
+            )
+        return playwright_candidates
 
     def search_cases(
         self,
@@ -217,7 +269,7 @@ class JtnCaseImportScript:
             return []
 
         effective_workers = max(1, min(int(workers), len(indexed_case_nos)))
-        shared_cookies = self._http_login_and_get_cookies()
+        shared_cookies = self._get_or_login_http_cookies()
 
         if effective_workers == 1:
             return self._search_cases_chunk_via_http(
@@ -292,6 +344,14 @@ class JtnCaseImportScript:
 
         return results
 
+    def _get_or_login_http_cookies(self) -> dict[str, str]:
+        if self._http_cookies_cache:
+            return dict(self._http_cookies_cache)
+
+        cookies = self._http_login_and_get_cookies()
+        self._http_cookies_cache = dict(cookies)
+        return dict(cookies)
+
     def _http_login_and_get_cookies(self) -> dict[str, str]:
         """执行一次 HTTP 登录并返回可复用 cookie。"""
         logger.info("HTTP 登录 OA: %s", _LOGIN_URL)
@@ -356,6 +416,119 @@ class JtnCaseImportScript:
             keyid=search_item.keyid,
         )
 
+    def _search_cases_by_name_via_http(self, *, keyword: str, limit: int) -> list[OAListCaseCandidate]:
+        try:
+            client, form_state = self._ensure_name_search_http_session()
+            payload = dict(form_state.payload)
+
+            field_name = self._resolve_case_name_field(payload)
+            if not field_name:
+                logger.warning("未找到案件名称查询字段，跳过 HTTP 按名称查询")
+                return []
+
+            payload[field_name] = keyword
+            payload[_SEARCH_CURRENT_PAGE_FIELD] = "1"
+
+            response = client.post(form_state.action_url, data=payload)
+            response.raise_for_status()
+            self._name_search_form_state = self._extract_form_state(html_text=response.text, base_url=str(response.url))
+            candidates = self._extract_case_candidates_from_search_html(response.text)
+            return self._rank_name_candidates(keyword=keyword, candidates=candidates, limit=limit)
+        except Exception:
+            self._reset_name_search_http_session()
+            raise
+
+    def _ensure_name_search_http_session(self) -> tuple[httpx.Client, CaseListFormState]:
+        if self._name_search_http_client is not None and self._name_search_form_state is not None:
+            return self._name_search_http_client, self._name_search_form_state
+
+        shared_cookies = self._get_or_login_http_cookies()
+        client = httpx.Client(
+            headers={**_HTTP_HEADERS, "Connection": "close"},
+            follow_redirects=True,
+            timeout=_DEFAULT_HTTP_TIMEOUT,
+            cookies=shared_cookies,
+            limits=httpx.Limits(max_connections=1, max_keepalive_connections=0),
+        )
+        form_state = self._load_case_list_form_state(client)
+        self._name_search_http_client = client
+        self._name_search_form_state = form_state
+        return client, form_state
+
+    def _reset_name_search_http_session(self) -> None:
+        if self._name_search_http_client is not None:
+            self._name_search_http_client.close()
+        self._name_search_http_client = None
+        self._name_search_form_state = None
+
+    def _search_cases_by_name_via_playwright(self, *, keyword: str, limit: int) -> list[OAListCaseCandidate]:
+        try:
+            self._ensure_name_search_playwright_session()
+            page = self._page
+            assert page is not None
+            input_locator = page.locator("#ctl00_ctl00_mainContentPlaceHolder_projmainPlaceHolder_project_name")
+            input_locator.wait_for(state="visible", timeout=15_000)
+            input_locator.fill(keyword)
+            time.sleep(_SHORT_WAIT)
+            page.evaluate("searchOk()")
+            time.sleep(_AJAX_WAIT)
+            page.wait_for_load_state("networkidle", timeout=15_000)
+            time.sleep(_SHORT_WAIT)
+
+            html_text = page.content()
+            candidates = self._extract_case_candidates_from_search_html(html_text)
+            return self._rank_name_candidates(keyword=keyword, candidates=candidates, limit=limit)
+        except Exception as exc:
+            logger.warning("Playwright 按名称查询异常 keyword=%s: %s", keyword, exc, exc_info=True)
+            return []
+
+    def _ensure_name_search_playwright_session(self) -> None:
+        if self._name_search_browser is not None and self._page is not None and self._context is not None:
+            try:
+                self._ensure_case_list_ready()
+                return
+            except Exception:
+                self.close()
+
+        self._name_search_pw = sync_playwright().start()
+        self._name_search_browser = self._name_search_pw.chromium.launch(headless=self._headless)
+        self._context = self._name_search_browser.new_context()
+
+        try:
+            from playwright_stealth import Stealth
+
+            stealth = Stealth()
+            stealth.apply_stealth_sync(self._context)
+            logger.debug("已应用 playwright-stealth 反检测")
+        except ImportError:
+            logger.warning("playwright-stealth 未安装，跳过反检测")
+
+        self._context.set_default_timeout(30_000)
+        self._context.set_default_navigation_timeout(30_000)
+        self._page = self._context.new_page()
+
+        self._login()
+        self._navigate_to_case_list()
+        self._ensure_case_list_ready()
+
+    def _rank_name_candidates(
+        self,
+        *,
+        keyword: str,
+        candidates: list[OAListCaseCandidate],
+        limit: int,
+    ) -> list[OAListCaseCandidate]:
+        normalized = self._normalize_text(keyword)
+        ordered_candidates = list(candidates)
+        ordered_candidates.sort(
+            key=lambda item: (
+                0 if normalized and normalized in self._normalize_text(item.case_name) else 1,
+                item.case_no,
+                item.keyid,
+            )
+        )
+        return ordered_candidates[: max(1, int(limit))]
+
     def _extract_form_state(self, *, html_text: str, base_url: str) -> CaseListFormState:
         """解析 ASP.NET 表单状态（隐藏字段 + 过滤条件）。"""
         try:
@@ -406,6 +579,162 @@ class JtnCaseImportScript:
             payload[name] = self._normalize_text("".join(textarea_node.itertext()))
 
         return CaseListFormState(action_url=action_url, payload=payload)
+
+    def _resolve_case_name_field(self, payload: dict[str, str]) -> str | None:
+        if _SEARCH_CASE_NAME_FIELD in payload:
+            return _SEARCH_CASE_NAME_FIELD
+
+        logger.warning("未找到指定案件名称查询字段: %s", _SEARCH_CASE_NAME_FIELD)
+        return None
+
+    def _extract_case_candidates_from_search_html(self, html_text: str) -> list[OAListCaseCandidate]:
+        candidates: list[OAListCaseCandidate] = []
+        seen_keys: set[tuple[str, str]] = set()
+        try:
+            root = lxml_html.fromstring(html_text)
+            for row in root.xpath("//tr"):
+                links = row.xpath('.//a[contains(@href, "projectView.aspx") and contains(@href, "keyid=")]')
+                if not links:
+                    continue
+                cell_texts = self._extract_row_cells_text(row)
+                row_text = self._normalize_text(" ".join(cell_texts))
+                case_no = self._extract_case_no_from_text(row_text)
+
+                for link in links:
+                    href = str(link.get("href") or "")
+                    keyid = self._extract_keyid_from_href(href)
+                    if not keyid:
+                        continue
+
+                    case_name = self._normalize_text("".join(link.itertext()))
+                    if case_name in {"查看", "编辑", "删除", "详情", "操作"}:
+                        case_name = ""
+                    if not case_name:
+                        case_name = self._extract_case_name_from_row(
+                            row,
+                            case_no=case_no,
+                            row_text=row_text,
+                        )
+
+                    unique_key = (keyid, case_no)
+                    if unique_key in seen_keys:
+                        continue
+                    seen_keys.add(unique_key)
+
+                    candidates.append(
+                        OAListCaseCandidate(
+                            case_no=case_no,
+                            case_name=case_name,
+                            keyid=keyid,
+                            detail_url=_DETAIL_URL_TEMPLATE.format(base=_BASE_URL, keyid=keyid),
+                        )
+                    )
+        except Exception:
+            logger.debug("解析按名称查询结果失败", exc_info=True)
+
+        return candidates
+
+    def _extract_case_no_from_text(self, row_text: str) -> str:
+        text = self._normalize_text(row_text)
+        if not text:
+            return ""
+
+        patterns = [
+            r"(?<![A-Za-z0-9])\d{4}[A-Za-z]{1,8}\d{2,}(?![A-Za-z0-9])",
+            r"(?<![A-Za-z0-9])[A-Za-z]{1,4}\d{4,}(?![A-Za-z0-9])",
+            r"(?<![A-Za-z0-9])\d{6,}(?![A-Za-z0-9])",
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, text)
+            if match:
+                return str(match.group(0)).strip()
+        return ""
+
+    def _extract_case_name_from_row(self, row_node: Any, *, case_no: str, row_text: str) -> str:
+        best_text = ""
+        best_score = -10_000
+
+        for cell_text in self._extract_row_cells_text(row_node):
+            score = self._score_case_name_cell(cell_text, case_no=case_no)
+            if score > best_score:
+                best_score = score
+                best_text = cell_text
+
+        cleaned = self._clean_case_name_text(best_text, case_no=case_no)
+        if cleaned:
+            return cleaned
+        return self._extract_case_name_from_row_text(row_text, case_no)
+
+    def _score_case_name_cell(self, cell_text: str, *, case_no: str) -> int:
+        text = self._normalize_text(cell_text)
+        if not text:
+            return -100
+        if text.isdigit():
+            return -90
+        if text in {"查看", "编辑", "删除", "详情", "操作"}:
+            return -80
+
+        score = 0
+        if case_no and case_no in text:
+            score += 30
+        if "诉" in text:
+            score += 20
+        if any(marker in text for marker in ("纠纷", "案件", "案【", "案[", "申请")):
+            score += 12
+        if any(marker in text for marker in ("[诉讼]", "民商事案件", "已完善", "信息完善", "在办中", "推送至社区")):
+            score -= 15
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", text):
+            score -= 20
+        if len(text) <= 2:
+            score -= 10
+        return score
+
+    def _clean_case_name_text(self, value: str, *, case_no: str) -> str:
+        text = self._normalize_text(value)
+        if not text:
+            return ""
+
+        if case_no and case_no in text:
+            text = text.replace(case_no, " ")
+
+        for marker in ("查看", "编辑", "删除", "详情", "操作"):
+            text = text.replace(marker, " ")
+
+        for marker in (
+            "[诉讼]",
+            "[非诉]",
+            "民商事案件",
+            "刑事案件",
+            "行政案件",
+            "已完善",
+            "信息完善",
+            "在办中",
+            "修改承办律师",
+            "利冲变更申请",
+            "法院进程变更",
+            "保全信息变更",
+            "多地合作变更申请",
+            "对外合办变更申请",
+            "案件负责人变更申请",
+            "零收费变更申请",
+            "添加案件进程信息",
+            "添加工作日志审批人",
+            "上传定稿合同",
+            "取消推送至社区",
+            "推送至社区",
+            "已推业绩",
+            "撤销推送",
+        ):
+            if marker in text:
+                text = text.split(marker, 1)[0].strip()
+
+        text = re.sub(r"^(?:正\s*式|更多)\s+", "", text)
+        text = re.sub(r"^([\u4e00-\u9fa5A-Za-z·]{2,16})\s+(?=\1诉)", "", text)
+        text = re.sub(r"^\d+\s+", "", text)
+        return re.sub(r"\s+", " ", text).strip()
+
+    def _extract_case_name_from_row_text(self, row_text: str, case_no: str) -> str:
+        return self._clean_case_name_text(row_text, case_no=case_no)
 
     def _extract_case_keyid_from_search_html(self, *, html_text: str, case_no: str) -> str | None:
         """从查询结果 HTML 中解析案件 keyid。"""
@@ -665,6 +994,17 @@ class JtnCaseImportScript:
             return
         except Exception:
             self._navigate_to_case_list()
+
+    def close(self) -> None:
+        self._reset_name_search_http_session()
+        if self._name_search_browser is not None:
+            self._name_search_browser.close()
+        if self._name_search_pw is not None:
+            self._name_search_pw.stop()
+        self._name_search_browser = None
+        self._name_search_pw = None
+        self._context = None
+        self._page = None
 
     def _emit_progress(self, event: str, **payload: Any) -> None:
         if self._progress_callback is None:
