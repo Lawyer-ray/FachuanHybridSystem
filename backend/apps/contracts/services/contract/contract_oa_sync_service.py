@@ -121,7 +121,7 @@ class ContractOASyncService:
         for row in updates:
             contract_id_raw = row.get("id", row.get("contract_id"))
             try:
-                contract_id = int(contract_id_raw)
+                contract_id = int(str(contract_id_raw)) if contract_id_raw is not None else 0
             except (TypeError, ValueError):
                 errors.append({"contract_id": str(contract_id_raw or ""), "message": str(_("合同ID无效"))})
                 continue
@@ -564,7 +564,7 @@ class ContractOASyncService:
             return True
 
         stale_before = timezone.now() - timedelta(minutes=self._STALE_RUNNING_MINUTES)
-        return updated_at < stale_before
+        return bool(updated_at < stale_before)
 
     def _build_missing_contract_queryset(self) -> Any:
         return (
