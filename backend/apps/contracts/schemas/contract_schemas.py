@@ -269,11 +269,13 @@ class ContractOut(ModelSchema):
 
     @staticmethod
     def resolve_matched_document_template(obj: Contract) -> str | None:
-        return getattr(obj, "_computed_matched_document_template", None)
+        value = getattr(obj, "_computed_matched_document_template", None)
+        return None if value is None else str(value)
 
     @staticmethod
     def resolve_matched_folder_templates(obj: Contract) -> str | None:
-        return getattr(obj, "_computed_matched_folder_templates", None)
+        value = getattr(obj, "_computed_matched_folder_templates", None)
+        return None if value is None else str(value)
 
     @staticmethod
     def resolve_has_matched_templates(obj: Contract) -> bool:
