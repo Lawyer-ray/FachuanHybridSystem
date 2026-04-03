@@ -20,6 +20,11 @@
     </a>
 </li>
 <li>
+    <a href="{% url 'admin:contracts_contract_oa_sync' %}" class="addlink">
+        {% trans "同步OA信息" %}
+    </a>
+</li>
+<li>
     <a href="#"
        class="addlink"
        onclick="document.getElementById('oa-import-form').style.display = document.getElementById('oa-import-form').style.display === 'none' ? 'block' : 'none'; return false;">

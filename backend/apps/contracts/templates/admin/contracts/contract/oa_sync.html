@@ -1,0 +1,138 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block title %}{% trans "合同OA信息同步" %}{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+[x-cloak] { display: none !important; }
+.oa-sync-page { max-width: 1200px; margin: 16px auto; }
+.oa-sync-actions { display: flex; gap: 10px; margin-bottom: 14px; }
+.oa-sync-message { margin-bottom: 12px; }
+.oa-sync-message.error { color: #b91c1c; }
+.oa-sync-message.success { color: #047857; }
+.oa-sync-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px; margin-bottom: 14px; }
+.oa-sync-summary-inline { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 12px; }
+.oa-sync-summary-inline .item { background: #f9fafb; border-radius: 999px; padding: 4px 10px; font-size: 12px; color: #374151; }
+.oa-sync-table-wrap { overflow-x: auto; }
+.oa-sync-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.oa-sync-table th, .oa-sync-table td { border: 1px solid #e5e7eb; padding: 8px; vertical-align: top; }
+.oa-sync-table th { background: #f3f4f6; }
+.oa-row-selected { background: #ecfdf5; }
+.oa-input { width: 100%; min-width: 180px; box-sizing: border-box; }
+.oa-hint { margin: 0 0 12px; color: #4b5563; font-size: 13px; }
+.oa-contract-name { font-weight: 500; }
+.oa-contract-meta { margin-top: 6px; font-size: 12px; color: #4b5563; }
+.oa-candidate-list { margin: 8px 0 0; padding-left: 0; list-style: none; }
+.oa-candidate-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: start; margin-bottom: 8px; }
+.oa-candidate-text { min-width: 0; line-height: 1.5; word-break: break-word; }
+.oa-candidate-actions { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.status-pill { display: inline-flex; align-items: center; white-space: nowrap; border-radius: 999px; padding: 2px 8px; font-size: 12px; }
+.status-pill.matched { background: #dcfce7; color: #166534; }
+.status-pill.multiple { background: #fef3c7; color: #92400e; }
+.status-pill.not_found { background: #e5e7eb; color: #374151; }
+.status-pill.error { background: #fee2e2; color: #991b1b; }
+</style>
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+{{ oa_sync_initial_contracts|json_script:"oa-sync-initial-contracts" }}
+{{ oa_sync_config|json_script:"oa-sync-config" }}
+<script src="{% static 'contracts/js/contract_oa_sync_admin.js' %}"></script>
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% trans "首页" %}</a>
+    &rsaquo; <a href="/admin/contracts/contract/">{% trans "合同" %}</a>
+    &rsaquo; {% trans "同步OA信息" %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="oa-sync-page" x-data="contractOaSyncApp()" x-init="init()" x-cloak>
+    <div class="oa-sync-actions">
+        <button type="button" class="button" @click="goBack()">{% trans "返回合同列表" %}</button>
+        <button type="button" class="button" :disabled="isRunning || isSaving || !missingContracts.length" @click="saveManualChanges()">
+            <span x-show="!isSaving">{% trans "保存手动修改" %}</span>
+            <span x-show="isSaving">{% trans "保存中..." %}</span>
+        </button>
+        <button type="button" class="button default" :disabled="isRunning || isSaving || !missingContracts.length" @click="startSync()">
+            <span x-show="!isRunning">{% trans "开始同步" %}</span>
+            <span x-show="isRunning">{% trans "同步中..." %}</span>
+        </button>
+    </div>
+
+    <div class="oa-sync-message" :class="message.level" x-show="message.text" x-text="message.text"></div>
+
+    <section class="oa-sync-card">
+        <h2>{% trans "待同步合同" %}</h2>
+        <p>{% trans "以下合同的“律所OA链接”或“律所OA案件编号”为空。同步后的候选结果会直接显示在本表格中。" %}</p>
+        <div class="oa-sync-summary-inline" x-show="sessionId">
+            <div class="item" x-text="progressMessage || '{% trans "等待同步" %}'"></div>
+            <div class="item">{% trans "总数" %}: <strong x-text="totalCount"></strong></div>
+            <div class="item">{% trans "已处理" %}: <strong x-text="processedCount"></strong></div>
+            <div class="item">{% trans "唯一候选" %}: <strong x-text="matchedCount"></strong></div>
+            <div class="item">{% trans "多结果" %}: <strong x-text="multipleCount"></strong></div>
+            <div class="item">{% trans "未匹配/错误" %}: <strong x-text="notFoundCount + errorCount"></strong></div>
+        </div>
+        <p class="oa-hint" x-show="resultItems.length">{% trans "请直接在当前表格中点击“选用此结果”，系统会回填该行 OA 信息，确认无误后再点击“保存手动修改”。" %}</p>
+        <div class="oa-sync-table-wrap" x-show="missingContracts.length">
+            <table class="oa-sync-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>{% trans "合同名称 / 候选OA结果" %}</th>
+                        <th>{% trans "同步/确认状态" %}</th>
+                        <th>{% trans "律所OA案件编号" %}</th>
+                        <th>{% trans "律所OA链接" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="item in missingContracts" :key="item.id">
+                        <tr :class="selectedCandidateKey(item.id) ? 'oa-row-selected' : ''">
+                            <td x-text="item.id"></td>
+                            <td>
+                                <div class="oa-contract-name" x-text="item.name"></div>
+                                <div class="oa-contract-meta" x-show="resultForContract(item.id) && resultForContract(item.id).message"
+                                     x-text="resultForContract(item.id) ? (resultForContract(item.id).message || '') : ''"></div>
+                                <template x-if="resultForContract(item.id) && resultForContract(item.id).candidates && resultForContract(item.id).candidates.length">
+                                    <ul class="oa-candidate-list">
+                                        <template x-for="candidate in resultForContract(item.id).candidates" :key="candidate.keyid + candidate.case_no">
+                                            <li class="oa-candidate-item">
+                                                <span class="oa-candidate-text" x-text="(candidate.case_no || '-') + ' / ' + (candidate.case_name || '-')"></span>
+                                                <span class="oa-candidate-actions">
+                                                    <a x-show="candidate.detail_url" :href="candidate.detail_url" target="_blank">{% trans "打开" %}</a>
+                                                    <button type="button" class="button"
+                                                            @click="applyCandidate(item.id, candidate)"
+                                                            x-text="isCandidateSelected(item.id, candidate) ? '{% trans "已选用" %}' : '{% trans "选用此结果" %}'"></button>
+                                                </span>
+                                            </li>
+                                        </template>
+                                    </ul>
+                                </template>
+                            </td>
+                            <td>
+                                <span x-show="resultForContract(item.id)" class="status-pill" :class="resultForContract(item.id) ? resultForContract(item.id).status : ''"
+                                      x-text="resultForContract(item.id) ? statusText(resultForContract(item.id).status) : ''"></span>
+                                <span x-show="selectedCandidateKey(item.id)" class="status-pill matched">{% trans "待保存" %}</span>
+                                <span x-show="!resultForContract(item.id) && !selectedCandidateKey(item.id)">-</span>
+                            </td>
+                            <td>
+                                <input type="text" class="oa-input" x-model="item.law_firm_oa_case_number" :placeholder="'{% trans "请输入OA案件编号" %}'">
+                            </td>
+                            <td>
+                                <input type="url" class="oa-input" x-model="item.law_firm_oa_url" :placeholder="'{% trans "请输入OA链接" %}'">
+                                <a x-show="item.law_firm_oa_url" :href="item.law_firm_oa_url" target="_blank">{% trans "打开" %}</a>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+        <p x-show="!missingContracts.length">{% trans "当前没有待同步合同。" %}</p>
+    </section>
+</div>
+{% endblock %}

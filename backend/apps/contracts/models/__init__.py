@@ -28,6 +28,9 @@ from .batch_folder_binding import ContractTypeFolderRootPreset
 # folder_scan_session.py - 文件夹扫描会话
 from .folder_scan_session import ContractFolderScanSession, ContractFolderScanStatus
 
+# contract_oa_sync_session.py - OA同步会话
+from .contract_oa_sync_session import ContractOASyncSession, ContractOASyncStatus
+
 # invoice.py - 发票相关模型
 from .invoice import Invoice
 
@@ -64,6 +67,9 @@ __all__ = [
     # folder_scan_session.py
     "ContractFolderScanSession",
     "ContractFolderScanStatus",
+    # contract_oa_sync_session.py
+    "ContractOASyncSession",
+    "ContractOASyncStatus",
     # finalized_material.py
     "FinalizedMaterial",
     "MaterialCategory",
