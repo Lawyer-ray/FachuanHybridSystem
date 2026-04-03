@@ -438,8 +438,8 @@ msgstr "Upload Time"
 #: apps/contracts/models/finalized_material.py:47
 #: apps/contracts/templates/admin/contracts/contract/detail.html:58
 #: apps/contracts/templates/admin/contracts/contract/partials/finalized_materials.html:8
-msgid "定稿材料"
-msgstr "Final Materials"
+msgid "归档材料"
+msgstr "Archive Materials"
 
 #: apps/contracts/models/finance.py:14
 msgid "信息"
@@ -1127,8 +1127,8 @@ msgid "下载"
 msgstr "Download"
 
 #: apps/contracts/templates/admin/contracts/contract/partials/finalized_materials.html:45
-msgid "暂无定稿材料"
-msgstr "No final materials"
+msgid "暂无归档材料"
+msgstr "No archive materials"
 
 #: apps/contracts/templates/admin/contracts/contract/partials/finance.html:11
 msgid "收费条款"

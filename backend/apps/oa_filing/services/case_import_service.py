@@ -22,6 +22,7 @@ from apps.oa_filing.services.oa_scripts.jtn_case_import import (
 )
 
 if TYPE_CHECKING:
+    from apps.client.models import Client
     from apps.organization.models import AccountCredential
 
 logger = logging.getLogger("apps.oa_filing.case_import_service")
@@ -400,9 +401,10 @@ class CaseImportService:
         if oa_case_type and not business_mapped:
             logger.warning("未识别OA业务种类: value=%s", oa_case_type)
 
-        # OA“案件类别”里的“仲裁案件”较泛化；若业务种类明确为劳动仲裁，则优先落劳动仲裁。
+        # OA"案件类别"里的"仲裁案件"较泛化；若业务种类明确为劳动仲裁，则优先落劳动仲裁。
         if category_mapped == CaseType.INTL and business_mapped == CaseType.LABOR:
-            return CaseType.LABOR
+            result: str | None = CaseType.LABOR
+            return result
 
         return category_mapped or business_mapped
 
@@ -513,7 +515,7 @@ class CaseImportService:
             resolved_case_type = mapped_case_type or CaseType.CIVIL
 
             # 构建OA详情页URL
-            oa_detail_url = f"https://ims.jtn.com/projectView.aspx?keyid={oa_data.keyid}&FirstModel=PROJECT&SecondModel=PROJECT002"
+            oa_detail_url = f"https://ims.jtn.com/project/projectView.aspx?keyid={oa_data.keyid}&FirstModel=PROJECT&SecondModel=PROJECT002"
 
             # 3. 查找或创建合同（先创建Contract，因为它不依赖Case）
             existing_contract = Contract.objects.filter(
@@ -611,7 +613,8 @@ class CaseImportService:
                     contract.id,
                     contract.case_type,
                 )
-            return contract.id
+            result_id: int | None = contract.id
+            return result_id
 
     def _get_or_create_client(self, customer_data: OACaseCustomerData) -> Client | None:
         """获取或创建客户。"""

@@ -16,6 +16,7 @@ from .contract_service import ContractService
 from .contract_service_adapter import ContractServiceAdapter
 from .contract_validator import ContractValidator
 from .folder_scan_service import ContractFolderScanService
+from .contract_oa_sync_service import ContractOASyncService
 from .mutation import ContractMutationFacade
 from .query import ContractQueryFacade
 
@@ -28,6 +29,7 @@ __all__ = [
     "ContractAdminService",
     "ContractDisplayService",
     "ContractFolderScanService",
+    "ContractOASyncService",
     "ContractMutationFacade",
     "ContractProgressService",
     "ContractQueryFacade",

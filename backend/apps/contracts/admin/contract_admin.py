@@ -72,7 +72,7 @@ class FinalizedMaterialAdminForm(forms.ModelForm[FinalizedMaterial]):
         return instance
 
 
-class FinalizedMaterialInline(BaseTabularInline):  # type: ignore[type-arg]
+class FinalizedMaterialInline(BaseTabularInline):
     model = FinalizedMaterial
     form = FinalizedMaterialAdminForm
     extra = 1
@@ -98,7 +98,7 @@ class FinalizedMaterialInline(BaseTabularInline):  # type: ignore[type-arg]
         css = {"all": ("contracts/css/finalized_material_inline.css",)}
 
 
-class ContractPartyInline(BaseTabularInline):  # type: ignore[type-arg]
+class ContractPartyInline(BaseTabularInline):
     model = ContractParty
     extra = 1
     fields = ("client", "role")
@@ -109,14 +109,14 @@ class ContractPartyInline(BaseTabularInline):  # type: ignore[type-arg]
         js = ("contracts/js/party_role_auto.js",)
 
 
-class ContractAssignmentInline(BaseTabularInline):  # type: ignore[type-arg]
+class ContractAssignmentInline(BaseTabularInline):
     model = ContractAssignment
     extra = 1
     fields = ("lawyer", "is_primary", "order")
     autocomplete_fields: ClassVar = ["lawyer"]
 
 
-class SupplementaryAgreementPartyInline(BaseTabularInline):  # type: ignore[type-arg]
+class SupplementaryAgreementPartyInline(BaseTabularInline):
     """补充协议当事人内联（嵌套在补充协议中）"""
 
     model = SupplementaryAgreementParty
@@ -125,7 +125,7 @@ class SupplementaryAgreementPartyInline(BaseTabularInline):  # type: ignore[type
     autocomplete_fields: ClassVar = ["client"]
 
 
-class SupplementaryAgreementInline(BaseStackedInline):  # type: ignore[type-arg]
+class SupplementaryAgreementInline(BaseStackedInline):
     """补充协议内联（在合同中）"""
 
     model = SupplementaryAgreement
@@ -145,13 +145,14 @@ def serialize_contract_obj(obj: Any) -> dict[str, Any]:
         serialize_contract_obj as serialize_contract_obj_service,
     )
 
-    return serialize_contract_obj_service(obj)
+    result: dict[str, Any] = serialize_contract_obj_service(obj)
+    return result
 
 
 @admin.register(Contract)
 class ContractAdmin(
     ContractDisplayMixin, ContractSaveMixin, ContractActionMixin, AdminImportExportMixin, BaseModelAdmin
-):  # type: ignore[type-arg]
+):
     class ContractAdminForm(forms.ModelForm[Contract]):
         representation_stages = forms.MultipleChoiceField(
             choices=CaseStage.choices,
@@ -204,7 +205,7 @@ class ContractAdmin(
     readonly_fields = ("get_primary_lawyer_display", "filing_number")
     export_model_name = "contract"
     import_required_fields = ("name",)
-    actions: ClassVar = ["export_selected_as_json", "export_all_as_json"]
+    actions = ["export_selected_as_json", "export_all_as_json"]
 
     inlines: ClassVar = [
         ContractPartyInline,
@@ -252,6 +253,26 @@ class ContractAdmin(
                 self.admin_site.admin_view(self.reorder_materials_view),
                 name="contracts_contract_reorder_materials",
             ),
+            urlpath(
+                "oa-sync/",
+                self.admin_site.admin_view(self.oa_sync_view),
+                name="contracts_contract_oa_sync",
+            ),
+            urlpath(
+                "oa-sync/start/",
+                self.admin_site.admin_view(self.oa_sync_start_view),
+                name="contracts_contract_oa_sync_start",
+            ),
+            urlpath(
+                "oa-sync/status/<int:session_id>/",
+                self.admin_site.admin_view(self.oa_sync_status_view),
+                name="contracts_contract_oa_sync_status",
+            ),
+            urlpath(
+                "oa-sync/save/",
+                self.admin_site.admin_view(self.oa_sync_save_view),
+                name="contracts_contract_oa_sync_save",
+            ),
         ]
         return custom + urls
 
@@ -293,6 +314,90 @@ class ContractAdmin(
             }
         )
         return TemplateResponse(request, "admin/contracts/contract/batch_folder_binding.html", context)
+
+    def oa_sync_view(self, request: HttpRequest) -> TemplateResponse:
+        if not self.has_view_permission(request):
+            from django.core.exceptions import PermissionDenied
+
+            raise PermissionDenied
+
+        from apps.contracts.admin.wiring_admin import get_contract_oa_sync_service
+
+        service = get_contract_oa_sync_service()
+        context = self.admin_site.each_context(request)
+        context.update(
+            {
+                "title": _("合同OA信息同步"),
+                "opts": self.model._meta,
+                "oa_sync_initial_contracts": service.list_missing_oa_contracts(),
+                "oa_sync_config": {
+                    "startUrl": "/admin/contracts/contract/oa-sync/start/",
+                    "statusUrl": "/admin/contracts/contract/oa-sync/status/__SESSION_ID__/",
+                    "saveUrl": "/admin/contracts/contract/oa-sync/save/",
+                    "changeListUrl": "/admin/contracts/contract/",
+                },
+            }
+        )
+        return TemplateResponse(request, "admin/contracts/contract/oa_sync.html", context)
+
+    def oa_sync_start_view(self, request: HttpRequest) -> JsonResponse:
+        if request.method != "POST":
+            return JsonResponse({"success": False, "message": _("Method not allowed")}, status=405)
+        if not self.has_change_permission(request):
+            return JsonResponse({"success": False, "message": _("Permission denied")}, status=403)
+
+        from apps.contracts.admin.wiring_admin import get_contract_oa_sync_service
+
+        try:
+            service = get_contract_oa_sync_service()
+            session = service.create_or_get_active_session(started_by=request.user)
+            session = service.submit_session_task(session=session)
+            return JsonResponse(
+                {
+                    "success": True,
+                    "message": _("同步任务已启动"),
+                    "session_id": int(session.id),
+                }
+            )
+        except Exception as exc:
+            logger.exception("contract_oa_sync_start_failed")
+            return JsonResponse({"success": False, "message": str(exc)}, status=400)
+
+    def oa_sync_save_view(self, request: HttpRequest) -> JsonResponse:
+        if request.method != "POST":
+            return JsonResponse({"success": False, "message": _("Method not allowed")}, status=405)
+        if not self.has_change_permission(request):
+            return JsonResponse({"success": False, "message": _("Permission denied")}, status=403)
+
+        from apps.contracts.admin.wiring_admin import get_contract_oa_sync_service
+
+        payload = self._parse_json_payload(request)
+        entries = payload.get("entries")
+        if not isinstance(entries, list):
+            return JsonResponse({"success": False, "message": _("参数格式错误")}, status=400)
+
+        try:
+            result = get_contract_oa_sync_service().save_manual_contract_oa_fields(updates=entries)
+            message = _("保存成功") if result.get("error_count", 0) == 0 else _("部分保存成功，请检查错误项")
+            return JsonResponse({"success": True, "message": message, **result})
+        except Exception as exc:
+            logger.exception("contract_oa_sync_save_failed")
+            return JsonResponse({"success": False, "message": str(exc)}, status=400)
+
+    def oa_sync_status_view(self, request: HttpRequest, session_id: int) -> JsonResponse:
+        if request.method != "GET":
+            return JsonResponse({"success": False, "message": _("Method not allowed")}, status=405)
+        if not self.has_view_permission(request):
+            return JsonResponse({"success": False, "message": _("Permission denied")}, status=403)
+
+        from apps.contracts.admin.wiring_admin import get_contract_oa_sync_service
+
+        service = get_contract_oa_sync_service()
+        session = service.get_session(session_id=session_id)
+        if session is None:
+            return JsonResponse({"success": False, "message": _("会话不存在")}, status=404)
+
+        return JsonResponse({"success": True, **service.build_status_payload(session=session)})
 
     def batch_folder_binding_preview_view(self, request: HttpRequest) -> JsonResponse:
         if request.method != "POST":
@@ -389,7 +494,7 @@ class ContractAdmin(
                 errors.append(f"[{i}] {item.get('name', '?')} ({type(exc).__name__}): {exc}")
         return success, skipped, errors
 
-    def serialize_queryset(self, queryset: QuerySet[Contract]) -> list[dict[str, Any]]:  # type: ignore[override]
+    def serialize_queryset(self, queryset: QuerySet[Contract]) -> list[dict[str, Any]]:
         result = []
         for obj in queryset.prefetch_related(
             "contract_parties__client__identity_docs",
@@ -412,7 +517,7 @@ class ContractAdmin(
             result.append(serialize_contract_obj(obj))
         return result
 
-    def get_file_paths(self, queryset: QuerySet[Contract]) -> list[str]:  # type: ignore[override]
+    def get_file_paths(self, queryset: QuerySet[Contract]) -> list[str]:
         seen: set[str] = set()
         paths: list[str] = []
 
