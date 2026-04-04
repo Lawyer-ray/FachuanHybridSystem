@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from django.db import transaction
 from django.utils.translation import gettext_lazy as _
@@ -114,4 +114,4 @@ class ContractMutationService:
 
     @transaction.atomic
     def update_contract_lawyers(self, contract_id: int, lawyer_ids: list[int]) -> list[ContractAssignment]:
-        return self.lawyer_assignment_service.set_contract_lawyers(contract_id, lawyer_ids)
+        return cast(list[ContractAssignment], self.lawyer_assignment_service.set_contract_lawyers(contract_id, lawyer_ids))

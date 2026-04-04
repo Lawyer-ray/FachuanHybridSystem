@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from dateutil.relativedelta import relativedelta
+from dateutil.relativedelta import relativedelta  # type: ignore[import-untyped]
 
 from apps.contracts.models import (
     Contract,
@@ -34,7 +34,7 @@ class ContractCloneWorkflow:
                     client=party.client,
                     role=party.role,
                 )
-                for party in source_contract.contract_parties.all()  # type: ignore[attr-defined]
+                for party in source_contract.contract_parties.all()
             ]
         )
 
@@ -46,7 +46,7 @@ class ContractCloneWorkflow:
                     is_primary=assignment.is_primary,
                     order=assignment.order,
                 )
-                for assignment in source_contract.assignments.all()  # type: ignore[attr-defined]
+                for assignment in source_contract.assignments.all()
             ]
         )
 
@@ -62,7 +62,7 @@ class ContractCloneWorkflow:
 
         agreements_data = [
             {"agreement": agreement, "parties": list(agreement.parties.all())}
-            for agreement in source_contract.supplementary_agreements.all()  # type: ignore[attr-defined]
+            for agreement in source_contract.supplementary_agreements.all()
         ]
         if not agreements_data:
             return

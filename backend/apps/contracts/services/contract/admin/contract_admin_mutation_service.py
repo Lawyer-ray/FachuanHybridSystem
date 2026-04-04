@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import logging
 from datetime import date
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 
-from dateutil.relativedelta import relativedelta
+from dateutil.relativedelta import relativedelta  # type: ignore[import-untyped]
 from django.db import transaction
 from django.utils.translation import gettext_lazy as _
 
@@ -247,7 +247,7 @@ class ContractAdminMutationService:
                     "action": "handle_contract_filing_change",
                 },
             )
-            return contract.filing_number
+            return cast(str | None, contract.filing_number)
 
         filing_number = self.filing_number_workflow.ensure_filing_number(contract=contract)
 
@@ -260,4 +260,4 @@ class ContractAdminMutationService:
             },
         )
 
-        return filing_number
+        return cast(str | None, filing_number)

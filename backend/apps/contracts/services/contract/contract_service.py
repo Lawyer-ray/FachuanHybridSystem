@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from apps.contracts.models import Contract, ContractAssignment, ContractParty
 from apps.contracts.services.party.contract_party_service import ContractPartyService
@@ -215,7 +215,7 @@ class ContractService(ContractServiceQueryMixin):
 
     def update_contract_lawyers(self, contract_id: int, lawyer_ids: list[int]) -> list[ContractAssignment]:
         """更新合同律师指派。"""
-        return self.mutation_service.update_contract_lawyers(contract_id, lawyer_ids)
+        return cast(list[ContractAssignment], self.mutation_service.update_contract_lawyers(contract_id, lawyer_ids))
 
     def create_contract_with_cases(
         self,
@@ -286,4 +286,4 @@ class ContractService(ContractServiceQueryMixin):
     def get_all_parties(self, contract_id: int) -> list[dict[str, Any]]:
         from .usecases.get_contract_all_parties import GetContractAllPartiesUseCase
 
-        return GetContractAllPartiesUseCase(self.query_service).execute(contract_id)
+        return cast(list[dict[str, Any]], GetContractAllPartiesUseCase(self.query_service).execute(contract_id))

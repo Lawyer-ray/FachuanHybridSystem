@@ -46,7 +46,7 @@ class ContractQueryFacade:
         return self._list_assembler
 
     def get_contract_queryset(self) -> QuerySet[Contract, Contract]:
-        return self.query_service.get_contract_queryset()  # type: ignore[no-any-return]
+        return self.query_service.get_contract_queryset()
 
     def list_contracts(
         self,

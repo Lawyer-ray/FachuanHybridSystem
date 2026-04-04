@@ -22,10 +22,17 @@ from apps.contracts.models import (
     PartyRole,
     SupplementaryAgreement,
 )
-from tests.factories.client_factories import ClientFactory
-from tests.factories.contract_factories import ContractFactory
-from tests.factories.organization_factories import LawyerFactory
-from tests.utils import create_authenticated_client, get_json_response
+from apps.testing.factories import ClientFactory, ContractFactory, LawyerFactory
+
+
+def create_authenticated_client(user: Any) -> Client:
+    client = Client()
+    client.force_login(user)
+    return client
+
+
+def get_json_response(response: Any) -> Any:
+    return response.json()
 
 
 @pytest.fixture

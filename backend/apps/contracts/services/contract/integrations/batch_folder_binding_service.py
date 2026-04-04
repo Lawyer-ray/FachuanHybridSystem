@@ -115,7 +115,12 @@ class ContractBatchFolderBindingService:
         skipped_count = 0
         errors: list[str] = []
 
-        target_ids = [int(item.get("contract_id")) for item in contract_selections if item.get("contract_id")]
+        target_ids: list[int] = []
+        for item in contract_selections:
+            raw_contract_id = item.get("contract_id")
+            if raw_contract_id is None:
+                continue
+            target_ids.append(int(raw_contract_id))
         unbound_contract_map = {
             contract.id: contract
             for contract in Contract.objects.filter(id__in=target_ids, folder_binding__isnull=True).only(
