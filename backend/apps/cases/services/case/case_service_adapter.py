@@ -167,8 +167,8 @@ class CaseServiceAdapter:
         from apps.cases.services.party.case_party_mutation_service import CasePartyMutationService
 
         return CasePartyMutationService(
-            client_service=self._client_service,  # type: ignore[arg-type]
-            contract_service=self._contract_service,  # type: ignore[arg-type]
+            client_service=self._client_service,
+            contract_service=self._contract_service,
         ).create_party_internal(case_id=case_id, client_id=client_id, legal_status=legal_status)
 
     # ------------------------------------------------------------------
