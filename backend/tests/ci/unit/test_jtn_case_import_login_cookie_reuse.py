@@ -102,3 +102,25 @@ def test_name_search_http_session_disables_env_proxy(monkeypatch: pytest.MonkeyP
     script._ensure_name_search_http_session()
 
     assert captured["trust_env"] is False
+
+
+def test_is_login_failed_response_detects_login_form_page() -> None:
+    script = JtnCaseImportScript(account="demo", password="demo", headless=True)
+    response = httpx.Response(
+        200,
+        request=httpx.Request("POST", "https://ims.jtn.com/member/login.aspx"),
+        text='<form><input name="userid" /><input name="password" /></form>',
+    )
+
+    assert script._is_login_failed_response(response) is True
+
+
+def test_is_login_failed_response_accepts_logout_success_page() -> None:
+    script = JtnCaseImportScript(account="demo", password="demo", headless=True)
+    response = httpx.Response(
+        200,
+        request=httpx.Request("POST", "https://ims.jtn.com/project/index.aspx"),
+        text='<a href="/member/logout.aspx">logout</a>',
+    )
+
+    assert script._is_login_failed_response(response) is False

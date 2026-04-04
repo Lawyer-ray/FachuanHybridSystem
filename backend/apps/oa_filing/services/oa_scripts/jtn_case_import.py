@@ -933,6 +933,22 @@ class JtnCaseImportScript:
         match = pattern.search(html_text)
         return match.group(1).strip() if match else ""
 
+    def _is_login_failed_response(self, response: httpx.Response) -> bool:
+        """根据登录响应判断是否仍停留在登录失败状态。"""
+        url_lower = str(response.url).lower()
+        body_lower = response.text.lower()
+        head = body_lower[:2500]
+
+        stayed_on_login_page = "member/login.aspx" in url_lower
+        has_userid_input = 'name="userid"' in head or "name='userid'" in head
+        has_password_input = 'name="password"' in head or "name='password'" in head
+        has_login_form = has_userid_input and has_password_input
+        has_login_error_text = any(
+            token in body_lower
+            for token in ("账号或密码错误", "用户名或密码错误", "invalid password", "login failed")
+        )
+        return bool((stayed_on_login_page and has_login_form) or has_login_error_text)
+
     def _search_cases_via_playwright(
         self,
         case_nos: list[str],
@@ -1058,7 +1074,7 @@ class JtnCaseImportScript:
                 data={"CSRFToken": csrf, "userid": self._account, "password": self._password},
             )
 
-            if "login" in str(r2.url).lower() or "logout" in r2.text.lower()[:200]:
+            if self._is_login_failed_response(r2):
                 raise RuntimeError(f"OA 登录失败，账号或密码错误: {self._account}")
 
             cookies = dict(client.cookies.items())
