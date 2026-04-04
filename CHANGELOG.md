@@ -2,6 +2,23 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.30.9] - 2026-04-04
+
+### 重构
+
+- **合同服务结构重组（contracts）**：按职责重组 `services/contract` 子模块目录，拆分为 `admin`、`domain`、`integrations`、`query`、`mutation`、`usecases`，并同步更新依赖注入与调用路径。
+
+### 修复
+
+- **合同 OA 同步状态流转修复（contracts）**：任务入队后会话状态保持 `PENDING`，由 worker 实际启动时再切换 `RUNNING`，避免未启动队列时页面误显示“执行中”。
+- **OA 登录失败误判修复（oa_filing）**：优化登录失败判定逻辑，避免因成功页包含 `logout` 字样被误识别为账号密码错误。
+- **OA HTTP 链路代理干扰修复（oa_filing）**：OA 相关 HTTP 客户端统一关闭环境代理继承（`trust_env=False`），降低 TLS EOF 类网络异常。
+- **OA 回退链路稳定性提升（oa_filing）**：优先复用 HTTP 登录 Cookie 到 Playwright 回退流程，减少重复登录与失败率。
+
+### 测试
+
+- **CI/单测补充（contracts, oa_filing）**：新增合同 HTTP 冒烟测试与 OA 登录 Cookie 复用/失败判定相关测试，覆盖重构后的关键回归场景。
+
 ## [26.30.8] - 2026-04-03
 
 ### 新增

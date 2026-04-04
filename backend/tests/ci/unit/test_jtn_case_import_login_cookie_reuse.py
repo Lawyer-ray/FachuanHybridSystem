@@ -10,7 +10,7 @@ from apps.oa_filing.services.oa_scripts.jtn_case_import import JtnCaseImportScri
 
 
 def test_login_prefers_cached_http_cookies(monkeypatch: pytest.MonkeyPatch) -> None:
-    script = JtnCaseImportScript(account="demo", password="demo", headless=True)
+    script = JtnCaseImportScript(account="example", password="example", headless=True)
 
     class _FakeContext:
         def __init__(self) -> None:
@@ -38,7 +38,7 @@ def test_login_prefers_cached_http_cookies(monkeypatch: pytest.MonkeyPatch) -> N
 
 
 def test_http_login_disables_env_proxy(monkeypatch: pytest.MonkeyPatch) -> None:
-    script = JtnCaseImportScript(account="demo", password="demo", headless=True)
+    script = JtnCaseImportScript(account="example", password="example", headless=True)
     captured: dict[str, Any] = {}
 
     class _FakeClient:
@@ -80,7 +80,7 @@ def test_http_login_disables_env_proxy(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_name_search_http_session_disables_env_proxy(monkeypatch: pytest.MonkeyPatch) -> None:
-    script = JtnCaseImportScript(account="demo", password="demo", headless=True)
+    script = JtnCaseImportScript(account="example", password="example", headless=True)
     captured: dict[str, Any] = {}
 
     class _FakeClient:
@@ -105,7 +105,7 @@ def test_name_search_http_session_disables_env_proxy(monkeypatch: pytest.MonkeyP
 
 
 def test_is_login_failed_response_detects_login_form_page() -> None:
-    script = JtnCaseImportScript(account="demo", password="demo", headless=True)
+    script = JtnCaseImportScript(account="example", password="example", headless=True)
     response = httpx.Response(
         200,
         request=httpx.Request("POST", "https://ims.jtn.com/member/login.aspx"),
@@ -116,7 +116,7 @@ def test_is_login_failed_response_detects_login_form_page() -> None:
 
 
 def test_is_login_failed_response_accepts_logout_success_page() -> None:
-    script = JtnCaseImportScript(account="demo", password="demo", headless=True)
+    script = JtnCaseImportScript(account="example", password="example", headless=True)
     response = httpx.Response(
         200,
         request=httpx.Request("POST", "https://ims.jtn.com/project/index.aspx"),
