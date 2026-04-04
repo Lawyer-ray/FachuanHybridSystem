@@ -24,7 +24,7 @@ def _delete_file(field_file: Any) -> None:
 
 @receiver(post_delete, dispatch_uid="cleanup_evidence_item_file")
 def cleanup_evidence_item_file(sender: type, **kwargs: Any) -> None:
-    from .models import EvidenceItem  # noqa: F811 避免循环导入
+    from .models import EvidenceItem  # 防止循环导入
 
     if sender is EvidenceItem:
         instance = kwargs["instance"]
@@ -33,7 +33,7 @@ def cleanup_evidence_item_file(sender: type, **kwargs: Any) -> None:
 
 @receiver(post_delete, dispatch_uid="cleanup_evidence_list_merged_pdf")
 def cleanup_evidence_list_merged_pdf(sender: type, **kwargs: Any) -> None:
-    from .models import EvidenceList  # noqa: F811 避免循环导入
+    from .models import EvidenceList  # 防止循环导入
 
     if sender is EvidenceList:
         instance = kwargs["instance"]

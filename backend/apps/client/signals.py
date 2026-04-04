@@ -41,7 +41,7 @@ def _delete_field_file(field_file: Any) -> None:
 @receiver(post_delete, dispatch_uid="cleanup_client_identity_doc_files")
 def cleanup_client_identity_doc_files(sender: type, **kwargs: Any) -> None:
     """ClientIdentityDoc 使用 CharField(file_path) 存储证件扫描件，需手动清理"""
-    from .models import ClientIdentityDoc  # noqa: F811 避免循环导入
+    from .models import ClientIdentityDoc  # 防止循环导入
 
     if sender is ClientIdentityDoc:
         instance = kwargs["instance"]
@@ -51,7 +51,7 @@ def cleanup_client_identity_doc_files(sender: type, **kwargs: Any) -> None:
 @receiver(post_delete, dispatch_uid="cleanup_property_clue_attachment_files")
 def cleanup_property_clue_attachment_files(sender: type, **kwargs: Any) -> None:
     """PropertyClueAttachment 使用 CharField(file_path) 存储附件，需手动清理"""
-    from .models import PropertyClueAttachment  # noqa: F811 避免循环导入
+    from .models import PropertyClueAttachment  # 防止循环导入
 
     if sender is PropertyClueAttachment:
         instance = kwargs["instance"]
