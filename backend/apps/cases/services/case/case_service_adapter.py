@@ -56,6 +56,9 @@ class CaseServiceAdapter:
     def get_cases_by_contract(self, contract_id: int) -> Any:
         return self._internal_query.get_cases_by_contract_internal(contract_id=contract_id)
 
+    def count_cases_by_contract(self, contract_id: int) -> int:
+        return self._command.count_cases_by_contract(contract_id=contract_id)
+
     def get_primary_lawyer_names_by_case_ids_internal(self, case_ids: list[int]) -> Any:
         return self._internal_query.get_primary_lawyer_names_by_case_ids_internal(case_ids=case_ids)
 

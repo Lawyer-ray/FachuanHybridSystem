@@ -156,7 +156,7 @@ def cleanup_court_document_local_file(sender: type, **kwargs: Any) -> None:
     CourtDocument 使用 CharField(local_file_path) 存储文件路径（非 FileField），
     因此需要通过信号手动删除物理文件。
     """
-    from .models.court_document import CourtDocument  # noqa: F811 避免循环导入
+    from .models.court_document import CourtDocument
 
     if sender is not CourtDocument:
         return
@@ -185,7 +185,7 @@ def cleanup_court_document_local_file(sender: type, **kwargs: Any) -> None:
 @receiver(post_delete, dispatch_uid="cleanup_gsxt_report_task_file")
 def cleanup_gsxt_report_task_file(sender: type, **kwargs: Any) -> None:
     """GsxtReportTask 使用 FileField(report_file) 存储企业信用报告 PDF"""
-    from .models.gsxt_report import GsxtReportTask  # noqa: F811 避免循环导入
+    from .models.gsxt_report import GsxtReportTask
 
     if sender is not GsxtReportTask:
         return
