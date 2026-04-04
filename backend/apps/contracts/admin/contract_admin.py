@@ -141,9 +141,7 @@ if BaseModelAdmin is not admin.ModelAdmin:
 
 def serialize_contract_obj(obj: Any) -> dict[str, Any]:
     """将单个 Contract 实例序列化为 dict（供 ContractAdmin 和 CaseAdmin 共用）。"""
-    from apps.contracts.services.contract.contract_export_serializer_service import (
-        serialize_contract_obj as serialize_contract_obj_service,
-    )
+    from apps.contracts.services.contract.integrations import serialize_contract_obj as serialize_contract_obj_service
 
     result: dict[str, Any] = serialize_contract_obj_service(obj)
     return result

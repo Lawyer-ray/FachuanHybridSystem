@@ -7,6 +7,7 @@ from django.http import HttpRequest
 from ninja import Router
 
 from apps.contracts.schemas import (
+    ContractAssignmentOut,
     ContractIn,
     ContractOut,
     ContractPartySourceOut,
@@ -59,6 +60,21 @@ def list_contracts(
     return result["items"] if isinstance(result, dict) else result
 
 
+class ContractWithCasesIn(ContractIn):
+    cases: list[dict[str, Any]] | None = None
+
+
+@router.post("/contracts/full", response=ContractOut)
+def create_contract_with_cases(request: HttpRequest, payload: ContractWithCasesIn) -> Any:
+    service = _get_domain_service()
+    data = payload.model_dump()
+    cases_data = data.pop("cases", None)
+    lawyer_ids = data.pop("lawyer_ids", [])
+    return service.create_contract_with_cases(
+        contract_data=data, cases_data=cases_data, assigned_lawyer_ids=lawyer_ids,
+    )
+
+
 @router.get("/contracts/{contract_id}", response=ContractOut)
 def get_contract(request: HttpRequest, contract_id: int) -> Any:
     """
@@ -74,21 +90,6 @@ def get_contract(request: HttpRequest, contract_id: int) -> Any:
         user=ctx.user,
         org_access=ctx.org_access,
         perm_open_access=ctx.perm_open_access,
-    )
-
-
-class ContractWithCasesIn(ContractIn):
-    cases: list[dict[str, Any]] | None = None
-
-
-@router.post("/contracts/full", response=ContractOut)
-def create_contract_with_cases(request: HttpRequest, payload: ContractWithCasesIn) -> Any:
-    service = _get_domain_service()
-    data = payload.model_dump()
-    cases_data = data.pop("cases", None)
-    lawyer_ids = data.pop("lawyer_ids", [])
-    return service.create_contract_with_cases(
-        contract_data=data, cases_data=cases_data, assigned_lawyer_ids=lawyer_ids,
     )
 
 
@@ -129,10 +130,11 @@ def create_contract(
     )
 
 
-@router.put("/contracts/{contract_id}/lawyers", response=ContractOut)
+@router.put("/contracts/{contract_id}/lawyers", response=list[ContractAssignmentOut])
 def update_contract_lawyers(request: HttpRequest, contract_id: int, payload: UpdateLawyersIn) -> Any:
     service = _get_domain_service()
-    return service.update_contract_lawyers(contract_id=contract_id, lawyer_ids=payload.lawyer_ids)
+    assignments = service.update_contract_lawyers(contract_id=contract_id, lawyer_ids=payload.lawyer_ids)
+    return [ContractAssignmentOut.from_assignment(item) for item in assignments]
 
 
 @router.delete("/contracts/{contract_id}")

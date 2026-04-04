@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import warnings
-from typing import Any
+from typing import Any, cast
 
 from apps.contracts.models import Contract, ContractParty
 from apps.core.dto import PartyRoleDTO, SupplementaryAgreementDTO
@@ -44,7 +44,7 @@ class ContractServiceAdapter:
         except NotFoundError:
             return None
 
-    def list_contracts(self, **kwargs: Any) -> list[Any]:
+    def list_contracts(self, **kwargs: Any) -> dict[str, Any]:
         return self.contract_service.list_contracts(**kwargs)
 
     def create_contract_with_cases(self, **kwargs: Any) -> Any:
@@ -81,13 +81,22 @@ class ContractServiceAdapter:
         try:
             contract = self.contract_service.query_service.get_contract_internal(contract_id)
             primary_lawyer = getattr(contract, "primary_lawyer", None)
+            if primary_lawyer is None:
+                assignment = contract.assignments.filter(is_primary=True).select_related("lawyer").first()
+                if assignment is None:
+                    assignment = contract.assignments.select_related("lawyer").order_by("order", "id").first()
+                if assignment is not None:
+                    primary_lawyer = assignment.lawyer
             return getattr(primary_lawyer, "id", None)
         except NotFoundError:
             return None
 
     def get_contract_lawyers(self, contract_id: int) -> list[LawyerDTO]:
         contract = self.contract_service.query_service.get_contract_internal(contract_id)
-        all_lawyers = contract.all_lawyers
+        all_lawyers = getattr(contract, "all_lawyers", None)
+        if all_lawyers is None:
+            assignments = contract.assignments.select_related("lawyer").order_by("-is_primary", "order", "id")
+            all_lawyers = [assignment.lawyer for assignment in assignments]
         return [LawyerDTO.from_model(lawyer) for lawyer in all_lawyers]
 
     def get_all_parties(self, contract_id: int) -> list[dict[str, Any]]:
@@ -97,7 +106,7 @@ class ContractServiceAdapter:
         contract = self.contract_service.query_service.get_contract_with_details_model_internal(contract_id)
         if not contract:
             return None
-        return self.details_assembler.to_dict(contract)
+        return cast(dict[str, Any], self.details_assembler.to_dict(contract))
 
     def get_party_roles_by_contract_internal(self, contract_id: int) -> list[PartyRoleDTO]:
         try:

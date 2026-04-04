@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING, Any
 
 from django.utils.translation import gettext_lazy as _
 
-from .contract_template_cache import ContractTemplateCache
-from .wiring import get_document_service
+from .template_cache import ContractTemplateCache
+from ..wiring import get_document_service
 
 if TYPE_CHECKING:
     from apps.contracts.models import Contract
@@ -116,7 +116,7 @@ class ContractDisplayService:
 
             if not templates:
                 logger.debug("合同 %s (%s) 无匹配的文书模板", contract.pk, contract.case_type)
-                return _("无匹配模板")
+                return str(_("无匹配模板"))
 
             # 格式化显示文本
             template_displays = []
@@ -134,7 +134,7 @@ class ContractDisplayService:
 
         except Exception as e:
             logger.error("查询合同 %s 的文书模板失败: %s", contract.pk, e, exc_info=True)
-            return _("查询失败")
+            return str(_("查询失败"))
 
     def get_matched_folder_templates(self, contract: Contract) -> str:
         """获取匹配的文件夹模板名称"""
@@ -154,7 +154,7 @@ class ContractDisplayService:
 
             if not templates:
                 logger.debug("合同 %s (%s) 无匹配的文件夹模板", contract.pk, contract.case_type)
-                return _("无匹配模板")
+                return str(_("无匹配模板"))
 
             # 提取模板名称并用顿号连接
             template_names = [template.get("name", "") for template in templates]
@@ -165,7 +165,7 @@ class ContractDisplayService:
 
         except Exception as e:
             logger.error("查询合同 %s 的文件夹模板失败: %s", contract.pk, e, exc_info=True)
-            return _("查询失败")
+            return str(_("查询失败"))
 
     def has_matched_templates(self, contract: Contract) -> bool:
         """检查是否有匹配的模板"""
@@ -202,7 +202,7 @@ class ContractDisplayService:
 
     def batch_get_template_info(self, contracts: list[Contract]) -> dict[int, dict[str, Any]]:
         """批量获取合同的模板信息"""
-        result = {}
+        result: dict[int, dict[str, Any]] = {}
         if not contracts:
             return result
 
@@ -218,7 +218,11 @@ class ContractDisplayService:
             for contract in contracts:
                 result[contract.id] = template_cache.get(
                     contract.case_type,
-                    {"document_template": _("查询失败"), "folder_template": _("查询失败"), "has_templates": False},
+                    {
+                        "document_template": str(_("查询失败")),
+                        "folder_template": str(_("查询失败")),
+                        "has_templates": False,
+                    },
                 )
 
             logger.info("批量获取 %d 个合同的模板信息完成,涉及 %d 种案件类型", len(contracts), len(case_types))
@@ -227,8 +231,8 @@ class ContractDisplayService:
             logger.error("批量获取模板信息失败: %s", e, exc_info=True)
             for contract in contracts:
                 result[contract.id] = {
-                    "document_template": _("查询失败"),
-                    "folder_template": _("查询失败"),
+                    "document_template": str(_("查询失败")),
+                    "folder_template": str(_("查询失败")),
                     "has_templates": False,
                 }
 
@@ -261,11 +265,15 @@ class ContractDisplayService:
             }
         except Exception as e:
             logger.error("批量查询案件类型 %s 的模板失败: %s", case_type, e, exc_info=True)
-            return {"document_template": _("查询失败"), "folder_template": _("查询失败"), "has_templates": False}
+            return {
+                "document_template": str(_("查询失败")),
+                "folder_template": str(_("查询失败")),
+                "has_templates": False,
+            }
 
     def _format_doc_templates(self, doc_templates: list[dict[str, Any]]) -> str:
         if not doc_templates:
-            return _("无匹配模板")
+            return str(_("无匹配模板"))
         displays = []
         for t in doc_templates:
             type_display = t.get("type_display", "")
@@ -275,5 +283,5 @@ class ContractDisplayService:
 
     def _format_folder_templates(self, folder_templates: list[dict[str, Any]]) -> str:
         if not folder_templates:
-            return _("无匹配模板")
+            return str(_("无匹配模板"))
         return "、".join(t.get("name", "") for t in folder_templates)

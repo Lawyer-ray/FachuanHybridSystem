@@ -321,6 +321,7 @@ class JtnCaseImportScript:
             follow_redirects=True,
             timeout=_DEFAULT_HTTP_TIMEOUT,
             cookies=shared_cookies,
+            trust_env=False,
         ) as client:
             form_state = self._load_case_list_form_state(client)
 
@@ -356,7 +357,7 @@ class JtnCaseImportScript:
         """执行一次 HTTP 登录并返回可复用 cookie。"""
         logger.info("HTTP 登录 OA: %s", _LOGIN_URL)
 
-        with httpx.Client(headers=_HTTP_HEADERS, follow_redirects=True, timeout=15) as client:
+        with httpx.Client(headers=_HTTP_HEADERS, follow_redirects=True, timeout=15, trust_env=False) as client:
             login_resp = client.get(_LOGIN_URL)
             csrf_token = self._extract_hidden_input(login_resp.text, "CSRFToken")
 
@@ -449,6 +450,7 @@ class JtnCaseImportScript:
             timeout=_DEFAULT_HTTP_TIMEOUT,
             cookies=shared_cookies,
             limits=httpx.Limits(max_connections=1, max_keepalive_connections=0),
+            trust_env=False,
         )
         form_state = self._load_case_list_form_state(client)
         self._name_search_http_client = client
@@ -931,6 +933,22 @@ class JtnCaseImportScript:
         match = pattern.search(html_text)
         return match.group(1).strip() if match else ""
 
+    def _is_login_failed_response(self, response: httpx.Response) -> bool:
+        """根据登录响应判断是否仍停留在登录失败状态。"""
+        url_lower = str(response.url).lower()
+        body_lower = response.text.lower()
+        head = body_lower[:2500]
+
+        stayed_on_login_page = "member/login.aspx" in url_lower
+        has_userid_input = 'name="userid"' in head or "name='userid'" in head
+        has_password_input = 'name="password"' in head or "name='password'" in head
+        has_login_form = has_userid_input and has_password_input
+        has_login_error_text = any(
+            token in body_lower
+            for token in ("账号或密码错误", "用户名或密码错误", "invalid password", "login failed")
+        )
+        return bool((stayed_on_login_page and has_login_form) or has_login_error_text)
+
     def _search_cases_via_playwright(
         self,
         case_nos: list[str],
@@ -1014,11 +1032,37 @@ class JtnCaseImportScript:
         except Exception:
             logger.debug("进度回调处理异常: event=%s", event, exc_info=True)
 
+    def _inject_cookies_to_context(self, cookies: dict[str, str]) -> None:
+        """将 cookie 字典注入 Playwright context。"""
+        context = self._context
+        assert context is not None
+        if not cookies:
+            return
+
+        context.add_cookies(
+            [
+                {
+                    "name": str(name),
+                    "value": str(value or ""),
+                    "domain": "ims.jtn.com",
+                    "path": "/",
+                }
+                for name, value in cookies.items()
+                if str(name).strip()
+            ]
+        )
+
     def _login(self) -> None:
         """通过 httpx 接口登录，将 cookie 注入 Playwright context。"""
+        cached_cookies = self._http_cookies_cache or {}
+        if cached_cookies:
+            logger.info("接口登录复用 HTTP cookie=%s", len(cached_cookies))
+            self._inject_cookies_to_context(cached_cookies)
+            return
+
         logger.info("接口登录: %s", _LOGIN_URL)
 
-        with httpx.Client(headers=_HTTP_HEADERS, follow_redirects=True, timeout=15) as client:
+        with httpx.Client(headers=_HTTP_HEADERS, follow_redirects=True, timeout=15, trust_env=False) as client:
             # 1. GET 登录页，拿 ASP.NET_SessionId + CSRFToken
             r = client.get(_LOGIN_URL)
             csrf_match = re.search(r'name=["\']CSRFToken["\'] value=["\']([^"\']+)["\']', r.text)
@@ -1030,22 +1074,12 @@ class JtnCaseImportScript:
                 data={"CSRFToken": csrf, "userid": self._account, "password": self._password},
             )
 
-            if "login" in str(r2.url).lower() or "logout" in r2.text.lower()[:200]:
+            if self._is_login_failed_response(r2):
                 raise RuntimeError(f"OA 登录失败，账号或密码错误: {self._account}")
 
-            # 3. 将 cookie 注入 Playwright context
-            assert self._context is not None
-            for cookie in client.cookies.jar:
-                self._context.add_cookies(
-                    [
-                        {
-                            "name": cookie.name,
-                            "value": cookie.value or "",
-                            "domain": cookie.domain or "ims.jtn.com",
-                            "path": cookie.path or "/",
-                        }
-                    ]
-                )
+            cookies = dict(client.cookies.items())
+            self._http_cookies_cache = cookies
+            self._inject_cookies_to_context(cookies)
 
         logger.info("接口登录成功，cookie 已注入")
 

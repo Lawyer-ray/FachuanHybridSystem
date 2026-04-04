@@ -104,7 +104,7 @@ def get_contract_assignment_query_service() -> Any:
 
 
 def get_material_service() -> Any:
-    from apps.contracts.services.contract.material_service import MaterialService
+    from apps.contracts.services.contract.integrations import MaterialService
 
     if ServiceLocator._scope.get() is None:
         return MaterialService()
@@ -116,7 +116,7 @@ def get_material_service() -> Any:
 
 
 def get_invoice_upload_service() -> Any:
-    from apps.contracts.services.contract.invoice_upload_service import InvoiceUploadService
+    from apps.contracts.services.contract.integrations import InvoiceUploadService
 
     if ServiceLocator._scope.get() is None:
         return InvoiceUploadService()

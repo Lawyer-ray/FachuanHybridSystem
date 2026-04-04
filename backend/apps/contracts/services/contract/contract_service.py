@@ -2,18 +2,17 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from apps.contracts.models import Contract, ContractAssignment, ContractParty
 from apps.contracts.services.party.contract_party_service import ContractPartyService
 from apps.contracts.services.payment.contract_finance_mutation_service import ContractFinanceMutationService
 from apps.core.config.business_config import BusinessConfig, business_config
 
-from .contract_admin_mutation_service import ContractAdminMutationService
-from .contract_mutation_facade import ContractMutationFacade
-from .contract_service_query_mixin import ContractServiceQueryMixin
-from .contract_validator import ContractValidator
-from .contract_workflow_service import ContractWorkflowService
+from .admin import ContractAdminMutationService
+from .mutation import ContractMutationFacade
+from .query.service_query_mixin import ContractServiceQueryMixin
+from .domain import ContractValidator, ContractWorkflowService
 from .mutation import ContractMutationService
 
 if TYPE_CHECKING:
@@ -23,9 +22,8 @@ if TYPE_CHECKING:
     from apps.contracts.services.supplementary.supplementary_agreement_service import SupplementaryAgreementService
     from apps.core.interfaces import ICaseService
 
-    from .contract_access_policy import ContractAccessPolicy
-    from .query import ContractQueryFacade, ContractQueryService
-    from .supplementary_agreement_query_service import SupplementaryAgreementQueryService
+    from .domain import ContractAccessPolicy
+    from .query import ContractQueryFacade, ContractQueryService, SupplementaryAgreementQueryService
 
 
 class ContractService(ContractServiceQueryMixin):
@@ -71,7 +69,7 @@ class ContractService(ContractServiceQueryMixin):
     @property
     def access_policy(self) -> ContractAccessPolicy:
         if self._access_policy is None:
-            from .contract_access_policy import ContractAccessPolicy
+            from .domain import ContractAccessPolicy
 
             self._access_policy = ContractAccessPolicy()
         return self._access_policy
@@ -149,7 +147,7 @@ class ContractService(ContractServiceQueryMixin):
     @property
     def supplementary_agreement_query_service(self) -> SupplementaryAgreementQueryService:
         if self._supplementary_agreement_query_service is None:
-            from .supplementary_agreement_query_service import SupplementaryAgreementQueryService
+            from .query import SupplementaryAgreementQueryService
 
             self._supplementary_agreement_query_service = SupplementaryAgreementQueryService()
         return self._supplementary_agreement_query_service
@@ -217,7 +215,7 @@ class ContractService(ContractServiceQueryMixin):
 
     def update_contract_lawyers(self, contract_id: int, lawyer_ids: list[int]) -> list[ContractAssignment]:
         """更新合同律师指派。"""
-        return self.mutation_service.update_contract_lawyers(contract_id, lawyer_ids)
+        return cast(list[ContractAssignment], self.mutation_service.update_contract_lawyers(contract_id, lawyer_ids))
 
     def create_contract_with_cases(
         self,
@@ -288,4 +286,4 @@ class ContractService(ContractServiceQueryMixin):
     def get_all_parties(self, contract_id: int) -> list[dict[str, Any]]:
         from .usecases.get_contract_all_parties import GetContractAllPartiesUseCase
 
-        return GetContractAllPartiesUseCase(self.query_service).execute(contract_id)
+        return cast(list[dict[str, Any]], GetContractAllPartiesUseCase(self.query_service).execute(contract_id))

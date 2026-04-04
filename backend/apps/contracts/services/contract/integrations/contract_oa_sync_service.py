@@ -69,15 +69,14 @@ class ContractOASyncService:
             return session
 
         task_id = build_task_submission_service().submit(
-            "apps.contracts.services.contract.contract_oa_sync_service.run_contract_oa_sync_task",
+            "apps.contracts.services.contract.integrations.contract_oa_sync_service.run_contract_oa_sync_task",
             args=[int(session.id)],
             task_name=f"contract_oa_sync_{session.id}",
         )
         ContractOASyncSession.objects.filter(id=session.id).update(
-            status=ContractOASyncStatus.RUNNING,
+            status=ContractOASyncStatus.PENDING,
             task_id=str(task_id),
-            started_at=timezone.now(),
-            progress_message=str(_("同步任务已提交")),
+            progress_message=str(_("同步任务已入队，等待执行")),
             error_message="",
             updated_at=timezone.now(),
         )

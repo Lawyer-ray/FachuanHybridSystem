@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .contract_access_policy import ContractAccessPolicy
-from .contract_service import ContractService
-from .query import ContractQueryFacade, ContractQueryService
+from ..domain import ContractAccessPolicy
+from ..contract_service import ContractService
+from ..query import ContractQueryFacade, ContractQueryService
 
 if TYPE_CHECKING:
     from apps.core.protocols import ICaseService, ILawyerService

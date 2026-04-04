@@ -30,7 +30,7 @@ def build_contract_service() -> IContractService:
 
 def build_contract_service_with_deps(*, case_service: ICaseService, lawyer_service: ILawyerService) -> IContractService:
     from apps.contracts.services import ContractServiceAdapter
-    from apps.contracts.services.contract.composition import build_contract_service
+    from apps.contracts.services.contract.usecases.composition import build_contract_service
 
     contract_service = build_contract_service(case_service=case_service, lawyer_service=lawyer_service)
     return ContractServiceAdapter(contract_service=contract_service)
@@ -45,7 +45,7 @@ def build_contract_assignment_query_service() -> IContractAssignmentQueryService
 def build_contract_payment_service() -> IContractPaymentService:
     from apps.contracts.services.payment.contract_payment_service import ContractPaymentService
 
-    return ContractPaymentService()  # type: ignore[return-value]
+    return ContractPaymentService()
 
 
 def build_contract_folder_binding_service() -> IContractFolderBindingService:

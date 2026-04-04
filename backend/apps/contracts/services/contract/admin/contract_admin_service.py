@@ -17,11 +17,10 @@ from apps.core.interfaces import CaseDTO
 if TYPE_CHECKING:
     from apps.contracts.services.assignment.filing_number_service import FilingNumberService
 
+    from ..query import ContractDisplayService, ContractProgressService
     from .contract_admin_document_service import ContractAdminDocumentService
     from .contract_admin_mutation_service import ContractAdminMutationService
     from .contract_admin_query_service import ContractAdminQueryService
-    from .contract_display_service import ContractDisplayService
-    from .contract_progress_service import ContractProgressService
 
 logger = logging.getLogger("apps.contracts")
 
@@ -75,7 +74,7 @@ class ContractAdminService:
             ContractDisplayService: 合同显示服务实例
         """
         if self._display_service is None:
-            from .contract_display_service import ContractDisplayService
+            from ..query import ContractDisplayService
 
             self._display_service = ContractDisplayService()
         return self._display_service
@@ -124,7 +123,7 @@ class ContractAdminService:
     @property
     def progress_service(self) -> ContractProgressService:
         if self._progress_service is None:
-            from .contract_progress_service import ContractProgressService
+            from ..query import ContractProgressService
 
             self._progress_service = ContractProgressService()
         return self._progress_service
@@ -220,7 +219,7 @@ class ContractAdminService:
         for material in finalized_materials:
             finalized_materials_grouped.setdefault(material.category, []).append(material)
 
-        from apps.contracts.services.contract.invoice_upload_service import InvoiceUploadService
+        from apps.contracts.services.contract.integrations import InvoiceUploadService
 
         invoices_by_payment = InvoiceUploadService().list_invoices_by_contract(contract.pk)
 

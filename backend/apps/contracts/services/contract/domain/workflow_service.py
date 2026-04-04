@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from apps.contracts.services.supplementary.supplementary_agreement_service import SupplementaryAgreementService
     from apps.core.protocols import ICaseService
 
-    from .mutation import ContractMutationService
+    from ..mutation import ContractMutationService
 
 
 class ContractWorkflowService:
@@ -82,7 +82,7 @@ class ContractWorkflowService:
                     "case_type": case_data.get("case_type"),
                     "target_amount": case_data.get("target_amount"),
                 }
-                case_dto = self.case_service.create_case(case_create_data, user=user)  # type: ignore[arg-type]
+                case_dto = self.case_service.create_case(case_create_data, user=user)
 
                 for lawyer_id in all_lawyer_ids:
                     self.case_service.create_case_assignment(case_dto.id, lawyer_id)

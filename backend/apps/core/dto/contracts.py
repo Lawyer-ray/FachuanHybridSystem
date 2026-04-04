@@ -28,6 +28,14 @@ class ContractDTO:
     @classmethod
     def from_model(cls, contract: Contract) -> ContractDTO:
         primary_lawyer = getattr(contract, "primary_lawyer", None)
+        if primary_lawyer is None:
+            assignments = getattr(contract, "assignments", None)
+            if assignments is not None:
+                primary_assignment = assignments.filter(is_primary=True).select_related("lawyer").first()
+                if primary_assignment is None:
+                    primary_assignment = assignments.select_related("lawyer").order_by("order", "id").first()
+                if primary_assignment is not None:
+                    primary_lawyer = getattr(primary_assignment, "lawyer", None)
 
         stages = contract.representation_stages
         representation_stages: list[str] = stages if isinstance(stages, list) else []

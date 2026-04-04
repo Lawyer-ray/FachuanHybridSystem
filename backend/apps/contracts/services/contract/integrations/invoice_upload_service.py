@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from apps.core.exceptions import NotFoundError
 from apps.core.services import storage_service as storage
+
+if TYPE_CHECKING:
+    from apps.contracts.models import Invoice
 
 logger = logging.getLogger(__name__)
 

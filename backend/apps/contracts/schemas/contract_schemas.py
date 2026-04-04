@@ -258,16 +258,24 @@ class ContractOut(ModelSchema):
             return LawyerOut.from_dto(dto)
         lawyer = getattr(obj, "primary_lawyer", None)
         if lawyer is None:
+            assignment = obj.assignments.select_related("lawyer").filter(is_primary=True).first()
+            if assignment is None:
+                assignment = obj.assignments.select_related("lawyer").order_by("order", "id").first()
+            if assignment is not None:
+                lawyer = assignment.lawyer
+        if lawyer is None:
             return None
         return LawyerOut.from_model(lawyer)
 
     @staticmethod
     def resolve_matched_document_template(obj: Contract) -> str | None:
-        return getattr(obj, "_computed_matched_document_template", None)
+        value = getattr(obj, "_computed_matched_document_template", None)
+        return None if value is None else str(value)
 
     @staticmethod
     def resolve_matched_folder_templates(obj: Contract) -> str | None:
-        return getattr(obj, "_computed_matched_folder_templates", None)
+        value = getattr(obj, "_computed_matched_folder_templates", None)
+        return None if value is None else str(value)
 
     @staticmethod
     def resolve_has_matched_templates(obj: Contract) -> bool:

@@ -40,21 +40,21 @@ class ContractValidator:
 
     def _validate_fixed(self, data: dict[str, Any], errors: dict[str, str]) -> None:
         if not data.get("fixed_amount") or float(data["fixed_amount"]) <= 0:
-            errors["fixed_amount"] = _("固定收费需填写金额")
+            errors["fixed_amount"] = str(_("固定收费需填写金额"))
 
     def _validate_semi_risk(self, data: dict[str, Any], errors: dict[str, str]) -> None:
         if not data.get("fixed_amount") or float(data["fixed_amount"]) <= 0:
-            errors["fixed_amount"] = _("半风险需填写前期金额")
+            errors["fixed_amount"] = str(_("半风险需填写前期金额"))
         if not data.get("risk_rate") or float(data["risk_rate"]) <= 0:
-            errors["risk_rate"] = _("半风险需填写风险比例")
+            errors["risk_rate"] = str(_("半风险需填写风险比例"))
 
     def _validate_full_risk(self, data: dict[str, Any], errors: dict[str, str]) -> None:
         if not data.get("risk_rate") or float(data["risk_rate"]) <= 0:
-            errors["risk_rate"] = _("全风险需填写风险比例")
+            errors["risk_rate"] = str(_("全风险需填写风险比例"))
 
     def _validate_custom(self, data: dict[str, Any], errors: dict[str, str]) -> None:
         if not data.get("custom_terms") or not str(data["custom_terms"]).strip():
-            errors["custom_terms"] = _("自定义收费需填写条款文本")
+            errors["custom_terms"] = str(_("自定义收费需填写条款文本"))
 
     def validate_stages(self, stages: list[str], case_type: str | None) -> list[str]:
         if not stages:

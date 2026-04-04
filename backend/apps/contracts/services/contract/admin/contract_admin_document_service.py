@@ -6,7 +6,7 @@ from typing import Any
 
 from apps.core.exceptions import NotFoundError, ValidationException
 
-from .wiring import (
+from ..wiring import (
     get_contract_folder_binding_service,
     get_contract_generation_service,
     get_supplementary_agreement_generation_service,

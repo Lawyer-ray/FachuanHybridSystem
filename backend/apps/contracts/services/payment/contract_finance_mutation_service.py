@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from decimal import Decimal
+from json import JSONDecodeError, dumps, loads
 from typing import TYPE_CHECKING, Any
 
 from django.db import transaction
@@ -172,12 +173,19 @@ class ContractFinanceMutationService(DjangoPermsMixin):
         try:
             from apps.contracts.models import ContractFinanceLog
 
+            payload = self._normalize_json_payload(changes)
             ContractFinanceLog.objects.create(
                 contract_id=contract_id,
                 action=action,
                 level=level,
                 actor_id=user_id,
-                payload=changes,
+                payload=payload,
             )
         except Exception:
             logger.exception("操作失败")
+
+    def _normalize_json_payload(self, value: Any) -> Any:
+        try:
+            return loads(dumps(value, default=str))
+        except (TypeError, ValueError, JSONDecodeError):
+            return value
