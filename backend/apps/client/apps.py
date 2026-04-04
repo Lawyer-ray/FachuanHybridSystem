@@ -8,4 +8,4 @@ class ClientConfig(AppConfig):
     verbose_name = _("当事人管理")
 
     def ready(self) -> None:
-        from . import signals  # noqa: F401 注册 post_delete 信号处理器
+        from . import signals
