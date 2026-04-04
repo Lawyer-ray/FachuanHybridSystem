@@ -56,11 +56,17 @@ class CaseServiceAdapter:
     def get_cases_by_contract(self, contract_id: int) -> Any:
         return self._internal_query.get_cases_by_contract_internal(contract_id=contract_id)
 
+    def count_cases_by_contract(self, contract_id: int) -> int:
+        return self._command.count_cases_by_contract(contract_id=contract_id)
+
     def get_primary_lawyer_names_by_case_ids_internal(self, case_ids: list[int]) -> Any:
         return self._internal_query.get_primary_lawyer_names_by_case_ids_internal(case_ids=case_ids)
 
     def search_cases_for_binding_internal(self, search_term: str = "", limit: int = 20) -> list[dict[str, Any]]:
-        return self._internal_query.search_cases_for_binding_internal(search_term=search_term, limit=limit)
+        result = self._internal_query.search_cases_for_binding_internal(search_term=search_term, limit=limit)
+        if not isinstance(result, list):
+            raise TypeError(f"search_cases_for_binding_internal 返回了非 list 类型: {type(result)}")
+        return result
 
     def get_primary_case_numbers_by_case_ids_internal(self, case_ids: list[int]) -> Any:
         return self._internal_query.get_primary_case_numbers_by_case_ids_internal(case_ids=case_ids)
@@ -164,8 +170,8 @@ class CaseServiceAdapter:
         from apps.cases.services.party.case_party_mutation_service import CasePartyMutationService
 
         return CasePartyMutationService(
-            client_service=self._client_service,  # type: ignore[arg-type]
-            contract_service=self._contract_service,  # type: ignore[arg-type]
+            client_service=self._client_service,
+            contract_service=self._contract_service,
         ).create_party_internal(case_id=case_id, client_id=client_id, legal_status=legal_status)
 
     # ------------------------------------------------------------------

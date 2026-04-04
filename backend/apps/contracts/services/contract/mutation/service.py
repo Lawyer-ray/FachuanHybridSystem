@@ -100,15 +100,16 @@ class ContractMutationService:
         except Contract.DoesNotExist:
             raise NotFoundError(_("合同 %(id)s 不存在") % {"id": contract_id}) from None
 
-        unlinked_case_count = self.case_service.unbind_cases_from_contract_internal(contract_id=contract.pk)
+        # 不再解绑案件：Case.contract FK 已设为 CASCADE，删除合同时会级联删除案件及其日志、附件
+        case_count = self.case_service.count_cases_by_contract(contract_id=contract.pk)
         contract.delete()
 
         logger.info(
-            "合同删除成功",
+            "合同删除成功（已级联删除关联案件及附件）",
             extra={
                 "contract_id": contract_id,
                 "action": "delete_contract",
-                "unlinked_case_count": unlinked_case_count,
+                "cascaded_case_count": case_count,
             },
         )
 

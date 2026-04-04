@@ -64,6 +64,7 @@ dependencies = [
     # --- MCP Server ---
     "mcp[cli]>=1.27.0",
     "gmssl==3.2.2",
+    "daphne>=4.2.1",
 ]
 
 [dependency-groups]
