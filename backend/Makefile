@@ -1,7 +1,54 @@
 # 法律事务管理系统 - Backend Makefile
 # ============================================================
 
-.PHONY: help install run test migrate shell lint clean
+check: lint typecheck ## 运行所有检查
+
+# ============================================================
+# GitHub CI 镜像检查（推送前必跑，避免反复修 7 轮）
+# ============================================================
+
+ci-check: ## 模拟 GitHub backend (3.12) job 的核心检查（changed-files 模式）
+	@echo "$(GREEN)=== GitHub CI 预检 (changed-files 模式) ===$(NC)"
+	@echo ""
+	@if [ -n "$$CI_CHECK_BASE" ]; then \
+		BASE="$$CI_CHECK_BASE"; \
+	else \
+		UPSTREAM=$$(git rev-parse --abbrev-ref @{u} 2>/dev/null | sed 's|origin/||' || true); \
+		if [ -n "$$UPSTREAM" ]; then \
+			BASE="$$UPSTREAM"; \
+		else \
+			BASE="main"; \
+		fi; \
+	fi; \
+	if ! git rev-parse "$$BASE" &>/dev/null 2>&1; then \
+		echo "⚠️  基准 '$$BASE' 不存在，尝试 merge-base..."; \
+		BASE=$$(git merge-base HEAD HEAD~1 2>/dev/null || echo ""); \
+	fi; \
+	echo "📋 基准: $(YELLOW)$$BASE$(NC) → $(YELLOW)HEAD$(NC)"; \
+	CHANGED=$$(git diff --name-only --diff-filter=ACMRT $$BASE HEAD 2>/dev/null | grep -E '^apps/.*\.py$$' | sed 's|^apps/||' || true); \
+	if [ -z "$$CHANGED" ]; then \
+		echo "✅ 无变更 Python 文件"; \
+	else \
+		echo "🔍 [1/3] Ruff (changed files): $$CHANGED"; \
+		$(PYTHON) -m ruff check $$CHANGED --config ruff.toml; \
+		echo ""; \
+		echo "🔍 [2/3] Mypy (changed files, follow-imports=skip): $$CHANGED"; \
+		PYTHONPATH=apiSystem:. $(PYTHON) -m mypy --config-file mypy.ini --follow-imports=skip $$CHANGED; \
+		echo ""; \
+	fi
+	@echo "🔍 [3/3] 测试收集 (structure smoke):"
+	DJANGO_DEBUG=1 DATABASE_PATH=$(TEST_DB_PATH) PYTHONPATH=apiSystem:. $(PYTEST) tests/ci/structure/ --co -q 2>&1 | tail -3
+	@echo ""
+	@echo "$(GREEN)✅ GitHub CI 预检通过! 可以放心推送了$(NC)"
+
+ci-check-full: ## 完整 CI 预检 (含 unit/integration/property smoke)
+	ci-check
+	@echo "🧪 运行 CI 测试套件..."
+	DJANGO_DEBUG=1 DATABASE_PATH=$(TEST_DB_PATH) PYTHONPATH=apiSystem:. $(PYTEST) tests/ci/unit/ -q $(ARGS)
+	DJANGO_DEBUG=1 DATABASE_PATH=$(TEST_DB_PATH) PYTHONPATH=apiSystem:. $(PYTEST) tests/ci/integration/ -q $(ARGS)
+	DJANGO_DEBUG=1 DATABASE_PATH=$(TEST_DB_PATH) PYTHONPATH=apiSystem:. HYPOTHESIS_PROFILE=default $(PYTEST) tests/ci/property/ -q $(ARGS)
+
+.PHONY: help install run test migrate shell lint clean ci-check ci-check-full
 
 # 默认 Python 和虚拟环境
 VENV_DIR ?= .venv
