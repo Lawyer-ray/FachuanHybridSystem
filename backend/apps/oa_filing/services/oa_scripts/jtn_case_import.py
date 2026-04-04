@@ -321,6 +321,7 @@ class JtnCaseImportScript:
             follow_redirects=True,
             timeout=_DEFAULT_HTTP_TIMEOUT,
             cookies=shared_cookies,
+            trust_env=False,
         ) as client:
             form_state = self._load_case_list_form_state(client)
 
@@ -356,7 +357,7 @@ class JtnCaseImportScript:
         """执行一次 HTTP 登录并返回可复用 cookie。"""
         logger.info("HTTP 登录 OA: %s", _LOGIN_URL)
 
-        with httpx.Client(headers=_HTTP_HEADERS, follow_redirects=True, timeout=15) as client:
+        with httpx.Client(headers=_HTTP_HEADERS, follow_redirects=True, timeout=15, trust_env=False) as client:
             login_resp = client.get(_LOGIN_URL)
             csrf_token = self._extract_hidden_input(login_resp.text, "CSRFToken")
 
@@ -449,6 +450,7 @@ class JtnCaseImportScript:
             timeout=_DEFAULT_HTTP_TIMEOUT,
             cookies=shared_cookies,
             limits=httpx.Limits(max_connections=1, max_keepalive_connections=0),
+            trust_env=False,
         )
         form_state = self._load_case_list_form_state(client)
         self._name_search_http_client = client
@@ -1044,7 +1046,7 @@ class JtnCaseImportScript:
 
         logger.info("接口登录: %s", _LOGIN_URL)
 
-        with httpx.Client(headers=_HTTP_HEADERS, follow_redirects=True, timeout=15) as client:
+        with httpx.Client(headers=_HTTP_HEADERS, follow_redirects=True, timeout=15, trust_env=False) as client:
             # 1. GET 登录页，拿 ASP.NET_SessionId + CSRFToken
             r = client.get(_LOGIN_URL)
             csrf_match = re.search(r'name=["\']CSRFToken["\'] value=["\']([^"\']+)["\']', r.text)
