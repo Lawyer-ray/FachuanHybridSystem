@@ -286,3 +286,6 @@ class CaseCommandService(PermissionMixin):
 
     def unbind_cases_from_contract_internal(self, contract_id: int) -> int:
         return int(Case.objects.filter(contract_id=contract_id).update(contract=None))
+
+    def count_cases_by_contract(self, contract_id: int) -> int:
+        return int(Case.objects.filter(contract_id=contract_id).count())

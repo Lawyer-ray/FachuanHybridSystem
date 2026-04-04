@@ -2,7 +2,20 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
-## [26.31] - 2026-04-04
+## [26.31.1] - 2026-04-04
+
+### 修复
+
+- **全项目文件清理信号覆盖（files cleanup signals）**：为所有含文件字段的模型添加 `post_delete` 信号处理器，删除记录时自动清理物理文件
+  - **cases**: CaseLogAttachment (`file`)、CaseNumber (`document_file`)
+  - **client**: ClientIdentityDoc (`file_path`)、PropertyClueAttachment (`file_path`)
+  - **evidence**: EvidenceItem (`file`)、EvidenceList (`merged_pdf`)
+  - **automation**: CourtDocument (`local_file_path`, CharField 存储法院下载文书)、GsxtReportTask (`report_file`)
+  - **documents**: DocumentTemplate (`file`)、GenerationTask (`result_file`)、ExternalTemplate (`file_path`)、FillRecord (`file_path`)、BatchFillTask (`zip_file_path`)
+- **LPR 模板恢复**：误删的 LPR 同步确认页 (`lpr_sync_confirm.html`) 和列表工具栏模板 (`lprrate/change_list.html`) 已从 git 历史恢复
+- **CI 清理**：删除 29 个引用已不存在模块的过时测试文件（收集阶段 ImportError），安装 `daphne` 依赖解决 channels websocket 测试导入问题
+
+## [26.31.0] - 2026-04-04
 
 ### 新增
 

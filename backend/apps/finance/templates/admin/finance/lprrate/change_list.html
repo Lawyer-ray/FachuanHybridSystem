@@ -1,0 +1,28 @@
+{% extends "admin/change_list.html" %}
+{% load i18n static %}
+
+{% block object-tools-items %}
+{# 移除默认的"添加"按钮 #}
+
+<li>
+    <a href="calculator/" class="addlink">
+        {% translate "LPR计算器" %}
+    </a>
+</li>
+
+<li>
+    <a href="#" class="addlink" onclick="document.getElementById('lpr-sync-form').submit(); return false;">{% translate "同步LPR数据" %}</a>
+    <form id="lpr-sync-form" method="post" action="sync/" style="display: none;">
+        {% csrf_token %}
+    </form>
+</li>
+
+{% if sync_status %}
+<li style="margin-left: 20px; color: #666; font-size: 12px; line-height: 28px;">
+    {% blocktranslate with date=sync_status.latest_rate_date count=sync_status.total_records %}
+    最新数据: {{ date }} | 共 {{ count }} 条记录
+    {% endblocktranslate %}
+</li>
+{% endif %}
+
+{% endblock %}

@@ -4,12 +4,23 @@ from __future__ import annotations
 
 import logging
 import threading
+from pathlib import Path
 from typing import Any
 
+from django.conf import settings
 from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
 
-from .models import DocumentTemplate, FolderTemplate, Placeholder, TemplateAuditAction
+from .models import (
+    BatchFillTask,
+    DocumentTemplate,
+    ExternalTemplate,
+    FillRecord,
+    FolderTemplate,
+    GenerationTask,
+    Placeholder,
+    TemplateAuditAction,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -187,3 +198,72 @@ def _invalidate_template_matching_cache(sender: type[Any]) -> None:
         logger.debug("已递增模板匹配缓存版本号: %s", version_key)
     except Exception as e:
         logger.warning("清除模板匹配缓存失败: %s", e)
+
+
+# ============================================================
+# Post-delete signals - 物理文件清理
+# ============================================================
+
+
+def _delete_charfield_file(file_path_str: str | None) -> None:
+    """删除 CharField 中存储的文件路径对应的物理文件"""
+    if not file_path_str:
+        return
+    file_path = Path(file_path_str)
+    if not file_path.is_absolute():
+        file_path = Path(settings.MEDIA_ROOT) / file_path_str
+    if file_path.exists():
+        try:
+            file_path.unlink()
+            logger.info("已清理文档物理文件", extra={"file_path": str(file_path)})
+        except OSError as exc:
+            logger.error("清理文档物理文件失败", extra={"file_path": str(file_path), "error": str(exc)})
+
+
+def _delete_file_field(field_file: Any) -> None:
+    """删除 FileField 对应的物理文件"""
+    if field_file:
+        try:
+            field_file.delete(save=False)
+            logger.info("已清理文档 FileField 物理文件", extra={"file_path": str(field_file)})
+        except Exception:
+            logger.exception("清理文档 FileField 失败")
+
+
+@receiver(post_delete, dispatch_uid="cleanup_document_template_files")
+def cleanup_document_template_files(sender: type[Any], instance: Any, **kwargs: object) -> None:
+    """
+    DocumentTemplate 有两个文件字段：
+    - file (FileField): 上传的模板文件 → 用 .delete(save=False)
+    - file_path (CharField): 引用静态目录的 docx 模板，不需要清理（非用户上传）
+    """
+    if sender is DocumentTemplate and instance.file:
+        _delete_file_field(instance.file)
+
+
+@receiver(post_delete, dispatch_uid="cleanup_generation_task_result")
+def cleanup_generation_task_result(sender: type[Any], instance: Any, **kwargs: object) -> None:
+    """GenerationTask.result_file (FileField): 文书生成结果文件"""
+    if sender is GenerationTask:
+        _delete_file_field(instance.result_file)
+
+
+@receiver(post_delete, dispatch_uid="cleanup_external_template_file")
+def cleanup_external_template_file(sender: type[Any], instance: Any, **kwargs: object) -> None:
+    """ExternalTemplate.file_path (CharField): 外部上传的 Word 模板文件，存于 MEDIA_ROOT 下"""
+    if sender is ExternalTemplate:
+        _delete_charfield_file(instance.file_path)
+
+
+@receiver(post_delete, dispatch_uid="cleanup_fill_record_file")
+def cleanup_fill_record_file(sender: type[Any], instance: Any, **kwargs: object) -> None:
+    """FillRecord.file_path (CharField): 填充生成的文件，存于 MEDIA_ROOT 下"""
+    if sender is FillRecord:
+        _delete_charfield_file(instance.file_path)
+
+
+@receiver(post_delete, dispatch_uid="cleanup_batch_fill_task_zip")
+def cleanup_batch_fill_task_zip(sender: type[Any], instance: Any, **kwargs: object) -> None:
+    """BatchFillTask.zip_file_path (CharField): 批量填充 ZIP 压缩包"""
+    if sender is BatchFillTask:
+        _delete_charfield_file(instance.zip_file_path)

@@ -1,0 +1,32 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block content %}
+<div id="content-main">
+    <h1>{% translate "同步LPR数据" %}</h1>
+
+    <div class="module aligned">
+        <div class="form-row">
+            <p>{% translate "此操作将从中国人民银行官网获取最新的LPR利率数据。" %}</p>
+            <p>{% translate "确定要执行同步吗？" %}</p>
+        </div>
+
+        <div class="form-row" style="background: #ffc; padding: 10px; margin: 10px 0;">
+            <strong>{% translate "注意：" %}</strong>
+            <ul>
+                <li>{% translate "同步过程可能需要几秒钟时间" %}</li>
+                <li>{% translate "如果官网数据格式发生变化，同步可能会失败" %}</li>
+                <li>{% translate "系统会自动尝试 httpx 和 Playwright 两种方式获取数据" %}</li>
+            </ul>
+        </div>
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        <div class="submit-row">
+            <input type="submit" value="{% translate '确认同步' %}" class="default" name="_sync">
+            <a href="../" class="closelink">{% translate '取消' %}</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

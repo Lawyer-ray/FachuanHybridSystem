@@ -318,6 +318,18 @@ class ICaseService(Protocol):
         """
         ...
 
+    def count_cases_by_contract(self, contract_id: int) -> int:
+        """
+        内部方法:统计合同下的案件数（删除合同时用于日志记录）
+
+        Args:
+            contract_id: 合同 ID
+
+        Returns:
+            案件数量
+        """
+        ...
+
     def get_primary_lawyer_names_by_case_ids_internal(self, case_ids: list[int]) -> dict[int, str | None]:
         """
         内部方法:批量获取案件主办律师姓名(取案件指派列表的第一个律师)
