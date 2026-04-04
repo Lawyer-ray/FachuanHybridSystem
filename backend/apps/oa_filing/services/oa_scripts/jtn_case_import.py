@@ -1014,8 +1014,34 @@ class JtnCaseImportScript:
         except Exception:
             logger.debug("进度回调处理异常: event=%s", event, exc_info=True)
 
+    def _inject_cookies_to_context(self, cookies: dict[str, str]) -> None:
+        """将 cookie 字典注入 Playwright context。"""
+        context = self._context
+        assert context is not None
+        if not cookies:
+            return
+
+        context.add_cookies(
+            [
+                {
+                    "name": str(name),
+                    "value": str(value or ""),
+                    "domain": "ims.jtn.com",
+                    "path": "/",
+                }
+                for name, value in cookies.items()
+                if str(name).strip()
+            ]
+        )
+
     def _login(self) -> None:
         """通过 httpx 接口登录，将 cookie 注入 Playwright context。"""
+        cached_cookies = self._http_cookies_cache or {}
+        if cached_cookies:
+            logger.info("接口登录复用 HTTP cookie=%s", len(cached_cookies))
+            self._inject_cookies_to_context(cached_cookies)
+            return
+
         logger.info("接口登录: %s", _LOGIN_URL)
 
         with httpx.Client(headers=_HTTP_HEADERS, follow_redirects=True, timeout=15) as client:
@@ -1033,19 +1059,9 @@ class JtnCaseImportScript:
             if "login" in str(r2.url).lower() or "logout" in r2.text.lower()[:200]:
                 raise RuntimeError(f"OA 登录失败，账号或密码错误: {self._account}")
 
-            # 3. 将 cookie 注入 Playwright context
-            assert self._context is not None
-            for cookie in client.cookies.jar:
-                self._context.add_cookies(
-                    [
-                        {
-                            "name": cookie.name,
-                            "value": cookie.value or "",
-                            "domain": cookie.domain or "ims.jtn.com",
-                            "path": cookie.path or "/",
-                        }
-                    ]
-                )
+            cookies = dict(client.cookies.items())
+            self._http_cookies_cache = cookies
+            self._inject_cookies_to_context(cookies)
 
         logger.info("接口登录成功，cookie 已注入")
 
