@@ -55,6 +55,7 @@ from .core import (
     build_conversation_history_service,
     build_llm_service,
     build_system_config_service,
+    build_system_update_service,
     build_task_submission_service,
 )
 from .documents import (
@@ -127,6 +128,7 @@ __all__ = [
     "build_supplementary_agreement_generation_service",
     "build_supplementary_agreement_generation_service_with_deps",
     "build_system_config_service",
+    "build_system_update_service",
     "build_task_submission_service",
     "build_token_service",
     "build_validator_service",
