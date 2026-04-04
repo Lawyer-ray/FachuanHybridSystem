@@ -113,6 +113,7 @@ celerybeat.pid
 *.tmp
 *.temp
 *.bak
+backend/tmp/
 .cache/
 **/.cache/
 # LLM benchmark scripts (contain hardcoded API keys)

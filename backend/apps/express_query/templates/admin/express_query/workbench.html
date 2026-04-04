@@ -1,0 +1,360 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "快递查询" %}{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+.eq-workbench { max-width: 880px; margin: 0 auto; padding: 24px 0 40px; }
+.eq-card { background: #fff; border-radius: 16px; box-shadow: 0 8px 28px rgba(31, 41, 55, 0.08); overflow: hidden; }
+.eq-card-head { padding: 24px 28px; background: linear-gradient(135deg, #12344d 0%, #1b4d73 100%); color: #fff; }
+.eq-card-head h1 { margin: 0; font-size: 24px; }
+.eq-card-head p { margin: 10px 0 0; line-height: 1.7; opacity: .92; }
+
+/* Tab 样式 */
+.eq-tabs { display: flex; gap: 2px; padding: 16px 28px 0; background: #f5f7f9; }
+.eq-tab {
+  flex: 1;
+  padding: 12px 20px;
+  border: none;
+  background: transparent;
+  color: #62788b;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+  transition: all .25s ease;
+  position: relative;
+}
+.eq-tab:hover:not(.is-active) { color: #1b4d73; background: rgba(27,77,115,.06); }
+.eq-tab.is-active { color: #1b4d73; background: #fff; border-radius: 12px 12px 0 0; box-shadow: 0 -2px 6px rgba(31,41,55,.04); }
+.eq-tab.is-active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px; left: 50%;
+  transform: translateX(-50%);
+  width: 40%; height: 3px;
+  background: linear-gradient(90deg,#1b4d73,#2e7d32);
+  border-radius: 2px;
+}
+
+/* 表单区域 */
+.eq-form-body { display: none; padding: 28px; }
+.eq-form-body.is-active { display: grid; gap: 20px; }
+
+/* 基础表单 */
+.eq-field label { display: block; margin-bottom: 8px; font-weight: 700; color: #24435b; }
+.eq-field input[type="text"] { width: 100%; box-sizing: border-box; border: 1px solid #c9d7e3; border-radius: 10px; padding: 12px 14px; font-size: 14px; background: #fff; transition: border-color .2s; }
+.eq-field input[type="text"]:focus { outline: none; border-color: #1b4d73; box-shadow: 0 0 0 3px rgba(27,77,115,.08); }
+
+/* 承运商选择 */
+.eq-carrier-group { display: flex; gap: 12px; margin-top: 4px; }
+.eq-carrier-label {
+  flex: 1; padding: 18px 20px; border: 2px solid #e2e8f0; border-radius: 12px;
+  cursor: pointer; text-align: center; transition: all .22s ease;
+  user-select: none; position: relative;
+}
+.eq-carrier-label:hover:not(.is-checked) { border-color: #94a9be; background: #fafcff; }
+.eq-carrier-label.is-checked { border-color: #1b4d73; background: #f0f6fc; box-shadow: 0 2px 10px rgba(27,77,115,.1); }
+.eq-carrier-icon { font-size: 32px; margin-bottom: 8px; line-height: 1; }
+.eq-carrier-name { font-weight: 800; font-size: 15px; color: #24435b; margin-bottom: 2px; }
+.eq-carrier-hint { font-size: 12px; color: #889aab; line-height: 1.4; }
+
+/* 文件上传区 */
+.eq-drop-box { border: 1px dashed #9db4c8; border-radius: 12px; background: #f8fbfe; padding: 14px; display: grid; gap: 10px; }
+.eq-drop-box.is-dragover { border-color: #1b4d73; background: #eef6fd; }
+.eq-file-btn { width: fit-content; border: 1px solid #1b4d73; background: #fff; color: #1b4d73; border-radius: 8px; padding: 8px 12px; font-weight: 700; cursor: pointer; }
+.eq-file-btn:hover { background: #f3f8fc; }
+.eq-drop-title { color: #24435b; font-weight: 700; line-height: 1.5; }
+.eq-help { margin: 0; color: #62788b; font-size: 13px; line-height: 1.6; }
+.eq-selected-file { color: #1f2937; font-size: 13px; line-height: 1.5; }
+.eq-selected-file.is-empty { color: #62788b; }
+
+/* 提示信息 */
+.eq-tip { padding: 16px 18px; border-radius: 12px; background: #f3f8fc; color: #24435b; line-height: 1.7; }
+.eq-tip strong { color: #1b4d73; }
+
+/* 操作按钮 */
+.eq-actions { display: flex; align-items: center; gap: 12px; }
+.eq-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 140px; padding: 12px 18px; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; text-decoration: none; }
+.eq-btn-primary { background: #1b4d73; color: #fff; }
+.eq-btn-primary:hover { background: #143b59; }
+.eq-btn-secondary { background: #eef3f7; color: #1f2937; }
+.eq-btn-secondary:hover { background: #dde6ee; }
+
+/* 错误提示 */
+.eq-error-msg { color: #d32f2f; font-weight: 600; font-size: 13px; margin-top: 4px; display: none; }
+.eq-error-msg.is-visible { display: block; }
+</style>
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% trans "首页" %}</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label='express_query' %}">{% trans "快递查询" %}</a>
+    &rsaquo; {% trans "创建任务" %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="eq-workbench">
+  <div class="eq-card">
+    <div class="eq-card-head">
+      <h1>{% trans "快递查询" %}</h1>
+      <p>{% trans "支持<strong>顺丰</strong>和<strong>EMS</strong>两种快递平台的运单查询，可选择上传文件自动识别，或手动输入运单号。" %}</p>
+    </div>
+
+    <!-- 登录提示 -->
+    <div class="eq-tip" style="background: #fff3cd; border-left: 4px solid #ffc107; margin-bottom: 0;">
+      ⚠️ {% trans "查询需要浏览器已登录对应快递平台（顺丰/EMS）。若未登录，系统会自动弹出登录窗口/二维码，请<strong>自行完成扫码或验证码登录</strong>。查询过程约需 10~30 秒，请耐心等待。" %}
+    </div>
+
+    <!-- Tab 切换 -->
+    <div class="eq-tabs" role="tablist">
+      <button type="button" class="eq-tab is-active" data-target="panel-upload" role="tab" aria-selected="true">📄 {% trans "上传文件识别" %}</button>
+      <button type="button" class="eq-tab" data-target="panel-manual" role="tab" aria-selected="false">⌨️ {% trans "手动输入运单号" %}</button>
+    </div>
+
+    <!-- 上传文件面板 -->
+    <form method="post" enctype="multipart/form-data" id="upload-form">
+      {% csrf_token %}
+
+      <div class="eq-form-body is-active" id="panel-upload">
+        <div class="eq-tip">
+          {% trans "支持格式：PDF、PNG、JPG、JPEG、WEBP。上传后将自动入队处理，可在任务列表查看识别状态、查询链接和结果 PDF。" %}
+        </div>
+
+        <div class="eq-field">
+          <label for="id-title-upload">{% trans "任务名称（可选）" %}</label>
+          <input id="id-title-upload" name="title" type="text" placeholder="{% trans '例如：张三-顺丰单号查询' %}" />
+        </div>
+
+        <div class="eq-field">
+          <label>{% trans "上传文件" %}</label>
+          <div id="drop-zone" class="eq-drop-box">
+            <input id="id_waybill_file" name="waybill_file" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" hidden required data-panel="upload"/>
+            <div class="eq-drop-title">{% trans "拖拽文件到这里，或点击按钮选择文件" %}</div>
+            <button type="button" id="file-picker-btn" class="eq-file-btn">{% trans "选择文件" %}</button>
+            <div id="selected-file" class="eq-selected-file is-empty">{% trans "当前未选择文件" %}</div>
+            <p class="eq-help">{% trans "建议上传清晰的邮单首页；若是 PDF，将自动提取第一页做识别。" %}</p>
+          </div>
+        </div>
+
+        <div class="eq-actions">
+          <button type="submit" class="eq-btn eq-btn-primary">{% trans "上传并创建任务" %}</button>
+          <a href="{{ task_list_url }}" class="eq-btn eq-btn-secondary">{% trans "查看任务列表" %}</a>
+        </div>
+      </div>
+    </form>
+
+    <!-- 手动输入面板 -->
+    <form method="post" id="manual-form">
+      {% csrf_token %}
+
+      <div class="eq-form-body" id="panel-manual">
+        <div class="eq-tip">
+          {% trans "目前仅支持<strong>顺丰</strong>（SF开头）和<strong>EMS</strong>（纯数字）两种快递平台。输入运单号后系统将直接进入查询队列。" %}
+        </div>
+
+        <div class="eq-field">
+          <label for="id-title-manual">{% trans "任务名称（可选）" %}</label>
+          <input id="id-title-manual" name="title" type="text" placeholder="{% trans '例如：EMS-9876543210987' %}" />
+        </div>
+
+        <div class="eq-field">
+          <label>{% trans "选择承运商" %}</label>
+          <div class="eq-carrier-group">
+            <label class="eq-carrier-label is-checked" data-value="sf">
+              <input type="radio" name="carrier_type" value="sf" hidden checked/>
+              <div class="eq-carrier-icon">📦</div>
+              <div class="eq-carrier-name">{% trans "顺丰速运" %}</div>
+              <div class="eq-carrier-hint">{% trans "SF + 10~20 位数字" %}<br/>SF1234567890123</div>
+            </label>
+            <label class="eq-carrier-label" data-value="ems">
+              <input type="radio" name="carrier_type" value="ems" hidden/>
+              <div class="eq-carrier-icon">📮</div>
+              <div class="eq-carrier-name">{% trans "中国邮政 EMS" %}</div>
+              <div class="eq-carrier-hint">{% trans "13 位纯数字" %}<br/>9876543210987</div>
+            </label>
+          </div>
+        </div>
+
+        <div class="eq-field">
+          <label for="id_tracking_number">{% trans "运单号" %}</label>
+          <input id="id_tracking_number" name="tracking_number" type="text"
+                 placeholder="{% trans '请输入运单号...' %}"
+                 pattern="[A-Za-z0-9]+"
+                 autocomplete="off"/>
+          <div class="eq-error-msg" id="tracking-error"></div>
+        </div>
+
+        <div class="eq-actions">
+          <button type="submit" class="eq-btn eq-btn-primary">{% trans "创建查询任务" %}</button>
+          <a href="{{ task_list_url }}" class="eq-btn eq-btn-secondary">{% trans "查看任务列表" %}</a>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(() => {
+  /* ========== Tab 切换 ========== */
+  const tabs = document.querySelectorAll('.eq-tab');
+  const panels = document.querySelectorAll('.eq-form-body');
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => { t.classList.remove('is-active'); t.setAttribute('aria-selected','false'); });
+      panels.forEach(p => p.classList.remove('is-active'));
+
+      tab.classList.add('is-active');
+      tab.setAttribute('aria-selected','true');
+
+      const targetId = tab.getAttribute('data-target');
+      if (targetId) document.getElementById(targetId).classList.add('is-active');
+    });
+  });
+
+  /* ========== 文件上传交互 ========== */
+  const dropZone = document.getElementById('drop-zone');
+  const fileInput = document.getElementById('id_waybill_file');
+  const filePickerBtn = document.getElementById('file-picker-btn');
+  const selectedFileEl = document.getElementById('selected-file');
+
+  if (dropZone && fileInput && filePickerBtn && selectedFileEl) {
+    const showFileName = () => {
+      const file = fileInput.files && fileInput.files[0];
+      if (!file) {
+        selectedFileEl.textContent = '当前未选择文件';
+        selectedFileEl.classList.add('is-empty');
+        return;
+      }
+      selectedFileEl.textContent = `已选择：${file.name}`;
+      selectedFileEl.classList.remove('is-empty');
+    };
+
+    filePickerBtn.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', showFileName);
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropZone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        dropZone.classList.add('is-dragover');
+      });
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropZone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        dropZone.classList.remove('is-dragover');
+      });
+    });
+
+    dropZone.addEventListener('drop', (event) => {
+      const files = event.dataTransfer && event.dataTransfer.files;
+      if (!files || files.length === 0) return;
+      const transfer = new DataTransfer();
+      transfer.items.add(files[0]);
+      fileInput.files = transfer.files;
+      showFileName();
+    });
+  }
+
+  /* ========== 承运商选择 ========== */
+  const carrierLabels = document.querySelectorAll('.eq-carrier-label');
+  carrierLabels.forEach(label => {
+    label.addEventListener('click', () => {
+      carrierLabels.forEach(l => l.classList.remove('is-checked'));
+      label.classList.add('is-checked');
+      // 自动聚焦运单号输入框
+      const trackingInput = document.getElementById('id_tracking_number');
+      if (trackingInput) trackingInput.focus();
+    });
+  });
+
+  /* ========== 运单号校验 ========== */
+  const trackingNumberInput = document.getElementById('id_tracking_number');
+  const trackingErrorEl = document.getElementById('tracking-error');
+  const manualForm = document.getElementById('manual-form');
+
+  if (trackingNumberInput && trackingErrorEl && manualForm) {
+    let currentCarrier = 'sf';
+
+    // 监听承运商变化
+    carrierLabels.forEach(label => {
+      label.addEventListener('click', () => {
+        currentCarrier = label.getAttribute('data-value') || 'sf';
+        validateTrackingNumber();
+      });
+    });
+
+    function validateTrackingNumber() {
+      const val = (trackingNumberInput.value || '').trim().toUpperCase();
+
+      if (!val) {
+        hideError();
+        return false;
+      }
+
+      if (currentCarrier === 'sf') {
+        // SF + 10~20位数字
+        if (/^SF\d{10,20}$/.test(val)) {
+          hideError();
+          return true;
+        }
+        showError('{% trans "顺丰单号格式应为：SF 开头 + 10~20 位数字（如 SF1234567890123）" %}');
+        return false;
+      } else {
+        // 13位纯数字
+        if (/^\d{13}$/.test(val)) {
+          hideError();
+          return true;
+        }
+        showError('{% trans "EMS 单号应为 13 位纯数字（如 9876543210987）" %}');
+        return false;
+      }
+    }
+
+    function showError(msg) {
+      trackingErrorEl.textContent = msg || '';
+      trackingErrorEl.classList.add('is-visible');
+    }
+
+    function hideError() {
+      trackingErrorEl.classList.remove('is-visible');
+    }
+
+    trackingNumberInput.addEventListener('input', () => {
+      // 延迟校验避免输入过程中频繁报错
+      setTimeout(validateTrackingNumber, 200);
+    });
+
+    manualForm.addEventListener('submit', (event) => {
+      if (!validateTrackingNumber()) {
+        event.preventDefault();
+        trackingNumberInput.focus();
+      }
+    });
+  }
+
+  /* ========== 表单提交前同步标题 ========== */
+  const uploadForm = document.getElementById('upload-form');
+  if (uploadForm && manualForm) {
+    // 如果两个表单都有 title 字段，确保只提交当前激活的那个
+    uploadForm.addEventListener('submit', () => {
+      const manualTitle = document.getElementById('id-title-manual');
+      if (manualTitle) manualTitle.removeAttribute('name');
+    });
+    manualForm.addEventListener('submit', () => {
+      const uploadTitle = document.getElementById('id-title-upload');
+      if (uploadTitle) uploadTitle.removeAttribute('name');
+    });
+  }
+})();
+</script>
+{% endblock %}
