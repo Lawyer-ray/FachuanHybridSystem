@@ -5,11 +5,11 @@
 """
 
 import os
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 
 from django.contrib import admin, messages
 from django.core.cache import cache
-from django.http import HttpResponseRedirect
+from django.http import HttpRequest, HttpResponseRedirect
 from django.urls import path, reverse
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
@@ -40,6 +40,7 @@ class SystemConfigAdmin(admin.ModelAdmin[SystemConfig]):
     search_fields = ["key", "description"]
     list_editable = ["is_active"]
     ordering = ["category", "key"]
+    change_list_template = "admin/core/systemconfig/change_list.html"
 
     fieldsets = (
         (_("基本信息"), {"fields": ("key", "value", "category", "description")}),
@@ -102,15 +103,30 @@ class SystemConfigAdmin(admin.ModelAdmin[SystemConfig]):
                 self.admin_site.admin_view(self.clear_cache_view),
                 name="core_systemconfig_clear_cache",
             ),
+            path(
+                "trigger-update/",
+                self.admin_site.admin_view(self.trigger_update_view),
+                name="core_systemconfig_trigger_update",
+            ),
         ]
         return custom_urls + urls
 
     def changelist_view(self, request: Any, extra_context: Any = None) -> Any:
         """自定义列表页面"""
         extra_context = extra_context or {}
+        system_update_state = self._get_system_update_service().get_state()
+        options = system_update_state.get("options")
+        enable_post_update_setup_default = False
+        if isinstance(options, dict):
+            enable_post_update_setup_default = bool(options.get("enable_post_update_setup"))
+
         extra_context["show_init_button"] = True
         extra_context["show_sync_button"] = True
         extra_context["show_clear_cache_button"] = True
+        extra_context["show_trigger_update_button"] = True
+        extra_context["system_update_trigger_url"] = reverse("admin:core_systemconfig_trigger_update")
+        extra_context["system_update_state"] = system_update_state
+        extra_context["system_update_enable_post_update_setup_default"] = enable_post_update_setup_default
         extra_context["has_add_permission"] = self.has_add_permission(request)
         return super().changelist_view(request, extra_context=extra_context)
 
@@ -185,13 +201,41 @@ class SystemConfigAdmin(admin.ModelAdmin[SystemConfig]):
         messages.success(request, "配置缓存已清除")
         return HttpResponseRedirect(reverse("admin:core_systemconfig_changelist"))
 
+    def trigger_update_view(self, request: HttpRequest) -> HttpResponseRedirect:
+        """触发系统更新任务。"""
+        if request.method != "POST":
+            messages.error(request, _("仅支持 POST 请求"))
+            return HttpResponseRedirect(reverse("admin:core_systemconfig_changelist"))
+
+        if not self.has_change_permission(request):
+            messages.error(request, _("无权限执行系统更新"))
+            return HttpResponseRedirect(reverse("admin:core_systemconfig_changelist"))
+
+        raw_enable_post_update_setup = str(request.POST.get("enable_post_update_setup", "")).strip().lower()
+        enable_post_update_setup = raw_enable_post_update_setup in {"1", "true", "on", "yes"}
+
+        username = str(request.user.get_username() or request.user.pk or "")
+        result = self._get_system_update_service().trigger_update(
+            triggered_by=username,
+            enable_post_update_setup=enable_post_update_setup,
+        )
+        if bool(result.get("accepted")):
+            if enable_post_update_setup:
+                messages.success(request, _("更新任务已提交，将自动执行 uv sync 与 migrate。"))
+            else:
+                messages.success(request, _("更新任务已提交，请稍后刷新查看状态"))
+        else:
+            message_text = str(result.get("message") or _("更新任务提交失败"))
+            messages.warning(request, message_text)
+        return HttpResponseRedirect(reverse("admin:core_systemconfig_changelist"))
+
     def _get_default_configs(self) -> list[dict[str, Any]]:
         """委托给模块级函数"""
-        return get_default_configs()
+        return cast(list[dict[str, Any]], get_default_configs())
 
     def _get_env_mappings(self) -> dict[str, dict[str, Any]]:
         """委托给模块级函数"""
-        return get_env_mappings()
+        return cast(dict[str, dict[str, Any]], get_env_mappings())
 
     def _mask_secret_value(self, value: str) -> str:
         plain_value = value
@@ -220,3 +264,9 @@ class SystemConfigAdmin(admin.ModelAdmin[SystemConfig]):
         if previous_key and previous_key != key:
             cache.delete(f"system_config:{previous_key}")
         cache.delete(f"system_config:{key}")
+
+    @staticmethod
+    def _get_system_update_service() -> Any:
+        from apps.core.dependencies import build_system_update_service
+
+        return build_system_update_service()

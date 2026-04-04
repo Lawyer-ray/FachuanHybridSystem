@@ -31,9 +31,12 @@ def build_llm_service() -> ILLMService:
     from apps.core.llm.config import LLMConfig
     from apps.core.llm.service import LLMService
 
-    return LLMService(  # type: ignore[return-value]
-        backend_configs=LLMConfig.get_backend_configs(),
-        default_backend=LLMConfig.get_default_backend(),
+    return cast(
+        ILLMService,
+        LLMService(
+            backend_configs=LLMConfig.get_backend_configs(),
+            default_backend=LLMConfig.get_default_backend(),
+        ),
     )
 
 
@@ -66,3 +69,9 @@ def build_task_scheduler() -> Any:
     from apps.core.tasking import DjangoQTaskScheduler
 
     return DjangoQTaskScheduler()
+
+
+def build_system_update_service() -> Any:
+    from apps.core.services.system_update_service import SystemUpdateService
+
+    return SystemUpdateService(task_submission_service=build_task_submission_service())

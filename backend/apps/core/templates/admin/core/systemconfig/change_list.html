@@ -1,0 +1,98 @@
+{% extends "admin/change_list.html" %}
+{% load i18n %}
+
+{% block object-tools-items %}
+    {% if show_trigger_update_button %}
+    <li>
+        <form id="system-update-form" method="post" action="{{ system_update_trigger_url }}" style="display:none;">
+            {% csrf_token %}
+            <input
+                type="hidden"
+                id="id_enable_post_update_setup_hidden"
+                name="enable_post_update_setup"
+                value="{% if system_update_enable_post_update_setup_default %}1{% else %}0{% endif %}"
+            />
+        </form>
+        <a
+            href="#"
+            class="addlink"
+            onclick="
+                const checkbox = document.getElementById('id_enable_post_update_setup');
+                const hiddenInput = document.getElementById('id_enable_post_update_setup_hidden');
+                if (hiddenInput) {
+                    hiddenInput.value = checkbox && checkbox.checked ? '1' : '0';
+                }
+                if (!confirm('{% trans "确认立即同步 GitHub 最新代码吗？" %}')) {
+                    return false;
+                }
+                document.getElementById('system-update-form').submit();
+                return false;
+            "
+        >
+            {% trans "立即更新系统" %}
+        </a>
+    </li>
+    {% endif %}
+    {{ block.super }}
+{% endblock %}
+
+{% block content %}
+    <div style="margin-bottom: 16px; padding: 12px 14px; border: 1px solid #ddd; border-radius: 6px; background: #fff;">
+        <h3 style="margin: 0 0 8px;">{% trans "系统更新状态" %}</h3>
+        <div style="margin: 0 0 10px;">
+            <label for="id_enable_post_update_setup" style="font-size: 13px; color: #333; cursor: pointer;">
+                <input
+                    id="id_enable_post_update_setup"
+                    type="checkbox"
+                    {% if system_update_enable_post_update_setup_default %}checked{% endif %}
+                />
+                {% trans "更新后自动 uv sync + migrate" %}
+            </label>
+        </div>
+        <div style="font-size: 13px; color: #333; line-height: 1.8;">
+            <div><strong>{% trans "状态" %}：</strong>{{ system_update_state.status|default:"idle" }}</div>
+            <div><strong>{% trans "消息" %}：</strong>{{ system_update_state.message|default:"-" }}</div>
+            <div><strong>{% trans "触发人" %}：</strong>{{ system_update_state.triggered_by|default:"-" }}</div>
+            <div><strong>{% trans "开始时间" %}：</strong>{{ system_update_state.started_at|default:"-" }}</div>
+            <div><strong>{% trans "结束时间" %}：</strong>{{ system_update_state.finished_at|default:"-" }}</div>
+            <div><strong>{% trans "任务ID" %}：</strong>{{ system_update_state.q_task_id|default:"-" }}</div>
+            <div>
+                <strong>{% trans "自动 uv sync + migrate" %}：</strong>
+                {% if system_update_state.options.enable_post_update_setup %}
+                    {% trans "已开启" %}
+                {% else %}
+                    {% trans "未开启" %}
+                {% endif %}
+            </div>
+        </div>
+
+        {% if system_update_state.steps %}
+            <div style="margin-top: 10px; font-size: 12px;">
+                <strong>{% trans "执行日志" %}：</strong>
+                <ul style="margin: 6px 0 0 18px;">
+                    {% for step in system_update_state.steps %}
+                        <li style="margin-bottom: 6px;">
+                            <div><code>{{ step.name }}</code> - {{ step.status }}</div>
+                            {% if step.stdout %}
+                                <pre style="white-space: pre-wrap; margin: 4px 0; background: #f8f8f8; padding: 6px; border-radius: 4px;">{{ step.stdout }}</pre>
+                            {% endif %}
+                            {% if step.stderr %}
+                                <pre style="white-space: pre-wrap; margin: 4px 0; background: #fff1f0; padding: 6px; border-radius: 4px;">{{ step.stderr }}</pre>
+                            {% endif %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+    </div>
+
+    {% if system_update_state.status == "queued" or system_update_state.status == "running" %}
+        <script>
+            window.setTimeout(function () {
+                window.location.reload();
+            }, 5000);
+        </script>
+    {% endif %}
+
+    {{ block.super }}
+{% endblock %}

@@ -10,10 +10,13 @@ Core 模块服务层
 - ConversationService: 对话服务
 """
 
+from typing import Any
+
 from .business_config_service import BusinessConfigService
 from .cause_court_initialization_service import CauseCourtInitializationService, InitializationResult
 from .court_api_client import CourtApiClient
 from .system_config_service import SystemConfigService
+from .system_update_service import SystemUpdateService
 
 __all__ = [
     "BusinessConfigService",
@@ -22,10 +25,11 @@ __all__ = [
     "CourtApiClient",
     "InitializationResult",
     "SystemConfigService",
+    "SystemUpdateService",
 ]
 
 
-def __getattr__(name: str) -> type:
+def __getattr__(name: str) -> Any:
     if name == "ConversationService":
         from .conversation_service import ConversationService
 
