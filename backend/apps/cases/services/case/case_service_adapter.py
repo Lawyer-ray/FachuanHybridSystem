@@ -63,7 +63,10 @@ class CaseServiceAdapter:
         return self._internal_query.get_primary_lawyer_names_by_case_ids_internal(case_ids=case_ids)
 
     def search_cases_for_binding_internal(self, search_term: str = "", limit: int = 20) -> list[dict[str, Any]]:
-        return self._internal_query.search_cases_for_binding_internal(search_term=search_term, limit=limit)
+        result = self._internal_query.search_cases_for_binding_internal(search_term=search_term, limit=limit)
+        if not isinstance(result, list):
+            raise TypeError(f"search_cases_for_binding_internal 返回了非 list 类型: {type(result)}")
+        return result
 
     def get_primary_case_numbers_by_case_ids_internal(self, case_ids: list[int]) -> Any:
         return self._internal_query.get_primary_case_numbers_by_case_ids_internal(case_ids=case_ids)

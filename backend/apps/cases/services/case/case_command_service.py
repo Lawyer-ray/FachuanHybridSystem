@@ -107,7 +107,7 @@ class CaseCommandService(PermissionMixin):
         ValidationException: 合同无效或阶段不合法
         """
         ctx = AccessContext(user=user, org_access=org_access, perm_open_access=perm_open_access)
-        self.check_authenticated(ctx)  # type: ignore
+        self.check_authenticated(ctx)
 
         contract_id: int | None = data.get("contract_id")
         if contract_id:
@@ -161,7 +161,7 @@ class CaseCommandService(PermissionMixin):
 
         ctx = AccessContext(user=user, org_access=org_access, perm_open_access=perm_open_access)
         if not perm_open_access:
-            self.check_authenticated(ctx)  # type: ignore
+            self.check_authenticated(ctx)
             self._access_policy.ensure_access(
                 case_id=case.id,
                 user=user,
@@ -232,7 +232,7 @@ class CaseCommandService(PermissionMixin):
 
         ctx = AccessContext(user=user, org_access=org_access, perm_open_access=perm_open_access)
         if not perm_open_access:
-            self.check_authenticated(ctx)  # type: ignore
+            self.check_authenticated(ctx)
             self._access_policy.ensure_access(
                 case_id=case.id,
                 user=user,
@@ -278,7 +278,10 @@ class CaseCommandService(PermissionMixin):
         """
         from .workflows.case_full_create_workflow import CaseFullCreateWorkflow
 
-        return CaseFullCreateWorkflow(case_service=self).run(data=data, actor_id=actor_id, user=user)
+        result = CaseFullCreateWorkflow(case_service=self).run(data=data, actor_id=actor_id, user=user)
+        if not isinstance(result, dict):
+            raise TypeError(f"CaseFullCreateWorkflow.run() 返回了非 dict 类型: {type(result)}")
+        return result
 
     # ------------------------------------------------------------------
     # Internal (cross-module) mutations

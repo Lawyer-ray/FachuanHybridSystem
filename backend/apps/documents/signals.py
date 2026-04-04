@@ -30,8 +30,11 @@ _thread_local = threading.local()
 
 def _get_pre_save_state() -> dict[str, Any]:
     if not hasattr(_thread_local, "pre_save_state"):
-        _thread_local.pre_save_state = {}
-    return _thread_local.pre_save_state
+        _thread_local.pre_save_state: dict[str, Any] = {}
+    result = _thread_local.pre_save_state
+    if not isinstance(result, dict):
+        raise TypeError(f"pre_save_state 不是 dict: {type(result)}")
+    return result
 
 
 def _get_audit_log_service() -> Any:
