@@ -90,6 +90,8 @@ htmlcov/
 .hypothesis/
 coverage.xml
 *.cover
+*,cover
+cov_annotate/
 backend/apiSystem/.coverage
 # Playwright screenshots (keep folder, ignore images)
 backend/tests/screenshots/*.png
@@ -216,3 +218,4 @@ docs/refactor-plans/
 
 backend/.playwright-cli/
 extensions/
+
