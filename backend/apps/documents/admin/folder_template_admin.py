@@ -5,7 +5,7 @@ Requirements: 6.1, 6.7
 """
 
 import logging
-from typing import Any, ClassVar
+from typing import Any
 
 from django import forms
 from django.contrib import admin
@@ -100,9 +100,9 @@ class FolderTemplateForm(forms.ModelForm):
 
     class Meta:
         model = FolderTemplate
-        fields: ClassVar = ["name", "template_type", "is_active", "structure"]
+        fields = ["name", "template_type", "is_active", "structure"]
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         """初始化表单,保存request对象用于消息显示"""
         self.request = kwargs.pop("request", None)
         super().__init__(*args, **kwargs)
@@ -184,7 +184,7 @@ class FolderTemplateForm(forms.ModelForm):
 
 
 @admin.register(FolderTemplate)
-class FolderTemplateAdmin(admin.ModelAdmin[FolderTemplate]):  # type: ignore[type-arg]
+class FolderTemplateAdmin(admin.ModelAdmin[FolderTemplate]):
     """
     文件夹模板管理
 
@@ -193,7 +193,7 @@ class FolderTemplateAdmin(admin.ModelAdmin[FolderTemplate]):  # type: ignore[typ
 
     form = FolderTemplateForm  # 使用自定义表单
 
-    list_display: ClassVar[tuple[str, ...]] = (
+    list_display = (
         "id",
         "name",
         "template_type_display",
@@ -207,24 +207,24 @@ class FolderTemplateAdmin(admin.ModelAdmin[FolderTemplate]):  # type: ignore[typ
         "updated_at",
     )
 
-    list_filter: ClassVar[tuple[str, ...]] = (
+    list_filter = (
         "template_type",
         "is_active",
     )
 
-    search_fields: ClassVar[tuple[str, ...]] = ("name",)
+    search_fields = ("name",)
 
-    list_per_page: int = 50
+    list_per_page = 50
 
-    ordering: ClassVar[list[str]] = ["-updated_at"]
+    ordering = ("-updated_at",)
 
-    readonly_fields: ClassVar[tuple[str, ...]] = (
+    readonly_fields = (
         "created_at",
         "updated_at",
         "structure_preview",
     )
 
-    fieldsets: ClassVar[tuple[Any, ...]] = (
+    fieldsets = (
         (None, {"fields": ("name",)}),
         (_("模板类型"), {"fields": ("template_type",), "description": _("选择此模板用于合同还是案件,必须二选一")}),
         (
@@ -248,16 +248,16 @@ class FolderTemplateAdmin(admin.ModelAdmin[FolderTemplate]):  # type: ignore[typ
         (_("时间信息"), {"fields": ("created_at", "updated_at"), "classes": ("collapse",)}),
     )
 
-    actions: ClassVar[list[str]] = ["activate_templates", "deactivate_templates", "duplicate_templates"]
+    actions = ["activate_templates", "deactivate_templates", "duplicate_templates"]
 
-    change_form_template: str = "admin/documents/foldertemplate/change_form.html"
-    change_list_template: str = "admin/documents/foldertemplate/change_list.html"
+    change_form_template = "admin/documents/foldertemplate/change_form.html"
+    change_list_template = "admin/documents/foldertemplate/change_list.html"
 
     class Media:
-        css: ClassVar[dict[str, tuple[str, ...]]] = {
+        css = {
             LegalStatusMatchMode.ALL: ("documents/css/folder_tree.css", "documents/css/multi_select.css")
         }
-        js: ClassVar[tuple[str, ...]] = (
+        js = (
             "documents/js/folder_tree.js",
             "documents/js/template_type_toggle.js",
         )
@@ -265,17 +265,17 @@ class FolderTemplateAdmin(admin.ModelAdmin[FolderTemplate]):  # type: ignore[typ
     @admin.display(description=_("模板类型"))
     def template_type_display(self, obj: FolderTemplate) -> str:
         """显示模板类型"""
-        return obj.template_type_display  # type: ignore[no-any-return]
+        return str(obj.template_type_display)
 
     @admin.display(description=_("合同类型"))
     def contract_types_display(self, obj: FolderTemplate) -> str:
         """显示合同类型"""
-        return obj.contract_types_display  # type: ignore[no-any-return]
+        return str(obj.contract_types_display)
 
     @admin.display(description=_("案件类型"))
     def case_types_display(self, obj: FolderTemplate) -> str:
         """显示案件类型"""
-        return obj.case_types_display  # type: ignore[no-any-return]
+        return str(obj.case_types_display)
 
     @admin.display(description=_("案件阶段"))
     def case_stage_display(self, obj: FolderTemplate) -> str:
@@ -283,21 +283,22 @@ class FolderTemplateAdmin(admin.ModelAdmin[FolderTemplate]):  # type: ignore[typ
         stages = obj.case_stages or []
         if not stages:
             return "-"
-        return dict(DocumentCaseStage.choices).get(stages[0], stages[0])  # type: ignore[return-value]
+        stage_label = dict(DocumentCaseStage.choices).get(stages[0], stages[0])
+        return str(stage_label)
 
     @admin.display(description=_("我方诉讼地位"))
     def legal_statuses_display(self, obj: FolderTemplate) -> str:
         """显示诉讼地位"""
         if obj.template_type != "case":
             return "-"
-        return obj.get_legal_statuses_display() or "任意"  # type: ignore[no-any-return]
+        return str(obj.get_legal_statuses_display() or "任意")
 
     @admin.display(description=_("匹配模式"))
     def legal_status_match_mode_display(self, obj: FolderTemplate) -> str:
         """显示诉讼地位匹配模式"""
         if obj.template_type != "case":
             return "-"
-        return obj.get_legal_status_match_mode_display()  # type: ignore[no-any-return]
+        return str(obj.get_legal_status_match_mode_display())
 
     def get_urls(self) -> list[Any]:
         """添加自定义URL"""
@@ -382,16 +383,6 @@ class FolderTemplateAdmin(admin.ModelAdmin[FolderTemplate]):  # type: ignore[typ
         except NotFoundError:
             return JsonResponse({"success": False, "error": "模板不存在"}, status=404)
 
-    def get_form(self, request: Any, obj: FolderTemplate | None = None, **kwargs: Any) -> Any:
-        """获取表单实例,传入request对象"""
-        FormClass = super().get_form(request, obj, **kwargs)
-
-        class FormWithRequest(FormClass):  # type: ignore[valid-type]
-            def __init__(self, *args: Any, **kwargs: Any) -> None:
-                kwargs["request"] = request
-                super().__init__(*args, **kwargs)
-
-        return FormWithRequest
 
     def save_model(self, request: Any, obj: FolderTemplate, form: Any, change: bool) -> None:
         """保存模型 - 处理自动修复的结构并显示消息"""

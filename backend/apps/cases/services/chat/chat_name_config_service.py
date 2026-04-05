@@ -66,7 +66,7 @@ class ChatNameConfigService:
 
         Requirements: 1.1, 1.2
         """
-        template = self._config_service.get_value(self.CONFIG_KEY_TEMPLATE, default=self.DEFAULT_TEMPLATE)
+        template = str(self._config_service.get_value(self.CONFIG_KEY_TEMPLATE, default=self.DEFAULT_TEMPLATE) or "")
 
         # 如果配置值为空,使用默认模板
         if not template or not template.strip():
@@ -85,7 +85,7 @@ class ChatNameConfigService:
 
         Requirements: 2.1, 2.3
         """
-        default_stage = self._config_service.get_value(self.CONFIG_KEY_DEFAULT_STAGE, default=self.DEFAULT_STAGE)
+        default_stage = str(self._config_service.get_value(self.CONFIG_KEY_DEFAULT_STAGE, default=self.DEFAULT_STAGE) or "")
 
         # 如果配置值为空,使用默认值
         if not default_stage or not default_stage.strip():

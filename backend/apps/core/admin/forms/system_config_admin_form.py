@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any, cast
+
 from django import forms
 from django.core.exceptions import ValidationError
 
@@ -19,7 +21,7 @@ class SystemConfigAdminForm(forms.ModelForm):
             "value": forms.Textarea(attrs={"rows": 6}),
         }
 
-    def __init__(self, *args: object, **kwargs: object) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.fields["value"].widget.attrs.setdefault("rows", 6)
 
@@ -48,6 +50,6 @@ class SystemConfigAdminForm(forms.ModelForm):
         if not bool(self.cleaned_data.get("is_secret")):
             return value
         try:
-            return SecretCodec().encrypt(value)
+            return cast(str, SecretCodec().encrypt(value))
         except RuntimeError as exc:
             raise ValidationError("缺少敏感配置加密密钥，无法保存 secret 配置。") from exc
