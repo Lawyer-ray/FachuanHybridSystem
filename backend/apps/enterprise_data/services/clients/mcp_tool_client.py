@@ -8,7 +8,7 @@ import logging
 import time
 from collections.abc import Callable
 from contextlib import asynccontextmanager
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 import httpx
 from asgiref.sync import async_to_sync
@@ -94,7 +94,7 @@ class McpToolClient:
         result["api_key_pool_size"] = max(1, int(execution_meta.get("api_key_pool_size", 1) or 1))
         result["api_key_attempt_count"] = max(1, int(execution_meta.get("api_key_attempt_count", 1) or 1))
         result["api_key_switched"] = bool(execution_meta.get("api_key_switched", False))
-        return result
+        return cast(dict[str, Any], result)
 
     def list_tools(self) -> list[str]:
         """获取远端 MCP 可用工具名列表。"""
@@ -110,7 +110,7 @@ class McpToolClient:
                 api_key=api_key,
             ),
         )
-        return tools
+        return cast(list[dict[str, Any]], tools)
 
     async def _call_tool_async(
         self,
@@ -344,7 +344,7 @@ class McpToolClient:
     @staticmethod
     def _serialize_content_item(item: Any) -> dict[str, Any]:
         if hasattr(item, "model_dump"):
-            return item.model_dump(by_alias=True, mode="json", exclude_none=True)
+            return cast(dict[str, Any], item.model_dump(by_alias=True, mode="json", exclude_none=True))
         return {"value": str(item)}
 
     def _extract_payload(self, result: types.CallToolResult) -> Any:
@@ -534,22 +534,61 @@ class McpToolClient:
             lowered_text = str(response.text or "").lower()
         except Exception:
             lowered_text = ""
-        if any(token in lowered_text for token in ("auth_error", "authentication", "unauthorized", "invalid api key")):
+        if McpToolClient._contains_auth_token(lowered_text):
             return True
 
         try:
             body = response.json()
         except Exception:
             return False
-        if not isinstance(body, dict):
+
+        flattened_hint = McpToolClient._flatten_error_payload_text(body)
+        if not flattened_hint:
             return False
+        return McpToolClient._contains_auth_token(flattened_hint)
 
-        # 天眼查 MCP 服务端把鉴权错误包装成 HTTP 500，type 字段为 "auth_error"
-        if str(body.get("type", "") or "").strip().lower() in ("auth_error", "authentication_error"):
-            return True
+    @staticmethod
+    def _contains_auth_token(text: str) -> bool:
+        normalized = str(text or "").lower()
+        auth_tokens = (
+            "auth_error",
+            "authentication",
+            "authentication_error",
+            "unauthorized",
+            "invalid api key",
+            "apikey",
+            "api key",
+            "token",
+            "signature",
+        )
+        return any(token in normalized for token in auth_tokens)
 
-        hint = " ".join(str(body.get(key, "")) for key in ("type", "code", "detail", "message")).lower()
-        return any(token in hint for token in ("auth", "unauthor", "api key", "token"))
+    @staticmethod
+    def _flatten_error_payload_text(payload: Any) -> str:
+        fragments: list[str] = []
+
+        def _walk(value: Any) -> None:
+            if value is None:
+                return
+            if isinstance(value, (str, int, float, bool)):
+                text = str(value).strip().lower()
+                if text:
+                    fragments.append(text)
+                return
+            if isinstance(value, dict):
+                for key, nested in value.items():
+                    key_text = str(key).strip().lower()
+                    if key_text:
+                        fragments.append(key_text)
+                    _walk(nested)
+                return
+            if isinstance(value, list):
+                for nested in value:
+                    _walk(nested)
+                return
+
+        _walk(payload)
+        return " ".join(fragments)
 
     @staticmethod
     def _collect_related_exceptions(exc: BaseException) -> list[BaseException]:

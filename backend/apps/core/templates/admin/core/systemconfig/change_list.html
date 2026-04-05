@@ -2,6 +2,30 @@
 {% load i18n %}
 
 {% block object-tools-items %}
+    {% if show_init_button %}
+    <li>
+        <a href="{% url 'admin:core_systemconfig_init_defaults' %}" class="addlink">
+            {% trans "初始化默认配置" %}
+        </a>
+    </li>
+    {% endif %}
+
+    {% if show_sync_button %}
+    <li>
+        <a href="{% url 'admin:core_systemconfig_sync_env' %}" class="addlink">
+            {% trans "同步环境变量" %}
+        </a>
+    </li>
+    {% endif %}
+
+    {% if show_clear_cache_button %}
+    <li>
+        <a href="{% url 'admin:core_systemconfig_clear_cache' %}" class="deletelink">
+            {% trans "清除配置缓存" %}
+        </a>
+    </li>
+    {% endif %}
+
     {% if show_trigger_update_button %}
     <li>
         <form id="system-update-form" method="post" action="{{ system_update_trigger_url }}" style="display:none;">

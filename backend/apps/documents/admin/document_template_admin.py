@@ -7,7 +7,7 @@ Requirements: 6.1, 2.9, 2.10
 import json
 import logging
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, cast
 
 from django import forms
 from django.contrib import admin
@@ -49,14 +49,14 @@ class DocumentTemplateFolderBindingInline(admin.TabularInline):
     """文书模板文件夹绑定内联"""
 
     model = DocumentTemplateFolderBinding
-    extra: int = 1
-    fields: tuple[Any, ...] = ("folder_template", "folder_node_id", "folder_node_path", "is_active")
-    readonly_fields: tuple[Any, ...] = ("folder_node_path",)
-    autocomplete_fields: ClassVar = ["folder_template"]
+    extra = 1
+    fields = ("folder_template", "folder_node_id", "folder_node_path", "is_active")
+    readonly_fields = ("folder_node_path",)
+    autocomplete_fields = ["folder_template"]
 
     class Media:
-        css: ClassVar = {LegalStatusMatchMode.ALL: ("documents/css/folder_binding_inline.css",)}
-        js: tuple[Any, ...] = ("admin/js/jquery.init.js", "documents/js/folder_binding_inline.js")
+        css = {LegalStatusMatchMode.ALL: ("documents/css/folder_binding_inline.css",)}
+        js = ("admin/js/jquery.init.js", "documents/js/folder_binding_inline.js")
 
 
 class DocumentTemplateForm(forms.ModelForm):
@@ -156,7 +156,7 @@ class DocumentTemplateForm(forms.ModelForm):
 
     class Meta:
         model = DocumentTemplate
-        fields: ClassVar = [
+        fields = [
             "name",
             "template_type",
             "contract_sub_type",
@@ -166,12 +166,13 @@ class DocumentTemplateForm(forms.ModelForm):
             "is_active",
         ]
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
         # 动态加载已有文件列表
         existing_files = list_docx_templates_files()
-        self.fields["existing_file"].choices = [("", "-- 不选择 / 上传新文件 --")] + existing_files
+        existing_file_field = cast(forms.ChoiceField, self.fields["existing_file"])
+        existing_file_field.choices = [("", "-- 不选择 / 上传新文件 --")] + existing_files
 
         # 从实例加载已选值
         if self.instance and self.instance.pk:
@@ -197,7 +198,7 @@ class DocumentTemplateForm(forms.ModelForm):
 
     def clean(self) -> Any:
         """验证文件选择逻辑和模板类型逻辑"""
-        cleaned_data = super().clean()
+        cleaned_data = super().clean() or {}
         existing_file = cleaned_data.get("existing_file")
         uploaded_file = cleaned_data.get("file")
         file_path = cleaned_data.get("file_path")
@@ -304,7 +305,7 @@ class DocumentTemplateForm(forms.ModelForm):
 
 
 @admin.register(DocumentTemplate)
-class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):  # type: ignore[type-arg]
+class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):
     """
     文书模板管理
 
@@ -313,7 +314,7 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):  # type: ignore
 
     form = DocumentTemplateForm
 
-    list_display: ClassVar[tuple[str, ...]] = (
+    list_display = (
         "id",
         "name",
         "template_type_display",
@@ -322,25 +323,25 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):  # type: ignore
         "updated_at",
     )
 
-    list_filter: ClassVar[tuple[str, ...]] = (
+    list_filter = (
         "template_type",
         "is_active",
     )
 
-    search_fields: ClassVar[tuple[str, ...]] = (
+    search_fields = (
         "name",
         "description",
     )
 
-    ordering: ClassVar[list[str]] = ["-id"]
+    ordering = ("-id",)
 
-    readonly_fields: ClassVar[tuple[str, ...]] = (
+    readonly_fields = (
         "current_file_display",
         "placeholders_display",
         "undefined_placeholders_display",
     )
 
-    fieldsets: ClassVar[tuple[Any, ...]] = (
+    fieldsets = (
         (None, {"fields": ("name",)}),
         (
             _("模板类型"),
@@ -383,9 +384,11 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):  # type: ignore
         ),
     )
 
-    inlines: ClassVar[list[Any]] = [DocumentTemplateFolderBindingInline]
+    inlines = [DocumentTemplateFolderBindingInline]
 
-    actions: ClassVar[list[str]] = [
+    change_list_template = "admin/documents/documenttemplate/change_list.html"
+
+    actions = [
         "activate_templates",
         "deactivate_templates",
         "refresh_placeholders",
@@ -393,14 +396,14 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):  # type: ignore
     ]
 
     class Media:
-        css: ClassVar[dict[str, tuple[str, ...]]] = {
+        css = {
             LegalStatusMatchMode.ALL: (
                 "documents/css/multi_select.css",
                 "cases/css/autocomplete.css",
                 "documents/css/institution_tags.css",
             )
         }
-        js: ClassVar[tuple[str, ...]] = (
+        js = (
             "cases/js/autocomplete.js",
             "documents/js/template_type_toggle.js",
             "documents/js/institution_tags.js",
@@ -441,7 +444,7 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):  # type: ignore
 
         from apps.core.exceptions import NotFoundError
 
-        obj = self.get_object(request, pk)
+        obj = self.get_object(request, str(pk))
         if not obj:
             raise Http404("模板不存在")
 
@@ -509,7 +512,8 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):  # type: ignore
         stages = obj.case_stages or []
         if not stages:
             return "-"
-        return dict(DocumentCaseStage.choices).get(stages[0], stages[0])  # type: ignore[return-value]
+        stage_label = dict(DocumentCaseStage.choices).get(stages[0], stages[0])
+        return str(stage_label)
 
     @admin.display(description=_("当前文件"))
     def current_file_display(self, obj: DocumentTemplate) -> Any:
