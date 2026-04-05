@@ -11,7 +11,7 @@ from docx.oxml.ns import qn
 from apps.core.llm.service import LLMService
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from docx import Document  # noqa: F401
+    from docx import Document
 
 
 logger = logging.getLogger(__name__)

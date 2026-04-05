@@ -8,7 +8,7 @@ from docx.oxml.ns import qn
 from docx.shared import Pt
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from docx import Document  # noqa: F401
+    from docx import Document
 
 
 logger = logging.getLogger(__name__)

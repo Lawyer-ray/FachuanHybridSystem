@@ -15,8 +15,9 @@ def get_logger() -> logging.Logger:
 
 def utc_now_iso() -> str:
     from apps.core.telemetry.time import utc_now_iso as _utc_now_iso
+    from typing import cast
 
-    return _utc_now_iso()
+    return cast(str, _utc_now_iso())
 
 
 def stable_hash(value: str) -> str:

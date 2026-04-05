@@ -17,7 +17,7 @@ from apps.documents.models import EvidenceList
 from apps.documents.services.infrastructure.pdf_merge_utils import add_page_numbers as add_page_numbers_util
 from apps.documents.services.infrastructure.pdf_merge_utils import convert_docx_to_pdf, convert_image_to_pdf
 if TYPE_CHECKING:
-    from docx import Document  # noqa: F401
+    from docx import Document
 
 
 
