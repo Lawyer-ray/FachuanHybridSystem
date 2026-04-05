@@ -2,6 +2,25 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.31.4] - 2026-04-05
+
+### 修复
+
+- **Mypy --strict 批量修复**：修复约 150 个 mypy 类型检查错误（分支 `fix/mypy-var-annotated`）
+  - `unused-ignore`: 234→12，删除无效的 `# type: ignore` 注释
+  - `redundant-cast`: 48→2，删除冗余的 `cast()` 调用
+  - `str`: 136→33，修复 ClassVar/override/cast 等类型兼容问题
+  - `type-arg` 非Model部分：泛型加类型参数（`list[dict]` → `list[dict[str, Any]]` 等）
+  - `valid-type`: 为 docx 相关文件添加 TYPE_CHECKING 块和 Document 类型导入（7 个文件）
+  - `name-defined`: 补充缺失的 import（os、admin）
+  - **`no-untyped-def`: 61→0 ✅ 全部清零**
+  - `assignment`: 72→36
+  - `override`: 部分处理
+
+### 文档
+
+- **Mypy 修复计划文档更新**：`docs/mypy-fix-plan.md` 更新至 v2.4，记录完整修复进度和剩余硬骨头分析
+
 ## [26.31.3] - 2026-04-05
 
 ### 新增
