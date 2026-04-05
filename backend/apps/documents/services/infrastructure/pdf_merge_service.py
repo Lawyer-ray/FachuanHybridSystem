@@ -6,7 +6,7 @@ import contextlib
 import io
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, ClassVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from django.core.files.base import ContentFile
 from django.utils import timezone
@@ -16,6 +16,9 @@ from apps.core.exceptions import BusinessException, ValidationException
 from apps.documents.models import EvidenceList
 from apps.documents.services.infrastructure.pdf_merge_utils import add_page_numbers as add_page_numbers_util
 from apps.documents.services.infrastructure.pdf_merge_utils import convert_docx_to_pdf, convert_image_to_pdf
+if TYPE_CHECKING:
+    from docx import Document  # noqa: F401
+
 
 
 class PDFMergeValidator:

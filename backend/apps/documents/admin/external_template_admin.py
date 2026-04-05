@@ -93,7 +93,7 @@ class ExternalTemplateFieldMappingInline(admin.TabularInline):  # type: ignore[t
 
 
 @admin.register(ExternalTemplate)
-class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):  # type: ignore[type-arg]
+class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):
     """
     外部模板管理
 
@@ -103,7 +103,7 @@ class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):  # type: ignore
 
     change_form_template: str = "admin/documents/external_template/change_form.html"
 
-    list_display: ClassVar[list[str]] = [
+    list_display: list = [
         "name",
         "source_name",
         "status",
@@ -111,7 +111,7 @@ class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):  # type: ignore
         "is_active",
         "updated_at",
     ]
-    list_filter: ClassVar[list[str]] = [
+    list_filter: list = [
         "status",
         "is_active",
     ]
@@ -162,7 +162,7 @@ class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):  # type: ignore
             kwargs["form"] = ExternalTemplateAddForm
         else:
             kwargs["form"] = ExternalTemplateChangeForm
-        return super().get_form(request, obj, change, **kwargs)  # type: ignore[return-value]
+        return super().get_form(request, obj, change, **kwargs)
 
     def get_fields(
         self,

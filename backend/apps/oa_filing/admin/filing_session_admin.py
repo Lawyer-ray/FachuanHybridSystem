@@ -5,6 +5,7 @@ from typing import ClassVar
 from django.utils.translation import gettext_lazy as _
 
 from apps.oa_filing.models import FilingSession
+from django.contrib import admin
 
 
 class FilingSessionAdmin(admin.ModelAdmin[FilingSession]):

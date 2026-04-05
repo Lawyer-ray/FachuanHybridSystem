@@ -22,7 +22,7 @@ from apps.organization.models import AccountCredential
 
 @admin.register(AccountCredential)
 class AccountCredentialAdmin(admin.ModelAdmin[AccountCredential]):
-    list_display: ClassVar[list[str]] = [
+    list_display: list = [
         "id",
         "lawyer",
         "site_name",
@@ -32,7 +32,7 @@ class AccountCredentialAdmin(admin.ModelAdmin[AccountCredential]):
 
     search_fields: ClassVar[tuple[str, ...]] = ("site_name", "url", "account", "lawyer__username", "lawyer__real_name")
 
-    list_filter: ClassVar[list[str]] = ["site_name", "lawyer", "last_login_success_at", "created_at"]
+    list_filter: list = ["site_name", "lawyer", "last_login_success_at", "created_at"]
 
     autocomplete_fields: ClassVar[tuple[str, ...]] = ("lawyer",)
 
@@ -54,7 +54,7 @@ class AccountCredentialAdmin(admin.ModelAdmin[AccountCredential]):
         (_("时间信息"), {"fields": ("created_at", "updated_at")}),
     )
 
-    ordering: ClassVar[list[str]] = ["-last_login_success_at", "-login_success_count", "login_failure_count"]
+    ordering: list = ["-last_login_success_at", "-login_success_count", "login_failure_count"]
 
     date_hierarchy = "last_login_success_at"
 
@@ -62,7 +62,7 @@ class AccountCredentialAdmin(admin.ModelAdmin[AccountCredential]):
 
     def get_form(
         self, request: HttpRequest, obj: AccountCredential | None = None, **kwargs: Any
-    ) -> type[forms.ModelForm]:  # type: ignore[override]
+    ) -> type[forms.ModelForm]:
         form = super().get_form(request, obj, **kwargs)
         if "password" in form.base_fields:
             # Preserve masked credential input; do not regress to plain text rendering.

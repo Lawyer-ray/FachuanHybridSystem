@@ -36,7 +36,7 @@ class InsuranceQuoteInline(admin.TabularInline[InsuranceQuote, InsuranceQuote]):
     extra = 0
     can_delete = False
 
-    fields: ClassVar[list[str]] = [
+    fields: list = [
         "company_name",
         "prices_display",
         "rates_display",
@@ -163,7 +163,7 @@ class InsuranceQuoteInline(admin.TabularInline[InsuranceQuote, InsuranceQuote]):
 class PreservationQuoteAdmin(admin.ModelAdmin[PreservationQuote]):
     """财产保全询价管理 Admin"""
 
-    list_display: ClassVar[list[str]] = [
+    list_display: list = [
         "id",
         "preserve_amount_display",
         "status_display",
@@ -174,7 +174,7 @@ class PreservationQuoteAdmin(admin.ModelAdmin[PreservationQuote]):
         "run_button",
     ]
 
-    list_filter: ClassVar[list[str]] = [
+    list_filter: list = [
         "status",
         "created_at",
         "finished_at",
@@ -247,7 +247,7 @@ class PreservationQuoteAdmin(admin.ModelAdmin[PreservationQuote]):
     )
 
     inlines: ClassVar[list[Any]] = [InsuranceQuoteInline]
-    ordering: ClassVar[list[str]] = ["-created_at"]
+    ordering: list = ["-created_at"]
     date_hierarchy = "created_at"
 
     list_per_page = 20
@@ -518,4 +518,4 @@ class PreservationQuoteAdmin(admin.ModelAdmin[PreservationQuote]):
         except Exception as e:
             self.message_user(request, f"提交任务失败: {e!s}", level=messages.ERROR)
 
-        return redirect("admin:automation_preservationquote_changelist")  # type: ignore[return-value]
+        return redirect("admin:automation_preservationquote_changelist")

@@ -198,7 +198,7 @@ class MaterialClassificationService:
         context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         context = context or {}
-        default = {
+        default: dict[str, str] = {
             "category": "unknown",
             "side": "unknown",
             "type_name_hint": "",

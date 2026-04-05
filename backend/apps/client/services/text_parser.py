@@ -373,7 +373,7 @@ def _extract_parties(text: str) -> list[dict[str, Any]]:
     role_patterns = _ROLE_SPLIT_PATTERNS
 
     # 找到所有角色标签的位置
-    all_matches = []
+    all_matches: list[re.Match[str]] = []
     for compiled in role_patterns:
         all_matches.extend(compiled.finditer(text))
 

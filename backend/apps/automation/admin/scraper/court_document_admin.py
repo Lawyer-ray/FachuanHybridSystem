@@ -37,7 +37,7 @@ class CourtDocumentAdmin(admin.ModelAdmin[CourtDocument]):
     - 为已下载文书提供文件下载链接
     """
 
-    list_display: ClassVar[list[str]] = [
+    list_display: list = [
         "id",
         "c_wsmc_display",
         "c_fymc_display",
@@ -47,7 +47,7 @@ class CourtDocumentAdmin(admin.ModelAdmin[CourtDocument]):
         "download_link",
     ]
 
-    list_filter: ClassVar[list[str]] = [
+    list_filter: list = [
         "download_status",
         "c_fymc",
         "created_at",
@@ -137,7 +137,7 @@ class CourtDocumentAdmin(admin.ModelAdmin[CourtDocument]):
         ),
     )
 
-    ordering: ClassVar[list[str]] = ["-created_at"]
+    ordering: list = ["-created_at"]
     date_hierarchy = "created_at"
 
     list_per_page = 20

@@ -205,7 +205,7 @@ class DocumentDeliveryMatchingMixin:
                 }
 
                 logger.info(f"创建 CourtSMS 记录: 案号={record.case_number}")
-                sms = CourtSMS.objects.create(  # type: ignore
+                sms = CourtSMS.objects.create(
                     content=f"文书送达自动下载: {record.case_number}",
                     received_at=record.send_time,
                     status=CourtSMSStatus.MATCHING,
@@ -249,7 +249,7 @@ class DocumentDeliveryMatchingMixin:
                         logger.info(f"通知发送成功: SMS ID={sms.id}")
                     else:
                         sms.status = CourtSMSStatus.FAILED
-                        sms.error_message = _("通知发送失败")  # type: ignore
+                        sms.error_message = _("通知发送失败")
                         logger.warning(f"通知发送失败: SMS ID={sms.id}")
 
                     sms.save()

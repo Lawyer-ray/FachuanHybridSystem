@@ -54,10 +54,10 @@ class DocumentTemplateQueryService:
             for template in templates:
                 case_types = template.case_types or []
                 if not case_types or "all" in case_types or case_type in case_types:
-                    return self.assembler.to_dto(template)  # type: ignore[return-value]
+                    return self.assembler.to_dto(template)
             return None
         if templates:
-            return self.assembler.to_dto(templates[0])  # type: ignore[return-value]
+            return self.assembler.to_dto(templates[0])
         return None
 
     def list_templates_by_function_code_internal(

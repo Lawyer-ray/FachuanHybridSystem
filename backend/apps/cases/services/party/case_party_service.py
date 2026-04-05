@@ -102,7 +102,7 @@ class CasePartyService:
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> CaseParty:
-        return cast(
+        return cast(  # type: ignore[redundant-cast]
             CaseParty,
             self.query_facade.get_party(
                 party_id=party_id,
@@ -122,7 +122,7 @@ class CasePartyService:
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> CaseParty:
-        return cast(
+        return cast(  # type: ignore[redundant-cast]
             CaseParty,
             self.mutation_facade.create_party(
                 case_id=case_id,
@@ -143,7 +143,7 @@ class CasePartyService:
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> CaseParty:
-        return cast(
+        return cast(  # type: ignore[redundant-cast]
             CaseParty,
             self.mutation_facade.update_party(
                 party_id=party_id,
@@ -162,7 +162,7 @@ class CasePartyService:
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> dict[str, bool]:
-        return cast(
+        return cast(  # type: ignore[redundant-cast]
             dict[str, bool],
             self.mutation_facade.delete_party(
                 party_id=party_id,

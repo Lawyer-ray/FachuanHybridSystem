@@ -6,7 +6,7 @@ import logging
 from datetime import date
 from typing import Any, ClassVar, cast
 
-from dateutil.relativedelta import relativedelta  # type: ignore[import-untyped]
+from dateutil.relativedelta import relativedelta
 from django.db import transaction
 from django.utils.translation import gettext_lazy as _
 

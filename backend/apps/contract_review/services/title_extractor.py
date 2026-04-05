@@ -5,6 +5,10 @@ import re
 from datetime import date
 
 from docx import Document
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from docx import Document  # noqa: F401
+
 
 logger = logging.getLogger(__name__)
 

@@ -67,7 +67,7 @@ class AuthorizationMaterialGenerationService:
             # 后备:使用硬编码路径
             template_path = self.AUTHORITY_LETTER_TEMPLATE
 
-        content = self._render_template(template_path, context)  # type: ignore[no-any-return]
+        content = self._render_template(template_path, context)
         filename = self._build_authority_letter_filename(case_name=getattr(case, "name", "") or "")
         return content, filename
 
@@ -82,7 +82,7 @@ class AuthorizationMaterialGenerationService:
             # 后备:使用硬编码路径
             template_path = self.LEGAL_REP_CERT_TEMPLATE
 
-        content = self._render_template(template_path, context)  # type: ignore[no-any-return]
+        content = self._render_template(template_path, context)
         filename = self._build_legal_rep_certificate_filename(company_name=getattr(client, "name", "") or "")
         return content, filename
 
@@ -333,7 +333,7 @@ class AuthorizationMaterialGenerationService:
         context_data: dict[str, Any] = {"case": case}
         if client is not None:
             context_data["client"] = client
-        return EnhancedContextBuilder().build_context(context_data)  # type: ignore[no-any-return]
+        return EnhancedContextBuilder().build_context(context_data)
 
     def _build_power_of_attorney_context(self, *, case: Any, selected_clients: list[Any]) -> dict[str, Any]:
         context_data: dict[str, Any] = {
@@ -346,7 +346,7 @@ class AuthorizationMaterialGenerationService:
             "指定日期",
             "年份",
         ]
-        return EnhancedContextBuilder().build_context(context_data, required_placeholders=required_placeholders)  # type: ignore[no-any-return]
+        return EnhancedContextBuilder().build_context(context_data, required_placeholders=required_placeholders)
 
     def _validate_power_of_attorney_context(self, context: dict[str, Any]) -> None:
         pass  # 代理事项为空时允许生成，占位符留空
@@ -442,7 +442,7 @@ class AuthorizationMaterialGenerationService:
             raise ValidationException(
                 message=_("模板文件路径为空"),
                 code="TEMPLATE_FILE_EMPTY",
-                errors={"template_id": str(cast(int, template.pk))},  # type: ignore[no-any-return]
+                errors={"template_id": str(cast(int, template.pk))},
             )
         return Path(location)
 

@@ -25,7 +25,7 @@ class ContractQueryService:
         return self._access_policy
 
     def get_contract_queryset(self) -> QuerySet[Contract, Contract]:
-        return cast(
+        return cast(  # type: ignore[redundant-cast]
             QuerySet[Contract, Contract],
             Contract.objects.prefetch_related(
                 "cases",

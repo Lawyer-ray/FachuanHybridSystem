@@ -21,7 +21,7 @@ from apps.document_recognition.models import DocumentRecognitionStatus, Document
 class DocumentRecognitionToolAdmin(admin.ModelAdmin[DocumentRecognitionTool]):
     """Admin entry page for the recognition workbench."""
 
-    def changelist_view(  # type: ignore[override]
+    def changelist_view(
         self,
         request: HttpRequest,
         extra_context: dict[str, Any] | None = None,
@@ -51,7 +51,7 @@ class DocumentRecognitionToolAdmin(admin.ModelAdmin[DocumentRecognitionTool]):
 class DocumentRecognitionTaskAdmin(admin.ModelAdmin[DocumentRecognitionTask]):
     """Document recognition task list and detail admin."""
 
-    list_display: ClassVar[list[str]] = [
+    list_display: list = [
         "id",
         "status_display",
         "original_filename",
@@ -63,7 +63,7 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin[DocumentRecognitionTask]):
         "notification_sent_at",
         "created_at",
     ]
-    list_filter: ClassVar[list[str]] = [
+    list_filter: list = [
         "status",
         "document_type",
         "binding_success",
@@ -71,7 +71,7 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin[DocumentRecognitionTask]):
         "created_at",
     ]
     search_fields: ClassVar[list[str]] = ["original_filename", "case_number", "case__name"]
-    ordering: ClassVar[list[str]] = ["-created_at"]
+    ordering: list = ["-created_at"]
     list_per_page = 20
     readonly_fields: ClassVar[list[str]] = [
         "id",

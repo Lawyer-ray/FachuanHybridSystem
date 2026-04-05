@@ -38,7 +38,7 @@ def _get_id_card_merge_service() -> Any:
 @router.post("/identity-doc/recognize", response=IdentityRecognizeOut)
 def recognize_identity_doc(
     request: Any,
-    file: UploadedFile = File(...),  # type: ignore[arg-type]
+    file: UploadedFile = File(...),
     doc_type: str = "id_card",
 ) -> IdentityRecognizeOut:
     """识别证件信息"""
@@ -59,7 +59,7 @@ def add_identity_doc(
     request: Any,
     client_id: int,
     doc_type: str,
-    file: UploadedFile = File(...),  # type: ignore[arg-type]
+    file: UploadedFile = File(...),
 ) -> dict[str, Any]:
     """添加证件文档"""
     service = _get_identity_doc_service()
@@ -84,8 +84,8 @@ class MergeIdCardManualIn(Schema):
 @router.post("/identity-docs/merge-id-card")
 def merge_id_card(
     request: Any,
-    front_image: UploadedFile = File(...),  # type: ignore[arg-type]
-    back_image: UploadedFile = File(...),  # type: ignore[arg-type]
+    front_image: UploadedFile = File(...),
+    back_image: UploadedFile = File(...),
     client_id: int | None = None,
 ) -> dict[str, Any]:
     """自动检测并合并身份证正反面为 PDF，可选保存到客户证件"""
@@ -105,8 +105,8 @@ def merge_id_card(
 @router.post("/identity-docs/merge-id-card-direct")
 def merge_id_card_direct(
     request: Any,
-    front_image: UploadedFile = File(...),  # type: ignore[arg-type]
-    back_image: UploadedFile = File(...),  # type: ignore[arg-type]
+    front_image: UploadedFile = File(...),
+    back_image: UploadedFile = File(...),
     client_id: int | None = None,
 ) -> dict[str, Any]:
     """直接合并已裁剪的身份证正反面为 PDF（前端已完成裁剪），可选保存到客户证件"""
@@ -186,7 +186,7 @@ def delete_identity_doc(request: Any, doc_id: int) -> dict[str, Any]:
 @rate_limit_from_settings("TASK", by_user=True)
 def submit_recognize_task(
     request: Any,
-    file: UploadedFile = File(...),  # type: ignore[arg-type]
+    file: UploadedFile = File(...),
 ) -> dict[str, Any]:
     """提交证件识别异步任务"""
     service = _get_identity_doc_service()

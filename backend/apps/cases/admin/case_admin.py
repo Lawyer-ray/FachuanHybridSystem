@@ -161,10 +161,10 @@ class CaseAdmin(
         admin_service = self._get_case_admin_service()
         return admin_service.import_cases_from_json_data(data_list, case_import_service=case_svc)
 
-    def serialize_queryset(self, queryset: QuerySet[Case]) -> list[dict[str, object]]:  # type: ignore[override]
+    def serialize_queryset(self, queryset: QuerySet[Case]) -> list[dict[str, object]]:
         service = self._get_case_admin_service()
         return service.serialize_queryset_for_export(queryset)
 
-    def get_file_paths(self, queryset: QuerySet[Case]) -> list[str]:  # type: ignore[override]
+    def get_file_paths(self, queryset: QuerySet[Case]) -> list[str]:
         service = self._get_case_admin_service()
         return service.collect_file_paths_for_export(queryset)

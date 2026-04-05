@@ -81,7 +81,7 @@ class LPRSyncService:
 
         raise BusinessException(message=_("Chrome 启动失败，请手动启动后重试"), code="CHROME_START_FAILED")
 
-    def sync_latest(self) -> dict:
+    def sync_latest(self) -> dict[str, Any]:
         """同步最新LPR数据.
 
         Returns:
@@ -143,7 +143,7 @@ class LPRSyncService:
             finally:
                 page.close()
 
-    def _parse_lpr_table_from_page(self, page) -> list[LPRData]:
+    def _parse_lpr_table_from_page(self, page: object) -> list[LPRData]:
         """直接从Playwright页面解析LPR表格数据.
 
         Args:
@@ -255,7 +255,7 @@ class LPRSyncService:
         except (InvalidOperation, ValueError):
             return None
 
-    def _save_lpr_data(self, lpr_data_list: list[LPRData]) -> dict:
+    def _save_lpr_data(self, lpr_data_list: list[LPRData]) -> dict[str, Any]:
         """保存LPR数据到数据库.
 
         Args:
@@ -302,7 +302,7 @@ class LPRSyncService:
         logger.info(f"[LPRSync] Sync completed: {result}")
         return result
 
-    def get_sync_status(self) -> dict:
+    def get_sync_status(self) -> dict[str, Any]:
         """获取同步状态.
 
         Returns:

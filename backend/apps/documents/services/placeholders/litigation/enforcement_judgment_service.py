@@ -63,7 +63,7 @@ class EnforcementJudgmentMainTextService(BasePlaceholderService):
         logger.warning("未找到执行依据主文: case_id=%s", case_id)
         return ""
 
-    def generate(self, context: dict) -> dict:
+    def generate(self, context: dict[str, Any]) -> dict[str, Any]:
         """
         生成执行依据主文占位符
 

@@ -38,7 +38,7 @@ def _get_document_delivery_schedule_service() -> Any:
 class DocumentDeliveryScheduleAdmin(admin.ModelAdmin[DocumentDeliverySchedule]):
     """文书送达定时任务管理"""
 
-    list_display: ClassVar[list[str]] = [
+    list_display: list = [
         "id",
         "credential_display",
         "runs_per_day",
@@ -63,7 +63,7 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin[DocumentDeliverySchedule]):
         "credential__site_name",
     ]
 
-    ordering: ClassVar[list[str]] = ["-created_at"]
+    ordering: list = ["-created_at"]
     list_per_page = 20
 
     readonly_fields: ClassVar[list[str]] = [

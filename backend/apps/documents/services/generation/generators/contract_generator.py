@@ -33,8 +33,7 @@ class ContractGenerator(BaseGenerator):
     ]
 
     def get_required_placeholders(self) -> list[str]:
-        return cast(list[str], self.REQUIRED_PLACEHOLDERS)
-
+        return self.REQUIRED_PLACEHOLDERS
     def generate(self, context: dict[str, Any], template_path: str, output_dir: str) -> GenerationResult:
         """
         生成合同文书

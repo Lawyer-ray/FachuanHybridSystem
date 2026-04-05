@@ -3,6 +3,10 @@ from __future__ import annotations
 import logging
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from docx import Document  # noqa: F401
+
 
 _CST = timezone(timedelta(hours=8))
 
@@ -82,8 +86,8 @@ class DocxRevisionTool:
         date: str,
     ) -> None:
         """原文在单个 run 内的情况"""
-        run_elem = run._element  # type: ignore[union-attr]
-        text = run.text  # type: ignore[union-attr]
+        run_elem = run._element
+        text = run.text
         start = text.index(original)
         prefix = text[:start]
         suffix = text[start + len(original) :]

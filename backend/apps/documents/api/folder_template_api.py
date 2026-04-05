@@ -39,7 +39,7 @@ def list_folder_templates(
         is_active: 启用状态过滤
     """
     service = _get_folder_template_service()
-    return service.list_templates(  # type: ignore[return-value]
+    return service.list_templates(
         case_type=case_type,
         is_active=is_active,
     )

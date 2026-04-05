@@ -22,7 +22,7 @@ router = Router()
 
 def _get_folder_binding_service() -> Any:
     """工厂函数:获取案件文件夹绑定服务"""
-    from apps.cases.services import CaseFolderBindingService  # type: ignore[attr-defined]
+    from apps.cases.services import CaseFolderBindingService
     from apps.core.dependencies import (
         build_case_service_with_deps,
         build_client_service,

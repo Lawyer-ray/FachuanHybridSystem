@@ -1432,7 +1432,7 @@ class LegalResearchExecutor(
         breach_low_terms = intent_slots["breach_low"]
         damage_low_terms = intent_slots["damage_low"]
         remedy_low_terms = intent_slots["remedy_low"]
-        low_conf_limit = max(1, int(intent_slots.get("low_conf_limit", 2)))
+        low_conf_limit = max(1, int(intent_slots.get("low_conf_limit", 2)))  # type: ignore[str]
 
         keyword_terms = [token for token in cls._split_tokens(keyword) if not cls._is_location_or_court_token(token)]
         summary_terms = cls._extract_summary_terms(case_summary)
@@ -1441,13 +1441,13 @@ class LegalResearchExecutor(
         relation_seed = relation_terms or summary_relation_terms[:2] or keyword_terms[:2]
         query_parts: list[list[str]] = []
         if relation_seed and breach_terms and damage_terms:
-            query_parts.append([*relation_seed[:2], *breach_terms[:2], *damage_terms[:2]])
+            query_parts.append([*relation_seed[:2], *breach_terms[:2], *damage_terms[:2]])  # type: ignore[str]
         if relation_seed and damage_terms:
-            query_parts.append([*relation_seed[:2], *damage_terms[:2], *remedy_terms[:1], *summary_terms[:2]])
+            query_parts.append([*relation_seed[:2], *damage_terms[:2], *remedy_terms[:1], *summary_terms[:2]])  # type: ignore[str]
         if breach_terms and damage_terms:
-            query_parts.append([*breach_terms[:2], *damage_terms[:2], *summary_terms[:2]])
+            query_parts.append([*breach_terms[:2], *damage_terms[:2], *summary_terms[:2]])  # type: ignore[str]
         if relation_seed and remedy_terms:
-            query_parts.append([*relation_seed[:2], *remedy_terms[:2], *summary_terms[:2]])
+            query_parts.append([*relation_seed[:2], *remedy_terms[:2], *summary_terms[:2]])  # type: ignore[str]
         low_conf_pool = cls._dedupe_tokens(
             [*relation_low_terms, *breach_low_terms, *damage_low_terms, *remedy_low_terms],
             max_tokens=max(2, low_conf_limit * 2),
@@ -1725,14 +1725,14 @@ class LegalResearchExecutor(
 
         relation_high = cls._collect_intent_terms(normalized, relation_mapping)
         relation_high.extend(
-            cls._extract_relation_terms_dynamic(normalized, extra_regexes=rule_overrides["relation_regex_extra"])
+            cls._extract_relation_terms_dynamic(normalized, extra_regexes=rule_overrides["relation_regex_extra"])  # type: ignore[str]
         )
-        relation_high.extend([cls._normalize_relation_term(term) for term in rule_overrides["relation_term_extra"]])
+        relation_high.extend([cls._normalize_relation_term(term) for term in rule_overrides["relation_term_extra"]])  # type: ignore[str]
         relation_low = [token for token in semantic_tokens if cls._looks_like_relation_term(token)]
 
-        breach_hints = cls._merge_hint_overrides(cls.INTENT_BREACH_HINTS, rule_overrides["breach_hint_extra"])
-        damage_hints = cls._merge_hint_overrides(cls.INTENT_DAMAGE_HINTS, rule_overrides["damage_hint_extra"])
-        remedy_hints = cls._merge_hint_overrides(cls.INTENT_REMEDY_HINTS, rule_overrides["remedy_hint_extra"])
+        breach_hints = cls._merge_hint_overrides(cls.INTENT_BREACH_HINTS, rule_overrides["breach_hint_extra"])  # type: ignore[str]
+        damage_hints = cls._merge_hint_overrides(cls.INTENT_DAMAGE_HINTS, rule_overrides["damage_hint_extra"])  # type: ignore[str]
+        remedy_hints = cls._merge_hint_overrides(cls.INTENT_REMEDY_HINTS, rule_overrides["remedy_hint_extra"])  # type: ignore[str]
 
         breach_high = cls._collect_intent_terms(normalized, breach_mapping)
         dyn_breach_high, dyn_breach_low = cls._extract_slot_terms_by_hints_with_confidence(

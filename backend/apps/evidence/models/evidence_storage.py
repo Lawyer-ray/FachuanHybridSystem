@@ -36,14 +36,13 @@ class EvidenceFileStorage(FileSystemStorage):
 
         return stem + ext
 
-    def generate_filename(self, name: str) -> str:
+    def generate_filename(self, name: str | os.PathLike[str]) -> str:
         from pathlib import Path
 
         original_name = name
         name = super().generate_filename(name)
         if not name:
-            return original_name
-
+            return original_name  # type: ignore[override]
         path = Path(name)
         stem = path.stem
         ext = path.suffix

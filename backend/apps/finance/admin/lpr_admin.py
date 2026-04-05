@@ -65,11 +65,11 @@ class LPRRateAdmin(BaseModelAdmin):
         """禁止手动添加LPR数据."""
         return False
 
-    def has_change_permission(self, request: HttpRequest, obj=None) -> bool:
+    def has_change_permission(self, request: HttpRequest, obj: object | None = None) -> bool:
         """禁止修改LPR数据."""
         return False
 
-    def has_delete_permission(self, request: HttpRequest, obj=None) -> bool:
+    def has_delete_permission(self, request: HttpRequest, obj: object | None = None) -> bool:
         """禁止删除LPR数据."""
         return False
 
@@ -115,7 +115,7 @@ class LPRRateAdmin(BaseModelAdmin):
         ]
         return custom_urls + urls
 
-    def changelist_view(self, request: HttpRequest, extra_context: dict | None = None) -> TemplateResponse:
+    def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> TemplateResponse:
         """列表页面视图，添加快捷操作按钮."""
         extra_context = extra_context or {}
         extra_context["sync_url"] = "sync/"
@@ -139,7 +139,7 @@ class LPRRateAdmin(BaseModelAdmin):
         from apps.core.exceptions import BusinessException
         from apps.finance.services.lpr import LPRSyncService
 
-        user: User = request.user  # type: ignore[assignment]
+        user: User = request.user
         logger.info(f"[LPRAdmin] User {user.id} triggered sync from admin")
 
         try:

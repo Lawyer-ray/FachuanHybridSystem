@@ -1,4 +1,4 @@
-def __getattr__(name: str):
+def __getattr__(name: str) -> object:
     """延迟导入避免循环依赖"""
     if name == "EvidenceFileService":
         from .evidence_file_service import EvidenceFileService

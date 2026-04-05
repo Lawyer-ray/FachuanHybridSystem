@@ -66,15 +66,15 @@ class FolderBindingService(FolderBindingCrudService):
         )
 
     def _resolve_subdir_path(self, *, owner_type: str, subdir_key: str) -> str | None:
-        return cast(str | None, self._subdir_path_resolver.resolve(case_type=owner_type, subdir_key=subdir_key))
+        return self._subdir_path_resolver.resolve(case_type=owner_type, subdir_key=subdir_key)
 
     def _sanitize_file_name(self, file_name: str) -> str:
         """兼容旧测试入口：委托给统一路径校验器。"""
-        return cast(str, self.path_validator.sanitize_file_name(file_name))
+        return self.path_validator.sanitize_file_name(file_name)
 
     def _normalize_relative_path(self, relative_path: str) -> str:
         """兼容旧测试入口：委托给统一路径校验器。"""
-        return cast(str, self.path_validator.normalize_relative_path(relative_path))
+        return self.path_validator.normalize_relative_path(relative_path)
 
     # 为了保持向后兼容,提供 contract_id 参数的便捷方法
     def create_binding_for_contract(self, contract_id: int, folder_path: str) -> Any:
@@ -87,7 +87,7 @@ class FolderBindingService(FolderBindingCrudService):
 
     def delete_binding_for_contract(self, contract_id: int) -> bool:
         """删除合同的文件夹绑定(便捷方法)"""
-        return cast(bool, self.delete_binding(owner_id=contract_id))
+        return self.delete_binding(owner_id=contract_id)
 
     def get_binding_for_contract(self, contract_id: int) -> ContractFolderBinding | None:
         """获取合同的文件夹绑定(便捷方法)"""
@@ -117,7 +117,7 @@ class FolderBindingService(FolderBindingCrudService):
         subdir_key: str = "contract_documents",
     ) -> str | None:
         """保存文件到绑定文件夹（实现 IContractFolderBindingService 协议）"""
-        return cast(
+        return cast(  # type: ignore[redundant-cast]
             str | None,
             super().save_file_to_bound_folder(
                 owner_id=owner_id,
@@ -129,4 +129,4 @@ class FolderBindingService(FolderBindingCrudService):
 
     def extract_zip_to_bound_folder(self, contract_id: int, zip_content: bytes) -> str | None:
         """解压 ZIP 到绑定文件夹（实现 IContractFolderBindingService 协议）"""
-        return cast(str | None, super().extract_zip_to_bound_folder(owner_id=contract_id, zip_content=zip_content))
+        return super().extract_zip_to_bound_folder(owner_id=contract_id, zip_content=zip_content)

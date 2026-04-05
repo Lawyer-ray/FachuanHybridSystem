@@ -11,7 +11,7 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 
-def sync_lpr_rates() -> dict:
+def sync_lpr_rates() -> dict[str, Any]:
     """同步LPR利率数据的定时任务.
 
     每月20日（遇节假日顺延）从央行官网获取最新LPR数据。

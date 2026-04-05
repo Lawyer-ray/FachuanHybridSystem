@@ -51,7 +51,7 @@ class EnforcementCaseNumberService(BasePlaceholderService):
         case_details = self.case_details_accessor.require_case_details(case_id=case_id)
         case_numbers = case_details.get("case_numbers", []) or []
 
-        def build_full_number(cn: dict) -> str:
+        def build_full_number(cn: dict[str, Any]) -> str:
             """构建完整案号"""
             number = cn.get("number", "") or ""
             document_name = cn.get("document_name")

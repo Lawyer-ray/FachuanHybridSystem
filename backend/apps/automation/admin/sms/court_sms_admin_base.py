@@ -33,7 +33,7 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
     """法院短信管理基础配置"""
 
     # 列表显示字段
-    list_display: ClassVar[list[str]] = [
+    list_display: list = [
         "id",
         "status_display",
         "sms_type_display",
@@ -63,7 +63,7 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
     ]
 
     # 排序
-    ordering: ClassVar[list[str]] = []
+    ordering: list = []
 
     # 分页
     list_per_page: int = 20
@@ -191,7 +191,7 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
                 obj.case.name[:50] + ("..." if len(obj.case.name) > 50 else ""),
             )
         elif obj.status == CourtSMSStatus.PENDING_MANUAL:
-            assign_url = reverse("admin:automation_courtsms_assign_case", args=[cast(int, obj.id)])
+            assign_url = reverse("admin:automation_courtsms_assign_case", args=[obj.id])
             return format_html('<a href="{}" style="color: orange; font-weight: bold;">🔗 手动指定案件</a>', assign_url)
         return "-"
 
@@ -321,8 +321,8 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
     @admin.display(description=_("操作"))
     def retry_button(self, obj: CourtSMS) -> SafeString | str:
         """重新处理按钮"""
-        if cast(int, obj.id):
-            retry_url = reverse("admin:automation_courtsms_retry", args=[cast(int, obj.id)])
+        if obj.id:
+            retry_url = reverse("admin:automation_courtsms_retry", args=[obj.id])
             return format_html(
                 '<a href="{}" class="button" onclick="return confirm('
                 "'确认要重新处理这条短信吗?这将重置状态并重新执行完整流程.');"
@@ -343,7 +343,7 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
         """优化查询性能"""
         return super().get_queryset(request).select_related("case", "scraper_task", "case_log")
 
-    def get_fields(self, request: HttpRequest, obj: CourtSMS | None = None) -> list[str]:
+    def get_fields(self, request: HttpRequest, obj: CourtSMS | None = None) -> Any:
         """根据是否为新增页面返回不同的字段"""
         if obj is None:
             return ["content", "received_at"]

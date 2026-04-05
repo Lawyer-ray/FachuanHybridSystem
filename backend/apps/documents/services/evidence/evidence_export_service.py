@@ -288,7 +288,7 @@ class EvidenceExportService:
                 errors={"list_id": f"ID 为 {list_id} 的证据清单不存在"},
             ) from None
 
-    def _create_evidence_table(self, doc: Document, items: list[EvidenceItem], global_order_start: int = 1) -> None:  # type: ignore[override]
+    def _create_evidence_table(self, doc: Document, items: list[EvidenceItem], global_order_start: int = 1) -> None:
         """
         创建证据清单表格
 
@@ -300,7 +300,7 @@ class EvidenceExportService:
         Requirements: 8.2, 8.3
         """
         # 创建表格:序号、证据名称、证明内容、页码
-        table = doc.add_table(rows=1, cols=4)  # type: ignore[no-untyped-call]
+        table = doc.add_table(rows=1, cols=4)
         table.style = "Table Grid"
         table.alignment = WD_TABLE_ALIGNMENT.CENTER
 
@@ -330,7 +330,7 @@ class EvidenceExportService:
             row_cells[3].text = item.page_range_display
             row_cells[3].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-    def _add_evidence_detail_section(self, doc: Document, item: EvidenceItem, global_order: int) -> None:  # type: ignore[override]
+    def _add_evidence_detail_section(self, doc: Document, item: EvidenceItem, global_order: int) -> None:
         """
         添加证据明细章节
 
@@ -342,19 +342,19 @@ class EvidenceExportService:
         Requirements: 10.2
         """
         # 证据标题(使用全局序号)
-        doc.add_heading(f"证据 {global_order}:{item.name}", level=2)  # type: ignore[no-untyped-call]
+        doc.add_heading(f"证据 {global_order}:{item.name}", level=2)
         # 证明内容
-        doc.add_paragraph(f"证明内容:{item.purpose}")  # type: ignore[no-untyped-call]
+        doc.add_paragraph(f"证明内容:{item.purpose}")
         # 页码范围
         if item.page_start and item.page_end:
-            doc.add_paragraph(f"页码范围:{item.page_range_display}")  # type: ignore[no-untyped-call]
+            doc.add_paragraph(f"页码范围:{item.page_range_display}")
         # 文件信息
         if item.file:
-            doc.add_paragraph(f"文件名:{item.file_name}")  # type: ignore[no-untyped-call]
-            doc.add_paragraph(f"文件大小:{item.file_size_display}")  # type: ignore[no-untyped-call]
-            doc.add_paragraph(f"页数:{item.page_count}")  # type: ignore[no-untyped-call]
+            doc.add_paragraph(f"文件名:{item.file_name}")
+            doc.add_paragraph(f"文件大小:{item.file_size_display}")
+            doc.add_paragraph(f"页数:{item.page_count}")
         # 添加分隔线
-        doc.add_paragraph("─" * 50)  # type: ignore[no-untyped-call]
+        doc.add_paragraph("─" * 50)
 
     def _get_global_order_start(self, evidence_list: EvidenceList) -> int:
         """

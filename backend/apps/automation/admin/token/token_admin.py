@@ -35,7 +35,7 @@ class CourtTokenAdmin(admin.ModelAdmin[CourtToken]):
     - 显示 Token 状态（有效/过期）
     """
 
-    list_display: ClassVar[list[str]] = [
+    list_display: list = [
         "id",
         "site_name_display",
         "account",
@@ -47,7 +47,7 @@ class CourtTokenAdmin(admin.ModelAdmin[CourtToken]):
         "updated_at",
     ]
 
-    list_filter: ClassVar[list[str]] = [
+    list_filter: list = [
         "site_name",
         "token_type",
         "created_at",
@@ -81,7 +81,7 @@ class CourtTokenAdmin(admin.ModelAdmin[CourtToken]):
         (_("时间信息"), {"fields": ("expires_at", "created_at", "updated_at")}),
     )
 
-    ordering: ClassVar[list[str]] = ["-created_at"]
+    ordering: list = ["-created_at"]
     date_hierarchy = "created_at"
 
     list_per_page = 50

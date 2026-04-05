@@ -158,7 +158,7 @@ class DocumentDeliveryProcessor:
                 }
 
                 # 1. 创建 CourtSMS 记录
-                sms = CourtSMS.objects.create(  # type: ignore
+                sms = CourtSMS.objects.create(
                     content=f"文书送达自动下载: {record.case_number}",
                     received_at=record.send_time,
                     status=CourtSMSStatus.MATCHING,
@@ -204,7 +204,7 @@ class DocumentDeliveryProcessor:
                         sms.feishu_sent_at = timezone.now()
                     else:
                         sms.status = CourtSMSStatus.FAILED
-                        sms.error_message = _("通知发送失败")  # type: ignore
+                        sms.error_message = _("通知发送失败")
                     sms.save()
                     result["success"] = True
                 else:

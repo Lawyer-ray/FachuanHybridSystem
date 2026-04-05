@@ -496,7 +496,7 @@ class CourtInsuranceClient(InsuranceHttpMixin):
                 status="failed",
                 error_message=_("响应中未找到费率数据"),
                 response_data=data,
-                request_info=request_info,  # type: ignore
+                request_info=request_info,
             )
 
         except httpx.TimeoutException as e:

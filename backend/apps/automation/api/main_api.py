@@ -63,7 +63,7 @@ def ai_ollama(request: Any, payload: OllamaChatIn) -> OllamaChatOut:
 @rate_limit_from_settings("UPLOAD")
 def upload_file(
     request: Any,
-    file: UploadedFile = File(...),  # type: ignore[arg-type]
+    file: UploadedFile = File(...),
     limit: int | None = None,
     preview_page: int | None = None,
 ) -> dict[str, Any]:

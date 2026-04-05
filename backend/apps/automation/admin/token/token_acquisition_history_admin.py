@@ -140,7 +140,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin[TokenAcquisitionHistory]):
         ),
     )
 
-    ordering: ClassVar[list[str]] = ["-created_at"]
+    ordering: list = ["-created_at"]
     date_hierarchy = "created_at"
 
     list_per_page = 50

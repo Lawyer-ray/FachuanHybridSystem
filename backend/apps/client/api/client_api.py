@@ -81,7 +81,7 @@ def parse_client_text(request: Any, payload: ParseTextRequest) -> dict[str, Any]
 @router.get("/parse-text")
 def parse_text_get(request: Any, text: str = "") -> dict[str, Any]:
     """解析客户文本（GET 方式）。"""
-    return cast(dict[str, Any], _parse_client(text))
+    return _parse_client(text)
 
 
 @router.get("/clients/check-oa-credential", response=OACredentialCheckOut)

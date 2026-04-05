@@ -138,7 +138,7 @@ def register_exception_handlers(api: NinjaAPI) -> None:
 
     def _create_response(request: HttpRequest, payload: Any, *, status: int) -> HttpResponse:
         payload = _attach_request_meta(request, payload)
-        return api.create_response(request, payload, status=status)  # type: ignore[no-any-return]
+        return api.create_response(request, payload, status=status)
 
     _register_business_handlers(api, _create_response)
     _register_llm_handlers(api, _create_response)

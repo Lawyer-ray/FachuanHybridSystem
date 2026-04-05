@@ -28,7 +28,7 @@ logger = logging.getLogger("apps.automation")
 class DocumentQueryHistoryAdmin(admin.ModelAdmin[DocumentQueryHistory]):
     """文书查询历史管理"""
 
-    list_display: ClassVar[list[str]] = [
+    list_display: list = [
         "id",
         "credential_display",
         "case_number",
@@ -50,7 +50,7 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin[DocumentQueryHistory]):
         "credential__site_name",
     ]
 
-    ordering: ClassVar[list[str]] = ["-queried_at"]
+    ordering: list = ["-queried_at"]
     list_per_page = 50
 
     readonly_fields: ClassVar[list[str]] = [

@@ -37,4 +37,4 @@ def logout_view(request: HttpRequest) -> dict[str, bool]:
 
 @router.get("/me", response=LawyerOut, auth=JWTOrSessionAuth())
 def me_view(request: HttpRequest) -> LawyerOut:
-    return LawyerOut.from_orm(request.user)  # type: ignore[arg-type]
+    return LawyerOut.from_orm(request.user)

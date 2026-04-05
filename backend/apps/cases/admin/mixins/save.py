@@ -49,12 +49,12 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
         except IntegrityError as e:
             logger.error(
                 "Admin 删除案件失败",
-                extra={"case_id": cast(int, obj.id), "error": str(e)},
+                extra={"case_id": obj.id, "error": str(e)},
                 exc_info=True,
             )
             with connection.constraint_checks_disabled():
                 super().delete_model(request, obj)  # type: ignore[misc]
-            messages.warning(request, _("已强制删除案件 %(case_id)s(已绕过外键检查)") % {"case_id": cast(int, obj.id)})
+            messages.warning(request, _("已强制删除案件 %(case_id)s(已绕过外键检查)") % {"case_id": obj.id})
 
     def delete_queryset(self, request: HttpRequest, queryset: QuerySet[Case, Case]) -> None:
         case_ids = list(queryset.values_list("id", flat=True))
@@ -100,7 +100,7 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
                 obj.filing_number = filing_number
                 logger.info(
                     "案件 %s 建档编号已处理: %s",
-                    cast(int, obj.id),
+                    obj.id,
                     filing_number,
                     extra={
                         "case_id": obj.id,
@@ -111,7 +111,7 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
         except Exception as e:
             logger.error(
                 "处理案件 %s 建档编号失败: %s",
-                cast(int, obj.id),
+                obj.id,
                 e,
                 extra={"case_id": obj.id},
                 exc_info=True,
@@ -127,7 +127,7 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
                 binding_service.sync_auto_recommendations(obj.id)
                 logger.info(
                     "案件 %s 模板绑定已同步",
-                    cast(int, obj.id),
+                    obj.id,
                     extra={
                         "case_id": obj.id,
                         "case_type_changed": case_type_changed,
@@ -137,7 +137,7 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
             except Exception as e:
                 logger.error(
                     "同步案件 %s 模板绑定失败: %s",
-                    cast(int, obj.id),
+                    obj.id,
                     e,
                     extra={"case_id": obj.id},
                     exc_info=True,
@@ -157,7 +157,7 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
             except Exception as e:
                 logger.error(
                     "同步案件 %s 的律师指派失败: %s",
-                    cast(int, obj.id),
+                    obj.id,
                     e,
                     extra={"case_id": obj.id},
                     exc_info=True,

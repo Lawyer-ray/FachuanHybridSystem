@@ -38,8 +38,8 @@ def _get_gsxt_report_task_model() -> type[Any]:
 
 class GsxtReportTaskInlineForm(forms.ModelForm[Any]):
     class Meta:
-        model = None  # type: ignore[misc]
-        fields: ClassVar = []
+        model = None
+        fields: ClassVar[list[str]] = []
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         # 动态设置 Meta.model
@@ -90,7 +90,7 @@ class GsxtReportTaskInline(admin.TabularInline):  # type: ignore[type-arg]
 
     inbox_link.short_description = _("收件箱")  # type: ignore[attr-defined]
 
-    def save_formset(  # type: ignore[override]
+    def save_formset(
         self,
         request: HttpRequest,
         form: Any,
@@ -424,7 +424,7 @@ class ClientAdmin(AdminImportExportMixin, admin.ModelAdmin[Client]):
             result.append(serialize_client_obj(obj))
         return result
 
-    def get_file_paths(self, queryset: QuerySet[Client]) -> list[str]:  # type: ignore[override]
+    def get_file_paths(self, queryset: QuerySet[Client]) -> list[str]:
         paths = []
         for obj in queryset.prefetch_related("identity_docs", "property_clues__attachments"):
             for doc in obj.identity_docs.all():

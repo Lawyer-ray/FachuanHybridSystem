@@ -32,7 +32,7 @@ _browser_context: BrowserContext | None = None
 _CDP_PORT: Final[int] = 9222
 _CDP_URL: Final[str] = f"http://127.0.0.1:{_CDP_PORT}"
 _user_data_dir: Path = Path(tempfile.mkdtemp(prefix="express_chrome_"))
-_chrome_process: subprocess.Popen | None = None
+_chrome_process: subprocess.Popen[str] | None = None
 
 
 class ExpressBrowserQueryService:
@@ -170,7 +170,7 @@ class ExpressBrowserQueryService:
             )
             logger.info(
                 "Auto-launched Chrome (PID=%d), debug port=%d",
-                _chrome_process.pid,
+                int(_chrome_process.pid or 0),
                 _CDP_PORT,
             )
         except FileNotFoundError:

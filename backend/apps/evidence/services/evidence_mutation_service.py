@@ -112,7 +112,7 @@ class EvidenceMutationService:
             now = _tz.now()
             for nl in next_lists:
                 nl.previous_list = previous_list
-                nl.updated_at = now  # type: ignore[attr-defined]
+                nl.updated_at = now
             EvidenceList.objects.bulk_update(next_lists, ["previous_list", "updated_at"])
 
         if evidence_list.merged_pdf:

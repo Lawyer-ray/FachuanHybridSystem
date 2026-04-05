@@ -84,7 +84,7 @@ class DocumentAttachmentService:
         paths: list[str] = []
         if not hasattr(sms.scraper_task, "documents"):
             return paths
-        for doc in sms.scraper_task.documents.filter(download_status="success"):  # type: ignore
+        for doc in sms.scraper_task.documents.filter(download_status="success"):
             if doc.local_file_path and Path(doc.local_file_path).exists():
                 paths.append(doc.local_file_path)
                 logger.debug(f"从 CourtDocument 获取路径: {doc.local_file_path}")
@@ -93,7 +93,7 @@ class DocumentAttachmentService:
     def _paths_from_task_result(self, sms: "CourtSMS") -> list[str]:
         """从 ScraperTask.result 获取路径（降级）"""
         paths: list[str] = []
-        result = sms.scraper_task.result  # type: ignore
+        result = sms.scraper_task.result
         if not result or not isinstance(result, dict):
             return paths
         files = result.get("files", [])
@@ -163,7 +163,7 @@ class DocumentAttachmentService:
         """从 CourtDocument 记录收集路径"""
         if not hasattr(sms.scraper_task, "documents"):
             return
-        for doc in sms.scraper_task.documents.filter(download_status="success"):  # type: ignore
+        for doc in sms.scraper_task.documents.filter(download_status="success"):
             if doc.local_file_path and Path(doc.local_file_path).exists():
                 abs_path = str(Path(doc.local_file_path).resolve())
                 if abs_path not in seen:
@@ -270,7 +270,7 @@ class DocumentAttachmentService:
             relative_path = f"case_logs/{renamed_filename}"
 
             success = self.case_service.add_case_log_attachment_internal(
-                case_log_id=sms.case_log.id,  # type: ignore
+                case_log_id=sms.case_log.id,
                 file_path=relative_path,
                 file_name=renamed_filename,
             )

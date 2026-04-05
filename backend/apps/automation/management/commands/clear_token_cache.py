@@ -36,7 +36,7 @@ class Command(BaseCommand):
             self._print_plan(site=site, accounts=accounts, do_blacklist=do_blacklist, do_all=do_all)
             return
         if do_all:
-            if not manager._is_cache_clear_allowed():  # type: ignore[attr-defined]
+            if not manager._is_cache_clear_allowed():
                 raise CommandError("全量清理被门禁拒绝:仅 DEBUG 或 ALLOW_CACHE_CLEAR=true/1/yes 允许")
             manager.clear_all_cache()
             self.stdout.write(self.style.SUCCESS("已执行:全量清理 token 缓存"))

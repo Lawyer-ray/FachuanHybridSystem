@@ -8,7 +8,7 @@ from django import forms
 from django.contrib import admin, messages
 from django.db.models import Q, QuerySet
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
-from django.urls import path, reverse
+from django.urls import URLPattern, path, reverse
 from django.utils import timezone
 from django.utils.html import format_html, format_html_join
 
@@ -38,7 +38,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
     )
     PRIVATE_API_VISUAL_FIELD_PREFIX = "private_api_"
 
-    list_display: ClassVar[list[str]] = [
+    list_display: list = [
         "id",
         "keyword",
         "search_mode",
@@ -49,7 +49,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
         "matched_count",
         "created_at",
     ]
-    list_filter: ClassVar[list[str]] = ["status", "llm_backend", "created_at"]
+    list_filter: list = ["status", "llm_backend", "created_at"]
     search_fields: ClassVar[tuple[str, ...]] = (
         "id",
         "keyword",
@@ -88,7 +88,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
         "created_at",
         "updated_at",
     ]
-    ordering: ClassVar[list[str]] = ["-created_at"]
+    ordering: list = ["-created_at"]
     add_fields: ClassVar[list[str]] = [
         "credential",
         "keyword",
@@ -106,14 +106,14 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
     ]
     actions: ClassVar[list[str]] = ["mark_as_missed_case_feedback"]
 
-    def get_object(self, request, object_id, from_field=None):  # type: ignore[override]
+    def get_object(self, request: HttpRequest, object_id: str, from_field: Any = None) -> LegalResearchTask | None:
         obj = super().get_object(request, object_id, from_field=from_field)
         if obj is None:
             return None
         self._sync_failed_queue_state(obj=obj)
         return obj
 
-    def get_readonly_fields(self, request, obj: LegalResearchTask | None = None) -> list[str]:  # type: ignore[override]
+    def get_readonly_fields(self, request: HttpRequest, obj: LegalResearchTask | None = None) -> list[str]:
         if obj is None:
             return []
         readonly_fields = list(self.readonly_fields)
@@ -121,7 +121,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
             readonly_fields = [name for name in readonly_fields if name != "llm_model"]
         return self._filter_private_api_visual_fields(readonly_fields, obj=obj)
 
-    def get_fields(self, request, obj: LegalResearchTask | None = None) -> list[str]:  # type: ignore[override]
+    def get_fields(self, request: HttpRequest, obj: LegalResearchTask | None = None) -> list[str]:  # type: ignore[override]
         if obj is None:
             fields = list(self.add_fields)
             if self._get_weike_credential_queryset(request).count() == 1:
@@ -129,7 +129,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
             return fields
         return self._filter_private_api_visual_fields(list(self.readonly_fields), obj=obj)
 
-    def render_change_form(self, request, context, add=False, change=False, form_url="", obj=None):
+    def render_change_form(self, request: HttpRequest, context: dict[str, Any], add: bool = False, change: bool = False, form_url: str = "", obj: Any = None) -> HttpResponse:
         extra = dict(context or {})
         extra["private_weike_api_enabled"] = self._should_show_private_api_visuals(obj=obj)
         return super().render_change_form(
@@ -141,7 +141,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
             obj=obj,
         )
 
-    def get_form(self, request, obj: LegalResearchTask | None = None, **kwargs):  # type: ignore[override]
+    def get_form(self, request: HttpRequest, obj: LegalResearchTask | None = None, **kwargs: Any) -> forms.ModelForm[Any]:  # type: ignore[override]
         form = super().get_form(request, obj, **kwargs)
         if obj is not None:
             if obj.status == LegalResearchTaskStatus.FAILED:
@@ -172,7 +172,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
         self._attach_keyword_cleaner(form)
         return form
 
-    def get_urls(self):  # type: ignore[override]
+    def get_urls(self) -> list[URLPattern]:
         urls = super().get_urls()
         opts = self.model._meta
         custom_urls = [
@@ -218,7 +218,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
 
     @staticmethod
     def _attach_keyword_cleaner(form: type[forms.ModelForm]) -> None:
-        def clean_keyword(self) -> str:
+        def clean_keyword(self: Any) -> str:
             raw = str(self.cleaned_data.get("keyword", "") or "")
             normalized = normalize_keyword_query(raw)
             if not normalized:
@@ -315,13 +315,13 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
 
     @staticmethod
     def _attach_search_mode_cleaner(form: type[forms.ModelForm]) -> None:
-        def clean_search_mode(self) -> str:
+        def clean_search_mode(self: Any) -> str:
             raw = str(self.cleaned_data.get("search_mode", "") or "").strip().lower()
             return raw or LegalResearchSearchMode.EXPANDED
 
         form.clean_search_mode = clean_search_mode
 
-    def _configure_credential_field(self, *, request, form: type[forms.ModelForm]) -> None:
+    def _configure_credential_field(self, *, request: HttpRequest, form: type[forms.ModelForm]) -> None:
         credential_field = form.base_fields.get("credential")
         if credential_field is None:
             return
@@ -348,7 +348,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
         credential_field = LegalResearchTask._meta.get_field("credential")
         return credential_field.remote_field.model
 
-    def _get_weike_credential_queryset(self, request) -> QuerySet[Any, Any]:
+    def _get_weike_credential_queryset(self, request: HttpRequest) -> QuerySet[Any, Any]:
         credential_model = self._get_credential_model()
         qs = credential_model.objects.select_related("lawyer", "lawyer__law_firm").filter(self.WEIKE_SITE_FILTER)
         user = getattr(request, "user", None)
@@ -664,7 +664,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
         return f"{text[: max_chars - 3]}..."
 
     @admin.action(description="标记为漏命中（在线负反馈）")
-    def mark_as_missed_case_feedback(self, request: HttpRequest, queryset) -> None:
+    def mark_as_missed_case_feedback(self, request: HttpRequest, queryset: QuerySet[LegalResearchTask]) -> None:
         service = LegalResearchFeedbackLoopService()
         operator = str(getattr(request.user, "id", "") or "")
         count = 0
@@ -673,7 +673,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
             count += 1
         self.message_user(request, f"已记录 {count} 个任务的漏命中反馈，并完成在线微调。")
 
-    def save_model(self, request, obj: LegalResearchTask, form, change) -> None:  # type: ignore[override]
+    def save_model(self, request: HttpRequest, obj: LegalResearchTask, form: Any, change: bool) -> None:
         task_service = LegalResearchTaskService()
 
         if change and obj.status != LegalResearchTaskStatus.FAILED:

@@ -8,7 +8,7 @@ from django import forms
 from django.contrib import admin, messages
 from django.db.models import Q, QuerySet
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
-from django.urls import path, reverse
+from django.urls import URLPattern, path, reverse
 from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
 
@@ -35,11 +35,10 @@ class CaseDownloadResultInline(admin.TabularInline[CaseDownloadResult, CaseDownl
         "download_link",
     ]
     can_delete = False
-    fields = readonly_fields
-    verbose_name_plural = "下载结果"
+    fields = readonly_fields  # type: ignore[assignment]    verbose_name_plural = "下载结果"
     verbose_name = "下载结果"
 
-    def has_add_permission(self, request, obj=None):
+    def has_add_permission(self, request: HttpRequest, obj: Any = None) -> bool:
         return False
 
     @admin.display(description="文件")
@@ -64,7 +63,7 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin[CaseDownloadTask]):
         | Q(url__icontains="wkinfo.com.cn")
     )
 
-    list_display: ClassVar[list[str]] = [
+    list_display: list = [
         "id",
         "file_format",
         "status",
@@ -75,7 +74,7 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin[CaseDownloadTask]):
         "created_at",
         "action_buttons",
     ]
-    list_filter: ClassVar[list[str]] = ["status", "file_format", "created_at"]
+    list_filter: list = ["status", "file_format", "created_at"]
     search_fields: ClassVar[tuple[str, ...]] = (
         "id",
         "case_numbers",
@@ -98,11 +97,11 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin[CaseDownloadTask]):
         "created_at",
         "updated_at",
     ]
-    ordering: ClassVar[list[str]] = ["-created_at"]
+    ordering: list = ["-created_at"]
     inlines: ClassVar[list[type[admin.TabularInline]]] = [CaseDownloadResultInline]
     actions: ClassVar[list[str]] = ["download_as_zip", "retry_failed"]
 
-    def get_urls(self):  # type: ignore[override]
+    def get_urls(self) -> list[URLPattern]:
         urls = super().get_urls()
         opts = self.model._meta
         custom_urls = [
@@ -124,17 +123,17 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin[CaseDownloadTask]):
         ]
         return custom_urls + urls
 
-    def get_fields(self, request, obj: CaseDownloadTask | None = None) -> list[str]:  # type: ignore[override]
+    def get_fields(self, request: object, obj: CaseDownloadTask | None = None) -> list[str]:  # type: ignore[override]
         if obj is None:
             return ["credential", "case_numbers", "file_format"]
         return list(self.readonly_fields)
 
-    def get_readonly_fields(self, request, obj: CaseDownloadTask | None = None) -> list[str]:  # type: ignore[override]
+    def get_readonly_fields(self, request: object, obj: CaseDownloadTask | None = None) -> list[str]:
         if obj is None:
             return []
         return list(self.readonly_fields)
 
-    def get_form(self, request, obj: CaseDownloadTask | None = None, **kwargs):  # type: ignore[override]
+    def get_form(self, request: HttpRequest, obj: CaseDownloadTask | None = None, **kwargs: Any) -> forms.ModelForm[Any]:  # type: ignore[override]
         form = super().get_form(request, obj, **kwargs)
         if obj is None:
             self._configure_credential_field(request, form)
@@ -143,7 +142,7 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin[CaseDownloadTask]):
         return form
 
     @staticmethod
-    def _configure_credential_field(request, form: type[forms.ModelForm]) -> None:
+    def _configure_credential_field(request: object, form: type[forms.ModelForm]) -> None:
         credential_field = form.base_fields.get("credential")
         if credential_field is None:
             return
@@ -203,7 +202,7 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin[CaseDownloadTask]):
         file_format_field.initial = CaseDownloadFormat.PDF
         file_format_field.help_text = "选择下载的文档格式，默认PDF格式"
 
-    def save_model(self, request, obj: CaseDownloadTask, form, change) -> None:  # type: ignore[override]
+    def save_model(self, request: HttpRequest, obj: CaseDownloadTask, form: Any, change: bool) -> None:
         if change:
             super().save_model(request, obj, form, change)
             return
@@ -236,20 +235,20 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin[CaseDownloadTask]):
             obj.save(update_fields=["status", "error", "updated_at"])
             messages.error(request, f"任务创建成功但提交队列失败: {exc}")
 
-    def delete_model(self, request, obj: CaseDownloadTask) -> None:
+    def delete_model(self, request: HttpRequest, obj: CaseDownloadTask) -> None:
         # 先删除文件
         deleted_count = CaseDownloadService.delete_task_files(task_id=obj.id)
         logger.info("删除案例下载任务文件", extra={"task_id": obj.id, "deleted_files": deleted_count})
         super().delete_model(request, obj)
 
-    def delete_queryset(self, request, queryset) -> None:
+    def delete_queryset(self, request: HttpRequest, queryset: QuerySet[CaseDownloadTask]) -> None:
         for obj in queryset:
             deleted_count = CaseDownloadService.delete_task_files(task_id=obj.id)
             logger.info("删除案例下载任务文件", extra={"task_id": obj.id, "deleted_files": deleted_count})
         super().delete_queryset(request, queryset)
 
     @admin.action(description="打包下载选中任务")
-    def download_as_zip(self, request, queryset) -> None:
+    def download_as_zip(self, request: HttpRequest, queryset: QuerySet[CaseDownloadTask]) -> None:
         if queryset.count() == 1:
             obj = queryset.first()
             if obj is None:
@@ -305,7 +304,7 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin[CaseDownloadTask]):
         return
 
     @admin.action(description="重试失败项")
-    def retry_failed(self, request, queryset) -> None:
+    def retry_failed(self, request: HttpRequest, queryset: QuerySet[CaseDownloadTask]) -> None:
         for obj in queryset:
             failed_results = obj.results.filter(status="failed")
             if not failed_results.exists():
@@ -361,7 +360,7 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin[CaseDownloadTask]):
             return "—"
         return mark_safe("&nbsp;".join(buttons))
 
-    def download_zip_view(self, request, object_id) -> HttpResponse:
+    def download_zip_view(self, request: HttpRequest, object_id: str) -> HttpResponse:
         obj = self.get_object(request, object_id)
         if obj is None:
             messages.error(request, "任务不存在")
@@ -386,7 +385,7 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin[CaseDownloadTask]):
             pass
         return response
 
-    def retry_view(self, request, object_id) -> HttpResponse:
+    def retry_view(self, request: object, object_id: object) -> HttpResponse:
         obj = self.get_object(request, object_id)
         if obj is None:
             messages.error(request, "任务不存在")

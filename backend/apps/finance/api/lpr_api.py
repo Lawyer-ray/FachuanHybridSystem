@@ -125,7 +125,7 @@ def sync_lpr_rates(
     Returns:
         同步结果
     """
-    user: User = request.user  # type: ignore[assignment]
+    user: User = request.user
 
     # 检查权限
     if not user.is_staff:

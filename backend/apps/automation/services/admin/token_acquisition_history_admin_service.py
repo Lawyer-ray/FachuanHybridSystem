@@ -245,7 +245,7 @@ class TokenAcquisitionHistoryAdminService:
 
             # 按网站统计
             site_stats = {}
-            site_data = queryset.values("site_name").annotate(  # type: ignore[misc]
+            site_data = queryset.values("site_name").annotate(
                 total=Count("id"), success=Count("id", filter=Q(status=TokenAcquisitionStatus.SUCCESS))
             )
             for item in site_data:
@@ -257,7 +257,7 @@ class TokenAcquisitionHistoryAdminService:
 
             # 按账号统计
             account_stats = {}
-            account_data = queryset.values("account").annotate(  # type: ignore[misc]
+            account_data = queryset.values("account").annotate(
                 total=Count("id"),
                 success=Count("id", filter=Q(status=TokenAcquisitionStatus.SUCCESS)),
                 avg_duration=Avg("total_duration"),
@@ -343,13 +343,13 @@ class TokenAcquisitionHistoryAdminService:
 
             # 按状态统计
             status_stats = list(
-                TokenAcquisitionHistory.objects.values("status").annotate(count=Count("id")).order_by("-count")  # type: ignore[misc]
+                TokenAcquisitionHistory.objects.values("status").annotate(count=Count("id")).order_by("-count")
             )
 
             # 按网站统计
             success_filter = Q(status=TokenAcquisitionStatus.SUCCESS)
             site_stats = list(
-                TokenAcquisitionHistory.objects.values("site_name")  # type: ignore[misc]
+                TokenAcquisitionHistory.objects.values("site_name")
                 .annotate(total=Count("id"), success=Count("id", filter=success_filter))
                 .order_by("-total")
             )

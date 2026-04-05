@@ -286,4 +286,4 @@ class ContractService(ContractServiceQueryMixin):
     def get_all_parties(self, contract_id: int) -> list[dict[str, Any]]:
         from .usecases.get_contract_all_parties import GetContractAllPartiesUseCase
 
-        return cast(list[dict[str, Any]], GetContractAllPartiesUseCase(self.query_service).execute(contract_id))
+        return GetContractAllPartiesUseCase(self.query_service.execute(contract_id))

@@ -38,7 +38,7 @@ class SafeExpressionEvaluator:
             raise SyntaxError(f"表达式语法错误: {e}") from e
         return self._eval(tree.body)
 
-    def _eval(self, node: ast.expr) -> Any:  # type: ignore[return]
+    def _eval(self, node: ast.expr) -> Any:
         if isinstance(node, ast.Constant):
             return node.value
         if isinstance(node, ast.Name):
@@ -68,9 +68,9 @@ class SafeExpressionEvaluator:
             raise ValueError(f"不支持的一元运算符: {op_key.__name__}")
         operand = self._eval(node.operand)
         if isinstance(node.op, ast.UAdd):
-            return +operand  # type: ignore[operator]
+            return +operand
         if isinstance(node.op, ast.USub):
-            return -operand  # type: ignore[operator]
+            return -operand
         return not operand
 
     def _eval_bool(self, node: ast.BoolOp) -> Any:

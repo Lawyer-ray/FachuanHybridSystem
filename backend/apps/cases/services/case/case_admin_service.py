@@ -269,7 +269,7 @@ class CaseAdminService:
         from apps.cases.models import CaseLog
 
         try:
-            return (  # type: ignore[no-any-return]
+            return (
                 Case.objects.select_related(
                     "contract",
                     "folder_binding",
@@ -551,7 +551,7 @@ class CaseAdminService:
         created_year = case.start_date.year
         filing_number = self.filing_number_service.generate_case_filing_number_internal(
             case_id=case_id,
-            case_type=case.case_type,  # type: ignore
+            case_type=case.case_type,
             created_year=created_year,
         )
 

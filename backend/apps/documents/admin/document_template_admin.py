@@ -166,7 +166,7 @@ class DocumentTemplateForm(forms.ModelForm):
             "is_active",
         ]
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args: object, **kwargs: object) -> None:
         super().__init__(*args, **kwargs)
 
         # 动态加载已有文件列表
@@ -304,7 +304,7 @@ class DocumentTemplateForm(forms.ModelForm):
 
 
 @admin.register(DocumentTemplate)
-class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):  # type: ignore[type-arg]
+class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):
     """
     文书模板管理
 
@@ -332,7 +332,7 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):  # type: ignore
         "description",
     )
 
-    ordering: ClassVar[list[str]] = ["-id"]
+    ordering: list = ["-id"]
 
     readonly_fields: ClassVar[tuple[str, ...]] = (
         "current_file_display",
@@ -491,17 +491,17 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):  # type: ignore
     @admin.display(description=_("模板类型"))
     def template_type_display(self, obj: DocumentTemplate) -> str:
         """显示模板类型"""
-        return obj.template_type_display  # type: ignore[no-any-return]
+        return obj.template_type_display
 
     @admin.display(description=_("合同类型"))
     def contract_types_display(self, obj: DocumentTemplate) -> str:
         """显示合同类型"""
-        return obj.contract_types_display  # type: ignore[no-any-return]
+        return obj.contract_types_display
 
     @admin.display(description=_("案件类型"))
     def case_types_display(self, obj: DocumentTemplate) -> str:
         """显示案件类型"""
-        return obj.case_types_display  # type: ignore[no-any-return]
+        return obj.case_types_display
 
     @admin.display(description=_("案件阶段"))
     def case_stage_display(self, obj: DocumentTemplate) -> str:
@@ -509,7 +509,7 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):  # type: ignore
         stages = obj.case_stages or []
         if not stages:
             return "-"
-        return dict(DocumentCaseStage.choices).get(stages[0], stages[0])  # type: ignore[return-value]
+        return dict(DocumentCaseStage.choices).get(stages[0], stages[0])
 
     @admin.display(description=_("当前文件"))
     def current_file_display(self, obj: DocumentTemplate) -> Any:

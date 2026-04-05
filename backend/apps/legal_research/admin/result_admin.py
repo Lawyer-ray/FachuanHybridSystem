@@ -10,7 +10,7 @@ from apps.legal_research.services.feedback_loop import LegalResearchFeedbackLoop
 
 @admin.register(LegalResearchResult)
 class LegalResearchResultAdmin(admin.ModelAdmin[LegalResearchResult]):
-    list_display: ClassVar[list[str]] = [
+    list_display: list = [
         "id",
         "task",
         "rank",
@@ -20,7 +20,7 @@ class LegalResearchResultAdmin(admin.ModelAdmin[LegalResearchResult]):
         "has_pdf",
         "created_at",
     ]
-    list_filter: ClassVar[list[str]] = ["created_at"]
+    list_filter: list = ["created_at"]
     actions: ClassVar[list[str]] = ["mark_as_relevant", "mark_as_false_positive"]
     search_fields: ClassVar[tuple[str, ...]] = (
         "id",
@@ -47,7 +47,7 @@ class LegalResearchResultAdmin(admin.ModelAdmin[LegalResearchResult]):
         "created_at",
         "updated_at",
     ]
-    ordering: ClassVar[list[str]] = ["-id"]
+    ordering: list = ["-id"]
 
     @admin.display(description="PDF")
     def has_pdf(self, obj: LegalResearchResult) -> bool:
@@ -65,7 +65,7 @@ class LegalResearchResultAdmin(admin.ModelAdmin[LegalResearchResult]):
         return "—"
 
     @admin.action(description="标记为真实命中（在线正反馈）")
-    def mark_as_relevant(self, request, queryset) -> None:
+    def mark_as_relevant(self, request: object, queryset: object) -> None:
         service = LegalResearchFeedbackLoopService()
         operator = str(getattr(request.user, "id", "") or "")
         count = 0
@@ -75,7 +75,7 @@ class LegalResearchResultAdmin(admin.ModelAdmin[LegalResearchResult]):
         self.message_user(request, f"已标记 {count} 条为真实命中，并完成在线微调。")
 
     @admin.action(description="标记为误命中（在线负反馈）")
-    def mark_as_false_positive(self, request, queryset) -> None:
+    def mark_as_false_positive(self, request: object, queryset: object) -> None:
         service = LegalResearchFeedbackLoopService()
         operator = str(getattr(request.user, "id", "") or "")
         count = 0

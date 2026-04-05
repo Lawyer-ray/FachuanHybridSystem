@@ -64,7 +64,7 @@ class SolutionTaskAdmin(admin.ModelAdmin[SolutionTask]):
         "preview_html_field", "download_pdf_button",
     ]
 
-    def get_fields(self, request: HttpRequest, obj: SolutionTask | None = None) -> list[str]:
+    def get_fields(self, request: HttpRequest, obj: SolutionTask | None = None) -> Any:
         if obj is None:
             return list(self.add_fields)
         return [

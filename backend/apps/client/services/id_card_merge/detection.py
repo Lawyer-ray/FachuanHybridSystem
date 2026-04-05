@@ -51,7 +51,7 @@ def _compute_edges(image: NDArray[np.uint8]) -> NDArray[np.uint8]:
     lower_threshold = int(max(0, 0.7 * median_val))
     upper_threshold = int(min(255, 1.3 * median_val))
     edges = cv2.Canny(blurred, lower_threshold, upper_threshold)
-    kernel = np.ones((3, 3), np.uint8)
+    kernel: NDArray[np.uint8] = np.ones((3, 3), np.uint8)
     return cast(NDArray[np.uint8], cv2.dilate(edges, kernel, iterations=1))
 
 

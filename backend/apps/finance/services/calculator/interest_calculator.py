@@ -86,7 +86,7 @@ class InterestCalculationResult:
     start_date: date
     end_date: date
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """转换为字典格式."""
         return {
             "total_interest": str(self.total_interest),

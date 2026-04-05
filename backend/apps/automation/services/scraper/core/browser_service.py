@@ -74,7 +74,7 @@ class BrowserService:
             if not headless:
                 launch_options["slow_mo"] = 500
 
-            self._browser = self._playwright.chromium.launch(**launch_options)
+            self._browser = self._playwright.chromium.launch(**launch_options)  # type: ignore[arg-type]
             logger.info(f"浏览器启动成功（{mode}模式）")
         return self._browser
 

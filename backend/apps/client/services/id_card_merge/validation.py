@@ -52,7 +52,7 @@ def order_corners(corners: NDArray[np.float32]) -> NDArray[np.float32]:
     sum_coords = corners[:, 0] + corners[:, 1]
     diff_coords = corners[:, 0] - corners[:, 1]
 
-    ordered = np.zeros((4, 2), dtype=np.float32)
+    ordered: NDArray[np.float32] = np.zeros((4, 2), dtype=np.float32)
     ordered[0] = corners[np.argmin(sum_coords)]
     ordered[2] = corners[np.argmax(sum_coords)]
     ordered[1] = corners[np.argmax(diff_coords)]

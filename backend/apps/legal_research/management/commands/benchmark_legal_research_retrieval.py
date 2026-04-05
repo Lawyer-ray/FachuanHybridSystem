@@ -966,7 +966,7 @@ class Command(BaseCommand):
 
     @classmethod
     @contextmanager
-    def _temporary_tuning_overrides(cls, overrides: dict[str, int]):
+    def _temporary_tuning_overrides(cls, overrides: dict[str, int]) -> object:
         payload = {k: int(v) for k, v in dict(overrides or {}).items() if int(v) > 0}
         if not payload:
             yield

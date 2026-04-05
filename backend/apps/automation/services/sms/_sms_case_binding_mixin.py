@@ -42,7 +42,7 @@ class SMSCaseBindingMixin:
 
             logger.info(f"获取管理员律师成功: {admin_lawyer_dto.real_name}, ID={admin_lawyer_dto.id}")
 
-            system_user = self.lawyer_service.get_lawyer_model(admin_lawyer_dto.id)  # type: ignore
+            system_user = self.lawyer_service.get_lawyer_model(admin_lawyer_dto.id)
             logger.info(f"获取系统用户成功: SMS ID={sms.id}")
 
             if sms.case_numbers:

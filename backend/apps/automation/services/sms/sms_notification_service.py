@@ -114,7 +114,7 @@ class SMSNotificationService:
 
             # Requirements 3.3: 将文书内容和短信内容推送到群聊
             try:
-                result = chat_service.send_document_notification(  # type: ignore
+                result = chat_service.send_document_notification(
                     case_id=sms.case.id,
                     sms_content=sms.content,
                     document_paths=document_paths or [],

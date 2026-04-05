@@ -24,7 +24,7 @@ class EvidenceItemInline(admin.TabularInline[EvidenceItem, EvidenceItem]):
         "page_range_display",
     )
     readonly_fields: ClassVar[tuple[Any, ...]] = ("global_order_display", "page_count", "page_range_display")
-    ordering: ClassVar[list[str]] = ["order"]
+    ordering: list = ["order"]
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[EvidenceItem, EvidenceItem]:
         qs: QuerySet[EvidenceItem, EvidenceItem] = super().get_queryset(request)

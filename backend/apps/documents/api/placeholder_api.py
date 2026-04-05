@@ -50,7 +50,7 @@ def list_placeholders(request: Any, is_active: bool | None = None) -> Any:
         is_active: 启用状态过滤
     """
     service = _get_placeholder_service()
-    return service.list_placeholders(is_active=is_active)  # type: ignore[return-value]
+    return service.list_placeholders(is_active=is_active)
 
 
 @router.get("/placeholders/{placeholder_id}", response=PlaceholderOut)
@@ -119,7 +119,7 @@ def preview_placeholders(request: Any, contract_id: int) -> Any:
         values = {k: _safe_value(context.get(k)) for k in required_keys if k in context}
         missing_keys = [k for k in required_keys if k not in context]
 
-    return {  # type: ignore[return-value]
+    return {
         "contract_id": contract_id,
         "values": values,
         "missing_keys": missing_keys,

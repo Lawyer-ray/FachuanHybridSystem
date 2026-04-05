@@ -151,7 +151,7 @@ class UpdateInfoResponseSchema(BaseModel):
 
 
 @router.post("/court-document/recognize", response=TaskSubmitResponseSchema)
-def recognize_document(request: Any, file: UploadedFile = File(...)) -> TaskSubmitResponseSchema:  # type: ignore[arg-type]
+def recognize_document(request: Any, file: UploadedFile = File(...)) -> TaskSubmitResponseSchema:
     """
     提交文书识别任务（异步）
 

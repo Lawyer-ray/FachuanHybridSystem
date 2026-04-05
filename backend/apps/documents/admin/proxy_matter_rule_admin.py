@@ -30,7 +30,7 @@ class ProxyMatterRuleAdminForm(forms.ModelForm[ProxyMatterRule]):
         model = ProxyMatterRule
         fields: str = "__all__"
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: object, **kwargs: object) -> None:
         super().__init__(*args, **kwargs)
         if self.instance and self.instance.pk:
             selected = list(self.instance.case_types or [])

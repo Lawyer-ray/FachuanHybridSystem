@@ -72,16 +72,16 @@ def _diagnose_unavailable(name: str, backend: ILLMBackend) -> str:
     try:
         # SiliconFlow: 检查 API Key
         if name == "siliconflow":
-            api_key = backend.api_key  # type: ignore[union-attr]
+            api_key = backend.api_key
             if not api_key:
                 return "API Key 未配置"
-            model = backend.default_model  # type: ignore[union-attr]
+            model = backend.default_model
             if not model:
                 return "默认模型未配置"
             return f"is_available() 返回 False (api_key={'有' if api_key else '无'}, model={model!r})"
         # Ollama: 检查 base_url
         if name == "ollama":
-            base_url = backend.base_url  # type: ignore[union-attr]
+            base_url = backend.base_url
             if not base_url:
                 return "Base URL 未配置"
             return f"is_available() 返回 False (base_url={base_url!r})"

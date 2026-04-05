@@ -605,7 +605,7 @@ class FillingService:
             tpl_custom: dict[str, str] = {}
             if custom_values and str(template_id) in custom_values:
                 tpl_custom = custom_values[str(template_id)]
-            elif custom_values and template_id in custom_values:  # type: ignore[operator]
+            elif custom_values and template_id in custom_values:
                 tpl_custom = custom_values[template_id]  # type: ignore[index]
 
             for party_id in effective_party_ids:
