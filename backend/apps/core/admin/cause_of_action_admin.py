@@ -108,7 +108,7 @@ class CauseOfActionAdmin(admin.ModelAdmin[CauseOfAction]):
         ),
     )
 
-    ordering: ClassVar[list[str]] = ["case_type", "level", "code"]
+    ordering = ["case_type", "level", "code"]
 
     list_per_page: ClassVar[int] = 50
 

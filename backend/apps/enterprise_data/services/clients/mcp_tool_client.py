@@ -8,7 +8,7 @@ import logging
 import time
 from collections.abc import Callable
 from contextlib import asynccontextmanager
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 import httpx
 from asgiref.sync import async_to_sync
@@ -94,7 +94,7 @@ class McpToolClient:
         result["api_key_pool_size"] = max(1, int(execution_meta.get("api_key_pool_size", 1) or 1))
         result["api_key_attempt_count"] = max(1, int(execution_meta.get("api_key_attempt_count", 1) or 1))
         result["api_key_switched"] = bool(execution_meta.get("api_key_switched", False))
-        return result
+        return cast(dict[str, Any], result)
 
     def list_tools(self) -> list[str]:
         """获取远端 MCP 可用工具名列表。"""
@@ -110,7 +110,7 @@ class McpToolClient:
                 api_key=api_key,
             ),
         )
-        return tools
+        return cast(list[dict[str, Any]], tools)
 
     async def _call_tool_async(
         self,
@@ -344,7 +344,7 @@ class McpToolClient:
     @staticmethod
     def _serialize_content_item(item: Any) -> dict[str, Any]:
         if hasattr(item, "model_dump"):
-            return item.model_dump(by_alias=True, mode="json", exclude_none=True)
+            return cast(dict[str, Any], item.model_dump(by_alias=True, mode="json", exclude_none=True))
         return {"value": str(item)}
 
     def _extract_payload(self, result: types.CallToolResult) -> Any:

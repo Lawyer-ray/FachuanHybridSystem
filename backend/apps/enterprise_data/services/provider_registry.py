@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+from typing import cast
 
 from apps.core.exceptions import ValidationException
 from apps.core.services.system_config_service import SystemConfigService
@@ -29,10 +30,10 @@ class EnterpriseProviderRegistry:
         self._config = config_service or SystemConfigService()
 
     def get_cache_ttl_seconds(self) -> int:
-        return DEFAULT_CACHE_TTL_SECONDS
+        return cast(int, DEFAULT_CACHE_TTL_SECONDS)
 
     def get_default_provider_name(self) -> str:
-        return DEFAULT_PROVIDER_NAME
+        return cast(str, DEFAULT_PROVIDER_NAME)
 
     def list_providers(self) -> list[ProviderDescriptor]:
         return [

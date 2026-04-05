@@ -20,7 +20,7 @@ def _get_feishu_db_config() -> dict[str, Any]:
     """从 SystemConfigService 获取飞书配置"""
     from apps.core.config.utils import get_feishu_category_configs
 
-    return get_feishu_category_configs()
+    return cast(dict[str, Any], get_feishu_category_configs())
 
 
 class FeishuBotService:
