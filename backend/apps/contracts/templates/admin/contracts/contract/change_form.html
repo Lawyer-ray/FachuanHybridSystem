@@ -4,7 +4,9 @@
 {% block extrahead %}
 {{ block.super }}
 <link rel="stylesheet" href="{% static 'contracts/css/folder_browser.css' %}">
+<link rel="stylesheet" href="{% static 'contracts/css/auto_contract_name.css' %}">
 <script src="{% static 'contracts/js/folder_browser.js' %}"></script>
+<script src="{% static 'contracts/js/auto_contract_name.js' %}"></script>
 <script>
 window.CONTRACTS_I18N = Object.assign(window.CONTRACTS_I18N || {}, {
     bound: '{% trans "已绑定" %}',
