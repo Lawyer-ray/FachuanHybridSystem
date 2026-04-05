@@ -113,7 +113,7 @@ class BrowserService:
         default_config.update(kwargs)
 
         context = browser.new_context(**default_config)
-        
+
         # 应用 playwright-stealth 到上下文
         if use_anti_detection:
             try:
@@ -126,7 +126,7 @@ class BrowserService:
                 logger.info("创建新的浏览器上下文（基础反检测）")
         else:
             logger.info("创建新的浏览器上下文（无反检测）")
-            
+
         return context
 
     def close(self) -> None:

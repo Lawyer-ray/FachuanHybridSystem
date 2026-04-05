@@ -377,7 +377,7 @@ class LegalResearchCapabilityService:
         if not user.is_superuser and credential.lawyer.law_firm_id != user.law_firm_id:
             raise PermissionDenied(message="无权限使用该账号凭证", code="PERMISSION_DENIED")
 
-        if not self._task_service._is_weike_credential(credential):  # noqa: SLF001
+        if not self._task_service._is_weike_credential(credential):
             raise ValidationException("当前仅支持wkxx账号，请选择wkxx凭证")
         return credential
 

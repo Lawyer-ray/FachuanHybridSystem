@@ -174,6 +174,6 @@ class PdfSplitSegment(models.Model):
 def delete_job_files(sender: type, instance: PdfSplitJob, **kwargs: object) -> None:
     """删除任务时清理关联的文件目录"""
     from apps.pdf_splitting.services.storage import PdfSplitStorage
-    
+
     storage = PdfSplitStorage(instance.id)
     storage.cleanup()

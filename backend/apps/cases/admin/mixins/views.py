@@ -468,7 +468,7 @@ class CaseAdminViewsMixin:
             return JsonResponse({"success": False, "error": str(e.message)}, status=400)
         except Exception as e:
             logger.exception("解析裁判文书失败: case_number_id=%s", casenumber_id)
-            return JsonResponse({"success": False, "error": f"解析失败: {str(e)}"}, status=500)
+            return JsonResponse({"success": False, "error": f"解析失败: {e}"}, status=500)
 
     def parse_execution_request_view(self, request: HttpRequest, casenumber_id: int) -> HttpResponse:
         """解析执行依据主文并生成申请执行事项预览（规则引擎）"""
@@ -520,7 +520,7 @@ class CaseAdminViewsMixin:
             return JsonResponse({"success": False, "error": "案号记录不存在"}, status=404)
         except Exception as e:
             logger.exception("解析申请执行事项失败: case_number_id=%s", casenumber_id)
-            return JsonResponse({"success": False, "error": f"解析失败: {str(e)}"}, status=500)
+            return JsonResponse({"success": False, "error": f"解析失败: {e}"}, status=500)
 
     def parse_document_view_no_id(self, request: HttpRequest) -> HttpResponse:
         """解析裁判文书（无需caseNumberId，用于临时文件）"""
@@ -563,7 +563,7 @@ class CaseAdminViewsMixin:
             return JsonResponse({"success": False, "error": str(e.message)}, status=400)
         except Exception as e:
             logger.exception("解析裁判文书失败")
-            return JsonResponse({"success": False, "error": f"解析失败: {str(e)}"}, status=500)
+            return JsonResponse({"success": False, "error": f"解析失败: {e}"}, status=500)
 
     def upload_temp_document_view(self, request: HttpRequest) -> HttpResponse:
         """上传裁判文书到临时目录"""
@@ -609,7 +609,7 @@ class CaseAdminViewsMixin:
 
         except Exception as e:
             logger.exception("临时文件上传失败")
-            return JsonResponse({"success": False, "error": f"上传失败: {str(e)}"}, status=500)
+            return JsonResponse({"success": False, "error": f"上传失败: {e}"}, status=500)
 
     def _coerce_optional_date(self, raw: object) -> date | None:
         if raw is None:
