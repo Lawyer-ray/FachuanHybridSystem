@@ -16,6 +16,29 @@
   function selectsByNameSuffix(suffix){return document.querySelectorAll('select[name$="' + suffix + '"]')}
   function inputsByNameSuffix(suffix){return document.querySelectorAll('input[name$="' + suffix + '"]')}
 
+  function isCaseAdminFormPage() {
+    return /\/admin\/cases\/case\/(add|\d+\/change)\/?$/.test(window.location.pathname || '')
+  }
+
+  function hideCasePartyClientAddButtons() {
+    if (!isCaseAdminFormPage()) {
+      return
+    }
+
+    var selectors = [
+      '#parties-group .related-widget-wrapper-link.add-related',
+      '#parties-group .related-widget-wrapper a.add-another',
+      '#parties-group td.field-client a[href*="/add/"][href*="_popup=1"]'
+    ]
+
+    var links = document.querySelectorAll(selectors.join(', '))
+    links.forEach(function(link) {
+      link.style.display = 'none'
+      link.setAttribute('aria-hidden', 'true')
+      link.setAttribute('tabindex', '-1')
+    })
+  }
+
   // ============================================================
   // 案件类型相关字段显示/隐藏逻辑
   // ============================================================
@@ -674,12 +697,19 @@
 
     // 初始化时检查是否已有合同
     if (contractSelect.value) {
-      // 已有案件（INITIAL_FORMS > 0）时，只更新选项过滤，不自动填充
+      var contractId = contractSelect.value;
+      contractSelect.dataset.previousValue = contractId;
+
+      var inlineGroup = document.querySelector('.contract-party-inline, #caseparty_set-group');
+      if (inlineGroup) {
+        inlineGroup.classList.add('contract-party-filter-active');
+      }
+
+      // 已有案件（INITIAL_FORMS > 0）时，仅做“选项过滤”，不自动填充/不清空
       var initialForms = document.querySelector('input[name="parties-INITIAL_FORMS"]');
       var hasExistingParties = initialForms && parseInt(initialForms.value, 10) > 0;
       if (hasExistingParties) {
-        // 已有当事人，只设置 previousValue，不做任何选项过滤
-        contractSelect.dataset.previousValue = contractSelect.value;
+        fetchContractPartiesAndFill(contractId, false);
       } else {
         handleContractChange();
       }
@@ -706,7 +736,11 @@
     if (contractPartiesCache[contractId]) {
       // 有缓存，直接更新新行的选项
       updateClientOptions(contractPartiesCache[contractId]);
+      return;
     }
+
+    // 无缓存时补一次请求，避免新增行出现全量可选
+    fetchContractPartiesAndFill(contractId, false);
   }
 
   // ============================================================
@@ -722,16 +756,38 @@
 
     // 合同当事人过滤逻辑
     initContractPartyFilter();
+    hideCasePartyClientAddButtons();
 
-    // 监听 inline 行添加事件（Django Admin 使用 formset:added 事件）
-    document.body.addEventListener('formset:added', function(e) {
-      if (e.detail && e.detail[0]) {
-        var row = e.detail[0];
-        if (row.classList && row.classList.contains('dynamic-caseparty_set')) {
-          // 延迟执行，确保 DOM 已更新
-          setTimeout(handleInlineAdded, 100);
-        }
+    // 监听 inline 行添加事件（兼容 Django Admin / nested_admin）
+    document.body.addEventListener('formset:added', function() {
+      // 多次延迟，覆盖不同插件的异步插入时机
+      setTimeout(handleInlineAdded, 80);
+      setTimeout(handleInlineAdded, 220);
+      setTimeout(handleInlineAdded, 500);
+      setTimeout(hideCasePartyClientAddButtons, 120);
+      setTimeout(hideCasePartyClientAddButtons, 320);
+      setTimeout(hideCasePartyClientAddButtons, 650);
+    });
+
+    // 兜底：监听“添加另一个案件当事人”点击，确保新行总会触发过滤
+    document.body.addEventListener('click', function(e) {
+      var target = e.target;
+      if (!target || typeof target.closest !== 'function') {
+        return;
       }
+      var addLink = target.closest(
+        '.contract-party-inline .add-row a, .contract-party-inline a.add-row, #caseparty_set-group .add-row a, #caseparty_set-group a.add-row'
+      );
+      if (!addLink) {
+        return;
+      }
+
+      setTimeout(handleInlineAdded, 120);
+      setTimeout(handleInlineAdded, 320);
+      setTimeout(handleInlineAdded, 650);
+      setTimeout(hideCasePartyClientAddButtons, 120);
+      setTimeout(hideCasePartyClientAddButtons, 320);
+      setTimeout(hideCasePartyClientAddButtons, 650);
     });
   });
 

@@ -20,12 +20,13 @@ from apps.contracts.models import (
     Contract,
     ContractAssignment,
     ContractParty,
+    ContractStatus,
     FinalizedMaterial,
     SupplementaryAgreement,
     SupplementaryAgreementParty,
 )
 from apps.core.admin.mixins import AdminImportExportMixin
-from apps.core.models.enums import CaseStage, CaseStatus
+from apps.core.models.enums import CaseStage
 
 if TYPE_CHECKING:
     BaseModelAdmin = admin.ModelAdmin
@@ -166,7 +167,7 @@ class ContractAdmin(
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             super().__init__(*args, **kwargs)
             if not getattr(self.instance, "pk", None):
-                self.fields["status"].initial = CaseStatus.ACTIVE
+                self.fields["status"].initial = ContractStatus.ACTIVE
                 self.fields["specified_date"].initial = timezone.localdate()
             self.fields["representation_stages"].initial = list(
                 getattr(self.instance, "representation_stages", []) or []
