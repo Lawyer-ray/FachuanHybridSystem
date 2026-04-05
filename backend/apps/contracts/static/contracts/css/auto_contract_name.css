@@ -1,0 +1,10 @@
+/* 自动生成合同名称按钮样式 */
+.auto-name-wrapper {
+    display: inline-flex !important;
+    align-items: center !important;
+    vertical-align: middle !important;
+}
+
+.auto-contract-name-btn {
+    opacity: 1 !important;
+}

@@ -151,7 +151,7 @@ class ContractAdminMutationService:
         }
 
         case_data = {
-            "name": _("%(name)s - 案件") % {"name": contract.name},
+            "name": contract.name,
             "contract_id": contract.pk,
             "case_type": case_type_mapping.get(contract.case_type, SimpleCaseType.CIVIL),
             "is_archived": False,

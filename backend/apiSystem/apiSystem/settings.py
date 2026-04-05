@@ -86,6 +86,7 @@ INSTALLED_APPS = [
     "apps.express_query",  # 5.41 快递查询
     "apps.pdf_splitting",  # 5.45 PDF 拆解
     "apps.evidence",  # 5.5 证据管理
+    "apps.evidence_sorting",  # 5.51 案件材料整理（财务单据分类/对账单比对）
     "apps.documents",  # 6. 文书生成
     "apps.chat_records",  # 6.0 聊天记录梳理
     "apps.litigation_ai",  # 6.1 AI 诉讼文书生成
