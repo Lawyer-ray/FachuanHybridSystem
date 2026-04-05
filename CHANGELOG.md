@@ -15,6 +15,12 @@
 
 - **案件名称后缀移除**：点击「保存并创建案件」时生成的案件名称不再包含多余的「 - 案件」后缀
 - **启用证据整理 Admin 入口**：将 `apps.evidence_sorting` 加入 `INSTALLED_APPS`，使 `/admin/evidence_sorting/evidencesorting/` 页面可访问
+- **Ruff Lint 全量清零**：修复全部 24 处 lint 警告，`ruff check apps` 全绿通过
+  - W293: 移除空白行尾部空格（12 处，7 个文件）
+  - RUF010: f-string 中移除冗余 `str()` 转换（7 处，3 个文件）
+  - RUF100: 移除未启用的 noqa 指令（1 处）
+  - F541: 移除无占位符的 f-string 前缀（1 处）
+  - W292: 补齐文件末尾换行符（3 处）
 
 ## [26.31.2] - 2026-04-04
 
