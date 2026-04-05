@@ -14,6 +14,12 @@
 - **初始化默认值调整（core）**：`SILICONFLOW_DEFAULT_MODEL` 默认值更新为免费模型 `Qwen/Qwen2.5-7B-Instruct`。
 - **天眼查 API Key 默认值（enterprise_data）**：`TIANYANCHA_MCP_API_KEY` 初始化默认值更新为预置占位 key（并标记为 secret）。
 
+### 修复
+
+- **威科私有API适配器语法修复（legal_research）**：修复 `weike_api_private/adapter.py` 中异常块缩进错误导致的 `SyntaxError: expected 'except' or 'finally' block`，恢复私有模块可导入性。
+- **威科检索链路稳定性补充（legal_research）**：私有API层继续保持“失败自动回退 DOM 检索”策略，避免单链路异常导致检索中断。
+- **MCP能力边界说明补充（legal_research）**：MCP层对外保持统一能力接口，不直接暴露威科私有API实现细节。
+
 ## [26.31.3] - 2026-04-05
 
 ### 新增
@@ -238,7 +244,7 @@
 
 - **信息中转站（message_hub）**：新增消息中转模块
 
-- **威科先行高级检索**：案例检索支持多字段组合检索
+- **wkxx高级检索**：案例检索支持多字段组合检索
   - 新增 `advanced_query` JSON 字段，支持多条件 AND/OR/NOT 组合（字段：全文/标题/本院认为/裁判结果/争议焦点/案由/案号）
   - 新增 `court_filter`（法院筛选）、`cause_of_action_filter`（案由筛选）、`date_from`/`date_to`（裁判日期范围）
   - Admin 表单新增交互式高级检索条件构建器（Alpine.js 动态增删行，展开/收起）
@@ -285,7 +291,7 @@
 
 - 修复天眼查 MCP 服务端 `auth_error` 响应格式识别问题
 - 修复 `court_sms` 和 `preservation_quote` 接口 500 错误（两轮修复）
-- 修复威科先行高级检索 DOM 回退逻辑：URL 参数无结果时自动回退搜索框方式
+- 修复wkxx高级检索 DOM 回退逻辑：URL 参数无结果时自动回退搜索框方式
 
 ## [26.28.0] - 2026-03-31
 
