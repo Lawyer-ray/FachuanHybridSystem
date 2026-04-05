@@ -198,4 +198,39 @@ def get_default_folder_templates() -> list[dict[str, Any]]:
             "is_default": True,
             "is_active": True,
         },
+        {
+            "name": "申请执行文件夹",
+            "template_type": "case",
+            "case_types": ["civil", "execution"],
+            "case_stages": ["enforcement"],
+            "contract_types": [],
+            "legal_statuses": ["applicant"],
+            "legal_status_match_mode": "any",
+            "structure": {
+                "children": [
+                    {
+                        "id": "folder_1774250377874_3xc8kz0e",
+                        "name": "执行",
+                        "children": [
+                            {
+                                "id": "folder_1774250377874_wgkg21aw",
+                                "name": "1-立案材料",
+                                "children": [
+                                    {"id": "folder_1774250377875_km2h1b4f", "name": "1-强制执行申请书", "children": []},
+                                    {"id": "folder_1774250377876_a93zfd2s", "name": "2-当事人身份证明", "children": []},
+                                    {"id": "folder_1774250377876_aepfz20q", "name": "3-委托材料", "children": []},
+                                    {"id": "folder_1774250377877_07bdwj6d", "name": "4-限制性措施", "children": []},
+                                    {"id": "folder_1774250377878_bd72h67r", "name": "5-执行依据及生效证明", "children": []},
+                                    {"id": "folder_1774250377878_991ago5r", "name": "6-送达地址确认书", "children": []},
+                                    {"id": "folder_1774250377879_1tztdlni", "name": "7-退费账户确认书", "children": []},
+                                ],
+                            },
+                            {"id": "folder_1774250377885_1r5w975h", "name": "2-邮件往来", "children": []},
+                        ],
+                    }
+                ]
+            },
+            "is_default": True,
+            "is_active": True,
+        },
     ]
