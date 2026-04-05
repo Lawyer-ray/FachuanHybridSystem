@@ -12,12 +12,95 @@ function enterprisePrefillApp() {
         profile: null,
         prefill: null,
         existingClient: null,
+        providerStatuses: {},
+        statusHint: '',
+        isProviderReady: true,
+        systemConfigUrl: 'http://127.0.0.1:8002/admin/core/systemconfig/',
 
-        init() {
+        async init() {
             this.provider = 'tianyancha';
+            await this.loadProviderStatuses();
+            this.applyProviderAvailability();
+        },
+
+        onProviderChange() {
+            this.searchError = '';
+            this.prefillError = '';
+            this.applyMessage = '';
+            this.companies = [];
+            this.selectedCompany = null;
+            this.profile = null;
+            this.prefill = null;
+            this.existingClient = null;
+            this.applyProviderAvailability();
+        },
+
+        async loadProviderStatuses() {
+            try {
+                const payload = await this.fetchJson('/api/v1/enterprise-data/providers?include_tools=true');
+                const items = Array.isArray(payload.items) ? payload.items : [];
+                this.providerStatuses = items.reduce((acc, item) => {
+                    const name = String(item && item.name ? item.name : '').trim();
+                    if (name) {
+                        acc[name] = item;
+                    }
+                    return acc;
+                }, {});
+            } catch (error) {
+                this.providerStatuses = {};
+            }
+        },
+
+        applyProviderAvailability() {
+            const item = this.providerStatuses[this.provider] || null;
+            const unavailableReason = this.getProviderUnavailableReason(item);
+            this.isProviderReady = !unavailableReason;
+            this.statusHint = unavailableReason;
+            if (!this.isProviderReady) {
+                this.searchError = '';
+            }
+        },
+
+        getProviderUnavailableReason(providerItem) {
+            if (!providerItem || typeof providerItem !== 'object') {
+                return '企业信息查询服务状态未知，请稍后重试';
+            }
+
+            const providerName = String(providerItem.name || '').trim();
+            const providerEnabled = providerItem.enabled !== false;
+            const providerNote = String(providerItem.note || '').trim();
+            const normalizedNote = providerNote.toLowerCase();
+            const isTianyancha = providerName === 'tianyancha';
+
+            if (!providerEnabled) {
+                return isTianyancha
+                    ? '天眼查企业查询功能未启用，请在系统配置中开启并填写 TIANYANCHA_MCP_API_KEY'
+                    : '当前企业查询服务未启用';
+            }
+
+            if (
+                normalizedNote.includes('api key 未配置') ||
+                normalizedNote.includes('api key') && normalizedNote.includes('未配置') ||
+                normalizedNote.includes('mcp api key 未配置')
+            ) {
+                return isTianyancha
+                    ? '未检测到 TIANYANCHA_MCP_API_KEY，企业查询功能已禁用，请先到系统配置填写'
+                    : '当前服务 API Key 未配置，请先完善系统配置';
+            }
+
+            if (normalizedNote.includes('骨架实现') || normalizedNote.includes('尚未完成')) {
+                return '当前服务尚未开放，请切换到可用服务';
+            }
+
+            return '';
         },
 
         async searchCompanies() {
+            if (!this.isProviderReady) {
+                this.searchError = this.statusHint || '企业查询功能当前不可用';
+                return;
+            }
+
             const normalizedKeyword = String(this.keyword || '').trim();
             if (!normalizedKeyword) {
                 this.searchError = '请输入企业名称关键词';
@@ -45,7 +128,7 @@ function enterprisePrefillApp() {
                     this.searchError = '暂未检索到匹配企业，可换关键词继续搜索，或直接手工填写';
                 }
             } catch (error) {
-                this.searchError = error instanceof Error ? error.message : '企业搜索失败';
+                this.searchError = this.resolveEnterpriseError(error, '企业搜索失败');
                 this.companies = [];
             } finally {
                 this.isSearching = false;
@@ -76,10 +159,43 @@ function enterprisePrefillApp() {
                 this.existingClient = payload.existing_client || null;
                 this.applyToForm();
             } catch (error) {
-                this.prefillError = error instanceof Error ? error.message : '企业详情加载失败';
+                this.prefillError = this.resolveEnterpriseError(error, '企业详情加载失败');
             } finally {
                 this.isLoadingPrefill = false;
             }
+        },
+
+        resolveEnterpriseError(error, fallbackMessage) {
+            const message = error instanceof Error ? error.message : '';
+            const errorCode = error && typeof error === 'object' && typeof error.code === 'string'
+                ? error.code
+                : '';
+            const errorDetails = error && typeof error === 'object' && error.errors && typeof error.errors === 'object'
+                ? error.errors
+                : {};
+            const detailText = [
+                String(message || '').toLowerCase(),
+                String(errorCode || '').toLowerCase(),
+                String(errorDetails.provider || '').toLowerCase(),
+                String(errorDetails.detail || '').toLowerCase(),
+            ].join(' ');
+
+            const shouldGuideConfig =
+                errorCode === 'PROVIDER_API_KEY_MISSING' ||
+                errorCode === 'MCP_API_KEY_MISSING' ||
+                errorCode === 'MCP_AUTH_ERROR' ||
+                (errorCode === 'MCP_HTTP_ERROR' && Number(errorDetails.status_code || 0) === 500 && this.provider === 'tianyancha') ||
+                detailText.includes('api key') ||
+                detailText.includes('鉴权') ||
+                detailText.includes('auth');
+
+            if (shouldGuideConfig) {
+                this.isProviderReady = false;
+                this.statusHint = '天眼查鉴权异常，请到系统配置更换 TIANYANCHA_MCP_API_KEY 后重试';
+                return '';
+            }
+
+            return message || fallbackMessage;
         },
 
         applyToForm() {
@@ -152,7 +268,11 @@ function enterprisePrefillApp() {
 
             if (!response.ok) {
                 const message = this.extractErrorMessage(payload);
-                throw new Error(message || '请求失败');
+                const requestError = new Error(message || '请求失败');
+                requestError.code = payload && typeof payload.code === 'string' ? payload.code : '';
+                requestError.errors = payload && payload.errors && typeof payload.errors === 'object' ? payload.errors : {};
+                requestError.status = Number(response.status || 0);
+                throw requestError;
             }
             return payload;
         },

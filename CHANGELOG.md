@@ -2,6 +2,18 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.31.4] - 2026-04-05
+
+### 优化
+
+- **系统配置界面收敛（core/enterprise_data/legal_research）**：移除初始化默认配置中的大批 `LEGAL_RESEARCH_*` 调参项，避免后台配置过载，相关参数改为代码内默认值。
+- **企业数据运行参数写死（enterprise_data）**：`ENTERPRISE_DATA_*` 限流、重试、指标与告警阈值改为代码固定值，不再依赖后台配置。
+
+### 配置
+
+- **初始化默认值调整（core）**：`SILICONFLOW_DEFAULT_MODEL` 默认值更新为免费模型 `Qwen/Qwen2.5-7B-Instruct`。
+- **天眼查 API Key 默认值（enterprise_data）**：`TIANYANCHA_MCP_API_KEY` 初始化默认值更新为预置占位 key（并标记为 secret）。
+
 ## [26.31.3] - 2026-04-05
 
 ### 新增

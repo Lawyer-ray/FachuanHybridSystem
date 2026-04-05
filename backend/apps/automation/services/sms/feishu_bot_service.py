@@ -46,13 +46,8 @@ class FeishuBotService:
         return cast(str, webhook_url)
 
     def _get_timeout(self) -> int:
-        """从配置获取超时时间"""
-        db_config = _get_feishu_db_config()
-        raw = db_config.get("FEISHU_TIMEOUT", "30")
-        try:
-            return int(raw)
-        except (ValueError, TypeError):
-            return 30
+        """获取超时时间（固定 30 秒）"""
+        return 30
 
     def build_rich_text_message(self, case_name: str, sms_content: str, processed_at: datetime) -> dict[str, Any]:
         """
