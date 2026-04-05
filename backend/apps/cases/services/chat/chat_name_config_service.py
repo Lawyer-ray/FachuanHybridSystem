@@ -27,7 +27,7 @@ class ChatNameConfigService:
     配置项:
     - CASE_CHAT_NAME_TEMPLATE: 群名模板,支持 {stage}、{case_name}、{case_type} 占位符
     - CASE_CHAT_DEFAULT_STAGE: 默认阶段显示文本
-    - CASE_CHAT_NAME_MAX_LENGTH: 群名最大长度
+    - 群名最大长度固定为 60
 
     Requirements: 1.1, 1.2, 1.3, 1.4, 2.1, 2.2, 2.3, 3.1, 3.2, 3.3
     """
@@ -35,7 +35,6 @@ class ChatNameConfigService:
     # 配置键常量
     CONFIG_KEY_TEMPLATE = "CASE_CHAT_NAME_TEMPLATE"
     CONFIG_KEY_DEFAULT_STAGE = "CASE_CHAT_DEFAULT_STAGE"
-    CONFIG_KEY_MAX_LENGTH = "CASE_CHAT_NAME_MAX_LENGTH"
 
     # 默认值
     DEFAULT_TEMPLATE = "【{stage}】{case_name}"
@@ -96,28 +95,8 @@ class ChatNameConfigService:
         return default_stage.strip()
 
     def get_max_length(self) -> int:
-        """获取群名最大长度
-
-        从 SystemConfig 读取群名最大长度配置.
-        如果配置不存在、为空或无效,返回默认值 60.
-
-            int: 群名最大长度
-
-        Requirements: 3.1, 3.3
-        """
-        max_length_str = self._config_service.get_value(
-            self.CONFIG_KEY_MAX_LENGTH, default=str(self.DEFAULT_MAX_LENGTH)
-        )
-
-        try:
-            max_length = int(max_length_str)
-            if max_length <= 0:
-                logger.warning("群名最大长度配置无效 (%s),使用默认值: %s", max_length, self.DEFAULT_MAX_LENGTH)
-                return self.DEFAULT_MAX_LENGTH
-            return max_length
-        except (ValueError, TypeError):
-            logger.warning("群名最大长度配置格式错误 (%s),使用默认值: %s", max_length_str, self.DEFAULT_MAX_LENGTH)
-            return self.DEFAULT_MAX_LENGTH
+        """获取群名最大长度（固定 60）"""
+        return self.DEFAULT_MAX_LENGTH
 
     def render_chat_name(self, case_name: str, stage: str | None = None, case_type: str | None = None) -> str:
         """渲染群聊名称

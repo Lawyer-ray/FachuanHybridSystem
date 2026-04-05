@@ -90,6 +90,7 @@ class DocumentTemplateFolderBindingAdmin(admin.ModelAdmin[DocumentTemplateFolder
 
     form = DocumentTemplateFolderBindingForm
     change_form_template = "admin/documents/documenttemplatefolderbinding/change_form.html"
+    change_list_template = "admin/documents/documenttemplatefolderbinding/change_list.html"
 
     list_display = (
         "document_template",

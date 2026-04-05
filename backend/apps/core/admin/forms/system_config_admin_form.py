@@ -8,7 +8,7 @@ from django.core.exceptions import ValidationError
 from apps.core.models import SystemConfig
 from apps.core.security.secret_codec import SecretCodec
 
-_MULTI_KEY_CONFIGS = {"TIANYANCHA_MCP_API_KEY", "QICHACHA_MCP_API_KEY", "OLLAMA_MODEL"}
+_MULTI_KEY_CONFIGS = {"TIANYANCHA_MCP_API_KEY", "OLLAMA_MODEL"}
 
 
 class SystemConfigAdminForm(forms.ModelForm):

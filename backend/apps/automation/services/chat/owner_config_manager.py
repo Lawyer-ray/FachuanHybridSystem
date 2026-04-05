@@ -73,7 +73,6 @@ class OwnerConfigManager:
             key_mapping = {
                 "FEISHU_APP_ID": "APP_ID",
                 "FEISHU_APP_SECRET": "APP_SECRET",
-                "FEISHU_TIMEOUT": "TIMEOUT",
                 "FEISHU_DEFAULT_OWNER_ID": "DEFAULT_OWNER_ID",
                 "FEISHU_WEBHOOK_URL": "WEBHOOK_URL",
             }
@@ -95,7 +94,7 @@ class OwnerConfigManager:
             svc = SystemConfigService()
             config.setdefault("APP_ID", svc.get_value("FEISHU_APP_ID") or None)
             config.setdefault("APP_SECRET", svc.get_value("FEISHU_APP_SECRET") or None)
-            config.setdefault("TIMEOUT", svc.get_value("FEISHU_TIMEOUT", "30"))
+            config.setdefault("TIMEOUT", 30)
             config.setdefault("DEFAULT_OWNER_ID", svc.get_value("CASE_CHAT_DEFAULT_OWNER_ID") or None)
 
             config["TEST_MODE"] = os.environ.get("FEISHU_TEST_MODE", "false").lower() == "true"

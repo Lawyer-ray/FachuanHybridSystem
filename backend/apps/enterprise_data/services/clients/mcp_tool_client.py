@@ -534,22 +534,61 @@ class McpToolClient:
             lowered_text = str(response.text or "").lower()
         except Exception:
             lowered_text = ""
-        if any(token in lowered_text for token in ("auth_error", "authentication", "unauthorized", "invalid api key")):
+        if McpToolClient._contains_auth_token(lowered_text):
             return True
 
         try:
             body = response.json()
         except Exception:
             return False
-        if not isinstance(body, dict):
+
+        flattened_hint = McpToolClient._flatten_error_payload_text(body)
+        if not flattened_hint:
             return False
+        return McpToolClient._contains_auth_token(flattened_hint)
 
-        # 天眼查 MCP 服务端把鉴权错误包装成 HTTP 500，type 字段为 "auth_error"
-        if str(body.get("type", "") or "").strip().lower() in ("auth_error", "authentication_error"):
-            return True
+    @staticmethod
+    def _contains_auth_token(text: str) -> bool:
+        normalized = str(text or "").lower()
+        auth_tokens = (
+            "auth_error",
+            "authentication",
+            "authentication_error",
+            "unauthorized",
+            "invalid api key",
+            "apikey",
+            "api key",
+            "token",
+            "signature",
+        )
+        return any(token in normalized for token in auth_tokens)
 
-        hint = " ".join(str(body.get(key, "")) for key in ("type", "code", "detail", "message")).lower()
-        return any(token in hint for token in ("auth", "unauthor", "api key", "token"))
+    @staticmethod
+    def _flatten_error_payload_text(payload: Any) -> str:
+        fragments: list[str] = []
+
+        def _walk(value: Any) -> None:
+            if value is None:
+                return
+            if isinstance(value, (str, int, float, bool)):
+                text = str(value).strip().lower()
+                if text:
+                    fragments.append(text)
+                return
+            if isinstance(value, dict):
+                for key, nested in value.items():
+                    key_text = str(key).strip().lower()
+                    if key_text:
+                        fragments.append(key_text)
+                    _walk(nested)
+                return
+            if isinstance(value, list):
+                for nested in value:
+                    _walk(nested)
+                return
+
+        _walk(payload)
+        return " ".join(fragments)
 
     @staticmethod
     def _collect_related_exceptions(exc: BaseException) -> list[BaseException]:

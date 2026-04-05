@@ -15,10 +15,8 @@ from django.http import HttpRequest
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import AuthenticationError, PermissionDenied
-from apps.core.services.system_config_service import SystemConfigService
 from apps.organization.models import Lawyer
 
-AUTO_REGISTER_BOOTSTRAP_USED_KEY = "ADMIN_REGISTER_AUTO_BOOTSTRAP_USED"
 AUTO_REGISTER_BOOTSTRAP_USERNAME = "法穿"
 AUTO_REGISTER_BOOTSTRAP_PASSWORD = "1234qwer"  # pragma: allowlist secret
 
@@ -29,8 +27,8 @@ class RegisterResult:
 
 
 class AuthService:
-    def __init__(self, *, config_service: SystemConfigService | None = None) -> None:
-        self._config_service = config_service or SystemConfigService()
+    def __init__(self) -> None:
+        pass
 
     def login(self, request: HttpRequest, username: str, password: str) -> Lawyer:
         """
@@ -52,7 +50,7 @@ class AuthService:
         return not Lawyer.objects.exists()
 
     def should_show_auto_register(self) -> bool:
-        return self.is_first_user() and not self._is_auto_register_consumed()
+        return self.is_first_user()
 
     @transaction.atomic
     def register(
@@ -84,7 +82,6 @@ class AuthService:
             is_admin=should_grant_admin,
             is_active=should_grant_admin,
         )
-        self._mark_auto_register_consumed()
         return RegisterResult(user=user)
 
     @transaction.atomic
@@ -104,18 +101,4 @@ class AuthService:
             is_admin=True,
             is_active=True,
         )
-        self._mark_auto_register_consumed()
         return RegisterResult(user=user)
-
-    def _is_auto_register_consumed(self) -> bool:
-        raw = str(self._config_service.get_value(AUTO_REGISTER_BOOTSTRAP_USED_KEY, "false") or "").strip().lower()
-        return raw in {"true", "1", "yes", "y", "on"}
-
-    def _mark_auto_register_consumed(self) -> None:
-        self._config_service.set_value(
-            AUTO_REGISTER_BOOTSTRAP_USED_KEY,
-            "true",
-            category="general",
-            description="管理员注册页自动注册入口是否已被消费",
-            is_secret=False,
-        )

@@ -385,6 +385,8 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):  # type: ignore
 
     inlines: ClassVar[list[Any]] = [DocumentTemplateFolderBindingInline]
 
+    change_list_template: str = "admin/documents/documenttemplate/change_list.html"
+
     actions: ClassVar[list[str]] = [
         "activate_templates",
         "deactivate_templates",

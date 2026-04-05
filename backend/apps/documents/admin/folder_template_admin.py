@@ -251,6 +251,7 @@ class FolderTemplateAdmin(admin.ModelAdmin[FolderTemplate]):  # type: ignore[typ
     actions: ClassVar[list[str]] = ["activate_templates", "deactivate_templates", "duplicate_templates"]
 
     change_form_template: str = "admin/documents/foldertemplate/change_form.html"
+    change_list_template: str = "admin/documents/foldertemplate/change_list.html"
 
     class Media:
         css: ClassVar[dict[str, tuple[str, ...]]] = {

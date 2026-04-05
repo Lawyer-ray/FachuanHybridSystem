@@ -1,0 +1,42 @@
+{% extends "admin/change_list.html" %}
+{% load i18n %}
+
+{% block object-tools-items %}
+    {% if show_initialize_button %}
+    <li>
+        <a href="{% url 'admin:core_court_initialize' %}" class="addlink">
+            {% trans "初始化法院数据" %}
+        </a>
+    </li>
+    {% endif %}
+    {{ block.super }}
+{% endblock %}
+
+{% block content %}
+    <div style="margin-bottom: 16px; padding: 12px 14px; border: 1px solid #ddd; border-radius: 6px; background: #fff;">
+        <h3 style="margin: 0 0 8px;">{% trans "法院数据统计" %}</h3>
+        <div style="font-size: 13px; color: #333; line-height: 1.8;">
+            <div><strong>{% trans "总数" %}：</strong>{{ statistics.total_count|default:0 }}</div>
+            <div><strong>{% trans "有效" %}：</strong>{{ statistics.active_count|default:0 }}</div>
+        </div>
+
+        {% if statistics.level_stats %}
+            <div style="margin-top: 10px; font-size: 13px; color: #333;">
+                <strong>{% trans "按层级" %}：</strong>
+                {% for item in statistics.level_stats %}
+                    <span style="display: inline-block; margin-right: 10px;">{{ item.level }}: {{ item.count }}</span>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        {% if statistics.province_stats %}
+            <div style="margin-top: 8px; font-size: 13px; color: #333;">
+                <strong>{% trans "省份 Top10" %}：</strong>
+                {% for item in statistics.province_stats %}
+                    <span style="display: inline-block; margin-right: 10px;">{{ item.province|default:"-" }}: {{ item.count }}</span>
+                {% endfor %}
+            </div>
+        {% endif %}
+    </div>
+    {{ block.super }}
+{% endblock %}
