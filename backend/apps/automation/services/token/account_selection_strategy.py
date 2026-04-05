@@ -175,7 +175,7 @@ class AccountSelectionStrategy:
             else:
                 success_rate_score = 10.0  # 新账号给予中等分数
 
-            return -(recency_score + success_score + success_rate_score)
+            return -(recency_score + success_score + success_rate_score)  # type: ignore[no-any-return]
 
         # 排序并选择最优账号
         sorted_accounts = sorted(accounts, key=sort_key)

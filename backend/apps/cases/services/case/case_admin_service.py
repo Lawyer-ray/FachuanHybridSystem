@@ -132,8 +132,8 @@ class CaseAdminService:
         """
         try:
             if legal_statuses:
-                return self.document_service.get_matched_folder_templates_with_legal_status(case_type, legal_statuses)
-            return self.document_service.get_matched_folder_templates(case_type)
+                return self.document_service.get_matched_folder_templates_with_legal_status(case_type, legal_statuses)  # type: ignore[no-any-return]
+            return self.document_service.get_matched_folder_templates(case_type)  # type: ignore[no-any-return]
         except Exception:
             logger.exception(
                 "get_matched_folder_templates_failed", extra={"case_type": case_type, "legal_statuses": legal_statuses}
@@ -545,7 +545,7 @@ class CaseAdminService:
                 "案件已有建档编号,返回现有编号",
                 extra={"case_id": case_id, "filing_number": case.filing_number, "action": "handle_case_filing_change"},
             )
-            return case.filing_number
+            return case.filing_number  # type: ignore[no-any-return]
 
         # 如果已建档但没有编号,生成新编号
         created_year = case.start_date.year
@@ -564,4 +564,4 @@ class CaseAdminService:
             extra={"case_id": case_id, "filing_number": filing_number, "action": "handle_case_filing_change"},
         )
 
-        return filing_number
+        return filing_number  # type: ignore[no-any-return]

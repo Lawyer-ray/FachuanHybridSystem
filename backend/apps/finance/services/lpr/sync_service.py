@@ -20,6 +20,7 @@ from django.db import transaction
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import BusinessException
+from typing import Any
 
 if TYPE_CHECKING:
     from apps.finance.models.lpr_rate import LPRRate

@@ -84,7 +84,7 @@ class LitigationContextBuilder:
                 ),
             }
         )
-        return context
+        return context  # type: ignore[no-any-return]
 
     def build_defense_context(self, *, case_dto: Any, llm_result: DefenseOutput) -> dict[str, Any]:
         context_data = {"case_id": case_dto.id, "case_dto": case_dto}
@@ -107,4 +107,4 @@ class LitigationContextBuilder:
                 ),
             }
         )
-        return context
+        return context  # type: ignore[no-any-return]

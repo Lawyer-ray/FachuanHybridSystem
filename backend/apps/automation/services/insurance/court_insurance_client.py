@@ -452,7 +452,7 @@ class CourtInsuranceClient(InsuranceHttpMixin):
             )
 
             if response.status_code != 200:
-                return self._make_failed_result(
+                return self._make_failed_result(  # type: ignore[no-any-return]
                     company,
                     f"HTTP {response.status_code}",
                     Exception(response.text),
@@ -500,7 +500,7 @@ class CourtInsuranceClient(InsuranceHttpMixin):
             )
 
         except httpx.TimeoutException as e:
-            return self._make_failed_result(
+            return self._make_failed_result(  # type: ignore[no-any-return]
                 company,
                 "查询超时",
                 e,
@@ -508,7 +508,7 @@ class CourtInsuranceClient(InsuranceHttpMixin):
                 extra={"institution": institution, "timeout": timeout},
             )
         except httpx.HTTPError as e:
-            return self._make_failed_result(
+            return self._make_failed_result(  # type: ignore[no-any-return]
                 company,
                 "HTTP 错误",
                 e,
@@ -516,7 +516,7 @@ class CourtInsuranceClient(InsuranceHttpMixin):
                 extra={"institution": institution},
             )
         except Exception as e:
-            return self._make_failed_result(
+            return self._make_failed_result(  # type: ignore[no-any-return]
                 company,
                 "未知错误",
                 e,

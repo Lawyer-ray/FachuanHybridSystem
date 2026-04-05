@@ -258,7 +258,7 @@ class CaseTemplateGenerationService:
             context_data["client"] = client
         if clients:
             context_data["clients"] = clients
-        return get_enhanced_context_builder().build_context(context_data)
+        return get_enhanced_context_builder().build_context(context_data)  # type: ignore[no-any-return]
     def _render_template(self, template_path: Path, context: dict[str, Any]) -> bytes:
         """
         使用 docxtpl 渲染模板

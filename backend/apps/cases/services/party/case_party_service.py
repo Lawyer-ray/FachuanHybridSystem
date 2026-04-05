@@ -71,7 +71,7 @@ class CasePartyService:
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> list[dict[str, str]]:
-        return self.query_facade.get_available_legal_statuses(
+        return self.query_facade.get_available_legal_statuses(  # type: ignore[no-any-return]
             case_id=case_id,
             user=user,
             org_access=org_access,
@@ -174,7 +174,7 @@ class CasePartyService:
 
     @transaction.atomic
     def create_party_internal(self, case_id: int, client_id: int, legal_status: str | None = None) -> bool:
-        return self.mutation_facade.create_party_internal(
+        return self.mutation_facade.create_party_internal(  # type: ignore[no-any-return]
             case_id=case_id,
             client_id=client_id,
             legal_status=legal_status,

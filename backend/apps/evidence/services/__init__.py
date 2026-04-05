@@ -20,7 +20,8 @@ def __getattr__(name: str) -> type:
 
         mod_path, attr_name = _map[name]
         mod = importlib.import_module(mod_path, __package__)
-        return getattr(mod, attr_name)
+        return getattr(mod, attr_name)  # type: ignore[no-any-return]
+
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 

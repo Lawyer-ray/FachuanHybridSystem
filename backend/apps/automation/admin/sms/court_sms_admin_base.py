@@ -201,7 +201,7 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
         preview = obj.content[:100]
         if len(obj.content) > 100:
             preview += "..."
-        return preview
+        return preview  # type: ignore[no-any-return]
 
     @admin.display(description=_("下载链接"))
     def has_download_links(self, obj: CourtSMS) -> SafeString:

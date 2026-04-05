@@ -228,7 +228,7 @@ class SolutionTaskAdmin(admin.ModelAdmin[SolutionTask]):
 
     @admin.display(description="案情简述", ordering="case_summary")
     def case_summary_short(self, obj: SolutionTask) -> str:
-        return obj.case_summary[:40] + "..." if len(obj.case_summary) > 40 else obj.case_summary
+        return obj.case_summary[:40] + "..." if len(obj.case_summary) > 40 else obj.case_summary  # type: ignore[no-any-return]
 
     @admin.display(description="HTML 预览")
     def preview_html_field(self, obj: SolutionTask) -> str:

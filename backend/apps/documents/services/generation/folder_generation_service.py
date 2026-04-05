@@ -259,7 +259,7 @@ class FolderGenerationService:
         """
         from .pipeline import ZipPackager
 
-        return ZipPackager().create(folder_structure, documents)
+        return ZipPackager().create(folder_structure, documents)  # type: ignore[no-any-return]
 
     def generate_folder_with_documents(self, contract_id: int) -> tuple[bytes | None, str | None, str | None]:
         """

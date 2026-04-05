@@ -136,7 +136,7 @@ class ContractGenerationService:
         from .pipeline import DocxPreviewService, PipelineContextBuilder
 
         context = PipelineContextBuilder().build_contract_context(contract)
-        return DocxPreviewService().preview(file_location, context)
+        return DocxPreviewService().preview(file_location, context)  # type: ignore[no-any-return]
 
     def generate_contract_document(
         self, contract_id: int, split_fee: bool = True
@@ -209,7 +209,7 @@ class ContractGenerationService:
         """
         from apps.documents.services.template.contract_template.query_service import ContractTemplateQueryService
 
-        return ContractTemplateQueryService().find_matching_templates(case_type)
+        return ContractTemplateQueryService().find_matching_templates(case_type)  # type: ignore[no-any-return]
 
     def find_matching_template(self, case_type: str) -> DocumentTemplate | None:
         """
@@ -240,7 +240,7 @@ class ContractGenerationService:
         context_builder = EnhancedContextBuilder()
         context_data = {"contract": contract}
 
-        return context_builder.build_context(context_data)
+        return context_builder.build_context(context_data)  # type: ignore[no-any-return]
 
     def generate_filename(self, contract: Any, template: DocumentTemplate, contract_id: int | None = None) -> str:
         """
@@ -274,7 +274,7 @@ class ContractGenerationService:
             extra={"template": template_name, "contract": contract_name, "version": version, "doc_filename": filename},
         )
 
-        return filename
+        return filename  # type: ignore[no-any-return]
 
     def _get_next_version(
         self, contract_id: int | None, template_name: str, contract_name: str, subdir_key: str
@@ -375,4 +375,4 @@ class ContractGenerationService:
                 saved_path,
                 extra={"contract_id": contract_id, "file_name": file_name, "saved_path": saved_path},
             )
-        return saved_path
+        return saved_path  # type: ignore[no-any-return]

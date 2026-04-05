@@ -72,9 +72,9 @@ class DocxFormatter:
         for p in doc.paragraphs:
             style_name = p.style.name if p.style else ""
             if style_name in _HEADING_STYLES:
-                return p._element
+                return p._element  # type: ignore[no-any-return]
             if p.text.strip():
-                return p._element
+                return p._element  # type: ignore[no-any-return]
         return None
 
     @staticmethod

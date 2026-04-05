@@ -51,7 +51,7 @@ class AdminImportExportMixin:
         custom = [
             path("import/", self.admin_site.admin_view(self.import_view), name=f"{self.export_model_name}_import"),
         ]
-        return custom + urls
+        return custom + urls  # type: ignore[no-any-return]
 
     def import_view(self, request: HttpRequest) -> HttpResponse:
         if request.method != "POST":

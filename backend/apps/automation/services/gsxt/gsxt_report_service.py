@@ -104,7 +104,7 @@ async def click_company_detail(page: Page, company_name: str) -> str:
     # 等待详情页核心内容加载完成
     await page.wait_for_selector("#btn_send_pdf", timeout=60000)
 
-    return page.url
+    return page.url  # type: ignore[no-any-return]
 
 
 # ──────────────────────────────────────────────

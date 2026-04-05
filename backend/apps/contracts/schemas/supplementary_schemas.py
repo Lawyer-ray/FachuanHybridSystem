@@ -101,8 +101,8 @@ class SupplementaryAgreementOut(ModelSchema, SchemaMixin):
 
     @staticmethod
     def resolve_created_at(obj: Any) -> str:
-        return SchemaMixin._resolve_datetime_iso(getattr(obj, "created_at", None))  # type: ignore[return-value]
+        return SchemaMixin._resolve_datetime_iso(getattr(obj, "created_at", None))  # type: ignore[no-any-return]
 
     @staticmethod
     def resolve_updated_at(obj: Any) -> str:
-        return SchemaMixin._resolve_datetime_iso(getattr(obj, "updated_at", None))  # type: ignore[return-value]
+        return SchemaMixin._resolve_datetime_iso(getattr(obj, "updated_at", None))

@@ -72,7 +72,7 @@ class ContractQueryService:
             org_access=org_access,
             perm_open_access=perm_open_access,
         )
-        return qs
+        return qs  # type: ignore[no-any-return]
 
     def list_contracts_ctx(
         self,
@@ -86,7 +86,7 @@ class ContractQueryService:
         qs = self._apply_list_filters(qs, case_type=case_type, status=status, is_archived=is_archived)
 
         qs = self.access_policy.filter_queryset_ctx(qs=qs, ctx=ctx)
-        return qs
+        return qs  # type: ignore[no-any-return]
 
     def get_contract_internal(self, contract_id: int) -> Any:
         try:

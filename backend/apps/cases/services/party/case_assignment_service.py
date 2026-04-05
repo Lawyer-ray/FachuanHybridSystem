@@ -92,7 +92,7 @@ class CaseAssignmentService(DjangoPermsMixin):
             },
         )
 
-        return qs
+        return qs  # type: ignore[no-any-return]
 
     def get_assignment(
         self,

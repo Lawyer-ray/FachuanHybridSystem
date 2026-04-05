@@ -548,11 +548,11 @@ class Command(BaseCommand):
     def _normalize_search_mode(raw: Any) -> str:
         text = str(raw or "").strip().lower()
         if not text:
-            return LegalResearchSearchMode.EXPANDED
+            return LegalResearchSearchMode.EXPANDED  # type: ignore[no-any-return]
         token = re.sub(r"[\s_\-]+", "", text)
         if token in {"single", "singlequery", "strict", "单检索", "单一检索", "不扩展"}:
-            return LegalResearchSearchMode.SINGLE
-        return LegalResearchSearchMode.EXPANDED
+            return LegalResearchSearchMode.SINGLE  # type: ignore[no-any-return]
+        return LegalResearchSearchMode.EXPANDED  # type: ignore[no-any-return]
 
     @classmethod
     def _normalize_evaluation_mode(cls, raw: Any) -> str:

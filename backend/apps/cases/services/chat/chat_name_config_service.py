@@ -74,7 +74,7 @@ class ChatNameConfigService:
             logger.debug("群名模板配置为空,使用默认模板: %s", self.DEFAULT_TEMPLATE)
             return self.DEFAULT_TEMPLATE
 
-        return template.strip()
+        return template.strip()  # type: ignore[no-any-return]
 
     def get_default_stage(self) -> str:
         """获取默认阶段显示文本
@@ -93,7 +93,7 @@ class ChatNameConfigService:
             logger.debug("默认阶段配置为空,使用默认值: %s", self.DEFAULT_STAGE)
             return self.DEFAULT_STAGE
 
-        return default_stage.strip()
+        return default_stage.strip()  # type: ignore[no-any-return]
 
     def get_max_length(self) -> int:
         """获取群名最大长度

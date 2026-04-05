@@ -62,7 +62,7 @@ class GsxtReportTaskInline(admin.TabularInline):  # type: ignore[type-arg]
     verbose_name_plural = _("企业信用报告任务")
 
     @property
-    def model(self) -> type[Any]:
+    def model(self) -> type[Any]:  # type: ignore[override]
         """延迟获取模型。"""
         return _get_gsxt_report_task_model()
 

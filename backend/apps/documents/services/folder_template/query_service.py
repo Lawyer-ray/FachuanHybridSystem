@@ -20,7 +20,7 @@ class FolderTemplateQueryService:
     id_service: FolderTemplateIdService
 
     def get_duplicate_id_report(self) -> dict[str, Any]:
-        return self.id_service.get_duplicate_id_report()
+        return self.id_service.get_duplicate_id_report()  # type: ignore[no-any-return]
 
     def get_template_for_case(self, *, case_type: str, case_stage: str) -> Any:
         from apps.documents.models import FolderTemplateType

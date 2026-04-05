@@ -152,7 +152,7 @@ class LegalResearchExecutor(
     def run(self, *, task_id: str) -> dict[str, Any]:
         task, early_result = self._acquire_task(task_id=task_id)
         if early_result is not None:
-            return early_result
+            return early_result  # type: ignore[no-any-return]
         if task is None:
             logger.error("案例检索任务获取失败", extra={"task_id": task_id})
             return {"task_id": task_id, "status": "failed", "error": "任务不存在"}
@@ -767,7 +767,7 @@ class LegalResearchExecutor(
         batch_size: int,
     ) -> int:
         remaining_target = max(1, task.target_count - matched)
-        return min(batch_size, max(cls.COARSE_RECALL_KEEP_MIN, remaining_target * cls.COARSE_RECALL_MULTIPLIER))
+        return min(batch_size, max(cls.COARSE_RECALL_KEEP_MIN, remaining_target * cls.COARSE_RECALL_MULTIPLIER))  # type: ignore[no-any-return]
 
     @classmethod
     def _effective_fetch_limit(cls, *, max_candidates: int, skipped: int) -> int:
@@ -862,7 +862,7 @@ class LegalResearchExecutor(
     def _deferred_rerank_budget(cls, *, task: LegalResearchTask, matched: int, deferred_count: int) -> int:
         remaining_target = max(1, task.target_count - matched)
         budget = max(cls.DEFERRED_RERANK_KEEP_MIN, remaining_target * cls.DEFERRED_RERANK_MULTIPLIER)
-        return min(deferred_count, budget)
+        return min(deferred_count, budget)  # type: ignore[no-any-return]
 
     @staticmethod
     def _should_rerank(*, coarse_score: float, threshold: float, rerank_used: int, rerank_budget: int) -> bool:
@@ -1432,7 +1432,7 @@ class LegalResearchExecutor(
         breach_low_terms = intent_slots["breach_low"]
         damage_low_terms = intent_slots["damage_low"]
         remedy_low_terms = intent_slots["remedy_low"]
-        low_conf_limit = max(1, int(intent_slots.get("low_conf_limit", 2)))  # type: ignore[str]
+        low_conf_limit = max(1, int(intent_slots.get("low_conf_limit", 2)))
 
         keyword_terms = [token for token in cls._split_tokens(keyword) if not cls._is_location_or_court_token(token)]
         summary_terms = cls._extract_summary_terms(case_summary)
@@ -1441,11 +1441,11 @@ class LegalResearchExecutor(
         relation_seed = relation_terms or summary_relation_terms[:2] or keyword_terms[:2]
         query_parts: list[list[str]] = []
         if relation_seed and breach_terms and damage_terms:
-            query_parts.append([*relation_seed[:2], *breach_terms[:2], *damage_terms[:2]])  # type: ignore[str]
+            query_parts.append([*relation_seed[:2], *breach_terms[:2], *damage_terms[:2]])
         if relation_seed and damage_terms:
-            query_parts.append([*relation_seed[:2], *damage_terms[:2], *remedy_terms[:1], *summary_terms[:2]])  # type: ignore[str]
+            query_parts.append([*relation_seed[:2], *damage_terms[:2], *remedy_terms[:1], *summary_terms[:2]])
         if breach_terms and damage_terms:
-            query_parts.append([*breach_terms[:2], *damage_terms[:2], *summary_terms[:2]])  # type: ignore[str]
+            query_parts.append([*breach_terms[:2], *damage_terms[:2], *summary_terms[:2]])
         if relation_seed and remedy_terms:
             query_parts.append([*relation_seed[:2], *remedy_terms[:2], *summary_terms[:2]])  # type: ignore[str]
         low_conf_pool = cls._dedupe_tokens(
@@ -1725,13 +1725,13 @@ class LegalResearchExecutor(
 
         relation_high = cls._collect_intent_terms(normalized, relation_mapping)
         relation_high.extend(
-            cls._extract_relation_terms_dynamic(normalized, extra_regexes=rule_overrides["relation_regex_extra"])  # type: ignore[str]
+            cls._extract_relation_terms_dynamic(normalized, extra_regexes=rule_overrides["relation_regex_extra"])
         )
-        relation_high.extend([cls._normalize_relation_term(term) for term in rule_overrides["relation_term_extra"]])  # type: ignore[str]
+        relation_high.extend([cls._normalize_relation_term(term) for term in rule_overrides["relation_term_extra"]])
         relation_low = [token for token in semantic_tokens if cls._looks_like_relation_term(token)]
 
-        breach_hints = cls._merge_hint_overrides(cls.INTENT_BREACH_HINTS, rule_overrides["breach_hint_extra"])  # type: ignore[str]
-        damage_hints = cls._merge_hint_overrides(cls.INTENT_DAMAGE_HINTS, rule_overrides["damage_hint_extra"])  # type: ignore[str]
+        breach_hints = cls._merge_hint_overrides(cls.INTENT_BREACH_HINTS, rule_overrides["breach_hint_extra"])
+        damage_hints = cls._merge_hint_overrides(cls.INTENT_DAMAGE_HINTS, rule_overrides["damage_hint_extra"])
         remedy_hints = cls._merge_hint_overrides(cls.INTENT_REMEDY_HINTS, rule_overrides["remedy_hint_extra"])  # type: ignore[str]
 
         breach_high = cls._collect_intent_terms(normalized, breach_mapping)

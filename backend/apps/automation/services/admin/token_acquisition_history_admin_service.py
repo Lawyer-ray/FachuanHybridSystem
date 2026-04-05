@@ -77,7 +77,7 @@ class TokenAcquisitionHistoryAdminService:
                     extra={"action": "cleanup_old_records", "deleted_count": count, "retention_days": days},
                 )
 
-                return count
+                return count  # type: ignore[no-any-return]
             else:
                 self.logger.info(
                     "没有找到需要清理的历史记录",

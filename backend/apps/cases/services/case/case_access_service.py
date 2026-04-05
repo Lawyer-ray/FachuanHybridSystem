@@ -68,14 +68,14 @@ class CaseAccessService(DjangoPermsMixin):
             qs = qs.filter(grantee_id=grantee_id)
         ctx = access_ctx or AccessContext(user=user, org_access=org_access, perm_open_access=perm_open_access)
         if ctx.perm_open_access:
-            return qs
+            return qs  # type: ignore[no-any-return]
         self.ensure_authenticated(ctx.user)
         if self.is_admin(ctx.user) or self.is_superuser(ctx.user):
-            return qs
+            return qs  # type: ignore[no-any-return]
         user_id = self.get_user_id(ctx.user)
         if grantee_id is not None and grantee_id != user_id:
             raise ForbiddenError(_("无权限查看他人授权记录"))
-        return qs.filter(grantee_id=user_id)
+        return qs.filter(grantee_id=user_id)  # type: ignore[no-any-return]
 
     def get_grant(
         self,
@@ -204,7 +204,7 @@ class CaseAccessService(DjangoPermsMixin):
             授权查询集
         """
         self.ensure_admin(user)
-        return CaseAccessGrant.objects.filter(case_id=case_id).select_related("grantee")
+        return CaseAccessGrant.objects.filter(case_id=case_id).select_related("grantee")  # type: ignore[no-any-return]
 
     def get_grants_for_user(self, user_id: int, user: Any | None = None) -> QuerySet[Case, Case]:
         """
@@ -218,7 +218,7 @@ class CaseAccessService(DjangoPermsMixin):
         self.ensure_authenticated(user)
         if not (self.is_admin(user) or self.is_superuser(user)) and self.get_user_id(user) != user_id:
             raise ForbiddenError(_("无权限查看他人授权记录"))
-        return CaseAccessGrant.objects.filter(grantee_id=user_id).select_related("case")
+        return CaseAccessGrant.objects.filter(grantee_id=user_id).select_related("case")  # type: ignore[no-any-return]
 
     def get_accessible_case_ids(self, user_id: int, user: Any | None = None) -> set[int]:
         """
@@ -315,4 +315,4 @@ class CaseAccessService(DjangoPermsMixin):
         for grantee_id in grantee_ids:
             if grantee_id not in existing:
                 invalidate_user_access_context(grantee_id)
-        return created
+        return created  # type: ignore[no-any-return]

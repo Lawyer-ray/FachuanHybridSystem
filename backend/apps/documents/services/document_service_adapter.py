@@ -78,7 +78,7 @@ class DocumentServiceAdapter:
             matched_templates = self.template_matching_service.find_matching_case_document_template_names(case_type)
             from apps.documents.presenters.template_names_presenter import format_template_names
 
-            return format_template_names(matched_templates)
+            return format_template_names(matched_templates)  # type: ignore[no-any-return]
         except Exception as e:
             logger.error("获取文书模板失败,案件类型: %s,错误: %s", case_type, e, exc_info=True)
             return "查询失败"
@@ -130,7 +130,7 @@ class DocumentServiceAdapter:
             )
             from apps.documents.presenters.template_names_presenter import format_template_names
 
-            return format_template_names(matched_templates)
+            return format_template_names(matched_templates)  # type: ignore[no-any-return]
         except Exception:
             logger.exception(
                 "get_matched_folder_templates_failed", extra={"case_type": case_type, "legal_statuses": legal_statuses}

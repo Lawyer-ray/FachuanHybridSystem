@@ -184,7 +184,7 @@ class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):
 
     @admin.display(description=_("原始文件名"))
     def original_filename(self, obj: ExternalTemplate) -> str:
-        return obj.original_filename
+        return obj.original_filename  # type: ignore[no-any-return]
 
     @admin.display(description=_("文件大小"))
     def file_size_display(self, obj: ExternalTemplate) -> str:

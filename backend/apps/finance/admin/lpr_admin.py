@@ -113,9 +113,9 @@ class LPRRateAdmin(BaseModelAdmin):
                 name="finance_lprrate_calculator",
             ),
         ]
-        return custom_urls + urls
+        return custom_urls + urls  # type: ignore[no-any-return]
 
-    def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> TemplateResponse:
+    def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> TemplateResponse:  # type: ignore[no-any-return]
         """列表页面视图，添加快捷操作按钮."""
         extra_context = extra_context or {}
         extra_context["sync_url"] = "sync/"
@@ -132,7 +132,7 @@ class LPRRateAdmin(BaseModelAdmin):
             logger.warning(f"[LPRAdmin] Failed to get sync status: {e}")
             extra_context["sync_status"] = None
 
-        return super().changelist_view(request, extra_context=extra_context)
+        return super().changelist_view(request, extra_context=extra_context)  # type: ignore[no-any-return]
 
     def sync_view(self, request: HttpRequest) -> HttpResponse:
         """同步LPR数据视图 - 直接执行同步."""

@@ -46,7 +46,7 @@ class EnforcementJudgmentMainTextService(BasePlaceholderService):
                 content = cn.get("document_content")
                 if content:
                     logger.info("获取生效案号执行依据主文: case_id=%s, length=%d", case_id, len(content))
-                    return content
+                    return content  # type: ignore[no-any-return]
 
         # 没有生效的案号则按顺序拼接所有有内容的案号（如一审+二审）
         all_contents: list[str] = []

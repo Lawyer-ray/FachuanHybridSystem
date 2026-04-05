@@ -148,7 +148,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin[TokenAcquisitionHistory]):
     @admin.display(description=_("站点"))
     def site_name_display(self, obj: TokenAcquisitionHistory) -> str:
         """显示可读站点名称"""
-        return SITE_NAME_LABELS.get(obj.site_name, obj.site_name)
+        return SITE_NAME_LABELS.get(obj.site_name, obj.site_name)  # type: ignore[no-any-return]
 
     @admin.display(description=_("状态"))
     def status_display(self, obj: TokenAcquisitionHistory) -> SafeString:

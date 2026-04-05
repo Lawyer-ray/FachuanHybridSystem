@@ -105,7 +105,7 @@ class CaseBindingService:
                     "match_count": len(cases),
                 },
             )
-            return case_id
+            return case_id  # type: ignore[no-any-return]
 
         except Exception as e:
             logger.error(
@@ -191,7 +191,7 @@ class CaseBindingService:
             },
         )
 
-        return case_log_id
+        return case_log_id  # type: ignore[no-any-return]
 
     def _update_log_reminder(
         self, case_log_id: int, reminder_time: datetime, document_type: DocumentType | None = None

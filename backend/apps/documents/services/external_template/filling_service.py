@@ -729,7 +729,7 @@ class FillingService:
         """
         from apps.documents.models.fill_record import FillRecord
 
-        return (
+        return (  # type: ignore[no-any-return]
             FillRecord.objects.filter(case_id=case_id)
             .select_related("template", "party", "filled_by", "batch_task")
             .order_by("-filled_at")
@@ -743,7 +743,7 @@ class FillingService:
         """
         from apps.documents.models.fill_record import FillRecord
 
-        return (
+        return (  # type: ignore[no-any-return]
             FillRecord.objects.filter(template_id=template_id)
             .select_related("case", "party", "filled_by", "batch_task")
             .order_by("-filled_at")

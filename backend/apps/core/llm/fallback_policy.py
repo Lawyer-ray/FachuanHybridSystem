@@ -33,7 +33,7 @@ def _resolve_backends_from_router(
                 if name != backend:
                     result.append((name, b))
         return result
-    return router.get_backends_by_priority()
+    return router.get_backends_by_priority()  # type: ignore[no-any-return]
 
 
 def _handle_call_error(name: str, e: Exception, fallback: bool, errors: list[Any]) -> None:

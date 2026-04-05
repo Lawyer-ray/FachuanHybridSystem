@@ -246,10 +246,10 @@ class ContextBuilder:
         return context
 
     def _format_date(self, value: date | None) -> str:
-        return format_date(value, self.date_format)
+        return format_date(value, self.date_format)  # type: ignore[no-any-return]
 
     def _format_currency(self, value: Decimal | None) -> str:
-        return format_currency(value)
+        return format_currency(value)  # type: ignore[no-any-return]
 
     def _format_percentage(self, value: Decimal | None) -> str:
-        return format_percentage(value)
+        return format_percentage(value)  # type: ignore[no-any-return]

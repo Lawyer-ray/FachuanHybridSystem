@@ -105,7 +105,7 @@ def _apply_cmp(op: ast.cmpop, left: Any, right: Any) -> bool:
     op_key = type(op)
     if op_key not in _CMP_OPS:
         raise ValueError(f"不支持的比较运算符: {op_key.__name__}")
-    return _CMP_FUNCS[op_key](left, right)
+    return _CMP_FUNCS[op_key](left, right)  # type: ignore[no-any-return]
 
 
 _CMP_FUNCS: dict[type[ast.cmpop], Any] = {

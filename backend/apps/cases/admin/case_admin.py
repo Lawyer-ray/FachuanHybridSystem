@@ -110,7 +110,7 @@ def serialize_case_obj(obj: Case) -> dict[str, object]:
     """将单个 Case 实例序列化为 dict（供 CaseAdmin 和 ContractAdmin 共用）。"""
     from apps.cases.services.case.case_export_serializer_service import serialize_case_obj as serialize_case_obj_service
 
-    return serialize_case_obj_service(obj)
+    return serialize_case_obj_service(obj)  # type: ignore[no-any-return]
 
 
 @admin.register(Case)
@@ -163,7 +163,7 @@ class CaseAdmin(
 
     def serialize_queryset(self, queryset: QuerySet[Case]) -> list[dict[str, object]]:
         service = self._get_case_admin_service()
-        return service.serialize_queryset_for_export(queryset)
+        return service.serialize_queryset_for_export(queryset)  # type: ignore[no-any-return]
 
     def get_file_paths(self, queryset: QuerySet[Case]) -> list[str]:
         service = self._get_case_admin_service()

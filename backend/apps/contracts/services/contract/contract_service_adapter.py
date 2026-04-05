@@ -45,7 +45,7 @@ class ContractServiceAdapter:
             return None
 
     def list_contracts(self, **kwargs: Any) -> dict[str, Any]:
-        return self.contract_service.list_contracts(**kwargs)
+        return self.contract_service.list_contracts(**kwargs)  # type: ignore[no-any-return]
 
     def create_contract_with_cases(self, **kwargs: Any) -> Any:
         return self.contract_service.create_contract_with_cases(**kwargs)
@@ -106,7 +106,7 @@ class ContractServiceAdapter:
         contract = self.contract_service.query_service.get_contract_with_details_model_internal(contract_id)
         if not contract:
             return None
-        return self.details_assembler.to_dict(contract)
+        return self.details_assembler.to_dict(contract)  # type: ignore[no-any-return]
 
     def get_party_roles_by_contract_internal(self, contract_id: int) -> list[PartyRoleDTO]:
         try:
@@ -145,7 +145,7 @@ class ContractServiceAdapter:
         return [p for p in all_parties if p.role_type == "PRINCIPAL"]
 
     def get_supplementary_agreements_internal(self, contract_id: int) -> list[SupplementaryAgreementDTO]:
-        return self.contract_service.supplementary_agreement_query_service.get_supplementary_agreements_internal(
+        return self.contract_service.supplementary_agreement_query_service.get_supplementary_agreements_internal(  # type: ignore[no-any-return]
             contract_id=contract_id,
         )
 

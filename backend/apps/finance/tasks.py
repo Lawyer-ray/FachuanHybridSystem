@@ -11,7 +11,7 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 
-def sync_lpr_rates() -> dict[str, Any]:
+def sync_lpr_rates() -> dict[str, Any]:  # type: ignore[no-any-return]
     """同步LPR利率数据的定时任务.
 
     每月20日（遇节假日顺延）从央行官网获取最新LPR数据。
@@ -28,7 +28,7 @@ def sync_lpr_rates() -> dict[str, Any]:
         result = service.sync_latest()
 
         logger.info(f"[LPRSchedule] LPR sync completed: {result}")
-        return result
+        return result  # type: ignore[no-any-return]
 
     except Exception as e:
         logger.error(f"[LPRSchedule] LPR sync failed: {e}")

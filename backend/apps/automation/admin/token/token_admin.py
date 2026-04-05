@@ -89,14 +89,14 @@ class CourtTokenAdmin(admin.ModelAdmin[CourtToken]):
     @admin.display(description=_("站点"))
     def site_name_display(self, obj: CourtToken) -> str:
         """显示可读站点名称"""
-        return SITE_NAME_LABELS.get(obj.site_name, obj.site_name)
+        return SITE_NAME_LABELS.get(obj.site_name, obj.site_name)  # type: ignore[no-any-return]
 
     @admin.display(description=_("Token 预览"))
     def token_preview(self, obj: CourtToken) -> str:
         """Token 预览（只显示前20个字符）"""
         if len(obj.token) > 20:
             return f"{obj.token[:20]}..."
-        return obj.token
+        return obj.token  # type: ignore[no-any-return]
 
     @admin.display(description=_("完整 Token"))
     def token_full(self, obj: CourtToken) -> SafeString:

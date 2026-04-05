@@ -223,7 +223,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
             normalized = normalize_keyword_query(raw)
             if not normalized:
                 raise forms.ValidationError("请至少输入一个有效检索关键词")
-            return normalized
+            return normalized  # type: ignore[no-any-return]
 
         form.clean_keyword = clean_keyword
 
@@ -357,8 +357,8 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
             if is_lawyer_user:
                 qs = qs.filter(lawyer__law_firm_id=getattr(user, "law_firm_id", None))
             else:
-                return qs.none()
-        return qs.order_by("-last_login_success_at", "-login_success_count", "login_failure_count", "-id")
+                return qs.none()  # type: ignore[no-any-return]
+        return qs.order_by("-last_login_success_at", "-login_success_count", "login_failure_count", "-id")  # type: ignore[no-any-return]
 
     @classmethod
     def _filter_private_api_visual_fields(cls, fields: list[str], *, obj: LegalResearchTask | None = None) -> list[str]:

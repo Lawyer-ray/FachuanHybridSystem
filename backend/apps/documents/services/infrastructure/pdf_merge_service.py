@@ -126,13 +126,13 @@ class PDFMergeWorkflow:
         ext = Path(file_path).suffix.lower()
         self.validator.assert_supported_format(ext, file_path)
         if ext in self.validator.IMAGE_FORMATS:
-            return convert_image_to_pdf(file_path)
+            return convert_image_to_pdf(file_path)  # type: ignore[no-any-return]
         if ext in self.validator.WORD_FORMATS:
-            return convert_docx_to_pdf(file_path)
+            return convert_docx_to_pdf(file_path)  # type: ignore[no-any-return]
         return file_path
 
     def add_page_numbers(self, pdf_input: io.BytesIO, start_page: int = 1) -> bytes:
-        return add_page_numbers_util(pdf_input, start_page)
+        return add_page_numbers_util(pdf_input, start_page)  # type: ignore[no-any-return]
 
     def _generate_merged_filename(self, evidence_list: EvidenceList) -> str:
 
@@ -151,7 +151,7 @@ class PDFMergeWorkflow:
     def get_pdf_page_count(self, pdf_input: Any) -> int:
         from apps.documents.services.infrastructure.pdf_utils import get_pdf_page_count
 
-        return get_pdf_page_count(pdf_input, default=0)
+        return get_pdf_page_count(pdf_input, default=0)  # type: ignore[no-any-return]
 
 
 class PDFMergeService:

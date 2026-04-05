@@ -117,7 +117,7 @@ class EnforcementCourtService(BasePlaceholderService):
             name = authority.get("name", "").strip()
             if name:
                 logger.info("获取到管辖法院: case_id=%s, name=%s", case_id, name)
-                return name
+                return name  # type: ignore[no-any-return]
 
         logger.warning("未找到管辖法院信息: case_id=%s", case_id)
         return ""
@@ -160,7 +160,7 @@ class EnforcementEffectiveDateService(BasePlaceholderService):
         if effective_date:
             formatted = effective_date.strftime("%Y年%m月%d日")
             logger.info("获取到判决生效日期: case_id=%s, date=%s", case_id, formatted)
-            return formatted
+            return formatted  # type: ignore[no-any-return]
 
         logger.warning("未找到判决生效日期: case_id=%s", case_id)
         return ""

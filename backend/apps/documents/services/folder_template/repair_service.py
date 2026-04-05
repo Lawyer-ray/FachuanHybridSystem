@@ -41,7 +41,7 @@ class FolderTemplateStructureIdRepairService:
             new_id = self.id_service.generate_unique_id()
             while new_id in global_used_ids:
                 new_id = self.id_service.generate_unique_id()
-            return new_id
+            return new_id  # type: ignore[no-any-return]
 
         def repair_node(node: Any) -> Any:
             nonlocal changes

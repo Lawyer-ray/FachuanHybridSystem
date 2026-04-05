@@ -399,7 +399,7 @@ class EvidenceListPlaceholderService:
                 code="CASE_NOT_FOUND",
                 errors={"case_id": f"ID 为 {case_id} 的案件不存在"},
             )
-        return case_data
+        return case_data  # type: ignore[no-any-return]
 
     def _format_chinese_date(self, date_str: str) -> str:
         """

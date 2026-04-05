@@ -49,7 +49,7 @@ class EvidenceFileStorage(FileSystemStorage):
         original_name = name
         name = super().generate_filename(name)
         if not name:
-            return original_name  # type: ignore[override]
+            return original_name
         path = Path(name)
         stem = path.stem
         ext = path.suffix

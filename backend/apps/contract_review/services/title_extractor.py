@@ -25,13 +25,13 @@ class TitleExtractor:
             # 标题通常居中且包含"合同"/"协议"
             if "合同" in text or "协议" in text:
                 logger.info("提取到合同标题: %s", text)
-                return text
+                return text  # type: ignore[no-any-return]
         # 退而求其次：取第一个非空段落
         for para in doc.paragraphs[:5]:
             text = para.text.strip()
             if text and len(text) <= 60:
                 logger.info("使用首段作为标题: %s", text)
-                return text
+                return text  # type: ignore[no-any-return]
         logger.warning("未能提取合同标题")
         return ""
 

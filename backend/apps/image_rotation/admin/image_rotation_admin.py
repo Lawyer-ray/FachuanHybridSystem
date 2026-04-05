@@ -23,7 +23,7 @@ class ImageRotationAdmin(admin.ModelAdmin):
     提供图片自动旋转功能的入口
     """
 
-    def changelist_view(self, request: object, extra_context: dict[str, object] | None = None) -> None:
+    def changelist_view(self, request: object, extra_context: dict[str, object] | None = None) -> None:  # type: ignore[override]
         """
         自定义列表页 - 显示图片自动旋转工具页面
 

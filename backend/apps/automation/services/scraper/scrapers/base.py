@@ -187,4 +187,4 @@ class BaseScraper:
 
     def validate_and_clean_text(self, text: str) -> str:
         """校验并清洗文本"""
-        return self.validator.clean_text(text)
+        return self.validator.clean_text(text)  # type: ignore[no-any-return]

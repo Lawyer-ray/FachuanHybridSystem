@@ -140,7 +140,7 @@ class CourtZxfwFilingService:
                         message="HTTP主链路提交成功",
                     )
                     logger.info("HTTP立案成功: %s", result)
-                    return result
+                    return result  # type: ignore[no-any-return]
                 except Exception as api_err:
                     api_error = api_err
                     self._report_progress(
@@ -300,7 +300,7 @@ class CourtZxfwFilingService:
                         message="HTTP主链路提交成功",
                     )
                     logger.info("HTTP立案成功: %s", result)
-                    return result
+                    return result  # type: ignore[no-any-return]
                 except Exception as api_err:
                     api_error = api_err
                     self._report_progress(

@@ -71,7 +71,7 @@ def list_supplementary_agreements(request: HttpRequest, contract_id: int) -> lis
     3. 返回结果列表
     """
     service = _get_supplementary_agreement_service()
-    return service.list_by_contract(contract_id)  # type: ignore[return-value]
+    return service.list_by_contract(contract_id)  # type: ignore[no-any-return]
 
 
 @router.put("/supplementary-agreements/{agreement_id}", response=SupplementaryAgreementOut)

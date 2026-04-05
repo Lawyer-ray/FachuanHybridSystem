@@ -203,7 +203,7 @@ class ContractService(ContractServiceQueryMixin):
 
     def get_finance_summary(self, contract_id: int) -> dict[str, Any]:
         """获取合同财务汇总。"""
-        return self.finance_mutation_service.get_finance_summary(contract_id)
+        return self.finance_mutation_service.get_finance_summary(contract_id)  # type: ignore[no-any-return]
 
     def add_party(self, contract_id: int, client_id: int) -> ContractParty:
         """添加合同当事人。"""
@@ -276,7 +276,7 @@ class ContractService(ContractServiceQueryMixin):
             PermissionDenied: 权限不足
             ValidationException: 数据验证失败
         """
-        return self.finance_mutation_service.add_payments(
+        return self.finance_mutation_service.add_payments(  # type: ignore[no-any-return]
             contract_id=contract_id,
             payments_data=payments_data,
             user=user,
@@ -286,4 +286,4 @@ class ContractService(ContractServiceQueryMixin):
     def get_all_parties(self, contract_id: int) -> list[dict[str, Any]]:
         from .usecases.get_contract_all_parties import GetContractAllPartiesUseCase
 
-        return GetContractAllPartiesUseCase(self.query_service.execute(contract_id))
+        return GetContractAllPartiesUseCase(self.query_service.execute(contract_id))  # type: ignore[no-any-return]

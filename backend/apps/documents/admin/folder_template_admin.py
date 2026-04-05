@@ -264,17 +264,17 @@ class FolderTemplateAdmin(admin.ModelAdmin[FolderTemplate]):
     @admin.display(description=_("模板类型"))
     def template_type_display(self, obj: FolderTemplate) -> str:
         """显示模板类型"""
-        return obj.template_type_display
+        return obj.template_type_display  # type: ignore[no-any-return]
 
     @admin.display(description=_("合同类型"))
     def contract_types_display(self, obj: FolderTemplate) -> str:
         """显示合同类型"""
-        return obj.contract_types_display
+        return obj.contract_types_display  # type: ignore[no-any-return]
 
     @admin.display(description=_("案件类型"))
     def case_types_display(self, obj: FolderTemplate) -> str:
         """显示案件类型"""
-        return obj.case_types_display
+        return obj.case_types_display  # type: ignore[no-any-return]
 
     @admin.display(description=_("案件阶段"))
     def case_stage_display(self, obj: FolderTemplate) -> str:
@@ -282,7 +282,7 @@ class FolderTemplateAdmin(admin.ModelAdmin[FolderTemplate]):
         stages = obj.case_stages or []
         if not stages:
             return "-"
-        return dict(DocumentCaseStage.choices).get(stages[0], stages[0])
+        return dict(DocumentCaseStage.choices).get(stages[0], stages[0])  # type: ignore[no-any-return]
 
     @admin.display(description=_("我方诉讼地位"))
     def legal_statuses_display(self, obj: FolderTemplate) -> str:
@@ -385,7 +385,7 @@ class FolderTemplateAdmin(admin.ModelAdmin[FolderTemplate]):
         """获取表单实例,传入request对象"""
         FormClass = super().get_form(request, obj, **kwargs)
 
-        class FormWithRequest(FormClass):  # type: ignore[valid-type]
+        class FormWithRequest(FormClass):
             def __init__(self, *args: Any, **kwargs: Any) -> None:
                 kwargs["request"] = request
                 super().__init__(*args, **kwargs)

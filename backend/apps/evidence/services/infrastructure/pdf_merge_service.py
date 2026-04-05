@@ -77,7 +77,7 @@ class PDFMergeWorkflow:
             file_name = self._generate_merged_filename(evidence_list)
             self._save_merged_pdf(evidence_list, file_name, pdf_with_pages)
             self._cleanup_temp_files(temp_files)
-            return evidence_list.merged_pdf.path
+            return evidence_list.merged_pdf.path  # type: ignore[no-any-return]
         except (ValidationException, BusinessException):
             raise
         except Exception as e:
@@ -127,14 +127,14 @@ class PDFMergeWorkflow:
         self.validator.assert_supported_format(ext, file_path)
         utils = _get_pdf_merge_utils_module()
         if ext in self.validator.IMAGE_FORMATS:
-            return utils.convert_image_to_pdf(file_path)
+            return utils.convert_image_to_pdf(file_path)  # type: ignore[no-any-return]
         if ext in self.validator.WORD_FORMATS:
-            return utils.convert_docx_to_pdf(file_path)
+            return utils.convert_docx_to_pdf(file_path)  # type: ignore[no-any-return]
         return file_path
 
     def add_page_numbers(self, pdf_input: io.BytesIO, start_page: int = 1) -> bytes:
         utils = _get_pdf_merge_utils_module()
-        return utils.add_page_numbers(pdf_input, start_page)
+        return utils.add_page_numbers(pdf_input, start_page)  # type: ignore[no-any-return]
 
     def _generate_merged_filename(self, evidence_list: EvidenceList) -> str:
 
@@ -153,7 +153,7 @@ class PDFMergeWorkflow:
     def get_pdf_page_count(self, pdf_input: Any) -> int:
         from apps.evidence.services.infrastructure.pdf_utils import get_pdf_page_count
 
-        return get_pdf_page_count(pdf_input, default=0)
+        return get_pdf_page_count(pdf_input, default=0)  # type: ignore[no-any-return]
 
 
 class PDFMergeService:
