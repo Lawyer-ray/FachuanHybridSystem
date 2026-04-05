@@ -1,0 +1,11 @@
+{% extends "admin/change_list.html" %}
+{% load i18n %}
+
+{% block object-tools-items %}
+    <li>
+        <a href="{% url 'admin:documents_foldertemplate_initialize_defaults' %}" class="addlink">
+            {% trans "初始化默认文件夹模板" %}
+        </a>
+    </li>
+    {{ block.super }}
+{% endblock %}

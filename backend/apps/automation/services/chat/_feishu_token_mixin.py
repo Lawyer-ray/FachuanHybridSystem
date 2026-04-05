@@ -33,7 +33,6 @@ class FeishuTokenMixin:
                 "FEISHU_APP_ID": "APP_ID",
                 "FEISHU_APP_SECRET": "APP_SECRET",
                 "FEISHU_WEBHOOK_URL": "WEBHOOK_URL",
-                "FEISHU_TIMEOUT": "TIMEOUT",
                 "FEISHU_DEFAULT_OWNER_ID": "DEFAULT_OWNER_ID",
             }
             config = {internal: db_configs[db] for db, internal in key_mapping.items() if db_configs.get(db)}

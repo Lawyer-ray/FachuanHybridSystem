@@ -30,13 +30,6 @@ def get_feishu_configs() -> list[dict[str, Any]]:
             "value": "ou_ca5452b3e9bc932c9980f3e313867aed",
             "is_secret": False,
         },
-        {
-            "key": "FEISHU_TIMEOUT",
-            "category": "feishu",
-            "description": "飞书 API 超时时间（秒）",
-            "value": "30",
-            "is_secret": False,
-        },
         # ============ 群聊名称模板配置 ============
         {
             "key": "CASE_CHAT_NAME_TEMPLATE",
@@ -45,13 +38,6 @@ def get_feishu_configs() -> list[dict[str, Any]]:
                 "案件群聊名称模板，支持占位符：{stage}（案件阶段）、{case_name}（案件名称）、{case_type}（案件类型）"
             ),
             "value": "[{stage}]{case_name}",
-            "is_secret": False,
-        },
-        {
-            "key": "CASE_CHAT_NAME_MAX_LENGTH",
-            "category": "feishu",
-            "description": "群聊名称最大长度（飞书限制为60）",
-            "value": "60",
             "is_secret": False,
         },
     ]

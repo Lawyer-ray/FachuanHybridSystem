@@ -653,7 +653,7 @@
     <div class="enterprise-prefill-section" x-data="enterprisePrefillApp()" x-init="init()">
         <h3>🏢 {% trans "企业信息查询并填充" %}</h3>
         <div class="enterprise-prefill-toolbar">
-            <select x-model="provider" class="enterprise-prefill-select">
+            <select x-model="provider" @change="onProviderChange()" class="enterprise-prefill-select">
                 <option value="tianyancha">{% trans "天眼查" %}</option>
                 <option value="qichacha">{% trans "企查查（预留）" %}</option>
             </select>
@@ -661,14 +661,20 @@
                 type="text"
                 class="enterprise-prefill-input"
                 x-model="keyword"
+                :disabled="!isProviderReady || isSearching"
                 @keydown.enter.prevent="searchCompanies()"
                 placeholder="输入企业名称关键词，例如：腾讯科技（深圳）有限公司"
             />
-            <button type="button" class="parse-btn" @click="searchCompanies()" :disabled="isSearching">
+            <button type="button" class="parse-btn" @click="searchCompanies()" :disabled="!isProviderReady || isSearching">
                 <span x-text="isSearching ? '搜索中...' : '搜索企业'"></span>
             </button>
         </div>
         <div class="format-hint">💡 {% trans "先搜索企业，再点击候选项，系统会自动填充表单字段" %}</div>
+
+        <div x-show="statusHint" class="info-message">
+            <span x-text="statusHint"></span>
+            <a :href="systemConfigUrl" target="_blank" rel="noopener" style="margin-left: 8px; text-decoration: underline;">前往系统配置</a>
+        </div>
 
         <div x-show="searchError" class="error-message" x-text="searchError"></div>
 
@@ -715,7 +721,7 @@
         </div>
     </div>
 
-    <script src="{% static 'client/enterprise_prefill_app.js' %}?v=2"></script>
+    <script src="{% static 'client/enterprise_prefill_app.js' %}?v=4"></script>
     {% endif %}
 
     <!-- 身份材料智能识别内联区域 - Alpine.js 版本 -->

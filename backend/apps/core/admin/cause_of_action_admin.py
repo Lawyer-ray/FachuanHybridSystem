@@ -112,6 +112,8 @@ class CauseOfActionAdmin(admin.ModelAdmin[CauseOfAction]):
 
     list_per_page: ClassVar[int] = 50
 
+    change_list_template = "admin/core/causeofaction/change_list.html"
+
     @admin.display(description=_("案件类型"), ordering="case_type")
     def case_type_display(self, obj: CauseOfAction) -> SafeString:
         """带颜色的案件类型显示"""

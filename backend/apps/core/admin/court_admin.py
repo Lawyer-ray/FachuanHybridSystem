@@ -97,6 +97,8 @@ class CourtAdmin(admin.ModelAdmin[Court]):
 
     list_per_page = 50
 
+    change_list_template = "admin/core/court/change_list.html"
+
     def parent_display(self, obj: Court) -> SafeString:
         """显示父级法院"""
         if obj.parent:
