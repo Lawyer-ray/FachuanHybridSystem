@@ -2,10 +2,5 @@
 {% load i18n %}
 
 {% block object-tools-items %}
-    <li>
-        <a href="{% url 'admin:documents_documenttemplate_initialize' %}" class="addlink">
-            {% trans "初始化默认绑定关系" %}
-        </a>
-    </li>
     {{ block.super }}
 {% endblock %}
