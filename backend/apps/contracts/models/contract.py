@@ -9,18 +9,26 @@ from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from apps.core.models.enums import CaseStatus, CaseType
+from apps.core.models.enums import CaseType
 
 if TYPE_CHECKING:
     from django.db.models.fields.related_descriptors import RelatedManager
 
     from apps.cases.models import Case
 
+    from .client_payment import ClientPaymentRecord
+    from .finalized_material import FinalizedMaterial
     from .finance import ContractFinanceLog
     from .folder_binding import ContractFolderBinding
     from .party import ContractAssignment, ContractParty
     from .payment import ContractPayment
     from .supplementary import SupplementaryAgreement
+
+
+class ContractStatus(models.TextChoices):
+    ACTIVE = "active", _("在办")
+    CLOSED = "closed", _("已结案")
+    ARCHIVED = "archived", _("已归档")
 
 
 class FeeMode(models.TextChoices):
@@ -32,16 +40,16 @@ class FeeMode(models.TextChoices):
 
 class Contract(models.Model):
     id: int
-    name = models.CharField(max_length=100, verbose_name=_("合同名称"))
-    case_type = models.CharField(max_length=32, choices=CaseType.choices, verbose_name=_("合同类型"))
-    status = models.CharField(
-        max_length=32, choices=CaseStatus.choices, default=CaseStatus.ACTIVE, verbose_name=_("合同状态")
+    name: models.CharField = models.CharField(max_length=100, verbose_name=_("合同名称"))
+    case_type: models.CharField = models.CharField(max_length=32, choices=CaseType.choices, verbose_name=_("合同类型"))
+    status: models.CharField = models.CharField(
+        max_length=32, choices=ContractStatus.choices, default=ContractStatus.ACTIVE, verbose_name=_("合同状态")
     )
-    specified_date = models.DateField(default=timezone.localdate, verbose_name=_("指定日期"))
-    start_date = models.DateField(blank=True, null=True, verbose_name=_("开始日期"))
-    end_date = models.DateField(blank=True, null=True, verbose_name=_("结束日期"))
-    is_archived = models.BooleanField(default=False, verbose_name=_("是否已建档"))
-    filing_number = models.CharField(
+    specified_date: models.DateField = models.DateField(default=timezone.localdate, verbose_name=_("指定日期"))
+    start_date: models.DateField = models.DateField(blank=True, null=True, verbose_name=_("开始日期"))
+    end_date: models.DateField = models.DateField(blank=True, null=True, verbose_name=_("结束日期"))
+    is_archived: models.BooleanField = models.BooleanField(default=False, verbose_name=_("是否已建档"))
+    filing_number: models.CharField = models.CharField(
         max_length=50,
         blank=True,
         null=True,
@@ -49,24 +57,24 @@ class Contract(models.Model):
         verbose_name=_("建档编号"),
         help_text=_("格式: {年份}_{合同类型}_{HT}_{序号}"),
     )
-    fee_mode = models.CharField(
+    fee_mode: models.CharField = models.CharField(
         max_length=16, choices=FeeMode.choices, default=FeeMode.FIXED, verbose_name=_("收费模式")
     )
-    fixed_amount = models.DecimalField(
+    fixed_amount: models.DecimalField = models.DecimalField(
         max_digits=14, decimal_places=2, blank=True, null=True, verbose_name=_("固定/前期律师费")
     )
-    risk_rate = models.DecimalField(
+    risk_rate: models.DecimalField = models.DecimalField(
         max_digits=5, decimal_places=2, blank=True, null=True, verbose_name=_("风险比例(%)")
     )
-    custom_terms = models.TextField(blank=True, null=True, verbose_name=_("自定义收费条款"))
-    law_firm_oa_url = models.URLField(
+    custom_terms: models.TextField = models.TextField(blank=True, null=True, verbose_name=_("自定义收费条款"))
+    law_firm_oa_url: models.URLField = models.URLField(
         max_length=500,
         blank=True,
         null=True,
         verbose_name=_("律所OA链接"),
         help_text=_("跳转至律所OA系统中该合同的页面"),
     )
-    law_firm_oa_case_number = models.CharField(
+    law_firm_oa_case_number: models.CharField = models.CharField(
         max_length=100,
         blank=True,
         null=True,
@@ -83,6 +91,8 @@ class Contract(models.Model):
         assignments: RelatedManager[ContractAssignment]
         payments: RelatedManager[ContractPayment]
         supplementary_agreements: RelatedManager[SupplementaryAgreement]
+        finalized_materials: RelatedManager[FinalizedMaterial]
+        client_payment_records: RelatedManager[ClientPaymentRecord]
 
     class Meta:
         verbose_name = _("合同")
@@ -107,7 +117,7 @@ class Contract(models.Model):
         ]
 
     def __str__(self) -> str:
-        return self.name
+        return str(self.name)
 
     def clean(self) -> None:
         from apps.contracts.validators import normalize_representation_stages
