@@ -137,8 +137,10 @@ def register_exception_handlers(api: NinjaAPI) -> None:
     """注册全局异常处理器"""
 
     def _create_response(request: HttpRequest, payload: Any, *, status: int) -> HttpResponse:
+        from typing import cast
+
         payload = _attach_request_meta(request, payload)
-        return api.create_response(request, payload, status=status)
+        return cast(HttpResponse, api.create_response(request, payload, status=status))
 
     _register_business_handlers(api, _create_response)
     _register_llm_handlers(api, _create_response)
