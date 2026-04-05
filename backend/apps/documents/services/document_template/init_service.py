@@ -1,8 +1,10 @@
 """文件模板初始化服务"""
 
 import logging
+from pathlib import Path
 from typing import Any
 
+from django.conf import settings
 from django.db import transaction
 
 from apps.documents.models import DocumentTemplate, DocumentTemplateFolderBinding, FolderTemplate
@@ -15,6 +17,29 @@ logger = logging.getLogger(__name__)
 
 class DocumentTemplateInitService:
     """文件模板初始化服务"""
+
+    def _get_docx_templates_root(self) -> Path:
+        base_dir = Path(str(getattr(settings, "BASE_DIR", ".")))
+        return base_dir.parent / "apps" / "documents" / "docx_templates"
+
+    def _find_missing_docx_files(self, document_templates: list[dict[str, Any]]) -> list[str]:
+        docx_templates_root = self._get_docx_templates_root()
+        missing_files: list[str] = []
+
+        for template_data in document_templates:
+            file_path_obj = template_data.get("file_path")
+            if not isinstance(file_path_obj, str):
+                continue
+            relative_file_path = file_path_obj.strip()
+            if not relative_file_path:
+                continue
+
+            file_path = Path(relative_file_path)
+            absolute_file_path = file_path if file_path.is_absolute() else docx_templates_root / file_path
+            if not absolute_file_path.exists():
+                missing_files.append(relative_file_path)
+
+        return missing_files
 
     @transaction.atomic
     def initialize_default_templates(self) -> dict[str, Any]:
@@ -30,6 +55,21 @@ class DocumentTemplateInitService:
             包含各项创建和跳过数量的字典
         """
         data = get_complete_default_data()
+
+        missing_files = self._find_missing_docx_files(data["document_templates"])
+        if missing_files:
+            logger.warning("默认模板初始化失败：缺失 %s 个 docx 模板文件", len(missing_files))
+            return {
+                "success": False,
+                "error_code": "missing_docx_files",
+                "missing_files": missing_files,
+                "folder_created": 0,
+                "folder_skipped": 0,
+                "doc_created": 0,
+                "doc_skipped": 0,
+                "binding_created": 0,
+                "binding_skipped": 0,
+            }
 
         folder_created = 0
         folder_skipped = 0
@@ -107,10 +147,12 @@ class DocumentTemplateInitService:
                 binding_created += 1
 
         return {
+            "success": True,
             "folder_created": folder_created,
             "folder_skipped": folder_skipped,
             "doc_created": doc_created,
             "doc_skipped": doc_skipped,
             "binding_created": binding_created,
             "binding_skipped": binding_skipped,
+            "missing_files": [],
         }
