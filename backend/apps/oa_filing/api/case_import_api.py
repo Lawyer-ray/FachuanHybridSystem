@@ -29,7 +29,7 @@ CASE_IMPORT_TASK_TIMEOUT_SECONDS = int(os.environ.get("OA_CASE_IMPORT_TASK_TIMEO
 
 
 @router.post("/case-import", response=CaseImportSessionOut)
-def trigger_case_import(request: HttpRequest) -> dict[str, Any]:
+def trigger_case_import(request: HttpRequest) -> Any:
     """触发从OA导入案件（预览模式）。
 
     接收上传的Excel文件，解析案件编号，预览匹配结果。
@@ -112,7 +112,7 @@ def get_case_import_session(request: HttpRequest, session_id: int) -> Any:
 
 
 @router.post("/case-import/{session_id}/execute")
-def execute_case_import(request: HttpRequest, session_id: int) -> dict[str, Any]:
+def execute_case_import(request: HttpRequest, session_id: int) -> HttpResponse:
     """执行案件导入。
 
     对预览阶段标记为 unmatched 的案件，从OA提取数据并创建/更新合同。
@@ -200,7 +200,7 @@ def get_case_import_preview(request: HttpRequest, session_id: int) -> JsonRespon
 
 
 @router.post("/case-import/{session_id}/batch-create")
-def batch_create_cases(request: HttpRequest, session_id: int) -> dict[str, Any]:
+def batch_create_cases(request: HttpRequest, session_id: int) -> Any:
     """批量创建案件（通过API调用避免异步上下文问题）。
 
     接收案件数据列表，在新的HTTP请求中处理，不受Django-Q异步上下文影响。

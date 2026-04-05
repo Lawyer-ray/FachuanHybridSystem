@@ -56,7 +56,6 @@ class PdfSplitReviewFlag(models.TextChoices):
 
 
 class PdfSplittingTool(models.Model):
-    id: int
     name = models.CharField(max_length=64, default="Pdf Splitting")
 
     class Meta:

@@ -33,11 +33,11 @@ class WeikeCaseClient(WeikeAuthMixin, WeikeSearchMixin, WeikeDocumentMixin, Weik
                 config = LegalResearchTuningConfig()
         self._session_restrict_cooldown_seconds = max(
             30,
-            int(getattr(config, "weike_session_restrict_cooldown_seconds", self.SESSION_RESTRICT_COOLDOWN_SECONDS)),
+            int(getattr(config, "weike_session_restrict_cooldown_seconds", self.SESSION_RESTRICT_COOLDOWN_SECONDS) or 0),
         )
         self._search_api_degrade_streak_threshold = max(
             1,
-            int(getattr(config, "weike_search_api_degrade_streak_threshold", 2)),
+            int(getattr(config, "weike_search_api_degrade_streak_threshold", 2) or 0),
         )
         self._search_api_degrade_cooldown_seconds = max(
             30,

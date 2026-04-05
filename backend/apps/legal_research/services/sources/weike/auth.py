@@ -16,6 +16,8 @@ class WeikeAuthMixin:
     LAW_LOGIN_MODAL_PASSWORD_SELECTOR = "#login-password"
     LAW_LOGIN_MODAL_SUBMIT_SELECTOR = "button.login-submit-btn"
     LAW_LOGIN_REQUIRED_TEXT = "抱歉，此功能需要登录后操作"
+    LAW_LIST_URL: str  # defined in subclass
+    LOGIN_URL: str  # defined in subclass
 
     def _normalize_login_url(self, login_url: str | None) -> str | None:
         if not login_url:

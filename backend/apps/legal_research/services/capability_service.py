@@ -441,14 +441,14 @@ class LegalResearchCapabilityService:
         metadata_all = item.metadata if isinstance(item.metadata, dict) else {}
         metadata = metadata_all.get("similarity_structured") if isinstance(metadata_all.get("similarity_structured"), dict) else {}
         score = float(item.similarity_score or 0.0)
-        conflicts_value = metadata.get("key_conflicts")
+        conflicts_value = metadata.get("key_conflicts")  # type: ignore[union-attr]
         conflicts = [str(x).strip() for x in (conflicts_value if isinstance(conflicts_value, list) else []) if str(x).strip()]
-        snippets = cls._build_snippets(item=item, metadata=metadata, metadata_all=metadata_all)
+        snippets = cls._build_snippets(item=item, metadata=metadata, metadata_all=metadata_all)  # type: ignore[arg-type]
         subscores = AgentSearchSubscoresOut(
-            facts_match=float(metadata.get("facts_match") or 0.0),
-            legal_relation_match=float(metadata.get("legal_relation_match") or 0.0),
-            dispute_match=float(metadata.get("dispute_match") or 0.0),
-            damage_match=float(metadata.get("damage_match") or 0.0),
+            facts_match=float(metadata.get("facts_match") or 0.0),  # type: ignore[union-attr]
+            legal_relation_match=float(metadata.get("legal_relation_match") or 0.0),  # type: ignore[union-attr]
+            dispute_match=float(metadata.get("dispute_match") or 0.0),  # type: ignore[union-attr]
+            damage_match=float(metadata.get("damage_match") or 0.0),  # type: ignore[union-attr]
         )
         return RetrievalHitV1(
             doc_id=str(item.source_doc_id or ""),
@@ -456,7 +456,7 @@ class LegalResearchCapabilityService:
             court=str(item.court_text or ""),
             judgment_date=str(item.judgment_date or ""),
             score=round(score, 4),
-            decision=cls._decision_from_metadata(metadata=metadata, score=score),
+            decision=cls._decision_from_metadata(metadata=metadata, score=score),  # type: ignore[arg-type]
             subscores=subscores,
             conflicts=conflicts[:8],
             snippets=snippets,
@@ -469,14 +469,14 @@ class LegalResearchCapabilityService:
         snippets_meta = metadata.get("snippets") if isinstance(metadata.get("snippets"), dict) else {}
         extracted = cls._extract_snippets_from_text(cls._extract_content_excerpt(item=item, metadata_all=metadata_all))
 
-        claims = cls._clip_text(snippets_meta.get("claims"), max_chars=cls.SNIPPET_MAX_CHARS) or extracted.get("claims", "")
-        findings = cls._clip_text(snippets_meta.get("findings"), max_chars=cls.SNIPPET_MAX_CHARS) or extracted.get("findings", "")
+        claims = cls._clip_text(snippets_meta.get("claims"), max_chars=cls.SNIPPET_MAX_CHARS) or extracted.get("claims", "")  # type: ignore[union-attr]
+        findings = cls._clip_text(snippets_meta.get("findings"), max_chars=cls.SNIPPET_MAX_CHARS) or extracted.get("findings", "")  # type: ignore[union-attr]
         reasoning = (
-            cls._clip_text(snippets_meta.get("reasoning"), max_chars=cls.SNIPPET_MAX_CHARS)
+            cls._clip_text(snippets_meta.get("reasoning"), max_chars=cls.SNIPPET_MAX_CHARS)  # type: ignore[union-attr]
             or extracted.get("reasoning", "")
             or cls._clip_text(getattr(item, "case_digest", ""), max_chars=cls.SNIPPET_MAX_CHARS)
         )
-        holdings = cls._clip_text(snippets_meta.get("holdings"), max_chars=cls.SNIPPET_MAX_CHARS) or extracted.get("holdings", "")
+        holdings = cls._clip_text(snippets_meta.get("holdings"), max_chars=cls.SNIPPET_MAX_CHARS) or extracted.get("holdings", "")  # type: ignore[union-attr]
         return AgentSearchSnippetsOut(
             claims=claims,
             findings=findings,
