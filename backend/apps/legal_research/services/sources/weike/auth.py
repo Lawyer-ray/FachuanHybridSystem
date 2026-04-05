@@ -16,6 +16,8 @@ class WeikeAuthMixin:
     LAW_LOGIN_MODAL_PASSWORD_SELECTOR = "#login-password"
     LAW_LOGIN_MODAL_SUBMIT_SELECTOR = "button.login-submit-btn"
     LAW_LOGIN_REQUIRED_TEXT = "抱歉，此功能需要登录后操作"
+    LAW_LIST_URL: str  # defined in subclass
+    LOGIN_URL: str  # defined in subclass
 
     def _normalize_login_url(self, login_url: str | None) -> str | None:
         if not login_url:
@@ -42,7 +44,7 @@ class WeikeAuthMixin:
         playwright = sync_playwright().start()
         browser = playwright.chromium.launch(headless=True)
         context = browser.new_context()
-        
+
         # 应用 playwright-stealth 反检测
         try:
             from playwright_stealth import Stealth
@@ -51,7 +53,7 @@ class WeikeAuthMixin:
             logger.debug("已应用 playwright-stealth 反检测")
         except ImportError:
             logger.warning("playwright-stealth 未安装，跳过反检测")
-        
+
         page = context.new_page()
         try:
             self._login_and_enter_law(

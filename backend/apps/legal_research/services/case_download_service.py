@@ -121,7 +121,7 @@ class CaseDownloadService:
                         errors.append(f"{case_number}: {result_data.get('error', '未知错误')}")
                 except Exception as exc:
                     failed_count += 1
-                    errors.append(f"{case_number}: {str(exc)}")
+                    errors.append(f"{case_number}: {exc}")
                     logger.exception("下载单个案例失败", extra={"case_number": case_number})
 
             task.success_count = success_count
@@ -132,7 +132,7 @@ class CaseDownloadService:
                 task.message = f"全部下载完成，共 {success_count} 个"
             elif success_count == 0:
                 task.status = CaseDownloadStatus.FAILED
-                task.message = f"全部下载失败"
+                task.message = "全部下载失败"
                 task.error = "; ".join(errors[:10])
             else:
                 task.status = CaseDownloadStatus.COMPLETED

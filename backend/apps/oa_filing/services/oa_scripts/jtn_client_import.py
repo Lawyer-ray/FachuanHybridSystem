@@ -153,7 +153,7 @@ class JtnClientImportScript:
         try:
             browser = pw.chromium.launch(headless=self._headless)
             self._context = browser.new_context()
-            
+
             # 应用 playwright-stealth 反检测
             try:
                 from playwright_stealth import Stealth
@@ -162,7 +162,7 @@ class JtnClientImportScript:
                 logger.debug("已应用 playwright-stealth 反检测")
             except ImportError:
                 logger.warning("playwright-stealth 未安装，跳过反检测")
-            
+
             self._context.set_default_timeout(30_000)
             self._context.set_default_navigation_timeout(30_000)
             self._page = self._context.new_page()
@@ -522,7 +522,7 @@ class JtnClientImportScript:
         try:
             browser = pw.chromium.launch(headless=self._headless)
             self._context = browser.new_context()
-            
+
             # 应用 playwright-stealth 反检测
             try:
                 from playwright_stealth import Stealth
@@ -531,7 +531,7 @@ class JtnClientImportScript:
                 logger.debug("已应用 playwright-stealth 反检测")
             except ImportError:
                 logger.warning("playwright-stealth 未安装，跳过反检测")
-            
+
             self._context.set_default_timeout(30_000)
             self._context.set_default_navigation_timeout(30_000)
             self._page = self._context.new_page()

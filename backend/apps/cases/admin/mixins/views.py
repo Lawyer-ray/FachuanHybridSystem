@@ -25,7 +25,9 @@ logger = logging.getLogger("apps.cases")
 
 def _log_inline_formset(inline_formset: object, logger: logging.Logger) -> None:
     """记录 inline formset 的错误信息"""
-    formset = inline_formset.formset
+    formset = getattr(inline_formset, "formset", None)
+    if formset is None:
+        return
     for i, f in enumerate(formset.forms):
         if f.errors:
             logger.warning(
@@ -89,7 +91,7 @@ class CaseAdminViewsMixin:
         # Mixin没有定义get_urls时super()会找不到方法
         from django.contrib.admin import ModelAdmin
 
-        urls = ModelAdmin.get_urls(self)
+        urls = ModelAdmin.get_urls(self)  # type: ignore[arg-type]
         custom_urls: list[URLPattern] = [
             path(
                 "<int:object_id>/detail/",
@@ -268,11 +270,11 @@ class CaseAdminViewsMixin:
     ) -> list[tuple[str, list[dict[str, object]]]]:
         from apps.cases.services.case.case_admin_service import CaseAdminService
 
-        return CaseAdminService().group_templates_by_sub_type(templates, sub_type_choices)
+        return CaseAdminService().group_templates_by_sub_type(templates, sub_type_choices)  # type: ignore[no-any-return]
 
     def _build_case_materials_view(self, request: HttpRequest, case: Case) -> dict[str, object]:
         material_service = self._get_case_material_service()  # type: ignore[attr-defined]
-        return material_service.get_case_materials_view(
+        return material_service.get_case_materials_view(  # type: ignore[no-any-return]
             case_id=case.id,
             user=getattr(request, "user", None),
             org_access=getattr(request, "org_access", None),
@@ -468,7 +470,7 @@ class CaseAdminViewsMixin:
             return JsonResponse({"success": False, "error": str(e.message)}, status=400)
         except Exception as e:
             logger.exception("解析裁判文书失败: case_number_id=%s", casenumber_id)
-            return JsonResponse({"success": False, "error": f"解析失败: {str(e)}"}, status=500)
+            return JsonResponse({"success": False, "error": f"解析失败: {e}"}, status=500)
 
     def parse_execution_request_view(self, request: HttpRequest, casenumber_id: int) -> HttpResponse:
         """解析执行依据主文并生成申请执行事项预览（规则引擎）"""
@@ -520,7 +522,7 @@ class CaseAdminViewsMixin:
             return JsonResponse({"success": False, "error": "案号记录不存在"}, status=404)
         except Exception as e:
             logger.exception("解析申请执行事项失败: case_number_id=%s", casenumber_id)
-            return JsonResponse({"success": False, "error": f"解析失败: {str(e)}"}, status=500)
+            return JsonResponse({"success": False, "error": f"解析失败: {e}"}, status=500)
 
     def parse_document_view_no_id(self, request: HttpRequest) -> HttpResponse:
         """解析裁判文书（无需caseNumberId，用于临时文件）"""
@@ -563,7 +565,7 @@ class CaseAdminViewsMixin:
             return JsonResponse({"success": False, "error": str(e.message)}, status=400)
         except Exception as e:
             logger.exception("解析裁判文书失败")
-            return JsonResponse({"success": False, "error": f"解析失败: {str(e)}"}, status=500)
+            return JsonResponse({"success": False, "error": f"解析失败: {e}"}, status=500)
 
     def upload_temp_document_view(self, request: HttpRequest) -> HttpResponse:
         """上传裁判文书到临时目录"""
@@ -582,7 +584,7 @@ class CaseAdminViewsMixin:
                 return JsonResponse({"success": False, "error": "未上传文件"}, status=400)
 
             # 验证文件类型
-            ext = os.path.splitext(file.name)[1].lower()
+            ext = os.path.splitext(file.name or "")[1].lower()
             if ext not in [".pdf"]:
                 return JsonResponse({"success": False, "error": "仅支持 PDF 格式"}, status=400)
 
@@ -609,7 +611,7 @@ class CaseAdminViewsMixin:
 
         except Exception as e:
             logger.exception("临时文件上传失败")
-            return JsonResponse({"success": False, "error": f"上传失败: {str(e)}"}, status=500)
+            return JsonResponse({"success": False, "error": f"上传失败: {e}"}, status=500)
 
     def _coerce_optional_date(self, raw: object) -> date | None:
         if raw is None:

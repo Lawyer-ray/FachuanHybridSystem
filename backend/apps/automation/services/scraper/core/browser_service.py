@@ -74,7 +74,7 @@ class BrowserService:
             if not headless:
                 launch_options["slow_mo"] = 500
 
-            self._browser = self._playwright.chromium.launch(**launch_options)  # type: ignore
+            self._browser = self._playwright.chromium.launch(**launch_options)
             logger.info(f"浏览器启动成功（{mode}模式）")
         return self._browser
 
@@ -113,7 +113,7 @@ class BrowserService:
         default_config.update(kwargs)
 
         context = browser.new_context(**default_config)
-        
+
         # 应用 playwright-stealth 到上下文
         if use_anti_detection:
             try:
@@ -126,7 +126,7 @@ class BrowserService:
                 logger.info("创建新的浏览器上下文（基础反检测）")
         else:
             logger.info("创建新的浏览器上下文（无反检测）")
-            
+
         return context
 
     def close(self) -> None:
@@ -179,7 +179,7 @@ class BrowserServiceAdapter(IBrowserService):
         """
         return self.service.get_browser()
 
-    def close_browser(self) -> None:  # type: ignore
+    def close_browser(self) -> None:
         """
         关闭浏览器（同步版本）
         """

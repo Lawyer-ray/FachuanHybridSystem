@@ -33,11 +33,11 @@ class WeikeCaseClient(WeikeAuthMixin, WeikeSearchMixin, WeikeDocumentMixin, Weik
                 config = LegalResearchTuningConfig()
         self._session_restrict_cooldown_seconds = max(
             30,
-            int(getattr(config, "weike_session_restrict_cooldown_seconds", self.SESSION_RESTRICT_COOLDOWN_SECONDS)),
+            int(getattr(config, "weike_session_restrict_cooldown_seconds", self.SESSION_RESTRICT_COOLDOWN_SECONDS) or 0),
         )
         self._search_api_degrade_streak_threshold = max(
             1,
-            int(getattr(config, "weike_search_api_degrade_streak_threshold", 2)),
+            int(getattr(config, "weike_search_api_degrade_streak_threshold", 2) or 0),
         )
         self._search_api_degrade_cooldown_seconds = max(
             30,
@@ -74,7 +74,7 @@ class WeikeCaseClient(WeikeAuthMixin, WeikeSearchMixin, WeikeDocumentMixin, Weik
         playwright = sync_playwright().start()
         browser = playwright.chromium.launch(headless=True)
         context = browser.new_context()
-        
+
         # 应用 playwright-stealth 反检测
         try:
             from playwright_stealth import Stealth
@@ -83,7 +83,7 @@ class WeikeCaseClient(WeikeAuthMixin, WeikeSearchMixin, WeikeDocumentMixin, Weik
             logger.debug("已应用 playwright-stealth 反检测")
         except ImportError:
             logger.warning("playwright-stealth 未安装，跳过反检测")
-        
+
         page = context.new_page()
 
         try:

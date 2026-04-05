@@ -52,9 +52,9 @@ class LegalResearchCapabilityMcpWrapper:
             "why_selected": str(getattr(hit, "why_selected", "") or ""),
             "source_url": str(getattr(hit, "source_url", "") or ""),
             "agent_summary": (
-                f"{str(getattr(hit, 'title', '') or '')} | "
-                f"{str(getattr(hit, 'court', '') or '')} | "
+                f"{getattr(hit, 'title', '') or ''} | "
+                f"{getattr(hit, 'court', '') or ''} | "
                 f"score={float(getattr(hit, 'score', 0.0) or 0.0):.3f} | "
-                f"{str(getattr(hit, 'why_selected', '') or '')[:120]}"
+                f"{(getattr(hit, 'why_selected', '') or '')[:120]}"
             ).strip(" |"),
         }

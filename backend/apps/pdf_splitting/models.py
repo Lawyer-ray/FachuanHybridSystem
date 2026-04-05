@@ -56,7 +56,6 @@ class PdfSplitReviewFlag(models.TextChoices):
 
 
 class PdfSplittingTool(models.Model):
-    id: int
     name = models.CharField(max_length=64, default="Pdf Splitting")
 
     class Meta:
@@ -174,6 +173,6 @@ class PdfSplitSegment(models.Model):
 def delete_job_files(sender: type, instance: PdfSplitJob, **kwargs: object) -> None:
     """删除任务时清理关联的文件目录"""
     from apps.pdf_splitting.services.storage import PdfSplitStorage
-    
+
     storage = PdfSplitStorage(instance.id)
     storage.cleanup()
