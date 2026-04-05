@@ -7,11 +7,17 @@ Contracts 模块模型层
 所有旧的导入路径 `from apps.contracts.models import X` 继续有效.
 """
 
+# batch_folder_binding.py - 合同类型根目录预设
+from .batch_folder_binding import ContractTypeFolderRootPreset
+
 # client_payment.py - 客户回款相关模型
 from .client_payment import ClientPaymentRecord
 
 # contract.py - 合同核心模型和枚举
-from .contract import Contract, FeeMode
+from .contract import Contract, ContractStatus, FeeMode
+
+# contract_oa_sync_session.py - OA同步会话
+from .contract_oa_sync_session import ContractOASyncSession, ContractOASyncStatus
 
 # finalized_material.py - 结案材料相关模型和枚举
 from .finalized_material import FinalizedMaterial, MaterialCategory
@@ -22,14 +28,8 @@ from .finance import ContractFinanceLog, LogLevel
 # folder_binding.py - 文件夹绑定相关模型
 from .folder_binding import ContractFolderBinding
 
-# batch_folder_binding.py - 合同类型根目录预设
-from .batch_folder_binding import ContractTypeFolderRootPreset
-
 # folder_scan_session.py - 文件夹扫描会话
 from .folder_scan_session import ContractFolderScanSession, ContractFolderScanStatus
-
-# contract_oa_sync_session.py - OA同步会话
-from .contract_oa_sync_session import ContractOASyncSession, ContractOASyncStatus
 
 # invoice.py - 发票相关模型
 from .invoice import Invoice
@@ -46,6 +46,7 @@ from .supplementary import SupplementaryAgreement, SupplementaryAgreementParty
 __all__ = [
     # contract.py
     "Contract",
+    "ContractStatus",
     "FeeMode",
     # party.py
     "ContractParty",
