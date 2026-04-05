@@ -465,8 +465,26 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):
 
         from apps.documents.services.document_template.init_service import DocumentTemplateInitService
 
-        init_service = DocumentTemplateInitService()
-        result = init_service.initialize_default_templates()
+        try:
+            init_service = DocumentTemplateInitService()
+            result = init_service.initialize_default_templates()
+        except Exception as exc:
+            logger.exception("初始化默认模板失败")
+            messages.error(request, _("初始化失败：%(error)s") % {"error": str(exc)})
+            return HttpResponseRedirect(reverse("admin:documents_documenttemplate_changelist"))
+
+        if not result.get("success", True):
+            missing_files = result.get("missing_files", [])
+            preview_files = "、".join(str(item) for item in missing_files[:5])
+            if len(missing_files) > 5:
+                preview_files = f"{preview_files} ..."
+
+            messages.error(
+                request,
+                _("初始化失败：缺少 %(count)s 个模板文件，请先补齐 backend/apps/documents/docx_templates 下对应 docx 文件。缺失示例：%(files)s")
+                % {"count": len(missing_files), "files": preview_files or "-"},
+            )
+            return HttpResponseRedirect(reverse("admin:documents_documenttemplate_changelist"))
 
         msg_parts = []
         if result["folder_created"] > 0:
