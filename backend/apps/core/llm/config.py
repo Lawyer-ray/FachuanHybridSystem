@@ -13,7 +13,7 @@ Requirements: 2.1, 2.2, 2.3, 2.5, 5.1, 5.3, 5.4
 
 
 import logging
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from django.conf import settings
 
@@ -182,7 +182,7 @@ class LLMConfig:
                     raw_value = config_service.get_value(key, default="")
                     return raw_value if isinstance(raw_value, str) else ("" if raw_value is None else str(raw_value))
 
-                value = await get_value_sync()
+                value = cast(str, await get_value_sync())
                 if value:
                     return value
             except (KeyError, AttributeError, TypeError):
