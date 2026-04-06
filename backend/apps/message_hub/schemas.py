@@ -14,6 +14,8 @@ class AttachmentMeta(Schema):
     """附件元信息。"""
 
     filename: str
+    original_filename: str | None = None
+    custom_filename: str | None = None
     size: int
     content_type: str
     part_index: int

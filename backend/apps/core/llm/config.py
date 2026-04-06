@@ -13,7 +13,7 @@ Requirements: 2.1, 2.2, 2.3, 2.5, 5.1, 5.3, 5.4
 
 
 import logging
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from django.conf import settings
 
@@ -121,8 +121,6 @@ class LLMConfig:
         django_key = key.replace("SILICONFLOW_", "")
         raw_value = siliconflow_config.get(django_key, default)
         fallback_value = raw_value if isinstance(raw_value, str) else ("" if raw_value is None else str(raw_value))
-        if fallback_value:
-            logger.debug("[LLMConfig] 从 Django settings 获取", extra={"namespace": "SILICONFLOW", "key": django_key})
         return fallback_value
 
     @classmethod
@@ -149,17 +147,13 @@ class LLMConfig:
                 raw_value = config_service.get_value(key, default="")
                 value = raw_value if isinstance(raw_value, str) else ("" if raw_value is None else str(raw_value))
                 if value:
-                    logger.debug("[LLMConfig] 从 SystemConfigService 读取", extra={"key": key})
                     return value
-                else:
-                    logger.debug("[LLMConfig] SystemConfigService 未找到", extra={"key": key})
             except (KeyError, AttributeError, TypeError):
                 logger.warning("[LLMConfig] SystemConfigService 读取失败", extra={"key": key})
 
         # Fallback 到 Django settings(Requirement 5.4)
         fallback_value = cls._get_django_settings_fallback(key, default)
         if fallback_value:
-            logger.debug("[LLMConfig] 回退到 Django settings", extra={"key": key})
             return fallback_value
 
         return default
@@ -188,12 +182,9 @@ class LLMConfig:
                     raw_value = config_service.get_value(key, default="")
                     return raw_value if isinstance(raw_value, str) else ("" if raw_value is None else str(raw_value))
 
-                value = await get_value_sync()
+                value = cast(str, await get_value_sync())
                 if value:
-                    logger.debug("[LLMConfig] 异步从 SystemConfigService 读取", extra={"key": key})
                     return value
-                else:
-                    logger.debug("[LLMConfig] 异步 SystemConfigService 未找到", extra={"key": key})
             except (KeyError, AttributeError, TypeError):
                 logger.warning("[LLMConfig] 异步 SystemConfigService 读取失败", extra={"key": key})
 
@@ -380,19 +371,8 @@ class LLMConfig:
 
     @classmethod
     def get_ollama_timeout(cls) -> int:
-        timeout_str = cls._get_system_config("OLLAMA_TIMEOUT", "")
-        if timeout_str:
-            try:
-                return int(timeout_str)
-            except (ValueError, TypeError):
-                return cls.DEFAULT_OLLAMA_TIMEOUT
-
-        ollama_config = getattr(settings, "OLLAMA", {} or {})
-        value = ollama_config.get("TIMEOUT", cls.DEFAULT_OLLAMA_TIMEOUT)
-        try:
-            return int(value)
-        except (ValueError, TypeError):
-            return cls.DEFAULT_OLLAMA_TIMEOUT
+        """Ollama 超时时间固定使用默认值,避免额外系统配置依赖。"""
+        return cls.DEFAULT_OLLAMA_TIMEOUT
 
     @classmethod
     def get_ollama_embedding_model(cls) -> str:

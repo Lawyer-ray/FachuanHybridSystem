@@ -136,8 +136,10 @@ def _fetch_attachments_meta(token: str, sdbh: str) -> list[dict[str, Any]]:
                 continue
             ext = item.get("c_wjgs", "pdf")
             name = item.get("c_wsmc", f"文书_{i}")
+            original_filename = f"{name}.{ext}"
             meta.append({
-                "filename": f"{name}.{ext}",
+                "filename": original_filename,
+                "original_filename": original_filename,
                 "content_type": f"application/{ext}",
                 "size": 0,
                 "part_index": i,

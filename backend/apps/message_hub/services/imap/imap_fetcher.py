@@ -80,6 +80,7 @@ def _extract_attachments(msg: Message) -> list[dict]:
         attachments.append(
             {
                 "filename": filename,
+                "original_filename": filename,
                 "content_type": part.get_content_type(),
                 "size": size,
                 "part_index": idx,

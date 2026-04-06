@@ -132,8 +132,11 @@ class CaseAdminService:
         """
         try:
             if legal_statuses:
-                return self.document_service.get_matched_folder_templates_with_legal_status(case_type, legal_statuses)
-            return self.document_service.get_matched_folder_templates(case_type)
+                return cast(
+                    str,
+                    self.document_service.get_matched_folder_templates_with_legal_status(case_type, legal_statuses),
+                )
+            return cast(str, self.document_service.get_matched_folder_templates(case_type))
         except Exception:
             logger.exception(
                 "get_matched_folder_templates_failed", extra={"case_type": case_type, "legal_statuses": legal_statuses}
@@ -158,18 +161,29 @@ class CaseAdminService:
             logger.exception("get_matched_folder_templates_list_failed", extra={"case_type": case_type})
             return []
 
-    def get_matched_case_file_templates(self, case_type: str, case_stage: str) -> list[JSONDict]:
+    def get_matched_case_file_templates(
+        self,
+        case_type: str,
+        case_stage: str,
+        applicable_institutions: list[str] | None = None,
+    ) -> list[JSONDict]:
         try:
             return cast(
                 list[JSONDict],
                 self.document_service.find_matching_case_file_templates(
                     case_type=case_type,
                     case_stage=case_stage,
+                    applicable_institutions=applicable_institutions,
                 ),
             )
         except Exception:
             logger.exception(
-                "get_matched_case_file_templates_failed", extra={"case_type": case_type, "case_stage": case_stage}
+                "get_matched_case_file_templates_failed",
+                extra={
+                    "case_type": case_type,
+                    "case_stage": case_stage,
+                    "applicable_institutions": applicable_institutions,
+                },
             )
             return []
 
@@ -188,7 +202,26 @@ class CaseAdminService:
             return [], str(_("未设置案件类型"))
         if not case.current_stage:
             return [], str(_("未设置案件阶段"))
-        return self.get_matched_case_file_templates(case_type=case.case_type, case_stage=case.current_stage), ""
+        applicable_institutions = self._get_case_applicable_institutions(case)
+        return (
+            self.get_matched_case_file_templates(
+                case_type=case.case_type,
+                case_stage=case.current_stage,
+                applicable_institutions=applicable_institutions,
+            ),
+            "",
+        )
+
+    def _get_case_applicable_institutions(self, case: Case) -> list[str]:
+        names: list[str] = []
+        seen: set[str] = set()
+        for authority in case.supervising_authorities.all():
+            name = str(getattr(authority, "name", "") or "").strip()
+            if not name or name in seen:
+                continue
+            seen.add(name)
+            names.append(name)
+        return names
 
     def build_our_legal_entities(self, case: Case) -> list[SimplePartyPayload]:
         """构建我方主体（法人）视图数据。"""
@@ -269,7 +302,8 @@ class CaseAdminService:
         from apps.cases.models import CaseLog
 
         try:
-            return (  # type: ignore[no-any-return]
+            return cast(
+                Case,
                 Case.objects.select_related(
                     "contract",
                     "folder_binding",
@@ -545,14 +579,18 @@ class CaseAdminService:
                 "案件已有建档编号,返回现有编号",
                 extra={"case_id": case_id, "filing_number": case.filing_number, "action": "handle_case_filing_change"},
             )
-            return case.filing_number
+            return cast(str, case.filing_number)
 
         # 如果已建档但没有编号,生成新编号
         created_year = case.start_date.year
-        filing_number = self.filing_number_service.generate_case_filing_number_internal(
-            case_id=case_id,
-            case_type=case.case_type,  # type: ignore
-            created_year=created_year,
+        case_type = str(case.case_type or "")
+        filing_number = cast(
+            str,
+            self.filing_number_service.generate_case_filing_number_internal(
+                case_id=case_id,
+                case_type=case_type,
+                created_year=created_year,
+            ),
         )
 
         # 保存编号到数据库
