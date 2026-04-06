@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import logging
 import tempfile
-from pathlib import Path
+from pathlib import Path as StdPath
 from typing import Any
 
+from apps.documents.storage import get_docx_templates_root
 from apps.litigation_ai.placeholders.mock_trial_report import MockTrialReportPlaceholderService
 
 logger = logging.getLogger("apps.litigation_ai")
@@ -20,7 +21,7 @@ class MockTrialExportService:
         session_id: str,
         report_data: dict[str, Any],
         case_info: dict[str, str],
-    ) -> Path:
+    ) -> StdPath:
         """
         导出模拟庭审报告为Word文档.
 
@@ -45,9 +46,7 @@ class MockTrialExportService:
         placeholder_values = placeholder_service.generate(context)
 
         # 加载模板
-        template_path = Path(
-            "/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/documents/docx_templates/2-案件材料/5-模拟庭审报告/模拟庭审报告.docx"
-        )
+        template_path = get_docx_templates_root() / "2-案件材料" / "5-模拟庭审报告" / "模拟庭审报告.docx"
 
         if not template_path.exists():
             raise FileNotFoundError(f"模板文件不存在: {template_path}")
@@ -58,7 +57,7 @@ class MockTrialExportService:
         doc.render(placeholder_values)
 
         # 保存到临时文件
-        output_dir = Path(tempfile.gettempdir()) / "mock_trial_reports"
+        output_dir = StdPath(tempfile.gettempdir()) / "mock_trial_reports"
         output_dir.mkdir(parents=True, exist_ok=True)
 
         safe_case_name = "".join(c for c in case_info.get("case_name", "未命名") if c.isalnum() or c in "_- ")

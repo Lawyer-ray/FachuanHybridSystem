@@ -14,6 +14,7 @@ from apps.core.utils.path import Path
 from apps.documents.models import DocumentTemplate, DocumentTemplateType
 from apps.documents.services.generation.path_utils import resolve_media_path, safe_arcname, safe_name
 from apps.documents.services.placeholders import EnhancedContextBuilder
+from apps.documents.storage import get_docx_templates_root
 
 logger = logging.getLogger("apps.documents.generation")
 
@@ -25,10 +26,7 @@ TEMPLATE_NAME_POWER_OF_ATTORNEY = "授权委托书"
 
 
 class AuthorizationMaterialGenerationService:
-    # 保留硬编码路径作为后备方案
-    TEMPLATE_DIR = (
-        Path(__file__).parent.parent.parent / "docx_templates" / "2-案件材料" / "4-通用材料" / "1-授权委托材料"
-    )
+    TEMPLATE_DIR = get_docx_templates_root() / "2-案件材料" / "4-通用材料" / "1-授权委托材料"
     AUTHORITY_LETTER_TEMPLATE = TEMPLATE_DIR / "所函.docx"
     LEGAL_REP_CERT_TEMPLATE = TEMPLATE_DIR / "法定代表人身份证明书.docx"
 
