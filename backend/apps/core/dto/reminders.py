@@ -10,6 +10,7 @@ class ReminderDTO:
     reminder_type: str
     reminder_time: str
     contract_id: int | None = None
+    case_id: int | None = None
     created_at: str | None = None
 
 

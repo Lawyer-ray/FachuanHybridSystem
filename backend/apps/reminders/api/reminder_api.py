@@ -8,8 +8,9 @@ from django.http import HttpResponse
 from ninja import Router
 
 from apps.core.api.schema_utils import schema_to_update_dict
-from apps.reminders.schemas import ReminderIn, ReminderOut, ReminderTypeItem, ReminderUpdate, list_reminder_types
-from apps.reminders.services.wiring import get_reminder_service
+
+from ..schemas import ReminderIn, ReminderOut, ReminderTypeItem, ReminderUpdate, list_reminder_types
+from ..services.wiring import get_reminder_service
 
 router = Router()
 
@@ -20,14 +21,24 @@ def _get_reminder_service() -> Any:
 
 
 @router.get("/list", response=list[ReminderOut])
-def list_reminders(request: Any, contract_id: int | None = None, case_log_id: int | None = None) -> Any:
-    return _get_reminder_service().list_reminders(contract_id=contract_id, case_log_id=case_log_id)
+def list_reminders(
+    request: Any,
+    contract_id: int | None = None,
+    case_id: int | None = None,
+    case_log_id: int | None = None,
+) -> Any:
+    return _get_reminder_service().list_reminders(
+        contract_id=contract_id,
+        case_id=case_id,
+        case_log_id=case_log_id,
+    )
 
 
 @router.post("/create", response=ReminderOut)
 def create_reminder(request: Any, payload: ReminderIn) -> Any:
     return _get_reminder_service().create_reminder(
         contract_id=payload.contract_id,
+        case_id=payload.case_id,
         case_log_id=payload.case_log_id,
         reminder_type=payload.reminder_type,
         content=payload.content,
