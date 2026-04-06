@@ -2,24 +2,92 @@
 
 from __future__ import annotations
 
-from typing import Any
+import logging
+from typing import Any, Final
 
+from django.apps import apps as django_apps
 from django.conf import settings
 from django.core.files.storage import FileSystemStorage
+from django.db.utils import OperationalError, ProgrammingError
 from django.utils.deconstruct import deconstructible
 
 from apps.core.utils.path import Path
 
+logger = logging.getLogger(__name__)
+
 # 用户自定义模板目录名称
 USER_CUSTOM_TEMPLATE_DIR = "0-用户自定义模板"
+PRIVATE_DOCX_ROOT_SETTING: Final[str] = "DOCUMENTS_PRIVATE_DOCX_TEMPLATES_ROOT"
+_PRIVATE_DOCX_ROOT_DEFAULT_SENTINEL: Final[str] = "__DOCX_PRIVATE_ROOT_NOT_SET__"
+
+
+def get_public_docx_templates_root() -> Path:
+    """获取仓库内公用 docx_templates 根目录。"""
+    base_path = Path(str(settings.BASE_DIR)).parent / "apps" / "documents" / "docx_templates"
+    return Path(str(base_path))
+
+
+def get_configured_private_docx_templates_root() -> str:
+    """获取私有模板根目录配置值（优先系统配置，其次环境变量）。"""
+    configured = str(getattr(settings, PRIVATE_DOCX_ROOT_SETTING, "") or "").strip()
+
+    if not django_apps.ready:
+        return configured
+
+    try:
+        from apps.core.interfaces import ServiceLocator
+
+        system_config_service = ServiceLocator.get_system_config_service()
+        runtime_config = str(
+            system_config_service.get_value(PRIVATE_DOCX_ROOT_SETTING, _PRIVATE_DOCX_ROOT_DEFAULT_SENTINEL) or ""
+        ).strip()
+        if runtime_config != _PRIVATE_DOCX_ROOT_DEFAULT_SENTINEL:
+            return runtime_config
+    except (OperationalError, ProgrammingError):
+        logger.debug("系统配置表未就绪，回退环境变量配置", exc_info=True)
+    except Exception:
+        logger.warning("读取系统配置失败，回退环境变量配置", exc_info=True)
+
+    return configured
+
+
+def get_private_docx_templates_root() -> Path | None:
+    """获取可选私有 docx_templates 根目录（未配置则为 None）。"""
+    configured = get_configured_private_docx_templates_root()
+    if not configured:
+        return None
+    return Path(configured).expanduser()
+
+
+def get_docx_templates_source() -> str:
+    """返回当前活动模板来源：public/private。"""
+    return "private" if get_private_docx_templates_root() else "public"
 
 
 def get_docx_templates_root() -> Path:
-    """获取docx_templates根目录"""
-    from typing import cast as _cast
+    """获取当前活动 docx_templates 根目录。"""
+    private_root = get_private_docx_templates_root()
+    if private_root is not None:
+        return private_root
+    return get_public_docx_templates_root()
 
-    base_path = Path(str(settings.BASE_DIR)).parent / "apps" / "documents" / "docx_templates"
-    return _cast(Path, base_path)
+
+def resolve_docx_template_path(file_path: str) -> Path:
+    """解析模板路径（支持绝对路径和相对活动根目录路径）。"""
+    normalized = file_path.strip()
+    candidate = Path(normalized)
+    if candidate.is_absolute():
+        return candidate
+
+    root = get_docx_templates_root().resolve()
+    resolved = (root / candidate).resolve()
+
+    try:
+        resolved.relative_to(root)
+    except ValueError as exc:
+        raise ValueError("模板路径越界，必须位于当前 docx_templates 根目录内") from exc
+
+    return resolved
 
 
 @deconstructible
@@ -33,7 +101,6 @@ class DocumentTemplateStorage(FileSystemStorage):
 
     def __init__(self) -> None:
         # 使用 Path 处理路径,跨平台兼容
-        # BASE_DIR 是 backend/apiSystem,需要用 parent 获取 backend 目录
         self.docx_templates_root = get_docx_templates_root()
         self.user_custom_dir = self.docx_templates_root / USER_CUSTOM_TEMPLATE_DIR
         super().__init__(location=str(self.docx_templates_root))
@@ -63,9 +130,7 @@ class DocumentTemplateStorage(FileSystemStorage):
 
         # 不在目录中,保存到用户自定义模板目录
         if name and not name.lower().endswith(".docx"):
-            import logging
-
-            logging.getLogger(__name__).warning(f"上传的文件 {name} 不是docx格式")
+            logger.warning("上传的文件 %s 不是docx格式", name)
 
         # 清理文件名(移除可能的前缀)
         clean_name = Path(name).name if name else "unnamed.docx"
@@ -77,7 +142,6 @@ class DocumentTemplateStorage(FileSystemStorage):
 
     def url(self, name: str | None) -> str:
         """返回文件URL - 返回绝对路径供下载"""
-        # 返回 media URL 或直接返回文件路径
         # 由于是本地文件存储,不提供 HTTP URL
         # 返回空字符串让 Django 不生成链接
         return ""
@@ -101,7 +165,7 @@ document_template_storage = DocumentTemplateStorage()
 
 def list_docx_templates_files() -> list[tuple[str, str]]:
     """
-    列出docx_templates目录下所有的docx文件
+    列出当前活动 docx_templates 目录下所有的 docx 文件
 
     Returns:
         list of (relative_path, display_name) tuples
@@ -110,15 +174,13 @@ def list_docx_templates_files() -> list[tuple[str, str]]:
     if not root.exists():
         return []
 
-    files: list[Any] = []
+    files: list[tuple[str, str]] = []
     for docx_file in root.rglob("*.docx"):
         relative_path = docx_file.relative_to(root).as_posix()
         # 跳过用户自定义模板目录中的文件(这些是上传的)
         if relative_path.startswith(USER_CUSTOM_TEMPLATE_DIR):
             continue
-        display_name = relative_path
-        files.append((relative_path, display_name))
+        files.append((relative_path, relative_path))
 
-    # 按路径排序
     files.sort(key=lambda x: x[0])
     return files

@@ -1,16 +1,14 @@
 """文件模板初始化服务"""
 
 import logging
-from pathlib import Path
 from typing import Any
 
-from django.conf import settings
 from django.db import transaction
 
 from apps.documents.models import DocumentTemplate, DocumentTemplateFolderBinding, FolderTemplate
+from apps.documents.storage import resolve_docx_template_path
 
 from .complete_defaults import get_complete_default_data
-from .default_templates import DEFAULT_DOCUMENT_TEMPLATES
 
 logger = logging.getLogger(__name__)
 
@@ -18,12 +16,7 @@ logger = logging.getLogger(__name__)
 class DocumentTemplateInitService:
     """文件模板初始化服务"""
 
-    def _get_docx_templates_root(self) -> Path:
-        base_dir = Path(str(getattr(settings, "BASE_DIR", ".")))
-        return base_dir.parent / "apps" / "documents" / "docx_templates"
-
     def _find_missing_docx_files(self, document_templates: list[dict[str, Any]]) -> list[str]:
-        docx_templates_root = self._get_docx_templates_root()
         missing_files: list[str] = []
 
         for template_data in document_templates:
@@ -34,8 +27,12 @@ class DocumentTemplateInitService:
             if not relative_file_path:
                 continue
 
-            file_path = Path(relative_file_path)
-            absolute_file_path = file_path if file_path.is_absolute() else docx_templates_root / file_path
+            try:
+                absolute_file_path = resolve_docx_template_path(relative_file_path)
+            except ValueError:
+                missing_files.append(relative_file_path)
+                continue
+
             if not absolute_file_path.exists():
                 missing_files.append(relative_file_path)
 

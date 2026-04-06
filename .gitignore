@@ -161,7 +161,6 @@ backend/apiSystem/cookies/
 backend/cookies/
 
 # Document templates
-backend/apps/documents/docx_templates/
 
 *.mo
 .dmypy.json

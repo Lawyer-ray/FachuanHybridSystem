@@ -20,6 +20,7 @@ from django.utils.translation import gettext_lazy as _
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.interfaces import ServiceLocator
 from apps.core.utils.path import Path
+from apps.documents.storage import get_docx_templates_root
 
 from .litigation_context_builder import LitigationContextBuilder
 from .litigation_llm_generator import LitigationLLMGenerator
@@ -41,7 +42,7 @@ class LitigationGenerationService:
     """
 
     # 模板路径配置
-    TEMPLATE_DIR = Path(__file__).parent.parent.parent / "docx_templates" / "2-案件材料"
+    TEMPLATE_DIR = get_docx_templates_root() / "2-案件材料"
     COMPLAINT_TEMPLATE = TEMPLATE_DIR / "1-起诉材料" / "1-起诉状和反诉答辩状" / "1-起诉状.docx"
     DEFENSE_TEMPLATE = TEMPLATE_DIR / "2-答辩材料" / "1-答辩状和反诉状" / "1-答辩状.docx"
 

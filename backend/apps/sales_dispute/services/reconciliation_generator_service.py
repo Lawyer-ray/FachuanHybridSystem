@@ -13,12 +13,13 @@ from typing import Any
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ValidationException
+from apps.documents.storage import get_docx_templates_root
 
 from .lawyer_letter_generator_service import GeneratedDocument
 
 logger = logging.getLogger(__name__)
 
-TEMPLATE_DIR: Path = Path(__file__).resolve().parents[3] / "documents" / "docx_templates" / "2-案件材料" / "3-催收材料"
+TEMPLATE_DIR: Path = Path(str(get_docx_templates_root() / "2-案件材料" / "3-催收材料"))
 TEMPLATE_FILE = "对账函.docx"
 
 
