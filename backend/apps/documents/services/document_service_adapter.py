@@ -161,10 +161,19 @@ class DocumentServiceAdapter:
             logger.exception("get_folder_binding_path_failed", extra={"case_type": case_type, "subdir_key": subdir_key})
             raise
 
-    def find_matching_case_file_templates(self, case_type: str, case_stage: str) -> list[dict[str, Any]]:
+    def find_matching_case_file_templates(
+        self,
+        case_type: str,
+        case_stage: str,
+        applicable_institutions: list[str] | None = None,
+    ) -> list[dict[str, Any]]:
         return cast(
             list[dict[str, Any]],
-            self.template_matching_service.find_matching_case_file_templates(case_type, case_stage),
+            self.template_matching_service.find_matching_case_file_templates(
+                case_type,
+                case_stage,
+                applicable_institutions,
+            ),
         )
 
     def find_matching_contract_templates(self, case_type: str) -> list[dict[str, Any]]:

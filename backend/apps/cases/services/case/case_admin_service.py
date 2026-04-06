@@ -158,18 +158,29 @@ class CaseAdminService:
             logger.exception("get_matched_folder_templates_list_failed", extra={"case_type": case_type})
             return []
 
-    def get_matched_case_file_templates(self, case_type: str, case_stage: str) -> list[JSONDict]:
+    def get_matched_case_file_templates(
+        self,
+        case_type: str,
+        case_stage: str,
+        applicable_institutions: list[str] | None = None,
+    ) -> list[JSONDict]:
         try:
             return cast(
                 list[JSONDict],
                 self.document_service.find_matching_case_file_templates(
                     case_type=case_type,
                     case_stage=case_stage,
+                    applicable_institutions=applicable_institutions,
                 ),
             )
         except Exception:
             logger.exception(
-                "get_matched_case_file_templates_failed", extra={"case_type": case_type, "case_stage": case_stage}
+                "get_matched_case_file_templates_failed",
+                extra={
+                    "case_type": case_type,
+                    "case_stage": case_stage,
+                    "applicable_institutions": applicable_institutions,
+                },
             )
             return []
 
@@ -188,7 +199,26 @@ class CaseAdminService:
             return [], str(_("未设置案件类型"))
         if not case.current_stage:
             return [], str(_("未设置案件阶段"))
-        return self.get_matched_case_file_templates(case_type=case.case_type, case_stage=case.current_stage), ""
+        applicable_institutions = self._get_case_applicable_institutions(case)
+        return (
+            self.get_matched_case_file_templates(
+                case_type=case.case_type,
+                case_stage=case.current_stage,
+                applicable_institutions=applicable_institutions,
+            ),
+            "",
+        )
+
+    def _get_case_applicable_institutions(self, case: Case) -> list[str]:
+        names: list[str] = []
+        seen: set[str] = set()
+        for authority in case.supervising_authorities.all():
+            name = str(getattr(authority, "name", "") or "").strip()
+            if not name or name in seen:
+                continue
+            seen.add(name)
+            names.append(name)
+        return names
 
     def build_our_legal_entities(self, case: Case) -> list[SimplePartyPayload]:
         """构建我方主体（法人）视图数据。"""

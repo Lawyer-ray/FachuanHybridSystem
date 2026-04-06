@@ -91,6 +91,19 @@ def preview_attachment(
     return _serve_attachment(msg, part_index, inline=True)
 
 
+def _resolve_download_filename(msg: InboxMessage, part_index: int, fallback: str) -> str:
+    for att in msg.attachments_meta or []:
+        if int(att.get("part_index", -1)) != part_index:
+            continue
+        custom_name = str(att.get("custom_filename", "")).strip()
+        if custom_name:
+            return custom_name
+        original_name = str(att.get("original_filename") or att.get("filename") or "").strip()
+        if original_name:
+            return original_name
+    return fallback
+
+
 def _serve_attachment(msg: InboxMessage, part_index: int, *, inline: bool) -> FileResponse:
     """通过 fetcher 按需下载并返回附件。"""
     from apps.message_hub.services import get_fetcher
@@ -99,12 +112,13 @@ def _serve_attachment(msg: InboxMessage, part_index: int, *, inline: bool) -> Fi
     content, filename, content_type = fetcher.download_attachment(
         msg.source, msg.message_id, part_index,
     )
+    download_filename = _resolve_download_filename(msg, part_index, filename)
     disposition = "inline" if inline else "attachment"
     response = FileResponse(
         iter([content]),
         content_type=content_type,
         as_attachment=not inline,
-        filename=filename,
+        filename=download_filename,
     )
-    response["Content-Disposition"] = f'{disposition}; filename="{filename}"'
+    response["Content-Disposition"] = f'{disposition}; filename="{download_filename}"'
     return response

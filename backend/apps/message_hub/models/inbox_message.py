@@ -28,7 +28,7 @@ class InboxMessage(models.Model):
     body_html = models.TextField(blank=True, verbose_name=_("正文（HTML）"))
 
     has_attachments = models.BooleanField(default=False, verbose_name=_("有附件"))
-    # [{"filename": "xxx.pdf", "size": 12345, "content_type": "application/pdf", "part_index": 0}]
+    # [{"filename": "xxx.pdf", "original_filename": "xxx.pdf", "custom_filename": "新名字.pdf", "size": 12345, "content_type": "application/pdf", "part_index": 0}]
     attachments_meta = models.JSONField(default=list, verbose_name=_("附件元信息"))
 
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("入库时间"))

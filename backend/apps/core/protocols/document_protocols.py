@@ -51,7 +51,12 @@ class IDocumentService(Protocol):
 
     def get_folder_binding_path(self, case_type: str, subdir_key: str) -> str | None: ...
 
-    def find_matching_case_file_templates(self, case_type: str, case_stage: str) -> list[dict[str, Any]]: ...
+    def find_matching_case_file_templates(
+        self,
+        case_type: str,
+        case_stage: str,
+        applicable_institutions: list[str] | None = None,
+    ) -> list[dict[str, Any]]: ...
 
     def get_template_by_id_internal(self, template_id: int) -> DocumentTemplateDTO | None: ...
 
