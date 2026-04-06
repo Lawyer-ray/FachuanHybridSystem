@@ -8,6 +8,7 @@ from typing import Any, cast
 from django.core.cache import cache
 from django.utils.translation import gettext_lazy as _
 
+from apps.core.exceptions import ValidationException
 from apps.core.infrastructure import CacheKeys, CacheTimeout
 from apps.documents.models.choices import (
     DocumentCaseStage,
@@ -106,7 +107,7 @@ class TemplateMatchingService:
 
             result = ContractTemplateQueryService().list_matching_template_summaries(case_type)
             cache.set(cache_key, result, CacheTimeout.get_long())
-            return result
+            return cast(list[dict[str, Any]], result)
         except Exception:
             logger.exception("查找合同模板失败", extra={"case_type": case_type})
             raise

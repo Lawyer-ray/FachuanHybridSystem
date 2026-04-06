@@ -132,8 +132,11 @@ class CaseAdminService:
         """
         try:
             if legal_statuses:
-                return self.document_service.get_matched_folder_templates_with_legal_status(case_type, legal_statuses)
-            return self.document_service.get_matched_folder_templates(case_type)
+                return cast(
+                    str,
+                    self.document_service.get_matched_folder_templates_with_legal_status(case_type, legal_statuses),
+                )
+            return cast(str, self.document_service.get_matched_folder_templates(case_type))
         except Exception:
             logger.exception(
                 "get_matched_folder_templates_failed", extra={"case_type": case_type, "legal_statuses": legal_statuses}
@@ -299,7 +302,8 @@ class CaseAdminService:
         from apps.cases.models import CaseLog
 
         try:
-            return (  # type: ignore[no-any-return]
+            return cast(
+                Case,
                 Case.objects.select_related(
                     "contract",
                     "folder_binding",
@@ -575,14 +579,18 @@ class CaseAdminService:
                 "案件已有建档编号,返回现有编号",
                 extra={"case_id": case_id, "filing_number": case.filing_number, "action": "handle_case_filing_change"},
             )
-            return case.filing_number
+            return cast(str, case.filing_number)
 
         # 如果已建档但没有编号,生成新编号
         created_year = case.start_date.year
-        filing_number = self.filing_number_service.generate_case_filing_number_internal(
-            case_id=case_id,
-            case_type=case.case_type,  # type: ignore
-            created_year=created_year,
+        case_type = str(case.case_type or "")
+        filing_number = cast(
+            str,
+            self.filing_number_service.generate_case_filing_number_internal(
+                case_id=case_id,
+                case_type=case_type,
+                created_year=created_year,
+            ),
         )
 
         # 保存编号到数据库
