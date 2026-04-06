@@ -13,6 +13,13 @@ class ContractTargetQueryPort(Protocol):
 
 
 @runtime_checkable
+class CaseTargetQueryPort(Protocol):
+    """Query case target existence for reminder binding."""
+
+    def exists(self, case_id: int) -> bool: ...
+
+
+@runtime_checkable
 class CaseLogTargetQueryPort(Protocol):
     """Query case log target existence for reminder binding."""
 

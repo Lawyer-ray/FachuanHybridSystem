@@ -10,12 +10,12 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ValidationException
-from apps.reminders.models import ReminderType
+from ..models import ReminderType
 
 if TYPE_CHECKING:
     from django.utils.functional import Promise
 
-    from apps.reminders.ports import CaseLogTargetQueryPort, ContractTargetQueryPort
+    from ..ports import CaseLogTargetQueryPort, CaseTargetQueryPort, ContractTargetQueryPort
 
 
 def normalize_target_id(value: int | None, *, field_name: str | Promise) -> int | None:
@@ -32,18 +32,24 @@ def validate_positive_id(value: int, *, field_name: str | Promise) -> None:
         raise ValidationException(_("%(field_name)s 必须为正整数") % {"field_name": field_name})
 
 
-def validate_binding_exclusive(*, contract_id: int | None, case_log_id: int | None) -> None:
-    has_contract = contract_id is not None
-    has_case_log = case_log_id is not None
-    if has_contract == has_case_log:
-        raise ValidationException(_("必须且只能绑定合同或案件日志之一"))
+def validate_binding_exclusive(
+    *,
+    contract_id: int | None,
+    case_id: int | None,
+    case_log_id: int | None,
+) -> None:
+    bound_count = sum(target_id is not None for target_id in (contract_id, case_id, case_log_id))
+    if bound_count > 1:
+        raise ValidationException(_("合同、案件、案件日志最多只能绑定一个"))
 
 
 def validate_fk_exists(
     *,
     contract_id: int | None,
+    case_id: int | None,
     case_log_id: int | None,
     contract_target_query: ContractTargetQueryPort | None = None,
+    case_target_query: CaseTargetQueryPort | None = None,
     case_log_target_query: CaseLogTargetQueryPort | None = None,
 ) -> None:
     """校验外键引用的记录是否存在。"""
@@ -52,6 +58,11 @@ def validate_fk_exists(
             raise RuntimeError("ContractTargetQueryPort not provided")
         if not contract_target_query.exists(contract_id):
             raise ValidationException(_("合同 %(id)s 不存在") % {"id": contract_id})
+    if case_id is not None:
+        if case_target_query is None:
+            raise RuntimeError("CaseTargetQueryPort not provided")
+        if not case_target_query.exists(case_id):
+            raise ValidationException(_("案件 %(id)s 不存在") % {"id": case_id})
     if case_log_id is not None:
         if case_log_target_query is None:
             raise RuntimeError("CaseLogTargetQueryPort not provided")

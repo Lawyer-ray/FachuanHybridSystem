@@ -1,0 +1,896 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% trans "首页" %}</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label='reminders' %}">{% trans "提醒" %}</a>
+    &rsaquo; <a href="{{ changelist_url }}">{% trans "重要日期提醒" %}</a>
+    &rsaquo; {% trans "日历" %}
+</div>
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    .reminder-calendar-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 14px;
+        flex-wrap: wrap;
+    }
+    .reminder-calendar-nav {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .reminder-calendar-nav .button {
+        display: inline-block;
+        padding: 6px 10px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        text-decoration: none;
+        color: #1f2937;
+        background: #fff;
+    }
+    .reminder-calendar-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: #0f172a;
+        margin: 0 8px;
+    }
+    .reminder-calendar-filters {
+        display: flex;
+        gap: 10px;
+        align-items: end;
+        flex-wrap: wrap;
+        margin-bottom: 14px;
+        padding: 12px;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        background: #f8fafc;
+    }
+    .reminder-calendar-filters .default,
+    .reminder-filter-btn {
+        border: none;
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        color: #fff;
+        border-radius: 8px;
+        padding: 8px 14px;
+        font-weight: 600;
+        box-shadow: 0 6px 14px rgba(37, 99, 235, 0.2);
+    }
+    .reminder-calendar-filters .default:hover,
+    .reminder-filter-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 18px rgba(37, 99, 235, 0.28);
+    }
+    .reminder-calendar-field {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 180px;
+    }
+    .reminder-calendar-field select {
+        min-height: 30px;
+    }
+    .reminder-create-tip {
+        font-size: 12px;
+        color: #64748b;
+        margin-bottom: 10px;
+    }
+    .reminder-calendar-grid {
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        overflow: hidden;
+        background: #fff;
+    }
+    .reminder-calendar-weekdays,
+    .reminder-calendar-week {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+    }
+    .reminder-calendar-weekdays {
+        background: #f1f5f9;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .reminder-calendar-weekdays div {
+        padding: 10px 8px;
+        font-size: 12px;
+        color: #334155;
+        font-weight: 600;
+        text-align: center;
+    }
+    .reminder-calendar-day {
+        min-height: 136px;
+        border-right: 1px solid #e2e8f0;
+        border-bottom: 1px solid #e2e8f0;
+        padding: 8px;
+        background: #fff;
+        position: relative;
+    }
+    .reminder-calendar-week .reminder-calendar-day:last-child {
+        border-right: none;
+    }
+    .reminder-calendar-day.is-muted {
+        background: #f8fafc;
+        color: #94a3b8;
+    }
+    .reminder-calendar-day.is-clickable {
+        cursor: pointer;
+    }
+    .reminder-calendar-day.is-today {
+        box-shadow: inset 0 0 0 2px #2563eb;
+    }
+    .reminder-calendar-day-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 6px;
+    }
+    .reminder-day-num {
+        font-size: 13px;
+        font-weight: 700;
+    }
+    .reminder-day-count {
+        font-size: 11px;
+        color: #64748b;
+    }
+    .reminder-add-btn {
+        border: 1px dashed #93c5fd;
+        color: #1d4ed8;
+        background: #eff6ff;
+        border-radius: 999px;
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+        font-weight: 700;
+        line-height: 1;
+    }
+    .reminder-event-list {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .reminder-event {
+        display: block;
+        width: 100%;
+        border: 1px solid #dbeafe;
+        background: #eff6ff;
+        border-radius: 8px;
+        padding: 6px;
+        text-align: left;
+        cursor: pointer;
+        color: #1e3a8a;
+    }
+    .reminder-event.overdue {
+        border-color: #fecaca;
+        background: #fef2f2;
+        color: #991b1b;
+    }
+    .reminder-event-top {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        font-weight: 700;
+    }
+    .reminder-event-time {
+        flex: none;
+    }
+    .reminder-event-title {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .reminder-event-meta {
+        display: block;
+        margin-top: 2px;
+        font-size: 11px;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        opacity: 0.92;
+    }
+    .reminder-empty {
+        font-size: 12px;
+        color: #94a3b8;
+    }
+    .reminder-modal {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.55);
+        backdrop-filter: blur(2px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+    }
+    .reminder-modal.show {
+        display: flex;
+    }
+    .reminder-modal-card {
+        width: min(620px, calc(100vw - 24px));
+        max-height: calc(100vh - 12px);
+        overflow: auto;
+        background: #fff;
+        border-radius: 14px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 20px 40px rgba(15, 23, 42, 0.22);
+        padding: 18px;
+    }
+    #reminder-create-modal .reminder-modal-card {
+        height: min(680px, calc(100vh - 24px));
+        overflow: hidden;
+    }
+    #reminder-create-modal .reminder-modal-card form {
+        height: calc(100% - 40px);
+        display: flex;
+        flex-direction: column;
+    }
+    #reminder-create-modal .reminder-modal-grid {
+        flex: 1;
+        overflow: auto;
+        align-content: start;
+        padding-right: 2px;
+    }
+    #reminder-create-modal .reminder-modal-actions {
+        margin-top: 10px;
+        flex-shrink: 0;
+    }
+    .reminder-modal-card label {
+        font-size: 12px;
+        font-weight: 700;
+        color: #334155;
+    }
+    .reminder-modal-card input,
+    .reminder-modal-card select {
+        width: 100%;
+        min-height: 38px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 8px 10px;
+        box-sizing: border-box;
+        background: #fff;
+        color: #0f172a;
+    }
+    .reminder-modal-card input:focus,
+    .reminder-modal-card select:focus {
+        outline: none;
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    }
+    .reminder-modal-title {
+        margin: 0 0 12px;
+        font-size: 18px;
+        font-weight: 700;
+        color: #0f172a;
+    }
+    .reminder-modal-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+    .reminder-modal-field {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .reminder-modal-field.full {
+        grid-column: 1 / -1;
+    }
+    .reminder-modal-field small {
+        color: #64748b;
+    }
+    .reminder-target-hint {
+        margin-top: 6px;
+        font-size: 12px;
+        color: #64748b;
+    }
+    .reminder-combobox {
+        position: relative;
+    }
+    .reminder-target-dropdown {
+        position: static;
+        margin-top: 6px;
+        width: 100%;
+        min-height: 220px;
+        max-height: 360px;
+        overflow-y: auto;
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        background: #ffffff;
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
+        z-index: 20;
+        display: none;
+        padding: 6px;
+    }
+    .reminder-target-dropdown.show {
+        display: block;
+    }
+    .reminder-target-group {
+        margin-bottom: 4px;
+    }
+    .reminder-target-group-title {
+        padding: 6px 10px;
+        font-size: 12px;
+        font-weight: 700;
+        color: #475569;
+        background: #f8fafc;
+        border-radius: 8px;
+        margin-bottom: 2px;
+    }
+    .reminder-target-option,
+    .reminder-target-empty {
+        width: 100%;
+        border: 0;
+        background: transparent;
+        text-align: left;
+        padding: 8px 10px;
+        border-radius: 8px;
+        cursor: pointer;
+        color: #0f172a;
+        font-size: 13px;
+        line-height: 1.4;
+    }
+    .reminder-target-empty {
+        cursor: default;
+        color: #94a3b8;
+    }
+    .reminder-target-option-meta {
+        font-size: 12px;
+        color: #64748b;
+        margin-top: 2px;
+    }
+    .reminder-target-option mark {
+        background: #fef08a;
+        color: #854d0e;
+        padding: 0;
+    }
+    .reminder-target-option:hover,
+    .reminder-target-option.is-active {
+        background: #eff6ff;
+        color: #1d4ed8;
+    }
+    .reminder-modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 14px;
+    }
+    .reminder-btn-secondary,
+    .reminder-btn-primary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 auto !important;
+        width: auto !important;
+        min-height: 36px;
+        min-width: 78px;
+        padding: 7px 12px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 700;
+        line-height: 1;
+        text-decoration: none !important;
+        cursor: pointer;
+        transition: all 0.18s ease;
+    }
+    .reminder-btn-secondary {
+        border: 1px solid #bfdbfe;
+        background: #fff;
+        color: #0f172a !important;
+    }
+    .reminder-btn-secondary:hover,
+    .reminder-btn-secondary:focus-visible {
+        border-color: #93c5fd;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.16);
+        outline: none;
+    }
+    .reminder-btn-primary {
+        border: 1px solid #1d4ed8;
+        background: #1d4ed8;
+        color: #ffffff !important;
+        box-shadow: 0 10px 20px rgba(29, 78, 216, 0.24);
+    }
+    .reminder-btn-primary:hover,
+    .reminder-btn-primary:focus-visible {
+        background: #1e40af;
+        border-color: #1e40af;
+        box-shadow: 0 12px 24px rgba(30, 64, 175, 0.3);
+        outline: none;
+    }
+    .reminder-detail-item {
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        background: #f8fafc;
+        padding: 10px;
+        margin-bottom: 8px;
+    }
+    .reminder-detail-key {
+        font-size: 12px;
+        color: #475569;
+    }
+    .reminder-detail-value {
+        margin-top: 2px;
+        font-size: 14px;
+        color: #0f172a;
+        font-weight: 600;
+        word-break: break-word;
+    }
+    @media (max-width: 960px) {
+        .reminder-calendar-day {
+            min-height: 116px;
+        }
+        .reminder-modal-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <div class="reminder-calendar-toolbar">
+        <div class="reminder-calendar-nav">
+            <a href="{{ prev_url }}" class="button">{% trans "上一月" %}</a>
+            <a href="{{ today_url }}" class="button">{% trans "回到本月" %}</a>
+            <a href="{{ next_url }}" class="button">{% trans "下一月" %}</a>
+            <span class="reminder-calendar-title">{{ month_title }}</span>
+        </div>
+
+    </div>
+
+    <form method="get" class="reminder-calendar-filters">
+        <input type="hidden" name="year" value="{{ current_year }}">
+        <input type="hidden" name="month" value="{{ current_month }}">
+
+        <div class="reminder-calendar-field">
+            <label for="id_reminder_type">{% trans "提醒类型" %}</label>
+            <select id="id_reminder_type" name="reminder_type">
+                <option value="">{% trans "全部" %}</option>
+                {% for item in reminder_type_options %}
+                <option value="{{ item.value }}" {% if selected_type == item.value %}selected{% endif %}>{{ item.label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="reminder-calendar-field">
+            <label for="id_scope">{% trans "关联对象" %}</label>
+            <select id="id_scope" name="scope">
+                <option value="all" {% if selected_scope == "all" %}selected{% endif %}>{% trans "全部" %}</option>
+                <option value="contract" {% if selected_scope == "contract" %}selected{% endif %}>{% trans "仅合同" %}</option>
+                <option value="case" {% if selected_scope == "case" %}selected{% endif %}>{% trans "仅案件" %}</option>
+                <option value="case_log" {% if selected_scope == "case_log" %}selected{% endif %}>{% trans "仅案件日志" %}</option>
+            </select>
+        </div>
+
+        <div class="reminder-calendar-field">
+            <label for="id_status">{% trans "状态" %}</label>
+            <select id="id_status" name="status">
+                <option value="all" {% if selected_status == "all" %}selected{% endif %}>{% trans "全部" %}</option>
+                <option value="upcoming" {% if selected_status == "upcoming" %}selected{% endif %}>{% trans "未到期" %}</option>
+                <option value="overdue" {% if selected_status == "overdue" %}selected{% endif %}>{% trans "已逾期" %}</option>
+            </select>
+        </div>
+
+        <div>
+            <button type="submit" class="reminder-filter-btn">{% trans "筛选" %}</button>
+        </div>
+    </form>
+
+    <div class="reminder-create-tip">{% trans "点击日期或 + 快速新增；点击提醒卡片查看详情" %}</div>
+
+    <div class="reminder-calendar-grid">
+        <div class="reminder-calendar-weekdays">
+            {% for weekday in weekday_labels %}
+            <div>{{ weekday }}</div>
+            {% endfor %}
+        </div>
+
+        {% for week in calendar_weeks %}
+        <div class="reminder-calendar-week">
+            {% for day in week %}
+            <div class="reminder-calendar-day {% if day.in_month %}is-clickable{% else %}is-muted{% endif %} {% if day.is_today %}is-today{% endif %}" {% if day.in_month %}data-date="{{ day.date|date:'Y-m-d' }}"{% endif %}>
+                <div class="reminder-calendar-day-head">
+                    <span class="reminder-day-num">{{ day.day }}</span>
+                    <div>
+                        {% if day.items %}<span class="reminder-day-count">{{ day.items|length }} {% trans "条" %}</span>{% endif %}
+                        {% if day.in_month %}
+                        <button type="button" class="reminder-add-btn" data-add-date="{{ day.date|date:'Y-m-d' }}" title="{% trans '新增提醒' %}">+</button>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if day.items %}
+                <div class="reminder-event-list">
+                    {% for event in day.items|slice:":3" %}
+                    <button
+                        type="button"
+                        class="reminder-event {% if event.is_overdue %}overdue{% endif %}"
+                        data-event-id="{{ event.id }}"
+                        data-event-time="{{ event.time }}"
+                        data-event-due="{{ event.due_display }}"
+                        data-event-title="{{ event.title|escape }}"
+                        data-event-type="{{ event.type_label|escape }}"
+                        data-event-target-type="{{ event.target_type|escape }}"
+                        data-event-target-name="{{ event.target_name|escape }}"
+                        data-event-url="{{ event.url }}"
+                    >
+                        <span class="reminder-event-top">
+                            <span class="reminder-event-time">{{ event.time }}</span>
+                            <span class="reminder-event-title">{{ event.title }}</span>
+                        </span>
+                        <span class="reminder-event-meta">{{ event.target_type }} · {{ event.target_name }}</span>
+                    </button>
+                    {% endfor %}
+                    {% if day.items|length > 3 %}
+                    <span class="reminder-day-count">{% blocktrans with count=day.items|length %}共 {{ count }} 条{% endblocktrans %}</span>
+                    {% endif %}
+                </div>
+                {% elif day.in_month %}
+                <span class="reminder-empty">{% trans "无提醒" %}</span>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div id="reminder-create-modal" class="reminder-modal" aria-hidden="true">
+    <div class="reminder-modal-card">
+        <h3 class="reminder-modal-title">{% trans "新增重要日期提醒" %}</h3>
+        <form method="post" action="{{ calendar_create_url }}">
+            {% csrf_token %}
+            <input type="hidden" name="return_url" value="{{ current_calendar_url }}">
+
+            <div class="reminder-modal-grid">
+                <div class="reminder-modal-field full">
+                    <label for="id_modal_content">{% trans "提醒事项" %}</label>
+                    <input id="id_modal_content" name="content" type="text" maxlength="255" required>
+                </div>
+
+                <div class="reminder-modal-field">
+                    <label for="id_modal_type">{% trans "提醒类型" %}</label>
+                    <select id="id_modal_type" name="reminder_type" required>
+                        {% for item in reminder_type_options %}
+                        <option value="{{ item.value }}">{{ item.label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <input id="id_modal_target_type" name="target_type" type="hidden" value="">
+
+                <div class="reminder-modal-field full">
+                    <label for="id_modal_target_keyword">{% trans "搜索并选择关联对象" %}</label>
+                    <div class="reminder-combobox" id="id_modal_target_combobox">
+                        <input
+                            id="id_modal_target_keyword"
+                            type="text"
+                            autocomplete="off"
+                            placeholder="{% trans '输入关键字并从下拉候选中选择' %}"
+                        >
+                        <div id="id_modal_target_options" class="reminder-target-dropdown" role="listbox"></div>
+                    </div>
+                    <input id="id_modal_target_id" name="target_id" type="hidden" value="">
+                    <small>{% trans "可留空作为独立提醒；如需关联，直接输入关键字进行混合搜索并选择。" %}</small>
+                    <div id="id_modal_target_hint" class="reminder-target-hint"></div>
+                </div>
+
+                <div class="reminder-modal-field">
+                    <label for="id_modal_due_date">{% trans "日期" %}</label>
+                    <input id="id_modal_due_date" name="due_date" type="date" required>
+                </div>
+
+                <div class="reminder-modal-field">
+                    <label for="id_modal_due_time">{% trans "时间" %}</label>
+                    <input id="id_modal_due_time" name="due_time" type="time" step="60" value="09:00" required>
+                </div>
+            </div>
+
+            <div class="reminder-modal-actions">
+                <button type="button" class="reminder-btn-secondary" id="reminder-modal-cancel">{% trans "取消" %}</button>
+                <button type="submit" class="reminder-btn-primary">{% trans "保存" %}</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="reminder-detail-modal" class="reminder-modal" aria-hidden="true">
+    <div class="reminder-modal-card">
+        <h3 class="reminder-modal-title">{% trans "提醒详情" %}</h3>
+        <div class="reminder-detail-item">
+            <div class="reminder-detail-key">{% trans "提醒事项" %}</div>
+            <div class="reminder-detail-value" id="detail-title"></div>
+        </div>
+        <div class="reminder-detail-item">
+            <div class="reminder-detail-key">{% trans "提醒类型" %}</div>
+            <div class="reminder-detail-value" id="detail-type"></div>
+        </div>
+        <div class="reminder-detail-item">
+            <div class="reminder-detail-key">{% trans "到期时间" %}</div>
+            <div class="reminder-detail-value" id="detail-due"></div>
+        </div>
+        <div class="reminder-detail-item">
+            <div class="reminder-detail-key">{% trans "关联对象" %}</div>
+            <div class="reminder-detail-value" id="detail-target"></div>
+        </div>
+        <div class="reminder-modal-actions">
+            <button type="button" class="reminder-btn-secondary" id="reminder-detail-close">{% trans "关闭" %}</button>
+            <a class="reminder-btn-primary" id="detail-open-link" href="#">{% trans "详情" %}</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block footer %}
+{{ block.super }}
+<script>
+(function () {
+    const createModal = document.getElementById('reminder-create-modal');
+    const detailModal = document.getElementById('reminder-detail-modal');
+    const dateInput = document.getElementById('id_modal_due_date');
+    const cancelBtn = document.getElementById('reminder-modal-cancel');
+    const detailCloseBtn = document.getElementById('reminder-detail-close');
+    const targetTypeInput = document.getElementById('id_modal_target_type');
+    const targetKeywordInput = document.getElementById('id_modal_target_keyword');
+    const targetCombobox = document.getElementById('id_modal_target_combobox');
+    const targetOptionsBox = document.getElementById('id_modal_target_options');
+    const targetIdInput = document.getElementById('id_modal_target_id');
+    const targetHint = document.getElementById('id_modal_target_hint');
+    const targetOptionsUrl = '{{ target_options_url|escapejs }}';
+
+    const detailTitle = document.getElementById('detail-title');
+    const detailType = document.getElementById('detail-type');
+    const detailDue = document.getElementById('detail-due');
+    const detailTarget = document.getElementById('detail-target');
+    const detailOpenLink = document.getElementById('detail-open-link');
+
+    if (!createModal || !detailModal || !dateInput || !cancelBtn || !targetTypeInput || !targetKeywordInput || !targetCombobox || !targetOptionsBox || !targetIdInput || !targetHint) {
+        return;
+    }
+
+    const openModal = (modal) => {
+        modal.classList.add('show');
+        modal.setAttribute('aria-hidden', 'false');
+    };
+
+    const closeModal = (modal) => {
+        modal.classList.remove('show');
+        modal.setAttribute('aria-hidden', 'true');
+    };
+
+    let targetOptions = [];
+    let activeTargetIndex = -1;
+
+    const hideTargetOptions = () => {
+        targetOptionsBox.classList.remove('show');
+        activeTargetIndex = -1;
+    };
+
+    const showTargetOptions = () => {
+        if (targetOptionsBox.childElementCount > 0) {
+            targetOptionsBox.classList.add('show');
+        }
+    };
+
+    const setActiveTargetOption = (index) => {
+        const optionButtons = targetOptionsBox.querySelectorAll('.reminder-target-option');
+        optionButtons.forEach((button, idx) => {
+            button.classList.toggle('is-active', idx === index);
+        });
+        activeTargetIndex = index;
+    };
+
+    const escapeHtml = (text) => {
+        return String(text)
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#39;');
+    };
+
+    const buildHighlightedHtml = (text, keyword) => {
+        const safeText = escapeHtml(text);
+        if (!keyword) {
+            return safeText;
+        }
+        const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(escaped, 'ig');
+        return safeText.replace(regex, (matched) => '<mark>' + matched + '</mark>');
+    };
+
+    const selectTargetOption = (item) => {
+        targetKeywordInput.value = item.name;
+        targetIdInput.value = String(item.id);
+        targetTypeInput.value = String(item.target_type || '');
+        targetHint.textContent = '已选择：' + item.target_type_label + ' · ' + item.name;
+        hideTargetOptions();
+    };
+
+    const resetTargetState = () => {
+        targetKeywordInput.value = '';
+        targetOptionsBox.innerHTML = '';
+        targetIdInput.value = '';
+        targetTypeInput.value = '';
+        targetOptions = [];
+        hideTargetOptions();
+        targetHint.textContent = '可留空，保存为独立提醒';
+    };
+
+    const fillTargetOptions = (groups, keyword) => {
+        targetOptionsBox.innerHTML = '';
+        targetIdInput.value = '';
+        targetTypeInput.value = '';
+        targetOptions = [];
+
+        const validGroups = Array.isArray(groups) ? groups.filter((group) => Array.isArray(group.items) && group.items.length > 0) : [];
+        if (!validGroups.length) {
+            const empty = document.createElement('div');
+            empty.className = 'reminder-target-empty';
+            empty.textContent = '未找到可选项，请修改关键词后重试';
+            targetOptionsBox.appendChild(empty);
+            targetHint.textContent = '未找到可选项，请修改关键词后重试';
+            showTargetOptions();
+            return;
+        }
+
+        validGroups.forEach((group) => {
+            const groupContainer = document.createElement('div');
+            groupContainer.className = 'reminder-target-group';
+
+            const groupTitle = document.createElement('div');
+            groupTitle.className = 'reminder-target-group-title';
+            groupTitle.textContent = String(group.label || '');
+            groupContainer.appendChild(groupTitle);
+
+            group.items.forEach((item) => {
+                const optionIndex = targetOptions.length;
+                targetOptions.push(item);
+
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'reminder-target-option';
+                button.innerHTML = '<div>' + buildHighlightedHtml(item.name, keyword) + '</div><div class="reminder-target-option-meta">#' + String(item.id) + '</div>';
+                button.addEventListener('mousedown', (event) => {
+                    event.preventDefault();
+                    selectTargetOption(item);
+                });
+                button.addEventListener('mouseenter', () => setActiveTargetOption(optionIndex));
+                groupContainer.appendChild(button);
+            });
+
+            targetOptionsBox.appendChild(groupContainer);
+        });
+
+        targetHint.textContent = '已加载 ' + String(targetOptions.length) + ' 条候选';
+        setActiveTargetOption(0);
+        showTargetOptions();
+    };
+
+    let queryTimer = null;
+    const loadTargetOptions = () => {
+        const query = targetKeywordInput.value.trim();
+        const url = targetOptionsUrl + '?q=' + encodeURIComponent(query);
+        fetch(url, { method: 'GET', credentials: 'same-origin' })
+            .then((response) => response.json())
+            .then((data) => {
+                fillTargetOptions(data.groups || [], query);
+            })
+            .catch(() => {
+                fillTargetOptions([], query);
+            });
+    };
+
+    const debouncedLoad = () => {
+        if (queryTimer) {
+            window.clearTimeout(queryTimer);
+        }
+        queryTimer = window.setTimeout(loadTargetOptions, 260);
+    };
+
+    const openCreate = (selectedDate) => {
+        if (selectedDate) {
+            dateInput.value = selectedDate;
+        }
+        resetTargetState();
+        openModal(createModal);
+    };
+
+    document.querySelectorAll('[data-add-date]').forEach((button) => {
+        button.addEventListener('click', (event) => {
+            event.stopPropagation();
+            openCreate(button.getAttribute('data-add-date'));
+        });
+    });
+
+    document.querySelectorAll('.reminder-calendar-day[data-date]').forEach((dayCell) => {
+        dayCell.addEventListener('click', (event) => {
+            if (event.target.closest('button') || event.target.closest('a')) {
+                return;
+            }
+            openCreate(dayCell.getAttribute('data-date'));
+        });
+    });
+
+    targetKeywordInput.addEventListener('focus', () => {
+        loadTargetOptions();
+    });
+
+    targetKeywordInput.addEventListener('input', () => {
+        targetIdInput.value = '';
+        targetTypeInput.value = '';
+        debouncedLoad();
+    });
+
+    targetKeywordInput.addEventListener('keydown', (event) => {
+        if (!targetOptions.length || !targetOptionsBox.classList.contains('show')) {
+            return;
+        }
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            const nextIndex = activeTargetIndex < targetOptions.length - 1 ? activeTargetIndex + 1 : 0;
+            setActiveTargetOption(nextIndex);
+            return;
+        }
+        if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            const prevIndex = activeTargetIndex > 0 ? activeTargetIndex - 1 : targetOptions.length - 1;
+            setActiveTargetOption(prevIndex);
+            return;
+        }
+        if (event.key === 'Enter' && activeTargetIndex >= 0) {
+            event.preventDefault();
+            selectTargetOption(targetOptions[activeTargetIndex]);
+            return;
+        }
+        if (event.key === 'Escape') {
+            hideTargetOptions();
+        }
+    });
+
+    document.addEventListener('click', (event) => {
+        if (!targetCombobox.contains(event.target)) {
+            hideTargetOptions();
+        }
+    });
+
+    cancelBtn.addEventListener('click', () => closeModal(createModal));
+
+    detailCloseBtn.addEventListener('click', () => closeModal(detailModal));
+
+    document.querySelectorAll('.reminder-event').forEach((card) => {
+        card.addEventListener('click', () => {
+            detailTitle.textContent = card.dataset.eventTitle || '';
+            detailType.textContent = card.dataset.eventType || '';
+            detailDue.textContent = card.dataset.eventDue || '';
+            detailTarget.textContent = (card.dataset.eventTargetType || '') + ' · ' + (card.dataset.eventTargetName || '');
+            detailOpenLink.href = card.dataset.eventUrl || '#';
+            openModal(detailModal);
+        });
+    });
+
+    [createModal, detailModal].forEach((modal) => {
+        modal.addEventListener('click', (event) => {
+            if (event.target === modal) {
+                closeModal(modal);
+            }
+        });
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            closeModal(createModal);
+            closeModal(detailModal);
+        }
+    });
+})();
+</script>
+{% endblock %}

@@ -15,7 +15,7 @@ from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import render
 from django.template.response import TemplateResponse
-from django.urls import URLPattern, include, path
+from django.urls import URLPattern, include, path, reverse
 from django.utils.translation import gettext_lazy as _
 
 from apps.organization.views import register
@@ -91,6 +91,23 @@ def _sorted_get_app_list(self: admin.AdminSite, request: HttpRequest, app_label:
                 app["models"] = [calculator_model]
             break
 
+    # 向 reminders app 添加日历链接
+    for app in app_list:
+        if app.get("app_label") == "reminders":
+            calendar_model = {
+                "name": _("提醒日历"),
+                "object_name": "ReminderCalendar",
+                "perms": {"add": False, "change": False, "delete": False, "view": True},
+                "admin_url": "/admin/reminders/calendar/",
+                "add_url": None,
+                "view_only": True,
+            }
+            if "models" in app:
+                app["models"].insert(0, calendar_model)
+            else:
+                app["models"] = [calendar_model]
+            break
+
     return app_list
 
 
@@ -112,6 +129,11 @@ def lpr_calculator_view(request: HttpRequest) -> TemplateResponse:
     return render(request, "admin/finance/lpr/calculator.html", context)
 
 
+def reminders_calendar_redirect(_: HttpRequest) -> HttpResponseRedirect:
+    """提醒 app 下的日历入口，重定向到 ReminderAdmin 日历页。"""
+    return HttpResponseRedirect(reverse("admin:reminders_reminder_calendar"))
+
+
 # 注册 LPR 计算器 URL 到 admin site
 _original_get_urls = admin.site.get_urls
 
@@ -123,6 +145,11 @@ def _get_urls_with_calculator() -> list[URLPattern]:
             "finance/calculator/",
             admin.site.admin_view(lpr_calculator_view),
             name="finance_lpr_calculator",
+        ),
+        path(
+            "reminders/calendar/",
+            admin.site.admin_view(reminders_calendar_redirect),
+            name="reminders_calendar_entry",
         ),
     ]
     return custom_urls + urls
