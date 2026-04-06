@@ -1,5 +1,5 @@
 """Adapters in cases module."""
 
-from .reminder_target_query_adapter import CaseLogReminderTargetQueryAdapter
+from .reminder_target_query_adapter import CaseLogReminderTargetQueryAdapter, CaseReminderTargetQueryAdapter
 
-__all__ = ["CaseLogReminderTargetQueryAdapter"]
+__all__ = ["CaseReminderTargetQueryAdapter", "CaseLogReminderTargetQueryAdapter"]

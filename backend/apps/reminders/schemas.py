@@ -30,40 +30,43 @@ def _validate_content_not_blank(value: str | None) -> str | None:
 
 class ReminderIn(Schema):
     contract_id: int | None = None
+    case_id: int | None = None
     case_log_id: int | None = None
     reminder_type: ReminderType
     content: str = Field(max_length=_CONTENT_MAX_LENGTH)
     due_at: datetime
     metadata: dict[str, Any] | None = None
 
-    _validate_ids = field_validator("contract_id", "case_log_id")(_validate_positive_id)
+    _validate_ids = field_validator("contract_id", "case_id", "case_log_id")(_validate_positive_id)
     _validate_content = field_validator("content")(_validate_content_not_blank)
 
     @model_validator(mode="after")
     def validate_binding_exclusivity(self) -> "ReminderIn":
-        """contract_id 和 case_log_id 互斥校验。"""
-        both_none = self.contract_id is None and self.case_log_id is None
-        both_set = self.contract_id is not None and self.case_log_id is not None
-        if both_none or both_set:
-            raise ValueError(_("必须且只能绑定合同或案件日志之一"))
+        selected_count = sum(
+            target_id is not None for target_id in (self.contract_id, self.case_id, self.case_log_id)
+        )
+        if selected_count > 1:
+            raise ValueError(_("合同、案件、案件日志最多只能绑定一个"))
         return self
 
 
 class ReminderUpdate(Schema):
     contract_id: int | None = None
+    case_id: int | None = None
     case_log_id: int | None = None
     reminder_type: ReminderType | None = None
     content: str | None = Field(None, max_length=_CONTENT_MAX_LENGTH)
     due_at: datetime | None = None
     metadata: dict[str, Any] | None = None
 
-    _validate_ids = field_validator("contract_id", "case_log_id")(_validate_positive_id)
+    _validate_ids = field_validator("contract_id", "case_id", "case_log_id")(_validate_positive_id)
     _validate_content = field_validator("content")(_validate_content_not_blank)
 
 
 class ReminderOut(SchemaMixin, Schema):
     id: int
     contract_id: int | None = None
+    case_id: int | None = None
     case_log_id: int | None = None
     reminder_type: str
     reminder_type_label: str

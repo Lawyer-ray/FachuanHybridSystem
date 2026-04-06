@@ -1,5 +1,5 @@
 """Ports for reminder module dependencies."""
 
-from .target_query_ports import CaseLogTargetQueryPort, ContractTargetQueryPort
+from .target_query_ports import CaseLogTargetQueryPort, CaseTargetQueryPort, ContractTargetQueryPort
 
-__all__ = ["ContractTargetQueryPort", "CaseLogTargetQueryPort"]
+__all__ = ["ContractTargetQueryPort", "CaseTargetQueryPort", "CaseLogTargetQueryPort"]

@@ -14,20 +14,22 @@ from django.db import transaction
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ValidationException
-from apps.reminders.models import Reminder, ReminderType
-from apps.reminders.services.reminder_service import ReminderService
-from apps.reminders.services.validators import (
+from ..models import Reminder, ReminderType
+from .reminder_service import ReminderService
+from .validators import (
     normalize_content,
     normalize_due_at,
     normalize_metadata,
     normalize_reminder_type,
+    normalize_target_id,
     validate_fk_exists,
     validate_positive_id,
 )
 
 if TYPE_CHECKING:
     from apps.core.dto import ReminderDTO, ReminderTypeDTO
-    from apps.reminders.ports import CaseLogTargetQueryPort, ContractTargetQueryPort
+
+    from ..ports import CaseLogTargetQueryPort, CaseTargetQueryPort, ContractTargetQueryPort
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +47,6 @@ class ReminderServiceAdapter(ReminderService):
         "verdict": "appeal_deadline",
         "asset_preservation": "asset_preservation_expires",
     }
-    # 类级别缓存，避免每次调用都重建列表
     _REMINDER_TYPE_CODE_TO_ID: ClassVar[dict[str, int]] = {
         code: idx + 1 for idx, code in enumerate(ReminderType.values)
     }
@@ -54,10 +55,12 @@ class ReminderServiceAdapter(ReminderService):
         self,
         *,
         contract_target_query: ContractTargetQueryPort | None = None,
+        case_target_query: CaseTargetQueryPort | None = None,
         case_log_target_query: CaseLogTargetQueryPort | None = None,
     ) -> None:
         super().__init__(
             contract_target_query=contract_target_query,
+            case_target_query=case_target_query,
             case_log_target_query=case_log_target_query,
         )
 
@@ -79,7 +82,7 @@ class ReminderServiceAdapter(ReminderService):
             reminder = super().create_reminder(
                 case_log_id=case_log_id,
                 reminder_type=reminder_type,
-                content=str(reminder_type_label),
+                content=normalize_content(str(reminder_type_label)),
                 due_at=reminder_time,
                 metadata=metadata,
             )
@@ -137,14 +140,18 @@ class ReminderServiceAdapter(ReminderService):
     @transaction.atomic
     def create_contract_reminders_internal(self, *, contract_id: int, reminders: list[dict[str, Any]]) -> int:
         """内部方法：批量创建合同提醒。"""
-        validate_positive_id(contract_id, field_name=_("合同ID"))
+        normalized_contract_id = normalize_target_id(contract_id, field_name=_("合同ID"))
+        if normalized_contract_id is None:
+            raise ValidationException(_("合同ID 不能为空"))
         if not reminders:
             return 0
 
         validate_fk_exists(
-            contract_id=contract_id,
+            contract_id=normalized_contract_id,
+            case_id=None,
             case_log_id=None,
             contract_target_query=self._contract_target_query,
+            case_target_query=self._case_target_query,
             case_log_target_query=self._case_log_target_query,
         )
 
@@ -163,7 +170,7 @@ class ReminderServiceAdapter(ReminderService):
 
             objs.append(
                 Reminder(
-                    contract_id=contract_id,
+                    contract_id=normalized_contract_id,
                     reminder_type=reminder_type,
                     content=content,
                     due_at=due_at,
@@ -180,14 +187,18 @@ class ReminderServiceAdapter(ReminderService):
     @transaction.atomic
     def create_case_log_reminders_internal(self, *, case_log_id: int, reminders: list[dict[str, Any]]) -> int:
         """内部方法：批量创建案件日志提醒。"""
-        validate_positive_id(case_log_id, field_name=_("案件日志ID"))
+        normalized_case_log_id = normalize_target_id(case_log_id, field_name=_("案件日志ID"))
+        if normalized_case_log_id is None:
+            raise ValidationException(_("案件日志ID 不能为空"))
         if not reminders:
             return 0
 
         validate_fk_exists(
             contract_id=None,
-            case_log_id=case_log_id,
+            case_id=None,
+            case_log_id=normalized_case_log_id,
             contract_target_query=self._contract_target_query,
+            case_target_query=self._case_target_query,
             case_log_target_query=self._case_log_target_query,
         )
 
@@ -206,7 +217,7 @@ class ReminderServiceAdapter(ReminderService):
 
             objs.append(
                 Reminder(
-                    case_log_id=case_log_id,
+                    case_log_id=normalized_case_log_id,
                     reminder_type=reminder_type,
                     content=content,
                     due_at=due_at,
@@ -226,7 +237,7 @@ class ReminderServiceAdapter(ReminderService):
         rows = list(
             Reminder.objects.filter(contract_id=contract_id, case_log_id__isnull=True)
             .order_by("due_at", "id")
-            .values("id", "contract_id", "case_log_id", "reminder_type", "content", "due_at", "metadata")
+            .values("id", "contract_id", "case_id", "case_log_id", "reminder_type", "content", "due_at", "metadata")
         )
         return [self._enrich_export_row(row) for row in rows]
 
@@ -236,7 +247,7 @@ class ReminderServiceAdapter(ReminderService):
         rows = list(
             Reminder.objects.filter(case_log_id=case_log_id)
             .order_by("due_at", "id")
-            .values("id", "contract_id", "case_log_id", "reminder_type", "content", "due_at", "metadata")
+            .values("id", "contract_id", "case_id", "case_log_id", "reminder_type", "content", "due_at", "metadata")
         )
         return [self._enrich_export_row(row) for row in rows]
 
@@ -261,6 +272,7 @@ class ReminderServiceAdapter(ReminderService):
             .values(
                 "id",
                 "contract_id",
+                "case_id",
                 "case_log_id",
                 "reminder_type",
                 "content",
@@ -269,8 +281,8 @@ class ReminderServiceAdapter(ReminderService):
             )
         )
         for row in rows:
-            case_log_id = int(row["case_log_id"])
-            results[case_log_id].append(self._enrich_export_row(row))
+            current_case_log_id = int(row["case_log_id"])
+            results[current_case_log_id].append(self._enrich_export_row(row))
         return results
 
     def get_latest_case_log_reminder_internal(self, *, case_log_id: int) -> dict[str, Any] | None:
@@ -279,7 +291,7 @@ class ReminderServiceAdapter(ReminderService):
         row = (
             Reminder.objects.filter(case_log_id=case_log_id)
             .order_by("-due_at", "-id")
-            .values("id", "contract_id", "case_log_id", "reminder_type", "content", "due_at", "metadata")
+            .values("id", "contract_id", "case_id", "case_log_id", "reminder_type", "content", "due_at", "metadata")
             .first()
         )
         if row is None:
@@ -302,8 +314,9 @@ class ReminderServiceAdapter(ReminderService):
         return ReminderDTO(
             id=reminder.pk,
             case_log_id=reminder.case_log_id,
-            contract_id=reminder.contract_id,
             reminder_type=str(reminder.reminder_type),
             reminder_time=reminder.due_at.isoformat(),
+            contract_id=reminder.contract_id,
+            case_id=reminder.case_id,
             created_at=reminder.created_at.isoformat(),
         )
