@@ -20,7 +20,7 @@ class DocumentTemplateValidationService:
         if not file_path:
             return False
         try:
-            return resolve_docx_template_path(file_path).is_file()
+            return bool(resolve_docx_template_path(file_path).is_file())
         except ValueError:
             return False
 

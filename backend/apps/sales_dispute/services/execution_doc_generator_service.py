@@ -9,7 +9,7 @@ from decimal import Decimal
 from enum import Enum
 from importlib import import_module
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from django.utils.translation import gettext_lazy as _
 
@@ -257,7 +257,8 @@ class ExecutionDocGeneratorService:
             )
 
         renderer = self._build_docx_renderer()
-        return renderer.render(str(template_path), context)
+        rendered_content = renderer.render(str(template_path), context)
+        return cast(bytes, rendered_content)
 
     @staticmethod
     def _build_docx_renderer() -> Any:
