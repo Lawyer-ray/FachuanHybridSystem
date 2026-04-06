@@ -30,6 +30,7 @@ def build_business_config_service() -> IBusinessConfigService:
 def build_llm_service() -> ILLMService:
     from apps.core.llm.config import LLMConfig
     from apps.core.llm.service import LLMService
+    from apps.core.protocols import ILLMService
 
     return cast(
         ILLMService,

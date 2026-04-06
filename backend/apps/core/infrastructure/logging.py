@@ -197,6 +197,26 @@ def get_logging_config(base_dir: Any, debug: bool = True) -> dict[str, Any]:
                 "level": apps_level,
                 "propagate": False,
             },
+            "apps.core.llm": {
+                "handlers": ["console", "console_error", "file_api", "file_error"],
+                "level": "INFO",
+                "propagate": False,
+            },
+            "RapidOCR": {
+                "handlers": ["console", "console_error", "file_api", "file_error"],
+                "level": "WARNING",
+                "propagate": False,
+            },
+            "rapidocr": {
+                "handlers": ["console", "console_error", "file_api", "file_error"],
+                "level": "WARNING",
+                "propagate": False,
+            },
+            "onnxruntime": {
+                "handlers": ["console", "console_error", "file_api", "file_error"],
+                "level": "WARNING",
+                "propagate": False,
+            },
             # Gunicorn 日志（Docker 生产环境）
             "gunicorn.error": {
                 "handlers": ["console", "console_error"],

@@ -46,6 +46,13 @@ def get_ocr_engine(use_v5: bool = True) -> Any:
         RapidOCR 实例
     """
     global _ocr_engine_cache
+
+    # 第三方 OCR 库日志较多（模型路径/加载细节），统一压到 WARNING 并关闭传播
+    for logger_name in ("RapidOCR", "rapidocr", "onnxruntime"):
+        third_party_logger = logging.getLogger(logger_name)
+        third_party_logger.setLevel(logging.WARNING)
+        third_party_logger.propagate = False
+
     if use_v5 in _ocr_engine_cache:
         return _ocr_engine_cache[use_v5]
 

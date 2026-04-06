@@ -457,6 +457,7 @@ def get_complete_default_data() -> dict[str, Any]:
                 "case_stages": ["all"],
                 "legal_statuses": [],
                 "legal_status_match_mode": "any",
+                "applicable_institutions": ["广州", "广州市"],
                 "is_active": True,
             },
             {
@@ -470,6 +471,7 @@ def get_complete_default_data() -> dict[str, Any]:
                 "case_stages": ["all"],
                 "legal_statuses": [],
                 "legal_status_match_mode": "any",
+                "applicable_institutions": ["广州", "广州市"],
                 "is_active": True,
             },
             {

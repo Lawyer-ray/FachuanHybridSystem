@@ -78,7 +78,7 @@ class DocumentServiceAdapter:
             matched_templates = self.template_matching_service.find_matching_case_document_template_names(case_type)
             from apps.documents.presenters.template_names_presenter import format_template_names
 
-            return format_template_names(matched_templates)
+            return cast(str, format_template_names(matched_templates))
         except Exception as e:
             logger.error("获取文书模板失败,案件类型: %s,错误: %s", case_type, e, exc_info=True)
             return "查询失败"
@@ -130,7 +130,7 @@ class DocumentServiceAdapter:
             )
             from apps.documents.presenters.template_names_presenter import format_template_names
 
-            return format_template_names(matched_templates)
+            return cast(str, format_template_names(matched_templates))
         except Exception:
             logger.exception(
                 "get_matched_folder_templates_failed", extra={"case_type": case_type, "legal_statuses": legal_statuses}
@@ -161,10 +161,19 @@ class DocumentServiceAdapter:
             logger.exception("get_folder_binding_path_failed", extra={"case_type": case_type, "subdir_key": subdir_key})
             raise
 
-    def find_matching_case_file_templates(self, case_type: str, case_stage: str) -> list[dict[str, Any]]:
+    def find_matching_case_file_templates(
+        self,
+        case_type: str,
+        case_stage: str,
+        applicable_institutions: list[str] | None = None,
+    ) -> list[dict[str, Any]]:
         return cast(
             list[dict[str, Any]],
-            self.template_matching_service.find_matching_case_file_templates(case_type, case_stage),
+            self.template_matching_service.find_matching_case_file_templates(
+                case_type,
+                case_stage,
+                applicable_institutions,
+            ),
         )
 
     def find_matching_contract_templates(self, case_type: str) -> list[dict[str, Any]]:
@@ -246,7 +255,7 @@ class DocumentServiceAdapter:
 
         Requirements: 7.1, 4.4
         """
-        return self.template_query_service.get_template_by_id_internal(template_id)  # type: ignore[return-value]
+        return cast(DocumentTemplateDTO | None, self.template_query_service.get_template_by_id_internal(template_id))
 
     def get_template_by_function_code_internal(
         self, function_code: str, case_type: str | None = None, is_active: bool = True
@@ -264,8 +273,13 @@ class DocumentServiceAdapter:
 
         Requirements: 7.1, 4.4
         """
-        return self.template_query_service.get_template_by_function_code_internal(  # type: ignore[return-value]
-            function_code, case_type=case_type, is_active=is_active
+        return cast(
+            DocumentTemplateDTO | None,
+            self.template_query_service.get_template_by_function_code_internal(
+                function_code,
+                case_type=case_type,
+                is_active=is_active,
+            ),
         )
 
     def list_templates_by_function_code_internal(

@@ -8,6 +8,7 @@ from typing import Any, cast
 from django.core.cache import cache
 from django.utils.translation import gettext_lazy as _
 
+from apps.core.exceptions import ValidationException
 from apps.core.infrastructure import CacheKeys, CacheTimeout
 from apps.documents.models.choices import (
     DocumentCaseStage,
@@ -106,7 +107,7 @@ class TemplateMatchingService:
 
             result = ContractTemplateQueryService().list_matching_template_summaries(case_type)
             cache.set(cache_key, result, CacheTimeout.get_long())
-            return result
+            return cast(list[dict[str, Any]], result)
         except Exception:
             logger.exception("查找合同模板失败", extra={"case_type": case_type})
             raise
@@ -152,11 +153,19 @@ class TemplateMatchingService:
         document_templates = self.find_matching_contract_templates(case_type)
         return cast(dict[str, bool], {"has_folder": bool(folder_templates), "has_document": bool(document_templates)})
 
-    def find_matching_case_file_templates(self, case_type: str, case_stage: str) -> list[dict[str, Any]]:
+    def find_matching_case_file_templates(
+        self,
+        case_type: str,
+        case_stage: str,
+        applicable_institutions: list[str] | None = None,
+    ) -> list[dict[str, Any]]:
         version = self._get_document_templates_cache_version()
+        normalized_institutions = self._normalize_institutions(applicable_institutions)
+        institutions_cache_key = "|".join(normalized_institutions)
         cache_key = CacheKeys.documents_matching_case_file_templates(
             case_type=case_type,
             case_stage=case_stage,
+            institutions=institutions_cache_key,
             version=version,
         )
         cached = cache.get(cache_key)
@@ -186,6 +195,9 @@ class TemplateMatchingService:
                 ):
                     continue
 
+                if not self._matches_template_institutions(template, normalized_institutions):
+                    continue
+
                 matched.append(
                     {
                         "id": template.id,
@@ -204,6 +216,39 @@ class TemplateMatchingService:
                 "find_matching_case_file_templates_failed", extra={"case_type": case_type, "case_stage": case_stage}
             )
             raise
+
+    def _normalize_institutions(self, names: list[str] | None) -> list[str]:
+        if not names:
+            return []
+        seen: set[str] = set()
+        normalized: list[str] = []
+        for name in names:
+            text = str(name or "").strip()
+            if not text or text in seen:
+                continue
+            seen.add(text)
+            normalized.append(text)
+        return normalized
+
+    def _matches_template_institutions(self, template: DocumentTemplate, case_institutions: list[str]) -> bool:
+        template_names = self._normalize_institutions(cast(list[str] | None, template.applicable_institutions))
+
+        # 兼容历史模板：若未配置适用机构，但模板名称带有地域标识，则按地域限制
+        if not template_names:
+            if "广州" in str(template.name or ""):
+                template_names = ["广州", "广州市"]
+            else:
+                return True
+
+        if not case_institutions:
+            return False
+        return any(
+            (case_name == template_name)
+            or (template_name in case_name)
+            or (case_name in template_name)
+            for case_name in case_institutions
+            for template_name in template_names
+        )
 
     def _normalize_case_stage_for_document(self, case_stage: str) -> list[str]:
         if not case_stage:
