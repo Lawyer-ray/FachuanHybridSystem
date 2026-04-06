@@ -10,9 +10,13 @@ from pathlib import Path
 from typing import Any, cast
 
 from django import forms
+from django.conf import settings
 from django.contrib import admin
+from django.http import HttpResponseRedirect
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
+
+from apps.core.interfaces import ServiceLocator
 
 from apps.core.models.enums import LegalStatus
 from apps.documents.models import (
@@ -26,7 +30,13 @@ from apps.documents.models import (
     DocumentTemplateType,
     LegalStatusMatchMode,
 )
-from apps.documents.storage import list_docx_templates_files
+from apps.documents.storage import (
+    PRIVATE_DOCX_ROOT_SETTING,
+    get_configured_private_docx_templates_root,
+    get_docx_templates_root,
+    get_docx_templates_source,
+    list_docx_templates_files,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +53,39 @@ def _get_admin_service() -> Any:
     from apps.documents.services.template.document_template.admin_service import DocumentTemplateAdminService
 
     return DocumentTemplateAdminService()
+
+
+def _to_django_relative_path(path: Path) -> str:
+    """将绝对路径尽量转换为相对 Django 服务目录（backend）的路径。"""
+    backend_root = Path(str(getattr(settings, "BASE_DIR", "."))).resolve().parent
+    target = path.resolve()
+    try:
+        return target.relative_to(backend_root).as_posix()
+    except ValueError:
+        return Path(str(target)).as_posix()
+
+
+def _normalize_private_docx_root(raw_value: str) -> str:
+    """标准化私有模板根目录输入（支持绝对路径或相对 backend 路径）。"""
+    normalized = raw_value.strip()
+    if not normalized:
+        return ""
+
+    candidate = Path(normalized).expanduser()
+    if not candidate.is_absolute():
+        backend_root = Path(str(getattr(settings, "BASE_DIR", "."))).resolve().parent
+        candidate = (backend_root / candidate).resolve()
+    else:
+        candidate = candidate.resolve()
+
+    if not candidate.exists() or not candidate.is_dir():
+        raise ValueError(str(_("模板根目录不存在或不是文件夹")))
+
+    return str(candidate)
+
+
+def _get_system_config_service() -> Any:
+    return ServiceLocator.get_system_config_service()
 
 
 class DocumentTemplateFolderBindingInline(admin.TabularInline):
@@ -435,6 +478,11 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):
                 self.admin_site.admin_view(self.initialize_defaults_view),
                 name="documents_documenttemplate_initialize",
             ),
+            path(
+                "set-docx-root/",
+                self.admin_site.admin_view(self.set_docx_root_view),
+                name="documents_documenttemplate_set_docx_root",
+            ),
         ]
         return custom_urls + urls
 
@@ -481,8 +529,8 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):
 
             messages.error(
                 request,
-                _("初始化失败：缺少 %(count)s 个模板文件，请先补齐 backend/apps/documents/docx_templates 下对应 docx 文件。缺失示例：%(files)s")
-                % {"count": len(missing_files), "files": preview_files or "-"},
+                _("初始化失败：缺少 %(count)s 个模板文件，请先补齐当前模板根目录下对应 docx 文件。当前目录：%(root)s。缺失示例：%(files)s")
+                % {"count": len(missing_files), "root": get_docx_templates_root(), "files": preview_files or "-"},
             )
             return HttpResponseRedirect(reverse("admin:documents_documenttemplate_changelist"))
 
@@ -501,13 +549,74 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):
 
         return HttpResponseRedirect(reverse("admin:documents_documenttemplate_changelist"))
 
+    def set_docx_root_view(self, request: Any) -> HttpResponseRedirect:
+        """在线设置私有模板根目录（为空则切回公用目录）。"""
+        from django.contrib import messages
+        from django.urls import reverse
+
+        if request.method != "POST":
+            messages.error(request, _("仅支持 POST 请求"))
+            return HttpResponseRedirect(reverse("admin:documents_documenttemplate_changelist"))
+
+        raw_value = str(request.POST.get("private_docx_root", "") or "")
+
+        try:
+            normalized = _normalize_private_docx_root(raw_value)
+            _get_system_config_service().set_value(
+                key=PRIVATE_DOCX_ROOT_SETTING,
+                value=normalized,
+                category="general",
+                description="文书模板私有根目录，留空表示使用公用目录",
+                is_secret=False,
+            )
+        except ValueError as exc:
+            messages.error(request, str(exc))
+            return HttpResponseRedirect(reverse("admin:documents_documenttemplate_changelist"))
+        except Exception as exc:
+            logger.exception("更新模板根目录失败")
+            messages.error(request, _("更新失败：%(error)s") % {"error": str(exc)})
+            return HttpResponseRedirect(reverse("admin:documents_documenttemplate_changelist"))
+
+        if normalized:
+            messages.success(request, _("模板根目录已更新为：%(path)s") % {"path": normalized})
+        else:
+            messages.success(request, _("已切换为公用模板目录"))
+
+        return HttpResponseRedirect(reverse("admin:documents_documenttemplate_changelist"))
+
+    def _get_docx_root_extra_context(self) -> dict[str, str]:
+        from django.urls import reverse
+
+        source = get_docx_templates_source()
+        source_label = _("私有模板目录") if source == "private" else _("公用模板目录")
+        private_root_input = get_configured_private_docx_templates_root()
+        return {
+            "docx_templates_source": source,
+            "docx_templates_source_label": str(source_label),
+            "docx_templates_root": _to_django_relative_path(get_docx_templates_root()),
+            "docx_templates_set_root_url": reverse("admin:documents_documenttemplate_set_docx_root"),
+            "docx_templates_private_root_input": private_root_input,
+        }
+
     def changelist_view(self, request: Any, extra_context: Any = None) -> Any:
         """重写changelist视图，添加初始化按钮"""
         from django.urls import reverse
 
         extra_context = extra_context or {}
         extra_context["initialize_url"] = reverse("admin:documents_documenttemplate_initialize")
+        extra_context.update(self._get_docx_root_extra_context())
         return super().changelist_view(request, extra_context=extra_context)
+
+    def changeform_view(
+        self,
+        request: Any,
+        object_id: str | None = None,
+        form_url: str = "",
+        extra_context: dict[str, Any] | None = None,
+    ) -> Any:
+        extra_context = extra_context or {}
+        extra_context.update(self._get_docx_root_extra_context())
+        return super().changeform_view(request, object_id=object_id, form_url=form_url, extra_context=extra_context)
 
     @admin.display(description=_("模板类型"))
     def template_type_display(self, obj: DocumentTemplate) -> str:

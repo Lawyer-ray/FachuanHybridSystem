@@ -38,6 +38,22 @@
 </style>
 {% endblock %}
 
+{% block content %}
+<div style="margin: 0 0 12px 0; padding: 10px 12px; border: 1px solid #d0d7de; background: #f6f8fa; border-radius: 6px;">
+    <div>
+        <strong>{% trans "当前模板来源" %}：</strong>{{ docx_templates_source_label }}
+        <span style="margin-left: 12px;"><strong>{% trans "当前模板根目录" %}：</strong><code>{{ docx_templates_root }}</code></span>
+    </div>
+    <form method="post" action="{{ docx_templates_set_root_url }}" style="margin-top: 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+        {% csrf_token %}
+        <label for="id_private_docx_root"><strong>{% trans "私有模板目录" %}：</strong></label>
+        <input id="id_private_docx_root" type="text" name="private_docx_root" value="{{ docx_templates_private_root_input }}" placeholder="{% trans '留空则使用公用目录' %}" style="min-width: 480px; max-width: 100%;" />
+        <button type="submit" class="button">{% trans "保存模板目录" %}</button>
+    </form>
+</div>
+{{ block.super }}
+{% endblock %}
+
 {% block admin_change_form_document_ready %}
 {{ block.super }}
 <script type="text/javascript" src="{% static 'documents/js/folder_binding_inline.js' %}"></script>

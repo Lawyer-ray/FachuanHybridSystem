@@ -349,6 +349,11 @@ CONTRACT_FOLDER_BROWSE_ROOTS = resolve_contract_folder_browse_roots()
 
 FOLDER_BROWSE_ROOTS = CONTRACT_FOLDER_BROWSE_ROOTS
 
+# 可选：仓库外私有 docx_templates 根目录（例如 /xx/documents/docx_templates）
+DOCUMENTS_PRIVATE_DOCX_TEMPLATES_ROOT = (os.environ.get("DOCUMENTS_PRIVATE_DOCX_TEMPLATES_ROOT", "") or "").strip()
+if DOCUMENTS_PRIVATE_DOCX_TEMPLATES_ROOT:
+    DOCUMENTS_PRIVATE_DOCX_TEMPLATES_ROOT = str(Path(DOCUMENTS_PRIVATE_DOCX_TEMPLATES_ROOT).expanduser())
+
 # ============================================================
 # 文书转换（znszj）配置
 # ============================================================

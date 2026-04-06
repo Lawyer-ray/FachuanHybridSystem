@@ -13,13 +13,14 @@ Requirements: 3.1, 3.2, 3.3
 
 import logging
 from datetime import date
-from typing import Any
+from typing import Any, cast
 
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.interfaces import ServiceLocator
 from apps.core.utils.path import Path
+from apps.documents.storage import get_docx_templates_root
 
 from .litigation_context_builder import LitigationContextBuilder
 from .litigation_llm_generator import LitigationLLMGenerator
@@ -41,7 +42,7 @@ class LitigationGenerationService:
     """
 
     # 模板路径配置
-    TEMPLATE_DIR = Path(__file__).parent.parent.parent / "docx_templates" / "2-案件材料"
+    TEMPLATE_DIR = get_docx_templates_root() / "2-案件材料"
     COMPLAINT_TEMPLATE = TEMPLATE_DIR / "1-起诉材料" / "1-起诉状和反诉答辩状" / "1-起诉状.docx"
     DEFENSE_TEMPLATE = TEMPLATE_DIR / "2-答辩材料" / "1-答辩状和反诉状" / "1-答辩状.docx"
 
@@ -233,7 +234,8 @@ class LitigationGenerationService:
 
         from .pipeline import DocxPreviewService
 
-        return DocxPreviewService().preview(template_path, context)
+        preview_result = DocxPreviewService().preview(template_path, context)
+        return cast(dict[str, str], preview_result)
 
     def _generate_filename(self, case_id: int, doc_type: str) -> str:
         """
@@ -253,11 +255,10 @@ class LitigationGenerationService:
         filename_service = FilenameService()
 
         if doc_type == "complaint":
-            return filename_service.generate_complaint_filename(case_id)
-        elif doc_type == "defense":
-            return filename_service.generate_defense_filename(case_id)
-        else:
-            raise ValidationException(
+            return str(filename_service.generate_complaint_filename(case_id))
+        if doc_type == "defense":
+            return str(filename_service.generate_defense_filename(case_id))
+        raise ValidationException(
                 message=_("不支持的文档类型: %(t)s") % {"t": doc_type},
                 code="INVALID_DOC_TYPE",
                 errors={"doc_type": doc_type},
@@ -364,7 +365,8 @@ class LitigationGenerationService:
 
             from .pipeline import DocxRenderer
 
-            return DocxRenderer().render(str(template_path), context)
+            rendered_content = DocxRenderer().render(str(template_path), context)
+            return cast(bytes, rendered_content)
 
         except Exception as e:
             logger.error("模板渲染失败: %s", e, exc_info=True)

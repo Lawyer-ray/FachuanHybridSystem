@@ -9,17 +9,18 @@ from decimal import Decimal
 from enum import Enum
 from importlib import import_module
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ValidationException
+from apps.documents.storage import get_docx_templates_root
 
 from .lawyer_letter_generator_service import GeneratedDocument
 
 logger = logging.getLogger(__name__)
 
-TEMPLATE_DIR: Path = Path(__file__).resolve().parents[3] / "documents" / "docx_templates" / "2-案件材料" / "3-催收材料"
+TEMPLATE_DIR: Path = Path(str(get_docx_templates_root() / "2-案件材料" / "3-催收材料"))
 
 
 class ExecutionDocType(str, Enum):
@@ -256,7 +257,8 @@ class ExecutionDocGeneratorService:
             )
 
         renderer = self._build_docx_renderer()
-        return renderer.render(str(template_path), context)
+        rendered_content = renderer.render(str(template_path), context)
+        return cast(bytes, rendered_content)
 
     @staticmethod
     def _build_docx_renderer() -> Any:

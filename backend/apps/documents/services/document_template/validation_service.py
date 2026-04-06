@@ -1,11 +1,13 @@
 """Business logic services."""
 
+from __future__ import annotations
+
 from typing import Any
 
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ValidationException
-from apps.core.utils.path import Path
+from apps.documents.storage import resolve_docx_template_path
 
 
 class DocumentTemplateValidationService:
@@ -14,10 +16,30 @@ class DocumentTemplateValidationService:
             return None
         return file_path.strip()
 
-    def validate_file_path(self, file_path: str) -> Any:
+    def validate_file_path(self, file_path: str) -> bool:
         if not file_path:
             return False
-        return Path(file_path).is_file()
+        try:
+            return bool(resolve_docx_template_path(file_path).is_file())
+        except ValueError:
+            return False
+
+    def _require_valid_file_path(self, file_path: str) -> None:
+        try:
+            resolved = resolve_docx_template_path(file_path)
+        except ValueError as exc:
+            raise ValidationException(
+                message=_("文件路径无效，必须位于当前模板根目录内"),
+                code="INVALID_FILE_PATH",
+                errors={"file_path": "文件路径无效，必须位于当前模板根目录内"},
+            ) from exc
+
+        if not resolved.is_file():
+            raise ValidationException(
+                message=_("文件不存在: %(p)s") % {"p": file_path},
+                code="INVALID_FILE_PATH",
+                errors={"file_path": f"文件不存在: {file_path}"},
+            )
 
     def require_single_source(self, file: Any, file_path: str | None) -> str | None:
         if not file and not file_path:
@@ -35,12 +57,8 @@ class DocumentTemplateValidationService:
             )
 
         normalized_file_path = self.normalize_file_path(file_path)
-        if normalized_file_path and not self.validate_file_path(normalized_file_path):
-            raise ValidationException(
-                message=_("文件不存在: %(p)s") % {"p": normalized_file_path},
-                code="INVALID_FILE_PATH",
-                errors={"file_path": f"文件不存在: {normalized_file_path}"},
-            )
+        if normalized_file_path:
+            self._require_valid_file_path(normalized_file_path)
 
         return normalized_file_path
 
@@ -61,11 +79,6 @@ class DocumentTemplateValidationService:
                     code="INVALID_FILE_PATH",
                     errors={"file_path": "文件路径不能为空"},
                 )
-            if not self.validate_file_path(normalized_file_path):
-                raise ValidationException(
-                    message=_("文件不存在: %(p)s") % {"p": normalized_file_path},
-                    code="INVALID_FILE_PATH",
-                    errors={"file_path": f"文件不存在: {normalized_file_path}"},
-                )
+            self._require_valid_file_path(normalized_file_path)
 
         return normalized_file_path

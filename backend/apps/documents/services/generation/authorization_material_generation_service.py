@@ -14,6 +14,7 @@ from apps.core.utils.path import Path
 from apps.documents.models import DocumentTemplate, DocumentTemplateType
 from apps.documents.services.generation.path_utils import resolve_media_path, safe_arcname, safe_name
 from apps.documents.services.placeholders import EnhancedContextBuilder
+from apps.documents.storage import get_docx_templates_root
 
 logger = logging.getLogger("apps.documents.generation")
 
@@ -25,10 +26,7 @@ TEMPLATE_NAME_POWER_OF_ATTORNEY = "授权委托书"
 
 
 class AuthorizationMaterialGenerationService:
-    # 保留硬编码路径作为后备方案
-    TEMPLATE_DIR = (
-        Path(__file__).parent.parent.parent / "docx_templates" / "2-案件材料" / "4-通用材料" / "1-授权委托材料"
-    )
+    TEMPLATE_DIR = get_docx_templates_root() / "2-案件材料" / "4-通用材料" / "1-授权委托材料"
     AUTHORITY_LETTER_TEMPLATE = TEMPLATE_DIR / "所函.docx"
     LEGAL_REP_CERT_TEMPLATE = TEMPLATE_DIR / "法定代表人身份证明书.docx"
 
@@ -67,7 +65,7 @@ class AuthorizationMaterialGenerationService:
             # 后备:使用硬编码路径
             template_path = self.AUTHORITY_LETTER_TEMPLATE
 
-        content = self._render_template(template_path, context)  # type: ignore[no-any-return]
+        content = self._render_template(template_path, context)
         filename = self._build_authority_letter_filename(case_name=getattr(case, "name", "") or "")
         return content, filename
 
@@ -82,7 +80,7 @@ class AuthorizationMaterialGenerationService:
             # 后备:使用硬编码路径
             template_path = self.LEGAL_REP_CERT_TEMPLATE
 
-        content = self._render_template(template_path, context)  # type: ignore[no-any-return]
+        content = self._render_template(template_path, context)
         filename = self._build_legal_rep_certificate_filename(company_name=getattr(client, "name", "") or "")
         return content, filename
 
@@ -176,7 +174,7 @@ class AuthorizationMaterialGenerationService:
             parties = list(case.parties.select_related("client").all())
         except Exception as e:
             logger.warning("获取案件当事人失败", extra={"case_id": getattr(case, "id", None), "error": str(e)})
-            parties: list[Any] = []
+            parties = []
         return [p for p in parties if getattr(getattr(p, "client", None), "is_our_client", False)]
 
     def _get_all_parties(self, case: Any) -> list[Any]:
@@ -321,13 +319,13 @@ class AuthorizationMaterialGenerationService:
         zf.writestr("当前授权手续所缺材料.md", body)
 
     def _resolve_media_path(self, media_root: str, file_path: str) -> str:
-        return resolve_media_path(media_root, file_path)
+        return cast(str, resolve_media_path(media_root, file_path))
 
     def _safe_arcname(self, name: str) -> str:
-        return safe_arcname(name)
+        return cast(str, safe_arcname(name))
 
     def _safe_name(self, name: str) -> str:
-        return safe_name(name)
+        return cast(str, safe_name(name))
 
     def _build_context(self, *, case: Any, client: Any | None = None) -> dict[str, Any]:
         context_data: dict[str, Any] = {"case": case}
@@ -442,7 +440,7 @@ class AuthorizationMaterialGenerationService:
             raise ValidationException(
                 message=_("模板文件路径为空"),
                 code="TEMPLATE_FILE_EMPTY",
-                errors={"template_id": str(cast(int, template.pk))},  # type: ignore[no-any-return]
+                errors={"template_id": str(cast(int, template.pk))},
             )
         return Path(location)
 
@@ -454,7 +452,7 @@ class AuthorizationMaterialGenerationService:
                 "获取案件当事人失败",
                 extra={"case_id": getattr(case, "id", None), "error": str(e)},
             )
-            parties: list[Any] = []
+            parties = []
 
         for party in parties:
             client = getattr(party, "client", None)
@@ -490,7 +488,7 @@ class AuthorizationMaterialGenerationService:
                 "获取案件当事人失败",
                 extra={"case_id": getattr(case, "id", None), "error": str(e)},
             )
-            parties: list[Any] = []
+            parties = []
 
         for party in parties:
             client = getattr(party, "client", None)
@@ -524,7 +522,8 @@ class AuthorizationMaterialGenerationService:
             )
             from .pipeline import DocxRenderer
 
-            return DocxRenderer().render(str(template_path), context)
+            rendered_content = DocxRenderer().render(str(template_path), context)
+            return cast(bytes, rendered_content)
         except Exception as e:
             logger.error("模板渲染失败", exc_info=True, extra={"template_path": str(template_path), "error": str(e)})
             raise ValidationException(
