@@ -9,6 +9,7 @@
 
 from .base_court_scraper import BaseCourtDocumentScraper
 from .gdems_scraper import GdemsCourtScraper
+from .hbfy_scraper import HbfyCourtScraper
 from .main import CourtDocumentScraper
 from .zxfw_scraper import ZxfwCourtScraper
 
