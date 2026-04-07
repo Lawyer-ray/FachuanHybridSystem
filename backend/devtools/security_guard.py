@@ -41,7 +41,10 @@ EMAIL_PATTERN = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"
 
 
 def _run_git(args: list[str]) -> str:
-    result = subprocess.run(args, capture_output=True, text=True)
+    try:
+        result = subprocess.run(args, capture_output=True, text=True)
+    except OSError:
+        return ""
     if result.returncode != 0:
         return ""
     return result.stdout

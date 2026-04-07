@@ -11,6 +11,8 @@ class DownloadLinkExtractor:
     )
     GDEMS_LINK_PATTERN = re.compile(r"https://sd\.gdems\.com/v3/dzsd/[a-zA-Z0-9]+", re.IGNORECASE)
     JYSD_LINK_PATTERN = re.compile(r"https?://jysd\.10102368\.com/sd\?key=[^\s`,.;、】【]+", re.IGNORECASE)
+    HBFY_PUBLIC_LINK_PATTERN = re.compile(r"https?://dzsd\.hbfy\.gov\.cn/hb/msg=[a-zA-Z0-9]+", re.IGNORECASE)
+    HBFY_ACCOUNT_LINK_PATTERN = re.compile(r"https?://dzsd\.hbfy\.gov\.cn/sfsddz\b", re.IGNORECASE)
 
     def extract(self, content: str) -> list[str]:
         if not content:
@@ -47,4 +49,8 @@ class DownloadLinkExtractor:
             return link.startswith("https://sd.gdems.com/v3/dzsd/")
         if "jysd.10102368.com" in link:
             return "key=" in link
+        if "dzsd.hbfy.gov.cn/hb/msg=" in link:
+            return True
+        if "dzsd.hbfy.gov.cn/sfsddz" in link:
+            return True
         return False

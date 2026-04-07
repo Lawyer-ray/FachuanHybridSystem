@@ -7,10 +7,11 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from .base_court_scraper import BaseCourtDocumentScraper
 from .gdems_scraper import GdemsCourtScraper
+from .hbfy_scraper import HbfyCourtScraper
 from .zxfw_scraper import ZxfwCourtScraper
 
 if TYPE_CHECKING:
@@ -48,12 +49,12 @@ class CourtDocumentScraper(BaseCourtDocumentScraper):
             self._scraper = ZxfwCourtScraper(self.task, self._document_service)
             # 复制必要的属性
             if hasattr(self, "page"):
-                self._scraper.page = self.page  # type: ignore
+                self._scraper.page = self.page
             if hasattr(self, "context"):
                 self._scraper.context = self.context
             if hasattr(self, "browser"):
-                self._scraper.browser = self.browser  # type: ignore
-            return self._scraper.run()
+                self._scraper.browser = self.browser
+            return cast(dict[str, Any], self._scraper.run())
         elif "sd.gdems.com" in url:
             self._scraper = GdemsCourtScraper(self.task, self._document_service)
             # 复制必要的属性
@@ -62,7 +63,16 @@ class CourtDocumentScraper(BaseCourtDocumentScraper):
             if hasattr(self, "context"):
                 self._scraper.context = self.context
             if hasattr(self, "browser"):
-                self._scraper.browser = self.browser  # type: ignore
+                self._scraper.browser = self.browser
+            return cast(dict[str, Any], self._scraper.run())
+        elif "dzsd.hbfy.gov.cn" in url:
+            self._scraper = HbfyCourtScraper(self.task, self._document_service)
+            if hasattr(self, "page"):
+                self._scraper.page = self.page
+            if hasattr(self, "context"):
+                self._scraper.context = self.context
+            if hasattr(self, "browser"):
+                self._scraper.browser = self.browser
             return self._scraper.run()
         else:
             raise ValueError(f"不支持的链接格式: {url}")

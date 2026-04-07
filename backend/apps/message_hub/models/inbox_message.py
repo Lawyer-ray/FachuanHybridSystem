@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
@@ -41,6 +41,50 @@ class InboxMessage(models.Model):
         indexes: ClassVar = [
             models.Index(fields=["source", "-received_at"]),
         ]
+
+    def get_public_attachments_meta(self) -> list[dict[str, Any]]:
+        """返回对外展示可用的附件元信息（去除本地路径与源下载链接等敏感字段）。"""
+        public_items: list[dict[str, Any]] = []
+        if not isinstance(self.attachments_meta, list):
+            return public_items
+
+        for item in self.attachments_meta:
+            if not isinstance(item, dict):
+                continue
+
+            filename = str(item.get("filename") or item.get("original_filename") or "").strip()
+            if not filename:
+                part_idx_raw = item.get("part_index", -1)
+                try:
+                    part_idx = int(part_idx_raw)
+                except (TypeError, ValueError):
+                    part_idx = -1
+                filename = f"attachment_{part_idx if part_idx >= 0 else 0}"
+
+            size_raw = item.get("size", 0)
+            try:
+                size = int(size_raw)
+            except (TypeError, ValueError):
+                size = 0
+
+            part_index_raw = item.get("part_index", -1)
+            try:
+                part_index = int(part_index_raw)
+            except (TypeError, ValueError):
+                part_index = -1
+
+            public_items.append(
+                {
+                    "filename": filename,
+                    "original_filename": str(item.get("original_filename") or filename),
+                    "custom_filename": str(item.get("custom_filename") or "") or None,
+                    "size": max(size, 0),
+                    "content_type": str(item.get("content_type") or "application/octet-stream"),
+                    "part_index": part_index,
+                }
+            )
+
+        return public_items
 
     def __str__(self) -> str:
         return f"[{self.source.display_name}] {self.subject or '(无主题)'}"
