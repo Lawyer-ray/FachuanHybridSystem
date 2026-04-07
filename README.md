@@ -73,8 +73,6 @@
 ## 🚀 安装与部署
 
 - [安装与部署指南](INSTALL.md)（含 MCP 配置与接入说明）
-- [更新日志](CHANGELOG.md)
-- [贡献与致谢](CONTRIBUTING.md)
 
 ## 💖 支持项目
 
