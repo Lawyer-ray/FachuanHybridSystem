@@ -16,6 +16,10 @@ SOURCE_DIR_PREFIXES = (
     "scripts/",
 )
 FORBIDDEN_BINARY_EXTENSIONS = (".onnx", ".mp4", ".zip")
+FORBIDDEN_PRIVATE_PATH_PREFIXES = (
+    "backend/apps/legal_research/services/sources/weike_api_private/",
+    "backend/apps/legal_research/services/sources/weike/api_private/",
+)
 ALLOWLIST_MARKERS = (
     "pragma: allowlist secret",
     "allowlist secret",
@@ -141,6 +145,15 @@ def _check_binary_ext(files: list[str], mode: str, base: str | None, head: str) 
     return errors
 
 
+def _check_private_paths(files: list[str], mode: str, base: str | None, head: str) -> list[str]:
+    errors: list[str] = []
+    for filepath in _resolve_candidates(files, mode, base, head):
+        normalized = filepath.replace("\\", "/").lower()
+        if any(normalized.startswith(prefix) for prefix in FORBIDDEN_PRIVATE_PATH_PREFIXES):
+            errors.append(f"{filepath}: 禁止提交威科私有实现目录（weike_api_private/api_private）")
+    return errors
+
+
 def _has_allowlist_marker(content: str) -> bool:
     lowered = content.lower()
     return any(marker in lowered for marker in ALLOWLIST_MARKERS)
@@ -178,7 +191,7 @@ def _check_sensitive(files: list[str], mode: str, base: str | None, head: str) -
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--check", choices=["todo", "print", "binary-ext", "sensitive"], required=True)
+    parser.add_argument("--check", choices=["todo", "print", "binary-ext", "private-path", "sensitive"], required=True)
     parser.add_argument("--mode", choices=["staged", "range"], default="staged")
     parser.add_argument("--base")
     parser.add_argument("--head", default="HEAD")
@@ -192,6 +205,8 @@ def main() -> None:
     all_errors: list[str] = []
     if args.check == "binary-ext":
         all_errors.extend(_check_binary_ext(args.files, args.mode, args.base, args.head))
+    elif args.check == "private-path":
+        all_errors.extend(_check_private_paths(args.files, args.mode, args.base, args.head))
     elif args.check == "sensitive":
         all_errors.extend(_check_sensitive(args.files, args.mode, args.base, args.head))
     else:

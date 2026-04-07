@@ -78,6 +78,12 @@ repos:
         language: python
         pass_filenames: false
 
+      - id: forbid-weike-private-paths
+        name: Forbid committing weike private implementation paths
+        entry: python backend/devtools/security_guard.py --check private-path --mode staged
+        language: python
+        pass_filenames: false
+
       - id: forbid-sensitive-patterns
         name: Forbid sensitive patterns (ID/mobile/email/password/token)
         entry: python backend/devtools/security_guard.py --check sensitive --mode staged
