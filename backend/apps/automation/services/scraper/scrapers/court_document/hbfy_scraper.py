@@ -279,7 +279,7 @@ class HbfyCourtScraper(BaseCourtDocumentScraper):
         download_dir = self._prepare_download_dir()
 
         task_config = self.task.config if isinstance(self.task.config, dict) else {}
-        account, password = self._resolve_account_credentials(task_config)
+        account, login_secret = self._resolve_account_credentials(task_config)
 
         session = requests.Session()
         session.headers.update(
@@ -292,7 +292,7 @@ class HbfyCourtScraper(BaseCourtDocumentScraper):
             }
         )
 
-        self._login_hbfy_account_session(session, account, password)
+        self._login_hbfy_account_session(session, account, login_secret)
 
         all_entries: list[dict[str, str]] = []
         for list_url in self._LIST_URLS:
@@ -341,15 +341,15 @@ class HbfyCourtScraper(BaseCourtDocumentScraper):
         account_match = self._ACCOUNT_PATTERN.search(content)
         password_match = self._PASSWORD_PATTERN.search(content)
         account = account_match.group(1).strip() if account_match else ""
-        password = password_match.group(1).strip() if password_match else ""
-        return account, password
+        login_secret = password_match.group(1).strip() if password_match else ""
+        return account, login_secret
 
     def _resolve_account_credentials(self, task_config: dict[str, Any]) -> tuple[str, str]:
         """解析湖北账号模式凭证（兼容历史任务配置，不在新任务中落库密码）。"""
         account = str(task_config.get("hbfy_account") or "").strip()
-        password = str(task_config.get("hbfy_password") or "").strip()
-        if account and password:
-            return account, password
+        login_secret = str(task_config.get("hbfy_password") or "").strip()
+        if account and login_secret:
+            return account, login_secret
 
         sms_id_raw = task_config.get("court_sms_id")
         sms_id_text = str(sms_id_raw).strip() if sms_id_raw is not None else ""
@@ -363,14 +363,14 @@ class HbfyCourtScraper(BaseCourtDocumentScraper):
                 from apps.automation.models import CourtSMS
 
                 sms = CourtSMS.objects.only("content").get(id=sms_id)
-                account, password = self._extract_account_credentials_from_content(sms.content)
+                account, login_secret = self._extract_account_credentials_from_content(sms.content)
             except Exception as exc:
                 logger.warning("湖北账号模式读取短信凭证失败: sms_id=%s, error=%s", sms_id, exc)
 
-        if not account or not password:
+        if not account or not login_secret:
             raise ValueError("湖北账号模式缺少账号或密码，请在短信中提供账号（默认密码）")
 
-        return account, password
+        return account, login_secret
 
     def _solve_public_captcha_if_present(self) -> None:
         captcha_input = self.page.locator("input[name='captcha']")
@@ -479,7 +479,7 @@ class HbfyCourtScraper(BaseCourtDocumentScraper):
         except Exception:
             return None
 
-    def _login_hbfy_account_session(self, session: requests.Session, account: str, password: str) -> None:
+    def _login_hbfy_account_session(self, session: requests.Session, account: str, login_secret: str) -> None:
         landing = session.get(self._LOGIN_PAGE_URL, timeout=20)
         if landing.status_code >= 500:
             raise ValueError(f"打开湖北登录页失败: {landing.status_code}")
@@ -509,7 +509,7 @@ class HbfyCourtScraper(BaseCourtDocumentScraper):
             payload = {
                 "yzm": captcha,
                 "user.userCode": self._encode_user_code(account),
-                "user.loginPwd": self._encode_password(password, salt),
+                "user.loginPwd": self._encode_password(login_secret, salt),
                 "t": salt,
             }
             login_resp = session.post(self._LOGIN_URL, data=payload, timeout=20)
@@ -627,7 +627,7 @@ class HbfyCourtScraper(BaseCourtDocumentScraper):
         encoded = base64.b64encode(user_code.encode("utf-8")).decode("utf-8")
         return encoded.replace("+", "-").replace("/", "_").replace("=", "")
 
-    def _encode_password(self, password: str, salt: str) -> str:
+    def _encode_password(self, credential: str, nonce: str) -> str:
         # 该站点登录协议约定为两次 MD5，属于兼容性散列，不用于本系统安全存储。
-        first = hashlib.md5(password.encode("utf-8"), usedforsecurity=False).hexdigest()  # nosec B324  # lgtm[py/weak-cryptographic-algorithm]
-        return hashlib.md5(f"{first}{salt}".encode(), usedforsecurity=False).hexdigest()  # nosec B324  # lgtm[py/weak-cryptographic-algorithm]
+        first = hashlib.md5(credential.encode("utf-8"), usedforsecurity=False).hexdigest()  # nosec B324  # lgtm[py/weak-cryptographic-algorithm]
+        return hashlib.md5(f"{first}{nonce}".encode(), usedforsecurity=False).hexdigest()  # nosec B324  # lgtm[py/weak-cryptographic-algorithm]
