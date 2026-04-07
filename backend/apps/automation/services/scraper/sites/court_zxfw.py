@@ -4,6 +4,7 @@
 """
 
 import logging
+import socket
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
@@ -241,8 +242,11 @@ class CourtZxfwService:
 
     def _is_network_error(self, exc: Exception) -> bool:
         """判断是否为网络相关异常。"""
-        if not isinstance(exc, PlaywrightError):
-            return False
+        if isinstance(exc, (ConnectionError, TimeoutError, socket.gaierror)):
+            return True
+
+        if isinstance(exc, OSError) and getattr(exc, "errno", None) in {8, 60, 61, 64, 65}:
+            return True
 
         msg = str(exc).lower()
         network_tokens = (
@@ -252,9 +256,30 @@ class CourtZxfwService:
             "err_connection_closed",
             "err_connection_refused",
             "err_network_changed",
+            "name or service not known",
+            "nodename nor servname provided",
+            "temporary failure in name resolution",
             "timeout",
         )
         return any(token in msg for token in network_tokens)
+
+    def _goto_with_retry(self, url: str, *, max_attempts: int = 2, timeout_ms: int = 30000) -> None:
+        """页面导航（轻量重试，提升弱网环境鲁棒性）。"""
+        last_exc: Exception | None = None
+        for attempt in range(1, max_attempts + 1):
+            try:
+                self.page.goto(url, timeout=timeout_ms, wait_until="domcontentloaded")
+                return
+            except Exception as e:
+                last_exc = e
+                if not self._is_network_error(e):
+                    raise
+                if attempt < max_attempts:
+                    logger.warning("页面导航失败，准备重试(%d/%d): %s", attempt, max_attempts, e)
+                    self._random_wait(1, 2)
+
+        if last_exc is not None:
+            raise last_exc
 
     def login(
         self,
@@ -275,18 +300,25 @@ class CourtZxfwService:
             loaded = self._cookie_service.load(self.context, cookie_path)
             if loaded:
                 logger.info("已加载 Cookie，尝试跳过登录")
-                self.page.goto(self.BASE_URL, timeout=30000, wait_until="networkidle")
-                if self._check_login_success():
-                    logger.info("Cookie 有效，跳过登录")
-                    self.is_logged_in = True
-                    return {
-                        "success": True,
-                        "message": "Cookie 登录成功",
-                        "url": self.page.url,
-                        "token": None,
-                        "used_cookie": True,
-                    }
-                logger.info("Cookie 无效，执行完整登录流程")
+                try:
+                    self._goto_with_retry(self.BASE_URL, max_attempts=2)
+                except Exception as e:
+                    if self._is_network_error(e):
+                        logger.warning("Cookie 快速登录网络异常，回退完整登录: %s", e)
+                    else:
+                        raise
+                else:
+                    if self._check_login_success():
+                        logger.info("Cookie 有效，跳过登录")
+                        self.is_logged_in = True
+                        return {
+                            "success": True,
+                            "message": "Cookie 登录成功",
+                            "url": self.page.url,
+                            "token": None,
+                            "used_cookie": True,
+                        }
+                    logger.info("Cookie 无效，执行完整登录流程")
 
         # ── 第2优先: 纯 HTTP 逆向登录（可插拔插件，无需浏览器，更快）──
         # 插件位置: apps/automation/services/scraper/sites/court_zxfw_login_private/
@@ -303,7 +335,7 @@ class CourtZxfwService:
             logger.info("✅✅✅ 已设置响应监听器，准备捕获 Token")
 
             logger.info(f"导航到登录页: {self.LOGIN_URL}")
-            self.page.goto(self.LOGIN_URL, timeout=30000, wait_until="networkidle")
+            self._goto_with_retry(self.LOGIN_URL, max_attempts=2)
             self._random_wait(2, 3)
             if save_debug:
                 self._save_screenshot("01_login_page")
@@ -322,7 +354,10 @@ class CourtZxfwService:
             return {"success": True, "message": "登录成功", "url": self.page.url, "token": captured_token["value"]}
 
         except Exception as e:
-            logger.error(f"登录失败: {e}", exc_info=True)
+            if self._is_network_error(e):
+                logger.warning("登录失败（网络异常）: %s", e)
+            else:
+                logger.error(f"登录失败: {e}", exc_info=True)
             if save_debug:
                 self._save_screenshot("error_login_failed")
             if self._is_network_error(e):

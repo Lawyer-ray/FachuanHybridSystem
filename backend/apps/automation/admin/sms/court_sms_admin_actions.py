@@ -16,7 +16,7 @@ from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
-from apps.automation.models import CourtSMS
+from apps.automation.models import CourtSMS, CourtSMSStatus
 
 logger = logging.getLogger("apps.automation")
 
@@ -284,4 +284,27 @@ class CourtSMSAdminActions:
                 messages.warning(request, f"短信已保存,但处理任务启动失败: {e!s}")
                 logger.error(f"管理员添加短信后处理任务启动失败: SMS ID={obj.id}, 错误: {e!s}")
         else:
+            previous_sms = CourtSMS.objects.filter(id=obj.id).only("status", "case_id").first()
+            previous_status = previous_sms.status if previous_sms else None
+            previous_case_id = previous_sms.case_id if previous_sms else None
+            new_case_id = obj.case_id
+
             super().save_model(request, obj, form, change)  # type: ignore[misc]
+
+            should_continue_sms_flow = (
+                previous_status == CourtSMSStatus.PENDING_MANUAL
+                and not previous_case_id
+                and bool(new_case_id)
+                and previous_case_id != new_case_id
+            )
+            if should_continue_sms_flow:
+                try:
+                    service = _get_court_sms_service()
+                    service.assign_case(cast(int, obj.id), cast(int, new_case_id))
+                    messages.success(request, f"短信 #{obj.id} 已绑定案件并继续后续流程")
+                    logger.info(
+                        f"详情页手动绑定案件并继续流程: SMS ID={obj.id}, Case ID={new_case_id}, User={request.user}"
+                    )
+                except Exception as e:
+                    messages.error(request, f"绑定案件后继续流程失败: {e!s}")
+                    logger.error(f"详情页绑定案件后继续流程失败: SMS ID={obj.id}, Case ID={new_case_id}, 错误: {e!s}")

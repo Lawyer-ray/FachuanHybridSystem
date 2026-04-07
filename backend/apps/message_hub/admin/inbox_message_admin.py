@@ -27,7 +27,16 @@ class InboxMessageAdmin(admin.ModelAdmin[InboxMessage]):
     list_display_links = ["subject_display"]
     list_filter: ClassVar = ["source", "has_attachments", "received_at"]
     search_fields: ClassVar = ("subject", "sender", "body_text")
-    readonly_fields: ClassVar = ["source", "message_id", "sender", "received_at", "has_attachments", "created_at", "body_preview", "attachments_actions"]
+    readonly_fields: ClassVar = [
+        "source",
+        "message_id",
+        "sender",
+        "received_at",
+        "has_attachments",
+        "created_at",
+        "body_preview",
+        "attachments_actions",
+    ]
     date_hierarchy = "received_at"
     list_per_page = 50
     ordering: ClassVar = ["-received_at"]
@@ -48,9 +57,23 @@ class InboxMessageAdmin(admin.ModelAdmin[InboxMessage]):
     def get_urls(self) -> list[Any]:
         urls = super().get_urls()
         custom = [
-            path("<int:pk>/attachment/<int:part_index>/download/", self.admin_site.admin_view(self._attachment_view), {"inline": False}, name="message_hub_attachment_download"),
-            path("<int:pk>/attachment/<int:part_index>/preview/", self.admin_site.admin_view(self._attachment_view), {"inline": True}, name="message_hub_attachment_preview"),
-            path("<int:pk>/attachment/<int:part_index>/rename/", self.admin_site.admin_view(self._rename_attachment), name="message_hub_attachment_rename"),
+            path(
+                "<int:pk>/attachment/<int:part_index>/download/",
+                self.admin_site.admin_view(self._attachment_view),
+                {"inline": False},
+                name="message_hub_attachment_download",
+            ),
+            path(
+                "<int:pk>/attachment/<int:part_index>/preview/",
+                self.admin_site.admin_view(self._attachment_view),
+                {"inline": True},
+                name="message_hub_attachment_preview",
+            ),
+            path(
+                "<int:pk>/attachment/<int:part_index>/rename/",
+                self.admin_site.admin_view(self._rename_attachment),
+                name="message_hub_attachment_rename",
+            ),
         ]
         return custom + urls
 
@@ -116,12 +139,19 @@ class InboxMessageAdmin(admin.ModelAdmin[InboxMessage]):
             original_name = old_original_name or str(item.get("original_filename") or current_filename).strip()
 
             current_content_type = str(item.get("content_type", ""))
-            current_custom_name = InboxMessageAdmin._apply_original_extension(current_custom_name, original_name, current_content_type)
+            current_custom_name = InboxMessageAdmin._apply_original_extension(
+                current_custom_name, original_name, current_content_type
+            )
             if not original_name:
                 original_name = current_filename or f"attachment_{part_index}"
 
             # 兼容用户直接改 filename 的场景：自动转为 custom_filename
-            if old_original_name and current_filename and current_filename != old_original_name and not current_custom_name:
+            if (
+                old_original_name
+                and current_filename
+                and current_filename != old_original_name
+                and not current_custom_name
+            ):
                 current_custom_name = current_filename
 
             normalized_item = dict(item)
@@ -151,7 +181,9 @@ class InboxMessageAdmin(admin.ModelAdmin[InboxMessage]):
         obj.attachments_meta = self._normalize_attachments_meta_for_save(current_meta, original_meta)
         super().save_model(request, obj, form, change)
 
-    def _rename_attachment(self, request: HttpRequest, pk: int, part_index: int) -> JsonResponse | HttpResponseNotAllowed:
+    def _rename_attachment(
+        self, request: HttpRequest, pk: int, part_index: int
+    ) -> JsonResponse | HttpResponseNotAllowed:
         if request.method != "POST":
             return HttpResponseNotAllowed(["POST"])
 
@@ -182,7 +214,9 @@ class InboxMessageAdmin(admin.ModelAdmin[InboxMessage]):
                 att.pop("custom_filename", None)
             msg.attachments_meta = meta_list
             msg.save(update_fields=["attachments_meta"])
-            logger.info("收件箱附件重命名: message_pk=%s part_index=%s custom_filename=%s", pk, part_index, custom_filename)
+            logger.info(
+                "收件箱附件重命名: message_pk=%s part_index=%s custom_filename=%s", pk, part_index, custom_filename
+            )
             return JsonResponse(
                 {
                     "ok": True,
@@ -221,7 +255,7 @@ class InboxMessageAdmin(admin.ModelAdmin[InboxMessage]):
         return mark_safe(
             f'<span style="display:inline-flex;align-items:center;gap:4px;background:{color};color:#fff;'
             f'padding:3px 10px;border-radius:12px;font-size:11px;white-space:nowrap">'
-            f'{obj.source.display_name}</span>'
+            f"{obj.source.display_name}</span>"
         )
 
     @admin.display(description=_("收件人"))
@@ -232,7 +266,10 @@ class InboxMessageAdmin(admin.ModelAdmin[InboxMessage]):
     @admin.display(description=_("主题"))
     def subject_display(self, obj: InboxMessage) -> SafeString:
         subject = obj.subject or _("(无主题)")
-        return format_html('<span style="display:inline-block;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{}</span>', subject)
+        return format_html(
+            '<span style="display:inline-block;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{}</span>',
+            subject,
+        )
 
     @admin.display(description=_("附件"))
     def attachments_display(self, obj: InboxMessage) -> SafeString:
@@ -249,6 +286,7 @@ class InboxMessageAdmin(admin.ModelAdmin[InboxMessage]):
         if obj.body_html:
             # 用 srcdoc iframe 隔离，阻止加载外部资源
             import html
+
             escaped = html.escape(obj.body_html)
             return mark_safe(
                 f'<iframe srcdoc="{escaped}" sandbox="" '
@@ -297,7 +335,8 @@ class InboxMessageAdmin(admin.ModelAdmin[InboxMessage]):
             can_preview = "pdf" in ct or "image" in ct
             preview_html = (
                 f'<a href="{pv_url}" target="_blank" class="mh-btn mh-btn-success">{escape(btn_preview)}</a>'
-                if can_preview else ""
+                if can_preview
+                else ""
             )
 
             parts.append(
@@ -306,20 +345,20 @@ class InboxMessageAdmin(admin.ModelAdmin[InboxMessage]):
                 f'<div class="mh-attachment-title">'
                 f'<span class="mh-attachment-name">{escape(original_name)}</span>'
                 f'<span class="mh-attachment-size">{escape(str(size_text))}</span>'
-                f'</div>'
+                f"</div>"
                 f'<div class="mh-attachment-effective">{escape(title_effective)}：<strong data-effective>{escape(effective_name)}</strong></div>'
-                f'</div>'
+                f"</div>"
                 f'<div class="mh-attachment-editor">'
                 f'<input type="text" data-custom-input value="{escape(normalized_custom_name)}" placeholder="{escape(placeholder_custom)}" class="mh-attachment-input" />'
                 f'<div class="mh-attachment-actions">'
                 f'<button type="button" data-rename-url="{rename_url}" data-action="save" class="mh-btn mh-btn-primary">{escape(btn_save)}</button>'
                 f'<button type="button" data-rename-url="{rename_url}" data-action="reset" class="mh-btn mh-btn-secondary">{escape(btn_reset)}</button>'
                 f'<a href="{dl_url}" data-download-link class="mh-btn mh-btn-info" download="{escape(effective_name)}">{escape(btn_download)}</a>'
-                f'{preview_html}'
-                f'</div>'
-                f'</div>'
+                f"{preview_html}"
+                f"</div>"
+                f"</div>"
                 f'<div data-msg class="mh-attachment-msg"></div>'
-                f'</div>'
+                f"</div>"
             )
 
         parts.append("</div>")

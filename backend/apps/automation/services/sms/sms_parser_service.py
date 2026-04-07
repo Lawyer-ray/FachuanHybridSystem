@@ -8,7 +8,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 from apps.automation.models import CourtSMSType
 from apps.automation.utils.text_utils import TextUtils
@@ -50,6 +50,12 @@ class SMSParserService:
     # 集约送达链接正则 - jysd.10102368.com
     # 格式: https://jysd.10102368.com/sd?key=xxxxx
     JYSD_LINK_PATTERN = re.compile(r"https://jysd\.10102368\.com/sd\?key=[a-zA-Z0-9_\-]+", re.IGNORECASE)
+
+    # 湖北电子送达链接正则 - dzsd.hbfy.gov.cn
+    # 1) 免账号短信链接: http://dzsd.hbfy.gov.cn/hb/msg=xxxx
+    # 2) 账号密码入口: http://dzsd.hbfy.gov.cn/sfsddz
+    HBFY_PUBLIC_LINK_PATTERN = re.compile(r"https?://dzsd\.hbfy\.gov\.cn/hb/msg=[a-zA-Z0-9]+", re.IGNORECASE)
+    HBFY_ACCOUNT_LINK_PATTERN = re.compile(r"https?://dzsd\.hbfy\.gov\.cn/sfsddz\b", re.IGNORECASE)
 
     # 当事人提取提示词
     PARTY_EXTRACTION_PROMPT = """
@@ -227,6 +233,20 @@ class SMSParserService:
                 valid_links.append(link)
                 logger.info(f"提取到集约送达链接: {link}")
 
+        # 4. 提取湖北电子送达免账号链接
+        hbfy_public_matches = self.HBFY_PUBLIC_LINK_PATTERN.findall(content)
+        for link in set(hbfy_public_matches):
+            if link not in valid_links:
+                valid_links.append(link)
+                logger.info(f"提取到湖北电子送达免账号链接: {link}")
+
+        # 5. 提取湖北电子送达账号入口
+        hbfy_account_matches = self.HBFY_ACCOUNT_LINK_PATTERN.findall(content)
+        for link in set(hbfy_account_matches):
+            if link not in valid_links:
+                valid_links.append(link)
+                logger.info(f"提取到湖北电子送达账号入口: {link}")
+
         if valid_links:
             logger.info(f"提取到 {len(valid_links)} 个有效下载链接")
         else:
@@ -257,6 +277,12 @@ class SMSParserService:
         if "sd.gdems.com" in link_lower:
             return True
 
+        # 湖北电子送达链接
+        if "dzsd.hbfy.gov.cn/hb/msg=" in link_lower:
+            return True
+        if "dzsd.hbfy.gov.cn/sfsddz" in link_lower:
+            return True
+
         return False
 
     def extract_case_numbers(self, content: str) -> list[str]:
@@ -270,7 +296,8 @@ class SMSParserService:
             List[str]: 案号列表
         """
         # 复用 TextUtils 的案号提取功能
-        case_numbers = TextUtils.extract_case_numbers(content)
+        extracted = TextUtils.extract_case_numbers(content)
+        case_numbers = cast(list[str], extracted)
 
         if case_numbers:
             logger.info(f"提取到案号: {case_numbers}")
@@ -392,7 +419,9 @@ class SMSParserService:
         messages = [{"role": "user", "content": prompt}]
 
         try:
-            llm_response = self.llm_service.chat(messages=messages, backend="ollama", model=self.ollama_model, fallback=False)
+            llm_response = self.llm_service.chat(
+                messages=messages, backend="ollama", model=self.ollama_model, fallback=False
+            )
             response = {"message": {"content": llm_response.content}}
         except LLMError as exc:
             logger.warning(f"Ollama 提取当事人失败: {exc!s}")
