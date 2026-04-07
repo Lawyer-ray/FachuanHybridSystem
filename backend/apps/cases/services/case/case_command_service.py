@@ -12,8 +12,8 @@ from apps.cases.models import Case
 from apps.core.config.business_config import business_config
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.interfaces import IContractService
-from apps.core.security.permissions import PermissionMixin
 from apps.core.security.access_context import AccessContext
+from apps.core.security.permissions import PermissionMixin
 
 from .case_access_policy import CaseAccessPolicy
 from .case_queryset import get_case_queryset

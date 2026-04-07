@@ -7,8 +7,8 @@ from typing import Any
 
 from ninja import Router, Schema
 
-from apps.core.security.auth import JWTOrSessionAuth
 from apps.core.infrastructure.throttling import rate_limit_from_settings
+from apps.core.security.auth import JWTOrSessionAuth
 
 from .download_response_factory import build_download_response
 
@@ -62,7 +62,12 @@ def _save_or_download(
             "文件已保存到合同文件夹",
             extra={"case_id": case_id, "contract_id": contract_id, "file_name": filename, "path": saved_path},
         )
-        return {"success": True, "message": f"文件已保存到: {saved_path}", "filename": filename, "folder_path": saved_path}
+        return {
+            "success": True,
+            "message": f"文件已保存到: {saved_path}",
+            "filename": filename,
+            "folder_path": saved_path,
+        }
 
     return build_download_response(content=content, filename=filename, content_type=content_type)
 

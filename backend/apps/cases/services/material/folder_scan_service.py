@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import logging
 import os
-from pathlib import Path
 import re
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
 from uuid import UUID
@@ -403,9 +403,9 @@ class CaseFolderScanService:
         scope = (payload or {}).get("scan_scope") or {}
         scan_subfolder = str(scope.get("scan_subfolder") or "").strip()
         scan_folder = str(scope.get("scan_folder") or "").strip()
-        return self._contains_force_our_party_folder_keyword(scan_subfolder) or self._contains_force_our_party_folder_keyword(
-            scan_folder
-        )
+        return self._contains_force_our_party_folder_keyword(
+            scan_subfolder
+        ) or self._contains_force_our_party_folder_keyword(scan_folder)
 
     def _should_force_our_party_for_candidate(self, candidate: dict[str, Any] | None) -> bool:
         source_path = str((candidate or {}).get("source_path") or "").strip()

@@ -10,13 +10,12 @@ from .admin import (
     ContractAdminQueryService,
     ContractAdminService,
 )
-from .domain import ContractAccessPolicy, ContractValidator
-from .integrations import ContractBatchFolderBindingService
-from .integrations import ContractFolderScanService, ContractOASyncService
-from .mutation import ContractMutationFacade
-from .query import ContractDisplayService, ContractProgressService, ContractQueryFacade
 from .contract_service import ContractService
 from .contract_service_adapter import ContractServiceAdapter
+from .domain import ContractAccessPolicy, ContractValidator
+from .integrations import ContractBatchFolderBindingService, ContractFolderScanService, ContractOASyncService
+from .mutation import ContractMutationFacade
+from .query import ContractDisplayService, ContractProgressService, ContractQueryFacade
 
 __all__ = [
     "ContractAccessPolicy",

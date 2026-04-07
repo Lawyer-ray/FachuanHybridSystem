@@ -20,8 +20,8 @@ import logging
 from typing import Any, cast
 
 from apps.automation.models import CourtSMS
-from apps.core.models.enums import ChatPlatform
 from apps.core.interfaces import ICaseChatService, ServiceLocator
+from apps.core.models.enums import ChatPlatform
 
 logger = logging.getLogger(__name__)
 

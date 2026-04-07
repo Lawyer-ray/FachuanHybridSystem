@@ -22,7 +22,6 @@ if not hasattr(NinjaExtraRouter, "api"):
 from ninja_jwt.routers.obtain import obtain_pair_router
 from ninja_jwt.routers.verify import verify_router
 
-from apps.core.security.auth import JWTOrSessionAuth
 from apps.core.exceptions import register_exception_handlers
 from apps.core.infrastructure import (
     HealthChecker,
@@ -33,6 +32,7 @@ from apps.core.infrastructure import (
 )
 from apps.core.infrastructure.throttling import rate_limit_from_settings
 from apps.core.security.admin_access import ensure_admin_request
+from apps.core.security.auth import JWTOrSessionAuth
 
 # API 版本号
 API_VERSION = "1.0.0"

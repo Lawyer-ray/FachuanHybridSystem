@@ -456,12 +456,14 @@ class CaseAdminViewsMixin:
             else:
                 logger.info("成功解析临时文件: %s", file_path)
 
-            return JsonResponse({
-                "success": True,
-                "number": extraction_result.number,
-                "document_name": extraction_result.document_name,
-                "content": extraction_result.content,
-            })
+            return JsonResponse(
+                {
+                    "success": True,
+                    "number": extraction_result.number,
+                    "document_name": extraction_result.document_name,
+                    "content": extraction_result.content,
+                }
+            )
 
         except CaseNumber.DoesNotExist:
             return JsonResponse({"success": False, "error": "案号记录不存在"}, status=404)
@@ -553,12 +555,14 @@ class CaseAdminViewsMixin:
 
             logger.info("成功解析临时文件: %s", file_path)
 
-            return JsonResponse({
-                "success": True,
-                "number": extraction_result.number,
-                "document_name": extraction_result.document_name,
-                "content": extraction_result.content,
-            })
+            return JsonResponse(
+                {
+                    "success": True,
+                    "number": extraction_result.number,
+                    "document_name": extraction_result.document_name,
+                    "content": extraction_result.content,
+                }
+            )
 
         except BusinessException as e:
             logger.warning("解析裁判文书业务异常: error=%s", str(e))
@@ -569,11 +573,12 @@ class CaseAdminViewsMixin:
 
     def upload_temp_document_view(self, request: HttpRequest) -> HttpResponse:
         """上传裁判文书到临时目录"""
+        import os
+        import uuid
+        from pathlib import Path
+
         from django.conf import settings
         from django.http import JsonResponse
-        from pathlib import Path
-        import uuid
-        import os
 
         try:
             if request.method != "POST":
@@ -603,11 +608,13 @@ class CaseAdminViewsMixin:
 
             logger.info("临时文件上传成功: %s", temp_path)
 
-            return JsonResponse({
-                "success": True,
-                "temp_file_path": str(temp_path),
-                "temp_file_name": file.name,
-            })
+            return JsonResponse(
+                {
+                    "success": True,
+                    "temp_file_path": str(temp_path),
+                    "temp_file_name": file.name,
+                }
+            )
 
         except Exception as e:
             logger.exception("临时文件上传失败")

@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import pytest
 
-from apps.legal_research.schemas.legal_research_schemas import AgentSearchQueryTraceOut, AgentSearchRequestV1, AgentSearchResponseV1
+from apps.legal_research.schemas.legal_research_schemas import (
+    AgentSearchQueryTraceOut,
+    AgentSearchRequestV1,
+    AgentSearchResponseV1,
+)
 
 
 @pytest.mark.django_db

@@ -67,9 +67,9 @@ def _sorted_get_app_list(self: admin.AdminSite, request: HttpRequest, app_label:
         if app_label_str in _MODEL_ORDER and "models" in app:
             model_order = _MODEL_ORDER[app_label_str]
             app["models"].sort(
-                key=lambda m: model_order.index(m["object_name"].lower())
-                if m["object_name"].lower() in model_order
-                else 999
+                key=lambda m: (
+                    model_order.index(m["object_name"].lower()) if m["object_name"].lower() in model_order else 999
+                )
             )
 
     # 向 finance app 添加 LPR 计算器链接

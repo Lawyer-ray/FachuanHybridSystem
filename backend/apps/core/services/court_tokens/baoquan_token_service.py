@@ -142,17 +142,13 @@ class BaoquanTokenService:
                 logger.info("纯逆向插件不可用，回退到 Playwright 获取保全 Token")
                 return None
 
-            from apps.automation.services.scraper.sites.court_zxfw_login_private import (
-                CourtZxfwHttpLoginService,
-            )
-
             import asyncio
+
+            from apps.automation.services.scraper.sites.court_zxfw_login_private import CourtZxfwHttpLoginService
 
             loop = asyncio.get_running_loop()
             svc = CourtZxfwHttpLoginService()
-            result = await loop.run_in_executor(
-                None, lambda: svc.fetch_baoquan_token(account, password)
-            )
+            result = await loop.run_in_executor(None, lambda: svc.fetch_baoquan_token(account, password))
 
             if result.get("success"):
                 token = result["token"]

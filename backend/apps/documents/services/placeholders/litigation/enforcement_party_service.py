@@ -56,8 +56,7 @@ class EnforcementApplicantPartyService(BasePlaceholderService):
         # 筛选原告或申请人作为申请人
         # 支持起诉阶段 (plaintiff) 和执行阶段 (applicant)
         applicants = [
-            p for p in case_parties
-            if p.get("legal_status") in (LegalStatus.PLAINTIFF, LegalStatus.APPLICANT)
+            p for p in case_parties if p.get("legal_status") in (LegalStatus.PLAINTIFF, LegalStatus.APPLICANT)
         ]
 
         if not applicants:
@@ -117,9 +116,7 @@ class EnforcementApplicantBasicFieldsService(BasePlaceholderService):
         from apps.core.models.enums import LegalStatus
 
         case_parties = self.case_details_accessor.get_case_parties(case_id=case_id)
-        return [
-            p for p in case_parties if p.get("legal_status") in (LegalStatus.PLAINTIFF, LegalStatus.APPLICANT)
-        ]
+        return [p for p in case_parties if p.get("legal_status") in (LegalStatus.PLAINTIFF, LegalStatus.APPLICANT)]
 
     def _join_field(self, parties: list[dict[str, Any]], field: str, sep: str) -> str:
         values: list[str] = []
@@ -175,8 +172,7 @@ class EnforcementRespondentPartyService(BasePlaceholderService):
         # 筛选被告或被申请人作为被申请人
         # 支持起诉阶段 (defendant) 和执行阶段 (respondent)
         respondents = [
-            p for p in case_parties
-            if p.get("legal_status") in (LegalStatus.DEFENDANT, LegalStatus.RESPONDENT)
+            p for p in case_parties if p.get("legal_status") in (LegalStatus.DEFENDANT, LegalStatus.RESPONDENT)
         ]
 
         if not respondents:
@@ -236,8 +232,7 @@ class EnforcementRespondentNameService(BasePlaceholderService):
 
         # 筛选被告或被申请人
         respondents = [
-            p for p in case_parties
-            if p.get("legal_status") in (LegalStatus.DEFENDANT, LegalStatus.RESPONDENT)
+            p for p in case_parties if p.get("legal_status") in (LegalStatus.DEFENDANT, LegalStatus.RESPONDENT)
         ]
 
         if not respondents:

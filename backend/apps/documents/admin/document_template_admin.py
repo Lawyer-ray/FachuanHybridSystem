@@ -17,7 +17,6 @@ from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.interfaces import ServiceLocator
-
 from apps.core.models.enums import LegalStatus
 from apps.documents.models import (
     DocumentCaseFileSubType,
@@ -529,7 +528,9 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):
 
             messages.error(
                 request,
-                _("初始化失败：缺少 %(count)s 个模板文件，请先补齐当前模板根目录下对应 docx 文件。当前目录：%(root)s。缺失示例：%(files)s")
+                _(
+                    "初始化失败：缺少 %(count)s 个模板文件，请先补齐当前模板根目录下对应 docx 文件。当前目录：%(root)s。缺失示例：%(files)s"
+                )
                 % {"count": len(missing_files), "root": get_docx_templates_root(), "files": preview_files or "-"},
             )
             return HttpResponseRedirect(reverse("admin:documents_documenttemplate_changelist"))

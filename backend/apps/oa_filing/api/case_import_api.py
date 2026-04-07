@@ -6,8 +6,7 @@ import logging
 import os
 from typing import Any
 
-from django.http import HttpRequest, HttpResponse
-from django.http import JsonResponse
+from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.utils import timezone
 from ninja import Router, UploadedFile
 
@@ -62,9 +61,8 @@ def trigger_case_import(request: HttpRequest) -> Any:
         return {"error": "未上传文件"}
 
     # 保存上传的文件
-    from pathlib import Path
-
     import uuid
+    from pathlib import Path
 
     from django.conf import settings
 
@@ -157,10 +155,12 @@ def execute_case_import(request: HttpRequest, session_id: int) -> HttpResponse:
 
     logger.info("启动案件导入任务: session_id=%d case_nos=%d", session_id, len(case_nos))
 
-    return JsonResponse({
-        "message": "导入任务已启动",
-        "session_id": session_id,
-    })
+    return JsonResponse(
+        {
+            "message": "导入任务已启动",
+            "session_id": session_id,
+        }
+    )
 
 
 @router.get("/case-import/{session_id}/preview")

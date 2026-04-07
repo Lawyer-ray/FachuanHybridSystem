@@ -19,8 +19,8 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import connections
 from django.test import Client
 
-from apps.core.utils.path import Path
 from apps.core.infrastructure.subprocess_runner import SubprocessRunner
+from apps.core.utils.path import Path
 
 logger = logging.getLogger(__name__)
 

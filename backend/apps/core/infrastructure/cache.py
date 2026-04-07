@@ -121,7 +121,9 @@ class CacheKeys:
     # Documents 模板匹配相关(包含版本号以便模板变更自动失效)
     DOCUMENTS_MATCH_CONTRACT_TEMPLATES = "documents:matching:contract_templates:{case_type}:{version}"
     DOCUMENTS_MATCH_FOLDER_TEMPLATES = "documents:matching:folder_templates:{template_type}:{case_type}:{version}"
-    DOCUMENTS_MATCH_CASE_FILE_TEMPLATES = "documents:matching:case_file_templates:{case_type}:{case_stage}:{institutions}:{version}"
+    DOCUMENTS_MATCH_CASE_FILE_TEMPLATES = (
+        "documents:matching:case_file_templates:{case_type}:{case_stage}:{institutions}:{version}"
+    )
     DOCUMENTS_MATCHING_VERSION_DOCUMENT_TEMPLATES = "documents:matching:version:document_templates"
     DOCUMENTS_MATCHING_VERSION_FOLDER_TEMPLATES = "documents:matching:version:folder_templates"
 

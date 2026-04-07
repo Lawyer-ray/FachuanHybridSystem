@@ -1,4 +1,5 @@
 """案例下载 Admin"""
+
 from __future__ import annotations
 
 import logging
@@ -13,12 +14,7 @@ from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
 
 from apps.core.interfaces import ServiceLocator
-from apps.legal_research.models import (
-    CaseDownloadFormat,
-    CaseDownloadResult,
-    CaseDownloadStatus,
-    CaseDownloadTask,
-)
+from apps.legal_research.models import CaseDownloadFormat, CaseDownloadResult, CaseDownloadStatus, CaseDownloadTask
 from apps.legal_research.services.case_download_service import CaseDownloadService
 
 logger = logging.getLogger(__name__)
@@ -190,9 +186,7 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin[CaseDownloadTask]):
         if hasattr(case_numbers_field.widget, "attrs"):
             case_numbers_field.widget.attrs["rows"] = "6"
             case_numbers_field.widget.attrs["placeholder"] = (
-                "输入案号，支持多种分隔格式：\n"
-                "(2024)粤0605民初3356号\n"
-                "(2024)粤0605民初3356号, (2024)粤0305民初1234号"
+                "输入案号，支持多种分隔格式：\n(2024)粤0605民初3356号\n(2024)粤0605民初3356号, (2024)粤0305民初1234号"
             )
 
     @staticmethod
@@ -259,8 +253,9 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin[CaseDownloadTask]):
                 messages.error(request, msg)
                 return
 
-            from django.http import FileResponse
             from pathlib import Path
+
+            from django.http import FileResponse
 
             response: HttpResponse = FileResponse(
                 open(zip_path, "rb"),
@@ -276,9 +271,10 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin[CaseDownloadTask]):
 
         # 多个任务打包
         import zipfile
-        from pathlib import Path
-        from django.conf import settings
         from datetime import datetime
+        from pathlib import Path
+
+        from django.conf import settings
 
         zip_filename = f"案例下载_批量_{datetime.now().strftime('%Y%m%d%H%M%S')}.zip"
         zip_path = Path(settings.MEDIA_ROOT) / "legal_research" / "case_download" / zip_filename
@@ -335,7 +331,9 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin[CaseDownloadTask]):
                 new_task.q_task_id = q_task_id
                 new_task.status = CaseDownloadStatus.QUEUED
                 new_task.save(update_fields=["q_task_id", "status", "updated_at"])
-                messages.success(request, f"任务 {obj.id} 的 {len(failed_case_numbers)} 个失败项已提交新任务 {new_task.id}")
+                messages.success(
+                    request, f"任务 {obj.id} 的 {len(failed_case_numbers)} 个失败项已提交新任务 {new_task.id}"
+                )
             except Exception as exc:
                 new_task.delete()
                 messages.error(request, f"任务 {obj.id} 重试失败: {exc}")
@@ -346,9 +344,7 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin[CaseDownloadTask]):
 
         if obj.status == CaseDownloadStatus.COMPLETED and obj.success_count > 0:
             download_url = reverse("admin:legal_research_casedownloadtask_download_zip", args=[obj.pk])
-            buttons.append(
-                f'<a href="{download_url}" target="_blank" style="margin-right:8px;">打包下载</a>'
-            )
+            buttons.append(f'<a href="{download_url}" target="_blank" style="margin-right:8px;">打包下载</a>')
 
         if obj.failed_count > 0:
             retry_url = reverse("admin:legal_research_casedownloadtask_retry", args=[obj.pk])
@@ -373,6 +369,7 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin[CaseDownloadTask]):
             return HttpResponseRedirect(reverse("admin:legal_research_casedownloadtask_change", args=[obj.pk]))
 
         from pathlib import Path
+
         from django.http import FileResponse
 
         response: HttpResponse = FileResponse(
@@ -436,9 +433,7 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin[CaseDownloadTask]):
 
         if not Path(file_path).exists():
             messages.error(request, "文件不存在")
-            return HttpResponseRedirect(
-                reverse("admin:legal_research_casedownloadtask_change", args=[result.task_id])
-            )
+            return HttpResponseRedirect(reverse("admin:legal_research_casedownloadtask_change", args=[result.task_id]))
 
         from django.http import FileResponse
 

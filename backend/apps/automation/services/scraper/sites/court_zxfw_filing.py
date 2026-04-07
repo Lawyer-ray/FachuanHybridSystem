@@ -634,9 +634,7 @@ class CourtZxfwFilingService:
 
     def _open_dropdown_by_labels(self, labels: tuple[str, ...], *, required: bool) -> bool:
         for label in labels:
-            trigger = self.page.locator(
-                f".uni-forms-item:has(.uni-forms-item__label:has-text('{label}')) .input-value"
-            )
+            trigger = self.page.locator(f".uni-forms-item:has(.uni-forms-item__label:has-text('{label}')) .input-value")
             if not trigger.count():
                 continue
             try:

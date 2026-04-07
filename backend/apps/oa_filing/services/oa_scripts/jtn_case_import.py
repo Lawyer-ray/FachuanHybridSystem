@@ -279,8 +279,7 @@ class JtnCaseImportScript:
 
         chunk_size = (len(indexed_case_nos) + effective_workers - 1) // effective_workers
         indexed_chunks = [
-            indexed_case_nos[start : start + chunk_size]
-            for start in range(0, len(indexed_case_nos), chunk_size)
+            indexed_case_nos[start : start + chunk_size] for start in range(0, len(indexed_case_nos), chunk_size)
         ]
 
         indexed_results: list[tuple[int, str, OACaseData | None] | None] = [None] * len(indexed_case_nos)
@@ -569,9 +568,7 @@ class JtnCaseImportScript:
                 continue
             option_value = option.get("value")
             payload[name] = (
-                str(option_value)
-                if option_value is not None
-                else self._normalize_text("".join(option.itertext()))
+                str(option_value) if option_value is not None else self._normalize_text("".join(option.itertext()))
             )
 
         for textarea_node in form.xpath(".//textarea[@name]"):
@@ -895,7 +892,9 @@ class JtnCaseImportScript:
                         conflicts.append(OAConflictData(name=current_name, conflict_type=current_type))
                     current_name = value
                     current_type = None
-                elif ("法律地位" in label and value) or ("类型" in label and "客户类型" not in label and "法律地位" not in label and value):
+                elif ("法律地位" in label and value) or (
+                    "类型" in label and "客户类型" not in label and "法律地位" not in label and value
+                ):
                     current_type = value
 
         if current_name:
@@ -944,8 +943,7 @@ class JtnCaseImportScript:
         has_password_input = 'name="password"' in head or "name='password'" in head
         has_login_form = has_userid_input and has_password_input
         has_login_error_text = any(
-            token in body_lower
-            for token in ("账号或密码错误", "用户名或密码错误", "invalid password", "login failed")
+            token in body_lower for token in ("账号或密码错误", "用户名或密码错误", "invalid password", "login failed")
         )
         return bool((stayed_on_login_page and has_login_form) or has_login_error_text)
 
@@ -964,6 +962,7 @@ class JtnCaseImportScript:
             # 应用 playwright-stealth 反检测
             try:
                 from playwright_stealth import Stealth
+
                 stealth = Stealth()
                 stealth.apply_stealth_sync(self._context)
                 logger.debug("已应用 playwright-stealth 反检测")
@@ -1105,9 +1104,7 @@ class JtnCaseImportScript:
         # 等待搜索输入框可见
         try:
             page.wait_for_selector(
-                "#ctl00_ctl00_mainContentPlaceHolder_projmainPlaceHolder_project_no",
-                state="visible",
-                timeout=15000
+                "#ctl00_ctl00_mainContentPlaceHolder_projmainPlaceHolder_project_no", state="visible", timeout=15000
             )
             time.sleep(_MEDIUM_WAIT)
         except Exception:
@@ -1123,9 +1120,7 @@ class JtnCaseImportScript:
         try:
             # 输入案件编号
             # 输入框ID: ctl00_ctl00_mainContentPlaceHolder_projmainPlaceHolder_project_no
-            input_locator = page.locator(
-                "#ctl00_ctl00_mainContentPlaceHolder_projmainPlaceHolder_project_no"
-            )
+            input_locator = page.locator("#ctl00_ctl00_mainContentPlaceHolder_projmainPlaceHolder_project_no")
 
             # 等待输入框可见
             input_locator.wait_for(state="visible", timeout=10000)
@@ -1475,7 +1470,9 @@ class JtnCaseImportScript:
                                     )
                                 current_name = value
                                 current_type = None
-                            elif ("法律地位" in label and value) or ("类型" in label and "客户类型" not in label and "法律地位" not in label and value):
+                            elif ("法律地位" in label and value) or (
+                                "类型" in label and "客户类型" not in label and "法律地位" not in label and value
+                            ):
                                 current_type = value
 
                     except Exception as exc:

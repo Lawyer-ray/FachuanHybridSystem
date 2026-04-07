@@ -292,11 +292,14 @@ class ContractOASyncService:
                         multiple_count=multiple_count,
                         not_found_count=not_found_count,
                         error_count=error_count,
-                        progress_message=str(_("正在同步 (%(current)s/%(total)s): %(name)s") % {
-                            "current": index,
-                            "total": total_count,
-                            "name": contract_name or "-",
-                        }),
+                        progress_message=str(
+                            _("正在同步 (%(current)s/%(total)s): %(name)s")
+                            % {
+                                "current": index,
+                                "total": total_count,
+                                "name": contract_name or "-",
+                            }
+                        ),
                         result_payload={
                             "items": items,
                             "summary": {
@@ -497,7 +500,9 @@ class ContractOASyncService:
         without_brackets = re.sub(r"[（(][^）)]*[）)]", " ", raw_name)
         append_keyword(without_brackets)
 
-        without_case_count = re.sub(r"(?:\d+|[一二三四五六七八九十百千万两]+)案$", "", without_brackets).strip(" -—_，,。.;；")
+        without_case_count = re.sub(r"(?:\d+|[一二三四五六七八九十百千万两]+)案$", "", without_brackets).strip(
+            " -—_，,。.;；"
+        )
         append_keyword(without_case_count)
 
         if not is_lawsuit_name:
@@ -554,6 +559,7 @@ class ContractOASyncService:
         for defendant in defendant_tokens:
             append_keyword(defendant)
         return keywords
+
     def _is_stale_active_session(self, session: ContractOASyncSession) -> bool:
         if session.status not in self._ACTIVE_STATUSES:
             return False

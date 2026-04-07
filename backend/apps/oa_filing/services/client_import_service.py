@@ -45,6 +45,7 @@ class ClientImportService:
     def run_import(self, *, headless: bool = True, limit: int | None = None) -> None:
         """执行导入流程。"""
         import django
+
         from apps.oa_filing.services.oa_scripts.jtn_client_import import JtnClientImportScript
 
         logger.info("开始导入客户，session_id=%d headless=%s limit=%s", self._session.id, headless, limit)

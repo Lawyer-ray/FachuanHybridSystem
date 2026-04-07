@@ -22,8 +22,8 @@
 
 import logging
 
-from apps.core.models.enums import ChatPlatform
 from apps.core.exceptions import ConfigurationException, UnsupportedPlatformException
+from apps.core.models.enums import ChatPlatform
 
 from .base import ChatProvider
 

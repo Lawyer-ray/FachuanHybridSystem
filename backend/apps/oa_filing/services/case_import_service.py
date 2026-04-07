@@ -15,8 +15,8 @@ from apps.core.models.enums import CaseType
 from apps.oa_filing.models import CaseImportPhase, CaseImportSession, CaseImportStatus
 from apps.oa_filing.services.oa_scripts.jtn_case_import import (
     JtnCaseImportScript,
-    OACaseData,
     OACaseCustomerData,
+    OACaseData,
     OACaseInfoData,
     OAConflictData,
 )
@@ -105,9 +105,9 @@ class CaseImportService:
         for case_no in case_nos:
             try:
                 # 在Backend中查找已存在的合同
-                existing_contracts = Contract.objects.filter(
-                    law_firm_oa_case_number=case_no
-                ).prefetch_related("contract_parties__client")
+                existing_contracts = Contract.objects.filter(law_firm_oa_case_number=case_no).prefetch_related(
+                    "contract_parties__client"
+                )
 
                 if existing_contracts.exists():
                     # 已存在，获取客户名称
@@ -493,7 +493,7 @@ class CaseImportService:
         """创建或更新案件和合同。"""
         from apps.cases.models import Case
         from apps.client.models import Client
-        from apps.contracts.models import ContractParty, ContractAssignment
+        from apps.contracts.models import ContractAssignment, ContractParty
         from apps.organization.models import Lawyer
 
         with transaction.atomic():
@@ -518,9 +518,7 @@ class CaseImportService:
             oa_detail_url = f"https://ims.jtn.com/project/projectView.aspx?keyid={oa_data.keyid}&FirstModel=PROJECT&SecondModel=PROJECT002"
 
             # 3. 查找或创建合同（先创建Contract，因为它不依赖Case）
-            existing_contract = Contract.objects.filter(
-                law_firm_oa_case_number=oa_data.case_no
-            ).first()
+            existing_contract = Contract.objects.filter(law_firm_oa_case_number=oa_data.case_no).first()
 
             if existing_contract:
                 # 更新现有合同
@@ -542,7 +540,9 @@ class CaseImportService:
                     law_firm_oa_case_number=oa_data.case_no,
                     law_firm_oa_url=oa_detail_url,
                     name=case_name or f"OA案件 {oa_data.case_no}",
-                    start_date=self._parse_date(case_info.acceptance_date) if case_info and case_info.acceptance_date else None,
+                    start_date=self._parse_date(case_info.acceptance_date)
+                    if case_info and case_info.acceptance_date
+                    else None,
                 )
                 # 添加主办律师
                 if case_info and case_info.responsible_lawyer:
@@ -585,10 +585,7 @@ class CaseImportService:
             # 6. 处理利益冲突当事人（添加到对方当事人）
             for conflict in oa_data.conflicts:
                 # 尝试查找已存在的当事人
-                existing_party = ContractParty.objects.filter(
-                    contract=contract,
-                    client__name=conflict.name
-                ).first()
+                existing_party = ContractParty.objects.filter(contract=contract, client__name=conflict.name).first()
                 if not existing_party:
                     # 创建冲突方为对方当事人
                     # 先尝试获取或创建这个冲突方作为Client

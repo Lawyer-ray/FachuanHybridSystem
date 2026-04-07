@@ -7,18 +7,16 @@ import json
 from datetime import date, datetime
 from urllib.parse import urlencode
 
-from django.core.exceptions import ValidationError
-
 from django import forms
 from django.contrib import admin
+from django.core.exceptions import ValidationError
+from django.db.models import Q
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.template.response import TemplateResponse
 from django.urls import URLPattern, path, reverse
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext_lazy as _
-
-from django.db.models import Q
 
 from ..models import Reminder, ReminderType
 
@@ -97,9 +95,7 @@ class ReminderAdmin(admin.ModelAdmin[Reminder]):
         ]
         return custom_urls + urls
 
-    def changelist_view(
-        self, request: HttpRequest, extra_context: dict[str, object] | None = None
-    ) -> HttpResponse:
+    def changelist_view(self, request: HttpRequest, extra_context: dict[str, object] | None = None) -> HttpResponse:
         context = extra_context or {}
         context["calendar_url"] = reverse("admin:reminders_reminder_calendar")
         return super().changelist_view(request, extra_context=context)
@@ -262,7 +258,9 @@ class ReminderAdmin(admin.ModelAdmin[Reminder]):
         if keyword:
             contract_queryset = contract_queryset.filter(name__icontains=keyword)
             case_queryset = case_queryset.filter(name__icontains=keyword)
-            case_log_queryset = case_log_queryset.filter(Q(case__name__icontains=keyword) | Q(content__icontains=keyword))
+            case_log_queryset = case_log_queryset.filter(
+                Q(case__name__icontains=keyword) | Q(content__icontains=keyword)
+            )
 
         groups: list[dict[str, object]] = []
 

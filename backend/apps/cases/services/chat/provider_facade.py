@@ -7,8 +7,8 @@ from typing import Any
 
 from django.utils.translation import gettext_lazy as _
 
-from apps.core.models.enums import ChatPlatform
 from apps.core.exceptions import ChatCreationException, MessageSendException
+from apps.core.models.enums import ChatPlatform
 
 logger = logging.getLogger(__name__)
 

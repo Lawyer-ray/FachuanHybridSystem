@@ -10,8 +10,8 @@ from django.db.utils import OperationalError
 from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import Case, CaseFilingNumberSequence
-from apps.core.models.enums import SimpleCaseType
 from apps.core.exceptions import ConflictError, ValidationException
+from apps.core.models.enums import SimpleCaseType
 
 logger = logging.getLogger("apps.cases")
 

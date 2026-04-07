@@ -243,9 +243,7 @@ class TemplateMatchingService:
         if not case_institutions:
             return False
         return any(
-            (case_name == template_name)
-            or (template_name in case_name)
-            or (case_name in template_name)
+            (case_name == template_name) or (template_name in case_name) or (case_name in template_name)
             for case_name in case_institutions
             for template_name in template_names
         )

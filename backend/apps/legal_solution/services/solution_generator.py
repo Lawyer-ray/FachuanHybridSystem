@@ -21,11 +21,13 @@ def _md_to_html(text: str) -> str:
     """markdown → HTML，优先用 markdown 库，回退手动转换。"""
     try:
         import markdown  # type: ignore[import-untyped]
+
         return str(markdown.markdown(text, extensions=["tables", "fenced_code"]))
     except ImportError:
         pass
     # 回退：手动转换
     import html as _html
+
     text = _html.escape(text)
     text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", text)
     lines = text.split("\n")
@@ -167,7 +169,9 @@ class SolutionGenerator:
         results = list(
             task.research_task.results.filter()
             .order_by("rank")
-            .values("rank", "title", "document_number", "court_text", "judgment_date", "case_digest", "similarity_score")
+            .values(
+                "rank", "title", "document_number", "court_text", "judgment_date", "case_digest", "similarity_score"
+            )
         )
         if not results:
             return "未检索到类案。"

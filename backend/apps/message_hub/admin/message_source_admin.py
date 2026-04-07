@@ -16,17 +16,47 @@ from apps.message_hub.models import MessageSource, SyncStatus
 
 @admin.register(MessageSource)
 class MessageSourceAdmin(admin.ModelAdmin[MessageSource]):
-    list_display = ["display_name", "source_type_badge", "credential", "is_enabled", "poll_interval_minutes", "sync_status_badge", "last_sync_at", "refresh_button"]
+    list_display = [
+        "display_name",
+        "source_type_badge",
+        "credential",
+        "is_enabled",
+        "poll_interval_minutes",
+        "sync_status_badge",
+        "last_sync_at",
+        "refresh_button",
+    ]
     list_filter: ClassVar = ["source_type", "is_enabled", "last_sync_status"]
     search_fields: ClassVar = ("display_name", "credential__account", "credential__site_name")
     autocomplete_fields: ClassVar = ("credential",)
     readonly_fields: ClassVar = ["last_sync_at", "last_sync_status", "last_sync_error", "last_synced_uid", "created_at"]
 
     fieldsets: ClassVar = (
-        (_("基本配置"), {"fields": ("display_name", "credential", "source_type", "is_enabled", "poll_interval_minutes", "sync_since")}),
-        (_("发件人过滤"), {"fields": ("sender_whitelist", "sender_blacklist"), "description": _("可输入邮箱地址或发件人名称，每行一个，大小写不敏感。白名单优先于黑名单。")}),
+        (
+            _("基本配置"),
+            {
+                "fields": (
+                    "display_name",
+                    "credential",
+                    "source_type",
+                    "is_enabled",
+                    "poll_interval_minutes",
+                    "sync_since",
+                )
+            },
+        ),
+        (
+            _("发件人过滤"),
+            {
+                "fields": ("sender_whitelist", "sender_blacklist"),
+                "description": _("可输入邮箱地址或发件人名称，每行一个，大小写不敏感。白名单优先于黑名单。"),
+            },
+        ),
         (_("IMAP 配置"), {"fields": ("imap_host", "imap_account"), "classes": ("collapse",)}),
-        (_("同步状态"), {"fields": ("last_sync_at", "last_sync_status", "last_sync_error", "last_synced_uid", "created_at")}),
+        (
+            _("同步状态"),
+            {"fields": ("last_sync_at", "last_sync_status", "last_sync_error", "last_synced_uid", "created_at")},
+        ),
     )
 
     def get_urls(self) -> list[Any]:
@@ -50,7 +80,8 @@ class MessageSourceAdmin(admin.ModelAdmin[MessageSource]):
         color = colors.get(obj.source_type, "#6c757d")
         return format_html(
             '<span style="background:{};color:#fff;padding:2px 8px;border-radius:4px;font-size:12px">{}</span>',
-            color, obj.get_source_type_display(),
+            color,
+            obj.get_source_type_display(),
         )
 
     @admin.display(description=_("同步状态"))
@@ -59,12 +90,14 @@ class MessageSourceAdmin(admin.ModelAdmin[MessageSource]):
         color = colors.get(obj.last_sync_status, "#6c757d")
         return format_html(
             '<span style="background:{};color:#fff;padding:2px 8px;border-radius:4px;font-size:12px">{}</span>',
-            color, obj.get_last_sync_status_display(),
+            color,
+            obj.get_last_sync_status_display(),
         )
 
     @admin.display(description=_("操作"))
     def refresh_button(self, obj: MessageSource) -> SafeString:
         from django.urls import reverse
+
         url = reverse("admin:message_hub_messagesource_sync", args=[obj.pk])
         return format_html(
             '<a class="button" href="{}" style="background:#17a2b8;color:#fff;padding:4px 10px;border-radius:4px;text-decoration:none;font-size:12px">立即同步</a>',

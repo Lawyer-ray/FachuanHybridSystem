@@ -180,7 +180,9 @@ class BoundFolderScanService:
             )
             return candidate
 
-        raise ValidationException(message=_("不支持的扫描领域"), code="UNSUPPORTED_SCAN_DOMAIN", errors={"domain": domain})
+        raise ValidationException(
+            message=_("不支持的扫描领域"), code="UNSUPPORTED_SCAN_DOMAIN", errors={"domain": domain}
+        )
 
     @staticmethod
     def _notify(callback: ProgressCallback | None, status: str, progress: int, current_file: str | None) -> None:

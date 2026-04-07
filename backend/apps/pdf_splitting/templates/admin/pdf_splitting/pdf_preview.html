@@ -77,15 +77,15 @@
         <canvas id="pdfCanvas"></canvas>
     </div>
     <div class="page-range-hint" id="rangeHint" style="display:none;"></div>
-    
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-        
+
         const pdfUrl = '{{ pdf_url }}';
         const startPage = {{ start_page }};
         const endPage = {{ end_page }};
-        
+
         let pdfDoc = null;
         let currentPage = startPage;
         let currentScale = 1.2;
@@ -96,7 +96,7 @@
         const prevBtn = document.getElementById('prevBtn');
         const nextBtn = document.getElementById('nextBtn');
         const rangeHint = document.getElementById('rangeHint');
-        
+
         // 显示页码范围提示
         const totalPagesInRange = endPage - startPage + 1;
         if (totalPagesInRange > 1) {
@@ -105,7 +105,7 @@
             rangeHint.textContent = '{% trans "单页片段：第" %}' + startPage + '{% trans "页" %}';
         }
         rangeHint.style.display = 'block';
-        
+
         async function loadPdf() {
             try {
                 const response = await fetch(pdfUrl, { credentials: 'same-origin' });
@@ -119,51 +119,51 @@
                 document.body.innerHTML = '<div style="color:#fff;text-align:center;padding:100px;">PDF加载失败: ' + err.message + '</div>';
             }
         }
-        
+
         async function renderPage(pageNum) {
             const page = await pdfDoc.getPage(pageNum);
             const viewport = page.getViewport({ scale: currentScale });
             canvas.width = viewport.width;
             canvas.height = viewport.height;
             await page.render({ canvasContext: ctx, viewport }).promise;
-            
+
             // 更新页码显示（相对于片段范围）
             const pageIndex = pageNum - startPage + 1;
             const totalPages = endPage - startPage + 1;
             pageInfo.textContent = `${pageIndex} / ${totalPages}`;
             pageInfo.style.color = '#4ade80';  // 所有页面都在范围内，显示绿色
-            
+
             // 更新按钮状态（只允许在片段范围内翻页）
             prevBtn.disabled = pageNum <= startPage;
             nextBtn.disabled = pageNum >= endPage;
         }
-        
+
         prevBtn.addEventListener('click', () => {
             if (currentPage > startPage) {
                 currentPage--;
                 renderPage(currentPage);
             }
         });
-        
+
         nextBtn.addEventListener('click', () => {
             if (currentPage < endPage) {
                 currentPage++;
                 renderPage(currentPage);
             }
         });
-        
+
         document.getElementById('zoomInBtn').addEventListener('click', () => {
             currentScale = Math.min(currentScale + 0.2, 3);
             zoomInfo.textContent = Math.round(currentScale * 100) + '%';
             renderPage(currentPage);
         });
-        
+
         document.getElementById('zoomOutBtn').addEventListener('click', () => {
             currentScale = Math.max(currentScale - 0.2, 0.5);
             zoomInfo.textContent = Math.round(currentScale * 100) + '%';
             renderPage(currentPage);
         });
-        
+
         // 键盘导航（只在片段范围内）
         document.addEventListener('keydown', (e) => {
             if (e.key === 'ArrowLeft' && currentPage > startPage) {
@@ -174,7 +174,7 @@
                 renderPage(currentPage);
             }
         });
-        
+
         loadPdf();
     </script>
 </body>

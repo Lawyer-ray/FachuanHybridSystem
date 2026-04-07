@@ -11,8 +11,8 @@ from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import Case
-from apps.core.models.enums import ChatPlatform
 from apps.core.exceptions import ChatProviderException
+from apps.core.models.enums import ChatPlatform
 
 from .service import CaseAdminServiceMixin
 

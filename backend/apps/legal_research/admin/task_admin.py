@@ -235,13 +235,13 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
         field.required = False
         field.help_text = (
             "可选。高级检索条件，JSON 数组格式，留空则使用上方关键词做全文检索。<br>"
-            "每项格式：<code>{\"field\": \"字段名\", \"keyword\": \"关键词\", \"op\": \"AND\"}</code><br>"
+            '每项格式：<code>{"field": "字段名", "keyword": "关键词", "op": "AND"}</code><br>'
             "字段名可选：<code>fullText</code>（全文）、<code>title</code>（标题）、"
             "<code>courtOpinion</code>（本院认为）、<code>judgmentResult</code>（裁判结果）、"
             "<code>disputeFocus</code>（争议焦点）、<code>causeOfAction</code>（案由）、"
             "<code>caseNumber</code>（案号）<br>"
-            "示例：<code>[{\"field\":\"courtOpinion\",\"keyword\":\"逾期利息\",\"op\":\"AND\"},"
-            "{\"field\":\"title\",\"keyword\":\"借款合同\",\"op\":\"AND\"}]</code>"
+            '示例：<code>[{"field":"courtOpinion","keyword":"逾期利息","op":"AND"},'
+            '{"field":"title","keyword":"借款合同","op":"AND"}]</code>'
         )
         field.widget = forms.Textarea(attrs={"rows": 4, "style": "font-family:monospace;font-size:12px;"})
 

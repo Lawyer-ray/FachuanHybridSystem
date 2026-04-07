@@ -69,5 +69,3 @@ class ILLMService(Protocol):
         fallback: bool = True,
         **kwargs: Any,
     ) -> list[list[float]]: ...
-
-

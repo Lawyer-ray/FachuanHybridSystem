@@ -23,13 +23,13 @@ from typing import Any
 import httpx
 from django.utils.translation import gettext_lazy as _
 
-from apps.core.models.enums import ChatPlatform
 from apps.core.exceptions import (
     ChatCreationException,
     ConfigurationException,
     MessageSendException,
     OwnerSettingException,
 )
+from apps.core.models.enums import ChatPlatform
 
 from ._feishu_file_mixin import FeishuFileMixin
 from ._feishu_owner_mixin import FeishuOwnerMixin

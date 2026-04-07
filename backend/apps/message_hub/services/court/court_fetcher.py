@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import httpx
+from django.conf import settings
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
@@ -137,16 +138,18 @@ def _fetch_attachments_meta(token: str, sdbh: str) -> list[dict[str, Any]]:
             ext = item.get("c_wjgs", "pdf")
             name = item.get("c_wsmc", f"文书_{i}")
             original_filename = f"{name}.{ext}"
-            meta.append({
-                "filename": original_filename,
-                "original_filename": original_filename,
-                "content_type": f"application/{ext}",
-                "size": 0,
-                "part_index": i,
-                "wjlj": wjlj,
-                "c_sdbh": item.get("c_sdbh", ""),
-                "c_wsbh": item.get("c_wsbh", ""),
-            })
+            meta.append(
+                {
+                    "filename": original_filename,
+                    "original_filename": original_filename,
+                    "content_type": f"application/{ext}",
+                    "size": 0,
+                    "part_index": i,
+                    "wjlj": wjlj,
+                    "c_sdbh": item.get("c_sdbh", ""),
+                    "c_wsbh": item.get("c_wsbh", ""),
+                }
+            )
         return meta
     except Exception as e:
         logger.warning("获取文书详情失败 sdbh=%s: %s", sdbh, e)
@@ -214,7 +217,7 @@ class CourtInboxFetcher(MessageFetcher):
 
             attachments_meta = _fetch_attachments_meta(token, sdbh)
 
-            InboxMessage.objects.create(
+            inbox_msg = InboxMessage.objects.create(
                 source=source,
                 message_id=sdbh,
                 subject=_build_subject(record),
@@ -229,6 +232,9 @@ class CourtInboxFetcher(MessageFetcher):
             # 下载附件 + 触发推送流程
             if attachments_meta:
                 downloaded = self._download_attachments(attachments_meta, sdbh)
+                inbox_msg.attachments_meta = attachments_meta
+                inbox_msg.save(update_fields=["attachments_meta"])
+
                 ah = record.get("ah", "")
                 if ah and downloaded:
                     self._trigger_sms_flow(record, downloaded, credential_id)
@@ -237,8 +243,6 @@ class CourtInboxFetcher(MessageFetcher):
 
     def _download_attachments(self, meta: list[dict[str, Any]], sdbh: str) -> list[str]:
         """下载文书附件，返回下载成功的本地路径列表。"""
-        from django.conf import settings
-
         save_dir = Path(settings.MEDIA_ROOT) / "message_hub" / "court_inbox" / sdbh
         save_dir.mkdir(parents=True, exist_ok=True)
         downloaded: list[str] = []
@@ -296,29 +300,55 @@ class CourtInboxFetcher(MessageFetcher):
         except Exception as e:
             logger.error("推送流程异常: %s, %s", ah, e)
 
-    def download_attachment(
-        self, source: MessageSource, message_id: str, part_index: int
-    ) -> tuple[bytes, str, str]:
+    def download_attachment(self, source: MessageSource, message_id: str, part_index: int) -> tuple[bytes, str, str]:
         """按需下载单个附件（Admin 预览/下载用）。"""
         msg = InboxMessage.objects.get(source=source, message_id=message_id)
         meta_list = msg.attachments_meta or []
         for att in meta_list:
-            if att.get("part_index") == part_index:
-                # 优先读本地缓存
-                local_path = att.get("local_path")
-                if local_path and Path(local_path).exists():
-                    content = Path(local_path).read_bytes()
-                    return content, att["filename"], att.get("content_type", "application/octet-stream")
-                # 回源下载
-                wjlj = att.get("wjlj", "")
-                if not wjlj:
-                    raise ValueError(f"附件无下载链接: part_index={part_index}")
-                with httpx.Client(timeout=60.0) as client:
-                    resp = client.get(wjlj)
-                    resp.raise_for_status()
-                return resp.content, att["filename"], att.get("content_type", "application/octet-stream")
-        raise ValueError(f"未找到 part_index={part_index} 的附件")
+            if int(att.get("part_index", -1)) != part_index:
+                continue
 
+            filename = str(att.get("filename") or att.get("original_filename") or f"attachment_{part_index}")
+            content_type = str(att.get("content_type") or "application/octet-stream")
+
+            local_path = str(att.get("local_path", "")).strip()
+            if local_path and Path(local_path).exists():
+                content = Path(local_path).read_bytes()
+                return content, filename, content_type
+
+            inferred_local_path = Path(
+                att.get("local_path")
+                or (Path(settings.MEDIA_ROOT) / "message_hub" / "court_inbox" / message_id / filename)
+            )
+            if inferred_local_path.exists():
+                att["local_path"] = str(inferred_local_path)
+                if int(att.get("size", 0)) <= 0:
+                    att["size"] = inferred_local_path.stat().st_size
+                msg.attachments_meta = meta_list
+                msg.save(update_fields=["attachments_meta"])
+                return inferred_local_path.read_bytes(), filename, content_type
+
+            wjlj = str(att.get("wjlj", "")).strip()
+            if not wjlj:
+                raise ValueError(f"附件无下载链接: part_index={part_index}")
+
+            with httpx.Client(timeout=60.0) as client:
+                resp = client.get(wjlj)
+                resp.raise_for_status()
+
+            save_dir = Path(settings.MEDIA_ROOT) / "message_hub" / "court_inbox" / message_id
+            save_dir.mkdir(parents=True, exist_ok=True)
+            save_path = save_dir / filename
+            save_path.write_bytes(resp.content)
+
+            att["local_path"] = str(save_path)
+            att["size"] = len(resp.content)
+            msg.attachments_meta = meta_list
+            msg.save(update_fields=["attachments_meta"])
+
+            return resp.content, filename, content_type
+
+        raise ValueError(f"未找到 part_index={part_index} 的附件")
 
 
 def _invalidate_token(credential_id: int) -> None:
@@ -330,8 +360,10 @@ def _invalidate_token(credential_id: int) -> None:
     if credential:
         cache_manager.invalidate_token_cache(credential.site_name, credential.account)
     from apps.automation.models.token import CourtToken
+
     CourtToken.objects.filter(site_name="court_zxfw").update(expires_at=timezone.now())
     logger.info("一张网收件箱: 已清除过期 Token")
+
 
 def _mark_success(source: MessageSource) -> None:
     source.last_sync_at = timezone.now()

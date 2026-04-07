@@ -59,19 +59,44 @@ class SolutionTaskAdmin(admin.ModelAdmin[SolutionTask]):
 
     add_fields: ClassVar = ["case_summary", "credential", "llm_model"]
     readonly_fields: ClassVar = [
-        "id", "keyword", "research_task", "status", "progress", "message", "error",
-        "llm_model", "q_task_id", "started_at", "finished_at", "created_at", "updated_at",
-        "preview_html_field", "download_pdf_button",
+        "id",
+        "keyword",
+        "research_task",
+        "status",
+        "progress",
+        "message",
+        "error",
+        "llm_model",
+        "q_task_id",
+        "started_at",
+        "finished_at",
+        "created_at",
+        "updated_at",
+        "preview_html_field",
+        "download_pdf_button",
     ]
 
     def get_fields(self, request: HttpRequest, obj: SolutionTask | None = None) -> list[str]:
         if obj is None:
             return list(self.add_fields)
         return [
-            "id", "case_summary", "keyword", "credential", "research_task",
-            "status", "progress", "message", "error", "llm_model",
-            "preview_html_field", "download_pdf_button",
-            "q_task_id", "started_at", "finished_at", "created_at", "updated_at",
+            "id",
+            "case_summary",
+            "keyword",
+            "credential",
+            "research_task",
+            "status",
+            "progress",
+            "message",
+            "error",
+            "llm_model",
+            "preview_html_field",
+            "download_pdf_button",
+            "q_task_id",
+            "started_at",
+            "finished_at",
+            "created_at",
+            "updated_at",
         ]
 
     def get_readonly_fields(self, request: HttpRequest, obj: SolutionTask | None = None) -> list[str]:
@@ -88,6 +113,7 @@ class SolutionTaskAdmin(admin.ModelAdmin[SolutionTask]):
         cred_field = form.base_fields.get("credential")
         if cred_field is not None:
             from apps.legal_solution.models.task import SolutionTask as _T
+
             cred_model = _T._meta.get_field("credential").remote_field.model
             qs = cred_model.objects.filter(WEIKE_FILTER)
             if not request.user.is_superuser:
@@ -157,6 +183,7 @@ class SolutionTaskAdmin(admin.ModelAdmin[SolutionTask]):
 
         # 缓存 PDF
         from django.core.files.base import ContentFile
+
         task.pdf_file.save(f"solution_{task.id}.pdf", ContentFile(pdf_bytes), save=True)
 
         response = HttpResponse(pdf_bytes, content_type="application/pdf")
@@ -176,9 +203,7 @@ class SolutionTaskAdmin(admin.ModelAdmin[SolutionTask]):
                     messages.success(request, f"「{section.title}」已重新生成")
                 except Exception as exc:
                     messages.error(request, f"重新生成失败：{exc}")
-            return HttpResponseRedirect(
-                reverse("admin:legal_solution_solutiontask_change", args=[task_id])
-            )
+            return HttpResponseRedirect(reverse("admin:legal_solution_solutiontask_change", args=[task_id]))
 
         # GET: 显示调整表单
         html = f"""
@@ -192,19 +217,22 @@ class SolutionTaskAdmin(admin.ModelAdmin[SolutionTask]):
         <h2>✏️ 调整「{section.title}」</h2>
         <p>当前版本：v{section.version}。请描述你希望如何调整这个段落。</p>
         <form method="post">
-        <input type="hidden" name="csrfmiddlewaretoken" value="{request.META.get('CSRF_COOKIE', '')}">
+        <input type="hidden" name="csrfmiddlewaretoken" value="{request.META.get("CSRF_COOKIE", "")}">
         <textarea name="feedback" placeholder="例如：请更详细地分析违约责任的认定标准，并引用相关法条..."></textarea>
         <br><br>
         <button type="submit" class="btn">确认调整</button>
-        <a href="{reverse('admin:legal_solution_solutiontask_change', args=[task_id])}" class="btn btn-cancel" style="text-decoration:none;display:inline-block;">取消</a>
+        <a href="{reverse("admin:legal_solution_solutiontask_change", args=[task_id])}" class="btn btn-cancel" style="text-decoration:none;display:inline-block;">取消</a>
         </form></body></html>
         """
         from django.middleware.csrf import get_token
+
         get_token(request)
-        return HttpResponse(html.replace(
-            request.META.get("CSRF_COOKIE", ""),
-            get_token(request),
-        ))
+        return HttpResponse(
+            html.replace(
+                request.META.get("CSRF_COOKIE", ""),
+                get_token(request),
+            )
+        )
 
     def save_model(self, request: HttpRequest, obj: SolutionTask, form: Any, change: bool) -> None:
         if change:

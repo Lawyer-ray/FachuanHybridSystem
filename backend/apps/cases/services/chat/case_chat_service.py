@@ -26,8 +26,8 @@ from typing import Any, cast
 from django.utils.translation import gettext_lazy as _
 
 from apps.cases.services.case.case_access_policy import CaseAccessPolicy
-from apps.core.models.enums import ChatPlatform
 from apps.core.exceptions import ChatCreationException, MessageSendException, ValidationException
+from apps.core.models.enums import ChatPlatform
 from apps.core.security import AccessContext
 
 from .naming import ChatNameBuilder

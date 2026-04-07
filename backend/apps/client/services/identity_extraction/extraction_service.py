@@ -274,9 +274,7 @@ class IdentityExtractionService:
             ) from e
         except LLMTimeoutError as e:
             logger.warning("Ollama 请求超时: %s", e)
-            raise OllamaExtractionError(
-                _("智能识别超时，请稍后重试。若多次失败，请检查 Ollama 服务状态后重试")
-            ) from e
+            raise OllamaExtractionError(_("智能识别超时，请稍后重试。若多次失败，请检查 Ollama 服务状态后重试")) from e
         except LLMNetworkError as e:
             logger.warning("Ollama 网络异常: %s", e)
             raise OllamaExtractionError(_("无法连接智能识别服务，请检查 Ollama 服务或网络后重试")) from e

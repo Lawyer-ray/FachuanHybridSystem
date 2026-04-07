@@ -1,4 +1,5 @@
 """案例下载任务模型"""
+
 from __future__ import annotations
 
 from typing import ClassVar

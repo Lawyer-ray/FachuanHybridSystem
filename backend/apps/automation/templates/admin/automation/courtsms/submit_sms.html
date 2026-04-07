@@ -115,9 +115,9 @@
                                     {{ sms.case.name|truncatechars:30 }}
                                 </a>
                             {% elif sms.status == 'pending_manual' %}
-                                <a href="{% url 'admin:automation_courtsms_assign_case' sms.id %}"
+                                <a href="{% url 'admin:automation_courtsms_change' sms.id %}"
                                    style="color: orange; font-weight: bold;">
-                                    🔗 {% trans "需要指定案件" %}
+                                    🔗 {% trans "去详情页指定案件" %}
                                 </a>
                             {% else %}
                                 -

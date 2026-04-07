@@ -48,6 +48,7 @@ class WeikeAuthMixin:
         # 应用 playwright-stealth 反检测
         try:
             from playwright_stealth import Stealth
+
             stealth = Stealth()
             stealth.apply_stealth_sync(context)
             logger.debug("已应用 playwright-stealth 反检测")

@@ -17,7 +17,14 @@ from django.apps import apps as django_apps
 from django.core.cache import cache
 from django.utils import timezone
 
-from apps.core.exceptions import ConflictError, NotFoundError, PermissionDenied, RecognitionTimeoutError, ServiceUnavailableError, ValidationException
+from apps.core.exceptions import (
+    ConflictError,
+    NotFoundError,
+    PermissionDenied,
+    RecognitionTimeoutError,
+    ServiceUnavailableError,
+    ValidationException,
+)
 from apps.core.llm.config import LLMConfig
 from apps.legal_research.models import LegalResearchSearchMode, LegalResearchTask, LegalResearchTaskStatus
 from apps.legal_research.schemas.legal_research_schemas import (
@@ -352,8 +359,7 @@ class LegalResearchCapabilityService:
             },
             event_metadata={
                 "query_type_metrics": {
-                    key: value.model_dump()
-                    for key, value in response.query_trace.query_type_metrics.items()
+                    key: value.model_dump() for key, value in response.query_trace.query_type_metrics.items()
                 },
                 "candidates_scanned": response.query_trace.candidates_scanned,
                 "budget_used_ms": response.query_trace.budget_used_ms,
@@ -370,7 +376,11 @@ class LegalResearchCapabilityService:
             raise PermissionDenied(message="请先登录", code="PERMISSION_DENIED")
 
         credential_model = _get_account_credential_model()
-        credential = credential_model.objects.select_related("lawyer", "lawyer__law_firm").filter(id=payload.credential_id).first()
+        credential = (
+            credential_model.objects.select_related("lawyer", "lawyer__law_firm")
+            .filter(id=payload.credential_id)
+            .first()
+        )
         if credential is None:
             raise NotFoundError("账号凭证不存在")
 
@@ -439,10 +449,16 @@ class LegalResearchCapabilityService:
     @classmethod
     def _serialize_hit(cls, *, item: Any) -> RetrievalHitV1:
         metadata_all = item.metadata if isinstance(item.metadata, dict) else {}
-        metadata = metadata_all.get("similarity_structured") if isinstance(metadata_all.get("similarity_structured"), dict) else {}
+        metadata = (
+            metadata_all.get("similarity_structured")
+            if isinstance(metadata_all.get("similarity_structured"), dict)
+            else {}
+        )
         score = float(item.similarity_score or 0.0)
         conflicts_value = metadata.get("key_conflicts")  # type: ignore[union-attr]
-        conflicts = [str(x).strip() for x in (conflicts_value if isinstance(conflicts_value, list) else []) if str(x).strip()]
+        conflicts = [
+            str(x).strip() for x in (conflicts_value if isinstance(conflicts_value, list) else []) if str(x).strip()
+        ]
         snippets = cls._build_snippets(item=item, metadata=metadata, metadata_all=metadata_all)  # type: ignore[arg-type]
         subscores = AgentSearchSubscoresOut(
             facts_match=float(metadata.get("facts_match") or 0.0),  # type: ignore[union-attr]
@@ -465,18 +481,26 @@ class LegalResearchCapabilityService:
         )
 
     @classmethod
-    def _build_snippets(cls, *, item: Any, metadata: dict[str, Any], metadata_all: dict[str, Any]) -> AgentSearchSnippetsOut:
+    def _build_snippets(
+        cls, *, item: Any, metadata: dict[str, Any], metadata_all: dict[str, Any]
+    ) -> AgentSearchSnippetsOut:
         snippets_meta = metadata.get("snippets") if isinstance(metadata.get("snippets"), dict) else {}
         extracted = cls._extract_snippets_from_text(cls._extract_content_excerpt(item=item, metadata_all=metadata_all))
 
-        claims = cls._clip_text(snippets_meta.get("claims"), max_chars=cls.SNIPPET_MAX_CHARS) or extracted.get("claims", "")  # type: ignore[union-attr]
-        findings = cls._clip_text(snippets_meta.get("findings"), max_chars=cls.SNIPPET_MAX_CHARS) or extracted.get("findings", "")  # type: ignore[union-attr]
+        claims = cls._clip_text(snippets_meta.get("claims"), max_chars=cls.SNIPPET_MAX_CHARS) or extracted.get(
+            "claims", ""
+        )  # type: ignore[union-attr]
+        findings = cls._clip_text(snippets_meta.get("findings"), max_chars=cls.SNIPPET_MAX_CHARS) or extracted.get(
+            "findings", ""
+        )  # type: ignore[union-attr]
         reasoning = (
             cls._clip_text(snippets_meta.get("reasoning"), max_chars=cls.SNIPPET_MAX_CHARS)  # type: ignore[union-attr]
             or extracted.get("reasoning", "")
             or cls._clip_text(getattr(item, "case_digest", ""), max_chars=cls.SNIPPET_MAX_CHARS)
         )
-        holdings = cls._clip_text(snippets_meta.get("holdings"), max_chars=cls.SNIPPET_MAX_CHARS) or extracted.get("holdings", "")  # type: ignore[union-attr]
+        holdings = cls._clip_text(snippets_meta.get("holdings"), max_chars=cls.SNIPPET_MAX_CHARS) or extracted.get(
+            "holdings", ""
+        )  # type: ignore[union-attr]
         return AgentSearchSnippetsOut(
             claims=claims,
             findings=findings,
@@ -588,7 +612,9 @@ class LegalResearchCapabilityService:
         return text[:max_chars].rstrip()
 
     @classmethod
-    def _apply_intent_profile(cls, *, hits: list[RetrievalHitV1], payload: AgentSearchRequestV1) -> list[RetrievalHitV1]:
+    def _apply_intent_profile(
+        cls, *, hits: list[RetrievalHitV1], payload: AgentSearchRequestV1
+    ) -> list[RetrievalHitV1]:
         if len(hits) <= 1:
             return hits
         intent = str(payload.intent or "similar_case")
@@ -609,7 +635,9 @@ class LegalResearchCapabilityService:
             same_court = bool(target_court and cls._normalize_text(hit.court) == target_court)
             has_reasoning = bool(str(hit.snippets.reasoning or "").strip())
             has_holdings = bool(str(hit.snippets.holdings or "").strip())
-            hard_conflict = any(any(needle in conflict for needle in cls.HARD_CONFLICT_NEEDLES) for conflict in hit.conflicts)
+            hard_conflict = any(
+                any(needle in conflict for needle in cls.HARD_CONFLICT_NEEDLES) for conflict in hit.conflicts
+            )
 
             intent_score = (
                 profile["base"] * float(hit.score)
@@ -686,7 +714,11 @@ class LegalResearchCapabilityService:
             )
             if not region_keywords:
                 return True
-            return any(cls._normalize_text(keyword) in normalized_item_court for keyword in region_keywords if str(keyword).strip())
+            return any(
+                cls._normalize_text(keyword) in normalized_item_court
+                for keyword in region_keywords
+                if str(keyword).strip()
+            )
 
         return True
 
@@ -759,9 +791,17 @@ class LegalResearchCapabilityService:
         primary_queries = query_trace.get("primary_queries")
         expansion_queries = query_trace.get("expansion_queries")
         feedback_queries = query_trace.get("feedback_queries")
-        primary_query_list = [str(x).strip() for x in (primary_queries if isinstance(primary_queries, list) else [task.keyword]) if str(x).strip()]
-        expansion_query_list = [str(x).strip() for x in (expansion_queries if isinstance(expansion_queries, list) else []) if str(x).strip()]
-        feedback_query_list = [str(x).strip() for x in (feedback_queries if isinstance(feedback_queries, list) else []) if str(x).strip()]
+        primary_query_list = [
+            str(x).strip()
+            for x in (primary_queries if isinstance(primary_queries, list) else [task.keyword])
+            if str(x).strip()
+        ]
+        expansion_query_list = [
+            str(x).strip() for x in (expansion_queries if isinstance(expansion_queries, list) else []) if str(x).strip()
+        ]
+        feedback_query_list = [
+            str(x).strip() for x in (feedback_queries if isinstance(feedback_queries, list) else []) if str(x).strip()
+        ]
         query_type_metrics = LegalResearchCapabilityService._build_query_type_metrics(
             query_trace=query_trace,
             primary_queries=primary_query_list,
@@ -865,7 +905,11 @@ class LegalResearchCapabilityService:
             count = int(cache.get(count_key) or 0) + 1
             cache.set(count_key, count, timeout=self.FAILURE_CIRCUIT_COOLDOWN_SECONDS)
             if count >= self.FAILURE_CIRCUIT_THRESHOLD:
-                cache.set(open_key, time.time() + self.FAILURE_CIRCUIT_COOLDOWN_SECONDS, timeout=self.FAILURE_CIRCUIT_COOLDOWN_SECONDS)
+                cache.set(
+                    open_key,
+                    time.time() + self.FAILURE_CIRCUIT_COOLDOWN_SECONDS,
+                    timeout=self.FAILURE_CIRCUIT_COOLDOWN_SECONDS,
+                )
         except Exception:
             return
 
@@ -904,6 +948,8 @@ class LegalResearchCapabilityService:
             return AgentSearchResponseV1.model_validate(cached)
         return None
 
-    def _save_idempotent_response(self, *, user: Any | None, idempotency_key: str, response: AgentSearchResponseV1) -> None:
+    def _save_idempotent_response(
+        self, *, user: Any | None, idempotency_key: str, response: AgentSearchResponseV1
+    ) -> None:
         response_key = self._cache_key(kind="idempotency_response", user=user, idempotency_key=idempotency_key)
         cache.set(response_key, response.model_dump(), timeout=self.IDEMPOTENCY_TTL_SECONDS)

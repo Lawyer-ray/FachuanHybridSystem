@@ -181,6 +181,7 @@ class WeikeSearchMixin:
             if has_advanced:
                 # 高级检索：构造 URL 参数直接导航
                 from urllib.parse import urlencode
+
                 params: dict[str, str] = {"keyword": keyword}
                 # 单字段时加 searchField 参数（多字段组合 DOM 不支持，只能靠私有 API）
                 if advanced_query and len(advanced_query) == 1:
@@ -210,14 +211,17 @@ class WeikeSearchMixin:
                 if anchor_count == 0:
                     logger.warning(
                         "高级检索 URL 参数未返回结果，回退普通关键词检索（keyword=%s, search_field=%s）",
-                        keyword, search_field,
+                        keyword,
+                        search_field,
                         extra={"keyword": keyword, "search_field": search_field},
                     )
                     # fallback：普通搜索框方式
                     page.goto(self.LAW_LIST_URL, wait_until="domcontentloaded", timeout=120000)
                     page.wait_for_selector("input[name='keyword']", timeout=60000)
                     page.fill("input[name='keyword']", keyword)
-                    page.locator("button.wk-banner-action-bar-item.wkb-btn-green:has-text('搜索')").first.click(timeout=10000)
+                    page.locator("button.wk-banner-action-bar-item.wkb-btn-green:has-text('搜索')").first.click(
+                        timeout=10000
+                    )
                     page.wait_for_timeout(3500)
                     self._raise_if_login_required(page)
             else:
@@ -225,7 +229,9 @@ class WeikeSearchMixin:
                 page.goto(self.LAW_LIST_URL, wait_until="domcontentloaded", timeout=120000)
                 page.wait_for_selector("input[name='keyword']", timeout=60000)
                 page.fill("input[name='keyword']", keyword)
-                page.locator("button.wk-banner-action-bar-item.wkb-btn-green:has-text('搜索')").first.click(timeout=10000)
+                page.locator("button.wk-banner-action-bar-item.wkb-btn-green:has-text('搜索')").first.click(
+                    timeout=10000
+                )
                 page.wait_for_timeout(3500)
                 self._raise_if_login_required(page)
 

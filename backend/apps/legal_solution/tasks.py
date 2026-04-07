@@ -18,9 +18,9 @@ def run_solution_task(task_id: int) -> dict[str, Any]:
     from django.utils import timezone
 
     from apps.legal_research.models.task import LegalResearchTaskStatus
+    from apps.legal_research.schemas import LegalResearchTaskCreateIn
     from apps.legal_research.services.keywords import normalize_keyword_query
     from apps.legal_research.services.task_service import LegalResearchTaskService
-    from apps.legal_research.schemas import LegalResearchTaskCreateIn
     from apps.legal_solution.models import SolutionTask, SolutionTaskStatus
     from apps.legal_solution.services.html_renderer import HtmlRenderer
     from apps.legal_solution.services.solution_generator import SolutionGenerator
@@ -33,6 +33,7 @@ def run_solution_task(task_id: int) -> dict[str, Any]:
         # ── 阶段1: 自动提取关键词 ──
         if not task.keyword:
             from apps.legal_research.services.executor import LegalResearchExecutor
+
             elements = LegalResearchExecutor._extract_legal_elements(case_summary=task.case_summary)
             if elements:
                 queries = LegalResearchExecutor._build_element_based_queries(elements)
@@ -59,6 +60,7 @@ def run_solution_task(task_id: int) -> dict[str, Any]:
             )
             # 用超级用户权限创建（内部调用）
             from apps.organization.models import Lawyer
+
             admin_user = type("_AdminUser", (), {"is_superuser": True, "id": None, "law_firm_id": None})()
             research_task = research_service.create_task(payload=payload, user=admin_user)
             task.research_task = research_task
@@ -69,7 +71,11 @@ def run_solution_task(task_id: int) -> dict[str, Any]:
         while time.time() < deadline:
             task.research_task.refresh_from_db()
             status = task.research_task.status
-            if status in (LegalResearchTaskStatus.COMPLETED, LegalResearchTaskStatus.FAILED, LegalResearchTaskStatus.CANCELLED):
+            if status in (
+                LegalResearchTaskStatus.COMPLETED,
+                LegalResearchTaskStatus.FAILED,
+                LegalResearchTaskStatus.CANCELLED,
+            ):
                 break
             time.sleep(_RESEARCH_POLL_INTERVAL)
         else:
@@ -89,6 +95,7 @@ def run_solution_task(task_id: int) -> dict[str, Any]:
 
         # 判断是否有段落失败
         from apps.legal_solution.models import SectionStatus
+
         failed_count = task.sections.filter(status=SectionStatus.FAILED).count()
         task.status = SolutionTaskStatus.PARTIAL if failed_count else SolutionTaskStatus.COMPLETED
         task.progress = 100
