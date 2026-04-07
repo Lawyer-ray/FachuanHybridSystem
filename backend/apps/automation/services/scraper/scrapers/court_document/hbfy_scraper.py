@@ -628,5 +628,6 @@ class HbfyCourtScraper(BaseCourtDocumentScraper):
         return encoded.replace("+", "-").replace("/", "_").replace("=", "")
 
     def _encode_password(self, password: str, salt: str) -> str:
-        first = hashlib.md5(password.encode("utf-8")).hexdigest()
-        return hashlib.md5(f"{first}{salt}".encode()).hexdigest()
+        # 该站点登录协议约定为两次 MD5，属于兼容性散列，不用于本系统安全存储。
+        first = hashlib.md5(password.encode("utf-8"), usedforsecurity=False).hexdigest()  # nosec B324  # codeql[py/weak-cryptographic-algorithm]
+        return hashlib.md5(f"{first}{salt}".encode(), usedforsecurity=False).hexdigest()  # nosec B324  # codeql[py/weak-cryptographic-algorithm]
