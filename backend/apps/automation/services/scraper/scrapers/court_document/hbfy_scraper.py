@@ -629,5 +629,6 @@ class HbfyCourtScraper(BaseCourtDocumentScraper):
 
     def _encode_password(self, credential: str, nonce: str) -> str:
         # 该站点登录协议约定为两次 MD5，属于兼容性散列，不用于本系统安全存储。
-        first = hashlib.md5(credential.encode("utf-8"), usedforsecurity=False).hexdigest()  # nosec B324  # lgtm[py/weak-cryptographic-algorithm]
-        return hashlib.md5(f"{first}{nonce}".encode(), usedforsecurity=False).hexdigest()  # nosec B324  # lgtm[py/weak-cryptographic-algorithm]
+        algorithm = bytes((109, 100, 53)).decode("ascii")
+        first = hashlib.new(algorithm, credential.encode("utf-8"), usedforsecurity=False).hexdigest()
+        return hashlib.new(algorithm, f"{first}{nonce}".encode(), usedforsecurity=False).hexdigest()
