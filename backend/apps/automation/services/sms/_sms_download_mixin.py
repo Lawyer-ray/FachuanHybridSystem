@@ -1,6 +1,7 @@
 """短信下载任务管理 Mixin"""
 
 import logging
+import re
 from typing import Any
 
 from django_q.tasks import async_task
@@ -13,6 +14,16 @@ logger = logging.getLogger("apps.automation")
 class SMSDownloadMixin:
     """负责下载任务创建和等待状态检查"""
 
+    HBFY_ACCOUNT_PATTERN = re.compile(r"账号\s*([0-9]{15,20})")
+    HBFY_PASSWORD_PATTERN = re.compile(r"默认密码[：:]\s*([0-9A-Za-z]+)")
+
+    def _extract_hbfy_credentials(self, content: str) -> tuple[str | None, str | None]:
+        account_match = self.HBFY_ACCOUNT_PATTERN.search(content)
+        password_match = self.HBFY_PASSWORD_PATTERN.search(content)
+        account = account_match.group(1).strip() if account_match else None
+        password = password_match.group(1).strip() if password_match else None
+        return account, password
+
     def _create_download_task(self, sms: CourtSMS) -> ScraperTask | None:
         """创建下载任务并关联到短信记录，然后提交到 Django Q 队列执行"""
         if not sms.download_links:
@@ -21,11 +32,20 @@ class SMSDownloadMixin:
         try:
             download_url = sms.download_links[0]
 
+            task_config: dict[str, Any] = {"court_sms_id": sms.id, "auto_download": True, "source": "court_sms"}
+
+            if "dzsd.hbfy.gov.cn/sfsddz" in download_url:
+                account, password = self._extract_hbfy_credentials(sms.content)
+                if account and password:
+                    logger.info(f"短信 {sms.id} 提取到湖北账号模式凭证，将在下载阶段临时使用（不落库）")
+                else:
+                    logger.warning(f"短信 {sms.id} 为湖北账号模式但未提取到完整凭证")
+
             task = ScraperTask.objects.create(
                 task_type=ScraperTaskType.COURT_DOCUMENT,
                 url=download_url,
                 case=sms.case,
-                config={"court_sms_id": sms.id, "auto_download": True, "source": "court_sms"},
+                config=task_config,
             )
 
             logger.info(f"创建下载任务成功: Task ID={task.id}, URL={download_url}")

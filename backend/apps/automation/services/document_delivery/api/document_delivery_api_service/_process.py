@@ -195,6 +195,9 @@ class DocumentProcessMixin:
 
                     if renamed_files:
                         result["renamed_path"] = renamed_files[0] if renamed_files else file_path
+                        archive_method = getattr(self, "_archive_to_case_folder", None)
+                        if callable(archive_method):
+                            archive_method(sms=sms, renamed_paths=renamed_files)
                     if case_log_id:
                         result["case_log_id"] = case_log_id
                         sms.case_log_id = case_log_id

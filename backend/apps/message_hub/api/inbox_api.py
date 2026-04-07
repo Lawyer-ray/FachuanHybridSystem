@@ -19,12 +19,9 @@ router = Router()
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _get_base_queryset() -> Any:
-    return (
-        InboxMessage.objects
-        .select_related("source", "source__credential")
-        .order_by("-received_at")
-    )
+    return InboxMessage.objects.select_related("source", "source__credential").order_by("-received_at")
 
 
 def _get_message_or_404(pk: int) -> InboxMessage:
@@ -37,6 +34,7 @@ def _get_message_or_404(pk: int) -> InboxMessage:
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
 
 @router.get("/messages", response=list[InboxMessageOut])
 def list_messages(
@@ -54,11 +52,8 @@ def list_messages(
         qs = qs.filter(has_attachments=has_attachments)
     if search:
         from django.db.models import Q
-        qs = qs.filter(
-            Q(subject__icontains=search)
-            | Q(sender__icontains=search)
-            | Q(body_text__icontains=search)
-        )
+
+        qs = qs.filter(Q(subject__icontains=search) | Q(sender__icontains=search) | Q(body_text__icontains=search))
 
     return qs
 
@@ -110,7 +105,9 @@ def _serve_attachment(msg: InboxMessage, part_index: int, *, inline: bool) -> Fi
 
     fetcher = get_fetcher(msg.source.source_type)
     content, filename, content_type = fetcher.download_attachment(
-        msg.source, msg.message_id, part_index,
+        msg.source,
+        msg.message_id,
+        part_index,
     )
     download_filename = _resolve_download_filename(msg, part_index, filename)
     disposition = "inline" if inline else "attachment"

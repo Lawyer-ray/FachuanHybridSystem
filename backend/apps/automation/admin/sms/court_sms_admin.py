@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from typing import Any
 
 from django.contrib import admin
 from django.http import HttpRequest
@@ -22,8 +22,8 @@ from .court_sms_admin_base import CourtSMSAdminBase
 class CourtSMSAdmin(CourtSMSAdminActions, CourtSMSAdminBase):
     """法院短信管理（组合 Base + Actions）"""
 
-    ordering: ClassVar[list[str]] = ["-received_at"]
-    actions: ClassVar[list[str]] = ["retry_processing_action"]
+    ordering = ("-received_at",)
+    actions = ["retry_processing_action"]
 
     def get_urls(self) -> list[Any]:
         """添加自定义 URL"""
@@ -33,16 +33,6 @@ class CourtSMSAdmin(CourtSMSAdminActions, CourtSMSAdminBase):
                 "submit/",
                 self.admin_site.admin_view(self.submit_sms_view),
                 name="automation_courtsms_submit",
-            ),
-            path(
-                "<int:sms_id>/assign-case/",
-                self.admin_site.admin_view(self.assign_case_view),
-                name="automation_courtsms_assign_case",
-            ),
-            path(
-                "<int:sms_id>/search-cases/",
-                self.admin_site.admin_view(self.search_cases_ajax),
-                name="automation_courtsms_search_cases",
             ),
             path(
                 "<int:sms_id>/retry/",

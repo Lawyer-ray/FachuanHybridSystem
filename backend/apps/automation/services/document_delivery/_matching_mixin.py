@@ -111,12 +111,17 @@ class DocumentDeliveryMatchingMixin:
                     renamed_files.append(file_path)
 
             if renamed_files:
+                system_user = self._get_system_user()
+                if system_user is None:
+                    logger.error("未找到系统用户，无法创建案件日志")
+                    return renamed_files, case_log_id
+
                 case_log_service = self.caselog_service
                 file_names = [f.split("/")[-1] for f in renamed_files]
                 case_log = case_log_service.create_log(
                     case_id=case.id,
                     content=f"文书送达自动下载: {', '.join(file_names)}",
-                    user=None,
+                    user=system_user,
                 )
                 if case_log:
                     case_log_id = case_log.id
@@ -146,13 +151,42 @@ class DocumentDeliveryMatchingMixin:
             logger.error(f"重命名和附件处理失败: {e!s}")
         return renamed_files, case_log_id
 
+    def _get_system_user(self) -> Any | None:
+        """获取系统操作用户（管理员律师）"""
+        try:
+            from apps.core.interfaces import ServiceLocator
+
+            lawyer_service = ServiceLocator.get_lawyer_service()
+            admin_lawyer = lawyer_service.get_admin_lawyer()
+            if not admin_lawyer:
+                return None
+            return lawyer_service.get_lawyer_model(admin_lawyer.id)
+        except Exception as e:
+            logger.warning(f"获取系统用户失败: {e!s}")
+            return None
+
+    def _archive_to_case_folder(self, sms: Any, renamed_paths: list[str]) -> None:
+        """将文书归档到案件绑定目录（不影响主流程）"""
+        if not sms.case_id or not renamed_paths:
+            return
+
+        try:
+            from apps.automation.services.sms.case_folder_archive_service import CaseFolderArchiveService
+
+            archived = CaseFolderArchiveService().archive_sms_documents(sms, renamed_paths)
+            if archived:
+                logger.info(f"短信 {sms.id} 已归档到案件绑定目录")
+        except Exception as e:
+            logger.warning(f"短信 {sms.id} 归档到案件绑定目录失败，不影响主流程: {e!s}")
+
     def _send_notification(self, sms: Any, document_paths: list[str]) -> bool:
         """发送通知"""
         try:
             if not sms.case:
                 logger.warning(f"SMS {sms.id} 未绑定案件，无法发送通知")
                 return False
-            return self.notification_service.send_case_chat_notification(sms, document_paths)
+            sent = self.notification_service.send_case_chat_notification(sms, document_paths)
+            return bool(sent)
         except Exception as e:
             logger.error(f"发送通知失败: {e!s}")
             return False
@@ -161,16 +195,26 @@ class DocumentDeliveryMatchingMixin:
         """将案号同步到案件"""
         try:
             case_number_service = self.case_number_service
-            existing_numbers = case_number_service.list_numbers(case_id=case_id)  # type: ignore
+
+            list_method = getattr(case_number_service, "list_numbers_internal", None)
+            if list_method is None:
+                list_method = getattr(case_number_service, "list_numbers", None)
+
+            create_method = getattr(case_number_service, "create_number_internal", None)
+            if create_method is None:
+                create_method = getattr(case_number_service, "create_number", None)
+
+            if list_method is None or create_method is None:
+                logger.warning("案号服务不支持查询或创建方法，跳过案号同步")
+                return False
+
+            existing_numbers = list_method(case_id=case_id)
             for num in existing_numbers:
-                if num.number == case_number:
+                if getattr(num, "number", None) == case_number:
                     logger.info(f"案件 {case_id} 已有案号 {case_number}，无需同步")
                     return True
-            case_number_service.create_number(  # type: ignore
-                case_id=case_id,
-                number=case_number,
-                remarks="文书送达自动下载同步",
-            )
+
+            create_method(case_id=case_id, number=case_number, remarks="文书送达自动下载同步")
             logger.info(f"案号同步成功: Case ID={case_id}, 案号={case_number}")
             return True
         except Exception as e:
@@ -205,7 +249,7 @@ class DocumentDeliveryMatchingMixin:
                 }
 
                 logger.info(f"创建 CourtSMS 记录: 案号={record.case_number}")
-                sms = CourtSMS.objects.create(  # type: ignore
+                sms = CourtSMS.objects.create(
                     content=f"文书送达自动下载: {record.case_number}",
                     received_at=record.send_time,
                     status=CourtSMSStatus.MATCHING,
@@ -233,6 +277,7 @@ class DocumentDeliveryMatchingMixin:
                     )
                     if renamed_files:
                         result["renamed_path"] = renamed_files[0]
+                        self._archive_to_case_folder(sms=sms, renamed_paths=renamed_files)
                     if case_log_id:
                         result["case_log_id"] = case_log_id
                         sms.case_log_id = case_log_id
@@ -249,7 +294,7 @@ class DocumentDeliveryMatchingMixin:
                         logger.info(f"通知发送成功: SMS ID={sms.id}")
                     else:
                         sms.status = CourtSMSStatus.FAILED
-                        sms.error_message = _("通知发送失败")  # type: ignore
+                        sms.error_message = _("通知发送失败")
                         logger.warning(f"通知发送失败: SMS ID={sms.id}")
 
                     sms.save()

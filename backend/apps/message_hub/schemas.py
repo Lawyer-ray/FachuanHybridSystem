@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from ninja import Schema
 
@@ -70,4 +70,4 @@ class InboxMessageDetailOut(InboxMessageOut):
 
     @staticmethod
     def resolve_attachments(obj: InboxMessage) -> list[dict[str, Any]]:
-        return obj.attachments_meta or []
+        return cast(list[dict[str, Any]], obj.get_public_attachments_meta())

@@ -1,8 +1,9 @@
 """Message Hub app config."""
 
+from typing import Any
+
 from django.apps import AppConfig
 from django.utils.translation import gettext_lazy as _
-from typing import Any
 
 
 class MessageHubConfig(AppConfig):
@@ -11,9 +12,9 @@ class MessageHubConfig(AppConfig):
     verbose_name = _("信息中转站")
 
     def ready(self) -> None:
-        from apps.message_hub import admin  # 触发 Admin 注册
-
         from django.db.models.signals import post_migrate
+
+        from apps.message_hub import admin  # 触发 Admin 注册
 
         def _on_post_migrate(sender: Any, **kwargs: Any) -> None:
             from apps.message_hub import tasks  # 触发任务注册
