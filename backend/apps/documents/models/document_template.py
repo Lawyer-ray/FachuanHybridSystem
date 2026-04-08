@@ -43,15 +43,15 @@ class DocumentTemplate(models.Model):
     """
 
     id: int
-    name = models.CharField(max_length=200, verbose_name=_("模板名称"))
-    template_type = models.CharField(
+    name: Any = models.CharField(max_length=200, verbose_name=_("模板名称"))
+    template_type: Any = models.CharField(
         max_length=20,
         choices=DocumentTemplateType.choices,
         default=DocumentTemplateType.CONTRACT,
         verbose_name=_("模板类型"),
         help_text=_("选择此模板用于合同还是案件"),
     )
-    contract_sub_type = models.CharField(
+    contract_sub_type: Any = models.CharField(
         max_length=30,
         choices=DocumentContractSubType.choices,
         blank=True,
@@ -59,7 +59,7 @@ class DocumentTemplate(models.Model):
         verbose_name=_("合同子类型"),
         help_text=_("仅在选择'合同文件模板'时有效,必须选择合同模板或补充协议模板"),
     )
-    case_sub_type = models.CharField(
+    case_sub_type: Any = models.CharField(
         max_length=50,
         choices=DocumentCaseFileSubType.choices,
         blank=True,
@@ -74,7 +74,7 @@ class DocumentTemplate(models.Model):
         null=True,
         verbose_name=_("上传文件"),
     )
-    file_path = models.CharField(
+    file_path: Any = models.CharField(
         max_length=500, blank=True, verbose_name=_("文件路径"), help_text=_("相对于模板基础目录的路径")
     )
     # 适用范围字段(与文件夹模板保持一致)
@@ -93,7 +93,7 @@ class DocumentTemplate(models.Model):
         verbose_name=_("我方诉讼地位"),
         help_text=_("可单选或多选;为空表示匹配任意诉讼地位"),
     )
-    legal_status_match_mode = models.CharField(
+    legal_status_match_mode: Any = models.CharField(
         max_length=16,
         choices=LegalStatusMatchMode.choices,
         default=LegalStatusMatchMode.ANY,
@@ -105,9 +105,9 @@ class DocumentTemplate(models.Model):
         verbose_name=_("适用机构"),
         help_text=_("JSON 数组,如 ['北京市第一中级人民法院'],支持多选"),
     )
-    is_active = models.BooleanField(default=True, verbose_name=_("是否启用"))
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
-    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
+    is_active: Any = models.BooleanField(default=True, verbose_name=_("是否启用"))
+    created_at: Any = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
+    updated_at: Any = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
 
     if TYPE_CHECKING:
         folder_bindings: RelatedManager[DocumentTemplateFolderBinding]
@@ -124,7 +124,7 @@ class DocumentTemplate(models.Model):
         ]
 
     def __str__(self) -> str:
-        return self.name
+        return str(self.name)
 
     def clean(self) -> None:
         file_present = bool(self.file)
@@ -139,7 +139,7 @@ class DocumentTemplate(models.Model):
 
     def get_file_location(self) -> str:
         """获取文件实际位置"""
-        if self.file:
+        if self.file and self.file.name:
             return str(self.file.storage.path(self.file.name))
         if self.file_path:
             return str(resolve_docx_template_path(self.file_path))
@@ -212,33 +212,33 @@ class DocumentTemplateFolderBinding(models.Model):
     id: int
     document_template_id: int  # 外键ID字段
     folder_template_id: int  # 外键ID字段
-    document_template = models.ForeignKey(
+    document_template: Any = models.ForeignKey(
         "documents.DocumentTemplate",
         on_delete=models.CASCADE,
         related_name="folder_bindings",
         verbose_name=_("文件模板"),
     )
-    folder_template = models.ForeignKey(
+    folder_template: Any = models.ForeignKey(
         "documents.FolderTemplate",
         on_delete=models.CASCADE,
         related_name="document_bindings",
         verbose_name=_("文件夹模板"),
     )
-    folder_node_id = models.CharField(
+    folder_node_id: Any = models.CharField(
         max_length=100,
         verbose_name=_("文件夹节点ID"),
         help_text=_("文件夹结构JSON中的节点ID"),
     )
-    folder_node_path = models.CharField(
+    folder_node_path: Any = models.CharField(
         max_length=500,
         blank=True,
         verbose_name=_("文件夹路径"),
         help_text=_("自动计算的文件夹路径,如:一审/1-立案材料/1-起诉状和反诉答辩状"),
     )
 
-    is_active = models.BooleanField(default=True, verbose_name=_("是否启用"))
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
-    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
+    is_active: Any = models.BooleanField(default=True, verbose_name=_("是否启用"))
+    created_at: Any = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
+    updated_at: Any = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
 
     class Meta:
         app_label = "documents"
