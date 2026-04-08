@@ -55,8 +55,6 @@
                                             <span class="material-file-time">{{ item.uploaded_at|date:"Y-m-d H:i" }}</span>
                                             {% if item.party_labels %}
                                                 <span class="material-file-tags">{{ item.party_labels|join:"、" }}</span>
-                                            {% else %}
-                                                <span class="material-file-tags">{% trans "通用" %}</span>
                                             {% endif %}
                                         </span>
                                     </a>
@@ -125,8 +123,6 @@
                                             <span class="material-file-time">{{ item.uploaded_at|date:"Y-m-d H:i" }}</span>
                                             {% if item.party_labels %}
                                                 <span class="material-file-tags">{{ item.party_labels|join:"、" }}</span>
-                                            {% else %}
-                                                <span class="material-file-tags">{% trans "通用" %}</span>
                                             {% endif %}
                                         </span>
                                     </a>
