@@ -13,7 +13,7 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.utils.path import Path
-from apps.documents.storage import document_template_storage
+from apps.documents.storage import document_template_storage, resolve_docx_template_path
 
 from .choices import (
     DocumentCaseFileSubType,
@@ -140,20 +140,9 @@ class DocumentTemplate(models.Model):
     def get_file_location(self) -> str:
         """获取文件实际位置"""
         if self.file:
-            # 使用自定义存储的文件
             return str(self.file.storage.path(self.file.name))
-        elif self.file_path:
-            # 使用文件路径引用
-            path_obj = Path(self.file_path)
-            if path_obj.is_absolute():
-                return self.file_path
-            else:
-                # 相对路径,基于docx_templates目录
-                from django.conf import settings
-
-                base_dir = Path(str(getattr(settings, "BASE_DIR", ".")))
-                docx_templates_root = base_dir.parent / "apps" / "documents" / "docx_templates"
-                return str(docx_templates_root / self.file_path)
+        if self.file_path:
+            return str(resolve_docx_template_path(self.file_path))
         return ""
 
     def _get_types_display(self, types_list: list[Any], choices_class: type[models.TextChoices]) -> str:
@@ -205,10 +194,7 @@ class DocumentTemplate(models.Model):
         """文件的绝对路径"""
         if not self.file_path:
             return ""
-        path_obj = Path(self.file_path)
-        if path_obj.is_absolute():
-            return self.file_path
-        return str(path_obj.resolve())
+        return str(resolve_docx_template_path(self.file_path))
 
 
 class DocumentTemplateFolderBinding(models.Model):
