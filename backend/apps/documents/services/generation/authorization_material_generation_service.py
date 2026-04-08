@@ -26,9 +26,13 @@ TEMPLATE_NAME_POWER_OF_ATTORNEY = "授权委托书"
 
 
 class AuthorizationMaterialGenerationService:
-    TEMPLATE_DIR = get_docx_templates_root() / "2-案件材料" / "4-通用材料" / "1-授权委托材料"
-    AUTHORITY_LETTER_TEMPLATE = TEMPLATE_DIR / "所函.docx"
-    LEGAL_REP_CERT_TEMPLATE = TEMPLATE_DIR / "法定代表人身份证明书.docx"
+    def _authority_letter_template_path(self) -> Path:
+        template_dir = get_docx_templates_root() / "2-案件材料" / "4-通用材料" / "1-授权委托材料"
+        return template_dir / "所函.docx"
+
+    def _legal_rep_certificate_template_path(self) -> Path:
+        template_dir = get_docx_templates_root() / "2-案件材料" / "4-通用材料" / "1-授权委托材料"
+        return template_dir / "法定代表人身份证明书.docx"
 
     def __init__(
         self, *, case_service: Any | None = None, client_service: Any | None = None, document_service: Any | None = None
@@ -63,7 +67,7 @@ class AuthorizationMaterialGenerationService:
         template_path = self._get_template_path_from_case_bindings(case_id, TEMPLATE_NAME_AUTHORITY_LETTER)
         if not template_path:
             # 后备:使用硬编码路径
-            template_path = self.AUTHORITY_LETTER_TEMPLATE
+            template_path = self._authority_letter_template_path()
 
         content = self._render_template(template_path, context)
         filename = self._build_authority_letter_filename(case_name=getattr(case, "name", "") or "")
@@ -78,7 +82,7 @@ class AuthorizationMaterialGenerationService:
         template_path = self._get_template_path_from_case_bindings(case_id, TEMPLATE_NAME_LEGAL_REP_CERT)
         if not template_path:
             # 后备:使用硬编码路径
-            template_path = self.LEGAL_REP_CERT_TEMPLATE
+            template_path = self._legal_rep_certificate_template_path()
 
         content = self._render_template(template_path, context)
         filename = self._build_legal_rep_certificate_filename(company_name=getattr(client, "name", "") or "")
