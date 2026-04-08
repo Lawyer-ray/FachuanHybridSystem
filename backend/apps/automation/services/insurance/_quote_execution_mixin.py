@@ -2,7 +2,7 @@
 
 import logging
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from django.utils.translation import gettext_lazy as _
 
@@ -27,7 +27,7 @@ def get_or_create_token(site_name: str = "court_zxfw", account: Any | None = Non
 
     if account:
         token = token_service.get_token(site_name=site_name, account=account)
-        if token:
+        if isinstance(token, str) and token:
             logger.info(f"✅ 找到指定账号的有效 Token: {site_name} - {account}")
             return token
 
@@ -37,8 +37,9 @@ def get_or_create_token(site_name: str = "court_zxfw", account: Any | None = Non
         )
         if valid_tokens.exists():
             token_obj = valid_tokens.first()
-            logger.info(f"✅ 找到有效 Token: {site_name} - {token_obj.account}")  # type: ignore
-            return token_obj.token  # type: ignore
+            if token_obj is not None and isinstance(token_obj.token, str):
+                logger.info(f"✅ 找到有效 Token: {site_name} - {token_obj.account}")
+                return token_obj.token
     except Exception as e:
         logger.error(f"查找 Token 失败: {e}", exc_info=True)
 
@@ -78,14 +79,14 @@ class QuoteExecutionMixin:
                     from apps.core.interfaces import ServiceLocator
 
                     organization_service = ServiceLocator.get_organization_service()
-                    credential = await organization_service.get_credential(credential_id)  # type: ignore
+                    credential = await organization_service.get_credential(credential_id)
                     account = credential.account
 
                     from apps.automation.services.scraper.core.token_service import TokenService
 
                     sync_token_service = TokenService()
                     token = await sync_to_async(sync_token_service.get_token)(site_name=site_name, account=account)
-                    if token:
+                    if isinstance(token, str) and token:
                         logger.info(f"✅ 找到指定账号的有效 Token: {account}")
                         return token
                     logger.info(f"指定账号 {account} 无有效Token，将自动获取")
@@ -95,25 +96,21 @@ class QuoteExecutionMixin:
 
             if credential_id is None:
                 token = await sync_to_async(get_or_create_token)(site_name=site_name)
-                if token:
+                if isinstance(token, str) and token:
                     logger.info("✅ 找到现有有效Token")
                     return token
-                # Token 不存在，直接报错，不再尝试自动获取
-                msg = (
-                    "Token 不存在或已过期，请先手动登录获取 Token。\n"
-                    "操作步骤：\n"
-                    "1. 访问 /admin/automation/testcourt/ 测试登录\n"
-                    "2. 或访问 /admin/automation/courttoken/ 查看 Token 状态\n"
-                    "3. 登录成功后重新执行询价"
-                )
-                raise TokenError(msg)
+                logger.info("未找到现有有效Token，开始自动登录获取")
 
             token = await self.auto_token_service.acquire_token_if_needed(
                 site_name=site_name, credential_id=credential_id
             )
-            logger.info("✅ 自动Token获取成功", extra={"action": "get_valid_token_success"})
-            return token  # type: ignore
+            if isinstance(token, str) and token:
+                logger.info("✅ 自动Token获取成功", extra={"action": "get_valid_token_success"})
+                return token
+            raise TokenError("❌ 自动Token获取失败：返回的 Token 无效")
 
+        except TokenError:
+            raise
         except Exception as e:
             logger.error(
                 f"❌ Token获取失败: {e}",
@@ -138,13 +135,16 @@ class QuoteExecutionMixin:
             extra={"action": "fetch_insurance_companies_wrapper_start", "category_id": category_id},
         )
         try:
-            companies = await self.insurance_client.fetch_insurance_companies(
-                bearer_token=token, c_pid=category_id, fy_id=corp_id
+            companies = cast(
+                "list[InsuranceCompany]",
+                await self.insurance_client.fetch_insurance_companies(
+                    bearer_token=token, c_pid=category_id, fy_id=corp_id
+                ),
             )
             if not companies:
-                raise CompanyListEmptyError(message=_("未获取到保险公司列表，请检查分类 ID 和法院 ID 是否正确"))  # type: ignore
+                raise CompanyListEmptyError(message=_("未获取到保险公司列表，请检查分类 ID 和法院 ID 是否正确"))
             logger.info(f"✅ 获取到 {len(companies)} 家保险公司")
-            return companies  # type: ignore
+            return companies
         except CompanyListEmptyError:
             raise
         except Exception as e:

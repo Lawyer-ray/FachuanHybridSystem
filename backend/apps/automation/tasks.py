@@ -2,10 +2,40 @@
 Django-Q 后台任务
 """
 
+import asyncio
 import logging
-from typing import Any
+from collections.abc import Coroutine
+from concurrent.futures import Future
+from threading import Thread
+from typing import Any, cast
 
 logger = logging.getLogger("apps.automation")
+
+def _run_coroutine_sync[T](coro: Coroutine[Any, Any, T]) -> T:
+    """
+    在同步上下文中安全执行协程。
+
+    Django-Q worker 某些场景下会存在运行中的事件循环，此时不能直接调用 asyncio.run。
+    """
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)
+
+    future: Future[T] = Future()
+
+    def _runner() -> None:
+        try:
+            result = asyncio.run(coro)
+        except Exception as exc:
+            future.set_exception(exc)
+        else:
+            future.set_result(result)
+
+    thread = Thread(target=_runner, name="automation-quote-task-runner", daemon=True)
+    thread.start()
+    thread.join()
+    return future.result()
 
 
 def _get_scraper_map() -> dict[str, type[Any]]:
@@ -160,7 +190,7 @@ def reset_running_tasks() -> int:
 
     running_tasks = ScraperTask.objects.filter(status=ScraperTaskStatus.RUNNING)
 
-    count = running_tasks.count()
+    count = int(running_tasks.count())
     if count == 0:
         logger.info("没有卡住的 running 任务")
         return 0
@@ -200,8 +230,6 @@ def execute_preservation_quote_task(quote_id: int) -> dict[str, Any]:
     Args:
         quote_id: 询价任务 ID
     """
-    import asyncio
-
     from .models import PreservationQuote, QuoteStatus
     from .services.insurance.court_insurance_client import CourtInsuranceClient
     from .services.insurance.exceptions import TokenError
@@ -212,13 +240,14 @@ def execute_preservation_quote_task(quote_id: int) -> dict[str, Any]:
 
     try:
         token_service = TokenService()
-        insurance_client = CourtInsuranceClient(token_service)  # type: ignore[arg-type]
+        insurance_client = CourtInsuranceClient(token_service)
         quote_service = PreservationQuoteService(
-            token_service=token_service,  # type: ignore[arg-type]
+            token_service=token_service,
             insurance_client=insurance_client,
         )
 
-        result = asyncio.run(quote_service.execute_quote(quote_id))
+        raw_result = _run_coroutine_sync(quote_service.execute_quote(quote_id))
+        result = cast(dict[str, Any], raw_result)
 
         logger.info("✅ 询价任务 #%s 执行完成: %s", quote_id, result)
         return result

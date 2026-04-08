@@ -20,7 +20,7 @@ dependencies = [
     # --- 数据库 ---
     "psycopg[binary]==3.3.3",
     # --- HTTP 客户端 ---
-    "httpx==0.28.1",
+    "httpx[http2]==0.28.1",
     # --- LLM / AI ---
     "openai>=2.30.0",
     # --- 文档处理 ---
