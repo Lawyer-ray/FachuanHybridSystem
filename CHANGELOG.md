@@ -2,6 +2,13 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.32.4] - 2026-04-08
+
+### 修复
+
+- **案例检索/案例下载后台功能开关（legal_research/admin）**：新增代码级开关 `LEGAL_RESEARCH_ADMIN_FEATURE_ENABLED`（默认关闭）。当未接入私有 wk API 且未显式开启该开关时，`LegalResearchTask` 与 `CaseDownloadTask` 后台新增入口不可用，并在访问新增页时给出明确提示。
+
+
 ## [26.32.3] - 2026-04-08
 
 ### 修复

@@ -361,6 +361,12 @@ if DOCUMENTS_PRIVATE_DOCX_TEMPLATES_ROOT:
 # 是否启用传统文书转要素式文书功能（需要私有实现模块，默认关闭）
 ZNSZJ_ENABLED = (os.environ.get("ZNSZJ_ENABLED", "False") or "").lower() not in ("false", "0", "no")
 
+# 是否启用案例检索/案例下载后台创建功能（默认关闭）。
+# 说明：当该开关为 False 时，仅在检测到私有 wk API 可用时才允许创建任务。
+LEGAL_RESEARCH_ADMIN_FEATURE_ENABLED = (
+    os.environ.get("LEGAL_RESEARCH_ADMIN_FEATURE_ENABLED", "False") or ""
+).lower() in ("true", "1", "yes")
+
 # ============================================================
 # Django Q 配置
 # ============================================================
