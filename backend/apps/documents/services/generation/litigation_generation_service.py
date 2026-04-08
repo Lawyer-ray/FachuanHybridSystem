@@ -41,10 +41,13 @@ class LitigationGenerationService:
     - 业务逻辑封装
     """
 
-    # 模板路径配置
-    TEMPLATE_DIR = get_docx_templates_root() / "2-案件材料"
-    COMPLAINT_TEMPLATE = TEMPLATE_DIR / "1-起诉材料" / "1-起诉状和反诉答辩状" / "1-起诉状.docx"
-    DEFENSE_TEMPLATE = TEMPLATE_DIR / "2-答辩材料" / "1-答辩状和反诉状" / "1-答辩状.docx"
+    def _complaint_template_path(self) -> Path:
+        template_dir = get_docx_templates_root() / "2-案件材料"
+        return template_dir / "1-起诉材料" / "1-起诉状和反诉答辩状" / "1-起诉状.docx"
+
+    def _defense_template_path(self) -> Path:
+        template_dir = get_docx_templates_root() / "2-案件材料"
+        return template_dir / "2-答辩材料" / "1-答辩状和反诉状" / "1-答辩状.docx"
 
     def __init__(
         self,
@@ -161,7 +164,7 @@ class LitigationGenerationService:
         logger.info("生成起诉状文件名: %s", filename)
 
         # 6. 渲染模板
-        doc_bytes = self._render_template(self.COMPLAINT_TEMPLATE, context)
+        doc_bytes = self._render_template(self._complaint_template_path(), context)
 
         return filename, doc_bytes
 
@@ -206,7 +209,7 @@ class LitigationGenerationService:
         logger.info("生成答辩状文件名: %s", filename)
 
         # 6. 渲染模板
-        doc_bytes = self._render_template(self.DEFENSE_TEMPLATE, context)
+        doc_bytes = self._render_template(self._defense_template_path(), context)
 
         return filename, doc_bytes
 
@@ -217,12 +220,12 @@ class LitigationGenerationService:
             raise NotFoundError(message=_("案件不存在"), code="CASE_NOT_FOUND", errors={"case_id": case_id})
 
         if litigation_type == "complaint":
-            template_path = self.COMPLAINT_TEMPLATE
+            template_path = self._complaint_template_path()
             case_data = self.context_builder.extract_complaint_prompt_data(case_dto)
             llm_result = self._get_mock_complaint_output(case_data)
             context = self.context_builder.build_complaint_context(case_dto=case_dto, llm_result=llm_result)
         elif litigation_type == "defense":
-            template_path = self.DEFENSE_TEMPLATE
+            template_path = self._defense_template_path()
             case_data = self.context_builder.extract_defense_prompt_data(case_dto)
             llm_result = self._get_mock_defense_output(case_data)
             context = self.context_builder.build_defense_context(case_dto=case_dto, llm_result=llm_result)
