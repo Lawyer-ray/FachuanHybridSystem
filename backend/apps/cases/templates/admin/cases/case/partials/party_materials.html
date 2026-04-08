@@ -161,7 +161,7 @@
         <div class="material-replace-modal-backdrop" onclick="closeReplaceModal()"></div>
         <div class="material-replace-modal-content">
             <h3>{% trans "替换材料文件" %}</h3>
-            <p class="material-replace-modal-desc">{% trans "上传新文件来替换当前材料文件。旧文件仍保留在日志中。" %}</p>
+            <p class="material-replace-modal-desc">{% trans "上传新文件来替换当前材料文件。旧文件将被删除，此操作不可恢复。" %}</p>
             <input type="file" id="materialReplaceFileInput" style="display:none;" />
             <button type="button" class="button default" onclick="document.getElementById('materialReplaceFileInput').click()">
                 {% trans "选择文件" %}

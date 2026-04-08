@@ -300,7 +300,7 @@ class CaseMaterialService:
         """替换材料对应的附件文件。
 
         将 CaseMaterial 的 source_attachment 从旧附件切换到新附件，
-        同时旧附件仍保留在日志中（不删除）。
+        同时删除旧附件（含物理文件）。
         """
         self._case_service.get_case(case_id, user=user, org_access=org_access, perm_open_access=perm_open_access)
 
@@ -328,9 +328,23 @@ class CaseMaterialService:
                 message=_("新附件已被其他材料绑定"), errors={"new_attachment_id": new_attachment_id}
             )
 
+        old_attachment = material.source_attachment
         old_attachment_id_val = material.source_attachment_id
+
+        # 切换到新附件
         material.source_attachment = new_attachment
         material.save(update_fields=["source_attachment"])
+
+        # 删除旧附件（含物理文件）
+        if old_attachment:
+            old_attachment_file = getattr(old_attachment, "file", None)
+            if old_attachment_file:
+                try:
+                    old_attachment_file.delete(save=False)
+                except Exception:
+                    logger.warning("删除旧附件物理文件失败: attachment_id=%s", old_attachment_id_val)
+            old_attachment.delete()
+            logger.info("旧附件已删除: attachment_id=%s", old_attachment_id_val)
 
         logger.info(
             "材料文件已替换: material_id=%s, old_attachment_id=%s, new_attachment_id=%s",
