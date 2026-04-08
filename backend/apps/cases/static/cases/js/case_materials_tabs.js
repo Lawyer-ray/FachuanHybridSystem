@@ -240,61 +240,33 @@
     caseId: null,
   };
 
+  // 创建一个隐藏的 file input，复用而非每次新建
+  var replaceFileInput = document.createElement('input');
+  replaceFileInput.type = 'file';
+  replaceFileInput.style.display = 'none';
+  document.body.appendChild(replaceFileInput);
+
   window.startReplaceMaterial = function (btn) {
     replaceState.materialId = btn.getAttribute('data-material-id');
     replaceState.caseId = btn.getAttribute('data-case-id');
 
-    var modal = document.getElementById('materialReplaceModal');
-    if (!modal) return;
-
-    modal.style.display = 'flex';
-    var fileInput = document.getElementById('materialReplaceFileInput');
-    var fileNameEl = document.getElementById('materialReplaceFileName');
-    var confirmBtn = document.getElementById('materialReplaceConfirmBtn');
-    if (fileInput) {
-      fileInput.value = '';
-      fileInput.onchange = function () {
-        var files = fileInput.files;
-        if (files && files.length) {
-          if (fileNameEl) {
-            fileNameEl.textContent = files[0].name;
-            fileNameEl.style.display = 'block';
-          }
-          if (confirmBtn) confirmBtn.disabled = false;
-        }
-      };
-    }
-    if (fileNameEl) {
-      fileNameEl.textContent = '';
-      fileNameEl.style.display = 'none';
-    }
-    if (confirmBtn) confirmBtn.disabled = true;
+    replaceFileInput.value = '';
+    replaceFileInput.click();
   };
 
-  window.closeReplaceModal = function () {
-    var modal = document.getElementById('materialReplaceModal');
-    if (modal) modal.style.display = 'none';
-    replaceState.materialId = null;
-    replaceState.caseId = null;
-  };
-
-  window.confirmReplaceMaterial = function () {
-    var fileInput = document.getElementById('materialReplaceFileInput');
-    if (!fileInput || !fileInput.files || !fileInput.files.length) {
-      toast('请选择文件', 'error');
-      return;
-    }
+  replaceFileInput.addEventListener('change', function () {
+    var files = replaceFileInput.files;
+    if (!files || !files.length) return;
     if (!replaceState.caseId || !replaceState.materialId) {
       toast('参数错误', 'error');
       return;
     }
 
-    var confirmBtn = document.getElementById('materialReplaceConfirmBtn');
-    if (confirmBtn) confirmBtn.disabled = true;
+    toast('正在替换文件...', 'success');
 
     // Step 1: 上传文件到案件日志
     var fd = new FormData();
-    fd.append('files', fileInput.files[0]);
+    fd.append('files', files[0]);
 
     fetch(`/api/v1/cases/${replaceState.caseId}/materials/upload`, {
       method: 'POST',
@@ -326,14 +298,12 @@
       })
       .then(function () {
         toast('材料文件已替换，正在刷新...', 'success');
-        window.closeReplaceModal();
         setTimeout(function () { window.location.reload(); }, 800);
       })
       .catch(function (err) {
         toast(err.message || '替换失败', 'error');
-        if (confirmBtn) confirmBtn.disabled = false;
       });
-  };
+  });
 
   // ========== 删除材料功能 ==========
 

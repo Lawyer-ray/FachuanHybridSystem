@@ -156,24 +156,6 @@
         </section>
     </div>
 
-    <!-- 替换材料文件弹窗 -->
-    <div class="material-replace-modal" id="materialReplaceModal" style="display:none;">
-        <div class="material-replace-modal-backdrop" onclick="closeReplaceModal()"></div>
-        <div class="material-replace-modal-content">
-            <h3>{% trans "替换材料文件" %}</h3>
-            <p class="material-replace-modal-desc">{% trans "上传新文件来替换当前材料文件。旧文件将被删除，此操作不可恢复。" %}</p>
-            <input type="file" id="materialReplaceFileInput" style="display:none;" />
-            <button type="button" class="button default" onclick="document.getElementById('materialReplaceFileInput').click()">
-                {% trans "选择文件" %}
-            </button>
-            <div id="materialReplaceFileName" class="material-replace-file-name" style="display:none;"></div>
-            <div class="material-replace-modal-actions">
-                <button type="button" class="button" onclick="closeReplaceModal()">{% trans "取消" %}</button>
-                <button type="button" class="button default" id="materialReplaceConfirmBtn" onclick="confirmReplaceMaterial()" disabled>{% trans "确认替换" %}</button>
-            </div>
-        </div>
-    </div>
-
     <!-- 删除材料确认弹窗 -->
     <div class="material-delete-modal" id="materialDeleteModal" style="display:none;">
         <div class="material-delete-modal-backdrop" onclick="closeDeleteModal()"></div>
