@@ -7,14 +7,11 @@ import logging
 from collections.abc import Coroutine
 from concurrent.futures import Future
 from threading import Thread
-from typing import Any, TypeVar
+from typing import Any
 
 logger = logging.getLogger("apps.automation")
 
-T = TypeVar("T")
-
-
-def _run_coroutine_sync(coro: Coroutine[Any, Any, T]) -> T:
+def _run_coroutine_sync[T](coro: Coroutine[Any, Any, T]) -> T:
     """
     在同步上下文中安全执行协程。
 
