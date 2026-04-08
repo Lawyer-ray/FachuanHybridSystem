@@ -51,11 +51,18 @@
                                                     <span class="material-file-time">{{ item.uploaded_at|date:"Y-m-d H:i" }}</span>
                                                 </span>
                                             </a>
-                                            <button type="button" class="material-replace-btn"
-                                                    title="{% trans '替换文件' %}"
-                                                    data-material-id="{{ item.material_id }}"
-                                                    data-case-id="{{ case.pk }}"
-                                                    onclick="startReplaceMaterial(this)">🔄</button>
+                                            <div class="material-file-actions">
+                                                <button type="button" class="material-replace-btn"
+                                                        title="{% trans '替换文件' %}"
+                                                        data-material-id="{{ item.material_id }}"
+                                                        data-case-id="{{ case.pk }}"
+                                                        onclick="startReplaceMaterial(this)">🔄</button>
+                                                <button type="button" class="material-delete-btn"
+                                                        title="{% trans '删除材料' %}"
+                                                        data-material-id="{{ item.material_id }}"
+                                                        data-case-id="{{ case.pk }}"
+                                                        onclick="confirmDeleteMaterial(this)">🗑️</button>
+                                            </div>
                                         </div>
                                     {% endfor %}
                                 </div>

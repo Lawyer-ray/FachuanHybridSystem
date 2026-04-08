@@ -60,11 +60,18 @@
                                             {% endif %}
                                         </span>
                                     </a>
-                                    <button type="button" class="material-replace-btn"
-                                            title="{% trans '替换文件' %}"
-                                            data-material-id="{{ item.material_id }}"
-                                            data-case-id="{{ case.pk }}"
-                                            onclick="startReplaceMaterial(this)">🔄</button>
+                                    <div class="material-file-actions">
+                                        <button type="button" class="material-replace-btn"
+                                                title="{% trans '替换文件' %}"
+                                                data-material-id="{{ item.material_id }}"
+                                                data-case-id="{{ case.pk }}"
+                                                onclick="startReplaceMaterial(this)">🔄</button>
+                                        <button type="button" class="material-delete-btn"
+                                                title="{% trans '删除材料' %}"
+                                                data-material-id="{{ item.material_id }}"
+                                                data-case-id="{{ case.pk }}"
+                                                onclick="confirmDeleteMaterial(this)">🗑️</button>
+                                    </div>
                                 </div>
                             {% endfor %}
                         </div>
@@ -123,11 +130,18 @@
                                             {% endif %}
                                         </span>
                                     </a>
-                                    <button type="button" class="material-replace-btn"
-                                            title="{% trans '替换文件' %}"
-                                            data-material-id="{{ item.material_id }}"
-                                            data-case-id="{{ case.pk }}"
-                                            onclick="startReplaceMaterial(this)">🔄</button>
+                                    <div class="material-file-actions">
+                                        <button type="button" class="material-replace-btn"
+                                                title="{% trans '替换文件' %}"
+                                                data-material-id="{{ item.material_id }}"
+                                                data-case-id="{{ case.pk }}"
+                                                onclick="startReplaceMaterial(this)">🔄</button>
+                                        <button type="button" class="material-delete-btn"
+                                                title="{% trans '删除材料' %}"
+                                                data-material-id="{{ item.material_id }}"
+                                                data-case-id="{{ case.pk }}"
+                                                onclick="confirmDeleteMaterial(this)">🗑️</button>
+                                    </div>
                                 </div>
                             {% endfor %}
                         </div>
@@ -156,6 +170,19 @@
             <div class="material-replace-modal-actions">
                 <button type="button" class="button" onclick="closeReplaceModal()">{% trans "取消" %}</button>
                 <button type="button" class="button default" id="materialReplaceConfirmBtn" onclick="confirmReplaceMaterial()" disabled>{% trans "确认替换" %}</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 删除材料确认弹窗 -->
+    <div class="material-delete-modal" id="materialDeleteModal" style="display:none;">
+        <div class="material-delete-modal-backdrop" onclick="closeDeleteModal()"></div>
+        <div class="material-delete-modal-content">
+            <h3>{% trans "删除材料" %}</h3>
+            <p class="material-delete-modal-desc">{% trans "确定要删除此材料吗？删除后仅解除分类绑定，附件文件仍保留在日志中。" %}</p>
+            <div class="material-delete-modal-actions">
+                <button type="button" class="button" onclick="closeDeleteModal()">{% trans "取消" %}</button>
+                <button type="button" class="button default" id="materialDeleteConfirmBtn" onclick="doDeleteMaterial()">{% trans "确认删除" %}</button>
             </div>
         </div>
     </div>

@@ -335,6 +335,67 @@
       });
   };
 
+  // ========== 删除材料功能 ==========
+
+  var deleteState = {
+    materialId: null,
+    caseId: null,
+    rowEl: null,
+  };
+
+  window.confirmDeleteMaterial = function (btn) {
+    deleteState.materialId = btn.getAttribute('data-material-id');
+    deleteState.caseId = btn.getAttribute('data-case-id');
+    deleteState.rowEl = btn.closest('.material-file-row');
+
+    var modal = document.getElementById('materialDeleteModal');
+    if (modal) modal.style.display = 'flex';
+  };
+
+  window.closeDeleteModal = function () {
+    var modal = document.getElementById('materialDeleteModal');
+    if (modal) modal.style.display = 'none';
+    deleteState.materialId = null;
+    deleteState.caseId = null;
+    deleteState.rowEl = null;
+  };
+
+  window.doDeleteMaterial = function () {
+    if (!deleteState.caseId || !deleteState.materialId) {
+      toast('参数错误', 'error');
+      return;
+    }
+
+    var confirmBtn = document.getElementById('materialDeleteConfirmBtn');
+    if (confirmBtn) confirmBtn.disabled = true;
+
+    fetch(`/api/v1/cases/${deleteState.caseId}/materials/${deleteState.materialId}`, {
+      method: 'DELETE',
+      headers: { 'X-CSRFToken': getCsrfToken() },
+    })
+      .then(function (resp) {
+        if (!resp.ok) return resp.json().then(function (data) { throw new Error(data.detail || '删除失败'); });
+        return resp.json();
+      })
+      .then(function () {
+        toast('材料已删除', 'success');
+        window.closeDeleteModal();
+        // 移除对应行，若分组为空也移除分组
+        if (deleteState.rowEl) {
+          var group = deleteState.rowEl.closest('.material-group');
+          deleteState.rowEl.remove();
+          if (group) {
+            var remaining = group.querySelectorAll('.material-file-row');
+            if (!remaining.length) group.remove();
+          }
+        }
+      })
+      .catch(function (err) {
+        toast(err.message || '删除失败', 'error');
+        if (confirmBtn) confirmBtn.disabled = false;
+      });
+  };
+
   document.addEventListener('DOMContentLoaded', function () {
     normalizeFileNames();
     initTimeToggle();

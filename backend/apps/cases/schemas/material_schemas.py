@@ -84,11 +84,19 @@ class CaseMaterialGroupRenameOut(Schema):
     new_type_name: str
 
 
+class CaseMaterialDeleteOut(Schema):
+    """删除材料响应"""
+
+    material_id: int
+    deleted: bool
+
+
 __all__: list[str] = [
     "CaseMaterialBindCandidateOut",
     "CaseMaterialBindIn",
     "CaseMaterialBindItemIn",
     "CaseMaterialBindingOut",
+    "CaseMaterialDeleteOut",
     "CaseMaterialGroupOrderIn",
     "CaseMaterialGroupRenameIn",
     "CaseMaterialGroupRenameOut",
