@@ -5,6 +5,7 @@ import logging
 from typing import Any, ClassVar
 
 from django import forms
+from django.conf import settings
 from django.contrib import admin, messages
 from django.db.models import Q, QuerySet
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
@@ -124,6 +125,15 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin[CaseDownloadTask]):
         ]
         return custom_urls + urls
 
+    def has_add_permission(self, request: HttpRequest) -> bool:
+        return super().has_add_permission(request) and self._is_feature_available()
+
+    def add_view(self, request: HttpRequest, form_url: str = "", extra_context: dict[str, Any] | None = None):
+        if not self._is_feature_available():
+            messages.error(request, "功能未启用：请接入私有 wk API，或在代码中开启 LEGAL_RESEARCH_ADMIN_FEATURE_ENABLED。")
+            return HttpResponseRedirect(reverse("admin:legal_research_casedownloadtask_changelist"))
+        return super().add_view(request=request, form_url=form_url, extra_context=extra_context)
+
     def get_fields(self, request, obj: CaseDownloadTask | None = None) -> list[str]:  # type: ignore[override]
         if obj is None:
             return ["credential", "case_numbers", "file_format"]
@@ -202,6 +212,23 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin[CaseDownloadTask]):
             return
         file_format_field.initial = CaseDownloadFormat.PDF
         file_format_field.help_text = "选择下载的文档格式，默认PDF格式"
+
+    @classmethod
+    def _is_feature_available(cls) -> bool:
+        return cls._manual_switch_enabled() or cls._private_weike_api_enabled()
+
+    @staticmethod
+    def _manual_switch_enabled() -> bool:
+        return bool(getattr(settings, "LEGAL_RESEARCH_ADMIN_FEATURE_ENABLED", False))
+
+    @staticmethod
+    def _private_weike_api_enabled() -> bool:
+        try:
+            from apps.legal_research.services.sources.weike import api_optional
+
+            return api_optional.get_private_weike_api() is not None
+        except Exception:
+            return False
 
     def save_model(self, request, obj: CaseDownloadTask, form, change) -> None:  # type: ignore[override]
         if change:

@@ -5,6 +5,7 @@ import logging
 from typing import Any, ClassVar
 
 from django import forms
+from django.conf import settings
 from django.contrib import admin, messages
 from django.db.models import Q, QuerySet
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
@@ -171,6 +172,15 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
         model_field.help_text = "选择用于案例相似度评估的硅基流动模型。"
         self._attach_keyword_cleaner(form)
         return form
+
+    def has_add_permission(self, request: HttpRequest) -> bool:
+        return super().has_add_permission(request) and self._is_feature_available()
+
+    def add_view(self, request: HttpRequest, form_url: str = "", extra_context: dict[str, Any] | None = None):
+        if not self._is_feature_available():
+            messages.error(request, "功能未启用：请接入私有 wk API，或在代码中开启 LEGAL_RESEARCH_ADMIN_FEATURE_ENABLED。")
+            return HttpResponseRedirect(reverse("admin:legal_research_legalresearchtask_changelist"))
+        return super().add_view(request=request, form_url=form_url, extra_context=extra_context)
 
     def get_urls(self):  # type: ignore[override]
         urls = super().get_urls()
@@ -371,6 +381,14 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
         if obj is not None and str(getattr(obj, "source", "") or "").strip().lower() != "weike":
             return False
         return cls._private_weike_api_enabled()
+
+    @classmethod
+    def _is_feature_available(cls) -> bool:
+        return cls._manual_switch_enabled() or cls._private_weike_api_enabled()
+
+    @staticmethod
+    def _manual_switch_enabled() -> bool:
+        return bool(getattr(settings, "LEGAL_RESEARCH_ADMIN_FEATURE_ENABLED", False))
 
     @staticmethod
     def _private_weike_api_enabled() -> bool:
