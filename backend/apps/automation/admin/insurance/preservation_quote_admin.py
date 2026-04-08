@@ -10,16 +10,16 @@ from decimal import Decimal
 from typing import Any, ClassVar
 
 from django.contrib import admin, messages
-from django.db.models import QuerySet
+from django.db.models import Case, IntegerField, QuerySet, Value, When
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect
 from django.urls import path
 from django.utils import timezone
 from django.utils.html import format_html, format_html_join
-from django.utils.safestring import SafeString
+from django.utils.safestring import SafeString, mark_safe
 from django.utils.translation import gettext_lazy as _
 
-from apps.automation.models import InsuranceQuote, PreservationQuote, QuoteStatus
+from apps.automation.models import InsuranceQuote, PreservationQuote, QuoteItemStatus, QuoteStatus
 
 
 def _get_preservation_quote_admin_service() -> Any:
@@ -61,30 +61,32 @@ class InsuranceQuoteInline(admin.TabularInline[InsuranceQuote, InsuranceQuote]):
             return format_html('<span style="color: #999;">{}</span>', "-")
 
         parts = []
-        if obj.min_premium:
-            parts.append(
-                format_html(
-                    '最低收费: <span style="color: #28a745; font-weight: bold;">¥{}</span>',
-                    f"{obj.min_premium:,.2f}",
-                )
-            )
         if obj.min_amount:
             parts.append(
                 format_html(
-                    '最低报价: <span style="color: #17a2b8; font-weight: bold;">¥{}</span>',
+                    '报价金额: <span style="color: #17a2b8; font-weight: bold;">¥{}</span>',
                     f"{obj.min_amount:,.2f}",
+                )
+            )
+
+        # 兼容展示接口返回的收费上下限，避免与“报价金额”概念混淆
+        if obj.min_premium and (obj.min_amount is None or obj.min_premium != obj.min_amount):
+            parts.append(
+                format_html(
+                    '起收金额: <span style="color: #28a745; font-weight: bold;">¥{}</span>',
+                    f"{obj.min_premium:,.2f}",
                 )
             )
         if obj.max_amount:
             parts.append(
                 format_html(
-                    '最高收费: <span style="color: #dc3545; font-weight: bold;">¥{}</span>',
+                    '收费上限: <span style="color: #dc3545; font-weight: bold;">¥{}</span>',
                     f"{obj.max_amount:,.2f}",
                 )
             )
 
         if parts:
-            return format_html_join("<br>", "{}", ((p,) for p in parts))
+            return format_html_join(mark_safe("<br>"), "{}", ((p,) for p in parts))
         return format_html('<span style="color: #999;">{}</span>', "-")
 
     @admin.display(description=_("费率"))
@@ -100,7 +102,7 @@ class InsuranceQuoteInline(admin.TabularInline[InsuranceQuote, InsuranceQuote]):
             parts.append(format_html('最高: <span style="color: #dc3545; font-weight: bold;">{}</span>', obj.max_rate))
 
         if parts:
-            return format_html_join("<br>", "{}", ((p,) for p in parts))
+            return format_html_join(mark_safe("<br>"), "{}", ((p,) for p in parts))
         return format_html('<span style="color: #999;">{}</span>', "-")
 
     @admin.display(description=_("最高保全金额"))
@@ -157,6 +159,17 @@ class InsuranceQuoteInline(admin.TabularInline[InsuranceQuote, InsuranceQuote]):
     def has_add_permission(self, request: HttpRequest, obj: InsuranceQuote | None = None) -> bool:
         """禁用添加功能"""
         return False
+
+    def get_queryset(self, request: HttpRequest) -> QuerySet[InsuranceQuote]:
+        """成功报价在前，失败报价在后。"""
+        qs = super().get_queryset(request)
+        return qs.annotate(
+            status_priority=Case(
+                When(status=QuoteItemStatus.SUCCESS, then=Value(0)),
+                default=Value(1),
+                output_field=IntegerField(),
+            )
+        ).order_by("status_priority", "min_amount", "id")
 
 
 @admin.register(PreservationQuote)
@@ -361,10 +374,17 @@ class PreservationQuoteAdmin(admin.ModelAdmin[PreservationQuote]):
         if obj.total_companies == 0:
             return format_html('<p style="color: #999;">{}</p>', _("暂无报价数据"))
 
-        quotes = obj.quotes.all().order_by("min_amount")
+        quotes = list(obj.quotes.all())
 
         if not quotes:
             return format_html('<p style="color: #999;">{}</p>', _("暂无报价数据"))
+
+        successful_for_display = sorted(
+            [q for q in quotes if q.status == QuoteItemStatus.SUCCESS and q.min_amount is not None],
+            key=lambda q: q.min_amount,
+        )
+        failed_for_display = [q for q in quotes if q not in successful_for_display]
+        display_quotes = successful_for_display + failed_for_display
 
         table_header = format_html(
             '<table style="width: 100%; border-collapse: collapse; margin-top: 10px;">'
@@ -385,18 +405,18 @@ class PreservationQuoteAdmin(admin.ModelAdmin[PreservationQuote]):
 
         row_parts: list[SafeString] = []
         rank = 1
-        for quote in quotes:
+        for quote in display_quotes:
             row_parts.append(self._render_quote_row(quote, rank))
-            if (quote.premium is not None) or (quote.min_amount is not None):
+            if quote.status == QuoteItemStatus.SUCCESS and quote.min_amount is not None:
                 rank += 1
 
         rows_html = format_html_join("", "{}", ((r,) for r in row_parts))
-        table_close = format_html("{}", "</tbody></table>")
+        table_close = mark_safe("</tbody></table>")
 
         def _get_amount(q: Any) -> Any:
-            return q.premium if q.premium is not None else q.min_amount
+            return q.min_amount
 
-        successful_quotes = [q for q in quotes if _get_amount(q) is not None]
+        successful_quotes = [q for q in successful_for_display if _get_amount(q) is not None]
         if successful_quotes:
             min_premium: Decimal = min(_get_amount(q) for q in successful_quotes)
             max_premium: Decimal = max(_get_amount(q) for q in successful_quotes)
@@ -428,7 +448,7 @@ class PreservationQuoteAdmin(admin.ModelAdmin[PreservationQuote]):
         else:
             status_cell = format_html('<span style="color: #dc3545;">❌ {}</span>', _("失败"))
 
-        amount_val = quote.premium if quote.premium is not None else quote.min_amount
+        amount_val = quote.min_amount
         if amount_val is not None:
             amount_str = f"{amount_val:,.2f}"
             if rank == 1:
