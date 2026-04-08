@@ -16,7 +16,7 @@ from django.db.models import Q
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from apps.contracts.models import Contract, ContractOASyncSession, ContractOASyncStatus
+from apps.contracts.models import Contract, ContractOASyncSession, ContractOASyncStatus, ContractParty
 from apps.core.dependencies.core import build_task_submission_service
 from apps.oa_filing.services.oa_scripts.jtn_case_import import JtnCaseImportScript, OAListCaseCandidate
 from apps.organization.models import AccountCredential
@@ -89,6 +89,8 @@ class ContractOASyncService:
     def build_status_payload(self, *, session: ContractOASyncSession) -> dict[str, Any]:
         payload = dict(session.result_payload or {})
         summary = payload.get("summary") or {}
+        error_message = str(session.error_message or "")
+        sso_login_url = str(payload.get("sso_login_url") or "").strip() or self._extract_sso_login_url(error_message)
         return {
             "session_id": int(session.id),
             "status": session.status,
@@ -99,7 +101,8 @@ class ContractOASyncService:
             "multiple_count": int(session.multiple_count or 0),
             "not_found_count": int(session.not_found_count or 0),
             "error_count": int(session.error_count or 0),
-            "error_message": str(session.error_message or ""),
+            "error_message": error_message,
+            "sso_login_url": sso_login_url,
             "summary": {
                 "matched_count": int(summary.get("matched_count", 0) or 0),
                 "multiple_count": int(summary.get("multiple_count", 0) or 0),
@@ -206,8 +209,9 @@ class ContractOASyncService:
             script = JtnCaseImportScript(
                 account=credential.account,
                 password=credential.password,
-                headless=True,
+                headless=False,
             )
+            script.ensure_name_search_ready()
 
             items: list[dict[str, Any]] = []
             matched_count = 0
@@ -341,12 +345,20 @@ class ContractOASyncService:
             )
         except Exception as exc:
             logger.exception("contract_oa_sync_failed", extra={"session_id": session_id})
+            error_message = str(exc)
+            sso_login_url = self._extract_sso_login_url(error_message)
             self._update_session(
                 session,
                 status=ContractOASyncStatus.FAILED,
                 progress_message=str(_("同步失败")),
-                error_message=str(exc),
+                error_message=error_message,
                 completed_at=timezone.now(),
+                result_payload={
+                    "items": [],
+                    "summary": {},
+                    "remaining_contracts": self.list_missing_oa_contracts(),
+                    "sso_login_url": sso_login_url,
+                },
             )
 
     def _search_candidates_with_fallback_keywords(
@@ -357,12 +369,12 @@ class ContractOASyncService:
         contract_name: str,
         limit: int,
     ) -> list[OAListCaseCandidate]:
-        keywords = self._build_name_search_keywords(contract_name)
+        keywords = self._build_name_search_keywords(contract_name=contract_name, contract_id=contract_id)
         if not keywords:
             return []
 
         effective_limit = max(1, int(limit))
-        expanded_limit = max(effective_limit * 5, 30)
+        expanded_limit = max(effective_limit * 20, 120)
 
         for keyword in keywords:
             candidates = script.search_cases_by_name(contract_name=keyword, limit=effective_limit)
@@ -424,15 +436,31 @@ class ContractOASyncService:
         if not plaintiff_tokens or not defendant_tokens:
             return candidates
 
-        filtered: list[OAListCaseCandidate] = []
+        strict_filtered: list[OAListCaseCandidate] = []
         for candidate in candidates:
             candidate_name = self._normalize_match_text(candidate.case_name)
             plaintiff_hit = any(token in candidate_name for token in plaintiff_tokens)
             defendant_hit = any(token in candidate_name for token in defendant_tokens)
             if plaintiff_hit and defendant_hit:
-                filtered.append(candidate)
+                strict_filtered.append(candidate)
 
-        return filtered
+        if strict_filtered:
+            return strict_filtered
+
+        relaxed_plaintiff_markers = self._build_relaxed_party_markers(plaintiff_tokens)
+        relaxed_defendant_markers = self._build_relaxed_party_markers(defendant_tokens)
+        relaxed_filtered: list[OAListCaseCandidate] = []
+        for candidate in candidates:
+            candidate_name = self._normalize_match_text(candidate.case_name)
+            plaintiff_hit = any(marker in candidate_name for marker in relaxed_plaintiff_markers)
+            defendant_hit = any(marker in candidate_name for marker in relaxed_defendant_markers)
+            if plaintiff_hit and defendant_hit:
+                relaxed_filtered.append(candidate)
+
+        if relaxed_filtered:
+            return relaxed_filtered
+
+        return candidates
 
     def _extract_lawsuit_party_tokens(self, contract_name: str) -> tuple[list[str], list[str]]:
         normalized_name = str(contract_name or "").strip()
@@ -472,87 +500,115 @@ class ContractOASyncService:
 
         return tokens
 
+    def _build_relaxed_party_markers(self, tokens: list[str]) -> list[str]:
+        markers: list[str] = []
+
+        def append_marker(value: str) -> None:
+            marker = self._normalize_match_text(value)
+            if len(marker) < 2:
+                return
+            if marker not in markers:
+                markers.append(marker)
+
+        for token in tokens:
+            normalized = self._normalize_match_text(token)
+            if not normalized:
+                continue
+
+            append_marker(normalized)
+
+            core = re.sub(r"(?:有限责任公司|股份有限公司|有限公司|公司|集团|分公司)$", "", normalized)
+            append_marker(core)
+
+            core = re.sub(
+                r"^(?:北京|上海|天津|重庆|广东|江苏|浙江|山东|河南|河北|四川|湖北|湖南|福建|安徽|江西|广西|云南|贵州|海南|陕西|山西|辽宁|吉林|黑龙江|内蒙古|宁夏|新疆|西藏|青海|甘肃|香港|澳门)",
+                "",
+                core,
+            )
+            append_marker(core)
+
+            if len(core) >= 2:
+                append_marker(core[:2])
+            if len(core) >= 3:
+                append_marker(core[:3])
+            if len(core) >= 4:
+                append_marker(core[:4])
+
+        return markers
+
     def _normalize_match_text(self, value: str) -> str:
         text = re.sub(r"\s+", "", str(value or "")).strip()
         return re.sub(r"[\-—_，,。.;；:：()（）\[\]{}]", "", text)
 
-    def _build_name_search_keywords(self, contract_name: str) -> list[str]:
+    def _build_name_search_keywords(self, *, contract_name: str, contract_id: int) -> list[str]:
         raw_name = str(contract_name or "").strip()
-        if not raw_name:
-            return []
-
-        plaintiff_tokens, defendant_tokens = self._extract_lawsuit_party_tokens(raw_name)
-        is_lawsuit_name = bool(plaintiff_tokens and defendant_tokens)
         keywords: list[str] = []
 
         def append_keyword(value: str) -> None:
-            text = re.sub(r"\s+", " ", value).strip()
+            text = re.sub(r"\s+", " ", str(value or "")).strip()
             if not text:
                 return
             if text not in keywords:
                 keywords.append(text)
 
-        append_keyword(raw_name)
+        # 优先使用合同名检索；命中不足时再回退我方当事人关键词。
+        if raw_name:
+            plaintiff_tokens, defendant_tokens = self._extract_lawsuit_party_tokens(raw_name)
+            is_lawsuit_name = bool(plaintiff_tokens and defendant_tokens)
 
-        without_brackets = re.sub(r"[（(][^）)]*[）)]", " ", raw_name)
-        append_keyword(without_brackets)
+            append_keyword(raw_name)
 
-        without_case_count = re.sub(r"(?:\d+|[一二三四五六七八九十百千万两]+)案$", "", without_brackets).strip(" -—_，,。.;；")
-        append_keyword(without_case_count)
+            without_brackets = re.sub(r"[（(][^）)]*[）)]", " ", raw_name)
+            append_keyword(without_brackets)
 
-        if not is_lawsuit_name:
-            dispute_matches = re.findall(r"([\u4e00-\u9fa5A-Za-z0-9]{2,32}(?:纠纷|争议|案件))", without_case_count)
-            if dispute_matches:
-                dispute_keyword = str(dispute_matches[-1]).strip()
-                append_keyword(dispute_keyword)
-                if "诉" in dispute_keyword:
-                    append_keyword(dispute_keyword.split("诉")[-1].strip())
+            without_case_count = re.sub(r"(?:\d+|[一二三四五六七八九十百千万两]+)案$", "", without_brackets).strip(
+                " -—_，,。.;；"
+            )
+            append_keyword(without_case_count)
 
-                for explicit_phrase in ("民间借贷纠纷", "买卖合同纠纷"):
-                    if explicit_phrase in dispute_keyword:
-                        append_keyword(explicit_phrase)
+            if not is_lawsuit_name:
+                dispute_matches = re.findall(r"([\u4e00-\u9fa5A-Za-z0-9]{2,32}(?:纠纷|争议|案件))", without_case_count)
+                if dispute_matches:
+                    dispute_keyword = str(dispute_matches[-1]).strip()
+                    append_keyword(dispute_keyword)
+                    if "诉" in dispute_keyword:
+                        append_keyword(dispute_keyword.split("诉")[-1].strip())
 
-                tail_match = re.search(
-                    r"([\u4e00-\u9fa5]{2,16}(?:合同纠纷|借贷纠纷|劳务纠纷|侵权纠纷|纠纷|争议|案件))$",
-                    dispute_keyword,
-                )
-                if tail_match:
-                    append_keyword(str(tail_match.group(1)).strip())
+                    for explicit_phrase in ("民间借贷纠纷", "买卖合同纠纷"):
+                        if explicit_phrase in dispute_keyword:
+                            append_keyword(explicit_phrase)
 
-            short_tail = without_case_count[-24:]
-            append_keyword(short_tail)
+                    tail_match = re.search(
+                        r"([\u4e00-\u9fa5]{2,16}(?:合同纠纷|借贷纠纷|劳务纠纷|侵权纠纷|纠纷|争议|案件))$",
+                        dispute_keyword,
+                    )
+                    if tail_match:
+                        append_keyword(str(tail_match.group(1)).strip())
 
-        for party_keyword in self._build_party_name_keywords(raw_name):
-            append_keyword(party_keyword)
+                short_tail = without_case_count[-24:]
+                append_keyword(short_tail)
 
-        return keywords[:6] if is_lawsuit_name else keywords[:10]
+        party_keywords = self._build_party_name_keywords(contract_id=contract_id)
+        for keyword in party_keywords:
+            append_keyword(keyword)
 
-    def _build_party_name_keywords(self, contract_name: str) -> list[str]:
-        plaintiff_tokens, defendant_tokens = self._extract_lawsuit_party_tokens(contract_name)
-        if not plaintiff_tokens and not defendant_tokens:
-            return []
+        return keywords[:10]
+
+    def _build_party_name_keywords(self, *, contract_id: int) -> list[str]:
+        party_names = (
+            ContractParty.objects.filter(contract_id=contract_id, client__is_our_client=True)
+            .select_related("client")
+            .values_list("client__name", flat=True)
+        )
 
         keywords: list[str] = []
+        for name in party_names:
+            normalized = str(name or "").strip()
+            if len(normalized) < 2:
+                continue
+            if normalized not in keywords:
+                keywords.append(normalized)
 
-        def append_keyword(value: str) -> None:
-            text = str(value or "").strip()
-            if not text:
-                return
-            if text not in keywords:
-                keywords.append(text)
-
-        if plaintiff_tokens and defendant_tokens:
-            for plaintiff in plaintiff_tokens:
-                for defendant in defendant_tokens:
-                    append_keyword(f"{plaintiff}诉{defendant}")
-            for defendant in defendant_tokens:
-                append_keyword(defendant)
-            return keywords
-
-        for plaintiff in plaintiff_tokens:
-            append_keyword(plaintiff)
-        for defendant in defendant_tokens:
-            append_keyword(defendant)
         return keywords
     def _is_stale_active_session(self, session: ContractOASyncSession) -> bool:
         if session.status not in self._ACTIVE_STATUSES:
@@ -610,6 +666,15 @@ class ContractOASyncService:
         if credential is None:
             raise RuntimeError(str(_("未找到金诚同达OA账号，请先在账号密码中配置")))
         return credential
+
+    def _extract_sso_login_url(self, text: str) -> str:
+        message = str(text or "")
+        if "access.jtn.com" not in message:
+            return ""
+        url_match = re.search(r"https://access\.jtn\.com/[^\s\"'<>]+", message)
+        if url_match:
+            return str(url_match.group(0)).strip()
+        return "https://access.jtn.com/login"
 
     def _update_session(self, session: ContractOASyncSession, **fields: Any) -> None:
         if not fields:
