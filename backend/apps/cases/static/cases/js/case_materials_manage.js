@@ -881,11 +881,10 @@
               this.lastUploadedIds = (data && data.attachment_ids) || [];
               this.pendingFiles = [];
               this.recentUploadedCount = this.lastUploadedIds.length || files.length;
-              this.showMessage('上传成功，请完善分类后保存', 'success');
-              this.load();
+              this.showMessage('上传成功，正在刷新...', 'success');
               window.setTimeout(() => {
-                this.recentUploadedCount = 0;
-              }, 4500);
+                window.location.reload();
+              }, 600);
             })
             .catch(() => {
               this.showMessage('上传失败', 'error');
