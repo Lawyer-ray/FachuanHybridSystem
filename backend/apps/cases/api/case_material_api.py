@@ -10,6 +10,7 @@ from ninja import Router
 from apps.cases.schemas import (
     CaseMaterialBindCandidateOut,
     CaseMaterialBindIn,
+    CaseMaterialDeleteOut,
     CaseMaterialGroupOrderIn,
     CaseMaterialGroupRenameIn,
     CaseMaterialGroupRenameOut,
@@ -139,6 +140,26 @@ def rename_group(
         type_id=payload.type_id,
         new_type_name=payload.new_type_name,
         update_global=payload.update_global,
+        user=ctx.user,
+        org_access=ctx.org_access,
+        perm_open_access=ctx.perm_open_access,
+    )
+
+
+@router.delete(
+    "/{case_id}/materials/{material_id}",
+    response=CaseMaterialDeleteOut,
+)
+@rate_limit_from_settings("TASK", by_user=True)
+def delete_material(
+    request: HttpRequest, case_id: int, material_id: int
+) -> dict[str, Any]:
+    """删除材料绑定（附件文件不受影响）。"""
+    service = _get_case_material_service()
+    ctx = get_request_access_context(request)
+    return service.delete_material(
+        case_id=case_id,
+        material_id=material_id,
         user=ctx.user,
         org_access=ctx.org_access,
         perm_open_access=ctx.perm_open_access,

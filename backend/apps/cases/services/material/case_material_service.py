@@ -401,3 +401,30 @@ class CaseMaterialService:
         )
 
         return {"type_id": type_id, "old_type_name": old_type_name, "new_type_name": new_type_name}
+
+    def delete_material(
+        self,
+        case_id: int,
+        material_id: int,
+        user: Any | None = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
+    ) -> dict[str, Any]:
+        """删除材料绑定。
+
+        仅删除 CaseMaterial 记录（解除分类绑定），
+        附件文件仍保留在日志中不受影响。
+        """
+        self._case_service.get_case(case_id, user=user, org_access=org_access, perm_open_access=perm_open_access)
+
+        try:
+            material = CaseMaterial.objects.get(id=material_id, case_id=case_id)
+        except CaseMaterial.DoesNotExist:
+            raise NotFoundError(_("材料不存在")) from None
+
+        material_id_val = material.id
+        material.delete()
+
+        logger.info("材料已删除: material_id=%s, case_id=%s", material_id_val, case_id)
+
+        return {"material_id": material_id_val, "deleted": True}
