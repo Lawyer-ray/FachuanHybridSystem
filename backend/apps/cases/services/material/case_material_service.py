@@ -410,21 +410,36 @@ class CaseMaterialService:
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> dict[str, Any]:
-        """删除材料绑定。
+        """删除材料绑定及对应附件文件。
 
-        仅删除 CaseMaterial 记录（解除分类绑定），
-        附件文件仍保留在日志中不受影响。
+        删除 CaseMaterial 记录，同时删除关联的 CaseLogAttachment（含物理文件）。
         """
         self._case_service.get_case(case_id, user=user, org_access=org_access, perm_open_access=perm_open_access)
 
         try:
-            material = CaseMaterial.objects.get(id=material_id, case_id=case_id)
+            material = CaseMaterial.objects.select_related("source_attachment").get(id=material_id, case_id=case_id)
         except CaseMaterial.DoesNotExist:
             raise NotFoundError(_("材料不存在")) from None
 
         material_id_val = material.id
+        attachment_id_val = material.source_attachment_id
+        attachment = material.source_attachment
+
+        # 先删除材料记录（解除 OneToOne 关系）
         material.delete()
 
-        logger.info("材料已删除: material_id=%s, case_id=%s", material_id_val, case_id)
+        # 再删除附件（含物理文件），source_attachment on_delete=CASCADE 会级联，
+        # 但我们已经先删了 material，所以需要手动删附件
+        if attachment:
+            attachment_file = getattr(attachment, "file", None)
+            if attachment_file:
+                try:
+                    attachment_file.delete(save=False)
+                except Exception:
+                    logger.warning("删除附件物理文件失败: attachment_id=%s", attachment_id_val)
+            attachment.delete()
+            logger.info("附件已删除: attachment_id=%s", attachment_id_val)
+
+        logger.info("材料已删除: material_id=%s, case_id=%s, attachment_id=%s", material_id_val, case_id, attachment_id_val)
 
         return {"material_id": material_id_val, "deleted": True}

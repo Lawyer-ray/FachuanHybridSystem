@@ -179,7 +179,7 @@
         <div class="material-delete-modal-backdrop" onclick="closeDeleteModal()"></div>
         <div class="material-delete-modal-content">
             <h3>{% trans "删除材料" %}</h3>
-            <p class="material-delete-modal-desc">{% trans "确定要删除此材料吗？删除后仅解除分类绑定，附件文件仍保留在日志中。" %}</p>
+            <p class="material-delete-modal-desc">{% trans "确定要删除此材料吗？删除后分类绑定和附件文件都将被移除，此操作不可恢复。" %}</p>
             <div class="material-delete-modal-actions">
                 <button type="button" class="button" onclick="closeDeleteModal()">{% trans "取消" %}</button>
                 <button type="button" class="button default" id="materialDeleteConfirmBtn" onclick="doDeleteMaterial()">{% trans "确认删除" %}</button>
