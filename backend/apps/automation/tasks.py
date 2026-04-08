@@ -7,7 +7,7 @@ import logging
 from collections.abc import Coroutine
 from concurrent.futures import Future
 from threading import Thread
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger("apps.automation")
 
@@ -190,7 +190,7 @@ def reset_running_tasks() -> int:
 
     running_tasks = ScraperTask.objects.filter(status=ScraperTaskStatus.RUNNING)
 
-    count = running_tasks.count()
+    count = int(running_tasks.count())
     if count == 0:
         logger.info("没有卡住的 running 任务")
         return 0
@@ -240,13 +240,14 @@ def execute_preservation_quote_task(quote_id: int) -> dict[str, Any]:
 
     try:
         token_service = TokenService()
-        insurance_client = CourtInsuranceClient(token_service)  # type: ignore[arg-type]
+        insurance_client = CourtInsuranceClient(token_service)
         quote_service = PreservationQuoteService(
-            token_service=token_service,  # type: ignore[arg-type]
+            token_service=token_service,
             insurance_client=insurance_client,
         )
 
-        result = _run_coroutine_sync(quote_service.execute_quote(quote_id))
+        raw_result = _run_coroutine_sync(quote_service.execute_quote(quote_id))
+        result = cast(dict[str, Any], raw_result)
 
         logger.info("✅ 询价任务 #%s 执行完成: %s", quote_id, result)
         return result

@@ -36,7 +36,7 @@ class InsuranceQuoteInline(admin.TabularInline[InsuranceQuote, InsuranceQuote]):
     extra = 0
     can_delete = False
 
-    fields: ClassVar[list[str]] = [
+    fields = [
         "company_name",
         "prices_display",
         "rates_display",
@@ -45,7 +45,7 @@ class InsuranceQuoteInline(admin.TabularInline[InsuranceQuote, InsuranceQuote]):
         "error_message_display",
     ]
 
-    readonly_fields: ClassVar[list[str]] = [
+    readonly_fields = [
         "company_name",
         "prices_display",
         "rates_display",
@@ -176,7 +176,7 @@ class InsuranceQuoteInline(admin.TabularInline[InsuranceQuote, InsuranceQuote]):
 class PreservationQuoteAdmin(admin.ModelAdmin[PreservationQuote]):
     """财产保全询价管理 Admin"""
 
-    list_display: ClassVar[list[str]] = [
+    list_display = [
         "id",
         "preserve_amount_display",
         "status_display",
@@ -187,19 +187,19 @@ class PreservationQuoteAdmin(admin.ModelAdmin[PreservationQuote]):
         "run_button",
     ]
 
-    list_filter: ClassVar[list[str]] = [
+    list_filter = [
         "status",
         "created_at",
         "finished_at",
     ]
 
-    search_fields: ClassVar[list[str]] = [
+    search_fields = [
         "id",
         "corp_id",
         "category_id",
     ]
 
-    readonly_fields: ClassVar[list[str]] = [
+    readonly_fields = [
         "id",
         "status",
         "total_companies",
@@ -259,13 +259,13 @@ class PreservationQuoteAdmin(admin.ModelAdmin[PreservationQuote]):
         ),
     )
 
-    inlines: ClassVar[list[Any]] = [InsuranceQuoteInline]
-    ordering: ClassVar[list[str]] = ["-created_at"]
+    inlines = [InsuranceQuoteInline]
+    ordering = ["-created_at"]
     date_hierarchy = "created_at"
 
     list_per_page = 20
 
-    actions: ClassVar[list[str]] = ["execute_quotes", "retry_failed_quotes"]
+    actions = ["execute_quotes", "retry_failed_quotes"]
 
     @admin.display(description=_("保全金额"))
     def preserve_amount_display(self, obj: PreservationQuote) -> SafeString:
@@ -538,4 +538,4 @@ class PreservationQuoteAdmin(admin.ModelAdmin[PreservationQuote]):
         except Exception as e:
             self.message_user(request, f"提交任务失败: {e!s}", level=messages.ERROR)
 
-        return redirect("admin:automation_preservationquote_changelist")  # type: ignore[return-value]
+        return redirect("admin:automation_preservationquote_changelist")
