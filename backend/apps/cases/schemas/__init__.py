@@ -51,6 +51,10 @@ from .material_schemas import (
     CaseMaterialBindingOut,
     CaseMaterialBindItemIn,
     CaseMaterialGroupOrderIn,
+    CaseMaterialGroupRenameIn,
+    CaseMaterialGroupRenameOut,
+    CaseMaterialReplaceIn,
+    CaseMaterialReplaceOut,
     CaseMaterialUploadOut,
 )
 from .number_schemas import CaseNumberIn, CaseNumberOut, CaseNumberUpdate
@@ -105,6 +109,10 @@ __all__ = [
     "CaseMaterialBindItemIn",
     "CaseMaterialBindingOut",
     "CaseMaterialGroupOrderIn",
+    "CaseMaterialGroupRenameIn",
+    "CaseMaterialGroupRenameOut",
+    "CaseMaterialReplaceIn",
+    "CaseMaterialReplaceOut",
     "CaseMaterialUploadOut",
     "CaseNumberIn",
     "CaseNumberOut",
