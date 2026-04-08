@@ -11,6 +11,10 @@ from apps.cases.schemas import (
     CaseMaterialBindCandidateOut,
     CaseMaterialBindIn,
     CaseMaterialGroupOrderIn,
+    CaseMaterialGroupRenameIn,
+    CaseMaterialGroupRenameOut,
+    CaseMaterialReplaceIn,
+    CaseMaterialReplaceOut,
     CaseMaterialUploadOut,
 )
 from apps.cases.services import CaseLogService
@@ -96,3 +100,46 @@ def upload_materials(request: HttpRequest, case_id: int) -> dict[str, Any]:
         perm_open_access=ctx.perm_open_access,
     )
     return {"log_id": log.id, "attachment_ids": [x.id for x in created]}  # type: ignore[attr-defined]
+
+
+@router.post(
+    "/{case_id}/materials/{material_id}/replace",
+    response=CaseMaterialReplaceOut,
+)
+@rate_limit_from_settings("TASK", by_user=True)
+def replace_material_file(
+    request: HttpRequest, case_id: int, material_id: int, payload: CaseMaterialReplaceIn
+) -> dict[str, Any]:
+    """替换材料对应的附件文件。"""
+    service = _get_case_material_service()
+    ctx = get_request_access_context(request)
+    return service.replace_material_file(
+        case_id=case_id,
+        material_id=material_id,
+        new_attachment_id=payload.new_attachment_id,
+        user=ctx.user,
+        org_access=ctx.org_access,
+        perm_open_access=ctx.perm_open_access,
+    )
+
+
+@router.post(
+    "/{case_id}/materials/group-rename",
+    response=CaseMaterialGroupRenameOut,
+)
+@rate_limit_from_settings("TASK", by_user=True)
+def rename_group(
+    request: HttpRequest, case_id: int, payload: CaseMaterialGroupRenameIn
+) -> dict[str, Any]:
+    """重命名材料分组。"""
+    service = _get_case_material_service()
+    ctx = get_request_access_context(request)
+    return service.rename_group(
+        case_id=case_id,
+        type_id=payload.type_id,
+        new_type_name=payload.new_type_name,
+        update_global=payload.update_global,
+        user=ctx.user,
+        org_access=ctx.org_access,
+        perm_open_access=ctx.perm_open_access,
+    )
