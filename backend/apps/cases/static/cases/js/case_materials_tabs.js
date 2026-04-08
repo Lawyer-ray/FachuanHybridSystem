@@ -378,17 +378,9 @@
         return resp.json();
       })
       .then(function () {
-        toast('材料已删除', 'success');
+        toast('材料已删除，正在刷新...', 'success');
         window.closeDeleteModal();
-        // 移除对应行，若分组为空也移除分组
-        if (deleteState.rowEl) {
-          var group = deleteState.rowEl.closest('.material-group');
-          deleteState.rowEl.remove();
-          if (group) {
-            var remaining = group.querySelectorAll('.material-file-row');
-            if (!remaining.length) group.remove();
-          }
-        }
+        setTimeout(function () { window.location.reload(); }, 600);
       })
       .catch(function (err) {
         toast(err.message || '删除失败', 'error');
