@@ -41,6 +41,7 @@
       errorCount: 0,
       resultItems: [],
       selectedCandidateKeys: {},
+      ssoWindowOpened: false,
 
       init: function init() {
         var initialContracts = parseScriptJson('oa-sync-initial-contracts') || [];
@@ -70,6 +71,26 @@
 
       setMessage: function setMessage(level, text) {
         this.message = { level: level || '', text: text || '' };
+      },
+
+      extractSsoLoginUrl: function extractSsoLoginUrl(payload) {
+        var directUrl = payload && payload.sso_login_url ? String(payload.sso_login_url).trim() : '';
+        if (directUrl.indexOf('https://access.jtn.com/') === 0) return directUrl;
+
+        var messageText = payload && payload.error_message ? String(payload.error_message) : '';
+        var matched = messageText.match(/https:\/\/access\.jtn\.com\/[^\s"'<>]+/);
+        return matched && matched[0] ? matched[0] : '';
+      },
+
+      tryOpenSsoLoginWindow: function tryOpenSsoLoginWindow(payload) {
+        if (this.ssoWindowOpened) return true;
+        var loginUrl = this.extractSsoLoginUrl(payload);
+        if (!loginUrl) return false;
+
+        var popup = window.open(loginUrl, '_blank', 'noopener,noreferrer');
+        if (!popup) return false;
+        this.ssoWindowOpened = true;
+        return true;
       },
 
       statusText: function statusText(status) {
@@ -119,23 +140,40 @@
           };
         });
         this.selectedCandidateKeys[String(targetId)] = nextKey;
-        this.setMessage('success', '已回填候选结果，请检查后点击“保存手动修改”');
+        this.setMessage('success', '已回填候选结果，请检查后点击“保存”');
       },
 
-      saveManualChanges: async function saveManualChanges() {
-        if (this.isSaving || this.isRunning || !this.missingContracts.length) return;
-        this.setMessage('', '');
-        this.isSaving = true;
+      hasAnySavableEntry: function hasAnySavableEntry() {
+        return this.missingContracts.some(function (item) {
+          return Boolean((item.law_firm_oa_case_number || '').trim() || (item.law_firm_oa_url || '').trim());
+        });
+      },
 
-        try {
-          var entries = this.missingContracts.map(function (item) {
+      buildSaveEntries: function buildSaveEntries() {
+        return this.missingContracts
+          .map(function (item) {
             return {
               id: Number(item.id),
               law_firm_oa_case_number: (item.law_firm_oa_case_number || '').trim(),
               law_firm_oa_url: (item.law_firm_oa_url || '').trim(),
             };
+          })
+          .filter(function (item) {
+            return Boolean(item.law_firm_oa_case_number || item.law_firm_oa_url);
           });
+      },
 
+      saveManualChanges: async function saveManualChanges() {
+        if (this.isSaving || this.isRunning) return;
+        var entries = this.buildSaveEntries();
+        if (!entries.length) {
+          this.setMessage('error', '请先选择候选结果或填写OA案件编号/链接后再保存');
+          return;
+        }
+        this.setMessage('', '');
+        this.isSaving = true;
+
+        try {
           var response = await fetch(this.config.saveUrl, {
             method: 'POST',
             headers: {
@@ -157,7 +195,8 @@
             var suffix = firstError.message ? ('：' + firstError.message) : '';
             this.setMessage('error', (data.message || '部分保存成功') + suffix);
           } else {
-            this.setMessage('success', data.message || '保存成功');
+            var updatedCount = Number(data.updated_count || 0);
+            this.setMessage('success', (data.message || '保存成功') + '（已保存 ' + updatedCount + ' 条）');
           }
         } catch (error) {
           this.setMessage('error', error && error.message ? error.message : '保存失败');
@@ -169,6 +208,7 @@
       startSync: async function startSync() {
         if (this.isRunning || this.isSaving || !this.missingContracts.length) return;
         this.setMessage('', '');
+        this.ssoWindowOpened = false;
         this.isRunning = true;
 
         try {
@@ -237,7 +277,13 @@
             }
             if (data.status === 'failed') {
               self.isRunning = false;
-              self.setMessage('error', data.error_message || '同步失败');
+              var baseErrorMessage = data.error_message || '同步失败';
+              var openedSsoWindow = self.tryOpenSsoLoginWindow(data);
+              if (openedSsoWindow) {
+                self.setMessage('error', baseErrorMessage + ' 已自动打开单点登录页（若直接进入案件列表说明已登录，无需扫码），请返回后重新点击“开始同步”。');
+              } else {
+                self.setMessage('error', baseErrorMessage);
+              }
               window.clearInterval(self.pollTimer);
               self.pollTimer = null;
               return;

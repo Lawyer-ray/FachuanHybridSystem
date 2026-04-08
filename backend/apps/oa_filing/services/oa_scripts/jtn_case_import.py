@@ -16,9 +16,11 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Generator
 from urllib.parse import parse_qs, urljoin, urlparse
 
+from django.utils.translation import gettext_lazy as _
+
 import httpx
 from lxml import html as lxml_html
-from playwright.sync_api import Browser, BrowserContext, Page, Playwright, sync_playwright
+from playwright.sync_api import Browser, BrowserContext, Frame, Page, Playwright, sync_playwright
 
 logger = logging.getLogger("apps.oa_filing.jtn_case_import")
 
@@ -143,6 +145,7 @@ class JtnCaseImportScript:
         self._name_search_form_state: CaseListFormState | None = None
         self._name_search_pw: Playwright | None = None
         self._name_search_browser: Browser | None = None
+        self._force_playwright_name_search = False
 
     def search_case(self, case_no: str) -> OACaseData | None:
         """根据案件编号搜索并提取完整数据。
@@ -169,12 +172,17 @@ class JtnCaseImportScript:
 
         effective_limit = max(1, int(limit))
 
+        if self._force_playwright_name_search:
+            return self._search_cases_by_name_via_playwright(keyword=keyword, limit=effective_limit)
+
         last_http_error: Exception | None = None
         for attempt in range(1, _NAME_SEARCH_HTTP_ATTEMPTS + 1):
             try:
                 return self._search_cases_by_name_via_http(keyword=keyword, limit=effective_limit)
             except Exception as exc:
                 last_http_error = exc
+                if self._is_sso_blocking_error(exc):
+                    raise
                 if attempt < _NAME_SEARCH_HTTP_ATTEMPTS:
                     logger.warning(
                         "HTTP 按名称查询异常，准备重试 HTTP: keyword=%s attempt=%d/%d err=%s",
@@ -195,6 +203,11 @@ class JtnCaseImportScript:
                 len(playwright_candidates),
             )
         return playwright_candidates
+
+    def ensure_name_search_ready(self) -> None:
+        """预检查 OA 案件列表可访问性（纯 Playwright 链路）。"""
+        self._force_playwright_name_search = True
+        self._ensure_name_search_playwright_session()
 
     def search_cases(
         self,
@@ -365,7 +378,7 @@ class JtnCaseImportScript:
                 _LOGIN_URL,
                 data={"CSRFToken": csrf_token, "userid": self._account, "password": self._password},
             )
-            if "login" in str(login_result.url).lower() or "logout" in login_result.text.lower()[:200]:
+            if self._is_login_failed_response(login_result):
                 raise RuntimeError(f"OA 登录失败，账号或密码错误: {self._account}")
 
             cookies = dict(client.cookies.items())
@@ -377,7 +390,8 @@ class JtnCaseImportScript:
         """加载案件列表页面并提取 ASP.NET 表单状态。"""
         response = client.get(_CASE_LIST_URL)
         response.raise_for_status()
-        return self._extract_form_state(html_text=response.text, base_url=str(response.url))
+        self._raise_if_sso_blocking(url=str(response.url), html_text=response.text, stage="HTTP 列表页访问")
+        return self._extract_form_state(html_text=response.text, base_url=str(response.url), client=client)
 
     def _search_case_item_via_http(
         self,
@@ -394,7 +408,7 @@ class JtnCaseImportScript:
         response = client.post(form_state.action_url, data=payload)
         response.raise_for_status()
 
-        next_form_state = self._extract_form_state(html_text=response.text, base_url=str(response.url))
+        next_form_state = self._extract_form_state(html_text=response.text, base_url=str(response.url), client=client)
         keyid = self._extract_case_keyid_from_search_html(html_text=response.text, case_no=case_no)
         if not keyid:
             return None, next_form_state
@@ -432,7 +446,11 @@ class JtnCaseImportScript:
 
             response = client.post(form_state.action_url, data=payload)
             response.raise_for_status()
-            self._name_search_form_state = self._extract_form_state(html_text=response.text, base_url=str(response.url))
+            self._name_search_form_state = self._extract_form_state(
+                html_text=response.text,
+                base_url=str(response.url),
+                client=client,
+            )
             candidates = self._extract_case_candidates_from_search_html(response.text)
             return self._rank_name_candidates(keyword=keyword, candidates=candidates, limit=limit)
         except Exception:
@@ -444,18 +462,143 @@ class JtnCaseImportScript:
             return self._name_search_http_client, self._name_search_form_state
 
         shared_cookies = self._get_or_login_http_cookies()
-        client = httpx.Client(
-            headers={**_HTTP_HEADERS, "Connection": "close"},
-            follow_redirects=True,
-            timeout=_DEFAULT_HTTP_TIMEOUT,
-            cookies=shared_cookies,
-            limits=httpx.Limits(max_connections=1, max_keepalive_connections=0),
-            trust_env=False,
-        )
-        form_state = self._load_case_list_form_state(client)
+        client = self._build_name_search_http_client(cookies=shared_cookies)
+        try:
+            form_state = self._load_case_list_form_state(client)
+        except Exception as exc:
+            if not self._is_sso_blocking_error(exc):
+                client.close()
+                raise
+
+            sso_login_url = self._extract_sso_login_url_from_text(str(exc))
+            logger.warning("HTTP 会话触发 SSO，尝试在可见浏览器完成一次交互登录: %s", sso_login_url)
+            try:
+                refreshed_cookies = self._complete_sso_interactive_login(login_url=sso_login_url)
+            finally:
+                client.close()
+
+            client = self._build_name_search_http_client(cookies=refreshed_cookies)
+            try:
+                form_state = self._load_case_list_form_state(client)
+            except Exception as retry_exc:
+                if self._is_sso_blocking_error(retry_exc):
+                    client.close()
+                    self._force_playwright_name_search = True
+                    raise RuntimeError(str(retry_exc)) from retry_exc
+                client.close()
+                raise
+
         self._name_search_http_client = client
         self._name_search_form_state = form_state
         return client, form_state
+
+    def _build_name_search_http_client(self, *, cookies: dict[str, str]) -> httpx.Client:
+        return httpx.Client(
+            headers={**_HTTP_HEADERS, "Connection": "close"},
+            follow_redirects=True,
+            timeout=_DEFAULT_HTTP_TIMEOUT,
+            cookies=cookies,
+            limits=httpx.Limits(max_connections=1, max_keepalive_connections=0),
+            trust_env=False,
+        )
+
+    def _complete_sso_interactive_login(self, *, login_url: str) -> dict[str, str]:
+        target_url = str(login_url or "").strip() or "https://access.jtn.com/login"
+        logger.warning("请在弹出的浏览器完成飞连/企微扫码登录（系统将自动检测登录成功），最多等待 180 秒")
+
+        pw = sync_playwright().start()
+        browser: Browser | None = None
+        try:
+            browser = pw.chromium.launch(headless=False)
+            context = browser.new_context()
+            page = context.new_page()
+            page.goto(target_url, wait_until="domcontentloaded", timeout=60_000)
+
+            deadline = time.time() + 180
+            merged_cookies = dict(self._http_cookies_cache or {})
+            has_triggered_case_list_navigation = False
+            while time.time() < deadline:
+                if any(self._is_ims_case_list_url(str(candidate_page.url or "")) for candidate_page in context.pages):
+                    logger.info("检测到浏览器已进入 OA 列表页，判定交互登录完成")
+                    break
+
+                ims_cookies = self._collect_ims_cookies_from_browser_context(context)
+                if ims_cookies:
+                    merged_cookies.update(ims_cookies)
+                    if self._can_access_case_list_with_cookies(merged_cookies):
+                        logger.info("检测到 OA 会话可用，判定交互登录完成")
+                        break
+
+                if not has_triggered_case_list_navigation and self._is_access_portal_logged_in(page):
+                    has_triggered_case_list_navigation = True
+                    logger.info("检测到已登录飞连门户，自动跳转 OA 列表进行会话校验")
+                    try:
+                        page.goto(_CASE_LIST_URL, wait_until="domcontentloaded", timeout=60_000)
+                        continue
+                    except Exception:
+                        logger.debug("门户跳转 OA 列表失败，等待用户继续操作", exc_info=True)
+
+                time.sleep(1)
+            else:
+                raise RuntimeError(str(_("等待扫码登录超时，请完成扫码后重试")))
+
+            if not merged_cookies:
+                raise RuntimeError(str(_("扫码登录完成，但未获取到 OA 会话，请重试")))
+
+            self._http_cookies_cache = dict(merged_cookies)
+            logger.info("交互登录成功，已回灌 cookie=%d", len(merged_cookies))
+            return dict(merged_cookies)
+        finally:
+            if browser is not None:
+                browser.close()
+            pw.stop()
+
+    def _is_ims_case_list_url(self, url: str) -> bool:
+        parsed = urlparse(str(url or "").strip())
+        host = (parsed.netloc or "").lower()
+        path = (parsed.path or "").lower()
+        if host != "ims.jtn.com":
+            return False
+        if path == "/member/login.aspx":
+            return False
+        return path.startswith("/project/")
+
+    def _is_access_portal_logged_in(self, page: Page) -> bool:
+        current_url = str(page.url or "").lower()
+        if "access.jtn.com" not in current_url:
+            return False
+        if "/login" in current_url:
+            return False
+        try:
+            content_text = str(page.content() or "")
+        except Exception:
+            return False
+        markers = ("推荐应用", "搜索应用/平台名称", "IMS", "aijagent")
+        return any(marker in content_text for marker in markers)
+
+    def _collect_ims_cookies_from_browser_context(self, context: BrowserContext) -> dict[str, str]:
+        return {
+            str(item.get("name") or ""): str(item.get("value") or "")
+            for item in context.cookies("https://ims.jtn.com")
+            if str(item.get("name") or "").strip()
+        }
+
+    def _can_access_case_list_with_cookies(self, cookies: dict[str, str]) -> bool:
+        if not cookies:
+            return False
+        try:
+            with httpx.Client(
+                headers=_HTTP_HEADERS,
+                follow_redirects=True,
+                timeout=10,
+                cookies=cookies,
+                trust_env=False,
+            ) as client:
+                response = client.get(_CASE_LIST_URL)
+                response.raise_for_status()
+                return not self._is_sso_login_page(url=str(response.url), html_text=response.text)
+        except Exception:
+            return False
 
     def _reset_name_search_http_session(self) -> None:
         if self._name_search_http_client is not None:
@@ -468,19 +611,32 @@ class JtnCaseImportScript:
             self._ensure_name_search_playwright_session()
             page = self._page
             assert page is not None
-            input_locator = page.locator("#ctl00_ctl00_mainContentPlaceHolder_projmainPlaceHolder_project_name")
+
+            selector = "#ctl00_ctl00_mainContentPlaceHolder_projmainPlaceHolder_project_name"
+            target_frame = self._find_visible_frame_for_selector(selector=selector, timeout_ms=15_000)
+            if target_frame is None:
+                raise RuntimeError(f"未找到案件名称输入框: {selector}")
+
+            input_locator = target_frame.locator(selector)
             input_locator.wait_for(state="visible", timeout=15_000)
             input_locator.fill(keyword)
             time.sleep(_SHORT_WAIT)
-            page.evaluate("searchOk()")
+
+            try:
+                target_frame.evaluate("searchOk()")
+            except Exception:
+                page.evaluate("searchOk()")
+
             time.sleep(_AJAX_WAIT)
             page.wait_for_load_state("networkidle", timeout=15_000)
             time.sleep(_SHORT_WAIT)
 
-            html_text = page.content()
+            html_text = target_frame.content()
             candidates = self._extract_case_candidates_from_search_html(html_text)
             return self._rank_name_candidates(keyword=keyword, candidates=candidates, limit=limit)
         except Exception as exc:
+            if self._is_sso_blocking_error(exc):
+                raise
             logger.warning("Playwright 按名称查询异常 keyword=%s: %s", keyword, exc, exc_info=True)
             return []
 
@@ -531,7 +687,14 @@ class JtnCaseImportScript:
         )
         return ordered_candidates[: max(1, int(limit))]
 
-    def _extract_form_state(self, *, html_text: str, base_url: str) -> CaseListFormState:
+    def _extract_form_state(
+        self,
+        *,
+        html_text: str,
+        base_url: str,
+        client: httpx.Client | None = None,
+        depth: int = 0,
+    ) -> CaseListFormState:
         """解析 ASP.NET 表单状态（隐藏字段 + 过滤条件）。"""
         try:
             root = lxml_html.fromstring(html_text)
@@ -540,6 +703,26 @@ class JtnCaseImportScript:
 
         forms = root.xpath('//form[@id="aspnetForm"]')
         if not forms:
+            if client is not None and depth < 2:
+                frame_src_list = root.xpath("//iframe[@src]/@src | //frame[@src]/@src")
+                for frame_src in frame_src_list:
+                    src_text = str(frame_src or "").strip()
+                    if not src_text or src_text.lower().startswith("javascript:"):
+                        continue
+                    frame_url = urljoin(base_url, src_text)
+                    try:
+                        frame_resp = client.get(frame_url)
+                        frame_resp.raise_for_status()
+                        logger.info("案件列表页未直接命中表单，尝试 frame 回退: %s", frame_url)
+                        return self._extract_form_state(
+                            html_text=frame_resp.text,
+                            base_url=str(frame_resp.url),
+                            client=client,
+                            depth=depth + 1,
+                        )
+                    except Exception as exc:
+                        logger.warning("案件列表 frame 回退失败 url=%s err=%s", frame_url, exc)
+
             raise RuntimeError("案件列表页缺少 aspnetForm，无法执行 HTTP 查询")
         form = forms[0]
 
@@ -949,6 +1132,49 @@ class JtnCaseImportScript:
         )
         return bool((stayed_on_login_page and has_login_form) or has_login_error_text)
 
+    def _is_sso_login_page(self, *, url: str, html_text: str) -> bool:
+        url_lower = str(url or "").lower()
+        if "access.jtn.com" in url_lower:
+            return True
+
+        text_lower = str(html_text or "").lower()
+        markers = (
+            "企业微信 quick login",
+            "please scan the qr code above in wechat work",
+            "multiple-pages/qrcode-login",
+            "access.jtn.com/login",
+            "access.jtn.com/multiple-pages",
+        )
+        return any(marker in text_lower for marker in markers)
+
+    def _build_sso_blocking_message(self, *, stage: str, login_url: str) -> str:
+        return str(
+            _(
+                "%(stage)s 触发飞连/企微单点登录（二维码），当前自动化无法完成无交互登录。"
+                "请先在可见浏览器完成扫码登录后重试：%(login_url)s"
+            )
+            % {"stage": stage, "login_url": login_url}
+        )
+
+    def _raise_if_sso_blocking(self, *, url: str, html_text: str, stage: str) -> None:
+        if not self._is_sso_login_page(url=url, html_text=html_text):
+            return
+        login_url = str(url or "").strip()
+        message = self._build_sso_blocking_message(stage=stage, login_url=login_url)
+        logger.warning("%s", message)
+        raise RuntimeError(message)
+
+    def _is_sso_blocking_error(self, exc: Exception) -> bool:
+        text = str(exc or "")
+        return "飞连/企微单点登录（二维码）" in text
+
+    def _extract_sso_login_url_from_text(self, text: str) -> str:
+        message = str(text or "")
+        matched = re.search(r"https://access\.jtn\.com/[^\s\"'<>]+", message)
+        if matched:
+            return str(matched.group(0)).strip()
+        return "https://access.jtn.com/login"
+
     def _search_cases_via_playwright(
         self,
         case_nos: list[str],
@@ -1001,17 +1227,31 @@ class JtnCaseImportScript:
             pw.stop()
         return fallback_results
 
-    def _ensure_case_list_ready(self) -> None:
-        """确保当前在案件列表页并且搜索输入框可用。"""
+    def _find_visible_frame_for_selector(self, *, selector: str, timeout_ms: int) -> Frame | None:
         page = self._page
         assert page is not None
 
+        deadline = time.time() + (max(100, timeout_ms) / 1000)
+        while time.time() < deadline:
+            for frame in page.frames:
+                try:
+                    locator = frame.locator(selector)
+                    if locator.count() <= 0:
+                        continue
+                    locator.first.wait_for(state="visible", timeout=300)
+                    return frame
+                except Exception:
+                    continue
+            time.sleep(0.2)
+        return None
+
+    def _ensure_case_list_ready(self) -> None:
+        """确保当前在案件列表页并且搜索输入框可用。"""
         selector = "#ctl00_ctl00_mainContentPlaceHolder_projmainPlaceHolder_project_no"
-        try:
-            page.wait_for_selector(selector, state="visible", timeout=2_000)
+        target_frame = self._find_visible_frame_for_selector(selector=selector, timeout_ms=2_000)
+        if target_frame is not None:
             return
-        except Exception:
-            self._navigate_to_case_list()
+        self._navigate_to_case_list()
 
     def close(self) -> None:
         self._reset_name_search_http_session()
@@ -1088,8 +1328,30 @@ class JtnCaseImportScript:
         page = self._page
         assert page is not None
 
+        def _goto_case_list_once() -> None:
+            page.goto(_CASE_LIST_URL, wait_until="domcontentloaded", timeout=60_000)
+            try:
+                page.wait_for_load_state("networkidle", timeout=8_000)
+            except Exception:
+                logger.debug("案件列表页未达到 networkidle，继续后续检测")
+
         logger.info("导航到案件列表页: %s", _CASE_LIST_URL)
-        page.goto(_CASE_LIST_URL, wait_until="networkidle", timeout=60_000)
+        _goto_case_list_once()
+
+        try:
+            self._raise_if_sso_blocking(url=page.url, html_text=page.content(), stage="Playwright 列表页访问")
+        except Exception as exc:
+            if not self._is_sso_blocking_error(exc):
+                raise
+            logger.warning("Playwright 触发 SSO，等待当前浏览器完成交互登录")
+            self._wait_for_playwright_sso_login()
+            _goto_case_list_once()
+            self._raise_if_sso_blocking(url=page.url, html_text=page.content(), stage="Playwright 列表页访问")
+
+        if self._is_ims_login_form_page(str(page.url or "")) or self._has_visible_ims_login_form(page):
+            logger.warning("检测到 IMS 登录页，等待自动/人工登录完成")
+            self._wait_for_playwright_sso_login()
+            _goto_case_list_once()
 
         # 关闭可能存在的模态对话框，并等待页面完全渲染
         try:
@@ -1100,20 +1362,229 @@ class JtnCaseImportScript:
                 page.wait_for_load_state("networkidle")
                 time.sleep(_MEDIUM_WAIT)
         except Exception:
-            pass  # 没有模态对话框，继续
+            pass
 
-        # 等待搜索输入框可见
-        try:
-            page.wait_for_selector(
-                "#ctl00_ctl00_mainContentPlaceHolder_projmainPlaceHolder_project_no",
-                state="visible",
-                timeout=15000
-            )
-            time.sleep(_MEDIUM_WAIT)
-        except Exception:
-            logger.warning("搜索输入框未找到")
+        selector = "#ctl00_ctl00_mainContentPlaceHolder_projmainPlaceHolder_project_no"
+        target_frame = self._find_visible_frame_for_selector(selector=selector, timeout_ms=15_000)
+        if target_frame is None:
+            if self._is_ims_login_form_page(str(page.url or "")) or self._has_visible_ims_login_form(page):
+                logger.warning("搜索输入框未找到，当前仍在 IMS 登录页，等待登录后重试")
+                self._wait_for_playwright_sso_login()
+                _goto_case_list_once()
+                target_frame = self._find_visible_frame_for_selector(selector=selector, timeout_ms=15_000)
 
+            if target_frame is None:
+                raise RuntimeError(str(_("案件列表页搜索输入框未就绪，请完成登录后重试")))
+
+        time.sleep(_MEDIUM_WAIT)
         logger.info("已进入案件列表页面")
+
+    def _is_ims_login_form_page(self, url: str) -> bool:
+        parsed = urlparse(str(url or "").strip())
+        host = (parsed.netloc or "").lower()
+        path = (parsed.path or "").lower()
+        return host == "ims.jtn.com" and path == "/member/login.aspx"
+
+    def _resolve_ims_login_frame(self, page: Page) -> Frame | None:
+        frame_candidates = [page.main_frame, *[frame for frame in page.frames if frame != page.main_frame]]
+        user_selectors = (
+            'input[name="userid"]',
+            'input[id="userid"]',
+            'input[name="username"]',
+            'input[id="username"]',
+            'input[type="text"]',
+        )
+        password_selectors = ('input[name="password"]', 'input[id="password"]', 'input[type="password"]')
+
+        for frame in frame_candidates:
+            try:
+                has_visible_user = False
+                for selector in user_selectors:
+                    locator = frame.locator(selector)
+                    if locator.count() <= 0:
+                        continue
+                    try:
+                        locator.first.wait_for(state="visible", timeout=500)
+                        has_visible_user = True
+                        break
+                    except Exception:
+                        continue
+
+                has_visible_password = False
+                for selector in password_selectors:
+                    locator = frame.locator(selector)
+                    if locator.count() <= 0:
+                        continue
+                    try:
+                        locator.first.wait_for(state="visible", timeout=500)
+                        has_visible_password = True
+                        break
+                    except Exception:
+                        continue
+
+                if has_visible_user and has_visible_password:
+                    return frame
+            except Exception:
+                continue
+        return None
+
+    def _has_visible_ims_login_form(self, page: Page) -> bool:
+        login_frame = self._resolve_ims_login_frame(page)
+        if login_frame is None:
+            return False
+        try:
+            return login_frame.locator('input[type="password"]').first.is_visible(timeout=500)
+        except Exception:
+            return False
+
+    def _try_playwright_ims_form_login(self, page: Page) -> bool:
+        if not self._account or not self._password:
+            return False
+
+        login_frame = self._resolve_ims_login_frame(page)
+        if login_frame is None:
+            logger.warning("已命中 IMS 登录页，但未定位到登录表单")
+            return False
+
+        user_selectors = [
+            'input[name="userid"]',
+            'input[id="userid"]',
+            'input[name="username"]',
+            'input[id="username"]',
+            'input[type="text"]',
+        ]
+        password_selectors = ['input[name="password"]', 'input[id="password"]', 'input[type="password"]']
+
+        user_input = None
+        password_input = None
+
+        for selector in user_selectors:
+            try:
+                candidate = login_frame.locator(selector).first
+                candidate.wait_for(state="visible", timeout=1_000)
+                user_input = candidate
+                break
+            except Exception:
+                continue
+
+        for selector in password_selectors:
+            try:
+                candidate = login_frame.locator(selector).first
+                candidate.wait_for(state="visible", timeout=1_000)
+                password_input = candidate
+                break
+            except Exception:
+                continue
+
+        if user_input is None or password_input is None:
+            logger.warning("已命中 IMS 登录页，但未定位到用户名/密码输入框")
+            return False
+
+        try:
+            user_input.fill("")
+            user_input.fill(self._account)
+            password_input.fill("")
+            password_input.fill(self._password)
+
+            submit_selectors = [
+                'button:has-text("登录")',
+                'input[type="submit"]',
+                'a:has-text("登录")',
+                '.loginbtn',
+                '.btn-login',
+            ]
+            submitted = False
+            for selector in submit_selectors:
+                try:
+                    submit_btn = login_frame.locator(selector).first
+                    submit_btn.wait_for(state="visible", timeout=800)
+                    submit_btn.click()
+                    submitted = True
+                    break
+                except Exception:
+                    continue
+
+            if not submitted:
+                try:
+                    password_input.press("Enter")
+                    submitted = True
+                except Exception:
+                    submitted = False
+
+            if not submitted:
+                try:
+                    login_frame.evaluate(
+                        """
+                        () => {
+                            const pwd = document.querySelector('input[type="password"], input[name="password"], input[id="password"]');
+                            const form = pwd?.closest('form') || document.querySelector('form');
+                            if (form) {
+                                if (typeof form.requestSubmit === 'function') {
+                                    form.requestSubmit();
+                                } else {
+                                    form.submit();
+                                }
+                                return;
+                            }
+                            const btn = document.querySelector('button[type="submit"], input[type="submit"], button, a.loginbtn, .btn-login');
+                            btn?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+                        }
+                        """
+                    )
+                except Exception:
+                    logger.debug("IMS 登录页回退表单提交失败", exc_info=True)
+
+            settle_deadline = time.time() + 20
+            while time.time() < settle_deadline:
+                current_url = str(page.url or "")
+                if self._is_ims_case_list_url(current_url):
+                    return True
+                if not self._is_ims_login_form_page(current_url):
+                    return True
+                if not self._has_visible_ims_login_form(page):
+                    return True
+                time.sleep(_SHORT_WAIT)
+            return False
+        except Exception:
+            logger.debug("IMS 登录页自动填充失败，回退人工交互", exc_info=True)
+            return False
+
+    def _wait_for_playwright_sso_login(self) -> None:
+        page = self._page
+        assert page is not None
+
+        deadline = time.time() + 180
+        has_triggered_case_list_navigation = False
+        ims_login_try_count = 0
+        last_ims_login_try_at = 0.0
+        while time.time() < deadline:
+            current_url = str(page.url or "")
+            if self._is_ims_case_list_url(current_url):
+                return
+
+            is_ims_login_page = self._is_ims_login_form_page(current_url) or self._has_visible_ims_login_form(page)
+            if is_ims_login_page and ims_login_try_count < 5:
+                now = time.time()
+                if now - last_ims_login_try_at >= 2:
+                    last_ims_login_try_at = now
+                    ims_login_try_count += 1
+                    if self._try_playwright_ims_form_login(page):
+                        logger.info("检测到 IMS 登录页，已自动提交账号密码")
+                        continue
+                    logger.warning("检测到 IMS 登录页，自动登录第 %d 次未成功，继续重试", ims_login_try_count)
+
+            if not has_triggered_case_list_navigation and self._is_access_portal_logged_in(page):
+                has_triggered_case_list_navigation = True
+                logger.info("检测到已登录飞连门户，自动跳转 OA 列表页")
+                try:
+                    page.goto(_CASE_LIST_URL, wait_until="domcontentloaded", timeout=60_000)
+                    continue
+                except Exception:
+                    logger.debug("飞连门户跳转 OA 列表失败，继续等待用户操作", exc_info=True)
+
+            time.sleep(1)
+
+        raise RuntimeError(str(_("等待扫码登录超时，请完成扫码后重试")))
 
     def _search_case_by_no(self, case_no: str) -> CaseSearchItem | None:
         """在案件列表页搜索指定案件编号。"""
@@ -1121,14 +1592,15 @@ class JtnCaseImportScript:
         assert page is not None
 
         try:
-            # 输入案件编号
-            # 输入框ID: ctl00_ctl00_mainContentPlaceHolder_projmainPlaceHolder_project_no
-            input_locator = page.locator(
-                "#ctl00_ctl00_mainContentPlaceHolder_projmainPlaceHolder_project_no"
-            )
+            # 输入案件编号（支持列表在 iframe 中）
+            selector = "#ctl00_ctl00_mainContentPlaceHolder_projmainPlaceHolder_project_no"
+            target_frame = self._find_visible_frame_for_selector(selector=selector, timeout_ms=10_000)
+            if target_frame is None:
+                logger.warning("未找到案件编号输入框: %s", selector)
+                return None
 
-            # 等待输入框可见
-            input_locator.wait_for(state="visible", timeout=10000)
+            input_locator = target_frame.locator(selector)
+            input_locator.wait_for(state="visible", timeout=10_000)
             input_locator.fill(case_no)
             time.sleep(_SHORT_WAIT)
 
@@ -1139,13 +1611,16 @@ class JtnCaseImportScript:
             # 立即检查Enter键是否成功触发搜索
             search_triggered = False
             try:
-                page.wait_for_selector("#table", timeout=3000)
+                target_frame.locator("#table").first.wait_for(timeout=3000)
                 logger.info("Enter 键成功触发搜索")
                 search_triggered = True
             except Exception:
                 logger.info("Enter 键未触发搜索，尝试 JavaScript 调用 searchOk()...")
                 # 搜索按钮是 <A onclick='searchOk()'>查　询</A>
-                page.evaluate("searchOk()")
+                try:
+                    target_frame.evaluate("searchOk()")
+                except Exception:
+                    page.evaluate("searchOk()")
 
             # 等待AJAX完成
             time.sleep(_AJAX_WAIT)
@@ -1156,7 +1631,7 @@ class JtnCaseImportScript:
             time.sleep(_AJAX_WAIT)
 
             # 等待数据行出现（通过检查表格行数）
-            data_table = page.locator("table").nth(7)  # 第8个表格是数据列表
+            data_table = target_frame.locator("table").nth(7)  # 第8个表格是数据列表
             data_table.wait_for(state="visible", timeout=15000)
 
             # 查找案件编号匹配的行（跳过表头行）
