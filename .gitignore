@@ -13,8 +13,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+/lib/
+/lib64/
 parts/
 sdist/
 var/
@@ -141,14 +141,14 @@ backend/tests/
 backend/apps/automation/services/ocr/models/*.onnx
 
 # macOS paths (user-specific)
-# NOTE: MacOS_FC/ 和 frontend/ 被忽略是因为这些模块尚未开发完成，暂时不纳入版本控制
-# 如果未来开发完成，需要取消忽略并添加具体的忽略规则（如 node_modules/）
 MacOS_FC/
-frontend/
-# Frontend dependencies (when frontend/ is uncommented)
-# frontend/node_modules/
-# frontend/dist/
-# frontend/.env
+
+# Frontend: track source, ignore dependencies/build/env files
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/.env
+frontend/.env.*
 backend/deploy/*
 !backend/deploy/docker/
 backend/deploy/docker/*
