@@ -68,9 +68,9 @@ export interface UseLawyerMutationsReturn {
  * createLawyer.mutate({
  *   data: {
  *     username: 'zhangsan',
- *     password: '<REDACTED>',
+ *     pwd: '<REDACTED>',
  *     real_name: '张三',
- *     phone: '138****8000',
+ *     mobile_masked: '138****8000',
  *     license_no: '12345678901234567',
  *   },
  * }, {
@@ -87,7 +87,7 @@ export interface UseLawyerMutationsReturn {
  * createLawyer.mutate({
  *   data: {
  *     username: 'lisi',
- *     password: '123456',
+ *     pwd: '<REDACTED>',
  *     real_name: '李四',
  *   },
  *   licensePdf: selectedFile,
@@ -96,7 +96,7 @@ export interface UseLawyerMutationsReturn {
  * // 更新律师
  * updateLawyer.mutate({
  *   id: 123,
- *   data: { real_name: '王五', phone: '13900139000' },
+ *   data: { real_name: '王五', mobile_masked: '139****9000' },
  * })
  *
  * // 更新律师（带新执业证 PDF）
