@@ -91,11 +91,26 @@ class CaseMaterialDeleteOut(Schema):
     deleted: bool
 
 
+class CaseMaterialDeleteAllIn(Schema):
+    """按分类批量删除材料请求"""
+
+    category: str
+
+
+class CaseMaterialDeleteAllOut(Schema):
+    """按分类批量删除材料响应"""
+
+    category: str
+    deleted_count: int
+
+
 __all__: list[str] = [
     "CaseMaterialBindCandidateOut",
     "CaseMaterialBindIn",
     "CaseMaterialBindItemIn",
     "CaseMaterialBindingOut",
+    "CaseMaterialDeleteAllIn",
+    "CaseMaterialDeleteAllOut",
     "CaseMaterialDeleteOut",
     "CaseMaterialGroupOrderIn",
     "CaseMaterialGroupRenameIn",

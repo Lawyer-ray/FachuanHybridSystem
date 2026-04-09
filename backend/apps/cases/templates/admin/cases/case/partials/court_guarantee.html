@@ -33,6 +33,72 @@
                     </div>
                 </div>
 
+                <div style="margin-bottom: 12px; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; background: #f8fafc;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px;">
+                        <div style="font-size: 13px; font-weight: 600; color: #0f172a;">{% trans "财产保全询价" %}</div>
+                        <button type="button"
+                                class="btn btn-primary"
+                                style="font-size: 12px; padding: 6px 10px;"
+                                :disabled="quoteLoading || !canStartQuote()"
+                                :class="{ 'btn-disabled': quoteLoading || !canStartQuote() }"
+                                @click="ensureQuote()">
+                            <span x-show="!quoteLoading">{% trans "发起/复用询价" %}</span>
+                            <span x-show="quoteLoading"><span class="spinner"></span> {% trans "处理中..." %}</span>
+                        </button>
+                    </div>
+
+                    <template x-if="quoteContext">
+                        <div>
+                            <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+                                <span style="font-size:12px; color:#334155; background:#e2e8f0; border-radius:999px; padding:2px 8px;" x-text="quoteStatusLabel()"></span>
+                                <span style="font-size:12px; color:#334155; background:#e2e8f0; border-radius:999px; padding:2px 8px;" x-text="quoteProgressLabel()"></span>
+                            </div>
+
+                            <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+                                <button type="button" class="btn" style="font-size:12px; padding:5px 8px;"
+                                        :disabled="quoteLoading || !quoteContext.can_retry"
+                                        @click="retryQuote()">{% trans "重试询价" %}</button>
+                                <button type="button" class="btn" style="font-size:12px; padding:5px 8px; border-color:#ef4444; color:#b91c1c;"
+                                        :disabled="quoteLoading"
+                                        @click="deleteQuote()">{% trans "删除询价记录" %}</button>
+                                <button type="button" class="btn" style="font-size:12px; padding:5px 8px; border-color:#f59e0b; color:#92400e;"
+                                        :disabled="quoteLoading"
+                                        @click="deleteBinding()">{% trans "删除绑定关系" %}</button>
+                            </div>
+
+                            <template x-if="quoteContext.items && quoteContext.items.length > 0">
+                                <div style="max-height: 220px; overflow:auto; border:1px solid #dbeafe; border-radius:8px; background:#fff;">
+                                    <table style="width:100%; border-collapse: collapse; font-size:12px;">
+                                        <thead>
+                                            <tr style="background:#eff6ff; color:#1e3a8a;">
+                                                <th style="text-align:left; padding:6px 8px; border-bottom:1px solid #dbeafe;">{% trans "担保机构" %}</th>
+                                                <th style="text-align:right; padding:6px 8px; border-bottom:1px solid #dbeafe;">{% trans "报价" %}</th>
+                                                <th style="text-align:center; padding:6px 8px; border-bottom:1px solid #dbeafe;">{% trans "状态" %}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <template x-for="item in quoteContext.items" :key="item.id">
+                                                <tr>
+                                                    <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9;">
+                                                        <span x-text="item.company_name"></span>
+                                                        <span x-show="item.is_recommended" style="margin-left:4px; color:#15803d;">🏆</span>
+                                                    </td>
+                                                    <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9; text-align:right;" x-text="item.premium ? ('¥' + item.premium) : '-' "></td>
+                                                    <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9; text-align:center;" x-text="item.status"></td>
+                                                </tr>
+                                            </template>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+
+                    <template x-if="!quoteContext">
+                        <div style="font-size: 12px; color: #64748b;">{% trans "尚未发起询价，可点击“发起/复用询价”获取担保报价。" %}</div>
+                    </template>
+                </div>
+
                 <div class="court-guarantee-form-row">
                     <select x-model="insuranceCompanyName"
                             :disabled="executing"
@@ -84,7 +150,9 @@
         return {
             caseId: {{ case.pk }},
             caseInfo: {},
+            quoteContext: null,
             loading: false,
+            quoteLoading: false,
             executing: false,
             lastResult: null,
             insuranceCompanyName: '中国平安财产保险股份有限公司',
@@ -93,6 +161,10 @@
 
             async init() {
                 await this.loadCaseInfo();
+            },
+
+            canStartQuote() {
+                return Boolean(this.caseInfo && this.caseInfo.preserve_amount && this.caseInfo.has_court_credential);
             },
 
             canExecute() {
@@ -105,26 +177,125 @@
                 );
             },
 
+            quoteStatusLabel() {
+                if (!this.quoteContext) return '';
+                const status = this.quoteContext.status || '';
+                const map = {
+                    pending: '{% trans "等待中" %}',
+                    running: '{% trans "执行中" %}',
+                    success: '{% trans "成功" %}',
+                    partial_success: '{% trans "部分成功" %}',
+                    failed: '{% trans "失败" %}',
+                };
+                return '{% trans "询价状态" %}：' + (map[status] || status || '-');
+            },
+
+            quoteProgressLabel() {
+                if (!this.quoteContext) return '';
+                const successCount = this.quoteContext.success_count || 0;
+                const total = this.quoteContext.total_companies || 0;
+                return '{% trans "成功" %} ' + successCount + ' / ' + total;
+            },
+
             async loadCaseInfo() {
                 this.loading = true;
                 try {
                     const resp = await fetch(`/api/v1/court-guarantee/case-info/${this.caseId}`);
                     if (resp.ok) {
                         this.caseInfo = await resp.json();
-                        if (Array.isArray(this.caseInfo.insurance_company_options) && this.caseInfo.insurance_company_options.length > 0) {
-                            this.insuranceCompanyOptions = this.caseInfo.insurance_company_options;
-                        }
-                        if (this.caseInfo.insurance_company_name) {
-                            this.insuranceCompanyName = this.caseInfo.insurance_company_name;
-                        }
-                        if (this.caseInfo.consultant_code) {
-                            this.consultantCode = this.caseInfo.consultant_code;
-                        }
+                        this.applyCaseInfo();
                     }
                 } catch (e) {
                     console.error('loadCaseGuaranteeInfo error:', e);
                 } finally {
                     this.loading = false;
+                }
+            },
+
+            applyCaseInfo() {
+                this.quoteContext = this.caseInfo.quote_context || null;
+                if (Array.isArray(this.caseInfo.insurance_company_options) && this.caseInfo.insurance_company_options.length > 0) {
+                    this.insuranceCompanyOptions = this.caseInfo.insurance_company_options;
+                }
+                if (this.caseInfo.insurance_company_name) {
+                    this.insuranceCompanyName = this.caseInfo.insurance_company_name;
+                }
+                if (this.caseInfo.consultant_code) {
+                    this.consultantCode = this.caseInfo.consultant_code;
+                }
+            },
+
+            async postJson(url, body) {
+                const resp = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+                    },
+                    body: JSON.stringify(body || {})
+                });
+                return resp.json();
+            },
+
+            async ensureQuote() {
+                if (!this.caseId || !this.canStartQuote()) return;
+                this.quoteLoading = true;
+                try {
+                    const data = await this.postJson('/api/v1/court-guarantee/quote/ensure', { case_id: this.caseId });
+                    this.lastResult = data;
+                    await this.loadCaseInfo();
+                } catch (e) {
+                    console.error('ensureQuote error:', e);
+                    this.lastResult = { success: false, message: e.message || '{% trans "请求失败" %}' };
+                } finally {
+                    this.quoteLoading = false;
+                }
+            },
+
+            async retryQuote() {
+                if (!this.quoteContext || !this.quoteContext.quote_id) return;
+                this.quoteLoading = true;
+                try {
+                    const data = await this.postJson(`/api/v1/court-guarantee/quote/${this.quoteContext.quote_id}/retry`, { case_id: this.caseId });
+                    this.lastResult = data;
+                    await this.loadCaseInfo();
+                } catch (e) {
+                    console.error('retryQuote error:', e);
+                    this.lastResult = { success: false, message: e.message || '{% trans "请求失败" %}' };
+                } finally {
+                    this.quoteLoading = false;
+                }
+            },
+
+            async deleteQuote() {
+                if (!this.quoteContext || !this.quoteContext.quote_id) return;
+                if (!confirm('{% trans "确认删除询价记录吗？" %}')) return;
+                this.quoteLoading = true;
+                try {
+                    const data = await this.postJson(`/api/v1/court-guarantee/quote/${this.quoteContext.quote_id}/delete`, { case_id: this.caseId });
+                    this.lastResult = data;
+                    await this.loadCaseInfo();
+                } catch (e) {
+                    console.error('deleteQuote error:', e);
+                    this.lastResult = { success: false, message: e.message || '{% trans "请求失败" %}' };
+                } finally {
+                    this.quoteLoading = false;
+                }
+            },
+
+            async deleteBinding() {
+                if (!this.quoteContext || !this.quoteContext.binding_id) return;
+                if (!confirm('{% trans "确认删除绑定关系吗？" %}')) return;
+                this.quoteLoading = true;
+                try {
+                    const data = await this.postJson(`/api/v1/court-guarantee/quote-binding/${this.quoteContext.binding_id}/delete`, { case_id: this.caseId });
+                    this.lastResult = data;
+                    await this.loadCaseInfo();
+                } catch (e) {
+                    console.error('deleteBinding error:', e);
+                    this.lastResult = { success: false, message: e.message || '{% trans "请求失败" %}' };
+                } finally {
+                    this.quoteLoading = false;
                 }
             },
 
@@ -154,7 +325,7 @@
                     }
                 } catch (e) {
                     console.error('executeGuarantee error:', e);
-                    this.lastResult = { success: false, message: e.message || '请求失败' };
+                    this.lastResult = { success: false, message: e.message || '{% trans "请求失败" %}' };
                     this.executing = false;
                 }
             },

@@ -10,6 +10,8 @@ from ninja import Router
 from apps.cases.schemas import (
     CaseMaterialBindCandidateOut,
     CaseMaterialBindIn,
+    CaseMaterialDeleteAllIn,
+    CaseMaterialDeleteAllOut,
     CaseMaterialDeleteOut,
     CaseMaterialGroupOrderIn,
     CaseMaterialGroupRenameIn,
@@ -160,6 +162,26 @@ def delete_material(
     return service.delete_material(
         case_id=case_id,
         material_id=material_id,
+        user=ctx.user,
+        org_access=ctx.org_access,
+        perm_open_access=ctx.perm_open_access,
+    )
+
+
+@router.delete(
+    "/{case_id}/materials",
+    response=CaseMaterialDeleteAllOut,
+)
+@rate_limit_from_settings("TASK", by_user=True)
+def delete_all_materials(
+    request: HttpRequest, case_id: int, payload: CaseMaterialDeleteAllIn
+) -> dict[str, Any]:
+    """按分类删除案件下的所有材料。"""
+    service = _get_case_material_service()
+    ctx = get_request_access_context(request)
+    return service.delete_all_materials(
+        case_id=case_id,
+        category=payload.category,
         user=ctx.user,
         org_access=ctx.org_access,
         perm_open_access=ctx.perm_open_access,
