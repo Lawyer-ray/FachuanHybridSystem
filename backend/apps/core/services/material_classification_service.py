@@ -196,6 +196,7 @@ class MaterialClassificationService:
         source_path: str = "",
         enable_ai: bool = True,
         context: dict[str, Any] | None = None,
+        scan_subfolder: str = "",
     ) -> dict[str, Any]:
         context = context or {}
         default = {
@@ -208,16 +209,23 @@ class MaterialClassificationService:
             "reason": "未命中关键词规则，请手动确认",
         }
 
+        # 指定子文件夹扫描时，优先用子文件夹名作为 type_name_hint
+        subfolder_hint = self._extract_subfolder_hint(scan_subfolder)
+
         rule_suggestion = self._classify_case_by_filename_and_path(
             filename=filename,
             source_path=source_path,
             context=context,
+            subfolder_hint=subfolder_hint,
         )
         if rule_suggestion is not None:
             return rule_suggestion
 
         if not enable_ai:
             default["reason"] = "未启用识别，且未命中关键词规则"
+            if subfolder_hint:
+                default["type_name_hint"] = subfolder_hint
+                default["reason"] = f"未启用识别，按扫描子文件夹命名预填（{subfolder_hint}）"
             return default
 
         content = self._complete(
@@ -268,6 +276,7 @@ class MaterialClassificationService:
         filename: str,
         source_path: str,
         context: dict[str, Any],
+        subfolder_hint: str = "",
     ) -> dict[str, Any] | None:
         filename_match_text = self._normalize_for_match(filename)
         path_match_text = self._normalize_for_match(source_path)
@@ -280,7 +289,7 @@ class MaterialClassificationService:
             return self._build_case_suggestion(
                 category="party",
                 side="our",
-                type_name_hint="立案材料",
+                type_name_hint=subfolder_hint or "立案材料",
                 confidence=0.9,
                 reason="命中目录规则：立案材料目录默认归类为我方当事人材料",
                 context=context,
@@ -307,10 +316,14 @@ class MaterialClassificationService:
                 category = "party"
                 side = "our"
 
+            # 指定子文件夹扫描时，优先用子文件夹名作为 type_name_hint
+            rule_hint = str(rule.get("type_name_hint") or "").strip()
+            type_name_hint = subfolder_hint or rule_hint
+
             return self._build_case_suggestion(
                 category=category,
                 side=side,
-                type_name_hint=str(rule.get("type_name_hint") or "").strip(),
+                type_name_hint=type_name_hint,
                 confidence=float(rule.get("confidence") or 0.9),
                 reason=(
                     f"命中目录规则：立案材料目录默认归类为我方当事人材料（关键词：{hit_keyword}）"
@@ -324,7 +337,7 @@ class MaterialClassificationService:
             return self._build_case_suggestion(
                 category="party",
                 side="our",
-                type_name_hint="立案材料",
+                type_name_hint=subfolder_hint or "立案材料",
                 confidence=0.9,
                 reason="命中目录规则：立案材料目录默认归类为我方当事人材料",
                 context=context,
@@ -433,6 +446,22 @@ class MaterialClassificationService:
         if value <= 0:
             return None
         return value
+
+    @staticmethod
+    def _extract_subfolder_hint(scan_subfolder: str) -> str:
+        """从子文件夹路径提取用户友好的类型提示名称。
+
+        例如 "2-立案材料" → "立案材料"，"3_执行依据" → "执行依据"，
+        无编号前缀则原样返回。
+        """
+        raw = str(scan_subfolder or "").strip()
+        if not raw:
+            return ""
+        # 取最后一段（支持多级路径如 "子目录A/子目录B"）
+        last_segment = raw.rsplit("/", 1)[-1]
+        # 去掉常见编号前缀：1- / 1_ / 1. / (1) 等
+        cleaned = re.sub(r"^[\d]+[\s.\-_]*[\)）]?\s*", "", last_segment).strip()
+        return cleaned or last_segment
 
     @staticmethod
     def _normalize_for_match(text: str) -> str:
