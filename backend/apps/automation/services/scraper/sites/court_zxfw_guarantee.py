@@ -31,10 +31,12 @@ class CourtZxfwGuaranteeService:
         if not consultant_code and "阳光财产保险股份有限公司" in insurance_company_name:
             consultant_code = "08740007"
 
+        preserve_category_text = str(case_data.get("preserve_category") or "诉前保全").strip() or "诉前保全"
         done: dict[str, Any] = {
             "court": self._choose_court(str(case_data.get("court_name") or "")),
-            "preserve_type": self._click_radio_by_text("财产保全"),
-            "preserve_category": self._click_radio_by_text(str(case_data.get("preserve_category") or "诉前保全")),
+            "preserve_type": self._click_radio_in_form_item(["保全类型"], "财产保全") or self._click_radio_by_text("财产保全"),
+            "preserve_category": self._click_radio_in_form_item(["保全类别"], preserve_category_text)
+            or self._click_radio_by_text(preserve_category_text),
             "case_number": self._fill_case_number(case_data),
             "cause": self._fill_case_cause(
                 str(case_data.get("cause_of_action") or ""),
@@ -43,7 +45,7 @@ class CourtZxfwGuaranteeService:
             "insurance": self._choose_insurance(insurance_company_name),
             "consultant_code": self._fill_consultant_code(consultant_code),
             "amount": self._fill_amount(case_data.get("preserve_amount")),
-            "identity": self._click_radio_by_text("律师"),
+            "identity": self._click_radio_in_form_item(["提交人身份"], "律师") or self._click_radio_by_text("律师"),
         }
 
         apply_btn = self._submit_apply_and_wait_g_two()
@@ -81,36 +83,157 @@ class CourtZxfwGuaranteeService:
         }
 
     def _choose_court(self, court_name: str) -> bool:
-        keyword = self._extract_court_keyword(court_name)
+        target_name = str(court_name or "").strip()
+        if not target_name:
+            return False
+
+        keyword = self._extract_court_keyword(target_name)
         court_input = self.page.locator("input[placeholder*='法院']").first
         if court_input.count() == 0:
             return False
 
-        court_input.click()
-        self._random_wait(0.2, 0.4)
-        court_input.fill(keyword)
-        self._random_wait(0.8, 1.2)
+        candidates = [target_name]
+        short_name = target_name.replace("人民法院", "").strip()
+        if short_name and short_name not in candidates:
+            candidates.append(short_name)
+        if keyword and keyword not in candidates:
+            candidates.append(keyword)
 
-        clicked = self.page.evaluate(
-            """(kw) => {
-                const nodes = document.querySelectorAll('.el-tree-node__content');
-                for (const node of nodes) {
-                    const text = (node.innerText || '').trim();
-                    if (text.includes(kw)) {
-                        node.click();
-                        return true;
-                    }
-                }
-                if (nodes.length > 0) {
-                    nodes[0].click();
-                    return true;
-                }
-                return false;
-            }""",
-            keyword,
-        )
-        self._close_popovers()
-        return bool(clicked)
+        for _ in range(8):
+            try:
+                court_input.click(timeout=2500)
+                self._random_wait(0.2, 0.4)
+                court_input.fill(keyword)
+                self._random_wait(0.9, 1.4)
+            except Exception:
+                self._random_wait(0.5, 0.8)
+                continue
+
+            selected_text = str(
+                self.page.evaluate(
+                    r"""(names) => {
+                        const norm = (s) => (s || '').replace(/\s+/g, ' ').trim();
+                        const isVisible = (el) => {
+                            if (!el) return false;
+                            const st = window.getComputedStyle(el);
+                            if (st.display === 'none' || st.visibility === 'hidden') return false;
+                            const r = el.getBoundingClientRect();
+                            return r.width > 1 && r.height > 1;
+                        };
+
+                        const targets = (names || []).map((n) => norm(n)).filter(Boolean);
+                        const nodes = [...document.querySelectorAll('.el-tree-node__content')]
+                            .filter((node) => isVisible(node))
+                            .map((node) => ({
+                                node,
+                                text: norm(node.innerText || ''),
+                            }))
+                            .filter((item) => item.text && !item.text.includes('暂无数据'));
+
+                        if (nodes.length === 0) return '';
+
+                        for (const target of targets) {
+                            const exact = nodes.find((item) => item.text === target);
+                            if (exact) {
+                                exact.node.click();
+                                return exact.text;
+                            }
+                        }
+
+                        for (const target of targets) {
+                            const suffix = nodes.find((item) => item.text.endsWith(target));
+                            if (suffix) {
+                                suffix.node.click();
+                                return suffix.text;
+                            }
+                        }
+
+                        for (const target of targets) {
+                            const partial = nodes.find((item) => item.text.includes(target));
+                            if (partial) {
+                                partial.node.click();
+                                return partial.text;
+                            }
+                        }
+
+                        return '';
+                    }""",
+                    candidates,
+                )
+                or ""
+            ).strip()
+
+            self._close_popovers()
+            if not selected_text:
+                self._random_wait(0.8, 1.2)
+                continue
+
+            input_value = ""
+            try:
+                input_value = (court_input.input_value() or "").strip()
+            except Exception:
+                input_value = ""
+
+            if selected_text in input_value or target_name in input_value or short_name and short_name in input_value:
+                return True
+
+            self._random_wait(0.5, 0.8)
+
+        logger.warning("court_guarantee_court_not_stable", extra={"target_name": target_name})
+        return False
+
+    def _click_radio_in_form_item(self, label_keywords: list[str], option_text: str) -> bool:
+        cleaned_option = str(option_text or "").strip()
+        cleaned_keywords = [str(keyword).strip() for keyword in label_keywords if str(keyword).strip()]
+        if not cleaned_option or not cleaned_keywords:
+            return False
+
+        for _ in range(4):
+            selected = bool(
+                self.page.evaluate(
+                    r"""(args) => {
+                        const keywords = args.keywords || [];
+                        const option = (args.option || '').trim();
+                        const norm = (s) => (s || '').replace(/\s+/g, ' ').trim();
+                        const isVisible = (el) => {
+                            if (!el) return false;
+                            const st = window.getComputedStyle(el);
+                            if (st.display === 'none' || st.visibility === 'hidden') return false;
+                            const r = el.getBoundingClientRect();
+                            return r.width > 1 && r.height > 1;
+                        };
+
+                        const formItems = [...document.querySelectorAll('.el-form-item')].filter(isVisible);
+                        for (const item of formItems) {
+                            const label = norm(item.querySelector('.el-form-item__label')?.innerText || '');
+                            if (!label || !keywords.some((kw) => label.includes(kw))) continue;
+
+                            const candidates = [...item.querySelectorAll('label, .el-radio, .el-radio-wrapper, .el-radio-button, .el-radio-button__inner, span, div')]
+                                .filter((el) => isVisible(el))
+                                .map((el) => ({ el, text: norm(el.innerText || '') }))
+                                .filter((item) => item.text);
+
+                            const matched = candidates.find((entry) => entry.text === option)
+                                || candidates.find((entry) => entry.text.includes(option));
+                            if (!matched) continue;
+
+                            const clickNode = matched.el.closest('label') || matched.el;
+                            clickNode.click();
+
+                            const checkedInItem = !!item.querySelector('.is-checked input[type="radio"], input[type="radio"]:checked, .is-checked .el-radio__label, .is-checked .el-radio-button__inner');
+                            if (checkedInItem) return true;
+                        }
+                        return false;
+                    }""",
+                    {"keywords": cleaned_keywords, "option": cleaned_option},
+                )
+            )
+            if selected:
+                self._random_wait(0.2, 0.4)
+                return True
+            self._random_wait(0.4, 0.7)
+
+        return False
 
     def _click_radio_by_text(self, text: str) -> bool:
         option = self.page.locator("label, .el-radio-wrapper").filter(has_text=text).first
@@ -170,7 +293,7 @@ class CourtZxfwGuaranteeService:
                 continue
 
         clicked = self.page.evaluate(
-            """(incomingCandidates) => {
+            r"""(incomingCandidates) => {
                 const norm = (s) => (s || '').replace(/\s+/g, ' ').trim();
                 const candidates = (incomingCandidates || []).map((s) => norm(s)).filter(Boolean);
                 const nodes = [...document.querySelectorAll('.el-tree-node__content')];
@@ -215,32 +338,69 @@ class CourtZxfwGuaranteeService:
         if select.count() == 0:
             return None
 
-        select.click(force=True)
-        self._random_wait(0.6, 1.0)
+        keyword_candidates = ["平安", "保险", "担保", "公司"]
 
-        items = self.page.locator(".el-select-dropdown__item")
-        chosen_text: str | None = None
-        for i in range(items.count()):
-            text = (items.nth(i).inner_text() or "").strip()
-            if "\n" in text:
+        for _ in range(8):
+            try:
+                select.click(force=True, timeout=2500)
+            except Exception:
+                self._random_wait(0.4, 0.7)
                 continue
-            if preferred_name and preferred_name in text:
-                items.nth(i).click(force=True)
-                chosen_text = text
-                break
 
-        if chosen_text is None:
-            for i in range(items.count()):
-                text = (items.nth(i).inner_text() or "").strip()
-                if "\n" in text:
-                    continue
-                if any(k in text for k in ("平安", "保险", "担保", "公司")):
-                    items.nth(i).click(force=True)
-                    chosen_text = text
-                    break
+            self._random_wait(0.6, 1.0)
+            chosen_text = str(
+                self.page.evaluate(
+                    r"""(args) => {
+                        const preferred = (args.preferred || '').trim();
+                        const keywords = Array.isArray(args.keywords) ? args.keywords : [];
+                        const norm = (s) => (s || '').replace(/\s+/g, ' ').trim();
+                        const isVisible = (el) => {
+                            if (!el) return false;
+                            const st = window.getComputedStyle(el);
+                            if (st.display === 'none' || st.visibility === 'hidden') return false;
+                            const r = el.getBoundingClientRect();
+                            return r.width > 1 && r.height > 1;
+                        };
 
+                        const options = [...document.querySelectorAll('.el-select-dropdown__item')]
+                            .filter((el) => isVisible(el) && !el.classList.contains('is-disabled'));
+                        if (options.length === 0) return '';
+
+                        const withText = options
+                            .map((el) => ({ el, text: norm(el.innerText || '') }))
+                            .filter((item) => item.text && !item.text.includes('暂无数据'));
+                        if (withText.length === 0) return '';
+
+                        let target = null;
+                        if (preferred) {
+                            target = withText.find((item) => item.text.includes(preferred));
+                        }
+                        if (!target && keywords.length > 0) {
+                            target = withText.find((item) => keywords.some((kw) => item.text.includes(kw)));
+                        }
+                        if (!target) {
+                            target = withText[0];
+                        }
+
+                        if (!target || !target.el) return '';
+                        target.el.click();
+                        return target.text;
+                    }""",
+                    {"preferred": preferred_name, "keywords": keyword_candidates},
+                )
+                or ""
+            ).strip()
+
+            if chosen_text:
+                self._close_popovers()
+                return chosen_text
+
+            self._close_popovers()
+            self._random_wait(0.8, 1.3)
+
+        logger.warning("court_guarantee_insurance_options_not_ready", extra={"preferred_name": preferred_name})
         self._close_popovers()
-        return chosen_text
+        return None
 
     def _fill_consultant_code(self, consultant_code: str) -> bool:
         code = consultant_code.strip()
@@ -267,7 +427,7 @@ class CourtZxfwGuaranteeService:
                 continue
 
         filled = self.page.evaluate(
-            """(value) => {
+            r"""(value) => {
                 const norm = (s) => (s || '').replace(/\s+/g, ' ').trim();
                 const labels = [...document.querySelectorAll('label, span, div')];
                 for (const label of labels) {
@@ -446,7 +606,7 @@ class CourtZxfwGuaranteeService:
             try:
                 label_text = str(
                     self.page.evaluate(
-                        """(el) => {
+                        r"""(el) => {
                             const norm = (s) => (s || '').replace(/\s+/g, ' ').trim();
                             let node = el;
                             for (let depth = 0; depth < 8 && node; depth += 1) {
@@ -516,7 +676,7 @@ class CourtZxfwGuaranteeService:
                     try:
                         label_text = str(
                             self.page.evaluate(
-                                """(el) => {
+                                r"""(el) => {
                                     let node = el;
                                     for (let depth = 0; depth < 8 && node; depth += 1) {
                                         const text = (node.innerText || '').replace(/\s+/g, ' ').trim();
@@ -720,7 +880,7 @@ class CourtZxfwGuaranteeService:
 
     def _click_add_button_by_section_keywords(self, keywords: list[str]) -> bool:
         clicked = self.page.evaluate(
-            """(keys) => {
+            r"""(keys) => {
                 const isVisible = (el) => {
                     if (!el) return false;
                     const st = window.getComputedStyle(el);
@@ -767,7 +927,7 @@ class CourtZxfwGuaranteeService:
         target_text = type_text_map.get(party_type, "法人")
 
         clicked = self.page.evaluate(
-            """(target) => {
+            r"""(target) => {
                 const isVisible = (el) => {
                     if (!el) return false;
                     const st = window.getComputedStyle(el);
@@ -792,7 +952,7 @@ class CourtZxfwGuaranteeService:
 
     def _fill_dialog_select_fields(self, defaults: dict[str, str]) -> list[str]:
         updates = self.page.evaluate(
-            """(defaults) => {
+            r"""(defaults) => {
                 const result = [];
                 const isVisible = (el) => {
                     if (!el) return false;
@@ -888,7 +1048,7 @@ class CourtZxfwGuaranteeService:
 
     def _fill_dialog_date_fields(self) -> list[str]:
         updates = self.page.evaluate(
-            """() => {
+            r"""() => {
                 const result = [];
                 const isVisible = (el) => {
                     if (!el) return false;
@@ -928,7 +1088,7 @@ class CourtZxfwGuaranteeService:
 
     def _fill_dialog_required_fields(self, defaults: dict[str, str]) -> list[str]:
         updates = self.page.evaluate(
-            """(defaults) => {
+            r"""(defaults) => {
                 const result = [];
                 const isVisible = (el) => {
                     if (!el) return false;
@@ -1121,7 +1281,7 @@ class CourtZxfwGuaranteeService:
 
         def _select_dropdown_by_label(label_keyword: str, preferred_texts: list[str]) -> bool:
             selected = self.page.evaluate(
-                """(args) => {
+                r"""(args) => {
                     const labelKeyword = args.labelKeyword || '';
                     const preferredTexts = args.preferredTexts || [];
                     const isVisible = (el) => {
@@ -1203,7 +1363,7 @@ class CourtZxfwGuaranteeService:
 
         if target == "plaintiff_agent":
             selected = self.page.evaluate(
-                """() => {
+                r"""() => {
                     const isVisible = (el) => {
                         if (!el) return false;
                         const st = window.getComputedStyle(el);
@@ -1247,7 +1407,7 @@ class CourtZxfwGuaranteeService:
             _select_dropdown_by_label("房产坐落位置", [province_value.replace("省", ""), province_value])
 
             property_updates = self.page.evaluate(
-                """(args) => {
+                r"""(args) => {
                     const ownerName = args.ownerName || '';
                     const provinceName = args.provinceName || '广东省';
                     const provinceKeyword = (provinceName || '广东省').replace('省', '');
@@ -1357,7 +1517,7 @@ class CourtZxfwGuaranteeService:
 
             _fill_first_visible("请选择省份", defaults.get("property_province") or "广东省")
             self.page.evaluate(
-                """(province) => {
+                r"""(province) => {
                     const isVisible = (el) => {
                         if (!el) return false;
                         const st = window.getComputedStyle(el);
@@ -1546,7 +1706,7 @@ class CourtZxfwGuaranteeService:
 
     def _get_visible_form_errors(self) -> list[str]:
         errors = self.page.evaluate(
-            """() => {
+            r"""() => {
                 const isVisible = (el) => {
                     const st = window.getComputedStyle(el);
                     if (st.display === 'none' || st.visibility === 'hidden') return false;

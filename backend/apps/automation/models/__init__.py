@@ -27,7 +27,13 @@ from .invoice_recognition import (
 )
 
 # Preservation Quote
-from .preservation import InsuranceQuote, PreservationQuote, QuoteItemStatus, QuoteStatus
+from .preservation import (
+    CasePreservationQuoteBinding,
+    InsuranceQuote,
+    PreservationQuote,
+    QuoteItemStatus,
+    QuoteStatus,
+)
 
 # Scraper Tasks
 from .scraper import ScraperTask, ScraperTaskStatus, ScraperTaskType

@@ -27,6 +27,14 @@ _RESPONDENT_SIDE_STATUSES = {"defendant", "respondent", "appellee", "orig_defend
 _DEFAULT_INSURANCE_COMPANY = "中国平安财产保险股份有限公司"
 _SUNSHINE_INSURANCE_COMPANY = "阳光财产保险股份有限公司"
 _SUNSHINE_DEFAULT_CONSULTANT_CODE = "08740007"
+_PROPERTY_CLUE_TYPE_DISPLAY = {
+    "house": "房产",
+    "vehicle": "车辆",
+    "bank_account": "银行账户",
+    "equity": "股权",
+    "income": "收入",
+    "other": "其他",
+}
 _GUARANTEE_INSURANCE_COMPANY_OPTIONS = [
     "中国平安财产保险股份有限公司",
     "中国人民财产保险股份有限公司",
@@ -423,6 +431,10 @@ def execute_court_guarantee(request: HttpRequest, payload: ExecuteCourtGuarantee
         insurance_company_name=insurance_company_name,
         consultant_code=payload.consultant_code,
     )
+    property_clue = _build_primary_respondent_property_clue(
+        case_parties=case_parties,
+        selected_respondents=selected_respondents,
+    )
 
     case_data: dict[str, Any] = {
         "case_id": case.id,
@@ -497,6 +509,12 @@ def _get_organization_service() -> Any:
     from apps.core.dependencies import build_organization_service
 
     return build_organization_service()
+
+
+def _get_client_service() -> Any:
+    from apps.core.dependencies import build_client_service
+
+    return build_client_service()
 
 
 def _get_case_number(case: Any) -> str:

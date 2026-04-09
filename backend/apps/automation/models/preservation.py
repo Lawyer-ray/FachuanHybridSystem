@@ -145,3 +145,51 @@ class InsuranceQuote(models.Model):
         if self.min_amount:
             return f"{self.company_name} - ¥{self.min_amount}"
         return f"{self.company_name} - {self.get_status_display()}"
+
+
+class CasePreservationQuoteBinding(models.Model):
+    """案件与财产保全询价绑定关系。"""
+
+    id: int
+    case = models.ForeignKey("cases.Case", on_delete=models.CASCADE, related_name="preservation_quote_bindings", verbose_name=_("案件"))
+    preservation_quote = models.ForeignKey(
+        PreservationQuote,
+        on_delete=models.CASCADE,
+        related_name="case_bindings",
+        verbose_name=_("财产保全询价"),
+    )
+    preserve_amount_snapshot = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        verbose_name=_("绑定时保全金额"),
+        help_text=_("用于复用询价时匹配案件当前金额"),
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="created_case_preservation_quote_bindings",
+        verbose_name=_("创建人"),
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
+
+    if TYPE_CHECKING:
+        case: Case
+
+    class Meta:
+        app_label = "automation"
+        verbose_name = _("案件询价绑定")
+        verbose_name_plural = _("案件询价绑定")
+        ordering: ClassVar = ["-created_at"]
+        constraints: ClassVar = [
+            models.UniqueConstraint(fields=["case", "preservation_quote"], name="uniq_case_quote_binding"),
+        ]
+        indexes: ClassVar = [
+            models.Index(fields=["case", "-created_at"]),
+            models.Index(fields=["preservation_quote"]),
+            models.Index(fields=["preserve_amount_snapshot"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"Case#{self.case_id} -> Quote#{self.preservation_quote_id}"
