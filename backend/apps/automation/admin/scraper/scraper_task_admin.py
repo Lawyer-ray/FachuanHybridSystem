@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 from django.contrib import admin
+from django.http import HttpRequest
 from django.utils.html import format_html, format_html_join
 from django.utils.safestring import SafeData
 from django.utils.translation import gettext_lazy as _
@@ -20,6 +21,10 @@ logger = logging.getLogger(__name__)
 @admin.register(ScraperTask)
 class ScraperTaskAdmin(admin.ModelAdmin[ScraperTask]):
     """爬虫任务管理"""
+
+    def get_model_perms(self, request: HttpRequest) -> dict[str, bool]:
+        """隐藏后台入口（保留代码与直达地址能力）"""
+        return {}
 
     list_display = (
         "id",

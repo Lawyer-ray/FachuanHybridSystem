@@ -38,6 +38,10 @@ def _get_document_delivery_schedule_service() -> Any:
 class DocumentDeliveryScheduleAdmin(admin.ModelAdmin[DocumentDeliverySchedule]):
     """文书送达定时任务管理"""
 
+    def get_model_perms(self, request: HttpRequest) -> dict[str, bool]:
+        """隐藏后台入口（保留代码与直达地址能力）"""
+        return {}
+
     list_display: ClassVar[list[str]] = [
         "id",
         "credential_display",
