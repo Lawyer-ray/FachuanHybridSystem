@@ -406,7 +406,7 @@ class CourtZxfwGuaranteeService:
                 return chosen_text
 
             self._close_popovers()
-            self._random_wait(0.8, 1.3)
+            self._random_wait(1.5, 2.5)
 
         logger.warning("court_guarantee_insurance_options_not_ready", extra={"preferred_name": preferred_name})
         self._close_popovers()
@@ -1756,7 +1756,7 @@ class CourtZxfwGuaranteeService:
         return match.group(1), match.group(2), match.group(3), match.group(4)
 
     @staticmethod
-    def _random_wait(min_sec: float = 0.3, max_sec: float = 0.9) -> None:
+    def _random_wait(min_sec: float = 0.5, max_sec: float = 1.3) -> None:
         time.sleep(random.uniform(min_sec, max_sec))
 
 
