@@ -358,6 +358,66 @@
       });
   };
 
+  // ========== 删除全部材料功能 ==========
+
+  var deleteAllState = {
+    caseId: null,
+    category: null,
+  };
+
+  window.confirmDeleteAllMaterials = function (btn) {
+    deleteAllState.caseId = btn.getAttribute('data-case-id');
+    deleteAllState.category = btn.getAttribute('data-category');
+
+    var descEl = document.getElementById('deleteAllModalDesc');
+    var categoryLabel = deleteAllState.category === 'party' ? '当事人材料' : '非当事人材料';
+    if (descEl) {
+      descEl.textContent = '确定要删除当前案件下所有「' + categoryLabel + '」吗？删除后分类绑定和附件文件都将被移除，此操作不可恢复。';
+    }
+
+    var modal = document.getElementById('materialDeleteAllModal');
+    if (modal) modal.style.display = 'flex';
+  };
+
+  window.closeDeleteAllModal = function () {
+    var modal = document.getElementById('materialDeleteAllModal');
+    if (modal) modal.style.display = 'none';
+    deleteAllState.caseId = null;
+    deleteAllState.category = null;
+  };
+
+  window.doDeleteAllMaterials = function () {
+    if (!deleteAllState.caseId || !deleteAllState.category) {
+      toast('参数错误', 'error');
+      return;
+    }
+
+    var confirmBtn = document.getElementById('materialDeleteAllConfirmBtn');
+    if (confirmBtn) confirmBtn.disabled = true;
+
+    fetch('/api/v1/cases/' + deleteAllState.caseId + '/materials', {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCsrfToken(),
+      },
+      body: JSON.stringify({ category: deleteAllState.category }),
+    })
+      .then(function (resp) {
+        if (!resp.ok) return resp.json().then(function (data) { throw new Error(data.detail || '删除失败'); });
+        return resp.json();
+      })
+      .then(function (data) {
+        toast('已删除 ' + data.deleted_count + ' 条材料，正在刷新...', 'success');
+        window.closeDeleteAllModal();
+        setTimeout(function () { window.location.reload(); }, 600);
+      })
+      .catch(function (err) {
+        toast(err.message || '删除失败', 'error');
+        if (confirmBtn) confirmBtn.disabled = false;
+      });
+  };
+
   document.addEventListener('DOMContentLoaded', function () {
     normalizeFileNames();
     initTimeToggle();

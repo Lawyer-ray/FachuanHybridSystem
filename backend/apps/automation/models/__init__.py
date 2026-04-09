@@ -55,6 +55,7 @@ __all__ = [
     "QuoteItemStatus",
     "PreservationQuote",
     "InsuranceQuote",
+    "CasePreservationQuoteBinding",
     # Court Document
     "DocumentDownloadStatus",
     "CourtDocument",

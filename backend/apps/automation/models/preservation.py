@@ -4,11 +4,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar
 
+from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 if TYPE_CHECKING:
     from django.db.models.fields.related_descriptors import RelatedManager
+
+    from apps.cases.models import Case
 
 
 class QuoteStatus(models.TextChoices):

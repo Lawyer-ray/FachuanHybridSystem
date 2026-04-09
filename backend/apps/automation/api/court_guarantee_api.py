@@ -1,0 +1,948 @@
+"""法院一张网申请担保 API。"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import re
+from concurrent.futures import ThreadPoolExecutor
+from decimal import Decimal, InvalidOperation
+from pathlib import Path
+from typing import Any
+
+from django.http import HttpRequest
+from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
+from django_q.tasks import async_task
+from ninja import Router, Schema
+
+logger = logging.getLogger("apps.automation")
+router = Router()
+
+_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="court-guarantee")
+_SESSION_UPDATE_EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="court-guarantee-session")
+
+_PLAINTIFF_SIDE_STATUSES = {"plaintiff", "applicant", "appellant", "orig_plaintiff"}
+_RESPONDENT_SIDE_STATUSES = {"defendant", "respondent", "appellee", "orig_defendant"}
+_DEFAULT_INSURANCE_COMPANY = "中国平安财产保险股份有限公司"
+_GUARANTEE_INSURANCE_COMPANY_OPTIONS = [
+    "中国平安财产保险股份有限公司",
+    "中国人民财产保险股份有限公司",
+    "中国太平洋财产保险股份有限公司",
+    "中国人寿财产保险股份有限公司",
+    "中华联合财产保险股份有限公司",
+    "阳光财产保险股份有限公司",
+    "大地财产保险股份有限公司",
+    "太平财产保险有限公司",
+    "永安财产保险股份有限公司",
+    "安盛天平财产保险有限公司",
+]
+_DEFAULT_PRESERVATION_CORP_ID = "2550"
+_DEFAULT_PRESERVATION_CATEGORY_ID = "127000"
+_QUOTE_RETRY_ALLOWED_STATUSES = {"failed", "partial_success"}
+_BROWSER_SLOW_MO_MS = 300
+_BROWSER_HOLD_SECONDS = 15
+_BROWSER_HOLD_SECONDS_ON_FAILURE = 600
+
+
+class CaseGuaranteeInfoOut(Schema):
+    case_id: int
+    case_name: str
+    court_name: str | None
+    cause_of_action: str
+    preserve_amount: str | None
+    preserve_category: str
+    has_case_number: bool
+    has_court_credential: bool = False
+    our_party_is_plaintiff_side: bool = False
+    insurance_company_name: str = _DEFAULT_INSURANCE_COMPANY
+    insurance_company_options: list[str] = _GUARANTEE_INSURANCE_COMPANY_OPTIONS
+    consultant_code: str = ""
+    quote_context: dict[str, Any] | None = None
+
+
+class CaseQuoteOperationIn(Schema):
+    case_id: int
+
+
+class CaseQuoteOperationOut(Schema):
+    success: bool
+    message: str
+    quote_context: dict[str, Any] | None = None
+
+
+class ExecuteCourtGuaranteeIn(Schema):
+    case_id: int
+    insurance_company_name: str | None = None
+    consultant_code: str | None = None
+
+
+class ExecuteCourtGuaranteeOut(Schema):
+    success: bool
+    message: str
+    session_id: int | None = None
+    status: str | None = None
+
+
+@router.get("/case-info/{case_id}", response=CaseGuaranteeInfoOut)
+def get_case_guarantee_info(request: HttpRequest, case_id: int) -> Any:
+    from apps.cases.models import Case, CaseNumber, CaseParty, SupervisingAuthority
+
+    case = Case.objects.get(pk=case_id)
+
+    sa = SupervisingAuthority.objects.filter(case=case, authority_type="trial").first()
+    court_name: str | None = _resolve_court_name(sa.name) if sa else None
+
+    has_case_number = CaseNumber.objects.filter(case=case).exclude(number__isnull=True).exclude(number="").exists()
+    preserve_category = "诉讼保全" if has_case_number else "诉前保全"
+
+    parties = list(CaseParty.objects.filter(case=case).select_related("client"))
+    our_party_is_plaintiff_side = any(
+        getattr(getattr(p, "client", None), "is_our_client", False)
+        and str(getattr(p, "legal_status", "") or "").strip() in _PLAINTIFF_SIDE_STATUSES
+        for p in parties
+    )
+
+    lawyer_id = getattr(request.user, "id", None)
+    organization_service = _get_organization_service()
+    has_court_credential = bool(
+        lawyer_id and organization_service.has_credential_for_lawyer(int(lawyer_id), "一张网")
+    )
+
+    quote_context = _build_case_quote_context(case=case)
+    insurance_company_name, insurance_company_options = _resolve_insurance_company_defaults(quote_context=quote_context)
+
+    return {
+        "case_id": case.id,
+        "case_name": case.name,
+        "court_name": court_name,
+        "cause_of_action": case.cause_of_action or "",
+        "preserve_amount": str(case.preservation_amount) if case.preservation_amount else None,
+        "preserve_category": preserve_category,
+        "has_case_number": has_case_number,
+        "has_court_credential": has_court_credential,
+        "our_party_is_plaintiff_side": our_party_is_plaintiff_side,
+        "insurance_company_name": insurance_company_name,
+        "insurance_company_options": insurance_company_options,
+        "consultant_code": "",
+        "quote_context": quote_context,
+    }
+
+
+@router.post("/quote/ensure", response=CaseQuoteOperationOut)
+def ensure_case_quote(request: HttpRequest, payload: CaseQuoteOperationIn) -> Any:
+    from apps.automation.models import CasePreservationQuoteBinding
+    from apps.automation.services.insurance.preservation_quote_service import PreservationQuoteService
+    from apps.cases.models import Case
+
+    case = Case.objects.get(pk=payload.case_id)
+    preserve_amount = _parse_preserve_amount(case.preservation_amount)
+    if preserve_amount is None or preserve_amount <= 0:
+        return {
+            "success": False,
+            "message": str(_("请先维护案件保全金额（preservation_amount）")),
+            "quote_context": _build_case_quote_context(case=case),
+        }
+
+    existing_binding = _find_reusable_binding(case_id=case.id, preserve_amount=preserve_amount)
+    if existing_binding is not None:
+        return {
+            "success": True,
+            "message": str(_("已复用当前金额对应的询价记录")),
+            "quote_context": _build_case_quote_context(case=case),
+        }
+
+    lawyer_id = getattr(request.user, "id", None)
+    organization_service = _get_organization_service()
+    credential = (
+        organization_service.get_credential_for_lawyer(int(lawyer_id), "一张网") if lawyer_id is not None else None
+    )
+    if credential is None:
+        return {
+            "success": False,
+            "message": str(_("未找到一张网账号凭证，无法发起询价")),
+            "quote_context": _build_case_quote_context(case=case),
+        }
+
+    quote_service = PreservationQuoteService()
+    quote = quote_service.create_quote(
+        preserve_amount=preserve_amount,
+        corp_id=_DEFAULT_PRESERVATION_CORP_ID,
+        category_id=_DEFAULT_PRESERVATION_CATEGORY_ID,
+        credential_id=int(credential.id),
+    )
+
+    created_by_id = int(lawyer_id) if lawyer_id is not None else None
+    CasePreservationQuoteBinding.objects.create(
+        case=case,
+        preservation_quote=quote,
+        preserve_amount_snapshot=preserve_amount,
+        created_by_id=created_by_id,
+    )
+
+    return {
+        "success": True,
+        "message": str(_("询价任务已发起")),
+        "quote_context": _build_case_quote_context(case=case),
+    }
+
+
+@router.post("/quote/{quote_id}/retry", response=CaseQuoteOperationOut)
+def retry_case_quote(request: HttpRequest, quote_id: int, payload: CaseQuoteOperationIn) -> Any:
+    from apps.automation.models import CasePreservationQuoteBinding, PreservationQuote, QuoteStatus
+    from apps.cases.models import Case
+
+    case = Case.objects.get(pk=payload.case_id)
+    binding = (
+        CasePreservationQuoteBinding.objects.select_related("preservation_quote")
+        .filter(case_id=case.id, preservation_quote_id=quote_id)
+        .first()
+    )
+    if binding is None:
+        return {
+            "success": False,
+            "message": str(_("未找到该案件对应的询价绑定记录")),
+            "quote_context": _build_case_quote_context(case=case),
+        }
+
+    quote = PreservationQuote.objects.filter(id=quote_id).first()
+    if quote is None:
+        return {
+            "success": False,
+            "message": str(_("询价记录不存在")),
+            "quote_context": _build_case_quote_context(case=case),
+        }
+
+    if quote.status not in _QUOTE_RETRY_ALLOWED_STATUSES:
+        return {
+            "success": False,
+            "message": str(_("当前状态不支持重试，仅失败或部分成功可重试")),
+            "quote_context": _build_case_quote_context(case=case),
+        }
+
+    quote.status = QuoteStatus.PENDING
+    quote.error_message = ""
+    quote.started_at = None
+    quote.finished_at = None
+    quote.total_companies = 0
+    quote.success_count = 0
+    quote.failed_count = 0
+    quote.save(
+        update_fields=[
+            "status",
+            "error_message",
+            "started_at",
+            "finished_at",
+            "total_companies",
+            "success_count",
+            "failed_count",
+        ]
+    )
+
+    async_task(
+        "apps.automation.tasks.execute_preservation_quote_task",
+        quote.id,
+        task_name=f"询价任务重试 #{quote.id}",
+        timeout=600,
+    )
+
+    return {
+        "success": True,
+        "message": str(_("已重新提交询价任务")),
+        "quote_context": _build_case_quote_context(case=case),
+    }
+
+
+@router.post("/quote/{quote_id}/delete", response=CaseQuoteOperationOut)
+def delete_case_quote(request: HttpRequest, quote_id: int, payload: CaseQuoteOperationIn) -> Any:
+    from apps.automation.models import CasePreservationQuoteBinding, PreservationQuote
+    from apps.cases.models import Case
+
+    case = Case.objects.get(pk=payload.case_id)
+    has_binding = CasePreservationQuoteBinding.objects.filter(case_id=case.id, preservation_quote_id=quote_id).exists()
+    if not has_binding:
+        return {
+            "success": False,
+            "message": str(_("未找到该案件对应的询价记录")),
+            "quote_context": _build_case_quote_context(case=case),
+        }
+
+    quote = PreservationQuote.objects.filter(id=quote_id).first()
+    if quote is None:
+        return {
+            "success": False,
+            "message": str(_("询价记录不存在")),
+            "quote_context": _build_case_quote_context(case=case),
+        }
+
+    quote.delete()
+    return {
+        "success": True,
+        "message": str(_("询价记录已删除")),
+        "quote_context": _build_case_quote_context(case=case),
+    }
+
+
+@router.post("/quote-binding/{binding_id}/delete", response=CaseQuoteOperationOut)
+def delete_case_quote_binding(request: HttpRequest, binding_id: int, payload: CaseQuoteOperationIn) -> Any:
+    from apps.automation.models import CasePreservationQuoteBinding
+    from apps.cases.models import Case
+
+    case = Case.objects.get(pk=payload.case_id)
+    binding = CasePreservationQuoteBinding.objects.filter(id=binding_id, case_id=case.id).first()
+    if binding is None:
+        return {
+            "success": False,
+            "message": str(_("绑定关系不存在")),
+            "quote_context": _build_case_quote_context(case=case),
+        }
+
+    binding.delete()
+    return {
+        "success": True,
+        "message": str(_("绑定关系已删除")),
+        "quote_context": _build_case_quote_context(case=case),
+    }
+
+
+@router.post("/execute", response=ExecuteCourtGuaranteeOut)
+def execute_court_guarantee(request: HttpRequest, payload: ExecuteCourtGuaranteeIn) -> Any:
+    from apps.automation.models import ScraperTask, ScraperTaskStatus, ScraperTaskType
+    from apps.cases.models import Case, CaseNumber, CaseParty, SupervisingAuthority
+
+    case = Case.objects.get(pk=payload.case_id)
+
+    organization_service = _get_organization_service()
+    lawyer_id = getattr(request.user, "id", None)
+    credential = (
+        organization_service.get_credential_for_lawyer(int(lawyer_id), "一张网") if lawyer_id is not None else None
+    )
+    if not credential:
+        return {"success": False, "message": "未找到一张网账号凭证", "session_id": None, "status": "failed"}
+
+    sa = SupervisingAuthority.objects.filter(case=case, authority_type="trial").first()
+    if not sa:
+        return {"success": False, "message": "未设置管辖法院", "session_id": None, "status": "failed"}
+
+    court_name = _resolve_court_name(sa.name)
+    if not court_name:
+        return {"success": False, "message": "无法解析管辖法院名称", "session_id": None, "status": "failed"}
+
+    preserve_amount = case.preservation_amount
+    if preserve_amount is None or preserve_amount <= 0:
+        return {"success": False, "message": "案件保全金额为空，请先维护 preservation_amount", "session_id": None, "status": "failed"}
+
+    case_number = (
+        CaseNumber.objects.filter(case=case).exclude(number__isnull=True).exclude(number="").values_list("number", flat=True).first()
+    )
+    has_case_number = bool(case_number)
+    preserve_category = "诉讼保全" if has_case_number else "诉前保全"
+
+    from apps.automation.services.scraper.sites.court_zxfw_guarantee import CourtZxfwGuaranteeService
+
+    case_year, case_court_code, case_type_code, case_seq = CourtZxfwGuaranteeService.parse_case_number(str(case_number or ""))
+    material_paths = _build_guarantee_material_paths(case)
+    case_parties = list(CaseParty.objects.filter(case=case).select_related("client").order_by("id"))
+
+    applicant = _pick_party_payload(case_parties=case_parties, preferred_statuses=_PLAINTIFF_SIDE_STATUSES, prefer_our=True)
+    respondent = _pick_party_payload(case_parties=case_parties, preferred_statuses=_RESPONDENT_SIDE_STATUSES, prefer_our=False)
+
+    plaintiff_agent = _build_plaintiff_agent_payload(case=case, requester_id=lawyer_id, fallback_party=applicant)
+
+    quote_context = _build_case_quote_context(case=case)
+    quote_based_options = _extract_quote_company_options(quote_context=quote_context)
+    insurance_company_name = _normalize_insurance_company(
+        str(payload.insurance_company_name or "").strip(),
+        allowed_options=quote_based_options,
+    )
+    consultant_code = str(payload.consultant_code or "").strip()
+
+    case_data: dict[str, Any] = {
+        "case_id": case.id,
+        "case_name": case.name,
+        "court_name": court_name,
+        "cause_of_action": case.cause_of_action or "",
+        "cause_candidates": _build_cause_candidates(case.cause_of_action or ""),
+        "preserve_amount": str(preserve_amount),
+        "preserve_category": preserve_category,
+        "case_number": str(case_number or ""),
+        "case_year": case_year,
+        "case_court_code": case_court_code,
+        "case_type_code": case_type_code,
+        "case_seq": case_seq,
+        "material_paths": material_paths,
+        "insurance_company_name": insurance_company_name,
+        "consultant_code": consultant_code,
+        "applicant": applicant,
+        "respondent": respondent,
+        "plaintiff_agent": plaintiff_agent,
+    }
+
+    session = ScraperTask.objects.create(
+        task_type=ScraperTaskType.COURT_FILING,
+        status=ScraperTaskStatus.PENDING,
+        url="https://zxfw.court.gov.cn/yzwbqww/index.html#/CreateGuarantee/applyGuaranteeInformation/gOne",
+        case=case,
+        config={
+            "scene": "court_guarantee",
+            "case_id": case.id,
+            "court_name": court_name,
+            "credential_account": str(getattr(credential, "account", "") or ""),
+            "insurance_company_name": case_data["insurance_company_name"],
+            "consultant_code": case_data["consultant_code"],
+        },
+        result={"stage": "queued", "message": "担保任务已排队"},
+        started_at=None,
+        finished_at=None,
+    )
+
+    _EXECUTOR.submit(
+        _run_guarantee,
+        account=str(credential.account),
+        password=str(credential.password),
+        case_data=case_data,
+        session_id=session.id,
+    )
+
+    return {
+        "success": True,
+        "message": "担保任务已启动（有头模式），浏览器即将打开...",
+        "session_id": session.id,
+        "status": "in_progress",
+    }
+
+
+@router.get("/session/{session_id}", response=ExecuteCourtGuaranteeOut)
+def get_court_guarantee_session_status(request: HttpRequest, session_id: int) -> Any:
+    from apps.automation.models import ScraperTask
+
+    task = ScraperTask.objects.filter(id=session_id).first()
+    if not task:
+        return {"success": False, "message": "会话不存在", "session_id": session_id, "status": "failed"}
+
+    return _build_session_status_payload(task=task)
+
+
+def _get_organization_service() -> Any:
+    from apps.core.dependencies import build_organization_service
+
+    return build_organization_service()
+
+
+def _resolve_court_name(authority_name: str) -> str | None:
+    if "人民法院" in authority_name:
+        return authority_name
+
+    from apps.core.models import Court
+
+    court = Court.objects.filter(name__contains=authority_name).first()
+    if court and court.name:
+        return str(court.name)
+    return f"{authority_name}人民法院"
+
+
+def _normalize_insurance_company(name: str, *, allowed_options: list[str] | None = None) -> str:
+    normalized_name = name.strip()
+    if not normalized_name:
+        if allowed_options:
+            return allowed_options[0]
+        return _DEFAULT_INSURANCE_COMPANY
+
+    if allowed_options:
+        if normalized_name in allowed_options:
+            return normalized_name
+        return allowed_options[0]
+
+    if normalized_name in _GUARANTEE_INSURANCE_COMPANY_OPTIONS:
+        return normalized_name
+    return _DEFAULT_INSURANCE_COMPANY
+
+
+def _parse_preserve_amount(raw_value: Any) -> Decimal | None:
+    if raw_value is None:
+        return None
+    if isinstance(raw_value, Decimal):
+        return raw_value
+    try:
+        return Decimal(str(raw_value))
+    except (InvalidOperation, TypeError, ValueError):
+        return None
+
+
+def _find_reusable_binding(*, case_id: int, preserve_amount: Decimal) -> Any | None:
+    from apps.automation.models import CasePreservationQuoteBinding
+
+    return (
+        CasePreservationQuoteBinding.objects.select_related("preservation_quote")
+        .filter(case_id=case_id, preserve_amount_snapshot=preserve_amount)
+        .order_by("-created_at")
+        .first()
+    )
+
+
+def _build_case_quote_context(*, case: Any) -> dict[str, Any] | None:
+    from apps.automation.models import CasePreservationQuoteBinding, QuoteItemStatus
+
+    preserve_amount = _parse_preserve_amount(getattr(case, "preservation_amount", None))
+    if preserve_amount is None:
+        return None
+
+    binding = _find_reusable_binding(case_id=int(case.id), preserve_amount=preserve_amount)
+    if binding is None:
+        binding = (
+            CasePreservationQuoteBinding.objects.select_related("preservation_quote")
+            .filter(case_id=case.id)
+            .order_by("-created_at")
+            .first()
+        )
+    if binding is None:
+        return None
+
+    quote = binding.preservation_quote
+    quote_items: list[dict[str, Any]] = []
+    recommended_company: str | None = None
+    for item in quote.quotes.all().order_by("status", "min_amount", "id"):
+        if item.status == QuoteItemStatus.SUCCESS and item.min_amount is not None:
+            if recommended_company is None:
+                recommended_company = str(item.company_name)
+            quote_items.append(
+                {
+                    "id": int(item.id),
+                    "company_name": str(item.company_name),
+                    "premium": str(item.min_amount),
+                    "status": str(item.status),
+                    "error_message": str(item.error_message or ""),
+                    "is_recommended": recommended_company == str(item.company_name),
+                }
+            )
+
+    if not quote_items:
+        for item in quote.quotes.all().order_by("id"):
+            quote_items.append(
+                {
+                    "id": int(item.id),
+                    "company_name": str(item.company_name),
+                    "premium": str(item.min_amount) if item.min_amount is not None else "",
+                    "status": str(item.status),
+                    "error_message": str(item.error_message or ""),
+                    "is_recommended": False,
+                }
+            )
+
+    return {
+        "binding_id": int(binding.id),
+        "quote_id": int(quote.id),
+        "status": str(quote.status),
+        "error_message": str(quote.error_message or ""),
+        "preserve_amount_snapshot": str(binding.preserve_amount_snapshot),
+        "recommended_company": recommended_company,
+        "can_retry": quote.status in _QUOTE_RETRY_ALLOWED_STATUSES,
+        "created_at": quote.created_at.isoformat() if quote.created_at else None,
+        "finished_at": quote.finished_at.isoformat() if quote.finished_at else None,
+        "success_count": int(quote.success_count),
+        "failed_count": int(quote.failed_count),
+        "total_companies": int(quote.total_companies),
+        "items": quote_items,
+    }
+
+
+def _extract_quote_company_options(*, quote_context: dict[str, Any] | None) -> list[str]:
+    if not quote_context:
+        return []
+
+    items = quote_context.get("items") if isinstance(quote_context, dict) else None
+    if not isinstance(items, list):
+        return []
+
+    preferred: list[str] = []
+    fallback: list[str] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        company_name = str(item.get("company_name") or "").strip()
+        if not company_name:
+            continue
+        if str(item.get("status") or "") == "success":
+            preferred.append(company_name)
+        else:
+            fallback.append(company_name)
+
+    dedup: list[str] = []
+    seen: set[str] = set()
+    for name in [*preferred, *fallback]:
+        if name in seen:
+            continue
+        seen.add(name)
+        dedup.append(name)
+    return dedup
+
+
+def _resolve_insurance_company_defaults(*, quote_context: dict[str, Any] | None) -> tuple[str, list[str]]:
+    quote_options = _extract_quote_company_options(quote_context=quote_context)
+    if quote_options:
+        recommended = str((quote_context or {}).get("recommended_company") or "").strip()
+        if recommended and recommended in quote_options:
+            return recommended, quote_options
+        return quote_options[0], quote_options
+    return _DEFAULT_INSURANCE_COMPANY, _GUARANTEE_INSURANCE_COMPANY_OPTIONS
+
+
+def _build_guarantee_material_paths(case: Any) -> list[str]:
+    from django.db.models import Q
+
+    from apps.cases.models import CaseMaterial, CaseMaterialCategory, CaseMaterialSide
+
+    allowed_suffixes = {".pdf", ".doc", ".docx", ".png", ".jpg", ".jpeg", ".bmp", ".webp"}
+
+    def _collect(qs: Any) -> list[tuple[int, str, str, str]]:
+        files: list[tuple[int, str, str, str]] = []
+        for material in qs.select_related("source_attachment").order_by("id"):
+            attachment = getattr(material, "source_attachment", None)
+            if attachment is None or not getattr(attachment, "file", None):
+                continue
+            try:
+                file_path = Path(str(attachment.file.path))
+            except Exception:
+                continue
+            if not file_path.exists() or file_path.suffix.lower() not in allowed_suffixes:
+                continue
+            files.append(
+                (
+                    int(getattr(material, "id", 0) or 0),
+                    str(getattr(material, "type_name", "") or ""),
+                    str(file_path.name),
+                    file_path.as_posix(),
+                )
+            )
+        return files
+
+    def _pick(
+        *,
+        records: list[tuple[int, str, str, str]],
+        keywords: list[str],
+        used: set[str],
+    ) -> str | None:
+        for _, type_name, filename, path in records:
+            if path in used:
+                continue
+            haystack = f"{type_name} {filename}"
+            if any(keyword in haystack for keyword in keywords):
+                return path
+        return None
+
+    our_party_qs = CaseMaterial.objects.filter(case=case, category=CaseMaterialCategory.PARTY).filter(
+        Q(side=CaseMaterialSide.OUR) | Q(side__isnull=True) | Q(side="")
+    )
+    non_party_qs = CaseMaterial.objects.filter(case=case, category=CaseMaterialCategory.NON_PARTY)
+
+    our_files = _collect(our_party_qs)
+    non_party_files = _collect(non_party_qs)
+
+    selected: list[str] = []
+    used: set[str] = set()
+
+    required_rules: list[tuple[list[tuple[int, str, str, str]], list[str]]] = [
+        (our_files, ["财产保全申请书", "保全申请书"]),
+        (our_files, ["起诉状", "起诉书", "起诉"]),
+        (non_party_files, ["立案受理通知书", "受理通知书", "立案通知书", "受理通知", "立案通知"]),
+        (our_files, ["身份证明", "营业执照", "身份证", "法定代表人身份证明"]),
+        (our_files, ["证据", "证据材料", "明细", "清单"]),
+    ]
+
+    for records, keywords in required_rules:
+        picked = _pick(records=records, keywords=keywords, used=used)
+        if not picked:
+            continue
+        used.add(picked)
+        selected.append(picked)
+
+    for records in (our_files, non_party_files):
+        for _, _, _, path in records:
+            if path in used:
+                continue
+            used.add(path)
+            selected.append(path)
+            if len(selected) >= 8:
+                return selected
+
+    return selected
+
+
+def _build_cause_candidates(raw_cause: str) -> list[str]:
+    text = str(raw_cause or "").replace("\u3000", " ").strip()
+    if not text:
+        return []
+
+    candidates: list[str] = []
+    for part in [text, *re.split(r"[、,，;；/\\|\n]+", text)]:
+        token = str(part).strip()
+        if not token:
+            continue
+        candidates.append(token)
+        if token.endswith("纠纷"):
+            candidates.append(token.removesuffix("纠纷"))
+
+    dedup: list[str] = []
+    seen: set[str] = set()
+    for item in candidates:
+        normalized = item.strip()
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        dedup.append(normalized)
+    return dedup[:8]
+
+
+def _pick_party_payload(*, case_parties: list[Any], preferred_statuses: set[str], prefer_our: bool) -> dict[str, str]:
+    def _match(party: Any) -> bool:
+        status = str(getattr(party, "legal_status", "") or "").strip()
+        if status not in preferred_statuses:
+            return False
+        client = getattr(party, "client", None)
+        is_our = bool(getattr(client, "is_our_client", False))
+        return is_our if prefer_our else (not is_our)
+
+    target = next((p for p in case_parties if _match(p)), None)
+    if target is None:
+        target = next(
+            (
+                p
+                for p in case_parties
+                if str(getattr(p, "legal_status", "") or "").strip() in preferred_statuses
+            ),
+            None,
+        )
+    if target is None:
+        target = next((p for p in case_parties if bool(getattr(getattr(p, "client", None), "is_our_client", False)) == prefer_our), None)
+    if target is None and case_parties:
+        target = case_parties[0]
+
+    client = getattr(target, "client", None) if target is not None else None
+    party_type = str(getattr(client, "client_type", "") or "natural").strip() or "natural"
+    is_natural = party_type == "natural"
+
+    name = str(getattr(client, "name", "") or "").strip() or "张三"
+    id_number = str(getattr(client, "id_number", "") or "").strip()
+    if not id_number:
+        id_number = "120101199001010017" if is_natural else "91440101MA59TEST8X"
+
+    phone = str(getattr(client, "phone", "") or "").strip()
+    address = str(getattr(client, "address", "") or "").strip() or "广东省广州市天河区测试地址1号"
+    legal_representative = str(getattr(client, "legal_representative", "") or "").strip()
+    legal_representative_id_number = str(getattr(client, "legal_representative_id_number", "") or "").strip()
+
+    return {
+        "party_type": party_type,
+        "name": name,
+        "id_number": id_number,
+        "phone": phone,
+        "address": address,
+        "legal_representative": legal_representative,
+        "legal_representative_id_number": legal_representative_id_number,
+    }
+
+
+def _build_plaintiff_agent_payload(*, case: Any, requester_id: int | None, fallback_party: dict[str, str]) -> dict[str, str]:
+    from apps.organization.models import Lawyer
+
+    lawyer = None
+    if requester_id is not None:
+        lawyer = Lawyer.objects.select_related("law_firm").filter(id=int(requester_id)).first()
+
+    if lawyer is None:
+        assignment = case.assignments.select_related("lawyer__law_firm").order_by("id").first()
+        lawyer = getattr(assignment, "lawyer", None)
+
+    fallback_name = str(fallback_party.get("name") or "").strip() or "黄崧"
+    if lawyer is None:
+        return {
+            "party_type": "agent",
+            "name": fallback_name,
+            "id_number": "",
+            "phone": str(fallback_party.get("phone") or "").strip(),
+            "law_firm": "",
+            "license_number": "",
+        }
+
+    real_name = str(getattr(lawyer, "real_name", "") or "").strip()
+    username = str(getattr(lawyer, "username", "") or "").strip()
+    law_firm = getattr(lawyer, "law_firm", None)
+
+    return {
+        "party_type": "agent",
+        "name": real_name or username or fallback_name,
+        "id_number": str(getattr(lawyer, "id_card", "") or "").strip(),
+        "phone": str(getattr(lawyer, "phone", "") or "").strip() or str(fallback_party.get("phone") or "").strip(),
+        "law_firm": str(getattr(law_firm, "name", "") or "").strip(),
+        "license_number": str(getattr(lawyer, "license_no", "") or "").strip(),
+    }
+
+
+def _build_session_status_payload(*, task: Any) -> dict[str, Any]:
+    from apps.automation.models import ScraperTaskStatus
+
+    if task.status in {ScraperTaskStatus.PENDING, ScraperTaskStatus.RUNNING}:
+        message = "担保任务执行中..."
+        if isinstance(task.result, dict):
+            message = str(task.result.get("message") or message)
+        return {"success": True, "message": message, "session_id": task.id, "status": "in_progress"}
+
+    if task.status == ScraperTaskStatus.SUCCESS:
+        message = "担保流程执行完成（已到预览页，未提交）"
+        if isinstance(task.result, dict):
+            message = str(task.result.get("message") or message)
+        return {"success": True, "message": message, "session_id": task.id, "status": "completed"}
+
+    message = str(task.error_message or "").strip()
+    if not message and isinstance(task.result, dict):
+        message = str(task.result.get("message") or "").strip()
+    if not message:
+        message = "担保失败"
+    return {"success": False, "message": message, "session_id": task.id, "status": "failed"}
+
+
+def _update_session_task(
+    *,
+    session_id: int | None,
+    status: str,
+    error_message: str | None = None,
+    result: dict[str, Any] | None = None,
+    set_started: bool = False,
+    set_finished: bool = False,
+) -> None:
+    if session_id is None:
+        return
+
+    now = timezone.now()
+    updates: dict[str, Any] = {"status": status, "updated_at": now}
+    if error_message is not None:
+        updates["error_message"] = error_message
+    if result is not None:
+        updates["result"] = result
+    if set_started:
+        updates["started_at"] = now
+    if set_finished:
+        updates["finished_at"] = now
+
+    def _do_update() -> None:
+        from django.db import close_old_connections
+
+        from apps.automation.models import ScraperTask
+
+        close_old_connections()
+        try:
+            ScraperTask.objects.filter(id=session_id).update(**updates)
+        except Exception:
+            logger.exception("court_guarantee_session_update_failed", extra={"session_id": session_id, "status": status})
+        finally:
+            close_old_connections()
+
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        _do_update()
+        return
+
+    _SESSION_UPDATE_EXECUTOR.submit(_do_update)
+
+
+def _run_guarantee(
+    *,
+    account: str,
+    password: str,
+    case_data: dict[str, Any],
+    session_id: int | None,
+) -> None:
+    from apps.automation.models import ScraperTaskStatus
+    from playwright.sync_api import sync_playwright
+
+    from apps.automation.services.scraper.sites.court_zxfw import CourtZxfwService
+    from apps.automation.services.scraper.sites.court_zxfw_guarantee import CourtZxfwGuaranteeService
+
+    _update_session_task(
+        session_id=session_id,
+        status=ScraperTaskStatus.RUNNING,
+        error_message="",
+        result={"stage": "login", "message": "正在登录一张网..."},
+        set_started=True,
+    )
+
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(headless=False, slow_mo=_BROWSER_SLOW_MO_MS)
+        context = browser.new_context()
+        page = context.new_page()
+        run_success = False
+
+        try:
+            login_service = CourtZxfwService(page=page, context=context)
+            login_service._try_http_login = lambda *args, **kwargs: None  # type: ignore[method-assign]
+            login_result = login_service.login(account=account, password=password)
+            if not login_result.get("success"):
+                message = str(login_result.get("message") or "一张网登录失败")
+                _update_session_task(
+                    session_id=session_id,
+                    status=ScraperTaskStatus.FAILED,
+                    error_message=message,
+                    result={"stage": "login.failed", "message": message, "success": False},
+                    set_finished=True,
+                )
+                return
+
+            token_result = login_service.fetch_baoquan_token(save_debug=False)
+            logger.info(
+                "court_guarantee_token_status",
+                extra={"session_id": session_id, "token_success": bool(token_result.get("success"))},
+            )
+
+            _update_session_task(
+                session_id=session_id,
+                status=ScraperTaskStatus.RUNNING,
+                error_message="",
+                result={"stage": "guarantee.running", "message": "正在执行担保流程..."},
+            )
+
+            guarantee_service = CourtZxfwGuaranteeService(page=page, save_debug=True)
+            result = guarantee_service.apply_guarantee(case_data)
+
+            if result.get("success"):
+                run_success = True
+                _update_session_task(
+                    session_id=session_id,
+                    status=ScraperTaskStatus.SUCCESS,
+                    error_message="",
+                    result={"stage": "guarantee.success", **result},
+                    set_finished=True,
+                )
+                return
+
+            message = str(result.get("message") or "担保执行失败")
+            _update_session_task(
+                session_id=session_id,
+                status=ScraperTaskStatus.FAILED,
+                error_message=message,
+                result={"stage": "guarantee.failed", **result, "success": False},
+                set_finished=True,
+            )
+
+        except Exception as exc:
+            message = f"一张网担保执行失败: {exc}"
+            logger.error(message, exc_info=True)
+            _update_session_task(
+                session_id=session_id,
+                status=ScraperTaskStatus.FAILED,
+                error_message=message,
+                result={"stage": "guarantee.exception", "message": message, "success": False},
+                set_finished=True,
+            )
+        finally:
+            hold_seconds = _BROWSER_HOLD_SECONDS if run_success else _BROWSER_HOLD_SECONDS_ON_FAILURE
+            try:
+                logger.info(
+                    "court_guarantee_browser_hold",
+                    extra={"session_id": session_id, "run_success": run_success, "hold_seconds": hold_seconds},
+                )
+                page.wait_for_timeout(hold_seconds * 1000)
+            except Exception:
+                logger.debug("court_guarantee_wait_before_close_failed", exc_info=True)
+            context.close()
+            browser.close()
