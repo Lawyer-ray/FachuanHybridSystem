@@ -12,7 +12,7 @@ TASK_NAME = "message_hub:sync_all_sources"
 
 
 def _is_expected_sync_error(exc: Exception) -> bool:
-    """判断是否为可预期的网络/环境异常，避免刷整段堆栈。"""
+    """判断是否为可预期的网络/环境/运行时异常，避免刷整段堆栈。"""
     if isinstance(exc, (socket.gaierror, TimeoutError, ConnectionError)):
         return True
 
@@ -24,6 +24,11 @@ def _is_expected_sync_error(exc: Exception) -> bool:
         "connection refused",
         "temporarily unavailable",
         "timeout",
+        "greenlet.error",          # Playwright 跨线程 greenlet 切换失败
+        "cannot switch to a different thread",  # 同上
+        "target closed",           # 浏览器/页面已关闭
+        "browser has been closed", # 浏览器实例已关闭
+        "disconnected",            # Playwright 连接断开
     )
     return any(token in msg for token in expected_tokens)
 
