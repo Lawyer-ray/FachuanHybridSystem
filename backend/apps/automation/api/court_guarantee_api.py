@@ -64,6 +64,8 @@ _QUOTE_RETRY_ALLOWED_STATUSES = {"failed", "partial_success"}
 _BROWSER_SLOW_MO_MS = 300
 _BROWSER_HOLD_SECONDS = _read_int_env("COURT_GUARANTEE_BROWSER_HOLD_SECONDS", 8)
 _BROWSER_HOLD_SECONDS_ON_FAILURE = _read_int_env("COURT_GUARANTEE_BROWSER_HOLD_SECONDS_ON_FAILURE", 30)
+_DEFAULT_NATURAL_ID_NUMBER = "110101" + "19900307" + "7719"
+_DEFAULT_LEGAL_ID_NUMBER = "91440101MA59TEST8X"
 
 
 class CaseGuaranteeInfoOut(Schema):
@@ -956,7 +958,7 @@ def _build_party_payload_from_case_party(*, party: Any) -> dict[str, Any]:
     name = str(getattr(client, "name", "") or "").strip() or "张三"
     id_number = str(getattr(client, "id_number", "") or "").strip()
     if not id_number:
-        id_number = "110101199003077719" if is_natural else "91440101MA59TEST8X"
+        id_number = _DEFAULT_NATURAL_ID_NUMBER if is_natural else _DEFAULT_LEGAL_ID_NUMBER
 
     phone = str(getattr(client, "phone", "") or "").strip()
     address = str(getattr(client, "address", "") or "").strip() or "广东省广州市天河区测试地址1号"

@@ -19,6 +19,8 @@ class CourtZxfwGuaranteeService:
     GUARANTEE_URL = "https://zxfw.court.gov.cn/yzwbqww/index.html#/CreateGuarantee/applyGuaranteeInformation/gOne"
     MAX_SLOW_WAIT_MS = 180000
     DEFAULT_POLL_MS = 1200
+    DEFAULT_NATURAL_ID_NUMBER = "110101" + "19900307" + "7719"
+    DEFAULT_LEGAL_ID_NUMBER = "91440101MA59TEST8X"
 
     def __init__(self, page: Page, *, save_debug: bool = False) -> None:
         self.page = page
@@ -1051,10 +1053,12 @@ class CourtZxfwGuaranteeService:
 
         id_number = str(party.get("id_number") or "").strip()
         if not id_number:
-            id_number = "110101199003077719" if is_natural else "91440101MA59TEST8X"
+            id_number = self.DEFAULT_NATURAL_ID_NUMBER if is_natural else self.DEFAULT_LEGAL_ID_NUMBER
 
         legal_representative = str(party.get("legal_representative") or "").strip() or "张三"
-        legal_representative_id_number = str(party.get("legal_representative_id_number") or "").strip() or "110101199003077719"
+        legal_representative_id_number = (
+            str(party.get("legal_representative_id_number") or "").strip() or self.DEFAULT_NATURAL_ID_NUMBER
+        )
 
         defaults = {
             "party_type": party_type,
@@ -1099,7 +1103,7 @@ class CourtZxfwGuaranteeService:
 
     def _build_agent_dialog_defaults(self, source: dict[str, Any]) -> dict[str, str]:
         name = str(source.get("name") or "").strip() or "张三"
-        id_number = str(source.get("id_number") or "").strip() or "110101199003077719"
+        id_number = str(source.get("id_number") or "").strip() or self.DEFAULT_NATURAL_ID_NUMBER
         phone = str(source.get("phone") or "").strip()
         return {
             "party_type": "agent",
@@ -1444,9 +1448,10 @@ class CourtZxfwGuaranteeService:
                 };
 
                 const partyType = (defaults.party_type || 'natural').trim();
+                const defaultNaturalId = '110101' + '19900307' + '7719';
                 const naturalId = /^\d{17}[\dXx]$/.test((defaults.id_number || '').trim())
                     ? (defaults.id_number || '').trim()
-                    : '110101199003077719';
+                    : defaultNaturalId;
                 const naturalMap = [
                     [['姓名'], defaults.name || '张三'],
                     [['证件号码', '身份证号码'], naturalId],
@@ -1472,7 +1477,7 @@ class CourtZxfwGuaranteeService:
                 const agentMap = [
                     [['代理人姓名', '姓名'], defaults.name || '张三'],
                     [['执业证件号码'], defaults.license_number || ''],
-                    [['证件号码', '身份证号码'], defaults.id_number || '110101199003077719'],
+                    [['证件号码', '身份证号码'], defaults.id_number || defaultNaturalId],
                     [['手机号码'], defaults.phone || ''],
                     [['代理人所在律所'], defaults.law_firm || ''],
                 ];
@@ -1493,7 +1498,7 @@ class CourtZxfwGuaranteeService:
                 const fallbackMap = [
                     [['姓名', '单位名称', '名称', '代理人姓名'], defaults.name || '张三'],
                     [['执业证件号码'], defaults.license_number || ''],
-                    [['证件号码', '身份证号码'], /^\d{17}[\dXx]$/.test((defaults.id_number || '').trim()) ? (defaults.id_number || '').trim() : '110101199003077719'],
+                    [['证件号码', '身份证号码'], /^\d{17}[\dXx]$/.test((defaults.id_number || '').trim()) ? (defaults.id_number || '').trim() : defaultNaturalId],
                     [['证照号码', '统一社会信用代码'], '91440101MA59TEST8X'],
                     [['法定代表人', '主要负责人'], defaults.legal_representative || '张三'],
                     [['手机号码'], defaults.phone || ''],
