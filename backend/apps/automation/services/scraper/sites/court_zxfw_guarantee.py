@@ -88,25 +88,35 @@ class CourtZxfwGuaranteeService:
             return False
 
         keyword = self._extract_court_keyword(target_name)
+        short_name = target_name.replace("人民法院", "").strip()
         court_input = self.page.locator("input[placeholder*='法院']").first
         if court_input.count() == 0:
             return False
 
+        search_terms = [term for term in [keyword, short_name, target_name] if term]
         candidates = [target_name]
-        short_name = target_name.replace("人民法院", "").strip()
         if short_name and short_name not in candidates:
             candidates.append(short_name)
         if keyword and keyword not in candidates:
             candidates.append(keyword)
 
-        for _ in range(8):
+        for attempt in range(10):
+            term = search_terms[attempt % len(search_terms)] if search_terms else target_name
             try:
-                court_input.click(timeout=2500)
-                self._random_wait(0.2, 0.4)
-                court_input.fill(keyword)
-                self._random_wait(0.9, 1.4)
+                self._close_popovers()
+                self._random_wait(0.4, 0.7)
+                court_input.click(timeout=3000)
+                self._random_wait(0.5, 0.9)
+                court_input.fill("")
+                self._random_wait(0.3, 0.6)
+                court_input.fill(term)
+                try:
+                    court_input.press("Enter", timeout=1200)
+                except Exception:
+                    pass
+                self._random_wait(1.8, 2.8)
             except Exception:
-                self._random_wait(0.5, 0.8)
+                self._random_wait(0.8, 1.2)
                 continue
 
             selected_text = str(
@@ -124,10 +134,7 @@ class CourtZxfwGuaranteeService:
                         const targets = (names || []).map((n) => norm(n)).filter(Boolean);
                         const nodes = [...document.querySelectorAll('.el-tree-node__content')]
                             .filter((node) => isVisible(node))
-                            .map((node) => ({
-                                node,
-                                text: norm(node.innerText || ''),
-                            }))
+                            .map((node) => ({ node, text: norm(node.innerText || '') }))
                             .filter((item) => item.text && !item.text.includes('暂无数据'));
 
                         if (nodes.length === 0) return '';
@@ -163,21 +170,24 @@ class CourtZxfwGuaranteeService:
                 or ""
             ).strip()
 
-            self._close_popovers()
             if not selected_text:
-                self._random_wait(0.8, 1.2)
+                self._close_popovers()
+                self._random_wait(1.2, 1.8)
                 continue
 
+            self._random_wait(0.5, 0.8)
             input_value = ""
             try:
                 input_value = (court_input.input_value() or "").strip()
             except Exception:
                 input_value = ""
 
-            if selected_text in input_value or target_name in input_value or short_name and short_name in input_value:
+            if selected_text in input_value or target_name in input_value or (short_name and short_name in input_value):
+                self._close_popovers()
                 return True
 
-            self._random_wait(0.5, 0.8)
+            self._close_popovers()
+            self._random_wait(1.0, 1.5)
 
         logger.warning("court_guarantee_court_not_stable", extra={"target_name": target_name})
         return False
@@ -188,7 +198,7 @@ class CourtZxfwGuaranteeService:
         if not cleaned_option or not cleaned_keywords:
             return False
 
-        for _ in range(4):
+        for _ in range(6):
             selected = bool(
                 self.page.evaluate(
                     r"""(args) => {
@@ -229,9 +239,9 @@ class CourtZxfwGuaranteeService:
                 )
             )
             if selected:
-                self._random_wait(0.2, 0.4)
+                self._random_wait(0.5, 0.9)
                 return True
-            self._random_wait(0.4, 0.7)
+            self._random_wait(0.8, 1.3)
 
         return False
 
