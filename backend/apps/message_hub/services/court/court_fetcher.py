@@ -69,13 +69,14 @@ def _acquire_token(credential_id: int) -> str:
         cache_manager.cache_token(credential.site_name, credential.account, db_token.token)
         return str(db_token.token)
 
-    # 3. 执行 Playwright 登录
+    # 3. 执行 Playwright 登录（在当前线程独立创建实例，避免 greenlet 跨线程问题）
     logger.info("一张网收件箱: 缓存和数据库均无有效 Token，执行 Playwright 登录")
-    from apps.automation.services.scraper.core.browser_service import BrowserService
+    from playwright.sync_api import sync_playwright
+
     from apps.automation.services.scraper.sites.court_zxfw import CourtZxfwService
 
-    browser_service = BrowserService()
-    browser = browser_service.get_browser()
+    pw = sync_playwright().start()
+    browser = pw.chromium.launch(headless=True, args=["--no-sandbox"])
     page = browser.new_page()
     try:
         court_svc = CourtZxfwService(page=page, context=page.context, site_name="court_zxfw")
@@ -90,7 +91,8 @@ def _acquire_token(credential_id: int) -> str:
         return str(token)
     finally:
         try:
-            page.close()
+            browser.close()
+            pw.stop()
         except Exception:
             pass
 
