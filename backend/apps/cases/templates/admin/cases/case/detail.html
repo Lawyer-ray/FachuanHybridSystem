@@ -3,7 +3,7 @@
 
 {% block extrahead %}
 {{ block.super }}
-<link rel="stylesheet" type="text/css" href="{% static 'cases/css/case_detail.css' %}?v=20260304">
+<link rel="stylesheet" type="text/css" href="{% static 'cases/css/case_detail.css' %}?v=20260409a">
 <link rel="stylesheet" type="text/css" href="{% static 'cases/css/litigation_generation.css' %}?v=20250118">
 <link rel="stylesheet" type="text/css" href="{% static 'cases/css/case_materials.css' %}?v=20260124e">
 {% endblock %}
@@ -125,6 +125,19 @@
                 {% include "admin/cases/case/partials/court_filing.html" %}
             </div>
             {% endif %}
+        </div>
+    </div>
+
+    <!-- 删除材料确认弹窗（全局共享，不受 tab 切换影响） -->
+    <div class="material-delete-modal" id="materialDeleteModal" style="display:none;">
+        <div class="material-delete-modal-backdrop" onclick="closeDeleteModal()"></div>
+        <div class="material-delete-modal-content">
+            <h3>{% trans "删除材料" %}</h3>
+            <p class="material-delete-modal-desc">{% trans "确定要删除此材料吗？删除后分类绑定和附件文件都将被移除，此操作不可恢复。" %}</p>
+            <div class="material-delete-modal-actions">
+                <button type="button" class="button" onclick="closeDeleteModal()">{% trans "取消" %}</button>
+                <button type="button" class="button default" id="materialDeleteConfirmBtn" onclick="doDeleteMaterial()">{% trans "确认删除" %}</button>
+            </div>
         </div>
     </div>
 
