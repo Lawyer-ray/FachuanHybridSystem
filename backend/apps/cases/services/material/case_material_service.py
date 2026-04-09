@@ -457,3 +457,50 @@ class CaseMaterialService:
         logger.info("材料已删除: material_id=%s, case_id=%s, attachment_id=%s", material_id_val, case_id, attachment_id_val)
 
         return {"material_id": material_id_val, "deleted": True}
+
+    def delete_all_materials(
+        self,
+        case_id: int,
+        category: str,
+        user: Any | None = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
+    ) -> dict[str, Any]:
+        """删除指定分类下的所有材料绑定及对应附件文件。
+
+        按分类（party / non_party）删除 CaseMaterial 记录，同时删除关联的 CaseLogAttachment（含物理文件）。
+        """
+        self._case_service.get_case(case_id, user=user, org_access=org_access, perm_open_access=perm_open_access)
+
+        category = (category or "").strip()
+        if category not in {CaseMaterialCategory.PARTY, CaseMaterialCategory.NON_PARTY}:
+            raise ValidationException(message=_("材料大类不合法"), errors={"category": category})
+
+        materials = list(
+            CaseMaterial.objects.select_related("source_attachment").filter(case_id=case_id, category=category)
+        )
+        if not materials:
+            return {"category": category, "deleted_count": 0}
+
+        deleted_count = 0
+        with transaction.atomic():
+            for material in materials:
+                attachment = material.source_attachment
+                material.delete()
+                if attachment:
+                    attachment_file = getattr(attachment, "file", None)
+                    if attachment_file:
+                        try:
+                            attachment_file.delete(save=False)
+                        except Exception:
+                            logger.warning("删除附件物理文件失败: attachment_id=%s", attachment.id)
+                    attachment.delete()
+                deleted_count += 1
+
+        # 清理该分类下的分组排序记录
+        CaseMaterialGroupOrder.objects.filter(case_id=case_id, category=category).delete()
+
+        logger.info(
+            "批量删除材料完成: case_id=%s, category=%s, deleted_count=%s", case_id, category, deleted_count
+        )
+        return {"category": category, "deleted_count": deleted_count}

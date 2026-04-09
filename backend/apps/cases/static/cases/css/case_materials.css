@@ -314,3 +314,16 @@
   background: #b91c1c;
   border-color: #b91c1c;
 }
+
+/* ========== 删除全部按钮 ========== */
+
+.btn-delete-all-materials {
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+.btn-delete-all-materials:hover {
+  background: #fef2f2;
+  border-color: #f87171;
+  color: #b91c1c;
+}

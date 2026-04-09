@@ -5,6 +5,12 @@
             {% trans "时间：正序" %}
         </button>
         <div class="materials-actions">
+            <button type="button" class="btn btn-secondary btn-sm btn-delete-all-materials"
+                    data-category="non_party"
+                    data-case-id="{{ case.pk }}"
+                    onclick="confirmDeleteAllMaterials(this)">
+                🗑️ {% trans "删除全部" %}
+            </button>
             <a href="{% url 'admin:cases_case_materials' case.pk %}?open_scan=1" class="btn btn-secondary btn-sm">
                 {% trans "自动捕获" %}
             </a>
