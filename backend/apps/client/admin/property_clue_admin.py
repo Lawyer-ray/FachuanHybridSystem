@@ -64,6 +64,7 @@ class PropertyClueAdmin(admin.ModelAdmin[PropertyClue]):
     list_filter = ("clue_type", "created_at")
     search_fields = ("client__name", "content")
     readonly_fields = ("created_at", "updated_at")
+    autocomplete_fields = ("client",)
     inlines: ClassVar = [PropertyClueAttachmentInline]
 
     fieldsets = (
