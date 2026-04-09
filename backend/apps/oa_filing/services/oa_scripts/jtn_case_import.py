@@ -1133,8 +1133,10 @@ class JtnCaseImportScript:
         return bool((stayed_on_login_page and has_login_form) or has_login_error_text)
 
     def _is_sso_login_page(self, *, url: str, html_text: str) -> bool:
-        url_lower = str(url or "").lower()
-        if "access.jtn.com" in url_lower:
+        url_text = str(url or "").strip()
+        parsed = urlparse(url_text)
+        host = str(parsed.hostname or "").lower()
+        if host == "access.jtn.com" or host.endswith(".access.jtn.com"):
             return True
 
         text_lower = str(html_text or "").lower()
