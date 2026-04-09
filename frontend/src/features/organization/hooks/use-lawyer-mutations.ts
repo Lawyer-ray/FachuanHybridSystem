@@ -68,9 +68,9 @@ export interface UseLawyerMutationsReturn {
  * createLawyer.mutate({
  *   data: {
  *     username: 'zhangsan',
- *     password: '123456',
+ *     password: '<REDACTED>',
  *     real_name: '张三',
- *     phone: '13800138000',
+ *     phone: '138****8000',
  *     license_no: '12345678901234567',
  *   },
  * }, {

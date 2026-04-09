@@ -53,7 +53,7 @@ export interface UseClientMutationsReturn {
  * createClient.mutate({
  *   name: '张三',
  *   client_type: 'natural',
- *   phone: '13800138000',
+ *   phone: '138****8000',
  * }, {
  *   onSuccess: (client) => {
  *     toast.success('创建成功')

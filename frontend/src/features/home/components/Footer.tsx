@@ -33,7 +33,7 @@ const FOOTER_LINKS = [
   {
     icon: Mail,
     label: '联系我们',
-    href: 'mailto:contact@fachuanai.com',
+    href: 'mailto:contact[at]fachuanai.com',
     external: true,
   },
 ]

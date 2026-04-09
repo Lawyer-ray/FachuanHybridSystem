@@ -54,7 +54,7 @@ export interface UseCredentialMutationsReturn {
  *   site_name: '法院系统',
  *   url: 'https://court.example.com',
  *   account: 'lawyer001',
- *   password: 'secure123',
+ *   password: '<REDACTED>',
  * }, {
  *   onSuccess: (credential) => {
  *     toast.success('创建成功')
