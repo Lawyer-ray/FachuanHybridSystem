@@ -1,0 +1,184 @@
+{% load i18n %}
+<div x-data="courtGuaranteeApp()" x-init="init()" style="margin-top: 20px; border-top: 1px solid #e5e7eb; padding-top: 16px;">
+    <div class="info-grid">
+        <div class="info-card" style="grid-column: 1 / -1;">
+            <div class="card-header">
+                <span class="card-icon">🛡️</span>
+                <h3 class="card-title">{% translate "一张网申请担保（预览暂存）" %}</h3>
+            </div>
+
+            <div x-show="loading" style="text-align: center; padding: 16px;">
+                <span class="spinner"></span> {% translate "加载中..." %}
+            </div>
+
+            <div x-show="!loading">
+                <div style="background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%); border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 16px; margin-bottom: 14px;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 16px;">
+                        <div style="display: flex; align-items: center; gap: 6px; min-width: 0;">
+                            <span style="color: #64748b; font-size: 12px; flex: 0 0 auto;">{% translate "管辖法院" %}：</span>
+                            <span style="font-size: 14px; font-weight: 600; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" x-text="caseInfo.court_name || '{% trans "未设置" %}'"></span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 6px; min-width: 0;">
+                            <span style="color: #64748b; font-size: 12px; flex: 0 0 auto;">{% translate "保全类别" %}：</span>
+                            <span style="font-size: 14px; font-weight: 600; color: #1e293b;" x-text="caseInfo.preserve_category || '-'"></span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 6px; min-width: 0;">
+                            <span style="color: #64748b; font-size: 12px; flex: 0 0 auto;">{% translate "保全金额" %}：</span>
+                            <span style="font-size: 14px; font-weight: 700; color: #0f172a;" x-text="caseInfo.preserve_amount ? '¥' + caseInfo.preserve_amount : '-'"></span>
+                        </div>
+                    </div>
+                    <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #cbd5e1; display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: #334155; line-height: 1.6;">
+                        <span style="color: #64748b; flex: 0 0 auto;">{% translate "担保机构" %}：</span>
+                        <span style="font-weight: 500; word-break: break-word;" x-text="insuranceCompanyName || '-'"></span>
+                    </div>
+                </div>
+
+                <div class="court-guarantee-form-row">
+                    <select x-model="insuranceCompanyName"
+                            :disabled="executing"
+                            class="court-guarantee-control">
+                        <template x-for="option in insuranceCompanyOptions" :key="option">
+                            <option :value="option" x-text="option"></option>
+                        </template>
+                    </select>
+                    <input type="text"
+                           x-model="consultantCode"
+                           :disabled="executing"
+                           placeholder="{% trans '咨询员编号（可选）' %}"
+                           class="court-guarantee-control">
+                    <button type="button" class="btn btn-primary court-guarantee-submit"
+                            :class="{ 'btn-disabled': executing || !canExecute() }"
+                            :disabled="executing || !canExecute()"
+                            @click="executeGuarantee()">
+                        <span x-show="!executing">🚀 {% translate "开始申请担保" %}</span>
+                        <span x-show="executing"><span class="spinner"></span> {% translate "执行中..." %}</span>
+                    </button>
+                </div>
+
+                <div style="margin-bottom: 14px; font-size: 12px; color: #dc2626;" x-show="!caseInfo.court_name">
+                    {% translate "请先设置管辖法院（案件管辖机关）" %}
+                </div>
+                <div style="margin-bottom: 14px; font-size: 12px; color: #dc2626;" x-show="caseInfo.court_name && !caseInfo.has_court_credential">
+                    {% translate "您没有一张网账号密码，请先在律师管理中添加" %}
+                </div>
+                <div style="margin-bottom: 14px; font-size: 12px; color: #dc2626;" x-show="caseInfo.court_name && caseInfo.has_court_credential && !caseInfo.our_party_is_plaintiff_side">
+                    {% translate "我方当事人非申请方，系统默认禁止发起担保申请" %}
+                </div>
+                <div style="margin-bottom: 14px; font-size: 12px; color: #dc2626;" x-show="caseInfo.court_name && caseInfo.has_court_credential && caseInfo.our_party_is_plaintiff_side && !caseInfo.preserve_amount">
+                    {% translate "请先维护案件保全金额（preservation_amount）" %}
+                </div>
+
+                <template x-if="lastResult">
+                    <div :style="lastResult.success ? 'background:#f0fdf4;border:1px solid #86efac;' : 'background:#fef2f2;border:1px solid #fca5a5;'"
+                         style="border-radius:8px;padding:12px;">
+                        <span x-show="lastResult.success" style="color:#15803d;">✓ <span x-text="lastResult.message"></span></span>
+                        <span x-show="!lastResult.success" style="color:#dc2626;">✗ <span x-text="lastResult.message"></span></span>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    function courtGuaranteeApp() {
+        return {
+            caseId: {{ case.pk }},
+            caseInfo: {},
+            loading: false,
+            executing: false,
+            lastResult: null,
+            insuranceCompanyName: '中国平安财产保险股份有限公司',
+            insuranceCompanyOptions: [],
+            consultantCode: '',
+
+            async init() {
+                await this.loadCaseInfo();
+            },
+
+            canExecute() {
+                return Boolean(
+                    this.caseInfo &&
+                    this.caseInfo.court_name &&
+                    this.caseInfo.has_court_credential &&
+                    this.caseInfo.our_party_is_plaintiff_side &&
+                    this.caseInfo.preserve_amount
+                );
+            },
+
+            async loadCaseInfo() {
+                this.loading = true;
+                try {
+                    const resp = await fetch(`/api/v1/court-guarantee/case-info/${this.caseId}`);
+                    if (resp.ok) {
+                        this.caseInfo = await resp.json();
+                        if (Array.isArray(this.caseInfo.insurance_company_options) && this.caseInfo.insurance_company_options.length > 0) {
+                            this.insuranceCompanyOptions = this.caseInfo.insurance_company_options;
+                        }
+                        if (this.caseInfo.insurance_company_name) {
+                            this.insuranceCompanyName = this.caseInfo.insurance_company_name;
+                        }
+                        if (this.caseInfo.consultant_code) {
+                            this.consultantCode = this.caseInfo.consultant_code;
+                        }
+                    }
+                } catch (e) {
+                    console.error('loadCaseGuaranteeInfo error:', e);
+                } finally {
+                    this.loading = false;
+                }
+            },
+
+            async executeGuarantee() {
+                if (!this.caseId || !this.canExecute()) return;
+                this.executing = true;
+                this.lastResult = null;
+                try {
+                    const resp = await fetch('/api/v1/court-guarantee/execute', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+                        },
+                        body: JSON.stringify({
+                            case_id: this.caseId,
+                            insurance_company_name: this.insuranceCompanyName || '',
+                            consultant_code: this.consultantCode || ''
+                        })
+                    });
+                    const data = await resp.json();
+                    this.lastResult = data;
+                    if (data.session_id) {
+                        this.pollSession(data.session_id);
+                    } else {
+                        this.executing = false;
+                    }
+                } catch (e) {
+                    console.error('executeGuarantee error:', e);
+                    this.lastResult = { success: false, message: e.message || '请求失败' };
+                    this.executing = false;
+                }
+            },
+
+            async pollSession(sessionId) {
+                const poll = async () => {
+                    try {
+                        const resp = await fetch(`/api/v1/court-guarantee/session/${sessionId}`);
+                        if (resp.ok) {
+                            const data = await resp.json();
+                            this.lastResult = data;
+                            if (data.status === 'in_progress') {
+                                setTimeout(poll, 3000);
+                                return;
+                            }
+                        }
+                    } catch (e) {
+                        console.error('pollGuaranteeSession error:', e);
+                    }
+                    this.executing = false;
+                };
+                setTimeout(poll, 3000);
+            },
+        };
+    }
+    </script>
+</div>
