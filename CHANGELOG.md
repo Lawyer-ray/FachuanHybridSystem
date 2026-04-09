@@ -2,6 +2,18 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.33.2] - 2026-04-09
+
+### 后端
+
+- 隐藏 `automation/scrapertask` 后台入口（保留代码与功能）。
+- 隐藏 `automation/documentdeliveryschedule` 后台入口（保留代码与功能）。
+- 优化 `automation/courtdocument` 下载按钮样式：移除 emoji，窄屏展示更紧凑。
+
+### 文档
+
+- `README` 版本号更新为 `26.33.2`。
+
 ## [26.33.1] - 2026-04-09
 
 ### 前端
