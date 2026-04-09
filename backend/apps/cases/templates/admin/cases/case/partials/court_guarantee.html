@@ -51,9 +51,6 @@
                             <template x-for="option in reusableQuoteOptions" :key="option.quote_id">
                                 <option :value="String(option.quote_id)" x-text="formatReusableQuoteOption(option)"></option>
                             </template>
-                            <template x-if="quoteContext">
-                                <option disabled x-text="'— ' + quoteProgressLabel() + ' —'"></option>
-                            </template>
                         </select>
                         <button type="button"
                                 class="btn"
@@ -259,8 +256,11 @@
             formatReusableQuoteOption(option) {
                 const quoteDate = String(option?.created_at_display || option?.created_at || '').trim();
                 const preserveAmount = option?.preserve_amount ? `¥${option.preserve_amount}` : '-';
+                const successCount = option?.success_count ?? 0;
+                const totalCompanies = option?.total_companies ?? 0;
+                const progressPart = `已获取报价 ${successCount}/${totalCompanies}`;
                 const boundSuffix = option?.is_bound ? '（已绑定）' : '';
-                return `${quoteDate || '-'} · ${preserveAmount}${boundSuffix}`;
+                return `${quoteDate || '-'} · ${preserveAmount} · ${progressPart}${boundSuffix}`;
             },
 
             formatRespondentOption(option) {
