@@ -334,6 +334,7 @@ class CaseFolderScanService:
                 progress_callback=_progress,
                 enable_recognition=enable_recognition,
                 classification_context=classification_context,
+                scan_subfolder=scan_scope["scan_subfolder"],
             )
             result["scan_scope"] = scan_scope
             result["scan_options"] = {"enable_recognition": enable_recognition}

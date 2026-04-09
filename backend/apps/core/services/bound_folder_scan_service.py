@@ -60,6 +60,7 @@ class BoundFolderScanService:
         progress_callback: ProgressCallback | None = None,
         enable_recognition: bool = True,
         classification_context: dict[str, Any] | None = None,
+        scan_subfolder: str = "",
     ) -> dict[str, Any]:
         root = Path(folder_path).expanduser()
         if not root.exists() or not root.is_dir():
@@ -104,6 +105,7 @@ class BoundFolderScanService:
                 domain=domain,
                 enable_recognition=enable_recognition,
                 classification_context=classification_context,
+                scan_subfolder=scan_subfolder,
             )
             candidates.append(candidate)
 
@@ -129,6 +131,7 @@ class BoundFolderScanService:
         domain: str,
         enable_recognition: bool,
         classification_context: dict[str, Any] | None,
+        scan_subfolder: str = "",
     ) -> dict[str, Any]:
         stat = path.stat()
         modified_at = datetime.fromtimestamp(stat.st_mtime, tz=UTC).isoformat()
@@ -166,6 +169,7 @@ class BoundFolderScanService:
                 source_path=path.as_posix(),
                 enable_ai=enable_recognition,
                 context=classification_context,
+                scan_subfolder=scan_subfolder,
             )
             candidate.update(
                 {
