@@ -11,9 +11,6 @@
                     onclick="confirmDeleteAllMaterials(this)">
                 🗑️ {% trans "删除全部" %}
             </button>
-            <a href="{% url 'admin:cases_case_materials' case.pk %}?open_scan=1" class="btn btn-secondary btn-sm">
-                {% trans "自动捕获" %}
-            </a>
             <a href="{% url 'admin:cases_case_materials' case.pk %}" class="btn btn-primary btn-sm">
                 {% trans "上传/绑定材料" %}
             </a>
