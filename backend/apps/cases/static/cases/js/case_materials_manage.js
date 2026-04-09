@@ -95,7 +95,7 @@
         lastUploadedIds: [],
         pendingFiles: [],
         searchKeyword: '',
-        filterCategory: 'unclassified',
+        filterCategory: 'all',
         filterSide: '',
         filterAuthorityId: '',
         onlyUnfinished: false,
@@ -223,9 +223,8 @@
             this.scanPanelVisible = true;
           }
           this.load();
-          if (this.scanPanelVisible) {
-            this.loadScanSubfolders(false);
-          }
+          // 始终加载子文件夹列表，确保"指定子文件夹"选项可点击
+          this.loadScanSubfolders(false);
           if (this.scanSessionId) {
             this.fetchScanStatus(this.scanSessionId, true);
           }
@@ -290,7 +289,7 @@
 
         onCategoryChange(row, event) {
           if (!this.isUserEvent(event)) return;
-          const category = row.category || '';
+          const category = event && event.target ? String(event.target.value || '') : (row.category || '');
           if (row.lastCategory === category) return;
           this.applyCategory(row, category);
           row.lastCategory = category;
@@ -301,10 +300,10 @@
               target.lastCategory = category;
             });
           }
-          // 切换大类后，如果当前筛选为"未分类"，自动切换到对应分类或"全部"，
-          // 否则刚分类的文件会因不再匹配"未分类"条件而从列表消失
+          // 切换大类后，如果当前筛选为"未分类"，自动切到"全部"。
+          // 否则仅按当前分类过滤会让其余待处理文件看起来“消失”，影响连续处理。
           if (category && this.filterCategory === 'unclassified') {
-            this.filterCategory = category;
+            this.filterCategory = 'all';
             this.onFilterCategoryChange();
           }
         },
