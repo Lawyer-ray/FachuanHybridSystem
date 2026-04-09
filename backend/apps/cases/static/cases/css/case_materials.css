@@ -156,3 +156,174 @@
 .sortable-ghost {
   opacity: 0.5;
 }
+
+/* ========== 材料行布局（含操作按钮） ========== */
+
+.material-file-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.material-file-row .material-file {
+  flex: 1;
+  min-width: 0;
+}
+
+.material-file-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.material-replace-btn,
+.material-delete-btn {
+  background: none;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 4px 4px;
+  border-radius: 6px;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.material-file-row:hover .material-replace-btn,
+.material-file-row:hover .material-delete-btn {
+  opacity: 0.6;
+}
+
+.material-replace-btn:hover,
+.material-delete-btn:hover {
+  opacity: 1 !important;
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+}
+
+.material-delete-btn:hover {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+/* ========== 分组重命名 ========== */
+
+.material-group-header {
+  position: relative;
+}
+
+.material-group-rename-btn {
+  background: none;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.material-group-header:hover .material-group-rename-btn {
+  opacity: 0.5;
+}
+
+.material-group-rename-btn:hover {
+  opacity: 1 !important;
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+}
+
+.material-group-rename-input {
+  font-weight: 700;
+  font-size: inherit;
+  color: #111827;
+  border: 1px solid #6366f1;
+  border-radius: 4px;
+  padding: 1px 6px;
+  outline: none;
+  background: #fff;
+  width: 140px;
+}
+
+.material-group-rename-input:focus {
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+/* ========== 删除材料弹窗 ========== */
+
+.material-delete-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.material-delete-modal-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.material-delete-modal-content {
+  position: relative;
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  min-width: 360px;
+  max-width: 440px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+
+.material-delete-modal-content h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.material-delete-modal-desc {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.material-delete-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.material-delete-modal-actions .button.default {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #fff;
+}
+
+.material-delete-modal-actions .button.default:hover {
+  background: #b91c1c;
+  border-color: #b91c1c;
+}
+
+/* ========== 删除全部按钮 ========== */
+
+.btn-delete-all-materials {
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+.btn-delete-all-materials:hover {
+  background: #fef2f2;
+  border-color: #f87171;
+  color: #b91c1c;
+}

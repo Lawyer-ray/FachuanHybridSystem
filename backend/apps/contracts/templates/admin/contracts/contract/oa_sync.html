@@ -55,8 +55,8 @@
 <div class="oa-sync-page" x-data="contractOaSyncApp()" x-init="init()" x-cloak>
     <div class="oa-sync-actions">
         <button type="button" class="button" @click="goBack()">{% trans "返回合同列表" %}</button>
-        <button type="button" class="button" :disabled="isRunning || isSaving || !missingContracts.length" @click="saveManualChanges()">
-            <span x-show="!isSaving">{% trans "保存手动修改" %}</span>
+        <button type="button" class="button" :disabled="isRunning || isSaving || !hasAnySavableEntry()" @click="saveManualChanges()">
+            <span x-show="!isSaving">{% trans "保存" %}</span>
             <span x-show="isSaving">{% trans "保存中..." %}</span>
         </button>
         <button type="button" class="button default" :disabled="isRunning || isSaving || !missingContracts.length" @click="startSync()">
@@ -78,7 +78,7 @@
             <div class="item">{% trans "多结果" %}: <strong x-text="multipleCount"></strong></div>
             <div class="item">{% trans "未匹配/错误" %}: <strong x-text="notFoundCount + errorCount"></strong></div>
         </div>
-        <p class="oa-hint" x-show="resultItems.length">{% trans "请直接在当前表格中点击“选用此结果”，系统会回填该行 OA 信息，确认无误后再点击“保存手动修改”。" %}</p>
+        <p class="oa-hint" x-show="resultItems.length">{% trans "请直接在当前表格中点击“选用此结果”，系统会回填该行 OA 信息，确认无误后再点击“保存”。" %}</p>
         <div class="oa-sync-table-wrap" x-show="missingContracts.length">
             <table class="oa-sync-table">
                 <thead>

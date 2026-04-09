@@ -828,3 +828,55 @@
 .rotate-180 {
     transform: rotate(180deg);
 }
+
+/* 一张网申请担保：统一表单控件样式 */
+.court-guarantee-form-row {
+    margin-bottom: 12px;
+    display: grid;
+    grid-template-columns: minmax(260px, 1.6fr) minmax(190px, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+}
+
+.court-guarantee-form-row > select.court-guarantee-control,
+.court-guarantee-form-row > input.court-guarantee-control {
+    -webkit-appearance: none;
+    appearance: none;
+    box-sizing: border-box !important;
+    display: block;
+    width: 100%;
+    height: 42px !important;
+    min-height: 42px !important;
+    margin: 0 !important;
+    padding: 0 12px !important;
+    border: 1px solid #d1d5db !important;
+    border-radius: 8px !important;
+    font-size: 14px !important;
+    line-height: 40px !important;
+    font-family: inherit;
+    color: #0f172a;
+    background: #fff;
+    box-shadow: none !important;
+}
+
+.court-guarantee-form-row > select.court-guarantee-control {
+    padding-right: 34px !important;
+    background-image: linear-gradient(45deg, transparent 50%, #64748b 50%), linear-gradient(135deg, #64748b 50%, transparent 50%);
+    background-position: calc(100% - 16px) 18px, calc(100% - 11px) 18px;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+}
+
+.court-guarantee-form-row > select.court-guarantee-control:focus,
+.court-guarantee-form-row > input.court-guarantee-control:focus {
+    outline: none;
+    border-color: #3b82f6 !important;
+    box-shadow: none !important;
+}
+
+.court-guarantee-submit {
+    min-height: 42px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    white-space: nowrap;
+}

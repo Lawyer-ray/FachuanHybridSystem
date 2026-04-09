@@ -2,6 +2,93 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.33.0] - 2026-04-09
+
+本版本是材料管理模块的重大重构，同时新增法院担保询价、OA 同步增强等多项功能。
+
+### 新增
+
+- **案件材料全生命周期管理（cases/materials）**：
+  - 材料删除功能：新增 API `DELETE /{case_id}/materials/{material_id}`，支持单条材料删除，同时清理附件物理文件与分组排序记录；前端每个材料行增加删除按钮（悬停显示），删除前弹窗确认。
+  - 材料"删除全部"功能：新增 API `DELETE /api/v1/cases/{case_id}/materials`（body: `{category}`），按分类批量删除材料；当事人材料和非当事人材料 tab 各添加"删除全部"按钮。
+  - 材料替换功能：新增 API `POST /{case_id}/materials/{material_id}/replace`，支持替换材料文件并自动删除旧附件物理文件；前端点击替换按钮直接触发系统文件选择器，无需二次确认弹窗。
+  - 材料分组重命名功能：新增 API `POST /{case_id}/materials/group-rename`，分组标题支持双击或点击编辑按钮重命名。
+  - 新增 Schema：`CaseMaterialDeleteOut`、`CaseMaterialReplaceIn/Out`、`CaseMaterialGroupRenameIn/Out`、`CaseMaterialDeleteAllIn/Out`。
+
+- **法院担保询价面板（automation/court_guarantee）**：
+  - 新增完整的法院担保询价 API（`court_guarantee_api.py`），支持保全申请提交、询价查询、询价结果轮询、历史询价复用等全流程。
+  - 新增 `CasePreservationQuoteBinding` 模型，记录案件与财产保全询价的绑定关系，含绑定时保全金额快照，支持按金额匹配复用历史询价。
+  - 新增案件详情页"法院担保"tab（`court_guarantee.html`），含当事人选择、被申请人财产线索展示、保全金额填写、担保公司选择、询价结果轮询等完整交互。
+  - 担保公司切换时自动关联顾问编码：选择阳光保险时自动填充默认顾问编码，已有编码时保留不变。
+  - 担保询价面板精简：删除"重试询价"、"删除询价记录"、"删除绑定关系"三个操作按钮，担保机构表格新增序号列，报价数量移入下拉菜单底部。
+
+- **一张网担保申请自动填写（automation/scraper/court_zxfw_guarantee）**：
+  - 新增 `CourtZxfwGuaranteeService`，完整实现一张网担保申请 gOne→gFive 五步 Playwright 自动化流程（到预览页，不提交）。
+  - gOne 步骤：法院选择（多候选名逐级匹配：全称→短名→关键词，最多10轮重试）、保全类型/保全类别/提交人身份通过 `_click_radio_in_form_item` 精确定位表单项点击 radio（避免同名 radio 误点）、案号解析与拆分填写、案由多候选匹配、担保公司选择、顾问编号填写、保全金额填写。
+  - gTwo 步骤：申请人/被申请人/代理人/财产线索四类对话框自动填写，支持自然人/法人/非法人组织/代理人/财产线索五种 party_type，自动填充姓名、证件号、地址、电话等字段；对话框内下拉选择（省份、财产类型、财产所有人）与日期字段自动处理。
+  - gThree 步骤：材料智能上传，根据上传槽 label 关键词（保全申请、起诉状、受理通知、身份证明、证据等）匹配合适文件，上传失败自动重试。
+  - gFour/gFive 步骤：自动推进至预览页，最终校验表单错误。
+  - 新增被申请人财产线索自动构建（`_build_primary_respondent_property_clue`），从案件当事人关联的客户财产线索中提取财产类型与内容，自动写入申请表单财产线索对话框。
+  - 财产线索类型显示映射（房产/车辆/银行账户/股权/收入/其他）。
+
+- **OA 同步与案件导入增强（contracts/oa_sync + oa_filing/jtn_case_import）**：
+  - OA SSO 登录加固：`ensure_name_search_ready()` 预检查案件列表可访问性，SSO 拦截错误立即抛出而非静默重试。
+  - 按名称查询支持 HTTP 优先 → Playwright 降级双链路，SSO 拦截时自动切换到 Playwright 链路。
+  - 同步失败时提取 SSO 登录 URL 并回传前端，支持用户手动登录后重试。
+  - 合同当事人（`ContractParty`）数据引入同步流程，增强案件名称匹配精度。
+  - OA 同步管理页面交互增强：进度展示、错误信息与 SSO 登录链接展示优化。
+
+### 修复
+
+- **材料管理交互修复（cases/materials）**：
+  - 修复绑定材料时未创建 `CaseMaterialGroupOrder` 导致文件夹排序丢失的问题：`bind_materials()` 末尾自动创建分组排序记录，已有排序保留不变。
+  - 修复选择材料大类后文件从列表消失：选择大类时自动将筛选切换到对应分类，保持文件可见。
+  - 修复非当事人材料 tab 下删除确认弹窗不显示：将 modal 移至 `detail.html` 的 tab 容器外部，不受 `x-show` 隐藏影响。
+  - 修复扫描指定子文件夹时 radio 不可点击：页面加载时始终预加载子文件夹列表，不再依赖 `scanPanelVisible` 状态。
+  - 修复扫描时材料类型提示不精确：改为用文件所在子文件夹名作为类型提示（如"执行申请书"），而非统一用扫描根目录名；自动去除编号前缀（如 `2-立案材料 → 立案材料`）。
+  - 修复替换材料时旧附件文件未删除：`replace_material_file` 现在同步删除旧 `CaseLogAttachment` 及其物理文件。
+  - 修复删除材料时附件文件未清理：`delete_material` 现在同时删除 `CaseLogAttachment` 及物理文件。
+  - 移除当事人材料中无意义的"通用"标签（文件无关联当事人时不再显示）。
+  - 上传/删除材料后自动刷新页面。
+  - 替换材料改为直接触发文件选择器，去掉多余弹窗。
+
+- **Alpine.js 兼容性修复**：
+  - 移除 `x-collapse` 指令，改用 `x-transition`（项目未引入 Collapse 插件）。
+  - 初始化 `insuranceCompanyOptions` 和 `consultantCode`，修复 Alpine.js `ReferenceError` 导致组件初始化崩溃。
+
+- **一张网 Playwright 跨线程修复（automation/scraper）**：
+  - `_acquire_token` 不再复用 `BrowserService` 单例，改为在当前线程独立创建 `sync_playwright` 实例，彻底解决 greenlet 跨线程切换错误。
+  - `_is_expected_sync_error` 增加 `greenlet.error` / `target closed` / `browser has been closed` / `disconnected` 等异常模式识别，减少误判与噪声日志。
+
+- **一张网担保流程稳定性补充修复（automation/court_guarantee）**：
+  - 失败分支浏览器保留时长改为环境变量可配置（`COURT_GUARANTEE_BROWSER_HOLD_SECONDS_ON_FAILURE`），避免固定长等待造成“卡住”观感。
+  - gThree 材料上传链路新增上传空闲等待（`_wait_upload_idle`）与节奏放缓，降低“当前正在进行上传操作，请稍后再试”报错概率。
+  - 身份证明材料匹配规则细化：申请人-法人优先上传“营业执照+法定代表人身份证明”；被申请人-自然人按姓名匹配身份证并排除“法定代表人”材料。
+  - gTwo 对话框“单位性质”在申请人为法人/非法人组织时强制选择“企业”，避免页面默认“机关”导致校验失败。
+  - 新增基于表单错误文本的定向重传与 gThree→gFive 推进时身份证明兜底重传，提升一次性通过率。
+
+- **其他修复**：
+  - 财产线索当事人字段改为搜索下拉（`autocomplete_fields`），提升选择效率。
+  - 移除当事人/非当事人材料 tab 下的"自动捕获"按钮（与"上传/绑定材料"功能重复）。
+  - 更新 JS 版本号破浏览器缓存。
+
+### 优化
+
+- **材料分类服务增强（core/material_classification）**：
+  - `MaterialClassificationService` 参数从 `subfolder_hint` 统一改为 `folder_hint`，优先级链更清晰：父文件夹名 > 子文件夹名 > 规则 type_name_hint。
+  - `BoundFolderScanService` 新增 `_extract_parent_folder_hint`，从文件路径提取相对扫描根目录的父文件夹名，自动去除编号前缀。
+
+- **担保询价面板 UI 精简**：报价数量显示移至每条询价记录中（用 `·` 分隔），隐藏独立标签。
+
+### 配置
+
+- `automation` 索引重命名迁移（`0010_rename_automation__case_id_*`）。
+
+### 安全
+
+- **脱敏默认值**：默认姓名占位值替换为通用测试名；默认身份证号改为校验位无效的测试号；删除含真实手机号的 cookie 文件。
+
+
 ## [26.32.4] - 2026-04-08
 
 ### 修复

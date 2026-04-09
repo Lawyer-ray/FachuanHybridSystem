@@ -5,9 +5,12 @@
             {% trans "时间：正序" %}
         </button>
         <div class="materials-actions">
-            <a href="{% url 'admin:cases_case_materials' case.pk %}?open_scan=1" class="btn btn-secondary btn-sm">
-                {% trans "自动捕获" %}
-            </a>
+            <button type="button" class="btn btn-secondary btn-sm btn-delete-all-materials"
+                    data-category="non_party"
+                    data-case-id="{{ case.pk }}"
+                    onclick="confirmDeleteAllMaterials(this)">
+                🗑️ {% trans "删除全部" %}
+            </button>
             <a href="{% url 'admin:cases_case_materials' case.pk %}" class="btn btn-primary btn-sm">
                 {% trans "上传/绑定材料" %}
             </a>
@@ -29,20 +32,41 @@
                             <div class="material-group" data-type-id="{{ group.type_id }}">
                                 <div class="material-group-header">
                                     <span class="material-group-handle" title="{% trans '拖拽排序' %}">⋮⋮</span>
-                                    <span class="material-group-title">{{ group.type_name }}</span>
+                                    <span class="material-group-title"
+                                          data-group-type-id="{{ group.type_id }}"
+                                          data-group-type-name="{{ group.type_name }}"
+                                          dblclick="startRenameGroup(this)">{{ group.type_name }}</span>
+                                    <button type="button" class="material-group-rename-btn"
+                                            title="{% trans '重命名分组' %}"
+                                            onclick="startRenameGroup(this.previousElementSibling)">✏️</button>
                                 </div>
                                 <div class="material-file-list" data-material-file-list>
                                     {% for item in group.items %}
-                                        <a class="material-file"
-                                           href="{{ item.file_url }}"
-                                           target="_blank"
-                                           rel="noopener"
-                                           data-uploaded-at="{{ item.uploaded_at|date:'c' }}">
-                                            <span class="material-file-name">{{ item.file_name }}</span>
-                                            <span class="material-file-meta">
-                                                <span class="material-file-time">{{ item.uploaded_at|date:"Y-m-d H:i" }}</span>
-                                            </span>
-                                        </a>
+                                        <div class="material-file-row">
+                                            <a class="material-file"
+                                               href="{{ item.file_url }}"
+                                               target="_blank"
+                                               rel="noopener"
+                                               data-uploaded-at="{{ item.uploaded_at|date:'c' }}"
+                                               data-material-id="{{ item.material_id }}">
+                                                <span class="material-file-name">{{ item.file_name }}</span>
+                                                <span class="material-file-meta">
+                                                    <span class="material-file-time">{{ item.uploaded_at|date:"Y-m-d H:i" }}</span>
+                                                </span>
+                                            </a>
+                                            <div class="material-file-actions">
+                                                <button type="button" class="material-replace-btn"
+                                                        title="{% trans '替换文件' %}"
+                                                        data-material-id="{{ item.material_id }}"
+                                                        data-case-id="{{ case.pk }}"
+                                                        onclick="startReplaceMaterial(this)">🔄</button>
+                                                <button type="button" class="material-delete-btn"
+                                                        title="{% trans '删除材料' %}"
+                                                        data-material-id="{{ item.material_id }}"
+                                                        data-case-id="{{ case.pk }}"
+                                                        onclick="confirmDeleteMaterial(this)">🗑️</button>
+                                            </div>
+                                        </div>
                                     {% endfor %}
                                 </div>
                             </div>

@@ -54,11 +54,68 @@ class CaseMaterialUploadOut(Schema):
     attachment_ids: list[int]
 
 
+class CaseMaterialReplaceIn(Schema):
+    """替换材料文件请求"""
+
+    new_attachment_id: int
+
+
+class CaseMaterialReplaceOut(Schema):
+    """替换材料文件响应"""
+
+    material_id: int
+    old_attachment_id: int
+    new_attachment_id: int
+
+
+class CaseMaterialGroupRenameIn(Schema):
+    """重命名材料分组请求"""
+
+    type_id: int
+    new_type_name: str
+    update_global: bool = False
+
+
+class CaseMaterialGroupRenameOut(Schema):
+    """重命名材料分组响应"""
+
+    type_id: int
+    old_type_name: str
+    new_type_name: str
+
+
+class CaseMaterialDeleteOut(Schema):
+    """删除材料响应"""
+
+    material_id: int
+    deleted: bool
+
+
+class CaseMaterialDeleteAllIn(Schema):
+    """按分类批量删除材料请求"""
+
+    category: str
+
+
+class CaseMaterialDeleteAllOut(Schema):
+    """按分类批量删除材料响应"""
+
+    category: str
+    deleted_count: int
+
+
 __all__: list[str] = [
     "CaseMaterialBindCandidateOut",
     "CaseMaterialBindIn",
     "CaseMaterialBindItemIn",
     "CaseMaterialBindingOut",
+    "CaseMaterialDeleteAllIn",
+    "CaseMaterialDeleteAllOut",
+    "CaseMaterialDeleteOut",
     "CaseMaterialGroupOrderIn",
+    "CaseMaterialGroupRenameIn",
+    "CaseMaterialGroupRenameOut",
+    "CaseMaterialReplaceIn",
+    "CaseMaterialReplaceOut",
     "CaseMaterialUploadOut",
 ]

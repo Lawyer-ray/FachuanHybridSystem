@@ -1,0 +1,571 @@
+{% load i18n %}
+<div x-data="courtGuaranteeApp()" x-init="init()" style="margin-top: 20px; border-top: 1px solid #e5e7eb; padding-top: 16px;">
+    <div class="info-grid">
+        <div class="info-card" style="grid-column: 1 / -1;">
+            <div class="card-header">
+                <span class="card-icon">🛡️</span>
+                <h3 class="card-title">{% translate "一张网申请担保（预览暂存）" %}</h3>
+            </div>
+
+            <div x-show="loading" style="text-align: center; padding: 16px;">
+                <span class="spinner"></span> {% translate "加载中..." %}
+            </div>
+
+            <div x-show="!loading">
+                <div style="background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%); border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 16px; margin-bottom: 14px;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 16px;">
+                        <div style="display: flex; align-items: center; gap: 6px; min-width: 0;">
+                            <span style="color: #64748b; font-size: 12px; flex: 0 0 auto;">{% translate "管辖法院" %}：</span>
+                            <span style="font-size: 14px; font-weight: 600; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" x-text="caseInfo.court_name || '{% trans "未设置" %}'"></span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 6px; min-width: 0;">
+                            <span style="color: #64748b; font-size: 12px; flex: 0 0 auto;">{% translate "保全类别" %}：</span>
+                            <span style="font-size: 14px; font-weight: 600; color: #1e293b;" x-text="caseInfo.preserve_category || '-'"></span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 6px; min-width: 0;">
+                            <span style="color: #64748b; font-size: 12px; flex: 0 0 auto;">{% translate "保全金额" %}：</span>
+                            <span style="font-size: 14px; font-weight: 700; color: #0f172a;" x-text="caseInfo.preserve_amount ? '¥' + caseInfo.preserve_amount : '-'"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 12px; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; background: #f8fafc;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px;">
+                        <div style="font-size: 13px; font-weight: 600; color: #0f172a;">{% trans "财产保全询价" %}</div>
+                        <button type="button"
+                                class="btn btn-primary"
+                                style="font-size: 12px; padding: 6px 10px;"
+                                :disabled="quoteLoading || !canStartQuote()"
+                                :class="{ 'btn-disabled': quoteLoading || !canStartQuote() }"
+                                @click="ensureQuote()">
+                            <span x-show="!quoteLoading">{% trans "发起询价" %}</span>
+                            <span x-show="quoteLoading"><span class="spinner"></span> {% trans "处理中..." %}</span>
+                        </button>
+                    </div>
+
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+                        <select x-model="selectedReusableQuoteId"
+                                :disabled="quoteLoading || !canStartQuote()"
+                                style="flex:1; min-width:220px; height:32px; border:1px solid #cbd5e1; border-radius:6px; padding:0 8px; background:#fff;">
+                            <option value="">{% trans "选择同保全金额历史询价记录" %}</option>
+                            <template x-for="option in reusableQuoteOptions" :key="option.quote_id">
+                                <option :value="String(option.quote_id)" x-text="formatReusableQuoteOption(option)"></option>
+                            </template>
+                        </select>
+                        <button type="button"
+                                class="btn"
+                                style="font-size:12px; padding:6px 10px;"
+                                :disabled="quoteLoading || !selectedReusableQuoteId"
+                                :class="{ 'btn-disabled': quoteLoading || !selectedReusableQuoteId }"
+                                @click="bindReusableQuote()">{% trans "绑定所选询价" %}</button>
+                    </div>
+
+                    <template x-if="quoteContext">
+                        <div>
+                            <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+                                <span x-show="isQuotePolling()" style="font-size:12px; color:#1d4ed8; background:#dbeafe; border-radius:999px; padding:2px 8px;">{% trans "询价刷新中..." %}</span>
+                            </div>
+
+                            <template x-if="quoteContext.items && quoteContext.items.length > 0">
+                                <div style="max-height: 220px; overflow:auto; border:1px solid #dbeafe; border-radius:8px; background:#fff;">
+                                    <table style="width:100%; border-collapse: collapse; font-size:12px;">
+                                        <thead>
+                                            <tr style="background:#eff6ff; color:#1e3a8a;">
+                                                <th style="text-align:center; padding:6px 8px; border-bottom:1px solid #dbeafe; width:36px;">{% trans "序号" %}</th>
+                                                <th style="text-align:left; padding:6px 8px; border-bottom:1px solid #dbeafe;">{% trans "担保机构" %}</th>
+                                                <th style="text-align:center; padding:6px 8px; border-bottom:1px solid #dbeafe;">{% trans "报价区间" %}</th>
+                                                <th style="text-align:right; padding:6px 8px; border-bottom:1px solid #dbeafe;">{% trans "最高保全金额" %}</th>
+                                                <th style="text-align:center; padding:6px 8px; border-bottom:1px solid #dbeafe;">{% trans "操作" %}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <template x-for="(item, idx) in quoteContext.items" :key="item.id">
+                                                <tr>
+                                                    <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9; text-align:center; color:#64748b;" x-text="idx + 1"></td>
+                                                    <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9;">
+                                                        <span x-text="item.company_name"></span>
+                                                        <span x-show="item.is_recommended" style="margin-left:4px; color:#15803d;">🏆</span>
+                                                    </td>
+                                                    <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9; text-align:center; white-space:nowrap;" x-text="formatQuoteRange(item)"></td>
+                                                    <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9; text-align:right;" x-text="formatMaxApplyAmountYi(item)"></td>
+                                                    <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9; text-align:center;">
+                                                        <button type="button"
+                                                                class="btn"
+                                                                style="font-size:12px; padding:4px 8px;"
+                                                                :disabled="executing"
+                                                                @click="selectQuoteCompany(item)">{% trans "选用" %}</button>
+                                                    </td>
+                                                </tr>
+                                            </template>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+
+                    <template x-if="!quoteContext">
+                        <div style="font-size: 12px; color: #64748b;">{% trans "尚未发起询价，可点击“发起询价”获取担保报价。" %}</div>
+                    </template>
+                </div>
+
+                <div x-show="respondentOptions.length > 1" style="margin-bottom: 12px; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 10px 12px; background: #f8fafc;">
+                    <div style="font-size: 12px; color: #334155; margin-bottom: 8px; font-weight: 600;">
+                        {% trans "被申请人（可多选，默认全选）" %}
+                    </div>
+                    <div style="display:flex; flex-wrap:wrap; gap:8px 16px;">
+                        <template x-for="option in respondentOptions" :key="option.party_id">
+                            <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:#0f172a; cursor:pointer;">
+                                <input type="checkbox"
+                                       x-model="selectedRespondentIds"
+                                       :value="option.party_id"
+                                       :disabled="executing"
+                                       @change="persistRespondentSelection()"
+                                       style="margin:0;">
+                                <span x-text="formatRespondentOption(option)"></span>
+                            </label>
+                        </template>
+                    </div>
+                </div>
+
+                <div class="court-guarantee-form-row">
+                    <select x-model="insuranceCompanyName"
+                            :disabled="executing"
+                            @change="handleInsuranceCompanyChange()"
+                            class="court-guarantee-control">
+                        <template x-for="option in insuranceCompanyOptions" :key="option">
+                            <option :value="option" x-text="option"></option>
+                        </template>
+                    </select>
+                    <input type="text"
+                           x-model="consultantCode"
+                           :disabled="executing"
+                           placeholder="{% trans '咨询员编号（可选）' %}"
+                           class="court-guarantee-control">
+                    <button type="button" class="btn btn-primary court-guarantee-submit"
+                            :class="{ 'btn-disabled': executing || !canExecute() }"
+                            :disabled="executing || !canExecute()"
+                            @click="executeGuarantee()">
+                        <span x-show="!executing">🚀 {% translate "开始申请担保" %}</span>
+                        <span x-show="executing"><span class="spinner"></span> {% translate "执行中..." %}</span>
+                    </button>
+                </div>
+
+                <div style="margin-bottom: 14px; font-size: 12px; color: #dc2626;" x-show="!caseInfo.court_name">
+                    {% translate "请先设置管辖法院（案件管辖机关）" %}
+                </div>
+                <div style="margin-bottom: 14px; font-size: 12px; color: #dc2626;" x-show="caseInfo.court_name && !caseInfo.has_court_credential">
+                    {% translate "您没有一张网账号密码，请先在律师管理中添加" %}
+                </div>
+                <div style="margin-bottom: 14px; font-size: 12px; color: #dc2626;" x-show="caseInfo.court_name && caseInfo.has_court_credential && !caseInfo.our_party_is_plaintiff_side">
+                    {% translate "我方当事人非申请方，系统默认禁止发起担保申请" %}
+                </div>
+                <div style="margin-bottom: 14px; font-size: 12px; color: #dc2626;" x-show="caseInfo.court_name && caseInfo.has_court_credential && caseInfo.our_party_is_plaintiff_side && !caseInfo.preserve_amount">
+                    {% translate "请先维护案件保全金额（preservation_amount）" %}
+                </div>
+                <div style="margin-bottom: 14px; font-size: 12px; color: #dc2626;" x-show="respondentOptions.length > 1 && selectedRespondentIds.length === 0">
+                    {% translate "请至少选择一个被申请人" %}
+                </div>
+
+                <template x-if="lastResult">
+                    <div :style="lastResult.success ? 'background:#f0fdf4;border:1px solid #86efac;' : 'background:#fef2f2;border:1px solid #fca5a5;'"
+                         style="border-radius:8px;padding:12px;">
+                        <span x-show="lastResult.success" style="color:#15803d;">✓ <span x-text="lastResult.message"></span></span>
+                        <span x-show="!lastResult.success" style="color:#dc2626;">✗ <span x-text="lastResult.message"></span></span>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    function courtGuaranteeApp() {
+        return {
+            caseId: {{ case.pk }},
+            caseInfo: {},
+            quoteContext: null,
+            loading: false,
+            quoteLoading: false,
+            executing: false,
+            lastResult: null,
+            insuranceCompanyName: '中国平安财产保险股份有限公司',
+            sunshineInsuranceCompanyName: '阳光财产保险股份有限公司',
+            sunshineConsultantCode: '08740007',
+            insuranceCompanyOptions: [],
+            reusableQuoteOptions: [],
+            selectedReusableQuoteId: '',
+            respondentOptions: [],
+            selectedRespondentIds: [],
+            consultantCode: '',
+            quotePollingTimer: null,
+
+            async init() {
+                await this.loadCaseInfo();
+            },
+
+            canStartQuote() {
+                return Boolean(this.caseInfo && this.caseInfo.preserve_amount && this.caseInfo.has_court_credential);
+            },
+
+            canExecute() {
+                const hasBaseConditions = Boolean(
+                    this.caseInfo &&
+                    this.caseInfo.court_name &&
+                    this.caseInfo.has_court_credential &&
+                    this.caseInfo.our_party_is_plaintiff_side &&
+                    this.caseInfo.preserve_amount
+                );
+                if (!hasBaseConditions) return false;
+                if (this.respondentOptions.length > 1 && this.selectedRespondentIds.length === 0) {
+                    return false;
+                }
+                return true;
+            },
+
+            quoteProgressLabel() {
+                if (!this.quoteContext) return '';
+                const successCount = this.quoteContext.success_count || 0;
+                const total = this.quoteContext.total_companies || 0;
+                return '{% trans "已获取报价" %} ' + successCount + ' / ' + total;
+            },
+
+            formatQuoteRange(item) {
+                const quoteAmount = item?.min_amount || '';
+                const feeCap = item?.max_amount || '';
+                if (quoteAmount && feeCap) {
+                    if (String(quoteAmount) === String(feeCap)) {
+                        return `¥${quoteAmount}`;
+                    }
+                    return `¥${quoteAmount} ~ ¥${feeCap}`;
+                }
+                if (quoteAmount) {
+                    return `¥${quoteAmount}`;
+                }
+                if (feeCap) {
+                    return `~ ¥${feeCap}`;
+                }
+                return '-';
+            },
+
+            formatMaxApplyAmountYi(item) {
+                const rawValue = item?.max_apply_amount;
+                if (!rawValue) return '-';
+                const value = Number(rawValue);
+                if (!Number.isFinite(value)) return '-';
+                const yiValue = value / 100000000;
+                return `¥${yiValue.toFixed(2)}亿`;
+            },
+
+            formatReusableQuoteOption(option) {
+                const quoteDate = String(option?.created_at_display || option?.created_at || '').trim();
+                const preserveAmount = option?.preserve_amount ? `¥${option.preserve_amount}` : '-';
+                const successCount = option?.success_count ?? 0;
+                const totalCompanies = option?.total_companies ?? 0;
+                const progressPart = `已获取报价 ${successCount}/${totalCompanies}`;
+                const boundSuffix = option?.is_bound ? '（已绑定）' : '';
+                return `${quoteDate || '-'} · ${preserveAmount} · ${progressPart}${boundSuffix}`;
+            },
+
+            formatRespondentOption(option) {
+                const name = String(option?.name || '-').trim() || '-';
+                const legalStatus = String(option?.legal_status_display || option?.legal_status || '').trim();
+                return legalStatus ? `${name}（${legalStatus}）` : name;
+            },
+
+            getRespondentStorageKey() {
+                return `court_guarantee_selected_respondents_${this.caseId}`;
+            },
+
+            loadPersistedRespondentSelection() {
+                try {
+                    const raw = localStorage.getItem(this.getRespondentStorageKey());
+                    if (!raw) return [];
+                    const values = JSON.parse(raw);
+                    if (!Array.isArray(values)) return [];
+                    return values.map((item) => Number(item)).filter((item) => Number.isInteger(item) && item > 0);
+                } catch (e) {
+                    return [];
+                }
+            },
+
+            persistRespondentSelection() {
+                const normalized = (this.selectedRespondentIds || [])
+                    .map((item) => Number(item))
+                    .filter((item) => Number.isInteger(item) && item > 0);
+                this.selectedRespondentIds = normalized;
+                try {
+                    localStorage.setItem(this.getRespondentStorageKey(), JSON.stringify(normalized));
+                } catch (e) {
+                    // ignore storage errors
+                }
+            },
+
+            handleInsuranceCompanyChange({ respectExisting = false } = {}) {
+                const companyName = String(this.insuranceCompanyName || '').trim();
+                if (!companyName || !companyName.includes(this.sunshineInsuranceCompanyName)) {
+                    return;
+                }
+                const currentCode = String(this.consultantCode || '').trim();
+                if (respectExisting && currentCode) {
+                    return;
+                }
+                this.consultantCode = this.sunshineConsultantCode;
+            },
+
+            isQuotePolling() {
+                return Boolean(this.quotePollingTimer);
+            },
+
+            shouldPollQuote() {
+                const status = this.quoteContext?.status || '';
+                return status === 'pending' || status === 'running';
+            },
+
+            startQuotePolling() {
+                this.stopQuotePolling();
+                if (!this.shouldPollQuote()) return;
+                this.quotePollingTimer = setInterval(async () => {
+                    await this.loadCaseInfo({ silent: true });
+                    if (!this.shouldPollQuote()) {
+                        this.stopQuotePolling();
+                    }
+                }, 3000);
+            },
+
+            stopQuotePolling() {
+                if (this.quotePollingTimer) {
+                    clearInterval(this.quotePollingTimer);
+                    this.quotePollingTimer = null;
+                }
+            },
+
+            async loadCaseInfo({ silent = false } = {}) {
+                if (!silent) {
+                    this.loading = true;
+                }
+                try {
+                    const resp = await fetch(`/api/v1/court-guarantee/case-info/${this.caseId}`);
+                    if (resp.ok) {
+                        this.caseInfo = await resp.json();
+                        this.applyCaseInfo();
+                    }
+                } catch (e) {
+                    console.error('loadCaseGuaranteeInfo error:', e);
+                } finally {
+                    if (!silent) {
+                        this.loading = false;
+                    }
+                }
+            },
+
+            applyCaseInfo() {
+                this.quoteContext = this.caseInfo.quote_context || null;
+                if (Array.isArray(this.caseInfo.insurance_company_options) && this.caseInfo.insurance_company_options.length > 0) {
+                    this.insuranceCompanyOptions = this.caseInfo.insurance_company_options;
+                }
+                if (Array.isArray(this.caseInfo.reusable_quotes)) {
+                    this.reusableQuoteOptions = this.caseInfo.reusable_quotes;
+                } else {
+                    this.reusableQuoteOptions = [];
+                }
+                if (this.quoteContext?.quote_id) {
+                    this.selectedReusableQuoteId = String(this.quoteContext.quote_id);
+                }
+
+                if (Array.isArray(this.caseInfo.respondent_options)) {
+                    this.respondentOptions = this.caseInfo.respondent_options;
+                } else {
+                    this.respondentOptions = [];
+                }
+                const respondentIds = this.respondentOptions
+                    .map((item) => Number(item?.party_id || 0))
+                    .filter((item) => Number.isInteger(item) && item > 0);
+                if (respondentIds.length <= 1) {
+                    this.selectedRespondentIds = respondentIds;
+                } else {
+                    const persisted = this.loadPersistedRespondentSelection();
+                    const persistedSet = new Set(persisted);
+                    const restored = respondentIds.filter((item) => persistedSet.has(item));
+                    this.selectedRespondentIds = restored.length > 0 ? restored : respondentIds;
+                    this.persistRespondentSelection();
+                }
+
+                if (this.caseInfo.insurance_company_name) {
+                    this.insuranceCompanyName = this.caseInfo.insurance_company_name;
+                }
+                if (this.caseInfo.consultant_code) {
+                    this.consultantCode = this.caseInfo.consultant_code;
+                }
+                this.handleInsuranceCompanyChange({ respectExisting: Boolean(this.caseInfo.consultant_code) });
+
+                if (this.shouldPollQuote()) {
+                    this.startQuotePolling();
+                } else {
+                    this.stopQuotePolling();
+                }
+            },
+
+            async postJson(url, body) {
+                const resp = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+                    },
+                    body: JSON.stringify(body || {})
+                });
+                return resp.json();
+            },
+
+            async ensureQuote() {
+                if (!this.caseId || !this.canStartQuote()) return;
+                this.quoteLoading = true;
+                try {
+                    const data = await this.postJson('/api/v1/court-guarantee/quote/ensure', { case_id: this.caseId });
+                    this.lastResult = data;
+                    await this.loadCaseInfo();
+                    this.startQuotePolling();
+                } catch (e) {
+                    console.error('ensureQuote error:', e);
+                    this.lastResult = { success: false, message: e.message || '{% trans "请求失败" %}' };
+                } finally {
+                    this.quoteLoading = false;
+                }
+            },
+
+            async bindReusableQuote() {
+                const quoteId = String(this.selectedReusableQuoteId || '').trim();
+                if (!quoteId) return;
+                this.quoteLoading = true;
+                try {
+                    const data = await this.postJson(`/api/v1/court-guarantee/quote/${quoteId}/bind`, { case_id: this.caseId });
+                    this.lastResult = data;
+                    await this.loadCaseInfo();
+                    this.startQuotePolling();
+                } catch (e) {
+                    console.error('bindReusableQuote error:', e);
+                    this.lastResult = { success: false, message: e.message || '{% trans "请求失败" %}' };
+                } finally {
+                    this.quoteLoading = false;
+                }
+            },
+
+            async retryQuote() {
+                if (!this.quoteContext || !this.quoteContext.quote_id) return;
+                this.quoteLoading = true;
+                try {
+                    const data = await this.postJson(`/api/v1/court-guarantee/quote/${this.quoteContext.quote_id}/retry`, { case_id: this.caseId });
+                    this.lastResult = data;
+                    await this.loadCaseInfo();
+                    this.startQuotePolling();
+                } catch (e) {
+                    console.error('retryQuote error:', e);
+                    this.lastResult = { success: false, message: e.message || '{% trans "请求失败" %}' };
+                } finally {
+                    this.quoteLoading = false;
+                }
+            },
+
+            async deleteQuote() {
+                if (!this.quoteContext || !this.quoteContext.quote_id) return;
+                if (!confirm('{% trans "确认删除询价记录吗？" %}')) return;
+                this.quoteLoading = true;
+                try {
+                    const data = await this.postJson(`/api/v1/court-guarantee/quote/${this.quoteContext.quote_id}/delete`, { case_id: this.caseId });
+                    this.lastResult = data;
+                    await this.loadCaseInfo();
+                    this.stopQuotePolling();
+                } catch (e) {
+                    console.error('deleteQuote error:', e);
+                    this.lastResult = { success: false, message: e.message || '{% trans "请求失败" %}' };
+                } finally {
+                    this.quoteLoading = false;
+                }
+            },
+
+            async deleteBinding() {
+                if (!this.quoteContext || !this.quoteContext.binding_id) return;
+                if (!confirm('{% trans "确认删除绑定关系吗？" %}')) return;
+                this.quoteLoading = true;
+                try {
+                    const data = await this.postJson(`/api/v1/court-guarantee/quote-binding/${this.quoteContext.binding_id}/delete`, { case_id: this.caseId });
+                    this.lastResult = data;
+                    await this.loadCaseInfo();
+                    this.stopQuotePolling();
+                } catch (e) {
+                    console.error('deleteBinding error:', e);
+                    this.lastResult = { success: false, message: e.message || '{% trans "请求失败" %}' };
+                } finally {
+                    this.quoteLoading = false;
+                }
+            },
+
+            selectQuoteCompany(item) {
+                const companyName = String(item?.company_name || '').trim();
+                if (!companyName) return;
+                if (!this.insuranceCompanyOptions.includes(companyName)) {
+                    this.insuranceCompanyOptions = [companyName, ...this.insuranceCompanyOptions];
+                }
+                this.insuranceCompanyName = companyName;
+                this.handleInsuranceCompanyChange();
+                this.lastResult = { success: true, message: `{% trans "已选用" %}${companyName}` };
+            },
+
+            async executeGuarantee() {
+                if (!this.caseId || !this.canExecute()) return;
+                this.executing = true;
+                this.lastResult = null;
+                try {
+                    this.handleInsuranceCompanyChange({ respectExisting: true });
+                    const resp = await fetch('/api/v1/court-guarantee/execute', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+                        },
+                        body: JSON.stringify({
+                            case_id: this.caseId,
+                            insurance_company_name: this.insuranceCompanyName || '',
+                            consultant_code: this.consultantCode || '',
+                            selected_respondent_ids: this.respondentOptions.length > 1
+                                ? this.selectedRespondentIds.map((item) => Number(item)).filter((item) => Number.isInteger(item) && item > 0)
+                                : null
+                        })
+                    });
+                    const data = await resp.json();
+                    this.lastResult = data;
+                    if (data.session_id) {
+                        this.pollSession(data.session_id);
+                    } else {
+                        this.executing = false;
+                    }
+                } catch (e) {
+                    console.error('executeGuarantee error:', e);
+                    this.lastResult = { success: false, message: e.message || '{% trans "请求失败" %}' };
+                    this.executing = false;
+                }
+            },
+
+            async pollSession(sessionId) {
+                const poll = async () => {
+                    try {
+                        const resp = await fetch(`/api/v1/court-guarantee/session/${sessionId}`);
+                        if (resp.ok) {
+                            const data = await resp.json();
+                            this.lastResult = data;
+                            if (data.status === 'in_progress') {
+                                setTimeout(poll, 3000);
+                                return;
+                            }
+                        }
+                    } catch (e) {
+                        console.error('pollGuaranteeSession error:', e);
+                    }
+                    this.executing = false;
+                };
+                setTimeout(poll, 3000);
+            },
+        };
+    }
+    </script>
+</div>

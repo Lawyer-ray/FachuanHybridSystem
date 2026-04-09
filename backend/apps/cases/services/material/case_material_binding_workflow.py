@@ -12,6 +12,7 @@ from apps.cases.models import (
     CaseLogAttachment,
     CaseMaterial,
     CaseMaterialCategory,
+    CaseMaterialGroupOrder,
     CaseMaterialSide,
     CaseMaterialType,
     CaseParty,
@@ -102,7 +103,59 @@ class CaseMaterialBindingWorkflow:
                 else:
                     material.parties.clear()
                 saved.append(material)
+
+        # 根据绑定顺序自动创建/更新分组排序，保留用户文件夹顺序
+        if saved:
+            self._ensure_group_orders(case_id, saved)
+
         return saved
+
+    def _ensure_group_orders(self, case_id: int, saved: list[CaseMaterial]) -> None:
+        """根据绑定顺序自动创建/更新分组排序记录，保留用户文件夹顺序。
+
+        遍历 saved 列表（按前端传入顺序），收集每个 (category, side, supervising_authority_id)
+        下的 type 首次出现顺序，然后用 update_or_create 写入 CaseMaterialGroupOrder。
+        已存在的分组排序记录（之前通过拖拽设置的）会被保留，只补充新出现的分组。
+        """
+        # 收集每个 (category, side, authority_id) 下的 type 出现顺序
+        group_order_map: dict[tuple[str, str | None, int | None], list[int]] = {}
+        for material in saved:
+            if not material.type_id:
+                continue
+            key = (material.category, material.side, material.supervising_authority_id)
+            if material.type_id not in group_order_map.get(key, []):
+                group_order_map.setdefault(key, []).append(material.type_id)
+
+        # 读取已有的分组排序，确定已有分组的 sort_index
+        existing_orders = CaseMaterialGroupOrder.objects.filter(case_id=case_id)
+        existing_max_index: dict[tuple[str, str | None, int | None], int] = {}
+        for order in existing_orders:
+            key = (order.category, order.side, order.supervising_authority_id)
+            existing_max_index[key] = max(existing_max_index.get(key, -1), order.sort_index)
+
+        # 对每个分组维度，为未设置排序的新分组追加 sort_index
+        for (category, side, authority_id), type_ids in group_order_map.items():
+            existing_type_ids = set(
+                CaseMaterialGroupOrder.objects.filter(
+                    case_id=case_id,
+                    category=category,
+                    side=side,
+                    supervising_authority_id=authority_id,
+                ).values_list("type_id", flat=True)
+            )
+            next_index = existing_max_index.get((category, side, authority_id), -1) + 1
+            for type_id in type_ids:
+                if type_id in existing_type_ids:
+                    continue
+                CaseMaterialGroupOrder.objects.update_or_create(
+                    case_id=case_id,
+                    category=category,
+                    side=side,
+                    supervising_authority_id=authority_id,
+                    type_id=type_id,
+                    defaults={"sort_index": next_index},
+                )
+                next_index += 1
 
     def _resolve_type_cached(
         self,
