@@ -377,7 +377,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
             </svg>
         </div>
-        <div x-show="expanded" x-collapse>
+        <div x-show="expanded" x-transition>
             <div class="card-content">
                 <div class="evidence-actions" style="margin-bottom: 16px;">
                     <a href="{% url 'admin:documents_evidencelist_add' %}?case={{ case.pk }}"
