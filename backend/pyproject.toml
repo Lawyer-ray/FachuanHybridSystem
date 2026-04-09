@@ -5,7 +5,7 @@ description = "法穿AI案件管理系统 - Backend"
 requires-python = ">=3.12"
 dependencies = [
     # --- Django 核心 ---
-    "django==6.0.3",
+    "django==6.0.4",
     "django-cors-headers==4.9.0",
     "django-nested-admin==4.1.6",
     "django-ninja==1.6.2",
@@ -46,7 +46,7 @@ dependencies = [
     "python-dateutil==2.9.0.post0",
     "pyyaml==6.0.3",
     # --- 安全 / 加密 ---
-    "cryptography==46.0.6",
+    "cryptography==46.0.7",
     # --- 可观测性 ---
     "psutil==7.2.2",
     "sentry-sdk>=2.57.0",
