@@ -131,6 +131,7 @@
                 <div class="court-guarantee-form-row">
                     <select x-model="insuranceCompanyName"
                             :disabled="executing"
+                            @change="handleInsuranceCompanyChange()"
                             class="court-guarantee-control">
                         <template x-for="option in insuranceCompanyOptions" :key="option">
                             <option :value="option" x-text="option"></option>
@@ -188,6 +189,8 @@
             executing: false,
             lastResult: null,
             insuranceCompanyName: '中国平安财产保险股份有限公司',
+            sunshineInsuranceCompanyName: '阳光财产保险股份有限公司',
+            sunshineConsultantCode: '08740007',
             insuranceCompanyOptions: [],
             reusableQuoteOptions: [],
             selectedReusableQuoteId: '',
@@ -297,6 +300,18 @@
                 }
             },
 
+            handleInsuranceCompanyChange({ respectExisting = false } = {}) {
+                const companyName = String(this.insuranceCompanyName || '').trim();
+                if (!companyName || !companyName.includes(this.sunshineInsuranceCompanyName)) {
+                    return;
+                }
+                const currentCode = String(this.consultantCode || '').trim();
+                if (respectExisting && currentCode) {
+                    return;
+                }
+                this.consultantCode = this.sunshineConsultantCode;
+            },
+
             isQuotePolling() {
                 return Boolean(this.quotePollingTimer);
             },
@@ -381,6 +396,7 @@
                 if (this.caseInfo.consultant_code) {
                     this.consultantCode = this.caseInfo.consultant_code;
                 }
+                this.handleInsuranceCompanyChange({ respectExisting: Boolean(this.caseInfo.consultant_code) });
 
                 if (this.shouldPollQuote()) {
                     this.startQuotePolling();
@@ -491,6 +507,7 @@
                     this.insuranceCompanyOptions = [companyName, ...this.insuranceCompanyOptions];
                 }
                 this.insuranceCompanyName = companyName;
+                this.handleInsuranceCompanyChange();
                 this.lastResult = { success: true, message: `{% trans "已选用" %}${companyName}` };
             },
 
@@ -499,6 +516,7 @@
                 this.executing = true;
                 this.lastResult = null;
                 try {
+                    this.handleInsuranceCompanyChange({ respectExisting: true });
                     const resp = await fetch('/api/v1/court-guarantee/execute', {
                         method: 'POST',
                         headers: {
