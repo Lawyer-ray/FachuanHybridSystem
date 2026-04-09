@@ -301,6 +301,12 @@
               target.lastCategory = category;
             });
           }
+          // 切换大类后，如果当前筛选为"未分类"，自动切换到对应分类或"全部"，
+          // 否则刚分类的文件会因不再匹配"未分类"条件而从列表消失
+          if (category && this.filterCategory === 'unclassified') {
+            this.filterCategory = category;
+            this.onFilterCategoryChange();
+          }
         },
 
         onSideChange(row, event) {
