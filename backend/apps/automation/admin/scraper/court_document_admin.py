@@ -215,10 +215,12 @@ class CourtDocumentAdmin(admin.ModelAdmin[CourtDocument]):
         if obj.download_status == DocumentDownloadStatus.SUCCESS and obj.local_file_path:
             return format_html(
                 '<a href="/media/{}" target="_blank" '
-                'style="background-color: #28a745; color: white; padding: 5px 10px; '
-                'border-radius: 4px; text-decoration: none; display: inline-block; font-size: 12px;">'
-                "📥 下载</a>",
+                'style="background-color: #28a745; color: white; padding: 2px 8px; '
+                'border-radius: 3px; text-decoration: none; display: inline-block; font-size: 12px; '
+                'line-height: 1.4; white-space: nowrap;">'
+                "{}</a>",
                 obj.local_file_path,
+                _("下载"),
             )
         return format_html('<span style="color: #999;">{}</span>', "-")
 
@@ -231,12 +233,14 @@ class CourtDocumentAdmin(admin.ModelAdmin[CourtDocument]):
             filename = Path(obj.local_file_path).name
 
             return format_html(
-                '<a href="/media/{}" target="_blank" '
-                'style="background-color: #28a745; color: white; padding: 10px 20px; '
-                'border-radius: 4px; text-decoration: none; display: inline-block; font-size: 14px;">'
-                "📥 下载文件: {}</a>",
+                '<a href="/media/{}" target="_blank" title="{}" '
+                'style="background-color: #28a745; color: white; padding: 6px 12px; '
+                'border-radius: 4px; text-decoration: none; display: inline-block; font-size: 13px; '
+                'line-height: 1.4; white-space: nowrap;">'
+                "{}</a>",
                 obj.local_file_path,
                 filename,
+                _("下载文件"),
             )
         elif obj.download_status == DocumentDownloadStatus.FAILED:
             return format_html('<span style="color: #dc3545; font-weight: bold;">{}</span>', "下载失败")
