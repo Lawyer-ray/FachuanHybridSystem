@@ -26,6 +26,11 @@ class CourtZxfwGuaranteeService:
         self.page.goto(self.GUARANTEE_URL, timeout=60000, wait_until="domcontentloaded")
         self._random_wait(4, 6)
 
+        insurance_company_name = str(case_data.get("insurance_company_name") or "").strip()
+        consultant_code = str(case_data.get("consultant_code") or "").strip()
+        if not consultant_code and "阳光财产保险股份有限公司" in insurance_company_name:
+            consultant_code = "08740007"
+
         done: dict[str, Any] = {
             "court": self._choose_court(str(case_data.get("court_name") or "")),
             "preserve_type": self._click_radio_by_text("财产保全"),
@@ -35,7 +40,8 @@ class CourtZxfwGuaranteeService:
                 str(case_data.get("cause_of_action") or ""),
                 [str(item) for item in (case_data.get("cause_candidates") or [])],
             ),
-            "insurance": self._choose_insurance(str(case_data.get("insurance_company_name") or "")),
+            "insurance": self._choose_insurance(insurance_company_name),
+            "consultant_code": self._fill_consultant_code(consultant_code),
             "amount": self._fill_amount(case_data.get("preserve_amount")),
             "identity": self._click_radio_by_text("律师"),
         }
@@ -311,9 +317,18 @@ class CourtZxfwGuaranteeService:
         result: dict[str, Any] = {"dialogs": [], "next_clicked": None, "errors_after_next": [], "ready": False}
         result["ready"] = self._wait_for_g_two_ready()
 
+        respondent_sources = [
+            item for item in (case_data.get("respondents") or []) if isinstance(item, dict)
+        ]
+        if not respondent_sources:
+            respondent_sources = [case_data.get("respondent") or {}]
+
         targets = [
             ("applicant", 0, ["申请人"], self._build_party_dialog_defaults(case_data.get("applicant") or {})),
-            ("respondent", 1, ["被申请人"], self._build_party_dialog_defaults(case_data.get("respondent") or {})),
+            *[
+                ("respondent", 1, ["被申请人"], self._build_party_dialog_defaults(source))
+                for source in respondent_sources
+            ],
             (
                 "plaintiff_agent",
                 2,
@@ -324,7 +339,11 @@ class CourtZxfwGuaranteeService:
                 "property_clue",
                 3,
                 ["财产线索", "财产"],
-                self._build_party_dialog_defaults(case_data.get("applicant") or {}, is_property_clue=True),
+                self._build_party_dialog_defaults(
+                    case_data.get("respondent") or case_data.get("applicant") or {},
+                    is_property_clue=True,
+                    property_clue_data=case_data.get("property_clue") if isinstance(case_data.get("property_clue"), dict) else None,
+                ),
             ),
         ]
 
@@ -528,17 +547,33 @@ class CourtZxfwGuaranteeService:
 
         return result
 
-    def _build_party_dialog_defaults(self, party: dict[str, Any], *, is_property_clue: bool = False) -> dict[str, str]:
+    def _normalize_party_type(self, raw_party_type: Any) -> str:
+        value = str(raw_party_type or "").strip().lower()
+        if value in {"natural", "person", "individual"}:
+            return "natural"
+        if value in {"legal", "corp", "company", "enterprise", "organization", "org"}:
+            return "legal"
+        if value in {"non_legal_org", "nonlegal", "non_legal", "other_org"}:
+            return "non_legal_org"
+        return "natural"
+
+    def _build_party_dialog_defaults(
+        self,
+        party: dict[str, Any],
+        *,
+        is_property_clue: bool = False,
+        property_clue_data: dict[str, Any] | None = None,
+    ) -> dict[str, str]:
         name = str(party.get("name") or "").strip() or "张三"
-        party_type = str(party.get("party_type") or "natural").strip() or "natural"
+        party_type = self._normalize_party_type(party.get("party_type") or "natural")
         is_natural = party_type == "natural"
 
         id_number = str(party.get("id_number") or "").strip()
         if not id_number:
-            id_number = "120101199001010017" if is_natural else "91440101MA59TEST8X"
+            id_number = "110101199003077719" if is_natural else "91440101MA59TEST8X"
 
         legal_representative = str(party.get("legal_representative") or "").strip() or "张三"
-        legal_representative_id_number = str(party.get("legal_representative_id_number") or "").strip() or "120101199001010017"
+        legal_representative_id_number = str(party.get("legal_representative_id_number") or "").strip() or "110101199003077719"
 
         defaults = {
             "party_type": party_type,
@@ -561,20 +596,29 @@ class CourtZxfwGuaranteeService:
             "principal": legal_representative,
             "unit_nature": "企业",
             "property_type": "其他",
-            "property_info": "测试房产线索，建筑面积98㎡",
-            "property_location": "顺德区大良街道测试路1号",
-            "property_province": "广东省",
-            "property_cert_no": "粤房权证顺字第TEST001号",
-            "property_value": "300000",
+            "property_info": "",
+            "property_location": "",
+            "property_province": "",
+            "property_cert_no": "",
+            "property_value": "",
         }
         if is_property_clue:
+            clue_data = property_clue_data or {}
             defaults["party_type"] = "property"
-            defaults["property_info"] = f"{name}名下测试财产线索"
+            defaults["owner_name"] = str(clue_data.get("owner_name") or name).strip() or name
+            defaults["property_type"] = str(clue_data.get("property_type") or "其他").strip() or "其他"
+            defaults["property_info"] = (
+                str(clue_data.get("property_info") or "").strip() or f"{defaults['owner_name']}名下财产线索"
+            )
+            defaults["property_location"] = str(clue_data.get("property_location") or defaults.get("address") or "").strip()
+            defaults["property_province"] = str(clue_data.get("property_province") or "").strip()
+            defaults["property_cert_no"] = str(clue_data.get("property_cert_no") or "").strip()
+            defaults["property_value"] = str(clue_data.get("property_value") or "").strip()
         return defaults
 
     def _build_agent_dialog_defaults(self, source: dict[str, Any]) -> dict[str, str]:
-        name = str(source.get("name") or "").strip() or "黄崧"
-        id_number = str(source.get("id_number") or "").strip() or "120101199001010017"
+        name = str(source.get("name") or "").strip() or "张三"
+        id_number = str(source.get("id_number") or "").strip() or "110101199003077719"
         phone = str(source.get("phone") or "").strip()
         return {
             "party_type": "agent",
@@ -714,13 +758,13 @@ class CourtZxfwGuaranteeService:
         return bool(clicked)
 
     def _choose_party_type_in_dialog(self, defaults: dict[str, str]) -> bool:
-        party_type = str(defaults.get("party_type") or "natural").strip() or "natural"
+        party_type = self._normalize_party_type(defaults.get("party_type") or "natural")
         type_text_map = {
             "natural": "自然人",
             "legal": "法人",
             "non_legal_org": "非法人组织",
         }
-        target_text = type_text_map.get(party_type, "自然人")
+        target_text = type_text_map.get(party_type, "法人")
 
         clicked = self.page.evaluate(
             """(target) => {
@@ -904,7 +948,7 @@ class CourtZxfwGuaranteeService:
                 const partyType = (defaults.party_type || 'natural').trim();
                 const naturalId = /^\d{17}[\dXx]$/.test((defaults.id_number || '').trim())
                     ? (defaults.id_number || '').trim()
-                    : '120101199001010017';
+                    : '110101199003077719';
                 const naturalMap = [
                     [['姓名'], defaults.name || '张三'],
                     [['证件号码', '身份证号码'], naturalId],
@@ -923,24 +967,24 @@ class CourtZxfwGuaranteeService:
                 ];
                 const commonMap = [
                     [['财产所有人'], defaults.owner_name || defaults.name || '张三'],
-                    [['财产信息'], defaults.property_info || '测试房产线索，建筑面积98㎡'],
-                    [['价值', '财产价值'], defaults.property_value || '300000'],
+                    [['财产信息'], defaults.property_info || ''],
+                    [['价值', '财产价值'], defaults.property_value || ''],
                 ];
 
                 const agentMap = [
-                    [['代理人姓名', '姓名'], defaults.name || '黄崧'],
+                    [['代理人姓名', '姓名'], defaults.name || '张三'],
                     [['执业证件号码'], defaults.license_number || ''],
-                    [['证件号码', '身份证号码'], defaults.id_number || '120101199001010017'],
+                    [['证件号码', '身份证号码'], defaults.id_number || '110101199003077719'],
                     [['手机号码'], defaults.phone || ''],
                     [['代理人所在律所'], defaults.law_firm || ''],
                 ];
 
                 const propertyMap = [
                     [['财产所有人'], defaults.owner_name || defaults.name || '张三'],
-                    [['房产坐落位置', '具体位置'], defaults.property_location || defaults.property_info || '顺德区大良街道测试路1号'],
-                    [['房产证号'], defaults.property_cert_no || '粤房权证顺字第TEST001号'],
-                    [['财产信息'], defaults.property_info || '测试房产线索，建筑面积98㎡'],
-                    [['价值', '财产价值'], defaults.property_value || '300000'],
+                    [['房产坐落位置', '具体位置'], defaults.property_location || defaults.property_info || ''],
+                    [['房产证号'], defaults.property_cert_no || ''],
+                    [['财产信息'], defaults.property_info || ''],
+                    [['价值', '财产价值'], defaults.property_value || ''],
                 ];
 
                 const dynamicMap = [
@@ -951,18 +995,18 @@ class CourtZxfwGuaranteeService:
                 const fallbackMap = [
                     [['姓名', '单位名称', '名称', '代理人姓名'], defaults.name || '张三'],
                     [['执业证件号码'], defaults.license_number || ''],
-                    [['证件号码', '身份证号码'], /^\d{17}[\dXx]$/.test((defaults.id_number || '').trim()) ? (defaults.id_number || '').trim() : '120101199001010017'],
+                    [['证件号码', '身份证号码'], /^\d{17}[\dXx]$/.test((defaults.id_number || '').trim()) ? (defaults.id_number || '').trim() : '110101199003077719'],
                     [['证照号码', '统一社会信用代码'], '91440101MA59TEST8X'],
                     [['法定代表人', '主要负责人'], defaults.legal_representative || '张三'],
                     [['手机号码'], defaults.phone || ''],
                     [['代理人所在律所'], defaults.law_firm || ''],
                     [['出生日期', '出生年月日'], defaults.birth_date || '1990-01-01'],
                     [['年龄'], defaults.age || '36'],
-                    [['经常居住地', '住所地', '单位地址', '地址'], defaults.address || '广东省广州市天河区测试地址1号'],
-                    [['房产坐落位置', '具体位置'], defaults.property_location || '顺德区大良街道测试路1号'],
-                    [['房产证号'], defaults.property_cert_no || '粤房权证顺字第TEST001号'],
-                    [['财产信息'], defaults.property_info || '测试房产线索，建筑面积98㎡'],
-                    [['价值', '财产价值'], defaults.property_value || '300000'],
+                    [['经常居住地', '住所地', '单位地址', '地址'], defaults.address || ''],
+                    [['房产坐落位置', '具体位置'], defaults.property_location || ''],
+                    [['房产证号'], defaults.property_cert_no || ''],
+                    [['财产信息'], defaults.property_info || ''],
+                    [['价值', '财产价值'], defaults.property_value || ''],
                     [['财产所有人'], defaults.owner_name || defaults.name || '张三'],
                 ];
                 const fieldMap = [...dynamicMap, ...fallbackMap];
@@ -1153,8 +1197,9 @@ class CourtZxfwGuaranteeService:
         _fill_first_visible("电话", defaults.get("telephone_number") or "")
         _fill_first_visible("分机号", defaults.get("telephone_extension") or "")
 
-        if target in {"applicant", "respondent"} and (defaults.get("party_type") or "").strip() in {"legal", "non_legal_org"}:
-            _select_dropdown_by_label("单位性质", [defaults.get("unit_nature") or "", "企业", "其他"])
+        normalized_party_type = self._normalize_party_type(defaults.get("party_type") or "natural")
+        if target in {"applicant", "respondent"} and normalized_party_type in {"legal", "non_legal_org"}:
+            _select_dropdown_by_label("单位性质", ["企业", defaults.get("unit_nature") or "", "其他"])
 
         if target == "plaintiff_agent":
             selected = self.page.evaluate(
@@ -1206,7 +1251,7 @@ class CourtZxfwGuaranteeService:
                     const ownerName = args.ownerName || '';
                     const provinceName = args.provinceName || '广东省';
                     const provinceKeyword = (provinceName || '广东省').replace('省', '');
-                    const location = args.location || '顺德区大良街道测试路1号';
+                    const location = args.location || '';
                     const out = { owner: false, province: false, location: false };
                     const isVisible = (el) => {
                         if (!el) return false;
@@ -1280,7 +1325,7 @@ class CourtZxfwGuaranteeService:
                         const editable = [...locationRow.querySelectorAll('input.el-input__inner')]
                             .find((el) => isVisible(el) && !el.disabled && !el.readOnly);
                         if (editable) {
-                            setValue(editable, location || '顺德区大良街道测试路1号');
+                            setValue(editable, location || '');
                             out.location = true;
                         }
                     }
@@ -1300,7 +1345,7 @@ class CourtZxfwGuaranteeService:
                 {
                     "ownerName": defaults.get("owner_name") or defaults.get("name") or "",
                     "provinceName": defaults.get("property_province") or "广东省",
-                    "location": defaults.get("property_location") or "顺德区大良街道测试路1号",
+                    "location": defaults.get("property_location") or "",
                 },
             )
             if bool((property_updates or {}).get("owner")):
@@ -1308,7 +1353,7 @@ class CourtZxfwGuaranteeService:
             if bool((property_updates or {}).get("province")):
                 updates.append("省份=已选")
             if bool((property_updates or {}).get("location")):
-                updates.append(f"具体位置={defaults.get('property_location') or '顺德区大良街道测试路1号'}")
+                updates.append(f"具体位置={defaults.get('property_location') or ''}")
 
             _fill_first_visible("请选择省份", defaults.get("property_province") or "广东省")
             self.page.evaluate(
@@ -1421,9 +1466,9 @@ class CourtZxfwGuaranteeService:
 
         try:
             fill_values = [
-                defaults.get("property_location") or "顺德区大良街道测试路1号",
-                defaults.get("property_cert_no") or "粤房权证顺字第TEST001号",
-                defaults.get("property_value") or "300000",
+                defaults.get("property_location") or "",
+                defaults.get("property_cert_no") or "",
+                defaults.get("property_value") or "",
             ]
             editables = self.page.locator("input:not([type='hidden']):not([readonly]), textarea")
             value_idx = 0

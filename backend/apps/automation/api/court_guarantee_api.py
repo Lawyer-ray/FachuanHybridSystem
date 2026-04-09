@@ -25,6 +25,8 @@ _SESSION_UPDATE_EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix=
 _PLAINTIFF_SIDE_STATUSES = {"plaintiff", "applicant", "appellant", "orig_plaintiff"}
 _RESPONDENT_SIDE_STATUSES = {"defendant", "respondent", "appellee", "orig_defendant"}
 _DEFAULT_INSURANCE_COMPANY = "中国平安财产保险股份有限公司"
+_SUNSHINE_INSURANCE_COMPANY = "阳光财产保险股份有限公司"
+_SUNSHINE_DEFAULT_CONSULTANT_CODE = "08740007"
 _GUARANTEE_INSURANCE_COMPANY_OPTIONS = [
     "中国平安财产保险股份有限公司",
     "中国人民财产保险股份有限公司",
@@ -59,6 +61,8 @@ class CaseGuaranteeInfoOut(Schema):
     insurance_company_options: list[str] = _GUARANTEE_INSURANCE_COMPANY_OPTIONS
     consultant_code: str = ""
     quote_context: dict[str, Any] | None = None
+    reusable_quotes: list[dict[str, Any]] = []
+    respondent_options: list[dict[str, Any]] = []
 
 
 class CaseQuoteOperationIn(Schema):
@@ -75,6 +79,7 @@ class ExecuteCourtGuaranteeIn(Schema):
     case_id: int
     insurance_company_name: str | None = None
     consultant_code: str | None = None
+    selected_respondent_ids: list[int] | None = None
 
 
 class ExecuteCourtGuaranteeOut(Schema):
@@ -111,6 +116,8 @@ def get_case_guarantee_info(request: HttpRequest, case_id: int) -> Any:
 
     quote_context = _build_case_quote_context(case=case)
     insurance_company_name, insurance_company_options = _resolve_insurance_company_defaults(quote_context=quote_context)
+    reusable_quotes = _build_reusable_quote_options(case=case)
+    respondent_options = _build_respondent_options(case_parties=parties)
 
     return {
         "case_id": case.id,
@@ -126,6 +133,8 @@ def get_case_guarantee_info(request: HttpRequest, case_id: int) -> Any:
         "insurance_company_options": insurance_company_options,
         "consultant_code": "",
         "quote_context": quote_context,
+        "reusable_quotes": reusable_quotes,
+        "respondent_options": respondent_options,
     }
 
 
@@ -183,6 +192,52 @@ def ensure_case_quote(request: HttpRequest, payload: CaseQuoteOperationIn) -> An
     return {
         "success": True,
         "message": str(_("询价任务已发起")),
+        "quote_context": _build_case_quote_context(case=case),
+    }
+
+
+@router.post("/quote/{quote_id}/bind", response=CaseQuoteOperationOut)
+def bind_case_quote(request: HttpRequest, quote_id: int, payload: CaseQuoteOperationIn) -> Any:
+    from apps.automation.models import CasePreservationQuoteBinding, PreservationQuote
+    from apps.cases.models import Case
+
+    case = Case.objects.get(pk=payload.case_id)
+    preserve_amount = _parse_preserve_amount(case.preservation_amount)
+    if preserve_amount is None or preserve_amount <= 0:
+        return {
+            "success": False,
+            "message": str(_("请先维护案件保全金额（preservation_amount）")),
+            "quote_context": _build_case_quote_context(case=case),
+        }
+
+    quote = PreservationQuote.objects.filter(id=quote_id).first()
+    if quote is None:
+        return {
+            "success": False,
+            "message": str(_("询价记录不存在")),
+            "quote_context": _build_case_quote_context(case=case),
+        }
+
+    if quote.preserve_amount != preserve_amount:
+        return {
+            "success": False,
+            "message": str(_("仅支持绑定同保全金额的询价记录")),
+            "quote_context": _build_case_quote_context(case=case),
+        }
+
+    binding = CasePreservationQuoteBinding.objects.filter(case_id=case.id, preservation_quote_id=quote.id).first()
+    if binding is None:
+        created_by_id = int(getattr(request.user, "id", 0) or 0) or None
+        CasePreservationQuoteBinding.objects.create(
+            case=case,
+            preservation_quote=quote,
+            preserve_amount_snapshot=preserve_amount,
+            created_by_id=created_by_id,
+        )
+
+    return {
+        "success": True,
+        "message": str(_("已绑定所选询价记录")),
         "quote_context": _build_case_quote_context(case=case),
     }
 
@@ -320,21 +375,15 @@ def execute_court_guarantee(request: HttpRequest, payload: ExecuteCourtGuarantee
     if not credential:
         return {"success": False, "message": "未找到一张网账号凭证", "session_id": None, "status": "failed"}
 
-    sa = SupervisingAuthority.objects.filter(case=case, authority_type="trial").first()
-    if not sa:
-        return {"success": False, "message": "未设置管辖法院", "session_id": None, "status": "failed"}
-
-    court_name = _resolve_court_name(sa.name)
+    court_name = _get_case_court_name(case)
     if not court_name:
-        return {"success": False, "message": "无法解析管辖法院名称", "session_id": None, "status": "failed"}
+        return {"success": False, "message": "未设置管辖法院", "session_id": None, "status": "failed"}
 
     preserve_amount = case.preservation_amount
     if preserve_amount is None or preserve_amount <= 0:
         return {"success": False, "message": "案件保全金额为空，请先维护 preservation_amount", "session_id": None, "status": "failed"}
 
-    case_number = (
-        CaseNumber.objects.filter(case=case).exclude(number__isnull=True).exclude(number="").values_list("number", flat=True).first()
-    )
+    case_number = _get_case_number(case)
     has_case_number = bool(case_number)
     preserve_category = "诉讼保全" if has_case_number else "诉前保全"
 
@@ -345,7 +394,22 @@ def execute_court_guarantee(request: HttpRequest, payload: ExecuteCourtGuarantee
     case_parties = list(CaseParty.objects.filter(case=case).select_related("client").order_by("id"))
 
     applicant = _pick_party_payload(case_parties=case_parties, preferred_statuses=_PLAINTIFF_SIDE_STATUSES, prefer_our=True)
-    respondent = _pick_party_payload(case_parties=case_parties, preferred_statuses=_RESPONDENT_SIDE_STATUSES, prefer_our=False)
+    respondent_candidates = _list_opponent_party_payloads(case_parties=case_parties)
+    selected_respondent_ids = _normalize_selected_party_ids(payload.selected_respondent_ids)
+    if selected_respondent_ids is None:
+        selected_respondents = respondent_candidates
+    else:
+        selected_respondents = [
+            item for item in respondent_candidates if int(item.get("party_id") or 0) in selected_respondent_ids
+        ]
+    if not selected_respondents:
+        return {
+            "success": False,
+            "message": str(_("请至少选择一个被申请人")),
+            "session_id": None,
+            "status": "failed",
+        }
+    respondent = selected_respondents[0]
 
     plaintiff_agent = _build_plaintiff_agent_payload(case=case, requester_id=lawyer_id, fallback_party=applicant)
 
@@ -355,7 +419,10 @@ def execute_court_guarantee(request: HttpRequest, payload: ExecuteCourtGuarantee
         str(payload.insurance_company_name or "").strip(),
         allowed_options=quote_based_options,
     )
-    consultant_code = str(payload.consultant_code or "").strip()
+    consultant_code = _normalize_consultant_code(
+        insurance_company_name=insurance_company_name,
+        consultant_code=payload.consultant_code,
+    )
 
     case_data: dict[str, Any] = {
         "case_id": case.id,
@@ -375,7 +442,10 @@ def execute_court_guarantee(request: HttpRequest, payload: ExecuteCourtGuarantee
         "consultant_code": consultant_code,
         "applicant": applicant,
         "respondent": respondent,
+        "respondents": selected_respondents,
+        "selected_respondent_ids": [int(item.get("party_id") or 0) for item in selected_respondents],
         "plaintiff_agent": plaintiff_agent,
+        "property_clue": property_clue,
     }
 
     session = ScraperTask.objects.create(
@@ -429,16 +499,49 @@ def _get_organization_service() -> Any:
     return build_organization_service()
 
 
-def _resolve_court_name(authority_name: str) -> str | None:
-    if "人民法院" in authority_name:
-        return authority_name
+def _get_case_number(case: Any) -> str:
+    case_number_from_table = (
+        case.case_numbers.exclude(number__isnull=True).exclude(number="").values_list("number", flat=True).first()
+    )
+    if case_number_from_table:
+        return str(case_number_from_table)
+
+    filing_number = str(getattr(case, "filing_number", "") or "").strip()
+    return filing_number
+
+
+def _has_case_number(case: Any) -> bool:
+    return bool(_get_case_number(case))
+
+
+def _get_case_court_name(case: Any) -> str | None:
+    from apps.core.models.enums import AuthorityType
+
+    authorities = case.supervising_authorities.all().order_by("id")
+    trial_authority = authorities.filter(authority_type=AuthorityType.TRIAL).first()
+    if trial_authority and str(getattr(trial_authority, "name", "") or "").strip():
+        return _resolve_court_name(trial_authority.name)
+
+    any_named_authority = authorities.exclude(name__isnull=True).exclude(name="").first()
+    if any_named_authority and any_named_authority.name:
+        return _resolve_court_name(any_named_authority.name)
+
+    return None
+
+
+def _resolve_court_name(authority_name: str | None) -> str | None:
+    normalized_authority_name = str(authority_name or "").strip()
+    if not normalized_authority_name:
+        return None
+    if "人民法院" in normalized_authority_name:
+        return normalized_authority_name
 
     from apps.core.models import Court
 
-    court = Court.objects.filter(name__contains=authority_name).first()
+    court = Court.objects.filter(name__contains=normalized_authority_name).first()
     if court and court.name:
         return str(court.name)
-    return f"{authority_name}人民法院"
+    return f"{normalized_authority_name}人民法院"
 
 
 def _normalize_insurance_company(name: str, *, allowed_options: list[str] | None = None) -> str:
@@ -467,6 +570,74 @@ def _parse_preserve_amount(raw_value: Any) -> Decimal | None:
         return Decimal(str(raw_value))
     except (InvalidOperation, TypeError, ValueError):
         return None
+
+
+def _normalize_consultant_code(*, insurance_company_name: str, consultant_code: str | None) -> str:
+    normalized_code = str(consultant_code or "").strip()
+    normalized_company = str(insurance_company_name or "").strip()
+    if _SUNSHINE_INSURANCE_COMPANY in normalized_company and not normalized_code:
+        return _SUNSHINE_DEFAULT_CONSULTANT_CODE
+    return normalized_code
+
+
+def _normalize_property_clue_content(raw_content: str) -> str:
+    content = str(raw_content or "").strip()
+    if not content:
+        return ""
+    lines = [line.strip() for line in content.splitlines() if line.strip()]
+    if not lines:
+        return ""
+    return "；".join(lines)
+
+
+def _build_primary_respondent_property_clue(*, case_parties: list[Any], selected_respondents: list[dict[str, Any]]) -> dict[str, str]:
+    party_id_set = {
+        int(item.get("party_id") or 0)
+        for item in selected_respondents
+        if int(item.get("party_id") or 0) > 0
+    }
+
+    selected_case_parties = [
+        party for party in case_parties if int(getattr(party, "id", 0) or 0) in party_id_set
+    ]
+    if not selected_case_parties:
+        selected_case_parties = _list_opponent_case_parties(case_parties=case_parties)
+
+    primary_party = selected_case_parties[0] if selected_case_parties else None
+    primary_client = getattr(primary_party, "client", None)
+    owner_name = str(getattr(primary_client, "name", "") or "").strip() or str(
+        (selected_respondents[0].get("name") if selected_respondents else "") or "被申请人"
+    ).strip()
+
+    property_info = ""
+    if primary_client is not None:
+        client_service = _get_client_service()
+        clue_dtos = client_service.get_property_clues_by_client_internal(int(getattr(primary_client, "id", 0) or 0))
+        clue_lines: list[str] = []
+        for clue in clue_dtos:
+            clue_type = str(getattr(clue, "clue_type", "") or "").strip()
+            type_display = _PROPERTY_CLUE_TYPE_DISPLAY.get(clue_type, clue_type or "财产线索")
+            normalized_content = _normalize_property_clue_content(str(getattr(clue, "content", "") or ""))
+            if normalized_content:
+                clue_lines.append(f"{type_display}：{normalized_content}")
+            else:
+                clue_lines.append(type_display)
+        property_info = "；".join(clue_lines)
+
+    if not property_info:
+        property_info = f"{owner_name}名下财产线索"
+
+    property_location = str(getattr(primary_client, "address", "") or "").strip() if primary_client is not None else ""
+
+    return {
+        "owner_name": owner_name,
+        "property_type": "其他",
+        "property_info": property_info,
+        "property_location": property_location,
+        "property_province": "",
+        "property_cert_no": "",
+        "property_value": "",
+    }
 
 
 def _find_reusable_binding(*, case_id: int, preserve_amount: Decimal) -> Any | None:
@@ -500,34 +671,31 @@ def _build_case_quote_context(*, case: Any) -> dict[str, Any] | None:
 
     quote = binding.preservation_quote
     quote_items: list[dict[str, Any]] = []
-    recommended_company: str | None = None
-    for item in quote.quotes.all().order_by("status", "min_amount", "id"):
-        if item.status == QuoteItemStatus.SUCCESS and item.min_amount is not None:
-            if recommended_company is None:
-                recommended_company = str(item.company_name)
-            quote_items.append(
-                {
-                    "id": int(item.id),
-                    "company_name": str(item.company_name),
-                    "premium": str(item.min_amount),
-                    "status": str(item.status),
-                    "error_message": str(item.error_message or ""),
-                    "is_recommended": recommended_company == str(item.company_name),
-                }
-            )
 
-    if not quote_items:
-        for item in quote.quotes.all().order_by("id"):
-            quote_items.append(
-                {
-                    "id": int(item.id),
-                    "company_name": str(item.company_name),
-                    "premium": str(item.min_amount) if item.min_amount is not None else "",
-                    "status": str(item.status),
-                    "error_message": str(item.error_message or ""),
-                    "is_recommended": False,
-                }
-            )
+    successful_items = list(quote.quotes.filter(status=QuoteItemStatus.SUCCESS).order_by("min_amount", "max_amount", "id"))
+    recommended_company: str | None = None
+    if successful_items:
+        recommended_company = str(successful_items[0].company_name)
+
+    for item in successful_items:
+        premium = str(item.premium) if item.premium is not None else ""
+        min_amount = str(item.min_amount) if item.min_amount is not None else ""
+        max_amount = str(item.max_amount) if item.max_amount is not None else ""
+        max_apply_amount = str(item.max_apply_amount) if item.max_apply_amount is not None else ""
+
+        quote_items.append(
+            {
+                "id": int(item.id),
+                "company_name": str(item.company_name),
+                "premium": premium,
+                "min_amount": min_amount,
+                "max_amount": max_amount,
+                "max_apply_amount": max_apply_amount,
+                "status": str(item.status),
+                "error_message": str(item.error_message or ""),
+                "is_recommended": recommended_company == str(item.company_name),
+            }
+        )
 
     return {
         "binding_id": int(binding.id),
@@ -544,6 +712,42 @@ def _build_case_quote_context(*, case: Any) -> dict[str, Any] | None:
         "total_companies": int(quote.total_companies),
         "items": quote_items,
     }
+
+
+def _build_reusable_quote_options(*, case: Any) -> list[dict[str, Any]]:
+    from apps.automation.models import CasePreservationQuoteBinding, PreservationQuote, QuoteStatus
+
+    preserve_amount = _parse_preserve_amount(getattr(case, "preservation_amount", None))
+    if preserve_amount is None or preserve_amount <= 0:
+        return []
+
+    bound_quote_ids = set(
+        CasePreservationQuoteBinding.objects.filter(case_id=int(case.id)).values_list("preservation_quote_id", flat=True)
+    )
+
+    reusable_quotes = (
+        PreservationQuote.objects.filter(preserve_amount=preserve_amount)
+        .filter(status__in=[QuoteStatus.SUCCESS, QuoteStatus.PARTIAL_SUCCESS, QuoteStatus.RUNNING, QuoteStatus.PENDING])
+        .order_by("-created_at")[:30]
+    )
+
+    return [
+        {
+            "quote_id": int(quote.id),
+            "status": str(quote.status),
+            "success_count": int(quote.success_count),
+            "total_companies": int(quote.total_companies),
+            "created_at": quote.created_at.isoformat() if quote.created_at else None,
+            "created_at_display": (
+                timezone.localtime(quote.created_at, timezone.get_fixed_timezone(480)).strftime("%Y-%m-%d %H:%M")
+                if quote.created_at
+                else None
+            ),
+            "preserve_amount": str(quote.preserve_amount),
+            "is_bound": int(quote.id) in bound_quote_ids,
+        }
+        for quote in reusable_quotes
+    ]
 
 
 def _extract_quote_company_options(*, quote_context: dict[str, Any] | None) -> list[str]:
@@ -693,38 +897,26 @@ def _build_cause_candidates(raw_cause: str) -> list[str]:
     return dedup[:8]
 
 
-def _pick_party_payload(*, case_parties: list[Any], preferred_statuses: set[str], prefer_our: bool) -> dict[str, str]:
-    def _match(party: Any) -> bool:
-        status = str(getattr(party, "legal_status", "") or "").strip()
-        if status not in preferred_statuses:
-            return False
-        client = getattr(party, "client", None)
-        is_our = bool(getattr(client, "is_our_client", False))
-        return is_our if prefer_our else (not is_our)
+def _normalize_party_type(raw_party_type: Any) -> str:
+    value = str(raw_party_type or "").strip().lower()
+    if value in {"natural", "person", "individual"}:
+        return "natural"
+    if value in {"legal", "corp", "company", "enterprise", "organization", "org"}:
+        return "legal"
+    if value in {"non_legal_org", "nonlegal", "non_legal", "other_org"}:
+        return "non_legal_org"
+    return "natural"
 
-    target = next((p for p in case_parties if _match(p)), None)
-    if target is None:
-        target = next(
-            (
-                p
-                for p in case_parties
-                if str(getattr(p, "legal_status", "") or "").strip() in preferred_statuses
-            ),
-            None,
-        )
-    if target is None:
-        target = next((p for p in case_parties if bool(getattr(getattr(p, "client", None), "is_our_client", False)) == prefer_our), None)
-    if target is None and case_parties:
-        target = case_parties[0]
 
-    client = getattr(target, "client", None) if target is not None else None
-    party_type = str(getattr(client, "client_type", "") or "natural").strip() or "natural"
+def _build_party_payload_from_case_party(*, party: Any) -> dict[str, Any]:
+    client = getattr(party, "client", None)
+    party_type = _normalize_party_type(getattr(client, "client_type", "natural"))
     is_natural = party_type == "natural"
 
     name = str(getattr(client, "name", "") or "").strip() or "张三"
     id_number = str(getattr(client, "id_number", "") or "").strip()
     if not id_number:
-        id_number = "120101199001010017" if is_natural else "91440101MA59TEST8X"
+        id_number = "110101199003077719" if is_natural else "91440101MA59TEST8X"
 
     phone = str(getattr(client, "phone", "") or "").strip()
     address = str(getattr(client, "address", "") or "").strip() or "广东省广州市天河区测试地址1号"
@@ -732,6 +924,7 @@ def _pick_party_payload(*, case_parties: list[Any], preferred_statuses: set[str]
     legal_representative_id_number = str(getattr(client, "legal_representative_id_number", "") or "").strip()
 
     return {
+        "party_id": int(getattr(party, "id", 0) or 0),
         "party_type": party_type,
         "name": name,
         "id_number": id_number,
@@ -742,7 +935,96 @@ def _pick_party_payload(*, case_parties: list[Any], preferred_statuses: set[str]
     }
 
 
-def _build_plaintiff_agent_payload(*, case: Any, requester_id: int | None, fallback_party: dict[str, str]) -> dict[str, str]:
+def _list_party_payloads(*, case_parties: list[Any], preferred_statuses: set[str], prefer_our: bool) -> list[dict[str, Any]]:
+    def _match_status_and_side(party: Any) -> bool:
+        status = str(getattr(party, "legal_status", "") or "").strip()
+        if status not in preferred_statuses:
+            return False
+        client = getattr(party, "client", None)
+        is_our = bool(getattr(client, "is_our_client", False))
+        return is_our if prefer_our else (not is_our)
+
+    candidates = [p for p in case_parties if _match_status_and_side(p)]
+    if not candidates:
+        candidates = [p for p in case_parties if str(getattr(p, "legal_status", "") or "").strip() in preferred_statuses]
+    if not candidates:
+        candidates = [
+            p for p in case_parties if bool(getattr(getattr(p, "client", None), "is_our_client", False)) == prefer_our
+        ]
+    if not candidates and case_parties:
+        candidates = [case_parties[0]]
+
+    return [_build_party_payload_from_case_party(party=party) for party in candidates]
+
+
+def _pick_party_payload(*, case_parties: list[Any], preferred_statuses: set[str], prefer_our: bool) -> dict[str, Any]:
+    payloads = _list_party_payloads(
+        case_parties=case_parties,
+        preferred_statuses=preferred_statuses,
+        prefer_our=prefer_our,
+    )
+    if payloads:
+        return payloads[0]
+    return _build_party_payload_from_case_party(party=None)
+
+
+def _normalize_selected_party_ids(raw_ids: list[int] | None) -> set[int] | None:
+    if raw_ids is None:
+        return None
+    ids: set[int] = set()
+    for raw in raw_ids:
+        try:
+            value = int(raw)
+        except (TypeError, ValueError):
+            continue
+        if value > 0:
+            ids.add(value)
+    return ids
+
+
+def _list_opponent_case_parties(*, case_parties: list[Any]) -> list[Any]:
+    opponents = [
+        party
+        for party in case_parties
+        if not bool(getattr(getattr(party, "client", None), "is_our_client", False))
+    ]
+    if opponents:
+        return opponents
+
+    fallback = [
+        party
+        for party in case_parties
+        if str(getattr(party, "legal_status", "") or "").strip() in _RESPONDENT_SIDE_STATUSES
+    ]
+    if fallback:
+        return fallback
+
+    return list(case_parties)
+
+
+def _list_opponent_party_payloads(*, case_parties: list[Any]) -> list[dict[str, Any]]:
+    return [_build_party_payload_from_case_party(party=party) for party in _list_opponent_case_parties(case_parties=case_parties)]
+
+
+def _build_respondent_options(*, case_parties: list[Any]) -> list[dict[str, Any]]:
+    options: list[dict[str, Any]] = []
+    for party in _list_opponent_case_parties(case_parties=case_parties):
+        status = str(getattr(party, "legal_status", "") or "").strip()
+        client = getattr(party, "client", None)
+        options.append(
+            {
+                "party_id": int(getattr(party, "id", 0) or 0),
+                "name": str(getattr(client, "name", "") or "").strip() or "-",
+                "legal_status": status,
+                "legal_status_display": str(party.get_legal_status_display() or status),
+                "is_our_client": bool(getattr(client, "is_our_client", False)),
+            }
+        )
+
+    return options
+
+
+def _build_plaintiff_agent_payload(*, case: Any, requester_id: int | None, fallback_party: dict[str, Any]) -> dict[str, str]:
     from apps.organization.models import Lawyer
 
     lawyer = None
@@ -753,7 +1035,7 @@ def _build_plaintiff_agent_payload(*, case: Any, requester_id: int | None, fallb
         assignment = case.assignments.select_related("lawyer__law_firm").order_by("id").first()
         lawyer = getattr(assignment, "lawyer", None)
 
-    fallback_name = str(fallback_party.get("name") or "").strip() or "黄崧"
+    fallback_name = str(fallback_party.get("name") or "").strip() or "张三"
     if lawyer is None:
         return {
             "party_type": "agent",
