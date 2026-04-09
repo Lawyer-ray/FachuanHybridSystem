@@ -17,6 +17,8 @@ class CourtZxfwGuaranteeService:
     """一张网申请担保流程（到 gFive 预览页，不提交）。"""
 
     GUARANTEE_URL = "https://zxfw.court.gov.cn/yzwbqww/index.html#/CreateGuarantee/applyGuaranteeInformation/gOne"
+    MAX_SLOW_WAIT_MS = 180000
+    DEFAULT_POLL_MS = 1200
 
     def __init__(self, page: Page, *, save_debug: bool = False) -> None:
         self.page = page
@@ -25,6 +27,7 @@ class CourtZxfwGuaranteeService:
     def apply_guarantee(self, case_data: dict[str, Any]) -> dict[str, Any]:
         self.page.goto(self.GUARANTEE_URL, timeout=60000, wait_until="domcontentloaded")
         self._random_wait(4, 6)
+        self._material_paths = [str(path) for path in (case_data.get("material_paths") or []) if str(path)]
 
         insurance_company_name = str(case_data.get("insurance_company_name") or "").strip()
         consultant_code = str(case_data.get("consultant_code") or "").strip()
@@ -100,94 +103,94 @@ class CourtZxfwGuaranteeService:
         if keyword and keyword not in candidates:
             candidates.append(keyword)
 
-        for attempt in range(10):
+        for attempt in range(6):
             term = search_terms[attempt % len(search_terms)] if search_terms else target_name
-            try:
-                self._close_popovers()
-                self._random_wait(0.4, 0.7)
-                court_input.click(timeout=3000)
-                self._random_wait(0.5, 0.9)
-                court_input.fill("")
-                self._random_wait(0.3, 0.6)
-                court_input.fill(term)
-                try:
-                    court_input.press("Enter", timeout=1200)
-                except Exception:
-                    pass
-                self._random_wait(1.8, 2.8)
-            except Exception:
-                self._random_wait(0.8, 1.2)
-                continue
 
-            selected_text = str(
-                self.page.evaluate(
-                    r"""(names) => {
-                        const norm = (s) => (s || '').replace(/\s+/g, ' ').trim();
-                        const isVisible = (el) => {
-                            if (!el) return false;
-                            const st = window.getComputedStyle(el);
-                            if (st.display === 'none' || st.visibility === 'hidden') return false;
-                            const r = el.getBoundingClientRect();
-                            return r.width > 1 && r.height > 1;
-                        };
-
-                        const targets = (names || []).map((n) => norm(n)).filter(Boolean);
-                        const nodes = [...document.querySelectorAll('.el-tree-node__content')]
-                            .filter((node) => isVisible(node))
-                            .map((node) => ({ node, text: norm(node.innerText || '') }))
-                            .filter((item) => item.text && !item.text.includes('暂无数据'));
-
-                        if (nodes.length === 0) return '';
-
-                        for (const target of targets) {
-                            const exact = nodes.find((item) => item.text === target);
-                            if (exact) {
-                                exact.node.click();
-                                return exact.text;
-                            }
-                        }
-
-                        for (const target of targets) {
-                            const suffix = nodes.find((item) => item.text.endsWith(target));
-                            if (suffix) {
-                                suffix.node.click();
-                                return suffix.text;
-                            }
-                        }
-
-                        for (const target of targets) {
-                            const partial = nodes.find((item) => item.text.includes(target));
-                            if (partial) {
-                                partial.node.click();
-                                return partial.text;
-                            }
-                        }
-
-                        return '';
-                    }""",
-                    candidates,
+            for refresh_round in range(2):
+                reopened = self._reopen_and_search_court_dropdown(
+                    court_input,
+                    term,
+                    force_reset=refresh_round > 0,
                 )
-                or ""
-            ).strip()
+                if not reopened:
+                    self._random_wait(1.0, 1.6)
+                    continue
 
-            if not selected_text:
-                self._close_popovers()
-                self._random_wait(1.2, 1.8)
-                continue
+                ready = self._wait_court_options_ready(candidates=candidates, timeout_ms=self.MAX_SLOW_WAIT_MS)
+                if not ready:
+                    self._close_popovers()
+                    self._random_wait(1.2, 2.0)
+                    continue
 
-            self._random_wait(0.5, 0.8)
-            input_value = ""
-            try:
-                input_value = (court_input.input_value() or "").strip()
-            except Exception:
+                selected_text = str(
+                    self.page.evaluate(
+                        r"""(names) => {
+                            const norm = (s) => (s || '').replace(/\s+/g, ' ').trim();
+                            const isVisible = (el) => {
+                                if (!el) return false;
+                                const st = window.getComputedStyle(el);
+                                if (st.display === 'none' || st.visibility === 'hidden') return false;
+                                const r = el.getBoundingClientRect();
+                                return r.width > 1 && r.height > 1;
+                            };
+
+                            const targets = (names || []).map((n) => norm(n)).filter(Boolean);
+                            const nodes = [...document.querySelectorAll('.el-tree-node__content')]
+                                .filter((node) => isVisible(node))
+                                .map((node) => ({ node, text: norm(node.innerText || '') }))
+                                .filter((item) => item.text && !item.text.includes('暂无数据'));
+
+                            if (nodes.length === 0) return '';
+
+                            for (const target of targets) {
+                                const exact = nodes.find((item) => item.text === target);
+                                if (exact) {
+                                    exact.node.click();
+                                    return exact.text;
+                                }
+                            }
+
+                            for (const target of targets) {
+                                const suffix = nodes.find((item) => item.text.endsWith(target));
+                                if (suffix) {
+                                    suffix.node.click();
+                                    return suffix.text;
+                                }
+                            }
+
+                            for (const target of targets) {
+                                const partial = nodes.find((item) => item.text.includes(target));
+                                if (partial) {
+                                    partial.node.click();
+                                    return partial.text;
+                                }
+                            }
+
+                            return '';
+                        }""",
+                        candidates,
+                    )
+                    or ""
+                ).strip()
+
+                if not selected_text:
+                    self._close_popovers()
+                    self._random_wait(1.2, 2.0)
+                    continue
+
+                self._random_wait(0.8, 1.3)
                 input_value = ""
+                try:
+                    input_value = (court_input.input_value() or "").strip()
+                except Exception:
+                    input_value = ""
 
-            if selected_text in input_value or target_name in input_value or (short_name and short_name in input_value):
+                if selected_text in input_value or target_name in input_value or (short_name and short_name in input_value):
+                    self._close_popovers()
+                    return True
+
                 self._close_popovers()
-                return True
-
-            self._close_popovers()
-            self._random_wait(1.0, 1.5)
+                self._random_wait(1.0, 1.8)
 
         logger.warning("court_guarantee_court_not_stable", extra={"target_name": target_name})
         return False
@@ -198,7 +201,19 @@ class CourtZxfwGuaranteeService:
         if not cleaned_option or not cleaned_keywords:
             return False
 
-        for _ in range(6):
+        ready = self._wait_form_item_option_ready(
+            label_keywords=cleaned_keywords,
+            option_text=cleaned_option,
+            timeout_ms=self.MAX_SLOW_WAIT_MS,
+        )
+        if not ready:
+            logger.warning(
+                "court_guarantee_radio_option_not_ready",
+                extra={"label_keywords": cleaned_keywords, "option_text": cleaned_option},
+            )
+            return False
+
+        for _ in range(8):
             selected = bool(
                 self.page.evaluate(
                     r"""(args) => {
@@ -239,9 +254,9 @@ class CourtZxfwGuaranteeService:
                 )
             )
             if selected:
-                self._random_wait(0.5, 0.9)
+                self._random_wait(0.6, 1.1)
                 return True
-            self._random_wait(0.8, 1.3)
+            self._random_wait(1.0, 1.6)
 
         return False
 
@@ -291,57 +306,70 @@ class CourtZxfwGuaranteeService:
         candidates = [str(c).strip() for c in (cause_candidates or []) if str(c).strip()]
         if cause_name.strip() and cause_name.strip() not in candidates:
             candidates.insert(0, cause_name.strip())
+        if "买卖合同纠纷" not in candidates:
+            candidates.append("买卖合同纠纷")
 
-        cause_input.click()
-        self._random_wait(0.3, 0.6)
-
-        for keyword in candidates[:3]:
-            try:
-                cause_input.fill(keyword)
-                self._random_wait(0.35, 0.7)
-            except Exception:
+        search_terms = candidates[:3] if candidates else ["买卖合同纠纷"]
+        for attempt in range(6):
+            term = search_terms[attempt % len(search_terms)]
+            reopened = self._reopen_and_search_dropdown_input(
+                cause_input,
+                term,
+                force_reset=attempt > 0,
+            )
+            if not reopened:
+                self._random_wait(0.6, 1.0)
                 continue
 
-        clicked = self.page.evaluate(
-            r"""(incomingCandidates) => {
-                const norm = (s) => (s || '').replace(/\s+/g, ' ').trim();
-                const candidates = (incomingCandidates || []).map((s) => norm(s)).filter(Boolean);
-                const nodes = [...document.querySelectorAll('.el-tree-node__content')];
+            if not self._wait_tree_options_ready(candidates=candidates, timeout_ms=self.MAX_SLOW_WAIT_MS):
+                self._close_popovers()
+                self._random_wait(1.0, 1.6)
+                continue
 
-                for (const target of candidates) {
-                    const exact = nodes.find((node) => norm(node.innerText) === target);
-                    if (exact) {
-                        exact.click();
-                        return true;
+            clicked = self.page.evaluate(
+                r"""(incomingCandidates) => {
+                    const norm = (s) => (s || '').replace(/\s+/g, ' ').trim();
+                    const isVisible = (el) => {
+                        if (!el) return false;
+                        const st = window.getComputedStyle(el);
+                        if (st.display === 'none' || st.visibility === 'hidden') return false;
+                        const r = el.getBoundingClientRect();
+                        return r.width > 1 && r.height > 1;
+                    };
+                    const candidates = (incomingCandidates || []).map((s) => norm(s)).filter(Boolean);
+                    const nodes = [...document.querySelectorAll('.el-tree-node__content')]
+                        .filter((node) => isVisible(node));
+
+                    for (const target of candidates) {
+                        const exact = nodes.find((node) => norm(node.innerText) === target);
+                        if (exact) {
+                            exact.click();
+                            return true;
+                        }
                     }
-                }
 
-                for (const target of candidates) {
-                    const partial = nodes.find((node) => {
-                        const text = norm(node.innerText);
-                        return text && text.includes(target);
-                    });
-                    if (partial) {
-                        partial.click();
-                        return true;
+                    for (const target of candidates) {
+                        const partial = nodes.find((node) => {
+                            const text = norm(node.innerText);
+                            return text && text.includes(target);
+                        });
+                        if (partial) {
+                            partial.click();
+                            return true;
+                        }
                     }
-                }
 
-                const saleCause = nodes.find((node) => {
-                    const text = norm(node.innerText);
-                    return text === '买卖合同纠纷' || text.includes('买卖合同纠纷');
-                });
-                if (saleCause) {
-                    saleCause.click();
-                    return true;
-                }
+                    return false;
+                }""",
+                candidates,
+            )
+            self._close_popovers()
+            if bool(clicked):
+                return True
+            self._random_wait(0.8, 1.3)
 
-                return false;
-            }""",
-            candidates,
-        )
-        self._close_popovers()
-        return bool(clicked)
+        logger.warning("court_guarantee_cause_not_stable", extra={"cause_name": cause_name, "candidates": candidates[:5]})
+        return False
 
     def _choose_insurance(self, preferred_name: str) -> str | None:
         select = self.page.locator(".el-select").last
@@ -349,15 +377,35 @@ class CourtZxfwGuaranteeService:
             return None
 
         keyword_candidates = ["平安", "保险", "担保", "公司"]
+        search_terms = [term for term in [preferred_name, *keyword_candidates] if str(term).strip()]
 
-        for _ in range(8):
+        for attempt in range(8):
             try:
+                self._close_popovers()
+                self._random_wait(0.4, 0.7)
                 select.click(force=True, timeout=2500)
             except Exception:
                 self._random_wait(0.4, 0.7)
                 continue
 
-            self._random_wait(0.6, 1.0)
+            search_input = self.page.locator(".el-select-dropdown input.el-input__inner").first
+            if search_input.count() > 0 and search_terms:
+                term = str(search_terms[attempt % len(search_terms)]).strip()
+                if term:
+                    self._reopen_and_search_dropdown_input(
+                        search_input,
+                        term,
+                        force_reset=attempt > 0,
+                        open_timeout_ms=2200,
+                        submit_enter=True,
+                    )
+
+            self._wait_select_options_ready(
+                candidates=[preferred_name, *keyword_candidates],
+                timeout_ms=min(self.MAX_SLOW_WAIT_MS, 60000),
+            )
+            self._random_wait(0.4, 0.8)
+
             chosen_text = str(
                 self.page.evaluate(
                     r"""(args) => {
@@ -552,8 +600,11 @@ class CourtZxfwGuaranteeService:
             self._random_wait(0.8, 1.2)
 
             errors = self._get_visible_form_errors()
-            if target == "property_clue" and any("请选择省份" in err for err in errors):
-                step["province_retry"] = self._retry_property_clue_save_on_province_error(defaults)
+            if target == "property_clue" and any(
+                ("请选择省份" in err) or ("请选择财产所有人" in err)
+                for err in errors
+            ):
+                step["property_clue_retry"] = self._retry_property_clue_save_on_province_error(defaults)
                 self._random_wait(0.5, 0.8)
                 errors = self._get_visible_form_errors()
 
@@ -633,34 +684,87 @@ class CourtZxfwGuaranteeService:
             except Exception:
                 label_text = ""
 
+            chosen_files: list[str] = []
             if "保全申请" in label_text:
-                chosen = _pick_path([["财产保全申请书", "保全申请书"], ["申请书"]])
+                picked = _pick_path([["财产保全申请书", "保全申请书"], ["申请书"]])
+                if picked:
+                    chosen_files = [picked]
             elif "起诉" in label_text:
-                chosen = _pick_path([["起诉状", "起诉书"], ["起诉"]])
+                picked = _pick_path([["起诉状", "起诉书"], ["起诉"]])
+                if picked:
+                    chosen_files = [picked]
             elif "受理" in label_text or "立案" in label_text:
-                chosen = _pick_path([["受理案件通知书", "受理通知书", "立案受理通知书", "立案通知书", "立案通知"]])
+                picked = _pick_path([["受理案件通知书", "受理通知书", "立案受理通知书", "立案通知书", "立案通知"]])
+                if picked:
+                    chosen_files = [picked]
             elif "案件证据" in label_text:
-                chosen = _pick_path([["证据"], ["明细", "清单"]])
+                picked = _pick_path([["证据"], ["明细", "清单"]])
+                if picked:
+                    chosen_files = [picked]
             elif "申请人-" in label_text or "被申请人-" in label_text or "身份证明" in label_text:
-                chosen = _pick_path([["营业执照", "身份证明", "法定代表人身份证明", "身份证"], ["授权委托书", "所函"]])
-            elif "代理人" in label_text:
-                chosen = _pick_path([["所函", "律师证", "执业证", "授权委托书"], ["身份证明", "身份证"]])
-            elif "证据" in label_text:
-                chosen = _pick_path([["证据"], ["明细", "清单"]])
-            elif "其他" in label_text:
-                chosen = _pick_path([["其他", "保函", "担保函"]])
-            else:
-                chosen = _pick_path([[]])
+                if "申请人-" in label_text and "-法人" in label_text:
+                    applicant_license = _pick_path([["营业执照"]])
+                    applicant_legal_id = _pick_path([["法定代表人身份证明", "身份证明书", "法人身份证明", "身份证"]])
+                    chosen_files = [path for path in [applicant_license, applicant_legal_id] if path]
+                elif "被申请人-" in label_text and "-自然人" in label_text:
+                    respondent_name = ""
+                    match = re.search(r"被申请人-(.*?)-自然人", label_text)
+                    if match:
+                        respondent_name = str(match.group(1) or "").strip()
 
-            if not chosen:
+                    natural_identity = ""
+                    for path in file_paths:
+                        if path in used:
+                            continue
+                        filename = path.rsplit("/", 1)[-1]
+                        if "法定代表人" in filename:
+                            continue
+                        if "身份证" not in filename and "身份证明" not in filename:
+                            continue
+                        if respondent_name and respondent_name not in filename:
+                            continue
+                        natural_identity = path
+                        break
+
+                    if natural_identity:
+                        chosen_files = [natural_identity]
+                else:
+                    picked = _pick_path([["身份证明", "身份证"], ["营业执照"], ["授权委托书", "所函"]])
+                    if picked:
+                        chosen_files = [picked]
+            elif "代理人" in label_text:
+                picked = _pick_path([["所函", "授权委托书", "律师证", "执业证"], ["身份证明", "身份证"]])
+                if picked:
+                    chosen_files = [picked]
+            elif "证据" in label_text:
+                picked = _pick_path([["证据"], ["明细", "清单"]])
+                if picked:
+                    chosen_files = [picked]
+            elif "其他" in label_text:
+                picked = _pick_path([["其他", "保函", "担保函"]])
+                if picked:
+                    chosen_files = [picked]
+            else:
+                picked = _pick_path([[]])
+                if picked:
+                    chosen_files = [picked]
+
+            if not chosen_files:
                 continue
 
+            upload_payload: str | list[str] = chosen_files if len(chosen_files) > 1 else chosen_files[0]
             try:
-                current.set_input_files(chosen)
-                used.add(chosen)
+                current.set_input_files(upload_payload)
+                used.update(chosen_files)
                 result["uploaded"] = int(result["uploaded"]) + 1
-                result["uploads"].append({"index": i, "label": label_text[:80], "file": chosen.rsplit("/", 1)[-1]})
-                self._random_wait(0.8, 1.3)
+                if len(chosen_files) > 1:
+                    result["uploads"].append(
+                        {"index": i, "label": label_text[:80], "files": [path.rsplit("/", 1)[-1] for path in chosen_files]}
+                    )
+                else:
+                    result["uploads"].append({"index": i, "label": label_text[:80], "file": chosen_files[0].rsplit("/", 1)[-1]})
+                self._wait_upload_idle(timeout_ms=90000)
+                self._random_wait(1.8, 2.8)
             except Exception:
                 continue
 
@@ -674,8 +778,9 @@ class CourtZxfwGuaranteeService:
         )
 
         for _ in range(12):
+            self._wait_upload_idle(timeout_ms=90000)
             result["next_clicked"] = self._click_first_enabled_button(["下一步", "保存并下一步"])
-            self._random_wait(1, 1.4)
+            self._random_wait(1.4, 2.2)
             if "gFour" in self.page.url or "gFive" in self.page.url:
                 break
 
@@ -712,10 +817,216 @@ class CourtZxfwGuaranteeService:
                     except Exception:
                         continue
 
-            if any("请上传" in err or "正在进行上传" in err for err in errors):
-                self._random_wait(2, 2.8)
+            if any("身份证明材料" in err for err in errors):
+                identity_paths: list[str] = []
+                legal_identity = _pick_path([["法定代表人身份证明", "身份证明书", "身份证明", "身份证"]])
+                business_license = _pick_path([["营业执照"]])
+                if legal_identity:
+                    identity_paths.append(legal_identity)
+                if business_license and business_license not in identity_paths:
+                    identity_paths.append(business_license)
+
+                target_hints: list[str] = []
+                for err in errors:
+                    match = re.search(r"请上传【(.+?)】的身份证明材料", err)
+                    if not match:
+                        continue
+                    hint = str(match.group(1) or "").strip()
+                    if hint and hint not in target_hints:
+                        target_hints.append(hint)
+
+                if identity_paths:
+                    for j in range(total_inputs):
+                        candidate = file_inputs.nth(j)
+                        try:
+                            label_text = str(
+                                self.page.evaluate(
+                                    r"""(el) => {
+                                        let node = el;
+                                        for (let depth = 0; depth < 8 && node; depth += 1) {
+                                            const text = (node.innerText || '').replace(/\s+/g, ' ').trim();
+                                            if (text) return text;
+                                            node = node.parentElement;
+                                        }
+                                        return '';
+                                    }""",
+                                    candidate.element_handle(),
+                                )
+                                or ""
+                            )
+                        except Exception:
+                            label_text = ""
+                        if "身份证明" not in label_text:
+                            continue
+                        if target_hints and not any(hint in label_text for hint in target_hints):
+                            continue
+                        try:
+                            candidate.set_input_files(identity_paths)
+                            result["uploads"].append(
+                                {
+                                    "index": j,
+                                    "label": label_text[:80],
+                                    "files": [path.rsplit("/", 1)[-1] for path in identity_paths],
+                                    "retry": True,
+                                    "reason": "identity_material",
+                                }
+                            )
+                            self._random_wait(2.0, 2.8)
+                        except Exception:
+                            for single_path in identity_paths:
+                                try:
+                                    candidate.set_input_files(single_path)
+                                    result["uploads"].append(
+                                        {
+                                            "index": j,
+                                            "label": label_text[:80],
+                                            "file": single_path.rsplit("/", 1)[-1],
+                                            "retry": True,
+                                            "reason": "identity_material_fallback",
+                                        }
+                                    )
+                                    self._random_wait(1.6, 2.2)
+                                    break
+                                except Exception:
+                                    continue
+
+            if any("请上传" in err or "正在进行上传" in err or "当前正在进行上传操作" in err for err in errors):
+                self._wait_upload_idle(timeout_ms=120000)
+                self._random_wait(2.2, 3.2)
+
+        final_upload_errors = self._get_visible_form_errors()
+        if any("身份证明材料" in err for err in final_upload_errors):
+            legal_identity = _pick_path([["法定代表人身份证明", "身份证明书", "身份证明", "身份证"]])
+            business_license = _pick_path([["营业执照"]])
+            retry_files: list[str] = []
+            if legal_identity:
+                retry_files.append(legal_identity)
+            if business_license and business_license not in retry_files:
+                retry_files.append(business_license)
+
+            if retry_files:
+                for j in range(total_inputs):
+                    candidate = file_inputs.nth(j)
+                    try:
+                        label_text = str(
+                            self.page.evaluate(
+                                r"""(el) => {
+                                    let node = el;
+                                    for (let depth = 0; depth < 8 && node; depth += 1) {
+                                        const text = (node.innerText || '').replace(/\s+/g, ' ').trim();
+                                        if (text) return text;
+                                        node = node.parentElement;
+                                    }
+                                    return '';
+                                }""",
+                                candidate.element_handle(),
+                            )
+                            or ""
+                        )
+                    except Exception:
+                        label_text = ""
+
+                    if "申请人-" not in label_text or "-法人" not in label_text:
+                        continue
+
+                    try:
+                        candidate.set_input_files(retry_files)
+                        result["uploads"].append(
+                            {
+                                "index": j,
+                                "label": label_text[:80],
+                                "files": [path.rsplit("/", 1)[-1] for path in retry_files],
+                                "retry": True,
+                                "reason": "identity_material_final_retry",
+                            }
+                        )
+                    except Exception:
+                        for single_path in retry_files:
+                            try:
+                                candidate.set_input_files(single_path)
+                                result["uploads"].append(
+                                    {
+                                        "index": j,
+                                        "label": label_text[:80],
+                                        "file": single_path.rsplit("/", 1)[-1],
+                                        "retry": True,
+                                        "reason": "identity_material_final_retry_single",
+                                    }
+                                )
+                                break
+                            except Exception:
+                                continue
+
+                for _ in range(4):
+                    result["next_clicked"] = self._click_first_enabled_button(["下一步", "保存并下一步"])
+                    self._random_wait(1.2, 1.8)
+                    if "gFour" in self.page.url or "gFive" in self.page.url:
+                        break
 
         return result
+
+    def _retry_identity_material_upload_in_g_three(self) -> bool:
+        def _pick_path(keyword_groups: list[list[str]]) -> str | None:
+            for keywords in keyword_groups:
+                for path in self._material_paths:
+                    filename = path.rsplit("/", 1)[-1]
+                    if any(keyword in filename for keyword in keywords):
+                        return path
+            return None
+
+        legal_identity = _pick_path([["法定代表人身份证明", "身份证明书", "身份证明", "身份证"]])
+        business_license = _pick_path([["营业执照"]])
+        retry_files: list[str] = []
+        if legal_identity:
+            retry_files.append(legal_identity)
+        if business_license and business_license not in retry_files:
+            retry_files.append(business_license)
+        if not retry_files:
+            return False
+
+        uploaded = False
+        file_inputs = self.page.locator("input[type='file']")
+        for i in range(file_inputs.count()):
+            candidate = file_inputs.nth(i)
+            try:
+                label_text = str(
+                    self.page.evaluate(
+                        r"""(el) => {
+                            let node = el;
+                            for (let depth = 0; depth < 8 && node; depth += 1) {
+                                const text = (node.innerText || '').replace(/\s+/g, ' ').trim();
+                                if (text) return text;
+                                node = node.parentElement;
+                            }
+                            return '';
+                        }""",
+                        candidate.element_handle(),
+                    )
+                    or ""
+                )
+            except Exception:
+                label_text = ""
+
+            if "申请人-" not in label_text or "-法人" not in label_text:
+                continue
+
+            try:
+                candidate.set_input_files(retry_files)
+                uploaded = True
+                self._wait_upload_idle(timeout_ms=90000)
+                self._random_wait(2.0, 2.8)
+            except Exception:
+                for single_path in retry_files:
+                    try:
+                        candidate.set_input_files(single_path)
+                        uploaded = True
+                        self._wait_upload_idle(timeout_ms=90000)
+                        self._random_wait(1.8, 2.4)
+                        break
+                    except Exception:
+                        continue
+
+        return uploaded
 
     def _normalize_party_type(self, raw_party_type: Any) -> str:
         value = str(raw_party_type or "").strip().lower()
@@ -783,7 +1094,7 @@ class CourtZxfwGuaranteeService:
             defaults["property_location"] = str(clue_data.get("property_location") or defaults.get("address") or "").strip()
             defaults["property_province"] = str(clue_data.get("property_province") or "").strip()
             defaults["property_cert_no"] = str(clue_data.get("property_cert_no") or "").strip()
-            defaults["property_value"] = str(clue_data.get("property_value") or "").strip()
+            defaults["property_value"] = str(clue_data.get("property_value") or "").strip() or "300000"
         return defaults
 
     def _build_agent_dialog_defaults(self, source: dict[str, Any]) -> dict[str, str]:
@@ -809,23 +1120,33 @@ class CourtZxfwGuaranteeService:
         for _ in range(8):
             if "gFive" in self.page.url:
                 return
+
+            if "gThree" in self.page.url:
+                errors = self._get_visible_form_errors()
+                if any("身份证明材料" in err for err in errors):
+                    self._retry_identity_material_upload_in_g_three()
+                    self._random_wait(1.4, 2.0)
+
             self._click_first_enabled_button(["下一步", "保存并下一步", "暂存"])
             self._random_wait(1.2, 1.8)
 
     def _choose_dropdown_item(self, preferred_text: str) -> bool:
-        items = self.page.locator(".el-select-dropdown__item")
-        for i in range(items.count()):
-            text = (items.nth(i).inner_text() or "").strip()
-            if preferred_text and preferred_text in text:
-                items.nth(i).click(force=True)
-                self._random_wait(0.2, 0.4)
-                return True
-        for i in range(items.count()):
-            text = (items.nth(i).inner_text() or "").strip()
-            if text:
-                items.nth(i).click(force=True)
-                self._random_wait(0.2, 0.4)
-                return True
+        preferred = str(preferred_text or "").strip()
+        for _ in range(3):
+            items = self.page.locator(".el-select-dropdown__item")
+            for i in range(items.count()):
+                text = (items.nth(i).inner_text() or "").strip()
+                if preferred and preferred in text:
+                    items.nth(i).click(force=True)
+                    self._random_wait(0.2, 0.4)
+                    return True
+            for i in range(items.count()):
+                text = (items.nth(i).inner_text() or "").strip()
+                if text:
+                    items.nth(i).click(force=True)
+                    self._random_wait(0.2, 0.4)
+                    return True
+            self._random_wait(0.4, 0.8)
         return False
 
     def _click_first_enabled_button(self, names: list[str]) -> str | None:
@@ -960,9 +1281,11 @@ class CourtZxfwGuaranteeService:
         self._random_wait(0.2, 0.4)
         return bool(clicked)
 
-    def _fill_dialog_select_fields(self, defaults: dict[str, str]) -> list[str]:
+    def _fill_dialog_select_fields(self, defaults: dict[str, str], target: str | None = None) -> list[str]:
         updates = self.page.evaluate(
-            r"""(defaults) => {
+            r"""(args) => {
+                const defaults = args.defaults || {};
+                const target = args.target || '';
                 const result = [];
                 const isVisible = (el) => {
                     if (!el) return false;
@@ -977,14 +1300,14 @@ class CourtZxfwGuaranteeService:
                     const options = [...document.querySelectorAll('.el-select-dropdown__item, .el-option, [role="option"]')]
                         .filter((el) => isVisible(el) && !el.classList.contains('is-disabled'));
                     if (options.length === 0) return '';
-                    let target = null;
+                    let targetOption = null;
                     if (preferred) {
-                        target = options.find((el) => norm(el.innerText).includes(preferred));
+                        targetOption = options.find((el) => norm(el.innerText).includes(preferred));
                     }
-                    if (!target) target = options.find((el) => norm(el.innerText));
-                    if (!target) return '';
-                    const text = norm(target.innerText);
-                    target.click();
+                    if (!targetOption) targetOption = options.find((el) => norm(el.innerText));
+                    if (!targetOption) return '';
+                    const text = norm(targetOption.innerText);
+                    targetOption.click();
                     return text;
                 };
 
@@ -1024,7 +1347,12 @@ class CourtZxfwGuaranteeService:
 
                     const input = item.querySelector('input.el-input__inner');
                     if (!input || input.disabled) continue;
-                    if (input.value && !label.includes('房产坐落位置')) continue;
+
+                    const normalizedPartyType = norm(defaults.party_type || '').toLowerCase();
+                    const isLegalLike = ['legal', 'non_legal_org', 'nonlegal', 'non_legal', 'non-legal-org'].includes(normalizedPartyType);
+                    const forceEnterpriseUnitNature = label.includes('单位性质') && target === 'applicant' && isLegalLike;
+
+                    if (input.value && !label.includes('房产坐落位置') && !forceEnterpriseUnitNature) continue;
 
                     input.click();
                     let prefer = '';
@@ -1035,7 +1363,7 @@ class CourtZxfwGuaranteeService:
                         prefer = defaults.agent_type || '执业律师';
                     }
                     if (label.includes('单位性质')) {
-                        prefer = defaults.unit_nature || '企业';
+                        prefer = forceEnterpriseUnitNature ? '企业' : (defaults.unit_nature || '企业');
                     }
                     if (label.includes('财产类型')) {
                         prefer = defaults.property_type || '房产';
@@ -1050,7 +1378,7 @@ class CourtZxfwGuaranteeService:
 
                 return result;
             }""",
-            defaults,
+            {"defaults": defaults, "target": target or ""},
         )
         self._random_wait(0.2, 0.4)
         self._close_popovers()
@@ -1466,10 +1794,6 @@ class CourtZxfwGuaranteeService:
                             target.click();
                             out.owner = true;
                         }
-                        if (!(ownerInput.value || '').trim()) {
-                            setValue(ownerInput, ownerName || '张三');
-                        }
-                        out.owner = !!(ownerInput.value || '').trim();
                     }
 
                     const locationRow = [...dialog.querySelectorAll('.el-form-item')].find((it) => ((it.querySelector('.el-form-item__label')?.innerText || '').includes('房产坐落位置')));
@@ -1486,10 +1810,6 @@ class CourtZxfwGuaranteeService:
                                 target.click();
                                 out.province = true;
                             }
-                            if (!(sfInput.value || '').trim()) {
-                                setValue(sfInput, provinceName || '广东省');
-                                out.province = true;
-                            }
                         }
 
                         const editable = [...locationRow.querySelectorAll('input.el-input__inner')]
@@ -1498,16 +1818,6 @@ class CourtZxfwGuaranteeService:
                             setValue(editable, location || '');
                             out.location = true;
                         }
-                    }
-
-                    const readonlyInputs = [...dialog.querySelectorAll('input[readonly]')]
-                        .filter((el) => isVisible(el) && !el.disabled);
-                    for (const inp of readonlyInputs) {
-                        const ph = (inp.placeholder || '').trim();
-                        if (ph === '请选择财产类型' || ph === '请选择财产所有人') continue;
-                        if ((inp.value || '').trim()) continue;
-                        setValue(inp, provinceName || '广东省');
-                        out.province = true;
                     }
 
                     return out;
@@ -1587,101 +1897,248 @@ class CourtZxfwGuaranteeService:
 
     def _fill_property_clue_dialog_v15(self, defaults: dict[str, str]) -> list[str]:
         updates: list[str] = []
-        owner_name = defaults.get("owner_name") or defaults.get("name") or "张三"
+        owner_name = str(defaults.get("owner_name") or defaults.get("name") or "张三").strip() or "张三"
+        province_name = str(defaults.get("property_province") or "广东省").strip() or "广东省"
+        province_keyword = province_name.replace("省", "")
 
         try:
-            owner_input = self.page.locator("input[placeholder='请选择财产所有人']")
-            for i in range(owner_input.count()):
-                item = owner_input.nth(i)
-                if not item.is_visible() or item.is_disabled():
+            type_inputs = self.page.locator(".el-dialog input[placeholder='请选择财产类型']")
+            for i in range(type_inputs.count()):
+                field = type_inputs.nth(i)
+                if not field.is_visible() or field.is_disabled():
                     continue
-                item.click(timeout=1500)
-                self._random_wait(0.2, 0.4)
-                if not self._choose_dropdown_item(owner_name):
-                    self._choose_dropdown_item("")
-                updates.append("财产所有人=已选")
-                break
-        except Exception:
-            pass
-
-        try:
-            cascaders = self.page.locator(".el-cascader")
-            if cascaders.count() > 0:
-                cascaders.first.click(force=True, timeout=2000)
-                self._random_wait(0.2, 0.4)
-                nodes = self.page.locator(".el-cascader-node__label").filter(has_text="广东")
-                clicked = False
-                if nodes.count() > 0:
-                    for i in range(nodes.count()):
-                        node = nodes.nth(i)
-                        if not node.is_visible():
-                            continue
-                        node.click(timeout=1200)
-                        clicked = True
+                selected = False
+                for retry in range(4):
+                    reopened = self._reopen_and_search_dropdown_input(
+                        field,
+                        "其他",
+                        force_reset=retry > 0,
+                        open_timeout_ms=2500,
+                        submit_enter=True,
+                    )
+                    if not reopened:
+                        self._random_wait(0.3, 0.6)
+                        continue
+                    self._wait_select_options_ready(candidates=["其他"], timeout_ms=min(self.MAX_SLOW_WAIT_MS, 45000))
+                    selected = self._choose_dropdown_item("其他")
+                    if selected:
                         break
-                if not clicked:
-                    all_nodes = self.page.locator(".el-cascader-node__label")
-                    for i in range(all_nodes.count()):
-                        node = all_nodes.nth(i)
-                        if not node.is_visible():
-                            continue
-                        node.click(timeout=1200)
-                        clicked = True
-                        break
-                if clicked:
-                    updates.append("省份=已选")
-                self._close_popovers()
-        except Exception:
-            pass
-
-        try:
-            fill_values = [
-                defaults.get("property_location") or "",
-                defaults.get("property_cert_no") or "",
-                defaults.get("property_value") or "",
-            ]
-            editables = self.page.locator("input:not([type='hidden']):not([readonly]), textarea")
-            value_idx = 0
-            for i in range(editables.count()):
-                if value_idx >= len(fill_values):
+                    self._close_popovers()
+                    self._random_wait(0.5, 0.8)
+                if selected:
+                    updates.append("财产类型=其他")
                     break
-                el = editables.nth(i)
-                if not el.is_visible() or el.is_disabled():
-                    continue
-                current = (el.input_value() or "").strip()
-                if current:
-                    continue
-                el.click(timeout=1500)
-                el.fill(fill_values[value_idx], timeout=1500)
-                updates.append(f"编辑项{value_idx + 1}={fill_values[value_idx]}")
-                value_idx += 1
         except Exception:
             pass
 
+        try:
+            owner_inputs = self.page.locator(".el-dialog input[placeholder='请选择财产所有人']")
+            for i in range(owner_inputs.count()):
+                field = owner_inputs.nth(i)
+                if not field.is_visible() or field.is_disabled():
+                    continue
+                selected = False
+                for retry in range(4):
+                    reopened = self._reopen_and_search_dropdown_input(
+                        field,
+                        owner_name,
+                        force_reset=retry > 0,
+                        open_timeout_ms=2500,
+                        submit_enter=True,
+                    )
+                    if not reopened:
+                        self._random_wait(0.4, 0.8)
+                        continue
+                    self._wait_select_options_ready(candidates=[owner_name], timeout_ms=min(self.MAX_SLOW_WAIT_MS, 60000))
+                    selected = self._choose_dropdown_item(owner_name)
+                    if not selected:
+                        selected = self._choose_dropdown_item("")
+                    if selected:
+                        break
+                    self._close_popovers()
+                    self._random_wait(0.6, 1.0)
+                if selected:
+                    updates.append("财产所有人=已选")
+                    break
+        except Exception:
+            pass
+
+        try:
+            province_inputs = self.page.locator(".el-dialog .fd-sf input.el-input__inner")
+            if province_inputs.count() > 0:
+                field = province_inputs.first
+                if field.is_visible() and not field.is_disabled():
+                    selected = False
+                    for retry in range(4):
+                        reopened = self._reopen_and_search_dropdown_input(
+                            field,
+                            province_keyword if retry < 3 else province_name,
+                            force_reset=retry > 0,
+                            open_timeout_ms=2500,
+                            submit_enter=True,
+                        )
+                        if not reopened:
+                            self._random_wait(0.4, 0.8)
+                            continue
+                        self._wait_select_options_ready(
+                            candidates=[province_keyword, province_name],
+                            timeout_ms=min(self.MAX_SLOW_WAIT_MS, 60000),
+                        )
+                        selected = self._choose_dropdown_item(province_keyword)
+                        if not selected:
+                            selected = self._choose_dropdown_item(province_name)
+                        if not selected:
+                            selected = self._choose_dropdown_item("")
+                        if selected:
+                            break
+                        self._close_popovers()
+                        self._random_wait(0.5, 0.9)
+                    if selected:
+                        updates.append(f"省份={province_name}")
+        except Exception:
+            pass
+
+        filled_fields = self.page.evaluate(
+            r"""(args) => {
+                const values = args || {};
+                const isVisible = (el) => {
+                    if (!el) return false;
+                    const st = window.getComputedStyle(el);
+                    if (st.display === 'none' || st.visibility === 'hidden') return false;
+                    const r = el.getBoundingClientRect();
+                    return r.width > 1 && r.height > 1;
+                };
+                const norm = (s) => (s || '').replace(/\s+/g, ' ').trim();
+                const setValue = (input, value) => {
+                    input.focus();
+                    input.value = value;
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                    input.dispatchEvent(new Event('change', { bubbles: true }));
+                    input.blur();
+                };
+
+                const fillRules = [
+                    { labels: ['财产信息'], value: values.propertyInfo || '' },
+                    { labels: ['房产证号'], value: values.propertyCertNo || '' },
+                    { labels: ['价值', '财产价值'], value: values.propertyValue || '' },
+                    { labels: ['具体位置', '房产坐落位置'], value: values.propertyLocation || '' },
+                ];
+
+                const dialog = [...document.querySelectorAll('.el-dialog,.el-dialog__wrapper')].filter(isVisible).slice(-1)[0] || document;
+                const items = [...dialog.querySelectorAll('.el-form-item')].filter(isVisible);
+                const result = [];
+
+                for (const item of items) {
+                    const label = norm(item.querySelector('.el-form-item__label')?.innerText || '');
+                    if (!label) continue;
+                    const input = item.querySelector('input:not([type="hidden"]):not([readonly]), textarea');
+                    if (!input || input.disabled) continue;
+                    if ((input.value || '').trim()) continue;
+
+                    for (const rule of fillRules) {
+                        if (!rule.value) continue;
+                        if (rule.labels.some((kw) => label.includes(kw))) {
+                            setValue(input, rule.value);
+                            result.push(`${label}=${rule.value}`);
+                            break;
+                        }
+                    }
+                }
+                return result;
+            }""",
+            {
+                "propertyInfo": defaults.get("property_info") or "",
+                "propertyCertNo": defaults.get("property_cert_no") or "",
+                "propertyValue": defaults.get("property_value") or "",
+                "propertyLocation": defaults.get("property_location") or "",
+            },
+        )
+        updates.extend([str(item) for item in (filled_fields or [])])
+        self._close_popovers()
         return updates
 
     def _retry_property_clue_save_on_province_error(self, defaults: dict[str, str]) -> bool:
-        province_name = defaults.get("property_province") or "广东省"
-        province_keyword = province_name.replace("省", "")
-        for _ in range(3):
+        for _ in range(4):
             try:
-                province_inputs = self.page.locator(".el-dialog .fd-sf input.el-input__inner")
-                if province_inputs.count() > 0:
-                    field = province_inputs.first
-                    if field.is_visible() and not field.is_disabled():
-                        field.click(timeout=1500)
-                        self._random_wait(0.2, 0.4)
-                        try:
-                            field.press("ArrowDown", timeout=1200)
-                            field.press("Enter", timeout=1200)
-                        except Exception:
-                            pass
-                        self._choose_dropdown_item(province_keyword)
-                        self._choose_dropdown_item(province_name)
-                        self._choose_dropdown_item("")
+                self._fill_property_clue_dialog_v15(defaults)
 
+                self._random_wait(0.2, 0.4)
+                self._click_first_enabled_button(["保存", "确定"])
+                self._random_wait(0.6, 0.9)
+
+                errors = self._get_visible_form_errors()
+                has_required_select_error = any(
+                    ("请选择省份" in err) or ("请选择财产所有人" in err)
+                    for err in errors
+                )
+                if not has_required_select_error:
+                    return True
+            except Exception:
+                continue
+        return False
+
+    def _reopen_and_search_dropdown_input(
+        self,
+        dropdown_input: Any,
+        search_text: str,
+        *,
+        force_reset: bool = False,
+        open_timeout_ms: int = 5000,
+        submit_enter: bool = True,
+    ) -> bool:
+        term = str(search_text or "").strip()
+        if not term:
+            return False
+
+        try:
+            self._close_popovers()
+            self._random_wait(0.4, 0.8)
+
+            dropdown_input.click(timeout=open_timeout_ms)
+            self._random_wait(0.6, 1.1)
+
+            if force_reset:
+                try:
+                    dropdown_input.press("Meta+a", timeout=1200)
+                    dropdown_input.press("Backspace", timeout=1200)
+                except Exception:
+                    try:
+                        dropdown_input.press("Control+a", timeout=1200)
+                        dropdown_input.press("Backspace", timeout=1200)
+                    except Exception:
+                        pass
+
+            dropdown_input.fill("")
+            self._random_wait(0.4, 0.8)
+            dropdown_input.fill(term)
+
+            if submit_enter:
+                try:
+                    dropdown_input.press("Enter", timeout=2000)
+                except Exception:
+                    pass
+            return True
+        except Exception:
+            return False
+
+    def _reopen_and_search_court_dropdown(self, court_input: Any, search_text: str, *, force_reset: bool = False) -> bool:
+        return self._reopen_and_search_dropdown_input(
+            court_input,
+            search_text,
+            force_reset=force_reset,
+            open_timeout_ms=5000,
+            submit_enter=True,
+        )
+
+    def _wait_tree_options_ready(self, *, candidates: list[str], timeout_ms: int) -> bool:
+        deadline = time.time() + max(timeout_ms, 1000) / 1000
+        normalized_candidates = [str(item).strip() for item in candidates if str(item).strip()]
+
+        while time.time() < deadline:
+            ready = bool(
                 self.page.evaluate(
-                    """(value) => {
+                    r"""(names) => {
+                        const norm = (s) => (s || '').replace(/\s+/g, ' ').trim();
                         const isVisible = (el) => {
                             if (!el) return false;
                             const st = window.getComputedStyle(el);
@@ -1689,29 +2146,202 @@ class CourtZxfwGuaranteeService:
                             const r = el.getBoundingClientRect();
                             return r.width > 1 && r.height > 1;
                         };
-                        const setValue = (input, v) => {
-                            input.focus();
-                            input.value = v;
-                            input.dispatchEvent(new Event('input', { bubbles: true }));
-                            input.dispatchEvent(new Event('change', { bubbles: true }));
-                            input.blur();
-                        };
-                        const dialog = [...document.querySelectorAll('.el-dialog,.el-dialog__wrapper')].filter(isVisible).slice(-1)[0] || document;
-                        const targets = [...dialog.querySelectorAll('.fd-sf input.el-input__inner, input[readonly]')]
-                            .filter((el) => isVisible(el) && !el.disabled && !(el.value || '').trim());
-                        for (const input of targets) {
-                            setValue(input, value);
-                        }
+
+                        const targets = (names || []).map((n) => norm(n)).filter(Boolean);
+                        const nodes = [...document.querySelectorAll('.el-tree-node__content')]
+                            .filter((node) => isVisible(node))
+                            .map((node) => norm(node.innerText || ''))
+                            .filter((text) => text && !text.includes('暂无数据'));
+
+                        if (nodes.length === 0) return false;
+                        if (targets.length === 0) return true;
+
+                        return targets.some((target) =>
+                            nodes.some((text) => text === target || text.endsWith(target) || text.includes(target))
+                        );
                     }""",
-                    province_name,
+                    normalized_candidates,
                 )
-                self._random_wait(0.2, 0.4)
-                self._click_first_enabled_button(["保存", "确定"])
-                self._random_wait(0.6, 0.9)
-                if not any("请选择省份" in err for err in self._get_visible_form_errors()):
-                    return True
-            except Exception:
-                continue
+            )
+            if ready:
+                return True
+            self._random_wait(
+                self.DEFAULT_POLL_MS / 1000,
+                (self.DEFAULT_POLL_MS + 800) / 1000,
+            )
+
+        return False
+
+    def _wait_select_options_ready(self, *, candidates: list[str], timeout_ms: int) -> bool:
+        deadline = time.time() + max(timeout_ms, 1000) / 1000
+        normalized_candidates = [str(item).strip() for item in candidates if str(item).strip()]
+
+        while time.time() < deadline:
+            ready = bool(
+                self.page.evaluate(
+                    r"""(names) => {
+                        const norm = (s) => (s || '').replace(/\s+/g, ' ').trim();
+                        const isVisible = (el) => {
+                            if (!el) return false;
+                            const st = window.getComputedStyle(el);
+                            if (st.display === 'none' || st.visibility === 'hidden') return false;
+                            const r = el.getBoundingClientRect();
+                            return r.width > 1 && r.height > 1;
+                        };
+
+                        const targets = (names || []).map((n) => norm(n)).filter(Boolean);
+                        const options = [...document.querySelectorAll('.el-select-dropdown__item, .el-option, [role="option"], .el-popper li')]
+                            .filter((node) => isVisible(node) && !node.classList.contains('is-disabled'))
+                            .map((node) => norm(node.innerText || ''))
+                            .filter((text) => text && !text.includes('暂无数据'));
+
+                        if (options.length === 0) return false;
+                        if (targets.length === 0) return true;
+
+                        return targets.some((target) =>
+                            options.some((text) => text === target || text.includes(target) || target.includes(text))
+                        );
+                    }""",
+                    normalized_candidates,
+                )
+            )
+            if ready:
+                return True
+            self._random_wait(
+                self.DEFAULT_POLL_MS / 1000,
+                (self.DEFAULT_POLL_MS + 800) / 1000,
+            )
+
+        return False
+
+    def _wait_court_options_ready(self, *, candidates: list[str], timeout_ms: int) -> bool:
+        deadline = time.time() + max(timeout_ms, 1000) / 1000
+        normalized_candidates = [str(item).strip() for item in candidates if str(item).strip()]
+
+        while time.time() < deadline:
+            ready = bool(
+                self.page.evaluate(
+                    r"""(names) => {
+                        const norm = (s) => (s || '').replace(/\s+/g, ' ').trim();
+                        const isVisible = (el) => {
+                            if (!el) return false;
+                            const st = window.getComputedStyle(el);
+                            if (st.display === 'none' || st.visibility === 'hidden') return false;
+                            const r = el.getBoundingClientRect();
+                            return r.width > 1 && r.height > 1;
+                        };
+
+                        const targets = (names || []).map((n) => norm(n)).filter(Boolean);
+                        const nodes = [...document.querySelectorAll('.el-tree-node__content')]
+                            .filter((node) => isVisible(node))
+                            .map((node) => norm(node.innerText || ''))
+                            .filter((text) => text && !text.includes('暂无数据'));
+
+                        if (nodes.length === 0) return false;
+                        if (targets.length === 0) return true;
+
+                        return targets.some((target) =>
+                            nodes.some((text) => text === target || text.endsWith(target) || text.includes(target))
+                        );
+                    }""",
+                    normalized_candidates,
+                )
+            )
+            if ready:
+                return True
+            self._random_wait(
+                self.DEFAULT_POLL_MS / 1000,
+                (self.DEFAULT_POLL_MS + 800) / 1000,
+            )
+
+        logger.warning("court_guarantee_court_options_wait_timeout", extra={"candidates": normalized_candidates})
+        return False
+
+    def _wait_form_item_option_ready(self, *, label_keywords: list[str], option_text: str, timeout_ms: int) -> bool:
+        deadline = time.time() + max(timeout_ms, 1000) / 1000
+        cleaned_option = str(option_text or "").strip()
+        cleaned_keywords = [str(keyword).strip() for keyword in label_keywords if str(keyword).strip()]
+
+        while time.time() < deadline:
+            ready = bool(
+                self.page.evaluate(
+                    r"""(args) => {
+                        const keywords = args.keywords || [];
+                        const option = (args.option || '').trim();
+                        const norm = (s) => (s || '').replace(/\s+/g, ' ').trim();
+                        const isVisible = (el) => {
+                            if (!el) return false;
+                            const st = window.getComputedStyle(el);
+                            if (st.display === 'none' || st.visibility === 'hidden') return false;
+                            const r = el.getBoundingClientRect();
+                            return r.width > 1 && r.height > 1;
+                        };
+
+                        const formItems = [...document.querySelectorAll('.el-form-item')].filter(isVisible);
+                        for (const item of formItems) {
+                            const label = norm(item.querySelector('.el-form-item__label')?.innerText || '');
+                            if (!label || !keywords.some((kw) => label.includes(kw))) continue;
+
+                            const options = [...item.querySelectorAll('label, .el-radio, .el-radio-wrapper, .el-radio-button, .el-radio-button__inner, span, div')]
+                                .filter((el) => isVisible(el))
+                                .map((el) => norm(el.innerText || ''))
+                                .filter(Boolean);
+                            if (options.length === 0) continue;
+                            if (!option) return true;
+                            if (options.some((text) => text === option || text.includes(option))) return true;
+                        }
+                        return false;
+                    }""",
+                    {"keywords": cleaned_keywords, "option": cleaned_option},
+                )
+            )
+            if ready:
+                return True
+            self._random_wait(
+                self.DEFAULT_POLL_MS / 1000,
+                (self.DEFAULT_POLL_MS + 800) / 1000,
+            )
+
+        logger.warning(
+            "court_guarantee_form_item_wait_timeout",
+            extra={"label_keywords": cleaned_keywords, "option_text": cleaned_option},
+        )
+        return False
+
+    def _wait_upload_idle(self, *, timeout_ms: int = 90000) -> bool:
+        deadline = time.time() + max(timeout_ms, 1000) / 1000
+        while time.time() < deadline:
+            uploading = bool(
+                self.page.evaluate(
+                    r"""() => {
+                        const isVisible = (el) => {
+                            if (!el) return false;
+                            const st = window.getComputedStyle(el);
+                            if (st.display === 'none' || st.visibility === 'hidden') return false;
+                            const r = el.getBoundingClientRect();
+                            return r.width > 1 && r.height > 1;
+                        };
+
+                        const busyTexts = ['当前正在进行上传操作', '正在进行上传', '上传中', '上传操作'];
+                        const textNodes = [...document.querySelectorAll('.el-message, .el-form-item__error, .el-notification')]
+                            .filter((el) => isVisible(el))
+                            .map((el) => (el.innerText || '').replace(/\s+/g, ' ').trim())
+                            .filter(Boolean);
+
+                        if (textNodes.some((text) => busyTexts.some((busy) => text.includes(busy)))) {
+                            return true;
+                        }
+
+                        const loadingNodes = [...document.querySelectorAll('.el-loading-mask, .el-icon-loading, .is-loading')]
+                            .filter((el) => isVisible(el));
+                        return loadingNodes.length > 0;
+                    }"""
+                )
+            )
+            if not uploading:
+                return True
+            self._random_wait(0.9, 1.4)
+
         return False
 
     def _get_visible_form_errors(self) -> list[str]:

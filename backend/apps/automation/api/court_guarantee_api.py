@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import re
 from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal, InvalidOperation
@@ -21,6 +22,16 @@ router = Router()
 
 _EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="court-guarantee")
 _SESSION_UPDATE_EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="court-guarantee-session")
+
+
+def _read_int_env(name: str, default_value: int) -> int:
+    raw_value = str(os.getenv(name, str(default_value))).strip()
+    try:
+        parsed = int(raw_value)
+    except (TypeError, ValueError):
+        return default_value
+    return parsed if parsed >= 0 else default_value
+
 
 _PLAINTIFF_SIDE_STATUSES = {"plaintiff", "applicant", "appellant", "orig_plaintiff"}
 _RESPONDENT_SIDE_STATUSES = {"defendant", "respondent", "appellee", "orig_defendant"}
@@ -51,8 +62,8 @@ _DEFAULT_PRESERVATION_CORP_ID = "2550"
 _DEFAULT_PRESERVATION_CATEGORY_ID = "127000"
 _QUOTE_RETRY_ALLOWED_STATUSES = {"failed", "partial_success"}
 _BROWSER_SLOW_MO_MS = 300
-_BROWSER_HOLD_SECONDS = 15
-_BROWSER_HOLD_SECONDS_ON_FAILURE = 600
+_BROWSER_HOLD_SECONDS = _read_int_env("COURT_GUARANTEE_BROWSER_HOLD_SECONDS", 8)
+_BROWSER_HOLD_SECONDS_ON_FAILURE = _read_int_env("COURT_GUARANTEE_BROWSER_HOLD_SECONDS_ON_FAILURE", 30)
 
 
 class CaseGuaranteeInfoOut(Schema):
@@ -434,6 +445,7 @@ def execute_court_guarantee(request: HttpRequest, payload: ExecuteCourtGuarantee
     property_clue = _build_primary_respondent_property_clue(
         case_parties=case_parties,
         selected_respondents=selected_respondents,
+        preserve_amount=preserve_amount,
     )
 
     case_data: dict[str, Any] = {
@@ -608,7 +620,12 @@ def _normalize_property_clue_content(raw_content: str) -> str:
     return "；".join(lines)
 
 
-def _build_primary_respondent_property_clue(*, case_parties: list[Any], selected_respondents: list[dict[str, Any]]) -> dict[str, str]:
+def _build_primary_respondent_property_clue(
+    *,
+    case_parties: list[Any],
+    selected_respondents: list[dict[str, Any]],
+    preserve_amount: Any | None = None,
+) -> dict[str, str]:
     party_id_set = {
         int(item.get("party_id") or 0)
         for item in selected_respondents
@@ -646,6 +663,11 @@ def _build_primary_respondent_property_clue(*, case_parties: list[Any], selected
         property_info = f"{owner_name}名下财产线索"
 
     property_location = str(getattr(primary_client, "address", "") or "").strip() if primary_client is not None else ""
+    normalized_property_value = ""
+    if preserve_amount is not None:
+        normalized_property_value = str(preserve_amount).strip().replace(",", "")
+        if "." in normalized_property_value:
+            normalized_property_value = normalized_property_value.rstrip("0").rstrip(".")
 
     return {
         "owner_name": owner_name,
@@ -654,7 +676,7 @@ def _build_primary_respondent_property_clue(*, case_parties: list[Any], selected
         "property_location": property_location,
         "property_province": "",
         "property_cert_no": "",
-        "property_value": "",
+        "property_value": normalized_property_value,
     }
 
 
@@ -1175,7 +1197,7 @@ def _run_guarantee(
 
         try:
             login_service = CourtZxfwService(page=page, context=context)
-            login_service._try_http_login = lambda *args, **kwargs: None  # type: ignore[method-assign]
+            login_service._try_http_login = lambda *args, **kwargs: None
             login_result = login_service.login(account=account, password=password)
             if not login_result.get("success"):
                 message = str(login_result.get("message") or "一张网登录失败")

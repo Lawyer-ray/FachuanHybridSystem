@@ -60,6 +60,13 @@
   - `_acquire_token` 不再复用 `BrowserService` 单例，改为在当前线程独立创建 `sync_playwright` 实例，彻底解决 greenlet 跨线程切换错误。
   - `_is_expected_sync_error` 增加 `greenlet.error` / `target closed` / `browser has been closed` / `disconnected` 等异常模式识别，减少误判与噪声日志。
 
+- **一张网担保流程稳定性补充修复（automation/court_guarantee）**：
+  - 失败分支浏览器保留时长改为环境变量可配置（`COURT_GUARANTEE_BROWSER_HOLD_SECONDS_ON_FAILURE`），避免固定长等待造成“卡住”观感。
+  - gThree 材料上传链路新增上传空闲等待（`_wait_upload_idle`）与节奏放缓，降低“当前正在进行上传操作，请稍后再试”报错概率。
+  - 身份证明材料匹配规则细化：申请人-法人优先上传“营业执照+法定代表人身份证明”；被申请人-自然人按姓名匹配身份证并排除“法定代表人”材料。
+  - gTwo 对话框“单位性质”在申请人为法人/非法人组织时强制选择“企业”，避免页面默认“机关”导致校验失败。
+  - 新增基于表单错误文本的定向重传与 gThree→gFive 推进时身份证明兜底重传，提升一次性通过率。
+
 - **其他修复**：
   - 财产线索当事人字段改为搜索下拉（`autocomplete_fields`），提升选择效率。
   - 移除当事人/非当事人材料 tab 下的"自动捕获"按钮（与"上传/绑定材料"功能重复）。
