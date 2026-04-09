@@ -8,10 +8,11 @@ from __future__ import annotations
 
 import logging
 import threading
-from typing import Any, ClassVar
+from typing import Any
 
 from django.contrib import admin, messages
 from django.db.models import QuerySet
+from django.forms import ModelForm
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from django.urls import path, reverse
@@ -38,7 +39,11 @@ def _get_document_delivery_schedule_service() -> Any:
 class DocumentDeliveryScheduleAdmin(admin.ModelAdmin[DocumentDeliverySchedule]):
     """文书送达定时任务管理"""
 
-    list_display: ClassVar[list[str]] = [
+    def get_model_perms(self, request: HttpRequest) -> dict[str, bool]:
+        """隐藏后台入口（保留代码与直达地址能力）"""
+        return {}
+
+    list_display = [
         "id",
         "credential_display",
         "runs_per_day",
@@ -50,7 +55,7 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin[DocumentDeliverySchedule]):
         "created_at",
     ]
 
-    list_filter: ClassVar[list[Any]] = [
+    list_filter = [
         "is_active",
         "runs_per_day",
         "hour_interval",
@@ -58,15 +63,15 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin[DocumentDeliverySchedule]):
         ("credential", admin.RelatedFieldListFilter),
     ]
 
-    search_fields: ClassVar[list[str]] = [
+    search_fields = [
         "credential__account",
         "credential__site_name",
     ]
 
-    ordering: ClassVar[list[str]] = ["-created_at"]
+    ordering = ["-created_at"]
     list_per_page = 20
 
-    readonly_fields: ClassVar[list[str]] = [
+    readonly_fields = [
         "id",
         "last_run_at",
         "next_run_at",
@@ -75,7 +80,7 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin[DocumentDeliverySchedule]):
         "manual_trigger_button",
     ]
 
-    fieldsets: ClassVar[tuple[Any, ...]] = (
+    fieldsets = (
         (
             _("基本信息"),
             {"fields": ("id", "credential", "is_active")},
@@ -97,7 +102,7 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin[DocumentDeliverySchedule]):
         ),
     )
 
-    actions: ClassVar[list[str]] = [
+    actions = [
         "trigger_manual_query_action",
         "activate_schedules_action",
         "deactivate_schedules_action",
@@ -295,9 +300,15 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin[DocumentDeliverySchedule]):
             kwargs["queryset"] = db_field.related_model.objects.all().order_by("site_name", "account")
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
-    def get_form(self, request: HttpRequest, obj: DocumentDeliverySchedule | None = None, **kwargs: Any) -> Any:
+    def get_form(
+        self,
+        request: HttpRequest,
+        obj: DocumentDeliverySchedule | None = None,
+        change: bool = False,
+        **kwargs: Any,
+    ) -> type[ModelForm[Any]]:
         """自定义表单"""
-        form = super().get_form(request, obj, **kwargs)
+        form = super().get_form(request, obj, change, **kwargs)
 
         if "runs_per_day" in form.base_fields:
             form.base_fields["runs_per_day"].help_text = "每天运行的次数，建议1-4次"

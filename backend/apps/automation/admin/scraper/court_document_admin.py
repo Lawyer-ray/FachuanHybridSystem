@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from typing import Any
 
 from django.contrib import admin, messages
 from django.db.models import QuerySet
@@ -37,7 +37,7 @@ class CourtDocumentAdmin(admin.ModelAdmin[CourtDocument]):
     - 为已下载文书提供文件下载链接
     """
 
-    list_display: ClassVar[list[str]] = [
+    list_display = [
         "id",
         "c_wsmc_display",
         "c_fymc_display",
@@ -47,21 +47,21 @@ class CourtDocumentAdmin(admin.ModelAdmin[CourtDocument]):
         "download_link",
     ]
 
-    list_filter: ClassVar[list[str]] = [
+    list_filter = [
         "download_status",
         "c_fymc",
         "created_at",
         "downloaded_at",
     ]
 
-    search_fields: ClassVar[list[str]] = [
+    search_fields = [
         "c_wsmc",
         "c_fymc",
         "c_wsbh",
         "c_sdbh",
     ]
 
-    readonly_fields: ClassVar[list[str]] = [
+    readonly_fields = [
         "id",
         "scraper_task",
         "case",
@@ -85,7 +85,7 @@ class CourtDocumentAdmin(admin.ModelAdmin[CourtDocument]):
         "download_link_detail",
     ]
 
-    fieldsets: ClassVar[tuple[Any, ...]] = (
+    fieldsets = (
         (
             _("基本信息"),
             {
@@ -137,7 +137,7 @@ class CourtDocumentAdmin(admin.ModelAdmin[CourtDocument]):
         ),
     )
 
-    ordering: ClassVar[list[str]] = ["-created_at"]
+    ordering = ["-created_at"]
     date_hierarchy = "created_at"
 
     list_per_page = 20
@@ -215,10 +215,12 @@ class CourtDocumentAdmin(admin.ModelAdmin[CourtDocument]):
         if obj.download_status == DocumentDownloadStatus.SUCCESS and obj.local_file_path:
             return format_html(
                 '<a href="/media/{}" target="_blank" '
-                'style="background-color: #28a745; color: white; padding: 5px 10px; '
-                'border-radius: 4px; text-decoration: none; display: inline-block; font-size: 12px;">'
-                "📥 下载</a>",
+                'style="background-color: #28a745; color: white; padding: 2px 8px; '
+                'border-radius: 3px; text-decoration: none; display: inline-block; font-size: 12px; '
+                'line-height: 1.4; white-space: nowrap;">'
+                "{}</a>",
                 obj.local_file_path,
+                _("下载"),
             )
         return format_html('<span style="color: #999;">{}</span>', "-")
 
@@ -231,12 +233,14 @@ class CourtDocumentAdmin(admin.ModelAdmin[CourtDocument]):
             filename = Path(obj.local_file_path).name
 
             return format_html(
-                '<a href="/media/{}" target="_blank" '
-                'style="background-color: #28a745; color: white; padding: 10px 20px; '
-                'border-radius: 4px; text-decoration: none; display: inline-block; font-size: 14px;">'
-                "📥 下载文件: {}</a>",
+                '<a href="/media/{}" target="_blank" title="{}" '
+                'style="background-color: #28a745; color: white; padding: 6px 12px; '
+                'border-radius: 4px; text-decoration: none; display: inline-block; font-size: 13px; '
+                'line-height: 1.4; white-space: nowrap;">'
+                "{}</a>",
                 obj.local_file_path,
                 filename,
+                _("下载文件"),
             )
         elif obj.download_status == DocumentDownloadStatus.FAILED:
             return format_html('<span style="color: #dc3545; font-weight: bold;">{}</span>', "下载失败")
@@ -254,7 +258,7 @@ class CourtDocumentAdmin(admin.ModelAdmin[CourtDocument]):
         return True
 
     # 定义批量操作
-    actions: ClassVar[list[str]] = ["batch_download_documents", "batch_delete_with_files", "retry_failed_downloads"]
+    actions = ["batch_download_documents", "batch_delete_with_files", "retry_failed_downloads"]
 
     @admin.action(description="批量下载选中的文书")
     def batch_download_documents(self, request: HttpRequest, queryset: QuerySet[CourtDocument]) -> None:
