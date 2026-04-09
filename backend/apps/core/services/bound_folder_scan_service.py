@@ -96,6 +96,12 @@ class BoundFolderScanService:
                     logger.exception("scan_extract_failed", extra={"path": item["path"].as_posix()})
 
             self._notify(progress_callback, "classifying", progress, current_file)
+
+            # 从文件路径中提取相对于扫描根目录的父文件夹名，作为类型提示
+            parent_folder_hint = self._extract_parent_folder_hint(
+                file_path=item["path"], scan_root=root,
+            )
+
             candidate = self._build_candidate(
                 path=item["path"],
                 base_name=item["base_name"],
@@ -106,6 +112,7 @@ class BoundFolderScanService:
                 enable_recognition=enable_recognition,
                 classification_context=classification_context,
                 scan_subfolder=scan_subfolder,
+                parent_folder_hint=parent_folder_hint,
             )
             candidates.append(candidate)
 
@@ -132,6 +139,7 @@ class BoundFolderScanService:
         enable_recognition: bool,
         classification_context: dict[str, Any] | None,
         scan_subfolder: str = "",
+        parent_folder_hint: str = "",
     ) -> dict[str, Any]:
         stat = path.stat()
         modified_at = datetime.fromtimestamp(stat.st_mtime, tz=UTC).isoformat()
@@ -170,6 +178,7 @@ class BoundFolderScanService:
                 enable_ai=enable_recognition,
                 context=classification_context,
                 scan_subfolder=scan_subfolder,
+                parent_folder_hint=parent_folder_hint,
             )
             candidate.update(
                 {
@@ -185,6 +194,26 @@ class BoundFolderScanService:
             return candidate
 
         raise ValidationException(message=_("不支持的扫描领域"), code="UNSUPPORTED_SCAN_DOMAIN", errors={"domain": domain})
+
+    @staticmethod
+    def _extract_parent_folder_hint(file_path: Path, scan_root: Path) -> str:
+        """从文件路径中提取相对于扫描根目录的直接父文件夹名，作为类型提示。
+
+        例如扫描根目录为 "2-立案材料"，文件位于 "2-立案材料/执行申请书/xxx.pdf"，
+        则返回 "执行申请书"；若文件直接在根目录下，则返回 ""。
+        """
+        try:
+            relative = file_path.parent.relative_to(scan_root)
+        except ValueError:
+            return ""
+        # 如果文件直接在扫描根目录下（relative 是 "."），无父文件夹提示
+        if str(relative) == ".":
+            return ""
+        # 取最靠近文件的父目录名（relative 可能是 "执行申请书" 或 "子目录A/子目录B"）
+        # 对于多级，取第一级（用户命名的分组目录）
+        first_part = Path(relative).parts[0] if Path(relative).parts else ""
+        # 去掉编号前缀：2-立案材料 → 立案材料
+        return re.sub(r"^[\d]+[\s.\-_]*[\)）]?\s*", "", first_part).strip() or first_part
 
     @staticmethod
     def _notify(callback: ProgressCallback | None, status: str, progress: int, current_file: str | None) -> None:
