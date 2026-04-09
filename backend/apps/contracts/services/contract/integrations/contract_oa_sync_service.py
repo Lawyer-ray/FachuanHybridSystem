@@ -211,7 +211,9 @@ class ContractOASyncService:
                 password=credential.password,
                 headless=False,
             )
-            script.ensure_name_search_ready()
+            ensure_name_search_ready = getattr(script, "ensure_name_search_ready", None)
+            if callable(ensure_name_search_ready):
+                ensure_name_search_ready()
 
             items: list[dict[str, Any]] = []
             matched_count = 0
@@ -374,7 +376,7 @@ class ContractOASyncService:
             return []
 
         effective_limit = max(1, int(limit))
-        expanded_limit = max(effective_limit * 20, 120)
+        expanded_limit = max(effective_limit * 5, 30)
 
         for keyword in keywords:
             candidates = script.search_cases_by_name(contract_name=keyword, limit=effective_limit)
@@ -460,7 +462,7 @@ class ContractOASyncService:
         if relaxed_filtered:
             return relaxed_filtered
 
-        return candidates
+        return []
 
     def _extract_lawsuit_party_tokens(self, contract_name: str) -> tuple[list[str], list[str]]:
         normalized_name = str(contract_name or "").strip()
@@ -540,7 +542,7 @@ class ContractOASyncService:
         text = re.sub(r"\s+", "", str(value or "")).strip()
         return re.sub(r"[\-—_，,。.;；:：()（）\[\]{}]", "", text)
 
-    def _build_name_search_keywords(self, *, contract_name: str, contract_id: int) -> list[str]:
+    def _build_name_search_keywords(self, contract_name: str, contract_id: int = 0) -> list[str]:
         raw_name = str(contract_name or "").strip()
         keywords: list[str] = []
 
@@ -566,7 +568,13 @@ class ContractOASyncService:
             )
             append_keyword(without_case_count)
 
-            if not is_lawsuit_name:
+            if is_lawsuit_name:
+                for plaintiff in plaintiff_tokens:
+                    for defendant in defendant_tokens:
+                        append_keyword(f"{plaintiff}诉{defendant}")
+                for defendant in defendant_tokens:
+                    append_keyword(defendant)
+            else:
                 dispute_matches = re.findall(r"([\u4e00-\u9fa5A-Za-z0-9]{2,32}(?:纠纷|争议|案件))", without_case_count)
                 if dispute_matches:
                     dispute_keyword = str(dispute_matches[-1]).strip()
@@ -588,7 +596,15 @@ class ContractOASyncService:
                 short_tail = without_case_count[-24:]
                 append_keyword(short_tail)
 
-        party_keywords = self._build_party_name_keywords(contract_id=contract_id)
+        party_keywords: list[str] = []
+        if contract_id > 0:
+            try:
+                party_keywords = self._build_party_name_keywords(contract_id=contract_id)
+            except RuntimeError:
+                logger.debug(
+                    "contract_oa_sync_skip_party_name_keywords_without_db",
+                    extra={"contract_id": contract_id},
+                )
         for keyword in party_keywords:
             append_keyword(keyword)
 
