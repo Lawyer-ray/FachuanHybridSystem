@@ -274,6 +274,8 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
         - el-table 表格，每行一个文书
         - 列：文书类型 | 文书名称 | 最新查看时间 | 操作
         - 操作列有 <button class="el-button el-button--danger el-button--mini is-plain">下载</button>
+
+        策略：逐行遍历，每行重新定位按钮，用 JS click 作为 Playwright click 的 fallback。
         """
         assert self.page is not None
         files: list[str] = []
@@ -282,64 +284,68 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
         self.page.wait_for_timeout(3000)
         self.screenshot("jysd_doc_page")
 
-        # 查找表格中所有下载按钮
-        # 选择器：el-table body 内的下载按钮（排除 checkFileDialog 中的按钮）
-        download_buttons = iframe.locator(
-            ".el-table__body-wrapper button.el-button:has-text('下载')"
-        )
+        # 获取表格行数
+        rows = iframe.locator(".el-table__body-wrapper tr.el-table__row")
+        total = rows.count()
+        logger.info("集约送达: 文书表格共 %d 行", total)
 
-        count = download_buttons.count()
-        logger.info("集约送达: 在文书表格中找到 %d 个下载按钮", count)
+        if total == 0:
+            # 备选选择器
+            rows = iframe.locator(".el-table__body tr")
+            total = rows.count()
+            logger.info("集约送达: 备选选择器找到 %d 行", total)
 
-        if count == 0:
-            # 备选：查找表格行中的下载按钮
-            all_download_btns = iframe.locator(
-                ".el-table__body tr button:has-text('下载')"
-            )
-            count = all_download_btns.count()
-            logger.info("集约送达: 备选查找找到 %d 个下载按钮", count)
-            if count > 0:
-                download_buttons = all_download_btns
-
-        for i in range(count):
+        for i in range(total):
             try:
-                # 获取文书名称（同一行的第二列）
+                # 每次重新获取 iframe（下载可能触发页面变化）
+                iframe = self._get_sifayun_iframe() or iframe
+                rows = iframe.locator(".el-table__body-wrapper tr.el-table__row")
+                if rows.count() <= i:
+                    rows = iframe.locator(".el-table__body tr")
+
+                row = rows.nth(i)
+
+                # 获取文书名称
                 doc_name = ""
                 try:
-                    # 获取当前行中的文书名称
-                    row = iframe.locator("table.el-table__body tr").nth(i)
                     doc_name_cell = row.locator("td:nth-child(2) .cell")
                     if doc_name_cell.count() > 0:
                         doc_name = doc_name_cell.first.inner_text().strip()
                 except Exception:
                     pass
 
-                logger.info("集约送达: 下载第 %d/%d 个文书%s", i + 1, count, f" ({doc_name})" if doc_name else "")
+                logger.info(
+                    "集约送达: 下载第 %d/%d 个文书%s",
+                    i + 1, total, f" ({doc_name})" if doc_name else "",
+                )
 
-                filepath = self._click_download_button(download_buttons.nth(i), download_dir, doc_name, i)
+                filepath = self._download_row_document(row, iframe, download_dir, doc_name, i)
                 if filepath:
                     files.append(filepath)
 
-                # 下载间隔，避免过快
-                self.page.wait_for_timeout(1000)
+                # 下载间隔
+                self.page.wait_for_timeout(1500)
 
             except Exception as exc:
-                logger.warning("集约送达: 下载第 %d 个文书失败: %s", i, exc)
+                logger.warning("集约送达: 下载第 %d 个文书失败: %s", i + 1, exc)
 
         return files
 
-    def _click_download_button(
-        self, button: Any, download_dir: Path, doc_name: str, index: int
+    def _download_row_document(
+        self, row: Any, iframe: Any, download_dir: Path, doc_name: str, index: int
     ) -> str | None:
-        """点击下载按钮并保存文件
+        """下载单行文书
 
-        点击"下载"按钮后可能弹出确认对话框（"下载文书并核验" / "直接核验"），
-        需要点击"下载文书并核验"来触发真正的下载。
+        策略：
+        1. Playwright click + expect_download
+        2. 失败则 JS click + expect_download
+        3. 检查确认对话框
 
         Args:
-            button: Playwright Locator 对象
+            row: 表格行 Locator
+            iframe: iframe Frame 对象
             download_dir: 下载目录
-            doc_name: 文书名称（用于文件命名）
+            doc_name: 文书名称
             index: 文书序号
 
         Returns:
@@ -347,15 +353,28 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
         """
         assert self.page is not None
 
+        # 策略1: Playwright click
         try:
-            # 点击"下载"按钮
-            button.click(force=True, timeout=5000)
+            download_btn = row.locator("button:has-text('下载')")
+            if download_btn.count() > 0:
+                with self.page.expect_download(timeout=15000) as download_info:
+                    download_btn.first.click(force=True, timeout=5000)
+                return self._save_download(download_info.value, download_dir, doc_name, index)
+        except Exception:
+            logger.info("集约送达: Playwright click 超时，尝试 JS click")
 
-            # 等待短暂时间，检查是否弹出了确认对话框
+        # 策略2: JS click（Playwright force click 有时无法触发 Vue 事件）
+        try:
+            with self.page.expect_download(timeout=15000) as download_info:
+                row.evaluate("r => r.querySelector('button')?.click()")
+            return self._save_download(download_info.value, download_dir, doc_name, index)
+        except Exception:
+            logger.info("集约送达: JS click 也超时，检查确认对话框")
+
+        # 策略3: 检查是否弹出了确认对话框
+        try:
             self.page.wait_for_timeout(1000)
-
-            # 检查是否有"下载文书并核验"按钮（确认对话框）
-            confirm_btn = button.frame.locator(
+            confirm_btn = iframe.locator(
                 ".checkFileDialog .el-dialog__wrapper:not([style*='display: none']) "
                 "button:has-text('下载文书并核验')"
             )
@@ -363,40 +382,38 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
                 logger.info("集约送达: 检测到下载确认对话框，点击'下载文书并核验'")
                 with self.page.expect_download(timeout=30000) as download_info:
                     confirm_btn.first.click(force=True, timeout=5000)
-                download = download_info.value
-            else:
-                # 没有确认对话框，直接等待下载事件
-                # 重新点击下载按钮（因为第一次点击可能只是触发了对话框）
-                # 先尝试直接监听下载
-                try:
-                    # 如果上一次 click 已经触发了下载
-                    with self.page.expect_download(timeout=5000) as download_info:
-                        button.click(force=True, timeout=5000)
-                    download = download_info.value
-                except Exception:
-                    # 最后备选：再次点击并等待更长时间
-                    logger.info("集约送达: 首次下载未触发，重试点击")
-                    with self.page.expect_download(timeout=30000) as download_info:
-                        button.click(force=True, timeout=5000)
-                    download = download_info.value
-
-            # 优先使用页面上的文书名称
-            suggested = download.suggested_filename or ""
-            if doc_name and doc_name.endswith(".pdf"):
-                filename = self._safe_filename(doc_name)
-            elif suggested:
-                filename = self._safe_filename(suggested)
-            else:
-                filename = f"jysd_doc_{index}_{int(time.time())}.pdf"
-
-            filepath = download_dir / filename
-            download.save_as(str(filepath))
-            logger.info("集约送达: 下载成功: %s", filepath)
-            return str(filepath)
-
+                return self._save_download(download_info.value, download_dir, doc_name, index)
         except Exception as exc:
-            logger.warning("集约送达: 点击下载失败: %s", exc)
-            return None
+            logger.warning("集约送达: 确认对话框下载也失败: %s", exc)
+
+        return None
+
+    def _save_download(
+        self, download: Any, download_dir: Path, doc_name: str, index: int
+    ) -> str:
+        """保存下载文件
+
+        Args:
+            download: Playwright Download 对象
+            download_dir: 下载目录
+            doc_name: 文书名称
+            index: 文书序号
+
+        Returns:
+            保存的文件路径
+        """
+        suggested = download.suggested_filename or ""
+        if doc_name and doc_name.endswith(".pdf"):
+            filename = self._safe_filename(doc_name)
+        elif suggested:
+            filename = self._safe_filename(suggested)
+        else:
+            filename = f"jysd_doc_{index}_{int(time.time())}.pdf"
+
+        filepath = download_dir / filename
+        download.save_as(str(filepath))
+        logger.info("集约送达: 下载成功: %s", filepath)
+        return str(filepath)
 
     @staticmethod
     def _safe_filename(name: str) -> str:
