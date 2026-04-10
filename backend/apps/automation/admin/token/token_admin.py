@@ -23,6 +23,7 @@ SITE_NAME_LABELS: dict[str, str] = {
 }
 
 
+@admin.register(CourtToken)
 class CourtTokenAdmin(admin.ModelAdmin[CourtToken]):
     """
     一张网/保全系统 Token 管理 Admin
@@ -33,6 +34,10 @@ class CourtTokenAdmin(admin.ModelAdmin[CourtToken]):
     - 按过期状态过滤
     - 显示 Token 状态（有效/过期）
     """
+
+    def get_model_perms(self, request: HttpRequest) -> dict[str, bool]:
+        """隐藏 Admin 首页入口，但保留直接 URL 访问能力"""
+        return {}
 
     list_display: ClassVar[list[str]] = [
         "id",
