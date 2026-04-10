@@ -277,6 +277,10 @@ class SMSParserService:
         if "sd.gdems.com" in link_lower:
             return True
 
+        # 集约送达链接 (jysd.10102368.com)
+        if "jysd.10102368.com" in link_lower:
+            return True
+
         # 湖北电子送达链接
         if "dzsd.hbfy.gov.cn/hb/msg=" in link_lower:
             return True
