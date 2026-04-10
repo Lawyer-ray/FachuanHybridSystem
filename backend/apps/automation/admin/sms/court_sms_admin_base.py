@@ -273,16 +273,26 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
                         "downloading": "blue",
                     }.get(doc.download_status, "gray")
 
-                    doc_url = reverse("admin:automation_courtdocument_change", args=[cast(int, doc.id)])
-                    parts.append(
-                        format_html(
-                            '<p><a href="{}" target="_blank">{}</a> <span style="color: {};">({}</span>)</p>',
-                            doc_url,
-                            doc.c_wsmc,
-                            status_color,
-                            doc.get_download_status_display(),
+                    try:
+                        doc_url = reverse("admin:automation_courtdocument_change", args=[cast(int, doc.id)])
+                        parts.append(
+                            format_html(
+                                '<p><a href="{}" target="_blank">{}</a> <span style="color: {};">({}</span>)</p>',
+                                doc_url,
+                                doc.c_wsmc,
+                                status_color,
+                                doc.get_download_status_display(),
+                            )
                         )
-                    )
+                    except Exception:
+                        parts.append(
+                            format_html(
+                                '<p>{} <span style="color: {};">({}</span>)</p>',
+                                doc.c_wsmc,
+                                status_color,
+                                doc.get_download_status_display(),
+                            )
+                        )
                 return format_html_join("", "{}", ((p,) for p in parts))
         return "-"
 
