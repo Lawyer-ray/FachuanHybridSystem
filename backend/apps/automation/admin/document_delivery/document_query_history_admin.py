@@ -24,6 +24,7 @@ from apps.automation.models import DocumentQueryHistory
 logger = logging.getLogger("apps.automation")
 
 
+@admin.register(DocumentQueryHistory)
 class DocumentQueryHistoryAdmin(admin.ModelAdmin[DocumentQueryHistory]):
     """文书查询历史管理"""
 
@@ -219,6 +220,10 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin[DocumentQueryHistory]):
 
     def has_delete_permission(self, request: HttpRequest, obj: DocumentQueryHistory | None = None) -> bool:
         return True
+
+    def get_model_perms(self, request: HttpRequest) -> dict[str, bool]:
+        """隐藏 Admin 首页入口，但保留直接 URL 访问能力"""
+        return {}
 
     def get_actions(self, request: HttpRequest) -> dict[str, Any]:
         """自定义批量操作"""
