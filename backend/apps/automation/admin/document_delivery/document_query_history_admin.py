@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from datetime import timedelta
-from typing import Any, ClassVar
+from typing import Any
 
 from django.contrib import admin
 from django.db.models import QuerySet
@@ -28,7 +28,7 @@ logger = logging.getLogger("apps.automation")
 class DocumentQueryHistoryAdmin(admin.ModelAdmin[DocumentQueryHistory]):
     """文书查询历史管理"""
 
-    list_display: ClassVar[list[str]] = [
+    list_display = [
         "id",
         "credential_display",
         "case_number",
@@ -37,23 +37,23 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin[DocumentQueryHistory]):
         "queried_at_display",
     ]
 
-    list_filter: ClassVar[list[Any]] = [
+    list_filter = [
         "send_time",
         "queried_at",
         ("credential", admin.RelatedFieldListFilter),
         ("court_sms", admin.RelatedFieldListFilter),
     ]
 
-    search_fields: ClassVar[list[str]] = [
+    search_fields = [
         "case_number",
         "credential__account",
         "credential__site_name",
     ]
 
-    ordering: ClassVar[list[str]] = ["-queried_at"]
+    ordering = ["-queried_at"]
     list_per_page = 50
 
-    readonly_fields: ClassVar[list[str]] = [
+    readonly_fields = [
         "id",
         "credential",
         "case_number",
@@ -64,7 +64,7 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin[DocumentQueryHistory]):
         "time_since_query",
     ]
 
-    fieldsets: ClassVar[tuple[Any, ...]] = (
+    fieldsets = (
         (
             _("查询信息"),
             {"fields": ("id", "credential", "case_number", "send_time")},
@@ -228,7 +228,11 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin[DocumentQueryHistory]):
     def get_actions(self, request: HttpRequest) -> dict[str, Any]:
         """自定义批量操作"""
         actions = super().get_actions(request)
-        actions["delete_old_records"] = (self.delete_old_records, "delete_old_records", _("删除30天前的记录"))
+        actions["delete_old_records"] = (  # type: ignore[assignment]
+            self.delete_old_records,
+            "delete_old_records",
+            _("删除30天前的记录"),
+        )
         return actions
 
     def delete_old_records(self, request: HttpRequest, queryset: QuerySet[DocumentQueryHistory]) -> None:

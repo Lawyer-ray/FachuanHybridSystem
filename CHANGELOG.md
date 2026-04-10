@@ -7,6 +7,7 @@
 ### 后端
 
 - 隐藏 `CourtDocument`、`DocumentQueryHistory`、`CourtToken` 三个模型的 Admin 首页入口，通过 `get_model_perms` 返回空字典实现，保留直接 URL 访问能力和关联链接功能。
+- 修复 `token_admin.py` 和 `document_query_history_admin.py` 的 mypy 类型错误（移除 `ClassVar` 注解、添加 `type: ignore` 标注）。
 
 ### 文档
 
