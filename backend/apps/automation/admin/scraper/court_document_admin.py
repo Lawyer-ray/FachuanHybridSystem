@@ -24,6 +24,7 @@ def _get_court_document_admin_service() -> Any:
     return CourtDocumentAdminService()
 
 
+@admin.register(CourtDocument)
 class CourtDocumentAdmin(admin.ModelAdmin[CourtDocument]):
     """
     法院文书管理 Admin
