@@ -257,6 +257,10 @@ class CourtDocumentAdmin(admin.ModelAdmin[CourtDocument]):
         """允许删除"""
         return True
 
+    def get_model_perms(self, request: HttpRequest) -> dict[str, bool]:
+        """隐藏 Admin 首页入口，但保留直接 URL 访问能力"""
+        return {}
+
     # 定义批量操作
     actions = ["batch_download_documents", "batch_delete_with_files", "retry_failed_downloads"]
 
