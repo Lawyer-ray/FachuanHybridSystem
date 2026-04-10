@@ -24,6 +24,58 @@ class SMSDownloadMixin:
         password = password_match.group(1).strip() if password_match else None
         return account, password
 
+    def _collect_lawyer_phones(self, sms: CourtSMS) -> list[str]:
+        """收集律师手机号列表，优先发起任务律师，再所有律师。
+
+        集约送达链接需要用律师手机号登录，按优先级排列：
+        1. 关联案件的承办律师（通过 assignment）
+        2. 管理员律师
+        3. 所有有手机号的律师
+        """
+        phones: list[str] = []
+        seen: set[str] = set()
+
+        def _add_phone(phone: str) -> None:
+            cleaned = phone.strip()
+            if cleaned and cleaned not in seen:
+                seen.add(cleaned)
+                phones.append(cleaned)
+
+        # 优先从关联案件获取承办律师手机号
+        if sms.case:
+            try:
+                from apps.cases.models import CaseAssignment
+
+                for assignment in CaseAssignment.objects.select_related("lawyer").filter(case=sms.case).order_by("id"):
+                    lawyer = assignment.lawyer
+                    phone = str(getattr(lawyer, "phone", "") or "").strip()
+                    if phone:
+                        _add_phone(phone)
+            except Exception as exc:
+                logger.warning(f"短信 {sms.id} 获取案件承办律师失败: {exc}")
+
+        # 补充管理员律师
+        try:
+            from apps.core.interfaces import ServiceLocator
+
+            lawyer_service = ServiceLocator.get_lawyer_service()
+            admin_lawyer = lawyer_service.get_admin_lawyer()
+            if admin_lawyer and admin_lawyer.phone:
+                _add_phone(admin_lawyer.phone)
+        except Exception as exc:
+            logger.warning(f"短信 {sms.id} 获取管理员律师失败: {exc}")
+
+        # 最后补充所有有手机号的律师
+        try:
+            from apps.organization.models import Lawyer
+
+            for lawyer in Lawyer.objects.exclude(phone__isnull=True).exclude(phone="").order_by("id"):
+                _add_phone(str(lawyer.phone).strip())
+        except Exception as exc:
+            logger.warning(f"短信 {sms.id} 获取全部律师手机号失败: {exc}")
+
+        return phones
+
     def _create_download_task(self, sms: CourtSMS) -> ScraperTask | None:
         """创建下载任务并关联到短信记录，然后提交到 Django Q 队列执行"""
         if not sms.download_links:
@@ -40,6 +92,14 @@ class SMSDownloadMixin:
                     logger.info(f"短信 {sms.id} 提取到湖北账号模式凭证，将在下载阶段临时使用（不落库）")
                 else:
                     logger.warning(f"短信 {sms.id} 为湖北账号模式但未提取到完整凭证")
+
+            if "jysd.10102368.com" in download_url:
+                lawyer_phones = self._collect_lawyer_phones(sms)
+                if lawyer_phones:
+                    task_config["jysd_lawyer_phones"] = lawyer_phones
+                    logger.info(f"短信 {sms.id} 为集约送达链接，注入 {len(lawyer_phones)} 个律师手机号")
+                else:
+                    logger.warning(f"短信 {sms.id} 为集约送达链接但未找到律师手机号")
 
             task = ScraperTask.objects.create(
                 task_type=ScraperTaskType.COURT_DOCUMENT,
