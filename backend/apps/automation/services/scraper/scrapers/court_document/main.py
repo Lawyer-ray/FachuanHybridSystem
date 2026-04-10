@@ -28,7 +28,7 @@ class CourtDocumentScraper(BaseCourtDocumentScraper):
     根据不同的链接格式,自动选择对应的下载策略:
     - zxfw.court.gov.cn: 法院执行网
     - sd.gdems.com: 广东电子送达
-    - jysd.10102368.com: 集约送达
+    - jysd.10102368.com: 简易送达
     - dzsd.hbfy.gov.cn: 湖北电子送达
     """
 

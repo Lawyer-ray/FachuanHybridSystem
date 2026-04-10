@@ -47,7 +47,7 @@ class SMSParserService:
     # 格式: https://sd.gdems.com/v3/dzsd/xxxxx
     GDEMS_LINK_PATTERN = re.compile(r"https://sd\.gdems\.com/v3/dzsd/[a-zA-Z0-9]+", re.IGNORECASE)
 
-    # 集约送达链接正则 - jysd.10102368.com
+    # 简易送达链接正则 - jysd.10102368.com
     # 格式: https://jysd.10102368.com/sd?key=xxxxx
     JYSD_LINK_PATTERN = re.compile(r"https://jysd\.10102368\.com/sd\?key=[a-zA-Z0-9_\-]+", re.IGNORECASE)
 
@@ -226,12 +226,12 @@ class SMSParserService:
                 valid_links.append(link)
                 logger.info(f"提取到广东电子送达链接: {link}")
 
-        # 3. 提取 jysd.10102368.com 链接（集约送达）
+        # 3. 提取 jysd.10102368.com 链接（简易送达）
         jysd_matches = self.JYSD_LINK_PATTERN.findall(content)
         for link in set(jysd_matches):
             if link not in valid_links:
                 valid_links.append(link)
-                logger.info(f"提取到集约送达链接: {link}")
+                logger.info(f"提取到简易送达链接: {link}")
 
         # 4. 提取湖北电子送达免账号链接
         hbfy_public_matches = self.HBFY_PUBLIC_LINK_PATTERN.findall(content)
@@ -277,7 +277,7 @@ class SMSParserService:
         if "sd.gdems.com" in link_lower:
             return True
 
-        # 集约送达链接 (jysd.10102368.com)
+        # 简易送达链接 (jysd.10102368.com)
         if "jysd.10102368.com" in link_lower:
             return True
 
