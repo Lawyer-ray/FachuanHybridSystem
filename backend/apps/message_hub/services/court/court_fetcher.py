@@ -69,32 +69,40 @@ def _acquire_token(credential_id: int) -> str:
         cache_manager.cache_token(credential.site_name, credential.account, db_token.token)
         return str(db_token.token)
 
-    # 3. 执行 Playwright 登录（在当前线程独立创建实例，避免 greenlet 跨线程问题）
+    # 3. 执行 Playwright 登录（在独立线程中运行，兼容 Django-Q2 的 asyncio 事件循环）
     logger.info("一张网收件箱: 缓存和数据库均无有效 Token，执行 Playwright 登录")
-    from playwright.sync_api import sync_playwright
+    import concurrent.futures
 
     from apps.automation.services.scraper.sites.court_zxfw import CourtZxfwService
 
-    pw = sync_playwright().start()
-    browser = pw.chromium.launch(headless=True, args=["--no-sandbox"])
-    page = browser.new_page()
-    try:
-        court_svc = CourtZxfwService(page=page, context=page.context, site_name="court_zxfw")
-        result = court_svc.login(account=credential.account, password=credential.password, max_captcha_retries=3)
-        if not result.get("success"):
-            raise RuntimeError(result.get("message", "登录失败"))
-        token = result.get("token")
-        if not token:
-            raise RuntimeError(_("登录成功但未获取到 Token"))
-        # 缓存
-        cache_manager.cache_token(credential.site_name, credential.account, token)
-        return str(token)
-    finally:
+    def _playwright_login() -> str:
+        from playwright.sync_api import sync_playwright
+
+        pw = sync_playwright().start()
+        browser = pw.chromium.launch(headless=True, args=["--no-sandbox"])
+        page = browser.new_page()
         try:
-            browser.close()
-            pw.stop()
-        except Exception:
-            pass
+            court_svc = CourtZxfwService(page=page, context=page.context, site_name="court_zxfw")
+            result = court_svc.login(account=credential.account, password=credential.password, max_captcha_retries=3)
+            if not result.get("success"):
+                raise RuntimeError(result.get("message", "登录失败"))
+            token = result.get("token")
+            if not token:
+                raise RuntimeError(_("登录成功但未获取到 Token"))
+            return str(token)
+        finally:
+            try:
+                browser.close()
+                pw.stop()
+            except Exception:
+                pass
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(_playwright_login)
+        token = future.result(timeout=120)
+
+    cache_manager.cache_token(credential.site_name, credential.account, token)
+    return token
 
 
 def _build_subject(record: dict[str, Any]) -> str:
