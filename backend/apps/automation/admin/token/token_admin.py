@@ -5,7 +5,7 @@ Token 管理 Admin
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from typing import Any
 
 from django.contrib import admin
 from django.db.models import QuerySet
@@ -39,7 +39,7 @@ class CourtTokenAdmin(admin.ModelAdmin[CourtToken]):
         """隐藏 Admin 首页入口，但保留直接 URL 访问能力"""
         return {}
 
-    list_display: ClassVar[list[str]] = [
+    list_display = [
         "id",
         "site_name_display",
         "account",
@@ -51,20 +51,20 @@ class CourtTokenAdmin(admin.ModelAdmin[CourtToken]):
         "updated_at",
     ]
 
-    list_filter: ClassVar[list[str]] = [
+    list_filter = [
         "site_name",
         "token_type",
         "created_at",
         "expires_at",
     ]
 
-    search_fields: ClassVar[list[str]] = [
+    search_fields = [
         "site_name",
         "account",
         "token",
     ]
 
-    readonly_fields: ClassVar[list[str]] = [
+    readonly_fields = [
         "id",
         "token_full",
         "status_display",
@@ -73,7 +73,7 @@ class CourtTokenAdmin(admin.ModelAdmin[CourtToken]):
         "updated_at",
     ]
 
-    fieldsets: ClassVar[tuple[Any, ...]] = (
+    fieldsets = (
         (
             _("基本信息"),
             {
@@ -85,7 +85,7 @@ class CourtTokenAdmin(admin.ModelAdmin[CourtToken]):
         (_("时间信息"), {"fields": ("expires_at", "created_at", "updated_at")}),
     )
 
-    ordering: ClassVar[list[str]] = ["-created_at"]
+    ordering = ["-created_at"]
     date_hierarchy = "created_at"
 
     list_per_page = 50
@@ -93,14 +93,14 @@ class CourtTokenAdmin(admin.ModelAdmin[CourtToken]):
     @admin.display(description=_("站点"))
     def site_name_display(self, obj: CourtToken) -> str:
         """显示可读站点名称"""
-        return SITE_NAME_LABELS.get(obj.site_name, obj.site_name)
+        return SITE_NAME_LABELS.get(obj.site_name, obj.site_name)  # type: ignore[no-any-return]
 
     @admin.display(description=_("Token 预览"))
     def token_preview(self, obj: CourtToken) -> str:
         """Token 预览（只显示前20个字符）"""
         if len(obj.token) > 20:
             return f"{obj.token[:20]}..."
-        return obj.token
+        return obj.token  # type: ignore[no-any-return]
 
     @admin.display(description=_("完整 Token"))
     def token_full(self, obj: CourtToken) -> SafeString:
@@ -162,7 +162,7 @@ class CourtTokenAdmin(admin.ModelAdmin[CourtToken]):
         """自定义批量操作"""
         actions = super().get_actions(request)
 
-        actions["delete_expired_tokens"] = (
+        actions["delete_expired_tokens"] = (  # type: ignore[assignment]
             self.delete_expired_tokens,
             "delete_expired_tokens",
             _("删除已过期的一张网/保全Token"),
