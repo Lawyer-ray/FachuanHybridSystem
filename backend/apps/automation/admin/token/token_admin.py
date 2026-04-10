@@ -23,7 +23,6 @@ SITE_NAME_LABELS: dict[str, str] = {
 }
 
 
-@admin.register(CourtToken)
 class CourtTokenAdmin(admin.ModelAdmin[CourtToken]):
     """
     一张网/保全系统 Token 管理 Admin
