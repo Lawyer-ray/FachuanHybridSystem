@@ -2,6 +2,21 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.33.4] - 2026-04-10
+
+### 后端
+
+- 新增简易送达 (jysd.10102368.com) 类型法院短信的解析与下载功能：
+  - `SMSParserService._is_valid_download_link()` 新增 jysd 链接验证规则。
+  - `SMSDownloadMixin` 创建下载任务时自动注入律师手机号到 `ScraperTask.config`，手机号按优先级排列：案件承办律师 → 管理员律师 → 所有律师。
+  - 新建 `JysdCourtScraper`，实现 Playwright 自动化下载流程：iframe 内手机号登录 → 中间页面点击"查看文书详情" → el-table 表格逐行下载文书。
+  - 下载策略采用 Playwright click 优先、JS click fallback，确保所有文书均可下载。
+  - `CourtDocumentScraper` 主入口注册 jysd 路由分发。
+
+### 文档
+
+- `README` 版本号更新为 `26.33.4`。
+
 ## [26.33.3] - 2026-04-10
 
 ### 后端
