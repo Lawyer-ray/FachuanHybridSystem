@@ -1,8 +1,8 @@
 """
-集约送达平台 (jysd.10102368.com) 文书下载爬虫
+简易送达平台 (jysd.10102368.com) 文书下载爬虫
 
 流程：
-1. 访问集约送达链接（重定向到 sdPc 页面，iframe 加载 checkLoginPc）
+1. 访问简易送达链接（重定向到 sdPc 页面，iframe 加载 checkLoginPc）
 2. 在 iframe (sd5.sifayun.com) 内输入手机号并点击"登录"
 3. 登录成功 → iframe 跳转到 middlePagePc（中间页面，显示案号和"查看文书详情"按钮）
 4. 点击"查看文书详情" → iframe 跳转到 home（文书详情页面）
@@ -25,7 +25,7 @@ logger = logging.getLogger("apps.automation")
 
 
 class JysdCourtScraper(BaseCourtDocumentScraper):
-    """集约送达 (jysd.10102368.com) 文书下载爬虫"""
+    """简易送达 (jysd.10102368.com) 文书下载爬虫"""
 
     # 最大尝试手机号数量
     _MAX_PHONE_ATTEMPTS = 10
@@ -36,16 +36,16 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
 
     def run(self) -> dict[str, Any]:
         """执行文书下载任务"""
-        logger.info("开始处理集约送达链接: %s", self.task.url)
+        logger.info("开始处理简易送达链接: %s", self.task.url)
 
         download_dir = self._prepare_download_dir()
 
         # 获取律师手机号列表
         lawyer_phones = self._get_lawyer_phones()
         if not lawyer_phones:
-            raise ValueError("集约送达链接需要律师手机号登录，但未找到任何律师手机号")
+            raise ValueError("简易送达链接需要律师手机号登录，但未找到任何律师手机号")
 
-        logger.info("集约送达: 共 %d 个律师手机号待尝试", len(lawyer_phones))
+        logger.info("简易送达: 共 %d 个律师手机号待尝试", len(lawyer_phones))
 
         # 导航到目标页面
         self.navigate_to_url(timeout=30000)
@@ -58,7 +58,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
 
         for idx, phone in enumerate(phones_to_try):
             logger.info(
-                "集约送达: 尝试第 %d/%d 个手机号 %s",
+                "简易送达: 尝试第 %d/%d 个手机号 %s",
                 idx + 1,
                 len(phones_to_try),
                 self._mask_phone(phone),
@@ -72,46 +72,46 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
             # 获取 iframe
             iframe = self._get_sifayun_iframe()
             if iframe is None:
-                logger.warning("集约送达: iframe 未加载，跳过手机号 %s", self._mask_phone(phone))
+                logger.warning("简易送达: iframe 未加载，跳过手机号 %s", self._mask_phone(phone))
                 continue
 
             # 检查是否已经登录（可能是之前的 session）
             if "checkLoginPc" not in (iframe.url or ""):
-                logger.info("集约送达: iframe 不在登录页（URL=%s），视为已登录", iframe.url[:80])
+                logger.info("简易送达: iframe 不在登录页（URL=%s），视为已登录", iframe.url[:80])
                 login_success = True
                 break
 
             # 输入手机号并登录
             login_success = self._try_login_with_phone(iframe, phone)
             if login_success:
-                logger.info("集约送达: 手机号 %s 登录成功", self._mask_phone(phone))
+                logger.info("简易送达: 手机号 %s 登录成功", self._mask_phone(phone))
                 break
 
-            logger.info("集约送达: 手机号 %s 登录失败，尝试下一个", self._mask_phone(phone))
+            logger.info("简易送达: 手机号 %s 登录失败，尝试下一个", self._mask_phone(phone))
 
         if not login_success:
             self._save_page_state("jysd_all_phones_failed")
-            raise ValueError(f"所有 {len(phones_to_try)} 个律师手机号均无法登录集约送达平台")
+            raise ValueError(f"所有 {len(phones_to_try)} 个律师手机号均无法登录简易送达平台")
 
         # 登录成功 → 处理中间页面 → 进入文书详情页
         iframe = self._navigate_to_document_page()
         if iframe is None:
             self._save_page_state("jysd_no_doc_page")
-            raise ValueError("集约送达: 无法进入文书详情页面")
+            raise ValueError("简易送达: 无法进入文书详情页面")
 
         # 下载文书
         files = self._download_documents_from_table(iframe, download_dir)
 
         if not files:
             self._save_page_state("jysd_no_documents")
-            raise ValueError("集约送达: 文书详情页面未下载到任何文书")
+            raise ValueError("简易送达: 文书详情页面未下载到任何文书")
 
         return {
             "source": "jysd.10102368.com",
             "files": files,
             "downloaded_count": len(files),
             "failed_count": 0,
-            "message": f"集约送达下载成功: {len(files)} 份",
+            "message": f"简易送达下载成功: {len(files)} 份",
         }
 
     # ==================== 手机号管理 ====================
@@ -144,7 +144,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
                 if "sifayun.com" in frame_url:
                     return frame
         except Exception as exc:
-            logger.warning("集约送达: 遍历 frames 时出错: %s", exc)
+            logger.warning("简易送达: 遍历 frames 时出错: %s", exc)
 
         return None
 
@@ -161,7 +161,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
             # 定位手机号输入框（placeholder 是"请输入手机号"）
             phone_input = iframe.locator("input[placeholder*='手机号']")
             if phone_input.count() == 0:
-                logger.warning("集约送达: iframe 内未找到手机号输入框")
+                logger.warning("简易送达: iframe 内未找到手机号输入框")
                 self.screenshot("jysd_no_phone_input")
                 return False
 
@@ -169,7 +169,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
             phone_input.first.click(force=True, timeout=5000)
             phone_input.first.fill("")
             phone_input.first.fill(phone)
-            logger.info("集约送达: 已输入手机号")
+            logger.info("简易送达: 已输入手机号")
 
             # 等待一小段时间模拟人工操作
             assert self.page is not None
@@ -179,9 +179,9 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
             login_btn = iframe.locator("button:has-text('登录')")
             if login_btn.count() > 0:
                 login_btn.first.click(force=True, timeout=5000)
-                logger.info("集约送达: 已点击登录按钮")
+                logger.info("简易送达: 已点击登录按钮")
             else:
-                logger.warning("集约送达: 未找到登录按钮")
+                logger.warning("简易送达: 未找到登录按钮")
                 self.screenshot("jysd_no_login_btn")
                 return False
 
@@ -192,7 +192,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
             return self._check_login_result()
 
         except Exception as exc:
-            logger.warning("集约送达: 手机号登录过程出错: %s", exc)
+            logger.warning("简易送达: 手机号登录过程出错: %s", exc)
             return False
 
     def _check_login_result(self) -> bool:
@@ -202,22 +202,22 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
         """
         iframe = self._get_sifayun_iframe()
         if iframe is None:
-            logger.info("集约送达: 登录后找不到 iframe，视为失败")
+            logger.info("简易送达: 登录后找不到 iframe，视为失败")
             return False
 
         iframe_url = iframe.url or ""
         # 登录成功后 iframe 会跳转到 middlePagePc
         if "middlePagePc" in iframe_url:
-            logger.info("集约送达: iframe 已跳转到中间页面，登录成功")
+            logger.info("简易送达: iframe 已跳转到中间页面，登录成功")
             return True
 
         # 检查是否还在登录页
         if "checkLoginPc" in iframe_url:
-            logger.info("集约送达: iframe 仍在登录页，登录失败")
+            logger.info("简易送达: iframe 仍在登录页，登录失败")
             return False
 
         # 其他 URL，可能是已登录状态
-        logger.info("集约送达: iframe URL=%s，可能已登录", iframe_url[:80])
+        logger.info("简易送达: iframe URL=%s，可能已登录", iframe_url[:80])
         return "home" in iframe_url or "middlePage" in iframe_url
 
     # ==================== 中间页面 → 文书详情 ====================
@@ -238,12 +238,12 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
 
         # 已经在文书详情页
         if "home" in iframe_url:
-            logger.info("集约送达: 已在文书详情页面")
+            logger.info("简易送达: 已在文书详情页面")
             return iframe
 
         # 在中间页面，需要点击"查看文书详情"
         if "middlePagePc" in iframe_url:
-            logger.info("集约送达: 在中间页面，点击'查看文书详情'")
+            logger.info("简易送达: 在中间页面，点击'查看文书详情'")
 
             view_btn = iframe.locator("button:has-text('查看文书详情')")
             if view_btn.count() > 0:
@@ -253,16 +253,16 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
                 # 重新获取 iframe
                 iframe = self._get_sifayun_iframe()
                 if iframe is not None:
-                    logger.info("集约送达: 已进入文书详情页面, URL=%s", iframe.url[:80])
+                    logger.info("简易送达: 已进入文书详情页面, URL=%s", iframe.url[:80])
                     return iframe
 
-            logger.warning("集约送达: 中间页面未找到'查看文书详情'按钮")
+            logger.warning("简易送达: 中间页面未找到'查看文书详情'按钮")
             # 尝试截图调试
             self.screenshot("jysd_no_view_btn")
             return iframe  # 返回当前 iframe 尝试继续
 
         # 还在登录页或其他页面
-        logger.warning("集约送达: iframe 不在预期的页面, URL=%s", iframe_url[:80])
+        logger.warning("简易送达: iframe 不在预期的页面, URL=%s", iframe_url[:80])
         return iframe
 
     # ==================== 文书下载 ====================
@@ -287,13 +287,13 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
         # 获取表格行数
         rows = iframe.locator(".el-table__body-wrapper tr.el-table__row")
         total = rows.count()
-        logger.info("集约送达: 文书表格共 %d 行", total)
+        logger.info("简易送达: 文书表格共 %d 行", total)
 
         if total == 0:
             # 备选选择器
             rows = iframe.locator(".el-table__body tr")
             total = rows.count()
-            logger.info("集约送达: 备选选择器找到 %d 行", total)
+            logger.info("简易送达: 备选选择器找到 %d 行", total)
 
         for i in range(total):
             try:
@@ -315,7 +315,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
                     pass
 
                 logger.info(
-                    "集约送达: 下载第 %d/%d 个文书%s",
+                    "简易送达: 下载第 %d/%d 个文书%s",
                     i + 1, total, f" ({doc_name})" if doc_name else "",
                 )
 
@@ -327,7 +327,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
                 self.page.wait_for_timeout(1500)
 
             except Exception as exc:
-                logger.warning("集约送达: 下载第 %d 个文书失败: %s", i + 1, exc)
+                logger.warning("简易送达: 下载第 %d 个文书失败: %s", i + 1, exc)
 
         return files
 
@@ -361,7 +361,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
                     download_btn.first.click(force=True, timeout=5000)
                 return self._save_download(download_info.value, download_dir, doc_name, index)
         except Exception:
-            logger.info("集约送达: Playwright click 超时，尝试 JS click")
+            logger.info("简易送达: Playwright click 超时，尝试 JS click")
 
         # 策略2: JS click（Playwright force click 有时无法触发 Vue 事件）
         try:
@@ -369,7 +369,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
                 row.evaluate("r => r.querySelector('button')?.click()")
             return self._save_download(download_info.value, download_dir, doc_name, index)
         except Exception:
-            logger.info("集约送达: JS click 也超时，检查确认对话框")
+            logger.info("简易送达: JS click 也超时，检查确认对话框")
 
         # 策略3: 检查是否弹出了确认对话框
         try:
@@ -379,12 +379,12 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
                 "button:has-text('下载文书并核验')"
             )
             if confirm_btn.count() > 0 and confirm_btn.first.is_visible():
-                logger.info("集约送达: 检测到下载确认对话框，点击'下载文书并核验'")
+                logger.info("简易送达: 检测到下载确认对话框，点击'下载文书并核验'")
                 with self.page.expect_download(timeout=30000) as download_info:
                     confirm_btn.first.click(force=True, timeout=5000)
                 return self._save_download(download_info.value, download_dir, doc_name, index)
         except Exception as exc:
-            logger.warning("集约送达: 确认对话框下载也失败: %s", exc)
+            logger.warning("简易送达: 确认对话框下载也失败: %s", exc)
 
         return None
 
@@ -412,7 +412,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
 
         filepath = download_dir / filename
         download.save_as(str(filepath))
-        logger.info("集约送达: 下载成功: %s", filepath)
+        logger.info("简易送达: 下载成功: %s", filepath)
         return str(filepath)
 
     @staticmethod

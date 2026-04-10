@@ -27,7 +27,7 @@ class SMSDownloadMixin:
     def _collect_lawyer_phones(self, sms: CourtSMS) -> list[str]:
         """收集律师手机号列表，优先发起任务律师，再所有律师。
 
-        集约送达链接需要用律师手机号登录，按优先级排列：
+        简易送达链接需要用律师手机号登录，按优先级排列：
         1. 关联案件的承办律师（通过 assignment）
         2. 管理员律师
         3. 所有有手机号的律师
@@ -97,9 +97,9 @@ class SMSDownloadMixin:
                 lawyer_phones = self._collect_lawyer_phones(sms)
                 if lawyer_phones:
                     task_config["jysd_lawyer_phones"] = lawyer_phones
-                    logger.info(f"短信 {sms.id} 为集约送达链接，注入 {len(lawyer_phones)} 个律师手机号")
+                    logger.info(f"短信 {sms.id} 为简易送达链接，注入 {len(lawyer_phones)} 个律师手机号")
                 else:
-                    logger.warning(f"短信 {sms.id} 为集约送达链接但未找到律师手机号")
+                    logger.warning(f"短信 {sms.id} 为简易送达链接但未找到律师手机号")
 
             task = ScraperTask.objects.create(
                 task_type=ScraperTaskType.COURT_DOCUMENT,
