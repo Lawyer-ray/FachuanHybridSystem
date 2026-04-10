@@ -2,10 +2,13 @@
 集约送达平台 (jysd.10102368.com) 文书下载爬虫
 
 流程：
-1. 访问集约送达链接（会重定向到 sdPc 页面）
-2. 页面内嵌 iframe (sd5.sifayun.com)，在 iframe 内输入手机号并登录
-3. 登录后展示文书列表，逐个下载
-4. 手机号验证策略：优先尝试案件承办律师手机号，逐一尝试直到成功
+1. 访问集约送达链接（重定向到 sdPc 页面，iframe 加载 checkLoginPc）
+2. 在 iframe (sd5.sifayun.com) 内输入手机号并点击"登录"
+3. 登录成功 → iframe 跳转到 middlePagePc（中间页面，显示案号和"查看文书详情"按钮）
+4. 点击"查看文书详情" → iframe 跳转到 home（文书详情页面）
+5. 文书详情页面有 el-table 表格，每行一个文书，操作列有"下载"按钮
+6. 逐个点击下载按钮下载文书
+7. 手机号验证策略：优先尝试案件承办律师手机号，逐一尝试直到成功
 """
 
 from __future__ import annotations
@@ -20,38 +23,16 @@ from .base_court_scraper import BaseCourtDocumentScraper
 
 logger = logging.getLogger("apps.automation")
 
-# 登录后页面可能出现的状态标记
-_LOGIN_SUCCESS_INDICATORS = [
-    "text=送达文书",
-    "text=文书列表",
-    "text=下载",
-    "text=查看",
-    ".document-list",
-    ".doc-list",
-    "table",
-]
-
-# 登录失败标记
-_LOGIN_FAIL_INDICATORS = [
-    "text=手机号不正确",
-    "text=手机号错误",
-    "text=验证失败",
-    "text=请输入正确的手机号",
-    "text=该手机号未注册",
-    "text=无权查看",
-    "text=号码不匹配",
-]
-
 
 class JysdCourtScraper(BaseCourtDocumentScraper):
     """集约送达 (jysd.10102368.com) 文书下载爬虫"""
 
     # 最大尝试手机号数量
     _MAX_PHONE_ATTEMPTS = 10
-    # 单个手机号登录后等待时间（秒）
-    _LOGIN_WAIT_SECONDS = 5
-    # 页面加载等待时间（秒）
-    _PAGE_LOAD_WAIT_SECONDS = 3
+    # 登录后等待时间（毫秒）
+    _LOGIN_WAIT_MS = 10000
+    # 页面加载等待时间（毫秒）
+    _PAGE_LOAD_WAIT_MS = 5000
 
     def run(self) -> dict[str, Any]:
         """执行文书下载任务"""
@@ -68,49 +49,62 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
 
         # 导航到目标页面
         self.navigate_to_url(timeout=30000)
-        self.page.wait_for_timeout(self._PAGE_LOAD_WAIT_SECONDS * 1000)  # type: ignore[union-attr]
-
-        # 等待 iframe 加载
-        iframe = self._wait_for_iframe()
-        if iframe is None:
-            self._save_page_state("jysd_no_iframe")
-            raise ValueError("集约送达页面未加载 iframe，无法继续")
-
-        logger.info("集约送达: iframe 已加载, src=%s", iframe.url[:100])
+        assert self.page is not None
+        self.page.wait_for_timeout(self._PAGE_LOAD_WAIT_MS)
 
         # 逐一尝试律师手机号登录
         login_success = False
         phones_to_try = lawyer_phones[: self._MAX_PHONE_ATTEMPTS]
 
         for idx, phone in enumerate(phones_to_try):
-            logger.info("集约送达: 尝试第 %d/%d 个手机号 %s", idx + 1, len(phones_to_try), phone[:3] + "****" + phone[-4:])
+            logger.info(
+                "集约送达: 尝试第 %d/%d 个手机号 %s",
+                idx + 1,
+                len(phones_to_try),
+                self._mask_phone(phone),
+            )
 
-            # 每次尝试前刷新页面，确保状态干净
+            # 每次尝试前刷新页面（除第一次），确保状态干净
             if idx > 0:
-                self.page.reload(wait_until="domcontentloaded", timeout=30000)  # type: ignore[union-attr]
-                self.page.wait_for_timeout(self._PAGE_LOAD_WAIT_SECONDS * 1000)  # type: ignore[union-attr]
-                iframe = self._wait_for_iframe()
-                if iframe is None:
-                    logger.warning("集约送达: 刷新后 iframe 未加载，跳过手机号 %s", phone[:3] + "****")
-                    continue
+                self.page.reload(wait_until="domcontentloaded", timeout=30000)
+                self.page.wait_for_timeout(self._PAGE_LOAD_WAIT_MS)
 
-            login_success = self._try_login_with_phone(iframe, phone)
-            if login_success:
-                logger.info("集约送达: 手机号 %s 登录成功", phone[:3] + "****" + phone[-4:])
+            # 获取 iframe
+            iframe = self._get_sifayun_iframe()
+            if iframe is None:
+                logger.warning("集约送达: iframe 未加载，跳过手机号 %s", self._mask_phone(phone))
+                continue
+
+            # 检查是否已经登录（可能是之前的 session）
+            if "checkLoginPc" not in (iframe.url or ""):
+                logger.info("集约送达: iframe 不在登录页（URL=%s），视为已登录", iframe.url[:80])
+                login_success = True
                 break
 
-            logger.info("集约送达: 手机号 %s 登录失败，尝试下一个", phone[:3] + "****" + phone[-4:])
+            # 输入手机号并登录
+            login_success = self._try_login_with_phone(iframe, phone)
+            if login_success:
+                logger.info("集约送达: 手机号 %s 登录成功", self._mask_phone(phone))
+                break
+
+            logger.info("集约送达: 手机号 %s 登录失败，尝试下一个", self._mask_phone(phone))
 
         if not login_success:
             self._save_page_state("jysd_all_phones_failed")
             raise ValueError(f"所有 {len(phones_to_try)} 个律师手机号均无法登录集约送达平台")
 
-        # 登录成功后下载文书
-        files = self._download_documents(iframe, download_dir)
+        # 登录成功 → 处理中间页面 → 进入文书详情页
+        iframe = self._navigate_to_document_page()
+        if iframe is None:
+            self._save_page_state("jysd_no_doc_page")
+            raise ValueError("集约送达: 无法进入文书详情页面")
+
+        # 下载文书
+        files = self._download_documents_from_table(iframe, download_dir)
 
         if not files:
             self._save_page_state("jysd_no_documents")
-            raise ValueError("集约送达登录成功但未下载到任何文书")
+            raise ValueError("集约送达: 文书详情页面未下载到任何文书")
 
         return {
             "source": "jysd.10102368.com",
@@ -120,6 +114,8 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
             "message": f"集约送达下载成功: {len(files)} 份",
         }
 
+    # ==================== 手机号管理 ====================
+
     def _get_lawyer_phones(self) -> list[str]:
         """从任务配置中获取律师手机号列表"""
         task_config = self.task.config if isinstance(self.task.config, dict) else {}
@@ -128,75 +124,61 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
             return [str(p).strip() for p in phones if str(p).strip()]
         return []
 
-    def _wait_for_iframe(self) -> Any | None:
-        """等待 iframe 加载并返回 iframe 的 frame 对象"""
+    @staticmethod
+    def _mask_phone(phone: str) -> str:
+        """手机号脱敏：136****0615"""
+        if len(phone) >= 7:
+            return phone[:3] + "****" + phone[-4:]
+        return "***"
+
+    # ==================== iframe 管理 ====================
+
+    def _get_sifayun_iframe(self) -> Any | None:
+        """获取 sifayun.com 的 iframe frame 对象"""
         assert self.page is not None
 
-        try:
-            # 等待 iframe 出现在 DOM 中
-            iframe_locator = self.page.locator("iframe#mainframe, iframe[src*='sifayun']")
-            if iframe_locator.count() > 0:
-                self.page.wait_for_timeout(2000)
-                # 获取 iframe 的 frame 对象
-                for frame in self.page.frames:
-                    if "sifayun.com" in (frame.url or ""):
-                        return frame
-                # 备选: 通过 name/id 查找
-                iframe_element = iframe_locator.first
-                frame = iframe_element.content_frame()  # type: ignore[operator]
-                if frame is not None:
-                    return frame
-        except Exception as exc:
-            logger.warning("集约送达: 等待 iframe 时出错: %s", exc)
-
-        # 备选方案: 直接遍历所有 frames
+        # 直接遍历 page.frames 查找（最可靠）
         try:
             for frame in self.page.frames:
                 frame_url = frame.url or ""
-                if "sifayun.com" in frame_url or "10102368" in frame_url:
+                if "sifayun.com" in frame_url:
                     return frame
         except Exception as exc:
             logger.warning("集约送达: 遍历 frames 时出错: %s", exc)
 
         return None
 
+    # ==================== 登录流程 ====================
+
     def _try_login_with_phone(self, iframe: Any, phone: str) -> bool:
-        """尝试在 iframe 内输入手机号并登录
+        """在 iframe 内输入手机号并登录
 
-        Args:
-            iframe: Playwright Frame 对象
-            phone: 手机号码
-
-        Returns:
-            True 表示登录成功
+        iframe 当前应该在 checkLoginPc 页面，包含：
+        - input[placeholder='请输入手机号']（注意是'手机号'不是'手机号码'）
+        - button:has-text('登录')
         """
         try:
-            # 定位手机号输入框
-            phone_input = iframe.locator("input[placeholder*='手机号'], input[placeholder*='手机号码'], input[type='tel']")
+            # 定位手机号输入框（placeholder 是"请输入手机号"）
+            phone_input = iframe.locator("input[placeholder*='手机号']")
             if phone_input.count() == 0:
                 logger.warning("集约送达: iframe 内未找到手机号输入框")
                 self.screenshot("jysd_no_phone_input")
                 return False
 
             # 清空并输入手机号
-            phone_input.first.click(force=True, timeout=3000)
+            phone_input.first.click(force=True, timeout=5000)
             phone_input.first.fill("")
             phone_input.first.fill(phone)
             logger.info("集约送达: 已输入手机号")
 
             # 等待一小段时间模拟人工操作
-            iframe.page().wait_for_timeout(500)
+            assert self.page is not None
+            self.page.wait_for_timeout(500)
 
             # 点击登录按钮
-            login_btn = iframe.locator(
-                "button:has-text('登录'), "
-                "button:has-text('确 定'), "
-                "button:has-text('确定'), "
-                ".login-btn, "
-                "button[type='submit']"
-            )
+            login_btn = iframe.locator("button:has-text('登录')")
             if login_btn.count() > 0:
-                login_btn.first.click(force=True, timeout=3000)
+                login_btn.first.click(force=True, timeout=5000)
                 logger.info("集约送达: 已点击登录按钮")
             else:
                 logger.warning("集约送达: 未找到登录按钮")
@@ -204,195 +186,209 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
                 return False
 
             # 等待页面响应
-            iframe.page().wait_for_timeout(self._LOGIN_WAIT_SECONDS * 1000)
+            self.page.wait_for_timeout(self._LOGIN_WAIT_MS)
 
-            # 检查登录结果
-            return self._check_login_result(iframe)
+            # 检查登录结果：iframe URL 应该从 checkLoginPc 变为 middlePagePc
+            return self._check_login_result()
 
         except Exception as exc:
             logger.warning("集约送达: 手机号登录过程出错: %s", exc)
             return False
 
-    def _check_login_result(self, iframe: Any) -> bool:
+    def _check_login_result(self) -> bool:
         """检查登录是否成功
 
-        通过检测成功/失败标记判断登录结果
+        登录成功：iframe URL 从 checkLoginPc 变为 middlePagePc
         """
-        try:
-            # 先检查失败标记
-            for fail_selector in _LOGIN_FAIL_INDICATORS:
-                try:
-                    fail_elem = iframe.locator(fail_selector)
-                    if fail_elem.count() > 0 and fail_elem.first.is_visible():
-                        fail_text = fail_elem.first.inner_text()
-                        logger.info("集约送达: 检测到登录失败标记: %s", fail_text[:50])
-                        return False
-                except Exception:
-                    continue
-
-            # 检查成功标记
-            for success_selector in _LOGIN_SUCCESS_INDICATORS:
-                try:
-                    success_elem = iframe.locator(success_selector)
-                    if success_elem.count() > 0 and success_elem.first.is_visible():
-                        logger.info("集约送达: 检测到登录成功标记: %s", success_selector)
-                        return True
-                except Exception:
-                    continue
-
-            # 如果既没有失败也没有明确的成功标记，检查 URL 变化
-            iframe_url = iframe.url or ""
-            if "login" not in iframe_url.lower() and "index" in iframe_url.lower():
-                logger.info("集约送达: URL 变化暗示登录成功")
-                return True
-
-            logger.info("集约送达: 未检测到明确的登录结果标记，视为失败")
+        iframe = self._get_sifayun_iframe()
+        if iframe is None:
+            logger.info("集约送达: 登录后找不到 iframe，视为失败")
             return False
 
-        except Exception as exc:
-            logger.warning("集约送达: 检查登录结果时出错: %s", exc)
+        iframe_url = iframe.url or ""
+        # 登录成功后 iframe 会跳转到 middlePagePc
+        if "middlePagePc" in iframe_url:
+            logger.info("集约送达: iframe 已跳转到中间页面，登录成功")
+            return True
+
+        # 检查是否还在登录页
+        if "checkLoginPc" in iframe_url:
+            logger.info("集约送达: iframe 仍在登录页，登录失败")
             return False
 
-    def _download_documents(self, iframe: Any, download_dir: Path) -> list[str]:
-        """登录成功后下载文书
+        # 其他 URL，可能是已登录状态
+        logger.info("集约送达: iframe URL=%s，可能已登录", iframe_url[:80])
+        return "home" in iframe_url or "middlePage" in iframe_url
 
-        Args:
-            iframe: Playwright Frame 对象
-            download_dir: 下载目录
+    # ==================== 中间页面 → 文书详情 ====================
 
-        Returns:
-            下载文件路径列表
+    def _navigate_to_document_page(self) -> Any | None:
+        """从中间页面导航到文书详情页面
+
+        中间页面 (middlePagePc) 有"查看文书详情"按钮，点击后进入文书详情 (home)。
+        如果已经在文书详情页面，直接返回 iframe。
         """
-        files: list[str] = []
         assert self.page is not None
 
-        # 等待文书列表加载
-        iframe.page().wait_for_timeout(2000)
+        iframe = self._get_sifayun_iframe()
+        if iframe is None:
+            return None
 
-        # 保存登录后页面状态
-        self.screenshot("jysd_after_login")
+        iframe_url = iframe.url or ""
 
-        # 尝试多种下载策略
+        # 已经在文书详情页
+        if "home" in iframe_url:
+            logger.info("集约送达: 已在文书详情页面")
+            return iframe
 
-        # 策略1: 寻找"下载全部"按钮
-        download_all_btn = iframe.locator(
-            "button:has-text('下载全部'), "
-            "a:has-text('下载全部'), "
-            "button:has-text('全部下载'), "
-            ".download-all"
+        # 在中间页面，需要点击"查看文书详情"
+        if "middlePagePc" in iframe_url:
+            logger.info("集约送达: 在中间页面，点击'查看文书详情'")
+
+            view_btn = iframe.locator("button:has-text('查看文书详情')")
+            if view_btn.count() > 0:
+                view_btn.first.click(force=True, timeout=5000)
+                self.page.wait_for_timeout(self._PAGE_LOAD_WAIT_MS)
+
+                # 重新获取 iframe
+                iframe = self._get_sifayun_iframe()
+                if iframe is not None:
+                    logger.info("集约送达: 已进入文书详情页面, URL=%s", iframe.url[:80])
+                    return iframe
+
+            logger.warning("集约送达: 中间页面未找到'查看文书详情'按钮")
+            # 尝试截图调试
+            self.screenshot("jysd_no_view_btn")
+            return iframe  # 返回当前 iframe 尝试继续
+
+        # 还在登录页或其他页面
+        logger.warning("集约送达: iframe 不在预期的页面, URL=%s", iframe_url[:80])
+        return iframe
+
+    # ==================== 文书下载 ====================
+
+    def _download_documents_from_table(self, iframe: Any, download_dir: Path) -> list[str]:
+        """从文书详情页面的 el-table 表格中下载文书
+
+        文书详情页面结构：
+        - el-table 表格，每行一个文书
+        - 列：文书类型 | 文书名称 | 最新查看时间 | 操作
+        - 操作列有 <button class="el-button el-button--danger el-button--mini is-plain">下载</button>
+        """
+        assert self.page is not None
+        files: list[str] = []
+
+        # 等待表格加载
+        self.page.wait_for_timeout(3000)
+        self.screenshot("jysd_doc_page")
+
+        # 查找表格中所有下载按钮
+        # 选择器：el-table body 内的下载按钮（排除 checkFileDialog 中的按钮）
+        download_buttons = iframe.locator(
+            ".el-table__body-wrapper button.el-button:has-text('下载')"
         )
-        if download_all_btn.count() > 0:
-            logger.info("集约送达: 找到下载全部按钮")
-            filepath = self._try_download_with_button(download_all_btn.first, download_dir, "jysd_all")
-            if filepath:
-                files.append(filepath)
-                return files
 
-        # 策略2: 逐个下载文书
-        doc_items = self._find_document_items(iframe)
-        if doc_items:
-            logger.info("集约送达: 找到 %d 个文书条目", len(doc_items))
-            for idx, item in enumerate(doc_items):
-                filepath = self._download_single_document(item, download_dir, idx)
+        count = download_buttons.count()
+        logger.info("集约送达: 在文书表格中找到 %d 个下载按钮", count)
+
+        if count == 0:
+            # 备选：查找表格行中的下载按钮
+            all_download_btns = iframe.locator(
+                ".el-table__body tr button:has-text('下载')"
+            )
+            count = all_download_btns.count()
+            logger.info("集约送达: 备选查找找到 %d 个下载按钮", count)
+            if count > 0:
+                download_buttons = all_download_btns
+
+        for i in range(count):
+            try:
+                # 获取文书名称（同一行的第二列）
+                doc_name = ""
+                try:
+                    # 获取当前行中的文书名称
+                    row = iframe.locator("table.el-table__body tr").nth(i)
+                    doc_name_cell = row.locator("td:nth-child(2) .cell")
+                    if doc_name_cell.count() > 0:
+                        doc_name = doc_name_cell.first.inner_text().strip()
+                except Exception:
+                    pass
+
+                logger.info("集约送达: 下载第 %d/%d 个文书%s", i + 1, count, f" ({doc_name})" if doc_name else "")
+
+                filepath = self._click_download_button(download_buttons.nth(i), download_dir, doc_name, i)
                 if filepath:
                     files.append(filepath)
 
-        # 策略3: 寻找所有下载链接/按钮
-        if not files:
-            files = self._try_download_all_links(iframe, download_dir)
+                # 下载间隔，避免过快
+                self.page.wait_for_timeout(1000)
 
-        # 策略4: 如果有预览，尝试从预览页面下载
-        if not files:
-            files = self._try_preview_and_download(iframe, download_dir)
+            except Exception as exc:
+                logger.warning("集约送达: 下载第 %d 个文书失败: %s", i, exc)
 
         return files
 
-    def _find_document_items(self, iframe: Any) -> list[Any]:
-        """在 iframe 中查找文书条目"""
-        selectors = [
-            ".doc-item",
-            ".document-item",
-            ".case-doc",
-            "tr:has(td)",
-            ".list-item",
-            "[class*='document']",
-            "[class*='doc-']",
-        ]
+    def _click_download_button(
+        self, button: Any, download_dir: Path, doc_name: str, index: int
+    ) -> str | None:
+        """点击下载按钮并保存文件
 
-        for selector in selectors:
-            try:
-                items = iframe.locator(selector)
-                if items.count() > 0:
-                    result = list(items.all())
-                    logger.info("集约送达: 通过 '%s' 找到 %d 个文书条目", selector, len(result))
-                    return result
-            except Exception:
-                continue
-
-        return []
-
-    def _download_single_document(self, item: Any, download_dir: Path, index: int) -> str | None:
-        """下载单个文书
+        点击"下载"按钮后可能弹出确认对话框（"下载文书并核验" / "直接核验"），
+        需要点击"下载文书并核验"来触发真正的下载。
 
         Args:
-            item: Playwright Locator 对象
+            button: Playwright Locator 对象
             download_dir: 下载目录
+            doc_name: 文书名称（用于文件命名）
             index: 文书序号
 
         Returns:
             下载文件路径，失败返回 None
         """
-        try:
-            # 查找下载按钮
-            download_btn = item.locator(
-                "button:has-text('下载'), "
-                "a:has-text('下载'), "
-                ".download-btn, "
-                "svg.download-icon, "
-                "img[alt*='下载']"
-            )
-
-            if download_btn.count() > 0:
-                return self._try_download_with_button(download_btn.first, download_dir, f"jysd_doc_{index}")
-
-            # 尝试点击条目本身
-            return self._try_download_with_button(item, download_dir, f"jysd_doc_{index}")
-
-        except Exception as exc:
-            logger.warning("集约送达: 下载第 %d 个文书失败: %s", index, exc)
-            return None
-
-    def _try_download_with_button(self, button: Any, download_dir: Path, prefix: str) -> str | None:
-        """尝试点击按钮下载文件
-
-        Args:
-            button: Playwright Locator 对象
-            download_dir: 下载目录
-            prefix: 文件名前缀
-
-        Returns:
-            下载文件路径，失败返回 None
-        """
         assert self.page is not None
 
         try:
-            captured: list[Any] = []
-            self.page.on("download", lambda d: captured.append(d))
-
+            # 点击"下载"按钮
             button.click(force=True, timeout=5000)
 
-            # 等待下载触发
-            for _ in range(20):
-                if captured:
-                    break
-                self.page.wait_for_timeout(500)
+            # 等待短暂时间，检查是否弹出了确认对话框
+            self.page.wait_for_timeout(1000)
 
-            if not captured:
-                return None
+            # 检查是否有"下载文书并核验"按钮（确认对话框）
+            confirm_btn = button.frame.locator(
+                ".checkFileDialog .el-dialog__wrapper:not([style*='display: none']) "
+                "button:has-text('下载文书并核验')"
+            )
+            if confirm_btn.count() > 0 and confirm_btn.first.is_visible():
+                logger.info("集约送达: 检测到下载确认对话框，点击'下载文书并核验'")
+                with self.page.expect_download(timeout=30000) as download_info:
+                    confirm_btn.first.click(force=True, timeout=5000)
+                download = download_info.value
+            else:
+                # 没有确认对话框，直接等待下载事件
+                # 重新点击下载按钮（因为第一次点击可能只是触发了对话框）
+                # 先尝试直接监听下载
+                try:
+                    # 如果上一次 click 已经触发了下载
+                    with self.page.expect_download(timeout=5000) as download_info:
+                        button.click(force=True, timeout=5000)
+                    download = download_info.value
+                except Exception:
+                    # 最后备选：再次点击并等待更长时间
+                    logger.info("集约送达: 首次下载未触发，重试点击")
+                    with self.page.expect_download(timeout=30000) as download_info:
+                        button.click(force=True, timeout=5000)
+                    download = download_info.value
 
-            download = captured[0]
-            filename = download.suggested_filename or f"{prefix}_{int(time.time())}.pdf"
-            filename = self._safe_filename(filename)
+            # 优先使用页面上的文书名称
+            suggested = download.suggested_filename or ""
+            if doc_name and doc_name.endswith(".pdf"):
+                filename = self._safe_filename(doc_name)
+            elif suggested:
+                filename = self._safe_filename(suggested)
+            else:
+                filename = f"jysd_doc_{index}_{int(time.time())}.pdf"
+
             filepath = download_dir / filename
             download.save_as(str(filepath))
             logger.info("集约送达: 下载成功: %s", filepath)
@@ -401,78 +397,6 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
         except Exception as exc:
             logger.warning("集约送达: 点击下载失败: %s", exc)
             return None
-
-    def _try_download_all_links(self, iframe: Any, download_dir: Path) -> list[str]:
-        """尝试查找所有下载链接并下载"""
-        assert self.page is not None
-        files: list[str] = []
-
-        try:
-            # 查找所有可能包含下载功能的链接
-            download_links = iframe.locator(
-                "a[href*='download'], "
-                "a[href*='.pdf'], "
-                "a[download], "
-                "button:has-text('下载')",
-            )
-
-            count = download_links.count()
-            logger.info("集约送达: 找到 %d 个下载链接", count)
-
-            for i in range(min(count, 20)):
-                try:
-                    filepath = self._try_download_with_button(
-                        download_links.nth(i), download_dir, f"jysd_link_{i}"
-                    )
-                    if filepath:
-                        files.append(filepath)
-                except Exception as exc:
-                    logger.warning("集约送达: 下载第 %d 个链接失败: %s", i, exc)
-
-        except Exception as exc:
-            logger.warning("集约送达: 查找下载链接时出错: %s", exc)
-
-        return files
-
-    def _try_preview_and_download(self, iframe: Any, download_dir: Path) -> list[str]:
-        """尝试预览文书后下载"""
-        assert self.page is not None
-        files: list[str] = []
-
-        try:
-            # 查找预览按钮
-            preview_btn = iframe.locator(
-                "button:has-text('预览'), "
-                "a:has-text('预览'), "
-                "button:has-text('查看'), "
-                "a:has-text('查看')",
-            )
-
-            if preview_btn.count() == 0:
-                return files
-
-            logger.info("集约送达: 找到预览按钮，尝试预览后下载")
-
-            # 点击第一个预览按钮
-            preview_btn.first.click(force=True, timeout=3000)
-            iframe.page().wait_for_timeout(2000)
-
-            # 在预览页面寻找下载按钮
-            download_btn = iframe.locator(
-                "button:has-text('下载'), "
-                "a:has-text('下载'), "
-                ".download-btn",
-            )
-
-            if download_btn.count() > 0:
-                filepath = self._try_download_with_button(download_btn.first, download_dir, "jysd_preview")
-                if filepath:
-                    files.append(filepath)
-
-        except Exception as exc:
-            logger.warning("集约送达: 预览下载尝试失败: %s", exc)
-
-        return files
 
     @staticmethod
     def _safe_filename(name: str) -> str:
