@@ -2,6 +2,18 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.33.3] - 2026-04-10
+
+### 后端
+
+- 修复一张网收件箱同步任务中 Playwright Sync API 在 Django-Q2 asyncio 事件循环内报错的问题，改用 `ThreadPoolExecutor` 在独立线程中运行 Playwright 登录。
+- GdemsCourtScraper 增加无文书可下载状态检测：当书记员未放置文件时，页面只有无绑定事件的"确定"按钮，此时返回通知内容而非报错。
+- 信息中转站同步任务预期错误列表新增 `sync api inside the asyncio loop` 关键词。
+
+### 文档
+
+- `README` 版本号更新为 `26.33.3`。
+
 ## [26.33.2] - 2026-04-09
 
 ### 后端
