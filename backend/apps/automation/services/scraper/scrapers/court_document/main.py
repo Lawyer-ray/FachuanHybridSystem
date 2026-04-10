@@ -76,7 +76,7 @@ class CourtDocumentScraper(BaseCourtDocumentScraper):
                 self._scraper.context = self.context
             if hasattr(self, "browser"):
                 self._scraper.browser = self.browser
-            return self._scraper.run()
+            return cast(dict[str, Any], self._scraper.run())
         elif "jysd.10102368.com" in url:
             self._scraper = JysdCourtScraper(self.task, self._document_service)
             if hasattr(self, "page"):
@@ -85,6 +85,6 @@ class CourtDocumentScraper(BaseCourtDocumentScraper):
                 self._scraper.context = self.context
             if hasattr(self, "browser"):
                 self._scraper.browser = self.browser
-            return cast(dict[str, Any], self._scraper.run())
+            return self._scraper.run()
         else:
             raise ValueError(f"不支持的链接格式: {url}")
