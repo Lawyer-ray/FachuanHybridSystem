@@ -231,7 +231,7 @@ class SMSParserService:
         for link in set(jysd_matches):
             if link not in valid_links:
                 valid_links.append(link)
-                logger.info(f"提取到简易送达链接: {link}")
+                logger.info("提取到简易送达链接（key 已脱敏）")
 
         # 4. 提取湖北电子送达免账号链接
         hbfy_public_matches = self.HBFY_PUBLIC_LINK_PATTERN.findall(content)

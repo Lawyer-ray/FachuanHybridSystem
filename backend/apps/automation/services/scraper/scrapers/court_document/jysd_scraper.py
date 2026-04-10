@@ -36,7 +36,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
 
     def run(self) -> dict[str, Any]:
         """执行文书下载任务"""
-        logger.info("开始处理简易送达链接: %s", self.task.url)
+        logger.info("开始处理简易送达链接: %s", self._mask_url(self.task.url))
 
         download_dir = self._prepare_download_dir()
 
@@ -77,7 +77,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
 
             # 检查是否已经登录（可能是之前的 session）
             if "checkLoginPc" not in (iframe.url or ""):
-                logger.info("简易送达: iframe 不在登录页（URL=%s），视为已登录", iframe.url[:80])
+                logger.info("简易送达: iframe 不在登录页（URL=%s），视为已登录", self._mask_url(iframe.url[:100]))
                 login_success = True
                 break
 
@@ -130,6 +130,11 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
         if len(phone) >= 7:
             return phone[:3] + "****" + phone[-4:]
         return "***"
+
+    @staticmethod
+    def _mask_url(url: str) -> str:
+        """URL 脱敏：隐藏 key 参数"""
+        return re.sub(r"(key=)[a-zA-Z0-9_\-]+", r"\1***", url)
 
     # ==================== iframe 管理 ====================
 
@@ -262,7 +267,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
             return iframe  # 返回当前 iframe 尝试继续
 
         # 还在登录页或其他页面
-        logger.warning("简易送达: iframe 不在预期的页面, URL=%s", iframe_url[:80])
+        logger.warning("简易送达: iframe 不在预期的页面, URL=%s", self._mask_url(iframe_url[:100]))
         return iframe
 
     # ==================== 文书下载 ====================
