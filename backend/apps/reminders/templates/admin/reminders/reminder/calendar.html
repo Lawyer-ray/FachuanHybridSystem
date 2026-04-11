@@ -520,13 +520,18 @@
                         data-event-type="{{ event.type_label|escape }}"
                         data-event-target-type="{{ event.target_type|escape }}"
                         data-event-target-name="{{ event.target_name|escape }}"
+                        data-event-courtroom="{{ event.courtroom|escape }}"
                         data-event-url="{{ event.url }}"
                     >
                         <span class="reminder-event-top">
                             <span class="reminder-event-time">{{ event.time }}</span>
                             <span class="reminder-event-title">{{ event.title }}</span>
                         </span>
+                        {% if event.courtroom %}
+                        <span class="reminder-event-meta">{{ event.courtroom }}</span>
+                        {% else %}
                         <span class="reminder-event-meta">{{ event.target_type }} · {{ event.target_name }}</span>
+                        {% endif %}
                     </button>
                     {% endfor %}
                     {% if day.items|length > 3 %}
@@ -617,6 +622,10 @@
             <div class="reminder-detail-key">{% trans "到期时间" %}</div>
             <div class="reminder-detail-value" id="detail-due"></div>
         </div>
+        <div class="reminder-detail-item" id="detail-courtroom-item" style="display:none">
+            <div class="reminder-detail-key">{% trans "开庭地点" %}</div>
+            <div class="reminder-detail-value" id="detail-courtroom"></div>
+        </div>
         <div class="reminder-detail-item">
             <div class="reminder-detail-key">{% trans "关联对象" %}</div>
             <div class="reminder-detail-value" id="detail-target"></div>
@@ -649,6 +658,8 @@
     const detailTitle = document.getElementById('detail-title');
     const detailType = document.getElementById('detail-type');
     const detailDue = document.getElementById('detail-due');
+    const detailCourtroomItem = document.getElementById('detail-courtroom-item');
+    const detailCourtroom = document.getElementById('detail-courtroom');
     const detailTarget = document.getElementById('detail-target');
     const detailOpenLink = document.getElementById('detail-open-link');
 
@@ -871,6 +882,14 @@
             detailTitle.textContent = card.dataset.eventTitle || '';
             detailType.textContent = card.dataset.eventType || '';
             detailDue.textContent = card.dataset.eventDue || '';
+            const courtroom = card.dataset.eventCourtroom || '';
+            if (courtroom) {
+                detailCourtroom.textContent = courtroom;
+                detailCourtroomItem.style.display = '';
+            } else {
+                detailCourtroom.textContent = '';
+                detailCourtroomItem.style.display = 'none';
+            }
             detailTarget.textContent = (card.dataset.eventTargetType || '') + ' · ' + (card.dataset.eventTargetName || '');
             detailOpenLink.href = card.dataset.eventUrl || '#';
             openModal(detailModal);
