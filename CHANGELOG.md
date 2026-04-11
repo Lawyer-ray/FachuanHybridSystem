@@ -2,6 +2,20 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.33.10] - 2026-04-11
+
+### 后端
+
+- “其他工具”聚合页继续扩展：新增 `reminders` 与 `message_hub` 两个应用入口，支持从 `/admin/automation/other-tools/` 统一访问。
+- 左侧菜单收纳规则补充：`reminders`、`message_hub` 从侧栏隐藏，保留 `/admin/reminders/`、`/admin/message_hub/` 等 URL 直达能力。
+- 顶栏快捷入口增强：在右上角新增“日历”“收件箱”文字入口，分别直达提醒日历与信息中转站收件箱。
+- i18n 切换位置与样式优化：语言切换从右上角移动到左侧系统标题区域，并调整为弱化文字样式，提升顶栏视觉层级一致性。
+- Admin 菜单收纳升级：新增 `/admin/automation/other-tools/` 统一入口，集中展示原本分散在多个 app 的工具能力，并支持应用级入口与二级菜单直达。
+- `automation` 菜单文案从“法院自动化工具”调整为“自动化工具”；自动化子菜单顺序固定为“法院短信 → 财产保全询价 → 其他工具”。
+- 左侧菜单隐藏规则扩展：`fee_notice`、`document_recognition`、`pdf_splitting`、`documents`、`chat_records`、`sales_dispute`、`enterprise_data`、`invoice_recognition`、`contract_review`、`image_rotation`、`express_query`、`doc_convert`、`evidence_sorting`、`legal_research`、`legal_solution`、`evidence`、`preservation_date`、`finance`、`django_q`、`organization`、`auth`、`core` 统一从侧栏收纳到“其他工具”，保留 URL 直达可用。
+- “其他工具”页面视觉重构：升级为卡片化导航页，补充搜索、统计与更清晰的信息层级，提升后台工具查找与跳转效率。
+
+
 ## [26.33.9] - 2026-04-11
 
 ### 后端
