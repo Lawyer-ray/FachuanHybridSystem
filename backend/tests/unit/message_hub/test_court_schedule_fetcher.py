@@ -472,3 +472,72 @@ class TestCourtScheduleFetcher:
         self.fetcher.fetch_new_messages(self.source)
         reminder = Reminder.objects.get(metadata__source_id="lawyer-test-id")
         assert reminder.metadata["lawyer_name"] == "测试律师"
+
+    @patch("apps.message_hub.services.court.court_schedule_fetcher._api_post")
+    @patch("apps.message_hub.services.court.court_schedule_fetcher._acquire_token")
+    def test_same_hearing_different_lawyers_creates_separate_reminders(self, mock_token, mock_api):
+        """同一庭审、不同律师各自创建独立的 Reminder，不互相覆盖。"""
+        from apps.organization.models import AccountCredential, Lawyer
+
+        # 创建第二个律师和凭证
+        lawyer2, _ = Lawyer.objects.get_or_create(
+            username="test_schedule_lawyer2",
+            defaults={"real_name": "律师二"},
+        )
+        credential2 = AccountCredential.objects.create(
+            lawyer=lawyer2,
+            site_name="court_zxfw",
+            account="test_account2",
+            password="test_password2",
+            url="https://zxfw.court.gov.cn",
+        )
+        source2 = MessageSource.objects.create(
+            credential=credential2,
+            source_type=SourceType.COURT_SCHEDULE,
+            display_name="律师二庭审日程",
+            is_enabled=True,
+            poll_interval_minutes=30,
+            sync_since=timezone.now() - timedelta(days=365),
+        )
+
+        mock_token.return_value = "fake_token"
+        mock_api.return_value = {
+            "data": [
+                {
+                    "bh": "shared-hearing-id",
+                    "ajbs": "789",
+                    "ah": None,
+                    "kssj": "2026-08-01 09:30",
+                    "jssj": "2026-08-01 10:30",
+                    "sj": "09:30-10:30",
+                    "rcbt": "共享庭审案件一案",
+                    "rcdd": "佛山市顺德区人民法院",
+                    "lx": "线下开庭",
+                    "fydm": "2602",
+                    "cjfs": 0,
+                    "hasCase": False,
+                    "najzt": 1,
+                }
+            ],
+            "totalRows": 1,
+        }
+
+        # 律师一同步
+        count1 = self.fetcher.fetch_new_messages(self.source)
+        assert count1 == 1
+
+        # 律师二同步 — 同一 bh，应创建独立记录
+        count2 = self.fetcher.fetch_new_messages(source2)
+        assert count2 == 1
+
+        # 应有两条独立记录
+        reminders = Reminder.objects.filter(metadata__source_id="shared-hearing-id")
+        assert reminders.count() == 2
+
+        # 各自的 lawyer_name 不同
+        names = sorted(r.metadata["lawyer_name"] for r in reminders)
+        assert names == ["律师二", "测试律师"]
+
+        # 各自的 source_credential_id 不同
+        cred_ids = sorted(r.metadata["source_credential_id"] for r in reminders)
+        assert len(set(cred_ids)) == 2
