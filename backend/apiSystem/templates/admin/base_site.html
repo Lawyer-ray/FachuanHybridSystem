@@ -202,31 +202,35 @@
 
 
 {% block branding %}
-<h1 id="site-name">
-    <a href="{% url 'admin:index' %}">{{ site_header|default:_('Django administration') }}</a>
-</h1>
+<div style="display:flex;align-items:center;gap:12px;">
+    <h1 id="site-name" style="margin:0;">
+        <a href="{% url 'admin:index' %}">{{ site_header|default:_('Django administration') }}</a>
+    </h1>
+    <div x-data="{ open: false }" style="display:inline-block;position:relative;">
+        <button @click="open = !open" type="button" style="background:transparent;border:none;color:rgba(255,255,255,0.78);padding:0 2px;cursor:pointer;font-size:12px;font-weight:500;letter-spacing:0.2px;">
+            {% trans "语言" %} · {{ LANGUAGE_CODE|upper }}
+        </button>
+        <div x-show="open" @click.away="open = false" x-cloak
+             style="position:absolute;left:0;top:110%;background:#fff;border:1px solid #ddd;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,0.15);min-width:120px;z-index:9999;">
+            {% get_available_languages as languages %}
+            {% for lang_code, lang_name in languages %}
+            <form action="{% url 'set_language' %}" method="post" style="margin:0;">
+                {% csrf_token %}
+                <input type="hidden" name="language" value="{{ lang_code }}">
+                <input type="hidden" name="next" value="{{ request.path }}">
+                <button type="submit" style="width:100%;text-align:left;padding:8px 14px;border:none;background:none;cursor:pointer;font-size:13px;color:#333;">
+                    {% if lang_code == LANGUAGE_CODE %}✓ {% endif %}{{ lang_name }}
+                </button>
+            </form>
+            {% endfor %}
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block userlinks %}
-<div x-data="{ open: false }" style="display:inline-block;position:relative;margin-right:10px;">
-    <button @click="open = !open" type="button" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.3);color:#fff;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:13px;">
-        🌐 {{ LANGUAGE_CODE|upper }}
-    </button>
-    <div x-show="open" @click.away="open = false" x-cloak
-         style="position:absolute;right:0;top:110%;background:#fff;border:1px solid #ddd;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,0.15);min-width:120px;z-index:9999;">
-        {% get_available_languages as languages %}
-        {% for lang_code, lang_name in languages %}
-        <form action="{% url 'set_language' %}" method="post" style="margin:0;">
-            {% csrf_token %}
-            <input type="hidden" name="language" value="{{ lang_code }}">
-            <input type="hidden" name="next" value="{{ request.path }}">
-            <button type="submit" style="width:100%;text-align:left;padding:8px 14px;border:none;background:none;cursor:pointer;font-size:13px;color:#333;">
-                {% if lang_code == LANGUAGE_CODE %}✓ {% endif %}{{ lang_name }}
-            </button>
-        </form>
-        {% endfor %}
-    </div>
-</div>
+<a href="{% url 'admin:reminders_reminder_calendar' %}">{% trans "日历" %}</a> /
+<a href="{% url 'admin:message_hub_inboxmessage_changelist' %}">{% trans "收件箱" %}</a> /
 {{ block.super }}
 {% endblock %}
 
