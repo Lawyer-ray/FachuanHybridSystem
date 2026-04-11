@@ -343,13 +343,14 @@ class CourtScheduleFetcher(MessageFetcher):
     def _fetch_with_token(self, source: MessageSource, token: str, credential_id: int) -> int:
         new_count = 0
         records = self._fetch_all_pages(token)
+        lawyer_name = self._get_lawyer_name(source)
         logger.info("一张网庭审日程: 共拉取 %d 条排期记录", len(records))
 
         for record in records:
             bh = record.get("bh", "")
             if not bh:
                 continue
-            if self._upsert_reminder(source, record):
+            if self._upsert_reminder(source, record, lawyer_name):
                 new_count += 1
 
         _mark_success(source)
@@ -383,7 +384,15 @@ class CourtScheduleFetcher(MessageFetcher):
 
         return all_records
 
-    def _upsert_reminder(self, source: MessageSource, record: dict[str, Any]) -> bool:
+    @staticmethod
+    def _get_lawyer_name(source: MessageSource) -> str:
+        """从 source.credential.lawyer 获取律师姓名。"""
+        try:
+            return str(source.credential.lawyer.real_name or source.credential.lawyer.username or "")
+        except Exception:
+            return ""
+
+    def _upsert_reminder(self, source: MessageSource, record: dict[str, Any], lawyer_name: str) -> bool:
         """
         创建或更新 Reminder，返回是否为新建。
 
@@ -412,6 +421,7 @@ class CourtScheduleFetcher(MessageFetcher):
             "source_id": bh,
             "source_type": "court_schedule",
             "source_credential_id": source.credential.pk,
+            "lawyer_name": lawyer_name,
             "courtroom": record.get("rcdd", ""),
             "end_time": record.get("jssj", ""),
             "time_range": record.get("sj", ""),

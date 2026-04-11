@@ -521,14 +521,15 @@
                         data-event-target-type="{{ event.target_type|escape }}"
                         data-event-target-name="{{ event.target_name|escape }}"
                         data-event-courtroom="{{ event.courtroom|escape }}"
+                        data-event-lawyer-name="{{ event.lawyer_name|escape }}"
                         data-event-url="{{ event.url }}"
                     >
                         <span class="reminder-event-top">
                             <span class="reminder-event-time">{{ event.time }}</span>
                             <span class="reminder-event-title">{{ event.title }}</span>
                         </span>
-                        {% if event.courtroom %}
-                        <span class="reminder-event-meta">{{ event.courtroom }}</span>
+                        {% if event.lawyer_name or event.courtroom %}
+                        <span class="reminder-event-meta">{% if event.lawyer_name %}{{ event.lawyer_name }}{% if event.courtroom %} · {% endif %}{% endif %}{% if event.courtroom %}{{ event.courtroom }}{% endif %}</span>
                         {% else %}
                         <span class="reminder-event-meta">{{ event.target_type }} · {{ event.target_name }}</span>
                         {% endif %}
@@ -622,6 +623,10 @@
             <div class="reminder-detail-key">{% trans "到期时间" %}</div>
             <div class="reminder-detail-value" id="detail-due"></div>
         </div>
+        <div class="reminder-detail-item" id="detail-lawyer-item" style="display:none">
+            <div class="reminder-detail-key">{% trans "律师" %}</div>
+            <div class="reminder-detail-value" id="detail-lawyer"></div>
+        </div>
         <div class="reminder-detail-item" id="detail-courtroom-item" style="display:none">
             <div class="reminder-detail-key">{% trans "开庭地点" %}</div>
             <div class="reminder-detail-value" id="detail-courtroom"></div>
@@ -658,6 +663,8 @@
     const detailTitle = document.getElementById('detail-title');
     const detailType = document.getElementById('detail-type');
     const detailDue = document.getElementById('detail-due');
+    const detailLawyerItem = document.getElementById('detail-lawyer-item');
+    const detailLawyer = document.getElementById('detail-lawyer');
     const detailCourtroomItem = document.getElementById('detail-courtroom-item');
     const detailCourtroom = document.getElementById('detail-courtroom');
     const detailTarget = document.getElementById('detail-target');
@@ -882,6 +889,14 @@
             detailTitle.textContent = card.dataset.eventTitle || '';
             detailType.textContent = card.dataset.eventType || '';
             detailDue.textContent = card.dataset.eventDue || '';
+            const lawyerName = card.dataset.eventLawyerName || '';
+            if (lawyerName) {
+                detailLawyer.textContent = lawyerName;
+                detailLawyerItem.style.display = '';
+            } else {
+                detailLawyer.textContent = '';
+                detailLawyerItem.style.display = 'none';
+            }
             const courtroom = card.dataset.eventCourtroom || '';
             if (courtroom) {
                 detailCourtroom.textContent = courtroom;

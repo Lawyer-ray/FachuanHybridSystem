@@ -491,6 +491,7 @@ class ReminderAdmin(admin.ModelAdmin[Reminder]):
                 "target_type": target_type,
                 "target_name": target_name,
                 "courtroom": metadata.get("courtroom", ""),
+                "lawyer_name": metadata.get("lawyer_name", ""),
                 "url": reverse(change_url_name, args=[reminder.id]),
                 "is_overdue": reminder.due_at < now,
             }
