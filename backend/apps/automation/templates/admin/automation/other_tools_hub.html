@@ -1,0 +1,498 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+  .other-tools-page {
+    --bg-soft: linear-gradient(180deg, #f8fbff 0%, #f4f8fc 100%);
+    --card-bg: rgba(255, 255, 255, 0.96);
+    --line: #e6edf5;
+    --line-strong: #d7e3f3;
+    --text-main: #0f172a;
+    --text-sub: #64748b;
+    --brand: #2563eb;
+    --brand-strong: #1d4ed8;
+    --brand-soft: #eff6ff;
+    --success-soft: #ecfeff;
+    --shadow-soft: 0 10px 30px rgba(37, 99, 235, 0.08);
+    --shadow-card: 0 8px 24px rgba(15, 23, 42, 0.06);
+  }
+
+  .other-tools-page {
+    max-width: 1360px;
+  }
+
+  .hero-panel {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    background: var(--bg-soft);
+    border-radius: 20px;
+    padding: 24px;
+    margin-bottom: 18px;
+    box-shadow: var(--shadow-soft);
+  }
+
+  .hero-panel::before,
+  .hero-panel::after {
+    content: "";
+    position: absolute;
+    border-radius: 999px;
+    pointer-events: none;
+    filter: blur(4px);
+  }
+
+  .hero-panel::before {
+    width: 220px;
+    height: 220px;
+    right: -60px;
+    top: -70px;
+    background: rgba(59, 130, 246, 0.12);
+  }
+
+  .hero-panel::after {
+    width: 180px;
+    height: 180px;
+    right: 120px;
+    bottom: -90px;
+    background: rgba(14, 165, 233, 0.12);
+  }
+
+  .hero-content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 18px;
+    align-items: flex-start;
+  }
+
+  .hero-copy {
+    max-width: 760px;
+  }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 999px;
+    padding: 6px 12px;
+    background: rgba(255, 255, 255, 0.88);
+    border: 1px solid #dce8fb;
+    color: var(--brand-strong);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    margin-bottom: 12px;
+  }
+
+  .hero-title {
+    margin: 0 0 8px;
+    color: var(--text-main);
+    font-size: 28px;
+    line-height: 1.2;
+    font-weight: 800;
+  }
+
+  .hero-desc {
+    margin: 0;
+    color: var(--text-sub);
+    font-size: 14px;
+    line-height: 1.75;
+  }
+
+  .hero-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(140px, 1fr));
+    gap: 10px;
+    min-width: 300px;
+  }
+
+  .stat-card {
+    border: 1px solid var(--line-strong);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.92);
+    padding: 14px 16px;
+  }
+
+  .stat-label {
+    display: block;
+    color: var(--text-sub);
+    font-size: 12px;
+    margin-bottom: 6px;
+  }
+
+  .stat-value {
+    display: block;
+    color: var(--text-main);
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .search-box {
+    flex: 1 1 360px;
+    position: relative;
+  }
+
+  .search-box input {
+    width: 100%;
+    height: 44px;
+    border: 1px solid var(--line-strong);
+    border-radius: 14px;
+    background: #fff;
+    padding: 0 14px 0 42px;
+    font-size: 14px;
+    color: var(--text-main);
+    box-sizing: border-box;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+  }
+
+  .search-box input:focus {
+    outline: none;
+    border-color: #93c5fd;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
+  }
+
+  .search-box svg {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    color: #94a3b8;
+  }
+
+  .toolbar-tips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .tip-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 999px;
+    padding: 6px 10px;
+    border: 1px solid #dce8fb;
+    background: #fff;
+    color: #334155;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .tools-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+  }
+
+  .tool-card {
+    position: relative;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: var(--card-bg);
+    padding: 16px;
+    box-shadow: var(--shadow-card);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+
+  .tool-card:hover {
+    transform: translateY(-3px);
+    border-color: #cfe0ff;
+    box-shadow: 0 16px 30px rgba(37, 99, 235, 0.1);
+  }
+
+  .tool-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 4px;
+    border-radius: 18px 18px 0 0;
+    background: linear-gradient(90deg, #2563eb 0%, #38bdf8 100%);
+  }
+
+  .tool-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .tool-main {
+    min-width: 0;
+  }
+
+  .tool-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-main);
+    text-decoration: none;
+    font-size: 16px;
+    font-weight: 800;
+    line-height: 1.35;
+    margin-bottom: 8px;
+  }
+
+  .tool-name:hover,
+  .tool-name:focus {
+    color: var(--brand-strong);
+    text-decoration: none;
+  }
+
+  .tool-icon {
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #eff6ff 0%, #e0f2fe 100%);
+    color: var(--brand-strong);
+    font-size: 14px;
+    font-weight: 800;
+    flex: 0 0 32px;
+  }
+
+  .tool-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .meta-pill {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    border: 1px solid #dbeafe;
+    background: #f8fbff;
+    color: #1e3a8a;
+  }
+
+  .enter-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-width: 88px;
+    border-radius: 12px;
+    padding: 8px 12px;
+    background: var(--brand-soft);
+    border: 1px solid #dbe7ff;
+    color: var(--brand-strong);
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .enter-link:hover,
+  .enter-link:focus {
+    text-decoration: none;
+    background: #dbeafe;
+  }
+
+  .submenu-title {
+    color: var(--text-sub);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    margin-bottom: 8px;
+  }
+
+  .children-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .child-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid #dbeafe;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    color: #1e3a8a;
+    border-radius: 999px;
+    padding: 6px 11px;
+    font-size: 12px;
+    line-height: 1.45;
+    text-decoration: none;
+    transition: all 0.18s ease;
+  }
+
+  .child-link::before {
+    content: "↗";
+    font-size: 11px;
+    opacity: 0.7;
+  }
+
+  .child-link:hover,
+  .child-link:focus {
+    text-decoration: none;
+    border-color: #93c5fd;
+    background: #eff6ff;
+    transform: translateY(-1px);
+  }
+
+  .empty-state {
+    border: 1px dashed var(--line-strong);
+    border-radius: 16px;
+    padding: 32px 16px;
+    text-align: center;
+    color: var(--text-sub);
+    background: rgba(255, 255, 255, 0.75);
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  [x-cloak] {
+    display: none !important;
+  }
+
+  @media (max-width: 960px) {
+    .hero-content {
+      flex-direction: column;
+    }
+
+    .hero-stats {
+      width: 100%;
+      min-width: 0;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .hero-panel {
+      padding: 18px;
+      border-radius: 16px;
+    }
+
+    .hero-title {
+      font-size: 22px;
+    }
+
+    .tools-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .tool-top {
+      flex-direction: column;
+    }
+
+    .enter-link {
+      width: 100%;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="content-main" class="other-tools-page" x-data="{ query: '' }">
+  <section class="hero-panel">
+    <div class="hero-content">
+      <div class="hero-copy">
+        <div class="hero-badge">{% trans "统一工具导航" %}</div>
+        <h2 class="hero-title">{% trans "更快找到工具，更快进入具体功能" %}</h2>
+        <p class="hero-desc">
+          {% trans "这里汇总了已从左侧菜单收纳的工具应用。你可以直接进入应用首页，也可以点击下方二级菜单标签，跳过中间层级直达目标功能。" %}
+        </p>
+      </div>
+
+      <div class="hero-stats">
+        <div class="stat-card">
+          <span class="stat-label">{% trans "收纳应用" %}</span>
+          <span class="stat-value">{{ sections|length }}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">{% trans "访问方式" %}</span>
+          <span class="stat-value">2</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="toolbar">
+    <label class="search-box">
+      <span class="sr-only">{% trans "搜索工具" %}</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="8"></circle>
+        <path d="m21 21-4.3-4.3"></path>
+      </svg>
+      <input type="text" x-model="query" placeholder="{% trans '搜索应用名或二级菜单，如：发票、律师、法院…' %}">
+    </label>
+
+    <div class="toolbar-tips">
+      <span class="tip-chip">{% trans "支持搜索应用" %}</span>
+      <span class="tip-chip">{% trans "支持直达二级菜单" %}</span>
+      <span class="tip-chip">{% trans "保留原始权限控制" %}</span>
+    </div>
+  </div>
+
+  <div class="tools-grid">
+    {% for section in sections %}
+      <section
+        class="tool-card"
+        data-search="{{ section.name }} {% for child in section.children %} {{ child.name }}{% endfor %}"
+        x-show="!query.trim() || $el.dataset.search.toLowerCase().includes(query.trim().toLowerCase())"
+      >
+        <div class="tool-top">
+          <div class="tool-main">
+            <a class="tool-name" href="{{ section.url }}">
+              <span class="tool-icon">{{ section.name|slice:":1" }}</span>
+              <span>{{ section.name }}</span>
+            </a>
+            <div class="tool-meta">
+              <span class="meta-pill">{% blocktrans with count=section.children|length %}{{ count }} 个入口{% endblocktrans %}</span>
+              <span class="meta-pill">{% trans "可直达" %}</span>
+            </div>
+          </div>
+          <a class="enter-link" href="{{ section.url }}">{% trans "进入应用" %}</a>
+        </div>
+
+        <div class="submenu-title">{% trans "常用入口" %}</div>
+        <div class="children-list">
+          {% for child in section.children %}
+            <a class="child-link" href="{{ child.url }}">{{ child.name }}</a>
+          {% empty %}
+            <a class="child-link" href="{{ section.url }}">{% trans "应用首页" %}</a>
+          {% endfor %}
+        </div>
+      </section>
+    {% empty %}
+      <div class="empty-state">{% trans "暂无可用工具。" %}</div>
+    {% endfor %}
+  </div>
+
+  <div class="empty-state" x-cloak x-show="query.trim() && !Array.from($el.parentElement.querySelectorAll('.tool-card')).some(card => getComputedStyle(card).display !== 'none')">
+    {% trans "没有找到匹配的应用或二级菜单，请换个关键词试试。" %}
+  </div>
+</div>
+{% endblock %}
