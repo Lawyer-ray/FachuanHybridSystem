@@ -216,8 +216,9 @@
         // 默认选强制执行申请书
         var def = mbidSelect.querySelector('option[value="qzzxsqs"]');
         if (def) def.selected = true;
-    }).catch(function() {
-        mbidSelect.innerHTML = '<option value="">-- 加载失败，请刷新 --</option>';
+    }).catch(function(err) {
+        console.error('mbid-list 加载失败:', err);
+        mbidSelect.innerHTML = '<option value="">-- 加载失败，请刷新页面重试 --</option>';
     });
 
     // 拖拽
