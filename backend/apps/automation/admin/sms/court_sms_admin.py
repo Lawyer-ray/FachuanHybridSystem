@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from django.contrib import admin
 from django.http import FileResponse, Http404, HttpRequest
@@ -29,7 +29,7 @@ class CourtSMSAdmin(CourtSMSAdminActions, CourtSMSAdminBase):
 
     def get_urls(self) -> list[Any]:
         """添加自定义 URL"""
-        urls = super().get_urls()
+        urls: list[Any] = list(super().get_urls())
         custom_urls: list[Any] = [
             path(
                 "submit/",
@@ -57,7 +57,7 @@ class CourtSMSAdmin(CourtSMSAdminActions, CourtSMSAdminBase):
                 name="automation_courtsms_retry",
             ),
         ]
-        return cast(list[Any], custom_urls + urls)
+        return custom_urls + urls
 
     def open_document_view(self, request: HttpRequest, sms_id: int, ref_index: int) -> FileResponse:
         """打开关联文书文件"""

@@ -51,7 +51,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
         case_number_service: Any | None = None,
     ):
         self.parser = parser or SMSParserService()
-        self._matcher = matcher or CaseMatcher()  # type: ignore
+        self._matcher = matcher or CaseMatcher()
         self._case_number_extractor = case_number_extractor
         self._document_attachment = document_attachment
         self._notification = notification
