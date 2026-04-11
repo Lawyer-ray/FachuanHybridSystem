@@ -434,6 +434,7 @@ class ReminderAdmin(admin.ModelAdmin[Reminder]):
                 target_name = _("独立提醒")
 
             type_label = str(dict(ReminderType.choices).get(reminder.reminder_type, reminder.reminder_type))
+            metadata = reminder.metadata if isinstance(reminder.metadata, dict) else {}
             event = {
                 "id": reminder.id,
                 "time": due_local.strftime("%H:%M"),
@@ -442,6 +443,7 @@ class ReminderAdmin(admin.ModelAdmin[Reminder]):
                 "type_label": type_label,
                 "target_type": target_type,
                 "target_name": target_name,
+                "courtroom": metadata.get("courtroom", ""),
                 "url": reverse(change_url_name, args=[reminder.id]),
                 "is_overdue": reminder.due_at < now,
             }
