@@ -18,6 +18,7 @@ from django.utils.safestring import SafeString
 from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import CourtSMS, CourtSMSStatus, CourtSMSType
+from apps.automation.services.sms.court_sms_document_reference_service import CourtSMSDocumentReferenceService
 
 logger = logging.getLogger("apps.automation")
 
@@ -261,30 +262,44 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
     @admin.display(description=_("关联文书"))
     def documents_display(self, obj: CourtSMS) -> SafeString | str:
         """关联文书显示"""
-        if obj.scraper_task and hasattr(obj.scraper_task, "documents"):
-            documents = obj.scraper_task.documents.all()
-            if documents:
-                parts = []
-                for doc in documents:
-                    status_color = {
-                        "success": "green",
-                        "failed": "red",
-                        "pending": "orange",
-                        "downloading": "blue",
-                    }.get(doc.download_status, "gray")
+        references = CourtSMSDocumentReferenceService().collect(obj)
+        if not references:
+            return "-"
 
-                    doc_url = reverse("admin:automation_courtdocument_change", args=[cast(int, doc.id)])
-                    parts.append(
-                        format_html(
-                            '<p><a href="{}" target="_blank">{}</a> <span style="color: {};">({}</span>)</p>',
-                            doc_url,
-                            doc.c_wsmc,
-                            status_color,
-                            doc.get_download_status_display(),
-                        )
+        source_labels = {
+            "court_document": _("文书记录"),
+            "sms_reference": _("短信引用"),
+            "task_result": _("任务结果"),
+            "case_log_attachment": _("案件日志附件"),
+        }
+
+        parts = []
+        for ref in references:
+            source_label = source_labels.get(ref.source, ref.source)
+            status_display = ref.download_status_display or _("已下载")
+
+            if ref.court_document_id:
+                doc_url = reverse("admin:automation_courtdocument_change", args=[ref.court_document_id])
+                parts.append(
+                    format_html(
+                        '<p><a href="{}" target="_blank">{}</a> <span style="color: #666;">[{}/{}]</span></p>',
+                        doc_url,
+                        ref.display_name,
+                        source_label,
+                        status_display,
                     )
-                return format_html_join("", "{}", ((p,) for p in parts))
-        return "-"
+                )
+            else:
+                parts.append(
+                    format_html(
+                        '<p>{} <span style="color: #666;">[{}/{}]</span></p>',
+                        ref.display_name,
+                        source_label,
+                        status_display,
+                    )
+                )
+
+        return format_html_join("", "{}", ((p,) for p in parts))
 
     @admin.display(description=_("通知状态"))
     def feishu_status(self, obj: CourtSMS) -> SafeString:
@@ -343,7 +358,12 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[CourtSMS]:
         """优化查询性能"""
-        return super().get_queryset(request).select_related("case", "scraper_task", "case_log")
+        return (
+            super()
+            .get_queryset(request)
+            .select_related("case", "scraper_task", "case_log")
+            .prefetch_related("scraper_task__documents", "case_log__attachments")
+        )
 
     def get_fields(self, request: HttpRequest, obj: CourtSMS | None = None) -> Any:
         """根据是否为新增页面返回不同的字段"""

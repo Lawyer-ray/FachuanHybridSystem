@@ -247,6 +247,7 @@ class DocumentProcessor:
                     status=CourtSMSStatus.MATCHING,
                     case_numbers=case_numbers_list,
                     sms_type="document_delivery",
+                    document_file_paths=extracted_files,
                 )
                 logger.info(f"CourtSMS 创建成功: ID={sms.id}")
 

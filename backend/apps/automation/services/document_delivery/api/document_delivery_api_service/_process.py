@@ -170,6 +170,7 @@ class DocumentProcessMixin:
                     status=CourtSMSStatus.MATCHING,
                     case_numbers=[record.case_number],
                     sms_type="document_delivery",
+                    document_file_paths=extracted_files,
                 )
                 logger.info(f"CourtSMS 创建成功: ID={sms.id}")
 
