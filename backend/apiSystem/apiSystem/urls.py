@@ -15,7 +15,7 @@ from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import render
 from django.template.response import TemplateResponse
-from django.urls import URLPattern, include, path, reverse
+from django.urls import URLPattern, URLResolver, include, path, reverse
 from django.utils.translation import gettext_lazy as _
 
 from apps.organization.views import register
@@ -23,9 +23,9 @@ from apps.organization.views import register
 from .api import api_v1
 
 # 配置 Django Admin 界面标题
-admin.site.site_header = _(getattr(settings, "ADMIN_SITE_HEADER", _("法穿AI案件管理系统")))
-admin.site.site_title = _(getattr(settings, "ADMIN_SITE_TITLE", _("法穿AI案件管理系统")))
-admin.site.index_title = _(getattr(settings, "ADMIN_INDEX_TITLE", _("欢迎来到法穿AI案件管理系统")))
+admin.site.site_header = _(getattr(settings, "ADMIN_SITE_HEADER", "法穿AI案件管理系统"))
+admin.site.site_title = _(getattr(settings, "ADMIN_SITE_TITLE", "法穿AI案件管理系统"))
+admin.site.index_title = _(getattr(settings, "ADMIN_INDEX_TITLE", "欢迎来到法穿AI案件管理系统"))
 
 # 侧边栏 app 顺序（按以下顺序显示）
 _APP_ORDER = [
@@ -52,13 +52,79 @@ _MODEL_ORDER: dict[str, list[str]] = {
         "caselogattachment",  # 日志附件
         "casechat",  # 群聊
     ],
+    "automation": [  # 自动化工具
+        "courtsms",  # 法院短信
+        "preservationquote",  # 财产保全询价
+        "othertoolshub",  # 其他工具
+    ],
 }
+
+# 需要在侧边栏隐藏的 app（保留直链 URL 访问）
+_HIDDEN_APP_LABELS = {
+    "fee_notice",
+    "document_recognition",
+    "pdf_splitting",
+    "documents",
+    "chat_records",
+    "sales_dispute",
+    "enterprise_data",
+    "invoice_recognition",
+    "contract_review",
+    "image_rotation",
+    "express_query",
+    "doc_convert",
+    "evidence_sorting",
+    "legal_research",
+    "legal_solution",
+    "evidence",
+    "preservation_date",
+    "finance",
+    "django_q",
+    "organization",
+    "auth",
+    "core",
+    "reminders",
+    "message_hub",
+}
+
+# “其他工具”聚合页应用列表
+_OTHER_TOOLS_APPS = [
+    {"app_label": "fee_notice", "name": _("交费通知书识别"), "url": "/admin/fee_notice/"},
+    {"app_label": "document_recognition", "name": _("文书智能识别"), "url": "/admin/document_recognition/"},
+    {"app_label": "pdf_splitting", "name": _("PDF 拆解"), "url": "/admin/pdf_splitting/"},
+    {"app_label": "documents", "name": _("文书生成"), "url": "/admin/documents/"},
+    {"app_label": "chat_records", "name": _("聊天记录"), "url": "/admin/chat_records/"},
+    {"app_label": "sales_dispute", "name": _("销售纠纷"), "url": "/admin/sales_dispute/"},
+    {"app_label": "enterprise_data", "name": _("企业数据工作台"), "url": "/admin/enterprise_data/"},
+    {"app_label": "invoice_recognition", "name": _("发票识别"), "url": "/admin/invoice_recognition/"},
+    {"app_label": "contract_review", "name": _("合同审核"), "url": "/admin/contract_review/"},
+    {"app_label": "image_rotation", "name": _("图片自动旋转"), "url": "/admin/image_rotation/"},
+    {"app_label": "express_query", "name": _("快递查询"), "url": "/admin/express_query/"},
+    {"app_label": "doc_convert", "name": _("文档转换"), "url": "/admin/doc_convert/"},
+    {"app_label": "evidence_sorting", "name": _("证据整理"), "url": "/admin/evidence_sorting/"},
+    {"app_label": "legal_research", "name": _("法律检索"), "url": "/admin/legal_research/"},
+    {"app_label": "legal_solution", "name": _("法律方案"), "url": "/admin/legal_solution/"},
+    {"app_label": "evidence", "name": _("证据管理"), "url": "/admin/evidence/"},
+    {"app_label": "preservation_date", "name": _("保全日期识别"), "url": "/admin/preservation_date/"},
+    {"app_label": "finance", "name": _("利息/违约金计算"), "url": "/admin/finance/"},
+    {"app_label": "django_q", "name": _("任务队列"), "url": "/admin/django_q/"},
+    {"app_label": "organization", "name": _("组织管理"), "url": "/admin/organization/"},
+    {"app_label": "auth", "name": _("用户与权限"), "url": "/admin/auth/"},
+    {"app_label": "core", "name": _("核心系统"), "url": "/admin/core/"},
+    {"app_label": "reminders", "name": _("重要日期提醒"), "url": "/admin/reminders/"},
+    {"app_label": "message_hub", "name": _("信息中转站"), "url": "/admin/message_hub/"},
+]
 
 _original_get_app_list = admin.site.__class__.get_app_list
 
 
-def _sorted_get_app_list(self: admin.AdminSite, request: HttpRequest, app_label: str | None = None) -> list:  # type: ignore[override]
+def _sorted_get_app_list(self: admin.AdminSite, request: HttpRequest, app_label: str | None = None) -> list:
     app_list = _original_get_app_list(self, request, app_label)
+
+    # 统一隐藏指定 app（仅隐藏首页/侧边栏菜单，不影响 /admin/<app_label>/ 直达）
+    if app_label is None:
+        app_list = [app for app in app_list if app.get("app_label") not in _HIDDEN_APP_LABELS]
+
     app_list.sort(key=lambda a: _APP_ORDER.index(a["app_label"]) if a["app_label"] in _APP_ORDER else 999)
 
     # 按 app 内模型顺序排序
@@ -72,23 +138,28 @@ def _sorted_get_app_list(self: admin.AdminSite, request: HttpRequest, app_label:
                 else 999
             )
 
-    # 向 finance app 添加 LPR 计算器链接
+    # 向 automation app 添加“其他工具”聚合入口
     for app in app_list:
-        if app.get("app_label") == "finance":
-            # 添加计算器作为虚拟模型项
-            calculator_model = {
-                "name": _("利息/违约金计算器"),
-                "object_name": "LPRCalculator",
+        if app.get("app_label") == "automation":
+            other_tools_model = {
+                "name": _("其他工具"),
+                "object_name": "OtherToolsHub",
                 "perms": {"add": False, "change": False, "delete": False, "view": True},
-                "admin_url": "/admin/finance/calculator/",
+                "admin_url": "/admin/automation/other-tools/",
                 "add_url": None,
                 "view_only": True,
             }
-            # 插入到 models 列表开头
-            if "models" in app:
-                app["models"].insert(0, calculator_model)
-            else:
-                app["models"] = [calculator_model]
+            models = app.setdefault("models", [])
+            if not any(item.get("object_name") == "OtherToolsHub" for item in models):
+                models.append(other_tools_model)
+
+            model_order = _MODEL_ORDER.get("automation", [])
+            if model_order:
+                models.sort(
+                    key=lambda m: model_order.index(str(m.get("object_name", "")).lower())
+                    if str(m.get("object_name", "")).lower() in model_order
+                    else 999
+                )
             break
 
     # 向 reminders app 添加日历链接
@@ -114,7 +185,7 @@ def _sorted_get_app_list(self: admin.AdminSite, request: HttpRequest, app_label:
 admin.site.__class__.get_app_list = _sorted_get_app_list  # type: ignore[method-assign]
 
 
-def lpr_calculator_view(request: HttpRequest) -> TemplateResponse:
+def lpr_calculator_view(request: HttpRequest) -> HttpResponse:
     """LPR利息计算器独立视图."""
     from apps.finance.models.lpr_rate import LPRRate
 
@@ -129,6 +200,42 @@ def lpr_calculator_view(request: HttpRequest) -> TemplateResponse:
     return render(request, "admin/finance/lpr/calculator.html", context)
 
 
+def other_tools_hub_view(request: HttpRequest) -> TemplateResponse:
+    """其他工具聚合页。"""
+    sections: list[dict[str, Any]] = []
+
+    for item in _OTHER_TOOLS_APPS:
+        app_label = str(item.get("app_label", ""))
+        app_url = str(item.get("url", ""))
+        app_name = item.get("name", app_label)
+        app_entries = admin.site.get_app_list(request, app_label=app_label)
+        model_links: list[dict[str, str]] = []
+
+        if app_entries:
+            first_app = app_entries[0]
+            app_url = str(first_app.get("app_url") or app_url)
+            for model in first_app.get("models", []):
+                name = str(model.get("name", "")).strip()
+                url = str(model.get("admin_url") or "").strip()
+                if name and url:
+                    model_links.append({"name": name, "url": url})
+
+        sections.append(
+            {
+                "name": app_name,
+                "url": app_url,
+                "children": model_links,
+            }
+        )
+
+    context: dict[str, Any] = {
+        **admin.site.each_context(request),
+        "title": _("其他工具"),
+        "sections": sections,
+    }
+    return TemplateResponse(request, "admin/automation/other_tools_hub.html", context)
+
+
 def reminders_calendar_redirect(_: HttpRequest) -> HttpResponseRedirect:
     """提醒 app 下的日历入口，重定向到 ReminderAdmin 日历页。"""
     return HttpResponseRedirect(reverse("admin:reminders_reminder_calendar"))
@@ -138,13 +245,18 @@ def reminders_calendar_redirect(_: HttpRequest) -> HttpResponseRedirect:
 _original_get_urls = admin.site.get_urls
 
 
-def _get_urls_with_calculator() -> list[URLPattern]:
+def _get_urls_with_calculator() -> list[URLResolver | URLPattern]:
     urls = _original_get_urls()
-    custom_urls: list[URLPattern] = [
+    custom_urls: list[URLResolver | URLPattern] = [
         path(
             "finance/calculator/",
             admin.site.admin_view(lpr_calculator_view),
             name="finance_lpr_calculator",
+        ),
+        path(
+            "automation/other-tools/",
+            admin.site.admin_view(other_tools_hub_view),
+            name="automation_other_tools_hub",
         ),
         path(
             "reminders/calendar/",
