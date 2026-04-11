@@ -34,3 +34,7 @@ class CaseLogAttachmentAdmin(BaseModelAdmin):
     list_display = ("id", "log", "uploaded_at")
     search_fields = ("log__case__name",)
     autocomplete_fields = ("log",)
+
+    def get_model_perms(self, request: HttpRequest) -> dict[str, bool]:
+        """隐藏 Admin 首页入口，但保留直接 URL 访问能力"""
+        return {}

@@ -76,7 +76,7 @@ class MessageSourceAdmin(admin.ModelAdmin[MessageSource]):
 
     @admin.display(description=_("来源类型"))
     def source_type_badge(self, obj: MessageSource) -> SafeString:
-        colors = {"imap": "#007bff", "court_inbox": "#6f42c1"}
+        colors = {"imap": "#007bff", "court_inbox": "#6f42c1", "court_schedule": "#e85d04"}
         color = colors.get(obj.source_type, "#6c757d")
         return format_html(
             '<span style="background:{};color:#fff;padding:2px 8px;border-radius:4px;font-size:12px">{}</span>',
