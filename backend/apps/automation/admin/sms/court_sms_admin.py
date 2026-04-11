@@ -6,13 +6,15 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from django.contrib import admin
-from django.http import HttpRequest
+from django.http import FileResponse, Http404, HttpRequest
 from django.urls import path
 
 from apps.automation.models import CourtSMS
+from apps.automation.services.sms.court_sms_document_reference_service import CourtSMSDocumentReferenceService
 
 from .court_sms_admin_actions import CourtSMSAdminActions
 from .court_sms_admin_base import CourtSMSAdminBase
@@ -45,9 +47,30 @@ class CourtSMSAdmin(CourtSMSAdminActions, CourtSMSAdminBase):
                 name="automation_courtsms_search_cases",
             ),
             path(
+                "<int:sms_id>/documents/<int:ref_index>/open/",
+                self.admin_site.admin_view(self.open_document_view),
+                name="automation_courtsms_open_document",
+            ),
+            path(
                 "<int:sms_id>/retry/",
                 self.admin_site.admin_view(self.retry_single_sms_view),
                 name="automation_courtsms_retry",
             ),
         ]
         return custom_urls + urls
+
+    def open_document_view(self, request: HttpRequest, sms_id: int, ref_index: int) -> FileResponse:
+        """打开关联文书文件"""
+        sms = self.get_object(request, str(sms_id))
+        if sms is None:
+            raise Http404("SMS not found")
+
+        references = CourtSMSDocumentReferenceService().collect(sms)
+        if ref_index < 0 or ref_index >= len(references):
+            raise Http404("Document reference not found")
+
+        file_path = Path(references[ref_index].file_path)
+        if not file_path.exists() or not file_path.is_file():
+            raise Http404("Document file not found")
+
+        return FileResponse(file_path.open("rb"), as_attachment=False, filename=file_path.name)

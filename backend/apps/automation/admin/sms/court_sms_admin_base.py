@@ -7,10 +7,8 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import Any, ClassVar, cast
 
-from django.conf import settings
 from django.contrib import admin
 from django.db.models import QuerySet
 from django.http import HttpRequest
@@ -276,7 +274,7 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
         }
 
         parts = []
-        for ref in references:
+        for index, ref in enumerate(references):
             source_label = source_labels.get(ref.source, ref.source)
             status_display = ref.download_status_display or _("已下载")
 
@@ -292,9 +290,14 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
                     )
                 )
             else:
+                open_url = reverse(
+                    "admin:automation_courtsms_open_document",
+                    args=[cast(int, obj.id), index],
+                )
                 parts.append(
                     format_html(
-                        '<p>{} <span style="color: #666;">[{}/{}]</span></p>',
+                        '<p><a href="{}" target="_blank">{}</a> <span style="color: #666;">[{}/{}]</span></p>',
+                        open_url,
                         ref.display_name,
                         source_label,
                         status_display,
