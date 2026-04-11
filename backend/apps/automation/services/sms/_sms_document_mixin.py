@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from apps.automation.models import CourtSMS, CourtSMSStatus
+from apps.automation.services.sms.court_sms_document_reference_service import CourtSMSDocumentReferenceService
 
 if TYPE_CHECKING:
     from apps.automation.services.sms.case_folder_archive_service import CaseFolderArchiveService
@@ -92,6 +93,11 @@ class SMSDocumentMixin:
         document_paths = []
 
         try:
+            if isinstance(sms.document_file_paths, list):
+                for file_path in sms.document_file_paths:
+                    if file_path and Path(file_path).exists():
+                        document_paths.append(file_path)
+
             if sms.scraper_task and hasattr(sms.scraper_task, "documents"):
                 documents = sms.scraper_task.documents.filter(download_status="success")
                 for doc in documents:
@@ -109,7 +115,7 @@ class SMSDocumentMixin:
         except Exception as e:
             logger.warning(f"获取文书路径失败: SMS ID={sms.id}, 错误: {e!s}")
 
-        return document_paths
+        return list(dict.fromkeys(document_paths))
 
     def _process_renaming(self, sms: CourtSMS) -> CourtSMS:
         """处理文书重命名阶段"""

@@ -79,6 +79,17 @@ class DocumentAttachmentService:
 
         return document_paths
 
+    def _paths_from_sms_reference(self, sms: "CourtSMS") -> list[str]:
+        """从 CourtSMS 统一引用字段获取路径"""
+        paths: list[str] = []
+        if not isinstance(sms.document_file_paths, list):
+            return paths
+        for file_path in sms.document_file_paths:
+            if file_path and Path(file_path).exists():
+                paths.append(file_path)
+                logger.debug(f"从 CourtSMS 引用字段获取路径: {file_path}")
+        return paths
+
     def _paths_from_court_documents(self, sms: "CourtSMS") -> list[str]:
         """从 CourtDocument 记录获取路径"""
         paths: list[str] = []
@@ -109,29 +120,28 @@ class DocumentAttachmentService:
         """
         获取待发送通知的文书路径列表（已去重）
         """
-        if not sms.scraper_task:
-            logger.info(f"短信 {sms.id} 无下载任务，返回空路径列表")
-            return []
-
         document_paths: list[str] = []
         seen_paths: set[str] = set()
 
         try:
-            result = sms.scraper_task.result
+            self._collect_unique_paths(self._paths_from_sms_reference(sms), seen_paths, document_paths)
 
-            # 方式1：优先使用 renamed_files
-            if result and isinstance(result, dict):
-                renamed = self._collect_unique_paths(result.get("renamed_files", []), seen_paths)
-                if renamed:
-                    logger.info(f"从 renamed_files 获取到 {len(renamed)} 个文书路径")
-                    return renamed
+            if sms.scraper_task:
+                result = sms.scraper_task.result
 
-            # 方式2：从 CourtDocument 记录获取
-            self._collect_from_court_documents(sms, document_paths, seen_paths)
+                # 方式1：优先使用 renamed_files
+                if result and isinstance(result, dict):
+                    renamed = self._collect_unique_paths(result.get("renamed_files", []), seen_paths)
+                    if renamed:
+                        logger.info(f"从 renamed_files 获取到 {len(renamed)} 个文书路径")
+                        return renamed
 
-            # 方式3：从原始 files 列表获取
-            if not document_paths and result and isinstance(result, dict):
-                self._collect_unique_paths(result.get("files", []), seen_paths, document_paths)
+                # 方式2：从 CourtDocument 记录获取
+                self._collect_from_court_documents(sms, document_paths, seen_paths)
+
+                # 方式3：从原始 files 列表获取
+                if not document_paths and result and isinstance(result, dict):
+                    self._collect_unique_paths(result.get("files", []), seen_paths, document_paths)
 
             logger.info(f"获取到 {len(document_paths)} 个待发送通知的文书路径（已去重）")
 

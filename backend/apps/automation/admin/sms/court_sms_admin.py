@@ -35,6 +35,16 @@ class CourtSMSAdmin(CourtSMSAdminActions, CourtSMSAdminBase):
                 name="automation_courtsms_submit",
             ),
             path(
+                "<int:sms_id>/assign-case/",
+                self.admin_site.admin_view(self.assign_case_view),
+                name="automation_courtsms_assign_case",
+            ),
+            path(
+                "<int:sms_id>/search-cases/",
+                self.admin_site.admin_view(self.search_cases_ajax),
+                name="automation_courtsms_search_cases",
+            ),
+            path(
                 "<int:sms_id>/retry/",
                 self.admin_site.admin_view(self.retry_single_sms_view),
                 name="automation_courtsms_retry",
