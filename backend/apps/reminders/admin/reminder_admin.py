@@ -459,6 +459,7 @@ class ReminderAdmin(admin.ModelAdmin[Reminder]):
 
     def _group_events_by_day(self, *, reminders: list[Reminder]) -> dict[int, list[dict[str, object]]]:
         events_by_day: dict[int, list[dict[str, object]]] = {}
+        hearing_merged_index: dict[int, dict[tuple[object, ...], dict[str, object]]] = {}
         now = timezone.now()
         change_url_name = f"admin:{self.model._meta.app_label}_{self.model._meta.model_name}_change"
 
@@ -482,6 +483,36 @@ class ReminderAdmin(admin.ModelAdmin[Reminder]):
 
             type_label = str(dict(ReminderType.choices).get(reminder.reminder_type, reminder.reminder_type))
             metadata = reminder.metadata if isinstance(reminder.metadata, dict) else {}
+            courtroom = str(metadata.get("courtroom", "")).strip()
+            lawyer_name = str(metadata.get("lawyer_name", "")).strip()
+
+            # 一张网庭审日程同事件合并展示：同 source_id 显示一条，律师姓名聚合
+            merge_key: tuple[object, ...] | None = None
+            if reminder.reminder_type == ReminderType.HEARING:
+                source_id = str(metadata.get("source_id", "")).strip()
+                if source_id:
+                    merge_key = ("hearing", source_id)
+                else:
+                    merge_key = (
+                        "hearing_fallback",
+                        due_local.strftime("%Y-%m-%d %H:%M"),
+                        reminder.content.strip(),
+                        courtroom,
+                        reminder.case_id or 0,
+                        reminder.contract_id or 0,
+                        reminder.case_log_id or 0,
+                    )
+
+            if merge_key is not None:
+                day_index = hearing_merged_index.setdefault(due_local.day, {})
+                existing = day_index.get(merge_key)
+                if existing is not None:
+                    existing_lawyers = existing.get("lawyer_names", [])
+                    if isinstance(existing_lawyers, list) and lawyer_name and lawyer_name not in existing_lawyers:
+                        existing_lawyers.append(lawyer_name)
+                        existing["lawyer_name"] = "、".join(existing_lawyers)
+                    continue
+
             event = {
                 "id": reminder.id,
                 "time": due_local.strftime("%H:%M"),
@@ -490,12 +521,17 @@ class ReminderAdmin(admin.ModelAdmin[Reminder]):
                 "type_label": type_label,
                 "target_type": target_type,
                 "target_name": target_name,
-                "courtroom": metadata.get("courtroom", ""),
-                "lawyer_name": metadata.get("lawyer_name", ""),
+                "courtroom": courtroom,
+                "lawyer_name": lawyer_name,
+                "lawyer_names": [lawyer_name] if lawyer_name else [],
                 "url": reverse(change_url_name, args=[reminder.id]),
                 "is_overdue": reminder.due_at < now,
             }
             events_by_day.setdefault(due_local.day, []).append(event)
+
+            if merge_key is not None:
+                hearing_merged_index.setdefault(due_local.day, {})[merge_key] = event
+
         return events_by_day
 
     def _build_calendar_weeks(

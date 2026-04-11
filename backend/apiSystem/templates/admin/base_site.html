@@ -231,7 +231,11 @@
 {% block userlinks %}
 <a href="{% url 'admin:reminders_reminder_calendar' %}">{% trans "日历" %}</a> /
 <a href="{% url 'admin:message_hub_inboxmessage_changelist' %}">{% trans "收件箱" %}</a> /
-{{ block.super }}
+<a href="{% url 'admin:organization_accountcredential_changelist' %}">{% trans "账号管理" %}</a> /
+{% if site_url %}
+<a href="{{ site_url }}">{% translate '查看站点' %}</a> /
+{% endif %}
+<a href="{% url 'admin:logout' %}">{% translate '注销' %}</a>
 {% endblock %}
 
 {% block footer %}
