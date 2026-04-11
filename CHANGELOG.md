@@ -2,6 +2,18 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.33.6] - 2026-04-11
+
+### 后端
+
+- `CourtSMS` 新增统一文书路径持久化字段 `document_file_paths`，并在文书送达与短信处理相关创建链路中统一回写，保证文书引用可追溯。
+- 新增 `court_sms_document_reference_service.py`，统一聚合文书来源（文书记录、短信引用、任务结果、案件日志附件），并在 Admin/API 复用同一读取口径。
+- 优化 `CourtSMS` Admin 详情页“关联文书”展示：新增后台受控文书打开路由，`任务结果` 等非 `CourtDocument` 来源也支持直接点击查看。
+
+### 文档
+
+- 项目主说明文档版本同步至 `26.33.6`。
+
 ## [26.33.5] - 2026-04-10
 
 ### 后端
@@ -9,9 +21,6 @@
 - 隐藏 `CourtDocument`、`DocumentQueryHistory`、`CourtToken` 三个模型的 Admin 首页入口，通过 `get_model_perms` 返回空字典实现，保留直接 URL 访问能力和关联链接功能。
 - 修复 `token_admin.py` 和 `document_query_history_admin.py` 的 mypy 类型错误（移除 `ClassVar` 注解、添加 `type: ignore` 标注）。
 
-### 文档
-
-- `README` 版本号更新为 `26.33.5`。
 
 ## [26.33.4] - 2026-04-10
 
@@ -24,9 +33,6 @@
   - 下载策略采用 Playwright click 优先、JS click fallback，确保所有文书均可下载。
   - `CourtDocumentScraper` 主入口注册 jysd 路由分发。
 
-### 文档
-
-- `README` 版本号更新为 `26.33.4`。
 
 ## [26.33.3] - 2026-04-10
 
@@ -36,9 +42,6 @@
 - GdemsCourtScraper 增加无文书可下载状态检测：当书记员未放置文件时，页面只有无绑定事件的"确定"按钮，此时返回通知内容而非报错。
 - 信息中转站同步任务预期错误列表新增 `sync api inside the asyncio loop` 关键词。
 
-### 文档
-
-- `README` 版本号更新为 `26.33.3`。
 
 ## [26.33.2] - 2026-04-09
 
