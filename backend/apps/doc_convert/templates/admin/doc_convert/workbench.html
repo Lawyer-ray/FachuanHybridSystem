@@ -13,14 +13,45 @@
     padding: 14px 18px; border-radius: 10px; border-left: 4px solid #417690;
 }
 
-/* 文书类型选择 */
-.dc-select-row { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: nowrap; }
-.dc-select-row label { font-weight: 600; color: #2c3e50; white-space: nowrap; }
-.dc-select {
-    flex: 1; padding: 9px 12px; border: 1px solid #d0dbe5; border-radius: 8px;
-    font-size: 14px; background: white; height: 40px; min-width: 0;
+/* 文书类型选择 - 搜索下拉 */
+.dc-select-row { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 20px; flex-wrap: nowrap; }
+.dc-select-row label { font-weight: 600; color: #2c3e50; white-space: nowrap; line-height: 40px; flex-shrink: 0; }
+.dc-combobox { position: relative; flex: 1; min-width: 0; }
+.dc-combobox-input {
+    width: 100%; padding: 9px 36px 9px 12px; border: 1px solid #d0dbe5; border-radius: 8px;
+    font-size: 14px; background: white; height: 40px; box-sizing: border-box;
+    transition: border-color 0.2s;
 }
-.dc-select:focus { border-color: #417690; outline: none; }
+.dc-combobox-input:focus { border-color: #417690; outline: none; }
+.dc-combobox-input::placeholder { color: #aaa; }
+.dc-combobox-arrow {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    pointer-events: none; color: #7f8c8d; transition: transform 0.2s;
+}
+.dc-combobox.open .dc-combobox-arrow { transform: translateY(-50%) rotate(180deg); }
+.dc-combobox-dropdown {
+    position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+    background: #fff; border: 1px solid #d0dbe5; border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12); max-height: 280px; overflow-y: auto;
+    z-index: 1000; display: none; padding: 4px 0;
+}
+.dc-combobox.open .dc-combobox-dropdown { display: block; }
+.dc-combobox-group-label {
+    padding: 8px 14px 4px; font-size: 12px; font-weight: 700; color: #417690;
+    text-transform: uppercase; letter-spacing: 0.5px; user-select: none;
+}
+.dc-combobox-option {
+    padding: 8px 14px; font-size: 14px; color: #2c3e50; cursor: pointer;
+    transition: background 0.15s;
+}
+.dc-combobox-option:hover, .dc-combobox-option.highlighted { background: #e8f4f8; }
+.dc-combobox-option.selected { background: #d0e8f0; font-weight: 600; }
+.dc-combobox-empty {
+    padding: 16px 14px; text-align: center; color: #999; font-size: 13px;
+}
+.dc-combobox-dropdown::-webkit-scrollbar { width: 6px; }
+.dc-combobox-dropdown::-webkit-scrollbar-thumb { background: #c5d5de; border-radius: 3px; }
+.dc-combobox-dropdown::-webkit-scrollbar-track { background: transparent; }
 
 /* 上传区域 */
 .dc-upload-zone {
@@ -124,10 +155,13 @@
 
     <!-- 文书类型选择 -->
     <div class="dc-select-row">
-        <label for="mbidSelect">文书类型：</label>
-        <select id="mbidSelect" class="dc-select">
-            <option value="">-- 加载中 --</option>
-        </select>
+        <label>文书类型：</label>
+        <div class="dc-combobox" id="mbidCombobox">
+            <input type="text" class="dc-combobox-input" id="mbidInput" placeholder="搜索或选择文书类型…" autocomplete="off">
+            <svg class="dc-combobox-arrow" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
+            <div class="dc-combobox-dropdown" id="mbidDropdown"></div>
+            <input type="hidden" id="mbidValue" value="">
+        </div>
     </div>
 
     <!-- 上传区域 -->
@@ -194,34 +228,159 @@
 (function () {
     var uploadZone = document.getElementById('uploadZone');
     var fileInput  = document.getElementById('fileInput');
-    var mbidSelect = document.getElementById('mbidSelect');
+    var combobox   = document.getElementById('mbidCombobox');
+    var input      = document.getElementById('mbidInput');
+    var dropdown   = document.getElementById('mbidDropdown');
+    var hiddenVal  = document.getElementById('mbidValue');
 
-    // 加载 mbid 列表
+    // ── 数据 & 状态 ──
+    var allCategories = [];   // [{category, items:[{mbid,name}]}]
+    var selectedMbid  = '';
+    var highlightIdx  = -1;
+    var visibleItems  = [];   // [{mbid, name, category}]
+
+    // ── 加载 mbid 列表 ──
     fetch('/api/v1/doc-convert/mbid-list', {
         headers: { 'X-CSRFToken': getCsrf() }
     }).then(function(r) { return r.json(); })
     .then(function(data) {
-        mbidSelect.innerHTML = '<option value="">-- 请选择文书类型 --</option>';
-        (data.categories || []).forEach(function(cat) {
-            var og = document.createElement('optgroup');
-            og.label = cat.category;
-            (cat.items || []).forEach(function(item) {
-                var opt = document.createElement('option');
-                opt.value = item.mbid;
-                opt.textContent = item.name;
-                og.appendChild(opt);
-            });
-            mbidSelect.appendChild(og);
-        });
+        allCategories = data.categories || [];
+        renderDropdown('');
         // 默认选强制执行申请书
-        var def = mbidSelect.querySelector('option[value="qzzxsqs"]');
-        if (def) def.selected = true;
+        selectByMbid('qzzxsqs');
     }).catch(function(err) {
         console.error('mbid-list 加载失败:', err);
-        mbidSelect.innerHTML = '<option value="">-- 加载失败，请刷新页面重试 --</option>';
+        dropdown.innerHTML = '<div class="dc-combobox-empty">加载失败，请刷新页面重试</div>';
+        combobox.classList.add('open');
     });
 
-    // 拖拽
+    // ── 渲染下拉列表 ──
+    function renderDropdown(query) {
+        dropdown.innerHTML = '';
+        visibleItems = [];
+        var q = (query || '').trim().toLowerCase();
+        var hasItems = false;
+
+        allCategories.forEach(function(cat) {
+            var matches = cat.items.filter(function(item) {
+                return !q || item.name.toLowerCase().indexOf(q) !== -1 || item.mbid.toLowerCase().indexOf(q) !== -1;
+            });
+            if (matches.length === 0) return;
+            hasItems = true;
+
+            var groupLabel = document.createElement('div');
+            groupLabel.className = 'dc-combobox-group-label';
+            groupLabel.textContent = cat.category;
+            dropdown.appendChild(groupLabel);
+
+            matches.forEach(function(item) {
+                var opt = document.createElement('div');
+                opt.className = 'dc-combobox-option';
+                if (item.mbid === selectedMbid) opt.classList.add('selected');
+                opt.textContent = item.name;
+                opt.dataset.mbid = item.mbid;
+                opt.addEventListener('mousedown', function(e) {
+                    e.preventDefault(); // prevent blur
+                    selectByMbid(item.mbid);
+                    closeDropdown();
+                });
+                dropdown.appendChild(opt);
+                visibleItems.push({ mbid: item.mbid, name: item.name, el: opt });
+            });
+        });
+
+        if (!hasItems) {
+            dropdown.innerHTML = '<div class="dc-combobox-empty">无匹配结果</div>';
+        }
+        highlightIdx = -1;
+    }
+
+    function selectByMbid(mbid) {
+        var found = null;
+        allCategories.forEach(function(cat) {
+            cat.items.forEach(function(item) {
+                if (item.mbid === mbid) found = item;
+            });
+        });
+        if (found) {
+            selectedMbid = found.mbid;
+            hiddenVal.value = found.mbid;
+            input.value = found.name;
+        }
+    }
+
+    function openDropdown() {
+        renderDropdown(input.value);
+        combobox.classList.add('open');
+    }
+
+    function closeDropdown() {
+        combobox.classList.remove('open');
+        highlightIdx = -1;
+        // 如果输入框值不匹配已选项，恢复已选名称
+        if (selectedMbid) {
+            var found = null;
+            allCategories.forEach(function(cat) {
+                cat.items.forEach(function(item) {
+                    if (item.mbid === selectedMbid) found = item;
+                });
+            });
+            if (found && input.value !== found.name) input.value = found.name;
+        } else if (!input.value.trim()) {
+            input.value = '';
+        }
+    }
+
+    function applyHighlight() {
+        visibleItems.forEach(function(vi, i) {
+            vi.el.classList.toggle('highlighted', i === highlightIdx);
+        });
+        if (highlightIdx >= 0 && visibleItems[highlightIdx]) {
+            visibleItems[highlightIdx].el.scrollIntoView({ block: 'nearest' });
+        }
+    }
+
+    // ── 交互事件 ──
+    input.addEventListener('focus', openDropdown);
+    input.addEventListener('input', function() {
+        selectedMbid = '';
+        hiddenVal.value = '';
+        openDropdown();
+    });
+    input.addEventListener('blur', function() {
+        // 短延迟让 mousedown 先触发
+        setTimeout(closeDropdown, 150);
+    });
+    input.addEventListener('keydown', function(e) {
+        if (!combobox.classList.contains('open')) {
+            if (e.key === 'ArrowDown' || e.key === 'Enter') { openDropdown(); e.preventDefault(); }
+            return;
+        }
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            highlightIdx = Math.min(highlightIdx + 1, visibleItems.length - 1);
+            applyHighlight();
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            highlightIdx = Math.max(highlightIdx - 1, 0);
+            applyHighlight();
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (highlightIdx >= 0 && visibleItems[highlightIdx]) {
+                selectByMbid(visibleItems[highlightIdx].mbid);
+                closeDropdown();
+            }
+        } else if (e.key === 'Escape') {
+            closeDropdown();
+        }
+    });
+
+    // 点击外部关闭
+    document.addEventListener('click', function(e) {
+        if (!combobox.contains(e.target)) closeDropdown();
+    });
+
+    // ── 拖拽上传 ──
     uploadZone.addEventListener('dragover', function(e) {
         e.preventDefault(); uploadZone.classList.add('dragging');
     });
@@ -236,8 +395,9 @@
         if (e.target.files.length > 0) doConvert(e.target.files[0]);
     });
 
+    // ── 转换逻辑 ──
     function doConvert(file) {
-        var mbid = mbidSelect.value;
+        var mbid = hiddenVal.value;
         if (!mbid) { alert('请先选择文书类型'); return; }
 
         showState('loading');
@@ -264,14 +424,13 @@
             link.href = url;
 
             // 生成文件名：要素式{文书类型}{原始后缀}.docx
-            var mbidName = mbidSelect.options[mbidSelect.selectedIndex].textContent.trim();
-            var baseName = file.name.replace(/\.[^.]+$/, ''); // 去掉扩展名
-            // 去掉原始文件名开头与文书类型相同的部分（如有），保留剩余后缀
+            var mbidName = input.value.trim();
+            var baseName = file.name.replace(/\.[^.]+$/, '');
             var suffix = baseName.startsWith(mbidName) ? baseName.slice(mbidName.length) : baseName;
             link.download = '要素式' + mbidName + suffix + '.docx';
 
             document.getElementById('resFilename').textContent = file.name;
-            document.getElementById('resMbid').textContent = mbidSelect.options[mbidSelect.selectedIndex].textContent;
+            document.getElementById('resMbid').textContent = mbidName;
             document.getElementById('resSize').textContent = (blob.size / 1024).toFixed(1) + ' KB';
 
             showState('result');
