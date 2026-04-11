@@ -14,7 +14,7 @@ from django.contrib import admin
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.template.response import TemplateResponse
 from django.urls import URLPattern, path, reverse
-from django.utils.html import format_html
+from django.utils.html import format_html, mark_safe
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext_lazy as _
@@ -113,16 +113,18 @@ class ReminderAdmin(admin.ModelAdmin[Reminder]):
 
     @admin.display(description=_("扩展数据"))
     def metadata_display(self, obj: Reminder) -> str:
+        from django.utils.html import escape
+
         data = obj.metadata if isinstance(obj.metadata, dict) else {}
         if not data:
             return "—"
         rows = "".join(
             f'<tr><td style="padding:4px 12px 4px 0;font-weight:600;white-space:nowrap;vertical-align:top;'
-            f'color:#475569;border-bottom:1px solid #f1f5f9">{key}</td>'
-            f'<td style="padding:4px 0;border-bottom:1px solid #f1f5f9">{value}</td></tr>'
+            f'color:#475569;border-bottom:1px solid #f1f5f9">{escape(str(key))}</td>'
+            f'<td style="padding:4px 0;border-bottom:1px solid #f1f5f9">{escape(str(value))}</td></tr>'
             for key, value in data.items()
         )
-        return format_html(f'<table style="border-spacing:0;font-size:13px">{rows}</table>')
+        return mark_safe(f'<table style="border-spacing:0;font-size:13px">{rows}</table>')
 
     def get_urls(self) -> list[URLPattern]:
         urls = super().get_urls()
