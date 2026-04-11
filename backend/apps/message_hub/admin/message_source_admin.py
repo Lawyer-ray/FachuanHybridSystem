@@ -17,6 +17,7 @@ from apps.message_hub.models import MessageSource, SyncStatus
 @admin.register(MessageSource)
 class MessageSourceAdmin(admin.ModelAdmin[MessageSource]):
     list_display = [
+        "id",
         "display_name",
         "source_type_badge",
         "credential",

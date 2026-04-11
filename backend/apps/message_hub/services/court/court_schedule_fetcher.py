@@ -343,13 +343,14 @@ class CourtScheduleFetcher(MessageFetcher):
     def _fetch_with_token(self, source: MessageSource, token: str, credential_id: int) -> int:
         new_count = 0
         records = self._fetch_all_pages(token)
+        lawyer_name = self._get_lawyer_name(source)
         logger.info("一张网庭审日程: 共拉取 %d 条排期记录", len(records))
 
         for record in records:
             bh = record.get("bh", "")
             if not bh:
                 continue
-            if self._upsert_reminder(source, record):
+            if self._upsert_reminder(source, record, lawyer_name):
                 new_count += 1
 
         _mark_success(source)
@@ -383,11 +384,20 @@ class CourtScheduleFetcher(MessageFetcher):
 
         return all_records
 
-    def _upsert_reminder(self, source: MessageSource, record: dict[str, Any]) -> bool:
+    @staticmethod
+    def _get_lawyer_name(source: MessageSource) -> str:
+        """从 source.credential.lawyer 获取律师姓名。"""
+        try:
+            return str(source.credential.lawyer.real_name or source.credential.lawyer.username or "")
+        except Exception:
+            return ""
+
+    def _upsert_reminder(self, source: MessageSource, record: dict[str, Any], lawyer_name: str) -> bool:
         """
         创建或更新 Reminder，返回是否为新建。
 
-        去重键: metadata__source_id = record["bh"]
+        去重键: (metadata__source_id, metadata__source_credential_id)
+        同一庭审、不同律师各自创建独立的 Reminder。
         """
         from apps.reminders.models import Reminder, ReminderType
 
@@ -401,17 +411,20 @@ class CourtScheduleFetcher(MessageFetcher):
 
         due_at = _parse_datetime(kssj)
         case_id, match_strategy = _find_case_id(record)
+        credential_id = source.credential.pk
 
-        # 去重查询
+        # 去重查询：同一庭审 + 同一律师账号
         existing = Reminder.objects.filter(
             reminder_type=ReminderType.HEARING,
             metadata__source_id=bh,
+            metadata__source_credential_id=credential_id,
         ).first()
 
         metadata: dict[str, Any] = {
             "source_id": bh,
             "source_type": "court_schedule",
             "source_credential_id": source.credential.pk,
+            "lawyer_name": lawyer_name,
             "courtroom": record.get("rcdd", ""),
             "end_time": record.get("jssj", ""),
             "time_range": record.get("sj", ""),
@@ -429,7 +442,7 @@ class CourtScheduleFetcher(MessageFetcher):
             existing.case_id = case_id
             existing.metadata = metadata
             existing.save(update_fields=["content", "due_at", "case_id", "metadata", "updated_at"])
-            logger.info("一张网庭审日程: 更新已有记录 bh=%s", bh)
+            logger.info("一张网庭审日程: 更新已有记录 bh=%s, credential=%s", bh, credential_id)
             return False
 
         Reminder.objects.create(
@@ -439,5 +452,5 @@ class CourtScheduleFetcher(MessageFetcher):
             case_id=case_id,
             metadata=metadata,
         )
-        logger.info("一张网庭审日程: 新增记录 bh=%s, case_id=%s, strategy=%s", bh, case_id, match_strategy)
+        logger.info("一张网庭审日程: 新增记录 bh=%s, credential=%s, case_id=%s, strategy=%s", bh, credential_id, case_id, match_strategy)
         return True
