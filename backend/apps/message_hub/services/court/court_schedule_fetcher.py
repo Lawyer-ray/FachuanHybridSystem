@@ -396,7 +396,8 @@ class CourtScheduleFetcher(MessageFetcher):
         """
         创建或更新 Reminder，返回是否为新建。
 
-        去重键: metadata__source_id = record["bh"]
+        去重键: (metadata__source_id, metadata__source_credential_id)
+        同一庭审、不同律师各自创建独立的 Reminder。
         """
         from apps.reminders.models import Reminder, ReminderType
 
@@ -410,11 +411,13 @@ class CourtScheduleFetcher(MessageFetcher):
 
         due_at = _parse_datetime(kssj)
         case_id, match_strategy = _find_case_id(record)
+        credential_id = source.credential.pk
 
-        # 去重查询
+        # 去重查询：同一庭审 + 同一律师账号
         existing = Reminder.objects.filter(
             reminder_type=ReminderType.HEARING,
             metadata__source_id=bh,
+            metadata__source_credential_id=credential_id,
         ).first()
 
         metadata: dict[str, Any] = {
@@ -439,7 +442,7 @@ class CourtScheduleFetcher(MessageFetcher):
             existing.case_id = case_id
             existing.metadata = metadata
             existing.save(update_fields=["content", "due_at", "case_id", "metadata", "updated_at"])
-            logger.info("一张网庭审日程: 更新已有记录 bh=%s", bh)
+            logger.info("一张网庭审日程: 更新已有记录 bh=%s, credential=%s", bh, credential_id)
             return False
 
         Reminder.objects.create(
@@ -449,5 +452,5 @@ class CourtScheduleFetcher(MessageFetcher):
             case_id=case_id,
             metadata=metadata,
         )
-        logger.info("一张网庭审日程: 新增记录 bh=%s, case_id=%s, strategy=%s", bh, case_id, match_strategy)
+        logger.info("一张网庭审日程: 新增记录 bh=%s, credential=%s, case_id=%s, strategy=%s", bh, credential_id, case_id, match_strategy)
         return True
