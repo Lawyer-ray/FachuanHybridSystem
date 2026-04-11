@@ -241,7 +241,7 @@ class DocumentProcessor:
                 # 1. 创建 CourtSMS 记录
                 logger.info(f"创建 CourtSMS 记录: 案号={record.case_number}")
                 case_numbers_list: list[Any] = [record.case_number]
-                sms = CourtSMS.objects.create(  # type: ignore
+                sms = CourtSMS.objects.create(
                     content=f"文书送达自动下载: {record.case_number}",
                     received_at=record.send_time,
                     status=CourtSMSStatus.MATCHING,
@@ -299,7 +299,7 @@ class DocumentProcessor:
                         logger.info(f"通知发送成功: SMS ID={sms_id}")
                     else:
                         sms.status = CourtSMSStatus.FAILED
-                        sms.error_message = _("通知发送失败")  # type: ignore
+                        sms.error_message = _("通知发送失败")
                         sms_id = sms.id
                         logger.warning(f"通知发送失败: SMS ID={sms_id}")
 
