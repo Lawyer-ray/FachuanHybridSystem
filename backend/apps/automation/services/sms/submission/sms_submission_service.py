@@ -169,7 +169,7 @@ class SMSSubmissionService:
                 logger.info(f"案件绑定创建成功，进入重命名阶段: SMS ID={sms_id}")
             else:
                 sms.status = CourtSMSStatus.FAILED
-                sms.error_message = _("创建案件绑定失败")  # type: ignore
+                sms.error_message = _("创建案件绑定失败")
                 sms.save()
                 logger.error(f"案件绑定创建失败: SMS ID={sms_id}")
                 return sms
@@ -274,7 +274,7 @@ class SMSSubmissionService:
                 return False
 
             # 通过 ServiceLocator 获取 Lawyer 服务，避免跨模块 Model 导入
-            system_user = self.lawyer_service.get_lawyer_model(admin_lawyer_dto.id)  # type: ignore
+            system_user = self.lawyer_service.get_lawyer_model(admin_lawyer_dto.id)
 
             # 如果短信提取到案号，自动写入案件（如果不存在）
             if sms.case_numbers:

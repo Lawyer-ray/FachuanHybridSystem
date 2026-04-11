@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from django.contrib import admin
 from django.http import FileResponse, Http404, HttpRequest
@@ -57,7 +57,7 @@ class CourtSMSAdmin(CourtSMSAdminActions, CourtSMSAdminBase):
                 name="automation_courtsms_retry",
             ),
         ]
-        return custom_urls + urls
+        return cast(list[Any], custom_urls + urls)
 
     def open_document_view(self, request: HttpRequest, sms_id: int, ref_index: int) -> FileResponse:
         """打开关联文书文件"""
