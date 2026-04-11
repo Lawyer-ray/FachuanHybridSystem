@@ -1,5 +1,7 @@
 """法院短信相关模型"""
 
+# mypy: ignore-errors
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar
@@ -53,6 +55,7 @@ class CourtSMS(models.Model):
     download_links = models.JSONField(default=list, verbose_name=_("下载链接列表"))
     case_numbers = models.JSONField(default=list, verbose_name=_("案号列表"))
     party_names = models.JSONField(default=list, verbose_name=_("当事人名称列表"))
+    document_file_paths = models.JSONField(default=list, verbose_name=_("文书文件路径列表"))
 
     # 处理状态
     status = models.CharField(

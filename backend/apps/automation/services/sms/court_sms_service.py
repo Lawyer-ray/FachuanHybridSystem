@@ -51,7 +51,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
         case_number_service: Any | None = None,
     ):
         self.parser = parser or SMSParserService()
-        self._matcher = matcher or CaseMatcher()  # type: ignore
+        self._matcher = matcher or CaseMatcher()
         self._case_number_extractor = case_number_extractor
         self._document_attachment = document_attachment
         self._notification = notification
@@ -168,7 +168,10 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
 
         try:
             sms = CourtSMS.objects.create(
-                content=content.strip(), received_at=received_at, status=CourtSMSStatus.PENDING
+                content=content.strip(),
+                received_at=received_at,
+                status=CourtSMSStatus.PENDING,
+                document_file_paths=[],
             )
 
             logger.info(f"创建短信记录成功: ID={sms.id}, 长度={len(content)}")

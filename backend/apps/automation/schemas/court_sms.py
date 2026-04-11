@@ -6,9 +6,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 from typing import Any, ClassVar, cast
 
+from django.conf import settings
 from pydantic import BaseModel, Field, field_validator
+
+from apps.automation.services.sms.court_sms_document_reference_service import CourtSMSDocumentReferenceService
 
 
 @dataclass
@@ -86,11 +90,12 @@ class CourtSMSDetailOut(BaseModel):
     @classmethod
     def from_model(cls, obj: Any) -> CourtSMSDetailOut:
         """从 Django Model 创建 Schema"""
+        references = CourtSMSDocumentReferenceService().collect(obj)
         return cls(
             id=cast(int, obj.id),
             content=obj.content,
             received_at=obj.received_at,
-            sender=obj.sender,
+            sender=getattr(obj, "sender", None),
             sms_type=obj.sms_type,
             download_links=obj.download_links,
             case_numbers=obj.case_numbers,
@@ -101,18 +106,36 @@ class CourtSMSDetailOut(BaseModel):
             case={},
             documents=[
                 {
-                    "id": cast(int, doc.id),
-                    "name": doc.c_wsmc,
-                    "download_url": f"/media/{doc.local_file_path}" if doc.local_file_path else None,
+                    "id": ref.court_document_id,
+                    "name": ref.display_name,
+                    "source": ref.source,
+                    "download_url": cls._to_media_url(ref.file_path),
                 }
-                for doc in obj.scraper_task.court_documents.all()
-                if obj.scraper_task
+                for ref in references
             ],
             feishu_sent_at=obj.feishu_sent_at,
             feishu_error=obj.feishu_error,
             created_at=cast(Any, obj.created_at),
             updated_at=cast(Any, obj.updated_at),
         )
+
+    @staticmethod
+    def _to_media_url(file_path: str) -> str | None:
+        if not file_path:
+            return None
+
+        path = Path(file_path)
+        media_root = Path(settings.MEDIA_ROOT)
+        if not path.is_absolute():
+            path = media_root / path
+
+        try:
+            relative_path = path.resolve().relative_to(media_root.resolve())
+        except ValueError:
+            return None
+
+        media_url = str(settings.MEDIA_URL).rstrip("/")
+        return f"{media_url}/{relative_path.as_posix()}"
 
     class Config:
         from_attributes: bool = True
@@ -142,7 +165,7 @@ class CourtSMSListOut(BaseModel):
             sms_type=obj.sms_type,
             status=obj.status,
             case_name=obj.case.name if obj.case else None,
-            has_documents=bool(obj.scraper_task_id and obj.scraper_task.documents.exists()),
+            has_documents=bool(CourtSMSDocumentReferenceService().collect(obj)),
             feishu_sent=bool(obj.feishu_sent_at),
             created_at=cast(Any, obj.created_at),
         )
