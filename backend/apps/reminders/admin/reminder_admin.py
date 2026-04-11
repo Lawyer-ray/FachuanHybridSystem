@@ -14,6 +14,7 @@ from django.contrib import admin
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.template.response import TemplateResponse
 from django.urls import URLPattern, path, reverse
+from django.utils.html import format_html
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext_lazy as _
@@ -74,11 +75,54 @@ class ReminderAdmin(admin.ModelAdmin[Reminder]):
     search_fields = ("content",)
     list_select_related = ("contract", "case", "case_log")
     autocomplete_fields = ["contract", "case", "case_log"]
-    readonly_fields = ("created_at", "updated_at")
+    readonly_fields = ("created_at", "updated_at", "metadata_display")
     ordering = ("-due_at", "-id")
     date_hierarchy = "due_at"
     list_per_page = 30
     change_list_template = "admin/reminders/reminder/change_list.html"
+
+    fieldsets = (
+        (
+            None,
+            {
+                "fields": (
+                    "content",
+                    "reminder_type",
+                    "due_at",
+                    "contract",
+                    "case",
+                    "case_log",
+                    "metadata_display",
+                ),
+            },
+        ),
+        (
+            _("扩展数据（原始 JSON）"),
+            {
+                "fields": ("metadata",),
+                "classes": ("collapse",),
+            },
+        ),
+        (
+            _("时间信息"),
+            {
+                "fields": ("created_at", "updated_at"),
+            },
+        ),
+    )
+
+    @admin.display(description=_("扩展数据"))
+    def metadata_display(self, obj: Reminder) -> str:
+        data = obj.metadata if isinstance(obj.metadata, dict) else {}
+        if not data:
+            return "—"
+        rows = "".join(
+            f'<tr><td style="padding:4px 12px 4px 0;font-weight:600;white-space:nowrap;vertical-align:top;'
+            f'color:#475569;border-bottom:1px solid #f1f5f9">{key}</td>'
+            f'<td style="padding:4px 0;border-bottom:1px solid #f1f5f9">{value}</td></tr>'
+            for key, value in data.items()
+        )
+        return format_html(f'<table style="border-spacing:0;font-size:13px">{rows}</table>')
 
     def get_urls(self) -> list[URLPattern]:
         urls = super().get_urls()
