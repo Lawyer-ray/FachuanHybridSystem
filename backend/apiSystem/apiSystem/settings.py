@@ -358,8 +358,8 @@ if DOCUMENTS_PRIVATE_DOCX_TEMPLATES_ROOT:
 # 文书转换（znszj）配置
 # ============================================================
 
-# 是否启用传统文书转要素式文书功能（需要私有实现模块，默认关闭）
-ZNSZJ_ENABLED = (os.environ.get("ZNSZJ_ENABLED", "False") or "").lower() not in ("false", "0", "no")
+# 是否启用传统文书转要素式文书功能（默认启用）
+ZNSZJ_ENABLED = (os.environ.get("ZNSZJ_ENABLED", "True") or "").lower() not in ("false", "0", "no")
 
 # 是否启用案例检索/案例下载后台创建功能（默认关闭）。
 # 说明：当该开关为 False 时，仅在检测到私有 wk API 可用时才允许创建任务。
