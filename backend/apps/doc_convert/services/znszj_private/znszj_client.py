@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import logging
+from typing import cast
 from urllib.parse import parse_qs, urlparse
 
 import httpx
@@ -162,4 +163,4 @@ class ZnszjClient:
             )
             r4.raise_for_status()
             logger.info("znszj 下载成功", extra={"mbid": mbid})
-            return r4.content
+            return cast(bytes, r4.content)
