@@ -14,7 +14,8 @@ from django.contrib import admin
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.template.response import TemplateResponse
 from django.urls import URLPattern, path, reverse
-from django.utils.html import format_html, mark_safe
+from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext_lazy as _
@@ -124,7 +125,7 @@ class ReminderAdmin(admin.ModelAdmin[Reminder]):
             f'<td style="padding:4px 0;border-bottom:1px solid #f1f5f9">{escape(str(value))}</td></tr>'
             for key, value in data.items()
         )
-        return mark_safe(f'<table style="border-spacing:0;font-size:13px">{rows}</table>')
+        return str(mark_safe(f'<table style="border-spacing:0;font-size:13px">{rows}</table>'))
 
     def get_urls(self) -> list[URLPattern]:
         urls = super().get_urls()
