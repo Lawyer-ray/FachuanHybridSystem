@@ -178,7 +178,7 @@ class SMSDocumentMixin:
             self.document_attachment.add_to_case_log(sms, renamed_paths)
         elif sms.case:
             logger.info(f"短信 {sms.id} 没有案件日志，先创建案件日志")
-            success = self._create_case_binding(sms)
+            success = self._create_case_binding(sms)  # type: ignore[attr-defined]
             if success and sms.case_log:
                 self.document_attachment.add_to_case_log(sms, renamed_paths)
             else:
