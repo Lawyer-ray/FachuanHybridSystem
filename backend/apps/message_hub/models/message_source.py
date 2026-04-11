@@ -11,6 +11,7 @@ from django.utils.translation import gettext_lazy as _
 class SourceType(models.TextChoices):
     IMAP = "imap", _("IMAP 邮箱")
     COURT_INBOX = "court_inbox", _("一张网收件箱")
+    COURT_SCHEDULE = "court_schedule", _("一张网庭审日程")
 
 
 class SyncStatus(models.TextChoices):
