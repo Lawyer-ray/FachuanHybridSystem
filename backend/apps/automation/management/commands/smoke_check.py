@@ -98,7 +98,7 @@ class Command(BaseCommand):
         user = User.objects.filter(username=username).first()
         if user:
             if not bool(getattr(user, "is_staff", False)):
-                user.is_staff = True
+                setattr(user, "is_staff", True)
                 user.save(update_fields=["is_staff"])
             return user
         smoke_password = getattr(settings, "SMOKE_ADMIN_PASSWORD", "smoke_admin_password")
