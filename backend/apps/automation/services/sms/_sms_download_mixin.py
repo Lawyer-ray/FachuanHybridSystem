@@ -16,6 +16,7 @@ class SMSDownloadMixin:
 
     HBFY_ACCOUNT_PATTERN = re.compile(r"账号\s*([0-9]{15,20})")
     HBFY_PASSWORD_PATTERN = re.compile(r"默认密码[：:]\s*([0-9A-Za-z]+)")
+    SFDW_VERIFICATION_CODE_PATTERN = re.compile(r"验证码[：:]\s*(\w{4,6})")
 
     def _extract_hbfy_credentials(self, content: str) -> tuple[str | None, str | None]:
         account_match = self.HBFY_ACCOUNT_PATTERN.search(content)
@@ -23,6 +24,10 @@ class SMSDownloadMixin:
         account = account_match.group(1).strip() if account_match else None
         password = password_match.group(1).strip() if password_match else None
         return account, password
+
+    def _extract_sfdw_verification_code(self, content: str) -> str | None:
+        code_match = self.SFDW_VERIFICATION_CODE_PATTERN.search(content)
+        return code_match.group(1).strip() if code_match else None
 
     def _collect_lawyer_phones(self, sms: CourtSMS) -> list[str]:
         """收集律师手机号列表，优先发起任务律师，再所有律师。
@@ -100,6 +105,14 @@ class SMSDownloadMixin:
                     logger.info(f"短信 {sms.id} 为简易送达链接，注入 {len(lawyer_phones)} 个律师手机号")
                 else:
                     logger.warning(f"短信 {sms.id} 为简易送达链接但未找到律师手机号")
+
+            if "sfpt.cdfy12368.gov.cn" in download_url:
+                verification_code = self._extract_sfdw_verification_code(sms.content)
+                if verification_code:
+                    task_config["sfdw_verification_code"] = verification_code
+                    logger.info(f"短信 {sms.id} 为司法送达网链接，注入验证码")
+                else:
+                    logger.warning(f"短信 {sms.id} 为司法送达网链接但未提取到验证码")
 
             task = ScraperTask.objects.create(
                 task_type=ScraperTaskType.COURT_DOCUMENT,

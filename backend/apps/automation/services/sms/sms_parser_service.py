@@ -31,6 +31,7 @@ class SMSParseResult:
     case_numbers: list[str]
     party_names: list[str]
     has_valid_download_link: bool
+    verification_code: str = ""
 
 
 class SMSParserService:
@@ -56,6 +57,15 @@ class SMSParserService:
     # 2) 账号密码入口: http://dzsd.hbfy.gov.cn/sfsddz
     HBFY_PUBLIC_LINK_PATTERN = re.compile(r"https?://dzsd\.hbfy\.gov\.cn/hb/msg=[a-zA-Z0-9]+", re.IGNORECASE)
     HBFY_ACCOUNT_LINK_PATTERN = re.compile(r"https?://dzsd\.hbfy\.gov\.cn/sfsddz\b", re.IGNORECASE)
+
+    # 司法送达网链接正则 - sfpt.cdfy12368.gov.cn
+    # 格式: https://sfpt.cdfy12368.gov.cn:806/sfsdw//r/xxxxxx
+    SFDW_LINK_PATTERN = re.compile(
+        r"https?://sfpt\.cdfy12368\.gov\.cn:\d+/sfsdw//r/[a-zA-Z0-9]+", re.IGNORECASE
+    )
+    # 司法送达网验证码正则
+    # 格式: 验证码：xxxx
+    SFDW_VERIFICATION_CODE_PATTERN = re.compile(r"验证码[：:]\s*(\w{4,6})")
 
     # 当事人提取提示词
     PARTY_EXTRACTION_PROMPT = """
@@ -172,6 +182,9 @@ class SMSParserService:
         # 提取当事人名称
         party_names = self.extract_party_names(content)
 
+        # 提取司法送达网验证码
+        verification_code = self.extract_verification_code(content)
+
         # 判定短信类型
         if has_valid_download_link:
             sms_type = CourtSMSType.DOCUMENT_DELIVERY
@@ -188,6 +201,7 @@ class SMSParserService:
             case_numbers=case_numbers,
             party_names=party_names,
             has_valid_download_link=has_valid_download_link,
+            verification_code=verification_code,
         )
 
         logger.info(
@@ -247,6 +261,13 @@ class SMSParserService:
                 valid_links.append(link)
                 logger.info(f"提取到湖北电子送达账号入口: {link}")
 
+        # 6. 提取司法送达网链接（sfpt.cdfy12368.gov.cn）
+        sfdw_matches = self.SFDW_LINK_PATTERN.findall(content)
+        for link in set(sfdw_matches):
+            if link not in valid_links:
+                valid_links.append(link)
+                logger.info(f"提取到司法送达网链接: {link}")
+
         if valid_links:
             logger.info(f"提取到 {len(valid_links)} 个有效下载链接")
         else:
@@ -287,7 +308,30 @@ class SMSParserService:
         if "dzsd.hbfy.gov.cn/sfsddz" in link_lower:
             return True
 
+        # 司法送达网链接 (sfpt.cdfy12368.gov.cn)
+        if "sfpt.cdfy12368.gov.cn" in link_lower:
+            return True
+
         return False
+
+    def extract_verification_code(self, content: str) -> str:
+        """
+        提取司法送达网验证码
+
+        格式固定：验证码：xxxx
+
+        Args:
+            content: 短信内容
+
+        Returns:
+            str: 验证码，未找到返回空字符串
+        """
+        match = self.SFDW_VERIFICATION_CODE_PATTERN.search(content)
+        if match:
+            code = match.group(1)
+            logger.info(f"提取到司法送达网验证码: {code}")
+            return code
+        return ""
 
     def extract_case_numbers(self, content: str) -> list[str]:
         """
