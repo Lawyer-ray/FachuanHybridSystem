@@ -21,16 +21,20 @@ cd FachuanHybridSystem/backend
 
 # 2) 配置环境变量
 cp .env.example .env
-# 至少修改 DJANGO_SECRET_KEY
+# 必须修改 DJANGO_SECRET_KEY，生成命令：
+#   python3 -c "import secrets; print(secrets.token_urlsafe(50))"
 
 # 3) 构建并启动（首次会下载 Playwright 浏览器）
 docker compose up -d
 
-# 4) 初始化管理员
-docker compose exec web uv run python manage.py createsuperuser
+# 4) 等待服务就绪（migrate 完成后自动通过健康检查）
+docker compose exec web sh -c "until curl -sf http://localhost:8002/admin/login/; do sleep 2; done"
 
-# 5) 访问后台
-# http://localhost:8002/admin
+# 5) 初始化管理员
+docker compose exec web sh -c "cd apiSystem && uv run python manage.py createsuperuser"
+
+# 6) 访问后台
+# http://localhost:8002/admin/
 ```
 
 常用命令：
@@ -78,6 +82,9 @@ make migrations
 
 # 8) 收集静态文件
 make collectstatic
+
+# 9) 创建管理员
+make superuser
 ```
 
 启动服务（必须先队列后 Django）：
@@ -113,23 +120,23 @@ cp .env.example .env
 
 # 6) 数据库迁移
 cd apiSystem
-python manage.py migrate
+uv run python manage.py migrate
 
 # 7) 创建管理员
-python manage.py createsuperuser
+uv run python manage.py createsuperuser
 
 # 8) 收集静态文件
-python manage.py collectstatic --noinput
+uv run python manage.py collectstatic --noinput
 ```
 
 启动服务（必须先队列后 Django）：
 
 ```bash
 # 终端1
-python manage.py qcluster
+uv run python manage.py qcluster
 
 # 终端2
-python manage.py runserver 0.0.0.0:8002
+uv run python manage.py runserver 0.0.0.0:8002
 ```
 
 ## 环境变量
@@ -157,7 +164,7 @@ FACHUAN_PASSWORD=你的密码
 
 检查点：
 
-- 后台可访问：`http://127.0.0.1:8002/admin`
+- 后台可访问：`http://127.0.0.1:8002/admin/`
 - 任务可执行：提交一个依赖队列的任务（例如案例检索任务）后状态可从 `queued/running` 正常变化
 
 ## MCP Server（AI Agent 集成）
