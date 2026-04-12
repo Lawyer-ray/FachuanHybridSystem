@@ -238,18 +238,18 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):
 
             ws_json = json.dumps(ws, ensure_ascii=False)
             with self.page.expect_download(timeout=30000) as download_info:
-                self.page.evaluate(f"""(wsJson) => {{
-                    try {{
+                self.page.evaluate("""(wsJson) => {
+                    try {
                         const ws = JSON.parse(wsJson);
-                        if (typeof downloadFile === 'function') {{
+                        if (typeof downloadFile === 'function') {
                             downloadFile(app, ws);
                             return 'called downloadFile';
-                        }}
+                        }
                         return 'downloadFile not found';
-                    }} catch(e) {{
+                    } catch(e) {
                         return 'error: ' + e.message;
-                    }}
-                }}""", ws_json)
+                    }
+                }""", ws_json)
             return self._save_download_file(download_info.value, download_dir, doc_name, index)
         except Exception as exc:
             logger.info("司法送达网: Vue downloadFile 方式下载失败，尝试备选方案: %s", exc)
@@ -266,14 +266,14 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):
 
             self.page.on("download", on_download)
 
-            self.page.evaluate(f"""(wsJson) => {{
-                try {{
+            self.page.evaluate("""(wsJson) => {
+                try {
                     const ws = JSON.parse(wsJson);
-                    if (typeof downloadFile === 'function') {{
+                    if (typeof downloadFile === 'function') {
                         downloadFile(app, ws);
-                    }}
-                }} catch(e) {{}}
-            }}""", ws_json)
+                    }
+                } catch(e) {}
+            }""", ws_json)
 
             # 等待下载事件
             for _ in range(30):
