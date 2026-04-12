@@ -395,8 +395,19 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
                         "description": (
                             "请输入完整的法院短信内容。收到时间将自动设置为当前时间。"
                             "<br><br>"
-                            "<b>支持自动下载的平台：</b>"
-                            "&nbsp; 法院执行网 · 睿法智达 · 简易送达 · 湖北电子送达 · 司法送达网"
+                            "<style>"
+                            ".platform-list{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:4px;}"
+                            ".platform-list span{background:#f0f5ff;color:#4a6cf7;padding:2px 8px;border-radius:4px;font-size:12px;white-space:nowrap;}"
+                            ".platform-list span code{color:#7c8cf8;font-size:11px;margin-left:2px;}"
+                            "</style>"
+                            "<b>支持自动下载：</b>"
+                            "<div class='platform-list'>"
+                            "<span>人民法院在线服务网 <code>zxfw.court.gov.cn</code></span>"
+                            "<span>睿法智达 <code>sd.gdems.com</code></span>"
+                            "<span>简易送达 <code>jysd.10102368.com</code></span>"
+                            "<span>湖北电子送达 <code>dzsd.hbfy.gov.cn</code></span>"
+                            "<span>司法送达网 <code>sfpt.cdfy12368.gov.cn</code></span>"
+                            "</div>"
                         ),
                     },
                 ),

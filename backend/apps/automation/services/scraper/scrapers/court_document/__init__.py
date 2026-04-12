@@ -2,8 +2,8 @@
 法院文书下载爬虫模块
 
 支持多种法院文书下载源:
-- zxfw.court.gov.cn (法院执行网)
-- sd.gdems.com (广东电子送达)
+- zxfw.court.gov.cn (人民法院在线服务网)
+- sd.gdems.com (睿法智达)
 - dzsd.hbfy.gov.cn (湖北电子送达)
 - sfpt.cdfy12368.gov.cn (司法送达网)
 """

@@ -27,8 +27,8 @@ class CourtDocumentScraper(BaseCourtDocumentScraper):
     法院文书下载爬虫主入口
 
     根据不同的链接格式,自动选择对应的下载策略:
-    - zxfw.court.gov.cn: 法院执行网
-    - sd.gdems.com: 广东电子送达
+    - zxfw.court.gov.cn: 人民法院在线服务网
+    - sd.gdems.com: 睿法智达
     - jysd.10102368.com: 简易送达
     - dzsd.hbfy.gov.cn: 湖北电子送达
     - sfpt.cdfy12368.gov.cn: 司法送达网
