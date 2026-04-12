@@ -34,17 +34,27 @@ def check_database() -> ComponentHealth:
         latency = (time.time() - start) * 1000
 
         try:
-            db_path = getattr(settings, "DATABASES", {}).get("default", {}).get("NAME", "")
-            db_file = Path(str(db_path)) if db_path else None
-            if db_file and db_file.exists():
-                stat = db_file.stat()
+            default_db = getattr(settings, "DATABASES", {}).get("default", {})
+            db_name = default_db.get("NAME", "")
+            if connection.vendor == "sqlite":
+                db_file = Path(str(db_name)) if db_name else None
+                if db_file and db_file.exists():
+                    stat = db_file.stat()
+                    diagnostic_info.update(
+                        {
+                            "database_path": str(db_file),
+                            "database_size_mb": round(stat.st_size / (1024 * 1024), 2),
+                            "last_modified": time.ctime(stat.st_mtime),
+                            "readable": os.access(str(db_file), os.R_OK),
+                            "writable": os.access(str(db_file), os.W_OK),
+                        }
+                    )
+            else:
                 diagnostic_info.update(
                     {
-                        "database_path": str(db_file),
-                        "database_size_mb": round(stat.st_size / (1024 * 1024), 2),
-                        "last_modified": time.ctime(stat.st_mtime),
-                        "readable": os.access(str(db_file), os.R_OK),
-                        "writable": os.access(str(db_file), os.W_OK),
+                        "database_name": db_name,
+                        "database_host": default_db.get("HOST", ""),
+                        "database_port": str(default_db.get("PORT", "")),
                     }
                 )
 
@@ -68,23 +78,38 @@ def check_database() -> ComponentHealth:
         )
     except Exception as e:
         try:
-            db_path = getattr(settings, "DATABASES", {}).get("default", {}).get("NAME", "")
-            db_file = Path(str(db_path)) if db_path else None
+            default_db = getattr(settings, "DATABASES", {}).get("default", {})
+            db_name = default_db.get("NAME", "")
             diagnostic_info.update(
                 {
-                    "database_path": db_path,
-                    "path_exists": db_file.exists() if db_file else False,
+                    "database_name": db_name,
                     "error_type": type(e).__name__,
                     "error_details": str(e),
+                    "connection_vendor": connection.vendor,
                 }
             )
 
-            if db_file:
-                db_dir = db_file.parent
+            if connection.vendor == "sqlite":
+                db_file = Path(str(db_name)) if db_name else None
                 diagnostic_info.update(
                     {
-                        "directory_exists": db_dir.exists(),
-                        "directory_writable": os.access(str(db_dir), os.W_OK) if db_dir.exists() else False,
+                        "database_path": db_name,
+                        "path_exists": db_file.exists() if db_file else False,
+                    }
+                )
+                if db_file:
+                    db_dir = db_file.parent
+                    diagnostic_info.update(
+                        {
+                            "directory_exists": db_dir.exists(),
+                            "directory_writable": os.access(str(db_dir), os.W_OK) if db_dir.exists() else False,
+                        }
+                    )
+            else:
+                diagnostic_info.update(
+                    {
+                        "database_host": default_db.get("HOST", ""),
+                        "database_port": str(default_db.get("PORT", "")),
                     }
                 )
         except Exception as diag_e:
@@ -178,14 +203,15 @@ def check_disk_space() -> ComponentHealth:
             }
         )
 
-        important_paths = [
-            (
-                "database_dir",
-                str(Path(str(getattr(settings, "DATABASES", {}).get("default", {}).get("NAME", "/tmp"))).parent),  # nosec B108
-            ),
+        important_paths: list[tuple[str, str]] = [
             ("logs_dir", "/app/logs"),
-            ("static_dir", getattr(settings, "STATIC_ROOT", "/tmp")),  # nosec B108
+            ("static_dir", str(getattr(settings, "STATIC_ROOT", "/tmp"))),  # nosec B108
         ]
+
+        default_db = getattr(settings, "DATABASES", {}).get("default", {})
+        if connection.vendor == "sqlite":
+            sqlite_path = str(default_db.get("NAME", "/tmp"))  # nosec B108
+            important_paths.append(("database_dir", str(Path(sqlite_path).parent)))
 
         for path_name, path in important_paths:
             if Path(str(path)).exists():
@@ -233,7 +259,12 @@ def check_dependencies() -> ComponentHealth:
     diagnostic_info: dict[str, Any] = {}
 
     try:
-        env_vars = ["DJANGO_SECRET_KEY", "DATABASE_PATH", "DJANGO_DEBUG", "DJANGO_ALLOWED_HOSTS"]
+        db_engine = (os.environ.get("DB_ENGINE", "postgresql") or "postgresql").strip().lower()
+        env_vars = ["DJANGO_SECRET_KEY", "DB_ENGINE", "DJANGO_DEBUG", "DJANGO_ALLOWED_HOSTS"]
+        if db_engine in ("sqlite", "sqlite3", "django.db.backends.sqlite3"):
+            env_vars.append("DATABASE_PATH")
+        else:
+            env_vars.extend(["DB_NAME", "DB_USER", "DB_HOST", "DB_PORT"])
 
         env_status: dict[str, Any] = {}
         for var in env_vars:
