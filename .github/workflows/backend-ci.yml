@@ -50,6 +50,20 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.12"]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: fachuan_ci_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d fachuan_ci_test"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -191,25 +205,41 @@ jobs:
       - name: Tests (collection smoke)
         env:
           DJANGO_DEBUG: "1"
-          DATABASE_PATH: "/tmp/fachuan_ci.sqlite3"
+          DB_ENGINE: "postgresql"
+          TEST_DB_ENGINE: "postgresql"
+          TEST_DB_NAME: "fachuan_ci_test"
+          TEST_DB_USER: "postgres"
+          TEST_DB_PASSWORD: "postgres"
+          TEST_DB_HOST: "127.0.0.1"
+          TEST_DB_PORT: "5432"
           PYTHONPATH: "apiSystem:."
         run: uv run pytest -c pytest.ini --no-cov --collect-only -q tests/ci/structure/
 
       - name: Tests (unit)
         env:
           DJANGO_DEBUG: "1"
-          DATABASE_PATH: "/tmp/fachuan_ci.sqlite3"
+          DB_ENGINE: "postgresql"
+          TEST_DB_ENGINE: "postgresql"
+          TEST_DB_NAME: "fachuan_ci_test"
+          TEST_DB_USER: "postgres"
+          TEST_DB_PASSWORD: "postgres"
+          TEST_DB_HOST: "127.0.0.1"
+          TEST_DB_PORT: "5432"
           PYTHONPATH: "apiSystem:."
         run: uv run pytest -c pytest.ini --no-cov -q tests/ci/unit/
 
       - name: Smoke check (minimal)
         env:
           DJANGO_DEBUG: "1"
-          DATABASE_PATH: "/tmp/fachuan_ci.sqlite3"
+          DB_ENGINE: "postgresql"
+          DB_NAME: "fachuan_ci_test"
+          DB_USER: "postgres"
+          DB_PASSWORD: "postgres"
+          DB_HOST: "127.0.0.1"
+          DB_PORT: "5432"
           PYTHONPATH: "apiSystem:."
         run: |
           uv run python apiSystem/manage.py smoke_check \
-            --database-path /tmp/fachuan_ci.sqlite3 \
             --skip-admin \
             --skip-websocket \
             --skip-q
@@ -296,6 +326,20 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.12"]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: fachuan_ci_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d fachuan_ci_test"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -314,7 +358,13 @@ jobs:
       - name: Tests (unit + coverage gate)
         env:
           DJANGO_DEBUG: "1"
-          DATABASE_PATH: "/tmp/fachuan_ci.sqlite3"
+          DB_ENGINE: "postgresql"
+          TEST_DB_ENGINE: "postgresql"
+          TEST_DB_NAME: "fachuan_ci_test"
+          TEST_DB_USER: "postgres"
+          TEST_DB_PASSWORD: "postgres"
+          TEST_DB_HOST: "127.0.0.1"
+          TEST_DB_PORT: "5432"
           PYTHONPATH: "apiSystem:."
         run: |
           uv run pytest -c pytest.ini -q -o addopts="" \
@@ -337,6 +387,20 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.12"]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: fachuan_ci_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d fachuan_ci_test"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -353,7 +417,13 @@ jobs:
       - name: Tests (integration smoke)
         env:
           DJANGO_DEBUG: "1"
-          DATABASE_PATH: "/tmp/fachuan_ci.sqlite3"
+          DB_ENGINE: "postgresql"
+          TEST_DB_ENGINE: "postgresql"
+          TEST_DB_NAME: "fachuan_ci_test"
+          TEST_DB_USER: "postgres"
+          TEST_DB_PASSWORD: "postgres"
+          TEST_DB_HOST: "127.0.0.1"
+          TEST_DB_PORT: "5432"
           PYTHONPATH: "apiSystem:."
         run: uv run pytest -c pytest.ini --no-cov -q tests/ci/integration/
 
@@ -367,6 +437,20 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.12"]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: fachuan_ci_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d fachuan_ci_test"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -383,7 +467,13 @@ jobs:
       - name: Tests (property smoke)
         env:
           DJANGO_DEBUG: "1"
-          DATABASE_PATH: "/tmp/fachuan_ci.sqlite3"
+          DB_ENGINE: "postgresql"
+          TEST_DB_ENGINE: "postgresql"
+          TEST_DB_NAME: "fachuan_ci_test"
+          TEST_DB_USER: "postgres"
+          TEST_DB_PASSWORD: "postgres"
+          TEST_DB_HOST: "127.0.0.1"
+          TEST_DB_PORT: "5432"
           PYTHONPATH: "apiSystem:."
           HYPOTHESIS_PROFILE: "default"
         run: uv run pytest -c pytest.ini --no-cov -q tests/ci/property/
@@ -399,6 +489,20 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.12"]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: fachuan_ci_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d fachuan_ci_test"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -415,11 +519,15 @@ jobs:
       - name: Nightly smoke check
         env:
           DJANGO_DEBUG: "1"
-          DATABASE_PATH: "/tmp/fachuan_ci.sqlite3"
+          DB_ENGINE: "postgresql"
+          DB_NAME: "fachuan_ci_test"
+          DB_USER: "postgres"
+          DB_PASSWORD: "postgres"
+          DB_HOST: "127.0.0.1"
+          DB_PORT: "5432"
           PYTHONPATH: "apiSystem:."
         run: |
           uv run python apiSystem/manage.py smoke_check \
-            --database-path /tmp/fachuan_ci.sqlite3 \
             --skip-websocket \
             --skip-q
 
@@ -506,6 +614,20 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.12"]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: fachuan_ci_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d fachuan_ci_test"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -522,7 +644,13 @@ jobs:
       - name: Coverage (apps baseline)
         env:
           DJANGO_DEBUG: "1"
-          DATABASE_PATH: "/tmp/fachuan_ci.sqlite3"
+          DB_ENGINE: "postgresql"
+          TEST_DB_ENGINE: "postgresql"
+          TEST_DB_NAME: "fachuan_ci_test"
+          TEST_DB_USER: "postgres"
+          TEST_DB_PASSWORD: "postgres"
+          TEST_DB_HOST: "127.0.0.1"
+          TEST_DB_PORT: "5432"
           PYTHONPATH: "apiSystem:."
         run: |
           uv run pytest -c pytest.ini -o addopts="" \

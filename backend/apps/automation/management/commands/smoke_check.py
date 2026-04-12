@@ -83,7 +83,8 @@ class Command(BaseCommand):
             return
         default_db = settings.DATABASES.get("default", {})
         if default_db.get("ENGINE") != "django.db.backends.sqlite3":
-            raise CommandError("--database-path 仅支持 sqlite3(当前不是 sqlite)")
+            logger.info("smoke_check 忽略 --database-path: 当前数据库引擎不是 sqlite3")
+            return
         db_path = Path(database_path)
         db_path.parent.mkdir(parents=True, exist_ok=True)
         self._database_path = str(db_path)  # type: ignore[assignment]

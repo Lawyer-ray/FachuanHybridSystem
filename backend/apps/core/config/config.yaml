@@ -51,7 +51,7 @@ django:
 database:
   # 数据库引擎
   # 支持：django.db.backends.mysql, django.db.backends.postgresql, django.db.backends.sqlite3
-  engine: django.db.backends.mysql
+  engine: django.db.backends.postgresql
 
   # 数据库名称（必需）
   # 环境变量：DB_NAME
@@ -72,7 +72,7 @@ database:
   # 数据库端口
   # 取值范围：1-65535
   # 环境变量：DB_PORT
-  port: ${DB_PORT:3306}
+  port: ${DB_PORT:5432}
 
 # ============================================================
 # CORS 配置
@@ -110,7 +110,7 @@ services:
   ollama:
     # 模型名称
     # 环境变量：OLLAMA_MODEL
-    model: ${OLLAMA_MODEL:qwen2.5:7b}
+    model: ${OLLAMA_MODEL:qwen3.5:0.8b}
 
     # API 基础 URL
     # 环境变量：OLLAMA_BASE_URL

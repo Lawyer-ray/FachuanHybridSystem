@@ -2,6 +2,21 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.33.13] - 2026-04-12
+
+### 后端
+
+- CI 工作流统一切换为 PostgreSQL：`backend-ci.yml` 全部相关 job 统一使用 PostgreSQL service 与连接参数，移除 SQLite 专用测试参数残留。
+- `resetdb` 按 `DB_ENGINE` 分支处理：SQLite 走删除本地库后迁移，PostgreSQL 走 `flush --noinput + migrate`，未知引擎采用兜底分支。
+- 收敛 `qcluster` 启动前清理逻辑：仅终止历史 `manage.py qcluster` 进程，避免误杀 `run-dev` 的热重载子进程。
+- `run-dev` 默认启用 watchfiles polling 稳定模式（可通过 `RUN_DEV_FORCE_POLLING` / `RUN_DEV_POLL_DELAY_MS` 调整）。
+
+### 文档
+
+- 补充数据库升级说明：明确默认开发数据库已切换为 PostgreSQL，并在 `INSTALL.md` 增加从 SQLite 升级（`dumpdata → migrate → loaddata → 序列重置`）的可执行步骤与本地推送前检查清单。
+- 采纳业务侧律师建议，推进默认开发数据库升级为 PostgreSQL，并完善本地开发与迁移操作指引。
+- 补充本地 PostgreSQL 安装引导：在 `INSTALL.md` 新增 macOS / Ubuntu / Windows 安装方式与通用建库初始化命令，并在 `README.md` 增加入口提示。
+
 ## [26.33.12] - 2026-04-12
 
 ### 后端

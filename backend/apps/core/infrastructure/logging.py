@@ -48,8 +48,9 @@ def _is_docker_environment() -> bool:
     if os.environ.get("DOCKER_CONTAINER") == "true":
         return True
 
-    # 方法4: 检查 DATABASE_PATH 是否为 Docker 路径
-    if os.environ.get("DATABASE_PATH", "").startswith("/app/"):
+    # 方法4: 检查常见容器内数据库主机标识
+    db_host = os.environ.get("DB_HOST", "")
+    if db_host in {"postgres", "mysql", "mariadb"}:
         return True
 
     return False
