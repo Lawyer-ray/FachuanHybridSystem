@@ -392,7 +392,15 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
                     str(_("短信信息")),
                     {
                         "fields": ("content", "received_at"),
-                        "description": "请输入完整的法院短信内容.收到时间将自动设置为当前时间.",
+                        "description": (
+                            "请输入完整的法院短信内容。收到时间将自动设置为当前时间。"
+                            "<br><br><b>支持自动下载的平台：</b>"
+                            "<br>• 法院执行网（zxfw.court.gov.cn）— 含 qdbh/sdbh/sdsin 参数的链接"
+                            "<br>• 广东电子送达（sd.gdems.com）— /v3/dzsd/ 链接"
+                            "<br>• 简易送达（jysd.10102368.com）— /sd?key= 链接"
+                            "<br>• 湖北电子送达（dzsd.hbfy.gov.cn）— 免账号 /hb/msg= 链接 或 账号入口 /sfsddz"
+                            "<br>• 司法送达网（sfpt.cdfy12368.gov.cn）— /sfsdw//r/ 链接 + 验证码"
+                        ),
                     },
                 ),
             ]
