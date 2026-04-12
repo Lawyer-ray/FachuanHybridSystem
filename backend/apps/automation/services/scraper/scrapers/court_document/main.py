@@ -13,6 +13,7 @@ from .base_court_scraper import BaseCourtDocumentScraper
 from .gdems_scraper import GdemsCourtScraper
 from .hbfy_scraper import HbfyCourtScraper
 from .jysd_scraper import JysdCourtScraper
+from .sfdw_scraper import SfdwCourtScraper
 from .zxfw_scraper import ZxfwCourtScraper
 
 if TYPE_CHECKING:
@@ -26,10 +27,11 @@ class CourtDocumentScraper(BaseCourtDocumentScraper):
     法院文书下载爬虫主入口
 
     根据不同的链接格式,自动选择对应的下载策略:
-    - zxfw.court.gov.cn: 法院执行网
-    - sd.gdems.com: 广东电子送达
-    - jysd.10102368.com: 简易送达
+    - zxfw.court.gov.cn: 人民法院在线服务网
+    - sd.gdems.com: 睿法智达
+    - jysd.10102368.com: 集约送达
     - dzsd.hbfy.gov.cn: 湖北电子送达
+    - sfpt.cdfy12368.gov.cn: 司法送达网
     """
 
     def __init__(self, task: Any, document_service: ICourtDocumentService | None = None) -> None:
@@ -85,6 +87,15 @@ class CourtDocumentScraper(BaseCourtDocumentScraper):
                 self._scraper.context = self.context
             if hasattr(self, "browser"):
                 self._scraper.browser = self.browser
-            return self._scraper.run()
+            return cast(dict[str, Any], self._scraper.run())
+        elif "sfpt.cdfy12368.gov.cn" in url:
+            self._scraper = SfdwCourtScraper(self.task, self._document_service)
+            if hasattr(self, "page"):
+                self._scraper.page = self.page
+            if hasattr(self, "context"):
+                self._scraper.context = self.context
+            if hasattr(self, "browser"):
+                self._scraper.browser = self.browser
+            return cast(dict[str, Any], self._scraper.run())
         else:
             raise ValueError(f"不支持的链接格式: {url}")

@@ -392,7 +392,27 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
                     str(_("短信信息")),
                     {
                         "fields": ("content", "received_at"),
-                        "description": "请输入完整的法院短信内容.收到时间将自动设置为当前时间.",
+                        "description": (
+                            "请输入完整的法院短信内容。收到时间将自动设置为当前时间。"
+                            "<br>"
+                            "<style>"
+                            ".sms-platforms{margin-top:12px;padding:10px 14px;background:#f8f9fb;border-radius:6px;border:1px solid #e8ecf1;}"
+                            ".sms-platforms-title{font-size:13px;color:#5a6577;margin-bottom:6px;font-weight:600;}"
+                            ".sms-platforms-tags{display:flex;flex-wrap:wrap;gap:6px;}"
+                            ".sms-platforms-tags span{background:#fff;color:#3d5afe;padding:3px 10px;border-radius:12px;font-size:12px;border:1px solid #d0d9fb;white-space:nowrap;}"
+                            ".sms-platforms-tags span code{color:#7986cb;font-size:11px;}"
+                            "</style>"
+                            "<div class='sms-platforms'>"
+                            "<div class='sms-platforms-title'>📥 支持自动下载</div>"
+                            "<div class='sms-platforms-tags'>"
+                            "<span title='zxfw.court.gov.cn'>人民法院在线服务网</span>"
+                            "<span title='sd.gdems.com'>睿法智达</span>"
+                            "<span title='jysd.10102368.com'>集约送达</span>"
+                            "<span title='dzsd.hbfy.gov.cn'>湖北电子送达</span>"
+                            "<span title='sfpt.cdfy12368.gov.cn'>司法送达网</span>"
+                            "</div>"
+                            "</div>"
+                        ),
                     },
                 ),
             ]
