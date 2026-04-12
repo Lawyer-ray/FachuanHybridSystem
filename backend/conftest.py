@@ -36,16 +36,26 @@ def django_db_setup(django_db_setup: Any, django_db_blocker: Any) -> Any:
         # 这里只需要确保使用正确的数据库配置
         from django.conf import settings
 
-        # 验证使用的是测试数据库
-        db_name = str(settings.DATABASES["default"]["NAME"])
+        db_cfg = settings.DATABASES.get("default", {})
+        db_engine = str(db_cfg.get("ENGINE", ""))
+        db_name = str(db_cfg.get("NAME", ""))
 
-        # 检查是否是测试数据库（支持多种格式）
-        is_test_db = (
-            "test_" in db_name
-            or ":memory:" in db_name
-            or "memorydb" in db_name  # Django 测试数据库格式
-            or db_name == ":memory:"
-        )
+        if db_engine == "django.db.backends.sqlite3":
+            is_test_db = (
+                "test_" in db_name
+                or "_test" in db_name
+                or ":memory:" in db_name
+                or "memorydb" in db_name
+                or db_name == ":memory:"
+            )
+        else:
+            lowered_name = db_name.lower()
+            is_test_db = (
+                lowered_name.startswith("test_")
+                or lowered_name.endswith("_test")
+                or "_test_" in lowered_name
+                or lowered_name == "test"
+            )
 
         assert is_test_db, f"错误：测试正在使用生产数据库 {db_name}！测试已中止。"
 
@@ -59,20 +69,44 @@ def django_db_modify_db_settings() -> None:
     """
     修改测试数据库设置
 
-    优化测试数据库性能
+    默认使用 PostgreSQL 测试库，也支持显式切换 SQLite。
     """
     from django.conf import settings
 
-    # 使用内存数据库加速测试
+    inferred_engine = "sqlite" if (os.environ.get("DATABASE_PATH") or os.environ.get("TEST_DB_PATH")) else "postgresql"
+    test_db_engine = (os.environ.get("TEST_DB_ENGINE") or os.environ.get("DB_ENGINE") or inferred_engine).strip().lower()
+
+    if test_db_engine in ("sqlite", "sqlite3", "django.db.backends.sqlite3"):
+        test_db_path = (os.environ.get("TEST_DB_PATH") or os.environ.get("DATABASE_PATH") or ":memory:").strip()
+        settings.DATABASES["default"] = {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": test_db_path,
+            "ATOMIC_REQUESTS": False,
+            "CONN_MAX_AGE": 0,
+            "TIME_ZONE": "Asia/Shanghai",
+            "OPTIONS": {
+                "timeout": 20,
+            },
+        }
+        return
+
+    raw_test_password = os.environ.get("TEST_DB_PASSWORD")
+    raw_db_password = os.environ.get("DB_PASSWORD")
+    resolved_password = raw_test_password if raw_test_password is not None else raw_db_password
+    if resolved_password is None:
+        resolved_password = "postgres"
+
     settings.DATABASES["default"] = {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": ":memory:",
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": (os.environ.get("TEST_DB_NAME") or "fachuan_test").strip(),
+        "USER": (os.environ.get("TEST_DB_USER") or os.environ.get("DB_USER") or "postgres").strip(),
+        "PASSWORD": resolved_password.strip(),
+        "HOST": (os.environ.get("TEST_DB_HOST") or os.environ.get("DB_HOST") or "127.0.0.1").strip(),
+        "PORT": int((os.environ.get("TEST_DB_PORT") or os.environ.get("DB_PORT") or "5432").strip()),
         "ATOMIC_REQUESTS": False,
         "CONN_MAX_AGE": 0,
-        "TIME_ZONE": "Asia/Shanghai",  # 添加TIME_ZONE设置
-        "OPTIONS": {
-            "timeout": 20,
-        },
+        "TIME_ZONE": "Asia/Shanghai",
+        "CONN_HEALTH_CHECKS": True,
     }
 
 

@@ -225,12 +225,12 @@ production:
       - api.lawfirm.com
 
   database:
-    engine: django.db.backends.mysql
+    engine: django.db.backends.postgresql
     name: ${DB_NAME}
     user: ${DB_USER}
     password: ${DB_PASSWORD}
     host: ${DB_HOST}
-    port: ${DB_PORT:3306}
+    port: ${DB_PORT:5432}
 
   cors:
     allowed_origins:
@@ -374,18 +374,18 @@ production_ha:
   # 继承生产环境配置，并添加高可用特性
 
   database:
-    engine: django.db.backends.mysql
+    engine: django.db.backends.postgresql
     name: ${DB_NAME}
     user: ${DB_USER}
     password: ${DB_PASSWORD}
     host: ${DB_HOST}  # 主数据库
-    port: ${DB_PORT:3306}
+    port: ${DB_PORT:5432}
     # 读写分离配置（需要额外的数据库路由配置）
     read_replicas:
       - host: ${DB_READ_HOST_1}
-        port: ${DB_READ_PORT_1:3306}
+        port: ${DB_READ_PORT_1:5432}
       - host: ${DB_READ_HOST_2}
-        port: ${DB_READ_PORT_2:3306}
+        port: ${DB_READ_PORT_2:5432}
 
   performance:
     cache:

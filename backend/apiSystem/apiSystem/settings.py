@@ -158,18 +158,19 @@ WSGI_APPLICATION = "apiSystem.wsgi.application"
 # 数据库配置
 # ============================================================
 
-DB_ENGINE = (os.environ.get("DB_ENGINE", "") or "").strip().lower()
+DB_ENGINE = (os.environ.get("DB_ENGINE", "postgresql") or "postgresql").strip().lower()
 DATABASE_PATH = (os.environ.get("DATABASE_PATH", "") or "").strip()
 
 
-def _require_env_str(name: str) -> str:
-    value = (os.environ.get(name, "") or "").strip()
-    if not value:
+def _get_env_str(name: str, default: str = "", *, allow_empty: bool = False) -> str:
+    raw_value = os.environ.get(name)
+    value = (default if raw_value is None else raw_value).strip()
+    if not value and not allow_empty:
         raise RuntimeError(f"DB_ENGINE={DB_ENGINE} 时必须设置环境变量 {name}")
     return value
 
 
-if DB_ENGINE in ("", "sqlite", "sqlite3", "django.db.backends.sqlite3"):
+if DB_ENGINE in ("sqlite", "sqlite3", "django.db.backends.sqlite3"):
     db_name = DATABASE_PATH if DATABASE_PATH else BASE_DIR / "db.sqlite3"
     DATABASES = {
         "default": {
@@ -185,27 +186,30 @@ if DB_ENGINE in ("", "sqlite", "sqlite3", "django.db.backends.sqlite3"):
             "TIME_ZONE": None,
         }
     }
-elif DB_ENGINE in ("postgres", "postgresql", "django.db.backends.postgresql"):
+elif DB_ENGINE in ("", "postgres", "postgresql", "django.db.backends.postgresql"):
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
-            "NAME": _require_env_str("DB_NAME"),
-            "USER": _require_env_str("DB_USER"),
-            "PASSWORD": _require_env_str("DB_PASSWORD"),
-            "HOST": _require_env_str("DB_HOST"),
+            "NAME": _get_env_str("DB_NAME", "fachuan_dev"),
+            "USER": _get_env_str("DB_USER", "postgres"),
+            "PASSWORD": _get_env_str("DB_PASSWORD", "postgres", allow_empty=True),
+            "HOST": _get_env_str("DB_HOST", "127.0.0.1"),
             "PORT": int(os.environ.get("DB_PORT", "5432") or "5432"),
             "CONN_MAX_AGE": 600,
             "CONN_HEALTH_CHECKS": True,
+            "OPTIONS": {
+                "connect_timeout": 10,
+            },
         }
     }
 elif DB_ENGINE in ("mysql", "django.db.backends.mysql"):
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.mysql",
-            "NAME": _require_env_str("DB_NAME"),
-            "USER": _require_env_str("DB_USER"),
-            "PASSWORD": _require_env_str("DB_PASSWORD"),
-            "HOST": _require_env_str("DB_HOST"),
+            "NAME": _get_env_str("DB_NAME"),
+            "USER": _get_env_str("DB_USER"),
+            "PASSWORD": _get_env_str("DB_PASSWORD"),
+            "HOST": _get_env_str("DB_HOST"),
             "PORT": int(os.environ.get("DB_PORT", "3306") or "3306"),
             "CONN_MAX_AGE": 600,
             "CONN_HEALTH_CHECKS": True,

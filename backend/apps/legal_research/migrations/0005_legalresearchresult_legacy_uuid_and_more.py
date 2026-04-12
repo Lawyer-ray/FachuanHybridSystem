@@ -6,8 +6,11 @@ from django.db import migrations, models
 
 
 def _prepare_numeric_ids(apps, schema_editor) -> None:
-    task_table = schema_editor.quote_name("legal_research_legalresearchtask")
-    result_table = schema_editor.quote_name("legal_research_legalresearchresult")
+    task_table_name = "legal_research_legalresearchtask"
+    result_table_name = "legal_research_legalresearchresult"
+
+    task_table = schema_editor.quote_name(task_table_name)
+    result_table = schema_editor.quote_name(result_table_name)
     task_map_table = schema_editor.quote_name("legal_research_task_id_map_tmp")
     result_map_table = schema_editor.quote_name("legal_research_result_id_map_tmp")
 
@@ -31,25 +34,111 @@ def _prepare_numeric_ids(apps, schema_editor) -> None:
         cursor.execute(f"UPDATE {task_table} SET legacy_uuid = id")
         cursor.execute(f"UPDATE {result_table} SET legacy_uuid = id")
 
-        # 先替换父表主键，再同步子表外键，最后替换子表主键。
-        cursor.execute(
-            f"""
-            UPDATE {task_table}
-            SET id = CAST((SELECT new_id FROM {task_map_table} WHERE old_id = {task_table}.id) AS TEXT)
-            """
-        )
-        cursor.execute(
-            f"""
-            UPDATE {result_table}
-            SET task_id = CAST((SELECT new_id FROM {task_map_table} WHERE old_id = {result_table}.task_id) AS TEXT)
-            """
-        )
-        cursor.execute(
-            f"""
-            UPDATE {result_table}
-            SET id = CAST((SELECT new_id FROM {result_map_table} WHERE old_id = {result_table}.id) AS TEXT)
-            """
-        )
+        vendor = schema_editor.connection.vendor
+        if vendor == "postgresql":
+            # PostgreSQL: 通过临时列完成 UUID -> BIGINT 映射，避免 transform expression 不支持子查询。
+            cursor.execute(
+                f"""
+                SELECT conname
+                FROM pg_constraint
+                WHERE conrelid = '{result_table_name}'::regclass
+                  AND contype = 'f'
+                  AND confrelid = '{task_table_name}'::regclass
+                """
+            )
+            fk_constraints = [row[0] for row in cursor.fetchall()]
+            for constraint_name in fk_constraints:
+                cursor.execute(
+                    f"ALTER TABLE {result_table} DROP CONSTRAINT {schema_editor.quote_name(constraint_name)}"
+                )
+
+            cursor.execute(f"ALTER TABLE {task_table} ADD COLUMN id_tmp BIGINT")
+            cursor.execute(f"ALTER TABLE {result_table} ADD COLUMN id_tmp BIGINT")
+            cursor.execute(f"ALTER TABLE {result_table} ADD COLUMN task_id_tmp BIGINT")
+
+            cursor.execute(
+                f"""
+                UPDATE {task_table} AS t
+                SET id_tmp = m.new_id
+                FROM {task_map_table} AS m
+                WHERE m.old_id = t.id
+                """
+            )
+            cursor.execute(
+                f"""
+                UPDATE {result_table} AS r
+                SET id_tmp = m.new_id
+                FROM {result_map_table} AS m
+                WHERE m.old_id = r.id
+                """
+            )
+            cursor.execute(
+                f"""
+                UPDATE {result_table} AS r
+                SET task_id_tmp = m.new_id
+                FROM {task_map_table} AS m
+                WHERE m.old_id = r.task_id
+                """
+            )
+
+            cursor.execute(f"ALTER TABLE {task_table} ALTER COLUMN id_tmp SET NOT NULL")
+            cursor.execute(f"ALTER TABLE {result_table} ALTER COLUMN id_tmp SET NOT NULL")
+            cursor.execute(f"ALTER TABLE {result_table} ALTER COLUMN task_id_tmp SET NOT NULL")
+
+            cursor.execute(f"ALTER TABLE {task_table} DROP CONSTRAINT IF EXISTS {schema_editor.quote_name('legal_research_legalresearchtask_pkey')}")
+            cursor.execute(f"ALTER TABLE {result_table} DROP CONSTRAINT IF EXISTS {schema_editor.quote_name('legal_research_legalresearchresult_pkey')}")
+
+            cursor.execute(f"ALTER TABLE {task_table} DROP COLUMN id")
+            cursor.execute(f"ALTER TABLE {task_table} RENAME COLUMN id_tmp TO id")
+            cursor.execute(f"ALTER TABLE {task_table} ADD PRIMARY KEY (id)")
+
+            cursor.execute(f"ALTER TABLE {result_table} DROP COLUMN task_id")
+            cursor.execute(f"ALTER TABLE {result_table} RENAME COLUMN task_id_tmp TO task_id")
+            cursor.execute(f"ALTER TABLE {result_table} DROP COLUMN id")
+            cursor.execute(f"ALTER TABLE {result_table} RENAME COLUMN id_tmp TO id")
+            cursor.execute(f"ALTER TABLE {result_table} ADD PRIMARY KEY (id)")
+
+            cursor.execute(
+                f"""
+                ALTER TABLE {result_table}
+                ADD CONSTRAINT {schema_editor.quote_name('legal_research_result_task_id_fk')}
+                FOREIGN KEY (task_id) REFERENCES {task_table}(id)
+                DEFERRABLE INITIALLY DEFERRED
+                """
+            )
+
+            cursor.execute(
+                f"CREATE INDEX IF NOT EXISTS {schema_editor.quote_name('legal_resea_task_id_c23290_idx')} ON {result_table} (task_id, rank)"
+            )
+            cursor.execute(
+                f"CREATE INDEX IF NOT EXISTS {schema_editor.quote_name('legal_resea_task_id_c9b214_idx')} ON {result_table} (task_id, source_doc_id)"
+            )
+            cursor.execute(
+                f"ALTER TABLE {result_table} DROP CONSTRAINT IF EXISTS {schema_editor.quote_name('uniq_legal_research_task_source_doc')}"
+            )
+            cursor.execute(
+                f"ALTER TABLE {result_table} ADD CONSTRAINT {schema_editor.quote_name('uniq_legal_research_task_source_doc')} UNIQUE (task_id, source_doc_id)"
+            )
+        else:
+            # SQLite / 其他数据库：先替换父表主键，再同步子表外键，最后替换子表主键。
+            cursor.execute(
+                f"""
+                UPDATE {task_table}
+                SET id = CAST((SELECT new_id FROM {task_map_table} WHERE old_id = {task_table}.id) AS TEXT)
+                """
+            )
+            cursor.execute(
+                f"""
+                UPDATE {result_table}
+                SET task_id = CAST((SELECT new_id FROM {task_map_table} WHERE old_id = {result_table}.task_id) AS TEXT)
+                """
+            )
+            cursor.execute(
+                f"""
+                UPDATE {result_table}
+                SET id = CAST((SELECT new_id FROM {result_map_table} WHERE old_id = {result_table}.id) AS TEXT)
+                """
+            )
 
         cursor.execute(f"DROP TABLE {task_map_table}")
         cursor.execute(f"DROP TABLE {result_map_table}")
