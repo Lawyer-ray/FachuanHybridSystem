@@ -14,7 +14,7 @@
 ### 文档
 
 - 补充数据库升级说明：明确默认开发数据库已切换为 PostgreSQL，并在 `INSTALL.md` 增加从 SQLite 升级（`dumpdata → migrate → loaddata → 序列重置`）的可执行步骤与本地推送前检查清单。
-- 采纳业务侧律师建议，推进默认开发数据库升级为 PostgreSQL，并完善本地开发与迁移操作指引。
+- 采纳苏律师建议（公开致谢），推进默认开发数据库升级为 PostgreSQL，并完善本地开发与迁移操作指引。
 - 补充本地 PostgreSQL 安装引导：在 `INSTALL.md` 新增 macOS / Ubuntu / Windows 安装方式与通用建库初始化命令，并在 `README.md` 增加入口提示。
 
 ## [26.33.12] - 2026-04-12
