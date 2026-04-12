@@ -1,13 +1,37 @@
 services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${DB_NAME:-fachuan_dev}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-fachuan_dev}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+
   web:
     build: .
     ports:
       - "8002:8002"
     volumes:
-      - db-data:/app/apiSystem
       - media-data:/app/apiSystem/media
     env_file:
       - .env
+    environment:
+      DB_ENGINE: ${DB_ENGINE:-postgresql}
+      DB_HOST: postgres
+      DB_PORT: ${DB_PORT:-5432}
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8002/admin/login/"]
@@ -20,15 +44,20 @@ services:
     build: .
     entrypoint: ["sh", "-c", "cd /app/apiSystem && uv run python manage.py qcluster"]
     volumes:
-      - db-data:/app/apiSystem
       - media-data:/app/apiSystem/media
     env_file:
       - .env
+    environment:
+      DB_ENGINE: ${DB_ENGINE:-postgresql}
+      DB_HOST: postgres
+      DB_PORT: ${DB_PORT:-5432}
     depends_on:
+      postgres:
+        condition: service_healthy
       web:
         condition: service_healthy
     restart: unless-stopped
 
 volumes:
-  db-data:
+  postgres-data:
   media-data:

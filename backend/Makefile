@@ -37,16 +37,16 @@ ci-check: ## 模拟 GitHub backend (3.12) job 的核心检查（changed-files �
 		echo ""; \
 	fi
 	@echo "🔍 [3/3] 测试收集 (structure smoke):"
-	DJANGO_DEBUG=1 DATABASE_PATH=$(TEST_DB_PATH) PYTHONPATH=apiSystem:. $(PYTEST) tests/ci/structure/ --co -q 2>&1 | tail -3
+	$(TEST_ENV) $(PYTEST) tests/ci/structure/ --co -q 2>&1 | tail -3
 	@echo ""
 	@echo "$(GREEN)✅ GitHub CI 预检通过! 可以放心推送了$(NC)"
 
 ci-check-full: ## 完整 CI 预检 (含 unit/integration/property smoke)
-	ci-check
+	$(MAKE) ci-check
 	@echo "🧪 运行 CI 测试套件..."
-	DJANGO_DEBUG=1 DATABASE_PATH=$(TEST_DB_PATH) PYTHONPATH=apiSystem:. $(PYTEST) tests/ci/unit/ -q $(ARGS)
-	DJANGO_DEBUG=1 DATABASE_PATH=$(TEST_DB_PATH) PYTHONPATH=apiSystem:. $(PYTEST) tests/ci/integration/ -q $(ARGS)
-	DJANGO_DEBUG=1 DATABASE_PATH=$(TEST_DB_PATH) PYTHONPATH=apiSystem:. HYPOTHESIS_PROFILE=default $(PYTEST) tests/ci/property/ -q $(ARGS)
+	$(TEST_ENV) $(PYTEST) tests/ci/unit/ -q $(ARGS)
+	$(TEST_ENV) $(PYTEST) tests/ci/integration/ -q $(ARGS)
+	$(TEST_ENV) HYPOTHESIS_PROFILE=default $(PYTEST) tests/ci/property/ -q $(ARGS)
 
 .PHONY: help install run test migrate shell lint clean ci-check ci-check-full
 
@@ -59,12 +59,35 @@ MANAGE := $(PYTHON) apiSystem/manage.py
 UVICORN := $(VENV_DIR)/bin/uvicorn
 WATCHFILES := $(VENV_DIR)/bin/watchfiles
 PORT ?= 8002
+RUN_DEV_FORCE_POLLING ?= true
+RUN_DEV_POLL_DELAY_MS ?= 300
+
+# 数据库配置（默认 PostgreSQL，可通过 DB_ENGINE=sqlite 切换）
+DB_ENGINE ?= postgresql
+DATABASE_PATH ?=
+DB_NAME ?= fachuan_dev
+DB_USER ?= postgres
+DB_PASSWORD ?= postgres
+DB_HOST ?= 127.0.0.1
+DB_PORT ?= 5432
+
+# 测试数据库配置
+TEST_DB_ENGINE ?= postgresql
 TEST_DB_PATH ?= /tmp/fachuan_pytest.sqlite3
+TEST_DB_NAME ?= fachuan_test
+TEST_DB_USER ?= postgres
+TEST_DB_PASSWORD ?= postgres
+TEST_DB_HOST ?= 127.0.0.1
+TEST_DB_PORT ?= 5432
+
+export DB_ENGINE DATABASE_PATH DB_NAME DB_USER DB_PASSWORD DB_HOST DB_PORT
 
 # 颜色定义
 GREEN := \033[0;32m
 YELLOW := \033[0;33m
 NC := \033[0m # No Color
+
+TEST_ENV = DJANGO_DEBUG=1 DB_ENGINE=$(TEST_DB_ENGINE) DATABASE_PATH=$(TEST_DB_PATH) DB_NAME=$(TEST_DB_NAME) DB_USER=$(TEST_DB_USER) DB_PASSWORD=$(TEST_DB_PASSWORD) DB_HOST=$(TEST_DB_HOST) DB_PORT=$(TEST_DB_PORT) PYTHONPATH=apiSystem:.
 
 help: ## 显示帮助信息
 	@echo "$(GREEN)法律事务管理系统 - Backend$(NC)"
@@ -93,8 +116,8 @@ venv: ## 创建虚拟环境
 run: migrate ## 启动开发服务器 (默认端口 8002, 使用 uvicorn, 可通过 PORT=8003 修改)
 	cd apiSystem && ../$(UVICORN) apiSystem.asgi:application --host 0.0.0.0 --port $(PORT)
 
-run-dev: migrate ## 启动开发服务器 (带自动重载, ⚠️ 必须先 make qcluster 再 make run-dev，否则 SQLite 写锁会导致卡死)
-	cd apiSystem && ../$(UVICORN) apiSystem.asgi:application --host 0.0.0.0 --port $(PORT) --reload --reload-dir ../apps --reload-dir . --reload-include '*.html'
+run-dev: migrate ## 启动开发服务器 (热重载稳定模式：默认启用 polling，避免与 qcluster 并行时卡住)
+	cd apiSystem && WATCHFILES_FORCE_POLLING=$(RUN_DEV_FORCE_POLLING) WATCHFILES_POLL_DELAY_MS=$(RUN_DEV_POLL_DELAY_MS) ../$(UVICORN) apiSystem.asgi:application --host 0.0.0.0 --port $(PORT) --reload --reload-delay 0.5 --reload-dir ../apps --reload-dir . --reload-include '*.html'
 
 run-port: migrate ## 启动开发服务器 (自定义端口, 使用 PORT=8001)
 	cd apiSystem && ../$(UVICORN) apiSystem.asgi:application --host 0.0.0.0 --port $(PORT)
@@ -117,9 +140,18 @@ showmigrations: ## 显示迁移状态
 resetdb: ## 重置数据库 (危险!)
 	@echo "$(YELLOW)警告: 这将删除所有数据!$(NC)"
 	@read -p "确认继续? [y/N] " confirm && [ "$$confirm" = "y" ]
-	rm -f apiSystem/db.sqlite3
-	$(MANAGE) migrate
-	@echo "$(GREEN)数据库已重置$(NC)"
+	@if [ "$(DB_ENGINE)" = "sqlite" ]; then \
+		rm -f apiSystem/db.sqlite3; \
+		$(MANAGE) migrate; \
+	elif [ "$(DB_ENGINE)" = "postgresql" ]; then \
+		$(MANAGE) flush --noinput; \
+		$(MANAGE) migrate; \
+	else \
+		echo "$(YELLOW)未知 DB_ENGINE=$(DB_ENGINE)，使用 flush + migrate 兜底$(NC)"; \
+		$(MANAGE) flush --noinput; \
+		$(MANAGE) migrate; \
+	fi
+	@echo "$(GREEN)数据库已重置 (DB_ENGINE=$(DB_ENGINE))$(NC)"
 
 # ============================================================
 # 用户管理
@@ -133,28 +165,28 @@ superuser: ## 创建超级用户
 # ============================================================
 
 test: ## 运行测试
-	DJANGO_DEBUG=1 DATABASE_PATH=$(TEST_DB_PATH) PYTHONPATH=apiSystem:. $(PYTEST) tests -v --tb=short $(ARGS)
+	$(TEST_ENV) $(PYTEST) tests -v --tb=short $(ARGS)
 
 test-cov: ## 运行测试 (带覆盖率)
-	DJANGO_DEBUG=1 DATABASE_PATH=$(TEST_DB_PATH) PYTHONPATH=apiSystem:. $(PYTEST) tests -v --tb=short --cov=apps --cov-report=html --cov-report=term
+	$(TEST_ENV) $(PYTEST) tests -v --tb=short --cov=apps --cov-report=html --cov-report=term
 
 test-fast: ## 快速测试 (不显示详情)
-	DJANGO_DEBUG=1 DATABASE_PATH=$(TEST_DB_PATH) PYTHONPATH=apiSystem:. $(PYTEST) tests -q
+	$(TEST_ENV) $(PYTEST) tests -q
 
 test-unit: ## 运行单元测试
-	DJANGO_DEBUG=1 DATABASE_PATH=$(TEST_DB_PATH) PYTHONPATH=apiSystem:. $(PYTEST) tests/unit -v --tb=short $(ARGS)
+	$(TEST_ENV) $(PYTEST) tests/unit -v --tb=short $(ARGS)
 
 test-integration: ## 运行集成测试
-	DJANGO_DEBUG=1 DATABASE_PATH=$(TEST_DB_PATH) PYTHONPATH=apiSystem:. $(PYTEST) tests/integration -v --tb=short $(ARGS)
+	$(TEST_ENV) $(PYTEST) tests/integration -v --tb=short $(ARGS)
 
 test-property: ## 运行 Property-Based Tests
-	DJANGO_DEBUG=1 DATABASE_PATH=$(TEST_DB_PATH) PYTHONPATH=apiSystem:. $(PYTEST) tests/property -v --tb=short $(ARGS)
+	$(TEST_ENV) $(PYTEST) tests/property -v --tb=short $(ARGS)
 
 test-structure: ## 运行结构验证测试
-	DJANGO_DEBUG=1 DATABASE_PATH=$(TEST_DB_PATH) PYTHONPATH=apiSystem:. $(PYTEST) tests/structure -v --tb=short --no-cov $(ARGS)
+	$(TEST_ENV) $(PYTEST) tests/structure -v --tb=short --no-cov $(ARGS)
 
 test-admin: ## 运行 Admin 测试
-	DJANGO_DEBUG=1 DATABASE_PATH=$(TEST_DB_PATH) PYTHONPATH=apiSystem:. $(PYTEST) tests/admin -v --tb=short $(ARGS)
+	$(TEST_ENV) $(PYTEST) tests/admin -v --tb=short $(ARGS)
 
 # ============================================================
 # 代码质量
@@ -249,15 +281,13 @@ collectstatic: ## 收集静态文件
 # 后台任务
 # ============================================================
 
-qcluster: migrate ## 启动 Django-Q 任务队列（请先启动 qcluster，再启动 Django）
-	@pkill -9 -f 'multiprocessing.spawn|multiprocessing.resource_tracker' 2>/dev/null || true
-	@pkill -9 -f qcluster 2>/dev/null || true
+qcluster: migrate ## 启动 Django-Q 任务队列（与 Django Web 启动顺序不限）
+	@pkill -9 -f 'python.*manage.py qcluster' 2>/dev/null || true
 	@sleep 1
 	$(MANAGE) qcluster
 
-qcluster-start: migrate ## 启动 Django-Q 并处理待处理任务（请先启动 qcluster，再启动 Django）
-	@pkill -9 -f 'multiprocessing.spawn|multiprocessing.resource_tracker' 2>/dev/null || true
-	@pkill -9 -f qcluster 2>/dev/null || true
+qcluster-start: migrate ## 启动 Django-Q 并处理待处理任务（与 Django Web 启动顺序不限）
+	@pkill -9 -f 'python.*manage.py qcluster' 2>/dev/null || true
 	@sleep 1
 	$(MANAGE) process_pending_tasks --reset
 	$(MANAGE) qcluster

@@ -8,7 +8,7 @@ import os
 import subprocess
 import sys
 import time
-from typing import Any
+from typing import Any, cast
 from unittest.mock import patch
 
 from django.conf import settings
@@ -83,7 +83,8 @@ class Command(BaseCommand):
             return
         default_db = settings.DATABASES.get("default", {})
         if default_db.get("ENGINE") != "django.db.backends.sqlite3":
-            raise CommandError("--database-path 仅支持 sqlite3(当前不是 sqlite)")
+            logger.info("smoke_check 忽略 --database-path: 当前数据库引擎不是 sqlite3")
+            return
         db_path = Path(database_path)
         db_path.parent.mkdir(parents=True, exist_ok=True)
         self._database_path = str(db_path)  # type: ignore[assignment]
@@ -96,10 +97,11 @@ class Command(BaseCommand):
         username = "smoke_admin"
         user = User.objects.filter(username=username).first()
         if user:
-            if not bool(getattr(user, "is_staff", False)):
-                user.is_staff = True
-                user.save(update_fields=["is_staff"])
-            return user
+            staff_user = cast(Any, user)
+            if not bool(getattr(staff_user, "is_staff", False)):
+                staff_user.is_staff = True
+                staff_user.save(update_fields=["is_staff"])
+            return staff_user
         smoke_password = getattr(settings, "SMOKE_ADMIN_PASSWORD", "smoke_admin_password")
         return User.objects.create_superuser(  # type: ignore[attr-defined]
             username=username, email="smoke_admin@example.com", password=smoke_password
