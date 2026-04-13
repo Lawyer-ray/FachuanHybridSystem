@@ -334,6 +334,7 @@ def test_is_valid_name_candidate_rejects_credit_code_with_letters() -> None:
 
 def test_is_valid_name_candidate_rejects_role_prefix() -> None:
     from apps.client.services.text_parser import _is_valid_name_candidate
+
     # "原" 是 "原告" 的前缀
     assert not _is_valid_name_candidate("原告")
 
@@ -513,6 +514,7 @@ def test_parse_single_party_natural_with_legal_rep_upgrades_to_legal() -> None:
 def test_is_valid_name_candidate_id_number_fullmatch() -> None:
     # _ID_NUMBER_FALLBACK_PATTERN.fullmatch 命中（覆盖 349 的 return False）
     from apps.client.services.text_parser import _is_valid_name_candidate
+
     # 18位纯数字，符合身份证格式
     assert not _is_valid_name_candidate("100000000000000001")
 
@@ -520,6 +522,7 @@ def test_is_valid_name_candidate_id_number_fullmatch() -> None:
 def test_extract_credit_code_skips_near_id_keyword() -> None:
     # 信用代码前有"身份证"关键词时 continue（覆盖 497 的 continue 行）
     from apps.client.services.text_parser import _extract_credit_code
+
     # 身份证关键词在信用代码前20字符内
     text = "身份证91110000MA01ABCD12"
     result = _extract_credit_code(text)
@@ -531,6 +534,7 @@ def test_extract_name_smart_role_fallback_valid_name() -> None:
     # _ROLE_NAME_FALLBACK_PATTERN 命中且 valid（覆盖 297 body）
     # 需要确保 _extract_name、NAME_FIELD、SMART_NAME、LEADING_NAME 都不命中
     from apps.client.services.text_parser import _extract_name_smart
+
     # 纯角色+名称，无冒号，无其他字段
     text = "被申请人 某某律师"
     result = _extract_name_smart(text)
@@ -540,6 +544,7 @@ def test_extract_name_smart_role_fallback_valid_name() -> None:
 def test_extract_name_smart_natural_person_pattern() -> None:
     # _NATURAL_PERSON_NAME_PATTERN 命中（"姓名，性别"格式）
     from apps.client.services.text_parser import _extract_name_smart
+
     # 需要前面所有模式都不命中
     text = "王小明，男"
     result = _extract_name_smart(text)
@@ -555,12 +560,14 @@ def test_is_valid_name_too_short() -> None:
 
 def test_is_valid_name_id_number_fullmatch_rejected() -> None:
     from apps.client.services.text_parser import _is_valid_name_candidate
+
     # 15位身份证格式，fullmatch 命中（覆盖 349 return False）
     assert not _is_valid_name_candidate("110101900101123")
 
 
 def test_extract_credit_code_skips_when_id_keyword_before() -> None:
     from apps.client.services.text_parser import _extract_credit_code
+
     # "身份证" 在信用代码前 20 字符内，触发 continue（覆盖 497 continue）
     # 后面再跟一个合法信用代码让函数能 return
     text = "身份证91110000MA01ABCD12 然后 91220000MB02EFGH34"
@@ -570,6 +577,7 @@ def test_extract_credit_code_skips_when_id_keyword_before() -> None:
 
 def test_extract_name_smart_leading_name_before_field_valid() -> None:
     from apps.client.services.text_parser import _extract_name_smart
+
     # 触发 289-291：_extract_name=None, NAME_FIELD=None, SMART_NAME=None
     # LEADING_NAME_BEFORE_FIELD 命中且 valid
     text = "某某贸易公司\n法定代表人：王五"
@@ -579,6 +587,7 @@ def test_extract_name_smart_leading_name_before_field_valid() -> None:
 
 def test_extract_name_smart_legal_entity_pattern_valid() -> None:
     from apps.client.services.text_parser import _extract_name_smart
+
     # 触发 309-311：前5个模式都不命中，LEGAL_ENTITY 命中
     # 纯公司名，无任何标签、字段、角色
     text = "北京某某科技股份有限公司"
@@ -589,6 +598,7 @@ def test_extract_name_smart_legal_entity_pattern_valid() -> None:
 
 def test_extract_name_from_first_meaningful_line_skips_empty() -> None:
     from apps.client.services.text_parser import _extract_name_from_first_meaningful_line
+
     # 覆盖 334：跳过空行后返回有效名称
     result = _extract_name_from_first_meaningful_line("\n\n\n某某律师事务所")
     assert result == "某某律师事务所"

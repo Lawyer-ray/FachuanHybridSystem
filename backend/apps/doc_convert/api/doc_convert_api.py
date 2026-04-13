@@ -90,6 +90,7 @@ def get_mbid_list(request: HttpRequest) -> Any:
     不依赖私有模块，始终可用（不受 ZNSZJ_ENABLED 开关控制）。
     """
     from apps.doc_convert.constants import get_mbid_by_category
+
     grouped = get_mbid_by_category()
     return _build_mbid_list_response(grouped)
 

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ..domain import ContractAccessPolicy
 from ..contract_service import ContractService
+from ..domain import ContractAccessPolicy
 from ..query import ContractQueryFacade, ContractQueryService
 
 if TYPE_CHECKING:

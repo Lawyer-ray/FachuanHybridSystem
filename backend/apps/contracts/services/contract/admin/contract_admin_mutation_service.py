@@ -11,12 +11,12 @@ from django.db import transaction
 from django.utils.translation import gettext_lazy as _
 
 from apps.contracts.models import Contract
-from apps.core.models.enums import CaseType
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.interfaces import CaseDTO
+from apps.core.models.enums import CaseType
 
-from .workflows import ContractCaseCreationWorkflow, ContractCloneWorkflow, ContractFilingNumberWorkflow
 from ..wiring import get_case_service, get_reminder_service
+from .workflows import ContractCaseCreationWorkflow, ContractCloneWorkflow, ContractFilingNumberWorkflow
 
 logger = logging.getLogger("apps.contracts")
 

@@ -71,7 +71,9 @@ def create_contract_with_cases(request: HttpRequest, payload: ContractWithCasesI
     cases_data = data.pop("cases", None)
     lawyer_ids = data.pop("lawyer_ids", [])
     return service.create_contract_with_cases(
-        contract_data=data, cases_data=cases_data, assigned_lawyer_ids=lawyer_ids,
+        contract_data=data,
+        cases_data=cases_data,
+        assigned_lawyer_ids=lawyer_ids,
     )
 
 
@@ -106,7 +108,9 @@ def update_contract(
     ctx = extract_request_context(request)
     data = payload.model_dump(exclude_unset=True)
     return service.update_contract_with_finance(
-        contract_id=contract_id, update_data=data, user=ctx.user,
+        contract_id=contract_id,
+        update_data=data,
+        user=ctx.user,
         confirm_finance=confirm_finance,
         new_payments=[p.model_dump() for p in new_payments] if new_payments else None,
     )
@@ -124,9 +128,12 @@ def create_contract(
     data = payload.model_dump()
     lawyer_ids = data.pop("lawyer_ids", [])
     return service.create_contract_with_cases(
-        contract_data=data, cases_data=None, assigned_lawyer_ids=lawyer_ids,
+        contract_data=data,
+        cases_data=None,
+        assigned_lawyer_ids=lawyer_ids,
         payments_data=[p.model_dump() for p in payments] if payments else None,
-        confirm_finance=confirm_finance, user=ctx.user,
+        confirm_finance=confirm_finance,
+        user=ctx.user,
     )
 
 

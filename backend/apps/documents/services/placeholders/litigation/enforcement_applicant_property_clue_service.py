@@ -25,7 +25,9 @@ class EnforcementApplicantPropertyClueService(BasePlaceholderService):
         case_id = context_data.get("case_id") or getattr(context_data.get("case"), "id", None)
         if not case_id:
             return {LitigationPlaceholderKeys.ENFORCEMENT_APPLICANT_PROPERTY_CLUE: ""}
-        return {LitigationPlaceholderKeys.ENFORCEMENT_APPLICANT_PROPERTY_CLUE: self.generate_property_clue_info(case_id)}
+        return {
+            LitigationPlaceholderKeys.ENFORCEMENT_APPLICANT_PROPERTY_CLUE: self.generate_property_clue_info(case_id)
+        }
 
     def generate_property_clue_info(self, case_id: int) -> str:
         """

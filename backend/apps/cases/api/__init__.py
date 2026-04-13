@@ -7,10 +7,10 @@ from __future__ import annotations
 from ninja import Router
 
 from .case_api import router as case_router
+from .case_material_api import router as case_material_router
 from .caseaccess_api import router as caseaccess_router
 from .caseassignment_api import router as caseassignment_router
 from .caselog_api import router as caselog_router
-from .case_material_api import router as case_material_router
 from .casenumber_api import router as casenumber_router
 from .caseparty_api import router as caseparty_router
 from .cause_court_api import router as cause_court_router

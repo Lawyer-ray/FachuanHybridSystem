@@ -196,15 +196,19 @@ def batch_create_clients(request: HttpRequest, session_id: int) -> dict[str, Any
     session.skip_count = skip_count
     session.save()
 
-    logger.info("导入完成: 成功=%d, 跳过=%d, 错误=%d, 企业数据补全=%d", success_count, skip_count, error_count, enriched_count)
+    logger.info(
+        "导入完成: 成功=%d, 跳过=%d, 错误=%d, 企业数据补全=%d", success_count, skip_count, error_count, enriched_count
+    )
 
-    return JsonResponse({
-        "success_count": success_count,
-        "skip_count": skip_count,
-        "error_count": error_count,
-        "enriched_count": enriched_count,
-        "errors": errors[:10],  # 最多返回10个错误
-    })
+    return JsonResponse(
+        {
+            "success_count": success_count,
+            "skip_count": skip_count,
+            "error_count": error_count,
+            "enriched_count": enriched_count,
+            "errors": errors[:10],  # 最多返回10个错误
+        }
+    )
 
 
 def _enrich_enterprise_data(company_name: str) -> dict[str, Any] | None:
@@ -243,8 +247,12 @@ def _enrich_enterprise_data(company_name: str) -> dict[str, Any] | None:
         prefill_result = service.build_prefill(company_id=company_id)
         prefill = prefill_result.get("prefill", {})
 
-        logger.info("  -> 获取到企业信息: %s, id_number=%s, phone=%s",
-                    prefill.get("name"), prefill.get("id_number"), prefill.get("phone"))
+        logger.info(
+            "  -> 获取到企业信息: %s, id_number=%s, phone=%s",
+            prefill.get("name"),
+            prefill.get("id_number"),
+            prefill.get("phone"),
+        )
 
         return prefill
 

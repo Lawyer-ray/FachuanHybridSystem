@@ -8,8 +8,8 @@ from django.utils import timezone
 
 from apps.message_hub.models import MessageSource, SourceType, SyncStatus
 from apps.message_hub.services.court.court_schedule_fetcher import (
-    ParsedHearing,
     CourtScheduleFetcher,
+    ParsedHearing,
     _extract_party_names,
     _find_case_id,
     _is_valid_party_name,
@@ -18,7 +18,6 @@ from apps.message_hub.services.court.court_schedule_fetcher import (
     _parse_datetime,
 )
 from apps.reminders.models import Reminder, ReminderType
-
 
 # ---------------------------------------------------------------------------
 # _parse_datetime 测试
@@ -150,8 +149,8 @@ class TestFindCaseId:
     def test_s1_exact_match_by_case_number(self):
         """S1: 正式案号精确匹配。"""
         from apps.cases.models import Case, CaseNumber
-        from apps.client.models import Client
         from apps.cases.models.party import CaseParty
+        from apps.client.models import Client
 
         client = Client.objects.create(name="测试当事人")
         case = Case.objects.create(name="测试案件")
@@ -166,8 +165,8 @@ class TestFindCaseId:
     def test_s2_party_match(self):
         """S2: 当事人名称匹配。"""
         from apps.cases.models import Case
-        from apps.client.models import Client
         from apps.cases.models.party import CaseParty
+        from apps.client.models import Client
 
         client1 = Client.objects.create(name="佛山市升平百货有限公司")
         client2 = Client.objects.create(name="佛山市仲满金属材料有限公司")
@@ -193,8 +192,8 @@ class TestFindCaseId:
     def test_s2_multiple_cases_intersection_returns_none(self):
         """S2: 多当事人命中的案件交集为空或>1时不绑定。"""
         from apps.cases.models import Case
-        from apps.client.models import Client
         from apps.cases.models.party import CaseParty
+        from apps.client.models import Client
 
         client1 = Client.objects.create(name="甲方有限公司")
         client2 = Client.objects.create(name="乙方有限公司")

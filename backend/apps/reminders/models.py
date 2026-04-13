@@ -74,9 +74,7 @@ class Reminder(models.Model):
 
     def clean(self) -> None:
         super().clean()
-        bound_count = sum(
-            target_id is not None for target_id in (self.contract_id, self.case_id, self.case_log_id)
-        )
+        bound_count = sum(target_id is not None for target_id in (self.contract_id, self.case_id, self.case_log_id))
         if bound_count > 1:
             raise ValidationError(_("合同、案件、案件日志最多只能绑定一个"))
 

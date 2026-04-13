@@ -21,9 +21,7 @@ class EnforcementJudgmentMainTextService(BasePlaceholderService):
     placeholder_keys: ClassVar = [LitigationPlaceholderKeys.ENFORCEMENT_JUDGMENT_MAIN_TEXT]
 
     def __init__(self) -> None:
-        from apps.documents.services.placeholders.litigation.case_details_accessor import (
-            LitigationCaseDetailsAccessor,
-        )
+        from apps.documents.services.placeholders.litigation.case_details_accessor import LitigationCaseDetailsAccessor
 
         self.case_details_accessor = LitigationCaseDetailsAccessor()
 
@@ -57,7 +55,12 @@ class EnforcementJudgmentMainTextService(BasePlaceholderService):
 
         if all_contents:
             combined = "\n".join(all_contents)
-            logger.info("获取案号执行依据主文（多份）: case_id=%s, 份数=%d, 总长度=%d", case_id, len(all_contents), len(combined))
+            logger.info(
+                "获取案号执行依据主文（多份）: case_id=%s, 份数=%d, 总长度=%d",
+                case_id,
+                len(all_contents),
+                len(combined),
+            )
             return combined
 
         logger.warning("未找到执行依据主文: case_id=%s", case_id)

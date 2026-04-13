@@ -15,8 +15,8 @@ from pydantic import BaseModel
 from apps.client.schemas import ClientIn, ClientOut, ClientUpdateIn, OACredentialCheckOut
 from apps.client.services.text_parser import parse_client_text as _parse_client
 from apps.client.services.text_parser import parse_multiple_clients_text as _parse_multi
-from apps.core.exceptions import ValidationException
 from apps.core.dto.request_context import extract_request_context
+from apps.core.exceptions import ValidationException
 
 
 class ParseTextRequest(BaseModel):

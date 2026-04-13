@@ -9,8 +9,8 @@ from django.http import FileResponse, Http404, HttpResponse
 from django.utils.translation import gettext_lazy as _
 from ninja import Router
 
-from apps.core.security.auth import JWTOrSessionAuth
 from apps.core.infrastructure.throttling import rate_limit_from_settings
+from apps.core.security.auth import JWTOrSessionAuth
 from apps.legal_research.schemas import (
     AgentSearchRequestV1,
     AgentSearchResponseV1,

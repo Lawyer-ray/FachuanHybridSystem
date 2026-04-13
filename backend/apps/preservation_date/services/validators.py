@@ -49,15 +49,11 @@ class MeasureValidator:
         if warnings:
             existing = measure.pending_note or ""
             suffix = self._SEP.join(warnings)
-            measure.pending_note = (
-                f"{existing}{self._SEP}{suffix}" if existing else suffix
-            )
+            measure.pending_note = f"{existing}{self._SEP}{suffix}" if existing else suffix
 
         return measure
 
-    def validate_all(
-        self, measures: list[PreservationMeasure]
-    ) -> list[PreservationMeasure]:
+    def validate_all(self, measures: list[PreservationMeasure]) -> list[PreservationMeasure]:
         """批量校验."""
         return [self.validate(m) for m in measures]
 
@@ -71,11 +67,7 @@ class MeasureValidator:
         warnings: list[str],
     ) -> None:
         """规则 1：end_date < start_date → 追加提示."""
-        if (
-            measure.start_date is not None
-            and measure.end_date is not None
-            and measure.end_date < measure.start_date
-        ):
+        if measure.start_date is not None and measure.end_date is not None and measure.end_date < measure.start_date:
             warnings.append(self._MSG_DATE_INVERTED)
 
     def _check_duration_limit(
@@ -91,9 +83,7 @@ class MeasureValidator:
 
         for keyword, (max_days, limit_desc) in self.DURATION_LIMITS.items():
             if keyword in measure.measure_type and actual_days > max_days:
-                warnings.append(
-                    self._MSG_DURATION_EXCEEDED.format(limit_desc=limit_desc)
-                )
+                warnings.append(self._MSG_DURATION_EXCEEDED.format(limit_desc=limit_desc))
                 break  # 每个措施只匹配一种类型
 
     def _check_pending_end_date(

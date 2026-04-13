@@ -10,6 +10,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ValidationException
+
 from ..models import ReminderType
 
 if TYPE_CHECKING:

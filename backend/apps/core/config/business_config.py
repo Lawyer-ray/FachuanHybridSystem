@@ -7,8 +7,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from apps.core.services.cache_service import cached, invalidate_cache
 from apps.core.infrastructure.cache import CacheKeys, CacheTimeout
+from apps.core.services.cache_service import cached, invalidate_cache
 
 
 @dataclass

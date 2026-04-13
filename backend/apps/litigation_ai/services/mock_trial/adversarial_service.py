@@ -7,12 +7,29 @@ from collections.abc import Callable
 from typing import Any
 
 from .agents import (
-    CLERK, CLERK_ANNOUNCE, DEFENDANT, DEFENDANT_SYSTEM, JUDGE, JUDGE_CLOSING,
-    JUDGE_CROSS_EXAM, JUDGE_DEBATE_START, JUDGE_EVIDENCE_START,
-    JUDGE_FINAL_STATEMENT, JUDGE_IDENTITY_CHECK, JUDGE_INVESTIGATION_START_FIRST,
-    JUDGE_INVESTIGATION_START_SECOND, JUDGE_MEDIATION, JUDGE_OPEN_FIRST,
-    JUDGE_OPEN_SECOND, JUDGE_RIGHTS_NOTICE, JUDGE_SUMMARY_SYSTEM, JUDGE_SYSTEM,
-    PLAINTIFF, PLAINTIFF_SYSTEM, ROLE_LABELS, Agent,
+    CLERK,
+    CLERK_ANNOUNCE,
+    DEFENDANT,
+    DEFENDANT_SYSTEM,
+    JUDGE,
+    JUDGE_CLOSING,
+    JUDGE_CROSS_EXAM,
+    JUDGE_DEBATE_START,
+    JUDGE_EVIDENCE_START,
+    JUDGE_FINAL_STATEMENT,
+    JUDGE_IDENTITY_CHECK,
+    JUDGE_INVESTIGATION_START_FIRST,
+    JUDGE_INVESTIGATION_START_SECOND,
+    JUDGE_MEDIATION,
+    JUDGE_OPEN_FIRST,
+    JUDGE_OPEN_SECOND,
+    JUDGE_RIGHTS_NOTICE,
+    JUDGE_SUMMARY_SYSTEM,
+    JUDGE_SYSTEM,
+    PLAINTIFF,
+    PLAINTIFF_SYSTEM,
+    ROLE_LABELS,
+    Agent,
 )
 from .types import AdversarialConfig, MockTrialContext, MockTrialStep, TrialLevel
 
@@ -51,8 +68,12 @@ class AdversarialTrialService:
 
     def _party_names(self) -> tuple[str, str]:
         parties = self.case_info.get("parties", [])
-        p_name = next((p["name"] for p in parties if "原告" in p.get("legal_status", "") or p.get("is_our_side")), "原告")
-        d_name = next((p["name"] for p in parties if "被告" in p.get("legal_status", "") or not p.get("is_our_side")), "被告")
+        p_name = next(
+            (p["name"] for p in parties if "原告" in p.get("legal_status", "") or p.get("is_our_side")), "原告"
+        )
+        d_name = next(
+            (p["name"] for p in parties if "被告" in p.get("legal_status", "") or not p.get("is_our_side")), "被告"
+        )
         return p_name, d_name
 
     async def _record_and_send(
@@ -60,18 +81,22 @@ class AdversarialTrialService:
     ) -> None:
         entry: dict[str, Any] = {"role": role, "stage": stage, "content": content, **extra}
         self.transcript.append(entry)
-        await send_cb({
-            "type": "assistant_complete",
-            "content": f"**{ROLE_LABELS.get(role, role)}：**\n\n{content}",
-            "metadata": {"role": role, "stage": stage, **extra},
-        })
+        await send_cb(
+            {
+                "type": "assistant_complete",
+                "content": f"**{ROLE_LABELS.get(role, role)}：**\n\n{content}",
+                "metadata": {"role": role, "stage": stage, **extra},
+            }
+        )
 
     async def _send_stage(self, send_cb: Callable[..., Any], stage: str, label: str) -> None:
-        await send_cb({
-            "type": "system_message",
-            "content": f"\n{'═' * 50}\n## 📋 {label}\n{'═' * 50}",
-            "metadata": {"stage": stage},
-        })
+        await send_cb(
+            {
+                "type": "system_message",
+                "content": f"\n{'═' * 50}\n## 📋 {label}\n{'═' * 50}",
+                "metadata": {"stage": stage},
+            }
+        )
 
     async def _agent_speak(self, agent: Agent, prompt: str, send_cb: Callable[..., Any], stage: str) -> str:
         content = await agent.respond(prompt)
@@ -80,11 +105,13 @@ class AdversarialTrialService:
 
     async def _wait_or_ai(self, agent: Agent, prompt: str, send_cb: Callable[..., Any], stage: str) -> str | None:
         if self.config.user_role == agent.role:
-            await send_cb({
-                "type": "system_message",
-                "content": f"💡 轮到 **{ROLE_LABELS[agent.role]}** 发言（由您代替）。请输入您的发言内容：",
-                "metadata": {"waiting_for": agent.role, "stage": stage},
-            })
+            await send_cb(
+                {
+                    "type": "system_message",
+                    "content": f"💡 轮到 **{ROLE_LABELS[agent.role]}** 发言（由您代替）。请输入您的发言内容：",
+                    "metadata": {"waiting_for": agent.role, "stage": stage},
+                }
+            )
             return None
         return await self._agent_speak(agent, prompt, send_cb, stage)
 
@@ -104,13 +131,21 @@ class AdversarialTrialService:
         cause = self.case_info.get("cause_of_action", "纠纷")
         if self.is_second:
             text = JUDGE_OPEN_SECOND.format(
-                court_name="本院", appellant_name=p_name, appellee_name=d_name,
-                cause=cause, judge_info="审判长及两名审判员", clerk_name="书记员",
+                court_name="本院",
+                appellant_name=p_name,
+                appellee_name=d_name,
+                cause=cause,
+                judge_info="审判长及两名审判员",
+                clerk_name="书记员",
             )
         else:
             text = JUDGE_OPEN_FIRST.format(
-                court_name="本院", plaintiff_name=p_name, defendant_name=d_name,
-                cause=cause, judge_info="审判长及两名审判员", clerk_name="书记员",
+                court_name="本院",
+                plaintiff_name=p_name,
+                defendant_name=d_name,
+                cause=cause,
+                judge_info="审判长及两名审判员",
+                clerk_name="书记员",
             )
         await self._record_and_send(send_cb, JUDGE, text, "opening")
 
@@ -141,7 +176,8 @@ class AdversarialTrialService:
             return ""
         await self._send_stage(send_cb, "appeal_statement", "上诉请求与答辩（二审特有）")
         await self._record_and_send(
-            send_cb, JUDGE,
+            send_cb,
+            JUDGE,
             "现在由上诉人陈述上诉请求及上诉理由，并说明对一审判决哪些部分不服、请求如何改判。",
             "appeal_statement",
         )
@@ -208,13 +244,17 @@ class AdversarialTrialService:
 
         last_content = self.transcript[-1]["content"] if self.transcript else ""
         for i in range(1, self.config.debate_rounds + 1):
-            await send_cb({
-                "type": "system_message",
-                "content": f"### 🔥 第 {i}/{self.config.debate_rounds} 轮辩论",
-                "metadata": {"stage": "debate", "round": i, "total": self.config.debate_rounds},
-            })
+            await send_cb(
+                {
+                    "type": "system_message",
+                    "content": f"### 🔥 第 {i}/{self.config.debate_rounds} 轮辩论",
+                    "metadata": {"stage": "debate", "round": i, "total": self.config.debate_rounds},
+                }
+            )
 
-            recent = "\n\n".join(f"【{ROLE_LABELS.get(t['role'], t['role'])}】{t['content']}" for t in self.transcript[-6:])
+            recent = "\n\n".join(
+                f"【{ROLE_LABELS.get(t['role'], t['role'])}】{t['content']}" for t in self.transcript[-6:]
+            )
 
             # 原告辩论
             p_prompt = (
@@ -288,10 +328,12 @@ class AdversarialTrialService:
     ) -> None:
         """运行完整庭审流程（一审/二审）."""
         level_label = "二审" if self.is_second else "一审"
-        await send_cb({
-            "type": "system_message",
-            "content": f"🏛️ **{level_label}庭审正式开始**\n\n严格按照《民事诉讼法》庭审程序进行。",
-        })
+        await send_cb(
+            {
+                "type": "system_message",
+                "content": f"🏛️ **{level_label}庭审正式开始**\n\n严格按照《民事诉讼法》庭审程序进行。",
+            }
+        )
 
         # 第一阶段：开庭
         await set_step(ctx.session_id, MockTrialStep.COURT_OPENING)
@@ -347,17 +389,19 @@ class AdversarialTrialService:
         await self.phase_11_summary(send_cb)
 
         # 完成
-        await send_cb({
-            "type": "system_message",
-            "content": (
-                f"✅ {level_label}庭审结束！共进行 {self.config.debate_rounds} 轮辩论。\n\n"
-                f"原告模型：{self.config.plaintiff_model or '默认'}\n"
-                f"被告模型：{self.config.defendant_model or '默认'}\n"
-                f"法官模型：{self.config.judge_model or '默认'}\n\n"
-                "回复 **导出报告** 可下载完整庭审报告。"
-            ),
-            "metadata": {"stage": "finished", "transcript": self.transcript},
-        })
+        await send_cb(
+            {
+                "type": "system_message",
+                "content": (
+                    f"✅ {level_label}庭审结束！共进行 {self.config.debate_rounds} 轮辩论。\n\n"
+                    f"原告模型：{self.config.plaintiff_model or '默认'}\n"
+                    f"被告模型：{self.config.defendant_model or '默认'}\n"
+                    f"法官模型：{self.config.judge_model or '默认'}\n\n"
+                    "回复 **导出报告** 可下载完整庭审报告。"
+                ),
+                "metadata": {"stage": "finished", "transcript": self.transcript},
+            }
+        )
         await set_step(ctx.session_id, MockTrialStep.SUMMARY)
 
     # ── 用户介入处理 ──
@@ -396,14 +440,18 @@ class AdversarialTrialService:
                 return
             await self._continue_from_defendant(ctx, send_cb, set_step)
 
-    async def _continue_from_defendant(self, ctx: MockTrialContext, send_cb: Callable[..., Any], set_step: Callable[..., Any]) -> None:
+    async def _continue_from_defendant(
+        self, ctx: MockTrialContext, send_cb: Callable[..., Any], set_step: Callable[..., Any]
+    ) -> None:
         await set_step(ctx.session_id, MockTrialStep.COURT_INVESTIGATION)
         inv = await self.phase_7_investigation(send_cb)
         if inv is None:
             return
         await self._continue_from_investigation(ctx, send_cb, set_step)
 
-    async def _continue_from_investigation(self, ctx: MockTrialContext, send_cb: Callable[..., Any], set_step: Callable[..., Any]) -> None:
+    async def _continue_from_investigation(
+        self, ctx: MockTrialContext, send_cb: Callable[..., Any], set_step: Callable[..., Any]
+    ) -> None:
         await set_step(ctx.session_id, MockTrialStep.COURT_DEBATE)
         await self.phase_8_debate(send_cb)
         await set_step(ctx.session_id, MockTrialStep.FINAL_STATEMENT)
@@ -413,14 +461,18 @@ class AdversarialTrialService:
         await set_step(ctx.session_id, MockTrialStep.COURT_SUMMARY)
         await self.phase_11_summary(send_cb)
         level_label = "二审" if self.is_second else "一审"
-        await send_cb({
-            "type": "system_message",
-            "content": f"✅ {level_label}庭审结束！回复 **导出报告** 下载庭审报告。",
-            "metadata": {"stage": "finished", "transcript": self.transcript},
-        })
+        await send_cb(
+            {
+                "type": "system_message",
+                "content": f"✅ {level_label}庭审结束！回复 **导出报告** 下载庭审报告。",
+                "metadata": {"stage": "finished", "transcript": self.transcript},
+            }
+        )
         await set_step(ctx.session_id, MockTrialStep.SUMMARY)
 
-    async def _continue_debate(self, ctx: MockTrialContext, user_input: str, send_cb: Callable[..., Any], set_step: Callable[..., Any]) -> None:
+    async def _continue_debate(
+        self, ctx: MockTrialContext, user_input: str, send_cb: Callable[..., Any], set_step: Callable[..., Any]
+    ) -> None:
         role = self.config.user_role
         if role == PLAINTIFF:
             d_prompt = f"原告刚才说：\n\n{user_input}\n\n请逐条驳斥，不能示弱。"
@@ -429,7 +481,9 @@ class AdversarialTrialService:
             p_prompt = f"被告刚才说：\n\n{user_input}\n\n请犀利反驳，穷追猛打。"
             await self._agent_speak(self.plaintiff, p_prompt, send_cb, "debate")
 
-        await send_cb({
-            "type": "system_message",
-            "content": "请继续发言，或回复 **结束辩论** 进入最后陈述。",
-        })
+        await send_cb(
+            {
+                "type": "system_message",
+                "content": "请继续发言，或回复 **结束辩论** 进入最后陈述。",
+            }
+        )

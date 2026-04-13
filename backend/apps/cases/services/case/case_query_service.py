@@ -9,8 +9,8 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import Case
 from apps.core.exceptions import NotFoundError
-from apps.core.security.permissions import PermissionMixin
 from apps.core.security.access_context import AccessContext as SecurityAccessContext
+from apps.core.security.permissions import PermissionMixin
 
 from .case_access_policy import CaseAccessPolicy
 from .case_queryset import get_case_queryset

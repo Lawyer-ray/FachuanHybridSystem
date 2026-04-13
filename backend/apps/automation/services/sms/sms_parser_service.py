@@ -60,9 +60,7 @@ class SMSParserService:
 
     # 司法送达网链接正则 - sfpt.cdfy12368.gov.cn
     # 格式: https://sfpt.cdfy12368.gov.cn:806/sfsdw//r/xxxxxx
-    SFDW_LINK_PATTERN = re.compile(
-        r"https?://sfpt\.cdfy12368\.gov\.cn:\d+/sfsdw//r/[a-zA-Z0-9]+", re.IGNORECASE
-    )
+    SFDW_LINK_PATTERN = re.compile(r"https?://sfpt\.cdfy12368\.gov\.cn:\d+/sfsdw//r/[a-zA-Z0-9]+", re.IGNORECASE)
     # 司法送达网验证码正则
     # 格式: 验证码：xxxx
     SFDW_VERIFICATION_CODE_PATTERN = re.compile(r"验证码[：:]\s*(\w{4,6})")

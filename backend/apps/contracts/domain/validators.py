@@ -6,8 +6,8 @@ from collections.abc import Iterable
 
 from django.utils.translation import gettext_lazy as _
 
-from apps.core.models.enums import CaseStage, CaseType
 from apps.core.exceptions import ValidationException
+from apps.core.models.enums import CaseStage, CaseType
 
 APPLICABLE_TYPES = {CaseType.CIVIL, CaseType.CRIMINAL, CaseType.ADMINISTRATIVE, CaseType.LABOR, CaseType.INTL}
 

@@ -34,7 +34,9 @@ class ContractOASyncSession(models.Model):
     multiple_count: models.PositiveIntegerField = models.PositiveIntegerField(default=0, verbose_name=_("多结果"))
     not_found_count: models.PositiveIntegerField = models.PositiveIntegerField(default=0, verbose_name=_("未匹配"))
     error_count: models.PositiveIntegerField = models.PositiveIntegerField(default=0, verbose_name=_("错误"))
-    progress_message: models.CharField = models.CharField(max_length=255, blank=True, default="", verbose_name=_("进度信息"))
+    progress_message: models.CharField = models.CharField(
+        max_length=255, blank=True, default="", verbose_name=_("进度信息")
+    )
     result_payload: models.JSONField = models.JSONField(default=dict, blank=True, verbose_name=_("结果载荷"))
     error_message: models.TextField = models.TextField(blank=True, default="", verbose_name=_("错误信息"))
     started_by: models.ForeignKey = models.ForeignKey(

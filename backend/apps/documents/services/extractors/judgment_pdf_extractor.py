@@ -183,9 +183,7 @@ class JudgmentPdfExtractor:
                 logger.warning("Ollama后端不可用，跳过Ollama兜底")
                 return None
 
-            messages = [
-                {"role": "user", "content": self.OLLAMA_EXTRACTION_PROMPT + text[:15000]}
-            ]
+            messages = [{"role": "user", "content": self.OLLAMA_EXTRACTION_PROMPT + text[:15000]}]
 
             logger.info("开始调用Ollama进行信息提取...")
             response = backend.chat(messages=messages, temperature=0.3, max_tokens=4000, timeout=60.0)
@@ -207,8 +205,12 @@ class JudgmentPdfExtractor:
                 content=self._sanitize_extracted_text(data.get("执行依据主文") or data.get("content")),
             )
 
-            logger.info("Ollama提取成功: 案号=%s, 文书名称=%s, 主文长度=%d",
-                       result.number, result.document_name, len(result.content) if result.content else 0)
+            logger.info(
+                "Ollama提取成功: 案号=%s, 文书名称=%s, 主文长度=%d",
+                result.number,
+                result.document_name,
+                len(result.content) if result.content else 0,
+            )
 
             return result
 
@@ -243,7 +245,7 @@ class JudgmentPdfExtractor:
             if match:
                 case_number = match.group()
                 # 过滤掉明显不是案号的匹配
-                if len(case_number) > 5 and '判决' not in case_number and '调解' not in case_number:
+                if len(case_number) > 5 and "判决" not in case_number and "调解" not in case_number:
                     logger.info("提取到案号: %s", case_number)
                     return case_number
 

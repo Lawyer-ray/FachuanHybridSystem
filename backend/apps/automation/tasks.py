@@ -11,6 +11,7 @@ from typing import Any, cast
 
 logger = logging.getLogger("apps.automation")
 
+
 def _run_coroutine_sync[T](coro: Coroutine[Any, Any, T]) -> T:
     """
     在同步上下文中安全执行协程。

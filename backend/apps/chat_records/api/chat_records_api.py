@@ -23,9 +23,9 @@ from apps.chat_records.schemas import (
 from apps.chat_records.services import ExportTaskService, ProjectService, RecordingService, ScreenshotService
 from apps.chat_records.services.recording_extract_facade import RecordingExtractFacade, RecordingExtractParams
 from apps.core.api.schema_utils import schema_to_update_dict
-from apps.core.security.auth import JWTOrSessionAuth
 from apps.core.http import build_range_file_response
 from apps.core.infrastructure.throttling import rate_limit_from_settings
+from apps.core.security.auth import JWTOrSessionAuth
 
 # 支持 JWT 和 Session 认证
 router = Router(auth=JWTOrSessionAuth())

@@ -7,8 +7,8 @@ from django.db import transaction
 from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import Case, CaseChat
-from apps.core.models.enums import ChatPlatform
 from apps.core.exceptions import NotFoundError, ValidationException
+from apps.core.models.enums import ChatPlatform
 
 
 class CaseChatRepository:

@@ -7,8 +7,8 @@ from typing import Any, ClassVar
 from django.utils.translation import gettext_lazy as _
 
 from apps.contracts.models import Contract
-from apps.core.models.enums import CaseType
 from apps.core.exceptions import NotFoundError
+from apps.core.models.enums import CaseType
 
 from ..wiring import get_case_service
 

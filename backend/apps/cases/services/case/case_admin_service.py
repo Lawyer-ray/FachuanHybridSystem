@@ -321,7 +321,7 @@ class CaseAdminService:
                     ),
                     "chats",
                 )
-                .get(pk=case_id)
+                .get(pk=case_id),
             )
         except Case.DoesNotExist:
             return None

@@ -88,9 +88,7 @@ class Command(BaseCommand):
                 """
             )
             for schema_name, table_name, row_count, total_size in cursor.fetchall():
-                self.stdout.write(
-                    f"  {schema_name}.{table_name}: {row_count} 行, {total_size / (1024 * 1024):.2f} MB"
-                )
+                self.stdout.write(f"  {schema_name}.{table_name}: {row_count} 行, {total_size / (1024 * 1024):.2f} MB")
 
         self.stdout.write(self.style.WARNING("\n索引列表:"))
         with connection.cursor() as cursor:

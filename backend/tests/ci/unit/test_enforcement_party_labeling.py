@@ -13,7 +13,7 @@ class _AccessorStub:
     def __init__(self, parties: list[dict[str, str]]) -> None:
         self._parties = parties
 
-    def get_case_parties(self, case_id: int) -> list[dict[str, str]]:  # noqa: ARG002
+    def get_case_parties(self, case_id: int) -> list[dict[str, str]]:
         return self._parties
 
 

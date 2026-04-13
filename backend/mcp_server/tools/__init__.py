@@ -44,16 +44,8 @@ from mcp_server.tools.clients import (
     list_property_clues,
     parse_client_text,
 )
-from mcp_server.tools.contract_review import (
-    get_review_models,
-    get_review_status,
-    upload_contract_for_review,
-)
-from mcp_server.tools.contracts import (
-    create_contract,
-    get_contract,
-    list_contracts,
-)
+from mcp_server.tools.contract_review import get_review_models, get_review_status, upload_contract_for_review
+from mcp_server.tools.contracts import create_contract, get_contract, list_contracts
 from mcp_server.tools.doc_convert import convert_document, list_doc_convert_types
 from mcp_server.tools.documents import (
     create_document_template,
@@ -76,16 +68,8 @@ from mcp_server.tools.enterprise_data import (
     search_bidding_info,
     search_companies,
 )
-from mcp_server.tools.finance import (
-    calculate_interest,
-    get_latest_lpr_rate,
-    list_lpr_rates,
-)
-from mcp_server.tools.image_rotation import (
-    detect_orientation,
-    extract_pdf_pages,
-    suggest_rename,
-)
+from mcp_server.tools.finance import calculate_interest, get_latest_lpr_rate, list_lpr_rates
+from mcp_server.tools.image_rotation import detect_orientation, extract_pdf_pages, suggest_rename
 from mcp_server.tools.invoice_recognition import (
     download_invoices,
     get_invoice_task_status,

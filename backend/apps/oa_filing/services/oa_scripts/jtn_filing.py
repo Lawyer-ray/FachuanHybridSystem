@@ -225,6 +225,7 @@ class JtnFilingScript:
             # 应用 playwright-stealth 反检测
             try:
                 from playwright_stealth import Stealth
+
                 stealth = Stealth()
                 stealth.apply_stealth_sync(self._context)
                 logger.info("已应用 playwright-stealth 反检测")

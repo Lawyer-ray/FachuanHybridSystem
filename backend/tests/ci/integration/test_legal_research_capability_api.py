@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import pytest
 
-from apps.legal_research.schemas.legal_research_schemas import AgentSearchQueryTraceOut, AgentSearchRequestV1, AgentSearchResponseV1
+from apps.legal_research.schemas.legal_research_schemas import (
+    AgentSearchQueryTraceOut,
+    AgentSearchRequestV1,
+    AgentSearchResponseV1,
+)
 
 
 @pytest.mark.django_db
@@ -15,7 +19,7 @@ def test_capability_search_endpoint_returns_contract_and_passes_idempotency_key(
     captured: dict[str, str] = {}
 
     class _StubCapabilityService:
-        def search(self, *, payload: AgentSearchRequestV1, user, idempotency_key: str = "") -> AgentSearchResponseV1:  # noqa: ANN001
+        def search(self, *, payload: AgentSearchRequestV1, user, idempotency_key: str = "") -> AgentSearchResponseV1:
             captured["idempotency_key"] = idempotency_key
             return AgentSearchResponseV1(
                 request_id="req-capability-001",
@@ -64,7 +68,7 @@ def test_capability_search_mcp_endpoint_returns_wrapper_contract(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     class _StubWrapper:
-        def search(self, *, payload: AgentSearchRequestV1, user, idempotency_key: str = "") -> dict[str, object]:  # noqa: ANN001, ARG002
+        def search(self, *, payload: AgentSearchRequestV1, user, idempotency_key: str = "") -> dict[str, object]:
             return {
                 "version": "v1",
                 "request_id": "req-mcp-001",

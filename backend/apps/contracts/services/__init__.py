@@ -9,11 +9,10 @@ Contracts Services Module
 
 # 新版服务（从子包导入）
 from .contract.admin import ContractAdminService
-from .contract.integrations import ContractBatchFolderBindingService
-from .contract.query import ContractDisplayService, ContractProgressService
 from .contract.contract_service import ContractService
 from .contract.contract_service_adapter import ContractServiceAdapter
-from .contract.integrations import ContractOASyncService, InvoiceUploadService
+from .contract.integrations import ContractBatchFolderBindingService, ContractOASyncService, InvoiceUploadService
+from .contract.query import ContractDisplayService, ContractProgressService
 from .folder.folder_binding_service import FolderBindingService
 from .payment.contract_payment_service import ContractPaymentService
 from .supplementary.supplementary_agreement_service import SupplementaryAgreementService

@@ -131,9 +131,7 @@ def replace_material_file(
     response=CaseMaterialGroupRenameOut,
 )
 @rate_limit_from_settings("TASK", by_user=True)
-def rename_group(
-    request: HttpRequest, case_id: int, payload: CaseMaterialGroupRenameIn
-) -> dict[str, Any]:
+def rename_group(request: HttpRequest, case_id: int, payload: CaseMaterialGroupRenameIn) -> dict[str, Any]:
     """重命名材料分组。"""
     service = _get_case_material_service()
     ctx = get_request_access_context(request)
@@ -153,9 +151,7 @@ def rename_group(
     response=CaseMaterialDeleteOut,
 )
 @rate_limit_from_settings("TASK", by_user=True)
-def delete_material(
-    request: HttpRequest, case_id: int, material_id: int
-) -> dict[str, Any]:
+def delete_material(request: HttpRequest, case_id: int, material_id: int) -> dict[str, Any]:
     """删除材料绑定（附件文件不受影响）。"""
     service = _get_case_material_service()
     ctx = get_request_access_context(request)
@@ -173,9 +169,7 @@ def delete_material(
     response=CaseMaterialDeleteAllOut,
 )
 @rate_limit_from_settings("TASK", by_user=True)
-def delete_all_materials(
-    request: HttpRequest, case_id: int, payload: CaseMaterialDeleteAllIn
-) -> dict[str, Any]:
+def delete_all_materials(request: HttpRequest, case_id: int, payload: CaseMaterialDeleteAllIn) -> dict[str, Any]:
     """按分类删除案件下的所有材料。"""
     service = _get_case_material_service()
     ctx = get_request_access_context(request)

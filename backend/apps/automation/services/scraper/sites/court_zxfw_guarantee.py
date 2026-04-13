@@ -39,7 +39,8 @@ class CourtZxfwGuaranteeService:
         preserve_category_text = str(case_data.get("preserve_category") or "诉前保全").strip() or "诉前保全"
         done: dict[str, Any] = {
             "court": self._choose_court(str(case_data.get("court_name") or "")),
-            "preserve_type": self._click_radio_in_form_item(["保全类型"], "财产保全") or self._click_radio_by_text("财产保全"),
+            "preserve_type": self._click_radio_in_form_item(["保全类型"], "财产保全")
+            or self._click_radio_by_text("财产保全"),
             "preserve_category": self._click_radio_in_form_item(["保全类别"], preserve_category_text)
             or self._click_radio_by_text(preserve_category_text),
             "case_number": self._fill_case_number(case_data),
@@ -187,7 +188,11 @@ class CourtZxfwGuaranteeService:
                 except Exception:
                     input_value = ""
 
-                if selected_text in input_value or target_name in input_value or (short_name and short_name in input_value):
+                if (
+                    selected_text in input_value
+                    or target_name in input_value
+                    or (short_name and short_name in input_value)
+                ):
                     self._close_popovers()
                     return True
 
@@ -291,12 +296,18 @@ class CourtZxfwGuaranteeService:
             result["year"] = self._choose_dropdown_item(year)
             self._close_popovers()
 
-        for placeholder, key in (("法院代字", "case_court_code"), ("类型代字", "case_type_code"), ("案件序号", "case_seq")):
+        for placeholder, key in (
+            ("法院代字", "case_court_code"),
+            ("类型代字", "case_type_code"),
+            ("案件序号", "case_seq"),
+        ):
             field = self.page.locator(f"input[placeholder='{placeholder}']").first
             value = str(case_data.get(key) or "")
             if field.count() > 0 and value:
                 field.fill(value)
-                result["court_code" if key == "case_court_code" else "type_code" if key == "case_type_code" else "seq"] = True
+                result[
+                    "court_code" if key == "case_court_code" else "type_code" if key == "case_type_code" else "seq"
+                ] = True
 
         return result
 
@@ -370,7 +381,9 @@ class CourtZxfwGuaranteeService:
                 return True
             self._random_wait(0.8, 1.3)
 
-        logger.warning("court_guarantee_cause_not_stable", extra={"cause_name": cause_name, "candidates": candidates[:5]})
+        logger.warning(
+            "court_guarantee_cause_not_stable", extra={"cause_name": cause_name, "candidates": candidates[:5]}
+        )
         return False
 
     def _choose_insurance(self, preferred_name: str) -> str | None:
@@ -537,9 +550,7 @@ class CourtZxfwGuaranteeService:
         result: dict[str, Any] = {"dialogs": [], "next_clicked": None, "errors_after_next": [], "ready": False}
         result["ready"] = self._wait_for_g_two_ready()
 
-        respondent_sources = [
-            item for item in (case_data.get("respondents") or []) if isinstance(item, dict)
-        ]
+        respondent_sources = [item for item in (case_data.get("respondents") or []) if isinstance(item, dict)]
         if not respondent_sources:
             respondent_sources = [case_data.get("respondent") or {}]
 
@@ -562,7 +573,9 @@ class CourtZxfwGuaranteeService:
                 self._build_party_dialog_defaults(
                     case_data.get("respondent") or case_data.get("applicant") or {},
                     is_property_clue=True,
-                    property_clue_data=case_data.get("property_clue") if isinstance(case_data.get("property_clue"), dict) else None,
+                    property_clue_data=case_data.get("property_clue")
+                    if isinstance(case_data.get("property_clue"), dict)
+                    else None,
                 ),
             ),
         ]
@@ -603,8 +616,7 @@ class CourtZxfwGuaranteeService:
 
             errors = self._get_visible_form_errors()
             if target == "property_clue" and any(
-                ("请选择省份" in err) or ("请选择财产所有人" in err)
-                for err in errors
+                ("请选择省份" in err) or ("请选择财产所有人" in err) for err in errors
             ):
                 step["property_clue_retry"] = self._retry_property_clue_save_on_province_error(defaults)
                 self._random_wait(0.5, 0.8)
@@ -761,10 +773,16 @@ class CourtZxfwGuaranteeService:
                 result["uploaded"] = int(result["uploaded"]) + 1
                 if len(chosen_files) > 1:
                     result["uploads"].append(
-                        {"index": i, "label": label_text[:80], "files": [path.rsplit("/", 1)[-1] for path in chosen_files]}
+                        {
+                            "index": i,
+                            "label": label_text[:80],
+                            "files": [path.rsplit("/", 1)[-1] for path in chosen_files],
+                        }
                     )
                 else:
-                    result["uploads"].append({"index": i, "label": label_text[:80], "file": chosen_files[0].rsplit("/", 1)[-1]})
+                    result["uploads"].append(
+                        {"index": i, "label": label_text[:80], "file": chosen_files[0].rsplit("/", 1)[-1]}
+                    )
                 self._wait_upload_idle(timeout_ms=90000)
                 self._random_wait(1.8, 2.8)
             except Exception:
@@ -774,7 +792,11 @@ class CourtZxfwGuaranteeService:
             (
                 path
                 for path in file_paths
-                if ("起诉状" in path.rsplit("/", 1)[-1] or "起诉书" in path.rsplit("/", 1)[-1] or "起诉" in path.rsplit("/", 1)[-1])
+                if (
+                    "起诉状" in path.rsplit("/", 1)[-1]
+                    or "起诉书" in path.rsplit("/", 1)[-1]
+                    or "起诉" in path.rsplit("/", 1)[-1]
+                )
             ),
             file_paths[0],
         )
@@ -813,7 +835,12 @@ class CourtZxfwGuaranteeService:
                     try:
                         candidate.set_input_files(complaint_path)
                         result["uploads"].append(
-                            {"index": j, "label": label_text[:80], "file": complaint_path.rsplit("/", 1)[-1], "retry": True}
+                            {
+                                "index": j,
+                                "label": label_text[:80],
+                                "file": complaint_path.rsplit("/", 1)[-1],
+                                "retry": True,
+                            }
                         )
                         self._random_wait(1.8, 2.4)
                     except Exception:
@@ -1095,7 +1122,9 @@ class CourtZxfwGuaranteeService:
             defaults["property_info"] = (
                 str(clue_data.get("property_info") or "").strip() or f"{defaults['owner_name']}名下财产线索"
             )
-            defaults["property_location"] = str(clue_data.get("property_location") or defaults.get("address") or "").strip()
+            defaults["property_location"] = str(
+                clue_data.get("property_location") or defaults.get("address") or ""
+            ).strip()
             defaults["property_province"] = str(clue_data.get("property_province") or "").strip()
             defaults["property_cert_no"] = str(clue_data.get("property_cert_no") or "").strip()
             defaults["property_value"] = str(clue_data.get("property_value") or "").strip() or "300000"
@@ -1954,7 +1983,9 @@ class CourtZxfwGuaranteeService:
                     if not reopened:
                         self._random_wait(0.4, 0.8)
                         continue
-                    self._wait_select_options_ready(candidates=[owner_name], timeout_ms=min(self.MAX_SLOW_WAIT_MS, 60000))
+                    self._wait_select_options_ready(
+                        candidates=[owner_name], timeout_ms=min(self.MAX_SLOW_WAIT_MS, 60000)
+                    )
                     selected = self._choose_dropdown_item(owner_name)
                     if not selected:
                         selected = self._choose_dropdown_item("")
@@ -2072,10 +2103,7 @@ class CourtZxfwGuaranteeService:
                 self._random_wait(0.6, 0.9)
 
                 errors = self._get_visible_form_errors()
-                has_required_select_error = any(
-                    ("请选择省份" in err) or ("请选择财产所有人" in err)
-                    for err in errors
-                )
+                has_required_select_error = any(("请选择省份" in err) or ("请选择财产所有人" in err) for err in errors)
                 if not has_required_select_error:
                     return True
             except Exception:
@@ -2126,7 +2154,9 @@ class CourtZxfwGuaranteeService:
         except Exception:
             return False
 
-    def _reopen_and_search_court_dropdown(self, court_input: Any, search_text: str, *, force_reset: bool = False) -> bool:
+    def _reopen_and_search_court_dropdown(
+        self, court_input: Any, search_text: str, *, force_reset: bool = False
+    ) -> bool:
         return self._reopen_and_search_dropdown_input(
             court_input,
             search_text,

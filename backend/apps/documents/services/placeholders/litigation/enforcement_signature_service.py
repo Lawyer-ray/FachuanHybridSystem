@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 class EnforcementSignatureKeys:
     """强制执行申请书签名盖章占位符键"""
+
     ENFORCEMENT_SIGNATURE = "强制执行申请书签名盖章信息"
     ENFORCEMENT_SIGNATURE_PARTY = "强制执行申请书申请人签章"
 
@@ -64,11 +65,7 @@ class EnforcementSignatureService(BasePlaceholderService):
         case_parties = self.case_details_accessor.get_case_parties(case_id=case_id)
 
         # 筛选申请人（支持 plaintiff 和 applicant）
-        parties = [
-            p
-            for p in case_parties
-            if p.get("legal_status") in [LegalStatus.PLAINTIFF, LegalStatus.APPLICANT]
-        ]
+        parties = [p for p in case_parties if p.get("legal_status") in [LegalStatus.PLAINTIFF, LegalStatus.APPLICANT]]
 
         if not parties:
             logger.warning("未找到申请人签名主体: case_id=%s", case_id)

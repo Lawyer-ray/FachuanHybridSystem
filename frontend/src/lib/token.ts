@@ -34,7 +34,7 @@ export function getRefreshToken(): string | null {
 export function setTokens(tokens: TokenPair): void {
   localStorage.setItem(ACCESS_TOKEN_KEY, tokens.access)
   localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refresh)
-  
+
   // 通知 macOS Native 应用（如果在 WebView 中运行）
   notifyNativeAuth(tokens)
 }
@@ -65,7 +65,7 @@ function notifyNativeAuth(tokens: TokenPair): void {
 export function clearTokens(): void {
   localStorage.removeItem(ACCESS_TOKEN_KEY)
   localStorage.removeItem(REFRESH_TOKEN_KEY)
-  
+
   // 通知 macOS Native 应用用户已登出
   notifyNativeLogout()
 }

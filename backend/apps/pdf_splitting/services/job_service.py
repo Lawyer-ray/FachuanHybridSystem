@@ -198,9 +198,7 @@ class PdfSplitJobService:
 
         updates: dict[str, Any] = {"cancel_requested": True}
         can_mark_cancelled = job.status == PdfSplitJobStatus.PENDING and (
-            not job.task_id
-            or bool(cancel_result.get("queue_deleted"))
-            or not bool(cancel_result.get("running"))
+            not job.task_id or bool(cancel_result.get("queue_deleted")) or not bool(cancel_result.get("running"))
         )
         if can_mark_cancelled:
             updates.update(status=PdfSplitJobStatus.CANCELLED, finished_at=timezone.now())
@@ -346,7 +344,9 @@ class PdfSplitJobService:
         if not raw:
             raise ValidationException(message="source_path 不能为空", errors={"source_path": "请输入本地PDF绝对路径"})
         if raw.lower().startswith("smb://"):
-            raise ValidationException(message="不支持 smb:// 路径", errors={"source_path": "请提供本机可读取的绝对路径"})
+            raise ValidationException(
+                message="不支持 smb:// 路径", errors={"source_path": "请提供本机可读取的绝对路径"}
+            )
         if not self._is_absolute_path(raw):
             raise ValidationException(message="source_path 必须为绝对路径", errors={"source_path": "请提供绝对路径"})
 

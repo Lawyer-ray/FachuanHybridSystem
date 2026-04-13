@@ -18,7 +18,9 @@ class CourtToken(models.Model):
         help_text=_("如:court_zxfw（人民法院在线服务网/一张网）, court_baoquan（保全系统）"),
     )
     account: models.CharField = models.CharField(max_length=128, verbose_name=_("登录账号"))
-    token: models.TextField = models.TextField(verbose_name=_("认证Token"), help_text=_("一张网/保全系统返回的 JWT Token 或其他认证令牌"))
+    token: models.TextField = models.TextField(
+        verbose_name=_("认证Token"), help_text=_("一张网/保全系统返回的 JWT Token 或其他认证令牌")
+    )
     token_type: models.CharField = models.CharField(
         max_length=32, default="Bearer", verbose_name=_("Token类型"), help_text=_("如:Bearer, JWT")
     )
@@ -71,7 +73,9 @@ class TokenAcquisitionHistory(models.Model):
     credential_id: models.IntegerField = models.IntegerField(
         null=True, blank=True, verbose_name=_("凭证ID"), help_text=_("关联的AccountCredential ID")
     )
-    status: models.CharField = models.CharField(max_length=32, choices=TokenAcquisitionStatus.choices, verbose_name=_("获取状态"))
+    status: models.CharField = models.CharField(
+        max_length=32, choices=TokenAcquisitionStatus.choices, verbose_name=_("获取状态")
+    )
     trigger_reason: models.CharField = models.CharField(
         max_length=256, verbose_name=_("触发原因"), help_text=_("如:token_expired, no_token, manual_trigger")
     )

@@ -16,9 +16,8 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Generator
 from urllib.parse import parse_qs, urljoin, urlparse
 
-from django.utils.translation import gettext_lazy as _
-
 import httpx
+from django.utils.translation import gettext_lazy as _
 from lxml import html as lxml_html
 from playwright.sync_api import Browser, BrowserContext, Frame, Page, Playwright, sync_playwright
 
@@ -292,8 +291,7 @@ class JtnCaseImportScript:
 
         chunk_size = (len(indexed_case_nos) + effective_workers - 1) // effective_workers
         indexed_chunks = [
-            indexed_case_nos[start : start + chunk_size]
-            for start in range(0, len(indexed_case_nos), chunk_size)
+            indexed_case_nos[start : start + chunk_size] for start in range(0, len(indexed_case_nos), chunk_size)
         ]
 
         indexed_results: list[tuple[int, str, OACaseData | None] | None] = [None] * len(indexed_case_nos)
@@ -752,9 +750,7 @@ class JtnCaseImportScript:
                 continue
             option_value = option.get("value")
             payload[name] = (
-                str(option_value)
-                if option_value is not None
-                else self._normalize_text("".join(option.itertext()))
+                str(option_value) if option_value is not None else self._normalize_text("".join(option.itertext()))
             )
 
         for textarea_node in form.xpath(".//textarea[@name]"):
@@ -1078,7 +1074,9 @@ class JtnCaseImportScript:
                         conflicts.append(OAConflictData(name=current_name, conflict_type=current_type))
                     current_name = value
                     current_type = None
-                elif ("法律地位" in label and value) or ("类型" in label and "客户类型" not in label and "法律地位" not in label and value):
+                elif ("法律地位" in label and value) or (
+                    "类型" in label and "客户类型" not in label and "法律地位" not in label and value
+                ):
                     current_type = value
 
         if current_name:
@@ -1127,8 +1125,7 @@ class JtnCaseImportScript:
         has_password_input = 'name="password"' in head or "name='password'" in head
         has_login_form = has_userid_input and has_password_input
         has_login_error_text = any(
-            token in body_lower
-            for token in ("账号或密码错误", "用户名或密码错误", "invalid password", "login failed")
+            token in body_lower for token in ("账号或密码错误", "用户名或密码错误", "invalid password", "login failed")
         )
         return bool((stayed_on_login_page and has_login_form) or has_login_error_text)
 
@@ -1192,6 +1189,7 @@ class JtnCaseImportScript:
             # 应用 playwright-stealth 反检测
             try:
                 from playwright_stealth import Stealth
+
                 stealth = Stealth()
                 stealth.apply_stealth_sync(self._context)
                 logger.debug("已应用 playwright-stealth 反检测")
@@ -1492,8 +1490,8 @@ class JtnCaseImportScript:
                 'button:has-text("登录")',
                 'input[type="submit"]',
                 'a:has-text("登录")',
-                '.loginbtn',
-                '.btn-login',
+                ".loginbtn",
+                ".btn-login",
             ]
             submitted = False
             for selector in submit_selectors:
@@ -1952,7 +1950,9 @@ class JtnCaseImportScript:
                                     )
                                 current_name = value
                                 current_type = None
-                            elif ("法律地位" in label and value) or ("类型" in label and "客户类型" not in label and "法律地位" not in label and value):
+                            elif ("法律地位" in label and value) or (
+                                "类型" in label and "客户类型" not in label and "法律地位" not in label and value
+                            ):
                                 current_type = value
 
                     except Exception as exc:
