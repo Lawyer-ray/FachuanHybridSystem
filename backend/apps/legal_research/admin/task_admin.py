@@ -12,6 +12,7 @@ from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.urls import path, reverse
 from django.utils import timezone
 from django.utils.html import format_html, format_html_join
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.interfaces import ServiceLocator
 from apps.core.llm.config import LLMConfig
@@ -151,9 +152,14 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
             if obj.status == LegalResearchTaskStatus.FAILED:
                 model_field = form.base_fields.get("llm_model")
                 if model_field is not None:
-                    choices = self._build_llm_model_choices()
+                    choices, is_fallback, error_message = self._build_llm_model_choices()
                     model_field.widget = forms.Select(choices=choices)
                     model_field.help_text = "失败任务可修改模型，保存后将自动重启任务。"
+                    if is_fallback:
+                        messages.warning(
+                            request,
+                            _("SiliconFlow 模型列表获取失败：%(error)s，当前显示默认模型列表") % {"error": error_message},
+                        )
             return form
 
         self._configure_credential_field(request=request, form=form)
@@ -169,10 +175,15 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
             self._attach_keyword_cleaner(form)
             return form
 
-        choices = self._build_llm_model_choices()
+        choices, is_fallback, error_message = self._build_llm_model_choices()
         model_field.widget = forms.Select(choices=choices)
         model_field.initial = choices[0][0] if choices else LLMConfig.get_default_model()
         model_field.help_text = "选择用于案例相似度评估的硅基流动模型。"
+        if is_fallback:
+            messages.warning(
+                request,
+                _("SiliconFlow 模型列表获取失败：%(error)s，当前显示默认模型列表") % {"error": error_message},
+            )
         self._attach_keyword_cleaner(form)
         return form
 
@@ -405,7 +416,12 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
             return False
 
     @staticmethod
-    def _build_llm_model_choices() -> list[tuple[str, str]]:
+    def _build_llm_model_choices() -> tuple[list[tuple[str, str]], bool, str]:
+        """构建 LLM 模型选项列表，同时返回连接状态信息。
+
+        Returns:
+            (choices, is_fallback, error_message)
+        """
         choices: list[tuple[str, str]] = []
         seen: set[str] = set()
 
@@ -421,12 +437,12 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
             append_choice(default_model, label=f"{default_model}（默认）")
 
         try:
-            models = ModelListService().get_models()
+            result = ModelListService().get_result()
         except Exception:
             logger.exception("加载硅基流动模型列表失败")
-            models = []
+            return [(default_model or "Qwen/Qwen2.5-7B-Instruct", "默认模型")], True, "加载模型列表异常"
 
-        for item in models:
+        for item in result.models:
             model_id = str(item.get("id", "")).strip()
             model_name = str(item.get("name", "")).strip()
             if model_name and model_name != model_id:
@@ -436,7 +452,8 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
 
         if not choices:
             append_choice(default_model or "Qwen/Qwen2.5-7B-Instruct")
-        return choices
+
+        return choices, result.is_fallback, result.error_message
 
     @admin.display(description="案例附件")
     def result_attachments(self, obj: LegalResearchTask) -> str:

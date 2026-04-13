@@ -516,6 +516,9 @@ function evidenceSorting() {
                         if (available) {
                             this.selectedBackend = available.name;
                             this.availableModels = available.models || [];
+                            if (available.models_fallback) {
+                                this.errorMsg = 'SiliconFlow 模型列表获取失败：' + (available.models_error || '未知错误') + '，当前显示默认模型列表';
+                            }
                         }
                     }
                 }
