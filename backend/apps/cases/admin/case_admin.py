@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, cast
 
 from django.contrib import admin
 from django.http import HttpRequest
@@ -110,7 +110,7 @@ def serialize_case_obj(obj: Case) -> dict[str, object]:
     """将单个 Case 实例序列化为 dict（供 CaseAdmin 和 ContractAdmin 共用）。"""
     from apps.cases.services.case.case_export_serializer_service import serialize_case_obj as serialize_case_obj_service
 
-    return serialize_case_obj_service(obj)
+    return cast(dict[str, object], serialize_case_obj_service(obj))
 
 
 @admin.register(Case)
@@ -159,12 +159,15 @@ class CaseAdmin(
 
         case_svc = build_case_import_service_for_admin()
         admin_service = self._get_case_admin_service()
-        return admin_service.import_cases_from_json_data(data_list, case_import_service=case_svc)
+        return cast(
+            tuple[int, int, list[str]],
+            admin_service.import_cases_from_json_data(data_list, case_import_service=case_svc),
+        )
 
-    def serialize_queryset(self, queryset: QuerySet[Case]) -> list[dict[str, object]]:  # type: ignore[override]
+    def serialize_queryset(self, queryset: QuerySet[Case]) -> list[dict[str, object]]:
         service = self._get_case_admin_service()
-        return service.serialize_queryset_for_export(queryset)
+        return cast(list[dict[str, object]], service.serialize_queryset_for_export(queryset))
 
-    def get_file_paths(self, queryset: QuerySet[Case]) -> list[str]:  # type: ignore[override]
+    def get_file_paths(self, queryset: QuerySet[Case]) -> list[str]:
         service = self._get_case_admin_service()
-        return service.collect_file_paths_for_export(queryset)
+        return cast(list[str], service.collect_file_paths_for_export(queryset))

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
@@ -19,13 +19,13 @@ class FilingSession(models.Model):
 
     id: int
 
-    contract = models.ForeignKey(
+    contract: Any = models.ForeignKey(
         "contracts.Contract",
         on_delete=models.CASCADE,
         related_name="filing_sessions",
         verbose_name=_("合同"),
     )
-    case = models.ForeignKey(
+    case: Any = models.ForeignKey(
         "cases.Case",
         on_delete=models.CASCADE,
         null=True,
@@ -33,7 +33,7 @@ class FilingSession(models.Model):
         related_name="filing_sessions",
         verbose_name=_("案件"),
     )
-    oa_config = models.ForeignKey(
+    oa_config: Any = models.ForeignKey(
         "oa_filing.OAConfig",
         on_delete=models.SET_NULL,
         null=True,
@@ -41,35 +41,35 @@ class FilingSession(models.Model):
         related_name="filing_sessions",
         verbose_name=_("OA配置"),
     )
-    credential = models.ForeignKey(
+    credential: Any = models.ForeignKey(
         "organization.AccountCredential",
         on_delete=models.SET_NULL,
         null=True,
         related_name="filing_sessions",
         verbose_name=_("登录凭证"),
     )
-    user = models.ForeignKey(
+    user: Any = models.ForeignKey(
         "organization.Lawyer",
         on_delete=models.CASCADE,
         related_name="filing_sessions",
         verbose_name=_("发起用户"),
     )
-    status = models.CharField(
+    status: str = models.CharField(  # type: ignore[assignment]
         max_length=16,
         choices=SessionStatus.choices,
         default=SessionStatus.PENDING,
         verbose_name=_("状态"),
     )
-    error_message = models.TextField(
+    error_message: str = models.TextField(  # type: ignore[assignment]
         blank=True,
         default="",
         verbose_name=_("错误信息"),
     )
-    created_at = models.DateTimeField(
+    created_at: Any = models.DateTimeField(
         auto_now_add=True,
         verbose_name=_("创建时间"),
     )
-    updated_at = models.DateTimeField(
+    updated_at: Any = models.DateTimeField(
         auto_now=True,
         verbose_name=_("更新时间"),
     )

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date, datetime
+from decimal import Decimal
 from typing import TYPE_CHECKING, ClassVar
 
 from django.db import models
@@ -42,42 +44,43 @@ class AssessmentGrade(models.TextChoices):
 
 class CaseAssessment(models.Model):
     id: int
-    case = models.OneToOneField(
+    case_id: int
+    case: models.OneToOneField[models.Model, models.Model] = models.OneToOneField(
         "cases.Case",
         on_delete=models.CASCADE,
         related_name="sales_dispute_assessment",
         verbose_name=_("关联案件"),
     )
-    contract_basis = models.CharField(
+    contract_basis: str = models.CharField(  # type: ignore[assignment]
         max_length=32,
         choices=ContractBasisType.choices,
         verbose_name=_("合同基础类型"),
     )
-    principal_amount = models.DecimalField(max_digits=14, decimal_places=2, verbose_name=_("债权本金"))
-    evidence_total_score = models.DecimalField(
+    principal_amount: Decimal = models.DecimalField(max_digits=14, decimal_places=2, verbose_name=_("债权本金"))  # type: ignore[assignment]
+    evidence_total_score: Decimal = models.DecimalField(  # type: ignore[assignment]
         max_digits=5, decimal_places=2, default=0, verbose_name=_("证据完整度总分")
     )
-    limitation_status = models.CharField(
+    limitation_status: str = models.CharField(  # type: ignore[assignment]
         max_length=32,
         choices=LimitationStatus.choices,
         default=LimitationStatus.NORMAL,
         verbose_name=_("诉讼时效状态"),
     )
-    limitation_expiry_date = models.DateField(blank=True, null=True, verbose_name=_("时效届满日期"))
-    solvency_rating = models.CharField(
+    limitation_expiry_date: date | None = models.DateField(blank=True, null=True, verbose_name=_("时效届满日期"))  # type: ignore[assignment]
+    solvency_rating: str = models.CharField(  # type: ignore[assignment]
         max_length=32,
         choices=SolvencyRating.choices,
         default=SolvencyRating.UNKNOWN,
         verbose_name=_("偿付能力评级"),
     )
-    assessment_grade = models.CharField(
+    assessment_grade: str = models.CharField(  # type: ignore[assignment]
         max_length=32,
         choices=AssessmentGrade.choices,
         verbose_name=_("综合评估等级"),
     )
-    remarks = models.TextField(blank=True, default="", verbose_name=_("评估备注"))
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
-    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
+    remarks: str = models.TextField(blank=True, default="", verbose_name=_("评估备注"))  # type: ignore[assignment]
+    created_at: datetime = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))  # type: ignore[assignment]
+    updated_at: datetime = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))  # type: ignore[assignment]
 
     if TYPE_CHECKING:
         evidence_scores: RelatedManager[EvidenceScore]
@@ -93,4 +96,12 @@ class CaseAssessment(models.Model):
         ]
 
     def __str__(self) -> str:
-        return f"评估: {self.case} - {self.get_assessment_grade_display()}"
+        grade_labels = {
+            AssessmentGrade.SUFFICIENT.value: _("充分"),
+            AssessmentGrade.FAIRLY_SUFFICIENT.value: _("较充分"),
+            AssessmentGrade.AVERAGE.value: _("一般"),
+            AssessmentGrade.WEAK.value: _("薄弱"),
+            AssessmentGrade.SEVERELY_INSUFFICIENT.value: _("严重不足"),
+        }
+        label = grade_labels.get(self.assessment_grade, self.assessment_grade)
+        return f"评估: {self.case} - {label}"

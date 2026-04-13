@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+from collections.abc import Callable
 from typing import Any
 
 _UNARY_OPS: dict[type[ast.unaryop], str] = {
@@ -38,7 +39,7 @@ class SafeExpressionEvaluator:
             raise SyntaxError(f"表达式语法错误: {e}") from e
         return self._eval(tree.body)
 
-    def _eval(self, node: ast.expr) -> Any:  # type: ignore[return]
+    def _eval(self, node: ast.expr) -> Any:
         if isinstance(node, ast.Constant):
             return node.value
         if isinstance(node, ast.Name):
@@ -68,9 +69,9 @@ class SafeExpressionEvaluator:
             raise ValueError(f"不支持的一元运算符: {op_key.__name__}")
         operand = self._eval(node.operand)
         if isinstance(node.op, ast.UAdd):
-            return +operand  # type: ignore[operator]
+            return +operand
         if isinstance(node.op, ast.USub):
-            return -operand  # type: ignore[operator]
+            return -operand
         return not operand
 
     def _eval_bool(self, node: ast.BoolOp) -> Any:
@@ -108,7 +109,7 @@ def _apply_cmp(op: ast.cmpop, left: Any, right: Any) -> bool:
     return _CMP_FUNCS[op_key](left, right)
 
 
-_CMP_FUNCS: dict[type[ast.cmpop], Any] = {
+_CMP_FUNCS: dict[type[ast.cmpop], Callable[[Any, Any], bool]] = {
     ast.Eq: lambda l, r: l == r,
     ast.NotEq: lambda l, r: l != r,
     ast.Lt: lambda l, r: l < r,

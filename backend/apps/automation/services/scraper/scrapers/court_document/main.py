@@ -36,7 +36,7 @@ class CourtDocumentScraper(BaseCourtDocumentScraper):
 
     def __init__(self, task: Any, document_service: ICourtDocumentService | None = None) -> None:
         super().__init__(task, document_service)
-        self._scraper: BaseCourtDocumentScraper | None = None
+        self._scraper: Any = None
 
     def _run(self) -> dict[str, Any]:
         """

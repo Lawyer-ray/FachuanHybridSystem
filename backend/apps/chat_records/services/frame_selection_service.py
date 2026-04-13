@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import io
 import logging
-from typing import Any
+from typing import Any, cast
 
 from PIL import Image, ImageEnhance, ImageOps
 
@@ -76,7 +76,7 @@ class FrameSelectionService:
         img = img.crop((0, top, w, bottom))
 
         img = img.resize((size, size), _LANCZOS)
-        return img.tobytes()
+        return cast(bytes, img.tobytes())
 
     def mean_abs_diff(self, a: bytes, b: bytes) -> float | None:
         if not a or not b:

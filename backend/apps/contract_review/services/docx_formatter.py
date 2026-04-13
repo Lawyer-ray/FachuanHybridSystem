@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import logging
+from typing import cast
 
 from docx import Document
 from docx.enum.text import WD_LINE_SPACING
 from docx.oxml.ns import qn
 from docx.shared import Pt
+from docx.text.paragraph import Paragraph
 
 logger = logging.getLogger(__name__)
 
@@ -68,15 +70,15 @@ class DocxFormatter:
         for p in doc.paragraphs:
             style_name = p.style.name if p.style else ""
             if style_name in _HEADING_STYLES:
-                return p._element
+                return cast(object, p._element)
             if p.text.strip():
-                return p._element
+                return cast(object, p._element)
         return None
 
     @staticmethod
-    def _set_paragraph_spacing(para: object, *, is_title: bool = False) -> None:
+    def _set_paragraph_spacing(para: Paragraph, *, is_title: bool = False) -> None:
         """段前段后0、行距1.5倍；正文首行缩进2字符(24pt)，标题不缩进"""
-        fmt = para.paragraph_format  # type: ignore[union-attr]
+        fmt = para.paragraph_format
         fmt.left_indent = Pt(0)
         fmt.right_indent = Pt(0)
         fmt.first_line_indent = Pt(0) if is_title else Pt(24)
@@ -86,7 +88,7 @@ class DocxFormatter:
         fmt.line_spacing = 1.5
 
         # 清除 Chars 属性（优先级高于绝对值，会覆盖上面的设置）
-        p_pr = para._element.find(qn("w:pPr"))  # type: ignore[union-attr]
+        p_pr = para._element.find(qn("w:pPr"))
         ind = p_pr.find(qn("w:ind")) if p_pr is not None else None
         if ind is not None:
             for attr in ("w:firstLineChars", "w:leftChars", "w:rightChars", "w:hangingChars"):
@@ -95,9 +97,9 @@ class DocxFormatter:
                     del ind.attrib[key]
 
     @staticmethod
-    def _set_font(para: object, font_name: str, size: Pt) -> None:
+    def _set_font(para: Paragraph, font_name: str, size: Pt) -> None:
         """设置段落所有 run 的字体和字号"""
-        for run in para.runs:  # type: ignore[union-attr]
+        for run in para.runs:
             run.font.name = font_name
             run.font.size = size
             # 设置东亚字体

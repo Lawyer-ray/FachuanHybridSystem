@@ -3,15 +3,13 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from apps.documents.models import EvidenceItem, EvidenceList
-from apps.documents.services.evidence import (
-    EvidenceBasicQueryService,
-    EvidenceFileService,
-    EvidenceMutationService,
-    EvidencePageRangeCalculator,
-)
+from apps.documents.services.evidence.evidence_file_service import EvidenceFileService
+from apps.documents.services.evidence.evidence_mutation_service import EvidenceMutationService
+from apps.documents.services.evidence.evidence_query_service import EvidenceQueryService
+from apps.documents.services.evidence.page_range_calculator import EvidencePageRangeCalculator
 
 if TYPE_CHECKING:
     from apps.core.interfaces import ICaseService
@@ -26,13 +24,13 @@ class EvidenceService:
     def __init__(
         self,
         case_service: ICaseService | None = None,
-        query_service: EvidenceBasicQueryService | None = None,
+        query_service: EvidenceQueryService | None = None,
         mutation_service: EvidenceMutationService | None = None,
         file_service: EvidenceFileService | None = None,
         page_range_calculator: EvidencePageRangeCalculator | None = None,
     ) -> None:
         self._case_service = case_service
-        self._query_service = query_service or EvidenceBasicQueryService()
+        self._query_service = query_service or EvidenceQueryService()
         self._mutation_service = mutation_service or EvidenceMutationService()
         self._file_service = file_service or EvidenceFileService()
         self._page_range_calculator = page_range_calculator or EvidencePageRangeCalculator()
@@ -44,7 +42,7 @@ class EvidenceService:
         return self._case_service
 
     @property
-    def query_service(self) -> EvidenceBasicQueryService:
+    def query_service(self) -> EvidenceQueryService:
         return self._query_service
 
     @property
@@ -81,7 +79,7 @@ class EvidenceService:
         return self.query_service.get_evidence_list(list_id)
 
     def list_evidence_lists(self, case_id: int) -> list[EvidenceList]:
-        return self.query_service.list_evidence_lists(case_id)
+        return cast(list[EvidenceList], self.query_service.list_evidence_lists(case_id))
 
     def create_evidence_item(self, list_id: int, data: dict[str, Any]) -> EvidenceItem:
         evidence_list = self.get_evidence_list(list_id)

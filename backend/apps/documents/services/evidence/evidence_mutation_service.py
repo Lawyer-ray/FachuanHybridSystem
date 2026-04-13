@@ -11,6 +11,7 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ValidationException
 from apps.core.exceptions.error_catalog import case_not_found
+from apps.evidence.models import LIST_TYPE_ORDER, LIST_TYPE_PREVIOUS, EvidenceItem, EvidenceList, ListType
 
 
 class EvidenceMutationService:
@@ -30,8 +31,6 @@ class EvidenceMutationService:
         Returns:
             创建的证据清单对象
         """
-        from apps.documents.models import LIST_TYPE_ORDER, ListType
-
         # 如果没有提供标题但提供了 list_type,自动生成标题
         if (not title or not title.strip()) and list_type:
             title = dict(ListType.choices).get(list_type, list_type)
@@ -112,7 +111,7 @@ class EvidenceMutationService:
             now = _tz.now()
             for nl in next_lists:
                 nl.previous_list = previous_list
-                nl.updated_at = now  # type: ignore[attr-defined]
+                nl.updated_at = now
             EvidenceList.objects.bulk_update(next_lists, ["previous_list", "updated_at"])
 
         if evidence_list.merged_pdf:

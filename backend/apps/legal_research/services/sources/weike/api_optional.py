@@ -27,6 +27,11 @@ class PrivateWeikeApiAdapter(Protocol):
         max_candidates: int,
         max_pages: int,
         offset: int = 0,
+        advanced_query: list[dict[str, str]] | None = None,
+        court_filter: str = "",
+        cause_of_action_filter: str = "",
+        date_from: str = "",
+        date_to: str = "",
     ) -> list[Any]: ...
 
 
@@ -83,4 +88,4 @@ def get_private_weike_api() -> PrivateWeikeApiAdapter | None:
         logger.info("已启用私有wk API模块", extra={"private_module_path": module_path})
         break
 
-    return cast(PrivateWeikeApiAdapter | None, _adapter_cache)
+    return _adapter_cache

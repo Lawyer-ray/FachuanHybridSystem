@@ -1,4 +1,7 @@
-def __getattr__(name: str):
+from typing import Any
+
+
+def __getattr__(name: str) -> Any:
     """延迟导入避免循环依赖"""
     if name == "EvidenceFileService":
         from .evidence_file_service import EvidenceFileService

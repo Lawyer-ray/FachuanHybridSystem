@@ -16,6 +16,7 @@ from .wiring import get_case_filing_number_service, get_document_service
 if TYPE_CHECKING:
     from django.db.models import QuerySet
 
+    from apps.cases.services.case_import_service import CaseImportPayload
     from apps.core.interfaces import ICaseFilingNumberService, IDocumentService
 
 logger = logging.getLogger(__name__)
@@ -73,7 +74,7 @@ class CaseMaterialServiceProtocol(Protocol):
 
 
 class CaseImportServiceProtocol(Protocol):
-    def import_one(self, data: ImportData) -> Case: ...
+    def import_one(self, data: CaseImportPayload) -> Case: ...
 
 
 class CaseAdminService:

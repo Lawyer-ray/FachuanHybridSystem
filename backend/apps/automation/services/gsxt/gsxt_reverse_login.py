@@ -49,7 +49,7 @@ _rsa_key = serialization.load_pem_public_key(RSA_PUBLIC_KEY_PEM.encode())
 
 def rsa_encrypt(plain: str) -> str:
     """用 RSA 公钥加密字符串，返回 Base64 编码结果（与 JSEncrypt 兼容）。"""
-    ct = _rsa_key.encrypt(plain.encode(), asym_padding.PKCS1v15())  # type: ignore[union-attr]
+    ct = _rsa_key.encrypt(plain.encode(), asym_padding.PKCS1v15())
     return b64encode(ct).decode()
 
 

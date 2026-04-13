@@ -10,7 +10,7 @@ from functools import lru_cache
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 from types import ModuleType
-from typing import Any
+from typing import Any, cast
 
 
 @lru_cache(maxsize=1)
@@ -34,19 +34,19 @@ def execute_scraper_task(task_id: int, **kwargs: Any) -> None:
 
 
 def process_pending_tasks() -> int:
-    return _load_legacy_tasks_module().process_pending_tasks()
+    return cast(int, _load_legacy_tasks_module().process_pending_tasks())
 
 
 def reset_running_tasks() -> int:
-    return _load_legacy_tasks_module().reset_running_tasks()
+    return cast(int, _load_legacy_tasks_module().reset_running_tasks())
 
 
 def startup_check() -> dict[str, int]:
-    return _load_legacy_tasks_module().startup_check()
+    return cast(dict[str, int], _load_legacy_tasks_module().startup_check())
 
 
 def execute_preservation_quote_task(quote_id: int) -> dict[str, Any]:
-    return _load_legacy_tasks_module().execute_preservation_quote_task(quote_id)
+    return cast(dict[str, Any], _load_legacy_tasks_module().execute_preservation_quote_task(quote_id))
 
 
 __all__ = [

@@ -10,6 +10,7 @@ from docx import Document
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.text.paragraph import Paragraph
+from docx.text.run import Run
 from lxml import etree
 
 logger = logging.getLogger(__name__)
@@ -75,15 +76,15 @@ class DocxRevisionTool:
     def _apply_single_run(
         self,
         paragraph: Paragraph,
-        run: object,
+        run: Run,
         original: str,
         replacement: str,
         author: str,
         date: str,
     ) -> None:
         """原文在单个 run 内的情况"""
-        run_elem = run._element  # type: ignore[union-attr]
-        text = run.text  # type: ignore[union-attr]
+        run_elem = run._element
+        text = run.text
         start = text.index(original)
         prefix = text[:start]
         suffix = text[start + len(original) :]

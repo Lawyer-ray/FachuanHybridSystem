@@ -1,4 +1,7 @@
-def __getattr__(name: str) -> type:
+from typing import Any
+
+
+def __getattr__(name: str) -> Any:
     """延迟导入避免循环依赖"""
     _map: dict[str, tuple[str, str]] = {
         "EvidenceFileService": (".evidence_file_service", "EvidenceFileService"),
@@ -20,7 +23,7 @@ def __getattr__(name: str) -> type:
 
         mod_path, attr_name = _map[name]
         mod = importlib.import_module(mod_path, __package__)
-        return getattr(mod, attr_name)  # type: ignore[return-value]
+        return getattr(mod, attr_name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 

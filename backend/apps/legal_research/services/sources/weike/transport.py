@@ -15,6 +15,10 @@ logger = logging.getLogger(__name__)
 class WeikeTransportMixin:
     DEFAULT_RETRYABLE_STATUSES = frozenset({408, 409, 425, 429, 500, 502, 503, 504})
 
+    def _ensure_playwright_session(self, session: WeikeSession) -> None:
+        """由组合类提供 Playwright 会话初始化能力。"""
+        raise NotImplementedError
+
     def _request_get(self, *, session: WeikeSession, url: str, timeout: int) -> Any:
         if session.http_client is not None:
             return session.http_client.get(url, timeout=max(1.0, timeout / 1000))
@@ -230,7 +234,12 @@ class WeikeTransportMixin:
             return bytes(content)
         body_fn = getattr(response, "body", None)
         if callable(body_fn):
-            return body_fn()
+            body = body_fn()
+            if isinstance(body, (bytes, bytearray)):
+                return bytes(body)
+            if isinstance(body, str):
+                return body.encode("utf-8")
+            return b""
         text = getattr(response, "text", None)
         if isinstance(text, str):
             return text.encode("utf-8")

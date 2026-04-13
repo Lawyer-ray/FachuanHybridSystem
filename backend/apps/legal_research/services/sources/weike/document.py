@@ -4,6 +4,7 @@ import html
 import logging
 import re
 import time
+from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
@@ -15,6 +16,13 @@ logger = logging.getLogger(__name__)
 
 
 class WeikeDocumentMixin:
+    _request_get_with_retry: Callable[..., Any]
+    _request_post_json_with_retry: Callable[..., Any]
+    _response_status: Callable[[Any], int]
+    _response_json: Callable[[Any], dict[str, Any]]
+    _response_headers: Callable[[Any], dict[str, str]]
+    _response_body: Callable[[Any], bytes]
+
     DETAIL_RETRY_ATTEMPTS = 3
     DETAIL_RETRY_HTTP_STATUSES = frozenset({400, 408, 409, 425, 429, 500, 502, 503, 504})
     DOWNLOAD_RETRY_ATTEMPTS = 3
@@ -642,8 +650,8 @@ class WeikeDocumentMixin:
         if title:
             return title
         if item.title_hint:
-            return item.title_hint
-        return item.doc_id_unquoted or item.doc_id_raw
+            return str(item.title_hint)
+        return str(item.doc_id_unquoted or item.doc_id_raw)
 
     @staticmethod
     def _extract_dom_field(*, text: str, patterns: tuple[str, ...]) -> str:

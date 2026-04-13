@@ -9,7 +9,7 @@ Requirements: 7.1, 7.2, 7.4
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from django.utils.translation import gettext_lazy as _
 
@@ -202,21 +202,25 @@ class EvidenceListPlaceholderService:
         if not parties:
             return ""
 
-        groups = self._group_parties_by_status(parties)  # type: ignore[no-any-return]
+        groups = self._group_parties_by_status(parties)
         if not groups:
             return ""
 
-        lines = self._format_ordered_groups(groups)  # type: ignore[no-any-return]
+        lines = self._format_ordered_groups(groups)
         return "\n".join(lines)
 
+    def _group_parties_by_status(self, parties: list[dict[str, Any]]) -> dict[str, list[str]]:
+        groups: dict[str, list[str]] = {}
         for party in parties:
             legal_status = party.get("legal_status")
             name = party.get("client_name") or party.get("name", "")
-            if not legal_status or not name:
+            if not isinstance(legal_status, str) or not legal_status or not isinstance(name, str) or not name:
                 continue
             groups.setdefault(legal_status, []).append(name)
         return groups
 
+    def _format_ordered_groups(self, groups: dict[str, list[str]]) -> list[str]:
+        lines: list[str] = []
         seen_statuses: set[str] = set()
         for status in LEGAL_STATUS_ORDER:
             if status not in groups:
@@ -399,7 +403,7 @@ class EvidenceListPlaceholderService:
                 code="CASE_NOT_FOUND",
                 errors={"case_id": f"ID 为 {case_id} 的案件不存在"},
             )
-        return case_data
+        return cast(dict[str, Any], case_data)
 
     def _format_chinese_date(self, date_str: str) -> str:
         """

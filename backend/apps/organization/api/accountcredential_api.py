@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import cast
+
 from django.http import HttpRequest
 from ninja import Router
 
@@ -49,7 +51,8 @@ def create_credential(request: HttpRequest, payload: AccountCredentialIn) -> Acc
         password=payload.password,
         url=payload.url,
     )
-    return _credential_service.create_credential(data=dto, user=get_request_user(request))
+    credential = _credential_service.create_credential(data=dto, user=get_request_user(request))
+    return cast(AccountCredentialOut, AccountCredentialOut.from_orm(credential))
 
 
 @router.put("/credentials/{cred_id}", response=AccountCredentialOut)
@@ -60,11 +63,12 @@ def update_credential(request: HttpRequest, cred_id: int, payload: AccountCreden
         account=payload.account,
         password=payload.password,
     )
-    return _credential_service.update_credential(
+    credential = _credential_service.update_credential(
         credential_id=cred_id,
         data=dto,
         user=get_request_user(request),
     )
+    return cast(AccountCredentialOut, AccountCredentialOut.from_orm(credential))
 
 
 @router.delete("/credentials/{cred_id}")

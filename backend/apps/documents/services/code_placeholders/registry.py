@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 
 @dataclass(frozen=True)
@@ -69,7 +69,7 @@ def expose_placeholders(
                 )
             )
 
-        target.__code_placeholder_definitions__ = defs  # target 是泛型 T，无法用显式属性赋值替代
+        cast(Any, target).__code_placeholder_definitions__ = defs
         CodePlaceholderRegistry().register(defs)
         return target
 

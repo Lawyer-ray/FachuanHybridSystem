@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from django.utils import timezone
 
@@ -94,7 +94,7 @@ class EvidenceAdminService:
 
         Requirements: 11.5
         """
-        return self.export_service.export_evidence_list(list_id)
+        return cast(tuple[bytes, str], self.export_service.export_evidence_list(list_id))
 
     def export_list_word_with_template(self, list_id: int, template_id: int) -> tuple[bytes, str]:
         """
@@ -109,7 +109,7 @@ class EvidenceAdminService:
 
         Requirements: 6.1, 6.2
         """
-        return self.export_service.export_evidence_list_with_template(list_id, template_id)
+        return cast(tuple[bytes, str], self.export_service.export_evidence_list_with_template(list_id, template_id))
 
     def export_detail_word(self, list_id: int) -> tuple[bytes, str]:
         """
@@ -123,7 +123,7 @@ class EvidenceAdminService:
 
         Requirements: 11.5
         """
-        return self.export_service.export_evidence_detail(list_id)
+        return cast(tuple[bytes, str], self.export_service.export_evidence_detail(list_id))
 
     def reorder_items(self, list_id: int, item_ids: list[int]) -> bool:
         """

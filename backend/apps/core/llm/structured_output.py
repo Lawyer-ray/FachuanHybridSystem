@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 from pydantic import BaseModel
 
@@ -89,7 +89,7 @@ def parse_json_content(text: str) -> Any:
 def parse_model_content(text: str, model_cls: type[TModel]) -> TModel:
     """Parse and validate structured model output from model response text."""
     parsed = parse_json_content(text)
-    return model_cls.model_validate(parsed)
+    return cast(TModel, model_cls.model_validate(parsed))
 
 
 def json_schema_instructions(model_cls: type[BaseModel]) -> str:

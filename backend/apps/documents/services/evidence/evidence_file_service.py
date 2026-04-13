@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import contextlib
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from django.db import transaction
 from django.utils.translation import gettext_lazy as _
@@ -75,5 +75,5 @@ class EvidenceFileService:
         if ext == ".pdf":
             from apps.documents.services.infrastructure.pdf_utils import get_pdf_page_count
 
-            return get_pdf_page_count(file, default=1)
+            return cast(int, get_pdf_page_count(file, default=1))
         return 1

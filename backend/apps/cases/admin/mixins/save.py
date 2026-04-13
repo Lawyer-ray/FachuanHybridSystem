@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
-from typing import Any, cast
+from typing import Any
 
 from django.apps import apps
 from django.contrib import messages
@@ -45,22 +45,22 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
     def delete_model(self, request: HttpRequest, obj: Case) -> None:
         try:
             self._cleanup_before_delete([obj.id])
-            super().delete_model(request, obj)  # type: ignore[misc]
+            super().delete_model(request, obj)
         except IntegrityError as e:
             logger.error(
                 "Admin 删除案件失败",
-                extra={"case_id": cast(int, obj.id), "error": str(e)},
+                extra={"case_id": obj.id, "error": str(e)},
                 exc_info=True,
             )
             with connection.constraint_checks_disabled():
-                super().delete_model(request, obj)  # type: ignore[misc]
-            messages.warning(request, _("已强制删除案件 %(case_id)s(已绕过外键检查)") % {"case_id": cast(int, obj.id)})
+                super().delete_model(request, obj)
+            messages.warning(request, _("已强制删除案件 %(case_id)s(已绕过外键检查)") % {"case_id": obj.id})
 
     def delete_queryset(self, request: HttpRequest, queryset: QuerySet[Case, Case]) -> None:
         case_ids = list(queryset.values_list("id", flat=True))
         try:
             self._cleanup_before_delete(case_ids)
-            super().delete_queryset(request, queryset)  # type: ignore[misc]
+            super().delete_queryset(request, queryset)
         except IntegrityError as e:
             logger.error(
                 "Admin 批量删除案件失败",
@@ -68,7 +68,7 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
                 exc_info=True,
             )
             with connection.constraint_checks_disabled():
-                super().delete_queryset(request, queryset)  # type: ignore[misc]
+                super().delete_queryset(request, queryset)
             messages.warning(request, _("已强制批量删除 %d 个案件(已绕过外键检查)") % len(case_ids))
 
     def save_model(
@@ -90,7 +90,7 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
             except Case.DoesNotExist:
                 pass
 
-        super().save_model(request, obj, form, change)  # type: ignore[misc]
+        super().save_model(request, obj, form, change)
 
         try:
             service = self._get_case_admin_service()
@@ -100,7 +100,7 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
                 obj.filing_number = filing_number
                 logger.info(
                     "案件 %s 建档编号已处理: %s",
-                    cast(int, obj.id),
+                    obj.id,
                     filing_number,
                     extra={
                         "case_id": obj.id,
@@ -111,7 +111,7 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
         except Exception as e:
             logger.error(
                 "处理案件 %s 建档编号失败: %s",
-                cast(int, obj.id),
+                obj.id,
                 e,
                 extra={"case_id": obj.id},
                 exc_info=True,
@@ -127,7 +127,7 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
                 binding_service.sync_auto_recommendations(obj.id)
                 logger.info(
                     "案件 %s 模板绑定已同步",
-                    cast(int, obj.id),
+                    obj.id,
                     extra={
                         "case_id": obj.id,
                         "case_type_changed": case_type_changed,
@@ -137,7 +137,7 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
             except Exception as e:
                 logger.error(
                     "同步案件 %s 模板绑定失败: %s",
-                    cast(int, obj.id),
+                    obj.id,
                     e,
                     extra={"case_id": obj.id},
                     exc_info=True,
@@ -157,7 +157,7 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
             except Exception as e:
                 logger.error(
                     "同步案件 %s 的律师指派失败: %s",
-                    cast(int, obj.id),
+                    obj.id,
                     e,
                     extra={"case_id": obj.id},
                     exc_info=True,
@@ -170,7 +170,7 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
             if isinstance(obj, CaseLog) and not getattr(obj, "actor_id", None):
                 user_id = getattr(request.user, "id", None)
                 if user_id is not None:
-                    obj.actor_id = user_id  # type: ignore[attr-defined]
+                    obj.actor_id = user_id
             obj.save()
         formset.save_m2m()
         for obj in formset.deleted_objects:

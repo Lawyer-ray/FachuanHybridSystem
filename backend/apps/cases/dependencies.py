@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from apps.automation.services.chat.factory import ChatProviderFactory
@@ -14,7 +14,7 @@ def get_chat_provider_factory() -> type[ChatProviderFactory]:
     """获取群聊提供者工厂类"""
     from apps.automation.services.chat.factory import ChatProviderFactory
 
-    return ChatProviderFactory
+    return cast(type[ChatProviderFactory], ChatProviderFactory)
 
 
 def create_message_content(*, title: str, text: str, file_path: str | None = None) -> MessageContent:

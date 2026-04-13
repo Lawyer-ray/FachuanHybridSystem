@@ -6,7 +6,7 @@ import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, TypedDict, cast
 
 from apps.core.interfaces import ServiceLocator
 from apps.legal_research.models import LegalResearchSearchMode, LegalResearchTask, LegalResearchTaskStatus
@@ -20,6 +20,27 @@ from apps.legal_research.services.sources import CaseDetail, get_case_source_cli
 from apps.legal_research.services.tuning_config import LegalResearchTuningConfig
 
 logger = logging.getLogger(__name__)
+
+
+class _IntentSlots(TypedDict):
+    relation_high: list[str]
+    relation_low: list[str]
+    breach_high: list[str]
+    breach_low: list[str]
+    damage_high: list[str]
+    damage_low: list[str]
+    remedy_high: list[str]
+    remedy_low: list[str]
+    low_conf_limit: int
+
+
+class _IntentRuleOverrides(TypedDict):
+    relation_regex_extra: list[str]
+    relation_term_extra: list[str]
+    breach_hint_extra: list[str]
+    damage_hint_extra: list[str]
+    remedy_hint_extra: list[str]
+    low_conf_limit: int
 
 
 @dataclass(frozen=True)
@@ -152,7 +173,7 @@ class LegalResearchExecutor(
     def run(self, *, task_id: str) -> dict[str, Any]:
         task, early_result = self._acquire_task(task_id=task_id)
         if early_result is not None:
-            return early_result
+            return cast(dict[str, Any], early_result)
         if task is None:
             logger.error("案例检索任务获取失败", extra={"task_id": task_id})
             return {"task_id": task_id, "status": "failed", "error": "任务不存在"}
@@ -797,7 +818,8 @@ class LegalResearchExecutor(
         matched: int,
         batch_size: int,
     ) -> int:
-        remaining_target = max(1, task.target_count - matched)
+        target_count = int(task.target_count)
+        remaining_target = max(1, target_count - matched)
         return min(batch_size, max(cls.COARSE_RECALL_KEEP_MIN, remaining_target * cls.COARSE_RECALL_MULTIPLIER))
 
     @classmethod
@@ -891,7 +913,8 @@ class LegalResearchExecutor(
 
     @classmethod
     def _deferred_rerank_budget(cls, *, task: LegalResearchTask, matched: int, deferred_count: int) -> int:
-        remaining_target = max(1, task.target_count - matched)
+        target_count = int(task.target_count)
+        remaining_target = max(1, target_count - matched)
         budget = max(cls.DEFERRED_RERANK_KEEP_MIN, remaining_target * cls.DEFERRED_RERANK_MULTIPLIER)
         return min(deferred_count, budget)
 
@@ -1461,7 +1484,7 @@ class LegalResearchExecutor(
         breach_low_terms = intent_slots["breach_low"]
         damage_low_terms = intent_slots["damage_low"]
         remedy_low_terms = intent_slots["remedy_low"]
-        low_conf_limit = max(1, int(intent_slots.get("low_conf_limit", 2)))
+        low_conf_limit = max(1, int(intent_slots["low_conf_limit"]))
 
         keyword_terms = [token for token in cls._split_tokens(keyword) if not cls._is_location_or_court_token(token)]
         summary_terms = cls._extract_summary_terms(case_summary)
@@ -1697,7 +1720,7 @@ class LegalResearchExecutor(
         )
 
     @classmethod
-    def _extract_intent_slots_with_confidence(cls, text: str) -> dict[str, list[str] | int]:
+    def _extract_intent_slots_with_confidence(cls, text: str) -> _IntentSlots:
         normalized = re.sub(r"\s+", " ", (text or "")).strip()
         if not normalized:
             return {
@@ -1960,7 +1983,7 @@ class LegalResearchExecutor(
         return any(hint in normalized for hint in hints)
 
     @classmethod
-    def _load_intent_rule_overrides(cls) -> dict[str, list[str] | int]:
+    def _load_intent_rule_overrides(cls) -> _IntentRuleOverrides:
         try:
             config_service = ServiceLocator.get_system_config_service()
         except Exception:
@@ -2329,7 +2352,7 @@ class LegalResearchExecutor(
 
     @staticmethod
     def _serialize_case_detail(detail: CaseDetail) -> dict[str, Any]:
-        payload = {
+        payload: dict[str, Any] = {
             "doc_id_raw": str(getattr(detail, "doc_id_raw", "") or ""),
             "doc_id_unquoted": str(getattr(detail, "doc_id_unquoted", "") or ""),
             "detail_url": str(getattr(detail, "detail_url", "") or ""),

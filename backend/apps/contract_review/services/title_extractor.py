@@ -15,7 +15,7 @@ class TitleExtractor:
     def extract_title(self, doc: Document) -> str:
         """从文档中提取合同标题，失败时返回空字符串"""
         for para in doc.paragraphs[:10]:
-            text = para.text.strip()
+            text = str(para.text).strip()
             if not text or len(text) > 100:
                 continue
             # 标题通常居中且包含"合同"/"协议"
@@ -24,7 +24,7 @@ class TitleExtractor:
                 return text
         # 退而求其次：取第一个非空段落
         for para in doc.paragraphs[:5]:
-            text = para.text.strip()
+            text = str(para.text).strip()
             if text and len(text) <= 60:
                 logger.info("使用首段作为标题: %s", text)
                 return text

@@ -3,6 +3,8 @@
 提供用户登录、登出和当前用户信息接口
 """
 
+from typing import cast
+
 from django.http import HttpRequest
 from ninja import Router
 
@@ -26,7 +28,8 @@ _auth_service = _get_auth_service()
 @rate_limit_from_settings("AUTH")
 def login_view(request: HttpRequest, payload: LoginIn) -> LoginOut:
     user = _auth_service.login(request, payload.username, payload.password)
-    return LoginOut(success=True, user=user)  # type: ignore[arg-type]
+    user_out = cast(LawyerOut, LawyerOut.from_orm(user))
+    return LoginOut(success=True, user=user_out)
 
 
 @router.post("/logout", auth=None)
@@ -37,4 +40,4 @@ def logout_view(request: HttpRequest) -> dict[str, bool]:
 
 @router.get("/me", response=LawyerOut, auth=JWTOrSessionAuth())
 def me_view(request: HttpRequest) -> LawyerOut:
-    return LawyerOut.from_orm(request.user)  # type: ignore[arg-type]
+    return cast(LawyerOut, LawyerOut.from_orm(request.user))

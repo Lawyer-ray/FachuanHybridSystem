@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import re
 import time
+from collections.abc import Callable
 from urllib.parse import parse_qs, unquote, urljoin, urlparse
 
 from playwright.sync_api import Page
@@ -16,6 +17,9 @@ logger = logging.getLogger(__name__)
 
 
 class WeikeSearchMixin:
+    LAW_LIST_URL: str
+    _ensure_playwright_session: Callable[[WeikeSession], None]
+
     LAW_LOGIN_REQUIRED_TEXT = "抱歉，此功能需要登录后操作"
     LAW_LOGIN_MODAL_USERNAME_SELECTOR = "#login-username"
     LAW_LOGIN_BUTTON_SELECTOR = "button.wk-banner-action-bar-item.wkb-btn-green:has-text('登录')"
@@ -212,8 +216,8 @@ class WeikeSearchMixin:
                     logger.warning(
                         "高级检索 URL 参数未返回结果，回退普通关键词检索（keyword=%s, search_field=%s）",
                         keyword,
-                        search_field,
-                        extra={"keyword": keyword, "search_field": search_field},
+                        params.get("searchField", "fullText"),
+                        extra={"keyword": keyword, "search_field": params.get("searchField", "fullText")},
                     )
                     # fallback：普通搜索框方式
                     page.goto(self.LAW_LIST_URL, wait_until="domcontentloaded", timeout=120000)
