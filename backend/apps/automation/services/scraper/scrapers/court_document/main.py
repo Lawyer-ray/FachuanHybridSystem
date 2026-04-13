@@ -88,7 +88,7 @@ class CourtDocumentScraper(BaseCourtDocumentScraper):
             if hasattr(self, "browser"):
                 self._scraper.browser = self.browser
             return cast(dict[str, Any], self._scraper.run())
-        elif "sfpt.cdfy12368.gov.cn" in url:
+        elif "sfpt.cdfy12368.gov.cn" in url or "171.106.48.55:28083" in url:
             self._scraper = SfdwCourtScraper(self.task, self._document_service)
             if hasattr(self, "page"):
                 self._scraper.page = self.page

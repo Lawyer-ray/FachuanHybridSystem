@@ -13,6 +13,10 @@ class DownloadLinkExtractor:
     JYSD_LINK_PATTERN = re.compile(r"https?://jysd\.10102368\.com/sd\?key=[^\s`,.;、】【]+", re.IGNORECASE)
     HBFY_PUBLIC_LINK_PATTERN = re.compile(r"https?://dzsd\.hbfy\.gov\.cn/hb/msg=[a-zA-Z0-9]+", re.IGNORECASE)
     HBFY_ACCOUNT_LINK_PATTERN = re.compile(r"https?://dzsd\.hbfy\.gov\.cn/sfsddz\b", re.IGNORECASE)
+    SFDW_LINK_PATTERN = re.compile(
+        r"https?://(?:sfpt\.cdfy12368\.gov\.cn:\d+|171\.106\.48\.55:28083)/sfsdw//r/[a-zA-Z0-9]+",
+        re.IGNORECASE,
+    )
 
     def extract(self, content: str) -> list[str]:
         if not content:
@@ -37,6 +41,11 @@ class DownloadLinkExtractor:
                 links.append(link)
                 seen.add(link)
 
+        for link in self.SFDW_LINK_PATTERN.findall(content):
+            if self._is_valid(link) and link not in seen:
+                links.append(link)
+                seen.add(link)
+
         return links
 
     def _sanitize_jysd_link(self, link: str) -> str:
@@ -52,5 +61,9 @@ class DownloadLinkExtractor:
         if "dzsd.hbfy.gov.cn/hb/msg=" in link:
             return True
         if "dzsd.hbfy.gov.cn/sfsddz" in link:
+            return True
+        if "sfpt.cdfy12368.gov.cn" in link:
+            return True
+        if "171.106.48.55:28083" in link:
             return True
         return False

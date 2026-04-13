@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any, ClassVar, cast
 
 from django.contrib import admin
@@ -14,7 +15,7 @@ from django.db.models import QuerySet
 from django.http import HttpRequest
 from django.urls import reverse
 from django.utils.html import format_html, format_html_join
-from django.utils.safestring import SafeString
+from django.utils.safestring import SafeString, mark_safe
 from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import CourtSMS, CourtSMSStatus, CourtSMSType
@@ -261,7 +262,7 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
 
     @admin.display(description=_("关联文书"))
     def documents_display(self, obj: CourtSMS) -> SafeString | str:
-        """关联文书显示"""
+        """关联文书显示（支持手动重命名，仅允许修改文件名）"""
         references = CourtSMSDocumentReferenceService().collect(obj)
         if not references:
             return "-"
@@ -273,38 +274,110 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
             "case_log_attachment": _("案件日志附件"),
         }
 
-        parts = []
+        parts: list[SafeString] = [
+            format_html(
+                "<div style='margin:6px 0 10px;'>"
+                "<a class='button' href='{}'>📦 批量下载全部文书</a>"
+                "</div>",
+                reverse("admin:automation_courtsms_download_all_documents", args=[cast(int, obj.id)]),
+            )
+        ]
         for index, ref in enumerate(references):
             source_label = source_labels.get(ref.source, ref.source)
             status_display = ref.download_status_display or _("已下载")
+            file_name = Path(ref.file_path).name
+            file_stem = Path(file_name).stem
+            file_suffix = Path(file_name).suffix
 
+            open_url = reverse(
+                "admin:automation_courtsms_open_document",
+                args=[cast(int, obj.id), index],
+            )
+            download_url = f"{open_url}?download=1"
+            rename_url = reverse(
+                "admin:automation_courtsms_rename_document",
+                args=[cast(int, obj.id), index],
+            )
+
+            doc_link_html = ""
             if ref.court_document_id:
                 doc_url = reverse("admin:automation_courtdocument_change", args=[ref.court_document_id])
-                parts.append(
-                    format_html(
-                        '<p><a href="{}" target="_blank">{}</a> <span style="color: #666;">[{}/{}]</span></p>',
-                        doc_url,
-                        ref.display_name,
-                        source_label,
-                        status_display,
-                    )
-                )
-            else:
-                open_url = reverse(
-                    "admin:automation_courtsms_open_document",
-                    args=[cast(int, obj.id), index],
-                )
-                parts.append(
-                    format_html(
-                        '<p><a href="{}" target="_blank">{}</a> <span style="color: #666;">[{}/{}]</span></p>',
-                        open_url,
-                        ref.display_name,
-                        source_label,
-                        status_display,
-                    )
+                doc_link_html = format_html(
+                    '<a href="{}" target="_blank" style="margin-right:8px;">🔗 文书记录</a>',
+                    doc_url,
                 )
 
-        return format_html_join("", "{}", ((p,) for p in parts))
+            parts.append(
+                format_html(
+                    "<div style='margin:8px 0;padding:8px 10px;border:1px solid #e6eaf2;border-radius:6px;'>"
+                    "<div style='margin-bottom:6px;'>"
+                    "<a href='{}' target='_blank'>{}</a>"
+                    " <span style='color:#666;'>[{}/{}]</span>"
+                    "</div>"
+                    "<div style='margin-bottom:8px;'>"
+                    "{}"
+                    "<a href='{}' target='_blank'>📥 下载</a>"
+                    "</div>"
+                    "<div data-doc-rename-wrap='1' style='display:flex;align-items:center;gap:6px;flex-wrap:wrap;'>"
+                    "<input data-rename-stem='1' type='text' value='{}' class='vTextField' style='width:280px;max-width:100%;' />"
+                    "<span style='color:#666;'>{}</span>"
+                    "<button type='button' class='button' data-rename-url='{}'>重命名</button>"
+                    "<span style='color:#999;'>仅修改文件名，不改文件格式</span>"
+                    "</div>"
+                    "</div>",
+                    open_url,
+                    file_name,
+                    source_label,
+                    status_display,
+                    doc_link_html,
+                    download_url,
+                    file_stem,
+                    file_suffix,
+                    rename_url,
+                )
+            )
+
+        script = mark_safe(
+            "<script>"
+            "(function(){"
+            " if(window.__courtSmsDocRenameBound){return;}"
+            " window.__courtSmsDocRenameBound = true;"
+            " const getCookie = function(name){"
+            "   const value = '; ' + document.cookie;"
+            "   const parts = value.split('; ' + name + '=');"
+            "   if(parts.length === 2){ return parts.pop().split(';').shift() || ''; }"
+            "   return '';"
+            " };"
+            " document.addEventListener('click', function(event){"
+            "   const target = event.target;"
+            "   if(!(target instanceof HTMLElement)){return;}"
+            "   const button = target.closest('[data-rename-url]');"
+            "   if(!(button instanceof HTMLElement)){return;}"
+            "   const wrap = button.closest('[data-doc-rename-wrap]');"
+            "   if(!(wrap instanceof HTMLElement)){return;}"
+            "   const input = wrap.querySelector('input[data-rename-stem]');"
+            "   if(!(input instanceof HTMLInputElement)){return;}"
+            "   const renameUrl = button.getAttribute('data-rename-url') || '';"
+            "   const newStem = (input.value || '').trim();"
+            "   if(!renameUrl){return;}"
+            "   if(!newStem){ alert('文件名不能为空'); return; }"
+            "   const params = new URLSearchParams();"
+            "   params.set('new_stem', newStem);"
+            "   fetch(renameUrl, {"
+            "     method: 'POST',"
+            "     credentials: 'same-origin',"
+            "     headers: {"
+            "       'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',"
+            "       'X-CSRFToken': getCookie('csrftoken')"
+            "     },"
+            "     body: params.toString()"
+            "   }).then(function(){ window.location.reload(); });"
+            " });"
+            "})();"
+            "</script>"
+        )
+
+        return format_html_join("", "{}", ((p,) for p in [*parts, script]))
 
     @admin.display(description=_("通知状态"))
     def feishu_status(self, obj: CourtSMS) -> SafeString:
@@ -396,11 +469,16 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
                             "请输入完整的法院短信内容。收到时间将自动设置为当前时间。"
                             "<br>"
                             "<style>"
-                            ".sms-platforms{margin-top:12px;padding:10px 14px;background:#f8f9fb;border-radius:6px;border:1px solid #e8ecf1;}"
-                            ".sms-platforms-title{font-size:13px;color:#5a6577;margin-bottom:6px;font-weight:600;}"
-                            ".sms-platforms-tags{display:flex;flex-wrap:wrap;gap:6px;}"
-                            ".sms-platforms-tags span{background:#fff;color:#3d5afe;padding:3px 10px;border-radius:12px;font-size:12px;border:1px solid #d0d9fb;white-space:nowrap;}"
-                            ".sms-platforms-tags span code{color:#7986cb;font-size:11px;}"
+                            ".sms-platforms{margin-top:12px;padding:12px 14px;background:#f6f8fc;border-radius:10px;border:1px solid #e4eaf5;}"
+                            ".sms-platforms-title{font-size:13px;color:#445069;margin-bottom:8px;font-weight:600;}"
+                            ".sms-platforms-tags{display:flex;flex-wrap:wrap;gap:8px;}"
+                            ".sms-platforms-tags span{background:#edf2ff;color:#2f57d8;padding:4px 10px;border-radius:999px;font-size:12px;border:0;white-space:nowrap;}"
+                            ".sms-platforms-tags span code{color:#5e78d6;font-size:11px;}"
+                            ".sfdw-tail6-wrap{display:none;padding:12px 0 14px;border-top:0;}"
+                            ".sfdw-tail6-row{display:grid;grid-template-columns:160px minmax(260px,420px);align-items:flex-start;}"
+                            ".sfdw-tail6-label{padding:4px 10px 0 0;color:#333;font-size:13px;font-weight:600;box-sizing:border-box;}"
+                            ".sfdw-tail6-body{padding-right:12px;max-width:420px;}"
+                            ".sfdw-tail6-wrap input{width:100%;max-width:420px;box-sizing:border-box;}"
                             "</style>"
                             "<div class='sms-platforms'>"
                             "<div class='sms-platforms-title'>📥 支持自动下载</div>"
@@ -410,8 +488,54 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
                             "<span title='jysd.10102368.com'>集约送达</span>"
                             "<span title='dzsd.hbfy.gov.cn'>湖北电子送达</span>"
                             "<span title='sfpt.cdfy12368.gov.cn'>司法送达网</span>"
+                            "<span title='171.106.48.55:28083'>广西法院短信平台</span>"
                             "</div>"
                             "</div>"
+                            "<div id='sfdw-tail6-wrap' class='form-row sfdw-tail6-wrap'>"
+                            "<div class='sfdw-tail6-row'>"
+                            "<label for='id_sfdw_phone_tail6' class='sfdw-tail6-label'>手机号后6位：</label>"
+                            "<div class='sfdw-tail6-body'>"
+                            "<input id='id_sfdw_phone_tail6' name='sfdw_phone_tail6' type='text' maxlength='6' inputmode='numeric' pattern='[0-9]{6}' class='vTextField' placeholder='留空会自动回退律师手机号后6位。' />"
+                            "</div>"
+                            "</div>"
+                            "</div>"
+                            "<script>"
+                            "(function(){"
+                            "  const mount = function(){"
+                            "    const wrap = document.getElementById('sfdw-tail6-wrap');"
+                            "    const row = wrap ? wrap.querySelector('.sfdw-tail6-row') : null;"
+                            "    const input = document.getElementById('id_sfdw_phone_tail6');"
+                            "    const contentRow = document.querySelector('.form-row.field-content');"
+                            "    const receivedAtRow = document.querySelector('.form-row.field-received_at');"
+                            "    const contentLabel = contentRow ? contentRow.querySelector('label') : null;"
+                            "    if(!wrap || !row || !input){return;}"
+                            "    if(receivedAtRow && wrap.previousElementSibling !== contentRow){"
+                            "      receivedAtRow.insertAdjacentElement('beforebegin', wrap);"
+                            "    } else if(contentRow && wrap.previousElementSibling !== contentRow) {"
+                            "      contentRow.insertAdjacentElement('afterend', wrap);"
+                            "    }"
+                            "    wrap.style.display = 'block';"
+                            "    if(contentLabel){"
+                            "      const labelRect = contentLabel.getBoundingClientRect();"
+                            "      const rowRect = row.getBoundingClientRect();"
+                            "      const w = Math.ceil(labelRect.width);"
+                            "      const rawOffset = Math.round(labelRect.left - rowRect.left);"
+                            "      const offset = Math.max(0, Math.min(40, rawOffset));"
+                            "      if(w > 0){ row.style.gridTemplateColumns = w + 'px minmax(260px, 420px)'; }"
+                            "      row.style.paddingLeft = offset + 'px';"
+                            "    }"
+                            "    input.value = (input.value || '').replace(/\\D/g, '').slice(0, 6);"
+                            "    input.addEventListener('input', function(){"
+                            "      input.value = (input.value || '').replace(/\\D/g, '').slice(0, 6);"
+                            "    });"
+                            "  };"
+                            "  if(document.readyState === 'loading'){"
+                            "    document.addEventListener('DOMContentLoaded', mount);"
+                            "  } else {"
+                            "    mount();"
+                            "  }"
+                            "})();"
+                            "</script>"
                         ),
                     },
                 ),

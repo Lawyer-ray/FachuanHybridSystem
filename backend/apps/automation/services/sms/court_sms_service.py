@@ -275,7 +275,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
                 message=f"重新处理短信失败: {e!s}", code="SMS_RETRY_FAILED", errors={"error": str(e)}
             ) from e
 
-    def process_sms(self, sms_id: int) -> CourtSMS:
+    def process_sms(self, sms_id: int, process_options: dict[str, Any] | None = None) -> CourtSMS:
         """处理短信（异步任务入口）"""
         try:
             sms = CourtSMS.objects.get(id=sms_id)
@@ -289,7 +289,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
                 sms = self._process_parsing(sms)
 
             if sms.status == CourtSMSStatus.PARSING:
-                sms = self._process_downloading_or_matching(sms)
+                sms = self._process_downloading_or_matching(sms, process_options=process_options)
 
             if sms.status == CourtSMSStatus.DOWNLOADING:
                 logger.info(f"短信 {sms_id} 进入下载阶段，等待下载完成")
@@ -495,11 +495,11 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
             return sms
 
 
-def process_sms_async(sms_id: int) -> Any:
+def process_sms_async(sms_id: int, process_options: dict[str, Any] | None = None) -> Any:
     """异步处理短信的入口函数"""
     from apps.automation.workers import court_sms_tasks
 
-    return court_sms_tasks.process_sms(sms_id)
+    return court_sms_tasks.process_sms(sms_id, process_options=process_options)
 
 
 def process_sms_from_matching(sms_id: int) -> Any:

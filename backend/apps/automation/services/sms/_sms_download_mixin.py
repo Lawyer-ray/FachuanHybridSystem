@@ -17,6 +17,30 @@ class SMSDownloadMixin:
     HBFY_ACCOUNT_PATTERN = re.compile(r"账号\s*([0-9]{15,20})")
     HBFY_PASSWORD_PATTERN = re.compile(r"默认密码[：:]\s*([0-9A-Za-z]+)")
     SFDW_VERIFICATION_CODE_PATTERN = re.compile(r"验证码[：:]\s*(\w{4,6})")
+    SFDW_GUANGXI_HOST = "171.106.48.55:28083"
+
+    @staticmethod
+    def _normalize_phone_tail6(raw: str | None) -> str | None:
+        digits = "".join(ch for ch in str(raw or "") if ch.isdigit())
+        return digits[-6:] if len(digits) >= 6 else None
+
+    @classmethod
+    def _is_sfdw_url(cls, url: str) -> bool:
+        url_lower = url.lower()
+        return "sfpt.cdfy12368.gov.cn" in url_lower or cls.SFDW_GUANGXI_HOST in url_lower
+
+    def _collect_lawyer_phone_tail6_candidates(self, sms: CourtSMS) -> list[str]:
+        """基于现有律师手机号优先级，提取后6位候选并去重。"""
+        tails: list[str] = []
+        seen: set[str] = set()
+
+        for phone in self._collect_lawyer_phones(sms):
+            tail = self._normalize_phone_tail6(phone)
+            if tail and tail not in seen:
+                seen.add(tail)
+                tails.append(tail)
+
+        return tails
 
     def _extract_hbfy_credentials(self, content: str) -> tuple[str | None, str | None]:
         account_match = self.HBFY_ACCOUNT_PATTERN.search(content)
@@ -81,7 +105,11 @@ class SMSDownloadMixin:
 
         return phones
 
-    def _create_download_task(self, sms: CourtSMS) -> ScraperTask | None:
+    def _create_download_task(
+        self,
+        sms: CourtSMS,
+        process_options: dict[str, Any] | None = None,
+    ) -> ScraperTask | None:
         """创建下载任务并关联到短信记录，然后提交到 Django Q 队列执行"""
         if not sms.download_links:
             return None
@@ -106,13 +134,29 @@ class SMSDownloadMixin:
                 else:
                     logger.warning(f"短信 {sms.id} 为简易送达链接但未找到律师手机号")
 
-            if "sfpt.cdfy12368.gov.cn" in download_url:
+            if self._is_sfdw_url(download_url):
                 verification_code = self._extract_sfdw_verification_code(sms.content)
                 if verification_code:
                     task_config["sfdw_verification_code"] = verification_code
                     logger.info(f"短信 {sms.id} 为司法送达网链接，注入验证码")
+
+                manual_tail6 = self._normalize_phone_tail6(
+                    process_options.get("sfdw_phone_tail6") if isinstance(process_options, dict) else None
+                )
+                if manual_tail6:
+                    task_config["sfdw_phone_tail6"] = manual_tail6
+                    logger.info(f"短信 {sms.id} 为司法送达网链接，注入手工手机号后6位")
                 else:
-                    logger.warning(f"短信 {sms.id} 为司法送达网链接但未提取到验证码")
+                    tail_candidates = self._collect_lawyer_phone_tail6_candidates(sms)
+                    if tail_candidates:
+                        task_config["sfdw_phone_tail6_candidates"] = tail_candidates
+                        logger.info(
+                            "短信 %s 为司法送达网链接，注入 %s 个律师手机号后6位候选",
+                            sms.id,
+                            len(tail_candidates),
+                        )
+                    else:
+                        logger.warning(f"短信 {sms.id} 为司法送达网链接但未找到可用手机号后6位")
 
             task = ScraperTask.objects.create(
                 task_type=ScraperTaskType.COURT_DOCUMENT,
@@ -226,11 +270,15 @@ class SMSDownloadMixin:
         )
         return should_wait
 
-    def _process_downloading_or_matching(self, sms: CourtSMS) -> CourtSMS:
+    def _process_downloading_or_matching(
+        self,
+        sms: CourtSMS,
+        process_options: dict[str, Any] | None = None,
+    ) -> CourtSMS:
         """根据是否有下载链接决定进入下载或匹配阶段"""
         if sms.download_links:
             logger.info(f"短信 {sms.id} 有下载链接，创建下载任务")
-            scraper_task = self._create_download_task(sms)
+            scraper_task = self._create_download_task(sms, process_options=process_options)
             if scraper_task:
                 sms.scraper_task = scraper_task
                 sms.status = CourtSMSStatus.DOWNLOADING

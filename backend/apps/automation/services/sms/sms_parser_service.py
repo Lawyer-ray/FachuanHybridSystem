@@ -58,10 +58,13 @@ class SMSParserService:
     HBFY_PUBLIC_LINK_PATTERN = re.compile(r"https?://dzsd\.hbfy\.gov\.cn/hb/msg=[a-zA-Z0-9]+", re.IGNORECASE)
     HBFY_ACCOUNT_LINK_PATTERN = re.compile(r"https?://dzsd\.hbfy\.gov\.cn/sfsddz\b", re.IGNORECASE)
 
-    # 司法送达网链接正则 - sfpt.cdfy12368.gov.cn
-    # 格式: https://sfpt.cdfy12368.gov.cn:806/sfsdw//r/xxxxxx
+    # 司法送达网链接正则（含广西新入口）
+    # 格式示例：
+    # 1) https://sfpt.cdfy12368.gov.cn:806/sfsdw//r/xxxxxx
+    # 2) http://171.106.48.55:28083/sfsdw//r/xxxxxx
     SFDW_LINK_PATTERN = re.compile(
-        r"https?://sfpt\.cdfy12368\.gov\.cn:\d+/sfsdw//r/[a-zA-Z0-9]+", re.IGNORECASE
+        r"https?://(?:sfpt\.cdfy12368\.gov\.cn:\d+|171\.106\.48\.55:28083)/sfsdw//r/[a-zA-Z0-9]+",
+        re.IGNORECASE,
     )
     # 司法送达网验证码正则
     # 格式: 验证码：xxxx
@@ -308,8 +311,10 @@ class SMSParserService:
         if "dzsd.hbfy.gov.cn/sfsddz" in link_lower:
             return True
 
-        # 司法送达网链接 (sfpt.cdfy12368.gov.cn)
+        # 司法送达网链接 (sfpt.cdfy12368.gov.cn / 171.106.48.55:28083)
         if "sfpt.cdfy12368.gov.cn" in link_lower:
+            return True
+        if "171.106.48.55:28083" in link_lower:
             return True
 
         return False

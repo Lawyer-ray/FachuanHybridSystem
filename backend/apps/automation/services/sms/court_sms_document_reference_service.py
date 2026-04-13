@@ -48,7 +48,7 @@ class CourtSMSDocumentReferenceService:
             seen_paths.add(normalized)
             refs.append(
                 CourtSMSDocumentReference(
-                    display_name=doc.c_wsmc,
+                    display_name=Path(normalized).name,
                     file_path=normalized,
                     source="court_document",
                     court_document_id=int(doc.id),

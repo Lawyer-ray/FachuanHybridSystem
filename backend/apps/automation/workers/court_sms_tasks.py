@@ -7,10 +7,13 @@ from typing import Any
 from apps.core.interfaces import ServiceLocator
 
 
-def process_sms(sms_id: int) -> None:
+def process_sms(sms_id: int, process_options: dict[str, Any] | None = None) -> None:
     from apps.automation.usecases.court_sms.process_sms import ProcessSmsUsecase
 
-    ProcessSmsUsecase(court_sms_service=ServiceLocator.get_court_sms_service()).execute(sms_id=sms_id)
+    ProcessSmsUsecase(court_sms_service=ServiceLocator.get_court_sms_service()).execute(
+        sms_id=sms_id,
+        process_options=process_options,
+    )
 
 
 def process_sms_from_matching(sms_id: int) -> None:

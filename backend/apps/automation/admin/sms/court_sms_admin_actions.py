@@ -266,19 +266,33 @@ class CourtSMSAdminActions:
 
                 obj.received_at = timezone.now()
 
+            raw_tail6 = str(request.POST.get("sfdw_phone_tail6", "") or "").strip()
+            sfdw_phone_tail6 = "".join(ch for ch in raw_tail6 if ch.isdigit())[-6:]
+
             super().save_model(request, obj, form, change)  # type: ignore[misc]
 
             try:
                 from django_q.tasks import async_task
 
+                process_options: dict[str, Any] = {}
+                if sfdw_phone_tail6:
+                    process_options["sfdw_phone_tail6"] = sfdw_phone_tail6
+
                 task_id = async_task(
                     "apps.automation.services.sms.court_sms_service.process_sms_async",
                     cast(int, obj.id),
+                    process_options,
                     task_name=f"court_sms_processing_{obj.id}",
                 )
 
                 messages.success(request, f"短信已保存并开始处理!记录ID: {obj.id}")
-                logger.info(f"管理员添加短信并触发处理: SMS ID={obj.id}, Task ID={task_id}, User={request.user}")
+                logger.info(
+                    "管理员添加短信并触发处理: SMS ID=%s, Task ID=%s, 用户手填后6位=%s, User=%s",
+                    obj.id,
+                    task_id,
+                    bool(sfdw_phone_tail6),
+                    request.user,
+                )
 
             except Exception as e:
                 messages.warning(request, f"短信已保存,但处理任务启动失败: {e!s}")

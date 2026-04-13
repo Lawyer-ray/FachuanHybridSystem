@@ -28,7 +28,17 @@ _PAGE_SIZE = 20
 
 def _api_post(url: str, token: str, data: dict[str, Any]) -> dict[str, Any]:
     """发送 POST 请求到一张网 API。"""
-    headers = {"Authorization": token, "Content-Type": "application/json"}
+    headers = {
+        "Authorization": token,
+        "Content-Type": "application/json",
+        "User-Agent": (
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/146.0.0.0 Safari/537.36"
+        ),
+        "Referer": "https://zxfw.court.gov.cn/zxfw/",
+        "Origin": "https://zxfw.court.gov.cn",
+    }
     with httpx.Client(timeout=_TIMEOUT) as client:
         resp = client.post(url, headers=headers, json=data)
     if resp.status_code == 401:

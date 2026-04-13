@@ -35,6 +35,8 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):
     _VERIFY_WAIT_MS = 5000
     # 下载等待时间（毫秒）
     _DOWNLOAD_WAIT_MS = 3000
+    # 后6位候选最大尝试次数
+    _MAX_TAIL6_ATTEMPTS = 10
 
     def run(self) -> dict[str, Any]:
         """执行文书下载任务"""
@@ -42,27 +44,29 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):
 
         download_dir = self._prepare_download_dir()
 
-        # 获取验证码
-        verification_code = self._get_verification_code()
-        if not verification_code:
-            raise ValueError("司法送达网链接需要验证码，但未找到验证码")
-
-        logger.info("司法送达网: 获取到验证码")
-
         # 导航到目标页面
         self.navigate_to_url(timeout=30000)
         assert self.page is not None
         self.page.wait_for_timeout(self._PAGE_LOAD_WAIT_MS)
 
-        # 输入验证码并确认
-        self._input_verification_code(verification_code)
-        self.page.wait_for_timeout(self._VERIFY_WAIT_MS)
+        # 优先使用手机号后6位候选（含手工输入）
+        tail6_candidates = self._get_phone_tail6_candidates()
+        if tail6_candidates:
+            ws_list = self._try_phone_tail6_candidates(tail6_candidates)
+        else:
+            # 无后6位候选时回退验证码模式
+            verification_code = self._get_verification_code()
+            if not verification_code:
+                raise ValueError("司法送达网链接需要验证码或手机号后6位，但均未找到")
 
-        # 获取文书列表
-        ws_list = self._get_ws_list()
-        if not ws_list:
-            self._save_page_state("sfdw_no_ws_list")
-            raise ValueError("司法送达网: 验证后未获取到文书列表")
+            logger.info("司法送达网: 使用验证码模式")
+            self._input_verification_code(verification_code)
+            self.page.wait_for_timeout(self._VERIFY_WAIT_MS)
+
+            ws_list = self._get_ws_list()
+            if not ws_list:
+                self._save_page_state("sfdw_no_ws_list")
+                raise ValueError("司法送达网: 验证后未获取到文书列表")
 
         logger.info("司法送达网: 获取到 %d 份文书", len(ws_list))
 
@@ -89,6 +93,58 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):
         task_config = self.task.config if isinstance(self.task.config, dict) else {}
         code = str(task_config.get("sfdw_verification_code", "")).strip()
         return code
+
+    def _get_phone_tail6_candidates(self) -> list[str]:
+        """从任务配置获取手机号后6位候选（手工输入优先）。"""
+        task_config = self.task.config if isinstance(self.task.config, dict) else {}
+
+        ordered: list[str] = []
+        seen: set[str] = set()
+
+        manual = str(task_config.get("sfdw_phone_tail6", "")).strip()
+        if manual:
+            manual_digits = "".join(ch for ch in manual if ch.isdigit())
+            if len(manual_digits) >= 6:
+                tail6 = manual_digits[-6:]
+                seen.add(tail6)
+                ordered.append(tail6)
+
+        candidates = task_config.get("sfdw_phone_tail6_candidates", [])
+        if isinstance(candidates, list):
+            for item in candidates:
+                digits = "".join(ch for ch in str(item) if ch.isdigit())
+                if len(digits) >= 6:
+                    tail6 = digits[-6:]
+                    if tail6 not in seen:
+                        seen.add(tail6)
+                        ordered.append(tail6)
+
+        return ordered
+
+    def _try_phone_tail6_candidates(self, tail6_candidates: list[str]) -> list[dict[str, Any]]:
+        """依次尝试手机号后6位，直到成功拿到文书列表。"""
+        assert self.page is not None
+
+        candidates = tail6_candidates[: self._MAX_TAIL6_ATTEMPTS]
+        logger.info("司法送达网: 使用手机号后6位模式，候选数=%d", len(candidates))
+
+        for idx, tail6 in enumerate(candidates):
+            if idx > 0:
+                self.page.reload(wait_until="domcontentloaded", timeout=30000)
+                self.page.wait_for_timeout(self._PAGE_LOAD_WAIT_MS)
+
+            self._input_verification_code(tail6)
+            self.page.wait_for_timeout(self._VERIFY_WAIT_MS)
+
+            ws_list = self._get_ws_list()
+            if ws_list:
+                logger.info("司法送达网: 手机号后6位校验成功（第 %d 次尝试）", idx + 1)
+                return ws_list
+
+            logger.info("司法送达网: 手机号后6位校验失败，继续尝试（第 %d 次）", idx + 1)
+
+        self._save_page_state("sfdw_tail6_failed")
+        raise ValueError("司法送达网: 所有手机号后6位候选均校验失败")
 
     # ==================== 验证码输入与验证 ====================
 
