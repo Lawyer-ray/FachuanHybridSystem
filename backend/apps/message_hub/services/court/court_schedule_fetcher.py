@@ -474,6 +474,7 @@ class CourtScheduleFetcher(MessageFetcher):
         }
 
         if existing:
+<<<<<<< Updated upstream
             # 仅在关键字段发生变更时才更新，避免无差异写入导致重复更新日志
             if (
                 existing.content == rcbt
@@ -490,6 +491,37 @@ class CourtScheduleFetcher(MessageFetcher):
             existing.metadata = metadata
             existing.save(update_fields=["content", "due_at", "case_id", "metadata", "updated_at"])
             logger.info("一张网庭审日程: 更新已有记录 bh=%s, credential=%s", bh, credential_id)
+=======
+            # 仅在字段发生变化时更新，避免每次同步都触发无意义写入
+            changed_fields: list[str] = []
+
+            if existing.content != rcbt:
+                existing.content = rcbt
+                changed_fields.append("content")
+
+            if existing.due_at != due_at:
+                existing.due_at = due_at
+                changed_fields.append("due_at")
+
+            if existing.case_id != case_id:
+                existing.case_id = case_id
+                changed_fields.append("case_id")
+
+            if existing.metadata != metadata:
+                existing.metadata = metadata
+                changed_fields.append("metadata")
+
+            if changed_fields:
+                existing.save(update_fields=[*changed_fields, "updated_at"])
+                logger.info(
+                    "一张网庭审日程: 更新已有记录 bh=%s, credential=%s, fields=%s",
+                    bh,
+                    credential_id,
+                    ",".join(changed_fields),
+                )
+            else:
+                logger.info("一张网庭审日程: 已存在且无变更 bh=%s, credential=%s", bh, credential_id)
+>>>>>>> Stashed changes
             return False
 
         Reminder.objects.create(
