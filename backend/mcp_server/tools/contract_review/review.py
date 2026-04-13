@@ -30,4 +30,5 @@ def get_review_status(task_id: str) -> dict[str, Any]:
 
 def get_review_models() -> list[dict[str, str]]:
     """获取可用的 LLM 模型列表。"""
-    return client.get("/contract-review/models")  # type: ignore[no-any-return]
+    result: dict[str, Any] = client.get("/contract-review/models")
+    return list(result.get("models", []))

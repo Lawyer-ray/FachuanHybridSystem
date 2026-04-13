@@ -225,7 +225,16 @@ class ReviewTaskAdmin(admin.ModelAdmin[ReviewTask]):
         from apps.core.llm.model_list_service import ModelListService
 
         svc = ModelListService()
-        models = svc.get_models()
+        result = svc.get_result()
+        models = result.models
+
+        if result.is_fallback:
+            from django.contrib import messages
+
+            messages.warning(
+                request,
+                _("SiliconFlow 模型列表获取失败：%(error)s，当前显示默认模型列表") % {"error": result.error_message},
+            )
 
         context = {
             **self.admin_site.each_context(request),

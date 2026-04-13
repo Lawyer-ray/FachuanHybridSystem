@@ -9,6 +9,7 @@ from django.db.models import Q
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.urls import path, reverse
 from django.utils.html import format_html
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.llm.config import LLMConfig
 from apps.core.llm.model_list_service import ModelListService
@@ -126,10 +127,15 @@ class SolutionTaskAdmin(admin.ModelAdmin[SolutionTask]):
         # 配置 llm_model 字段
         model_field = form.base_fields.get("llm_model")
         if model_field is not None:
-            choices = self._build_model_choices()
+            choices, is_fallback, error_message = self._build_model_choices()
             model_field.widget = forms.Select(choices=choices)
             model_field.initial = choices[0][0] if choices else LLMConfig.get_default_model()
             model_field.required = False
+            if is_fallback:
+                messages.warning(
+                    request,
+                    _("SiliconFlow 模型列表获取失败：%(error)s，当前显示默认模型列表") % {"error": error_message},
+                )
 
         return form
 
@@ -278,7 +284,12 @@ class SolutionTaskAdmin(admin.ModelAdmin[SolutionTask]):
         return format_html('<a href="{}" target="_blank" class="button">⬇️ 导出 PDF</a>', pdf_url)
 
     @staticmethod
-    def _build_model_choices() -> list[tuple[str, str]]:
+    def _build_model_choices() -> tuple[list[tuple[str, str]], bool, str]:
+        """构建模型选项列表，同时返回连接状态信息。
+
+        Returns:
+            (choices, is_fallback, error_message)
+        """
         choices: list[tuple[str, str]] = []
         seen: set[str] = set()
         default = LLMConfig.get_default_model().strip()
@@ -286,12 +297,15 @@ class SolutionTaskAdmin(admin.ModelAdmin[SolutionTask]):
             choices.append((default, f"{default}（默认）"))
             seen.add(default)
         try:
-            for item in ModelListService().get_models():
+            result = ModelListService().get_result()
+            for item in result.models:
                 mid = str(item.get("id", "")).strip()
                 mname = str(item.get("name", "")).strip()
                 if mid and mid not in seen:
                     choices.append((mid, f"{mname} ({mid})" if mname and mname != mid else mid))
                     seen.add(mid)
+            if result.is_fallback:
+                return choices or [(default or "Qwen/Qwen2.5-7B-Instruct", "默认模型")], True, result.error_message
         except Exception:
-            pass
-        return choices or [(default or "Qwen/Qwen2.5-7B-Instruct", "默认模型")]
+            return choices or [(default or "Qwen/Qwen2.5-7B-Instruct", "默认模型")], True, "加载模型列表异常"
+        return choices or [(default or "Qwen/Qwen2.5-7B-Instruct", "默认模型")], False, ""

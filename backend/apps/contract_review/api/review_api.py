@@ -131,6 +131,11 @@ def download_original(request: HttpRequest, task_id: UUID) -> FileResponse:
 
 
 @router.get("/models")
-def get_models(request: HttpRequest) -> list[dict[str, str]]:
+def get_models(request: HttpRequest) -> dict[str, Any]:
     svc = _get_model_list_service()
-    return svc.get_models()
+    result = svc.get_result()
+    return {
+        "models": result.models,
+        "is_fallback": result.is_fallback,
+        "error_message": result.error_message,
+    }
