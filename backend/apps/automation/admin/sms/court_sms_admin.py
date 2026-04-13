@@ -14,7 +14,7 @@ from typing import Any
 
 from django.conf import settings
 from django.contrib import admin, messages
-from django.http import FileResponse, Http404, HttpRequest, HttpResponse, HttpResponseNotAllowed, HttpResponseRedirect
+from django.http import FileResponse, Http404, HttpRequest, HttpResponse, HttpResponseBase, HttpResponseNotAllowed, HttpResponseRedirect
 from django.urls import path, reverse
 
 from apps.automation.models import CourtSMS
@@ -90,7 +90,7 @@ class CourtSMSAdmin(CourtSMSAdminActions, CourtSMSAdminBase):
         as_attachment = request.GET.get("download") == "1"
         return FileResponse(file_path.open("rb"), as_attachment=as_attachment, filename=file_path.name)
 
-    def download_all_documents_view(self, request: HttpRequest, sms_id: int) -> HttpResponse:
+    def download_all_documents_view(self, request: HttpRequest, sms_id: int) -> HttpResponseBase:
         """批量下载关联文书（ZIP）"""
         sms = self.get_object(request, str(sms_id))
         if sms is None:
