@@ -27,7 +27,21 @@ class SMSDownloadMixin:
     @classmethod
     def _is_sfdw_url(cls, url: str) -> bool:
         url_lower = url.lower()
-        return "sfpt.cdfy12368.gov.cn" in url_lower or cls.SFDW_GUANGXI_HOST in url_lower
+        return (
+            "sfpt.cdfy12368.gov.cn" in url_lower
+            or cls.SFDW_GUANGXI_HOST in url_lower
+            or "/sfsdw//r/" in url_lower
+        )
+
+    @classmethod
+    def _is_jysd_url(cls, url: str) -> bool:
+        url_lower = url.lower()
+        return "jysd.10102368.com" in url_lower or "/sd?key=" in url_lower
+
+    @classmethod
+    def _is_hbfy_account_url(cls, url: str) -> bool:
+        url_lower = url.lower()
+        return "dzsd.hbfy.gov.cn/sfsddz" in url_lower or "/sfsddz" in url_lower
 
     def _collect_lawyer_phone_tail6_candidates(self, sms: CourtSMS) -> list[str]:
         """基于现有律师手机号优先级，提取后6位候选并去重。"""
@@ -119,14 +133,14 @@ class SMSDownloadMixin:
 
             task_config: dict[str, Any] = {"court_sms_id": sms.id, "auto_download": True, "source": "court_sms"}
 
-            if "dzsd.hbfy.gov.cn/sfsddz" in download_url:
+            if self._is_hbfy_account_url(download_url):
                 account, password = self._extract_hbfy_credentials(sms.content)
                 if account and password:
                     logger.info(f"短信 {sms.id} 提取到湖北账号模式凭证，将在下载阶段临时使用（不落库）")
                 else:
                     logger.warning(f"短信 {sms.id} 为湖北账号模式但未提取到完整凭证")
 
-            if "jysd.10102368.com" in download_url:
+            if self._is_jysd_url(download_url):
                 lawyer_phones = self._collect_lawyer_phones(sms)
                 if lawyer_phones:
                     task_config["jysd_lawyer_phones"] = lawyer_phones

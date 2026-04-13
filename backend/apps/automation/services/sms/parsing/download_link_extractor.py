@@ -1,22 +1,21 @@
 """Business logic services."""
 
 import re
+from urllib.parse import parse_qs, urlparse
 
 
 class DownloadLinkExtractor:
     DOWNLOAD_LINK_PATTERN = re.compile(
-        r"https://zxfw\.court\.gov\.cn/zxfw/#/pagesAjkj/app/wssd/index\?"
+        r"https?://[^\s/]+/zxfw/#/pagesAjkj/app/wssd/index\?"
         r"[^\s]*?(?=.*qdbh=[^\s&]+)(?=.*sdbh=[^\s&]+)(?=.*sdsin=[^\s&]+)[^\s]*",
         re.IGNORECASE,
     )
-    GDEMS_LINK_PATTERN = re.compile(r"https://sd\.gdems\.com/v3/dzsd/[a-zA-Z0-9]+", re.IGNORECASE)
-    JYSD_LINK_PATTERN = re.compile(r"https?://jysd\.10102368\.com/sd\?key=[^\s`,.;、】【]+", re.IGNORECASE)
-    HBFY_PUBLIC_LINK_PATTERN = re.compile(r"https?://dzsd\.hbfy\.gov\.cn/hb/msg=[a-zA-Z0-9]+", re.IGNORECASE)
-    HBFY_ACCOUNT_LINK_PATTERN = re.compile(r"https?://dzsd\.hbfy\.gov\.cn/sfsddz\b", re.IGNORECASE)
-    SFDW_LINK_PATTERN = re.compile(
-        r"https?://(?:sfpt\.cdfy12368\.gov\.cn:\d+|171\.106\.48\.55:28083)/sfsdw//r/[a-zA-Z0-9]+",
-        re.IGNORECASE,
-    )
+    GDEMS_LINK_PATTERN = re.compile(r"https?://[^\s/]+/v3/dzsd/[a-zA-Z0-9]+", re.IGNORECASE)
+    JYSD_LINK_PATTERN = re.compile(r"https?://[^\s/]+/sd\?key=[^\s`,.;、】【]+", re.IGNORECASE)
+    HBFY_PUBLIC_LINK_PATTERN = re.compile(r"https?://[^\s/]+/hb/msg=[a-zA-Z0-9]+", re.IGNORECASE)
+    HBFY_ACCOUNT_LINK_PATTERN = re.compile(r"https?://[^\s/]+/sfsddz\b", re.IGNORECASE)
+    SFDW_LINK_PATTERN = re.compile(r"https?://[^\s/]+/sfsdw//r/[a-zA-Z0-9]+", re.IGNORECASE)
+    URL_CANDIDATE_PATTERN = re.compile(r"https?://[^\s<>'\"，。；;]+", re.IGNORECASE)
 
     def extract(self, content: str) -> list[str]:
         if not content:
@@ -25,45 +24,50 @@ class DownloadLinkExtractor:
         links: list[str] = []
         seen = set()
 
-        for link in self.DOWNLOAD_LINK_PATTERN.findall(content):
-            if self._is_valid(link) and link not in seen:
-                links.append(link)
-                seen.add(link)
+        candidates: list[str] = []
+        candidates.extend(self.DOWNLOAD_LINK_PATTERN.findall(content))
+        candidates.extend(self.GDEMS_LINK_PATTERN.findall(content))
+        candidates.extend(self.JYSD_LINK_PATTERN.findall(content))
+        candidates.extend(self.HBFY_PUBLIC_LINK_PATTERN.findall(content))
+        candidates.extend(self.HBFY_ACCOUNT_LINK_PATTERN.findall(content))
+        candidates.extend(self.SFDW_LINK_PATTERN.findall(content))
+        candidates.extend(self.URL_CANDIDATE_PATTERN.findall(content))
 
-        for link in self.GDEMS_LINK_PATTERN.findall(content):
-            if link not in seen:
-                links.append(link)
-                seen.add(link)
-
-        for raw_link in self.JYSD_LINK_PATTERN.findall(content):
-            link = self._sanitize_jysd_link(raw_link)
-            if link and self._is_valid(link) and link not in seen:
-                links.append(link)
-                seen.add(link)
-
-        for link in self.SFDW_LINK_PATTERN.findall(content):
-            if self._is_valid(link) and link not in seen:
+        for raw_link in candidates:
+            link = self._sanitize_link(raw_link)
+            if not link or link in seen:
+                continue
+            if self._is_valid(link):
                 links.append(link)
                 seen.add(link)
 
         return links
 
-    def _sanitize_jysd_link(self, link: str) -> str:
-        return (link or "").strip().rstrip(".,,.;;】)")
+    def _sanitize_link(self, link: str) -> str:
+        trailing_chars = ".,;:，。；：!！?？)）]】\"'“”"
+        return (link or "").strip().rstrip(trailing_chars)
 
     def _is_valid(self, link: str) -> bool:
-        if "zxfw.court.gov.cn" in link:
-            return all(param in link for param in ["qdbh=", "sdbh=", "sdsin="])
-        if "sd.gdems.com" in link:
-            return link.startswith("https://sd.gdems.com/v3/dzsd/")
-        if "jysd.10102368.com" in link:
-            return "key=" in link
-        if "dzsd.hbfy.gov.cn/hb/msg=" in link:
+        link_lower = link.lower()
+        parsed = urlparse(link)
+        path_lower = parsed.path.lower()
+        query_params = parse_qs(parsed.query)
+
+        if "/zxfw/#/pagesajkj/app/wssd/index" in link_lower:
+            return all(param in link_lower for param in ["qdbh=", "sdbh=", "sdsin="])
+
+        if "/v3/dzsd/" in path_lower:
             return True
-        if "dzsd.hbfy.gov.cn/sfsddz" in link:
+
+        if path_lower.endswith("/sd") and "key" in query_params:
             return True
-        if "sfpt.cdfy12368.gov.cn" in link:
+
+        if path_lower.endswith("/hb/msg") and "msg" in query_params:
             return True
-        if "171.106.48.55:28083" in link:
+        if path_lower.endswith("/sfsddz"):
             return True
+
+        if "/sfsdw//r/" in path_lower:
+            return True
+
         return False
