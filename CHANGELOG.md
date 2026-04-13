@@ -13,6 +13,7 @@
 - Django Admin 顶栏“注销”入口改为表单 `POST` 提交并携带 CSRF Token，避免 GET 方式触发注销带来的安全与兼容性问题。
 - Django Admin 顶栏新增“系统配置”快捷入口，支持从右上角直接跳转到 `core/systemconfig` 管理页。
 - 客户管理新增页（`client/add`）联系电话字段新增“截取首号”按钮，可按首个中英文逗号快速裁剪并保留第一组号码。
+- 安全加固：将法院平台识别中的域名判断从整串 URL 子串匹配改为 `urlparse` 后的 `hostname/path` 结构化判断，修复 CodeQL `py/incomplete-url-substring-sanitization` 高危告警。
 
 ### 质量保障
 

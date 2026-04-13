@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING, Any, cast
+from urllib.parse import urlparse
 
 from .base_court_scraper import BaseCourtDocumentScraper
 from .gdems_scraper import GdemsCourtScraper
@@ -43,19 +44,31 @@ class CourtDocumentScraper(BaseCourtDocumentScraper):
         scraper_cls = self._resolve_scraper_class(self.task.url)
         return self._dispatch_to_scraper(scraper_cls)
 
+    @staticmethod
+    def _extract_host(url: str) -> str:
+        return (urlparse(url).hostname or "").lower()
+
+    @staticmethod
+    def _host_equals_or_subdomain(host: str, domain: str) -> bool:
+        return host == domain or host.endswith(f".{domain}")
+
     def _resolve_scraper_class(self, url: str) -> Any:
-        url_lower = url.lower()
+        parsed = urlparse(url)
+        host = (parsed.hostname or "").lower()
+        port = parsed.port
 
         # 第一层：已知域名快速识别
-        if "zxfw.court.gov.cn" in url_lower:
+        if self._host_equals_or_subdomain(host, "zxfw.court.gov.cn"):
             return ZxfwCourtScraper
-        if "sd.gdems.com" in url_lower:
+        if self._host_equals_or_subdomain(host, "sd.gdems.com"):
             return GdemsCourtScraper
-        if "dzsd.hbfy.gov.cn" in url_lower:
+        if self._host_equals_or_subdomain(host, "dzsd.hbfy.gov.cn"):
             return HbfyCourtScraper
-        if "jysd.10102368.com" in url_lower:
+        if self._host_equals_or_subdomain(host, "jysd.10102368.com"):
             return JysdCourtScraper
-        if "sfpt.cdfy12368.gov.cn" in url_lower or "171.106.48.55:28083" in url_lower:
+        if self._host_equals_or_subdomain(host, "sfpt.cdfy12368.gov.cn"):
+            return SfdwCourtScraper
+        if host == "171.106.48.55" and port == 28083:
             return SfdwCourtScraper
 
         # 第二层：结构识别兜底

@@ -3,6 +3,7 @@
 import logging
 import re
 from typing import Any
+from urllib.parse import parse_qs, urlparse
 
 from django_q.tasks import async_task
 
@@ -24,24 +25,37 @@ class SMSDownloadMixin:
         digits = "".join(ch for ch in str(raw or "") if ch.isdigit())
         return digits[-6:] if len(digits) >= 6 else None
 
+    @staticmethod
+    def _host_equals_or_subdomain(host: str, domain: str) -> bool:
+        return host == domain or host.endswith(f".{domain}")
+
     @classmethod
     def _is_sfdw_url(cls, url: str) -> bool:
-        url_lower = url.lower()
+        parsed = urlparse(url)
+        host = (parsed.hostname or "").lower()
+        path = parsed.path.lower()
         return (
-            "sfpt.cdfy12368.gov.cn" in url_lower
-            or cls.SFDW_GUANGXI_HOST in url_lower
-            or "/sfsdw//r/" in url_lower
+            cls._host_equals_or_subdomain(host, "sfpt.cdfy12368.gov.cn")
+            or (host == "171.106.48.55" and parsed.port == 28083)
+            or "/sfsdw//r/" in path
         )
 
     @classmethod
     def _is_jysd_url(cls, url: str) -> bool:
-        url_lower = url.lower()
-        return "jysd.10102368.com" in url_lower or "/sd?key=" in url_lower
+        parsed = urlparse(url)
+        host = (parsed.hostname or "").lower()
+        path = parsed.path.lower()
+        query = parse_qs(parsed.query)
+        return cls._host_equals_or_subdomain(host, "jysd.10102368.com") or (path.endswith("/sd") and "key" in query)
 
     @classmethod
     def _is_hbfy_account_url(cls, url: str) -> bool:
-        url_lower = url.lower()
-        return "dzsd.hbfy.gov.cn/sfsddz" in url_lower or "/sfsddz" in url_lower
+        parsed = urlparse(url)
+        host = (parsed.hostname or "").lower()
+        path = parsed.path.lower()
+        return (cls._host_equals_or_subdomain(host, "dzsd.hbfy.gov.cn") and path.endswith("/sfsddz")) or path.endswith(
+            "/sfsddz"
+        )
 
     def _collect_lawyer_phone_tail6_candidates(self, sms: CourtSMS) -> list[str]:
         """基于现有律师手机号优先级，提取后6位候选并去重。"""
