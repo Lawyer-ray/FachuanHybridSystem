@@ -270,6 +270,14 @@ def _get_urls_with_calculator() -> list[URLResolver | URLPattern]:
 admin.site.get_urls = _get_urls_with_calculator  # type: ignore[method-assign]
 
 
+def _admin_index_redirect(request: HttpRequest) -> HttpResponseRedirect:
+    """Admin 首页自动重定向到提醒日历页。"""
+    return HttpResponseRedirect(reverse("admin:reminders_reminder_calendar"))
+
+
+admin.site.index = admin.site.admin_view(_admin_index_redirect)  # type: ignore[method-assign]
+
+
 def index_view(request: HttpRequest) -> HttpResponse:
     """首页视图"""
     return render(request, "index.html")
