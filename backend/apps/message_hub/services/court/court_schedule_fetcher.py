@@ -474,7 +474,16 @@ class CourtScheduleFetcher(MessageFetcher):
         }
 
         if existing:
-            # 更新已有记录（时间或地点可能变更）
+            # 仅在关键字段发生变更时才更新，避免无差异写入导致重复更新日志
+            if (
+                existing.content == rcbt
+                and existing.due_at == due_at
+                and existing.case_id == case_id
+                and existing.metadata == metadata
+            ):
+                logger.debug("一张网庭审日程: 记录无变化，跳过更新 bh=%s, credential=%s", bh, credential_id)
+                return False
+
             existing.content = rcbt
             existing.due_at = due_at
             existing.case_id = case_id

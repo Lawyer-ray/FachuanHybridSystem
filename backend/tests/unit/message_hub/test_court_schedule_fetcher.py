@@ -323,9 +323,14 @@ class TestCourtScheduleFetcher:
         count1 = self.fetcher.fetch_new_messages(self.source)
         assert count1 == 1
 
-        # 第二次 — 同一 bh，应为更新而非新建
+        reminder_before = Reminder.objects.get(metadata__source_id="dup-id-001")
+        updated_at_before = reminder_before.updated_at
+
+        # 第二次 — 同一 bh 且数据无变化，应跳过更新
         count2 = self.fetcher.fetch_new_messages(self.source)
         assert count2 == 0
+        reminder_after = Reminder.objects.get(metadata__source_id="dup-id-001")
+        assert reminder_after.updated_at == updated_at_before
         assert Reminder.objects.filter(metadata__source_id="dup-id-001").count() == 1
 
     @patch("apps.message_hub.services.court.court_schedule_fetcher._api_post")
