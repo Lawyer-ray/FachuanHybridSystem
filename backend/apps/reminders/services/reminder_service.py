@@ -11,6 +11,7 @@ from django.db.models import QuerySet
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError, ValidationException
+
 from ..models import Reminder
 from .validators import (
     normalize_content,

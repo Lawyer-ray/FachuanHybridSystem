@@ -99,7 +99,8 @@ class BoundFolderScanService:
 
             # 从文件路径中提取相对于扫描根目录的父文件夹名，作为类型提示
             parent_folder_hint = self._extract_parent_folder_hint(
-                file_path=item["path"], scan_root=root,
+                file_path=item["path"],
+                scan_root=root,
             )
 
             candidate = self._build_candidate(
@@ -193,7 +194,9 @@ class BoundFolderScanService:
             )
             return candidate
 
-        raise ValidationException(message=_("不支持的扫描领域"), code="UNSUPPORTED_SCAN_DOMAIN", errors={"domain": domain})
+        raise ValidationException(
+            message=_("不支持的扫描领域"), code="UNSUPPORTED_SCAN_DOMAIN", errors={"domain": domain}
+        )
 
     @staticmethod
     def _extract_parent_folder_hint(file_path: Path, scan_root: Path) -> str:

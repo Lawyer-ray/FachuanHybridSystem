@@ -132,11 +132,7 @@ class MaterialClassificationService:
                 "你是合同材料分类助手。仅输出 JSON，不要输出其他内容。"
                 'JSON 结构: {"category":"contract_original|supplementary_agreement|invoice","confidence":0-1,"reason":"..."}'
             ),
-            user_prompt=(
-                f"文件名: {filename}\n"
-                "请根据文件名和文本片段给出材料分类。\n"
-                f"文本片段:\n{text_excerpt[:1800]}"
-            ),
+            user_prompt=(f"文件名: {filename}\n请根据文件名和文本片段给出材料分类。\n文本片段:\n{text_excerpt[:1800]}"),
         )
         if not content:
             default["reason"] = "AI 分类不可用，请手动确认"
@@ -236,11 +232,7 @@ class MaterialClassificationService:
                 'JSON 结构: {"category":"party|non_party|unknown","side":"our|opponent|unknown","type_name_hint":"",'
                 '"confidence":0-1,"reason":"..."}'
             ),
-            user_prompt=(
-                f"文件名: {filename}\n"
-                "请根据文件名和文本片段给出预填建议。\n"
-                f"文本片段:\n{text_excerpt[:1800]}"
-            ),
+            user_prompt=(f"文件名: {filename}\n请根据文件名和文本片段给出预填建议。\n文本片段:\n{text_excerpt[:1800]}"),
         )
         if not content:
             default["reason"] = "AI 分类不可用，请手动确认"
@@ -298,7 +290,9 @@ class MaterialClassificationService:
 
         for rule in self._CASE_RULES:
             keywords = tuple(str(keyword) for keyword in (rule.get("keywords") or ()))
-            hit_keyword = next((keyword for keyword in keywords if self._normalize_for_match(keyword) in match_text), "")
+            hit_keyword = next(
+                (keyword for keyword in keywords if self._normalize_for_match(keyword) in match_text), ""
+            )
             if not hit_keyword:
                 continue
 

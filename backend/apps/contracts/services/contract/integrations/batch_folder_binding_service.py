@@ -14,9 +14,9 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.contracts.models import Contract, ContractTypeFolderRootPreset
 from apps.contracts.services.folder.folder_binding_service import FolderBindingService
-from apps.core.models.enums import CaseType
 from apps.core.exceptions import ValidationException
 from apps.core.infrastructure.subprocess_runner import SubprocessRunner
+from apps.core.models.enums import CaseType
 
 logger = logging.getLogger(__name__)
 
@@ -222,7 +222,9 @@ class ContractBatchFolderBindingService:
         for contract in contracts:
             case_names = [str(case.name or "").strip() for case in contract.cases.all() if str(case.name or "").strip()]
             case_filing_numbers = [
-                str(case.filing_number or "").strip() for case in contract.cases.all() if str(case.filing_number or "").strip()
+                str(case.filing_number or "").strip()
+                for case in contract.cases.all()
+                if str(case.filing_number or "").strip()
             ]
             recommend = self._recommend_folder(
                 contract_name=str(contract.name or ""),

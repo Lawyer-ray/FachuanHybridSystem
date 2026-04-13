@@ -55,7 +55,7 @@ def test_document_processing_extract_pdf_text_respects_max_pages(monkeypatch):
     class FakeDoc:
         page_count = 5
 
-        def __enter__(self) -> "FakeDoc":
+        def __enter__(self) -> FakeDoc:
             return self
 
         def __exit__(self, exc_type, exc, tb) -> None:

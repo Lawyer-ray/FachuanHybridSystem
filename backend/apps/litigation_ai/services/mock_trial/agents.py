@@ -67,8 +67,7 @@ JUDGE_RIGHTS_NOTICE = (
 )
 
 JUDGE_INVESTIGATION_START_FIRST = (
-    "现在进行法庭调查。法庭调查的重点是查明案件事实。\n"
-    "首先由原告陈述诉讼请求及所依据的事实和理由。"
+    "现在进行法庭调查。法庭调查的重点是查明案件事实。\n首先由原告陈述诉讼请求及所依据的事实和理由。"
 )
 
 JUDGE_INVESTIGATION_START_SECOND = (
@@ -77,9 +76,7 @@ JUDGE_INVESTIGATION_START_SECOND = (
     "首先由上诉人陈述上诉请求及理由。"
 )
 
-JUDGE_EVIDENCE_START = (
-    "原告（上诉人）陈述完毕。现在由被告（被上诉人）进行答辩。"
-)
+JUDGE_EVIDENCE_START = "原告（上诉人）陈述完毕。现在由被告（被上诉人）进行答辩。"
 
 JUDGE_CROSS_EXAM = (
     "双方陈述和答辩完毕。现在进行举证质证。\n"
@@ -101,14 +98,10 @@ JUDGE_FINAL_STATEMENT = (
 )
 
 JUDGE_MEDIATION = (
-    "最后陈述结束。在宣判之前，本庭依法主持调解。\n"
-    "调解遵循自愿、合法原则。双方是否愿意在法庭主持下进行调解？"
+    "最后陈述结束。在宣判之前，本庭依法主持调解。\n调解遵循自愿、合法原则。双方是否愿意在法庭主持下进行调解？"
 )
 
-JUDGE_CLOSING = (
-    "本案庭审结束。合议庭将依法进行评议，择日宣判。\n"
-    "请双方当事人在庭审笔录上签字确认。退庭。"
-)
+JUDGE_CLOSING = "本案庭审结束。合议庭将依法进行评议，择日宣判。\n请双方当事人在庭审笔录上签字确认。退庭。"
 
 
 # ── 激烈对抗 System Prompts ──

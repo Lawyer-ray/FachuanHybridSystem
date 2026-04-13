@@ -149,15 +149,37 @@ def _strip_case_cause_suffix(text: str) -> str:
     """
     # 从长到短尝试剥离案由后缀
     cause_suffixes = [
-        "买卖合同纠纷", "房屋租赁合同纠纷", "租赁合同纠纷", "民间借贷纠纷",
-        "追偿权纠纷", "合同纠纷", "侵权纠纷", "劳动纠纷", "行政纠纷",
-        "借贷纠纷", "租赁纠纷", "保险纠纷", "票据纠纷", "证券纠纷",
-        "担保纠纷", "抵押纠纷", "质押纠纷", "海事纠纷", "破产纠纷",
-        "知识产权纠纷", "垄断纠纷", "竞争纠纷", "信托纠纷",
-        "不当得利纠纷", "无因管理纠纷",
-        "侵权责任纠纷", "违约责任纠纷",
+        "买卖合同纠纷",
+        "房屋租赁合同纠纷",
+        "租赁合同纠纷",
+        "民间借贷纠纷",
+        "追偿权纠纷",
+        "合同纠纷",
+        "侵权纠纷",
+        "劳动纠纷",
+        "行政纠纷",
+        "借贷纠纷",
+        "租赁纠纷",
+        "保险纠纷",
+        "票据纠纷",
+        "证券纠纷",
+        "担保纠纷",
+        "抵押纠纷",
+        "质押纠纷",
+        "海事纠纷",
+        "破产纠纷",
+        "知识产权纠纷",
+        "垄断纠纷",
+        "竞争纠纷",
+        "信托纠纷",
+        "不当得利纠纷",
+        "无因管理纠纷",
+        "侵权责任纠纷",
+        "违约责任纠纷",
         "行政行为及行政复议",
-        "纠纷", "侵权", "违约",
+        "纠纷",
+        "侵权",
+        "违约",
     ]
     for suffix in cause_suffixes:
         if text.endswith(suffix):
@@ -212,7 +234,25 @@ def _is_valid_party_name(name: str) -> bool:
     if len(name) <= 6 and any(kw in name for kw in _CASE_CAUSE_KEYWORDS):
         return False
     # 组织后缀 — 一定是有效当事人
-    org_suffixes = ("有限公司", "股份公司", "公司", "事务所", "事务所", "银行", "集团", "医院", "学校", "局", "厅", "部", "委", "院", "所", "中心", "合作社")
+    org_suffixes = (
+        "有限公司",
+        "股份公司",
+        "公司",
+        "事务所",
+        "事务所",
+        "银行",
+        "集团",
+        "医院",
+        "学校",
+        "局",
+        "厅",
+        "部",
+        "委",
+        "院",
+        "所",
+        "中心",
+        "合作社",
+    )
     if any(name.endswith(s) for s in org_suffixes):
         return True
     # 人名特征: 2-4 个中文字符且不含案由关键词
@@ -290,9 +330,7 @@ def _match_by_party_names(party_names: list[str]) -> int | None:
         client = Client.objects.filter(name=name).first()
         if not client:
             continue
-        case_ids: set[int] = set(
-            CaseParty.objects.filter(client=client).values_list("case_id", flat=True)
-        )
+        case_ids: set[int] = set(CaseParty.objects.filter(client=client).values_list("case_id", flat=True))
         if case_ids:
             case_id_sets.append(case_ids)
 
@@ -452,5 +490,11 @@ class CourtScheduleFetcher(MessageFetcher):
             case_id=case_id,
             metadata=metadata,
         )
-        logger.info("一张网庭审日程: 新增记录 bh=%s, credential=%s, case_id=%s, strategy=%s", bh, credential_id, case_id, match_strategy)
+        logger.info(
+            "一张网庭审日程: 新增记录 bh=%s, credential=%s, case_id=%s, strategy=%s",
+            bh,
+            credential_id,
+            case_id,
+            match_strategy,
+        )
         return True

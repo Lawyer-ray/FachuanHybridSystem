@@ -55,11 +55,11 @@
         var newWrapper = document.createElement('span');
         newWrapper.className = 'auto-name-wrapper';
         newWrapper.style.cssText = 'display:inline-flex; align-items:center; vertical-align:middle; white-space:nowrap;';
-        
+
         // 把 input 移到新容器里
         nameField.parentNode.insertBefore(newWrapper, nameField);
         newWrapper.appendChild(nameField);
-        
+
         // 把按钮放到新容器里（紧跟 input 后面）
         newWrapper.appendChild(btn);
 
@@ -102,7 +102,7 @@
         // 遍历所有当事人行的隐藏 select 元素
         // select2 会隐藏原始 select 并在旁边创建 .select2-container
         var allSelects = document.querySelectorAll('select');
-        
+
         allSelects.forEach(function (select) {
             var id = select.id || '';
             // 只处理当事人 client 字段（两种命名格式）
@@ -133,7 +133,7 @@
                     }
                     sibling = sibling.nextSibling;
                 }
-                
+
                 if (s2Container && s2Container.classList.contains('select2-container')) {
                     var rendered = s2Container.querySelector('.select2-selection__rendered') ||
                                    s2Container.querySelector('[class*="rendered"]');
@@ -205,7 +205,7 @@
 
         // 构建各组的名称字符串
         var groupNames = [];
-        
+
         // PRINCIPAL(委托人) 排第一，BENEFICIARY(受益人) 第二，OPPOSING(对方当事人) 最后
         var order = ['PRINCIPAL', 'BENEFICIARY', 'OPPOSING'];
         order.forEach(function (role) {
@@ -301,7 +301,7 @@
                     setTimeout(function() { updateButtonState(btn); }, 150);
                 }
             });
-            
+
             // 同时监听 select2 容器上的事件
             $(document).on('change', '.select2-container', function() {
                 setTimeout(function() { updateButtonState(btn); }, 150);

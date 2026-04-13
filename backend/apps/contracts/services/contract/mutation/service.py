@@ -115,4 +115,6 @@ class ContractMutationService:
 
     @transaction.atomic
     def update_contract_lawyers(self, contract_id: int, lawyer_ids: list[int]) -> list[ContractAssignment]:
-        return cast(list[ContractAssignment], self.lawyer_assignment_service.set_contract_lawyers(contract_id, lawyer_ids))
+        return cast(
+            list[ContractAssignment], self.lawyer_assignment_service.set_contract_lawyers(contract_id, lawyer_ids)
+        )

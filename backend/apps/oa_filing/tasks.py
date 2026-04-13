@@ -47,7 +47,9 @@ def run_client_import_task(session_id: int, headless: bool = True, limit: int | 
         session.error_message = str(exc)
         session.progress_message = "导入超时"
         session.completed_at = timezone.now()
-        session.save(update_fields=["status", "phase", "error_message", "progress_message", "completed_at", "updated_at"])
+        session.save(
+            update_fields=["status", "phase", "error_message", "progress_message", "completed_at", "updated_at"]
+        )
         raise
     except Exception as exc:
         logger.exception("客户导入任务执行失败: session_id=%s error=%s", session_id, exc)
@@ -56,7 +58,9 @@ def run_client_import_task(session_id: int, headless: bool = True, limit: int | 
         session.error_message = str(exc)
         session.progress_message = "导入失败"
         session.completed_at = timezone.now()
-        session.save(update_fields=["status", "phase", "error_message", "progress_message", "completed_at", "updated_at"])
+        session.save(
+            update_fields=["status", "phase", "error_message", "progress_message", "completed_at", "updated_at"]
+        )
 
 
 def run_case_import_preview_task(session_id: int, file_path: str) -> None:
@@ -215,7 +219,9 @@ def run_case_import_task(
         session.error_message = str(exc)
         session.progress_message = "导入超时"
         session.completed_at = timezone.now()
-        session.save(update_fields=["status", "phase", "error_message", "progress_message", "completed_at", "updated_at"])
+        session.save(
+            update_fields=["status", "phase", "error_message", "progress_message", "completed_at", "updated_at"]
+        )
         raise
     except Exception as exc:
         logger.exception("案件导入任务执行失败: session_id=%s error=%s", session_id, exc)
@@ -224,4 +230,6 @@ def run_case_import_task(
         session.error_message = str(exc)
         session.progress_message = "导入失败"
         session.completed_at = timezone.now()
-        session.save(update_fields=["status", "phase", "error_message", "progress_message", "completed_at", "updated_at"])
+        session.save(
+            update_fields=["status", "phase", "error_message", "progress_message", "completed_at", "updated_at"]
+        )

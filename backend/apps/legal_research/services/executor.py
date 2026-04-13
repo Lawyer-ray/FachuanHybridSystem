@@ -241,9 +241,13 @@ class LegalResearchExecutor(
             scoring_keyword = self._build_scoring_keyword(task.keyword, task.case_summary)
             # ── 新配置项 ──
             title_prefilter_enabled = bool(getattr(tuning, "title_prefilter_enabled", True))
-            title_prefilter_min_overlap = max(0.0, float(getattr(tuning, "title_prefilter_min_overlap", self.TITLE_PREFILTER_MIN_OVERLAP)))
+            title_prefilter_min_overlap = max(
+                0.0, float(getattr(tuning, "title_prefilter_min_overlap", self.TITLE_PREFILTER_MIN_OVERLAP))
+            )
             coarse_recall_hard_floor = max(0.0, float(getattr(tuning, "coarse_recall_hard_floor", 0.20)))
-            llm_scoring_concurrency = max(1, int(getattr(tuning, "llm_scoring_concurrency", self.LLM_SCORING_CONCURRENCY)))
+            llm_scoring_concurrency = max(
+                1, int(getattr(tuning, "llm_scoring_concurrency", self.LLM_SCORING_CONCURRENCY))
+            )
             feedback_term_weights: dict[str, int] = {}
             feedback_queries_added = 0
             detail_cache_local: dict[str, CaseDetail] = {}
@@ -393,8 +397,11 @@ class LegalResearchExecutor(
                         if self._is_cancel_requested(task.id):
                             self._mark_cancelled(task=task, scanned=scanned, matched=matched, skipped=skipped)
                             return {
-                                "task_id": str(task.id), "status": task.status,
-                                "scanned_count": scanned, "matched_count": matched, "skipped_count": skipped,
+                                "task_id": str(task.id),
+                                "status": task.status,
+                                "scanned_count": scanned,
+                                "matched_count": matched,
+                                "skipped_count": skipped,
                             }
                         task.message = f"正在并发评分 {len(pending_rerank)} 篇候选（{llm_scoring_concurrency} 并发）"
                         self._save_task_safely(task, update_fields=["message", "updated_at"])
@@ -417,8 +424,12 @@ class LegalResearchExecutor(
                                 0.0, effective_min_similarity_threshold - self.BORDERLINE_RECHECK_GAP
                             ):
                                 rescored = self._rescore_borderline_with_retry(
-                                    similarity=similarity, task=task, detail=detail,
-                                    first_score=sim.score, first_reason=sim.reason, task_id=str(task.id),
+                                    similarity=similarity,
+                                    task=task,
+                                    detail=detail,
+                                    first_score=sim.score,
+                                    first_reason=sim.reason,
+                                    task_id=str(task.id),
                                 )
                                 if rescored is not None and rescored.score > sim.score:
                                     sim = rescored
@@ -432,14 +443,20 @@ class LegalResearchExecutor(
                                 and str(getattr(sim, "model", "") or "").strip() != dual_review_policy.review_model
                             ):
                                 reviewed = self._review_case_with_retry(
-                                    similarity=similarity, task=task, detail=detail, task_id=str(task.id),
+                                    similarity=similarity,
+                                    task=task,
+                                    detail=detail,
+                                    task_id=str(task.id),
                                     review_model=dual_review_policy.review_model,
-                                    primary_score=sim.score, primary_reason=sim.reason,
+                                    primary_score=sim.score,
+                                    primary_reason=sim.reason,
                                 )
                                 if reviewed is not None:
                                     merged_score, merged_reason, merged_model, dual_review_metadata = (
                                         self._merge_dual_review_scores(
-                                            primary=sim, reviewed=reviewed, dual_review_policy=dual_review_policy,
+                                            primary=sim,
+                                            reviewed=reviewed,
+                                            dual_review_policy=dual_review_policy,
                                         )
                                     )
                                     sim.score = merged_score
@@ -448,8 +465,10 @@ class LegalResearchExecutor(
 
                             # 反馈更新
                             self._update_feedback_terms(
-                                feedback_term_weights=feedback_term_weights, detail=detail,
-                                reason=sim.reason, similarity_score=sim.score,
+                                feedback_term_weights=feedback_term_weights,
+                                detail=detail,
+                                reason=sim.reason,
+                                similarity_score=sim.score,
                                 min_similarity=effective_min_similarity_threshold,
                                 feedback_min_score_floor=feedback_min_score_floor,
                                 feedback_score_margin=feedback_score_margin,
@@ -460,8 +479,10 @@ class LegalResearchExecutor(
 
                             # 命中 → 下载 PDF
                             pdf = self._download_pdf_with_retry(
-                                source_client=source_client, session=session,
-                                detail=detail, task_id=str(task.id),
+                                source_client=source_client,
+                                session=session,
+                                detail=detail,
+                                task_id=str(task.id),
                             )
                             if pdf is None:
                                 skipped += 1
@@ -477,19 +498,27 @@ class LegalResearchExecutor(
                                 if dual_review_metadata:
                                     merged_metadata.update(dual_review_metadata)
                             self._save_result(
-                                task=task, detail=detail, similarity=sim, rank=matched,
-                                pdf=pdf, coarse_score=coarse_score, coarse_reason=coarse_reason,
+                                task=task,
+                                detail=detail,
+                                similarity=sim,
+                                rank=matched,
+                                pdf=pdf,
+                                coarse_score=coarse_score,
+                                coarse_reason=coarse_reason,
                                 extra_metadata=merged_metadata,
                             )
 
                         # 批量评分后更新反馈检索式
                         if not single_search_mode:
                             feedback_queries_added, feedback_query = self._maybe_append_feedback_query(
-                                search_keywords=search_keywords, search_query_set=search_query_set,
+                                search_keywords=search_keywords,
+                                search_query_set=search_query_set,
                                 feedback_term_weights=feedback_term_weights,
-                                keyword=task.keyword, case_summary=task.case_summary,
+                                keyword=task.keyword,
+                                case_summary=task.case_summary,
                                 feedback_queries_added=feedback_queries_added,
-                                feedback_query_limit=feedback_query_limit, feedback_min_terms=feedback_min_terms,
+                                feedback_query_limit=feedback_query_limit,
+                                feedback_min_terms=feedback_min_terms,
                             )
                             if feedback_query and feedback_query not in feedback_queries:
                                 feedback_queries.append(feedback_query)
@@ -502,14 +531,16 @@ class LegalResearchExecutor(
                             threshold_lowered,
                         ) = self._maybe_decay_min_similarity_threshold(
                             current_threshold=effective_min_similarity_threshold,
-                            scanned=scanned, matched=matched,
+                            scanned=scanned,
+                            matched=matched,
                             checkpoint_scanned=adaptive_checkpoint_scanned,
                             checkpoint_matched=adaptive_checkpoint_matched,
                             policy=adaptive_threshold_policy,
                         )
                         if threshold_lowered:
                             lowest_min_similarity_threshold = min(
-                                lowest_min_similarity_threshold, effective_min_similarity_threshold,
+                                lowest_min_similarity_threshold,
+                                effective_min_similarity_threshold,
                             )
 
                     if matched < task.target_count and deferred_candidates:
@@ -1337,9 +1368,7 @@ class LegalResearchExecutor(
         results: list[tuple[Any, Any, float, str]] = []
 
         def _score_one(detail: Any) -> Any | None:
-            return self._score_case_with_retry(
-                similarity=similarity, task=task, detail=detail, task_id=task_id
-            )
+            return self._score_case_with_retry(similarity=similarity, task=task, detail=detail, task_id=task_id)
 
         effective_concurrency = max(1, min(concurrency, len(candidates)))
         with ThreadPoolExecutor(max_workers=effective_concurrency) as pool:

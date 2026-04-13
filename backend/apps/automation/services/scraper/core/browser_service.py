@@ -118,6 +118,7 @@ class BrowserService:
         if use_anti_detection:
             try:
                 from playwright_stealth import Stealth
+
                 stealth = Stealth()
                 stealth.apply_stealth_sync(context)
                 logger.info("创建新的浏览器上下文（已应用 playwright-stealth）")

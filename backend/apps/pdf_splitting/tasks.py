@@ -57,7 +57,9 @@ def export_pdf_split_job(job_id: str) -> None:
         job.refresh_from_db(fields=["status", "cancel_requested"])
         if job.cancel_requested:
             return
-        job_service.mark_completed(job_id=job_uuid, export_zip_relpath=normalize_to_media_rel(storage.export_zip_path.as_posix()))
+        job_service.mark_completed(
+            job_id=job_uuid, export_zip_relpath=normalize_to_media_rel(storage.export_zip_path.as_posix())
+        )
     except Exception as exc:
         logger.exception("pdf_split_export_failed", extra={"job_id": job_id})
         job_service.mark_failed(job_id=job_uuid, error_message=str(exc))

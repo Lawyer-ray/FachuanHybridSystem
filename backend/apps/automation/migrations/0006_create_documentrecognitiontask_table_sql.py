@@ -90,4 +90,3 @@ class Migration(migrations.Migration):
     operations = [
         migrations.RunPython(_create_table, _drop_table),
     ]
-

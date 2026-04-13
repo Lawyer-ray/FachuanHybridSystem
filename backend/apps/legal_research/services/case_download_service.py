@@ -1,4 +1,5 @@
 """案例下载服务"""
+
 from __future__ import annotations
 
 import logging
@@ -11,12 +12,7 @@ from typing import Any
 
 from django.conf import settings
 
-from apps.legal_research.models import (
-    CaseDownloadFormat,
-    CaseDownloadResult,
-    CaseDownloadStatus,
-    CaseDownloadTask,
-)
+from apps.legal_research.models import CaseDownloadFormat, CaseDownloadResult, CaseDownloadStatus, CaseDownloadTask
 from apps.legal_research.services.sources import CaseDetail, get_case_source_client
 from apps.legal_research.services.sources.weike import WeikeCaseClient, WeikeSession
 

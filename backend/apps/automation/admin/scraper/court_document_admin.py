@@ -216,7 +216,7 @@ class CourtDocumentAdmin(admin.ModelAdmin[CourtDocument]):
             return format_html(
                 '<a href="/media/{}" target="_blank" '
                 'style="background-color: #28a745; color: white; padding: 2px 8px; '
-                'border-radius: 3px; text-decoration: none; display: inline-block; font-size: 12px; '
+                "border-radius: 3px; text-decoration: none; display: inline-block; font-size: 12px; "
                 'line-height: 1.4; white-space: nowrap;">'
                 "{}</a>",
                 obj.local_file_path,
@@ -235,7 +235,7 @@ class CourtDocumentAdmin(admin.ModelAdmin[CourtDocument]):
             return format_html(
                 '<a href="/media/{}" target="_blank" title="{}" '
                 'style="background-color: #28a745; color: white; padding: 6px 12px; '
-                'border-radius: 4px; text-decoration: none; display: inline-block; font-size: 13px; '
+                "border-radius: 4px; text-decoration: none; display: inline-block; font-size: 13px; "
                 'line-height: 1.4; white-space: nowrap;">'
                 "{}</a>",
                 obj.local_file_path,

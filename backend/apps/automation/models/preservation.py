@@ -151,7 +151,9 @@ class CasePreservationQuoteBinding(models.Model):
     """案件与财产保全询价绑定关系。"""
 
     id: int
-    case = models.ForeignKey("cases.Case", on_delete=models.CASCADE, related_name="preservation_quote_bindings", verbose_name=_("案件"))
+    case = models.ForeignKey(
+        "cases.Case", on_delete=models.CASCADE, related_name="preservation_quote_bindings", verbose_name=_("案件")
+    )
     preservation_quote = models.ForeignKey(
         PreservationQuote,
         on_delete=models.CASCADE,

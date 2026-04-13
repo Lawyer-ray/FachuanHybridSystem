@@ -17,8 +17,8 @@ from typing import TYPE_CHECKING, Any, cast
 
 from django.utils.translation import gettext_lazy as _
 
-from apps.core.models.enums import CaseType
 from apps.core.exceptions import NotFoundError, ValidationException
+from apps.core.models.enums import CaseType
 
 if TYPE_CHECKING:
     from apps.core.interfaces import IContractService
@@ -446,9 +446,9 @@ class FolderGenerationService:
                 )
 
                 our_legal_entities = list(
-                    case.parties.select_related("client").filter(
-                        client__is_our_client=True, client__client_type=Client.LEGAL
-                    ).select_related("client")
+                    case.parties.select_related("client")
+                    .filter(client__is_our_client=True, client__client_type=Client.LEGAL)
+                    .select_related("client")
                 )
                 if not our_legal_entities:
                     logger.info(
@@ -466,6 +466,7 @@ class FolderGenerationService:
                         # 使用与单独点击"法定代表人身份证明书"相同的文件名生成逻辑
                         # 日期使用今日日期
                         from django.utils import timezone
+
                         date_str = timezone.now().strftime("%Y%m%d")
                         filename = f"法定代表人身份证明书({party.client.name})V1_{date_str}.docx"
                         documents.append((folder_path, content, filename))
@@ -493,7 +494,8 @@ class FolderGenerationService:
                 from apps.documents.services.generation.pipeline import DocxRenderer
 
                 our_parties = [
-                    p for p in case.parties.select_related("client").all()
+                    p
+                    for p in case.parties.select_related("client").all()
                     if getattr(getattr(p, "client", None), "is_our_client", False)
                 ]
                 if not our_parties:
@@ -568,6 +570,7 @@ class FolderGenerationService:
                 # 生成文件名：模板名称(案件名称)V1_日期.docx
                 # 日期优先使用 specified_date，否则使用今日日期
                 from django.utils import timezone
+
                 if case.specified_date:
                     date_str = case.specified_date.strftime("%Y%m%d")
                 else:
@@ -599,7 +602,7 @@ class FolderGenerationService:
         # 去掉特殊文件夹路径中与 ZIP 根目录重复的前缀
         def strip_root_prefix(paths: list[str], root: str) -> list[str]:
             prefix = f"{root}/"
-            return [p[len(prefix):] if p.startswith(prefix) else p for p in paths]
+            return [p[len(prefix) :] if p.startswith(prefix) else p for p in paths]
 
         identity_paths = strip_root_prefix(identity_paths, root_folder_name)
         attorney_paths = strip_root_prefix(attorney_paths, root_folder_name)
@@ -619,7 +622,11 @@ class FolderGenerationService:
                             content = abs_path.read_bytes()
                             suffix = abs_path.suffix
                             # 证件类型显示名称：去掉 "/" 避免路径问题，统一改为 "法定代表人身份证"
-                            doc_type_display = identity_doc.get_doc_type_display().replace("/", "身份证").replace("负责人身份证", "法定代表人身份证")
+                            doc_type_display = (
+                                identity_doc.get_doc_type_display()
+                                .replace("/", "身份证")
+                                .replace("负责人身份证", "法定代表人身份证")
+                            )
                             filename = f"{party.client.name}_{doc_type_display}{suffix}"
                             documents.append((identity_path, content, filename))
                             logger.info(
@@ -684,9 +691,7 @@ class FolderGenerationService:
         # 9. 创建 ZIP 包
         return self.create_zip_package(folder_structure, documents)
 
-    def _find_special_folder_paths(
-        self, structure: dict[str, Any], parent_path: str = ""
-    ) -> dict[str, list[str]]:
+    def _find_special_folder_paths(self, structure: dict[str, Any], parent_path: str = "") -> dict[str, list[str]]:
         """
         递归查找特殊文件夹路径。
 

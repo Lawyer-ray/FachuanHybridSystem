@@ -316,7 +316,9 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
 
                 logger.info(
                     "简易送达: 下载第 %d/%d 个文书%s",
-                    i + 1, total, f" ({doc_name})" if doc_name else "",
+                    i + 1,
+                    total,
+                    f" ({doc_name})" if doc_name else "",
                 )
 
                 filepath = self._download_row_document(row, iframe, download_dir, doc_name, i)
@@ -375,8 +377,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
         try:
             self.page.wait_for_timeout(1000)
             confirm_btn = iframe.locator(
-                ".checkFileDialog .el-dialog__wrapper:not([style*='display: none']) "
-                "button:has-text('下载文书并核验')"
+                ".checkFileDialog .el-dialog__wrapper:not([style*='display: none']) button:has-text('下载文书并核验')"
             )
             if confirm_btn.count() > 0 and confirm_btn.first.is_visible():
                 logger.info("简易送达: 检测到下载确认对话框，点击'下载文书并核验'")
@@ -388,9 +389,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
 
         return None
 
-    def _save_download(
-        self, download: Any, download_dir: Path, doc_name: str, index: int
-    ) -> str:
+    def _save_download(self, download: Any, download_dir: Path, doc_name: str, index: int) -> str:
         """保存下载文件
 
         Args:

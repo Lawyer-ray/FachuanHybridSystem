@@ -56,7 +56,8 @@ def _handle_call_error(name: str, e: Exception, fallback: bool, errors: list[Any
 
 
 def _raise_all_unavailable(
-    errors: list[Any], skipped: list[tuple[str, str]] | None = None,
+    errors: list[Any],
+    skipped: list[tuple[str, str]] | None = None,
 ) -> None:
     attempts_detail = [(n, str(e)) for n, e in errors]
     if skipped:

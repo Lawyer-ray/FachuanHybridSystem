@@ -7,7 +7,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import date
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Any, ClassVar
 
 from apps.cases.models import Case, CaseNumber
@@ -23,25 +23,27 @@ AMOUNT_WITH_UNIT_PATTERN = rf"{AMOUNT_PATTERN}\s*(万)?\s*元?"
 VALID_DATE_INCLUSION = {"both", "start_only", "end_only", "neither"}
 VALID_YEAR_DAYS = {0, 360, 365}
 
-FULLWIDTH_TRANSLATION = str.maketrans({
-    "０": "0",
-    "１": "1",
-    "２": "2",
-    "３": "3",
-    "４": "4",
-    "５": "5",
-    "６": "6",
-    "７": "7",
-    "８": "8",
-    "９": "9",
-    "．": ".",
-    "，": ",",
-    "％": "%",
-    "：": ":",
-    "（": "(",
-    "）": ")",
-    "　": " ",
-})
+FULLWIDTH_TRANSLATION = str.maketrans(
+    {
+        "０": "0",
+        "１": "1",
+        "２": "2",
+        "３": "3",
+        "４": "4",
+        "５": "5",
+        "６": "6",
+        "７": "7",
+        "８": "8",
+        "９": "9",
+        "．": ".",
+        "，": ",",
+        "％": "%",
+        "：": ":",
+        "（": "(",
+        "）": ")",
+        "　": " ",
+    }
+)
 
 
 @dataclass
@@ -156,14 +158,10 @@ class ExecutionRequestService(BasePlaceholderService):
 
         manual_text = (case_number.execution_manual_text or "").strip()
         if manual_text:
-            return {
-                LitigationPlaceholderKeys.ENFORCEMENT_EXECUTION_REQUEST: self._to_docx_hard_breaks(manual_text)
-            }
+            return {LitigationPlaceholderKeys.ENFORCEMENT_EXECUTION_REQUEST: self._to_docx_hard_breaks(manual_text)}
 
         result = self._build_execution_request(case=case, case_number=case_number)
-        return {
-            LitigationPlaceholderKeys.ENFORCEMENT_EXECUTION_REQUEST: self._to_docx_hard_breaks(result.preview_text)
-        }
+        return {LitigationPlaceholderKeys.ENFORCEMENT_EXECUTION_REQUEST: self._to_docx_hard_breaks(result.preview_text)}
 
     def preview_for_case_number(
         self,
@@ -266,8 +264,12 @@ class ExecutionRequestService(BasePlaceholderService):
 
         paid = paid_amount if paid_amount is not None else self._safe_decimal(case_number.execution_paid_amount)
         paid = max(paid, Decimal("0"))
-        use_order = bool(case_number.execution_use_deduction_order) if use_deduction_order is None else use_deduction_order
-        calc_year_days = self._normalize_year_days(year_days if year_days is not None else case_number.execution_year_days)
+        use_order = (
+            bool(case_number.execution_use_deduction_order) if use_deduction_order is None else use_deduction_order
+        )
+        calc_year_days = self._normalize_year_days(
+            year_days if year_days is not None else case_number.execution_year_days
+        )
         calc_date_inclusion = self._normalize_date_inclusion(
             date_inclusion if date_inclusion is not None else case_number.execution_date_inclusion
         )
@@ -319,7 +321,9 @@ class ExecutionRequestService(BasePlaceholderService):
                 if llm_fallback_used:
                     warnings.append("规则置信度不足，已使用本地Ollama兜底解析。")
 
-        interest_base = self._resolve_interest_base(case=case, amounts=amounts, params=params, principal_paid=principal_paid)
+        interest_base = self._resolve_interest_base(
+            case=case, amounts=amounts, params=params, principal_paid=principal_paid
+        )
         custom_interest_summary = ""
         original_segmented_interest_expression = ""
         overdue_interest_rule_details: list[dict[str, Any]] = []
@@ -394,9 +398,7 @@ class ExecutionRequestService(BasePlaceholderService):
             overdue_label = params.overdue_item_label or "利息"
             if overdue_label == "利息":
                 overdue_label = "逾期利息"
-            custom_interest_summary = (
-                f"{overdue_label}按判决确定的分项规则计算，截至{cutoff_text}{overdue_label}为{self._format_amount(overdue_interest)}元"
-            )
+            custom_interest_summary = f"{overdue_label}按判决确定的分项规则计算，截至{cutoff_text}{overdue_label}为{self._format_amount(overdue_interest)}元"
         elif has_segmented_interest:
             interest_base = interest_segments[0].base_amount
             original_segmented_interest_expression = self._extract_original_segmented_interest_expression(
@@ -465,9 +467,7 @@ class ExecutionRequestService(BasePlaceholderService):
                     warnings.append("规则利息解析失败，已使用本地Ollama兜底修正。")
 
         for fee in amounts.excluded_fees:
-            warnings.append(
-                f"{fee.label}{self._format_amount(fee.amount)}元已排除：{fee.reason}"
-            )
+            warnings.append(f"{fee.label}{self._format_amount(fee.amount)}元已排除：{fee.reason}")
 
         total = (
             (amounts.principal or Decimal("0"))
@@ -616,8 +616,10 @@ class ExecutionRequestService(BasePlaceholderService):
         llm_principal = llm_data.get("principal_amount")
         if isinstance(llm_principal, Decimal) and llm_principal > 0:
             current_principal = amounts.principal or Decimal("0")
-            if principal_fallback_to_target or current_principal <= 0 or (
-                current_principal < Decimal("10000") and llm_principal >= Decimal("10000")
+            if (
+                principal_fallback_to_target
+                or current_principal <= 0
+                or (current_principal < Decimal("10000") and llm_principal >= Decimal("10000"))
             ):
                 amounts.principal = llm_principal
                 principal_desc = str(llm_data.get("principal_label") or "").strip()
@@ -702,7 +704,7 @@ class ExecutionRequestService(BasePlaceholderService):
             '  "has_double_interest_clause": true|false\n'
             "}\n"
             "文书如下：\n"
-            f"{main_text[:self.OLLAMA_MAX_TEXT_CHARS]}"
+            f"{main_text[: self.OLLAMA_MAX_TEXT_CHARS]}"
         )
 
         try:
@@ -808,7 +810,7 @@ class ExecutionRequestService(BasePlaceholderService):
                 start, end = match.span()
                 if any(not (end <= s or start >= e) for s, e, _, _ in principal_matches):
                     continue
-                suffix = main_text[end:end + 12]
+                suffix = main_text[end : end + 12]
                 # “以…为基数/为本金”属于计息基数，不应重复记入待执行本金
                 if "为基数" in suffix or "为本金" in suffix:
                     continue
@@ -827,13 +829,11 @@ class ExecutionRequestService(BasePlaceholderService):
                 amounts.principal_label = "款项本金"
 
         confirmed_interest = Decimal("0")
-        confirmed_interest_pattern = re.compile(
-            rf"(利息|罚息|复利)\s*(?:为|计为|计)?\s*{AMOUNT_WITH_UNIT_PATTERN}"
-        )
+        confirmed_interest_pattern = re.compile(rf"(利息|罚息|复利)\s*(?:为|计为|计)?\s*{AMOUNT_WITH_UNIT_PATTERN}")
         for interest_match in confirmed_interest_pattern.finditer(main_text):
             label = interest_match.group(1)
-            prefix = main_text[max(0, interest_match.start() - 6):interest_match.start()]
-            suffix = main_text[interest_match.end():interest_match.end() + 10]
+            prefix = main_text[max(0, interest_match.start() - 6) : interest_match.start()]
+            suffix = main_text[interest_match.end() : interest_match.end() + 10]
             if "为基数" in suffix:
                 continue
             if "欠付" in prefix and label == "利息":
@@ -865,7 +865,11 @@ class ExecutionRequestService(BasePlaceholderService):
 
     def _parse_fee_items(self, main_text: str) -> list[FeeItem]:
         patterns: list[tuple[str, str, re.Pattern[str]]] = [
-            ("litigation_fee", "受理费", re.compile(rf"受理费(?:减半收取)?(?:\s*(?:为|计))?\s*{AMOUNT_WITH_UNIT_PATTERN}")),
+            (
+                "litigation_fee",
+                "受理费",
+                re.compile(rf"受理费(?:减半收取)?(?:\s*(?:为|计))?\s*{AMOUNT_WITH_UNIT_PATTERN}"),
+            ),
             (
                 "preservation_fee",
                 "财产保全费",
@@ -965,7 +969,9 @@ class ExecutionRequestService(BasePlaceholderService):
                     continue
                 assigned = Decimal("0")
                 for i in key_indices[:-1]:
-                    scaled = (fee_items[i].amount * new_total / old_total).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                    scaled = (fee_items[i].amount * new_total / old_total).quantize(
+                        Decimal("0.01"), rounding=ROUND_HALF_UP
+                    )
                     fee_items[i].amount = max(scaled, Decimal("0"))
                     assigned += fee_items[i].amount
                 fee_items[key_indices[-1]].amount = max(new_total - assigned, Decimal("0"))
@@ -1124,7 +1130,20 @@ class ExecutionRequestService(BasePlaceholderService):
             return "逾期付款违约金"
         if "违约金" in compact and any(
             marker in compact
-            for marker in ("计算方法", "计算至", "计至", "清偿之日", "付清之日", "履行之日", "万分之", "千分之", "年利率", "日利率", "LPR", "利率")
+            for marker in (
+                "计算方法",
+                "计算至",
+                "计至",
+                "清偿之日",
+                "付清之日",
+                "履行之日",
+                "万分之",
+                "千分之",
+                "年利率",
+                "日利率",
+                "LPR",
+                "利率",
+            )
         ):
             return "违约金"
         if "逾期付款损失" in compact:
@@ -1158,9 +1177,14 @@ class ExecutionRequestService(BasePlaceholderService):
                 return "remaining_total", None
 
         compact_text = full_text.replace(" ", "")
-        if any(k in compact_text for k in ("未偿还的借款为基数", "未偿还借款为基数", "剩余借款为基数", "未偿还货款为基数")):
+        if any(
+            k in compact_text for k in ("未偿还的借款为基数", "未偿还借款为基数", "剩余借款为基数", "未偿还货款为基数")
+        ):
             return "remaining_principal", None
-        if any(k in compact_text for k in ("剩余未付款项为基数", "未支付的上述款项为基数", "未付款项为基数", "上述款项为基数")):
+        if any(
+            k in compact_text
+            for k in ("剩余未付款项为基数", "未支付的上述款项为基数", "未付款项为基数", "上述款项为基数")
+        ):
             return "remaining_total", None
         return "fallback_target", None
 
@@ -1329,9 +1353,7 @@ class ExecutionRequestService(BasePlaceholderService):
 
         interest = result.total_interest
         if params.interest_cap is not None and interest > params.interest_cap:
-            warnings.append(
-                f"利息触发上限，已按 {self._format_amount(params.interest_cap)} 元截断。"
-            )
+            warnings.append(f"利息触发上限，已按 {self._format_amount(params.interest_cap)} 元截断。")
             interest = params.interest_cap
         return interest
 
@@ -1387,9 +1409,7 @@ class ExecutionRequestService(BasePlaceholderService):
 
         interest = result.total_interest
         if params.interest_cap is not None and interest > params.interest_cap:
-            warnings.append(
-                f"利息触发上限，已按 {self._format_amount(params.interest_cap)} 元截断。"
-            )
+            warnings.append(f"利息触发上限，已按 {self._format_amount(params.interest_cap)} 元截断。")
             interest = params.interest_cap
         return interest
 
@@ -1421,7 +1441,9 @@ class ExecutionRequestService(BasePlaceholderService):
         fee_as_primary_item = False
 
         if principal > 0:
-            item_segments = [f"申请强制执行{full_case_number}，被申请人向申请人支付{amounts.principal_label}{self._format_amount(principal)}元"]
+            item_segments = [
+                f"申请强制执行{full_case_number}，被申请人向申请人支付{amounts.principal_label}{self._format_amount(principal)}元"
+            ]
         elif fee_desc:
             item_segments = [f"申请强制执行{full_case_number}，被申请人向申请人支付{fee_desc}"]
             fee_as_primary_item = True
@@ -1433,7 +1455,9 @@ class ExecutionRequestService(BasePlaceholderService):
 
         if custom_interest_summary:
             item_segments.append(custom_interest_summary)
-        elif (segments or params.start_date) and (params.multiplier is not None or params.custom_rate_value is not None):
+        elif (segments or params.start_date) and (
+            params.multiplier is not None or params.custom_rate_value is not None
+        ):
             cutoff_text = f"{cutoff_date.year}年{cutoff_date.month}月{cutoff_date.day}日"
             rate_desc = params.rate_description or "约定利率"
             if len(segments) >= 2:
@@ -1504,9 +1528,7 @@ class ExecutionRequestService(BasePlaceholderService):
                 end_text = f"{segment.end_date.year}年{segment.end_date.month}月{segment.end_date.day}日止"
             else:
                 end_text = "实际清偿之日止"
-            desc_parts.append(
-                f"以{self._format_amount(segment.base_amount)}元为基数，自{start_text}起至{end_text}"
-            )
+            desc_parts.append(f"以{self._format_amount(segment.base_amount)}元为基数，自{start_text}起至{end_text}")
         return "；".join(desc_parts)
 
     def _has_double_interest_clause(self, main_text: str) -> bool:
@@ -1528,7 +1550,10 @@ class ExecutionRequestService(BasePlaceholderService):
                 ):
                     return text
                 if (
-                    any(keyword in text for keyword in ("财产不足清偿部分", "财产不足以清偿部分", "不能清偿部分", "不足清偿部分"))
+                    any(
+                        keyword in text
+                        for keyword in ("财产不足清偿部分", "财产不足以清偿部分", "不能清偿部分", "不足清偿部分")
+                    )
                     and "承担" in text
                     and "清偿责任" in text
                 ):
@@ -1573,7 +1598,9 @@ class ExecutionRequestService(BasePlaceholderService):
         if not clauses:
             return []
 
-        recognized_compact = {re.sub(r"\s+", "", str(text or "")) for text in recognized_texts if str(text or "").strip()}
+        recognized_compact = {
+            re.sub(r"\s+", "", str(text or "")) for text in recognized_texts if str(text or "").strip()
+        }
         disposal_keywords = ("折价", "拍卖", "变卖")
         asset_keywords = ("土地", "不动产", "股权", "应收账款", "机器设备", "房产", "车辆")
 
@@ -1664,12 +1691,8 @@ class ExecutionRequestService(BasePlaceholderService):
                 if not clause:
                     continue
                 has_interest_keywords = any(keyword in clause for keyword in ("逾期利息", "罚息", "复利"))
-                has_base_and_rate = (
-                    "为基数" in clause
-                    and (
-                        "年利率" in clause
-                        or bool(re.search(r"(?:LPR|贷款市场报价利率|一年期贷款市场报价利率)", clause))
-                    )
+                has_base_and_rate = "为基数" in clause and (
+                    "年利率" in clause or bool(re.search(r"(?:LPR|贷款市场报价利率|一年期贷款市场报价利率)", clause))
                 )
                 if not (has_interest_keywords or has_base_and_rate):
                     continue
@@ -1863,7 +1886,9 @@ class ExecutionRequestService(BasePlaceholderService):
         # 兼容“日期在前 + 多基数在后”的写法，例如：
         # 自2025年6月13日起的罚息以A元为基数、复利以B元为基数，均按...计算至清偿之日止
         if len(segments) < 2:
-            date_first_pattern = re.compile(r"(?:自|从)\s*(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日(?:起|起算|开始|计)?")
+            date_first_pattern = re.compile(
+                r"(?:自|从)\s*(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日(?:起|起算|开始|计)?"
+            )
             base_pattern = re.compile(rf"以[^，,；。\n]{{0,30}}?{AMOUNT_WITH_UNIT_PATTERN}\s*为(?:基数|本金)")
             for sentence in re.split(r"[。；\n]", main_text):
                 sentence = sentence.strip()
@@ -1882,7 +1907,9 @@ class ExecutionRequestService(BasePlaceholderService):
                     base_amount = self._parse_amount_value(match.group(1), match.group(2))
                     if base_amount is None:
                         continue
-                    candidate = InterestSegment(base_amount=base_amount, start_date=start_date, end_date=sentence_end_date)
+                    candidate = InterestSegment(
+                        base_amount=base_amount, start_date=start_date, end_date=sentence_end_date
+                    )
                     if any(
                         seg.base_amount == candidate.base_amount
                         and seg.start_date == candidate.start_date

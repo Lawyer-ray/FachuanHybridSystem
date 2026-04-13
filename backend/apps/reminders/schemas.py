@@ -42,9 +42,7 @@ class ReminderIn(Schema):
 
     @model_validator(mode="after")
     def validate_binding_exclusivity(self) -> "ReminderIn":
-        selected_count = sum(
-            target_id is not None for target_id in (self.contract_id, self.case_id, self.case_log_id)
-        )
+        selected_count = sum(target_id is not None for target_id in (self.contract_id, self.case_id, self.case_log_id))
         if selected_count > 1:
             raise ValueError(_("合同、案件、案件日志最多只能绑定一个"))
         return self

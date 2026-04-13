@@ -62,4 +62,3 @@ class Migration(migrations.Migration):
             reverse_code=_drop_legacy_document_recognition_table,
         ),
     ]
-

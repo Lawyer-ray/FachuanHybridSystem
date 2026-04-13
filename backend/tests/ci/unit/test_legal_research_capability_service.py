@@ -35,7 +35,7 @@ def test_capability_search_returns_structured_response_and_idempotent_cache(
     credential = _build_credential(lawyer=lawyer)
     calls = {"count": 0}
 
-    def _stub_execute(self, *, task_id: str, timeout_ms: int):  # noqa: ARG001
+    def _stub_execute(self, *, task_id: str, timeout_ms: int):
         calls["count"] += 1
         task = LegalResearchTask.objects.get(id=int(task_id))
         task.status = LegalResearchTaskStatus.COMPLETED
@@ -116,7 +116,7 @@ def test_capability_search_applies_hard_filters(monkeypatch: pytest.MonkeyPatch,
     cache.clear()
     credential = _build_credential(lawyer=lawyer)
 
-    def _stub_execute(self, *, task_id: str, timeout_ms: int):  # noqa: ARG001
+    def _stub_execute(self, *, task_id: str, timeout_ms: int):
         task = LegalResearchTask.objects.get(id=int(task_id))
         task.status = LegalResearchTaskStatus.COMPLETED
         task.scanned_count = 20
@@ -174,7 +174,7 @@ def test_capability_search_rejects_idempotency_conflict(monkeypatch: pytest.Monk
     cache.clear()
     credential = _build_credential(lawyer=lawyer)
 
-    def _stub_execute(self, *, task_id: str, timeout_ms: int):  # noqa: ARG001
+    def _stub_execute(self, *, task_id: str, timeout_ms: int):
         task = LegalResearchTask.objects.get(id=int(task_id))
         task.status = LegalResearchTaskStatus.COMPLETED
         task.save(update_fields=["status", "updated_at"])
@@ -208,7 +208,7 @@ def test_capability_search_timeout_raises_504_exception(monkeypatch: pytest.Monk
     cache.clear()
     credential = _build_credential(lawyer=lawyer)
 
-    def _stub_timeout(self, *, task_id: str, timeout_ms: int):  # noqa: ARG001
+    def _stub_timeout(self, *, task_id: str, timeout_ms: int):
         raise FutureTimeoutError()
 
     monkeypatch.setattr(LegalResearchCapabilityService, "_execute_with_timeout", _stub_timeout)
@@ -231,7 +231,7 @@ def test_capability_search_extracts_four_snippet_sections(monkeypatch: pytest.Mo
     cache.clear()
     credential = _build_credential(lawyer=lawyer)
 
-    def _stub_execute(self, *, task_id: str, timeout_ms: int):  # noqa: ARG001
+    def _stub_execute(self, *, task_id: str, timeout_ms: int):
         task = LegalResearchTask.objects.get(id=int(task_id))
         task.status = LegalResearchTaskStatus.COMPLETED
         task.scanned_count = 8
@@ -293,7 +293,7 @@ def test_capability_search_intent_profile_changes_ranking(monkeypatch: pytest.Mo
     cache.clear()
     credential = _build_credential(lawyer=lawyer)
 
-    def _stub_execute(self, *, task_id: str, timeout_ms: int):  # noqa: ARG001
+    def _stub_execute(self, *, task_id: str, timeout_ms: int):
         task = LegalResearchTask.objects.get(id=int(task_id))
         task.status = LegalResearchTaskStatus.COMPLETED
         task.scanned_count = 20
@@ -376,7 +376,7 @@ def test_capability_search_returns_busy_when_concurrency_limited(monkeypatch: py
     credential = _build_credential(lawyer=lawyer)
 
     class _BusySemaphore:
-        def acquire(self, timeout: float | None = None) -> bool:  # noqa: ARG002
+        def acquire(self, timeout: float | None = None) -> bool:
             return False
 
         def release(self) -> None:
@@ -409,7 +409,7 @@ def test_capability_search_returns_degraded_when_failure_circuit_open(monkeypatc
     cache.clear()
     credential = _build_credential(lawyer=lawyer)
 
-    def _stub_circuit_open(self, *, credential_id: int) -> bool:  # noqa: ARG001
+    def _stub_circuit_open(self, *, credential_id: int) -> bool:
         return True
 
     monkeypatch.setattr(LegalResearchCapabilityService, "_is_failure_circuit_open", _stub_circuit_open)

@@ -68,8 +68,16 @@ class OpenAICompatibleBackend(SiliconFlowBackend):
         return self.default_model
 
     async def _build_async_client(self, timeout_seconds: float | None = None) -> openai.AsyncOpenAI:
-        api_key = self._config.api_key if self._config and self._config.api_key else await LLMConfig.get_openai_compatible_api_key_async()
-        base_url = self._config.base_url if self._config and self._config.base_url else await LLMConfig.get_openai_compatible_base_url_async()
+        api_key = (
+            self._config.api_key
+            if self._config and self._config.api_key
+            else await LLMConfig.get_openai_compatible_api_key_async()
+        )
+        base_url = (
+            self._config.base_url
+            if self._config and self._config.base_url
+            else await LLMConfig.get_openai_compatible_base_url_async()
+        )
         return openai.AsyncOpenAI(
             api_key=api_key,
             base_url=base_url,

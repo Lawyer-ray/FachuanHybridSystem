@@ -1,5 +1,4 @@
 from __future__ import annotations
-# mypy: ignore-errors
 
 import json
 import logging
@@ -24,6 +23,9 @@ from apps.legal_research.services.keywords import KEYWORD_INPUT_HELP_TEXT, norma
 from apps.legal_research.services.llm_preflight import verify_siliconflow_connectivity
 from apps.legal_research.services.task_service import LegalResearchTaskService
 from apps.legal_research.services.task_state_sync import sync_failed_queue_state
+
+# mypy: ignore-errors
+
 
 logger = logging.getLogger(__name__)
 
@@ -179,7 +181,9 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
 
     def add_view(self, request: HttpRequest, form_url: str = "", extra_context: dict[str, Any] | None = None):
         if not self._is_feature_available():
-            messages.error(request, "功能未启用：请接入私有 wk API，或在代码中开启 LEGAL_RESEARCH_ADMIN_FEATURE_ENABLED。")
+            messages.error(
+                request, "功能未启用：请接入私有 wk API，或在代码中开启 LEGAL_RESEARCH_ADMIN_FEATURE_ENABLED。"
+            )
             return HttpResponseRedirect(reverse("admin:legal_research_legalresearchtask_changelist"))
         return super().add_view(request=request, form_url=form_url, extra_context=extra_context)
 
@@ -246,13 +250,13 @@ class LegalResearchTaskAdmin(admin.ModelAdmin[LegalResearchTask]):
         field.required = False
         field.help_text = (
             "可选。高级检索条件，JSON 数组格式，留空则使用上方关键词做全文检索。<br>"
-            "每项格式：<code>{\"field\": \"字段名\", \"keyword\": \"关键词\", \"op\": \"AND\"}</code><br>"
+            '每项格式：<code>{"field": "字段名", "keyword": "关键词", "op": "AND"}</code><br>'
             "字段名可选：<code>fullText</code>（全文）、<code>title</code>（标题）、"
             "<code>courtOpinion</code>（本院认为）、<code>judgmentResult</code>（裁判结果）、"
             "<code>disputeFocus</code>（争议焦点）、<code>causeOfAction</code>（案由）、"
             "<code>caseNumber</code>（案号）<br>"
-            "示例：<code>[{\"field\":\"courtOpinion\",\"keyword\":\"逾期利息\",\"op\":\"AND\"},"
-            "{\"field\":\"title\",\"keyword\":\"借款合同\",\"op\":\"AND\"}]</code>"
+            '示例：<code>[{"field":"courtOpinion","keyword":"逾期利息","op":"AND"},'
+            '{"field":"title","keyword":"借款合同","op":"AND"}]</code>'
         )
         field.widget = forms.Textarea(attrs={"rows": 4, "style": "font-family:monospace;font-size:12px;"})
 

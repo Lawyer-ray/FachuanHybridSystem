@@ -262,10 +262,10 @@ class LitigationGenerationService:
         if doc_type == "defense":
             return str(filename_service.generate_defense_filename(case_id))
         raise ValidationException(
-                message=_("不支持的文档类型: %(t)s") % {"t": doc_type},
-                code="INVALID_DOC_TYPE",
-                errors={"doc_type": doc_type},
-            )
+            message=_("不支持的文档类型: %(t)s") % {"t": doc_type},
+            code="INVALID_DOC_TYPE",
+            errors={"doc_type": doc_type},
+        )
 
     def _get_mock_complaint_output(self, case_data: dict[str, Any]) -> ComplaintOutput:
         """

@@ -21,7 +21,7 @@ EMS_QUERY_URL: Final[str] = "https://www.11183.com.cn/?to=%2Fquery_express_deliv
 
 # EMS 协议相关 XPath（与 test_ems_full_flow.py 保持一致）
 _EMS_LOGIN_AGREE_CHECKBOX_XPATH: Final[str] = (
-    "//*[@id='app']/div[1]/div/header/div[1]/div/div/div[3]" "/div/div[2]/div/div[2]/div[3]/div[1]/label/span/span"
+    "//*[@id='app']/div[1]/div/header/div[1]/div/div/div[3]/div/div[2]/div/div[2]/div[3]/div[1]/label/span/span"
 )
 _EMS_AGREEMENT_MODAL_XPATH: Final[str] = "//*[@id='app']/div[2]"
 _EMS_AGREEMENT_LAST_CLAUSE_XPATH: Final[str] = "//*[@id='app']/div[2]/div/div[2]/div/div[1]/div[1]/ul/li[5]/div/p"
@@ -117,7 +117,7 @@ class ExpressBrowserQueryService:
             return _browser_context
 
         raise RuntimeError(
-            f"Cannot connect via CDP ({_CDP_URL}) after launching Chrome." " Check if Chrome is installed correctly."
+            f"Cannot connect via CDP ({_CDP_URL}) after launching Chrome. Check if Chrome is installed correctly."
         )
 
     @staticmethod
@@ -973,7 +973,9 @@ class ExpressBrowserQueryService:
 
         return accepted
 
-    async def _ems_handle_agreement_and_wait(self, context: BrowserContext, page: Page, timeout_seconds: int = 300) -> None:
+    async def _ems_handle_agreement_and_wait(
+        self, context: BrowserContext, page: Page, timeout_seconds: int = 300
+    ) -> None:
         """
         EMS 完整登录流程：
         - 检测弹窗可见性
@@ -1162,7 +1164,7 @@ class ExpressBrowserQueryService:
         """在协议页面上点最后一个条款 + 点确认按钮。"""
         last_clause_selectors: list[str] = [
             "xpath=//*[@id='app']/div[2]/div/div[2]/div/div[1]/div[1]/ul/li[last()]/div/p",
-            "xpath=//*[@id='app']/div[2]/div/div[2]" "/div/div[1]/div[1]/ul/li[5]/div/p",
+            "xpath=//*[@id='app']/div[2]/div/div[2]/div/div[1]/div[1]/ul/li[5]/div/p",
         ]
         for sel in last_clause_selectors:
             try:
@@ -1175,8 +1177,8 @@ class ExpressBrowserQueryService:
                 continue
 
         accept_selectors: list[str] = [
-            "xpath=//*[@id='app']/div[2]/div/div[2]" "/div/div[1]/div[2]/div[3]/button[last()]",
-            "xpath=//*[@id='app']/div[2]/div/div[2]" "/div/div[1]/div[2]/div[3]/button[2]",
+            "xpath=//*[@id='app']/div[2]/div/div[2]/div/div[1]/div[2]/div[3]/button[last()]",
+            "xpath=//*[@id='app']/div[2]/div/div[2]/div/div[1]/div[2]/div[3]/button[2]",
         ]
         for sel in accept_selectors:
             try:

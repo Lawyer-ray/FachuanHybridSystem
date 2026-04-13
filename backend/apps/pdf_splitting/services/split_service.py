@@ -400,8 +400,12 @@ class PdfSplitService:
                 "ocr_cache_hit_count": int(max(cache_hit_count, 0)),
                 "ocr_miss_count": int(max(pending_ocr_count, 0)),
                 "segment_count": len(drafts),
-                "recognized_count": len([item for item in drafts if item.segment_type != PdfSplitSegmentType.UNRECOGNIZED]),
-                "unrecognized_count": len([item for item in drafts if item.segment_type == PdfSplitSegmentType.UNRECOGNIZED]),
+                "recognized_count": len(
+                    [item for item in drafts if item.segment_type != PdfSplitSegmentType.UNRECOGNIZED]
+                ),
+                "unrecognized_count": len(
+                    [item for item in drafts if item.segment_type == PdfSplitSegmentType.UNRECOGNIZED]
+                ),
             },
         )
 
@@ -680,8 +684,7 @@ class PdfSplitService:
                 continue
 
             has_continuation = any(
-                self._contains_keyword(page.normalized_text, kw)
-                for kw in rule.continuation_keywords
+                self._contains_keyword(page.normalized_text, kw) for kw in rule.continuation_keywords
             )
             if has_continuation:
                 entry: dict[str, Any] = {
@@ -714,8 +717,12 @@ class PdfSplitService:
                 end_page = page_no
                 continue
 
-            has_continuation = any(self._contains_keyword(page.normalized_text, kw) for kw in rule.continuation_keywords)
-            has_attachment_signal = any(self._contains_keyword(page.normalized_text, kw) for kw in self.COMPLAINT_ATTACHMENT_KEYWORDS)
+            has_continuation = any(
+                self._contains_keyword(page.normalized_text, kw) for kw in rule.continuation_keywords
+            )
+            has_attachment_signal = any(
+                self._contains_keyword(page.normalized_text, kw) for kw in self.COMPLAINT_ATTACHMENT_KEYWORDS
+            )
             if not has_continuation and has_attachment_signal:
                 break
 
@@ -888,7 +895,9 @@ class PdfSplitService:
     ) -> PageDescriptor:
         normalized_text = self._normalize_text(text)
         head_text = normalized_text[:240]
-        top_candidates = self._score_page(head_text=head_text, normalized_text=normalized_text, template_key=template_key)
+        top_candidates = self._score_page(
+            head_text=head_text, normalized_text=normalized_text, template_key=template_key
+        )
         return PageDescriptor(
             page_no=page_no,
             text=text,

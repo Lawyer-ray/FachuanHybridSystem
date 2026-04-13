@@ -474,7 +474,9 @@ def _resolve_original_case_number(case: Any) -> str:
     return ""
 
 
-def _build_party_payloads(parties: list[Any]) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+def _build_party_payloads(
+    parties: list[Any],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     from apps.core.utils.id_card_utils import IdCardUtils
 
     plaintiffs: list[dict[str, Any]] = []
@@ -640,7 +642,9 @@ def _normalize_text(value: str) -> str:
     return _TEXT_NORMALIZE_PATTERN.sub("", str(value or "").strip().lower())
 
 
-def _score_slot_for_signal(*, signal: str, strong: tuple[str, ...], weak: tuple[str, ...], exclude: tuple[str, ...]) -> int:
+def _score_slot_for_signal(
+    *, signal: str, strong: tuple[str, ...], weak: tuple[str, ...], exclude: tuple[str, ...]
+) -> int:
     if not signal:
         return 0
 
@@ -855,9 +859,9 @@ def _run_filing(
     session_id: int | None = None,
 ) -> None:
     """在后台线程中执行立案"""
-    from apps.automation.models import ScraperTaskStatus
     from playwright.sync_api import sync_playwright
 
+    from apps.automation.models import ScraperTaskStatus
     from apps.automation.services.scraper.sites.court_zxfw import CourtZxfwService
     from apps.automation.services.scraper.sites.court_zxfw_filing import CourtZxfwFilingService
 

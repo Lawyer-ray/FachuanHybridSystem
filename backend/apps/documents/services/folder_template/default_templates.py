@@ -220,7 +220,11 @@ def get_default_folder_templates() -> list[dict[str, Any]]:
                                     {"id": "folder_1774250377876_a93zfd2s", "name": "2-当事人身份证明", "children": []},
                                     {"id": "folder_1774250377876_aepfz20q", "name": "3-委托材料", "children": []},
                                     {"id": "folder_1774250377877_07bdwj6d", "name": "4-限制性措施", "children": []},
-                                    {"id": "folder_1774250377878_bd72h67r", "name": "5-执行依据及生效证明", "children": []},
+                                    {
+                                        "id": "folder_1774250377878_bd72h67r",
+                                        "name": "5-执行依据及生效证明",
+                                        "children": [],
+                                    },
                                     {"id": "folder_1774250377878_991ago5r", "name": "6-送达地址确认书", "children": []},
                                     {"id": "folder_1774250377879_1tztdlni", "name": "7-退费账户确认书", "children": []},
                                 ],

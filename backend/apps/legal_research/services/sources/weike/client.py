@@ -33,7 +33,9 @@ class WeikeCaseClient(WeikeAuthMixin, WeikeSearchMixin, WeikeDocumentMixin, Weik
                 config = LegalResearchTuningConfig()
         self._session_restrict_cooldown_seconds = max(
             30,
-            int(getattr(config, "weike_session_restrict_cooldown_seconds", self.SESSION_RESTRICT_COOLDOWN_SECONDS) or 0),
+            int(
+                getattr(config, "weike_session_restrict_cooldown_seconds", self.SESSION_RESTRICT_COOLDOWN_SECONDS) or 0
+            ),
         )
         self._search_api_degrade_streak_threshold = max(
             1,
@@ -78,6 +80,7 @@ class WeikeCaseClient(WeikeAuthMixin, WeikeSearchMixin, WeikeDocumentMixin, Weik
         # 应用 playwright-stealth 反检测
         try:
             from playwright_stealth import Stealth
+
             stealth = Stealth()
             stealth.apply_stealth_sync(context)
             logger.debug("已应用 playwright-stealth 反检测")

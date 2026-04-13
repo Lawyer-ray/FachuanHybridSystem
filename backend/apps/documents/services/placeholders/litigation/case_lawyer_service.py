@@ -41,9 +41,9 @@ class CaseLawyerService(BasePlaceholderService):
                 LitigationPlaceholderKeys.CASE_LAWYER_ADDRESS: "",
             }
 
-        assignments: QuerySet[CaseAssignment] = CaseAssignment.objects.filter(
-            case_id=case_id
-        ).select_related("lawyer__law_firm")
+        assignments: QuerySet[CaseAssignment] = CaseAssignment.objects.filter(case_id=case_id).select_related(
+            "lawyer__law_firm"
+        )
 
         if not assignments.exists():
             logger.warning("未找到案件律师: case_id=%s", case_id)

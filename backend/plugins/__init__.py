@@ -18,7 +18,7 @@ def has_court_filing_api_plugin() -> bool:
         bool: 插件存在返回 True，否则返回 False
     """
     try:
-        from plugins.court_filing_http import api_service  # noqa: F401
+        from plugins.court_filing_http import api_service
 
         return True
     except ImportError:

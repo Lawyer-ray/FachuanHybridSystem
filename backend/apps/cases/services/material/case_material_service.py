@@ -312,7 +312,9 @@ class CaseMaterialService:
         old_attachment_id = material.source_attachment_id
 
         if old_attachment_id == new_attachment_id:
-            raise ValidationException(message=_("新附件与当前附件相同"), errors={"new_attachment_id": new_attachment_id})
+            raise ValidationException(
+                message=_("新附件与当前附件相同"), errors={"new_attachment_id": new_attachment_id}
+            )
 
         try:
             new_attachment = CaseLogAttachment.objects.select_related("log").get(
@@ -454,7 +456,9 @@ class CaseMaterialService:
             attachment.delete()
             logger.info("附件已删除: attachment_id=%s", attachment_id_val)
 
-        logger.info("材料已删除: material_id=%s, case_id=%s, attachment_id=%s", material_id_val, case_id, attachment_id_val)
+        logger.info(
+            "材料已删除: material_id=%s, case_id=%s, attachment_id=%s", material_id_val, case_id, attachment_id_val
+        )
 
         return {"material_id": material_id_val, "deleted": True}
 
@@ -500,7 +504,5 @@ class CaseMaterialService:
         # 清理该分类下的分组排序记录
         CaseMaterialGroupOrder.objects.filter(case_id=case_id, category=category).delete()
 
-        logger.info(
-            "批量删除材料完成: case_id=%s, category=%s, deleted_count=%s", case_id, category, deleted_count
-        )
+        logger.info("批量删除材料完成: case_id=%s, category=%s, deleted_count=%s", case_id, category, deleted_count)
         return {"category": category, "deleted_count": deleted_count}

@@ -88,7 +88,9 @@ class SiliconFlowBackend:
 
     async def _build_async_client(self, timeout_seconds: float | None = None) -> openai.AsyncOpenAI:
         api_key = self._config.api_key if self._config and self._config.api_key else await LLMConfig.get_api_key_async()
-        base_url = self._config.base_url if self._config and self._config.base_url else await LLMConfig.get_base_url_async()
+        base_url = (
+            self._config.base_url if self._config and self._config.base_url else await LLMConfig.get_base_url_async()
+        )
         return openai.AsyncOpenAI(
             api_key=api_key,
             base_url=base_url,
@@ -131,7 +133,9 @@ class SiliconFlowBackend:
     def _raise_mapped_error(self, error: Exception, timeout_seconds: float, base_url: str) -> None:
         if isinstance(error, openai.AuthenticationError):
             logger.warning("SiliconFlow 认证失败", extra={"error": str(error)})
-            raise LLMAuthenticationError(message="SiliconFlow API Key 无效或缺失", errors={"detail": str(error)}) from error
+            raise LLMAuthenticationError(
+                message="SiliconFlow API Key 无效或缺失", errors={"detail": str(error)}
+            ) from error
         if isinstance(error, (openai.APITimeoutError, httpx.TimeoutException)):
             logger.warning("SiliconFlow 请求超时", extra={"timeout": timeout_seconds, "error": str(error)})
             raise LLMTimeoutError(
@@ -198,8 +202,12 @@ class SiliconFlowBackend:
         max_tokens: int | None = None,
         **kwargs: Any,
     ) -> LLMResponse:
-        used_model = model or (self._config.default_model if self._config else await LLMConfig.get_default_model_async())
-        request_timeout = float(kwargs.pop("timeout_seconds", self._config.timeout if self._config else await LLMConfig.get_timeout_async()))
+        used_model = model or (
+            self._config.default_model if self._config else await LLMConfig.get_default_model_async()
+        )
+        request_timeout = float(
+            kwargs.pop("timeout_seconds", self._config.timeout if self._config else await LLMConfig.get_timeout_async())
+        )
         payload: dict[str, Any] = {
             "model": used_model,
             "messages": self._normalize_messages(messages),
@@ -213,7 +221,11 @@ class SiliconFlowBackend:
             async_client = await self._build_async_client(timeout_seconds=request_timeout)
             response = await async_client.chat.completions.create(**payload)
         except Exception as error:
-            base_url = self._config.base_url if self._config and self._config.base_url else await LLMConfig.get_base_url_async()
+            base_url = (
+                self._config.base_url
+                if self._config and self._config.base_url
+                else await LLMConfig.get_base_url_async()
+            )
             self._raise_mapped_error(error, request_timeout, base_url)
 
         duration_ms = (time.time() - start_time) * 1000
@@ -272,8 +284,12 @@ class SiliconFlowBackend:
         max_tokens: int | None = None,
         **kwargs: Any,
     ) -> AsyncIterator[LLMStreamChunk]:
-        used_model = model or (self._config.default_model if self._config else await LLMConfig.get_default_model_async())
-        request_timeout = float(kwargs.pop("timeout_seconds", self._config.timeout if self._config else await LLMConfig.get_timeout_async()))
+        used_model = model or (
+            self._config.default_model if self._config else await LLMConfig.get_default_model_async()
+        )
+        request_timeout = float(
+            kwargs.pop("timeout_seconds", self._config.timeout if self._config else await LLMConfig.get_timeout_async())
+        )
         payload: dict[str, Any] = {
             "model": used_model,
             "messages": self._normalize_messages(messages),
@@ -299,7 +315,11 @@ class SiliconFlowBackend:
                     final_usage = self._extract_usage(usage)
                     yield LLMStreamChunk(usage=final_usage, model=used_model, backend=self.BACKEND_NAME)
         except Exception as error:
-            base_url = self._config.base_url if self._config and self._config.base_url else await LLMConfig.get_base_url_async()
+            base_url = (
+                self._config.base_url
+                if self._config and self._config.base_url
+                else await LLMConfig.get_base_url_async()
+            )
             self._raise_mapped_error(error, request_timeout, base_url)
 
     def get_default_embedding_model(self) -> str:

@@ -14,8 +14,8 @@ from django.urls import path
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
-from apps.core.models.enums import LegalStatus
 from apps.core.exceptions import NotFoundError
+from apps.core.models.enums import LegalStatus
 from apps.documents.models import (
     DocumentCaseStage,
     DocumentCaseType,
@@ -254,9 +254,7 @@ class FolderTemplateAdmin(admin.ModelAdmin[FolderTemplate]):
     change_list_template = "admin/documents/foldertemplate/change_list.html"
 
     class Media:
-        css = {
-            LegalStatusMatchMode.ALL: ("documents/css/folder_tree.css", "documents/css/multi_select.css")
-        }
+        css = {LegalStatusMatchMode.ALL: ("documents/css/folder_tree.css", "documents/css/multi_select.css")}
         js = (
             "documents/js/folder_tree.js",
             "documents/js/template_type_toggle.js",
@@ -382,7 +380,6 @@ class FolderTemplateAdmin(admin.ModelAdmin[FolderTemplate]):
             return JsonResponse(result)
         except NotFoundError:
             return JsonResponse({"success": False, "error": "模板不存在"}, status=404)
-
 
     def save_model(self, request: Any, obj: FolderTemplate, form: Any, change: bool) -> None:
         """保存模型 - 处理自动修复的结构并显示消息"""

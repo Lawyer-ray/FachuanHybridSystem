@@ -13,7 +13,7 @@ from apps.legal_research.services.capability_mcp_wrapper import LegalResearchCap
 
 def test_capability_mcp_wrapper_returns_agent_friendly_contract() -> None:
     class _StubCapabilityService:
-        def search(self, *, payload: AgentSearchRequestV1, user, idempotency_key: str = "") -> AgentSearchResponseV1:  # noqa: ANN001, ARG002
+        def search(self, *, payload: AgentSearchRequestV1, user, idempotency_key: str = "") -> AgentSearchResponseV1:
             return AgentSearchResponseV1(
                 request_id="req-001",
                 status="ok",

@@ -133,9 +133,9 @@ def _sorted_get_app_list(self: admin.AdminSite, request: HttpRequest, app_label:
         if app_label_str in _MODEL_ORDER and "models" in app:
             model_order = _MODEL_ORDER[app_label_str]
             app["models"].sort(
-                key=lambda m: model_order.index(m["object_name"].lower())
-                if m["object_name"].lower() in model_order
-                else 999
+                key=lambda m: (
+                    model_order.index(m["object_name"].lower()) if m["object_name"].lower() in model_order else 999
+                )
             )
 
     # 向 automation app 添加“其他工具”聚合入口
@@ -156,9 +156,11 @@ def _sorted_get_app_list(self: admin.AdminSite, request: HttpRequest, app_label:
             model_order = _MODEL_ORDER.get("automation", [])
             if model_order:
                 models.sort(
-                    key=lambda m: model_order.index(str(m.get("object_name", "")).lower())
-                    if str(m.get("object_name", "")).lower() in model_order
-                    else 999
+                    key=lambda m: (
+                        model_order.index(str(m.get("object_name", "")).lower())
+                        if str(m.get("object_name", "")).lower() in model_order
+                        else 999
+                    )
                 )
             break
 

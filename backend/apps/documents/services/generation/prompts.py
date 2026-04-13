@@ -23,10 +23,7 @@ class PromptSpec:
     format_instructions: str
 
     def render_user_message(self, values: dict[str, Any]) -> str:
-        normalized: dict[str, str] = {
-            key: "" if value is None else str(value)
-            for key, value in (values or {}).items()
-        }
+        normalized: dict[str, str] = {key: "" if value is None else str(value) for key, value in (values or {}).items()}
         normalized.setdefault("format_instructions", self.format_instructions)
         return self.user_template.format_map(_SafeDict(normalized))
 

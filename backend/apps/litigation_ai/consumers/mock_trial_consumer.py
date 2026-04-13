@@ -128,12 +128,18 @@ class MockTrialConsumer(AsyncWebsocketConsumer):
         elif step == MockTrialStep.MODEL_CONFIG:
             await flow.handle_model_config(ctx, content, self._send_message)
         elif step in (
-            MockTrialStep.SIMULATION, MockTrialStep.FOCUS_ANALYSIS,
-            MockTrialStep.COURT_OPENING, MockTrialStep.IDENTITY_CHECK,
-            MockTrialStep.RIGHTS_NOTICE, MockTrialStep.APPEAL_STATEMENT,
-            MockTrialStep.PLAINTIFF_STATEMENT, MockTrialStep.DEFENDANT_RESPONSE,
-            MockTrialStep.COURT_INVESTIGATION, MockTrialStep.COURT_DEBATE,
-            MockTrialStep.FINAL_STATEMENT, MockTrialStep.MEDIATION,
+            MockTrialStep.SIMULATION,
+            MockTrialStep.FOCUS_ANALYSIS,
+            MockTrialStep.COURT_OPENING,
+            MockTrialStep.IDENTITY_CHECK,
+            MockTrialStep.RIGHTS_NOTICE,
+            MockTrialStep.APPEAL_STATEMENT,
+            MockTrialStep.PLAINTIFF_STATEMENT,
+            MockTrialStep.DEFENDANT_RESPONSE,
+            MockTrialStep.COURT_INVESTIGATION,
+            MockTrialStep.COURT_DEBATE,
+            MockTrialStep.FINAL_STATEMENT,
+            MockTrialStep.MEDIATION,
             MockTrialStep.COURT_SUMMARY,
         ):
             await flow.handle_simulation(ctx, content, self._send_message)

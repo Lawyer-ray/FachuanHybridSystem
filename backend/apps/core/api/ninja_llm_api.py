@@ -13,9 +13,9 @@ from django.db import transaction
 from ninja import Router
 from ninja.schema import Schema
 
-from apps.core.security.auth import JWTOrSessionAuth
 from apps.core.exceptions import PermissionDenied
 from apps.core.infrastructure.throttling import rate_limit_from_settings
+from apps.core.security.auth import JWTOrSessionAuth
 
 from .llm_common import achat_with_context as achat_with_context_impl
 from .llm_common import get_conversation_history as get_conversation_history_impl

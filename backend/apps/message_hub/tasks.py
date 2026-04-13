@@ -24,12 +24,12 @@ def _is_expected_sync_error(exc: Exception) -> bool:
         "connection refused",
         "temporarily unavailable",
         "timeout",
-        "greenlet.error",          # Playwright 跨线程 greenlet 切换失败
+        "greenlet.error",  # Playwright 跨线程 greenlet 切换失败
         "cannot switch to a different thread",  # 同上
         "sync api inside the asyncio loop",  # Playwright Sync API 在 asyncio 中误用
-        "target closed",           # 浏览器/页面已关闭
-        "browser has been closed", # 浏览器实例已关闭
-        "disconnected",            # Playwright 连接断开
+        "target closed",  # 浏览器/页面已关闭
+        "browser has been closed",  # 浏览器实例已关闭
+        "disconnected",  # Playwright 连接断开
     )
     return any(token in msg for token in expected_tokens)
 

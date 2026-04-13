@@ -66,6 +66,3 @@ def build_evidence_list_placeholder_service() -> IEvidenceListPlaceholderService
     from apps.evidence.services.evidence_list_placeholder_service import EvidenceListPlaceholderService
 
     return cast(IEvidenceListPlaceholderService, EvidenceListPlaceholderService())
-
-
-

@@ -8,8 +8,7 @@ SYSTEM_PROMPT = "你是资深诉讼律师，正在为当事人撰写法律服务
 
 _SECTION_PROMPTS: dict[str, str] = {
     "case_analysis": (
-        "请对以下案情进行分析，提炼关键事实、时间线、当事人关系及核心争议，200-400字。\n\n"
-        "案情简述：{case_summary}"
+        "请对以下案情进行分析，提炼关键事实、时间线、当事人关系及核心争议，200-400字。\n\n案情简述：{case_summary}"
     ),
     "legal_relation": (
         "基于以下案情，认定本案的法律关系类型，指出适用的主要法律条文及司法解释，200-300字。\n\n"
@@ -72,7 +71,14 @@ def build_section_prompt(
         "case_summary": case_summary,
         "research_results": research_results or "暂无类案检索结果",
     }
-    for key in ("case_analysis", "legal_relation", "dispute_focus", "similar_cases", "litigation_strategy", "risk_assessment"):
+    for key in (
+        "case_analysis",
+        "legal_relation",
+        "dispute_focus",
+        "similar_cases",
+        "litigation_strategy",
+        "risk_assessment",
+    ):
         ctx[key] = (existing_sections or {}).get(key, "（待生成）")
 
     template = _SECTION_PROMPTS.get(section_type, "请根据案情生成{section_type}内容。")

@@ -12,9 +12,9 @@ from typing import Any
 from django.utils.translation import gettext_lazy as _
 from ninja import Router
 
-from apps.core.security.auth import JWTOrSessionAuth
 from apps.core.exceptions import ValidationException
 from apps.core.infrastructure.throttling import rate_limit_from_settings
+from apps.core.security.auth import JWTOrSessionAuth
 
 from .download_response_factory import build_download_response
 

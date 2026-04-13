@@ -666,15 +666,18 @@ class MockTrialFlowService:
         else:
             config = self._parse_adversarial_config(text, models)
 
-        await self.session_repo.update_metadata(ctx.session_id, {
-            "adversarial_config": {
-                "plaintiff_model": config.plaintiff_model,
-                "defendant_model": config.defendant_model,
-                "judge_model": config.judge_model,
-                "debate_rounds": config.debate_rounds,
-                "user_role": config.user_role,
-            }
-        })
+        await self.session_repo.update_metadata(
+            ctx.session_id,
+            {
+                "adversarial_config": {
+                    "plaintiff_model": config.plaintiff_model,
+                    "defendant_model": config.defendant_model,
+                    "judge_model": config.judge_model,
+                    "debate_rounds": config.debate_rounds,
+                    "user_role": config.user_role,
+                }
+            },
+        )
 
         level_label = {"first": "一审", "second": "二审"}.get(config.trial_level, "一审")
         role_label = {"plaintiff": "原告律师", "defendant": "被告律师", "judge": "审判长", "observer": "观看模式"}.get(
@@ -757,7 +760,9 @@ class MockTrialFlowService:
 
         return config
 
-    async def _handle_adversarial_input(self, ctx: MockTrialContext, user_input: str, send_cb: Callable[..., Any]) -> None:
+    async def _handle_adversarial_input(
+        self, ctx: MockTrialContext, user_input: str, send_cb: Callable[..., Any]
+    ) -> None:
         """处理对抗模式中的用户输入."""
         text = (user_input or "").strip()
 
@@ -772,16 +777,23 @@ class MockTrialFlowService:
             if service:
                 await self._set_step(ctx.session_id, MockTrialStep.COURT_SUMMARY)
                 await service.run_summary(send_cb)
-                await send_cb({
-                    "type": "system_message",
-                    "content": "✅ 庭审结束！回复 **导出报告** 下载庭审报告。",
-                    "metadata": {"stage": "finished"},
-                })
+                await send_cb(
+                    {
+                        "type": "system_message",
+                        "content": "✅ 庭审结束！回复 **导出报告** 下载庭审报告。",
+                        "metadata": {"stage": "finished"},
+                    }
+                )
                 await self._set_step(ctx.session_id, MockTrialStep.SUMMARY)
             return
 
         # 切换角色
-        role_switch = {"我代替原告": "plaintiff", "我代替被告": "defendant", "我代替法官": "judge", "我观看": "observer"}
+        role_switch = {
+            "我代替原告": "plaintiff",
+            "我代替被告": "defendant",
+            "我代替法官": "judge",
+            "我观看": "observer",
+        }
         for keyword, role in role_switch.items():
             if keyword in text:
                 metadata = await self.session_repo.get_metadata(ctx.session_id)
@@ -792,10 +804,12 @@ class MockTrialFlowService:
                 if service:
                     service.config.user_role = role
                 label = {"plaintiff": "原告律师", "defendant": "被告律师", "judge": "审判长", "observer": "观看模式"}
-                await send_cb({
-                    "type": "system_message",
-                    "content": f"✅ 已切换为 **{label.get(role, role)}**",
-                })
+                await send_cb(
+                    {
+                        "type": "system_message",
+                        "content": f"✅ 已切换为 **{label.get(role, role)}**",
+                    }
+                )
                 return
 
         # 用户代替角色发言
@@ -858,9 +872,13 @@ class MockTrialFlowService:
         # 保存到 session metadata
         await self.session_repo.update_metadata(ctx.session_id, {"adversarial_report": report_text})
 
-        await send_cb({
-            "type": "assistant_complete",
-            "content": report_text,
-            "metadata": {"report_type": "adversarial_trial", "exportable": True},
-        })
-        await self.messenger.persist_message(ctx.session_id, "assistant", report_text, {"report_type": "adversarial_trial"})
+        await send_cb(
+            {
+                "type": "assistant_complete",
+                "content": report_text,
+                "metadata": {"report_type": "adversarial_trial", "exportable": True},
+            }
+        )
+        await self.messenger.persist_message(
+            ctx.session_id, "assistant", report_text, {"report_type": "adversarial_trial"}
+        )

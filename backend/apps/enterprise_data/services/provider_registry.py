@@ -168,4 +168,3 @@ class EnterpriseProviderRegistry:
             values.append(normalized)
             seen.add(normalized)
         return tuple(values)
-

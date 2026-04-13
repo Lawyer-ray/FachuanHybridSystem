@@ -29,9 +29,11 @@ def generate_case_folder(request: HttpRequest, case_id: int) -> Any:
     from apps.documents.services.generation.folder_generation_service import FolderGenerationService
 
     try:
-        case = Case.objects.select_related("contract__folder_binding", "folder_binding").prefetch_related(
-            "parties__client"
-        ).get(pk=case_id)
+        case = (
+            Case.objects.select_related("contract__folder_binding", "folder_binding")
+            .prefetch_related("parties__client")
+            .get(pk=case_id)
+        )
     except Case.DoesNotExist:
         return HttpResponse(status=404)
 
