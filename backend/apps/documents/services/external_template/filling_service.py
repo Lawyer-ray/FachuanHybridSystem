@@ -24,6 +24,12 @@ from django.db.models import QuerySet
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
+from apps.documents.services.placeholders.fallback import (
+    PLACEHOLDER_FALLBACK_VALUE,
+    get_service_placeholder_keys,
+    normalize_service_result,
+)
+
 if TYPE_CHECKING:
     from apps.documents.services.placeholders.registry import PlaceholderRegistry
 
@@ -88,7 +94,7 @@ class FillingService:
 
         preview_items: list[FillPreviewItem] = []
         for mapping in mappings:
-            fill_value: str = ""
+            fill_value: str = PLACEHOLDER_FALLBACK_VALUE
             value_source: str = "empty"
 
             if mapping.semantic_label in placeholder_values:
@@ -163,16 +169,20 @@ class FillingService:
         services = self._placeholder_registry.get_all_services()
 
         for service in services:
+            service_keys = get_service_placeholder_keys(service)
             try:
                 result: dict[str, Any] = service.generate(context_data)
-                for key, value in result.items():
-                    all_values[key] = str(value) if value is not None else ""
+                normalized = normalize_service_result(result, expected_keys=service_keys)
+                for key, value in normalized.items():
+                    all_values[key] = str(value)
             except Exception:
                 logger.exception(
                     "占位符服务 %s 生成失败: case_id=%d",
                     service.name,
                     case_id,
                 )
+                for key in service_keys:
+                    all_values[key] = PLACEHOLDER_FALLBACK_VALUE
 
         logger.info(
             "占位符值获取: case_id=%d, party_id=%s, keys=%d",
@@ -232,21 +242,19 @@ class FillingService:
         errors: list[str] = []
 
         for mapping in mappings:
-            value: str = ""
-            # 确定值来源：优先占位符体系，其次自定义值
+            value: str = PLACEHOLDER_FALLBACK_VALUE
+            # 确定值来源：优先占位符体系，其次自定义值，均无则使用斜杠兜底
             if mapping.semantic_label in placeholder_values:
                 value = placeholder_values[mapping.semantic_label]
             elif mapping.semantic_label in merged_custom:
                 value = merged_custom[mapping.semantic_label]
             else:
                 manual_needed.append(mapping.semantic_label)
-                skipped_count += 1
                 logger.info(
-                    "跳过无值字段: template_id=%d, label=%s",
+                    "字段无值，使用斜杠兜底: template_id=%d, label=%s",
                     template_id,
                     mapping.semantic_label,
                 )
-                continue
 
             # 根据 fill_type 调用对应写入方法
             success: bool = False

@@ -15,6 +15,10 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ValidationException
 from apps.core.utils.path import Path
+from apps.documents.services.placeholders.fallback import (
+    PLACEHOLDER_FALLBACK_VALUE,
+    build_docx_render_context,
+)
 
 from .result import GenerationResult
 
@@ -132,9 +136,11 @@ class BaseGenerator(ABC):
 
             # 加载并渲染模板
             doc = DocxTemplate(template_path)
-            if "年份" not in context:
-                context["年份"] = str(date.today().year)
-            doc.render(context)
+            render_context = dict(context)
+            render_context.setdefault("年份", str(date.today().year))
+            render_context = build_docx_render_context(doc=doc, context=render_context)
+            render_context.setdefault("年份", PLACEHOLDER_FALLBACK_VALUE)
+            doc.render(render_context)
 
             # 保存到内存缓冲区
             buffer = io.BytesIO()

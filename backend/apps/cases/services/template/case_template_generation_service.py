@@ -19,6 +19,7 @@ from docxtpl import DocxTemplate
 
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.utils.path import Path
+from apps.documents.services.placeholders.fallback import build_docx_render_context
 
 from .wiring import get_case_service, get_client_service, get_document_service
 
@@ -276,7 +277,7 @@ class CaseTemplateGenerationService:
         try:
             logger.info("渲染模板", extra={"template_path": str(template_path), "context_keys": list(context.keys())})
             doc = DocxTemplate(str(template_path))
-            doc.render(context)
+            doc.render(build_docx_render_context(doc=doc, context=context))
             buffer = io.BytesIO()
             doc.save(buffer)
             buffer.seek(0)

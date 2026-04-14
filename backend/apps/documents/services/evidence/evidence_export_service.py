@@ -117,7 +117,7 @@ class EvidenceExportService:
         # Requirements: 6.1
         try:
             doc = DocxTemplate(template_path)
-            doc.render(context)
+            doc.render(build_docx_render_context(doc=doc, context=context))
 
             # 保存到内存
             buffer = io.BytesIO()

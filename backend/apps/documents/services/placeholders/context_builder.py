@@ -9,6 +9,12 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ValidationException
 
+from .fallback import (
+    PLACEHOLDER_FALLBACK_VALUE,
+    ensure_required_placeholders,
+    get_service_placeholder_keys,
+    normalize_service_result,
+)
 from .registry import PlaceholderRegistry
 from .types import PlaceholderContextData
 
@@ -49,11 +55,13 @@ class EnhancedContextBuilder:
         services = self._get_relevant_services(required_placeholders)
 
         for service in services:
+            service_keys = get_service_placeholder_keys(service)
             try:
                 service_result = service.generate(context_data)
-                if service_result:
-                    context.update(service_result)
-                    logger.debug("服务 %s 生成了 %s 个占位符", service.name, len(service_result))
+                normalized_result = normalize_service_result(service_result, expected_keys=service_keys)
+                if normalized_result:
+                    context.update(normalized_result)
+                    logger.debug("服务 %s 生成了 %s 个占位符", service.name, len(normalized_result))
             except Exception as e:
                 logger.error(
                     "占位符服务执行失败: %s",
@@ -65,6 +73,7 @@ class EnhancedContextBuilder:
                     },
                     exc_info=True,
                 )
+                context.update({key: PLACEHOLDER_FALLBACK_VALUE for key in service_keys})
                 # 继续执行其他服务,不中断整个流程
                 continue
 
@@ -80,8 +89,10 @@ class EnhancedContextBuilder:
                 if old_key in context:
                     context[new_key] = context[old_key]
 
-        logger.info("上下文构建完成,生成了 %s 个占位符", len(context))
-        return context
+        final_context = ensure_required_placeholders(context, required_placeholders)
+
+        logger.info("上下文构建完成,生成了 %s 个占位符", len(final_context))
+        return final_context
 
     def _normalize_context_data(self, context_data: PlaceholderContextData) -> PlaceholderContextData:
         """标准化上下文,对常见缺失键进行兜底补全."""

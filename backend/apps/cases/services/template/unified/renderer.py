@@ -27,7 +27,7 @@ class DocxRenderer:
             )
 
             doc = DocxTemplate(str(template_path))
-            doc.render(context)
+            doc.render(build_docx_render_context(doc=doc, context=context))
 
             buffer = io.BytesIO()
             doc.save(buffer)

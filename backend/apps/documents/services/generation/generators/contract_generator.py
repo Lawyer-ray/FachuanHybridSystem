@@ -10,6 +10,7 @@ from typing import Any, ClassVar, cast
 
 from apps.core.utils.path import Path
 from apps.documents.services.generation.base_generator import BaseGenerator
+from apps.documents.services.placeholders.fallback import PLACEHOLDER_FALLBACK_VALUE
 from apps.documents.services.generation.registry import GeneratorRegistry
 from apps.documents.services.generation.result import GenerationResult
 
@@ -61,9 +62,9 @@ class ContractGenerator(BaseGenerator):
         is_valid, missing = self.validate_context(context)
         if not is_valid:
             logger.warning("上下文缺少必需占位符: %s", missing)
-            # 继续生成,缺失的占位符使用空字符串
+            # 继续生成,缺失的占位符使用斜杠兜底
             for key in missing:
-                context[key] = ""
+                context[key] = PLACEHOLDER_FALLBACK_VALUE
 
         try:
             # 渲染模板
