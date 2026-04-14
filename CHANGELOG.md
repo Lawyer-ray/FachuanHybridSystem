@@ -2,6 +2,23 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.33.17] - 2026-04-13
+
+### 后端
+
+- 法院短信文书下载入口升级为“域名优先 + 页面结构识别兜底”：`CourtDocumentScraper` 在域名未命中时新增 Playwright 页面结构探测，按平台特征动态分发到 `zxfw/gdems/jysd/hbfy/sfdw` scraper，提升同构异域名场景兼容性。
+- 短信链接提取与校验规则从固定域名收口为“路径结构 + 关键参数”识别：`SMSParserService` 与 `DownloadLinkExtractor` 新增通用 URL 候选兜底、链接清洗与统一校验流程，避免同构域名短信在前置解析阶段漏链。
+- 下载参数注入链路联动结构识别：`SMSDownloadMixin` 新增 `jysd/hbfy/sfdw` 结构判定辅助方法，支持非预设域名但同路径结构的链接进入对应下载流程。
+- 回归测试补强：`test_guangxi_sfdw_support.py` 新增同构异域名识别与提取用例，覆盖短信解析器、下载链接提取器与下载参数注入判定。
+- Django Admin 顶栏“注销”入口改为表单 `POST` 提交并携带 CSRF Token，避免 GET 方式触发注销带来的安全与兼容性问题。
+- Django Admin 顶栏新增“系统配置”快捷入口，支持从右上角直接跳转到 `core/systemconfig` 管理页。
+- 客户管理新增页（`client/add`）联系电话字段新增“截取首号”按钮，可按首个中英文逗号快速裁剪并保留第一组号码。
+- 安全加固：将法院平台识别中的域名判断从整串 URL 子串匹配改为 `urlparse` 后的 `hostname/path` 结构化判断，修复 CodeQL `py/incomplete-url-substring-sanitization` 高危告警。
+
+### 质量保障
+
+- 已对本次变更执行并通过定向检查：`ruff`、`mypy`、短信模块回归测试（`7 passed`）以及项目 `ci-check` 相关流程。
+
 ## [26.33.16] - 2026-04-13
 
 ### 后端

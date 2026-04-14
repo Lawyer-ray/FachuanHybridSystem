@@ -3,6 +3,7 @@
 import logging
 import re
 from typing import Any
+from urllib.parse import parse_qs, urlparse
 
 from django_q.tasks import async_task
 
@@ -24,10 +25,37 @@ class SMSDownloadMixin:
         digits = "".join(ch for ch in str(raw or "") if ch.isdigit())
         return digits[-6:] if len(digits) >= 6 else None
 
+    @staticmethod
+    def _host_equals_or_subdomain(host: str, domain: str) -> bool:
+        return host == domain or host.endswith(f".{domain}")
+
     @classmethod
     def _is_sfdw_url(cls, url: str) -> bool:
-        url_lower = url.lower()
-        return "sfpt.cdfy12368.gov.cn" in url_lower or cls.SFDW_GUANGXI_HOST in url_lower
+        parsed = urlparse(url)
+        host = (parsed.hostname or "").lower()
+        path = parsed.path.lower()
+        return (
+            cls._host_equals_or_subdomain(host, "sfpt.cdfy12368.gov.cn")
+            or (host == "171.106.48.55" and parsed.port == 28083)
+            or "/sfsdw//r/" in path
+        )
+
+    @classmethod
+    def _is_jysd_url(cls, url: str) -> bool:
+        parsed = urlparse(url)
+        host = (parsed.hostname or "").lower()
+        path = parsed.path.lower()
+        query = parse_qs(parsed.query)
+        return cls._host_equals_or_subdomain(host, "jysd.10102368.com") or (path.endswith("/sd") and "key" in query)
+
+    @classmethod
+    def _is_hbfy_account_url(cls, url: str) -> bool:
+        parsed = urlparse(url)
+        host = (parsed.hostname or "").lower()
+        path = parsed.path.lower()
+        return (cls._host_equals_or_subdomain(host, "dzsd.hbfy.gov.cn") and path.endswith("/sfsddz")) or path.endswith(
+            "/sfsddz"
+        )
 
     def _collect_lawyer_phone_tail6_candidates(self, sms: CourtSMS) -> list[str]:
         """基于现有律师手机号优先级，提取后6位候选并去重。"""
@@ -119,14 +147,14 @@ class SMSDownloadMixin:
 
             task_config: dict[str, Any] = {"court_sms_id": sms.id, "auto_download": True, "source": "court_sms"}
 
-            if "dzsd.hbfy.gov.cn/sfsddz" in download_url:
+            if self._is_hbfy_account_url(download_url):
                 account, password = self._extract_hbfy_credentials(sms.content)
                 if account and password:
                     logger.info(f"短信 {sms.id} 提取到湖北账号模式凭证，将在下载阶段临时使用（不落库）")
                 else:
                     logger.warning(f"短信 {sms.id} 为湖北账号模式但未提取到完整凭证")
 
-            if "jysd.10102368.com" in download_url:
+            if self._is_jysd_url(download_url):
                 lawyer_phones = self._collect_lawyer_phones(sms)
                 if lawyer_phones:
                     task_config["jysd_lawyer_phones"] = lawyer_phones
