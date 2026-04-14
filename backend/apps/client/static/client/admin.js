@@ -10,6 +10,7 @@
     $(document).ready(function() {
         initTextParsing();
         initFormEnhancements();
+        initIdCardValidation();
     });
 
     /**
@@ -346,6 +347,96 @@
 
         // 触发初始化
         $('#id_client_type').trigger('change');
+    }
+
+    /**
+     * 初始化身份证校验功能
+     */
+    function initIdCardValidation() {
+        // 在身份证号输入框后添加校验按钮容器
+        var $idNumberField = $('#id_id_number');
+        if ($idNumberField.length === 0) return;
+
+        // 创建校验按钮容器（初始隐藏）
+        var $validateBtn = $('<button type="button" id="id-card-validate-btn" style="display:none; margin-left: 8px; padding: 6px 12px; background: #417690; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; vertical-align: middle;">校验</button>');
+        var $validateResult = $('<span id="id-card-validate-result" style="margin-left: 8px; font-size: 13px;"></span>');
+
+        $idNumberField.after($validateResult).after($validateBtn);
+
+        // 监听客户类型变化
+        $('#id_client_type').on('change', function() {
+            var clientType = $(this).val();
+            if (clientType === 'natural') {
+                $validateBtn.show();
+            } else {
+                $validateBtn.hide();
+                $validateResult.text('');
+            }
+        });
+
+        // 触发初始化
+        $('#id_client_type').trigger('change');
+
+        // 绑定校验按钮点击事件
+        $validateBtn.on('click', handleIdCardValidation);
+
+        // 支持按回车键触发校验
+        $idNumberField.on('keypress', function(e) {
+            if (e.which === 13 && $('#id_client_type').val() === 'natural') {
+                e.preventDefault();
+                handleIdCardValidation();
+            }
+        });
+    }
+
+    /**
+     * 处理身份证校验
+     */
+    function handleIdCardValidation() {
+        var idNumber = $('#id_id_number').val().trim();
+        var $validateResult = $('#id-card-validate-result');
+        var $validateBtn = $('#id-card-validate-btn');
+
+        if (!idNumber) {
+            showValidateResult($validateResult, false, '请输入身份证号码');
+            return;
+        }
+
+        // 显示加载状态
+        $validateBtn.prop('disabled', true).text('校验中...');
+        $validateResult.text('');
+
+        // 调用校验 API
+        $.ajax({
+            url: '/api/v1/client/clients/validate-id-card',
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            data: JSON.stringify({
+                id_number: idNumber
+            }),
+            success: function(response) {
+                showValidateResult($validateResult, response.valid, response.message);
+            },
+            error: function(xhr, status, error) {
+                console.error('校验请求失败:', error);
+                showValidateResult($validateResult, false, '校验请求失败，请检查网络连接');
+            },
+            complete: function() {
+                $validateBtn.prop('disabled', false).text('校验');
+            }
+        });
+    }
+
+    /**
+     * 显示校验结果
+     */
+    function showValidateResult($element, isValid, message) {
+        var color = isValid ? '#4caf50' : '#f44336';
+        var icon = isValid ? '✓' : '✗';
+        $element.html('<span style="color: ' + color + ';">' + icon + ' ' + message + '</span>');
     }
 
     /**
