@@ -15,6 +15,7 @@ from docx.shared import Cm
 from docxtpl import DocxTemplate
 
 from apps.core.exceptions import NotFoundError, ValidationException
+from apps.documents.services.placeholders.fallback import build_docx_render_context
 from apps.evidence.models import EvidenceItem, EvidenceList
 
 if TYPE_CHECKING:
@@ -118,7 +119,7 @@ class EvidenceExportService:
         # Requirements: 6.1
         try:
             doc = DocxTemplate(template_path)
-            doc.render(context)
+            doc.render(build_docx_render_context(doc=doc, context=context))
 
             # 保存到内存
             buffer = io.BytesIO()

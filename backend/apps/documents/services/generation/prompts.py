@@ -7,13 +7,14 @@ from dataclasses import dataclass
 from typing import Any
 
 from apps.core.llm.structured_output import json_schema_instructions
+from apps.documents.services.placeholders.fallback import PLACEHOLDER_FALLBACK_VALUE
 
 logger = logging.getLogger("apps.documents.generation")
 
 
 class _SafeDict(dict[str, str]):
     def __missing__(self, key: str) -> str:
-        return ""
+        return PLACEHOLDER_FALLBACK_VALUE
 
 
 @dataclass(frozen=True)
@@ -23,7 +24,9 @@ class PromptSpec:
     format_instructions: str
 
     def render_user_message(self, values: dict[str, Any]) -> str:
-        normalized: dict[str, str] = {key: "" if value is None else str(value) for key, value in (values or {}).items()}
+        normalized: dict[str, str] = {
+            key: PLACEHOLDER_FALLBACK_VALUE if value is None else str(value) for key, value in (values or {}).items()
+        }
         normalized.setdefault("format_instructions", self.format_instructions)
         return self.user_template.format_map(_SafeDict(normalized))
 

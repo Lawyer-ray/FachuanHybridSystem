@@ -4,6 +4,8 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
+from apps.documents.services.placeholders.fallback import resolve_render_variable
+
 
 @dataclass(frozen=True)
 class RenderStats:
@@ -41,10 +43,15 @@ class PlaceholderRenderService:
             raw_key = match.group(1)
             key = raw_key.strip()
             found_keys.append(key)
-            if key in variables:
+
+            is_hit, value = resolve_render_variable(variables, key)
+            if is_hit:
                 hit_keys.append(key)
-                return str(variables.get(key, ""))
-            return match.group(0) if keep_unmatched else ""
+                return value
+
+            if keep_unmatched:
+                return value
+            return value
 
         rendered = pattern.sub(repl, template)
         found_unique = list(dict.fromkeys(found_keys))
