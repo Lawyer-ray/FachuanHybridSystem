@@ -6,12 +6,19 @@
 (function($) {
     'use strict';
 
-    // 当页面加载完成时初始化
-    $(document).ready(function() {
+    // 使用 addEventListener 确保 DOM 加载完成后执行
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        // DOM 已经加载完成
+        init();
+    }
+
+    function init() {
         initTextParsing();
         initFormEnhancements();
         initIdCardValidation();
-    });
+    }
 
     /**
      * 初始化文本解析功能

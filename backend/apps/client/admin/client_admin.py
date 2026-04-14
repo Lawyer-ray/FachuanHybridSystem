@@ -163,7 +163,7 @@ class ClientAdminForm(forms.ModelForm[Client]):
 
     class Media:
         css: ClassVar = {"all": ("client/admin.css",)}
-        js: ClassVar = ("client/admin.js",)
+        js: ClassVar = ("admin/js/jquery.init.js", "client/admin.js")
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
