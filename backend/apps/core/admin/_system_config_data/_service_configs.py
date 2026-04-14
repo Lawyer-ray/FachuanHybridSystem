@@ -241,28 +241,28 @@ def get_ocr_configs() -> list[dict[str, Any]]:
             "key": "PADDLEOCR_OCR_API_URL",
             "category": "ocr",
             "description": "PaddleOCR OCR 接口地址（PP-OCRv5 / PP-StructureV3 共用）",
-            "value": "",
+            "value": "https://ndvex8b5vcd0teg7.aistudio-app.com/ocr",
             "is_secret": False,
         },
         {
             "key": "PADDLEOCR_VL_API_URL",
             "category": "ocr",
             "description": "PaddleOCR-VL 版面分析接口地址",
-            "value": "",
+            "value": "https://h8d58fh8mfw84cj4.aistudio-app.com/layout-parsing",
             "is_secret": False,
         },
         {
             "key": "PADDLEOCR_VL15_API_URL",
             "category": "ocr",
             "description": "PaddleOCR-VL-1.5 高精度版面分析接口地址",
-            "value": "",
+            "value": "https://k4j5n7j1afr2j9p5.aistudio-app.com/layout-parsing",
             "is_secret": False,
         },
         {
             "key": "PADDLEOCR_API_TOKEN",
             "category": "ocr",
             "description": "PaddleOCR API Token（Authorization: token {TOKEN}）",
-            "value": "",
+            "value": "7c120d2b6d1c17b97e755ca59f82b6ecb28a6ee9",  # pragma: allowlist secret
             "is_secret": True,
         },
     ]
