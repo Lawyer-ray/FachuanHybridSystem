@@ -383,7 +383,7 @@ class DocumentAttachmentService:
                 case_name = case_name[:30]
 
             # 尝试从原文件名中提取标题
-            title = "司法文书"  # 默认标题
+            title = ""  # 默认为空，后续降级使用原文件名
 
             # 常见的文书类型模式
             title_patterns = [
@@ -401,6 +401,12 @@ class DocumentAttachmentService:
                     title = match.group(1)
                     break
 
+            # 降级：匹配不到时使用原文件名（去除扩展名）作为标题
+            if not title:
+                title = self._sanitize_filename_part(name_without_ext)
+                if not title:
+                    title = "司法文书"
+
             # 生成正确格式的文件名
             fixed_filename = f"{title}（{case_name}）_{date_str}收.pdf"
 
@@ -409,10 +415,12 @@ class DocumentAttachmentService:
 
         except Exception as e:
             logger.warning(f"修正文件名格式失败: {filename}, 错误: {e!s}")
-            # 返回一个基本的格式
+            # 返回一个基本的格式，使用原文件名作为标题
+            name_without_ext = filename.rsplit(".", 1)[0] if "." in filename else filename
+            fallback_title = self._sanitize_filename_part(name_without_ext) or "司法文书"
             case_name = sms.case.name if sms.case else "未知案件"
             date_str = sms.received_at.strftime("%Y%m%d")
-            return f"司法文书（{case_name}）_{date_str}收.pdf"
+            return f"{fallback_title}（{case_name}）_{date_str}收.pdf"
 
     def _sanitize_filename_part(self, text: str) -> str:
         """

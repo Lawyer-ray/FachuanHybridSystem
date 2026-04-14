@@ -212,6 +212,9 @@ class DocumentRenamer:
         """
         从文件名中提取标题（降级方案）
 
+        当规则无法从文件名中识别出文书标题时，使用原始文件名（去除扩展名）
+        作为标题，避免所有无法识别的文件都被重命名为"司法文书"。
+
         Args:
             document_path: 文件路径
 
@@ -220,7 +223,12 @@ class DocumentRenamer:
         """
         filename = Path(document_path).stem
         title = self._match_title_from_text(filename)
-        return title or "司法文书"
+        if title:
+            return title
+
+        # 降级：使用原始文件名作为标题，而非"司法文书"
+        cleaned = self._sanitize_filename_part(filename)
+        return cleaned if cleaned else "司法文书"
 
     def generate_filename(self, title: str, case_name: str, received_date: date) -> str:
         """
@@ -367,9 +375,12 @@ class DocumentRenamer:
         except Exception as e:
             logger.warning(f"重命名失败，使用降级方案: {e!s}")
 
-            # 降级方案：使用原始名称或简单格式
+            # 降级方案：使用原始文件名（去除扩展名）作为标题
             if original_name:
-                fallback_title = original_name
+                fallback_title = Path(original_name).stem
+                fallback_title = self._sanitize_filename_part(fallback_title)
+                if not fallback_title:
+                    fallback_title = "司法文书"
             else:
                 fallback_title = "司法文书"
 
