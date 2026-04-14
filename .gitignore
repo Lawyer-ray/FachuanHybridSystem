@@ -214,3 +214,6 @@ docs/refactor-plans/
 
 backend/.playwright-cli/
 extensions/
+
+# Local scratch notes
+.test/
