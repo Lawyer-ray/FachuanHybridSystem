@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import math
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -24,10 +25,13 @@ _LIST_API = "https://zxfw.court.gov.cn/yzw/yzw-zxfw-sdfw/api/v1/sdfw/getSdListBy
 _DETAIL_API = "https://zxfw.court.gov.cn/yzw/yzw-zxfw-sdfw/api/v1/sdfw/getWsListBySdbhNew"
 _TIMEOUT = 30.0
 _PAGE_SIZE = 20
+_MAX_API_RETRIES = 2
+_RETRYABLE_STATUS_CODES = frozenset({429, 500, 502, 503, 504})
+_RETRY_BACKOFF_SECONDS = (0.6, 1.2)
 
 
 def _api_post(url: str, token: str, data: dict[str, Any]) -> dict[str, Any]:
-    """发送 POST 请求到一张网 API。"""
+    """发送 POST 请求到一张网 API，内置重试与退避。"""
     headers = {
         "Authorization": token,
         "Content-Type": "application/json",
@@ -39,15 +43,47 @@ def _api_post(url: str, token: str, data: dict[str, Any]) -> dict[str, Any]:
         "Referer": "https://zxfw.court.gov.cn/zxfw/",
         "Origin": "https://zxfw.court.gov.cn",
     }
+
     with httpx.Client(timeout=_TIMEOUT) as client:
-        resp = client.post(url, headers=headers, json=data)
-    if resp.status_code == 401:
-        raise PermissionError(_("Token 已过期"))
-    resp.raise_for_status()
-    body: dict[str, Any] = resp.json()
-    if body.get("code") != 200:
-        raise RuntimeError(f"API 错误: {body.get('msg', body)}")
-    return body
+        for attempt in range(_MAX_API_RETRIES + 1):
+            try:
+                resp = client.post(url, headers=headers, json=data)
+            except httpx.RequestError as exc:
+                if attempt >= _MAX_API_RETRIES:
+                    raise
+                backoff = _RETRY_BACKOFF_SECONDS[min(attempt, len(_RETRY_BACKOFF_SECONDS) - 1)]
+                logger.warning(
+                    "一张网 API 网络异常，准备重试: url=%s, attempt=%d/%d, error=%s",
+                    url,
+                    attempt + 1,
+                    _MAX_API_RETRIES + 1,
+                    exc,
+                )
+                time.sleep(backoff)
+                continue
+
+            if resp.status_code == 401:
+                raise PermissionError(_("Token 已过期"))
+
+            if resp.status_code in _RETRYABLE_STATUS_CODES and attempt < _MAX_API_RETRIES:
+                backoff = _RETRY_BACKOFF_SECONDS[min(attempt, len(_RETRY_BACKOFF_SECONDS) - 1)]
+                logger.warning(
+                    "一张网 API 返回可重试状态码，准备重试: url=%s, status=%s, attempt=%d/%d",
+                    url,
+                    resp.status_code,
+                    attempt + 1,
+                    _MAX_API_RETRIES + 1,
+                )
+                time.sleep(backoff)
+                continue
+
+            resp.raise_for_status()
+            body: dict[str, Any] = resp.json()
+            if body.get("code") != 200:
+                raise RuntimeError(f"API 错误: {body.get('msg', body)}")
+            return body
+
+    raise RuntimeError(_("一张网 API 请求失败"))
 
 
 def _acquire_token(credential_id: int) -> str:

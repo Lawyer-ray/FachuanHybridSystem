@@ -7,7 +7,9 @@
     <script>
     window.CLIENT_I18N = {
         idCardLabel: '{% trans "身份证号码:" %}',
-        creditCodeLabel: '{% trans "统一社会信用代码:" %}'
+        creditCodeLabel: '{% trans "统一社会信用代码:" %}',
+        trimPhoneButtonLabel: '{% trans "截取首号" %}',
+        trimPhoneButtonTitle: '{% trans "从第一个逗号开始截断，仅保留首个联系电话" %}'
     };
     </script>
     <style>
@@ -903,11 +905,58 @@
             updateFormByClientType();
         }
 
+        /**
+         * 在新增页给联系电话字段增加“截取首号”按钮。
+         * 规则：以第一个逗号（半角或全角）为分隔，仅保留前半段。
+         */
+        function initPhoneTrimButton() {
+            if (!window.location.pathname.includes('/add/')) {
+                return;
+            }
+
+            const phoneInput = document.getElementById('id_phone');
+            if (!phoneInput || document.getElementById('id_phone_trim_first_btn')) {
+                return;
+            }
+
+            const trimButton = document.createElement('button');
+            trimButton.type = 'button';
+            trimButton.id = 'id_phone_trim_first_btn';
+            trimButton.className = 'button';
+            trimButton.textContent = window.CLIENT_I18N?.trimPhoneButtonLabel || '截取首号';
+            trimButton.title = window.CLIENT_I18N?.trimPhoneButtonTitle || '从第一个逗号开始截断，仅保留首个联系电话';
+            trimButton.style.marginLeft = '8px';
+            trimButton.style.padding = '4px 8px';
+            trimButton.style.height = '30px';
+            trimButton.style.lineHeight = '20px';
+            trimButton.style.whiteSpace = 'nowrap';
+
+            trimButton.addEventListener('click', () => {
+                const currentValue = String(phoneInput.value || '');
+                const commaIndexes = [currentValue.indexOf(','), currentValue.indexOf('，')].filter(index => index >= 0);
+                if (commaIndexes.length === 0) {
+                    return;
+                }
+
+                const firstCommaIndex = Math.min(...commaIndexes);
+                phoneInput.value = currentValue.slice(0, firstCommaIndex).trim();
+                phoneInput.dispatchEvent(new Event('input', { bubbles: true }));
+                phoneInput.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+
+            phoneInput.insertAdjacentElement('afterend', trimButton);
+        }
+
+        function initClientAdminEnhancements() {
+            initClientTypeToggle();
+            initPhoneTrimButton();
+        }
+
         // DOM 加载完成后初始化
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initClientTypeToggle);
+            document.addEventListener('DOMContentLoaded', initClientAdminEnhancements);
         } else {
-            initClientTypeToggle();
+            initClientAdminEnhancements();
         }
     })();
     </script>

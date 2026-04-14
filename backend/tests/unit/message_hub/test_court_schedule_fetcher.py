@@ -3,6 +3,7 @@
 from datetime import timedelta
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 from django.utils import timezone
 
@@ -405,6 +406,25 @@ class TestCourtScheduleFetcher:
 
         assert count == 0
         assert mock_token.call_count == 2  # 初始 + 重试
+
+    @patch("apps.message_hub.services.court.court_schedule_fetcher._acquire_token")
+    def test_fetch_server_error_retry_with_token_refresh(self, mock_token):
+        """5xx 场景应刷新 Token 并重试一次。"""
+        mock_token.side_effect = ["old_token", "new_token"]
+
+        request = httpx.Request("POST", "https://zxfw.court.gov.cn/yzw/yzw-zxfw-xxfw/api/v1/zhrl/list")
+        response = httpx.Response(500, request=request)
+        server_error = httpx.HTTPStatusError("Server error", request=request, response=response)
+
+        with patch("apps.message_hub.services.court.court_schedule_fetcher._api_post") as mock_api:
+            mock_api.side_effect = [server_error, {"data": [], "totalRows": 0}]
+
+            with patch("apps.message_hub.services.court.court_schedule_fetcher._invalidate_token") as mock_invalidate:
+                count = self.fetcher.fetch_new_messages(self.source)
+
+        assert count == 0
+        assert mock_token.call_count == 2
+        mock_invalidate.assert_called_once()
 
     @patch("apps.message_hub.services.court.court_schedule_fetcher._api_post")
     @patch("apps.message_hub.services.court.court_schedule_fetcher._acquire_token")

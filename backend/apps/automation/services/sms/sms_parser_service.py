@@ -9,6 +9,7 @@ import logging
 import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional, cast
+from urllib.parse import parse_qs, urlparse
 
 from apps.automation.models import CourtSMSType
 from apps.automation.utils.text_utils import TextUtils
@@ -37,30 +38,34 @@ class SMSParseResult:
 class SMSParserService:
     """短信解析服务"""
 
-    # 下载链接正则（必须包含 qdbh、sdbh、sdsin 参数）- zxfw.court.gov.cn
+    # 下载链接正则（必须包含 qdbh、sdbh、sdsin 参数）
+    # 支持同构异域名：只校验路径结构和必要参数，不绑定固定 host
     DOWNLOAD_LINK_PATTERN = re.compile(
-        r"https://zxfw\.court\.gov\.cn/zxfw/#/pagesAjkj/app/wssd/index\?"
+        r"https?://[^\s/]+/zxfw/#/pagesAjkj/app/wssd/index\?"
         r"[^\s]*?(?=.*qdbh=[^\s&]+)(?=.*sdbh=[^\s&]+)(?=.*sdsin=[^\s&]+)[^\s]*",
         re.IGNORECASE,
     )
 
-    # 广东电子送达链接正则 - sd.gdems.com
-    # 格式: https://sd.gdems.com/v3/dzsd/xxxxx
-    GDEMS_LINK_PATTERN = re.compile(r"https://sd\.gdems\.com/v3/dzsd/[a-zA-Z0-9]+", re.IGNORECASE)
+    # 广东电子送达链接正则
+    # 格式: https://<任意域名>/v3/dzsd/xxxxx
+    GDEMS_LINK_PATTERN = re.compile(r"https?://[^\s/]+/v3/dzsd/[a-zA-Z0-9]+", re.IGNORECASE)
 
-    # 简易送达链接正则 - jysd.10102368.com
-    # 格式: https://jysd.10102368.com/sd?key=xxxxx
-    JYSD_LINK_PATTERN = re.compile(r"https://jysd\.10102368\.com/sd\?key=[a-zA-Z0-9_\-]+", re.IGNORECASE)
+    # 简易送达链接正则
+    # 格式: https://<任意域名>/sd?key=xxxxx
+    JYSD_LINK_PATTERN = re.compile(r"https?://[^\s/]+/sd\?key=[a-zA-Z0-9_\-]+", re.IGNORECASE)
 
-    # 湖北电子送达链接正则 - dzsd.hbfy.gov.cn
-    # 1) 免账号短信链接: http://dzsd.hbfy.gov.cn/hb/msg=xxxx
-    # 2) 账号密码入口: http://dzsd.hbfy.gov.cn/sfsddz
-    HBFY_PUBLIC_LINK_PATTERN = re.compile(r"https?://dzsd\.hbfy\.gov\.cn/hb/msg=[a-zA-Z0-9]+", re.IGNORECASE)
-    HBFY_ACCOUNT_LINK_PATTERN = re.compile(r"https?://dzsd\.hbfy\.gov\.cn/sfsddz\b", re.IGNORECASE)
+    # 湖北电子送达链接正则
+    # 1) 免账号短信链接: http(s)://<任意域名>/hb/msg=xxxx
+    # 2) 账号密码入口: http(s)://<任意域名>/sfsddz
+    HBFY_PUBLIC_LINK_PATTERN = re.compile(r"https?://[^\s/]+/hb/msg=[a-zA-Z0-9]+", re.IGNORECASE)
+    HBFY_ACCOUNT_LINK_PATTERN = re.compile(r"https?://[^\s/]+/sfsddz\b", re.IGNORECASE)
 
-    # 司法送达网链接正则 - sfpt.cdfy12368.gov.cn
-    # 格式: https://sfpt.cdfy12368.gov.cn:806/sfsdw//r/xxxxxx
-    SFDW_LINK_PATTERN = re.compile(r"https?://sfpt\.cdfy12368\.gov\.cn:\d+/sfsdw//r/[a-zA-Z0-9]+", re.IGNORECASE)
+    # 司法送达网链接正则
+    # 格式: http(s)://<任意域名或IP[:端口]>/sfsdw//r/xxxxxx
+    SFDW_LINK_PATTERN = re.compile(r"https?://[^\s/]+/sfsdw//r/[a-zA-Z0-9]+", re.IGNORECASE)
+
+    # 通用 URL 候选提取（用于兜底识别）
+    URL_CANDIDATE_PATTERN = re.compile(r"https?://[^\s<>'\"，。；;]+", re.IGNORECASE)
     # 司法送达网验证码正则
     # 格式: 验证码：xxxx
     SFDW_VERIFICATION_CODE_PATTERN = re.compile(r"验证码[：:]\s*(\w{4,6})")
@@ -213,9 +218,10 @@ class SMSParserService:
         """
         提取有效下载链接
 
-        支持两种链接格式：
-        1. zxfw.court.gov.cn - 法院执行平台
-        2. sd.gdems.com - 广东电子送达
+        识别策略：
+        1. 优先用平台特征正则提取（路径结构）
+        2. 再用通用 URL 正则兜底
+        3. 统一做链接清洗 + 平台规则校验
 
         Args:
             content: 短信内容
@@ -223,62 +229,42 @@ class SMSParserService:
         Returns:
             List[str]: 有效下载链接列表
         """
-        valid_links = []
+        valid_links: list[str] = []
+        seen: set[str] = set()
 
-        # 1. 提取 zxfw.court.gov.cn 链接
-        zxfw_matches = self.DOWNLOAD_LINK_PATTERN.findall(content)
-        for link in set(zxfw_matches):
+        candidate_links: list[str] = []
+        candidate_links.extend(self.DOWNLOAD_LINK_PATTERN.findall(content))
+        candidate_links.extend(self.GDEMS_LINK_PATTERN.findall(content))
+        candidate_links.extend(self.JYSD_LINK_PATTERN.findall(content))
+        candidate_links.extend(self.HBFY_PUBLIC_LINK_PATTERN.findall(content))
+        candidate_links.extend(self.HBFY_ACCOUNT_LINK_PATTERN.findall(content))
+        candidate_links.extend(self.SFDW_LINK_PATTERN.findall(content))
+        candidate_links.extend(self.URL_CANDIDATE_PATTERN.findall(content))
+
+        for raw_link in candidate_links:
+            link = self._sanitize_link(raw_link)
+            if not link or link in seen:
+                continue
             if self._is_valid_download_link(link):
                 valid_links.append(link)
-
-        # 2. 提取 sd.gdems.com 链接
-        gdems_matches = self.GDEMS_LINK_PATTERN.findall(content)
-        for link in set(gdems_matches):
-            if link not in valid_links:
-                valid_links.append(link)
-                logger.info(f"提取到广东电子送达链接: {link}")
-
-        # 3. 提取 jysd.10102368.com 链接（简易送达）
-        jysd_matches = self.JYSD_LINK_PATTERN.findall(content)
-        for link in set(jysd_matches):
-            if link not in valid_links:
-                valid_links.append(link)
-                logger.info(f"提取到简易送达链接: {link}")
-
-        # 4. 提取湖北电子送达免账号链接
-        hbfy_public_matches = self.HBFY_PUBLIC_LINK_PATTERN.findall(content)
-        for link in set(hbfy_public_matches):
-            if link not in valid_links:
-                valid_links.append(link)
-                logger.info(f"提取到湖北电子送达免账号链接: {link}")
-
-        # 5. 提取湖北电子送达账号入口
-        hbfy_account_matches = self.HBFY_ACCOUNT_LINK_PATTERN.findall(content)
-        for link in set(hbfy_account_matches):
-            if link not in valid_links:
-                valid_links.append(link)
-                logger.info(f"提取到湖北电子送达账号入口: {link}")
-
-        # 6. 提取司法送达网链接（sfpt.cdfy12368.gov.cn）
-        sfdw_matches = self.SFDW_LINK_PATTERN.findall(content)
-        for link in set(sfdw_matches):
-            if link not in valid_links:
-                valid_links.append(link)
-                logger.info(f"提取到司法送达网链接: {link}")
+                seen.add(link)
+                logger.info("提取到有效下载链接: %s", link)
 
         if valid_links:
-            logger.info(f"提取到 {len(valid_links)} 个有效下载链接")
+            logger.info("提取到 %s 个有效下载链接", len(valid_links))
         else:
             logger.info("未找到有效下载链接")
 
         return valid_links
 
+    def _sanitize_link(self, link: str) -> str:
+        """清洗短信中提取的链接，去除尾部标点。"""
+        trailing_chars = ".,;:，。；：!！?？)）]】\"'“”"
+        return (link or "").strip().rstrip(trailing_chars)
+
     def _is_valid_download_link(self, link: str) -> bool:
         """
-        验证下载链接是否有效
-
-        对于 zxfw.court.gov.cn 链接，需要包含必要参数
-        对于 sd.gdems.com 链接，只需要格式正确即可
+        验证下载链接是否有效（基于结构特征，不强依赖域名）
 
         Args:
             link: 链接地址
@@ -287,27 +273,30 @@ class SMSParserService:
             bool: 是否有效
         """
         link_lower = link.lower()
+        parsed = urlparse(link)
+        path_lower = parsed.path.lower()
+        query_params = parse_qs(parsed.query)
 
-        # zxfw.court.gov.cn 链接需要包含必要参数
-        if "zxfw.court.gov.cn" in link_lower:
+        # 人民法院在线服务网同构链接：hash 路由参数常位于 fragment，直接按关键参数校验
+        if "/zxfw/#/pagesajkj/app/wssd/index" in link_lower:
             return all(param in link_lower for param in ["qdbh=", "sdbh=", "sdsin="])
 
-        # sd.gdems.com 链接只需要格式正确
-        if "sd.gdems.com" in link_lower:
+        # 广东电子送达同构链接
+        if "/v3/dzsd/" in path_lower:
             return True
 
-        # 简易送达链接 (jysd.10102368.com)
-        if "jysd.10102368.com" in link_lower:
+        # 简易送达同构链接
+        if path_lower.endswith("/sd") and "key" in query_params:
             return True
 
-        # 湖北电子送达链接
-        if "dzsd.hbfy.gov.cn/hb/msg=" in link_lower:
+        # 湖北电子送达同构链接
+        if path_lower.endswith("/hb/msg") and "msg" in query_params:
             return True
-        if "dzsd.hbfy.gov.cn/sfsddz" in link_lower:
+        if path_lower.endswith("/sfsddz"):
             return True
 
-        # 司法送达网链接 (sfpt.cdfy12368.gov.cn)
-        if "sfpt.cdfy12368.gov.cn" in link_lower:
+        # 司法送达网同构链接
+        if "/sfsdw//r/" in path_lower:
             return True
 
         return False
@@ -669,8 +658,8 @@ class SMSParserService:
 
         has_delivery_keywords = any(keyword in content for keyword in delivery_keywords)
 
-        # 检查是否有下载链接
-        has_download_link = bool(self.DOWNLOAD_LINK_PATTERN.search(content))
+        # 检查是否有下载链接（使用统一提取逻辑，支持同构异域名）
+        has_download_link = len(self.extract_download_links(content)) > 0
 
         # 检查是否有案号
         case_numbers = TextUtils.extract_case_numbers(content)

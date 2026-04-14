@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+import httpx
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
@@ -374,6 +375,20 @@ class CourtScheduleFetcher(MessageFetcher):
             except Exception as e:
                 _mark_failed(source, str(e))
                 raise
+        except httpx.HTTPStatusError as e:
+            status_code = e.response.status_code if e.response else None
+            if status_code in {500, 502, 503, 504}:
+                logger.warning("一张网庭审日程: 接口返回 %s，刷新 Token 后重试一次", status_code)
+                _invalidate_token(credential_id)
+                try:
+                    token = _acquire_token(credential_id)
+                    return self._fetch_with_token(source, token, credential_id)
+                except Exception as retry_error:
+                    _mark_failed(source, str(retry_error))
+                    raise
+
+            _mark_failed(source, str(e))
+            raise
         except Exception as e:
             _mark_failed(source, str(e))
             raise
