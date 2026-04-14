@@ -17,11 +17,21 @@ from apps.client.services.text_parser import parse_client_text as _parse_client
 from apps.client.services.text_parser import parse_multiple_clients_text as _parse_multi
 from apps.core.dto.request_context import extract_request_context
 from apps.core.exceptions import ValidationException
+from apps.core.utils.id_card_utils import IdCardUtils
 
 
 class ParseTextRequest(BaseModel):
     text: str
     parse_multiple: bool = False
+
+
+class IdCardValidateRequest(BaseModel):
+    id_number: str
+
+
+class IdCardValidateResponse(BaseModel):
+    valid: bool
+    message: str
 
 
 router = Router(tags=["Client"])
@@ -82,6 +92,13 @@ def parse_client_text(request: Any, payload: ParseTextRequest) -> dict[str, Any]
 def parse_text_get(request: Any, text: str = "") -> dict[str, Any]:
     """解析客户文本（GET 方式）。"""
     return cast(dict[str, Any], _parse_client(text))
+
+
+@router.post("/clients/validate-id-card", response=IdCardValidateResponse)
+def validate_id_card(request: Any, payload: IdCardValidateRequest) -> IdCardValidateResponse:
+    """校验身份证号码是否合法"""
+    result = IdCardUtils.validate_id_card(payload.id_number)
+    return IdCardValidateResponse(valid=bool(result["valid"]), message=str(result["message"]))
 
 
 @router.get("/clients/check-oa-credential", response=OACredentialCheckOut)

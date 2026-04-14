@@ -1,13 +1,13 @@
-from __future__ import annotations
-
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any
 
 from django import forms
 from django.apps import apps as django_apps
 from django.contrib import admin, messages
-from django.http import HttpRequest
+from django.db.models import QuerySet
+from django.forms import ModelForm
+from django.http import HttpRequest, JsonResponse
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
@@ -16,10 +16,6 @@ from apps.client.ports import CredentialPort, GsxtReportPort
 from apps.client.services.client_export_serializer_service import serialize_client_obj
 from apps.client.services.wiring import get_credential_port, get_gsxt_report_port
 from apps.core.admin.mixins import AdminImportExportMixin
-
-if TYPE_CHECKING:
-    from django.db.models import QuerySet
-    from django.forms import ModelForm
 
 logger = logging.getLogger("apps.client")
 
@@ -36,10 +32,10 @@ def _get_gsxt_report_task_model() -> type[Any]:
     return django_apps.get_model("automation", "GsxtReportTask")
 
 
-class GsxtReportTaskInlineForm(forms.ModelForm[Any]):
+class GsxtReportTaskInlineForm(forms.ModelForm[Any]):  # type: ignore[misc]
     class Meta:
         model = None  # type: ignore[misc]
-        fields: ClassVar = []
+        fields: list[str] = []
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         # 动态设置 Meta.model
@@ -48,21 +44,20 @@ class GsxtReportTaskInlineForm(forms.ModelForm[Any]):
         super().__init__(*args, **kwargs)
 
     class Media:
-        css: ClassVar = {"all": ("automation/gsxt_inline.css",)}
+        css = {"all": ("automation/gsxt_inline.css",)}
 
 
-class GsxtReportTaskInline(admin.TabularInline):  # type: ignore[type-arg]
+class GsxtReportTaskInline(admin.TabularInline[Any]):  # type: ignore[type-arg]
     form = GsxtReportTaskInlineForm
     extra = 0
     can_delete = False
-    fields: ClassVar = ("created_at", "status", "error_message", "inbox_link")
-    readonly_fields: ClassVar = ("created_at", "status", "error_message", "inbox_link")
+    fields = ("created_at", "status", "error_message", "inbox_link")  # type: ignore[assignment]
+    readonly_fields = ("created_at", "status", "error_message", "inbox_link")  # type: ignore[assignment]
     ordering = ("-created_at",)
     verbose_name = _("企业信用报告任务")
     verbose_name_plural = _("企业信用报告任务")
 
-    @property
-    def model(self) -> type[Any]:
+    def get_model(self) -> type[Any]:  # type: ignore[override]
         """延迟获取模型。"""
         return _get_gsxt_report_task_model()
 
@@ -90,7 +85,7 @@ class GsxtReportTaskInline(admin.TabularInline):  # type: ignore[type-arg]
 
     inbox_link.short_description = _("收件箱")  # type: ignore[attr-defined]
 
-    def save_formset(  # type: ignore[override]
+    def save_formset(
         self,
         request: HttpRequest,
         form: Any,
@@ -137,15 +132,15 @@ class ClientIdentityDocInlineForm(forms.ModelForm[ClientIdentityDoc]):
 
     class Meta:
         model = ClientIdentityDoc
-        fields: ClassVar = ["doc_type", "upload"]
+        fields = ["doc_type", "upload"]
 
 
-class ClientIdentityDocInline(admin.TabularInline):  # type: ignore[type-arg]
+class ClientIdentityDocInline(admin.TabularInline[ClientIdentityDoc]):  # type: ignore[type-arg]
     model = ClientIdentityDoc
     form = ClientIdentityDocInlineForm
     extra = 1
-    fields: ClassVar = ("doc_type", "file_link", "upload")
-    readonly_fields: ClassVar = ("file_link",)
+    fields = ("doc_type", "file_link", "upload")  # type: ignore[assignment]
+    readonly_fields = ("file_link",)  # type: ignore[assignment]
 
     def file_link(self, obj: ClientIdentityDoc) -> str:
         url = obj.media_url
@@ -162,7 +157,8 @@ class ClientAdminForm(forms.ModelForm[Client]):
         fields = "__all__"
 
     class Media:
-        css: ClassVar = {"all": ("client/admin.css",)}
+        css = {"all": ("client/admin.css",)}
+        js = ("admin/js/jquery.init.js", "client/admin.js")
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -178,15 +174,15 @@ class ClientAdminForm(forms.ModelForm[Client]):
 
 @admin.register(Client)
 class ClientAdmin(AdminImportExportMixin, admin.ModelAdmin[Client]):
-    list_display: ClassVar = ("id", "name", "client_type", "is_our_client", "phone", "legal_representative")
-    search_fields: ClassVar = ("name", "phone", "id_number")
-    list_filter: ClassVar = ("client_type", "is_our_client")
-    ordering: ClassVar = ("-pk",)
+    list_display = ("id", "name", "client_type", "is_our_client", "phone", "legal_representative")  # type: ignore[assignment]
+    search_fields = ("name", "phone", "id_number")  # type: ignore[assignment]
+    list_filter = ("client_type", "is_our_client")  # type: ignore[assignment]
+    ordering = ("-pk",)  # type: ignore[assignment]
     form = ClientAdminForm
-    inlines: ClassVar = []
+    inlines: list[type[Any]] = []  # type: ignore[assignment,misc]
     export_model_name = "client"
     import_required_fields = ("name",)
-    actions: ClassVar = ["export_selected_as_json", "export_all_as_json"]
+    actions = ["export_selected_as_json", "export_all_as_json"]  # type: ignore[assignment]
 
     def get_urls(self) -> list[Any]:
         from django.urls import path
@@ -287,7 +283,7 @@ class ClientAdmin(AdminImportExportMixin, admin.ModelAdmin[Client]):
             return redirect(f"../../{client_id}/change/")
 
         client = task.client
-        uploaded = request.FILES["report_file"]
+        uploaded: Any = request.FILES["report_file"]
 
         rel_path = f"client_docs/{client.pk}/{client.name[:20]}_企业信用报告.pdf"
         abs_path = Path(settings.MEDIA_ROOT) / rel_path
@@ -320,10 +316,9 @@ class ClientAdmin(AdminImportExportMixin, admin.ModelAdmin[Client]):
         )
         return redirect(f"../../{client_id}/change/")
 
-    def _check_oa_credential_view(self, request: HttpRequest) -> dict[str, Any]:
+    def _check_oa_credential_view(self, request: HttpRequest) -> JsonResponse:
         """检查当前用户是否有金诚同达OA凭证。"""
         from django.db.models import Q
-        from django.http import JsonResponse
 
         lawyer_id = getattr(request.user, "id", None)
         if lawyer_id is None:
@@ -342,7 +337,7 @@ class ClientAdmin(AdminImportExportMixin, admin.ModelAdmin[Client]):
         return {"client_type": "legal"}
 
     def get_inlines(self, request: HttpRequest, obj: Client | None = None) -> list[type[Any]]:
-        inlines = [ClientIdentityDocInline]
+        inlines: list[type[Any]] = [ClientIdentityDocInline]
         if obj and obj.client_type == "legal":
             inlines.append(GsxtReportTaskInline)
         return inlines
@@ -424,7 +419,7 @@ class ClientAdmin(AdminImportExportMixin, admin.ModelAdmin[Client]):
             result.append(serialize_client_obj(obj))
         return result
 
-    def get_file_paths(self, queryset: QuerySet[Client]) -> list[str]:  # type: ignore[override]
+    def get_file_paths(self, queryset: QuerySet[Client]) -> list[str]:
         paths = []
         for obj in queryset.prefetch_related("identity_docs", "property_clues__attachments"):
             for doc in obj.identity_docs.all():

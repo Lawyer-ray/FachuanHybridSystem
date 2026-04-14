@@ -8,7 +8,14 @@ import logging
 from dataclasses import dataclass
 from datetime import date
 
+from django.utils.translation import gettext_lazy as _
+
 logger = logging.getLogger(__name__)
+
+# 校验码权重因子
+ID_CARD_WEIGHTS = [7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2]
+# 校验码对照表
+ID_CARD_CHECK_CODES = ["1", "0", "X", "9", "8", "7", "6", "5", "4", "3", "2"]
 
 
 @dataclass
@@ -134,3 +141,132 @@ class IdCardUtils:
             logger.warning(f"计算年龄失败: {e}")
 
         return None
+
+    @classmethod
+    def validate_id_card(cls, id_number: str) -> dict[str, str | bool]:
+        """
+        校验身份证号码是否合法
+
+        校验规则:
+        1. 18位身份证:
+           - 前17位必须为数字,第18位可以是数字或X(大小写不敏感)
+           - 前6位为地区码(简单校验前两位是否为有效省份代码: 11-65)
+           - 7-14位为出生日期,需要验证日期是否有效
+           - 第18位为校验码,根据前17位通过特定算法计算
+
+        2. 15位身份证(旧版):
+           - 全部为数字
+           - 前6位为地区码
+           - 7-12位为出生日期(YYMMDD),需要验证日期是否有效
+
+        Args:
+            id_number: 身份证号码
+
+        Returns:
+            dict: {"valid": bool, "message": str}
+        """
+        if not id_number:
+            return {"valid": False, "message": str(_("身份证号码不能为空"))}
+
+        id_number = id_number.strip().upper()
+
+        # 长度校验
+        if len(id_number) not in (15, 18):
+            return {"valid": False, "message": str(_("身份证号码长度应为15位或18位"))}
+
+        # 18位身份证校验
+        if len(id_number) == 18:
+            return cls._validate_18_digit_id(id_number)
+
+        # 15位身份证校验
+        return cls._validate_15_digit_id(id_number)
+
+    @classmethod
+    def _validate_18_digit_id(cls, id_number: str) -> dict[str, str | bool]:
+        """校验18位身份证号码"""
+        # 前17位必须为数字
+        if not id_number[:17].isdigit():
+            return {"valid": False, "message": str(_("身份证前17位必须为数字"))}
+
+        # 第18位校验
+        last_char = id_number[17]
+        if not (last_char.isdigit() or last_char == "X"):
+            return {"valid": False, "message": str(_("身份证第18位必须为数字或X"))}
+
+        # 地区码校验(前两位: 11-65)
+        province_code = int(id_number[:2])
+        if province_code < 11 or province_code > 65:
+            return {"valid": False, "message": str(_("身份证地区码无效"))}
+
+        # 出生日期校验
+        birth_date_str = id_number[6:14]
+        if not cls._validate_birth_date(birth_date_str, is_18_digit=True):
+            return {"valid": False, "message": str(_("身份证出生日期无效"))}
+
+        # 校验码计算
+        check_sum = 0
+        for i in range(17):
+            check_sum += int(id_number[i]) * ID_CARD_WEIGHTS[i]
+
+        check_code = ID_CARD_CHECK_CODES[check_sum % 11]
+
+        if id_number[17] != check_code:
+            return {"valid": False, "message": str(_("身份证校验码错误，正确校验码应为 %(code)s")) % {"code": check_code}}
+
+        return {"valid": True, "message": str(_("身份证号码格式正确"))}
+
+    @classmethod
+    def _validate_15_digit_id(cls, id_number: str) -> dict[str, str | bool]:
+        """校验15位身份证号码"""
+        # 全部为数字
+        if not id_number.isdigit():
+            return {"valid": False, "message": str(_("15位身份证必须全部为数字"))}
+
+        # 地区码校验(前两位: 11-65)
+        province_code = int(id_number[:2])
+        if province_code < 11 or province_code > 65:
+            return {"valid": False, "message": str(_("身份证地区码无效"))}
+
+        # 出生日期校验(YYMMDD, 默认19XX年)
+        birth_date_str = "19" + id_number[6:12]
+        if not cls._validate_birth_date(birth_date_str, is_18_digit=True):
+            return {"valid": False, "message": str(_("身份证出生日期无效"))}
+
+        return {"valid": True, "message": str(_("身份证号码格式正确"))}
+
+    @classmethod
+    def _validate_birth_date(cls, date_str: str, *, is_18_digit: bool) -> bool:
+        """
+        校验出生日期是否有效
+
+        Args:
+            date_str: 日期字符串(YYYYMMDD格式)
+            is_18_digit: 是否为18位身份证格式
+
+        Returns:
+            bool: 日期是否有效
+        """
+        if len(date_str) != 8:
+            return False
+
+        try:
+            year = int(date_str[:4])
+            month = int(date_str[4:6])
+            day = int(date_str[6:8])
+
+            # 基本范围校验
+            if month < 1 or month > 12:
+                return False
+            if day < 1 or day > 31:
+                return False
+
+            # 年份范围校验
+            current_year = date.today().year
+            if year < 1900 or year > current_year:
+                return False
+
+            # 具体日期校验
+            date(year, month, day)
+            return True
+        except (ValueError, TypeError):
+            return False

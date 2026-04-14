@@ -234,7 +234,69 @@ def get_default_folder_templates() -> list[dict[str, Any]]:
                     }
                 ]
             },
-            "is_default": True,
+            "is_default": False,
+            "is_active": True,
+        },
+        {
+            "name": "劳动仲裁答辩",
+            "template_type": "case",
+            "case_types": ["civil"],
+            "case_stages": ["labor_arbitration"],
+            "contract_types": [],
+            "legal_statuses": ["respondent"],
+            "legal_status_match_mode": "any",
+            "structure": {
+                "children": [
+                    {
+                        "id": "folder_1776139141575_odpapyn0",
+                        "name": "劳动仲裁",
+                        "children": [
+                            {
+                                "id": "folder_1776139141575_pifwi84v",
+                                "name": "1-答辩材料",
+                                "children": [
+                                    {"id": "folder_1776139141576_3aanfh6o", "name": "1-答辩状", "children": []},
+                                    {"id": "folder_1776139141576_tvuwrv2n", "name": "2-证据目录", "children": []},
+                                    {"id": "folder_1776139141577_f1pjiz0r", "name": "3-证据材料", "children": []},
+                                    {"id": "folder_1776139141578_l9vd4jef", "name": "4-当事人身份证明", "children": []},
+                                    {"id": "folder_1776139141579_ihgn2i08", "name": "5-委托材料", "children": []},
+                                    {"id": "folder_1776139141579_r0ksuggd", "name": "6-其他答辩材料", "children": []},
+                                ],
+                            },
+                            {
+                                "id": "folder_1776139141580_npf1ytss",
+                                "name": "2-庭审准备",
+                                "children": [
+                                    {"id": "folder_1776139141580_kjxjtk5q", "name": "1-问题清单", "children": []},
+                                    {"id": "folder_1776139141582_dop986vx", "name": "2-庭审提纲", "children": []},
+                                    {"id": "folder_1776139141582_h2lzd0t1", "name": "3-质证意见", "children": []},
+                                    {"id": "folder_1776139141583_j4ye05f7", "name": "4-时间轴大事记", "children": []},
+                                    {"id": "folder_1776139141584_6fiqu2cm", "name": "5-代理意见", "children": []},
+                                    {"id": "folder_1776139141584_1w6dgbgv", "name": "6-其他材料", "children": []},
+                                ],
+                            },
+                            {
+                                "id": "folder_1776139141585_mbhvmkm1",
+                                "name": "4-结案文书",
+                                "children": [
+                                    {
+                                        "id": "folder_1776139141586_ojc1occo",
+                                        "name": "1-和解(调解)协议",
+                                        "children": [],
+                                    },
+                                    {
+                                        "id": "folder_1776139141587_dp6ua9wv",
+                                        "name": "2-其他结案文书",
+                                        "children": [],
+                                    },
+                                ],
+                            },
+                            {"id": "folder_1776139141587_wbdnaj2i", "name": "5-邮件往来", "children": []},
+                        ],
+                    }
+                ]
+            },
+            "is_default": False,
             "is_active": True,
         },
     ]
