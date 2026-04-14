@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import logging
 import math
+import queue
+import threading
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 
 import httpx
 from django.conf import settings
@@ -24,6 +26,7 @@ logger = logging.getLogger("apps.message_hub")
 _LIST_API = "https://zxfw.court.gov.cn/yzw/yzw-zxfw-sdfw/api/v1/sdfw/getSdListByZjhmAndAhdmNew"
 _DETAIL_API = "https://zxfw.court.gov.cn/yzw/yzw-zxfw-sdfw/api/v1/sdfw/getWsListBySdbhNew"
 _TIMEOUT = 30.0
+_TOKEN_LOGIN_TIMEOUT_SECONDS = 120.0
 _PAGE_SIZE = 20
 _MAX_API_RETRIES = 2
 _RETRYABLE_STATUS_CODES = frozenset({429, 500, 502, 503, 504})
@@ -86,6 +89,32 @@ def _api_post(url: str, token: str, data: dict[str, Any]) -> dict[str, Any]:
     raise RuntimeError(_("一张网 API 请求失败"))
 
 
+def _run_callable_with_timeout(func: Callable[[], str], timeout_seconds: float) -> str:
+    """在 daemon 线程中执行 callable，超时时快速失败，避免阻塞 worker 退出。"""
+    result_queue: queue.Queue[tuple[bool, str | BaseException]] = queue.Queue(maxsize=1)
+
+    def _runner() -> None:
+        try:
+            result_queue.put((True, func()))
+        except BaseException as exc:  # noqa: BLE001
+            result_queue.put((False, exc))
+
+    worker = threading.Thread(target=_runner, name="court-token-login", daemon=True)
+    worker.start()
+    worker.join(timeout=timeout_seconds)
+
+    if worker.is_alive():
+        raise TimeoutError(_("Token 获取超时（%(seconds)s 秒）") % {"seconds": int(timeout_seconds)})
+
+    success, payload = result_queue.get()
+    if success:
+        return str(payload)
+
+    if isinstance(payload, Exception):
+        raise payload
+    raise RuntimeError(_("Token 获取失败：未知异常"))
+
+
 def _acquire_token(credential_id: int) -> str:
     """复用现有 token 获取链路（优先缓存 → DB → 自动登录）。"""
     # 1. 尝试缓存
@@ -115,9 +144,8 @@ def _acquire_token(credential_id: int) -> str:
         cache_manager.cache_token(credential.site_name, credential.account, db_token.token)
         return str(db_token.token)
 
-    # 3. 执行 Playwright 登录（在独立线程中运行，兼容 Django-Q2 的 asyncio 事件循环）
+    # 3. 执行 Playwright 登录（在独立 daemon 线程中运行，超时后快速失败）
     logger.info("一张网收件箱: 缓存和数据库均无有效 Token，执行 Playwright 登录")
-    import concurrent.futures
 
     from apps.automation.services.scraper.sites.court_zxfw import CourtZxfwService
 
@@ -143,10 +171,7 @@ def _acquire_token(credential_id: int) -> str:
             except Exception:
                 pass
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(_playwright_login)
-        token = future.result(timeout=120)
-
+    token = _run_callable_with_timeout(_playwright_login, _TOKEN_LOGIN_TIMEOUT_SECONDS)
     cache_manager.cache_token(credential.site_name, credential.account, token)
     return token
 
