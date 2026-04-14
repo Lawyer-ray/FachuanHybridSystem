@@ -96,7 +96,7 @@ def _run_callable_with_timeout(func: Callable[[], str], timeout_seconds: float) 
     def _runner() -> None:
         try:
             result_queue.put((True, func()))
-        except BaseException as exc:  # noqa: BLE001
+        except BaseException as exc:
             result_queue.put((False, exc))
 
     worker = threading.Thread(target=_runner, name="court-token-login", daemon=True)
