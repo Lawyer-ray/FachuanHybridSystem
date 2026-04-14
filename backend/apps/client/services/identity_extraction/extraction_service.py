@@ -14,7 +14,6 @@ from typing import Any
 from django.utils.translation import gettext_lazy as _
 
 from apps.client.services.wiring import get_llm_service
-from apps.client.utils import get_ocr_engine
 from apps.core.exceptions import ServiceUnavailableError, ValidationException
 from apps.core.llm.config import LLMConfig
 from apps.core.llm.exceptions import LLMNetworkError, LLMTimeoutError
@@ -163,16 +162,14 @@ class IdentityExtractionService:
             img.save(tmp, format="JPEG", quality=95)
             tmp_path = tmp.name
 
-            ocr = get_ocr_engine()
-            result = ocr(tmp_path)
+            from apps.automation.services.ocr.ocr_service import OCRService
 
-            # 新版 RapidOCR 返回 RapidOCROutput 对象
-            if result and result.txts:
-                raw_text = "\n".join(result.txts)
+            ocr_service = OCRService()
+            raw_text = ocr_service.recognize(tmp_path)
 
-                if raw_text.strip():
-                    logger.info("RapidOCR (PP-OCRv5) 提取成功,文字长度: %s", len(raw_text))
-                    return raw_text.strip()
+            if raw_text and raw_text.strip():
+                logger.info("OCR 提取成功,文字长度: %s", len(raw_text))
+                return raw_text.strip()
 
             raise OCRExtractionError(_("OCR 未能提取到有效文字"))
 
@@ -181,6 +178,8 @@ class IdentityExtractionService:
         import fitz  # pymupdf
         from PIL import Image
 
+        from apps.automation.services.ocr.ocr_service import OCRService
+
         # 禁用 PIL 的解压炸弹检查，避免超大 PDF 页面触发 DecompressionBombError
         Image.MAX_IMAGE_PIXELS = None
 
@@ -188,7 +187,7 @@ class IdentityExtractionService:
 
         try:
             doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-            ocr = get_ocr_engine()
+            ocr_service = OCRService()
 
             # 只处理前几页(证件通常只有1-2页)
             max_pages = min(len(doc), 3)
@@ -206,10 +205,9 @@ class IdentityExtractionService:
                     tmp_path = tmp.name
 
                 try:
-                    # 新版 RapidOCR 返回 RapidOCROutput 对象
-                    result = ocr(tmp_path)
-                    if result and result.txts:
-                        all_texts.extend(result.txts)
+                    page_text = ocr_service.recognize(tmp_path)
+                    if page_text:
+                        all_texts.append(page_text)
                 finally:
                     Path(tmp_path).unlink(missing_ok=True)
 
@@ -217,7 +215,7 @@ class IdentityExtractionService:
 
             if all_texts:
                 raw_text = "\n".join(all_texts)
-                logger.info("PDF OCR (PP-OCRv5) 提取成功,文字长度: %s", len(raw_text))
+                logger.info("PDF OCR 提取成功,文字长度: %s", len(raw_text))
                 return raw_text.strip()
 
             raise OCRExtractionError(_("PDF OCR 未能提取到有效文字"))

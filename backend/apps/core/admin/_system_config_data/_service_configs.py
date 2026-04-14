@@ -2,7 +2,7 @@
 
 from typing import Any
 
-__all__ = ["get_court_sms_configs", "get_ai_configs", "get_enterprise_data_configs", "get_scraper_configs"]
+__all__ = ["get_court_sms_configs", "get_ai_configs", "get_enterprise_data_configs", "get_scraper_configs", "get_ocr_configs"]
 
 
 def get_court_sms_configs() -> list[dict[str, Any]]:
@@ -209,6 +209,60 @@ def get_enterprise_data_configs() -> list[dict[str, Any]]:
             "category": "enterprise_data",
             "description": "天眼查 MCP API Key（Bearer Token，支持多 Key；每行一个）",
             "value": "sk_qJKABWT2vMAa0c35LJOtzg2dougEOzab",  # pragma: allowlist secret
+            "is_secret": True,
+        },
+    ]
+
+
+def get_ocr_configs() -> list[dict[str, Any]]:
+    """获取 OCR 服务配置项"""
+    return [
+        {
+            "key": "OCR_PROVIDER",
+            "category": "ocr",
+            "description": "OCR 引擎选择（local=本地 RapidOCR / paddleocr_api=百度 PaddleOCR API）",
+            "value": "local",
+            "is_secret": False,
+        },
+        {
+            "key": "PADDLEOCR_API_MODEL",
+            "category": "ocr",
+            "description": (
+                "PaddleOCR API 模型选择（"
+                "pp_ocrv5=纯文字OCR-适合证件/快递单号/简单文字提取, "
+                "pp_structure_v3=文档结构化-适合表格/版面分析, "
+                "paddleocr_vl=版面分析+OCR-适合复杂文档/合同, "
+                "paddleocr_vl_1_5=高精度版面分析-适合法律文书/密集排版文档）"
+            ),
+            "value": "pp_ocrv5",
+            "is_secret": False,
+        },
+        {
+            "key": "PADDLEOCR_OCR_API_URL",
+            "category": "ocr",
+            "description": "PaddleOCR OCR 接口地址（PP-OCRv5 / PP-StructureV3 共用）",
+            "value": "",
+            "is_secret": False,
+        },
+        {
+            "key": "PADDLEOCR_VL_API_URL",
+            "category": "ocr",
+            "description": "PaddleOCR-VL 版面分析接口地址",
+            "value": "",
+            "is_secret": False,
+        },
+        {
+            "key": "PADDLEOCR_VL15_API_URL",
+            "category": "ocr",
+            "description": "PaddleOCR-VL-1.5 高精度版面分析接口地址",
+            "value": "",
+            "is_secret": False,
+        },
+        {
+            "key": "PADDLEOCR_API_TOKEN",
+            "category": "ocr",
+            "description": "PaddleOCR API Token（Authorization: token {TOKEN}）",
+            "value": "",
             "is_secret": True,
         },
     ]

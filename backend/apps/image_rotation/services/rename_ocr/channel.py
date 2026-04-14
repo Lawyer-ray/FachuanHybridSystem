@@ -49,18 +49,12 @@ class RenameOCRChannel:
         if self._ocr is not None:
             return self._ocr
         try:
-            from rapidocr import ModelType, OCRVersion, RapidOCR
+            from apps.automation.services.ocr.ocr_service import get_ocr_engine
 
-            self._ocr = RapidOCR(
-                params={
-                    "Det.ocr_version": OCRVersion.PPOCRV5,
-                    "Det.model_type": ModelType.SERVER,
-                    "Rec.model_type": ModelType.SERVER,
-                }
-            )
+            self._ocr = get_ocr_engine(use_v5=True)
             return self._ocr
         except Exception:
-            logger.warning("RenameOCRChannel: SERVER 模型初始化失败", exc_info=True)
+            logger.warning("RenameOCRChannel: OCR 引擎初始化失败", exc_info=True)
             self._init_failed = True
             return None
 
