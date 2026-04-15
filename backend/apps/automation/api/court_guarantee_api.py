@@ -39,11 +39,10 @@ _DEFAULT_INSURANCE_COMPANY = "中国平安财产保险股份有限公司"
 _SUNSHINE_INSURANCE_COMPANY = "阳光财产保险股份有限公司"
 _SUNSHINE_DEFAULT_CONSULTANT_CODE = "08740007"
 _PROPERTY_CLUE_TYPE_DISPLAY = {
-    "house": "房产",
-    "vehicle": "车辆",
-    "bank_account": "银行账户",
-    "equity": "股权",
-    "income": "收入",
+    "bank": "银行账户",
+    "alipay": "支付宝账户",
+    "wechat": "微信账户",
+    "real_estate": "不动产",
     "other": "其他",
 }
 _GUARANTEE_INSURANCE_COMPANY_OPTIONS = [
@@ -451,7 +450,12 @@ def execute_court_guarantee(request: HttpRequest, payload: ExecuteCourtGuarantee
         insurance_company_name=insurance_company_name,
         consultant_code=payload.consultant_code,
     )
-    property_clue = _build_primary_respondent_property_clue(
+    property_clues = _build_selected_respondent_property_clues(
+        case_parties=case_parties,
+        selected_respondents=selected_respondents,
+        preserve_amount=preserve_amount,
+    )
+    property_clue = property_clues[0] if property_clues else _build_primary_respondent_property_clue(
         case_parties=case_parties,
         selected_respondents=selected_respondents,
         preserve_amount=preserve_amount,
@@ -479,6 +483,7 @@ def execute_court_guarantee(request: HttpRequest, payload: ExecuteCourtGuarantee
         "selected_respondent_ids": [int(item.get("party_id") or 0) for item in selected_respondents],
         "plaintiff_agent": plaintiff_agent,
         "property_clue": property_clue,
+        "property_clues": property_clues,
     }
 
     session = ScraperTask.objects.create(
@@ -629,60 +634,109 @@ def _normalize_property_clue_content(raw_content: str) -> str:
     return "；".join(lines)
 
 
+def _normalize_property_value(raw_value: Any | None) -> str:
+    if raw_value is None:
+        return ""
+    normalized_property_value = str(raw_value).strip().replace(",", "")
+    if "." in normalized_property_value:
+        normalized_property_value = normalized_property_value.rstrip("0").rstrip(".")
+    return normalized_property_value
+
+
+def _build_property_clue_info(*, clue_type: str, raw_content: str) -> str:
+    normalized_type = str(clue_type or "").strip()
+    type_display = _PROPERTY_CLUE_TYPE_DISPLAY.get(normalized_type, normalized_type or "财产线索")
+    normalized_content = _normalize_property_clue_content(raw_content)
+    if normalized_content:
+        return f"{type_display}：{normalized_content}"
+    return type_display
+
+
+def _build_selected_respondent_property_clues(
+    *,
+    case_parties: list[Any],
+    selected_respondents: list[dict[str, Any]],
+    preserve_amount: Any | None = None,
+) -> list[dict[str, str]]:
+    party_id_set = {
+        int(item.get("party_id") or 0) for item in selected_respondents if int(item.get("party_id") or 0) > 0
+    }
+    selected_case_parties = [party for party in case_parties if int(getattr(party, "id", 0) or 0) in party_id_set]
+    if not selected_case_parties:
+        selected_case_parties = _list_opponent_case_parties(case_parties=case_parties)
+
+    normalized_property_value = _normalize_property_value(preserve_amount)
+    client_service = _get_client_service()
+    property_clues: list[dict[str, str]] = []
+
+    for party in selected_case_parties:
+        client = getattr(party, "client", None)
+        owner_name = str(getattr(client, "name", "") or "").strip() or str(
+            getattr(party, "name", "") or "被申请人"
+        ).strip()
+        property_location = str(getattr(client, "address", "") or "").strip() if client is not None else ""
+
+        clue_dtos = (
+            client_service.get_property_clues_by_client_internal(int(getattr(client, "id", 0) or 0))
+            if client is not None and int(getattr(client, "id", 0) or 0) > 0
+            else []
+        )
+        for clue in clue_dtos:
+            property_info = _build_property_clue_info(
+                clue_type=str(getattr(clue, "clue_type", "") or ""),
+                raw_content=str(getattr(clue, "content", "") or ""),
+            )
+            property_clues.append(
+                {
+                    "owner_name": owner_name,
+                    "property_type": "其他",
+                    "property_info": property_info or f"{owner_name}名下财产线索",
+                    "property_location": property_location,
+                    "property_province": "",
+                    "property_cert_no": "",
+                    "property_value": normalized_property_value,
+                }
+            )
+
+        if clue_dtos:
+            continue
+
+        property_clues.append(
+            {
+                "owner_name": owner_name,
+                "property_type": "其他",
+                "property_info": f"{owner_name}名下财产线索",
+                "property_location": property_location,
+                "property_province": "",
+                "property_cert_no": "",
+                "property_value": normalized_property_value,
+            }
+        )
+
+    return property_clues
+
+
 def _build_primary_respondent_property_clue(
     *,
     case_parties: list[Any],
     selected_respondents: list[dict[str, Any]],
     preserve_amount: Any | None = None,
 ) -> dict[str, str]:
-    party_id_set = {
-        int(item.get("party_id") or 0) for item in selected_respondents if int(item.get("party_id") or 0) > 0
-    }
-
-    selected_case_parties = [party for party in case_parties if int(getattr(party, "id", 0) or 0) in party_id_set]
-    if not selected_case_parties:
-        selected_case_parties = _list_opponent_case_parties(case_parties=case_parties)
-
-    primary_party = selected_case_parties[0] if selected_case_parties else None
-    primary_client = getattr(primary_party, "client", None)
-    owner_name = (
-        str(getattr(primary_client, "name", "") or "").strip()
-        or str((selected_respondents[0].get("name") if selected_respondents else "") or "被申请人").strip()
+    property_clues = _build_selected_respondent_property_clues(
+        case_parties=case_parties,
+        selected_respondents=selected_respondents,
+        preserve_amount=preserve_amount,
     )
-
-    property_info = ""
-    if primary_client is not None:
-        client_service = _get_client_service()
-        clue_dtos = client_service.get_property_clues_by_client_internal(int(getattr(primary_client, "id", 0) or 0))
-        clue_lines: list[str] = []
-        for clue in clue_dtos:
-            clue_type = str(getattr(clue, "clue_type", "") or "").strip()
-            type_display = _PROPERTY_CLUE_TYPE_DISPLAY.get(clue_type, clue_type or "财产线索")
-            normalized_content = _normalize_property_clue_content(str(getattr(clue, "content", "") or ""))
-            if normalized_content:
-                clue_lines.append(f"{type_display}：{normalized_content}")
-            else:
-                clue_lines.append(type_display)
-        property_info = "；".join(clue_lines)
-
-    if not property_info:
-        property_info = f"{owner_name}名下财产线索"
-
-    property_location = str(getattr(primary_client, "address", "") or "").strip() if primary_client is not None else ""
-    normalized_property_value = ""
-    if preserve_amount is not None:
-        normalized_property_value = str(preserve_amount).strip().replace(",", "")
-        if "." in normalized_property_value:
-            normalized_property_value = normalized_property_value.rstrip("0").rstrip(".")
-
+    if property_clues:
+        return property_clues[0]
     return {
-        "owner_name": owner_name,
+        "owner_name": "被申请人",
         "property_type": "其他",
-        "property_info": property_info,
-        "property_location": property_location,
+        "property_info": "被申请人名下财产线索",
+        "property_location": "",
         "property_province": "",
         "property_cert_no": "",
-        "property_value": normalized_property_value,
+        "property_value": _normalize_property_value(preserve_amount),
     }
 
 

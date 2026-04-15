@@ -554,6 +554,10 @@ class CourtZxfwGuaranteeService:
         if not respondent_sources:
             respondent_sources = [case_data.get("respondent") or {}]
 
+        property_clue_sources = [item for item in (case_data.get("property_clues") or []) if isinstance(item, dict)]
+        if not property_clue_sources and isinstance(case_data.get("property_clue"), dict):
+            property_clue_sources = [case_data.get("property_clue") or {}]
+
         targets = [
             ("applicant", 0, ["申请人"], self._build_party_dialog_defaults(case_data.get("applicant") or {})),
             *[
@@ -566,18 +570,19 @@ class CourtZxfwGuaranteeService:
                 ["原告代理人", "代理人"],
                 self._build_agent_dialog_defaults(case_data.get("plaintiff_agent") or case_data.get("applicant") or {}),
             ),
-            (
-                "property_clue",
-                3,
-                ["财产线索", "财产"],
-                self._build_party_dialog_defaults(
-                    case_data.get("respondent") or case_data.get("applicant") or {},
-                    is_property_clue=True,
-                    property_clue_data=case_data.get("property_clue")
-                    if isinstance(case_data.get("property_clue"), dict)
-                    else None,
-                ),
-            ),
+            *[
+                (
+                    "property_clue",
+                    3,
+                    ["财产线索", "财产"],
+                    self._build_party_dialog_defaults(
+                        case_data.get("respondent") or case_data.get("applicant") or {},
+                        is_property_clue=True,
+                        property_clue_data=property_clue_source,
+                    ),
+                )
+                for property_clue_source in property_clue_sources
+            ],
         ]
 
         for target, index, section_keywords, defaults in targets:
@@ -606,7 +611,7 @@ class CourtZxfwGuaranteeService:
             self._random_wait(0.8, 1.2)
             if target in {"applicant", "respondent"}:
                 step["party_type_selected"] = self._choose_party_type_in_dialog(defaults)
-            selected = self._fill_dialog_select_fields(defaults)
+            selected = self._fill_dialog_select_fields(defaults, target)
             dated = self._fill_dialog_date_fields()
             filled = self._fill_dialog_required_fields(defaults)
             playwright_filled = self._fill_dialog_fields_with_playwright(defaults, target)
@@ -1281,6 +1286,82 @@ class CourtZxfwGuaranteeService:
         )
         return bool(clicked)
 
+    def _force_vue_select_by_label(self, label_keyword: str, preferred_texts: list[str]) -> str | None:
+        selected = self.page.evaluate(
+            r"""(args) => {
+                const labelKeyword = args.labelKeyword || '';
+                const preferredTexts = (args.preferredTexts || []).map((item) => (item || '').replace(/\s+/g, ' ').trim()).filter(Boolean);
+                const isVisible = (el) => {
+                    if (!el) return false;
+                    const st = window.getComputedStyle(el);
+                    if (st.display === 'none' || st.visibility === 'hidden') return false;
+                    const r = el.getBoundingClientRect();
+                    return r.width > 1 && r.height > 1;
+                };
+                const norm = (s) => (s || '').replace(/\s+/g, ' ').trim();
+                const dialog = [...document.querySelectorAll('.el-dialog,.el-dialog__wrapper,.fd-com-layer,#addSQR')]
+                    .filter(isVisible)
+                    .slice(-1)[0] || document;
+                const row = [...dialog.querySelectorAll('.el-form-item')]
+                    .filter((item) => isVisible(item))
+                    .find((item) => norm(item.querySelector('.el-form-item__label')?.innerText || '').includes(labelKeyword));
+                if (!row) return '';
+
+                const selectNodes = [...row.querySelectorAll('.el-select')];
+                for (const selectEl of selectNodes) {
+                    const vm = selectEl && selectEl.__vue__ ? selectEl.__vue__ : null;
+                    if (!vm || !Array.isArray(vm.options) || vm.options.length === 0) continue;
+                    let optionVm = null;
+                    for (const preferred of preferredTexts) {
+                        optionVm = vm.options.find((opt) => {
+                            const text = norm(opt.currentLabel || opt.label || '');
+                            return text === preferred || text.includes(preferred) || preferred.includes(text);
+                        });
+                        if (optionVm) break;
+                    }
+                    if (!optionVm) {
+                        optionVm = vm.options.find((opt) => norm(opt.currentLabel || opt.label || '')) || null;
+                    }
+                    if (!optionVm) continue;
+                    if (typeof vm.handleOptionSelect === 'function') {
+                        vm.handleOptionSelect(optionVm, true);
+                    }
+                    if (typeof vm.$emit === 'function') {
+                        vm.$emit('input', optionVm.value);
+                        vm.$emit('change', optionVm.value);
+                    }
+                    return norm(optionVm.currentLabel || optionVm.label || '');
+                }
+
+                const trigger = row.querySelector('.el-select input.el-input__inner, .fd-sf input.el-input__inner, input.el-input__inner');
+                if (!trigger || trigger.disabled || !isVisible(trigger)) return '';
+                trigger.click();
+                const options = [...document.querySelectorAll('.el-select-dropdown__item, .el-option, [role="option"], .el-popper li')]
+                    .filter((el) => isVisible(el) && !el.classList.contains('is-disabled'));
+                let target = null;
+                for (const preferred of preferredTexts) {
+                    target = options.find((el) => {
+                        const text = norm(el.innerText || '');
+                        return text === preferred || text.includes(preferred) || preferred.includes(text);
+                    });
+                    if (target) break;
+                }
+                if (!target) {
+                    target = options.find((el) => norm(el.innerText || '')) || null;
+                }
+                if (!target) return '';
+                const text = norm(target.innerText || '');
+                target.click();
+                trigger.dispatchEvent(new Event('change', { bubbles: true }));
+                trigger.dispatchEvent(new Event('blur', { bubbles: true }));
+                return text;
+            }""",
+            {"labelKeyword": label_keyword, "preferredTexts": preferred_texts},
+        )
+        self._close_popovers()
+        selected_text = str(selected or "").strip()
+        return selected_text or None
+
     def _choose_party_type_in_dialog(self, defaults: dict[str, str]) -> bool:
         party_type = self._normalize_party_type(defaults.get("party_type") or "natural")
         type_text_map = {
@@ -1389,8 +1470,11 @@ class CourtZxfwGuaranteeService:
 
                     input.click();
                     let prefer = '';
-                    if (label.includes('申请人') || label.includes('被申请人') || label.includes('财产所有人')) {
+                    if (label.includes('申请人') || label.includes('被申请人')) {
                         prefer = defaults.name || '';
+                    }
+                    if (label.includes('财产所有人')) {
+                        prefer = defaults.owner_name || defaults.name || '';
                     }
                     if (label.includes('代理人类型')) {
                         prefer = defaults.agent_type || '执业律师';
@@ -1399,7 +1483,7 @@ class CourtZxfwGuaranteeService:
                         prefer = forceEnterpriseUnitNature ? '企业' : (defaults.unit_nature || '企业');
                     }
                     if (label.includes('财产类型')) {
-                        prefer = defaults.property_type || '房产';
+                        prefer = defaults.property_type || '其他';
                     }
                     if (label.includes('房产坐落位置')) {
                         prefer = (defaults.property_province || '广东省').replace('省', '');
@@ -1515,7 +1599,7 @@ class CourtZxfwGuaranteeService:
                     [['财产所有人'], defaults.owner_name || defaults.name || '张三'],
                     [['房产坐落位置', '具体位置'], defaults.property_location || defaults.property_info || ''],
                     [['房产证号'], defaults.property_cert_no || ''],
-                    [['财产信息'], defaults.property_info || ''],
+                    [['财产信息', '描述'], defaults.property_info || ''],
                     [['价值', '财产价值'], defaults.property_value || ''],
                 ];
 
@@ -1652,71 +1736,7 @@ class CourtZxfwGuaranteeService:
             return None
 
         def _select_dropdown_by_label(label_keyword: str, preferred_texts: list[str]) -> bool:
-            selected = self.page.evaluate(
-                r"""(args) => {
-                    const labelKeyword = args.labelKeyword || '';
-                    const preferredTexts = args.preferredTexts || [];
-                    const isVisible = (el) => {
-                        if (!el) return false;
-                        const st = window.getComputedStyle(el);
-                        if (st.display === 'none' || st.visibility === 'hidden') return false;
-                        const r = el.getBoundingClientRect();
-                        return r.width > 1 && r.height > 1;
-                    };
-                    const norm = (s) => (s || '').replace(/\s+/g, ' ').trim();
-                    const dialog = [...document.querySelectorAll('.el-dialog,.el-dialog__wrapper')].filter(isVisible).slice(-1)[0] || document;
-                    const rows = [...dialog.querySelectorAll('.el-form-item')].filter((item) => {
-                        const label = norm(item.querySelector('.el-form-item__label')?.innerText || '');
-                        return label && label.includes(labelKeyword) && isVisible(item);
-                    });
-                    if (rows.length === 0) return '';
-
-                    const clickOption = () => {
-                        const options = [...document.querySelectorAll('.el-select-dropdown__item')]
-                            .filter((el) => isVisible(el) && !el.classList.contains('is-disabled'));
-                        if (options.length === 0) return '';
-
-                        let target = null;
-                        for (const preferred of preferredTexts) {
-                            const cleaned = norm(preferred);
-                            if (!cleaned) continue;
-                            target = options.find((el) => {
-                                const text = norm(el.innerText);
-                                return text.includes(cleaned) || cleaned.includes(text);
-                            });
-                            if (target) break;
-                        }
-                        if (!target) {
-                            target = options.find((el) => norm(el.innerText));
-                        }
-                        if (!target) return '';
-                        const text = norm(target.innerText);
-                        target.click();
-                        return text;
-                    };
-
-                    for (const row of rows) {
-                        const trigger = row.querySelector('.el-select input.el-input__inner, .fd-sf input.el-input__inner');
-                        if (!trigger || trigger.disabled || !isVisible(trigger)) continue;
-                        trigger.click();
-                        let selectedText = clickOption();
-                        if (!selectedText) {
-                            trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
-                            trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-                            selectedText = clickOption();
-                        }
-                        if (selectedText) {
-                            trigger.dispatchEvent(new Event('change', { bubbles: true }));
-                            trigger.dispatchEvent(new Event('blur', { bubbles: true }));
-                            return selectedText;
-                        }
-                    }
-                    return '';
-                }""",
-                {"labelKeyword": label_keyword, "preferredTexts": preferred_texts},
-            )
-            self._close_popovers()
-            selected_text = str(selected or "").strip()
+            selected_text = self._force_vue_select_by_label(label_keyword, preferred_texts)
             if selected_text:
                 updates.append(f"{label_keyword}={selected_text}")
                 return True
@@ -1731,7 +1751,11 @@ class CourtZxfwGuaranteeService:
 
         normalized_party_type = self._normalize_party_type(defaults.get("party_type") or "natural")
         if target in {"applicant", "respondent"} and normalized_party_type in {"legal", "non_legal_org"}:
-            _select_dropdown_by_label("单位性质", ["企业", defaults.get("unit_nature") or "", "其他"])
+            selected_unit_nature = self._force_vue_select_by_label(
+                "单位性质", ["企业", defaults.get("unit_nature") or "", "其他"]
+            )
+            if selected_unit_nature:
+                updates.append(f"单位性质={selected_unit_nature}")
 
         if target == "plaintiff_agent":
             selected = self.page.evaluate(
@@ -1771,6 +1795,12 @@ class CourtZxfwGuaranteeService:
                 updates.append("所属原告=已选")
 
         if target == "property_clue":
+            selected_property_type = self._force_vue_select_by_label(
+                "财产类型", ["其他", defaults.get("property_type") or "", "其他"]
+            )
+            if selected_property_type:
+                updates.append(f"财产类型={selected_property_type}")
+
             _select_dropdown_by_label(
                 "财产所有人",
                 [defaults.get("owner_name") or "", defaults.get("name") or ""],
@@ -1784,7 +1814,7 @@ class CourtZxfwGuaranteeService:
                     const provinceName = args.provinceName || '广东省';
                     const provinceKeyword = (provinceName || '广东省').replace('省', '');
                     const location = args.location || '';
-                    const out = { owner: false, province: false, location: false };
+                    const out = { province: false, location: false };
                     const isVisible = (el) => {
                         if (!el) return false;
                         const st = window.getComputedStyle(el);
@@ -1800,36 +1830,7 @@ class CourtZxfwGuaranteeService:
                         input.blur();
                     };
 
-                    const dialog = [...document.querySelectorAll('.el-dialog,.el-dialog__wrapper')].filter(isVisible).slice(-1)[0] || document;
-
-                    const typeInput = [...dialog.querySelectorAll("input[placeholder='请选择财产类型']")].find((el) => isVisible(el) && !el.disabled);
-                    if (typeInput) {
-                        typeInput.click();
-                        const typeOpts = [...document.querySelectorAll('.el-select-dropdown__item, .el-option, [role="option"], .el-popper li')]
-                            .filter((el) => isVisible(el) && !el.classList.contains('is-disabled'));
-                        let typeTarget = typeOpts.find((el) => (el.innerText || '').includes('其他'));
-                        if (typeTarget) {
-                            typeTarget.click();
-                        }
-                        if (!(typeInput.value || '').includes('其他')) {
-                            setValue(typeInput, '其他');
-                        }
-                    }
-
-                    const ownerInput = [...dialog.querySelectorAll("input[placeholder='请选择财产所有人']")].find((el) => isVisible(el) && !el.disabled);
-                    if (ownerInput) {
-                        ownerInput.click();
-                        const opts = [...document.querySelectorAll('.el-select-dropdown__item, .el-option, [role="option"], .el-popper li')]
-                            .filter((el) => isVisible(el) && !el.classList.contains('is-disabled'));
-                        let target = null;
-                        if (ownerName) target = opts.find((el) => (el.innerText || '').includes(ownerName));
-                        if (!target) target = opts.find((el) => (el.innerText || '').trim());
-                        if (target) {
-                            target.click();
-                            out.owner = true;
-                        }
-                    }
-
+                    const dialog = [...document.querySelectorAll('.el-dialog,.el-dialog__wrapper,.fd-com-layer,#addSQR')].filter(isVisible).slice(-1)[0] || document;
                     const locationRow = [...dialog.querySelectorAll('.el-form-item')].find((it) => ((it.querySelector('.el-form-item__label')?.innerText || '').includes('房产坐落位置')));
                     if (locationRow) {
                         const sfInput = locationRow.querySelector('.fd-sf input.el-input__inner');
@@ -1862,8 +1863,6 @@ class CourtZxfwGuaranteeService:
                     "location": defaults.get("property_location") or "",
                 },
             )
-            if bool((property_updates or {}).get("owner")):
-                updates.append("财产所有人=已选")
             if bool((property_updates or {}).get("province")):
                 updates.append("省份=已选")
             if bool((property_updates or {}).get("location")):
@@ -2054,7 +2053,7 @@ class CourtZxfwGuaranteeService:
                 };
 
                 const fillRules = [
-                    { labels: ['财产信息'], value: values.propertyInfo || '' },
+                    { labels: ['财产信息', '描述'], value: values.propertyInfo || '' },
                     { labels: ['房产证号'], value: values.propertyCertNo || '' },
                     { labels: ['价值', '财产价值'], value: values.propertyValue || '' },
                     { labels: ['具体位置', '房产坐落位置'], value: values.propertyLocation || '' },
