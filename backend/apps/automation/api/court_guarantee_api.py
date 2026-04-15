@@ -455,10 +455,14 @@ def execute_court_guarantee(request: HttpRequest, payload: ExecuteCourtGuarantee
         selected_respondents=selected_respondents,
         preserve_amount=preserve_amount,
     )
-    property_clue = property_clues[0] if property_clues else _build_primary_respondent_property_clue(
-        case_parties=case_parties,
-        selected_respondents=selected_respondents,
-        preserve_amount=preserve_amount,
+    property_clue = (
+        property_clues[0]
+        if property_clues
+        else _build_primary_respondent_property_clue(
+            case_parties=case_parties,
+            selected_respondents=selected_respondents,
+            preserve_amount=preserve_amount,
+        )
     )
 
     case_data: dict[str, Any] = {
@@ -671,9 +675,9 @@ def _build_selected_respondent_property_clues(
 
     for party in selected_case_parties:
         client = getattr(party, "client", None)
-        owner_name = str(getattr(client, "name", "") or "").strip() or str(
-            getattr(party, "name", "") or "被申请人"
-        ).strip()
+        owner_name = (
+            str(getattr(client, "name", "") or "").strip() or str(getattr(party, "name", "") or "被申请人").strip()
+        )
         property_location = str(getattr(client, "address", "") or "").strip() if client is not None else ""
 
         clue_dtos = (
