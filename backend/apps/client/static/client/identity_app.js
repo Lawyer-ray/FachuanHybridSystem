@@ -22,6 +22,7 @@ function identityApp(config = {}) {
         docType: '',                // 证件类型
         recognitionResult: null,    // 识别结果
         confidence: 0,              // 置信度
+        enableOllama: false,        // 身份证场景是否启用 Ollama 兜底
         errorMessage: '',           // 错误信息
         showError: false,           // 是否显示错误状态
         showResult: false,          // 是否显示结果状态
@@ -109,6 +110,7 @@ function identityApp(config = {}) {
             this.docType = '';
             this.recognitionResult = null;
             this.confidence = 0;
+            this.enableOllama = false;
             this.errorMessage = '';
             this.showError = false;
             this.showResult = false;
@@ -262,6 +264,7 @@ function identityApp(config = {}) {
             const formData = new FormData();
             formData.append('file', file);
             formData.append('doc_type', docType);
+            formData.append('enable_ollama', this.shouldEnableOllama(docType) ? 'true' : 'false');
 
             this.loadingText = '正在识别证件...';
 
@@ -320,6 +323,17 @@ function identityApp(config = {}) {
             this.isLoading = false;
             this.showResult = false;
             this.showError = true;
+        },
+
+        isIdCardDocType(docType) {
+            return docType === 'id_card' || docType === 'legal_rep_id_card';
+        },
+
+        shouldEnableOllama(docType) {
+            if (!this.isIdCardDocType(docType)) {
+                return true;
+            }
+            return !!this.enableOllama;
         },
 
         // ========== 结果处理 ==========

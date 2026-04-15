@@ -43,6 +43,7 @@ from mcp_server.tools.clients import (
     list_clients,
     list_property_clues,
     parse_client_text,
+    update_client,
 )
 from mcp_server.tools.contract_review import get_review_models, get_review_status, upload_contract_for_review
 from mcp_server.tools.contracts import create_contract, get_contract, list_contracts
@@ -125,7 +126,7 @@ __all__ = [
     "list_case_numbers", "create_case_number",
     "list_case_assignments", "assign_lawyer",
     # 客户
-    "list_clients", "get_client", "create_client", "parse_client_text",
+    "list_clients", "get_client", "create_client", "parse_client_text", "update_client",
     "list_property_clues", "create_property_clue",
     # 合同
     "list_contracts", "get_contract", "create_contract",

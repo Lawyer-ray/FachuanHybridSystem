@@ -7,6 +7,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, ClassVar
 
 from django.db import models
+from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 
 if TYPE_CHECKING:
@@ -56,6 +57,20 @@ class CourtSMS(models.Model):
     case_numbers = models.JSONField(default=list, verbose_name=_("案号列表"))
     party_names = models.JSONField(default=list, verbose_name=_("当事人名称列表"))
     document_file_paths = models.JSONField(default=list, verbose_name=_("文书文件路径列表"))
+    delivery_event_id = models.CharField(
+        max_length=128,
+        null=True,
+        blank=True,
+        db_index=True,
+        verbose_name=_("送达事件标识"),
+    )
+    delivery_event_key = models.CharField(
+        max_length=64,
+        null=True,
+        blank=True,
+        db_index=True,
+        verbose_name=_("送达事件去重键"),
+    )
 
     # 处理状态
     status = models.CharField(
@@ -107,6 +122,13 @@ class CourtSMS(models.Model):
             models.Index(fields=["status", "-received_at"]),
             models.Index(fields=["sms_type"]),
             models.Index(fields=["case"]),
+        ]
+        constraints: ClassVar = [
+            models.UniqueConstraint(
+                fields=["delivery_event_key"],
+                condition=Q(delivery_event_key__isnull=False) & ~Q(delivery_event_key=""),
+                name="uniq_courtsms_delivery_event_key",
+            )
         ]
 
     def __str__(self) -> str:

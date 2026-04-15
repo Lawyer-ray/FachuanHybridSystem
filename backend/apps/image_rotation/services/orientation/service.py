@@ -15,33 +15,27 @@ class OrientationDetectionService:
     图片方向检测服务
 
     使用四方向 OCR 投票法检测图片方向:
-    对图片分别做 0°/90°/180°/270° 旋转,用 RapidOCR 识别,
+    对图片分别做 0°/90°/180°/270° 旋转,用 OCR 识别,
     哪个方向识别出的文字置信度最高就是正确方向.
     """
 
     def __init__(self) -> None:
-        self._ocr = None
+        self._ocr_service: Any | None = None
 
     @property
-    def ocr(self) -> None:
-        if self._ocr is None:
+    def ocr_service(self) -> Any:
+        if self._ocr_service is None:
             try:
-                from rapidocr import ModelType, OCRVersion, RapidOCR
+                from apps.automation.services.ocr.ocr_service import OCRService
 
-                self._ocr = RapidOCR(
-                    params={
-                        "Det.ocr_version": OCRVersion.PPOCRV5,
-                        "Det.model_type": ModelType.MOBILE,
-                        "Rec.model_type": ModelType.MOBILE,
-                    }
-                )
+                self._ocr_service = OCRService(use_v5=True)
             except ImportError:
-                logger.warning("rapidocr 未安装")
+                logger.warning("OCR 服务未安装")
                 return None
-        return self._ocr
+        return self._ocr_service
 
     def detect_orientation(self, image_data: bytes) -> dict[str, Any]:
-        if not self.ocr:
+        if not self.ocr_service:
             return {
                 "rotation": 0,
                 "confidence": 0,
@@ -66,7 +60,7 @@ class OrientationDetectionService:
                 rotated_img.save(img_bytes, format="JPEG", quality=85)
                 img_bytes_data = img_bytes.getvalue()
 
-                result = self.ocr(img_bytes_data)
+                result = self.ocr_service.ocr(img_bytes_data)
 
                 if result and result.txts and result.scores:
                     text_count = len(result.txts)
@@ -78,7 +72,7 @@ class OrientationDetectionService:
                 scores[rotation] = score
                 logger.debug(f"方向 {rotation}°: 得分={score:.2f}")
 
-            best_rotation = max(scores, key=scores.get)
+            best_rotation = max(scores, key=lambda rotation: scores[rotation])
             best_score = scores[best_rotation]
             total_score = sum(scores.values())
 
@@ -113,7 +107,7 @@ class OrientationDetectionService:
             }
 
     def detect_orientation_with_text(self, image_data: bytes) -> dict[str, Any]:
-        if not self.ocr:
+        if not self.ocr_service:
             return {
                 "rotation": 0,
                 "confidence": 0,
@@ -140,7 +134,7 @@ class OrientationDetectionService:
                 rotated_img.save(img_bytes, format="JPEG", quality=85)
                 img_bytes_data = img_bytes.getvalue()
 
-                result = self.ocr(img_bytes_data)
+                result = self.ocr_service.ocr(img_bytes_data)
 
                 if result and result.txts and result.scores:
                     text_count = len(result.txts)
@@ -154,7 +148,7 @@ class OrientationDetectionService:
                 scores[rotation] = score
                 logger.debug(f"方向 {rotation}°: 得分={score:.2f}")
 
-            best_rotation = max(scores, key=scores.get)
+            best_rotation = max(scores, key=lambda rotation: scores[rotation])
             best_score = scores[best_rotation]
             total_score = sum(scores.values())
             confidence = best_score / total_score if total_score > 0 else 0

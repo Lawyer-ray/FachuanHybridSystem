@@ -24,6 +24,7 @@ from .case_matcher import CaseMatcher, _get_case_matcher
 from .case_number_extractor_service import CaseNumberExtractorService
 
 # 异步任务入口函数（向后兼容 - 保持原有导入路径）
+from .court_sms_dedup_service import CourtSMSDedupIdentity, CourtSMSDedupResult, CourtSMSDedupService
 from .court_sms_service import (
     CourtSMSService,
     process_sms_async,
@@ -72,6 +73,9 @@ __all__ = [
     "SMSParserService",
     "FeishuBotService",
     "CourtSMSService",
+    "CourtSMSDedupIdentity",
+    "CourtSMSDedupResult",
+    "CourtSMSDedupService",
     "DocumentRenamer",
     "CaseNumberExtractorService",
     "DocumentAttachmentService",

@@ -122,6 +122,12 @@ def get_env_mappings() -> dict[str, dict[str, Any]]:
             "description": "Ollama API 地址",
             "is_secret": False,
         },
+        "OLLAMA_TIMEOUT": {
+            "key": "OLLAMA_TIMEOUT",
+            "category": "ai",
+            "description": "Ollama 请求超时时间（秒）",
+            "is_secret": False,
+        },
         "OLLAMA_EMBEDDING_MODEL": {
             "key": "OLLAMA_EMBEDDING_MODEL",
             "category": "ai",
@@ -156,6 +162,12 @@ def get_env_mappings() -> dict[str, dict[str, Any]]:
             "key": "LLM_DEFAULT_BACKEND",
             "category": "ai",
             "description": "默认 LLM 后端",
+            "is_secret": False,
+        },
+        "TIANYANCHA_MCP_TRANSPORT": {
+            "key": "TIANYANCHA_MCP_TRANSPORT",
+            "category": "enterprise_data",
+            "description": "天眼查 MCP 传输协议（streamable_http 或 sse）",
             "is_secret": False,
         },
         "TIANYANCHA_MCP_BASE_URL": {

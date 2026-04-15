@@ -36,12 +36,13 @@ class EnterpriseProviderRegistry:
         return cast(str, DEFAULT_PROVIDER_NAME)
 
     def list_providers(self) -> list[ProviderDescriptor]:
+        transport = self.get_tianyancha_transport()
         return [
             ProviderDescriptor(
                 name=TianyanchaMcpProvider.name,
                 enabled=True,
                 is_default=True,
-                transport=DEFAULT_TRANSPORT,
+                transport=transport,
                 capabilities=TianyanchaMcpProvider.supported_capabilities(),
                 note="",
             )
@@ -65,6 +66,17 @@ class EnterpriseProviderRegistry:
             api_key_key="TIANYANCHA_MCP_API_KEY",  # pragma: allowlist secret
         )
         return TianyanchaMcpProvider(config=config)
+
+    def get_tianyancha_transport(self) -> str:
+        raw_transport = str(self._config.get_value("TIANYANCHA_MCP_TRANSPORT", DEFAULT_TRANSPORT) or "").strip().lower()
+        if raw_transport in {"streamable_http", "sse"}:
+            return raw_transport
+        if raw_transport:
+            logger.warning(
+                "Invalid TIANYANCHA_MCP_TRANSPORT configured, fallback to default",
+                extra={"configured_transport": raw_transport, "fallback_transport": DEFAULT_TRANSPORT},
+            )
+        return str(DEFAULT_TRANSPORT)
 
     def get_rate_limit_requests(self) -> int:
         return 60
@@ -118,10 +130,12 @@ class EnterpriseProviderRegistry:
                 },
             )
 
+        transport = self.get_tianyancha_transport()
+
         return ProviderConfig(
             name=provider_name,
             enabled=True,
-            transport=DEFAULT_TRANSPORT,
+            transport=transport,
             base_url=str(self._config.get_value(base_url_key, base_url_default) or "").strip(),
             sse_url=str(self._config.get_value(sse_url_key, sse_url_default) or "").strip(),
             api_key=api_keys[0],

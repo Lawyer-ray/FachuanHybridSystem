@@ -1,6 +1,15 @@
 {% extends "admin/change_list.html" %}
 {% load i18n %}
 
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    /* 隐藏 changelist 底部保存按钮（list_editable 已移除，双重保险） */
+    #changelist-form input[type="submit"][name="_save"],
+    #changelist-form .submit-row { display: none !important; }
+</style>
+{% endblock %}
+
 {% block object-tools-items %}
     {% if show_init_button %}
     <li>

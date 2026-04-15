@@ -10,7 +10,6 @@ import fitz
 from django.conf import settings
 from django.core.files.uploadedfile import UploadedFile
 from docx import Document
-from rapidocr_onnxruntime import RapidOCR
 
 
 def get_doc_config() -> dict[str, int]:
@@ -46,15 +45,14 @@ def get_doc_config() -> dict[str, int]:
 
 def extract_text_from_image_with_rapidocr(file_path: str) -> str:
     """
-    使用RapidOCR从图片中提取文字
+    使用 OCR 从图片中提取文字
+
+    自动根据 SystemConfig 中的 OCR_PROVIDER 配置选择本地 RapidOCR 或 PaddleOCR API。
     """
-    ocr = RapidOCR()
-    result, _ = ocr(file_path)
-    if result:
-        # 将识别结果按行合并
-        text_lines = [item[1] for item in result]
-        return "\n".join(text_lines)
-    return ""
+    from apps.automation.services.ocr.ocr_service import OCRService
+
+    ocr_service = OCRService()
+    return ocr_service.recognize(file_path)
 
 
 def render_pdf_page_to_image(file_path: str, page_num: int = 0) -> str:
@@ -178,7 +176,7 @@ def _ocr_pdf_page(file_path: str, page_num_1based: int, limit: int) -> str | Non
             if ocr_text.strip():
                 return ocr_text[:limit]
     except Exception as e:
-        logger.info(f"RapidOCR处理PDF失败: {e}")
+        logger.info(f"OCR处理PDF失败: {e}")
     return None
 
 

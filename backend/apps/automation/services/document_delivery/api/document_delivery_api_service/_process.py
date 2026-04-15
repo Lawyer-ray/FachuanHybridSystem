@@ -114,6 +114,7 @@ class DocumentProcessMixin:
                 element_index=0,
                 document_name=record.wsmc,
                 court_name=record.fymc,
+                delivery_event_id=record.sdbh,
             )
 
             process_result = self._process_sms_in_thread(
@@ -149,7 +150,8 @@ class DocumentProcessMixin:
             try:
                 from django.db import connection
 
-                from apps.automation.models import CourtSMS, CourtSMSStatus
+                from apps.automation.models import CourtSMSStatus
+                from apps.automation.services.sms.court_sms_dedup_service import CourtSMSDedupService
 
                 connection.ensure_connection()
 
@@ -162,16 +164,20 @@ class DocumentProcessMixin:
                     "error_message": None,
                 }
 
-                send_time_val = record.send_time or timezone.now()
-                logger.info(f"创建 CourtSMS 记录: 案号={record.case_number}")
-                sms = CourtSMS.objects.create(
-                    content=f"文书送达自动下载: {record.case_number}",
-                    received_at=send_time_val,
+                dedup_service = CourtSMSDedupService()
+                dedup_result = dedup_service.get_or_create_document_delivery_sms(
+                    record=record,
+                    extracted_files=extracted_files,
                     status=CourtSMSStatus.MATCHING,
-                    case_numbers=[record.case_number],
-                    sms_type="document_delivery",
-                    document_file_paths=extracted_files,
                 )
+                sms = dedup_result.sms
+                if not dedup_result.created:
+                    logger.info(
+                        f"命中文书送达重复事件，跳过后续处理: SMS ID={sms.id}, 案号={record.case_number}"
+                    )
+                    result.update(dedup_service.build_existing_sms_result(sms, file_path))
+                    result_queue.put(result)
+                    return
                 logger.info(f"CourtSMS 创建成功: ID={sms.id}")
 
                 logger.info(f"开始案件匹配: SMS ID={sms.id}, 案号={record.case_number}")

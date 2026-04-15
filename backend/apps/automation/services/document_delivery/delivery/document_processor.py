@@ -225,7 +225,8 @@ class DocumentProcessor:
                 from django.db import connection
                 from django.utils import timezone
 
-                from apps.automation.models import CourtSMS, CourtSMSStatus
+                from apps.automation.models import CourtSMSStatus
+                from apps.automation.services.sms.court_sms_dedup_service import CourtSMSDedupService
 
                 connection.ensure_connection()
 
@@ -238,17 +239,21 @@ class DocumentProcessor:
                     "error_message": None,
                 }
 
-                # 1. 创建 CourtSMS 记录
-                logger.info(f"创建 CourtSMS 记录: 案号={record.case_number}")
-                case_numbers_list: list[Any] = [record.case_number]
-                sms = CourtSMS.objects.create(
-                    content=f"文书送达自动下载: {record.case_number}",
-                    received_at=record.send_time,
+                # 1. 创建或复用 CourtSMS 记录
+                dedup_service = CourtSMSDedupService()
+                dedup_result = dedup_service.get_or_create_document_delivery_sms(
+                    record=record,
+                    extracted_files=extracted_files,
                     status=CourtSMSStatus.MATCHING,
-                    case_numbers=case_numbers_list,
-                    sms_type="document_delivery",
-                    document_file_paths=extracted_files,
                 )
+                sms = dedup_result.sms
+                if not dedup_result.created:
+                    logger.info(
+                        f"命中文书送达重复事件，跳过后续处理: SMS ID={sms.id}, 案号={record.case_number}"
+                    )
+                    result.update(dedup_service.build_existing_sms_result(sms, file_path))
+                    result_queue.put(result)
+                    return
                 logger.info(f"CourtSMS 创建成功: ID={sms.id}")
 
                 # 2. 案件匹配 - 先通过案号,失败后从文书提取当事人匹配

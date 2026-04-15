@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 """
-OCR 服务 - 基于 PP-OCRv5 Server 模型
+OCR 服务 - 统一路由层
 
-提供高精度的文字识别能力,支持:
-- 简体中文、繁体中文、英文、日文、拼音
-- 手写体、竖排文字、生僻字
+根据 SystemConfig 中的 OCR_PROVIDER 配置，自动路由到：
+- local: 本地 RapidOCR 引擎（默认）
+- paddleocr_api: 百度 PaddleOCR API 云端引擎
 
-使用 rapidocr>=3.4.5,模型会自动下载.
+同时支持 PP-OCRv5 Server 模型，提供高精度的文字识别能力。
 """
 
 import io
@@ -37,7 +37,7 @@ _ocr_engine_cache: dict[bool, Any] = {}
 
 def get_ocr_engine(use_v5: bool = True) -> Any:
     """
-    获取 OCR 引擎实例(单例模式)
+    获取本地 OCR 引擎实例(单例模式)
 
     Args:
         use_v5: 是否使用 PP-OCRv5 模型(默认 True)
@@ -77,25 +77,49 @@ def get_ocr_engine(use_v5: bool = True) -> Any:
     return _ocr_engine_cache[use_v5]
 
 
-class OCRService:
-    """OCR 服务类"""
+def _get_ocr_provider() -> str:
+    """从 SystemConfig 获取 OCR 提供者"""
+    from apps.core.services.system_config_service import SystemConfigService
 
-    def __init__(self, use_v5: bool = True) -> None:
+    return str(SystemConfigService().get_value("OCR_PROVIDER", "local") or "local")
+
+
+class OCRService:
+    """OCR 服务类 - 统一路由层"""
+
+    def __init__(self, use_v5: bool = True, provider: str | None = None) -> None:
         """
         初始化 OCR 服务
 
         Args:
-            use_v5: 是否使用 PP-OCRv5 模型(默认 True)
+            use_v5: 是否使用 PP-OCRv5 模型(默认 True)，仅本地模式生效
+            provider: OCR 引擎选择，None 时从 SystemConfig 读取
         """
         self.use_v5 = use_v5
-        self._ocr = None
+        self._provider = provider
+        self._ocr: Any | None = None
+        self._paddleocr_engine: Any | None = None
+
+    @property
+    def provider(self) -> str:
+        """获取当前 OCR 提供者"""
+        return self._provider or _get_ocr_provider()
 
     @property
     def ocr(self) -> Any:
-        """懒加载 OCR 引擎"""
+        """懒加载本地 OCR 引擎"""
         if self._ocr is None:
             self._ocr = get_ocr_engine(self.use_v5)
         return self._ocr
+
+    @property
+    def paddleocr_engine(self) -> Any:
+        """懒加载 PaddleOCR API 引擎"""
+        if self._paddleocr_engine is None:
+            from apps.automation.services.ocr.paddleocr_api_service import PaddleOCRApiEngine
+
+            self._paddleocr_engine = PaddleOCRApiEngine()
+        return self._paddleocr_engine
 
     def recognize(self, image_path: str) -> str:
         """
@@ -107,6 +131,9 @@ class OCRService:
         Returns:
             识别出的文字内容
         """
+        if self.provider == "paddleocr_api":
+            return self._recognize_via_paddleocr_path(image_path)
+
         result = self.ocr(image_path)
         if result and result.txts:
             return "\n".join(result.txts)
@@ -123,9 +150,14 @@ class OCRService:
             (结果列表, 置信度列表)
             结果列表格式: [[box, text, score], ...]
         """
-        result = self.ocr(image_path)
+        if self.provider == "paddleocr_api":
+            logger.warning("PaddleOCR API 模式不支持带位置信息的识别，降级到本地 RapidOCR")
+            # 降级到本地引擎
+            result = self.ocr(image_path)
+        else:
+            result = self.ocr(image_path)
+
         if result and result.boxes is not None:
-            # 转换为旧格式兼容
             boxes_with_text: list[Any] = []
             for _i, (box, txt, score) in enumerate(zip(result.boxes, result.txts, result.scores, strict=False)):
                 boxes_with_text.append([box, txt, score])
@@ -142,10 +174,43 @@ class OCRService:
         Returns:
             识别出的文字内容
         """
+        if self.provider == "paddleocr_api":
+            return self._recognize_via_paddleocr_bytes(image_bytes)
+
         result = self.ocr(image_bytes)
         if result and result.txts:
             return "\n".join(result.txts)
         return ""
+
+    def _recognize_via_paddleocr_path(self, image_path: str) -> str:
+        """通过 PaddleOCR API 识别图片文件"""
+        try:
+            from pathlib import Path
+
+            file_bytes = Path(image_path).read_bytes()
+            is_pdf = image_path.lower().endswith(".pdf")
+            api_result = self.paddleocr_engine.recognize_bytes(file_bytes, is_pdf=is_pdf)
+            return str(api_result.text)
+        except Exception as e:
+            logger.warning("PaddleOCR API 调用失败，降级到本地 RapidOCR: %s", e)
+            # 降级到本地
+            result = self.ocr(image_path)
+            if result and result.txts:
+                return "\n".join(result.txts)
+            return ""
+
+    def _recognize_via_paddleocr_bytes(self, image_bytes: bytes) -> str:
+        """通过 PaddleOCR API 识别图片字节数据"""
+        try:
+            api_result = self.paddleocr_engine.recognize_bytes(image_bytes, is_pdf=False)
+            return str(api_result.text)
+        except Exception as e:
+            logger.warning("PaddleOCR API 调用失败，降级到本地 RapidOCR: %s", e)
+            # 降级到本地
+            result = self.ocr(image_bytes)
+            if result and result.txts:
+                return "\n".join(result.txts)
+            return ""
 
     def _to_list(self, x: Any) -> list[Any]:
         """将 OCR 结果转换为列表"""
@@ -214,6 +279,14 @@ class OCRService:
         if not image_bytes:
             return OCRTextResult(text="", raw_texts=[])
 
+        # PaddleOCR API 模式：直接调用 API 获取文本
+        if self.provider == "paddleocr_api":
+            return self._extract_text_via_paddleocr(image_bytes)
+
+        return self._extract_text_local(image_bytes)
+
+    def _extract_text_local(self, image_bytes: bytes) -> OCRTextResult:
+        """本地 RapidOCR 提取文字（带清洗和排序）"""
         try:
             img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
             result = self.ocr(img)
@@ -258,3 +331,24 @@ class OCRService:
         except Exception as e:
             logger.warning("RapidOCR 识别失败", extra={"error": str(e)}, exc_info=True)
             return OCRTextResult(text="", raw_texts=[])
+
+    def _extract_text_via_paddleocr(self, image_bytes: bytes) -> OCRTextResult:
+        """通过 PaddleOCR API 提取文字"""
+        try:
+            api_result = self.paddleocr_engine.recognize_bytes(image_bytes, is_pdf=False)
+            # 清洗文本（与本地模式一致）
+            cleaned: list[str] = []
+            for line in api_result.text.split("\n"):
+                t = line.strip()
+                if not t:
+                    continue
+                t = re.sub(r"\s+", "", t)
+                if self._is_timestamp_text(t):
+                    continue
+                cleaned.append(t)
+
+            merged = "|".join(cleaned)
+            return OCRTextResult(text=merged, raw_texts=cleaned)
+        except Exception as e:
+            logger.warning("PaddleOCR API 识别失败，降级到本地 RapidOCR: %s", e)
+            return self._extract_text_local(image_bytes)

@@ -4,6 +4,8 @@
 用于存储系统级别的配置项,支持在 Django Admin 中进行管理.
 """
 
+# mypy: ignore-errors
+
 from typing import ClassVar
 
 from django.db import models
@@ -30,6 +32,7 @@ class SystemConfig(models.Model):
         LLM = "llm", _("LLM 大模型配置")
         ENTERPRISE_DATA = "enterprise_data", _("企业数据配置")
         SCRAPER = "scraper", _("爬虫配置")
+        OCR = "ocr", _("OCR 服务配置")
         GENERAL = "general", _("通用配置")
 
     key = models.CharField(

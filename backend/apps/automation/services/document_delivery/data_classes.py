@@ -208,6 +208,7 @@ class DocumentDeliveryRecord:
     element_index: int  # 页面元素索引（用于定位下载按钮）
     document_name: str = ""  # 文书名称（可选）
     court_name: str = ""  # 法院名称（可选）
+    delivery_event_id: str = ""  # 送达事件标识（优先使用 sdbh）
 
     def to_dict(self) -> dict[str, Any]:
         """序列化为字典"""
@@ -217,6 +218,7 @@ class DocumentDeliveryRecord:
             "element_index": self.element_index,
             "document_name": self.document_name,
             "court_name": self.court_name,
+            "delivery_event_id": self.delivery_event_id,
         }
 
     @classmethod
@@ -235,6 +237,7 @@ class DocumentDeliveryRecord:
             element_index=data["element_index"],
             document_name=data.get("document_name", ""),
             court_name=data.get("court_name", ""),
+            delivery_event_id=data.get("delivery_event_id", ""),
         )
 
 

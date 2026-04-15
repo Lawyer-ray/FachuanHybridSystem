@@ -295,7 +295,8 @@ class McpToolClient:
                         if delay > 0:
                             time.sleep(delay)
                         logger.warning(
-                            "MCP request failed, retry with same transport",
+                            "MCP request failed, retry with same transport: %s",
+                            exc,
                             extra={
                                 "provider": self._provider_name,
                                 "action": action,
@@ -313,7 +314,8 @@ class McpToolClient:
             if has_fallback and last_error is not None:
                 self._mark_transport_unhealthy(transport=transport, exc=last_error)
                 logger.warning(
-                    "MCP request failed on primary transport, retry with fallback",
+                    "MCP request failed on primary transport, retry with fallback: %s",
+                    last_error,
                     extra={
                         "provider": self._provider_name,
                         "action": action,

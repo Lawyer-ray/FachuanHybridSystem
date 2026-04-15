@@ -103,6 +103,7 @@ from mcp_server.tools import (
     trigger_case_import,
     trigger_client_import,
     trigger_oa_filing,
+    update_client,
     update_reminder,
     upload_contract_for_review,
     upload_invoices,
@@ -137,6 +138,7 @@ mcp.tool()(list_clients)
 mcp.tool()(get_client)
 mcp.tool()(create_client)
 mcp.tool()(parse_client_text)
+mcp.tool()(update_client)
 
 # 客户财产线索
 mcp.tool()(list_property_clues)
