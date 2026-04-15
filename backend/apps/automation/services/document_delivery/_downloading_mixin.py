@@ -134,15 +134,14 @@ class DocumentDeliveryDownloadingMixin:
             try:
                 from django.db import connection
 
-                from apps.automation.models import CourtSMS, CourtSMSStatus
+                from apps.automation.services.sms.court_sms_dedup_service import CourtSMSDedupService
 
                 connection.ensure_connection()
-                completed_sms = CourtSMS.objects.filter(
-                    case_numbers__contains=[record.case_number],
-                    status=CourtSMSStatus.COMPLETED,
-                ).first()
-                if completed_sms:
-                    logger.info(f"🔄 文书已成功处理完成: {record.case_number}, SMS ID={completed_sms.id}")
+                existing_sms = CourtSMSDedupService().find_document_delivery_sms(record)
+                if existing_sms:
+                    logger.info(
+                        f"🔄 命中文书送达重复事件，跳过处理: {record.case_number}, SMS ID={existing_sms.id}, 状态={existing_sms.status}"
+                    )
                     result_queue.put(False)
                     return
                 if send_time is not None:

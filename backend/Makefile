@@ -48,7 +48,7 @@ ci-check-full: ## 完整 CI 预检 (含 unit/integration/property smoke)
 	$(TEST_ENV) $(PYTEST) tests/ci/integration/ -q $(ARGS)
 	$(TEST_ENV) HYPOTHESIS_PROFILE=default $(PYTEST) tests/ci/property/ -q $(ARGS)
 
-.PHONY: help install run test migrate shell lint clean ci-check ci-check-full
+.PHONY: help install run test migrate shell lint clean ci-check ci-check-full qcluster-dev
 
 # 默认 Python 和虚拟环境
 VENV_DIR ?= .venv
@@ -61,6 +61,9 @@ WATCHFILES := $(VENV_DIR)/bin/watchfiles
 PORT ?= 8002
 RUN_DEV_FORCE_POLLING ?= true
 RUN_DEV_POLL_DELAY_MS ?= 300
+QCLUSTER_DEV_FORCE_POLLING ?= true
+QCLUSTER_DEV_POLL_DELAY_MS ?= 300
+QCLUSTER_WATCH_PATHS ?= apps apiSystem
 
 # 数据库配置（默认 PostgreSQL，可通过 DB_ENGINE=sqlite 切换）
 DB_ENGINE ?= postgresql
@@ -291,6 +294,11 @@ qcluster-start: migrate ## 启动 Django-Q 并处理待处理任务（与 Django
 	@sleep 1
 	$(MANAGE) process_pending_tasks --reset
 	$(MANAGE) qcluster
+
+qcluster-dev: migrate ## 启动 Django-Q（文件变化自动重启）
+	@echo "$(GREEN)启动 qcluster-dev: 检测 Python 文件变化后自动重启 qcluster$(NC)"
+	@echo "$(YELLOW)监听目录: $(QCLUSTER_WATCH_PATHS)$(NC)"
+	@WATCHFILES_FORCE_POLLING=$(QCLUSTER_DEV_FORCE_POLLING) WATCHFILES_POLL_DELAY_MS=$(QCLUSTER_DEV_POLL_DELAY_MS) $(WATCHFILES) --target-type command --filter python --ignore-paths ".venv,node_modules,.git,__pycache__,media,staticfiles,logs,htmlcov,.pytest_cache" "$(MANAGE) qcluster" $(QCLUSTER_WATCH_PATHS)
 
 process-tasks: ## 处理待处理的爬虫任务
 	$(MANAGE) process_pending_tasks

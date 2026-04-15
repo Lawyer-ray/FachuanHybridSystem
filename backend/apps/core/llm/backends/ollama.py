@@ -307,6 +307,7 @@ class OllamaBackend(HttpxErrorMixin):
             **kwargs: Ollama 特有参数:
                 - num_predict: 最大生成 token 数
                 - timeout: 请求超时时间(秒)
+                - think: 是否启用深度思考模式
                 - top_k, top_p, repeat_penalty, seed, num_ctx 等
 
         Returns:
@@ -324,13 +325,14 @@ class OllamaBackend(HttpxErrorMixin):
 
         # 获取 num_predict(支持 kwargs 传入)
         num_predict = kwargs.pop("num_predict", None)
+        think = kwargs.pop("think", None)
 
         # 构建 options
         options = self._build_options(temperature=temperature, max_tokens=max_tokens, num_predict=num_predict, **kwargs)
 
         # 构建请求
         url = self._build_api_url()
-        payload = build_ollama_chat_payload(messages=messages, model=used_model, options=options)
+        payload = build_ollama_chat_payload(messages=messages, model=used_model, options=options, think=think)
 
         start_time = time.time()
 
@@ -376,6 +378,7 @@ class OllamaBackend(HttpxErrorMixin):
             **kwargs: Ollama 特有参数:
                 - num_predict: 最大生成 token 数
                 - timeout: 请求超时时间(秒)
+                - think: 是否启用深度思考模式
                 - top_k, top_p, repeat_penalty, seed, num_ctx 等
 
         Returns:
@@ -393,13 +396,14 @@ class OllamaBackend(HttpxErrorMixin):
 
         # 获取 num_predict(支持 kwargs 传入)
         num_predict = kwargs.pop("num_predict", None)
+        think = kwargs.pop("think", None)
 
         # 构建 options
         options = self._build_options(temperature=temperature, max_tokens=max_tokens, num_predict=num_predict, **kwargs)
 
         # 构建请求
         url = self._build_api_url()
-        payload = build_ollama_chat_payload(messages=messages, model=used_model, options=options)
+        payload = build_ollama_chat_payload(messages=messages, model=used_model, options=options, think=think)
 
         start_time = time.time()
 
@@ -438,6 +442,7 @@ class OllamaBackend(HttpxErrorMixin):
 
         request_timeout = kwargs.pop("timeout", None) or self.timeout
         num_predict = kwargs.pop("num_predict", None)
+        think = kwargs.pop("think", None)
         options = self._build_options(
             temperature=temperature,
             max_tokens=max_tokens,
@@ -446,7 +451,7 @@ class OllamaBackend(HttpxErrorMixin):
         )
 
         url = self._build_api_url()
-        payload = build_ollama_chat_payload(messages=messages, model=used_model, options=options)
+        payload = build_ollama_chat_payload(messages=messages, model=used_model, options=options, think=think)
         payload["stream"] = True
 
         try:
@@ -504,6 +509,7 @@ class OllamaBackend(HttpxErrorMixin):
 
         request_timeout = kwargs.pop("timeout", None) or self.timeout
         num_predict = kwargs.pop("num_predict", None)
+        think = kwargs.pop("think", None)
         options = self._build_options(
             temperature=temperature,
             max_tokens=max_tokens,
@@ -512,7 +518,7 @@ class OllamaBackend(HttpxErrorMixin):
         )
 
         url = self._build_api_url()
-        payload = build_ollama_chat_payload(messages=messages, model=used_model, options=options)
+        payload = build_ollama_chat_payload(messages=messages, model=used_model, options=options, think=think)
         payload["stream"] = True
 
         try:
@@ -562,6 +568,7 @@ class OllamaBackend(HttpxErrorMixin):
         model: str | None = None,
         options: dict[str, Any] | None = None,
         timeout: float | None = None,
+        think: bool | None = None,
     ) -> LLMResponse:
         """
         带 options 参数的聊天接口(兼容原 ollama_client.chat_with_options)
@@ -571,6 +578,7 @@ class OllamaBackend(HttpxErrorMixin):
             model: 模型名称,None 时使用默认模型
             options: Ollama 模型选项,如 num_predict, temperature 等
             timeout: 请求超时时间(秒)
+            think: 是否启用深度思考模式
 
         Returns:
             LLMResponse: 统一格式的响应对象
@@ -586,7 +594,7 @@ class OllamaBackend(HttpxErrorMixin):
         request_timeout = timeout or self.timeout
 
         url = self._build_api_url()
-        payload = build_ollama_chat_payload(messages=messages, model=used_model, options=options)
+        payload = build_ollama_chat_payload(messages=messages, model=used_model, options=options, think=think)
 
         start_time = time.time()
 

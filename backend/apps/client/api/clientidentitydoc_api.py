@@ -39,12 +39,25 @@ def _get_id_card_merge_service() -> Any:
 def recognize_identity_doc(
     request: Any,
     file: UploadedFile = File(...),  # type: ignore[arg-type]
-    doc_type: str = "id_card",
+    doc_type: str = "auto",
+    enable_ollama: bool = False,
 ) -> IdentityRecognizeOut:
     """识别证件信息"""
     image_bytes = file.read()
     service = _get_identity_extraction_service()
-    result = service.safe_extract(image_bytes, doc_type)
+    normalized_doc_type = (doc_type or "").strip() or "auto"
+    logger.info(
+        "证件识别请求入参: doc_type=%s, enable_ollama=%s, filename=%s",
+        normalized_doc_type,
+        enable_ollama,
+        getattr(file, "name", ""),
+    )
+    result = service.safe_extract(
+        image_bytes,
+        normalized_doc_type,
+        enable_ollama=enable_ollama,
+        source_name=getattr(file, "name", None),
+    )
     return IdentityRecognizeOut(
         success=result["success"],
         doc_type=result["doc_type"],

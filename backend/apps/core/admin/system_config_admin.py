@@ -32,13 +32,10 @@ class SystemConfigAdmin(admin.ModelAdmin[SystemConfig]):
         "key",
         "category_display",
         "masked_value",
-        "is_secret",
-        "is_active",
         "updated_at",
     ]
-    list_filter = ["category", "is_secret", "is_active"]
+    list_filter = ["category", "is_secret"]
     search_fields = ["key", "description"]
-    list_editable = ["is_active"]
     ordering = ["category", "key"]
     change_list_template = "admin/core/systemconfig/change_list.html"
 

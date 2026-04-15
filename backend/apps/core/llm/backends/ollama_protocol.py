@@ -18,6 +18,7 @@ def build_ollama_chat_payload(
     messages: list[dict[str, str]],
     model: str,
     options: dict[str, Any] | None = None,
+    think: bool | None = None,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "model": model,
@@ -26,6 +27,8 @@ def build_ollama_chat_payload(
     }
     if options:
         payload["options"] = options
+    if think is not None:
+        payload["think"] = think
     return payload
 
 

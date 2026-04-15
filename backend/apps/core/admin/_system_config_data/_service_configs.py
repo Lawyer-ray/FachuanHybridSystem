@@ -49,6 +49,13 @@ def get_ai_configs() -> list[dict[str, Any]]:
             "is_secret": False,
         },
         {
+            "key": "OLLAMA_TIMEOUT",
+            "category": "ai",
+            "description": "Ollama 请求超时时间（秒）",
+            "value": "300",
+            "is_secret": False,
+        },
+        {
             "key": "SILICONFLOW_API_KEY",
             "category": "ai",
             "description": "硅基流动 API Key",
@@ -190,6 +197,13 @@ def get_scraper_configs() -> list[dict[str, Any]]:
 def get_enterprise_data_configs() -> list[dict[str, Any]]:
     """获取企业数据配置项（仅保留用户真正需要配置的项）"""
     return [
+        {
+            "key": "TIANYANCHA_MCP_TRANSPORT",
+            "category": "enterprise_data",
+            "description": "天眼查 MCP 传输协议（streamable_http 或 sse）",
+            "value": "streamable_http",
+            "is_secret": False,
+        },
         {
             "key": "TIANYANCHA_MCP_BASE_URL",
             "category": "enterprise_data",

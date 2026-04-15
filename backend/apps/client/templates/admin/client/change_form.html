@@ -331,6 +331,10 @@
                 <label style="font-size: 12px; color: #6c757d;">
                     <input type="checkbox" x-model="autoParse"> {% trans "粘贴时自动解析" %}
                 </label>
+                <label style="font-size: 12px; color: #6c757d; display:flex; align-items:center; gap:6px;">
+                    <input type="checkbox" x-model="enableOllama">
+                    <span>{% trans "身份证 OCR 回退 Ollama（默认关闭，仅在自动识别为身份证时生效）" %}</span>
+                </label>
             </div>
             <div class="format-hint">💡 {% trans "支持粘贴/拖拽图片自动 OCR，或粘贴文本/JSON 解析" %}</div>
 
@@ -353,6 +357,7 @@
             // ========== 状态 ==========
             parseText: '',
             autoParse: true,
+            enableOllama: false,
             isParsing: false,
             isDragOver: false,
             isExpanded: false,
@@ -464,12 +469,9 @@
 
                 const formData = new FormData();
                 formData.append('file', file);
-                // 根据文件名猜测证件类型，默认 id_card
-                const name = file.name.toLowerCase();
-                let docType = 'id_card';
-                if (name.includes('license') || name.includes('营业执照')) docType = 'business_license';
-                else if (name.includes('passport') || name.includes('护照')) docType = 'passport';
+                const docType = 'auto';
                 formData.append('doc_type', docType);
+                formData.append('enable_ollama', this.shouldEnableOllama(docType) ? 'true' : 'false');
 
                 try {
                     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
@@ -487,8 +489,9 @@
 
                     // 将 OCR extracted_data 映射到 fillFormWithData 期望的格式
                     const ed = data.extracted_data || {};
+                    const recognizedDocType = data.doc_type || docType;
                     const mapped = {
-                        client_type: docType === 'business_license' ? 'legal' : 'natural',
+                        client_type: recognizedDocType === 'business_license' ? 'legal' : 'natural',
                         name: ed.company_name || ed.name || '',
                         id_number: ed.credit_code || ed.id_number || ed.id_card_number || ed.passport_number || ed.permit_number || '',
                         address: ed.address || '',
@@ -510,6 +513,17 @@
             _extractPhone(rawText) {
                 const m = rawText.match(/(?:联系电话|电话|手机|联系方式)\s*[:：]\s*([0-9\-\+\s]{7,20})/);
                 return m ? m[1].replace(/\s+/g, '').trim() : '';
+            },
+
+            isIdCardDocType(docType) {
+                return docType === 'id_card' || docType === 'legal_rep_id_card';
+            },
+
+            shouldEnableOllama(docType) {
+                if (!this.isIdCardDocType(docType)) {
+                    return true;
+                }
+                return !!this.enableOllama;
             },
 
             getFriendlyOcrError(errorMessage) {
@@ -726,10 +740,11 @@
     <script src="{% static 'client/enterprise_prefill_app.js' %}?v=4"></script>
     {% endif %}
 
-    <!-- 身份材料智能识别内联区域 - Alpine.js 版本 -->
+    <!-- 身份材料智能识别内联区域 - Alpine.js 版本（默认隐藏，需要时取消 display:none） -->
     <div class="identity-recognition-inline"
          x-data="identityApp({ mode: 'inline', instanceId: 'client-form' })"
-         x-init="init()">
+         x-init="init()"
+         style="display: none;">
 
         <!-- 头部区域 -->
         <div class="recognition-header" @click="toggleExpansion()">
@@ -759,7 +774,7 @@
                             </svg>
                             {% trans "证件类型" %}
                         </label>
-                        <select x-model="docType" class="form-control">
+                        <select x-model="docType" class="form-control" @change="if (!isIdCardDocType(docType)) enableOllama = false">
                             <option value="">{% trans "请选择证件类型" %}</option>
                             <option value="id_card">{% trans "身份证" %}</option>
                             <option value="passport">{% trans "护照" %}</option>
@@ -770,6 +785,17 @@
                             <option value="legal_rep_id_card">{% trans "法定代表人/负责人身份证" %}</option>
                         </select>
                     </div>
+
+                    {% if not original %}
+                    <div class="form-group">
+                        <label class="form-label">{% trans "身份证识别回退 Ollama" %}</label>
+                        <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#64748b;">
+                            <input type="checkbox" x-model="enableOllama" :disabled="!isIdCardDocType(docType)">
+                            <span x-show="isIdCardDocType(docType)">{% trans "启用（默认关闭，关闭时仅使用规则提取）" %}</span>
+                            <span x-show="!isIdCardDocType(docType)">{% trans "仅身份证/法定代表人身份证类型生效" %}</span>
+                        </label>
+                    </div>
+                    {% endif %}
 
                     <!-- 文件上传区域 -->
                     <div class="form-group" x-show="showUploadZone()">
@@ -858,7 +884,7 @@
     </div>
 
     <!-- 引入 Alpine.js 身份识别组件 -->
-    <script src="{% static 'client/identity_app.js' %}?v=2"></script>
+    <script src="{% static 'client/identity_app.js' %}?v=5"></script>
 {% endblock %}
 
 {% block admin_change_form_document_ready %}

@@ -310,17 +310,44 @@ class CourtInboxFetcher(MessageFetcher):
             )
             new_count += 1
 
+            delivery_record = self._build_delivery_record(record)
+
             # 下载附件 + 触发推送流程
             if attachments_meta:
+                if delivery_record.case_number:
+                    from apps.automation.services.sms.court_sms_dedup_service import CourtSMSDedupService
+
+                    should_skip, existing_sms = CourtSMSDedupService().should_skip_document_delivery(delivery_record)
+                    if should_skip and existing_sms is not None:
+                        logger.info(
+                            "收件箱命中重复送达事件，跳过自动下载和主流程: sdbh=%s, sms_id=%s, status=%s",
+                            sdbh,
+                            existing_sms.id,
+                            existing_sms.status,
+                        )
+                        continue
+
                 downloaded = self._download_attachments(attachments_meta, sdbh)
                 inbox_msg.attachments_meta = attachments_meta
                 inbox_msg.save(update_fields=["attachments_meta"])
 
-                ah = record.get("ah", "")
-                if ah and downloaded:
+                if delivery_record.case_number and downloaded:
                     self._trigger_sms_flow(record, downloaded, credential_id)
 
         return new_count
+
+    def _build_delivery_record(self, record: dict[str, Any]) -> Any:
+        """构造文书送达记录，供 CourtSMS 去重与后续处理复用。"""
+        from apps.automation.services.document_delivery.data_classes import DocumentDeliveryRecord
+
+        return DocumentDeliveryRecord(
+            case_number=record.get("ah", ""),
+            send_time=_parse_datetime(record.get("fssj", "")),
+            element_index=0,
+            document_name=record.get("wsmc", ""),
+            court_name=record.get("fymc", ""),
+            delivery_event_id=record.get("sdbh", ""),
+        )
 
     def _download_attachments(self, meta: list[dict[str, Any]], sdbh: str) -> list[str]:
         """下载文书附件，返回下载成功的本地路径列表。"""
@@ -350,21 +377,12 @@ class CourtInboxFetcher(MessageFetcher):
 
     def _trigger_sms_flow(self, record: dict[str, Any], downloaded_files: list[str], credential_id: int) -> None:
         """触发 CourtSMS 推送流程：案件匹配 → 重命名 → 添加日志 → 通知。"""
-        from apps.automation.services.document_delivery.data_classes import DocumentDeliveryRecord
         from apps.automation.services.document_delivery.processor.document_delivery_processor import (
             DocumentDeliveryProcessor,
         )
 
-        ah = record.get("ah", "")
-        received_at = _parse_datetime(record.get("fssj", ""))
-
-        delivery_record = DocumentDeliveryRecord(
-            case_number=ah,
-            send_time=received_at,
-            element_index=0,
-            document_name=record.get("wsmc", ""),
-            court_name=record.get("fymc", ""),
-        )
+        delivery_record = self._build_delivery_record(record)
+        ah = delivery_record.case_number
 
         try:
             processor = DocumentDeliveryProcessor()

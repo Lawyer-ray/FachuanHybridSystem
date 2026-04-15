@@ -13,7 +13,9 @@ API_URL / Token 通过 SystemConfig 管理。
 from __future__ import annotations
 
 import base64
+import json
 import logging
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -54,6 +56,26 @@ class PaddleOCRApiResult:
 
 class PaddleOCRApiEngine:
     """PaddleOCR API 云端引擎"""
+
+    def _looks_like_json_noise(self, text: str) -> bool:
+        """判断是否为结构化 JSON/调试噪声文本。"""
+        candidate = text.strip()
+        if len(candidate) < 10:
+            return False
+
+        if (candidate.startswith("{") and candidate.endswith("}")) or (
+            candidate.startswith("[") and candidate.endswith("]")
+        ):
+            return True
+
+        if re.search(r'"[A-Za-z_][\w-]*"\s*:', candidate):
+            return True
+
+        json_chars = sum(1 for c in candidate if c in '{}[]":,')
+        if len(candidate) >= 30 and (json_chars / len(candidate)) > 0.30:
+            return True
+
+        return False
 
     def __init__(self, model: str | None = None) -> None:
         """
@@ -143,7 +165,10 @@ class PaddleOCRApiEngine:
                 )
                 raise RuntimeError(f"PaddleOCR API 返回错误: HTTP {response.status_code}")
 
-            return self._parse_response(response.json(), model)
+            response_data = response.json()
+            logger.info("PaddleOCR API 原始响应长度: %d", len(response.text))
+            logger.info("PaddleOCR API 原始响应数据: %s", json.dumps(response_data, ensure_ascii=False, default=str))
+            return self._parse_response(response_data, model)
 
         except httpx.TimeoutException as e:
             logger.warning("PaddleOCR API 超时: %s", e)
@@ -168,18 +193,113 @@ class PaddleOCRApiEngine:
         else:
             raise RuntimeError(f"不支持的 PaddleOCR 模型: {model}")
 
+    def _collect_text_fragments(self, value: Any) -> list[str]:
+        """从任意嵌套结构中提取可读文本片段。"""
+        fragments: list[str] = []
+
+        if value is None:
+            return fragments
+
+        if isinstance(value, str):
+            text = value.strip()
+            if text and not self._looks_like_json_noise(text):
+                fragments.append(text)
+            return fragments
+
+        if isinstance(value, list):
+            for item in value:
+                fragments.extend(self._collect_text_fragments(item))
+            return fragments
+
+        if isinstance(value, dict):
+            # 常见文本键优先，随后再遍历其余键，避免漏掉嵌套文本
+            priority_keys = ("text", "value", "content", "prunedResult", "markdown")
+            visited_keys: set[str] = set()
+
+            for key in priority_keys:
+                if key in value:
+                    visited_keys.add(key)
+                    fragments.extend(self._collect_text_fragments(value[key]))
+
+            for key, item in value.items():
+                if key in visited_keys:
+                    continue
+                fragments.extend(self._collect_text_fragments(item))
+
+            return fragments
+
+        text = str(value).strip()
+        if text:
+            fragments.append(text)
+
+        return fragments
+
+    def _collect_rec_texts(self, value: Any) -> list[str]:
+        """仅提取 rec_texts 字段值（支持嵌套与 JSON 字符串）。"""
+        texts: list[str] = []
+
+        if value is None:
+            return texts
+
+        if isinstance(value, str):
+            candidate = value.strip()
+            if candidate.startswith("{") or candidate.startswith("["):
+                try:
+                    parsed = json.loads(candidate)
+                except json.JSONDecodeError:
+                    return texts
+                return self._collect_rec_texts(parsed)
+            return texts
+
+        if isinstance(value, list):
+            for item in value:
+                texts.extend(self._collect_rec_texts(item))
+            return texts
+
+        if isinstance(value, dict):
+            rec_values = value.get("rec_texts")
+            if isinstance(rec_values, list):
+                for rec in rec_values:
+                    if isinstance(rec, str):
+                        rec_text = rec.strip()
+                        if rec_text:
+                            texts.append(rec_text)
+
+            for nested in value.values():
+                texts.extend(self._collect_rec_texts(nested))
+
+            if texts:
+                # 去重并保持顺序
+                deduplicated = list(dict.fromkeys(texts))
+                return deduplicated
+
+        return texts
+
     def _parse_ocr_response(self, result: dict[str, Any], model: str) -> PaddleOCRApiResult:
         """解析 OCR 端点响应（PP-OCRv5 / PP-StructureV3）"""
         ocr_results = result.get("ocrResults", [])
         all_texts: list[str] = []
+        rec_texts_hit = 0
 
         for item in ocr_results:
             pruned = item.get("prunedResult", "")
-            if pruned:
-                all_texts.append(pruned)
+            rec_texts = self._collect_rec_texts(pruned)
+            if rec_texts:
+                rec_texts_hit += 1
+                all_texts.extend(rec_texts)
+                continue
+
+            # 兼容兜底：当 rec_texts 缺失时，退回通用提取
+            all_texts.extend(self._collect_text_fragments(pruned))
 
         merged = "\n".join(all_texts)
-        logger.info("PaddleOCR API (OCR) 识别完成: model=%s, text_len=%d", model, len(merged))
+        logger.info(
+            "PaddleOCR API (OCR) 识别完成: model=%s, text_len=%d, rec_texts_hit=%d/%d",
+            model,
+            len(merged),
+            rec_texts_hit,
+            len(ocr_results),
+        )
         return PaddleOCRApiResult(text=merged, raw_texts=all_texts, model=model)
 
     def _parse_layout_response(self, result: dict[str, Any], model: str) -> PaddleOCRApiResult:
@@ -189,9 +309,7 @@ class PaddleOCRApiEngine:
 
         for item in layout_results:
             markdown_data = item.get("markdown", {})
-            text = markdown_data.get("text", "")
-            if text:
-                all_texts.append(text)
+            all_texts.extend(self._collect_text_fragments(markdown_data))
 
         merged = "\n".join(all_texts)
         logger.info("PaddleOCR API (Layout) 识别完成: model=%s, text_len=%d", model, len(merged))

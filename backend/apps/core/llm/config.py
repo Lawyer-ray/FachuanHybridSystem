@@ -47,7 +47,7 @@ class LLMConfig:
     # Ollama 默认值 (Requirements: 2.2, 2.3)
     DEFAULT_OLLAMA_MODEL = "qwen3:0.6b"
     DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
-    DEFAULT_OLLAMA_TIMEOUT = 120
+    DEFAULT_OLLAMA_TIMEOUT = 300
 
     # OpenAI-compatible 默认值（用于 Moonshot/Kimi/DeepSeek 等兼容接口）
     DEFAULT_OPENAI_COMPATIBLE_MODEL = "moonshot-v1-8k"
@@ -371,8 +371,12 @@ class LLMConfig:
 
     @classmethod
     def get_ollama_timeout(cls) -> int:
-        """Ollama 超时时间固定使用默认值,避免额外系统配置依赖。"""
-        return cls.DEFAULT_OLLAMA_TIMEOUT
+        """获取 Ollama 超时时间（秒）。"""
+        timeout_str = cls._get_system_config("OLLAMA_TIMEOUT", str(cls.DEFAULT_OLLAMA_TIMEOUT))
+        try:
+            return int(timeout_str)
+        except (ValueError, TypeError):
+            return cls.DEFAULT_OLLAMA_TIMEOUT
 
     @classmethod
     def get_ollama_embedding_model(cls) -> str:

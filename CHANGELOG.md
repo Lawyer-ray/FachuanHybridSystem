@@ -2,6 +2,24 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.33.21] - 2026-04-15
+
+### 后端
+
+- OCR 能力升级：新增 `paddleocr_api_service`，并在 `OCRService`、图像旋转重命名通道、自动化 OCR 聚合入口中接入 PaddleOCR API 通道，支持更稳定的外部识别链路与降级策略。
+- 证件识别与快速填充优化：`/api/v1/client/identity-doc/recognize` 默认 `doc_type` 调整为 `auto`，空值统一归一到 `auto`；`IdentityExtractionService` 新增并强化自动判型（营业执照关键词/社会信用代码特征优先），规则提取与返回统一使用最终 `resolved_doc_type`，前端快速填充联动更新。
+- 文书送达链路增强：`court_sms` 模型及 `document_delivery` 处理链（匹配、查询、下载、处理器、数据类）同步增强，提高文书匹配、查询与下载流程的一致性和可维护性。
+- 系统配置扩展：`SystemConfig`、后台配置注册与映射补充 OCR/服务相关配置项，支持在后台统一管理新增能力的开关与参数。
+- LLM 与集成能力补强：Ollama 后端与协议、企业数据 provider 注册、Message Hub 法院抓取链路、MCP server/client 工具能力持续完善。
+
+### 工程与依赖
+
+- `Makefile` 与部分质量配置同步调整，依赖锁文件与校验配置更新（`uv.lock`、`pyproject.toml`、`mypy.ini`）。
+
+### 致谢
+
+- 感谢苏钧律师提出接入 `paddleocr api` 的建议，推动了本版本 OCR 能力升级。
+
 ## [26.33.20] - 2026-04-14
 
 ### 后端

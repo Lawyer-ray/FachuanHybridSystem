@@ -287,6 +287,7 @@ class DocumentDeliveryService(
                 element_index=0,
                 document_name=record.wsmc,
                 court_name=record.fymc,
+                delivery_event_id=record.sdbh,
             )
             process_result = self._process_sms_in_thread(
                 record=delivery_record,
@@ -333,21 +334,29 @@ class DocumentDeliveryService(
             try:
                 from django.db import connection
 
-                from apps.automation.models import CourtSMS, CourtSMSStatus
+                from apps.automation.services.sms.court_sms_dedup_service import CourtSMSDedupService
 
                 connection.ensure_connection()
-                completed_sms = CourtSMS.objects.filter(
-                    case_numbers__contains=[record.ah], status=CourtSMSStatus.COMPLETED
-                ).first()
-                if completed_sms:
-                    logger.info(f"🔄 文书已成功处理完成: {record.ah} - {record.fssj}, SMS ID={completed_sms.id}")
+                send_time = record.parse_fssj()
+                if send_time:
+                    from django.utils import timezone
+
+                    send_time = timezone.make_aware(send_time)
+                delivery_record = DocumentDeliveryRecord(
+                    case_number=record.ah,
+                    send_time=send_time,
+                    element_index=0,
+                    document_name=record.wsmc,
+                    court_name=record.fymc,
+                    delivery_event_id=record.sdbh,
+                )
+                existing_sms = CourtSMSDedupService().find_document_delivery_sms(delivery_record)
+                if existing_sms:
+                    logger.info(
+                        f"🔄 命中文书送达重复事件，跳过处理: {record.ah} - {record.fssj}, SMS ID={existing_sms.id}"
+                    )
                     result_queue.put(False)
                 else:
-                    send_time = record.parse_fssj()
-                    if send_time:
-                        from django.utils import timezone
-
-                        send_time = timezone.make_aware(send_time)
                     if send_time:
                         existing_history = DocumentQueryHistory.objects.filter(
                             credential_id=credential_id, case_number=record.ah, send_time=send_time
