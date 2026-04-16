@@ -65,37 +65,35 @@ def get_dingtalk_configs() -> list[dict[str, Any]]:
 
 
 def get_wechat_work_configs() -> list[dict[str, Any]]:
-    """获取企业微信配置项"""
+    """获取企业微信配置项
+
+    根据 https://developer.work.weixin.qq.com/document/path/90664 要求，
+    建群（appchat/create）必须指定 owner，获取 access_token 需要 corpid + secret。
+    TIMEOUT 由代码默认值兜底（30秒），无需用户手动配置。
+    """
     return [
         {
             "key": "WECHAT_WORK_CORP_ID",
             "category": "wechat_work",
-            "description": "企业微信 Corp ID",
+            "description": "企业微信 Corp ID（企业 ID，在管理后台「我的企业」页面获取）",
             "is_secret": False,
         },
         {
             "key": "WECHAT_WORK_AGENT_ID",
             "category": "wechat_work",
-            "description": "企业微信 Agent ID",
+            "description": "企业微信应用 Agent ID（在应用管理页面获取）",
             "is_secret": False,
         },
         {
             "key": "WECHAT_WORK_SECRET",
             "category": "wechat_work",
-            "description": "企业微信应用 Secret",
+            "description": "企业微信应用 Secret（在应用管理页面获取，用于获取 access_token）",
             "is_secret": True,
         },
         {
             "key": "WECHAT_WORK_DEFAULT_OWNER_ID",
             "category": "wechat_work",
-            "description": "企业微信默认群主 userid（建群必须指定群主）",
-            "is_secret": False,
-        },
-        {
-            "key": "WECHAT_WORK_TIMEOUT",
-            "category": "wechat_work",
-            "description": "企业微信 API 超时时间（秒）",
-            "value": "30",
+            "description": "企业微信默认群主 userid（创建群聊 appchat/create 必须指定群主，填写企业内任一成员的 userid）",
             "is_secret": False,
         },
     ]
