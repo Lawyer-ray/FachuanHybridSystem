@@ -1,8 +1,8 @@
 /**
  * 文档模板类型切换功能
  * 支持两级选择：
- * 1. 第一级：合同文书模板 vs 案件文书模板
- * 2. 第二级：合同文书模板下细分为合同模板和补充协议模板
+ * 1. 第一级：合同文书模板 vs 案件文书模板 vs 归档文件模板
+ * 2. 第二级：各类型下的子类型细分
  * 3. 文件来源互斥选择
  */
 
@@ -12,6 +12,7 @@
     function updateFieldsVisibility() {
         const contractRadio = document.querySelector('input[name="template_type"][value="contract"]');
         const caseRadio = document.querySelector('input[name="template_type"][value="case"]');
+        const archiveRadio = document.querySelector('input[name="template_type"][value="archive"]');
 
         if (!contractRadio || !caseRadio) {
             return;
@@ -19,9 +20,10 @@
 
         const isContract = contractRadio.checked;
         const isCase = caseRadio.checked;
+        const isArchive = archiveRadio ? archiveRadio.checked : false;
 
         // 字段选择器与对应显示条件的映射
-        const fieldMap = {
+        var fieldMap = {
             '.field-contract_sub_type': isContract,
             '.field-contract_types_field': isContract,
             '.field-case_sub_type': isCase,
@@ -29,7 +31,8 @@
             '.field-case_stage_field': isCase,
             '.field-legal_statuses_field': isCase,
             '.field-legal_status_match_mode': isCase,
-            '.field-applicable_institutions_field': isCase
+            '.field-applicable_institutions_field': isCase,
+            '.field-archive_sub_type': isArchive
         };
 
         Object.entries(fieldMap).forEach(function(entry) {
@@ -39,6 +42,18 @@
             }
         });
 
+        // 归档模板时隐藏适用范围整个 fieldset
+        var scopeFieldset = null;
+        document.querySelectorAll('fieldset').forEach(function(fs) {
+            var h2 = fs.querySelector('h2');
+            if (h2 && h2.textContent.includes('适用范围')) {
+                scopeFieldset = fs;
+            }
+        });
+        if (scopeFieldset) {
+            scopeFieldset.style.display = isArchive ? 'none' : 'block';
+        }
+
         // 清空不相关字段的选择
         if (isContract) {
             document.querySelectorAll('input[name="case_sub_type"]').forEach(function(r) { r.checked = false; });
@@ -46,9 +61,19 @@
             var caseStageSelect = document.querySelector('select[name="case_stage_field"]');
             if (caseStageSelect) { caseStageSelect.value = ''; }
             document.querySelectorAll('input[name="legal_statuses_field"]').forEach(function(c) { c.checked = false; });
+            document.querySelectorAll('input[name="archive_sub_type"]').forEach(function(r) { r.checked = false; });
         } else if (isCase) {
             document.querySelectorAll('input[name="contract_types_field"]').forEach(function(c) { c.checked = false; });
             document.querySelectorAll('input[name="contract_sub_type"]').forEach(function(r) { r.checked = false; });
+            document.querySelectorAll('input[name="archive_sub_type"]').forEach(function(r) { r.checked = false; });
+        } else if (isArchive) {
+            document.querySelectorAll('input[name="contract_types_field"]').forEach(function(c) { c.checked = false; });
+            document.querySelectorAll('input[name="contract_sub_type"]').forEach(function(r) { r.checked = false; });
+            document.querySelectorAll('input[name="case_sub_type"]').forEach(function(r) { r.checked = false; });
+            document.querySelectorAll('input[name="case_types_field"]').forEach(function(c) { c.checked = false; });
+            var caseStageSelect2 = document.querySelector('select[name="case_stage_field"]');
+            if (caseStageSelect2) { caseStageSelect2.value = ''; }
+            document.querySelectorAll('input[name="legal_statuses_field"]').forEach(function(c) { c.checked = false; });
         }
     }
 

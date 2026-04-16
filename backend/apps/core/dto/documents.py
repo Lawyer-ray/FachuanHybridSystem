@@ -11,7 +11,9 @@ class DocumentTemplateDTO:
     function_code: str
     file_path: str | None = None
     template_type: str | None = None
+    contract_sub_type: str | None = None
     case_sub_type: str | None = None
+    archive_sub_type: str | None = None
     case_types: list[str] = field(default_factory=list)
     case_stages: list[str] = field(default_factory=list)
     legal_statuses: list[str] = field(default_factory=list)

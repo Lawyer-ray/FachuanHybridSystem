@@ -64,6 +64,9 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
         "case__name",
     ]
 
+    # 自动完成字段（搜索+下拉）
+    autocomplete_fields = ["case"]
+
     # 排序
     ordering: ClassVar[tuple[str, ...]] = ()
 

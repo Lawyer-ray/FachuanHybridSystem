@@ -94,6 +94,9 @@ class DocumentTemplateIn(Schema):
 
     name: str
     template_type: str = DocumentTemplateType.CONTRACT
+    contract_sub_type: str | None = None
+    case_sub_type: str | None = None
+    archive_sub_type: str | None = None
     file_path: str | None = None
     case_types: list[str] = []
     case_stages: list[str] = []
@@ -106,6 +109,9 @@ class DocumentTemplateUpdate(Schema):
 
     name: str | None = None
     template_type: str | None = None
+    contract_sub_type: str | None = None
+    case_sub_type: str | None = None
+    archive_sub_type: str | None = None
     file_path: str | None = None
     case_types: list[str] | None = None
     case_stages: list[str] | None = None
@@ -140,6 +146,9 @@ class DocumentTemplateOut(ModelSchema):
             "id",
             "name",
             "template_type",
+            "contract_sub_type",
+            "case_sub_type",
+            "archive_sub_type",
             "file_path",
             "case_types",
             "case_stages",

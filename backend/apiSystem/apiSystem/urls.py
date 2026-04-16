@@ -64,6 +64,7 @@ _HIDDEN_APP_LABELS = {
     "fee_notice",
     "document_recognition",
     "pdf_splitting",
+    "batch_printing",
     "story_viz",
     "documents",
     "chat_records",
