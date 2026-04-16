@@ -1,0 +1,127 @@
+{% extends "admin/change_form.html" %}
+{% load i18n %}
+
+{% block after_field_sets %}
+{{ block.super }}
+{% if story_viz_status_api %}
+<div style="margin-top: 16px;">
+  <div style="background:#fff;border-radius:12px;padding:16px;box-shadow:0 4px 16px rgba(15,23,42,.08);margin-bottom:12px;">
+    <h3 style="margin:0 0 8px;">{% trans "生成状态" %}</h3>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;">
+      <div><strong>{% trans "状态" %}：</strong><span id="svStatus">-</span></div>
+      <div><strong>{% trans "阶段" %}：</strong><span id="svStage">-</span></div>
+      <div><strong>{% trans "进度" %}：</strong><span id="svProgress">0%</span></div>
+    </div>
+    <div style="height:8px;background:#e2e8f0;border-radius:999px;overflow:hidden;margin-top:8px;">
+      <div id="svProgressBar" style="height:100%;width:0%;background:linear-gradient(90deg,#0ea5e9,#3b82f6);"></div>
+    </div>
+    <div id="svError" style="margin-top:8px;color:#b91c1c;"></div>
+    <div style="display:flex;gap:8px;margin-top:10px;">
+      <button type="button" id="svRefreshBtn" class="button">{% trans "刷新" %}</button>
+      <button type="button" id="svRetryBtn" class="button">{% trans "重试" %}</button>
+      <button type="button" id="svCancelBtn" class="button">{% trans "取消" %}</button>
+    </div>
+  </div>
+
+  <div style="background:#fff;border-radius:12px;padding:16px;box-shadow:0 4px 16px rgba(15,23,42,.08);">
+    <h3 style="margin:0 0 8px;">{% trans "预览" %}</h3>
+    <iframe id="svPreviewFrame" src="" style="width:100%;height:420px;border:1px solid #e2e8f0;border-radius:10px;"></iframe>
+  </div>
+</div>
+
+<script>
+(function() {
+  const statusApi = "{{ story_viz_status_api }}";
+  const retryApi = "{{ story_viz_retry_api }}";
+  const cancelApi = "{{ story_viz_cancel_api }}";
+
+  const statusEl = document.getElementById("svStatus");
+  const stageEl = document.getElementById("svStage");
+  const progressEl = document.getElementById("svProgress");
+  const progressBar = document.getElementById("svProgressBar");
+  const errorEl = document.getElementById("svError");
+  const frame = document.getElementById("svPreviewFrame");
+  const refreshBtn = document.getElementById("svRefreshBtn");
+  const retryBtn = document.getElementById("svRetryBtn");
+  const cancelBtn = document.getElementById("svCancelBtn");
+  let timer = null;
+
+  function getCookie(name) {
+      const parts = document.cookie.split(';');
+      for (const part of parts) {
+          const trimmed = part.trim();
+          if (trimmed.startsWith(name + '=')) {
+              return decodeURIComponent(trimmed.substring(name.length + 1));
+          }
+      }
+      return '';
+  }
+
+  async function post(url) {
+    const response = await fetch(url, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "X-CSRFToken": getCookie("csrftoken"),
+        "Content-Type": "application/json"
+      },
+      body: "{}"
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error((data && (data.detail || data.message || data.error)) || "请求失败");
+    }
+    return data;
+  }
+
+  function render(data) {
+    statusEl.textContent = data.status || "-";
+    stageEl.textContent = data.stage || "-";
+    const progress = Number(data.progress || 0);
+    progressEl.textContent = progress + "%";
+    progressBar.style.width = progress + "%";
+    errorEl.textContent = data.error_message || "";
+
+    if (data.preview_url) {
+      frame.src = data.preview_url;
+    }
+
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+    if (data.status === "pending" || data.status === "processing") {
+      timer = setTimeout(loadStatus, 3000);
+    }
+  }
+
+  async function loadStatus() {
+    const response = await fetch(statusApi, { credentials: "same-origin" });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error((data && (data.detail || data.message || data.error)) || "状态加载失败");
+    }
+    render(data);
+  }
+
+  refreshBtn.addEventListener("click", function() {
+    loadStatus().catch(function(err) { errorEl.textContent = err.message; });
+  });
+
+  retryBtn.addEventListener("click", function() {
+    post(retryApi)
+      .then(function() { return loadStatus(); })
+      .catch(function(err) { errorEl.textContent = err.message; });
+  });
+
+  cancelBtn.addEventListener("click", function() {
+    post(cancelApi)
+      .then(function() { return loadStatus(); })
+      .catch(function(err) { errorEl.textContent = err.message; });
+  });
+
+  loadStatus().catch(function(err) { errorEl.textContent = err.message; });
+})();
+</script>
+{% endif %}
+{% endblock %}
