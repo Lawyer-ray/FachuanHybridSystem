@@ -64,6 +64,7 @@ dependencies = [
     "mcp[cli]>=1.27.0",
     "gmssl==3.2.2",
     "daphne>=4.2.1",
+    "python-multipart==0.0.26",
 ]
 
 [dependency-groups]
