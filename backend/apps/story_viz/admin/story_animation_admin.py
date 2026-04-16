@@ -3,8 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from django.contrib import admin
-from django.http import HttpRequest
-from django.template.response import TemplateResponse
+from django.http import HttpRequest, HttpResponse
 from django.utils.html import format_html
 
 from apps.story_viz.models import StoryAnimation
@@ -47,7 +46,7 @@ class StoryAnimationAdmin(admin.ModelAdmin[StoryAnimation]):
         "updated_at",
     ]
 
-    def get_readonly_fields(self, request: HttpRequest, obj: StoryAnimation | None = None) -> list[str]:  # type: ignore[override]
+    def get_readonly_fields(self, request: HttpRequest, obj: StoryAnimation | None = None) -> list[str]:
         if obj is None:
             return []
         return list(self.readonly_fields)
@@ -78,7 +77,7 @@ class StoryAnimationAdmin(admin.ModelAdmin[StoryAnimation]):
             "updated_at",
         ]
 
-    def save_model(self, request: HttpRequest, obj: StoryAnimation, form: Any, change: bool) -> None:  # type: ignore[override]
+    def save_model(self, request: HttpRequest, obj: StoryAnimation, form: Any, change: bool) -> None:
         if change:
             super().save_model(request, obj, form, change)
             return
@@ -110,7 +109,7 @@ class StoryAnimationAdmin(admin.ModelAdmin[StoryAnimation]):
         object_id: str,
         form_url: str = "",
         extra_context: dict[str, Any] | None = None,
-    ) -> TemplateResponse:
+    ) -> HttpResponse:
         extra = extra_context or {}
         extra["story_viz_status_api"] = f"/api/v1/story-viz/animations/{object_id}"
         extra["story_viz_retry_api"] = f"/api/v1/story-viz/animations/{object_id}/retry"
