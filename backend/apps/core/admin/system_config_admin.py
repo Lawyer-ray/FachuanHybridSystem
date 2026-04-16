@@ -55,14 +55,16 @@ class SystemConfigAdmin(admin.ModelAdmin[SystemConfig]):
             "wechat_work": "#07c160",
             "court_sms": "#ff6b35",
             "ai": "#9c27b0",
+            "llm": "#e91e63",
             "enterprise_data": "#0f766e",
             "scraper": "#ff9800",
+            "ocr": "#009688",
             "general": "#607d8b",
         }
         color = colors.get(obj.category, "#607d8b")
         return format_html(
             '<span style="background-color: {}; color: white; padding: 2px 8px; '
-            'border-radius: 4px; font-size: 12px;">{}</span>',
+            'border-radius: 4px; font-size: 12px; white-space: nowrap;">{}</span>',
             color,
             obj.get_category_display(),
         )
