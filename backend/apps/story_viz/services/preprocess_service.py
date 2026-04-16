@@ -17,6 +17,6 @@ class JudgmentPreprocessService:
         if len(text) > 12000:
             text = text[:12000]
 
-        raw = f"{viz_type}\n{text}".encode("utf-8")
+        raw = f"{viz_type}\n{text}".encode()
         source_hash = hashlib.sha256(raw).hexdigest()
         return PreprocessResult(cleaned_text=text, source_hash=source_hash)
