@@ -85,6 +85,7 @@ INSTALLED_APPS = [
     "apps.document_recognition",  # 5.4 文书智能识别（从 automation 拆分）
     "apps.express_query",  # 5.41 快递查询
     "apps.pdf_splitting",  # 5.45 PDF 拆解
+    "apps.story_viz",  # 5.46 故事可视化
     "apps.evidence",  # 5.5 证据管理
     "apps.evidence_sorting",  # 5.51 案件材料整理（财务单据分类/对账单比对）
     "apps.documents",  # 6. 文书生成
