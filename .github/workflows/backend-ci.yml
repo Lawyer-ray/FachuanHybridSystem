@@ -136,12 +136,15 @@ jobs:
             echo "No base commit found, skipping pre-commit changed-files gate."
             exit 0
           fi
-          files="$(git diff --name-only --diff-filter=ACMRT "${base}" HEAD | grep -E '^backend/' || true)"
-          if [ -z "${files}" ]; then
+          files=()
+          while IFS= read -r file; do
+            [ -n "${file}" ] && files+=("${file}")
+          done < <(git diff --name-only --diff-filter=ACMRT "${base}" HEAD | grep -E '^backend/' || true)
+          if [ ${#files[@]} -eq 0 ]; then
             echo "No changed backend files."
             exit 0
           fi
-          uv run pre-commit run --files ${files}
+          uv run pre-commit run --files "${files[@]}"
 
       - name: Lint (ruff, changed files)
         run: |
@@ -157,12 +160,15 @@ jobs:
             echo "No base commit found, skipping ruff changed-files gate."
             exit 0
           fi
-          files="$(git diff --name-only --diff-filter=ACMRT "${base}" HEAD | grep -E '^backend/apps/.*\.py$' | sed 's|^backend/||' || true)"
-          if [ -z "${files}" ]; then
+          files=()
+          while IFS= read -r file; do
+            [ -n "${file}" ] && files+=("${file}")
+          done < <(git diff --name-only --diff-filter=ACMRT "${base}" HEAD | grep -E '^backend/apps/.*\.py$' | sed 's|^backend/||' || true)
+          if [ ${#files[@]} -eq 0 ]; then
             echo "No changed backend/apps/*.py files."
             exit 0
           fi
-          uv run ruff check ${files} --config ruff.toml
+          uv run ruff check "${files[@]}" --config ruff.toml
 
       - name: Lint (ruff, core + apiSystem)
         run: uv run ruff check apps/core apiSystem --config ruff.toml
@@ -183,12 +189,15 @@ jobs:
             echo "No base commit found, skipping mypy changed-files gate."
             exit 0
           fi
-          files="$(git diff --name-only --diff-filter=ACMRT "${base}" HEAD | grep -E '^backend/apps/.*\.py$' | sed 's|^backend/||' || true)"
-          if [ -z "${files}" ]; then
+          files=()
+          while IFS= read -r file; do
+            [ -n "${file}" ] && files+=("${file}")
+          done < <(git diff --name-only --diff-filter=ACMRT "${base}" HEAD | grep -E '^backend/apps/.*\.py$' | grep -Ev '/__init__\.py$' | sed 's|^backend/||' || true)
+          if [ ${#files[@]} -eq 0 ]; then
             echo "No changed backend/apps/*.py files."
             exit 0
           fi
-          uv run mypy --config-file=mypy.ini --follow-imports=skip ${files}
+          uv run mypy --config-file=mypy.ini --follow-imports=skip "${files[@]}"
 
       - name: Type check (mypy, curated gate)
         env:
