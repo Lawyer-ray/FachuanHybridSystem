@@ -16,7 +16,9 @@ class DocumentTemplateDtoAssembler:
             function_code="",  # 字段已删除,保留空字符串以兼容DTO
             file_path=template.get_file_location() if hasattr(template, "get_file_location") else template.file_path,
             template_type=getattr(template, "template_type", None),
+            contract_sub_type=getattr(template, "contract_sub_type", None),
             case_sub_type=getattr(template, "case_sub_type", None),
+            archive_sub_type=getattr(template, "archive_sub_type", None),
             case_types=list(getattr(template, "case_types", None) or []),
             case_stages=list(getattr(template, "case_stages", None) or []),
             legal_statuses=list(getattr(template, "legal_statuses", None) or []),

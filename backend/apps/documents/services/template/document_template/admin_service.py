@@ -49,6 +49,7 @@ class DocumentTemplateAdminService:
             "template_type": instance.template_type,
             "contract_sub_type": instance.contract_sub_type or "",
             "case_sub_type": instance.case_sub_type or "",
+            "archive_sub_type": instance.archive_sub_type or "",
             "contract_types_field": instance.contract_types or [],
             "case_types_field": instance.case_types or [],
             "case_stage_field": "",
@@ -125,8 +126,9 @@ class DocumentTemplateAdminService:
         template_type: str,
         contract_sub_type: str,
         case_sub_type: str,
-        is_editing: bool,
-        original_template_type: str | None,
+        archive_sub_type: str | None = None,
+        is_editing: bool = False,
+        original_template_type: str | None = None,
     ) -> dict[str, Any]:
         """
         验证模板类型
@@ -134,6 +136,10 @@ class DocumentTemplateAdminService:
         Args:
             template_type: 模板类型
             contract_sub_type: 合同子类型
+            case_sub_type: 案件子类型
+            archive_sub_type: 归档子类型
+            is_editing: 是否编辑模式
+            original_template_type: 原始模板类型
 
         Returns:
             验证结果字典
@@ -143,20 +149,29 @@ class DocumentTemplateAdminService:
             "errors": {},
             "contract_sub_type": contract_sub_type,
             "case_sub_type": case_sub_type,
+            "archive_sub_type": archive_sub_type or "",
         }
         if template_type == DocumentTemplateType.CONTRACT:
             if not contract_sub_type:
                 result["is_valid"] = False
                 result["errors"]["contract_sub_type"] = _("选择合同文书模板时,必须选择合同子类型")
             result["case_sub_type"] = None
+            result["archive_sub_type"] = None
         elif template_type == DocumentTemplateType.CASE:
             result["contract_sub_type"] = None
+            result["archive_sub_type"] = None
             should_require_case_sub_type = not is_editing or (
                 original_template_type is not None and original_template_type != DocumentTemplateType.CASE
             )
             if should_require_case_sub_type and (not case_sub_type):
                 result["is_valid"] = False
                 result["errors"]["case_sub_type"] = _("选择案件文书模板时,必须选择案件文件子类型")
+        elif template_type == DocumentTemplateType.ARCHIVE:
+            result["contract_sub_type"] = None
+            result["case_sub_type"] = None
+            if not archive_sub_type:
+                result["is_valid"] = False
+                result["errors"]["archive_sub_type"] = _("选择归档文件模板时,必须选择归档文件子类型")
         return result
 
     def prepare_save_data(
@@ -169,6 +184,7 @@ class DocumentTemplateAdminService:
         case_stage_field: str,
         file: Any,
         file_path: str,
+        archive_sub_type: str | None = None,
         legal_statuses_field: list[str] | None = None,
         legal_status_match_mode: str | None = None,
     ) -> dict[str, Any]:
@@ -184,6 +200,7 @@ class DocumentTemplateAdminService:
             case_stage_field: 案件阶段
             file: 上传的文件
             file_path: 文件路径
+            archive_sub_type: 归档子类型
             legal_statuses_field: 诉讼地位列表
             legal_status_match_mode: 诉讼地位匹配模式
 
@@ -194,6 +211,7 @@ class DocumentTemplateAdminService:
             "template_type": template_type,
             "contract_sub_type": contract_sub_type if template_type == DocumentTemplateType.CONTRACT else None,
             "case_sub_type": case_sub_type if template_type == DocumentTemplateType.CASE else None,
+            "archive_sub_type": archive_sub_type if template_type == DocumentTemplateType.ARCHIVE else None,
             "contract_types": [],
             "case_types": [],
             "case_stages": [],
@@ -209,6 +227,11 @@ class DocumentTemplateAdminService:
             data["case_stages"] = [case_stage_field] if case_stage_field else []
             data["legal_statuses"] = legal_statuses_field or []
             data["legal_status_match_mode"] = legal_status_match_mode or LegalStatusMatchMode.ANY
+        elif template_type == DocumentTemplateType.ARCHIVE:
+            # 归档文件模板无需适用范围,适用于所有合同
+            data["contract_types"] = []
+            data["case_types"] = []
+            data["case_stages"] = []
         else:
             data["contract_types"] = contract_types_field or []
             data["case_types"] = case_types_field or []
@@ -293,6 +316,9 @@ class DocumentTemplateAdminService:
         return DocumentTemplate.objects.create(
             name=new_name,
             template_type=template.template_type,
+            contract_sub_type=template.contract_sub_type,
+            case_sub_type=template.case_sub_type,
+            archive_sub_type=template.archive_sub_type,
             file_path=template.file_path,
             contract_types=template.contract_types.copy() if template.contract_types else [],
             case_types=template.case_types.copy() if template.case_types else [],

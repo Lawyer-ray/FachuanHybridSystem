@@ -16,6 +16,7 @@ from apps.core.utils.path import Path
 from apps.documents.storage import document_template_storage, resolve_docx_template_path
 
 from .choices import (
+    DocumentArchiveSubType,
     DocumentCaseFileSubType,
     DocumentCaseStage,
     DocumentCaseType,
@@ -66,6 +67,14 @@ class DocumentTemplate(models.Model):
         null=True,
         verbose_name=_("案件文件子类型"),
         help_text=_("仅在选择'案件文件模板'时有效,可选择诉状材料、证据材料、授权委托材料等"),
+    )
+    archive_sub_type: Any = models.CharField(
+        max_length=50,
+        choices=DocumentArchiveSubType.choices,
+        blank=True,
+        null=True,
+        verbose_name=_("归档文件子类型"),
+        help_text=_("仅在选择'归档文件模板'时有效,可选择案卷封面、结案归档登记表等"),
     )
     file = models.FileField(
         storage=document_template_storage,
@@ -162,6 +171,9 @@ class DocumentTemplate(models.Model):
             return f"{base_type} - {sub_type}"
         if self.template_type == DocumentTemplateType.CASE and self.case_sub_type:
             sub_type = str(dict(DocumentCaseFileSubType.choices).get(self.case_sub_type, self.case_sub_type))
+            return f"{base_type} - {sub_type}"
+        if self.template_type == DocumentTemplateType.ARCHIVE and self.archive_sub_type:
+            sub_type = str(dict(DocumentArchiveSubType.choices).get(self.archive_sub_type, self.archive_sub_type))
             return f"{base_type} - {sub_type}"
         return base_type
 

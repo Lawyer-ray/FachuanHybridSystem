@@ -1,0 +1,295 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block content %}
+<style>
+  .bp-page {
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .bp-hero {
+    border-radius: 14px;
+    padding: 22px;
+    background: linear-gradient(135deg, #0b4f6c 0%, #2f80ed 100%);
+    color: #fff;
+    margin-bottom: 18px;
+    box-shadow: 0 8px 24px rgba(15, 38, 74, 0.2);
+  }
+
+  .bp-hero h1 {
+    color: #fff;
+    margin: 0 0 8px;
+    font-size: 30px;
+    font-weight: 800;
+  }
+
+  .bp-hero p {
+    margin: 0;
+    font-size: 16px;
+    opacity: .95;
+  }
+
+  .bp-grid {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .bp-card {
+    background: #fff;
+    border: 1px solid #e6ebf2;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 2px 6px rgba(16, 24, 40, 0.04);
+  }
+
+  .bp-card h2 {
+    margin: 0 0 12px;
+    font-size: 19px;
+    font-weight: 700;
+  }
+
+  .bp-muted {
+    color: #556070;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .bp-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 12px;
+  }
+
+  .bp-btn {
+    border: 0;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 14px;
+    cursor: pointer;
+    font-weight: 700;
+    color: #fff;
+    background: #0b4f6c;
+  }
+
+  .bp-btn.secondary {
+    background: #0d7490;
+  }
+
+  .bp-link-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    padding: 9px 12px;
+    text-decoration: none;
+    font-weight: 700;
+    border: 1px solid #d0dae7;
+    color: #18467f;
+    background: #f5f8fc;
+  }
+
+  .bp-form {
+    border: 1px dashed #c8d6e5;
+    border-radius: 10px;
+    padding: 14px;
+    margin-top: 12px;
+    background: #fbfcfe;
+  }
+
+  .bp-form input[type="file"] {
+    margin: 10px 0 14px;
+  }
+
+  .bp-result {
+    margin-top: 12px;
+    border-radius: 10px;
+    background: #0f172a;
+    color: #dbeafe;
+    padding: 12px;
+    white-space: pre-wrap;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    max-height: 360px;
+    overflow: auto;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .bp-tip {
+    margin-top: 8px;
+    border-left: 4px solid #2f80ed;
+    padding: 8px 10px;
+    background: #eef6ff;
+    color: #1f3d66;
+    font-size: 13px;
+    border-radius: 0 8px 8px 0;
+  }
+
+  .span-7 { grid-column: span 7 / span 7; }
+  .span-5 { grid-column: span 5 / span 5; }
+
+  @media (max-width: 1024px) {
+    .span-7, .span-5 { grid-column: span 12 / span 12; }
+  }
+</style>
+
+<div class="bp-page">
+  <section class="bp-hero">
+    <h1>批量打印工作台</h1>
+    <p>支持批量上传 <strong>PDF</strong>；<strong>DOCX 需先通过 LibreOffice 转成 PDF</strong>，再按“文件名关键词 → 打印机预置”规则静默打印。</p>
+  </section>
+
+  <section class="bp-grid">
+    <div class="bp-card span-7">
+      <h2>一键操作</h2>
+      <div class="bp-muted">建议顺序：先同步预置 → 配置关键词规则 → 上传并打印。</div>
+      <div class="bp-actions">
+        <button id="syncPresetBtn" class="bp-btn">同步本机打印预置</button>
+        <button id="capabilityBtn" class="bp-btn secondary">检测 DOCX 能力</button>
+      </div>
+
+      <form id="batchPrintForm" class="bp-form">
+        <label for="files"><strong>选择文件（可多选）</strong></label><br />
+        <input id="files" name="files" type="file" accept=".pdf,.docx" multiple />
+        <div class="bp-muted">PDF 可直接打印；DOCX 需要当前机器可用的 LibreOffice/soffice 转换器。</div>
+        <div>
+          <button type="submit" class="bp-btn">创建并执行批量打印</button>
+        </div>
+      </form>
+
+      <div class="bp-result" id="result">等待操作…</div>
+      <div class="bp-tip" id="hint">如果同步结果是 discovered=0，请先在系统打印窗口里为目标打印机保存至少一个“预置”；如果 DOCX 能力检测失败，请先安装 LibreOffice。</div>
+    </div>
+
+    <div class="bp-card span-5">
+      <h2>配置入口（你要找的在这）</h2>
+      <div class="bp-muted">规则和预置都在后台模型里管理，这里给你直达按钮。</div>
+      <div class="bp-actions" style="margin-top: 10px;">
+        <a class="bp-link-btn" href="/admin/batch_printing/printpresetsnapshot/">查看打印预置快照</a>
+        <a class="bp-link-btn" href="/admin/batch_printing/printkeywordrule/">配置关键词规则</a>
+        <a class="bp-link-btn" href="/admin/batch_printing/batchprintjob/">查看批量打印任务</a>
+      </div>
+
+      <div class="bp-tip" style="margin-top: 14px;">
+        <strong>规则示例：</strong>关键词填“归档”，目标预置选“黑白双面”。
+        之后文件名包含“归档”的 PDF / DOCX 会自动走该预置静默打印。
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+(function () {
+  const resultEl = document.getElementById("result");
+  const hintEl = document.getElementById("hint");
+  const formEl = document.getElementById("batchPrintForm");
+  const syncBtn = document.getElementById("syncPresetBtn");
+  const capabilityBtn = document.getElementById("capabilityBtn");
+
+  function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return '';
+  }
+
+  const csrftoken = getCookie("csrftoken");
+
+  function render(obj) {
+    resultEl.textContent = typeof obj === "string" ? obj : JSON.stringify(obj, null, 2);
+  }
+
+  async function request(url, options = {}) {
+    const headers = options.headers || {};
+    if (!headers["X-CSRFToken"]) {
+      headers["X-CSRFToken"] = csrftoken;
+    }
+    options.headers = headers;
+
+    const resp = await fetch(url, options);
+    const text = await resp.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (_e) {
+      data = text;
+    }
+    if (!resp.ok) {
+      throw new Error(typeof data === "string" ? data : JSON.stringify(data, null, 2));
+    }
+    return data;
+  }
+
+  async function pollJob(jobId) {
+    const url = `/api/v1/batch-printing/jobs/${jobId}`;
+    const timer = setInterval(async () => {
+      try {
+        const data = await request(url, { method: "GET" });
+        render(data);
+        if (["completed", "failed", "partial_failed", "cancelled"].includes(data.status)) {
+          clearInterval(timer);
+        }
+      } catch (err) {
+        clearInterval(timer);
+        render(String(err));
+      }
+    }, 1800);
+  }
+
+  syncBtn.addEventListener("click", async () => {
+    try {
+      render("同步中...");
+      const data = await request("/api/v1/batch-printing/presets/sync", { method: "POST" });
+      render(data);
+      if ((data.discovered || 0) === 0) {
+        hintEl.textContent = "未发现预置：请先在系统打印对话框为目标打印机保存预置，再点击同步。";
+      } else {
+        hintEl.textContent = `同步完成：发现 ${data.discovered} 个预置，已更新 ${data.upserted} 条快照。`;
+      }
+    } catch (err) {
+      render(String(err));
+    }
+  });
+
+  capabilityBtn.addEventListener("click", async () => {
+    try {
+      const data = await request("/api/v1/batch-printing/capabilities", { method: "GET" });
+      render(data);
+      hintEl.textContent = data.docx_supported
+        ? `DOCX 可用：将先通过 ${data.docx_converter || "soffice"} 转成 PDF 后再静默打印。`
+        : "DOCX 不可用：当前机器未检测到 LibreOffice/soffice，因此无法先转 PDF。";
+    } catch (err) {
+      render(String(err));
+    }
+  });
+
+  formEl.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const input = document.getElementById("files");
+    if (!input.files || input.files.length === 0) {
+      render("请先选择文件");
+      return;
+    }
+
+    const formData = new FormData();
+    Array.from(input.files).forEach((f) => formData.append("files", f));
+
+    try {
+      render("任务创建中...");
+      const data = await request("/api/v1/batch-printing/jobs", {
+        method: "POST",
+        body: formData,
+      });
+      render(data);
+      if (data.job_id) {
+        pollJob(data.job_id);
+      }
+    } catch (err) {
+      render(String(err));
+    }
+  });
+})();
+</script>
+{% endblock %}

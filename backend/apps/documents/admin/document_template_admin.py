@@ -19,6 +19,7 @@ from django.utils.translation import gettext_lazy as _
 from apps.core.interfaces import ServiceLocator
 from apps.core.models.enums import LegalStatus
 from apps.documents.models import (
+    DocumentArchiveSubType,
     DocumentCaseFileSubType,
     DocumentCaseStage,
     DocumentCaseType,
@@ -109,7 +110,7 @@ class DocumentTemplateForm(forms.ModelForm):
         choices=DocumentTemplateType.choices,
         widget=forms.RadioSelect,
         label=_("模板类型"),
-        help_text=_("必须二选一:合同文书模板或案件文书模板"),
+        help_text=_("选择此模板用于合同、案件还是归档"),
     )
 
     # 合同子类型单选(仅合同模板时显示)
@@ -127,6 +128,14 @@ class DocumentTemplateForm(forms.ModelForm):
         required=False,
         label=_("案件文件子类型"),
         help_text=_("仅在选择'案件文书模板'时有效,可选择诉状材料、证据材料、授权委托材料等"),
+    )
+
+    archive_sub_type = forms.ChoiceField(
+        choices=[("", "请选择")] + [(c.value, c.label) for c in DocumentArchiveSubType],
+        widget=forms.RadioSelect,
+        required=False,
+        label=_("归档文件子类型"),
+        help_text=_("仅在选择'归档文件模板'时有效,可选择案卷封面、结案归档登记表等"),
     )
 
     # 合同类型多选(仅合同模板时显示)
@@ -203,6 +212,7 @@ class DocumentTemplateForm(forms.ModelForm):
             "template_type",
             "contract_sub_type",
             "case_sub_type",
+            "archive_sub_type",
             "file",
             "file_path",
             "is_active",
@@ -224,6 +234,7 @@ class DocumentTemplateForm(forms.ModelForm):
             self.fields["template_type"].initial = initial_values["template_type"]
             self.fields["contract_sub_type"].initial = initial_values["contract_sub_type"]
             self.fields["case_sub_type"].initial = initial_values["case_sub_type"]
+            self.fields["archive_sub_type"].initial = initial_values.get("archive_sub_type", "")
             self.fields["contract_types_field"].initial = initial_values["contract_types_field"]
             self.fields["case_types_field"].initial = initial_values["case_types_field"]
             self.fields["case_stage_field"].initial = initial_values["case_stage_field"]
@@ -247,6 +258,7 @@ class DocumentTemplateForm(forms.ModelForm):
         template_type = cleaned_data.get("template_type")
         contract_sub_type = cleaned_data.get("contract_sub_type")
         case_sub_type = cleaned_data.get("case_sub_type")
+        archive_sub_type = cleaned_data.get("archive_sub_type")
         case_stage_field = cleaned_data.get("case_stage_field")
 
         admin_service = _get_admin_service()
@@ -268,6 +280,7 @@ class DocumentTemplateForm(forms.ModelForm):
                 template_type=template_type,
                 contract_sub_type=contract_sub_type,
                 case_sub_type=case_sub_type,
+                archive_sub_type=archive_sub_type,
                 is_editing=is_editing,
                 original_template_type=original_template_type,
             )
@@ -275,6 +288,7 @@ class DocumentTemplateForm(forms.ModelForm):
                 raise forms.ValidationError(type_result["errors"])
             cleaned_data["contract_sub_type"] = type_result["contract_sub_type"]
             cleaned_data["case_sub_type"] = type_result["case_sub_type"]
+            cleaned_data["archive_sub_type"] = type_result["archive_sub_type"]
             return cleaned_data
 
         # 更新cleaned_data
@@ -287,6 +301,7 @@ class DocumentTemplateForm(forms.ModelForm):
             template_type=template_type,
             contract_sub_type=contract_sub_type,
             case_sub_type=case_sub_type,
+            archive_sub_type=archive_sub_type,
             is_editing=is_editing,
             original_template_type=original_template_type,
         )
@@ -294,6 +309,7 @@ class DocumentTemplateForm(forms.ModelForm):
             raise forms.ValidationError(type_result["errors"])
         cleaned_data["contract_sub_type"] = type_result["contract_sub_type"]
         cleaned_data["case_sub_type"] = type_result["case_sub_type"]
+        cleaned_data["archive_sub_type"] = type_result["archive_sub_type"]
 
         if template_type == DocumentTemplateType.CASE and not case_stage_field:
             self.add_error("case_stage_field", _("请选择案件阶段"))
@@ -309,6 +325,7 @@ class DocumentTemplateForm(forms.ModelForm):
             template_type=self.cleaned_data.get("template_type"),
             contract_sub_type=self.cleaned_data.get("contract_sub_type"),
             case_sub_type=self.cleaned_data.get("case_sub_type"),
+            archive_sub_type=self.cleaned_data.get("archive_sub_type"),
             contract_types_field=self.cleaned_data.get("contract_types_field", []),
             case_types_field=self.cleaned_data.get("case_types_field", []),
             case_stage_field=self.cleaned_data.get("case_stage_field", ""),
@@ -321,6 +338,7 @@ class DocumentTemplateForm(forms.ModelForm):
         instance.template_type = save_data["template_type"]
         instance.contract_sub_type = save_data["contract_sub_type"]
         instance.case_sub_type = save_data["case_sub_type"]
+        instance.archive_sub_type = save_data["archive_sub_type"]
         instance.contract_types = save_data["contract_types"]
         instance.case_types = save_data["case_types"]
         instance.case_stages = save_data["case_stages"]
@@ -388,8 +406,8 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):
         (
             _("模板类型"),
             {
-                "fields": ("template_type", "contract_sub_type", "case_sub_type"),
-                "description": _("先选择合同文书模板或案件文书模板,再选择对应的子类型"),
+                "fields": ("template_type", "contract_sub_type", "case_sub_type", "archive_sub_type"),
+                "description": _("先选择模板类型(合同/案件/归档),再选择对应的子类型"),
             },
         ),
         (

@@ -30,6 +30,9 @@ class SMSCaseBindingMixin:
             return False
 
         try:
+            # 清理旧的 case_log 及其附件，避免重新绑定时文书重复
+            self._cleanup_old_case_log(sms)
+
             from apps.core.dependencies.automation_sms_wiring import build_sms_case_log_service
 
             case_log_service = build_sms_case_log_service()
@@ -42,7 +45,7 @@ class SMSCaseBindingMixin:
 
             logger.info(f"获取管理员律师成功: {admin_lawyer_dto.real_name}, ID={admin_lawyer_dto.id}")
 
-            system_user = self.lawyer_service.get_lawyer_model(admin_lawyer_dto.id)  # type: ignore
+            system_user = self.lawyer_service.get_lawyer_model(admin_lawyer_dto.id)
             logger.info(f"获取系统用户成功: SMS ID={sms.id}")
 
             if sms.case_numbers:
@@ -65,6 +68,46 @@ class SMSCaseBindingMixin:
         except Exception as e:
             logger.exception(f"创建案件绑定失败: SMS ID={sms.id}, 错误: {e!s}")
             return False
+
+    def _cleanup_old_case_log(self, sms: CourtSMS) -> None:
+        """清理旧的 case_log 及其附件，避免重新绑定时文书重复"""
+        case_log_id = getattr(sms, "case_log_id", None)
+        if not case_log_id:
+            return
+
+        try:
+            from apps.cases.models import CaseLog, CaseLogAttachment
+
+            old_log = CaseLog.objects.filter(id=case_log_id).first()
+            if not old_log:
+                logger.info(f"旧案件日志不存在，无需清理: SMS ID={sms.id}, CaseLog ID={case_log_id}")
+                sms.case_log = None
+                sms.save(update_fields=["case_log"])
+                return
+
+            # 删除附件记录（文件物理删除由 Django FileField 的 delete 自动处理）
+            attachments = CaseLogAttachment.objects.filter(log=old_log)
+            attachment_count = attachments.count()
+            for attachment in attachments:
+                try:
+                    if attachment.file:
+                        attachment.file.delete(save=False)
+                except Exception as e:
+                    logger.warning(f"删除附件文件失败: {e!s}")
+            attachments.delete()
+
+            # 删除旧日志
+            old_log.delete()
+
+            sms.case_log = None
+            sms.save(update_fields=["case_log"])
+
+            logger.info(
+                f"已清理旧案件日志及 {attachment_count} 个附件: SMS ID={sms.id}, CaseLog ID={old_log.id}"
+            )
+
+        except Exception as e:
+            logger.warning(f"清理旧案件日志失败，继续流程: SMS ID={sms.id}, 错误: {e!s}")
 
     def _add_case_numbers_to_case(self, sms: CourtSMS) -> None:
         """将短信中提取的案号写入案件（如果不存在）"""

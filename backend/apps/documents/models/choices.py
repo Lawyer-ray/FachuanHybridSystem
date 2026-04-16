@@ -72,6 +72,7 @@ class DocumentTemplateType(models.TextChoices):
 
     CONTRACT = "contract", _("合同文件模板")
     CASE = "case", _("案件文件模板")
+    ARCHIVE = "archive", _("归档文件模板")
 
 
 class DocumentContractSubType(models.TextChoices):
@@ -92,6 +93,17 @@ class DocumentCaseFileSubType(models.TextChoices):
     REFUND_ACCOUNT_MATERIALS = "refund_account_materials", _("收款退费账户材料")
     APPLICATION_MATERIALS = "application_materials", _("申请材料")
     OTHER_MATERIALS = "other_materials", _("其他材料")
+
+
+class DocumentArchiveSubType(models.TextChoices):
+    """归档文件子类型(第二级分类)"""
+
+    CASE_COVER = "case_cover", _("案卷封面模板")
+    CLOSING_ARCHIVE_REGISTER = "closing_archive_register", _("结案归档登记表模板")
+    INNER_CATALOG = "inner_catalog", _("卷内目录模板")
+    LAWYER_WORK_LOG = "lawyer_work_log", _("律师工作日志模板")
+    SERVICE_QUALITY_CARD = "service_quality_card", _("律师办案服务质量监督卡模板")
+    CASE_SUMMARY = "case_summary", _("办案小结模板")
 
 
 # ============================================================

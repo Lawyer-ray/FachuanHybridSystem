@@ -14,6 +14,7 @@ from .audit_log import TemplateAuditLog
 
 # 导入所有选项类
 from .choices import (
+    DocumentArchiveSubType,
     DocumentCaseFileSubType,
     DocumentCaseStage,
     DocumentCaseType,
@@ -50,6 +51,7 @@ __all__ = [
     "DocumentTemplateType",
     "DocumentContractSubType",
     "DocumentCaseFileSubType",
+    "DocumentArchiveSubType",
     "PlaceholderCategory",
     "PlaceholderFormatType",
     "TemplateAuditAction",

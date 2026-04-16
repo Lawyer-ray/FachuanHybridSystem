@@ -213,9 +213,18 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
 
             success = self._create_case_binding(sms)
             if success:
-                sms.status = CourtSMSStatus.RENAMING
-                sms.save()
-                logger.info(f"案件绑定创建成功，进入重命名阶段: SMS ID={sms_id}")
+                # 检查文书是否已完成重命名，避免重复执行 renaming 阶段
+                has_renamed_files = self._has_renamed_documents(sms)
+                if has_renamed_files:
+                    # 文书已重命名，只需将附件重新绑定到新的 case_log
+                    self._reattach_existing_documents(sms)
+                    sms.status = CourtSMSStatus.NOTIFYING
+                    sms.save()
+                    logger.info(f"案件绑定创建成功，文书已重命名，跳过重命名阶段: SMS ID={sms_id}")
+                else:
+                    sms.status = CourtSMSStatus.RENAMING
+                    sms.save()
+                    logger.info(f"案件绑定创建成功，进入重命名阶段: SMS ID={sms_id}")
             else:
                 sms.status = CourtSMSStatus.FAILED
                 sms.error_message = str(_("创建案件绑定失败"))
@@ -238,6 +247,37 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
             raise ValidationException(
                 message=f"手动指定案件失败: {e!s}", code="CASE_ASSIGNMENT_FAILED", errors={"error": str(e)}
             ) from e
+
+    def _has_renamed_documents(self, sms: CourtSMS) -> bool:
+        """检查文书是否已完成重命名"""
+        if not sms.scraper_task:
+            return False
+        result = sms.scraper_task.result
+        if not isinstance(result, dict):
+            return False
+        renamed_files = result.get("renamed_files", [])
+        if not renamed_files:
+            return False
+        # 检查重命名后的文件是否实际存在
+        from pathlib import Path
+
+        return any(Path(f).exists() for f in renamed_files if f)
+
+    def _reattach_existing_documents(self, sms: CourtSMS) -> None:
+        """将已重命名的文书重新绑定到新的 case_log"""
+        if not sms.case_log or not sms.scraper_task:
+            return
+
+        result = sms.scraper_task.result
+        if not isinstance(result, dict):
+            return
+
+        renamed_files = result.get("renamed_files", [])
+        if not renamed_files:
+            return
+
+        self.document_attachment.add_to_case_log(sms, renamed_files)
+        logger.info(f"已将 {len(renamed_files)} 个已有文书重新绑定到新案件日志: SMS ID={sms.id}")
 
     def retry_processing(self, sms_id: int) -> CourtSMS:
         """重新处理短信"""
