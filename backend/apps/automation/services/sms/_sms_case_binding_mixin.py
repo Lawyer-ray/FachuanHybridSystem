@@ -45,7 +45,7 @@ class SMSCaseBindingMixin:
 
             logger.info(f"获取管理员律师成功: {admin_lawyer_dto.real_name}, ID={admin_lawyer_dto.id}")
 
-            system_user = self.lawyer_service.get_lawyer_model(admin_lawyer_dto.id)  # type: ignore
+            system_user = self.lawyer_service.get_lawyer_model(admin_lawyer_dto.id)
             logger.info(f"获取系统用户成功: SMS ID={sms.id}")
 
             if sms.case_numbers:
@@ -71,15 +71,16 @@ class SMSCaseBindingMixin:
 
     def _cleanup_old_case_log(self, sms: CourtSMS) -> None:
         """清理旧的 case_log 及其附件，避免重新绑定时文书重复"""
-        if not sms.case_log_id:
+        case_log_id = getattr(sms, "case_log_id", None)
+        if not case_log_id:
             return
 
         try:
             from apps.cases.models import CaseLog, CaseLogAttachment
 
-            old_log = CaseLog.objects.filter(id=sms.case_log_id).first()
+            old_log = CaseLog.objects.filter(id=case_log_id).first()
             if not old_log:
-                logger.info(f"旧案件日志不存在，无需清理: SMS ID={sms.id}, CaseLog ID={sms.case_log_id}")
+                logger.info(f"旧案件日志不存在，无需清理: SMS ID={sms.id}, CaseLog ID={case_log_id}")
                 sms.case_log = None
                 sms.save(update_fields=["case_log"])
                 return
