@@ -196,7 +196,7 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
                 obj.case.name[:50] + ("..." if len(obj.case.name) > 50 else ""),
             )
         elif obj.status == CourtSMSStatus.PENDING_MANUAL:
-            change_url = reverse("admin:automation_courtsms_change", args=[cast(int, obj.id)])
+            change_url = reverse("admin:automation_courtsms_change", args=[obj.id])
             return format_html(
                 '<a href="{}" style="color: orange; font-weight: bold;">🔗 去详情页绑定案件</a>', change_url
             )
@@ -282,7 +282,7 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
                 "<div style='margin:6px 0 10px;'>"
                 "<a class='button' href='{}'>📦 批量下载全部文书</a>"
                 "</div>",
-                reverse("admin:automation_courtsms_download_all_documents", args=[cast(int, obj.id)]),
+                reverse("admin:automation_courtsms_download_all_documents", args=[obj.id]),
             )
         ]
         for index, ref in enumerate(references):
@@ -294,12 +294,12 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
 
             open_url = reverse(
                 "admin:automation_courtsms_open_document",
-                args=[cast(int, obj.id), index],
+                args=[obj.id, index],
             )
             download_url = f"{open_url}?download=1"
             rename_url = reverse(
                 "admin:automation_courtsms_rename_document",
-                args=[cast(int, obj.id), index],
+                args=[obj.id, index],
             )
 
             doc_link_html = ""
@@ -464,8 +464,8 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
     @admin.display(description=_("操作"))
     def retry_button(self, obj: CourtSMS) -> SafeString | str:
         """重新处理按钮"""
-        if cast(int, obj.id):
-            retry_url = reverse("admin:automation_courtsms_retry", args=[cast(int, obj.id)])
+        if obj.id:
+            retry_url = reverse("admin:automation_courtsms_retry", args=[obj.id])
             return format_html(
                 '<a href="{}" class="button" onclick="return confirm('
                 "'确认要重新处理这条短信吗?这将重置状态并重新执行完整流程.');"
