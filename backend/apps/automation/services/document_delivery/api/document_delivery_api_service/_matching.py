@@ -200,14 +200,19 @@ class DocumentMatchingMixin:
             logger.warning(f"短信 {sms.id} 归档到案件绑定目录失败，不影响主流程: {e!s}")
 
     def _send_notification(self, sms: Any, document_paths: list[str]) -> bool:
-        """发送通知"""
+        """发送通知（多平台扇出），同时持久化通知结果"""
         try:
             if not sms.case:
                 logger.warning(f"SMS {sms.id} 未绑定案件，无法发送通知")
+                sms.notification_results = {"none": {"success": False, "error": "短信未绑定案件"}}
                 return False
 
-            sent = self.notification_service.send_case_chat_notification(sms, document_paths)
-            return bool(sent)
+            result = self.notification_service.send_case_chat_notification(sms, document_paths)
+            # 持久化多平台通知结果
+            sms.notification_results = result.to_notification_results()
+            return result.any_success
         except Exception as e:
             logger.error(f"发送通知失败: {e!s}")
+            sms.notification_results = sms.notification_results or {}
+            sms.notification_results["_exception"] = {"success": False, "error": str(e)}
             return False

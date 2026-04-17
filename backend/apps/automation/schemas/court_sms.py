@@ -79,9 +79,10 @@ class CourtSMSDetailOut(BaseModel):
     case: dict[str, Any] | None = Field(None, description="关联案件信息")
     documents: list[dict[str, Any]] = Field(default_factory=list, description="关联文书列表")
 
-    # 飞书通知
+    # 通知结果
     feishu_sent_at: datetime | None = Field(None, description="飞书发送时间")
     feishu_error: str | None = Field(None, description="飞书发送错误")
+    notification_results: dict[str, Any] | None = Field(None, description="多平台通知结果")
 
     # 时间戳
     created_at: datetime = Field(..., description="创建时间")
@@ -114,6 +115,7 @@ class CourtSMSDetailOut(BaseModel):
                 for ref in references
             ],
             feishu_sent_at=obj.feishu_sent_at,
+            notification_results=obj.notification_results,
             feishu_error=obj.feishu_error,
             created_at=cast(Any, obj.created_at),
             updated_at=cast(Any, obj.updated_at),
@@ -166,7 +168,7 @@ class CourtSMSListOut(BaseModel):
             status=obj.status,
             case_name=obj.case.name if obj.case else None,
             has_documents=bool(CourtSMSDocumentReferenceService().collect(obj)),
-            feishu_sent=bool(obj.feishu_sent_at),
+            feishu_sent=bool(obj.feishu_sent_at) or any(v.get("success", False) for v in (obj.notification_results or {}).values() if isinstance(v, dict)),
             created_at=cast(Any, obj.created_at),
         )
 

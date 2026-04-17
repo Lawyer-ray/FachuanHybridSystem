@@ -7,19 +7,23 @@
 设计原则：
 - 单一职责：专注于通知发送逻辑
 - 依赖注入：支持构造函数注入和延迟加载
-- 错误处理：失败时返回 False，不抛出异常
+- 多平台扇出：发现所有可用平台，逐个发送，聚合结果
+- 错误处理：任一平台成功即为成功，全部失败才返回失败
 - 日志记录：详细记录操作过程和错误信息
 
 主要功能：
-- 发送案件群聊通知
+- 多平台群聊通知扇出
 - 获取或创建群聊
 - 处理通知失败场景
+- 聚合多平台通知结果
 """
 
 import logging
-from typing import Any, cast
+from datetime import datetime
+from typing import Any
 
 from apps.automation.models import CourtSMS
+from apps.core.dto.chat import MultiPlatformNotificationResult, PlatformNotificationResult
 from apps.core.interfaces import ICaseChatService, ServiceLocator
 from apps.core.models.enums import ChatPlatform
 
@@ -27,142 +31,210 @@ logger = logging.getLogger(__name__)
 
 
 class SMSNotificationService:
-    """短信通知服务 - 发送案件群聊通知
+    """短信通知服务 - 多平台群聊通知扇出
 
     负责将短信内容和文书附件发送到案件群聊。
     支持依赖注入和延迟加载模式。
+    自动发现所有可用平台，逐个发送通知，聚合结果。
 
     主要职责：
-    - 检查案件群聊是否存在，不存在则创建
-    - 发送文书通知到群聊
-    - 处理通知失败场景
-    - 记录操作日志
+    - 发现所有可用的群聊平台
+    - 对每个平台：获取或创建群聊 → 发送文本 → 发送文件
+    - 聚合多平台通知结果
+    - 任一平台成功即为整体成功
     """
 
     def __init__(
         self,
         case_chat_service: ICaseChatService | None = None,
     ):
-        """初始化短信通知服务
-
-        Args:
-            case_chat_service: 案件群聊服务实例（可选，支持依赖注入）
-        """
         self._case_chat_service = case_chat_service
         logger.debug("SMSNotificationService 初始化完成")
 
     @property
     def case_chat_service(self) -> ICaseChatService:
-        """延迟加载案件群聊服务
-
-        如果构造函数中未注入服务实例，则通过 ServiceLocator 获取。
-
-        Returns:
-            ICaseChatService: 案件群聊服务实例
-        """
         if self._case_chat_service is None:
             self._case_chat_service = ServiceLocator.get_case_chat_service()
         return self._case_chat_service
 
     def send_case_chat_notification(
         self, sms: CourtSMS, document_paths: list[str] | None = None
-    ) -> tuple[bool, str | None]:
-        """发送案件群聊通知
+    ) -> MultiPlatformNotificationResult:
+        """发送案件群聊通知（多平台扇出）
 
-        根据 Requirements 3.2, 3.3, 3.4 实现：
-        1. 检查案件是否存在指定平台的群聊
-        2. 如果不存在则自动创建群聊
-        3. 将文书内容和短信内容推送到群聊
-        4. 处理错误并记录日志，失败时返回 False 而不抛出异常
+        自动发现所有可用平台，逐个发送通知，聚合结果。
+        任一平台成功即为整体成功；全部失败才为失败。
 
         Args:
             sms: CourtSMS 实例（必须已绑定案件）
             document_paths: 文书文件路径列表（可选）
 
         Returns:
-            tuple[bool, str | None]: (是否发送成功, 错误信息)
-
-        Requirements: 3.2, 3.3, 3.4
+            MultiPlatformNotificationResult: 多平台通知聚合结果
         """
         if not sms.case:
             error_msg = "短信未绑定案件，无法发送群聊通知"
             logger.warning(f"{error_msg}: SMS ID={sms.id}")
-            return False, error_msg
+            return MultiPlatformNotificationResult(
+                attempts=[
+                    PlatformNotificationResult(
+                        platform="none",
+                        success=False,
+                        error=error_msg,
+                    )
+                ]
+            )
 
+        # 发现可用平台
+        available_platforms = self._get_available_platforms()
+        if not available_platforms:
+            error_msg = "没有可用的群聊平台"
+            logger.warning(f"{error_msg}: SMS ID={sms.id}")
+            return MultiPlatformNotificationResult(
+                attempts=[
+                    PlatformNotificationResult(
+                        platform="none",
+                        success=False,
+                        error=error_msg,
+                    )
+                ]
+            )
+
+        logger.info(
+            f"开始多平台群聊通知: SMS ID={sms.id}, "
+            f"Case ID={sms.case.id}, "
+            f"可用平台={[p.value for p in available_platforms]}"
+        )
+
+        # 顺序扇出
+        result = MultiPlatformNotificationResult()
+        for platform in available_platforms:
+            platform_result = self._notify_single_platform(
+                sms=sms,
+                platform=platform,
+                document_paths=document_paths or [],
+            )
+            result.attempts.append(platform_result)
+
+            if platform_result.success:
+                logger.info(
+                    f"平台 {platform.value} 通知成功: SMS ID={sms.id}, Chat ID={platform_result.chat_id}"
+                )
+            else:
+                logger.warning(
+                    f"平台 {platform.value} 通知失败: SMS ID={sms.id}, 错误={platform_result.error}"
+                )
+
+        # 汇总日志
+        if result.any_success:
+            logger.info(
+                f"多平台通知完成（有成功）: SMS ID={sms.id}, "
+                f"成功平台={result.successful_platforms}, "
+                f"失败平台={result.failed_platforms}"
+            )
+        else:
+            logger.error(
+                f"多平台通知全部失败: SMS ID={sms.id}, "
+                f"失败平台={result.failed_platforms}"
+            )
+
+        return result
+
+    def _notify_single_platform(
+        self,
+        sms: CourtSMS,
+        platform: ChatPlatform,
+        document_paths: list[str],
+    ) -> PlatformNotificationResult:
+        """对单个平台执行通知流程：获取或创建群聊 → 发送文本 → 发送文件
+
+        Args:
+            sms: CourtSMS 实例
+            platform: 目标平台
+            document_paths: 文书文件路径列表
+
+        Returns:
+            PlatformNotificationResult: 单平台通知结果
+        """
+        chat_id: str | None = None
         try:
-            # 获取案件群聊服务
             chat_service = self.case_chat_service
 
-            # 默认使用飞书平台（可以从配置中读取）
-            platform = ChatPlatform.FEISHU
-
-            logger.info(f"开始发送案件群聊通知: SMS ID={sms.id}, Case ID={sms.case.id}, Platform={platform.value}")
-
-            # Requirements 3.2: 检查群聊是否存在，不存在则自动创建
+            # 1. 获取或创建群聊
             try:
-                chat = chat_service.get_or_create_chat(  # type: ignore
+                chat = chat_service.get_or_create_chat(
                     case_id=sms.case.id,
                     platform=platform,
                 )
-                logger.info(f"获取或创建群聊成功: SMS ID={sms.id}, Chat ID={chat.chat_id}")
-
+                chat_id = getattr(chat, "chat_id", None)
+                logger.info(f"获取或创建群聊成功: SMS ID={sms.id}, Platform={platform.value}, Chat ID={chat_id}")
             except Exception as e:
-                # Requirements 3.4: 自动创建群聊失败时记录错误日志，返回 False
                 error_msg = f"获取或创建群聊失败: {e!s}"
-                logger.error(f"{error_msg}: SMS ID={sms.id}, Case ID={sms.case.id}")
-                return False, error_msg
+                logger.error(f"{error_msg}: SMS ID={sms.id}, Platform={platform.value}")
+                return PlatformNotificationResult(
+                    platform=platform.value,
+                    success=False,
+                    chat_id=chat_id,
+                    error=error_msg,
+                )
 
-            # Requirements 3.3: 将文书内容和短信内容推送到群聊
+            # 2. 发送文书通知
             try:
-                result = chat_service.send_document_notification(  # type: ignore
+                send_result = chat_service.send_document_notification(
                     case_id=sms.case.id,
                     sms_content=sms.content,
-                    document_paths=document_paths or [],
+                    document_paths=document_paths,
                     platform=platform,
                     title="📋 法院文书通知",
                 )
 
-                if result.success:
-                    logger.info(f"案件群聊通知发送成功: SMS ID={sms.id}, Chat ID={chat.chat_id}")
-                    return True, None
+                if send_result.success:
+                    now = datetime.now().isoformat()
+                    return PlatformNotificationResult(
+                        platform=platform.value,
+                        success=True,
+                        chat_id=chat_id,
+                        sent_at=now,
+                        file_count=len(document_paths),
+                        sent_file_count=len(document_paths),
+                    )
                 else:
-                    error_msg = f"消息发送失败: {result.message}"
-                    logger.warning(f"{error_msg}: SMS ID={sms.id}, Chat ID={chat.chat_id}")
-                    return False, error_msg
+                    error_msg = f"消息发送失败: {getattr(send_result, 'message', '未知错误')}"
+                    return PlatformNotificationResult(
+                        platform=platform.value,
+                        success=False,
+                        chat_id=chat_id,
+                        file_count=len(document_paths),
+                        error=error_msg,
+                    )
 
             except Exception as e:
-                # Requirements 3.4: 消息发送失败时记录错误日志，返回 False
-                error_msg = f"发送案件群聊通知异常: {e!s}"
-                logger.error(f"{error_msg}: SMS ID={sms.id}, Chat ID={chat.chat_id}")
-                return False, error_msg
+                error_msg = f"发送通知异常: {e!s}"
+                logger.error(f"{error_msg}: SMS ID={sms.id}, Platform={platform.value}, Chat ID={chat_id}")
+                return PlatformNotificationResult(
+                    platform=platform.value,
+                    success=False,
+                    chat_id=chat_id,
+                    file_count=len(document_paths),
+                    error=error_msg,
+                )
 
-        except ImportError as e:
-            # Requirements 3.4: 导入错误时记录日志，返回 False
-            error_msg = f"无法导入 CaseChatService: {e!s}"
-            logger.error(error_msg)
-            return False, error_msg
         except Exception as e:
-            # Requirements 3.4: 其他异常时记录日志，返回 False
-            error_msg = f"案件群聊通知处理失败: {e!s}"
-            logger.error(f"{error_msg}: SMS ID={sms.id}")
-            return False, error_msg
+            error_msg = f"平台通知处理失败: {e!s}"
+            logger.error(f"{error_msg}: SMS ID={sms.id}, Platform={platform.value}")
+            return PlatformNotificationResult(
+                platform=platform.value,
+                success=False,
+                chat_id=chat_id,
+                error=error_msg,
+            )
 
-    def _get_or_create_chat(self, case_id: int, platform: ChatPlatform) -> Any:
-        """获取或创建群聊
+    def _get_available_platforms(self) -> list[ChatPlatform]:
+        """获取所有可用的群聊平台"""
+        try:
+            from apps.automation.services.chat.factory import ChatProviderFactory
 
-        内部辅助方法，用于获取或创建指定案件和平台的群聊。
-
-        Args:
-            case_id: 案件ID
-            platform: 群聊平台
-
-        Returns:
-            CaseChat: 群聊实例
-
-        Raises:
-            Exception: 群聊创建失败时抛出异常
-        """
-        return cast(
-            Any,
-            self.case_chat_service.get_or_create_chat(case_id=case_id, platform=platform),  # type: ignore
-        )
+            return list(ChatProviderFactory.get_available_platforms())
+        except Exception as e:
+            logger.warning(f"获取可用平台失败，回退到飞书: {e!s}")
+            return [ChatPlatform.FEISHU]

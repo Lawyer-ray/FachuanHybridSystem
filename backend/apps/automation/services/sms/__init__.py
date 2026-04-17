@@ -34,7 +34,7 @@ from .court_sms_service import (
 )
 from .document_attachment_service import DocumentAttachmentService
 from .document_renamer import DocumentRenamer
-from .feishu_bot_service import FeishuBotService
+
 
 # 拆分后的匹配服务
 from .matching import (
@@ -71,7 +71,6 @@ __all__ = [
     "CaseMatcher",
     "_get_case_matcher",
     "SMSParserService",
-    "FeishuBotService",
     "CourtSMSService",
     "CourtSMSDedupIdentity",
     "CourtSMSDedupResult",

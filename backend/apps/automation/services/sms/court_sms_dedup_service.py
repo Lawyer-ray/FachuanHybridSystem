@@ -160,12 +160,22 @@ class CourtSMSDedupService:
 
     def build_existing_sms_result(self, sms: CourtSMS, file_path: str) -> dict[str, Any]:
         """构造重复命中时的统一返回结构。"""
+        # 检查 notification_results 中是否有任何平台成功
+        notification_sent = False
+        if sms.notification_results and isinstance(sms.notification_results, dict):
+            notification_sent = any(
+                v.get("success", False) for v in sms.notification_results.values() if isinstance(v, dict)
+            )
+        # 向后兼容：也检查旧的 feishu_sent_at 字段
+        if not notification_sent and sms.feishu_sent_at:
+            notification_sent = True
+
         return {
             "success": True,
             "case_id": sms.case_id,
             "case_log_id": sms.case_log_id,
             "renamed_path": file_path,
-            "notification_sent": bool(sms.feishu_sent_at),
+            "notification_sent": notification_sent,
             "error_message": None,
             "deduplicated": True,
         }

@@ -45,7 +45,7 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
         "has_download_links",
         "case_numbers_display",
         "party_names_display",
-        "feishu_status",
+        "notification_status",
         "retry_count",
     ]
 
@@ -84,7 +84,7 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
         "scraper_task_link",
         "case_log_link",
         "documents_display",
-        "feishu_details",
+        "notification_details",
         "retry_button",
     ]
 
@@ -135,9 +135,9 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
             },
         ),
         (
-            _("飞书通知"),
+            _("通知状态"),
             {
-                "fields": ("feishu_details",),
+                "fields": ("notification_details",),
                 "classes": ("collapse",),
             },
         ),
@@ -196,7 +196,7 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
                 obj.case.name[:50] + ("..." if len(obj.case.name) > 50 else ""),
             )
         elif obj.status == CourtSMSStatus.PENDING_MANUAL:
-            change_url = reverse("admin:automation_courtsms_change", args=[cast(int, obj.id)])
+            change_url = reverse("admin:automation_courtsms_change", args=[obj.id])
             return format_html(
                 '<a href="{}" style="color: orange; font-weight: bold;">🔗 去详情页绑定案件</a>', change_url
             )
@@ -282,7 +282,7 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
                 "<div style='margin:6px 0 10px;'>"
                 "<a class='button' href='{}'>📦 批量下载全部文书</a>"
                 "</div>",
-                reverse("admin:automation_courtsms_download_all_documents", args=[cast(int, obj.id)]),
+                reverse("admin:automation_courtsms_download_all_documents", args=[obj.id]),
             )
         ]
         for index, ref in enumerate(references):
@@ -294,12 +294,12 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
 
             open_url = reverse(
                 "admin:automation_courtsms_open_document",
-                args=[cast(int, obj.id), index],
+                args=[obj.id, index],
             )
             download_url = f"{open_url}?download=1"
             rename_url = reverse(
                 "admin:automation_courtsms_rename_document",
-                args=[cast(int, obj.id), index],
+                args=[obj.id, index],
             )
 
             doc_link_html = ""
@@ -383,22 +383,46 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
         return format_html_join("", "{}", ((p,) for p in [*parts, script]))
 
     @admin.display(description=_("通知状态"))
-    def feishu_status(self, obj: CourtSMS) -> SafeString:
-        """飞书发送状态"""
+    def notification_status(self, obj: CourtSMS) -> SafeString:
+        """多平台通知状态"""
+        # 优先使用 notification_results
+        if obj.notification_results and isinstance(obj.notification_results, dict):
+            results = obj.notification_results
+            success_platforms = [k for k, v in results.items() if isinstance(v, dict) and v.get("success")]
+            fail_platforms = [k for k, v in results.items() if isinstance(v, dict) and not v.get("success")]
+
+            if success_platforms:
+                parts = [format_html('<span style="color: green;">✓ 通知成功</span>')]
+                for p in success_platforms:
+                    info = results[p]
+                    sent_at = info.get("sent_at", "")
+                    if sent_at:
+                        # 只显示日期时间部分
+                        sent_display = sent_at[:16] if len(sent_at) > 16 else sent_at
+                        parts.append(format_html('<br><small>{}: {}</small>', p, sent_display))
+                    else:
+                        parts.append(format_html('<br><small>{}</small>', p))
+                if fail_platforms:
+                    parts.append(format_html('<br><small style="color: #d63384;">失败: {}</small>', ", ".join(fail_platforms)))
+                return format_html("".join(str(p) for p in parts))
+            elif fail_platforms:
+                first_error = ""
+                for p in fail_platforms:
+                    err = results[p].get("error", "")
+                    if err:
+                        first_error = err[:30] + ("..." if len(err) > 30 else "")
+                        break
+                return format_html(
+                    '<span style="color: red;">✗ 通知失败</span><br><small style="color: #d63384;">{}</small>',
+                    first_error,
+                )
+
+        # 向后兼容：检查旧的 feishu_sent_at / feishu_error 字段
         if obj.feishu_sent_at:
-            if obj.feishu_error and obj.feishu_error not in ["发送失败", ""]:
-                return format_html(
-                    '<span style="color: green;">✓ 通知成功</span><br>'
-                    "<small>{}</small><br>"
-                    '<small style="color: #666;">{}</small>',
-                    obj.feishu_sent_at.strftime("%m-%d %H:%M"),
-                    obj.feishu_error[:50] + ("..." if len(obj.feishu_error) > 50 else ""),
-                )
-            else:
-                return format_html(
-                    '<span style="color: green;">✓ 通知成功</span><br><small>{}</small>',
-                    obj.feishu_sent_at.strftime("%m-%d %H:%M"),
-                )
+            return format_html(
+                '<span style="color: green;">✓ 通知成功</span><br><small>{}</small>',
+                obj.feishu_sent_at.strftime("%m-%d %H:%M"),
+            )
         elif obj.feishu_error:
             error_preview = obj.feishu_error[:30] + ("..." if len(obj.feishu_error) > 30 else "")
             return format_html(
@@ -407,9 +431,30 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
             )
         return format_html('<span style="color: gray;">{}</span>', "- 未发送")
 
-    @admin.display(description=_("飞书通知详情"))
-    def feishu_details(self, obj: CourtSMS) -> str:
-        """飞书详情"""
+    @admin.display(description=_("通知详情"))
+    def notification_details(self, obj: CourtSMS) -> str:
+        """多平台通知详情"""
+        if obj.notification_results and isinstance(obj.notification_results, dict):
+            lines = []
+            for platform, info in obj.notification_results.items():
+                if not isinstance(info, dict):
+                    continue
+                status = "成功" if info.get("success") else "失败"
+                sent_at = info.get("sent_at", "")
+                error = info.get("error", "")
+                chat_id = info.get("chat_id", "")
+                line = f"{platform}: {status}"
+                if sent_at:
+                    line += f", 时间: {sent_at[:19]}"
+                if chat_id:
+                    line += f", Chat ID: {chat_id}"
+                if error:
+                    line += f", 错误: {error[:80]}"
+                lines.append(line)
+            if lines:
+                return "\n".join(lines)
+
+        # 向后兼容
         if obj.feishu_sent_at:
             return f"发送时间: {obj.feishu_sent_at}"
         elif obj.feishu_error:
@@ -419,8 +464,8 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
     @admin.display(description=_("操作"))
     def retry_button(self, obj: CourtSMS) -> SafeString | str:
         """重新处理按钮"""
-        if cast(int, obj.id):
-            retry_url = reverse("admin:automation_courtsms_retry", args=[cast(int, obj.id)])
+        if obj.id:
+            retry_url = reverse("admin:automation_courtsms_retry", args=[obj.id])
             return format_html(
                 '<a href="{}" class="button" onclick="return confirm('
                 "'确认要重新处理这条短信吗?这将重置状态并重新执行完整流程.');"

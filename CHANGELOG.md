@@ -2,6 +2,24 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.35.1] - 2026-04-17
+
+### 后端
+
+- 法院短信通知系统升级为多平台群聊通知：新增企业微信（WeChat Work）Provider，与飞书并列支持，实现多平台扇出通知。
+  - 新增 `ChatProvider` 抽象基类与 `ChatProviderFactory` 工厂，统一管理飞书/企业微信 Provider 注册与获取。
+  - 新增 `WeChatWorkProvider`（Token Mixin + File Mixin 组合），支持建群、发消息、发文件。
+  - `SMSNotificationService` 改为多平台扇出模式：自动发现可用平台 → 逐平台通知 → 聚合结果。
+  - 新增 `PlatformNotificationResult` / `MultiPlatformNotificationResult` DTO，替代原有 `tuple[bool, str|None]`。
+  - `CourtSMS` 新增 `notification_results` JSONField，保留旧 `feishu_sent_at`/`feishu_error` 字段向后兼容。
+  - 迁移 `0013` 自动将旧飞书通知数据迁移至 `notification_results`。
+  - Admin 详情页通知状态展示改为多平台维度（`notification_status`/`notification_details`）。
+  - 去重服务与文书送达链路同步适配新通知结果格式。
+  - `CaseChatService` 默认平台从硬编码 `FEISHU` 改为动态选择首个可用平台。
+  - `CaseChatRepository.create_binding` 补齐 `owner_id`/`owner_verified`/`creation_audit_log` 参数。
+  - 系统配置新增企业微信相关配置项（Corp ID / Agent ID / Secret / Default Owner ID）。
+  - 删除废弃的 `FeishuBotService`（已被 `FeishuProvider` 替代）。
+
 ## [26.35.0] - 2026-04-16
 
 ### 后端

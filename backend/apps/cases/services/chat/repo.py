@@ -43,7 +43,7 @@ class CaseChatRepository:
                 errors={"chat_id": str(_("群聊ID必须是正整数"))},
             )
 
-        updated_count = CaseChat.objects.filter(id=chat_id, is_active=True).update(is_active=False)
+        updated_count: int = CaseChat.objects.filter(id=chat_id, is_active=True).update(is_active=False)
         return updated_count > 0
 
     def ensure_not_bound(self, *, case_id: int, platform: ChatPlatform, chat_id: str) -> None:
@@ -63,8 +63,18 @@ class CaseChatRepository:
         chat_id: str,
         name: str,
         is_active: bool = True,
+        owner_id: str | None = None,
+        owner_verified: bool = False,
+        creation_audit_log: dict | None = None,
     ) -> CaseChat:
         with transaction.atomic():
             return CaseChat.objects.create(
-                case=case, platform=platform, chat_id=chat_id, name=name, is_active=is_active
+                case=case,
+                platform=platform,
+                chat_id=chat_id,
+                name=name,
+                is_active=is_active,
+                owner_id=owner_id,
+                owner_verified=owner_verified,
+                creation_audit_log=creation_audit_log or {},
             )

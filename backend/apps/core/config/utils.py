@@ -77,6 +77,24 @@ def get_feishu_category_configs() -> dict[str, Any]:
         return {}
 
 
+def get_wechat_work_category_configs() -> dict[str, Any]:
+    """
+    批量获取企业微信分类配置
+
+    Returns:
+        企业微信配置字典，key 为 DB 键名（如 WECHAT_WORK_CORP_ID），value 为配置值
+    """
+    try:
+        from apps.core.services.system_config_service import SystemConfigService
+
+        service = SystemConfigService()
+        result: dict[str, Any] = service.get_category_configs("wechat_work")
+        return result
+    except Exception as e:
+        logger.debug(f"从 SystemConfig 批量获取企业微信配置失败: {e}")
+        return {}
+
+
 def get_system_config_value(key: str, default: Any = None) -> Any:
     """
     获取 SystemConfig 单个配置值

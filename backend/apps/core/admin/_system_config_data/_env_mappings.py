@@ -74,6 +74,12 @@ def get_env_mappings() -> dict[str, dict[str, Any]]:
             "description": "企业微信应用 Secret",
             "is_secret": True,
         },
+        "WECHAT_WORK_DEFAULT_OWNER_ID": {
+            "key": "WECHAT_WORK_DEFAULT_OWNER_ID",
+            "category": "wechat_work",
+            "description": "企业微信默认群主 userid",
+            "is_secret": False,
+        },
         "WECHAT_WORK_TIMEOUT": {
             "key": "WECHAT_WORK_TIMEOUT",
             "category": "wechat_work",
