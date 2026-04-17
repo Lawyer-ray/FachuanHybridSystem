@@ -31,8 +31,7 @@ class CourtSMSRepository:
         sms.scraper_task = None
         sms.case = None
         sms.case_log = None
-        sms.feishu_sent_at = None
-        sms.feishu_error = None
+        sms.notification_results = None
 
     def set_status(self, *, sms: CourtSMS, status: str, error_message: str | None = None) -> None:
         sms.status = status

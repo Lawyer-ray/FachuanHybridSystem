@@ -293,8 +293,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
             sms.scraper_task = None
             sms.case = None
             sms.case_log = None
-            sms.feishu_sent_at = None
-            sms.feishu_error = None
+            sms.notification_results = None
             sms.save()
 
             logger.info(f"重置短信状态成功: SMS ID={sms_id}, 重试次数={sms.retry_count}")
@@ -497,30 +496,38 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
             document_paths = self.document_attachment.get_paths_for_notification(sms)
             logger.info(f"准备发送 {len(document_paths)} 个文件到群聊: SMS ID={sms.id}")
 
-            case_chat_success = False
-            error_detail = None
-
             if sms.case:
-                case_chat_success, error_detail = self.notification.send_case_chat_notification(sms, document_paths)
+                result = self.notification.send_case_chat_notification(sms, document_paths)
 
-                if case_chat_success:
-                    sms.feishu_sent_at = timezone.now()
-                    sms.feishu_error = None
-                    logger.info(f"案件群聊通知成功: SMS ID={sms.id}")
+                # 持久化多平台通知结果
+                sms.notification_results = result.to_notification_results()
+
+                if result.any_success:
+                    logger.info(f"案件群聊通知成功: SMS ID={sms.id}, 成功平台={result.successful_platforms}")
                 else:
-                    sms.feishu_error = error_detail or "案件群聊通知失败"
+                    error_detail = "; ".join(
+                        f"{r.platform}: {r.error}" for r in result.attempts if not r.success
+                    )
                     logger.error(f"案件群聊通知失败: SMS ID={sms.id}, 原因: {error_detail}")
             else:
                 error_detail = "短信未绑定案件，无法发送群聊通知"
                 logger.warning(f"{error_detail}: SMS ID={sms.id}")
-                sms.feishu_error = error_detail
+                sms.notification_results = {
+                    "none": {"success": False, "error": error_detail}
+                }
 
-            if case_chat_success:
+            # 判断最终状态：检查 notification_results 中是否有任何平台成功
+            notification_results = sms.notification_results or {}
+            any_platform_success = any(
+                v.get("success", False) for v in notification_results.values() if isinstance(v, dict)
+            )
+
+            if any_platform_success:
                 sms.status = CourtSMSStatus.COMPLETED
                 logger.info(f"案件群聊通知发送成功，短信处理完成: SMS ID={sms.id}")
             else:
                 sms.status = CourtSMSStatus.FAILED
-                sms.error_message = f"案件群聊通知发送失败: {error_detail or '未知错误'}"
+                sms.error_message = "案件群聊通知发送失败"
                 logger.error(f"案件群聊通知发送失败，短信标记为失败: SMS ID={sms.id}")
 
             sms.save()
@@ -528,7 +535,8 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
 
         except Exception as e:
             logger.error(f"案件群聊通知发送失败: SMS ID={sms.id}, 错误: {e!s}")
-            sms.feishu_error = str(e)
+            sms.notification_results = sms.notification_results or {}
+            sms.notification_results["_exception"] = {"success": False, "error": str(e)}
             sms.status = CourtSMSStatus.FAILED
             sms.error_message = f"案件群聊通知发送失败: {e!s}"
             sms.save()

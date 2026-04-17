@@ -27,13 +27,11 @@ def build_document_delivery_coordinator(
     token_service: DocumentDeliveryTokenService | None = None,
     history_repo: DocumentHistoryRepo | None = None,
 ) -> DocumentDeliveryCoordinator:
-    from apps.automation.integrations.chat.message_sender import ChatProviderMessageSender
     from apps.automation.services.sms.case_matcher import CaseMatcher
     from apps.automation.services.sms.document_renamer import DocumentRenamer
     from apps.automation.services.sms.matching import DocumentParserService, PartyMatchingService
     from apps.automation.services.sms.sms_notification_service import SMSNotificationService
     from apps.automation.services.token.cache_manager import cache_manager
-    from apps.fee_notice.services import FeeNoticeCheckService
 
     from .api.document_delivery_api_service import DocumentDeliveryApiService
     from .court_document_api_client import CourtDocumentApiClient
@@ -80,17 +78,14 @@ def build_document_delivery_coordinator(
     if notification_service is None:
         notification_service = SMSNotificationService(
             case_chat_service=case_chat_service,
-            fee_check_service=FeeNoticeCheckService(),
-            chat_message_sender=ChatProviderMessageSender(),
         )
 
     processor = DocumentDeliveryProcessor(
         case_matcher=case_matcher,
         document_renamer=document_renamer,
         notification_service=notification_service,
-        case_log_service=case_log_service,
+        caselog_service=case_log_service,
         case_number_service=case_number_service,
-        history_repo=history_repo,
     )
 
     api_service = DocumentDeliveryApiService(

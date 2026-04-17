@@ -20,7 +20,8 @@
   }
 
   .other-tools-page {
-    max-width: 1360px;
+    width: 100%;
+    max-width: none;
   }
 
   .hero-panel {
@@ -196,7 +197,7 @@
 
   .tools-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: 16px;
   }
 
@@ -376,6 +377,13 @@
 
   [x-cloak] {
     display: none !important;
+  }
+
+  @media (min-width: 1920px) {
+    .tools-grid {
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 18px;
+    }
   }
 
   @media (max-width: 960px) {

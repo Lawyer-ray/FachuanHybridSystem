@@ -42,14 +42,17 @@ def _register_providers() -> None:
         logger = logging.getLogger(__name__)
         logger.warning(f"无法导入飞书群聊提供者: {e!s}")
 
-    # 未来可以在这里注册其他平台提供者
-    # 例如：
-    # try:
-    #     from .dingtalk_provider import DingtalkChatProvider
-    #     if not ChatProviderFactory.is_platform_registered(ChatPlatform.DINGTALK):
-    #         ChatProviderFactory.register(ChatPlatform.DINGTALK, DingtalkChatProvider)
-    # except ImportError:
-    #     pass
+    # 注册企业微信提供者
+    try:
+        from .wechat_work_provider import WeChatWorkProvider
+
+        if not ChatProviderFactory.is_platform_registered(ChatPlatform.WECHAT_WORK):
+            ChatProviderFactory.register(ChatPlatform.WECHAT_WORK, WeChatWorkProvider)
+    except ImportError as e:
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.warning(f"无法导入企业微信群聊提供者: {e!s}")
 
 
 # 模块导入时自动注册提供者（避免重复注册）

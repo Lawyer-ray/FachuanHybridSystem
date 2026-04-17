@@ -1522,9 +1522,6 @@ python -m pytest tests/unit/automation/test_case_matcher.py -v
 # 文书重命名服务测试
 python -m pytest tests/unit/automation/test_document_renamer.py -v
 
-# 飞书机器人服务测试
-python -m pytest tests/unit/automation/test_feishu_bot_service.py -v
-
 # 核心服务测试
 python -m pytest tests/unit/automation/test_court_sms_service.py -v
 

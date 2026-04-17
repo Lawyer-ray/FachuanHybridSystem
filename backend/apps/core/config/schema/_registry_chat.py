@@ -97,6 +97,12 @@ def register_chat_configs(registry: dict[str, ConfigField]) -> None:
         max_value=300,
         description="企业微信 API 超时时间（秒）",
     )
+    registry["chat_platforms.wechat_work.default_owner_id"] = ConfigField(
+        name="chat_platforms.wechat_work.default_owner_id",
+        type=str,
+        env_var="WECHAT_WORK_DEFAULT_OWNER_ID",
+        description="企业微信默认群主 userid（建群必须指定群主）",
+    )
     # Telegram
     registry["chat_platforms.telegram.bot_token"] = ConfigField(
         name="chat_platforms.telegram.bot_token",

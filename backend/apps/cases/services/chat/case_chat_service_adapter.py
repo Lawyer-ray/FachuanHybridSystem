@@ -130,7 +130,12 @@ class CaseChatServiceAdapter(ICaseChatService):
             from apps.core.models.enums import ChatPlatform
 
             if platform is None:
-                platform = ChatPlatform.FEISHU
+                try:
+                    from apps.automation.services.chat.factory import ChatProviderFactory
+                    available: list[Any] = ChatProviderFactory.get_available_platforms()
+                    platform = available[0] if available else ChatPlatform.FEISHU
+                except Exception:
+                    platform = ChatPlatform.FEISHU
 
             chat = self.service.get_or_create_chat(case_id=case_id, platform=platform, perm_open_access=True)
 
@@ -180,7 +185,12 @@ class CaseChatServiceAdapter(ICaseChatService):
             from apps.core.models.enums import ChatPlatform
 
             if platform is None:
-                platform = ChatPlatform.FEISHU
+                try:
+                    from apps.automation.services.chat.factory import ChatProviderFactory
+                    available: list[Any] = ChatProviderFactory.get_available_platforms()
+                    platform = available[0] if available else ChatPlatform.FEISHU
+                except Exception:
+                    platform = ChatPlatform.FEISHU
 
             result = self.service.send_document_notification(
                 case_id=case_id,

@@ -3,7 +3,7 @@ SMS 通知阶段处理器
 
 负责发送案件群聊通知，包括：
 - 获取待发送的文书路径
-- 发送案件群聊通知
+- 多平台群聊通知扇出
 - 更新通知状态
 
 Requirements: 2.1, 2.2, 5.1, 5.2, 5.5
@@ -12,10 +12,10 @@ Requirements: 2.1, 2.2, 5.1, 5.2, 5.5
 import logging
 from typing import TYPE_CHECKING, Optional
 
-from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import CourtSMS, CourtSMSStatus
+from apps.core.dto.chat import MultiPlatformNotificationResult
 
 from .base import BaseSMSStage
 
@@ -31,6 +31,7 @@ class SMSNotifyingStage(BaseSMSStage):
     SMS 通知阶段处理器
 
     负责发送案件群聊通知，将文书内容和短信内容推送到群聊。
+    支持多平台扇出，任一平台成功即为整体成功。
 
     Requirements: 2.1, 2.2, 5.1, 5.2, 5.5
     """
@@ -40,13 +41,6 @@ class SMSNotifyingStage(BaseSMSStage):
         notification_service: Optional["SMSNotificationService"] = None,
         document_attachment_service: Optional["DocumentAttachmentService"] = None,
     ):
-        """
-        初始化通知阶段处理器
-
-        Args:
-            notification_service: 短信通知服务（可选，支持依赖注入）
-            document_attachment_service: 文书附件服务（可选，支持依赖注入）
-        """
         self._notification_service = notification_service
         self._document_attachment_service = document_attachment_service
 
@@ -74,29 +68,9 @@ class SMSNotifyingStage(BaseSMSStage):
         return "通知"
 
     def can_process(self, sms: CourtSMS) -> bool:
-        """
-        检查是否可以处理通知阶段
-
-        Args:
-            sms: CourtSMS 实例
-
-        Returns:
-            bool: 是否可以处理
-        """
         return bool(sms.status == CourtSMSStatus.NOTIFYING)
 
     def process(self, sms: CourtSMS) -> CourtSMS:
-        """
-        处理通知阶段
-
-        委托给 SMSNotificationService 和 DocumentAttachmentService 处理通知发送
-
-        Args:
-            sms: CourtSMS 实例
-
-        Returns:
-            CourtSMS: 处理后的 SMS 实例
-        """
         self._log_start(sms)
 
         try:
@@ -107,11 +81,11 @@ class SMSNotifyingStage(BaseSMSStage):
             document_paths = self.document_attachment_service.get_paths_for_notification(sms)
             logger.info(f"准备发送 {len(document_paths)} 个文件到群聊: SMS ID={sms.id}")
 
-            # 发送案件群聊通知
-            case_chat_success = self._send_case_chat_notification(sms, document_paths)
+            # 发送案件群聊通知（多平台扇出）
+            result = self._send_case_chat_notification(sms, document_paths)
 
-            # 根据通知结果更新状态
-            self._update_notification_status(sms, case_chat_success)
+            # 持久化通知结果并更新状态
+            self._update_notification_status(sms, result)
 
             sms.save()
             self._log_complete(sms)
@@ -122,57 +96,42 @@ class SMSNotifyingStage(BaseSMSStage):
             self._handle_notification_error(sms, e)
             return sms
 
-    def _send_case_chat_notification(self, sms: CourtSMS, document_paths: list[str]) -> bool:
-        """
-        发送案件群聊通知
-
-        Args:
-            sms: CourtSMS 实例
-            document_paths: 文书文件路径列表
-
-        Returns:
-            bool: 是否发送成功
-        """
+    def _send_case_chat_notification(self, sms: CourtSMS, document_paths: list[str]) -> MultiPlatformNotificationResult:
+        """发送案件群聊通知（多平台扇出）"""
         if not sms.case:
             logger.warning(f"短信未绑定案件，无法发送群聊通知: SMS ID={sms.id}")
-            sms.feishu_error = "短信未绑定案件，无法发送群聊通知"
-            return False
+            from apps.core.dto.chat import PlatformNotificationResult
 
-        # 委托给 SMSNotificationService 发送通知
-        success = self.notification_service.send_case_chat_notification(sms, document_paths)
+            return MultiPlatformNotificationResult(
+                attempts=[
+                    PlatformNotificationResult(
+                        platform="none",
+                        success=False,
+                        error="短信未绑定案件，无法发送群聊通知",
+                    )
+                ]
+            )
 
-        return success
+        return self.notification_service.send_case_chat_notification(sms, document_paths)
 
-    def _update_notification_status(self, sms: CourtSMS, success: bool) -> None:
-        """
-        根据通知结果更新 SMS 状态
+    def _update_notification_status(self, sms: CourtSMS, result: MultiPlatformNotificationResult) -> None:
+        """根据通知结果更新 SMS 状态"""
+        # 持久化多平台通知结果
+        sms.notification_results = result.to_notification_results()
 
-        Args:
-            sms: CourtSMS 实例
-            success: 通知是否成功
-        """
-        if success:
-            sms.feishu_sent_at = timezone.now()
-            sms.feishu_error = None
+        if result.any_success:
             sms.status = CourtSMSStatus.COMPLETED
             logger.info(f"案件群聊通知发送成功，短信处理完成: SMS ID={sms.id}")
         else:
             sms.status = CourtSMSStatus.FAILED
-            if not sms.feishu_error:
-                sms.feishu_error = "案件群聊通知发送失败"
-            sms.error_message = _("案件群聊通知发送失败")  # type: ignore
+            error_detail = "; ".join(f"{r.platform}: {r.error}" for r in result.attempts if not r.success)
+            sms.error_message = f"案件群聊通知发送失败: {error_detail}" if error_detail else str(_("案件群聊通知发送失败"))
             logger.error(f"案件群聊通知发送失败，短信标记为失败: SMS ID={sms.id}")
 
     def _handle_notification_error(self, sms: CourtSMS, error: Exception) -> None:
-        """
-        处理通知阶段错误
-
-        Args:
-            sms: CourtSMS 实例
-            error: 异常对象
-        """
         error_msg = str(error)
-        sms.feishu_error = error_msg
+        sms.notification_results = sms.notification_results or {}
+        sms.notification_results["_exception"] = {"success": False, "error": error_msg}
         sms.status = CourtSMSStatus.FAILED
         sms.error_message = f"案件群聊通知发送失败: {error_msg}"
         sms.save()
@@ -183,16 +142,6 @@ def create_sms_notifying_stage(
     notification_service: Optional["SMSNotificationService"] = None,
     document_attachment_service: Optional["DocumentAttachmentService"] = None,
 ) -> SMSNotifyingStage:
-    """
-    工厂函数：创建 SMS 通知阶段处理器
-
-    Args:
-        notification_service: 短信通知服务（可选）
-        document_attachment_service: 文书附件服务（可选）
-
-    Returns:
-        SMSNotifyingStage: 通知阶段处理器实例
-    """
     return SMSNotifyingStage(
         notification_service=notification_service,
         document_attachment_service=document_attachment_service,

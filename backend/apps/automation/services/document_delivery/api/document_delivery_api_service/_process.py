@@ -217,7 +217,6 @@ class DocumentProcessMixin:
 
                     if notification_sent:
                         sms.status = CourtSMSStatus.COMPLETED
-                        sms.feishu_sent_at = timezone.now()
                         logger.info(f"通知发送成功: SMS ID={sms.id}")
                     else:
                         sms.status = CourtSMSStatus.FAILED

@@ -105,9 +105,14 @@ class CourtSMS(models.Model):
         verbose_name=_("案件日志"),
     )
 
-    # 飞书通知
+    # 飞书通知（保留字段，向后兼容）
     feishu_sent_at = models.DateTimeField(null=True, blank=True, verbose_name=_("飞书发送时间"))
     feishu_error = models.TextField(null=True, blank=True, verbose_name=_("飞书发送错误"))
+
+    # 多平台通知结果
+    notification_results = models.JSONField(
+        null=True, blank=True, default=None, verbose_name=_("多平台通知结果")
+    )
 
     # 时间戳
     created_at = models.DateTimeField(auto_now_add=True)
