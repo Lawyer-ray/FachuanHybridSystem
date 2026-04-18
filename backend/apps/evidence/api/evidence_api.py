@@ -15,7 +15,7 @@ from ninja import Router, Schema
 
 from apps.core.security.auth import JWTOrSessionAuth
 
-router = Router(tags=["证据清单"], auth=JWTOrSessionAuth())
+router = Router(tags=["证据管理"], auth=JWTOrSessionAuth())
 
 
 def _get_evidence_service() -> Any:

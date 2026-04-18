@@ -16,7 +16,7 @@ from apps.client.schemas import (
     PropertyClueUpdateIn,
 )
 
-router = Router(tags=["PropertyClue"])
+router = Router(tags=["财产线索"])
 
 
 def _get_property_clue_service() -> Any:
