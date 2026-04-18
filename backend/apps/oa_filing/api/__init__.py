@@ -7,6 +7,6 @@ from .filing_api import router as filing_router
 
 router = Router()
 router.add_router("", filing_router, tags=["OA立案"])
-router.add_router("/case-import", case_import_router, tags=["OA案件导入"])
+router.add_router("/case-import", case_import_router, tags=["案件导入"])
 
 __all__: list[str] = ["router"]

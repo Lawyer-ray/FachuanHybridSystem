@@ -13,7 +13,7 @@ from apps.automation.schemas import AutoToolProcessIn, AutoToolProcessOut
 from apps.automation.services.ai.prompts import DEFAULT_FILENAME_PROMPT
 from apps.core.infrastructure.throttling import rate_limit_from_settings
 
-router = Router(tags=["Auto Namer"])
+router = Router(tags=["自动命名"])
 
 
 def _get_auto_namer_service() -> Any:

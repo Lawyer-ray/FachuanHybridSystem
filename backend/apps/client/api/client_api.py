@@ -34,7 +34,7 @@ class IdCardValidateResponse(BaseModel):
     message: str
 
 
-router = Router(tags=["Client"])
+router = Router(tags=["客户管理"])
 
 
 def _get_query_facade() -> Any:

@@ -8,7 +8,7 @@ from ninja import Router
 from apps.automation.schemas import DocumentProcessIn, DocumentProcessOut
 from apps.core.infrastructure.throttling import rate_limit_from_settings
 
-router = Router(tags=["Document Processor"])
+router = Router(tags=["文档处理"])
 
 
 from typing import Any

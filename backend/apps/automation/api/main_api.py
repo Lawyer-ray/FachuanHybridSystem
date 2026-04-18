@@ -13,7 +13,7 @@ from apps.core.infrastructure.throttling import rate_limit_from_settings
 
 from .performance_monitor_api import router as performance_router
 
-router = Router(tags=["Main API"])
+router = Router(tags=["AI工具"])
 
 
 def _get_ai_service() -> Any:

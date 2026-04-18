@@ -23,7 +23,7 @@ from .schemas import (
 
 logger = logging.getLogger(__name__)
 
-router = Router(tags=["AI 诉讼文书生成"], auth=JWTOrSessionAuth())
+router = Router(tags=["诉讼文书生成"], auth=JWTOrSessionAuth())
 
 
 def _get_conversation_service() -> Any:

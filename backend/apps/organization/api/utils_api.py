@@ -7,7 +7,7 @@ from ninja import Router
 
 from apps.organization.models import Lawyer
 
-router = Router(tags=["组织管理辅助"])
+router = Router(tags=["认证登录"])
 
 
 def get_request_user(request: HttpRequest) -> Lawyer | None:
