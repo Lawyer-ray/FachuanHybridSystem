@@ -102,14 +102,11 @@ class CasePartyService:
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> CaseParty:
-        return cast(
-            CaseParty,
-            self.query_facade.get_party(
-                party_id=party_id,
-                user=user,
-                org_access=org_access,
-                perm_open_access=perm_open_access,
-            ),
+        return self.query_facade.get_party(
+            party_id=party_id,
+            user=user,
+            org_access=org_access,
+            perm_open_access=perm_open_access,
         )
 
     @transaction.atomic
@@ -122,16 +119,13 @@ class CasePartyService:
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> CaseParty:
-        return cast(
-            CaseParty,
-            self.mutation_facade.create_party(
-                case_id=case_id,
-                client_id=client_id,
-                legal_status=legal_status,
-                user=user,
-                org_access=org_access,
-                perm_open_access=perm_open_access,
-            ),
+        return self.mutation_facade.create_party(
+            case_id=case_id,
+            client_id=client_id,
+            legal_status=legal_status,
+            user=user,
+            org_access=org_access,
+            perm_open_access=perm_open_access,
         )
 
     @transaction.atomic
@@ -143,15 +137,12 @@ class CasePartyService:
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> CaseParty:
-        return cast(
-            CaseParty,
-            self.mutation_facade.update_party(
-                party_id=party_id,
-                data=data,
-                user=user,
-                org_access=org_access,
-                perm_open_access=perm_open_access,
-            ),
+        return self.mutation_facade.update_party(
+            party_id=party_id,
+            data=data,
+            user=user,
+            org_access=org_access,
+            perm_open_access=perm_open_access,
         )
 
     @transaction.atomic
@@ -162,14 +153,11 @@ class CasePartyService:
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> dict[str, bool]:
-        return cast(
-            dict[str, bool],
-            self.mutation_facade.delete_party(
-                party_id=party_id,
-                user=user,
-                org_access=org_access,
-                perm_open_access=perm_open_access,
-            ),
+        return self.mutation_facade.delete_party(
+            party_id=party_id,
+            user=user,
+            org_access=org_access,
+            perm_open_access=perm_open_access,
         )
 
     @transaction.atomic

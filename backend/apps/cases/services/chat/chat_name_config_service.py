@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 def _get_system_config_service() -> ISystemConfigService:
     from .wiring import get_system_config_service
 
-    return cast("ISystemConfigService", get_system_config_service())
+    return get_system_config_service()
 
 
 class ChatNameConfigService:

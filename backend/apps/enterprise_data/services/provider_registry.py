@@ -30,10 +30,10 @@ class EnterpriseProviderRegistry:
         self._config = config_service or SystemConfigService()
 
     def get_cache_ttl_seconds(self) -> int:
-        return cast(int, DEFAULT_CACHE_TTL_SECONDS)
+        return DEFAULT_CACHE_TTL_SECONDS
 
     def get_default_provider_name(self) -> str:
-        return cast(str, DEFAULT_PROVIDER_NAME)
+        return DEFAULT_PROVIDER_NAME
 
     def list_providers(self) -> list[ProviderDescriptor]:
         transport = self.get_tianyancha_transport()

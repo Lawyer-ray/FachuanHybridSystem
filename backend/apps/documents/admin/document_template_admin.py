@@ -640,17 +640,17 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):
     @admin.display(description=_("模板类型"))
     def template_type_display(self, obj: DocumentTemplate) -> str:
         """显示模板类型"""
-        return obj.template_type_display  # type: ignore[no-any-return]
+        return obj.template_type_display
 
     @admin.display(description=_("合同类型"))
     def contract_types_display(self, obj: DocumentTemplate) -> str:
         """显示合同类型"""
-        return obj.contract_types_display  # type: ignore[no-any-return]
+        return obj.contract_types_display
 
     @admin.display(description=_("案件类型"))
     def case_types_display(self, obj: DocumentTemplate) -> str:
         """显示案件类型"""
-        return obj.case_types_display  # type: ignore[no-any-return]
+        return obj.case_types_display
 
     @admin.display(description=_("案件阶段"))
     def case_stage_display(self, obj: DocumentTemplate) -> str:

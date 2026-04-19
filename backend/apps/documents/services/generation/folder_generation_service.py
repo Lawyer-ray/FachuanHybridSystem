@@ -108,7 +108,7 @@ class FolderGenerationService:
 
         # 获取合同类型中文显示名
         case_type = getattr(contract, "case_type", None)
-        case_type_display = dict(CaseType.choices).get(case_type, case_type or "未知类型")  # type: ignore[no-any-return]
+        case_type_display = dict(CaseType.choices).get(case_type, case_type or "未知类型")
         # 获取合同名称
         contract_name = getattr(contract, "name", None) or "未命名合同"
 
@@ -509,13 +509,13 @@ class FolderGenerationService:
                     auth_service = AuthorizationMaterialGenerationService()
                     # _build_power_of_attorney_context 在调用 EnhancedContextBuilder 之前就把
                     # selected_clients 放入 context_data，保证 PowerOfAttorneyPlaceholderService 能读到
-                    ctx = auth_service._build_power_of_attorney_context(  # type: ignore[attr-defined]
+                    ctx = auth_service._build_power_of_attorney_context(
                         case=case,
                         selected_clients=[p.client for p in our_parties],
                     )
                     content = DocxRenderer().render(file_location, ctx)
                     # 使用与单独点击"授权委托书"相同的文件名生成逻辑
-                    filename = auth_service._build_power_of_attorney_filename(  # type: ignore[attr-defined]
+                    filename = auth_service._build_power_of_attorney_filename(
                         case=case,
                         selected_clients=[p.client for p in our_parties],
                     )
@@ -546,7 +546,7 @@ class FolderGenerationService:
                     ctx = auth_service._build_context(case=case)
                     content = DocxRenderer().render(file_location, ctx)
                     # 使用与单独点击"所函"相同的文件名生成逻辑
-                    filename = auth_service._build_authority_letter_filename(  # type: ignore[attr-defined]
+                    filename = auth_service._build_authority_letter_filename(
                         case_name=case.name or "案件",
                     )
                     documents.append((folder_path, content, filename))

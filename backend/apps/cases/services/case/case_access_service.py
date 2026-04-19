@@ -103,13 +103,13 @@ class CaseAccessService(DjangoPermsMixin):
             raise NotFoundError(_("授权 %(id)s 不存在") % {"id": grant_id}) from None
         ctx = access_ctx or AccessContext(user=user, org_access=org_access, perm_open_access=perm_open_access)
         if ctx.perm_open_access:
-            return cast(CaseAccessGrant, grant)
+            return grant
         self.ensure_authenticated(ctx.user)
         if self.is_admin(ctx.user) or self.is_superuser(ctx.user):
-            return cast(CaseAccessGrant, grant)
+            return grant
         if grant.grantee_id != self.get_user_id(ctx.user):
             raise ForbiddenError(_("无权限查看该授权记录"))
-        return cast(CaseAccessGrant, grant)
+        return grant
 
     def create_grant(self, case_id: int, grantee_id: int, user: Any | None = None) -> CaseAccessGrant:
         """

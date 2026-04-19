@@ -62,7 +62,7 @@ class AccountCredentialAdmin(admin.ModelAdmin[AccountCredential]):
 
     def get_form(
         self, request: HttpRequest, obj: AccountCredential | None = None, **kwargs: Any
-    ) -> type[forms.ModelForm]:  # type: ignore[override]
+    ) -> type[forms.ModelForm]:
         form = super().get_form(request, obj, **kwargs)
         if "password" in form.base_fields:
             # Preserve masked credential input; do not regress to plain text rendering.

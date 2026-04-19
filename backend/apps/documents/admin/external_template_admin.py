@@ -74,7 +74,7 @@ def _get_filling_service() -> Any:
     return get_filling_service()
 
 
-class ExternalTemplateFieldMappingInline(admin.TabularInline):  # type: ignore[type-arg]
+class ExternalTemplateFieldMappingInline(admin.TabularInline):
     """字段映射 Inline（只读展示，由 LLM 分析自动生成）"""
 
     model = ExternalTemplateFieldMapping
@@ -93,7 +93,7 @@ class ExternalTemplateFieldMappingInline(admin.TabularInline):  # type: ignore[t
 
 
 @admin.register(ExternalTemplate)
-class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):  # type: ignore[type-arg]
+class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):
     """
     外部模板管理
 
@@ -119,7 +119,7 @@ class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):  # type: ignore
         "name",
         "source_name",
     ]
-    inlines: ClassVar[list[type[admin.TabularInline]]] = [  # type: ignore[type-arg]
+    inlines: ClassVar[list[type[admin.TabularInline]]] = [
         ExternalTemplateFieldMappingInline,
     ]
 
@@ -162,7 +162,7 @@ class ExternalTemplateAdmin(admin.ModelAdmin[ExternalTemplate]):  # type: ignore
             kwargs["form"] = ExternalTemplateAddForm
         else:
             kwargs["form"] = ExternalTemplateChangeForm
-        return super().get_form(request, obj, change, **kwargs)  # type: ignore[return-value]
+        return super().get_form(request, obj, change, **kwargs)
 
     def get_fields(
         self,

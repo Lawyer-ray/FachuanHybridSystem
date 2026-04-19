@@ -133,11 +133,8 @@ class CaseAdminService:
         """
         try:
             if legal_statuses:
-                return cast(
-                    str,
-                    self.document_service.get_matched_folder_templates_with_legal_status(case_type, legal_statuses),
-                )
-            return cast(str, self.document_service.get_matched_folder_templates(case_type))
+                return self.document_service.get_matched_folder_templates_with_legal_status(case_type, legal_statuses),
+            return self.document_service.get_matched_folder_templates(case_type)
         except Exception:
             logger.exception(
                 "get_matched_folder_templates_failed", extra={"case_type": case_type, "legal_statuses": legal_statuses}
@@ -151,13 +148,10 @@ class CaseAdminService:
             module = import_module("apps.documents.services.template.template_matching_service")
             template_matching_service_cls = module.TemplateMatchingService
 
-            return cast(
-                list[JSONDict],
-                template_matching_service_cls().find_matching_case_folder_templates_list(
+            return template_matching_service_cls().find_matching_case_folder_templates_list(
                     case_type=case_type,
                     legal_statuses=legal_statuses,
-                ),
-            )
+                )
         except Exception:
             logger.exception("get_matched_folder_templates_list_failed", extra={"case_type": case_type})
             return []
@@ -169,14 +163,11 @@ class CaseAdminService:
         applicable_institutions: list[str] | None = None,
     ) -> list[JSONDict]:
         try:
-            return cast(
-                list[JSONDict],
-                self.document_service.find_matching_case_file_templates(
+            return self.document_service.find_matching_case_file_templates(
                     case_type=case_type,
                     case_stage=case_stage,
                     applicable_institutions=applicable_institutions,
-                ),
-            )
+                )
         except Exception:
             logger.exception(
                 "get_matched_case_file_templates_failed",
@@ -303,8 +294,7 @@ class CaseAdminService:
         from apps.cases.models import CaseLog
 
         try:
-            return cast(
-                Case,
+            return (
                 Case.objects.select_related(
                     "contract",
                     "folder_binding",
@@ -322,7 +312,7 @@ class CaseAdminService:
                     ),
                     "chats",
                 )
-                .get(pk=case_id),
+                .get(pk=case_id)
             )
         except Case.DoesNotExist:
             return None
@@ -585,14 +575,11 @@ class CaseAdminService:
         # 如果已建档但没有编号,生成新编号
         created_year = case.start_date.year
         case_type = str(case.case_type or "")
-        filing_number = cast(
-            str,
-            self.filing_number_service.generate_case_filing_number_internal(
+        filing_number = self.filing_number_service.generate_case_filing_number_internal(
                 case_id=case_id,
                 case_type=case_type,
                 created_year=created_year,
-            ),
-        )
+            )
 
         # 保存编号到数据库
         case.filing_number = filing_number

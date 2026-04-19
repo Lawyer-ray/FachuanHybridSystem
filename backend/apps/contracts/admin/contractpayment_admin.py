@@ -67,7 +67,7 @@ class InvoiceAdminForm(forms.ModelForm[Invoice]):
         return instance
 
 
-class InvoiceInline(BaseTabularInline):  # type: ignore[type-arg]
+class InvoiceInline(BaseTabularInline):
     model = Invoice
     form = InvoiceAdminForm
     extra = 1
@@ -138,7 +138,7 @@ class ContractPaymentInline(BaseTabularInline[ContractPayment, ContractPayment])
         return FormSet
 
 
-class ContractPaymentAdmin(BaseModelAdmin[ContractPayment]):  # type: ignore[type-arg]
+class ContractPaymentAdmin(BaseModelAdmin[ContractPayment]):
     change_form_template = "admin/contracts/contractpayment/change_form.html"
     list_display = ("id", "contract", "amount", "received_at", "invoice_status", "invoiced_amount")
     list_filter = ("invoice_status", "received_at")

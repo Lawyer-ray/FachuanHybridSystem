@@ -82,7 +82,7 @@ class SupplementaryAgreementPartyOut(ModelSchema):
 
     @staticmethod
     def resolve_role_label(obj: Any) -> str:
-        return obj.get_role_display() if obj.role else ""  # type: ignore[no-any-return, attr-defined]
+        return obj.get_role_display() if obj.role else ""
 
 
 class SupplementaryAgreementOut(ModelSchema, SchemaMixin):
@@ -96,7 +96,7 @@ class SupplementaryAgreementOut(ModelSchema, SchemaMixin):
 
     @staticmethod
     def resolve_parties(obj: Any) -> list[SupplementaryAgreementPartyOut]:
-        parties = obj.parties  # type: ignore[attr-defined]
+        parties = obj.parties
         return list(parties.select_related("client").all())
 
     @staticmethod

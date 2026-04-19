@@ -143,7 +143,7 @@ async def request_report(page: Page) -> None:
     try:
         dialog_msg = ""
 
-        async def handle_dialog(dialog: object) -> None:  # type: ignore[type-arg]
+        async def handle_dialog(dialog: object) -> None:
             nonlocal dialog_msg
             dialog_msg = getattr(dialog, "message", "")
             await dialog.accept()  # type: ignore[attr-defined]

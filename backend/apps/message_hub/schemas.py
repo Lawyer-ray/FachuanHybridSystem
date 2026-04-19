@@ -70,4 +70,4 @@ class InboxMessageDetailOut(InboxMessageOut):
 
     @staticmethod
     def resolve_attachments(obj: InboxMessage) -> list[dict[str, Any]]:
-        return cast(list[dict[str, Any]], obj.get_public_attachments_meta())
+        return obj.get_public_attachments_meta()

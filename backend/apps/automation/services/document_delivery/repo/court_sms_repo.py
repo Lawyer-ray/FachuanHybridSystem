@@ -8,4 +8,4 @@ class CourtSmsRepo:
         from apps.automation.models import CourtSMS, CourtSMSStatus
 
         sms = CourtSMS.objects.filter(case_numbers__contains=[case_number], status=CourtSMSStatus.COMPLETED).first()
-        return cast(int, sms.id) if sms else None
+        return sms.id if sms else None

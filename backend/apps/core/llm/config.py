@@ -182,7 +182,7 @@ class LLMConfig:
                     raw_value = config_service.get_value(key, default="")
                     return raw_value if isinstance(raw_value, str) else ("" if raw_value is None else str(raw_value))
 
-                value = cast(str, await get_value_sync())
+                value = await get_value_sync()
                 if value:
                     return value
             except (KeyError, AttributeError, TypeError):

@@ -163,4 +163,4 @@ class ZnszjClient:
             )
             r4.raise_for_status()
             logger.info("znszj 下载成功", extra={"mbid": mbid})
-            return cast(bytes, r4.content)
+            return r4.content

@@ -50,6 +50,6 @@ class SystemConfigAdminForm(forms.ModelForm):
         if not bool(self.cleaned_data.get("is_secret")):
             return value
         try:
-            return cast(str, SecretCodec().encrypt(value))
+            return SecretCodec().encrypt(value)
         except RuntimeError as exc:
             raise ValidationError("缺少敏感配置加密密钥，无法保存 secret 配置。") from exc

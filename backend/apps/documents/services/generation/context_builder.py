@@ -65,7 +65,7 @@ class ContextBuilder:
         if self._enhanced_builder is None:
             from apps.documents.services.placeholders.context_builder import EnhancedContextBuilder
 
-            self._enhanced_builder = EnhancedContextBuilder()  # type: ignore[no-untyped-call]
+            self._enhanced_builder = EnhancedContextBuilder()
         return self._enhanced_builder
 
     def build_contract_context(self, contract_id: int) -> dict[str, Any]:

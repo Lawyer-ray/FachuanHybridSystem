@@ -206,7 +206,7 @@ class DocumentRecognitionNotificationService:
 
             # Requirements 3.1, 3.3: 发送消息和文件
             try:
-                result = chat_service.send_document_notification(  # type: ignore
+                result = chat_service.send_document_notification(
                     case_id=case_id,
                     sms_content=message_content,
                     document_paths=[file_path] if file_path else [],

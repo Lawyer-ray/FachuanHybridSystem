@@ -65,7 +65,7 @@ class InvoiceRecognitionTaskAdmin(admin.ModelAdmin[InvoiceRecognitionTask]):
         change: bool,
     ) -> None:
         if not change and obj.created_by_id is None:
-            obj.created_by = request.user  # type: ignore[assignment]
+            obj.created_by = request.user
 
         merge_config_raw = request.POST.get("merge_config", "")
         if merge_config_raw:

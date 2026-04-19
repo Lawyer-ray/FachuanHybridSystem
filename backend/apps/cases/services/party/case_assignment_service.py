@@ -126,7 +126,7 @@ class CaseAssignmentService(DjangoPermsMixin):
                 },
             )
 
-            return cast(CaseAssignment, assignment)
+            return assignment
         except CaseAssignment.DoesNotExist:
             logger.warning(
                 "指派不存在",
@@ -297,7 +297,7 @@ class CaseAssignmentService(DjangoPermsMixin):
             },
         )
 
-        return assignment  # type: ignore
+        return assignment
 
     @transaction.atomic
     def delete_assignment(

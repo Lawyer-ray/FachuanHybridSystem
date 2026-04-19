@@ -75,5 +75,5 @@ class EvidenceFileService:
         if ext == ".pdf":
             from apps.documents.services.infrastructure.pdf_utils import get_pdf_page_count
 
-            return cast(int, get_pdf_page_count(file, default=1))
+            return get_pdf_page_count(file, default=1)
         return 1

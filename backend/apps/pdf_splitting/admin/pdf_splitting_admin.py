@@ -14,7 +14,7 @@ from apps.pdf_splitting.models import PdfSplitJob, PdfSplittingTool
 
 @admin.register(PdfSplittingTool)
 class PdfSplittingToolAdmin(admin.ModelAdmin[PdfSplittingTool]):
-    def changelist_view(  # type: ignore[override]
+    def changelist_view(
         self,
         request: HttpRequest,
         extra_context: dict[str, Any] | None = None,

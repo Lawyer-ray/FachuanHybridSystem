@@ -50,7 +50,7 @@ class CourtSMSAdminActions:
 
         for sms in queryset:
             try:
-                service.retry_processing(cast(int, sms.id))
+                service.retry_processing(sms.id)
                 success_count += 1
                 logger.info(f"管理员重新处理短信: SMS ID={sms.id}, User={request.user}")
             except Exception as e:
@@ -280,7 +280,7 @@ class CourtSMSAdminActions:
 
                 task_id = async_task(
                     "apps.automation.services.sms.court_sms_service.process_sms_async",
-                    cast(int, obj.id),
+                    obj.id,
                     process_options,
                     task_name=f"court_sms_processing_{obj.id}",
                 )
@@ -314,7 +314,7 @@ class CourtSMSAdminActions:
             if should_continue_sms_flow:
                 try:
                     service = _get_court_sms_service()
-                    service.assign_case(cast(int, obj.id), cast(int, new_case_id))
+                    service.assign_case(obj.id, cast(int, new_case_id))
                     messages.success(request, f"短信 #{obj.id} 已绑定案件并继续后续流程")
                     logger.info(
                         f"详情页手动绑定案件并继续流程: SMS ID={obj.id}, Case ID={new_case_id}, User={request.user}"

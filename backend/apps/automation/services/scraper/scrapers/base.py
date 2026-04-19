@@ -78,7 +78,7 @@ class BaseScraper:
 
         try:
             # 创建独立的浏览器上下文（启用反检测）
-            self.context = self.browser_service.create_context(use_anti_detection=True)  # type: ignore[assignment]
+            self.context = self.browser_service.create_context(use_anti_detection=True)
             assert self.context is not None
             self.page = self.context.new_page()
 

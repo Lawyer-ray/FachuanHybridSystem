@@ -23,7 +23,7 @@ class FolderTemplateCommandService:
     structure_rules: FolderTemplateStructureRules
 
     @transaction.atomic
-    def create_template(  # type: ignore[override]
+    def create_template(
         self,
         *,
         name: str,

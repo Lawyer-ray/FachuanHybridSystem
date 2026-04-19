@@ -141,7 +141,7 @@ class CauseRuleService:
 
         codes = get_cause_court_query_service().get_cause_ancestor_codes_internal(cause_id)
         logger.info("获取案由祖先链编码", extra={"cause_id": cause_id, "codes": codes})
-        return cast(list[str], codes)
+        return codes
 
     def get_ancestor_names(self, cause_id: int) -> list[str]:
         """
@@ -160,7 +160,7 @@ class CauseRuleService:
 
         names = get_cause_court_query_service().get_cause_ancestor_names_internal(cause_id)
         logger.info("获取案由祖先链名称", extra={"cause_id": cause_id, "names": names})
-        return cast(list[str], names)
+        return names
 
     def detect_special_case_type(self, cause_id: int) -> str | None:
         """

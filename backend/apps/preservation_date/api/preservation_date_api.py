@@ -59,7 +59,7 @@ def _serialize_result(result: PreservationExtractionResult) -> dict[str, Any]:
 @rate_limit_from_settings("UPLOAD", by_user=True)
 def extract_preservation_date(
     request: HttpRequest,
-    file: UploadedFile = File(...),  # type: ignore[type-arg]
+    file: UploadedFile = File(...),
 ) -> dict[str, Any]:
     """Extract asset preservation measures and expiration dates from a PDF."""
     service = PreservationDateExtractionService()

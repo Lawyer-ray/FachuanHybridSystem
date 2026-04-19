@@ -265,7 +265,7 @@ class CaseTemplateGenerationService:
             context_data["client"] = client
         if clients:
             context_data["clients"] = clients
-        return cast(dict[str, Any], get_enhanced_context_builder().build_context(context_data))
+        return get_enhanced_context_builder().build_context(context_data)
 
     def _render_template(self, template_path: Path, context: dict[str, Any]) -> bytes:
         """

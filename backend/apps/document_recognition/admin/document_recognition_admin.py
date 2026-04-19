@@ -21,7 +21,7 @@ from apps.document_recognition.models import DocumentRecognitionStatus, Document
 class DocumentRecognitionToolAdmin(admin.ModelAdmin[DocumentRecognitionTool]):
     """Admin entry page for the recognition workbench."""
 
-    def changelist_view(  # type: ignore[override]
+    def changelist_view(
         self,
         request: HttpRequest,
         extra_context: dict[str, Any] | None = None,

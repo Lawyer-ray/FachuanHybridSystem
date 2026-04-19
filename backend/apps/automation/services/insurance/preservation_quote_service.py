@@ -253,7 +253,7 @@ class PreservationQuoteService(QuoteExecutionMixin):
             # 根据成功/失败情况设置状态
             if success_count == 0:
                 quote.status = QuoteStatus.FAILED
-                quote.error_message = _("所有保险公司查询均失败")  # type: ignore
+                quote.error_message = _("所有保险公司查询均失败")
             elif failed_count == 0:
                 quote.status = QuoteStatus.SUCCESS
             else:
@@ -359,7 +359,7 @@ class PreservationQuoteService(QuoteExecutionMixin):
                 },
             )
 
-            return cast(PreservationQuote, quote)
+            return quote
         except PreservationQuote.DoesNotExist as e:
             logger.error(
                 "询价任务不存在",

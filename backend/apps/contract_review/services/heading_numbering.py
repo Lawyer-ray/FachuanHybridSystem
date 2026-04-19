@@ -282,7 +282,7 @@ class HeadingNumbering:
         """创建 num 引用指向 abstractNum，返回 numId（每次调用生成独立编号序列）"""
         existing_num_ids = {
             int(n.get(qn("w:numId"), 0))
-            for n in numbering_elem.findall(qn("w:num"))  # type: ignore[union-attr]
+            for n in numbering_elem.findall(qn("w:num"))
         }
         num_id = max(existing_num_ids, default=0) + 1
 
@@ -291,7 +291,7 @@ class HeadingNumbering:
         abstract_ref = OxmlElement("w:abstractNumId")
         abstract_ref.set(qn("w:val"), str(abstract_id))
         num_elem.append(abstract_ref)
-        numbering_elem.append(num_elem)  # type: ignore[union-attr]
+        numbering_elem.append(num_elem)
 
         return num_id
 

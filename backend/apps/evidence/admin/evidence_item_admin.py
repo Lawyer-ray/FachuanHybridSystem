@@ -9,7 +9,7 @@ from apps.evidence.models import EvidenceItem
 
 
 @admin.register(EvidenceItem)
-class EvidenceItemAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
+class EvidenceItemAdmin(admin.ModelAdmin):
     list_display: ClassVar = (
         "order",
         "name",

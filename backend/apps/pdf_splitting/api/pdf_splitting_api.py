@@ -68,11 +68,11 @@ class ConfirmRequestIn(BaseModel):
 @router.post("/jobs", response=JobSubmitOut)
 def create_pdf_split_job(
     request: Any,
-    file: UploadedFile | None = File(None),  # type: ignore[type-arg]
-    source_path: str | None = Form(None),  # type: ignore[type-arg]
-    template_key: str = Form("filing_materials_v1"),  # type: ignore[type-arg]
-    split_mode: str = Form("content_analysis"),  # type: ignore[type-arg]
-    ocr_profile: str = Form("balanced"),  # type: ignore[type-arg]
+    file: UploadedFile | None = File(None),
+    source_path: str | None = Form(None),
+    template_key: str = Form("filing_materials_v1"),
+    split_mode: str = Form("content_analysis"),
+    ocr_profile: str = Form("balanced"),
 ) -> JobSubmitOut:
     job = PdfSplitJobService().create_job(
         file=file,

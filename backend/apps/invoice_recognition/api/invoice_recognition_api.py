@@ -24,7 +24,7 @@ router = Router(tags=["发票识别"])
 @router.post("/quick-recognize")
 def quick_recognize(
     request: Any,
-    files: list[UploadedFile] = File(...),  # type: ignore[type-arg]
+    files: list[UploadedFile] = File(...),
 ) -> dict[str, Any]:
     """快速识别发票文件（不创建任务）"""
     if not files:
@@ -99,7 +99,7 @@ def _get_quick_recognition_service() -> Any:
 def upload_invoices(
     request: Any,
     task_id: int,
-    files: list[UploadedFile] = File(...),  # type: ignore[type-arg]
+    files: list[UploadedFile] = File(...),
 ) -> dict[str, Any]:
     """多文件上传 + 自动识别"""
     from django.core.exceptions import ObjectDoesNotExist, ValidationError

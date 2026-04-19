@@ -29,7 +29,7 @@ class FolderTemplateAdminService:
         if self._folder_template_service is None:
             from apps.core.dependencies.documents import build_folder_template_service
 
-            self._folder_template_service = build_folder_template_service()  # type: ignore[assignment]
+            self._folder_template_service = build_folder_template_service()
         return self._folder_template_service
 
     def validate_and_fix_template_form(self, form_data: dict[str, Any]) -> dict[str, Any]:

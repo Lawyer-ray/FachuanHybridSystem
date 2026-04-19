@@ -231,11 +231,11 @@ class SystemConfigAdmin(admin.ModelAdmin[SystemConfig]):
 
     def _get_default_configs(self) -> list[dict[str, Any]]:
         """委托给模块级函数"""
-        return cast(list[dict[str, Any]], get_default_configs())
+        return get_default_configs()
 
     def _get_env_mappings(self) -> dict[str, dict[str, Any]]:
         """委托给模块级函数"""
-        return cast(dict[str, dict[str, Any]], get_env_mappings())
+        return get_env_mappings()
 
     def _mask_secret_value(self, value: str) -> str:
         plain_value = value

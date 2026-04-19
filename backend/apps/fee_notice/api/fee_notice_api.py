@@ -59,7 +59,7 @@ def _normalize_error_file(raw_file: str | None) -> str:
 @rate_limit_from_settings("UPLOAD", by_user=True)
 def extract_fee_notice(
     request: HttpRequest,
-    files: list[UploadedFile] = File(...),  # type: ignore[type-arg]
+    files: list[UploadedFile] = File(...),
     debug: bool = False,
 ) -> dict[str, Any]:
     """Extract fee notice information from uploaded PDF files."""

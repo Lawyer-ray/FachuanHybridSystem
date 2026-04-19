@@ -45,7 +45,7 @@ def get_lawyer(request: HttpRequest, lawyer_id: int) -> LawyerOut:
 def create_lawyer(
     request: HttpRequest,
     payload: LawyerCreateIn,
-    license_pdf: UploadedFile | None = File(None),  # type: ignore[misc]
+    license_pdf: UploadedFile | None = File(None),
 ) -> LawyerOut:
     dto = LawyerCreateDTO(
         username=payload.username,
@@ -67,7 +67,7 @@ def update_lawyer(
     request: HttpRequest,
     lawyer_id: int,
     payload: LawyerUpdateIn,
-    license_pdf: UploadedFile | None = File(None),  # type: ignore[misc]
+    license_pdf: UploadedFile | None = File(None),
 ) -> LawyerOut:
     dto = LawyerUpdateDTO(
         real_name=payload.real_name,

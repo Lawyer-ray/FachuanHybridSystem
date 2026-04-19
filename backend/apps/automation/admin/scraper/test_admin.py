@@ -38,7 +38,7 @@ class TestCourtAdmin(admin.ModelAdmin):
     提供测试功能的入口，支持 Token 捕获
     """
 
-    def has_module_perms(self, request) -> bool:  # type: ignore[override]
+    def has_module_perms(self, request) -> bool:
         return False
 
     def get_model_perms(self, request):

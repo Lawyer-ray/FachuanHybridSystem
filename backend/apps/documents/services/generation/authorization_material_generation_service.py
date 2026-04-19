@@ -323,19 +323,19 @@ class AuthorizationMaterialGenerationService:
         zf.writestr("当前授权手续所缺材料.md", body)
 
     def _resolve_media_path(self, media_root: str, file_path: str) -> str:
-        return cast(str, resolve_media_path(media_root, file_path))
+        return resolve_media_path(media_root, file_path)
 
     def _safe_arcname(self, name: str) -> str:
-        return cast(str, safe_arcname(name))
+        return safe_arcname(name)
 
     def _safe_name(self, name: str) -> str:
-        return cast(str, safe_name(name))
+        return safe_name(name)
 
     def _build_context(self, *, case: Any, client: Any | None = None) -> dict[str, Any]:
         context_data: dict[str, Any] = {"case": case}
         if client is not None:
             context_data["client"] = client
-        return EnhancedContextBuilder().build_context(context_data)  # type: ignore[no-any-return]
+        return EnhancedContextBuilder().build_context(context_data)
 
     def _build_power_of_attorney_context(self, *, case: Any, selected_clients: list[Any]) -> dict[str, Any]:
         context_data: dict[str, Any] = {
@@ -348,7 +348,7 @@ class AuthorizationMaterialGenerationService:
             "指定日期",
             "年份",
         ]
-        return EnhancedContextBuilder().build_context(context_data, required_placeholders=required_placeholders)  # type: ignore[no-any-return]
+        return EnhancedContextBuilder().build_context(context_data, required_placeholders=required_placeholders)
 
     def _validate_power_of_attorney_context(self, context: dict[str, Any]) -> None:
         pass  # 代理事项为空时允许生成，占位符留空
@@ -527,7 +527,7 @@ class AuthorizationMaterialGenerationService:
             from .pipeline import DocxRenderer
 
             rendered_content = DocxRenderer().render(str(template_path), context)
-            return cast(bytes, rendered_content)
+            return rendered_content
         except Exception as e:
             logger.error("模板渲染失败", exc_info=True, extra={"template_path": str(template_path), "error": str(e)})
             raise ValidationException(

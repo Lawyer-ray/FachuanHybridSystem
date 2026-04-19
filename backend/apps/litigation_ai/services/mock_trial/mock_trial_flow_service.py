@@ -584,7 +584,7 @@ class MockTrialFlowService:
         result = await sync_to_async(EvidenceDigestService().build_evidence_text, thread_sensitive=True)(
             list_ids=list_ids, item_ids=[]
         )
-        return cast(str, result)
+        return result
 
     # ---- Helpers ----
 
@@ -614,7 +614,7 @@ class MockTrialFlowService:
         from apps.litigation_ai.services.context_service import LitigationContextService
 
         result = await sync_to_async(LitigationContextService().get_case_info_for_agent, thread_sensitive=True)(case_id)
-        return cast(dict[str, Any], result)
+        return result
 
     # ── 多 Agent 对抗 ──
 

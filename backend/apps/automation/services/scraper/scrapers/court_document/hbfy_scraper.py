@@ -19,7 +19,7 @@ from typing import Any
 from urllib.parse import unquote, urljoin, urlparse
 
 import ddddocr
-import requests  # type: ignore[import-untyped]
+import requests
 
 from .base_court_scraper import BaseCourtDocumentScraper
 

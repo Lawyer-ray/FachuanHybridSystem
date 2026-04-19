@@ -151,17 +151,17 @@ class CourtDocumentRecognitionService:
         elif doc_type == DocumentType.OTHER:
             binding = BindingResult.failure_result(
                 message=_("暂时只支持传票识别，其他文书类型敬请期待"),
-                error_code="UNSUPPORTED_DOCUMENT_TYPE",  # type: ignore
+                error_code="UNSUPPORTED_DOCUMENT_TYPE",
             )
         elif doc_type == DocumentType.EXECUTION_RULING:
             binding = BindingResult.failure_result(
                 message=_("执行裁定书绑定功能开发中，敬请期待"),
-                error_code="FEATURE_NOT_IMPLEMENTED",  # type: ignore
+                error_code="FEATURE_NOT_IMPLEMENTED",
             )
         else:
             binding = BindingResult.failure_result(
                 message=_("未识别到案号，无法绑定案件"),
-                error_code="CASE_NUMBER_NOT_FOUND",  # type: ignore
+                error_code="CASE_NUMBER_NOT_FOUND",
             )
         return binding, renamed_file_path
 

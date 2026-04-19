@@ -139,7 +139,7 @@ class LPRRateAdmin(BaseModelAdmin):
         from apps.core.exceptions import BusinessException
         from apps.finance.services.lpr import LPRSyncService
 
-        user: User = request.user  # type: ignore[assignment]
+        user: User = request.user
         logger.info(f"[LPRAdmin] User {user.id} triggered sync from admin")
 
         try:
