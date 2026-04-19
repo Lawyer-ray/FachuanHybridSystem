@@ -33,7 +33,7 @@ class ContractQueryService:
                 "assignments__lawyer",
                 "assignments__lawyer__law_firm",
                 "supplementary_agreements__parties__client",
-            ),
+            )
 
     def _apply_list_filters(
         self,
