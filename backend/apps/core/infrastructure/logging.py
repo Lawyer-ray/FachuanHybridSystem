@@ -8,9 +8,11 @@ Docker 环境支持：
 - 同时保留文件日志（持久化到 Volume）
 """
 
+import logging
 import os
+import re
 import sys
-from typing import Any
+from typing import Any, ClassVar
 
 
 def _safe_get_config(key: str, default: Any = None) -> Any:
@@ -56,231 +58,18 @@ def _is_docker_environment() -> bool:
     return False
 
 
-def get_logging_config(base_dir: Any, debug: bool = True) -> dict[str, Any]:
-    """
-    获取日志配置
+class RequestContextFilter(logging.Filter):
+    """自动注入 request_id / trace_id / span_id / task_name 到 LogRecord"""
 
-    从统一配置管理系统获取日志配置参数
+    def filter(self, record: logging.LogRecord) -> bool:
+        from apps.core.infrastructure.request_context import get_request_id, get_task_name, get_trace_ids
 
-    Docker 环境特性：
-    - 优先输出到 stdout（Docker 日志收集）
-    - 使用 JSON 格式便于日志聚合
-    - 同时保留文件日志到 Volume
-
-    Args:
-        base_dir: 项目根目录
-        debug: 是否为调试模式
-
-    Returns:
-        Django LOGGING 配置字典
-    """
-    is_docker = _is_docker_environment()
-    log_dir = os.path.join(base_dir, "logs")
-    os.makedirs(log_dir, exist_ok=True)
-
-    # 从配置系统获取日志参数
-    file_max_size = _safe_get_config("logging.file_max_size", 10 * 1024 * 1024)  # 10MB
-    api_backup_count = _safe_get_config("logging.api_backup_count", 5)
-    error_backup_count = _safe_get_config("logging.error_backup_count", 10)
-    sql_backup_count = _safe_get_config("logging.sql_backup_count", 3)
-
-    # 获取日志级别配置
-    console_level = _safe_get_config("logging.console_level", "DEBUG" if debug else "INFO")
-    file_level = _safe_get_config("logging.file_level", "INFO")
-    error_level = _safe_get_config("logging.error_level", "ERROR")
-    django_level = _safe_get_config("logging.django_level", "INFO")
-    request_level = _safe_get_config("logging.request_level", "WARNING")
-    apps_level = _safe_get_config("logging.apps_level", "DEBUG" if debug else "INFO")
-    root_level = _safe_get_config("logging.root_level", "WARNING")
-
-    # Docker 环境使用 JSON 格式，便于日志聚合
-    console_formatter = "json" if is_docker and not debug else "simple"
-
-    config = {
-        "version": 1,
-        "disable_existing_loggers": False,
-        "formatters": {
-            "verbose": {
-                "format": "[{asctime}] {levelname} {name} {module}.{funcName}:{lineno} - {message}",
-                "style": "{",
-                "datefmt": "%Y-%m-%d %H:%M:%S",
-            },
-            "simple": {
-                "format": "[{asctime}] {levelname} - {message}",
-                "style": "{",
-                "datefmt": "%Y-%m-%d %H:%M:%S",
-            },
-            "json": {
-                "()": "apps.core.infrastructure.logging.JsonFormatter",
-            },
-            "docker": {
-                # Docker 友好格式：包含时间戳、级别、模块信息
-                "format": "{asctime} | {levelname:8} | {name} | {message}",
-                "style": "{",
-                "datefmt": "%Y-%m-%d %H:%M:%S",
-            },
-        },
-        "filters": {
-            "require_debug_true": {
-                "()": "django.utils.log.RequireDebugTrue",
-            },
-            "require_debug_false": {
-                "()": "django.utils.log.RequireDebugFalse",
-            },
-        },
-        "handlers": {
-            # 控制台输出（Docker 环境下输出到 stdout）
-            "console": {
-                "level": console_level,
-                "class": "logging.StreamHandler",
-                "stream": sys.stdout,  # 明确指定 stdout
-                "formatter": console_formatter,
-            },
-            # 错误输出到 stderr（Docker 环境下便于区分）
-            "console_error": {
-                "level": "ERROR",
-                "class": "logging.StreamHandler",
-                "stream": sys.stderr,  # 错误输出到 stderr
-                "formatter": console_formatter,
-            },
-            "file_api": {
-                "level": file_level,
-                "class": "logging.handlers.RotatingFileHandler",
-                "filename": os.path.join(log_dir, "api.log"),
-                "maxBytes": file_max_size,
-                "backupCount": api_backup_count,
-                "formatter": "verbose",
-                "encoding": "utf-8",
-            },
-            "file_error": {
-                "level": error_level,
-                "class": "logging.handlers.RotatingFileHandler",
-                "filename": os.path.join(log_dir, "error.log"),
-                "maxBytes": file_max_size,
-                "backupCount": error_backup_count,
-                "formatter": "verbose",
-                "encoding": "utf-8",
-            },
-            "file_sql": {
-                "level": "DEBUG",
-                "class": "logging.handlers.RotatingFileHandler",
-                "filename": os.path.join(log_dir, "sql.log"),
-                "maxBytes": file_max_size,
-                "backupCount": sql_backup_count,
-                "formatter": "simple",
-                "encoding": "utf-8",
-                "filters": ["require_debug_true"],
-            },
-        },
-        "loggers": {
-            "django": {
-                "handlers": ["console", "console_error", "file_error"],
-                "level": django_level,
-                "propagate": True,
-            },
-            "django.request": {
-                "handlers": ["console", "console_error", "file_error"],
-                "level": request_level,
-                "propagate": False,
-            },
-            "django.db.backends": {
-                "handlers": ["file_sql"] if debug else [],
-                "level": "DEBUG" if debug else "INFO",
-                "propagate": False,
-            },
-            "api": {
-                "handlers": ["console", "console_error", "file_api", "file_error"],
-                "level": apps_level,
-                "propagate": False,
-            },
-            "apps": {
-                "handlers": ["console", "console_error", "file_api", "file_error"],
-                "level": apps_level,
-                "propagate": False,
-            },
-            "apps.core.llm": {
-                "handlers": ["console", "console_error", "file_api", "file_error"],
-                "level": "INFO",
-                "propagate": False,
-            },
-            "RapidOCR": {
-                "handlers": ["console", "console_error", "file_api", "file_error"],
-                "level": "WARNING",
-                "propagate": False,
-            },
-            "rapidocr": {
-                "handlers": ["console", "console_error", "file_api", "file_error"],
-                "level": "WARNING",
-                "propagate": False,
-            },
-            "onnxruntime": {
-                "handlers": ["console", "console_error", "file_api", "file_error"],
-                "level": "WARNING",
-                "propagate": False,
-            },
-            # Gunicorn 日志（Docker 生产环境）
-            "gunicorn.error": {
-                "handlers": ["console", "console_error"],
-                "level": "INFO",
-                "propagate": False,
-            },
-            "gunicorn.access": {
-                "handlers": ["console"],
-                "level": "INFO",
-                "propagate": False,
-            },
-        },
-        "root": {
-            "handlers": ["console", "console_error", "file_error"],
-            "level": root_level,
-        },
-    }
-
-    return config
-
-
-class JsonFormatter:
-    """JSON 格式化器，用于结构化日志输出"""
-
-    def __init__(self) -> None:
-        import json
-
-        self.json = json
-
-    def format(self, record: Any) -> str:
-        import traceback
-        from datetime import datetime
-
-        log_data = {
-            "timestamp": datetime.utcnow().isoformat() + "Z",
-            "level": record.levelname,
-            "logger": record.name,
-            "module": record.module,
-            "function": record.funcName,
-            "line": record.lineno,
-            "message": record.getMessage(),
-        }
-
-        # 添加额外字段
-        if hasattr(record, "path"):
-            log_data["path"] = record.path
-        if hasattr(record, "method"):
-            log_data["method"] = record.method
-        if hasattr(record, "user"):
-            log_data["user"] = str(record.user)
-        if hasattr(record, "errors"):
-            log_data["errors"] = record.errors
-
-        # 添加异常信息
-        if record.exc_info:
-            log_data["exception"] = "".join(traceback.format_exception(*record.exc_info))
-
-        return self.json.dumps(log_data, ensure_ascii=False)
-
-
-import logging
-import re
-from typing import ClassVar
+        record.request_id = get_request_id(fallback_generate=False) or ""
+        trace_id, span_id = get_trace_ids()
+        record.trace_id = trace_id or ""
+        record.span_id = span_id or ""
+        record.task_name = get_task_name() or ""
+        return True
 
 
 class SensitiveDataFilter(logging.Filter):
@@ -365,3 +154,257 @@ class SensitiveDataFilter(logging.Filter):
             setattr(record, attr, self._scrub_value(attr, val))
 
         return True
+
+
+class JsonFormatter:
+    """JSON 格式化器，用于结构化日志输出"""
+
+    def __init__(self) -> None:
+        import json
+
+        self.json = json
+
+    # logging 内置属性，不纳入 extra 收集
+    _BUILTIN_ATTRS: ClassVar[frozenset[str]] = frozenset({
+        "name", "msg", "args", "created", "relativeCreated", "exc_info",
+        "exc_text", "stack_info", "lineno", "funcName", "pathname",
+        "filename", "module", "levelno", "levelname", "thread",
+        "threadName", "process", "processName", "msecs", "taskName",
+        "message", "asctime",
+        # RequestContextFilter 注入的追踪字段（已在顶层输出）
+        "request_id", "trace_id", "span_id", "task_name",
+    })
+
+    def format(self, record: Any) -> str:
+        import traceback
+        from datetime import datetime
+
+        log_data: dict[str, Any] = {
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "level": record.levelname,
+            "logger": record.name,
+            "module": record.module,
+            "function": record.funcName,
+            "line": record.lineno,
+            "message": record.getMessage(),
+        }
+
+        # 追踪字段
+        request_id = getattr(record, "request_id", "")
+        if request_id:
+            log_data["request_id"] = request_id
+        trace_id = getattr(record, "trace_id", "")
+        if trace_id:
+            log_data["trace_id"] = trace_id
+        span_id = getattr(record, "span_id", "")
+        if span_id:
+            log_data["span_id"] = span_id
+        task_name = getattr(record, "task_name", "")
+        if task_name:
+            log_data["task_name"] = task_name
+
+        # 泛化 extra 字段收集：遍历 record.__dict__ 收集所有非标准属性
+        for attr, value in vars(record).items():
+            if attr.startswith("_") or attr in self._BUILTIN_ATTRS:
+                continue
+            if attr not in log_data:
+                log_data[attr] = value
+
+        # 添加异常信息
+        if record.exc_info:
+            log_data["exception"] = "".join(traceback.format_exception(*record.exc_info))
+
+        return self.json.dumps(log_data, ensure_ascii=False)
+
+
+def get_logging_config(base_dir: Any, debug: bool = True) -> dict[str, Any]:
+    """
+    获取日志配置
+
+    从统一配置管理系统获取日志配置参数
+
+    Docker 环境特性：
+    - 优先输出到 stdout（Docker 日志收集）
+    - 使用 JSON 格式便于日志聚合
+    - 同时保留文件日志到 Volume
+
+    Args:
+        base_dir: 项目根目录
+        debug: 是否为调试模式
+
+    Returns:
+        Django LOGGING 配置字典
+    """
+    is_docker = _is_docker_environment()
+    log_dir = os.path.join(base_dir, "logs")
+    os.makedirs(log_dir, exist_ok=True)
+
+    # 从配置系统获取日志参数
+    file_max_size = _safe_get_config("logging.file_max_size", 10 * 1024 * 1024)  # 10MB
+    api_backup_count = _safe_get_config("logging.api_backup_count", 5)
+    error_backup_count = _safe_get_config("logging.error_backup_count", 10)
+    sql_backup_count = _safe_get_config("logging.sql_backup_count", 3)
+
+    # 获取日志级别配置
+    console_level = _safe_get_config("logging.console_level", "DEBUG" if debug else "INFO")
+    file_level = _safe_get_config("logging.file_level", "INFO")
+    error_level = _safe_get_config("logging.error_level", "ERROR")
+    django_level = _safe_get_config("logging.django_level", "INFO")
+    request_level = _safe_get_config("logging.request_level", "WARNING")
+    apps_level = _safe_get_config("logging.apps_level", "DEBUG" if debug else "INFO")
+    root_level = _safe_get_config("logging.root_level", "WARNING")
+
+    # Docker 环境使用 JSON 格式，便于日志聚合
+    console_formatter = "json" if is_docker and not debug else "simple"
+
+    config = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "verbose": {
+                "format": "[{asctime}] {levelname} [{request_id}] {name} {module}.{funcName}:{lineno} - {message}",
+                "style": "{",
+                "datefmt": "%Y-%m-%d %H:%M:%S",
+            },
+            "simple": {
+                "format": "[{asctime}] {levelname} - {message}",
+                "style": "{",
+                "datefmt": "%Y-%m-%d %H:%M:%S",
+            },
+            "json": {
+                "()": "apps.core.infrastructure.logging.JsonFormatter",
+            },
+            "docker": {
+                # Docker 友好格式：包含时间戳、级别、模块信息
+                "format": "{asctime} | {levelname:8} | {name} | {message}",
+                "style": "{",
+                "datefmt": "%Y-%m-%d %H:%M:%S",
+            },
+        },
+        "filters": {
+            "require_debug_true": {
+                "()": "django.utils.log.RequireDebugTrue",
+            },
+            "require_debug_false": {
+                "()": "django.utils.log.RequireDebugFalse",
+            },
+            "request_context": {
+                "()": "apps.core.infrastructure.logging.RequestContextFilter",
+            },
+            "sensitive_data": {
+                "()": "apps.core.infrastructure.logging.SensitiveDataFilter",
+            },
+        },
+        "handlers": {
+            # 控制台输出（Docker 环境下输出到 stdout）
+            "console": {
+                "level": console_level,
+                "class": "logging.StreamHandler",
+                "stream": sys.stdout,  # 明确指定 stdout
+                "formatter": console_formatter,
+                "filters": ["request_context", "sensitive_data"],
+            },
+            # 错误输出到 stderr（Docker 环境下便于区分）
+            "console_error": {
+                "level": "ERROR",
+                "class": "logging.StreamHandler",
+                "stream": sys.stderr,  # 错误输出到 stderr
+                "formatter": console_formatter,
+                "filters": ["request_context", "sensitive_data"],
+            },
+            "file_api": {
+                "level": file_level,
+                "class": "logging.handlers.RotatingFileHandler",
+                "filename": os.path.join(log_dir, "api.log"),
+                "maxBytes": file_max_size,
+                "backupCount": api_backup_count,
+                "formatter": "verbose",
+                "encoding": "utf-8",
+                "filters": ["request_context", "sensitive_data"],
+            },
+            "file_error": {
+                "level": error_level,
+                "class": "logging.handlers.RotatingFileHandler",
+                "filename": os.path.join(log_dir, "error.log"),
+                "maxBytes": file_max_size,
+                "backupCount": error_backup_count,
+                "formatter": "verbose",
+                "encoding": "utf-8",
+                "filters": ["request_context", "sensitive_data"],
+            },
+            "file_sql": {
+                "level": "DEBUG",
+                "class": "logging.handlers.RotatingFileHandler",
+                "filename": os.path.join(log_dir, "sql.log"),
+                "maxBytes": file_max_size,
+                "backupCount": sql_backup_count,
+                "formatter": "simple",
+                "encoding": "utf-8",
+                "filters": ["require_debug_true", "request_context", "sensitive_data"],
+            },
+        },
+        "loggers": {
+            "django": {
+                "handlers": ["console", "console_error", "file_error"],
+                "level": django_level,
+                "propagate": True,
+            },
+            "django.request": {
+                "handlers": ["console", "console_error", "file_error"],
+                "level": request_level,
+                "propagate": False,
+            },
+            "django.db.backends": {
+                "handlers": ["file_sql"] if debug else [],
+                "level": "DEBUG" if debug else "INFO",
+                "propagate": False,
+            },
+            "api": {
+                "handlers": ["console", "console_error", "file_api", "file_error"],
+                "level": apps_level,
+                "propagate": False,
+            },
+            "apps": {
+                "handlers": ["console", "console_error", "file_api", "file_error"],
+                "level": apps_level,
+                "propagate": False,
+            },
+            "apps.core.llm": {
+                "handlers": ["console", "console_error", "file_api", "file_error"],
+                "level": "INFO",
+                "propagate": False,
+            },
+            "RapidOCR": {
+                "handlers": ["console", "console_error", "file_api", "file_error"],
+                "level": "WARNING",
+                "propagate": False,
+            },
+            "rapidocr": {
+                "handlers": ["console", "console_error", "file_api", "file_error"],
+                "level": "WARNING",
+                "propagate": False,
+            },
+            "onnxruntime": {
+                "handlers": ["console", "console_error", "file_api", "file_error"],
+                "level": "WARNING",
+                "propagate": False,
+            },
+            # Gunicorn 日志（Docker 生产环境）
+            "gunicorn.error": {
+                "handlers": ["console", "console_error"],
+                "level": "INFO",
+                "propagate": False,
+            },
+            "gunicorn.access": {
+                "handlers": ["console"],
+                "level": "INFO",
+                "propagate": False,
+            },
+        },
+        "root": {
+            "handlers": ["console", "console_error", "file_error"],
+            "level": root_level,
+        },
+    }
+
+    return config

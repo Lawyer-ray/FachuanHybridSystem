@@ -27,6 +27,13 @@ def run_task(
     task_ctx = TaskContext.from_dict(context)
     request_id = task_ctx.request_id or task_ctx.correlation_id
     set_current_request_id(request_id)
+
+    # 设置 task_name 到 ContextVar，供日志和 Sentry 追踪
+    if task_ctx.task_name:
+        from apps.core.infrastructure.request_context import set_request_context
+
+        set_request_context(task_name=task_ctx.task_name)
+
     fn = _import_callable(target)
     try:
         return fn(*(args or []), **(kwargs or {}))

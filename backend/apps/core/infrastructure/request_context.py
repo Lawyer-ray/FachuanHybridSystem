@@ -8,6 +8,7 @@ import uuid
 request_id_var: contextvars.ContextVar[str | None] = contextvars.ContextVar("request_id", default=None)
 trace_id_var: contextvars.ContextVar[str | None] = contextvars.ContextVar("trace_id", default=None)
 span_id_var: contextvars.ContextVar[str | None] = contextvars.ContextVar("span_id", default=None)
+task_name_var: contextvars.ContextVar[str | None] = contextvars.ContextVar("task_name", default=None)
 
 
 def generate_request_id() -> str:
@@ -19,6 +20,7 @@ def set_request_context(
     request_id: str | None = None,
     trace_id: str | None = None,
     span_id: str | None = None,
+    task_name: str | None = None,
 ) -> None:
     if request_id is not None:
         request_id_var.set(request_id)
@@ -26,12 +28,15 @@ def set_request_context(
         trace_id_var.set(trace_id)
     if span_id is not None:
         span_id_var.set(span_id)
+    if task_name is not None:
+        task_name_var.set(task_name)
 
 
 def clear_request_context() -> None:
     request_id_var.set(None)
     trace_id_var.set(None)
     span_id_var.set(None)
+    task_name_var.set(None)
 
 
 def get_request_id(*, fallback_generate: bool = True) -> str | None:
@@ -47,3 +52,7 @@ def get_request_id(*, fallback_generate: bool = True) -> str | None:
 
 def get_trace_ids() -> tuple[str | None, str | None]:
     return trace_id_var.get(), span_id_var.get()
+
+
+def get_task_name() -> str | None:
+    return task_name_var.get()
