@@ -20,4 +20,5 @@ class DjangoQTaskQueue:
     ) -> Any:
         from apps.core.tasking import submit_task
 
-        return submit_task(func_path, *args, task_name=task_name)
+        target = f"{func_path.__module__}.{func_path.__qualname__}" if callable(func_path) else func_path
+        return submit_task(target, *args, task_name=task_name)

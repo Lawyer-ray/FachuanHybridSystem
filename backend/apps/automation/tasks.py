@@ -239,14 +239,14 @@ def execute_preservation_quote_task(quote_id: int) -> dict[str, Any]:
 
     try:
         token_service = TokenService()
-        insurance_client = CourtInsuranceClient(token_service)
+        insurance_client = CourtInsuranceClient(token_service)  # type: ignore[arg-type]
         quote_service = PreservationQuoteService(
-            token_service=token_service,
+            token_service=token_service,  # type: ignore[arg-type]
             insurance_client=insurance_client,
         )
 
         raw_result = _run_coroutine_sync(quote_service.execute_quote(quote_id))
-        result: dict[str, Any] = raw_result  # type: ignore[assignment]
+        result: dict[str, Any] = raw_result
 
         logger.info("✅ 询价任务 #%s 执行完成: %s", quote_id, result)
         return result

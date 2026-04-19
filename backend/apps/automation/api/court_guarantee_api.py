@@ -1274,7 +1274,7 @@ def _run_guarantee(
 
         try:
             login_service = CourtZxfwService(page=page, context=context)
-            login_service._try_http_login = lambda *args, **kwargs: None
+            login_service._try_http_login = lambda *args, **kwargs: None  # type: ignore[method-assign]
             login_result = login_service.login(account=account, password=password)
             if not login_result.get("success"):
                 message = str(login_result.get("message") or "一张网登录失败")

@@ -49,7 +49,7 @@ def trigger_client_import(request: HttpRequest) -> Any:
                     raw_limit = payload.get("limit")
                     if raw_limit not in (None, "", 0, "0"):
                         try:
-                            parsed_limit = int(raw_limit)
+                            parsed_limit = int(raw_limit)  # type: ignore[arg-type]
                         except (TypeError, ValueError):
                             return {"error": "导入数量必须是大于 0 的整数"}
                         if parsed_limit <= 0:
@@ -118,7 +118,7 @@ def batch_create_clients(request: HttpRequest, session_id: int) -> dict[str, Any
     try:
         session = ClientImportSession.objects.get(pk=session_id)
     except ClientImportSession.DoesNotExist:
-        return JsonResponse({"error": "会话不存在"}, status=404)
+        return JsonResponse({"error": "会话不存在"}, status=404)  # type: ignore[return-value]
 
     # 解析请求体
     import json
@@ -127,7 +127,7 @@ def batch_create_clients(request: HttpRequest, session_id: int) -> dict[str, Any
         body = json.loads(request.body)
         customers = body.get("customers", [])
     except Exception:
-        return JsonResponse({"error": "无效的请求数据"}, status=400)
+        return JsonResponse({"error": "无效的请求数据"}, status=400)  # type: ignore[return-value]
 
     success_count = 0
     skip_count = 0
@@ -199,7 +199,7 @@ def batch_create_clients(request: HttpRequest, session_id: int) -> dict[str, Any
         "导入完成: 成功=%d, 跳过=%d, 错误=%d, 企业数据补全=%d", success_count, skip_count, error_count, enriched_count
     )
 
-    return JsonResponse(
+    return JsonResponse(  # type: ignore[return-value]
         {
             "success_count": success_count,
             "skip_count": skip_count,
@@ -253,7 +253,7 @@ def _enrich_enterprise_data(company_name: str) -> dict[str, Any] | None:
             prefill.get("phone"),
         )
 
-        return prefill
+        return prefill  # type: ignore[no-any-return]
 
     except Exception as exc:
         logger.warning("  -> 企业数据查询失败: %s", exc)

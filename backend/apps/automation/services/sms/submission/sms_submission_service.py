@@ -168,7 +168,7 @@ class SMSSubmissionService:
                 logger.info(f"案件绑定创建成功，进入重命名阶段: SMS ID={sms_id}")
             else:
                 sms.status = CourtSMSStatus.FAILED
-                sms.error_message = _("创建案件绑定失败")
+                sms.error_message = str(_("创建案件绑定失败"))
                 sms.save()
                 logger.error(f"案件绑定创建失败: SMS ID={sms_id}")
                 return sms
