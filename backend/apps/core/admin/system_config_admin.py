@@ -53,6 +53,7 @@ class SystemConfigAdmin(admin.ModelAdmin[SystemConfig]):
             "feishu": "#3370ff",
             "dingtalk": "#0089ff",
             "wechat_work": "#07c160",
+            "telegram": "#0088cc",
             "court_sms": "#ff6b35",
             "ai": "#9c27b0",
             "llm": "#e91e63",

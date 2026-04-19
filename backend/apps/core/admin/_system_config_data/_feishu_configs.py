@@ -44,7 +44,10 @@ def get_feishu_configs() -> list[dict[str, Any]]:
 
 
 def get_dingtalk_configs() -> list[dict[str, Any]]:
-    """获取钉钉配置项"""
+    """获取钉钉配置项
+
+    TIMEOUT 由代码默认值兜底（30秒），无需用户手动配置。
+    """
     return [
         {"key": "DINGTALK_APP_KEY", "category": "dingtalk", "description": "钉钉应用 App Key", "is_secret": False},
         {
@@ -58,13 +61,6 @@ def get_dingtalk_configs() -> list[dict[str, Any]]:
             "key": "DINGTALK_DEFAULT_OWNER_ID",
             "category": "dingtalk",
             "description": "钉钉默认群主 userid（创建群聊必须指定群主，填写企业内任一成员的 userid）",
-            "is_secret": False,
-        },
-        {
-            "key": "DINGTALK_TIMEOUT",
-            "category": "dingtalk",
-            "description": "钉钉 API 超时时间（秒）",
-            "value": "30",
             "is_secret": False,
         },
     ]
@@ -126,13 +122,6 @@ def get_telegram_configs() -> list[dict[str, Any]]:
                 "Telegram 超级群组 ID（需预先创建一个开启论坛功能的超级群组，"
                 "将 Bot 添加为群管理员，并将群组 ID 填写于此。群组 ID 通常为负数，如 -1001234567890）"
             ),
-            "is_secret": False,
-        },
-        {
-            "key": "TELEGRAM_TIMEOUT",
-            "category": "telegram",
-            "description": "Telegram API 超时时间（秒）",
-            "value": "30",
             "is_secret": False,
         },
     ]
