@@ -39,22 +39,22 @@ class ArchivePlaceholderService(BasePlaceholderService):
         "主办律师姓名": {
             "display_name": "主办律师姓名",
             "description": "案件主办律师的真实姓名",
-            "example_value": "房长波",
+            "example_value": "张律师",
         },
         "合同名称": {
             "display_name": "合同名称",
             "description": "关联合同的名称",
-            "example_value": "兴业银行诉升平百货金融借款合同纠纷",
+            "example_value": "某某公司诉某某公司合同纠纷",
         },
         "合同我方当事人名称": {
             "display_name": "合同我方当事人名称",
             "description": "合同中我方(委托方)当事人名称,顿号分隔",
-            "example_value": "佛山市升平百货有限公司、陈达明",
+            "example_value": "某某有限公司、张某",
         },
         "合同对方当事人名称": {
             "display_name": "合同对方当事人名称",
             "description": "合同中对方当事人名称,顿号分隔",
-            "example_value": "广东顺德农村商业银行股份有限公司",
+            "example_value": "某某银行股份有限公司",
         },
         "合同类型": {
             "display_name": "合同类型",
@@ -64,17 +64,17 @@ class ArchivePlaceholderService(BasePlaceholderService):
         "律所OA案件编号": {
             "display_name": "律所OA案件编号",
             "description": "律所OA系统中的案件编号",
-            "example_value": "2026GZM0077",
+            "example_value": "2026GZM0001",
         },
         "案件案号": {
             "display_name": "案件案号",
             "description": "案件在法院的案号(首个生效案号)",
-            "example_value": "(2026)粤0606民初1234号",
+            "example_value": "(2026)粤0606民初0001号",
         },
         "管辖法院": {
             "display_name": "管辖法院",
             "description": "案件审理法院名称",
-            "example_value": "佛山市顺德区人民法院",
+            "example_value": "某某市某某区人民法院",
         },
         "归档日期": {
             "display_name": "归档日期",
