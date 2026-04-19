@@ -27,6 +27,7 @@ class SystemConfig(models.Model):
         FEISHU = "feishu", _("飞书配置")
         DINGTALK = "dingtalk", _("钉钉配置")
         WECHAT_WORK = "wechat_work", _("企业微信配置")
+        TELEGRAM = "telegram", _("Telegram 配置")
         COURT_SMS = "court_sms", _("法院短信配置")
         AI = "ai", _("AI 服务配置")
         LLM = "llm", _("LLM 大模型配置")

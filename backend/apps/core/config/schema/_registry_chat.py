@@ -61,6 +61,12 @@ def register_chat_configs(registry: dict[str, ConfigField]) -> None:
         env_var="DINGTALK_AGENT_ID",
         description="钉钉应用 Agent ID",
     )
+    registry["chat_platforms.dingtalk.default_owner_id"] = ConfigField(
+        name="chat_platforms.dingtalk.default_owner_id",
+        type=str,
+        env_var="DINGTALK_DEFAULT_OWNER_ID",
+        description="钉钉默认群主 userid（建群必须指定群主）",
+    )
     registry["chat_platforms.dingtalk.timeout"] = ConfigField(
         name="chat_platforms.dingtalk.timeout",
         type=int,
@@ -110,6 +116,12 @@ def register_chat_configs(registry: dict[str, ConfigField]) -> None:
         sensitive=True,
         env_var="TELEGRAM_BOT_TOKEN",
         description="Telegram Bot Token",
+    )
+    registry["chat_platforms.telegram.supergroup_id"] = ConfigField(
+        name="chat_platforms.telegram.supergroup_id",
+        type=str,
+        env_var="TELEGRAM_SUPERGROUP_ID",
+        description="Telegram 超级群组 ID（开启论坛功能的超级群组，用于一案一群 Topic 模式）",
     )
     registry["chat_platforms.telegram.timeout"] = ConfigField(
         name="chat_platforms.telegram.timeout",

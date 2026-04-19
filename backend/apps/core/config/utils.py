@@ -95,6 +95,42 @@ def get_wechat_work_category_configs() -> dict[str, Any]:
         return {}
 
 
+def get_dingtalk_category_configs() -> dict[str, Any]:
+    """
+    批量获取钉钉分类配置
+
+    Returns:
+        钉钉配置字典，key 为 DB 键名（如 DINGTALK_APP_KEY），value 为配置值
+    """
+    try:
+        from apps.core.services.system_config_service import SystemConfigService
+
+        service = SystemConfigService()
+        result: dict[str, Any] = service.get_category_configs("dingtalk")
+        return result
+    except Exception as e:
+        logger.debug(f"从 SystemConfig 批量获取钉钉配置失败: {e}")
+        return {}
+
+
+def get_telegram_category_configs() -> dict[str, Any]:
+    """
+    批量获取 Telegram 分类配置
+
+    Returns:
+        Telegram 配置字典，key 为 DB 键名（如 TELEGRAM_BOT_TOKEN），value 为配置值
+    """
+    try:
+        from apps.core.services.system_config_service import SystemConfigService
+
+        service = SystemConfigService()
+        result: dict[str, Any] = service.get_category_configs("telegram")
+        return result
+    except Exception as e:
+        logger.debug(f"从 SystemConfig 批量获取 Telegram 配置失败: {e}")
+        return {}
+
+
 def get_system_config_value(key: str, default: Any = None) -> Any:
     """
     获取 SystemConfig 单个配置值

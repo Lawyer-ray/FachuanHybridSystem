@@ -50,10 +50,10 @@ def get_env_mappings() -> dict[str, dict[str, Any]]:
             "description": "钉钉应用 Agent ID",
             "is_secret": False,
         },
-        "DINGTALK_TIMEOUT": {
-            "key": "DINGTALK_TIMEOUT",
+        "DINGTALK_DEFAULT_OWNER_ID": {
+            "key": "DINGTALK_DEFAULT_OWNER_ID",
             "category": "dingtalk",
-            "description": "钉钉 API 超时时间",
+            "description": "钉钉默认群主 userid",
             "is_secret": False,
         },
         "WECHAT_WORK_CORP_ID": {
@@ -80,10 +80,16 @@ def get_env_mappings() -> dict[str, dict[str, Any]]:
             "description": "企业微信默认群主 userid",
             "is_secret": False,
         },
-        "WECHAT_WORK_TIMEOUT": {
-            "key": "WECHAT_WORK_TIMEOUT",
-            "category": "wechat_work",
-            "description": "企业微信 API 超时时间",
+        "TELEGRAM_BOT_TOKEN": {
+            "key": "TELEGRAM_BOT_TOKEN",
+            "category": "telegram",
+            "description": "Telegram Bot Token",
+            "is_secret": True,
+        },
+        "TELEGRAM_SUPERGROUP_ID": {
+            "key": "TELEGRAM_SUPERGROUP_ID",
+            "category": "telegram",
+            "description": "Telegram 超级群组 ID",
             "is_secret": False,
         },
         "SILICONFLOW_API_KEY": {
