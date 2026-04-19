@@ -44,7 +44,7 @@ def list_document_templates(
         case_type=case_type,
         is_active=is_active,
     )
-    return templates  # type: ignore[return-value]
+    return templates
 
 
 @router.get("/templates/{template_id}", response=DocumentTemplateOut)

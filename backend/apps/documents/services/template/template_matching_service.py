@@ -107,7 +107,7 @@ class TemplateMatchingService:
 
             result = ContractTemplateQueryService().list_matching_template_summaries(case_type)
             cache.set(cache_key, result, CacheTimeout.get_long())
-            return cast(list[dict[str, Any]], result)
+            return result
         except Exception:
             logger.exception("查找合同模板失败", extra={"case_type": case_type})
             raise

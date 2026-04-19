@@ -52,7 +52,7 @@ def create_credential(request: HttpRequest, payload: AccountCredentialIn) -> Acc
         url=payload.url,
     )
     credential = _credential_service.create_credential(data=dto, user=get_request_user(request))
-    return cast(AccountCredentialOut, AccountCredentialOut.from_orm(credential))
+    return AccountCredentialOut.from_orm(credential)
 
 
 @router.put("/credentials/{cred_id}", response=AccountCredentialOut)
@@ -68,7 +68,7 @@ def update_credential(request: HttpRequest, cred_id: int, payload: AccountCreden
         data=dto,
         user=get_request_user(request),
     )
-    return cast(AccountCredentialOut, AccountCredentialOut.from_orm(credential))
+    return AccountCredentialOut.from_orm(credential)
 
 
 @router.delete("/credentials/{cred_id}")

@@ -94,7 +94,7 @@ class McpToolClient:
         result["api_key_pool_size"] = max(1, int(execution_meta.get("api_key_pool_size", 1) or 1))
         result["api_key_attempt_count"] = max(1, int(execution_meta.get("api_key_attempt_count", 1) or 1))
         result["api_key_switched"] = bool(execution_meta.get("api_key_switched", False))
-        return cast(dict[str, Any], result)
+        return result
 
     def list_tools(self) -> list[str]:
         """获取远端 MCP 可用工具名列表。"""
@@ -110,7 +110,7 @@ class McpToolClient:
                 api_key=api_key,
             ),
         )
-        return cast(list[dict[str, Any]], tools)
+        return tools
 
     async def _call_tool_async(
         self,

@@ -25,9 +25,7 @@ class ContractQueryService:
         return self._access_policy
 
     def get_contract_queryset(self) -> QuerySet[Contract, Contract]:
-        return cast(
-            QuerySet[Contract, Contract],
-            Contract.objects.prefetch_related(
+        return Contract.objects.prefetch_related(
                 "cases",
                 "contract_parties__client",
                 "payments",
@@ -35,8 +33,7 @@ class ContractQueryService:
                 "assignments__lawyer",
                 "assignments__lawyer__law_firm",
                 "supplementary_agreements__parties__client",
-            ),
-        )
+            )
 
     def _apply_list_filters(
         self,

@@ -36,7 +36,7 @@ class ContractPartyOut(ModelSchema):
 
     @staticmethod
     def resolve_role_label(obj: ContractParty) -> str:
-        return obj.get_role_display() if obj.role else ""  # type: ignore[no-any-return, attr-defined]
+        return obj.get_role_display() if obj.role else ""
 
 
 class ContractPartySourceOut(Schema):

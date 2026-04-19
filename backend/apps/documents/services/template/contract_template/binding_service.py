@@ -160,5 +160,5 @@ class DocumentTemplateBindingService:
             is_active=True,
         ).first()
         if binding is not None:
-            return binding.folder_node_path  # type: ignore[return-value]
+            return binding.folder_node_path
         return None

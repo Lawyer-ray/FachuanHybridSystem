@@ -332,7 +332,7 @@ class SMSParserService:
         """
         # 复用 TextUtils 的案号提取功能
         extracted = TextUtils.extract_case_numbers(content)
-        case_numbers = cast(list[str], extracted)
+        case_numbers = extracted
 
         if case_numbers:
             logger.info(f"提取到案号: {case_numbers}")

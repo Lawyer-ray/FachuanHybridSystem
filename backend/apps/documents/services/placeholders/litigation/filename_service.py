@@ -9,6 +9,7 @@ import logging
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
+from apps.core.exceptions import NotFoundError
 from apps.documents.services.infrastructure.wiring import get_case_service
 
 logger = logging.getLogger(__name__)

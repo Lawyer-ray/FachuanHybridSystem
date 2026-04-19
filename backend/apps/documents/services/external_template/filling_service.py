@@ -23,6 +23,7 @@ from django.conf import settings
 from django.db.models import QuerySet
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
+from docx.document import Document as DocumentType
 
 from apps.documents.services.placeholders.fallback import (
     PLACEHOLDER_FALLBACK_VALUE,
@@ -233,7 +234,7 @@ class FillingService:
 
         # 2. 打开模板 .docx 副本
         template_path: Path = Path(settings.MEDIA_ROOT) / template.file_path
-        doc: Document = Document(str(template_path))
+        doc: DocumentType = Document(str(template_path))
 
         # 3. 逐一写入
         filled_count: int = 0

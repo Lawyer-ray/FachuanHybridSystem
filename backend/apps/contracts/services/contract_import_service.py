@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Callable, NotRequired, Protocol, TypedDict
+from typing import TYPE_CHECKING, Callable, Final, NotRequired, Protocol, TypedDict
 
 from django.db import transaction
 from django.utils.dateparse import parse_datetime
@@ -132,7 +132,7 @@ class LawyerResolverProtocol(Protocol):
 
 logger = logging.getLogger("apps.contracts")
 
-_CONTRACT_FIELDS: tuple[str, ...] = (
+_CONTRACT_FIELDS: Final[tuple[str, ...]] = (
     "name",
     "case_type",
     "status",
@@ -207,7 +207,7 @@ class ContractImportService:
                 logger.info("复用已有合同", extra={"contract_id": existing.pk, "filing_number": filing_number})
                 return existing
 
-        contract_data = {f: data[f] for f in _CONTRACT_FIELDS if f in data}
+        contract_data = {f: data[f] for f in _CONTRACT_FIELDS if f in data}  # type: ignore[literal-required]
         # 空字符串 filing_number 转 None，避免 unique 冲突
         if not contract_data.get("filing_number"):
             contract_data["filing_number"] = None

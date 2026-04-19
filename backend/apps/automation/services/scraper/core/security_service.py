@@ -17,7 +17,7 @@ def get_config(key: str, default: str | None = None) -> str | None:
     """获取系统配置值（可被测试 monkeypatch）"""
     from apps.core.services.system_config_service import SystemConfigService
 
-    return SystemConfigService().get_value(key, default or "")  # type: ignore[return-value]
+    return SystemConfigService().get_value(key, default or "")
 
 
 class SecurityService:

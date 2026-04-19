@@ -17,7 +17,7 @@ from ninja.renderers import BaseRenderer
 from ninja_extra.router import Router as NinjaExtraRouter
 
 if not hasattr(NinjaExtraRouter, "api"):
-    NinjaExtraRouter.api = None
+    NinjaExtraRouter.api = None  # type: ignore[attr-defined]
 
 from ninja_jwt.routers.obtain import obtain_pair_router
 from ninja_jwt.routers.verify import verify_router
@@ -259,7 +259,7 @@ def _register_app_routers() -> None:
 def _ensure_routers_registered() -> None:
     if getattr(api_v1, "_routers_registered", False):
         return
-    api_v1._routers_registered = True
+    api_v1._routers_registered = True  # type: ignore[attr-defined]
     _register_app_routers()
 
 
@@ -292,7 +292,7 @@ def health_check(request: HttpRequest) -> dict[str, Any]:
     返回系统整体健康状态
     """
     health = HealthChecker.get_system_health(include_details=False)
-    return health.to_dict()  # type: ignore
+    return health.to_dict()
 
 
 @api_v1.get("/health/detail", tags=["系统"], auth=JWTOrSessionAuth())
@@ -304,7 +304,7 @@ def health_check_detail(request: HttpRequest) -> dict[str, Any]:
     ensure_admin_request(request, message="无权限访问健康检查详情", code="PERMISSION_DENIED")
 
     health = HealthChecker.get_system_health(include_details=True)
-    return health.to_dict()  # type: ignore
+    return health.to_dict()
 
 
 @api_v1.get("/health/live", tags=["系统"])
@@ -313,7 +313,7 @@ def liveness_probe(request: HttpRequest) -> dict[str, Any]:
     存活探针 (Kubernetes liveness probe)
     仅检查应用是否运行
     """
-    return HealthChecker.liveness_check()  # type: ignore
+    return HealthChecker.liveness_check()
 
 
 @api_v1.get("/health/ready", tags=["系统"])
@@ -322,7 +322,7 @@ def readiness_probe(request: HttpRequest) -> dict[str, Any]:
     就绪探针 (Kubernetes readiness probe)
     检查应用是否可以接收流量
     """
-    return HealthChecker.readiness_check()  # type: ignore
+    return HealthChecker.readiness_check()
 
 
 # ============================================================
@@ -343,7 +343,7 @@ def resource_status(request: HttpRequest) -> dict[str, Any]:
     Requirements: 4.1, 4.2, 4.3, 4.4 - 资源监控和状态查询
     """
     _require_admin(request)
-    return get_resource_status()  # type: ignore
+    return get_resource_status()
 
 
 @api_v1.get("/resource/usage", tags=["资源监控"], auth=JWTOrSessionAuth())
@@ -375,7 +375,7 @@ def resource_recommendations(request: HttpRequest) -> dict[str, Any]:
     Requirements: 4.1, 4.2 - 动态资源分配建议
     """
     _require_admin(request)
-    return resource_monitor.get_resource_recommendations()  # type: ignore[no-any-return]
+    return resource_monitor.get_resource_recommendations()
 
 
 @api_v1.get("/resource/health", tags=["资源监控"], auth=JWTOrSessionAuth())
@@ -385,7 +385,7 @@ def resource_health(request: HttpRequest) -> dict[str, Any]:
     Requirements: 4.3, 4.4 - 资源健康状态检查
     """
     _require_admin(request)
-    return resource_monitor.check_resource_health()  # type: ignore[no-any-return]
+    return resource_monitor.check_resource_health()
 
 
 @api_v1.get("/resource/metrics", tags=["资源监控"], auth=JWTOrSessionAuth())
@@ -394,7 +394,7 @@ def resource_metrics(request: HttpRequest, window_minutes: int = 10, top: int = 
     _require_admin(request)
     from apps.core.telemetry.metrics import snapshot
 
-    return snapshot(window_minutes=int(window_minutes or 10), top=int(top or 10))  # type: ignore[no-any-return]
+    return snapshot(window_minutes=int(window_minutes or 10), top=int(top or 10))
 
 
 @api_v1.get("/resource/metrics/prometheus", tags=["资源监控"], auth=JWTOrSessionAuth())

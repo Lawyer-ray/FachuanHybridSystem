@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from django.contrib import admin
 
@@ -65,7 +65,7 @@ class LegalResearchResultAdmin(admin.ModelAdmin[LegalResearchResult]):
         return "—"
 
     @admin.action(description="标记为真实命中（在线正反馈）")
-    def mark_as_relevant(self, request, queryset) -> None:
+    def mark_as_relevant(self, request: Any, queryset: Any) -> None:
         service = LegalResearchFeedbackLoopService()
         operator = str(getattr(request.user, "id", "") or "")
         count = 0
@@ -75,7 +75,7 @@ class LegalResearchResultAdmin(admin.ModelAdmin[LegalResearchResult]):
         self.message_user(request, f"已标记 {count} 条为真实命中，并完成在线微调。")
 
     @admin.action(description="标记为误命中（在线负反馈）")
-    def mark_as_false_positive(self, request, queryset) -> None:
+    def mark_as_false_positive(self, request: Any, queryset: Any) -> None:
         service = LegalResearchFeedbackLoopService()
         operator = str(getattr(request.user, "id", "") or "")
         count = 0

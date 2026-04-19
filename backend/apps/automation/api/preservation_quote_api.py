@@ -63,7 +63,7 @@ def create_preservation_quote(request: HttpRequest, data: PreservationQuoteCreat
     service = _get_preservation_quote_service()
 
     # 调用 Service 方法
-    quote = service.create_quote(  # type: ignore[attr-defined]
+    quote = service.create_quote(
         preserve_amount=data.preserve_amount,
         corp_id=data.corp_id,
         category_id=data.category_id,
@@ -102,7 +102,7 @@ def list_preservation_quotes(
     actual_page_size = page_size or 20
 
     # 调用 Service 方法（参数验证在 Service 层）
-    result = service.list_quotes(  # type: ignore[attr-defined]
+    result = service.list_quotes(
         page=page,
         page_size=actual_page_size,
         status=status,
@@ -150,7 +150,7 @@ def get_preservation_quote(request: HttpRequest, quote_id: int) -> PreservationQ
     service = _get_preservation_quote_service()
 
     # 调用 Service 方法
-    quote = service.get_quote(quote_id)  # type: ignore[attr-defined]
+    quote = service.get_quote(quote_id)
 
     # 返回响应
     return PreservationQuoteSchema.from_model(quote)
@@ -187,10 +187,10 @@ async def execute_preservation_quote(request: HttpRequest, quote_id: int) -> Quo
     service = _get_preservation_quote_service()
 
     # 执行询价（异步）
-    result = await service.execute_quote(quote_id)  # type: ignore[attr-defined]
+    result = await service.execute_quote(quote_id)
 
     # 获取更新后的任务详情
-    quote = service.get_quote(quote_id)  # type: ignore[attr-defined]
+    quote = service.get_quote(quote_id)
 
     # 返回响应
     return QuoteExecuteResponseSchema(
@@ -231,10 +231,10 @@ async def retry_preservation_quote(request: HttpRequest, quote_id: int) -> Quote
     service = _get_preservation_quote_service()
 
     # 重试询价（异步）
-    result = await service.retry_quote(quote_id)  # type: ignore[attr-defined]
+    result = await service.retry_quote(quote_id)
 
     # 获取更新后的任务详情
-    quote = service.get_quote(quote_id)  # type: ignore[attr-defined]
+    quote = service.get_quote(quote_id)
 
     # 返回响应
     return QuoteExecuteResponseSchema(

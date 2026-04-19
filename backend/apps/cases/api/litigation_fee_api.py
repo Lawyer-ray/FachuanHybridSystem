@@ -23,7 +23,7 @@ router = Router()
 
 def _get_litigation_fee_calculator_service() -> Any:
     """创建 LitigationFeeCalculatorService 实例"""
-    from apps.cases.services import LitigationFeeCalculatorService  # type: ignore[attr-defined]
+    from apps.cases.services import LitigationFeeCalculatorService
 
     return LitigationFeeCalculatorService()
 

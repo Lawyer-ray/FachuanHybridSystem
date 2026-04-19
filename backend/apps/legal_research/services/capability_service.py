@@ -489,10 +489,10 @@ class LegalResearchCapabilityService:
 
         claims = cls._clip_text(snippets_meta.get("claims"), max_chars=cls.SNIPPET_MAX_CHARS) or extracted.get(
             "claims", ""
-        )  # type: ignore[union-attr]
+        )
         findings = cls._clip_text(snippets_meta.get("findings"), max_chars=cls.SNIPPET_MAX_CHARS) or extracted.get(
             "findings", ""
-        )  # type: ignore[union-attr]
+        )
         reasoning = (
             cls._clip_text(snippets_meta.get("reasoning"), max_chars=cls.SNIPPET_MAX_CHARS)  # type: ignore[union-attr]
             or extracted.get("reasoning", "")
@@ -500,7 +500,7 @@ class LegalResearchCapabilityService:
         )
         holdings = cls._clip_text(snippets_meta.get("holdings"), max_chars=cls.SNIPPET_MAX_CHARS) or extracted.get(
             "holdings", ""
-        )  # type: ignore[union-attr]
+        )
         return AgentSearchSnippetsOut(
             claims=claims,
             findings=findings,

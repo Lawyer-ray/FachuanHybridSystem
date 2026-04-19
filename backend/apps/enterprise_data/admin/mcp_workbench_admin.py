@@ -16,27 +16,27 @@ from apps.enterprise_data.services import McpWorkbenchService
 class McpWorkbenchAdmin(admin.ModelAdmin[McpWorkbench]):
     """MCP tools 调试页。"""
 
-    def has_module_permission(self, request) -> bool:  # type: ignore[override]
+    def has_module_permission(self, request: Any) -> bool:
         return bool(request.user and request.user.is_active and request.user.is_superuser)
 
-    def has_view_permission(self, request, obj: Any | None = None) -> bool:  # type: ignore[override]
+    def has_view_permission(self, request: Any, obj: Any | None = None) -> bool:
         return bool(request.user and request.user.is_active and request.user.is_superuser)
 
-    def has_add_permission(self, request) -> bool:  # type: ignore[override]
+    def has_add_permission(self, request: Any) -> bool:
         return False
 
-    def has_change_permission(self, request, obj: Any | None = None) -> bool:  # type: ignore[override]
+    def has_change_permission(self, request: Any, obj: Any | None = None) -> bool:
         return False
 
-    def has_delete_permission(self, request, obj: Any | None = None) -> bool:  # type: ignore[override]
+    def has_delete_permission(self, request: Any, obj: Any | None = None) -> bool:
         return False
 
-    def get_model_perms(self, request) -> dict[str, bool]:
+    def get_model_perms(self, request: Any) -> dict[str, bool]:
         if not self.has_view_permission(request):
             return {}
         return {"view": True, "add": False, "change": False, "delete": False}
 
-    def changelist_view(self, request, extra_context: dict[str, Any] | None = None):  # type: ignore[override]
+    def changelist_view(self, request: Any, extra_context: dict[str, Any] | None = None) -> TemplateResponse:
         service = McpWorkbenchService()
         providers = service.list_providers()
         provider_names = [str(item.get("name", "") or "").strip() for item in providers if item.get("name")]

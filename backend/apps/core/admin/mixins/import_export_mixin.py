@@ -42,7 +42,7 @@ class AdminImportExportMixin:
 
     export_model_name: str = "export"
 
-    def get_file_paths(self, queryset: QuerySet[Any]) -> list[str]:  # type: ignore[type-arg]
+    def get_file_paths(self, queryset: QuerySet[Any]) -> list[str]:
         """子类覆盖此方法返回需要打包进 ZIP 的文件相对路径列表。"""
         return []
 
@@ -55,7 +55,7 @@ class AdminImportExportMixin:
 
     def import_view(self, request: HttpRequest) -> HttpResponse:
         if request.method != "POST":
-            return redirect(  # type: ignore[return-value]
+            return redirect(
                 f"admin:{self.model._meta.app_label}_{self.model._meta.model_name}_changelist"  # type: ignore[attr-defined]
             )
         if not self.has_add_permission(request):  # type: ignore[attr-defined]
@@ -79,7 +79,7 @@ class AdminImportExportMixin:
                 logger.exception("导入失败")
                 messages.error(request, _("导入失败: %(err)s") % {"err": str(exc)})
 
-        return redirect(  # type: ignore[return-value]
+        return redirect(
             f"admin:{self.model._meta.app_label}_{self.model._meta.model_name}_changelist"  # type: ignore[attr-defined]
         )
 

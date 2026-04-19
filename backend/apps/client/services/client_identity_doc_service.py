@@ -148,7 +148,7 @@ class ClientIdentityDocService:
                 errors={"client_id": _("ID 为 %(id)s 的当事人不存在") % {"id": client_id}},
             )
 
-        doc, _ = ClientIdentityDoc.objects.get_or_create(client=client, doc_type=doc_type)
+        doc, _created = ClientIdentityDoc.objects.get_or_create(client=client, doc_type=doc_type)
         if doc.file_path != file_path:
             doc.file_path = file_path
             doc.save(update_fields=["file_path"])

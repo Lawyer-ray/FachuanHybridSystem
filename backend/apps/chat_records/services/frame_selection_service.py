@@ -76,7 +76,7 @@ class FrameSelectionService:
         img = img.crop((0, top, w, bottom))
 
         img = img.resize((size, size), _LANCZOS)
-        return cast(bytes, img.tobytes())
+        return img.tobytes()
 
     def mean_abs_diff(self, a: bytes, b: bytes) -> float | None:
         if not a or not b:

@@ -197,13 +197,13 @@ jobs:
             echo "No changed backend/apps/*.py files."
             exit 0
           fi
-          uv run mypy --config-file=mypy.ini --follow-imports=skip "${files[@]}"
+          uv run mypy --config-file=mypy.ini --follow-imports=silent "${files[@]}"
 
       - name: Type check (mypy, curated gate)
         env:
           PYTHONPATH: "apiSystem:."
         run: |
-          uv run mypy --config-file=mypy.ini --follow-imports=skip \
+          uv run mypy --config-file=mypy.ini --follow-imports=silent \
             apps/core/services/wiring.py \
             apps/core/protocols/common_protocols.py \
             apps/core/dto/auth.py \
@@ -316,7 +316,7 @@ jobs:
         env:
           PYTHONPATH: "apiSystem:."
         run: |
-          uv run mypy --config-file=mypy.ini --follow-imports=skip \
+          uv run mypy --config-file=mypy.ini --follow-imports=silent \
             apps/core/services/wiring.py \
             apps/core/protocols/common_protocols.py \
             apps/core/dto/auth.py \
@@ -567,7 +567,7 @@ jobs:
         env:
           PYTHONPATH: "apiSystem:."
         run: |
-          uv run mypy --config-file=mypy.ini --follow-imports=skip \
+          uv run mypy --config-file=mypy.ini --follow-imports=silent \
             apps/core/security/auth.py \
             apps/core/infrastructure/throttling.py \
             apps/core/infrastructure/cache.py \
@@ -604,7 +604,7 @@ jobs:
         env:
           PYTHONPATH: "apiSystem:."
         run: |
-          uv run mypy --config-file=mypy.ini --follow-imports=skip \
+          uv run mypy --config-file=mypy.ini --follow-imports=silent \
             apps/core/services/wiring.py \
             apps/core/protocols/common_protocols.py \
             apps/core/dto/auth.py \

@@ -56,7 +56,7 @@ def build_token_service() -> ITokenService:
 def build_court_token_store_service() -> ICourtTokenStoreService:
     from apps.automation.services.token.court_token_store_service import CourtTokenStoreService
 
-    return CourtTokenStoreService()  # type: ignore[return-value]
+    return CourtTokenStoreService()
 
 
 def build_browser_service() -> IBrowserService:

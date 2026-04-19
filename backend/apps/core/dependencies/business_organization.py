@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 def build_lawyer_service() -> ILawyerService:
     from apps.organization.services import LawyerServiceAdapter
 
-    return LawyerServiceAdapter()  # type: ignore[abstract]  # 适配器实现了所有抽象方法
+    return LawyerServiceAdapter()  # 适配器实现了所有抽象方法
 
 
 def build_lawfirm_service() -> ILawFirmService:

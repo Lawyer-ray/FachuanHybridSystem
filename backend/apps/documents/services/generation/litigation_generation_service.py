@@ -369,7 +369,7 @@ class LitigationGenerationService:
             from .pipeline import DocxRenderer
 
             rendered_content = DocxRenderer().render(str(template_path), context)
-            return cast(bytes, rendered_content)
+            return rendered_content
 
         except Exception as e:
             logger.error("模板渲染失败: %s", e, exc_info=True)

@@ -5,6 +5,7 @@ import re
 from datetime import date
 
 from docx import Document
+from docx.document import Document as DocumentType
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +13,7 @@ logger = logging.getLogger(__name__)
 class TitleExtractor:
     """从合同文档提取标题并生成标准文件名"""
 
-    def extract_title(self, doc: Document) -> str:
+    def extract_title(self, doc: DocumentType) -> str:
         """从文档中提取合同标题，失败时返回空字符串"""
         for para in doc.paragraphs[:10]:
             text = str(para.text).strip()

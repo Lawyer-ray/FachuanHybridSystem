@@ -21,7 +21,7 @@ class Command(BaseCommand):
     def add_arguments(self, parser: Any) -> None:
         parser.add_argument("--force", action="store_true", help="强制重新创建已存在的模板")
 
-    def handle(self, *args, **options: Any) -> None:  # type: ignore[override]
+    def handle(self, *args: Any, **options: Any) -> None:
         force = options["force"]
         self.stdout.write("开始初始化默认文件夹模板...")
         if force:

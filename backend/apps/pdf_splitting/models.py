@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from datetime import date, datetime, time, timedelta
+from typing import Any
+
 import uuid
 from typing import ClassVar
 
@@ -56,7 +59,7 @@ class PdfSplitReviewFlag(models.TextChoices):
 
 
 class PdfSplittingTool(models.Model):
-    name = models.CharField(max_length=64, default="Pdf Splitting")
+    name: str = models.CharField(max_length=64, default="Pdf Splitting")
 
     class Meta:
         managed = False
@@ -65,42 +68,42 @@ class PdfSplittingTool(models.Model):
 
 
 class PdfSplitJob(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    source_type = models.CharField(
+    id: UUID = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    source_type: str = models.CharField(
         max_length=16,
         choices=PdfSplitSourceType.choices,
         verbose_name=_("来源类型"),
     )
-    source_abs_path = models.CharField(max_length=2048, blank=True, default="", verbose_name=_("源绝对路径"))
-    source_relpath = models.CharField(max_length=1024, blank=True, default="", verbose_name=_("源相对路径"))
-    source_original_name = models.CharField(max_length=255, verbose_name=_("源文件名"))
-    split_mode = models.CharField(
+    source_abs_path: str = models.CharField(max_length=2048, blank=True, default="", verbose_name=_("源绝对路径"))
+    source_relpath: str = models.CharField(max_length=1024, blank=True, default="", verbose_name=_("源相对路径"))
+    source_original_name: str = models.CharField(max_length=255, verbose_name=_("源文件名"))
+    split_mode: str = models.CharField(
         max_length=32,
         choices=PdfSplitMode.choices,
         default=PdfSplitMode.CONTENT_ANALYSIS,
         verbose_name=_("拆分模式"),
     )
-    template_key = models.CharField(max_length=64, default="filing_materials_v1", verbose_name=_("模板键"))
-    template_version = models.CharField(max_length=32, default="1", verbose_name=_("模板版本"))
-    ocr_profile = models.CharField(
+    template_key: str = models.CharField(max_length=64, default="filing_materials_v1", verbose_name=_("模板键"))
+    template_version: str = models.CharField(max_length=32, default="1", verbose_name=_("模板版本"))
+    ocr_profile: str = models.CharField(
         max_length=16,
         choices=PdfSplitOcrProfile.choices,
         default=PdfSplitOcrProfile.BALANCED,
         verbose_name=_("OCR 档位"),
     )
-    status = models.CharField(
+    status: str = models.CharField(
         max_length=32,
         choices=PdfSplitJobStatus.choices,
         default=PdfSplitJobStatus.PENDING,
         verbose_name=_("状态"),
     )
-    total_pages = models.PositiveIntegerField(default=0, verbose_name=_("总页数"))
-    processed_pages = models.PositiveIntegerField(default=0, verbose_name=_("已处理页数"))
-    progress = models.PositiveIntegerField(default=0, verbose_name=_("进度"))
-    current_page = models.PositiveIntegerField(default=0, verbose_name=_("当前页"))
-    task_id = models.CharField(max_length=64, blank=True, default="", verbose_name=_("任务ID"))
-    cancel_requested = models.BooleanField(default=False, verbose_name=_("请求取消"))
-    created_by = models.ForeignKey(
+    total_pages: int = models.PositiveIntegerField(default=0, verbose_name=_("总页数"))
+    processed_pages: int = models.PositiveIntegerField(default=0, verbose_name=_("已处理页数"))
+    progress: int = models.PositiveIntegerField(default=0, verbose_name=_("进度"))
+    current_page: int = models.PositiveIntegerField(default=0, verbose_name=_("当前页"))
+    task_id: str = models.CharField(max_length=64, blank=True, default="", verbose_name=_("任务ID"))
+    cancel_requested: bool = models.BooleanField(default=False, verbose_name=_("请求取消"))
+    created_by: Any = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
@@ -108,13 +111,13 @@ class PdfSplitJob(models.Model):
         related_name="pdf_split_jobs",
         verbose_name=_("创建人"),
     )
-    summary_payload = models.JSONField(default=dict, blank=True, verbose_name=_("摘要"))
-    error_message = models.TextField(blank=True, default="", verbose_name=_("错误信息"))
-    export_zip_relpath = models.CharField(max_length=1024, blank=True, default="", verbose_name=_("导出ZIP路径"))
-    started_at = models.DateTimeField(null=True, blank=True, verbose_name=_("开始时间"))
-    finished_at = models.DateTimeField(null=True, blank=True, verbose_name=_("完成时间"))
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
-    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
+    summary_payload: Any = models.JSONField(default=dict, blank=True, verbose_name=_("摘要"))
+    error_message: str = models.TextField(blank=True, default="", verbose_name=_("错误信息"))
+    export_zip_relpath: str = models.CharField(max_length=1024, blank=True, default="", verbose_name=_("导出ZIP路径"))
+    started_at: datetime | None = models.DateTimeField(null=True, blank=True, verbose_name=_("开始时间"))
+    finished_at: datetime | None = models.DateTimeField(null=True, blank=True, verbose_name=_("完成时间"))
+    created_at: datetime = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
+    updated_at: datetime = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
 
     class Meta:
         verbose_name = _("PDF 拆解任务")
@@ -130,32 +133,32 @@ class PdfSplitJob(models.Model):
 
 
 class PdfSplitSegment(models.Model):
-    job = models.ForeignKey(
+    job: Any = models.ForeignKey(
         PdfSplitJob,
         on_delete=models.CASCADE,
         related_name="segments",
         verbose_name=_("任务"),
     )
-    order = models.PositiveIntegerField(default=1, verbose_name=_("排序"))
-    page_start = models.PositiveIntegerField(verbose_name=_("起始页"))
-    page_end = models.PositiveIntegerField(verbose_name=_("结束页"))
-    segment_type = models.CharField(
+    order: int = models.PositiveIntegerField(default=1, verbose_name=_("排序"))
+    page_start: int = models.PositiveIntegerField(verbose_name=_("起始页"))
+    page_end: int = models.PositiveIntegerField(verbose_name=_("结束页"))
+    segment_type: str = models.CharField(
         max_length=48,
         choices=PdfSplitSegmentType.choices,
         default=PdfSplitSegmentType.UNRECOGNIZED,
         verbose_name=_("段类型"),
     )
-    filename = models.CharField(max_length=255, verbose_name=_("文件名"))
-    confidence = models.FloatField(default=0.0, verbose_name=_("置信度"))
-    source_method = models.CharField(max_length=32, default="rule", verbose_name=_("来源方法"))
-    review_flag = models.CharField(
+    filename: str = models.CharField(max_length=255, verbose_name=_("文件名"))
+    confidence: float = models.FloatField(default=0.0, verbose_name=_("置信度"))
+    source_method: str = models.CharField(max_length=32, default="rule", verbose_name=_("来源方法"))
+    review_flag: str = models.CharField(
         max_length=32,
         choices=PdfSplitReviewFlag.choices,
         default=PdfSplitReviewFlag.NORMAL,
         verbose_name=_("复核标记"),
     )
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
-    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
+    created_at: datetime = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
+    updated_at: datetime = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
 
     class Meta:
         verbose_name = _("PDF 拆解片段")

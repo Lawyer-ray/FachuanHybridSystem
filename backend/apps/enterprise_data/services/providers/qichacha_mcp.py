@@ -39,27 +39,34 @@ class QichachaMcpProvider:
 
     def execute_tool(self, *, tool_name: str, arguments: dict[str, Any]) -> ProviderResponse:
         self._raise_not_implemented(capability=tool_name, arguments=arguments)
+        raise AssertionError  # unreachable
 
     def search_companies(self, *, keyword: str) -> ProviderResponse:
         self._raise_not_implemented(capability="search_companies", arguments={"keyword": keyword})
+        raise AssertionError  # unreachable
 
     def get_company_profile(self, *, company_id: str) -> ProviderResponse:
         self._raise_not_implemented(capability="get_company_profile", arguments={"company_id": company_id})
+        raise AssertionError  # unreachable
 
     def get_company_risks(self, *, company_id: str, risk_type: str) -> ProviderResponse:
         self._raise_not_implemented(
             capability="get_company_risks",
             arguments={"company_id": company_id, "risk_type": risk_type},
         )
+        raise AssertionError  # unreachable
 
     def get_company_shareholders(self, *, company_id: str) -> ProviderResponse:
         self._raise_not_implemented(capability="get_company_shareholders", arguments={"company_id": company_id})
+        raise AssertionError  # unreachable
 
     def get_company_personnel(self, *, company_id: str) -> ProviderResponse:
         self._raise_not_implemented(capability="get_company_personnel", arguments={"company_id": company_id})
+        raise AssertionError  # unreachable
 
     def get_person_profile(self, *, hcgid: str) -> ProviderResponse:
         self._raise_not_implemented(capability="get_person_profile", arguments={"hcgid": hcgid})
+        raise AssertionError  # unreachable
 
     def search_bidding_info(
         self,
@@ -80,6 +87,7 @@ class QichachaMcpProvider:
                 "end_date": end_date,
             },
         )
+        raise AssertionError  # unreachable
 
     @staticmethod
     def _raise_not_implemented(*, capability: str, arguments: dict[str, Any]) -> None:

@@ -20,4 +20,4 @@ def get_default_configs() -> list[dict[str, Any]]:
         + get_enterprise_data_configs()
         + get_ocr_configs()
     )
-    return cast(list[dict[str, Any]], configs)
+    return configs

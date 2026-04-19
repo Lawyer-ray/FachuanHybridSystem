@@ -51,4 +51,4 @@ class FinalizedMaterial(models.Model):
         ]
 
     def __str__(self) -> str:
-        return f"{self.original_filename} ({self.get_category_display()})"  # type: ignore[attr-defined]
+        return f"{self.original_filename} ({self.get_category_display()})"

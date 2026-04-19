@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, NotRequired, Protocol, TypedDict
+from typing import TYPE_CHECKING, Final, NotRequired, Protocol, TypedDict
 
 from django.db import transaction
 from django.utils.dateparse import parse_datetime
@@ -104,7 +104,7 @@ class LawyerResolverProtocol(Protocol):
 
 logger = logging.getLogger("apps.cases")
 
-_CASE_FIELDS: tuple[str, ...] = (
+_CASE_FIELDS: Final[tuple[str, ...]] = (
     "name",
     "status",
     "effective_date",
@@ -182,7 +182,7 @@ class CaseImportService:
                 contract_data = {k: v for k, v in contract_data.items() if k != "cases"}
                 contract = self._contract_import.resolve(contract_data)
 
-        case_data = {f: data[f] for f in _CASE_FIELDS if f in data}
+        case_data = {f: data[f] for f in _CASE_FIELDS if f in data}  # type: ignore[literal-required]
         if not case_data.get("filing_number"):
             case_data["filing_number"] = None
         if contract is not None:

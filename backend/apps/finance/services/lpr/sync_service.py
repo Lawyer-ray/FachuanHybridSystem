@@ -13,7 +13,7 @@ import time
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import httpx
 from django.db import transaction
@@ -143,7 +143,7 @@ class LPRSyncService:
             finally:
                 page.close()
 
-    def _parse_lpr_table_from_page(self, page) -> list[LPRData]:
+    def _parse_lpr_table_from_page(self, page: Any) -> list[LPRData]:
         """直接从Playwright页面解析LPR表格数据.
 
         Args:

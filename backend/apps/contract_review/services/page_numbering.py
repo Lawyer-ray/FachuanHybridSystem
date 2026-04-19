@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 
 from docx import Document
+from docx.document import Document as DocumentType
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from lxml import etree
@@ -15,13 +16,13 @@ W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 class PageNumbering:
     """页码标准化：删除旧页码，设置标准居中阿拉伯数字页码"""
 
-    def standardize(self, doc: Document) -> None:
+    def standardize(self, doc: DocumentType) -> None:
         """删除旧页码域代码，在页脚设置新页码"""
         self._remove_existing_page_numbers(doc)
         self._add_page_number_footer(doc)
         logger.info("页码标准化完成")
 
-    def _remove_existing_page_numbers(self, doc: Document) -> None:
+    def _remove_existing_page_numbers(self, doc: DocumentType) -> None:
         """检测并删除所有已有页码域代码"""
         body = doc.element.body
         # 查找所有 sectPr 中的页脚引用对应的页码域
@@ -43,7 +44,7 @@ class PageNumbering:
                         if p is not None and p.getparent() is not None:
                             p.getparent().remove(p)
 
-    def _add_page_number_footer(self, doc: Document) -> None:
+    def _add_page_number_footer(self, doc: DocumentType) -> None:
         """通过 OxmlElement 构造域代码设置居中页码"""
         section = doc.sections[-1]
         footer = section.footer

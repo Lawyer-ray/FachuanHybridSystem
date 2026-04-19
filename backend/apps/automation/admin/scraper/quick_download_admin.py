@@ -39,7 +39,7 @@ class QuickDownloadAdmin(admin.ModelAdmin[QuickDownloadTool]):
             path("download/", self.admin_site.admin_view(self.download_view), name="{}_{}_download".format(*info)),
             path("", self.admin_site.admin_view(self.redirect_to_download)),
         ]
-        return custom + urls  # type: ignore[return-value]
+        return custom + urls
 
     def redirect_to_download(self, request: HttpRequest) -> HttpResponseRedirect:
         info = self.model._meta.app_label, self.model._meta.model_name

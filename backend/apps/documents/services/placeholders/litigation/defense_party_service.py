@@ -89,7 +89,7 @@ class DefensePartyService(BasePlaceholderService):
         Requirements: 3.1, 5.1, 5.2, 5.3
         """
 
-        role_map = {"答辩人": [], "被答辩人": [], "第三人": [], "被告": []}
+        role_map: dict[str, list[Any]] = {"答辩人": [], "被答辩人": [], "第三人": [], "被告": []}
 
         scenario_handlers = {
             "defendant_only": self._map_defendant_only,

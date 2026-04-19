@@ -28,7 +28,7 @@ _auth_service = _get_auth_service()
 @rate_limit_from_settings("AUTH")
 def login_view(request: HttpRequest, payload: LoginIn) -> LoginOut:
     user = _auth_service.login(request, payload.username, payload.password)
-    user_out = cast(LawyerOut, LawyerOut.from_orm(user))
+    user_out = LawyerOut.from_orm(user)
     return LoginOut(success=True, user=user_out)
 
 
@@ -40,4 +40,4 @@ def logout_view(request: HttpRequest) -> dict[str, bool]:
 
 @router.get("/me", response=LawyerOut, auth=JWTOrSessionAuth())
 def me_view(request: HttpRequest) -> LawyerOut:
-    return cast(LawyerOut, LawyerOut.from_orm(request.user))
+    return LawyerOut.from_orm(request.user)

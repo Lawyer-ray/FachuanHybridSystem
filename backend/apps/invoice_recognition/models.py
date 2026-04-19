@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from datetime import date, datetime, time, timedelta
+from decimal import Decimal
+from typing import Any
+
 from typing import ClassVar
 
 from django.conf import settings
@@ -45,14 +49,14 @@ class InvoiceRecognitionTask(models.Model):
     """发票识别任务。"""
 
     id: int
-    name = models.CharField(max_length=255, verbose_name=_("任务名称"))
-    status = models.CharField(
+    name: str = models.CharField(max_length=255, verbose_name=_("任务名称"))
+    status: str = models.CharField(
         max_length=32,
         choices=InvoiceRecognitionTaskStatus.choices,
         default=InvoiceRecognitionTaskStatus.PENDING,
         verbose_name=_("任务状态"),
     )
-    created_by = models.ForeignKey(
+    created_by: Any = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
@@ -60,9 +64,9 @@ class InvoiceRecognitionTask(models.Model):
         related_name="+",
         verbose_name=_("创建人"),
     )
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
-    finished_at = models.DateTimeField(null=True, blank=True, verbose_name=_("完成时间"))
-    merge_config = models.JSONField(default=list, blank=True, verbose_name=_("分组合并配置"))
+    created_at: datetime = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
+    finished_at: datetime | None = models.DateTimeField(null=True, blank=True, verbose_name=_("完成时间"))
+    merge_config: Any = models.JSONField(default=list, blank=True, verbose_name=_("分组合并配置"))
 
     class Meta:
         managed = False
@@ -79,51 +83,51 @@ class InvoiceRecord(models.Model):
     """发票记录。"""
 
     id: int
-    task = models.ForeignKey(
+    task: Any = models.ForeignKey(
         InvoiceRecognitionTask,
         on_delete=models.CASCADE,
         related_name="records",
         verbose_name=_("所属任务"),
     )
-    file_path = models.CharField(max_length=1024, verbose_name=_("文件路径"))
-    original_filename = models.CharField(max_length=255, verbose_name=_("原始文件名"))
-    invoice_code = models.CharField(max_length=50, blank=True, default="", verbose_name=_("发票代码"))
-    invoice_number = models.CharField(max_length=50, blank=True, default="", verbose_name=_("发票号码"))
-    invoice_date = models.DateField(null=True, blank=True, verbose_name=_("开票日期"))
-    amount = models.DecimalField(
+    file_path: str = models.CharField(max_length=1024, verbose_name=_("文件路径"))
+    original_filename: str = models.CharField(max_length=255, verbose_name=_("原始文件名"))
+    invoice_code: str = models.CharField(max_length=50, blank=True, default="", verbose_name=_("发票代码"))
+    invoice_number: str = models.CharField(max_length=50, blank=True, default="", verbose_name=_("发票号码"))
+    invoice_date: date | None = models.DateField(null=True, blank=True, verbose_name=_("开票日期"))
+    amount: Decimal = models.DecimalField(
         max_digits=12,
         decimal_places=2,
         null=True,
         blank=True,
         verbose_name=_("金额（不含税）"),
     )
-    tax_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name=_("税额"))
-    total_amount = models.DecimalField(
+    tax_amount: Decimal | None = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name=_("税额"))
+    total_amount: Decimal = models.DecimalField(
         max_digits=12,
         decimal_places=2,
         null=True,
         blank=True,
         verbose_name=_("价税合计"),
     )
-    buyer_name = models.CharField(max_length=255, blank=True, default="", verbose_name=_("购买方名称"))
-    seller_name = models.CharField(max_length=255, blank=True, default="", verbose_name=_("销售方名称"))
-    project_name = models.CharField(max_length=255, blank=True, default="", verbose_name=_("项目名称"))
-    category = models.CharField(
+    buyer_name: str = models.CharField(max_length=255, blank=True, default="", verbose_name=_("购买方名称"))
+    seller_name: str = models.CharField(max_length=255, blank=True, default="", verbose_name=_("销售方名称"))
+    project_name: str = models.CharField(max_length=255, blank=True, default="", verbose_name=_("项目名称"))
+    category: str = models.CharField(
         max_length=32,
         choices=InvoiceCategory.choices,
         default=InvoiceCategory.OTHER,
         verbose_name=_("发票类目"),
     )
-    raw_text = models.TextField(blank=True, default="", verbose_name=_("OCR 原始文本"))
-    is_duplicate = models.BooleanField(default=False, verbose_name=_("是否重复"))
-    duplicate_of_id = models.IntegerField(null=True, blank=True, verbose_name=_("重复的原始记录ID"))
-    status = models.CharField(
+    raw_text: str = models.TextField(blank=True, default="", verbose_name=_("OCR 原始文本"))
+    is_duplicate: bool = models.BooleanField(default=False, verbose_name=_("是否重复"))
+    duplicate_of_id: int | None = models.IntegerField(null=True, blank=True, verbose_name=_("重复的原始记录ID"))
+    status: str = models.CharField(
         max_length=32,
         choices=InvoiceRecordStatus.choices,
         default=InvoiceRecordStatus.PENDING,
         verbose_name=_("识别状态"),
     )
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
+    created_at: datetime = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
 
     class Meta:
         managed = False

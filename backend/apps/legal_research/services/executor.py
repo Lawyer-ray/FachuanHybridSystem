@@ -173,7 +173,7 @@ class LegalResearchExecutor(
     def run(self, *, task_id: str) -> dict[str, Any]:
         task, early_result = self._acquire_task(task_id=task_id)
         if early_result is not None:
-            return cast(dict[str, Any], early_result)
+            return early_result
         if task is None:
             logger.error("案例检索任务获取失败", extra={"task_id": task_id})
             return {"task_id": task_id, "status": "failed", "error": "任务不存在"}

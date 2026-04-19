@@ -32,8 +32,8 @@ ci-check: ## 模拟 GitHub backend (3.12) job 的核心检查（changed-files �
 		echo "🔍 [1/3] Ruff (changed files): $$CHANGED"; \
 		$(PYTHON) -m ruff check $$CHANGED --config ruff.toml; \
 		echo ""; \
-		echo "🔍 [2/3] Mypy (changed files, follow-imports=skip): $$CHANGED"; \
-		PYTHONPATH=apiSystem:. $(PYTHON) -m mypy --config-file mypy.ini --follow-imports=skip $$CHANGED; \
+		echo "🔍 [2/3] Mypy (changed files, follow-imports=silent): $$CHANGED"; \
+		PYTHONPATH=apiSystem:. $(PYTHON) -m mypy --config-file mypy.ini --follow-imports=silent $$CHANGED; \
 		echo ""; \
 	fi
 	@echo "🔍 [3/3] 测试收集 (structure smoke):"
@@ -233,7 +233,7 @@ format: ## 格式化代码
 	$(PYTHON) -m isort apps
 
 typecheck-ratchet: ## 类型检查（仅棘轮路径）
-	$(PYTHON) -m mypy \
+	PYTHONPATH=apiSystem:. $(PYTHON) -m mypy \
 		apps/core/infrastructure/throttling.py \
 		apps/core/middleware_request_id.py \
 		apps/core/exceptions_handlers.py \
@@ -257,11 +257,11 @@ typecheck-ratchet: ## 类型检查（仅棘轮路径）
 		apps/contracts/services/contract/contract_service_adapter.py \
 		apps/organization/services/org_access_computation_service.py \
 		apps/organization/services/wiring.py \
-		--follow-imports=skip \
+		--follow-imports=silent \
 		--config-file mypy.ini
 
 typecheck: ## 全量类型检查 apps/
-	$(PYTHON) -m mypy apps --config-file mypy.ini
+	PYTHONPATH=apiSystem:. $(PYTHON) -m mypy apps --config-file mypy.ini
 
 typecheck-full: typecheck ## 全量类型检查（typecheck 别名）
 

@@ -414,8 +414,8 @@ class TokenCacheManager:
             pattern = f"{self.cache_prefix}:*"
             keys = client.keys(pattern)
             if keys:
-                client.delete(*keys)
-            logger.info(f"Redis 命名空间缓存已清除: {len(keys)} 个键")
+                client.delete(*keys)  # type: ignore[misc]
+            logger.info(f"Redis 命名空间缓存已清除: {len(keys)} 个键")  # type: ignore[arg-type]
         except ModuleNotFoundError:
             logger.warning("token_cache_clear_redis_client_init_failed")
         except Exception as e:

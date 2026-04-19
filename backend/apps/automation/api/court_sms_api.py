@@ -49,8 +49,8 @@ def submit_sms(request: Any, payload: CourtSMSSubmitIn) -> CourtSMSSubmitOut:
 def submit_sms_form(
     request: Any,
     content: str = Form(...),
-    received_at: datetime | None = Form(None),  # type: ignore[misc]
-    sender: str | None = Form(None),  # type: ignore[misc]
+    received_at: datetime | None = Form(None),
+    sender: str | None = Form(None),
 ) -> CourtSMSSubmitOut:
     """
     提交法院短信（表单格式）
@@ -80,7 +80,7 @@ def get_sms_detail(request: Any, sms_id: int) -> CourtSMSDetailOut:
 
     sms = service.get_sms_detail(sms_id)
 
-    return cast(CourtSMSDetailOut, CourtSMSDetailOut.from_model(sms))
+    return CourtSMSDetailOut.from_model(sms)
 
 
 @router.get("/court-sms", response=list[CourtSMSListOut])

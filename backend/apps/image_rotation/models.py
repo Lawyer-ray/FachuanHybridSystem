@@ -10,7 +10,7 @@ class ImageRotationTool(models.Model):
     """Admin entry model for image rotation."""
 
     id: int
-    name = models.CharField(max_length=64, default="Image Rotation")
+    name: str = models.CharField(max_length=64, default="Image Rotation")
 
     class Meta:
         managed = False

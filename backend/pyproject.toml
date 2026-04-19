@@ -75,8 +75,10 @@ dev = [
     "ruff==0.15.8",
     # --- 类型检查 ---
     "mypy==1.20.0",
-    "django-stubs==6.0.2",
-    "django-stubs-ext==6.0.2",
+    "django-stubs==6.0.3",
+    "django-stubs-ext==6.0.3",
+    "types-python-dateutil",
+    "types-requests",
     # --- 安全扫描 ---
     "bandit==1.9.4",
     "detect-secrets==1.5.0",

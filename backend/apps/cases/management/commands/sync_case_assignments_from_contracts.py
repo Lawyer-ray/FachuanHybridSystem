@@ -39,11 +39,11 @@ class Command(BaseCommand):
         service = CaseAssignmentService(
             case_service=ServiceLocator.get_case_service(),
             contract_assignment_query_service=ServiceLocator.get_contract_assignment_query_service(),
-        )  # type: ignore[call-arg]
+        )
         created_total = 0
         deleted_total = 0
         for case in qs.iterator(chunk_size=200):
-            stats = service.sync_assignments_from_contract(case_id=case.id, user=None, perm_open_access=True)  # type: ignore[attr-defined]
+            stats = service.sync_assignments_from_contract(case_id=case.id, user=None, perm_open_access=True)
             created_total += int(stats.get("created", 0))
             deleted_total += int(stats.get("deleted", 0))
         self.stdout.write(self.style.SUCCESS("同步完成"))

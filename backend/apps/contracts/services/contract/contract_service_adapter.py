@@ -106,7 +106,7 @@ class ContractServiceAdapter:
         contract = self.contract_service.query_service.get_contract_with_details_model_internal(contract_id)
         if not contract:
             return None
-        return cast(dict[str, Any], self.details_assembler.to_dict(contract))
+        return self.details_assembler.to_dict(contract)
 
     def get_party_roles_by_contract_internal(self, contract_id: int) -> list[PartyRoleDTO]:
         try:

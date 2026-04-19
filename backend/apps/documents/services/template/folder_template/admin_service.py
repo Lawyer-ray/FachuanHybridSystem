@@ -11,6 +11,7 @@ from django.utils.safestring import mark_safe
 from apps.core.exceptions import NotFoundError
 from apps.documents.models import FolderTemplate
 from apps.documents.models.choices import FolderTemplateType, LegalStatusMatchMode
+from django.utils.translation import gettext_lazy as _
 
 from ..folder_service import FolderTemplateService
 
@@ -29,7 +30,7 @@ class FolderTemplateAdminService:
         if self._folder_template_service is None:
             from apps.core.dependencies.documents import build_folder_template_service
 
-            self._folder_template_service = build_folder_template_service()  # type: ignore[assignment]
+            self._folder_template_service = build_folder_template_service()
         return self._folder_template_service
 
     def validate_and_fix_template_form(self, form_data: dict[str, Any]) -> dict[str, Any]:

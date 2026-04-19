@@ -20,7 +20,7 @@ router = Router()
 
 def _get_supplementary_agreement_service() -> SupplementaryAgreementService:
     """工厂函数：创建服务实例并注入依赖"""
-    return SupplementaryAgreementService(client_service=ClientServiceAdapter())  # type: ignore[abstract]
+    return SupplementaryAgreementService(client_service=ClientServiceAdapter())
 
 
 @router.post("/supplementary-agreements", response=SupplementaryAgreementOut)

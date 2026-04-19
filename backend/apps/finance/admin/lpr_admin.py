@@ -9,7 +9,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from django.contrib import admin
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
@@ -65,11 +65,11 @@ class LPRRateAdmin(BaseModelAdmin):
         """禁止手动添加LPR数据."""
         return False
 
-    def has_change_permission(self, request: HttpRequest, obj=None) -> bool:
+    def has_change_permission(self, request: HttpRequest, obj: Any = None) -> bool:
         """禁止修改LPR数据."""
         return False
 
-    def has_delete_permission(self, request: HttpRequest, obj=None) -> bool:
+    def has_delete_permission(self, request: HttpRequest, obj: Any = None) -> bool:
         """禁止删除LPR数据."""
         return False
 
@@ -139,7 +139,7 @@ class LPRRateAdmin(BaseModelAdmin):
         from apps.core.exceptions import BusinessException
         from apps.finance.services.lpr import LPRSyncService
 
-        user: User = request.user  # type: ignore[assignment]
+        user: User = request.user
         logger.info(f"[LPRAdmin] User {user.id} triggered sync from admin")
 
         try:

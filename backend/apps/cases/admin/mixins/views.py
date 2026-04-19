@@ -270,7 +270,7 @@ class CaseAdminViewsMixin:
     ) -> list[tuple[str, list[dict[str, object]]]]:
         from apps.cases.services.case.case_admin_service import CaseAdminService
 
-        return CaseAdminService().group_templates_by_sub_type(templates, sub_type_choices)  # type: ignore[no-any-return]
+        return CaseAdminService().group_templates_by_sub_type(templates, sub_type_choices)
 
     def _build_case_materials_view(self, request: HttpRequest, case: Case) -> dict[str, object]:
         material_service = self._get_case_material_service()  # type: ignore[attr-defined]

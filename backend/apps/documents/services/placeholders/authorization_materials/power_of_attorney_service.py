@@ -127,7 +127,7 @@ class PowerOfAttorneyPlaceholderService(BasePlaceholderService):
             assignments = list(case.assignments.select_related("lawyer__law_firm").order_by("id"))
         except Exception as e:
             logger.warning("获取案件律师失败", extra={"case_id": getattr(case, "id", None), "error": str(e)})
-            assignments: list[Any] = []
+            assignments = []
         blocks: list[str] = []
         for assignment in assignments:
             lawyer = getattr(assignment, "lawyer", None)
@@ -213,7 +213,7 @@ class PowerOfAttorneyPlaceholderService(BasePlaceholderService):
             parties = list(case.parties.select_related("client").all())
         except Exception:
             logger.exception("操作失败")
-            parties: list[Any] = []
+            parties = []
         for party in parties:
             client = getattr(party, "client", None)
             if not client or not getattr(client, "is_our_client", False):

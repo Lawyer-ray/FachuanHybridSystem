@@ -23,7 +23,7 @@ class FolderTemplateCommandService:
     structure_rules: FolderTemplateStructureRules
 
     @transaction.atomic
-    def create_template(  # type: ignore[override]
+    def create_template(
         self,
         *,
         name: str,
@@ -32,7 +32,7 @@ class FolderTemplateCommandService:
         structure: dict[str, Any],
         is_default: bool = False,
         is_active: bool = True,
-        **kwargs,
+        **kwargs: Any,
     ) -> FolderTemplate:
         is_valid, error_msg = self.validation_service.validate_structure(structure)
         if not is_valid:
