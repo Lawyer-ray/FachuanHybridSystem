@@ -2,6 +2,17 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.35.4] - 2026-04-19
+
+### 后端
+
+- 归档文书占位符服务：新增 `ArchivePlaceholderService` 和 `ArchiveContractTypeService`，为6个归档模板（案卷封面、结案归档登记表、卷内目录、律师工作日志、服务质量监督卡、办案小结）提供自动数据填充能力。
+  - `ArchivePlaceholderService`（`archive/` 目录）：覆盖10个占位符——主办律师姓名、合同名称、合同我方/对方当事人名称、合同类型、律所OA案件编号、案件案号、管辖法院、归档日期、生成日期。
+  - `ArchiveContractTypeService`（`contract/` 目录）：将合同类型映射为归档分类占位符 `{{归档合同类型}}`（民商事/行政/劳动仲裁/商事仲裁→诉讼仲裁，刑事→刑事诉讼，专项服务→非诉，常法顾问→常年法律顾问）。
+  - 与已有 `YearPlaceholderService`、`DatePlaceholderService`、`CaseCommonPlaceholderService` 协同，14/18个归档占位符可自动生成。
+  - 剩余4个占位符（办案小结内容、律师工作日志内容、案件审理结果、结案归档材料）需AI或人工填写。
+- 更新案卷封面模板。
+
 ## [26.35.3] - 2026-04-19
 
 ### 后端
