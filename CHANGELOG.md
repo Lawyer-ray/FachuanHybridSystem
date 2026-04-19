@@ -2,6 +2,24 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.35.3] - 2026-04-19
+
+### 后端
+
+- 群聊平台扩展：新增钉钉（DingtalkProvider）和 Telegram（TelegramProvider）两个 ChatProvider 实现，法院短信通知的一案一群功能从飞书+企业微信扩展至4个平台。
+  - 钉钉：使用会话2.0 API（api.dingtalk.com）创建群聊，oapi 获取 access_token，机器人发送群聊消息，文件通过 media 上传+发送。
+  - Telegram：采用超级群组论坛（Topic）模式实现一案一群——管理员预建开启论坛功能的超级群组，每个案件创建一个 ForumTopic 等同于一个群聊。chat_id 格式为 `{supergroup_id}:{thread_id}`，消息/文件自动携带话题 ID。
+  - 新增 `_dingtalk_token_mixin.py`、`_dingtalk_file_mixin.py`、`dingtalk_provider.py`、`_telegram_token_mixin.py`、`_telegram_file_mixin.py`、`telegram_provider.py`。
+  - `ChatProviderFactory` 自动注册钉钉和 Telegram Provider。
+  - `ChatRecreatePolicy` 补充钉钉和 Telegram 群聊不存在的错误码与关键词。
+  - `SystemConfig.Category` 枚举新增 `telegram` 分类，Admin 分类标签颜色新增 Telegram 品牌蓝（#0088cc）。
+  - 系统配置初始化新增钉钉配置项（APP_KEY / APP_SECRET / AGENT_ID / DEFAULT_OWNER_ID）和 Telegram 配置项（BOT_TOKEN / SUPERGROUP_ID），TIMEOUT 由代码兜底无需用户配置。
+  - 配置注册、环境变量映射、配置工具函数同步补充钉钉和 Telegram 支持。
+
+### 测试
+
+- 新增 `test_dingtalk_provider.py` 和 `test_telegram_provider.py`，覆盖平台属性、配置完整性、建群/发消息/发文件/获取信息、chat_id 解析（Telegram Topic）、工厂注册等 29 个测试用例。
+
 ## [26.35.2] - 2026-04-18
 
 ### 后端
