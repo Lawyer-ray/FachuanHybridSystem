@@ -400,7 +400,7 @@ class DocumentDeliveryScheduleService:
         count = schedule_svc.delete_schedules(name=schedule_name)
 
         logger.info(f"已移除 {count} 个调度任务: {schedule_name}")
-        return cast(int, count)
+        return int(count)
 
     def list_schedules(
         self, credential_id: int | None = None, is_active: bool | None = None

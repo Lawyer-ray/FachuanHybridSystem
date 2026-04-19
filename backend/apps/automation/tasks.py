@@ -7,7 +7,7 @@ import logging
 from collections.abc import Coroutine
 from concurrent.futures import Future
 from threading import Thread
-from typing import Any, cast
+from typing import Any
 
 logger = logging.getLogger("apps.automation")
 
@@ -246,7 +246,7 @@ def execute_preservation_quote_task(quote_id: int) -> dict[str, Any]:
         )
 
         raw_result = _run_coroutine_sync(quote_service.execute_quote(quote_id))
-        result = cast(dict[str, Any], raw_result)
+        result: dict[str, Any] = raw_result  # type: ignore[assignment]
 
         logger.info("✅ 询价任务 #%s 执行完成: %s", quote_id, result)
         return result
