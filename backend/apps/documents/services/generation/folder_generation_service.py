@@ -416,7 +416,7 @@ class FolderGenerationService:
 
         # 3. 构建案件上下文并渲染文档
         documents: list[tuple[str, bytes, str]] = []
-        context = EnhancedContextBuilder().build_context({"case": case, "case_id": case.id})  # type: ignore[typeddict-unknown-key]
+        context = EnhancedContextBuilder().build_context({"case": case, "case_id": case.id})
         # raw_structure 的根才是案件文件夹真正的根（root_name），用于路径剥离
         root_folder_name = raw_structure.get("name", "")
 

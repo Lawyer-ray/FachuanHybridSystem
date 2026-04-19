@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class Command(BaseCommand):
     help: str = "预下载 PP-OCRv5 Server 模型文件"
 
-    def handle(self, *args, **options: Any) -> None:
+    def handle(self, *args: Any, **options: Any) -> None:
         self.stdout.write("正在初始化 PP-OCRv5 Server 模型...")
         self.stdout.write("(模型会自动下载,请稍候...)")
 

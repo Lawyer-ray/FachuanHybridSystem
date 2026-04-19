@@ -78,7 +78,7 @@ class CollectionRecord(models.Model):
         ]
 
     def __str__(self) -> str:
-        return f"催收: {self.case} - {self.get_current_stage_display()}"  # type: ignore[attr-defined]
+        return f"催收: {self.case} - {self.get_current_stage_display()}"
 
     @property
     def days_elapsed(self) -> int:
@@ -136,4 +136,4 @@ class CollectionLog(models.Model):
         ordering: ClassVar = ["-action_date", "-created_at"]
 
     def __str__(self) -> str:
-        return f"{self.get_action_type_display()} - {self.action_date}"  # type: ignore[attr-defined]
+        return f"{self.get_action_type_display()} - {self.action_date}"

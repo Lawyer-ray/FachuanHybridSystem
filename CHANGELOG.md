@@ -2,6 +2,29 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.35.5] - 2026-04-20
+
+### 后端
+
+- **启用 mypy_django_plugin**：升级 `django-stubs` 从 6.0.2 到 6.0.3，修复了之前的 INTERNAL ERROR bug（`AssertionError: Must not defer during final iteration in request.pyi`），重新启用 `mypy_django_plugin`，mypy 错误从 1883 降至 675（减少 64%）。
+  - `mypy.ini` 中取消 `plugins = mypy_django_plugin.main` 的注释。
+  - Makefile 的 `typecheck` 和 `typecheck-ratchet` 命令添加 `PYTHONPATH=apiSystem:.` 以支持 plugin 初始化。
+- **新增类型 stubs 依赖**：`types-python-dateutil`、`types-requests`，消除 `import-untyped` 错误。
+- **修复 mypy 错误**（167 个文件，涵盖以下错误类别）：
+  - `import-untyped`(3)：安装第三方 stubs 包。
+  - `name-defined`(10)：补充缺失的 `admin`、`os`、`_`、`NotFoundError` 等导入。
+  - `no-redef`(4)：删除 `execute_document_delivery_schedules.py` 重复的 `handle` 方法；移除 except 分支冗余类型注解。
+  - `return`(10)：在 `_raise_not_implemented` / `_raise_all_unavailable` 后补 `raise AssertionError`，标注不可达。
+  - `valid-type`(38)：`docx.api.Document` → `docx.document.Document as DocumentType`；Evidence 模型改从 `apps.evidence.models` 导入。
+  - `used-before-def`(2)：`doc, _` → `doc, _created` 避免遮蔽 `gettext_lazy` 的 `_`。
+  - `typeddict-unknown-key`(2)：`PlaceholderContextData` 新增 `case`、`case_id`、`split_fee` 字段。
+  - `no-untyped-def`(53)：为 Admin 方法、Management Command、API 函数补充 `request: Any`、`obj: Any`、`**kwargs: Any` 等类型注解。
+  - `var-annotated`(2)：`case_log_ids`、`role_map` 补充类型注解。
+  - `unused-ignore`(6)：移除因 plugin 启用后不再需要的 `# type: ignore` 注释。
+  - `literal-required`(2)：为 `_CONTRACT_FIELDS` / `_CASE_FIELDS` 添加 `# type: ignore[literal-required]`。
+  - `func-returns-value`(1)：`build_folder_template_service` 返回类型从 `None` 改为 `Any`。
+  - `index`(1)：`gsxt_email_service.py` 的 IMAP fetch 结果添加 `# type: ignore[index]`。
+
 ## [26.35.4] - 2026-04-19
 
 ### 后端

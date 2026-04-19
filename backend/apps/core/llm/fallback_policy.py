@@ -130,6 +130,7 @@ class LLMFallbackPolicy:
                 continue
 
         _raise_all_unavailable(errors, skipped)
+        raise AssertionError  # unreachable
 
     async def execute_async(
         self,
@@ -162,3 +163,4 @@ class LLMFallbackPolicy:
                 continue
 
         _raise_all_unavailable(errors, skipped)
+        raise AssertionError  # unreachable

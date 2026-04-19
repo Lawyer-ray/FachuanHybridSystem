@@ -62,7 +62,7 @@ def _fetch_report_attachment(user: str, password: str, company_name: str) -> byt
         # 从最新的开始找，找到即返回
         for msg_id in reversed(all_ids):
             _, msg_data = mail.fetch(msg_id, "(RFC822)")
-            raw = msg_data[0][1]
+            raw = msg_data[0][1]  # type: ignore[index]
             if not isinstance(raw, bytes):
                 continue
             msg = email.message_from_bytes(raw)

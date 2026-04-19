@@ -123,7 +123,7 @@ class TokenAcquisitionHistory(models.Model):
         ]
 
     def __str__(self) -> str:
-        return f"{self.site_name} - {self.account} - {self.get_status_display()}"  # type: ignore[attr-defined]
+        return f"{self.site_name} - {self.account} - {self.get_status_display()}"
 
     def save(self, *args: Any, **kwargs: Any) -> None:
         """保存前对敏感字段进行脱敏处理"""

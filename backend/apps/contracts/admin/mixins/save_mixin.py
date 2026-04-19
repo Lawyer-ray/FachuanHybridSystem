@@ -33,7 +33,7 @@ def _get_contract_admin_action_service() -> Any:
 class ContractSaveMixin:
     """合同 Admin 保存/删除钩子的 Mixin"""
 
-    def save_model(self, request, obj, form, change) -> None:
+    def save_model(self, request: Any, obj: Any, form: Any, change: bool) -> None:
         """
         保存合同模型,处理建档编号逻辑
 
@@ -68,7 +68,7 @@ class ContractSaveMixin:
             )
             messages.error(request, _("处理建档编号失败: %(err)s") % {"err": e})
 
-    def save_related(self, request, form, formsets, change) -> None:
+    def save_related(self, request: Any, form: Any, formsets: Any, change: bool) -> None:
         super().save_related(request, form, formsets, change)
 
         contract = form.instance
@@ -86,8 +86,8 @@ class ContractSaveMixin:
             )
             messages.error(request, _("同步关联案件律师指派失败: %(err)s") % {"err": e})
 
-    def delete_model(self, request, obj) -> None:
+    def delete_model(self, request: Any, obj: Any) -> None:
         super().delete_model(request, obj)
 
-    def delete_queryset(self, request, queryset) -> None:
+    def delete_queryset(self, request: Any, queryset: Any) -> None:
         super().delete_queryset(request, queryset)

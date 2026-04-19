@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from apps.core.protocols import (
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     )
 
 
-def build_folder_template_service() -> None:
+def build_folder_template_service() -> Any:
     from apps.documents.services.folder_template.command_service import FolderTemplateCommandService
     from apps.documents.services.folder_template.id_service import FolderTemplateIdService
     from apps.documents.services.folder_template.query_service import FolderTemplateQueryService
@@ -34,7 +34,7 @@ def build_folder_template_service() -> None:
     )
     query_service = FolderTemplateQueryService(repo=repo, id_service=id_service)
 
-    return FolderTemplateService(  # type: ignore[return-value]
+    return FolderTemplateService(
         usecases=FolderTemplateUsecases(
             command_service=command_service,
             query_service=query_service,

@@ -58,7 +58,7 @@ class ApiDeliveryService:
         """
         logger.info(f"开始 API 查询文书: cutoff_time={cutoff_time}")
 
-        case_log_ids = ([],)
+        case_log_ids: tuple[list[Any]] = ([],)
         errors: list[Any] = []
 
         result = DocumentQueryResult(

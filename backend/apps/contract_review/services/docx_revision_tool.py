@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 _CST = timezone(timedelta(hours=8))
 
 from docx import Document
+from docx.document import Document as DocumentType
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.text.paragraph import Paragraph
@@ -30,7 +31,7 @@ class DocxRevisionTool:
     """通过 lxml 操作 OOXML 实现 Track Changes（修订模式）"""
 
     @staticmethod
-    def enable_track_changes(doc: Document) -> None:
+    def enable_track_changes(doc: DocumentType) -> None:
         """在文档 settings 中启用修订模式"""
         # 确保 settings part 存在
         settings_part = doc.settings.element

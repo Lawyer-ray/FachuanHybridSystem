@@ -4,6 +4,7 @@ import logging
 from typing import cast
 
 from docx import Document
+from docx.document import Document as DocumentType
 from docx.enum.text import WD_LINE_SPACING
 from docx.oxml.ns import qn
 from docx.shared import Pt
@@ -34,7 +35,7 @@ _HEADING_STYLES = {
 class DocxFormatter:
     """合同文档格式标准化"""
 
-    def format_document(self, doc: Document) -> None:
+    def format_document(self, doc: DocumentType) -> None:
         """标题黑体小二，正文宋体小四，全文统一段落间距和行距"""
         self._clean_style_indent_chars(doc)
         title_elem = self._find_title_element(doc)
@@ -50,7 +51,7 @@ class DocxFormatter:
         logger.info("文档格式标准化完成")
 
     @staticmethod
-    def _clean_style_indent_chars(doc: Document) -> None:
+    def _clean_style_indent_chars(doc: DocumentType) -> None:
         """清除所有样式中的字符单位缩进属性，防止覆盖绝对值设置"""
         chars_attrs = [qn(a) for a in ("w:firstLineChars", "w:leftChars", "w:rightChars", "w:hangingChars")]
         for style in doc.styles:
@@ -65,7 +66,7 @@ class DocxFormatter:
                     del ind.attrib[key]
 
     @staticmethod
-    def _find_title_element(doc: Document) -> object | None:
+    def _find_title_element(doc: DocumentType) -> object | None:
         """找到合同标题段落的 XML 元素"""
         for p in doc.paragraphs:
             style_name = p.style.name if p.style else ""

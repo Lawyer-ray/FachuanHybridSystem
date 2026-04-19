@@ -23,7 +23,7 @@ class TestToolsHubAdmin(admin.ModelAdmin):
     提供统一的测试工具导航入口
     """
 
-    def changelist_view(self, request, extra_context=None) -> None:
+    def changelist_view(self, request: Any, extra_context: Any = None) -> Any:
         """自定义列表页 - 显示测试工具导航"""
         # 定义所有测试工具(使用 SVG 图标)
         # SVG 图标定义
@@ -99,18 +99,18 @@ class TestToolsHubAdmin(admin.ModelAdmin):
             context,
         )
 
-    def has_add_permission(self, request) -> None:
+    def has_add_permission(self, request: Any) -> bool:
         """禁用添加功能"""
         return False
 
-    def has_delete_permission(self, request, obj=None) -> None:
+    def has_delete_permission(self, request: Any, obj: Any = None) -> bool:
         """禁用删除功能"""
         return False
 
-    def has_change_permission(self, request, obj=None) -> None:
+    def has_change_permission(self, request: Any, obj: Any = None) -> bool:
         """禁用修改功能"""
         return False
 
-    def has_module_permission(self, request) -> bool:
+    def has_module_permission(self, request: Any) -> bool:
         """隐藏在 Admin 菜单中"""
         return False

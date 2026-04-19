@@ -59,38 +59,6 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.ERROR(f"任务 [{schedule.id}] 执行失败: {e!s}"))
             return 0, 1
 
-    def handle(self, *args: Any, **options: Any) -> None:
-        from apps.automation.services.document_delivery.document_delivery_schedule_service import (
-            DocumentDeliveryScheduleService,
-        )
-
-        verbose = options.get("verbosity", 1) > 0
-
-        if verbose:
-            self.stdout.write("=" * 60)
-            self.stdout.write(self.style.SUCCESS("文书送达定时任务执行"))
-            self.stdout.write("=" * 60)
-
-        schedule_service = DocumentDeliveryScheduleService()
-
-        if options["schedule_id"]:
-            schedules = self._get_specific_schedule(options["schedule_id"], options["force"])
-        else:
-            schedules = schedule_service.get_due_schedules()
-
-        if not schedules:
-            if verbose:
-                self.stdout.write(self.style.WARNING("没有找到需要执行的定时任务"))
-            return
-
-        if verbose:
-            self._show_schedule_info(schedules)
-
-        if options["dry_run"]:
-            if verbose:
-                self.stdout.write(self.style.WARNING("\n[DRY RUN] 只显示，不执行"))
-            return
-
     def _print_summary(self, verbose: bool, total_processed: int, total_failed: int) -> None:
         """打印执行摘要"""
         if verbose:

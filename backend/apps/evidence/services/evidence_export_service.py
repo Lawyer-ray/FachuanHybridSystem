@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from docx import Document
+from docx.document import Document as DocumentType
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Cm
@@ -290,7 +291,7 @@ class EvidenceExportService:
                 errors={"list_id": f"ID 为 {list_id} 的证据清单不存在"},
             ) from None
 
-    def _create_evidence_table(self, doc: Document, items: list[EvidenceItem], global_order_start: int = 1) -> None:
+    def _create_evidence_table(self, doc: DocumentType, items: list[EvidenceItem], global_order_start: int = 1) -> None:
         """
         创建证据清单表格
 
@@ -335,7 +336,7 @@ class EvidenceExportService:
             row_cells[5].text = item.page_range_display
             row_cells[5].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-    def _add_evidence_detail_section(self, doc: Document, item: EvidenceItem, global_order: int) -> None:
+    def _add_evidence_detail_section(self, doc: DocumentType, item: EvidenceItem, global_order: int) -> None:
         """
         添加证据明细章节
 

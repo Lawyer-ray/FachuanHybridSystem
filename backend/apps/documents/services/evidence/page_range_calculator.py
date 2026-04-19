@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from django.db import transaction
 
-from apps.documents.models import EvidenceItem, EvidenceList
+from apps.evidence.models import EvidenceItem, EvidenceList
 
 
 class EvidencePageRangeCalculator:

@@ -233,7 +233,7 @@ format: ## 格式化代码
 	$(PYTHON) -m isort apps
 
 typecheck-ratchet: ## 类型检查（仅棘轮路径）
-	$(PYTHON) -m mypy \
+	PYTHONPATH=apiSystem:. $(PYTHON) -m mypy \
 		apps/core/infrastructure/throttling.py \
 		apps/core/middleware_request_id.py \
 		apps/core/exceptions_handlers.py \
@@ -261,7 +261,7 @@ typecheck-ratchet: ## 类型检查（仅棘轮路径）
 		--config-file mypy.ini
 
 typecheck: ## 全量类型检查 apps/
-	$(PYTHON) -m mypy apps --config-file mypy.ini
+	PYTHONPATH=apiSystem:. $(PYTHON) -m mypy apps --config-file mypy.ini
 
 typecheck-full: typecheck ## 全量类型检查（typecheck 别名）
 

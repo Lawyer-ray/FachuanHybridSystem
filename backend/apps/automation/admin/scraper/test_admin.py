@@ -4,6 +4,7 @@
 """
 
 import logging
+from typing import Any
 
 from django.contrib import admin
 from django.shortcuts import redirect
@@ -17,12 +18,12 @@ from apps.automation.services.scraper.test_service import TestService
 logger = logging.getLogger("apps.automation")
 
 
-def _get_test_service():
+def _get_test_service() -> Any:
     """工厂函数：创建测试服务实例"""
     return TestService()
 
 
-def _get_organization_service():
+def _get_organization_service() -> Any:
     """工厂函数：创建组织服务实例"""
     from apps.core.dependencies.business_organization import build_organization_service
 
@@ -38,15 +39,15 @@ class TestCourtAdmin(admin.ModelAdmin):
     提供测试功能的入口，支持 Token 捕获
     """
 
-    def has_module_perms(self, request) -> bool:
+    def has_module_perms(self, request: Any) -> bool:
         return False
 
-    def get_model_perms(self, request):
+    def get_model_perms(self, request: Any) -> dict[str, bool]:
         """返回空字典，隐藏所有权限"""
         return {}
 
     # 自定义列表页
-    def changelist_view(self, request, extra_context=None):
+    def changelist_view(self, request: Any, extra_context: Any = None) -> Any:
         """自定义列表页 - 显示测试选项"""
         organization_service = _get_organization_service()
 
@@ -64,19 +65,19 @@ class TestCourtAdmin(admin.ModelAdmin):
 
         return TemplateResponse(request, "admin/automation/test_court_list.html", context)
 
-    def has_add_permission(self, request):
+    def has_add_permission(self, request: Any) -> bool:
         """禁用添加功能"""
         return False
 
-    def has_delete_permission(self, request, obj=None):
+    def has_delete_permission(self, request: Any, obj: Any = None) -> bool:
         """禁用删除功能"""
         return False
 
-    def has_change_permission(self, request, obj=None):
+    def has_change_permission(self, request: Any, obj: Any = None) -> bool:
         """禁用修改功能"""
         return False
 
-    def get_urls(self):
+    def get_urls(self) -> list[Any]:
         """添加自定义 URL"""
         urls = super().get_urls()
         custom_urls = [
@@ -88,7 +89,7 @@ class TestCourtAdmin(admin.ModelAdmin):
         ]
         return custom_urls + urls
 
-    def test_credential_login_view(self, request, credential_id):
+    def test_credential_login_view(self, request: Any, credential_id: int) -> Any:
         """
         测试账号凭证登录
 

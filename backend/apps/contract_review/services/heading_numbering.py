@@ -5,6 +5,7 @@ import logging
 import re
 
 from docx import Document
+from docx.document import Document as DocumentType
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 
@@ -19,7 +20,7 @@ class HeadingNumbering:
     def __init__(self, llm_service: LLMService | None = None) -> None:
         self._llm = llm_service
 
-    def apply_numbering(self, doc: Document, model_name: str = "") -> None:
+    def apply_numbering(self, doc: DocumentType, model_name: str = "") -> None:
         """识别标题段落，定义并应用多级列表编号"""
         if not self._llm:
             logger.warning("未提供 LLM 服务，跳过标题编号")
@@ -69,7 +70,7 @@ class HeadingNumbering:
 
         logger.info("已为 %d 个标题段落应用编号（%d 个编号区域）", applied, len([s for s in sections if s]))
 
-    def _identify_headings_via_llm(self, doc: Document, model_name: str) -> list[tuple[int, int]]:
+    def _identify_headings_via_llm(self, doc: DocumentType, model_name: str) -> list[tuple[int, int]]:
         """用 LLM 识别标题段落及层级，返回 (段落索引, 层级0/1/2)"""
         lines: list[str] = []
         for i, p in enumerate(doc.paragraphs):
@@ -116,7 +117,7 @@ class HeadingNumbering:
         return []
 
     @staticmethod
-    def _supplement_missed_headings(doc: Document, headings: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    def _supplement_missed_headings(doc: DocumentType, headings: list[tuple[int, int]]) -> list[tuple[int, int]]:
         """补充 LLM 漏识别的编号段落：原始有 numPr 的段落（有真实编号或有编号前缀文本）"""
         heading_indices = {idx for idx, _ in headings}
         ns = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -183,7 +184,7 @@ class HeadingNumbering:
         return results
 
     @staticmethod
-    def _strip_manual_numbers(doc: Document, headings: list[tuple[int, int]]) -> None:
+    def _strip_manual_numbers(doc: DocumentType, headings: list[tuple[int, int]]) -> None:
         """去掉标题段落开头的手动编号前缀"""
         # 长模式优先，避免短模式误匹配
         pattern = re.compile(
@@ -226,7 +227,7 @@ class HeadingNumbering:
                     run.text = run.text.lstrip()
                     break
 
-    def _create_abstract_num(self, doc: Document) -> int:
+    def _create_abstract_num(self, doc: DocumentType) -> int:
         """创建 abstractNum 定义，返回 abstractNumId"""
         numbering_part = doc.part.numbering_part
         numbering_elem = numbering_part.element
@@ -296,7 +297,7 @@ class HeadingNumbering:
         return num_id
 
     @staticmethod
-    def _apply_num_to_paragraphs(doc: Document, headings: list[tuple[int, int]], num_id: int) -> None:
+    def _apply_num_to_paragraphs(doc: DocumentType, headings: list[tuple[int, int]], num_id: int) -> None:
         """将编号样式应用到标题段落"""
         for para_idx, level in headings:
             para = doc.paragraphs[para_idx]

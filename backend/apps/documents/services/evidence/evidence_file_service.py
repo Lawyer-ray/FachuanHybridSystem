@@ -12,7 +12,7 @@ from django.utils.translation import gettext_lazy as _
 from apps.core.exceptions import ValidationException
 
 if TYPE_CHECKING:
-    from apps.documents.models import EvidenceItem
+    from apps.evidence.models import EvidenceItem
 
 
 class EvidenceFileService:

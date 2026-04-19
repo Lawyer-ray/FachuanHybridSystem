@@ -11,6 +11,7 @@ from django.utils.safestring import mark_safe
 from apps.core.exceptions import NotFoundError
 from apps.documents.models import FolderTemplate
 from apps.documents.models.choices import FolderTemplateType, LegalStatusMatchMode
+from django.utils.translation import gettext_lazy as _
 
 from ..folder_service import FolderTemplateService
 

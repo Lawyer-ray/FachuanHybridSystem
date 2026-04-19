@@ -7,6 +7,7 @@ from pathlib import Path
 from django.conf import settings
 from django.core.files.uploadedfile import UploadedFile
 from docx import Document
+from docx.document import Document as DocumentType
 
 from apps.contract_review.models.review_task import ProcessStep, ReviewTask, TaskStatus
 from apps.contract_review.repositories.review_task_repository import ReviewTaskRepository
@@ -290,7 +291,7 @@ def _update_step(repository: ReviewTaskRepository, task: ReviewTask, step: str) 
 
 
 def _apply_to_any_paragraph(
-    doc: Document, tool: DocxRevisionTool, original: str, replacement: str, author: str = ""
+    doc: DocumentType, tool: DocxRevisionTool, original: str, replacement: str, author: str = ""
 ) -> bool:
     """遍历所有段落查找原文并应用修订，不依赖 LLM 返回的段落索引"""
     for para in doc.paragraphs:

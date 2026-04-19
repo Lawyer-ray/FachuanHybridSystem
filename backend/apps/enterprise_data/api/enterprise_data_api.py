@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Literal
+from typing import Any, Literal
 
 from ninja import Router
 
@@ -21,13 +21,13 @@ def _service() -> EnterpriseDataService:
 
 
 @router.get("/providers", response=EnterpriseProvidersOut)
-def list_providers(request, include_tools: bool = False) -> EnterpriseProvidersOut:
+def list_providers(request: Any, include_tools: bool = False) -> EnterpriseProvidersOut:
     return EnterpriseProvidersOut(**_service().list_providers(include_tools=include_tools))
 
 
 @router.get("/companies/search", response=EnterpriseQueryOut)
 def search_companies(
-    request,
+    request: Any,
     keyword: str,
     provider: str | None = None,
     include_raw: bool = False,
@@ -39,7 +39,7 @@ def search_companies(
 
 @router.get("/companies/{company_id}", response=EnterpriseQueryOut)
 def get_company_profile(
-    request,
+    request: Any,
     company_id: str,
     provider: str | None = None,
     include_raw: bool = False,
@@ -51,7 +51,7 @@ def get_company_profile(
 
 @router.get("/companies/{company_id}/risks", response=EnterpriseQueryOut)
 def get_company_risks(
-    request,
+    request: Any,
     company_id: str,
     risk_type: RiskType = "自身风险",
     provider: str | None = None,
@@ -69,7 +69,7 @@ def get_company_risks(
 
 @router.get("/companies/{company_id}/shareholders", response=EnterpriseQueryOut)
 def get_company_shareholders(
-    request,
+    request: Any,
     company_id: str,
     provider: str | None = None,
     include_raw: bool = False,
@@ -81,7 +81,7 @@ def get_company_shareholders(
 
 @router.get("/companies/{company_id}/personnel", response=EnterpriseQueryOut)
 def get_company_personnel(
-    request,
+    request: Any,
     company_id: str,
     provider: str | None = None,
     include_raw: bool = False,
@@ -93,7 +93,7 @@ def get_company_personnel(
 
 @router.get("/personnel/{hcgid}", response=EnterpriseQueryOut)
 def get_person_profile(
-    request,
+    request: Any,
     hcgid: str,
     provider: str | None = None,
     include_raw: bool = False,
@@ -103,7 +103,7 @@ def get_person_profile(
 
 @router.get("/biddings/search", response=EnterpriseQueryOut)
 def search_bidding_info(
-    request,
+    request: Any,
     keyword: str,
     search_type: int = 1,
     bid_type: int = 4,
