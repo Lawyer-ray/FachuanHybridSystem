@@ -54,6 +54,30 @@ def _register_providers() -> None:
         logger = logging.getLogger(__name__)
         logger.warning(f"无法导入企业微信群聊提供者: {e!s}")
 
+    # 注册钉钉提供者
+    try:
+        from .dingtalk_provider import DingtalkProvider
+
+        if not ChatProviderFactory.is_platform_registered(ChatPlatform.DINGTALK):
+            ChatProviderFactory.register(ChatPlatform.DINGTALK, DingtalkProvider)
+    except ImportError as e:
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.warning(f"无法导入钉钉群聊提供者: {e!s}")
+
+    # 注册 Telegram 提供者
+    try:
+        from .telegram_provider import TelegramProvider
+
+        if not ChatProviderFactory.is_platform_registered(ChatPlatform.TELEGRAM):
+            ChatProviderFactory.register(ChatPlatform.TELEGRAM, TelegramProvider)
+    except ImportError as e:
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.warning(f"无法导入 Telegram 群聊提供者: {e!s}")
+
 
 # 模块导入时自动注册提供者（避免重复注册）
 _register_providers()
