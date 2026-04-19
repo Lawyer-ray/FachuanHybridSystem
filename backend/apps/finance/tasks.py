@@ -40,22 +40,22 @@ def setup_lpr_sync_schedule() -> None:
 
     在系统启动时调用，创建每月20日的定时同步任务。
     """
-    from django_q.models import Schedule
+    from apps.core.tasking import ScheduleQueryService
+
+    schedule_svc = ScheduleQueryService()
 
     # 检查是否已存在
-    existing = Schedule.objects.filter(name="lpr_monthly_sync").first()
-    if existing:
+    if schedule_svc.schedule_exists("lpr_monthly_sync"):
         logger.info("[LPRSchedule] LPR sync schedule already exists")
         return
 
     # 创建定时任务：每月20日 9:30 执行
     # 央行通常在每月20日9:15公布LPR
-    Schedule.objects.create(
+    schedule_svc.create_monthly_schedule(
         name="lpr_monthly_sync",
         func="apps.finance.tasks.sync_lpr_rates",
-        schedule_type=Schedule.MONTHLY,
-        repeats=-1,  # 无限重复
         next_run=datetime.now().replace(day=20, hour=9, minute=30, second=0, microsecond=0),
+        repeats=-1,
     )
 
     logger.info("[LPRSchedule] LPR monthly sync schedule created")

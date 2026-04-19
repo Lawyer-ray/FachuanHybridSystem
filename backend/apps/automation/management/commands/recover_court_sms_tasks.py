@@ -191,14 +191,14 @@ class Command(BaseCommand):
 
         return reset_count
 
-    def _recover_single_downloading(self, sms: Any, async_task: Any) -> bool:
+    def _recover_single_downloading(self, sms: Any, submit_fn: Any) -> bool:
         """处理 DOWNLOADING 状态的恢复，返回是否继续"""
         from apps.automation.models import CourtSMSStatus, ScraperTaskStatus
 
         if not sms.scraper_task:
             sms.status = CourtSMSStatus.PARSING
             sms.save()
-            async_task(
+            submit_fn(
                 "apps.automation.services.sms.court_sms_service.process_sms_async",
                 sms.id,
                 task_name=f"court_sms_reparse_recovery_{sms.id}",
@@ -209,7 +209,7 @@ class Command(BaseCommand):
         if scraper_status == ScraperTaskStatus.SUCCESS:
             sms.status = CourtSMSStatus.MATCHING
             sms.save()
-            async_task(
+            submit_fn(
                 "apps.automation.services.sms.court_sms_service.process_sms_async",
                 sms.id,
                 task_name=f"court_sms_download_complete_recovery_{sms.id}",
@@ -219,7 +219,7 @@ class Command(BaseCommand):
             sms.status = CourtSMSStatus.DOWNLOAD_FAILED
             sms.save()
             if sms.retry_count < 3:
-                async_task(
+                submit_fn(
                     "apps.automation.services.sms.court_sms_service.retry_download_task",
                     sms.id,
                     task_name=f"court_sms_download_retry_recovery_{sms.id}",
@@ -228,19 +228,19 @@ class Command(BaseCommand):
         # 还在下载中，跳过
         return False
 
-    def _recover_single_sms(self, sms: Any, async_task: Any) -> bool:
+    def _recover_single_sms(self, sms: Any, submit_fn: Any) -> bool:
         """恢复单条 SMS，返回是否成功提交恢复任务"""
         from apps.automation.models import CourtSMSStatus
 
         if sms.status == CourtSMSStatus.PENDING:
-            async_task(
+            submit_fn(
                 "apps.automation.services.sms.court_sms_service.process_sms_async",
                 sms.id,
                 task_name=f"court_sms_recovery_{sms.id}",
             )
         elif sms.status == CourtSMSStatus.DOWNLOAD_FAILED:
             if sms.retry_count < 3:
-                async_task(
+                submit_fn(
                     "apps.automation.services.sms.court_sms_service.retry_download_task",
                     sms.id,
                     task_name=f"court_sms_retry_recovery_{sms.id}",
@@ -251,15 +251,15 @@ class Command(BaseCommand):
                 sms.save()
                 return False
         elif sms.status in [CourtSMSStatus.MATCHING, CourtSMSStatus.RENAMING, CourtSMSStatus.NOTIFYING]:
-            async_task(
+            submit_fn(
                 "apps.automation.services.sms.court_sms_service.process_sms_async",
                 sms.id,
                 task_name=f"court_sms_continue_recovery_{sms.id}",
             )
         elif sms.status == CourtSMSStatus.DOWNLOADING:
-            return self._recover_single_downloading(sms, async_task)
+            return self._recover_single_downloading(sms, submit_fn)
         else:
-            async_task(
+            submit_fn(
                 "apps.automation.services.sms.court_sms_service.process_sms_async",
                 sms.id,
                 task_name=f"court_sms_general_recovery_{sms.id}",
@@ -268,7 +268,7 @@ class Command(BaseCommand):
 
     def _recover_incomplete_tasks(self, max_age: Any, verbose: bool = True) -> int:
         """恢复未完成的任务"""
-        from django_q.tasks import async_task
+        from apps.core.tasking import submit_task
 
         from apps.automation.models import CourtSMS, CourtSMSStatus
 
@@ -289,7 +289,7 @@ class Command(BaseCommand):
         recovered_count = 0
         for sms in incomplete_tasks:
             try:
-                if self._recover_single_sms(sms, async_task):
+                if self._recover_single_sms(sms, submit_task):
                     recovered_count += 1
                     logger.info(f"恢复任务: SMS ID={sms.id}, 状态={sms.status}")
             except Exception as e:

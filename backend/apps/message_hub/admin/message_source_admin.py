@@ -69,9 +69,9 @@ class MessageSourceAdmin(admin.ModelAdmin[MessageSource]):
 
     def _sync_view(self, request: HttpRequest, pk: int) -> HttpResponse:
         from django.shortcuts import redirect
-        from django_q.tasks import async_task
+        from apps.core.tasking import submit_task
 
-        async_task("apps.message_hub.tasks.sync_source_by_id", pk)
+        submit_task("apps.message_hub.tasks.sync_source_by_id", pk)
         self.message_user(request, _("同步任务已提交，稍后刷新查看结果"), messages.SUCCESS)
         return redirect("..")
 

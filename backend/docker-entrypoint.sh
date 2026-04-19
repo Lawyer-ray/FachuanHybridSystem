@@ -29,6 +29,36 @@ while True:
 PY
 fi
 
+# Redis 连通性检测（当 REDIS_URL 配置了才检测）
+if [ -n "${REDIS_URL:-}" ]; then
+  echo "Waiting for Redis..."
+  uv run python - <<'PY'
+import os
+import time
+from urllib.parse import urlparse
+
+redis_url = os.environ.get("REDIS_URL", "")
+parsed = urlparse(redis_url)
+host = parsed.hostname or "redis"
+port = parsed.port or 6379
+
+deadline = time.time() + 60
+while True:
+    try:
+        import socket
+        sock = socket.create_connection((host, port), timeout=5)
+        sock.sendall(b"PING\r\n")
+        resp = sock.recv(1024)
+        sock.close()
+        if b"PONG" in resp or b"+PONG" in resp:
+            break
+    except Exception:
+        if time.time() >= deadline:
+            raise
+        time.sleep(2)
+PY
+fi
+
 echo "Running migrations..."
 uv run python manage.py migrate --noinput
 

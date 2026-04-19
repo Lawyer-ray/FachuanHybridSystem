@@ -11,10 +11,10 @@ from typing import TYPE_CHECKING, Any
 from django.db import transaction
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
-from django_q.tasks import async_task
 
 from apps.automation.models import CourtSMS, CourtSMSStatus
 from apps.core.exceptions import NotFoundError, ValidationException
+from apps.core.tasking import submit_task
 
 from ._sms_case_binding_mixin import SMSCaseBindingMixin
 from ._sms_document_mixin import SMSDocumentMixin
@@ -176,7 +176,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
 
             logger.info(f"创建短信记录成功: ID={sms.id}, 长度={len(content)}")
 
-            task_id = async_task(
+            task_id = submit_task(
                 "apps.automation.services.sms.court_sms_service.process_sms_async",
                 sms.id,
                 task_name=f"court_sms_processing_{sms.id}",
@@ -232,7 +232,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
                 logger.error(f"案件绑定创建失败: SMS ID={sms_id}")
                 return sms
 
-            task_id = async_task(
+            task_id = submit_task(
                 "apps.automation.services.sms.court_sms_service.process_sms_from_renaming",
                 sms.id,
                 task_name=f"court_sms_continue_{sms.id}",

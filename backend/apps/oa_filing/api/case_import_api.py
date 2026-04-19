@@ -90,9 +90,9 @@ def trigger_case_import(request: HttpRequest) -> Any:
     logger.info("创建案件导入会话: session_id=%d filename=%s", session.id, file.name)
 
     # 启动后台任务进行预览
-    from django_q.tasks import async_task
+    from apps.core.tasking import submit_task
 
-    async_task(
+    submit_task(
         "apps.oa_filing.tasks.run_case_import_preview_task",
         session.id,
         str(file_path),
@@ -142,13 +142,13 @@ def execute_case_import(request: HttpRequest, session_id: int) -> HttpResponse:
         return JsonResponse({"error": "案件编号列表为空"}, status=400)
 
     # 启动后台任务执行导入
-    from django_q.tasks import async_task
+    from apps.core.tasking import submit_task
 
-    async_task(
+    submit_task(
         "apps.oa_filing.tasks.run_case_import_task",
         session.id,
         case_nos,
-        matched_case_nos=matched_case_nos,
+        kwargs={"matched_case_nos": matched_case_nos},
         timeout=CASE_IMPORT_TASK_TIMEOUT_SECONDS,
         task_name=f"oa_case_import_{session.id}",
     )

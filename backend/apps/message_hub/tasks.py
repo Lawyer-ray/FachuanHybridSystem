@@ -74,23 +74,20 @@ def sync_all_sources() -> None:
 
 
 def _register_schedule() -> None:
-    """注册 django-q2 定时任务（每30分钟）。"""
+    """注册定时任务（每30分钟）。"""
     try:
-        from django_q.models import Schedule
+        from apps.core.tasking import ScheduleQueryService
 
-        if not Schedule.objects.filter(name=TASK_NAME).exists():
-            from django_q.tasks import schedule
-
-            schedule(
-                TASK_FUNC,
-                schedule_type=Schedule.MINUTES,
-                minutes=30,
+        schedule_svc = ScheduleQueryService()
+        if not schedule_svc.schedule_exists(TASK_NAME):
+            schedule_svc.create_interval_schedule(
+                func=TASK_FUNC,
                 name=TASK_NAME,
-                repeats=-1,
+                minutes=30,
             )
             logger.info("已注册定时任务: %s", TASK_NAME)
     except Exception:
-        logger.debug("定时任务注册跳过（django-q 未就绪）")
+        logger.debug("定时任务注册跳过（未就绪）")
 
 
 _register_schedule()

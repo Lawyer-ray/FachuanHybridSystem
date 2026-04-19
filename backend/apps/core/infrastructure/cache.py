@@ -57,14 +57,17 @@ def get_cache_config() -> dict[str, Any]:
     """
     获取缓存配置
 
-    使用 Django 内置的本地内存缓存,无需外部依赖.
+    优先使用 Redis（通过 REDIS_URL 或 DJANGO_CACHE_REDIS_URL 配置），
+    未配置则回退到 Django 内置的本地内存缓存。
 
     Returns:
         Django CACHES 配置字典
     """
     default_timeout = _safe_get_config("performance.cache.default_timeout", 300)
 
-    redis_url = (os.environ.get("DJANGO_CACHE_REDIS_URL", "") or "").strip()
+    from apps.core.config.django_runtime import resolve_cache_redis_url
+
+    redis_url = resolve_cache_redis_url()
     if redis_url:
         return {
             "default": {

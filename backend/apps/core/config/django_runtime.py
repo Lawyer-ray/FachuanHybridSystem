@@ -189,8 +189,42 @@ def resolve_rate_limit() -> dict[str, int]:
     }
 
 
+def resolve_redis_url() -> str:
+    """
+    统一解析 Redis URL。
+
+    优先级：专用环境变量 > REDIS_URL 基础变量 > 空字符串
+
+    - REDIS_URL: 基础变量，一处配置即可覆盖 cache / channel / q_cluster
+    - DJANGO_CACHE_REDIS_URL: 专门覆盖 cache（优先于 REDIS_URL）
+    - DJANGO_CHANNEL_REDIS_URL: 专门覆盖 channel layer（优先于 REDIS_URL）
+
+    Returns:
+        Redis URL 字符串，未配置则返回空字符串
+    """
+    # 通用基础变量
+    base_url = (os.environ.get("REDIS_URL", "") or "").strip()
+    return base_url
+
+
+def resolve_cache_redis_url() -> str:
+    """解析 cache 专用 Redis URL（DJANGO_CACHE_REDIS_URL 优先于 REDIS_URL）"""
+    dedicated = (os.environ.get("DJANGO_CACHE_REDIS_URL", "") or "").strip()
+    if dedicated:
+        return dedicated
+    return resolve_redis_url()
+
+
+def resolve_channel_redis_url() -> str:
+    """解析 channel layer 专用 Redis URL（DJANGO_CHANNEL_REDIS_URL 优先于 REDIS_URL）"""
+    dedicated = (os.environ.get("DJANGO_CHANNEL_REDIS_URL", "") or "").strip()
+    if dedicated:
+        return dedicated
+    return resolve_redis_url()
+
+
 def resolve_channel_layers() -> dict[str, object]:
-    redis_url = (os.environ.get("DJANGO_CHANNEL_REDIS_URL", "") or "").strip()
+    redis_url = resolve_channel_redis_url()
     if redis_url:
         return {
             "default": {
@@ -202,18 +236,33 @@ def resolve_channel_layers() -> dict[str, object]:
 
 
 def resolve_q_cluster() -> dict[str, object]:
-    return {
+    """
+    解析 Django-Q 集群配置。
+
+    当 REDIS_URL 存在时使用 Redis broker（性能优于 ORM broker），
+    否则回退到 ORM broker（仅适合开发/单进程）。
+    """
+    base: dict[str, object] = {
         "name": "default",
         "workers": int(os.environ.get("DJANGO_Q_WORKERS", "2") or "2"),
         "timeout": int(os.environ.get("DJANGO_Q_TIMEOUT", "600") or "600"),
         "retry": int(os.environ.get("DJANGO_Q_RETRY", "1200") or "1200"),
         "queue_limit": int(os.environ.get("DJANGO_Q_QUEUE_LIMIT", "50") or "50"),
         "bulk": int(os.environ.get("DJANGO_Q_BULK", "10") or "10"),
-        "orm": os.environ.get("DJANGO_Q_ORM", "default") or "default",
         "max_attempts": int(os.environ.get("DJANGO_Q_MAX_ATTEMPTS", "3") or "3"),
         "catch_up": (os.environ.get("DJANGO_Q_CATCH_UP", "False") or "").lower() in _TRUE_VALUES,
-        "poll": float(os.environ.get("DJANGO_Q_POLL", "0.5") or "0.5"),  # 轮询间隔（秒），降低任务启动延迟
     }
+
+    redis_url = resolve_redis_url()
+    if redis_url:
+        # Redis broker：入队/出队更快，与 cache/channel 共享同一 Redis 实例
+        base["redis"] = redis_url
+    else:
+        # ORM broker：任务队列存在 PostgreSQL，仅适合开发/单进程
+        base["orm"] = os.environ.get("DJANGO_Q_ORM", "default") or "default"
+        base["poll"] = float(os.environ.get("DJANGO_Q_POLL", "0.5") or "0.5")
+
+    return base
 
 
 def resolve_contract_folder_browse_roots() -> list[str]:

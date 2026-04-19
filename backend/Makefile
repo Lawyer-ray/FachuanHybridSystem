@@ -48,7 +48,7 @@ ci-check-full: ## 完整 CI 预检 (含 unit/integration/property smoke)
 	$(TEST_ENV) $(PYTEST) tests/ci/integration/ -q $(ARGS)
 	$(TEST_ENV) HYPOTHESIS_PROFILE=default $(PYTEST) tests/ci/property/ -q $(ARGS)
 
-.PHONY: help install run test migrate shell lint clean ci-check ci-check-full qcluster-dev
+.PHONY: help install run test migrate shell lint clean ci-check ci-check-full qcluster-dev redis-cli redis-status redis-reset
 
 # 默认 Python 和虚拟环境
 VENV_DIR ?= .venv
@@ -362,6 +362,26 @@ docker-build: ## 构建 Docker 镜像
 
 docker-run: ## 运行 Docker 容器
 	docker run -p 8000:8000 lawfirm-backend
+
+# ============================================================
+# Redis（本地开发需要 Redis 时使用）
+# ============================================================
+
+REDIS_HOST ?= 127.0.0.1
+REDIS_PORT ?= 6379
+
+redis-cli: ## 连接 Redis CLI
+	redis-cli -h $(REDIS_HOST) -p $(REDIS_PORT)
+
+redis-status: ## 检查 Redis 连通性和信息
+	@redis-cli -h $(REDIS_HOST) -p $(REDIS_PORT) ping 2>/dev/null && echo "Redis OK" || echo "Redis 不可达"
+	@redis-cli -h $(REDIS_HOST) -p $(REDIS_PORT) info memory 2>/dev/null | grep used_memory_human || true
+
+redis-reset: ## 清除 Redis 中本项目的缓存键（仅开发用！）
+	@echo "$(YELLOW)警告: 这将清除 lawfirm:* 前缀的所有缓存键$(NC)"
+	@read -p "确认继续? [y/N] " confirm && [ "$$confirm" = "y" ]
+	redis-cli -h $(REDIS_HOST) -p $(REDIS_PORT) --scan --pattern "lawfirm:*" | xargs -r redis-cli -h $(REDIS_HOST) -p $(REDIS_PORT) del
+	@echo "$(GREEN)lawfirm:* 缓存键已清除$(NC)"
 
 # ============================================================
 # 健康检查

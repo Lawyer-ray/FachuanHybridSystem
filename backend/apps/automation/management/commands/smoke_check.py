@@ -157,10 +157,10 @@ class Command(BaseCommand):
         import logging
 
         from django_q.models import Task
-        from django_q.tasks import async_task
+        from apps.core.tasking import submit_task
 
         logger = logging.getLogger(__name__)
-        task_id = async_task("apps.automation.management.commands.smoke_check.smoke_q_task", 20, 22)
+        task_id = submit_task("apps.automation.management.commands.smoke_check.smoke_q_task", 20, 22)
         env = dict(os.environ)
         env.setdefault("DJANGO_SETTINGS_MODULE", "apiSystem.settings")
         if self._database_path:

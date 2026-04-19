@@ -415,7 +415,7 @@ class PreservationQuoteAdminService:
             ValidationException: 任务状态不允许执行
         """
         try:
-            from django_q.tasks import async_task
+            from apps.core.tasking import submit_task
 
             quote = PreservationQuote.objects.get(id=quote_id)
 
@@ -427,8 +427,8 @@ class PreservationQuoteAdminService:
                     errors={"status": quote.status},
                 )
 
-            # 提交到 Django Q 异步任务队列
-            task_id = async_task(
+            # 提交到异步任务队列
+            task_id = submit_task(
                 "apps.automation.tasks.execute_preservation_quote_task",
                 quote_id,
                 task_name=f"询价任务 #{quote_id}",

@@ -78,9 +78,9 @@ class QuickDownloadAdmin(admin.ModelAdmin[QuickDownloadTool]):
 
             task = ScraperTask.objects.create(**task_data)
 
-            from django_q.tasks import async_task
+            from apps.core.tasking import submit_task
 
-            async_task("apps.automation.tasks.execute_scraper_task", task.id)
+            submit_task("apps.automation.tasks.execute_scraper_task", task.id)
 
             return self._render_result(task)
 

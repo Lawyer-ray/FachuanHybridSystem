@@ -17,7 +17,7 @@ def check_gsxt_report_email(task_id: int, company_name: str) -> None:
     未收到时重新入队（60秒后再试），直到任务状态不再是 WAITING_EMAIL 为止。
     """
     from django.conf import settings
-    from django_q.tasks import async_task
+    from apps.core.tasking import ScheduleQueryService
 
     from apps.automation.models.gsxt_report import GsxtReportStatus, GsxtReportTask
     from apps.automation.services.gsxt.gsxt_email_service import EMAIL_CREDENTIAL_ID, _fetch_report_attachment
@@ -58,12 +58,10 @@ def check_gsxt_report_email(task_id: int, company_name: str) -> None:
         from datetime import timedelta
 
         from django.utils import timezone
-        from django_q.models import Schedule
 
-        Schedule.objects.create(
+        ScheduleQueryService().create_once_schedule(
             func="apps.automation.tasks.gsxt_tasks.check_gsxt_report_email",
             args=f"{task_id},{company_name!r}",
-            schedule_type=Schedule.ONCE,
-            next_run=timezone.now() + timedelta(seconds=60),
             name=f"gsxt_email_retry_{task_id}_{timezone.now().timestamp():.0f}",
+            next_run=timezone.now() + timedelta(seconds=60),
         )

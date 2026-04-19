@@ -17,6 +17,21 @@ services:
       start_period: 20s
     restart: unless-stopped
 
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
   web:
     build: .
     ports:
@@ -29,8 +44,11 @@ services:
       DB_ENGINE: ${DB_ENGINE:-postgresql}
       DB_HOST: postgres
       DB_PORT: ${DB_PORT:-5432}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
@@ -51,8 +69,11 @@ services:
       DB_ENGINE: ${DB_ENGINE:-postgresql}
       DB_HOST: postgres
       DB_PORT: ${DB_PORT:-5432}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       web:
         condition: service_healthy
@@ -60,4 +81,5 @@ services:
 
 volumes:
   postgres-data:
+  redis-data:
   media-data:
