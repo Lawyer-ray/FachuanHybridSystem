@@ -128,9 +128,9 @@ class ReviewService:
         )
 
         # 提交异步任务
-        from django_q.tasks import async_task
+        from apps.core.tasking import submit_task
 
-        async_task(
+        submit_task(
             "apps.contract_review.services.review_service.process_review",
             str(task_id),
             timeout=1800,

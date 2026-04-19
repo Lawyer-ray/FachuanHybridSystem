@@ -39,14 +39,14 @@ class ReviewTaskAdmin(admin.ModelAdmin[ReviewTask]):
 
     @admin.action(description=_("重新执行选中的审查任务"))
     def retry_selected_tasks(self, request: HttpRequest, queryset: Any) -> None:
-        from django_q.tasks import async_task
+        from apps.core.tasking import submit_task
 
         count = 0
         for task in queryset:
             if task.status in [TaskStatus.FAILED, TaskStatus.COMPLETED]:
                 task.status = TaskStatus.CONFIRMED
                 task.save(update_fields=["status"])
-                async_task(
+                submit_task(
                     "apps.contract_review.services.review_service.process_review",
                     str(task.id),
                     timeout=1800,

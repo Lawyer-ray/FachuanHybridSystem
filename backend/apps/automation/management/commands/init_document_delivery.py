@@ -116,13 +116,18 @@ class Command(BaseCommand):
 
     def _show_status(self) -> None:
         """显示当前状态"""
-        from django_q.models import Schedule
-
         from apps.automation.models import DocumentDeliverySchedule
 
         self.stdout.write("\n当前系统状态:")
 
         # Django Q 调度状态
+        from apps.core.tasking import ScheduleQueryService
+
+        schedule_svc = ScheduleQueryService()
+        # 使用原生查询获取含 document_delivery 的调度数
+        # ScheduleQueryService 目前没有 filter_by_name_icontains，这里直接用 model
+        from django_q.models import Schedule
+
         django_q_schedules = Schedule.objects.filter(name__icontains="document_delivery").count()
         self.stdout.write(f"  - Django Q 调度任务: {django_q_schedules} 个")
 

@@ -13,7 +13,7 @@ from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.safestring import SafeData
 from django.utils.translation import gettext as _
-from django_q.tasks import async_task
+from apps.core.tasking import submit_task
 
 from apps.express_query.models import ExpressCarrierType, ExpressQueryTask, ExpressQueryTaskStatus, ExpressQueryTool
 
@@ -116,7 +116,7 @@ class ExpressQueryToolAdmin(admin.ModelAdmin[ExpressQueryTool]):
         task.save()
 
         # 入队执行浏览器查询
-        queue_task_id = str(async_task("apps.express_query.tasks.execute_manual_express_query_task", task.id))
+        queue_task_id = str(submit_task("apps.express_query.tasks.execute_manual_express_query_task", task.id))
         task.queue_task_id = queue_task_id
         task.save(update_fields=["queue_task_id", "updated_at"])
 

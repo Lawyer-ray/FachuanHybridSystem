@@ -97,8 +97,8 @@ class EvidenceFileService:
     @staticmethod
     def _schedule_ocr(item_id: int) -> None:
         try:
-            from django_q.tasks import async_task
+            from apps.core.tasking import submit_task
 
-            async_task("apps.evidence.tasks.ocr_evidence_item_task", item_id)
+            submit_task("apps.evidence.tasks.ocr_evidence_item_task", item_id)
         except Exception:
             pass

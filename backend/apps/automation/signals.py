@@ -11,9 +11,9 @@ from typing import Any
 from django.db.models import Model
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
-from django_q.tasks import async_task
 
 from .models import CourtSMS, CourtSMSStatus, PreservationQuote, QuoteStatus, ScraperTask, ScraperTaskStatus
+from apps.core.tasking import ScheduleQueryService, submit_task
 
 logger = logging.getLogger("apps.automation")
 
@@ -67,7 +67,7 @@ def _handle_sms_download_success(sms: Any, instance: Any) -> None:
     elif sms.status == CourtSMSStatus.MATCHING:
         logger.info("✅ 下载任务完成，继续匹配流程: SMS ID=%s, Task ID=%s", sms.id, instance.id)
 
-    task_id = async_task(
+    task_id = submit_task(
         "apps.automation.services.sms.court_sms_service.process_sms_async",
         sms.id,
         task_name=f"court_sms_continue_{sms.id}",
@@ -101,14 +101,12 @@ def _handle_sms_download_failed(sms: Any, instance: Any) -> bool:
         from datetime import timedelta
 
         from django.utils import timezone
-        from django_q.models import Schedule
 
         next_run = timezone.now() + timedelta(seconds=60)
-        Schedule.objects.create(
+        ScheduleQueryService().create_once_schedule(
             func="apps.automation.services.sms.court_sms_service.retry_download_task",
             args=str(sms.id),
             name=f"court_sms_retry_download_{sms.id}",
-            schedule_type=Schedule.ONCE,
             next_run=next_run,
         )
         logger.info("提交重试下载任务: SMS ID=%s, 计划执行时间=%s", sms.id, next_run)

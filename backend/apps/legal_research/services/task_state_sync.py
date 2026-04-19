@@ -16,21 +16,22 @@ def sync_failed_queue_state(
         return False
 
     try:
-        from django_q.models import Task as DjangoQTask
+        from apps.core.tasking import TaskQueryService
+
+        q_task_info = TaskQueryService().get_failed_task_info(task.q_task_id)
     except Exception:
         return False
 
-    q_task = DjangoQTask.objects.filter(id=task.q_task_id).only("success", "stopped", "result").first()
-    if q_task is None or q_task.stopped is None or q_task.success:
+    if q_task_info is None:
         return False
 
-    error_text = str(q_task.result or "").strip()
+    error_text = str(q_task_info.get("result") or "").strip()
     if len(error_text) > 1000:
         error_text = error_text[:1000]
 
     task.status = LegalResearchTaskStatus.FAILED
     task.message = failed_message
     task.error = error_text or task.error
-    task.finished_at = task.finished_at or q_task.stopped or timezone.now()
+    task.finished_at = task.finished_at or q_task_info.get("stopped") or timezone.now()
     task.save(update_fields=["status", "message", "error", "finished_at", "updated_at"])
     return True

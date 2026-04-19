@@ -347,7 +347,7 @@ class DocumentDeliveryScheduleService:
         self, interval_minutes: int = 5, schedule_name: str = "document_delivery_periodic_check"
     ) -> str:
         """
-        设置 Django Q 定时调度
+        设置定时调度
 
         Args:
             interval_minutes: 执行间隔（分钟）
@@ -356,36 +356,34 @@ class DocumentDeliveryScheduleService:
         Returns:
             str: 创建的任务ID
         """
-        from django_q.models import Schedule
-        from django_q.tasks import schedule
+        from apps.core.tasking import ScheduleQueryService
 
-        logger.info(f"设置文书送达 Django Q 调度: interval={interval_minutes}分钟, name={schedule_name}")
+        schedule_svc = ScheduleQueryService()
+
+        logger.info(f"设置文书送达调度: interval={interval_minutes}分钟, name={schedule_name}")
 
         # 移除现有调度
-        existing_schedules = Schedule.objects.filter(name=schedule_name)
-        if existing_schedules.exists():
-            count = existing_schedules.count()
-            existing_schedules.delete()
-            logger.info(f"已移除 {count} 个现有的调度任务: {schedule_name}")
+        existing_count = schedule_svc.delete_schedules(name=schedule_name)
+        if existing_count > 0:
+            logger.info(f"已移除 {existing_count} 个现有的调度任务: {schedule_name}")
 
         # 创建新的调度任务
-        task_id = schedule(
-            "django.core.management.call_command",
-            "execute_document_delivery_schedules",
-            schedule_type="I",  # 间隔执行
-            minutes=interval_minutes,
+        task_id = schedule_svc.create_interval_schedule(
+            func="django.core.management.call_command",
             name=schedule_name,
-            repeats=-1,  # 无限重复
+            minutes=interval_minutes,
+            args="execute_document_delivery_schedules",
+            repeats=-1,
         )
 
         logger.info(
-            f"Django Q 调度任务已创建: name={schedule_name}, interval={interval_minutes}分钟, task_id={task_id}"
+            f"调度任务已创建: name={schedule_name}, interval={interval_minutes}分钟, task_id={task_id}"
         )
-        return cast(str, task_id)
+        return task_id
 
     def remove_django_q_schedule(self, schedule_name: str = "document_delivery_periodic_check") -> int:
         """
-        移除 Django Q 定时调度
+        移除定时调度
 
         Args:
             schedule_name: 调度任务名称
@@ -393,14 +391,13 @@ class DocumentDeliveryScheduleService:
         Returns:
             int: 移除的任务数量
         """
-        from django_q.models import Schedule
+        from apps.core.tasking import ScheduleQueryService
 
-        logger.info(f"移除文书送达 Django Q 调度: name={schedule_name}")
+        schedule_svc = ScheduleQueryService()
 
-        # 移除调度任务
-        schedules = Schedule.objects.filter(name=schedule_name)
-        count = schedules.count()
-        schedules.delete()
+        logger.info(f"移除文书送达调度: name={schedule_name}")
+
+        count = schedule_svc.delete_schedules(name=schedule_name)
 
         logger.info(f"已移除 {count} 个调度任务: {schedule_name}")
         return cast(int, count)

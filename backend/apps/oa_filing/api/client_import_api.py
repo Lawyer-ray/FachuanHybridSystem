@@ -80,13 +80,12 @@ def trigger_client_import(request: HttpRequest) -> Any:
     )
 
     # 启动后台任务
-    from django_q.tasks import async_task
+    from apps.core.tasking import submit_task
 
-    async_task(
+    submit_task(
         "apps.oa_filing.tasks.run_client_import_task",
         session.id,
-        headless=headless,
-        limit=limit,
+        kwargs={"headless": headless, "limit": limit},
         timeout=CLIENT_IMPORT_TASK_TIMEOUT_SECONDS,
         task_name=f"oa_client_import_{session.id}",
     )

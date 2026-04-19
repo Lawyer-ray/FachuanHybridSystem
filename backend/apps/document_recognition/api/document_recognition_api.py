@@ -158,7 +158,7 @@ def recognize_document(request: Any, file: UploadedFile = File(...)) -> TaskSubm
     上传文书后立即返回任务ID，识别在后台异步执行。
     使用 GET /court-document/task/{task_id} 查询结果。
     """
-    from django_q.tasks import async_task
+    from apps.core.tasking import submit_task
 
     filename = str(file.name)
     logger.info("收到文书识别请求: %s, 大小: %s", filename, file.size)
@@ -173,7 +173,7 @@ def recognize_document(request: Any, file: UploadedFile = File(...)) -> TaskSubm
     task = _get_task_service().create_task(file_path=file_path, original_filename=filename)
 
     # 4. 提交异步任务
-    async_task(
+    submit_task(
         "apps.document_recognition.tasks.execute_document_recognition_task",
         task.id,
         task_name=f"document_recognition_{task.id}",

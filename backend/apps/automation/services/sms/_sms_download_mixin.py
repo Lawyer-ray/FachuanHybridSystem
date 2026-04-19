@@ -5,9 +5,8 @@ import re
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-from django_q.tasks import async_task
-
 from apps.automation.models import CourtSMS, CourtSMSStatus, ScraperTask, ScraperTaskStatus, ScraperTaskType
+from apps.core.tasking import submit_task
 
 logger = logging.getLogger("apps.automation")
 
@@ -195,7 +194,7 @@ class SMSDownloadMixin:
 
             logger.info(f"创建下载任务成功: Task ID={task.id}, URL={download_url}")
 
-            queue_task_id = async_task(
+            queue_task_id = submit_task(
                 "apps.automation.tasks.execute_scraper_task", task.id, task_name=f"court_document_download_{task.id}"
             )
 

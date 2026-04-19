@@ -122,18 +122,16 @@ def execute_scraper_task(task_id: int, **kwargs: Any) -> None:
             from datetime import timedelta
 
             from django.utils import timezone
+            from apps.core.tasking import ScheduleQueryService
 
             delay_seconds = min(2 ** (task.retry_count - 1) * 60, 3600)
             next_run_time = timezone.now() + timedelta(seconds=delay_seconds)
 
-            from django_q.models import Schedule
-
-            Schedule.objects.create(
+            ScheduleQueryService().create_once_schedule(
                 func="apps.automation.tasks.execute_scraper_task",
                 args=str(task.id),
-                schedule_type=Schedule.ONCE,
-                next_run=next_run_time,
                 name=f"retry_task_{task.id}_{task.retry_count}",
+                next_run=next_run_time,
             )
 
             logger.info(
@@ -152,7 +150,7 @@ def process_pending_tasks() -> int:
 
     在 qcluster 启动时调用，检查并执行所有 pending 状态的任务
     """
-    from django_q.tasks import async_task
+    from apps.core.tasking import submit_task
 
     from .models import ScraperTask, ScraperTaskStatus
 
@@ -169,7 +167,7 @@ def process_pending_tasks() -> int:
     for task in pending_tasks:
         try:
             if task.should_execute_now():
-                async_task("apps.automation.tasks.execute_scraper_task", task.id)
+                submit_task("apps.automation.tasks.execute_scraper_task", task.id)
                 submitted += 1
                 logger.info("任务 %s 已提交到队列", task.id)
             else:

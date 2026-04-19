@@ -272,13 +272,13 @@ class CourtSMSAdminActions:
             super().save_model(request, obj, form, change)  # type: ignore[misc]
 
             try:
-                from django_q.tasks import async_task
+                from apps.core.tasking import submit_task
 
                 process_options: dict[str, Any] = {}
                 if sfdw_phone_tail6:
                     process_options["sfdw_phone_tail6"] = sfdw_phone_tail6
 
-                task_id = async_task(
+                task_id = submit_task(
                     "apps.automation.services.sms.court_sms_service.process_sms_async",
                     obj.id,
                     process_options,

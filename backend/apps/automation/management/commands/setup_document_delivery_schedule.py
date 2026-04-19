@@ -45,12 +45,12 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args: Any, **options: Any) -> None:
-        from django_q.models import Schedule
-        from django_q.tasks import schedule
+        from apps.core.tasking import ScheduleQueryService
 
         schedule_name = options["name"]
         interval_minutes = options["interval"]
         is_dry_run = options["dry_run"]
+        schedule_svc = ScheduleQueryService()
 
         self.stdout.write("=" * 60)
         self.stdout.write(self.style.SUCCESS("文书送达定时任务调度设置"))
@@ -60,14 +60,13 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING("[DRY RUN] 只显示操作，不实际执行\n"))
 
         # 移除现有调度
-        existing_schedules = Schedule.objects.filter(name=schedule_name)
-        if existing_schedules.exists():
-            count = existing_schedules.count()
+        existing = schedule_svc.get_schedule_by_name(schedule_name)
+        if existing is not None:
             if is_dry_run:
-                self.stdout.write(self.style.WARNING(f"[DRY RUN] 将移除 {count} 个现有的调度任务: {schedule_name}"))
+                self.stdout.write(self.style.WARNING(f"[DRY RUN] 将移除现有的调度任务: {schedule_name}"))
             else:
-                existing_schedules.delete()
-                self.stdout.write(self.style.WARNING(f"已移除 {count} 个现有的调度任务: {schedule_name}"))
+                schedule_svc.delete_schedules(name=schedule_name)
+                self.stdout.write(self.style.WARNING(f"已移除现有的调度任务: {schedule_name}"))
 
         if options["remove"]:
             if not is_dry_run:
@@ -86,14 +85,12 @@ class Command(BaseCommand):
             )
         else:
             try:
-                # 使用 Django Q 的 schedule 函数创建定时任务
-                task_id = schedule(
-                    "django.core.management.call_command",
-                    "execute_document_delivery_schedules",
-                    schedule_type="I",  # 间隔执行
-                    minutes=interval_minutes,
+                task_id = schedule_svc.create_interval_schedule(
+                    func="django.core.management.call_command",
                     name=schedule_name,
-                    repeats=-1,  # 无限重复
+                    minutes=interval_minutes,
+                    args="execute_document_delivery_schedules",
+                    repeats=-1,
                 )
 
                 self.stdout.write(

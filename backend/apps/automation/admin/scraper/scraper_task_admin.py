@@ -211,12 +211,12 @@ class ScraperTaskAdmin(admin.ModelAdmin[ScraperTask]):
     @admin.action(description=_("立即执行选中的任务"))
     def execute_tasks(self, request: Any, queryset: Any) -> None:
         """批量执行任务"""
-        from django_q.tasks import async_task
+        from apps.core.tasking import submit_task
 
         count = 0
         for task in queryset:
             if task.status in ["pending", "failed"]:
-                async_task("apps.automation.tasks.execute_scraper_task", task.id)
+                submit_task("apps.automation.tasks.execute_scraper_task", task.id)
                 count += 1
 
         logger.info("已提交 %d 个任务到后台队列", count)

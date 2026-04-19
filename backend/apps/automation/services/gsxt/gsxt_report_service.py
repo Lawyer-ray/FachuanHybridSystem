@@ -227,15 +227,14 @@ async def _run_full_flow(task_id: int) -> None:
 
             from asgiref.sync import sync_to_async
             from django.utils import timezone
-            from django_q.models import Schedule
+            from apps.core.tasking import ScheduleQueryService
 
             def _schedule_email_check() -> None:
-                Schedule.objects.create(
+                ScheduleQueryService().create_once_schedule(
                     func="apps.automation.tasks.gsxt_tasks.check_gsxt_report_email",
                     args=f"{task_id},{task.company_name!r}",
-                    schedule_type=Schedule.ONCE,
-                    next_run=timezone.now() + timedelta(seconds=60),
                     name=f"gsxt_email_first_{task_id}",
+                    next_run=timezone.now() + timedelta(seconds=60),
                 )
 
             await sync_to_async(_schedule_email_check)()
