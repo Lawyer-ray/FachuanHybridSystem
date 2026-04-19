@@ -108,7 +108,7 @@ class ScheduleQueryService:
         """检查指定名称的调度是否已存在"""
         from django_q.models import Schedule
 
-        return Schedule.objects.filter(name=name).exists()
+        return Schedule.objects.filter(name=name).exists()  # type: ignore[no-any-return]
 
     def get_schedule_by_name(self, name: str) -> Any:
         """按名称获取调度对象"""
@@ -127,7 +127,7 @@ class ScheduleQueryService:
             qs = qs.filter(func=func)
         count = qs.count()
         qs.delete()
-        return count
+        return count  # type: ignore[no-any-return]
 
     def create_once_schedule(
         self,
