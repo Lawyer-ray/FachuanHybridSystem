@@ -2,6 +2,21 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.36.2] - 2026-04-20
+
+### 后端
+
+- **引入 django-lifecycle，将 signal handler 和自定义 save() 迁移为声明式 @hook**：
+  - 新增依赖 `django-lifecycle==1.2.7`，Model 继承 `LifecycleModel` 使用 `@hook` 装饰器声明生命周期回调。
+  - `automation` 模块：`PreservationQuote` 创建时自动提交询价任务、`ScraperTask` 状态变更时触发 SMS 后续流程、`TokenAcquisitionHistory` 保存前脱敏，均从 `post_save` signal / 自定义 `save()` 迁移至 `@hook`。
+  - `chat_records` 模块：`ChatRecordRecording`/`ChatRecordScreenshot`/`ChatRecordExportTask` 文件字段变更时删除旧文件，从 `pre_save` signal（需额外查询旧记录）迁移至 `@hook(BEFORE_UPDATE, has_changed=True)` + `initial_value()`，消除竞态和冗余查询。
+  - `documents` 模块：`DocumentTemplate`/`FolderTemplate`/`Placeholder` 审计日志和缓存失效，从 `post_save` signal（依赖 `threading.local` 追踪旧值）迁移至 `@hook(AFTER_CREATE/AFTER_UPDATE)` + `_get_changes_from_lifecycle()`，移除 `threading.local` 模式。
+  - `enterprise_data` 模块：`McpWorkbenchExecution` 保存前 JSON 清洗和脱敏，从自定义 `save()` 迁移至 `@hook(BEFORE_CREATE/BEFORE_UPDATE)`。
+  - `ScraperTask` 的 SMS 状态流转业务逻辑遵循四层架构，从 Model 层提取至 `SMSDownloadMixin.handle_scraper_task_status_change()`，Model 层 `@hook` 仅做薄调用委托 Service 层。
+  - 清理各模块 `signals.py` 中已迁移的 signal handler，仅保留 `post_delete` 相关（物理文件清理）。
+
+- **数据库索引修复**：`Case.is_archived` → `is_filed` 重命名后残留索引清理，新增迁移 `0011_remove_case_cases_case_is_arch_591fe0_idx_and_more.py`。
+
 ## [26.36.1] - 2026-04-20
 
 ### 后端
