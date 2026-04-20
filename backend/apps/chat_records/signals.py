@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from django.conf import settings
-from django.db.models.signals import post_delete, pre_save
+from django.db.models.signals import post_delete
 from django.dispatch import receiver
 
 from .models import ChatRecordExportTask, ChatRecordRecording, ChatRecordScreenshot
@@ -69,6 +69,22 @@ def _delete_field_file(field_file: Any) -> None:
     _safe_prune_empty_parents(old_path)
 
 
+def _delete_field_file_by_name(old_name: str | None) -> None:
+    """根据 FieldFile 存储的文件名字符串删除物理文件（供 django-lifecycle @hook 使用）"""
+    if not old_name:
+        return
+    try:
+        from django.core.files.storage import default_storage
+
+        if default_storage.exists(old_name):
+            default_storage.delete(old_name)
+            logger.debug("已删除旧文件: %s", old_name)
+            # 尝试清理空目录
+            _safe_prune_empty_parents(default_storage.path(old_name) if hasattr(default_storage, "path") else None)
+    except Exception:
+        logger.debug("删除旧文件失败: %s", old_name)
+
+
 @receiver(post_delete, sender=ChatRecordRecording)
 def _delete_recording_file(sender: Any, instance: ChatRecordRecording, **kwargs: Any) -> None:
     _delete_field_file(getattr(instance, "video", None))
@@ -82,45 +98,3 @@ def _delete_screenshot_file(sender: Any, instance: ChatRecordScreenshot, **kwarg
 @receiver(post_delete, sender=ChatRecordExportTask)
 def _delete_export_file(sender: Any, instance: ChatRecordExportTask, **kwargs: Any) -> None:
     _delete_field_file(getattr(instance, "output_file", None))
-
-
-@receiver(pre_save, sender=ChatRecordRecording)
-def _delete_old_recording_on_change(sender: Any, instance: ChatRecordRecording, **kwargs: Any) -> None:
-    if not instance.pk:
-        return
-    try:
-        old = ChatRecordRecording.objects.get(pk=instance.pk)
-    except ChatRecordRecording.DoesNotExist:
-        return
-    old_video = getattr(old, "video", None)
-    instance_video = getattr(instance, "video", None)
-    if old_video and instance_video and old_video.name != instance_video.name:
-        _delete_field_file(old_video)
-
-
-@receiver(pre_save, sender=ChatRecordScreenshot)
-def _delete_old_screenshot_on_change(sender: Any, instance: ChatRecordScreenshot, **kwargs: Any) -> None:
-    if not instance.pk:
-        return
-    try:
-        old = ChatRecordScreenshot.objects.get(pk=instance.pk)
-    except ChatRecordScreenshot.DoesNotExist:
-        return
-    old_image = getattr(old, "image", None)
-    instance_image = getattr(instance, "image", None)
-    if old_image and instance_image and old_image.name != instance_image.name:
-        _delete_field_file(old_image)
-
-
-@receiver(pre_save, sender=ChatRecordExportTask)
-def _delete_old_export_on_change(sender: Any, instance: ChatRecordExportTask, **kwargs: Any) -> None:
-    if not instance.pk:
-        return
-    try:
-        old = ChatRecordExportTask.objects.get(pk=instance.pk)
-    except ChatRecordExportTask.DoesNotExist:
-        return
-    old_output = getattr(old, "output_file", None)
-    instance_output = getattr(instance, "output_file", None)
-    if old_output and instance_output and old_output.name != instance_output.name:
-        _delete_field_file(old_output)

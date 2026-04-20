@@ -6,11 +6,13 @@
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from django_lifecycle import AFTER_CREATE, AFTER_UPDATE, BEFORE_CREATE, BEFORE_UPDATE, LifecycleModel, hook
 
 from apps.core.utils.path import Path
 from apps.documents.storage import document_template_storage, resolve_docx_template_path
@@ -26,13 +28,15 @@ from .choices import (
     LegalStatusMatchMode,
 )
 
+logger = logging.getLogger(__name__)
+
 if TYPE_CHECKING:
     from django.db.models.fields.related_descriptors import RelatedManager
 
     from .evidence import EvidenceList
 
 
-class DocumentTemplate(models.Model):
+class DocumentTemplate(LifecycleModel):
     """
     文书模板
 
@@ -208,8 +212,40 @@ class DocumentTemplate(models.Model):
             return ""
         return str(resolve_docx_template_path(self.file_path))
 
+    @hook(AFTER_CREATE)
+    def on_create_audit_log(self) -> None:
+        """创建时记录审计日志"""
+        try:
+            from apps.documents.signals import _create_audit_log, _invalidate_template_matching_cache
+            from apps.documents.models.choices import TemplateAuditAction
 
-class DocumentTemplateFolderBinding(models.Model):
+            _create_audit_log(self, TemplateAuditAction.CREATE, is_new=True)
+            _invalidate_template_matching_cache(self.__class__)
+        except Exception:
+            logger.exception("创建审计日志失败: %s", self)
+
+    @hook(AFTER_UPDATE)
+    def on_update_audit_log(self) -> None:
+        """更新时记录审计日志"""
+        try:
+            from apps.documents.signals import _create_audit_log, _get_changes_from_lifecycle, _invalidate_template_matching_cache
+            from apps.documents.models.choices import TemplateAuditAction
+
+            changes = _get_changes_from_lifecycle(self, self.__class__)
+            if not changes:
+                return
+
+            if "is_active" in changes and len(changes) == 1:
+                action = TemplateAuditAction.ACTIVATE if self.is_active else TemplateAuditAction.DEACTIVATE
+            else:
+                action = TemplateAuditAction.UPDATE
+            _create_audit_log(self, action, changes)
+            _invalidate_template_matching_cache(self.__class__)
+        except Exception:
+            logger.exception("更新审计日志失败: %s", self)
+
+
+class DocumentTemplateFolderBinding(LifecycleModel):
     """
     文件模板与文件夹节点绑定
 
@@ -271,8 +307,10 @@ class DocumentTemplateFolderBinding(models.Model):
             f"{self.folder_template.name}/{self.folder_node_path or self.folder_node_id}"
         )
 
-    def save(self, *args: Any, **kwargs: Any) -> None:
-        """保存时自动根据 folder_node_id 计算 folder_node_path"""
+    @hook(BEFORE_CREATE)
+    @hook(BEFORE_UPDATE)
+    def on_save_compute_folder_node_path(self) -> None:
+        """保存前自动根据 folder_node_id 计算 folder_node_path"""
         if self.folder_node_id and self.folder_template_id:
             try:
                 structure = self.folder_template.structure or {}
@@ -280,7 +318,6 @@ class DocumentTemplateFolderBinding(models.Model):
                 self.folder_node_path = "/".join(path) if path else ""
             except Exception:
                 pass
-        super().save(*args, **kwargs)
 
     def _find_node_path(self, children: list[Any], target_id: str, current_path: list[str]) -> list[str]:
         for child in children:

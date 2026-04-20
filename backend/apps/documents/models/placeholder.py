@@ -6,13 +6,17 @@
 
 from __future__ import annotations
 
+import logging
 from typing import ClassVar
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from django_lifecycle import AFTER_CREATE, AFTER_UPDATE, LifecycleModel, hook
+
+logger = logging.getLogger(__name__)
 
 
-class Placeholder(models.Model):
+class Placeholder(LifecycleModel):
     """
     替换词
 
@@ -60,3 +64,33 @@ class Placeholder(models.Model):
     @category.setter
     def category(self, value: str) -> None:
         self._category = value
+
+    @hook(AFTER_CREATE)
+    def on_create_audit_log(self) -> None:
+        """创建时记录审计日志"""
+        try:
+            from apps.documents.signals import _create_audit_log
+            from apps.documents.models.choices import TemplateAuditAction
+
+            _create_audit_log(self, TemplateAuditAction.CREATE, is_new=True)
+        except Exception:
+            logger.exception("创建审计日志失败: %s", self)
+
+    @hook(AFTER_UPDATE)
+    def on_update_audit_log(self) -> None:
+        """更新时记录审计日志"""
+        try:
+            from apps.documents.signals import _create_audit_log, _get_changes_from_lifecycle
+            from apps.documents.models.choices import TemplateAuditAction
+
+            changes = _get_changes_from_lifecycle(self, self.__class__)
+            if not changes:
+                return
+
+            if "is_active" in changes and len(changes) == 1:
+                action = TemplateAuditAction.ACTIVATE if self.is_active else TemplateAuditAction.DEACTIVATE
+            else:
+                action = TemplateAuditAction.UPDATE
+            _create_audit_log(self, action, changes)
+        except Exception:
+            logger.exception("更新审计日志失败: %s", self)

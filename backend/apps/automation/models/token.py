@@ -6,6 +6,7 @@ from typing import Any, ClassVar
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from django_lifecycle import BEFORE_CREATE, BEFORE_UPDATE, LifecycleModel, hook
 
 
 class CourtToken(models.Model):
@@ -60,7 +61,7 @@ class TokenAcquisitionStatus(models.TextChoices):
     CREDENTIAL_ERROR = "credential_error", _("账号密码错误")
 
 
-class TokenAcquisitionHistory(models.Model):
+class TokenAcquisitionHistory(LifecycleModel):
     """一张网/保全系统 Token 获取历史记录"""
 
     id: int
@@ -125,7 +126,9 @@ class TokenAcquisitionHistory(models.Model):
     def __str__(self) -> str:
         return f"{self.site_name} - {self.account} - {self.get_status_display()}"
 
-    def save(self, *args: Any, **kwargs: Any) -> None:
+    @hook(BEFORE_CREATE)
+    @hook(BEFORE_UPDATE)
+    def on_save_scrub_sensitive_fields(self) -> None:
         """保存前对敏感字段进行脱敏处理"""
         from apps.core.security.scrub import fingerprint_sha256, mask_secret, scrub_obj, scrub_text
 
@@ -140,8 +143,6 @@ class TokenAcquisitionHistory(models.Model):
 
         if self.error_details:
             self.error_details = scrub_obj(self.error_details)
-
-        super().save(*args, **kwargs)
 
     def get_success_rate_display(self) -> str:
         """获取成功率显示"""

@@ -7,6 +7,7 @@ from typing import Any, ClassVar
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from django_lifecycle import BEFORE_CREATE, BEFORE_UPDATE, LifecycleModel, hook
 
 from apps.core.security.scrub import scrub_for_storage, scrub_text
 
@@ -21,7 +22,7 @@ class McpWorkbench(models.Model):
         verbose_name_plural = _("MCP 调试工作台")
 
 
-class McpWorkbenchExecution(models.Model):
+class McpWorkbenchExecution(LifecycleModel):
     """MCP 调试执行历史。"""
 
     id: int
@@ -62,14 +63,16 @@ class McpWorkbenchExecution(models.Model):
         status = "success" if self.success else "failed"
         return f"{self.provider}:{self.tool_name}:{status}"
 
-    def save(self, *args: Any, **kwargs: Any) -> None:
+    @hook(BEFORE_CREATE)
+    @hook(BEFORE_UPDATE)
+    def on_save_sanitize_json_fields(self) -> None:
+        """保存前清洗 JSON 字段和脱敏错误信息"""
         self.arguments = self._sanitize_json(self.arguments)
         self.response_data = self._sanitize_json(self.response_data)
         self.response_raw = self._sanitize_json(self.response_raw)
         self.response_meta = self._sanitize_json(self.response_meta)
         if self.error_message:
             self.error_message = scrub_text(self.error_message)
-        super().save(*args, **kwargs)
 
     @staticmethod
     def _sanitize_json(value: Any) -> Any:

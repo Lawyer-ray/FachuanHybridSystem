@@ -5,6 +5,7 @@ from typing import Any, ClassVar
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from django_lifecycle import BEFORE_UPDATE, LifecycleModel, hook
 
 from .choices import ExportStatus, ExportType
 
@@ -13,7 +14,7 @@ def _export_upload_to(instance: Any, filename: str) -> str:
     return f"chat_records/exports/{instance.project_id}/{instance.id}/{filename}"
 
 
-class ChatRecordExportTask(models.Model):
+class ChatRecordExportTask(LifecycleModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     project = models.ForeignKey(
         "ChatRecordProject",
@@ -50,3 +51,10 @@ class ChatRecordExportTask(models.Model):
 
     def __str__(self) -> str:
         return f"{self.project_id}-{self.export_type}-{self.id}"
+
+    @hook(BEFORE_UPDATE, when="output_file", has_changed=True)
+    def on_output_file_changed_delete_old(self) -> None:
+        """output_file 字段变更时删除旧文件"""
+        from apps.chat_records.signals import _delete_field_file_by_name
+
+        _delete_field_file_by_name(self.initial_value("output_file"))

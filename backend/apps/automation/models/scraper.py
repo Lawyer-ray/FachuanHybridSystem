@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, ClassVar
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from django_lifecycle import AFTER_UPDATE, LifecycleModel, hook
 
 if TYPE_CHECKING:
     from django.db.models.fields.related_descriptors import RelatedManager
 
     from apps.automation.models.court_document import CourtDocument
     from apps.automation.models.court_sms import CourtSMS
+
+logger = logging.getLogger("apps.automation")
 
 
 class ScraperTaskType(models.TextChoices):
@@ -32,7 +36,7 @@ class ScraperTaskStatus(models.TextChoices):
     FAILED = "failed", _("失败")
 
 
-class ScraperTask(models.Model):
+class ScraperTask(LifecycleModel):
     """网络爬虫任务"""
 
     id: int
@@ -92,3 +96,95 @@ class ScraperTask(models.Model):
         if self.scheduled_at is None:
             return True
         return self.scheduled_at <= timezone.now()
+
+    @hook(AFTER_UPDATE, when="status", has_changed=True)
+    def on_status_change_trigger_sms_flow(self) -> None:
+        """状态变为 SUCCESS/FAILED 时触发 CourtSMS 后续处理流程"""
+        if self.status not in [ScraperTaskStatus.SUCCESS, ScraperTaskStatus.FAILED]:
+            return
+
+        try:
+            from apps.automation.models.court_sms import CourtSMS, CourtSMSStatus
+            from apps.core.tasking import ScheduleQueryService, submit_task
+
+            court_sms_records = CourtSMS.objects.filter(scraper_task=self)
+            for sms in court_sms_records:
+                if sms.status not in [CourtSMSStatus.DOWNLOADING, CourtSMSStatus.MATCHING]:
+                    continue
+                if self.status == ScraperTaskStatus.SUCCESS:
+                    self._handle_sms_download_success(sms)
+                elif self.status == ScraperTaskStatus.FAILED:
+                    if self._handle_sms_download_failed(sms):
+                        continue
+        except Exception as e:
+            logger.error(
+                "❌ 处理下载完成信号失败: Task ID=%s, 错误: %s",
+                self.id,
+                e,
+                extra={"action": "download_signal_failed", "task_id": self.id, "error": str(e)},
+                exc_info=True,
+            )
+
+    def _handle_sms_download_success(self, sms: "CourtSMS") -> None:
+        """处理下载成功的 SMS"""
+        from apps.automation.models.court_sms import CourtSMSStatus
+        from apps.core.tasking import submit_task
+
+        if sms.status == CourtSMSStatus.DOWNLOADING:
+            sms.status = CourtSMSStatus.MATCHING
+            sms.save()
+            logger.info("✅ 下载任务完成，进入匹配阶段: SMS ID=%s, Task ID=%s", sms.id, self.id)
+        elif sms.status == CourtSMSStatus.MATCHING:
+            logger.info("✅ 下载任务完成，继续匹配流程: SMS ID=%s, Task ID=%s", sms.id, self.id)
+
+        task_id = submit_task(
+            "apps.automation.services.sms.court_sms_service.process_sms_async",
+            sms.id,
+            task_name=f"court_sms_continue_{sms.id}",
+        )
+        logger.info("提交后续处理任务: SMS ID=%s, Queue Task ID=%s", sms.id, task_id)
+
+    def _handle_sms_download_failed(self, sms: "CourtSMS") -> bool:
+        """处理下载失败的 SMS，返回是否需要 continue（跳过重试逻辑）"""
+        from apps.automation.models.court_sms import CourtSMSStatus
+        from apps.core.tasking import ScheduleQueryService, submit_task
+
+        if sms.status == CourtSMSStatus.MATCHING:
+            logger.info("下载失败但继续匹配流程: SMS ID=%s", sms.id)
+            task_id = submit_task(
+                "apps.automation.services.sms.court_sms_service.process_sms_async",
+                sms.id,
+                task_name=f"court_sms_continue_after_download_failed_{sms.id}",
+            )
+            logger.info("下载失败后继续处理任务: SMS ID=%s, Queue Task ID=%s", sms.id, task_id)
+            return True
+
+        sms.status = CourtSMSStatus.DOWNLOAD_FAILED
+        sms.error_message = self.error_message or "下载任务失败"
+        sms.save()
+        logger.warning(
+            "⚠️ 下载任务失败: SMS ID=%s, Task ID=%s, 错误: %s",
+            sms.id,
+            self.id,
+            self.error_message,
+        )
+
+        if sms.retry_count < 3:
+            from datetime import timedelta
+
+            from django.utils import timezone
+
+            next_run = timezone.now() + timedelta(seconds=60)
+            ScheduleQueryService().create_once_schedule(
+                func="apps.automation.services.sms.court_sms_service.retry_download_task",
+                args=str(sms.id),
+                name=f"court_sms_retry_download_{sms.id}",
+                next_run=next_run,
+            )
+            logger.info("提交重试下载任务: SMS ID=%s, 计划执行时间=%s", sms.id, next_run)
+        else:
+            sms.status = CourtSMSStatus.FAILED
+            sms.error_message = f"下载失败，已重试{sms.retry_count}次"
+            sms.save()
+            logger.error("下载重试次数用完，标记为失败: SMS ID=%s", sms.id)
+        return False

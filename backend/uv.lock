@@ -764,6 +764,18 @@ wheels = [
 ]
 
 [[package]]
+name = "django-lifecycle"
+version = "1.2.7"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/64/0b/88efc0596e9fc0d025b3b0b3718de27a17881dec05ef00b12f69298a4839/django_lifecycle-1.2.7.tar.gz", hash = "sha256:9d1823d8701d6243ad1d744aa6ad662321c0765880b52f9777c21205fb995ff7", size = 12767, upload-time = "2026-03-02T16:24:28.746Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/38/9b/a45c1cda4f2a162dfe58fe5cad2cdd7e916155543d63abec6085837b0bc9/django_lifecycle-1.2.7-py3-none-any.whl", hash = "sha256:a28eae117b230f22bb550c4fdfefdbae3c7315b4a64bfdcae9cd3f2828a1cf08", size = 15696, upload-time = "2026-03-02T16:24:26.827Z" },
+]
+
+[[package]]
 name = "django-nested-admin"
 version = "4.1.6"
 source = { registry = "https://pypi.org/simple" }
@@ -907,6 +919,7 @@ dependencies = [
     { name = "ddddocr" },
     { name = "django" },
     { name = "django-cors-headers" },
+    { name = "django-lifecycle" },
     { name = "django-nested-admin" },
     { name = "django-ninja" },
     { name = "django-ninja-extra" },
@@ -980,6 +993,7 @@ requires-dist = [
     { name = "ddddocr", specifier = "==1.6.1" },
     { name = "django", specifier = "==6.0.4" },
     { name = "django-cors-headers", specifier = "==4.9.0" },
+    { name = "django-lifecycle", specifier = "==1.2.7" },
     { name = "django-nested-admin", specifier = "==4.1.6" },
     { name = "django-ninja", specifier = "==1.6.2" },
     { name = "django-ninja-extra", specifier = "==0.31.4" },

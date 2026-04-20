@@ -5,6 +5,7 @@ from typing import Any, ClassVar
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from django_lifecycle import BEFORE_UPDATE, LifecycleModel, hook
 
 from .choices import ExtractStatus, ExtractStrategy
 
@@ -13,7 +14,7 @@ def _recording_upload_to(instance: Any, filename: str) -> str:
     return f"chat_records/recordings/{instance.project_id}/{instance.id}/{filename}"
 
 
-class ChatRecordRecording(models.Model):
+class ChatRecordRecording(LifecycleModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     project = models.ForeignKey(
         "ChatRecordProject",
@@ -63,3 +64,10 @@ class ChatRecordRecording(models.Model):
 
     def __str__(self) -> str:
         return f"{self.project_id}-{self.id}"
+
+    @hook(BEFORE_UPDATE, when="video", has_changed=True)
+    def on_video_changed_delete_old(self) -> None:
+        """video 字段变更时删除旧文件"""
+        from apps.chat_records.signals import _delete_field_file_by_name
+
+        _delete_field_file_by_name(self.initial_value("video"))
