@@ -256,6 +256,7 @@ class ContractDisplayMixin:
                 "client_payments": ctx_data["client_payments"],
                 "total_client_payment": ctx_data["total_client_payment"],
                 "archive_checklist": ctx_data.get("archive_checklist", {}),
+                "can_archive": ctx_data.get("can_archive", False),
                 "media_url": getattr(__import__("django.conf", fromlist=["settings"]).settings, "MEDIA_URL", "/media/"),
             }
         )
@@ -335,6 +336,9 @@ class ContractDisplayMixin:
         """自动检测监督卡的 Admin view"""
         from django.http import JsonResponse
 
+        if request.method != "POST":
+            return JsonResponse({"success": False, "error": "Method not allowed"}, status=405)
+
         if not self.has_change_permission(request):
             return JsonResponse({"success": False, "error": str(_("无权限"))}, status=403)
 
@@ -362,6 +366,9 @@ class ContractDisplayMixin:
         """确认归档的 Admin view - 校验必需项完成度后流转状态"""
         from django.http import JsonResponse
 
+        if request.method != "POST":
+            return JsonResponse({"success": False, "error": "Method not allowed"}, status=405)
+
         if not self.has_change_permission(request):
             return JsonResponse({"success": False, "error": str(_("无权限"))}, status=403)
 
@@ -375,9 +382,9 @@ class ContractDisplayMixin:
                 return JsonResponse({"success": False, "error": str(_("只有已结案合同才能确认归档"))}, status=400)
 
             # 校验必需项完成度
-            from apps.contracts.services.archive import ArchiveChecklistService
+            from apps.contracts.services.archive.wiring import build_archive_checklist_service
 
-            checklist_service = ArchiveChecklistService()
+            checklist_service = build_archive_checklist_service()
             checklist = checklist_service.get_checklist_with_status(contract)
 
             if checklist["required_completed_count"] < checklist["required_total_count"]:

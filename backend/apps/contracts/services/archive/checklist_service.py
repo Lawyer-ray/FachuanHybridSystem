@@ -136,10 +136,17 @@ class ArchiveChecklistService:
         return result
 
     def _find_code_by_source(self, archive_category: str, source: str) -> str | None:
-        """根据 source 类型找到对应的检查清单 code"""
+        """根据 source 类型找到对应的检查清单 code
+
+        名称匹配说明：
+        - 非诉: "委托合同（客户授权证明材料等）" → 包含"委托"
+        - 诉讼: "委托合同、风险告知书、授权委托证明材料等" → 包含"委托"
+        - 刑事: "委托代理合同、风险告知书、授权委托证明材料等" → 包含"委托"
+        统一使用"委托"关键词匹配，兼容所有分类。
+        """
         checklist_items = ARCHIVE_CHECKLIST.get(archive_category, [])
         for item in checklist_items:
-            if item["source"] == source and "委托合同" in item["name"]:
+            if item["source"] == source and "委托" in item["name"]:
                 return item["code"]
         return None
 
