@@ -513,32 +513,15 @@
     // 预览归档文书替换词
     window.previewArchiveTemplate = function(contractId, templateSubtype, templateName) {
         var app = document.querySelector('.contract-detail-page');
-        if (!app || !app.__x) {
-            alert('页面组件未初始化，请刷新后重试');
+        if (!app) {
+            alert('页面组件未找到，请刷新后重试');
             return;
         }
-        var data = app.__x.$data;
-        data.previewTitle = templateName + ' - 替换词预览';
-        data.previewRows = [];
-        data.isLoadingPreview = true;
-        data.showPreviewDialog = true;
-        fetch('/api/v1/documents/contracts/' + contractId + '/archive-preview?template_subtype=' + encodeURIComponent(templateSubtype))
-        .then(function(r) { return r.json(); })
-        .then(function(result) {
-            if (result.success && result.data) {
-                data.previewRows = result.data;
-            } else {
-                alert('预览失败: ' + (result.error || '未知错误'));
-                data.showPreviewDialog = false;
-            }
-        })
-        .catch(function(e) {
-            alert('预览请求失败: ' + e.message);
-            data.showPreviewDialog = false;
-        })
-        .finally(function() {
-            data.isLoadingPreview = false;
-        });
+        // 通过自定义事件通知 Alpine.js 组件
+        app.dispatchEvent(new CustomEvent('archive-preview-open', {
+            detail: { contractId: contractId, templateSubtype: templateSubtype, templateName: templateName },
+            bubbles: true
+        }));
     };
 
     document.addEventListener('DOMContentLoaded', function () {
