@@ -256,6 +256,7 @@ class ContractDisplayMixin:
                 "client_payments": ctx_data["client_payments"],
                 "total_client_payment": ctx_data["total_client_payment"],
                 "archive_checklist": ctx_data.get("archive_checklist", {}),
+                "archive_code_to_template": ctx_data.get("archive_code_to_template", {}),
                 "can_archive": ctx_data.get("can_archive", False),
                 "media_url": getattr(__import__("django.conf", fromlist=["settings"]).settings, "MEDIA_URL", "/media/"),
             }

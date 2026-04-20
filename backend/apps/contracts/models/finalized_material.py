@@ -48,7 +48,7 @@ class FinalizedMaterial(models.Model):
         blank=True,
         default="",
         verbose_name=_("归档清单编号"),
-        help_text=_("关联归档检查清单的具体编号，如 '4.2.6'、'4.2.16'"),
+        help_text=_("关联归档检查清单的标识符，如 'nl_1'、'lt_6'"),
     )
 
     class Meta:
