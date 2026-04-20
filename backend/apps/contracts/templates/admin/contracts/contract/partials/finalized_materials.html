@@ -1,4 +1,4 @@
-{% load i18n %}
+{% load i18n contract_tags %}
 <div x-show="activeTab === 'finalized'"
      x-cloak
      x-data="contractFolderScanApp({
@@ -54,9 +54,17 @@
 
         <div class="ac-list">
             {% for item in archive_checklist.items %}
-            <div class="ac-item {% if item.completed %}is-completed{% elif item.required %}is-missing{% endif %}">
-                <span class="ac-item-code">{{ item.code }}</span>
+            <div class="ac-item {% if item.completed %}is-completed{% elif item.required %}is-missing{% endif %}" data-code="{{ item.code }}">
+                <span class="ac-item-code"></span>
                 <span class="ac-item-name">{{ item.name }}</span>
+                <span class="ac-item-actions">
+                    {% if item.template %}
+                    <button type="button" class="ac-btn-preview" title="{% trans '预览替换词' %}"
+                            onclick="previewArchiveTemplate({{ contract.pk }}, '{{ item.template }}', '{{ item.name }}')">
+                        {% trans "预览" %}
+                    </button>
+                    {% endif %}
+                </span>
                 <span class="ac-item-status">
                     {% if item.completed %}
                         <span class="ac-badge ac-badge-done">✓</span>
@@ -110,6 +118,14 @@
                     {% if material.archive_item_code %}
                     <span class="fm-archive-code">{{ material.archive_item_code }}</span>
                     {% endif %}
+                    {% with template_subtype=archive_code_to_template|get_item:material.archive_item_code %}
+                    {% if template_subtype %}
+                    <button type="button" class="fm-btn-preview" title="{% trans '预览替换词' %}"
+                            onclick="previewArchiveTemplate({{ contract.pk }}, '{{ template_subtype }}', '{{ material.original_filename|escapejs }}')">
+                        {% trans "预览" %}
+                    </button>
+                    {% endif %}
+                    {% endwith %}
                     <span class="fm-date">{{ material.uploaded_at|date:"Y-m-d" }}</span>
                 </div>
                 {% endfor %}
@@ -190,6 +206,21 @@
     border-radius: 4px;
     padding: 1px 6px;
     flex-shrink: 0;
+}
+.fm-btn-preview {
+    font-size: 11px;
+    padding: 1px 8px;
+    border: 1px solid #93c5fd;
+    border-radius: 4px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    cursor: pointer;
+    transition: background 0.15s;
+    flex-shrink: 0;
+}
+.fm-btn-preview:hover {
+    background: #dbeafe;
+    border-color: #60a5fa;
 }
 .fm-date { font-size: 12px; color: #9ca3af; white-space: nowrap; flex-shrink: 0; }
 .sortable-ghost { opacity: 0.4; background: #dbeafe !important; }
@@ -284,6 +315,7 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
+    counter-reset: checklist-counter;
 }
 
 .ac-item {
@@ -296,6 +328,7 @@
     border-radius: 6px;
     font-size: 13px;
     transition: background 0.15s, border-color 0.15s;
+    counter-increment: checklist-counter;
 }
 
 .ac-item:hover { background: #eff6ff; }
@@ -310,17 +343,37 @@
     border-color: #fecaca;
 }
 
-.ac-item-code {
+.ac-item-code::before {
+    content: counter(checklist-counter) ".";
     font-size: 11px;
     color: #6b7280;
     font-weight: 600;
-    min-width: 48px;
+    min-width: 24px;
     flex-shrink: 0;
 }
 
 .ac-item-name {
     flex: 1;
     color: #1f2937;
+}
+
+.ac-item-actions {
+    flex-shrink: 0;
+}
+
+.ac-btn-preview {
+    font-size: 11px;
+    padding: 2px 8px;
+    border: 1px solid #93c5fd;
+    border-radius: 4px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.ac-btn-preview:hover {
+    background: #dbeafe;
+    border-color: #60a5fa;
 }
 
 .ac-badge {
@@ -455,6 +508,37 @@
             }
         })
         .catch(function(e) { alert('请求失败: ' + e.message); });
+    };
+
+    // 预览归档文书替换词
+    window.previewArchiveTemplate = function(contractId, templateSubtype, templateName) {
+        var app = document.querySelector('.contract-detail-page');
+        if (!app || !app.__x) {
+            alert('页面组件未初始化，请刷新后重试');
+            return;
+        }
+        var data = app.__x.$data;
+        data.previewTitle = templateName + ' - 替换词预览';
+        data.previewRows = [];
+        data.isLoadingPreview = true;
+        data.showPreviewDialog = true;
+        fetch('/api/v1/documents/contracts/' + contractId + '/archive-preview?template_subtype=' + encodeURIComponent(templateSubtype))
+        .then(function(r) { return r.json(); })
+        .then(function(result) {
+            if (result.success && result.data) {
+                data.previewRows = result.data;
+            } else {
+                alert('预览失败: ' + (result.error || '未知错误'));
+                data.showPreviewDialog = false;
+            }
+        })
+        .catch(function(e) {
+            alert('预览请求失败: ' + e.message);
+            data.showPreviewDialog = false;
+        })
+        .finally(function() {
+            data.isLoadingPreview = false;
+        });
     };
 
     document.addEventListener('DOMContentLoaded', function () {

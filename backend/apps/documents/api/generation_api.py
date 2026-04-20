@@ -73,6 +73,43 @@ def preview_supplementary_agreement_context(request: Any, contract_id: int, agre
     return {"success": True, "data": rows}
 
 
+@router.get("/contracts/{contract_id}/archive-preview")
+def preview_archive_context(request: Any, contract_id: int, template_subtype: str = "") -> Any:
+    """归档文书占位符预览
+
+    Args:
+        contract_id: 合同 ID
+        template_subtype: 归档模板子类型，如 case_cover, closing_archive_register 等
+    """
+    from pathlib import Path
+
+    from apps.contracts.models import Contract
+
+    _require_contract_access(request, contract_id)
+
+    if not template_subtype:
+        return {"success": False, "error": "缺少 template_subtype 参数"}
+
+    contract = Contract.objects.filter(pk=contract_id).first()
+    if not contract:
+        return {"success": False, "error": "合同不存在"}
+
+    from apps.contracts.services.archive import ArchiveGenerationService
+
+    gen_service = ArchiveGenerationService()
+    template_path = gen_service.get_template_path(template_subtype)
+    if not template_path or not Path(template_path).exists():
+        return {"success": False, "error": f"模板文件不存在: {template_subtype}"}
+
+    from apps.documents.services.generation.pipeline import DocxPreviewService, PipelineContextBuilder
+
+    context_builder = PipelineContextBuilder()
+    context = context_builder.build_archive_context(contract)
+
+    rows = DocxPreviewService().preview(str(template_path), context)
+    return {"success": True, "data": rows}
+
+
 @router.get("/contracts/{contract_id}/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
 def download_contract_document(request: Any, contract_id: int, split_fee: bool = True) -> Any:

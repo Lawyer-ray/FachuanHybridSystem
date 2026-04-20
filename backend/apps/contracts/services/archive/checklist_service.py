@@ -33,7 +33,7 @@ class ArchiveChecklistService:
                 "archive_category_label": "诉讼/仲裁",
                 "items": [
                     {
-                        "code": "4.2.1",
+                        "code": "lt_1",
                         "name": "案卷封面",
                         "template": "case_cover",
                         "required": True,
