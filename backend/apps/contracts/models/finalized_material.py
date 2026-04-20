@@ -17,6 +17,8 @@ class MaterialCategory(models.TextChoices):
     CONTRACT_ORIGINAL = "contract_original", _("合同正本")
     SUPPLEMENTARY_AGREEMENT = "supplementary_agreement", _("补充协议")
     INVOICE = "invoice", _("发票")
+    ARCHIVE_DOCUMENT = "archive_document", _("归档文书")
+    SUPERVISION_CARD = "supervision_card", _("监督卡")
 
 
 class FinalizedMaterial(models.Model):

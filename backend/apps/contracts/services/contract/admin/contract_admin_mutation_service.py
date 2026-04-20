@@ -154,7 +154,7 @@ class ContractAdminMutationService:
             "name": contract.name,
             "contract_id": contract.pk,
             "case_type": case_type_mapping.get(contract.case_type, SimpleCaseType.CIVIL),
-            "is_archived": False,
+            "is_filed": False,
         }
         return self.case_creation_workflow.create_case_from_contract(
             contract=contract,

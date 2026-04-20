@@ -45,6 +45,11 @@
             <button type="button" class="btn btn-secondary btn-sm" onclick="detectSupervisionCard({{ contract.pk }})">
                 {% trans "自动检测监督卡" %}
             </button>
+            {% if contract.status == 'closed' %}
+            <button type="button" class="btn btn-warning btn-sm ac-btn-archive" onclick="confirmArchive({{ contract.pk }})">
+                {% trans "确认归档" %}
+            </button>
+            {% endif %}
         </div>
 
         <div class="ac-list">
@@ -264,6 +269,17 @@
     margin-bottom: 12px;
 }
 
+.ac-btn-archive {
+    margin-left: auto;
+    background: #f59e0b;
+    border-color: #d97706;
+    color: #fff;
+}
+.ac-btn-archive:hover {
+    background: #d97706;
+    border-color: #b45309;
+}
+
 .ac-list {
     display: flex;
     flex-direction: column;
@@ -417,6 +433,25 @@
                 location.reload();
             } else {
                 alert('未检测到监督卡: ' + (data.error || '请确认合同正本已上传'));
+            }
+        })
+        .catch(function(e) { alert('请求失败: ' + e.message); });
+    };
+
+    // 确认归档
+    window.confirmArchive = function(contractId) {
+        if (!confirm('确认归档？必需项全部完成后才可归档，归档后合同状态将变为"已归档"。')) return;
+        fetch('/admin/contracts/contract/' + contractId + '/confirm-archive/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) {
+                alert('归档成功！');
+                location.reload();
+            } else {
+                alert('归档失败: ' + (data.error || '未知错误'));
             }
         })
         .catch(function(e) { alert('请求失败: ' + e.message); });

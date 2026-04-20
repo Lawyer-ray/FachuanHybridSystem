@@ -248,7 +248,7 @@ class SupervisionCardExtractor:
                     contract=contract,
                     file_path=rel_path,
                     original_filename=filename,
-                    category=MaterialCategory.INVOICE,
+                    category=MaterialCategory.SUPERVISION_CARD,
                     archive_item_code=supervision_code,
                 )
                 return material

@@ -36,14 +36,6 @@ _ARCHIVE_TEMPLATE_FILES: dict[str, str] = {
     "case_summary": "7-办案小结.docx",
 }
 
-# 归档模板子类型 → 对应的检查清单 code 后缀映射
-_ARCHIVE_TEMPLATE_CODE_SUFFIX: dict[str, str] = {
-    "case_cover": ".1",
-    "closing_archive_register": ".2",
-    "inner_catalog": ".3",
-    "lawyer_work_log": ".6",
-    "case_summary": ".11",
-}
 
 
 class ArchiveGenerationService:
@@ -245,7 +237,7 @@ class ArchiveGenerationService:
                     contract=contract,
                     file_path=rel_path,
                     original_filename=filename,
-                    category=MaterialCategory.CONTRACT_ORIGINAL,
+                    category=MaterialCategory.ARCHIVE_DOCUMENT,
                     archive_item_code=archive_item_code,
                 )
                 return material

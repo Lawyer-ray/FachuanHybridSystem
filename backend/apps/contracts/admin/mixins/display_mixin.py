@@ -194,6 +194,11 @@ class ContractDisplayMixin:
                 self.admin_site.admin_view(self.detect_supervision_card_view),
                 name="contracts_contract_detect_supervision_card",
             ),
+            path(
+                "<int:object_id>/confirm-archive/",
+                self.admin_site.admin_view(self.confirm_archive_view),
+                name="contracts_contract_confirm_archive",
+            ),
         ]
         return custom_urls + urls
 
@@ -352,3 +357,51 @@ class ContractDisplayMixin:
         except Exception as e:
             logger.exception("检测监督卡失败: contract_id=%s", object_id)
             return JsonResponse({"success": False, "found": False, "error": str(e)}, status=500)
+
+    def confirm_archive_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
+        """确认归档的 Admin view - 校验必需项完成度后流转状态"""
+        from django.http import JsonResponse
+
+        if not self.has_change_permission(request):
+            return JsonResponse({"success": False, "error": str(_("无权限"))}, status=403)
+
+        try:
+            from apps.contracts.models import ContractStatus
+
+            admin_service = _get_contract_admin_service()
+            contract = admin_service.query_service.get_contract_detail(object_id)
+
+            if contract.status != ContractStatus.CLOSED:
+                return JsonResponse({"success": False, "error": str(_("只有已结案合同才能确认归档"))}, status=400)
+
+            # 校验必需项完成度
+            from apps.contracts.services.archive import ArchiveChecklistService
+
+            checklist_service = ArchiveChecklistService()
+            checklist = checklist_service.get_checklist_with_status(contract)
+
+            if checklist["required_completed_count"] < checklist["required_total_count"]:
+                missing = [
+                    item["name"]
+                    for item in checklist["items"]
+                    if item["required"] and not item["completed"]
+                ]
+                return JsonResponse({
+                    "success": False,
+                    "error": str(_("必需项未完成: %(items)s") % {"items": "、".join(missing[:5])}),
+                    "required_completed": checklist["required_completed_count"],
+                    "required_total": checklist["required_total_count"],
+                }, status=400)
+
+            contract.status = ContractStatus.ARCHIVED
+            contract.save(update_fields=["status"])
+
+            logger.info(
+                "合同 %s 已确认归档",
+                contract.pk,
+                extra={"contract_id": contract.pk, "action": "confirm_archive"},
+            )
+            return JsonResponse({"success": True})
+        except Exception as e:
+            logger.exception("确认归档失败: contract_id=%s", object_id)
+            return JsonResponse({"success": False, "error": str(e)}, status=500)
