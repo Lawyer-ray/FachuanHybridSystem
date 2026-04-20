@@ -45,7 +45,7 @@
             <button type="button" class="btn btn-secondary btn-sm" onclick="detectSupervisionCard({{ contract.pk }})">
                 {% trans "自动检测监督卡" %}
             </button>
-            {% if contract.status == 'closed' %}
+            {% if can_archive %}
             <button type="button" class="btn btn-warning btn-sm ac-btn-archive" onclick="confirmArchive({{ contract.pk }})">
                 {% trans "确认归档" %}
             </button>
