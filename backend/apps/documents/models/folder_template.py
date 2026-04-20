@@ -94,7 +94,7 @@ class FolderTemplate(LifecycleModel):
         if not types_list:
             return "-"  # 空值显示为"-"而非"通用"
         if len(types_list) == 1:
-            return dict(choices_class.choices).get(types_list[0], types_list[0])
+            return str(dict(choices_class.choices).get(types_list[0], types_list[0]))
         return f"{len(types_list)}种类型"
 
     @property
