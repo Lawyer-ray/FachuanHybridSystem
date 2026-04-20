@@ -6,7 +6,8 @@ import logging
 from pathlib import Path
 
 from django.utils import timezone
-from django_q.exceptions import TimeoutException
+
+from apps.core.tasking import TaskTimeoutError
 
 logger = logging.getLogger("apps.oa_filing.tasks")
 
@@ -40,7 +41,7 @@ def run_client_import_task(session_id: int, headless: bool = True, limit: int | 
 
     try:
         ClientImportService(session).run_import(headless=headless, limit=limit)
-    except TimeoutException as exc:
+    except TaskTimeoutError as exc:
         logger.exception("客户导入任务超时: session_id=%s error=%s", session_id, exc)
         session.status = ClientImportStatus.FAILED
         session.phase = ClientImportPhase.FAILED
@@ -150,7 +151,7 @@ def run_case_import_preview_task(session_id: int, file_path: str) -> None:
             error_count,
         )
 
-    except TimeoutException as exc:
+    except TaskTimeoutError as exc:
         logger.exception("案件预览任务超时: session_id=%s error=%s", session_id, exc)
         session.status = CaseImportStatus.FAILED
         session.phase = CaseImportPhase.FAILED
@@ -212,7 +213,7 @@ def run_case_import_task(
         # 结果已在 service.run_import 中保存到 session
         logger.info("案件导入任务完成: session_id=%d", session_id)
 
-    except TimeoutException as exc:
+    except TaskTimeoutError as exc:
         logger.exception("案件导入任务超时: session_id=%s error=%s", session_id, exc)
         session.status = CaseImportStatus.FAILED
         session.phase = CaseImportPhase.FAILED
