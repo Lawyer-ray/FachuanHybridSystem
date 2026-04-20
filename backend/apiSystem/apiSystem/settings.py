@@ -243,6 +243,14 @@ connection_created.connect(activate_foreign_keys)
 
 AUTH_PASSWORD_VALIDATORS: list[dict[str, str]] = []
 
+# JWT Token 有效期配置
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=30),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
+}
+
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
