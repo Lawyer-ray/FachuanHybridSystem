@@ -29,7 +29,7 @@ class Case(models.Model):
         related_name="cases",
         verbose_name=_("关联合同"),
     )
-    is_archived = models.BooleanField(default=False, verbose_name=_("是否已建档"))
+    is_filed = models.BooleanField(default=False, verbose_name=_("是否已建档"))
     filing_number = models.CharField(
         max_length=50,
         blank=True,
@@ -83,7 +83,7 @@ class Case(models.Model):
         verbose_name_plural = _("案件")
         indexes: ClassVar = [
             models.Index(fields=["contract"]),
-            models.Index(fields=["is_archived"]),
+            models.Index(fields=["is_filed"]),
             models.Index(fields=["filing_number"]),
             models.Index(fields=["start_date"]),
             models.Index(fields=["current_stage"]),

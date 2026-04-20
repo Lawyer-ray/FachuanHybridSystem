@@ -48,7 +48,7 @@ class Contract(models.Model):
     specified_date: models.DateField = models.DateField(default=timezone.localdate, verbose_name=_("指定日期"))
     start_date: models.DateField = models.DateField(blank=True, null=True, verbose_name=_("开始日期"))
     end_date: models.DateField = models.DateField(blank=True, null=True, verbose_name=_("结束日期"))
-    is_archived: models.BooleanField = models.BooleanField(default=False, verbose_name=_("是否已建档"))
+    is_filed: models.BooleanField = models.BooleanField(default=False, verbose_name=_("是否已建档"))
     filing_number: models.CharField = models.CharField(
         max_length=50,
         blank=True,
@@ -101,7 +101,7 @@ class Contract(models.Model):
             # 单字段索引 - 用于基本过滤
             models.Index(fields=["case_type"]),
             models.Index(fields=["status"]),
-            models.Index(fields=["is_archived"]),
+            models.Index(fields=["is_filed"]),
             models.Index(fields=["specified_date"]),
             models.Index(fields=["-specified_date"]),
             models.Index(fields=["filing_number"]),
@@ -111,7 +111,7 @@ class Contract(models.Model):
             # 按状态和指定日期查询(常用于时间范围过滤)
             models.Index(fields=["status", "-specified_date"]),
             # 按是否建档和指定日期查询(常用于归档管理)
-            models.Index(fields=["is_archived", "-specified_date"]),
+            models.Index(fields=["is_filed", "-specified_date"]),
             # 按案件类型、状态和指定日期查询(常用于复杂过滤)
             models.Index(fields=["case_type", "status", "-specified_date"]),
         ]

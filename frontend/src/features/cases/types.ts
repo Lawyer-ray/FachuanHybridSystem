@@ -158,7 +158,7 @@ export interface Case {
   id: number
   name: string
   status: string | null
-  is_archived: boolean
+  is_filed: boolean
   case_type: SimpleCaseType | null
   start_date: string
   effective_date: string | null
@@ -178,7 +178,7 @@ export interface Case {
 export interface CaseInput {
   name: string
   status?: string
-  is_archived?: boolean
+  is_filed?: boolean
   case_type?: SimpleCaseType
   target_amount?: number | null
   preservation_amount?: number | null
@@ -190,7 +190,7 @@ export interface CaseInput {
 export interface CaseUpdate {
   name?: string
   status?: string
-  is_archived?: boolean
+  is_filed?: boolean
   case_type?: string
   target_amount?: number | null
   preservation_amount?: number | null

@@ -184,6 +184,21 @@ class ContractDisplayMixin:
                 self.admin_site.admin_view(self.detail_view),
                 name="contracts_contract_detail",
             ),
+            path(
+                "<int:object_id>/generate-archive-docs/",
+                self.admin_site.admin_view(self.generate_archive_docs_view),
+                name="contracts_contract_generate_archive_docs",
+            ),
+            path(
+                "<int:object_id>/detect-supervision-card/",
+                self.admin_site.admin_view(self.detect_supervision_card_view),
+                name="contracts_contract_detect_supervision_card",
+            ),
+            path(
+                "<int:object_id>/confirm-archive/",
+                self.admin_site.admin_view(self.confirm_archive_view),
+                name="contracts_contract_confirm_archive",
+            ),
         ]
         return custom_urls + urls
 
@@ -240,6 +255,8 @@ class ContractDisplayMixin:
                 "invoices_by_payment": ctx_data["invoices_by_payment"],
                 "client_payments": ctx_data["client_payments"],
                 "total_client_payment": ctx_data["total_client_payment"],
+                "archive_checklist": ctx_data.get("archive_checklist", {}),
+                "can_archive": ctx_data.get("can_archive", False),
                 "media_url": getattr(__import__("django.conf", fromlist=["settings"]).settings, "MEDIA_URL", "/media/"),
             }
         )
@@ -279,3 +296,119 @@ class ContractDisplayMixin:
         except (BusinessException, RuntimeError, Exception) as e:
             logger.error("检查合同 %s 的文件夹模板失败: %s", contract.id, e, exc_info=True)
             return False
+
+    def generate_archive_docs_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
+        """生成归档文书的 Admin view"""
+        import json
+
+        from django.http import JsonResponse
+
+        if not self.has_change_permission(request):
+            return JsonResponse({"success": False, "error": str(_("无权限"))}, status=403)
+
+        try:
+            admin_service = _get_contract_admin_service()
+            contract = admin_service.query_service.get_contract_detail(object_id)
+
+            from apps.contracts.services.archive import ArchiveGenerationService
+
+            gen_service = ArchiveGenerationService()
+            results = gen_service.generate_archive_documents(contract)
+
+            generated_count = sum(1 for r in results if r.get("error") is None)
+            errors = [r for r in results if r.get("error")]
+
+            if errors:
+                error_msgs = "; ".join(f"{r.get('template_subtype', '?')}: {r['error']}" for r in errors)
+                logger.warning("归档文书部分生成失败: %s", error_msgs)
+
+            return JsonResponse({
+                "success": True,
+                "generated_count": generated_count,
+                "total_count": len(results),
+                "errors": [{"subtype": r.get("template_subtype"), "error": r["error"]} for r in errors],
+            })
+        except Exception as e:
+            logger.exception("生成归档文书失败: contract_id=%s", object_id)
+            return JsonResponse({"success": False, "error": str(e)}, status=500)
+
+    def detect_supervision_card_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
+        """自动检测监督卡的 Admin view"""
+        from django.http import JsonResponse
+
+        if request.method != "POST":
+            return JsonResponse({"success": False, "error": "Method not allowed"}, status=405)
+
+        if not self.has_change_permission(request):
+            return JsonResponse({"success": False, "error": str(_("无权限"))}, status=403)
+
+        try:
+            admin_service = _get_contract_admin_service()
+            contract = admin_service.query_service.get_contract_detail(object_id)
+
+            from apps.contracts.services.archive import SupervisionCardExtractor
+
+            extractor = SupervisionCardExtractor()
+            result = extractor.detect_and_extract(contract)
+
+            return JsonResponse({
+                "success": True,
+                "found": result["found"],
+                "page_number": result.get("page_number"),
+                "material_id": result.get("material_id"),
+                "error": result.get("error"),
+            })
+        except Exception as e:
+            logger.exception("检测监督卡失败: contract_id=%s", object_id)
+            return JsonResponse({"success": False, "found": False, "error": str(e)}, status=500)
+
+    def confirm_archive_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
+        """确认归档的 Admin view - 校验必需项完成度后流转状态"""
+        from django.http import JsonResponse
+
+        if request.method != "POST":
+            return JsonResponse({"success": False, "error": "Method not allowed"}, status=405)
+
+        if not self.has_change_permission(request):
+            return JsonResponse({"success": False, "error": str(_("无权限"))}, status=403)
+
+        try:
+            from apps.contracts.models import ContractStatus
+
+            admin_service = _get_contract_admin_service()
+            contract = admin_service.query_service.get_contract_detail(object_id)
+
+            if contract.status != ContractStatus.CLOSED:
+                return JsonResponse({"success": False, "error": str(_("只有已结案合同才能确认归档"))}, status=400)
+
+            # 校验必需项完成度
+            from apps.contracts.services.archive.wiring import build_archive_checklist_service
+
+            checklist_service = build_archive_checklist_service()
+            checklist = checklist_service.get_checklist_with_status(contract)
+
+            if checklist["required_completed_count"] < checklist["required_total_count"]:
+                missing = [
+                    item["name"]
+                    for item in checklist["items"]
+                    if item["required"] and not item["completed"]
+                ]
+                return JsonResponse({
+                    "success": False,
+                    "error": str(_("必需项未完成: %(items)s") % {"items": "、".join(missing[:5])}),
+                    "required_completed": checklist["required_completed_count"],
+                    "required_total": checklist["required_total_count"],
+                }, status=400)
+
+            contract.status = ContractStatus.ARCHIVED
+            contract.save(update_fields=["status"])
+
+            logger.info(
+                "合同 %s 已确认归档",
+                contract.pk,
+                extra={"contract_id": contract.pk, "action": "confirm_archive"},
+            )
+            return JsonResponse({"success": True})
+        except Exception as e:
+            logger.exception("确认归档失败: contract_id=%s", object_id)
+            return JsonResponse({"success": False, "error": str(e)}, status=500)

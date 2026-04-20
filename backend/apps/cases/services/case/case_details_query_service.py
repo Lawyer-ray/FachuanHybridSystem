@@ -97,7 +97,7 @@ class CaseDetailsQueryService:
             "preservation_amount": (
                 float(case.preservation_amount) if getattr(case, "preservation_amount", None) else None
             ),
-            "is_archived": case.is_archived,
+            "is_filed": case.is_filed,
             "start_date": str(case.start_date) if getattr(case, "start_date", None) else None,
             "effective_date": str(case.effective_date) if getattr(case, "effective_date", None) else None,
             "specified_date": str(case.specified_date) if getattr(case, "specified_date", None) else None,

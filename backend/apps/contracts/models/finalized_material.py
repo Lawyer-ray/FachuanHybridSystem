@@ -17,6 +17,8 @@ class MaterialCategory(models.TextChoices):
     CONTRACT_ORIGINAL = "contract_original", _("合同正本")
     SUPPLEMENTARY_AGREEMENT = "supplementary_agreement", _("补充协议")
     INVOICE = "invoice", _("发票")
+    ARCHIVE_DOCUMENT = "archive_document", _("归档文书")
+    SUPERVISION_CARD = "supervision_card", _("监督卡")
 
 
 class FinalizedMaterial(models.Model):
@@ -41,6 +43,13 @@ class FinalizedMaterial(models.Model):
     uploaded_at: models.DateTimeField = models.DateTimeField(auto_now_add=True, verbose_name=_("上传时间"))
     remark: models.TextField = models.TextField(blank=True, default="", verbose_name=_("备注"))
     order: models.PositiveIntegerField = models.PositiveIntegerField(default=0, verbose_name=_("排序"))
+    archive_item_code: models.CharField = models.CharField(
+        max_length=20,
+        blank=True,
+        default="",
+        verbose_name=_("归档清单编号"),
+        help_text=_("关联归档检查清单的具体编号，如 '4.2.6'、'4.2.16'"),
+    )
 
     class Meta:
         ordering: ClassVar = ["order", "-uploaded_at"]

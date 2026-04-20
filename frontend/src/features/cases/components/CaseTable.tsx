@@ -126,7 +126,7 @@ export function CaseTable({ cases, isLoading }: CaseTableProps) {
                   <TableCell className="max-w-[260px]">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium line-clamp-2">{c.name}</span>
-                      {c.is_archived && <Badge variant="secondary" className="shrink-0 text-xs">已归档</Badge>}
+                      {c.is_filed && <Badge variant="secondary" className="shrink-0 text-xs">已建档</Badge>}
                     </div>
                   </TableCell>
                   <TableCell>

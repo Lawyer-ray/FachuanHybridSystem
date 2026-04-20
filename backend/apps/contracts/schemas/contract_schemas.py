@@ -60,7 +60,7 @@ class ContractIn(ModelSchema):
             "specified_date",
             "start_date",
             "end_date",
-            "is_archived",
+            "is_filed",
             "fee_mode",
             "fixed_amount",
             "risk_rate",
@@ -151,7 +151,7 @@ class ContractOut(ModelSchema):
             "specified_date",
             "start_date",
             "end_date",
-            "is_archived",
+            "is_filed",
             "fee_mode",
             "fixed_amount",
             "risk_rate",
@@ -290,7 +290,7 @@ class ContractUpdate(Schema):
     start_date: str | None = None
     end_date: str | None = None
     assigned_lawyer: int | None = None
-    is_archived: bool | None = None
+    is_filed: bool | None = None
     fee_mode: str | None = None
     fixed_amount: float | None = None
     risk_rate: float | None = None

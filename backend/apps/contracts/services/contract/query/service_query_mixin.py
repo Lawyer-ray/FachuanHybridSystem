@@ -23,7 +23,7 @@ class ContractServiceQueryMixin:
         self,
         case_type: str | None = None,
         status: str | None = None,
-        is_archived: bool | None = None,
+        is_filed: bool | None = None,
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
@@ -35,7 +35,7 @@ class ContractServiceQueryMixin:
             self.query_facade.list_contracts(
                 case_type=case_type,
                 status=status,
-                is_archived=is_archived,
+                is_filed=is_filed,
                 user=user,
                 org_access=org_access,
                 perm_open_access=perm_open_access,

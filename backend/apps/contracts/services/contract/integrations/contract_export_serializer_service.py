@@ -84,7 +84,7 @@ def serialize_contract_obj(
         "specified_date": str(obj.specified_date) if obj.specified_date else None,
         "start_date": str(obj.start_date) if obj.start_date else None,
         "end_date": str(obj.end_date) if obj.end_date else None,
-        "is_archived": obj.is_archived,
+        "is_filed": obj.is_filed,
         "fee_mode": obj.fee_mode,
         "fixed_amount": str(obj.fixed_amount) if obj.fixed_amount is not None else None,
         "risk_rate": str(obj.risk_rate) if obj.risk_rate is not None else None,

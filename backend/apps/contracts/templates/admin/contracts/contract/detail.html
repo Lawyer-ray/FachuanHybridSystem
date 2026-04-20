@@ -31,9 +31,9 @@
                 {% trans "主办律师" %}: {% if primary_lawyer %}{{ primary_lawyer.real_name|default:primary_lawyer.username }}{% else %}{% trans "未指派" %}{% endif %}
             </span>
             <span style="margin-left: 16px;">
-                {% if contract.is_archived and contract.filing_number %}
+                {% if contract.is_filed and contract.filing_number %}
                     {% trans "建档编号" %}: {{ contract.filing_number }}
-                {% elif contract.is_archived %}
+                {% elif contract.is_filed %}
                     ✓ {% trans "已建档" %}
                 {% else %}
                     {% trans "未建档" %}

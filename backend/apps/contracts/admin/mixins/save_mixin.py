@@ -48,7 +48,7 @@ class ContractSaveMixin:
         # 处理建档编号逻辑
         try:
             service = _get_contract_admin_service()
-            filing_number = service.handle_contract_filing_change(contract_id=obj.id, is_archived=obj.is_archived)
+            filing_number = service.handle_contract_filing_change(contract_id=obj.id, is_filed=obj.is_filed)
 
             if filing_number:
                 obj.filing_number = filing_number
@@ -57,7 +57,7 @@ class ContractSaveMixin:
                     extra={
                         "contract_id": obj.id,
                         "filing_number": filing_number,
-                        "is_archived": obj.is_archived,
+                        "is_filed": obj.is_filed,
                     },
                 )
         except (BusinessException, RuntimeError, Exception) as e:

@@ -52,7 +52,7 @@ class ContractQueryFacade:
         self,
         case_type: str | None = None,
         status: str | None = None,
-        is_archived: bool | None = None,
+        is_filed: bool | None = None,
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
@@ -62,7 +62,7 @@ class ContractQueryFacade:
         qs = self.query_service.list_contracts(
             case_type=case_type,
             status=status,
-            is_archived=is_archived,
+            is_filed=is_filed,
             user=user,
             org_access=org_access,
             perm_open_access=perm_open_access,
@@ -86,13 +86,13 @@ class ContractQueryFacade:
         ctx: AccessContext,
         case_type: str | None = None,
         status: str | None = None,
-        is_archived: bool | None = None,
+        is_filed: bool | None = None,
     ) -> list[Contract]:
         qs = self.query_service.list_contracts_ctx(
             ctx=ctx,
             case_type=case_type,
             status=status,
-            is_archived=is_archived,
+            is_filed=is_filed,
         )
         contracts = list(qs)
         self.list_assembler.enrich(contracts)

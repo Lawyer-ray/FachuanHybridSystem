@@ -470,7 +470,7 @@ class CaseAdminService:
         # 复制主对象
         new_case = Case.objects.create(
             contract=original.contract,
-            is_archived=False,  # 副本默认未建档
+            is_filed=False,  # 副本默认未建档
             name=f"{original.name} (副本)",
             status=original.status,
             effective_date=original.effective_date,
@@ -528,17 +528,17 @@ class CaseAdminService:
         return new_case
 
     @transaction.atomic
-    def handle_case_filing_change(self, case_id: int, is_archived: bool) -> str | None:
+    def handle_case_filing_change(self, case_id: int, is_filed: bool) -> str | None:
         """
         处理案件建档状态变化
 
         业务逻辑:
-        - 如果 is_archived=True 且 filing_number 为空,调用 FilingNumberService 生成编号
-        - 如果 is_archived=True 且 filing_number 已存在,返回现有编号
-        - 如果 is_archived=False,不修改 filing_number(保留在数据库中)
+        - 如果 is_filed=True 且 filing_number 为空,调用 FilingNumberService 生成编号
+        - 如果 is_filed=True 且 filing_number 已存在,返回现有编号
+        - 如果 is_filed=False,不修改 filing_number(保留在数据库中)
 
             case_id: 案件ID
-            is_archived: 是否已建档
+            is_filed: 是否已建档
 
             str | None: 建档编号(如果已建档)
 
@@ -557,7 +557,7 @@ class CaseAdminService:
             ) from None
 
         # 如果取消建档,不修改 filing_number(保留在数据库中)
-        if not is_archived:
+        if not is_filed:
             logger.info(
                 "取消案件建档,保留建档编号",
                 extra={"case_id": case_id, "filing_number": case.filing_number, "action": "handle_case_filing_change"},

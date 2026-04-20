@@ -10,7 +10,7 @@ from django.db.models import Sum
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from apps.contracts.models import Contract
+from apps.contracts.models import Contract, ContractStatus
 from apps.core.interfaces import CaseDTO
 from apps.core.models.enums import CaseStage
 
@@ -230,6 +230,15 @@ class ContractAdminService:
         client_payments = client_payment_service.get_contract_payment_records(contract.pk)
         total_client_payment = client_payment_service.calculate_total_amount(contract.pk)
 
+        # 归档检查清单数据
+        from apps.contracts.services.archive.wiring import build_archive_checklist_service
+
+        archive_checklist_service = build_archive_checklist_service()
+        archive_checklist = archive_checklist_service.get_checklist_with_status(contract)
+
+        # 判断是否可归档（已结案状态）
+        can_archive = contract.status == ContractStatus.CLOSED
+
         return {
             "contract": contract,
             "show_representation_stages": show_representation_stages,
@@ -254,7 +263,9 @@ class ContractAdminService:
             "invoices_by_payment": invoices_by_payment,
             "client_payments": client_payments,
             "total_client_payment": total_client_payment,
+            "archive_checklist": archive_checklist,
+            "can_archive": can_archive,
         }
 
-    def handle_contract_filing_change(self, contract_id: int, is_archived: bool) -> str | None:
-        return self.mutation_service.handle_contract_filing_change(contract_id, is_archived)
+    def handle_contract_filing_change(self, contract_id: int, is_filed: bool) -> str | None:
+        return self.mutation_service.handle_contract_filing_change(contract_id, is_filed)

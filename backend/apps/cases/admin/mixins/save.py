@@ -94,7 +94,7 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
 
         try:
             service = self._get_case_admin_service()
-            filing_number = service.handle_case_filing_change(case_id=obj.id, is_archived=obj.is_archived)
+            filing_number = service.handle_case_filing_change(case_id=obj.id, is_filed=obj.is_filed)
 
             if filing_number:
                 obj.filing_number = filing_number
@@ -105,7 +105,7 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
                     extra={
                         "case_id": obj.id,
                         "filing_number": filing_number,
-                        "is_archived": obj.is_archived,
+                        "is_filed": obj.is_filed,
                     },
                 )
         except Exception as e:

@@ -41,27 +41,27 @@ class ContractQueryService:
         *,
         case_type: str | None,
         status: str | None,
-        is_archived: bool | None,
+        is_filed: bool | None,
     ) -> QuerySet[Contract, Contract]:
         if case_type:
             qs = qs.filter(case_type=case_type)
         if status:
             qs = qs.filter(status=status)
-        if is_archived is not None:
-            qs = qs.filter(is_archived=is_archived)
+        if is_filed is not None:
+            qs = qs.filter(is_filed=is_filed)
         return qs
 
     def list_contracts(
         self,
         case_type: str | None = None,
         status: str | None = None,
-        is_archived: bool | None = None,
+        is_filed: bool | None = None,
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> QuerySet[Contract, Contract]:
         qs = self.get_contract_queryset().order_by("-id")
-        qs = self._apply_list_filters(qs, case_type=case_type, status=status, is_archived=is_archived)
+        qs = self._apply_list_filters(qs, case_type=case_type, status=status, is_filed=is_filed)
 
         qs = self.access_policy.filter_queryset(
             qs=qs,
@@ -77,10 +77,10 @@ class ContractQueryService:
         ctx: AccessContext,
         case_type: str | None = None,
         status: str | None = None,
-        is_archived: bool | None = None,
+        is_filed: bool | None = None,
     ) -> QuerySet[Contract, Contract]:
         qs = self.get_contract_queryset().order_by("-id")
-        qs = self._apply_list_filters(qs, case_type=case_type, status=status, is_archived=is_archived)
+        qs = self._apply_list_filters(qs, case_type=case_type, status=status, is_filed=is_filed)
 
         qs = self.access_policy.filter_queryset_ctx(qs=qs, ctx=ctx)
         return qs

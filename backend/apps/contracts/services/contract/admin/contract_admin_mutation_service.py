@@ -101,7 +101,7 @@ class ContractAdminMutationService:
             specified_date=original.specified_date,
             start_date=original.start_date,
             end_date=original.end_date,
-            is_archived=False,
+            is_filed=False,
             fee_mode=original.fee_mode,
             fixed_amount=original.fixed_amount,
             risk_rate=original.risk_rate,
@@ -154,7 +154,7 @@ class ContractAdminMutationService:
             "name": contract.name,
             "contract_id": contract.pk,
             "case_type": case_type_mapping.get(contract.case_type, SimpleCaseType.CIVIL),
-            "is_archived": False,
+            "is_filed": False,
         }
         return self.case_creation_workflow.create_case_from_contract(
             contract=contract,
@@ -194,7 +194,7 @@ class ContractAdminMutationService:
             specified_date=original.specified_date,
             start_date=new_start_date,
             end_date=new_end_date,
-            is_archived=False,
+            is_filed=False,
             fee_mode=original.fee_mode,
             fixed_amount=original.fixed_amount,
             risk_rate=original.risk_rate,
@@ -217,7 +217,7 @@ class ContractAdminMutationService:
         return _("%(names)s常法顾问-%(start)s至%(end)s") % {"names": principals_str, "start": start_str, "end": end_str}
 
     @transaction.atomic
-    def handle_contract_filing_change(self, contract_id: int, is_archived: bool) -> str | None:
+    def handle_contract_filing_change(self, contract_id: int, is_filed: bool) -> str | None:
         try:
             contract = Contract.objects.get(pk=contract_id)
         except Contract.DoesNotExist:
@@ -227,7 +227,7 @@ class ContractAdminMutationService:
                 errors={"contract_id": _("ID为 %(id)s 的合同不存在") % {"id": contract_id}},
             ) from None
 
-        if not is_archived:
+        if not is_filed:
             logger.info(
                 "取消合同建档,保留建档编号",
                 extra={

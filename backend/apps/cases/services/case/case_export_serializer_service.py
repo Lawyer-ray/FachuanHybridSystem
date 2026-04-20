@@ -73,7 +73,7 @@ def serialize_case_obj(obj: Case) -> SerializedPayload:
         "target_amount": str(obj.target_amount) if obj.target_amount is not None else None,
         "preservation_amount": str(obj.preservation_amount) if obj.preservation_amount is not None else None,
         "current_stage": obj.current_stage,
-        "is_archived": obj.is_archived,
+        "is_filed": obj.is_filed,
         "effective_date": str(obj.effective_date) if obj.effective_date else None,
         "specified_date": str(obj.specified_date) if obj.specified_date else None,
         "parties": [{"legal_status": p.legal_status, "client": _serialize_client(p.client)} for p in obj.parties.all()],

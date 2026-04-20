@@ -18,7 +18,7 @@ class CaseIn(ModelSchema):
         fields: ClassVar = [
             "name",
             "status",
-            "is_archived",
+            "is_filed",
             "case_type",
             "target_amount",
             "preservation_amount",
@@ -42,7 +42,7 @@ class CaseOut(ModelSchema):
             "id",
             "name",
             "status",
-            "is_archived",
+            "is_filed",
             "case_type",
             "start_date",
             "effective_date",
@@ -88,7 +88,7 @@ class CaseOut(ModelSchema):
 class CaseUpdate(Schema):
     name: str | None = None
     status: str | None = None
-    is_archived: bool | None = None
+    is_filed: bool | None = None
     case_type: str | None = None
     target_amount: float | None = None
     preservation_amount: float | None = None

@@ -256,9 +256,9 @@ export function CaseDetail({ caseId }: CaseDetailProps) {
               {typeLabel && (
                 <Badge variant="outline" className="text-xs">{typeLabel}</Badge>
               )}
-              {caseData.is_archived && caseData.filing_number && (
+              {caseData.is_filed && caseData.filing_number && (
                 <Badge variant="outline" className="text-xs">
-                  归档号: {caseData.filing_number}
+                  建档号: {caseData.filing_number}
                 </Badge>
               )}
             </div>

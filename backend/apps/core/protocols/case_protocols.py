@@ -97,7 +97,7 @@ class ICaseService(Protocol):
             data: 案件数据字典,包含:
                 - name: 案件名称(必填)
                 - contract_id: 合同 ID(可选)
-                - is_archived: 是否已建档(可选,默认 False)
+                - is_filed: 是否已建档(可选,默认 False)
                 - case_type: 案件类型(可选)
                 - target_amount: 涉案金额(可选)
                 - cause_of_action: 案由(可选)

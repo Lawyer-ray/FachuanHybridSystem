@@ -2,6 +2,50 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.36.0] - 2026-04-20
+
+### 后端
+
+- **`is_archived` → `is_filed` 重命名，分离"建档"与"归档"概念**：
+  - `Case` 模型：`is_archived` 重命名为 `is_filed`，新增迁移 `0010_rename_is_archived_to_is_filed.py`。
+  - `Contract` 模型：`is_archived` 重命名为 `is_filed`，新增迁移 `0012_rename_is_archived_to_is_filed.py`。
+  - 同步更新 cases/contracts 模块的 admin、schemas、services、DTO、protocols、前端类型定义等全链路引用。
+  - `contract_admin_mutation_service.py` 修正残留的 `"is_archived"` 键名为 `"is_filed"`。
+
+- **归档检查清单数据结构与 `ArchiveChecklistService`**：
+  - 新增 `apps/contracts/services/archive/constants.py`：定义 3 类检查清单（法律顾问 11 项、诉讼/仲裁 19 项、刑事 17 项），每项包含 code、name、source 材料类型。
+  - 新增 `apps/contracts/services/archive/checklist_service.py`：`ArchiveChecklistService` 负责检查清单计算、必选项校验、缺失项返回。
+  - 新增 `apps/contracts/services/archive/category_mapping.py`：`FinalizedMaterial` 类别到检查清单 source 的映射逻辑。
+  - 新增迁移 `0013_finalizedmaterial_archive_item_code.py`：`FinalizedMaterial` 新增 `archive_item_code` 字段。
+
+- **归档文书生成服务和监督卡自动检测**：
+  - 新增 `apps/contracts/services/archive/generation_service.py`：`ArchiveGenerationService` 根据合同类型匹配归档模板，批量生成归档文书。
+  - 新增 `apps/contracts/services/archive/supervision_card_extractor.py`：`SupervisionCardExtractorService` 从结案卷宗自动提取监督卡信息。
+  - `FinalizedMaterial.MaterialCategory` 新增 `ARCHIVE_DOCUMENT`（归档文书）和 `SUPERVISION_CARD`（监督卡）两个枚举值。
+  - 新增迁移 `0014_material_category_archive_additions.py`。
+  - `folder_scan_service.py` 默认类别从 `invoice` 改为 `archive_document`，白名单新增 `ARCHIVE_DOCUMENT` 和 `SUPERVISION_CARD`。
+
+- **归档材料 Tab UI 改造**：
+  - `finalized_materials.html` 大幅重构：新增归档检查清单表格、归档进度统计、操作按钮区域。
+  - 新增"确认归档"按钮（橙色，`ac-btn-archive` 样式），仅当 `can_archive=True` 时显示。
+  - 模板条件从硬编码 `contract.status == 'closed'` 改为后端计算的 `can_archive` 布尔变量。
+  - `contract_admin_service.py` 新增 `can_archive` 计算（`contract.status == ContractStatus.CLOSED`），注入到模板上下文。
+
+- **归档工作流 — 确认归档 AJAX 端点**：
+  - `display_mixin.py` 新增 `confirm_archive_view` AJAX 端点：POST 方法、权限校验、状态校验、必选项完成校验。
+  - 新增 URL 路由 `<int:object_id>/confirm-archive/`。
+  - `generate_archive_docs_view` 和 `detect_supervision_card_view` 添加 POST 方法限制。
+  - 移除 `action_mixin.py` 中已废弃的 `_handle_confirm_archive` 方法和 `_ACTION_HANDLERS` 注册。
+
+- **依赖注入一致性修复**：
+  - `display_mixin.py` 和 `contract_admin_service.py` 中 `ArchiveChecklistService()` 直接实例化改为 `build_archive_checklist_service()` 工厂函数。
+
+- **检查清单关键词匹配修复**：
+  - `checklist_service.py` 的 `_find_code_by_source` 方法：`"委托合同" in item["name"]` 改为 `"委托" in item["name"]`，修复刑事类目"委托代理合同"匹配失败问题。
+
+- **文档生成上下文扩展**：
+  - `context_builder.py` 新增 `archive_item_code` 字段到 `PlaceholderContextData`，支持归档文书模板的占位符渲染。
+
 ## [26.35.7] - 2026-04-20
 
 ### 后端

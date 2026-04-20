@@ -98,7 +98,7 @@ class ContractImportPayload(TypedDict):
     specified_date: NotRequired[object]
     start_date: NotRequired[object]
     end_date: NotRequired[object]
-    is_archived: NotRequired[bool]
+    is_filed: NotRequired[bool]
     fee_mode: NotRequired[str]
     fixed_amount: NotRequired[object]
     risk_rate: NotRequired[object]
@@ -139,7 +139,7 @@ _CONTRACT_FIELDS: Final[tuple[str, ...]] = (
     "specified_date",
     "start_date",
     "end_date",
-    "is_archived",
+    "is_filed",
     "fee_mode",
     "fixed_amount",
     "risk_rate",

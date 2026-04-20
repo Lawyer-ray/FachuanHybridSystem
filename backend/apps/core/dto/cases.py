@@ -19,7 +19,7 @@ class CaseDTO:
     case_type: str | None = None
     cause_of_action: str | None = None
     target_amount: str | None = None
-    is_archived: bool = False
+    is_filed: bool = False
     start_date: str | None = None
     effective_date: str | None = None
     case_number: str | None = None
@@ -35,7 +35,7 @@ class CaseDTO:
             case_type=case.case_type,
             cause_of_action=case.cause_of_action,
             target_amount=str(case.target_amount) if case.target_amount is not None else None,
-            is_archived=case.is_archived,
+            is_filed=case.is_filed,
             start_date=str(case.start_date) if case.start_date else None,
             effective_date=str(case.effective_date) if case.effective_date else None,
         )

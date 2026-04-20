@@ -40,10 +40,10 @@
             {% endif %}
         </div>
         <div class="header-meta">
-            <span class="archived-status {% if case.is_archived %}archived{% endif %}">
-                {% if case.is_archived and case.filing_number %}
+            <span class="archived-status {% if case.is_filed %}archived{% endif %}">
+                {% if case.is_filed and case.filing_number %}
                     {% trans "建档编号" %}: {{ case.filing_number }}
-                {% elif case.is_archived %}
+                {% elif case.is_filed %}
                     ✓ {% trans "已建档" %}
                 {% else %}
                     {% trans "未建档" %}

@@ -2,7 +2,7 @@
  * 案件建档编号前端交互 Alpine.js 组件
  *
  * 功能：
- * - 监听 is_archived 复选框的变化
+ * - 监听 is_filed 复选框的变化
  * - 勾选时显示建档编号或"保存后自动生成"
  * - 取消勾选时清空显示（但不修改数据库）
  *
@@ -25,7 +25,7 @@ function filingNumberHandler() {
             console.log('[FilingNumberHandler] 初始化建档编号组件');
 
             // 获取 DOM 元素
-            const checkbox = document.querySelector('#id_is_archived');
+            const checkbox = document.querySelector('#id_is_filed');
             const display = document.querySelector('.field-filing_number_display .readonly');
 
             if (!checkbox || !display) {
@@ -57,8 +57,8 @@ function filingNumberHandler() {
          * 处理建档状态变化
          * @param {boolean} checked - 复选框是否勾选
          */
-        handleArchivedChange(checked) {
-            this.isArchived = checked;
+        handleFiledChange(checked) {
+            this.isFiled = checked;
             this.updateDisplay();
         },
 

@@ -78,7 +78,7 @@ class ContractWorkflowService:
                 case_create_data = {
                     "name": case_data.get("name"),
                     "contract_id": contract.id,
-                    "is_archived": case_data.get("is_archived", False),
+                    "is_filed": case_data.get("is_filed", False),
                     "case_type": case_data.get("case_type"),
                     "target_amount": case_data.get("target_amount"),
                 }

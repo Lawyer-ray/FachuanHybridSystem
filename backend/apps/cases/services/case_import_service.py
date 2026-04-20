@@ -79,7 +79,7 @@ class CaseImportPayload(TypedDict):
     preservation_amount: NotRequired[object]
     case_type: NotRequired[str | None]
     current_stage: NotRequired[str | None]
-    is_archived: NotRequired[bool]
+    is_filed: NotRequired[bool]
     filing_number: NotRequired[str | None]
     contract: NotRequired[ImportData]
     parties: NotRequired[list[CasePartyImportPayload]]
@@ -114,7 +114,7 @@ _CASE_FIELDS: Final[tuple[str, ...]] = (
     "preservation_amount",
     "case_type",
     "current_stage",
-    "is_archived",
+    "is_filed",
     "filing_number",
 )
 

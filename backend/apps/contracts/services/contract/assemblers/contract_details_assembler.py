@@ -88,7 +88,7 @@ class ContractDetailsAssembler:
             "specified_date": str(contract.specified_date) if contract.specified_date else None,
             "start_date": str(contract.start_date) if contract.start_date else None,
             "end_date": str(contract.end_date) if contract.end_date else None,
-            "is_archived": contract.is_archived,
+            "is_filed": contract.is_filed,
             "contract_parties": contract_parties,
             "assignments": assignments,
             "cases": cases,

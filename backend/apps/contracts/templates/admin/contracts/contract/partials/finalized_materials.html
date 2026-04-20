@@ -10,12 +10,73 @@
             completed: '{% trans "扫描完成" %}',
             failed: '{% trans "扫描失败" %}',
             importFailed: '{% trans "导入失败，请稍后重试" %}',
-            needBindFolder: '{% trans "请先在“文档与提醒”中绑定文件夹" %}',
+            needBindFolder: '{% trans "请先在"文档与提醒"中绑定文件夹" %}',
             needSelectSubfolder: '{% trans "请选择要扫描的子文件夹" %}',
             noSubfolderOptions: '{% trans "当前目录下没有可选子文件夹，将扫描全部内容" %}',
             loadSubfoldersFailed: '{% trans "加载子文件夹失败" %}'
         }
      })">
+
+    {# ===== 归档检查清单 ===== #}
+    {% if archive_checklist %}
+    <div class="archive-checklist">
+        <div class="ac-header">
+            <div class="ac-title-row">
+                <h3 class="ac-title">{% trans "归档检查清单" %}</h3>
+                <span class="ac-category-badge">{{ archive_checklist.archive_category_label }}</span>
+            </div>
+            <div class="ac-progress-row">
+                <div class="ac-progress-track">
+                    <div class="ac-progress-bar" style="width: {{ archive_checklist.completion_percentage }}%"></div>
+                </div>
+                <span class="ac-progress-text">
+                    {{ archive_checklist.completed_count }}/{{ archive_checklist.total_count }}
+                    {% if archive_checklist.required_completed_count < archive_checklist.required_total_count %}
+                    <span class="ac-required-hint">({% trans "必需项" %}: {{ archive_checklist.required_completed_count }}/{{ archive_checklist.required_total_count }})</span>
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+
+        <div class="ac-toolbar">
+            <button type="button" class="btn btn-primary btn-sm" onclick="generateArchiveDocs({{ contract.pk }})">
+                {% trans "生成归档文书" %}
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="detectSupervisionCard({{ contract.pk }})">
+                {% trans "自动检测监督卡" %}
+            </button>
+            {% if can_archive %}
+            <button type="button" class="btn btn-warning btn-sm ac-btn-archive" onclick="confirmArchive({{ contract.pk }})">
+                {% trans "确认归档" %}
+            </button>
+            {% endif %}
+        </div>
+
+        <div class="ac-list">
+            {% for item in archive_checklist.items %}
+            <div class="ac-item {% if item.completed %}is-completed{% elif item.required %}is-missing{% endif %}">
+                <span class="ac-item-code">{{ item.code }}</span>
+                <span class="ac-item-name">{{ item.name }}</span>
+                <span class="ac-item-status">
+                    {% if item.completed %}
+                        <span class="ac-badge ac-badge-done">✓</span>
+                    {% elif item.template %}
+                        <span class="ac-badge ac-badge-generate" title="{% trans '可自动生成' %}">⚡</span>
+                    {% elif item.auto_detect == 'supervision_card' %}
+                        <span class="ac-badge ac-badge-detect" title="{% trans '可自动检测' %}">🔍</span>
+                    {% elif item.required %}
+                        <span class="ac-badge ac-badge-required" title="{% trans '必需' %}">!</span>
+                    {% else %}
+                        <span class="ac-badge ac-badge-optional" title="{% trans '可选' %}">-</span>
+                    {% endif %}
+                </span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {# ===== 已上传/已生成的归档材料 ===== #}
     <div class="fm-toolbar">
         <button type="button"
                 class="btn btn-secondary btn-sm"
@@ -46,6 +107,9 @@
                     <span class="fm-handle" title="{% trans '拖拽排序' %}">⠿</span>
                     <span class="fm-icon">📄</span>
                     <a class="fm-name" href="{{ media_url }}{{ material.file_path }}" target="_blank">{{ material.original_filename }}</a>
+                    {% if material.archive_item_code %}
+                    <span class="fm-archive-code">{{ material.archive_item_code }}</span>
+                    {% endif %}
                     <span class="fm-date">{{ material.uploaded_at|date:"Y-m-d" }}</span>
                 </div>
                 {% endfor %}
@@ -119,182 +183,185 @@
     word-break: break-all;
 }
 .fm-item:hover .fm-name { color: #2563eb; text-decoration: underline; }
+.fm-archive-code {
+    font-size: 11px;
+    color: #6b7280;
+    background: #f3f4f6;
+    border-radius: 4px;
+    padding: 1px 6px;
+    flex-shrink: 0;
+}
 .fm-date { font-size: 12px; color: #9ca3af; white-space: nowrap; flex-shrink: 0; }
 .sortable-ghost { opacity: 0.4; background: #dbeafe !important; }
 .sortable-chosen { box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
 
-.fm-scan-modal {
-    max-width: 880px;
+{# ===== 归档检查清单样式 ===== #}
+.archive-checklist {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 16px;
 }
 
-.fm-scan-body {
-    display: grid;
+.ac-header { margin-bottom: 12px; }
+
+.ac-title-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.ac-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #111827;
+    margin: 0;
+}
+
+.ac-category-badge {
+    font-size: 11px;
+    font-weight: 600;
+    color: #1e40af;
+    background: #dbeafe;
+    border-radius: 999px;
+    padding: 2px 10px;
+}
+
+.ac-progress-row {
+    display: flex;
+    align-items: center;
     gap: 10px;
 }
 
-.fm-scope-card {
-    padding: 12px;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    background: #f9fafb;
-}
-
-.fm-scope-title {
-    font-size: 13px;
-    font-weight: 700;
-    color: #111827;
-}
-
-.fm-scope-desc {
-    margin-top: 4px;
-    font-size: 12px;
-    color: #6b7280;
-}
-
-.fm-scope-root {
-    margin-top: 8px;
-    font-size: 12px;
-    color: #374151;
-}
-
-.fm-scope-root code {
-    margin-left: 4px;
-    padding: 1px 4px;
-    border-radius: 4px;
-    background: #eef2ff;
-    color: #1e3a8a;
-}
-
-.fm-scope-row {
-    margin-top: 10px;
-    display: flex;
-    gap: 16px;
-}
-
-.fm-radio-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 13px;
-    color: #374151;
-}
-
-.fm-scope-select {
-    margin-top: 10px;
-}
-
-.fm-scope-select select {
-    width: 100%;
-}
-
-.fm-scope-hint {
-    margin-top: 6px;
-    font-size: 12px;
-    color: #6b7280;
-}
-
-.fm-scan-actions {
-    display: flex;
-    gap: 8px;
-}
-
-.fm-scan-status {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.fm-status-pill {
-    display: inline-flex;
-    align-items: center;
-    padding: 4px 10px;
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: 700;
-}
-
-.fm-status-pill.is-pending {
-    color: #1d4ed8;
-    background: rgba(37, 99, 235, 0.12);
-}
-
-.fm-status-pill.is-success {
-    color: #15803d;
-    background: rgba(22, 163, 74, 0.12);
-}
-
-.fm-status-pill.is-error {
-    color: #b91c1c;
-    background: rgba(220, 38, 38, 0.12);
-}
-
-.fm-scan-file {
-    font-size: 12px;
-    color: #6b7280;
-}
-
-.fm-progress-track {
+.ac-progress-track {
+    flex: 1;
     height: 8px;
     border-radius: 999px;
     background: rgba(15, 23, 42, 0.08);
     overflow: hidden;
 }
 
-.fm-progress-bar {
+.ac-progress-bar {
     height: 100%;
     background: linear-gradient(90deg, #1d4ed8, #2563eb);
+    border-radius: 999px;
+    transition: width 0.3s ease;
 }
 
-.fm-progress-text {
-    margin-top: 4px;
-    font-size: 12px;
-    color: #6b7280;
-}
-
-.fm-scan-empty {
-    padding: 10px 12px;
-    border: 1px dashed #d1d5db;
-    border-radius: 8px;
-    color: #6b7280;
+.ac-progress-text {
     font-size: 13px;
+    color: #374151;
+    font-weight: 600;
+    white-space: nowrap;
 }
 
-.fm-scan-table-wrap {
-    max-height: 360px;
-    overflow: auto;
+.ac-required-hint {
+    font-size: 11px;
+    color: #b45309;
+    font-weight: 400;
 }
 
-.fm-scan-table {
-    width: 100%;
-    border-collapse: collapse;
+.ac-toolbar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
 }
 
-.fm-scan-table th,
-.fm-scan-table td {
-    border-top: 1px solid #e5e7eb;
-    padding: 8px 6px;
+.ac-btn-archive {
+    margin-left: auto;
+    background: #f59e0b;
+    border-color: #d97706;
+    color: #fff;
+}
+.ac-btn-archive:hover {
+    background: #d97706;
+    border-color: #b45309;
 }
 
-.fm-scan-table th {
-    text-align: left;
-    font-size: 12px;
-    color: #6b7280;
-}
-
-.fm-scan-table select {
-    width: 100%;
-}
-
-.fm-file-cell {
+.ac-list {
     display: flex;
     flex-direction: column;
     gap: 4px;
 }
 
-.fm-file-reason {
-    font-size: 12px;
-    color: #6b7280;
+.ac-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 13px;
+    transition: background 0.15s, border-color 0.15s;
 }
+
+.ac-item:hover { background: #eff6ff; }
+
+.ac-item.is-completed {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+}
+
+.ac-item.is-missing {
+    background: #fef2f2;
+    border-color: #fecaca;
+}
+
+.ac-item-code {
+    font-size: 11px;
+    color: #6b7280;
+    font-weight: 600;
+    min-width: 48px;
+    flex-shrink: 0;
+}
+
+.ac-item-name {
+    flex: 1;
+    color: #1f2937;
+}
+
+.ac-badge {
+    font-size: 12px;
+    flex-shrink: 0;
+}
+
+.ac-badge-done { color: #16a34a; }
+.ac-badge-generate { color: #2563eb; cursor: help; }
+.ac-badge-detect { color: #7c3aed; cursor: help; }
+.ac-badge-required { color: #dc2626; cursor: help; }
+.ac-badge-optional { color: #9ca3af; cursor: help; }
+
+{# ===== 扫描弹窗样式（保留） ===== #}
+.fm-scan-modal { max-width: 880px; }
+.fm-scan-body { display: grid; gap: 10px; }
+.fm-scope-card { padding: 12px; border: 1px solid #e5e7eb; border-radius: 8px; background: #f9fafb; }
+.fm-scope-title { font-size: 13px; font-weight: 700; color: #111827; }
+.fm-scope-desc { margin-top: 4px; font-size: 12px; color: #6b7280; }
+.fm-scope-root { margin-top: 8px; font-size: 12px; color: #374151; }
+.fm-scope-root code { margin-left: 4px; padding: 1px 4px; border-radius: 4px; background: #eef2ff; color: #1e3a8a; }
+.fm-scope-row { margin-top: 10px; display: flex; gap: 16px; }
+.fm-radio-item { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #374151; }
+.fm-scope-select { margin-top: 10px; }
+.fm-scope-select select { width: 100%; }
+.fm-scope-hint { margin-top: 6px; font-size: 12px; color: #6b7280; }
+.fm-scan-actions { display: flex; gap: 8px; }
+.fm-scan-status { display: flex; align-items: center; gap: 8px; }
+.fm-status-pill { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.fm-status-pill.is-pending { color: #1d4ed8; background: rgba(37, 99, 235, 0.12); }
+.fm-status-pill.is-success { color: #15803d; background: rgba(22, 163, 74, 0.12); }
+.fm-status-pill.is-error { color: #b91c1c; background: rgba(220, 38, 38, 0.12); }
+.fm-scan-file { font-size: 12px; color: #6b7280; }
+.fm-scan-empty { padding: 10px 12px; border: 1px dashed #d1d5db; border-radius: 8px; color: #6b7280; font-size: 13px; }
+.fm-scan-table-wrap { max-height: 360px; overflow: auto; }
+.fm-scan-table { width: 100%; border-collapse: collapse; }
+.fm-scan-table th, .fm-scan-table td { border-top: 1px solid #e5e7eb; padding: 8px 6px; }
+.fm-scan-table th { text-align: left; font-size: 12px; color: #6b7280; }
+.fm-scan-table select { width: 100%; }
+.fm-file-cell { display: flex; flex-direction: column; gap: 4px; }
+.fm-file-reason { font-size: 12px; color: #6b7280; }
 </style>
 
 <script>
@@ -333,7 +400,63 @@
         });
     }
 
-    // 等 Alpine 渲染完 tab 再初始化
+    // 生成归档文书
+    window.generateArchiveDocs = function(contractId) {
+        if (!confirm('确认生成归档文书？已有的同编号文书将被覆盖。')) return;
+        fetch('/admin/contracts/contract/' + contractId + '/generate-archive-docs/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) {
+                alert('生成完成: ' + (data.generated_count || 0) + ' 份文书');
+                location.reload();
+            } else {
+                alert('生成失败: ' + (data.error || '未知错误'));
+            }
+        })
+        .catch(function(e) { alert('请求失败: ' + e.message); });
+    };
+
+    // 自动检测监督卡
+    window.detectSupervisionCard = function(contractId) {
+        if (!confirm('确认从合同PDF末页自动检测办案服务质量监督卡？')) return;
+        fetch('/admin/contracts/contract/' + contractId + '/detect-supervision-card/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.found) {
+                alert('检测成功！已从第 ' + data.page_number + ' 页提取监督卡');
+                location.reload();
+            } else {
+                alert('未检测到监督卡: ' + (data.error || '请确认合同正本已上传'));
+            }
+        })
+        .catch(function(e) { alert('请求失败: ' + e.message); });
+    };
+
+    // 确认归档
+    window.confirmArchive = function(contractId) {
+        if (!confirm('确认归档？必需项全部完成后才可归档，归档后合同状态将变为"已归档"。')) return;
+        fetch('/admin/contracts/contract/' + contractId + '/confirm-archive/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) {
+                alert('归档成功！');
+                location.reload();
+            } else {
+                alert('归档失败: ' + (data.error || '未知错误'));
+            }
+        })
+        .catch(function(e) { alert('请求失败: ' + e.message); });
+    };
+
     document.addEventListener('DOMContentLoaded', function () {
         loadSortable(initLists);
     });

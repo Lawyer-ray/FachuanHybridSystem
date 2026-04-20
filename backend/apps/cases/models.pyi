@@ -24,7 +24,7 @@ class Case(models.Model):
     # 字段
     contract_id: int | None
     contract: Contract | None
-    is_archived: bool
+    is_filed: bool
     name: str
     status: str
     start_date: date

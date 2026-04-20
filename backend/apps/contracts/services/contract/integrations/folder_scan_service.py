@@ -186,13 +186,15 @@ class ContractFolderScanService:
             if not source_path or source_path not in candidate_map:
                 raise ValidationException(message=_("候选文件不存在"), errors={"source_path": source_path})
 
-            category = str(item.get("category") or "invoice").strip()
+            category = str(item.get("category") or "archive_document").strip()
             if category not in {
                 MaterialCategory.CONTRACT_ORIGINAL,
                 MaterialCategory.SUPPLEMENTARY_AGREEMENT,
                 MaterialCategory.INVOICE,
+                MaterialCategory.ARCHIVE_DOCUMENT,
+                MaterialCategory.SUPERVISION_CARD,
             }:
-                category = MaterialCategory.INVOICE
+                category = MaterialCategory.ARCHIVE_DOCUMENT
 
             file_path = Path(source_path)
             if not file_path.exists() or not file_path.is_file():

@@ -21,7 +21,7 @@ class ContractDTO:
     fee_mode: str | None = None
     fixed_amount: Any | None = None
     risk_rate: Any | None = None
-    is_archived: bool = False
+    is_filed: bool = False
     start_date: str | None = None
     end_date: str | None = None
 
@@ -51,7 +51,7 @@ class ContractDTO:
             fee_mode=contract.fee_mode,
             fixed_amount=contract.fixed_amount,
             risk_rate=contract.risk_rate,
-            is_archived=contract.is_archived,
+            is_filed=contract.is_filed,
             start_date=str(contract.start_date) if contract.start_date else None,
             end_date=str(contract.end_date) if contract.end_date else None,
         )

@@ -139,7 +139,7 @@ export interface Contract {
   specified_date: string | null
   start_date: string | null
   end_date: string | null
-  is_archived: boolean
+  is_filed: boolean
   fee_mode: string
   fixed_amount: number | null
   risk_rate: number | null
@@ -178,7 +178,7 @@ export interface ContractInput {
   specified_date?: string | null
   start_date?: string | null
   end_date?: string | null
-  is_archived?: boolean
+  is_filed?: boolean
   fee_mode?: FeeMode
   fixed_amount?: number | null
   risk_rate?: number | null
@@ -195,7 +195,7 @@ export interface ContractUpdate {
   specified_date?: string | null
   start_date?: string | null
   end_date?: string | null
-  is_archived?: boolean
+  is_filed?: boolean
   fee_mode?: string
   fixed_amount?: number | null
   risk_rate?: number | null
