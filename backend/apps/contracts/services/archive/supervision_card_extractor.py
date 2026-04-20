@@ -76,7 +76,7 @@ class SupervisionCardExtractor:
                     extracted_pdf = self._extract_page(full_path, result["page_number"])
                     if extracted_pdf:
                         # 4. 保存为新的 FinalizedMaterial
-                        material = self._save_extracted_card(
+                        extracted_material = self._save_extracted_card(
                             contract=contract,
                             pdf_content=extracted_pdf,
                             original_material=material,
@@ -85,7 +85,7 @@ class SupervisionCardExtractor:
                         return {
                             "found": True,
                             "page_number": result["page_number"],
-                            "material_id": material.id if material else None,
+                            "material_id": extracted_material.id if extracted_material else None,
                             "error": None,
                         }
             except Exception as e:

@@ -103,7 +103,7 @@ def serialize_case_obj(obj: Case) -> SerializedPayload:
                 "created_at": log.created_at.isoformat(),
                 "actor": {"real_name": log.actor.real_name, "phone": log.actor.phone, "username": log.actor.username},
                 "attachments": [
-                    {"file_path": att.file.name, "filename": att.file.name.split("/")[-1]}
+                    {"file_path": att.file.name, "filename": att.file.name.split("/")[-1] if att.file.name else ""}
                     for att in log.attachments.all()
                     if att.file
                 ],

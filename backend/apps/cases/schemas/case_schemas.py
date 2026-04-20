@@ -78,11 +78,11 @@ class CaseOut(ModelSchema):
 
     @staticmethod
     def resolve_case_numbers(obj: Case) -> list[CaseNumberOut]:
-        return list(obj.case_numbers.all())
+        return list(obj.case_numbers.all())  # type: ignore[arg-type]
 
     @staticmethod
     def resolve_supervising_authorities(obj: Case) -> list[SupervisingAuthorityOut]:
-        return list(obj.supervising_authorities.all())
+        return list(obj.supervising_authorities.all())  # type: ignore[arg-type]
 
 
 class CaseUpdate(Schema):
