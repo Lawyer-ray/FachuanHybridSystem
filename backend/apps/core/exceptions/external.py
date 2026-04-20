@@ -23,6 +23,8 @@ __all__: list[str] = [
     "NoAvailableAccountError",
     "TokenAcquisitionTimeoutError",
     "CaptchaRecognitionError",
+    "BrowserAutomationError",
+    "ImapConnectionError",
 ]
 
 
@@ -243,3 +245,57 @@ class CaptchaRecognitionError(ExternalServiceError):
         self, message: str | Promise = "验证码识别失败", code: str | None = None, errors: dict[str, Any] | None = None
     ) -> None:
         super().__init__(message=message, code=code or "CAPTCHA_RECOGNITION_ERROR", errors=errors)
+
+
+class BrowserAutomationError(ExternalServiceError):
+    """
+    浏览器自动化错误
+
+    使用场景:
+    - Playwright 页面操作失败
+    - 浏览器启动/连接失败
+    - 页面元素定位失败
+    - 浏览器超时
+
+    HTTP 状态码:502
+    """
+
+    def __init__(
+        self,
+        message: str | Promise = "浏览器自动化操作失败",
+        code: str | None = None,
+        errors: dict[str, Any] | None = None,
+        url: str | None = None,
+    ) -> None:
+        if url:
+            errors = errors or {}
+            errors["url"] = url
+        super().__init__(message=message, code=code or "BROWSER_AUTOMATION_ERROR", errors=errors)
+        self.url = url
+
+
+class ImapConnectionError(ExternalServiceError):
+    """
+    IMAP 连接错误
+
+    使用场景:
+    - IMAP 服务器连接失败
+    - IMAP 认证失败
+    - IMAP 邮箱选择失败
+    - IMAP 连接超时
+
+    HTTP 状态码:502
+    """
+
+    def __init__(
+        self,
+        message: str | Promise = "IMAP 连接失败",
+        code: str | None = None,
+        errors: dict[str, Any] | None = None,
+        host: str | None = None,
+    ) -> None:
+        if host:
+            errors = errors or {}
+            errors["host"] = host
+        super().__init__(message=message, code=code or "IMAP_CONNECTION_ERROR", errors=errors)
+        self.host = host
