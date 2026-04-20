@@ -56,6 +56,7 @@ class ContractActionMixin:
             "_renew_advisor": self._handle_renew_advisor,
             "_save_and_duplicate": self._handle_duplicate,
             "_save_and_create_case": self._handle_create_case,
+            "_confirm_archive": self._handle_confirm_archive,
         }
         for key, handler in _ACTION_HANDLERS.items():
             if key in request.POST:
@@ -134,6 +135,30 @@ class ContractActionMixin:
             return HttpResponseRedirect(request.path)
 
     _build_docx_response = staticmethod(_build_docx_response)
+
+    def _handle_confirm_archive(self, request: Any, obj: Any) -> Any:
+        """处理确认归档按钮：将合同状态改为已归档"""
+        try:
+            from apps.contracts.models import ContractStatus
+
+            if obj.status != ContractStatus.CLOSED:
+                messages.error(request, _("只有已结案合同才能确认归档"))
+                return HttpResponseRedirect(request.path)
+
+            obj.status = ContractStatus.ARCHIVED
+            obj.save(update_fields=["status"])
+
+            logger.info(
+                "合同 %s 已确认归档",
+                obj.pk,
+                extra={"contract_id": obj.pk, "action": "confirm_archive"},
+            )
+            messages.success(request, _("合同「%(name)s」已确认归档") % {"name": obj.name})
+            return HttpResponseRedirect(request.path)
+        except Exception as e:
+            logger.exception("确认归档失败")
+            messages.error(request, _("确认归档失败: %(err)s") % {"err": e})
+            return HttpResponseRedirect(request.path)
 
     def response_add(self, request: Any, obj: Any, post_url_continue: Any = None) -> Any:
         """处理新建合同后的保存并创建案件按钮"""
