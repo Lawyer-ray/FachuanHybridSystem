@@ -72,7 +72,7 @@ class CaseDetailsQueryService:
                     "lawyer_name": (
                         lawyer.real_name if lawyer and hasattr(lawyer, "real_name") else str(lawyer) if lawyer else None
                     ),
-                    "law_firm_name": lawyer.law_firm.name if lawyer and getattr(lawyer, "law_firm", None) else None,
+                    "law_firm_name": (lawyer.law_firm.name if (lawyer and getattr(lawyer, "law_firm", None) and lawyer.law_firm) else None),
                 }
             )
 
@@ -93,16 +93,16 @@ class CaseDetailsQueryService:
             "status": case.status,
             "current_stage": case.current_stage,
             "cause_of_action": case.cause_of_action,
-            "target_amount": float(case.target_amount) if getattr(case, "target_amount", None) else None,
+            "target_amount": float(case.target_amount) if case.target_amount is not None else None,
             "preservation_amount": (
-                float(case.preservation_amount) if getattr(case, "preservation_amount", None) else None
+                float(case.preservation_amount) if case.preservation_amount is not None else None
             ),
             "is_filed": case.is_filed,
             "start_date": str(case.start_date) if getattr(case, "start_date", None) else None,
             "effective_date": str(case.effective_date) if getattr(case, "effective_date", None) else None,
             "specified_date": str(case.specified_date) if getattr(case, "specified_date", None) else None,
             "contract_id": case.contract_id,
-            "contract_name": case.contract.name if getattr(case, "contract", None) else None,
+            "contract_name": case.contract.name if getattr(case, "contract", None) and case.contract else None,
             "case_parties": case_parties,
             "case_numbers": case_numbers,
             "assignments": assignments,

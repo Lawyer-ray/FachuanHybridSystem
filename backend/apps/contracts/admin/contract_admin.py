@@ -273,7 +273,7 @@ class ContractAdmin(
                 name="contracts_contract_oa_sync_save",
             ),
         ]
-        return custom + urls
+        return custom + urls  # type: ignore[no-any-return]
 
     def reorder_materials_view(self, request: HttpRequest, contract_id: int) -> Any:
         if request.method != "POST":
@@ -483,7 +483,7 @@ class ContractAdmin(
             try:
                 filing_number = item.get("filing_number")
                 before = Contract.objects.filter(filing_number=filing_number).exists() if filing_number else False
-                contract_svc.resolve(item)
+                contract_svc.resolve(item)  # type: ignore[arg-type]
                 if before:
                     skipped += 1
                 else:
@@ -535,7 +535,7 @@ class ContractAdmin(
             for m in obj.finalized_materials.all():
                 _add(m.file_path)
             for r in obj.client_payment_records.all():
-                _add(r.image_path)
+                _add(r.image_path)  # type: ignore[arg-type]
             for p in obj.payments.all():
                 for inv in p.invoices.all():
                     _add(inv.file_path)

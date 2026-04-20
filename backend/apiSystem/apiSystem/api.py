@@ -133,7 +133,7 @@ api_v1 = NinjaAPI(
     description="律师事务所案件、合同、客户管理系统",
     urls_namespace="api_v1",
     renderer=UTF8JSONRenderer(),
-    servers=[{"url": "/api/v1", "description": "当前服务器"}],
+    servers=[{"url": "/", "description": "当前服务器"}],
     openapi_extra={"tags": _OPENAPI_TAGS},
 )
 

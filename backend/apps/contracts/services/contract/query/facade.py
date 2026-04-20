@@ -115,7 +115,7 @@ class ContractQueryFacade:
             message=_("无权限访问该合同"),
         )
         self.list_assembler.enrich([contract])
-        return contract
+        return contract  # type: ignore[no-any-return]
 
     def get_contract_ctx(self, *, contract_id: int, ctx: AccessContext) -> Any:
         contract = self.query_service.get_contract_internal(contract_id)

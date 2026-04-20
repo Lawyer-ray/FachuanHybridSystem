@@ -45,7 +45,7 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
     def delete_model(self, request: HttpRequest, obj: Case) -> None:
         try:
             self._cleanup_before_delete([obj.id])
-            super().delete_model(request, obj)
+            super().delete_model(request, obj)  # type: ignore[misc]
         except IntegrityError as e:
             logger.error(
                 "Admin 删除案件失败",
@@ -53,14 +53,14 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
                 exc_info=True,
             )
             with connection.constraint_checks_disabled():
-                super().delete_model(request, obj)
+                super().delete_model(request, obj)  # type: ignore[misc]
             messages.warning(request, _("已强制删除案件 %(case_id)s(已绕过外键检查)") % {"case_id": obj.id})
 
     def delete_queryset(self, request: HttpRequest, queryset: QuerySet[Case, Case]) -> None:
         case_ids = list(queryset.values_list("id", flat=True))
         try:
             self._cleanup_before_delete(case_ids)
-            super().delete_queryset(request, queryset)
+            super().delete_queryset(request, queryset)  # type: ignore[misc]
         except IntegrityError as e:
             logger.error(
                 "Admin 批量删除案件失败",
@@ -68,7 +68,7 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
                 exc_info=True,
             )
             with connection.constraint_checks_disabled():
-                super().delete_queryset(request, queryset)
+                super().delete_queryset(request, queryset)  # type: ignore[misc]
             messages.warning(request, _("已强制批量删除 %d 个案件(已绕过外键检查)") % len(case_ids))
 
     def save_model(
@@ -90,7 +90,7 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
             except Case.DoesNotExist:
                 pass
 
-        super().save_model(request, obj, form, change)
+        super().save_model(request, obj, form, change)  # type: ignore[misc]
 
         try:
             service = self._get_case_admin_service()
