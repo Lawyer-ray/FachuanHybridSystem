@@ -41,6 +41,32 @@ _ARCHIVE_TEMPLATE_FILES: dict[str, str] = {
 class ArchiveGenerationService:
     """归档文书批量生成服务"""
 
+    def preview_archive_template(self, contract_id: int, template_subtype: str) -> dict[str, Any]:
+        """预览归档文书占位符替换词
+
+        Args:
+            contract_id: 合同 ID
+            template_subtype: 归档模板子类型
+
+        Returns:
+            包含 success/data/error 的字典
+        """
+        contract = Contract.objects.filter(pk=contract_id).first()
+        if not contract:
+            return {"success": False, "error": "合同不存在"}
+
+        template_path = self.get_template_path(template_subtype)
+        if not template_path:
+            return {"success": False, "error": f"模板文件不存在: {template_subtype}"}
+
+        from apps.documents.services.generation.pipeline import DocxPreviewService, PipelineContextBuilder
+
+        context_builder = PipelineContextBuilder()
+        context = context_builder.build_archive_context(contract)
+
+        rows = DocxPreviewService().preview(str(template_path), context)
+        return {"success": True, "data": rows}
+
     def get_template_path(self, template_subtype: str) -> Path | None:
         """
         获取归档模板文件的完整路径。

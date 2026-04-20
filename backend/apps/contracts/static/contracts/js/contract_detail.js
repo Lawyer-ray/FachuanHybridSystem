@@ -64,7 +64,32 @@ function contractDetailApp(config = {}) {
             });
             window.addEventListener('contract-folder-scan-needs-binding', () => {
                 this.activeTab = 'documents';
-                this.showToast('请先在“文档与提醒”中完成文件夹绑定，再使用自动捕获', 'error');
+                this.showToast('请先在"文档与提醒"中完成文件夹绑定，再使用自动捕获', 'error');
+            });
+            // 监听归档文书预览事件
+            this.$el.addEventListener('archive-preview-open', (e) => {
+                const { contractId: cid, templateSubtype, templateName } = e.detail;
+                this.previewTitle = templateName + ' - 替换词预览';
+                this.previewRows = [];
+                this.isLoadingPreview = true;
+                this.showPreviewDialog = true;
+                fetch(`/api/v1/documents/contracts/${cid}/archive-preview?template_subtype=${encodeURIComponent(templateSubtype)}`)
+                    .then(r => r.json())
+                    .then(result => {
+                        if (result.success && result.data) {
+                            this.previewRows = result.data;
+                        } else {
+                            this.showToast('预览失败: ' + (result.error || '未知错误'), 'error');
+                            this.showPreviewDialog = false;
+                        }
+                    })
+                    .catch(err => {
+                        this.showToast('预览请求失败: ' + err.message, 'error');
+                        this.showPreviewDialog = false;
+                    })
+                    .finally(() => {
+                        this.isLoadingPreview = false;
+                    });
             });
         },
 

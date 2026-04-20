@@ -236,6 +236,12 @@ class ContractAdminService:
         archive_checklist_service = build_archive_checklist_service()
         archive_checklist = archive_checklist_service.get_checklist_with_status(contract)
 
+        # 构建 archive_item_code → template_subtype 映射，供归档材料预览按钮使用
+        archive_code_to_template: dict[str, str] = {}
+        for item in archive_checklist.get("items", []):
+            if item.get("template"):
+                archive_code_to_template[item["code"]] = item["template"]
+
         # 判断是否可归档（已结案状态）
         can_archive = contract.status == ContractStatus.CLOSED
 
@@ -264,6 +270,7 @@ class ContractAdminService:
             "client_payments": client_payments,
             "total_client_payment": total_client_payment,
             "archive_checklist": archive_checklist,
+            "archive_code_to_template": archive_code_to_template,
             "can_archive": can_archive,
         }
 

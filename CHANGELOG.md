@@ -2,6 +2,24 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.36.3] - 2026-04-20
+
+### 后端
+
+- **归档文书预览功能**：
+  - 新增 API 端点 `GET /api/v1/documents/contracts/{contract_id}/archive-preview`，支持归档文书占位符替换词预览。
+  - `finalized_materials.html` 归档检查清单表格新增"预览"按钮，可查看每个归档模板的替换词填充情况。
+  - `contract_detail.js` 新增 `previewArchiveTemplate()` 函数，通过 Alpine.js 自定义事件 `archive-preview-open` 触发预览弹窗。
+  - `display_mixin.py` 模板上下文新增 `archive_code_to_template` 映射，供前端预览按钮获取模板信息。
+
+- **归档检查清单自动序号**：
+  - `constants.py` 归档项 code 从 `4.x.x` 格式迁移为 `nl_/lt_/cr_` 稳定标识符格式（如 `4.2.1` → `lt_1`），前端序号由 CSS counter 自动生成。
+  - `finalized_material.py` 的 `archive_item_code` 默认值从 `"4.1.1"` 更新为 `"nl_1"`。
+  - 新增迁移 `0015_migrate_archive_item_code_format.py`：批量将数据库中旧格式 code 转换为新格式。
+
+- **Docker 部署静态文件修复**：
+  - `docker-entrypoint.sh` 的 `runserver` 命令添加 `--insecure` 标志，修复 `DEBUG=False` 时 CSS/JS 等静态文件 404 的问题。
+
 ## [26.36.2] - 2026-04-20
 
 ### 后端

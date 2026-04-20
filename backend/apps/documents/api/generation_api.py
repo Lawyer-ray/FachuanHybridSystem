@@ -73,6 +73,25 @@ def preview_supplementary_agreement_context(request: Any, contract_id: int, agre
     return {"success": True, "data": rows}
 
 
+@router.get("/contracts/{contract_id}/archive-preview")
+def preview_archive_context(request: Any, contract_id: int, template_subtype: str = "") -> Any:
+    """归档文书占位符预览
+
+    Args:
+        contract_id: 合同 ID
+        template_subtype: 归档模板子类型，如 case_cover, closing_archive_register 等
+    """
+    _require_contract_access(request, contract_id)
+
+    if not template_subtype:
+        return {"success": False, "error": "缺少 template_subtype 参数"}
+
+    from apps.contracts.services.archive import ArchiveGenerationService
+
+    gen_service = ArchiveGenerationService()
+    return gen_service.preview_archive_template(contract_id, template_subtype)
+
+
 @router.get("/contracts/{contract_id}/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
 def download_contract_document(request: Any, contract_id: int, split_fee: bool = True) -> Any:
