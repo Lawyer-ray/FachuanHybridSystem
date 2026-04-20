@@ -126,9 +126,7 @@ class ArchiveChecklistService:
 
             from apps.contracts.models.finalized_material import MaterialCategory
 
-            if m.category == MaterialCategory.CONTRACT_ORIGINAL and contract_code:
-                result.setdefault(contract_code, []).append(m.id)
-            elif m.category == MaterialCategory.SUPPLEMENTARY_AGREEMENT and contract_code:
+            if m.category in (MaterialCategory.CONTRACT_ORIGINAL, MaterialCategory.SUPPLEMENTARY_AGREEMENT) and contract_code:
                 result.setdefault(contract_code, []).append(m.id)
             elif m.category == MaterialCategory.INVOICE and invoice_code:
                 result.setdefault(invoice_code, []).append(m.id)
