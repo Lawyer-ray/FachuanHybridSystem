@@ -33,3 +33,24 @@ class PipelineContextBuilder:
             "agreement_opposing": agreement_opposing,
         }
         return context_builder.build_context(context_data)
+
+    def build_archive_context(self, contract: Any, case: Any = None) -> dict[str, Any]:
+        """
+        构建归档文书上下文。
+
+        Args:
+            contract: 合同实例
+            case: 案件实例（可选，用于填充案件相关占位符）
+
+        Returns:
+            包含归档占位符的上下文字典
+        """
+        from apps.documents.services.placeholders.context_builder import EnhancedContextBuilder
+        from apps.documents.services.placeholders.types import PlaceholderContextData
+
+        context_builder = EnhancedContextBuilder()
+        context_data: PlaceholderContextData = {
+            "contract": contract,
+            "case": case,
+        }
+        return context_builder.build_context(context_data)
