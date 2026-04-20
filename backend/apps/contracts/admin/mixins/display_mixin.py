@@ -184,6 +184,16 @@ class ContractDisplayMixin:
                 self.admin_site.admin_view(self.detail_view),
                 name="contracts_contract_detail",
             ),
+            path(
+                "<int:object_id>/generate-archive-docs/",
+                self.admin_site.admin_view(self.generate_archive_docs_view),
+                name="contracts_contract_generate_archive_docs",
+            ),
+            path(
+                "<int:object_id>/detect-supervision-card/",
+                self.admin_site.admin_view(self.detect_supervision_card_view),
+                name="contracts_contract_detect_supervision_card",
+            ),
         ]
         return custom_urls + urls
 
@@ -240,6 +250,7 @@ class ContractDisplayMixin:
                 "invoices_by_payment": ctx_data["invoices_by_payment"],
                 "client_payments": ctx_data["client_payments"],
                 "total_client_payment": ctx_data["total_client_payment"],
+                "archive_checklist": ctx_data.get("archive_checklist", {}),
                 "media_url": getattr(__import__("django.conf", fromlist=["settings"]).settings, "MEDIA_URL", "/media/"),
             }
         )
@@ -279,3 +290,65 @@ class ContractDisplayMixin:
         except (BusinessException, RuntimeError, Exception) as e:
             logger.error("检查合同 %s 的文件夹模板失败: %s", contract.id, e, exc_info=True)
             return False
+
+    def generate_archive_docs_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
+        """生成归档文书的 Admin view"""
+        import json
+
+        from django.http import JsonResponse
+
+        if not self.has_change_permission(request):
+            return JsonResponse({"success": False, "error": str(_("无权限"))}, status=403)
+
+        try:
+            admin_service = _get_contract_admin_service()
+            contract = admin_service.query_service.get_contract_detail(object_id)
+
+            from apps.contracts.services.archive import ArchiveGenerationService
+
+            gen_service = ArchiveGenerationService()
+            results = gen_service.generate_archive_documents(contract)
+
+            generated_count = sum(1 for r in results if r.get("error") is None)
+            errors = [r for r in results if r.get("error")]
+
+            if errors:
+                error_msgs = "; ".join(f"{r.get('template_subtype', '?')}: {r['error']}" for r in errors)
+                logger.warning("归档文书部分生成失败: %s", error_msgs)
+
+            return JsonResponse({
+                "success": True,
+                "generated_count": generated_count,
+                "total_count": len(results),
+                "errors": [{"subtype": r.get("template_subtype"), "error": r["error"]} for r in errors],
+            })
+        except Exception as e:
+            logger.exception("生成归档文书失败: contract_id=%s", object_id)
+            return JsonResponse({"success": False, "error": str(e)}, status=500)
+
+    def detect_supervision_card_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
+        """自动检测监督卡的 Admin view"""
+        from django.http import JsonResponse
+
+        if not self.has_change_permission(request):
+            return JsonResponse({"success": False, "error": str(_("无权限"))}, status=403)
+
+        try:
+            admin_service = _get_contract_admin_service()
+            contract = admin_service.query_service.get_contract_detail(object_id)
+
+            from apps.contracts.services.archive import SupervisionCardExtractor
+
+            extractor = SupervisionCardExtractor()
+            result = extractor.detect_and_extract(contract)
+
+            return JsonResponse({
+                "success": True,
+                "found": result["found"],
+                "page_number": result.get("page_number"),
+                "material_id": result.get("material_id"),
+                "error": result.get("error"),
+            })
+        except Exception as e:
+            logger.exception("检测监督卡失败: contract_id=%s", object_id)
+            return JsonResponse({"success": False, "found": False, "error": str(e)}, status=500)

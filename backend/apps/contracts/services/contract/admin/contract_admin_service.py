@@ -230,6 +230,12 @@ class ContractAdminService:
         client_payments = client_payment_service.get_contract_payment_records(contract.pk)
         total_client_payment = client_payment_service.calculate_total_amount(contract.pk)
 
+        # 归档检查清单数据
+        from apps.contracts.services.archive import ArchiveChecklistService
+
+        archive_checklist_service = ArchiveChecklistService()
+        archive_checklist = archive_checklist_service.get_checklist_with_status(contract)
+
         return {
             "contract": contract,
             "show_representation_stages": show_representation_stages,
@@ -254,6 +260,7 @@ class ContractAdminService:
             "invoices_by_payment": invoices_by_payment,
             "client_payments": client_payments,
             "total_client_payment": total_client_payment,
+            "archive_checklist": archive_checklist,
         }
 
     def handle_contract_filing_change(self, contract_id: int, is_filed: bool) -> str | None:
