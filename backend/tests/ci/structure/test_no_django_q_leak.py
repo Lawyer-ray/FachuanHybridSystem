@@ -18,8 +18,7 @@ _APPS_ROOT = Path(__file__).resolve().parents[3] / "apps"
 _ALLOWED_PREFIXES: list[str] = [
     # The tasking abstraction layer itself
     str(_APPS_ROOT / "core" / "tasking"),
-    # Management commands are infrastructure code
-    str(_APPS_ROOT / "") + "*/management/commands/",
+    # NOTE: management commands are handled separately below via parts check
 ]
 
 # Specific files that are allowed to import from django_q

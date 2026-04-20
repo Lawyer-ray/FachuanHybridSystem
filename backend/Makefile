@@ -174,7 +174,7 @@ test-structure: ## 运行结构验证测试
 	$(TEST_ENV) $(PYTEST) tests/ci/structure -v --tb=short --no-cov $(ARGS)
 
 test-admin: ## 运行 Admin 测试
-	$(TEST_ENV) $(PYTEST) tests/admin -v --tb=short $(ARGS)
+	$(TEST_ENV) $(PYTEST) tests/ci/unit -v --tb=short -k "admin" $(ARGS)
 
 # ============================================================
 # 代码质量
