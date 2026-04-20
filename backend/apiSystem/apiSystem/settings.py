@@ -5,10 +5,14 @@ Django settings for apiSystem project.
 import os
 from pathlib import Path
 
-import django_stubs_ext
 from django.utils.translation import gettext_lazy as _
 
-django_stubs_ext.monkeypatch()
+try:
+    import django_stubs_ext
+
+    django_stubs_ext.monkeypatch()
+except ImportError:
+    pass
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
