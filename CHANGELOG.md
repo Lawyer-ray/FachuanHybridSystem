@@ -2,6 +2,34 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.35.7] - 2026-04-20
+
+### 后端
+
+- **任务调度抽象层完善**：
+  - 新增 `apps/core/tasking/exceptions.py`：定义 `TaskTimeoutError`，封装 `django_q.exceptions.TimeoutException`，业务层不再需要直接导入 django_q。
+  - 迁移 `apps/oa_filing/tasks.py`：`TimeoutException` → `TaskTimeoutError`，消除业务层对 django_q 的直连依赖。
+- **文件系统治理**：
+  - 新增 `apps/core/tasking/cleanup_tasks.py`：`cleanup_temp_files`（24h TTL）、`cleanup_export_files`（7d TTL）、`check_disk_space`。
+  - `smoke_check` 管理命令新增磁盘空间检查（`--skip-disk`、`--disk-warning-pct`、`--disk-critical-pct`）。
+- **CI/本地对齐**：
+  - 新增 `devtools/changed_files.sh`：CI 和 Makefile 共享的 base-ref 计算脚本。
+  - Makefile `ci-check` 使用共享脚本，运行结构测试（不再只 `--co` 收集）。
+  - Makefile 测试目标统一使用 `tests/ci/` 路径（与 `pytest.ini` 的 `testpaths` 对齐）。
+  - `mypy.ini` 删除重复的 `[mypy-*.tests.*]` section。
+- **异常体系扩展**：
+  - 新增 `BrowserAutomationError`：浏览器自动化操作失败（Playwright 页面操作/启动/连接/超时）。
+  - 新增 `ImapConnectionError`：IMAP 连接/认证/选择邮箱/超时失败。
+- **结构测试守卫**：
+  - 新增 `test_four_layer_architecture.py`：API 层禁止 Model.objects 调用、Service 层 @staticmethod 棘轮。
+  - 新增 `test_exception_ratchet.py`：`except Exception` 使用量棘轮测试。
+  - 新增 `test_internal_ratchet.py`：`_internal()` 调用量棘轮测试。
+  - 新增 `test_mypy_ratchet.py`：`ignore_errors = True` 条目数棘轮测试。
+  - 新增 `test_no_django_q_leak.py`：业务层禁止直接导入 django_q。
+- **测试目录迁移**：
+  - 将 `tests/unit/` 和 `tests/integration/` 下的测试迁移到 `tests/ci/unit/` 和 `tests/ci/integration/`，与 `pytest.ini` 的 `testpaths = tests/ci` 对齐。
+  - Makefile `test-admin` 目标适配新路径。
+
 ## [26.35.6] - 2026-04-20
 
 ### 后端

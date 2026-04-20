@@ -10,22 +10,7 @@ check: lint typecheck ## 运行所有检查
 ci-check: ## 模拟 GitHub backend (3.12) job 的核心检查（changed-files 模式）
 	@echo "$(GREEN)=== GitHub CI 预检 (changed-files 模式) ===$(NC)"
 	@echo ""
-	@if [ -n "$$CI_CHECK_BASE" ]; then \
-		BASE="$$CI_CHECK_BASE"; \
-	else \
-		UPSTREAM=$$(git rev-parse --abbrev-ref @{u} 2>/dev/null | sed 's|origin/||' || true); \
-		if [ -n "$$UPSTREAM" ]; then \
-			BASE="$$UPSTREAM"; \
-		else \
-			BASE="main"; \
-		fi; \
-	fi; \
-	if ! git rev-parse "$$BASE" &>/dev/null 2>&1; then \
-		echo "⚠️  基准 '$$BASE' 不存在，尝试 merge-base..."; \
-		BASE=$$(git merge-base HEAD HEAD~1 2>/dev/null || echo ""); \
-	fi; \
-	echo "📋 基准: $(YELLOW)$$BASE$(NC) → $(YELLOW)HEAD$(NC)"; \
-	CHANGED=$$(git diff --name-only --diff-filter=ACMRT $$BASE HEAD 2>/dev/null | grep -E '^apps/.*\.py$$' | sed 's|^apps/||' || true); \
+	@CHANGED=$$(bash devtools/changed_files.sh); \
 	if [ -z "$$CHANGED" ]; then \
 		echo "✅ 无变更 Python 文件"; \
 	else \
@@ -36,8 +21,8 @@ ci-check: ## 模拟 GitHub backend (3.12) job 的核心检查（changed-files �
 		PYTHONPATH=apiSystem:. $(PYTHON) -m mypy --config-file mypy.ini --follow-imports=silent $$CHANGED; \
 		echo ""; \
 	fi
-	@echo "🔍 [3/3] 测试收集 (structure smoke):"
-	$(TEST_ENV) $(PYTEST) tests/ci/structure/ --co -q 2>&1 | tail -3
+	@echo "🔍 [3/3] 结构测试 (ratchet guard):"
+	$(TEST_ENV) $(PYTEST) tests/ci/structure/ -q --no-header $(ARGS)
 	@echo ""
 	@echo "$(GREEN)✅ GitHub CI 预检通过! 可以放心推送了$(NC)"
 
@@ -168,28 +153,28 @@ superuser: ## 创建超级用户
 # ============================================================
 
 test: ## 运行测试
-	$(TEST_ENV) $(PYTEST) tests -v --tb=short $(ARGS)
+	$(TEST_ENV) $(PYTEST) tests/ci -v --tb=short $(ARGS)
 
 test-cov: ## 运行测试 (带覆盖率)
-	$(TEST_ENV) $(PYTEST) tests -v --tb=short --cov=apps --cov-report=html --cov-report=term
+	$(TEST_ENV) $(PYTEST) tests/ci -v --tb=short --cov=apps --cov-report=html --cov-report=term
 
 test-fast: ## 快速测试 (不显示详情)
-	$(TEST_ENV) $(PYTEST) tests -q
+	$(TEST_ENV) $(PYTEST) tests/ci -q
 
 test-unit: ## 运行单元测试
-	$(TEST_ENV) $(PYTEST) tests/unit -v --tb=short $(ARGS)
+	$(TEST_ENV) $(PYTEST) tests/ci/unit -v --tb=short $(ARGS)
 
 test-integration: ## 运行集成测试
-	$(TEST_ENV) $(PYTEST) tests/integration -v --tb=short $(ARGS)
+	$(TEST_ENV) $(PYTEST) tests/ci/integration -v --tb=short $(ARGS)
 
 test-property: ## 运行 Property-Based Tests
-	$(TEST_ENV) $(PYTEST) tests/property -v --tb=short $(ARGS)
+	$(TEST_ENV) $(PYTEST) tests/ci/property -v --tb=short $(ARGS)
 
 test-structure: ## 运行结构验证测试
-	$(TEST_ENV) $(PYTEST) tests/structure -v --tb=short --no-cov $(ARGS)
+	$(TEST_ENV) $(PYTEST) tests/ci/structure -v --tb=short --no-cov $(ARGS)
 
 test-admin: ## 运行 Admin 测试
-	$(TEST_ENV) $(PYTEST) tests/admin -v --tb=short $(ARGS)
+	$(TEST_ENV) $(PYTEST) tests/ci/unit -v --tb=short -k "admin" $(ARGS)
 
 # ============================================================
 # 代码质量

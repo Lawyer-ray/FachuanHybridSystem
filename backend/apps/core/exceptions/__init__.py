@@ -50,8 +50,10 @@ from .common import (
 from .external import (
     APIError,
     AutoTokenAcquisitionError,
+    BrowserAutomationError,
     CaptchaRecognitionError,
     ExternalServiceError,
+    ImapConnectionError,
     LoginFailedError,
     NetworkError,
     NoAvailableAccountError,
@@ -110,6 +112,8 @@ __all__ = [
     "NoAvailableAccountError",
     "TokenAcquisitionTimeoutError",
     "CaptchaRecognitionError",
+    "BrowserAutomationError",
+    "ImapConnectionError",
     # 群聊异常
     "ChatProviderException",
     "UnsupportedPlatformException",

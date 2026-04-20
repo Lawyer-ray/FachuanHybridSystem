@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from tests.integration.contracts import test_contract_http_smoke as contract_http_smoke
+from tests.ci.integration.contracts import test_contract_http_smoke as contract_http_smoke
 
 contracts_admin_user = contract_http_smoke.contracts_admin_user
 api_client = contract_http_smoke.api_client
