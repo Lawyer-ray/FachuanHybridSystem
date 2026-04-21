@@ -45,6 +45,8 @@ class ArchiveGenerationService:
     def preview_archive_template(self, contract_id: int, template_subtype: str) -> dict[str, Any]:
         """预览归档文书占位符替换词
 
+        如果存在用户覆盖值，合并到自动生成的 context 中。
+
         Args:
             contract_id: 合同 ID
             template_subtype: 归档模板子类型
@@ -71,6 +73,9 @@ class ArchiveGenerationService:
 
         context_builder = PipelineContextBuilder()
         context = context_builder.build_archive_context(contract, case)
+
+        # 合并用户覆盖值
+        self._apply_overrides(context, contract, template_subtype)
 
         rows = DocxPreviewService().preview(str(template_path), context)
         return {"success": True, "data": rows}
@@ -111,6 +116,21 @@ class ArchiveGenerationService:
 
         logger.warning("归档模板文件不存在: %s", template_path)
         return None
+
+    @staticmethod
+    def _apply_overrides(context: dict[str, Any], contract: Contract, template_subtype: str) -> None:
+        """将用户覆盖值合并到 context 中"""
+        from apps.contracts.models.archive_override import ArchivePlaceholderOverride
+
+        override_obj = ArchivePlaceholderOverride.objects.filter(
+            contract=contract,
+            template_subtype=template_subtype,
+        ).first()
+
+        if override_obj and override_obj.overrides:
+            for key, value in override_obj.overrides.items():
+                if value is not None and value != "":
+                    context[key] = value
 
     @staticmethod
     def _get_template_path_from_db(template_subtype: str, contract: Contract | None) -> Path | None:
@@ -415,6 +435,9 @@ class ArchiveGenerationService:
             # 构建上下文
             context_builder = PipelineContextBuilder()
             context = context_builder.build_archive_context(contract, case)
+
+            # 合并用户覆盖值
+            self._apply_overrides(context, contract, template_subtype)
 
             # 渲染模板
             content = DocxRenderer().render(str(template_path), context)

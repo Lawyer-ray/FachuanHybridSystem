@@ -19,6 +19,9 @@ from .contract import Contract, ContractStatus, FeeMode
 # contract_oa_sync_session.py - OA同步会话
 from .contract_oa_sync_session import ContractOASyncSession, ContractOASyncStatus
 
+# archive_override.py - 归档占位符覆盖值
+from .archive_override import ArchivePlaceholderOverride
+
 # finalized_material.py - 结案材料相关模型和枚举
 from .finalized_material import FinalizedMaterial, MaterialCategory
 
@@ -71,6 +74,8 @@ __all__ = [
     # contract_oa_sync_session.py
     "ContractOASyncSession",
     "ContractOASyncStatus",
+    # archive_override.py
+    "ArchivePlaceholderOverride",
     # finalized_material.py
     "FinalizedMaterial",
     "MaterialCategory",
