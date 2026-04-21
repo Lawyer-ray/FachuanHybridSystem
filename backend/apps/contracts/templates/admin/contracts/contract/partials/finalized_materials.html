@@ -51,9 +51,11 @@
             <button type="button" class="btn btn-info btn-sm" onclick="syncCaseMaterials({{ contract.pk }})">
                 {% trans "从案件材料同步" %}
             </button>
+            <!-- 暂时隐藏：按照A4裁切
             <button type="button" class="btn btn-outline-info btn-sm" onclick="scaleToA4({{ contract.pk }})">
                 {% trans "按照A4裁切" %}
             </button>
+            -->
             <button type="button" class="btn btn-outline-secondary btn-sm"
                     :class="{ 'active': compactMode }"
                     @click="toggleCompactMode()">
