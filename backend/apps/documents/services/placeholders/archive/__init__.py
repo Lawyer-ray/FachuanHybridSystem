@@ -71,6 +71,7 @@ class ArchivePlaceholderService(BasePlaceholderService):
         "管辖法院",
         "案件当前阶段",
         "案件审理结果",
+        "办案小结内容",
         "归档日期",
         "生成日期",
         "结案归档材料",
@@ -126,6 +127,11 @@ class ArchivePlaceholderService(BasePlaceholderService):
             "display_name": "案件审理结果",
             "description": "案件裁判文书中的判决/调解主文内容",
             "example_value": "一、被告某某公司于本判决生效之日起十日内向原告支付欠款100万元...",
+        },
+        "办案小结内容": {
+            "display_name": "办案小结内容",
+            "description": "办案小结正文内容，优先使用案件审理结果，无审理结果时根据合同名称和当事人生成",
+            "example_value": "本案为某某公司诉某某公司合同纠纷。本所受某某有限公司提供法律服务。在服务期间，我们在公司领导的指导下，与各位同事积极配合，顺利的完成了公司的各项法律服务工作。",
         },
         "归档日期": {
             "display_name": "归档日期",
@@ -194,6 +200,9 @@ class ArchivePlaceholderService(BasePlaceholderService):
             result["管辖法院"] = self._get_court_name(case)
             result["案件当前阶段"] = self._get_case_stage(case)
             result["案件审理结果"] = self._get_trial_result(case)
+
+        # 办案小结内容：优先使用案件审理结果，无结果时根据合同名称和当事人生成
+        result["办案小结内容"] = self._get_case_summary_content(case, contract, result)
 
         # 结案归档材料：实时检测已完成的检查项，生成编号目录
         if contract:
@@ -379,6 +388,32 @@ class ArchivePlaceholderService(BasePlaceholderService):
                 return str(content).strip()
         except Exception:
             logger.warning("获取案件审理结果失败", extra={"case_id": getattr(case, "id", None)})
+        return ""
+
+    @staticmethod
+    def _get_case_summary_content(
+        case: Any, contract: Any, already_generated: dict[str, Any]
+    ) -> str:
+        """
+        获取办案小结内容.
+
+        优先使用已生成的{{案件审理结果}}内容;
+        若案件审理结果为空,则根据合同名称和合同我方当事人名称生成模板文字.
+        """
+        # 1. 优先使用案件审理结果
+        trial_result = already_generated.get("案件审理结果", "")
+        if trial_result and str(trial_result).strip() and str(trial_result).strip() != "/":
+            return str(trial_result).strip()
+
+        # 2. 无审理结果时，根据合同名称和合同我方当事人名称生成
+        contract_name = already_generated.get("合同名称", "")
+        our_party_names = already_generated.get("合同我方当事人名称", "")
+
+        if contract_name and str(contract_name).strip() and str(contract_name).strip() != "/":
+            cn = str(contract_name).strip()
+            party = str(our_party_names).strip() if our_party_names and str(our_party_names).strip() != "/" else "委托人"
+            return f"本案为{cn}。本所受{party}提供法律服务。在服务期间，我们在公司领导的指导下，与各位同事积极配合，顺利的完成了公司的各项法律服务工作。"
+
         return ""
 
     @staticmethod
