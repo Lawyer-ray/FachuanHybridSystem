@@ -92,6 +92,92 @@ def preview_archive_context(request: Any, contract_id: int, template_subtype: st
     return gen_service.preview_archive_template(contract_id, template_subtype)
 
 
+@router.get("/contracts/{contract_id}/archive-placeholder-overrides")
+def get_archive_overrides(request: Any, contract_id: int, template_subtype: str = "") -> Any:
+    """获取归档文书占位符覆盖值
+
+    Args:
+        contract_id: 合同 ID
+        template_subtype: 归档模板子类型
+    """
+    _require_contract_access(request, contract_id)
+
+    if not template_subtype:
+        return {"success": False, "error": "缺少 template_subtype 参数"}
+
+    from apps.contracts.models.archive_override import ArchivePlaceholderOverride
+
+    override_obj = ArchivePlaceholderOverride.objects.filter(
+        contract_id=contract_id,
+        template_subtype=template_subtype,
+    ).first()
+
+    return {
+        "success": True,
+        "data": {
+            "overrides": override_obj.overrides if override_obj else {},
+            "has_overrides": bool(override_obj and override_obj.overrides),
+        },
+    }
+
+
+@router.post("/contracts/{contract_id}/archive-placeholder-overrides")
+def save_archive_overrides(request: Any, contract_id: int, template_subtype: str = "",
+                           payload: dict[str, Any] | None = None) -> Any:
+    """保存归档文书占位符覆盖值
+
+    Args:
+        contract_id: 合同 ID
+        template_subtype: 归档模板子类型
+        payload: {"overrides": {key: value, ...}}
+    """
+    _require_contract_access(request, contract_id)
+
+    if not template_subtype:
+        return {"success": False, "error": "缺少 template_subtype 参数"}
+
+    payload = payload or {}
+    overrides = payload.get("overrides", {})
+
+    from apps.contracts.models.archive_override import ArchivePlaceholderOverride
+
+    obj, created = ArchivePlaceholderOverride.objects.update_or_create(
+        contract_id=contract_id,
+        template_subtype=template_subtype,
+        defaults={"overrides": overrides},
+    )
+
+    logger.info(
+        "保存归档占位符覆盖值",
+        extra={"contract_id": contract_id, "template_subtype": template_subtype, "count": len(overrides)},
+    )
+
+    return {"success": True, "data": {"overrides": obj.overrides}}
+
+
+@router.delete("/contracts/{contract_id}/archive-placeholder-overrides")
+def delete_archive_overrides(request: Any, contract_id: int, template_subtype: str = "") -> Any:
+    """删除归档文书占位符覆盖值（放弃修改）
+
+    Args:
+        contract_id: 合同 ID
+        template_subtype: 归档模板子类型
+    """
+    _require_contract_access(request, contract_id)
+
+    if not template_subtype:
+        return {"success": False, "error": "缺少 template_subtype 参数"}
+
+    from apps.contracts.models.archive_override import ArchivePlaceholderOverride
+
+    deleted_count, _ = ArchivePlaceholderOverride.objects.filter(
+        contract_id=contract_id,
+        template_subtype=template_subtype,
+    ).delete()
+
+    return {"success": True, "data": {"deleted": deleted_count > 0}}
+
+
 @router.get("/contracts/{contract_id}/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
 def download_contract_document(request: Any, contract_id: int, split_fee: bool = True) -> Any:

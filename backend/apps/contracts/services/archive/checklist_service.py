@@ -95,9 +95,18 @@ class ArchiveChecklistService:
                 "has_case_material": item["source"] == "case" and item["code"] in case_material_match_codes,
             })
 
-        total_count = len(items_with_status)
-        completed_count = sum(1 for item in items_with_status if item["completed"])
-        required_items = [item for item in items_with_status if item["required"]]
+        # 进度统计：排除模板项（模板项由系统生成，不参与人工完成进度）
+        non_template_items = [item for item in items_with_status if not item["template"]]
+
+        # 按实归档模式下，只统计有材料的项
+        if contract.compact_archive:
+            effective_items = [item for item in non_template_items if item["completed"]]
+        else:
+            effective_items = non_template_items
+
+        total_count = len(effective_items)
+        completed_count = sum(1 for item in effective_items if item["completed"])
+        required_items = [item for item in effective_items if item["required"]]
         required_total_count = len(required_items)
         required_completed_count = sum(1 for item in required_items if item["completed"])
 
@@ -106,6 +115,7 @@ class ArchiveChecklistService:
         return {
             "archive_category": archive_category,
             "archive_category_label": archive_category_label,
+            "compact_archive": contract.compact_archive,
             "items": items_with_status,
             "completed_count": completed_count,
             "total_count": total_count,

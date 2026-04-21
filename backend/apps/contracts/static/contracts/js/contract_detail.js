@@ -50,6 +50,9 @@ function contractDetailApp(config = {}) {
         previewTitle: '',
         previewRows: [],
         isLoadingPreview: false,
+        previewEditMode: false,
+        previewContractId: null,
+        previewTemplateSubtype: null,
 
         // Toast 消息队列
         toasts: [],
@@ -68,16 +71,23 @@ function contractDetailApp(config = {}) {
             });
             // 监听归档文书预览事件
             this.$el.addEventListener('archive-preview-open', (e) => {
-                const { contractId: cid, templateSubtype, templateName } = e.detail;
+                const { contractId: cid, templateSubtype, templateName, editMode } = e.detail;
                 this.previewTitle = templateName + ' - 替换词预览';
                 this.previewRows = [];
                 this.isLoadingPreview = true;
                 this.showPreviewDialog = true;
+                this.previewEditMode = false;
+                this.previewContractId = cid;
+                this.previewTemplateSubtype = templateSubtype;
+                const shouldEdit = editMode === true;
                 fetch(`/api/v1/documents/contracts/${cid}/archive-preview?template_subtype=${encodeURIComponent(templateSubtype)}`)
                     .then(r => r.json())
                     .then(result => {
                         if (result.success && result.data) {
-                            this.previewRows = result.data;
+                            this.previewRows = result.data.map(r => ({...r, editValue: r.value || ''}));
+                            if (shouldEdit) {
+                                this.previewEditMode = true;
+                            }
                         } else {
                             this.showToast('预览失败: ' + (result.error || '未知错误'), 'error');
                             this.showPreviewDialog = false;
@@ -121,6 +131,103 @@ function contractDetailApp(config = {}) {
          */
         getCsrfToken() {
             return (window.FachuanCSRF && window.FachuanCSRF.getToken && window.FachuanCSRF.getToken()) || '';
+        },
+
+        /**
+         * 进入预览编辑模式
+         */
+        enterPreviewEditMode() {
+            this.previewEditMode = true;
+            // 将当前值复制到 editValue
+            this.previewRows.forEach(row => {
+                if (!row.editValue && row.editValue !== '') {
+                    row.editValue = row.value || '';
+                }
+            });
+        },
+
+        /**
+         * 放弃修改，退出编辑模式，删除覆盖值
+         */
+        async cancelPreviewEdit() {
+            // 如果有已保存的覆盖值，删除它们
+            if (this.previewContractId && this.previewTemplateSubtype) {
+                try {
+                    await fetch(
+                        `/api/v1/documents/contracts/${this.previewContractId}/archive-placeholder-overrides?template_subtype=${encodeURIComponent(this.previewTemplateSubtype)}`,
+                        {
+                            method: 'DELETE',
+                            headers: { 'X-CSRFToken': this.getCsrfToken() },
+                        }
+                    );
+                } catch (err) {
+                    // 忽略删除失败，仍退出编辑模式
+                }
+            }
+            // 重新加载预览以恢复自动值
+            this.showPreviewDialog = false;
+            // 重新打开预览
+            setTimeout(() => {
+                const app = document.querySelector('.contract-detail-page');
+                if (app) {
+                    app.dispatchEvent(new CustomEvent('archive-preview-open', {
+                        detail: {
+                            contractId: this.previewContractId,
+                            templateSubtype: this.previewTemplateSubtype,
+                            templateName: this.previewTitle.replace(' - 替换词预览', ''),
+                            editMode: false,
+                        },
+                        bubbles: true,
+                    }));
+                }
+            }, 200);
+        },
+
+        /**
+         * 保存覆盖值
+         */
+        async savePreviewOverrides() {
+            if (!this.previewContractId || !this.previewTemplateSubtype) return;
+
+            // 收集有修改的值
+            const overrides = {};
+            this.previewRows.forEach(row => {
+                const editVal = (row.editValue || '').trim();
+                const origVal = (row.value || '').trim();
+                if (editVal !== origVal) {
+                    overrides[row.key] = editVal;
+                }
+            });
+
+            try {
+                const resp = await fetch(
+                    `/api/v1/documents/contracts/${this.previewContractId}/archive-placeholder-overrides?template_subtype=${encodeURIComponent(this.previewTemplateSubtype)}`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': this.getCsrfToken(),
+                        },
+                        body: JSON.stringify({ overrides }),
+                    }
+                );
+                const data = await resp.json();
+                if (data.success) {
+                    // 用编辑后的值更新显示
+                    this.previewRows.forEach(row => {
+                        if (row.editValue !== undefined && row.editValue.trim() !== '') {
+                            row.value = row.editValue;
+                            row.status = 'ok';
+                        }
+                    });
+                    this.previewEditMode = false;
+                    this.showToast('保存成功，预览和下载将使用修改后的值', 'success');
+                } else {
+                    this.showToast('保存失败: ' + (data.error || '未知错误'), 'error');
+                }
+            } catch (err) {
+                this.showToast('保存请求失败: ' + err.message, 'error');
+            }
         },
 
         /**

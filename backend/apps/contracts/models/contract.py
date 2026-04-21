@@ -82,6 +82,10 @@ class Contract(models.Model):
         help_text=_("律所OA系统中的案件编号"),
     )
     representation_stages: Any = models.JSONField(default=list, blank=True, verbose_name=_("代理阶段"))
+    compact_archive: models.BooleanField = models.BooleanField(
+        default=False, verbose_name=_("按实归档"),
+        help_text=_("开启后，归档检查清单仅显示有材料的项，未上传材料的项目不纳入归档范围"),
+    )
 
     if TYPE_CHECKING:
         cases: RelatedManager[Case]

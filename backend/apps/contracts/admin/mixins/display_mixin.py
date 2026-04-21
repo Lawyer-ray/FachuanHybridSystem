@@ -219,6 +219,11 @@ class ContractDisplayMixin:
                 self.admin_site.admin_view(self.case_material_match_map_view),
                 name="contracts_contract_case_material_match_map",
             ),
+            path(
+                "<int:object_id>/toggle-compact-archive/",
+                self.admin_site.admin_view(self.toggle_compact_archive_view),
+                name="contracts_contract_toggle_compact_archive",
+            ),
         ]
         return custom_urls + urls
 
@@ -573,4 +578,29 @@ class ContractDisplayMixin:
             return JsonResponse({"success": True, "data": result})
         except Exception as e:
             logger.exception("获取案件材料匹配映射失败: contract_id=%s", object_id)
+            return JsonResponse({"success": False, "error": str(e)}, status=500)
+
+    def toggle_compact_archive_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
+        """切换按实归档状态的 Admin view"""
+        from django.http import JsonResponse
+
+        if request.method != "POST":
+            return JsonResponse({"success": False, "error": "Method not allowed"}, status=405)
+
+        if not self.has_change_permission(request):
+            raise PermissionDenied
+
+        try:
+            admin_service = _get_contract_admin_service()
+            contract = admin_service.query_service.get_contract_detail(object_id)
+            contract.compact_archive = not contract.compact_archive
+            contract.save(update_fields=["compact_archive"])
+            logger.info(
+                "切换按实归档状态: contract_id=%s, compact_archive=%s",
+                object_id,
+                contract.compact_archive,
+            )
+            return JsonResponse({"success": True, "compact_archive": contract.compact_archive})
+        except Exception as e:
+            logger.exception("切换按实归档状态失败: contract_id=%s", object_id)
             return JsonResponse({"success": False, "error": str(e)}, status=500)

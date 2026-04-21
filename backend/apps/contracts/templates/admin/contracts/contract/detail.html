@@ -127,9 +127,9 @@
         </div>
     </div>
 
-    <!-- 占位符预览对话框 -->
+    <!-- 占位符预览/编辑对话框 -->
     <div class="modal-overlay" x-show="showPreviewDialog" x-cloak @click.self="showPreviewDialog = false">
-        <div class="modal-dialog" style="max-width: 600px;">
+        <div class="modal-dialog" style="max-width: 640px;">
             <div class="modal-header">
                 <h3 x-text="previewTitle"></h3>
                 <button type="button" class="modal-close" @click="showPreviewDialog = false">&times;</button>
@@ -145,17 +145,40 @@
                             <div style="font-size: 12px; font-weight: 600; margin-bottom: 4px;"
                                  :style="row.status === 'empty' ? 'color: #dc2626' : 'color: #6b7280'"
                                  x-text="row.key"></div>
-                            <div x-show="row.status === 'ok'"
-                                 style="font-size: 13px; color: #1f2937; white-space: pre-wrap; word-break: break-all;"
-                                 x-text="row.value"></div>
-                            <div x-show="row.status === 'empty'"
-                                 style="font-size: 13px; color: #9ca3af;">/</div>
+                            <div x-show="!previewEditMode">
+                                <div x-show="row.status === 'ok'"
+                                     style="font-size: 13px; color: #1f2937; white-space: pre-wrap; word-break: break-all;"
+                                     x-text="row.value"></div>
+                                <div x-show="row.status === 'empty'"
+                                     style="font-size: 13px; color: #9ca3af;">/</div>
+                            </div>
+                            <div x-show="previewEditMode">
+                                <textarea x-model="row.editValue"
+                                    rows="2"
+                                    style="width: 100%; font-size: 13px; border: 1px solid #d1d5db; border-radius: 4px; padding: 4px 8px; resize: vertical; font-family: inherit;"
+                                    :placeholder="row.value || '/'"></textarea>
+                            </div>
                         </div>
                     </template>
                 </div>
+                <!-- 编辑模式操作栏 -->
+                <div x-show="previewEditMode" style="margin-top: 12px; padding: 8px; background: #f0f9ff; border-radius: 6px; font-size: 12px; color: #1e40af;">
+                    {% trans "编辑模式下，修改值后点击「保存」，预览和下载将使用修改后的值。点击「放弃修改」恢复自动值。" %}
+                </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" @click="showPreviewDialog = false">{% trans "关闭" %}</button>
+            <div class="modal-footer" style="display: flex; gap: 8px; justify-content: flex-end;">
+                <template x-if="!previewEditMode">
+                    <div style="display: flex; gap: 8px;">
+                        <button type="button" class="btn btn-secondary" @click="showPreviewDialog = false">{% trans "关闭" %}</button>
+                        <button type="button" class="btn btn-info" @click="enterPreviewEditMode()">{% trans "修改" %}</button>
+                    </div>
+                </template>
+                <template x-if="previewEditMode">
+                    <div style="display: flex; gap: 8px;">
+                        <button type="button" class="btn btn-secondary" @click="cancelPreviewEdit()">{% trans "放弃修改" %}</button>
+                        <button type="button" class="btn btn-primary" @click="savePreviewOverrides()">{% trans "保存" %}</button>
+                    </div>
+                </template>
             </div>
         </div>
     </div>

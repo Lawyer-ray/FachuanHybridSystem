@@ -19,7 +19,7 @@
 
     {# ===== 归档检查清单 ===== #}
     {% if archive_checklist %}
-    <div class="archive-checklist">
+    <div class="archive-checklist" x-data="archiveChecklistApp({{ archive_checklist.compact_archive|yesno:'true,false' }})">
         <div class="ac-header">
             <div class="ac-title-row">
                 <h3 class="ac-title">{% trans "归档检查清单" %}</h3>
@@ -48,6 +48,11 @@
             <button type="button" class="btn btn-info btn-sm" onclick="syncCaseMaterials({{ contract.pk }})">
                 {% trans "从案件材料同步" %}
             </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm"
+                    :class="{ 'active': compactMode }"
+                    @click="toggleCompactMode()">
+                {% trans "按实归档" %}
+            </button>
             {% if can_archive %}
             <button type="button" class="btn btn-warning btn-sm ac-btn-archive" onclick="confirmArchive({{ contract.pk }})">
                 {% trans "确认归档" %}
@@ -57,7 +62,13 @@
 
         <div class="ac-list">
             {% for item in archive_checklist.items %}
-            <div class="ac-item {% if item.template %}is-templated{% elif item.completed %}is-completed{% endif %}" data-code="{{ item.code }}">
+            <div class="ac-item {% if item.template %}is-templated{% elif item.completed %}is-completed{% endif %}"
+                 data-code="{{ item.code }}"
+                 data-completed="{{ item.completed|yesno:'true,false' }}"
+                 data-template="{{ item.template|yesno:'true,false' }}"
+                 data-required="{{ item.required|yesno:'true,false' }}"
+                 x-show="!compactMode || {{ item.template|yesno:'true,false' }} || {{ item.completed|yesno:'true,false' }}"
+                 x-transition>
                 <span class="ac-item-code"></span>
                 <span class="ac-item-name">{{ item.name }}</span>
                 <span class="ac-item-actions">
@@ -65,6 +76,10 @@
                     <button type="button" class="ac-btn-preview" title="{% trans '预览替换词' %}"
                             onclick="previewArchiveTemplate({{ contract.pk }}, '{{ item.template }}', '{{ item.name }}')">
                         {% trans "预览" %}
+                    </button>
+                    <button type="button" class="ac-btn-edit" title="{% trans '修改替换词' %}"
+                            onclick="editArchiveTemplate({{ contract.pk }}, '{{ item.template }}', '{{ item.name }}')">
+                        {% trans "修改" %}
                     </button>
                     <button type="button" class="ac-btn-download" title="{% trans '下载材料' %}"
                             onclick="downloadArchiveItem({{ contract.pk }}, '{{ item.code }}', '{{ item.name }}')">
@@ -416,6 +431,21 @@
     border-color: #60a5fa;
 }
 
+.ac-btn-edit {
+    font-size: 11px;
+    padding: 2px 8px;
+    border: 1px solid #fbbf24;
+    border-radius: 4px;
+    background: #fffbeb;
+    color: #92400e;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.ac-btn-edit:hover {
+    background: #fef3c7;
+    border-color: #f59e0b;
+}
+
 .ac-btn-generate {
     font-size: 11px;
     padding: 2px 8px;
@@ -462,6 +492,10 @@
 .btn-info { background: #0891b2; border-color: #0e7490; color: #fff; }
 .btn-info:hover { background: #0e7490; border-color: #155e75; }
 
+.btn-outline-secondary { background: #fff; border: 1px solid #d1d5db; color: #6b7280; }
+.btn-outline-secondary:hover { background: #f9fafb; border-color: #9ca3af; color: #374151; }
+.btn-outline-secondary.active { background: #1d4ed8; border-color: #1d4ed8; color: #fff; }
+
 {# ===== 扫描弹窗样式（保留） ===== #}
 .fm-scan-modal { max-width: 880px; }
 .fm-scan-body { display: grid; gap: 10px; }
@@ -493,6 +527,43 @@
 </style>
 
 <script>
+// 归档检查清单 Alpine.js 组件
+function archiveChecklistApp(initialCompact) {
+    return {
+        compactMode: initialCompact || false,
+
+        toggleCompactMode() {
+            var contractId = {{ contract.pk }};
+            var csrf = (window.FachuanCSRF && window.FachuanCSRF.getToken && window.FachuanCSRF.getToken()) || '';
+            fetch('/admin/contracts/contract/' + contractId + '/toggle-compact-archive/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('操作失败: ' + (data.error || '未知错误'));
+                }
+            })
+            .catch(function(e) { alert('请求失败: ' + e.message); });
+        },
+
+        getVisibleItems() {
+            var items = this.$el.querySelectorAll('.ac-item');
+            if (!this.compactMode) return items;
+            var visible = [];
+            items.forEach(function(el) {
+                var isTemplate = el.dataset.template === 'true';
+                var isCompleted = el.dataset.completed === 'true';
+                if (isTemplate || isCompleted) visible.push(el);
+            });
+            return visible;
+        }
+    };
+}
+
 (function () {
     function loadSortable(cb) {
         if (typeof Sortable !== 'undefined') { cb(); return; }
@@ -706,7 +777,20 @@
         }
         // 通过自定义事件通知 Alpine.js 组件
         app.dispatchEvent(new CustomEvent('archive-preview-open', {
-            detail: { contractId: contractId, templateSubtype: templateSubtype, templateName: templateName },
+            detail: { contractId: contractId, templateSubtype: templateSubtype, templateName: templateName, editMode: false },
+            bubbles: true
+        }));
+    };
+
+    // 修改归档文书替换词（直接进入编辑模式）
+    window.editArchiveTemplate = function(contractId, templateSubtype, templateName) {
+        var app = document.querySelector('.contract-detail-page');
+        if (!app) {
+            alert('页面组件未找到，请刷新后重试');
+            return;
+        }
+        app.dispatchEvent(new CustomEvent('archive-preview-open', {
+            detail: { contractId: contractId, templateSubtype: templateSubtype, templateName: templateName, editMode: true },
             bubbles: true
         }));
     };
