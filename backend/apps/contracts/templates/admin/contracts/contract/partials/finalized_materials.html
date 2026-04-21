@@ -39,31 +39,27 @@
         </div>
 
         <div class="ac-toolbar">
-            <button type="button" class="btn btn-secondary btn-sm"
-                    @click="openModal()"
-                    :disabled="!hasFolderBinding"
-                    :title="!hasFolderBinding ? texts.needBindFolder : ''">{% trans "从合同文件夹同步" %}</button>
-            <button type="button" class="btn btn-info btn-sm" onclick="syncCaseMaterials({{ contract.pk }})">
-                {% trans "从案件材料同步" %}
-            </button>
             <button type="button" class="btn btn-primary btn-sm"
                     onclick="generateArchiveDocs({{ contract.pk }})"
                     {% if not folder_binding %}disabled
                     title="{% trans '请先在「文档与提醒」中绑定文件夹' %}"{% endif %}>
                 {% trans "生成归档文件夹" %}
             </button>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="detectSupervisionCard({{ contract.pk }})">
-                {% trans "自动检测监督卡" %}
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="detectSupervisionCard({{ contract.pk }})">
+                {% trans "检测监督卡" %}
             </button>
-            <!-- 暂时隐藏：按照A4裁切
-            <button type="button" class="btn btn-outline-info btn-sm" onclick="scaleToA4({{ contract.pk }})">
-                {% trans "按照A4裁切" %}
-            </button>
-            -->
             <button type="button" class="btn btn-outline-secondary btn-sm"
                     :class="{ 'active': compactMode }"
                     @click="toggleCompactMode()">
                 {% trans "精简视图" %}
+            </button>
+            <span class="ac-toolbar-spacer"></span>
+            <button type="button" class="btn btn-outline-secondary btn-sm"
+                    @click="openModal()"
+                    :disabled="!hasFolderBinding"
+                    :title="!hasFolderBinding ? texts.needBindFolder : ''">{% trans "从合同文件夹同步" %}</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="syncCaseMaterials({{ contract.pk }})">
+                {% trans "从案件材料同步" %}
             </button>
             {% if can_archive %}
             <button type="button" class="btn btn-warning btn-sm ac-btn-archive" onclick="confirmArchive({{ contract.pk }})">
@@ -328,6 +324,11 @@
     display: flex;
     gap: 8px;
     margin-bottom: 12px;
+    align-items: center;
+}
+
+.ac-toolbar-spacer {
+    flex: 1;
 }
 
 .ac-btn-archive {
@@ -468,9 +469,6 @@
 .ac-badge-sync-dim { color: #9ca3af; cursor: help; opacity: 0.5; }
 .ac-badge-required { color: #dc2626; cursor: help; }
 .ac-badge-optional { color: #9ca3af; cursor: help; }
-
-.btn-info { background: #0891b2; border-color: #0e7490; color: #fff; }
-.btn-info:hover { background: #0e7490; border-color: #155e75; }
 
 .btn-outline-secondary { background: #fff; border: 1px solid #d1d5db; color: #6b7280; }
 .btn-outline-secondary:hover { background: #f9fafb; border-color: #9ca3af; color: #374151; }
@@ -641,9 +639,9 @@ function archiveChecklistApp(initialCompact) {
         window.open('/admin/contracts/contract/' + contractId + '/download-archive-item/' + archiveItemCode + '/?preview=1', '_blank');
     };
 
-    // 自动检测监督卡
+    // 检测监督卡
     window.detectSupervisionCard = function(contractId) {
-        if (!confirm('确认从合同PDF末页自动检测办案服务质量监督卡？')) return;
+        if (!confirm('确认从合同PDF末页检测办案服务质量监督卡？')) return;
         fetch('/admin/contracts/contract/' + contractId + '/detect-supervision-card/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },

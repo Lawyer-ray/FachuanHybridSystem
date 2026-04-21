@@ -1362,6 +1362,9 @@ msgstr "Sync from Case Materials"
 msgid "精简视图"
 msgstr "Compact View"
 
+msgid "检测监督卡"
+msgstr "Detect Supervision Card"
+
 msgid "开始扫描"
 msgstr "Start Scan"
 

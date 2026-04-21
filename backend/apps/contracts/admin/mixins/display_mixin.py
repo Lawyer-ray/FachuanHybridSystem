@@ -448,7 +448,7 @@ class ContractDisplayMixin:
             return JsonResponse({"success": False, "error": str(e)}, status=500)
 
     def detect_supervision_card_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
-        """自动检测监督卡的 Admin view"""
+        """检测监督卡的 Admin view"""
         from django.http import JsonResponse
 
         if request.method != "POST":
