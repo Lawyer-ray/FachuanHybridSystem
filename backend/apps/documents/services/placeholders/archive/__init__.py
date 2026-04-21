@@ -275,7 +275,10 @@ class ArchivePlaceholderService(BasePlaceholderService):
     def _get_case_number(case: Any) -> str:
         """获取首个案件案号"""
         try:
+            # 优先取已生效案号，其次取第一个案号
             cn = case.case_numbers.filter(is_active=True).first()
+            if not cn:
+                cn = case.case_numbers.first()
             if cn:
                 return str(getattr(cn, "number", "") or "")
         except Exception:

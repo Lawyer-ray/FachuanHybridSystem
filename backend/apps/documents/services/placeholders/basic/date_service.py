@@ -29,7 +29,7 @@ class DatePlaceholderService(BasePlaceholderService):
         生成日期占位符
 
         Args:
-            context_data: 包含 contract 等数据的上下文
+            context_data: 包含 contract/case 等数据的上下文
 
         Returns:
             包含日期占位符的字典
@@ -38,31 +38,31 @@ class DatePlaceholderService(BasePlaceholderService):
         case = context_data.get("case")
         contract = context_data.get("contract")
 
-        if case:
-            if hasattr(case, "specified_date") and case.specified_date:
-                result["指定日期"] = self.format_chinese_date(case.specified_date)
-            else:
-                result["指定日期"] = ""
-            return result
+        # {{指定日期}} - 优先从 case，其次从 contract
+        if case and hasattr(case, "specified_date") and case.specified_date:
+            result["指定日期"] = self.format_chinese_date(case.specified_date)
+        elif contract and hasattr(contract, "specified_date") and contract.specified_date:
+            result["指定日期"] = self.format_chinese_date(contract.specified_date)
+        else:
+            result["指定日期"] = ""
 
-        if contract:
-            # {{指定日期}} - 格式化为中文日期格式
-            if hasattr(contract, "specified_date") and contract.specified_date:
-                result["指定日期"] = self.format_chinese_date(contract.specified_date)
-            else:
-                result["指定日期"] = ""
+        # {{签约日期}} - 合同签约日期
+        if contract and hasattr(contract, "signing_date") and contract.signing_date:
+            result["签约日期"] = self.format_chinese_date(contract.signing_date)
+        else:
+            result["签约日期"] = ""
 
-            # {{开始日期}} - 合同开始日期
-            if hasattr(contract, "start_date") and contract.start_date:
-                result["开始日期"] = self.format_chinese_date(contract.start_date)
-            else:
-                result["开始日期"] = ""
+        # {{开始日期}} - 合同开始日期
+        if contract and hasattr(contract, "start_date") and contract.start_date:
+            result["开始日期"] = self.format_chinese_date(contract.start_date)
+        else:
+            result["开始日期"] = ""
 
-            # {{结束日期}} - 合同结束日期
-            if hasattr(contract, "end_date") and contract.end_date:
-                result["结束日期"] = self.format_chinese_date(contract.end_date)
-            else:
-                result["结束日期"] = ""
+        # {{结束日期}} - 合同结束日期
+        if contract and hasattr(contract, "end_date") and contract.end_date:
+            result["结束日期"] = self.format_chinese_date(contract.end_date)
+        else:
+            result["结束日期"] = ""
 
         return result
 
