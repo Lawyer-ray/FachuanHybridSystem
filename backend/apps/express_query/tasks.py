@@ -101,24 +101,6 @@ def execute_manual_express_query_task(task_id: int) -> None:
         task.save(update_fields=["status", "error_message", "finished_at", "updated_at"])
 
 
-def _reset_stale_browser_state() -> None:
-    """
-    asyncio.run() 每次创建新事件循环并在结束后销毁，
-    导致上一轮的 Playwright BrowserContext / Browser 对象失效。
-    必须重置模块级全局变量，否则下一次 _ensure_browser() 会误用失效对象。
-    """
-    from apps.express_query.services.browser_query_service import (
-        ExpressBrowserQueryService,
-    )
-
-    import apps.express_query.services.browser_query_service as _mod
-
-    # 全局 context 已随事件循环销毁，置 None 让下次重新连接
-    _mod._browser_context = None
-    # 不终止 Chrome 进程——保持 CDP 端口可复用，只需重新 connect_over_cdp
-    logger.info("Reset stale browser context for next run")
-
-
 def _execute_browser_query(task: ExpressQueryTask) -> None:
     """执行浏览器查询（公共逻辑）"""
     task.status = ExpressQueryTaskStatus.QUERYING
@@ -134,6 +116,15 @@ def _execute_browser_query(task: ExpressQueryTask) -> None:
         output_pdf=output_abs_path,
     )
 
+    # 在协程内部完成查询后主动关闭 Playwright 连接，避免 asyncio.run() 销毁循环后
+    # Playwright 的 BaseSubprocessTransport.__del__ 触发 "Event loop is closed" 错误
+    async def _run_and_cleanup() -> str:
+        try:
+            result = await coro
+            return result
+        finally:
+            await ExpressBrowserQueryService.disconnect_playwright()
+
     # Django-Q2 worker 已有事件循环，不能直接用 asyncio.run()
     try:
         asyncio.get_running_loop()
@@ -141,15 +132,11 @@ def _execute_browser_query(task: ExpressQueryTask) -> None:
         import concurrent.futures
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-            future = pool.submit(asyncio.run, coro)
+            future = pool.submit(asyncio.run, _run_and_cleanup())
             final_url = future.result(timeout=600)
     except RuntimeError:
         # 没有运行中的循环 → 直接用 asyncio.run()
-        final_url = asyncio.run(coro)
-
-    # asyncio.run() 销毁了事件循环，Playwright 对象随之失效，
-    # 必须重置模块级全局状态，否则下一次调用会使用失效的 context
-    _reset_stale_browser_state()
+        final_url = asyncio.run(_run_and_cleanup())
 
     task.status = ExpressQueryTaskStatus.SUCCESS
     task.query_url = final_url

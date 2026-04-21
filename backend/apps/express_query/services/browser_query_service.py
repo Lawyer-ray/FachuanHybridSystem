@@ -59,6 +59,28 @@ class ExpressBrowserQueryService:
         logger.info("Browser closed")
 
     @staticmethod
+    async def disconnect_playwright() -> None:
+        """
+        在事件循环关闭前主动断开 Playwright CDP 连接。
+        不终止 Chrome 进程，下次可重新 connect_over_cdp 复用。
+
+        解决 asyncio.run() 销毁事件循环后，Playwright 的
+        BaseSubprocessTransport.__del__ 触发 "Event loop is closed" 错误。
+        """
+        global _browser_context
+        if _browser_context is not None:
+            try:
+                # 关闭 context 内所有 page，然后断开 CDP 连接
+                browser = _browser_context.browser
+                await _browser_context.close()
+                if browser is not None:
+                    await browser.close()
+            except Exception:
+                pass
+            _browser_context = None
+        logger.info("Playwright disconnected (Chrome still running for reuse)")
+
+    @staticmethod
     async def _ensure_browser() -> BrowserContext:
         """
         Get available browser context (auto-launch Chrome + CDP connect).
