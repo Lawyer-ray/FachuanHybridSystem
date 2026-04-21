@@ -63,12 +63,8 @@
                             onclick="previewArchiveTemplate({{ contract.pk }}, '{{ item.template }}', '{{ item.name }}')">
                         {% trans "预览" %}
                     </button>
-                    <button type="button" class="ac-btn-generate" title="{% trans '生成此文书' %}"
-                            onclick="generateSingleArchiveDoc({{ contract.pk }}, '{{ item.code }}', '{{ item.name }}')">
-                        {% trans "生成" %}
-                    </button>
                     {% endif %}
-                    {% if item.completed %}
+                    {% if item.completed or item.template %}
                     <button type="button" class="ac-btn-download" title="{% trans '下载材料' %}"
                             onclick="downloadArchiveItem({{ contract.pk }}, '{{ item.code }}', '{{ item.name }}')">
                         {% trans "下载" %}

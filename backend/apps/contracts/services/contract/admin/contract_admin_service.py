@@ -11,6 +11,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from apps.contracts.models import Contract, ContractStatus
+from apps.contracts.models.finalized_material import MaterialCategory
 from apps.core.interfaces import CaseDTO
 from apps.core.models.enums import CaseStage
 
@@ -214,7 +215,9 @@ class ContractAdminService:
 
         related_cases = self.query_service.get_related_cases(contract.pk)
 
-        finalized_materials = contract.finalized_materials.all()
+        finalized_materials = contract.finalized_materials.exclude(
+            category=MaterialCategory.ARCHIVE_DOCUMENT,
+        )
         finalized_materials_grouped: dict[str, list[Any]] = {}
         for material in finalized_materials:
             finalized_materials_grouped.setdefault(material.category, []).append(material)

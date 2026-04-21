@@ -188,6 +188,7 @@ class ArchiveGenerationService:
         下载归档检查项对应的材料文件。
 
         如果同一检查项下有多个文件，合并为一个 PDF 后返回。
+        如果是模板类型的项且材料不存在，自动先生成再下载。
 
         Args:
             contract: 合同实例
@@ -213,6 +214,17 @@ class ArchiveGenerationService:
                     FinalizedMaterial.objects.filter(
                         contract=contract,
                         category__in=(MaterialCategory.CONTRACT_ORIGINAL, MaterialCategory.SUPPLEMENTARY_AGREEMENT),
+                    ).order_by("order", "-uploaded_at")
+                )
+
+        # 如果仍没有材料，尝试自动生成（模板类型的项）
+        if not materials:
+            gen_result = self.generate_single_archive_document(contract, archive_item_code)
+            if not gen_result.get("error") and gen_result.get("material_id"):
+                materials = list(
+                    FinalizedMaterial.objects.filter(
+                        contract=contract,
+                        archive_item_code=archive_item_code,
                     ).order_by("order", "-uploaded_at")
                 )
 
