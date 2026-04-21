@@ -67,7 +67,7 @@ function contractDetailApp(config = {}) {
             });
             window.addEventListener('contract-folder-scan-needs-binding', () => {
                 this.activeTab = 'documents';
-                this.showToast('请先在"文档与提醒"中完成文件夹绑定，再使用自动捕获', 'error');
+                this.showToast('请先在"文档与提醒"中完成文件夹绑定，再使用"从合同文件夹同步"', 'error');
             });
             // 监听归档文书预览事件
             this.$el.addEventListener('archive-preview-open', (e) => {

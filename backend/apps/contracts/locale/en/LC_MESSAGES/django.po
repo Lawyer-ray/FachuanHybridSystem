@@ -1353,8 +1353,11 @@ msgstr "Contract name is required"
 msgid "导入"
 msgstr "Import"
 
-msgid "自动捕获"
-msgstr "Auto Capture"
+msgid "从合同文件夹同步"
+msgstr "Sync from Contract Folder"
+
+msgid "从案件材料同步"
+msgstr "Sync from Case Materials"
 
 msgid "开始扫描"
 msgstr "Start Scan"
