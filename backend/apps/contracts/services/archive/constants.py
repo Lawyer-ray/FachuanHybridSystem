@@ -117,7 +117,7 @@ ARCHIVE_CHECKLIST: dict[str, list[ChecklistItem]] = {
 # ============================================================
 ARCHIVE_FOLDER_NAME: str = "归档文件夹"
 
-# 模板类文书的归档子类型（1-3号，需要同时生成docx和pdf）
+# 模板类文书的归档子类型（1-3号，仅生成docx）
 ARCHIVE_TEMPLATE_DOC_TYPES: list[str] = [
     "case_cover",            # 1-案卷封面
     "closing_archive_register",  # 2-结案归档登记表
