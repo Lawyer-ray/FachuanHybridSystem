@@ -24,6 +24,15 @@
             <div class="ac-title-row">
                 <h3 class="ac-title">{% trans "归档检查清单" %}</h3>
                 <span class="ac-category-badge">{{ archive_checklist.archive_category_label }}</span>
+                <span class="ac-title-actions">
+                    <button type="button" class="btn btn-secondary btn-sm"
+                            @click="openModal()"
+                            :disabled="!hasFolderBinding"
+                            :title="!hasFolderBinding ? texts.needBindFolder : ''">{% trans "从合同文件夹同步" %}</button>
+                    <button type="button" class="btn btn-info btn-sm" onclick="syncCaseMaterials({{ contract.pk }})">
+                        {% trans "从案件材料同步" %}
+                    </button>
+                </span>
             </div>
             <div class="ac-progress-row">
                 <div class="ac-progress-track">
@@ -47,9 +56,6 @@
             </button>
             <button type="button" class="btn btn-secondary btn-sm" onclick="detectSupervisionCard({{ contract.pk }})">
                 {% trans "自动检测监督卡" %}
-            </button>
-            <button type="button" class="btn btn-info btn-sm" onclick="syncCaseMaterials({{ contract.pk }})">
-                {% trans "从案件材料同步" %}
             </button>
             <!-- 暂时隐藏：按照A4裁切
             <button type="button" class="btn btn-outline-info btn-sm" onclick="scaleToA4({{ contract.pk }})">
@@ -124,16 +130,9 @@
     {% endif %}
 
     {# ===== 已上传/已生成的归档材料 ===== #}
-    <div class="fm-toolbar">
-        <button type="button"
-                class="btn btn-secondary btn-sm"
-                @click="openModal()"
-                :disabled="!hasFolderBinding"
-                :title="!hasFolderBinding ? texts.needBindFolder : ''">{% trans "自动捕获" %}</button>
-    </div>
     {% if not folder_binding %}
     <p class="fm-binding-tip">
-        {% trans "当前未绑定文件夹，自动捕获不可用。" %}
+        {% trans "当前未绑定文件夹，从合同文件夹同步不可用。" %}
         <a href="{% url 'admin:contracts_contract_change' contract.pk %}" target="_blank">{% trans "去绑定文件夹" %}</a>
     </p>
     {% endif %}
@@ -181,12 +180,6 @@
 </div>
 
 <style>
-.fm-toolbar {
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: 10px;
-}
-
 .fm-count {
     margin-left: 8px;
     background: #e5e7eb;
@@ -297,6 +290,13 @@
     background: #dbeafe;
     border-radius: 999px;
     padding: 2px 10px;
+}
+
+.ac-title-actions {
+    margin-left: auto;
+    display: inline-flex;
+    gap: 8px;
+    flex-shrink: 0;
 }
 
 .ac-progress-row {
