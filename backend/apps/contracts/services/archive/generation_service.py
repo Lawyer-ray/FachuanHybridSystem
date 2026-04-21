@@ -183,6 +183,14 @@ class ArchiveGenerationService:
             - material_id: 保存后的 FinalizedMaterial ID
             - error: 错误信息 (如有)
         """
+        # 如果没有传入 case，自动查找关联合同的首个案件
+        if case is None:
+            case = contract.cases.select_related(
+                "contract",
+            ).prefetch_related(
+                "supervising_authorities", "case_numbers", "assignments__lawyer", "parties__client",
+            ).first()
+
         archive_category = get_archive_category(contract.case_type)
         checklist_items = ARCHIVE_CHECKLIST.get(archive_category, [])
 
@@ -789,6 +797,15 @@ class ArchiveGenerationService:
                     FinalizedMaterial.objects.filter(
                         contract=contract,
                         category=MaterialCategory.AUTHORIZATION_MATERIAL,
+                    ).order_by("order", "-uploaded_at")
+                )
+
+            # 特殊处理：收费凭证项（匹配发票）
+            if not item_materials and "收费" in item.get("name", ""):
+                item_materials = list(
+                    FinalizedMaterial.objects.filter(
+                        contract=contract,
+                        category=MaterialCategory.INVOICE,
                     ).order_by("order", "-uploaded_at")
                 )
 

@@ -73,6 +73,36 @@ def convert_docx_to_pdf(docx_path: str) -> str:
         except ImportError:
             pass
 
+        # 优先使用 mammoth + weasyprint（高质量中文支持）
+        try:
+            import mammoth
+            import weasyprint
+
+            with open(docx_path, "rb") as f:
+                result = mammoth.convert_to_html(f)
+                html_body = result.value
+
+            html_doc = (
+                '<!DOCTYPE html><html><head><meta charset="utf-8">'
+                '<style>'
+                'body { font-family: "SimSun", "STSong", "PingFang SC", "Microsoft YaHei", serif; font-size: 12pt; margin: 2cm; }'
+                'p { margin: 0.5em 0; text-indent: 2em; }'
+                'h1, h2, h3 { text-align: center; }'
+                'table { border-collapse: collapse; width: 100%; }'
+                'td, th { border: 1px solid #000; padding: 4px 8px; }'
+                '</style></head><body>'
+                + html_body +
+                '</body></html>'
+            )
+
+            fd, pdf_path = tempfile.mkstemp(suffix=".pdf")
+            os.close(fd)
+            weasyprint.HTML(string=html_doc).write_pdf(pdf_path)
+            return pdf_path
+        except ImportError:
+            pass
+
+        # 最终回退：reportlab（中文支持差，仅作为兜底）
         from docx import Document
         from reportlab.lib.pagesizes import A4
         from reportlab.lib.styles import getSampleStyleSheet
