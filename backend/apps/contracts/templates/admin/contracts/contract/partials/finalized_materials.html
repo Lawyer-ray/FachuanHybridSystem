@@ -39,8 +39,11 @@
         </div>
 
         <div class="ac-toolbar">
-            <button type="button" class="btn btn-primary btn-sm" onclick="generateArchiveDocs({{ contract.pk }})">
-                {% trans "生成归档文书" %}
+            <button type="button" class="btn btn-primary btn-sm"
+                    onclick="generateArchiveDocs({{ contract.pk }})"
+                    {% if not folder_binding %}disabled
+                    title="{% trans '请先在「文档与提醒」中绑定文件夹' %}"{% endif %}>
+                {% trans "生成归档文件夹" %}
             </button>
             <button type="button" class="btn btn-secondary btn-sm" onclick="detectSupervisionCard({{ contract.pk }})">
                 {% trans "自动检测监督卡" %}
@@ -76,10 +79,6 @@
                     <button type="button" class="ac-btn-preview" title="{% trans '预览替换词' %}"
                             onclick="previewArchiveTemplate({{ contract.pk }}, '{{ item.template }}', '{{ item.name }}')">
                         {% trans "预览" %}
-                    </button>
-                    <button type="button" class="ac-btn-edit" title="{% trans '修改替换词' %}"
-                            onclick="editArchiveTemplate({{ contract.pk }}, '{{ item.template }}', '{{ item.name }}')">
-                        {% trans "修改" %}
                     </button>
                     <button type="button" class="ac-btn-download" title="{% trans '下载材料' %}"
                             onclick="downloadArchiveItem({{ contract.pk }}, '{{ item.code }}', '{{ item.name }}')">
@@ -431,21 +430,6 @@
     border-color: #60a5fa;
 }
 
-.ac-btn-edit {
-    font-size: 11px;
-    padding: 2px 8px;
-    border: 1px solid #fbbf24;
-    border-radius: 4px;
-    background: #fffbeb;
-    color: #92400e;
-    cursor: pointer;
-    transition: background 0.15s;
-}
-.ac-btn-edit:hover {
-    background: #fef3c7;
-    border-color: #f59e0b;
-}
-
 .ac-btn-generate {
     font-size: 11px;
     padding: 2px 8px;
@@ -599,9 +583,9 @@ function archiveChecklistApp(initialCompact) {
         });
     }
 
-    // 生成归档文书
+    // 生成归档文件夹
     window.generateArchiveDocs = function(contractId) {
-        if (!confirm('确认生成归档文书？已有的同编号文书将被覆盖。')) return;
+        if (!confirm('确认生成归档文件夹？将在合同绑定文件夹下创建归档文件夹，已有文件将被覆盖。')) return;
         fetch('/admin/contracts/contract/' + contractId + '/generate-archive-docs/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
@@ -609,7 +593,18 @@ function archiveChecklistApp(initialCompact) {
         .then(function(r) { return r.json(); })
         .then(function(data) {
             if (data.success) {
-                alert('生成完成: ' + (data.generated_count || 0) + ' 份文书');
+                var docs = data.generated_docs || [];
+                var msg = '归档文件夹生成完成！';
+                if (docs.length > 0) {
+                    msg += '\n已生成: ' + docs.join('、');
+                }
+                if (data.errors && data.errors.length > 0) {
+                    msg += '\n部分失败: ' + data.errors.join('; ');
+                }
+                if (data.archive_dir) {
+                    msg += '\n路径: ' + data.archive_dir;
+                }
+                alert(msg);
                 location.reload();
             } else {
                 alert('生成失败: ' + (data.error || '未知错误'));
@@ -778,19 +773,6 @@ function archiveChecklistApp(initialCompact) {
         // 通过自定义事件通知 Alpine.js 组件
         app.dispatchEvent(new CustomEvent('archive-preview-open', {
             detail: { contractId: contractId, templateSubtype: templateSubtype, templateName: templateName, editMode: false },
-            bubbles: true
-        }));
-    };
-
-    // 修改归档文书替换词（直接进入编辑模式）
-    window.editArchiveTemplate = function(contractId, templateSubtype, templateName) {
-        var app = document.querySelector('.contract-detail-page');
-        if (!app) {
-            alert('页面组件未找到，请刷新后重试');
-            return;
-        }
-        app.dispatchEvent(new CustomEvent('archive-preview-open', {
-            detail: { contractId: contractId, templateSubtype: templateSubtype, templateName: templateName, editMode: true },
             bubbles: true
         }));
     };

@@ -324,7 +324,7 @@ class ContractDisplayMixin:
             return False
 
     def generate_archive_docs_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
-        """生成归档文书的 Admin view"""
+        """生成归档文件夹的 Admin view"""
         import json
 
         from django.http import JsonResponse
@@ -336,26 +336,42 @@ class ContractDisplayMixin:
             admin_service = _get_contract_admin_service()
             contract = admin_service.query_service.get_contract_detail(object_id)
 
+            # 检查合同是否绑定了文件夹
+            from apps.contracts.models.folder_binding import ContractFolderBinding
+
+            try:
+                binding = contract.folder_binding  # type: ignore[union-attr]
+            except ContractFolderBinding.DoesNotExist:
+                binding = None
+
+            if not binding or not binding.folder_path:
+                return JsonResponse(
+                    {"success": False, "error": str(_("请先在「文档与提醒」中绑定文件夹"))},
+                    status=400,
+                )
+
             from apps.contracts.services.archive import ArchiveGenerationService
 
             gen_service = ArchiveGenerationService()
-            results = gen_service.generate_archive_documents(contract)
+            result = gen_service.generate_archive_folder(contract)
 
-            generated_count = sum(1 for r in results if r.get("error") is None)
-            errors = [r for r in results if r.get("error")]
+            if not result["success"]:
+                return JsonResponse({"success": False, "error": result.get("error", "未知错误")}, status=500)
+
+            generated_docs = result.get("generated_docs", [])
+            errors = result.get("errors", [])
 
             if errors:
-                error_msgs = "; ".join(f"{r.get('template_subtype', '?')}: {r['error']}" for r in errors)
-                logger.warning("归档文书部分生成失败: %s", error_msgs)
+                logger.warning("归档文件夹部分生成失败: %s", "; ".join(errors))
 
             return JsonResponse({
                 "success": True,
-                "generated_count": generated_count,
-                "total_count": len(results),
-                "errors": [{"subtype": r.get("template_subtype"), "error": r["error"]} for r in errors],
+                "generated_docs": generated_docs,
+                "archive_dir": result.get("archive_dir", ""),
+                "errors": errors,
             })
         except Exception as e:
-            logger.exception("生成归档文书失败: contract_id=%s", object_id)
+            logger.exception("生成归档文件夹失败: contract_id=%s", object_id)
             return JsonResponse({"success": False, "error": str(e)}, status=500)
 
     def generate_single_archive_doc_view(self, request: HttpRequest, object_id: int, archive_item_code: str) -> HttpResponse:

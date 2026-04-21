@@ -112,6 +112,39 @@ ARCHIVE_CHECKLIST: dict[str, list[ChecklistItem]] = {
 # 如果 CaseMaterial.type_name 包含映射表中的任一关键词，则自动关联。
 #
 # 映射表按归档分类组织，同一分类内优先匹配更具体的关键词（列表靠前的优先）。
+# ============================================================
+# 归档文件夹相关常量
+# ============================================================
+ARCHIVE_FOLDER_NAME: str = "归档文件夹"
+
+# 模板类文书的归档子类型（1-3号，需要同时生成docx和pdf）
+ARCHIVE_TEMPLATE_DOC_TYPES: list[str] = [
+    "case_cover",            # 1-案卷封面
+    "closing_archive_register",  # 2-结案归档登记表
+    "inner_catalog",         # 3-案卷目录
+]
+
+# 归档文件夹内文件编号 → 归档子类型映射
+ARCHIVE_FILE_NUMBERING: dict[int, tuple[str, str]] = {
+    1: ("case_cover", "案卷封面"),
+    2: ("closing_archive_register", "结案归档登记表"),
+    3: ("inner_catalog", "案卷目录"),
+    4: ("case_materials", "案卷材料"),  # 合并PDF，非模板生成
+}
+
+# 需要跳过的清单项 codes（1-3号：案卷封面、登记表、目录）
+ARCHIVE_SKIP_CODES: set[str] = {
+    "nl_1", "nl_2", "nl_3",
+    "lt_1", "lt_2", "lt_3",
+    "cr_1", "cr_2", "cr_3",
+}
+
+# 需要跳过的模板子类型（不纳入"4-案卷材料"PDF合并范围）
+ARCHIVE_SKIP_TEMPLATES: set[str] = {
+    "case_cover", "closing_archive_register", "inner_catalog",
+}
+
+
 CASE_MATERIAL_KEYWORD_MAPPING: dict[str, dict[str, list[str]]] = {
     # key: archive_item_code, value: type_name 中需包含的关键词列表
     "non_litigation": {

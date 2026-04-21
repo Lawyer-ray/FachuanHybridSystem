@@ -23,7 +23,15 @@ from apps.contracts.models import Contract
 from apps.contracts.models.finalized_material import FinalizedMaterial, MaterialCategory
 
 from .category_mapping import get_archive_category
-from .constants import ARCHIVE_CHECKLIST, ChecklistItem
+from .constants import (
+    ARCHIVE_CHECKLIST,
+    ARCHIVE_FILE_NUMBERING,
+    ARCHIVE_FOLDER_NAME,
+    ARCHIVE_SKIP_CODES,
+    ARCHIVE_SKIP_TEMPLATES,
+    ARCHIVE_TEMPLATE_DOC_TYPES,
+    ChecklistItem,
+)
 
 logger = logging.getLogger("apps.contracts.archive")
 
@@ -550,3 +558,307 @@ class ArchiveGenerationService:
         except Exception as e:
             logger.exception("保存归档文书材料失败: %s", filename)
             return None
+
+    # ================================================================
+    # 归档文件夹生成
+    # ================================================================
+
+    def generate_archive_folder(self, contract: Contract) -> dict[str, Any]:
+        """
+        生成归档文件夹到合同绑定的文件夹根目录。
+
+        流程：
+        1. 先调用 generate_archive_documents() 生成模板文书到 DB
+        2. 在合同绑定文件夹下创建"归档文件夹"目录
+        3. 将1-3号模板文书写入（docx + pdf）
+        4. 将剩余材料项合并为"4-案卷材料.pdf"（带页码）
+
+        Args:
+            contract: 合同实例
+
+        Returns:
+            {"success": bool, "archive_dir": str, "generated_docs": list,
+             "errors": list, "folder_path": str}
+        """
+        from apps.contracts.models.folder_binding import ContractFolderBinding
+
+        # 1. 检查文件夹绑定
+        try:
+            binding = contract.folder_binding  # type: ignore[union-attr]
+        except ContractFolderBinding.DoesNotExist:
+            binding = None
+
+        if not binding or not binding.folder_path:
+            return {"success": False, "error": "合同未绑定文件夹"}
+
+        folder_path = Path(binding.folder_path)
+        if not folder_path.exists():
+            return {"success": False, "error": f"绑定文件夹不存在: {binding.folder_path}"}
+
+        # 2. 先生成模板文书到 DB（复用已有逻辑）
+        doc_results = self.generate_archive_documents(contract)
+
+        # 3. 创建归档文件夹
+        archive_dir = folder_path / ARCHIVE_FOLDER_NAME
+        archive_dir.mkdir(parents=True, exist_ok=True)
+
+        generated_docs: list[str] = []
+        errors: list[str] = []
+
+        # 4. 写入1-3号模板文书（docx + pdf）
+        for seq_num, (template_subtype, doc_name) in ARCHIVE_FILE_NUMBERING.items():
+            if template_subtype == "case_materials":
+                continue  # 4-案卷材料单独处理
+
+            try:
+                self._write_template_doc_to_folder(
+                    contract=contract,
+                    template_subtype=template_subtype,
+                    seq_num=seq_num,
+                    doc_name=doc_name,
+                    archive_dir=archive_dir,
+                )
+                generated_docs.append(f"{seq_num}-{doc_name}")
+            except Exception as e:
+                error_msg = f"{seq_num}-{doc_name}: {e}"
+                errors.append(error_msg)
+                logger.exception("写入归档文书失败: %s", error_msg)
+
+        # 5. 生成"4-案卷材料.pdf"
+        try:
+            mat_result = self._compile_case_materials_pdf(contract, archive_dir)
+            if mat_result.get("written"):
+                generated_docs.append("4-案卷材料")
+            elif mat_result.get("skipped"):
+                logger.info("无可合并的案卷材料，跳过4-案卷材料.pdf")
+            else:
+                errors.append(f"4-案卷材料: {mat_result.get('error', '未知错误')}")
+        except Exception as e:
+            errors.append(f"4-案卷材料: {e}")
+            logger.exception("生成案卷材料PDF失败")
+
+        logger.info(
+            "归档文件夹生成完成: %s, 成功 %d 项, 失败 %d 项",
+            archive_dir,
+            len(generated_docs),
+            len(errors),
+            extra={"contract_id": contract.id, "archive_dir": str(archive_dir)},
+        )
+
+        return {
+            "success": True,
+            "archive_dir": str(archive_dir),
+            "generated_docs": generated_docs,
+            "errors": errors,
+            "folder_path": str(folder_path),
+            "doc_results": doc_results,
+        }
+
+    def _write_template_doc_to_folder(
+        self,
+        contract: Contract,
+        template_subtype: str,
+        seq_num: int,
+        doc_name: str,
+        archive_dir: Path,
+    ) -> None:
+        """
+        将单个模板文书写入归档文件夹（docx + pdf）。
+
+        从 FinalizedMaterial 读取已生成的docx，然后转换pdf。
+        """
+        archive_category = get_archive_category(contract.case_type)
+        checklist_items = ARCHIVE_CHECKLIST.get(archive_category, [])
+
+        # 找到对应的清单项 code
+        item_code = None
+        for item in checklist_items:
+            if item.get("template") == template_subtype:
+                item_code = item["code"]
+                break
+
+        if not item_code:
+            raise ValueError(f"未找到模板子类型 {template_subtype} 对应的清单项")
+
+        # 从 DB 读取已生成的 docx
+        material = FinalizedMaterial.objects.filter(
+            contract=contract,
+            archive_item_code=item_code,
+        ).first()
+
+        if not material:
+            raise ValueError(f"模板文书尚未生成: {template_subtype}")
+
+        docx_path = Path(material.file_path)
+        if not docx_path.is_absolute():
+            from django.conf import settings as django_settings
+            docx_path = Path(django_settings.MEDIA_ROOT) / docx_path
+
+        if not docx_path.exists():
+            raise ValueError(f"docx文件不存在: {docx_path}")
+
+        # 写入 docx
+        dest_docx = archive_dir / f"{seq_num}-{doc_name}.docx"
+        dest_docx.write_bytes(docx_path.read_bytes())
+
+        # 转换并写入 pdf
+        dest_pdf = archive_dir / f"{seq_num}-{doc_name}.pdf"
+        from apps.documents.services.infrastructure.pdf_merge_utils import convert_docx_to_pdf
+
+        pdf_bytes = convert_docx_to_pdf(str(docx_path))
+        if pdf_bytes:
+            dest_pdf.write_bytes(pdf_bytes)
+        else:
+            logger.warning("docx转PDF失败，跳过: %s", template_subtype)
+
+    def _compile_case_materials_pdf(
+        self,
+        contract: Contract,
+        archive_dir: Path,
+    ) -> dict[str, Any]:
+        """
+        将归档检查清单中非1-3号的已上传材料合并为"4-案卷材料.pdf"。
+
+        合并顺序与检查清单顺序一致，从第1页开始添加页码。
+
+        Returns:
+            {"written": bool, "page_count": int, "skipped": bool, "error": str|None}
+        """
+        import fitz  # PyMuPDF
+
+        archive_category = get_archive_category(contract.case_type)
+        checklist_items = ARCHIVE_CHECKLIST.get(archive_category, [])
+
+        # 按 checklist 顺序收集需要合并的材料
+        materials_to_merge: list[FinalizedMaterial] = []
+
+        for item in checklist_items:
+            code = item["code"]
+            template = item.get("template")
+
+            # 跳过1-3号模板项
+            if code in ARCHIVE_SKIP_CODES or template in ARCHIVE_SKIP_TEMPLATES:
+                continue
+
+            # 查找该清单项关联的 FinalizedMaterial
+            item_materials = list(
+                FinalizedMaterial.objects.filter(
+                    contract=contract,
+                    archive_item_code=code,
+                ).order_by("order", "-uploaded_at")
+            )
+
+            # 特殊处理：委托合同项
+            if not item_materials and item.get("source") == "contract" and "委托" in item.get("name", ""):
+                item_materials = list(
+                    FinalizedMaterial.objects.filter(
+                        contract=contract,
+                        category__in=(MaterialCategory.CONTRACT_ORIGINAL, MaterialCategory.SUPPLEMENTARY_AGREEMENT),
+                    ).order_by("order", "-uploaded_at")
+                )
+
+            # 特殊处理：授权委托项
+            if not item_materials and "授权" in item.get("name", ""):
+                item_materials = list(
+                    FinalizedMaterial.objects.filter(
+                        contract=contract,
+                        category=MaterialCategory.AUTHORIZATION_MATERIAL,
+                    ).order_by("order", "-uploaded_at")
+                )
+
+            if item_materials:
+                materials_to_merge.extend(item_materials)
+
+        if not materials_to_merge:
+            return {"written": False, "skipped": True, "page_count": 0, "error": None}
+
+        # 合并所有材料为一个 PDF
+        from django.conf import settings as django_settings
+
+        merged_doc = fitz.open()
+
+        try:
+            for material in materials_to_merge:
+                file_path = Path(material.file_path)
+                if not file_path.is_absolute():
+                    file_path = Path(django_settings.MEDIA_ROOT) / file_path
+
+                if not file_path.exists():
+                    logger.warning("案卷材料文件不存在: %s", material.original_filename)
+                    continue
+
+                suffix = file_path.suffix.lower()
+
+                if suffix == ".pdf":
+                    try:
+                        src_doc = fitz.open(str(file_path))
+                        merged_doc.insert_pdf(src_doc)
+                        src_doc.close()
+                    except Exception as e:
+                        logger.warning("合并PDF失败: %s, error: %s", material.original_filename, e)
+                elif suffix == ".docx":
+                    try:
+                        from apps.documents.services.infrastructure.pdf_merge_utils import convert_docx_to_pdf
+
+                        pdf_bytes = convert_docx_to_pdf(str(file_path))
+                        if pdf_bytes:
+                            src_doc = fitz.open("pdf", pdf_bytes)
+                            merged_doc.insert_pdf(src_doc)
+                            src_doc.close()
+                        else:
+                            logger.warning("DOCX转PDF失败: %s", material.original_filename)
+                    except Exception as e:
+                        logger.warning("DOCX转PDF失败: %s, error: %s", material.original_filename, e)
+                else:
+                    logger.warning("不支持的文件类型: %s (%s)", suffix, material.original_filename)
+
+            if len(merged_doc) == 0:
+                return {"written": False, "skipped": True, "page_count": 0, "error": "没有可合并的文件"}
+
+            # 添加页码（从第1页开始，居中底部）
+            self._add_page_numbers(merged_doc)
+
+            # 保存到归档文件夹
+            dest_pdf = archive_dir / "4-案卷材料.pdf"
+            merged_doc.save(str(dest_pdf))
+            page_count = len(merged_doc)
+
+            logger.info(
+                "案卷材料PDF生成完成: %d 页, %d 份材料",
+                page_count,
+                len(materials_to_merge),
+                extra={"contract_id": contract.id, "dest": str(dest_pdf)},
+            )
+
+            return {"written": True, "page_count": page_count, "skipped": False, "error": None}
+
+        except Exception as e:
+            logger.exception("合并案卷材料PDF失败")
+            return {"written": False, "skipped": False, "page_count": 0, "error": str(e)}
+        finally:
+            merged_doc.close()
+
+    @staticmethod
+    def _add_page_numbers(doc: Any, start_page: int = 1) -> None:
+        """
+        为PDF文档的每一页添加页码（居中底部）。
+
+        Args:
+            doc: fitz.Document 实例
+            start_page: 页码起始编号（默认1）
+        """
+        import fitz
+
+        for i, page in enumerate(doc):
+            page_num = start_page + i
+            rect = page.rect
+            # 页码位置：居中底部，距底边 30pt
+            point = fitz.Point(rect.width / 2, rect.height - 30)
+            font = fitz.Font("helv")  # 内置 Helvetica 字体
+            page.insert_text(
+                point,
+                str(page_num),
+                fontname="helv",
+                fontsize=9,
+                color=(0, 0, 0),
+            )
