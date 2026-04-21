@@ -249,7 +249,8 @@ class ArchiveGenerationService:
         下载归档检查项对应的材料文件。
 
         如果同一检查项下有多个文件，合并为一个 PDF 后返回。
-        如果是模板类型的项且材料不存在，自动先生成再下载。
+        对于模板类型的项，始终重新生成以确保与预览一致（占位符值可能已更新）。
+        非模板类型的项（上传的材料）直接返回已有文件。
 
         Args:
             contract: 合同实例
@@ -258,6 +259,52 @@ class ArchiveGenerationService:
         Returns:
             {"content": bytes, "filename": str, "content_type": str} 或 {"error": str}
         """
+        # 检查是否为模板类型的项 — 始终重新生成以确保与预览一致
+        checklist_item = self._find_checklist_item(contract, archive_item_code)
+        if checklist_item and checklist_item.get("template"):
+            return self._download_template_item(contract, archive_item_code, checklist_item)
+
+        # 非模板类型：直接返回已上传的材料文件
+        return self._download_uploaded_item(contract, archive_item_code)
+
+    def _find_checklist_item(self, contract: Contract, archive_item_code: str) -> dict[str, Any] | None:
+        """查找检查清单中指定编号的项"""
+        archive_category = get_archive_category(contract.case_type)
+        checklist_items = ARCHIVE_CHECKLIST.get(archive_category, [])
+        for item in checklist_items:
+            if item["code"] == archive_item_code:
+                return item
+        return None
+
+    def _download_template_item(
+        self,
+        contract: Contract,
+        archive_item_code: str,
+        checklist_item: dict[str, Any],
+    ) -> dict[str, Any]:
+        """下载模板类型的归档项 — 始终重新生成以确保与预览一致"""
+        gen_result = self.generate_single_archive_document(contract, archive_item_code)
+        if gen_result.get("error"):
+            return {"error": gen_result["error"]}
+
+        # 直接从生成结果中获取文件内容（避免再次从磁盘读取）
+        content = gen_result.get("content")
+        filename = gen_result.get("filename", "")
+        if content:
+            return {
+                "content": content,
+                "filename": filename,
+                "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            }
+
+        return {"error": "生成失败：无文件内容"}
+
+    def _download_uploaded_item(
+        self,
+        contract: Contract,
+        archive_item_code: str,
+    ) -> dict[str, Any]:
+        """下载非模板类型的归档项（已上传的材料文件）"""
         materials = list(
             FinalizedMaterial.objects.filter(
                 contract=contract,
@@ -275,17 +322,6 @@ class ArchiveGenerationService:
                     FinalizedMaterial.objects.filter(
                         contract=contract,
                         category__in=(MaterialCategory.CONTRACT_ORIGINAL, MaterialCategory.SUPPLEMENTARY_AGREEMENT),
-                    ).order_by("order", "-uploaded_at")
-                )
-
-        # 如果仍没有材料，尝试自动生成（模板类型的项）
-        if not materials:
-            gen_result = self.generate_single_archive_document(contract, archive_item_code)
-            if not gen_result.get("error") and gen_result.get("material_id"):
-                materials = list(
-                    FinalizedMaterial.objects.filter(
-                        contract=contract,
-                        archive_item_code=archive_item_code,
                     ).order_by("order", "-uploaded_at")
                 )
 
@@ -570,7 +606,7 @@ class ArchiveGenerationService:
         流程：
         1. 先调用 generate_archive_documents() 生成模板文书到 DB
         2. 在合同绑定文件夹下创建"归档文件夹"目录
-        3. 将1-3号模板文书写入（docx + pdf）
+        3. 将1-3号模板文书写入（仅 docx）
         4. 将剩余材料项合并为"4-案卷材料.pdf"（带页码）
 
         Args:
@@ -663,9 +699,9 @@ class ArchiveGenerationService:
         archive_dir: Path,
     ) -> None:
         """
-        将单个模板文书写入归档文件夹（docx + pdf）。
+        将单个模板文书写入归档文件夹（仅 docx）。
 
-        从 FinalizedMaterial 读取已生成的docx，然后转换pdf。
+        从 FinalizedMaterial 读取已生成的docx，只写入docx，不转PDF。
         """
         archive_category = get_archive_category(contract.case_type)
         checklist_items = ARCHIVE_CHECKLIST.get(archive_category, [])
@@ -697,24 +733,9 @@ class ArchiveGenerationService:
         if not docx_path.exists():
             raise ValueError(f"docx文件不存在: {docx_path}")
 
-        # 写入 docx
+        # 写入 docx（不转 PDF）
         dest_docx = archive_dir / f"{seq_num}-{doc_name}.docx"
         dest_docx.write_bytes(docx_path.read_bytes())
-
-        # 转换并写入 pdf
-        dest_pdf = archive_dir / f"{seq_num}-{doc_name}.pdf"
-        from apps.documents.services.infrastructure.pdf_merge_utils import convert_docx_to_pdf
-
-        pdf_path = convert_docx_to_pdf(str(docx_path))
-        if pdf_path and Path(pdf_path).exists():
-            dest_pdf.write_bytes(Path(pdf_path).read_bytes())
-            # 清理临时文件
-            try:
-                Path(pdf_path).unlink()
-            except OSError:
-                pass
-        else:
-            logger.warning("docx转PDF失败，跳过: %s", template_subtype)
 
     def _compile_case_materials_pdf(
         self,
@@ -872,3 +893,130 @@ class ArchiveGenerationService:
                 fontsize=9,
                 color=(0, 0, 0),
             )
+
+    def scale_pages_to_a4(self, contract: Contract) -> dict[str, Any]:
+        """
+        将合同所有已上传的归档 PDF 材料按 A4 尺寸缩放。
+
+        遍历合同的 FinalizedMaterial 中所有 PDF 文件，
+        对非 A4 尺寸的页面进行缩放，使其适配 A4 (595×842 pt)。
+        缩放后原地覆盖保存。
+
+        Returns:
+            {"success": bool, "scaled_count": int, "skipped_count": int, "errors": list}
+        """
+        import fitz
+
+        A4_W, A4_H = 595.0, 842.0
+        TOLERANCE = 1.0  # 容差 1pt
+
+        # 查找所有 PDF 材料
+        pdf_materials = list(
+            FinalizedMaterial.objects.filter(
+                contract=contract,
+                original_filename__iendswith=".pdf",
+            ).order_by("order", "-uploaded_at")
+        )
+
+        if not pdf_materials:
+            return {"success": True, "scaled_count": 0, "skipped_count": 0, "errors": []}
+
+        from django.conf import settings as django_settings
+
+        scaled_count = 0
+        skipped_count = 0
+        errors: list[str] = []
+
+        for material in pdf_materials:
+            file_path = Path(material.file_path)
+            if not file_path.is_absolute():
+                file_path = Path(django_settings.MEDIA_ROOT) / file_path
+
+            if not file_path.exists():
+                errors.append(f"{material.original_filename}: 文件不存在")
+                continue
+
+            try:
+                src_doc = fitz.open(str(file_path))
+            except Exception as e:
+                errors.append(f"{material.original_filename}: 无法打开PDF - {e}")
+                continue
+
+            try:
+                # 先检查是否有需要缩放的页面
+                has_non_a4 = False
+                for page in src_doc:
+                    page_w, page_h = page.rect.width, page.rect.height
+                    is_a4 = (
+                        abs(page_w - A4_W) < TOLERANCE and abs(page_h - A4_H) < TOLERANCE
+                    ) or (
+                        abs(page_w - A4_H) < TOLERANCE and abs(page_h - A4_W) < TOLERANCE
+                    )
+                    if not is_a4:
+                        has_non_a4 = True
+                        break
+
+                if not has_non_a4:
+                    skipped_count += 1
+                    continue
+
+                # 创建新文档，逐页缩放
+                out_doc = fitz.open()
+
+                for page in src_doc:
+                    page_w, page_h = page.rect.width, page.rect.height
+                    is_a4 = (
+                        abs(page_w - A4_W) < TOLERANCE and abs(page_h - A4_H) < TOLERANCE
+                    ) or (
+                        abs(page_w - A4_H) < TOLERANCE and abs(page_h - A4_W) < TOLERANCE
+                    )
+
+                    if is_a4:
+                        # 已经是 A4，直接复制
+                        out_doc.insert_pdf(src_doc, from_page=page.number, to_page=page.number)
+                    else:
+                        # 非 A4 页面：缩放居中到 A4
+                        if page_w > page_h:
+                            target_w, target_h = A4_H, A4_W  # 横向
+                        else:
+                            target_w, target_h = A4_W, A4_H  # 纵向
+
+                        scale = min(target_w / page_w, target_h / page_h)
+                        new_page = out_doc.new_page(width=target_w, height=target_h)
+
+                        x0 = (target_w - page_w * scale) / 2
+                        y0 = (target_h - page_h * scale) / 2
+                        target_rect = fitz.Rect(x0, y0, x0 + page_w * scale, y0 + page_h * scale)
+
+                        new_page.show_pdf_page(target_rect, src_doc, page.number)
+
+                out_doc.save(str(file_path), deflate=True)
+                out_doc.close()
+                scaled_count += 1
+
+                logger.info(
+                    "PDF页面缩放为A4: %s",
+                    material.original_filename,
+                    extra={"contract_id": contract.id, "material_id": material.id},
+                )
+
+            except Exception as e:
+                errors.append(f"{material.original_filename}: 缩放失败 - {e}")
+                logger.exception("PDF缩放A4失败: %s", material.original_filename)
+            finally:
+                src_doc.close()
+
+        logger.info(
+            "A4裁切完成: contract_id=%s, scaled=%d, skipped=%d, errors=%d",
+            contract.id,
+            scaled_count,
+            skipped_count,
+            len(errors),
+        )
+
+        return {
+            "success": True,
+            "scaled_count": scaled_count,
+            "skipped_count": skipped_count,
+            "errors": errors,
+        }

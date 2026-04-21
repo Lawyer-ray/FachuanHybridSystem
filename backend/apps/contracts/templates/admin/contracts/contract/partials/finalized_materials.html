@@ -51,6 +51,9 @@
             <button type="button" class="btn btn-info btn-sm" onclick="syncCaseMaterials({{ contract.pk }})">
                 {% trans "从案件材料同步" %}
             </button>
+            <button type="button" class="btn btn-outline-info btn-sm" onclick="scaleToA4({{ contract.pk }})">
+                {% trans "按照A4裁切" %}
+            </button>
             <button type="button" class="btn btn-outline-secondary btn-sm"
                     :class="{ 'active': compactMode }"
                     @click="toggleCompactMode()">
@@ -480,6 +483,9 @@
 .btn-outline-secondary:hover { background: #f9fafb; border-color: #9ca3af; color: #374151; }
 .btn-outline-secondary.active { background: #1d4ed8; border-color: #1d4ed8; color: #fff; }
 
+.btn-outline-info { background: #fff; border: 1px solid #0891b2; color: #0891b2; }
+.btn-outline-info:hover { background: #ecfeff; border-color: #06b6d4; color: #0e7490; }
+
 {# ===== 扫描弹窗样式（保留） ===== #}
 .fm-scan-modal { max-width: 880px; }
 .fm-scan-body { display: grid; gap: 10px; }
@@ -758,6 +764,28 @@ function archiveChecklistApp(initialCompact) {
                 location.reload();
             } else {
                 alert('归档失败: ' + (data.error || '未知错误'));
+            }
+        })
+        .catch(function(e) { alert('请求失败: ' + e.message); });
+    };
+
+    // 按照A4裁切
+    window.scaleToA4 = function(contractId) {
+        if (!confirm('确认按照A4裁切？所有非A4尺寸的PDF页面将被缩放为A4大小，此操作不可撤销。')) return;
+        fetch('/admin/contracts/contract/' + contractId + '/scale-to-a4/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) {
+                var msg = 'A4裁切完成！';
+                if (data.scaled_count > 0) msg += '\n已缩放: ' + data.scaled_count + ' 个PDF文件';
+                if (data.skipped_count > 0) msg += '\n已是A4: ' + data.skipped_count + ' 个PDF文件';
+                if (data.errors && data.errors.length > 0) msg += '\n失败: ' + data.errors.join('; ');
+                alert(msg);
+            } else {
+                alert('A4裁切失败: ' + (data.error || '未知错误'));
             }
         })
         .catch(function(e) { alert('请求失败: ' + e.message); });

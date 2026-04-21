@@ -224,6 +224,11 @@ class ContractDisplayMixin:
                 self.admin_site.admin_view(self.toggle_compact_archive_view),
                 name="contracts_contract_toggle_compact_archive",
             ),
+            path(
+                "<int:object_id>/scale-to-a4/",
+                self.admin_site.admin_view(self.scale_to_a4_view),
+                name="contracts_contract_scale_to_a4",
+            ),
         ]
         return custom_urls + urls
 
@@ -619,4 +624,28 @@ class ContractDisplayMixin:
             return JsonResponse({"success": True, "compact_archive": contract.compact_archive})
         except Exception as e:
             logger.exception("切换按实归档状态失败: contract_id=%s", object_id)
+            return JsonResponse({"success": False, "error": str(e)}, status=500)
+
+    def scale_to_a4_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
+        """按照A4裁切的 Admin view - 将非A4尺寸的PDF页面缩放为A4"""
+        from django.http import JsonResponse
+
+        if request.method != "POST":
+            return JsonResponse({"success": False, "error": "Method not allowed"}, status=405)
+
+        if not self.has_change_permission(request):
+            return JsonResponse({"success": False, "error": str(_("无权限"))}, status=403)
+
+        try:
+            admin_service = _get_contract_admin_service()
+            contract = admin_service.query_service.get_contract_detail(object_id)
+
+            from apps.contracts.services.archive import ArchiveGenerationService
+
+            gen_service = ArchiveGenerationService()
+            result = gen_service.scale_pages_to_a4(contract)
+
+            return JsonResponse(result)
+        except Exception as e:
+            logger.exception("A4裁切失败: contract_id=%s", object_id)
             return JsonResponse({"success": False, "error": str(e)}, status=500)
