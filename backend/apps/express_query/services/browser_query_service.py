@@ -511,13 +511,19 @@ class ExpressBrowserQueryService:
             if detail_opened:
                 expand_selectors = [
                     "button:has-text('展开全部轨迹')",
+                    "span:has-text('展开全部轨迹')",
+                    "button:has-text('展开全部')",
+                    "span:has-text('展开全部')",
                     "button:has-text('查看全部')",
+                    "span:has-text('查看全部')",
                     "button:has-text('查看更多')",
+                    "span:has-text('查看更多')",
                     "button:has-text('展开')",
+                    "span:has-text('展开')",
                 ]
                 for selector in expand_selectors:
-                    await self._click_first(page, [selector])
-                await asyncio.sleep(1)
+                    if await self._click_first(page, [selector]):
+                        await asyncio.sleep(1)
 
             for selector in verification_selectors:
                 try:
@@ -770,8 +776,13 @@ class ExpressBrowserQueryService:
                 break
 
     async def _open_ems_waybill_detail(self, page: Page, tracking_number: str) -> None:
+        """
+        EMS 打开详情 + 展开全部轨迹。
+        分两步：先进入详情页，再展开全部物流轨迹确保 PDF 内容完整。
+        """
         logger.info("Opening EMS mail detail: %s", tracking_number)
 
+        # ---- 阶段1：进入详情页 ----
         detail_button_selectors = [
             "button:has-text('查看详情')",
             "button:has-text('详情')",
@@ -791,20 +802,21 @@ class ExpressBrowserQueryService:
         ]
 
         deadline = asyncio.get_running_loop().time() + 45
-        detail_action_done = False
+        detail_entered = False
         dismiss_count: int = 0
 
         while asyncio.get_running_loop().time() < deadline:
-            # 只在前 3 次循环尝试关闭弹窗，防止死循环误关内容
             if dismiss_count < 3:
                 await self._dismiss_ems_overlays(page)
                 dismiss_count += 1
 
+            # 尝试点击运单号文本
             try:
                 await self._click_first(page, [f"text={tracking_number}"])
             except Exception:
                 pass
 
+            # DOM 搜索点击详情按钮
             try:
                 clicked_detail_from_dom = await page.evaluate(
                     """(trackingNumber) => {
@@ -812,15 +824,13 @@ class ExpressBrowserQueryService:
                         const elements = Array.from(document.querySelectorAll('body *'));
                         for (const element of elements) {
                             const text = String(element.innerText || element.textContent || '').replace(/\\s+/g, '');
-                            if (!text || !text.includes(normalizedTarget)) {
-                                continue;
-                            }
+                            if (!text || !text.includes(normalizedTarget)) continue;
 
                             let container = element;
                             for (let depth = 0; depth < 6 && container; depth += 1) {
                                 const detailNode = Array.from(container.querySelectorAll('button,a,span,div')).find((node) => {
                                     const nodeText = String(node.innerText || node.textContent || '').trim();
-                                    return /\u67e5\u770b\u8be6\u60c5|\u8be6\u60c5|\u7269\u6d41\u8be6\u60c5|\u90ae\u4ef6\u8be6\u60c5|\u6536\u5bc4\u8be6\u60c5/.test(nodeText);
+                                    return /\\u67e5\\u770b\\u8be6\\u60c5|\\u8be6\\u60c5|\\u7269\\u6d41\\u8be6\\u60c5|\\u90ae\\u4ef6\\u8be6\\u60c5|\\u6536\\u5bc4\\u8be6\\u60c5/.test(nodeText);
                                 });
                                 if (detailNode instanceof HTMLElement) {
                                     detailNode.click();
@@ -834,49 +844,133 @@ class ExpressBrowserQueryService:
                     tracking_number,
                 )
                 if clicked_detail_from_dom:
-                    detail_action_done = True
+                    detail_entered = True
                     logger.info("  Triggered detail click via DOM")
                     await asyncio.sleep(2)
             except Exception:
                 pass
 
-            if not detail_action_done:
+            if not detail_entered:
                 for selector in detail_button_selectors:
                     if await self._click_first(page, [selector]):
-                        detail_action_done = True
+                        detail_entered = True
                         logger.info("  Clicked detail button: %s", selector)
                         await asyncio.sleep(2)
                         break
 
-            if detail_action_done:
-                expand_selectors = [
-                    "button:has-text('展开详情')",
-                    "button:has-text('查看详情')",
-                    "button:has-text('物流详情')",
-                    "button:has-text('邮件详情')",
-                    "button:has-text('收寄详情')",
-                    "button:has-text('查看更多')",
-                    "button:has-text('查看全部')",
-                    "button:has-text('全部轨迹')",
-                    "button:has-text('展开')",
-                ]
-                for selector in expand_selectors:
-                    await self._click_first(page, [selector])
-                await asyncio.sleep(2)
-
+            # 检查是否已进入详情页
+            if detail_entered:
                 for selector in detail_state_selectors:
                     try:
                         if await page.locator(selector).count() > 0:
-                            logger.info("  EMS detail confirmed: %s", selector)
-                            return
+                            logger.info("  EMS detail page confirmed: %s", selector)
+                            break
                     except Exception:
                         pass
+                break
 
             await asyncio.sleep(1)
 
-        if not detail_action_done:
+        if not detail_entered:
             raise RuntimeError("EMS detail failed: no click triggered for %s" % tracking_number)
-        raise RuntimeError("EMS detail failed: clicked but no detail block appeared for %s" % tracking_number)
+
+        # ---- 阶段2：展开全部物流轨迹 ----
+        # EMS 详情页默认只显示部分轨迹，需要点击"展开全部"等按钮才能显示完整轨迹
+        await self._ems_expand_all_tracking(page)
+
+    async def _ems_expand_all_tracking(self, page: Page) -> None:
+        """
+        在 EMS 详情页中反复点击"展开全部"类按钮，直到所有物流轨迹都展开。
+        EMS 的展开按钮可能不是 <button>，需要用多种选择器尝试。
+        """
+        # 覆盖所有可能的展开按钮：button / span / div / a
+        expand_selectors = [
+            # "展开全部" — EMS 最常见的完整展开按钮
+            "button:has-text('展开全部')",
+            "span:has-text('展开全部')",
+            "div:has-text('展开全部')",
+            "a:has-text('展开全部')",
+            # "展开全部轨迹"
+            "button:has-text('展开全部轨迹')",
+            "span:has-text('展开全部轨迹')",
+            # "查看全部"/"全部轨迹"
+            "button:has-text('查看全部')",
+            "span:has-text('查看全部')",
+            "button:has-text('全部轨迹')",
+            "span:has-text('全部轨迹')",
+            # "展开"/"查看更多"
+            "button:has-text('展开')",
+            "span:has-text('展开')",
+            "button:has-text('查看更多')",
+            "span:has-text('查看更多')",
+        ]
+
+        expanded_any = True
+        max_rounds = 5  # 最多尝试 5 轮，防止死循环
+
+        for round_num in range(max_rounds):
+            if not expanded_any and round_num > 0:
+                # 上一轮没有点到任何展开按钮，说明已经全部展开
+                logger.info("  EMS tracking fully expanded (no more expand buttons)")
+                break
+
+            expanded_any = False
+
+            for selector in expand_selectors:
+                try:
+                    locator = page.locator(selector)
+                    count = await locator.count()
+                    for idx in range(min(count, 3)):
+                        target = locator.nth(idx)
+                        try:
+                            if await target.is_visible():
+                                await target.scroll_into_view_if_needed()
+                                await target.click(force=True, timeout=2000)
+                                expanded_any = True
+                                logger.info("  Clicked expand button: %s [#%d]", selector, idx)
+                                await asyncio.sleep(1)
+                        except Exception:
+                            continue
+                except Exception:
+                    continue
+
+            # JS 兜底：在页面中搜索包含"展开全部"等文本的可点击元素
+            try:
+                js_clicked = await page.evaluate("""() => {
+                    const keywords = ['展开全部', '展开全部轨迹', '查看全部', '全部轨迹', '查看更多'];
+                    const clickables = Array.from(document.querySelectorAll(
+                        'button, span, div, a, [role="button"]'
+                    ));
+                    for (const el of clickables) {
+                        const t = (el.innerText || '').trim();
+                        if (t.length > 20) continue;  // 避免匹配到大块内容
+                        if (!keywords.some(kw => t.includes(kw))) continue;
+                        if (el.getBoundingClientRect().width === 0) continue;
+                        el.scrollIntoView({block: 'center'});
+                        el.click();
+                        return true;
+                    }
+                    return false;
+                }""")
+                if js_clicked:
+                    expanded_any = True
+                    logger.info("  Clicked expand button via JS DOM search")
+                    await asyncio.sleep(1)
+            except Exception:
+                pass
+
+            await asyncio.sleep(1)
+
+        # 滚动到底部确保所有轨迹内容加载
+        try:
+            await page.evaluate("""() => {
+                window.scrollTo(0, document.body.scrollHeight);
+            }""")
+            await asyncio.sleep(1)
+        except Exception:
+            pass
+
+        logger.info("  EMS tracking expansion complete")
 
     async def _wait_for_login(
         self,
