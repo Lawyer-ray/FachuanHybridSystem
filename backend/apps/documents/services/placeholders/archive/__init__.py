@@ -428,8 +428,6 @@ class ArchivePlaceholderService(BasePlaceholderService):
 
     # 自动捕获日志的内容前缀，用于识别并排除这些日志
     _AUTO_LOG_PREFIXES: ClassVar[tuple[str, ...]] = (
-        "收到法院短信：",
-        "收到法院短信:",
         "文书送达自动下载:",
         "文书送达自动下载：",
     )
