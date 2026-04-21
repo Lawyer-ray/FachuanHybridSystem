@@ -76,7 +76,7 @@ class CaseLog(models.Model):
     def _exported_reminders(self) -> list[dict[str, Any]]:
         cached = getattr(self, "_cached_exported_reminders", _SENTINEL)
         if cached is not _SENTINEL:
-            return cached
+            return cached  # type: ignore[return-value]
         if not getattr(self, "id", None):
             self._cached_exported_reminders = []
             return []
