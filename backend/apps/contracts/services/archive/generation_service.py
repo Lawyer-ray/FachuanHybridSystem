@@ -288,7 +288,7 @@ class ArchiveGenerationService:
         self,
         contract: Contract,
         archive_item_code: str,
-        checklist_item: dict[str, Any],
+        checklist_item: ChecklistItem,
     ) -> dict[str, Any]:
         """下载模板类型的归档项 — 始终重新生成以确保与预览一致"""
         gen_result = self.generate_single_archive_document(contract, archive_item_code)
@@ -628,7 +628,7 @@ class ArchiveGenerationService:
 
         # 1. 检查文件夹绑定
         try:
-            binding = contract.folder_binding  # type: ignore[union-attr]
+            binding = contract.folder_binding
         except ContractFolderBinding.DoesNotExist:
             binding = None
 
