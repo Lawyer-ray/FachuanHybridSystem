@@ -9,8 +9,10 @@ PLACEHOLDER_FALLBACK_VALUE = "/"
 
 
 def normalize_placeholder_value(value: Any, *, fallback_value: str = PLACEHOLDER_FALLBACK_VALUE) -> Any:
-    """将 None 统一归一为兜底值。"""
-    return fallback_value if value is None else value
+    """将 None 和空字符串统一归一为兜底值。"""
+    if value is None or (isinstance(value, str) and value.strip() == ""):
+        return fallback_value
+    return value
 
 
 def get_service_placeholder_keys(service: Any) -> list[str]:

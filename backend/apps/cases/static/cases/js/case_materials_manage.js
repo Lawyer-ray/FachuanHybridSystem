@@ -694,8 +694,8 @@
               party_ids: category === 'party' ? partyIds : [],
               supervising_authority_id:
                 category === 'non_party' && Number.isInteger(supervisingAuthorityIdRaw) && supervisingAuthorityIdRaw > 0
-                  ? supervisingAuthorityIdRaw
-                  : null,
+                  ? String(supervisingAuthorityIdRaw)
+                  : '',
               reason: candidate.reason || '',
             };
           });
@@ -712,7 +712,7 @@
               category: candidate.category || 'unknown',
               side: candidate.side || 'unknown',
               type_name_hint: candidate.type_name_hint || '',
-              supervising_authority_id: candidate.category === 'non_party' ? candidate.supervising_authority_id || null : null,
+              supervising_authority_id: candidate.category === 'non_party' ? (candidate.supervising_authority_id ? parseInt(candidate.supervising_authority_id, 10) || null : null) : null,
               party_ids: candidate.category === 'party' ? candidate.party_ids || [] : [],
             }));
 

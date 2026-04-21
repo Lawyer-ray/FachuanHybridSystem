@@ -160,7 +160,7 @@
                             <th style="width: 52px;">{% trans "保存" %}</th>
                             <th>{% trans "文件" %}</th>
                             <th style="width: 140px;">{% trans "材料大类" %}</th>
-                            <th style="width: 160px;">{% trans "方向" %}</th>
+                            <th style="width: 160px;">{% trans "方向/主管机关" %}</th>
                             <th style="width: 200px;">{% trans "类型提示" %}</th>
                         </tr>
                     </thead>
@@ -184,11 +184,21 @@
                                     </select>
                                 </td>
                                 <td>
-                                    <select x-model="candidate.side" :disabled="candidate.category !== 'party'">
-                                        <option value="">{% trans "请选择" %}</option>
-                                        <option value="our">{% trans "我方" %}</option>
-                                        <option value="opponent">{% trans "对方" %}</option>
-                                    </select>
+                                    <template x-if="candidate.category === 'party'">
+                                        <select x-model="candidate.side">
+                                            <option value="">{% trans "请选择" %}</option>
+                                            <option value="our">{% trans "我方" %}</option>
+                                            <option value="opponent">{% trans "对方" %}</option>
+                                        </select>
+                                    </template>
+                                    <template x-if="candidate.category === 'non_party'">
+                                        <select x-model="candidate.supervising_authority_id">
+                                            <option value="">{% trans "请选择" %}</option>
+                                            <template x-for="auth in supervisingAuthorities" :key="auth.id">
+                                                <option :value="String(auth.id)" :selected="String(candidate.supervising_authority_id) === String(auth.id)" x-text="authTitle(auth)"></option>
+                                            </template>
+                                        </select>
+                                    </template>
                                 </td>
                                 <td>
                                     <input type="text" x-model.trim="candidate.type_name_hint" placeholder="{% trans '类型名称提示' %}" />
