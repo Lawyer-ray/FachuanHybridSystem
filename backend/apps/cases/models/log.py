@@ -48,6 +48,13 @@ class CaseLog(models.Model):
     actor = models.ForeignKey(
         "organization.Lawyer", on_delete=models.PROTECT, related_name="case_logs", verbose_name=_("操作人")
     )
+    source_subfolder = models.CharField(
+        blank=True,
+        default="",
+        max_length=500,
+        verbose_name=_("来源子文件夹"),
+        help_text=_("邮件往来导入时记录的来源子文件夹路径，用于去重"),
+    )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建日期"))
     updated_at = models.DateTimeField(auto_now=True, verbose_name=_("修改日期"))
 

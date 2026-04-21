@@ -109,8 +109,8 @@ class EmailFolderScanService:
         # 查询该案件已有的来源子文件夹，用于去重
         existing_sources: set[str] = set(
             CaseLog.objects.filter(case_id=case_id)
-            .exclude(source_subfolder="")
-            .values_list("source_subfolder", flat=True)
+            .exclude(source_subfolder="")  # type: ignore[misc]
+            .values_list("source_subfolder", flat=True)  # type: ignore[misc]
         )
 
         created_logs: list[CaseLog] = []
@@ -136,7 +136,7 @@ class EmailFolderScanService:
                 )
 
                 # 回写 source_subfolder 用于后续去重
-                log.source_subfolder = source_key
+                log.source_subfolder = source_key  # type: ignore[attr-defined]
                 log.save(update_fields=["source_subfolder"])
 
                 # 如果子目录名以日期开头，回写 created_at
