@@ -345,7 +345,7 @@ class ContractDisplayMixin:
             from apps.contracts.models.folder_binding import ContractFolderBinding
 
             try:
-                binding = contract.folder_binding  # type: ignore[union-attr]
+                binding = contract.folder_binding
             except ContractFolderBinding.DoesNotExist:
                 binding = None
 

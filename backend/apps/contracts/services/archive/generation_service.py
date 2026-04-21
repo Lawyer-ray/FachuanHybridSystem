@@ -275,7 +275,7 @@ class ArchiveGenerationService:
         # 非模板类型：直接返回已上传的材料文件
         return self._download_uploaded_item(contract, archive_item_code)
 
-    def _find_checklist_item(self, contract: Contract, archive_item_code: str) -> dict[str, Any] | None:
+    def _find_checklist_item(self, contract: Contract, archive_item_code: str) -> ChecklistItem | None:
         """查找检查清单中指定编号的项"""
         archive_category = get_archive_category(contract.case_type)
         checklist_items = ARCHIVE_CHECKLIST.get(archive_category, [])
@@ -614,8 +614,8 @@ class ArchiveGenerationService:
         流程：
         1. 先调用 generate_archive_documents() 生成模板文书到 DB
         2. 在合同绑定文件夹下创建"归档文件夹"目录
-        3. 将1-3号模板文书写入（仅 docx）
-        4. 将剩余材料项合并为"4-案卷材料.pdf"（带页码）
+        3. 将1-3号模板文书写入（仅 docx），文件名带合同名称和日期
+        4. 将剩余材料项合并为"4-案卷材料（{合同名称}）_{日期}.pdf"（带页码）
 
         Args:
             contract: 合同实例
@@ -646,14 +646,19 @@ class ArchiveGenerationService:
         archive_dir = folder_path / ARCHIVE_FOLDER_NAME
         archive_dir.mkdir(parents=True, exist_ok=True)
 
+        from datetime import date
+
         generated_docs: list[str] = []
         errors: list[str] = []
 
-        # 4. 写入1-3号模板文书（docx + pdf）
+        # 4. 写入1-3号模板文书（仅 docx）
+        contract_name = contract.name or "未命名合同"
+        today_str = date.today().strftime("%Y%m%d")
         for seq_num, (template_subtype, doc_name) in ARCHIVE_FILE_NUMBERING.items():
             if template_subtype == "case_materials":
                 continue  # 4-案卷材料单独处理
 
+            base_name = f"{seq_num}-{doc_name}（{contract_name}）_{today_str}"
             try:
                 self._write_template_doc_to_folder(
                     contract=contract,
@@ -662,23 +667,24 @@ class ArchiveGenerationService:
                     doc_name=doc_name,
                     archive_dir=archive_dir,
                 )
-                generated_docs.append(f"{seq_num}-{doc_name}")
+                generated_docs.append(base_name)
             except Exception as e:
-                error_msg = f"{seq_num}-{doc_name}: {e}"
+                error_msg = f"{base_name}: {e}"
                 errors.append(error_msg)
                 logger.exception("写入归档文书失败: %s", error_msg)
 
         # 5. 生成"4-案卷材料.pdf"
+        case_materials_name = f"4-案卷材料（{contract_name}）_{today_str}"
         try:
             mat_result = self._compile_case_materials_pdf(contract, archive_dir)
             if mat_result.get("written"):
-                generated_docs.append("4-案卷材料")
+                generated_docs.append(case_materials_name)
             elif mat_result.get("skipped"):
-                logger.info("无可合并的案卷材料，跳过4-案卷材料.pdf")
+                logger.info("无可合并的案卷材料，跳过%s.pdf", case_materials_name)
             else:
-                errors.append(f"4-案卷材料: {mat_result.get('error', '未知错误')}")
+                errors.append(f"{case_materials_name}: {mat_result.get('error', '未知错误')}")
         except Exception as e:
-            errors.append(f"4-案卷材料: {e}")
+            errors.append(f"{case_materials_name}: {e}")
             logger.exception("生成案卷材料PDF失败")
 
         logger.info(
@@ -709,8 +715,11 @@ class ArchiveGenerationService:
         """
         将单个模板文书写入归档文件夹（仅 docx）。
 
-        从 FinalizedMaterial 读取已生成的docx，只写入docx，不转PDF。
+        从 FinalizedMaterial 读取已生成的docx，只写入docx。
+        文件名格式：{序号}-{文档名}（{合同名称}）_{日期}.docx
         """
+        from datetime import date
+
         archive_category = get_archive_category(contract.case_type)
         checklist_items = ARCHIVE_CHECKLIST.get(archive_category, [])
 
@@ -741,8 +750,13 @@ class ArchiveGenerationService:
         if not docx_path.exists():
             raise ValueError(f"docx文件不存在: {docx_path}")
 
-        # 写入 docx（不转 PDF）
-        dest_docx = archive_dir / f"{seq_num}-{doc_name}.docx"
+        # 生成带合同名称和日期的文件名
+        contract_name = contract.name or "未命名合同"
+        today_str = date.today().strftime("%Y%m%d")
+        base_name = f"{seq_num}-{doc_name}（{contract_name}）_{today_str}"
+
+        # 写入 docx
+        dest_docx = archive_dir / f"{base_name}.docx"
         dest_docx.write_bytes(docx_path.read_bytes())
 
     def _compile_case_materials_pdf(
@@ -751,7 +765,7 @@ class ArchiveGenerationService:
         archive_dir: Path,
     ) -> dict[str, Any]:
         """
-        将归档检查清单中非1-3号的已上传材料合并为"4-案卷材料.pdf"。
+        将归档检查清单中非1-3号的已上传材料合并为"4-案卷材料（{合同名称}）_{日期}.pdf"。
 
         合并顺序与检查清单顺序一致，从第1页开始添加页码。
 
@@ -866,8 +880,12 @@ class ArchiveGenerationService:
             # 添加页码（从第1页开始，居中底部）
             self._add_page_numbers(merged_doc)
 
-            # 保存到归档文件夹
-            dest_pdf = archive_dir / "4-案卷材料.pdf"
+            # 保存到归档文件夹（带合同名称和日期）
+            from datetime import date
+
+            contract_name = contract.name or "未命名合同"
+            today_str = date.today().strftime("%Y%m%d")
+            dest_pdf = archive_dir / f"4-案卷材料（{contract_name}）_{today_str}.pdf"
             merged_doc.save(str(dest_pdf))
             page_count = len(merged_doc)
 
