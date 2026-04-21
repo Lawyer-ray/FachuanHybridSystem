@@ -55,9 +55,6 @@
                     title="{% trans '请先在「文档与提醒」中绑定文件夹' %}"{% endif %}>
                 {% trans "生成归档文件夹" %}
             </button>
-            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="detectSupervisionCard({{ contract.pk }})">
-                {% trans "检测监督卡" %}
-            </button>
             <span class="ac-toolbar-spacer"></span>
             <button type="button" class="btn btn-outline-secondary btn-sm"
                     @click="openModal()"
@@ -111,7 +108,9 @@
                     {% elif item.completed %}
                         <span class="ac-badge ac-badge-done">✓</span>
                     {% elif item.auto_detect == 'supervision_card' %}
-                        <span class="ac-badge ac-badge-detect" title="{% trans '可自动检测' %}">🔍</span>
+                        <button type="button" class="ac-badge ac-badge-detect ac-badge-action"
+                                title="{% trans '点击检测监督卡' %}"
+                                onclick="detectSupervisionCard({{ contract.pk }})">🔍</button>
                     {% elif item.has_case_material %}
                         <span class="ac-badge ac-badge-sync" title="{% trans '可从案件材料同步' %}">📋</span>
                     {% elif item.source == 'case' %}
@@ -371,6 +370,19 @@
 .ac-badge-done { color: #16a34a; }
 .ac-badge-generate { color: #2563eb; cursor: help; }
 .ac-badge-detect { color: #7c3aed; cursor: help; }
+.ac-badge-action {
+    cursor: pointer;
+    border: none;
+    background: none;
+    padding: 0;
+    font-size: inherit;
+    border-radius: 4px;
+    transition: background 0.15s, box-shadow 0.15s;
+}
+.ac-badge-action:hover {
+    background: rgba(124, 58, 237, 0.12);
+    box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.25);
+}
 .ac-badge-sync { color: #0891b2; cursor: help; }
 .ac-badge-sync-dim { color: #9ca3af; cursor: help; opacity: 0.5; }
 .ac-badge-required { color: #dc2626; cursor: help; }

@@ -1365,6 +1365,9 @@ msgstr "Compact View"
 msgid "检测监督卡"
 msgstr "Detect Supervision Card"
 
+msgid "点击检测监督卡"
+msgstr "Click to detect supervision card"
+
 msgid "开始扫描"
 msgstr "Start Scan"
 
