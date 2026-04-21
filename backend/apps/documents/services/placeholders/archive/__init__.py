@@ -434,10 +434,17 @@ class ArchivePlaceholderService(BasePlaceholderService):
         "文书送达自动下载：",
     )
 
+    # 自动捕获日志的精确匹配内容
+    _AUTO_LOG_EXACT_MATCHES: ClassVar[frozenset[str]] = frozenset({
+        "自动捕获材料",
+    })
+
     @classmethod
     def _is_auto_generated_log(cls, log: Any) -> bool:
-        """判断日志是否为自动捕获生成（法院短信/文书送达自动下载等）"""
-        content = str(getattr(log, "content", "") or "")
+        """判断日志是否为自动捕获生成（法院短信/文书送达/材料自动捕获等）"""
+        content = str(getattr(log, "content", "") or "").strip()
+        if content in cls._AUTO_LOG_EXACT_MATCHES:
+            return True
         return content.startswith(cls._AUTO_LOG_PREFIXES)
 
     @staticmethod
