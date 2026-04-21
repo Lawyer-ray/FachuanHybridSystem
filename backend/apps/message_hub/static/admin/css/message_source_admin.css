@@ -1,0 +1,51 @@
+/* MessageSource changelist —窄屏适配 */
+
+/* 表格容器水平滚动，防止列被过度压缩 */
+#result_list {
+  min-width: 820px;
+}
+
+.module.filtered #result_list {
+  min-width: 700px;
+}
+
+/* 徽章 & 按钮不换行 */
+#result_list td span[style*="border-radius"],
+#result_list td a.button {
+  white-space: nowrap;
+}
+
+/* 操作列：收紧宽度 */
+#result_list th.column-refresh_button,
+#result_list td.field-refresh_button {
+  white-space: nowrap;
+  width: 90px;
+  min-width: 90px;
+}
+
+/* 来源类型 & 同步状态列：收紧 */
+#result_list th.column-source_type_badge,
+#result_list td.field-source_type_badge,
+#result_list th.column-sync_status_badge,
+#result_list td.field-sync_status_badge {
+  white-space: nowrap;
+  width: 90px;
+  min-width: 80px;
+}
+
+/* ID 列窄化 */
+#result_list th.column-id,
+#result_list td.field-id {
+  width: 40px;
+  min-width: 40px;
+}
+
+/* 启用/轮询列窄化 */
+#result_list th.column-is_enabled,
+#result_list td.field-is_enabled,
+#result_list th.column-poll_interval_minutes,
+#result_list td.field-poll_interval_minutes {
+  white-space: nowrap;
+  width: 60px;
+  min-width: 50px;
+}
