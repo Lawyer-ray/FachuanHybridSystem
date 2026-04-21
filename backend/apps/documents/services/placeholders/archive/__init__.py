@@ -72,6 +72,7 @@ class ArchivePlaceholderService(BasePlaceholderService):
         "案件当前阶段",
         "案件审理结果",
         "办案小结内容",
+        "律师工作日志内容",
         "归档日期",
         "生成日期",
         "结案归档材料",
@@ -132,6 +133,11 @@ class ArchivePlaceholderService(BasePlaceholderService):
             "display_name": "办案小结内容",
             "description": "办案小结正文内容，优先使用案件审理结果，无审理结果时根据合同名称和当事人生成",
             "example_value": "本案为某某公司诉某某公司合同纠纷。本所受某某有限公司提供法律服务。在服务期间，我们在公司领导的指导下，与各位同事积极配合，顺利的完成了公司的各项法律服务工作。",
+        },
+        "律师工作日志内容": {
+            "display_name": "律师工作日志内容",
+            "description": "案件进展日志汇总，格式为日期+描述，排除自动捕获的短信/文书送达日志，硬换行分隔",
+            "example_value": "2026年3月10日，签订委托代理合同\n2026年4月15日，一审开庭",
         },
         "归档日期": {
             "display_name": "归档日期",
@@ -203,6 +209,10 @@ class ArchivePlaceholderService(BasePlaceholderService):
 
         # 办案小结内容：优先使用案件审理结果，无结果时根据合同名称和当事人生成
         result["办案小结内容"] = self._get_case_summary_content(case, contract, result)
+
+        # 律师工作日志内容：从案件进展获取，排除自动捕获的短信/文书送达日志
+        if case:
+            result["律师工作日志内容"] = self._get_lawyer_work_log_content(case)
 
         # 结案归档材料：实时检测已完成的检查项，生成编号目录
         if contract:
@@ -415,6 +425,60 @@ class ArchivePlaceholderService(BasePlaceholderService):
             return f"本案为{cn}。本所受{party}提供法律服务。在服务期间，我们在公司领导的指导下，与各位同事积极配合，顺利的完成了公司的各项法律服务工作。"
 
         return ""
+
+    # 自动捕获日志的内容前缀，用于识别并排除这些日志
+    _AUTO_LOG_PREFIXES: ClassVar[tuple[str, ...]] = (
+        "收到法院短信：",
+        "收到法院短信:",
+        "文书送达自动下载:",
+        "文书送达自动下载：",
+    )
+
+    @classmethod
+    def _is_auto_generated_log(cls, log: Any) -> bool:
+        """判断日志是否为自动捕获生成（法院短信/文书送达自动下载等）"""
+        content = str(getattr(log, "content", "") or "")
+        return content.startswith(cls._AUTO_LOG_PREFIXES)
+
+    @staticmethod
+    def _get_lawyer_work_log_content(case: Any) -> str:
+        """
+        获取律师工作日志内容.
+
+        从案件进展(CaseLog)中提取日志,排除自动捕获的短信/文书送达日志,
+        格式为日期+描述,硬换行分隔.
+        """
+        try:
+            logs = case.logs.select_related("actor").order_by("created_at")
+        except Exception:
+            logger.warning("获取案件日志失败", extra={"case_id": getattr(case, "id", None)})
+            return ""
+
+        lines: list[str] = []
+        for log in logs:
+            # 排除自动捕获的日志
+            if ArchivePlaceholderService._is_auto_generated_log(log):
+                continue
+            content = str(getattr(log, "content", "") or "").strip()
+            if not content:
+                continue
+            created_at = getattr(log, "created_at", None)
+            if created_at:
+                date_str = f"{created_at.year}年{created_at.month}月{created_at.day}日"
+            else:
+                date_str = "未知日期"
+            lines.append(f"{date_str}，{content}")
+
+        if not lines:
+            return ""
+
+        # 使用硬换行渲染
+        rt = _ArchiveMaterialsRichText()
+        for i, line in enumerate(lines):
+            if i > 0:
+                rt.add_break()
+            rt.add(line)
+        return rt
 
     @staticmethod
     def _get_opposing_party_names_from_case(case: Any) -> str:
