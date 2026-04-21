@@ -63,7 +63,7 @@
             <button type="button" class="btn btn-outline-secondary btn-sm"
                     :class="{ 'active': compactMode }"
                     @click="toggleCompactMode()">
-                {% trans "按实归档" %}
+                {% trans "精简视图" %}
             </button>
             {% if can_archive %}
             <button type="button" class="btn btn-warning btn-sm ac-btn-archive" onclick="confirmArchive({{ contract.pk }})">

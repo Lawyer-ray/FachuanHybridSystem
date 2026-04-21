@@ -98,7 +98,7 @@ class ArchiveChecklistService:
         # 进度统计：排除模板项（模板项由系统生成，不参与人工完成进度）
         non_template_items = [item for item in items_with_status if not item["template"]]
 
-        # 按实归档模式下，只统计有材料的项
+        # 精简视图模式下，只统计有材料的项
         if contract.compact_archive:
             effective_items = [item for item in non_template_items if item["completed"]]
         else:

@@ -1359,6 +1359,9 @@ msgstr "Sync from Contract Folder"
 msgid "从案件材料同步"
 msgstr "Sync from Case Materials"
 
+msgid "精简视图"
+msgstr "Compact View"
+
 msgid "开始扫描"
 msgstr "Start Scan"
 
