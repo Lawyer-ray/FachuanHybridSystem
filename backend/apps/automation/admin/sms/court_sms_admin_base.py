@@ -392,7 +392,7 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
             fail_platforms = [k for k, v in results.items() if isinstance(v, dict) and not v.get("success")]
 
             if success_platforms:
-                parts = [format_html('<span style="color: green;">✓ 通知成功</span>')]
+                parts = [mark_safe('<span style="color: green;">✓ 通知成功</span>')]
                 for p in success_platforms:
                     info = results[p]
                     sent_at = info.get("sent_at", "")
@@ -404,7 +404,7 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
                         parts.append(format_html('<br><small>{}</small>', p))
                 if fail_platforms:
                     parts.append(format_html('<br><small style="color: #d63384;">失败: {}</small>', ", ".join(fail_platforms)))
-                return format_html("".join(str(p) for p in parts))
+                return mark_safe("".join(str(p) for p in parts))
             elif fail_platforms:
                 first_error = ""
                 for p in fail_platforms:
