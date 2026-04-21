@@ -516,18 +516,20 @@ class ContractDisplayMixin:
             admin_service = _get_contract_admin_service()
             contract = admin_service.query_service.get_contract_detail(object_id)
 
-            # 解析请求体，获取要同步的 archive_item_codes（可选）
+            # 解析请求体，获取要同步的 archive_item_codes 和 case_ids（可选）
             codes: list[str] | None = None
+            target_case_ids: list[int] | None = None
             try:
                 body = json.loads(request.body) if request.body else {}
                 codes = body.get("archive_item_codes")
+                target_case_ids = body.get("case_ids")
             except (json.JSONDecodeError, ValueError):
                 pass
 
             from apps.contracts.services.archive.wiring import build_archive_checklist_service
 
             checklist_service = build_archive_checklist_service()
-            result = checklist_service.sync_case_materials_to_archive(contract, codes)
+            result = checklist_service.sync_case_materials_to_archive(contract, codes, target_case_ids)
 
             synced_count = len(result["synced"])
             error_count = len(result["errors"])

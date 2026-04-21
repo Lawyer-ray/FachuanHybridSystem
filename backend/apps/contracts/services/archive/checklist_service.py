@@ -199,24 +199,40 @@ class ArchiveChecklistService:
 
         不修改数据库，仅返回匹配结果供前端展示和同步操作使用。
 
+        多案件逻辑：当合同关联多个案件时，每个匹配项携带案件来源信息，
+        前端可按案件分组展示，用户可选择性同步。
+
         Returns:
             {
                 "archive_category": "litigation",
-                "matches": [
+                "cases": [
+                    {
+                        "case_id": 295,
+                        "case_name": "张三诉李四",
+                        "matches": [
+                            {
+                                "archive_item_code": "lt_7",
+                                "archive_item_name": "起诉书、上诉书或答辩书",
+                                "case_material_ids": [101, 102],
+                                "already_synced": False,
+                            },
+                        ],
+                    },
+                ],
+                "summary": [
                     {
                         "archive_item_code": "lt_7",
                         "archive_item_name": "起诉书、上诉书或答辩书",
-                        "case_material_ids": [101, 102],
-                        "already_synced": False,  # 是否已有 FinalizedMaterial 对应
+                        "total_count": 2,
+                        "case_count": 1,
+                        "already_synced": False,
                     },
-                    ...
                 ],
                 "unmatched_case_materials": [
-                    {"id": 105, "type_name": "其他材料", "category": "party"},
-                    ...
+                    {"id": 105, "type_name": "其他材料", "category": "party", "case_id": 295, "case_name": "张三诉李四"},
                 ],
-                "synced_count": 3,  # 已同步到 FinalizedMaterial 的案件材料数
-                "matchable_count": 8,  # 可匹配的案件材料数
+                "synced_count": 3,
+                "matchable_count": 8,
             }
         """
         archive_category = get_archive_category(contract.case_type)
@@ -234,49 +250,80 @@ class ArchiveChecklistService:
             ).values_list("archive_item_code", flat=True)
         )
 
-        # 查询关联案件的所有 CaseMaterial
+        # 查询关联案件（按案件分组处理）
         from apps.cases.models import CaseMaterial
 
-        case_materials = list(
-            CaseMaterial.objects.filter(
-                case__in=contract.cases.all(),
-            ).select_related("type").only("id", "type_name", "category")
-        )
+        cases = list(contract.cases.all().only("id", "name"))
 
-        # 构建 type_name → archive_item_code 的匹配
-        code_to_material_ids: dict[str, list[int]] = {}
-        matched_material_ids: set[int] = set()
-        for cm in case_materials:
-            matched_code = self._match_type_name_to_code(cm.type_name, keyword_map)
-            if matched_code:
-                code_to_material_ids.setdefault(matched_code, []).append(cm.id)
-                matched_material_ids.add(cm.id)
+        # 按案件分组构建匹配
+        cases_result: list[dict[str, Any]] = []
+        # 汇总每个 archive_item_code 的匹配情况
+        summary_code_to_info: dict[str, dict[str, Any]] = {}
+        all_matched_material_ids: set[int] = set()
+        all_unmatched: list[dict[str, Any]] = []
 
-        # 构建匹配结果
-        matches: list[dict[str, Any]] = []
-        for code, item in case_source_items.items():
-            cm_ids = code_to_material_ids.get(code, [])
-            matches.append({
-                "archive_item_code": code,
-                "archive_item_name": item["name"],
-                "case_material_ids": cm_ids,
-                "already_synced": code in existing_codes,
-            })
+        for case in cases:
+            case_materials = list(
+                CaseMaterial.objects.filter(case=case).only("id", "type_name", "category")
+            )
 
-        # 未匹配的案件材料
-        unmatched = [
-            {"id": cm.id, "type_name": cm.type_name, "category": cm.category}
-            for cm in case_materials
-            if cm.id not in matched_material_ids
-        ]
+            case_matches: list[dict[str, Any]] = []
+            case_code_to_material_ids: dict[str, list[int]] = {}
 
-        synced_count = sum(1 for m in matches if m["already_synced"])
-        matchable_count = len(matched_material_ids)
+            for cm in case_materials:
+                matched_code = self._match_type_name_to_code(cm.type_name, keyword_map)
+                if matched_code and matched_code in case_source_items:
+                    case_code_to_material_ids.setdefault(matched_code, []).append(cm.id)
+                    all_matched_material_ids.add(cm.id)
+                else:
+                    all_unmatched.append({
+                        "id": cm.id,
+                        "type_name": cm.type_name,
+                        "category": cm.category,
+                        "case_id": case.id,
+                        "case_name": case.name,
+                    })
+
+            for code, item in case_source_items.items():
+                cm_ids = case_code_to_material_ids.get(code, [])
+                if cm_ids:
+                    case_matches.append({
+                        "archive_item_code": code,
+                        "archive_item_name": item["name"],
+                        "case_material_ids": cm_ids,
+                        "already_synced": code in existing_codes,
+                    })
+
+                    # 更新汇总
+                    if code not in summary_code_to_info:
+                        summary_code_to_info[code] = {
+                            "archive_item_code": code,
+                            "archive_item_name": item["name"],
+                            "total_count": 0,
+                            "case_count": 0,
+                            "already_synced": code in existing_codes,
+                        }
+                    summary_code_to_info[code]["total_count"] += len(cm_ids)
+                    summary_code_to_info[code]["case_count"] += 1
+
+            if case_matches:
+                cases_result.append({
+                    "case_id": case.id,
+                    "case_name": case.name,
+                    "matches": case_matches,
+                })
+
+        # 汇总结果（按清单原始顺序）
+        summary = [summary_code_to_info[code] for code in case_source_items if code in summary_code_to_info]
+
+        synced_count = sum(1 for s in summary if s["already_synced"])
+        matchable_count = len(all_matched_material_ids)
 
         return {
             "archive_category": archive_category,
-            "matches": matches,
-            "unmatched_case_materials": unmatched,
+            "cases": cases_result,
+            "summary": summary,
+            "unmatched_case_materials": all_unmatched,
             "synced_count": synced_count,
             "matchable_count": matchable_count,
         }
@@ -285,6 +332,7 @@ class ArchiveChecklistService:
         self,
         contract: Contract,
         archive_item_codes: list[str] | None = None,
+        case_ids: list[int] | None = None,
     ) -> dict[str, Any]:
         """
         将案件材料同步到归档材料（FinalizedMaterial）。
@@ -292,15 +340,19 @@ class ArchiveChecklistService:
         根据 CaseMaterial.type_name 关键词匹配，将案件附件文件
         复制为合同的 FinalizedMaterial 并设置 archive_item_code。
 
+        多案件时：同一 archive_item_code 只取第一个案件的材料（避免冗余），
+        除非用户通过 case_ids 指定同步特定案件。
+
         Args:
             contract: 合同实例
             archive_item_codes: 指定只同步哪些清单项，None 表示全部
+            case_ids: 指定只同步哪些案件的材料，None 表示全部案件
 
         Returns:
             {
-                "synced": [{"archive_item_code": "lt_7", "material_id": 1, "filename": "..."}],
+                "synced": [{"archive_item_code": "lt_7", "material_id": 1, "filename": "...", "case_id": 295, "case_name": "张三案"}],
                 "skipped": [{"archive_item_code": "lt_7", "reason": "已有归档材料"}],
-                "errors": [{"archive_item_code": "lt_7", "error": "文件不存在"}],
+                "errors": [{"archive_item_code": "lt_7", "error": "文件不存在", "case_id": 295}],
             }
         """
         archive_category = get_archive_category(contract.case_type)
@@ -322,23 +374,36 @@ class ArchiveChecklistService:
             ).values_list("archive_item_code", flat=True)
         )
 
-        # 查询关联案件的所有 CaseMaterial
+        # 查询关联案件（支持按 case_ids 过滤）
+        cases_qs = contract.cases.all()
+        if case_ids is not None:
+            cases_qs = cases_qs.filter(id__in=case_ids)
+        cases = list(cases_qs.only("id", "name"))
+
+        # 按案件顺序收集 CaseMaterial，每个 archive_item_code 只取第一个案件的材料
+        code_to_case_materials: dict[str, list[Any]] = {}
+        case_name_map: dict[int, str] = {c.id: c.name for c in cases}
+        case_id_for_code: dict[str, int] = {}  # 记录每个 code 对应的案件 ID
+
         from apps.cases.models import CaseMaterial
 
-        case_materials = list(
-            CaseMaterial.objects.filter(
-                case__in=contract.cases.all(),
-            ).select_related("source_attachment").only(
-                "id", "type_name", "category", "source_attachment_id"
+        for case in cases:
+            case_materials = list(
+                CaseMaterial.objects.filter(case=case).select_related("source_attachment").only(
+                    "id", "type_name", "category", "source_attachment_id",
+                    "source_attachment__file", "case_id",
+                )
             )
-        )
-
-        # 构建 type_name → archive_item_code 的匹配
-        code_to_case_materials: dict[str, list[CaseMaterial]] = {}
-        for cm in case_materials:
-            matched_code = self._match_type_name_to_code(cm.type_name, keyword_map)
-            if matched_code and matched_code in case_source_items:
-                code_to_case_materials.setdefault(matched_code, []).append(cm)
+            for cm in case_materials:
+                matched_code = self._match_type_name_to_code(cm.type_name, keyword_map)
+                if matched_code and matched_code in case_source_items:
+                    # 同一 code 只取第一个案件的材料（除非用户指定了 case_ids）
+                    if matched_code not in code_to_case_materials:
+                        code_to_case_materials[matched_code] = []
+                        case_id_for_code[matched_code] = case.id
+                    # 如果该 code 来自同一案件，添加；否则跳过（避免多案件冗余）
+                    if case_id_for_code[matched_code] == case.id:
+                        code_to_case_materials[matched_code].append(cm)
 
         synced: list[dict[str, Any]] = []
         skipped: list[dict[str, Any]] = []
@@ -361,6 +426,8 @@ class ArchiveChecklistService:
                 continue
 
             # 为每个 CaseMaterial 创建 FinalizedMaterial
+            source_case_id = case_id_for_code.get(code)
+            source_case_name = case_name_map.get(source_case_id, "") if source_case_id else ""
             for cm in cms:
                 try:
                     material = self._copy_case_material_to_finalized(
@@ -373,17 +440,21 @@ class ArchiveChecklistService:
                             "archive_item_code": code,
                             "material_id": material.id,
                             "filename": material.original_filename,
+                            "case_id": source_case_id,
+                            "case_name": source_case_name,
                         })
                     else:
                         errors.append({
                             "archive_item_code": code,
                             "error": "文件不存在或无法复制",
+                            "case_id": source_case_id,
                         })
                 except Exception as e:
                     logger.exception("同步案件材料失败: code=%s, cm_id=%s", code, cm.id)
                     errors.append({
                         "archive_item_code": code,
                         "error": str(e),
+                        "case_id": source_case_id,
                     })
 
         return {
