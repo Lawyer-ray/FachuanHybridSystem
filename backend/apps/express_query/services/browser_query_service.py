@@ -183,7 +183,7 @@ class ExpressBrowserQueryService:
         # 查找占用 CDP 端口的孤儿进程并清理
         try:
             result = subprocess.run(
-                ["lsof", "-ti", f":{_CDP_PORT}"],
+                ["/usr/sbin/lsof", "-ti", f":{_CDP_PORT}"],
                 capture_output=True,
                 text=True,
                 timeout=5,
