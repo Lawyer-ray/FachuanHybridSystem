@@ -705,9 +705,14 @@ class ArchiveGenerationService:
         dest_pdf = archive_dir / f"{seq_num}-{doc_name}.pdf"
         from apps.documents.services.infrastructure.pdf_merge_utils import convert_docx_to_pdf
 
-        pdf_bytes = convert_docx_to_pdf(str(docx_path))
-        if pdf_bytes:
-            dest_pdf.write_bytes(pdf_bytes)
+        pdf_path = convert_docx_to_pdf(str(docx_path))
+        if pdf_path and Path(pdf_path).exists():
+            dest_pdf.write_bytes(Path(pdf_path).read_bytes())
+            # 清理临时文件
+            try:
+                Path(pdf_path).unlink()
+            except OSError:
+                pass
         else:
             logger.warning("docx转PDF失败，跳过: %s", template_subtype)
 
@@ -800,11 +805,16 @@ class ArchiveGenerationService:
                     try:
                         from apps.documents.services.infrastructure.pdf_merge_utils import convert_docx_to_pdf
 
-                        pdf_bytes = convert_docx_to_pdf(str(file_path))
-                        if pdf_bytes:
-                            src_doc = fitz.open("pdf", pdf_bytes)
+                        pdf_result = convert_docx_to_pdf(str(file_path))
+                        if pdf_result and Path(pdf_result).exists():
+                            src_doc = fitz.open(pdf_result)
                             merged_doc.insert_pdf(src_doc)
                             src_doc.close()
+                            # 清理临时文件
+                            try:
+                                Path(pdf_result).unlink()
+                            except OSError:
+                                pass
                         else:
                             logger.warning("DOCX转PDF失败: %s", material.original_filename)
                     except Exception as e:
