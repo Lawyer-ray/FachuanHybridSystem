@@ -24,15 +24,6 @@
             <div class="ac-title-row">
                 <h3 class="ac-title">{% trans "归档检查清单" %}</h3>
                 <span class="ac-category-badge">{{ archive_checklist.archive_category_label }}</span>
-                <span class="ac-title-actions">
-                    <button type="button" class="btn btn-secondary btn-sm"
-                            @click="openModal()"
-                            :disabled="!hasFolderBinding"
-                            :title="!hasFolderBinding ? texts.needBindFolder : ''">{% trans "从合同文件夹同步" %}</button>
-                    <button type="button" class="btn btn-info btn-sm" onclick="syncCaseMaterials({{ contract.pk }})">
-                        {% trans "从案件材料同步" %}
-                    </button>
-                </span>
             </div>
             <div class="ac-progress-row">
                 <div class="ac-progress-track">
@@ -48,6 +39,13 @@
         </div>
 
         <div class="ac-toolbar">
+            <button type="button" class="btn btn-secondary btn-sm"
+                    @click="openModal()"
+                    :disabled="!hasFolderBinding"
+                    :title="!hasFolderBinding ? texts.needBindFolder : ''">{% trans "从合同文件夹同步" %}</button>
+            <button type="button" class="btn btn-info btn-sm" onclick="syncCaseMaterials({{ contract.pk }})">
+                {% trans "从案件材料同步" %}
+            </button>
             <button type="button" class="btn btn-primary btn-sm"
                     onclick="generateArchiveDocs({{ contract.pk }})"
                     {% if not folder_binding %}disabled
@@ -290,13 +288,6 @@
     background: #dbeafe;
     border-radius: 999px;
     padding: 2px 10px;
-}
-
-.ac-title-actions {
-    margin-left: auto;
-    display: inline-flex;
-    gap: 8px;
-    flex-shrink: 0;
 }
 
 .ac-progress-row {
