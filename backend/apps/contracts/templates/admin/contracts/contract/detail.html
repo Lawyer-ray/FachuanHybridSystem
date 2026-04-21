@@ -54,9 +54,9 @@
             <button type="button" @click="activeTab = 'basic'" :class="{ active: activeTab === 'basic' }">{% trans "基本信息" %}</button>
             <button type="button" @click="activeTab = 'parties'" :class="{ active: activeTab === 'parties' }">{% trans "当事人与律师" %}</button>
             <button type="button" @click="activeTab = 'finance'" :class="{ active: activeTab === 'finance' }">{% trans "收费与财务" %}</button>
-            <button type="button" @click="activeTab = 'documents'" :class="{ active: activeTab === 'documents' }">{% trans "文档与提醒" %}</button>
-            <button type="button" @click="activeTab = 'finalized'" :class="{ active: activeTab === 'finalized' }">{% translate "归档材料" %}</button>
             <button type="button" @click="activeTab = 'filing'" :class="{ active: activeTab === 'filing' }">{% translate "立案" %}</button>
+            <button type="button" @click="activeTab = 'documents'" :class="{ active: activeTab === 'documents' }">{% trans "文档与提醒" %}</button>
+            <button type="button" @click="activeTab = 'finalized'" :class="{ active: activeTab === 'finalized' }">{% translate "归档" %}</button>
         </nav>
 
         <div class="tab-content">

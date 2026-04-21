@@ -441,6 +441,9 @@ msgstr "Upload Time"
 msgid "归档材料"
 msgstr "Archive Materials"
 
+msgid "归档"
+msgstr "Archive"
+
 #: apps/contracts/models/finance.py:14
 msgid "信息"
 msgstr "Info"
@@ -1353,8 +1356,20 @@ msgstr "Contract name is required"
 msgid "导入"
 msgstr "Import"
 
-msgid "自动捕获"
-msgstr "Auto Capture"
+msgid "从合同文件夹同步"
+msgstr "Sync from Contract Folder"
+
+msgid "从案件材料同步"
+msgstr "Sync from Case Materials"
+
+msgid "精简视图"
+msgstr "Compact View"
+
+msgid "检测监督卡"
+msgstr "Detect Supervision Card"
+
+msgid "点击检测监督卡"
+msgstr "Click to detect supervision card"
 
 msgid "开始扫描"
 msgstr "Start Scan"

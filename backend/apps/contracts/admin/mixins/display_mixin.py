@@ -448,7 +448,7 @@ class ContractDisplayMixin:
             return JsonResponse({"success": False, "error": str(e)}, status=500)
 
     def detect_supervision_card_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
-        """自动检测监督卡的 Admin view"""
+        """检测监督卡的 Admin view"""
         from django.http import JsonResponse
 
         if request.method != "POST":
@@ -602,7 +602,7 @@ class ContractDisplayMixin:
             return JsonResponse({"success": False, "error": str(e)}, status=500)
 
     def toggle_compact_archive_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
-        """切换按实归档状态的 Admin view"""
+        """切换精简视图状态的 Admin view"""
         from django.http import JsonResponse
 
         if request.method != "POST":
@@ -617,13 +617,13 @@ class ContractDisplayMixin:
             contract.compact_archive = not contract.compact_archive
             contract.save(update_fields=["compact_archive"])
             logger.info(
-                "切换按实归档状态: contract_id=%s, compact_archive=%s",
+                "切换精简视图状态: contract_id=%s, compact_archive=%s",
                 object_id,
                 contract.compact_archive,
             )
             return JsonResponse({"success": True, "compact_archive": contract.compact_archive})
         except Exception as e:
-            logger.exception("切换按实归档状态失败: contract_id=%s", object_id)
+            logger.exception("切换精简视图状态失败: contract_id=%s", object_id)
             return JsonResponse({"success": False, "error": str(e)}, status=500)
 
     def scale_to_a4_view(self, request: HttpRequest, object_id: int) -> HttpResponse:

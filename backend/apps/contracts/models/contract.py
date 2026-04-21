@@ -83,7 +83,7 @@ class Contract(models.Model):
     )
     representation_stages: Any = models.JSONField(default=list, blank=True, verbose_name=_("代理阶段"))
     compact_archive: models.BooleanField = models.BooleanField(
-        default=False, verbose_name=_("按实归档"),
+        default=False, verbose_name=_("精简视图"),
         help_text=_("开启后，归档检查清单仅显示有材料的项，未上传材料的项目不纳入归档范围"),
     )
 
