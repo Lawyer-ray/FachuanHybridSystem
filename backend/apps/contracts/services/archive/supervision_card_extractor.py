@@ -98,6 +98,9 @@ class SupervisionCardExtractor:
         """
         检查PDF最后2页是否包含监督卡关键词。
 
+        优先使用文本提取匹配关键词；当页面为图片型（无文本）时，
+        回退到 OCR 方式检测。
+
         Returns:
             {"found": bool, "page_number": int | None}
         """
@@ -110,7 +113,7 @@ class SupervisionCardExtractor:
                 return {"found": False, "page_number": None}
 
             # 检查最后2页
-            pages_to_check = []
+            pages_to_check: list[int] = []
             if total_pages >= 2:
                 pages_to_check = [total_pages - 2, total_pages - 1]
             else:
@@ -124,9 +127,48 @@ class SupervisionCardExtractor:
                     if keyword in text:
                         return {"found": True, "page_number": page_idx + 1}  # 1-based
 
+            # 文本提取未命中，回退到 OCR 检测图片型PDF
+            logger.info("文本提取未检测到监督卡，尝试 OCR 检测")
+            for page_idx in pages_to_check:
+                page = doc[page_idx]
+                ocr_text = self._ocr_page(page)
+                if ocr_text:
+                    for keyword in _SUPERVISION_CARD_KEYWORDS:
+                        if keyword in ocr_text:
+                            return {"found": True, "page_number": page_idx + 1}  # 1-based
+
             return {"found": False, "page_number": None}
         finally:
             doc.close()
+
+    def _ocr_page(self, page: Any) -> str:
+        """
+        对 PDF 页面执行 OCR 并返回识别文本。
+
+        Args:
+            page: fitz.Page 对象
+
+        Returns:
+            OCR 识别的文本内容，失败返回空字符串
+        """
+        try:
+            import numpy as np
+            from rapidocr import RapidOCR
+
+            # 将页面渲染为图片（150 DPI 足够 OCR）
+            pix = page.get_pixmap(dpi=150)
+            img_array = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)
+
+            ocr = RapidOCR()
+            result = ocr(img_array)
+
+            if result and result.txts:
+                return " ".join(result.txts)
+
+            return ""
+        except Exception as e:
+            logger.warning("OCR 检测失败: %s", e)
+            return ""
 
     def _extract_page(self, pdf_path: Path, page_number: int) -> bytes | None:
         """
