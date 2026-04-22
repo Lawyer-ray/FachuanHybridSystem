@@ -800,6 +800,7 @@ class ContractDisplayMixin:
         """打开合同绑定的本地文件夹（Finder/资源管理器）"""
         import platform
         import subprocess
+        from pathlib import Path
 
         from django.http import JsonResponse
 

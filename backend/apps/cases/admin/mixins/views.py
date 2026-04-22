@@ -133,6 +133,11 @@ class CaseAdminViewsMixin:
                 self.admin_site.admin_view(self.upload_temp_document_view),  # type: ignore[attr-defined]
                 name="cases_casenumber_upload_temp",
             ),
+            path(
+                "<int:object_id>/open-folder/",
+                self.admin_site.admin_view(self.open_folder_view),
+                name="cases_case_open_folder",
+            ),
         ]
         return custom_urls + urls
 
@@ -619,6 +624,52 @@ class CaseAdminViewsMixin:
         except Exception as e:
             logger.exception("临时文件上传失败")
             return JsonResponse({"success": False, "error": f"上传失败: {e}"}, status=500)
+
+    def open_folder_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
+        """打开案件绑定的本地文件夹（Finder/资源管理器）"""
+        import platform
+        import subprocess
+        from pathlib import Path
+
+        from django.http import JsonResponse
+
+        if request.method != "POST":
+            return JsonResponse({"success": False, "error": "Method not allowed"}, status=405)
+
+        if not self.has_view_permission(request):  # type: ignore[attr-defined]
+            return JsonResponse({"success": False, "error": str(_("无权限"))}, status=403)
+
+        try:
+            from apps.cases.models.material import CaseFolderBinding
+
+            try:
+                binding = CaseFolderBinding.objects.get(case_id=object_id)
+            except CaseFolderBinding.DoesNotExist:
+                return JsonResponse({"success": False, "error": str(_("未绑定文件夹"))}, status=404)
+
+            folder_path = binding.folder_path
+            if not folder_path:
+                return JsonResponse({"success": False, "error": str(_("文件夹路径为空"))}, status=400)
+
+            folder = Path(folder_path).expanduser()
+            if not folder.exists():
+                return JsonResponse(
+                    {"success": False, "error": str(_("文件夹不存在: %(path)s") % {"path": folder_path})}, status=404
+                )
+
+            system = platform.system()
+            if system == "Darwin":
+                subprocess.Popen(["open", str(folder)])  # noqa: S607
+            elif system == "Windows":
+                subprocess.Popen(["explorer", str(folder)])  # noqa: S607
+            else:
+                subprocess.Popen(["xdg-open", str(folder)])  # noqa: S607
+
+            logger.info("已打开案件文件夹: %s, case_id=%s", folder_path, object_id)
+            return JsonResponse({"success": True, "folder_path": folder_path})
+        except Exception as e:
+            logger.exception("打开案件文件夹失败: case_id=%s", object_id)
+            return JsonResponse({"success": False, "error": str(e)}, status=500)
 
     def _coerce_optional_date(self, raw: object) -> date | None:
         if raw is None:
