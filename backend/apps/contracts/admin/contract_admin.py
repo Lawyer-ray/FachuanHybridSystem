@@ -219,6 +219,13 @@ class ContractAdmin(
     change_form_template = "admin/contracts/contract/change_form.html"
     change_list_template = "admin/contracts/contract/change_list.html"
 
+    def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> Any:
+        from django.http import HttpResponseRedirect
+
+        if "status__exact" not in request.GET:
+            return HttpResponseRedirect(f"{request.path}?status__exact=active")
+        return super().changelist_view(request, extra_context=extra_context)
+
     def get_queryset(self, request: HttpRequest) -> Any:
         return super().get_queryset(request).prefetch_related("assignments__lawyer", "contract_parties__client")
 

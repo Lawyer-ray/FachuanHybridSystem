@@ -3,7 +3,7 @@
 
 {% block extrahead %}
 {{ block.super }}
-<link rel="stylesheet" type="text/css" href="{% static 'cases/css/case_detail.css' %}?v=20260409a">
+<link rel="stylesheet" type="text/css" href="{% static 'cases/css/case_detail.css' %}?v=20260422a">
 <link rel="stylesheet" type="text/css" href="{% static 'cases/css/litigation_generation.css' %}?v=20250118">
 <link rel="stylesheet" type="text/css" href="{% static 'cases/css/case_materials.css' %}?v=20260409b">
 {% endblock %}
@@ -24,6 +24,7 @@
 
 
 {% block content %}
+<script>window.CASE_ID = {{ case.pk }};</script>
 <div class="case-detail-page" data-case-id="{{ case.pk }}" x-data="caseDetailApp()" x-init="init()">
     <!-- Header Section -->
     <header class="detail-header">
@@ -163,7 +164,7 @@
 </div>
 
 {% csrf_token %}
-<script src="{% static 'cases/js/case_detail.js' %}?v=20260125b"></script>
+<script src="{% static 'cases/js/case_detail.js' %}?v=20260422a"></script>
 <script src="{% static 'cases/js/litigation_generation.js' %}?v=20260323"></script>
 <script src="{% static 'cases/js/authorization_materials.js' %}?v=20260323"></script>
 <script src="{% static 'cases/js/preservation_materials.js' %}?v=20260323"></script>

@@ -11,6 +11,7 @@ from ninja import Router
 from apps.cases.schemas import (
     CaseFolderBindingCreateSchema,
     CaseFolderBindingResponseSchema,
+    ContractFolderPathSchema,
     FolderBrowseEntrySchema,
     FolderBrowseResponseSchema,
 )
@@ -104,6 +105,27 @@ def delete_folder_binding(request: HttpRequest, case_id: int) -> dict[str, bool 
     )
 
     return {"success": success, "message": "文件夹绑定删除成功" if success else "未找到绑定记录"}
+
+
+@router.get("/{case_id}/contract-folder-path", response=ContractFolderPathSchema)
+def get_contract_folder_path(request: HttpRequest, case_id: int) -> ContractFolderPathSchema:
+    """获取案件关联合同的文件夹路径"""
+    service = _get_folder_binding_service()
+    ctx = get_request_access_context(request)
+
+    folder_path = service.get_contract_folder_path(case_id)
+
+    logger.info(
+        "case_contract_folder_path",
+        extra={
+            "action": "case_contract_folder_path",
+            "case_id": case_id,
+            "has_folder_path": folder_path is not None,
+            "user_id": getattr(getattr(ctx, "user", None), "id", None),
+        },
+    )
+
+    return ContractFolderPathSchema(folder_path=folder_path)
 
 
 @router.get("/folder-browse", response=FolderBrowseResponseSchema)

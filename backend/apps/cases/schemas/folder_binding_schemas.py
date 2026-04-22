@@ -49,6 +49,10 @@ class FolderBrowseEntrySchema(Schema):
     path: str
 
 
+class ContractFolderPathSchema(Schema):
+    folder_path: str | None = None
+
+
 class FolderBrowseResponseSchema(Schema):
     browsable: bool
     message: str | None = None
@@ -60,6 +64,7 @@ class FolderBrowseResponseSchema(Schema):
 __all__: list[str] = [
     "CaseFolderBindingCreateSchema",
     "CaseFolderBindingResponseSchema",
+    "ContractFolderPathSchema",
     "FolderBrowseEntrySchema",
     "FolderBrowseResponseSchema",
 ]

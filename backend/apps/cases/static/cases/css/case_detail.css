@@ -224,6 +224,8 @@
 
 .info-card.full-width {
     grid-column: 1 / -1;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .card-header {
@@ -410,6 +412,8 @@
 .timeline {
     position: relative;
     padding-left: 24px;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .timeline::before {
@@ -425,6 +429,7 @@
 .timeline-item {
     position: relative;
     padding-bottom: 20px;
+    min-width: 0;
 }
 
 .timeline-item:last-child {
@@ -447,6 +452,8 @@
     border-radius: 8px;
     padding: 16px;
     border: 1px solid #e5e7eb;
+    overflow: hidden;
+    min-width: 0;
 }
 
 .timeline-header {
@@ -469,6 +476,8 @@
     font-size: 14px;
     color: #4b5563;
     line-height: 1.6;
+    overflow-wrap: break-word;
+    word-break: break-word;
 }
 
 .timeline-body p {
@@ -501,6 +510,8 @@
     margin-top: 12px;
     padding-top: 12px;
     border-top: 1px solid #e5e7eb;
+    overflow-wrap: break-word;
+    word-break: break-all;
 }
 
 .attachments-label {
@@ -514,6 +525,9 @@
     font-size: 12px;
     color: var(--unfold-primary, #3b82f6);
     text-decoration: none;
+    max-width: 100%;
+    overflow-wrap: break-word;
+    word-break: break-all;
 }
 
 .attachment-link:hover {
