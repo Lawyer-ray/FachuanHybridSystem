@@ -256,6 +256,11 @@ class ContractDisplayMixin:
                 name="contracts_contract_upload_archive_item",
             ),
             path(
+                "<int:object_id>/delete-archive-material/<int:material_id>/",
+                self.admin_site.admin_view(self.delete_archive_material_view),
+                name="contracts_contract_delete_archive_material",
+            ),
+            path(
                 "<int:object_id>/open-folder/",
                 self.admin_site.admin_view(self.open_folder_view),
                 name="contracts_contract_open_folder",
@@ -900,6 +905,46 @@ class ContractDisplayMixin:
             return JsonResponse({"success": False, "error": str(e)}, status=400)
         except Exception as e:
             logger.exception("上传归档材料失败: contract_id=%s, code=%s", object_id, archive_item_code)
+            return JsonResponse({"success": False, "error": str(e)}, status=500)
+
+    def delete_archive_material_view(self, request: HttpRequest, object_id: int, material_id: int) -> HttpResponse:
+        """删除归档材料子项的 Admin view"""
+        from pathlib import Path
+
+        from django.conf import settings as django_settings
+        from django.http import JsonResponse
+
+        if request.method != "POST":
+            return JsonResponse({"success": False, "error": "Method not allowed"}, status=405)
+
+        if not self.has_change_permission(request):
+            return JsonResponse({"success": False, "error": str(_("无权限"))}, status=403)
+
+        try:
+            material = FinalizedMaterial.objects.filter(
+                pk=material_id, contract_id=object_id,
+            ).first()
+
+            if not material:
+                return JsonResponse({"success": False, "error": "材料不存在"}, status=404)
+
+            # 删除物理文件
+            if material.file_path:
+                abs_file = Path(django_settings.MEDIA_ROOT) / material.file_path
+                if not abs_file.is_absolute():
+                    abs_file = Path(django_settings.MEDIA_ROOT) / material.file_path
+                if abs_file.exists():
+                    try:
+                        abs_file.unlink()
+                        logger.info("已删除归档文件: %s (material_id=%s)", material.file_path, material_id)
+                    except OSError as e:
+                        logger.warning("删除归档文件失败: %s: %s", material.file_path, e)
+
+            material.delete()
+            logger.info("已删除归档材料: material_id=%s, contract_id=%s", material_id, object_id)
+            return JsonResponse({"success": True})
+        except Exception as e:
+            logger.exception("删除归档材料失败: material_id=%s", material_id)
             return JsonResponse({"success": False, "error": str(e)}, status=500)
 
     def open_folder_view(self, request: HttpRequest, object_id: int) -> HttpResponse:

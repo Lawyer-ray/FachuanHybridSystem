@@ -163,6 +163,8 @@
                             <span class="ac-subitem-actions">
                                 <button type="button" class="ac-btn-icon" title="{% trans '预览' %}"
                                         onclick="previewArchiveMaterial({{ contract.pk }}, {{ mat.id }})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                                <button type="button" class="ac-btn-icon ac-btn-icon--danger" title="{% trans '删除' %}"
+                                        onclick="deleteArchiveMaterial({{ contract.pk }}, {{ mat.id }}, '{{ mat.original_filename }}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
                             </span>
                         </div>
                         {% endfor %}
@@ -377,7 +379,7 @@
 .ac-item-name {
     flex: 1;
     min-width: 0;
-    max-width: calc(100% - 120px);
+    max-width: calc(100% - 140px);
     color: #1f2937;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -393,6 +395,7 @@
     flex-shrink: 0;
     display: inline-flex;
     gap: 2px;
+    width: 72px;
     justify-content: flex-end;
 }
 
@@ -414,6 +417,9 @@
     align-items: center;
     justify-content: center;
     color: #6b7280;
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
 }
 .ac-btn-icon:hover { background: #dbeafe; color: #2563eb; }
 .ac-btn-icon--upload:hover { background: #d1fae5; color: #047857; }
@@ -523,8 +529,11 @@
     display: inline-flex;
     gap: 2px;
     flex-shrink: 0;
+    width: 48px;
     justify-content: flex-end;
 }
+
+.ac-btn-icon--danger:hover { background: #fef2f2; color: #dc2626; }
 
 {# ===== 移动菜单 ===== #}
 .ac-move-menu {
@@ -1093,6 +1102,24 @@ function archiveChecklistApp(initialCompact, checklistItems) {
             .catch(function(e) { alert('上传失败: ' + e.message); });
         };
         input.click();
+    };
+
+    // 删除归档材料子项
+    window.deleteArchiveMaterial = function(contractId, materialId, filename) {
+        if (!confirm('确认删除「' + filename + '」？此操作不可撤销。')) return;
+        fetch('/admin/contracts/contract/' + contractId + '/delete-archive-material/' + materialId + '/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('删除失败: ' + (data.error || '未知错误'));
+            }
+        })
+        .catch(function(e) { alert('删除失败: ' + e.message); });
     };
 
     // 预览归档文书替换词
