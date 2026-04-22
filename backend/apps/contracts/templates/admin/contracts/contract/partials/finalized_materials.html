@@ -144,9 +144,7 @@
                 </div>
 
                 {# ===== 子项列表（可展开） ===== #}
-                <div class="ac-subitems" x-show="isExpanded('{{ item.code }}') && getMaterials('{{ item.code }}').length > 0"
-                     x-transition:enter="ac-subitems-enter" x-transition:enter-start="ac-subitems-enter-start"
-                     x-transition:leave="ac-subitems-leave">
+                <div class="ac-subitems" :class="{ 'ac-collapsed': !isExpanded('{{ item.code }}') || getMaterials('{{ item.code }}').length === 0 }">
                     <div class="ac-subitems-list"
                          data-archive-code="{{ item.code }}"
                          @dragover.prevent="onDragOver($event, '{{ item.code }}')"
@@ -404,6 +402,7 @@
     display: inline-flex;
     justify-content: center;
     width: 22px;
+    margin-left: auto;
 }
 
 .ac-btn-icon {
@@ -455,11 +454,16 @@
     border-top: 1px solid #e5e7eb;
     background: #fff;
     overflow: hidden;
+    display: grid;
+    grid-template-rows: 1fr;
+    transition: grid-template-rows 0.25s ease;
 }
-
-.ac-subitems-enter { transition: max-height 0.2s ease, opacity 0.2s ease; }
-.ac-subitems-enter-start { max-height: 0; opacity: 0; }
-.ac-subitems-leave { transition: max-height 0.15s ease, opacity 0.1s ease; }
+.ac-subitems.ac-collapsed {
+    grid-template-rows: 0fr;
+}
+.ac-subitems > .ac-subitems-list {
+    overflow: hidden;
+}
 
 .ac-subitems-list {
     padding: 4px 0;
