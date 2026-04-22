@@ -73,7 +73,7 @@
             </template>
             <!-- 有绑定但无邮件子目录 -->
             <template x-if="hasFolderBinding && subfolders.length === 0 && !loadingSubfolders">
-                <p class="email-import-empty">{% trans "未找到含"邮件"关键词的子文件夹。" %}</p>
+                <p class="email-import-empty">{% trans '未找到含「邮件」关键词的子文件夹。' %}</p>
             </template>
             <!-- 加载中 -->
             <template x-if="loadingSubfolders">
