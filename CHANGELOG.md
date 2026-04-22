@@ -19,6 +19,8 @@
 
 - **归档文书替换词修改后刷新丢失**：修复预览弹窗编辑替换词后刷新页面丢失修改的问题。
 - **文档生成 API 类型安全**：`save_archive_overrides` 接口参数从 `dict` 改为 `ArchiveOverridesPayload` Schema。
+- **当事人列表页 `check-oa-credential` 接口调用两次**：Alpine.js 的 `x-init` 和组件 `init()` 方法双重调用，移除冗余的 `x-init="init()"`。
+- **客户编辑页 AttributeError**：`GsxtReportTaskInline` 的 `model` 为 `None` 导致 `_meta` 访问失败，改为在类定义时直接设置 `model`。
 
 ## [26.37.5] - 2026-04-22
 

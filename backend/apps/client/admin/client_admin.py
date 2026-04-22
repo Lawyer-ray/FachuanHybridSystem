@@ -48,6 +48,7 @@ class GsxtReportTaskInlineForm(forms.ModelForm[Any]):  # type: ignore[misc]
 
 
 class GsxtReportTaskInline(admin.TabularInline[Any]):  # type: ignore[type-arg]
+    model = _get_gsxt_report_task_model()
     form = GsxtReportTaskInlineForm
     extra = 0
     can_delete = False
