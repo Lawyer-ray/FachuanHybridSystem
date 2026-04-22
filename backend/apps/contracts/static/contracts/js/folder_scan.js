@@ -84,6 +84,21 @@
           this.isOpen = false;
         },
 
+        openFolder() {
+          var contractId = this.contractId;
+          fetch('/admin/contracts/contract/' + contractId + '/open-folder/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+          })
+            .then(function (resp) { return resp.json(); })
+            .then(function (data) {
+              if (!data.success) {
+                alert(data.error || '打开文件夹失败');
+              }
+            })
+            .catch(function (err) { alert('请求失败: ' + (err.message || '未知错误')); });
+        },
+
         clearPoll() {
           if (!this.pollTimer) return;
           window.clearTimeout(this.pollTimer);

@@ -245,6 +245,11 @@ class ContractDisplayMixin:
                 self.admin_site.admin_view(self.preview_archive_material_view),
                 name="contracts_contract_preview_archive_material",
             ),
+            path(
+                "<int:object_id>/open-folder/",
+                self.admin_site.admin_view(self.open_folder_view),
+                name="contracts_contract_open_folder",
+            ),
         ]
         return custom_urls + urls
 
@@ -789,4 +794,47 @@ class ContractDisplayMixin:
             return response
         except Exception as e:
             logger.exception("预览归档材料失败: material_id=%s", material_id)
+            return JsonResponse({"success": False, "error": str(e)}, status=500)
+
+    def open_folder_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
+        """打开合同绑定的本地文件夹（Finder/资源管理器）"""
+        import platform
+        import subprocess
+
+        from django.http import JsonResponse
+
+        if request.method != "POST":
+            return JsonResponse({"success": False, "error": "Method not allowed"}, status=405)
+
+        if not self.has_view_permission(request):
+            return JsonResponse({"success": False, "error": str(_("无权限"))}, status=403)
+
+        try:
+            from apps.contracts.models.folder_binding import ContractFolderBinding
+
+            try:
+                binding = ContractFolderBinding.objects.get(contract_id=object_id)
+            except ContractFolderBinding.DoesNotExist:
+                return JsonResponse({"success": False, "error": str(_("未绑定文件夹"))}, status=404)
+
+            folder_path = binding.folder_path
+            if not folder_path:
+                return JsonResponse({"success": False, "error": str(_("文件夹路径为空"))}, status=400)
+
+            folder = Path(folder_path).expanduser()
+            if not folder.exists():
+                return JsonResponse({"success": False, "error": str(_("文件夹不存在: %(path)s") % {"path": folder_path})}, status=404)
+
+            system = platform.system()
+            if system == "Darwin":
+                subprocess.Popen(["open", str(folder)])  # noqa: S607
+            elif system == "Windows":
+                subprocess.Popen(["explorer", str(folder)])  # noqa: S607
+            else:
+                subprocess.Popen(["xdg-open", str(folder)])  # noqa: S607
+
+            logger.info("已打开文件夹: %s, contract_id=%s", folder_path, object_id)
+            return JsonResponse({"success": True, "folder_path": folder_path})
+        except Exception as e:
+            logger.exception("打开文件夹失败: contract_id=%s", object_id)
             return JsonResponse({"success": False, "error": str(e)}, status=500)
