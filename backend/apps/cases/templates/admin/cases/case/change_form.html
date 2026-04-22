@@ -186,29 +186,25 @@
     display: inline-flex !important;
     align-items: center;
     justify-content: center;
-    height: 36px;
-    min-width: 110px;
-    padding: 0 16px;
-    border-radius: 8px;
-    border: 1px solid transparent;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
     cursor: pointer;
-    font-size: 13px;
-    font-weight: 600;
-    line-height: 1;
-    white-space: nowrap;
-    user-select: none;
-    color: #fff;
-    background: #5b7a4f;
-    border-color: #4e6b44;
+    background: #fff;
+    color: #6b7280;
     margin-right: 8px;
 }
 .open-folder-btn:hover {
-    background: #4e6b44;
+    background: #f3f4f6;
+    border-color: #9ca3af;
+    color: #374151;
 }
 .open-folder-btn:disabled {
-    background: #d9dee7;
-    border-color: #c9d0db;
-    color: #8a97a8;
+    background: #f9fafb;
+    border-color: #e5e7eb;
+    color: #d1d5db;
     cursor: not-allowed;
 }
 .parse-execution-btn {
@@ -644,7 +640,7 @@ function showToast(message, type) {
                 openFolderBtn.type = 'button';
                 openFolderBtn.className = 'open-folder-btn';
                 openFolderBtn.title = '在 Finder 中打开案件文件夹';
-                openFolderBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> 打开文件夹';
+                openFolderBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>';
                 openFolderBtn.onclick = function() {
                     var caseId = (window.location.pathname.match(/\/cases\/case\/(\d+)\//) || [])[1];
                     if (!caseId) { alert('无法获取案件ID'); return; }
