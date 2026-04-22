@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from apps.core.utils.path import Path
 
@@ -93,7 +93,7 @@ class BaseFolderBindingService:
         except (OSError, PermissionError):
             return False
 
-    def check_and_repair_path(self, binding: object) -> tuple[bool, bool]:
+    def check_and_repair_path(self, binding: Any) -> tuple[bool, bool]:
         """检查绑定路径可达性，必要时通过 inode 自动修复.
 
         修复策略：
@@ -188,7 +188,7 @@ class BaseFolderBindingService:
             max_depth=6,
         )
 
-    def _maybe_fill_inode(self, binding: object) -> None:
+    def _maybe_fill_inode(self, binding: Any) -> None:
         """路径可达但 inode 缺失时，补充 inode+device."""
         # 只有模型有 inode 字段时才处理
         if not hasattr(binding, "folder_inode"):

@@ -7,7 +7,7 @@ import os
 import time
 from collections import deque
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 logger = logging.getLogger("apps.core.filesystem")
 
@@ -43,7 +43,7 @@ class InodeResolver:
         self,
         inode: int,
         device: int,
-        search_roots: list[Path],
+        search_roots: Sequence[Path],
         *,
         max_depth: int = 3,
         timeout_seconds: float = 5.0,
