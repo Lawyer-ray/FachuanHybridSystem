@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ClassVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from django.contrib import admin
 from django.http import HttpRequest
@@ -123,6 +123,15 @@ class CaseAdmin(
     BaseModelAdmin,
 ):
     form = CaseAdminForm
+
+    def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> Any:
+        from django.http import HttpResponseRedirect
+
+        if "status" not in request.GET:
+            query = request.GET.urlencode()
+            separator = "&" if query else ""
+            return HttpResponseRedirect(f"{request.path}?{query}{separator}status__exact=active")
+        return super().changelist_view(request, extra_context=extra_context)
     list_display = ("id_link", "name_link", "status", "start_date", "effective_date", "is_filed")
     list_display_links = None
     list_filter = ("status", "is_filed")
