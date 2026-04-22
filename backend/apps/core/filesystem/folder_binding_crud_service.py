@@ -94,7 +94,8 @@ class FolderBindingCrudService(BaseFolderBindingService):
         inode_info = self.inode_resolver.get_inode_info(stripped_path)
 
         defaults: dict[str, Any] = {"folder_path": stripped_path}
-        if inode_info is not None:
+        has_inode_fields = hasattr(self.binding_model, "folder_inode")
+        if inode_info is not None and has_inode_fields:
             defaults["folder_inode"] = inode_info[0]
             defaults["folder_device"] = inode_info[1]
 

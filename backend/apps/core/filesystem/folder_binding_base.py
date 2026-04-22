@@ -143,6 +143,10 @@ class BaseFolderBindingService:
 
     def _maybe_fill_inode(self, binding: object) -> None:
         """路径可达但 inode 缺失时，补充 inode+device."""
+        # 只有模型有 inode 字段时才处理
+        if not hasattr(binding, "folder_inode"):
+            return
+
         inode = getattr(binding, "folder_inode", None)
         if inode is not None:
             return  # 已有 inode，无需补充
