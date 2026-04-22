@@ -19,21 +19,29 @@
 
     {# ===== 归档检查清单 ===== #}
     {% if archive_checklist %}
-    <div class="archive-checklist" x-data="archiveChecklistApp({{ archive_checklist.compact_archive|yesno:'true,false' }})">
+    <div class="archive-checklist" x-data="archiveChecklistApp({{ archive_checklist.compact_archive|yesno:'true,false' }}, {{ archive_checklist.items|to_json }})">
         <div class="ac-header">
             <div class="ac-title-row">
                 <h3 class="ac-title">{% trans "归档检查清单" %}</h3>
                 <span class="ac-category-badge">{{ archive_checklist.archive_category_label }}</span>
-                <button type="button" class="ac-compact-toggle"
-                        :class="{ 'is-active': compactMode }"
-                        :title="compactMode ? '{% trans "显示全部" %}' : '{% trans "精简视图" %}'"
-                        @click="toggleCompactMode()">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="2" y="2" width="12" height="12" rx="2"/>
-                        <line x1="2" y1="6" x2="14" y2="6"/>
-                        <line x1="2" y1="10" x2="14" y2="10"/>
-                    </svg>
-                </button>
+                <span class="ac-title-actions">
+                    <button type="button" class="ac-compact-toggle"
+                            :title="expandedCodes.size > 0 ? '{% trans "收起全部子项" %}' : '{% trans "展开全部子项" %}'"
+                            @click="toggleAllExpand()">
+                        <svg x-show="expandedCodes.size > 0" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 10 8 6 12 10"/></svg>
+                        <svg x-show="expandedCodes.size === 0" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 6 8 10 12 6"/></svg>
+                    </button>
+                    <button type="button" class="ac-compact-toggle"
+                            :class="{ 'is-active': compactMode }"
+                            :title="compactMode ? '{% trans "显示全部" %}' : '{% trans "精简视图" %}'"
+                            @click="toggleCompactMode()">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="2" y="2" width="12" height="12" rx="2"/>
+                            <line x1="2" y1="6" x2="14" y2="6"/>
+                            <line x1="2" y1="10" x2="14" y2="10"/>
+                        </svg>
+                    </button>
+                </span>
             </div>
             <div class="ac-progress-row">
                 <div class="ac-progress-track">
@@ -79,49 +87,105 @@
                  data-required="{{ item.required|yesno:'true,false' }}"
                  x-show="!compactMode || {{ item.template|yesno:'true,false' }} || {{ item.completed|yesno:'true,false' }}"
                  x-transition>
-                <span class="ac-item-code"></span>
-                <span class="ac-item-name">{{ item.name }}</span>
-                <span class="ac-item-actions">
-                    {% if item.template %}
-                    <button type="button" class="ac-btn-preview" title="{% trans '预览替换词' %}"
-                            onclick="previewArchiveTemplate({{ contract.pk }}, '{{ item.template }}', '{{ item.name }}')">
-                        {% trans "预览" %}
-                    </button>
-                    <button type="button" class="ac-btn-download" title="{% trans '下载材料' %}"
-                            onclick="downloadArchiveItem({{ contract.pk }}, '{{ item.code }}', '{{ item.name }}')">
-                        {% trans "下载" %}
-                    </button>
-                    {% elif item.completed %}
-                    <button type="button" class="ac-btn-preview" title="{% trans '在浏览器中预览' %}"
-                            onclick="previewArchiveItem({{ contract.pk }}, '{{ item.code }}')">
-                        {% trans "预览" %}
-                    </button>
-                    <button type="button" class="ac-btn-download" title="{% trans '下载材料' %}"
-                            onclick="downloadArchiveItem({{ contract.pk }}, '{{ item.code }}', '{{ item.name }}')">
-                        {% trans "下载" %}
-                    </button>
+                <div class="ac-item-header" @click="toggleExpand('{{ item.code }}')">
+                    <span class="ac-item-code"></span>
+                    <span class="ac-item-name">{{ item.name }}</span>
+                    {% if item.completed or item.template %}
+                    <span class="ac-item-count" x-show="getMaterials('{{ item.code }}').length > 0">
+                        (<span x-text="getMaterials('{{ item.code }}').length"></span>)
+                    </span>
                     {% endif %}
-                </span>
-                <span class="ac-item-status">
-                    {% if item.template %}
-                        <span class="ac-badge ac-badge-generate" title="{% trans '可自动生成' %}">⚡</span>
-                    {% elif item.completed %}
-                        <span class="ac-badge ac-badge-done">✓</span>
-                    {% elif item.auto_detect == 'supervision_card' %}
-                        <button type="button" class="ac-badge ac-badge-detect ac-badge-action"
-                                title="{% trans '点击检测监督卡' %}"
-                                onclick="detectSupervisionCard({{ contract.pk }})">🔍</button>
-                    {% elif item.has_case_material %}
-                        <span class="ac-badge ac-badge-sync" title="{% trans '可从案件材料同步' %}">📋</span>
-                    {% elif item.source == 'case' %}
-                        <span class="ac-badge ac-badge-sync-dim" title="{% trans '案件材料' %}">📋</span>
-                    {% elif item.required %}
-                        <span class="ac-badge ac-badge-required" title="{% trans '必需' %}">!</span>
-                    {% else %}
-                        <span class="ac-badge ac-badge-optional" title="{% trans '可选' %}">-</span>
-                    {% endif %}
-                </span>
+                    <span class="ac-item-actions" @click.stop>
+                        {% if item.template %}
+                        <button type="button" class="ac-btn-preview" title="{% trans '预览替换词' %}"
+                                onclick="previewArchiveTemplate({{ contract.pk }}, '{{ item.template }}', '{{ item.name }}')">
+                            {% trans "预览" %}
+                        </button>
+                        <button type="button" class="ac-btn-download" title="{% trans '下载材料' %}"
+                                onclick="downloadArchiveItem({{ contract.pk }}, '{{ item.code }}', '{{ item.name }}')">
+                            {% trans "下载" %}
+                        </button>
+                        {% elif item.completed %}
+                        <button type="button" class="ac-btn-preview" title="{% trans '在浏览器中预览' %}"
+                                onclick="previewArchiveItem({{ contract.pk }}, '{{ item.code }}')">
+                            {% trans "预览" %}
+                        </button>
+                        <button type="button" class="ac-btn-download" title="{% trans '下载材料' %}"
+                                onclick="downloadArchiveItem({{ contract.pk }}, '{{ item.code }}', '{{ item.name }}')">
+                            {% trans "下载" %}
+                        </button>
+                        {% endif %}
+                    </span>
+                    <span class="ac-item-status">
+                        {% if item.template %}
+                            <span class="ac-badge ac-badge-generate" title="{% trans '可自动生成' %}">⚡</span>
+                        {% elif item.completed %}
+                            <span class="ac-badge ac-badge-done">✓</span>
+                        {% elif item.auto_detect == 'supervision_card' %}
+                            <button type="button" class="ac-badge ac-badge-detect ac-badge-action"
+                                    title="{% trans '点击检测监督卡' %}"
+                                    onclick="detectSupervisionCard({{ contract.pk }})">🔍</button>
+                        {% elif item.has_case_material %}
+                            <span class="ac-badge ac-badge-sync" title="{% trans '可从案件材料同步' %}">📋</span>
+                        {% elif item.source == 'case' %}
+                            <span class="ac-badge ac-badge-sync-dim" title="{% trans '案件材料' %}">📋</span>
+                        {% elif item.required %}
+                            <span class="ac-badge ac-badge-required" title="{% trans '必需' %}">!</span>
+                        {% else %}
+                            <span class="ac-badge ac-badge-optional" title="{% trans '可选' %}">-</span>
+                        {% endif %}
+                    </span>
+                    <span class="ac-expand-icon" :class="{ 'is-expanded': isExpanded('{{ item.code }}') }"
+                          x-show="getMaterials('{{ item.code }}').length > 0">
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="3 4.5 6 7.5 9 4.5"/>
+                        </svg>
+                    </span>
+                </div>
+
+                {# ===== 子项列表（可展开） ===== #}
+                <div class="ac-subitems" x-show="isExpanded('{{ item.code }}') && getMaterials('{{ item.code }}').length > 0"
+                     x-transition:enter="ac-subitems-enter" x-transition:enter-start="ac-subitems-enter-start"
+                     x-transition:leave="ac-subitems-leave">
+                    <div class="ac-subitems-list"
+                         data-archive-code="{{ item.code }}"
+                         @dragover.prevent="onDragOver($event, '{{ item.code }}')"
+                         @drop.prevent="onDrop($event, '{{ item.code }}')">
+                        {% for mat in item.materials %}
+                        <div class="ac-subitem"
+                             data-material-id="{{ mat.id }}"
+                             draggable="true"
+                             @dragstart="onDragStart($event, {{ mat.id }}, '{{ item.code }}')"
+                             @dragend="onDragEnd($event)">
+                            <span class="ac-subitem-drag" title="{% trans '拖拽排序' %}">⠿</span>
+                            <span class="ac-subitem-name">{{ mat.original_filename }}</span>
+                            <span class="ac-subitem-label ac-subitem-label--{{ mat.category }}">{{ mat.source_label }}</span>
+                            <span class="ac-subitem-actions">
+                                <button type="button" class="ac-btn-sub-preview" title="{% trans '预览' %}"
+                                        onclick="previewArchiveMaterial({{ contract.pk }}, {{ mat.id }})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                                <button type="button" class="ac-btn-sub-move" title="{% trans '移动到…' %}"
+                                        @click="showMoveMenu($event, {{ mat.id }}, '{{ item.code }}')">↗</button>
+                            </span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
             </div>
+            {% endfor %}
+        </div>
+
+        {# ===== 移动到…下拉菜单 ===== #}
+        <div class="ac-move-menu" x-show="moveMenuVisible" x-cloak
+             :style="'position:fixed;top:' + moveMenuY + 'px;left:' + moveMenuX + 'px'"
+             @click.away="moveMenuVisible = false">
+            <div class="ac-move-menu-title">{% trans "移动到" %}</div>
+            {% for item in archive_checklist.items %}
+            <button type="button" class="ac-move-menu-item"
+                    :class="{ 'is-current': moveMenuSourceCode === '{{ item.code }}' }"
+                    :disabled="moveMenuSourceCode === '{{ item.code }}'"
+                    @click="moveMaterial('{{ item.code }}')">
+                {{ item.name }}
+            </button>
             {% endfor %}
         </div>
     </div>
@@ -138,6 +202,7 @@
     border-radius: 10px;
     padding: 16px;
     margin-bottom: 16px;
+    overflow: hidden;
 }
 
 .ac-header { margin-bottom: 12px; }
@@ -165,8 +230,14 @@
     padding: 2px 10px;
 }
 
-.ac-compact-toggle {
+.ac-title-actions {
     margin-left: auto;
+    display: inline-flex;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.ac-compact-toggle {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -255,16 +326,14 @@
 }
 
 .ac-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 12px;
     background: #f9fafb;
     border: 1px solid #e5e7eb;
     border-radius: 6px;
     font-size: 13px;
     transition: background 0.15s, border-color 0.15s;
     counter-increment: checklist-counter;
+    overflow: hidden;
+    min-width: 0;
 }
 
 .ac-item:hover { background: #eff6ff; }
@@ -289,6 +358,15 @@
     border-color: #bfdbfe;
 }
 
+.ac-item-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    cursor: pointer;
+    user-select: none;
+}
+
 .ac-item-code::before {
     content: counter(checklist-counter) ".";
     font-size: 11px;
@@ -300,7 +378,16 @@
 
 .ac-item-name {
     flex: 1;
+    min-width: 0;
     color: #1f2937;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ac-item-count {
+    font-size: 11px;
+    color: #6b7280;
 }
 
 .ac-item-actions {
@@ -315,6 +402,15 @@
     flex-shrink: 0;
     width: 22px;
     text-align: center;
+}
+
+.ac-expand-icon {
+    flex-shrink: 0;
+    color: #9ca3af;
+    transition: transform 0.2s;
+}
+.ac-expand-icon.is-expanded {
+    transform: rotate(180deg);
 }
 
 .ac-btn-preview {
@@ -388,6 +484,157 @@
 .ac-badge-required { color: #dc2626; cursor: help; }
 .ac-badge-optional { color: #9ca3af; cursor: help; }
 
+{# ===== 子项样式 ===== #}
+.ac-subitems {
+    border-top: 1px solid #e5e7eb;
+    background: #fff;
+    overflow: hidden;
+}
+
+.ac-subitems-enter { transition: max-height 0.2s ease, opacity 0.2s ease; }
+.ac-subitems-enter-start { max-height: 0; opacity: 0; }
+.ac-subitems-leave { transition: max-height 0.15s ease, opacity 0.1s ease; }
+
+.ac-subitems-list {
+    padding: 4px 0;
+    min-height: 32px;
+}
+
+.ac-subitem {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 12px 5px 36px;
+    font-size: 12px;
+    color: #374151;
+    transition: background 0.12s;
+    cursor: grab;
+}
+.ac-subitem:hover { background: #f0f4ff; }
+.ac-subitem:active { cursor: grabbing; }
+.ac-subitem.dragging {
+    opacity: 0.4;
+    background: #dbeafe;
+}
+.ac-subitem.drag-over-top {
+    border-top: 2px solid #2563eb;
+    padding-top: 3px;
+}
+.ac-subitem.drag-over-bottom {
+    border-bottom: 2px solid #2563eb;
+    padding-bottom: 3px;
+}
+
+.ac-subitem-drag {
+    color: #9ca3af;
+    cursor: grab;
+    font-size: 14px;
+    line-height: 1;
+    flex-shrink: 0;
+    user-select: none;
+}
+
+.ac-subitem-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ac-subitem-label {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-weight: 600;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+.ac-subitem-label--contract_original,
+.ac-subitem-label--supplementary_agreement { background: #fef3c7; color: #92400e; }
+.ac-subitem-label--invoice { background: #fce7f3; color: #9d174d; }
+.ac-subitem-label--archive_document { background: #dbeafe; color: #1e40af; }
+.ac-subitem-label--supervision_card { background: #ede9fe; color: #5b21b6; }
+.ac-subitem-label--authorization_material { background: #ccfbf1; color: #115e59; }
+.ac-subitem-label--case_material { background: #e0f2fe; color: #075985; }
+.ac-subitem-label--folder_scan { background: #f0fdf4; color: #166534; }
+
+.ac-subitem-actions {
+    display: inline-flex;
+    gap: 2px;
+    flex-shrink: 0;
+}
+
+.ac-btn-sub-preview {
+    border: none;
+    background: none;
+    cursor: pointer;
+    padding: 2px;
+    border-radius: 3px;
+    transition: background 0.12s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #6b7280;
+}
+.ac-btn-sub-preview:hover { background: #dbeafe; color: #2563eb; }
+
+.ac-btn-sub-move {
+    border: none;
+    background: none;
+    cursor: pointer;
+    padding: 2px;
+    font-size: 13px;
+    border-radius: 3px;
+    transition: background 0.12s;
+}
+.ac-btn-sub-move:hover { background: #fef3c7; }
+
+{# ===== 移动菜单 ===== #}
+.ac-move-menu {
+    z-index: 9999;
+    background: #fff;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    min-width: 200px;
+    max-height: 320px;
+    overflow-y: auto;
+    padding: 4px 0;
+}
+
+.ac-move-menu-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: #6b7280;
+    padding: 6px 12px;
+    border-bottom: 1px solid #e5e7eb;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.ac-move-menu-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 6px 12px;
+    font-size: 12px;
+    color: #1f2937;
+    border: none;
+    background: none;
+    cursor: pointer;
+    transition: background 0.12s;
+}
+.ac-move-menu-item:hover { background: #eff6ff; }
+.ac-move-menu-item.is-current {
+    color: #9ca3af;
+    cursor: default;
+}
+.ac-move-menu-item.is-current:hover { background: none; }
+.ac-move-menu-item:disabled {
+    color: #9ca3af;
+    cursor: default;
+}
+
 .btn-outline-secondary { background: #fff; border: 1px solid #d1d5db; color: #6b7280; }
 .btn-outline-secondary:hover { background: #f9fafb; border-color: #9ca3af; color: #374151; }
 .btn-outline-secondary.active { background: #1d4ed8; border-color: #1d4ed8; color: #fff; }
@@ -397,6 +644,15 @@
 
 {# ===== 扫描弹窗样式（保留） ===== #}
 .fm-scan-modal { max-width: 880px; }
+.fm-open-folder-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; margin-left: 4px; padding: 0;
+    background: transparent; border: 1px solid transparent; border-radius: 4px;
+    color: #6b7280; cursor: pointer; vertical-align: middle;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.fm-open-folder-btn:hover { background: #f3f4f6; border-color: #d1d5db; color: #374151; }
+.fm-open-folder-btn:disabled { opacity: 0.3; cursor: default; }
 .fm-scan-body { display: grid; gap: 10px; }
 .fm-scope-card { padding: 12px; border: 1px solid #e5e7eb; border-radius: 8px; background: #f9fafb; }
 .fm-scope-title { font-size: 13px; font-weight: 700; color: #111827; }
@@ -427,9 +683,174 @@
 
 <script>
 // 归档检查清单 Alpine.js 组件
-function archiveChecklistApp(initialCompact) {
+function archiveChecklistApp(initialCompact, checklistItems) {
     return {
         compactMode: initialCompact || false,
+        expandedCodes: new Set(checklistItems.filter(function(i) { return i.materials && i.materials.length > 0; }).map(function(i) { return i.code; })),
+        moveMenuVisible: false,
+        moveMenuX: 0,
+        moveMenuY: 0,
+        moveMenuMaterialId: null,
+        moveMenuSourceCode: null,
+        dragMaterialId: null,
+        dragSourceCode: null,
+        saving: false,
+
+        getMaterials(code) {
+            var item = checklistItems.find(function(i) { return i.code === code; });
+            return item && item.materials ? item.materials : [];
+        },
+
+        toggleExpand(code) {
+            if (this.expandedCodes.has(code)) {
+                this.expandedCodes.delete(code);
+            } else {
+                this.expandedCodes.add(code);
+            }
+        },
+
+        isExpanded(code) {
+            return this.expandedCodes.has(code);
+        },
+
+        toggleAllExpand() {
+            if (this.expandedCodes.size > 0) {
+                this.expandedCodes = new Set();
+            } else {
+                this.expandedCodes = new Set(checklistItems.filter(function(i) { return i.materials && i.materials.length > 0; }).map(function(i) { return i.code; }));
+            }
+        },
+
+        showMoveMenu(event, materialId, sourceCode) {
+            this.moveMenuMaterialId = materialId;
+            this.moveMenuSourceCode = sourceCode;
+            var rect = event.target.getBoundingClientRect();
+            this.moveMenuX = rect.left;
+            this.moveMenuY = rect.bottom + 4;
+            this.moveMenuVisible = true;
+        },
+
+        moveMaterial(targetCode) {
+            var self = this;
+            self.moveMenuVisible = false;
+            var contractId = {{ contract.pk }};
+            var csrf = (window.FachuanCSRF && window.FachuanCSRF.getToken && window.FachuanCSRF.getToken()) || '';
+
+            fetch('/admin/contracts/contract/' + contractId + '/move-archive-material/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+                body: JSON.stringify({
+                    material_id: self.moveMenuMaterialId,
+                    target_code: targetCode,
+                }),
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('移动失败: ' + (data.error || '未知错误'));
+                }
+            })
+            .catch(function(e) { alert('请求失败: ' + e.message); });
+        },
+
+        onDragStart(event, materialId, sourceCode) {
+            this.dragMaterialId = materialId;
+            this.dragSourceCode = sourceCode;
+            event.target.classList.add('dragging');
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', materialId);
+        },
+
+        onDragEnd(event) {
+            event.target.classList.remove('dragging');
+            // 清除所有 drag-over 样式
+            document.querySelectorAll('.drag-over-top, .drag-over-bottom').forEach(function(el) {
+                el.classList.remove('drag-over-top', 'drag-over-bottom');
+            });
+            this.dragMaterialId = null;
+            this.dragSourceCode = null;
+        },
+
+        onDragOver(event, code) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+            // 计算插入位置
+            var subitems = event.currentTarget.querySelectorAll('.ac-subitem');
+            var targetEl = null;
+            var position = 'bottom';
+
+            subitems.forEach(function(el) {
+                var rect = el.getBoundingClientRect();
+                var midY = rect.top + rect.height / 2;
+                el.classList.remove('drag-over-top', 'drag-over-bottom');
+                if (event.clientY > rect.top && event.clientY < rect.bottom) {
+                    targetEl = el;
+                    position = event.clientY < midY ? 'top' : 'bottom';
+                }
+            });
+
+            if (targetEl) {
+                targetEl.classList.add(position === 'top' ? 'drag-over-top' : 'drag-over-bottom');
+            }
+        },
+
+        onDrop(event, targetCode) {
+            // 清除样式
+            document.querySelectorAll('.drag-over-top, .drag-over-bottom').forEach(function(el) {
+                el.classList.remove('drag-over-top', 'drag-over-bottom');
+            });
+
+            var materialId = this.dragMaterialId;
+            var sourceCode = this.dragSourceCode;
+            if (!materialId) return;
+
+            // 同一清单项内拖拽 = 排序；跨清单项 = 移动
+            if (sourceCode === targetCode) {
+                // 同项内排序：不需要处理，排序已有
+                return;
+            }
+
+            // 跨项移动
+            this.moveMenuMaterialId = materialId;
+            this.moveMenuSourceCode = sourceCode;
+            this.moveMaterial(targetCode);
+        },
+
+        saveReorder() {
+            if (this.saving) return;
+            this.saving = true;
+            var contractId = {{ contract.pk }};
+            var csrf = (window.FachuanCSRF && window.FachuanCSRF.getToken && window.FachuanCSRF.getToken()) || '';
+            var orders = {};
+
+            document.querySelectorAll('.ac-subitems-list').forEach(function(list) {
+                var code = list.dataset.archiveCode;
+                var ids = [];
+                list.querySelectorAll('.ac-subitem').forEach(function(el) {
+                    var id = parseInt(el.dataset.materialId, 10);
+                    if (id) ids.push(id);
+                });
+                if (ids.length > 0) orders[code] = ids;
+            });
+
+            fetch('/admin/contracts/contract/' + contractId + '/reorder-archive-materials/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+                body: JSON.stringify({ orders: orders }),
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (!data.success) {
+                    alert('排序保存失败: ' + (data.error || '未知错误'));
+                }
+            })
+            .catch(function(e) {
+                alert('排序保存失败: ' + e.message);
+            })
+            .finally(function() { this.saving = false; }.bind(this));
+        },
 
         toggleCompactMode() {
             var contractId = {{ contract.pk }};
@@ -448,18 +869,6 @@ function archiveChecklistApp(initialCompact) {
             })
             .catch(function(e) { alert('请求失败: ' + e.message); });
         },
-
-        getVisibleItems() {
-            var items = this.$el.querySelectorAll('.ac-item');
-            if (!this.compactMode) return items;
-            var visible = [];
-            items.forEach(function(el) {
-                var isTemplate = el.dataset.template === 'true';
-                var isCompleted = el.dataset.completed === 'true';
-                if (isTemplate || isCompleted) visible.push(el);
-            });
-            return visible;
-        }
     };
 }
 
@@ -522,9 +931,14 @@ function archiveChecklistApp(initialCompact) {
         window.location.href = '/admin/contracts/contract/' + contractId + '/download-archive-item/' + archiveItemCode + '/';
     };
 
-    // 在浏览器新标签页中预览归档材料
+    // 在浏览器新标签页中预览归档材料（清单项级别，合并后）
     window.previewArchiveItem = function(contractId, archiveItemCode) {
         window.open('/admin/contracts/contract/' + contractId + '/download-archive-item/' + archiveItemCode + '/?preview=1', '_blank');
+    };
+
+    // 预览单个归档材料子项
+    window.previewArchiveMaterial = function(contractId, materialId) {
+        window.open('/admin/contracts/contract/' + contractId + '/preview-archive-material/' + materialId + '/', '_blank');
     };
 
     // 检测监督卡
@@ -683,6 +1097,96 @@ function archiveChecklistApp(initialCompact) {
             bubbles: true
         }));
     };
+
+    // 初始化子项拖拽排序（使用 SortableJS 或原生 HTML5 Drag & Drop）
+    // 页面加载后初始化拖拽排序
+    document.addEventListener('DOMContentLoaded', function() {
+        initSubitemSortable();
+    });
+
+    function initSubitemSortable() {
+        // 为每个子项列表添加拖拽排序
+        document.querySelectorAll('.ac-subitems-list').forEach(function(listEl) {
+            var code = listEl.dataset.archiveCode;
+            var subitems = listEl.querySelectorAll('.ac-subitem');
+
+            subitems.forEach(function(item) {
+                item.addEventListener('dragover', function(e) {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    // 高亮插入位置
+                    var rect = item.getBoundingClientRect();
+                    var midY = rect.top + rect.height / 2;
+                    document.querySelectorAll('.ac-subitem').forEach(function(el) {
+                        el.classList.remove('drag-over-top', 'drag-over-bottom');
+                    });
+                    if (e.clientY < midY) {
+                        item.classList.add('drag-over-top');
+                    } else {
+                        item.classList.add('drag-over-bottom');
+                    }
+                });
+
+                item.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    document.querySelectorAll('.ac-subitem').forEach(function(el) {
+                        el.classList.remove('drag-over-top', 'drag-over-bottom');
+                    });
+
+                    var draggedId = e.dataTransfer.getData('text/plain');
+                    if (!draggedId) return;
+
+                    var draggedEl = document.querySelector('.ac-subitem[data-material-id="' + draggedId + '"]');
+                    if (!draggedEl) return;
+
+                    var rect = item.getBoundingClientRect();
+                    var midY = rect.top + rect.height / 2;
+
+                    // 同一列表内排序
+                    if (e.clientY < midY) {
+                        listEl.insertBefore(draggedEl, item);
+                    } else {
+                        listEl.insertBefore(draggedEl, item.nextSibling);
+                    }
+
+                    // 保存排序
+                    saveReorderFromDOM();
+                });
+            });
+        });
+    }
+
+    function saveReorderFromDOM() {
+        var contractId = {{ contract.pk }};
+        var csrf = (window.FachuanCSRF && window.FachuanCSRF.getToken && window.FachuanCSRF.getToken()) || '';
+        var orders = {};
+
+        document.querySelectorAll('.ac-subitems-list').forEach(function(list) {
+            var code = list.dataset.archiveCode;
+            var ids = [];
+            list.querySelectorAll('.ac-subitem').forEach(function(el) {
+                var id = parseInt(el.dataset.materialId, 10);
+                if (id) ids.push(id);
+            });
+            if (ids.length > 0) orders[code] = ids;
+        });
+
+        fetch('/admin/contracts/contract/' + contractId + '/reorder-archive-materials/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+            body: JSON.stringify({ orders: orders }),
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (!data.success) {
+                alert('排序保存失败: ' + (data.error || '未知错误'));
+            }
+        })
+        .catch(function(e) {
+            alert('排序保存失败: ' + e.message);
+        });
+    }
 
 })();
 </script>

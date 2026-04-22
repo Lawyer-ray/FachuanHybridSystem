@@ -592,6 +592,7 @@ class TestContractAdminSmoke:
             contract_changelist = api_client.get(
                 reverse("admin:contracts_contract_changelist"),
                 HTTP_HOST="localhost",
+                follow=True,
             )
             _assert_status(contract_changelist)
 

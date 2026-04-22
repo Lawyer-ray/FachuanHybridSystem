@@ -29,6 +29,7 @@ from .constants import (
     ARCHIVE_FOLDER_NAME,
     ARCHIVE_SKIP_CODES,
     ARCHIVE_SKIP_TEMPLATES,
+    ARCHIVE_SUBITEM_ORDER_RULES,
     ARCHIVE_TEMPLATE_DOC_TYPES,
     ChecklistItem,
 )
@@ -307,6 +308,39 @@ class ArchiveGenerationService:
 
         return {"error": "生成失败：无文件内容"}
 
+    @staticmethod
+    def _apply_subitem_sort(
+        materials: list[FinalizedMaterial],
+        archive_item_code: str,
+    ) -> list[FinalizedMaterial]:
+        """对有排序规则的清单项，按关键词顺序重排 order=0 的材料。
+
+        同步时已为材料设置 order 值，此处仅兜底处理 order=0（未排序）的材料。
+        用户手动调整后 order>0，本方法不再干预。
+        """
+        keywords = ARCHIVE_SUBITEM_ORDER_RULES.get(archive_item_code)
+        if not keywords or len(materials) <= 1:
+            return materials
+
+        # 检查是否所有材料都有 order > 0（已排序），如果是则无需再排
+        if all(m.order > 0 for m in materials):
+            return materials
+
+        ordered_mats = [m for m in materials if m.order > 0]
+        unordered_mats = [m for m in materials if m.order == 0]
+
+        if not unordered_mats:
+            return materials
+
+        def _sort_key(mat: FinalizedMaterial) -> tuple[int, int]:
+            for i, keyword in enumerate(keywords):
+                if keyword in mat.original_filename:
+                    return (0, i)
+            return (1, 0)
+
+        unordered_mats.sort(key=_sort_key)
+        return ordered_mats + unordered_mats
+
     def _download_uploaded_item(
         self,
         contract: Contract,
@@ -333,6 +367,27 @@ class ArchiveGenerationService:
                     ).order_by("order", "-uploaded_at")
                 )
 
+            # 收费凭证项：匹配发票
+            if not materials and self._is_fee_voucher_item(contract, archive_item_code):
+                materials = list(
+                    FinalizedMaterial.objects.filter(
+                        contract=contract,
+                        category=MaterialCategory.INVOICE,
+                    ).order_by("order", "-uploaded_at")
+                )
+
+            # 授权委托项：匹配授权委托材料
+            if not materials and self._is_authorization_item(contract, archive_item_code):
+                materials = list(
+                    FinalizedMaterial.objects.filter(
+                        contract=contract,
+                        category=MaterialCategory.AUTHORIZATION_MATERIAL,
+                    ).order_by("order", "-uploaded_at")
+                )
+
+        # 对 order=0 的材料应用关键词排序（order>0 的已由同步/用户设定，不再干预）
+        materials = self._apply_subitem_sort(materials, archive_item_code)
+
         if not materials:
             return {"error": "未找到对应的归档材料"}
 
@@ -345,10 +400,23 @@ class ArchiveGenerationService:
 
     def _is_contract_item(self, contract: Contract, archive_item_code: str) -> bool:
         """判断 archive_item_code 是否为"委托合同"相关的检查项"""
+        return self._is_item_by_name(contract, archive_item_code, "委托")
+
+    def _is_fee_voucher_item(self, contract: Contract, archive_item_code: str) -> bool:
+        """判断 archive_item_code 是否为"收费凭证"相关的检查项"""
+        return self._is_item_by_name(contract, archive_item_code, "收费")
+
+    def _is_authorization_item(self, contract: Contract, archive_item_code: str) -> bool:
+        """判断 archive_item_code 是否为"授权委托"相关的检查项"""
+        return self._is_item_by_name(contract, archive_item_code, "授权")
+
+    @staticmethod
+    def _is_item_by_name(contract: Contract, archive_item_code: str, name_keyword: str) -> bool:
+        """判断 archive_item_code 对应的检查项名称是否包含指定关键词"""
         archive_category = get_archive_category(contract.case_type)
         checklist_items = ARCHIVE_CHECKLIST.get(archive_category, [])
         for item in checklist_items:
-            if item["code"] == archive_item_code and item["source"] == "contract" and "委托" in item["name"]:
+            if item["code"] == archive_item_code and name_keyword in item.get("name", ""):
                 return True
         return False
 
@@ -824,6 +892,8 @@ class ArchiveGenerationService:
                 )
 
             if item_materials:
+                # 对 order=0 的材料应用关键词排序
+                item_materials = self._apply_subitem_sort(item_materials, code)
                 materials_to_merge.extend(item_materials)
 
         if not materials_to_merge:

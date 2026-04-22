@@ -383,3 +383,16 @@ class CaseFolderBindingService(FolderBindingCrudService):
             return Case.objects.get(id=case_id)
         except Case.DoesNotExist:
             return None
+
+    def get_contract_folder_path(self, case_id: int) -> str | None:
+        """获取案件关联合同的文件夹路径"""
+        try:
+            case = Case.objects.select_related("contract__folder_binding").get(pk=case_id)
+        except Case.DoesNotExist:
+            return None
+        if not case.contract_id or not case.contract:
+            return None
+        contract = case.contract
+        if not hasattr(contract, "folder_binding") or not contract.folder_binding:
+            return None
+        return contract.folder_binding.folder_path

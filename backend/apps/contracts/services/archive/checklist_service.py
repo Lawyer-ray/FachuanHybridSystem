@@ -12,7 +12,7 @@ from apps.contracts.models import Contract
 from apps.contracts.models.finalized_material import FinalizedMaterial
 
 from .category_mapping import ArchiveCategory, get_archive_category
-from .constants import ARCHIVE_CHECKLIST, CASE_MATERIAL_KEYWORD_MAPPING, ChecklistItem
+from .constants import ARCHIVE_CHECKLIST, ARCHIVE_SUBITEM_ORDER_RULES, CASE_MATERIAL_KEYWORD_MAPPING, ChecklistItem
 
 logger = logging.getLogger("apps.contracts.archive")
 
@@ -54,11 +54,11 @@ class ArchiveChecklistService:
         archive_category = get_archive_category(contract.case_type)
         checklist_items = ARCHIVE_CHECKLIST.get(archive_category, [])
 
-        # 一次性加载合同的所有归档材料
+        # 一次性加载合同的所有归档材料（含详情）
         materials = list(
             FinalizedMaterial.objects.filter(contract=contract).only(
-                "id", "archive_item_code", "category"
-            )
+                "id", "archive_item_code", "category", "original_filename", "order", "file_path",
+            ).order_by("order", "-uploaded_at")
         )
 
         # 构建 archive_item_code → [material_id] 映射
@@ -67,12 +67,29 @@ class ArchiveChecklistService:
             if m.archive_item_code:
                 code_to_materials.setdefault(m.archive_item_code, []).append(m.id)
 
+        # 构建 archive_item_code → [{material detail}] 映射（供前端展示子项）
+        code_to_material_details: dict[str, list[dict[str, Any]]] = {}
+        for m in materials:
+            if m.archive_item_code:
+                code_to_material_details.setdefault(m.archive_item_code, []).append({
+                    "id": m.id,
+                    "original_filename": m.original_filename,
+                    "category": m.category,
+                    "source_label": self._get_source_label(m.category),
+                    "order": m.order,
+                    "file_path": m.file_path,
+                })
+
         # 特殊处理：合同正本/补充协议/发票归类到对应检查项
         contract_category_codes = self._map_contract_materials(
             archive_category, materials
         )
         for code, mat_ids in contract_category_codes.items():
             code_to_materials.setdefault(code, []).extend(mat_ids)
+        # 同步填充子项详情
+        self._fill_material_details_from_ids(
+            code_to_material_details, contract_category_codes, materials
+        )
 
         # 特殊处理：从关联合同案件中提取授权委托材料
         case_material_codes = self._map_case_authorization_materials(
@@ -80,6 +97,13 @@ class ArchiveChecklistService:
         )
         for code, mat_ids in case_material_codes.items():
             code_to_materials.setdefault(code, []).extend(mat_ids)
+        # 同步填充子项详情
+        self._fill_material_details_from_ids(
+            code_to_material_details, case_material_codes, materials
+        )
+
+        # 应用子项默认排序规则（仅对未手动排序的材料生效）
+        self._apply_subitem_order(code_to_material_details)
 
         # 检查 source="case" 的清单项，哪些案件中有匹配的 CaseMaterial（供前端展示"可同步"提示）
         case_material_match_codes = self._find_case_material_match_codes(contract, archive_category)
@@ -92,6 +116,7 @@ class ArchiveChecklistService:
                 **item,
                 "completed": len(mat_ids) > 0,
                 "material_ids": mat_ids,
+                "materials": code_to_material_details.get(item["code"], []),
                 "has_case_material": item["source"] == "case" and item["code"] in case_material_match_codes,
             })
 
@@ -467,6 +492,9 @@ class ArchiveChecklistService:
                         "case_id": source_case_id,
                     })
 
+        # 同步完成后，按排序规则为每个 code 的材料设置初始 order
+        self._apply_initial_order_for_synced(synced)
+
         return {
             "synced": synced,
             "skipped": skipped,
@@ -608,6 +636,49 @@ class ArchiveChecklistService:
 
         return material
 
+    def _apply_initial_order_for_synced(self, synced: list[dict[str, Any]]) -> None:
+        """同步完成后，按排序规则为每个 archive_item_code 的材料设置初始 order。
+
+        仅对 ARCHIVE_SUBITEM_ORDER_RULES 中定义的清单项排序，
+        按文件名中关键词的出现顺序设置 order 值。
+        用户后续手动调整 order 后，此处不再干预。
+        """
+        if not synced:
+            return
+
+        # 按 archive_item_code 分组
+        code_to_materials: dict[str, list[FinalizedMaterial]] = {}
+        for item in synced:
+            code = item["archive_item_code"]
+            material_id = item["material_id"]
+            material = FinalizedMaterial.objects.filter(pk=material_id).first()
+            if material:
+                code_to_materials.setdefault(code, []).append(material)
+
+        for code, materials in code_to_materials.items():
+            keywords = ARCHIVE_SUBITEM_ORDER_RULES.get(code)
+            if not keywords or len(materials) <= 1:
+                continue
+
+            def _sort_key(mat: FinalizedMaterial) -> tuple[int, int]:
+                for i, keyword in enumerate(keywords):
+                    if keyword in mat.original_filename:
+                        return (0, i)
+                return (1, 0)
+
+            materials.sort(key=_sort_key)
+
+            # 按 sorted 顺序设置 order
+            for i, mat in enumerate(materials):
+                mat.order = i + 1
+                mat.save(update_fields=["order"])
+
+            logger.info(
+                "同步材料设置初始排序: code=%s, order=%s",
+                code,
+                [(m.original_filename, m.order) for m in materials],
+            )
+
     def _find_code_by_source(self, archive_category: str, source: str) -> str | None:
         """根据 source 类型找到对应的检查清单 code
 
@@ -640,3 +711,85 @@ class ArchiveChecklistService:
         """获取指定归档分类中支持自动检测的清单项"""
         checklist_items = ARCHIVE_CHECKLIST.get(archive_category, [])
         return [item for item in checklist_items if item["auto_detect"] is not None]
+
+    @staticmethod
+    def _fill_material_details_from_ids(
+        code_to_material_details: dict[str, list[dict[str, Any]]],
+        code_to_mat_ids: dict[str, list[int]],
+        materials: list[FinalizedMaterial],
+    ) -> None:
+        """根据 material ID 列表，将材料详情填充到 code_to_material_details。
+
+        用于补充那些没有 archive_item_code 但通过 _map_contract_materials
+        等方法映射到清单项的材料（如合同正本、补充协议、发票等）。
+        """
+        mat_id_to_obj: dict[int, FinalizedMaterial] = {m.id: m for m in materials}
+        for code, mat_ids in code_to_mat_ids.items():
+            for mid in mat_ids:
+                m = mat_id_to_obj.get(mid)
+                if not m:
+                    continue
+                # 避免重复添加（该材料可能已有 archive_item_code 并已在详情中）
+                existing_ids = {d["id"] for d in code_to_material_details.get(code, [])}
+                if mid in existing_ids:
+                    continue
+                code_to_material_details.setdefault(code, []).append({
+                    "id": m.id,
+                    "original_filename": m.original_filename,
+                    "category": m.category,
+                    "source_label": ArchiveChecklistService._get_source_label(m.category),
+                    "order": m.order,
+                    "file_path": m.file_path,
+                })
+
+    @staticmethod
+    def _apply_subitem_order(code_to_material_details: dict[str, list[dict[str, Any]]]) -> None:
+        """对有排序规则的清单项，按关键词顺序重排子项（仅影响 order=0 的材料）。
+
+        排序逻辑：
+        1. 仅对 ARCHIVE_SUBITEM_ORDER_RULES 中定义的清单项排序
+        2. 仅对 order=0 的材料（未手动排序过）应用关键词排序
+        3. 已手动排序(order>0)的材料保持原有相对顺序排在前面
+        4. 关键词匹配：文件名包含规则中关键词的材料按关键词出现顺序排列
+        5. 未匹配任何关键词的材料排在最后，保持原顺序
+        """
+        for code, keywords in ARCHIVE_SUBITEM_ORDER_RULES.items():
+            details = code_to_material_details.get(code)
+            if not details or len(details) <= 1:
+                continue
+
+            # 分离已排序和未排序的材料
+            ordered_mats = [d for d in details if d.get("order", 0) > 0]
+            unordered_mats = [d for d in details if d.get("order", 0) == 0]
+
+            if not unordered_mats:
+                continue
+
+            # 对未排序材料按关键词优先级排序
+            def _sort_key(mat: dict[str, Any]) -> tuple[int, int]:
+                filename = mat.get("original_filename", "")
+                for i, keyword in enumerate(keywords):
+                    if keyword in filename:
+                        return (0, i)
+                return (1, 0)  # 未匹配的排最后
+
+            unordered_mats.sort(key=_sort_key)
+
+            # 合并：已排序的在前，关键词排序的在后
+            code_to_material_details[code] = ordered_mats + unordered_mats
+
+    @staticmethod
+    def _get_source_label(category: str) -> str:
+        """根据材料分类返回来源标签"""
+        from apps.contracts.models.finalized_material import MaterialCategory
+
+        label_map: dict[str, str] = {
+            MaterialCategory.CONTRACT_ORIGINAL: "合同正本",
+            MaterialCategory.SUPPLEMENTARY_AGREEMENT: "补充协议",
+            MaterialCategory.INVOICE: "发票",
+            MaterialCategory.ARCHIVE_DOCUMENT: "自动生成",
+            MaterialCategory.SUPERVISION_CARD: "监督卡",
+            MaterialCategory.AUTHORIZATION_MATERIAL: "授权委托",
+            MaterialCategory.CASE_MATERIAL: "案件同步",
+        }
+        return label_map.get(category, "手动上传")

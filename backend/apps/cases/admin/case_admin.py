@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ClassVar, cast
+import logging
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from django.contrib import admin
 from django.http import HttpRequest
 
 from apps.cases.admin.base_admin import BaseModelAdmin, BaseStackedInline, BaseTabularInline
 from apps.cases.admin.case_chat_admin import CaseChatInline
-from apps.cases.admin.case_forms_admin import CaseAdminForm, SupervisingAuthorityInlineForm
+from apps.cases.admin.case_forms_admin import CaseAdminForm, CasePartyInlineForm, SupervisingAuthorityInlineForm
 from apps.cases.admin.mixins import (
     CaseAdminActionsMixin,
     CaseAdminSaveMixin,
@@ -28,14 +29,61 @@ from apps.core.admin.mixins import AdminImportExportMixin
 if TYPE_CHECKING:
     from django.db.models import QuerySet
 
+logger = logging.getLogger(__name__)
+
 
 class CasePartyInline(BaseTabularInline):
     """案件当事人内联编辑组件"""
 
     model = CaseParty
+    form = CasePartyInlineForm
     extra = 1
     fields = ("client", "legal_status")
     classes = ["contract-party-inline"]
+
+    def formfield_for_foreignkey(self, db_field: Any, request: HttpRequest, **kwargs: Any) -> Any:
+        """限制 client 下拉框只显示关联合同/补充协议的当事人"""
+        if db_field.name == "client":
+            from apps.client.models import Client
+            from apps.contracts.models import ContractParty, SupplementaryAgreementParty
+
+            contract_id = self._get_contract_id_from_request(request)
+            if contract_id:
+                # 合同直接当事人
+                contract_client_ids = list(
+                    ContractParty.objects.filter(contract_id=contract_id).values_list("client_id", flat=True)
+                )
+                # 补充协议当事人
+                sa_client_ids = list(
+                    SupplementaryAgreementParty.objects.filter(
+                        supplementary_agreement__contract_id=contract_id
+                    ).values_list("client_id", flat=True)
+                )
+                all_client_ids = set(contract_client_ids) | set(sa_client_ids)
+                if all_client_ids:
+                    kwargs["queryset"] = Client.objects.filter(id__in=all_client_ids)
+                else:
+                    kwargs["queryset"] = Client.objects.none()
+
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+    def _get_contract_id_from_request(self, request: HttpRequest) -> int | None:
+        """从请求 URL 或 GET 参数中获取当前案件关联的合同 ID"""
+        import re
+
+        from apps.cases.models import Case
+
+        # 从 URL 中提取 case_id
+        match = re.search(r"/cases/case/(\d+)/change", request.path)
+        if not match:
+            return None
+
+        case_id = int(match.group(1))
+        try:
+            case = Case.objects.select_related("contract").values("contract_id").get(pk=case_id)
+            return case["contract_id"]
+        except Case.DoesNotExist:
+            return None
 
     class Media:
         js = (
@@ -123,6 +171,13 @@ class CaseAdmin(
     BaseModelAdmin,
 ):
     form = CaseAdminForm
+
+    def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> Any:
+        from django.http import HttpResponseRedirect
+
+        if "status__exact" not in request.GET:
+            return HttpResponseRedirect(f"{request.path}?status__exact=active")
+        return super().changelist_view(request, extra_context=extra_context)
     list_display = ("id_link", "name_link", "status", "start_date", "effective_date", "is_filed")
     list_display_links = None
     list_filter = ("status", "is_filed")

@@ -179,6 +179,34 @@
     color: #8a97a8;
     cursor: not-allowed;
 }
+/* 打开文件夹按钮样式 */
+.open-folder-btn {
+    all: unset;
+    box-sizing: border-box;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
+    cursor: pointer;
+    background: #fff;
+    color: #6b7280;
+    margin-right: 8px;
+}
+.open-folder-btn:hover {
+    background: #f3f4f6;
+    border-color: #9ca3af;
+    color: #374151;
+}
+.open-folder-btn:disabled {
+    background: #f9fafb;
+    border-color: #e5e7eb;
+    color: #d1d5db;
+    cursor: not-allowed;
+}
 .parse-execution-btn {
     color: #fff;
     background: #2a8a57;
@@ -318,6 +346,11 @@
 }
 #case_numbers-group .form-row.field-document_file .parse-document-btn,
 .inline-group[id$='case_numbers-group'] .form-row.field-document_file .parse-document-btn {
+    margin-top: 0;
+    align-self: start;
+}
+#case_numbers-group .form-row.field-document_file .open-folder-btn,
+.inline-group[id$='case_numbers-group'] .form-row.field-document_file .open-folder-btn {
     margin-top: 0;
     align-self: start;
 }
@@ -600,6 +633,32 @@ function showToast(message, type) {
                 documentFileCell.appendChild(actionBar);
             }
 
+            // 打开案件文件夹按钮
+            var openFolderBtn = row.querySelector('.open-folder-btn');
+            if (!openFolderBtn && actionBar) {
+                openFolderBtn = document.createElement('button');
+                openFolderBtn.type = 'button';
+                openFolderBtn.className = 'open-folder-btn';
+                openFolderBtn.title = '在 Finder 中打开案件文件夹';
+                openFolderBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>';
+                openFolderBtn.onclick = function() {
+                    var caseId = (window.location.pathname.match(/\/cases\/case\/(\d+)\//) || [])[1];
+                    if (!caseId) { alert('无法获取案件ID'); return; }
+                    openFolderBtn.disabled = true;
+                    fetch('/admin/cases/case/' + caseId + '/open-folder/', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() }
+                    })
+                    .then(function(resp) { return resp.json(); })
+                    .then(function(data) {
+                        openFolderBtn.disabled = false;
+                        if (!data.success) { alert(data.error || '打开文件夹失败'); }
+                    })
+                    .catch(function(err) { openFolderBtn.disabled = false; alert('请求失败: ' + (err.message || '未知错误')); });
+                };
+                actionBar.insertBefore(openFolderBtn, actionBar.firstChild);
+            }
+
             var parseBtn = row.querySelector('.parse-document-btn');
             if (!parseBtn && documentFileCell) {
                 parseBtn = document.createElement('button');
@@ -796,6 +855,11 @@ function showToast(message, type) {
     function parseDocument(caseNumberId, button, tempFilePath) {
         button.disabled = true;
         button.textContent = '\u89e3\u6790\u4e2d...';
+
+        // 优先使用按钮上缓存的临时文件路径（上传后设置）
+        if (!tempFilePath && button.dataset.tempFilePath) {
+            tempFilePath = button.dataset.tempFilePath;
+        }
 
         var url;
         var body = {};

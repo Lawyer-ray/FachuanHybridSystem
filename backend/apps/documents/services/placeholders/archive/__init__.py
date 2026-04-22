@@ -357,14 +357,13 @@ class ArchivePlaceholderService(BasePlaceholderService):
 
     @staticmethod
     def _get_case_number(case: Any) -> str:
-        """获取首个案件案号"""
+        """获取案件案号（多个案号用逗号分隔）"""
         try:
-            # 优先取已生效案号，其次取第一个案号
-            cn = case.case_numbers.filter(is_active=True).first()
-            if not cn:
-                cn = case.case_numbers.first()
-            if cn:
-                return str(getattr(cn, "number", "") or "")
+            # 优先取已生效案号，其次取全部案号
+            active_cns = list(case.case_numbers.filter(is_active=True))
+            cns = active_cns if active_cns else list(case.case_numbers.all())
+            numbers = [str(getattr(cn, "number", "") or "") for cn in cns if getattr(cn, "number", None)]
+            return "，".join(numbers)
         except Exception:
             logger.warning("获取案件案号失败", extra={"case_id": getattr(case, "id", None)})
         return ""
@@ -398,15 +397,17 @@ class ArchivePlaceholderService(BasePlaceholderService):
 
     @staticmethod
     def _get_trial_result(case: Any) -> str:
-        """获取案件审理结果(首个案号的执行依据主文)"""
+        """获取案件审理结果（从所有案号中取有内容的执行依据主文，用换行分隔）"""
         try:
-            # 优先取已生效案号，其次取第一个案号
-            cn = case.case_numbers.filter(is_active=True).first()
-            if not cn:
-                cn = case.case_numbers.first()
-            if cn:
-                content = getattr(cn, "document_content", None) or ""
-                return str(content).strip()
+            # 优先取已生效案号，其次取全部案号
+            active_cns = list(case.case_numbers.filter(is_active=True))
+            cns = active_cns if active_cns else list(case.case_numbers.all())
+            contents = []
+            for cn in cns:
+                content = str(getattr(cn, "document_content", None) or "").strip()
+                if content:
+                    contents.append(content)
+            return "\n".join(contents)
         except Exception:
             logger.warning("获取案件审理结果失败", extra={"case_id": getattr(case, "id", None)})
         return ""
