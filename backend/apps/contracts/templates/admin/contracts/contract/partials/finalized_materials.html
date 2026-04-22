@@ -95,33 +95,6 @@
                         (<span x-text="getMaterials('{{ item.code }}').length"></span>)
                     </span>
                     {% endif %}
-                    <span class="ac-item-actions" @click.stop>
-                        {% if item.template %}
-                        <button type="button" class="ac-btn-preview" title="{% trans '预览替换词' %}"
-                                onclick="previewArchiveTemplate({{ contract.pk }}, '{{ item.template }}', '{{ item.name }}')">
-                            {% trans "预览" %}
-                        </button>
-                        <button type="button" class="ac-btn-download" title="{% trans '下载材料' %}"
-                                onclick="downloadArchiveItem({{ contract.pk }}, '{{ item.code }}', '{{ item.name }}')">
-                            {% trans "下载" %}
-                        </button>
-                        {% else %}
-                        <button type="button" class="ac-btn-upload" title="{% trans '上传文件' %}"
-                                onclick="uploadArchiveItem({{ contract.pk }}, '{{ item.code }}')">
-                            {% trans "上传" %}
-                        </button>
-                        {% if item.completed %}
-                        <button type="button" class="ac-btn-preview" title="{% trans '在浏览器中预览' %}"
-                                onclick="previewArchiveItem({{ contract.pk }}, '{{ item.code }}')">
-                            {% trans "预览" %}
-                        </button>
-                        <button type="button" class="ac-btn-download" title="{% trans '下载材料' %}"
-                                onclick="downloadArchiveItem({{ contract.pk }}, '{{ item.code }}', '{{ item.name }}')">
-                            {% trans "下载" %}
-                        </button>
-                        {% endif %}
-                        {% endif %}
-                    </span>
                     <span class="ac-item-status">
                         {% if item.template %}
                             <span class="ac-badge ac-badge-generate" title="{% trans '可自动生成' %}">⚡</span>
@@ -141,11 +114,32 @@
                             <span class="ac-badge ac-badge-optional" title="{% trans '可选' %}">-</span>
                         {% endif %}
                     </span>
-                    <span class="ac-expand-icon" :class="{ 'is-expanded': isExpanded('{{ item.code }}') }"
-                          :style="getMaterials('{{ item.code }}').length > 0 ? '' : 'visibility:hidden'">
-                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="3 4.5 6 7.5 9 4.5"/>
-                        </svg>
+                    <span class="ac-item-actions" @click.stop>
+                        {% if item.template %}
+                        <button type="button" class="ac-btn-icon" title="{% trans '预览替换词' %}"
+                                onclick="previewArchiveTemplate({{ contract.pk }}, '{{ item.template }}', '{{ item.name }}')">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        </button>
+                        <button type="button" class="ac-btn-icon" title="{% trans '下载材料' %}"
+                                onclick="downloadArchiveItem({{ contract.pk }}, '{{ item.code }}', '{{ item.name }}')">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        </button>
+                        {% else %}
+                        <button type="button" class="ac-btn-icon ac-btn-icon--upload" title="{% trans '上传文件' %}"
+                                onclick="uploadArchiveItem({{ contract.pk }}, '{{ item.code }}')">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        </button>
+                        {% if item.completed %}
+                        <button type="button" class="ac-btn-icon" title="{% trans '在浏览器中预览' %}"
+                                onclick="previewArchiveItem({{ contract.pk }}, '{{ item.code }}')">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        </button>
+                        <button type="button" class="ac-btn-icon" title="{% trans '下载材料' %}"
+                                onclick="downloadArchiveItem({{ contract.pk }}, '{{ item.code }}', '{{ item.name }}')">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        </button>
+                        {% endif %}
+                        {% endif %}
                     </span>
                 </div>
 
@@ -167,7 +161,7 @@
                             <span class="ac-subitem-name">{{ mat.original_filename }}</span>
                             <span class="ac-subitem-label ac-subitem-label--{{ mat.category }}">{{ mat.source_label }}</span>
                             <span class="ac-subitem-actions">
-                                <button type="button" class="ac-btn-sub-preview" title="{% trans '预览' %}"
+                                <button type="button" class="ac-btn-icon" title="{% trans '预览' %}"
                                         onclick="previewArchiveMaterial({{ contract.pk }}, {{ mat.id }})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
                             </span>
                         </div>
@@ -383,7 +377,7 @@
 .ac-item-name {
     flex: 1;
     min-width: 0;
-    max-width: calc(100% - 180px);
+    max-width: calc(100% - 120px);
     color: #1f2937;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -398,8 +392,7 @@
 .ac-item-actions {
     flex-shrink: 0;
     display: inline-flex;
-    gap: 4px;
-    min-width: 108px;
+    gap: 2px;
     justify-content: flex-end;
 }
 
@@ -410,76 +403,20 @@
     width: 22px;
 }
 
-.ac-expand-icon {
-    flex-shrink: 0;
-    width: 12px;
-    text-align: center;
-    color: #9ca3af;
-    transition: transform 0.2s;
-}
-.ac-expand-icon.is-expanded {
-    transform: rotate(180deg);
-}
-
-.ac-btn-preview {
-    font-size: 11px;
-    padding: 2px 8px;
-    border: 1px solid #93c5fd;
-    border-radius: 4px;
-    background: #eff6ff;
-    color: #1d4ed8;
+.ac-btn-icon {
+    border: none;
+    background: none;
     cursor: pointer;
-    transition: background 0.15s;
+    padding: 3px;
+    border-radius: 3px;
+    transition: background 0.12s, color 0.12s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #6b7280;
 }
-.ac-btn-preview:hover {
-    background: #dbeafe;
-    border-color: #60a5fa;
-}
-
-.ac-btn-generate {
-    font-size: 11px;
-    padding: 2px 8px;
-    border: 1px solid #86efac;
-    border-radius: 4px;
-    background: #f0fdf4;
-    color: #15803d;
-    cursor: pointer;
-    transition: background 0.15s;
-}
-.ac-btn-generate:hover {
-    background: #dcfce7;
-    border-color: #4ade80;
-}
-
-.ac-btn-download {
-    font-size: 11px;
-    padding: 2px 8px;
-    border: 1px solid #c4b5fd;
-    border-radius: 4px;
-    background: #f5f3ff;
-    color: #6d28d9;
-    cursor: pointer;
-    transition: background 0.15s;
-}
-.ac-btn-download:hover {
-    background: #ede9fe;
-    border-color: #a78bfa;
-}
-
-.ac-btn-upload {
-    font-size: 11px;
-    padding: 2px 8px;
-    border: 1px solid #6ee7b7;
-    border-radius: 4px;
-    background: #ecfdf5;
-    color: #047857;
-    cursor: pointer;
-    transition: background 0.15s;
-}
-.ac-btn-upload:hover {
-    background: #d1fae5;
-    border-color: #34d399;
-}
+.ac-btn-icon:hover { background: #dbeafe; color: #2563eb; }
+.ac-btn-icon--upload:hover { background: #d1fae5; color: #047857; }
 
 .ac-badge {
     font-size: 12px;
@@ -586,23 +523,8 @@
     display: inline-flex;
     gap: 2px;
     flex-shrink: 0;
-    width: 32px;
     justify-content: flex-end;
 }
-
-.ac-btn-sub-preview {
-    border: none;
-    background: none;
-    cursor: pointer;
-    padding: 2px;
-    border-radius: 3px;
-    transition: background 0.12s;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: #6b7280;
-}
-.ac-btn-sub-preview:hover { background: #dbeafe; color: #2563eb; }
 
 {# ===== 移动菜单 ===== #}
 .ac-move-menu {
