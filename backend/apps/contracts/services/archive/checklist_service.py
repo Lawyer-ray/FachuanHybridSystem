@@ -12,7 +12,7 @@ from apps.contracts.models import Contract
 from apps.contracts.models.finalized_material import FinalizedMaterial
 
 from .category_mapping import ArchiveCategory, get_archive_category
-from .constants import ARCHIVE_CHECKLIST, CASE_MATERIAL_KEYWORD_MAPPING, ChecklistItem
+from .constants import ARCHIVE_CHECKLIST, ARCHIVE_SUBITEM_ORDER_RULES, CASE_MATERIAL_KEYWORD_MAPPING, ChecklistItem
 
 logger = logging.getLogger("apps.contracts.archive")
 
@@ -93,6 +93,9 @@ class ArchiveChecklistService:
         )
         for code, mat_ids in case_material_codes.items():
             code_to_materials.setdefault(code, []).extend(mat_ids)
+
+        # 应用子项默认排序规则（仅对未手动排序的材料生效）
+        self._apply_subitem_order(code_to_material_details)
 
         # 检查 source="case" 的清单项，哪些案件中有匹配的 CaseMaterial（供前端展示"可同步"提示）
         case_material_match_codes = self._find_case_material_match_codes(contract, archive_category)
@@ -654,6 +657,42 @@ class ArchiveChecklistService:
         """获取指定归档分类中支持自动检测的清单项"""
         checklist_items = ARCHIVE_CHECKLIST.get(archive_category, [])
         return [item for item in checklist_items if item["auto_detect"] is not None]
+
+    @staticmethod
+    def _apply_subitem_order(code_to_material_details: dict[str, list[dict[str, Any]]]) -> None:
+        """对有排序规则的清单项，按关键词顺序重排子项（仅影响 order=0 的材料）。
+
+        排序逻辑：
+        1. 仅对 ARCHIVE_SUBITEM_ORDER_RULES 中定义的清单项排序
+        2. 仅对 order=0 的材料（未手动排序过）应用关键词排序
+        3. 已手动排序(order>0)的材料保持原有相对顺序排在前面
+        4. 关键词匹配：文件名包含规则中关键词的材料按关键词出现顺序排列
+        5. 未匹配任何关键词的材料排在最后，保持原顺序
+        """
+        for code, keywords in ARCHIVE_SUBITEM_ORDER_RULES.items():
+            details = code_to_material_details.get(code)
+            if not details or len(details) <= 1:
+                continue
+
+            # 分离已排序和未排序的材料
+            ordered_mats = [d for d in details if d.get("order", 0) > 0]
+            unordered_mats = [d for d in details if d.get("order", 0) == 0]
+
+            if not unordered_mats:
+                continue
+
+            # 对未排序材料按关键词优先级排序
+            def _sort_key(mat: dict[str, Any]) -> tuple[int, int]:
+                filename = mat.get("original_filename", "")
+                for i, keyword in enumerate(keywords):
+                    if keyword in filename:
+                        return (0, i)
+                return (1, 0)  # 未匹配的排最后
+
+            unordered_mats.sort(key=_sort_key)
+
+            # 合并：已排序的在前，关键词排序的在后
+            code_to_material_details[code] = ordered_mats + unordered_mats
 
     @staticmethod
     def _get_source_label(category: str) -> str:

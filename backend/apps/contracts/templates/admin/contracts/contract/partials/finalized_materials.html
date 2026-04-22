@@ -34,6 +34,18 @@
                         <line x1="2" y1="10" x2="14" y2="10"/>
                     </svg>
                 </button>
+                <button type="button" class="ac-compact-toggle"
+                        :title="expandedCodes.size > 0 ? '{% trans "收起全部子项" %}' : '{% trans "展开全部子项" %}'"
+                        @click="toggleAllExpand()">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <template x-if="expandedCodes.size > 0">
+                            <path d="M4 10L8 6L12 10"/>
+                        </template>
+                        <template x-if="expandedCodes.size === 0">
+                            <path d="M4 6L8 10L12 6"/>
+                        </template>
+                    </svg>
+                </button>
             </div>
             <div class="ac-progress-row">
                 <div class="ac-progress-track">
@@ -681,6 +693,14 @@ function archiveChecklistApp(initialCompact, checklistItems) {
 
         isExpanded(code) {
             return this.expandedCodes.has(code);
+        },
+
+        toggleAllExpand() {
+            if (this.expandedCodes.size > 0) {
+                this.expandedCodes = new Set();
+            } else {
+                this.expandedCodes = new Set(checklistItems.filter(function(i) { return i.materials && i.materials.length > 0; }).map(function(i) { return i.code; }));
+            }
         },
 
         showMoveMenu(event, materialId, sourceCode) {
