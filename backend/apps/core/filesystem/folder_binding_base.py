@@ -9,6 +9,7 @@ from apps.core.utils.path import Path
 
 from .browse_policy import FolderBrowsePolicy
 from .filesystem_service import FolderFilesystemService
+from .inode_resolver import InodeResolver
 from .path_validator import FolderPathValidator
 
 logger = logging.getLogger("apps.core.filesystem")
@@ -24,12 +25,14 @@ class BaseFolderBindingService:
         browse_policy: FolderBrowsePolicy | None = None,
         roots_setting_name: str = "FOLDER_BROWSE_ROOTS",
         fallback_roots_setting_name: str = "CONTRACT_FOLDER_BROWSE_ROOTS",
+        inode_resolver: InodeResolver | None = None,
     ) -> None:
         self._filesystem_service = filesystem_service
         self._path_validator = path_validator
         self._browse_policy = browse_policy
         self._roots_setting_name = roots_setting_name
         self._fallback_roots_setting_name = fallback_roots_setting_name
+        self._inode_resolver = inode_resolver
 
     @property
     def path_validator(self) -> FolderPathValidator:
@@ -52,6 +55,12 @@ class BaseFolderBindingService:
                 fallback_roots_setting_name=self._fallback_roots_setting_name,
             )
         return self._browse_policy
+
+    @property
+    def inode_resolver(self) -> InodeResolver:
+        if self._inode_resolver is None:
+            self._inode_resolver = InodeResolver()
+        return self._inode_resolver
 
     def validate_folder_path(self, path: str) -> tuple[bool, str | None]:
         return self.path_validator.validate_folder_path(path)
@@ -83,6 +92,78 @@ class BaseFolderBindingService:
             return False
         except (OSError, PermissionError):
             return False
+
+    def check_and_repair_path(self, binding: object) -> tuple[bool, bool]:
+        """检查绑定路径可达性，必要时通过 inode 自动修复.
+
+        Args:
+            binding: 文件夹绑定对象（需有 folder_path, folder_inode, folder_device 属性）
+
+        Returns:
+            (is_accessible, path_auto_repaired) 元组
+        """
+        folder_path = getattr(binding, "folder_path", "")
+        if self.check_folder_accessible(folder_path):
+            # 路径可达，顺便补充 inode（如果缺失）
+            self._maybe_fill_inode(binding)
+            return True, False
+
+        # 路径不可达，尝试 inode 修复
+        inode = getattr(binding, "folder_inode", None)
+        device = getattr(binding, "folder_device", None)
+
+        if not inode or not device:
+            return False, False
+
+        search_roots = self.get_browse_roots()
+        new_path = self.inode_resolver.find_path_by_inode(
+            inode=inode,
+            device=device,
+            search_roots=search_roots,
+        )
+
+        if new_path is None:
+            return False, False
+
+        # 修复路径
+        old_path = folder_path
+        binding.folder_path = new_path
+        binding.save(update_fields=["folder_path", "updated_at"])
+        logger.info(
+            "contract_path_auto_repaired",
+            extra={
+                "binding_id": binding.id,
+                "old_path": old_path,
+                "new_path": new_path,
+                "inode": inode,
+                "device": device,
+            },
+        )
+        return True, True
+
+    def _maybe_fill_inode(self, binding: object) -> None:
+        """路径可达但 inode 缺失时，补充 inode+device."""
+        inode = getattr(binding, "folder_inode", None)
+        if inode is not None:
+            return  # 已有 inode，无需补充
+
+        folder_path = getattr(binding, "folder_path", "")
+        info = self.inode_resolver.get_inode_info(folder_path)
+        if info is None:
+            return
+
+        binding.folder_inode = info[0]
+        binding.folder_device = info[1]
+        binding.save(update_fields=["folder_inode", "folder_device", "updated_at"])
+        logger.info(
+            "inode_backfilled",
+            extra={
+                "binding_id": binding.id,
+                "folder_path": folder_path,
+                "inode": info[0],
+                "device": info[1],
+            },
+        )
 
     def ensure_subdirectories(self, base_path: str) -> bool:
         ok = self.filesystem_service.ensure_subdirectories(base_path, self.DEFAULT_SUBDIRS.values())

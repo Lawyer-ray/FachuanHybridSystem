@@ -5,11 +5,12 @@
             {% trans "时间：正序" %}
         </button>
         <div class="materials-actions">
-            <button type="button" class="btn btn-secondary btn-sm btn-delete-all-materials"
+            <button type="button" class="btn-delete-all-materials-icon"
                     data-category="non_party"
                     data-case-id="{{ case.pk }}"
+                    title="{% trans '删除全部' %}"
                     onclick="confirmDeleteAllMaterials(this)">
-                🗑️ {% trans "删除全部" %}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
             </button>
             <a href="{% url 'admin:cases_case_materials' case.pk %}" class="btn btn-primary btn-sm">
                 {% trans "上传/绑定材料" %}

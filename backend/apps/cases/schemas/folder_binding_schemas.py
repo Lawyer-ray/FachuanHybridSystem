@@ -28,19 +28,24 @@ class CaseFolderBindingResponseSchema(Schema):
     is_accessible: bool
     created_at: str
     updated_at: str
+    relative_path: str = ""
+    path_auto_repaired: bool = False
 
     @classmethod
     def from_binding(
-        cls, obj: CaseFolderBinding, is_accessible: bool = True, display_path: str | None = None
+        cls, obj: CaseFolderBinding, is_accessible: bool = True, display_path: str | None = None,
+        path_auto_repaired: bool = False,
     ) -> CaseFolderBindingResponseSchema:
         return cls(
             id=obj.id,
             case_id=obj.case_id,
-            folder_path=obj.folder_path,
+            folder_path=obj.resolved_folder_path,
             folder_path_display=display_path or obj.folder_path_display,
             is_accessible=is_accessible,
             created_at=SchemaMixin._resolve_datetime_iso(obj.created_at) or "",
             updated_at=SchemaMixin._resolve_datetime_iso(obj.updated_at) or "",
+            relative_path=obj.relative_path,
+            path_auto_repaired=path_auto_repaired,
         )
 
 

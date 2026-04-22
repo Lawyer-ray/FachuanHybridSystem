@@ -169,10 +169,10 @@ class EmailFolderScanService:
     def _get_bound_case_root(self, case_id: int) -> Path | None:
         """获取案件绑定的文件夹根路径."""
         binding = CaseFolderBinding.objects.filter(case_id=case_id).select_related("case").first()
-        if not binding or not binding.folder_path:
+        if not binding or not binding.resolved_folder_path:
             return None
 
-        root = Path(binding.folder_path).expanduser().resolve()
+        root = Path(binding.resolved_folder_path).expanduser().resolve()
         if not root.exists() or not root.is_dir():
             logger.warning(f"案件 {case_id} 绑定目录不可访问: {root}")
             return None

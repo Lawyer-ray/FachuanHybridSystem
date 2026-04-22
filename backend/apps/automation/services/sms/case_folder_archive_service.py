@@ -61,10 +61,10 @@ class CaseFolderArchiveService:
 
     def _get_bound_case_root(self, case_id: int) -> Path | None:
         binding = CaseFolderBinding.objects.filter(case_id=case_id).first()
-        if not binding or not binding.folder_path:
+        if not binding or not binding.resolved_folder_path:
             return None
 
-        root = Path(binding.folder_path).expanduser()
+        root = Path(binding.resolved_folder_path).expanduser()
         if not root.exists() or not root.is_dir():
             logger.warning(f"案件 {case_id} 绑定目录不可访问: {root}")
             return None

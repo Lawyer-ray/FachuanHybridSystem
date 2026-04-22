@@ -663,7 +663,7 @@ class CaseAdminViewsMixin:
             except CaseFolderBinding.DoesNotExist:
                 return JsonResponse({"success": False, "error": str(_("未绑定文件夹"))}, status=404)
 
-            folder_path = binding.folder_path
+            folder_path = binding.resolved_folder_path
             if not folder_path:
                 return JsonResponse({"success": False, "error": str(_("文件夹路径为空"))}, status=400)
 
@@ -700,14 +700,14 @@ class CaseAdminViewsMixin:
             from apps.cases.models.material import CaseFolderBinding
 
             binding = CaseFolderBinding.objects.filter(case_id=object_id).first()
-            if not binding or not binding.folder_path:
+            if not binding or not binding.resolved_folder_path:
                 return JsonResponse({"success": False, "error": str(_("未绑定文件夹"))}, status=404)
 
             if request.method == "GET":
                 # 列出第一层级所有子文件夹，让用户自己选
                 from pathlib import Path
 
-                root = Path(binding.folder_path).expanduser().resolve()
+                root = Path(binding.resolved_folder_path).expanduser().resolve()
                 if not root.exists():
                     return JsonResponse({"success": False, "error": str(_("文件夹不存在"))}, status=404)
 

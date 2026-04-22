@@ -47,8 +47,8 @@ def create_folder_binding(request: HttpRequest, case_id: int, data: CaseFolderBi
     ctx = get_request_access_context(request)
 
     binding = service.create_binding_ctx(case_id=case_id, folder_path=data.folder_path, ctx=ctx)
-    is_accessible: bool = service.check_folder_accessible(binding.folder_path)
-    display_path: str = service.format_path_for_display(binding.folder_path)
+    is_accessible: bool = service.check_folder_accessible(binding.resolved_folder_path)
+    display_path: str = service.format_path_for_display(binding.resolved_folder_path)
 
     logger.info(
         "case_folder_binding_upsert",
@@ -80,8 +80,8 @@ def get_folder_binding(request: HttpRequest, case_id: int) -> CaseFolderBindingR
     if not binding:
         return None
 
-    is_accessible: bool = service.check_folder_accessible(binding.folder_path)
-    display_path: str = service.format_path_for_display(binding.folder_path)
+    is_accessible: bool = service.check_folder_accessible(binding.resolved_folder_path)
+    display_path: str = service.format_path_for_display(binding.resolved_folder_path)
 
     return CaseFolderBindingResponseSchema.from_binding(binding, is_accessible=is_accessible, display_path=display_path)
 

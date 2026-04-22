@@ -40,6 +40,38 @@ class FolderBindingCrudService(BaseFolderBindingService):
     def _resolve_subdir_path(self, *, owner_type: str, subdir_key: str) -> str | None:
         return None
 
+    def _compute_relative_path(self, owner: Any, folder_path: str) -> str | None:
+        """计算案件文件夹相对合同文件夹的相对路径.
+
+        仅案件绑定有效：如果 owner 有合同且合同有文件夹绑定，
+        则计算 folder_path 相对合同路径的相对路径。
+        其他类型（合同绑定）返回 None。
+
+        Args:
+            owner: 绑定所属的 owner 对象
+            folder_path: 绑定的文件夹绝对路径
+
+        Returns:
+            相对路径字符串或 None
+        """
+        from pathlib import PurePosixPath
+
+        # 仅对案件 owner 计算 relative_path
+        contract = getattr(owner, "contract", None)
+        if contract is None:
+            return None
+
+        contract_binding = getattr(contract, "folder_binding", None)
+        if contract_binding is None or not contract_binding.folder_path:
+            return None
+
+        case_path = PurePosixPath(folder_path)
+        contract_path = PurePosixPath(contract_binding.folder_path)
+
+        if case_path.is_relative_to(contract_path):
+            return str(case_path.relative_to(contract_path))
+        return None
+
     def create_binding(self, *, owner_id: int, folder_path: str, **kwargs: Any) -> Any:
         if self.binding_model is None:
             raise RuntimeError("FolderBindingCrudService.binding_model 未配置")
@@ -56,15 +88,38 @@ class FolderBindingCrudService(BaseFolderBindingService):
                 errors={"folder_path": error_msg},
             )
 
+        stripped_path = folder_path.strip()
+
+        # 计算 inode 信息（合同文件夹绑定时记录）
+        inode_info = self.inode_resolver.get_inode_info(stripped_path)
+
+        defaults: dict[str, Any] = {"folder_path": stripped_path}
+        if inode_info is not None:
+            defaults["folder_inode"] = inode_info[0]
+            defaults["folder_device"] = inode_info[1]
+
+        # 案件文件夹绑定时计算 relative_path
+        relative_path = self._compute_relative_path(owner, stripped_path)
+        if relative_path is not None:
+            defaults["relative_path"] = relative_path
+
         binding, created = self.binding_model.objects.update_or_create(
             **{self.owner_rel_field: owner},
-            defaults={"folder_path": folder_path.strip()},
+            defaults=defaults,
         )
 
         action = "create_binding" if created else "update_binding"
         logger.info(
             "文件夹绑定成功",
-            extra={"owner_id": owner_id, "folder_path": folder_path, "action": action, "owner_label": self.owner_label},
+            extra={
+                "owner_id": owner_id,
+                "folder_path": stripped_path,
+                "action": action,
+                "owner_label": self.owner_label,
+                "inode": inode_info[0] if inode_info else None,
+                "device": inode_info[1] if inode_info else None,
+                "relative_path": relative_path,
+            },
         )
         return binding
 
@@ -113,8 +168,9 @@ class FolderBindingCrudService(BaseFolderBindingService):
         relative_dir_parts = self.path_validator.sanitize_relative_dir(subdir_path)
 
         try:
+            resolved_path = getattr(binding, "resolved_folder_path", None) or binding.folder_path
             abs_file_path = self.filesystem_service.save_bytes(
-                base_path=binding.folder_path,
+                base_path=resolved_path,
                 relative_dir_parts=relative_dir_parts,
                 file_name=safe_name,
                 content=file_content,
@@ -145,7 +201,8 @@ class FolderBindingCrudService(BaseFolderBindingService):
             return None
 
         try:
-            base_path = self.filesystem_service.extract_zip_bytes(binding.folder_path, zip_content)
+            resolved_path = getattr(binding, "resolved_folder_path", None) or binding.folder_path
+            base_path = self.filesystem_service.extract_zip_bytes(resolved_path, zip_content)
         except (OSError, PermissionError, ValidationException) as e:
             error_msg = f"ZIP解压失败: {e}"
             logger.error(error_msg, extra={"owner_id": owner_id})
