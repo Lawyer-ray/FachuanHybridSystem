@@ -216,6 +216,11 @@ class ContractDisplayMixin:
                 name="contracts_contract_sync_case_materials",
             ),
             path(
+                "<int:object_id>/reset-and-resync-case-materials/",
+                self.admin_site.admin_view(self.reset_and_resync_case_materials_view),
+                name="contracts_contract_reset_and_resync_case_materials",
+            ),
+            path(
                 "<int:object_id>/case-material-match-map/",
                 self.admin_site.admin_view(self.case_material_match_map_view),
                 name="contracts_contract_case_material_match_map",
@@ -609,6 +614,54 @@ class ContractDisplayMixin:
             })
         except Exception as e:
             logger.exception("同步案件材料失败: contract_id=%s", object_id)
+            return JsonResponse({"success": False, "error": str(e)}, status=500)
+
+    def reset_and_resync_case_materials_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
+        """重置并重新同步案件材料到归档的 Admin view
+
+        先删除指定清单项下所有 case_material 类别的归档材料（含物理文件），
+        然后重新从案件材料同步。手动上传/自动生成的材料不受影响。
+        """
+        from django.http import JsonResponse
+
+        if request.method != "POST":
+            return JsonResponse({"success": False, "error": "Method not allowed"}, status=405)
+
+        if not self.has_change_permission(request):
+            return JsonResponse({"success": False, "error": str(_("无权限"))}, status=403)
+
+        try:
+            import json
+
+            admin_service = _get_contract_admin_service()
+            contract = admin_service.query_service.get_contract_detail(object_id)
+
+            codes: list[str] | None = None
+            try:
+                body = json.loads(request.body) if request.body else {}
+                codes = body.get("archive_item_codes")
+            except (json.JSONDecodeError, ValueError):
+                pass
+
+            from apps.contracts.services.archive.wiring import build_archive_checklist_service
+
+            checklist_service = build_archive_checklist_service()
+            result = checklist_service.reset_and_resync_case_materials(contract, codes)
+
+            sync_result = result["sync_result"]
+            synced_count = len(sync_result["synced"])
+            error_count = len(sync_result["errors"])
+
+            return JsonResponse({
+                "success": synced_count > 0 or error_count == 0,
+                "deleted_count": result["deleted_count"],
+                "synced_count": synced_count,
+                "skipped_count": len(sync_result["skipped"]),
+                "error_count": error_count,
+                "details": sync_result,
+            })
+        except Exception as e:
+            logger.exception("重置并重新同步案件材料失败: contract_id=%s", object_id)
             return JsonResponse({"success": False, "error": str(e)}, status=500)
 
     def case_material_match_map_view(self, request: HttpRequest, object_id: int) -> HttpResponse:

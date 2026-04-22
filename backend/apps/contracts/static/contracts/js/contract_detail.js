@@ -51,6 +51,7 @@ function contractDetailApp(config = {}) {
         previewRows: [],
         isLoadingPreview: false,
         previewEditMode: false,
+        previewHasOverrides: false,
         previewContractId: null,
         previewTemplateSubtype: null,
 
@@ -77,6 +78,7 @@ function contractDetailApp(config = {}) {
                 this.isLoadingPreview = true;
                 this.showPreviewDialog = true;
                 this.previewEditMode = false;
+                this.previewHasOverrides = false;
                 this.previewContractId = cid;
                 this.previewTemplateSubtype = templateSubtype;
                 const shouldEdit = editMode === true;
@@ -85,6 +87,7 @@ function contractDetailApp(config = {}) {
                     .then(result => {
                         if (result.success && result.data) {
                             this.previewRows = result.data.map(r => ({...r, editValue: r.value || ''}));
+                            this.previewHasOverrides = !!result.has_overrides;
                             if (shouldEdit) {
                                 this.previewEditMode = true;
                             }
@@ -147,40 +150,52 @@ function contractDetailApp(config = {}) {
         },
 
         /**
-         * 放弃修改，退出编辑模式，删除覆盖值
+         * 放弃修改，退出编辑模式（不删除已保存的覆盖值）
          */
-        async cancelPreviewEdit() {
-            // 如果有已保存的覆盖值，删除它们
-            if (this.previewContractId && this.previewTemplateSubtype) {
-                try {
-                    await fetch(
-                        `/api/v1/documents/contracts/${this.previewContractId}/archive-placeholder-overrides?template_subtype=${encodeURIComponent(this.previewTemplateSubtype)}`,
-                        {
-                            method: 'DELETE',
-                            headers: { 'X-CSRFToken': this.getCsrfToken() },
+        cancelPreviewEdit() {
+            this.previewEditMode = false;
+        },
+
+        /**
+         * 撤销已保存的修改，恢复自动值
+         */
+        async revertPreviewOverrides() {
+            if (!this.previewContractId || !this.previewTemplateSubtype) return;
+
+            try {
+                const resp = await fetch(
+                    `/api/v1/documents/contracts/${this.previewContractId}/archive-placeholder-overrides?template_subtype=${encodeURIComponent(this.previewTemplateSubtype)}`,
+                    {
+                        method: 'DELETE',
+                        headers: { 'X-CSRFToken': this.getCsrfToken() },
+                    }
+                );
+                const data = await resp.json();
+                if (data.success) {
+                    this.previewHasOverrides = false;
+                    // 重新加载预览以恢复自动值
+                    this.showPreviewDialog = false;
+                    setTimeout(() => {
+                        const app = document.querySelector('.contract-detail-page');
+                        if (app) {
+                            app.dispatchEvent(new CustomEvent('archive-preview-open', {
+                                detail: {
+                                    contractId: this.previewContractId,
+                                    templateSubtype: this.previewTemplateSubtype,
+                                    templateName: this.previewTitle.replace(' - 替换词预览', ''),
+                                    editMode: false,
+                                },
+                                bubbles: true,
+                            }));
                         }
-                    );
-                } catch (err) {
-                    // 忽略删除失败，仍退出编辑模式
+                    }, 200);
+                    this.showToast('已撤销修改，恢复为自动值', 'success');
+                } else {
+                    this.showToast('撤销失败: ' + (data.error || '未知错误'), 'error');
                 }
+            } catch (err) {
+                this.showToast('撤销请求失败: ' + err.message, 'error');
             }
-            // 重新加载预览以恢复自动值
-            this.showPreviewDialog = false;
-            // 重新打开预览
-            setTimeout(() => {
-                const app = document.querySelector('.contract-detail-page');
-                if (app) {
-                    app.dispatchEvent(new CustomEvent('archive-preview-open', {
-                        detail: {
-                            contractId: this.previewContractId,
-                            templateSubtype: this.previewTemplateSubtype,
-                            templateName: this.previewTitle.replace(' - 替换词预览', ''),
-                            editMode: false,
-                        },
-                        bubbles: true,
-                    }));
-                }
-            }, 200);
         },
 
         /**
@@ -221,6 +236,7 @@ function contractDetailApp(config = {}) {
                         }
                     });
                     this.previewEditMode = false;
+                    this.previewHasOverrides = true;
                     this.showToast('保存成功，预览和下载将使用修改后的值', 'success');
                 } else {
                     this.showToast('保存失败: ' + (data.error || '未知错误'), 'error');

@@ -977,12 +977,50 @@ function archiveChecklistApp(initialCompact, checklistItems) {
 
             // 筛选可同步项（未同步 + 有案件材料匹配）
             var syncable = summary.filter(function(s) { return !s.already_synced && s.total_count > 0; });
+            // 筛选已同步项（有案件同步材料 + 有案件材料匹配，可重置重新同步）
+            var alreadySynced = summary.filter(function(s) { return s.has_case_material_sync && s.total_count > 0; });
 
-            if (syncable.length === 0) {
-                alert('没有可同步的案件材料。\n所有案件材料已同步，或案件材料类型无法自动匹配。');
+            if (syncable.length === 0 && alreadySynced.length === 0) {
+                alert('没有可同步的案件材料。\n案件材料类型无法自动匹配到归档清单项。');
                 return;
             }
 
+            if (syncable.length === 0 && alreadySynced.length > 0) {
+                // 全部已同步，提供重置选项
+                var resyncLines = alreadySynced.map(function(s) {
+                    return '· ' + s.archive_item_name + '（' + s.total_count + '份）';
+                });
+                var resyncMsg = '所有可匹配的案件材料已同步。以下清单项可重置并重新同步：\n\n' +
+                    resyncLines.join('\n') +
+                    '\n\n重置将删除这些清单项下所有从案件同步的材料（含文件），然后重新同步。\n手动上传的材料不受影响。\n\n确认重置并重新同步？';
+                if (!confirm(resyncMsg)) return;
+
+                fetch('/admin/contracts/contract/' + contractId + '/reset-and-resync-case-materials/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
+                    body: JSON.stringify({
+                        archive_item_codes: alreadySynced.map(function(s) { return s.archive_item_code; })
+                    }),
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.success) {
+                        var msg = '重置同步完成！';
+                        if (data.deleted_count > 0) msg += '\n已删除旧材料: ' + data.deleted_count + ' 份';
+                        msg += '\n同步新材料: ' + (data.synced_count || 0) + ' 份';
+                        if (data.skipped_count > 0) msg += '，跳过 ' + data.skipped_count + ' 项';
+                        if (data.error_count > 0) msg += '，失败 ' + data.error_count + ' 项';
+                        alert(msg);
+                        location.reload();
+                    } else {
+                        alert('重置同步失败: ' + (data.error || '未知错误'));
+                    }
+                })
+                .catch(function(e) { alert('请求失败: ' + e.message); });
+                return;
+            }
+
+            // 有新的可同步项
             // 构建确认信息：按案件分组展示
             var cases = data.cases || [];
             var lines = [];
@@ -1002,6 +1040,14 @@ function archiveChecklistApp(initialCompact, checklistItems) {
                 // 单案件：简洁展示
                 syncable.forEach(function(s) {
                     lines.push('· ' + s.archive_item_name + '（' + s.total_count + '份）');
+                });
+            }
+
+            // 如果同时存在已同步项，也提示
+            if (alreadySynced.length > 0) {
+                lines.push('\n--- 以下清单项已有同步材料 ---');
+                alreadySynced.forEach(function(s) {
+                    lines.push('· ' + s.archive_item_name + '（' + s.total_count + '份）[已同步]');
                 });
             }
 

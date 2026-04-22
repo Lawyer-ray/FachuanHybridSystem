@@ -163,13 +163,18 @@
                 </div>
                 <!-- 编辑模式操作栏 -->
                 <div x-show="previewEditMode" style="margin-top: 12px; padding: 8px; background: #f0f9ff; border-radius: 6px; font-size: 12px; color: #1e40af;">
-                    {% trans "编辑模式下，修改值后点击「保存」，预览和下载将使用修改后的值。点击「放弃修改」恢复自动值。" %}
+                    {% trans "编辑模式下，修改值后点击「保存」，预览和下载将使用修改后的值。点击「放弃修改」退出编辑且不保存。" %}
+                </div>
+                <div x-show="!previewEditMode && previewHasOverrides" style="margin-top: 12px; padding: 8px; background: #fffbeb; border-radius: 6px; font-size: 12px; color: #92400e;">
+                    {% trans "当前替换词已手动修改过。点击「撤销修改」可恢复为自动提取的值。" %}
                 </div>
             </div>
             <div class="modal-footer" style="display: flex; gap: 8px; justify-content: flex-end;">
                 <template x-if="!previewEditMode">
                     <div style="display: flex; gap: 8px;">
                         <button type="button" class="btn btn-secondary" @click="showPreviewDialog = false">{% trans "关闭" %}</button>
+                        <button type="button" class="btn btn-warning" x-show="previewHasOverrides"
+                                @click="revertPreviewOverrides()">{% trans "撤销修改" %}</button>
                         <button type="button" class="btn btn-info" @click="enterPreviewEditMode()">{% trans "修改" %}</button>
                     </div>
                 </template>
@@ -194,7 +199,7 @@
     </div>
 </div>
 
-<script src="{% static 'contracts/js/contract_detail.js' %}?v=20260420a"></script>
+<script src="{% static 'contracts/js/contract_detail.js' %}?v=20260422a"></script>
 <script src="{% static 'contracts/js/folder_scan.js' %}?v=20260422a"></script>
 <script>
 function partiesDrawer() {
