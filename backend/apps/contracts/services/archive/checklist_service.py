@@ -783,7 +783,7 @@ class ArchiveChecklistService:
         """根据材料分类返回来源标签"""
         from apps.contracts.models.finalized_material import MaterialCategory
 
-        label_map = {
+        label_map: dict[str, str] = {
             MaterialCategory.CONTRACT_ORIGINAL: "合同正本",
             MaterialCategory.SUPPLEMENTARY_AGREEMENT: "补充协议",
             MaterialCategory.INVOICE: "发票",
