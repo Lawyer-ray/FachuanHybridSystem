@@ -9,9 +9,9 @@
                 <button type="button" class="email-import-btn"
                         :disabled="importLoading"
                         @click="openImportDialog"
-                        title="{% trans '从邮件往来文件夹同步日志' %}">
+                        title="{% trans '从文件夹同步日志' %}">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                    <span x-show="!importLoading">{% trans "从邮件往来同步" %}</span>
+                    <span x-show="!importLoading">{% trans "从文件夹同步" %}</span>
                     <span x-show="importLoading">{% trans "导入中..." %}</span>
                 </button>
             </div>
@@ -66,14 +66,14 @@
          style="display:none;">
         <div class="email-import-modal-backdrop" @click="showDialog = false"></div>
         <div class="email-import-modal-content">
-            <h3>{% trans "从邮件往来同步" %}</h3>
+            <h3>{% trans "从文件夹同步" %}</h3>
             <!-- 无绑定 -->
             <template x-if="!hasFolderBinding">
                 <p class="email-import-empty">{% trans "案件未绑定文件夹，请先绑定案件文件夹。" %}</p>
             </template>
             <!-- 有绑定但无邮件子目录 -->
             <template x-if="hasFolderBinding && subfolders.length === 0 && !loadingSubfolders">
-                <p class="email-import-empty">{% trans '未找到含「邮件」关键词的子文件夹。' %}</p>
+                <p class="email-import-empty">{% trans '案件文件夹下没有子文件夹。' %}</p>
             </template>
             <!-- 加载中 -->
             <template x-if="loadingSubfolders">
@@ -82,7 +82,7 @@
             <!-- 选择子目录 -->
             <template x-if="subfolders.length > 0">
                 <div>
-                    <p class="email-import-hint">{% trans "选择要导入的邮件往来子文件夹：" %}</p>
+                    <p class="email-import-hint">{% trans "选择要导入的子文件夹（仅第一层级）：" %}</p>
                     <div class="email-import-subfolder-list">
                         <template x-for="sf in subfolders" :key="sf.relative_path">
                             <label class="email-import-subfolder-item">

@@ -856,6 +856,11 @@ function showToast(message, type) {
         button.disabled = true;
         button.textContent = '\u89e3\u6790\u4e2d...';
 
+        // 优先使用按钮上缓存的临时文件路径（上传后设置）
+        if (!tempFilePath && button.dataset.tempFilePath) {
+            tempFilePath = button.dataset.tempFilePath;
+        }
+
         var url;
         var body = {};
 
