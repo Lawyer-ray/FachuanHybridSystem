@@ -96,6 +96,11 @@ class BaseFolderBindingService:
     def check_and_repair_path(self, binding: object) -> tuple[bool, bool]:
         """检查绑定路径可达性，必要时通过 inode 自动修复.
 
+        修复策略：
+        1. 先从旧路径的父目录开始 BFS（改名只改最后一段，父目录通常不变）
+        2. 如果父目录不可达，逐步向上回退
+        3. 最终 fallback 到全局 browse roots
+
         Args:
             binding: 文件夹绑定对象（需有 folder_path, folder_inode, folder_device 属性）
 
@@ -115,12 +120,7 @@ class BaseFolderBindingService:
         if not inode or not device:
             return False, False
 
-        search_roots = self.get_browse_roots()
-        new_path = self.inode_resolver.find_path_by_inode(
-            inode=inode,
-            device=device,
-            search_roots=search_roots,
-        )
+        new_path = self._search_by_inode(inode, device, folder_path)
 
         if new_path is None:
             return False, False
@@ -128,7 +128,16 @@ class BaseFolderBindingService:
         # 修复路径
         old_path = folder_path
         binding.folder_path = new_path
-        binding.save(update_fields=["folder_path", "updated_at"])
+        has_inode = hasattr(binding, "folder_inode")
+        update_fields = ["folder_path", "updated_at"]
+        if has_inode:
+            # 更新 inode（同分区 mv 后 inode 不变，但跨分区会变）
+            new_inode_info = self.inode_resolver.get_inode_info(new_path)
+            if new_inode_info:
+                binding.folder_inode = new_inode_info[0]
+                binding.folder_device = new_inode_info[1]
+                update_fields.extend(["folder_inode", "folder_device"])
+        binding.save(update_fields=update_fields)
         logger.info(
             "contract_path_auto_repaired",
             extra={
@@ -140,6 +149,44 @@ class BaseFolderBindingService:
             },
         )
         return True, True
+
+    def _search_by_inode(self, inode: int, device: int, original_path: str) -> str | None:
+        """通过 inode 搜索新路径，从旧路径父目录开始逐步回退.
+
+        Args:
+            inode: 目标 inode
+            device: 目标 device
+            original_path: 原始绑定路径
+
+        Returns:
+            找到的新路径或 None
+        """
+        # 策略1：从旧路径父目录开始向上回退 BFS
+        parent = Path(original_path).parent
+        max_climb = 5
+        for _ in range(max_climb):
+            if parent.exists() and parent.is_dir():
+                # 从父目录开始浅层 BFS（改名只改最后一段，深度2足够）
+                result = self.inode_resolver.find_path_by_inode(
+                    inode=inode,
+                    device=device,
+                    search_roots=[parent],
+                    max_depth=3,
+                )
+                if result is not None:
+                    return result
+            parent = parent.parent
+            if parent == parent.parent:
+                break  # 到达根目录
+
+        # 策略2：fallback 到全局 browse roots，增大深度
+        search_roots = self.get_browse_roots()
+        return self.inode_resolver.find_path_by_inode(
+            inode=inode,
+            device=device,
+            search_roots=search_roots,
+            max_depth=6,
+        )
 
     def _maybe_fill_inode(self, binding: object) -> None:
         """路径可达但 inode 缺失时，补充 inode+device."""
