@@ -492,6 +492,9 @@ class ArchiveChecklistService:
                         "case_id": source_case_id,
                     })
 
+        # 同步完成后，按排序规则为每个 code 的材料设置初始 order
+        self._apply_initial_order_for_synced(synced)
+
         return {
             "synced": synced,
             "skipped": skipped,
@@ -632,6 +635,49 @@ class ArchiveChecklistService:
         )
 
         return material
+
+    def _apply_initial_order_for_synced(self, synced: list[dict[str, Any]]) -> None:
+        """同步完成后，按排序规则为每个 archive_item_code 的材料设置初始 order。
+
+        仅对 ARCHIVE_SUBITEM_ORDER_RULES 中定义的清单项排序，
+        按文件名中关键词的出现顺序设置 order 值。
+        用户后续手动调整 order 后，此处不再干预。
+        """
+        if not synced:
+            return
+
+        # 按 archive_item_code 分组
+        code_to_materials: dict[str, list[FinalizedMaterial]] = {}
+        for item in synced:
+            code = item["archive_item_code"]
+            material_id = item["material_id"]
+            material = FinalizedMaterial.objects.filter(pk=material_id).first()
+            if material:
+                code_to_materials.setdefault(code, []).append(material)
+
+        for code, materials in code_to_materials.items():
+            keywords = ARCHIVE_SUBITEM_ORDER_RULES.get(code)
+            if not keywords or len(materials) <= 1:
+                continue
+
+            def _sort_key(mat: FinalizedMaterial) -> tuple[int, int]:
+                for i, keyword in enumerate(keywords):
+                    if keyword in mat.original_filename:
+                        return (0, i)
+                return (1, 0)
+
+            materials.sort(key=_sort_key)
+
+            # 按 sorted 顺序设置 order
+            for i, mat in enumerate(materials):
+                mat.order = i + 1
+                mat.save(update_fields=["order"])
+
+            logger.info(
+                "同步材料设置初始排序: code=%s, order=%s",
+                code,
+                [(m.original_filename, m.order) for m in materials],
+            )
 
     def _find_code_by_source(self, archive_category: str, source: str) -> str | None:
         """根据 source 类型找到对应的检查清单 code

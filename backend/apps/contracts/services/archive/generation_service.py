@@ -313,17 +313,17 @@ class ArchiveGenerationService:
         materials: list[FinalizedMaterial],
         archive_item_code: str,
     ) -> list[FinalizedMaterial]:
-        """对有排序规则的清单项，按关键词顺序重排子项（仅影响 order=0 的材料）。
+        """对有排序规则的清单项，按关键词顺序重排 order=0 的材料。
 
-        排序逻辑与 checklist_service._apply_subitem_order 一致：
-        1. 仅对 ARCHIVE_SUBITEM_ORDER_RULES 中定义的清单项排序
-        2. 仅对 order=0 的材料（未手动排序过）应用关键词排序
-        3. 已手动排序(order>0)的材料保持原有相对顺序排在前面
-        4. 关键词匹配：文件名包含规则中关键词的材料按关键词出现顺序排列
-        5. 未匹配任何关键词的材料排在最后，保持原顺序
+        同步时已为材料设置 order 值，此处仅兜底处理 order=0（未排序）的材料。
+        用户手动调整后 order>0，本方法不再干预。
         """
         keywords = ARCHIVE_SUBITEM_ORDER_RULES.get(archive_item_code)
         if not keywords or len(materials) <= 1:
+            return materials
+
+        # 检查是否所有材料都有 order > 0（已排序），如果是则无需再排
+        if all(m.order > 0 for m in materials):
             return materials
 
         ordered_mats = [m for m in materials if m.order > 0]
@@ -385,7 +385,7 @@ class ArchiveGenerationService:
                     ).order_by("order", "-uploaded_at")
                 )
 
-        # 应用关键词排序规则（与前端展示顺序一致）
+        # 对 order=0 的材料应用关键词排序（order>0 的已由同步/用户设定，不再干预）
         materials = self._apply_subitem_sort(materials, archive_item_code)
 
         if not materials:
@@ -892,7 +892,7 @@ class ArchiveGenerationService:
                 )
 
             if item_materials:
-                # 应用关键词排序规则（与前端展示顺序一致）
+                # 对 order=0 的材料应用关键词排序
                 item_materials = self._apply_subitem_sort(item_materials, code)
                 materials_to_merge.extend(item_materials)
 
