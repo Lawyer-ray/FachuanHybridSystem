@@ -24,28 +24,24 @@
             <div class="ac-title-row">
                 <h3 class="ac-title">{% trans "归档检查清单" %}</h3>
                 <span class="ac-category-badge">{{ archive_checklist.archive_category_label }}</span>
-                <button type="button" class="ac-compact-toggle"
-                        :class="{ 'is-active': compactMode }"
-                        :title="compactMode ? '{% trans "显示全部" %}' : '{% trans "精简视图" %}'"
-                        @click="toggleCompactMode()">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="2" y="2" width="12" height="12" rx="2"/>
-                        <line x1="2" y1="6" x2="14" y2="6"/>
-                        <line x1="2" y1="10" x2="14" y2="10"/>
-                    </svg>
-                </button>
-                <button type="button" class="ac-compact-toggle"
-                        :title="expandedCodes.size > 0 ? '{% trans "收起全部子项" %}' : '{% trans "展开全部子项" %}'"
-                        @click="toggleAllExpand()">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                        <template x-if="expandedCodes.size > 0">
-                            <path d="M4 10L8 6L12 10"/>
-                        </template>
-                        <template x-if="expandedCodes.size === 0">
-                            <path d="M4 6L8 10L12 6"/>
-                        </template>
-                    </svg>
-                </button>
+                <span class="ac-title-actions">
+                    <button type="button" class="ac-compact-toggle"
+                            :title="expandedCodes.size > 0 ? '{% trans "收起全部子项" %}' : '{% trans "展开全部子项" %}'"
+                            @click="toggleAllExpand()">
+                        <svg x-show="expandedCodes.size > 0" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 10 8 6 12 10"/></svg>
+                        <svg x-show="expandedCodes.size === 0" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 6 8 10 12 6"/></svg>
+                    </button>
+                    <button type="button" class="ac-compact-toggle"
+                            :class="{ 'is-active': compactMode }"
+                            :title="compactMode ? '{% trans "显示全部" %}' : '{% trans "精简视图" %}'"
+                            @click="toggleCompactMode()">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="2" y="2" width="12" height="12" rx="2"/>
+                            <line x1="2" y1="6" x2="14" y2="6"/>
+                            <line x1="2" y1="10" x2="14" y2="10"/>
+                        </svg>
+                    </button>
+                </span>
             </div>
             <div class="ac-progress-row">
                 <div class="ac-progress-track">
@@ -233,8 +229,14 @@
     padding: 2px 10px;
 }
 
-.ac-compact-toggle {
+.ac-title-actions {
     margin-left: auto;
+    display: inline-flex;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.ac-compact-toggle {
     display: inline-flex;
     align-items: center;
     justify-content: center;
