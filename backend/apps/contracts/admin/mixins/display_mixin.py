@@ -251,6 +251,11 @@ class ContractDisplayMixin:
                 name="contracts_contract_preview_archive_material",
             ),
             path(
+                "<int:object_id>/upload-archive-item/<str:archive_item_code>/",
+                self.admin_site.admin_view(self.upload_archive_item_view),
+                name="contracts_contract_upload_archive_item",
+            ),
+            path(
                 "<int:object_id>/open-folder/",
                 self.admin_site.admin_view(self.open_folder_view),
                 name="contracts_contract_open_folder",
@@ -857,6 +862,44 @@ class ContractDisplayMixin:
             return response
         except Exception as e:
             logger.exception("预览归档材料失败: material_id=%s", material_id)
+            return JsonResponse({"success": False, "error": str(e)}, status=500)
+
+    def upload_archive_item_view(self, request: HttpRequest, object_id: int, archive_item_code: str) -> HttpResponse:
+        """上传文件到归档检查清单项的 Admin view"""
+        from django.http import JsonResponse
+
+        if request.method != "POST":
+            return JsonResponse({"success": False, "error": "Method not allowed"}, status=405)
+
+        if not self.has_change_permission(request):
+            return JsonResponse({"success": False, "error": str(_("无权限"))}, status=403)
+
+        try:
+            uploaded_file = request.FILES.get("file")
+            if not uploaded_file:
+                return JsonResponse({"success": False, "error": "未选择文件"}, status=400)
+
+            admin_service = _get_contract_admin_service()
+            contract = admin_service.query_service.get_contract_detail(object_id)
+
+            from apps.contracts.services.archive.wiring import build_archive_checklist_service
+
+            checklist_service = build_archive_checklist_service()
+            material = checklist_service.upload_material_to_archive_item(
+                contract=contract,
+                archive_item_code=archive_item_code,
+                uploaded_file=uploaded_file,
+            )
+
+            return JsonResponse({
+                "success": True,
+                "material_id": material.id,
+                "original_filename": material.original_filename,
+            })
+        except ValueError as e:
+            return JsonResponse({"success": False, "error": str(e)}, status=400)
+        except Exception as e:
+            logger.exception("上传归档材料失败: contract_id=%s, code=%s", object_id, archive_item_code)
             return JsonResponse({"success": False, "error": str(e)}, status=500)
 
     def open_folder_view(self, request: HttpRequest, object_id: int) -> HttpResponse:

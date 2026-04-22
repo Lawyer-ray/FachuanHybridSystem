@@ -823,6 +823,71 @@ class ArchiveChecklistService:
                 return item["code"]
         return None
 
+    def upload_material_to_archive_item(
+        self,
+        contract: Contract,
+        archive_item_code: str,
+        uploaded_file: Any,
+    ) -> FinalizedMaterial:
+        """
+        将用户上传的文件保存为归档材料，关联到指定清单项。
+
+        Args:
+            contract: 合同实例
+            archive_item_code: 归档清单编号（如 'lt_7'）
+            uploaded_file: Django UploadedFile 对象
+
+        Returns:
+            创建的 FinalizedMaterial 实例
+
+        Raises:
+            ValueError: archive_item_code 不在当前归档分类中
+        """
+        from apps.core.services import storage_service as storage
+
+        archive_category = get_archive_category(contract.case_type)
+        checklist_items = ARCHIVE_CHECKLIST.get(archive_category, [])
+
+        # 校验 archive_item_code 是否合法
+        valid_codes = {item["code"] for item in checklist_items}
+        if archive_item_code not in valid_codes:
+            raise ValueError(f"无效的归档清单编号: {archive_item_code}")
+
+        # 保存文件
+        rel_path, safe_name = storage.save_uploaded_file(
+            uploaded_file=uploaded_file,
+            rel_dir=f"contracts/finalized/{contract.id}",
+            allowed_extensions=[".pdf", ".docx", ".doc", ".jpg", ".jpeg", ".png", ".xlsx", ".xls"],
+            max_size_bytes=50 * 1024 * 1024,
+        )
+
+        # 计算该清单项下已有材料的最大 order
+        max_order = FinalizedMaterial.objects.filter(
+            contract=contract,
+            archive_item_code=archive_item_code,
+        ).order_by("-order").values_list("order", flat=True).first() or 0
+
+        material = FinalizedMaterial.objects.create(
+            contract=contract,
+            file_path=rel_path,
+            original_filename=safe_name,
+            category=MaterialCategory.ARCHIVE_UPLOAD,
+            archive_item_code=archive_item_code,
+            order=max_order + 1,
+        )
+
+        logger.info(
+            "归档材料上传成功: %s → %s",
+            safe_name,
+            archive_item_code,
+            extra={
+                "contract_id": contract.id,
+                "material_id": material.id,
+            },
+        )
+
+        return material
+
     def get_template_items(self, archive_category: str) -> list[ChecklistItem]:
         """获取指定归档分类中需要模板生成的清单项"""
         checklist_items = ARCHIVE_CHECKLIST.get(archive_category, [])
@@ -912,5 +977,6 @@ class ArchiveChecklistService:
             MaterialCategory.SUPERVISION_CARD: "监督卡",
             MaterialCategory.AUTHORIZATION_MATERIAL: "授权委托",
             MaterialCategory.CASE_MATERIAL: "案件同步",
+            MaterialCategory.ARCHIVE_UPLOAD: "手动上传",
         }
         return label_map.get(category, "手动上传")

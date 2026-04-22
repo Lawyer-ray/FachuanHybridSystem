@@ -105,7 +105,12 @@
                                 onclick="downloadArchiveItem({{ contract.pk }}, '{{ item.code }}', '{{ item.name }}')">
                             {% trans "下载" %}
                         </button>
-                        {% elif item.completed %}
+                        {% else %}
+                        <button type="button" class="ac-btn-upload" title="{% trans '上传文件' %}"
+                                onclick="uploadArchiveItem({{ contract.pk }}, '{{ item.code }}')">
+                            {% trans "上传" %}
+                        </button>
+                        {% if item.completed %}
                         <button type="button" class="ac-btn-preview" title="{% trans '在浏览器中预览' %}"
                                 onclick="previewArchiveItem({{ contract.pk }}, '{{ item.code }}')">
                             {% trans "预览" %}
@@ -114,6 +119,7 @@
                                 onclick="downloadArchiveItem({{ contract.pk }}, '{{ item.code }}', '{{ item.name }}')">
                             {% trans "下载" %}
                         </button>
+                        {% endif %}
                         {% endif %}
                     </span>
                     <span class="ac-item-status">
@@ -393,7 +399,7 @@
     flex-shrink: 0;
     display: inline-flex;
     gap: 4px;
-    width: 108px;
+    min-width: 108px;
     justify-content: flex-end;
 }
 
@@ -458,6 +464,21 @@
 .ac-btn-download:hover {
     background: #ede9fe;
     border-color: #a78bfa;
+}
+
+.ac-btn-upload {
+    font-size: 11px;
+    padding: 2px 8px;
+    border: 1px solid #6ee7b7;
+    border-radius: 4px;
+    background: #ecfdf5;
+    color: #047857;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.ac-btn-upload:hover {
+    background: #d1fae5;
+    border-color: #34d399;
 }
 
 .ac-badge {
@@ -558,6 +579,7 @@
 .ac-subitem-label--supervision_card { background: #ede9fe; color: #5b21b6; }
 .ac-subitem-label--authorization_material { background: #ccfbf1; color: #115e59; }
 .ac-subitem-label--case_material { background: #e0f2fe; color: #075985; }
+.ac-subitem-label--archive_upload { background: #f0fdf4; color: #166534; }
 .ac-subitem-label--folder_scan { background: #f0fdf4; color: #166534; }
 
 .ac-subitem-actions {
@@ -1121,6 +1143,34 @@ function archiveChecklistApp(initialCompact, checklistItems) {
             }
         })
         .catch(function(e) { alert('请求失败: ' + e.message); });
+    };
+
+    // 上传文件到归档检查清单项
+    window.uploadArchiveItem = function(contractId, archiveItemCode) {
+        var input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.pdf,.docx,.doc,.jpg,.jpeg,.png,.xlsx,.xls';
+        input.onchange = function() {
+            var file = input.files[0];
+            if (!file) return;
+            var formData = new FormData();
+            formData.append('file', file);
+            fetch('/admin/contracts/contract/' + contractId + '/upload-archive-item/' + archiveItemCode + '/', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCSRF() },
+                body: formData,
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('上传失败: ' + (data.error || '未知错误'));
+                }
+            })
+            .catch(function(e) { alert('上传失败: ' + e.message); });
+        };
+        input.click();
     };
 
     // 预览归档文书替换词
