@@ -688,7 +688,7 @@ class CaseAdminViewsMixin:
             return JsonResponse({"success": False, "error": str(e)}, status=500)
 
     def email_folder_import_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
-        """从案件绑定文件夹的'邮件往来'子目录批量导入案件日志"""
+        """从案件绑定文件夹的第一层级子目录批量导入案件日志"""
         import json as json_mod
 
         from django.http import JsonResponse
@@ -704,24 +704,23 @@ class CaseAdminViewsMixin:
                 return JsonResponse({"success": False, "error": str(_("未绑定文件夹"))}, status=404)
 
             if request.method == "GET":
-                # 列出可用的子文件夹（含"邮件往来"关键词的）
+                # 列出第一层级所有子文件夹，让用户自己选
                 from pathlib import Path
 
                 root = Path(binding.folder_path).expanduser().resolve()
                 if not root.exists():
                     return JsonResponse({"success": False, "error": str(_("文件夹不存在"))}, status=404)
 
-                email_subfolders = []
+                subfolders = []
                 for child in sorted(root.iterdir(), key=lambda item: item.name.lower()):
                     if not child.is_dir() or child.name.startswith("."):
                         continue
-                    if "邮件" in child.name or "mail" in child.name.lower() or "email" in child.name.lower():
-                        email_subfolders.append({
-                            "relative_path": child.name,
-                            "display_name": child.name,
-                        })
+                    subfolders.append({
+                        "relative_path": child.name,
+                        "display_name": child.name,
+                    })
 
-                return JsonResponse({"success": True, "subfolders": email_subfolders})
+                return JsonResponse({"success": True, "subfolders": subfolders})
 
             if request.method == "POST":
                 # 执行导入
