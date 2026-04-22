@@ -9,7 +9,7 @@ import logging
 from typing import Any
 
 from apps.contracts.models import Contract
-from apps.contracts.models.finalized_material import FinalizedMaterial
+from apps.contracts.models.finalized_material import FinalizedMaterial, MaterialCategory
 
 from .category_mapping import ArchiveCategory, get_archive_category
 from .constants import ARCHIVE_CHECKLIST, ARCHIVE_SUBITEM_ORDER_RULES, CASE_MATERIAL_KEYWORD_MAPPING, ChecklistItem
@@ -285,6 +285,15 @@ class ArchiveChecklistService:
             ).values_list("archive_item_code", flat=True)
         )
 
+        # 查询哪些 code 下有 case_material 类别的同步材料（用于"重置并重新同步"）
+        synced_case_material_codes = set(
+            FinalizedMaterial.objects.filter(
+                contract=contract,
+                archive_item_code__in=case_source_items.keys(),
+                category=MaterialCategory.CASE_MATERIAL,
+            ).values_list("archive_item_code", flat=True)
+        )
+
         # 查询关联案件（按案件分组处理）
         from apps.cases.models import CaseMaterial
 
@@ -337,6 +346,7 @@ class ArchiveChecklistService:
                             "total_count": 0,
                             "case_count": 0,
                             "already_synced": code in existing_codes,
+                            "has_case_material_sync": code in synced_case_material_codes,
                         }
                     summary_code_to_info[code]["total_count"] += len(cm_ids)
                     summary_code_to_info[code]["case_count"] += 1
@@ -499,6 +509,117 @@ class ArchiveChecklistService:
             "synced": synced,
             "skipped": skipped,
             "errors": errors,
+        }
+
+    def reset_and_resync_case_materials(
+        self,
+        contract: Contract,
+        archive_item_codes: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """
+        重置并重新同步案件材料到归档。
+
+        对于指定的 archive_item_codes：
+        1. 删除该 code 下所有 category=case_material 的 FinalizedMaterial
+        2. 同时删除 media 目录中对应的物理文件
+        3. 然后重新从案件材料同步
+
+        只删除 case_material 类别的材料，手动上传/自动生成/合同关联的材料不受影响。
+
+        Args:
+            contract: 合同实例
+            archive_item_codes: 指定要重置并重新同步的清单项 codes，None 表示全部已同步项
+
+        Returns:
+            {
+                "deleted_count": 3,
+                "deleted_files": ["contracts/finalized/212/xxx.pdf", ...],
+                "sync_result": { ... },  # 同 sync_case_materials_to_archive 的返回值
+            }
+        """
+        from pathlib import Path
+
+        from django.conf import settings as django_settings
+
+        archive_category = get_archive_category(contract.case_type)
+        checklist_items = ARCHIVE_CHECKLIST.get(archive_category, [])
+        case_source_items = {item["code"]: item for item in checklist_items if item["source"] == "case"}
+
+        # 如果指定了 codes，则只处理这些
+        if archive_item_codes is not None:
+            target_codes = {c for c in archive_item_codes if c in case_source_items}
+        else:
+            # 未指定时，重置所有 source="case" 且已有 case_material 类别材料的 codes
+            target_codes = set(
+                FinalizedMaterial.objects.filter(
+                    contract=contract,
+                    category=MaterialCategory.CASE_MATERIAL,
+                    archive_item_code__in=case_source_items.keys(),
+                ).values_list("archive_item_code", flat=True)
+            )
+
+        if not target_codes:
+            return {
+                "deleted_count": 0,
+                "deleted_files": [],
+                "sync_result": {"synced": [], "skipped": [], "errors": []},
+            }
+
+        # 1. 查找并删除 target_codes 下所有 case_material 类别的材料
+        materials_to_delete = list(
+            FinalizedMaterial.objects.filter(
+                contract=contract,
+                archive_item_code__in=target_codes,
+                category=MaterialCategory.CASE_MATERIAL,
+            ).only("id", "file_path", "archive_item_code")
+        )
+
+        deleted_files: list[str] = []
+        media_root = Path(django_settings.MEDIA_ROOT)
+
+        for mat in materials_to_delete:
+            # 删除物理文件
+            if mat.file_path:
+                abs_file = media_root / mat.file_path
+                if abs_file.exists():
+                    try:
+                        abs_file.unlink()
+                        deleted_files.append(mat.file_path)
+                        logger.info(
+                            "重置同步：删除归档文件 %s (material_id=%s, code=%s)",
+                            mat.file_path,
+                            mat.id,
+                            mat.archive_item_code,
+                        )
+                    except OSError as e:
+                        logger.warning(
+                            "重置同步：删除归档文件失败 %s: %s",
+                            mat.file_path,
+                            e,
+                        )
+
+        # 批量删除数据库记录
+        deleted_count = len(materials_to_delete)
+        mat_ids = [m.id for m in materials_to_delete]
+        FinalizedMaterial.objects.filter(id__in=mat_ids).delete()
+
+        logger.info(
+            "重置同步：已删除 %d 个归档材料 (codes=%s)",
+            deleted_count,
+            target_codes,
+            extra={"contract_id": contract.id},
+        )
+
+        # 2. 重新同步（指定 target_codes，此时已清除旧数据，不会被跳过）
+        sync_result = self.sync_case_materials_to_archive(
+            contract,
+            archive_item_codes=list(target_codes),
+        )
+
+        return {
+            "deleted_count": deleted_count,
+            "deleted_files": deleted_files,
+            "sync_result": sync_result,
         }
 
     def _find_case_material_match_codes(
