@@ -10,7 +10,7 @@ import logging
 from typing import Any
 
 from django.utils.translation import gettext_lazy as _
-from ninja import Router
+from ninja import Router, Schema
 
 from apps.core.exceptions import ValidationException
 from apps.core.infrastructure.throttling import rate_limit_from_settings
@@ -20,6 +20,12 @@ from .download_response_factory import build_download_response
 
 logger = logging.getLogger("apps.documents.api")
 router = Router(auth=JWTOrSessionAuth())
+
+
+class ArchiveOverridesPayload(Schema):
+    """归档文书占位符覆盖值请求体"""
+
+    overrides: dict[str, str] = {}
 
 
 def _require_contract_access(request: Any, contract_id: int) -> None:
@@ -123,21 +129,20 @@ def get_archive_overrides(request: Any, contract_id: int, template_subtype: str 
 
 @router.post("/contracts/{contract_id}/archive-placeholder-overrides")
 def save_archive_overrides(request: Any, contract_id: int, template_subtype: str = "",
-                           payload: dict[str, Any] | None = None) -> Any:
+                           payload: ArchiveOverridesPayload | None = None) -> Any:
     """保存归档文书占位符覆盖值
 
     Args:
         contract_id: 合同 ID
         template_subtype: 归档模板子类型
-        payload: {"overrides": {key: value, ...}}
+        payload: 包含 overrides 字段的请求体
     """
     _require_contract_access(request, contract_id)
 
     if not template_subtype:
         return {"success": False, "error": "缺少 template_subtype 参数"}
 
-    payload = payload or {}
-    overrides = payload.get("overrides", {})
+    overrides = payload.overrides if payload else {}
 
     from apps.contracts.models.archive_override import ArchivePlaceholderOverride
 
