@@ -390,7 +390,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
             case = Case.objects.select_related("contract__folder_binding").get(pk=case_id)
         except Case.DoesNotExist:
             return None
-        if not case.contract_id:
+        if not case.contract_id or not case.contract:
             return None
         contract = case.contract
         if not hasattr(contract, "folder_binding") or not contract.folder_binding:
