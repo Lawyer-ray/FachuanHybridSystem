@@ -276,7 +276,7 @@ class ContractDisplayMixin:
             from apps.contracts.admin.wiring_admin import get_contract_folder_binding_service
 
             folder_service = get_contract_folder_binding_service()
-            _, folder_path_auto_repaired = folder_service.check_and_repair_path(folder_binding)
+            _is_accessible, folder_path_auto_repaired = folder_service.check_and_repair_path(folder_binding)
 
         # 构建上下文
         context = self.admin_site.each_context(request)
