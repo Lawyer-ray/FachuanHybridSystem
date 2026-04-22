@@ -26,6 +26,12 @@
                         <div class="timeline-header">
                             <span class="timeline-actor">{{ log.actor.real_name }}</span>
                             <span class="timeline-time">{{ log.created_at|date:"Y-m-d H:i" }}</span>
+                            {% if user.is_superuser %}
+                            <button type="button" class="log-delete-btn" title="{% trans '删除日志' %}"
+                                    onclick="deleteCaseLog({{ log.pk }}, this)">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                            </button>
+                            {% endif %}
                         </div>
                         <div class="timeline-body">
                             {{ log.content|linebreaks }}
@@ -191,6 +197,20 @@
 .email-import-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 .email-import-result { text-align: center; }
 .email-import-result p { margin: 8px 0 16px; font-size: 14px; color: #374151; }
+/* 日志删除按钮 */
+.log-delete-btn {
+    margin-left: 6px;
+    padding: 2px 6px;
+    border: none;
+    background: transparent;
+    color: #9ca3af;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: color 0.15s, background 0.15s;
+    display: inline-flex;
+    align-items: center;
+}
+.log-delete-btn:hover { color: #ef4444; background: #fef2f2; }
 </style>
 
 <script>
@@ -263,5 +283,26 @@ function emailFolderImportApp() {
             window.location.reload();
         }
     };
+}
+
+function deleteCaseLog(logId, btnEl) {
+    if (!confirm('{% trans "确认删除该日志？日志和附件将同时删除，不可恢复。" %}')) return;
+    btnEl.disabled = true;
+    fetch('/api/v1/cases/logs/' + logId + '/', {
+        method: 'DELETE',
+        headers: { 'X-CSRFToken': (window.FachuanCSRF && FachuanCSRF.getToken && FachuanCSRF.getToken()) || '' }
+    }).then(function(resp) { return resp.json(); }).then(function(data) {
+        if (data.success) {
+            // 移除该条日志的 DOM 元素
+            var item = btnEl.closest('.timeline-item');
+            if (item) item.remove();
+        } else {
+            alert(data.error || '{% trans "删除失败" %}');
+            btnEl.disabled = false;
+        }
+    }).catch(function(err) {
+        alert('{% trans "请求失败" %}: ' + (err.message || ''));
+        btnEl.disabled = false;
+    });
 }
 </script>
