@@ -136,7 +136,7 @@
                         {% endif %}
                     </span>
                     <span class="ac-expand-icon" :class="{ 'is-expanded': isExpanded('{{ item.code }}') }"
-                          x-show="getMaterials('{{ item.code }}').length > 0">
+                          :style="getMaterials('{{ item.code }}').length > 0 ? '' : 'visibility:hidden'">
                         <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                             <polyline points="3 4.5 6 7.5 9 4.5"/>
                         </svg>
@@ -399,12 +399,15 @@
 
 .ac-item-status {
     flex-shrink: 0;
+    display: inline-flex;
+    justify-content: center;
     width: 22px;
-    text-align: center;
 }
 
 .ac-expand-icon {
     flex-shrink: 0;
+    width: 12px;
+    text-align: center;
     color: #9ca3af;
     transition: transform 0.2s;
 }
