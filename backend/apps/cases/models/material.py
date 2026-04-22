@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import PurePosixPath
 from typing import ClassVar
 
 from django.db import models
@@ -161,6 +162,13 @@ class CaseFolderBinding(models.Model):
     folder_path = models.CharField(
         max_length=1000, verbose_name=_("文件夹路径"), help_text=_("绑定的本地或网络文件夹路径")
     )
+    relative_path = models.CharField(
+        max_length=500,
+        blank=True,
+        default="",
+        verbose_name=_("相对路径"),
+        help_text=_("相对合同文件夹的路径，如 2026.04.22-[民商事]某某案"),
+    )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("绑定时间"))
     updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
 
@@ -178,11 +186,34 @@ class CaseFolderBinding(models.Model):
     @property
     def folder_path_display(self) -> str:
         """格式化显示路径"""
-        if not self.folder_path:
+        path = self.resolved_folder_path
+        if not path:
             return ""
         max_length = 50
-        if len(self.folder_path) <= max_length:
-            return self.folder_path
+        if len(path) <= max_length:
+            return path
         start_len = max_length // 2 - 2
         end_len = max_length - start_len - 3
-        return f"{self.folder_path[:start_len]}...{self.folder_path[-end_len:]}"
+        return f"{path[:start_len]}...{path[-end_len:]}"
+
+    @property
+    def resolved_folder_path(self) -> str:
+        """解析后的绝对路径：优先合同路径+相对路径，降级到 folder_path."""
+        if self.relative_path:
+            contract_folder_path = self._get_contract_folder_path()
+            if contract_folder_path:
+                return str(PurePosixPath(contract_folder_path) / self.relative_path)
+        return self.folder_path
+
+    def _get_contract_folder_path(self) -> str | None:
+        """获取关联合同的文件夹路径."""
+        try:
+            case = self.case
+            if not case.contract_id or not case.contract:
+                return None
+            contract = case.contract
+            if not hasattr(contract, "folder_binding") or not contract.folder_binding:
+                return None
+            return contract.folder_binding.folder_path
+        except (AttributeError, TypeError, ValueError):
+            return None

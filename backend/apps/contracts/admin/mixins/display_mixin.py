@@ -269,6 +269,15 @@ class ContractDisplayMixin:
         # 判断是否显示代理阶段(仅民商事/刑事/行政/劳动仲裁类型显示)
         ctx_data = admin_service.get_contract_detail_context(contract.id)
 
+        # 检查合同文件夹路径是否可达，必要时通过 inode 自动修复
+        folder_path_auto_repaired = False
+        folder_binding = getattr(contract, "folder_binding", None)
+        if folder_binding:
+            from apps.contracts.admin.wiring_admin import get_contract_folder_binding_service
+
+            folder_service = get_contract_folder_binding_service()
+            _is_accessible, folder_path_auto_repaired = folder_service.check_and_repair_path(folder_binding)
+
         # 构建上下文
         context = self.admin_site.each_context(request)
         context.update(
@@ -287,6 +296,7 @@ class ContractDisplayMixin:
                 "reminders": _get_contract_detail_reminders(contract),
                 "supplementary_agreements": ctx_data["supplementary_agreements"],
                 "folder_binding": getattr(contract, "folder_binding", None),
+                "folder_path_auto_repaired": folder_path_auto_repaired,
                 "show_representation_stages": ctx_data["show_representation_stages"],
                 "representation_stages_display": ctx_data["representation_stages_display"],
                 "today": ctx_data["today"],

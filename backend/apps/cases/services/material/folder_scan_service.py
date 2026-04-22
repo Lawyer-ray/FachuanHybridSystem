@@ -56,7 +56,7 @@ class CaseFolderScanService:
     ) -> CaseFolderScanSession:
         self._ensure_case_exists(case_id)
         binding = self._get_accessible_binding(case_id)
-        scan_scope = self._resolve_scan_scope(binding.folder_path, scan_subfolder)
+        scan_scope = self._resolve_scan_scope(binding.resolved_folder_path, scan_subfolder)
         scan_options = {"enable_recognition": bool(enable_recognition)}
 
         if not rescan:
@@ -118,7 +118,7 @@ class CaseFolderScanService:
     def list_scan_subfolders(self, *, case_id: int) -> dict[str, Any]:
         self._ensure_case_exists(case_id)
         binding = self._get_accessible_binding(case_id)
-        root = Path(binding.folder_path).expanduser().resolve()
+        root = Path(binding.resolved_folder_path).expanduser().resolve()
 
         subfolders: list[dict[str, str]] = []
         for child in sorted(root.iterdir(), key=lambda item: item.name.lower()):
@@ -259,7 +259,7 @@ class CaseFolderScanService:
 
         created_attachments = self._case_log_service.upload_attachments(
             log_id=log.id,
-            files=uploads,
+            files=uploads,  # type: ignore[arg-type]
             user=user,
             org_access=org_access,
             perm_open_access=perm_open_access,
@@ -308,7 +308,7 @@ class CaseFolderScanService:
             binding = self._get_accessible_binding(session.case_id)
             payload = dict(session.result_payload or {})
             scan_scope = self._resolve_scan_scope(
-                binding.folder_path,
+                binding.resolved_folder_path,
                 self._extract_scan_subfolder(payload),
             )
             enable_recognition = self._extract_enable_recognition(payload)
@@ -367,9 +367,9 @@ class CaseFolderScanService:
         if not binding:
             raise ValidationException(message=_("未绑定文件夹"), errors={"case_id": case_id})
 
-        folder = Path(binding.folder_path)
+        folder = Path(binding.resolved_folder_path)
         if not folder.exists() or not folder.is_dir():
-            raise ValidationException(message=_("绑定文件夹不可访问"), errors={"folder_path": binding.folder_path})
+            raise ValidationException(message=_("绑定文件夹不可访问"), errors={"folder_path": binding.resolved_folder_path})
 
         return binding
 

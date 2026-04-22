@@ -39,10 +39,14 @@ class FolderBindingResponseSchema(Schema):
     created_at: datetime
     updated_at: datetime
     is_accessible: bool  # 文件夹是否可访问
+    path_auto_repaired: bool = False  # 路径是否通过 inode 自动修复
 
     @staticmethod
     def from_binding(
-        obj: ContractFolderBinding, is_accessible: bool = True, display_path: str | None = None
+        obj: ContractFolderBinding,
+        is_accessible: bool = True,
+        display_path: str | None = None,
+        path_auto_repaired: bool = False,
     ) -> FolderBindingResponseSchema:
         """从 ContractFolderBinding 对象创建 Schema"""
         return FolderBindingResponseSchema(
@@ -53,6 +57,7 @@ class FolderBindingResponseSchema(Schema):
             created_at=obj.created_at,
             updated_at=obj.updated_at,
             is_accessible=is_accessible,
+            path_auto_repaired=path_auto_repaired,
         )
 
 

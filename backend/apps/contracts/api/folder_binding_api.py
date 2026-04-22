@@ -91,6 +91,7 @@ def create_folder_binding(request: HttpRequest, contract_id: int, data: FolderBi
         binding,
         is_accessible=is_accessible,
         display_path=display_path,
+        path_auto_repaired=False,
     )
 
 
@@ -114,13 +115,18 @@ def get_folder_binding(request: HttpRequest, contract_id: int) -> Any:
     if not binding:
         return None
 
+    # 通过 inode 自动修复路径（如果需要）
+    is_accessible, path_auto_repaired = service.check_and_repair_path(binding)
+
     # 格式化显示路径
     display_path = service.format_path_for_display(binding.folder_path)
 
-    # 检查文件夹是否可访问(只检查,不创建)
-    is_accessible = service.check_folder_accessible(binding.folder_path)
-
-    return FolderBindingResponseSchema.from_binding(binding, is_accessible=is_accessible, display_path=display_path)
+    return FolderBindingResponseSchema.from_binding(
+        binding,
+        is_accessible=is_accessible,
+        display_path=display_path,
+        path_auto_repaired=path_auto_repaired,
+    )
 
 
 @router.delete("/{contract_id}/folder-binding")

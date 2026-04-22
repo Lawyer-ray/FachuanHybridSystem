@@ -396,3 +396,37 @@ class CaseFolderBindingService(FolderBindingCrudService):
         if not hasattr(contract, "folder_binding") or not contract.folder_binding:
             return None
         return contract.folder_binding.folder_path
+
+    def check_and_repair_contract_path(self, binding: CaseFolderBinding) -> bool:
+        """检查并修复案件关联合同的文件夹路径.
+
+        通过 inode BFS 搜索修复合同路径后，
+        案件的 resolved_folder_path 会自动计算出新路径。
+
+        Args:
+            binding: 案件文件夹绑定对象
+
+        Returns:
+            合同路径是否被自动修复
+        """
+        contract_binding = self._get_contract_binding(binding)
+        if contract_binding is None:
+            return False
+
+        # 合同服务与案件服务共享同一个 BaseFolderBindingService，
+        # 可以直接调用 check_and_repair_path
+        _, auto_repaired = self.check_and_repair_path(contract_binding)
+        return auto_repaired
+
+    def _get_contract_binding(self, binding: CaseFolderBinding) -> Any | None:
+        """从案件绑定中获取关联合同的文件夹绑定"""
+        try:
+            case = binding.case
+            if not case.contract_id or not case.contract:
+                return None
+            contract = case.contract
+            if not hasattr(contract, "folder_binding") or not contract.folder_binding:
+                return None
+            return contract.folder_binding
+        except (AttributeError, TypeError, ValueError):
+            return None

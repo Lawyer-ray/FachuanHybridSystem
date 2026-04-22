@@ -317,13 +317,25 @@
 
 /* ========== 删除全部按钮 ========== */
 
-.btn-delete-all-materials {
-  color: #dc2626;
-  border-color: #fecaca;
+.btn-delete-all-materials-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  color: #9ca3af;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1;
+  flex-shrink: 0;
 }
 
-.btn-delete-all-materials:hover {
+.btn-delete-all-materials-icon:hover {
   background: #fef2f2;
-  border-color: #f87171;
-  color: #b91c1c;
+  border-color: #fecaca;
+  color: #dc2626;
 }

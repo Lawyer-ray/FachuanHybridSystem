@@ -2,6 +2,34 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.37.4] - 2026-04-22
+
+### 新增
+
+- **文件夹绑定自动追踪（inode 机制）**：
+  - 合同文件夹绑定时自动记录 `folder_inode` + `folder_device`，用于路径自动修复。
+  - 合同/案件 Admin 详情页访问时自动检测路径可达性，若不可达则通过 inode BFS 搜索新路径并自动修复。
+  - 案件详情页自动先修复合同路径，再计算案件 `resolved_folder_path`。
+  - BFS 搜索策略：优先从旧路径父目录开始逐步回退（最多 5 层），最终 fallback 到全局 browse roots（深度 6）。
+  - 案件文件夹绑定新增 `relative_path` 字段，存储相对合同文件夹的路径，合同路径修复后案件路径自动生效。
+  - 数据迁移：已有案件绑定自动计算 `relative_path`（使用 PurePosixPath 纯字符串操作，无需文件系统访问）。
+  - API 返回 `path_auto_repaired` 标记，告知前端路径是否被自动修复。
+
+- **合同状态新增"未签约"**：`ContractStatus` 新增 `unsigned` 选项，对应 CSS 样式 `.status-unsigned`。
+
+### 修复
+
+- **CaseFolderBinding 绑定报错**：`CaseFolderBinding` 无 `folder_inode`/`folder_device` 字段时跳过 inode 写入，避免 `Invalid field name` 错误。
+- **BFS 搜索深度不足**：从 `max_depth=3` 改为从旧路径父目录回退搜索 + 全局 fallback 深度 6，修复深层目录搜索失败。
+- **`_` 变量覆盖 gettext**：Admin 详情页中 `_, auto_repaired = ...` 解包覆盖了 Django `_()` 翻译函数，改为显式变量名。
+- **路径修复后 inode 更新**：跨分区 mv 后 inode 会变，修复后同步更新 `folder_inode`/`folder_device`。
+
+### 变更
+
+- **删除按钮样式**：案件材料"删除全部"按钮改为 SVG 图标样式，更紧凑。
+- **Alpine.js 清理**：移除 `courtFilingApp`、`courtGuaranteeApp`、`filingApp` 中冗余的 `x-init="init()"`。
+- **lxml 依赖**：升级到 >=6.1.0。
+
 ## [26.37.3] - 2026-04-22
 
 ### 新增

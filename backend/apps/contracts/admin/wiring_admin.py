@@ -61,6 +61,19 @@ def get_contract_batch_folder_binding_service() -> Any:
     )
 
 
+def get_contract_folder_binding_service() -> Any:
+    from apps.contracts.services import FolderBindingService
+    from apps.core.dependencies.documents import build_document_template_binding_service
+
+    if ServiceLocator._scope.get() is None:
+        return FolderBindingService(document_template_binding_service=build_document_template_binding_service())
+
+    return ServiceLocator.get_or_create(
+        "contracts.folder_binding_service",
+        lambda: FolderBindingService(document_template_binding_service=build_document_template_binding_service()),
+    )
+
+
 def get_contract_oa_sync_service() -> Any:
     from apps.contracts.services import ContractOASyncService
 
