@@ -86,6 +86,10 @@ class ArchiveChecklistService:
         )
         for code, mat_ids in contract_category_codes.items():
             code_to_materials.setdefault(code, []).extend(mat_ids)
+        # 同步填充子项详情
+        self._fill_material_details_from_ids(
+            code_to_material_details, contract_category_codes, materials
+        )
 
         # 特殊处理：从关联合同案件中提取授权委托材料
         case_material_codes = self._map_case_authorization_materials(
@@ -93,6 +97,10 @@ class ArchiveChecklistService:
         )
         for code, mat_ids in case_material_codes.items():
             code_to_materials.setdefault(code, []).extend(mat_ids)
+        # 同步填充子项详情
+        self._fill_material_details_from_ids(
+            code_to_material_details, case_material_codes, materials
+        )
 
         # 应用子项默认排序规则（仅对未手动排序的材料生效）
         self._apply_subitem_order(code_to_material_details)
@@ -657,6 +665,36 @@ class ArchiveChecklistService:
         """获取指定归档分类中支持自动检测的清单项"""
         checklist_items = ARCHIVE_CHECKLIST.get(archive_category, [])
         return [item for item in checklist_items if item["auto_detect"] is not None]
+
+    @staticmethod
+    def _fill_material_details_from_ids(
+        code_to_material_details: dict[str, list[dict[str, Any]]],
+        code_to_mat_ids: dict[str, list[int]],
+        materials: list[FinalizedMaterial],
+    ) -> None:
+        """根据 material ID 列表，将材料详情填充到 code_to_material_details。
+
+        用于补充那些没有 archive_item_code 但通过 _map_contract_materials
+        等方法映射到清单项的材料（如合同正本、补充协议、发票等）。
+        """
+        mat_id_to_obj: dict[int, FinalizedMaterial] = {m.id: m for m in materials}
+        for code, mat_ids in code_to_mat_ids.items():
+            for mid in mat_ids:
+                m = mat_id_to_obj.get(mid)
+                if not m:
+                    continue
+                # 避免重复添加（该材料可能已有 archive_item_code 并已在详情中）
+                existing_ids = {d["id"] for d in code_to_material_details.get(code, [])}
+                if mid in existing_ids:
+                    continue
+                code_to_material_details.setdefault(code, []).append({
+                    "id": m.id,
+                    "original_filename": m.original_filename,
+                    "category": m.category,
+                    "source_label": ArchiveChecklistService._get_source_label(m.category),
+                    "order": m.order,
+                    "file_path": m.file_path,
+                })
 
     @staticmethod
     def _apply_subitem_order(code_to_material_details: dict[str, list[dict[str, Any]]]) -> None:
