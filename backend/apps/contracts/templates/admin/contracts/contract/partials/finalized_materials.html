@@ -127,7 +127,7 @@
                             <span class="ac-badge ac-badge-optional" title="{% trans '可选' %}">-</span>
                         {% endif %}
                     </span>
-                    <span class="ac-expand-icon" :class="{ 'is-expanded': expandedCode === '{{ item.code }}' }"
+                    <span class="ac-expand-icon" :class="{ 'is-expanded': isExpanded('{{ item.code }}') }"
                           x-show="getMaterials('{{ item.code }}').length > 0">
                         <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                             <polyline points="3 4.5 6 7.5 9 4.5"/>
@@ -136,7 +136,7 @@
                 </div>
 
                 {# ===== 子项列表（可展开） ===== #}
-                <div class="ac-subitems" x-show="expandedCode === '{{ item.code }}' && getMaterials('{{ item.code }}').length > 0"
+                <div class="ac-subitems" x-show="isExpanded('{{ item.code }}') && getMaterials('{{ item.code }}').length > 0"
                      x-transition:enter="ac-subitems-enter" x-transition:enter-start="ac-subitems-enter-start"
                      x-transition:leave="ac-subitems-leave">
                     <div class="ac-subitems-list"
@@ -154,7 +154,7 @@
                             <span class="ac-subitem-label ac-subitem-label--{{ mat.category }}">{{ mat.source_label }}</span>
                             <span class="ac-subitem-actions">
                                 <button type="button" class="ac-btn-sub-preview" title="{% trans '预览' %}"
-                                        onclick="previewArchiveMaterial({{ contract.pk }}, {{ mat.id }})">👁</button>
+                                        onclick="previewArchiveMaterial({{ contract.pk }}, {{ mat.id }})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
                                 <button type="button" class="ac-btn-sub-move" title="{% trans '移动到…' %}"
                                         @click="showMoveMenu($event, {{ mat.id }}, '{{ item.code }}')">↗</button>
                             </span>
@@ -548,11 +548,14 @@
     background: none;
     cursor: pointer;
     padding: 2px;
-    font-size: 13px;
     border-radius: 3px;
     transition: background 0.12s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #6b7280;
 }
-.ac-btn-sub-preview:hover { background: #dbeafe; }
+.ac-btn-sub-preview:hover { background: #dbeafe; color: #2563eb; }
 
 .ac-btn-sub-move {
     border: none;
@@ -653,7 +656,7 @@
 function archiveChecklistApp(initialCompact, checklistItems) {
     return {
         compactMode: initialCompact || false,
-        expandedCode: null,
+        expandedCodes: new Set(checklistItems.filter(function(i) { return i.materials && i.materials.length > 0; }).map(function(i) { return i.code; })),
         moveMenuVisible: false,
         moveMenuX: 0,
         moveMenuY: 0,
@@ -669,7 +672,15 @@ function archiveChecklistApp(initialCompact, checklistItems) {
         },
 
         toggleExpand(code) {
-            this.expandedCode = this.expandedCode === code ? null : code;
+            if (this.expandedCodes.has(code)) {
+                this.expandedCodes.delete(code);
+            } else {
+                this.expandedCodes.add(code);
+            }
+        },
+
+        isExpanded(code) {
+            return this.expandedCodes.has(code);
         },
 
         showMoveMenu(event, materialId, sourceCode) {
