@@ -15,6 +15,7 @@ from .case_schemas import (
 from .folder_binding_schemas import (
     CaseFolderBindingCreateSchema,
     CaseFolderBindingResponseSchema,
+    ContractFolderPathSchema,
     FolderBrowseEntrySchema,
     FolderBrowseResponseSchema,
 )
@@ -85,6 +86,7 @@ __all__ = [
     "CaseFolderBindingCreateSchema",
     "CaseFolderBindingResponseSchema",
     "CaseFolderScanCandidateOut",
+    "ContractFolderPathSchema",
     "CaseFolderScanPrefillOut",
     "CaseFolderScanStartIn",
     "CaseFolderScanStartOut",

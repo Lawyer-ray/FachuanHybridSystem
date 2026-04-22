@@ -6,6 +6,7 @@
 document.addEventListener('alpine:init', () => {
     Alpine.data('caseFolderBrowser', (contractId) => ({
         contractId: contractId,
+        contractFolderPath: '',
         showBrowser: false,
         loading: false,
         loadingColumn: null, // 局部加载状态
@@ -16,6 +17,7 @@ document.addEventListener('alpine:init', () => {
 
         init() {
             this.loadBinding();
+            this.loadContractFolderPath();
         },
 
         async loadBinding() {
@@ -45,12 +47,48 @@ document.addEventListener('alpine:init', () => {
             }
         },
 
+        async loadContractFolderPath() {
+            if (!this.contractId) return;
+
+            try {
+                const response = await fetch(`/api/v1/cases/${this.contractId}/contract-folder-path`, {
+                    headers: {
+                        'X-CSRFToken': this.getCsrfToken()
+                    },
+                    credentials: 'same-origin'
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data && data.folder_path) {
+                        this.contractFolderPath = data.folder_path;
+                    }
+                }
+            } catch (error) {
+                // 静默失败，不影响主流程
+            }
+        },
+
         async openBrowser() {
             this.showBrowser = true;
             this.error = null;
             this.columns = [];
-            this.manualPath = this.binding?.folder_path || '';
-            await this.loadRoots();
+
+            // 确定初始路径优先级：案件已绑定 > 合同已绑定 > 根目录
+            let initialPath = '';
+            if (this.binding?.folder_path) {
+                initialPath = this.binding.folder_path;
+            } else if (this.contractFolderPath) {
+                initialPath = this.contractFolderPath;
+            }
+            this.manualPath = initialPath;
+
+            if (initialPath) {
+                // 有初始路径时，直接加载该路径的内容
+                await this.loadPathAsRoot(initialPath);
+            } else {
+                await this.loadRoots();
+            }
         },
 
         closeBrowser() {
@@ -91,6 +129,76 @@ document.addEventListener('alpine:init', () => {
             } catch (error) {
                 console.error('加载根目录失败:', error);
                 this.error = '加载根目录失败';
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async loadPathAsRoot(path) {
+            this.loading = true;
+            this.error = null;
+
+            try {
+                const response = await fetch(`/api/v1/cases/folder-browse?path=${encodeURIComponent(path)}`, {
+                    headers: {
+                        'X-CSRFToken': this.getCsrfToken()
+                    },
+                    credentials: 'same-origin'
+                });
+
+                if (!response.ok) {
+                    throw new Error('加载文件夹失败');
+                }
+
+                const data = await response.json();
+
+                if (!data.browsable) {
+                    // 路径不可访问时，降级到根目录
+                    await this.loadRoots();
+                    return;
+                }
+
+                // 将该路径作为第一列展示
+                this.columns = [{
+                    path: data.path || path,
+                    entries: data.entries || [],
+                    selectedIndex: -1
+                }];
+
+                // 如果有父路径，在最前面添加父目录列以便回退
+                if (data.parent_path) {
+                    const parentResponse = await fetch(`/api/v1/cases/folder-browse?path=${encodeURIComponent(data.parent_path)}`, {
+                        headers: {
+                            'X-CSRFToken': this.getCsrfToken()
+                        },
+                        credentials: 'same-origin'
+                    });
+
+                    if (parentResponse.ok) {
+                        const parentData = await parentResponse.json();
+                        if (parentData.browsable && parentData.entries) {
+                            // 在父目录列中高亮当前路径对应的条目
+                            const targetName = path.split('/').pop() || path.split('\\').pop() || '';
+                            let selectedIdx = -1;
+                            const entries = parentData.entries.map((entry, idx) => {
+                                if (entry.name === targetName || entry.path === path) {
+                                    selectedIdx = idx;
+                                }
+                                return entry;
+                            });
+
+                            this.columns.unshift({
+                                path: parentData.path || data.parent_path,
+                                entries: entries,
+                                selectedIndex: selectedIdx
+                            });
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('加载文件夹失败:', error);
+                // 降级到根目录
+                await this.loadRoots();
             } finally {
                 this.loading = false;
             }
