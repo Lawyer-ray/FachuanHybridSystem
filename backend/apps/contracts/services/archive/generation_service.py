@@ -83,11 +83,20 @@ class ArchiveGenerationService:
         context_builder = PipelineContextBuilder()
         context = context_builder.build_archive_context(contract, case)
 
+        # 检查是否存在用户覆盖值
+        from apps.contracts.models.archive_override import ArchivePlaceholderOverride
+
+        override_obj = ArchivePlaceholderOverride.objects.filter(
+            contract=contract,
+            template_subtype=template_subtype,
+        ).first()
+        has_overrides = bool(override_obj and override_obj.overrides)
+
         # 合并用户覆盖值
         self._apply_overrides(context, contract, template_subtype)
 
         rows = DocxPreviewService().preview(str(template_path), context)
-        return {"success": True, "data": rows}
+        return {"success": True, "data": rows, "has_overrides": has_overrides}
 
     def get_template_path(self, template_subtype: str, contract: Contract | None = None) -> Path | None:
         """

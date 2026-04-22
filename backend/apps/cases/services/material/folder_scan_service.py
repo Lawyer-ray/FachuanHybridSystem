@@ -369,9 +369,58 @@ class CaseFolderScanService:
 
         folder = Path(binding.resolved_folder_path)
         if not folder.exists() or not folder.is_dir():
-            raise ValidationException(message=_("绑定文件夹不可访问"), errors={"folder_path": binding.resolved_folder_path})
+            # 文件夹不可访问，尝试自动修复合同路径后再检查
+            CaseFolderScanService._try_repair_binding_path(binding)
+            # 修复后重新检查
+            folder = Path(binding.resolved_folder_path)
+            if not folder.exists() or not folder.is_dir():
+                raise ValidationException(
+                    message=_("绑定文件夹不可访问"), errors={"folder_path": binding.resolved_folder_path}
+                )
 
         return binding
+
+    @staticmethod
+    def _try_repair_binding_path(binding: CaseFolderBinding) -> None:
+        """当文件夹不可访问时，尝试自动修复合同路径以恢复可达性。
+
+        案件的 resolved_folder_path 依赖合同路径 + relative_path，
+        如果合同路径因改名/移动而失效，通过 inode 搜索可以自动恢复。
+        """
+        if not binding.relative_path:
+            return
+
+        try:
+            case = binding.case
+        except (AttributeError, TypeError):
+            return
+
+        if not case.contract_id:
+            return
+
+        try:
+            contract = case.contract
+        except (AttributeError, TypeError):
+            return
+
+        contract_binding = getattr(contract, "folder_binding", None)
+        if not contract_binding:
+            return
+
+        from apps.core.dependencies import build_contract_folder_binding_service
+
+        contract_binding_service = build_contract_folder_binding_service()
+        is_accessible, auto_repaired = contract_binding_service.check_and_repair_path(contract_binding)
+        logger.info(
+            "case_folder_scan_auto_repair",
+            extra={
+                "case_id": binding.case_id,
+                "binding_id": binding.id,
+                "resolved_folder_path": binding.resolved_folder_path,
+                "is_accessible": is_accessible,
+                "auto_repaired": auto_repaired,
+            },
+        )
 
     def _extract_scan_subfolder(self, payload: dict[str, Any] | None) -> str:
         scope = (payload or {}).get("scan_scope") or {}
