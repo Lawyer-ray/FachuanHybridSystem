@@ -1,10 +1,20 @@
 {% load i18n %}
-<div class="info-grid">
+<div class="info-grid" x-data="emailFolderImportApp()">
     <!-- 案件日志卡片 -->
     <div class="info-card full-width">
         <div class="card-header">
             <span class="card-icon">📝</span>
             <h3 class="card-title">{% trans "案件日志" %}</h3>
+            <div class="card-header-actions">
+                <button type="button" class="email-import-btn"
+                        :disabled="importLoading"
+                        @click="openImportDialog"
+                        title="{% trans '从邮件往来文件夹同步日志' %}">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    <span x-show="!importLoading">{% trans "从邮件往来同步" %}</span>
+                    <span x-show="importLoading">{% trans "导入中..." %}</span>
+                </button>
+            </div>
         </div>
         <div class="card-content">
             {% if case.logs.exists %}
@@ -50,6 +60,59 @@
         </div>
     </div>
 
+    <!-- 邮件导入弹窗 -->
+    <div class="email-import-modal" x-show="showDialog" x-transition
+         @keydown.escape.window="showDialog = false"
+         style="display:none;">
+        <div class="email-import-modal-backdrop" @click="showDialog = false"></div>
+        <div class="email-import-modal-content">
+            <h3>{% trans "从邮件往来同步" %}</h3>
+            <!-- 无绑定 -->
+            <template x-if="!hasFolderBinding">
+                <p class="email-import-empty">{% trans "案件未绑定文件夹，请先绑定案件文件夹。" %}</p>
+            </template>
+            <!-- 有绑定但无邮件子目录 -->
+            <template x-if="hasFolderBinding && subfolders.length === 0 && !loadingSubfolders">
+                <p class="email-import-empty">{% trans "未找到含"邮件"关键词的子文件夹。" %}</p>
+            </template>
+            <!-- 加载中 -->
+            <template x-if="loadingSubfolders">
+                <p class="email-import-empty">{% trans "加载中..." %}</p>
+            </template>
+            <!-- 选择子目录 -->
+            <template x-if="subfolders.length > 0">
+                <div>
+                    <p class="email-import-hint">{% trans "选择要导入的邮件往来子文件夹：" %}</p>
+                    <div class="email-import-subfolder-list">
+                        <template x-for="sf in subfolders" :key="sf.relative_path">
+                            <label class="email-import-subfolder-item">
+                                <input type="radio" name="email_subfolder" :value="sf.relative_path"
+                                       x-model="selectedSubfolder">
+                                <span x-text="sf.display_name"></span>
+                            </label>
+                        </template>
+                    </div>
+                    <div class="email-import-modal-actions">
+                        <button type="button" class="button" @click="showDialog = false">{% trans "取消" %}</button>
+                        <button type="button" class="button default"
+                                :disabled="!selectedSubfolder || importLoading"
+                                @click="doImport">
+                            <span x-show="!importLoading">{% trans "导入" %}</span>
+                            <span x-show="importLoading">{% trans "导入中..." %}</span>
+                        </button>
+                    </div>
+                </div>
+            </template>
+            <!-- 导入结果 -->
+            <template x-if="importResult">
+                <div class="email-import-result">
+                    <p x-text="importResult"></p>
+                    <button type="button" class="button default" @click="closeAndRefresh">{% trans "确定" %}</button>
+                </div>
+            </template>
+        </div>
+    </div>
+
     <!-- 案件群聊卡片 -->
     <div class="info-card full-width">
         <div class="card-header">
@@ -75,3 +138,130 @@
         </div>
     </div>
 </div>
+
+<style>
+/* 卡片头部操作按钮区域 */
+.card-header-actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+/* 同步按钮 */
+.email-import-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 12px;
+    border-radius: 6px;
+    border: 1px solid #93c5fd;
+    background: #eff6ff;
+    color: #2563eb;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    white-space: nowrap;
+}
+.email-import-btn:hover { background: #dbeafe; border-color: #60a5fa; }
+.email-import-btn:disabled { opacity: 0.5; cursor: not-allowed; background: #f3f4f6; border-color: #d1d5db; color: #9ca3af; }
+/* 弹窗 */
+.email-import-modal { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; }
+.email-import-modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.4); }
+.email-import-modal-content {
+    position: relative; background: #fff; border-radius: 12px; padding: 24px;
+    min-width: 360px; max-width: 480px; box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+}
+.email-import-modal-content h3 { margin: 0 0 16px; font-size: 16px; }
+.email-import-empty { color: #6b7280; font-size: 14px; margin: 8px 0; }
+.email-import-hint { font-size: 13px; color: #374151; margin: 0 0 10px; }
+.email-import-subfolder-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+.email-import-subfolder-item {
+    display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+    border-radius: 6px; border: 1px solid #e5e7eb; cursor: pointer;
+    font-size: 13px; transition: background 0.1s, border-color 0.1s;
+}
+.email-import-subfolder-item:hover { background: #f9fafb; border-color: #d1d5db; }
+.email-import-subfolder-item input[type="radio"] { accent-color: #2563eb; }
+.email-import-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.email-import-result { text-align: center; }
+.email-import-result p { margin: 8px 0 16px; font-size: 14px; color: #374151; }
+</style>
+
+<script>
+function emailFolderImportApp() {
+    return {
+        showDialog: false,
+        loadingSubfolders: false,
+        importLoading: false,
+        hasFolderBinding: true,
+        subfolders: [],
+        selectedSubfolder: '',
+        importResult: null,
+
+        async openImportDialog() {
+            this.showDialog = true;
+            this.importResult = null;
+            this.selectedSubfolder = '';
+            this.loadingSubfolders = true;
+            try {
+                var caseId = window.CASE_ID;
+                var resp = await fetch('/admin/cases/case/' + caseId + '/email-folder-import/', {
+                    headers: { 'X-CSRFToken': (window.FachuanCSRF && FachuanCSRF.getToken && FachuanCSRF.getToken()) || '' }
+                });
+                var data = await resp.json();
+                if (data.success) {
+                    this.subfolders = data.subfolders || [];
+                    this.hasFolderBinding = true;
+                } else {
+                    this.hasFolderBinding = false;
+                    this.subfolders = [];
+                }
+            } catch (err) {
+                this.hasFolderBinding = false;
+                this.subfolders = [];
+            } finally {
+                this.loadingSubfolders = false;
+            }
+        },
+
+        async doImport() {
+            if (!this.selectedSubfolder || this.importLoading) return;
+            this.importLoading = true;
+            try {
+                var caseId = window.CASE_ID;
+                var resp = await fetch('/admin/cases/case/' + caseId + '/email-folder-import/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': (window.FachuanCSRF && FachuanCSRF.getToken && FachuanCSRF.getToken()) || ''
+                    },
+                    body: JSON.stringify({ subfolder: this.selectedSubfolder })
+                });
+                var data = await resp.json();
+                if (data.success) {
+                    this.importResult = data.message || '{% trans "导入完成" %}';
+                } else {
+                    this.importResult = data.error || '{% trans "导入失败" %}';
+                }
+            } catch (err) {
+                this.importResult = '{% trans "请求失败" %}: ' + (err.message || '');
+            } finally {
+                this.importLoading = false;
+            }
+        },
+
+        closeAndRefresh() {
+            this.showDialog = false;
+            this.importResult = null;
+            // 刷新页面以显示新导入的日志
+            window.location.reload();
+        }
+    };
+}
+</script>

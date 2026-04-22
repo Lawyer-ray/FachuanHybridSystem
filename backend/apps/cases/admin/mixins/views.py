@@ -138,6 +138,11 @@ class CaseAdminViewsMixin:
                 self.admin_site.admin_view(self.open_folder_view),
                 name="cases_case_open_folder",
             ),
+            path(
+                "<int:object_id>/email-folder-import/",
+                self.admin_site.admin_view(self.email_folder_import_view),
+                name="cases_case_email_folder_import",
+            ),
         ]
         return custom_urls + urls
 
@@ -426,7 +431,18 @@ class CaseAdminViewsMixin:
 
         try:
             # 支持临时文件路径（未保存的情况）
-            temp_file_path = request.POST.get("temp_file_path")
+            # 前端以 application/json 发送，需从 request.body 解析
+            import json
+
+            temp_file_path = None
+            if request.body:
+                try:
+                    body = json.loads(request.body)
+                    temp_file_path = body.get("temp_file_path")
+                except (json.JSONDecodeError, ValueError):
+                    pass
+            if not temp_file_path:
+                temp_file_path = request.POST.get("temp_file_path")
 
             if temp_file_path:
                 # 临时文件模式（未保存到数据库）
@@ -669,6 +685,75 @@ class CaseAdminViewsMixin:
             return JsonResponse({"success": True, "folder_path": folder_path})
         except Exception as e:
             logger.exception("打开案件文件夹失败: case_id=%s", object_id)
+            return JsonResponse({"success": False, "error": str(e)}, status=500)
+
+    def email_folder_import_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
+        """从案件绑定文件夹的'邮件往来'子目录批量导入案件日志"""
+        import json as json_mod
+
+        from django.http import JsonResponse
+
+        if not self.has_view_permission(request):  # type: ignore[attr-defined]
+            return JsonResponse({"success": False, "error": str(_("无权限"))}, status=403)
+
+        try:
+            from apps.cases.models.material import CaseFolderBinding
+
+            binding = CaseFolderBinding.objects.filter(case_id=object_id).first()
+            if not binding or not binding.folder_path:
+                return JsonResponse({"success": False, "error": str(_("未绑定文件夹"))}, status=404)
+
+            if request.method == "GET":
+                # 列出可用的子文件夹（含"邮件往来"关键词的）
+                from pathlib import Path
+
+                root = Path(binding.folder_path).expanduser().resolve()
+                if not root.exists():
+                    return JsonResponse({"success": False, "error": str(_("文件夹不存在"))}, status=404)
+
+                email_subfolders = []
+                for child in sorted(root.iterdir(), key=lambda item: item.name.lower()):
+                    if not child.is_dir() or child.name.startswith("."):
+                        continue
+                    if "邮件" in child.name or "mail" in child.name.lower() or "email" in child.name.lower():
+                        email_subfolders.append({
+                            "relative_path": child.name,
+                            "display_name": child.name,
+                        })
+
+                return JsonResponse({"success": True, "subfolders": email_subfolders})
+
+            if request.method == "POST":
+                # 执行导入
+                body = json_mod.loads(request.body) if request.body else {}
+                subfolder = body.get("subfolder", "")
+                if not subfolder:
+                    return JsonResponse({"success": False, "error": str(_("请指定子文件夹"))}, status=400)
+
+                from apps.cases.services.log.email_folder_scan_service import EmailFolderScanService
+
+                service = EmailFolderScanService()
+                result = service.import_email_folder(
+                    case_id=object_id,
+                    subfolder=subfolder,
+                    user=getattr(request, "user", None),
+                    org_access=getattr(request, "org_access", None),
+                    perm_open_access=getattr(request, "perm_open_access", False),
+                )
+
+                log_count = len(result["logs"])
+                skipped = result["skipped_count"]
+                msg = str(_("导入完成：新增 %(count)s 条日志，跳过 %(skipped)s 条（已存在）")) % {
+                    "count": log_count,
+                    "skipped": skipped,
+                }
+                logger.info("案件 %s 邮件导入完成: 新增=%s, 跳过=%s", object_id, log_count, skipped)
+                return JsonResponse({"success": True, "message": msg, "imported_count": log_count, "skipped_count": skipped})
+
+            return JsonResponse({"success": False, "error": "Method not allowed"}, status=405)
+
+        except Exception as e:
+            logger.exception("邮件文件夹导入失败: case_id=%s", object_id)
             return JsonResponse({"success": False, "error": str(e)}, status=500)
 
     def _coerce_optional_date(self, raw: object) -> date | None:
