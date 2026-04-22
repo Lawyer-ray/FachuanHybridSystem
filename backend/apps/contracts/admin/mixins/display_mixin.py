@@ -18,6 +18,7 @@ from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import BusinessException, NotFoundError
+from apps.contracts.models.finalized_material import FinalizedMaterial
 
 if TYPE_CHECKING:
     from django.contrib.admin import ModelAdmin
@@ -228,6 +229,21 @@ class ContractDisplayMixin:
                 "<int:object_id>/scale-to-a4/",
                 self.admin_site.admin_view(self.scale_to_a4_view),
                 name="contracts_contract_scale_to_a4",
+            ),
+            path(
+                "<int:object_id>/reorder-archive-materials/",
+                self.admin_site.admin_view(self.reorder_archive_materials_view),
+                name="contracts_contract_reorder_archive_materials",
+            ),
+            path(
+                "<int:object_id>/move-archive-material/",
+                self.admin_site.admin_view(self.move_archive_material_view),
+                name="contracts_contract_move_archive_material",
+            ),
+            path(
+                "<int:object_id>/preview-archive-material/<int:material_id>/",
+                self.admin_site.admin_view(self.preview_archive_material_view),
+                name="contracts_contract_preview_archive_material",
             ),
         ]
         return custom_urls + urls
@@ -648,4 +664,129 @@ class ContractDisplayMixin:
             return JsonResponse(result)
         except Exception as e:
             logger.exception("A4裁切失败: contract_id=%s", object_id)
+            return JsonResponse({"success": False, "error": str(e)}, status=500)
+
+    def reorder_archive_materials_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
+        """按归档清单项分组排序子项的 Admin view
+
+        请求体格式：{"orders": {"lt_4": [3, 1, 2], "lt_7": [5, 4]}}
+        key 为 archive_item_code，value 为 material_id 列表（按新顺序）。
+        """
+        import json
+
+        from django.http import JsonResponse
+
+        if request.method != "POST":
+            return JsonResponse({"success": False, "error": "Method not allowed"}, status=405)
+
+        if not self.has_change_permission(request):
+            return JsonResponse({"success": False, "error": str(_("无权限"))}, status=403)
+
+        try:
+            data = json.loads(request.body)
+            orders: dict[str, list[int]] = data.get("orders", {})
+
+            for code, material_ids in orders.items():
+                for i, pk in enumerate(material_ids):
+                    FinalizedMaterial.objects.filter(
+                        pk=pk, contract_id=object_id, archive_item_code=code,
+                    ).update(order=i)
+
+            logger.info("归档材料排序已保存: contract_id=%s", object_id)
+            return JsonResponse({"success": True})
+        except Exception as e:
+            logger.exception("归档材料排序失败: contract_id=%s", object_id)
+            return JsonResponse({"success": False, "error": str(e)}, status=500)
+
+    def move_archive_material_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
+        """移动归档材料到另一个清单项的 Admin view
+
+        请求体格式：{"material_id": 3, "target_code": "lt_7"}
+        """
+        import json
+
+        from django.http import JsonResponse
+
+        if request.method != "POST":
+            return JsonResponse({"success": False, "error": "Method not allowed"}, status=405)
+
+        if not self.has_change_permission(request):
+            return JsonResponse({"success": False, "error": str(_("无权限"))}, status=403)
+
+        try:
+            data = json.loads(request.body)
+            material_id: int = data.get("material_id")
+            target_code: str = data.get("target_code")
+
+            if not material_id or not target_code:
+                return JsonResponse({"success": False, "error": "参数不完整"}, status=400)
+
+            material = FinalizedMaterial.objects.filter(
+                pk=material_id, contract_id=object_id,
+            ).first()
+
+            if not material:
+                return JsonResponse({"success": False, "error": "材料不存在"}, status=404)
+
+            old_code = material.archive_item_code
+            material.archive_item_code = target_code
+            # 放到目标清单项末尾
+            max_order = FinalizedMaterial.objects.filter(
+                contract_id=object_id, archive_item_code=target_code,
+            ).order_by("-order").values_list("order", flat=True).first() or 0
+            material.order = (max_order or 0) + 1
+            material.save(update_fields=["archive_item_code", "order"])
+
+            logger.info(
+                "归档材料已移动: material_id=%s, %s → %s, contract_id=%s",
+                material_id, old_code, target_code, object_id,
+            )
+            return JsonResponse({"success": True})
+        except Exception as e:
+            logger.exception("移动归档材料失败: contract_id=%s", object_id)
+            return JsonResponse({"success": False, "error": str(e)}, status=500)
+
+    def preview_archive_material_view(self, request: HttpRequest, object_id: int, material_id: int) -> HttpResponse:
+        """预览单个归档材料的 Admin view"""
+        from django.http import HttpResponse as DjangoHttpResponse, JsonResponse
+
+        if not self.has_view_permission(request):
+            raise PermissionDenied
+
+        try:
+            material = FinalizedMaterial.objects.filter(
+                pk=material_id, contract_id=object_id,
+            ).first()
+
+            if not material:
+                return JsonResponse({"success": False, "error": "材料不存在"}, status=404)
+
+            from pathlib import Path
+
+            from django.conf import settings as django_settings
+
+            file_path = Path(material.file_path)
+            if not file_path.is_absolute():
+                file_path = Path(django_settings.MEDIA_ROOT) / file_path
+
+            if not file_path.exists():
+                return JsonResponse({"success": False, "error": "文件不存在"}, status=404)
+
+            content = file_path.read_bytes()
+            suffix = file_path.suffix.lower()
+            if suffix == ".pdf":
+                content_type = "application/pdf"
+            elif suffix == ".docx":
+                content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            else:
+                content_type = "application/octet-stream"
+
+            import urllib.parse
+
+            response = DjangoHttpResponse(content, content_type=content_type)
+            encoded_filename = urllib.parse.quote(material.original_filename.encode("utf-8"))
+            response["Content-Disposition"] = f"inline; filename*=UTF-8''{encoded_filename}"
+            return response
+        except Exception as e:
+            logger.exception("预览归档材料失败: material_id=%s", material_id)
             return JsonResponse({"success": False, "error": str(e)}, status=500)

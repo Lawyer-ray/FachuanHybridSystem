@@ -54,11 +54,11 @@ class ArchiveChecklistService:
         archive_category = get_archive_category(contract.case_type)
         checklist_items = ARCHIVE_CHECKLIST.get(archive_category, [])
 
-        # 一次性加载合同的所有归档材料
+        # 一次性加载合同的所有归档材料（含详情）
         materials = list(
             FinalizedMaterial.objects.filter(contract=contract).only(
-                "id", "archive_item_code", "category"
-            )
+                "id", "archive_item_code", "category", "original_filename", "order", "file_path",
+            ).order_by("order", "-uploaded_at")
         )
 
         # 构建 archive_item_code → [material_id] 映射
@@ -66,6 +66,19 @@ class ArchiveChecklistService:
         for m in materials:
             if m.archive_item_code:
                 code_to_materials.setdefault(m.archive_item_code, []).append(m.id)
+
+        # 构建 archive_item_code → [{material detail}] 映射（供前端展示子项）
+        code_to_material_details: dict[str, list[dict[str, Any]]] = {}
+        for m in materials:
+            if m.archive_item_code:
+                code_to_material_details.setdefault(m.archive_item_code, []).append({
+                    "id": m.id,
+                    "original_filename": m.original_filename,
+                    "category": m.category,
+                    "source_label": self._get_source_label(m.category),
+                    "order": m.order,
+                    "file_path": m.file_path,
+                })
 
         # 特殊处理：合同正本/补充协议/发票归类到对应检查项
         contract_category_codes = self._map_contract_materials(
@@ -92,6 +105,7 @@ class ArchiveChecklistService:
                 **item,
                 "completed": len(mat_ids) > 0,
                 "material_ids": mat_ids,
+                "materials": code_to_material_details.get(item["code"], []),
                 "has_case_material": item["source"] == "case" and item["code"] in case_material_match_codes,
             })
 
@@ -640,3 +654,19 @@ class ArchiveChecklistService:
         """获取指定归档分类中支持自动检测的清单项"""
         checklist_items = ARCHIVE_CHECKLIST.get(archive_category, [])
         return [item for item in checklist_items if item["auto_detect"] is not None]
+
+    @staticmethod
+    def _get_source_label(category: str) -> str:
+        """根据材料分类返回来源标签"""
+        from apps.contracts.models.finalized_material import MaterialCategory
+
+        label_map = {
+            MaterialCategory.CONTRACT_ORIGINAL: "合同正本",
+            MaterialCategory.SUPPLEMENTARY_AGREEMENT: "补充协议",
+            MaterialCategory.INVOICE: "发票",
+            MaterialCategory.ARCHIVE_DOCUMENT: "自动生成",
+            MaterialCategory.SUPERVISION_CARD: "监督卡",
+            MaterialCategory.AUTHORIZATION_MATERIAL: "授权委托",
+            MaterialCategory.CASE_MATERIAL: "案件同步",
+        }
+        return label_map.get(category, "手动上传")
