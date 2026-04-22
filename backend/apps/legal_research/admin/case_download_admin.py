@@ -194,14 +194,14 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin[CaseDownloadTask]):
         case_numbers_field.help_text = (
             "支持多种分隔格式：换行、逗号(,)、中文逗号(，)、分号(;)。"
             "例如：<br/>"
-            "(2024)粤0605民初3356号<br/>"
-            "(2024)粤0605民初3356号, (2024)粤0305民初1234号<br/>"
-            "(2024)粤0605民初3356号； (2024)粤0305民初1234号"
+            "(2024)粤0101民初1001号<br/>"
+            "(2024)粤0101民初1001号, (2024)京0105民初2002号<br/>"
+            "(2024)粤0101民初1001号； (2024)京0105民初2002号"
         )
         if hasattr(case_numbers_field.widget, "attrs"):
             case_numbers_field.widget.attrs["rows"] = "6"
             case_numbers_field.widget.attrs["placeholder"] = (
-                "输入案号，支持多种分隔格式：\n(2024)粤0605民初3356号\n(2024)粤0605民初3356号, (2024)粤0305民初1234号"
+                "输入案号，支持多种分隔格式：\n(2024)粤0101民初1001号\n(2024)粤0101民初1001号, (2024)京0105民初2002号"
             )
 
     @staticmethod
