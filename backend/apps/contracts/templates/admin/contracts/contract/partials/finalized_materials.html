@@ -144,7 +144,8 @@
                 </div>
 
                 {# ===== 子项列表（可展开） ===== #}
-                <div class="ac-subitems" :class="{ 'ac-collapsed': !isExpanded('{{ item.code }}') || getMaterials('{{ item.code }}').length === 0 }">
+                {% if item.materials %}
+                <div class="ac-subitems" :class="{ 'ac-collapsed': !isExpanded('{{ item.code }}') }">
                     <div class="ac-subitems-list"
                          data-archive-code="{{ item.code }}"
                          @dragover.prevent="onDragOver($event, '{{ item.code }}')"
@@ -168,6 +169,7 @@
                         {% endfor %}
                     </div>
                 </div>
+                {% endif %}
             </div>
             {% endfor %}
         </div>
@@ -194,6 +196,8 @@
 
 <style>
 {# ===== 归档检查清单样式 ===== #}
+html { scrollbar-gutter: stable; }
+
 .archive-checklist {
     background: #fff;
     border: 1px solid #e5e7eb;
@@ -451,23 +455,20 @@
 
 {# ===== 子项样式 ===== #}
 .ac-subitems {
-    border-top: 1px solid #e5e7eb;
     background: #fff;
-    overflow: hidden;
     display: grid;
     grid-template-rows: 1fr;
     transition: grid-template-rows 0.25s ease;
+}
+.ac-subitems:not(.ac-collapsed) {
+    border-top: 1px solid #e5e7eb;
 }
 .ac-subitems.ac-collapsed {
     grid-template-rows: 0fr;
 }
 .ac-subitems > .ac-subitems-list {
     overflow: hidden;
-}
-
-.ac-subitems-list {
-    padding: 4px 0;
-    min-height: 32px;
+    min-height: 0;
 }
 
 .ac-subitem {
@@ -479,6 +480,9 @@
     color: #374151;
     transition: background 0.12s;
     cursor: grab;
+}
+.ac-subitem:first-child { padding-top: 8px; }
+.ac-subitem:last-child { padding-bottom: 8px; }
 }
 .ac-subitem:hover { background: #f0f4ff; }
 .ac-subitem:active { cursor: grabbing; }

@@ -2,6 +2,24 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.37.6] - 2026-04-22
+
+### 新增
+
+- **归档检查清单非模板项上传/删除**：非模板归档项支持直接上传文件，子项支持删除，新增 `upload_archive_item_view` 和 `delete_archive_material_view` Admin 视图。
+- **归档材料 `archive_upload` 类别**：`FinalizedMaterial.category` 新增 `archive_upload` 选项，用于标记手动上传的归档材料。
+
+### 优化
+
+- **归档检查清单展开/收起动画**：子项展开收起改用 CSS Grid `grid-template-rows: 0fr/1fr` 过渡，动画丝滑无卡顿；收起状态无留白；页面宽度不再因展开/收起抖动（`scrollbar-gutter: stable`）。
+- **归档检查清单主项按钮精简**：操作按钮改为 SVG 图标，删除展开箭头，状态徽章右对齐，模板/非模板项按钮位置统一。
+- **归档预览对话框**：修复 textarea 高度和滚动问题，修复编辑区域右侧留白。
+
+### 修复
+
+- **归档文书替换词修改后刷新丢失**：修复预览弹窗编辑替换词后刷新页面丢失修改的问题。
+- **文档生成 API 类型安全**：`save_archive_overrides` 接口参数从 `dict` 改为 `ArchiveOverridesPayload` Schema。
+
 ## [26.37.5] - 2026-04-22
 
 ### 新增
