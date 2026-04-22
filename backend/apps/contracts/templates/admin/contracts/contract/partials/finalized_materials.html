@@ -644,6 +644,16 @@
 
 {# ===== 扫描弹窗样式（保留） ===== #}
 .fm-scan-modal { max-width: 880px; }
+.fm-open-folder-btn {
+    display: inline-flex; align-items: center; gap: 4px;
+    margin-left: 8px; padding: 2px 8px;
+    font-size: 11px; font-weight: 600; color: #1d4ed8;
+    background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 4px;
+    cursor: pointer; transition: background 0.15s, border-color 0.15s;
+    vertical-align: middle;
+}
+.fm-open-folder-btn:hover { background: #dbeafe; border-color: #93c5fd; }
+.fm-open-folder-btn:disabled { opacity: 0.4; cursor: default; }
 .fm-scan-body { display: grid; gap: 10px; }
 .fm-scope-card { padding: 12px; border: 1px solid #e5e7eb; border-radius: 8px; background: #f9fafb; }
 .fm-scope-title { font-size: 13px; font-weight: 700; color: #111827; }

@@ -15,6 +15,13 @@
                 <div class="fm-scope-root" x-show="scanRootPath">
                     <span>{% trans "当前目录：" %}</span>
                     <code x-text="scanRootPath"></code>
+                    <button type="button" class="fm-open-folder-btn"
+                            :disabled="!scanRootPath"
+                            @click="openFolder()"
+                            title="{% trans '在 Finder 中打开' %}">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                        {% trans "打开文件夹" %}
+                    </button>
                 </div>
                 <div class="fm-scope-row">
                     <label class="fm-radio-item">
