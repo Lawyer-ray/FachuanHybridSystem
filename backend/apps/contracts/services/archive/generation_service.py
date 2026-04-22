@@ -29,6 +29,7 @@ from .constants import (
     ARCHIVE_FOLDER_NAME,
     ARCHIVE_SKIP_CODES,
     ARCHIVE_SKIP_TEMPLATES,
+    ARCHIVE_SUBITEM_ORDER_RULES,
     ARCHIVE_TEMPLATE_DOC_TYPES,
     ChecklistItem,
 )
@@ -307,6 +308,39 @@ class ArchiveGenerationService:
 
         return {"error": "生成失败：无文件内容"}
 
+    @staticmethod
+    def _apply_subitem_sort(
+        materials: list[FinalizedMaterial],
+        archive_item_code: str,
+    ) -> list[FinalizedMaterial]:
+        """对有排序规则的清单项，按关键词顺序重排子项（仅影响 order=0 的材料）。
+
+        排序逻辑与 checklist_service._apply_subitem_order 一致：
+        1. 仅对 ARCHIVE_SUBITEM_ORDER_RULES 中定义的清单项排序
+        2. 仅对 order=0 的材料（未手动排序过）应用关键词排序
+        3. 已手动排序(order>0)的材料保持原有相对顺序排在前面
+        4. 关键词匹配：文件名包含规则中关键词的材料按关键词出现顺序排列
+        5. 未匹配任何关键词的材料排在最后，保持原顺序
+        """
+        keywords = ARCHIVE_SUBITEM_ORDER_RULES.get(archive_item_code)
+        if not keywords or len(materials) <= 1:
+            return materials
+
+        ordered_mats = [m for m in materials if m.order > 0]
+        unordered_mats = [m for m in materials if m.order == 0]
+
+        if not unordered_mats:
+            return materials
+
+        def _sort_key(mat: FinalizedMaterial) -> tuple[int, int]:
+            for i, keyword in enumerate(keywords):
+                if keyword in mat.original_filename:
+                    return (0, i)
+            return (1, 0)
+
+        unordered_mats.sort(key=_sort_key)
+        return ordered_mats + unordered_mats
+
     def _download_uploaded_item(
         self,
         contract: Contract,
@@ -332,6 +366,9 @@ class ArchiveGenerationService:
                         category__in=(MaterialCategory.CONTRACT_ORIGINAL, MaterialCategory.SUPPLEMENTARY_AGREEMENT),
                     ).order_by("order", "-uploaded_at")
                 )
+
+        # 应用关键词排序规则（与前端展示顺序一致）
+        materials = self._apply_subitem_sort(materials, archive_item_code)
 
         if not materials:
             return {"error": "未找到对应的归档材料"}
@@ -824,6 +861,8 @@ class ArchiveGenerationService:
                 )
 
             if item_materials:
+                # 应用关键词排序规则（与前端展示顺序一致）
+                item_materials = self._apply_subitem_sort(item_materials, code)
                 materials_to_merge.extend(item_materials)
 
         if not materials_to_merge:
