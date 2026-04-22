@@ -367,6 +367,24 @@ class ArchiveGenerationService:
                     ).order_by("order", "-uploaded_at")
                 )
 
+            # 收费凭证项：匹配发票
+            if not materials and self._is_fee_voucher_item(contract, archive_item_code):
+                materials = list(
+                    FinalizedMaterial.objects.filter(
+                        contract=contract,
+                        category=MaterialCategory.INVOICE,
+                    ).order_by("order", "-uploaded_at")
+                )
+
+            # 授权委托项：匹配授权委托材料
+            if not materials and self._is_authorization_item(contract, archive_item_code):
+                materials = list(
+                    FinalizedMaterial.objects.filter(
+                        contract=contract,
+                        category=MaterialCategory.AUTHORIZATION_MATERIAL,
+                    ).order_by("order", "-uploaded_at")
+                )
+
         # 应用关键词排序规则（与前端展示顺序一致）
         materials = self._apply_subitem_sort(materials, archive_item_code)
 
@@ -382,10 +400,23 @@ class ArchiveGenerationService:
 
     def _is_contract_item(self, contract: Contract, archive_item_code: str) -> bool:
         """判断 archive_item_code 是否为"委托合同"相关的检查项"""
+        return self._is_item_by_name(contract, archive_item_code, "委托")
+
+    def _is_fee_voucher_item(self, contract: Contract, archive_item_code: str) -> bool:
+        """判断 archive_item_code 是否为"收费凭证"相关的检查项"""
+        return self._is_item_by_name(contract, archive_item_code, "收费")
+
+    def _is_authorization_item(self, contract: Contract, archive_item_code: str) -> bool:
+        """判断 archive_item_code 是否为"授权委托"相关的检查项"""
+        return self._is_item_by_name(contract, archive_item_code, "授权")
+
+    @staticmethod
+    def _is_item_by_name(contract: Contract, archive_item_code: str, name_keyword: str) -> bool:
+        """判断 archive_item_code 对应的检查项名称是否包含指定关键词"""
         archive_category = get_archive_category(contract.case_type)
         checklist_items = ARCHIVE_CHECKLIST.get(archive_category, [])
         for item in checklist_items:
-            if item["code"] == archive_item_code and item["source"] == "contract" and "委托" in item["name"]:
+            if item["code"] == archive_item_code and name_keyword in item.get("name", ""):
                 return True
         return False
 
