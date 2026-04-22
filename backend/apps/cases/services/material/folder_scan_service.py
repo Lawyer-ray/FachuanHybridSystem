@@ -259,7 +259,7 @@ class CaseFolderScanService:
 
         created_attachments = self._case_log_service.upload_attachments(
             log_id=log.id,
-            files=uploads,
+            files=uploads,  # type: ignore[arg-type]
             user=user,
             org_access=org_access,
             perm_open_access=perm_open_access,
