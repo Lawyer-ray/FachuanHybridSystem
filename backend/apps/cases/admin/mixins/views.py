@@ -227,6 +227,13 @@ class CaseAdminViewsMixin:
 
         case_materials_view = self._build_case_materials_view(request, case)
 
+        # 检查案件文件夹路径可达性，先修复合同路径再检查案件路径
+        folder_path_auto_repaired = False
+        case_folder_binding = getattr(case, "folder_binding", None)
+        if case_folder_binding:
+            case_folder_service = self._get_case_folder_binding_service()  # type: ignore[attr-defined]
+            folder_path_auto_repaired = case_folder_service.check_and_repair_contract_path(case_folder_binding)
+
         template_binding_service = self._get_case_template_binding_service()  # type: ignore[attr-defined]
         bound_templates = template_binding_service.get_bindings_for_case(case.id)
         bound_templates_json = json_mod.dumps(bound_templates, ensure_ascii=False)
@@ -268,6 +275,7 @@ class CaseAdminViewsMixin:
                 "has_preservation_template": has_preservation_template,
                 "has_delay_delivery_template": has_delay_delivery_template,
                 "is_our_party_all_defendant": is_our_party_all_defendant,
+                "folder_path_auto_repaired": folder_path_auto_repaired,
             }
         )
 
