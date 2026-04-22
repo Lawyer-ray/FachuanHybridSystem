@@ -134,13 +134,13 @@
                 <h3 x-text="previewTitle"></h3>
                 <button type="button" class="modal-close" @click="showPreviewDialog = false">&times;</button>
             </div>
-            <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+            <div class="modal-body" style="max-height: 70vh; overflow-y: auto; padding-right: 20px;">
                 <div x-show="isLoadingPreview" style="text-align: center; padding: 24px;">
                     <span class="spinner"></span> {% trans "加载中..." %}
                 </div>
                 <div x-show="!isLoadingPreview && previewRows.length">
                     <template x-for="row in previewRows" :key="row.key">
-                        <div style="padding: 8px 0; border-bottom: 1px solid #f3f4f6;">
+                        <div style="padding: 8px 4px 8px 0; border-bottom: 1px solid #f3f4f6;">
                             <div style="font-size: 12px; font-weight: 600; margin-bottom: 4px;"
                                  :style="row.status === 'empty' ? 'color: #dc2626' : 'color: #6b7280'"
                                  x-text="row.key"></div>
@@ -154,7 +154,7 @@
                             <div x-show="previewEditMode">
                                 <textarea x-model="row.editValue"
                                     :rows="Math.max(3, Math.min(12, (row.editValue || row.value || '').split('\n').length + 1))"
-                                    style="width: 100%; font-size: 13px; border: 1px solid #d1d5db; border-radius: 4px; padding: 4px 8px; resize: vertical; font-family: inherit;"
+                                    style="width: 100%; font-size: 13px; border: 1px solid #d1d5db; border-radius: 4px; padding: 6px 10px; resize: vertical; font-family: inherit; box-sizing: border-box;"
                                     :placeholder="row.value || '/'"></textarea>
                             </div>
                         </div>
