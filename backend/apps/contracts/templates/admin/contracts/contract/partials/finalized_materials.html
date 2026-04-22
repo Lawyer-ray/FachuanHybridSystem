@@ -202,6 +202,7 @@
     border-radius: 10px;
     padding: 16px;
     margin-bottom: 16px;
+    overflow: hidden;
 }
 
 .ac-header { margin-bottom: 12px; }
@@ -332,6 +333,7 @@
     transition: background 0.15s, border-color 0.15s;
     counter-increment: checklist-counter;
     overflow: hidden;
+    min-width: 0;
 }
 
 .ac-item:hover { background: #eff6ff; }
@@ -376,7 +378,11 @@
 
 .ac-item-name {
     flex: 1;
+    min-width: 0;
     color: #1f2937;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .ac-item-count {
@@ -482,6 +488,7 @@
 .ac-subitems {
     border-top: 1px solid #e5e7eb;
     background: #fff;
+    overflow: hidden;
 }
 
 .ac-subitems-enter { transition: max-height 0.2s ease, opacity 0.2s ease; }
