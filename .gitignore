@@ -99,6 +99,10 @@ backend/tests/screenshots/*.png
 backend/tests/screenshots/*.jpg
 backend/tests/screenshots/*.jpeg
 backend/tests/screenshots/*.webp
+**/screenshots/*.png
+**/screenshots/*.jpg
+**/screenshots/*.jpeg
+**/screenshots/*.webp
 # App tests (privacy: do not upload tests under backend/apps)
 backend/apps/**/tests/
 # enterprise_data tests（单独显式标注，便于团队检索）
