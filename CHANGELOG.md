@@ -2,6 +2,13 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.37.10] - 2026-04-23
+
+### 修复
+
+- **Playwright 浏览器二进制缺失时自动安装**：Playwright Python 包升级后新版期望的 chromium 路径变化（如 `chromium_headless_shell-1208`），但旧镜像中只有旧版浏览器路径，导致 `BrowserType.launch` 报 `Executable doesn't exist` 错误。新增 `_ensure_browser_installed()` 函数在启动浏览器前检测并自动安装，`start_browser()` 中增加双重保障：启动前预检 + 启动失败后自动安装重试。
+- **AccountCredential Admin 隐藏增加按钮**：账号凭证列表页右上角"增加账号密码"按钮已隐藏，凭证应通过系统自动创建或特定流程添加。
+
 ## [26.37.9] - 2026-04-23
 
 ### 新增
