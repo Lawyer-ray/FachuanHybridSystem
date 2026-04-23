@@ -460,9 +460,10 @@ class ContractFolderScanService:
 
             processed.append(candidate)
 
-        # 收集 docx 文件
-        docx_candidates = self._collect_docx_files(scan_folder, archive_category)
-        processed.extend(docx_candidates)
+        # 仅非诉项目收集 docx 文件（修订版/批注版 → 转 PDF）
+        if archive_category == "non_litigation":
+            docx_candidates = self._collect_docx_files(scan_folder, archive_category)
+            processed.extend(docx_candidates)
 
         return processed
 
@@ -471,59 +472,48 @@ class ContractFolderScanService:
         scan_folder: str,
         archive_category: str,
     ) -> list[dict[str, Any]]:
-        """单独收集 docx/doc 文件，追加到 candidates 列表。"""
+        """单独收集 docx/doc 文件，仅非诉项目且仅含修订版/批注版关键词。
+
+        诉讼/刑事项目不收集 docx，只有非诉常法才需要 docx→PDF 流程。
+        """
+        if archive_category != "non_litigation":
+            return []
+
         root = Path(scan_folder).expanduser().resolve()
         if not root.exists() or not root.is_dir():
             return []
 
+        # 仅收集文件名含"修订版"/"批注版"/"律师修订"关键词的 docx
+        _DOCX_REVISION_KEYWORDS = ("修订版", "批注版", "律师修订")
+
         docx_files = [
             p for p in root.rglob("*")
             if p.is_file() and p.suffix.lower() in (".docx", ".doc")
+            and any(kw in _normalize_docx_name(p.name) for kw in _DOCX_REVISION_KEYWORDS)
         ]
         docx_files.sort(key=lambda x: x.as_posix())
 
         # 用与 PDF 相同的去重逻辑
         deduped = self._scan_service._deduplicate_files(docx_files)
 
-        # 检查是否与已有 PDF 候选重复（同 base_name + version_token）
-        existing_keys: set[str] = set()
-        # 注意：这里我们无法直接访问已有 PDF 的 base_name，
-        # 所以 docx 自身去重即可，PDF 和 docx 同名不冲突（docx 会转 PDF）
-
         candidates: list[dict[str, Any]] = []
         for item in deduped:
             file_path = item["path"]
             stat = file_path.stat()
 
-            # 判断 docx 的归档清单项
             archive_item_code = ""
             archive_item_name = "未匹配"
-            reason = "docx文件，待转换PDF后导入"
+            reason = "常法docx（修订版/批注版）→ 转 PDF"
             normalized_name = _normalize_docx_name(file_path.name)
 
-            # 非诉常法：含"修订版"/"批注版" → nl_9
-            if archive_category == "non_litigation":
-                if any(kw in normalized_name for kw in ("修订版", "批注版", "律师修订")):
-                    archive_item_code = "nl_9"
-                    archive_item_name = "案件其它关联材料"
-                    reason = "常法docx（修订版/批注版）→ nl_9"
-                elif "律师函" in normalized_name:
-                    archive_item_code = "nl_8"
-                    archive_item_name = "法律意见书、律师函等"
-                    reason = "常法docx（律师函）→ nl_8"
+            if "律师函" in normalized_name:
+                archive_item_code = "nl_8"
+                archive_item_name = "法律意见书、律师函等"
+                reason = "常法docx（律师函）→ nl_8"
             else:
-                # 诉讼/刑事：按文件名关键词匹配
-                result = classify_archive_material(
-                    filename=file_path.name,
-                    source_path=file_path.as_posix(),
-                    archive_category=archive_category,
-                )
-                if result["category"] == "skip":
-                    continue
-                if result["archive_item_code"]:
-                    archive_item_code = result["archive_item_code"]
-                    archive_item_name = result["archive_item_name"]
-                    reason = result["reason"]
+                archive_item_code = "nl_9"
+                archive_item_name = "案件其它关联材料"
+                reason = "常法docx（修订版/批注版）→ nl_9"
 
             candidates.append({
                 "source_path": file_path.as_posix(),
