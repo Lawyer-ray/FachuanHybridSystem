@@ -102,6 +102,17 @@ class ArchiveChecklistService:
             code_to_material_details, case_material_codes, materials
         )
 
+        # 特殊处理：监督卡材料映射（无 archive_item_code 的 supervision_card）
+        supervision_codes = self._map_supervision_card_materials(
+            archive_category, materials
+        )
+        for code, mat_ids in supervision_codes.items():
+            code_to_materials.setdefault(code, []).extend(mat_ids)
+        # 同步填充子项详情
+        self._fill_material_details_from_ids(
+            code_to_material_details, supervision_codes, materials
+        )
+
         # 应用子项默认排序规则（仅对未手动排序的材料生效）
         self._apply_subitem_order(code_to_material_details)
 
@@ -222,6 +233,38 @@ class ArchiveChecklistService:
                     break
         except Exception as e:
             logger.warning("检查案件授权委托材料失败: %s", e)
+
+        return result
+
+    def _map_supervision_card_materials(
+        self,
+        archive_category: str,
+        materials: list[FinalizedMaterial],
+    ) -> dict[str, list[int]]:
+        """
+        将没有 archive_item_code 的监督卡材料映射到检查清单编号。
+
+        监督卡通过自动检测创建时可能未设置 archive_item_code，
+        需要将其映射到 auto_detect="supervision_card" 对应的清单项。
+        """
+        result: dict[str, list[int]] = {}
+
+        # 找到 auto_detect="supervision_card" 对应的 code
+        supervision_code = ""
+        checklist_items = ARCHIVE_CHECKLIST.get(archive_category, [])
+        for item in checklist_items:
+            if item.get("auto_detect") == "supervision_card":
+                supervision_code = item["code"]
+                break
+
+        if not supervision_code:
+            return result
+
+        for m in materials:
+            if m.archive_item_code:
+                continue
+            if m.category == MaterialCategory.SUPERVISION_CARD:
+                result.setdefault(supervision_code, []).append(m.id)
 
         return result
 

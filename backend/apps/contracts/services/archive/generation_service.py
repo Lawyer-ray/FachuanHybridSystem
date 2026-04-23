@@ -894,32 +894,61 @@ class ArchiveGenerationService:
                 ).order_by("order", "-uploaded_at")
             )
 
-            # 特殊处理：委托合同项
-            if not item_materials and item.get("source") == "contract" and "委托" in item.get("name", ""):
-                item_materials = list(
+            # 特殊处理：委托合同项 — 追加无 archive_item_code 的合同正本/补充协议
+            if item.get("source") == "contract" and "委托" in item.get("name", ""):
+                existing_ids = {m.id for m in item_materials}
+                extra = list(
                     FinalizedMaterial.objects.filter(
                         contract=contract,
                         category__in=(MaterialCategory.CONTRACT_ORIGINAL, MaterialCategory.SUPPLEMENTARY_AGREEMENT),
+                        archive_item_code="",
                     ).order_by("order", "-uploaded_at")
                 )
+                for m in extra:
+                    if m.id not in existing_ids:
+                        item_materials.append(m)
 
-            # 特殊处理：授权委托项
-            if not item_materials and "授权" in item.get("name", ""):
-                item_materials = list(
+            # 特殊处理：授权委托项 — 追加无 archive_item_code 的授权委托材料
+            if "授权" in item.get("name", ""):
+                existing_ids = {m.id for m in item_materials}
+                extra = list(
                     FinalizedMaterial.objects.filter(
                         contract=contract,
                         category=MaterialCategory.AUTHORIZATION_MATERIAL,
+                        archive_item_code="",
                     ).order_by("order", "-uploaded_at")
                 )
+                for m in extra:
+                    if m.id not in existing_ids:
+                        item_materials.append(m)
 
-            # 特殊处理：收费凭证项（匹配发票）
-            if not item_materials and "收费" in item.get("name", ""):
-                item_materials = list(
+            # 特殊处理：监督卡项 — 追加无 archive_item_code 的监督卡材料
+            if item.get("auto_detect") == "supervision_card":
+                existing_ids = {m.id for m in item_materials}
+                extra = list(
+                    FinalizedMaterial.objects.filter(
+                        contract=contract,
+                        category=MaterialCategory.SUPERVISION_CARD,
+                        archive_item_code="",
+                    ).order_by("order", "-uploaded_at")
+                )
+                for m in extra:
+                    if m.id not in existing_ids:
+                        item_materials.append(m)
+
+            # 特殊处理：收费凭证项 — 追加无 archive_item_code 的发票材料
+            if "收费" in item.get("name", ""):
+                existing_ids = {m.id for m in item_materials}
+                extra = list(
                     FinalizedMaterial.objects.filter(
                         contract=contract,
                         category=MaterialCategory.INVOICE,
+                        archive_item_code="",
                     ).order_by("order", "-uploaded_at")
                 )
+                for m in extra:
+                    if m.id not in existing_ids:
+                        item_materials.append(m)
 
             if item_materials:
                 # 对 order=0 的材料应用关键词排序
