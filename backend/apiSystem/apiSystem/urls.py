@@ -104,6 +104,7 @@ _OTHER_TOOLS_APPS = [
     {"app_label": "image_rotation", "name": _("图片自动旋转"), "url": "/admin/image_rotation/"},
     {"app_label": "express_query", "name": _("快递查询"), "url": "/admin/express_query/"},
     {"app_label": "doc_convert", "name": _("文档转换"), "url": "/admin/doc_convert/"},
+    {"app_label": "batch_printing", "name": _("批量打印"), "url": "/admin/batch_printing/"},
     {"app_label": "evidence_sorting", "name": _("证据整理"), "url": "/admin/evidence_sorting/"},
     {"app_label": "legal_research", "name": _("法律检索"), "url": "/admin/legal_research/"},
     {"app_label": "legal_solution", "name": _("法律方案"), "url": "/admin/legal_solution/"},
