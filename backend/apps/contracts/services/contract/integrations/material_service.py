@@ -21,7 +21,7 @@ class MaterialService:
             uploaded_file=uploaded_file,
             rel_dir=f"contracts/finalized/{contract_id}",
             allowed_extensions=[".pdf"],
-            max_size_bytes=20 * 1024 * 1024,
+            max_size_bytes=100 * 1024 * 1024,
         )
         return result
 
