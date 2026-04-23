@@ -535,8 +535,7 @@ class ContractFolderScanService:
 
         return candidates
 
-    @staticmethod
-    def _convert_docx_to_temp_pdf(file_path: Path) -> Path | None:
+    def _convert_docx_to_temp_pdf(self, file_path: Path) -> Path | None:
         """将 docx 文件转换为临时 PDF 文件。返回临时 PDF 路径，失败返回 None。"""
         try:
             from apps.documents.services.infrastructure.pdf_merge_utils import convert_docx_to_pdf
@@ -545,7 +544,7 @@ class ContractFolderScanService:
             if pdf_path_str:
                 return Path(pdf_path_str)
             return None
-        except Exception:
+        except (OSError, RuntimeError):
             logger.exception("docx_to_pdf_conversion_failed", extra={"path": file_path.as_posix()})
             return None
 
@@ -568,7 +567,7 @@ class ContractFolderScanService:
                     return ""
                 page = doc.load_page(doc.page_count - 1)
                 return str(page.get_text() or "")
-        except Exception:
+        except (OSError, RuntimeError):
             logger.exception("contract_quality_card_check_direct_failed", extra={"path": file_path.as_posix()})
             return ""
 
@@ -590,7 +589,7 @@ class ContractFolderScanService:
                 finally:
                     if temp_path.exists():
                         temp_path.unlink(missing_ok=True)
-        except Exception:
+        except (OSError, RuntimeError):
             logger.exception("contract_quality_card_check_ocr_failed", extra={"path": file_path.as_posix()})
             return ""
 

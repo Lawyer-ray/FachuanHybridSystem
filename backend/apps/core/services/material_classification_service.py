@@ -849,8 +849,7 @@ class MaterialClassificationService:
 
         return None
 
-    @staticmethod
-    def _extract_path_parts(source_path: str) -> list[str]:
+    def _extract_path_parts(self, source_path: str) -> list[str]:
         """从文件路径提取所有目录名（去掉编号前缀）。"""
         from pathlib import Path
 
@@ -863,8 +862,7 @@ class MaterialClassificationService:
                 parts.append(cleaned if cleaned else part)
         return parts
 
-    @staticmethod
-    def _get_archive_item_name(archive_category: str, code: str) -> str:
+    def _get_archive_item_name(self, archive_category: str, code: str) -> str:
         """根据归档分类和编号获取清单项名称。"""
         from apps.contracts.services.archive.constants import ARCHIVE_CHECKLIST
 
@@ -874,8 +872,7 @@ class MaterialClassificationService:
                 return str(item.get("name") or "")
         return ""
 
-    @staticmethod
-    def parse_work_log_from_folder_name(folder_name: str) -> dict[str, str] | None:
+    def parse_work_log_from_folder_name(self, folder_name: str) -> dict[str, str] | None:
         """从常法办案子文件夹名解析律师工作日志信息。
 
         文件夹名格式：YYYY.MM.DD-事项名
@@ -900,8 +897,7 @@ class MaterialClassificationService:
 
         return {"date": date_str, "content": content}
 
-    @staticmethod
-    def _to_confidence(value: Any) -> float:
+    def _to_confidence(self, value: Any) -> float:
         try:
             val = float(value)
         except (TypeError, ValueError):
