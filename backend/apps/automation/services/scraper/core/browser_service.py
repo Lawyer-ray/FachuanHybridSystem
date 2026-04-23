@@ -4,6 +4,7 @@
 
 import logging
 import subprocess
+import sys
 from typing import Any, Optional, cast
 
 from playwright.sync_api import Browser, BrowserContext, Playwright, sync_playwright
@@ -11,6 +12,8 @@ from playwright.sync_api import Browser, BrowserContext, Playwright, sync_playwr
 from apps.core.interfaces import IBrowserService
 
 logger = logging.getLogger("apps.automation")
+
+_PLAYWRIGHT_INSTALL_CMD = [sys.executable, "-m", "playwright", "install", "chromium"]
 
 
 def _ensure_browser_installed() -> None:
@@ -28,7 +31,7 @@ def _ensure_browser_installed() -> None:
         if not driver.exists():
             logger.warning("Playwright driver 不存在: %s，尝试安装浏览器...", driver)
             subprocess.run(
-                ["playwright", "install", "chromium"],
+                _PLAYWRIGHT_INSTALL_CMD,
                 check=True,
                 capture_output=True,
                 text=True,
@@ -38,7 +41,7 @@ def _ensure_browser_installed() -> None:
         logger.warning("浏览器安装检测异常: %s，尝试直接安装...", e)
         try:
             subprocess.run(
-                ["playwright", "install", "chromium"],
+                _PLAYWRIGHT_INSTALL_CMD,
                 check=True,
                 capture_output=True,
                 text=True,
