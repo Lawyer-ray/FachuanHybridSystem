@@ -26,11 +26,12 @@ def check_scraper_dependencies(app_configs: Any, **kwargs: Any) -> list[CheckMes
         )
 
     # 检查加密密钥
-    if not hasattr(settings, "SCRAPER_ENCRYPTION_KEY"):
+    encryption_key = getattr(settings, "SCRAPER_ENCRYPTION_KEY", None)
+    if not encryption_key:
         errors.append(
             Warning(
                 "未配置 SCRAPER_ENCRYPTION_KEY",
-                hint="在 settings.py 中添加: SCRAPER_ENCRYPTION_KEY = Fernet.generate_key()",
+                hint="设置环境变量 SCRAPER_ENCRYPTION_KEY 或在系统配置中设置固定密钥",
                 id="automation.W001",
             )
         )

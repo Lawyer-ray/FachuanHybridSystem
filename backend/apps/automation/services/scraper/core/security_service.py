@@ -24,16 +24,26 @@ class SecurityService:
     """安全服务"""
 
     def __init__(self) -> None:
-        """初始化加密密钥"""
+        """初始化加密密钥
+
+        密钥来源优先级：
+        1. Django settings.SCRAPER_ENCRYPTION_KEY（生产环境通过环境变量注入）
+        2. SystemConfig 数据库中的 SCRAPER_ENCRYPTION_KEY（后台管理界面配置）
+        3. 开发模式下自动生成临时密钥
+        """
         from django.conf import settings
 
-        raw_key = get_config("SCRAPER_ENCRYPTION_KEY")
+        # 优先从 settings 读取（生产环境通过 django_runtime.py 从环境变量注入）
+        raw_key = getattr(settings, "SCRAPER_ENCRYPTION_KEY", None)
+        # 回退到 SystemConfig 数据库
+        if not raw_key:
+            raw_key = get_config("SCRAPER_ENCRYPTION_KEY")
         key: bytes
         if not raw_key:
             if not getattr(settings, "DEBUG", False):
-                raise RuntimeError("生产环境必须配置 SCRAPER_ENCRYPTION_KEY，请在系统配置中设置固定密钥！")
+                raise RuntimeError("生产环境必须配置 SCRAPER_ENCRYPTION_KEY，请设置环境变量或在系统配置中设置固定密钥！")
             key = Fernet.generate_key()
-            logger.warning("未配置 SCRAPER_ENCRYPTION_KEY，使用临时密钥。生产环境请在系统配置中设置固定密钥！")
+            logger.warning("未配置 SCRAPER_ENCRYPTION_KEY，使用临时密钥。生产环境请设置环境变量或在系统配置中设置固定密钥！")
         else:
             key = raw_key.encode() if isinstance(raw_key, str) else raw_key
 
