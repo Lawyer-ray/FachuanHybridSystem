@@ -423,11 +423,14 @@
             var link = document.getElementById('downloadLink');
             link.href = url;
 
-            // 生成文件名：要素式{文书类型}{原始后缀}.docx
-            var mbidName = input.value.trim();
+            // 生成文件名：将"传统"替换为"要素式"
             var baseName = file.name.replace(/\.[^.]+$/, '');
-            var suffix = baseName.startsWith(mbidName) ? baseName.slice(mbidName.length) : baseName;
-            link.download = '要素式' + mbidName + suffix + '.docx';
+            var newName = baseName.replace('传统', '要素式');
+            // 如果原文件名不含"传统"，则在文件名前加"要素式"
+            if (newName === baseName) {
+                newName = '要素式' + baseName;
+            }
+            link.download = newName + '.docx';
 
             document.getElementById('resFilename').textContent = file.name;
             document.getElementById('resMbid').textContent = mbidName;
