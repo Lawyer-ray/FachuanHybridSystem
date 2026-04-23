@@ -7,10 +7,6 @@ import logging
 import re
 from typing import Any
 
-from apps.contracts.services.archive.constants import (
-    ARCHIVE_CHECKLIST,
-    CASE_MATERIAL_KEYWORD_MAPPING,
-)
 from apps.core.services.wiring import get_llm_service
 
 logger = logging.getLogger(__name__)
@@ -831,6 +827,8 @@ class MaterialClassificationService:
         archive_category: str,
     ) -> dict[str, Any] | None:
         """通过 CASE_MATERIAL_KEYWORD_MAPPING 兜底匹配。"""
+        from apps.contracts.services.archive.constants import CASE_MATERIAL_KEYWORD_MAPPING
+
         mapping = CASE_MATERIAL_KEYWORD_MAPPING.get(archive_category, {})
         if not mapping:
             return None
@@ -868,6 +866,8 @@ class MaterialClassificationService:
     @staticmethod
     def _get_archive_item_name(archive_category: str, code: str) -> str:
         """根据归档分类和编号获取清单项名称。"""
+        from apps.contracts.services.archive.constants import ARCHIVE_CHECKLIST
+
         checklist = ARCHIVE_CHECKLIST.get(archive_category, [])
         for item in checklist:
             if item.get("code") == code:
