@@ -302,7 +302,7 @@ def collect_work_log_suggestions(scan_folder: str, archive_category: str) -> lis
 
 
 def collect_archive_item_options(archive_category: str) -> list[dict[str, str]]:
-    """获取归档清单项选项列表（source="case" 的条目）。
+    """获取归档清单项选项列表（供前端下拉选择，包含所有清单项）。
 
     Args:
         archive_category: 归档分类
@@ -314,7 +314,6 @@ def collect_archive_item_options(archive_category: str) -> list[dict[str, str]]:
     return [
         {"code": item["code"], "name": item["name"]}
         for item in checklist
-        if item.get("source") == "case"
     ]
 
 
