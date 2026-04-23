@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import re
+import socket
 import subprocess
 import time
 from dataclasses import dataclass
@@ -15,7 +16,6 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Any
 
-import httpx
 from django.db import transaction
 from django.utils.translation import gettext_lazy as _
 
@@ -54,14 +54,19 @@ class LPRSyncService:
         """Initialize service."""
         self.source = "中国人民银行官网"
 
+    @staticmethod
+    def _is_cdp_available() -> bool:
+        """检查 CDP 端口是否可用（httpx 与 Chrome CDP 不兼容，返回 502）。"""
+        try:
+            with socket.create_connection(("localhost", 9222), timeout=2):
+                return True
+        except OSError:
+            return False
+
     def _ensure_chrome_running(self) -> None:
         """确保 Chrome 以调试模式运行，如果未运行则自动启动。"""
-        try:
-            resp = httpx.get(f"{CDP_URL}/json/version", timeout=2)
-            if resp.status_code == 200:
-                return
-        except Exception:
-            pass
+        if self._is_cdp_available():
+            return
 
         logger.info("[LPRSync] 启动 Chrome 调试模式...")
         subprocess.Popen(
@@ -71,13 +76,9 @@ class LPRSyncService:
         )
         for _attempt in range(10):
             time.sleep(1)
-            try:
-                resp = httpx.get(f"{CDP_URL}/json/version", timeout=2)
-                if resp.status_code == 200:
-                    logger.info("[LPRSync] Chrome 启动成功")
-                    return
-            except Exception:
-                pass
+            if self._is_cdp_available():
+                logger.info("[LPRSync] Chrome 启动成功")
+                return
 
         raise BusinessException(message=_("Chrome 启动失败，请手动启动后重试"), code="CHROME_START_FAILED")
 
