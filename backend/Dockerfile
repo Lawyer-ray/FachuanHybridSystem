@@ -16,8 +16,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     xvfb \
     && rm -rf /var/lib/apt/lists/*
 
-# 安装 uv
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+# 安装 uv（curl 方式，避免 ghcr.io 国内无法访问）
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
+    && mv /root/.local/bin/uv /usr/local/bin/uv \
+    && mv /root/.local/bin/uvx /usr/local/bin/uvx
 
 # 安装 Python 依赖（利用 layer 缓存）
 COPY pyproject.toml uv.lock ./
