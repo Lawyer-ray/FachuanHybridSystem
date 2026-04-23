@@ -46,6 +46,13 @@ _ARCHIVE_TEMPLATE_FILES: dict[str, str] = {
     "case_summary": "7-办案小结.docx",
 }
 
+# 归档分类 → 案卷目录清单编号映射（用于延迟重新生成）
+_ARCHIVE_CATALOG_CODES: dict[str, str] = {
+    "non_litigation": "nl_3",
+    "litigation": "lt_3",
+    "criminal": "cr_3",
+}
+
 
 
 class ArchiveGenerationService:
@@ -718,6 +725,20 @@ class ArchiveGenerationService:
 
         # 2. 先生成模板文书到 DB（复用已有逻辑）
         doc_results = self.generate_archive_documents(contract)
+
+        # 2.1 重新生成案卷目录：generate_archive_documents 按清单顺序逐个生成，
+        # 案卷目录（inner_catalog）排在律师工作日志、办案小结之前，
+        # 导致首次生成时这两项尚未写入 DB，案卷目录会遗漏它们。
+        # 所有模板文书生成完毕后，重新生成案卷目录以确保内容完整。
+        archive_category = get_archive_category(contract.case_type)
+        catalog_code = _ARCHIVE_CATALOG_CODES.get(archive_category)
+        if catalog_code:
+            catalog_result = self.generate_single_archive_document(contract, catalog_code)
+            # 替换 doc_results 中的案卷目录结果
+            for i, r in enumerate(doc_results):
+                if r.get("template_subtype") == "inner_catalog":
+                    doc_results[i] = catalog_result
+                    break
 
         # 3. 创建归档文件夹
         archive_dir = folder_path / ARCHIVE_FOLDER_NAME
