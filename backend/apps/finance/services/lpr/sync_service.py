@@ -69,7 +69,7 @@ class LPRSyncService:
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
-        for _ in range(10):
+        for _attempt in range(10):
             time.sleep(1)
             try:
                 resp = httpx.get(f"{CDP_URL}/json/version", timeout=2)
