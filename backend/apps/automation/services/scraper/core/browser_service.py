@@ -3,6 +3,7 @@
 """
 
 import logging
+import subprocess
 from typing import Any, Optional, cast
 
 from playwright.sync_api import Browser, BrowserContext, Playwright, sync_playwright
@@ -10,6 +11,41 @@ from playwright.sync_api import Browser, BrowserContext, Playwright, sync_playwr
 from apps.core.interfaces import IBrowserService
 
 logger = logging.getLogger("apps.automation")
+
+
+def _ensure_browser_installed() -> None:
+    """
+    检测 Playwright 浏览器是否已安装，若缺失则自动安装。
+
+    场景：Playwright Python 包升级后，新版期望的 chromium 路径变化
+    （如 chromium_headless_shell-1208），但旧镜像中只有旧版路径。
+    此函数在启动浏览器前调用，避免因浏览器二进制缺失导致任务失败。
+    """
+    try:
+        from playwright._impl._driver import compute_driver_executable
+
+        driver = compute_driver_executable()
+        if not driver.exists():
+            logger.warning("Playwright driver 不存在: %s，尝试安装浏览器...", driver)
+            subprocess.run(
+                ["playwright", "install", "chromium"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            logger.info("Playwright chromium 安装完成")
+    except Exception as e:
+        logger.warning("浏览器安装检测异常: %s，尝试直接安装...", e)
+        try:
+            subprocess.run(
+                ["playwright", "install", "chromium"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            logger.info("Playwright chromium 安装完成")
+        except subprocess.CalledProcessError as install_err:
+            logger.error("Playwright chromium 自动安装失败: %s", install_err.stderr)
 
 
 class BrowserService:
@@ -60,6 +96,9 @@ class BrowserService:
             mode = "无头" if headless else "有头"
             logger.info(f"启动 Playwright 浏览器（{mode}模式）...")
 
+            # 启动前确保浏览器二进制已安装（处理版本升级导致的路径不匹配）
+            _ensure_browser_installed()
+
             self._playwright = sync_playwright().start()
 
             launch_options = {
@@ -74,8 +113,25 @@ class BrowserService:
             if not headless:
                 launch_options["slow_mo"] = 500
 
-            self._browser = self._playwright.chromium.launch(**launch_options)
-            logger.info(f"浏览器启动成功（{mode}模式）")
+            try:
+                self._browser = self._playwright.chromium.launch(**launch_options)
+                logger.info(f"浏览器启动成功（{mode}模式）")
+            except Exception as e:
+                error_msg = str(e)
+                if "Executable doesn't exist" in error_msg or "playwright install" in error_msg:
+                    logger.warning("浏览器二进制缺失，尝试自动安装后重试: %s", error_msg)
+                    # 关闭当前 playwright 实例
+                    if self._playwright:
+                        self._playwright.stop()
+                        self._playwright = None
+                    # 安装浏览器
+                    _ensure_browser_installed()
+                    # 重新启动
+                    self._playwright = sync_playwright().start()
+                    self._browser = self._playwright.chromium.launch(**launch_options)
+                    logger.info(f"浏览器自动安装后启动成功（{mode}模式）")
+                else:
+                    raise
         return self._browser
 
     def get_browser(self) -> Browser:
