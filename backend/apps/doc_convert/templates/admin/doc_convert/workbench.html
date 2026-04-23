@@ -1,7 +1,7 @@
 {% extends "admin/base_site.html" %}
 {% load static i18n %}
 
-{% block title %}传统文书转要素式文书{% endblock %}
+{% block title %}要素式转换{% endblock %}
 
 {% block extrastyle %}
 {{ block.super }}
@@ -142,8 +142,8 @@
 {% block breadcrumbs %}
 <div class="breadcrumbs">
     <a href="{% url 'admin:index' %}">{% trans "首页" %}</a>
-    &rsaquo; <a href="{% url 'admin:app_list' app_label='doc_convert' %}">{% trans "传统文书转换" %}</a>
-    &rsaquo; {% trans "文书转换工作台" %}
+    &rsaquo; <a href="{% url 'admin:app_list' app_label='doc_convert' %}">{% trans "要素式转换" %}</a>
+    &rsaquo; {% trans "要素式转换工作台" %}
 </div>
 {% endblock %}
 

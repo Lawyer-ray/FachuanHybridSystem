@@ -21,11 +21,14 @@
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
 
-  function normalizeCandidate(candidate, prefill) {
+  function normalizeCandidate(candidate, prefill, defaultCategory, supervisingAuthorities) {
     const material = candidate.material || null;
     const draft = prefill || {};
     const draftPartyIds = Array.isArray(draft.party_ids) ? draft.party_ids.map(String) : [];
     const draftAuthorityId = draft.supervising_authority_id ? String(draft.supervising_authority_id) : '';
+    const dc = ['party', 'non_party'].includes(defaultCategory) ? defaultCategory : '';
+    const materialCategory = material ? (material.category || '') : '';
+    const singleAuthorityId = (supervisingAuthorities || []).length === 1 ? String(supervisingAuthorities[0].id) : '';
     const row = {
       attachmentId: candidate.attachment_id,
       fileName: candidate.file_name,
@@ -34,14 +37,18 @@
       uploadedAtDisplay: formatTime(candidate.uploaded_at),
       isBound: Boolean(material),
       materialId: material ? material.id : null,
-      category: material ? material.category : (draft.category || ''),
-      lastCategory: material ? material.category : (draft.category || ''),
-      side: material ? (material.side || '') : (draft.side || ''),
+      category: materialCategory || (draft.category || dc || ''),
+      lastCategory: materialCategory || (draft.category || dc || ''),
+      side: material ? (material.side || '') : (draft.side || (dc === 'party' ? 'our' : '')),
       partyIds: material ? (material.party_ids || []).map(String) : draftPartyIds,
       supervisingAuthorityId: material ? (material.supervising_authority_id || '') : draftAuthorityId,
       typeSelect: material && material.type_id ? String(material.type_id) : '',
       customTypeName: material && !material.type_id ? (material.type_name || '') : (draft.type_name_hint || ''),
     };
+    // 非当事人材料且只有一个主管机关时，自动选择
+    if (row.category === 'non_party' && !row.supervisingAuthorityId && singleAuthorityId) {
+      row.supervisingAuthorityId = singleAuthorityId;
+    }
     if (!row.typeSelect && row.customTypeName) row.typeSelect = '__custom__';
     return row;
   }
@@ -80,6 +87,7 @@
         ourParties: config.ourParties || [],
         opponentParties: config.opponentParties || [],
         supervisingAuthorities: config.supervisingAuthorities || [],
+        defaultCategory: ['party', 'non_party'].includes(config.defaultCategory) ? config.defaultCategory : '',
 
         rows: [],
         isLoading: false,
@@ -91,11 +99,11 @@
         message: '',
         messageType: 'success',
         messageTimer: null,
-        uploadCategory: 'party',
+        uploadCategory: ['party', 'non_party'].includes(config.defaultCategory) ? config.defaultCategory : 'party',
         lastUploadedIds: [],
         pendingFiles: [],
         searchKeyword: '',
-        filterCategory: 'all',
+        filterCategory: ['party', 'non_party'].includes(config.defaultCategory) ? config.defaultCategory : 'all',
         filterSide: '',
         filterAuthorityId: '',
         onlyUnfinished: false,
@@ -222,6 +230,13 @@
             this.scanSessionId = sessionFromQuery;
             this.scanPanelVisible = true;
           }
+          // 从 URL 参数恢复 defaultCategory（覆盖配置中的值）
+          const categoryFromQuery = readQueryValue('category');
+          if (['party', 'non_party'].includes(categoryFromQuery)) {
+            this.defaultCategory = categoryFromQuery;
+            this.uploadCategory = categoryFromQuery;
+            this.filterCategory = categoryFromQuery;
+          }
           this.load();
           // 始终加载子文件夹列表，确保"指定子文件夹"选项可点击
           this.loadScanSubfolders(false);
@@ -251,6 +266,12 @@
           }
           this.redirectTimer = window.setTimeout(() => {
             this.redirectTimer = null;
+            // 根据 defaultCategory 设置返回详情页时激活的 Tab
+            if (this.defaultCategory === 'party') {
+              localStorage.setItem('caseDetailTab', 'party_materials');
+            } else if (this.defaultCategory === 'non_party') {
+              localStorage.setItem('caseDetailTab', 'non_party_materials');
+            }
             window.location.href = this.detailUrl;
           }, 900);
         },
@@ -305,6 +326,17 @@
           if (category && this.filterCategory === 'unclassified') {
             this.filterCategory = 'all';
             this.onFilterCategoryChange();
+          }
+        },
+
+        onScanCandidateCategoryChange(candidate) {
+          // 切换为非当事人材料且只有一个主管机关时，自动选择
+          if (candidate.category === 'non_party' && !candidate.supervising_authority_id && (this.supervisingAuthorities || []).length === 1) {
+            candidate.supervising_authority_id = String(this.supervisingAuthorities[0].id);
+          }
+          // 切换为当事人材料时，清空主管机关
+          if (candidate.category === 'party') {
+            candidate.supervising_authority_id = '';
           }
         },
 
@@ -376,6 +408,10 @@
           row.supervisingAuthorityId = '';
           row.typeSelect = '';
           row.customTypeName = '';
+          // 非当事人材料且只有一个主管机关时，自动选择
+          if (category === 'non_party' && (this.supervisingAuthorities || []).length === 1) {
+            row.supervisingAuthorityId = String(this.supervisingAuthorities[0].id);
+          }
         },
 
         isRowSelected(row) {
@@ -437,7 +473,7 @@
 
         resetFilters() {
           this.searchKeyword = '';
-          this.filterCategory = 'all';
+          this.filterCategory = this.defaultCategory || 'all';
           this.filterSide = '';
           this.filterAuthorityId = '';
           this.onlyUnfinished = false;
@@ -500,12 +536,13 @@
             .then((data) => {
               const uploadedSet = new Set(this.lastUploadedIds.map(String));
               const prefillMap = this.scanPrefillMap || {};
+              const dc = this.defaultCategory;
               this.rows = (data || []).map((c) => {
                 let prefill = prefillMap[String(c.attachment_id)] || null;
                 if (!prefill && uploadedSet.has(String(c.attachment_id))) {
-                  prefill = { category: this.uploadCategory };
+                  prefill = { category: dc || this.uploadCategory };
                 }
-                return normalizeCandidate(c, prefill);
+                return normalizeCandidate(c, prefill, this.defaultCategory, this.supervisingAuthorities);
               });
               const existing = new Set((this.rows || []).map((row) => String(row.attachmentId)));
               this.selectedIds = (this.selectedIds || []).map(String).filter((id) => existing.has(id));
@@ -675,15 +712,30 @@
         },
 
         normalizeScanCandidates(candidates) {
+          const dc = this.defaultCategory;
+          const singleAuthorityId = (this.supervisingAuthorities || []).length === 1 ? String(this.supervisingAuthorities[0].id) : '';
           return (candidates || []).map((candidate) => {
-            const category = ['party', 'non_party'].includes(candidate.suggested_category) ? candidate.suggested_category : '';
-            const side = category === 'party' && ['our', 'opponent'].includes(candidate.suggested_side) ? candidate.suggested_side : '';
+            let category = ['party', 'non_party'].includes(candidate.suggested_category) ? candidate.suggested_category : '';
+            let side = category === 'party' && ['our', 'opponent'].includes(candidate.suggested_side) ? candidate.suggested_side : '';
+            // 如果页面指定了 defaultCategory，覆盖扫描建议的分类
+            if (dc && category !== dc) {
+              category = dc;
+              side = dc === 'party' ? (side || 'our') : '';
+            }
             const partyIds = Array.isArray(candidate.suggested_party_ids)
               ? candidate.suggested_party_ids
                   .map((item) => parseInt(item, 10))
                   .filter((item) => Number.isInteger(item) && item > 0)
               : [];
             const supervisingAuthorityIdRaw = parseInt(candidate.suggested_supervising_authority_id, 10);
+            let authorityId =
+              category === 'non_party' && Number.isInteger(supervisingAuthorityIdRaw) && supervisingAuthorityIdRaw > 0
+                ? String(supervisingAuthorityIdRaw)
+                : '';
+            // 非当事人材料且只有一个主管机关时，自动选择
+            if (category === 'non_party' && !authorityId && singleAuthorityId) {
+              authorityId = singleAuthorityId;
+            }
             return {
               source_path: candidate.source_path,
               filename: candidate.filename,
@@ -692,10 +744,7 @@
               side: side,
               type_name_hint: candidate.type_name_hint || '',
               party_ids: category === 'party' ? partyIds : [],
-              supervising_authority_id:
-                category === 'non_party' && Number.isInteger(supervisingAuthorityIdRaw) && supervisingAuthorityIdRaw > 0
-                  ? String(supervisingAuthorityIdRaw)
-                  : '',
+              supervising_authority_id: authorityId,
               reason: candidate.reason || '',
             };
           });
@@ -744,7 +793,11 @@
             this.lastUploadedIds = (data && data.attachment_ids) || [];
 
             if (data && data.materials_url) {
-              window.history.replaceState({}, '', data.materials_url);
+              const targetUrl = new URL(data.materials_url, window.location.href);
+              if (this.defaultCategory) {
+                targetUrl.searchParams.set('category', this.defaultCategory);
+              }
+              window.history.replaceState({}, '', targetUrl.toString());
             } else {
               this.syncScanSessionToUrl(this.scanSessionId);
             }
@@ -780,6 +833,10 @@
               url.searchParams.delete('scan_session');
             }
             url.searchParams.delete('open_scan');
+            // 保留 category 参数
+            if (this.defaultCategory) {
+              url.searchParams.set('category', this.defaultCategory);
+            }
             window.history.replaceState({}, '', url.toString());
           } catch (_) {
           }

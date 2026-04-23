@@ -242,12 +242,14 @@
         },
 
         normalizeCandidates(candidates) {
+          var validCategories = [
+            'contract_original', 'supplementary_agreement', 'invoice',
+            'supervision_card', 'archive_document', 'authorization_material',
+          ];
           return (candidates || []).map((candidate) => {
-            const category = ['contract_original', 'supplementary_agreement', 'invoice'].includes(
-              candidate.suggested_category
-            )
+            var category = validCategories.includes(candidate.suggested_category)
               ? candidate.suggested_category
-              : 'invoice';
+              : 'archive_document';
             return {
               source_path: candidate.source_path,
               filename: candidate.filename,
@@ -263,7 +265,7 @@
           const items = (this.scanCandidates || []).map((candidate) => ({
             source_path: candidate.source_path,
             selected: candidate.selected,
-            category: candidate.category || 'invoice',
+            category: candidate.category || 'archive_document',
           }));
 
           this.isConfirming = true;

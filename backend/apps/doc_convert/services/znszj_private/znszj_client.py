@@ -30,7 +30,7 @@ TIMEOUT = 60
 
 
 class ZnszjClient:
-    """znszj 文书转换客户端。"""
+    """znszj 要素式转换客户端。"""
 
     def convert_document(
         self,

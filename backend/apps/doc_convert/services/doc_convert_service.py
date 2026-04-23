@@ -1,4 +1,4 @@
-"""文书转换 Service 层。"""
+"""要素式转换 Service 层。"""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ MAX_FILE_SIZE_BYTES: int = MAX_FILE_SIZE_MB * 1024 * 1024
 
 
 class DocConvertService:
-    """文书转换业务逻辑层。"""
+    """要素式转换业务逻辑层。"""
 
     def __init__(self, znszj_client: ZnszjClientProtocol) -> None:
         self._client = znszj_client

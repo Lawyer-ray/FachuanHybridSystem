@@ -12,5 +12,5 @@ class DocConvertTool(models.Model):
     class Meta:
         managed = False
         app_label = "doc_convert"
-        verbose_name = _("传统文书转换")
-        verbose_name_plural = _("传统文书转换")
+        verbose_name = _("要素式转换")
+        verbose_name_plural = _("要素式转换")

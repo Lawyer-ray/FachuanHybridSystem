@@ -320,6 +320,9 @@ class CaseAdminViewsMixin:
         scan_session_id = (request.GET.get("scan_session") or "").strip()
         open_scan_flag = (request.GET.get("open_scan") or "").strip().lower() in {"1", "true", "yes", "on"}
         open_scan = bool(scan_session_id) or open_scan_flag
+        default_category = (request.GET.get("category") or "").strip()
+        if default_category not in {"party", "non_party"}:
+            default_category = ""
 
         context = self.admin_site.each_context(request)  # type: ignore[attr-defined]
         context.update(
@@ -335,6 +338,7 @@ class CaseAdminViewsMixin:
                 "supervising_authorities_json": json_mod.dumps(payload["authorities"], ensure_ascii=False),
                 "scan_session_id": scan_session_id,
                 "open_scan": open_scan,
+                "default_category": default_category,
             }
         )
 

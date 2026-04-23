@@ -157,7 +157,7 @@ __all__ = [
     "trigger_client_import", "get_client_import_session",
     "trigger_case_import", "get_case_import_session",
     "get_case_import_preview", "execute_case_import",
-    # 文书转换
+    # 要素式转换
     "list_doc_convert_types", "convert_document",
     # 发票识别
     "quick_recognize_invoice", "upload_invoices",

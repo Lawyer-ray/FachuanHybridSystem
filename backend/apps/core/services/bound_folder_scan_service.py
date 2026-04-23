@@ -79,15 +79,18 @@ class BoundFolderScanService:
 
         candidates: list[dict[str, Any]] = []
 
+        # 合同域：仅凭文件名分类，无需提取 PDF 内容
+        is_contract_domain = domain == "contract"
+
         total = len(deduped)
         for idx, item in enumerate(deduped, start=1):
             current_file = item["path"].name
             progress = self._calc_progress(idx=idx, total=total)
 
-            self._notify(progress_callback, "extracting", progress, current_file)
             extraction_method = "none"
             text_excerpt = ""
-            if enable_recognition:
+            if enable_recognition and not is_contract_domain:
+                self._notify(progress_callback, "extracting", progress, current_file)
                 try:
                     extraction = self._text_extraction_service.extract_text(item["path"].as_posix())
                     extraction_method = extraction.extraction_method if extraction.success else "none"
@@ -157,14 +160,15 @@ class BoundFolderScanService:
         }
 
         if domain == "contract":
+            # 合同域仅凭文件名关键词分类，不使用 AI
             suggestion = self._classification_service.classify_contract_material(
                 filename=path.name,
-                text_excerpt=text_excerpt,
-                enable_ai=enable_recognition,
+                text_excerpt="",
+                enable_ai=False,
             )
             candidate.update(
                 {
-                    "suggested_category": suggestion.get("category", "invoice"),
+                    "suggested_category": suggestion.get("category", "archive_document"),
                     "confidence": float(suggestion.get("confidence", 0.0) or 0.0),
                     "reason": str(suggestion.get("reason") or ""),
                 }

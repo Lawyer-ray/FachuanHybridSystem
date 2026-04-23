@@ -65,7 +65,7 @@ def get_znszj_client() -> ZnszjClientProtocol | None:
         logger.info("znszj 私有客户端加载成功")
         return client
     except ImportError:
-        logger.info("znszj_private 模块未安装，文书转换功能不可用")
+        logger.info("znszj_private 模块未安装，要素式转换功能不可用")
         _cached_client = None
         return None
     except Exception:

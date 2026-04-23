@@ -12,8 +12,7 @@ from apps.cases.models import Case
 from apps.core.config.business_config import business_config
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.interfaces import IContractService
-from apps.core.security.access_context import AccessContext
-from apps.core.security.permissions import PermissionMixin
+from apps.core.security.permissions import AccessContext, PermissionMixin
 
 from .case_access_policy import CaseAccessPolicy
 from .case_queryset import get_case_queryset
@@ -289,6 +288,25 @@ class CaseCommandService(PermissionMixin):
 
     def unbind_cases_from_contract_internal(self, contract_id: int) -> int:
         return int(Case.objects.filter(contract_id=contract_id).update(contract=None))
+
+    def close_cases_by_contract_internal(self, contract_id: int) -> int:
+        """将合同下所有在办案件状态设为已结案"""
+        from apps.core.models.enums import CaseStatus
+
+        count = int(
+            Case.objects.filter(
+                contract_id=contract_id,
+                status=CaseStatus.ACTIVE,
+            ).update(status=CaseStatus.CLOSED)
+        )
+        if count:
+            logger.info(
+                "合同 %s 下 %d 个在办案件已自动结案",
+                contract_id,
+                count,
+                extra={"contract_id": contract_id, "closed_case_count": count},
+            )
+        return count
 
     def count_cases_by_contract(self, contract_id: int) -> int:
         return int(Case.objects.filter(contract_id=contract_id).count())

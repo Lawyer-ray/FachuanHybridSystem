@@ -38,7 +38,6 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
     list_display = [
         "id",
         "status_display",
-        "sms_type_display",
         "case_display",
         "content_preview",
         "received_at",
@@ -52,7 +51,6 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
     # 列表筛选器
     list_filter = [
         "status",
-        "sms_type",
         "received_at",
         ("case", admin.RelatedFieldListFilter),
         ("scraper_task", admin.RelatedFieldListFilter),
@@ -221,14 +219,16 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
     def case_numbers_display(self, obj: CourtSMS) -> SafeString | str:
         """案号显示"""
         if obj.case_numbers:
-            return format_html_join("<br>", "{0}", ((n,) for n in obj.case_numbers))
+            parts = [format_html("{}", n) for n in obj.case_numbers]
+            return mark_safe("<br>".join(str(p) for p in parts))
         return "-"
 
     @admin.display(description=_("提取的当事人"))
     def party_names_display(self, obj: CourtSMS) -> SafeString | str:
         """当事人显示"""
         if obj.party_names:
-            return format_html_join("<br>", "{0}", ((n,) for n in obj.party_names))
+            parts = [format_html("{}", n) for n in obj.party_names]
+            return mark_safe("<br>".join(str(p) for p in parts))
         return "-"
 
     @admin.display(description=_("下载链接"))

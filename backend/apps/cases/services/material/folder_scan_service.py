@@ -569,7 +569,7 @@ class CaseFolderScanService:
     @staticmethod
     def _build_materials_url(*, case_id: int, session_id: UUID) -> str:
         base = reverse("admin:cases_case_materials", args=[case_id])
-        return f"{base}?{urlencode({'scan_session': str(session_id)})}"
+        return f"{base}?{urlencode({'scan_session': str(session_id), 'open_scan': '1'})}"
 
 
 def run_case_folder_scan_task(session_id: str) -> None:

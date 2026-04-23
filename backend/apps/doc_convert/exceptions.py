@@ -24,7 +24,7 @@ class ZnszjDisabledError(BusinessException):
 
     def __init__(self) -> None:
         super().__init__(
-            message=_("文书转换功能未启用"),
+            message=_("要素式转换功能未启用"),
             code=ERROR_ZNSZJ_DISABLED,
         )
 
@@ -36,7 +36,7 @@ class ZnszjNotConfiguredError(BusinessException):
 
     def __init__(self) -> None:
         super().__init__(
-            message=_("文书转换功能未配置"),
+            message=_("要素式转换功能未配置"),
             code=ERROR_ZNSZJ_NOT_CONFIGURED,
         )
 
@@ -81,7 +81,7 @@ class ZnszjUnavailableError(BusinessException):
 
     def __init__(self, *, detail: str | None = None) -> None:
         super().__init__(
-            message=_("文书转换服务暂时不可用"),
+            message=_("要素式转换服务暂时不可用"),
             code=ERROR_ZNSZJ_UNAVAILABLE,
             errors={"detail": detail} if detail else {},
         )
@@ -94,7 +94,7 @@ class ZnszjInvalidResponseError(BusinessException):
 
     def __init__(self, *, detail: str | None = None) -> None:
         super().__init__(
-            message=_("文书转换服务返回异常"),
+            message=_("要素式转换服务返回异常"),
             code=ERROR_ZNSZJ_INVALID_RESPONSE,
             errors={"detail": detail} if detail else {},
         )

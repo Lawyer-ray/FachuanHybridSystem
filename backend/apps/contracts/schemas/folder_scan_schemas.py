@@ -41,7 +41,7 @@ class ContractFolderScanCandidateOut(Schema):
     version_token: str
     extract_method: str
     text_excerpt: str
-    suggested_category: str = "invoice"
+    suggested_category: str = "archive_document"
     confidence: float = 0.0
     reason: str = ""
     selected: bool = True

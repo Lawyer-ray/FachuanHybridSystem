@@ -421,6 +421,21 @@ class ICaseService(Protocol):
         """
         ...
 
+    def close_cases_by_contract_internal(self, contract_id: int) -> int:
+        """
+        内部方法:将合同下所有在办案件状态设为已结案
+
+        当合同状态变更为已结案或已归档时调用，
+        自动将关联的在办案件状态同步为已结案。
+
+        Args:
+            contract_id: 合同 ID
+
+        Returns:
+            更新的案件数量
+        """
+        ...
+
 
 class ICaseSearchService(Protocol):
     """

@@ -221,7 +221,7 @@ mcp.tool()(get_case_import_session)
 mcp.tool()(get_case_import_preview)
 mcp.tool()(execute_case_import)
 
-# 文书转换
+# 要素式转换
 mcp.tool()(list_doc_convert_types)
 mcp.tool()(convert_document)
 

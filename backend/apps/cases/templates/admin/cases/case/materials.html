@@ -30,6 +30,7 @@
         supervisingAuthorities: JSON.parse('{{ supervising_authorities_json|escapejs }}'),
         openScan: {{ open_scan|yesno:'true,false' }},
         scanSessionId: '{{ scan_session_id|default:''|escapejs }}',
+        defaultCategory: '{{ default_category|default:''|escapejs }}',
         scanTexts: {
             scanningFolder: '{% trans "正在扫描文件夹" %}',
             extractingText: '{% trans "正在提取文本" %}',
@@ -177,7 +178,7 @@
                                     </div>
                                 </td>
                                 <td>
-                                    <select x-model="candidate.category">
+                                    <select x-model="candidate.category" @change="onScanCandidateCategoryChange(candidate)">
                                         <option value="">{% trans "请选择" %}</option>
                                         <option value="party">{% trans "当事人材料" %}</option>
                                         <option value="non_party">{% trans "非当事人材料" %}</option>
@@ -445,5 +446,5 @@
 </div>
 
 {% csrf_token %}
-<script src="{% static 'cases/js/case_materials_manage.js' %}?v=20260409d"></script>
+<script src="{% static 'cases/js/case_materials_manage.js' %}?v=20260423b"></script>
 {% endblock %}

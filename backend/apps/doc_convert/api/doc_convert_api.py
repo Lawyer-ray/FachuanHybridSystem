@@ -1,4 +1,4 @@
-"""文书转换 API 层。"""
+"""要素式转换 API 层。"""
 
 from __future__ import annotations
 

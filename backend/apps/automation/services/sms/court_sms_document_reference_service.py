@@ -27,16 +27,17 @@ class CourtSMSDocumentReferenceService:
     def collect(self, sms: CourtSMS) -> list[CourtSMSDocumentReference]:
         refs: list[CourtSMSDocumentReference] = []
         seen_paths: set[str] = set()
+        seen_names: set[str] = set()
 
-        self._collect_from_court_documents(sms, refs, seen_paths)
-        self._collect_from_sms_paths(sms, refs, seen_paths)
-        self._collect_from_task_result(sms, refs, seen_paths)
-        self._collect_from_case_log_attachments(sms, refs, seen_paths)
+        self._collect_from_court_documents(sms, refs, seen_paths, seen_names)
+        self._collect_from_sms_paths(sms, refs, seen_paths, seen_names)
+        self._collect_from_task_result(sms, refs, seen_paths, seen_names)
+        self._collect_from_case_log_attachments(sms, refs, seen_paths, seen_names)
 
         return refs
 
     def _collect_from_court_documents(
-        self, sms: CourtSMS, refs: list[CourtSMSDocumentReference], seen_paths: set[str]
+        self, sms: CourtSMS, refs: list[CourtSMSDocumentReference], seen_paths: set[str], seen_names: set[str]
     ) -> None:
         if not sms.scraper_task or not hasattr(sms.scraper_task, "documents"):
             return
@@ -45,7 +46,11 @@ class CourtSMSDocumentReferenceService:
             normalized = self._normalize_existing_path(doc.local_file_path)
             if not normalized or normalized in seen_paths:
                 continue
+            file_name = Path(normalized).name
+            if file_name in seen_names:
+                continue
             seen_paths.add(normalized)
+            seen_names.add(file_name)
             refs.append(
                 CourtSMSDocumentReference(
                     display_name=Path(normalized).name,
@@ -57,14 +62,18 @@ class CourtSMSDocumentReferenceService:
             )
 
     def _collect_from_sms_paths(
-        self, sms: CourtSMS, refs: list[CourtSMSDocumentReference], seen_paths: set[str]
+        self, sms: CourtSMS, refs: list[CourtSMSDocumentReference], seen_paths: set[str], seen_names: set[str]
     ) -> None:
         paths = sms.document_file_paths if isinstance(sms.document_file_paths, list) else []
         for raw_path in paths:
             normalized = self._normalize_existing_path(raw_path)
             if not normalized or normalized in seen_paths:
                 continue
+            file_name = Path(normalized).name
+            if file_name in seen_names:
+                continue
             seen_paths.add(normalized)
+            seen_names.add(file_name)
             refs.append(
                 CourtSMSDocumentReference(
                     display_name=Path(normalized).name,
@@ -74,7 +83,7 @@ class CourtSMSDocumentReferenceService:
             )
 
     def _collect_from_task_result(
-        self, sms: CourtSMS, refs: list[CourtSMSDocumentReference], seen_paths: set[str]
+        self, sms: CourtSMS, refs: list[CourtSMSDocumentReference], seen_paths: set[str], seen_names: set[str]
     ) -> None:
         if not sms.scraper_task or not isinstance(sms.scraper_task.result, dict):
             return
@@ -85,7 +94,11 @@ class CourtSMSDocumentReferenceService:
             normalized = self._normalize_existing_path(raw_path)
             if not normalized or normalized in seen_paths:
                 continue
+            file_name = Path(normalized).name
+            if file_name in seen_names:
+                continue
             seen_paths.add(normalized)
+            seen_names.add(file_name)
             refs.append(
                 CourtSMSDocumentReference(
                     display_name=Path(normalized).name,
@@ -95,7 +108,7 @@ class CourtSMSDocumentReferenceService:
             )
 
     def _collect_from_case_log_attachments(
-        self, sms: CourtSMS, refs: list[CourtSMSDocumentReference], seen_paths: set[str]
+        self, sms: CourtSMS, refs: list[CourtSMSDocumentReference], seen_paths: set[str], seen_names: set[str]
     ) -> None:
         if not sms.case_log:
             return
@@ -113,7 +126,11 @@ class CourtSMSDocumentReferenceService:
             normalized = self._normalize_existing_path(raw_path)
             if not normalized or normalized in seen_paths:
                 continue
+            file_name = Path(normalized).name
+            if file_name in seen_names:
+                continue
             seen_paths.add(normalized)
+            seen_names.add(file_name)
             refs.append(
                 CourtSMSDocumentReference(
                     display_name=Path(normalized).name,

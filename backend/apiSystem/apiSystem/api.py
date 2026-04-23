@@ -107,7 +107,7 @@ _OPENAPI_TAGS: list[dict[str, str]] = [
     {"name": "一张网立案", "description": "一张网在线立案"},
     {"name": "一张网担保", "description": "一张网担保信息查询"},
     {"name": "OA立案", "description": "OA 系统自动立案"},
-    {"name": "文书转换", "description": "文档格式转换"},
+    {"name": "要素式转换", "description": "传统文书转要素式文书"},
     {"name": "LLM 服务", "description": "大语言模型服务接口"},
     {"name": "国际化", "description": "多语言支持"},
     {"name": "性能监控", "description": "自动化性能监控"},
@@ -230,7 +230,7 @@ def _register_app_routers() -> None:
 
     from apps.doc_convert.api import router as doc_convert_router
 
-    api_v1.add_router("/doc-convert", doc_convert_router, auth=JWTOrSessionAuth(), tags=["文书转换"])
+    api_v1.add_router("/doc-convert", doc_convert_router, auth=JWTOrSessionAuth(), tags=["要素式转换"])
 
     from apps.oa_filing.api.client_import_api import router as client_import_router
 

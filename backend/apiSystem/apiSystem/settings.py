@@ -103,7 +103,7 @@ INSTALLED_APPS = [
     "apps.legal_research",  # 6.5 案例检索（法律数据源）
     "apps.legal_solution",  # 6.6 法律服务方案
     "apps.enterprise_data",  # 6.6 企业数据查询（天眼查/企查查等）
-    "apps.doc_convert",  # 6.7 文书转换（传统文书转要素式文书）
+    "apps.doc_convert",  # 6.7 要素式转换（传统文书转要素式文书）
     "apps.core",  # 7. 核心系统
     "django_q",  # 8. DJANGO Q
 ]
@@ -373,7 +373,7 @@ if DOCUMENTS_PRIVATE_DOCX_TEMPLATES_ROOT:
     DOCUMENTS_PRIVATE_DOCX_TEMPLATES_ROOT = str(Path(DOCUMENTS_PRIVATE_DOCX_TEMPLATES_ROOT).expanduser())
 
 # ============================================================
-# 文书转换（znszj）配置
+# 要素式转换（znszj）配置
 # ============================================================
 
 # 是否启用传统文书转要素式文书功能（默认启用）

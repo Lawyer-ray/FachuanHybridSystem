@@ -71,7 +71,11 @@ class FeishuFileMixin:
 
                 timeout = self.config.get("TIMEOUT", 30)
                 response = httpx.post(url, headers=headers, files=files, data=data, timeout=timeout)
-                response.raise_for_status()
+
+                if response.status_code >= 400:
+                    error_body = response.text
+                    logger.error(f"上传飞书文件HTTP错误: status={response.status_code}, 响应体={error_body}, 文件={file_name}")
+                    response.raise_for_status()
 
             resp_data = response.json()
 
@@ -130,7 +134,11 @@ class FeishuFileMixin:
 
             timeout = self.config.get("TIMEOUT", 30)
             response = httpx.post(url, params=params, json=payload, headers=headers, timeout=timeout)
-            response.raise_for_status()
+
+            if response.status_code >= 400:
+                error_body = response.text
+                logger.error(f"发送飞书文件消息HTTP错误: status={response.status_code}, 响应体={error_body}, chat_id={chat_id}")
+                response.raise_for_status()
 
             data = response.json()
 
@@ -169,7 +177,12 @@ class FeishuFileMixin:
             ) from e
 
     def _get_file_type(self, file_path: str) -> str:
-        """根据文件扩展名确定飞书文件类型"""
+        """根据文件扩展名确定飞书文件类型
+
+        飞书 im/v1/files API 支持的 file_type:
+        stream, opus, mp4, pdf, doc, docx, xls, xlsx, ppt, pptx
+        其他类型统一使用 stream（二进制流）
+        """
         ext = Path(file_path).suffix.lower()
         file_type_mapping = {
             ".pdf": "pdf",
@@ -179,20 +192,10 @@ class FeishuFileMixin:
             ".xlsx": "xlsx",
             ".ppt": "ppt",
             ".pptx": "pptx",
-            ".txt": "txt",
-            ".jpg": "image",
-            ".jpeg": "image",
-            ".png": "image",
-            ".gif": "image",
-            ".mp4": "video",
-            ".avi": "video",
-            ".mov": "video",
-            ".mp3": "audio",
-            ".wav": "audio",
-            ".zip": "zip",
-            ".rar": "rar",
+            ".mp4": "mp4",
+            ".opus": "opus",
         }
-        return file_type_mapping.get(ext, "file")
+        return file_type_mapping.get(ext, "stream")
 
     def _get_mime_type(self, file_path: str) -> str:
         """根据文件扩展名确定 MIME 类型"""

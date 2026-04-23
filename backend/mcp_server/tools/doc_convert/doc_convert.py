@@ -1,4 +1,4 @@
-"""文书转换 MCP tools"""
+"""要素式转换 MCP tools"""
 
 from __future__ import annotations
 

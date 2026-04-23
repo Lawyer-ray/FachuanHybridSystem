@@ -161,6 +161,9 @@ class CaseServiceAdapter:
     def unbind_cases_from_contract_internal(self, contract_id: int) -> Any:
         return self._command.unbind_cases_from_contract_internal(contract_id)
 
+    def close_cases_by_contract_internal(self, contract_id: int) -> int:
+        return self._command.close_cases_by_contract_internal(contract_id)
+
     def create_case_assignment(self, case_id: int, lawyer_id: int) -> Any:
         from apps.cases.services.party.case_assignment_service import CaseAssignmentService
 

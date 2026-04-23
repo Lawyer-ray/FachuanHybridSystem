@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, cast
 from django.db import transaction
 from django.utils.translation import gettext_lazy as _
 
-from apps.contracts.models import Contract, ContractAssignment, ContractParty
+from apps.contracts.models import Contract, ContractAssignment, ContractParty, ContractStatus
 from apps.core.exceptions import NotFoundError
 
 logger = logging.getLogger("apps.contracts")
@@ -76,6 +76,14 @@ class ContractMutationService:
         except Contract.DoesNotExist:
             raise NotFoundError(_("合同 %(id)s 不存在") % {"id": contract_id}) from None
 
+        # 检测合同状态是否将变更为已结案/已归档
+        old_status = contract.status
+        new_status = data.get("status")
+        should_close_cases = (
+            new_status in (ContractStatus.CLOSED, ContractStatus.ARCHIVED)
+            and old_status not in (ContractStatus.CLOSED, ContractStatus.ARCHIVED)
+        )
+
         if "fee_mode" in data:
             merged_data = {**contract.__dict__, **data}
             self.validator.validate_fee_mode(merged_data)
@@ -88,6 +96,19 @@ class ContractMutationService:
             setattr(contract, key, value)
 
         contract.save()
+
+        # 合同状态变更为已结案/已归档时，自动将关联案件结案
+        if should_close_cases:
+            closed_count = self.case_service.close_cases_by_contract_internal(contract_id)
+            if closed_count:
+                logger.info(
+                    "合同 %s 状态变更 %s→%s，自动结案 %d 个关联案件",
+                    contract_id,
+                    old_status,
+                    new_status,
+                    closed_count,
+                    extra={"contract_id": contract_id, "old_status": old_status, "new_status": new_status, "closed_case_count": closed_count},
+                )
 
         logger.info("合同更新成功", extra={"contract_id": contract_id, "action": "update_contract"})
 

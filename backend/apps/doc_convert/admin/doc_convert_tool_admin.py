@@ -1,4 +1,4 @@
-"""doc_convert Admin - 传统文书转要素式文书测试界面。"""
+"""doc_convert Admin - 要素式转换工作台。"""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from apps.doc_convert.models import DocConvertTool
 
 @admin.register(DocConvertTool)
 class DocConvertToolAdmin(admin.ModelAdmin[DocConvertTool]):
-    """传统文书转换工作台 Admin。"""
+    """要素式转换工作台 Admin。"""
 
     def changelist_view(
         self,
@@ -22,7 +22,7 @@ class DocConvertToolAdmin(admin.ModelAdmin[DocConvertTool]):
     ) -> TemplateResponse:
         context = {
             **self.admin_site.each_context(request),
-            "title": "传统文书转要素式文书",
+            "title": "要素式转换",
             "opts": self.model._meta,
             "has_view_permission": self.has_view_permission(request),
         }

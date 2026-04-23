@@ -564,10 +564,17 @@ class ContractDisplayMixin:
             contract.status = ContractStatus.ARCHIVED
             contract.save(update_fields=["status"])
 
+            # 合同归档时，自动将关联案件结案
+            from apps.core.interfaces import ServiceLocator
+
+            case_service = ServiceLocator.get_case_service()
+            closed_count = case_service.close_cases_by_contract_internal(contract.pk)
+
             logger.info(
-                "合同 %s 已确认归档",
+                "合同 %s 已确认归档（自动结案 %d 个关联案件）",
                 contract.pk,
-                extra={"contract_id": contract.pk, "action": "confirm_archive"},
+                closed_count,
+                extra={"contract_id": contract.pk, "action": "confirm_archive", "closed_case_count": closed_count},
             )
             return JsonResponse({"success": True})
         except Exception as e:
