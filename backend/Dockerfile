@@ -2,11 +2,15 @@ FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    UV_INDEX_URL=https://mirrors.cloud.tencent.com/pypi/simple/
+    UV_INDEX_URL=https://mirrors.cloud.tencent.com/pypi/simple/ \
+    TZ=Asia/Shanghai
 
 WORKDIR /app
 
-# 替换为阿里云镜像源（解决国内网络问题）
+# 设置时区为上海（解决容器默认 UTC 导致时间偏差）
+RUN ln -snf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && echo "Asia/Shanghai" > /etc/timezone
+
+# 替换为腾讯云镜像源（解决国内网络问题）
 RUN sed -i 's|deb.debian.org|mirrors.cloud.tencent.com|g' /etc/apt/sources.list.d/debian.sources
 
 # 基础工具 + 字体 + xvfb（Playwright 系统依赖由 install-deps 自动安装）
