@@ -15,9 +15,30 @@ logger = logging.getLogger(__name__)
 class MaterialClassificationService:
     """为自动捕获场景提供合同/案件材料分类建议。"""
 
-    _CONTRACT_CATEGORIES = {"contract_original", "supplementary_agreement", "invoice"}
+    _CONTRACT_CATEGORIES = {
+        "contract_original",
+        "supplementary_agreement",
+        "invoice",
+        "supervision_card",
+        "archive_document",
+        "authorization_material",
+    }
     _CASE_CATEGORIES = {"party", "non_party", "unknown"}
     _CASE_SIDES = {"our", "opponent", "unknown"}
+    _SUPERVISION_CARD_KEYWORDS = (
+        "监督卡",
+        "质量监督卡",
+        "服务质量监督卡",
+        "办案服务质量监督卡",
+        "律师办案服务质量监督卡",
+    )
+    _AUTHORIZATION_KEYWORDS = (
+        "授权委托书",
+        "授权委托",
+        "委托书",
+        "所函",
+        "律师函",
+    )
     _SUPPLEMENTARY_KEYWORDS = (
         "补充协议",
         "补充合同",
@@ -119,7 +140,7 @@ class MaterialClassificationService:
             return rule_suggestion
 
         default = {
-            "category": "invoice",
+            "category": "archive_document",
             "confidence": 0.0,
             "reason": "未命中关键词规则，请手动确认",
         }
@@ -130,7 +151,7 @@ class MaterialClassificationService:
         content = self._complete(
             system_prompt=(
                 "你是合同材料分类助手。仅输出 JSON，不要输出其他内容。"
-                'JSON 结构: {"category":"contract_original|supplementary_agreement|invoice","confidence":0-1,"reason":"..."}'
+                'JSON 结构: {"category":"contract_original|supplementary_agreement|invoice|supervision_card|archive_document|authorization_material","confidence":0-1,"reason":"..."}'
             ),
             user_prompt=(f"文件名: {filename}\n请根据文件名和文本片段给出材料分类。\n文本片段:\n{text_excerpt[:1800]}"),
         )
@@ -143,9 +164,9 @@ class MaterialClassificationService:
             default["reason"] = "AI 输出解析失败，请手动确认"
             return default
 
-        category = str(payload.get("category") or "invoice").strip()
+        category = str(payload.get("category") or "archive_document").strip()
         if category not in self._CONTRACT_CATEGORIES:
-            category = "invoice"
+            category = "archive_document"
 
         return {
             "category": category,
@@ -157,6 +178,22 @@ class MaterialClassificationService:
         normalized = (filename or "").strip().lower()
         if not normalized:
             return None
+
+        for keyword in self._SUPERVISION_CARD_KEYWORDS:
+            if keyword in normalized:
+                return {
+                    "category": "supervision_card",
+                    "confidence": 0.98,
+                    "reason": f"命中文件名关键词：{keyword}",
+                }
+
+        for keyword in self._AUTHORIZATION_KEYWORDS:
+            if keyword in normalized:
+                return {
+                    "category": "authorization_material",
+                    "confidence": 0.97,
+                    "reason": f"命中文件名关键词：{keyword}",
+                }
 
         for keyword in self._SUPPLEMENTARY_KEYWORDS:
             if keyword in normalized:

@@ -40,7 +40,7 @@ class FinalizedMaterial(models.Model):
     category: models.CharField = models.CharField(
         max_length=32,
         choices=MaterialCategory.choices,
-        default=MaterialCategory.INVOICE,
+        default=MaterialCategory.ARCHIVE_DOCUMENT,
         verbose_name=_("材料分类"),
     )
     uploaded_at: models.DateTimeField = models.DateTimeField(auto_now_add=True, verbose_name=_("上传时间"))

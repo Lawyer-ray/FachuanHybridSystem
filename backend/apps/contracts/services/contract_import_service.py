@@ -247,7 +247,7 @@ class ContractImportService:
                     file_path=m["file_path"],
                     defaults={
                         "original_filename": m.get("original_filename", ""),
-                        "category": m.get("category", "invoice"),
+                        "category": m.get("category", "archive_document"),
                         "remark": m.get("remark", ""),
                     },
                 )
