@@ -60,6 +60,9 @@ class AccountCredentialAdmin(admin.ModelAdmin[AccountCredential]):
 
     list_per_page = 50
 
+    def has_add_permission(self, request: HttpRequest) -> bool:
+        return False
+
     def get_form(
         self, request: HttpRequest, obj: AccountCredential | None = None, **kwargs: Any
     ) -> type[forms.ModelForm]:
