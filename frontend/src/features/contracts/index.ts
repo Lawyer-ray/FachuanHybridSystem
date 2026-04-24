@@ -4,7 +4,7 @@
 
 // Types
 export type {
-  CaseType, CaseStatus, FeeMode, InvoiceStatus, PartyRole,
+  CaseType, ContractStatus, FeeMode, InvoiceStatus, PartyRole,
   Contract, ContractInput, ContractUpdate, ContractListParams,
   ContractPayment, PaymentInput, PaymentUpdate,
   ContractParty, ContractAssignment, ContractPartyInput,
@@ -16,7 +16,7 @@ export type {
 } from './types'
 
 export {
-  CASE_TYPE_LABELS, CASE_STATUS_LABELS, FEE_MODE_LABELS,
+  CASE_TYPE_LABELS, CONTRACT_STATUS_LABELS, FEE_MODE_LABELS,
   INVOICE_STATUS_LABELS, PARTY_ROLE_LABELS,
 } from './types'
 

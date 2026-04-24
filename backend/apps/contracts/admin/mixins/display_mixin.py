@@ -539,8 +539,8 @@ class ContractDisplayMixin:
             admin_service = _get_contract_admin_service()
             contract = admin_service.query_service.get_contract_detail(object_id)
 
-            if contract.status != ContractStatus.CLOSED:
-                return JsonResponse({"success": False, "error": str(_("只有已结案合同才能确认归档"))}, status=400)
+            if contract.status != ContractStatus.ACTIVE:
+                return JsonResponse({"success": False, "error": str(_("只有在办合同才能确认归档"))}, status=400)
 
             # 校验必需项完成度
             from apps.contracts.services.archive.wiring import build_archive_checklist_service

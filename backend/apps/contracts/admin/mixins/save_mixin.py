@@ -40,7 +40,7 @@ class ContractSaveMixin:
 
         在保存合同时,如果建档状态发生变化,调用 ContractAdminService
         处理建档编号的生成或恢复.
-        如果合同状态变更为已结案/已归档,自动将关联案件结案.
+        如果合同状态变更为已归档,自动将关联案件结案.
 
         Requirements: 2.1, 2.2, 3.3, 3.4
         """
@@ -75,12 +75,12 @@ class ContractSaveMixin:
             )
             messages.error(request, _("处理建档编号失败: %(err)s") % {"err": e})
 
-        # 合同状态变更联动：已结案/已归档 → 自动结案关联案件
+        # 合同状态变更联动：已归档 → 自动结案关联案件
         if change and old_status is not None:
             new_status = obj.status
             if (
-                new_status in (ContractStatus.CLOSED, ContractStatus.ARCHIVED)
-                and old_status not in (ContractStatus.CLOSED, ContractStatus.ARCHIVED)
+                new_status == ContractStatus.ARCHIVED
+                and old_status != ContractStatus.ARCHIVED
             ):
                 try:
                     from apps.core.interfaces import ServiceLocator

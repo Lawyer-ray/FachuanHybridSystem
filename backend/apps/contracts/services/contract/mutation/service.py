@@ -76,12 +76,12 @@ class ContractMutationService:
         except Contract.DoesNotExist:
             raise NotFoundError(_("合同 %(id)s 不存在") % {"id": contract_id}) from None
 
-        # 检测合同状态是否将变更为已结案/已归档
+        # 检测合同状态是否将变更为已归档
         old_status = contract.status
         new_status = data.get("status")
         should_close_cases = (
-            new_status in (ContractStatus.CLOSED, ContractStatus.ARCHIVED)
-            and old_status not in (ContractStatus.CLOSED, ContractStatus.ARCHIVED)
+            new_status == ContractStatus.ARCHIVED
+            and old_status != ContractStatus.ARCHIVED
         )
 
         if "fee_mode" in data:
@@ -97,7 +97,7 @@ class ContractMutationService:
 
         contract.save()
 
-        # 合同状态变更为已结案/已归档时，自动将关联案件结案
+        # 合同状态变更为已归档时，自动将关联案件结案
         if should_close_cases:
             closed_count = self.case_service.close_cases_by_contract_internal(contract_id)
             if closed_count:

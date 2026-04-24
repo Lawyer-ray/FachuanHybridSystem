@@ -6,7 +6,7 @@ import { PATHS } from '@/routes/paths'
 import { ContractFilters } from './ContractFilters'
 import { ContractTable } from './ContractTable'
 import { useContracts } from '../hooks/use-contracts'
-import type { CaseType, CaseStatus } from '../types'
+import type { CaseType, ContractStatus } from '../types'
 
 const PAGE_SIZE = 20
 
@@ -14,14 +14,14 @@ export function ContractList() {
   const navigate = useNavigate()
   const [page, setPage] = useState(1)
   const [caseType, setCaseType] = useState<CaseType | undefined>()
-  const [status, setStatus] = useState<CaseStatus | undefined>()
+  const [status, setStatus] = useState<ContractStatus | undefined>()
 
   const { data, isLoading, isFetching } = useContracts({
     page, page_size: PAGE_SIZE, case_type: caseType, status,
   })
 
   const handleCaseTypeChange = useCallback((v: CaseType | undefined) => { setCaseType(v); setPage(1) }, [])
-  const handleStatusChange = useCallback((v: CaseStatus | undefined) => { setStatus(v); setPage(1) }, [])
+  const handleStatusChange = useCallback((v: ContractStatus | undefined) => { setStatus(v); setPage(1) }, [])
 
   const contracts = data?.items ?? []
   const total = data?.total ?? 0

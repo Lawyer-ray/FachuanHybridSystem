@@ -1,11 +1,11 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { CASE_TYPE_LABELS, CASE_STATUS_LABELS, type CaseType, type CaseStatus } from '../types'
+import { CASE_TYPE_LABELS, CONTRACT_STATUS_LABELS, type CaseType, type ContractStatus } from '../types'
 
 interface Props {
   caseType?: CaseType
   onCaseTypeChange: (v: CaseType | undefined) => void
-  status?: CaseStatus
-  onStatusChange: (v: CaseStatus | undefined) => void
+  status?: ContractStatus
+  onStatusChange: (v: ContractStatus | undefined) => void
 }
 
 export function ContractFilters({ caseType, onCaseTypeChange, status, onStatusChange }: Props) {
@@ -23,13 +23,13 @@ export function ContractFilters({ caseType, onCaseTypeChange, status, onStatusCh
         </SelectContent>
       </Select>
 
-      <Select value={status ?? 'all'} onValueChange={(v) => onStatusChange(v === 'all' ? undefined : v as CaseStatus)}>
+      <Select value={status ?? 'all'} onValueChange={(v) => onStatusChange(v === 'all' ? undefined : v as ContractStatus)}>
         <SelectTrigger className="w-[120px]">
           <SelectValue placeholder="状态" />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">全部状态</SelectItem>
-          {Object.entries(CASE_STATUS_LABELS).map(([k, v]) => (
+          {Object.entries(CONTRACT_STATUS_LABELS).map(([k, v]) => (
             <SelectItem key={k} value={k}>{v}</SelectItem>
           ))}
         </SelectContent>

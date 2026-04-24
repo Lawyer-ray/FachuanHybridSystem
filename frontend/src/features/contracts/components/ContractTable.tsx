@@ -62,7 +62,7 @@ export function ContractTable({ contracts, isLoading = false }: { contracts: Con
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={c.status === 'active' ? 'default' : 'secondary'} className="text-xs">
+                    <Badge variant={c.status === 'active' ? 'default' : c.status === 'archived' ? 'secondary' : 'outline'} className="text-xs">
                       {c.status_label}
                     </Badge>
                   </TableCell>

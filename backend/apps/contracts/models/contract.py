@@ -28,7 +28,6 @@ if TYPE_CHECKING:
 class ContractStatus(models.TextChoices):
     UNSIGNED = "unsigned", _("未签约")
     ACTIVE = "active", _("在办")
-    CLOSED = "closed", _("已结案")
     ARCHIVED = "archived", _("已归档")
 
 

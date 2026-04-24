@@ -13,10 +13,10 @@ export const CASE_TYPE_LABELS: Record<CaseType, string> = {
   labor: '劳动仲裁', intl: '商事仲裁', special: '专项服务', advisor: '常法顾问',
 }
 
-export type CaseStatus = 'active' | 'closed'
+export type ContractStatus = 'unsigned' | 'active' | 'archived'
 
-export const CASE_STATUS_LABELS: Record<CaseStatus, string> = {
-  active: '在办', closed: '已结案',
+export const CONTRACT_STATUS_LABELS: Record<ContractStatus, string> = {
+  unsigned: '未签约', active: '在办', archived: '已归档',
 }
 
 export type FeeMode = 'FIXED' | 'SEMI_RISK' | 'FULL_RISK' | 'CUSTOM'
@@ -135,7 +135,7 @@ export interface Contract {
   id: number
   name: string
   case_type: CaseType
-  status: CaseStatus
+  status: ContractStatus
   specified_date: string | null
   start_date: string | null
   end_date: string | null
@@ -174,7 +174,7 @@ export interface ContractPartyInput {
 export interface ContractInput {
   name: string
   case_type: CaseType
-  status?: CaseStatus
+  status?: ContractStatus
   specified_date?: string | null
   start_date?: string | null
   end_date?: string | null
@@ -351,7 +351,7 @@ export interface ContractListParams {
   page?: number
   page_size?: number
   case_type?: CaseType
-  status?: CaseStatus
+  status?: ContractStatus
 }
 
 export interface ContractPartySource {

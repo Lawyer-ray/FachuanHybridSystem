@@ -245,8 +245,8 @@ class ContractAdminService:
             if item.get("template"):
                 archive_code_to_template[item["code"]] = item["template"]
 
-        # 判断是否可归档（已结案状态）
-        can_archive = contract.status == ContractStatus.CLOSED
+        # 判断是否可归档（在办状态）
+        can_archive = contract.status == ContractStatus.ACTIVE
 
         return {
             "contract": contract,

@@ -121,7 +121,7 @@ class TestContractHttpSmoke:
             {
                 "payload": {
                     "name": "合同冒烟测试-更新",
-                    "status": "closed",
+                    "status": "archived",
                     "fixed_amount": 12000.0,
                 }
             },
@@ -129,7 +129,7 @@ class TestContractHttpSmoke:
         _assert_status(update_response)
         updated_payload = get_json_response(update_response)
         assert updated_payload["name"] == "合同冒烟测试-更新"
-        assert updated_payload["status"] == "closed"
+        assert updated_payload["status"] == "archived"
 
         lawyer_response = _put_json(
             api_client,
