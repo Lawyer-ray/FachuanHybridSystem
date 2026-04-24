@@ -10,7 +10,7 @@ from django.db.models import Sum
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from apps.contracts.models import Contract, ContractStatus
+from apps.contracts.models import Contract
 from apps.contracts.models.finalized_material import MaterialCategory
 from apps.core.interfaces import CaseDTO
 from apps.core.models.enums import CaseStage
@@ -245,9 +245,6 @@ class ContractAdminService:
             if item.get("template"):
                 archive_code_to_template[item["code"]] = item["template"]
 
-        # 判断是否可归档（在办状态）
-        can_archive = contract.status == ContractStatus.ACTIVE
-
         return {
             "contract": contract,
             "show_representation_stages": show_representation_stages,
@@ -274,7 +271,6 @@ class ContractAdminService:
             "total_client_payment": total_client_payment,
             "archive_checklist": archive_checklist,
             "archive_code_to_template": archive_code_to_template,
-            "can_archive": can_archive,
         }
 
     def handle_contract_filing_change(self, contract_id: int, is_filed: bool) -> str | None:

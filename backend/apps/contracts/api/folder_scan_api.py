@@ -58,6 +58,28 @@ def list_contract_scan_subfolders(request: HttpRequest, contract_id: int) -> dic
     return _get_service().list_scan_subfolders(contract_id=contract_id)
 
 
+@router.get("/{contract_id}/folder-scan/latest", response=ContractFolderScanStatusOut)
+def get_latest_contract_scan(request: HttpRequest, contract_id: int) -> dict[str, object]:
+    """返回合同最新的扫描会话状态；无会话时返回空状态。"""
+    _require_contract_access(request, contract_id)
+    service = _get_service()
+    session = service.get_latest_session(contract_id=contract_id)
+    if session is None:
+        return {
+            "session_id": "",
+            "status": "",
+            "progress": 0,
+            "current_file": "",
+            "summary": {"total_files": 0, "deduped_files": 0, "classified_files": 0},
+            "candidates": [],
+            "error_message": "",
+            "archive_category": "",
+            "archive_item_options": [],
+            "work_log_suggestions": [],
+        }
+    return service.build_status_payload(session=session)
+
+
 @router.get("/{contract_id}/folder-scan/{session_id}", response=ContractFolderScanStatusOut)
 def get_contract_scan_status(request: HttpRequest, contract_id: int, session_id: UUID) -> dict[str, object]:
     _require_contract_access(request, contract_id)

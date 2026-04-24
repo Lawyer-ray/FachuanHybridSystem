@@ -77,9 +77,23 @@ class ContractFolderScanService:
                 if existing_subfolder == scan_scope["scan_subfolder"]:
                     return existing
                 raise ValidationException(
-                    message=_("已有进行中的扫描任务，请等待完成或使用“重新扫描”"),
+                    message=_("已有进行中的扫描任务，请等待完成或使用\u201c重新扫描\u201d"),
                     errors={"session_id": str(existing.id)},
                 )
+
+            # 复用同子文件夹的已完成会话，避免重复扫描
+            completed_match = (
+                ContractFolderScanSession.objects.filter(
+                    contract_id=contract_id,
+                    status=ContractFolderScanStatus.COMPLETED,
+                )
+                .order_by("-created_at")
+                .first()
+            )
+            if completed_match:
+                completed_subfolder = self._extract_scan_subfolder(completed_match.result_payload)
+                if completed_subfolder == scan_scope["scan_subfolder"]:
+                    return completed_match
 
         session = ContractFolderScanSession.objects.create(
             contract_id=contract_id,
@@ -147,6 +161,14 @@ class ContractFolderScanService:
             return ContractFolderScanSession.objects.get(id=session_id, contract_id=contract_id)
         except ContractFolderScanSession.DoesNotExist:
             raise NotFoundError(_("扫描会话不存在")) from None
+
+    def get_latest_session(self, *, contract_id: int) -> ContractFolderScanSession | None:
+        """返回合同最新的扫描会话，没有则返回 None。"""
+        return (
+            ContractFolderScanSession.objects.filter(contract_id=contract_id)
+            .order_by("-created_at")
+            .first()
+        )
 
     def build_status_payload(self, *, session: ContractFolderScanSession) -> dict[str, Any]:
         payload = dict(session.result_payload or {})

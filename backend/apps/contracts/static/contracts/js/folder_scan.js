@@ -85,6 +85,40 @@
           this.loadSubfolders(false);
           if (this.scanSessionId) {
             this.fetchStatus(true);
+          } else {
+            this.loadLatestSession();
+          }
+        },
+
+        async loadLatestSession() {
+          try {
+            const resp = await fetch(`/api/v1/contracts/${this.contractId}/folder-scan/latest`, {
+              headers: { 'X-CSRFToken': getCsrfToken() },
+            });
+            const data = await resp.json().catch(() => ({}));
+            if (!resp.ok) return;
+            if (!data || !data.session_id) return;
+            this.scanSessionId = data.session_id;
+            this.scanStatus = data.status || '';
+            this.scanProgress = data.progress || 0;
+            this.scanCurrentFile = data.current_file || '';
+            this.scanSummary = data.summary || { total_files: 0, deduped_files: 0, classified_files: 0 };
+            this.scanCandidates = this.normalizeCandidates(data.candidates || []);
+            this.scanError = data.error_message || '';
+            this.archiveCategory = data.archive_category || '';
+            this.archiveItemOptions = Array.isArray(data.archive_item_options) ? data.archive_item_options : [];
+            this.workLogSuggestions = Array.isArray(data.work_log_suggestions)
+              ? data.work_log_suggestions.map((item) => ({
+                  date: item.date || '',
+                  content: item.content || '',
+                }))
+              : [];
+            this.isScanning = ['pending', 'running', 'classifying'].includes(this.scanStatus);
+            if (this.isScanning) {
+              this.fetchStatus(true);
+            }
+          } catch (_e) {
+            // 静默忽略，用户可手动点扫描
           }
         },
 

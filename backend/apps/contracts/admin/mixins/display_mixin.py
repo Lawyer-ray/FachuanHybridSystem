@@ -206,11 +206,6 @@ class ContractDisplayMixin:
                 name="contracts_contract_detect_supervision_card",
             ),
             path(
-                "<int:object_id>/confirm-archive/",
-                self.admin_site.admin_view(self.confirm_archive_view),
-                name="contracts_contract_confirm_archive",
-            ),
-            path(
                 "<int:object_id>/sync-case-materials/",
                 self.admin_site.admin_view(self.sync_case_materials_view),
                 name="contracts_contract_sync_case_materials",
@@ -333,7 +328,6 @@ class ContractDisplayMixin:
                 "total_client_payment": ctx_data["total_client_payment"],
                 "archive_checklist": ctx_data.get("archive_checklist", {}),
                 "archive_code_to_template": ctx_data.get("archive_code_to_template", {}),
-                "can_archive": ctx_data.get("can_archive", False),
                 "media_url": getattr(__import__("django.conf", fromlist=["settings"]).settings, "MEDIA_URL", "/media/"),
             }
         )
@@ -522,64 +516,6 @@ class ContractDisplayMixin:
         except Exception as e:
             logger.exception("检测监督卡失败: contract_id=%s", object_id)
             return JsonResponse({"success": False, "found": False, "error": str(e)}, status=500)
-
-    def confirm_archive_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
-        """确认归档的 Admin view - 校验必需项完成度后流转状态"""
-        from django.http import JsonResponse
-
-        if request.method != "POST":
-            return JsonResponse({"success": False, "error": "Method not allowed"}, status=405)
-
-        if not self.has_change_permission(request):
-            return JsonResponse({"success": False, "error": str(_("无权限"))}, status=403)
-
-        try:
-            from apps.contracts.models import ContractStatus
-
-            admin_service = _get_contract_admin_service()
-            contract = admin_service.query_service.get_contract_detail(object_id)
-
-            if contract.status != ContractStatus.ACTIVE:
-                return JsonResponse({"success": False, "error": str(_("只有在办合同才能确认归档"))}, status=400)
-
-            # 校验必需项完成度
-            from apps.contracts.services.archive.wiring import build_archive_checklist_service
-
-            checklist_service = build_archive_checklist_service()
-            checklist = checklist_service.get_checklist_with_status(contract)
-
-            if checklist["required_completed_count"] < checklist["required_total_count"]:
-                missing = [
-                    item["name"]
-                    for item in checklist["items"]
-                    if item["required"] and not item["completed"]
-                ]
-                return JsonResponse({
-                    "success": False,
-                    "error": str(_("必需项未完成: %(items)s") % {"items": "、".join(missing[:5])}),
-                    "required_completed": checklist["required_completed_count"],
-                    "required_total": checklist["required_total_count"],
-                }, status=400)
-
-            contract.status = ContractStatus.ARCHIVED
-            contract.save(update_fields=["status"])
-
-            # 合同归档时，自动将关联案件结案
-            from apps.core.interfaces import ServiceLocator
-
-            case_service = ServiceLocator.get_case_service()
-            closed_count = case_service.close_cases_by_contract_internal(contract.pk)
-
-            logger.info(
-                "合同 %s 已确认归档（自动结案 %d 个关联案件）",
-                contract.pk,
-                closed_count,
-                extra={"contract_id": contract.pk, "action": "confirm_archive", "closed_case_count": closed_count},
-            )
-            return JsonResponse({"success": True})
-        except Exception as e:
-            logger.exception("确认归档失败: contract_id=%s", object_id)
-            return JsonResponse({"success": False, "error": str(e)}, status=500)
 
     def sync_case_materials_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
         """从案件材料同步到归档的 Admin view"""
