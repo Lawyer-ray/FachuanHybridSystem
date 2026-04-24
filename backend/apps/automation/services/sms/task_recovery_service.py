@@ -217,6 +217,20 @@ class TaskRecoveryService:
                 return False
 
         elif sms.status in [CourtSMSStatus.MATCHING, CourtSMSStatus.RENAMING, CourtSMSStatus.NOTIFYING]:
+            # 匹配阶段的特殊保护：如果重试次数已达上限（通常因 OCR 导致 worker OOM），
+            # 直接标记为待人工处理，避免无限循环
+            if sms.status == CourtSMSStatus.MATCHING and sms.retry_count >= self.max_retry_count:
+                logger.warning(
+                    f"短信 {sms.id} 匹配阶段重试次数已达 {sms.retry_count} 次，"
+                    f"疑似 OCR 内存不足导致 worker 反复崩溃，标记为待人工处理"
+                )
+                sms.status = CourtSMSStatus.PENDING_MANUAL
+                sms.error_message = str(
+                    _("匹配阶段反复失败（已重试%(count)d次），可能因OCR内存不足导致处理中断，需要人工处理")
+                ) % {"count": sms.retry_count}
+                sms.save()
+                return False
+
             # 处理中状态，继续处理
             submit_task(
                 "apps.automation.services.sms.court_sms_service.process_sms_async",
