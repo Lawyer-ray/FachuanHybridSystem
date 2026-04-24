@@ -300,13 +300,14 @@
         normalizeCandidates(candidates) {
           var validCategories = [
             'contract_original', 'supplementary_agreement', 'invoice',
-            'supervision_card', 'archive_document', 'authorization_material',
-            'case_material',
+            'supervision_card', 'case_material',
           ];
           return (candidates || []).map((candidate) => {
-            var category = validCategories.includes(candidate.suggested_category)
-              ? candidate.suggested_category
-              : 'archive_document';
+            var suggestedCategory = candidate.suggested_category || '';
+            // archive_document / authorization_material 归入案件材料
+            var category = validCategories.includes(suggestedCategory)
+              ? suggestedCategory
+              : 'case_material';
             return {
               source_path: candidate.source_path,
               filename: candidate.filename,
@@ -327,8 +328,6 @@
             'supplementary_agreement': '补充协议',
             'invoice': '发票',
             'supervision_card': '监督卡',
-            'authorization_material': '授权委托材料',
-            'archive_document': '归档文书',
             'case_material': '案件材料',
           };
           return labels[category] || category;

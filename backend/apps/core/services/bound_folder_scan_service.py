@@ -172,10 +172,11 @@ class BoundFolderScanService:
         }
 
         if domain == "contract":
-            # 合同域仅凭文件名关键词分类，不使用 AI
+            # 合同域仅凭文件名关键词 + 文件夹路径分类，不使用 AI
             suggestion = self._classification_service.classify_contract_material(
                 filename=path.name,
                 text_excerpt="",
+                source_path=path.as_posix(),
                 enable_ai=False,
             )
             candidate.update(

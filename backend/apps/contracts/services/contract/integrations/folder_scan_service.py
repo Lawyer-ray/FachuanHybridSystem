@@ -223,12 +223,11 @@ class ContractFolderScanService:
                 MaterialCategory.CONTRACT_ORIGINAL,
                 MaterialCategory.SUPPLEMENTARY_AGREEMENT,
                 MaterialCategory.INVOICE,
-                MaterialCategory.ARCHIVE_DOCUMENT,
                 MaterialCategory.SUPERVISION_CARD,
-                MaterialCategory.AUTHORIZATION_MATERIAL,
                 MaterialCategory.CASE_MATERIAL,
             }:
-                category = MaterialCategory.ARCHIVE_DOCUMENT
+                # archive_document / authorization_material 归入案件材料
+                category = MaterialCategory.CASE_MATERIAL
 
             is_docx = bool(item.get("is_docx", False))
             archive_item_code = str(item.get("archive_item_code") or "").strip()
@@ -479,6 +478,39 @@ class ContractFolderScanService:
                     candidate["archive_item_code"] = ""
                     candidate["archive_item_name"] = "未匹配"
                     candidate["reason"] = result["reason"]
+
+            elif suggested_category == "authorization_material":
+                # 授权委托材料归入案件材料（兼容旧缓存），并尝试匹配归档清单项
+                candidate["suggested_category"] = "case_material"
+                result = classify_archive_material(
+                    filename=str(candidate.get("filename") or ""),
+                    source_path=str(candidate.get("source_path") or ""),
+                    archive_category=archive_category,
+                )
+                if result.get("archive_item_code"):
+                    candidate["archive_item_code"] = result["archive_item_code"]
+                    candidate["archive_item_name"] = result["archive_item_name"]
+                    candidate["confidence"] = result["confidence"]
+                    candidate["reason"] = result["reason"]
+                else:
+                    candidate["archive_item_code"] = ""
+                    candidate["archive_item_name"] = "未匹配"
+
+            elif suggested_category == "case_material":
+                # 案件材料 — 尝试匹配归档清单项
+                result = classify_archive_material(
+                    filename=str(candidate.get("filename") or ""),
+                    source_path=str(candidate.get("source_path") or ""),
+                    archive_category=archive_category,
+                )
+                if result.get("archive_item_code"):
+                    candidate["archive_item_code"] = result["archive_item_code"]
+                    candidate["archive_item_name"] = result["archive_item_name"]
+                    candidate["confidence"] = result["confidence"]
+                    candidate["reason"] = result["reason"]
+                else:
+                    candidate["archive_item_code"] = ""
+                    candidate["archive_item_name"] = "未匹配"
 
             processed.append(candidate)
 
