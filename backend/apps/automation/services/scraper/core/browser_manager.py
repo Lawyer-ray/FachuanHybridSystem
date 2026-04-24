@@ -70,10 +70,10 @@ class BrowserManager:
                 message=str(_("配置验证失败")), config=config.__dict__ if config else None, original_error=e
             ) from e
 
-        playwright: "Playwright | None" = None
-        browser: "Browser | None" = None
-        context: "BrowserContext | None" = None
-        page: "Page | None" = None
+        playwright: Playwright | None = None
+        browser: Browser | None = None
+        context: BrowserContext | None = None
+        page: Page | None = None
 
         try:
             # 启动 Playwright

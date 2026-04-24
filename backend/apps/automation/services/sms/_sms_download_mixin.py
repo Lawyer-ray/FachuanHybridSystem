@@ -66,7 +66,7 @@ class SMSDownloadMixin:
     @classmethod
     def _get_required_platform_name(cls, url: str) -> str | None:
         """获取 URL 对应的平台名称，如果该平台需要 Playwright 则返回名称，否则返回 None。
-        
+
         一张网(zxfw)支持纯 API 模式，不需要 Playwright，返回 None。
         其他平台都需要 Playwright，返回平台中文名。
         """
@@ -90,7 +90,7 @@ class SMSDownloadMixin:
     def _is_playwright_available(cls) -> bool:
         """检查 Playwright 是否已安装"""
         try:
-            import playwright  # noqa: F401
+            import playwright
 
             return True
         except ImportError:

@@ -71,6 +71,7 @@ backend/apiSystem/htmlcov/
 .trae/
 # CodeBuddy IDE
 .codebuddy/
+.workbuddy/
 CODEBUDDY.md
 AGENTS.md
 **/AGENTS.md

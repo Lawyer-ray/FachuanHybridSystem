@@ -38,7 +38,7 @@ def _safe_save_task(task: ScraperTask) -> None:
 def is_playwright_available() -> bool:
     """检查 Playwright 是否已安装且可用"""
     try:
-        import playwright  # noqa: F401
+        import playwright
 
         return True
     except ImportError:
@@ -76,8 +76,8 @@ class BaseScraper:
         self.validator = ServiceLocator.get_validator_service()
         self.security = ServiceLocator.get_security_service()
         self.monitor = ServiceLocator.get_monitor_service()
-        self.context: "BrowserContext | None" = None
-        self.page: "Page | None" = None
+        self.context: BrowserContext | None = None
+        self.page: Page | None = None
         self.site_name: str | None = None  # 子类应设置网站名称
 
     def execute(self) -> dict[str, Any]:

@@ -22,7 +22,7 @@ logger = logging.getLogger("apps.automation")
 def _is_playwright_available() -> bool:
     """检查 Playwright 是否已安装"""
     try:
-        import playwright  # noqa: F401
+        import playwright
 
         return True
     except ImportError:
