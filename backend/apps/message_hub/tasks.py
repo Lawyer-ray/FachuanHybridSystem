@@ -49,7 +49,7 @@ def sync_source_by_id(source_id: int) -> None:
     logger.info("同步完成: source=%s, 新消息=%d", source.display_name, count)
 
 
-def sync_all_sources() -> None:
+def sync_all_sources(*_args: object) -> None:
     """轮询所有启用的消息来源，拉取新消息。由 django-q2 定时调用。"""
     import os
 

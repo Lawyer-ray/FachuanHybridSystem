@@ -247,4 +247,36 @@
 
 {% block footer %}
 {{ block.super }}
+<script>
+// 其他工具侧边栏收藏过滤：仅显示已收藏的工具
+(function() {
+  const APP_LABEL = 'other_tools';
+  // 收藏 URL 由服务端注入
+  const FAV_URLS = JSON.parse('{{ fav_urls_json|escapejs }}' || '[]');
+  const favSet = new Set(FAV_URLS);
+
+  function applyFilter() {
+    const appSection = document.querySelector(`#nav-sidebar .app-${APP_LABEL}.module`);
+    if (!appSection) return;
+
+    const rows = appSection.querySelectorAll('tr[class^="model-"]');
+    rows.forEach(row => {
+      const link = row.querySelector('th a');
+      if (!link) return;
+      const href = link.getAttribute('href') || '';
+      if (!favSet.has(href)) {
+        row.style.display = 'none';
+      } else {
+        row.style.display = '';
+      }
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', applyFilter);
+  } else {
+    applyFilter();
+  }
+})();
+</script>
 {% endblock %}

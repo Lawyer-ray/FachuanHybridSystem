@@ -325,6 +325,12 @@
     gap: 8px;
   }
 
+  .child-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
   .child-link {
     display: inline-flex;
     align-items: center;
@@ -377,6 +383,37 @@
 
   [x-cloak] {
     display: none !important;
+  }
+
+  .fav-btn {
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 3px;
+    cursor: pointer;
+    color: #c0c8d4;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+  }
+
+  .fav-btn:hover {
+    color: #f59e0b;
+    background: #fffbeb;
+  }
+
+  .fav-btn.is-fav {
+    color: #f59e0b;
+  }
+
+  .fav-btn.is-fav svg {
+    fill: #f59e0b;
+  }
+
+  .fav-btn:hover svg {
+    fill: currentColor;
   }
 
   @media (min-width: 1920px) {
@@ -461,6 +498,7 @@
       <span class="tip-chip">{% trans "支持搜索应用" %}</span>
       <span class="tip-chip">{% trans "支持直达二级菜单" %}</span>
       <span class="tip-chip">{% trans "保留原始权限控制" %}</span>
+
     </div>
   </div>
 
@@ -488,7 +526,20 @@
         <div class="submenu-title">{% trans "常用入口" %}</div>
         <div class="children-list">
           {% for child in section.children %}
-            <a class="child-link" href="{{ child.url }}">{{ child.name }}</a>
+            <span class="child-item">
+              <button
+                class="fav-btn{% if child.url in fav_urls %} is-fav{% endif %}"
+                data-url="{{ child.url }}"
+                data-name="{{ child.name }}"
+                title="{% if child.url in fav_urls %}{% trans '取消收藏' %}{% else %}{% trans '收藏到侧边栏' %}{% endif %}"
+                onclick="toggleFav(this)"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                </svg>
+              </button>
+              <a class="child-link" href="{{ child.url }}">{{ child.name }}</a>
+            </span>
           {% empty %}
             <a class="child-link" href="{{ section.url }}">{% trans "应用首页" %}</a>
           {% endfor %}
@@ -503,4 +554,25 @@
     {% trans "没有找到匹配的应用或二级菜单，请换个关键词试试。" %}
   </div>
 </div>
+
+<script>
+function toggleFav(btn) {
+  const url = btn.dataset.url;
+  const name = btn.dataset.name;
+  const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]')?.value
+    || document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+
+  fetch('/admin/automation/tool-favorite/toggle/', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': csrftoken,
+    },
+    body: JSON.stringify({ url, name }),
+  })
+  .then(r => r.json())
+  .then(() => { location.reload(); })
+  .catch(() => { location.reload(); });
+}
+</script>
 {% endblock %}

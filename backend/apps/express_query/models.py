@@ -26,8 +26,8 @@ class ExpressQueryTool(models.Model):
 
     class Meta:
         managed = False
-        verbose_name = _("快递查询上传")
-        verbose_name_plural = _("快递查询上传")
+        verbose_name = _("查询EMS/顺丰")
+        verbose_name_plural = _("查询EMS/顺丰")
 
 
 class ExpressCarrierType(models.TextChoices):

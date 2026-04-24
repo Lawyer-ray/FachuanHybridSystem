@@ -36,7 +36,7 @@ class ExpressQueryToolAdmin(admin.ModelAdmin[ExpressQueryTool]):
 
         context = {
             **self.admin_site.each_context(request),
-            "title": _("快递查询上传"),
+            "title": _("查询EMS/顺丰"),
             "opts": self.model._meta,
             "has_view_permission": self.has_view_permission(request),
             "task_list_url": reverse("admin:express_query_expressquerytask_changelist"),

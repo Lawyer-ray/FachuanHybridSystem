@@ -33,7 +33,8 @@ _APP_ORDER = [
     "contracts",  # 2. 合同管理
     "cases",  # 3. 案件管理
     "reminders",  # 4. 重要日期提醒
-    "automation",  # 6. 自动化工具
+    "automation",  # 6. 自动化工具（已收纳到其他工具）
+    "other_tools",  # 7. 其他工具
     "fee_notice",  # 6.1 交费通知书识别
     "document_recognition",  # 6.2 文书智能识别
     "pdf_splitting",  # 6.25 PDF 拆解
@@ -55,12 +56,12 @@ _MODEL_ORDER: dict[str, list[str]] = {
     "automation": [  # 自动化工具
         "courtsms",  # 法院短信
         "preservationquote",  # 财产保全询价
-        "othertoolshub",  # 其他工具
     ],
 }
 
 # 需要在侧边栏隐藏的 app（保留直链 URL 访问）
 _HIDDEN_APP_LABELS = {
+    "automation",
     "fee_notice",
     "document_recognition",
     "pdf_splitting",
@@ -89,8 +90,9 @@ _HIDDEN_APP_LABELS = {
     "message_hub",
 }
 
-# “其他工具”聚合页应用列表
+# "其他工具"聚合页应用列表
 _OTHER_TOOLS_APPS = [
+    {"app_label": "automation", "name": _("自动化工具"), "url": "/admin/automation/"},
     {"app_label": "fee_notice", "name": _("交费通知书识别"), "url": "/admin/fee_notice/"},
     {"app_label": "document_recognition", "name": _("文书智能识别"), "url": "/admin/document_recognition/"},
     {"app_label": "pdf_splitting", "name": _("PDF 拆解"), "url": "/admin/pdf_splitting/"},
@@ -110,13 +112,29 @@ _OTHER_TOOLS_APPS = [
     {"app_label": "legal_solution", "name": _("法律方案"), "url": "/admin/legal_solution/"},
     {"app_label": "evidence", "name": _("证据管理"), "url": "/admin/evidence/"},
     {"app_label": "preservation_date", "name": _("保全日期识别"), "url": "/admin/preservation_date/"},
-    {"app_label": "finance", "name": _("利息/违约金计算"), "url": "/admin/finance/"},
+    {
+        "app_label": "finance",
+        "name": _("利息/违约金计算"),
+        "url": "/admin/finance/",
+        "children": [
+            {"name": _("LPR利率"), "url": "/admin/finance/lprrate/"},
+            {"name": _("LPR计算器"), "url": "/admin/finance/calculator/"},
+        ],
+    },
     {"app_label": "django_q", "name": _("任务队列"), "url": "/admin/django_q/"},
     {"app_label": "organization", "name": _("组织管理"), "url": "/admin/organization/"},
     {"app_label": "auth", "name": _("用户与权限"), "url": "/admin/auth/"},
     {"app_label": "core", "name": _("核心系统"), "url": "/admin/core/"},
     {"app_label": "reminders", "name": _("重要日期提醒"), "url": "/admin/reminders/"},
     {"app_label": "message_hub", "name": _("信息中转站"), "url": "/admin/message_hub/"},
+]
+
+# 新用户默认收藏的子工具 URL（首次访问「其他工具」页时自动创建）
+_DEFAULT_FAV_URLS = [
+    "/admin/finance/calculator/",
+    "/admin/express_query/expressquerytool/",
+    "/admin/automation/courtsms/",
+    "/admin/doc_convert/docconverttool/",
 ]
 
 _original_get_app_list = admin.site.__class__.get_app_list
@@ -142,31 +160,57 @@ def _sorted_get_app_list(self: admin.AdminSite, request: HttpRequest, app_label:
                 )
             )
 
-    # 向 automation app 添加“其他工具”聚合入口
-    for app in app_list:
-        if app.get("app_label") == "automation":
-            other_tools_model = {
-                "name": _("其他工具"),
-                "object_name": "OtherToolsHub",
-                "perms": {"add": False, "change": False, "delete": False, "view": True},
-                "admin_url": "/admin/automation/other-tools/",
-                "add_url": None,
-                "view_only": True,
-            }
-            models = app.setdefault("models", [])
-            if not any(item.get("object_name") == "OtherToolsHub" for item in models):
-                models.append(other_tools_model)
+    # 注入虚拟「其他工具」顶级菜单（主菜单链接 hub 页，子菜单直达各子工具）
+    if app_label is None and not any(a.get("app_label") == "other_tools" for a in app_list):
+        virtual_models: list[dict[str, Any]] = []
+        for item in _OTHER_TOOLS_APPS:
+            item_label = str(item.get("app_label", ""))
+            manual_children = item.get("children")
 
-            model_order = _MODEL_ORDER.get("automation", [])
-            if model_order:
-                models.sort(
-                    key=lambda m: (
-                        model_order.index(str(m.get("object_name", "")).lower())
-                        if str(m.get("object_name", "")).lower() in model_order
-                        else 999
-                    )
-                )
-            break
+            if manual_children:
+                # 手动指定的子工具
+                for child in manual_children:
+                    child_url = str(child.get("url", ""))
+                    child_name = str(child.get("name", ""))
+                    if child_url and child_name:
+                        virtual_models.append(
+                            {
+                                "name": child_name,
+                                "object_name": f"Virtual_{child_url.strip('/').replace('/', '_')}",
+                                "perms": {"add": False, "change": False, "delete": False, "view": True},
+                                "admin_url": child_url,
+                                "add_url": None,
+                                "view_only": True,
+                            }
+                        )
+            elif item_label:
+                # 通过 app_label 自动发现子模型
+                item_entries = admin.site.get_app_list(request, app_label=item_label)
+                if item_entries:
+                    for model in item_entries[0].get("models", []):
+                        m_name = str(model.get("name", "")).strip()
+                        m_url = str(model.get("admin_url") or "").strip()
+                        if m_name and m_url:
+                            virtual_models.append(
+                                {
+                                    "name": m_name,
+                                    "object_name": f"Virtual_{m_url.strip('/').replace('/', '_')}",
+                                    "perms": {"add": False, "change": False, "delete": False, "view": True},
+                                    "admin_url": m_url,
+                                    "add_url": None,
+                                    "view_only": True,
+                                }
+                            )
+
+        app_list.append(
+            {
+                "app_label": "other_tools",
+                "app_url": "/admin/automation/other-tools/",
+                "name": _("其他工具"),
+                "has_perms": True,
+                "models": virtual_models,
+            }
+        )
 
     # 向 reminders app 添加日历链接
     for app in app_list:
@@ -208,23 +252,30 @@ def lpr_calculator_view(request: HttpRequest) -> HttpResponse:
 
 def other_tools_hub_view(request: HttpRequest) -> TemplateResponse:
     """其他工具聚合页。"""
+    from apps.core.models import ToolFavorite
+
     sections: list[dict[str, Any]] = []
 
     for item in _OTHER_TOOLS_APPS:
         app_label = str(item.get("app_label", ""))
         app_url = str(item.get("url", ""))
         app_name = item.get("name", app_label)
-        app_entries = admin.site.get_app_list(request, app_label=app_label)
         model_links: list[dict[str, str]] = []
 
-        if app_entries:
-            first_app = app_entries[0]
-            app_url = str(first_app.get("app_url") or app_url)
-            for model in first_app.get("models", []):
-                name = str(model.get("name", "")).strip()
-                url = str(model.get("admin_url") or "").strip()
-                if name and url:
-                    model_links.append({"name": name, "url": url})
+        # 支持手动指定 children（不走 app_label 自动发现）
+        manual_children = item.get("children")
+        if manual_children:
+            model_links = [dict(c) for c in manual_children]  # type: ignore[arg-type]
+        else:
+            app_entries = admin.site.get_app_list(request, app_label=app_label)
+            if app_entries:
+                first_app = app_entries[0]
+                app_url = str(first_app.get("app_url") or app_url)
+                for model in first_app.get("models", []):
+                    name = str(model.get("name", "")).strip()
+                    url = str(model.get("admin_url") or "").strip()
+                    if name and url:
+                        model_links.append({"name": name, "url": url})
 
         sections.append(
             {
@@ -234,10 +285,24 @@ def other_tools_hub_view(request: HttpRequest) -> TemplateResponse:
             }
         )
 
+    # 获取当前用户的收藏 URL 集合；首次访问时创建默认收藏
+    existing_favs = ToolFavorite.objects.filter(user=request.user)
+    if not existing_favs.exists():
+        for url in _DEFAULT_FAV_URLS:
+            ToolFavorite.objects.get_or_create(
+                user=request.user,
+                tool_url=url,
+                defaults={"tool_name": url.strip("/").split("/")[-1].replace("_", " ").title()},
+            )
+        existing_favs = ToolFavorite.objects.filter(user=request.user)
+
+    fav_urls: set[str] = set(existing_favs.values_list("tool_url", flat=True))
+
     context: dict[str, Any] = {
         **admin.site.each_context(request),
         "title": _("其他工具"),
         "sections": sections,
+        "fav_urls": fav_urls,
     }
     return TemplateResponse(request, "admin/automation/other_tools_hub.html", context)
 
@@ -245,6 +310,39 @@ def other_tools_hub_view(request: HttpRequest) -> TemplateResponse:
 def reminders_calendar_redirect(_: HttpRequest) -> HttpResponseRedirect:
     """提醒 app 下的日历入口，重定向到 ReminderAdmin 日历页。"""
     return HttpResponseRedirect(reverse("admin:reminders_reminder_calendar"))
+
+
+def tool_favorite_toggle_view(request: HttpRequest) -> HttpResponse:
+    """切换工具收藏状态（POST only）。"""
+    import json
+
+    from apps.core.models import ToolFavorite
+
+    if request.method != "POST":
+        return HttpResponse(json.dumps({"error": "Method not allowed"}), status=405, content_type="application/json")
+
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return HttpResponse(json.dumps({"error": "Invalid JSON"}), status=400, content_type="application/json")
+
+    tool_url = str(data.get("url", "")).strip()
+    tool_name = str(data.get("name", "")).strip()
+    if not tool_url:
+        return HttpResponse(json.dumps({"error": "Missing url"}), status=400, content_type="application/json")
+
+    fav = ToolFavorite.objects.filter(user=request.user, tool_url=tool_url).first()
+    if fav:
+        fav.delete()
+        is_fav = False
+    else:
+        ToolFavorite.objects.create(user=request.user, tool_url=tool_url, tool_name=tool_name)
+        is_fav = True
+
+    return HttpResponse(
+        json.dumps({"is_fav": is_fav, "url": tool_url}),
+        content_type="application/json",
+    )
 
 
 # 注册 LPR 计算器 URL 到 admin site
@@ -268,6 +366,11 @@ def _get_urls_with_calculator() -> list[URLResolver | URLPattern]:
             "reminders/calendar/",
             admin.site.admin_view(reminders_calendar_redirect),
             name="reminders_calendar_entry",
+        ),
+        path(
+            "automation/tool-favorite/toggle/",
+            admin.site.admin_view(tool_favorite_toggle_view),
+            name="automation_tool_favorite_toggle",
         ),
     ]
     return custom_urls + urls

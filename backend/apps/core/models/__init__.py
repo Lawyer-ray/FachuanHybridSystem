@@ -11,6 +11,7 @@ from .court import Court
 from .llm_record import LLMCallRecord
 from .prompt_template import PromptTemplate
 from .system_config import SystemConfig
+from .tool_favorite import ToolFavorite
 
 __all__ = [
     "CauseOfAction",
@@ -19,4 +20,5 @@ __all__ = [
     "LLMCallRecord",
     "PromptTemplate",
     "SystemConfig",
+    "ToolFavorite",
 ]

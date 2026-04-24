@@ -4,338 +4,528 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>登录 | 法穿AI案件管理系统</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        :root {
+            --bg-deep: #0a0e1a;
+            --bg-panel: #0f1629;
+            --bg-card: #151d35;
+            --bg-input: #1a2340;
+            --border-subtle: rgba(255,255,255,0.06);
+            --border-focus: #6c5ce7;
+            --accent: #6c5ce7;
+            --accent-light: #a29bfe;
+            --accent-glow: rgba(108,92,231,0.35);
+            --gold: #d4a855;
+            --gold-light: #f0d48a;
+            --text-primary: #f0f0f5;
+            --text-secondary: rgba(240,240,245,0.55);
+            --text-tertiary: rgba(240,240,245,0.35);
+            --success: #00b894;
+            --error: #ff6b6b;
         }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            font-family: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-deep);
+            color: var(--text-primary);
             overflow: hidden;
         }
 
-        /* 动态背景粒子 */
-        .particles {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
+        /* ====== 布局 ====== */
+        .auth-layout {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* ====== 左侧品牌区 ====== */
+        .brand-panel {
+            flex: 1;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 60px 70px;
             overflow: hidden;
+            background: linear-gradient(160deg, #0f1629 0%, #151d35 40%, #1a1040 100%);
+        }
+
+        .brand-panel::before {
+            content: '';
+            position: absolute;
+            top: -200px;
+            right: -200px;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(108,92,231,0.12) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .brand-panel::after {
+            content: '';
+            position: absolute;
+            bottom: -150px;
+            left: -100px;
+            width: 400px;
+            height: 400px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(212,168,85,0.08) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .grid-bg {
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(108,92,231,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(108,92,231,0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+            pointer-events: none;
+        }
+
+        .brand-content {
+            position: relative;
+            z-index: 2;
+        }
+
+        .brand-headline {
+            font-size: 64px;
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 40px;
+            letter-spacing: -2px;
+        }
+
+        .brand-headline .highlight {
+            background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .brand-statement {
+            position: relative;
+            max-width: 520px;
+            margin-top: 10px;
+        }
+
+        .statement-quote {
+            position: absolute;
+            top: -28px;
+            left: -12px;
+            font-size: 120px;
+            font-weight: 700;
+            line-height: 1;
+            color: rgba(108,92,231,0.08);
+            font-family: Georgia, serif;
+            user-select: none;
+            pointer-events: none;
+        }
+
+        .brand-desc {
+            font-size: 20px;
+            line-height: 1.8;
+            color: var(--text-secondary);
+            max-width: 520px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .brand-glow {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(108,92,231,0.08) 0%, transparent 60%);
+            pointer-events: none;
             z-index: 0;
         }
 
-        .particle {
+        .brand-footer {
             position: absolute;
-            width: 4px;
-            height: 4px;
-            background: rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            animation: float 15s infinite;
+            bottom: 30px;
+            left: 70px;
+            font-size: 12px;
+            color: var(--text-tertiary);
+            z-index: 2;
         }
 
-        @keyframes float {
-            0%, 100% {
-                transform: translateY(100vh) rotate(0deg);
-                opacity: 0;
-            }
-            10% {
-                opacity: 1;
-            }
-            90% {
-                opacity: 1;
-            }
-            100% {
-                transform: translateY(-100vh) rotate(720deg);
-                opacity: 0;
-            }
+        .brand-footer a {
+            color: var(--text-secondary);
+            text-decoration: none;
         }
 
-        /* 登录卡片 */
-        .login-container {
-            position: relative;
-            z-index: 1;
-            width: 100%;
-            max-width: 420px;
-            padding: 20px;
-        }
-
-        .login-card {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(20px);
-            border-radius: 24px;
-            padding: 40px;
-            box-shadow:
-                0 25px 50px rgba(0, 0, 0, 0.3),
-                inset 0 0 0 1px rgba(255, 255, 255, 0.1);
-            animation: slideUp 0.6s ease-out;
-        }
-
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        /* Logo 和标题 */
-        .logo-section {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-
-        .logo {
-            width: 70px;
-            height: 70px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 20px;
+        /* ====== 右侧表单区 ====== */
+        .form-panel {
+            width: 520px;
+            min-width: 520px;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 0 auto 15px;
-            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
-            animation: pulse 2s infinite;
+            padding: 40px;
+            background: var(--bg-panel);
+            border-left: 1px solid var(--border-subtle);
+            position: relative;
+            overflow-y: auto;
         }
 
-        @keyframes pulse {
-            0%, 100% {
-                box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
-            }
-            50% {
-                box-shadow: 0 10px 40px rgba(102, 126, 234, 0.6);
-            }
+        .form-wrapper {
+            width: 100%;
+            max-width: 400px;
+            animation: fadeSlideIn 0.4s ease-out;
         }
 
-        .logo svg {
-            width: 36px;
-            height: 36px;
-            fill: white;
+        @keyframes fadeSlideIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
-        .title {
-            color: #fff;
-            font-size: 24px;
-            font-weight: 600;
+        /* 表单头部 */
+        .form-header {
+            margin-bottom: 32px;
+        }
+
+        .form-header h2 {
+            font-size: 26px;
+            font-weight: 700;
             margin-bottom: 8px;
+            letter-spacing: -0.5px;
         }
 
-        .subtitle {
-            color: rgba(255, 255, 255, 0.6);
+        .form-header p {
             font-size: 14px;
+            color: var(--text-secondary);
         }
 
-        /* 表单样式 */
+        /* 表单组 */
         .form-group {
             margin-bottom: 20px;
-            position: relative;
         }
 
         .form-label {
-            display: block;
-            color: rgba(255, 255, 255, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
             font-size: 13px;
             font-weight: 500;
-            margin-bottom: 8px;
+            color: var(--text-secondary);
+        }
+
+        .form-label .required {
+            color: var(--accent-light);
+            margin-left: 2px;
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        .input-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 16px;
+            height: 16px;
+            color: var(--text-tertiary);
+            pointer-events: none;
+            transition: color 0.2s;
         }
 
         .form-input {
             width: 100%;
-            padding: 14px 16px;
-            background: rgba(255, 255, 255, 0.08);
-            border: 2px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            color: #fff;
-            font-size: 15px;
-            transition: all 0.3s ease;
+            padding: 12px 14px 12px 36px;
+            background: var(--bg-input);
+            border: 1.5px solid var(--border-subtle);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-size: 14px;
+            font-family: inherit;
+            transition: all 0.25s ease;
             outline: none;
         }
 
         .form-input::placeholder {
-            color: rgba(255, 255, 255, 0.4);
-        }
-
-        .form-input:focus {
-            border-color: #667eea;
-            background: rgba(255, 255, 255, 0.12);
-            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.2);
+            color: var(--text-tertiary);
         }
 
         .form-input:hover {
-            border-color: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255,255,255,0.12);
         }
 
-        /* 错误提示 */
-        .error-note {
-            background: rgba(255, 107, 107, 0.15);
-            border: 1px solid rgba(255, 107, 107, 0.3);
+        .form-input:focus {
+            border-color: var(--accent);
+            background: rgba(26,35,64,0.9);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .form-input:focus ~ .input-icon {
+            color: var(--accent-light);
+        }
+
+        /* 密码可见切换 */
+        .password-toggle {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--text-tertiary);
+            cursor: pointer;
+            padding: 4px;
+            transition: color 0.2s;
+        }
+
+        .password-toggle:hover {
+            color: var(--text-secondary);
+        }
+
+        /* 错误状态 */
+        .form-input.error {
+            border-color: var(--error);
+            box-shadow: 0 0 0 3px rgba(255,107,107,0.15);
+        }
+
+        /* 错误横幅 */
+        .error-banner {
+            background: rgba(255,107,107,0.1);
+            border: 1px solid rgba(255,107,107,0.2);
             border-radius: 10px;
             padding: 12px 16px;
             margin-bottom: 20px;
-            color: #ff6b6b;
             font-size: 13px;
+            color: #ff8a8a;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
-        /* 提交按钮 */
-        .submit-btn {
+        /* 记住我 */
+        .form-row {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            margin-bottom: 24px;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+
+        .checkbox-label input[type="checkbox"] {
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border: 1.5px solid rgba(255,255,255,0.15);
+            border-radius: 4px;
+            background: var(--bg-input);
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s;
+        }
+
+        .checkbox-label input[type="checkbox"]:checked {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+
+        .checkbox-label input[type="checkbox"]:checked::after {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 10px;
+            color: white;
+        }
+
+        /* 主按钮 */
+        .btn-primary {
             width: 100%;
-            padding: 16px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 14px;
+            background: linear-gradient(135deg, var(--accent) 0%, #8b7cf7 100%);
             border: none;
-            border-radius: 12px;
-            color: #fff;
-            font-size: 16px;
+            border-radius: 10px;
+            color: white;
+            font-size: 15px;
             font-weight: 600;
+            font-family: inherit;
             cursor: pointer;
             transition: all 0.3s ease;
-            margin-top: 10px;
             position: relative;
             overflow: hidden;
         }
 
-        .submit-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 25px var(--accent-glow);
         }
 
-        .submit-btn:active {
+        .btn-primary:active {
             transform: translateY(0);
         }
 
-        .submit-btn::after {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 0;
-            height: 0;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            transition: width 0.6s, height 0.6s;
-        }
-
-        .submit-btn:active::after {
-            width: 300px;
-            height: 300px;
-        }
-
-        /* 注册链接 */
-        .register-link {
+        /* 底部链接 */
+        .form-footer {
             text-align: center;
-            margin-top: 25px;
-            padding-top: 20px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            margin-top: 28px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border-subtle);
+            font-size: 13px;
+            color: var(--text-secondary);
         }
 
-        .register-link span {
-            color: rgba(255, 255, 255, 0.6);
-            font-size: 14px;
-        }
-
-        .register-link a {
-            color: #667eea;
+        .form-footer a {
+            color: var(--accent-light);
             text-decoration: none;
-            font-weight: 600;
-            margin-left: 5px;
-            transition: color 0.3s;
+            font-weight: 500;
+            cursor: pointer;
+            transition: color 0.2s;
         }
 
-        .register-link a:hover {
-            color: #8b9ff5;
+        .form-footer a:hover {
+            color: var(--gold);
         }
 
-        /* 响应式 */
-        @media (max-width: 480px) {
-            .login-card {
-                padding: 30px 25px;
+        /* ====== 响应式 ====== */
+        @media (max-width: 1024px) {
+            .brand-panel {
+                display: none;
             }
+            .form-panel {
+                width: 100%;
+                min-width: unset;
+            }
+        }
 
-            .title {
-                font-size: 20px;
+        @media (max-width: 480px) {
+            .form-panel {
+                padding: 24px;
+            }
+            .form-header h2 {
+                font-size: 22px;
             }
         }
     </style>
 </head>
 <body>
-    <!-- 动态粒子背景 -->
-    <div class="particles" id="particles"></div>
+    <div class="auth-layout">
+        <!-- 左侧品牌区 -->
+        <div class="brand-panel">
+            <div class="grid-bg"></div>
+            <div class="brand-glow"></div>
 
-    <div class="login-container">
-        <div class="login-card">
-            <!-- Logo -->
-            <div class="logo-section">
-                <div class="logo">
-                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 3L1 9l4 2.18v6L12 21l7-3.82v-6l2-1.09V17h2V9L12 3zm6.82 6L12 12.72 5.18 9 12 5.28 18.82 9zM17 15.99l-5 2.73-5-2.73v-3.72L12 15l5-2.73v3.72z"/>
-                    </svg>
+            <div class="brand-content">
+                <h1 class="brand-headline">
+                    让每一个案件<br>
+                    <span class="highlight">自动运转</span>
+                </h1>
+
+                <div class="brand-statement">
+                    <div class="statement-quote">"</div>
+                    <p class="brand-desc">
+                        从客户接洽到结案归档，全流程自动化。短信驱动、AI 赋能，把律师从事务性工作中解放出来。
+                    </p>
                 </div>
-                <h1 class="title">欢迎回来</h1>
-                <p class="subtitle">法穿AI案件管理系统</p>
             </div>
 
-            <!-- 表单 -->
-            <form method="post" action="{{ app_path }}">
-                {% csrf_token %}
+            <div class="brand-footer">
+                © 2026 法穿AI · PolyForm Noncommercial 开源 · <a href="https://github.com/Lawyer-ray/FachuanHybridSystem" target="_blank">GitHub</a>
+            </div>
+        </div>
+
+        <!-- 右侧表单区 -->
+        <div class="form-panel">
+            <div class="form-wrapper">
+                <div class="form-header">
+                    <h2>欢迎回来</h2>
+                    <p>登录法穿AI案件管理系统</p>
+                </div>
 
                 {% if form.errors %}
-                <div class="error-note">
-                    用户名或密码错误，请重试
+                <div class="error-banner">
+                    <span>⚠️</span>
+                    <span>用户名或密码错误，请重试</span>
                 </div>
                 {% endif %}
 
-                <div class="form-group">
-                    <label class="form-label" for="id_username">用户名/真实姓名</label>
-                    <input type="text" name="username" id="id_username" class="form-input" placeholder="请输入中文姓名" autofocus required>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="id_password">密码</label>
-                    <input type="password" name="password" id="id_password" class="form-input" placeholder="请输入密码" required>
+                <form method="post" action="{{ app_path }}">
+                    {% csrf_token %}
                     <input type="hidden" name="next" value="{{ next }}">
+
+                    <div class="form-group">
+                        <label class="form-label" for="id_username">
+                            用户名 / 真实姓名 <span class="required">*</span>
+                        </label>
+                        <div class="input-wrapper">
+                            <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                                <circle cx="12" cy="7" r="4"/>
+                            </svg>
+                            <input type="text" name="username" id="id_username" class="form-input" placeholder="请输入中文姓名" autofocus required autocomplete="username">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="id_password">
+                            密码 <span class="required">*</span>
+                        </label>
+                        <div class="input-wrapper">
+                            <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                            </svg>
+                            <input type="password" name="password" id="id_password" class="form-input" placeholder="请输入密码" required autocomplete="current-password">
+                            <button type="button" class="password-toggle" onclick="togglePwd('id_password', this)">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                    <circle cx="12" cy="12" r="3"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="remember"> 记住我
+                        </label>
+                    </div>
+
+                    <button type="submit" class="btn-primary">登录</button>
+                </form>
+
+                <div class="form-footer">
+                    还没有账号？<a href="{% url 'admin_register' %}">立即注册</a>
                 </div>
-
-                <button type="submit" class="submit-btn">登录</button>
-            </form>
-
-            <!-- 注册链接 -->
-            <div class="register-link">
-                <span>还没有账号？</span>
-                <a href="{% url 'admin_register' %}">立即注册</a>
             </div>
         </div>
     </div>
 
     <script>
-        // 创建动态粒子
-        function createParticles() {
-            const container = document.getElementById('particles');
-            const particleCount = 50;
-
-            for (let i = 0; i < particleCount; i++) {
-                const particle = document.createElement('div');
-                particle.className = 'particle';
-                particle.style.left = Math.random() * 100 + '%';
-                particle.style.animationDelay = Math.random() * 15 + 's';
-                particle.style.animationDuration = (Math.random() * 10 + 10) + 's';
-                particle.style.width = (Math.random() * 4 + 2) + 'px';
-                particle.style.height = particle.style.width;
-                container.appendChild(particle);
+        function togglePwd(inputId, btn) {
+            const input = document.getElementById(inputId);
+            if (input.type === 'password') {
+                input.type = 'text';
+                btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+            } else {
+                input.type = 'password';
+                btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
             }
         }
-
-        createParticles();
     </script>
 </body>
 </html>
