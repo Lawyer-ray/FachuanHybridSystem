@@ -529,6 +529,11 @@ class ContractFolderScanService:
                     candidate["archive_item_name"] = "未匹配"
                     candidate["selected"] = False
 
+            # 文件名含"保单"/"保函"的默认不勾选（保险类文件通常不需要归档）
+            filename_lower = str(candidate.get("filename") or "").lower()
+            if any(kw in filename_lower for kw in ("保单", "保函")):
+                candidate["selected"] = False
+
             # 案件材料的 reason 统一替换为相对路径，方便用户定位文件
             if candidate.get("suggested_category") == "case_material":
                 rel_path = self._relative_path_str(
