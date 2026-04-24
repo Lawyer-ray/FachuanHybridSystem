@@ -114,19 +114,10 @@ class SystemConfigAdmin(admin.ModelAdmin[SystemConfig]):
     def changelist_view(self, request: Any, extra_context: Any = None) -> Any:
         """自定义列表页面"""
         extra_context = extra_context or {}
-        system_update_state = self._get_system_update_service().get_state()
-        options = system_update_state.get("options")
-        enable_post_update_setup_default = False
-        if isinstance(options, dict):
-            enable_post_update_setup_default = bool(options.get("enable_post_update_setup"))
 
         extra_context["show_init_button"] = True
         extra_context["show_sync_button"] = True
         extra_context["show_clear_cache_button"] = True
-        extra_context["show_trigger_update_button"] = True
-        extra_context["system_update_trigger_url"] = reverse("admin:core_systemconfig_trigger_update")
-        extra_context["system_update_state"] = system_update_state
-        extra_context["system_update_enable_post_update_setup_default"] = enable_post_update_setup_default
         extra_context["has_add_permission"] = self.has_add_permission(request)
         return super().changelist_view(request, extra_context=extra_context)
 

@@ -1,6 +1,6 @@
 [project]
 name = "fachuan-backend"
-version = "26.27.4"
+version = "26.37.15"
 description = "法穿AI案件管理系统 - Backend"
 requires-python = ">=3.12"
 dependencies = [
@@ -33,7 +33,7 @@ dependencies = [
     "pymupdf==1.27.2.2",
     "openpyxl==3.1.5",
     # --- 图像处理 ---
-    "opencv-python==4.13.0.92",
+    "opencv-python-headless==4.13.0.92",
     "Pillow==12.2.0",
     # --- OCR ---
     "rapidocr==3.7.0",
