@@ -19,13 +19,13 @@ class SMSDownloadMixin:
     SFDW_VERIFICATION_CODE_PATTERN = re.compile(r"验证码[：:]\s*(\w{4,6})")
     SFDW_GUANGXI_HOST = "171.106.48.55:28083"
 
-    @staticmethod
-    def _normalize_phone_tail6(raw: str | None) -> str | None:
+    @classmethod
+    def _normalize_phone_tail6(cls, raw: str | None) -> str | None:
         digits = "".join(ch for ch in str(raw or "") if ch.isdigit())
         return digits[-6:] if len(digits) >= 6 else None
 
-    @staticmethod
-    def _host_equals_or_subdomain(host: str, domain: str) -> bool:
+    @classmethod
+    def _host_equals_or_subdomain(cls, host: str, domain: str) -> bool:
         return host == domain or host.endswith(f".{domain}")
 
     @classmethod
@@ -55,6 +55,46 @@ class SMSDownloadMixin:
         return (cls._host_equals_or_subdomain(host, "dzsd.hbfy.gov.cn") and path.endswith("/sfsddz")) or path.endswith(
             "/sfsddz"
         )
+
+    @classmethod
+    def _is_zxfw_url(cls, url: str) -> bool:
+        """判断是否为一张网链接（纯 API 可用，不依赖 Playwright）"""
+        parsed = urlparse(url)
+        host = (parsed.hostname or "").lower()
+        return cls._host_equals_or_subdomain(host, "zxfw.court.gov.cn")
+
+    @classmethod
+    def _get_required_platform_name(cls, url: str) -> str | None:
+        """获取 URL 对应的平台名称，如果该平台需要 Playwright 则返回名称，否则返回 None。
+        
+        一张网(zxfw)支持纯 API 模式，不需要 Playwright，返回 None。
+        其他平台都需要 Playwright，返回平台中文名。
+        """
+        if cls._is_zxfw_url(url):
+            return None  # 一张网支持纯 API，不强制要求 Playwright
+        if cls._is_hbfy_account_url(url):
+            return "湖北电子送达"
+        if cls._is_jysd_url(url):
+            return "简易送达"
+        if cls._is_sfdw_url(url):
+            return "司法送达网"
+        # 检查广东电子送达
+        parsed = urlparse(url)
+        host = (parsed.hostname or "").lower()
+        if cls._host_equals_or_subdomain(host, "sd.gdems.com"):
+            return "广东电子送达"
+        # 未知平台，保守地不要求 Playwright（后续结构探测时会检查）
+        return None
+
+    @classmethod
+    def _is_playwright_available(cls) -> bool:
+        """检查 Playwright 是否已安装"""
+        try:
+            import playwright  # noqa: F401
+
+            return True
+        except ImportError:
+            return False
 
     def _collect_lawyer_phone_tail6_candidates(self, sms: CourtSMS) -> list[str]:
         """基于现有律师手机号优先级，提取后6位候选并去重。"""
@@ -143,6 +183,25 @@ class SMSDownloadMixin:
 
         try:
             download_url = sms.download_links[0]
+
+            # 检查该 URL 是否需要 Playwright，若需要但未安装则直接标记失败
+            platform_name = self._get_required_platform_name(download_url)
+            if platform_name and not self._is_playwright_available():
+                error_msg = (
+                    f"「{platform_name}」平台需要 Playwright 浏览器支持，"
+                    "但 Playwright 未安装。请运行: uv add playwright && playwright install chromium"
+                )
+                logger.warning(f"短信 {sms.id} 跳过下载任务创建: {error_msg}")
+                # 创建一个失败状态的任务，让流程继续而非卡住
+                task = ScraperTask.objects.create(
+                    task_type=ScraperTaskType.COURT_DOCUMENT,
+                    url=download_url,
+                    case=sms.case,
+                    config={"court_sms_id": sms.id, "auto_download": True, "source": "court_sms"},
+                    status=ScraperTaskStatus.FAILED,
+                    error_message=error_msg,
+                )
+                return task
 
             task_config: dict[str, Any] = {"court_sms_id": sms.id, "auto_download": True, "source": "court_sms"}
 

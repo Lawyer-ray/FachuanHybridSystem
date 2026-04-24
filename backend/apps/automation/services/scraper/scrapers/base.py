@@ -3,15 +3,17 @@
 """
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from django.utils import timezone
-from playwright.sync_api import BrowserContext, Page
 
 from apps.automation.models import ScraperTask, ScraperTaskStatus
 
 # 所有服务通过 ServiceLocator 获取
 from apps.automation.services.scraper.core.anti_detection import anti_detection
+
+if TYPE_CHECKING:
+    from playwright.sync_api import BrowserContext, Page
 
 logger = logging.getLogger("apps.automation")
 
@@ -33,12 +35,28 @@ def _safe_save_task(task: ScraperTask) -> None:
         logger.warning("保存任务状态时出错: %s", e, exc_info=True)
 
 
+def is_playwright_available() -> bool:
+    """检查 Playwright 是否已安装且可用"""
+    try:
+        import playwright  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
 class BaseScraper:
     """
     爬虫基类
 
     所有具体的爬虫都应该继承此类并实现 _run 方法
+
+    类属性:
+        requires_browser: 是否需要浏览器环境，默认 True。
+            设为 False 则 execute() 跳过浏览器创建，适用于纯 API 爬虫。
     """
+
+    requires_browser: bool = True
 
     def __init__(self, task: ScraperTask):
         """
@@ -58,8 +76,8 @@ class BaseScraper:
         self.validator = ServiceLocator.get_validator_service()
         self.security = ServiceLocator.get_security_service()
         self.monitor = ServiceLocator.get_monitor_service()
-        self.context: BrowserContext | None = None
-        self.page: Page | None = None
+        self.context: "BrowserContext | None" = None
+        self.page: "Page | None" = None
         self.site_name: str | None = None  # 子类应设置网站名称
 
     def execute(self) -> dict[str, Any]:
@@ -77,17 +95,23 @@ class BaseScraper:
         _safe_save_task(self.task)
 
         try:
-            # 创建独立的浏览器上下文（启用反检测）
-            self.context = self.browser_service.create_context(use_anti_detection=True)
-            assert self.context is not None
-            self.page = self.context.new_page()
-
-            # 注入反检测脚本
-            self.anti_detection.inject_stealth_script(self.page)
-
             # 解密配置中的敏感信息
             if self.task.config:
                 self.task.config = self.security.decrypt_config(self.task.config)
+
+            if self.requires_browser:
+                # 需要浏览器：创建独立的浏览器上下文（启用反检测）
+                if not is_playwright_available():
+                    raise RuntimeError(
+                        "当前任务需要 Playwright 浏览器，但 Playwright 未安装。"
+                        "请运行: uv add playwright && playwright install chromium"
+                    )
+                self.context = self.browser_service.create_context(use_anti_detection=True)
+                assert self.context is not None
+                self.page = self.context.new_page()
+
+                # 注入反检测脚本
+                self.anti_detection.inject_stealth_script(self.page)
 
             # 执行具体的爬虫逻辑
             result = self._run()

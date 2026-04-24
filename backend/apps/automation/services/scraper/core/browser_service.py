@@ -6,11 +6,12 @@ import logging
 import os
 import subprocess
 import sys
-from typing import Any, Optional, cast
-
-from playwright.sync_api import Browser, BrowserContext, Playwright, sync_playwright
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 from apps.core.interfaces import IBrowserService
+
+if TYPE_CHECKING:
+    from playwright.sync_api import Browser, BrowserContext, Playwright
 
 logger = logging.getLogger("apps.automation")
 
@@ -66,8 +67,8 @@ class BrowserService:
     """
 
     _instance: Optional["BrowserService"] = None
-    _playwright: Playwright | None = None
-    _browser: Browser | None = None
+    _playwright: "Playwright | None" = None
+    _browser: "Browser | None" = None
 
     def __new__(cls) -> "BrowserService":
         if cls._instance is None:
@@ -80,7 +81,7 @@ class BrowserService:
             self._initialized = True
             logger.info("BrowserService 初始化")
 
-    def start_browser(self, headless: bool | None = None) -> Browser:
+    def start_browser(self, headless: bool | None = None) -> "Browser":
         """
         启动浏览器（如果尚未启动）
 
@@ -109,7 +110,9 @@ class BrowserService:
             # 启动前确保浏览器二进制已安装（处理版本升级导致的路径不匹配）
             _ensure_browser_installed()
 
-            self._playwright = sync_playwright().start()
+            from playwright.sync_api import sync_playwright as _sync_playwright
+
+            self._playwright = _sync_playwright().start()
 
             launch_options: dict[str, Any] = {
                 "headless": headless,
@@ -137,20 +140,22 @@ class BrowserService:
                     # 安装浏览器
                     _ensure_browser_installed()
                     # 重新启动
-                    self._playwright = sync_playwright().start()
+                    from playwright.sync_api import sync_playwright as _sync_playwright
+
+                    self._playwright = _sync_playwright().start()
                     self._browser = self._playwright.chromium.launch(**launch_options)
                     logger.info(f"浏览器自动安装后启动成功（{mode}模式）")
                 else:
                     raise
         return self._browser
 
-    def get_browser(self) -> Browser:
+    def get_browser(self) -> "Browser":
         """获取浏览器实例（自动启动）"""
         if self._browser is None:
             self.start_browser()
-        return cast(Browser, self._browser)
+        return cast("Browser", self._browser)
 
-    def create_context(self, use_anti_detection: bool = True, **kwargs: Any) -> BrowserContext:
+    def create_context(self, use_anti_detection: bool = True, **kwargs: Any) -> "BrowserContext":
         """
         创建新的浏览器上下文
 
@@ -252,7 +257,7 @@ class BrowserServiceAdapter(IBrowserService):
         """
         self.service.close()
 
-    def create_context(self, use_anti_detection: bool = True, **kwargs: Any) -> BrowserContext:
+    def create_context(self, use_anti_detection: bool = True, **kwargs: Any) -> "BrowserContext":
         """
         创建新的浏览器上下文
 

@@ -5,6 +5,8 @@
 1. 优先:直接调用 API(无需浏览器,速度最快)
 2. 次选:Playwright 拦截 API 响应
 3. 回退:传统页面点击下载
+
+当 Playwright 未安装时，仅使用策略 1（纯 API），策略 2/3 不可用。
 """
 
 from __future__ import annotations
@@ -24,16 +26,30 @@ from .base_court_scraper import BaseCourtDocumentScraper
 logger = logging.getLogger("apps.automation")
 
 
+def _is_playwright_available() -> bool:
+    """检查 Playwright 是否已安装"""
+    try:
+        import playwright  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
 class ZxfwCourtScraper(ZxfwDirectApiMixin, ZxfwInterceptMixin, ZxfwFallbackMixin, BaseCourtDocumentScraper):  # type: ignore
     """
     法院执行网 (zxfw.court.gov.cn) 文书下载爬虫
 
     特点:
     - 支持三级下载策略(直接 API → API 拦截 → 页面点击)
+    - Playwright 未安装时仅使用纯 API 策略
     - 自动提取 URL 参数(sdbh, qdbh, sdsin)
     - 批量下载多个文书
     - 自动保存到数据库
     """
+
+    # 一张网优先走纯 API，不强制要求浏览器
+    requires_browser = False
 
     def run(self) -> dict[str, Any]:
         """执行文书下载任务"""
@@ -42,8 +58,9 @@ class ZxfwCourtScraper(ZxfwDirectApiMixin, ZxfwInterceptMixin, ZxfwFallbackMixin
         logger.info("=" * 60)
 
         download_dir: Path = self._prepare_download_dir()
+        playwright_available = _is_playwright_available()
 
-        # ========== 第一优先级:直接调用 API ==========
+        # ========== 第一优先级:直接调用 API（无需浏览器）==========
         direct_api_error: Exception | None = None
         try:
             logger.info(
@@ -64,12 +81,26 @@ class ZxfwCourtScraper(ZxfwDirectApiMixin, ZxfwInterceptMixin, ZxfwFallbackMixin
         except Exception as e:
             direct_api_error = e
             logger.warning(
-                "直接 API 调用失败,尝试 Playwright 拦截方式",
+                "直接 API 调用失败%s",
+                "，尝试 Playwright 拦截方式" if playwright_available else "，且 Playwright 未安装，无法降级",
                 extra={
                     "operation_type": "direct_api_failed",
                     "timestamp": time.time(),
                     "error": str(e),
                     "error_type": type(e).__name__,
+                },
+            )
+
+        # ========== Playwright 未安装时直接报错 ==========
+        if not playwright_available:
+            from apps.core.exceptions import ExternalServiceError
+
+            raise ExternalServiceError(
+                message=_("直接 API 调用失败，且 Playwright 未安装无法降级到浏览器模式"),
+                code="DOWNLOAD_API_FAILED_NO_PLAYWRIGHT",
+                errors={
+                    "direct_api_error": str(direct_api_error),
+                    "hint": "安装 Playwright 可增加降级策略: uv add playwright && playwright install chromium",
                 },
             )
 
