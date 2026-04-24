@@ -13,11 +13,12 @@ RUN ln -snf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && echo "Asia/Shang
 # 替换为腾讯云镜像源（解决国内网络问题）
 RUN sed -i 's|deb.debian.org|mirrors.cloud.tencent.com|g' /etc/apt/sources.list.d/debian.sources
 
-# 基础工具 + 字体 + xvfb（Playwright 系统依赖由 install-deps 自动安装）
+# 基础工具 + 字体 + xvfb + OpenCV 依赖（Playwright 系统依赖由 install-deps 自动安装）
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl ca-certificates \
     fonts-liberation fonts-noto-color-emoji \
     xvfb \
+    libgl1 libglib2.0-0t64 \
     && rm -rf /var/lib/apt/lists/*
 
 # 安装 uv（pip 方式，避免 astral.sh/ghcr.io 国内无法访问）

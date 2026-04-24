@@ -2,6 +2,13 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.37.17] - 2026-04-24
+
+### 变更
+
+- **Dockerfile 添加 OpenCV 系统依赖**：在 `apt-get install` 中新增 `libgl1` 和 `libglib2.0-0t64`，解决 ddddocr 因缺少 `libGL.so.1` 导致导入失败的问题（Debian Trixie 已将 `libgl1-mesa-glx` 替换为 `libgl1`）。
+- **INSTALL.md 补充 Linux 系统依赖说明**：本地开发（Linux）章节新增系统依赖安装步骤，提示 Ubuntu/Debian 需安装 `libgl1` 和 `libglib2.0-0t64`，CentOS/RHEL 需安装 `mesa-libGL` 和 `glib2`。
+
 ## [26.37.16] - 2026-04-24
 
 ### 变更

@@ -177,26 +177,32 @@ cd FachuanHybridSystem/backend
 # Linux: 可直接执行下行；Windows: 请参考 https://docs.astral.sh/uv/getting-started/installation/
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# 3) 创建虚拟环境并安装依赖
+# 3) 安装系统依赖（ddddocr / OpenCV 需要，Docker 部署已内置）
+# Ubuntu / Debian:
+sudo apt-get install -y libgl1 libglib2.0-0t64
+# CentOS / RHEL:
+# sudo yum install -y mesa-libGL glib2
+
+# 4) 创建虚拟环境并安装依赖
 uv sync
 
-# 4) 激活虚拟环境
+# 5) 激活虚拟环境
 source .venv/bin/activate  # Windows: .venv\\Scripts\\activate
 
-# 5) 配置环境变量
+# 6) 配置环境变量
 cp .env.example .env
 
-# 6) 确保 PostgreSQL 已启动并可连接（默认读取 .env 中 DB_* 配置）
+# 7) 确保 PostgreSQL 已启动并可连接（默认读取 .env 中 DB_* 配置）
 # 例如：systemctl start postgresql / brew services start postgresql / Docker 启动 postgres
 
-# 7) 数据库迁移
+# 8) 数据库迁移
 cd apiSystem
 uv run python manage.py migrate
 
-# 8) 创建管理员
+# 9) 创建管理员
 uv run python manage.py createsuperuser
 
-# 9) 收集静态文件
+# 10) 收集静态文件
 uv run python manage.py collectstatic --noinput
 ```
 
