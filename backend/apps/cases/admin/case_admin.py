@@ -171,6 +171,7 @@ class CaseAdmin(
     BaseModelAdmin,
 ):
     form = CaseAdminForm
+    autocomplete_fields = ["contract"]
 
     def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> Any:
         from django.http import HttpResponseRedirect

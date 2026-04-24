@@ -106,3 +106,13 @@
     opacity: 0.8;
     text-decoration: underline;
 }
+
+/* Select2 下拉菜单防溢出 */
+.select2-container--admin-autocomplete .select2-dropdown {
+    max-width: calc(100vw - 40px) !important;
+}
+/* 合同字段 Select2 宽度自适应 */
+.field-contract .select2-container--admin-autocomplete {
+    min-width: 200px;
+    max-width: 100%;
+}
