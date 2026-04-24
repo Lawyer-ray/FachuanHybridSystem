@@ -27,7 +27,7 @@
 
 ```bash
 # 1) 克隆项目
-git clone --depth 1 git@github.com:Lawyer-ray/FachuanHybridSystem.git
+git clone --depth 1 https://github.com/Lawyer-ray/FachuanHybridSystem.git
 cd FachuanHybridSystem/backend
 
 # 2) 配置环境变量

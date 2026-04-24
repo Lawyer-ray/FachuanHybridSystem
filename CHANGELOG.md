@@ -2,6 +2,14 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.37.16] - 2026-04-24
+
+### 变更
+
+- **Playwright 改为可选依赖**：`playwright` 从硬性依赖降级为可选依赖，未安装时系统仅发出 Warning 而非阻断启动。一张网（法院执行网）支持纯 API 模式下载文书，无需 Playwright；其他平台（广东电子送达、简易送达、司法送达网）仍需 Playwright 浏览器支持。
+- **Playwright 缺失时优雅降级**：`BrowserManager` / `BrowserService` 改为延迟导入 Playwright，未安装时不再 ImportError 崩溃。`SMSDownloadMixin` 在创建下载任务前检测目标平台是否需要 Playwright，若需要但未安装则直接创建 FAILED 状态任务并提示安装命令。
+- **Django system check 降级**：`automation.E001`（Error）改为 `automation.W002`（Warning），提示一张网可通过纯 API 正常工作。
+
 ## [26.37.15] - 2026-04-24
 
 ### 变更
