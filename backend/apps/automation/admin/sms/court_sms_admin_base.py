@@ -196,7 +196,7 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
         elif obj.status == CourtSMSStatus.PENDING_MANUAL:
             change_url = reverse("admin:automation_courtsms_change", args=[obj.id])
             return format_html(
-                '<a href="{}" style="color: orange; font-weight: bold;">🔗 去详情页绑定案件</a>', change_url
+                '<a href="{}" style="color: orange; font-weight: bold;">手动关联</a>', change_url
             )
         return "-"
 
