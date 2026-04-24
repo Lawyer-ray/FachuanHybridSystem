@@ -256,6 +256,11 @@ class ContractDisplayMixin:
                 name="contracts_contract_delete_archive_material",
             ),
             path(
+                "<int:object_id>/clear-all-archive-materials/",
+                self.admin_site.admin_view(self.clear_all_archive_materials_view),
+                name="contracts_contract_clear_all_archive_materials",
+            ),
+            path(
                 "<int:object_id>/open-folder/",
                 self.admin_site.admin_view(self.open_folder_view),
                 name="contracts_contract_open_folder",
@@ -888,6 +893,40 @@ class ContractDisplayMixin:
             return JsonResponse({"success": True})
         except Exception as e:
             logger.exception("删除归档材料失败: material_id=%s", material_id)
+            return JsonResponse({"success": False, "error": str(e)}, status=500)
+
+    def clear_all_archive_materials_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
+        """一键清空归档检查清单中的全部材料"""
+        from pathlib import Path
+
+        from django.conf import settings as django_settings
+        from django.http import JsonResponse
+
+        if request.method != "POST":
+            return JsonResponse({"success": False, "error": "Method not allowed"}, status=405)
+
+        if not self.has_change_permission(request):
+            return JsonResponse({"success": False, "error": str(_("无权限"))}, status=403)
+
+        try:
+            materials = FinalizedMaterial.objects.filter(contract_id=object_id)
+            deleted_count = 0
+            for material in materials:
+                # 删除物理文件
+                if material.file_path:
+                    abs_file = Path(django_settings.MEDIA_ROOT) / material.file_path
+                    if abs_file.exists():
+                        try:
+                            abs_file.unlink()
+                        except OSError as e:
+                            logger.warning("删除归档文件失败: %s: %s", material.file_path, e)
+                material.delete()
+                deleted_count += 1
+
+            logger.info("已清空全部归档材料: contract_id=%s, count=%s", object_id, deleted_count)
+            return JsonResponse({"success": True, "deleted_count": deleted_count})
+        except Exception as e:
+            logger.exception("清空归档材料失败: contract_id=%s", object_id)
             return JsonResponse({"success": False, "error": str(e)}, status=500)
 
     def open_folder_view(self, request: HttpRequest, object_id: int) -> HttpResponse:

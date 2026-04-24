@@ -221,9 +221,11 @@ class ArchivePlaceholderService(BasePlaceholderService):
         # 办案小结内容：优先使用案件审理结果，无结果时根据合同名称和当事人生成
         result["办案小结内容"] = self._get_case_summary_content(case, contract, result)
 
-        # 律师工作日志内容：从案件进展获取，排除自动捕获的短信/文书送达日志
+        # 律师工作日志内容：优先从案件进展获取，无案件时从扫描会话获取
         if case:
             result["律师工作日志内容"] = self._get_lawyer_work_log_content(case)
+        elif contract:
+            result["律师工作日志内容"] = self._get_work_log_from_scan_session(contract)
 
         # 结案归档材料：实时检测已完成的检查项，生成编号目录
         if contract:
@@ -490,6 +492,58 @@ class ArchivePlaceholderService(BasePlaceholderService):
             return ""
 
         # 使用硬换行渲染
+        rt = _ArchiveMaterialsRichText()
+        for i, line in enumerate(lines):
+            if i > 0:
+                rt.add_break()
+            rt.add(line)
+        return rt
+
+    @staticmethod
+    def _get_work_log_from_scan_session(contract: Any) -> str:
+        """从合同关联的扫描会话中获取确认的工作日志建议。
+
+        当合同没有关联回案件时，从 ContractFolderScanSession 的
+        result_payload["confirmed_work_log_suggestions"] 读取。
+        """
+        try:
+            from apps.contracts.models import ContractFolderScanSession
+
+            session = (
+                ContractFolderScanSession.objects.filter(contract_id=getattr(contract, "id", None))
+                .order_by("-created_at")
+                .first()
+            )
+        except Exception:
+            logger.warning("获取扫描会话失败", extra={"contract_id": getattr(contract, "id", None)})
+            return ""
+
+        if not session:
+            return ""
+
+        payload = getattr(session, "result_payload", None) or {}
+        suggestions = payload.get("confirmed_work_log_suggestions") or []
+        if not suggestions:
+            return ""
+
+        lines: list[str] = []
+        for item in suggestions:
+            date_str = str(item.get("date") or "").strip()
+            content = str(item.get("content") or "").strip()
+            if not content:
+                continue
+            if date_str:
+                # 将 "2024-09-11" 格式转为中文
+                parts = date_str.split("-")
+                if len(parts) == 3:
+                    date_str = f"{parts[0]}年{int(parts[1])}月{int(parts[2])}日"
+                lines.append(f"{date_str}，{content}")
+            else:
+                lines.append(content)
+
+        if not lines:
+            return ""
+
         rt = _ArchiveMaterialsRichText()
         for i, line in enumerate(lines):
             if i > 0:

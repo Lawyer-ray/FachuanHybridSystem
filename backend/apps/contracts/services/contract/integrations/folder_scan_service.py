@@ -202,7 +202,9 @@ class ContractFolderScanService:
         work_log_suggestions: list[dict[str, str]] | None = None,
     ) -> dict[str, Any]:
         session = self.get_session(contract_id=contract_id, session_id=session_id)
-        if session.status not in {ContractFolderScanStatus.COMPLETED, ContractFolderScanStatus.IMPORTED}:
+        if session.status == ContractFolderScanStatus.IMPORTED:
+            raise ValidationException(message=_("该扫描已导入，请重新扫描"), errors={"status": session.status})
+        if session.status != ContractFolderScanStatus.COMPLETED:
             raise ValidationException(message=_("扫描尚未完成"), errors={"status": session.status})
 
         payload = dict(session.result_payload or {})
@@ -210,6 +212,7 @@ class ContractFolderScanService:
         candidate_map = {str(item.get("source_path") or ""): item for item in candidates}
 
         imported_count = 0
+        skipped_dupes = 0
         for item in items:
             if not bool(item.get("selected", True)):
                 continue
@@ -223,12 +226,11 @@ class ContractFolderScanService:
                 MaterialCategory.CONTRACT_ORIGINAL,
                 MaterialCategory.SUPPLEMENTARY_AGREEMENT,
                 MaterialCategory.INVOICE,
-                MaterialCategory.ARCHIVE_DOCUMENT,
                 MaterialCategory.SUPERVISION_CARD,
-                MaterialCategory.AUTHORIZATION_MATERIAL,
                 MaterialCategory.CASE_MATERIAL,
             }:
-                category = MaterialCategory.ARCHIVE_DOCUMENT
+                # archive_document / authorization_material 归入案件材料
+                category = MaterialCategory.CASE_MATERIAL
 
             is_docx = bool(item.get("is_docx", False))
             archive_item_code = str(item.get("archive_item_code") or "").strip()
@@ -271,6 +273,19 @@ class ContractFolderScanService:
                 if archive_item_code:
                     material_kwargs["archive_item_code"] = archive_item_code
 
+                # 去重：同一合同下相同文件名+分类的材料不重复创建
+                if FinalizedMaterial.objects.filter(
+                    contract_id=contract_id,
+                    original_filename=display_name,
+                    category=category,
+                ).exists():
+                    skipped_dupes += 1
+                    logger.info(
+                        "material_duplicate_skipped",
+                        extra={"contract_id": contract_id, "filename": display_name, "category": category},
+                    )
+                    continue
+
                 FinalizedMaterial.objects.create(**material_kwargs)
                 imported_count += 1
             finally:
@@ -282,9 +297,18 @@ class ContractFolderScanService:
         confirmed_logs = work_log_suggestions or []
         payload["import_result"] = {
             "imported_count": imported_count,
+            "skipped_dupes": skipped_dupes,
             "imported_at": timezone.now().isoformat(),
         }
         payload["confirmed_work_log_suggestions"] = confirmed_logs
+
+        # 将工作日志建议写入 CaseLog 模型，使模板可读取
+        work_log_imported = self._import_work_log_suggestions(
+            contract_id=contract_id,
+            confirmed_logs=confirmed_logs,
+            actor_id=(session.started_by_id if session.started_by_id else None),
+        )
+        payload["import_result"]["work_log_imported"] = work_log_imported
 
         ContractFolderScanSession.objects.filter(id=session.id).update(
             status=ContractFolderScanStatus.IMPORTED,
@@ -299,6 +323,7 @@ class ContractFolderScanService:
             "session_id": str(session.id),
             "status": ContractFolderScanStatus.IMPORTED,
             "imported_count": imported_count,
+            "work_log_imported": work_log_imported,
         }
 
     def run_scan_task(self, *, session_id: str) -> None:
@@ -375,6 +400,63 @@ class ContractFolderScanService:
                 updated_at=timezone.now(),
             )
 
+    def _import_work_log_suggestions(
+        self,
+        *,
+        contract_id: int,
+        confirmed_logs: list[dict[str, str]],
+        actor_id: int | None = None,
+    ) -> int:
+        """将确认的工作日志建议写入 CaseLog 模型，自动跳过已有相同内容的日志。"""
+        if not confirmed_logs:
+            return 0
+
+        from apps.core.interfaces import ServiceLocator
+
+        case_service = ServiceLocator.get_case_service()
+        cases_dto = case_service.get_cases_by_contract(contract_id)
+        if not cases_dto:
+            logger.warning("work_log_import_no_case", extra={"contract_id": contract_id})
+            return 0
+
+        # 取合同的第一个案件写入日志
+        case_id = int(cases_dto[0].id)
+
+        # 获取案件已有日志内容集合，用于去重
+        from apps.cases.models import CaseLog
+
+        existing_contents: set[str] = set(
+            CaseLog.objects.filter(case_id=case_id).values_list("content", flat=True)
+        )
+
+        imported = 0
+        for suggestion in confirmed_logs:
+            content = str(suggestion.get("content") or "").strip()
+            if not content:
+                continue
+            if content in existing_contents:
+                logger.info("work_log_duplicate_skipped", extra={"case_id": case_id, "content": content})
+                continue
+            try:
+                case_service.create_case_log_internal(
+                    case_id=case_id,
+                    content=content,
+                    user_id=actor_id,
+                )
+                existing_contents.add(content)
+                imported += 1
+            except Exception:
+                logger.exception(
+                    "work_log_import_item_failed",
+                    extra={"case_id": case_id, "content": content},
+                )
+
+        logger.info(
+            "work_log_imported",
+            extra={"contract_id": contract_id, "case_id": case_id, "count": imported},
+        )
+        return imported
+
     def _ensure_contract_exists(self, contract_id: int) -> None:
         if Contract.objects.filter(id=contract_id).exists():
             return
@@ -439,6 +521,19 @@ class ContractFolderScanService:
         except ValueError:
             return False
 
+    @staticmethod
+    def _relative_path_str(*, source_path: str, scan_root: Path) -> str:
+        """计算文件父目录相对扫描根目录的路径，失败返回空字符串。"""
+        try:
+            file_path = Path(source_path).expanduser().resolve()
+            parent_rel = file_path.parent.relative_to(scan_root)
+            # 文件直接在根目录下时返回空
+            if str(parent_rel) == ".":
+                return ""
+            return parent_rel.as_posix()
+        except (ValueError, RuntimeError):
+            return ""
+
     def _post_process_candidates(
         self,
         *,
@@ -448,6 +543,7 @@ class ContractFolderScanService:
     ) -> list[dict[str, Any]]:
         """扫描后处理：归档清单项匹配 + docx 文件收集 + 跳过项过滤。"""
         processed: list[dict[str, Any]] = []
+        scan_root = Path(scan_folder).expanduser().resolve()
 
         for candidate in candidates:
             suggested_category = str(candidate.get("suggested_category") or "")
@@ -474,11 +570,61 @@ class ContractFolderScanService:
                     candidate["confidence"] = result["confidence"]
                     candidate["reason"] = result["reason"]
                 else:
-                    # 未匹配，保留但标记
+                    # 未匹配，保留但标记，默认取消勾选
                     candidate["suggested_category"] = "case_material"
                     candidate["archive_item_code"] = ""
                     candidate["archive_item_name"] = "未匹配"
                     candidate["reason"] = result["reason"]
+                    candidate["selected"] = False
+
+            elif suggested_category == "authorization_material":
+                # 授权委托材料归入案件材料（兼容旧缓存），并尝试匹配归档清单项
+                candidate["suggested_category"] = "case_material"
+                result = classify_archive_material(
+                    filename=str(candidate.get("filename") or ""),
+                    source_path=str(candidate.get("source_path") or ""),
+                    archive_category=archive_category,
+                )
+                if result.get("archive_item_code"):
+                    candidate["archive_item_code"] = result["archive_item_code"]
+                    candidate["archive_item_name"] = result["archive_item_name"]
+                    candidate["confidence"] = result["confidence"]
+                    candidate["reason"] = result["reason"]
+                else:
+                    candidate["archive_item_code"] = ""
+                    candidate["archive_item_name"] = "未匹配"
+                    candidate["selected"] = False
+
+            elif suggested_category == "case_material":
+                # 案件材料 — 尝试匹配归档清单项
+                result = classify_archive_material(
+                    filename=str(candidate.get("filename") or ""),
+                    source_path=str(candidate.get("source_path") or ""),
+                    archive_category=archive_category,
+                )
+                if result.get("archive_item_code"):
+                    candidate["archive_item_code"] = result["archive_item_code"]
+                    candidate["archive_item_name"] = result["archive_item_name"]
+                    candidate["confidence"] = result["confidence"]
+                    candidate["reason"] = result["reason"]
+                else:
+                    candidate["archive_item_code"] = ""
+                    candidate["archive_item_name"] = "未匹配"
+                    candidate["selected"] = False
+
+            # 文件名含"保单"/"保函"的默认不勾选（保险类文件通常不需要归档）
+            filename_lower = str(candidate.get("filename") or "").lower()
+            if any(kw in filename_lower for kw in ("保单", "保函")):
+                candidate["selected"] = False
+
+            # 案件材料的 reason 统一替换为相对路径，方便用户定位文件
+            if candidate.get("suggested_category") == "case_material":
+                rel_path = self._relative_path_str(
+                    source_path=str(candidate.get("source_path") or ""),
+                    scan_root=scan_root,
+                )
+                if rel_path:
+                    candidate["reason"] = rel_path
 
             processed.append(candidate)
 

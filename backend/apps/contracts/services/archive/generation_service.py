@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 from io import BytesIO
 from pathlib import Path
@@ -700,6 +701,7 @@ class ArchiveGenerationService:
         2. 在合同绑定文件夹下创建"归档文件夹"目录
         3. 将1-3号模板文书写入（仅 docx），文件名带合同名称和日期
         4. 将剩余材料项合并为"4-案卷材料（{合同名称}）_{日期}.pdf"（带页码）
+        5. 将1-3号docx转PDF，与4号合并为"5-Final案卷材料（{合同名称}）_{日期}.pdf"（无页码）
 
         Args:
             contract: 合同实例
@@ -773,10 +775,12 @@ class ArchiveGenerationService:
 
         # 5. 生成"4-案卷材料.pdf"
         case_materials_name = f"4-案卷材料（{contract_name}）_{today_str}"
+        case_materials_pdf_exists = False
         try:
             mat_result = self._compile_case_materials_pdf(contract, archive_dir)
             if mat_result.get("written"):
                 generated_docs.append(case_materials_name)
+                case_materials_pdf_exists = True
             elif mat_result.get("skipped"):
                 logger.info("无可合并的案卷材料，跳过%s.pdf", case_materials_name)
             else:
@@ -784,6 +788,24 @@ class ArchiveGenerationService:
         except Exception as e:
             errors.append(f"{case_materials_name}: {e}")
             logger.exception("生成案卷材料PDF失败")
+
+        # 6. 生成"5-Final案卷材料.pdf"（1-3号docx转PDF + 4号案卷材料PDF 合并）
+        final_name = f"5-Final案卷材料（{contract_name}）_{today_str}"
+        try:
+            final_result = self._compile_final_archive_pdf(
+                contract=contract,
+                archive_dir=archive_dir,
+                case_materials_pdf_exists=case_materials_pdf_exists,
+            )
+            if final_result.get("written"):
+                generated_docs.append(final_name)
+            elif final_result.get("skipped"):
+                logger.info("跳过%s.pdf: %s", final_name, final_result.get("reason", ""))
+            else:
+                errors.append(f"{final_name}: {final_result.get('error', '未知错误')}")
+        except Exception as e:
+            errors.append(f"{final_name}: {e}")
+            logger.exception("生成Final案卷材料PDF失败")
 
         logger.info(
             "归档文件夹生成完成: %s, 成功 %d 项, 失败 %d 项",
@@ -988,6 +1010,120 @@ class ArchiveGenerationService:
             return {"written": False, "skipped": False, "page_count": 0, "error": str(e)}
         finally:
             merged_doc.close()
+
+    def _compile_final_archive_pdf(
+        self,
+        contract: Contract,
+        archive_dir: Path,
+        case_materials_pdf_exists: bool,
+    ) -> dict[str, Any]:
+        """
+        将1-3号模板文书的docx转PDF，与4-案卷材料PDF按序号合并，
+        生成"5-Final案卷材料（{合同名称}）_{日期}.pdf"。
+
+        合并顺序：1-案卷封面.pdf → 2-结案归档登记表.pdf → 3-案卷目录.pdf → 4-案卷材料.pdf
+        合并完成后删除1-3号的中间PDF文件（保留原始docx）。
+        最终PDF不添加页码。
+
+        Args:
+            contract: 合同实例
+            archive_dir: 归档文件夹路径
+            case_materials_pdf_exists: 4-案卷材料PDF是否已成功生成
+
+        Returns:
+            {"written": bool, "page_count": int, "skipped": bool, "error": str|None}
+        """
+        import fitz  # PyMuPDF
+
+        from datetime import date
+
+        from apps.documents.services.infrastructure.pdf_merge_utils import convert_docx_to_pdf
+
+        contract_name = contract.name or "未命名合同"
+        today_str = date.today().strftime("%Y%m%d")
+
+        # 收集需要合并的 PDF 文件路径（按序号顺序）
+        pdf_files_to_merge: list[Path] = []
+        temp_pdf_files: list[Path] = []  # 需要清理的临时PDF
+
+        for seq_num in sorted(ARCHIVE_FILE_NUMBERING.keys()):
+            template_subtype, doc_name = ARCHIVE_FILE_NUMBERING[seq_num]
+
+            if template_subtype == "case_materials":
+                # 4-案卷材料：直接引用已生成的PDF
+                pdf_path = archive_dir / f"{seq_num}-{doc_name}（{contract_name}）_{today_str}.pdf"
+                if not case_materials_pdf_exists or not pdf_path.exists():
+                    logger.info("4-案卷材料PDF不存在，跳过Final合并")
+                    # 清理已生成的临时PDF
+                    for tmp in temp_pdf_files:
+                        with contextlib.suppress(OSError):
+                            tmp.unlink(missing_ok=True)
+                    return {"written": False, "skipped": True, "page_count": 0, "error": None, "reason": "4-案卷材料PDF未生成"}
+                pdf_files_to_merge.append(pdf_path)
+                continue
+
+            # 1-3号模板文书：找到docx文件，转为PDF
+            docx_path = archive_dir / f"{seq_num}-{doc_name}（{contract_name}）_{today_str}.docx"
+            if not docx_path.exists():
+                logger.warning("模板文书docx不存在，跳过: %s", docx_path.name)
+                continue
+
+            try:
+                pdf_result = convert_docx_to_pdf(str(docx_path))
+                if pdf_result and Path(pdf_result).exists():
+                    pdf_path = Path(pdf_result)
+                    pdf_files_to_merge.append(pdf_path)
+                    temp_pdf_files.append(pdf_path)  # 标记为需要清理
+                else:
+                    logger.warning("docx转PDF失败: %s", docx_path.name)
+            except Exception as e:
+                logger.warning("docx转PDF异常: %s, error: %s", docx_path.name, e)
+
+        if not pdf_files_to_merge:
+            # 清理临时PDF
+            for tmp in temp_pdf_files:
+                with contextlib.suppress(OSError):
+                    tmp.unlink(missing_ok=True)
+            return {"written": False, "skipped": True, "page_count": 0, "error": None, "reason": "无可合并的PDF文件"}
+
+        # 合并所有PDF（不添加页码）
+        merged_doc = fitz.open()
+        try:
+            for pdf_path in pdf_files_to_merge:
+                try:
+                    src_doc = fitz.open(str(pdf_path))
+                    merged_doc.insert_pdf(src_doc)
+                    src_doc.close()
+                except Exception as e:
+                    logger.warning("合并PDF失败: %s, error: %s", pdf_path.name, e)
+
+            if len(merged_doc) == 0:
+                return {"written": False, "skipped": True, "page_count": 0, "error": "合并后PDF为空"}
+
+            # 保存Final PDF
+            dest_pdf = archive_dir / f"5-Final案卷材料（{contract_name}）_{today_str}.pdf"
+            merged_doc.save(str(dest_pdf))
+            page_count = len(merged_doc)
+
+            logger.info(
+                "Final案卷材料PDF生成完成: %d 页, %d 份PDF合并",
+                page_count,
+                len(pdf_files_to_merge),
+                extra={"contract_id": contract.id, "dest": str(dest_pdf)},
+            )
+
+            return {"written": True, "page_count": page_count, "skipped": False, "error": None}
+
+        except Exception as e:
+            logger.exception("合并Final案卷材料PDF失败")
+            return {"written": False, "skipped": False, "page_count": 0, "error": str(e)}
+        finally:
+            merged_doc.close()
+            # 清理1-3号的中间PDF文件（保留原始docx）
+            for tmp in temp_pdf_files:
+                with contextlib.suppress(OSError):
+                    tmp.unlink(missing_ok=True)
+                    logger.info("已清理中间PDF: %s", tmp.name)
 
     @staticmethod
     def _add_page_numbers(doc: Any, start_page: int = 1) -> None:

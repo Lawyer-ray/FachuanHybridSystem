@@ -20,8 +20,7 @@ class MaterialClassificationService:
         "supplementary_agreement",
         "invoice",
         "supervision_card",
-        "archive_document",
-        "authorization_material",
+        "case_material",
     }
     _CASE_CATEGORIES = {"party", "non_party", "unknown"}
     _CASE_SIDES = {"our", "opponent", "unknown"}
@@ -57,6 +56,46 @@ class MaterialClassificationService:
     _CONTRACT_KEYWORDS = (
         "合同",
         "协议",
+    )
+    # "合同"/"协议"出现在这些上下文中时，是案由/描述而非合同本身，应跳过
+    _CONTRACT_FALSE_POSITIVE_PATTERNS = (
+        "合同纠纷",
+        "协议纠纷",
+        "合同争议",
+        "协议争议",
+    )
+    # 诉讼/刑事文书关键词 — 命中时不应归为合同正本，应归为 archive_document
+    # （后续由归档分类器匹配到 case_material + archive_item_code）
+    _LITIGATION_DOCUMENT_KEYWORDS = (
+        "起诉状",
+        "起诉书",
+        "上诉状",
+        "上诉书",
+        "答辩状",
+        "答辩书",
+        "执行申请书",
+        "强制执行申请书",
+        "判决书",
+        "裁定书",
+        "调解书",
+        "代理词",
+        "辩护词",
+        "辩护意见",
+        "庭审笔录",
+        "开庭笔录",
+        "传票",
+        "出庭通知",
+        "阅卷笔录",
+        "会见笔录",
+        "谈话笔录",
+        "财产保全",
+        "限制高消费",
+        "限高令",
+        "终本裁定",
+        "不予立案",
+        "受理通知",
+        "举证通知",
+        "应诉通知",
     )
     _CASE_OPPONENT_HINTS = (
         "被申请人",
@@ -134,47 +173,52 @@ class MaterialClassificationService:
         },
     )
 
-    def classify_contract_material(self, *, filename: str, text_excerpt: str, enable_ai: bool = True) -> dict[str, Any]:
-        rule_suggestion = self._classify_contract_by_filename(filename)
-        if rule_suggestion is not None:
-            return rule_suggestion
+    # 文件夹路径关键词 — 路径包含这些时属于"合同发票"区域
+    _CONTRACT_INVOICE_FOLDER_KEYWORDS = (
+        "合同发票",
+        "合同及发票",
+    )
 
-        default = {
-            "category": "archive_document",
-            "confidence": 0.0,
-            "reason": "未命中关键词规则，请手动确认",
-        }
-        if not enable_ai:
-            default["reason"] = "未启用识别，且未命中关键词规则"
-            return default
-
-        content = self._complete(
-            system_prompt=(
-                "你是合同材料分类助手。仅输出 JSON，不要输出其他内容。"
-                'JSON 结构: {"category":"contract_original|supplementary_agreement|invoice|supervision_card|archive_document|authorization_material","confidence":0-1,"reason":"..."}'
-            ),
-            user_prompt=(f"文件名: {filename}\n请根据文件名和文本片段给出材料分类。\n文本片段:\n{text_excerpt[:1800]}"),
+    def classify_contract_material(
+        self,
+        *,
+        filename: str,
+        text_excerpt: str,
+        source_path: str = "",
+        enable_ai: bool = True,
+    ) -> dict[str, Any]:
+        # ── 最高优先级：文件夹路径分类 ──
+        # 路径包含"合同发票"→ 合同/发票区域；否则一律为案件材料
+        path_lower = (source_path or "").lower()
+        in_contract_invoice_folder = any(
+            kw in path_lower for kw in self._CONTRACT_INVOICE_FOLDER_KEYWORDS
         )
-        if not content:
-            default["reason"] = "AI 分类不可用，请手动确认"
-            return default
 
-        payload = self._extract_json(content)
-        if not isinstance(payload, dict):
-            default["reason"] = "AI 输出解析失败，请手动确认"
-            return default
+        if in_contract_invoice_folder:
+            # 在"合同发票"文件夹内，仅区分合同正本 / 补充协议 / 发票 / 监督卡
+            rule_suggestion = self._classify_contract_by_filename(filename)
+            if rule_suggestion is not None:
+                return rule_suggestion
+            # 未命中关键词，默认合同正本
+            return {
+                "category": "contract_original",
+                "confidence": 0.5,
+                "reason": "位于合同发票文件夹，默认为合同正本",
+            }
 
-        category = str(payload.get("category") or "archive_document").strip()
-        if category not in self._CONTRACT_CATEGORIES:
-            category = "archive_document"
-
+        # 不在"合同发票"文件夹 → 一律案件材料
         return {
-            "category": category,
-            "confidence": self._to_confidence(payload.get("confidence")),
-            "reason": str(payload.get("reason") or ""),
+            "category": "case_material",
+            "confidence": 0.95,
+            "reason": "非合同发票文件夹，归为案件材料",
         }
 
     def _classify_contract_by_filename(self, filename: str) -> dict[str, Any] | None:
+        """在"合同发票"文件夹内，根据文件名区分合同正本/补充协议/发票/监督卡。
+
+        此方法仅由 classify_contract_material 在确认文件位于"合同发票"文件夹后调用，
+        因此不需要处理诉讼文书排除逻辑。
+        """
         normalized = (filename or "").strip().lower()
         if not normalized:
             return None
@@ -184,14 +228,6 @@ class MaterialClassificationService:
                 return {
                     "category": "supervision_card",
                     "confidence": 0.98,
-                    "reason": f"命中文件名关键词：{keyword}",
-                }
-
-        for keyword in self._AUTHORIZATION_KEYWORDS:
-            if keyword in normalized:
-                return {
-                    "category": "authorization_material",
-                    "confidence": 0.97,
                     "reason": f"命中文件名关键词：{keyword}",
                 }
 
@@ -211,8 +247,12 @@ class MaterialClassificationService:
                     "reason": f"命中文件名关键词：{keyword}",
                 }
 
+        # 检查"合同"/"协议"关键词，但排除"合同纠纷"等案由描述
         for keyword in self._CONTRACT_KEYWORDS:
             if keyword in normalized:
+                # 排除"合同纠纷"/"协议纠纷"等案由描述中的误匹配
+                if any(fp in normalized for fp in self._CONTRACT_FALSE_POSITIVE_PATTERNS):
+                    continue
                 return {
                     "category": "contract_original",
                     "confidence": 0.96,

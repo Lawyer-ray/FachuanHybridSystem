@@ -41,6 +41,11 @@
                             <line x1="2" y1="10" x2="14" y2="10"/>
                         </svg>
                     </button>
+                    <button type="button" class="ac-compact-toggle ac-clear-all-btn"
+                            title="{% trans '清空全部材料' %}"
+                            onclick="clearAllArchiveMaterials({{ contract.pk }})">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                    </button>
                 </span>
             </div>
             <div class="ac-progress-row">
@@ -531,6 +536,8 @@ html { scrollbar-gutter: stable; }
 }
 
 .ac-btn-icon--danger:hover { background: #fef2f2; color: #dc2626; }
+
+.ac-clear-all-btn:hover { background: #fef2f2; color: #dc2626; border-color: #fca5a5; }
 
 {# ===== 移动菜单 ===== #}
 .ac-move-menu {
@@ -1123,6 +1130,27 @@ function archiveChecklistApp(initialCompact, checklistItems) {
             }
         })
         .catch(function(e) { alert('删除失败: ' + e.message); });
+    };
+
+    // 一键清空归档检查清单中的全部材料
+    window.clearAllArchiveMaterials = function(contractId) {
+        if (!confirm('确认清空归档检查清单中的全部材料？此操作不可撤销。')) return;
+        fetch('/admin/contracts/contract/' + contractId + '/clear-all-archive-materials/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) {
+                var msg = '已清空全部归档材料';
+                if (data.deleted_count > 0) msg += '，共删除 ' + data.deleted_count + ' 份';
+                alert(msg);
+                location.reload();
+            } else {
+                alert('清空失败: ' + (data.error || '未知错误'));
+            }
+        })
+        .catch(function(e) { alert('请求失败: ' + e.message); });
     };
 
     // 预览归档文书替换词

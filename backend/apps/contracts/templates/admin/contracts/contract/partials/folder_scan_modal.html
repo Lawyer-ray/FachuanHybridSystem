@@ -22,7 +22,7 @@
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                     </button>
                 </div>
-                <div class="fm-scope-row">
+                <div class="fm-scope-row" style="display:none;">
                     <label class="fm-radio-item">
                         <input type="radio" value="all" x-model="scanScopeMode">
                         <span>{% trans "扫描全部内容" %}</span>
@@ -94,8 +94,6 @@
                                         <option value="supplementary_agreement">{% trans "补充协议" %}</option>
                                         <option value="invoice">{% trans "发票" %}</option>
                                         <option value="supervision_card">{% trans "监督卡" %}</option>
-                                        <option value="authorization_material">{% trans "授权委托材料" %}</option>
-                                        <option value="archive_document">{% trans "归档文书" %}</option>
                                         <option value="case_material">{% trans "案件材料" %}</option>
                                     </select>
                                 </td>
