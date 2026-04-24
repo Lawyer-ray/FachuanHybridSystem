@@ -131,6 +131,7 @@ class SupervisionCardExtractor:
     def _ocr_page(self, page: Any) -> str:
         """
         对 PDF 页面执行 OCR 并返回识别文本。
+        通过 OCRService 统一路由，受 OCR_PROVIDER 配置控制。
 
         Args:
             page: fitz.Page 对象
@@ -139,20 +140,14 @@ class SupervisionCardExtractor:
             OCR 识别的文本内容，失败返回空字符串
         """
         try:
-            import numpy as np
-            from rapidocr import RapidOCR
+            from apps.automation.services.ocr.ocr_service import OCRService
 
-            # 将页面渲染为图片（150 DPI 足够 OCR）
+            # 将页面渲染为 PNG 图片
             pix = page.get_pixmap(dpi=150)
-            img_array = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)
+            img_bytes = pix.tobytes(output="png")
 
-            ocr = RapidOCR()
-            result = ocr(img_array)
-
-            if result and result.txts:
-                return " ".join(result.txts)
-
-            return ""
+            ocr_service = OCRService()
+            return ocr_service.recognize_bytes(img_bytes)
         except Exception as e:
             logger.warning("OCR 检测失败: %s", e)
             return ""

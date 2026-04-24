@@ -43,18 +43,18 @@ class RenameOCRChannel:
         self._init_failed = False
 
     def _init_ocr(self) -> Any | None:
-        """延迟初始化 SERVER 模型"""
+        """延迟初始化 OCR 服务（通过 OCRService 统一路由）"""
         if self._init_failed:
             return None
         if self._ocr is not None:
             return self._ocr
         try:
-            from apps.automation.services.ocr.ocr_service import get_ocr_engine
+            from apps.automation.services.ocr.ocr_service import OCRService
 
-            self._ocr = get_ocr_engine(use_v5=True)
+            self._ocr = OCRService(use_v5=True)
             return self._ocr
         except Exception:
-            logger.warning("RenameOCRChannel: OCR 引擎初始化失败", exc_info=True)
+            logger.warning("RenameOCRChannel: OCR 服务初始化失败", exc_info=True)
             self._init_failed = True
             return None
 
@@ -138,7 +138,7 @@ class RenameOCRChannel:
 
     def _do_ocr(
         self,
-        ocr: Any,
+        ocr_service: Any,
         image_data: bytes,
         config: PreprocessConfig | None = None,
     ) -> OCRResult:
@@ -146,8 +146,13 @@ class RenameOCRChannel:
         # 预处理
         processed = self._preprocessor.preprocess(image_data, config)
 
-        # OCR 识别
-        result = ocr(processed)
+        # 通过 OCR_SERVICE 路由：paddleocr_api 走云端，local 走本地
+        if ocr_service.provider == "paddleocr_api":
+            return self._do_ocr_via_api(ocr_service, processed)
+
+        # 本地 RapidOCR 引擎
+        engine = ocr_service.ocr
+        result = engine(processed)
 
         if not result or not result.txts or not result.scores:
             return OCRResult(
@@ -171,3 +176,35 @@ class RenameOCRChannel:
             scores=filter_result.scores,
             overall_confidence=filter_result.overall_confidence,
         )
+
+    def _do_ocr_via_api(
+        self,
+        ocr_service: Any,
+        image_data: bytes,
+    ) -> OCRResult:
+        """通过 PaddleOCR API 执行 OCR"""
+        try:
+            api_result = ocr_service.paddleocr_engine.recognize_bytes(image_data, is_pdf=False)
+            texts = api_result.raw_texts
+            # API 不提供逐行置信度，默认设为 1.0
+            scores = [1.0] * len(texts)
+
+            # 置信度过滤（scores 都是 1.0 不会过滤内容，但保持流程一致）
+            filter_result = self._filter.filter(texts, scores)
+
+            text = "\n".join(filter_result.texts)
+
+            return OCRResult(
+                text=text,
+                text_blocks=filter_result.texts,
+                scores=filter_result.scores,
+                overall_confidence=filter_result.overall_confidence,
+            )
+        except Exception as e:
+            logger.warning("RenameOCRChannel: PaddleOCR API 失败: %s", e)
+            return OCRResult(
+                text="",
+                text_blocks=[],
+                scores=[],
+                overall_confidence=0.0,
+            )

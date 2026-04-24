@@ -436,8 +436,34 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
         logger.info(f"开始匹配案件: SMS ID={sms.id}")
 
         try:
-            sms.status = CourtSMSStatus.MATCHING
-            sms.save()
+            # 仅在状态不是 MATCHING 时才更新（避免无意义的 save 刷新 updated_at，
+            # 导致任务恢复服务的卡住检测失效）
+            # 如果状态已经是 MATCHING，说明是重试进入（worker 崩溃后被 Django-Q 或
+            # 恢复服务重新提交），此时递增 retry_count 以追踪重复失败次数
+            if sms.status != CourtSMSStatus.MATCHING:
+                sms.status = CourtSMSStatus.MATCHING
+                sms.save()
+            else:
+                # 重试进入：worker 崩溃后重新执行，递增重试计数
+                sms.retry_count += 1
+                sms.save(update_fields=["retry_count", "updated_at"])
+                logger.info(f"短信 {sms.id} 重新进入匹配阶段，当前重试次数: {sms.retry_count}")
+
+            # 匹配重试次数保护：如果短信已经多次处于 MATCHING 状态但未能完成
+            # （通常因 OCR 处理导致 worker OOM），超过阈值后标记为待人工处理，
+            # 避免无限循环（OCR → OOM → 重试 → OCR → OOM → ...）
+            matching_retry_limit = 3
+            if sms.retry_count >= matching_retry_limit:
+                logger.warning(
+                    f"短信 {sms.id} 匹配重试次数已达 {sms.retry_count} 次（上限 {matching_retry_limit}），"
+                    f"疑似 OCR 内存不足导致 worker 反复崩溃，标记为待人工处理"
+                )
+                sms.status = CourtSMSStatus.PENDING_MANUAL
+                sms.error_message = str(
+                    _("匹配阶段反复失败（已重试%(count)d次），可能因OCR内存不足导致处理中断，需要人工处理")
+                ) % {"count": sms.retry_count}
+                sms.save()
+                return sms
 
             if sms.case:
                 logger.info(f"短信 {sms.id} 已手动指定案件: {sms.case.id}")

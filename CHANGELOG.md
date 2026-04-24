@@ -2,6 +2,16 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.37.12] - 2026-04-24
+
+### 修复
+
+- **短信匹配阶段因 OCR OOM 导致的无限重试循环**：当 qcluster worker 因 OCR（PP-OCRv5 server）内存不足被 OOM Kill 时，短信状态永久停留在 MATCHING，Django-Q 每 20 分钟重试一次形成无限循环（OCR → OOM Kill → 重试 → OCR → OOM Kill → ...）。修复方式：① 不再在 `_process_matching()` 入口无意义地重写已有的 MATCHING 状态（避免刷新 `updated_at` 导致卡住检测失效）；② 当短信已是 MATCHING 状态再次进入时递增 `retry_count`；③ 重试次数超过 3 次后标记为 `PENDING_MANUAL` 终止循环；④ `TaskRecoveryService` 同步增加匹配重试保护。
+
+### 变更
+
+- **统一 OCR 路由至 OCRService**：将 `SupervisionCardExtractor` 和 `RenameOCRChannel` 中绕过 `OCR_PROVIDER` 配置的直接 OCR 调用，统一改为通过 `OCRService` 路由。现在所有 OCR 调用均受系统配置 `OCR_PROVIDER`（`local` / `paddleocr_api`）控制，切换云端 API 后全项目生效。
+
 ## [26.37.11] - 2026-04-24
 
 ### 新增
