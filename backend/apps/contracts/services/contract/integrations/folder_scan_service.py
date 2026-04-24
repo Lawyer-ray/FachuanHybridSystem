@@ -285,6 +285,14 @@ class ContractFolderScanService:
         }
         payload["confirmed_work_log_suggestions"] = confirmed_logs
 
+        # 将工作日志建议写入 CaseLog 模型，使模板可读取
+        work_log_imported = self._import_work_log_suggestions(
+            contract_id=contract_id,
+            confirmed_logs=confirmed_logs,
+            actor_id=(session.started_by_id if session.started_by_id else None),
+        )
+        payload["import_result"]["work_log_imported"] = work_log_imported
+
         ContractFolderScanSession.objects.filter(id=session.id).update(
             status=ContractFolderScanStatus.IMPORTED,
             progress=100,
@@ -298,6 +306,7 @@ class ContractFolderScanService:
             "session_id": str(session.id),
             "status": ContractFolderScanStatus.IMPORTED,
             "imported_count": imported_count,
+            "work_log_imported": work_log_imported,
         }
 
     def run_scan_task(self, *, session_id: str) -> None:
@@ -373,6 +382,51 @@ class ContractFolderScanService:
                 error_message=str(exc),
                 updated_at=timezone.now(),
             )
+
+    def _import_work_log_suggestions(
+        self,
+        *,
+        contract_id: int,
+        confirmed_logs: list[dict[str, str]],
+        actor_id: int | None = None,
+    ) -> int:
+        """将确认的工作日志建议写入 CaseLog 模型。"""
+        if not confirmed_logs:
+            return 0
+
+        from apps.core.interfaces import ServiceLocator
+
+        case_service = ServiceLocator.get_case_service()
+        cases_dto = case_service.get_cases_by_contract(contract_id)
+        if not cases_dto:
+            logger.warning("work_log_import_no_case", extra={"contract_id": contract_id})
+            return 0
+
+        # 取合同的第一个案件写入日志
+        case_id = int(cases_dto[0].id)
+        imported = 0
+        for suggestion in confirmed_logs:
+            content = str(suggestion.get("content") or "").strip()
+            if not content:
+                continue
+            try:
+                case_service.create_case_log_internal(
+                    case_id=case_id,
+                    content=content,
+                    user_id=actor_id,
+                )
+                imported += 1
+            except Exception:
+                logger.exception(
+                    "work_log_import_item_failed",
+                    extra={"case_id": case_id, "content": content},
+                )
+
+        logger.info(
+            "work_log_imported",
+            extra={"contract_id": contract_id, "case_id": case_id, "count": imported},
+        )
+        return imported
 
     def _ensure_contract_exists(self, contract_id: int) -> None:
         if Contract.objects.filter(id=contract_id).exists():
