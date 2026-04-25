@@ -39,9 +39,7 @@ admin.site.login = _admin_login
 
 # 侧边栏 app 顺序（按以下顺序显示）
 _APP_ORDER = [
-    "client",  # 1. 当事人管理
-    "contracts",  # 2. 合同管理
-    "cases",  # 3. 案件管理
+    "case_handling",  # 0. 办案（虚拟菜单，聚合当事人/合同/案件）
     "reminders",  # 4. 重要日期提醒
     "automation",  # 6. 自动化工具（已收纳到其他工具）
     "other_tools",  # 7. 其他工具
@@ -71,6 +69,9 @@ _MODEL_ORDER: dict[str, list[str]] = {
 
 # 需要在侧边栏隐藏的 app（保留直链 URL 访问）
 _HIDDEN_APP_LABELS = {
+    "client",  # 已收纳到「办案」
+    "contracts",  # 已收纳到「办案」
+    "cases",  # 已收纳到「办案」
     "automation",
     "fee_notice",
     "document_recognition",
@@ -147,6 +148,20 @@ _DEFAULT_FAV_URLS = [
     "/admin/doc_convert/docconverttool/",
 ]
 
+# "办案"聚合页应用列表
+_CASE_HANDLING_APPS = [
+    {"app_label": "client", "name": _("当事人管理"), "url": "/admin/client/"},
+    {"app_label": "contracts", "name": _("合同管理"), "url": "/admin/contracts/"},
+    {"app_label": "cases", "name": _("案件管理"), "url": "/admin/cases/"},
+]
+
+# 侧边栏「办案」组固定显示的3个入口 URL（其他子入口需到 Hub 页查找）
+_CASE_HANDLING_SIDEBAR_URLS = {
+    "/admin/client/client/",
+    "/admin/contracts/contract/",
+    "/admin/cases/case/",
+}
+
 _original_get_app_list = admin.site.__class__.get_app_list
 
 
@@ -169,6 +184,31 @@ def _sorted_get_app_list(self: admin.AdminSite, request: HttpRequest, app_label:
                     model_order.index(m["object_name"].lower()) if m["object_name"].lower() in model_order else 999
                 )
             )
+
+    # 注入虚拟「办案」顶级菜单（侧边栏仅显示3个核心入口，Hub 页展示全部子入口）
+    if app_label is None and not any(a.get("app_label") == "case_handling" for a in app_list):
+        case_handling_models: list[dict[str, Any]] = []
+        sidebar_labels = {"当事人": "/admin/client/client/", "合同": "/admin/contracts/contract/", "案件": "/admin/cases/case/"}
+        for label, url in sidebar_labels.items():
+            case_handling_models.append(
+                {
+                    "name": label,
+                    "object_name": f"Virtual_{url.strip('/').replace('/', '_')}",
+                    "perms": {"add": False, "change": False, "delete": False, "view": True},
+                    "admin_url": url,
+                    "add_url": None,
+                    "view_only": True,
+                }
+            )
+        app_list.append(
+            {
+                "app_label": "case_handling",
+                "app_url": "/admin/case-handling/",
+                "name": _("办案"),
+                "has_perms": True,
+                "models": case_handling_models,
+            }
+        )
 
     # 注入虚拟「其他工具」顶级菜单（主菜单链接 hub 页，子菜单直达各子工具）
     if app_label is None and not any(a.get("app_label") == "other_tools" for a in app_list):
@@ -258,6 +298,42 @@ def lpr_calculator_view(request: HttpRequest) -> HttpResponse:
         "recent_rates": recent_rates,
     }
     return render(request, "admin/finance/lpr/calculator.html", context)
+
+
+def case_handling_hub_view(request: HttpRequest) -> TemplateResponse:
+    """办案聚合页。"""
+    sections: list[dict[str, Any]] = []
+
+    for item in _CASE_HANDLING_APPS:
+        app_label = str(item.get("app_label", ""))
+        app_url = str(item.get("url", ""))
+        app_name = item.get("name", app_label)
+        model_links: list[dict[str, str]] = []
+
+        app_entries = admin.site.get_app_list(request, app_label=app_label)
+        if app_entries:
+            first_app = app_entries[0]
+            app_url = str(first_app.get("app_url") or app_url)
+            for model in first_app.get("models", []):
+                name = str(model.get("name", "")).strip()
+                url = str(model.get("admin_url") or "").strip()
+                if name and url:
+                    model_links.append({"name": name, "url": url})
+
+        sections.append(
+            {
+                "name": app_name,
+                "url": app_url,
+                "children": model_links,
+            }
+        )
+
+    context: dict[str, Any] = {
+        **admin.site.each_context(request),
+        "title": _("办案"),
+        "sections": sections,
+    }
+    return TemplateResponse(request, "admin/core/case_handling_hub.html", context)
 
 
 def other_tools_hub_view(request: HttpRequest) -> TemplateResponse:
@@ -362,6 +438,11 @@ _original_get_urls = admin.site.get_urls
 def _get_urls_with_calculator() -> list[URLResolver | URLPattern]:
     urls = _original_get_urls()
     custom_urls: list[URLResolver | URLPattern] = [
+        path(
+            "case-handling/",
+            admin.site.admin_view(case_handling_hub_view),
+            name="case_handling_hub",
+        ),
         path(
             "finance/calculator/",
             admin.site.admin_view(lpr_calculator_view),

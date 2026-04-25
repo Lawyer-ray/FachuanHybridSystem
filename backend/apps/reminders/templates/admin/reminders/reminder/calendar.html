@@ -1277,6 +1277,7 @@
     // ===== Calendar Sync (Import) =====
     const openCalendarPrivacy = () => {
         // Open macOS System Settings → Privacy → Calendars via a backend endpoint
+        if (!syncProvidersUrl) return;
         fetch(syncProvidersUrl.replace('/sync/providers/', '/sync/open-privacy/'), {
             method: 'POST',
             credentials: 'same-origin',
@@ -1318,6 +1319,7 @@
     let localProviderName = '';
 
     const loadCalendarList = () => {
+        if (!syncProvidersUrl) return;
         const calendarsUrl = syncProvidersUrl.replace('/sync/providers/', '/sync/calendars/') + '?provider=' + encodeURIComponent(localProviderName);
         fetch(calendarsUrl, { method: 'GET', credentials: 'same-origin' })
             .then((resp) => resp.json())
@@ -1404,8 +1406,22 @@
     };
 
     const checkLocalProviders = () => {
+        if (!syncProvidersUrl) {
+            localProviderName = '';
+            syncLocalInfo.innerHTML = '⚠️ 日历同步服务未就绪，请刷新页面重试。<br><span style="font-size:12px;color:#64748b">如问题持续，请检查 Django 服务器是否正常运行并已加载最新代码。</span>';
+            return;
+        }
         fetch(syncProvidersUrl, { method: 'GET', credentials: 'same-origin' })
-            .then((resp) => resp.json())
+            .then((resp) => {
+                if (!resp.ok) {
+                    throw new Error('HTTP ' + resp.status);
+                }
+                const contentType = resp.headers.get('content-type') || '';
+                if (!contentType.includes('json')) {
+                    throw new Error('服务端返回非 JSON 响应，可能需要刷新页面');
+                }
+                return resp.json();
+            })
             .then((data) => {
                 const providers = data.providers || [];
                 const localProviders = providers.filter((p) => p.name === 'mac' || p.name === 'windows');
@@ -1441,7 +1457,7 @@
                     const isWin = navigator.platform.toUpperCase().indexOf('WIN') >= 0;
                     let hint = '⚠️ 未检测到可用的本机日历应用。<br>';
                     if (isMac) {
-                        hint += '<span style="font-size:12px;color:#64748b">macOS 需要安装依赖：<code style="background:#f1f5f9;padding:2px 4px;border-radius:3px">uv pip install pyobjc-framework-EventKit</code></span>';
+                        hint += '<span style="font-size:12px;color:#64748b">macOS 使用 <code style="background:#f1f5f9;padding:2px 4px;border-radius:3px">osascript</code>（系统自带）访问日历，请确保系统「日历」应用正常且已授权访问。</span>';
                     } else if (isWin) {
                         hint += '<span style="font-size:12px;color:#64748b">Windows 需要安装依赖：<code style="background:#f1f5f9;padding:2px 4px;border-radius:3px">uv pip install pywin32</code>，并确保已安装 Outlook 桌面版</span>';
                     } else {
@@ -1450,9 +1466,18 @@
                     syncLocalInfo.innerHTML = hint;
                 }
             })
-            .catch(() => {
+            .catch((err) => {
                 localProviderName = '';
-                syncLocalInfo.innerHTML = '⚠️ 检测本机日历失败，请使用「上传文件」或「URL 导入」方式。';
+                const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+                const isWin = navigator.platform.toUpperCase().indexOf('WIN') >= 0;
+                let hint = '⚠️ 检测本机日历失败：' + (err.message || '未知错误') + '<br>';
+                hint += '<span style="font-size:12px;color:#64748b">可使用「上传文件」或「URL 导入」方式，或刷新页面后重试。</span><br>';
+                if (isMac) {
+                    hint += '<span style="font-size:12px;color:#64748b">macOS 同步依赖：<code style="background:#f1f5f9;padding:2px 4px;border-radius:3px">osascript</code>（系统自带）</span>';
+                } else if (isWin) {
+                    hint += '<span style="font-size:12px;color:#64748b">Windows 需要安装依赖：<code style="background:#f1f5f9;padding:2px 4px;border-radius:3px">uv pip install pywin32</code>，并确保已安装 Outlook 桌面版</span>';
+                }
+                syncLocalInfo.innerHTML = hint;
             });
     };
 
@@ -1533,6 +1558,12 @@
             formData.append('included_calendars', JSON.stringify(includedCals));
         }
 
+        if (!syncPreviewUrl) {
+            syncLoading.style.display = 'none';
+            syncActionsInitial.style.display = '';
+            alert('日历同步服务未就绪，请刷新页面重试');
+            return;
+        }
         fetch(syncPreviewUrl, {
             method: 'POST',
             credentials: 'same-origin',
@@ -1651,6 +1682,12 @@
         const formData = new FormData();
         formData.append('events', JSON.stringify(selected));
 
+        if (!syncImportUrl) {
+            syncImportBtn.disabled = false;
+            syncImportBtn.textContent = '{% trans "确认导入/同步" %}';
+            alert('日历同步服务未就绪，请刷新页面重试');
+            return;
+        }
         fetch(syncImportUrl, {
             method: 'POST',
             credentials: 'same-origin',
@@ -1698,6 +1735,7 @@
     if (syncClearBtn) {
         syncClearBtn.addEventListener('click', () => {
             if (!confirm('{% trans "确定要清空所有从本机日历同步的提醒吗？此操作不可恢复。" %}')) return;
+            if (!syncProvidersUrl) { alert('日历同步服务未就绪，请刷新页面重试'); return; }
             const clearUrl = syncProvidersUrl.replace('/sync/providers/', '/sync/clear/');
             fetch(clearUrl, {
                 method: 'POST',
@@ -1725,6 +1763,7 @@
         btnExport.addEventListener('click', (e) => {
             e.preventDefault();
             const params = new URLSearchParams(window.location.search);
+            if (!exportUrl) { alert('日历导出服务未就绪，请刷新页面重试'); return; }
             const url = exportUrl + '?' + params.toString();
             window.location.href = url;
         });

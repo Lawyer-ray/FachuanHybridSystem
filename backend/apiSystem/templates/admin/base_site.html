@@ -278,5 +278,39 @@
     applyFilter();
   }
 })();
+
+// 办案侧边栏过滤：仅显示3个固定核心入口
+(function() {
+  const APP_LABEL = 'case_handling';
+  const SIDEBAR_URLS = [
+    '/admin/client/client/',
+    '/admin/contracts/contract/',
+    '/admin/cases/case/',
+  ];
+  const allowedSet = new Set(SIDEBAR_URLS);
+
+  function applyFilter() {
+    const appSection = document.querySelector(`#nav-sidebar .app-${APP_LABEL}.module`);
+    if (!appSection) return;
+
+    const rows = appSection.querySelectorAll('tr[class^="model-"]');
+    rows.forEach(row => {
+      const link = row.querySelector('th a');
+      if (!link) return;
+      const href = link.getAttribute('href') || '';
+      if (!allowedSet.has(href)) {
+        row.style.display = 'none';
+      } else {
+        row.style.display = '';
+      }
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', applyFilter);
+  } else {
+    applyFilter();
+  }
+})();
 </script>
 {% endblock %}
