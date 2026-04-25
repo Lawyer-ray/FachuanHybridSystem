@@ -39,7 +39,7 @@ class MacCalendarProvider:
         "生日",
     ]
 
-    def list_calendars(self) -> list[dict[str, str]]:
+    def list_calendars(self) -> list[dict[str, str | bool]]:
         """Return available calendar names and their types."""
         script = '''
 tell application "Calendar"

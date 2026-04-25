@@ -50,7 +50,7 @@ class CalendarExportService:
             if vevent is not None:
                 cal.add_component(vevent)
 
-        return cal.to_ical()
+        return bytes(cal.to_ical())
 
     def _query_reminders(
         self,

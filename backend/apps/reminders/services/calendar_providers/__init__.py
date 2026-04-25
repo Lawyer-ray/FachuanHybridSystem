@@ -22,22 +22,22 @@ __all__ = [
 ]
 
 _PROVIDER_REGISTRY: dict[str, type[CalendarEventProvider]] = {
-    "ics": IcsFileProvider,
-    "ics_url": IcsUrlProvider,
+    "ics": IcsFileProvider,  # type: ignore[dict-item]
+    "ics_url": IcsUrlProvider,  # type: ignore[dict-item]
 }
 
 
 def _lazy_registry() -> dict[str, type[CalendarEventProvider]]:
     """Return the provider registry, lazily loading platform-specific providers."""
-    registry = dict(_PROVIDER_REGISTRY)
+    registry: dict[str, type[CalendarEventProvider]] = dict(_PROVIDER_REGISTRY)
     if provider_available("mac"):
         from .mac_provider import MacCalendarProvider
 
-        registry["mac"] = MacCalendarProvider
+        registry["mac"] = MacCalendarProvider  # type: ignore[assignment]
     if provider_available("windows"):
         from .windows_provider import WindowsOutlookProvider
 
-        registry["windows"] = WindowsOutlookProvider
+        registry["windows"] = WindowsOutlookProvider  # type: ignore[assignment]
     return registry
 
 

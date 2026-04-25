@@ -473,9 +473,9 @@ class ReminderAdmin(admin.ModelAdmin[Reminder]):
             uploaded_file = request.FILES.get("ics_file")
             if not uploaded_file:
                 return JsonResponse({"events": [], "error": "未选择文件"}, status=400)
-            if not uploaded_file.name.lower().endswith(".ics"):
+            if not (uploaded_file.name or "").lower().endswith(".ics"):
                 return JsonResponse({"events": [], "error": "仅支持 .ics 文件"}, status=400)
-            if uploaded_file.size > 5 * 1024 * 1024:
+            if (uploaded_file.size or 0) > 5 * 1024 * 1024:
                 return JsonResponse({"events": [], "error": "文件大小超过 5MB 限制"}, status=400)
             ics_content = uploaded_file.read()
             events = sync_service.preview_from_ics(ics_content)
@@ -485,7 +485,7 @@ class ReminderAdmin(admin.ModelAdmin[Reminder]):
                 return JsonResponse({"events": [], "error": "URL 不能为空"}, status=400)
             events = sync_service.preview_from_url(url)
         elif source in ("mac", "windows"):
-            from datetime import datetime as dt
+            from datetime import datetime as dt, timedelta as td
 
             kwargs: dict[str, object] = {}
             start_date_str = request.POST.get("start_date", "").strip()
@@ -500,7 +500,7 @@ class ReminderAdmin(admin.ModelAdmin[Reminder]):
             if end_date_str:
                 try:
                     kwargs["end_date"] = timezone.make_aware(
-                        dt.fromisoformat(end_date_str) + timezone.timedelta(days=1),
+                        dt.fromisoformat(end_date_str) + td(days=1),
                         timezone.get_current_timezone(),
                     )
                 except ValueError:

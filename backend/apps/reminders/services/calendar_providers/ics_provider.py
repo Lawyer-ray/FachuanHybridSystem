@@ -35,7 +35,9 @@ class IcsFileProvider:
 
     def _parse_vevent(self, component: object) -> CalendarEvent | None:
         """Convert a VEVENT component to CalendarEvent."""
-        vevent = component  # icalendar component
+        from icalendar.cal import Component
+
+        vevent: Component = component  # type: ignore[assignment]
         summary = self._get_str(vevent, "SUMMARY")
         if not summary:
             return None
@@ -66,7 +68,10 @@ class IcsFileProvider:
     @staticmethod
     def _get_str(vevent: object, key: str) -> str:
         """Safely get a string property from a vevent component."""
-        val = vevent.get(key)
+        from icalendar.cal import Component
+
+        comp: Component = vevent  # type: ignore[assignment]
+        val = comp.get(key)
         if val is None:
             return ""
         if isinstance(val, list):

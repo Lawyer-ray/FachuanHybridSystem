@@ -25,7 +25,7 @@ class WindowsOutlookProvider:
     ) -> list[CalendarEvent]:
         """Fetch events from Outlook Calendar within the date range."""
         try:
-            import win32com.client  # type: ignore[import-untyped]
+            import win32com.client  # type: ignore[import-untyped,unused-ignore]
         except ImportError:
             logger.info("pywin32 not available, Windows Outlook sync disabled")
             return []
