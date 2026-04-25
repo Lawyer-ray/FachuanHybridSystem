@@ -1806,4 +1806,142 @@
                 once: true
             });
         });
+
+        // ========== 智能归档动画 ==========
+        let archiveAnimationRunning = false;
+        let archiveTimeline = null;
+
+        const ARCHIVE_STEPS = [
+            { doc: 'archiveDocCover', file: 'archiveFile1', label: '生成案卷封面...', progress: 20, timer: 8 },
+            { doc: 'archiveDocRegister', file: 'archiveFile2', label: '生成结案归档登记表...', progress: 40, timer: 6 },
+            { doc: 'archiveDocCatalog', file: 'archiveFile3', label: '生成卷内目录...', progress: 55, timer: 4 },
+            { doc: 'archiveDocMaterials', file: 'archiveFile4', label: '合并案卷材料 PDF...', progress: 75, timer: 2 },
+            { doc: 'archiveDocFinal', file: 'archiveFile5', label: '生成 Final 合并案卷...', progress: 95, timer: 1 },
+        ];
+
+        function resetArchiveElements() {
+            // 重置文书列表
+            document.querySelectorAll('.archive-doc-item').forEach(item => {
+                item.classList.remove('active', 'completed');
+            });
+            // 重置AI核心
+            const brain = document.getElementById('archiveAiBrain');
+            if (brain) brain.classList.remove('active');
+            // 重置进度条
+            const bar = document.getElementById('archiveProgressBar');
+            if (bar) bar.style.width = '0%';
+            const text = document.getElementById('archiveProgressText');
+            if (text) text.textContent = '等待开始';
+            // 重置文件夹
+            const folder = document.getElementById('archiveFolder');
+            if (folder) folder.classList.remove('active');
+            // 重置文件项
+            document.querySelectorAll('.archive-file-item').forEach(item => {
+                item.classList.remove('visible');
+            });
+            // 重置完成徽章
+            const badge = document.getElementById('archiveDoneBadge');
+            if (badge) badge.classList.remove('visible');
+            // 重置倒计时
+            const timerBanner = document.getElementById('archiveTimerBanner');
+            if (timerBanner) timerBanner.classList.remove('active');
+            const timerNum = document.getElementById('archiveTimerNum');
+            if (timerNum) timerNum.textContent = '10';
+            // 重置分类
+            document.querySelectorAll('.archive-cat').forEach(cat => cat.classList.remove('active'));
+        }
+
+        function startArchiveAnimation() {
+            if (archiveAnimationRunning) return;
+            archiveAnimationRunning = true;
+
+            const playBtn = document.getElementById('archivePlayBtn');
+            playBtn.disabled = true;
+            playBtn.innerHTML = '<span>⏸</span> 演示中...';
+
+            resetArchiveElements();
+
+            archiveTimeline = gsap.timeline({
+                onComplete: () => {
+                    archiveAnimationRunning = false;
+                    playBtn.disabled = false;
+                    playBtn.innerHTML = '<span>▶</span> 重新播放';
+                }
+            });
+
+            // 步骤0：激活倒计时横幅
+            archiveTimeline
+                .call(() => {
+                    document.getElementById('archiveTimerBanner').classList.add('active');
+                    document.getElementById('archiveAiBrain').classList.add('active');
+                    document.getElementById('archiveFolder').classList.add('active');
+                    document.getElementById('archiveProgressText').textContent = 'AI 开始归档...';
+                }, null, '+=0.3')
+
+            // 依次执行5个归档步骤
+            ARCHIVE_STEPS.forEach((step, index) => {
+                archiveTimeline
+                    .call(() => {
+                        // 激活当前文书项
+                        document.getElementById(step.doc).classList.add('active');
+                        // 更新进度
+                        document.getElementById('archiveProgressBar').style.width = step.progress + '%';
+                        document.getElementById('archiveProgressText').textContent = step.label;
+                        // 更新倒计时
+                        document.getElementById('archiveTimerNum').textContent = step.timer;
+                    }, null, index === 0 ? '+=0.5' : '+=1.2')
+                    .call(() => {
+                        // 标记当前文书完成
+                        document.getElementById(step.doc).classList.remove('active');
+                        document.getElementById(step.doc).classList.add('completed');
+                        // 显示文件夹中的文件
+                        document.getElementById(step.file).classList.add('visible');
+                    }, null, '+=0.8');
+            });
+
+            // 最终步骤：完成
+            archiveTimeline
+                .call(() => {
+                    document.getElementById('archiveProgressBar').style.width = '100%';
+                    document.getElementById('archiveProgressText').textContent = '归档完成！';
+                    document.getElementById('archiveTimerNum').textContent = '0';
+                    document.getElementById('archiveTimerBanner').classList.remove('active');
+                    document.getElementById('archiveAiBrain').classList.remove('active');
+                }, null, '+=0.5')
+                // 显示完成徽章
+                .call(() => {
+                    document.getElementById('archiveDoneBadge').classList.add('visible');
+                }, null, '+=0.3')
+                // 激活三种归档分类
+                .call(() => {
+                    document.getElementById('archiveCatNL').classList.add('active');
+                }, null, '+=0.3')
+                .call(() => {
+                    document.getElementById('archiveCatLT').classList.add('active');
+                }, null, '+=0.2')
+                .call(() => {
+                    document.getElementById('archiveCatCR').classList.add('active');
+                }, null, '+=0.2');
+        }
+
+        function resetArchiveAnimation() {
+            if (archiveTimeline) archiveTimeline.kill();
+            archiveAnimationRunning = false;
+            resetArchiveElements();
+            const playBtn = document.getElementById('archivePlayBtn');
+            playBtn.disabled = false;
+            playBtn.innerHTML = '<span>▶</span> 播放演示';
+        }
+
+        // 归档演示自动播放
+        document.addEventListener('DOMContentLoaded', () => {
+            ScrollTrigger.create({
+                trigger: '#archiveDemo',
+                start: 'top 70%',
+                onEnter: () => {
+                    if (!archiveAnimationRunning) setTimeout(startArchiveAnimation, 500);
+                },
+                once: true
+            });
+        });
     </script>

@@ -1,0 +1,168 @@
+{% load i18n %}
+    <!-- 智能归档功能介绍 -->
+    <section class="archive-flow-section" id="archive-flow">
+        <div class="archive-flow-container">
+            <div class="section-header reveal">
+                <span class="section-tag">📦 {% trans "一键归档" %}</span>
+                <h2 class="section-title">{% trans "结案归档 · 10秒完成" %}</h2>
+                <p class="section-desc">{% trans "AI 自动生成案卷封面、归档登记表、卷内目录、律师工作日志、办案小结，一键打包为标准归档文件夹" %}</p>
+            </div>
+
+            <!-- 10秒倒计时高亮 -->
+            <div class="archive-timer-banner reveal" id="archiveTimerBanner">
+                <div class="archive-timer-glow"></div>
+                <div class="archive-timer-content">
+                    <div class="archive-timer-icon">⚡</div>
+                    <div class="archive-timer-text">
+                        <span class="archive-timer-highlight" id="archiveTimerNum">10</span>
+                        <span class="archive-timer-unit">{% trans "秒" %}</span>
+                        <span class="archive-timer-label">{% trans "完成归档" %}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="archive-demo" id="archiveDemo">
+                <!-- 左侧：5种归档文书 -->
+                <div class="archive-docs" id="archiveDocs">
+                    <div class="archive-doc-item" data-doc="cover" id="archiveDocCover">
+                        <div class="archive-doc-icon">1️⃣</div>
+                        <div class="archive-doc-info">
+                            <div class="archive-doc-name">{% trans "案卷封面" %}</div>
+                            <div class="archive-doc-type">{% trans "模板自动生成" %}</div>
+                        </div>
+                        <div class="archive-doc-status" id="archiveDocCoverStatus">
+                            <span class="archive-doc-check">✓</span>
+                        </div>
+                    </div>
+                    <div class="archive-doc-item" data-doc="register" id="archiveDocRegister">
+                        <div class="archive-doc-icon">2️⃣</div>
+                        <div class="archive-doc-info">
+                            <div class="archive-doc-name">{% trans "结案归档登记表" %}</div>
+                            <div class="archive-doc-type">{% trans "模板自动生成" %}</div>
+                        </div>
+                        <div class="archive-doc-status" id="archiveDocRegisterStatus">
+                            <span class="archive-doc-check">✓</span>
+                        </div>
+                    </div>
+                    <div class="archive-doc-item" data-doc="catalog" id="archiveDocCatalog">
+                        <div class="archive-doc-icon">3️⃣</div>
+                        <div class="archive-doc-info">
+                            <div class="archive-doc-name">{% trans "卷内目录" %}</div>
+                            <div class="archive-doc-type">{% trans "模板自动生成" %}</div>
+                        </div>
+                        <div class="archive-doc-status" id="archiveDocCatalogStatus">
+                            <span class="archive-doc-check">✓</span>
+                        </div>
+                    </div>
+                    <div class="archive-doc-item" data-doc="materials" id="archiveDocMaterials">
+                        <div class="archive-doc-icon">4️⃣</div>
+                        <div class="archive-doc-info">
+                            <div class="archive-doc-name">{% trans "案卷材料" %}</div>
+                            <div class="archive-doc-type">{% trans "自动合并 PDF（带页码）" %}</div>
+                        </div>
+                        <div class="archive-doc-status" id="archiveDocMaterialsStatus">
+                            <span class="archive-doc-check">✓</span>
+                        </div>
+                    </div>
+                    <div class="archive-doc-item" data-doc="final" id="archiveDocFinal">
+                        <div class="archive-doc-icon">5️⃣</div>
+                        <div class="archive-doc-info">
+                            <div class="archive-doc-name">{% trans "Final 合并案卷" %}</div>
+                            <div class="archive-doc-type">{% trans "1-4号合并为最终 PDF" %}</div>
+                        </div>
+                        <div class="archive-doc-status" id="archiveDocFinalStatus">
+                            <span class="archive-doc-check">✓</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 中间：AI 处理核心 + 进度条 -->
+                <div class="archive-core" id="archiveCore">
+                    <div class="archive-ai-brain" id="archiveAiBrain">
+                        <div class="archive-ai-ring"></div>
+                        <div class="archive-ai-ring archive-ai-ring-2"></div>
+                        <span class="archive-ai-icon">🤖</span>
+                    </div>
+                    <div class="archive-progress" id="archiveProgress">
+                        <div class="archive-progress-bar" id="archiveProgressBar"></div>
+                    </div>
+                    <div class="archive-progress-text" id="archiveProgressText">{% trans "等待开始" %}</div>
+                </div>
+
+                <!-- 右侧：归档文件夹结果 -->
+                <div class="archive-result" id="archiveResult">
+                    <div class="archive-folder" id="archiveFolder">
+                        <div class="archive-folder-header">
+                            <span class="archive-folder-icon">📁</span>
+                            <span class="archive-folder-name">{% trans "归档文件夹" %}</span>
+                        </div>
+                        <div class="archive-folder-body" id="archiveFolderBody">
+                            <div class="archive-file-item" id="archiveFile1">
+                                <span class="archive-file-icon">📄</span>
+                                <span class="archive-file-name">1-{% trans "案卷封面" %}.docx</span>
+                                <span class="archive-file-badge new">NEW</span>
+                            </div>
+                            <div class="archive-file-item" id="archiveFile2">
+                                <span class="archive-file-icon">📄</span>
+                                <span class="archive-file-name">2-{% trans "结案归档登记表" %}.docx</span>
+                                <span class="archive-file-badge new">NEW</span>
+                            </div>
+                            <div class="archive-file-item" id="archiveFile3">
+                                <span class="archive-file-icon">📄</span>
+                                <span class="archive-file-name">3-{% trans "卷内目录" %}.docx</span>
+                                <span class="archive-file-badge new">NEW</span>
+                            </div>
+                            <div class="archive-file-item" id="archiveFile4">
+                                <span class="archive-file-icon">📑</span>
+                                <span class="archive-file-name">4-{% trans "案卷材料" %}.pdf</span>
+                                <span class="archive-file-badge new">NEW</span>
+                            </div>
+                            <div class="archive-file-item" id="archiveFile5">
+                                <span class="archive-file-icon">📕</span>
+                                <span class="archive-file-name">5-Final{% trans "案卷材料" %}.pdf</span>
+                                <span class="archive-file-badge final">FINAL</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 完成徽章 -->
+                    <div class="archive-done-badge" id="archiveDoneBadge">
+                        <div class="archive-done-check">✅</div>
+                        <div class="archive-done-text">
+                            <div class="archive-done-title">{% trans "归档完成" %}</div>
+                            <div class="archive-done-time">{% trans "耗时 10 秒" %}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 三种归档分类 -->
+            <div class="archive-categories reveal">
+                <div class="archive-cat" id="archiveCatNL">
+                    <div class="archive-cat-icon">📋</div>
+                    <div class="archive-cat-title">{% trans "法律顾问 / 非诉" %}</div>
+                    <div class="archive-cat-count">{% trans "12项" %}</div>
+                </div>
+                <div class="archive-cat" id="archiveCatLT">
+                    <div class="archive-cat-icon">⚖️</div>
+                    <div class="archive-cat-title">{% trans "诉讼 / 仲裁" %}</div>
+                    <div class="archive-cat-count">{% trans "20项" %}</div>
+                </div>
+                <div class="archive-cat" id="archiveCatCR">
+                    <div class="archive-cat-icon">🔒</div>
+                    <div class="archive-cat-title">{% trans "刑事案件" %}</div>
+                    <div class="archive-cat-count">{% trans "18项" %}</div>
+                </div>
+            </div>
+
+            <!-- 控制按钮 -->
+            <div class="archive-controls">
+                <button class="flow-btn flow-btn-play" id="archivePlayBtn" onclick="startArchiveAnimation()">
+                    <span>▶</span> {% trans "播放演示" %}
+                </button>
+                <button class="flow-btn flow-btn-reset" id="archiveResetBtn" onclick="resetArchiveAnimation()">
+                    <span>↺</span> {% trans "重置" %}
+                </button>
+            </div>
+        </div>
+    </section>

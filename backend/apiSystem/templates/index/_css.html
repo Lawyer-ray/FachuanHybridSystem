@@ -4472,4 +4472,337 @@
             }
         }
 
-    </style>
+        /* ========== 智能归档功能介绍 ========== */
+        .archive-flow-section {
+            padding: 8rem 2rem;
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(180deg, transparent, rgba(139, 92, 246, 0.02), transparent);
+        }
+        .archive-flow-container { max-width: 1400px; margin: 0 auto; }
+
+        /* 10秒倒计时横幅 */
+        .archive-timer-banner {
+            display: flex;
+            justify-content: center;
+            margin: 2rem auto 3rem;
+            position: relative;
+        }
+        .archive-timer-glow {
+            position: absolute;
+            inset: -20px;
+            background: radial-gradient(ellipse, rgba(139, 92, 246, 0.15), transparent 70%);
+            border-radius: 60px;
+            opacity: 0;
+            transition: opacity 0.6s;
+        }
+        .archive-timer-banner.active .archive-timer-glow {
+            opacity: 1;
+            animation: archiveGlowPulse 2s ease-in-out infinite;
+        }
+        @keyframes archiveGlowPulse {
+            0%, 100% { opacity: 0.6; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.05); }
+        }
+        .archive-timer-content {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1.25rem 3rem;
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(6, 182, 212, 0.1));
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            border-radius: 60px;
+            backdrop-filter: blur(12px);
+            position: relative;
+            z-index: 1;
+        }
+        .archive-timer-icon { font-size: 2rem; }
+        .archive-timer-text { display: flex; align-items: baseline; gap: 0.3rem; }
+        .archive-timer-highlight {
+            font-size: 3.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #8b5cf6, #06b6d4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            line-height: 1;
+            transition: transform 0.3s;
+        }
+        .archive-timer-banner.active .archive-timer-highlight {
+            animation: archiveNumPulse 1s ease-in-out infinite;
+        }
+        @keyframes archiveNumPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.08); }
+        }
+        .archive-timer-unit {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #8b5cf6;
+        }
+        .archive-timer-label {
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-left: 0.5rem;
+        }
+
+        /* 演示区域：三列布局 */
+        .archive-demo {
+            display: grid;
+            grid-template-columns: 1fr 200px 1fr;
+            gap: 2rem;
+            align-items: center;
+            margin-top: 1rem;
+        }
+
+        /* 左侧：归档文书列表 */
+        .archive-docs { display: flex; flex-direction: column; gap: 0.75rem; }
+        .archive-doc-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem 1.25rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            opacity: 0.3;
+            transform: translateX(-20px);
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .archive-doc-item.active {
+            opacity: 1;
+            transform: translateX(0);
+            border-color: rgba(139, 92, 246, 0.4);
+            background: rgba(139, 92, 246, 0.06);
+        }
+        .archive-doc-item.completed {
+            opacity: 1;
+            transform: translateX(0);
+            border-color: rgba(34, 197, 94, 0.3);
+            background: rgba(34, 197, 94, 0.04);
+        }
+        .archive-doc-icon { font-size: 1.3rem; flex-shrink: 0; }
+        .archive-doc-info { flex: 1; }
+        .archive-doc-name { font-weight: 600; font-size: 0.92rem; color: var(--text-primary); }
+        .archive-doc-type { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem; }
+        .archive-doc-status {
+            width: 28px; height: 28px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.2);
+            opacity: 0;
+            transform: scale(0);
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .archive-doc-item.completed .archive-doc-status {
+            opacity: 1;
+            transform: scale(1);
+        }
+        .archive-doc-check { color: #4ade80; font-size: 0.8rem; font-weight: 700; }
+
+        /* 中间：AI核心 */
+        .archive-core {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.5rem;
+            padding: 2rem 0;
+        }
+        .archive-ai-brain {
+            position: relative;
+            width: 100px; height: 100px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .archive-ai-icon { font-size: 2.8rem; z-index: 2; position: relative; }
+        .archive-ai-ring {
+            position: absolute;
+            inset: -8px;
+            border: 2px solid rgba(139, 92, 246, 0.2);
+            border-radius: 50%;
+            transition: all 0.5s;
+        }
+        .archive-ai-ring-2 {
+            inset: -18px;
+            border-color: rgba(6, 182, 212, 0.15);
+        }
+        .archive-ai-brain.active .archive-ai-ring {
+            border-color: rgba(139, 92, 246, 0.5);
+            animation: archiveRingPulse 1.5s ease-in-out infinite;
+        }
+        .archive-ai-brain.active .archive-ai-ring-2 {
+            border-color: rgba(6, 182, 212, 0.4);
+            animation: archiveRingPulse 1.5s ease-in-out infinite 0.3s;
+        }
+        @keyframes archiveRingPulse {
+            0%, 100% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.1); opacity: 1; }
+        }
+
+        /* 进度条 */
+        .archive-progress {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .archive-progress-bar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #8b5cf6, #06b6d4);
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+        .archive-progress-text {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        /* 右侧：归档文件夹 */
+        .archive-result { display: flex; flex-direction: column; gap: 1rem; }
+        .archive-folder {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+            opacity: 0.3;
+            transform: translateX(20px);
+            transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .archive-folder.active {
+            opacity: 1;
+            transform: translateX(0);
+        }
+        .archive-folder-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.02);
+        }
+        .archive-folder-icon { font-size: 1.3rem; }
+        .archive-folder-name { font-weight: 600; font-size: 0.95rem; }
+        .archive-folder-body { padding: 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+
+        .archive-file-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.6rem 0.75rem;
+            border-radius: 8px;
+            opacity: 0;
+            transform: translateX(15px);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            background: rgba(255, 255, 255, 0.02);
+        }
+        .archive-file-item.visible {
+            opacity: 1;
+            transform: translateX(0);
+        }
+        .archive-file-icon { font-size: 1rem; flex-shrink: 0; }
+        .archive-file-name { font-size: 0.82rem; color: var(--text-secondary); flex: 1; }
+        .archive-file-badge {
+            font-size: 0.6rem;
+            font-weight: 700;
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            letter-spacing: 0.5px;
+        }
+        .archive-file-badge.new {
+            background: rgba(34, 197, 94, 0.12);
+            color: #4ade80;
+            border: 1px solid rgba(34, 197, 94, 0.2);
+        }
+        .archive-file-badge.final {
+            background: rgba(139, 92, 246, 0.12);
+            color: #a78bfa;
+            border: 1px solid rgba(139, 92, 246, 0.2);
+        }
+
+        /* 完成徽章 */
+        .archive-done-badge {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1.25rem 1.5rem;
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.08), rgba(139, 92, 246, 0.08));
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            border-radius: 14px;
+            opacity: 0;
+            transform: translateY(15px) scale(0.95);
+            transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .archive-done-badge.visible {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+        .archive-done-check { font-size: 2rem; }
+        .archive-done-title { font-weight: 700; font-size: 1.05rem; color: #4ade80; }
+        .archive-done-time { font-size: 0.82rem; color: var(--text-secondary); margin-top: 0.15rem; }
+
+        /* 三种归档分类 */
+        .archive-categories {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-top: 3rem;
+            flex-wrap: wrap;
+        }
+        .archive-cat {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.85rem 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 60px;
+            opacity: 0.3;
+            transition: all 0.5s;
+        }
+        .archive-cat.active {
+            opacity: 1;
+            border-color: rgba(139, 92, 246, 0.4);
+            background: rgba(139, 92, 246, 0.06);
+        }
+        .archive-cat-icon { font-size: 1.2rem; }
+        .archive-cat-title { font-weight: 600; font-size: 0.9rem; }
+        .archive-cat-count {
+            font-size: 0.75rem;
+            padding: 0.15rem 0.5rem;
+            background: rgba(139, 92, 246, 0.1);
+            color: #a78bfa;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .archive-controls {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        @media (max-width: 1024px) {
+            .archive-demo {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto auto;
+            }
+            .archive-docs { flex-direction: row; flex-wrap: wrap; justify-content: center; }
+            .archive-doc-item { transform: translateY(15px); }
+            .archive-doc-item.active, .archive-doc-item.completed { transform: translateY(0); }
+            .archive-folder { transform: translateY(15px); }
+            .archive-folder.active { transform: translateY(0); }
+            .archive-file-item { transform: translateY(10px); }
+            .archive-file-item.visible { transform: translateY(0); }
+        }
+
+        @media (max-width: 768px) {
+            .archive-timer-content { padding: 1rem 2rem; }
+            .archive-timer-highlight { font-size: 2.5rem; }
+            .archive-categories { gap: 1rem; }
+            .archive-cat { padding: 0.65rem 1rem; }
+        }
