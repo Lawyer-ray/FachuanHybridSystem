@@ -72,6 +72,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "nested_admin",
+    "simple_history",
     "corsheaders",
     "ninja_jwt",
     "channels",  # WebSocket 支持
@@ -119,6 +120,7 @@ MIDDLEWARE = [
     "ninja.compatibility.files.fix_request_files_middleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "simple_history.middleware.HistoryRequestMiddleware",
     "apps.organization.middleware.OrgAccessMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",

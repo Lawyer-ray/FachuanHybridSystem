@@ -27,6 +27,7 @@ from apps.contracts.models import (
 )
 from apps.core.admin.mixins import AdminImportExportMixin
 from apps.core.models.enums import CaseStage
+from simple_history.admin import SimpleHistoryAdmin
 
 if TYPE_CHECKING:
     BaseModelAdmin = admin.ModelAdmin
@@ -150,7 +151,7 @@ def serialize_contract_obj(obj: Any) -> dict[str, Any]:
 
 @admin.register(Contract)
 class ContractAdmin(
-    ContractDisplayMixin, ContractSaveMixin, ContractActionMixin, AdminImportExportMixin, BaseModelAdmin
+    ContractDisplayMixin, ContractSaveMixin, ContractActionMixin, AdminImportExportMixin, SimpleHistoryAdmin, BaseModelAdmin
 ):
     class ContractAdminForm(forms.ModelForm[Contract]):
         representation_stages = forms.MultipleChoiceField(

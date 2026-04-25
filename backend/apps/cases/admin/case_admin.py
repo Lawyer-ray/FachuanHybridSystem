@@ -25,6 +25,7 @@ from apps.cases.models import (
     SupervisingAuthority,
 )
 from apps.core.admin.mixins import AdminImportExportMixin
+from simple_history.admin import SimpleHistoryAdmin
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet

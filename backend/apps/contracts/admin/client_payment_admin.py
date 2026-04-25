@@ -12,6 +12,7 @@ from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
 from apps.contracts.models import ClientPaymentRecord
+from simple_history.admin import SimpleHistoryAdmin
 
 if TYPE_CHECKING:
     pass

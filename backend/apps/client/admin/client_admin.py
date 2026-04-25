@@ -16,6 +16,7 @@ from apps.client.ports import CredentialPort, GsxtReportPort
 from apps.client.services.client_export_serializer_service import serialize_client_obj
 from apps.client.services.wiring import get_credential_port, get_gsxt_report_port
 from apps.core.admin.mixins import AdminImportExportMixin
+from simple_history.admin import SimpleHistoryAdmin
 
 logger = logging.getLogger("apps.client")
 
@@ -174,7 +175,7 @@ class ClientAdminForm(forms.ModelForm[Client]):
 
 
 @admin.register(Client)
-class ClientAdmin(AdminImportExportMixin, admin.ModelAdmin[Client]):
+class ClientAdmin(SimpleHistoryAdmin, AdminImportExportMixin, admin.ModelAdmin[Client]):
     list_display = ("id", "name", "client_type", "is_our_client", "phone", "legal_representative")  # type: ignore[assignment]
     search_fields = ("name", "phone", "id_number")  # type: ignore[assignment]
     list_filter = ("client_type", "is_our_client")  # type: ignore[assignment]

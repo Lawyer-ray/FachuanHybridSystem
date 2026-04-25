@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from simple_history.models import HistoricalRecords
 
 from apps.core.models.enums import AuthorityType, CaseStage, CaseStatus, SimpleCaseType
 
@@ -63,6 +64,8 @@ class Case(models.Model):
     current_stage = models.CharField(
         max_length=64, choices=CaseStage.choices, blank=True, null=True, verbose_name=_("当前阶段")
     )
+
+    history = HistoricalRecords()
 
     if TYPE_CHECKING:
         case_numbers: RelatedManager[CaseNumber]
@@ -194,6 +197,8 @@ class CaseNumber(models.Model):
     )
     remarks = models.TextField(blank=True, null=True, verbose_name=_("备注"))
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
+
+    history = HistoricalRecords()
 
     class Meta:
         verbose_name = _("案件案号")

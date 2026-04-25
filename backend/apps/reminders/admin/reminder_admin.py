@@ -21,6 +21,7 @@ from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
 from ..models import Reminder, ReminderType
+from simple_history.admin import SimpleHistoryAdmin
 
 
 class ReminderAdminForm(forms.ModelForm[Reminder]):
@@ -56,7 +57,7 @@ class ReminderAdminForm(forms.ModelForm[Reminder]):
 
 
 @admin.register(Reminder)
-class ReminderAdmin(admin.ModelAdmin[Reminder]):
+class ReminderAdmin(SimpleHistoryAdmin, admin.ModelAdmin[Reminder]):
     form = ReminderAdminForm
     list_display = (
         "id",

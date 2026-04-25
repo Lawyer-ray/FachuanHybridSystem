@@ -70,6 +70,7 @@ dependencies = [
     # --- 日历同步 ---
     "icalendar>=6.0.0",
     "pyobjc-framework-EventKit>=12.0;sys_platform=='darwin'",
+    "django-simple-history>=3.11.0",
 ]
 
 [dependency-groups]

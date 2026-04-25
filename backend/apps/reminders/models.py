@@ -7,6 +7,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
+from simple_history.models import HistoricalRecords
 
 
 class ReminderType(models.TextChoices):
@@ -55,6 +56,8 @@ class Reminder(models.Model):
     metadata: Any = models.JSONField(default=dict, blank=True, verbose_name=_("扩展数据"))
     created_at: Any = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
     updated_at: Any = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
+
+    history = HistoricalRecords()
 
     class Meta:
         verbose_name = _("重要日期提醒")

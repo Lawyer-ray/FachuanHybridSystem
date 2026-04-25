@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from simple_history.models import HistoricalRecords
 
 if TYPE_CHECKING:
     from django.db.models.fields.related_descriptors import RelatedManager
@@ -54,6 +55,8 @@ class ClientPaymentRecord(models.Model):
         auto_now_add=True,
         verbose_name=_("创建时间"),
     )
+
+    history = HistoricalRecords()
 
     class Meta:
         verbose_name = _("客户回款")

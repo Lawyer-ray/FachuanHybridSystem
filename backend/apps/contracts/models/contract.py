@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
+from simple_history.models import HistoricalRecords
 
 from apps.core.models.enums import CaseType
 
@@ -86,6 +87,8 @@ class Contract(models.Model):
         default=False, verbose_name=_("精简视图"),
         help_text=_("开启后，归档检查清单仅显示有材料的项，未上传材料的项目不纳入归档范围"),
     )
+
+    history = HistoricalRecords()
 
     if TYPE_CHECKING:
         cases: RelatedManager[Case]

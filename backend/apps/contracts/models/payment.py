@@ -7,6 +7,7 @@ from typing import ClassVar
 from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
+from simple_history.models import HistoricalRecords
 
 from .contract import Contract
 
@@ -30,6 +31,8 @@ class ContractPayment(models.Model):
     note = models.CharField(max_length=255, blank=True, null=True, verbose_name=_("备注"))
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
     updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
+
+    history = HistoricalRecords()
 
     class Meta:
         verbose_name = _("合同收款")
