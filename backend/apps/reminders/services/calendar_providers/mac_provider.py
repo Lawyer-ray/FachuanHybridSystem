@@ -67,7 +67,7 @@ end tell'''
         if result.returncode != 0:
             return []
 
-        calendars: list[dict[str, str]] = []
+        calendars: list[dict[str, str | bool]] = []
         for line in result.stdout.strip().split("\n"):
             line = line.strip()
             if not line:
