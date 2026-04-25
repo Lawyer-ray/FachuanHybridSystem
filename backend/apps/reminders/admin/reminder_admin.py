@@ -561,8 +561,11 @@ class ReminderAdmin(admin.ModelAdmin[Reminder]):
         if platform.system() == "Darwin":
             try:
                 # Open System Settings → Privacy & Security → Calendars
+                import shutil
+
+                open_cmd = shutil.which("open") or "/usr/bin/open"
                 subprocess.Popen(
-                    ["open", "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars"],
+                    [open_cmd, "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars"],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                 )

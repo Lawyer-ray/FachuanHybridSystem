@@ -45,7 +45,7 @@ def provider_available(name: str) -> bool:
         return shutil.which("osascript") is not None
     if name == "windows":
         try:
-            import win32com.client  # noqa: F401
+            import win32com.client
 
             return True
         except ImportError:

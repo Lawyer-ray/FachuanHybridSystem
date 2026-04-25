@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime, timezone as dt_tz
+from datetime import UTC, date, datetime
 
 from icalendar import Calendar
 
@@ -84,12 +84,12 @@ class IcsFileProvider:
 
         if isinstance(actual, datetime):
             if actual.tzinfo is None:
-                actual = actual.replace(tzinfo=dt_tz.utc)
+                actual = actual.replace(tzinfo=UTC)
             return actual, False
 
         if isinstance(actual, date):
             # All-day event — store as midnight UTC
-            dt = datetime(actual.year, actual.month, actual.day, tzinfo=dt_tz.utc)
+            dt = datetime(actual.year, actual.month, actual.day, tzinfo=UTC)
             return dt, True
 
         return None, False

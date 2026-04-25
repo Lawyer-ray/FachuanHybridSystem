@@ -9,6 +9,7 @@ correctly prompt the user for Calendar access.
 from __future__ import annotations
 
 import logging
+import shutil
 import subprocess
 from datetime import datetime, timedelta
 from typing import Any
@@ -18,6 +19,8 @@ from django.utils import timezone
 from .base import CalendarEvent
 
 logger = logging.getLogger(__name__)
+
+_OSASCRIPT = shutil.which("osascript") or "/usr/bin/osascript"
 
 
 class MacCalendarProvider:
@@ -53,7 +56,7 @@ tell application "Calendar"
 end tell'''
         try:
             result = subprocess.run(
-                ["osascript", "-e", script],
+                [_OSASCRIPT, "-e", script],
                 capture_output=True,
                 text=True,
                 timeout=15,
@@ -113,7 +116,7 @@ end tell'''
 
         try:
             result = subprocess.run(
-                ["osascript", "-e", script],
+                [_OSASCRIPT, "-e", script],
                 capture_output=True,
                 text=True,
                 timeout=60,
@@ -327,7 +330,7 @@ end tell'''
         """
         try:
             result = subprocess.run(
-                ["osascript", "-e", 'tell application "Calendar" to return name of calendars'],
+                [_OSASCRIPT, "-e", 'tell application "Calendar" to return name of calendars'],
                 capture_output=True,
                 text=True,
                 timeout=10,
