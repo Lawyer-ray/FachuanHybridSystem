@@ -5,7 +5,7 @@ from __future__ import annotations
 import calendar
 import json
 from datetime import date, datetime
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 from django import forms
 from django.contrib import admin
@@ -216,6 +216,7 @@ class ReminderAdmin(SimpleHistoryAdmin, admin.ModelAdmin[Reminder]):
             **self.admin_site.each_context(request),
             "title": _("提醒日历"),
             "opts": self.model._meta,
+            "user_display_name": str(request.user) if request.user.is_authenticated else "法穿",
             "calendar_weeks": calendar_weeks,
             "month_title": _("%(year)s年%(month)s月") % {"year": year, "month": month},
             "weekday_labels": [
@@ -636,22 +637,11 @@ class ReminderAdmin(SimpleHistoryAdmin, admin.ModelAdmin[Reminder]):
             status=status,
         )
 
-        filter_parts: list[str] = []
-        if reminder_type:
-            type_label = dict(ReminderType.choices).get(reminder_type, reminder_type)
-            filter_parts.append(str(type_label))
-        if scope != "all":
-            scope_labels = {"contract": "合同", "case": "案件", "case_log": "案件日志"}
-            filter_parts.append(scope_labels.get(scope, scope))
-        if status != "all":
-            status_labels = {"overdue": "已逾期", "upcoming": "未到期"}
-            filter_parts.append(status_labels.get(status, status))
-
-        filter_str = "-".join(filter_parts) if filter_parts else "全部"
-        filename = f"法穿提醒-{year}年{month}月-{filter_str}.ics"
+        user_display = str(request.user) if request.user.is_authenticated else "法穿"
+        filename = f"{user_display}的日历.ics"
 
         response = HttpResponse(ics_bytes, content_type="text/calendar; charset=utf-8")
-        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        response["Content-Disposition"] = f"attachment; filename*=UTF-8''{quote(filename)}"
         return response
 
     def _safe_return_url(self, *, request: HttpRequest) -> str:
