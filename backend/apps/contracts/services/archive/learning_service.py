@@ -70,9 +70,7 @@ class ArchiveLearningService:
                 keyword_code_map[key].add(material.archive_item_code)
 
         # 找出歧义关键词（同一关键词映射到 >1 个不同 code）
-        ambiguous_keys: set[tuple[str, str]] = {
-            key for key, codes in keyword_code_map.items() if len(codes) > 1
-        }
+        ambiguous_keys: set[tuple[str, str]] = {key for key, codes in keyword_code_map.items() if len(codes) > 1}
 
         if ambiguous_keys:
             logger.info(
@@ -143,9 +141,7 @@ class ArchiveLearningService:
                         rule.save(update_fields=["hit_count", "updated_at"])
                         updated += 1
 
-            if has_ambiguous and not any(
-                (archive_category, kw) not in ambiguous_keys for kw in keywords
-            ):
+            if has_ambiguous and not any((archive_category, kw) not in ambiguous_keys for kw in keywords):
                 skipped += 1
 
         logger.info(
@@ -274,7 +270,11 @@ class ArchiveLearningService:
 
             # 白名单：含以下文书类型关键词的才视为有效学习关键词
             if _contains_document_keyword(part):
-                keywords.append(part)
+                # 脱壳：只保留文书关键词部分，剔除前后粘着的非文书内容
+                # 如 "张三起诉状" → "起诉状"，"佛山市某某公司起诉状" → "起诉状"
+                stripped_kw = _strip_non_keyword_parts(part)
+                if stripped_kw:
+                    keywords.append(stripped_kw)
 
         return keywords
 
@@ -322,26 +322,63 @@ class ArchiveLearningService:
 # 文书类型关键词白名单（模块级常量，避免每次调用重复创建）
 _DOCUMENT_KEYWORDS: tuple[str, ...] = (
     # 诉讼/刑事文书
-    "起诉状", "起诉书", "答辩状", "上诉状", "申请书", "申诉书",
-    "代理词", "辩护词", "辩护意见", "代理意见",
-    "判决书", "裁定书", "调解书", "决定书",
-    "传票", "通知", "受理",
-    "保全", "查封", "执行", "续封",
-    "授权委托", "委托书", "所函",
+    "起诉状",
+    "起诉书",
+    "答辩状",
+    "上诉状",
+    "申请书",
+    "申诉书",
+    "代理词",
+    "辩护词",
+    "辩护意见",
+    "代理意见",
+    "判决书",
+    "裁定书",
+    "调解书",
+    "决定书",
+    "传票",
+    "通知",
+    "受理",
+    "保全",
+    "查封",
+    "执行",
+    "续封",
+    "授权委托",
+    "委托书",
+    "所函",
     # 证据/调查
-    "证据", "调查", "取证", "阅卷",
+    "证据",
+    "调查",
+    "取证",
+    "阅卷",
     # 笔录
-    "笔录", "庭审", "开庭", "审理",
-    "会见", "谈话", "询问",
+    "笔录",
+    "庭审",
+    "开庭",
+    "审理",
+    "会见",
+    "谈话",
+    "询问",
     # 案卷/归档
-    "案卷", "封面", "目录", "归档", "登记",
-    "小结", "工作日记", "办案",
-    "监督卡", "服务质量",
+    "案卷",
+    "封面",
+    "目录",
+    "归档",
+    "登记",
+    "小结",
+    "工作日记",
+    "办案",
+    "监督卡",
+    "服务质量",
     "合同正本",
     # 非诉文书
-    "律师函", "法律意见",
+    "律师函",
+    "法律意见",
     # 通用
-    "清单", "明细", "报告", "意见",
+    "清单",
+    "明细",
+    "报告",
+    "意见",
 )
 
 
@@ -352,3 +389,77 @@ def _contains_document_keyword(text: str) -> bool:
     例如："案卷封面" ✓（含"封面"），"张福裕案件" ✗（不含文书关键词）
     """
     return any(kw in text for kw in _DOCUMENT_KEYWORDS)
+
+
+def _strip_non_keyword_parts(text: str) -> str:
+    """脱壳：从关键词中剥离前后粘着的非文书内容，只保留文书关键词部分。
+
+    防止当事人姓名、公司名等隐私内容混入学习规则。
+
+    策略：
+    1. 精确匹配白名单 → 直接返回
+    2. 找到最长匹配文书关键词
+    3. 检查关键词前后是否粘着 2-4 个非文书中文字符（疑似人名/公司名）
+    4. 如有，只保留文书关键词部分
+    5. 如无（复合文书名），保留原文
+
+    示例：
+    - "张三起诉状" → "起诉状"（前面2字"张三"不属文书词）
+    - "佛山市某某公司起诉状" → "起诉状"（前面7字不属文书词）
+    - "案卷封面" → "案卷封面"（本身就是完整文书词）
+    - "缴纳保全费通知书" → "缴纳保全费通知书"（复合文书词，无粘着）
+    """
+    # 精确匹配白名单关键词 → 直接返回
+    if text in _DOCUMENT_KEYWORDS:
+        return text
+
+    # 找到文本中最长的匹配文书关键词
+    best_match = ""
+    for kw in _DOCUMENT_KEYWORDS:
+        if kw in text and len(kw) > len(best_match):
+            best_match = kw
+
+    if not best_match:
+        return text
+
+    # 如果文本 = 匹配关键词 → 无需剥离
+    if text == best_match:
+        return text
+
+    # 检查文书关键词前面/后面粘着的内容
+    idx = text.index(best_match)
+    prefix = text[:idx]
+    suffix = text[idx + len(best_match):]
+
+    # 判断前缀/后缀是否属于"非文书粘着内容"
+    # 规则：如果前缀/后缀中所有中文字符都不属于任何文书关键词 → 疑似人名/公司名
+    has_non_keyword_prefix = _is_non_keyword_attachment(prefix)
+    has_non_keyword_suffix = _is_non_keyword_attachment(suffix)
+
+    if has_non_keyword_prefix or has_non_keyword_suffix:
+        # 有粘着 → 只保留文书关键词
+        return best_match
+
+    # 无粘着 → 保留原文（合法复合文书名）
+    return text
+
+
+def _is_non_keyword_attachment(text: str) -> bool:
+    """判断文本是否为非文书关键词的粘着内容（疑似人名/公司名）。
+
+    如果文本中所有中文字符都不属于任何文书关键词，则视为粘着内容。
+    """
+    if not text:
+        return False
+
+    # 提取中文字符
+    chinese_chars = re.findall(r"[\u4e00-\u9fff]", text)
+    if not chinese_chars:
+        return False  # 纯符号/空格，不算粘着
+
+    # 检查文本中的每个中文字符是否出现在任何文书关键词中
+    # 更高效的做法：检查整个文本是否与任何文书关键词有交集
+    text_has_keyword_overlap = any(kw in text for kw in _DOCUMENT_KEYWORDS)
+
+    # 如果文本与任何文书关键词无交集 → 疑似人名/公司名
+    return not text_has_keyword_overlap
