@@ -216,7 +216,6 @@ class ReminderAdmin(SimpleHistoryAdmin, admin.ModelAdmin[Reminder]):
             **self.admin_site.each_context(request),
             "title": _("提醒日历"),
             "opts": self.model._meta,
-            "user_display_name": str(request.user) if request.user.is_authenticated else "法穿",
             "calendar_weeks": calendar_weeks,
             "month_title": _("%(year)s年%(month)s月") % {"year": year, "month": month},
             "weekday_labels": [
