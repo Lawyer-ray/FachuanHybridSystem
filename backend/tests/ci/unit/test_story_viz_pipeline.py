@@ -58,7 +58,12 @@ def test_job_service_completed_payload_contains_preview_url() -> None:
         error_message="",
         task_id="task-1",
         cancel_requested=False,
+        facts_payload=None,
+        created_at=None,
+        started_at=None,
+        finished_at=None,
         updated_at=SimpleNamespace(isoformat=lambda: "2026-01-01T00:00:00"),
+        get_current_stage_display=lambda: "已完成",
     )
 
     payload = StoryAnimationJobService().build_status_payload(animation=animation)
