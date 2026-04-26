@@ -49,6 +49,7 @@ class ContractFolderScanCandidateOut(Schema):
     archive_item_name: str = ""
     is_docx: bool = False
     skip_reason: str = ""
+    already_imported: bool = False
 
 
 class ArchiveItemOptionOut(Schema):

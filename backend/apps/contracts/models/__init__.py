@@ -7,6 +7,12 @@ Contracts 模块模型层
 所有旧的导入路径 `from apps.contracts.models import X` 继续有效.
 """
 
+# archive_classification_rule.py - 归档分类学习规则
+from .archive_classification_rule import ArchiveClassificationRule, RuleSource
+
+# archive_override.py - 归档占位符覆盖值
+from .archive_override import ArchivePlaceholderOverride
+
 # batch_folder_binding.py - 合同类型根目录预设
 from .batch_folder_binding import ContractTypeFolderRootPreset
 
@@ -18,9 +24,6 @@ from .contract import Contract, ContractStatus, FeeMode
 
 # contract_oa_sync_session.py - OA同步会话
 from .contract_oa_sync_session import ContractOASyncSession, ContractOASyncStatus
-
-# archive_override.py - 归档占位符覆盖值
-from .archive_override import ArchivePlaceholderOverride
 
 # finalized_material.py - 结案材料相关模型和枚举
 from .finalized_material import FinalizedMaterial, MaterialCategory
@@ -79,6 +82,9 @@ __all__ = [
     # finalized_material.py
     "FinalizedMaterial",
     "MaterialCategory",
+    # archive_classification_rule.py
+    "ArchiveClassificationRule",
+    "RuleSource",
     # invoice.py
     "Invoice",
     # client_payment.py

@@ -53,6 +53,14 @@ class FinalizedMaterial(models.Model):
         verbose_name=_("归档清单编号"),
         help_text=_("关联归档检查清单的标识符，如 'nl_1'、'lt_6'"),
     )
+    content_hash: models.CharField = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        verbose_name=_("内容哈希"),
+        help_text=_("SHA-256, 用于去重"),
+        db_index=True,
+    )
 
     class Meta:
         ordering: ClassVar = ["order", "-uploaded_at"]

@@ -314,13 +314,14 @@
             return {
               source_path: candidate.source_path,
               filename: candidate.filename,
-              selected: candidate.selected !== false,
+              selected: candidate.already_imported ? false : (candidate.selected !== false),
               category: category,
               reason: candidate.reason || '',
               archive_item_code: candidate.archive_item_code || '',
               archive_item_name: candidate.archive_item_name || '',
               is_docx: candidate.is_docx || false,
               skip_reason: candidate.skip_reason || '',
+              already_imported: candidate.already_imported || false,
             };
           });
         },

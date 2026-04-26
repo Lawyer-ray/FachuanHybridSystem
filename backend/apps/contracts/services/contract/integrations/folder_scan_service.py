@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 import re
@@ -164,11 +165,7 @@ class ContractFolderScanService:
 
     def get_latest_session(self, *, contract_id: int) -> ContractFolderScanSession | None:
         """返回合同最新的扫描会话，没有则返回 None。"""
-        return (
-            ContractFolderScanSession.objects.filter(contract_id=contract_id)
-            .order_by("-created_at")
-            .first()
-        )
+        return ContractFolderScanSession.objects.filter(contract_id=contract_id).order_by("-created_at").first()
 
     def build_status_payload(self, *, session: ContractFolderScanSession) -> dict[str, Any]:
         payload = dict(session.result_payload or {})
@@ -261,7 +258,11 @@ class ContractFolderScanService:
                 if is_docx:
                     display_name = file_path.name
 
-                if category == MaterialCategory.CONTRACT_ORIGINAL and not is_docx and self._has_quality_card_on_last_page(file_path):
+                if (
+                    category == MaterialCategory.CONTRACT_ORIGINAL
+                    and not is_docx
+                    and self._has_quality_card_on_last_page(file_path)
+                ):
                     display_name = self._QUALITY_CARD_TITLE
 
                 material_kwargs: dict[str, Any] = {
@@ -273,21 +274,57 @@ class ContractFolderScanService:
                 if archive_item_code:
                     material_kwargs["archive_item_code"] = archive_item_code
 
-                # 去重：同一合同下相同文件名+分类的材料不重复创建
-                if FinalizedMaterial.objects.filter(
-                    contract_id=contract_id,
-                    original_filename=display_name,
-                    category=category,
-                ).exists():
+                # 计算文件内容哈希
+                # 注意：docx 文件存入 DB 的哈希是原始 docx 的哈希（而非转换后 PDF），
+                # 这样扫描时也能用同一哈希值比对已导入状态
+                content_hash = _compute_file_hash(file_path)
+                if content_hash:
+                    material_kwargs["content_hash"] = content_hash
+
+                # 去重：同一合同下内容哈希相同的材料视为重复跳过
+                if (
+                    content_hash
+                    and FinalizedMaterial.objects.filter(
+                        contract_id=contract_id,
+                        content_hash=content_hash,
+                    ).exists()
+                ):
                     skipped_dupes += 1
                     logger.info(
-                        "material_duplicate_skipped",
+                        "material_hash_duplicate_skipped",
+                        extra={
+                            "contract_id": contract_id,
+                            "filename": display_name,
+                            "content_hash": content_hash[:16],
+                        },
+                    )
+                    continue
+
+                # 向后兼容：无哈希时回退到文件名比较
+                if (
+                    not content_hash
+                    and FinalizedMaterial.objects.filter(
+                        contract_id=contract_id,
+                        original_filename=display_name,
+                        category=category,
+                    ).exists()
+                ):
+                    skipped_dupes += 1
+                    logger.info(
+                        "material_name_duplicate_skipped",
                         extra={"contract_id": contract_id, "filename": display_name, "category": category},
                     )
                     continue
 
                 FinalizedMaterial.objects.create(**material_kwargs)
                 imported_count += 1
+
+                # 导入时自动学习：如果用户手动修改了 archive_item_code，记录为学习规则
+                self._learn_from_import_correction(
+                    candidate=candidate_map[source_path],
+                    actual_archive_item_code=archive_item_code,
+                    contract_id=contract_id,
+                )
             finally:
                 # 清理临时 PDF 文件
                 if temp_pdf_path and temp_pdf_path.exists():
@@ -370,13 +407,12 @@ class ContractFolderScanService:
                 candidates=candidates,
                 archive_category=archive_category,
                 scan_folder=scan_scope["scan_folder"],
+                contract_id=session.contract_id,
             )
             result["candidates"] = candidates
 
             # 工作日志建议
-            work_log_suggestions = collect_work_log_suggestions(
-                scan_scope["scan_folder"], archive_category
-            )
+            work_log_suggestions = collect_work_log_suggestions(scan_scope["scan_folder"], archive_category)
             result["work_log_suggestions"] = work_log_suggestions
 
             # 归档清单项选项
@@ -425,9 +461,7 @@ class ContractFolderScanService:
         # 获取案件已有日志内容集合，用于去重
         from apps.cases.models import CaseLog
 
-        existing_contents: set[str] = set(
-            CaseLog.objects.filter(case_id=case_id).values_list("content", flat=True)
-        )
+        existing_contents: set[str] = set(CaseLog.objects.filter(case_id=case_id).values_list("content", flat=True))
 
         imported = 0
         for suggestion in confirmed_logs:
@@ -540,6 +574,7 @@ class ContractFolderScanService:
         candidates: list[dict[str, Any]],
         archive_category: str,
         scan_folder: str,
+        contract_id: int = 0,
     ) -> list[dict[str, Any]]:
         """扫描后处理：归档清单项匹配 + docx 文件收集 + 跳过项过滤。"""
         processed: list[dict[str, Any]] = []
@@ -633,6 +668,10 @@ class ContractFolderScanService:
             docx_candidates = self._collect_docx_files(scan_folder, archive_category)
             processed.extend(docx_candidates)
 
+        # 标记已导入文件：计算文件哈希并比对已有材料
+        if contract_id:
+            self._mark_already_imported(processed, contract_id=contract_id)
+
         return processed
 
     def _collect_docx_files(
@@ -655,8 +694,10 @@ class ContractFolderScanService:
         _DOCX_REVISION_KEYWORDS = ("修订版", "批注版", "律师修订")
 
         docx_files = [
-            p for p in root.rglob("*")
-            if p.is_file() and p.suffix.lower() in (".docx", ".doc")
+            p
+            for p in root.rglob("*")
+            if p.is_file()
+            and p.suffix.lower() in (".docx", ".doc")
             and any(kw in _normalize_docx_name(p.name) for kw in _DOCX_REVISION_KEYWORDS)
         ]
         docx_files.sort(key=lambda x: x.as_posix())
@@ -683,23 +724,25 @@ class ContractFolderScanService:
                 archive_item_name = "案件其它关联材料"
                 reason = "常法docx（修订版/批注版）→ nl_9"
 
-            candidates.append({
-                "source_path": file_path.as_posix(),
-                "filename": file_path.name,
-                "file_size": int(stat.st_size),
-                "modified_at": "",
-                "base_name": item["base_name"],
-                "version_token": item["version_token"],
-                "extract_method": "none",
-                "text_excerpt": "",
-                "suggested_category": "case_material",
-                "confidence": 0.85,
-                "reason": reason,
-                "selected": True,
-                "is_docx": True,
-                "archive_item_code": archive_item_code,
-                "archive_item_name": archive_item_name,
-            })
+            candidates.append(
+                {
+                    "source_path": file_path.as_posix(),
+                    "filename": file_path.name,
+                    "file_size": int(stat.st_size),
+                    "modified_at": "",
+                    "base_name": item["base_name"],
+                    "version_token": item["version_token"],
+                    "extract_method": "none",
+                    "text_excerpt": "",
+                    "suggested_category": "case_material",
+                    "confidence": 0.85,
+                    "reason": reason,
+                    "selected": True,
+                    "is_docx": True,
+                    "archive_item_code": archive_item_code,
+                    "archive_item_name": archive_item_name,
+                }
+            )
 
         return candidates
 
@@ -763,6 +806,125 @@ class ContractFolderScanService:
 
     def _normalize_for_match(self, text: str) -> str:
         return re.sub(r"\s+", "", str(text or "")).lower()
+
+    def _learn_from_import_correction(
+        self,
+        *,
+        candidate: dict[str, Any],
+        actual_archive_item_code: str,
+        contract_id: int,
+    ) -> None:
+        """导入确认时自动学习：如果用户修改了 archive_item_code，记录为学习规则。"""
+        if not actual_archive_item_code:
+            return
+
+        # 获取扫描时分类器预测的 archive_item_code
+        predicted_code = str(candidate.get("archive_item_code") or "").strip()
+        if predicted_code == actual_archive_item_code:
+            return  # 用户没修改，无需学习
+
+        # 只对案件材料学习
+        if str(candidate.get("suggested_category") or "") != "case_material":
+            return
+
+        filename = str(candidate.get("filename") or "")
+        if not filename:
+            return
+
+        try:
+            from apps.contracts.models import ArchiveClassificationRule
+            from apps.contracts.services.archive.category_mapping import get_archive_category
+            from apps.contracts.services.archive.learning_service import (
+                _contains_document_keyword,
+                _strip_non_keyword_parts,
+                extract_keywords,
+            )
+
+            contract = Contract.objects.filter(id=contract_id).values_list("case_type", flat=True).first()
+            if not contract:
+                return
+            archive_category = get_archive_category(contract)
+            if not archive_category:
+                return
+
+            keywords = extract_keywords(filename)
+            for kw in keywords:
+                # 跳过歧义关键词：如果已有规则映射到不同 code，不覆盖
+                existing = (
+                    ArchiveClassificationRule.objects.filter(
+                        archive_category=archive_category,
+                        filename_keyword=kw,
+                    )
+                    .exclude(archive_item_code=actual_archive_item_code)
+                    .first()
+                )
+                if existing:
+                    continue
+
+                ArchiveClassificationRule.objects.get_or_create(
+                    archive_category=archive_category,
+                    filename_keyword=kw,
+                    defaults={
+                        "archive_item_code": actual_archive_item_code,
+                        "source": "manual",
+                        "hit_count": 1,
+                    },
+                )
+        except (OSError, RuntimeError, ValueError):
+            logger.exception("learn_from_import_correction_failed")
+
+    def _mark_already_imported(
+        self,
+        candidates: list[dict[str, Any]],
+        *,
+        contract_id: int,
+    ) -> None:
+        """标记已导入文件：计算文件哈希，与已有材料比对。"""
+        existing_hashes: set[str] = set(
+            FinalizedMaterial.objects.filter(
+                contract_id=contract_id,
+                content_hash__gt="",
+            ).values_list("content_hash", flat=True)
+        )
+
+        if not existing_hashes:
+            # 没有任何已导入材料，全部标记为未导入
+            for candidate in candidates:
+                candidate["already_imported"] = False
+            return
+
+        for candidate in candidates:
+            # 被跳过的文件不需要标记
+            if candidate.get("skip_reason"):
+                candidate["already_imported"] = False
+                continue
+
+            source_path = str(candidate.get("source_path") or "").strip()
+            if not source_path:
+                continue
+            file_path = Path(source_path)
+            if not file_path.exists() or not file_path.is_file():
+                continue
+
+            content_hash = _compute_file_hash(file_path)
+            if content_hash and content_hash in existing_hashes:
+                candidate["already_imported"] = True
+                candidate["selected"] = False
+            else:
+                candidate["already_imported"] = False
+
+
+def _compute_file_hash(file_path: Path) -> str:
+    """计算文件 SHA-256 哈希值。失败返回空字符串。"""
+    try:
+        sha256 = hashlib.sha256()
+        with file_path.open("rb") as f:
+            for chunk in iter(lambda: f.read(8192), b""):
+                sha256.update(chunk)
+        return sha256.hexdigest()
+    except (OSError, ValueError):
+        logger.exception("compute_file_hash_failed", extra={"path": file_path.as_posix()})
+        return ""
 
 
 def run_contract_folder_scan_task(session_id: str) -> None:

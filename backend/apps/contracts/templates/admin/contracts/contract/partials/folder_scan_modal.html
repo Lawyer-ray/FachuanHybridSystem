@@ -83,8 +83,9 @@
                                 <td><input type="checkbox" x-model="candidate.selected" /></td>
                                 <td>
                                     <div class="fm-file-cell">
-                                        <span x-text="candidate.filename"></span>
+                                        <span x-text="candidate.filename" :class="{ 'fm-file-dimmed': candidate.already_imported }"></span>
                                         <span class="fm-docx-badge" x-show="candidate.is_docx" title="{% trans 'docx 将自动转换为 PDF' %}">docx→PDF</span>
+                                        <span class="fm-imported-badge" x-show="candidate.already_imported">{% trans "已导入" %}</span>
                                         <span class="fm-file-reason" x-show="candidate.reason" x-text="candidate.reason"></span>
                                     </div>
                                 </td>
@@ -228,5 +229,22 @@
     .btn-sm {
         font-size: 12px;
         padding: 2px 8px;
+    }
+
+    /* 已导入徽章 */
+    .fm-imported-badge {
+        display: inline-block;
+        font-size: 11px;
+        background: #f0f0f0;
+        color: #999;
+        padding: 1px 6px;
+        border-radius: 3px;
+        margin-left: 6px;
+        vertical-align: middle;
+    }
+
+    .fm-file-dimmed {
+        color: #aaa;
+        text-decoration: line-through;
     }
 </style>

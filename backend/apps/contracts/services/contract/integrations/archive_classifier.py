@@ -17,6 +17,36 @@ from apps.contracts.services.archive.constants import ARCHIVE_CHECKLIST
 logger = logging.getLogger(__name__)
 
 # ============================================================
+# 学习规则加载（代码文件中的规则，模块级缓存）
+# ============================================================
+_LEARNED_CODE_RULES: dict[str, dict[str, list[str]]] = {}
+try:
+    from ._learned_rules import LEARNED_FILENAME_KEYWORD_TO_ARCHIVE_CODE
+
+    _LEARNED_CODE_RULES = LEARNED_FILENAME_KEYWORD_TO_ARCHIVE_CODE
+except ImportError:
+    pass
+
+
+def reload_learned_code_rules() -> None:
+    """重新加载代码文件中的学习规则（导出后调用）。"""
+    global _LEARNED_CODE_RULES
+    try:
+        import importlib
+
+        from . import _learned_rules as _rules_module
+
+        importlib.reload(_rules_module)
+        _LEARNED_CODE_RULES = _rules_module.LEARNED_FILENAME_KEYWORD_TO_ARCHIVE_CODE
+        logger.info(
+            "learned_code_rules_reloaded",
+            extra={"rule_count": sum(len(kws) for d in _LEARNED_CODE_RULES.values() for kws in d.values())},
+        )
+    except (ImportError, OSError):
+        _LEARNED_CODE_RULES = {}
+
+
+# ============================================================
 # 跳过规则 - 以下关键词命中的文件不导入
 # ============================================================
 _SKIP_KEYWORDS: tuple[str, ...] = (
@@ -53,10 +83,25 @@ _FOLDER_KEYWORD_TO_ARCHIVE_CODE: dict[str, dict[str, list[str]]] = {
     # litigation
     "litigation": {
         "lt_20": ["授权委托", "委托授权"],
+        "lt_4": ["框架合同"],
         "lt_7": ["起诉状", "起诉书", "上诉状", "上诉书", "答辩状", "答辩书", "执行申请"],
         "lt_8": ["阅卷"],
         "lt_9": ["会见当事人", "会见笔录", "谈话笔录", "询问笔录"],
-        "lt_11": ["财产保全", "诉讼保全", "证据保全", "先行给付", "限制高消费", "取保候审", "查封清单", "缴费通知", "诉前调解告知", "受理通知", "交费通知", "交费清单"],
+        "lt_11": [
+            "财产保全",
+            "诉讼保全",
+            "证据保全",
+            "先行给付",
+            "限制高消费",
+            "取保候审",
+            "查封清单",
+            "缴费通知",
+            "诉前调解告知",
+            "受理通知",
+            "交费通知",
+            "交费清单",
+            "告知书",
+        ],
         "lt_14": ["开庭通知", "出庭通知", "传票"],
         "lt_15": ["代理词", "代理意见"],
         "lt_12": ["承办意见", "内部意见", "律师意见", "辩护意见"],
@@ -92,16 +137,39 @@ _FILENAME_KEYWORD_TO_ARCHIVE_CODE: dict[str, dict[str, list[str]]] = {
     },
     "litigation": {
         "lt_20": ["授权委托书", "授权", "所函", "律师证", "身份证", "营业执照", "法定代表人"],
-        "lt_7": ["起诉状", "起诉书", "上诉状", "上诉书", "答辩状", "答辩书", "执行申请书", "强制执行申请书", "续封申请"],
+        "lt_7": [
+            "起诉状",
+            "起诉书",
+            "上诉状",
+            "上诉书",
+            "答辩状",
+            "答辩书",
+            "执行申请书",
+            "强制执行申请书",
+            "续封申请",
+        ],
         "lt_8": ["阅卷笔录", "阅卷"],
         "lt_9": ["会见笔录", "会见当事人", "谈话笔录", "询问笔录"],
         "lt_10": ["证据清单", "证据明细", "材料清单", "追加第三人", "网络查控", "催促执行", "中止执行", "调查令"],
-        "lt_11": ["财产保全", "诉讼保全", "证据保全", "限制高消费", "取保候审", "续封申请", "查封清单", "缴费通知", "诉前调解告知书", "受理通知书", "交费通知", "交费清单"],
+        "lt_11": [
+            "财产保全",
+            "诉讼保全",
+            "证据保全",
+            "限制高消费",
+            "取保候审",
+            "续封申请",
+            "查封清单",
+            "缴费通知",
+            "诉前调解告知书",
+            "受理通知书",
+            "交费通知",
+            "交费清单",
+        ],
         "lt_14": ["传票", "开庭通知", "出庭通知"],
         "lt_15": ["代理词"],
         "lt_12": ["辩护意见", "律师意见", "承办意见"],
         "lt_16": ["庭审笔录", "开庭笔录", "审理笔录", "调解笔录"],
-        "lt_17": ["判决书", "裁定书", "调解书", "终本裁定", "执行裁定", "查封裁定", "解除查封"],
+        "lt_17": ["判决书", "裁定书", "调解书", "终本裁定", "执行裁定", "查封裁定", "解除查封", "撤诉裁定"],
     },
     "criminal": {
         "cr_18": ["授权委托书", "授权", "所函", "律师证", "身份证", "户口本"],
@@ -128,8 +196,23 @@ _EVIDENCE_FILENAME_KEYWORDS: tuple[str, ...] = ("证据明细", "证据清单")
 # ============================================================
 # 已有动词列表（原文包含这些则不补全）
 _EXISTING_VERBS: tuple[str, ...] = (
-    "收到", "提交", "邮寄", "签名", "申请", "评估", "办理", "补交", "领取",
-    "签收", "发送", "签署", "审核", "审查", "出具", "收到", "领取",
+    "收到",
+    "提交",
+    "邮寄",
+    "签名",
+    "申请",
+    "评估",
+    "办理",
+    "补交",
+    "领取",
+    "签收",
+    "发送",
+    "签署",
+    "审核",
+    "审查",
+    "出具",
+    "收到",
+    "领取",
 )
 
 # 非诉（常法）默认动词
@@ -198,7 +281,9 @@ def classify_archive_material(
     # 2. 证据材料文件夹特殊筛选
     is_evidence_folder = any(_normalize_for_match(kw) in normalized_path for kw in _EVIDENCE_FOLDER_KEYWORDS)
     if is_evidence_folder:
-        has_evidence_keyword = any(_normalize_for_match(kw) in normalized_filename for kw in _EVIDENCE_FILENAME_KEYWORDS)
+        has_evidence_keyword = any(
+            _normalize_for_match(kw) in normalized_filename for kw in _EVIDENCE_FILENAME_KEYWORDS
+        )
         if not has_evidence_keyword:
             return {
                 "archive_item_code": "",
@@ -220,7 +305,15 @@ def classify_archive_material(
             "is_evidence_folder": True,
         }
 
-    # 3. 文件夹路径关键词匹配（优先级最高）
+    # 3. 学习规则匹配（优先级高于硬编码规则）
+    learned_result = _match_by_learned_rules(normalized_filename, archive_category)
+    if learned_result:
+        return {
+            **learned_result,
+            "is_evidence_folder": False,
+        }
+
+    # 4. 文件夹路径关键词匹配
     folder_result = _match_by_folder_keywords(normalized_path, archive_category)
     if folder_result:
         return {
@@ -228,7 +321,7 @@ def classify_archive_material(
             "is_evidence_folder": False,
         }
 
-    # 4. 文件名关键词匹配
+    # 5. 文件名关键词匹配
     filename_result = _match_by_filename_keywords(normalized_filename, archive_category)
     if filename_result:
         return {
@@ -236,7 +329,7 @@ def classify_archive_material(
             "is_evidence_folder": False,
         }
 
-    # 5. 未匹配
+    # 6. 未匹配
     return {
         "archive_item_code": "",
         "archive_item_name": "未匹配",
@@ -311,16 +404,92 @@ def collect_archive_item_options(archive_category: str) -> list[dict[str, str]]:
         [{"code": "lt_7", "name": "起诉书、上诉书或答辩书"}, ...]
     """
     checklist = ARCHIVE_CHECKLIST.get(archive_category, [])
-    return [
-        {"code": item["code"], "name": item["name"]}
-        for item in checklist
-        if item.get("source") == "case"
-    ]
+    return [{"code": item["code"], "name": item["name"]} for item in checklist if item.get("source") == "case"]
 
 
 # ============================================================
 # 内部辅助函数
 # ============================================================
+
+
+def _match_by_learned_rules(
+    normalized_filename: str,
+    archive_category: str,
+) -> dict[str, Any] | None:
+    """学习规则匹配（先查代码文件规则，再查DB规则）。"""
+    # 1. 代码文件中的学习规则（模块级缓存，无DB查询）
+    code_mapping = _LEARNED_CODE_RULES.get(archive_category, {})
+    for code, keywords in code_mapping.items():
+        for keyword in keywords:
+            if _normalize_for_match(keyword) in normalized_filename:
+                name = _get_item_name(archive_category, code)
+                return {
+                    "archive_item_code": code,
+                    "archive_item_name": name,
+                    "category": "case_material",
+                    "confidence": 0.95,
+                    "reason": f"学习规则命中：{keyword}",
+                }
+
+    # 2. DB 中的学习规则
+    db_result = _match_by_db_learned_rules(normalized_filename, archive_category)
+    if db_result:
+        return db_result
+
+    return None
+
+
+def _match_by_db_learned_rules(
+    normalized_filename: str,
+    archive_category: str,
+) -> dict[str, Any] | None:
+    """从 DB 查询学习规则匹配（使用模块级缓存，避免每文件一次查询）。"""
+    try:
+        rules = _get_db_learned_rules(archive_category)
+        for keyword, code in rules:
+            if _normalize_for_match(keyword) in normalized_filename:
+                name = _get_item_name(archive_category, code)
+                return {
+                    "archive_item_code": code,
+                    "archive_item_name": name,
+                    "category": "case_material",
+                    "confidence": 0.93,
+                    "reason": f"学习规则(DB)命中：{keyword}",
+                }
+    except (OSError, RuntimeError):
+        logger.exception("learned_rules_db_query_failed")
+
+    return None
+
+
+# DB 学习规则缓存：{(archive_category,): [(keyword, code), ...]}
+_DB_RULES_CACHE: dict[str, list[tuple[str, str]]] = {}
+_DB_RULES_CACHE_LOADED_AT: float = 0.0
+
+
+def _get_db_learned_rules(archive_category: str) -> list[tuple[str, str]]:
+    """获取 DB 学习规则，5 分钟内使用缓存。"""
+    import time
+
+    global _DB_RULES_CACHE, _DB_RULES_CACHE_LOADED_AT
+
+    now = time.monotonic()
+    if now - _DB_RULES_CACHE_LOADED_AT > 300:  # 5 分钟过期
+        try:
+            from apps.contracts.models import ArchiveClassificationRule
+
+            _DB_RULES_CACHE.clear()
+            for cat, kw, code in ArchiveClassificationRule.objects.values_list(
+                "archive_category", "filename_keyword", "archive_item_code"
+            ):
+                if cat not in _DB_RULES_CACHE:
+                    _DB_RULES_CACHE[cat] = []
+                _DB_RULES_CACHE[cat].append((kw, code))
+            _DB_RULES_CACHE_LOADED_AT = now
+        except (OSError, RuntimeError):
+            pass
+
+    return _DB_RULES_CACHE.get(archive_category, [])
 
 
 def _normalize_for_match(text: str) -> str:
