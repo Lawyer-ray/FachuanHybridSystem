@@ -441,14 +441,9 @@ def _match_by_db_learned_rules(
     normalized_filename: str,
     archive_category: str,
 ) -> dict[str, Any] | None:
-    """从 DB 查询学习规则匹配。"""
+    """从 DB 查询学习规则匹配（使用模块级缓存，避免每文件一次查询）。"""
     try:
-        from apps.contracts.models import ArchiveClassificationRule
-
-        rules = ArchiveClassificationRule.objects.filter(
-            archive_category=archive_category,
-        ).values_list("filename_keyword", "archive_item_code")
-
+        rules = _get_db_learned_rules(archive_category)
         for keyword, code in rules:
             if _normalize_for_match(keyword) in normalized_filename:
                 name = _get_item_name(archive_category, code)
@@ -463,6 +458,36 @@ def _match_by_db_learned_rules(
         logger.exception("learned_rules_db_query_failed")
 
     return None
+
+
+# DB 学习规则缓存：{(archive_category,): [(keyword, code), ...]}
+_DB_RULES_CACHE: dict[str, list[tuple[str, str]]] = {}
+_DB_RULES_CACHE_LOADED_AT: float = 0.0
+
+
+def _get_db_learned_rules(archive_category: str) -> list[tuple[str, str]]:
+    """获取 DB 学习规则，5 分钟内使用缓存。"""
+    import time
+
+    global _DB_RULES_CACHE, _DB_RULES_CACHE_LOADED_AT
+
+    now = time.monotonic()
+    if now - _DB_RULES_CACHE_LOADED_AT > 300:  # 5 分钟过期
+        try:
+            from apps.contracts.models import ArchiveClassificationRule
+
+            _DB_RULES_CACHE.clear()
+            for cat, kw, code in ArchiveClassificationRule.objects.values_list(
+                "archive_category", "filename_keyword", "archive_item_code"
+            ):
+                if cat not in _DB_RULES_CACHE:
+                    _DB_RULES_CACHE[cat] = []
+                _DB_RULES_CACHE[cat].append((kw, code))
+            _DB_RULES_CACHE_LOADED_AT = now
+        except (OSError, RuntimeError):
+            pass
+
+    return _DB_RULES_CACHE.get(archive_category, [])
 
 
 def _normalize_for_match(text: str) -> str:

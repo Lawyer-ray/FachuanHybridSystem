@@ -318,6 +318,13 @@ class ContractFolderScanService:
 
                 FinalizedMaterial.objects.create(**material_kwargs)
                 imported_count += 1
+
+                # 导入时自动学习：如果用户手动修改了 archive_item_code，记录为学习规则
+                self._learn_from_import_correction(
+                    candidate=candidate_map[source_path],
+                    actual_archive_item_code=archive_item_code,
+                    contract_id=contract_id,
+                )
             finally:
                 # 清理临时 PDF 文件
                 if temp_pdf_path and temp_pdf_path.exists():
@@ -799,6 +806,64 @@ class ContractFolderScanService:
 
     def _normalize_for_match(self, text: str) -> str:
         return re.sub(r"\s+", "", str(text or "")).lower()
+
+    def _learn_from_import_correction(
+        self,
+        *,
+        candidate: dict[str, Any],
+        actual_archive_item_code: str,
+        contract_id: int,
+    ) -> None:
+        """导入确认时自动学习：如果用户修改了 archive_item_code，记录为学习规则。"""
+        if not actual_archive_item_code:
+            return
+
+        # 获取扫描时分类器预测的 archive_item_code
+        predicted_code = str(candidate.get("archive_item_code") or "").strip()
+        if predicted_code == actual_archive_item_code:
+            return  # 用户没修改，无需学习
+
+        # 只对案件材料学习
+        if str(candidate.get("suggested_category") or "") != "case_material":
+            return
+
+        filename = str(candidate.get("filename") or "")
+        if not filename:
+            return
+
+        try:
+            from apps.contracts.models import ArchiveClassificationRule
+            from apps.contracts.services.archive.category_mapping import get_archive_category
+            from apps.contracts.services.archive.learning_service import _extract_keywords, _contains_document_keyword, _strip_non_keyword_parts
+
+            contract = Contract.objects.filter(id=contract_id).values_list("case_type", flat=True).first()
+            if not contract:
+                return
+            archive_category = get_archive_category(contract)
+            if not archive_category:
+                return
+
+            keywords = _extract_keywords(filename)
+            for kw in keywords:
+                # 跳过歧义关键词：如果已有规则映射到不同 code，不覆盖
+                existing = ArchiveClassificationRule.objects.filter(
+                    archive_category=archive_category,
+                    filename_keyword=kw,
+                ).exclude(archive_item_code=actual_archive_item_code).first()
+                if existing:
+                    continue
+
+                ArchiveClassificationRule.objects.get_or_create(
+                    archive_category=archive_category,
+                    filename_keyword=kw,
+                    defaults={
+                        "archive_item_code": actual_archive_item_code,
+                        "source": "manual",
+                        "hit_count": 1,
+                    },
+                )
+        except (OSError, RuntimeError, ValueError):
+            logger.exception("learn_from_import_correction_failed")
 
     def _mark_already_imported(
         self,
