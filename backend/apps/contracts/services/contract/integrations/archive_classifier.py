@@ -19,10 +19,13 @@ logger = logging.getLogger(__name__)
 # ============================================================
 # 学习规则加载（代码文件中的规则，模块级缓存）
 # ============================================================
+_LEARNED_CODE_RULES: dict[str, dict[str, list[str]]] = {}
 try:
-    from ._learned_rules import LEARNED_FILENAME_KEYWORD_TO_ARCHIVE_CODE as _LEARNED_CODE_RULES
+    from ._learned_rules import LEARNED_FILENAME_KEYWORD_TO_ARCHIVE_CODE
+
+    _LEARNED_CODE_RULES = LEARNED_FILENAME_KEYWORD_TO_ARCHIVE_CODE
 except ImportError:
-    _LEARNED_CODE_RULES: dict[str, dict[str, list[str]]] = {}
+    pass
 
 
 def reload_learned_code_rules() -> None:
@@ -30,6 +33,7 @@ def reload_learned_code_rules() -> None:
     global _LEARNED_CODE_RULES
     try:
         import importlib
+
         from . import _learned_rules as _rules_module
 
         importlib.reload(_rules_module)
@@ -40,6 +44,7 @@ def reload_learned_code_rules() -> None:
         )
     except (ImportError, OSError):
         _LEARNED_CODE_RULES = {}
+
 
 # ============================================================
 # 跳过规则 - 以下关键词命中的文件不导入
@@ -81,7 +86,20 @@ _FOLDER_KEYWORD_TO_ARCHIVE_CODE: dict[str, dict[str, list[str]]] = {
         "lt_7": ["起诉状", "起诉书", "上诉状", "上诉书", "答辩状", "答辩书", "执行申请"],
         "lt_8": ["阅卷"],
         "lt_9": ["会见当事人", "会见笔录", "谈话笔录", "询问笔录"],
-        "lt_11": ["财产保全", "诉讼保全", "证据保全", "先行给付", "限制高消费", "取保候审", "查封清单", "缴费通知", "诉前调解告知", "受理通知", "交费通知", "交费清单"],
+        "lt_11": [
+            "财产保全",
+            "诉讼保全",
+            "证据保全",
+            "先行给付",
+            "限制高消费",
+            "取保候审",
+            "查封清单",
+            "缴费通知",
+            "诉前调解告知",
+            "受理通知",
+            "交费通知",
+            "交费清单",
+        ],
         "lt_14": ["开庭通知", "出庭通知", "传票"],
         "lt_15": ["代理词", "代理意见"],
         "lt_12": ["承办意见", "内部意见", "律师意见", "辩护意见"],
@@ -117,11 +135,34 @@ _FILENAME_KEYWORD_TO_ARCHIVE_CODE: dict[str, dict[str, list[str]]] = {
     },
     "litigation": {
         "lt_20": ["授权委托书", "授权", "所函", "律师证", "身份证", "营业执照", "法定代表人"],
-        "lt_7": ["起诉状", "起诉书", "上诉状", "上诉书", "答辩状", "答辩书", "执行申请书", "强制执行申请书", "续封申请"],
+        "lt_7": [
+            "起诉状",
+            "起诉书",
+            "上诉状",
+            "上诉书",
+            "答辩状",
+            "答辩书",
+            "执行申请书",
+            "强制执行申请书",
+            "续封申请",
+        ],
         "lt_8": ["阅卷笔录", "阅卷"],
         "lt_9": ["会见笔录", "会见当事人", "谈话笔录", "询问笔录"],
         "lt_10": ["证据清单", "证据明细", "材料清单", "追加第三人", "网络查控", "催促执行", "中止执行", "调查令"],
-        "lt_11": ["财产保全", "诉讼保全", "证据保全", "限制高消费", "取保候审", "续封申请", "查封清单", "缴费通知", "诉前调解告知书", "受理通知书", "交费通知", "交费清单"],
+        "lt_11": [
+            "财产保全",
+            "诉讼保全",
+            "证据保全",
+            "限制高消费",
+            "取保候审",
+            "续封申请",
+            "查封清单",
+            "缴费通知",
+            "诉前调解告知书",
+            "受理通知书",
+            "交费通知",
+            "交费清单",
+        ],
         "lt_14": ["传票", "开庭通知", "出庭通知"],
         "lt_15": ["代理词"],
         "lt_12": ["辩护意见", "律师意见", "承办意见"],
@@ -153,8 +194,23 @@ _EVIDENCE_FILENAME_KEYWORDS: tuple[str, ...] = ("证据明细", "证据清单")
 # ============================================================
 # 已有动词列表（原文包含这些则不补全）
 _EXISTING_VERBS: tuple[str, ...] = (
-    "收到", "提交", "邮寄", "签名", "申请", "评估", "办理", "补交", "领取",
-    "签收", "发送", "签署", "审核", "审查", "出具", "收到", "领取",
+    "收到",
+    "提交",
+    "邮寄",
+    "签名",
+    "申请",
+    "评估",
+    "办理",
+    "补交",
+    "领取",
+    "签收",
+    "发送",
+    "签署",
+    "审核",
+    "审查",
+    "出具",
+    "收到",
+    "领取",
 )
 
 # 非诉（常法）默认动词
@@ -223,7 +279,9 @@ def classify_archive_material(
     # 2. 证据材料文件夹特殊筛选
     is_evidence_folder = any(_normalize_for_match(kw) in normalized_path for kw in _EVIDENCE_FOLDER_KEYWORDS)
     if is_evidence_folder:
-        has_evidence_keyword = any(_normalize_for_match(kw) in normalized_filename for kw in _EVIDENCE_FILENAME_KEYWORDS)
+        has_evidence_keyword = any(
+            _normalize_for_match(kw) in normalized_filename for kw in _EVIDENCE_FILENAME_KEYWORDS
+        )
         if not has_evidence_keyword:
             return {
                 "archive_item_code": "",
@@ -344,11 +402,7 @@ def collect_archive_item_options(archive_category: str) -> list[dict[str, str]]:
         [{"code": "lt_7", "name": "起诉书、上诉书或答辩书"}, ...]
     """
     checklist = ARCHIVE_CHECKLIST.get(archive_category, [])
-    return [
-        {"code": item["code"], "name": item["name"]}
-        for item in checklist
-        if item.get("source") == "case"
-    ]
+    return [{"code": item["code"], "name": item["name"]} for item in checklist if item.get("source") == "case"]
 
 
 # ============================================================

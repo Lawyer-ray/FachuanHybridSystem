@@ -4,34 +4,133 @@
 check: lint typecheck ## 运行所有检查
 
 # ============================================================
-# GitHub CI 镜像检查（推送前必跑，避免反复修 7 轮）
+# GitHub CI 镜像检查（与 .github/workflows/backend-ci.yml 同步）
 # ============================================================
 
-ci-check: ## 模拟 GitHub backend (3.12) job 的核心检查（changed-files 模式）
-	@echo "$(GREEN)=== GitHub CI 预检 (changed-files 模式) ===$(NC)"
+# Mypy 门禁文件列表（与远端 CI curated gate / strict gate / extra gate 同步）
+MYPY_CURATED_GATE = \
+	apps/core/services/wiring.py \
+	apps/core/protocols/common_protocols.py \
+	apps/core/dto/auth.py \
+	apps/core/infrastructure/throttling.py \
+	apps/core/exceptions/handlers.py \
+	apiSystem/apiSystem/api.py
+
+MYPY_STRICT_GATE = \
+	$(MYPY_CURATED_GATE) \
+	apps/organization/services/organization_access_policy.py
+
+MYPY_EXTRA_GATE = \
+	apps/core/security/auth.py \
+	apps/core/infrastructure/throttling.py \
+	apps/core/infrastructure/cache.py \
+	apps/core/middleware/request_id.py \
+	apps/core/middleware/security.py \
+	apps/organization/services/auth_service.py \
+	apps/automation/services/token/cache_manager.py \
+	apps/automation/utils/logging_mixins/common.py
+
+ci-check: ## 完整镜像 GitHub CI backend job（推送前必跑，覆盖远端全部检查）
+	@echo "$(GREEN)=== GitHub CI 完整镜像预检 ===$(NC)"
 	@echo ""
+	@echo "🔒 [1/13] 敏感信息扫描 (security guard)..."
+	@CI_BASE=$$(git rev-parse --abbrev-ref @{u} 2>/dev/null | sed 's|origin/||' || true); \
+	if [ -z "$$CI_BASE" ] || ! git rev-parse "$$CI_BASE" &>/dev/null; then CI_BASE="main"; fi; \
+	CI_MERGE_BASE=$$(git merge-base HEAD "$$CI_BASE" 2>/dev/null || true); \
+	if [ -n "$$CI_MERGE_BASE" ]; then \
+		$(PYTHON) devtools/security_guard.py --check sensitive --mode range --base "$$CI_MERGE_BASE" --head HEAD; \
+	else \
+		echo "  ⚠️  无基准 commit，跳过"; \
+	fi
+	@echo "🧹 [2/13] 仓库卫生检查 (repository hygiene)..."
+	@banned=$$(git ls-files | grep -E '(^|/)(\.DS_Store|__pycache__/|[^/]+\.pyc)$$' || true); \
+	if [ -n "$$banned" ]; then echo "  ❌ 发现禁止追踪的文件:"; echo "$$banned"; exit 1; fi
+	@env_tracked=$$(git ls-files | grep -E '(^|/)\.env(\.[^/]+)?$$' | grep -v -E '(^|/)\.env\.example$$' || true); \
+	if [ -n "$$env_tracked" ]; then echo "  ❌ 发现已追踪的 .env 文件:"; echo "$$env_tracked"; exit 1; fi
+	@media_tracked=$$(git ls-files backend/media backend/apiSystem/media 2>/dev/null | grep -v '\.gitkeep$$' || true); \
+	if [ -n "$$media_tracked" ]; then echo "  ❌ 发现已追踪的 media 文件:"; echo "$$media_tracked"; exit 1; fi
+	@venv_tracked=$$(git ls-files | grep -E '^(backend/)?(\.venv|venv(311|312)?)/' || true); \
+	if [ -n "$$venv_tracked" ]; then echo "  ❌ 发现已追踪的虚拟环境文件:"; echo "$$venv_tracked"; exit 1; fi
+	@forbidden_binary=$$(git ls-files | grep -Ei '^(backend/(apps|apiSystem|scripts)/|scripts/).*\.(onnx|mp4|zip)$$' || true); \
+	if [ -n "$$forbidden_binary" ]; then echo "  ❌ 发现禁止追踪的二进制文件:"; echo "$$forbidden_binary"; exit 1; fi
+	@echo "  ✅ 通过"
+	@echo "🔧 [3/13] Python 编译检查 (compileall)..."
+	@$(PYTHON) -m compileall -q apps apiSystem
+	@echo "🔍 [4/13] Ruff (changed files)..."
 	@CHANGED=$$(bash devtools/changed_files.sh); \
 	if [ -z "$$CHANGED" ]; then \
-		echo "✅ 无变更 Python 文件"; \
+		echo "  无变更 Python 文件，跳过"; \
 	else \
-		echo "🔍 [1/3] Ruff (changed files): $$CHANGED"; \
 		$(PYTHON) -m ruff check $$CHANGED --config ruff.toml; \
-		echo ""; \
-		echo "🔍 [2/3] Mypy (changed files, follow-imports=silent): $$CHANGED"; \
-		PYTHONPATH=apiSystem:. $(PYTHON) -m mypy --config-file mypy.ini --follow-imports=silent $$CHANGED; \
-		echo ""; \
 	fi
-	@echo "🔍 [3/3] 结构测试 (ratchet guard):"
-	$(TEST_ENV) $(PYTEST) tests/ci/structure/ -q --no-header $(ARGS)
+	@echo "🔍 [5/13] Ruff (core + apiSystem)..."
+	@$(PYTHON) -m ruff check apps/core apiSystem --config ruff.toml
+	@echo "🔍 [6/13] Mypy (changed files)..."
+	@CHANGED=$$(bash devtools/changed_files.sh); \
+	if [ -z "$$CHANGED" ]; then \
+		echo "  无变更 Python 文件，跳过"; \
+	else \
+		PYTHONPATH=apiSystem:. $(PYTHON) -m mypy --config-file=mypy.ini --follow-imports=silent $$CHANGED; \
+	fi
+	@echo "🔍 [7/13] Mypy (curated gate)..."
+	@PYTHONPATH=apiSystem:. $(PYTHON) -m mypy --config-file=mypy.ini --follow-imports=silent $(MYPY_CURATED_GATE)
+	@echo "🧪 [8/13] 结构测试 (structure smoke)..."
+	$(TEST_ENV) $(PYTEST) tests/ci/structure/ -q --no-header --no-cov $(ARGS)
+	@echo "🧪 [9/13] 单元测试 (unit)..."
+	$(TEST_ENV) $(PYTEST) tests/ci/unit/ -q --no-cov $(ARGS)
+	@echo "🏥 [10/13] Smoke check (minimal)..."
+	@$(TEST_ENV) $(MANAGE) smoke_check --skip-admin --skip-websocket --skip-q
+	@echo "🔐 [11/13] 依赖安全审计 (pip-audit)..."
+	@$(PYTHON) -m pip_audit --ignore-vuln CVE-2026-3219
+	@echo "🛡️ [12/13] 静态安全扫描 (bandit)..."
+	@$(PYTHON) -m bandit -r apps -q -lll -x "*/migrations/*,*/static/*,*/staticfiles/*,*/media/*,*/venv*/*,*/htmlcov/*"
+	@echo "📎 [13/13] Pre-commit hooks (changed files)..."
+	@CI_BASE=$$(git rev-parse --abbrev-ref @{u} 2>/dev/null | sed 's|origin/||' || true); \
+	if [ -z "$$CI_BASE" ] || ! git rev-parse "$$CI_BASE" &>/dev/null; then CI_BASE="main"; fi; \
+	CI_MERGE_BASE=$$(git merge-base HEAD "$$CI_BASE" 2>/dev/null || true); \
+	if [ -n "$$CI_MERGE_BASE" ]; then \
+		PRE_FILES=$$(git diff --name-only --diff-filter=ACMRT "$$CI_MERGE_BASE" HEAD | grep -E '^backend/' | sed 's|^backend/||' || true); \
+		if [ -z "$$PRE_FILES" ]; then \
+			echo "  无变更文件，跳过"; \
+		else \
+			$(PYTHON) -m pre_commit run --files $$PRE_FILES; \
+		fi; \
+	else \
+		echo "  ⚠️  无基准 commit，跳过"; \
+	fi
 	@echo ""
-	@echo "$(GREEN)✅ GitHub CI 预检通过! 可以放心推送了$(NC)"
+	@echo "$(GREEN)✅ GitHub CI 镜像预检全部通过! 可以放心推送了$(NC)"
 
-ci-check-full: ## 完整 CI 预检 (含 unit/integration/property smoke)
+ci-check-full: ## 完整 CI 镜像 + 远端独立 Job（coverage 门槛 + 全量 mypy 门禁）
 	$(MAKE) ci-check
-	@echo "🧪 运行 CI 测试套件..."
-	$(TEST_ENV) $(PYTEST) tests/ci/unit/ -q $(ARGS)
-	$(TEST_ENV) $(PYTEST) tests/ci/integration/ -q $(ARGS)
-	$(TEST_ENV) HYPOTHESIS_PROFILE=default $(PYTEST) tests/ci/property/ -q $(ARGS)
+	@echo ""
+	@echo "$(GREEN)=== 扩展检查（远端独立 Job 镜像） ===$(NC)"
+	@echo "🔍 [E1] Mypy (strict gate)..."
+	@PYTHONPATH=apiSystem:. $(PYTHON) -m mypy --config-file=mypy.ini --follow-imports=silent $(MYPY_STRICT_GATE)
+	@echo "🔍 [E2] Mypy (extra gate)..."
+	@PYTHONPATH=apiSystem:. $(PYTHON) -m mypy --config-file=mypy.ini --follow-imports=silent $(MYPY_EXTRA_GATE)
+	@echo "🧪 [E3] 集成测试 (integration)..."
+	$(TEST_ENV) $(PYTEST) tests/ci/integration/ -q --no-cov $(ARGS)
+	@echo "🧪 [E4] Property-based 测试..."
+	$(TEST_ENV) HYPOTHESIS_PROFILE=default $(PYTEST) tests/ci/property/ -q --no-cov $(ARGS)
+	@echo "📊 [E5] 单元测试覆盖率门槛 (≥85%)..."
+	$(TEST_ENV) $(PYTEST) -c pytest.ini -q -o addopts="" \
+		--reuse-db --import-mode=importlib \
+		--cov=apps.cases.services.case.case_admin_export_bridge \
+		--cov=apps.cases.services.case.case_contract_export_bridge \
+		--cov=apps.contracts.services.contract.admin_workflows.clone_workflow \
+		--cov=apps.client.services.text_parser \
+		--cov=apps.enterprise_data.services.clients.api_key_pool \
+		--cov-report=term-missing --cov-fail-under=85 \
+		tests/ci/unit/
+	@echo "📊 [E6] 全局覆盖率基线 (≥25%)..."
+	$(TEST_ENV) $(PYTEST) -c pytest.ini -o addopts="" \
+		--reuse-db --import-mode=importlib \
+		--cov=apps \
+		--cov-report=term-missing --cov-fail-under=25 \
+		-q tests/ci/unit/
+	@echo ""
+	@echo "$(GREEN)✅ 完整 CI 镜像 + 扩展检查全部通过!$(NC)"
 
 .PHONY: help install run test migrate shell lint clean ci-check ci-check-full qcluster-dev redis-cli redis-status redis-reset
 

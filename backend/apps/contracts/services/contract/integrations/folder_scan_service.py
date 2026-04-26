@@ -165,11 +165,7 @@ class ContractFolderScanService:
 
     def get_latest_session(self, *, contract_id: int) -> ContractFolderScanSession | None:
         """返回合同最新的扫描会话，没有则返回 None。"""
-        return (
-            ContractFolderScanSession.objects.filter(contract_id=contract_id)
-            .order_by("-created_at")
-            .first()
-        )
+        return ContractFolderScanSession.objects.filter(contract_id=contract_id).order_by("-created_at").first()
 
     def build_status_payload(self, *, session: ContractFolderScanSession) -> dict[str, Any]:
         payload = dict(session.result_payload or {})
@@ -262,7 +258,11 @@ class ContractFolderScanService:
                 if is_docx:
                     display_name = file_path.name
 
-                if category == MaterialCategory.CONTRACT_ORIGINAL and not is_docx and self._has_quality_card_on_last_page(file_path):
+                if (
+                    category == MaterialCategory.CONTRACT_ORIGINAL
+                    and not is_docx
+                    and self._has_quality_card_on_last_page(file_path)
+                ):
                     display_name = self._QUALITY_CARD_TITLE
 
                 material_kwargs: dict[str, Any] = {
@@ -282,10 +282,13 @@ class ContractFolderScanService:
                     material_kwargs["content_hash"] = content_hash
 
                 # 去重：同一合同下内容哈希相同的材料视为重复跳过
-                if content_hash and FinalizedMaterial.objects.filter(
-                    contract_id=contract_id,
-                    content_hash=content_hash,
-                ).exists():
+                if (
+                    content_hash
+                    and FinalizedMaterial.objects.filter(
+                        contract_id=contract_id,
+                        content_hash=content_hash,
+                    ).exists()
+                ):
                     skipped_dupes += 1
                     logger.info(
                         "material_hash_duplicate_skipped",
@@ -298,11 +301,14 @@ class ContractFolderScanService:
                     continue
 
                 # 向后兼容：无哈希时回退到文件名比较
-                if not content_hash and FinalizedMaterial.objects.filter(
-                    contract_id=contract_id,
-                    original_filename=display_name,
-                    category=category,
-                ).exists():
+                if (
+                    not content_hash
+                    and FinalizedMaterial.objects.filter(
+                        contract_id=contract_id,
+                        original_filename=display_name,
+                        category=category,
+                    ).exists()
+                ):
                     skipped_dupes += 1
                     logger.info(
                         "material_name_duplicate_skipped",
@@ -399,9 +405,7 @@ class ContractFolderScanService:
             result["candidates"] = candidates
 
             # 工作日志建议
-            work_log_suggestions = collect_work_log_suggestions(
-                scan_scope["scan_folder"], archive_category
-            )
+            work_log_suggestions = collect_work_log_suggestions(scan_scope["scan_folder"], archive_category)
             result["work_log_suggestions"] = work_log_suggestions
 
             # 归档清单项选项
@@ -450,9 +454,7 @@ class ContractFolderScanService:
         # 获取案件已有日志内容集合，用于去重
         from apps.cases.models import CaseLog
 
-        existing_contents: set[str] = set(
-            CaseLog.objects.filter(case_id=case_id).values_list("content", flat=True)
-        )
+        existing_contents: set[str] = set(CaseLog.objects.filter(case_id=case_id).values_list("content", flat=True))
 
         imported = 0
         for suggestion in confirmed_logs:
@@ -685,8 +687,10 @@ class ContractFolderScanService:
         _DOCX_REVISION_KEYWORDS = ("修订版", "批注版", "律师修订")
 
         docx_files = [
-            p for p in root.rglob("*")
-            if p.is_file() and p.suffix.lower() in (".docx", ".doc")
+            p
+            for p in root.rglob("*")
+            if p.is_file()
+            and p.suffix.lower() in (".docx", ".doc")
             and any(kw in _normalize_docx_name(p.name) for kw in _DOCX_REVISION_KEYWORDS)
         ]
         docx_files.sort(key=lambda x: x.as_posix())
@@ -713,23 +717,25 @@ class ContractFolderScanService:
                 archive_item_name = "案件其它关联材料"
                 reason = "常法docx（修订版/批注版）→ nl_9"
 
-            candidates.append({
-                "source_path": file_path.as_posix(),
-                "filename": file_path.name,
-                "file_size": int(stat.st_size),
-                "modified_at": "",
-                "base_name": item["base_name"],
-                "version_token": item["version_token"],
-                "extract_method": "none",
-                "text_excerpt": "",
-                "suggested_category": "case_material",
-                "confidence": 0.85,
-                "reason": reason,
-                "selected": True,
-                "is_docx": True,
-                "archive_item_code": archive_item_code,
-                "archive_item_name": archive_item_name,
-            })
+            candidates.append(
+                {
+                    "source_path": file_path.as_posix(),
+                    "filename": file_path.name,
+                    "file_size": int(stat.st_size),
+                    "modified_at": "",
+                    "base_name": item["base_name"],
+                    "version_token": item["version_token"],
+                    "extract_method": "none",
+                    "text_excerpt": "",
+                    "suggested_category": "case_material",
+                    "confidence": 0.85,
+                    "reason": reason,
+                    "selected": True,
+                    "is_docx": True,
+                    "archive_item_code": archive_item_code,
+                    "archive_item_name": archive_item_name,
+                }
+            )
 
         return candidates
 

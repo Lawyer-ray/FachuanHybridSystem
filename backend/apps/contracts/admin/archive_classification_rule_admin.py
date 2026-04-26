@@ -53,11 +53,13 @@ class ArchiveClassificationRuleAdmin(admin.ModelAdmin):
 
             service = ArchiveLearningService()
             result = service.learn_from_archived_materials()
-            return JsonResponse({
-                "success": True,
-                "message": _("学习完成：新增 %(learned)d 条，更新 %(updated)d 条，跳过 %(skipped)d 条") % result,
-                **result,
-            })
+            return JsonResponse(
+                {
+                    "success": True,
+                    "message": _("学习完成：新增 %(learned)d 条，更新 %(updated)d 条，跳过 %(skipped)d 条") % result,
+                    **result,
+                }
+            )
         except (OSError, RuntimeError, ValueError) as exc:
             logger.exception("archive_learning_failed")
             return JsonResponse({"success": False, "message": str(exc)}, status=400)
@@ -74,11 +76,13 @@ class ArchiveClassificationRuleAdmin(admin.ModelAdmin):
 
             service = ArchiveLearningService()
             result = service.export_rules_to_code()
-            return JsonResponse({
-                "success": True,
-                "message": _("导出完成：%(rule_count)d 条规则，%(category_count)d 个分类") % result,
-                **result,
-            })
+            return JsonResponse(
+                {
+                    "success": True,
+                    "message": _("导出完成：%(rule_count)d 条规则，%(category_count)d 个分类") % result,
+                    **result,
+                }
+            )
         except (OSError, RuntimeError, ValueError) as exc:
             logger.exception("archive_rules_export_failed")
             return JsonResponse({"success": False, "message": str(exc)}, status=400)
