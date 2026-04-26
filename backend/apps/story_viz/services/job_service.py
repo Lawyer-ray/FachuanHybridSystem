@@ -23,22 +23,38 @@ class StoryAnimationJobService:
         viz_type: str,
         created_by: object | None = None,
     ) -> StoryAnimation:
-        if not source_title.strip():
+        source_title = source_title.strip()
+        source_text = source_text.strip()
+        if not source_title:
             raise ValidationException(message="标题不能为空", errors={"source_title": "请输入文书标题"})
-        if not source_text.strip():
+        if not source_text:
             raise ValidationException(message="正文不能为空", errors={"source_text": "请输入判决书正文"})
 
+        # 去重检查：相同 viz_type + 前512字符文本 视为重复输入
+        text_prefix = source_text[:512]
+        dup = (
+            StoryAnimation.objects.filter(
+                viz_type=viz_type,
+                source_text__startswith=text_prefix,
+            )
+            .exclude(status__in={StoryAnimationStatus.FAILED, StoryAnimationStatus.CANCELLED})
+            .order_by("-created_at")
+            .first()
+        )
+        if dup:
+            return dup
+
         animation = StoryAnimation.objects.create(
-            source_title=source_title.strip(),
-            source_text=source_text.strip(),
+            source_title=source_title,
+            source_text=source_text,
             viz_type=viz_type,
             status=StoryAnimationStatus.PENDING,
             current_stage=StoryAnimationStage.QUEUED,
             progress_percent=0,
             created_by=created_by if getattr(created_by, "is_authenticated", False) else None,
         )
-        task_id = self.submit_generation(animation=animation)
-        StoryAnimation.objects.filter(id=animation.id).update(task_id=task_id, started_at=timezone.now())
+        task_name = self.submit_generation(animation=animation)
+        StoryAnimation.objects.filter(id=animation.id).update(task_id=task_name, started_at=timezone.now())
         animation.refresh_from_db()
         return animation
 
@@ -62,18 +78,30 @@ class StoryAnimationJobService:
         if animation.status == StoryAnimationStatus.COMPLETED:
             preview_url = f"/api/v1/story-viz/animations/{animation.id}/preview"
 
+        facts = animation.facts_payload if isinstance(animation.facts_payload, dict) else {}
+        parties = facts.get("parties", [])
+        events = facts.get("events", [])
+        relationships = facts.get("relationships", [])
+
         return {
             "id": str(animation.id),
             "title": animation.source_title,
             "viz_type": animation.viz_type,
             "status": animation.status,
             "stage": animation.current_stage,
+            "stage_display": animation.get_current_stage_display(),
             "progress": int(animation.progress_percent or 0),
             "error_message": animation.error_message or "",
             "preview_url": preview_url,
             "task_id": animation.task_id or "",
             "cancel_requested": bool(animation.cancel_requested),
+            "created_at": animation.created_at.isoformat() if animation.created_at else "",
+            "started_at": animation.started_at.isoformat() if animation.started_at else "",
+            "finished_at": animation.finished_at.isoformat() if animation.finished_at else "",
             "updated_at": animation.updated_at.isoformat() if animation.updated_at else "",
+            "facts_count": len(events),
+            "parties_count": len(parties),
+            "relationships_count": len(relationships),
         }
 
     @transaction.atomic

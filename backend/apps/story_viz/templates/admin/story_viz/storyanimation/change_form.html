@@ -4,123 +4,265 @@
 {% block after_field_sets %}
 {{ block.super }}
 {% if story_viz_status_api %}
+<style>
+.sv-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 4px 16px rgba(15,23,42,.08);
+  margin-bottom: 14px;
+}
+.sv-section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0 0 10px;
+}
+.sv-pill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.sv-status-pending   { background: #fef3c7; color: #92400e; }
+.sv-status-processing{ background: #dbeafe; color: #1e40af; }
+.sv-status-completed { background: #d1fae5; color: #065f46; }
+.sv-status-failed    { background: #fee2e2; color: #991b1b; }
+.sv-status-cancelled { background: #f1f5f9; color: #475569; }
+.sv-track {
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+.sv-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #0ea5e9, #3b82f6);
+  border-radius: 999px;
+}
+.sv-btn-group {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.sv-btn {
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  cursor: pointer;
+  transition: .15s;
+  font-size: 13px;
+}
+.sv-btn:hover:not(:disabled) {
+  background: #f8fafc;
+}
+.sv-btn:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+.sv-btn.primary {
+  background: #0f172a;
+  color: #fff;
+  border-color: #0f172a;
+}
+#svError { color: #b91c1c; font-size: 13px; margin-top: 8px; }
+</style>
+
 <div style="margin-top: 16px;">
-  <div style="background:#fff;border-radius:12px;padding:16px;box-shadow:0 4px 16px rgba(15,23,42,.08);margin-bottom:12px;">
-    <h3 style="margin:0 0 8px;">{% trans "生成状态" %}</h3>
-    <div style="display:flex;gap:12px;flex-wrap:wrap;">
-      <div><strong>{% trans "状态" %}：</strong><span id="svStatus">-</span></div>
-      <div><strong>{% trans "阶段" %}：</strong><span id="svStage">-</span></div>
+  <!-- 状态卡片 -->
+  <div class="sv-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div class="sv-section-title">{% trans "任务状态" %}</div>
+      <span id="svPill" class="sv-pill sv-status-pending">pending</span>
+    </div>
+    <div style="display:flex;gap:24px;flex-wrap:wrap;margin-top:8px;font-size:13px;color:#334155;">
+      <div><strong>{% trans "阶段" %}：</strong><span id="svStage" style="color:#0f172a;">-</span></div>
       <div><strong>{% trans "进度" %}：</strong><span id="svProgress">0%</span></div>
+      <div><strong>{% trans "任务ID" %}：</strong><span id="svTaskId">-</span></div>
+      <div><strong>{% trans "耗时" %}：</strong><span id="svDuration">-</span></div>
     </div>
-    <div style="height:8px;background:#e2e8f0;border-radius:999px;overflow:hidden;margin-top:8px;">
-      <div id="svProgressBar" style="height:100%;width:0%;background:linear-gradient(90deg,#0ea5e9,#3b82f6);"></div>
+    <div class="sv-track">
+      <div id="svProgressBar" class="sv-bar"></div>
     </div>
-    <div id="svError" style="margin-top:8px;color:#b91c1c;"></div>
-    <div style="display:flex;gap:8px;margin-top:10px;">
-      <button type="button" id="svRefreshBtn" class="button">{% trans "刷新" %}</button>
-      <button type="button" id="svRetryBtn" class="button">{% trans "重试" %}</button>
-      <button type="button" id="svCancelBtn" class="button">{% trans "取消" %}</button>
+    <div id="svError"></div>
+    <div class="sv-btn-group">
+      <button type="button" id="svRefreshBtn" class="sv-btn">{% trans "刷新状态" %}</button>
+      <button type="button" id="svRetryBtn" class="sv-btn">{% trans "重新生成" %}</button>
+      <button type="button" id="svCancelBtn" class="sv-btn">{% trans "取消任务" %}</button>
+      <a id="svPreviewLink" href="#" target="_blank" class="sv-btn primary" style="display:none;text-decoration:none;">{% trans "新窗口预览" %}</a>
     </div>
   </div>
 
-  <div style="background:#fff;border-radius:12px;padding:16px;box-shadow:0 4px 16px rgba(15,23,42,.08);">
-    <h3 style="margin:0 0 8px;">{% trans "预览" %}</h3>
-    <iframe id="svPreviewFrame" src="" style="width:100%;height:420px;border:1px solid #e2e8f0;border-radius:10px;"></iframe>
+  <!-- 预览 -->
+  <div class="sv-card" id="svPreviewCard" style="display:none;">
+    <div class="sv-section-title">{% trans "实时预览" %}</div>
+    <iframe id="svPreviewFrame" src="" style="width:100%;height:520px;border:1px solid #e2e8f0;border-radius:10px;background:#0b1220;"></iframe>
+  </div>
+
+  <!-- 数据摘要 -->
+  <div class="sv-card" id="svDataCard">
+    <div class="sv-section-title">{% trans "数据摘要" %}</div>
+    <div id="svDataSummary" style="font-size:13px;color:#334155;">{% trans "暂无可用数据" %}</div>
   </div>
 </div>
 
 <script>
 (function() {
-  const statusApi = "{{ story_viz_status_api }}";
-  const retryApi = "{{ story_viz_retry_api }}";
-  const cancelApi = "{{ story_viz_cancel_api }}";
+  const statusApi  = "{{ story_viz_status_api }}";
+  const retryApi   = "{{ story_viz_retry_api }}";
+  const cancelApi  = "{{ story_viz_cancel_api }}";
+  const previewApi = "{{ story_viz_preview_api }}";
 
-  const statusEl = document.getElementById("svStatus");
-  const stageEl = document.getElementById("svStage");
-  const progressEl = document.getElementById("svProgress");
-  const progressBar = document.getElementById("svProgressBar");
-  const errorEl = document.getElementById("svError");
-  const frame = document.getElementById("svPreviewFrame");
-  const refreshBtn = document.getElementById("svRefreshBtn");
-  const retryBtn = document.getElementById("svRetryBtn");
-  const cancelBtn = document.getElementById("svCancelBtn");
+  const els = {
+    status: document.getElementById('svStatus'),
+    stage: document.getElementById('svStage'),
+    progress: document.getElementById('svProgress'),
+    bar: document.getElementById('svProgressBar'),
+    error: document.getElementById('svError'),
+    pill: document.getElementById('svPill'),
+    taskId: document.getElementById('svTaskId'),
+    duration: document.getElementById('svDuration'),
+    refreshBtn: document.getElementById('svRefreshBtn'),
+    retryBtn: document.getElementById('svRetryBtn'),
+    cancelBtn: document.getElementById('svCancelBtn'),
+    frame: document.getElementById('svPreviewFrame'),
+    previewCard: document.getElementById('svPreviewCard'),
+    previewLink: document.getElementById('svPreviewLink'),
+    dataCard: document.getElementById('svDataCard'),
+    dataSummary: document.getElementById('svDataSummary'),
+  };
+
   let timer = null;
+  let createdAt = null;
+  let startedAt = null;
+  let finishedAt = null;
 
   function getCookie(name) {
-      const parts = document.cookie.split(';');
-      for (const part of parts) {
-          const trimmed = part.trim();
-          if (trimmed.startsWith(name + '=')) {
-              return decodeURIComponent(trimmed.substring(name.length + 1));
-          }
-      }
-      return '';
+    const parts = document.cookie.split(';');
+    for (const part of parts) {
+      const t = part.trim();
+      if (t.startsWith(name + '=')) return decodeURIComponent(t.slice(name.length + 1));
+    }
+    return '';
   }
 
   async function post(url) {
-    const response = await fetch(url, {
-      method: "POST",
-      credentials: "same-origin",
+    const resp = await fetch(url, {
+      method: 'POST', credentials: 'same-origin',
       headers: {
-        "X-CSRFToken": getCookie("csrftoken"),
-        "Content-Type": "application/json"
+        'X-CSRFToken': getCookie('csrftoken'),
+        'Content-Type': 'application/json'
       },
-      body: "{}"
+      body: '{}'
     });
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error((data && (data.detail || data.message || data.error)) || "请求失败");
-    }
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data?.detail || data?.message || data?.error || '请求失败');
     return data;
   }
 
+  function updateButtons(status) {
+    const done  = status === 'completed' || status === 'failed' || status === 'cancelled';
+    const running = status === 'pending' || status === 'processing';
+    els.retryBtn.disabled  = running || status === 'completed';
+    els.cancelBtn.disabled = done;
+    if (status === 'completed') {
+      els.previewCard.style.display = 'block';
+      els.previewLink.style.display = 'inline-block';
+      els.previewLink.href = previewApi;
+    } else {
+      els.previewCard.style.display = 'none';
+      els.previewLink.style.display = 'none';
+      els.previewLink.href = '#';
+    }
+  }
+
+  function stageLabel(s) {
+    const map = {
+      queued:'已入队', extracting_facts:'提取事实', directing_script:'编排脚本',
+      rendering_layout:'渲染布局', generating_fragments:'生成视觉片段',
+      composing_html:'组装HTML', completed:'已完成', failed:'失败', cancelled:'已取消'
+    };
+    return map[s] || s;
+  }
+
+  function buildDataSummary(d) {
+    const parts = [];
+    if (d.stage === 'completed' || d.stage === 'failed') {
+      if (d.facts_count) parts.push(`事件节点: ${d.facts_count} 个`);
+      if (d.parties_count) parts.push(`人物节点: ${d.parties_count} 个`);
+      if (d.relationships_count) parts.push(`关系连线: ${d.relationships_count} 条`);
+    }
+    return parts.length ? parts.join(' · ') : '暂无可用数据';
+  }
+
+  function formatDuration(seconds) {
+    if (!seconds || seconds < 0) return '-';
+    if (seconds < 60) return Math.round(seconds) + ' 秒';
+    const m = Math.floor(seconds / 60), s = Math.round(seconds % 60);
+    return `${m} 分 ${s} 秒`;
+  }
+
   function render(data) {
-    statusEl.textContent = data.status || "-";
-    stageEl.textContent = data.stage || "-";
-    const progress = Number(data.progress || 0);
-    progressEl.textContent = progress + "%";
-    progressBar.style.width = progress + "%";
-    errorEl.textContent = data.error_message || "";
+    const status = data.status || 'pending';
+    els.pill.textContent = status;
+    els.pill.className = 'sv-pill sv-status-' + status;
+    els.stage.textContent = stageLabel(data.stage || '');
+    const pct = Number(data.progress || 0);
+    els.progress.textContent = pct + '%';
+    els.bar.style.width = pct + '%';
+    els.error.textContent = data.error_message || '';
+    els.taskId.textContent = data.task_id || '-';
 
-    if (data.preview_url) {
-      frame.src = data.preview_url;
+    if (data.created_at) createdAt = new Date(data.created_at);
+    if (data.started_at) startedAt = new Date(data.started_at);
+    if (data.finished_at) finishedAt = new Date(data.finished_at);
+
+    let dur = 0;
+    if (startedAt) {
+      const end = finishedAt || new Date();
+      dur = ((end - startedAt) / 1000);
+    } else if (createdAt) {
+      dur = ((new Date() - createdAt) / 1000);
+    }
+    els.duration.textContent = formatDuration(dur);
+
+    updateButtons(status);
+    els.dataSummary.textContent = buildDataSummary(data);
+
+    if (status === 'completed' && previewApi) {
+      els.frame.src = previewApi + '?t=' + Date.now();
     }
 
-    if (timer) {
-      clearTimeout(timer);
-      timer = null;
-    }
-    if (data.status === "pending" || data.status === "processing") {
-      timer = setTimeout(loadStatus, 3000);
+    if (timer) { clearTimeout(timer); timer = null; }
+    if (status === 'pending' || status === 'processing') {
+      timer = setTimeout(loadStatus, 2500);
     }
   }
 
   async function loadStatus() {
-    const response = await fetch(statusApi, { credentials: "same-origin" });
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error((data && (data.detail || data.message || data.error)) || "状态加载失败");
-    }
+    const resp = await fetch(statusApi, { credentials: 'same-origin' });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data?.detail || '状态加载失败');
     render(data);
   }
 
-  refreshBtn.addEventListener("click", function() {
-    loadStatus().catch(function(err) { errorEl.textContent = err.message; });
+  els.refreshBtn.addEventListener('click', () => {
+    loadStatus().catch(e => { els.error.textContent = e.message; });
+  });
+  els.retryBtn.addEventListener('click', () => {
+    post(retryApi).then(() => loadStatus()).catch(e => { els.error.textContent = e.message; });
+  });
+  els.cancelBtn.addEventListener('click', () => {
+    post(cancelApi).then(() => loadStatus()).catch(e => { els.error.textContent = e.message; });
   });
 
-  retryBtn.addEventListener("click", function() {
-    post(retryApi)
-      .then(function() { return loadStatus(); })
-      .catch(function(err) { errorEl.textContent = err.message; });
-  });
-
-  cancelBtn.addEventListener("click", function() {
-    post(cancelApi)
-      .then(function() { return loadStatus(); })
-      .catch(function(err) { errorEl.textContent = err.message; });
-  });
-
-  loadStatus().catch(function(err) { errorEl.textContent = err.message; });
+  loadStatus().catch(e => { els.error.textContent = e.message; });
 })();
 </script>
 {% endif %}

@@ -19,12 +19,19 @@ class StoryAnimationStatusOut(BaseModel):
     viz_type: str
     status: str
     stage: str
+    stage_display: str
     progress: int
     error_message: str
     preview_url: str
     task_id: str
     cancel_requested: bool
+    created_at: str
+    started_at: str
+    finished_at: str
     updated_at: str
+    facts_count: int
+    parties_count: int
+    relationships_count: int
 
 
 @router.get("/animations/{animation_id}", response=StoryAnimationStatusOut)

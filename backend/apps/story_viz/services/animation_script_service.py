@@ -40,32 +40,40 @@ class AnimationScriptService:
             return parsed
         except Exception:
             logger.exception("story_viz_animation_script_failed")
+            # fallback: build safe nodes from facts
+            nodes = [
+                {
+                    "id": p.name,
+                    "label": p.name,
+                    "category": p.role or "party",
+                }
+                for p in facts.parties[:16]
+                if p.name
+            ]
+            edges = [
+                {
+                    "source": r.source,
+                    "target": r.target,
+                    "relation": r.relation_type,
+                }
+                for r in facts.relationships[:24]
+                if r.source and r.target
+            ]
             return AnimationScript(
                 title=facts.case_title,
                 viz_type=viz_type,
-                annotations=[x.summary for x in facts.events[:5]],
+                annotations=[x.summary for x in facts.events[:5] if x.summary],
                 timeline_nodes=[
                     {
                         "time": x.time_label,
                         "label": x.summary,
                     }
-                    for x in facts.events[:8]
+                    for x in facts.events[:12]
+                    if x.summary
                 ],
-                relationship_nodes=[
-                    {
-                        "id": p.name,
-                        "label": p.name,
-                        "category": p.role or "party",
-                    }
-                    for p in facts.parties[:12]
-                    if p.name
-                ],
-                edges=[
-                    {
-                        "source": r.source,
-                        "target": r.target,
-                        "relation": r.relation_type,
-                    }
-                    for r in facts.relationships[:20]
-                ],
+                relationship_nodes=[GraphNode(id=n["id"], label=n["label"], category=n["category"]) for n in nodes],
+                edges=[GraphEdge(source=e["source"], target=e["target"], relation=e["relation"]) for e in edges],
+                scene_order=[f"scene_{i}" for i in range(min(5, len(facts.events)))],
+                motion_plan=MotionPlan(duration_ms=1000, easing="ease-in-out"),
+                fragment_prompts=["indicator pulse", "connection halo"],
             )
