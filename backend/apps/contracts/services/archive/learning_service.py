@@ -227,57 +227,6 @@ class ArchiveLearningService:
             "category_count": category_count,
         }
 
-def extract_keywords(filename: str) -> list[str]:
-        """从文件名中提取关键词。
-
-        策略：
-        1. 去掉扩展名
-        2. 去掉括号及括号内容（如案卷封面（某某案）→ 案卷封面）
-        3. 去掉案号模式（如 (2024)粤0101民初1001号）
-        4. 去掉页码模式（如 第6页）
-        5. 去掉纯数字/字母
-        6. 按分隔符拆分（含中文分隔符）
-        7. 保留含文书类型关键词的片段（白名单机制）
-        """
-        # 去掉扩展名
-        name = Path(filename).stem
-
-        # 去掉括号及括号内容（中文和英文括号）
-        name = re.sub(r"[（(][^）)]*[）)]", "", name)
-
-        # 去掉案号模式
-        name = re.sub(r"[(\（]\d{4}[)）][^\s]*?\d+号", "", name)
-
-        # 去掉页码模式
-        name = re.sub(r"第\d+页", "", name)
-
-        # 去掉纯数字/字母编号
-        name = re.sub(r"\d+", "", name)
-        name = re.sub(r"[A-Za-z]+", "", name)
-
-        # 按分隔符拆分
-        parts = re.split(r"[\s\-_·.、,，【】\[\]{}]+", name)
-
-        # 白名单过滤：只保留含文书类型关键词的片段
-        keywords = []
-        for part in parts:
-            part = part.strip()
-            if not part:
-                continue
-            chinese_chars = re.findall(r"[\u4e00-\u9fff]", part)
-            if len(chinese_chars) < 2:
-                continue
-
-            # 白名单：含以下文书类型关键词的才视为有效学习关键词
-            if _contains_document_keyword(part):
-                # 脱壳：只保留文书关键词部分，剔除前后粘着的非文书内容
-                # 如 "张三起诉状" → "起诉状"，"佛山市某某公司起诉状" → "起诉状"
-                stripped_kw = _strip_non_keyword_parts(part)
-                if stripped_kw:
-                    keywords.append(stripped_kw)
-
-        return keywords
-
     def _generate_code_file(self, grouped: dict[str, dict[str, list[str]]]) -> str:
         """生成 _learned_rules.py 代码文件内容。"""
         lines = [
@@ -318,6 +267,59 @@ def extract_keywords(filename: str) -> list[str]:
 # ============================================================
 # 模块级辅助函数
 # ============================================================
+
+
+def extract_keywords(filename: str) -> list[str]:
+    """从文件名中提取关键词。
+
+    策略：
+    1. 去掉扩展名
+    2. 去掉括号及括号内容（如案卷封面（某某案）→ 案卷封面）
+    3. 去掉案号模式（如 (2024)粤0101民初1001号）
+    4. 去掉页码模式（如 第6页）
+    5. 去掉纯数字/字母
+    6. 按分隔符拆分（含中文分隔符）
+    7. 保留含文书类型关键词的片段（白名单机制）
+    """
+    # 去掉扩展名
+    name = Path(filename).stem
+
+    # 去掉括号及括号内容（中文和英文括号）
+    name = re.sub(r"[（(][^）)]*[）)]", "", name)
+
+    # 去掉案号模式
+    name = re.sub(r"[(\（]\d{4}[)）][^\s]*?\d+号", "", name)
+
+    # 去掉页码模式
+    name = re.sub(r"第\d+页", "", name)
+
+    # 去掉纯数字/字母编号
+    name = re.sub(r"\d+", "", name)
+    name = re.sub(r"[A-Za-z]+", "", name)
+
+    # 按分隔符拆分
+    parts = re.split(r"[\s\-_·.、,，【】\[\]{}]+", name)
+
+    # 白名单过滤：只保留含文书类型关键词的片段
+    keywords = []
+    for part in parts:
+        part = part.strip()
+        if not part:
+            continue
+        chinese_chars = re.findall(r"[\u4e00-\u9fff]", part)
+        if len(chinese_chars) < 2:
+            continue
+
+        # 白名单：含以下文书类型关键词的才视为有效学习关键词
+        if _contains_document_keyword(part):
+            # 脱壳：只保留文书关键词部分，剔除前后粘着的非文书内容
+            # 如 "张三起诉状" → "起诉状"，"佛山市某某公司起诉状" → "起诉状"
+            stripped_kw = _strip_non_keyword_parts(part)
+            if stripped_kw:
+                keywords.append(stripped_kw)
+
+    return keywords
+
 
 # 文书类型关键词白名单（模块级常量，避免每次调用重复创建）
 _DOCUMENT_KEYWORDS: tuple[str, ...] = (
