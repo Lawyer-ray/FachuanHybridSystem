@@ -1056,46 +1056,6 @@ function archiveChecklistApp(initialCompact, checklistItems) {
     // 从案件材料同步到归档
     window.syncCaseMaterials = function(contractId) {
         // 先查询匹配映射，展示给用户确认
-
-    // 学习分类规则
-    window.learnArchiveRules = function(contractId) {
-        if (!confirm('确认从已归档材料中学习分类规则？将分析所有已确认归档的文件名与归档清单项的对应关系。')) return;
-        fetch('/admin/contracts/archiveclassificationrule/learn-from-archived/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
-        })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-            if (data.success) {
-                var msg = data.message || '学习完成';
-                var exportMsg = '\n\n是否将学习规则导出为代码文件？（导出后需 commit + push 才能共享给其他用户）';
-                if (confirm(msg + exportMsg)) {
-                    exportArchiveRules();
-                }
-            } else {
-                alert('学习失败: ' + (data.message || '未知错误'));
-            }
-        })
-        .catch(function(e) { alert('请求失败: ' + e.message); });
-    };
-
-    // 导出学习规则到代码文件
-    window.exportArchiveRules = function() {
-        fetch('/admin/contracts/archiveclassificationrule/export-to-code/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
-        })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-            if (data.success) {
-                alert(data.message + '\n\n文件路径: ' + (data.path || ''));
-            } else {
-                alert('导出失败: ' + (data.message || '未知错误'));
-            }
-        })
-        .catch(function(e) { alert('请求失败: ' + e.message); });
-    };
-        // 先查询匹配映射，展示给用户确认
         fetch('/admin/contracts/contract/' + contractId + '/case-material-match-map/', {
             headers: { 'X-CSRFToken': getCSRF() },
         })
@@ -1222,7 +1182,44 @@ function archiveChecklistApp(initialCompact, checklistItems) {
         .catch(function(e) { alert('查询失败: ' + e.message); });
     };
 
+    // 学习分类规则
+    window.learnArchiveRules = function(contractId) {
+        if (!confirm('确认从已归档材料中学习分类规则？将分析所有已确认归档的文件名与归档清单项的对应关系。')) return;
+        fetch('/admin/contracts/archiveclassificationrule/learn-from-archived/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) {
+                var msg = data.message || '学习完成';
+                var exportMsg = '\n\n是否将学习规则导出为代码文件？（导出后需 commit + push 才能共享给其他用户）';
+                if (confirm(msg + exportMsg)) {
+                    exportArchiveRules();
+                }
+            } else {
+                alert('学习失败: ' + (data.message || '未知错误'));
+            }
+        })
+        .catch(function(e) { alert('请求失败: ' + e.message); });
+    };
 
+    // 导出学习规则到代码文件
+    window.exportArchiveRules = function() {
+        fetch('/admin/contracts/archiveclassificationrule/export-to-code/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) {
+                alert(data.message + '\n\n文件路径: ' + (data.path || ''));
+            } else {
+                alert('导出失败: ' + (data.message || '未知错误'));
+            }
+        })
+        .catch(function(e) { alert('请求失败: ' + e.message); });
+    };
 
     // 按照A4裁切
     window.scaleToA4 = function(contractId) {
