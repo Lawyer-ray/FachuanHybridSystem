@@ -226,3 +226,6 @@ extensions/
 
 # 设计稿原型（本地参考，不入库）
 prototypes/
+
+# Playwright 报告
+playwright-report/
