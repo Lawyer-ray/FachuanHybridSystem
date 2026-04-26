@@ -24,6 +24,23 @@ try:
 except ImportError:
     _LEARNED_CODE_RULES: dict[str, dict[str, list[str]]] = {}
 
+
+def reload_learned_code_rules() -> None:
+    """重新加载代码文件中的学习规则（导出后调用）。"""
+    global _LEARNED_CODE_RULES
+    try:
+        import importlib
+        from . import _learned_rules as _rules_module
+
+        importlib.reload(_rules_module)
+        _LEARNED_CODE_RULES = _rules_module.LEARNED_FILENAME_KEYWORD_TO_ARCHIVE_CODE
+        logger.info(
+            "learned_code_rules_reloaded",
+            extra={"rule_count": sum(len(kws) for d in _LEARNED_CODE_RULES.values() for kws in d.values())},
+        )
+    except (ImportError, OSError):
+        _LEARNED_CODE_RULES = {}
+
 # ============================================================
 # 跳过规则 - 以下关键词命中的文件不导入
 # ============================================================

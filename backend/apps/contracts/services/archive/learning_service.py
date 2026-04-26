@@ -7,12 +7,11 @@ import re
 from pathlib import Path
 from typing import Any
 
-from django.db import transaction
-
 from apps.contracts.models import ArchiveClassificationRule, FinalizedMaterial
 from apps.contracts.services.archive.category_mapping import get_archive_category
 from apps.contracts.services.contract.integrations.archive_classifier import (
     classify_archive_material,
+    reload_learned_code_rules,
 )
 
 logger = logging.getLogger(__name__)
@@ -55,6 +54,9 @@ class ArchiveLearningService:
                 continue
 
             # 用当前规则测试分类
+            # 注意：material.file_path 是存储路径（非原始源路径），不含文件夹路径信息，
+            # 因此文件夹路径关键词匹配不会命中。这是合理的——学习规则基于文件名关键词，
+            # 只需验证文件名匹配是否能正确分类。
             current_result = classify_archive_material(
                 filename=material.original_filename,
                 source_path=material.file_path,
@@ -139,6 +141,9 @@ class ArchiveLearningService:
 
         # 写入文件
         _LEARNED_RULES_PATH.write_text(code_content, encoding="utf-8")
+
+        # 重新加载代码规则到内存（使当前进程立即生效）
+        reload_learned_code_rules()
 
         rule_count = sum(len(kws) for kws_dict in grouped.values() for kws in kws_dict.values())
         category_count = len(grouped)

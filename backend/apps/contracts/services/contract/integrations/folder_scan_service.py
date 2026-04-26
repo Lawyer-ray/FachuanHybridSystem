@@ -275,7 +275,9 @@ class ContractFolderScanService:
                     material_kwargs["archive_item_code"] = archive_item_code
 
                 # 计算文件内容哈希
-                content_hash = _compute_file_hash(actual_file_path)
+                # 注意：docx 文件存入 DB 的哈希是原始 docx 的哈希（而非转换后 PDF），
+                # 这样扫描时也能用同一哈希值比对已导入状态
+                content_hash = _compute_file_hash(file_path)
                 if content_hash:
                     material_kwargs["content_hash"] = content_hash
 
@@ -806,7 +808,18 @@ class ContractFolderScanService:
             ).values_list("content_hash", flat=True)
         )
 
+        if not existing_hashes:
+            # 没有任何已导入材料，全部标记为未导入
+            for candidate in candidates:
+                candidate["already_imported"] = False
+            return
+
         for candidate in candidates:
+            # 被跳过的文件不需要标记
+            if candidate.get("skip_reason"):
+                candidate["already_imported"] = False
+                continue
+
             source_path = str(candidate.get("source_path") or "").strip()
             if not source_path:
                 continue
