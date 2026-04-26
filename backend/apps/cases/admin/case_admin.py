@@ -180,9 +180,9 @@ class CaseAdmin(
         if "status__exact" not in request.GET:
             return HttpResponseRedirect(f"{request.path}?status__exact=active")
         return super().changelist_view(request, extra_context=extra_context)
-    list_display = ("id_link", "name_link", "status", "start_date", "effective_date", "is_filed")
+    list_display = ("id_link", "name_link", "status", "start_date")
     list_display_links = None
-    list_filter = ("status", "is_filed")
+    list_filter = ("status",)
     search_fields = ("name",)
     change_form_template = "admin/cases/case/change_form.html"
     readonly_fields = ("filing_number",)

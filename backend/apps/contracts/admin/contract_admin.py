@@ -192,15 +192,12 @@ class ContractAdmin(
         "name_link",
         "case_type",
         "status",
-        "start_date",
-        "end_date",
         "get_primary_lawyer",
         "fee_mode",
         "fixed_amount",
         "risk_rate",
-        "is_filed",
     )
-    list_filter = ("case_type", "status", "fee_mode", "is_filed")
+    list_filter = ("case_type", "status", "fee_mode")
     search_fields = ("name",)
     readonly_fields = ("get_primary_lawyer_display", "filing_number")
     export_model_name = "contract"

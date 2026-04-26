@@ -90,6 +90,12 @@
                  data-completed="{{ item.completed|yesno:'true,false' }}"
                  data-template="{{ item.template|yesno:'true,false' }}"
                  data-required="{{ item.required|yesno:'true,false' }}"
+                 {% if not item.template %}
+                 :class="{ 'ac-item-file-drop': fileDropCode === '{{ item.code }}' }"
+                 @dragover="onFileDragOver($event, '{{ item.code }}')"
+                 @dragleave="onFileDragLeave($event, '{{ item.code }}')"
+                 @drop="onFileDrop($event, '{{ item.code }}')"
+                 {% endif %}
                  x-show="!compactMode || {{ item.template|yesno:'true,false' }} || {{ item.completed|yesno:'true,false' }}"
                  x-transition>
                 <div class="ac-item-header" @click="toggleExpand('{{ item.code }}')">
@@ -352,6 +358,29 @@ html { scrollbar-gutter: stable; }
 .ac-item.is-templated:hover {
     background: #eff6ff;
     border-color: #bfdbfe;
+}
+
+.ac-item-file-drop {
+    background: #ecfdf5 !important;
+    border-color: #34d399 !important;
+    border-style: dashed !important;
+    box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.2);
+    transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.ac-item-file-drop .ac-item-name {
+    color: #047857;
+}
+
+.ac-item-file-drop .ac-btn-icon--upload {
+    background: #d1fae5;
+    color: #047857;
+    animation: ac-upload-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes ac-upload-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.15); }
 }
 
 .ac-item-header {
@@ -668,6 +697,8 @@ function archiveChecklistApp(initialCompact, checklistItems) {
         dragMaterialId: null,
         dragSourceCode: null,
         saving: false,
+        fileDropCode: null,
+        fileDropTimer: null,
 
         getMaterials(code) {
             var item = checklistItems.find(function(i) { return i.code === code; });
@@ -747,6 +778,7 @@ function archiveChecklistApp(initialCompact, checklistItems) {
         },
 
         onDragOver(event, code) {
+            if (this._isFileDrag(event)) return;
             event.preventDefault();
             event.dataTransfer.dropEffect = 'move';
             // 计算插入位置
@@ -770,6 +802,7 @@ function archiveChecklistApp(initialCompact, checklistItems) {
         },
 
         onDrop(event, targetCode) {
+            if (this._isFileDrag(event)) return;
             // 清除样式
             document.querySelectorAll('.drag-over-top, .drag-over-bottom').forEach(function(el) {
                 el.classList.remove('drag-over-top', 'drag-over-bottom');
@@ -823,6 +856,90 @@ function archiveChecklistApp(initialCompact, checklistItems) {
                 alert('排序保存失败: ' + e.message);
             })
             .finally(function() { this.saving = false; }.bind(this));
+        },
+
+        _isFileDrag(event) {
+            if (!event.dataTransfer) return false;
+            return event.dataTransfer.types && event.dataTransfer.types.indexOf('Files') !== -1;
+        },
+
+        onFileDragOver(event, code) {
+            if (!this._isFileDrag(event)) return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'copy';
+            if (this.fileDropTimer) { clearTimeout(this.fileDropTimer); this.fileDropTimer = null; }
+            this.fileDropCode = code;
+        },
+
+        onFileDragLeave(event, code) {
+            if (!this._isFileDrag(event)) return;
+            if (this.fileDropCode !== code) return;
+            var self = this;
+            this.fileDropTimer = setTimeout(function() { self.fileDropCode = null; }, 80);
+        },
+
+        onFileDrop(event, code) {
+            if (!this._isFileDrag(event)) return;
+            event.preventDefault();
+            event.stopPropagation();
+            this.fileDropCode = null;
+            if (this.fileDropTimer) { clearTimeout(this.fileDropTimer); this.fileDropTimer = null; }
+
+            var files = event.dataTransfer && event.dataTransfer.files ? Array.from(event.dataTransfer.files) : [];
+            if (files.length === 0) return;
+
+            var allowedExt = ['.pdf', '.docx', '.doc', '.jpg', '.jpeg', '.png', '.xlsx', '.xls'];
+            var maxSize = 50 * 1024 * 1024;
+            var contractId = {{ contract.pk }};
+
+            var validFiles = files.filter(function(f) {
+                var ext = '.' + f.name.split('.').pop().toLowerCase();
+                if (allowedExt.indexOf(ext) === -1) {
+                    alert('不支持的文件格式: ' + f.name + '\n仅支持: ' + allowedExt.join(', '));
+                    return false;
+                }
+                if (f.size > maxSize) {
+                    alert('文件过大: ' + f.name + '（最大 50MB）');
+                    return false;
+                }
+                return true;
+            });
+
+            if (validFiles.length === 0) return;
+
+            var csrf = (window.FachuanCSRF && window.FachuanCSRF.getToken && window.FachuanCSRF.getToken()) || '';
+            var uploadCount = 0;
+            var errorCount = 0;
+            var total = validFiles.length;
+
+            validFiles.forEach(function(file) {
+                var formData = new FormData();
+                formData.append('file', file);
+                fetch('/admin/contracts/contract/' + contractId + '/upload-archive-item/' + code + '/', {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrf },
+                    body: formData,
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.success) {
+                        uploadCount++;
+                    } else {
+                        errorCount++;
+                        alert('上传失败: ' + file.name + ' - ' + (data.error || '未知错误'));
+                    }
+                    if (uploadCount + errorCount === total) {
+                        location.reload();
+                    }
+                })
+                .catch(function(e) {
+                    errorCount++;
+                    alert('上传失败: ' + file.name + ' - ' + e.message);
+                    if (uploadCount + errorCount === total) {
+                        location.reload();
+                    }
+                });
+            });
         },
 
         toggleCompactMode() {
@@ -1173,6 +1290,10 @@ function archiveChecklistApp(initialCompact, checklistItems) {
         initSubitemSortable();
     });
 
+    function _isFileDragEvent(e) {
+        return e.dataTransfer && e.dataTransfer.types && e.dataTransfer.types.indexOf('Files') !== -1;
+    }
+
     function initSubitemSortable() {
         // 为每个子项列表添加拖拽排序
         document.querySelectorAll('.ac-subitems-list').forEach(function(listEl) {
@@ -1181,6 +1302,8 @@ function archiveChecklistApp(initialCompact, checklistItems) {
 
             subitems.forEach(function(item) {
                 item.addEventListener('dragover', function(e) {
+                    // 文件拖放不拦截，让事件冒泡到父级 ac-item 的 Alpine 处理器
+                    if (_isFileDragEvent(e)) return;
                     e.preventDefault();
                     e.dataTransfer.dropEffect = 'move';
                     // 高亮插入位置
@@ -1197,6 +1320,8 @@ function archiveChecklistApp(initialCompact, checklistItems) {
                 });
 
                 item.addEventListener('drop', function(e) {
+                    // 文件拖放不拦截，让事件冒泡到父级 ac-item 的 Alpine 处理器
+                    if (_isFileDragEvent(e)) return;
                     e.preventDefault();
                     e.stopPropagation();
                     document.querySelectorAll('.ac-subitem').forEach(function(el) {
