@@ -21,18 +21,6 @@ class GsxtReportError(Exception):
     """报告申请失败异常。"""
 
 
-async def _apply_stealth(page: Page) -> None:
-    """对页面应用反检测策略，隐藏自动化痕迹。"""
-    try:
-        from playwright_stealth import Stealth
-
-        stealth = Stealth(navigator_platform_override="MacIntel", navigator_languages_override=("zh-CN", "zh", "en"))
-        await stealth.apply_stealth_async(page)
-        logger.info("已对页面应用 stealth 反检测")
-    except ImportError:
-        logger.warning("playwright-stealth 未安装，跳过反检测")
-
-
 # ──────────────────────────────────────────────
 # 内部辅助：等待极验验证码完成
 # ──────────────────────────────────────────────
@@ -132,7 +120,7 @@ async def click_company_detail(page: Page, company_name: str, context: BrowserCo
     async def _on_new_page(new_page: Page) -> None:
         nonlocal detail_page
         detail_page = new_page
-        logger.info("检测到新标签页打开: %s", await new_page.title() if not new_page.is_closed() else "(已关闭)")
+        logger.info("检测到新标签页打开")
 
     context.on("page", _on_new_page)
 
@@ -149,10 +137,8 @@ async def click_company_detail(page: Page, company_name: str, context: BrowserCo
 
         if link_clicked:
             logger.info("已点击企业链接，等待详情页加载...")
-            # 等待页面稳定
             await asyncio.sleep(3)
         else:
-            # 回退到 goto
             logger.info("点击失败，回退到 page.goto: %s", href)
             await page.goto(href, timeout=60000, wait_until="commit")
     except Exception as e:
@@ -255,7 +241,7 @@ async def request_report(page: Page) -> None:
 
 
 async def _run_full_flow(task_id: int) -> None:
-    """登录后执行：搜索→详情→申请报告，全程等待用户手动打验证码。"""
+    """启动浏览器，执行：登录→搜索→详情→申请报告，全程等待用户手动打验证码。"""
     from asgiref.sync import sync_to_async
     from playwright.async_api import async_playwright
 
@@ -273,10 +259,16 @@ async def _run_full_flow(task_id: int) -> None:
     credit_code: str = task.credit_code or ""
 
     async with async_playwright() as p:
-        browser = await p.chromium.connect_over_cdp("http://localhost:9222")
-        context = browser.contexts[0]
+        # 使用 launch(channel='chrome') 而非 connect_over_cdp
+        # Chrome 147+ 不支持 CDP 的 Browser.setDownloadBehavior，
+        # connect_over_cdp 会报 "Browser context management is not supported"
+        browser = await p.chromium.launch(
+            channel="chrome",
+            headless=False,
+            args=["--no-first-run"],
+        )
+        context = await browser.new_context()
         page = await context.new_page()
-        await _apply_stealth(page)
 
         detail_page: Page | None = None
 
@@ -336,19 +328,9 @@ async def _run_full_flow(task_id: int) -> None:
             logger.exception("任务 %d 失败: %s", task_id, e)
 
         finally:
-            # 关闭搜索页
-            try:
-                if not page.is_closed():
-                    await page.close()
-            except Exception:
-                pass
-            # 关闭详情页（如果是新标签页）
-            if detail_page and detail_page is not page:
-                try:
-                    if not detail_page.is_closed():
-                        await detail_page.close()
-                except Exception:
-                    pass
+            # 不关闭浏览器，让用户可以看到结果
+            # 用户可以手动关闭
+            pass
 
 
 def start_report_flow(task_id: int) -> None:

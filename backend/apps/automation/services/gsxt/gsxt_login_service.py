@@ -4,20 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import subprocess
 import threading
-import time
 from typing import Any, Protocol
 
-import httpx
 from django.utils import timezone
 
 logger = logging.getLogger("apps.automation")
 
 GSXT_LOGIN_URL = "https://shiming.gsxt.gov.cn/socialuser-use-rllogin.html"
-CDP_URL = "http://localhost:9222"
-CHROME_PATH = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-CHROME_USER_DATA_DIR = "/tmp/chrome_debug_profile"
 CAPTCHA_TIMEOUT = 120  # 等待用户手动完成验证码的最长时间（秒）
 
 
@@ -33,59 +27,8 @@ class GsxtLoginError(Exception):
     """登录失败异常。"""
 
 
-def _check_cdp_available() -> bool:
-    """检查 Chrome DevTools Protocol 端点是否可用。
-
-    注意：httpx 默认传输与 Chrome CDP 不兼容（返回 502），
-    必须使用 HTTPTransport(http2=False) 才能正确通信。
-    """
-    try:
-        with httpx.Client(transport=httpx.HTTPTransport(http2=False)) as client:
-            resp = client.get(f"{CDP_URL}/json/version", timeout=2)
-            return resp.status_code == 200
-    except Exception:
-        return False
-
-
-def _ensure_chrome_running() -> None:
-    """确保 Chrome 以调试模式运行，如果未运行则自动启动。"""
-    if _check_cdp_available():
-        return
-
-    logger.info("启动 Chrome 调试模式...")
-    process = subprocess.Popen(
-        [CHROME_PATH, "--remote-debugging-port=9222", f"--user-data-dir={CHROME_USER_DATA_DIR}", "--no-first-run"],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.PIPE,
-    )
-    for i in range(15):
-        time.sleep(1)
-        if _check_cdp_available():
-            logger.info("Chrome 启动成功")
-            return
-        # Chrome 进程意外退出
-        if process.poll() is not None:
-            stderr_output = process.stderr.read().decode() if process.stderr else ""
-            logger.error("Chrome 进程意外退出, stderr: %s", stderr_output)
-            break
-
-    if process.poll() is not None:
-        raise GsxtLoginError(
-            "Chrome 启动失败：进程意外退出。"
-            f"请在终端手动运行以下命令启动 Chrome 后重试：\n"
-            f'  "{CHROME_PATH}" --remote-debugging-port=9222 --user-data-dir={CHROME_USER_DATA_DIR}'
-        )
-
-    raise GsxtLoginError(
-        "Chrome 调试端口未响应。"
-        "可能是因为已有 Chrome 实例在运行，请先关闭所有 Chrome 窗口后重试。\n"
-        f"或者手动在终端运行以下命令启动 Chrome：\n"
-        f'  "{CHROME_PATH}" --remote-debugging-port=9222 --user-data-dir={CHROME_USER_DATA_DIR}'
-    )
-
-
 async def _do_login_and_wait(credential: GsxtCredentialProtocol, task_id: int) -> None:
-    """连接 Chrome，填账号密码，等待用户完成验证码，检测登录成功后更新任务状态。"""
+    """启动 Chrome，填账号密码，等待用户完成验证码，检测登录成功后更新任务状态。"""
     from asgiref.sync import sync_to_async
     from playwright.async_api import async_playwright
 
@@ -101,8 +44,15 @@ async def _do_login_and_wait(credential: GsxtCredentialProtocol, task_id: int) -
         t.save(update_fields=fields)
 
     async with async_playwright() as p:
-        browser = await p.chromium.connect_over_cdp(CDP_URL)
-        context = browser.contexts[0]
+        # 使用 launch(channel='chrome') 而非 connect_over_cdp
+        # Chrome 147+ 不支持 CDP 的 Browser.setDownloadBehavior，
+        # connect_over_cdp 会报 "Browser context management is not supported"
+        browser = await p.chromium.launch(
+            channel="chrome",
+            headless=False,
+            args=["--no-first-run"],
+        )
+        context = await browser.new_context()
         page = await context.new_page()
 
         try:
@@ -141,7 +91,9 @@ async def _do_login_and_wait(credential: GsxtCredentialProtocol, task_id: int) -
                 logger.warning("等待验证码超时，任务 %d 失败", task_id)
 
         finally:
-            await page.close()
+            # 不关闭浏览器，让用户可以看到验证码页面
+            # 浏览器会在后续 report_flow 中复用或由用户手动关闭
+            pass
 
 
 def _run_in_thread(credential: GsxtCredentialProtocol, task_id: int) -> None:
@@ -201,7 +153,6 @@ def start_login_gsxt(credential: GsxtCredentialProtocol, task_id: int) -> None:
         return
 
     # 回退到 Playwright 手动验证码模式
-    _ensure_chrome_running()
     t = threading.Thread(target=_run_in_thread, args=(credential, task_id), daemon=True)
     t.start()
     logger.info("登录后台线程已启动（Playwright 模式），task_id=%d", task_id)
