@@ -500,8 +500,81 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):
                 self.admin_site.admin_view(self.set_docx_root_view),
                 name="documents_documenttemplate_set_docx_root",
             ),
+            path(
+                "extract-placeholders/",
+                self.admin_site.admin_view(self.extract_placeholders_view),
+                name="documents_documenttemplate_extract_placeholders",
+            ),
         ]
         return custom_urls + urls
+
+    def extract_placeholders_view(self, request: Any) -> Any:
+        """
+        从上传的文件或已有模板文件中提取占位符，返回 JSON。
+
+        支持两种方式:
+        1. POST file: 上传一个 docx 文件，提取占位符
+        2. POST existing_file: 从已有模板库中选择文件路径，提取占位符
+        """
+        import tempfile
+
+        from django.http import JsonResponse
+
+        if request.method != "POST":
+            return JsonResponse({"error": "仅支持 POST 请求"}, status=405)
+
+        try:
+            placeholders: list[str] = []
+            source_label = ""
+
+            # 方式1：从上传的文件中提取
+            uploaded_file = request.FILES.get("file")
+            if uploaded_file:
+                suffix = Path(str(uploaded_file.name)).suffix or ".docx"
+                with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+                    for chunk in uploaded_file.chunks():
+                        tmp.write(chunk)
+                    tmp_path = tmp.name
+                try:
+                    from apps.documents.services.document_template.placeholder_extractor import (
+                        extract_placeholders as extract_from_file,
+                    )
+
+                    placeholders = extract_from_file(tmp_path)
+                    source_label = f"上传文件: {uploaded_file.name}"
+                finally:
+                    Path(tmp_path).unlink(missing_ok=True)
+            else:
+                # 方式2：从已有模板文件路径提取
+                existing_file = request.POST.get("existing_file", "").strip()
+                if existing_file:
+                    from apps.documents.services.document_template.placeholder_extractor import (
+                        extract_placeholders as extract_from_file,
+                    )
+                    from apps.documents.storage import resolve_docx_template_path
+
+                    resolved = resolve_docx_template_path(existing_file)
+                    if resolved.exists():
+                        placeholders = extract_from_file(str(resolved))
+                        source_label = f"模板库文件: {existing_file}"
+                    else:
+                        return JsonResponse({"error": f"文件不存在: {existing_file}"}, status=404)
+                else:
+                    return JsonResponse({"error": "请提供 file 或 existing_file 参数"}, status=400)
+
+            # 查询哪些占位符已定义
+            from apps.documents.models import Placeholder
+
+            defined_keys = set(Placeholder.objects.filter(is_active=True).values_list("key", flat=True))
+            result = []
+            for p in placeholders:
+                result.append({"key": p, "defined": p in defined_keys})
+
+            return JsonResponse({"placeholders": result, "source": source_label, "count": len(result)})
+
+        except Exception as e:
+            logger.exception("提取占位符失败")
+            return JsonResponse({"error": str(e)}, status=500)
 
     def download_view(self, request: Any, pk: int) -> Any:
         """下载文件视图"""
