@@ -97,11 +97,6 @@ function _caselogGetCSRFToken() {
     return cookieValue;
 }
 
-function _caselogGetCaseLogId() {
-    var match = window.location.pathname.match(/\/cases\/caselog\/(\d+)\//);
-    return match ? parseInt(match[1], 10) : null;
-}
-
 function _caselogShowToast(message, type) {
     type = type || 'success';
     var container = document.querySelector('.toast-container');
@@ -140,7 +135,7 @@ function _caselogAddParseButton() {
     btn.type = 'button';
     btn.className = 'parse-reminder-btn';
     btn.textContent = '{% trans "解析提醒" %}';
-    btn.title = '{% trans "从日志内容中提取日期，自动写入提醒事项" %}';
+    btn.title = '{% trans "从日志内容中提取日期，自动填入下方提醒" %}';
     btn.onclick = function() { _caselogParseReminders(); };
 
     wrapper.appendChild(btn);
@@ -161,18 +156,11 @@ function _caselogParseReminders() {
         return;
     }
 
-    var caseLogId = _caselogGetCaseLogId();
-    if (!caseLogId) {
-        _caselogShowToast('{% trans "请先保存日志后再解析提醒" %}', 'error');
-        return;
-    }
-
     if (btn) {
         btn.disabled = true;
         btn.textContent = '{% trans "解析中..." %}';
     }
 
-    // Step 1: 解析文本
     var xhr = new XMLHttpRequest();
     xhr.open('POST', '/api/v1/reminders/parse', true);
     xhr.setRequestHeader('X-CSRFToken', _caselogGetCSRFToken());
@@ -180,31 +168,23 @@ function _caselogParseReminders() {
     xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
 
     xhr.onload = function() {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = '{% trans "解析提醒" %}';
+        }
+
         if (xhr.status === 200) {
             try {
                 var data = JSON.parse(xhr.responseText);
                 if (Array.isArray(data) && data.length > 0) {
-                    // Step 2: 逐条写入数据库
-                    _caselogCreateReminders(caseLogId, data, btn);
+                    _caselogFillInlineRows(data);
                 } else {
-                    if (btn) {
-                        btn.disabled = false;
-                        btn.textContent = '{% trans "解析提醒" %}';
-                    }
                     _caselogShowToast('{% trans "未在内容中发现日期信息" %}', 'error');
                 }
             } catch (e) {
-                if (btn) {
-                    btn.disabled = false;
-                    btn.textContent = '{% trans "解析提醒" %}';
-                }
                 _caselogShowToast('{% trans "解析失败" %}', 'error');
             }
         } else {
-            if (btn) {
-                btn.disabled = false;
-                btn.textContent = '{% trans "解析提醒" %}';
-            }
             _caselogShowToast('{% trans "解析失败" %}：HTTP ' + xhr.status, 'error');
         }
     };
@@ -220,62 +200,133 @@ function _caselogParseReminders() {
     xhr.send(JSON.stringify({ text: text }));
 }
 
-function _caselogCreateReminders(caseLogId, results, btn) {
-    var created = 0;
-    var failed = 0;
-    var total = results.length;
+function _caselogFindReminderInline() {
+    // 尝试多种 ID 格式
+    var inlineGroup = document.getElementById('reminders-group');
+    if (!inlineGroup) {
+        // nested_admin 可能用 djn_ 前缀
+        inlineGroup = document.querySelector('.inline-group[id$="reminders-group"]');
+    }
+    if (!inlineGroup) {
+        // tabular 可能在 table 内
+        inlineGroup = document.querySelector('#id_reminders-group');
+    }
+    if (!inlineGroup) {
+        // 通用搜索
+        var allGroups = document.querySelectorAll('.inline-group, .djn-group');
+        for (var i = 0; i < allGroups.length; i++) {
+            var id = allGroups[i].id || '';
+            if (id.indexOf('reminders') !== -1) {
+                inlineGroup = allGroups[i];
+                break;
+            }
+        }
+    }
+    return inlineGroup;
+}
 
-    if (btn) {
-        btn.textContent = '{% trans "写入中..." %}';
+function _caselogFillInlineRows(results) {
+    var inlineGroup = _caselogFindReminderInline();
+    if (!inlineGroup) {
+        _caselogShowToast('{% trans "未找到提醒表单区域" %}', 'error');
+        return;
     }
 
+    var totalFormsInput = inlineGroup.querySelector('input[name$="-TOTAL_FORMS"]');
+    if (!totalFormsInput) {
+        _caselogShowToast('{% trans "表单结构异常" %}', 'error');
+        return;
+    }
+
+    var currentTotal = parseInt(totalFormsInput.value, 10) || 0;
+    var prefix = totalFormsInput.name.replace('-TOTAL_FORMS', '');
+
+    // 找到空行模板（tabular 用 tr.empty-form，stacked 用 div.empty-form/djn-empty-form）
+    var emptyRow = inlineGroup.querySelector('.empty-form');
+    if (!emptyRow) {
+        emptyRow = inlineGroup.querySelector('.djn-empty-form');
+    }
+
+    var isTabular = Boolean(inlineGroup.querySelector('table'));
+
     for (var i = 0; i < results.length; i++) {
-        (function(r) {
-            var xhr = new XMLHttpRequest();
-            xhr.open('POST', '/api/v1/reminders/create', true);
-            xhr.setRequestHeader('X-CSRFToken', _caselogGetCSRFToken());
-            xhr.setRequestHeader('Content-Type', 'application/json');
-            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        var r = results[i];
+        var formIndex = currentTotal + i;
+        var newRow;
 
-            xhr.onload = function() {
-                if (xhr.status === 200 || xhr.status === 201) {
-                    created++;
-                } else {
-                    failed++;
-                }
-                _caselogOnCreateProgress(created, failed, total, btn);
-            };
+        if (emptyRow) {
+            newRow = emptyRow.cloneNode(true);
+            newRow.classList.remove('empty-form', 'djn-empty-form');
+            newRow.style.display = '';
+            newRow.id = '';
 
-            xhr.onerror = function() {
-                failed++;
-                _caselogOnCreateProgress(created, failed, total, btn);
-            };
+            _caselogUpdateRowFieldNames(newRow, prefix, formIndex);
+        } else {
+            continue;
+        }
 
-            xhr.send(JSON.stringify({
-                case_log_id: caseLogId,
-                reminder_type: r.reminder_type,
-                content: r.content,
-                due_at: r.due_at,
-                metadata: { source: 'caselog_parse', source_text: r.source_text }
-            }));
-        })(results[i]);
+        _caselogSetFieldValue(newRow, 'reminder_type', r.reminder_type);
+        _caselogSetFieldValue(newRow, 'content', r.content);
+        _caselogSetFieldValue(newRow, 'due_at', r.due_at);
+
+        if (isTabular) {
+            var tbody = inlineGroup.querySelector('tbody');
+            if (tbody) {
+                tbody.appendChild(newRow);
+            }
+        } else {
+            emptyRow.parentNode.insertBefore(newRow, emptyRow);
+        }
+    }
+
+    // 更新 TOTAL_FORMS
+    totalFormsInput.value = currentTotal + results.length;
+
+    _caselogShowToast('{% trans "已填入" %}' + results.length + '{% trans "条提醒，保存后生效" %}', 'success');
+
+    // 滚动到提醒区域
+    inlineGroup.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function _caselogUpdateRowFieldNames(row, prefix, index) {
+    var inputs = row.querySelectorAll('input, select, textarea');
+    for (var j = 0; j < inputs.length; j++) {
+        var input = inputs[j];
+        if (input.name) {
+            input.name = input.name.replace(/__prefix__/g, index);
+        }
+        if (input.id) {
+            input.id = input.id.replace(/__prefix__/g, index);
+        }
+    }
+    var labels = row.querySelectorAll('label');
+    for (var k = 0; k < labels.length; k++) {
+        var label = labels[k];
+        if (label.htmlFor) {
+            label.htmlFor = label.htmlFor.replace(/__prefix__/g, index);
+        }
     }
 }
 
-function _caselogOnCreateProgress(created, failed, total, btn) {
-    if (created + failed < total) return;
-
-    if (btn) {
-        btn.disabled = false;
-        btn.textContent = '{% trans "解析提醒" %}';
+function _caselogSetFieldValue(row, fieldName, value) {
+    var select = row.querySelector('select[name$="-' + fieldName + '"]');
+    if (select) {
+        select.value = value;
+        // 触发 change 事件
+        var evt = document.createEvent('HTMLEvents');
+        evt.initEvent('change', true, true);
+        select.dispatchEvent(evt);
+        return;
     }
-
-    if (created > 0) {
-        _caselogShowToast('{% trans "已创建" %}' + created + '{% trans "条提醒" %}' + (failed > 0 ? '，' + failed + '{% trans "条失败" %}' : ''), 'success');
-        // 刷新页面以显示新创建的提醒
-        setTimeout(function() { window.location.reload(); }, 800);
-    } else {
-        _caselogShowToast('{% trans "创建提醒失败" %}', 'error');
+    var input = row.querySelector('input[name$="-' + fieldName + '"]');
+    if (input) {
+        input.value = value;
+        return;
+    }
+    var textarea = row.querySelector('textarea[name$="-' + fieldName + '"]');
+    if (textarea) {
+        textarea.value = value;
+        return;
     }
 }
 
