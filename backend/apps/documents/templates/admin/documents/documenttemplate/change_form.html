@@ -85,14 +85,47 @@
 
 #placeholder-preview .placeholder-item .ph-key {
     font-family: 'Menlo', 'Consolas', monospace;
-    color: #333;
+    color: #1a1a1a;
 }
 
 #placeholder-preview .placeholder-item .ph-key code {
-    background: #f0f0f0;
-    padding: 1px 4px;
+    background: #e8eaf6;
+    padding: 2px 6px;
     border-radius: 3px;
-    font-size: 12px;
+    font-size: 13px;
+    color: #1a237e;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+#placeholder-preview .placeholder-item .ph-key code:hover {
+    background: #c5cae9;
+}
+
+#placeholder-preview .placeholder-item .ph-key code:active {
+    background: #9fa8da;
+}
+
+#placeholder-preview .ph-copy-toast {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.75);
+    color: #fff;
+    padding: 8px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    z-index: 10000;
+    pointer-events: none;
+    animation: toastFade 1.2s ease forwards;
+}
+
+@keyframes toastFade {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+    15% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    70% { opacity: 1; }
+    100% { opacity: 0; }
 }
 
 #placeholder-preview .placeholder-item .ph-status {
@@ -255,17 +288,17 @@
             var rows = '';
 
             data.placeholders.forEach(function(p) {
-                var phDisplay = '{{ ' + escapeHtml(p.key) + ' }}';
+                var phDisplay = '{{' + escapeHtml(p.key) + '}}';
                 if (p.defined) {
                     definedCount++;
                     rows += '<div class="placeholder-item">' +
-                        '<span class="ph-key"><code>' + phDisplay + '</code></span>' +
+                        '<span class="ph-key"><code data-copy="{{' + escapeHtml(p.key) + '}}" title="点击复制">' + phDisplay + '</code></span>' +
                         '<span class="ph-status defined">✓ 已定义</span>' +
                         '</div>';
                 } else {
                     undefinedCount++;
                     rows += '<div class="placeholder-item undefined-row">' +
-                        '<span class="ph-key"><code>' + phDisplay + '</code></span>' +
+                        '<span class="ph-key"><code data-copy="{{' + escapeHtml(p.key) + '}}" title="点击复制">' + phDisplay + '</code></span>' +
                         '<span class="ph-status undefined">⚠ 未定义</span>' +
                         '</div>';
                 }
@@ -286,6 +319,12 @@
                 '<div class="preview-body">' + rows + '</div>' +
                 '<div class="preview-summary">' + summaryText + '</div>'
             );
+
+            // 绑定点击复制事件
+            previewContainer.find('code[data-copy]').on('click', function() {
+                var text = $(this).attr('data-copy');
+                copyToClipboard(text);
+            });
         }
 
         function renderLoading() {
@@ -310,6 +349,28 @@
             var div = document.createElement('div');
             div.appendChild(document.createTextNode(text));
             return div.innerHTML;
+        }
+
+        function copyToClipboard(text) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text);
+            } else {
+                var ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.left = '-9999px';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+            }
+            showToast('已复制: ' + text);
+        }
+
+        function showToast(msg) {
+            var toast = $('<div class="ph-copy-toast"></div>').text(msg);
+            $('body').append(toast);
+            setTimeout(function() { toast.remove(); }, 1300);
         }
 
         function extractFromExistingFile(filePath) {
