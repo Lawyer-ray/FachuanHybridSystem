@@ -31,7 +31,8 @@ class DocumentRenamer:
         r"禅城区",
     ]
 
-    # 长标题优先，防止被短词（如“通知书”）抢先命中
+    # 长标题优先，防止被短词（如"通知书"）抢先命中
+    # 注意：_match_title_from_text 已改为最长匹配，此列表顺序不再影响匹配结果
     KNOWN_TITLES = [
         "广东法院诉讼费用交费通知书",
         "诉讼费用交纳通知书",
@@ -51,13 +52,29 @@ class DocumentRenamer:
         "虚假诉讼法律责任风险提示书",
         "诚信诉讼承诺书",
         "审判执行流程信息公开告知内容",
+        # 裁判文书生效证明（含"调解书"子串，必须放在"调解书"之前）
+        "裁判文书生效证明",
+        # 民事调解书、刑事调解书（比"调解书"更具体）
+        "民事调解书",
+        "刑事调解书",
+        # 民事判决书、刑事判决书（比"判决书"更具体）
+        "民事判决书",
+        "刑事判决书",
+        "行政判决书",
+        # 民事裁定书、刑事裁定书（比"裁定书"更具体）
+        "民事裁定书",
+        "刑事裁定书",
+        "行政裁定书",
+        # 其他复合标题
+        "民事决定书",
+        "刑事决定书",
+        "执行裁定书",
+        "仲裁裁决书",
         "交费通知书",
         "缴费通知书",
         "执行通知书",
         "应诉通知书",
         "举证通知书",
-        "执行裁定书",
-        "仲裁裁决书",
         "开庭传票",
         "廉政监督卡",
         "受理通知书",
@@ -180,10 +197,17 @@ class DocumentRenamer:
         if not cleaned:
             return None
 
+        # 第一轮：在 KNOWN_TITLES 中查找所有匹配项，选择最长的
+        # 这样 "裁判文书生效证明" 优先于 "调解书" 被选中
+        best_match: str | None = None
         for known_title in self.KNOWN_TITLES:
             if known_title in cleaned:
-                return known_title
+                if best_match is None or len(known_title) > len(best_match):
+                    best_match = known_title
+        if best_match:
+            return best_match
 
+        # 第二轮：用 TITLE_PATTERNS 正则匹配
         for pattern in self.TITLE_PATTERNS:
             match = re.search(pattern, cleaned)
             if not match:
@@ -193,9 +217,14 @@ class DocumentRenamer:
             if not candidate:
                 continue
 
+            # 同样选择最长的 KNOWN_TITLES 匹配
+            best_known: str | None = None
             for known_title in self.KNOWN_TITLES:
                 if known_title in candidate:
-                    return known_title
+                    if best_known is None or len(known_title) > len(best_known):
+                        best_known = known_title
+            if best_known:
+                return best_known
 
             if len(candidate) <= 30:
                 return candidate
