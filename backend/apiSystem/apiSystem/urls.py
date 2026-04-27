@@ -16,7 +16,6 @@ from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import render
 from django.template.response import TemplateResponse
 from django.urls import URLPattern, URLResolver, include, path, reverse
-from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from apps.organization.views import AuthLoginView, register
@@ -394,25 +393,6 @@ def other_tools_hub_view(request: HttpRequest) -> TemplateResponse:
     return TemplateResponse(request, "admin/automation/other_tools_hub.html", context)
 
 
-def dashboard_view(request: HttpRequest) -> TemplateResponse:
-    """仪表盘视图，聚合四项核心指标 + 提醒日历。"""
-    from apps.core.services.dashboard_service import DashboardService
-
-    service = DashboardService()
-    stats = service.get_dashboard_stats()
-
-    today = timezone.localdate()
-    today_display = f"{today.year}{_('年')}{today.month}{_('月')}{today.day}{_('日')}"
-
-    context: dict[str, Any] = {
-        **admin.site.each_context(request),
-        "title": _("工作台"),
-        "stats": stats,
-        "today": today_display,
-    }
-    return TemplateResponse(request, "admin/core/dashboard.html", context)
-
-
 def reminders_calendar_redirect(_: HttpRequest) -> HttpResponseRedirect:
     """提醒 app 下的日历入口，重定向到 ReminderAdmin 日历页。"""
     return HttpResponseRedirect(reverse("admin:reminders_reminder_calendar"))
@@ -459,11 +439,6 @@ def _get_urls_with_calculator() -> list[URLResolver | URLPattern]:
     urls = _original_get_urls()
     custom_urls: list[URLResolver | URLPattern] = [
         path(
-            "dashboard/",
-            admin.site.admin_view(dashboard_view),
-            name="core_dashboard",
-        ),
-        path(
             "case-handling/",
             admin.site.admin_view(case_handling_hub_view),
             name="case_handling_hub",
@@ -496,8 +471,8 @@ admin.site.get_urls = _get_urls_with_calculator  # type: ignore[method-assign]
 
 
 def _admin_index_redirect(request: HttpRequest) -> HttpResponseRedirect:
-    """Admin 首页自动重定向到仪表盘。"""
-    return HttpResponseRedirect(reverse("admin:core_dashboard"))
+    """Admin 首页自动重定向到提醒日历页。"""
+    return HttpResponseRedirect(reverse("admin:reminders_reminder_calendar"))
 
 
 admin.site.index = admin.site.admin_view(_admin_index_redirect)  # type: ignore[method-assign]

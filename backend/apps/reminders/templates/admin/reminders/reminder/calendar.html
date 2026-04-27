@@ -12,31 +12,7 @@
 
 {% block extrahead %}
 {{ block.super }}
-<script>
-if (new URLSearchParams(window.location.search).get('embedded') === '1') {
-    document.documentElement.classList.add('calendar-embedded');
-}
-</script>
 <style>
-    /* 嵌入模式：隐藏 Admin 框架，只保留日历主体 */
-    html.calendar-embedded #header,
-    html.calendar-embedded .breadcrumbs,
-    html.calendar-embedded #nav-sidebar,
-    html.calendar-embedded .feedback-sidebar {
-        display: none !important;
-    }
-    html.calendar-embedded #container {
-        padding: 0 !important;
-        margin: 0 !important;
-    }
-    html.calendar-embedded #content {
-        margin: 0 !important;
-        padding: 12px !important;
-    }
-    html.calendar-embedded #content-main {
-        margin: 0 !important;
-    }
-</style>
     .reminder-calendar-toolbar {
         display: flex;
         justify-content: space-between;
