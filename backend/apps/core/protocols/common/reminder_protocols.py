@@ -15,7 +15,21 @@ class IReminderService(Protocol):
         content: str,
         reminder_time: datetime,
         user_id: int | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> ReminderDTO: ...
+
+    def upsert_case_log_reminder_internal(
+        self,
+        *,
+        case_log_id: int,
+        reminder_type: str,
+        content: str,
+        reminder_time: datetime,
+        user_id: int | None = None,
+        metadata_source: str | None = None,
+    ) -> ReminderDTO: ...
+
+    def clear_case_log_reminder_internal(self, *, case_log_id: int, metadata_source: str | None = None) -> bool: ...
 
     def create_reminder_internal(
         self,

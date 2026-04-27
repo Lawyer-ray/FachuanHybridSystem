@@ -5,6 +5,10 @@ from __future__ import annotations
 from datetime import datetime
 from typing import ClassVar, Protocol
 
+from apps.reminders.models import ReminderType
+from django.utils.translation import gettext_lazy as _
+from pydantic import model_validator
+
 from .base import CaseLog, CaseLogAttachment, ModelSchema, ReminderOut, Schema, SchemaMixin
 
 
@@ -18,12 +22,46 @@ class LawyerLike(Protocol):
 ReminderPayload = dict[str, object]
 
 
-class CaseLogIn(Schema):
-    case_id: int
+def _validate_reminder_type(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    if not normalized:
+        raise ValueError(_("提醒类型不能为空"))
+    if normalized not in ReminderType.values:
+        raise ValueError(_("无效的提醒类型"))
+    return normalized
+
+
+class _CaseLogReminderMixin(Schema):
+    reminder_type: str | None = None
+    reminder_time: datetime | None = None
+
+    @model_validator(mode="after")
+    def validate_reminder_fields(self) -> "_CaseLogReminderMixin":
+        fields_set = getattr(self, "model_fields_set", set())
+        reminder_type_set = "reminder_type" in fields_set
+        reminder_time_set = "reminder_time" in fields_set
+
+        if reminder_type_set != reminder_time_set:
+            raise ValueError(_("提醒类型和提醒时间必须同时提供"))
+
+        if reminder_type_set and reminder_time_set:
+            if (self.reminder_type is None) != (self.reminder_time is None):
+                raise ValueError(_("提醒类型和提醒时间必须同时为空或同时有值"))
+
+        self.reminder_type = _validate_reminder_type(self.reminder_type)
+        return self
+
+
+class CaseLogCreate(_CaseLogReminderMixin):
     content: str
 
+class CaseLogIn(CaseLogCreate):
+    case_id: int
 
-class CaseLogUpdate(Schema):
+
+class CaseLogUpdate(_CaseLogReminderMixin):
     case_id: int | None = None
     content: str | None = None
 
@@ -69,6 +107,8 @@ class CaseLogOut(ModelSchema, SchemaMixin):
     attachments: list[CaseLogAttachmentOut]
     reminders: list[ReminderOut]
     actor_detail: CaseLogActorOut
+    reminder_type: str | None = None
+    reminder_time: str | None = None
 
     class Meta:
         model = CaseLog
@@ -111,6 +151,32 @@ class CaseLogOut(ModelSchema, SchemaMixin):
     def resolve_updated_at(obj: CaseLog) -> datetime | None:
         return SchemaMixin._resolve_datetime(getattr(obj, "updated_at", None))
 
+    @staticmethod
+    def _resolve_primary_reminder(obj: CaseLog) -> ReminderPayload | None:
+        reminders = obj.reminder_entries if hasattr(obj, "reminder_entries") else []
+        if not reminders:
+            return None
+
+        for reminder in reversed(reminders):
+            metadata = reminder.get("metadata") or {}
+            if isinstance(metadata, dict) and metadata.get("source") == "case_log_api":
+                return reminder
+        return reminders[-1]
+
+    @staticmethod
+    def resolve_reminder_type(obj: CaseLog) -> str | None:
+        reminder = CaseLogOut._resolve_primary_reminder(obj)
+        if reminder is None:
+            return None
+        return str(reminder.get("reminder_type") or "") or None
+
+    @staticmethod
+    def resolve_reminder_time(obj: CaseLog) -> str | None:
+        reminder = CaseLogOut._resolve_primary_reminder(obj)
+        if reminder is None:
+            return None
+        return SchemaMixin._resolve_datetime_iso(reminder.get("due_at"))
+
 
 class CaseLogAttachmentIn(Schema):
     log_id: int
@@ -129,12 +195,6 @@ class CaseLogVersionOut(Schema):
 
 class CaseLogAttachmentCreate(Schema):
     pass
-
-
-class CaseLogCreate(Schema):
-    content: str
-    reminder_type: str | None = None
-    reminder_time: str | None = None
 
 
 __all__: list[str] = [
