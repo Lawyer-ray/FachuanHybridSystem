@@ -200,7 +200,7 @@ async def _run_full_flow(credential: GsxtCredentialProtocol, task_id: int) -> No
             # 登录成功
             logger.info("登录成功，URL: %s", page.url)
             credential.last_login_success_at = timezone.now()
-            credential.save(update_fields=["last_login_success_at"])
+            await sync_to_async(credential.save)(update_fields=["last_login_success_at"])
 
             # ── Step 2: 搜索企业 ──
             task.status = GsxtReportStatus.WAITING_CAPTCHA
