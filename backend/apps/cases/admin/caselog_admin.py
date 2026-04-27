@@ -29,7 +29,9 @@ class ReminderInline(BaseTabularInline):
         qs = super().get_queryset(request)
         return qs.order_by("due_at")
 
-    def formfield_for_foreignkey(self, db_field: object, request: HttpRequest | None = None, **kwargs: object) -> object:
+    def formfield_for_foreignkey(
+        self, db_field: object, request: HttpRequest | None = None, **kwargs: object
+    ) -> object:
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 
