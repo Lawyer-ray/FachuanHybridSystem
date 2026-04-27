@@ -347,11 +347,9 @@ class ClientAdmin(SimpleHistoryAdmin, AdminImportExportMixin, admin.ModelAdmin[C
         return {"client_type": "legal"}
 
     def get_inlines(self, request: HttpRequest, obj: Client | None = None) -> list[type[Any]]:
-        inlines: list[type[Any]] = [ClientIdentityDocInline]
-        if obj:
-            inlines.append(PropertyClueInline)
-            if obj.client_type == "legal":
-                inlines.append(GsxtReportTaskInline)
+        inlines: list[type[Any]] = [ClientIdentityDocInline, PropertyClueInline]
+        if obj and obj.client_type == "legal":
+            inlines.append(GsxtReportTaskInline)
         return inlines
 
     def save_formset(self, request: HttpRequest, form: ModelForm[Client], formset: Any, change: bool) -> None:
