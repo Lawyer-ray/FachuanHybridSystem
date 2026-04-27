@@ -512,9 +512,10 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):
         """
         从上传的文件或已有模板文件中提取占位符，返回 JSON。
 
-        支持两种方式:
+        支持三种方式:
         1. POST file: 上传一个 docx 文件，提取占位符
         2. POST existing_file: 从已有模板库中选择文件路径，提取占位符
+        3. POST file_path: 使用模板相对路径，提取占位符
         """
         import tempfile
 
@@ -545,22 +546,25 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):
                 finally:
                     Path(tmp_path).unlink(missing_ok=True)
             else:
-                # 方式2：从已有模板文件路径提取
+                # 方式2/3：从已有模板文件路径或 file_path 提取
                 existing_file = request.POST.get("existing_file", "").strip()
-                if existing_file:
+                file_path = request.POST.get("file_path", "").strip()
+                template_path = existing_file or file_path
+
+                if template_path:
                     from apps.documents.services.document_template.placeholder_extractor import (
                         extract_placeholders as extract_from_file,
                     )
                     from apps.documents.storage import resolve_docx_template_path
 
-                    resolved = resolve_docx_template_path(existing_file)
+                    resolved = resolve_docx_template_path(template_path)
                     if resolved.exists():
                         placeholders = extract_from_file(str(resolved))
-                        source_label = f"模板库文件: {existing_file}"
+                        source_label = f"模板文件: {template_path}"
                     else:
-                        return JsonResponse({"error": f"文件不存在: {existing_file}"}, status=404)
+                        return JsonResponse({"error": f"文件不存在: {template_path}"}, status=404)
                 else:
-                    return JsonResponse({"error": "请提供 file 或 existing_file 参数"}, status=400)
+                    return JsonResponse({"error": "请提供 file、existing_file 或 file_path 参数"}, status=400)
 
             # 查询哪些占位符已定义
             from apps.documents.models import Placeholder

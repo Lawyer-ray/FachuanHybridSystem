@@ -89,17 +89,20 @@
 }
 
 #placeholder-preview .placeholder-item .ph-key code {
-    background: #e8eaf6;
-    padding: 2px 6px;
-    border-radius: 3px;
+    background: #c5cae9;
+    padding: 3px 8px;
+    border-radius: 4px;
     font-size: 13px;
-    color: #1a237e;
+    color: #0d47a1;
     cursor: pointer;
-    transition: background 0.15s;
+    transition: background 0.15s, box-shadow 0.15s;
+    border: 1px solid #9fa8da;
+    user-select: all;
 }
 
 #placeholder-preview .placeholder-item .ph-key code:hover {
-    background: #c5cae9;
+    background: #9fa8da;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
 }
 
 #placeholder-preview .placeholder-item .ph-key code:active {
@@ -425,6 +428,30 @@
             });
         }
 
+        function extractFromFilePath(filePath) {
+            ensurePreviewContainer();
+            renderLoading();
+            var csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            $.ajax({
+                url: extractUrl,
+                method: 'POST',
+                data: { file_path: filePath },
+                headers: { 'X-CSRFToken': csrftoken },
+                success: function(data) {
+                    if (data.error) {
+                        renderError(data.error);
+                    } else {
+                        renderPreview(data);
+                    }
+                },
+                error: function(xhr) {
+                    var msg = '请求失败';
+                    try { msg = JSON.parse(xhr.responseText).error || msg; } catch(e) {}
+                    renderError(msg);
+                }
+            });
+        }
+
         // 当选择已有文件时，清空其他字段并提取替换词
         existingFileSelect.on('change', function() {
             if ($(this).val() !== '') {
@@ -471,9 +498,7 @@
         if (hasExistingFile) {
             extractFromExistingFile(existingVal);
         } else if (hasFilePath) {
-            // file_path 模式暂不支持实时提取（需要服务端解析路径）
-            ensurePreviewContainer();
-            previewContainer.html('<div class="preview-empty">手动输入路径模式，保存后可查看替换词</div>');
+            extractFromFilePath(filePathInput.val().trim());
         }
     });
 })(django.jQuery);
