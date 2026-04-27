@@ -767,7 +767,7 @@ class DocumentTemplateAdmin(admin.ModelAdmin[DocumentTemplate]):
         return mark_safe(
             '<div id="placeholder-preview">'
             '<div class="preview-empty">选择或上传文件后，自动检测模板中的替换词</div>'
-            '</div>'
+            "</div>"
             '<p class="placeholder-preview-hint">点击替换词可复制到剪贴板。仅在保存模板后，替换词状态才会被持久记录。</p>'
         )
 

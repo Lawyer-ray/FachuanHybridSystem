@@ -6,7 +6,7 @@ from django.http import HttpRequest
 from django.urls import reverse
 from django.utils.html import format_html
 
-from apps.cases.admin.base_admin import BaseTabularInline, BaseModelAdmin
+from apps.cases.admin.base_admin import BaseModelAdmin, BaseTabularInline
 from apps.cases.models import CaseLog, CaseLogAttachment
 
 
