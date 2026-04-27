@@ -294,7 +294,6 @@ async def _run_full_flow(credential: GsxtCredentialProtocol, task_id: int) -> No
 
             from datetime import timedelta
 
-            from django.utils import timezone
             from apps.core.tasking import ScheduleQueryService
 
             def _schedule_email_check() -> None:
