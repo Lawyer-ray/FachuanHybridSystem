@@ -3,7 +3,13 @@ Client App Admin模块主文件
 统一管理所有客户的Admin界面
 """
 
-from .client_admin import ClientAdmin, ClientAdminForm, ClientIdentityDocInline, ClientIdentityDocInlineForm
+from .client_admin import (
+    ClientAdmin,
+    ClientAdminForm,
+    ClientIdentityDocInline,
+    ClientIdentityDocInlineForm,
+    PropertyClueInline,
+)
 from .clientidentitydoc_admin import ClientIdentityDocAdmin
 from .id_card_merge_view_admin import register_id_card_merge_urls
 from .property_clue_admin import PropertyClueAdmin, PropertyClueAttachmentInline
@@ -16,6 +22,7 @@ __all__ = [
     "ClientAdminForm",
     "ClientIdentityDocInline",
     "ClientIdentityDocInlineForm",
+    "PropertyClueInline",
     "ClientIdentityDocAdmin",
     "PropertyClueAdmin",
     "PropertyClueAttachmentInline",

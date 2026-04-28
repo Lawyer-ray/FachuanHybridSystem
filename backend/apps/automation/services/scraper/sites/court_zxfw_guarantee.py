@@ -19,12 +19,28 @@ class CourtZxfwGuaranteeService:
     GUARANTEE_URL = "https://zxfw.court.gov.cn/yzwbqww/index.html#/CreateGuarantee/applyGuaranteeInformation/gOne"
     MAX_SLOW_WAIT_MS = 180000
     DEFAULT_POLL_MS = 1200
-    DEFAULT_NATURAL_ID_NUMBER = "110101" + "19900307" + "7719"
+    DEFAULT_NATURAL_ID_NUMBER = "110101" + "19900307" + "7715"
     DEFAULT_LEGAL_ID_NUMBER = "91440101MA59TEST8X"
 
     def __init__(self, page: Page, *, save_debug: bool = False) -> None:
         self.page = page
         self.save_debug = save_debug
+        self._api_error_log: list[dict[str, Any]] = []
+
+        # 监听保全相关 API 响应，捕获后端错误
+        def _on_response(response: Any) -> None:
+            url = response.url
+            if "baoquan" not in url and "ssbq" not in url:
+                return
+            if response.status >= 400:
+                try:
+                    body = response.text()[:2000]
+                except Exception:
+                    body = "<无法读取>"
+                self._api_error_log.append({"url": url, "status": response.status, "body": body})
+                logger.info(f"gTwo API error: {url} status={response.status} body={body[:500]}")
+
+        page.on("response", _on_response)
 
     def apply_guarantee(self, case_data: dict[str, Any]) -> dict[str, Any]:
         self.page.goto(self.GUARANTEE_URL, timeout=60000, wait_until="domcontentloaded")
@@ -86,6 +102,7 @@ class CourtZxfwGuaranteeService:
             "g_two_result": g_two_result,
             "upload_result": upload_result,
             "final_errors": final_errors,
+            "api_error_log": self._api_error_log[-10:] if self._api_error_log else [],
         }
 
     def _choose_court(self, court_name: str) -> bool:
@@ -550,6 +567,9 @@ class CourtZxfwGuaranteeService:
         result: dict[str, Any] = {"dialogs": [], "next_clicked": None, "errors_after_next": [], "ready": False}
         result["ready"] = self._wait_for_g_two_ready()
 
+        # 清理已有草稿数据，避免重复提交导致"数据库保存时失败"
+        self._clear_g_two_existing_data(result)
+
         respondent_sources = [item for item in (case_data.get("respondents") or []) if isinstance(item, dict)]
         if not respondent_sources:
             respondent_sources = [case_data.get("respondent") or {}]
@@ -608,6 +628,12 @@ class CourtZxfwGuaranteeService:
                 result["dialogs"].append(step)
                 continue
 
+            # 记录保存前的表格行数
+            row_count_before = self.page.evaluate(r"""() => {
+                return document.querySelectorAll('.el-table__body-wrapper .el-table__row').length;
+            }""")
+            step["table_row_count_before"] = row_count_before
+
             self._random_wait(0.8, 1.2)
             if target in {"applicant", "respondent"}:
                 step["party_type_selected"] = self._choose_party_type_in_dialog(defaults)
@@ -618,6 +644,21 @@ class CourtZxfwGuaranteeService:
             step["filled"] = [*selected, *dated, *filled, *playwright_filled]
             step["saved"] = self._click_first_enabled_button(["确定", "保存", "提交", "完成"])
             self._random_wait(0.8, 1.2)
+
+            # 检查对话框是否已关闭（保存成功的标志之一）
+            dialog_still_open = self.page.evaluate(r"""() => {
+                const layer = document.querySelector('#addSQR');
+                if (!layer) return false;
+                const st = window.getComputedStyle(layer);
+                return st.display !== 'none' && st.visibility !== 'hidden';
+            }""")
+            step["dialog_closed"] = not dialog_still_open
+
+            # 检查表格中是否有新记录（验证数据是否真正保存）
+            row_count_after = self.page.evaluate(r"""() => {
+                return document.querySelectorAll('.el-table__body-wrapper .el-table__row').length;
+            }""")
+            step["table_row_count_after"] = row_count_after
 
             errors = self._get_visible_form_errors()
             if target == "property_clue" and any(
@@ -637,6 +678,52 @@ class CourtZxfwGuaranteeService:
         result["next_clicked"] = self._click_first_enabled_button(["下一步", "保存并下一步"])
         self._random_wait(2, 3)
         result["errors_after_next"] = self._get_visible_form_errors()
+
+        # 捕获"数据库保存时失败"的后端 API 错误详情
+        if any("数据库保存时失败" in err for err in result["errors_after_next"]):
+            api_errors = self.page.evaluate(r"""() => {
+                const errs = [];
+                document.querySelectorAll('.el-message').forEach(el => {
+                    const text = (el.innerText || '').trim();
+                    if (text) errs.push(text);
+                });
+                // 也检查通知
+                document.querySelectorAll('.el-notification__content').forEach(el => {
+                    const text = (el.innerText || '').trim();
+                    if (text) errs.push('NOTIFY: ' + text);
+                });
+                return errs;
+            }""")
+            result["api_error_details"] = api_errors
+            logger.info(f"gTwo next API errors: {api_errors}")
+
+            # 同时检查最近的网络请求是否有错误
+            result["api_error_log"] = self._api_error_log[-5:] if self._api_error_log else []
+
+            # 重试：关闭错误提示，等待后再次点击"下一步"
+            for retry_idx in range(3):
+                self._close_popovers()
+                self._random_wait(1.5, 2.5)
+                self._click_first_enabled_button(["下一步", "保存并下一步"])
+                self._random_wait(2, 3)
+                retry_errors = self._get_visible_form_errors()
+                result.setdefault("retry_errors", []).append(retry_errors)
+                if not any("数据库保存时失败" in err for err in retry_errors):
+                    result["errors_after_next"] = retry_errors
+                    break
+                # 如果还在gTwo，可能是数据重复问题，检查并清理
+                if "gTwo" in self.page.url:
+                    logger.info(f"gTwo数据库保存重试{retry_idx + 1}仍失败，检查表格数据")
+                    # 可能是对话框保存后没有正确触发后端保存，需要检查是否有未保存的数据行
+                    table_check = self.page.evaluate(r"""() => {
+                        const rows = document.querySelectorAll('.el-table__body-wrapper .el-table__row');
+                        return {
+                            rowCount: rows.length,
+                            texts: [...rows].map(r => r.textContent.trim().substring(0, 100))
+                        };
+                    }""")
+                    result.setdefault("table_checks", []).append(table_check)
+
         return result
 
     def _submit_apply_and_wait_g_two(self, retries: int = 4) -> str | None:
@@ -717,14 +804,29 @@ class CourtZxfwGuaranteeService:
                 if picked:
                     chosen_files = [picked]
             elif "案件证据" in label_text:
-                picked = _pick_path([["证据"], ["明细", "清单"]])
-                if picked:
-                    chosen_files = [picked]
+                # 证据材料：收集所有可用的证据文件
+                evidence_files: list[str] = []
+                for path in file_paths:
+                    if path in used:
+                        continue
+                    filename = path.rsplit("/", 1)[-1]
+                    if any(kw in filename for kw in ["证据", "明细", "清单"]):
+                        evidence_files.append(path)
+                if not evidence_files:
+                    picked = _pick_path([["证据"], ["明细", "清单"]])
+                    if picked:
+                        evidence_files = [picked]
+                if evidence_files:
+                    chosen_files = evidence_files
             elif "申请人-" in label_text or "被申请人-" in label_text or "身份证明" in label_text:
                 if "申请人-" in label_text and "-法人" in label_text:
                     applicant_license = _pick_path([["营业执照"]])
                     applicant_legal_id = _pick_path([["法定代表人身份证明", "身份证明书", "法人身份证明", "身份证"]])
                     chosen_files = [path for path in [applicant_license, applicant_legal_id] if path]
+                elif "被申请人-" in label_text and "-法人" in label_text:
+                    respondent_license = _pick_path([["营业执照"]])
+                    respondent_legal_id = _pick_path([["法定代表人身份证明", "身份证明书", "法人身份证明", "身份证"]])
+                    chosen_files = [path for path in [respondent_license, respondent_legal_id] if path]
                 elif "被申请人-" in label_text and "-自然人" in label_text:
                     respondent_name = ""
                     match = re.search(r"被申请人-(.*?)-自然人", label_text)
@@ -756,9 +858,20 @@ class CourtZxfwGuaranteeService:
                 if picked:
                     chosen_files = [picked]
             elif "证据" in label_text:
-                picked = _pick_path([["证据"], ["明细", "清单"]])
-                if picked:
-                    chosen_files = [picked]
+                # 证据材料：收集所有可用的证据文件
+                evidence_files2: list[str] = []
+                for path in file_paths:
+                    if path in used:
+                        continue
+                    filename = path.rsplit("/", 1)[-1]
+                    if any(kw in filename for kw in ["证据", "明细", "清单"]):
+                        evidence_files2.append(path)
+                if not evidence_files2:
+                    picked = _pick_path([["证据"], ["明细", "清单"]])
+                    if picked:
+                        evidence_files2 = [picked]
+                if evidence_files2:
+                    chosen_files = evidence_files2
             elif "其他" in label_text:
                 picked = _pick_path([["其他", "保函", "担保函"]])
                 if picked:
@@ -1062,6 +1175,70 @@ class CourtZxfwGuaranteeService:
 
         return uploaded
 
+    def _retry_evidence_material_upload_in_g_three(self) -> bool:
+        """重试上传证据材料到 gThree 页面的证据槽位。"""
+        # 收集所有可用的证据文件
+        evidence_files: list[str] = []
+        for path in self._material_paths:
+            filename = path.rsplit("/", 1)[-1]
+            if any(kw in filename for kw in ["证据", "明细", "清单"]):
+                evidence_files.append(path)
+
+        if not evidence_files:
+            # fallback: 尝试所有未使用的材料
+            for path in self._material_paths:
+                evidence_files.append(path)
+                if len(evidence_files) >= 3:
+                    break
+
+        if not evidence_files:
+            return False
+
+        uploaded = False
+        file_inputs = self.page.locator("input[type='file']")
+        for i in range(file_inputs.count()):
+            candidate = file_inputs.nth(i)
+            try:
+                label_text = str(
+                    self.page.evaluate(
+                        r"""(el) => {
+                            let node = el;
+                            for (let depth = 0; depth < 8 && node; depth += 1) {
+                                const text = (node.innerText || '').replace(/\s+/g, ' ').trim();
+                                if (text) return text;
+                                node = node.parentElement;
+                            }
+                            return '';
+                        }""",
+                        candidate.element_handle(),
+                    )
+                    or ""
+                )
+            except Exception:
+                label_text = ""
+
+            # 只上传到"证据"标签的槽位
+            if "证据" not in label_text:
+                continue
+
+            try:
+                candidate.set_input_files(evidence_files)
+                uploaded = True
+                self._wait_upload_idle(timeout_ms=90000)
+                self._random_wait(2.0, 2.8)
+            except Exception:
+                for single_path in evidence_files:
+                    try:
+                        candidate.set_input_files(single_path)
+                        uploaded = True
+                        self._wait_upload_idle(timeout_ms=90000)
+                        self._random_wait(1.8, 2.4)
+                        break
+                    except Exception:
+                        continue
+
+        return uploaded
+
     def _normalize_party_type(self, raw_party_type: Any) -> str:
         value = str(raw_party_type or "").strip().lower()
         if value in {"natural", "person", "individual"}:
@@ -1164,6 +1341,9 @@ class CourtZxfwGuaranteeService:
                 if any("身份证明材料" in err for err in errors):
                     self._retry_identity_material_upload_in_g_three()
                     self._random_wait(1.4, 2.0)
+                if any("请上传证据材料" in err or "证据" in err for err in errors):
+                    self._retry_evidence_material_upload_in_g_three()
+                    self._random_wait(1.4, 2.0)
 
             self._click_first_enabled_button(["下一步", "保存并下一步", "暂存"])
             self._random_wait(1.2, 1.8)
@@ -1211,6 +1391,52 @@ class CourtZxfwGuaranteeService:
                         except Exception:
                             continue
         return None
+
+    def _clear_g_two_existing_data(self, result: dict[str, Any]) -> None:
+        """清理 gTwo 页面已有的草稿数据，避免重复导致后端保存失败。"""
+        try:
+            existing_rows = self.page.evaluate(r"""() => {
+                const rows = document.querySelectorAll('.el-table__body-wrapper .el-table__row');
+                return rows.length;
+            }""")
+            result["existing_rows_before_clear"] = existing_rows
+            if existing_rows == 0:
+                return
+
+            logger.info(f"gTwo已有{existing_rows}行数据，尝试清理")
+
+            # 点击每行的删除按钮
+            for _ in range(existing_rows + 2):
+                delete_btn = (
+                    self.page.locator(
+                        ".el-table__body-wrapper .el-table__row button, "
+                        ".el-table__body-wrapper .el-table__row .el-button"
+                    )
+                    .filter(has_text="删除")
+                    .first
+                )
+                if delete_btn.count() == 0:
+                    break
+                try:
+                    if delete_btn.is_visible():
+                        delete_btn.click(timeout=3000)
+                        self._random_wait(0.3, 0.5)
+                        # 确认删除
+                        confirm = self.page.locator(".el-message-box__btns .el-button--primary")
+                        if confirm.count() > 0 and confirm.first.is_visible():
+                            confirm.first.click(timeout=3000)
+                        self._random_wait(0.3, 0.5)
+                except Exception:
+                    break
+
+            remaining = self.page.evaluate(r"""() => {
+                return document.querySelectorAll('.el-table__body-wrapper .el-table__row').length;
+            }""")
+            result["existing_rows_after_clear"] = remaining
+            logger.info(f"gTwo数据清理完成，剩余{remaining}行")
+
+        except Exception as exc:
+            logger.info(f"gTwo数据清理异常（非致命）: {exc}")
 
     def _wait_for_g_two_ready(self, retries: int = 12) -> bool:
         for _ in range(retries):
@@ -1380,7 +1606,7 @@ class CourtZxfwGuaranteeService:
                     const r = el.getBoundingClientRect();
                     return r.width > 1 && r.height > 1;
                 };
-                const dialog = [...document.querySelectorAll('.el-dialog, .el-dialog__wrapper')]
+                const dialog = [...document.querySelectorAll('.el-dialog,.el-dialog__wrapper,.fd-com-layer,#addSQR')]
                     .filter(isVisible)
                     .slice(-1)[0] || document;
 
@@ -1425,7 +1651,7 @@ class CourtZxfwGuaranteeService:
                     return text;
                 };
 
-                const dialog = [...document.querySelectorAll('.el-dialog, .el-dialog__wrapper')]
+                const dialog = [...document.querySelectorAll('.el-dialog,.el-dialog__wrapper,.fd-com-layer,#addSQR')]
                     .filter(isVisible)
                     .slice(-1)[0] || document;
                 const items = [...dialog.querySelectorAll('.el-form-item')].filter(isVisible);
@@ -1525,7 +1751,7 @@ class CourtZxfwGuaranteeService:
                     ['结束日期', '2099-12-31'],
                     ['选择日期', '1990-01-01'],
                 ];
-                const dialog = [...document.querySelectorAll('.el-dialog, .el-dialog__wrapper')]
+                const dialog = [...document.querySelectorAll('.el-dialog,.el-dialog__wrapper,.fd-com-layer,#addSQR')]
                     .filter(isVisible)
                     .slice(-1)[0] || document;
                 for (const [placeholder, value] of dateMap) {
@@ -1570,7 +1796,7 @@ class CourtZxfwGuaranteeService:
                     [['证件号码', '身份证号码'], naturalId],
                     [['出生日期', '出生年月日'], defaults.birth_date || '1990-01-01'],
                     [['年龄'], defaults.age || '36'],
-                    [['手机号码'], defaults.phone || ''],
+                    [['手机号码'], defaults.phone || '13800000000'  // pragma: allowlist secret],
                     [['经常居住地', '住所地', '地址'], defaults.address || '广东省广州市天河区测试地址1号'],
                 ];
                 const legalMap = [
@@ -1578,7 +1804,7 @@ class CourtZxfwGuaranteeService:
                     [['证照号码', '统一社会信用代码'], defaults.license_number || defaults.id_number || '91440101MA59TEST8X'],
                     [['法定代表人'], defaults.legal_representative || '张三'],
                     [['主要负责人'], defaults.principal || defaults.legal_representative || '张三'],
-                    [['手机号码'], defaults.phone || ''],
+                    [['手机号码'], defaults.phone || '13800000000'  // pragma: allowlist secret],
                     [['单位地址', '住所地', '地址'], defaults.unit_address || defaults.address || '广东省广州市天河区测试地址1号'],
                 ];
                 const commonMap = [
@@ -1591,7 +1817,7 @@ class CourtZxfwGuaranteeService:
                     [['代理人姓名', '姓名'], defaults.name || '张三'],
                     [['执业证件号码'], defaults.license_number || ''],
                     [['证件号码', '身份证号码'], defaults.id_number || defaultNaturalId],
-                    [['手机号码'], defaults.phone || ''],
+                    [['手机号码'], defaults.phone || '13800000000'  // pragma: allowlist secret],
                     [['代理人所在律所'], defaults.law_firm || ''],
                 ];
 
@@ -1614,7 +1840,7 @@ class CourtZxfwGuaranteeService:
                     [['证件号码', '身份证号码'], /^\d{17}[\dXx]$/.test((defaults.id_number || '').trim()) ? (defaults.id_number || '').trim() : defaultNaturalId],
                     [['证照号码', '统一社会信用代码'], '91440101MA59TEST8X'],
                     [['法定代表人', '主要负责人'], defaults.legal_representative || '张三'],
-                    [['手机号码'], defaults.phone || ''],
+                    [['手机号码'], defaults.phone || '13800000000'  // pragma: allowlist secret],
                     [['代理人所在律所'], defaults.law_firm || ''],
                     [['出生日期', '出生年月日'], defaults.birth_date || '1990-01-01'],
                     [['年龄'], defaults.age || '36'],
@@ -1627,7 +1853,7 @@ class CourtZxfwGuaranteeService:
                 ];
                 const fieldMap = [...dynamicMap, ...fallbackMap];
 
-                const dialog = [...document.querySelectorAll('.el-dialog, .el-dialog__wrapper')]
+                const dialog = [...document.querySelectorAll('.el-dialog,.el-dialog__wrapper,.fd-com-layer,#addSQR')]
                     .filter(isVisible)
                     .slice(-1)[0] || document;
                 const items = [...dialog.querySelectorAll('.el-form-item')].filter(isVisible);
@@ -1767,7 +1993,7 @@ class CourtZxfwGuaranteeService:
                         const r = el.getBoundingClientRect();
                         return r.width > 1 && r.height > 1;
                     };
-                    const dialog = [...document.querySelectorAll('.el-dialog,.el-dialog__wrapper')].filter(isVisible).slice(-1)[0] || document;
+                    const dialog = [...document.querySelectorAll('.el-dialog,.el-dialog__wrapper,.fd-com-layer,#addSQR')].filter(isVisible).slice(-1)[0] || document;
                     const row = [...dialog.querySelectorAll('.el-form-item')].find((it) => ((it.querySelector('.el-form-item__label')?.innerText || '').includes('所属原告')));
                     if (!row) return false;
 
@@ -1885,7 +2111,7 @@ class CourtZxfwGuaranteeService:
                         input.dispatchEvent(new Event('change', { bubbles: true }));
                         input.blur();
                     };
-                    const dialog = [...document.querySelectorAll('.el-dialog,.el-dialog__wrapper')].filter(isVisible).slice(-1)[0] || document;
+                    const dialog = [...document.querySelectorAll('.el-dialog,.el-dialog__wrapper,.fd-com-layer,#addSQR')].filter(isVisible).slice(-1)[0] || document;
                     const provinceInputs = [...dialog.querySelectorAll('input')]
                         .filter((el) => isVisible(el) && !el.disabled && ((el.placeholder || '').includes('省') || (el.parentElement?.innerText || '').includes('省份')));
                     for (const input of provinceInputs) {
@@ -1895,7 +2121,7 @@ class CourtZxfwGuaranteeService:
                 defaults.get("property_province") or "广东省",
             )
 
-            cascaders = self.page.locator(".el-dialog .el-cascader")
+            cascaders = self.page.locator(".el-dialog .el-cascader, #addSQR .el-cascader")
             if cascaders.count() > 0:
                 try:
                     cascaders.first.click(force=True, timeout=2000)
@@ -1935,7 +2161,9 @@ class CourtZxfwGuaranteeService:
         province_keyword = province_name.replace("省", "")
 
         try:
-            type_inputs = self.page.locator(".el-dialog input[placeholder='请选择财产类型']")
+            type_inputs = self.page.locator(
+                ".el-dialog input[placeholder='请选择财产类型'], #addSQR input[placeholder='请选择财产类型']"
+            )
             for i in range(type_inputs.count()):
                 field = type_inputs.nth(i)
                 if not field.is_visible() or field.is_disabled():
@@ -1965,7 +2193,9 @@ class CourtZxfwGuaranteeService:
             pass
 
         try:
-            owner_inputs = self.page.locator(".el-dialog input[placeholder='请选择财产所有人']")
+            owner_inputs = self.page.locator(
+                ".el-dialog input[placeholder='请选择财产所有人'], #addSQR input[placeholder='请选择财产所有人']"
+            )
             for i in range(owner_inputs.count()):
                 field = owner_inputs.nth(i)
                 if not field.is_visible() or field.is_disabled():
@@ -1999,7 +2229,9 @@ class CourtZxfwGuaranteeService:
             pass
 
         try:
-            province_inputs = self.page.locator(".el-dialog .fd-sf input.el-input__inner")
+            province_inputs = self.page.locator(
+                ".el-dialog .fd-sf input.el-input__inner, #addSQR .fd-sf input.el-input__inner"
+            )
             if province_inputs.count() > 0:
                 field = province_inputs.first
                 if field.is_visible() and not field.is_disabled():
@@ -2059,7 +2291,7 @@ class CourtZxfwGuaranteeService:
                     { labels: ['具体位置', '房产坐落位置'], value: values.propertyLocation || '' },
                 ];
 
-                const dialog = [...document.querySelectorAll('.el-dialog,.el-dialog__wrapper')].filter(isVisible).slice(-1)[0] || document;
+                const dialog = [...document.querySelectorAll('.el-dialog,.el-dialog__wrapper,.fd-com-layer,#addSQR')].filter(isVisible).slice(-1)[0] || document;
                 const items = [...dialog.querySelectorAll('.el-form-item')].filter(isVisible);
                 const result = [];
 
