@@ -66,7 +66,7 @@ def trigger_case_import(request: HttpRequest) -> Any:
 
     from django.conf import settings
 
-    upload_dir = Path(settings.BASE_DIR) / "media" / "oa_imports"
+    upload_dir = Path(settings.BASE_DIR) / "media" / "oa_imports"  # type: ignore[misc]
     upload_dir.mkdir(parents=True, exist_ok=True)
 
     filename = f"{uuid.uuid4().hex}_{file.name}"

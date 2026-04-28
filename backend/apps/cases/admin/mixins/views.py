@@ -135,12 +135,12 @@ class CaseAdminViewsMixin:
             ),
             path(
                 "<int:object_id>/open-folder/",
-                self.admin_site.admin_view(self.open_folder_view),
+                self.admin_site.admin_view(self.open_folder_view),  # type: ignore[attr-defined]
                 name="cases_case_open_folder",
             ),
             path(
                 "<int:object_id>/email-folder-import/",
-                self.admin_site.admin_view(self.email_folder_import_view),
+                self.admin_site.admin_view(self.email_folder_import_view),  # type: ignore[attr-defined]
                 name="cases_case_email_folder_import",
             ),
         ]
