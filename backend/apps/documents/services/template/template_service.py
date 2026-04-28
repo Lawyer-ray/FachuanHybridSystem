@@ -162,7 +162,7 @@ class DocumentTemplateService:
                 code="TEMPLATE_NOT_FOUND",
                 errors={"template_id": f"ID 为 {template_id} 的模板不存在"},
             ) from None
-        template = self.workflow.update_template(
+        template = self.workflow.update_template(  # type: ignore[call-arg]
             template,
             name=name,
             template_type=template_type,

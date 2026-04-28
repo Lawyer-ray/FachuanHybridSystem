@@ -307,7 +307,7 @@ class ReminderServiceAdapter(ReminderService):
             .order_by("due_at", "id")
             .values("id", "contract_id", "case_id", "case_log_id", "reminder_type", "content", "due_at", "metadata")
         )
-        return [self._enrich_export_row(row) for row in rows]
+        return [self._enrich_export_row(row) for row in rows]  # type: ignore[arg-type]
 
     def export_case_log_reminders_internal(self, *, case_log_id: int) -> list[dict[str, Any]]:
         """内部方法：导出案件日志关联的提醒数据。"""
@@ -317,7 +317,7 @@ class ReminderServiceAdapter(ReminderService):
             .order_by("due_at", "id")
             .values("id", "contract_id", "case_id", "case_log_id", "reminder_type", "content", "due_at", "metadata")
         )
-        return [self._enrich_export_row(row) for row in rows]
+        return [self._enrich_export_row(row) for row in rows]  # type: ignore[arg-type]
 
     def export_case_log_reminders_batch_internal(self, *, case_log_ids: list[int]) -> dict[int, list[dict[str, Any]]]:
         """内部方法：批量导出案件日志关联的提醒数据。"""
@@ -350,7 +350,7 @@ class ReminderServiceAdapter(ReminderService):
         )
         for row in rows:
             current_case_log_id = int(row["case_log_id"])
-            results[current_case_log_id].append(self._enrich_export_row(row))
+            results[current_case_log_id].append(self._enrich_export_row(row))  # type: ignore[arg-type]
         return results
 
     def get_latest_case_log_reminder_internal(self, *, case_log_id: int) -> dict[str, Any] | None:
@@ -364,7 +364,7 @@ class ReminderServiceAdapter(ReminderService):
         )
         if row is None:
             return None
-        return self._enrich_export_row(row)
+        return self._enrich_export_row(row)  # type: ignore[arg-type]
 
     @staticmethod
     def _enrich_export_row(row: dict[str, Any]) -> dict[str, Any]:
