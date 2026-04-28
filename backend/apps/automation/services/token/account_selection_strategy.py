@@ -155,11 +155,11 @@ class AccountSelectionStrategy:
         def sort_key(account: AccountCredentialDTO) -> float:
             # 1. 最近成功登录时间（越近越好）
             if account.last_login_success_at:
-                from datetime import datetime, timezone as dt_tz
+                from datetime import UTC, datetime
 
                 last_login = datetime.fromisoformat(account.last_login_success_at.replace("Z", "+00:00"))
                 if last_login.tzinfo is None:
-                    last_login = last_login.replace(tzinfo=dt_tz.utc)
+                    last_login = last_login.replace(tzinfo=UTC)
                 hours_since_login = (timezone.now() - last_login).total_seconds() / 3600
                 recency_score = max(0.0, 100.0 - hours_since_login)  # 100小时内线性递减
             else:
