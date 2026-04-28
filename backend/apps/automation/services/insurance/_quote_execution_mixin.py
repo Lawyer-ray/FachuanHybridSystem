@@ -79,7 +79,7 @@ class QuoteExecutionMixin:
                     from apps.core.interfaces import ServiceLocator
 
                     organization_service = ServiceLocator.get_organization_service()
-                    credential = await organization_service.get_credential(credential_id)
+                    credential = await organization_service.get_credential(credential_id)  # type: ignore[misc]
                     account = credential.account
 
                     from apps.automation.services.scraper.core.token_service import TokenService
@@ -142,7 +142,7 @@ class QuoteExecutionMixin:
                 ),
             )
             if not companies:
-                raise CompanyListEmptyError(message=_("未获取到保险公司列表，请检查分类 ID 和法院 ID 是否正确"))
+                raise CompanyListEmptyError(message=str(_("未获取到保险公司列表，请检查分类 ID 和法院 ID 是否正确")))
             logger.info(f"✅ 获取到 {len(companies)} 家保险公司")
             return companies
         except CompanyListEmptyError:

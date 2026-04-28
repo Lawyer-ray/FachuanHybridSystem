@@ -69,7 +69,7 @@ class PreservationQuoteWorkflow:
 
             error_message: str | None = None
             if success_count == 0:
-                error_message = _("所有保险公司查询均失败")
+                error_message = str(_("所有保险公司查询均失败"))
 
             await self.repo.finalize_quote(
                 quote=quote,

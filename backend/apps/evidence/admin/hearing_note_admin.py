@@ -10,7 +10,7 @@ from apps.evidence.models import HearingNote
 
 @admin.register(HearingNote)
 class HearingNoteAdmin(admin.ModelAdmin):
-    list_display: ClassVar = ("case", "content_short", "evidence_count", "created_at")
+    list_display: ClassVar = ("case", "content_short", "evidence_count", "created_at")  # type: ignore[misc]
     list_filter: ClassVar = ("case",)
     search_fields: ClassVar = ("content", "case__name")
     autocomplete_fields: ClassVar = ("case",)

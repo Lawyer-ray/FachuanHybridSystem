@@ -76,7 +76,7 @@ def _fetch_report_attachment(user: str, password: str, company_name: str) -> byt
                     if payload:
                         logger.info("找到报告附件: %s", filename)
                         mail.logout()
-                        return payload
+                        return payload  # type: ignore[return-value]
 
         mail.logout()
     except Exception:

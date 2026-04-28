@@ -1472,7 +1472,7 @@ class ExecutionRequestService(BasePlaceholderService):
                         f"{overdue_label}按分段基数计算（{segment_desc}），按{rate_desc}计至实际清偿之日，截至{cutoff_text}{overdue_label}为{self._format_amount(overdue_interest)}元"
                     )
             else:
-                start_date_text = f"{params.start_date.year}年{params.start_date.month}月{params.start_date.day}日"
+                start_date_text = f"{params.start_date.year}年{params.start_date.month}月{params.start_date.day}日"  # type: ignore[union-attr]
                 item_segments.append(
                     f"{overdue_label}自{start_date_text}起以{self._format_amount(interest_base)}元为基数，按{rate_desc}计算至实际清偿之日，截至{cutoff_text}{overdue_label}为{self._format_amount(overdue_interest)}元"
                 )

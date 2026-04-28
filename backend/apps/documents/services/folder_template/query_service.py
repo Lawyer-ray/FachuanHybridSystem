@@ -26,7 +26,7 @@ class FolderTemplateQueryService:
         from apps.documents.models import FolderTemplateType
 
         templates = (
-            self.repo.filter(is_active=True, template_type=FolderTemplateType.CASE).order_by("-updated_at").all()
+            self.repo.filter(is_active=True, template_type=FolderTemplateType.CASE).order_by("-updated_at").all()  # type: ignore[attr-defined]
         )
         for template in templates:
             case_types = template.case_types or []
@@ -52,7 +52,7 @@ class FolderTemplateQueryService:
     ) -> Any:
         from apps.documents.models import FolderTemplateType
 
-        queryset = self.repo.filter(template_type=FolderTemplateType.CASE).order_by("-updated_at").all()
+        queryset = self.repo.filter(template_type=FolderTemplateType.CASE).order_by("-updated_at").all()  # type: ignore[attr-defined]
         results: list[FolderTemplate] = []
         for template in queryset:
             if is_active is not None and template.is_active != is_active:

@@ -26,7 +26,7 @@ def _get_base_queryset() -> Any:
 
 def _get_message_or_404(pk: int) -> InboxMessage:
     try:
-        return _get_base_queryset().get(pk=pk)
+        return _get_base_queryset().get(pk=pk)  # type: ignore[no-any-return]
     except InboxMessage.DoesNotExist:
         raise NotFoundError(f"消息 {pk} 不存在")
 

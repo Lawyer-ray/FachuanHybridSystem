@@ -165,9 +165,9 @@ class InvoiceRecognitionService:
                 record.invoice_code = parsed.invoice_code
                 record.invoice_number = parsed.invoice_number
                 record.invoice_date = parsed.invoice_date
-                record.amount = parsed.amount
+                record.amount = parsed.amount  # type: ignore[assignment]
                 record.tax_amount = parsed.tax_amount
-                record.total_amount = parsed.total_amount
+                record.total_amount = parsed.total_amount  # type: ignore[assignment]
                 record.buyer_name = parsed.buyer_name
                 record.seller_name = parsed.seller_name
                 record.project_name = parsed.project_name

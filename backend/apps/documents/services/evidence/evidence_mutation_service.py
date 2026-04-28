@@ -33,7 +33,7 @@ class EvidenceMutationService:
         """
         # 如果没有提供标题但提供了 list_type,自动生成标题
         if (not title or not title.strip()) and list_type:
-            title = dict(ListType.choices).get(list_type, list_type)
+            title = str(dict(ListType.choices).get(list_type, list_type))
 
         if not title or not title.strip():
             raise ValidationException(

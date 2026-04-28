@@ -1236,7 +1236,7 @@ class CaseSimilarityService:
             "candidate_excerpt": re.sub(r"\s+", " ", (candidate_excerpt or "")).strip(),
         }
         if first_score is not None:
-            payload["first_score"] = round(float(first_score), 4)
+            payload["first_score"] = str(round(float(first_score), 4))
         if first_reason:
             payload["first_reason"] = re.sub(r"\s+", " ", first_reason).strip()[:220]
         serialized = json.dumps(payload, ensure_ascii=False, sort_keys=True)

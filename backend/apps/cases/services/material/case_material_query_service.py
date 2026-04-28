@@ -179,7 +179,7 @@ class CaseMaterialQueryService:
         qs = CaseMaterialType.objects.filter(category=category, is_active=True).filter(
             models.Q(law_firm_id=law_firm_id) | models.Q(law_firm_id__isnull=True) | models.Q(id__in=used_type_ids)
         )
-        return list(qs.order_by("name").values("id", "name", "law_firm_id"))
+        return list(qs.order_by("name").values("id", "name", "law_firm_id"))  # type: ignore[arg-type]
 
     def _build_group_order_map(self, rows: Sequence[CaseMaterialGroupOrder]) -> dict[tuple[str, str, int], list[int]]:
         order_map: dict[tuple[str, str, int], list[int]] = {}

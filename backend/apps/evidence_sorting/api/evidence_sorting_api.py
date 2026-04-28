@@ -17,7 +17,7 @@ router = Router(tags=["案件材料整理"])
 
 
 def _body(request: HttpRequest) -> dict[str, Any]:
-    return json.loads(request.body or b"{}")
+    return json.loads(request.body or b"{}")  # type: ignore[no-any-return]
 
 
 @router.post("/classify")

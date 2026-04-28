@@ -138,7 +138,7 @@ class McpWorkbenchService:
             }
             if response.meta:
                 meta.update(response.meta)
-            duration_for_metrics = int(meta.get("duration_ms", duration_ms) or duration_ms)
+            duration_for_metrics = int(meta.get("duration_ms", duration_ms) or duration_ms)  # type: ignore[call-overload]
             fallback_used = bool(meta.get("fallback_used", False))
             observability = self._metrics.record(
                 provider=selected_provider.name,

@@ -48,7 +48,7 @@ class CasePartyQueryService:
             CaseParty.objects.filter(case_id=case_id)
             .exclude(legal_status__isnull=True)
             .exclude(legal_status="")
-            .values_list("legal_status", flat=True)
+            .values_list("legal_status", flat=True)  # type: ignore[arg-type]
         )
 
         compatible_statuses = business_config.get_legal_statuses_for_case_type(case.case_type)

@@ -63,7 +63,7 @@ class ContractActionMixin:
 
         # 普通保存操作:返回详情页而非列表页
         if "_continue" in request.POST or "_addanother" in request.POST:
-            return super().response_change(request, obj)
+            return super().response_change(request, obj)  # type: ignore[misc]
         messages.success(request, _("合同「%(name)s」已保存") % {"name": obj.name})
         return HttpResponseRedirect(reverse("admin:contracts_contract_detail", args=[obj.pk]))
 
@@ -149,4 +149,4 @@ class ContractActionMixin:
                 messages.error(request, _("创建案件失败: %(err)s") % {"err": e})
                 return HttpResponseRedirect(reverse("admin:contracts_contract_change", args=[obj.pk]))
 
-        return super().response_add(request, obj, post_url_continue)
+        return super().response_add(request, obj, post_url_continue)  # type: ignore[misc]

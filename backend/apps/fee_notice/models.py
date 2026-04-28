@@ -10,7 +10,7 @@ class FeeNoticeTool(models.Model):
     """Admin entry model for fee notice recognition."""
 
     id: int
-    name: str = models.CharField(max_length=64, default="Fee Notice")
+    name: str = models.CharField(max_length=64, default="Fee Notice")  # type: ignore[assignment]
 
     class Meta:
         managed = False

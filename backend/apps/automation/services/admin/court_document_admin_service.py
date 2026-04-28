@@ -367,12 +367,12 @@ class CourtDocumentAdminService:
             deleted_count = 0
             delete_errors = []
 
-            for file_path in orphaned_files:
+            for file_path_str in orphaned_files:
                 try:
-                    Path(file_path).unlink()
+                    Path(file_path_str).unlink()
                     deleted_count += 1
                 except Exception as e:
-                    delete_errors.append({"file_path": file_path, "error": str(e)})
+                    delete_errors.append({"file_path": file_path_str, "error": str(e)})
 
             result = {
                 "orphaned_files": len(orphaned_files),

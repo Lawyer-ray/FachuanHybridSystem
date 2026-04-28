@@ -123,13 +123,13 @@ class RenameOCRChannel:
         # Pillow rotate 是逆时针，需要取反
         pillow_angle = (360 - rotation) % 360
         if pillow_angle != 0:
-            img = img.rotate(pillow_angle, expand=True)
+            img = img.rotate(pillow_angle, expand=True)  # type: ignore[assignment]
 
         buf = io.BytesIO()
         save_format = original_format.upper()
         if save_format in ("JPEG", "JPG"):
             if img.mode != "RGB":
-                img = img.convert("RGB")
+                img = img.convert("RGB")  # type: ignore[assignment]
             img.save(buf, format="JPEG", quality=95)
         else:
             img.save(buf, format=save_format)

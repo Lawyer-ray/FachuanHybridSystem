@@ -122,7 +122,7 @@ def _load_prompt_from_db(document_type: str | None = None) -> str | None:
             key = f"LITIGATION_AGENT_PROMPT_{document_type.upper()}"
             config = SystemConfig.objects.filter(key=key, is_active=True).first()
             if config and config.value:
-                return cast(str, config.value)
+                return cast(str, config.value)  # type: ignore[redundant-cast]
 
         # 加载通用提示词
         config = SystemConfig.objects.filter(
@@ -131,7 +131,7 @@ def _load_prompt_from_db(document_type: str | None = None) -> str | None:
         ).first()
 
         if config and config.value:
-            return cast(str, config.value)
+            return cast(str, config.value)  # type: ignore[redundant-cast]
 
         return None
 

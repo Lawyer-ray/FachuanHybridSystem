@@ -1,7 +1,7 @@
 """Module for client import session."""
 
 from datetime import datetime
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
@@ -37,7 +37,7 @@ class ClientImportSession(models.Model):
         verbose_name=_("发起用户"),
     )
     credential_id: int | None
-    credential: models.ForeignKey[models.Model, models.Model] = models.ForeignKey(
+    credential: models.ForeignKey[Any | None, Any] = models.ForeignKey(
         "organization.AccountCredential",
         on_delete=models.SET_NULL,
         null=True,

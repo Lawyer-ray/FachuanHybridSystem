@@ -487,10 +487,10 @@ class LegalResearchCapabilityService:
         snippets_meta = metadata.get("snippets") if isinstance(metadata.get("snippets"), dict) else {}
         extracted = cls._extract_snippets_from_text(cls._extract_content_excerpt(item=item, metadata_all=metadata_all))
 
-        claims = cls._clip_text(snippets_meta.get("claims"), max_chars=cls.SNIPPET_MAX_CHARS) or extracted.get(
+        claims = cls._clip_text(snippets_meta.get("claims"), max_chars=cls.SNIPPET_MAX_CHARS) or extracted.get(  # type: ignore[union-attr]
             "claims", ""
         )
-        findings = cls._clip_text(snippets_meta.get("findings"), max_chars=cls.SNIPPET_MAX_CHARS) or extracted.get(
+        findings = cls._clip_text(snippets_meta.get("findings"), max_chars=cls.SNIPPET_MAX_CHARS) or extracted.get(  # type: ignore[union-attr]
             "findings", ""
         )
         reasoning = (
@@ -498,7 +498,7 @@ class LegalResearchCapabilityService:
             or extracted.get("reasoning", "")
             or cls._clip_text(getattr(item, "case_digest", ""), max_chars=cls.SNIPPET_MAX_CHARS)
         )
-        holdings = cls._clip_text(snippets_meta.get("holdings"), max_chars=cls.SNIPPET_MAX_CHARS) or extracted.get(
+        holdings = cls._clip_text(snippets_meta.get("holdings"), max_chars=cls.SNIPPET_MAX_CHARS) or extracted.get(  # type: ignore[union-attr]
             "holdings", ""
         )
         return AgentSearchSnippetsOut(

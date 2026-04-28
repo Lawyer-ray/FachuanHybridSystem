@@ -254,7 +254,7 @@ class CaseDocumentTemplateAdminService:
                     "binding_id": binding.id,
                     "id": template.id,
                     "name": template.name,
-                    "description": template.description or "",
+                    "description": template.description or "",  # type: ignore[attr-defined]
                     "case_sub_type": template.case_sub_type,
                     "case_sub_type_display": sub_type_display.get(template.case_sub_type, template.case_sub_type or ""),
                     "function_code": getattr(template, "function_code", None),

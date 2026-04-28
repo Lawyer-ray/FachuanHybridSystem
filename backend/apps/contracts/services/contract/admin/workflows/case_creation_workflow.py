@@ -41,4 +41,4 @@ class ContractCaseCreationWorkflow:
                 lawyer_id=assignment.lawyer_id,
             )
 
-        return case_dto
+        return case_dto  # type: ignore[no-any-return]

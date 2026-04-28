@@ -53,7 +53,7 @@ class ChatNameConfigService:
     def _config_service(self) -> ISystemConfigService:
         """延迟加载系统配置服务"""
         if self._system_config_service is None:
-            self._system_config_service = _get_system_config_service()
+            self._system_config_service = _get_system_config_service()  # type: ignore[assignment]
         return cast("ISystemConfigService", self._system_config_service)
 
     def get_template(self) -> str:

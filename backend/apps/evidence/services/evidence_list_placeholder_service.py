@@ -202,11 +202,11 @@ class EvidenceListPlaceholderService:
         if not parties:
             return ""
 
-        groups = self._group_parties_by_status(parties)
+        groups = self._group_parties_by_status(parties)  # type: ignore[attr-defined]
         if not groups:
             return ""
 
-        lines = self._format_ordered_groups(groups)
+        lines = self._format_ordered_groups(groups)  # type: ignore[attr-defined]
         return "\n".join(lines)
 
         for party in parties:

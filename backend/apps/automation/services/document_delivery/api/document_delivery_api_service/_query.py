@@ -233,7 +233,7 @@ class DocumentQueryMixin:
                     DocumentQueryHistory.objects.get_or_create(
                         credential_id=credential_id,
                         case_number=entry.case_number,
-                        send_time=entry.send_time,
+                        send_time=entry.send_time,  # type: ignore[misc]
                         defaults={"queried_at": timezone.now()},
                     )
                 logger.debug(f"记录查询历史成功: {entry.case_number} - {entry.send_time}")

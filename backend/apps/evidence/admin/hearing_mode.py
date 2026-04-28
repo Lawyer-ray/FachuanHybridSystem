@@ -34,7 +34,7 @@ class HearingModeAdminMixin:
                 name="evidence_hearing_note_save",
             ),
         ]
-        return custom + urls
+        return custom + urls  # type: ignore[no-any-return]
 
     def hearing_mode_view(self, request: HttpRequest, case_id: int) -> TemplateResponse:
         from apps.cases.models import Case

@@ -273,7 +273,7 @@ class PerformanceMonitor:
 
         # 时间趋势（按天）
         daily_stats = (
-            queryset.values(day=TruncDate("created_at"))
+            queryset.values(day=TruncDate("created_at"))  # type: ignore[misc]
             .annotate(count=Count("id"), success_count=Count("id", filter=Q(status="success")))
             .order_by("day")
         )

@@ -89,7 +89,7 @@ class ComplaintSignatureService(BasePlaceholderService):
 
         for party_dict in parties:
             # 使用中文角色名
-            role = legal_status_map.get(party_dict.get("legal_status"), party_dict.get("legal_status"))
+            role = legal_status_map.get(party_dict.get("legal_status"), party_dict.get("legal_status"))  # type: ignore[arg-type]
 
             if self.formatter.is_natural_person_from_dict(party_dict):
                 # 自然人签名格式

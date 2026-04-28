@@ -14,7 +14,7 @@ from django.http import HttpRequest, HttpResponse, HttpResponseRedirect, JsonRes
 from django.shortcuts import render
 from django.urls import reverse
 
-from apps.automation.services.admin import CourtSMSAdminService
+from apps.automation.services.admin.court_sms_admin_service import CourtSMSAdminService
 
 logger = logging.getLogger("apps.automation")
 

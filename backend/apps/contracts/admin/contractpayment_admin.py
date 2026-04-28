@@ -62,7 +62,7 @@ class InvoiceAdminForm(forms.ModelForm[Invoice]):
             instance.file_path = saved.file_path
             instance.original_filename = saved.original_filename
             # 文件已由 service 创建记录，直接返回
-            return saved
+            return saved  # type: ignore[no-any-return]
         if commit:
             instance.save()
         return instance

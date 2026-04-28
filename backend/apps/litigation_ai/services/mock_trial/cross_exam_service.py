@@ -19,7 +19,7 @@ class CrossExamService:
         """加载案件证据列表."""
         from asgiref.sync import sync_to_async
 
-        raw = await sync_to_async(LitigationContextService.get_evidence_list_for_agent, thread_sensitive=True)(case_id)
+        raw = await sync_to_async(LitigationContextService.get_evidence_list_for_agent, thread_sensitive=True)(case_id)  # type: ignore[call-arg,arg-type]
         return raw or []
 
     async def examine_single(self, *, case_info: dict[str, Any], evidence_info: dict[str, Any]) -> CrossExamResult:

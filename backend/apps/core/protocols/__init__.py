@@ -56,6 +56,7 @@ from .contract_protocols import (
     IContractPaymentService,
     IContractService,
 )
+from .contract_review_protocols import IReviewService
 from .document_protocols import (
     IContractGenerationService,
     IDocumentService,
@@ -126,4 +127,6 @@ __all__ = [
     "IEvidenceListPlaceholderService",
     "IConversationHistoryService",
     "ICauseCourtQueryService",
+    # Contract review protocols
+    "IReviewService",
 ]

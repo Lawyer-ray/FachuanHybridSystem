@@ -238,12 +238,12 @@ class EvidenceList(models.Model):
     @property
     def start_order(self) -> int:
         """计算起始序号(委托给 Service 层)"""
-        return _get_evidence_service().calculate_start_order(self)
+        return _get_evidence_service().calculate_start_order(self)  # type: ignore[no-any-return]
 
     @property
     def start_page(self) -> int:
         """计算起始页码(委托给 Service 层)"""
-        return _get_evidence_service().calculate_start_page(self)
+        return _get_evidence_service().calculate_start_page(self)  # type: ignore[no-any-return]
 
     @property
     def end_page(self) -> int:

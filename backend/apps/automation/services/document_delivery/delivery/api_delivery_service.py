@@ -66,7 +66,7 @@ class ApiDeliveryService:
             processed_count=0,
             skipped_count=0,
             failed_count=0,
-            case_log_ids=case_log_ids,
+            case_log_ids=case_log_ids,  # type: ignore[arg-type]
             errors=errors,
         )
 
@@ -91,8 +91,8 @@ class ApiDeliveryService:
             logger.info(f"分页计算: total={total}, page_size={page_size}, total_pages={total_pages}")
 
             # 返回第一页数据供外部处理
-            result.documents = first_response.documents
-            result.total_pages = total_pages
+            result.documents = first_response.documents  # type: ignore[attr-defined]
+            result.total_pages = total_pages  # type: ignore[attr-defined]
 
         except Exception as e:
             error_msg = f"API 查询失败: {e!s}"

@@ -14,7 +14,7 @@ from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import Page
 
 if TYPE_CHECKING:
-    from apps.automation.services.captcha.captcha_recognition_service import CaptchaRecognizer
+    from apps.automation.services.captcha.captcha_recognition_service import CaptchaRecognizer  # type: ignore[attr-defined]
     from apps.automation.services.scraper.core.token_service import TokenService
 
 
@@ -110,7 +110,7 @@ class CourtZxfwService:
         if self._token_service is None:
             from apps.core.interfaces import ServiceLocator
 
-            self._token_service = ServiceLocator.get_token_service()
+            self._token_service = ServiceLocator.get_token_service()  # type: ignore[assignment]
             logger.info("使用 ServiceLocator 获取 TokenService")
         return self._token_service
 

@@ -53,7 +53,7 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
         "status",
         "received_at",
         ("case", admin.RelatedFieldListFilter),
-        ("scraper_task", admin.RelatedFieldListFilter),
+        "scraper_task__status",
     ]
 
     # 搜索字段

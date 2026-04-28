@@ -522,7 +522,7 @@ class CourtScheduleFetcher(MessageFetcher):
 
         Reminder.objects.create(
             reminder_type=ReminderType.HEARING,
-            content=rcbt,
+            content=str(rcbt),
             due_at=due_at,
             case_id=case_id,
             metadata=metadata,

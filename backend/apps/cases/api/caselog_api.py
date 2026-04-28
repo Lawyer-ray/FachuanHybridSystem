@@ -45,16 +45,14 @@ def create_log(request: HttpRequest, payload: CaseLogIn) -> CaseLogOut:
     service = _get_caselog_service()
     ctx = extract_request_context(request)
 
-    reminder_time = service.parse_reminder_time(payload.reminder_time)  # type: ignore[attr-defined]
-
     return cast(
         CaseLogOut,
         service.create_log(
             case_id=payload.case_id,
             content=payload.content,
             user=ctx.user,
-            reminder_type=payload.reminder_type,  # type: ignore[attr-defined]
-            reminder_time=reminder_time,
+            reminder_type=payload.reminder_type,
+            reminder_time=payload.reminder_time,
         ),
     )
 
@@ -83,9 +81,6 @@ def update_log(request: HttpRequest, log_id: int, payload: CaseLogUpdate) -> Cas
     ctx = extract_request_context(request)
 
     data = payload.dict(exclude_unset=True)
-
-    if "reminder_time" in data and isinstance(data["reminder_time"], str):
-        data["reminder_time"] = service.parse_reminder_time(data["reminder_time"])
 
     return cast(
         CaseLogOut,

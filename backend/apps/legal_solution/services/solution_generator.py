@@ -156,7 +156,7 @@ class SolutionGenerator:
             section_type=section_type,
             defaults={
                 "order": order,
-                "title": SECTION_TITLES.get(section_type, section_type),
+                "title": SECTION_TITLES.get(section_type, section_type),  # type: ignore[call-overload]
                 "status": SectionStatus.PENDING,
             },
         )
@@ -167,7 +167,7 @@ class SolutionGenerator:
         if task.research_task_id is None:
             return ""
         results = list(
-            task.research_task.results.filter()
+            task.research_task.results.filter()  # type: ignore[union-attr]
             .order_by("rank")
             .values(
                 "rank", "title", "document_number", "court_text", "judgment_date", "case_digest", "similarity_score"

@@ -191,7 +191,7 @@ class IdentityExtractionService:
         from PIL import Image
 
         try:
-            img = Image.open(BytesIO(image_bytes))
+            img: Any = Image.open(BytesIO(image_bytes))
             if img.mode not in ("RGB", "L"):
                 img = img.convert("RGB")
         except Exception as e:

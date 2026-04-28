@@ -10,7 +10,7 @@ class PreservationDateTool(models.Model):
     """Admin entry model for preservation date extraction."""
 
     id: int
-    name: str = models.CharField(max_length=64, default="Preservation Date")
+    name: str = models.CharField(max_length=64, default="Preservation Date")  # type: ignore[assignment]
 
     class Meta:
         managed = False

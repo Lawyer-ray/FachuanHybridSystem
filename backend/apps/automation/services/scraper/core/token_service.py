@@ -132,7 +132,7 @@ class TokenService:
                     cache.set(cache_key, token_obj.token, timeout=remaining_seconds)
                     logger.info(f"✅ 从数据库获取 Token 并回填到 Redis: {site_name} - {account}")
 
-                return token_obj.token
+                return token_obj.token  # type: ignore[no-any-return]
 
             except CourtToken.DoesNotExist:
                 logger.info(f"Token 不存在: {site_name} - {account}")

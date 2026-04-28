@@ -113,7 +113,7 @@ class PreservationSignatureService(BasePlaceholderService):
 
         for party_dict in parties:
             # 使用映射后的角色名
-            role = role_mapping.get(party_dict.get("legal_status"), party_dict.get("legal_status"))
+            role = role_mapping.get(party_dict.get("legal_status"), party_dict.get("legal_status"))  # type: ignore[arg-type]
 
             if self.formatter.is_natural_person_from_dict(party_dict):
                 # 自然人签名格式

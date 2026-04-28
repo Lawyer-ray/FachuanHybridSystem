@@ -63,7 +63,7 @@ def extract_preservation_date(
 ) -> dict[str, Any]:
     """Extract asset preservation measures and expiration dates from a PDF."""
     service = PreservationDateExtractionService()
-    result = service.extract_from_uploaded_file(file.chunks(), file.name)
+    result = service.extract_from_uploaded_file(file.chunks(), file.name or "upload.pdf")
     return _serialize_result(result)
 
 

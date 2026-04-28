@@ -277,7 +277,7 @@ class CaseBindingService:
         # 1. 检查案号是否存在
         if not case_number:
             return BindingResult.failure_result(
-                message=_("未识别到案号，无法绑定案件"),
+                message=str(_("未识别到案号，无法绑定案件")),
                 error_code="CASE_NUMBER_NOT_FOUND",
             )
 

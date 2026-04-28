@@ -30,7 +30,7 @@ class CaseLogQueryService:
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
-    ) -> QuerySet[Case, Case]:
+    ) -> QuerySet[CaseLog, CaseLog]:
         qs = CaseLog.objects.all().order_by("-created_at").select_related("actor").prefetch_related("attachments")
 
         if case_id:

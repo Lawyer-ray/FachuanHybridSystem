@@ -36,14 +36,14 @@ def _get_binding_service() -> Any:
 
 def _get_generation_service() -> Any:
     """工厂函数:获取案件模板生成服务"""
-    from apps.cases.services import CaseTemplateGenerationService
+    from apps.cases.services import CaseTemplateGenerationService  # type: ignore[attr-defined]
 
     return CaseTemplateGenerationService()
 
 
 def _get_unified_template_generation_service() -> Any:
     """工厂函数:获取统一模板生成服务"""
-    from apps.cases.services import UnifiedTemplateGenerationService
+    from apps.cases.services import UnifiedTemplateGenerationService  # type: ignore[attr-defined]  # type: ignore[attr-defined]
 
     return UnifiedTemplateGenerationService()
 

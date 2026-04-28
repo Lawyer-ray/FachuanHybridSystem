@@ -376,7 +376,7 @@ class FolderTemplateAdminService:
         Returns:
             实际启用的数量
         """
-        return queryset.filter(is_active=False).update(is_active=True)
+        return queryset.filter(is_active=False).update(is_active=True)  # type: ignore[no-any-return]
 
     def batch_deactivate(self, queryset: Any) -> int:
         """
@@ -388,7 +388,7 @@ class FolderTemplateAdminService:
         Returns:
             实际禁用的数量
         """
-        return queryset.filter(is_active=True).update(is_active=False)
+        return queryset.filter(is_active=True).update(is_active=False)  # type: ignore[no-any-return]
 
     def get_folder_template_by_pk(self, pk: int | str) -> Any:
         """

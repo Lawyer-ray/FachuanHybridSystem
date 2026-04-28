@@ -212,7 +212,7 @@ class DocumentDeliveryProcessor:
                         sms.status = CourtSMSStatus.COMPLETED
                     else:
                         sms.status = CourtSMSStatus.FAILED
-                        sms.error_message = _("通知发送失败")
+                        sms.error_message = str(_("通知发送失败"))
                     sms.save()
                     result["success"] = True
                 else:
@@ -247,7 +247,7 @@ class DocumentDeliveryProcessor:
                     DocumentQueryHistory.objects.get_or_create(
                         credential_id=credential_id,
                         case_number=entry.case_number,
-                        send_time=entry.send_time,
+                        send_time=entry.send_time,  # type: ignore[misc]
                         defaults={"queried_at": timezone.now()},
                     )
             except Exception as e:

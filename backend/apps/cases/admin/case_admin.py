@@ -216,7 +216,7 @@ class CaseAdmin(
 
         case_svc = build_case_import_service_for_admin()
         admin_service = self._get_case_admin_service()
-        return admin_service.import_cases_from_json_data(data_list, case_import_service=case_svc),
+        return admin_service.import_cases_from_json_data(data_list, case_import_service=case_svc)
 
     def serialize_queryset(self, queryset: QuerySet[Case]) -> list[dict[str, object]]:
         service = self._get_case_admin_service()

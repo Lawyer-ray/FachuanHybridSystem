@@ -39,7 +39,7 @@ class CoreServiceLocatorMixin(_ServiceLocatorStub):
 
     @classmethod
     def get_prompt_template_service(cls) -> Any:
-        from apps.core.dependencies import build_prompt_template_service
+        from apps.core.dependencies import build_prompt_template_service  # type: ignore[attr-defined]
 
         return cls.get_or_create("prompt_template_service", build_prompt_template_service)
 

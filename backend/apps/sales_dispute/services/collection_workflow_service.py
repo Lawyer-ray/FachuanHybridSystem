@@ -89,7 +89,7 @@ class CollectionWorkflowService:
             record=record,
             action_type=CollectionStage.PHONE_COLLECTION,
             action_date=actual_start,
-            description=_("启动催收流程，进入电话催款阶段"),
+            description=str(_("启动催收流程，进入电话催款阶段")),
         )
 
         logger.info("案件 %s 启动催收流程", case_id)

@@ -60,13 +60,13 @@ class FolderFilesystemService:
         suffix = Path(file_name).suffix
         candidate = parent_dir / file_name
         if not candidate.exists():
-            return candidate
+            return candidate  # type: ignore[no-any-return]
         counter = 1
         while True:
             new_name = f"{stem}_{counter}{suffix}"
             candidate = parent_dir / new_name
             if not candidate.exists():
-                return candidate
+                return candidate  # type: ignore[no-any-return]
             counter += 1
 
     def extract_zip_bytes(self, base_path: str, zip_content: bytes) -> str:

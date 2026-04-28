@@ -87,8 +87,8 @@ class CaseDownloadService:
         errors: list[str] = []
 
         try:
-            source_client = get_case_source_client("weike")
-            session = source_client.open_session(
+            source_client = get_case_source_client("weike")  # type: ignore[assignment]
+            session = source_client.open_session(  # type: ignore[union-attr]
                 username=credential.account,
                 password=credential.password,
                 login_url=credential.url or None,
@@ -103,7 +103,7 @@ class CaseDownloadService:
 
                 try:
                     result_data = cls._download_single_case(
-                        client=source_client,
+                        client=source_client,  # type: ignore[arg-type]
                         session=session,
                         case_number=case_number,
                         file_format=file_format,

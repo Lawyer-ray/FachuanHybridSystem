@@ -73,7 +73,7 @@ class SMSRenamingStage(BaseSMSStage):
         return "重命名"
 
     def can_process(self, sms: CourtSMS) -> bool:
-        return cast(bool, sms.status == CourtSMSStatus.RENAMING)
+        return cast(bool, sms.status == CourtSMSStatus.RENAMING)  # type: ignore[redundant-cast]
 
     def process(self, sms: CourtSMS) -> CourtSMS:
         """处理文书重命名阶段"""
@@ -208,7 +208,7 @@ class SMSRenamingStage(BaseSMSStage):
         # 同步到案件
         if case_numbers:
             self.case_number_extractor.sync_to_case(
-                case_id=sms.case.id,
+                case_id=sms.case.id,  # type: ignore[union-attr]
                 case_numbers=case_numbers,
                 sms_id=sms.id,
             )

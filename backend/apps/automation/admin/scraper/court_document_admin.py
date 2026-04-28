@@ -170,8 +170,8 @@ class CourtDocumentAdmin(admin.ModelAdmin[CourtDocument]):
             DocumentDownloadStatus.SUCCESS: "✅",
             DocumentDownloadStatus.FAILED: "❌",
         }
-        color = colors.get(obj.download_status, "#666")
-        icon = icons.get(obj.download_status, "")
+        color = colors.get(obj.download_status, "#666")  # type: ignore[call-overload]
+        icon = icons.get(obj.download_status, "")  # type: ignore[call-overload]
 
         return format_html(
             '<span style="color: {}; font-weight: bold;">{} {}</span>', color, icon, obj.get_download_status_display()

@@ -76,7 +76,7 @@ class EvidenceListAdminActionsMixin(EvidenceListAdminServiceMixin):
             return
 
         evidence_list = queryset.first()
-        return self.export_list_view(request, evidence_list.pk)
+        return self.export_list_view(request, evidence_list.pk)  # type: ignore[attr-defined]
 
     @admin.action(description=_("导出选中清单的 ZIP"))
     def export_list_zip(self, request: Any, queryset: Any) -> Any:
@@ -88,7 +88,7 @@ class EvidenceListAdminActionsMixin(EvidenceListAdminServiceMixin):
             return None
 
         evidence_list = queryset.first()
-        export_service = self.get_export_service()
+        export_service = self.get_export_service()  # type: ignore[attr-defined]
         content, filename = export_service.export_zip(evidence_list.pk)
         response = HttpResponse(content, content_type="application/zip")
         response["Content-Disposition"] = f'attachment; filename="{filename}"'

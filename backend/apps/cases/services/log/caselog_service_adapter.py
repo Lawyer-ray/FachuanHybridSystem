@@ -169,6 +169,6 @@ class CaseLogServiceAdapter(ICaseLogService):
         log = CaseLog.objects.create(
             case_id=case_id,
             content=content,
-            actor_id=user_id,
+            actor_id=user_id,  # type: ignore[misc]
         )
         return int(log.id)

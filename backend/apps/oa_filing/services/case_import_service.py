@@ -121,7 +121,7 @@ class CaseImportService:
                         CasePreviewResult(
                             case_no=case_no,
                             status="matched",
-                            existing_contract_id=existing_contracts.first().id if existing_contracts else None,
+                            existing_contract_id=getattr(existing_contracts.first(), "id", None),
                             customer_names=list(set(customer_names)),
                         )
                     )

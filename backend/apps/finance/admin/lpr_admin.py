@@ -132,7 +132,7 @@ class LPRRateAdmin(BaseModelAdmin):
             logger.warning(f"[LPRAdmin] Failed to get sync status: {e}")
             extra_context["sync_status"] = None
 
-        return super().changelist_view(request, extra_context=extra_context)
+        return super().changelist_view(request, extra_context=extra_context)  # type: ignore[return-value]
 
     def sync_view(self, request: HttpRequest) -> HttpResponse:
         """同步LPR数据视图 - 直接执行同步."""
@@ -172,4 +172,4 @@ class LPRRateAdmin(BaseModelAdmin):
             "opts": self.model._meta,
             "recent_rates": recent_rates,
         }
-        return render(request, "admin/finance/lpr/calculator.html", context)
+        return render(request, "admin/finance/lpr/calculator.html", context)  # type: ignore[return-value]

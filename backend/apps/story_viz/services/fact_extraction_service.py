@@ -4,7 +4,7 @@ import logging
 from typing import Any
 
 from apps.core.llm.structured_output import json_schema_instructions, parse_model_content
-from apps.story_viz.schemas import ExtractedFacts
+from apps.story_viz.schemas import ExtractedFacts, FactEvent
 
 logger = logging.getLogger("apps.story_viz")
 
@@ -39,13 +39,11 @@ class FactExtractionService:
             return ExtractedFacts(
                 case_title=source_title,
                 events=[
-                    {
-                        "sequence": 1,
-                        "time_label": "",
-                        "summary": fallback_summary,
-                        "participants": [],
-                        "amounts": [],
-                    }
+                    FactEvent(
+                        sequence=1,
+                        time_label="",
+                        summary=fallback_summary,
+                    )
                 ],
                 confidence_notes="fallback",
             )

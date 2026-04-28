@@ -59,7 +59,7 @@ def health_check(request: HttpRequest) -> dict[str, Any]:
     service = _get_performance_monitor_service()
     health_report = service.get_system_metrics()
     logger.info("健康检查完成", extra={"status": "healthy"})
-    return health_report
+    return health_report  # type: ignore[no-any-return]
 
 
 @router.get("/resource-usage", summary="获取资源使用情况")
@@ -69,7 +69,7 @@ def get_resource_usage(request: HttpRequest) -> dict[str, Any]:
     service = _get_performance_monitor_service()
     usage = service.get_system_metrics()
     logger.info("获取资源使用情况成功", extra={"system_metrics": True})
-    return usage
+    return usage  # type: ignore[no-any-return]
 
 
 @router.post("/optimize-concurrency", summary="优化并发配置")

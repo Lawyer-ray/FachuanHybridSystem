@@ -277,7 +277,7 @@ class ContractImportService:
             if p_data.get("amount") and p_data.get("received_at"):
                 payment, _ = ContractPayment.objects.get_or_create(
                     contract=contract,
-                    received_at=p_data["received_at"],
+                    received_at=p_data["received_at"],  # type: ignore[misc]
                     amount=p_data["amount"],
                     defaults={
                         "invoice_status": p_data.get("invoice_status", "UNINVOICED"),
@@ -337,7 +337,7 @@ class ContractImportService:
             if cp_data.get("amount"):
                 ClientPaymentRecord.objects.get_or_create(
                     contract=contract,
-                    amount=cp_data["amount"],
+                    amount=cp_data["amount"],  # type: ignore[misc]
                     defaults={
                         "image_path": cp_data.get("image_path"),
                         "note": cp_data.get("note", ""),

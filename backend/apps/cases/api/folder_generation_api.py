@@ -49,7 +49,7 @@ def generate_case_folder(request: HttpRequest, case_id: int) -> Any:
 
     template_service = TemplateMatchingService()
     matched_candidates = template_service.find_matching_case_folder_templates_list(
-        case_type=case.case_type,
+        case_type=case.case_type,  # type: ignore[arg-type]
         legal_statuses=our_legal_statuses,
     )
 
@@ -66,7 +66,7 @@ def generate_case_folder(request: HttpRequest, case_id: int) -> Any:
     from apps.core.models.enums import CaseType
 
     today = date.today().strftime("%Y.%m.%d")
-    case_type_display = dict(CaseType.choices).get(case.case_type, case.case_type or "")
+    case_type_display = dict(CaseType.choices).get(case.case_type, case.case_type or "")  # type: ignore[arg-type]
     root_name = f"{today}-[{case_type_display}]{case.name}"
 
     svc = FolderGenerationService()

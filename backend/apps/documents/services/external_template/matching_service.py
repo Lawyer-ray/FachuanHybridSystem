@@ -78,7 +78,7 @@ class MatchingService:
         )
 
         total: int = base_qs.count()
-        confirmed_count: int = base_qs.filter(status=TemplateStatus.CONFIRMED).count()
+        confirmed_count: int = base_qs.filter(status=TemplateStatus.CONFIRMED).count()  # type: ignore[attr-defined]
 
         return {
             "total": total,
@@ -96,5 +96,5 @@ class MatchingService:
         ).first()
 
         if authority and authority.name:
-            return authority.name
+            return authority.name  # type: ignore[no-any-return]
         return None

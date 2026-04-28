@@ -282,7 +282,7 @@ class DisputeFocusChain:
         parsed = parse_json_content(content) if content else []
         if isinstance(parsed, dict):
             parsed = parsed.get("dispute_focuses", parsed.get("focuses", [parsed]))
-        focuses = [DisputeFocus.model_validate(f).model_dump() for f in parsed]
+        focuses = [DisputeFocus.model_validate(f).model_dump() for f in parsed or []]
 
         return DisputeFocusResult(focuses=focuses, model=model_name)
 

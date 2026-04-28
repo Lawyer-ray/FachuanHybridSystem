@@ -211,7 +211,7 @@ class CasePreservationQuoteBinding(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
 
     if TYPE_CHECKING:
-        case: Case
+        case: Case  # type: ignore[no-redef]
 
     class Meta:
         app_label = "automation"

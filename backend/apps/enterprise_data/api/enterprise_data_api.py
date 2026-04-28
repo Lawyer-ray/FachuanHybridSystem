@@ -22,7 +22,7 @@ def _service() -> EnterpriseDataService:
 
 @router.get("/providers", response=EnterpriseProvidersOut)
 def list_providers(request: Any, include_tools: bool = False) -> EnterpriseProvidersOut:
-    return EnterpriseProvidersOut(**_service().list_providers(include_tools=include_tools))
+    return EnterpriseProvidersOut(**_service().list_providers(include_tools=include_tools))  # type: ignore[arg-type]
 
 
 @router.get("/companies/search", response=EnterpriseQueryOut)

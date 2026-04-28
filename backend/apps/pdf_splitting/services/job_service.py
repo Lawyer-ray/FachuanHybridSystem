@@ -244,8 +244,8 @@ class PdfSplitJobService:
         normalized_items: list[dict[str, Any]] = []
         for raw in items:
             try:
-                page_start = int(raw.get("page_start"))
-                page_end = int(raw.get("page_end"))
+                page_start = int(raw.get("page_start"))  # type: ignore[arg-type]
+                page_end = int(raw.get("page_end"))  # type: ignore[arg-type]
             except (TypeError, ValueError):
                 raise ValidationException(message="页码必须为整数", errors={"segments": "页码必须为整数"}) from None
             if page_start < 1 or page_end < page_start or page_end > total_pages:

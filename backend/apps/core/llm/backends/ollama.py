@@ -752,4 +752,4 @@ class OllamaBackend(HttpxErrorMixin):
 
 
 if TYPE_CHECKING:
-    _backend: ILLMBackend = OllamaBackend()
+    _backend: ILLMBackend = OllamaBackend()  # type: ignore[assignment]

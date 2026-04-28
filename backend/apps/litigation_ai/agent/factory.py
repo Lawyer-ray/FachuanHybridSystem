@@ -48,7 +48,7 @@ class LitigationAgent:
                 "content": str(getattr(response, "content", "") or ""),
                 "tool_calls": tool_calls,
             }
-            messages.append(assistant_message)
+            messages.append(assistant_message)  # type: ignore[arg-type]
 
             if not tool_calls:
                 break
@@ -101,7 +101,7 @@ class LitigationAgent:
                 "content": str(getattr(response, "content", "") or ""),
                 "tool_calls": tool_calls,
             }
-            messages.append(assistant_message)
+            messages.append(assistant_message)  # type: ignore[arg-type]
 
             if not tool_calls:
                 break
@@ -170,7 +170,7 @@ class LitigationAgent:
                 "content": full_content,
                 "tool_calls": tool_calls,
             }
-            messages.append(assistant_message)
+            messages.append(assistant_message)  # type: ignore[arg-type]
 
             if not tool_calls:
                 break

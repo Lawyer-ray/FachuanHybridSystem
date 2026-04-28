@@ -288,7 +288,7 @@ class PropertyClueService:
         attachment.delete()
 
         if file_path:
-            transaction.on_commit(lambda fp=file_path: delete_media_file(fp))
+            transaction.on_commit(lambda fp=file_path: delete_media_file(fp))  # type: ignore[misc]
 
         logger.info(
             "财产线索附件删除成功",

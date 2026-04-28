@@ -160,7 +160,7 @@ class ExporterService:
             raise RuntimeError("MEDIA_ROOT 未配置")
         output_dir = Path(str(media_root)) / "evidence_sorting"
         output_dir.mkdir(parents=True, exist_ok=True)
-        return output_dir
+        return output_dir  # type: ignore[no-any-return]
 
     @staticmethod
     def _build_filename() -> str:

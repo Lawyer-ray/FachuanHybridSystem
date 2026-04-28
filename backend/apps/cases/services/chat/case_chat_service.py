@@ -314,7 +314,7 @@ class CaseChatService:
 
     def _get_send_notification_usecase(self) -> SendNotificationUsecase:
         if self._send_notification_usecase is None:
-            self._send_notification_usecase = SendNotificationUsecase(
+            self._send_notification_usecase = SendNotificationUsecase(  # type: ignore[assignment]
                 repo=self.repo,
                 provider_facade=self.provider_facade,
                 recreate_policy=self.recreate_policy,

@@ -193,7 +193,7 @@ class DocumentProcessor:
                     DocumentQueryHistory.objects.get_or_create(
                         credential_id=credential_id,
                         case_number=entry.case_number,
-                        send_time=entry.send_time,
+                        send_time=entry.send_time,  # type: ignore[misc]
                         defaults={"queried_at": timezone.now()},
                     )
                 logger.debug(f"记录查询历史成功: {entry.case_number} - {entry.send_time}")
@@ -303,7 +303,7 @@ class DocumentProcessor:
                         logger.info(f"通知发送成功: SMS ID={sms_id}")
                     else:
                         sms.status = CourtSMSStatus.FAILED
-                        sms.error_message = _("通知发送失败")
+                        sms.error_message = str(_("通知发送失败"))
                         sms_id = sms.id
                         logger.warning(f"通知发送失败: SMS ID={sms_id}")
 

@@ -69,8 +69,8 @@ def run_solution_task(task_id: int) -> dict[str, Any]:
         # ── 阶段3: 等待检索完成 ──
         deadline = time.time() + _RESEARCH_TIMEOUT
         while time.time() < deadline:
-            task.research_task.refresh_from_db()
-            status = task.research_task.status
+            task.research_task.refresh_from_db()  # type: ignore[union-attr]
+            status = task.research_task.status  # type: ignore[union-attr]
             if status in (
                 LegalResearchTaskStatus.COMPLETED,
                 LegalResearchTaskStatus.FAILED,

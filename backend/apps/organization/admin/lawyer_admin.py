@@ -120,9 +120,9 @@ class LawyerAdmin(AdminImportExportMixin, admin.ModelAdmin[Lawyer]):
     list_display = ("id", "username", "real_name", "phone", "is_admin", "is_active")
     search_fields = ("username", "real_name", "phone")
     list_filter = ("is_admin", "is_active")
-    inlines: ClassVar[list[type[admin.TabularInline]]] = [AccountCredentialInline]
+    inlines: ClassVar[list[type[admin.TabularInline]]] = [AccountCredentialInline]  # type: ignore[assignment]
     export_model_name = "lawyer"
-    actions: ClassVar = ["export_selected_as_json", "export_all_as_json"]
+    actions: ClassVar = ["export_selected_as_json", "export_all_as_json"]  # type: ignore[misc]
     fieldsets: ClassVar = (
         (_("账号信息"), {"fields": ("username", "password", "new_password")}),
         (_("个人信息"), {"fields": ("real_name", "phone", "license_no", "id_card", "license_pdf")}),

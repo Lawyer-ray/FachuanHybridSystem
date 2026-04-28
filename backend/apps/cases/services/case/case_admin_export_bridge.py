@@ -48,6 +48,6 @@ def collect_case_file_paths_for_export(
                 add_path(attachment.file_path)
 
     for log in case.logs.all():
-        for attachment in log.attachments.all():
-            if attachment.file:
-                add_path(attachment.file.name)
+        for attachment in log.attachments.all():  # type: ignore[assignment]
+            if attachment.file:  # type: ignore[attr-defined]
+                add_path(attachment.file.name)  # type: ignore[attr-defined]

@@ -494,7 +494,7 @@ class CourtInsuranceClient(InsuranceHttpMixin):
                 company=company,
                 premium=None,
                 status="failed",
-                error_message=_("响应中未找到费率数据"),
+                error_message=str(_("响应中未找到费率数据")),
                 response_data=data,
                 request_info=request_info,
             )

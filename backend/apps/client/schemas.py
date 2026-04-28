@@ -212,7 +212,7 @@ class PropertyClueOut(Schema):
     @staticmethod
     def resolve_clue_type_label(obj: Any) -> str:
         if hasattr(obj, "get_clue_type_display"):
-            return obj.get_clue_type_display()
+            return obj.get_clue_type_display()  # type: ignore[no-any-return]
         return str(getattr(obj, "clue_type", ""))
 
     @staticmethod

@@ -29,7 +29,7 @@ def list_credentials(
     lawyer_name: str | None = None,
 ) -> list[AccountCredentialOut]:
     return list(
-        _credential_service.list_credentials(
+        _credential_service.list_credentials(  # type: ignore[arg-type]
             lawyer_id=lawyer_id,
             lawyer_name=lawyer_name,
             user=get_request_user(request),
@@ -39,7 +39,7 @@ def list_credentials(
 
 @router.get("/credentials/{cred_id}", response=AccountCredentialOut)
 def get_credential(request: HttpRequest, cred_id: int) -> AccountCredentialOut:
-    return _credential_service.get_credential(cred_id, user=get_request_user(request))
+    return _credential_service.get_credential(cred_id, user=get_request_user(request))  # type: ignore[return-value]
 
 
 @router.post("/credentials", response=AccountCredentialOut)

@@ -10,7 +10,7 @@ from apps.evidence.models import EvidenceGroup
 
 @admin.register(EvidenceGroup)
 class EvidenceGroupAdmin(admin.ModelAdmin):
-    list_display: ClassVar = ("name", "case", "item_count", "sort_order", "created_at")
+    list_display: ClassVar = ("name", "case", "item_count", "sort_order", "created_at")  # type: ignore[misc]
     list_filter: ClassVar = ("case",)
     search_fields: ClassVar = ("name", "case__name")
     autocomplete_fields: ClassVar = ("case",)

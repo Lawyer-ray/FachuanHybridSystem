@@ -68,7 +68,7 @@ class EvidenceMergeUseCase:
                 evidence_list.merge_progress = 0
                 evidence_list.merge_current = 0
                 evidence_list.merge_total = total_files
-                evidence_list.merge_message = _("准备合并")
+                evidence_list.merge_message = str(_("准备合并"))
                 evidence_list.save(
                     update_fields=[
                         "merge_status",

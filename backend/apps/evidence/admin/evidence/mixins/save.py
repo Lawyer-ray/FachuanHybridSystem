@@ -41,7 +41,7 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
                         raise ValueError("unauthenticated user")
 
                     org_service = ServiceLocator.get_organization_service()
-                    lawyer_dto = org_service.get_lawyer_by_id(getattr(user, "id", None))
+                    lawyer_dto = org_service.get_lawyer_by_id(getattr(user, "id", None))  # type: ignore[arg-type]
                     if (
                         lawyer_dto
                         and getattr(user, "_meta", None)
@@ -58,7 +58,7 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
         else:
             obj.previous_list = None
 
-        super().save_model(request, obj, form, change)
+        super().save_model(request, obj, form, change)  # type: ignore[misc]
 
     def save_formset(self, request: Any, form: Any, formset: Any, change: Any) -> None:
         from django.contrib import messages

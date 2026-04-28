@@ -68,6 +68,7 @@ from apps.core.protocols import (
     IContractGenerationService,
     IContractPaymentService,
     IContractService,
+    IReviewService,
     IConversationHistoryService,
     ICourtDocumentRecognitionService,
     ICourtDocumentService,
@@ -145,6 +146,7 @@ __all__ = [
     "IContractAssignmentQueryService",
     "IContractFolderBindingService",
     "IContractPaymentService",
+    "IReviewService",
     # Document Protocols
     "ICourtDocumentService",
     "IDocumentProcessingService",

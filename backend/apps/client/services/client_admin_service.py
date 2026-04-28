@@ -41,7 +41,7 @@ class ClientAdminService(ClientAdminFileMixin):
         self._internal_query_service = internal_query_service
 
     @property
-    def identity_doc_service(self) -> ClientIdentityDocService:
+    def identity_doc_service(self) -> ClientIdentityDocService:  # type: ignore[override]
         """延迟获取 ClientIdentityDocService"""
         if self._identity_doc_service is None:
             from .client_identity_doc_service import ClientIdentityDocService

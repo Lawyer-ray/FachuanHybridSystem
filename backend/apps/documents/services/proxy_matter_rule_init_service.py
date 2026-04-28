@@ -94,7 +94,7 @@ class ProxyMatterRuleInitService:
                 "is_active": seed["is_active"],
             }
 
-            rule, is_created = ProxyMatterRule.objects.update_or_create(defaults=defaults, **lookup)
+            rule, is_created = ProxyMatterRule.objects.update_or_create(defaults=defaults, **lookup)  # type: ignore[arg-type]
             if is_created:
                 created += 1
                 continue

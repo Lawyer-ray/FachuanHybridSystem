@@ -71,7 +71,7 @@ class ContractCloneWorkflow:
             [
                 SupplementaryAgreement(
                     contract=target_contract,
-                    name=data["agreement"].name,
+                    name=data["agreement"].name,  # type: ignore[attr-defined]
                 )
                 for data in agreements_data
             ]
@@ -85,7 +85,7 @@ class ContractCloneWorkflow:
                     role=party.role,
                 )
                 for new_agreement, data in zip(created_agreements, agreements_data, strict=False)
-                for party in data["parties"]
+                for party in data["parties"]  # type: ignore[attr-defined]
             ]
         )
 

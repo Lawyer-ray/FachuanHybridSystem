@@ -162,8 +162,8 @@ class SMSNotificationService:
 
             # 1. 获取或创建群聊
             try:
-                chat = chat_service.get_or_create_chat(
-                    case_id=sms.case.id,
+                chat = chat_service.get_or_create_chat(  # type: ignore[attr-defined]
+                    case_id=sms.case.id,  # type: ignore[union-attr]
                     platform=platform,
                 )
                 chat_id = getattr(chat, "chat_id", None)
@@ -181,7 +181,7 @@ class SMSNotificationService:
             # 2. 发送文书通知
             try:
                 send_result = chat_service.send_document_notification(
-                    case_id=sms.case.id,
+                    case_id=sms.case.id,  # type: ignore[union-attr]
                     sms_content=sms.content,
                     document_paths=document_paths,
                     platform=platform,

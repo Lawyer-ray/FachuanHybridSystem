@@ -253,7 +253,7 @@ class PreservationQuoteService(QuoteExecutionMixin):
             # 根据成功/失败情况设置状态
             if success_count == 0:
                 quote.status = QuoteStatus.FAILED
-                quote.error_message = _("所有保险公司查询均失败")
+                quote.error_message = str(_("所有保险公司查询均失败"))
             elif failed_count == 0:
                 quote.status = QuoteStatus.SUCCESS
             else:
@@ -504,7 +504,7 @@ class PreservationQuoteService(QuoteExecutionMixin):
             errors["page_size"] = f"每页数量必须在 1-{max_page_size} 之间"
 
         if errors:
-            raise ValidationError(message=_("参数验证失败"), errors=errors)
+            raise ValidationError(message=str(_("参数验证失败")), errors=errors)
 
         logger.info(
             "查询询价任务列表",
@@ -579,4 +579,4 @@ class PreservationQuoteService(QuoteExecutionMixin):
         if credential_id is not None and credential_id <= 0:
             errors["credential_id"] = "凭证 ID 必须为正整数"
         if errors:
-            raise ValidationError(message=_("数据验证失败"), errors=errors)
+            raise ValidationError(message=str(_("数据验证失败")), errors=errors)

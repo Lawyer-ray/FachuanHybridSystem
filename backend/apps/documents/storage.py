@@ -23,7 +23,7 @@ _PRIVATE_DOCX_ROOT_DEFAULT_SENTINEL: Final[str] = "__DOCX_PRIVATE_ROOT_NOT_SET__
 
 def get_public_docx_templates_root() -> Path:
     """获取仓库内公用 docx_templates 根目录。"""
-    base_path = Path(str(settings.BASE_DIR)).parent / "apps" / "documents" / "docx_templates"
+    base_path = Path(str(settings.BASE_DIR)).parent / "apps" / "documents" / "docx_templates"  # type: ignore[misc]
     return Path(str(base_path))
 
 
@@ -56,7 +56,7 @@ def get_private_docx_templates_root() -> Path | None:
     configured = get_configured_private_docx_templates_root()
     if not configured:
         return None
-    return Path(configured).expanduser()
+    return Path(configured).expanduser()  # type: ignore[no-any-return]
 
 
 def get_docx_templates_source() -> str:
@@ -87,7 +87,7 @@ def resolve_docx_template_path(file_path: str) -> Path:
     except ValueError as exc:
         raise ValueError("模板路径越界，必须位于当前 docx_templates 根目录内") from exc
 
-    return resolved
+    return resolved  # type: ignore[no-any-return]
 
 
 @deconstructible

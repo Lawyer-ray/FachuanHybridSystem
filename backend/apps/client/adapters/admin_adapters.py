@@ -48,7 +48,7 @@ class GsxtReportAdapter:
             status=gsxt_report_status.WAITING_CAPTCHA,
         )
         logger.info(f"创建企业信用报告任务: client_id={client_id}, task_id={task.id}")
-        return task.id
+        return task.id  # type: ignore[no-any-return]
 
     def start_login(self, credential_id: int, task_id: int) -> None:
         """启动登录流程。"""
@@ -89,7 +89,7 @@ class GsxtReportAdapter:
         """获取任务状态选项。"""
         gsxt_report_status = _get_gsxt_report_status_enum()
 
-        return gsxt_report_status.choices
+        return gsxt_report_status.choices  # type: ignore[no-any-return]
 
 
 class CredentialAdapter:

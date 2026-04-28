@@ -49,9 +49,9 @@ class AdminImportExportMixin:
     def get_urls(self) -> list[Any]:
         urls = super().get_urls()  # type: ignore[misc]
         custom = [
-            path("import/", self.admin_site.admin_view(self.import_view), name=f"{self.export_model_name}_import"),
+            path("import/", self.admin_site.admin_view(self.import_view), name=f"{self.export_model_name}_import"),  # type: ignore[attr-defined]
         ]
-        return custom + urls
+        return custom + urls  # type: ignore[no-any-return]
 
     def import_view(self, request: HttpRequest) -> HttpResponse:
         if request.method != "POST":
@@ -116,7 +116,7 @@ class AdminImportExportMixin:
                         _("第 %(i)d 条记录缺少必填字段: %(fields)s") % {"i": i, "fields": ", ".join(missing)}
                     )
             self._extract_files(zf)
-            return self.handle_json_import(data_list, user, zf)  # type: ignore[attr-defined]
+            return self.handle_json_import(data_list, user, zf)  # type: ignore[attr-defined,no-any-return]
 
     def _extract_files(self, zf: zipfile.ZipFile) -> None:
         """把 ZIP 内 files/ 目录下的文件写入 MEDIA_ROOT。"""

@@ -117,7 +117,7 @@ class EnforcementCourtService(BasePlaceholderService):
             name = authority.get("name", "").strip()
             if name:
                 logger.info("获取到管辖法院: case_id=%s, name=%s", case_id, name)
-                return name
+                return name  # type: ignore[no-any-return]
 
         logger.warning("未找到管辖法院信息: case_id=%s", case_id)
         return ""

@@ -154,7 +154,7 @@ class BaoquanTokenService:
                 token = result["token"]
                 if token and token.startswith(self._BAOQUAN_TOKEN_PREFIX):
                     logger.info("纯逆向获取保全 Token 成功: %s...", token[:30])
-                    return token
+                    return token  # type: ignore[no-any-return]
                 logger.warning("纯逆向获取的保全 Token 格式不正确，回退到 Playwright")
             else:
                 logger.warning("纯逆向获取保全 Token 失败: %s，回退到 Playwright", result.get("message"))

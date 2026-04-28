@@ -161,7 +161,7 @@ class SupplementaryAgreementService:
             NotFoundError: 补充协议不存在
         """
         try:
-            qs = SupplementaryAgreement.objects
+            qs = SupplementaryAgreement.objects.all()
             if prefetch:
                 qs = qs.select_related("contract").prefetch_related("parties__client")
             return qs.get(id=agreement_id)

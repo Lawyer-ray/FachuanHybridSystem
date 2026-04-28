@@ -60,7 +60,7 @@ class ClientIdentityDocService:
 
         # 重命名文件（对所有非空路径执行），在事务提交后执行文件系统操作
         if file_path:
-            transaction.on_commit(lambda doc_id=doc.pk: self._rename_uploaded_file_by_id(doc_id))
+            transaction.on_commit(lambda doc_id=doc.pk: self._rename_uploaded_file_by_id(doc_id))  # type: ignore[misc]
 
         return doc
 
@@ -163,7 +163,7 @@ class ClientIdentityDocService:
         doc.delete()
 
         if file_path:
-            transaction.on_commit(lambda fp=file_path: delete_media_file(fp))
+            transaction.on_commit(lambda fp=file_path: delete_media_file(fp))  # type: ignore[misc]
 
         logger.info("删除证件文档 %s", doc_id, extra={"user": user})
 

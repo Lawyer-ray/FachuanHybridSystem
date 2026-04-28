@@ -98,7 +98,7 @@ class CaseMaterialBindingWorkflow:
                     },
                 )
                 if category == CaseMaterialCategory.PARTY:
-                    validated_party_ids = self._validate_party_ids(party_ids, parties_by_id, side)
+                    validated_party_ids = self._validate_party_ids(party_ids, parties_by_id, side)  # type: ignore[arg-type]
                     material.parties.set(validated_party_ids)
                 else:
                     material.parties.clear()

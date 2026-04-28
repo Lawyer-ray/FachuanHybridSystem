@@ -135,12 +135,12 @@ class CaseAdminViewsMixin:
             ),
             path(
                 "<int:object_id>/open-folder/",
-                self.admin_site.admin_view(self.open_folder_view),
+                self.admin_site.admin_view(self.open_folder_view),  # type: ignore[attr-defined]
                 name="cases_case_open_folder",
             ),
             path(
                 "<int:object_id>/email-folder-import/",
-                self.admin_site.admin_view(self.email_folder_import_view),
+                self.admin_site.admin_view(self.email_folder_import_view),  # type: ignore[attr-defined]
                 name="cases_case_email_folder_import",
             ),
         ]
@@ -346,7 +346,7 @@ class CaseAdminViewsMixin:
 
     def _get_case_with_relations(self, case_id: int) -> Case | None:
         service = self._get_case_admin_service()  # type: ignore[attr-defined]
-        return service.get_case_with_admin_relations(case_id)
+        return service.get_case_with_admin_relations(case_id)  # type: ignore[no-any-return]
 
     def _get_folder_disabled_reason(self, case: Case) -> str:
         service = self._get_case_admin_service()  # type: ignore[attr-defined]

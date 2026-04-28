@@ -104,7 +104,7 @@ class EnhancedContextBuilder:
             if case_id is not None:
                 normalized["case_id"] = case_id
 
-        return normalized
+        return normalized  # type: ignore[return-value]
 
     def build_contract_context(self, contract_id: int) -> dict[str, Any]:
         """

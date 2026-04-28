@@ -136,7 +136,7 @@ class ReviewService:
             timeout=1800,
         )
         logger.info("已提交审查任务: %s", task_id)
-        return self._repository.get_by_id(task_id)
+        return self._repository.get_by_id(task_id)  # type: ignore[return-value]
 
     def get_task_status(self, task_id: uuid.UUID) -> ReviewTask:
         """查询任务状态"""

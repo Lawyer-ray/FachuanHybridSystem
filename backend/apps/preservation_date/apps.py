@@ -9,4 +9,4 @@ class PreservationDateConfig(AppConfig):
 
     default_auto_field: str = "django.db.models.BigAutoField"
     name: str = "apps.preservation_date"
-    verbose_name: str = _("财产保全日期识别")
+    verbose_name: str = _("财产保全日期识别")  # type: ignore[assignment]

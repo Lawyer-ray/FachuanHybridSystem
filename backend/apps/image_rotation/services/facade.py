@@ -142,7 +142,7 @@ class ImageRotationService:
             processed_bytes = resize_to_paper_size(
                 processed_bytes,
                 paper_size=paper_size,
-                paper_sizes=self.PAPER_SIZES,
+                paper_sizes=self.PAPER_SIZES,  # type: ignore[arg-type]
                 dpi=self.DEFAULT_DPI,
             )
 
@@ -164,7 +164,7 @@ class ImageRotationService:
             image_bytes = resize_to_paper_size(
                 image_bytes,
                 paper_size=paper_size,
-                paper_sizes=self.PAPER_SIZES,
+                paper_sizes=self.PAPER_SIZES,  # type: ignore[arg-type]
                 dpi=self.DEFAULT_DPI,
             )
 

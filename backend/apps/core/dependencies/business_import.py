@@ -24,5 +24,5 @@ def build_case_and_contract_import_services_for_admin() -> tuple[CaseImportServi
         lawyer_resolve=lawyer_svc,
         case_import_fn=case_svc.import_one,
     )
-    case_svc.bind_contract_import(contract_svc)
+    case_svc.bind_contract_import(contract_svc)  # type: ignore[arg-type]
     return case_svc, contract_svc

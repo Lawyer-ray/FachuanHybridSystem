@@ -171,13 +171,13 @@ class DefensePartyService(BasePlaceholderService):
         for index, party_dict in enumerate(respondents):
             respondent_label = self._numbered_label("答辩人", index, total)
             original_role = party_dict.get("legal_status")
-            chinese_role = legal_status_map.get(original_role, original_role)
+            chinese_role = legal_status_map.get(original_role, original_role)  # type: ignore[arg-type]
 
             if total > 1:
                 original_parties = [p for p in parties if p.get("legal_status") == original_role]
                 original_index = original_parties.index(party_dict)
                 original_total = len(original_parties)
-                original_label = self.formatter.get_role_label(chinese_role, original_index, original_total)
+                original_label = self.formatter.get_role_label(chinese_role, original_index, original_total)  # type: ignore[arg-type]
                 role_with_original = f"{respondent_label}（{original_label}）"
             else:
                 role_with_original = f"{respondent_label}（{chinese_role}）"

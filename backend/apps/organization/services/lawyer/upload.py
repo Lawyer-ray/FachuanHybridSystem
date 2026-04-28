@@ -11,4 +11,4 @@ class LawyerUploadService:
     def attach_license_pdf(self, lawyer: Lawyer, license_pdf: UploadedFile | None) -> None:
         if license_pdf is None:
             return
-        lawyer.license_pdf.save(license_pdf.name, license_pdf, save=False)
+        lawyer.license_pdf.save(license_pdf.name or "license.pdf", license_pdf, save=False)

@@ -142,12 +142,12 @@ class LegalResearchTaskEventService:
         if value is None:
             return None
         try:
-            parsed = int(value)
+            parsed = int(value)  # type: ignore[call-overload]
         except (TypeError, ValueError):
             return None
         if parsed < 100 or parsed > 999:
             return None
-        return parsed
+        return parsed  # type: ignore[no-any-return]
 
     @classmethod
     def _sanitize_url(cls, url: str) -> str:

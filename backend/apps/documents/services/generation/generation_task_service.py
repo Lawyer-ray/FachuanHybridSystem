@@ -81,7 +81,7 @@ class GenerationTaskService:
         document_url = None
         if task.result_file:
             try:
-                document_name = task.result_file.name.split("/")[-1]
+                document_name = task.result_file.name.split("/")[-1]  # type: ignore[union-attr]
             except Exception:
                 logger.exception("操作失败")
 

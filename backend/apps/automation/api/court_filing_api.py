@@ -186,7 +186,7 @@ def get_case_filing_info(request: HttpRequest, case_id: int) -> Any:
     case = Case.objects.get(pk=case_id)
 
     sa = SupervisingAuthority.objects.filter(case=case, authority_type="trial").first()
-    court_name: str | None = _resolve_court_name(sa.name) if sa else None
+    court_name: str | None = _resolve_court_name(sa.name) if sa else None  # type: ignore[arg-type]
 
     parties = list(CaseParty.objects.filter(case=case).select_related("client"))
 
@@ -277,7 +277,7 @@ def execute_court_filing(request: HttpRequest, payload: ExecuteCourtFilingIn) ->
     if not sa:
         return {"success": False, "message": "未设置管辖法院", "session_id": None, "status": "failed"}
 
-    court_name = _resolve_court_name(sa.name)
+    court_name = _resolve_court_name(sa.name)  # type: ignore[arg-type]
     if not court_name:
         return {"success": False, "message": "无法解析管辖法院名称", "session_id": None, "status": "failed"}
 

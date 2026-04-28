@@ -283,7 +283,7 @@ class PreservationMaterialsGenerationService:
     def _build_context(self, *, case: Any) -> dict[str, Any]:
         """构建模板上下文"""
         context_data: dict[str, Any] = {"case": case}
-        return EnhancedContextBuilder().build_context(context_data)
+        return EnhancedContextBuilder().build_context(context_data)  # type: ignore[arg-type]
 
     def _render_template(self, template_path: Path, context: dict[str, Any]) -> bytes:
         """渲染模板"""

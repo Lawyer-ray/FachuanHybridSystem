@@ -156,6 +156,19 @@ class IBrowserService(Protocol):
         """
         ...
 
+    def create_context(self, use_anti_detection: bool = True, **kwargs: Any) -> Any:
+        """
+        创建浏览器上下文
+
+        Args:
+            use_anti_detection: 是否启用反检测
+            **kwargs: 其他参数
+
+        Returns:
+            浏览器上下文对象
+        """
+        ...
+
 
 class ICaptchaService(Protocol):
     """

@@ -9,4 +9,4 @@ class InvoiceRecognitionConfig(AppConfig):
 
     default_auto_field: str = "django.db.models.BigAutoField"
     name: str = "apps.invoice_recognition"
-    verbose_name: str = _("发票识别")
+    verbose_name: str = _("发票识别")  # type: ignore[assignment]

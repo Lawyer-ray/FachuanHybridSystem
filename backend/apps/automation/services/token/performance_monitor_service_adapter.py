@@ -139,15 +139,15 @@ class PerformanceMonitorServiceAdapter(IPerformanceMonitorService):
                 total_attempts = queryset.count()
 
                 # 统计成功和失败数量
-                successful_attempts = queryset.filter(success=True).count()
-                failed_attempts = queryset.filter(success=False).count()
+                successful_attempts = queryset.filter(success=True).count()  # type: ignore[misc]
+                failed_attempts = queryset.filter(success=False).count()  # type: ignore[misc]
 
                 # 计算成功率
                 success_rate = (successful_attempts / total_attempts * 100) if total_attempts > 0 else 0
 
                 # 计算平均获取时间
                 avg_duration = (
-                    queryset.filter(success=True, total_duration__isnull=False).aggregate(
+                    queryset.filter(success=True, total_duration__isnull=False).aggregate(  # type: ignore[misc]
                         avg_duration=Avg("total_duration")
                     )["avg_duration"]
                     or 0

@@ -76,7 +76,7 @@ class EvidenceListAdminActionsMixin(EvidenceListAdminServiceMixin):
             return
 
         evidence_list = queryset.first()
-        return self.export_list_view(request, evidence_list.pk)
+        return self.export_list_view(request, evidence_list.pk)  # type: ignore[attr-defined]
 
 
 __all__: list[str] = ["EvidenceListAdminActionsMixin"]

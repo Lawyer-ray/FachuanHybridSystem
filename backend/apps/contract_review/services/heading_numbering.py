@@ -101,7 +101,7 @@ class HeadingNumbering:
         )
         for attempt in range(2):
             try:
-                resp = self._llm.complete(
+                resp = self._llm.complete(  # type: ignore[union-attr]
                     prompt=prompt,
                     model=model_name or None,
                     temperature=0.1,
@@ -283,7 +283,7 @@ class HeadingNumbering:
         """创建 num 引用指向 abstractNum，返回 numId（每次调用生成独立编号序列）"""
         existing_num_ids = {
             int(n.get(qn("w:numId"), 0))
-            for n in numbering_elem.findall(qn("w:num"))
+            for n in numbering_elem.findall(qn("w:num"))  # type: ignore[attr-defined]
         }
         num_id = max(existing_num_ids, default=0) + 1
 
@@ -292,7 +292,7 @@ class HeadingNumbering:
         abstract_ref = OxmlElement("w:abstractNumId")
         abstract_ref.set(qn("w:val"), str(abstract_id))
         num_elem.append(abstract_ref)
-        numbering_elem.append(num_elem)
+        numbering_elem.append(num_elem)  # type: ignore[attr-defined]
 
         return num_id
 

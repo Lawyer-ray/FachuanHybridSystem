@@ -118,4 +118,4 @@ class PdfSplitJobAdmin(admin.ModelAdmin[PdfSplitJob]):
         extra["pdf_split_download_api"] = f"/api/v1/pdf-splitting/jobs/{object_id}/download"
         extra["pdf_split_preview_api_base"] = f"/api/v1/pdf-splitting/jobs/{object_id}/pages"
         extra["pdf_split_pdf_api"] = f"/api/v1/pdf-splitting/jobs/{object_id}/pdf"
-        return super().change_view(request, object_id, form_url, extra_context=extra)
+        return super().change_view(request, object_id, form_url, extra_context=extra)  # type: ignore[return-value]

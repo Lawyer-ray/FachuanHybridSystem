@@ -53,7 +53,7 @@ class DocumentDeliveryQueryIn(BaseModel):
 
     class Config:
         json_schema_extra: ClassVar[dict[str, str]] = {
-            "example": {"credential_id": 1, "cutoff_hours": 24, "tab": "pending"}
+            "example": {"credential_id": 1, "cutoff_hours": 24, "tab": "pending"}  # type: ignore[dict-item]
         }
 
 
@@ -66,7 +66,7 @@ class DocumentDeliveryQueryOut(BaseModel):
 
     class Config:
         json_schema_extra: ClassVar[dict[str, str]] = {
-            "example": {
+            "example": {  # type: ignore[dict-item]
                 "success": True,
                 "data": {
                     "total_found": 5,
@@ -100,7 +100,7 @@ class DocumentDeliveryScheduleCreateIn(BaseModel):
 
     class Config:
         json_schema_extra: ClassVar[dict[str, str]] = {
-            "example": {
+            "example": {  # type: ignore[dict-item]
                 "credential_id": 1,
                 "runs_per_day": 2,
                 "hour_interval": 12,
@@ -124,7 +124,7 @@ class DocumentDeliveryScheduleUpdateIn(BaseModel):
 
     class Config:
         json_schema_extra: ClassVar[dict[str, str]] = {
-            "example": {"runs_per_day": 3, "hour_interval": 8, "cutoff_hours": 48, "is_active": False}
+            "example": {"runs_per_day": 3, "hour_interval": 8, "cutoff_hours": 48, "is_active": False}  # type: ignore[dict-item]
         }
 
 
@@ -160,7 +160,7 @@ class DocumentDeliveryScheduleOut(BaseModel):
 
     class Config:
         from_attributes = True
-        json_encoders: ClassVar[dict[str, str]] = {datetime: lambda v: v.isoformat() if v is not None else None}
+        json_encoders: ClassVar[dict[str, str]] = {datetime: lambda v: v.isoformat() if v is not None else None}  # type: ignore[dict-item]
 
 
 # ============================================================================

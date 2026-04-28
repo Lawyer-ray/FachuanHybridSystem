@@ -131,7 +131,7 @@ def download_single_result(request: Any, task_id: int, result_id: int) -> FileRe
     if not result.pdf_file:
         raise Http404(_("结果PDF不存在"))
 
-    filename = result.pdf_file.name.split("/")[-1]
+    filename = (result.pdf_file.name or "").split("/")[-1]
     return FileResponse(result.pdf_file.open("rb"), as_attachment=True, filename=filename)
 
 
