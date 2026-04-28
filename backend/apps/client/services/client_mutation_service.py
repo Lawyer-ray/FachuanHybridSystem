@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from django.db import transaction
 from django.utils.translation import gettext_lazy as _
@@ -98,7 +98,7 @@ class ClientMutationService:
         client = Client.objects.prefetch_related("identity_docs").get(pk=client.pk)
         logger.info(
             "客户创建成功",
-            extra={"client_id": cast(int, client.pk), "user_id": getattr(user, "id", None), "action": "create_client"},
+            extra={"client_id": client.pk, "user_id": getattr(user, "id", None), "action": "create_client"},
         )
         return client
 
@@ -127,7 +127,7 @@ class ClientMutationService:
             client.save(update_fields=updated_fields)
         logger.info(
             "客户更新成功",
-            extra={"client_id": cast(int, client.pk), "user_id": getattr(user, "id", None), "action": "update_client"},
+            extra={"client_id": client.pk, "user_id": getattr(user, "id", None), "action": "update_client"},
         )
         return client
 
@@ -143,7 +143,7 @@ class ClientMutationService:
             raise
 
         client = self.query_service.get_client(client_id=client_id, user=user)
-        file_paths = self.deletion_workflow.collect_client_file_paths(client_id=cast(int, client.pk))  # type: ignore[redundant-cast]
+        file_paths = self.deletion_workflow.collect_client_file_paths(client_id=client.pk)
         client.delete()
         self.deletion_workflow.cleanup_files_on_commit(file_paths=file_paths)
 

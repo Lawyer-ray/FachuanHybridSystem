@@ -2,6 +2,27 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.40.8] - 2026-04-28
+
+### 新增
+
+- **案件日志 API 支持提醒生命周期管理**：创建/更新日志时可通过 `reminder_type` + `reminder_time` 字段同步 upsert 提醒，为空则自动清除已有提醒；日志输出 Schema 新增 `reminder_type` / `reminder_time` 字段
+- **ReminderServiceAdapter 新增内部方法**：`upsert_case_log_reminder_internal` / `clear_case_log_reminder_internal`，支持按 `metadata_source` 精确匹配 upsert/clear 提醒
+
+### 变更
+
+- **案件日志 Schema 提醒字段校验增强**：`CaseLogIn` / `CaseLogUpdate` 共享 `_CaseLogReminderMixin`，`reminder_type` 和 `reminder_time` 必须同时提供或同时为空，`reminder_type` 值需在 `ReminderType.values` 范围内
+- **mypy 配置大幅精简**：mypy.ini 清理 11 个已零错误模块的 `ignore_errors`，其余按错误量（重型/中型/轻型）分级标注；全项目 mypy 错误从 461 降至 192
+
+### 修复
+
+- **mypy 类型错误批量修复**（461→192，修复 269 个错误）：
+  - 修正 5 处 `type: ignore` 注释语法错误（注释放在行中而非行末导致代码被截断）
+  - 移除 14 处冗余 `cast(int, *.pk)` 转换（Django Model.pk 已推导为 int）
+  - 移除 2 处不再需要的 `type: ignore` 注释
+  - 批量补充函数签名返回类型注解、修复参数类型不匹配等
+- **案件导入返回值多余逗号**：`CaseAdmin.import_cases_from_json_data` 返回值尾部逗号导致返回 tuple 而非单值
+
 ## [26.40.7] - 2026-04-28
 
 ### 修复

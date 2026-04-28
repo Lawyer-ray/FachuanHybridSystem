@@ -139,8 +139,8 @@ class PerformanceMonitorServiceAdapter(IPerformanceMonitorService):
                 total_attempts = queryset.count()
 
                 # 统计成功和失败数量
-                successful_attempts = queryset.filter(success=True)  # type: ignore[misc].count()
-                failed_attempts = queryset.filter(success=False)  # type: ignore[misc].count()
+                successful_attempts = queryset.filter(success=True).count()  # type: ignore[misc]
+                failed_attempts = queryset.filter(success=False).count()  # type: ignore[misc]
 
                 # 计算成功率
                 success_rate = (successful_attempts / total_attempts * 100) if total_attempts > 0 else 0
