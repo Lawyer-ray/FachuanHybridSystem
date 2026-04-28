@@ -117,7 +117,7 @@ def get_pdf_split_download(request: Any, job_id: UUID) -> HttpResponse:
     storage = PdfSplitStorage(job.id)
     if not storage.export_zip_path.exists():
         return HttpResponse(status=404)
-    return FileResponse(storage.export_zip_path.open("rb"), content_type="application/zip", filename="split_result.zip")
+    return FileResponse(storage.export_zip_path.open("rb"), content_type="application/zip", filename="split_result.zip")  # type: ignore[return-value]
 
 
 @router.get("/jobs/{job_id}/pdf")
@@ -127,7 +127,7 @@ def get_pdf_split_raw(request: Any, job_id: UUID) -> HttpResponse:
     storage = PdfSplitStorage(job.id)
     if not storage.source_pdf_path.exists():
         return HttpResponse(status=404)
-    return FileResponse(
+    return FileResponse(  # type: ignore[return-value]
         storage.source_pdf_path.open("rb"),
         content_type="application/pdf",
         filename=job.source_original_name or "document.pdf",

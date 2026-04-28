@@ -53,7 +53,7 @@ class DocumentDeliveryQueryIn(BaseModel):
 
     class Config:
         json_schema_extra: ClassVar[dict[str, str]] = {
-            "example": {"credential_id": 1, "cutoff_hours": 24, "tab": "pending"}
+            "  # type: ignore[dict-item]example": {"credential_id": 1, "cutoff_hours": 24, "tab": "pending"}
         }
 
 

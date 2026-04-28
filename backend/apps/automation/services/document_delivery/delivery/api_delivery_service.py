@@ -66,7 +66,7 @@ class ApiDeliveryService:
             processed_count=0,
             skipped_count=0,
             failed_count=0,
-            case_log_ids=case_log_ids,
+            case_log_ids=case_log_ids,  # type: ignore[arg-type]
             errors=errors,
         )
 

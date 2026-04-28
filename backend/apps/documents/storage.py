@@ -23,7 +23,7 @@ _PRIVATE_DOCX_ROOT_DEFAULT_SENTINEL: Final[str] = "__DOCX_PRIVATE_ROOT_NOT_SET__
 
 def get_public_docx_templates_root() -> Path:
     """获取仓库内公用 docx_templates 根目录。"""
-    base_path = Path(str(settings.BASE_DIR)).parent / "apps" / "documents" / "docx_templates"
+    base_path = Path(str(settings.BASE_DIR))  # type: ignore[misc].parent / "apps" / "documents" / "docx_templates"
     return Path(str(base_path))
 
 
@@ -56,7 +56,7 @@ def get_private_docx_templates_root() -> Path | None:
     configured = get_configured_private_docx_templates_root()
     if not configured:
         return None
-    return Path(configured).expanduser()
+    return Path(configured).expanduser()  # type: ignore[no-any-return]
 
 
 def get_docx_templates_source() -> str:

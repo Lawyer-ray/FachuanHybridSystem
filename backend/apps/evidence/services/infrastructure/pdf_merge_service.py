@@ -127,9 +127,9 @@ class PDFMergeWorkflow:
         self.validator.assert_supported_format(ext, file_path)
         utils = _get_pdf_merge_utils_module()
         if ext in self.validator.IMAGE_FORMATS:
-            return utils.convert_image_to_pdf(file_path)
+            return utils.convert_image_to_pdf  # type: ignore[no-any-return](file_path)
         if ext in self.validator.WORD_FORMATS:
-            return utils.convert_docx_to_pdf(file_path)
+            return utils.convert_docx_to_pdf  # type: ignore[no-any-return](file_path)
         return file_path
 
     def add_page_numbers(self, pdf_input: io.BytesIO, start_page: int = 1) -> bytes:

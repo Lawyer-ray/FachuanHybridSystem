@@ -101,7 +101,7 @@ class HeadingNumbering:
         )
         for attempt in range(2):
             try:
-                resp = self._llm.complete(
+                resp = self._llm.complete(  # type: ignore[union-attr]
                     prompt=prompt,
                     model=model_name or None,
                     temperature=0.1,
@@ -292,7 +292,7 @@ class HeadingNumbering:
         abstract_ref = OxmlElement("w:abstractNumId")
         abstract_ref.set(qn("w:val"), str(abstract_id))
         num_elem.append(abstract_ref)
-        numbering_elem.append(num_elem)
+        numbering_elem.append(num_elem)  # type: ignore[attr-defined]
 
         return num_id
 
