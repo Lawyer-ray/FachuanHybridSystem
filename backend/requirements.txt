@@ -4,7 +4,7 @@ annotated-doc==0.0.4
     # via typer
 annotated-types==0.7.0
     # via pydantic
-antlr4-python3-runtime==4.9.3
+antlr4-python3-runtime==4.13.2
     # via omegaconf
 anyio==4.13.0
     # via
@@ -36,7 +36,7 @@ brotli==1.2.0
     # via fonttools
 cbor2==5.9.0
     # via autobahn
-certifi==2026.2.25
+certifi==2026.4.22
     # via
     #   httpcore
     #   httpx
@@ -58,7 +58,7 @@ charset-normalizer==3.4.7
     #   pdfminer-six
     #   reportlab
     #   requests
-click==8.3.2
+click==8.3.3
     # via
     #   typer
     #   uvicorn
@@ -70,7 +70,7 @@ constantly==23.10.4
     # via twisted
 contextlib2==21.6.0
     # via django-ninja-extra
-cryptography==46.0.7
+cryptography==47.0.0
     # via
     #   fachuan-backend (pyproject.toml)
     #   autobahn
@@ -129,7 +129,7 @@ fonttools==4.62.1
     # via weasyprint
 gmssl==3.2.2
     # via fachuan-backend (pyproject.toml)
-greenlet==3.4.0
+greenlet==3.5.0
     # via playwright
 gunicorn==25.3.0
     # via fachuan-backend (pyproject.toml)
@@ -158,7 +158,7 @@ hyperlink==21.0.0
     # via
     #   autobahn
     #   twisted
-idna==3.12
+idna==3.13
     # via
     #   anyio
     #   httpx
@@ -194,7 +194,7 @@ mcp==1.27.0
     # via fachuan-backend (pyproject.toml)
 mdurl==0.1.2
     # via markdown-it-py
-mpmath==1.3.0
+mpmath==1.4.1
     # via sympy
 msgpack==1.1.2
     # via
@@ -210,7 +210,7 @@ numpy==2.4.4
     #   shapely
 omegaconf==2.3.0
     # via rapidocr
-onnxruntime==1.24.4
+onnxruntime==1.25.1
     # via ddddocr
 openai==2.32.0
     # via fachuan-backend (pyproject.toml)
@@ -221,7 +221,7 @@ opencv-python==4.13.0.92
     #   rapidocr
 openpyxl==3.1.5
     # via fachuan-backend (pyproject.toml)
-packaging==26.1
+packaging==26.2
     # via
     #   gunicorn
     #   incremental
@@ -229,7 +229,7 @@ packaging==26.1
     #   pikepdf
 pandas==3.0.2
     # via fachuan-backend (pyproject.toml)
-pdfminer-six==20251230
+pdfminer-six==20260107
     # via pdfplumber
 pdfplumber==0.11.9
     # via fachuan-backend (pyproject.toml)
@@ -248,7 +248,7 @@ playwright==1.58.0
     # via
     #   fachuan-backend (pyproject.toml)
     #   playwright-stealth
-playwright-stealth==2.0.2
+playwright-stealth==2.0.3
     # via fachuan-backend (pyproject.toml)
 protobuf==7.34.1
     # via onnxruntime
@@ -272,14 +272,14 @@ pycparser==3.0
     # via cffi
 pycryptodomex==3.23.0
     # via gmssl
-pydantic==2.12.5
+pydantic==2.13.3
     # via
     #   fachuan-backend (pyproject.toml)
     #   django-ninja
     #   mcp
     #   openai
     #   pydantic-settings
-pydantic-core==2.41.5
+pydantic-core==2.46.3
     # via pydantic
 pydantic-settings==2.14.0
     # via
@@ -295,9 +295,9 @@ pyjwt==2.12.1
     # via
     #   django-ninja-jwt
     #   mcp
-pymupdf==1.27.2.2
+pymupdf==1.27.2.3
     # via fachuan-backend (pyproject.toml)
-pyopenssl==26.0.0
+pyopenssl==26.1.0
     # via twisted
 pypdfium2==5.7.1
     # via pdfplumber
@@ -319,7 +319,7 @@ python-dotenv==1.2.2
     #   uvicorn
 python-monkey-business==1.1.0
     # via django-nested-admin
-python-multipart==0.0.26
+python-multipart==0.0.27
     # via
     #   fachuan-backend (pyproject.toml)
     #   mcp
@@ -329,7 +329,7 @@ pyyaml==6.0.3
     #   omegaconf
     #   rapidocr
     #   uvicorn
-rapidocr==3.7.0
+rapidocr==3.8.1
     # via fachuan-backend (pyproject.toml)
 redis==7.4.0
     # via
@@ -365,7 +365,7 @@ sniffio==1.3.1
     # via openai
 sqlparse==0.5.5
     # via django
-sse-starlette==3.3.4
+sse-starlette==3.4.1
     # via mcp
 starlette==1.0.0
     # via
@@ -387,7 +387,7 @@ twisted==25.5.0
     # via daphne
 txaio==25.12.2
     # via autobahn
-typer==0.24.1
+typer==0.25.0
     # via mcp
 typing-extensions==4.15.0
     # via
@@ -415,7 +415,7 @@ urllib3==2.6.3
     # via
     #   requests
     #   sentry-sdk
-uvicorn==0.42.0
+uvicorn==0.46.0
     # via
     #   fachuan-backend (pyproject.toml)
     #   mcp
@@ -438,7 +438,7 @@ websockets==16.0
     # via uvicorn
 wrapt==2.1.2
     # via deprecated
-zope-interface==8.3
+zope-interface==8.4
     # via twisted
 zopfli==0.4.1
     # via fonttools
