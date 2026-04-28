@@ -2,6 +2,30 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.40.7] - 2026-04-28
+
+### 修复
+
+- **企业信用报告（GSXT）全流程适配网站改版**：gsxt.gov.cn 页面结构发生多处变化，导致自动获取企业信用报告流程失败，本次逐一修复：
+  - **搜索结果页选择器失效**：旧版用 `a.innerText` 匹配企业名不可靠（innerText 包含信用代码、法人等全文本），改用 `a.search_list_item h1` 精确匹配企业名称，增加去除括号/空格的模糊匹配
+  - **详情页被 WAF 拦截**：通过 CDP 直接导航到详情页 URL 会被知道创宇云安全拦截（白屏），改为必须在搜索结果页上点击链接进入详情页
+  - **详情页"发送报告"按钮改版**：新版详情页将"发送报告"按钮从页面底部移至 `#moreActionsToggle`（"更多"）下拉菜单中，需先点击"更多"展开菜单再点击"发送报告"
+  - **`credential.save()` 异步上下文报错**：`_run_full_flow` 中直接调用同步 `credential.save()` 触发 `SynchronousOnlyOperation`，改用 `sync_to_async` 包装
+  - **CDP WebSocket 导航绕过 Playwright 注入**：新增 `_cdp_navigate()` 函数，使用 `websockets` 库直接与 Chrome CDP 通信完成页面导航，避免 Playwright 注入 `navigator.webdriver` 被检测
+
+### 变更
+
+- **企业信用报告任务支持删除**：客户编辑页 `GsxtReportTaskInline` 的 `can_delete` 从 `False` 改为 `True`，允许删除多余的报告任务记录
+
+### 修复（一张网担保）
+
+- **gTwo 页面数据库保存失败**：修复一张网担保 gTwo 页面"数据库保存时失败"问题
+- **gThree 上传证据材料**：修复一张网担保 gThree "请上传证据材料"问题
+
+### 变更（客户管理）
+
+- **当事人编辑页增加财产线索内联**：客户编辑页新增财产线索 TabularInline，创建时不显示
+
 ## [26.40.6] - 2026-04-27
 
 ### 新增

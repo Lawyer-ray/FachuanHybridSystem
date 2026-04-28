@@ -14,8 +14,9 @@ from typing import Any
 from django.http import HttpRequest
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
-from apps.core.tasking import submit_task
 from ninja import Router, Schema
+
+from apps.core.tasking import submit_task
 
 logger = logging.getLogger("apps.automation")
 router = Router()
@@ -63,7 +64,7 @@ _QUOTE_RETRY_ALLOWED_STATUSES = {"failed", "partial_success"}
 _BROWSER_SLOW_MO_MS = 300
 _BROWSER_HOLD_SECONDS = _read_int_env("COURT_GUARANTEE_BROWSER_HOLD_SECONDS", 8)
 _BROWSER_HOLD_SECONDS_ON_FAILURE = _read_int_env("COURT_GUARANTEE_BROWSER_HOLD_SECONDS_ON_FAILURE", 30)
-_DEFAULT_NATURAL_ID_NUMBER = "110101" + "19900307" + "7719"
+_DEFAULT_NATURAL_ID_NUMBER = "110101" + "19900307" + "7715"
 _DEFAULT_LEGAL_ID_NUMBER = "91440101MA59TEST8X"
 
 
@@ -974,7 +975,7 @@ def _build_guarantee_material_paths(case: Any) -> list[str]:
                 continue
             used.add(path)
             selected.append(path)
-            if len(selected) >= 8:
+            if len(selected) >= 12:
                 return selected
 
     return selected
