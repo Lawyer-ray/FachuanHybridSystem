@@ -122,20 +122,41 @@ async def _wait_captcha_success(page: Any, captcha_selector: str, timeout: int =
 
 
 async def _click_company_detail(page: Any, company_name: str, context: Any) -> Any:
+    """点击搜索结果中的企业链接，返回详情页 Page。
+
+    gsxt 搜索结果页的每个结果是一个 ``a.search_list_item`` ，企业名称在 ``h1`` 中。
+    链接 ``target="_blank"`` 所以详情页会在新标签页打开。
+    注意：不能通过 CDP 直接导航到详情页 URL（会被 WAF 拦截），必须点击链接进入。
+    """
     await asyncio.sleep(2)
 
-    href = await page.evaluate(f"""(() => {{
-        const links = Array.from(document.querySelectorAll('a'));
-        const match = links.find(a => a.innerText && a.innerText.trim() === '{company_name}');
-        if (match) return match.href;
-        const fuzzy = links.find(a => a.innerText && a.innerText.includes('{company_name}'));
-        return fuzzy ? fuzzy.href : null;
+    link_info = await page.evaluate(f"""(() => {{
+        const items = document.querySelectorAll('a.search_list_item');
+        for (const item of items) {{
+            const h1 = item.querySelector('h1');
+            if (!h1) continue;
+            const name = h1.innerText.trim();
+            if (name === '{company_name}' || name.includes('{company_name}')) {{
+                return {{ href: item.href, name: name }};
+            }}
+        }}
+        const normalized = '{company_name}'.replace(/[()（）\\s]/g, '');
+        for (const item of items) {{
+            const h1 = item.querySelector('h1');
+            if (!h1) continue;
+            const name = h1.innerText.trim();
+            const normName = name.replace(/[()（）\\s]/g, '');
+            if (normName.includes(normalized) || normalized.includes(normName)) {{
+                return {{ href: item.href, name: name }};
+            }}
+        }}
+        return null;
     }})()""")
 
-    if not href:
+    if not link_info:
         raise GsxtReportError(f"搜索结果中未找到企业：{company_name}")
 
-    logger.info("找到企业链接: %s", href)
+    logger.info("找到企业链接: %s", link_info["name"])
 
     new_page = None
 
@@ -146,47 +167,57 @@ async def _click_company_detail(page: Any, company_name: str, context: Any) -> A
     context.on("page", _on_new_page)
 
     try:
-        link_clicked = await page.evaluate(f"""(() => {{
-            const links = Array.from(document.querySelectorAll('a'));
-            const match = links.find(a => a.innerText && a.innerText.trim() === '{company_name}');
-            if (match) {{ match.click(); return true; }}
-            const fuzzy = links.find(a => a.innerText && a.innerText.includes('{company_name}'));
-            if (fuzzy) {{ fuzzy.click(); return true; }}
+        clicked = await page.evaluate(f"""(() => {{
+            const items = document.querySelectorAll('a.search_list_item');
+            for (const item of items) {{
+                const h1 = item.querySelector('h1');
+                if (!h1) continue;
+                const name = h1.innerText.trim();
+                if (name === '{company_name}' || name.includes('{company_name}')) {{
+                    item.click();
+                    return true;
+                }}
+            }}
+            const normalized = '{company_name}'.replace(/[()（）\\s]/g, '');
+            for (const item of items) {{
+                const h1 = item.querySelector('h1');
+                if (!h1) continue;
+                const name = h1.innerText.trim();
+                const normName = name.replace(/[()（）\\s]/g, '');
+                if (normName.includes(normalized) || normalized.includes(normName)) {{
+                    item.click();
+                    return true;
+                }}
+            }}
             return false;
         }})()""")
-        if link_clicked:
-            await asyncio.sleep(3)
+        if clicked:
+            await asyncio.sleep(8)
         else:
-            await page.goto(href, timeout=60000, wait_until="commit")
-    except Exception:
-        try:
-            await page.goto(href, timeout=60000, wait_until="commit")
-        except Exception:
-            pass
+            logger.warning("JS 点击失败，回退到 CDP 导航")
+            await _cdp_navigate(link_info["href"], wait_seconds=10)
+            await asyncio.sleep(3)
+    except Exception as e:
+        raise GsxtReportError(f"点击企业链接失败: {e}") from e
     finally:
         context.remove_listener("page", _on_new_page)
 
     if new_page and not new_page.is_closed():
         try:
-            await new_page.wait_for_selector("#btn_send_pdf", timeout=60000)
+            await new_page.wait_for_load_state("domcontentloaded", timeout=30000)
         except Exception:
             pass
         return new_page
 
-    try:
-        await page.wait_for_selector("#btn_send_pdf", timeout=60000)
-    except Exception as e:
-        if "closed" in str(e).lower() or "target" in str(e).lower():
-            for p in context.pages:
-                try:
-                    if not p.is_closed() and "gsxt.gov.cn" in p.url and "search" not in p.url:
-                        await p.wait_for_selector("#btn_send_pdf", timeout=30000)
-                        return p
-                except Exception:
-                    continue
-        raise GsxtReportError(f"详情页加载失败: {e}")
+    for p in context.pages:
+        try:
+            url = p.url
+            if not p.is_closed() and "gsxt.gov.cn" in url and "search" not in url and "homepage" not in url:
+                return p
+        except Exception:
+            continue
 
-    return page
+    raise GsxtReportError("详情页未打开，可能被 WAF 拦截")
 
 
 async def _run_full_flow(task_id: int) -> None:
@@ -273,7 +304,27 @@ async def _run_full_flow(task_id: int) -> None:
             await save_task(task, ["error_message"])
 
             target = detail_page or page
-            await target.wait_for_selector("#btn_send_pdf", timeout=60000)
+            # 详情页的 #btn_send_pdf 初始可能不可见，需要滚动到底部
+            try:
+                await target.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                await asyncio.sleep(2)
+            except Exception:
+                pass
+
+            try:
+                await target.wait_for_selector("#btn_send_pdf", timeout=60000)
+            except Exception:
+                for scroll_attempt in range(3):
+                    try:
+                        await target.evaluate(f"window.scrollTo(0, document.body.scrollHeight * {(scroll_attempt + 1) / 3})")
+                        await asyncio.sleep(2)
+                        if await target.evaluate("!!document.querySelector('#btn_send_pdf')"):
+                            break
+                    except Exception:
+                        pass
+                else:
+                    raise GsxtReportError("详情页未找到 #btn_send_pdf")
+
             await target.click("#btn_send_pdf")
 
             done = await _wait_captcha_success(
