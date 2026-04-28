@@ -1796,7 +1796,7 @@ class CourtZxfwGuaranteeService:
                     [['证件号码', '身份证号码'], naturalId],
                     [['出生日期', '出生年月日'], defaults.birth_date || '1990-01-01'],
                     [['年龄'], defaults.age || '36'],
-                    [['手机号码'], defaults.phone || '13800000000'],
+                    [['手机号码'], defaults.phone || '13800000000'  // pragma: allowlist secret],
                     [['经常居住地', '住所地', '地址'], defaults.address || '广东省广州市天河区测试地址1号'],
                 ];
                 const legalMap = [
@@ -1804,7 +1804,7 @@ class CourtZxfwGuaranteeService:
                     [['证照号码', '统一社会信用代码'], defaults.license_number || defaults.id_number || '91440101MA59TEST8X'],
                     [['法定代表人'], defaults.legal_representative || '张三'],
                     [['主要负责人'], defaults.principal || defaults.legal_representative || '张三'],
-                    [['手机号码'], defaults.phone || '13800000000'],
+                    [['手机号码'], defaults.phone || '13800000000'  // pragma: allowlist secret],
                     [['单位地址', '住所地', '地址'], defaults.unit_address || defaults.address || '广东省广州市天河区测试地址1号'],
                 ];
                 const commonMap = [
@@ -1817,7 +1817,7 @@ class CourtZxfwGuaranteeService:
                     [['代理人姓名', '姓名'], defaults.name || '张三'],
                     [['执业证件号码'], defaults.license_number || ''],
                     [['证件号码', '身份证号码'], defaults.id_number || defaultNaturalId],
-                    [['手机号码'], defaults.phone || '13800000000'],
+                    [['手机号码'], defaults.phone || '13800000000'  // pragma: allowlist secret],
                     [['代理人所在律所'], defaults.law_firm || ''],
                 ];
 
@@ -1840,7 +1840,7 @@ class CourtZxfwGuaranteeService:
                     [['证件号码', '身份证号码'], /^\d{17}[\dXx]$/.test((defaults.id_number || '').trim()) ? (defaults.id_number || '').trim() : defaultNaturalId],
                     [['证照号码', '统一社会信用代码'], '91440101MA59TEST8X'],
                     [['法定代表人', '主要负责人'], defaults.legal_representative || '张三'],
-                    [['手机号码'], defaults.phone || '13800000000'],
+                    [['手机号码'], defaults.phone || '13800000000'  // pragma: allowlist secret],
                     [['代理人所在律所'], defaults.law_firm || ''],
                     [['出生日期', '出生年月日'], defaults.birth_date || '1990-01-01'],
                     [['年龄'], defaults.age || '36'],
