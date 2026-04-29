@@ -34,6 +34,7 @@ class SystemConfig(models.Model):
         ENTERPRISE_DATA = "enterprise_data", _("企业数据配置")
         SCRAPER = "scraper", _("爬虫配置")
         OCR = "ocr", _("OCR 服务配置")
+        EMAIL = "email", _("邮件配置")
         GENERAL = "general", _("通用配置")
 
     key = models.CharField(

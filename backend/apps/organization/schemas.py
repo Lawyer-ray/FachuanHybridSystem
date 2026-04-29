@@ -150,3 +150,34 @@ AccountCredentialOut.model_rebuild()
 LawyerOut.model_rebuild()
 LoginIn.model_rebuild()
 LoginOut.model_rebuild()
+
+
+# ============================================================
+# 密码重置相关 Schema
+# ============================================================
+
+
+class PasswordResetRequestIn(Schema):
+    """请求密码重置"""
+    email: str
+
+
+class PasswordResetVerifyIn(Schema):
+    """验证重置 token"""
+    uid: str
+    token: str
+
+
+class PasswordResetConfirmIn(Schema):
+    """确认密码重置"""
+    uid: str
+    token: str
+    new_password: str
+    confirm_password: str
+
+
+class PasswordResetOut(Schema):
+    """密码重置响应"""
+    success: bool
+    message: str
+    data: dict | None = None

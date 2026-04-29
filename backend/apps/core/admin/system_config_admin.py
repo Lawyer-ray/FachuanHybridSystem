@@ -60,6 +60,7 @@ class SystemConfigAdmin(admin.ModelAdmin[SystemConfig]):
             "enterprise_data": "#0f766e",
             "scraper": "#ff9800",
             "ocr": "#009688",
+            "email": "#2196f3",
             "general": "#607d8b",
         }
         color = colors.get(obj.category, "#607d8b")

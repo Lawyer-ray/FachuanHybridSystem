@@ -229,3 +229,6 @@ prototypes/
 
 # Playwright 报告
 playwright-report/
+
+# Claude Code
+.claude/

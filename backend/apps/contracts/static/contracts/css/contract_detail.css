@@ -155,6 +155,21 @@
     cursor: pointer;
     position: relative;
     transition: color 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* 桌面端：隐藏图标和短标签，仅显示完整文字 */
+.tab-icon,
+.tab-label-short {
+    display: none;
+}
+
+.tab-icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
 }
 
 .tab-nav button:hover {
@@ -1088,13 +1103,30 @@
     }
 
     .tab-nav {
-        flex-wrap: wrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none; /* Firefox */
+        flex-wrap: nowrap;
         padding: 0 8px;
     }
-
+    .tab-nav::-webkit-scrollbar {
+        display: none;
+    }
     .tab-nav button {
+        white-space: nowrap;
+        flex-shrink: 0;
         padding: 12px 14px;
         font-size: 13px;
+    }
+    /* 窄屏：显示图标+短文字，隐藏完整文字 */
+    .tab-icon {
+        display: block;
+    }
+    .tab-label {
+        display: none;
+    }
+    .tab-label-short {
+        display: inline;
     }
 
     .info-grid.two-columns {
@@ -1176,6 +1208,38 @@
     .modal-dialog {
         width: 95%;
         max-height: 90vh;
+    }
+}
+
+@media (max-width: 480px) {
+    .contract-title {
+        font-size: 18px;
+    }
+    .contract-detail-page {
+        padding: 8px;
+    }
+    .detail-header {
+        padding: 12px;
+        border-radius: 8px;
+    }
+    .tab-panel {
+        border-radius: 8px;
+    }
+    .tab-nav button {
+        padding: 10px 10px;
+        font-size: 13px;
+        gap: 4px;
+    }
+    .tab-icon {
+        width: 14px;
+        height: 14px;
+    }
+    .header-actions {
+        flex-direction: column;
+        gap: 8px;
+    }
+    .header-actions .btn {
+        text-align: center;
     }
 }
 

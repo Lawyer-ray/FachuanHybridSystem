@@ -22,12 +22,15 @@ function contractDetailApp(config = {}) {
 
     return {
         // 当前激活的标签页
-        activeTab: localStorage.getItem(storageKey) || 'basic',
+        activeTab: (() => {
+            const saved = localStorage.getItem(storageKey);
+            // 'parties' tab已合并到'basic'，回退到'basic'
+            return (saved && saved !== 'parties') ? saved : 'basic';
+        })(),
 
         // Tab 懒加载状态
         tabsLoaded: {
             basic: true,
-            parties: true,
             finance: true,
             filing: true,
             documents: false,
