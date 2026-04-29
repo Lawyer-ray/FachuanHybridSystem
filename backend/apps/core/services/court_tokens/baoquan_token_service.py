@@ -1,6 +1,7 @@
 """Business logic services."""
 
 import logging
+import os
 
 from asgiref.sync import sync_to_async
 
@@ -79,7 +80,9 @@ class BaoquanTokenService:
             anti_detection = get_anti_detection()
 
             with sync_playwright() as p:
-                browser = p.chromium.launch(headless=False)
+                # Docker/NAS 环境通常没有 XServer，缺少 DISPLAY 时自动走无头模式。
+                headless = not bool(os.environ.get("DISPLAY"))
+                browser = p.chromium.launch(headless=headless)
                 context_options = anti_detection.get_browser_context_options()
                 context = browser.new_context(**context_options)
                 page = context.new_page()
