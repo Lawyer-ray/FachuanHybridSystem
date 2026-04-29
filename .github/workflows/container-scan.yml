@@ -41,7 +41,7 @@ jobs:
 
       - name: Scan image (os + library)
         if: hashFiles('backend/deploy/docker/Dockerfile') != ''
-        uses: aquasecurity/trivy-action@0.36.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: "fachuan-backend:ci"
           format: "table"
