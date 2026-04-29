@@ -49,8 +49,8 @@ class TelegramTokenMixin:
             if not db_configs:
                 return {}
             key_mapping = {
-                "TELEGRAM_BOT_TOKEN": "BOT_TOKEN",
-                "TELEGRAM_SUPERGROUP_ID": "SUPERGROUP_ID",
+                "chat_platforms.telegram.bot_token": "BOT_TOKEN",
+                "chat_platforms.telegram.supergroup_id": "SUPERGROUP_ID",
             }
             config = {internal: db_configs[db] for db, internal in key_mapping.items() if db_configs.get(db)}
             logger.debug(f"从 SystemConfig 加载 Telegram 配置: {list(config.keys())}")

@@ -118,7 +118,7 @@ def get_telegram_category_configs() -> dict[str, Any]:
     批量获取 Telegram 分类配置
 
     Returns:
-        Telegram 配置字典，key 为 DB 键名（如 TELEGRAM_BOT_TOKEN），value 为配置值
+        Telegram 配置字典，key 为 DB 键名（如 chat_platforms.telegram.bot_token），value 为配置值
     """
     try:
         from apps.core.services.system_config_service import SystemConfigService
