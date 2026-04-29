@@ -315,6 +315,33 @@
     color: #1a1a1a;
 }
 
+.case-number-doc-name {
+    font-size: 12px;
+    color: #6b7280;
+    margin-left: 8px;
+}
+
+.case-number-active-badge,
+.case-number-inactive-badge {
+    display: inline-block;
+    font-size: 11px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    margin-left: 6px;
+    font-weight: 500;
+    vertical-align: middle;
+}
+
+.case-number-active-badge {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.case-number-inactive-badge {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
 .remarks {
     display: block;
     font-size: 12px;

@@ -80,6 +80,7 @@ class FinalizedMaterialInline(BaseTabularInline):
     extra = 1
     fields: ClassVar = ("file", "category", "filename_link", "uploaded_at")
     readonly_fields: ClassVar = ("filename_link", "uploaded_at")
+    classes = ("collapse",)
 
     @admin.display(description=_("原始文件名"))
     def filename_link(self, obj: FinalizedMaterial) -> str:
@@ -134,6 +135,7 @@ class SupplementaryAgreementInline(BaseStackedInline):
     extra = 0
     fields = ("name",)
     show_change_link = True
+    classes = ("collapse",)
 
 
 # 如果支持嵌套 Admin，添加当事人内联到补充协议
@@ -197,12 +199,55 @@ class ContractAdmin(
         "fixed_amount",
         "risk_rate",
     )
-    list_filter = ("case_type", "status", "fee_mode")
-    search_fields = ("name",)
-    readonly_fields = ("get_primary_lawyer_display", "filing_number")
+    list_filter = ("case_type", "status", "fee_mode", "is_filed", ("specified_date", admin.DateFieldListFilter))
+    search_fields = ("name", "filing_number", "contract_parties__client__name")
+    date_hierarchy = "specified_date"
+    readonly_fields = ("get_primary_lawyer_display", "filing_number", "get_matched_template_display", "get_matched_folder_templates_display")
+    fieldsets = (
+        (
+            _("基本信息"),
+            {
+                "fields": ("name", "case_type", "status", "specified_date", "start_date", "end_date"),
+            },
+        ),
+        (
+            _("收费信息"),
+            {
+                "fields": ("fee_mode", "fixed_amount", "risk_rate", "custom_terms"),
+            },
+        ),
+        (
+            _("建档信息"),
+            {
+                "fields": ("is_filed", "filing_number"),
+                "classes": ("collapse",),
+            },
+        ),
+        (
+            _("代理阶段"),
+            {
+                "fields": ("representation_stages",),
+                "classes": ("collapse",),
+            },
+        ),
+        (
+            _("律所OA信息"),
+            {
+                "fields": ("law_firm_oa_url", "law_firm_oa_case_number"),
+                "classes": ("collapse",),
+            },
+        ),
+        (
+            _("归档设置"),
+            {
+                "fields": ("compact_archive",),
+                "classes": ("collapse",),
+            },
+        ),
+    )
     export_model_name = "contract"
     import_required_fields = ("name",)
-    actions = ["export_selected_as_json", "export_all_as_json"]
+    actions = ["export_selected_as_json", "export_all_as_json", "archive_selected_contracts", "file_selected_contracts"]
 
     inlines: ClassVar = [
         ContractPartyInline,
@@ -217,15 +262,48 @@ class ContractAdmin(
     change_form_template = "admin/contracts/contract/change_form.html"
     change_list_template = "admin/contracts/contract/change_list.html"
 
+    @admin.action(description=_("批量归档选中合同"))
+    def archive_selected_contracts(self, request: HttpRequest, queryset: Any) -> None:
+        from apps.core.interfaces import ServiceLocator
+
+        case_service = ServiceLocator.get_case_service()
+        updated = 0
+        for contract in queryset.exclude(status=ContractStatus.ARCHIVED):
+            contract.status = ContractStatus.ARCHIVED
+            contract.save(update_fields=["status"])
+            closed = case_service.close_cases_by_contract_internal(contract.id)
+            if closed:
+                logger.info("批量归档: 合同 %s 自动结案 %d 个关联案件", contract.id, closed)
+            updated += 1
+        self.message_user(request, _("已归档 %(count)d 个合同") % {"count": updated})
+
+    @admin.action(description=_("批量建档选中合同"))
+    def file_selected_contracts(self, request: HttpRequest, queryset: Any) -> None:
+        from apps.contracts.admin.wiring_admin import get_contract_admin_service
+
+        service = get_contract_admin_service()
+        updated = 0
+        for contract in queryset.filter(is_filed=False):
+            filing_number = service.handle_contract_filing_change(contract_id=contract.id, is_filed=True)
+            if filing_number:
+                contract.filing_number = filing_number
+                contract.is_filed = True
+                contract.save(update_fields=["is_filed", "filing_number"])
+                updated += 1
+        self.message_user(request, _("已建档 %(count)d 个合同") % {"count": updated})
+
     def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> Any:
         from django.http import HttpResponseRedirect
 
         if "status__exact" not in request.GET:
             return HttpResponseRedirect(f"{request.path}?status__exact=active")
+        # 保存筛选状态到 session，供详情页"返回列表"使用
+        if request.GET:
+            request.session["contract_changelist_filters"] = request.GET.urlencode()
         return super().changelist_view(request, extra_context=extra_context)
 
     def get_queryset(self, request: HttpRequest) -> Any:
-        return super().get_queryset(request).prefetch_related("assignments__lawyer", "contract_parties__client")
+        return super().get_queryset(request).prefetch_related("assignments__lawyer")
 
     def get_urls(self) -> list[Any]:
         from django.urls import path as urlpath
@@ -276,6 +354,11 @@ class ContractAdmin(
                 "oa-sync/save/",
                 self.admin_site.admin_view(self.oa_sync_save_view),
                 name="contracts_contract_oa_sync_save",
+            ),
+            urlpath(
+                "jtn-oa-import/",
+                self.admin_site.admin_view(self.jtn_oa_import_view),
+                name="contracts_contract_jtn_oa_import",
             ),
         ]
         return custom + urls  # type: ignore[no-any-return]
@@ -343,6 +426,22 @@ class ContractAdmin(
             }
         )
         return TemplateResponse(request, "admin/contracts/contract/oa_sync.html", context)
+
+    def jtn_oa_import_view(self, request: HttpRequest) -> TemplateResponse:
+        """金诚同达OA导入独立页面 - 与列表页解耦，方便未来替换为其他律所OA"""
+        if not self.has_change_permission(request):
+            from django.core.exceptions import PermissionDenied
+
+            raise PermissionDenied
+
+        context = self.admin_site.each_context(request)
+        context.update(
+            {
+                "title": _("从金诚同达OA导入案件"),
+                "opts": self.model._meta,
+            }
+        )
+        return TemplateResponse(request, "admin/contracts/contract/jtn_oa_import.html", context)
 
     def oa_sync_start_view(self, request: HttpRequest) -> JsonResponse:
         if request.method != "POST":

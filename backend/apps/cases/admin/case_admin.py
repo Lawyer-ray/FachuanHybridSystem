@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from django.contrib import admin
 from django.http import HttpRequest
+from django.utils.translation import gettext_lazy as _
 
 from apps.cases.admin.base_admin import BaseModelAdmin, BaseStackedInline, BaseTabularInline
 from apps.cases.admin.case_chat_admin import CaseChatInline
@@ -173,6 +174,56 @@ class CaseAdmin(
 ):
     form = CaseAdminForm
     autocomplete_fields = ["contract"]
+    fieldsets = (
+        (
+            None,
+            {
+                "fields": (
+                    "contract",
+                    "name",
+                    "case_type",
+                    "status",
+                    "cause_of_action",
+                )
+            },
+        ),
+        (
+            _("阶段与建档"),
+            {
+                "fields": (
+                    "current_stage",
+                    "is_filed",
+                    "filing_number",
+                    "effective_date",
+                    "specified_date",
+                ),
+            },
+        ),
+        (
+            _("金额信息"),
+            {
+                "classes": ("collapse",),
+                "fields": (
+                    "target_amount",
+                    "preservation_amount",
+                ),
+            },
+        ),
+    )
+    list_display = ("id_link", "name_link", "case_type_display", "current_stage_display", "assigned_lawyers", "status", "start_date")
+    list_display_links = None
+    list_filter = ("status", "case_type", "current_stage")
+    search_fields = ("name", "filing_number", "case_numbers__number", "cause_of_action")
+    ordering = ("-start_date",)
+    change_form_template = "admin/cases/case/change_form.html"
+    readonly_fields = ("filing_number",)
+    export_model_name = "case"
+    import_required_fields = ("name",)
+    actions = ["create_feishu_chat_for_selected_cases", "mark_as_closed", "mark_as_active", "export_selected_as_json", "export_all_as_json"]
+
+    def get_queryset(self, request: HttpRequest) -> QuerySet[Case]:
+        qs = super().get_queryset(request)
+        return qs.prefetch_related("assignments__lawyer")
 
     def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> Any:
         from django.http import HttpResponseRedirect
@@ -180,15 +231,6 @@ class CaseAdmin(
         if "status__exact" not in request.GET:
             return HttpResponseRedirect(f"{request.path}?status__exact=active")
         return super().changelist_view(request, extra_context=extra_context)
-    list_display = ("id_link", "name_link", "status", "start_date")
-    list_display_links = None
-    list_filter = ("status",)
-    search_fields = ("name",)
-    change_form_template = "admin/cases/case/change_form.html"
-    readonly_fields = ("filing_number",)
-    export_model_name = "case"
-    import_required_fields = ("name",)
-    actions = ["create_feishu_chat_for_selected_cases", "export_selected_as_json", "export_all_as_json"]
 
     class Media:
         js = (
@@ -205,8 +247,8 @@ class CaseAdmin(
         CaseAssignmentInline,
         SupervisingAuthorityInline,
         CaseNumberInline,
-        CaseLogInline,
         CaseChatInline,
+        CaseLogInline,
     ]
 
     def handle_json_import(

@@ -33,6 +33,10 @@
                     <dd>{% if case.target_amount %}¥{{ case.target_amount|floatformat:2 }}{% else %}{% trans "未设置" %}{% endif %}</dd>
                 </div>
                 <div class="info-item">
+                    <dt>{% trans "财产保全金额" %}</dt>
+                    <dd>{% if case.preservation_amount %}¥{{ case.preservation_amount|floatformat:2 }}{% else %}{% trans "未设置" %}{% endif %}</dd>
+                </div>
+                <div class="info-item">
                     <dt>{% trans "当前阶段" %}</dt>
                     <dd>{{ case.get_current_stage_display|default:_("未设置") }}</dd>
                 </div>
@@ -94,6 +98,14 @@
                 {% for cn in case.case_numbers.all %}
                 <li>
                     <span class="case-number">{{ cn.number }}</span>
+                    {% if cn.document_name %}
+                    <span class="case-number-doc-name">{{ cn.document_name }}</span>
+                    {% endif %}
+                    {% if cn.is_active %}
+                    <span class="case-number-active-badge">{% trans "生效" %}</span>
+                    {% else %}
+                    <span class="case-number-inactive-badge">{% trans "未生效" %}</span>
+                    {% endif %}
                     {% if cn.remarks %}
                     <span class="remarks">{{ cn.remarks }}</span>
                     {% endif %}

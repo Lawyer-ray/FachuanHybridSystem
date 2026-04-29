@@ -3,14 +3,14 @@
 
 {% block extrahead %}
 {{ block.super }}
-<link rel="stylesheet" type="text/css" href="{% static 'contracts/css/contract_detail.css' %}?v=20260228a">
+<link rel="stylesheet" type="text/css" href="{% static 'contracts/css/contract_detail.css' %}?v=20260429a">
 {% endblock %}
 
 {% block breadcrumbs %}
 <div class="breadcrumbs">
     <a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
     › <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
-    › <a href="{% url 'admin:contracts_contract_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+    › <a href="{% url 'admin:contracts_contract_changelist' %}{{ changelist_filter_querystring }}">{{ opts.verbose_name_plural|capfirst }}</a>
     › {{ contract.name }}
 </div>
 {% endblock %}
@@ -41,7 +41,7 @@
             </span>
         </div>
         <div class="header-actions">
-            <a href="{% url 'admin:contracts_contract_changelist' %}" class="btn btn-secondary">← {% trans "返回列表" %}</a>
+            <a href="{% url 'admin:contracts_contract_changelist' %}{{ changelist_filter_querystring }}" class="btn btn-secondary">← {% trans "返回列表" %}</a>
             {% if has_change_permission %}
             <a href="{% url 'admin:contracts_contract_change' contract.pk %}" class="btn btn-primary">{% trans "编辑" %}</a>
             {% endif %}
@@ -51,21 +51,34 @@
     <!-- Tab Panel -->
     <div class="tab-panel">
         <nav class="tab-nav">
-            <button type="button" @click="activeTab = 'basic'" :class="{ active: activeTab === 'basic' }">{% trans "基本信息" %}</button>
-            <button type="button" @click="activeTab = 'parties'" :class="{ active: activeTab === 'parties' }">{% trans "当事人与律师" %}</button>
-            <button type="button" @click="activeTab = 'finance'" :class="{ active: activeTab === 'finance' }">{% trans "收费与财务" %}</button>
-            <button type="button" @click="activeTab = 'filing'" :class="{ active: activeTab === 'filing' }">{% translate "立案" %}</button>
-            <button type="button" @click="activeTab = 'documents'" :class="{ active: activeTab === 'documents' }">{% trans "文档与提醒" %}</button>
-            <button type="button" @click="activeTab = 'finalized'" :class="{ active: activeTab === 'finalized' }">{% translate "归档" %}</button>
+            <button type="button" @click="switchTab('basic')" :class="{ active: activeTab === 'basic' }">{% trans "基本信息" %}</button>
+            <button type="button" @click="switchTab('parties')" :class="{ active: activeTab === 'parties' }">{% trans "当事人与律师" %}</button>
+            <button type="button" @click="switchTab('finance')" :class="{ active: activeTab === 'finance' }">{% trans "收费与财务" %}</button>
+            <button type="button" @click="switchTab('filing')" :class="{ active: activeTab === 'filing' }">{% translate "立案" %}</button>
+            <button type="button" @click="switchTab('documents')" :class="{ active: activeTab === 'documents' }">{% trans "文档与提醒" %}</button>
+            <button type="button" @click="switchTab('finalized')" :class="{ active: activeTab === 'finalized' }">{% translate "归档" %}</button>
         </nav>
 
         <div class="tab-content">
+            <!-- 轻量 Tab: 直接 include -->
             {% include "admin/contracts/contract/partials/basic_info.html" %}
             {% include "admin/contracts/contract/partials/parties_lawyers.html" %}
             {% include "admin/contracts/contract/partials/finance.html" %}
-            {% include "admin/contracts/contract/partials/documents.html" %}
-            {% include "admin/contracts/contract/partials/finalized_materials.html" %}
             {% include "admin/contracts/contract/partials/filing.html" %}
+
+            <!-- 重量 Tab: 懒加载 -->
+            <div x-show="activeTab === 'documents'" x-cloak>
+                <div x-show="!tabsLoaded.documents" style="text-align: center; padding: 40px;">
+                    <span class="spinner"></span> {% trans "加载中..." %}
+                </div>
+                <div x-ref="documentsContent" x-show="tabsLoaded.documents"></div>
+            </div>
+            <div x-show="activeTab === 'finalized'" x-cloak>
+                <div x-show="!tabsLoaded.finalized" style="text-align: center; padding: 40px;">
+                    <span class="spinner"></span> {% trans "加载中..." %}
+                </div>
+                <div x-ref="finalizedContent" x-show="tabsLoaded.finalized"></div>
+            </div>
         </div>
     </div>
 
@@ -198,7 +211,8 @@
     </div>
 </div>
 
-<script src="{% static 'contracts/js/contract_detail.js' %}?v=20260422a"></script>
+<script src="{% static 'contracts/js/contract_detail.js' %}?v=20260429a"></script>
+<script src="{% static 'contracts/js/jtn_oa_filing.js' %}?v=20260429b"></script>
 <script src="{% static 'contracts/js/folder_scan.js' %}?v=20260422a"></script>
 <script>
 function partiesDrawer() {

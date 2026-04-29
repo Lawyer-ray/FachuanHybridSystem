@@ -86,6 +86,27 @@ class CaseAdminViewsMixin:
     name_link.short_description = _("案件名称")  # type: ignore[attr-defined]
     name_link.admin_order_field = "name"  # type: ignore[attr-defined]
 
+    def case_type_display(self, obj: Case) -> str:
+        return obj.get_case_type_display() or "-"
+
+    case_type_display.short_description = _("案件类型")  # type: ignore[attr-defined]
+    case_type_display.admin_order_field = "case_type"  # type: ignore[attr-defined]
+
+    def current_stage_display(self, obj: Case) -> str:
+        return obj.get_current_stage_display() or "-"
+
+    current_stage_display.short_description = _("当前阶段")  # type: ignore[attr-defined]
+    current_stage_display.admin_order_field = "current_stage"  # type: ignore[attr-defined]
+
+    def assigned_lawyers(self, obj: Case) -> str:
+        lawyers = []
+        for assignment in obj.assignments.all():
+            lawyer = assignment.lawyer
+            lawyers.append(lawyer.real_name if lawyer.real_name else str(lawyer.id))
+        return ", ".join(lawyers) if lawyers else "-"
+
+    assigned_lawyers.short_description = _("承办律师")  # type: ignore[attr-defined]
+
     def get_urls(self) -> list[URLPattern]:
         # 直接调用admin.ModelAdmin.get_urls，避免Mixin继承链问题
         # Mixin没有定义get_urls时super()会找不到方法

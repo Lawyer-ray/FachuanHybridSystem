@@ -265,6 +265,11 @@ class ContractDisplayMixin:
                 self.admin_site.admin_view(self.open_folder_view),
                 name="contracts_contract_open_folder",
             ),
+            path(
+                "<int:object_id>/tab/<str:tab_name>/",
+                self.admin_site.admin_view(self.tab_lazy_load_view),
+                name="contracts_contract_tab_lazy_load",
+            ),
         ]
         return custom_urls + urls
 
@@ -295,6 +300,9 @@ class ContractDisplayMixin:
 
         # 构建上下文
         context = self.admin_site.each_context(request)
+        # 从 session 读取列表页筛选参数，供"返回列表"链接使用
+        changelist_qs = request.session.get("contract_changelist_filters", "")
+        changelist_filter_querystring = f"?{changelist_qs}" if changelist_qs else ""
         context.update(
             {
                 "contract": contract,
@@ -302,6 +310,7 @@ class ContractDisplayMixin:
                 "opts": self.model._meta,
                 "has_change_permission": self.has_change_permission(request, contract),
                 "has_view_permission": self.has_view_permission(request, contract),
+                "changelist_filter_querystring": changelist_filter_querystring,
                 # 传递模板需要的额外数据
                 "primary_lawyer": self._get_primary_lawyer_obj(contract),
                 "contract_parties": contract.contract_parties.all(),
@@ -972,3 +981,57 @@ class ContractDisplayMixin:
         except Exception as e:
             logger.exception("打开文件夹失败: contract_id=%s", object_id)
             return JsonResponse({"success": False, "error": str(e)}, status=500)
+
+    def tab_lazy_load_view(self, request: HttpRequest, object_id: int, tab_name: str) -> HttpResponse:
+        """Tab 懒加载视图 - 首次切换时 AJAX 获取重内容 Tab"""
+        from django.template.loader import render_to_string
+
+        if not self.has_view_permission(request):
+            raise PermissionDenied
+
+        valid_tabs = {"documents", "finalized"}
+        if tab_name not in valid_tabs:
+            return HttpResponse("无效的标签页", status=400)
+
+        admin_service = _get_contract_admin_service()
+        try:
+            contract = admin_service.query_service.get_contract_detail(object_id)
+        except NotFoundError:
+            raise Http404(_("合同不存在")) from None
+
+        ctx_data = admin_service.get_contract_detail_context(contract.id)
+
+        template_map = {
+            "documents": "admin/contracts/contract/partials/documents.html",
+            "finalized": "admin/contracts/contract/partials/finalized_materials.html",
+        }
+
+        # 构建模板上下文
+        context = {
+            "contract": contract,
+            "opts": self.model._meta,
+            "has_change_permission": self.has_change_permission(request, contract),
+            "has_view_permission": self.has_view_permission(request, contract),
+            "primary_lawyer": self._get_primary_lawyer_obj(contract),
+            "reminders": _get_contract_detail_reminders(contract),
+            "supplementary_agreements": ctx_data["supplementary_agreements"],
+            "folder_binding": getattr(contract, "folder_binding", None),
+            "has_contract_template": ctx_data["has_contract_template"],
+            "has_folder_template": ctx_data["has_folder_template"],
+            "contract_template_display": ctx_data.get("contract_template_display", ""),
+            "folder_template_display": ctx_data.get("folder_template_display", ""),
+            "contract_templates_list": ctx_data.get("contract_templates_list", []),
+            "folder_templates_list": ctx_data.get("folder_templates_list", []),
+            "has_supplementary_agreements": ctx_data["has_supplementary_agreements"],
+            "related_cases": ctx_data["related_cases"],
+            "finalized_materials": ctx_data["finalized_materials"],
+            "finalized_materials_grouped": ctx_data["finalized_materials_grouped"],
+            "archive_checklist": ctx_data.get("archive_checklist", {}),
+            "archive_code_to_template": ctx_data.get("archive_code_to_template", {}),
+            "media_url": getattr(__import__("django.conf", fromlist=["settings"]).settings, "MEDIA_URL", "/media/"),
+            "today": ctx_data["today"],
+            "soon_due_date": ctx_data["soon_due_date"],
+        }
+
+        html = render_to_string(template_map[tab_name], context, request=request)
+        return HttpResponse(html)

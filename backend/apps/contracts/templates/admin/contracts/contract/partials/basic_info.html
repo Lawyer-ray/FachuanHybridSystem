@@ -81,6 +81,9 @@
                         <a href="{{ case.detail_url }}" class="case-link">
                             <span class="case-name">{{ case.name }}</span>
                         </a>
+                        {% if case.case_number %}
+                        <span class="case-number">{{ case.case_number }}</span>
+                        {% endif %}
                         <span class="case-status status-badge status-{{ case.status }}">{{ case.status_display }}</span>
                         <span class="case-cause">{{ case.cause_of_action }}</span>
                         <span class="case-lawyer">{{ case.primary_lawyer }}</span>

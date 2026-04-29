@@ -12,7 +12,7 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import Case
 from apps.core.exceptions import ChatProviderException
-from apps.core.models.enums import ChatPlatform
+from apps.core.models.enums import CaseStatus, ChatPlatform
 
 from .service import CaseAdminServiceMixin
 
@@ -86,6 +86,24 @@ class CaseAdminActionsMixin(CaseAdminServiceMixin):
             messages.error(request, _("总计 %d 个案件创建群聊失败") % error_count)
 
     create_feishu_chat_for_selected_cases.short_description = _("为选中案件创建飞书群聊")  # type: ignore[attr-defined]
+
+    def mark_as_closed(self, request: HttpRequest, queryset: QuerySet[Case, Case]) -> None:
+        updated = queryset.filter(status=CaseStatus.ACTIVE).update(status=CaseStatus.CLOSED)
+        if updated:
+            messages.success(request, _("已将 %d 个案件标记为已结案") % updated)
+        else:
+            messages.info(request, _("选中的案件均已结案，无需更新"))
+
+    mark_as_closed.short_description = _("标记为已结案")  # type: ignore[attr-defined]
+
+    def mark_as_active(self, request: HttpRequest, queryset: QuerySet[Case, Case]) -> None:
+        updated = queryset.filter(status=CaseStatus.CLOSED).update(status=CaseStatus.ACTIVE)
+        if updated:
+            messages.success(request, _("已将 %d 个案件恢复为在办") % updated)
+        else:
+            messages.info(request, _("选中的案件均在办，无需更新"))
+
+    mark_as_active.short_description = _("恢复为在办")  # type: ignore[attr-defined]
 
 
 __all__: list[str] = ["CaseAdminActionsMixin"]

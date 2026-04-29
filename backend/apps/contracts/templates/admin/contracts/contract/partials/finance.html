@@ -119,6 +119,10 @@
             {% if payments %}
             <span style="margin-left: auto; font-size: 12px; color: #6b7280;">{{ payments|length }} {% trans "笔" %} · {% trans "累计" %} ¥{{ total_payment_amount|floatformat:2|default:"0.00" }}</span>
             {% endif %}
+            <a href="{% url 'admin:contracts_contract_change' contract.pk %}#contractpayments_set-group"
+               class="btn btn-primary" style="margin-left: 12px; padding: 4px 12px; font-size: 12px;">
+                + {% trans "添加收款" %}
+            </a>
         </div>
         {% if payments %}
         <div class="payment-list">
@@ -161,6 +165,10 @@
                 {% trans "累计" %} ¥{{ total_client_payment|floatformat:2 }}
             </span>
             {% endif %}
+            <a href="{% url 'admin:contracts_contract_change' contract.pk %}#clientpaymentrecord_set-group"
+               class="btn btn-primary" style="margin-left: 12px; padding: 4px 12px; font-size: 12px;">
+                + {% trans "添加回款" %}
+            </a>
         </div>
         {% if client_payments %}
         <div class="payment-list">
