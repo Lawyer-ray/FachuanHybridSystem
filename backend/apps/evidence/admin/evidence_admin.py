@@ -98,7 +98,7 @@ class EvidenceListAdmin(
     list_select_related: tuple[Any, ...] = ("case", "created_by")
 
     def get_queryset(self, request: Any) -> QuerySet:
-        return super().get_queryset(request).annotate(item_count=Count("items"))  # type: ignore[return-value]
+        return super().get_queryset(request).annotate(item_count=Count("items"))  # type: ignore[no-any-return]
 
     @admin.display(description=_("开庭"))
     def hearing_mode_link(self, obj: EvidenceList) -> str:

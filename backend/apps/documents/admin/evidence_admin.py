@@ -93,7 +93,7 @@ class EvidenceListAdmin(
     list_select_related: tuple[Any, ...] = ("case", "created_by")
 
     def get_queryset(self, request: Any) -> QuerySet:
-        return super().get_queryset(request).annotate(item_count=Count("items"))  # type: ignore[return-value]
+        return super().get_queryset(request).annotate(item_count=Count("items"))  # type: ignore[no-any-return]
 
     class Media:
         css: ClassVar = {"all": ("documents/css/evidence_admin.css",)}
