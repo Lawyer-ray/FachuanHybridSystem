@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import time
 import uuid
@@ -219,7 +220,9 @@ class JtnFilingScript:
         pw = sync_playwright().start()
         browser = None
         try:
-            browser = pw.chromium.launch(headless=False)
+            # Docker/NAS 环境通常没有 XServer，缺少 DISPLAY 时自动走无头模式。
+            _headless = not bool(os.environ.get("DISPLAY"))
+            browser = pw.chromium.launch(headless=_headless)
             self._context = browser.new_context()
 
             # 应用 playwright-stealth 反检测

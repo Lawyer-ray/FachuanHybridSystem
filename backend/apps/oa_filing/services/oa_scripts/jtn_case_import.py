@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -507,7 +508,9 @@ class JtnCaseImportScript:
         pw = sync_playwright().start()
         browser: Browser | None = None
         try:
-            browser = pw.chromium.launch(headless=False)
+            # Docker/NAS 环境通常没有 XServer，缺少 DISPLAY 时自动走无头模式。
+            _headless = not bool(os.environ.get("DISPLAY"))
+            browser = pw.chromium.launch(headless=_headless)
             context = browser.new_context()
             page = context.new_page()
             page.goto(target_url, wait_until="domcontentloaded", timeout=60_000)

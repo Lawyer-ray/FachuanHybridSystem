@@ -209,7 +209,7 @@ class ContractOASyncService:
             script = JtnCaseImportScript(
                 account=credential.account,
                 password=credential.password,
-                headless=False,
+                headless=not bool(os.environ.get("DISPLAY")),
             )
             ensure_name_search_ready = getattr(script, "ensure_name_search_ready", None)
             if callable(ensure_name_search_ready):

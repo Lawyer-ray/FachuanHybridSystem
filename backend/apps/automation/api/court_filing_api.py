@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import re
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -62,6 +63,7 @@ _SLOT_RULES: dict[str, dict[str, dict[str, tuple[str, ...]]]] = {
                 "授权委托",
                 "委托代理",
                 "委托手续",
+                "委托材料",
                 "律师执业证",
                 "执业证",
                 "律师证",
@@ -74,7 +76,7 @@ _SLOT_RULES: dict[str, dict[str, dict[str, tuple[str, ...]]]] = {
         "3": {
             "strong": ("证据目录", "证据清单", "证据明细", "证据材料"),
             "weak": ("证据", "证明材料", "聊天记录", "转账记录", "录音"),
-            "exclude": ("身份证明", "授权委托书"),
+            "exclude": ("身份证明", "授权委托书", "委托材料"),
         },
         "4": {
             "strong": ("送达地址确认书", "送达地址确认", "地址确认书"),
@@ -98,6 +100,8 @@ _SLOT_RULES: dict[str, dict[str, dict[str, tuple[str, ...]]]] = {
                 "授权委托书",
                 "授权委托",
                 "委托代理",
+                "委托手续",
+                "委托材料",
                 "律师执业证",
                 "执业证",
                 "律师证",
@@ -121,7 +125,7 @@ _SLOT_RULES: dict[str, dict[str, dict[str, tuple[str, ...]]]] = {
                 "户口簿",
             ),
             "weak": ("主体资格",),
-            "exclude": ("授权委托书", "送达地址确认书"),
+            "exclude": ("授权委托书", "委托材料", "送达地址确认书"),
         },
         "4": {
             "strong": ("送达地址确认书", "送达地址确认", "地址确认书"),
@@ -661,40 +665,105 @@ def _score_slot_for_signal(
     return score
 
 
-def _build_material_slot_signals(*, material: Any, file_path: Path) -> list[str]:
-    signals: list[str] = []
+def _build_material_slot_signals(*, material: Any, file_path: Path) -> tuple[list[str], list[str]]:
+    """构建材料匹配信号，返回 (主信号列表, 辅信号列表)。
 
-    def _append_signal(raw_text: str) -> None:
+    主信号：type_name、CaseMaterialType.name —— 由用户/系统明确分类，权重最高。
+    辅信号：文件名、路径等 —— 可能含歧义关键词，权重较低且去重。
+    """
+    primary_signals: list[str] = []
+    secondary_signals: list[str] = []
+
+    def _append_primary(raw_text: str) -> None:
         text = _normalize_text(raw_text)
-        if text and text not in signals:
-            signals.append(text)
+        if text and text not in primary_signals:
+            primary_signals.append(text)
 
-    _append_signal(str(material.type_name or ""))
+    def _append_secondary(raw_text: str) -> None:
+        text = _normalize_text(raw_text)
+        if text and text not in secondary_signals:
+            secondary_signals.append(text)
+
+    # 主信号：type_name 和 CaseMaterialType.name
+    _append_primary(str(material.type_name or ""))
 
     material_type = getattr(material, "type", None)
     if material_type is not None:
-        _append_signal(str(getattr(material_type, "name", "") or ""))
+        _append_primary(str(getattr(material_type, "name", "") or ""))
 
-    _append_signal(file_path.name)
-    _append_signal(file_path.stem)
-    _append_signal(file_path.as_posix())
-    _append_signal(file_path.parent.as_posix())
+    # 辅信号：文件名、路径等
+    _append_secondary(file_path.name)
+    _append_secondary(file_path.stem)
+    _append_secondary(file_path.as_posix())
+    _append_secondary(file_path.parent.as_posix())
 
     attachment = getattr(material, "source_attachment", None)
     if attachment is not None:
         attachment_name = str(getattr(getattr(attachment, "file", None), "name", "") or "")
-        _append_signal(attachment_name)
+        _append_secondary(attachment_name)
         attachment_log = getattr(attachment, "log", None)
         if attachment_log is not None:
-            _append_signal(str(getattr(attachment_log, "content", "") or ""))
+            _append_secondary(str(getattr(attachment_log, "content", "") or ""))
 
-    return signals
+    return primary_signals, secondary_signals
+
+
+def _score_slot_deduplicated(
+    *,
+    primary_signals: list[str],
+    secondary_signals: list[str],
+    strong: tuple[str, ...],
+    weak: tuple[str, ...],
+    exclude: tuple[str, ...],
+) -> int:
+    """对槽位评分，主信号权重 ×2，辅信号按关键词去重避免重复计分。
+
+    核心改进：
+    1. 主信号（type_name）得分 ×2，因为这是用户/系统明确分类
+    2. 辅信号（文件名、路径）中相同关键词只计一次最高分，
+       防止 "营业执照" 在文件名+stem+路径中重复计算3次
+    3. 当主信号已强匹配时，辅信号的反向匹配（exclude）也 ×2
+    """
+    if not primary_signals and not secondary_signals:
+        return 0
+
+    score = 0
+
+    # 主信号评分（权重 ×2）
+    for signal in primary_signals:
+        if not signal:
+            continue
+        for keyword in strong:
+            if _normalize_text(keyword) in signal:
+                score += 10  # 5 × 2
+        for keyword in weak:
+            if _normalize_text(keyword) in signal:
+                score += 4  # 2 × 2
+        for keyword in exclude:
+            if _normalize_text(keyword) in signal:
+                score -= 12  # 6 × 2
+
+    # 辅信号评分（按关键词去重：同一关键词在多个辅信号中只计一次最高分）
+    for keyword in strong:
+        norm_kw = _normalize_text(keyword)
+        if any(norm_kw in s for s in secondary_signals):
+            score += 5  # 命中一次即可，不重复
+    for keyword in weak:
+        norm_kw = _normalize_text(keyword)
+        if any(norm_kw in s for s in secondary_signals):
+            score += 2
+    for keyword in exclude:
+        norm_kw = _normalize_text(keyword)
+        if any(norm_kw in s for s in secondary_signals):
+            score -= 6
+
+    return score
 
 
 def _match_slot(*, material: Any, file_path: Path, filing_type: str) -> str:
     rules_by_slot = _SLOT_RULES.get(filing_type) or _SLOT_RULES[_FILING_TYPE_CIVIL]
     default_slot = _DEFAULT_SLOT_BY_FILING_TYPE.get(filing_type, "5")
-    signals = _build_material_slot_signals(material=material, file_path=file_path)
+    primary_signals, secondary_signals = _build_material_slot_signals(material=material, file_path=file_path)
 
     best_slot = default_slot
     best_score = 0
@@ -703,8 +772,12 @@ def _match_slot(*, material: Any, file_path: Path, filing_type: str) -> str:
         strong = rule.get("strong", ())
         weak = rule.get("weak", ())
         exclude = rule.get("exclude", ())
-        slot_score = sum(
-            _score_slot_for_signal(signal=signal, strong=strong, weak=weak, exclude=exclude) for signal in signals
+        slot_score = _score_slot_deduplicated(
+            primary_signals=primary_signals,
+            secondary_signals=secondary_signals,
+            strong=strong,
+            weak=weak,
+            exclude=exclude,
         )
         if slot_score > best_score:
             best_slot = slot
@@ -713,7 +786,7 @@ def _match_slot(*, material: Any, file_path: Path, filing_type: str) -> str:
     if best_score > 0:
         return best_slot
 
-    joined_signal = "".join(signals)
+    joined_signal = "".join(primary_signals + secondary_signals)
     if filing_type == _FILING_TYPE_EXECUTION:
         execution_apply_hits = ("执行申请书", "申请执行书", "强制执行", "申请执行")
         execution_apply_excludes = ("限制高消费", "纳入失信", "公开信息", "出境")
@@ -994,7 +1067,9 @@ def _run_filing(
     )
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False)
+        # Docker/NAS 环境通常没有 XServer，缺少 DISPLAY 时自动走无头模式。
+        _headless = not bool(os.environ.get("DISPLAY"))
+        browser = p.chromium.launch(headless=_headless)
         context = browser.new_context()
         page = context.new_page()
 
