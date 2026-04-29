@@ -6,7 +6,7 @@
 
 import logging
 
-from django.contrib.auth.tokens import PasswordResetTokenGenerator
+from django.contrib.auth.tokens import PasswordResetTokenGenerator as _BaseTokenGenerator
 from django.core.cache import cache
 from django.utils import timezone
 from django.utils.encoding import force_bytes, force_str
@@ -18,7 +18,7 @@ from apps.organization.models import Lawyer
 logger = logging.getLogger(__name__)
 
 
-class PasswordResetTokenGenerator(PasswordResetTokenGenerator):
+class CustomPasswordResetTokenGenerator(_BaseTokenGenerator):
     """自定义密码重置 Token 生成器"""
 
     def _make_hash_value(self, user: Lawyer, timestamp: int) -> str:
@@ -32,7 +32,7 @@ class PasswordResetTokenGenerator(PasswordResetTokenGenerator):
         return f"{user.pk}{user.password}{timestamp}{login_timestamp}"
 
 
-password_reset_token_generator = PasswordResetTokenGenerator()
+password_reset_token_generator = CustomPasswordResetTokenGenerator()
 
 
 class PasswordResetService:

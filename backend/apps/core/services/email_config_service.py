@@ -33,7 +33,7 @@ class EmailConfigService:
         Returns:
             包含邮件配置的字典
         """
-        cached = cache.get(_CACHE_KEY)
+        cached: dict[str, Any] | None = cache.get(_CACHE_KEY)
         if cached is not None:
             return cached
 
