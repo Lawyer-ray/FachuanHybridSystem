@@ -26,6 +26,9 @@ class CaseParty(models.Model):
         unique_together: ClassVar[tuple[tuple[str, str], ...]] = (("case", "client"),)
         verbose_name = _("案件当事人")
         verbose_name_plural = _("案件当事人")
+        indexes: ClassVar = [
+            models.Index(fields=["client"]),
+        ]
 
     def __str__(self) -> str:
         return f"{self.case_id}-{self.client_id}-{self.legal_status}"

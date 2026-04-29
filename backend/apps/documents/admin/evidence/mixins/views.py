@@ -153,7 +153,9 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
 
     @admin.display(description=_("证据数量"))
     def item_count_display(self, obj: Any) -> Any:
-        count = obj.items.count()
+        count = getattr(obj, "item_count", None)
+        if count is None:
+            count = obj.items.count()
         return count
 
     @admin.display(description=_("页码范围"))

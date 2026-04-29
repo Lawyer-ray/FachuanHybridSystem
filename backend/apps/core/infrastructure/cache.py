@@ -210,16 +210,26 @@ class CacheKeys:
 
 
 # 缓存超时时间(秒)
+_DEFAULT_TIMEOUTS: dict[str, int] = {
+    "SHORT": 60,
+    "MEDIUM": 300,
+    "LONG": 3600,
+    "DAY": 86400,
+}
+
+
 class _CacheTimeoutMeta(type):
+    _cache: dict[str, int] = {}
+
     def __getattribute__(cls, name: str) -> int:
-        if name == "SHORT":
-            return int(_safe_get_config("performance.cache.timeout_short", 60))
-        if name == "MEDIUM":
-            return int(_safe_get_config("performance.cache.timeout_medium", 300))
-        if name == "LONG":
-            return int(_safe_get_config("performance.cache.timeout_long", 3600))
-        if name == "DAY":
-            return int(_safe_get_config("performance.cache.timeout_day", 86400))
+        if name in _DEFAULT_TIMEOUTS:
+            cached = cls._cache.get(name)
+            if cached is not None:
+                return cached
+            config_key = f"performance.cache.timeout_{name.lower()}"
+            value = int(_safe_get_config(config_key, _DEFAULT_TIMEOUTS[name]))
+            cls._cache[name] = value
+            return value
         return super().__getattribute__(name)  # type: ignore[no-any-return]  # metaclass __getattribute__ 返回 Any
 
 
@@ -297,6 +307,18 @@ def invalidate_users_access_context(user_ids: list[int], *, org_access: bool = T
         cache.delete_many(keys)
 
 
+_version_bump_lock: Any = None
+
+
+def _get_version_bump_lock() -> Any:
+    global _version_bump_lock
+    if _version_bump_lock is None:
+        import threading
+
+        _version_bump_lock = threading.Lock()
+    return _version_bump_lock
+
+
 def bump_cache_version(key: str, *, timeout: int) -> int:
     from django.core.cache import cache
 
@@ -304,10 +326,11 @@ def bump_cache_version(key: str, *, timeout: int) -> int:
     try:
         return int(cache.incr(key))
     except (ConnectionError, TimeoutError, OSError, ValueError, TypeError):
-        current = int(cache.get(key) or 1)
-        new_val = current + 1
-        cache.set(key, new_val, timeout=timeout)
-        return new_val
+        with _get_version_bump_lock():
+            current = int(cache.get(key) or 1)
+            new_val = current + 1
+            cache.set(key, new_val, timeout=timeout)
+            return new_val
 
 
 def delete_cache_key(key: str) -> None:

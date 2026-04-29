@@ -4,6 +4,7 @@ import logging
 from typing import Any, ClassVar
 
 from django.contrib import admin
+from django.db.models import Count, QuerySet
 from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
@@ -95,6 +96,9 @@ class EvidenceListAdmin(
     inlines: ClassVar = [EvidenceItemInline]
     actions: ClassVar = ["merge_pdfs", "export_list_word", "export_list_zip"]
     list_select_related: tuple[Any, ...] = ("case", "created_by")
+
+    def get_queryset(self, request: Any) -> QuerySet:
+        return super().get_queryset(request).annotate(item_count=Count("items"))  # type: ignore[no-any-return]
 
     @admin.display(description=_("开庭"))
     def hearing_mode_link(self, obj: EvidenceList) -> str:

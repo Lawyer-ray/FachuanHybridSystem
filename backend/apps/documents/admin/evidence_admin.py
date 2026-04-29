@@ -4,6 +4,7 @@ import logging
 from typing import Any, ClassVar
 
 from django.contrib import admin
+from django.db.models import Count, QuerySet
 from django.utils.translation import gettext_lazy as _
 
 from apps.documents.models import EvidenceList
@@ -90,6 +91,9 @@ class EvidenceListAdmin(
     inlines: ClassVar = [EvidenceItemInline]
     actions: ClassVar = ["merge_pdfs", "export_list_word"]
     list_select_related: tuple[Any, ...] = ("case", "created_by")
+
+    def get_queryset(self, request: Any) -> QuerySet:
+        return super().get_queryset(request).annotate(item_count=Count("items"))  # type: ignore[no-any-return]
 
     class Media:
         css: ClassVar = {"all": ("documents/css/evidence_admin.css",)}

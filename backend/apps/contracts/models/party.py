@@ -36,6 +36,9 @@ class ContractParty(models.Model):
         unique_together = ("contract", "client")
         verbose_name = _("合同当事人")
         verbose_name_plural = _("合同当事人")
+        indexes: ClassVar = [
+            models.Index(fields=["client"]),
+        ]
 
     def __str__(self) -> str:
         return f"{self.contract_id}-{self.client_id}-{self.role}"

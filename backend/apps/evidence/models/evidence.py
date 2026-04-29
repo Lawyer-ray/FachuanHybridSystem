@@ -262,7 +262,9 @@ class EvidenceList(models.Model):
     @property
     def order_range_display(self) -> str:
         """序号范围显示"""
-        item_count = self.items.count()
+        item_count = getattr(self, "item_count", None)
+        if item_count is None:
+            item_count = self.items.count()
         if item_count == 0:
             return "-"
         end_order = self.start_order + item_count - 1
