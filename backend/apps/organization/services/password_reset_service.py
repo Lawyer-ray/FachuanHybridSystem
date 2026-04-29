@@ -5,7 +5,6 @@
 """
 
 import logging
-from typing import Optional
 
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.core.cache import cache
@@ -96,7 +95,7 @@ class PasswordResetService:
             return False, "系统错误，请稍后再试"
 
     @classmethod
-    def verify_reset_token(cls, uid: str, token: str) -> tuple[bool, Optional[Lawyer], str]:
+    def verify_reset_token(cls, uid: str, token: str) -> tuple[bool, Lawyer | None, str]:
         """
         验证重置 token
 
