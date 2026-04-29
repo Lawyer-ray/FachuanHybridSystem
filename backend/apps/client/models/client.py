@@ -60,3 +60,6 @@ class Client(models.Model):
         verbose_name_plural = _("当事人")
         db_table = "cases_client"
         managed = True
+        indexes: ClassVar = [
+            models.Index(fields=["name"]),
+        ]

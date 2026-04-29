@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from apps.cases.models import Case
+from django.db.models import Prefetch
+
+from apps.cases.models import Case, CaseAssignment
 
 
 class CaseDetailsQueryService:
@@ -20,8 +22,10 @@ class CaseDetailsQueryService:
                 Case.objects.prefetch_related(
                     "parties__client",
                     "case_numbers",
-                    "assignments__lawyer",
-                    "assignments__lawyer__law_firm",
+                    Prefetch(
+                        "assignments",
+                        queryset=CaseAssignment.objects.select_related("lawyer__law_firm"),
+                    ),
                     "supervising_authorities",
                 )
                 .select_related("contract")

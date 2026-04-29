@@ -204,6 +204,9 @@ class CaseNumber(models.Model):
         verbose_name = _("案件案号")
         verbose_name_plural = _("案件案号")
         ordering: ClassVar = ["created_at"]
+        indexes: ClassVar = [
+            models.Index(fields=["number"]),
+        ]
 
     def __str__(self) -> str:
         return f"{self.number}"

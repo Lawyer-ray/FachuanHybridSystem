@@ -114,7 +114,7 @@ class CaseInternalQueryService:
 
             案件信息字典列表
         """
-        from django.db.models import Q
+        from django.db.models import Exists, OuterRef, Q
 
         from apps.cases.models import Case, CaseNumber, CaseParty
 
@@ -122,25 +122,19 @@ class CaseInternalQueryService:
 
         if not search_term or not search_term.strip():
             cases = (
-                Case.objects.select_related()
-                .prefetch_related("case_numbers", "parties__client")
+                Case.objects.prefetch_related("case_numbers", "parties__client")
                 .order_by("-id")[:limit]
             )
         else:
             term = search_term.strip()
             name_query = Q(name__icontains=term)
-            case_ids_by_number = CaseNumber.objects.filter(
-                number__icontains=term,
-            ).values_list("case_id", flat=True)
-            case_ids_by_party = CaseParty.objects.filter(
-                client__name__icontains=term,
-            ).values_list("case_id", flat=True)
+            has_number = Exists(CaseNumber.objects.filter(case=OuterRef("pk"), number__icontains=term))
+            has_party = Exists(
+                CaseParty.objects.filter(case=OuterRef("pk"), client__name__icontains=term)
+            )
 
             cases = (
-                Case.objects.filter(
-                    name_query | Q(id__in=case_ids_by_number) | Q(id__in=case_ids_by_party),
-                )
-                .select_related()
+                Case.objects.filter(name_query | has_number | has_party)
                 .prefetch_related("case_numbers", "parties__client")
                 .distinct()
                 .order_by("-id")[:limit]

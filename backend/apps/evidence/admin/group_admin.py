@@ -3,6 +3,7 @@
 from typing import Any, ClassVar
 
 from django.contrib import admin
+from django.db.models import Count, QuerySet
 from django.utils.translation import gettext_lazy as _
 
 from apps.evidence.models import EvidenceGroup
@@ -17,6 +18,12 @@ class EvidenceGroupAdmin(admin.ModelAdmin):
     filter_horizontal: ClassVar = ("items",)
     ordering: ClassVar = ["case", "sort_order"]
 
+    def get_queryset(self, request: Any) -> QuerySet:
+        return super().get_queryset(request).annotate(item_count=Count("items"))
+
     @admin.display(description=_("证据数量"))
     def item_count(self, obj: EvidenceGroup) -> int:
-        return obj.items.count()
+        count = getattr(obj, "item_count", None)
+        if count is None:
+            count = obj.items.count()
+        return count

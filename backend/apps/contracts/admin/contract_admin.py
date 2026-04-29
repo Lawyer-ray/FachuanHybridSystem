@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from django import forms
 from django.contrib import admin
+from django.db.models import Prefetch
 from django.http import HttpRequest, JsonResponse
 from django.template.response import TemplateResponse
 from django.utils import timezone
@@ -19,6 +20,7 @@ from apps.contracts.admin.mixins.save_mixin import ContractSaveMixin
 from apps.contracts.models import (
     Contract,
     ContractAssignment,
+    ContractFinanceLog,
     ContractParty,
     ContractStatus,
     FinalizedMaterial,
@@ -28,6 +30,12 @@ from apps.contracts.models import (
 from apps.core.admin.mixins import AdminImportExportMixin
 from apps.core.models.enums import CaseStage
 from simple_history.admin import SimpleHistoryAdmin
+
+from apps.cases.models import Case, CaseAssignment as CaseAssignmentModel, CaseLog, CaseParty
+from apps.client.models import Client
+
+# --- Prefetch 优化：共享 Client queryset，避免重复查询 ---
+_client_with_nested = Client.objects.prefetch_related("identity_docs", "property_clues__attachments")
 
 if TYPE_CHECKING:
     BaseModelAdmin = admin.ModelAdmin
@@ -600,22 +608,49 @@ class ContractAdmin(
     def serialize_queryset(self, queryset: QuerySet[Contract]) -> list[dict[str, Any]]:
         result = []
         for obj in queryset.prefetch_related(
-            "contract_parties__client__identity_docs",
-            "contract_parties__client__property_clues__attachments",
-            "assignments__lawyer",
+            # 合同当事人 + 客户（含证件、财产线索）
+            Prefetch(
+                "contract_parties",
+                queryset=ContractParty.objects.prefetch_related(
+                    Prefetch("client", queryset=_client_with_nested),
+                ),
+            ),
+            # 律师指派（FK → select_related 减少查询）
+            Prefetch("assignments", queryset=ContractAssignment.objects.select_related("lawyer")),
             "finalized_materials",
-            "supplementary_agreements__parties__client",
+            # 补充协议 + 当事人
+            Prefetch(
+                "supplementary_agreements",
+                queryset=SupplementaryAgreement.objects.prefetch_related(
+                    Prefetch("parties", queryset=SupplementaryAgreementParty.objects.prefetch_related(
+                        Prefetch("client", queryset=_client_with_nested),
+                    )),
+                ),
+            ),
             "payments__invoices",
-            "finance_logs__actor",
+            # 财务日志（FK → select_related）
+            Prefetch("finance_logs", queryset=ContractFinanceLog.objects.select_related("actor")),
             "client_payment_records",
-            "cases__parties__client__identity_docs",
-            "cases__parties__client__property_clues__attachments",
-            "cases__assignments__lawyer",
-            "cases__supervising_authorities",
-            "cases__case_numbers",
-            "cases__chats",
-            "cases__logs__actor",
-            "cases__logs__attachments",
+            # 案件（嵌套 prefetch）
+            Prefetch(
+                "cases",
+                queryset=Case.objects.prefetch_related(
+                    Prefetch(
+                        "parties",
+                        queryset=CaseParty.objects.prefetch_related(
+                            Prefetch("client", queryset=_client_with_nested),
+                        ),
+                    ),
+                    Prefetch("assignments", queryset=CaseAssignmentModel.objects.select_related("lawyer")),
+                    "supervising_authorities",
+                    "case_numbers",
+                    "chats",
+                    Prefetch(
+                        "logs",
+                        queryset=CaseLog.objects.select_related("actor").prefetch_related("attachments"),
+                    ),
+                ),
+            ),
         ):
             result.append(serialize_contract_obj(obj))
         return result
@@ -633,8 +668,13 @@ class ContractAdmin(
             "finalized_materials",
             "client_payment_records",
             "payments__invoices",
-            "contract_parties__client__identity_docs",
-            "contract_parties__client__property_clues__attachments",
+            # 合同当事人 + 客户（含证件、财产线索），共享 Client queryset
+            Prefetch(
+                "contract_parties",
+                queryset=ContractParty.objects.prefetch_related(
+                    Prefetch("client", queryset=_client_with_nested),
+                ),
+            ),
         ):
             for m in obj.finalized_materials.all():
                 _add(m.file_path)

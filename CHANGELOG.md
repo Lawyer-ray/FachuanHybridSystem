@@ -2,6 +2,22 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.41.2] - 2026-04-29
+
+### 性能优化
+
+- **补充缺失数据库索引**：为 `Client.name`、`CaseNumber.number`、`CaseParty.client`、`ContractParty.client`、`Reminder.contract`/`case`/`case_log` 共 7 个字段补充索引，消除高频查询的全表扫描
+- **修复 EvidenceList N+1 查询**：`order_range_display` 和 `item_count_display` 的 `items.count()` 改为 `annotate` 预计算，Admin 列表页从 N 次 COUNT 降为 1 次
+- **优化案件搜索子查询**：`search_cases_for_binding_internal` 的 `IN` 子查询改为 `Exists`，删除无效的空 `select_related()` 调用
+- **修正案件详情 prefetch 策略**：`CaseDetailsQueryService` 的 `assignments__lawyer__law_firm` 从 `prefetch_related`（两次查询）改为 `Prefetch` + `select_related`（一次 JOIN）
+- **优化 ContractAdmin 序列化 prefetch**：`serialize_queryset` 用 `Prefetch` 对象扁平化 FK 链，FK 关系改用 `select_related` 减少查询次数；`get_file_paths` 共享 Client queryset 避免重复加载
+- **CacheTimeout 懒加载优化**：`CacheTimeout` metaclass 的属性访问从每次调用配置改为首次访问后缓存，避免重复导入配置模块
+- **修复 bump_cache_version 竞态条件**：fallback 路径的 `get + set` 操作加 `threading.Lock` 保护，防止并发场景丢失递增
+
+### 代码清理
+
+- **EvidenceFileStorage 去重**：`documents` 模块的 `EvidenceFileStorage` 改为继承 `evidence` 模块的实现，消除重复代码，保持 migration 兼容
+
 ## [26.41.1] - 2026-04-29
 
 ### 修复
