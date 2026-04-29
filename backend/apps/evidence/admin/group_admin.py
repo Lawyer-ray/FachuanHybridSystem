@@ -19,11 +19,11 @@ class EvidenceGroupAdmin(admin.ModelAdmin):
     ordering: ClassVar = ["case", "sort_order"]
 
     def get_queryset(self, request: Any) -> QuerySet:
-        return super().get_queryset(request).annotate(item_count=Count("items"))
+        return super().get_queryset(request).annotate(item_count=Count("items"))  # type: ignore[return-value]
 
     @admin.display(description=_("证据数量"))
     def item_count(self, obj: EvidenceGroup) -> int:
-        count = getattr(obj, "item_count", None)
+        count: int | None = getattr(obj, "item_count", None)
         if count is None:
             count = obj.items.count()
         return count
