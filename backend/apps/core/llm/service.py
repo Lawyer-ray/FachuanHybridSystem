@@ -70,7 +70,20 @@ class LLMService:
             default_backend: 默认后端名称,None 时使用 siliconflow
         """
         self._backend_configs = backend_configs
-        self._default_backend = default_backend or self.BACKEND_SILICONFLOW
+        if default_backend:
+            self._default_backend = default_backend
+        elif backend_configs:
+            # 从已有配置中找优先级最高的启用后端
+            enabled = [(name, cfg) for name, cfg in backend_configs.items() if cfg.enabled]
+            if enabled:
+                enabled.sort(key=lambda x: x[1].priority)
+                self._default_backend = enabled[0][0]
+            else:
+                self._default_backend = self.BACKEND_SILICONFLOW
+        else:
+            from .config import LLMConfig
+
+            self._default_backend = LLMConfig.get_default_backend()
         self._router = LLMBackendRouter(backend_configs=backend_configs)
         self._fallback_policy = LLMFallbackPolicy(router=self._router)
         self._client = LLMClient(default_backend=self._default_backend)
