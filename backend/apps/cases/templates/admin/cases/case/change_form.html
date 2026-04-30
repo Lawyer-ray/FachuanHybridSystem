@@ -105,7 +105,7 @@
 }
 
 /* ============================================================
-   表单行（form-row）- 去掉分割线，用间距区分
+   表单行（form-row）- 去掉所有分割线和边框
    ============================================================ */
 #case_numbers-group .inline-related .form-row,
 .inline-group[id$='case_numbers-group'] .inline-related .form-row {
@@ -113,11 +113,19 @@
     flex-wrap: wrap;
     gap: 12px;
     margin-bottom: 0;
-    padding: 8px 0;
+    padding: 6px 0;
+    border: none !important;
 }
 #case_numbers-group .inline-related fieldset.module .form-row:first-of-type,
 .inline-group[id$='case_numbers-group'] .inline-related fieldset.module .form-row:first-of-type {
-    padding-top: 4px;
+    padding-top: 2px;
+}
+/* 去掉 Django 默认的 fieldBox 边框和分割线 */
+#case_numbers-group .fieldBox,
+.inline-group[id$='case_numbers-group'] .fieldBox {
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
 }
 
 /* 通用字段宽度 */
@@ -192,7 +200,7 @@
 }
 
 /* ============================================================
-   执行依据主文 fieldset
+   执行依据主文 fieldset - textarea 无边框干扰
    ============================================================ */
 #case_numbers-group .inline-related .field-document_content,
 .inline-group[id$='case_numbers-group'] .inline-related .field-document_content {
@@ -214,11 +222,29 @@
 .inline-group[id$='case_numbers-group'] .field-document_content textarea {
     width: 100%;
     min-height: 110px;
+    border: 1px solid #e2e4e8 !important;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 13px;
+    line-height: 1.6;
 }
 #case_numbers-group .form-row.field-document_content textarea,
 .inline-group[id$='case_numbers-group'] .form-row.field-document_content textarea {
     width: 100% !important;
     max-width: 100%;
+}
+
+/* 去掉 Django 默认的 .flex-container 所有边距 */
+#case_numbers-group .flex-container,
+.inline-group[id$='case_numbers-group'] .flex-container {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+/* 去掉 Django inline admin 的 p.inline-deletelink 边框 */
+#case_numbers-group .inline-related h3 .inline-deletelink,
+.inline-group[id$='case_numbers-group'] .inline-related h3 .inline-deletelink {
+    border: none !important;
 }
 
 /* ============================================================
@@ -332,7 +358,30 @@
     align-items: center;
     gap: 10px;
     margin: 0;
-    padding: 8px 0 4px;
+    padding: 4px 0;
+}
+/* 执行参数 textarea 标签隐藏 */
+#case_numbers-group .form-row.field-execution_manual_text label,
+.inline-group[id$='case_numbers-group'] .form-row.field-execution_manual_text label,
+#case_numbers-group .form-row.field-execution_manual_text .help,
+.inline-group[id$='case_numbers-group'] .form-row.field-execution_manual_text .help {
+    display: none !important;
+}
+#case_numbers-group .field-execution_manual_text textarea,
+.inline-group[id$='case_numbers-group'] .field-execution_manual_text textarea {
+    width: 100%;
+    min-height: 120px;
+    border: 1px solid #e2e4e8 !important;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 13px;
+    line-height: 1.6;
+}
+#case_numbers-group .form-row.field-execution_manual_text textarea,
+.inline-group[id$='case_numbers-group'] .form-row.field-execution_manual_text textarea {
+    width: 100% !important;
+    max-width: 100%;
+    min-height: 120px;
 }
 .parse-execution-llm-label {
     display: inline-flex;
