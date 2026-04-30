@@ -271,10 +271,23 @@
         var fileInput = documentFileCell.querySelector('input[type="file"]');
         if (!fileInput) return;
 
-        // 隐藏包含 file input 的 flex-container
+        // 移除旧的上传 UI（flex-container 包含原生 file input、currently 链接、clear 复选框）
+        // 先提取已上传文件信息，再将 file input 移出保留在 DOM 中供表单提交
         var flexContainer = fileInput.closest('.flex-container');
+        var currentFileHtml = '';
         if (flexContainer) {
-            flexContainer.style.display = 'none';
+            var currentlyEl = flexContainer.querySelector('.currently');
+            if (currentlyEl) {
+                currentFileHtml = currentlyEl.innerHTML;
+            }
+            fileInput.style.display = 'none';
+            // file input 的祖先中，documentFileCell 的直接子元素（可能是中间 wrapper）
+            var wrapper = flexContainer;
+            while (wrapper.parentElement && wrapper.parentElement !== documentFileCell) {
+                wrapper = wrapper.parentElement;
+            }
+            documentFileCell.appendChild(fileInput);
+            wrapper.remove();
         } else {
             fileInput.style.display = 'none';
         }
@@ -291,12 +304,18 @@
             '</div>';
 
         // 显示当前已上传文件信息
-        var currentlyEl = documentFileCell.querySelector('.currently');
-        if (currentlyEl) {
+        if (currentFileHtml) {
             var fileHint = document.createElement('div');
             fileHint.className = 'cn-dropzone-current';
-            fileHint.innerHTML = currentlyEl.innerHTML;
+            fileHint.innerHTML = currentFileHtml;
             dropzone.appendChild(fileHint);
+            // 更新主文字为已上传状态
+            var textEl = dropzone.querySelector('.cn-dropzone-text');
+            var linkEl = fileHint.querySelector('a');
+            if (textEl && linkEl) {
+                textEl.textContent = linkEl.textContent;
+                textEl.classList.add('cn-dropzone-text-uploaded');
+            }
         }
 
         // 将拖拽区域追加到 documentFileCell 末尾
