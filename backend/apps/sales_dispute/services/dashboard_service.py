@@ -6,6 +6,7 @@ import logging
 from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal
+from typing import Any
 
 from django.apps import apps as django_apps
 from django.db.models import Case as DBCase
