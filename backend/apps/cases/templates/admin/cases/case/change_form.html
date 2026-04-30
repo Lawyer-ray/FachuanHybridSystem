@@ -46,13 +46,13 @@
 #case_numbers-group .djn-items,
 .inline-group[id$='case_numbers-group'] .djn-items {
     width: 100% !important;
-    padding: 10px !important;
+    padding: 8px !important;
     background: #f7f9fc;
     box-sizing: border-box;
 }
 
 /* ============================================================
-   每个案号卡片
+   每个案号卡片 - 紧凑
    ============================================================ */
 #case_numbers-group .inline-related,
 .inline-group[id$='case_numbers-group'] .inline-related {
@@ -61,14 +61,14 @@
     border: 1px solid #e2e4e8;
     border-radius: 8px;
     background: #fff;
-    margin: 0 0 10px 0 !important;
-    padding: 12px 14px 8px;
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+    margin: 0 0 8px 0 !important;
+    padding: 10px 12px 6px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 #case_numbers-group .inline-related > h3,
 .inline-group[id$='case_numbers-group'] .inline-related > h3 {
-    margin: 0 0 6px 0;
-    padding: 6px 10px;
+    margin: 0 0 4px 0;
+    padding: 5px 8px;
     border-radius: 4px;
     background: #f1f4f8;
     border: 1px solid #dee3ea;
@@ -83,7 +83,7 @@
 #case_numbers-group .inline-related fieldset.module,
 .inline-group[id$='case_numbers-group'] .inline-related fieldset.module {
     border: 0;
-    margin: 0 0 6px 0;
+    margin: 0 0 4px 0;
     padding: 0;
 }
 #case_numbers-group .inline-related fieldset.module:last-child,
@@ -91,34 +91,36 @@
     margin-bottom: 0;
 }
 
-/* Fieldset 标题（"文书信息"、"执行依据主文"、"执行参数"） */
+/* Fieldset 标题 - 无边框无占位 */
 #case_numbers-group .inline-related fieldset.module h4.fieldset-heading,
 .inline-group[id$='case_numbers-group'] .inline-related fieldset.module h4.fieldset-heading {
-    background: transparent;
-    color: #374151 !important;
-    font-size: 12px;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    color: #6b7280 !important;
+    font-size: 11.5px;
     font-weight: 600;
-    margin: 0 0 2px 0;
-    padding: 0 0 3px 0;
-    letter-spacing: 0.4px;
-    text-transform: uppercase;
+    margin: 0 0 3px 0;
+    padding: 0;
+    letter-spacing: 0.3px;
 }
 
 /* ============================================================
-   表单行（form-row）- 去掉所有分割线和边框
+   表单行（form-row）- 紧凑
    ============================================================ */
 #case_numbers-group .inline-related .form-row,
 .inline-group[id$='case_numbers-group'] .inline-related .form-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 12px;
+    gap: 10px;
     margin-bottom: 0;
-    padding: 6px 0;
+    padding: 4px 0;
     border: none !important;
 }
 #case_numbers-group .inline-related fieldset.module .form-row:first-of-type,
 .inline-group[id$='case_numbers-group'] .inline-related fieldset.module .form-row:first-of-type {
-    padding-top: 2px;
+    padding-top: 0;
 }
 /* 去掉 Django 默认的 fieldBox 边框和分割线 */
 #case_numbers-group .fieldBox,
