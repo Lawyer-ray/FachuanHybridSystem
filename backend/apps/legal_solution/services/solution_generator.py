@@ -12,8 +12,8 @@ from apps.legal_solution.services.prompts import build_section_prompt
 
 logger = logging.getLogger(__name__)
 
-_MAX_TOKENS = 1200
-_TIMEOUT = 60
+_MAX_TOKENS = 2400
+_TIMEOUT = 120
 _RETRY = 2
 
 
@@ -123,9 +123,8 @@ class SolutionGenerator:
             try:
                 response = self._llm.chat(
                     messages=messages,
-                    backend="siliconflow",
                     model=(task.llm_model or None),
-                    fallback=False,
+                    fallback=True,
                     temperature=0.4,
                     max_tokens=_MAX_TOKENS,
                     timeout_seconds=_TIMEOUT,

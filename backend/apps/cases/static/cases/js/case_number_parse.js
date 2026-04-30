@@ -120,6 +120,7 @@
 
     /**
      * 根据当前阶段显示/隐藏执行参数区域
+     *（解析执行事项控件也在执行参数 fieldset 内，一并隐藏/显示）
      */
     function toggleExecutionParameterSections() {
         var inline = getCaseNumberInlineGroup();
@@ -129,34 +130,6 @@
         var fieldsets = inline.querySelectorAll('.case-number-execution-fieldset');
         for (var i = 0; i < fieldsets.length; i++) {
             fieldsets[i].classList.toggle('is-hidden-by-stage', !show);
-        }
-
-        var rows = getCaseNumberRows(inline);
-        for (var j = 0; j < rows.length; j++) {
-            var row = rows[j];
-            var parseExecutionBtn = row.querySelector('.parse-execution-btn');
-            var llmToggle = row.querySelector('.parse-execution-llm-toggle');
-            if (!parseExecutionBtn) continue;
-
-            var deleteInput = row.querySelector('input[id$="-id"]');
-            var caseNumberId = deleteInput ? deleteInput.value : '';
-
-            if (!show) {
-                parseExecutionBtn.disabled = true;
-                if (llmToggle) {
-                    llmToggle.disabled = true;
-                }
-                parseExecutionBtn.dataset.stageHidden = 'true';
-                continue;
-            }
-
-            if (parseExecutionBtn.dataset.stageHidden === 'true') {
-                parseExecutionBtn.disabled = !caseNumberId;
-                if (llmToggle) {
-                    llmToggle.disabled = !caseNumberId;
-                }
-                delete parseExecutionBtn.dataset.stageHidden;
-            }
         }
     }
 
@@ -253,8 +226,135 @@
         xhr.send(formData);
     }
 
+    // ============================================================
+    // 拖拽上传
+    // ============================================================
+
     /**
-     * 为文件输入框绑定上传监听
+     * 为案号行的 document_file 字段添加拖拽上传区域
+     * @param {Element} row - 案号行元素
+     */
+    function addDropzoneToRow(row) {
+        var documentFileCell = row.querySelector('.field-document_file');
+        if (!documentFileCell) return;
+
+        // 已添加过则跳过
+        if (documentFileCell.querySelector('.cn-dropzone')) return;
+
+        var fileInput = documentFileCell.querySelector('input[type="file"]');
+        if (!fileInput) return;
+
+        // 移除旧的上传 UI（flex-container 包含原生 file input、currently 链接、clear 复选框）
+        // 先提取已上传文件信息，再将 file input 移出保留在 DOM 中供表单提交
+        var flexContainer = fileInput.closest('.flex-container');
+        var currentFileHtml = '';
+        if (flexContainer) {
+            var currentlyEl = flexContainer.querySelector('.currently');
+            if (currentlyEl) {
+                currentFileHtml = currentlyEl.innerHTML;
+            }
+            fileInput.style.display = 'none';
+            // file input 的祖先中，documentFileCell 的直接子元素（可能是中间 wrapper）
+            var wrapper = flexContainer;
+            while (wrapper.parentElement && wrapper.parentElement !== documentFileCell) {
+                wrapper = wrapper.parentElement;
+            }
+            documentFileCell.appendChild(fileInput);
+            wrapper.remove();
+        } else {
+            fileInput.style.display = 'none';
+        }
+
+        // 创建拖拽上传区域
+        var dropzone = document.createElement('div');
+        dropzone.className = 'cn-dropzone';
+        dropzone.innerHTML =
+            '<div class="cn-dropzone-inner">' +
+                '<svg class="cn-dropzone-icon" width="24" height="24" viewBox="0 0 24 24" fill="none">' +
+                    '<path d="M12 4v16m-8-8h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
+                '</svg>' +
+                '<span class="cn-dropzone-text">点击或拖拽上传PDF</span>' +
+            '</div>';
+
+        // 显示当前已上传文件信息
+        if (currentFileHtml) {
+            var fileHint = document.createElement('div');
+            fileHint.className = 'cn-dropzone-current';
+            fileHint.innerHTML = currentFileHtml;
+            dropzone.appendChild(fileHint);
+            // 更新主文字为已上传状态
+            var textEl = dropzone.querySelector('.cn-dropzone-text');
+            var linkEl = fileHint.querySelector('a');
+            if (textEl && linkEl) {
+                textEl.textContent = linkEl.textContent;
+                textEl.classList.add('cn-dropzone-text-uploaded');
+            }
+        }
+
+        // 将拖拽区域追加到 documentFileCell 末尾
+        documentFileCell.appendChild(dropzone);
+
+        // 点击触发文件选择
+        dropzone.addEventListener('click', function(e) {
+            if (e.target.closest('a')) return; // 已上传文件链接不触发
+            fileInput.click();
+        });
+
+        // 拖拽事件
+        dropzone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.add('cn-dropzone-active');
+        });
+
+        dropzone.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.remove('cn-dropzone-active');
+        });
+
+        dropzone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.remove('cn-dropzone-active');
+
+            var files = e.dataTransfer.files;
+            if (files.length === 0) return;
+
+            var file = files[0];
+            if (!file.name.toLowerCase().endsWith('.pdf')) {
+                showToast('仅支持PDF格式文件', 'error');
+                return;
+            }
+
+            // 通过 DataTransfer 将拖拽文件赋给 file input
+            var dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            fileInput.files = dataTransfer.files;
+
+            // 触发已有的上传逻辑
+            handleFileUpload(fileInput, row);
+
+            // 更新拖拽区域显示文件名
+            updateDropzoneFileName(dropzone, file.name);
+        });
+    }
+
+    /**
+     * 更新拖拽区域显示的文件名
+     * @param {Element} dropzone - 拖拽区域元素
+     * @param {string} fileName - 文件名
+     */
+    function updateDropzoneFileName(dropzone, fileName) {
+        var textEl = dropzone.querySelector('.cn-dropzone-text');
+        if (textEl) {
+            textEl.textContent = fileName;
+            textEl.classList.add('cn-dropzone-text-uploaded');
+        }
+    }
+
+    /**
+     * 为文件输入框绑定上传监听，并添加拖拽区域
      * @param {Element} inline - 内联表单组
      */
     function addFileUploadListeners(inline) {
@@ -271,10 +371,20 @@
             var fileInput = documentFileCell.querySelector('input[type="file"]');
             if (fileInput && !fileInput.dataset.uploadListener) {
                 fileInput.dataset.uploadListener = 'true';
-                fileInput.onchange = (function(r) {
-                    return function(e) { handleFileUpload(e.target, r); };
-                })(row);
+                fileInput.onchange = (function(r, fi) {
+                    return function(e) {
+                        handleFileUpload(e.target, r);
+                        // 更新拖拽区域文件名
+                        var dz = r.querySelector('.cn-dropzone');
+                        if (dz && fi.files.length > 0) {
+                            updateDropzoneFileName(dz, fi.files[0].name);
+                        }
+                    };
+                })(row, fileInput);
             }
+
+            // 添加拖拽上传区域
+            addDropzoneToRow(row);
         }
     }
 
@@ -527,15 +637,17 @@
         for (var i = 0; i < rows.length; i++) {
             var row = rows[i];
             var documentFileCell = row.querySelector('.field-document_file');
+            var documentFileFormRow = row.querySelector('.form-row.field-document_file');
             var manualTextCell = row.querySelector('.field-execution_manual_text');
             var deleteInput = row.querySelector('input[id$="-id"]');
             var caseNumberId = deleteInput ? deleteInput.value : '';
 
+            // 操作栏挂在 form-row 级别，与文件上传区左右分栏
             var actionBar = row.querySelector('.case-number-action-bar');
-            if (!actionBar && documentFileCell) {
+            if (!actionBar && documentFileFormRow) {
                 actionBar = document.createElement('div');
                 actionBar.className = 'case-number-action-bar';
-                documentFileCell.appendChild(actionBar);
+                documentFileFormRow.appendChild(actionBar);
             }
 
             // 打开案件文件夹按钮
@@ -544,8 +656,8 @@
                 openFolderBtn = document.createElement('button');
                 openFolderBtn.type = 'button';
                 openFolderBtn.className = 'open-folder-btn';
-                openFolderBtn.title = '在 Finder 中打开案件文件夹';
-                openFolderBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>';
+                    openFolderBtn.title = '在 Finder 中打开案件文件夹';
+                    openFolderBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> 打开文件夹';
                 openFolderBtn.onclick = function() {
                     var caseId = (window.location.pathname.match(/\/cases\/case\/(\d+)\//) || [])[1];
                     if (!caseId) { alert('无法获取案件ID'); return; }
@@ -561,12 +673,16 @@
                     })
                     .catch(function(err) { openFolderBtn.disabled = false; alert('请求失败: ' + (err.message || '未知错误')); });
                 };
+                if (!window.__hasFolderBinding) {
+                    openFolderBtn.disabled = true;
+                    openFolderBtn.title = '未绑定文件夹，请先在下方绑定';
+                }
                 actionBar.insertBefore(openFolderBtn, actionBar.firstChild);
             }
 
             // 解析裁判文书按钮
             var parseBtn = row.querySelector('.parse-document-btn');
-            if (!parseBtn && documentFileCell) {
+            if (!parseBtn) {
                 parseBtn = document.createElement('button');
                 parseBtn.type = 'button';
                 parseBtn.className = 'parse-document-btn';
@@ -593,24 +709,36 @@
                 }
                 if (actionBar && parseBtn.parentNode !== actionBar) {
                     actionBar.appendChild(parseBtn);
-                } else if (!actionBar && documentFileCell && parseBtn.parentNode !== documentFileCell) {
-                    documentFileCell.appendChild(parseBtn);
                 }
             }
 
-            // 解析执行事项控件
-            var parseExecutionControls = row.querySelector('.parse-execution-controls');
-            if (manualTextCell && !parseExecutionControls) {
-                parseExecutionControls = document.createElement('div');
-                parseExecutionControls.className = 'parse-execution-controls';
-
-                var parseExecutionBtn = document.createElement('button');
+            // 解析执行事项按钮 - 在操作栏始终可见
+            var parseExecutionBtn = row.querySelector('.parse-execution-btn');
+            if (!parseExecutionBtn) {
+                parseExecutionBtn = document.createElement('button');
                 parseExecutionBtn.type = 'button';
                 parseExecutionBtn.className = 'parse-execution-btn';
                 parseExecutionBtn.textContent = '解析执行事项';
                 parseExecutionBtn.title = '解析申请执行事项';
-
-                var llmLabel = document.createElement('label');
+            }
+            if (caseNumberId) {
+                parseExecutionBtn.dataset.casenumberId = caseNumberId;
+                parseExecutionBtn.onclick = (function(id, r, btn) {
+                    return function() {
+                        parseExecutionRequest(id, r, btn, { askOverwrite: true });
+                    };
+                })(caseNumberId, row, parseExecutionBtn);
+            } else {
+                parseExecutionBtn.disabled = true;
+                parseExecutionBtn.title = '请先保存案件后再解析执行事项';
+            }
+            if (actionBar && parseExecutionBtn.parentNode !== actionBar) {
+                actionBar.appendChild(parseExecutionBtn);
+            }
+            // Ollama 兜底开关 - 跟在解析执行事项按钮后面
+            var llmLabel = row.querySelector('.parse-execution-llm-label');
+            if (!llmLabel) {
+                llmLabel = document.createElement('label');
                 llmLabel.className = 'parse-execution-llm-label';
                 var llmToggle = document.createElement('input');
                 llmToggle.type = 'checkbox';
@@ -621,33 +749,14 @@
                 llmTrack.className = 'parse-execution-switch-track';
                 var llmText = document.createElement('span');
                 llmText.className = 'parse-execution-llm-text';
-                llmText.textContent = 'Ollama兜底';
+                llmText.textContent = 'Ollama';
                 llmLabel.appendChild(llmToggle);
                 llmLabel.appendChild(llmTrack);
                 llmLabel.appendChild(llmText);
-                if (caseNumberId) {
-                    parseExecutionBtn.dataset.casenumberId = caseNumberId;
-                    parseExecutionBtn.onclick = (function(id, r, btn) {
-                        return function() {
-                            parseExecutionRequest(id, r, btn, { askOverwrite: true });
-                        };
-                    })(caseNumberId, row, parseExecutionBtn);
-                } else {
-                    parseExecutionBtn.disabled = true;
-                    parseExecutionBtn.title = '请先保存案件后再解析执行事项';
-                    llmToggle.disabled = true;
-                }
-
-                parseExecutionControls.appendChild(parseExecutionBtn);
-                parseExecutionControls.appendChild(llmLabel);
+                if (!caseNumberId) { llmToggle.disabled = true; }
             }
-
-            if (parseExecutionControls) {
-                if (actionBar && parseExecutionControls.parentNode !== actionBar) {
-                    actionBar.appendChild(parseExecutionControls);
-                } else if (!actionBar && manualTextCell && parseExecutionControls.parentNode !== manualTextCell) {
-                    manualTextCell.appendChild(parseExecutionControls);
-                }
+            if (actionBar && llmLabel.parentNode !== actionBar) {
+                actionBar.appendChild(llmLabel);
             }
 
             // 设置 placeholder

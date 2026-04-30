@@ -105,7 +105,7 @@ class HeadingNumbering:
                     prompt=prompt,
                     model=model_name or None,
                     temperature=0.1,
-                    fallback=False,
+                    fallback=True,
                 )
                 return self._parse_llm_response(resp.content, len(doc.paragraphs))
             except Exception:

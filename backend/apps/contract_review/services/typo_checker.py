@@ -37,7 +37,7 @@ class TypoChecker:
                     prompt=prompt,
                     model=model_name or None,
                     temperature=0.1,
-                    fallback=False,
+                    fallback=True,
                 )
                 results = self._parse_llm_response(resp.content)
                 all_results.extend(results)

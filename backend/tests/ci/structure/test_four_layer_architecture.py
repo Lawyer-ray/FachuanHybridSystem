@@ -27,7 +27,7 @@ _APPS_ROOT = Path(__file__).resolve().parents[3] / "apps"
 API_MODEL_OBJECTS_RATCHET = 80
 
 # Service layer using @staticmethod
-SERVICE_STATIC_METHOD_RATCHET = 244
+SERVICE_STATIC_METHOD_RATCHET = 245
 
 
 def _scan_api_model_objects() -> list[tuple[str, int, str]]:
