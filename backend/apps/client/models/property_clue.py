@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
@@ -25,7 +25,7 @@ class PropertyClue(models.Model):
     REAL_ESTATE = "real_estate"
     OTHER = "other"
 
-    CLUE_TYPE_CHOICES: ClassVar[list[tuple[str, str]]] = [
+    CLUE_TYPE_CHOICES: ClassVar[list[tuple[str, Any]]] = [
         (BANK, _("银行账户")),
         (ALIPAY, _("支付宝账户")),
         (WECHAT, _("微信账户")),
@@ -33,7 +33,7 @@ class PropertyClue(models.Model):
         (OTHER, _("其他")),
     ]
 
-    CONTENT_TEMPLATES: ClassVar[dict[str, str]] = {
+    CONTENT_TEMPLATES: ClassVar[dict[str, Any]] = {
         BANK: _("户名:\n开户行:\n银行账号:"),
         WECHAT: _("微信号:\n微信实名:"),
         ALIPAY: _("支付宝账号:\n支付宝实名:"),

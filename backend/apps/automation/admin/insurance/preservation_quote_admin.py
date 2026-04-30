@@ -277,18 +277,18 @@ class PreservationQuoteAdmin(admin.ModelAdmin[PreservationQuote]):
     def status_display(self, obj: PreservationQuote) -> SafeString:
         """带颜色的状态显示"""
         colors = {
-            QuoteStatus.PENDING: "#ffa500",
-            QuoteStatus.RUNNING: "#007bff",
-            QuoteStatus.SUCCESS: "#28a745",
-            QuoteStatus.PARTIAL_SUCCESS: "#ffc107",
-            QuoteStatus.FAILED: "#dc3545",
+            "PENDING": "#ffa500",
+            "RUNNING": "#007bff",
+            "SUCCESS": "#28a745",
+            "PARTIAL_SUCCESS": "#ffc107",
+            "FAILED": "#dc3545",
         }
         icons = {
-            QuoteStatus.PENDING: "⏳",
-            QuoteStatus.RUNNING: "🔄",
-            QuoteStatus.SUCCESS: "✅",
-            QuoteStatus.PARTIAL_SUCCESS: "⚠️",
-            QuoteStatus.FAILED: "❌",
+            "PENDING": "⏳",
+            "RUNNING": "🔄",
+            "SUCCESS": "✅",
+            "PARTIAL_SUCCESS": "⚠️",
+            "FAILED": "❌",
         }
         color = colors.get(obj.status, "#666")
         icon = icons.get(obj.status, "")
@@ -381,7 +381,7 @@ class PreservationQuoteAdmin(admin.ModelAdmin[PreservationQuote]):
 
         successful_for_display = sorted(
             [q for q in quotes if q.status == QuoteItemStatus.SUCCESS and q.min_amount is not None],
-            key=lambda q: q.min_amount,
+            key=lambda q: q.min_amount or Decimal("0"),
         )
         failed_for_display = [q for q in quotes if q not in successful_for_display]
         display_quotes = successful_for_display + failed_for_display

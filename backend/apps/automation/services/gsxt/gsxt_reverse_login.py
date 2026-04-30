@@ -19,6 +19,7 @@ from typing import Any
 import httpx
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import padding as asym_padding
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 
 logger = logging.getLogger("apps.automation")
 
@@ -49,6 +50,7 @@ _rsa_key = serialization.load_pem_public_key(RSA_PUBLIC_KEY_PEM.encode())
 
 def rsa_encrypt(plain: str) -> str:
     """用 RSA 公钥加密字符串，返回 Base64 编码结果（与 JSEncrypt 兼容）。"""
+    assert isinstance(_rsa_key, RSAPublicKey), "公钥加载失败，不是 RSA 公钥"
     ct = _rsa_key.encrypt(plain.encode(), asym_padding.PKCS1v15())
     return b64encode(ct).decode()
 

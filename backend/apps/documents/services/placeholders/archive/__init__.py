@@ -497,7 +497,7 @@ class ArchivePlaceholderService(BasePlaceholderService):
             if i > 0:
                 rt.add_break()
             rt.add(line)
-        return rt
+        return str(rt)
 
     @staticmethod
     def _get_work_log_from_scan_session(contract: Any) -> str:
@@ -509,8 +509,9 @@ class ArchivePlaceholderService(BasePlaceholderService):
         try:
             from apps.contracts.models import ContractFolderScanSession
 
+            contract_id: int | None = getattr(contract, "id", None)
             session = (
-                ContractFolderScanSession.objects.filter(contract_id=getattr(contract, "id", None))
+                ContractFolderScanSession.objects.filter(contract_id=contract_id)
                 .order_by("-created_at")
                 .first()
             )
@@ -549,7 +550,7 @@ class ArchivePlaceholderService(BasePlaceholderService):
             if i > 0:
                 rt.add_break()
             rt.add(line)
-        return rt
+        return str(rt)
 
     @staticmethod
     def _get_opposing_party_names_from_case(case: Any) -> str:
@@ -628,7 +629,7 @@ class ArchivePlaceholderService(BasePlaceholderService):
             if i > 0:
                 rt.add_break()  # 硬换行 (shift+enter)
             rt.add(line)
-        return rt
+        return str(rt)
 
     @staticmethod
     def _get_inner_catalog_items(contract: Any) -> list[dict[str, Any]]:

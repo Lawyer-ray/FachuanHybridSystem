@@ -71,26 +71,26 @@ class PlaceholderAdmin(admin.ModelAdmin):
         "is_active",
     )
 
-    list_filter: tuple[Any, ...] = (
+    list_filter: ClassVar[tuple[Any, ...]] = (
         "is_active",
         PlaceholderUsageFilter,
     )
 
-    search_fields: tuple[Any, ...] = (
+    search_fields: ClassVar[tuple[Any, ...]] = (
         "key",
         "display_name",
         "description",
     )
 
-    ordering: tuple[Any, ...] = ("key",)
+    ordering: ClassVar[tuple[Any, ...]] = ("key",)
 
-    fieldsets: tuple[Any, ...] = (
+    fieldsets: ClassVar[tuple[Any, ...]] = (
         (None, {"fields": ("key", "display_name")}),
         (_("示例和说明"), {"fields": ("example_value", "description")}),
         (_("状态"), {"fields": ("is_active",)}),
     )
 
-    actions: ClassVar = ["activate_placeholders", "deactivate_placeholders"]
+    actions: list[str] = ["activate_placeholders", "deactivate_placeholders"]
 
     def has_add_permission(self, request: Any) -> Any:
         return False
