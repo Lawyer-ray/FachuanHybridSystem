@@ -410,6 +410,10 @@ class JudgmentPdfExtractor:
         # OCR/PDF混排下可能引入多余空行，做轻量归一化
         cleaned = re.sub(r"\n{2,}", "\n", cleaned)
 
+        # 合并PDF排版导致的句子内换行：句末标点后的换行保留，其余合并
+        # 如 "9991\n号" → "9991号"，"诉讼请求。\n如果" → "诉讼请求。\n如果"
+        cleaned = re.sub(r"(?<![。，；：！？、）)》」』」])\n", "", cleaned)
+
         # 去除末尾不完整的行（截断残留，如"一审"等无标点结尾的碎片）
         cleaned = re.sub(r"\n[^\n。，；：！？、）)]+$", "", cleaned)
 
