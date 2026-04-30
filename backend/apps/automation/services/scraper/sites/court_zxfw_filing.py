@@ -132,7 +132,7 @@ class CourtZxfwFilingService:
                     from plugins.court_filing_http.api_service import CourtZxfwFilingApiService
 
                     api_svc = CourtZxfwFilingApiService(token)
-                    result = api_svc.file_civil_case_sync(case_data)
+                    result: dict[str, object] = api_svc.file_civil_case_sync(case_data)
                     self._report_progress(
                         case_data,
                         phase="http",
@@ -292,7 +292,7 @@ class CourtZxfwFilingService:
                     from plugins.court_filing_http.api_service import CourtZxfwFilingApiService
 
                     api_svc = CourtZxfwFilingApiService(token)
-                    result = api_svc.file_execution_sync(case_data)
+                    result: dict[str, object] = api_svc.file_execution_sync(case_data)
                     self._report_progress(
                         case_data,
                         phase="http",

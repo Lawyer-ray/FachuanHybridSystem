@@ -32,13 +32,13 @@ def setup_data(db):
     firm = LawFirm.objects.create(name="Dashboard测试律所")
     lawyer1 = Lawyer.objects.create_user(
         username="dash_lawyer_1",
-        email="dash1@test.com",
+        email="dash1@example.com",
         real_name="张三",
         law_firm=firm,
     )
     lawyer2 = Lawyer.objects.create_user(
         username="dash_lawyer_2",
-        email="dash2@test.com",
+        email="dash2@example.com",
         real_name="李四",
         law_firm=firm,
     )

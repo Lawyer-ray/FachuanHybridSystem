@@ -131,11 +131,11 @@ def _amount_range_q(
     return q
 
 
-def _get_case_model() -> object:
+def _get_case_model() -> type[Any]:
     return django_apps.get_model("cases", "Case")
 
 
-def _get_case_assignment_model() -> object:
+def _get_case_assignment_model() -> type[Any]:
     return django_apps.get_model("cases", "CaseAssignment")
 
 
