@@ -107,7 +107,7 @@ class ExecutorQueryMixin:
         if not context:
             return []
 
-        intent_slots = cls._extract_intent_slots_with_confidence(context)
+        intent_slots = cls._extract_intent_slots_with_confidence(context)  # type: ignore[attr-defined]
         relation_terms = intent_slots["relation_high"]
         breach_terms = intent_slots["breach_high"]
         damage_terms = intent_slots["damage_high"]
@@ -118,9 +118,9 @@ class ExecutorQueryMixin:
         remedy_low_terms = intent_slots["remedy_low"]
         low_conf_limit = max(1, int(intent_slots["low_conf_limit"]))
 
-        keyword_terms = [token for token in cls._split_tokens(keyword) if not cls._is_location_or_court_token(token)]
-        summary_terms = cls._extract_summary_terms(case_summary)
-        summary_relation_terms = [term for term in summary_terms if cls._looks_like_relation_term(term)]
+        keyword_terms = [token for token in cls._split_tokens(keyword) if not cls._is_location_or_court_token(token)]  # type: ignore[attr-defined]
+        summary_terms = cls._extract_summary_terms(case_summary)  # type: ignore[attr-defined]
+        summary_relation_terms = [term for term in summary_terms if cls._looks_like_relation_term(term)]  # type: ignore[attr-defined]
 
         relation_seed = relation_terms or summary_relation_terms[:2] or keyword_terms[:2]
         query_parts: list[list[str]] = []
@@ -132,7 +132,7 @@ class ExecutorQueryMixin:
             query_parts.append([*breach_terms[:2], *damage_terms[:2], *summary_terms[:2]])
         if relation_seed and remedy_terms:
             query_parts.append([*relation_seed[:2], *remedy_terms[:2], *summary_terms[:2]])
-        low_conf_pool = cls._dedupe_tokens(
+        low_conf_pool = cls._dedupe_tokens(  # type: ignore[attr-defined]
             [*relation_low_terms, *breach_low_terms, *damage_low_terms, *remedy_low_terms],
             max_tokens=max(2, low_conf_limit * 2),
         )
@@ -140,7 +140,7 @@ class ExecutorQueryMixin:
             query_parts.append([*keyword_terms[:2], *low_conf_pool[:low_conf_limit], *summary_terms[:2]])
         elif keyword_terms and summary_terms:
             query_parts.append([*keyword_terms[:3], *summary_terms[:3]])
-        intent_pool = cls._dedupe_tokens(
+        intent_pool = cls._dedupe_tokens(  # type: ignore[attr-defined]
             [*relation_terms, *breach_terms, *damage_terms, *remedy_terms, *summary_terms], max_tokens=8
         )
         if intent_pool:
@@ -274,7 +274,7 @@ class ExecutorQueryMixin:
         out: list[str] = []
         seen: set[str] = set()
         for candidate in candidates:
-            tokens = [token for token in cls._split_tokens(candidate) if not cls._is_location_or_court_token(token)]
+            tokens = [token for token in cls._split_tokens(candidate) if not cls._is_location_or_court_token(token)]  # type: ignore[attr-defined]
             if not tokens:
                 continue
             query = " ".join(cls._expand_terms_with_synonyms(tokens, max_tokens=12)).strip()
@@ -436,7 +436,7 @@ class ExecutorQueryMixin:
     def _title_prefilter(cls, *, keyword: str, case_summary: str, title_hint: str, min_overlap: float) -> bool:
         if not title_hint or not title_hint.strip():
             return True
-        query_tokens = cls._split_tokens(f"{keyword} {case_summary}")
+        query_tokens = cls._split_tokens(f"{keyword} {case_summary}")  # type: ignore[attr-defined]
         if not query_tokens:
             return True
         title_lower = title_hint.lower()

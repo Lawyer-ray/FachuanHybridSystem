@@ -42,13 +42,13 @@ class GuaranteeFormFillingMixin:
                     force_reset=refresh_round > 0,
                 )
                 if not reopened:
-                    self._random_wait(1.0, 1.6)
+                    self._random_wait(1.0, 1.6)  # type: ignore[attr-defined]
                     continue
 
-                ready = self._wait_court_options_ready(candidates=candidates, timeout_ms=self.MAX_SLOW_WAIT_MS)
+                ready = self._wait_court_options_ready(candidates=candidates, timeout_ms=self.MAX_SLOW_WAIT_MS)  # type: ignore[attr-defined]
                 if not ready:
-                    self._close_popovers()
-                    self._random_wait(1.2, 2.0)
+                    self._close_popovers()  # type: ignore[attr-defined]
+                    self._random_wait(1.2, 2.0)  # type: ignore[attr-defined]
                     continue
 
                 selected_text = str(
@@ -103,11 +103,11 @@ class GuaranteeFormFillingMixin:
                 ).strip()
 
                 if not selected_text:
-                    self._close_popovers()
-                    self._random_wait(1.2, 2.0)
+                    self._close_popovers()  # type: ignore[attr-defined]
+                    self._random_wait(1.2, 2.0)  # type: ignore[attr-defined]
                     continue
 
-                self._random_wait(0.8, 1.3)
+                self._random_wait(0.8, 1.3)  # type: ignore[attr-defined]
                 input_value = ""
                 try:
                     input_value = (court_input.input_value() or "").strip()
@@ -119,11 +119,11 @@ class GuaranteeFormFillingMixin:
                     or target_name in input_value
                     or (short_name and short_name in input_value)
                 ):
-                    self._close_popovers()
+                    self._close_popovers()  # type: ignore[attr-defined]
                     return True
 
-                self._close_popovers()
-                self._random_wait(1.0, 1.8)
+                self._close_popovers()  # type: ignore[attr-defined]
+                self._random_wait(1.0, 1.8)  # type: ignore[attr-defined]
 
         logger.warning("court_guarantee_court_not_stable", extra={"target_name": target_name})
         return False
@@ -134,7 +134,7 @@ class GuaranteeFormFillingMixin:
         if not cleaned_option or not cleaned_keywords:
             return False
 
-        ready = self._wait_form_item_option_ready(
+        ready = self._wait_form_item_option_ready(  # type: ignore[attr-defined]
             label_keywords=cleaned_keywords,
             option_text=cleaned_option,
             timeout_ms=self.MAX_SLOW_WAIT_MS,
@@ -187,9 +187,9 @@ class GuaranteeFormFillingMixin:
                 )
             )
             if selected:
-                self._random_wait(0.6, 1.1)
+                self._random_wait(0.6, 1.1)  # type: ignore[attr-defined]
                 return True
-            self._random_wait(1.0, 1.6)
+            self._random_wait(1.0, 1.6)  # type: ignore[attr-defined]
 
         return False
 
@@ -201,7 +201,7 @@ class GuaranteeFormFillingMixin:
             option.click(timeout=3000)
         except Exception:
             option.click(force=True)
-        self._random_wait(0.3, 0.6)
+        self._random_wait(0.3, 0.6)  # type: ignore[attr-defined]
         return True
 
     def _fill_case_number(self, case_data: dict[str, Any]) -> dict[str, bool]:
@@ -210,17 +210,17 @@ class GuaranteeFormFillingMixin:
         case_type_input = self.page.locator("input[placeholder*='案件类型']").first
         if case_type_input.count() > 0:
             case_type_input.click()
-            self._random_wait(0.4, 0.7)
+            self._random_wait(0.4, 0.7)  # type: ignore[attr-defined]
             result["case_type"] = self._choose_dropdown_item("民事")
-            self._close_popovers()
+            self._close_popovers()  # type: ignore[attr-defined]
 
         year_input = self.page.locator("input[placeholder='年份']").first
         year = str(case_data.get("case_year") or "")
         if year_input.count() > 0 and year:
             year_input.click()
-            self._random_wait(0.4, 0.7)
+            self._random_wait(0.4, 0.7)  # type: ignore[attr-defined]
             result["year"] = self._choose_dropdown_item(year)
-            self._close_popovers()
+            self._close_popovers()  # type: ignore[attr-defined]
 
         for placeholder, key in (
             ("法院代字", "case_court_code"),

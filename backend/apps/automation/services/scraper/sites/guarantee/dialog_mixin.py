@@ -30,23 +30,23 @@ class GuaranteeDialogMixin:
             property_clue_sources = [case_data.get("property_clue") or {}]
 
         targets = [
-            ("applicant", 0, ["申请人"], self._build_party_dialog_defaults(case_data.get("applicant") or {})),
+            ("applicant", 0, ["申请人"], self._build_party_dialog_defaults(case_data.get("applicant") or {})),  # type: ignore[attr-defined]
             *[
-                ("respondent", 1, ["被申请人"], self._build_party_dialog_defaults(source))
+                ("respondent", 1, ["被申请人"], self._build_party_dialog_defaults(source))  # type: ignore[attr-defined]
                 for source in respondent_sources
             ],
             (
                 "plaintiff_agent",
                 2,
                 ["原告代理人", "代理人"],
-                self._build_agent_dialog_defaults(case_data.get("plaintiff_agent") or case_data.get("applicant") or {}),
+                self._build_agent_dialog_defaults(case_data.get("plaintiff_agent") or case_data.get("applicant") or {}),  # type: ignore[attr-defined]
             ),
             *[
                 (
                     "property_clue",
                     3,
                     ["财产线索", "财产"],
-                    self._build_party_dialog_defaults(
+                    self._build_party_dialog_defaults(  # type: ignore[attr-defined]
                         case_data.get("respondent") or case_data.get("applicant") or {},
                         is_property_clue=True,
                         property_clue_data=property_clue_source,
@@ -72,7 +72,7 @@ class GuaranteeDialogMixin:
                     opened = self._click_add_button_by_section_keywords(section_keywords)
                 if opened:
                     break
-                self._random_wait(0.5, 0.8)
+                self._random_wait(0.5, 0.8)  # type: ignore[attr-defined]
 
             step["opened"] = opened
             if not opened:
@@ -84,7 +84,7 @@ class GuaranteeDialogMixin:
             }""")
             step["table_row_count_before"] = row_count_before
 
-            self._random_wait(0.8, 1.2)
+            self._random_wait(0.8, 1.2)  # type: ignore[attr-defined]
             if target in {"applicant", "respondent"}:
                 step["party_type_selected"] = self._choose_party_type_in_dialog(defaults)
             selected = self._fill_dialog_select_fields(defaults, target)
@@ -92,8 +92,8 @@ class GuaranteeDialogMixin:
             filled = self._fill_dialog_required_fields(defaults)
             playwright_filled = self._fill_dialog_fields_with_playwright(defaults, target)
             step["filled"] = [*selected, *dated, *filled, *playwright_filled]
-            step["saved"] = self._click_first_enabled_button(["确定", "保存", "提交", "完成"])
-            self._random_wait(0.8, 1.2)
+            step["saved"] = self._click_first_enabled_button(["确定", "保存", "提交", "完成"])  # type: ignore[attr-defined]
+            self._random_wait(0.8, 1.2)  # type: ignore[attr-defined]
 
             dialog_still_open = self.page.evaluate(r"""() => {
                 const layer = document.querySelector('#addSQR');
@@ -108,24 +108,24 @@ class GuaranteeDialogMixin:
             }""")
             step["table_row_count_after"] = row_count_after
 
-            errors = self._get_visible_form_errors()
+            errors = self._get_visible_form_errors()  # type: ignore[attr-defined]
             if target == "property_clue" and any(
                 ("请选择省份" in err) or ("请选择财产所有人" in err) for err in errors
             ):
                 step["property_clue_retry"] = self._retry_property_clue_save_on_province_error(defaults)
-                self._random_wait(0.5, 0.8)
-                errors = self._get_visible_form_errors()
+                self._random_wait(0.5, 0.8)  # type: ignore[attr-defined]
+                errors = self._get_visible_form_errors()  # type: ignore[attr-defined]
 
             step["errors"] = errors
             if errors:
-                step["cancelled"] = bool(self._click_first_enabled_button(["取消", "关闭", "返回"]))
-                self._random_wait(0.6, 0.9)
+                step["cancelled"] = bool(self._click_first_enabled_button(["取消", "关闭", "返回"]))  # type: ignore[attr-defined]
+                self._random_wait(0.6, 0.9)  # type: ignore[attr-defined]
 
             result["dialogs"].append(step)
 
-        result["next_clicked"] = self._click_first_enabled_button(["下一步", "保存并下一步"])
-        self._random_wait(2, 3)
-        result["errors_after_next"] = self._get_visible_form_errors()
+        result["next_clicked"] = self._click_first_enabled_button(["下一步", "保存并下一步"])  # type: ignore[attr-defined]
+        self._random_wait(2, 3)  # type: ignore[attr-defined]
+        result["errors_after_next"] = self._get_visible_form_errors()  # type: ignore[attr-defined]
 
         if any("数据库保存时失败" in err for err in result["errors_after_next"]):
             api_errors = self.page.evaluate(r"""() => {
@@ -146,11 +146,11 @@ class GuaranteeDialogMixin:
             result["api_error_log"] = self._api_error_log[-5:] if self._api_error_log else []
 
             for retry_idx in range(3):
-                self._close_popovers()
-                self._random_wait(1.5, 2.5)
-                self._click_first_enabled_button(["下一步", "保存并下一步"])
-                self._random_wait(2, 3)
-                retry_errors = self._get_visible_form_errors()
+                self._close_popovers()  # type: ignore[attr-defined]
+                self._random_wait(1.5, 2.5)  # type: ignore[attr-defined]
+                self._click_first_enabled_button(["下一步", "保存并下一步"])  # type: ignore[attr-defined]
+                self._random_wait(2, 3)  # type: ignore[attr-defined]
+                retry_errors = self._get_visible_form_errors()  # type: ignore[attr-defined]
                 result.setdefault("retry_errors", []).append(retry_errors)
                 if not any("数据库保存时失败" in err for err in retry_errors):
                     result["errors_after_next"] = retry_errors
@@ -194,11 +194,11 @@ class GuaranteeDialogMixin:
                 try:
                     if delete_btn.is_visible():
                         delete_btn.click(timeout=3000)
-                        self._random_wait(0.3, 0.5)
+                        self._random_wait(0.3, 0.5)  # type: ignore[attr-defined]
                         confirm = self.page.locator(".el-message-box__btns .el-button--primary")
                         if confirm.count() > 0 and confirm.first.is_visible():
                             confirm.first.click(timeout=3000)
-                        self._random_wait(0.3, 0.5)
+                        self._random_wait(0.3, 0.5)  # type: ignore[attr-defined]
                 except Exception:
                     break
 
@@ -214,11 +214,11 @@ class GuaranteeDialogMixin:
     def _wait_for_g_two_ready(self, retries: int = 12) -> bool:
         for _ in range(retries):
             if "gTwo" not in self.page.url:
-                self._random_wait(0.3, 0.5)
+                self._random_wait(0.3, 0.5)  # type: ignore[attr-defined]
                 continue
             if self.page.locator("xpath=//*[contains(normalize-space(text()),'添加')]").count() > 0:
                 return True
-            self._random_wait(0.4, 0.7)
+            self._random_wait(0.4, 0.7)  # type: ignore[attr-defined]
         return "gTwo" in self.page.url
 
     def _click_add_button(self, index: int) -> bool:
@@ -286,7 +286,7 @@ class GuaranteeDialogMixin:
         return bool(clicked)
 
     def _choose_party_type_in_dialog(self, defaults: dict[str, str]) -> bool:
-        party_type = self._normalize_party_type(defaults.get("party_type") or "natural")
+        party_type = self._normalize_party_type(defaults.get("party_type") or "natural")  # type: ignore[attr-defined]
         type_text_map = {
             "natural": "自然人",
             "legal": "法人",
@@ -315,7 +315,7 @@ class GuaranteeDialogMixin:
             }""",
             target_text,
         )
-        self._random_wait(0.2, 0.4)
+        self._random_wait(0.2, 0.4)  # type: ignore[attr-defined]
         return bool(clicked)
 
     def _fill_dialog_select_fields(self, defaults: dict[str, str], target: str | None = None) -> list[str]:
@@ -420,8 +420,8 @@ class GuaranteeDialogMixin:
             }""",
             {"defaults": defaults, "target": target or ""},
         )
-        self._random_wait(0.2, 0.4)
-        self._close_popovers()
+        self._random_wait(0.2, 0.4)  # type: ignore[attr-defined]
+        self._close_popovers()  # type: ignore[attr-defined]
         return [str(item) for item in updates]
 
     def _fill_dialog_date_fields(self) -> list[str]:
@@ -659,7 +659,7 @@ class GuaranteeDialogMixin:
             return None
 
         def _select_dropdown_by_label(label_keyword: str, preferred_texts: list[str]) -> bool:
-            selected_text = self._force_vue_select_by_label(label_keyword, preferred_texts)
+            selected_text = self._force_vue_select_by_label(label_keyword, preferred_texts)  # type: ignore[attr-defined]
             if selected_text:
                 updates.append(f"{label_keyword}={selected_text}")
                 return True

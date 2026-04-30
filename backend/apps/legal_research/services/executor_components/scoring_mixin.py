@@ -75,8 +75,8 @@ class ExecutorScoringMixin:
     def _effective_fetch_limit(cls, *, max_candidates: int, skipped: int) -> int:
         baseline = max(1, int(max_candidates))
         extra = max(0, int(skipped))
-        hard_cap = max(baseline, baseline * cls.DETAIL_FAILURE_BACKFILL_MULTIPLIER)
-        return min(hard_cap, baseline + extra)
+        hard_cap = max(baseline, baseline * cls.DETAIL_FAILURE_BACKFILL_MULTIPLIER)  # type: ignore[attr-defined]
+        return min(hard_cap, baseline + extra)  # type: ignore[no-any-return]
 
     @classmethod
     def _coarse_threshold(cls, min_similarity: float) -> float:
@@ -147,7 +147,7 @@ class ExecutorScoringMixin:
                     task.llm_model = sim.model
 
         dual_review_metadata: dict[str, Any] | None = None
-        similarity_metadata = cls._extract_similarity_metadata(similarity=sim)
+        similarity_metadata = cls._extract_similarity_metadata(similarity=sim)  # type: ignore[attr-defined]
         if (
             dual_review_policy.enabled
             and sim.score >= dual_review_policy.trigger_floor
@@ -172,7 +172,7 @@ class ExecutorScoringMixin:
                 sim.reason = merged_reason
                 sim.model = merged_model
 
-        feedback_updated = cls._update_feedback_terms(
+        feedback_updated = cls._update_feedback_terms(  # type: ignore[attr-defined]
             feedback_term_weights=feedback_term_weights,
             detail=detail,
             reason=sim.reason,
@@ -185,7 +185,7 @@ class ExecutorScoringMixin:
         if sim.score < min_similarity_threshold:
             return matched, skipped, feedback_updated
 
-        pdf = cls._download_pdf_with_retry(
+        pdf = cls._download_pdf_with_retry(  # type: ignore[attr-defined]
             source_client=source_client,
             session=session,
             detail=detail,
@@ -207,7 +207,7 @@ class ExecutorScoringMixin:
                 merged_metadata.update(similarity_metadata)
             if dual_review_metadata:
                 merged_metadata.update(dual_review_metadata)
-        cls._save_result(
+        cls._save_result(  # type: ignore[attr-defined]
             task=task,
             detail=detail,
             similarity=sim,

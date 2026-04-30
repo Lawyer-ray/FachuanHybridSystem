@@ -219,8 +219,8 @@ class GuaranteeUploadMixin:
                     result["uploads"].append(
                         {"index": i, "label": label_text[:80], "file": chosen_files[0].rsplit("/", 1)[-1]}
                     )
-                self._wait_upload_idle(timeout_ms=90000)
-                self._random_wait(1.8, 2.8)
+                self._wait_upload_idle(timeout_ms=90000)  # type: ignore[attr-defined]
+                self._random_wait(1.8, 2.8)  # type: ignore[attr-defined]
             except Exception:
                 continue
 
@@ -238,13 +238,13 @@ class GuaranteeUploadMixin:
         )
 
         for _ in range(12):
-            self._wait_upload_idle(timeout_ms=90000)
-            result["next_clicked"] = self._click_first_enabled_button(["下一步", "保存并下一步"])
-            self._random_wait(1.4, 2.2)
+            self._wait_upload_idle(timeout_ms=90000)  # type: ignore[attr-defined]
+            result["next_clicked"] = self._click_first_enabled_button(["下一步", "保存并下一步"])  # type: ignore[attr-defined]
+            self._random_wait(1.4, 2.2)  # type: ignore[attr-defined]
             if "gFour" in self.page.url or "gFive" in self.page.url:
                 break
 
-            errors = self._get_visible_form_errors()
+            errors = self._get_visible_form_errors()  # type: ignore[attr-defined]
             if any("请上传起诉" in err for err in errors):
                 for j in range(total_inputs):
                     candidate = file_inputs.nth(j)
@@ -278,7 +278,7 @@ class GuaranteeUploadMixin:
                                 "retry": True,
                             }
                         )
-                        self._random_wait(1.8, 2.4)
+                        self._random_wait(1.8, 2.4)  # type: ignore[attr-defined]
                     except Exception:
                         continue
 
@@ -336,7 +336,7 @@ class GuaranteeUploadMixin:
                                     "reason": "identity_material",
                                 }
                             )
-                            self._random_wait(2.0, 2.8)
+                            self._random_wait(2.0, 2.8)  # type: ignore[attr-defined]
                         except Exception:
                             for single_path in identity_paths:
                                 try:
@@ -350,16 +350,16 @@ class GuaranteeUploadMixin:
                                             "reason": "identity_material_fallback",
                                         }
                                     )
-                                    self._random_wait(1.6, 2.2)
+                                    self._random_wait(1.6, 2.2)  # type: ignore[attr-defined]
                                     break
                                 except Exception:
                                     continue
 
             if any("请上传" in err or "正在进行上传" in err or "当前正在进行上传操作" in err for err in errors):
-                self._wait_upload_idle(timeout_ms=120000)
-                self._random_wait(2.2, 3.2)
+                self._wait_upload_idle(timeout_ms=120000)  # type: ignore[attr-defined]
+                self._random_wait(2.2, 3.2)  # type: ignore[attr-defined]
 
-        final_upload_errors = self._get_visible_form_errors()
+        final_upload_errors = self._get_visible_form_errors()  # type: ignore[attr-defined]
         if any("身份证明材料" in err for err in final_upload_errors):
             legal_identity = _pick_path([["法定代表人身份证明", "身份证明书", "身份证明", "身份证"]])
             business_license = _pick_path([["营业执照"]])
@@ -423,8 +423,8 @@ class GuaranteeUploadMixin:
                                 continue
 
                 for _ in range(4):
-                    result["next_clicked"] = self._click_first_enabled_button(["下一步", "保存并下一步"])
-                    self._random_wait(1.2, 1.8)
+                    result["next_clicked"] = self._click_first_enabled_button(["下一步", "保存并下一步"])  # type: ignore[attr-defined]
+                    self._random_wait(1.2, 1.8)  # type: ignore[attr-defined]
                     if "gFour" in self.page.url or "gFive" in self.page.url:
                         break
 
@@ -478,15 +478,15 @@ class GuaranteeUploadMixin:
             try:
                 candidate.set_input_files(retry_files)
                 uploaded = True
-                self._wait_upload_idle(timeout_ms=90000)
-                self._random_wait(2.0, 2.8)
+                self._wait_upload_idle(timeout_ms=90000)  # type: ignore[attr-defined]
+                self._random_wait(2.0, 2.8)  # type: ignore[attr-defined]
             except Exception:
                 for single_path in retry_files:
                     try:
                         candidate.set_input_files(single_path)
                         uploaded = True
-                        self._wait_upload_idle(timeout_ms=90000)
-                        self._random_wait(1.8, 2.4)
+                        self._wait_upload_idle(timeout_ms=90000)  # type: ignore[attr-defined]
+                        self._random_wait(1.8, 2.4)  # type: ignore[attr-defined]
                         break
                     except Exception:
                         continue
@@ -542,15 +542,15 @@ class GuaranteeUploadMixin:
             try:
                 candidate.set_input_files(evidence_files)
                 uploaded = True
-                self._wait_upload_idle(timeout_ms=90000)
-                self._random_wait(2.0, 2.8)
+                self._wait_upload_idle(timeout_ms=90000)  # type: ignore[attr-defined]
+                self._random_wait(2.0, 2.8)  # type: ignore[attr-defined]
             except Exception:
                 for single_path in evidence_files:
                     try:
                         candidate.set_input_files(single_path)
                         uploaded = True
-                        self._wait_upload_idle(timeout_ms=90000)
-                        self._random_wait(1.8, 2.4)
+                        self._wait_upload_idle(timeout_ms=90000)  # type: ignore[attr-defined]
+                        self._random_wait(1.8, 2.4)  # type: ignore[attr-defined]
                         break
                     except Exception:
                         continue
