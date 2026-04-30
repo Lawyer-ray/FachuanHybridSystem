@@ -59,30 +59,30 @@ class ExecutorQueryMixin:
         if deduped:
             return deduped
 
-        fallback_tokens = cls._split_tokens(keyword) or cls._split_tokens(case_summary)
+        fallback_tokens = cls._split_tokens(keyword) or cls._split_tokens(case_summary)  # type: ignore[attr-defined]
         return [" ".join(cls._expand_terms_with_synonyms(fallback_tokens, max_tokens=8)).strip()]
 
     @classmethod
     def _build_search_keyword(cls, keyword: str, case_summary: str) -> str:
-        base_tokens = cls._split_tokens(keyword)
+        base_tokens = cls._split_tokens(keyword)  # type: ignore[attr-defined]
         if not base_tokens:
-            base_tokens = cls._split_tokens(case_summary)
+            base_tokens = cls._split_tokens(case_summary)  # type: ignore[attr-defined]
         merged = cls._expand_terms_with_synonyms(base_tokens, max_tokens=12)
         return " ".join(merged).strip()
 
     @classmethod
     def _build_fallback_search_keyword(cls, keyword: str, case_summary: str) -> str:
-        fallback_tokens = cls._split_tokens(keyword)
-        filtered = [token for token in fallback_tokens if not cls._is_location_or_court_token(token)]
-        summary_terms = cls._extract_summary_terms(case_summary)
+        fallback_tokens = cls._split_tokens(keyword)  # type: ignore[attr-defined]
+        filtered = [token for token in fallback_tokens if not cls._is_location_or_court_token(token)]  # type: ignore[attr-defined]
+        summary_terms = cls._extract_summary_terms(case_summary)  # type: ignore[attr-defined]
         merged = cls._expand_terms_with_synonyms([*filtered, *summary_terms], max_tokens=12)
         return " ".join(merged).strip()
 
     @classmethod
     def _build_scoring_keyword(cls, keyword: str, case_summary: str) -> str:
-        base_tokens = cls._split_tokens(keyword)
-        filtered = [token for token in base_tokens if not cls._is_location_or_court_token(token)]
-        summary_terms = cls._extract_summary_terms(case_summary)
+        base_tokens = cls._split_tokens(keyword)  # type: ignore[attr-defined]
+        filtered = [token for token in base_tokens if not cls._is_location_or_court_token(token)]  # type: ignore[attr-defined]
+        summary_terms = cls._extract_summary_terms(case_summary)  # type: ignore[attr-defined]
         merged = cls._expand_terms_with_synonyms([*filtered, *summary_terms], max_tokens=10)
         if not merged:
             merged = cls._expand_terms_with_synonyms([*base_tokens, *summary_terms], max_tokens=10)
@@ -90,14 +90,14 @@ class ExecutorQueryMixin:
 
     @classmethod
     def _build_summary_search_keyword(cls, case_summary: str) -> str:
-        summary_terms = cls._expand_terms_with_synonyms(cls._extract_summary_terms(case_summary), max_tokens=8)
+        summary_terms = cls._expand_terms_with_synonyms(cls._extract_summary_terms(case_summary), max_tokens=8)  # type: ignore[attr-defined]
         return " ".join(summary_terms[:6]).strip()
 
     @classmethod
     def _build_feedback_search_keyword(cls, keyword: str, case_summary: str, feedback_terms: list[str]) -> str:
-        keyword_tokens = cls._split_tokens(keyword)
-        keyword_tokens = [token for token in keyword_tokens if not cls._is_location_or_court_token(token)]
-        summary_terms = cls._extract_summary_terms(case_summary)
+        keyword_tokens = cls._split_tokens(keyword)  # type: ignore[attr-defined]
+        keyword_tokens = [token for token in keyword_tokens if not cls._is_location_or_court_token(token)]  # type: ignore[attr-defined]
+        summary_terms = cls._extract_summary_terms(case_summary)  # type: ignore[attr-defined]
         merged = cls._expand_terms_with_synonyms([*keyword_tokens, *summary_terms, *feedback_terms], max_tokens=12)
         return " ".join(merged).strip()
 

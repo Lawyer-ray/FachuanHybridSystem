@@ -257,12 +257,12 @@ class GuaranteeFormFillingMixin:
                 force_reset=attempt > 0,
             )
             if not reopened:
-                self._random_wait(0.6, 1.0)
+                self._random_wait(0.6, 1.0)  # type: ignore[attr-defined]
                 continue
 
-            if not self._wait_tree_options_ready(candidates=candidates, timeout_ms=self.MAX_SLOW_WAIT_MS):
-                self._close_popovers()
-                self._random_wait(1.0, 1.6)
+            if not self._wait_tree_options_ready(candidates=candidates, timeout_ms=self.MAX_SLOW_WAIT_MS):  # type: ignore[attr-defined]
+                self._close_popovers()  # type: ignore[attr-defined]
+                self._random_wait(1.0, 1.6)  # type: ignore[attr-defined]
                 continue
 
             clicked = self.page.evaluate(
@@ -302,10 +302,10 @@ class GuaranteeFormFillingMixin:
                 }""",
                 candidates,
             )
-            self._close_popovers()
+            self._close_popovers()  # type: ignore[attr-defined]
             if bool(clicked):
                 return True
-            self._random_wait(0.8, 1.3)
+            self._random_wait(0.8, 1.3)  # type: ignore[attr-defined]
 
         logger.warning(
             "court_guarantee_cause_not_stable", extra={"cause_name": cause_name, "candidates": candidates[:5]}
@@ -322,11 +322,11 @@ class GuaranteeFormFillingMixin:
 
         for attempt in range(8):
             try:
-                self._close_popovers()
-                self._random_wait(0.4, 0.7)
+                self._close_popovers()  # type: ignore[attr-defined]
+                self._random_wait(0.4, 0.7)  # type: ignore[attr-defined]
                 select.click(force=True, timeout=2500)
             except Exception:
-                self._random_wait(0.4, 0.7)
+                self._random_wait(0.4, 0.7)  # type: ignore[attr-defined]
                 continue
 
             search_input = self.page.locator(".el-select-dropdown input.el-input__inner").first
@@ -341,11 +341,11 @@ class GuaranteeFormFillingMixin:
                         submit_enter=True,
                     )
 
-            self._wait_select_options_ready(
+            self._wait_select_options_ready(  # type: ignore[attr-defined]
                 candidates=[preferred_name, *keyword_candidates],
                 timeout_ms=min(self.MAX_SLOW_WAIT_MS, 60000),
             )
-            self._random_wait(0.4, 0.8)
+            self._random_wait(0.4, 0.8)  # type: ignore[attr-defined]
 
             chosen_text = str(
                 self.page.evaluate(
@@ -391,14 +391,14 @@ class GuaranteeFormFillingMixin:
             ).strip()
 
             if chosen_text:
-                self._close_popovers()
+                self._close_popovers()  # type: ignore[attr-defined]
                 return chosen_text
 
-            self._close_popovers()
-            self._random_wait(1.5, 2.5)
+            self._close_popovers()  # type: ignore[attr-defined]
+            self._random_wait(1.5, 2.5)  # type: ignore[attr-defined]
 
         logger.warning("court_guarantee_insurance_options_not_ready", extra={"preferred_name": preferred_name})
-        self._close_popovers()
+        self._close_popovers()  # type: ignore[attr-defined]
         return None
 
     def _fill_consultant_code(self, consultant_code: str) -> bool:
@@ -420,7 +420,7 @@ class GuaranteeFormFillingMixin:
                     continue
                 field.click()
                 field.fill(code)
-                self._random_wait(0.2, 0.4)
+                self._random_wait(0.2, 0.4)  # type: ignore[attr-defined]
                 return True
             except Exception:
                 continue
@@ -451,7 +451,7 @@ class GuaranteeFormFillingMixin:
             code,
         )
         if filled:
-            self._random_wait(0.2, 0.4)
+            self._random_wait(0.2, 0.4)  # type: ignore[attr-defined]
         return bool(filled)
 
     def _fill_amount(self, amount: Any) -> bool:
@@ -469,7 +469,7 @@ class GuaranteeFormFillingMixin:
             return False
         amount_input.click()
         amount_input.fill(raw)
-        self._random_wait(0.2, 0.4)
+        self._random_wait(0.2, 0.4)  # type: ignore[attr-defined]
         return True
 
     def _choose_dropdown_item(self, preferred_text: str) -> bool:
@@ -480,15 +480,15 @@ class GuaranteeFormFillingMixin:
                 text = (items.nth(i).inner_text() or "").strip()
                 if preferred and preferred in text:
                     items.nth(i).click(force=True)
-                    self._random_wait(0.2, 0.4)
+                    self._random_wait(0.2, 0.4)  # type: ignore[attr-defined]
                     return True
             for i in range(items.count()):
                 text = (items.nth(i).inner_text() or "").strip()
                 if text:
                     items.nth(i).click(force=True)
-                    self._random_wait(0.2, 0.4)
+                    self._random_wait(0.2, 0.4)  # type: ignore[attr-defined]
                     return True
-            self._random_wait(0.4, 0.8)
+            self._random_wait(0.4, 0.8)  # type: ignore[attr-defined]
         return False
 
     def _reopen_and_search_dropdown_input(
@@ -505,11 +505,11 @@ class GuaranteeFormFillingMixin:
             return False
 
         try:
-            self._close_popovers()
-            self._random_wait(0.4, 0.8)
+            self._close_popovers()  # type: ignore[attr-defined]
+            self._random_wait(0.4, 0.8)  # type: ignore[attr-defined]
 
             dropdown_input.click(timeout=open_timeout_ms)
-            self._random_wait(0.6, 1.1)
+            self._random_wait(0.6, 1.1)  # type: ignore[attr-defined]
 
             if force_reset:
                 try:
@@ -523,7 +523,7 @@ class GuaranteeFormFillingMixin:
                         pass
 
             dropdown_input.fill("")
-            self._random_wait(0.4, 0.8)
+            self._random_wait(0.4, 0.8)  # type: ignore[attr-defined]
             dropdown_input.fill(term)
 
             if submit_enter:
@@ -618,7 +618,7 @@ class GuaranteeFormFillingMixin:
             }""",
             {"labelKeyword": label_keyword, "preferredTexts": preferred_texts},
         )
-        self._close_popovers()
+        self._close_popovers()  # type: ignore[attr-defined]
         selected_text = str(selected or "").strip()
         return selected_text or None
 

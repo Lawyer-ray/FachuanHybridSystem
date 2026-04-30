@@ -672,9 +672,9 @@ class GuaranteeDialogMixin:
         _fill_first_visible("电话", defaults.get("telephone_number") or "")
         _fill_first_visible("分机号", defaults.get("telephone_extension") or "")
 
-        normalized_party_type = self._normalize_party_type(defaults.get("party_type") or "natural")
+        normalized_party_type = self._normalize_party_type(defaults.get("party_type") or "natural")  # type: ignore[attr-defined]
         if target in {"applicant", "respondent"} and normalized_party_type in {"legal", "non_legal_org"}:
-            selected_unit_nature = self._force_vue_select_by_label(
+            selected_unit_nature = self._force_vue_select_by_label(  # type: ignore[attr-defined]
                 "单位性质", ["企业", defaults.get("unit_nature") or "", "其他"]
             )
             if selected_unit_nature:
@@ -718,7 +718,7 @@ class GuaranteeDialogMixin:
                 updates.append("所属原告=已选")
 
         if target == "property_clue":
-            selected_property_type = self._force_vue_select_by_label(
+            selected_property_type = self._force_vue_select_by_label(  # type: ignore[attr-defined]
                 "财产类型", ["其他", defaults.get("property_type") or "", "其他"]
             )
             if selected_property_type:
@@ -822,7 +822,7 @@ class GuaranteeDialogMixin:
             if cascaders.count() > 0:
                 try:
                     cascaders.first.click(force=True, timeout=2000)
-                    self._random_wait(0.2, 0.4)
+                    self._random_wait(0.2, 0.4)  # type: ignore[attr-defined]
                     gd_nodes = self.page.locator(".el-cascader-node__label").filter(has_text="广东")
                     clicked = False
                     if gd_nodes.count() > 0:
@@ -867,7 +867,7 @@ class GuaranteeDialogMixin:
                     continue
                 selected = False
                 for retry in range(4):
-                    reopened = self._reopen_and_search_dropdown_input(
+                    reopened = self._reopen_and_search_dropdown_input(  # type: ignore[attr-defined]
                         field,
                         "其他",
                         force_reset=retry > 0,
@@ -875,14 +875,14 @@ class GuaranteeDialogMixin:
                         submit_enter=True,
                     )
                     if not reopened:
-                        self._random_wait(0.3, 0.6)
+                        self._random_wait(0.3, 0.6)  # type: ignore[attr-defined]
                         continue
-                    self._wait_select_options_ready(candidates=["其他"], timeout_ms=min(self.MAX_SLOW_WAIT_MS, 45000))
-                    selected = self._choose_dropdown_item("其他")
+                    self._wait_select_options_ready(candidates=["其他"], timeout_ms=min(self.MAX_SLOW_WAIT_MS, 45000))  # type: ignore[attr-defined]
+                    selected = self._choose_dropdown_item("其他")  # type: ignore[attr-defined]
                     if selected:
                         break
-                    self._close_popovers()
-                    self._random_wait(0.5, 0.8)
+                    self._close_popovers()  # type: ignore[attr-defined]
+                    self._random_wait(0.5, 0.8)  # type: ignore[attr-defined]
                 if selected:
                     updates.append("财产类型=其他")
                     break
@@ -899,7 +899,7 @@ class GuaranteeDialogMixin:
                     continue
                 selected = False
                 for retry in range(4):
-                    reopened = self._reopen_and_search_dropdown_input(
+                    reopened = self._reopen_and_search_dropdown_input(  # type: ignore[attr-defined]
                         field,
                         owner_name,
                         force_reset=retry > 0,
@@ -907,18 +907,18 @@ class GuaranteeDialogMixin:
                         submit_enter=True,
                     )
                     if not reopened:
-                        self._random_wait(0.4, 0.8)
+                        self._random_wait(0.4, 0.8)  # type: ignore[attr-defined]
                         continue
-                    self._wait_select_options_ready(
+                    self._wait_select_options_ready(  # type: ignore[attr-defined]
                         candidates=[owner_name], timeout_ms=min(self.MAX_SLOW_WAIT_MS, 60000)
                     )
-                    selected = self._choose_dropdown_item(owner_name)
+                    selected = self._choose_dropdown_item(owner_name)  # type: ignore[attr-defined]
                     if not selected:
-                        selected = self._choose_dropdown_item("")
+                        selected = self._choose_dropdown_item("")  # type: ignore[attr-defined]
                     if selected:
                         break
-                    self._close_popovers()
-                    self._random_wait(0.6, 1.0)
+                    self._close_popovers()  # type: ignore[attr-defined]
+                    self._random_wait(0.6, 1.0)  # type: ignore[attr-defined]
                 if selected:
                     updates.append("财产所有人=已选")
                     break
@@ -934,7 +934,7 @@ class GuaranteeDialogMixin:
                 if field.is_visible() and not field.is_disabled():
                     selected = False
                     for retry in range(4):
-                        reopened = self._reopen_and_search_dropdown_input(
+                        reopened = self._reopen_and_search_dropdown_input(  # type: ignore[attr-defined]
                             field,
                             province_keyword if retry < 3 else province_name,
                             force_reset=retry > 0,
@@ -942,21 +942,21 @@ class GuaranteeDialogMixin:
                             submit_enter=True,
                         )
                         if not reopened:
-                            self._random_wait(0.4, 0.8)
+                            self._random_wait(0.4, 0.8)  # type: ignore[attr-defined]
                             continue
-                        self._wait_select_options_ready(
+                        self._wait_select_options_ready(  # type: ignore[attr-defined]
                             candidates=[province_keyword, province_name],
                             timeout_ms=min(self.MAX_SLOW_WAIT_MS, 60000),
                         )
-                        selected = self._choose_dropdown_item(province_keyword)
+                        selected = self._choose_dropdown_item(province_keyword)  # type: ignore[attr-defined]
                         if not selected:
-                            selected = self._choose_dropdown_item(province_name)
+                            selected = self._choose_dropdown_item(province_name)  # type: ignore[attr-defined]
                         if not selected:
-                            selected = self._choose_dropdown_item("")
+                            selected = self._choose_dropdown_item("")  # type: ignore[attr-defined]
                         if selected:
                             break
-                        self._close_popovers()
-                        self._random_wait(0.5, 0.9)
+                        self._close_popovers()  # type: ignore[attr-defined]
+                        self._random_wait(0.5, 0.9)  # type: ignore[attr-defined]
                     if selected:
                         updates.append(f"省份={province_name}")
         except Exception:
@@ -1018,7 +1018,7 @@ class GuaranteeDialogMixin:
             },
         )
         updates.extend([str(item) for item in (filled_fields or [])])
-        self._close_popovers()
+        self._close_popovers()  # type: ignore[attr-defined]
         return updates
 
     def _retry_property_clue_save_on_province_error(self, defaults: dict[str, str]) -> bool:
@@ -1026,11 +1026,11 @@ class GuaranteeDialogMixin:
             try:
                 self._fill_property_clue_dialog_v15(defaults)
 
-                self._random_wait(0.2, 0.4)
-                self._click_first_enabled_button(["保存", "确定"])
-                self._random_wait(0.6, 0.9)
+                self._random_wait(0.2, 0.4)  # type: ignore[attr-defined]
+                self._click_first_enabled_button(["保存", "确定"])  # type: ignore[attr-defined]
+                self._random_wait(0.6, 0.9)  # type: ignore[attr-defined]
 
-                errors = self._get_visible_form_errors()
+                errors = self._get_visible_form_errors()  # type: ignore[attr-defined]
                 has_required_select_error = any(("请选择省份" in err) or ("请选择财产所有人" in err) for err in errors)
                 if not has_required_select_error:
                     return True
