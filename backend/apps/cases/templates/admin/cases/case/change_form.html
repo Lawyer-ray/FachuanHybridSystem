@@ -84,33 +84,39 @@
 #case_numbers-group .flex-container.form-multiline > div {
     flex: 1; min-width: 0;
 }
-/* 文本字段：标签在上块显示，输入框在下 */
-#case_numbers-group .flex-container.form-multiline > div:not(.field-is_active):not(.field-execution_use_deduction_order) label {
-    display: block !important; width: auto !important; min-width: 0 !important;
-    margin: 0 0 4px 0 !important; line-height: 1.4;
+/* 内层 fieldBox 统一去掉 flex，回归 block 垂直排列 */
+#case_numbers-group .flex-container.form-multiline > div > .flex-container.fieldBox {
+    display: block !important; width: 100%;
 }
-#case_numbers-group .flex-container.form-multiline > div:not(.field-is_active):not(.field-execution_use_deduction_order) input,
-#case_numbers-group .flex-container.form-multiline > div:not(.field-is_active):not(.field-execution_use_deduction_order) select,
-#case_numbers-group .flex-container.form-multiline > div:not(.field-is_active):not(.field-execution_use_deduction_order) .vTextField,
-#case_numbers-group .flex-container.form-multiline > div:not(.field-is_active):not(.field-execution_use_deduction_order) .vDateField {
+/* label 强制 block，在上，无浮动 */
+#case_numbers-group .flex-container.form-multiline label {
+    display: block !important; float: none !important;
+    width: auto !important; min-width: 0 !important;
+    margin: 0 0 4px 0 !important; padding: 0 !important;
+    line-height: 1.4; font-size: 12px;
+}
+/* 文本输入框填满 */
+#case_numbers-group .flex-container.form-multiline input,
+#case_numbers-group .flex-container.form-multiline select,
+#case_numbers-group .flex-container.form-multiline .vTextField,
+#case_numbers-group .flex-container.form-multiline .vDateField {
     width: 100% !important; box-sizing: border-box;
 }
-
-/* 复选框字段：同行显示 */
-#case_numbers-group .flex-container.form-multiline .field-is_active,
-#case_numbers-group .flex-container.form-multiline .field-execution_use_deduction_order {
-    flex: 0 0 auto;
-    display: flex; flex-direction: row; align-items: center; gap: 5px;
-    padding-top: 18px; /* 对齐上方字段的标签+输入框高度 */
+/* 复选框 fieldBox 例外：保持 flex 行内排列 */
+#case_numbers-group .flex-container.form-multiline > div > .flex-container.fieldBox.field-is_active,
+#case_numbers-group .flex-container.form-multiline > div > .flex-container.fieldBox.field-execution_use_deduction_order {
+    display: flex !important; flex-direction: row; align-items: center;
+    flex-wrap: nowrap; gap: 5px; width: auto;
 }
-#case_numbers-group .flex-container.form-multiline .field-is_active input[type='checkbox'],
-#case_numbers-group .flex-container.form-multiline .field-execution_use_deduction_order input[type='checkbox'] {
-    margin: 0; flex: none;
+#case_numbers-group .flex-container.form-multiline > div > .flex-container.fieldBox.field-is_active label,
+#case_numbers-group .flex-container.form-multiline > div > .flex-container.fieldBox.field-execution_use_deduction_order label {
+    display: inline !important; float: none !important;
+    margin: 0 !important; font-size: 12px !important; white-space: nowrap !important;
+    vertical-align: middle; width: auto !important;
 }
-#case_numbers-group .flex-container.form-multiline .field-is_active label,
-#case_numbers-group .flex-container.form-multiline .field-execution_use_deduction_order label {
-    display: inline !important; margin: 0 !important; font-size: 12px !important;
-    white-space: nowrap !important; vertical-align: middle;
+#case_numbers-group .flex-container.form-multiline > div > .flex-container.fieldBox.field-is_active input,
+#case_numbers-group .flex-container.form-multiline > div > .flex-container.fieldBox.field-execution_use_deduction_order input {
+    width: auto !important; flex: none;
 }
 #case_numbers-group .field-execution_date_inclusion { flex: 0 0 140px !important; min-width: 140px !important; }
 #case_numbers-group .field-document_content,
