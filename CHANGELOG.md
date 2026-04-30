@@ -2,6 +2,31 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.41.3] - 2026-04-30
+
+### 修复
+
+- **恢复案件当事人inline的"+"添加按钮**：`CasePartyInlineForm` 的自定义 `forms.Select` widget 覆盖了 Django admin 的 `RelatedFieldWidgetWrapper`，导致绿色"+"按钮不显示；移除自定义 widget，使用 Django 默认 widget + `autocomplete_fields` 实现搜索下拉
+- **案件当事人下拉改为搜索模式**：`CasePartyInline` 新增 `autocomplete_fields = ("client",)`，支持按姓名/手机号/身份证号搜索当事人
+- **新增重复当事人校验**：`CasePartyInlineFormSet.clean()` 检查同一案件中是否有重复当事人，提交时提示"同一案件中不能出现相同的当事人"
+- **移除JS中隐藏"+"按钮的逻辑**：`admin_case_form.js` 中 `hideCasePartyClientAddButtons()` 函数及相关调用全部删除
+- **移除CSS中隐藏"+"按钮的规则**：`admin_caseparty.css` 中 `#parties-group .related-widget-wrapper-link.add-related { display: none !important }` 规则删除
+- **案件/合同详情页回滚至4月28日稳定状态**：回滚详情页模板、CSS、JS，修复卡片边距丢失和样式覆盖问题
+- **合同详情页Tab切换优化**：去除合同 partial 双层 `x-show` 嵌套，Tab 切换从函数调用改为直接赋值
+
+### 性能优化
+
+- **DashboardService 查询优化**：`get_breakdown` 和 `get_factors` 的分组统计从 Python 层循环 + N+1 查询改为数据库层 `Subquery` + `annotate` 聚合，减少查询次数
+- **律师绩效分析优化**：`get_lawyer_performance` 从 Python 层循环聚合改为数据库层 `annotate`，新增 `_lawyer_display_name` 辅助函数
+- **立案材料槽匹配规则优化**：`_SLOT_RULES` 的 exclude 列表补充"委托代理""委托手续""营业执照""统一社会信用代码""法定代表人身份证明"等关键词；`_match_slot` 新增保全/保函关键词匹配 slot 5
+
+### 变更
+
+- **日志配置新增 plugins logger**：`get_logging_config` 新增 `plugins` logger 条目，解决 `plugins` 命名空间的 INFO 日志被 root logger（WARNING 级别）吞掉的问题
+- **HTTP立案插件调用方式简化**：`CourtZxfwFilingService` 中 `CourtZxfwFilingApiService` 从 context manager 改为直接实例化，调用 `file_civil_case_sync` / `file_execution_sync`
+- **合同详情页模板精简**：`basic_info.html` 移除重复的当事人/律师卡片（已合并到 `parties_lawyers.html`），`filing.html` 扩展立案信息展示
+- **.gitignore 补充**：新增 `.animation/` 目录忽略规则
+
 ## [26.41.2] - 2026-04-29
 
 ### 性能优化

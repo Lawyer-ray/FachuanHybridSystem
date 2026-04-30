@@ -22,20 +22,7 @@ function contractDetailApp(config = {}) {
 
     return {
         // 当前激活的标签页
-        activeTab: (() => {
-            const saved = localStorage.getItem(storageKey);
-            // 'parties' tab已合并到'basic'，回退到'basic'
-            return (saved && saved !== 'parties') ? saved : 'basic';
-        })(),
-
-        // Tab 懒加载状态
-        tabsLoaded: {
-            basic: true,
-            finance: true,
-            filing: true,
-            documents: false,
-            finalized: false,
-        },
+        activeTab: localStorage.getItem(storageKey) || 'basic',
 
         // 文档生成状态
         generating: false,
@@ -79,12 +66,8 @@ function contractDetailApp(config = {}) {
             this.$watch('activeTab', (value) => {
                 localStorage.setItem(storageKey, value);
             });
-            // 页面刷新时，若当前Tab是懒加载Tab，需要触发加载
-            if (!this.tabsLoaded[this.activeTab]) {
-                this.loadTabContent(this.activeTab);
-            }
             window.addEventListener('contract-folder-scan-needs-binding', () => {
-                this.switchTab('documents');
+                this.activeTab = 'documents';
                 this.showToast('请先在"文档与提醒"中完成文件夹绑定，再使用"从合同文件夹同步"', 'error');
             });
             // 监听归档文书预览事件
@@ -121,54 +104,6 @@ function contractDetailApp(config = {}) {
                         this.isLoadingPreview = false;
                     });
             });
-        },
-
-        /**
-         * 切换标签页（支持懒加载）
-         * @param {string} tab - 标签页名称
-         */
-        switchTab(tab) {
-            this.activeTab = tab;
-            if (!this.tabsLoaded[tab]) {
-                this.loadTabContent(tab);
-            }
-        },
-
-        /**
-         * 懒加载 Tab 内容
-         * @param {string} tab - 标签页名称
-         */
-        async loadTabContent(tab) {
-            const container = this.$refs[tab + 'Content'];
-            if (!container) {
-                this.tabsLoaded[tab] = true;
-                return;
-            }
-
-            try {
-                const resp = await fetch(`/admin/contracts/contract/${contractId}/tab/${tab}/`, {
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                });
-                if (resp.ok) {
-                    const html = await resp.text();
-                    container.innerHTML = html;
-                    // innerHTML 不会执行 <script> 标签，需手动提取并执行
-                    container.querySelectorAll('script').forEach(oldScript => {
-                        const newScript = document.createElement('script');
-                        newScript.textContent = oldScript.textContent;
-                        oldScript.parentNode.replaceChild(newScript, oldScript);
-                    });
-                    // Alpine.js 不会自动处理 innerHTML 插入的 DOM，需手动初始化
-                    if (window.Alpine) {
-                        Alpine.initTree(container);
-                    }
-                    this.tabsLoaded[tab] = true;
-                } else {
-                    container.innerHTML = '<p style="color:#dc2626;text-align:center;padding:24px;">加载失败，请刷新页面</p>';
-                }
-            } catch (err) {
-                container.innerHTML = '<p style="color:#dc2626;text-align:center;padding:24px;">加载失败: ' + err.message + '</p>';
-            }
         },
 
         /**

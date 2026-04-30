@@ -73,14 +73,21 @@ class CasePartyInlineForm(forms.ModelForm[CaseParty]):
     class Meta:
         model = CaseParty
         fields: str = "__all__"
-        widgets: ClassVar[dict[str, Any]] = {
-            "client": forms.Select(
-                attrs={
-                    "class": "contract-party-client-select",
-                    "data-contract-party-filter": "true",
-                }
-            ),
-        }
+
+
+class CasePartyInlineFormSet(forms.BaseInlineFormSet):
+    def clean(self) -> None:
+        super().clean()
+        seen_clients: set[int] = set()
+        for form in self.forms:
+            if form.cleaned_data.get("DELETE"):
+                continue
+            client = form.cleaned_data.get("client")
+            if client is None:
+                continue
+            if client.pk in seen_clients:
+                raise forms.ValidationError(_("同一案件中不能出现相同的当事人。"))
+            seen_clients.add(client.pk)
 
 
 class SupervisingAuthorityInlineForm(forms.ModelForm[SupervisingAuthority]):

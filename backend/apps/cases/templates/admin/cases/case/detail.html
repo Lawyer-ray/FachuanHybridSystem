@@ -3,7 +3,7 @@
 
 {% block extrahead %}
 {{ block.super }}
-<link rel="stylesheet" type="text/css" href="{% static 'cases/css/case_detail.css' %}?v=20260429c">
+<link rel="stylesheet" type="text/css" href="{% static 'cases/css/case_detail.css' %}?v=20260422a">
 <link rel="stylesheet" type="text/css" href="{% static 'cases/css/litigation_generation.css' %}?v=20250118">
 <link rel="stylesheet" type="text/css" href="{% static 'cases/css/case_materials.css' %}?v=20260409b">
 {% endblock %}
@@ -30,17 +30,15 @@
     <header class="detail-header">
         <div class="header-main">
             <h1 class="case-title">{{ case.name }}</h1>
-            <div class="header-tags">
-                <span class="status-badge status-{{ case.status }}">
-                    {{ case.get_status_display }}
-                </span>
-                {% if case.case_type %}
-                <span class="type-tag">{{ case.get_case_type_display }}</span>
-                {% endif %}
-                {% if case.current_stage %}
-                <span class="stage-tag">{{ case.get_current_stage_display }}</span>
-                {% endif %}
-            </div>
+            <span class="status-badge status-{{ case.status }}">
+                {{ case.get_status_display }}
+            </span>
+            {% if case.case_type %}
+            <span class="type-tag">{{ case.get_case_type_display }}</span>
+            {% endif %}
+            {% if case.current_stage %}
+            <span class="stage-tag">{{ case.get_current_stage_display }}</span>
+            {% endif %}
         </div>
         <div class="header-meta">
             <span class="archived-status {% if case.is_filed %}archived{% endif %}">
@@ -69,35 +67,26 @@
     <div class="tab-panel">
         <nav class="tab-nav">
             <button type="button" @click="activeTab = 'basic'" :class="{ active: activeTab === 'basic' }">
-                <svg class="tab-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.5 2A1.5 1.5 0 003 3.5v13A1.5 1.5 0 004.5 18h11a1.5 1.5 0 001.5-1.5V7.621a1.5 1.5 0 00-.44-1.06l-4.12-4.122A1.5 1.5 0 0011.378 2H4.5zm4.75 6.5a.75.75 0 011.5 0v2.25h2.25a.75.75 0 010 1.5h-2.25v2.25a.75.75 0 01-1.5 0v-2.25H7a.75.75 0 010-1.5h2.25V8.5z" clip-rule="evenodd"/></svg>
-                <span class="tab-label">{% trans "基本信息" %}</span>
-                <span class="tab-label-short">{% trans "基本" %}</span>
+                {% trans "基本信息" %}
+            </button>
+            <button type="button" @click="activeTab = 'parties'" :class="{ active: activeTab === 'parties' }">
+                {% trans "当事人与律师" %}
             </button>
             <button type="button" @click="activeTab = 'progress'" :class="{ active: activeTab === 'progress' }">
-                <svg class="tab-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z" clip-rule="evenodd"/></svg>
-                <span class="tab-label">{% trans "案件进展" %}</span>
-                <span class="tab-label-short">{% trans "进展" %}</span>
+                {% trans "案件进展" %}
             </button>
             <button type="button" @click="activeTab = 'documents'" :class="{ active: activeTab === 'documents' }">
-                <svg class="tab-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.5 2A1.5 1.5 0 003 3.5v13A1.5 1.5 0 004.5 18h11a1.5 1.5 0 001.5-1.5V7.621a1.5 1.5 0 00-.44-1.06l-4.12-4.122A1.5 1.5 0 0011.378 2H4.5zm2.25 8.5a.75.75 0 000 1.5h6.5a.75.75 0 000-1.5h-6.5zm0 3a.75.75 0 000 1.5h6.5a.75.75 0 000-1.5h-6.5z" clip-rule="evenodd"/></svg>
-                <span class="tab-label">{% trans "文档生成" %}</span>
-                <span class="tab-label-short">{% trans "文档" %}</span>
+                {% trans "文档生成" %}
             </button>
             <button type="button" @click="activeTab = 'party_materials'" :class="{ active: activeTab === 'party_materials' }">
-                <svg class="tab-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd"/></svg>
-                <span class="tab-label">{% trans "当事人材料" %}</span>
-                <span class="tab-label-short">{% trans "材料" %}</span>
+                {% trans "当事人材料" %}
             </button>
             <button type="button" @click="activeTab = 'non_party_materials'" :class="{ active: activeTab === 'non_party_materials' }">
-                <svg class="tab-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd"/><path fill-rule="evenodd" d="M2 10h16v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" clip-rule="evenodd" opacity=".4"/></svg>
-                <span class="tab-label">{% trans "非当事人材料" %}</span>
-                <span class="tab-label-short">{% trans "其他" %}</span>
+                {% trans "非当事人材料" %}
             </button>
             {% if not is_our_party_all_defendant %}
             <button type="button" @click="activeTab = 'court_filing'" :class="{ active: activeTab === 'court_filing' }">
-                <svg class="tab-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 3.5A1.5 1.5 0 014.5 2h4.879a1.5 1.5 0 011.06.44l4.122 4.12A1.5 1.5 0 0115 7.622V16.5a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 013 16.5v-13zM6 10a.75.75 0 000 1.5h4a.75.75 0 000-1.5H6zm0 3a.75.75 0 000 1.5h4a.75.75 0 000-1.5H6z" clip-rule="evenodd"/></svg>
-                <span class="tab-label">{% trans "一张网立案" %}</span>
-                <span class="tab-label-short">{% trans "立案" %}</span>
+                {% trans "一张网立案" %}
             </button>
             {% endif %}
         </nav>
@@ -106,6 +95,11 @@
             <!-- 基本信息标签页 -->
             <div x-show="activeTab === 'basic'" x-transition>
                 {% include "admin/cases/case/partials/basic_info.html" %}
+            </div>
+
+            <!-- 当事人与律师标签页 -->
+            <div x-show="activeTab === 'parties'" x-transition>
+                {% include "admin/cases/case/partials/parties_lawyers.html" %}
             </div>
 
             <!-- 案件进展标签页 -->
@@ -170,7 +164,7 @@
 </div>
 
 {% csrf_token %}
-<script src="{% static 'cases/js/case_detail.js' %}?v=20260429b"></script>
+<script src="{% static 'cases/js/case_detail.js' %}?v=20260422a"></script>
 <script src="{% static 'cases/js/litigation_generation.js' %}?v=20260323"></script>
 <script src="{% static 'cases/js/authorization_materials.js' %}?v=20260323"></script>
 <script src="{% static 'cases/js/preservation_materials.js' %}?v=20260323"></script>

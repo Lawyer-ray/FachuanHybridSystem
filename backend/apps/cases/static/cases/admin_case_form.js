@@ -16,29 +16,6 @@
   function selectsByNameSuffix(suffix){return document.querySelectorAll('select[name$="' + suffix + '"]')}
   function inputsByNameSuffix(suffix){return document.querySelectorAll('input[name$="' + suffix + '"]')}
 
-  function isCaseAdminFormPage() {
-    return /\/admin\/cases\/case\/(add|\d+\/change)\/?$/.test(window.location.pathname || '')
-  }
-
-  function hideCasePartyClientAddButtons() {
-    if (!isCaseAdminFormPage()) {
-      return
-    }
-
-    var selectors = [
-      '#parties-group .related-widget-wrapper-link.add-related',
-      '#parties-group .related-widget-wrapper a.add-another',
-      '#parties-group td.field-client a[href*="/add/"][href*="_popup=1"]'
-    ]
-
-    var links = document.querySelectorAll(selectors.join(', '))
-    links.forEach(function(link) {
-      link.style.display = 'none'
-      link.setAttribute('aria-hidden', 'true')
-      link.setAttribute('tabindex', '-1')
-    })
-  }
-
   // ============================================================
   // 案件类型相关字段显示/隐藏逻辑
   // ============================================================
@@ -756,7 +733,6 @@
 
     // 合同当事人过滤逻辑
     initContractPartyFilter();
-    hideCasePartyClientAddButtons();
 
     // 监听 inline 行添加事件（兼容 Django Admin / nested_admin）
     document.body.addEventListener('formset:added', function() {
@@ -764,12 +740,9 @@
       setTimeout(handleInlineAdded, 80);
       setTimeout(handleInlineAdded, 220);
       setTimeout(handleInlineAdded, 500);
-      setTimeout(hideCasePartyClientAddButtons, 120);
-      setTimeout(hideCasePartyClientAddButtons, 320);
-      setTimeout(hideCasePartyClientAddButtons, 650);
     });
 
-    // 兜底：监听“添加另一个案件当事人”点击，确保新行总会触发过滤
+    // 兜底：监听”添加另一个案件当事人”点击，确保新行总会触发过滤
     document.body.addEventListener('click', function(e) {
       var target = e.target;
       if (!target || typeof target.closest !== 'function') {
@@ -785,9 +758,6 @@
       setTimeout(handleInlineAdded, 120);
       setTimeout(handleInlineAdded, 320);
       setTimeout(handleInlineAdded, 650);
-      setTimeout(hideCasePartyClientAddButtons, 120);
-      setTimeout(hideCasePartyClientAddButtons, 320);
-      setTimeout(hideCasePartyClientAddButtons, 650);
     });
   });
 

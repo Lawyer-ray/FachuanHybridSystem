@@ -55,7 +55,7 @@ _SLOT_RULES: dict[str, dict[str, dict[str, tuple[str, ...]]]] = {
                 "户籍证明",
             ),
             "weak": ("主体资格", "自然人身份证明"),
-            "exclude": ("授权委托书", "证据目录"),
+            "exclude": ("授权委托书", "证据目录", "委托代理", "委托手续"),
         },
         "2": {
             "strong": (
@@ -71,7 +71,12 @@ _SLOT_RULES: dict[str, dict[str, dict[str, tuple[str, ...]]]] = {
                 "代理人身份证明",
             ),
             "weak": ("代理人", "受托人"),
-            "exclude": ("送达地址确认书",),
+            "exclude": (
+                "送达地址确认书",
+                "营业执照",
+                "统一社会信用代码",
+                "法定代表人身份证明",
+            ),
         },
         "3": {
             "strong": ("证据目录", "证据清单", "证据明细", "证据材料"),
@@ -109,7 +114,11 @@ _SLOT_RULES: dict[str, dict[str, dict[str, tuple[str, ...]]]] = {
                 "代理人身份证明",
             ),
             "weak": ("代理人", "受托人"),
-            "exclude": (),
+            "exclude": (
+                "营业执照",
+                "统一社会信用代码",
+                "法定代表人身份证明",
+            ),
         },
         "3": {
             "strong": (
@@ -125,7 +134,7 @@ _SLOT_RULES: dict[str, dict[str, dict[str, tuple[str, ...]]]] = {
                 "户口簿",
             ),
             "weak": ("主体资格",),
-            "exclude": ("授权委托书", "委托材料", "送达地址确认书"),
+            "exclude": ("授权委托书", "委托材料", "送达地址确认书", "委托代理", "委托手续"),
         },
         "4": {
             "strong": ("送达地址确认书", "送达地址确认", "地址确认书"),
@@ -796,6 +805,8 @@ def _match_slot(*, material: Any, file_path: Path, filing_type: str) -> str:
             return "0"
     if "送达地址" in joined_signal:
         return "4"
+    if any(kw in joined_signal for kw in ("保全", "保函", "保全申请")):
+        return "5"
 
     return default_slot
 

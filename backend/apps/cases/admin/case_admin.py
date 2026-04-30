@@ -9,7 +9,12 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.cases.admin.base_admin import BaseModelAdmin, BaseStackedInline, BaseTabularInline
 from apps.cases.admin.case_chat_admin import CaseChatInline
-from apps.cases.admin.case_forms_admin import CaseAdminForm, CasePartyInlineForm, SupervisingAuthorityInlineForm
+from apps.cases.admin.case_forms_admin import (
+    CaseAdminForm,
+    CasePartyInlineForm,
+    CasePartyInlineFormSet,
+    SupervisingAuthorityInlineForm,
+)
 from apps.cases.admin.mixins import (
     CaseAdminActionsMixin,
     CaseAdminSaveMixin,
@@ -39,8 +44,10 @@ class CasePartyInline(BaseTabularInline):
 
     model = CaseParty
     form = CasePartyInlineForm
+    formset = CasePartyInlineFormSet
     extra = 1
     fields = ("client", "legal_status")
+    autocomplete_fields = ("client",)
     classes = ["contract-party-inline"]
 
     def formfield_for_foreignkey(self, db_field: Any, request: HttpRequest, **kwargs: Any) -> Any:
@@ -210,7 +217,15 @@ class CaseAdmin(
             },
         ),
     )
-    list_display = ("id_link", "name_link", "case_type_display", "current_stage_display", "assigned_lawyers", "status", "start_date")
+    list_display = (
+        "id_link",
+        "name_link",
+        "case_type_display",
+        "current_stage_display",
+        "assigned_lawyers",
+        "status",
+        "start_date",
+    )
     list_display_links = None
     list_filter = ("status", "case_type", "current_stage")
     search_fields = ("name", "filing_number", "case_numbers__number", "cause_of_action")
@@ -219,7 +234,13 @@ class CaseAdmin(
     readonly_fields = ("filing_number",)
     export_model_name = "case"
     import_required_fields = ("name",)
-    actions = ["create_feishu_chat_for_selected_cases", "mark_as_closed", "mark_as_active", "export_selected_as_json", "export_all_as_json"]
+    actions = [
+        "create_feishu_chat_for_selected_cases",
+        "mark_as_closed",
+        "mark_as_active",
+        "export_selected_as_json",
+        "export_all_as_json",
+    ]
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[Case]:
         qs = super().get_queryset(request)

@@ -6,10 +6,12 @@ import logging
 from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal
+from typing import Any
 
 from django.apps import apps as django_apps
-from django.db.models import Count, Max, Q, Sum
-from django.db.models.functions import TruncMonth, TruncQuarter, TruncYear
+from django.db.models import Case as DBCase
+from django.db.models import CharField, Count, F, Max, OuterRef, Q, Subquery, Sum, Value, When
+from django.db.models.functions import Coalesce, TruncMonth, TruncQuarter, TruncYear
 from django.utils.translation import gettext as _
 
 from apps.sales_dispute.models.case_assessment import ContractBasisType
@@ -130,12 +132,18 @@ def _amount_range_q(
     return q
 
 
-def _get_case_model() -> object:
+def _get_case_model() -> type[Any]:
     return django_apps.get_model("cases", "Case")
 
 
-def _get_case_assignment_model() -> object:
+def _get_case_assignment_model() -> type[Any]:
     return django_apps.get_model("cases", "CaseAssignment")
+
+
+def _lawyer_display_name(lawyer: object | None) -> str:
+    if lawyer is None:
+        return _("未知律师")
+    return getattr(lawyer, "real_name", None) or getattr(lawyer, "username", "") or _("未知律师")
 
 
 class DashboardService:
@@ -270,96 +278,101 @@ class DashboardService:
         case_model = _get_case_model()
         cases = case_model.objects.filter(start_date__range=(start_date, end_date))
 
+        payment_sub = (
+            PaymentRecord.objects.filter(
+                case_id=OuterRef("pk"),
+                payment_date__range=(start_date, end_date),
+            )
+            .values("case_id")
+            .annotate(total=Sum("payment_amount"))
+            .values("total")[:1]
+        )
+
         if group_by == "case_type":
-            groups = cases.values("case_type").annotate(case_count=Count("id")).order_by("case_type")
-            items: list[BreakdownItem] = []
-            for g in groups:
-                ct: str | None = g["case_type"]
-                label = ct or _("未分类")
-                case_ids = list(cases.filter(case_type=ct).values_list("id", flat=True))
-                recovery: Decimal = (
-                    PaymentRecord.objects.filter(
-                        case_id__in=case_ids,
-                        payment_date__range=(start_date, end_date),
-                    ).aggregate(s=Sum("payment_amount"))["s"]
-                    or _ZERO
+            grouped = (
+                cases.annotate(case_recovery=Coalesce(Subquery(payment_sub), _ZERO))
+                .values("case_type")
+                .annotate(
+                    case_count=Count("id"),
+                    total_recovery=Sum("case_recovery"),
+                    total_target=Sum("target_amount", filter=Q(target_amount__isnull=False)),
                 )
-                target: Decimal = (
-                    cases.filter(case_type=ct, target_amount__isnull=False).aggregate(s=Sum("target_amount"))["s"]
-                    or _ZERO
+            )
+            return [
+                BreakdownItem(
+                    group_label=g["case_type"] or _("未分类"),
+                    total_recovery=g["total_recovery"] or _ZERO,
+                    case_count=g["case_count"],
+                    recovery_rate=_safe_rate(g["total_recovery"] or _ZERO, g["total_target"] or _ZERO),
                 )
-                items.append(
-                    BreakdownItem(
-                        group_label=label,
-                        total_recovery=recovery,
-                        case_count=g["case_count"],
-                        recovery_rate=_safe_rate(recovery, target),
-                    )
-                )
-            return items
+                for g in grouped
+            ]
 
         elif group_by == "amount_range":
-            items = []
-            for label, low, high in AMOUNT_RANGES:
-                q = _amount_range_q("target_amount", low, high)
-                filtered = cases.filter(q)
-                cnt = filtered.count()
-                case_ids = list(filtered.values_list("id", flat=True))
-                recovery = (
-                    PaymentRecord.objects.filter(
-                        case_id__in=case_ids,
-                        payment_date__range=(start_date, end_date),
-                    ).aggregate(s=Sum("payment_amount"))["s"]
-                    or _ZERO
+            bucket = DBCase(
+                *[
+                    When(**{"target_amount__lt": high, "then": Value(label)})
+                    for label, _, high in AMOUNT_RANGES
+                    if high is not None
+                ],
+                default=Value(AMOUNT_RANGES[-1][0]),
+                output_field=CharField(),
+            )
+            grouped = (
+                cases.annotate(
+                    amount_bucket=bucket,
+                    case_recovery=Coalesce(Subquery(payment_sub), _ZERO),
                 )
-                target = filtered.filter(target_amount__isnull=False).aggregate(s=Sum("target_amount"))["s"] or _ZERO
-                items.append(
-                    BreakdownItem(
-                        group_label=label,
-                        total_recovery=recovery,
-                        case_count=cnt,
-                        recovery_rate=_safe_rate(recovery, target),
-                    )
+                .values("amount_bucket")
+                .annotate(
+                    case_count=Count("id"),
+                    total_recovery=Sum("case_recovery"),
+                    total_target=Sum("target_amount", filter=Q(target_amount__isnull=False)),
                 )
-            return items
+            )
+            return [
+                BreakdownItem(
+                    group_label=g["amount_bucket"],
+                    total_recovery=g["total_recovery"] or _ZERO,
+                    case_count=g["case_count"],
+                    recovery_rate=_safe_rate(g["total_recovery"] or _ZERO, g["total_target"] or _ZERO),
+                )
+                for g in grouped
+            ]
 
         else:  # lawyer
             case_assignment_model = _get_case_assignment_model()
-            assignments = case_assignment_model.objects.filter(
-                case__in=cases,
-            ).select_related("lawyer")
-            lawyer_map: dict[int, tuple[str, list[int]]] = {}
-            for a in assignments:
-                lid: int = a.lawyer_id
-                if lid not in lawyer_map:
-                    lawyer_map[lid] = (
-                        a.lawyer.real_name or a.lawyer.username,
-                        [],
-                    )
-                lawyer_map[lid][1].append(a.case_id)
+            grouped = (
+                case_assignment_model.objects.filter(case__in=cases)
+                .values("lawyer_id")
+                .annotate(
+                    case_count=Count("case_id", distinct=True),
+                    total_recovery=Coalesce(
+                        Sum(
+                            "case__dispute_payments__payment_amount",
+                            filter=Q(case__dispute_payments__payment_date__range=(start_date, end_date)),
+                        ),
+                        _ZERO,
+                    ),
+                    total_target=Sum(
+                        "case__target_amount",
+                        filter=Q(case__target_amount__isnull=False),
+                    ),
+                )
+            )
+            lawyer_ids = [g["lawyer_id"] for g in grouped]
+            from apps.organization.models import Lawyer
 
-            items = []
-            for lid, (name, case_ids) in lawyer_map.items():
-                recovery = (
-                    PaymentRecord.objects.filter(
-                        case_id__in=case_ids,
-                        payment_date__range=(start_date, end_date),
-                    ).aggregate(s=Sum("payment_amount"))["s"]
-                    or _ZERO
+            lawyers = {l.id: l for l in Lawyer.objects.filter(id__in=lawyer_ids)}
+            return [
+                BreakdownItem(
+                    group_label=_lawyer_display_name(lawyers.get(g["lawyer_id"])),
+                    total_recovery=g["total_recovery"] or _ZERO,
+                    case_count=g["case_count"],
+                    recovery_rate=_safe_rate(g["total_recovery"] or _ZERO, g["total_target"] or _ZERO),
                 )
-                target = (
-                    cases.filter(id__in=case_ids, target_amount__isnull=False).aggregate(s=Sum("target_amount"))["s"]
-                    or _ZERO
-                )
-                items.append(
-                    BreakdownItem(
-                        group_label=name,
-                        total_recovery=recovery,
-                        case_count=len(case_ids),
-                        recovery_rate=_safe_rate(recovery, target),
-                    )
-                )
-            return items
+                for g in grouped
+            ]
 
     def get_factors(
         self,
@@ -376,119 +389,140 @@ class DashboardService:
         cases = case_model.objects.filter(start_date__range=(start_date, end_date))
         today = date.today()
 
+        payment_sub = (
+            PaymentRecord.objects.filter(
+                case_id=OuterRef("pk"),
+                payment_date__range=(start_date, end_date),
+            )
+            .values("case_id")
+            .annotate(total=Sum("payment_amount"))
+            .values("total")[:1]
+        )
+
         # ── 欠款时间区间 ──
-        debt_age_items: list[FactorItem] = []
-        for label, low, high in DEBT_AGE_RANGES:
-            q = Q()
-            if low is not None:
-                cutoff_high = today - timedelta(days=low)
-                q &= Q(start_date__lte=cutoff_high)
-            if high is not None:
-                cutoff_low = today - timedelta(days=high)
-                q &= Q(start_date__gt=cutoff_low)
-            filtered = cases.filter(q)
-            cnt = filtered.count()
-            case_ids = list(filtered.values_list("id", flat=True))
-            recovery: Decimal = (
-                PaymentRecord.objects.filter(
-                    case_id__in=case_ids,
-                    payment_date__range=(start_date, end_date),
-                ).aggregate(s=Sum("payment_amount"))["s"]
-                or _ZERO
+        debt_age_bucket = DBCase(
+            *[
+                When(start_date__lte=today - timedelta(days=low), then=Value(label))
+                for label, low, _ in DEBT_AGE_RANGES
+                if low is not None
+            ],
+            default=Value(DEBT_AGE_RANGES[0][0]),
+            output_field=CharField(),
+        )
+        debt_age_grouped = (
+            cases.annotate(
+                age_bucket=debt_age_bucket,
+                case_recovery=Coalesce(Subquery(payment_sub), _ZERO),
             )
-            target: Decimal = (
-                filtered.filter(target_amount__isnull=False).aggregate(s=Sum("target_amount"))["s"] or _ZERO
+            .values("age_bucket")
+            .annotate(
+                case_count=Count("id"),
+                total_recovery=Sum("case_recovery"),
+                total_target=Sum("target_amount", filter=Q(target_amount__isnull=False)),
             )
-            debt_age_items.append(
-                FactorItem(
-                    group_label=label,
-                    case_count=cnt,
-                    total_recovery=recovery,
-                    recovery_rate=_safe_rate(recovery, target),
-                )
+        )
+        debt_age_items = [
+            FactorItem(
+                group_label=g["age_bucket"],
+                case_count=g["case_count"],
+                total_recovery=g["total_recovery"] or _ZERO,
+                recovery_rate=_safe_rate(g["total_recovery"] or _ZERO, g["total_target"] or _ZERO),
             )
+            for g in debt_age_grouped
+        ]
 
         # ── 合同基础类型 ──
-        contract_items: list[FactorItem] = []
-        for cb in ContractBasisType:
-            assessed_case_ids = list(
-                CaseAssessment.objects.filter(
-                    contract_basis=cb.value,
-                    case__in=cases,
-                ).values_list("case_id", flat=True)
+        contract_grouped = (
+            CaseAssessment.objects.filter(case__in=cases)
+            .values("contract_basis")
+            .annotate(
+                case_count=Count("id"),
+                total_recovery=Coalesce(
+                    Sum(
+                        "case__dispute_payments__payment_amount",
+                        filter=Q(case__dispute_payments__payment_date__range=(start_date, end_date)),
+                    ),
+                    _ZERO,
+                ),
+                total_target=Sum(
+                    "case__target_amount",
+                    filter=Q(case__target_amount__isnull=False),
+                ),
             )
-            cnt = len(assessed_case_ids)
-            recovery = (
-                PaymentRecord.objects.filter(
-                    case_id__in=assessed_case_ids,
-                    payment_date__range=(start_date, end_date),
-                ).aggregate(s=Sum("payment_amount"))["s"]
-                or _ZERO
+        )
+        cb_label_map = {cb.value: str(cb.label) for cb in ContractBasisType}
+        contract_items = [
+            FactorItem(
+                group_label=cb_label_map.get(g["contract_basis"], g["contract_basis"]),
+                case_count=g["case_count"],
+                total_recovery=g["total_recovery"] or _ZERO,
+                recovery_rate=_safe_rate(g["total_recovery"] or _ZERO, g["total_target"] or _ZERO),
             )
-            target = (
-                cases.filter(id__in=assessed_case_ids, target_amount__isnull=False).aggregate(s=Sum("target_amount"))[
-                    "s"
-                ]
-                or _ZERO
-            )
-            contract_items.append(
-                FactorItem(
-                    group_label=str(cb.label),
-                    case_count=cnt,
-                    total_recovery=recovery,
-                    recovery_rate=_safe_rate(recovery, target),
-                )
-            )
+            for g in contract_grouped
+        ]
 
         # ── 财产保全 ──
-        preservation_items: list[FactorItem] = []
-        for label, q_filter in [
-            (_("有财产保全"), Q(preservation_amount__isnull=False) & ~Q(preservation_amount=0)),
-            (_("无财产保全"), Q(preservation_amount__isnull=True) | Q(preservation_amount=0)),
-        ]:
-            filtered = cases.filter(q_filter)
-            cnt = filtered.count()
-            case_ids = list(filtered.values_list("id", flat=True))
-            recovery = (
-                PaymentRecord.objects.filter(
-                    case_id__in=case_ids,
-                    payment_date__range=(start_date, end_date),
-                ).aggregate(s=Sum("payment_amount"))["s"]
-                or _ZERO
+        preservation_bucket = DBCase(
+            When(
+                Q(preservation_amount__isnull=True) | Q(preservation_amount=0),
+                then=Value(_("无财产保全")),
+            ),
+            default=Value(_("有财产保全")),
+            output_field=CharField(),
+        )
+        preservation_grouped = (
+            cases.annotate(
+                pres_bucket=preservation_bucket,
+                case_recovery=Coalesce(Subquery(payment_sub), _ZERO),
             )
-            target = filtered.filter(target_amount__isnull=False).aggregate(s=Sum("target_amount"))["s"] or _ZERO
-            preservation_items.append(
-                FactorItem(
-                    group_label=label,
-                    case_count=cnt,
-                    total_recovery=recovery,
-                    recovery_rate=_safe_rate(recovery, target),
-                )
+            .values("pres_bucket")
+            .annotate(
+                case_count=Count("id"),
+                total_recovery=Sum("case_recovery"),
+                total_target=Sum("target_amount", filter=Q(target_amount__isnull=False)),
             )
+        )
+        preservation_items = [
+            FactorItem(
+                group_label=g["pres_bucket"],
+                case_count=g["case_count"],
+                total_recovery=g["total_recovery"] or _ZERO,
+                recovery_rate=_safe_rate(g["total_recovery"] or _ZERO, g["total_target"] or _ZERO),
+            )
+            for g in preservation_grouped
+        ]
 
         # ── 标的额区间 ──
-        amount_items: list[FactorItem] = []
-        for label, low, high in AMOUNT_RANGES:
-            q = _amount_range_q("target_amount", low, high)
-            filtered = cases.filter(q)
-            cnt = filtered.count()
-            case_ids = list(filtered.values_list("id", flat=True))
-            recovery = (
-                PaymentRecord.objects.filter(
-                    case_id__in=case_ids,
-                    payment_date__range=(start_date, end_date),
-                ).aggregate(s=Sum("payment_amount"))["s"]
-                or _ZERO
+        amount_bucket = DBCase(
+            *[
+                When(**{"target_amount__lt": high, "then": Value(label)})
+                for label, _, high in AMOUNT_RANGES
+                if high is not None
+            ],
+            default=Value(AMOUNT_RANGES[-1][0]),
+            output_field=CharField(),
+        )
+        amount_grouped = (
+            cases.annotate(
+                amt_bucket=amount_bucket,
+                case_recovery=Coalesce(Subquery(payment_sub), _ZERO),
             )
-            target = filtered.filter(target_amount__isnull=False).aggregate(s=Sum("target_amount"))["s"] or _ZERO
-            amount_items.append(
-                FactorItem(
-                    group_label=label,
-                    case_count=cnt,
-                    total_recovery=recovery,
-                    recovery_rate=_safe_rate(recovery, target),
-                )
+            .values("amt_bucket")
+            .annotate(
+                case_count=Count("id"),
+                total_recovery=Sum("case_recovery"),
+                total_target=Sum("target_amount", filter=Q(target_amount__isnull=False)),
             )
+        )
+        amount_items = [
+            FactorItem(
+                group_label=g["amt_bucket"],
+                case_count=g["case_count"],
+                total_recovery=g["total_recovery"] or _ZERO,
+                recovery_rate=_safe_rate(g["total_recovery"] or _ZERO, g["total_target"] or _ZERO),
+            )
+            for g in amount_grouped
+        ]
 
         return {
             "debt_age": debt_age_items,
@@ -504,6 +538,7 @@ class DashboardService:
         sort_by: str,
     ) -> list[LawyerPerformanceItem]:
         """律师绩效分析（Req 5）"""
+        from apps.organization.models import Lawyer
         from apps.sales_dispute.models.payment_record import PaymentRecord
 
         logger.info("get_lawyer_performance: %s ~ %s, sort=%s", start_date, end_date, sort_by)
@@ -511,58 +546,76 @@ class DashboardService:
         case_model = _get_case_model()
         case_assignment_model = _get_case_assignment_model()
         cases = case_model.objects.filter(start_date__range=(start_date, end_date))
-        assignments = case_assignment_model.objects.filter(
-            case__in=cases,
-        ).select_related("lawyer")
 
-        lawyer_cases: dict[int, tuple[str, list[int]]] = {}
-        for a in assignments:
-            lid: int = a.lawyer_id
-            if lid not in lawyer_cases:
-                lawyer_cases[lid] = (
-                    a.lawyer.real_name or a.lawyer.username,
-                    [],
-                )
-            lawyer_cases[lid][1].append(a.case_id)
+        last_payment_sub = (
+            PaymentRecord.objects.filter(case_id=OuterRef("pk")).order_by("-payment_date").values("payment_date")[:1]
+        )
+
+        grouped = (
+            case_assignment_model.objects.filter(case__in=cases)
+            .values("lawyer_id")
+            .annotate(
+                case_count=Count("case_id", distinct=True),
+                total_recovery=Coalesce(
+                    Sum(
+                        "case__dispute_payments__payment_amount",
+                        filter=Q(case__dispute_payments__payment_date__range=(start_date, end_date)),
+                    ),
+                    _ZERO,
+                ),
+                total_target=Sum(
+                    "case__target_amount",
+                    filter=Q(case__target_amount__isnull=False),
+                ),
+                closed_count=Count(
+                    "case_id",
+                    filter=Q(case__status="closed"),
+                    distinct=True,
+                ),
+            )
+        )
+
+        lawyer_ids = [g["lawyer_id"] for g in grouped]
+        lawyers = {l.id: l for l in Lawyer.objects.filter(id__in=lawyer_ids)}
+
+        lawyer_case_map: dict[int, list[int]] = {}
+        for a in case_assignment_model.objects.filter(case__in=cases).values_list("lawyer_id", "case_id"):
+            lawyer_case_map.setdefault(a[0], []).append(a[1])
 
         items: list[LawyerPerformanceItem] = []
-        for lid, (name, case_ids) in lawyer_cases.items():
-            case_count = len(case_ids)
-            recovery: Decimal = (
-                PaymentRecord.objects.filter(
-                    case_id__in=case_ids,
-                    payment_date__range=(start_date, end_date),
-                ).aggregate(s=Sum("payment_amount"))["s"]
-                or _ZERO
-            )
-            target: Decimal = (
-                cases.filter(id__in=case_ids, target_amount__isnull=False).aggregate(s=Sum("target_amount"))["s"]
-                or _ZERO
-            )
-            closed = cases.filter(id__in=case_ids, status="closed").count()
-            closed_rate = _safe_rate(Decimal(closed), Decimal(case_count))
+        for g in grouped:
+            lid = g["lawyer_id"]
+            case_count = g["case_count"]
+            recovery = g["total_recovery"] or _ZERO
+            target = g["total_target"] or _ZERO
+            closed_count = g["closed_count"]
 
-            # 回款周期
-            case_with_pay = (
-                cases.filter(id__in=case_ids, dispute_payments__isnull=False)
-                .annotate(last_payment=Max("dispute_payments__payment_date"))
-                .values_list("start_date", "last_payment")
-            )
-            cycles: list[int] = []
-            for c_start, last_pay in case_with_pay:
-                if last_pay is not None:
-                    cycles.append((last_pay - c_start).days)
-            avg_cycle = sum(cycles) // len(cycles) if cycles else 0
+            case_ids = lawyer_case_map.get(lid, [])
+            avg_cycle = 0
+            if case_ids:
+                last_pay_map = dict(
+                    PaymentRecord.objects.filter(case_id__in=case_ids)
+                    .values("case_id")
+                    .annotate(last_pay=Max("payment_date"))
+                    .values_list("case_id", "last_pay")
+                )
+                case_start_map = dict(case_model.objects.filter(id__in=case_ids).values_list("id", "start_date"))
+                cycles = [
+                    (last_pay_map[cid] - case_start_map[cid]).days
+                    for cid in case_ids
+                    if cid in last_pay_map and cid in case_start_map and last_pay_map[cid] is not None
+                ]
+                avg_cycle = sum(cycles) // len(cycles) if cycles else 0
 
             items.append(
                 LawyerPerformanceItem(
                     lawyer_id=lid,
-                    lawyer_name=name,
+                    lawyer_name=_lawyer_display_name(lawyers.get(lid)),
                     case_count=case_count,
                     total_recovery=recovery,
                     recovery_rate=_safe_rate(recovery, target),
                     avg_recovery_cycle=avg_cycle,
-                    closed_rate=closed_rate,
+                    closed_rate=_safe_rate(Decimal(closed_count), Decimal(case_count)),
                 )
             )
 

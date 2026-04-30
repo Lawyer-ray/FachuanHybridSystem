@@ -1,6 +1,6 @@
 {% load i18n %}
 <!-- 当事人与律师标签页 -->
-<div x-show="activeTab === 'parties'" x-cloak x-data="partiesDrawer()">
+<div x-show="activeTab === 'parties'" x-cloak x-data="partiesDrawer()" x-transition>
     <div class="info-grid two-columns">
         <!-- {% trans "合同当事人" %}卡片 -->
         <div class="info-card">

@@ -1,5 +1,8 @@
 {% load i18n contract_tags %}
-<div x-data="contractFolderScanApp({
+<div x-show="activeTab === 'finalized'"
+     x-cloak
+     x-transition
+     x-data="contractFolderScanApp({
         contractId: {{ contract.pk }},
         hasFolderBinding: {% if folder_binding %}true{% else %}false{% endif %},
         texts: {

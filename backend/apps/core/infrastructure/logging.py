@@ -165,15 +165,38 @@ class JsonFormatter:
         self.json = json
 
     # logging 内置属性，不纳入 extra 收集
-    _BUILTIN_ATTRS: ClassVar[frozenset[str]] = frozenset({
-        "name", "msg", "args", "created", "relativeCreated", "exc_info",
-        "exc_text", "stack_info", "lineno", "funcName", "pathname",
-        "filename", "module", "levelno", "levelname", "thread",
-        "threadName", "process", "processName", "msecs", "taskName",
-        "message", "asctime",
-        # RequestContextFilter 注入的追踪字段（已在顶层输出）
-        "request_id", "trace_id", "span_id", "task_name",
-    })
+    _BUILTIN_ATTRS: ClassVar[frozenset[str]] = frozenset(
+        {
+            "name",
+            "msg",
+            "args",
+            "created",
+            "relativeCreated",
+            "exc_info",
+            "exc_text",
+            "stack_info",
+            "lineno",
+            "funcName",
+            "pathname",
+            "filename",
+            "module",
+            "levelno",
+            "levelname",
+            "thread",
+            "threadName",
+            "process",
+            "processName",
+            "msecs",
+            "taskName",
+            "message",
+            "asctime",
+            # RequestContextFilter 注入的追踪字段（已在顶层输出）
+            "request_id",
+            "trace_id",
+            "span_id",
+            "task_name",
+        }
+    )
 
     def format(self, record: Any) -> str:
         import traceback
@@ -365,6 +388,11 @@ def get_logging_config(base_dir: Any, debug: bool = True) -> dict[str, Any]:
                 "propagate": False,
             },
             "apps": {
+                "handlers": ["console", "console_error", "file_api", "file_error"],
+                "level": apps_level,
+                "propagate": False,
+            },
+            "plugins": {
                 "handlers": ["console", "console_error", "file_api", "file_error"],
                 "level": apps_level,
                 "propagate": False,

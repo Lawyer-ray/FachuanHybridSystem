@@ -2,7 +2,7 @@
 <!-- 一张网立案标签页 -->
 <div x-data="courtFilingApp()">
     <div class="info-grid">
-        <div class="info-card full-width">
+        <div class="info-card" style="grid-column: 1 / -1;">
             <div class="card-header">
                 <span class="card-icon">🏛️</span>
                 <h3 class="card-title">{% translate "法院一张网在线立案" %}</h3>
@@ -15,7 +15,7 @@
             <div x-show="!loading">
                 <!-- 案件信息摘要 -->
                 <div style="background: #f8fafc; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
-                    <div class="court-filing-summary-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; font-size: 13px;">
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; font-size: 13px;">
                         <div>
                             <span style="color: #6b7280;">{% translate "案由" %}：</span>
                             <span style="font-weight: 500;" x-text="caseInfo.cause_of_action || '-'"></span>

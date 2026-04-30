@@ -76,11 +76,7 @@ document.addEventListener('DOMContentLoaded', function() {
 function caseDetailApp() {
     return {
         // 当前激活的标签页，从 localStorage 恢复或默认为 'basic'
-        activeTab: (() => {
-            const saved = localStorage.getItem('caseDetailTab');
-            // 'parties' tab已合并到'basic'，回退到'basic'
-            return (saved && saved !== 'parties') ? saved : 'basic';
-        })(),
+        activeTab: localStorage.getItem('caseDetailTab') || 'basic',
         isLoading: false,
         loadingType: null,  // 'folder'
         message: null,
@@ -92,10 +88,6 @@ function caseDetailApp() {
         // 案件ID和合同ID
         caseId: window.CASE_ID || null,
         contractId: window.CONTRACT_ID || null,
-
-        // 窄屏标签模式：tab 溢出时自动切换短文字
-        tabsCompact: false,
-        _tabResizeObserver: null,
 
         /**
          * 初始化组件
@@ -112,9 +104,6 @@ function caseDetailApp() {
                 if (!message) return;
                 this.showMessage(message, detail.type || 'success');
             });
-
-            // 初始化 tab 溢出检测
-            this.$nextTick(() => this._initTabOverflowDetection());
         },
 
         /**
@@ -236,34 +225,6 @@ function caseDetailApp() {
             a.click();
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
-        },
-
-        /**
-         * 初始化 tab 溢出检测：用 ResizeObserver 监听 tab-nav 容器，
-         * 当完整文字导致溢出时自动切换为短文字模式
-         */
-        _initTabOverflowDetection() {
-            const tabNav = this.$el?.querySelector('.tab-nav');
-            if (!tabNav) return;
-
-            const check = () => {
-                // 先临时切换到完整文字模式测量
-                const wasCompact = this.tabsCompact;
-                if (wasCompact) {
-                    this.tabsCompact = false;
-                    // 等 DOM 更新后再测量
-                    this.$nextTick(() => {
-                        this.tabsCompact = tabNav.scrollWidth > tabNav.clientWidth + 2;
-                    });
-                    return;
-                }
-                this.tabsCompact = tabNav.scrollWidth > tabNav.clientWidth + 2;
-            };
-
-            check();
-
-            this._tabResizeObserver = new ResizeObserver(() => check());
-            this._tabResizeObserver.observe(tabNav);
         },
     };
 }

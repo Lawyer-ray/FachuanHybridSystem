@@ -88,11 +88,6 @@ option[data-source="supplementary"]::after {
     box-sizing: border-box;
 }
 
-/* 在案件新增/编辑页隐藏“案件当事人.client”的添加按钮（绿色加号） */
-#parties-group .related-widget-wrapper-link.add-related {
-    display: none !important;
-}
-
 /* 隐藏案件日志 inline 每个条目的标题 */
 #logs-group .djn-inline-form > h3 {
     display: none !important;

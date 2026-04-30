@@ -1,7 +1,7 @@
 {% load i18n %}
 <div x-data="courtGuaranteeApp()" style="margin-top: 20px; border-top: 1px solid #e5e7eb; padding-top: 16px;">
     <div class="info-grid">
-        <div class="info-card full-width">
+        <div class="info-card" style="grid-column: 1 / -1;">
             <div class="card-header">
                 <span class="card-icon">🛡️</span>
                 <h3 class="card-title">{% translate "一张网申请担保（预览暂存）" %}</h3>
@@ -12,26 +12,26 @@
             </div>
 
             <div x-show="!loading">
-                <div class="court-guarantee-summary">
-                    <div class="court-guarantee-summary-grid">
-                        <div class="court-guarantee-summary-item">
-                            <span class="court-guarantee-summary-label">{% translate "管辖法院" %}：</span>
-                            <span class="court-guarantee-summary-value" x-text="caseInfo.court_name || '{% trans "未设置" %}'"></span>
+                <div style="background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%); border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 16px; margin-bottom: 14px;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 16px;">
+                        <div style="display: flex; align-items: center; gap: 6px; min-width: 0;">
+                            <span style="color: #64748b; font-size: 12px; flex: 0 0 auto;">{% translate "管辖法院" %}：</span>
+                            <span style="font-size: 14px; font-weight: 600; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" x-text="caseInfo.court_name || '{% trans "未设置" %}'"></span>
                         </div>
-                        <div class="court-guarantee-summary-item">
-                            <span class="court-guarantee-summary-label">{% translate "保全类别" %}：</span>
-                            <span class="court-guarantee-summary-value" x-text="caseInfo.preserve_category || '-'"></span>
+                        <div style="display: flex; align-items: center; gap: 6px; min-width: 0;">
+                            <span style="color: #64748b; font-size: 12px; flex: 0 0 auto;">{% translate "保全类别" %}：</span>
+                            <span style="font-size: 14px; font-weight: 600; color: #1e293b;" x-text="caseInfo.preserve_category || '-'"></span>
                         </div>
-                        <div class="court-guarantee-summary-item">
-                            <span class="court-guarantee-summary-label">{% translate "保全金额" %}：</span>
-                            <span class="court-guarantee-summary-value" style="font-weight: 700;" x-text="caseInfo.preserve_amount ? '¥' + caseInfo.preserve_amount : '-'"></span>
+                        <div style="display: flex; align-items: center; gap: 6px; min-width: 0;">
+                            <span style="color: #64748b; font-size: 12px; flex: 0 0 auto;">{% translate "保全金额" %}：</span>
+                            <span style="font-size: 14px; font-weight: 700; color: #0f172a;" x-text="caseInfo.preserve_amount ? '¥' + caseInfo.preserve_amount : '-'"></span>
                         </div>
                     </div>
                 </div>
 
-                <div class="court-guarantee-quote-section">
-                    <div class="court-guarantee-quote-header">
-                        <div class="court-guarantee-quote-title">{% trans "财产保全询价" %}</div>
+                <div style="margin-bottom: 12px; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; background: #f8fafc;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px;">
+                        <div style="font-size: 13px; font-weight: 600; color: #0f172a;">{% trans "财产保全询价" %}</div>
                         <button type="button"
                                 class="btn btn-primary"
                                 style="font-size: 12px; padding: 6px 10px;"
@@ -43,10 +43,10 @@
                         </button>
                     </div>
 
-                    <div class="court-guarantee-reuse-row">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
                         <select x-model="selectedReusableQuoteId"
                                 :disabled="quoteLoading || !canStartQuote()"
-                                style="flex:1; min-width:0; height:32px; border:1px solid #cbd5e1; border-radius:6px; padding:0 8px; background:#fff;">
+                                style="flex:1; min-width:220px; height:32px; border:1px solid #cbd5e1; border-radius:6px; padding:0 8px; background:#fff;">
                             <option value="">{% trans "选择同保全金额历史询价记录" %}</option>
                             <template x-for="option in reusableQuoteOptions" :key="option.quote_id">
                                 <option :value="String(option.quote_id)" x-text="formatReusableQuoteOption(option)"></option>
@@ -54,7 +54,7 @@
                         </select>
                         <button type="button"
                                 class="btn"
-                                style="font-size:12px; padding:6px 10px; white-space: nowrap;"
+                                style="font-size:12px; padding:6px 10px;"
                                 :disabled="quoteLoading || !selectedReusableQuoteId"
                                 :class="{ 'btn-disabled': quoteLoading || !selectedReusableQuoteId }"
                                 @click="bindReusableQuote()">{% trans "绑定所选询价" %}</button>
@@ -67,28 +67,28 @@
                             </div>
 
                             <template x-if="quoteContext.items && quoteContext.items.length > 0">
-                                <div class="court-guarantee-quote-table-wrap">
-                                    <table class="court-guarantee-quote-table">
+                                <div style="max-height: 220px; overflow:auto; border:1px solid #dbeafe; border-radius:8px; background:#fff;">
+                                    <table style="width:100%; border-collapse: collapse; font-size:12px;">
                                         <thead>
-                                            <tr>
-                                                <th class="qth-num">{% trans "序号" %}</th>
-                                                <th class="qth-company">{% trans "担保机构" %}</th>
-                                                <th class="qth-range">{% trans "报价区间" %}</th>
-                                                <th class="qth-max">{% trans "最高保全金额" %}</th>
-                                                <th class="qth-action">{% trans "操作" %}</th>
+                                            <tr style="background:#eff6ff; color:#1e3a8a;">
+                                                <th style="text-align:center; padding:6px 8px; border-bottom:1px solid #dbeafe; width:36px;">{% trans "序号" %}</th>
+                                                <th style="text-align:left; padding:6px 8px; border-bottom:1px solid #dbeafe;">{% trans "担保机构" %}</th>
+                                                <th style="text-align:center; padding:6px 8px; border-bottom:1px solid #dbeafe;">{% trans "报价区间" %}</th>
+                                                <th style="text-align:right; padding:6px 8px; border-bottom:1px solid #dbeafe;">{% trans "最高保全金额" %}</th>
+                                                <th style="text-align:center; padding:6px 8px; border-bottom:1px solid #dbeafe;">{% trans "操作" %}</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             <template x-for="(item, idx) in quoteContext.items" :key="item.id">
                                                 <tr>
-                                                    <td class="qtd-num" x-text="idx + 1"></td>
-                                                    <td class="qtd-company">
+                                                    <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9; text-align:center; color:#64748b;" x-text="idx + 1"></td>
+                                                    <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9;">
                                                         <span x-text="item.company_name"></span>
                                                         <span x-show="item.is_recommended" style="margin-left:4px; color:#15803d;">🏆</span>
                                                     </td>
-                                                    <td class="qtd-range" x-text="formatQuoteRange(item)"></td>
-                                                    <td class="qtd-max" x-text="formatMaxApplyAmountYi(item)"></td>
-                                                    <td class="qtd-action">
+                                                    <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9; text-align:center; white-space:nowrap;" x-text="formatQuoteRange(item)"></td>
+                                                    <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9; text-align:right;" x-text="formatMaxApplyAmountYi(item)"></td>
+                                                    <td style="padding:6px 8px; border-bottom:1px solid #f1f5f9; text-align:center;">
                                                         <button type="button"
                                                                 class="btn"
                                                                 style="font-size:12px; padding:4px 8px;"
@@ -109,11 +109,11 @@
                     </template>
                 </div>
 
-                <div x-show="respondentOptions.length > 1" class="court-guarantee-respondent-section">
-                    <div class="court-guarantee-respondent-title">
+                <div x-show="respondentOptions.length > 1" style="margin-bottom: 12px; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 10px 12px; background: #f8fafc;">
+                    <div style="font-size: 12px; color: #334155; margin-bottom: 8px; font-weight: 600;">
                         {% trans "被申请人（可多选，默认全选）" %}
                     </div>
-                    <div class="court-guarantee-respondent-list">
+                    <div style="display:flex; flex-wrap:wrap; gap:8px 16px;">
                         <template x-for="option in respondentOptions" :key="option.party_id">
                             <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:#0f172a; cursor:pointer;">
                                 <input type="checkbox"
