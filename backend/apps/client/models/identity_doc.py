@@ -44,7 +44,7 @@ class ClientIdentityDoc(models.Model):
     HOUSEHOLD_REGISTER = "household_register"
     BUSINESS_LICENSE = "business_license"
     LEGAL_REP_ID_CARD = "legal_rep_id_card"
-    DOC_TYPE_CHOICES: ClassVar[list[tuple[str, str]]] = [
+    DOC_TYPE_CHOICES: ClassVar[list[tuple[str, Any]]] = [
         (ID_CARD, _("身份证")),
         (PASSPORT, _("护照")),
         (HK_MACAO_PERMIT, _("港澳通行证")),

@@ -102,6 +102,9 @@ except ImportError as exc:
     class MoonshotBackend(OpenAICompatibleBackend):  # type: ignore[no-redef]
         BACKEND_NAME = "moonshot"
 
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            super().__init__(*args, **kwargs)
+
         async def achat(self, *args: Any, **kwargs: Any) -> Any:
             return self.chat(*args, **kwargs)
 
@@ -110,15 +113,15 @@ except ImportError as exc:
 
             raise LLMBackendUnavailableError(
                 message="OpenAI-compatible 后端依赖未安装或导入失败",
-                errors={"detail": str(self._import_error)},
+                errors={"detail": str(self._import_error)},  # type: ignore[attr-defined]
             )
 
-        async def astream(self, *args: Any, **kwargs: Any) -> Any:
+        async def astream(self, *args: Any, **kwargs: Any) -> Any:  # type: ignore[override]
             from apps.core.llm.exceptions import LLMBackendUnavailableError
 
             raise LLMBackendUnavailableError(
                 message="OpenAI-compatible 后端依赖未安装或导入失败",
-                errors={"detail": str(self._import_error)},
+                errors={"detail": str(self._import_error)},  # type: ignore[attr-defined]
             )
 
         def embed_texts(self, *args: Any, **kwargs: Any) -> Any:
@@ -126,7 +129,7 @@ except ImportError as exc:
 
             raise LLMBackendUnavailableError(
                 message="OpenAI-compatible 后端依赖未安装或导入失败",
-                errors={"detail": str(self._import_error)},
+                errors={"detail": str(self._import_error)},  # type: ignore[attr-defined]
             )
 
 

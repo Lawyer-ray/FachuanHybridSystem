@@ -51,6 +51,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):
 
         # 导航到目标页面（使用更长超时，该网站响应较慢）
         self.navigate_to_url(timeout=60000)
+        assert self.page is not None, "页面未初始化"
 
         # 等待页面加载
         self.page.wait_for_load_state("networkidle", timeout=30000)
@@ -103,6 +104,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):
         Returns:
             True 表示存在可点击的确认按钮（有文书），False 表示无
         """
+        assert self.page is not None, "页面未初始化"
         # 检查 #submit-btn（有文书时绑定事件的按钮）
         submit_btn = self.page.locator("#submit-btn")
         if submit_btn.count() > 0 and submit_btn.first.is_visible():
@@ -122,6 +124,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):
         Returns:
             canvas 上显示的通知文本，提取失败返回空字符串
         """
+        assert self.page is not None, "页面未初始化"
         try:
             text = self.page.evaluate("""() => {
                 // 页面 JS 在 $(document).ready 中定义 var text = "..." 并绘制到 canvas
@@ -196,6 +199,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):
         Returns:
             找到的定位器，或 None
         """
+        assert self.page is not None, "页面未初始化"
         for selector in selectors:
             try:
                 loc = self.page.locator(selector)
@@ -208,6 +212,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):
 
     def _click_confirm_button(self) -> None:
         """点击"确认并预览材料"按钮，尝试多种定位策略"""
+        assert self.page is not None, "页面未初始化"
         try:
             selectors = [
                 "#submit-btn, #confirm-btn, .submit-btn, .confirm-btn",
@@ -257,6 +262,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):
             "a:has-text('下载'), button:has-text('下载'), [title*='下载']",
         ]
 
+        assert self.page is not None, "页面未初始化"
         try:
             download_button = self._find_locator(selectors, "下载按钮")
 

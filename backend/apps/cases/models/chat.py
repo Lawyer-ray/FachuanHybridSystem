@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from datetime import timedelta
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.db import models
 from django.utils import timezone
@@ -41,7 +41,7 @@ class CaseChat(models.Model):
     owner_verified_at = models.DateTimeField(
         null=True, blank=True, verbose_name=_("群主验证时间"), help_text=_("群主设置验证成功的时间")
     )
-    creation_audit_log: dict[str, object] = models.JSONField(
+    creation_audit_log: Any = models.JSONField(
         default=dict, verbose_name=_("创建审计日志"), help_text=_("群聊创建过程的详细日志,包含群主设置信息")
     )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
@@ -95,7 +95,7 @@ class ChatAuditLog(models.Model):
     """群聊审计日志"""
 
     id: int
-    ACTION_CHOICES: ClassVar[list[tuple[str, str]]] = [
+    ACTION_CHOICES: ClassVar[list[tuple[str, Any]]] = [
         ("CREATE_START", _("开始创建")),
         ("CREATE_SUCCESS", _("创建成功")),
         ("CREATE_FAILED", _("创建失败")),
@@ -127,7 +127,7 @@ class ChatAuditLog(models.Model):
     action = models.CharField(
         max_length=32, choices=ACTION_CHOICES, verbose_name=_("操作类型"), help_text=_("执行的操作类型")
     )
-    details: dict[str, object] = models.JSONField(
+    details: Any = models.JSONField(
         default=dict, verbose_name=_("操作详情"), help_text=_("操作的详细信息,以JSON格式存储")
     )
     timestamp = models.DateTimeField(auto_now_add=True, verbose_name=_("时间戳"), help_text=_("操作发生的时间"))

@@ -4,7 +4,7 @@
 Requirements: 6.1, 3.6
 """
 
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 
 from django.contrib import admin
 from django.db.models import QuerySet
@@ -71,26 +71,26 @@ class PlaceholderAdmin(admin.ModelAdmin):
         "is_active",
     )
 
-    list_filter: tuple[Any, ...] = (
+    list_filter: ClassVar[tuple[Any, ...]] = (
         "is_active",
         PlaceholderUsageFilter,
     )
 
-    search_fields: tuple[Any, ...] = (
+    search_fields: ClassVar[tuple[Any, ...]] = (
         "key",
         "display_name",
         "description",
     )
 
-    ordering: tuple[Any, ...] = ("key",)
+    ordering: ClassVar[tuple[Any, ...]] = ("key",)
 
-    fieldsets: tuple[Any, ...] = (
+    fieldsets: ClassVar[tuple[Any, ...]] = (
         (None, {"fields": ("key", "display_name")}),
         (_("示例和说明"), {"fields": ("example_value", "description")}),
         (_("状态"), {"fields": ("is_active",)}),
     )
 
-    actions: ClassVar = ["activate_placeholders", "deactivate_placeholders"]
+    actions: list[str] = ["activate_placeholders", "deactivate_placeholders"]
 
     def has_add_permission(self, request: Any) -> Any:
         return False
@@ -125,7 +125,7 @@ class PlaceholderAdmin(admin.ModelAdmin):
         qs = super().get_queryset(request)
         code_keys = list(self._catalog_cache().keys())
         service = _get_placeholder_admin_service()
-        return service.get_filtered_queryset(qs, code_keys)
+        return cast(QuerySet[Any], service.get_filtered_queryset(qs, code_keys))
 
     @admin.display(description=_("用途"))
     def usage_display(self, obj: Any) -> Any:

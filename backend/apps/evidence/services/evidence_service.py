@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from apps.evidence.models import EvidenceItem, EvidenceList
 from apps.evidence.services import (
@@ -61,56 +61,59 @@ class EvidenceService:
 
     def create_evidence_list(self, case_id: int, title: str, user: Any | None = None) -> EvidenceList:
         case = self.mutation_service.require_case_model(case_service=self.case_service, case_id=case_id)
-        return self.mutation_service.create_evidence_list(case=case, title=title, user=user)
+        return cast(EvidenceList, self.mutation_service.create_evidence_list(case=case, title=title, user=user))
 
     def validate_list_type_creation(self, case_id: int, list_type: str) -> tuple[bool, str | None, EvidenceList | None]:
-        return self.mutation_service.validate_list_type_creation(case_id=case_id, list_type=list_type)
+        return cast(
+            "tuple[bool, str | None, EvidenceList | None]",
+            self.mutation_service.validate_list_type_creation(case_id=case_id, list_type=list_type),
+        )
 
     def auto_link_previous_list(self, evidence_list: EvidenceList) -> EvidenceList | None:
-        return self.mutation_service.auto_link_previous_list(evidence_list=evidence_list)
+        return cast(EvidenceList | None, self.mutation_service.auto_link_previous_list(evidence_list=evidence_list))
 
     def update_evidence_list(self, list_id: int, data: dict[str, Any]) -> EvidenceList:
         evidence_list = self.get_evidence_list(list_id)
-        return self.mutation_service.update_evidence_list(evidence_list=evidence_list, title=data.get("title"))
+        return cast(EvidenceList, self.mutation_service.update_evidence_list(evidence_list=evidence_list, title=data.get("title")))
 
     def delete_evidence_list(self, list_id: int) -> bool:
         evidence_list = self.get_evidence_list(list_id)
-        return self.mutation_service.delete_evidence_list(evidence_list=evidence_list)
+        return cast(bool, self.mutation_service.delete_evidence_list(evidence_list=evidence_list))
 
     def get_evidence_list(self, list_id: int) -> EvidenceList:
-        return self.query_service.get_evidence_list(list_id)
+        return cast(EvidenceList, self.query_service.get_evidence_list(list_id))
 
     def list_evidence_lists(self, case_id: int) -> list[EvidenceList]:
-        return self.query_service.list_evidence_lists(case_id)
+        return cast("list[EvidenceList]", self.query_service.list_evidence_lists(case_id))
 
     def create_evidence_item(self, list_id: int, data: dict[str, Any]) -> EvidenceItem:
         evidence_list = self.get_evidence_list(list_id)
-        return self.mutation_service.create_evidence_item(
+        return cast(EvidenceItem, self.mutation_service.create_evidence_item(
             evidence_list=evidence_list, name=data.get("name", ""), purpose=data.get("purpose", "")
-        )
+        ))
 
     def update_evidence_item(self, item_id: int, data: dict[str, Any]) -> EvidenceItem:
         item = self._get_evidence_item(item_id)
-        return self.mutation_service.update_evidence_item(item=item, name=data.get("name"), purpose=data.get("purpose"))
+        return cast(EvidenceItem, self.mutation_service.update_evidence_item(item=item, name=data.get("name"), purpose=data.get("purpose")))
 
     def delete_evidence_item(self, item_id: int) -> bool:
         item = self._get_evidence_item(item_id)
-        return self.mutation_service.delete_evidence_item(item=item)
+        return cast(bool, self.mutation_service.delete_evidence_item(item=item))
 
     def _get_evidence_item(self, item_id: int) -> EvidenceItem:
-        return self.query_service.get_evidence_item(item_id)
+        return cast(EvidenceItem, self.query_service.get_evidence_item(item_id))
 
     def reorder_items(self, list_id: int, item_ids: list[int]) -> bool:
         evidence_list = self.get_evidence_list(list_id)
-        return self.mutation_service.reorder_items(evidence_list=evidence_list, item_ids=item_ids)
+        return cast(bool, self.mutation_service.reorder_items(evidence_list=evidence_list, item_ids=item_ids))
 
     def upload_file(self, item_id: int, file: Any) -> EvidenceItem:
         item = self._get_evidence_item(item_id)
-        return self.file_service.upload_file(item=item, file=file)
+        return cast(EvidenceItem, self.file_service.upload_file(item=item, file=file))
 
     def delete_file(self, item_id: int) -> bool:
         item = self._get_evidence_item(item_id)
-        return self.file_service.delete_file(item=item)
+        return cast(bool, self.file_service.delete_file(item=item))
 
     def calculate_page_ranges(self, list_id: int) -> None:
         evidence_list = self.get_evidence_list(list_id)

@@ -6,8 +6,9 @@ import base64
 import json
 import logging
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
+from django.core.files.uploadedfile import UploadedFile
 from django.http import HttpRequest
 from ninja import Router
 
@@ -19,7 +20,7 @@ router = Router(tags=["图片旋转"])
 
 
 def _body(request: HttpRequest) -> dict[str, Any]:
-    return json.loads(request.body or b"{}")
+    return cast(dict[str, Any], json.loads(request.body or b"{}"))
 
 
 def _get_pdf_service() -> Any:
@@ -49,7 +50,7 @@ def extract_pdf_fast(request: HttpRequest) -> dict[str, Any]:
     if not data:
         return {"success": False, "message": "缺少 data 参数"}
     try:
-        return _get_pdf_service().extract_pages(data, filename)
+        return cast(dict[str, Any], _get_pdf_service().extract_pages(data, filename))
     except Exception as exc:
         logger.error("extract_pdf_fast 失败: %s", exc, exc_info=True)
         return {"success": False, "message": str(exc)}
@@ -62,7 +63,7 @@ def detect_page_orientation(request: HttpRequest) -> dict[str, Any]:
     if not data:
         return {"rotation": 0, "confidence": 0}
     try:
-        return _get_pdf_service().detect_single_page_orientation(data)
+        return cast(dict[str, Any], _get_pdf_service().detect_single_page_orientation(data))
     except Exception as exc:
         logger.error("detect_page_orientation 失败: %s", exc, exc_info=True)
         return {"rotation": 0, "confidence": 0}
@@ -150,7 +151,7 @@ def export_pdf(request: HttpRequest) -> dict[str, Any]:
         if not pages:
             return {"success": False, "message": "没有页面数据"}
         try:
-            return _get_rotation_service().export_as_pdf(pages, paper_size)
+            return cast(dict[str, Any], _get_rotation_service().export_as_pdf(pages, paper_size))
         except Exception as exc:
             logger.error("export_pdf 失败: %s", exc, exc_info=True)
             return {"success": False, "message": str(exc)}
@@ -165,7 +166,7 @@ def _handle_multipart_export_pdf(request: HttpRequest) -> dict[str, Any]:
         for key in request.FILES:
             if key.startswith("page_"):
                 idx = key.split("_")[1]
-                file_obj = request.FILES[key]
+                file_obj: UploadedFile = request.FILES[key]  # type: ignore[assignment]
                 filename = request.POST.get(f"filename_{idx}", file_obj.name)
 
                 image_data = base64.b64encode(file_obj.read()).decode("utf-8")
@@ -180,7 +181,7 @@ def _handle_multipart_export_pdf(request: HttpRequest) -> dict[str, Any]:
         if not pages:
             return {"success": False, "message": "没有页面数据"}
 
-        return _get_rotation_service().export_as_pdf(pages, paper_size)
+        return cast(dict[str, Any], _get_rotation_service().export_as_pdf(pages, paper_size))
     except Exception as exc:
         logger.error("multipart export-pdf 失败: %s", exc, exc_info=True)
         return {"success": False, "message": str(exc)}
@@ -201,7 +202,7 @@ def export_images(request: HttpRequest) -> dict[str, Any]:
         if not images:
             return {"success": False, "message": "没有图片数据"}
         try:
-            return _get_rotation_service().export_images(images, paper_size, rename_map)
+            return cast(dict[str, Any], _get_rotation_service().export_images(images, paper_size, rename_map))
         except Exception as exc:
             logger.error("export_images 失败: %s", exc, exc_info=True)
             return {"success": False, "message": str(exc)}
@@ -218,7 +219,7 @@ def _handle_multipart_export(request: HttpRequest) -> dict[str, Any]:
         for key in request.FILES:
             if key.startswith("image_"):
                 idx = key.split("_")[1]
-                file_obj = request.FILES[key]
+                file_obj: UploadedFile = request.FILES[key]  # type: ignore[assignment]
                 filename = request.POST.get(f"filename_{idx}", file_obj.name)
                 format_type = request.POST.get(f"format_{idx}", "jpeg")
 
@@ -234,7 +235,7 @@ def _handle_multipart_export(request: HttpRequest) -> dict[str, Any]:
         if not images:
             return {"success": False, "message": "没有图片数据"}
 
-        return _get_rotation_service().export_images(images, paper_size, rename_map)
+        return cast(dict[str, Any], _get_rotation_service().export_images(images, paper_size, rename_map))
     except Exception as exc:
         logger.error("multipart 导出失败: %s", exc, exc_info=True)
         return {"success": False, "message": str(exc)}
