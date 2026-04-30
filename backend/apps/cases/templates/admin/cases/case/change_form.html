@@ -442,6 +442,59 @@
 .toast.error {
     background-color: #dc3545;
 }
+/* 拖拽上传区域 */
+.cn-dropzone {
+    border: 2px dashed #c5d0dc;
+    border-radius: 8px;
+    padding: 16px 20px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: #f9fafb;
+    margin-top: 4px;
+}
+.cn-dropzone:hover {
+    border-color: #2f6da6;
+    background: #eef4fa;
+}
+.cn-dropzone.cn-dropzone-active {
+    border-color: #2f6da6;
+    background: #e0edf9;
+    box-shadow: 0 0 0 3px rgba(47, 109, 166, 0.12);
+}
+.cn-dropzone-inner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    pointer-events: none;
+}
+.cn-dropzone-icon {
+    flex: 0 0 auto;
+    color: #8a97a8;
+}
+.cn-dropzone:hover .cn-dropzone-icon,
+.cn-dropzone.cn-dropzone-active .cn-dropzone-icon {
+    color: #2f6da6;
+}
+.cn-dropzone-text {
+    font-size: 13px;
+    color: #6b7280;
+    font-weight: 500;
+}
+.cn-dropzone-text-uploaded {
+    color: #2a8a57;
+    font-weight: 600;
+}
+.cn-dropzone-current {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #e5e7eb;
+    font-size: 12px;
+    color: #4b5563;
+}
+.cn-dropzone-current a {
+    color: #2f6da6;
+    text-decoration: underline;
+}
 /* filing_number 条件显示 */
 .field-filing_number.is-hidden-by-filing {
     display: none !important;

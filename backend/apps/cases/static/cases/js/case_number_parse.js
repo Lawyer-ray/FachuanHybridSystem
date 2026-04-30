@@ -253,8 +253,116 @@
         xhr.send(formData);
     }
 
+    // ============================================================
+    // 拖拽上传
+    // ============================================================
+
     /**
-     * 为文件输入框绑定上传监听
+     * 为案号行的 document_file 字段添加拖拽上传区域
+     * @param {Element} row - 案号行元素
+     */
+    function addDropzoneToRow(row) {
+        var documentFileCell = row.querySelector('.field-document_file');
+        if (!documentFileCell) return;
+
+        // 已添加过则跳过
+        if (documentFileCell.querySelector('.cn-dropzone')) return;
+
+        var fileInput = documentFileCell.querySelector('input[type="file"]');
+        if (!fileInput) return;
+
+        // 隐藏包含 file input 的 flex-container
+        var flexContainer = fileInput.closest('.flex-container');
+        if (flexContainer) {
+            flexContainer.style.display = 'none';
+        } else {
+            fileInput.style.display = 'none';
+        }
+
+        // 创建拖拽上传区域
+        var dropzone = document.createElement('div');
+        dropzone.className = 'cn-dropzone';
+        dropzone.innerHTML =
+            '<div class="cn-dropzone-inner">' +
+                '<svg class="cn-dropzone-icon" width="24" height="24" viewBox="0 0 24 24" fill="none">' +
+                    '<path d="M12 4v16m-8-8h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
+                '</svg>' +
+                '<span class="cn-dropzone-text">点击或拖拽上传PDF</span>' +
+            '</div>';
+
+        // 显示当前已上传文件信息
+        var currentlyEl = documentFileCell.querySelector('.currently');
+        if (currentlyEl) {
+            var fileHint = document.createElement('div');
+            fileHint.className = 'cn-dropzone-current';
+            fileHint.innerHTML = currentlyEl.innerHTML;
+            dropzone.appendChild(fileHint);
+        }
+
+        // 将拖拽区域追加到 documentFileCell 末尾
+        documentFileCell.appendChild(dropzone);
+
+        // 点击触发文件选择
+        dropzone.addEventListener('click', function(e) {
+            if (e.target.closest('a')) return; // 已上传文件链接不触发
+            fileInput.click();
+        });
+
+        // 拖拽事件
+        dropzone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.add('cn-dropzone-active');
+        });
+
+        dropzone.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.remove('cn-dropzone-active');
+        });
+
+        dropzone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dropzone.classList.remove('cn-dropzone-active');
+
+            var files = e.dataTransfer.files;
+            if (files.length === 0) return;
+
+            var file = files[0];
+            if (!file.name.toLowerCase().endsWith('.pdf')) {
+                showToast('仅支持PDF格式文件', 'error');
+                return;
+            }
+
+            // 通过 DataTransfer 将拖拽文件赋给 file input
+            var dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            fileInput.files = dataTransfer.files;
+
+            // 触发已有的上传逻辑
+            handleFileUpload(fileInput, row);
+
+            // 更新拖拽区域显示文件名
+            updateDropzoneFileName(dropzone, file.name);
+        });
+    }
+
+    /**
+     * 更新拖拽区域显示的文件名
+     * @param {Element} dropzone - 拖拽区域元素
+     * @param {string} fileName - 文件名
+     */
+    function updateDropzoneFileName(dropzone, fileName) {
+        var textEl = dropzone.querySelector('.cn-dropzone-text');
+        if (textEl) {
+            textEl.textContent = fileName;
+            textEl.classList.add('cn-dropzone-text-uploaded');
+        }
+    }
+
+    /**
+     * 为文件输入框绑定上传监听，并添加拖拽区域
      * @param {Element} inline - 内联表单组
      */
     function addFileUploadListeners(inline) {
@@ -271,10 +379,20 @@
             var fileInput = documentFileCell.querySelector('input[type="file"]');
             if (fileInput && !fileInput.dataset.uploadListener) {
                 fileInput.dataset.uploadListener = 'true';
-                fileInput.onchange = (function(r) {
-                    return function(e) { handleFileUpload(e.target, r); };
-                })(row);
+                fileInput.onchange = (function(r, fi) {
+                    return function(e) {
+                        handleFileUpload(e.target, r);
+                        // 更新拖拽区域文件名
+                        var dz = r.querySelector('.cn-dropzone');
+                        if (dz && fi.files.length > 0) {
+                            updateDropzoneFileName(dz, fi.files[0].name);
+                        }
+                    };
+                })(row, fileInput);
             }
+
+            // 添加拖拽上传区域
+            addDropzoneToRow(row);
         }
     }
 
