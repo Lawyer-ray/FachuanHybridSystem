@@ -246,6 +246,7 @@
     if (window.CaseNumberParse && window.CaseNumberParse.initSaveAndDuplicateButton) {
         window.CaseNumberParse.initSaveAndDuplicateButton('{% trans "保存并复制" %}');
     }
+    window.__hasFolderBinding = {{ has_folder_binding|yesno:"true,false,false" }};
 })();
 {% endif %}
 </script>

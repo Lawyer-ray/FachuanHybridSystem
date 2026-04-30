@@ -393,12 +393,31 @@ class CaseAdminViewsMixin:
         if request.method == "POST":
             logger.info("[CaseAdmin.changeform_view] POST request, object_id=%s", object_id)
 
+        if object_id:
+            has_binding = self._check_folder_binding(int(object_id))
+            if extra_context is None:
+                extra_context = {}
+            extra_context["has_folder_binding"] = has_binding
+
         response = super().changeform_view(request, object_id, form_url, extra_context)  # type: ignore[misc]
 
         if request.method == "POST":
             self._log_post_response(response, logger)
 
         return response  # type: ignore[no-any-return]
+
+    @staticmethod
+    def _check_folder_binding(case_id: int) -> bool:
+        """检查案件或其关联合同是否绑定了文件夹。"""
+        from apps.cases.models.material import CaseFolderBinding
+        from apps.contracts.models.folder_binding import ContractFolderBinding
+
+        if CaseFolderBinding.objects.filter(case_id=case_id).exists():
+            return True
+        case_contract_id = Case.objects.filter(pk=case_id).values_list("contract_id", flat=True).first()
+        if case_contract_id:
+            return ContractFolderBinding.objects.filter(contract_id=case_contract_id).exists()
+        return False
 
     @staticmethod
     def _log_post_response(response: HttpResponse, logger: logging.Logger) -> None:

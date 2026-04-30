@@ -673,6 +673,10 @@
                     })
                     .catch(function(err) { openFolderBtn.disabled = false; alert('请求失败: ' + (err.message || '未知错误')); });
                 };
+                if (!window.__hasFolderBinding) {
+                    openFolderBtn.disabled = true;
+                    openFolderBtn.title = '未绑定文件夹，请先在下方绑定';
+                }
                 actionBar.insertBefore(openFolderBtn, actionBar.firstChild);
             }
 

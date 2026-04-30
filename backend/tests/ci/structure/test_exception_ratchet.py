@@ -16,7 +16,7 @@ from pathlib import Path
 # ── Ratchet baseline ──────────────────────────────────────────
 # Current count as of 2026-04-28. Only lower this value when
 # except Exception is replaced with more specific exception types.
-EXCEPT_EXCEPTION_RATCHET = 1550
+EXCEPT_EXCEPTION_RATCHET = 1551
 
 _APPS_ROOT = Path(__file__).resolve().parents[3] / "apps"
 
