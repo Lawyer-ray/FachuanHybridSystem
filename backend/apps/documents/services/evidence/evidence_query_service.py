@@ -10,7 +10,7 @@ _VALUES = ("id", "order", "name", "purpose", "page_start", "page_end", "file")
 
 class EvidenceQueryService:
     def _build_dtos(self, items: list[dict]) -> list[EvidenceItemDigestDTO]:
-        file_field = EvidenceItem._meta.get_field("file")
+        file_field = EvidenceItem._meta.get_field("file")  # type: ignore[attr-defined]
         results: list[EvidenceItemDigestDTO] = []
         for item in items:
             file_path = None
@@ -38,7 +38,7 @@ class EvidenceQueryService:
         evidence_list_ids: list[int],
         evidence_item_ids: list[int],
     ) -> list[EvidenceItemDigestDTO]:
-        qs = EvidenceItem.objects.all()
+        qs = EvidenceItem.objects.all()  # type: ignore[attr-defined]
         if evidence_item_ids:
             qs = qs.filter(id__in=evidence_item_ids)
         elif evidence_list_ids:
@@ -50,12 +50,12 @@ class EvidenceQueryService:
     def list_evidence_item_ids_with_files_internal(self, evidence_item_ids: list[int]) -> list[EvidenceItemDigestDTO]:
         if not evidence_item_ids:
             return []
-        items = list(EvidenceItem.objects.filter(id__in=evidence_item_ids, file__isnull=False).values(*_VALUES))
+        items = list(EvidenceItem.objects.filter(id__in=evidence_item_ids, file__isnull=False).values(*_VALUES))  # type: ignore[attr-defined]
         return self._build_dtos(items)
 
     def list_evidence_items_for_case_internal(self, case_id: int) -> list[EvidenceItemDigestDTO]:
         items = list(
-            EvidenceItem.objects.filter(evidence_list__case_id=case_id)
+            EvidenceItem.objects.filter(evidence_list__case_id=case_id)  # type: ignore[attr-defined]
             .order_by("evidence_list_id", "order")
             .values(*_VALUES)
         )

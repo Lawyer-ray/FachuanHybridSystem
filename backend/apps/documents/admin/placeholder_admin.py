@@ -4,7 +4,7 @@
 Requirements: 6.1, 3.6
 """
 
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 
 from django.contrib import admin
 from django.db.models import QuerySet
@@ -125,7 +125,7 @@ class PlaceholderAdmin(admin.ModelAdmin):
         qs = super().get_queryset(request)
         code_keys = list(self._catalog_cache().keys())
         service = _get_placeholder_admin_service()
-        return service.get_filtered_queryset(qs, code_keys)
+        return cast(QuerySet[Any], service.get_filtered_queryset(qs, code_keys))
 
     @admin.display(description=_("用途"))
     def usage_display(self, obj: Any) -> Any:

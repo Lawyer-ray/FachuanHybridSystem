@@ -76,5 +76,5 @@ class CaseChatRepository:
                 is_active=is_active,
                 owner_id=owner_id,
                 owner_verified=owner_verified,
-                creation_audit_log=creation_audit_log or {},  # type: ignore[misc]
+                creation_audit_log=creation_audit_log or {},
             )

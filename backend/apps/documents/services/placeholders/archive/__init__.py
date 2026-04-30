@@ -510,6 +510,8 @@ class ArchivePlaceholderService(BasePlaceholderService):
             from apps.contracts.models import ContractFolderScanSession
 
             contract_id: int | None = getattr(contract, "id", None)
+            if contract_id is None:
+                return ""
             session = (
                 ContractFolderScanSession.objects.filter(contract_id=contract_id)
                 .order_by("-created_at")
