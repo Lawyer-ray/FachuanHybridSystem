@@ -46,7 +46,7 @@
 #case_numbers-group .djn-items,
 .inline-group[id$='case_numbers-group'] .djn-items {
     width: 100% !important;
-    padding: 12px !important;
+    padding: 10px !important;
     background: #f7f9fc;
     box-sizing: border-box;
 }
@@ -58,22 +58,22 @@
 .inline-group[id$='case_numbers-group'] .inline-related {
     width: 100% !important;
     box-sizing: border-box;
-    border: 1px solid #d9d9d9;
-    border-radius: 6px;
+    border: 1px solid #e2e4e8;
+    border-radius: 8px;
     background: #fff;
-    margin: 0 0 12px 0 !important;
-    padding: 14px 14px 10px;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    margin: 0 0 10px 0 !important;
+    padding: 12px 14px 8px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
 }
 #case_numbers-group .inline-related > h3,
 .inline-group[id$='case_numbers-group'] .inline-related > h3 {
-    margin: 0 0 8px 0;
-    padding: 7px 10px;
+    margin: 0 0 6px 0;
+    padding: 6px 10px;
     border-radius: 4px;
-    background: #edf2f7;
-    border: 1px solid #d6dee8;
+    background: #f1f4f8;
+    border: 1px solid #dee3ea;
     color: #2f3a48;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
 }
 
@@ -83,7 +83,7 @@
 #case_numbers-group .inline-related fieldset.module,
 .inline-group[id$='case_numbers-group'] .inline-related fieldset.module {
     border: 0;
-    margin: 0 0 10px 0;
+    margin: 0 0 6px 0;
     padding: 0;
 }
 #case_numbers-group .inline-related fieldset.module:last-child,
@@ -92,24 +92,20 @@
 }
 
 /* Fieldset 标题（"文书信息"、"执行依据主文"、"执行参数"） */
-#case_numbers-group .inline-related fieldset.module h2,
-.inline-group[id$='case_numbers-group'] .inline-related fieldset.module h2,
-#case_numbers-group .inline-related fieldset.module h3,
-.inline-group[id$='case_numbers-group'] .inline-related fieldset.module h3,
-#case_numbers-group .inline-related fieldset.module h4,
-.inline-group[id$='case_numbers-group'] .inline-related fieldset.module h4 {
+#case_numbers-group .inline-related fieldset.module h4.fieldset-heading,
+.inline-group[id$='case_numbers-group'] .inline-related fieldset.module h4.fieldset-heading {
     background: transparent;
-    color: #3b5578 !important;
-    font-size: 13px;
+    color: #374151 !important;
+    font-size: 12px;
     font-weight: 600;
-    margin: 0 0 4px 0;
-    padding: 0 0 4px 0;
-    border-bottom: 1px solid #e2e8f0;
-    letter-spacing: 0.3px;
+    margin: 0 0 2px 0;
+    padding: 0 0 3px 0;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
 }
 
 /* ============================================================
-   表单行（form-row）
+   表单行（form-row）- 去掉分割线，用间距区分
    ============================================================ */
 #case_numbers-group .inline-related .form-row,
 .inline-group[id$='case_numbers-group'] .inline-related .form-row {
@@ -117,13 +113,11 @@
     flex-wrap: wrap;
     gap: 12px;
     margin-bottom: 0;
-    padding: 10px 0;
-    border-top: 1px solid #eef1f4;
+    padding: 8px 0;
 }
 #case_numbers-group .inline-related fieldset.module .form-row:first-of-type,
 .inline-group[id$='case_numbers-group'] .inline-related fieldset.module .form-row:first-of-type {
-    border-top: none;
-    padding-top: 6px;
+    padding-top: 4px;
 }
 
 /* 通用字段宽度 */
@@ -225,6 +219,108 @@
 .inline-group[id$='case_numbers-group'] .form-row.field-document_content textarea {
     width: 100% !important;
     max-width: 100%;
+}
+
+/* ============================================================
+   操作按钮 - 现代风格
+   ============================================================ */
+#case_numbers-group .parse-document-btn,
+.inline-group[id$='case_numbers-group'] .parse-document-btn,
+#case_numbers-group .parse-execution-btn,
+.inline-group[id$='case_numbers-group'] .parse-execution-btn,
+#case_numbers-group .open-folder-btn,
+.inline-group[id$='case_numbers-group'] .open-folder-btn {
+    all: unset;
+    box-sizing: border-box;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    height: 32px;
+    padding: 0 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 12.5px;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    user-select: none;
+    transition: all 0.15s ease;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+#case_numbers-group .parse-document-btn,
+.inline-group[id$='case_numbers-group'] .parse-document-btn {
+    color: #fff;
+    background: #2563eb;
+    border: 1px solid #1d4ed8;
+}
+#case_numbers-group .parse-document-btn:hover,
+.inline-group[id$='case_numbers-group'] .parse-document-btn:hover {
+    background: #1d4ed8;
+    box-shadow: 0 2px 6px rgba(37,99,235,0.25);
+    transform: translateY(-1px);
+}
+#case_numbers-group .parse-document-btn:active,
+.inline-group[id$='case_numbers-group'] .parse-document-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(37,99,235,0.2);
+}
+#case_numbers-group .parse-document-btn:disabled,
+.inline-group[id$='case_numbers-group'] .parse-document-btn:disabled {
+    background: #e5e7eb;
+    border-color: #d1d5db;
+    color: #9ca3af;
+    box-shadow: none;
+    cursor: not-allowed;
+    transform: none;
+}
+
+#case_numbers-group .parse-execution-btn,
+.inline-group[id$='case_numbers-group'] .parse-execution-btn {
+    color: #fff;
+    background: #059669;
+    border: 1px solid #047857;
+}
+#case_numbers-group .parse-execution-btn:hover,
+.inline-group[id$='case_numbers-group'] .parse-execution-btn:hover {
+    background: #047857;
+    box-shadow: 0 2px 6px rgba(5,150,105,0.25);
+    transform: translateY(-1px);
+}
+#case_numbers-group .parse-execution-btn:active,
+.inline-group[id$='case_numbers-group'] .parse-execution-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(5,150,105,0.2);
+}
+#case_numbers-group .parse-execution-btn:disabled,
+.inline-group[id$='case_numbers-group'] .parse-execution-btn:disabled {
+    background: #e5e7eb;
+    border-color: #d1d5db;
+    color: #9ca3af;
+    box-shadow: none;
+    cursor: not-allowed;
+    transform: none;
+}
+
+#case_numbers-group .open-folder-btn,
+.inline-group[id$='case_numbers-group'] .open-folder-btn {
+    color: #374151;
+    background: #fff;
+    border: 1px solid #d1d5db;
+    font-weight: 500;
+}
+#case_numbers-group .open-folder-btn:hover,
+.inline-group[id$='case_numbers-group'] .open-folder-btn:hover {
+    background: #f9fafb;
+    border-color: #9ca3af;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+#case_numbers-group .open-folder-btn:disabled,
+.inline-group[id$='case_numbers-group'] .open-folder-btn:disabled {
+    color: #d1d5db;
+    border-color: #e5e7eb;
+    cursor: not-allowed;
+    box-shadow: none;
 }
 
 /* ============================================================
