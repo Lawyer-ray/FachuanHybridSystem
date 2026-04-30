@@ -32,7 +32,7 @@ class ExecutorFeedbackMixin:
 
         hit_rate = matched / max(1, scanned)
         keyword_tokens = [
-            token for token in cls._split_tokens(search_keyword) if not cls._is_location_or_court_token(token)
+            token for token in cls._split_tokens(search_keyword) if not cls._is_location_or_court_token(token)  # type: ignore[attr-defined]
         ]
         if not keyword_tokens:
             return
@@ -115,7 +115,7 @@ class ExecutorFeedbackMixin:
         if len(feedback_terms) < max(1, feedback_min_terms):
             return feedback_queries_added, ""
 
-        query = cls._build_feedback_search_keyword(
+        query = cls._build_feedback_search_keyword(  # type: ignore[attr-defined]
             keyword=keyword, case_summary=case_summary, feedback_terms=feedback_terms
         )
         normalized = query.strip().lower()

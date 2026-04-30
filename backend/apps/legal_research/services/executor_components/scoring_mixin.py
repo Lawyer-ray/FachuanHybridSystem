@@ -230,7 +230,7 @@ class ExecutorScoringMixin:
         detail: CaseDetail,
         task_id: str,
     ) -> Any | None:
-        keyword = cls._build_scoring_keyword(task.keyword, task.case_summary)
+        keyword = cls._build_scoring_keyword(task.keyword, task.case_summary)  # type: ignore[attr-defined]
         for attempt in range(1, cls.SCORE_RETRY_ATTEMPTS + 1):
             try:
                 return similarity.score_case(
@@ -264,7 +264,7 @@ class ExecutorScoringMixin:
                         "error": str(exc),
                     },
                 )
-                cls._sleep_for_retry(attempt=attempt)
+                cls._sleep_for_retry(attempt=attempt)  # type: ignore[attr-defined]
         return None
 
     @classmethod
@@ -282,7 +282,7 @@ class ExecutorScoringMixin:
         if not callable(rescoring):
             return None
 
-        keyword = cls._build_scoring_keyword(task.keyword, task.case_summary)
+        keyword = cls._build_scoring_keyword(task.keyword, task.case_summary)  # type: ignore[attr-defined]
         for attempt in range(1, cls.SCORE_RETRY_ATTEMPTS + 1):
             try:
                 return rescoring(
@@ -308,7 +308,7 @@ class ExecutorScoringMixin:
                         },
                     )
                     return None
-                cls._sleep_for_retry(attempt=attempt)
+                cls._sleep_for_retry(attempt=attempt)  # type: ignore[attr-defined]
         return None
 
     @classmethod
@@ -324,7 +324,7 @@ class ExecutorScoringMixin:
         primary_reason: str,
     ) -> Any | None:
         rescoring = getattr(similarity, "rescore_borderline_case", None)
-        keyword = cls._build_scoring_keyword(task.keyword, task.case_summary)
+        keyword = cls._build_scoring_keyword(task.keyword, task.case_summary)  # type: ignore[attr-defined]
         for attempt in range(1, cls.SCORE_RETRY_ATTEMPTS + 1):
             try:
                 if callable(rescoring):
@@ -360,7 +360,7 @@ class ExecutorScoringMixin:
                         },
                     )
                     return None
-                cls._sleep_for_retry(attempt=attempt)
+                cls._sleep_for_retry(attempt=attempt)  # type: ignore[attr-defined]
         return None
 
     @classmethod

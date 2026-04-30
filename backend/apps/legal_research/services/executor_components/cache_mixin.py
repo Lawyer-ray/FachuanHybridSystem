@@ -48,7 +48,7 @@ class ExecutorCacheMixin:
                 local_cache[cache_key] = persistent
                 return persistent
 
-        detail = cls._fetch_case_detail_with_retry(
+        detail = cls._fetch_case_detail_with_retry(  # type: ignore[attr-defined]
             source_client=source_client,
             session=session,
             item=item,
@@ -59,7 +59,7 @@ class ExecutorCacheMixin:
         if cache_key:
             local_cache[cache_key] = detail
             cls._save_case_detail_cache(cache_key=cache_key, detail=detail, ttl_seconds=ttl_seconds)
-        return detail
+        return detail  # type: ignore[no-any-return]
 
     @classmethod
     def _build_case_detail_cache_key(cls, *, source: str, doc_id: str) -> str:
