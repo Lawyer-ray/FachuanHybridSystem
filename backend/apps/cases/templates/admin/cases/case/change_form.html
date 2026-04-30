@@ -56,12 +56,10 @@
 /* ── 字段标签 ── */
 #case_numbers-group label {
     font-size: 12px !important; font-weight: 500 !important;
-    color: #6b7280 !important;
-}
-/* 默认 label 在输入框上方（单独字段） */
-#case_numbers-group .form-row:not(.form-multiline) > div > label,
-#case_numbers-group .form-row:not(.form-multiline) > .flex-container > label {
-    display: block; margin-bottom: 2px !important;
+    color: #6b7280 !important; float: none !important;
+    width: auto !important; min-width: 0 !important;
+    padding: 0 !important;
+    display: block; margin: 0 0 2px 0;
 }
 #case_numbers-group input[type='text'],
 #case_numbers-group input[type='number'],
@@ -79,42 +77,41 @@
 }
 #case_numbers-group .vTextField { width: 100% !important; }
 
-/* ── form-multiline 横排 ── 标签在左，输入框在右 */
+/* ── form-multiline 横排 ── 标签在上，输入框在下，紧凑自然 */
 #case_numbers-group .flex-container.form-multiline {
-    display: flex !important; flex-wrap: wrap; gap: 14px;
+    display: flex !important; flex-wrap: nowrap; gap: 16px;
     margin: 0 !important; padding: 0 !important; width: 100%;
 }
 #case_numbers-group .flex-container.form-multiline > div {
-    display: flex; flex-direction: row; align-items: center; gap: 6px;
-    flex: 1 1 200px; min-width: 160px;
+    flex: 1; min-width: 0;
 }
 #case_numbers-group .flex-container.form-multiline > div label {
-    flex: 0 0 auto; white-space: nowrap; margin: 0 !important;
-    padding: 0 !important; width: auto !important; min-width: 0;
+    display: block !important; float: none !important;
+    font-size: 12px !important; font-weight: 500 !important;
+    color: #6b7280 !important;
+    margin: 0 0 2px 0 !important; padding: 0 !important;
+    width: auto !important;
 }
 #case_numbers-group .flex-container.form-multiline > div input,
 #case_numbers-group .flex-container.form-multiline > div select,
 #case_numbers-group .flex-container.form-multiline > div .vTextField,
 #case_numbers-group .flex-container.form-multiline > div .vDateField {
-    flex: 1 1 auto; min-width: 80px;
+    width: 100% !important; box-sizing: border-box;
 }
 
 /* ── 特定字段宽度 ── */
-#case_numbers-group .field-number .vTextField { min-width: 200px; }
-#case_numbers-group .field-document_name .vTextField { min-width: 130px; }
-/* checkbox 字段同行排列 */
+/* checkbox 字段紧凑 */
 #case_numbers-group .flex-container.form-multiline .field-is_active,
 #case_numbers-group .flex-container.form-multiline .field-execution_use_deduction_order {
-    flex: 0 0 auto; min-width: 0;
-    display: inline-flex; align-items: center; gap: 4px;
-}
-#case_numbers-group .flex-container.form-multiline .field-is_active input[type='checkbox'],
-#case_numbers-group .flex-container.form-multiline .field-execution_use_deduction_order input[type='checkbox'] {
-    margin: 0; flex: none;
+    flex: 0 1 auto; min-width: 0;
 }
 #case_numbers-group .flex-container.form-multiline .field-is_active label,
 #case_numbers-group .flex-container.form-multiline .field-execution_use_deduction_order label {
-    flex: none; white-space: nowrap; margin: 0 !important;
+    display: inline !important; margin: 0 !important; font-size: 12px !important;
+}
+#case_numbers-group .flex-container.form-multiline .field-is_active input[type='checkbox'],
+#case_numbers-group .flex-container.form-multiline .field-execution_use_deduction_order input[type='checkbox'] {
+    margin: 0; vertical-align: text-bottom;
 }
 #case_numbers-group .field-execution_date_inclusion { flex: 0 0 140px !important; min-width: 140px !important; }
 #case_numbers-group .field-document_content,
