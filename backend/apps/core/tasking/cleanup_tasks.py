@@ -113,3 +113,29 @@ def check_disk_space(warning_pct: float = 85.0, critical_pct: float = 95.0) -> d
         "available_gb": round(available / (1024**3), 2),
         "path": media_root,
     }
+
+
+# ---------------------------------------------------------------------------
+# 定时任务调度注册
+# ---------------------------------------------------------------------------
+
+def _register_schedules() -> None:
+    """注册文件清理和磁盘监控定时任务。"""
+    try:
+        from apps.core.tasking import ScheduleQueryService
+
+        svc = ScheduleQueryService()
+        schedules = [
+            ("apps.core.tasking.cleanup_tasks.cleanup_temp_files", "core:cleanup_temp_files", 60),
+            ("apps.core.tasking.cleanup_tasks.cleanup_export_files", "core:cleanup_export_files", 1440),
+            ("apps.core.tasking.cleanup_tasks.check_disk_space", "core:check_disk_space", 60),
+        ]
+        for func, name, minutes in schedules:
+            if not svc.schedule_exists(name):
+                svc.create_interval_schedule(func=func, name=name, minutes=minutes)
+                logger.info("已注册定时任务: %s", name)
+    except Exception:
+        logger.debug("定时任务注册跳过（未就绪）")
+
+
+_register_schedules()
