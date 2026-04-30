@@ -46,76 +46,66 @@
 #case_numbers-group .djn-items,
 .inline-group[id$='case_numbers-group'] .djn-items {
     width: 100% !important;
-    padding: 8px !important;
+    padding: 6px !important;
     background: #f7f9fc;
     box-sizing: border-box;
 }
 
 /* ============================================================
-   每个案号卡片 - 紧凑
+   每个案号卡片 - 极简紧凑
    ============================================================ */
 #case_numbers-group .inline-related,
 .inline-group[id$='case_numbers-group'] .inline-related {
     width: 100% !important;
     box-sizing: border-box;
     border: 1px solid #e2e4e8;
-    border-radius: 8px;
+    border-radius: 6px;
     background: #fff;
-    margin: 0 0 8px 0 !important;
-    padding: 10px 12px 6px;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    margin: 0 0 6px 0 !important;
+    padding: 8px 10px 4px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
 }
 #case_numbers-group .inline-related > h3,
 .inline-group[id$='case_numbers-group'] .inline-related > h3 {
-    margin: 0 0 4px 0;
-    padding: 5px 8px;
-    border-radius: 4px;
-    background: #f1f4f8;
-    border: 1px solid #dee3ea;
-    color: #2f3a48;
-    font-size: 13px;
+    margin: 0 0 2px 0;
+    padding: 3px 8px;
+    border-radius: 3px;
+    background: #f3f5f8;
+    border: none;
+    color: #374151;
+    font-size: 12.5px;
     font-weight: 600;
 }
 
 /* ============================================================
-   Fieldset 分组（文书信息 / 执行依据主文 / 执行参数）
+   Fieldset 分组 - 无标题
    ============================================================ */
 #case_numbers-group .inline-related fieldset.module,
 .inline-group[id$='case_numbers-group'] .inline-related fieldset.module {
     border: 0;
-    margin: 0 0 4px 0;
+    margin: 0 0 2px 0;
     padding: 0;
 }
 #case_numbers-group .inline-related fieldset.module:last-child,
 .inline-group[id$='case_numbers-group'] .inline-related fieldset.module:last-child {
     margin-bottom: 0;
 }
-
-/* Fieldset 标题 - 无边框无占位 */
+/* 隐藏 fieldset 标题 */
 #case_numbers-group .inline-related fieldset.module h4.fieldset-heading,
 .inline-group[id$='case_numbers-group'] .inline-related fieldset.module h4.fieldset-heading {
-    border: none !important;
-    outline: none !important;
-    box-shadow: none !important;
-    background: transparent !important;
-    color: #6b7280 !important;
-    font-size: 11.5px;
-    font-weight: 600;
-    margin: 0 0 3px 0;
-    padding: 0;
-    letter-spacing: 0.3px;
+    display: none !important;
 }
 
 /* ============================================================
-   表单行（form-row）- 紧凑
+   表单行（form-row）- 极紧凑
    ============================================================ */
 #case_numbers-group .inline-related .form-row,
 .inline-group[id$='case_numbers-group'] .inline-related .form-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 8px;
     margin-bottom: 0;
-    padding: 4px 0;
+    padding: 2px 0;
     border: none !important;
 }
 #case_numbers-group .inline-related fieldset.module .form-row:first-of-type,
@@ -135,8 +125,8 @@
 .inline-group[id$='case_numbers-group'] .inline-related .form-row > div[class*='field-'],
 #case_numbers-group .inline-related .form-row .fieldBox,
 .inline-group[id$='case_numbers-group'] .inline-related .form-row .fieldBox {
-    flex: 1 1 240px;
-    min-width: 220px;
+    flex: 1 1 200px;
+    min-width: 180px;
 }
 
 /* ============================================================
@@ -148,8 +138,8 @@
     flex-direction: row;
     flex-wrap: nowrap;
     align-items: center;
-    gap: 10px;
-    padding: 6px 0 !important;
+    gap: 8px;
+    padding: 2px 0 !important;
 }
 /* 文件上传区 - 紧凑 */
 #case_numbers-group .case-number-doc-fieldset .form-row.field-document_file > div,
@@ -164,7 +154,7 @@
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     min-width: 0;
     padding: 0;
 }
@@ -196,9 +186,9 @@
 #case_numbers-group .inline-related .field-is_active label,
 .inline-group[id$='case_numbers-group'] .inline-related .field-is_active label {
     margin: 0;
-    font-weight: 500;
+    font-weight: 400;
     color: #374151;
-    font-size: 13px;
+    font-size: 12px;
 }
 
 /* ============================================================
@@ -223,12 +213,13 @@
 #case_numbers-group .field-document_content textarea,
 .inline-group[id$='case_numbers-group'] .field-document_content textarea {
     width: 100%;
-    min-height: 110px;
+    min-height: 60px;
     border: 1px solid #e2e4e8 !important;
-    border-radius: 6px;
-    padding: 8px 10px;
+    border-radius: 4px;
+    padding: 6px 8px;
     font-size: 13px;
-    line-height: 1.6;
+    line-height: 1.5;
+    resize: vertical;
 }
 #case_numbers-group .form-row.field-document_content textarea,
 .inline-group[id$='case_numbers-group'] .form-row.field-document_content textarea {
@@ -352,15 +343,15 @@
 }
 
 /* ============================================================
-   执行参数 fieldset - 解析执行事项按钮放在这里
+   执行参数 fieldset - 解析执行事项按钮
    ============================================================ */
 .case-number-execution-controls {
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     margin: 0;
-    padding: 4px 0;
+    padding: 2px 0;
 }
 /* 执行参数 textarea 标签隐藏 */
 #case_numbers-group .form-row.field-execution_manual_text label,
@@ -372,18 +363,19 @@
 #case_numbers-group .field-execution_manual_text textarea,
 .inline-group[id$='case_numbers-group'] .field-execution_manual_text textarea {
     width: 100%;
-    min-height: 120px;
+    min-height: 60px;
     border: 1px solid #e2e4e8 !important;
-    border-radius: 6px;
-    padding: 8px 10px;
+    border-radius: 4px;
+    padding: 6px 8px;
     font-size: 13px;
-    line-height: 1.6;
+    line-height: 1.5;
+    resize: vertical;
 }
 #case_numbers-group .form-row.field-execution_manual_text textarea,
 .inline-group[id$='case_numbers-group'] .form-row.field-execution_manual_text textarea {
     width: 100% !important;
     max-width: 100%;
-    min-height: 120px;
+    min-height: 60px;
 }
 .parse-execution-llm-label {
     display: inline-flex;
