@@ -120,13 +120,33 @@
     padding: 0 !important;
 }
 
-/* 通用字段宽度 */
+/* 通用字段宽度 - 横排紧凑 */
 #case_numbers-group .inline-related .form-row > div[class*='field-'],
 .inline-group[id$='case_numbers-group'] .inline-related .form-row > div[class*='field-'],
 #case_numbers-group .inline-related .form-row .fieldBox,
 .inline-group[id$='case_numbers-group'] .inline-related .form-row .fieldBox {
-    flex: 1 1 200px;
-    min-width: 180px;
+    flex: 1 1 160px;
+    min-width: 130px;
+}
+/* 执行抵扣顺序 - checkbox 窄 */
+#case_numbers-group .field-execution_use_deduction_order,
+.inline-group[id$='case_numbers-group'] .field-execution_use_deduction_order {
+    flex: 0 0 110px !important;
+    min-width: 110px !important;
+}
+/* 日期包含 - 下拉框窄 */
+#case_numbers-group .field-execution_date_inclusion,
+.inline-group[id$='case_numbers-group'] .field-execution_date_inclusion {
+    flex: 0 0 150px !important;
+    min-width: 150px !important;
+}
+/* 执行依据主文 - 独占一行 */
+#case_numbers-group .field-document_content,
+.inline-group[id$='case_numbers-group'] .field-document_content,
+#case_numbers-group .field-execution_manual_text,
+.inline-group[id$='case_numbers-group'] .field-execution_manual_text {
+    flex: 1 1 100% !important;
+    min-width: 100% !important;
 }
 
 /* ============================================================
@@ -192,27 +212,29 @@
 }
 
 /* ============================================================
-   执行依据主文 fieldset - textarea 无边框干扰
+   公共 textarea 样式 - 紧凑
    ============================================================ */
-#case_numbers-group .inline-related .field-document_content,
-.inline-group[id$='case_numbers-group'] .inline-related .field-document_content {
-    flex: 1 1 100% !important;
-    min-width: 100% !important;
-}
 #case_numbers-group .form-row.field-document_content > div,
-.inline-group[id$='case_numbers-group'] .form-row.field-document_content > div {
+.inline-group[id$='case_numbers-group'] .form-row.field-document_content > div,
+#case_numbers-group .form-row.field-execution_manual_text > div,
+.inline-group[id$='case_numbers-group'] .form-row.field-execution_manual_text > div {
     width: 100%;
     min-width: 0;
 }
 #case_numbers-group .form-row.field-document_content label,
 .inline-group[id$='case_numbers-group'] .form-row.field-document_content label,
 #case_numbers-group .form-row.field-document_content .help,
-.inline-group[id$='case_numbers-group'] .form-row.field-document_content .help {
+.inline-group[id$='case_numbers-group'] .form-row.field-document_content .help,
+#case_numbers-group .form-row.field-execution_manual_text label,
+.inline-group[id$='case_numbers-group'] .form-row.field-execution_manual_text label,
+#case_numbers-group .form-row.field-execution_manual_text .help,
+.inline-group[id$='case_numbers-group'] .form-row.field-execution_manual_text .help {
     display: none !important;
 }
-#case_numbers-group .field-document_content textarea,
-.inline-group[id$='case_numbers-group'] .field-document_content textarea {
-    width: 100%;
+#case_numbers-group .form-row textarea,
+.inline-group[id$='case_numbers-group'] .form-row textarea {
+    width: 100% !important;
+    max-width: 100%;
     min-height: 60px;
     border: 1px solid #e2e4e8 !important;
     border-radius: 4px;
@@ -220,11 +242,6 @@
     font-size: 13px;
     line-height: 1.5;
     resize: vertical;
-}
-#case_numbers-group .form-row.field-document_content textarea,
-.inline-group[id$='case_numbers-group'] .form-row.field-document_content textarea {
-    width: 100% !important;
-    max-width: 100%;
 }
 
 /* 去掉 Django 默认的 .flex-container 所有边距 */
@@ -353,30 +370,7 @@
     margin: 0;
     padding: 2px 0;
 }
-/* 执行参数 textarea 标签隐藏 */
-#case_numbers-group .form-row.field-execution_manual_text label,
-.inline-group[id$='case_numbers-group'] .form-row.field-execution_manual_text label,
-#case_numbers-group .form-row.field-execution_manual_text .help,
-.inline-group[id$='case_numbers-group'] .form-row.field-execution_manual_text .help {
-    display: none !important;
-}
-#case_numbers-group .field-execution_manual_text textarea,
-.inline-group[id$='case_numbers-group'] .field-execution_manual_text textarea {
-    width: 100%;
-    min-height: 60px;
-    border: 1px solid #e2e4e8 !important;
-    border-radius: 4px;
-    padding: 6px 8px;
-    font-size: 13px;
-    line-height: 1.5;
-    resize: vertical;
-}
-#case_numbers-group .form-row.field-execution_manual_text textarea,
-.inline-group[id$='case_numbers-group'] .form-row.field-execution_manual_text textarea {
-    width: 100% !important;
-    max-width: 100%;
-    min-height: 60px;
-}
+
 .parse-execution-llm-label {
     display: inline-flex;
     align-items: center;
