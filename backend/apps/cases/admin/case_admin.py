@@ -126,17 +126,24 @@ class CaseNumberInline(BaseStackedInline):
     extra = 1
     fieldsets = (
         (
-            None,
+            "文书信息",
             {
+                "classes": ("case-number-doc-fieldset",),
                 "fields": (
                     "document_file",
                     ("number", "document_name", "is_active"),
-                    "document_content",
-                )
+                ),
             },
         ),
         (
-            None,
+            "执行依据主文",
+            {
+                "classes": ("case-number-content-fieldset",),
+                "fields": ("document_content",),
+            },
+        ),
+        (
+            "执行参数",
             {
                 "classes": ("case-number-execution-fieldset",),
                 "fields": (

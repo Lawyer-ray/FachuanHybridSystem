@@ -11,7 +11,10 @@
 <style>
 .inline-group .tabular td { font-size: 0.8125rem; }
 [x-cloak] { display: none !important; }
-/* 案件案号分组字段布局（stacked inline） */
+
+/* ============================================================
+   案件案号内联表单 - 整体容器
+   ============================================================ */
 #case_numbers-group,
 .inline-group[id$='case_numbers-group'] {
     width: 100% !important;
@@ -23,6 +26,7 @@
     margin: 0 !important;
     padding: 0 !important;
 }
+/* 外层标题 "案件案号" */
 #case_numbers-group > .djn-fieldset.module > h2,
 .inline-group[id$='case_numbers-group'] > .djn-fieldset.module > h2,
 #case_numbers-group > h2,
@@ -46,6 +50,10 @@
     background: #f7f9fc;
     box-sizing: border-box;
 }
+
+/* ============================================================
+   每个案号卡片
+   ============================================================ */
 #case_numbers-group .inline-related,
 .inline-group[id$='case_numbers-group'] .inline-related {
     width: 100% !important;
@@ -68,6 +76,10 @@
     font-size: 14px;
     font-weight: 600;
 }
+
+/* ============================================================
+   Fieldset 分组（文书信息 / 执行依据主文 / 执行参数）
+   ============================================================ */
 #case_numbers-group .inline-related fieldset.module,
 .inline-group[id$='case_numbers-group'] .inline-related fieldset.module {
     border: 0;
@@ -78,6 +90,8 @@
 .inline-group[id$='case_numbers-group'] .inline-related fieldset.module:last-child {
     margin-bottom: 0;
 }
+
+/* Fieldset 标题（"文书信息"、"执行依据主文"、"执行参数"） */
 #case_numbers-group .inline-related fieldset.module h2,
 .inline-group[id$='case_numbers-group'] .inline-related fieldset.module h2,
 #case_numbers-group .inline-related fieldset.module h3,
@@ -85,11 +99,18 @@
 #case_numbers-group .inline-related fieldset.module h4,
 .inline-group[id$='case_numbers-group'] .inline-related fieldset.module h4 {
     background: transparent;
-    color: #4a4a4a !important;
+    color: #3b5578 !important;
     font-size: 13px;
-    margin: 0 0 8px 0;
-    padding: 0;
+    font-weight: 600;
+    margin: 0 0 4px 0;
+    padding: 0 0 4px 0;
+    border-bottom: 1px solid #e2e8f0;
+    letter-spacing: 0.3px;
 }
+
+/* ============================================================
+   表单行（form-row）
+   ============================================================ */
 #case_numbers-group .inline-related .form-row,
 .inline-group[id$='case_numbers-group'] .inline-related .form-row {
     display: flex;
@@ -104,6 +125,8 @@
     border-top: none;
     padding-top: 6px;
 }
+
+/* 通用字段宽度 */
 #case_numbers-group .inline-related .form-row > div[class*='field-'],
 .inline-group[id$='case_numbers-group'] .inline-related .form-row > div[class*='field-'],
 #case_numbers-group .inline-related .form-row .fieldBox,
@@ -111,10 +134,42 @@
     flex: 1 1 240px;
     min-width: 220px;
 }
+
+/* ============================================================
+   文书信息 fieldset - 左右分栏布局
+   ============================================================ */
+#case_numbers-group .case-number-doc-fieldset .form-row.field-document_file,
+.inline-group[id$='case_numbers-group'] .case-number-doc-fieldset .form-row.field-document_file {
+    display: flex !important;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    gap: 20px;
+}
+/* 左侧：文件上传区 */
+#case_numbers-group .case-number-doc-fieldset .form-row.field-document_file > div,
+.inline-group[id$='case_numbers-group'] .case-number-doc-fieldset .form-row.field-document_file > div {
+    flex: 0 0 280px;
+    max-width: 320px;
+    min-width: 220px;
+}
+/* 右侧：操作栏（解析按钮等） */
+#case_numbers-group .case-number-doc-fieldset .form-row.field-document_file > .case-number-action-bar,
+.inline-group[id$='case_numbers-group'] .case-number-doc-fieldset .form-row.field-document_file > .case-number-action-bar {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin-left: 0;
+    align-self: flex-start;
+    padding-top: 2px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+/* 案号/文书名称/生效 行 */
 #case_numbers-group .inline-related .field-is_active,
 .inline-group[id$='case_numbers-group'] .inline-related .field-is_active {
-    flex: 0 0 170px !important;
-    min-width: 170px !important;
+    flex: 0 0 150px !important;
+    min-width: 150px !important;
 }
 #case_numbers-group .inline-related .field-is_active.checkbox-row,
 .inline-group[id$='case_numbers-group'] .inline-related .field-is_active.checkbox-row {
@@ -132,14 +187,106 @@
     font-weight: 600;
     color: #3a4759;
 }
+
+/* ============================================================
+   执行依据主文 fieldset
+   ============================================================ */
 #case_numbers-group .inline-related .field-document_content,
-.inline-group[id$='case_numbers-group'] .inline-related .field-document_content,
+.inline-group[id$='case_numbers-group'] .inline-related .field-document_content {
+    flex: 1 1 100% !important;
+    min-width: 100% !important;
+}
+#case_numbers-group .form-row.field-document_content > div,
+.inline-group[id$='case_numbers-group'] .form-row.field-document_content > div {
+    width: 100%;
+    min-width: 0;
+}
+#case_numbers-group .form-row.field-document_content label,
+.inline-group[id$='case_numbers-group'] .form-row.field-document_content label,
+#case_numbers-group .form-row.field-document_content .help,
+.inline-group[id$='case_numbers-group'] .form-row.field-document_content .help {
+    display: none !important;
+}
+#case_numbers-group .field-document_content textarea,
+.inline-group[id$='case_numbers-group'] .field-document_content textarea {
+    width: 100%;
+    min-height: 110px;
+}
+#case_numbers-group .form-row.field-document_content textarea,
+.inline-group[id$='case_numbers-group'] .form-row.field-document_content textarea {
+    width: 100% !important;
+    max-width: 100%;
+}
+
+/* ============================================================
+   执行参数 fieldset
+   ============================================================ */
 #case_numbers-group .inline-related .field-execution_manual_text,
 .inline-group[id$='case_numbers-group'] .inline-related .field-execution_manual_text {
     flex: 1 1 100% !important;
     min-width: 100% !important;
 }
-/* 解析按钮样式 */
+#case_numbers-group .form-row.field-execution_manual_text > div,
+.inline-group[id$='case_numbers-group'] .form-row.field-execution_manual_text > div {
+    width: 100%;
+    min-width: 0;
+}
+#case_numbers-group .form-row.field-execution_manual_text label,
+.inline-group[id$='case_numbers-group'] .form-row.field-execution_manual_text label,
+#case_numbers-group .form-row.field-execution_manual_text .help,
+.inline-group[id$='case_numbers-group'] .form-row.field-execution_manual_text .help {
+    display: none !important;
+}
+#case_numbers-group .field-execution_manual_text textarea,
+.inline-group[id$='case_numbers-group'] .field-execution_manual_text textarea {
+    width: 100%;
+    min-height: 140px;
+}
+#case_numbers-group .form-row.field-execution_manual_text textarea,
+.inline-group[id$='case_numbers-group'] .form-row.field-execution_manual_text textarea {
+    width: 100% !important;
+    max-width: 100%;
+}
+#case_numbers-group .case-number-execution-fieldset.is-hidden-by-stage,
+.inline-group[id$='case_numbers-group'] .case-number-execution-fieldset.is-hidden-by-stage {
+    display: none !important;
+}
+
+/* ============================================================
+   通用：flex-container / file input 清理
+   ============================================================ */
+#case_numbers-group .form-row.field-document_file > div > .flex-container,
+.inline-group[id$='case_numbers-group'] .form-row.field-document_file > div > .flex-container,
+#case_numbers-group .form-row.field-document_content > div > .flex-container,
+.inline-group[id$='case_numbers-group'] .form-row.field-document_content > div > .flex-container,
+#case_numbers-group .form-row.field-execution_manual_text > div > .flex-container,
+.inline-group[id$='case_numbers-group'] .form-row.field-execution_manual_text > div > .flex-container {
+    display: block !important;
+}
+#case_numbers-group .form-row.field-document_file legend,
+.inline-group[id$='case_numbers-group'] .form-row.field-document_file legend {
+    display: block;
+    margin: 0 0 6px 0;
+    font-weight: 600;
+    color: #374151;
+}
+
+/* ============================================================
+   操作按钮栏
+   ============================================================ */
+.case-number-action-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.case-number-action-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+    width: 100%;
+}
 .parse-document-btn,
 .parse-execution-btn {
     all: unset;
@@ -147,28 +294,24 @@
     display: inline-flex !important;
     align-items: center;
     justify-content: center;
-    height: 36px;
-    min-width: 110px;
-    padding: 0 16px;
-    border-radius: 8px;
+    height: 32px;
+    min-width: 100px;
+    padding: 0 14px;
+    border-radius: 6px;
     border: 1px solid transparent;
     cursor: pointer;
-    font-size: 13px;
+    font-size: 12.5px;
     font-weight: 600;
     line-height: 1;
-    letter-spacing: 0;
     white-space: nowrap;
     word-break: keep-all;
     writing-mode: horizontal-tb !important;
-    text-orientation: mixed;
     user-select: none;
-    margin-top: 10px;
 }
 .parse-document-btn {
     color: #fff;
     background: #2f6da6;
     border-color: #2a5f90;
-    margin-left: 0;
 }
 .parse-document-btn:hover {
     background: #285b8c;
@@ -177,34 +320,6 @@
     background: #d9dee7;
     border-color: #c9d0db;
     color: #8a97a8;
-    cursor: not-allowed;
-}
-/* 打开文件夹按钮样式 */
-.open-folder-btn {
-    all: unset;
-    box-sizing: border-box;
-    display: inline-flex !important;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    padding: 0;
-    border-radius: 6px;
-    border: 1px solid #d1d5db;
-    cursor: pointer;
-    background: #fff;
-    color: #6b7280;
-    margin-right: 8px;
-}
-.open-folder-btn:hover {
-    background: #f3f4f6;
-    border-color: #9ca3af;
-    color: #374151;
-}
-.open-folder-btn:disabled {
-    background: #f9fafb;
-    border-color: #e5e7eb;
-    color: #d1d5db;
     cursor: not-allowed;
 }
 .parse-execution-btn {
@@ -221,24 +336,41 @@
     color: #8a97a8;
     cursor: not-allowed;
 }
+.open-folder-btn {
+    all: unset;
+    box-sizing: border-box;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
+    cursor: pointer;
+    background: #fff;
+    color: #6b7280;
+}
+.open-folder-btn:hover {
+    background: #f3f4f6;
+    border-color: #9ca3af;
+    color: #374151;
+}
+.open-folder-btn:disabled {
+    background: #f9fafb;
+    border-color: #e5e7eb;
+    color: #d1d5db;
+    cursor: not-allowed;
+}
 .parse-execution-controls {
     display: inline-flex;
     align-items: center;
-    justify-content: flex-start;
     gap: 10px;
     flex-wrap: nowrap;
-    width: auto;
     margin: 0;
     padding: 0;
     border: 0;
     background: transparent;
-}
-.case-number-action-bar {
-    display: inline-flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 10px;
-    flex-wrap: wrap;
 }
 .parse-execution-llm-label {
     display: inline-flex;
@@ -292,128 +424,85 @@
     color: #475569;
     white-space: nowrap;
 }
-#case_numbers-group .form-row.field-document_file,
-.inline-group[id$='case_numbers-group'] .form-row.field-document_file {
-    display: flex !important;
-    flex-wrap: wrap;
-    align-items: start;
-    gap: 10px 14px;
+
+/* ============================================================
+   拖拽上传区域
+   ============================================================ */
+.cn-dropzone {
+    border: 2px dashed #c5d0dc;
+    border-radius: 8px;
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: #f9fafb;
+    margin-top: 4px;
 }
-#case_numbers-group .form-row.field-document_file > div,
-.inline-group[id$='case_numbers-group'] .form-row.field-document_file > div {
-    flex: 1 1 560px;
-    min-width: 360px;
+.cn-dropzone:hover {
+    border-color: #2f6da6;
+    background: #eef4fa;
 }
-#case_numbers-group .form-row.field-document_file > .case-number-action-bar,
-.inline-group[id$='case_numbers-group'] .form-row.field-document_file > .case-number-action-bar {
-    flex: 0 0 auto;
-    margin-left: auto;
-    align-self: start;
+.cn-dropzone.cn-dropzone-active {
+    border-color: #2f6da6;
+    background: #e0edf9;
+    box-shadow: 0 0 0 3px rgba(47, 109, 166, 0.12);
 }
-#case_numbers-group .form-row.field-document_content > div,
-.inline-group[id$='case_numbers-group'] .form-row.field-document_content > div,
-#case_numbers-group .form-row.field-execution_manual_text > div,
-.inline-group[id$='case_numbers-group'] .form-row.field-execution_manual_text > div {
-    width: 100%;
-    min-width: 0;
-}
-#case_numbers-group .form-row.field-document_file > div > .flex-container,
-.inline-group[id$='case_numbers-group'] .form-row.field-document_file > div > .flex-container,
-#case_numbers-group .form-row.field-document_content > div > .flex-container,
-.inline-group[id$='case_numbers-group'] .form-row.field-document_content > div > .flex-container,
-#case_numbers-group .form-row.field-execution_manual_text > div > .flex-container,
-.inline-group[id$='case_numbers-group'] .form-row.field-execution_manual_text > div > .flex-container {
-    display: block !important;
-}
-#case_numbers-group .form-row.field-document_file legend,
-.inline-group[id$='case_numbers-group'] .form-row.field-document_file legend {
-    display: block;
-    margin: 0 0 6px 0;
-    font-weight: 600;
-    color: #374151;
-}
-#case_numbers-group .form-row.field-document_content label,
-.inline-group[id$='case_numbers-group'] .form-row.field-document_content label,
-#case_numbers-group .form-row.field-document_content .help,
-.inline-group[id$='case_numbers-group'] .form-row.field-document_content .help {
-    display: none !important;
-}
-#case_numbers-group .form-row.field-execution_manual_text label,
-.inline-group[id$='case_numbers-group'] .form-row.field-execution_manual_text label,
-#case_numbers-group .form-row.field-execution_manual_text .help,
-.inline-group[id$='case_numbers-group'] .form-row.field-execution_manual_text .help {
-    display: none !important;
-}
-#case_numbers-group .form-row.field-document_file .parse-document-btn,
-.inline-group[id$='case_numbers-group'] .form-row.field-document_file .parse-document-btn {
-    margin-top: 0;
-    align-self: start;
-}
-#case_numbers-group .form-row.field-document_file .open-folder-btn,
-.inline-group[id$='case_numbers-group'] .form-row.field-document_file .open-folder-btn {
-    margin-top: 0;
-    align-self: start;
-}
-#case_numbers-group .form-row.field-document_file .case-number-action-bar .parse-execution-btn,
-.inline-group[id$='case_numbers-group'] .form-row.field-document_file .case-number-action-bar .parse-execution-btn {
-    margin-top: 0;
-}
-#case_numbers-group .form-row.field-document_content textarea,
-.inline-group[id$='case_numbers-group'] .form-row.field-document_content textarea,
-#case_numbers-group .form-row.field-execution_manual_text textarea,
-.inline-group[id$='case_numbers-group'] .form-row.field-execution_manual_text textarea {
-    width: 100% !important;
-    max-width: 100%;
-}
-#case_numbers-group .field-document_file .parse-document-btn,
-.inline-group[id$='case_numbers-group'] .field-document_file .parse-document-btn {
-    margin-top: 0;
-}
-#case_numbers-group .form-row.field-document_file .case-number-action-bar,
-.inline-group[id$='case_numbers-group'] .form-row.field-document_file .case-number-action-bar {
+.cn-dropzone-inner {
     display: flex;
     align-items: center;
-    gap: 10px;
-    flex-wrap: nowrap;
+    gap: 8px;
+    pointer-events: none;
 }
-#case_numbers-group .field-execution_manual_text .parse-execution-btn,
-.inline-group[id$='case_numbers-group'] .field-execution_manual_text .parse-execution-btn {
-    margin-top: 0;
+.cn-dropzone-icon {
+    flex: 0 0 auto;
+    color: #8a97a8;
 }
-#case_numbers-group .case-number-execution-fieldset.is-hidden-by-stage,
-.inline-group[id$='case_numbers-group'] .case-number-execution-fieldset.is-hidden-by-stage {
-    display: none !important;
+.cn-dropzone:hover .cn-dropzone-icon,
+.cn-dropzone.cn-dropzone-active .cn-dropzone-icon {
+    color: #2f6da6;
 }
-#case_numbers-group .field-document_content textarea,
-.inline-group[id$='case_numbers-group'] .field-document_content textarea {
-    width: 100%;
-    min-height: 110px;
+.cn-dropzone-text {
+    font-size: 12.5px;
+    color: #6b7280;
+    font-weight: 500;
 }
-#case_numbers-group .field-execution_manual_text textarea,
-.inline-group[id$='case_numbers-group'] .field-execution_manual_text textarea {
-    width: 100%;
-    min-height: 140px;
+.cn-dropzone-text-uploaded {
+    color: #2a8a57;
+    font-weight: 600;
 }
+.cn-dropzone-current {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid #e5e7eb;
+    font-size: 12px;
+    color: #4b5563;
+}
+.cn-dropzone-current a {
+    color: #2f6da6;
+    text-decoration: underline;
+}
+
+/* ============================================================
+   响应式
+   ============================================================ */
 @media (max-width: 1280px) {
-    #case_numbers-group .form-row.field-document_file > div,
-    .inline-group[id$='case_numbers-group'] .form-row.field-document_file > div {
-        flex-basis: 100%;
-        min-width: 0;
-    }
-    #case_numbers-group .form-row.field-document_file > .case-number-action-bar,
-    .inline-group[id$='case_numbers-group'] .form-row.field-document_file > .case-number-action-bar {
-        flex: 1 1 100%;
-        margin-left: 0;
-        justify-content: flex-start;
-    }
-    #case_numbers-group .form-row.field-document_file .case-number-action-bar,
-    .inline-group[id$='case_numbers-group'] .form-row.field-document_file .case-number-action-bar,
-    #case_numbers-group .form-row.field-document_file .parse-execution-controls,
-    .inline-group[id$='case_numbers-group'] .form-row.field-document_file .parse-execution-controls {
+    #case_numbers-group .case-number-doc-fieldset .form-row.field-document_file,
+    .inline-group[id$='case_numbers-group'] .case-number-doc-fieldset .form-row.field-document_file {
         flex-wrap: wrap;
     }
+    #case_numbers-group .case-number-doc-fieldset .form-row.field-document_file > div,
+    .inline-group[id$='case_numbers-group'] .case-number-doc-fieldset .form-row.field-document_file > div {
+        flex: 1 1 100%;
+        max-width: 100%;
+    }
+    #case_numbers-group .case-number-doc-fieldset .form-row.field-document_file > .case-number-action-bar,
+    .inline-group[id$='case_numbers-group'] .case-number-doc-fieldset .form-row.field-document_file > .case-number-action-bar {
+        flex: 1 1 100%;
+    }
 }
-/* Toast 消息样式 */
+
+/* ============================================================
+   Toast / 杂项
+   ============================================================ */
 .toast-container {
     position: fixed;
     top: 20px;
@@ -442,60 +531,6 @@
 .toast.error {
     background-color: #dc3545;
 }
-/* 拖拽上传区域 */
-.cn-dropzone {
-    border: 2px dashed #c5d0dc;
-    border-radius: 8px;
-    padding: 16px 20px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    background: #f9fafb;
-    margin-top: 4px;
-}
-.cn-dropzone:hover {
-    border-color: #2f6da6;
-    background: #eef4fa;
-}
-.cn-dropzone.cn-dropzone-active {
-    border-color: #2f6da6;
-    background: #e0edf9;
-    box-shadow: 0 0 0 3px rgba(47, 109, 166, 0.12);
-}
-.cn-dropzone-inner {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    pointer-events: none;
-}
-.cn-dropzone-icon {
-    flex: 0 0 auto;
-    color: #8a97a8;
-}
-.cn-dropzone:hover .cn-dropzone-icon,
-.cn-dropzone.cn-dropzone-active .cn-dropzone-icon {
-    color: #2f6da6;
-}
-.cn-dropzone-text {
-    font-size: 13px;
-    color: #6b7280;
-    font-weight: 500;
-}
-.cn-dropzone-text-uploaded {
-    color: #2a8a57;
-    font-weight: 600;
-}
-.cn-dropzone-current {
-    margin-top: 8px;
-    padding-top: 8px;
-    border-top: 1px solid #e5e7eb;
-    font-size: 12px;
-    color: #4b5563;
-}
-.cn-dropzone-current a {
-    color: #2f6da6;
-    text-decoration: underline;
-}
-/* filing_number 条件显示 */
 .field-filing_number.is-hidden-by-filing {
     display: none !important;
 }

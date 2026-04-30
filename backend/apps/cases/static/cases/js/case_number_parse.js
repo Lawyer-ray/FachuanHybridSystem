@@ -664,15 +664,17 @@
         for (var i = 0; i < rows.length; i++) {
             var row = rows[i];
             var documentFileCell = row.querySelector('.field-document_file');
+            var documentFileFormRow = row.querySelector('.form-row.field-document_file');
             var manualTextCell = row.querySelector('.field-execution_manual_text');
             var deleteInput = row.querySelector('input[id$="-id"]');
             var caseNumberId = deleteInput ? deleteInput.value : '';
 
+            // 操作栏挂在 form-row 级别，与文件上传区左右分栏
             var actionBar = row.querySelector('.case-number-action-bar');
-            if (!actionBar && documentFileCell) {
+            if (!actionBar && documentFileFormRow) {
                 actionBar = document.createElement('div');
                 actionBar.className = 'case-number-action-bar';
-                documentFileCell.appendChild(actionBar);
+                documentFileFormRow.appendChild(actionBar);
             }
 
             // 打开案件文件夹按钮
@@ -703,7 +705,7 @@
 
             // 解析裁判文书按钮
             var parseBtn = row.querySelector('.parse-document-btn');
-            if (!parseBtn && documentFileCell) {
+            if (!parseBtn) {
                 parseBtn = document.createElement('button');
                 parseBtn.type = 'button';
                 parseBtn.className = 'parse-document-btn';
@@ -730,14 +732,12 @@
                 }
                 if (actionBar && parseBtn.parentNode !== actionBar) {
                     actionBar.appendChild(parseBtn);
-                } else if (!actionBar && documentFileCell && parseBtn.parentNode !== documentFileCell) {
-                    documentFileCell.appendChild(parseBtn);
                 }
             }
 
             // 解析执行事项控件
             var parseExecutionControls = row.querySelector('.parse-execution-controls');
-            if (manualTextCell && !parseExecutionControls) {
+            if (!parseExecutionControls) {
                 parseExecutionControls = document.createElement('div');
                 parseExecutionControls.className = 'parse-execution-controls';
 
@@ -782,8 +782,6 @@
             if (parseExecutionControls) {
                 if (actionBar && parseExecutionControls.parentNode !== actionBar) {
                     actionBar.appendChild(parseExecutionControls);
-                } else if (!actionBar && manualTextCell && parseExecutionControls.parentNode !== manualTextCell) {
-                    manualTextCell.appendChild(parseExecutionControls);
                 }
             }
 
