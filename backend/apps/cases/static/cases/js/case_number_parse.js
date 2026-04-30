@@ -120,6 +120,7 @@
 
     /**
      * 根据当前阶段显示/隐藏执行参数区域
+     *（解析执行事项控件也在执行参数 fieldset 内，一并隐藏/显示）
      */
     function toggleExecutionParameterSections() {
         var inline = getCaseNumberInlineGroup();
@@ -129,34 +130,6 @@
         var fieldsets = inline.querySelectorAll('.case-number-execution-fieldset');
         for (var i = 0; i < fieldsets.length; i++) {
             fieldsets[i].classList.toggle('is-hidden-by-stage', !show);
-        }
-
-        var rows = getCaseNumberRows(inline);
-        for (var j = 0; j < rows.length; j++) {
-            var row = rows[j];
-            var parseExecutionBtn = row.querySelector('.parse-execution-btn');
-            var llmToggle = row.querySelector('.parse-execution-llm-toggle');
-            if (!parseExecutionBtn) continue;
-
-            var deleteInput = row.querySelector('input[id$="-id"]');
-            var caseNumberId = deleteInput ? deleteInput.value : '';
-
-            if (!show) {
-                parseExecutionBtn.disabled = true;
-                if (llmToggle) {
-                    llmToggle.disabled = true;
-                }
-                parseExecutionBtn.dataset.stageHidden = 'true';
-                continue;
-            }
-
-            if (parseExecutionBtn.dataset.stageHidden === 'true') {
-                parseExecutionBtn.disabled = !caseNumberId;
-                if (llmToggle) {
-                    llmToggle.disabled = !caseNumberId;
-                }
-                delete parseExecutionBtn.dataset.stageHidden;
-            }
         }
     }
 
@@ -683,8 +656,8 @@
                 openFolderBtn = document.createElement('button');
                 openFolderBtn.type = 'button';
                 openFolderBtn.className = 'open-folder-btn';
-                openFolderBtn.title = '在 Finder 中打开案件文件夹';
-                openFolderBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>';
+                    openFolderBtn.title = '在 Finder 中打开案件文件夹';
+                    openFolderBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> 打开文件夹';
                 openFolderBtn.onclick = function() {
                     var caseId = (window.location.pathname.match(/\/cases\/case\/(\d+)\//) || [])[1];
                     if (!caseId) { alert('无法获取案件ID'); return; }
@@ -735,11 +708,12 @@
                 }
             }
 
-            // 解析执行事项控件
-            var parseExecutionControls = row.querySelector('.parse-execution-controls');
-            if (!parseExecutionControls) {
+            // 解析执行事项控件 - 移到执行参数 fieldset
+            var executionFieldset = row.querySelector('.case-number-execution-fieldset');
+            var parseExecutionControls = row.querySelector('.case-number-execution-controls');
+            if (executionFieldset && !parseExecutionControls) {
                 parseExecutionControls = document.createElement('div');
-                parseExecutionControls.className = 'parse-execution-controls';
+                parseExecutionControls.className = 'case-number-execution-controls';
 
                 var parseExecutionBtn = document.createElement('button');
                 parseExecutionBtn.type = 'button';
@@ -777,11 +751,13 @@
 
                 parseExecutionControls.appendChild(parseExecutionBtn);
                 parseExecutionControls.appendChild(llmLabel);
-            }
 
-            if (parseExecutionControls) {
-                if (actionBar && parseExecutionControls.parentNode !== actionBar) {
-                    actionBar.appendChild(parseExecutionControls);
+                // 插入到执行参数 fieldset 的第一个 form-row 之前
+                var firstFormRow = executionFieldset.querySelector('.form-row');
+                if (firstFormRow) {
+                    executionFieldset.insertBefore(parseExecutionControls, firstFormRow);
+                } else {
+                    executionFieldset.appendChild(parseExecutionControls);
                 }
             }
 
