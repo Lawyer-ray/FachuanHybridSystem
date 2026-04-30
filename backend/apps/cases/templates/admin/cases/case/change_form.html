@@ -244,12 +244,29 @@
     resize: vertical;
 }
 
-/* 去掉 Django 默认的 .flex-container 所有边距 */
-#case_numbers-group .flex-container,
-.inline-group[id$='case_numbers-group'] .flex-container {
+/* Django form-multiline 横排布局 - 保留 flex 让字段并排 */
+#case_numbers-group .flex-container.form-multiline,
+.inline-group[id$='case_numbers-group'] .flex-container.form-multiline {
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100%;
+}
+/* form-multiline 的子 div（字段容器）宽度控制 */
+#case_numbers-group .flex-container.form-multiline > div,
+.inline-group[id$='case_numbers-group'] .flex-container.form-multiline > div {
+    flex: 1 1 180px;
+    min-width: 140px;
+}
+/* 单独 textarea 的 flex-container 不需要 flex */
+#case_numbers-group .form-row > .flex-container:not(.form-multiline),
+.inline-group[id$='case_numbers-group'] .form-row > .flex-container:not(.form-multiline) {
     display: block !important;
     margin: 0 !important;
     padding: 0 !important;
+    width: 100%;
 }
 /* 去掉 Django inline admin 的 p.inline-deletelink 边框 */
 #case_numbers-group .inline-related h3 .inline-deletelink,
