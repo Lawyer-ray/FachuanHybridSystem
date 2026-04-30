@@ -8,3 +8,6 @@ class OrganizationConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "apps.organization"
     verbose_name = _("组织管理")
+
+    def ready(self) -> None:
+        from . import signals

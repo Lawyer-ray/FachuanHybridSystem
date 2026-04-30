@@ -128,7 +128,7 @@ _OPENAPI_TAGS: list[dict[str, str]] = [
 ]
 
 api_v1 = NinjaAPI(
-    title="法穿AI案件管理系统 API",
+    title="法穿AI Copilot API",
     version=API_VERSION,
     description="律师事务所案件、合同、客户管理系统",
     urls_namespace="api_v1",

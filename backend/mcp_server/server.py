@@ -1,4 +1,4 @@
-"""MCP Server 主入口 - 法穿AI案件管理系统"""
+"""MCP Server 主入口 - 法穿AI Copilot"""
 
 from __future__ import annotations
 
@@ -109,7 +109,7 @@ from mcp_server.tools import (
     upload_invoices,
 )
 
-mcp = FastMCP("法穿AI案件管理系统")
+mcp = FastMCP("法穿AI Copilot")
 
 # 案件
 mcp.tool()(list_cases)

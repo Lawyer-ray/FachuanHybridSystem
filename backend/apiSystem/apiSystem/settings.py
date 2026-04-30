@@ -532,9 +532,9 @@ if not DEBUG:
 # Django Admin 界面配置
 # ============================================================
 
-ADMIN_SITE_HEADER = "法穿AI案件管理系统"
+ADMIN_SITE_HEADER = "法穿AI Copilot"
 ADMIN_SITE_TITLE = "免费开源，尽情使用"
-ADMIN_INDEX_TITLE = "法穿AI案件管理系统"
+ADMIN_INDEX_TITLE = "法穿AI Copilot"
 
 # ============================================================
 # 浏览器安全策略配置

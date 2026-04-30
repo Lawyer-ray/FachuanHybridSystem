@@ -2,6 +2,23 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.41.6] - 2026-05-01
+
+### 新功能
+
+- **统一文件上传路径工具库**：新增 `core/filesystem/upload_paths.py`，提供 `dated_uuid_path`、`dated_original_path`、`entity_id_path`、`entity_sub_path` 四个标准化工厂函数，新模块的 FileField 必须使用这些函数生成 `upload_to`
+- **文件审计命令**：新增 `scan_orphan_files` management command，扫描 MEDIA_ROOT 下没有数据库引用的孤儿文件，支持 `--delete`、`--older-than`、`--exclude-dirs` 参数
+
+### 修复
+
+- **fee_notice 临时文件清理 bug**：`extraction_service.py` 中 `return 0` 写在 `for` 循环内，导致只清理第一个临时文件，已修复
+- **补齐 3 个 post_delete 文件清理信号**：为 `organization.Lawyer`、`legal_research.LegalResearchResult`、`legal_solution.SolutionTask` 添加 `post_delete` 信号，删除记录时自动清理物理文件，防止孤儿文件堆积
+- **接入 cleanup_tasks 定时调度**：`cleanup_temp_files`（每 60 分钟清理 tmp/）、`cleanup_export_files`（每 24 小时清理 exports/）、`check_disk_space`（每 60 分钟磁盘告警）三个函数此前从未被调度，已接入定时任务
+
+### 更名
+
+- **项目更名为"法穿AI Copilot"**：全局替换原"法穿AI案件管理系统"名称，涉及 Django admin、API 文档、登录/注册页、首页、MCP Server、pyproject.toml 等 9 个文件
+
 ## [26.41.5] - 2026-04-30
 
 ### 修复

@@ -402,5 +402,4 @@ class FeeNoticeExtractionService:
                 if temp_path.exists():
                     temp_path.unlink()
             except Exception:
-                logger.warning("清理临时文件失败", extra={})
-            return 0  # type: ignore
+                logger.warning("清理临时文件失败", extra={"file_path": str(temp_path)})
