@@ -23,9 +23,9 @@ from apps.organization.views import AuthLoginView, register
 from .api import api_v1
 
 # 配置 Django Admin 界面标题
-admin.site.site_header = _(getattr(settings, "ADMIN_SITE_HEADER", "法穿AI案件管理系统"))
-admin.site.site_title = _(getattr(settings, "ADMIN_SITE_TITLE", "法穿AI案件管理系统"))
-admin.site.index_title = _(getattr(settings, "ADMIN_INDEX_TITLE", "欢迎来到法穿AI案件管理系统"))
+admin.site.site_header = _(getattr(settings, "ADMIN_SITE_HEADER", "法穿AI Copilot"))
+admin.site.site_title = _(getattr(settings, "ADMIN_SITE_TITLE", "法穿AI Copilot"))
+admin.site.index_title = _(getattr(settings, "ADMIN_INDEX_TITLE", "欢迎来到法穿AI Copilot"))
 
 # 覆盖 admin login 视图，注入注册上下文
 _admin_login_view = AuthLoginView.as_view()

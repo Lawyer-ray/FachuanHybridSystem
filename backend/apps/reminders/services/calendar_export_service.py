@@ -38,7 +38,7 @@ class CalendarExportService:
         from icalendar import Calendar
 
         cal = Calendar()
-        cal.add("prodid", "-//法穿AI案件管理系统//Reminder Export//CN")
+        cal.add("prodid", "-//法穿AI Copilot//Reminder Export//CN")
         cal.add("version", "2.0")
         cal.add("calscale", "GREGORIAN")
         cal.add("method", "PUBLISH")
