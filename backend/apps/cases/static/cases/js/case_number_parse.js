@@ -708,20 +708,33 @@
                 }
             }
 
-            // 解析执行事项控件 - 移到执行参数 fieldset
-            var executionFieldset = row.querySelector('.case-number-execution-fieldset');
-            var parseExecutionControls = row.querySelector('.case-number-execution-controls');
-            if (executionFieldset && !parseExecutionControls) {
-                parseExecutionControls = document.createElement('div');
-                parseExecutionControls.className = 'case-number-execution-controls';
-
-                var parseExecutionBtn = document.createElement('button');
+            // 解析执行事项按钮 - 在操作栏始终可见
+            var parseExecutionBtn = row.querySelector('.parse-execution-btn');
+            if (!parseExecutionBtn) {
+                parseExecutionBtn = document.createElement('button');
                 parseExecutionBtn.type = 'button';
                 parseExecutionBtn.className = 'parse-execution-btn';
                 parseExecutionBtn.textContent = '解析执行事项';
                 parseExecutionBtn.title = '解析申请执行事项';
-
-                var llmLabel = document.createElement('label');
+            }
+            if (caseNumberId) {
+                parseExecutionBtn.dataset.casenumberId = caseNumberId;
+                parseExecutionBtn.onclick = (function(id, r, btn) {
+                    return function() {
+                        parseExecutionRequest(id, r, btn, { askOverwrite: true });
+                    };
+                })(caseNumberId, row, parseExecutionBtn);
+            } else {
+                parseExecutionBtn.disabled = true;
+                parseExecutionBtn.title = '请先保存案件后再解析执行事项';
+            }
+            if (actionBar && parseExecutionBtn.parentNode !== actionBar) {
+                actionBar.appendChild(parseExecutionBtn);
+            }
+            // Ollama 兜底开关 - 跟在解析执行事项按钮后面
+            var llmLabel = row.querySelector('.parse-execution-llm-label');
+            if (!llmLabel) {
+                llmLabel = document.createElement('label');
                 llmLabel.className = 'parse-execution-llm-label';
                 var llmToggle = document.createElement('input');
                 llmToggle.type = 'checkbox';
@@ -732,33 +745,14 @@
                 llmTrack.className = 'parse-execution-switch-track';
                 var llmText = document.createElement('span');
                 llmText.className = 'parse-execution-llm-text';
-                llmText.textContent = 'Ollama兜底';
+                llmText.textContent = 'Ollama';
                 llmLabel.appendChild(llmToggle);
                 llmLabel.appendChild(llmTrack);
                 llmLabel.appendChild(llmText);
-                if (caseNumberId) {
-                    parseExecutionBtn.dataset.casenumberId = caseNumberId;
-                    parseExecutionBtn.onclick = (function(id, r, btn) {
-                        return function() {
-                            parseExecutionRequest(id, r, btn, { askOverwrite: true });
-                        };
-                    })(caseNumberId, row, parseExecutionBtn);
-                } else {
-                    parseExecutionBtn.disabled = true;
-                    parseExecutionBtn.title = '请先保存案件后再解析执行事项';
-                    llmToggle.disabled = true;
-                }
-
-                parseExecutionControls.appendChild(parseExecutionBtn);
-                parseExecutionControls.appendChild(llmLabel);
-
-                // 插入到执行参数 fieldset 的第一个 form-row 之前
-                var firstFormRow = executionFieldset.querySelector('.form-row');
-                if (firstFormRow) {
-                    executionFieldset.insertBefore(parseExecutionControls, firstFormRow);
-                } else {
-                    executionFieldset.appendChild(parseExecutionControls);
-                }
+                if (!caseNumberId) { llmToggle.disabled = true; }
+            }
+            if (actionBar && llmLabel.parentNode !== actionBar) {
+                actionBar.appendChild(llmLabel);
             }
 
             // 设置 placeholder
