@@ -69,7 +69,7 @@ class LegalResearchTaskService:
             min_similarity_score=payload.min_similarity_score,
             status=LegalResearchTaskStatus.PENDING,
             message=self.CREATE_PENDING_MESSAGE,
-            llm_backend="siliconflow",
+            llm_backend=LLMConfig.get_default_backend(),
             llm_model=(payload.llm_model.strip() if payload.llm_model else LLMConfig.get_default_model()),
         )
 
@@ -108,7 +108,7 @@ class LegalResearchTaskService:
         task.finished_at = None
         task.q_task_id = ""
         task.source = "weike"
-        task.llm_backend = "siliconflow"
+        task.llm_backend = LLMConfig.get_default_backend()
         if not task.llm_model:
             task.llm_model = LLMConfig.get_default_model()
         task.save(

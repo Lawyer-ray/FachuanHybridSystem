@@ -78,7 +78,7 @@ class LegalResearchTask(models.Model):
     message = models.CharField(max_length=255, blank=True, verbose_name=_("状态说明"))
     error = models.TextField(blank=True, verbose_name=_("错误信息"))
 
-    llm_backend = models.CharField(max_length=64, default="siliconflow", verbose_name=_("LLM后端"))
+    llm_backend = models.CharField(max_length=64, default="", verbose_name=_("LLM后端"))
     llm_model = models.CharField(max_length=128, blank=True, verbose_name=_("LLM模型"))
     q_task_id = models.CharField(max_length=64, blank=True, verbose_name=_("DjangoQ任务ID"))
 

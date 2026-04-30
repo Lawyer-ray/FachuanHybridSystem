@@ -72,7 +72,7 @@ class LLMConfig:
         "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
         "deepseek-ai/DeepSeek-R1",
         # GLM 系列
-        "zai-org/GLM-4.6V",  # 添加你正在使用的模型
+        "zai-org/GLM-4.6V",
         "zai-org/GLM-4.7",
         "zai-org/GLM-4-32B-0414",
         "zai-org/GLM-Z1-32B-0414",
@@ -81,6 +81,12 @@ class LLMConfig:
         "Pro/ByteDance/Seed-OSS-36B-Instruct",
         "Pro/Tencent/Hunyuan-Translation-7B",
         "Pro/inclusionAI/Ring-flash-2.0",
+    ]
+
+    # 模型名 → 后端映射规则：含 "/" 的走 siliconflow，含 ":" 的走 ollama，其余走 openai_compatible
+    _MODEL_BACKEND_RULES: ClassVar[list[tuple[str, str]]] = [
+        ("/", "siliconflow"),
+        (":", "ollama"),
     ]
 
     # 缓存 SystemConfigService 实例
@@ -620,6 +626,82 @@ class LLMConfig:
                     embedding_model=cls.get_openai_compatible_embedding_model(),
                 )
         return configs
+
+    @classmethod
+    def resolve_backend_for_model(cls, model: str) -> str:
+        """
+        根据模型名称推断应使用的后端.
+
+        规则:
+        - 模型名含 "/" → siliconflow（如 Qwen/Qwen2.5-7B-Instruct）
+        - 模型名含 ":" → ollama（如 qwen3:0.6b）
+        - 其余 → openai_compatible（如 Qwen3.5-397B-A17B、moonshot-v1-8k）
+
+        Args:
+            model: 模型名称
+
+        Returns:
+            推断的后端名称
+        """
+        if not model:
+            return cls.get_default_backend()
+        for pattern, backend in cls._MODEL_BACKEND_RULES:
+            if pattern in model:
+                return backend
+        return "openai_compatible"
+
+    @classmethod
+    def get_available_models(cls) -> list[dict[str, str]]:
+        """
+        获取所有已配置的可用模型列表（含后端信息）.
+
+        合并 DEFAULT_AVAILABLE_MODELS 与 SystemConfig 中的 LLM_EXTRA_MODELS,
+        为每个模型标注推荐后端.
+
+        Returns:
+            模型信息列表,每项含 id、name、backend
+        """
+        models: list[dict[str, str]] = []
+        seen: set[str] = set()
+
+        # 从默认列表收集
+        for model_id in cls.DEFAULT_AVAILABLE_MODELS:
+            if model_id not in seen:
+                seen.add(model_id)
+                models.append({
+                    "id": model_id,
+                    "name": model_id.split("/")[-1].split(":")[-1],
+                    "backend": cls.resolve_backend_for_model(model_id),
+                })
+
+        # 从 SystemConfig 额外模型收集
+        extra_raw = cls._get_system_config("LLM_EXTRA_MODELS", "")
+        if extra_raw:
+            for part in extra_raw.split(","):
+                model_id = part.strip()
+                if model_id and model_id not in seen:
+                    seen.add(model_id)
+                    models.append({
+                        "id": model_id,
+                        "name": model_id.split("/")[-1].split(":")[-1],
+                        "backend": cls.resolve_backend_for_model(model_id),
+                    })
+
+        # 各后端的默认模型也加入列表（确保当前配置的默认模型可选）
+        for backend_name, default_model in [
+            ("siliconflow", cls.get_default_model()),
+            ("ollama", cls.get_ollama_model()),
+            ("openai_compatible", cls.get_openai_compatible_model()),
+        ]:
+            if default_model and default_model not in seen:
+                seen.add(default_model)
+                models.append({
+                    "id": default_model,
+                    "name": default_model.split("/")[-1].split(":")[-1],
+                    "backend": backend_name,
+                })
+
+        return models
 
     @classmethod
     def _parse_bool(cls, value: Any, default: bool) -> bool:

@@ -209,7 +209,7 @@ class LegalResearchCapabilityService:
             min_similarity_score=0.9,
             status=LegalResearchTaskStatus.PENDING,
             message="能力调用执行中",
-            llm_backend="siliconflow",
+            llm_backend=LLMConfig.get_default_backend(),
             llm_model=LLMConfig.get_default_model(),
         )
 

@@ -69,6 +69,20 @@ class PromptTemplateSyncResponse(Schema):
     synced_count: int
 
 
+class ModelInfo(Schema):
+    """模型信息"""
+
+    id: str
+    name: str
+    backend: str
+
+
+class ModelListResponse(Schema):
+    """模型列表响应"""
+
+    models: list[ModelInfo]
+
+
 def sync_prompt_templates_impl(*, overwrite: bool = True) -> dict[str, int]:
     """
     将代码内置 Prompt 模板同步到数据库。
@@ -207,3 +221,18 @@ def sync_prompt_templates(request: Any) -> Any:
 
     result = sync_prompt_templates_impl(overwrite=True)
     return PromptTemplateSyncResponse(synced_count=int(result.get("synced_count", 0)))
+
+
+@llm_router.get("/models", response=ModelListResponse)
+def list_available_models(request: Any) -> Any:
+    """
+    获取所有已配置的可用模型列表.
+
+    返回每个模型的 id、显示名称和推荐后端，供前端模型选择器使用。
+    """
+    from apps.core.llm.config import LLMConfig
+
+    models = LLMConfig.get_available_models()
+    return ModelListResponse(
+        models=[ModelInfo(id=m["id"], name=m["name"], backend=m["backend"]) for m in models]
+    )

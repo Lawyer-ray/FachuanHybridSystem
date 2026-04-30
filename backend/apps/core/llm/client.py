@@ -2,14 +2,34 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any, cast
 
 from .backends import ILLMBackend, LLMResponse
+
+logger = logging.getLogger(__name__)
 
 
 class LLMClient:
     def __init__(self, *, default_backend: str) -> None:
         self._default_backend = default_backend
+
+    @staticmethod
+    def _resolve_backend(backend: str | None, model: str | None, default_backend: str) -> str:
+        """
+        解析实际使用的后端.
+
+        优先级: 显式指定 backend > 根据 model 推断 > 默认后端
+        """
+        if backend:
+            return backend
+        if model:
+            from .config import LLMConfig
+
+            resolved = LLMConfig.resolve_backend_for_model(model)
+            logger.debug("根据模型自动路由后端", extra={"model": model, "backend": resolved})
+            return resolved
+        return default_backend
 
     def complete(
         self,
@@ -54,7 +74,7 @@ class LLMClient:
         def operation(b: ILLMBackend) -> LLMResponse:
             return b.chat(messages=messages, model=model, temperature=temperature, max_tokens=max_tokens, **kwargs)
 
-        backend_name = backend or self._default_backend
+        backend_name = self._resolve_backend(backend, model, self._default_backend)
         return cast(LLMResponse, fallback_policy.execute(operation=operation, backend=backend_name, fallback=fallback))
 
     async def achat(
@@ -74,7 +94,7 @@ class LLMClient:
                 messages=messages, model=model, temperature=temperature, max_tokens=max_tokens, **kwargs
             )
 
-        backend_name = backend or self._default_backend
+        backend_name = self._resolve_backend(backend, model, self._default_backend)
         return cast(
             LLMResponse,
             await fallback_policy.execute_async(operation=operation, backend=backend_name, fallback=fallback),

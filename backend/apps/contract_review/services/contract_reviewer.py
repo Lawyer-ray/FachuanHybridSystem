@@ -186,7 +186,7 @@ class ContractReviewer:
                 model=model_name or None,
                 temperature=0.3,
                 max_tokens=32768,
-                fallback=False,
+                fallback=True,
             )
             return self._parse_revision_response(resp.content)
         except Exception:
@@ -210,7 +210,7 @@ class ContractReviewer:
                 model=model_name or None,
                 temperature=0.3,
                 max_tokens=32768,
-                fallback=False,
+                fallback=True,
             )
             return resp.content.strip()
         except Exception:
