@@ -58,7 +58,7 @@
     font-size: 12px !important; font-weight: 500 !important;
     color: #6b7280 !important; float: none !important;
     width: auto !important; min-width: 0 !important;
-    padding: 0 !important;
+    padding: 0 !important; white-space: nowrap !important;
     display: block; margin: 0 0 2px 0;
 }
 #case_numbers-group input[type='text'],
@@ -77,9 +77,9 @@
 }
 #case_numbers-group .vTextField { width: 100% !important; }
 
-/* ── form-multiline 横排 ── 标签在上，输入框在下，紧凑自然 */
+/* ── form-multiline 横排 ── 标签在上，输入框在下，优雅布局 */
 #case_numbers-group .flex-container.form-multiline {
-    display: flex !important; flex-wrap: nowrap; gap: 16px;
+    display: flex !important; flex-wrap: nowrap; gap: 20px;
     margin: 0 !important; padding: 0 !important; width: 100%;
 }
 #case_numbers-group .flex-container.form-multiline > div {
@@ -89,8 +89,8 @@
     display: block !important; float: none !important;
     font-size: 12px !important; font-weight: 500 !important;
     color: #6b7280 !important;
-    margin: 0 0 2px 0 !important; padding: 0 !important;
-    width: auto !important;
+    margin: 0 0 3px 0 !important; padding: 0 !important;
+    width: auto !important; white-space: nowrap !important;
 }
 #case_numbers-group .flex-container.form-multiline > div input,
 #case_numbers-group .flex-container.form-multiline > div select,
@@ -100,18 +100,20 @@
 }
 
 /* ── 特定字段宽度 ── */
-/* checkbox 字段紧凑 */
+/* checkbox 字段 - 保持同行 */
 #case_numbers-group .flex-container.form-multiline .field-is_active,
 #case_numbers-group .flex-container.form-multiline .field-execution_use_deduction_order {
-    flex: 0 1 auto; min-width: 0;
-}
-#case_numbers-group .flex-container.form-multiline .field-is_active label,
-#case_numbers-group .flex-container.form-multiline .field-execution_use_deduction_order label {
-    display: inline !important; margin: 0 !important; font-size: 12px !important;
+    flex: 0 1 auto;
 }
 #case_numbers-group .flex-container.form-multiline .field-is_active input[type='checkbox'],
 #case_numbers-group .flex-container.form-multiline .field-execution_use_deduction_order input[type='checkbox'] {
-    margin: 0; vertical-align: text-bottom;
+    margin: 0; vertical-align: middle;
+}
+#case_numbers-group .flex-container.form-multiline .field-is_active label,
+#case_numbers-group .flex-container.form-multiline .field-execution_use_deduction_order label {
+    display: inline !important; margin: 0 0 0 3px !important;
+    white-space: nowrap !important; font-size: 12px !important;
+    vertical-align: middle;
 }
 #case_numbers-group .field-execution_date_inclusion { flex: 0 0 140px !important; min-width: 140px !important; }
 #case_numbers-group .field-document_content,
