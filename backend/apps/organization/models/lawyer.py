@@ -5,6 +5,8 @@ from django.core.validators import FileExtensionValidator
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
+from apps.core.filesystem.upload_paths import DatedUUIDPath
+
 from .law_firm import LawFirm
 from .storage import KeepOriginalNameStorage
 from .team import Team, TeamType
@@ -39,6 +41,12 @@ class Lawyer(AbstractUser):
         blank=True,
         validators=[FileExtensionValidator(["pdf"])],
         verbose_name=_("执业证文件"),
+    )
+    avatar = models.ImageField(
+        upload_to=DatedUUIDPath("avatars"),
+        null=True,
+        blank=True,
+        verbose_name=_("头像"),
     )
 
     # 团队关系
