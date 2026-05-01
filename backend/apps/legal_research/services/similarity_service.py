@@ -164,17 +164,18 @@ class CaseSimilarityService:
         )
         cached_result, cache_probe = self._similarity_cache.load(cache_key)
         if cached_result is not None:
+            result: SimilarityResult = cached_result
             self._log_similarity_metrics(
                 mode="score",
                 elapsed_ms=int((time.monotonic() - started) * 1000),
                 cache_hit=True,
                 cache_source=str(cache_probe.get("source", "")),
                 cache_probe=str(cache_probe.get("probe", "")),
-                model=cached_result.model,
-                score=cached_result.score,
-                metadata=cached_result.metadata,
+                model=result.model,
+                score=result.score,
+                metadata=result.metadata,
             )
-            return cached_result
+            return result
 
         target_tags = ", ".join(json_utils.extract_transaction_tags(case_summary)) or "无"
         candidate_tags = ", ".join(json_utils.extract_transaction_tags(f"{title} {case_digest}")) or "无"
@@ -310,17 +311,18 @@ class CaseSimilarityService:
         )
         cached_result, cache_probe = self._similarity_cache.load(cache_key)
         if cached_result is not None:
+            result: SimilarityResult = cached_result
             self._log_similarity_metrics(
                 mode="rescore",
                 elapsed_ms=int((time.monotonic() - started) * 1000),
                 cache_hit=True,
                 cache_source=str(cache_probe.get("source", "")),
                 cache_probe=str(cache_probe.get("probe", "")),
-                model=cached_result.model,
-                score=cached_result.score,
-                metadata=cached_result.metadata,
+                model=result.model,
+                score=result.score,
+                metadata=result.metadata,
             )
-            return cached_result
+            return result
 
         target_tags = ", ".join(json_utils.extract_transaction_tags(case_summary)) or "无"
         candidate_tags = ", ".join(json_utils.extract_transaction_tags(f"{title} {case_digest}")) or "无"

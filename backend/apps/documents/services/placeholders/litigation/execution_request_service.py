@@ -437,8 +437,8 @@ class ExecutionRequestService(BasePlaceholderService):
             "deduction_order": [self.DEDUCTION_KEY_TO_LABEL.get(k, k) for k in deduction_order],
             "deduction_applied": [
                 {
-                    "component": self.DEDUCTION_KEY_TO_LABEL.get(item["key"], item["key"]),
-                    "amount": format_amount(item["amount"]),
+                    "component": self.DEDUCTION_KEY_TO_LABEL.get(str(item["key"]), str(item["key"])),
+                    "amount": format_amount(item["amount"] if isinstance(item["amount"], Decimal) else None),
                 }
                 for item in deduction_applied
             ],

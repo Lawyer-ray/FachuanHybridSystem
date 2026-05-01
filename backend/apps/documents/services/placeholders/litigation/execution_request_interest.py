@@ -276,7 +276,7 @@ def apply_paid_amount(
     amounts: ParsedAmounts,
     paid_amount: Decimal,
     deduction_order: list[str],
-) -> tuple[ParsedAmounts, Decimal, list[dict[str, object]]]:
+) -> tuple[ParsedAmounts, Decimal, list[dict[str, str | Decimal]]]:
     principal = amounts.principal or Decimal("0")
     components: dict[str, Decimal] = {
         "principal": principal,
