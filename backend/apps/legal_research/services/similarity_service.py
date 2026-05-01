@@ -1,12 +1,10 @@
+"""案例相似度 - 核心评分编排."""
+
 from __future__ import annotations
 
-import hashlib
-import json
 import logging
 import math
-import re
 import time
-from collections import Counter, OrderedDict
 from dataclasses import dataclass, field
 from types import SimpleNamespace
 from typing import Any
@@ -15,6 +13,11 @@ from django.core.cache import cache
 
 from apps.core.interfaces import ServiceLocator
 from apps.legal_research.services.tuning_config import LegalResearchTuningConfig
+
+from . import similarity_cache as cache_mod
+from . import similarity_json_utils as json_utils
+from . import similarity_passage as passage_mod
+from . import similarity_scorers as scorers
 
 logger = logging.getLogger(__name__)
 
@@ -84,19 +87,8 @@ class CaseSimilarityService:
     SEMANTIC_RECHECK_MIN_QUERY_TERMS = 6
     SEMANTIC_RECHECK_LEXICAL_MAX = 0.62
     HARD_CONFLICT_NEEDLES = (
-        "主体",
-        "身份",
-        "当事人关系",
-        "法律关系",
-        "合同类型",
-        "交易对象",
-        "违约方式",
-        "违约行为",
-        "损失类型",
-        "损失原因",
-        "请求权基础",
-        "法律后果",
-        "交易结构",
+        "主体", "身份", "当事人关系", "法律关系", "合同类型", "交易对象",
+        "违约方式", "违约行为", "损失类型", "损失原因", "请求权基础", "法律后果", "交易结构",
     )
 
     def __init__(self, *, tuning: LegalResearchTuningConfig | None = None) -> None:
@@ -107,30 +99,33 @@ class CaseSimilarityService:
         self._passage_max_chars = max(1000, int(self._tuning.passage_max_chars))
         self._passage_preview_max_chars = max(300, int(self._tuning.passage_preview_max_chars))
         self._recall_weights = self._tuning.normalized_recall_weights
-        self._similarity_cache_ttl = max(60, int(getattr(self._tuning, "similarity_cache_ttl_seconds", 86400)))
-        self._similarity_local_cache_max_size = max(
-            32,
-            int(getattr(self._tuning, "similarity_local_cache_max_size", self.SIMILARITY_LOCAL_CACHE_MAX_SIZE)),
-        )
-        self._similarity_local_cache: OrderedDict[str, SimilarityResult] = OrderedDict()
+        similarity_cache_ttl = max(60, int(getattr(self._tuning, "similarity_cache_ttl_seconds", 86400)))
+        semantic_vector_cache_ttl = max(60, int(getattr(self._tuning, "semantic_vector_cache_ttl_seconds", 86400)))
         self._semantic_vector_enabled = bool(getattr(self._tuning, "semantic_vector_enabled", True))
         self._semantic_vector_model = str(getattr(self._tuning, "semantic_vector_model", "") or "").strip()
-        self._semantic_vector_cache_ttl = max(
-            60,
-            int(getattr(self._tuning, "semantic_vector_cache_ttl_seconds", 86400)),
+        self._semantic_vector_fail_until: float = 0.0
+
+        self._similarity_cache = cache_mod.SimilarityCacheManager(
+            cache_ttl=similarity_cache_ttl,
+            local_cache_max_size=max(
+                32,
+                int(getattr(self._tuning, "similarity_local_cache_max_size", self.SIMILARITY_LOCAL_CACHE_MAX_SIZE)),
+            ),
+            result_class=SimilarityResult,
         )
-        self._semantic_vector_local_cache_max_size = max(
-            64,
-            int(
-                getattr(
-                    self._tuning,
-                    "semantic_vector_local_cache_max_size",
-                    self.SEMANTIC_VECTOR_LOCAL_CACHE_MAX_SIZE,
-                )
+        self._semantic_vector_cache = cache_mod.SemanticVectorCacheManager(
+            cache_ttl=semantic_vector_cache_ttl,
+            local_cache_max_size=max(
+                64,
+                int(
+                    getattr(
+                        self._tuning,
+                        "semantic_vector_local_cache_max_size",
+                        self.SEMANTIC_VECTOR_LOCAL_CACHE_MAX_SIZE,
+                    )
+                ),
             ),
         )
-        self._semantic_vector_local_cache: OrderedDict[str, list[float]] = OrderedDict()
-        self._semantic_vector_fail_until: float = 0.0
 
     def score_case(
         self,
@@ -143,18 +138,22 @@ class CaseSimilarityService:
         model: str | None = None,
     ) -> SimilarityResult:
         started = time.monotonic()
-        passages = self._select_relevant_passages(
+        passages = passage_mod.select_relevant_passages(
             keyword=keyword,
             case_summary=case_summary,
             title=title,
             case_digest=case_digest,
             content_text=content_text,
             max_passages=self._passage_top_k,
+            passage_max_chars=self._passage_max_chars,
         )
-        candidate_excerpt = self._compose_passage_excerpt(passages=passages)
+        candidate_excerpt = passage_mod.compose_passage_excerpt(
+            passages=passages,
+            preview_max_chars=self._passage_preview_max_chars,
+        )
         if not candidate_excerpt:
-            candidate_excerpt = self._build_candidate_excerpt(content_text, max_len=3200)
-        cache_key = self._build_similarity_cache_key(
+            candidate_excerpt = scorers.build_candidate_excerpt(content_text, max_len=3200)
+        cache_key = cache_mod.build_similarity_cache_key(
             mode="score",
             model=model,
             keyword=keyword,
@@ -163,22 +162,23 @@ class CaseSimilarityService:
             case_digest=case_digest,
             candidate_excerpt=candidate_excerpt,
         )
-        cached_result, cache_probe = self._load_similarity_cache_with_probe(cache_key)
+        cached_result, cache_probe = self._similarity_cache.load(cache_key)
         if cached_result is not None:
+            result: SimilarityResult = cached_result
             self._log_similarity_metrics(
                 mode="score",
                 elapsed_ms=int((time.monotonic() - started) * 1000),
                 cache_hit=True,
                 cache_source=str(cache_probe.get("source", "")),
                 cache_probe=str(cache_probe.get("probe", "")),
-                model=cached_result.model,
-                score=cached_result.score,
-                metadata=cached_result.metadata,
+                model=result.model,
+                score=result.score,
+                metadata=result.metadata,
             )
-            return cached_result
+            return result
 
-        target_tags = ", ".join(self._extract_transaction_tags(case_summary)) or "无"
-        candidate_tags = ", ".join(self._extract_transaction_tags(f"{title} {case_digest}")) or "无"
+        target_tags = ", ".join(json_utils.extract_transaction_tags(case_summary)) or "无"
+        candidate_tags = ", ".join(json_utils.extract_transaction_tags(f"{title} {case_digest}")) or "无"
         prompt = (
             "你是法律案例匹配评估器。必须只输出严格JSON，不允许任何额外文本。\n"
             "输出字段:\n"
@@ -224,16 +224,16 @@ class CaseSimilarityService:
         score = 0.0
         reason = ""
         metadata: dict[str, Any] = {}
-        parsed = self._extract_json(response.content)
-        fallback_score = self._extract_score_from_text(response.content)
+        parsed = json_utils.extract_json(response.content)
+        fallback_score = scorers.extract_score_from_text(response.content)
         if not isinstance(parsed, dict) and fallback_score <= 0:
             parsed = self._repair_json_payload(raw_text=response.content, model=(model or response.model or None))
         if isinstance(parsed, dict):
-            score = self._coerce_score(parsed.get("score", 0.0))
+            score = scorers.coerce_score(parsed.get("score", 0.0))
             reason = str(parsed.get("reason", "") or "")
             evidence_context = f"{title}\n{case_digest}\n{candidate_excerpt}"
-            score = self._apply_structured_adjustments(score=score, payload=parsed, context_text=evidence_context)
-            metadata = self._extract_structured_metadata(
+            score = json_utils.apply_structured_adjustments(score=score, payload=parsed, context_text=evidence_context)
+            metadata = json_utils.extract_structured_metadata(
                 payload=parsed,
                 adjusted_score=score,
                 context_text=evidence_context,
@@ -243,7 +243,7 @@ class CaseSimilarityService:
             reason = (response.content or "")[:120]
 
         if score <= 0:
-            overlap = self._keyword_overlap_score(
+            overlap = scorers.keyword_overlap_score(
                 keyword=keyword,
                 title=title,
                 case_digest=case_digest,
@@ -257,7 +257,7 @@ class CaseSimilarityService:
         if not reason:
             reason = "模型未返回理由"
         result = SimilarityResult(score=score, reason=reason, model=response.model, metadata=metadata)
-        self._save_similarity_cache(cache_key=cache_key, result=result)
+        self._similarity_cache.save(cache_key=cache_key, result=result)
         self._log_similarity_metrics(
             mode="score",
             elapsed_ms=int((time.monotonic() - started) * 1000),
@@ -283,18 +283,22 @@ class CaseSimilarityService:
         model: str | None = None,
     ) -> SimilarityResult:
         started = time.monotonic()
-        passages = self._select_relevant_passages(
+        passages = passage_mod.select_relevant_passages(
             keyword=keyword,
             case_summary=case_summary,
             title=title,
             case_digest=case_digest,
             content_text=content_text,
             max_passages=min(3, self._passage_top_k),
+            passage_max_chars=self._passage_max_chars,
         )
-        candidate_excerpt = self._compose_passage_excerpt(passages=passages)
+        candidate_excerpt = passage_mod.compose_passage_excerpt(
+            passages=passages,
+            preview_max_chars=self._passage_preview_max_chars,
+        )
         if not candidate_excerpt:
-            candidate_excerpt = self._build_candidate_excerpt(content_text, max_len=2400)
-        cache_key = self._build_similarity_cache_key(
+            candidate_excerpt = scorers.build_candidate_excerpt(content_text, max_len=2400)
+        cache_key = cache_mod.build_similarity_cache_key(
             mode="rescore",
             model=model,
             keyword=keyword,
@@ -305,22 +309,23 @@ class CaseSimilarityService:
             first_score=first_score,
             first_reason=first_reason,
         )
-        cached_result, cache_probe = self._load_similarity_cache_with_probe(cache_key)
+        cached_result, cache_probe = self._similarity_cache.load(cache_key)
         if cached_result is not None:
+            result: SimilarityResult = cached_result
             self._log_similarity_metrics(
                 mode="rescore",
                 elapsed_ms=int((time.monotonic() - started) * 1000),
                 cache_hit=True,
                 cache_source=str(cache_probe.get("source", "")),
                 cache_probe=str(cache_probe.get("probe", "")),
-                model=cached_result.model,
-                score=cached_result.score,
-                metadata=cached_result.metadata,
+                model=result.model,
+                score=result.score,
+                metadata=result.metadata,
             )
-            return cached_result
+            return result
 
-        target_tags = ", ".join(self._extract_transaction_tags(case_summary)) or "无"
-        candidate_tags = ", ".join(self._extract_transaction_tags(f"{title} {case_digest}")) or "无"
+        target_tags = ", ".join(json_utils.extract_transaction_tags(case_summary)) or "无"
+        candidate_tags = ", ".join(json_utils.extract_transaction_tags(f"{title} {case_digest}")) or "无"
         prompt = (
             "你要做第二次复判。必须只输出严格JSON，不允许任何额外文本。\n"
             "输出字段:\n"
@@ -362,16 +367,16 @@ class CaseSimilarityService:
         score = 0.0
         reason = ""
         metadata: dict[str, Any] = {}
-        parsed = self._extract_json(response.content)
-        fallback_score = self._extract_score_from_text(response.content)
+        parsed = json_utils.extract_json(response.content)
+        fallback_score = scorers.extract_score_from_text(response.content)
         if not isinstance(parsed, dict) and fallback_score <= 0:
             parsed = self._repair_json_payload(raw_text=response.content, model=(model or response.model or None))
         if isinstance(parsed, dict):
-            score = self._coerce_score(parsed.get("score", 0.0))
+            score = scorers.coerce_score(parsed.get("score", 0.0))
             reason = str(parsed.get("reason", "") or "")
             evidence_context = f"{title}\n{case_digest}\n{candidate_excerpt}"
-            score = self._apply_structured_adjustments(score=score, payload=parsed, context_text=evidence_context)
-            metadata = self._extract_structured_metadata(
+            score = json_utils.apply_structured_adjustments(score=score, payload=parsed, context_text=evidence_context)
+            metadata = json_utils.extract_structured_metadata(
                 payload=parsed,
                 adjusted_score=score,
                 context_text=evidence_context,
@@ -390,7 +395,7 @@ class CaseSimilarityService:
             model=response.model,
             metadata=metadata,
         )
-        self._save_similarity_cache(cache_key=cache_key, result=result)
+        self._similarity_cache.save(cache_key=cache_key, result=result)
         self._log_similarity_metrics(
             mode="rescore",
             elapsed_ms=int((time.monotonic() - started) * 1000),
@@ -413,13 +418,13 @@ class CaseSimilarityService:
         content_text: str,
     ) -> SimilarityResult:
         """阶段1宽召回：使用词项重合进行高召回初筛，不做严格判负。"""
-        keyword_overlap = self._keyword_overlap_score(
+        keyword_overlap = scorers.keyword_overlap_score(
             keyword=keyword,
             title=title,
             case_digest=case_digest,
             content_text=content_text,
         )
-        summary_overlap = self._summary_overlap_score(
+        summary_overlap = scorers.summary_overlap_score(
             case_summary=case_summary,
             title=title,
             case_digest=case_digest,
@@ -428,7 +433,7 @@ class CaseSimilarityService:
         query_text = f"{keyword} {case_summary}"
         document_text = f"{title} {case_digest} {(content_text or '')[:2400]}"
 
-        bm25_score = self._bm25_proxy_score(
+        bm25_score = scorers.bm25_proxy_score(
             query_text=query_text,
             document_text=document_text,
         )
@@ -442,7 +447,7 @@ class CaseSimilarityService:
             case_digest=case_digest,
             content_text=content_text,
         )
-        metadata_score = self._metadata_hint_score(
+        metadata_score = scorers.metadata_hint_score(
             keyword=keyword,
             title=title,
             case_digest=case_digest,
@@ -533,7 +538,7 @@ class CaseSimilarityService:
         if baseline_score < self.SEMANTIC_RECHECK_BASELINE_THRESHOLD:
             return True
 
-        query_term_count = len(self._dedupe_tokens(self._tokenize(query_text), max_tokens=24))
+        query_term_count = len(scorers.dedupe_tokens(scorers.tokenize(query_text), max_tokens=24))
         return (
             query_term_count >= self.SEMANTIC_RECHECK_MIN_QUERY_TERMS
             and lexical_vector_score < self.SEMANTIC_RECHECK_LEXICAL_MAX
@@ -549,161 +554,23 @@ class CaseSimilarityService:
         case_digest: str,
         content_text: str,
     ) -> float:
-        passages = self._select_relevant_passages(
+        return passage_mod.passage_alignment_score(
             keyword=keyword,
             case_summary=case_summary,
             title=title,
             case_digest=case_digest,
             content_text=content_text,
-            max_passages=min(2, self._passage_top_k),
+            passage_max_chars=self._passage_max_chars,
+            passage_top_k=self._passage_top_k,
         )
-        if not passages:
-            return 0.0
-
-        query_text = f"{keyword} {case_summary}"
-        scores = [
-            max(
-                self._token_overlap_score(query_text, passage),
-                self._vector_similarity_score(query_text, passage, allow_semantic=False),
-            )
-            for passage in passages
-        ]
-        return max(0.0, min(1.0, max(scores, default=0.0)))
-
-    def _select_relevant_passages(
-        self,
-        *,
-        keyword: str,
-        case_summary: str,
-        title: str,
-        case_digest: str,
-        content_text: str,
-        max_passages: int,
-    ) -> list[str]:
-        paragraphs = self._split_paragraphs(content_text)
-        if not paragraphs:
-            return []
-
-        query_text = f"{keyword} {case_summary} {title} {case_digest}"
-        ranked: list[tuple[float, str]] = []
-        for paragraph in paragraphs:
-            overlap = self._token_overlap_score(query_text, paragraph)
-            vector = self._vector_similarity_score(query_text, paragraph, allow_semantic=False)
-            score = overlap * 0.58 + vector * 0.42
-            if score <= 0:
-                continue
-            ranked.append((score, paragraph))
-
-        ranked.sort(key=lambda x: x[0], reverse=True)
-        top = [text for _, text in ranked[: max(1, max_passages)]]
-        if not top:
-            return []
-        return self._dedupe_passages(top)
-
-    def _split_paragraphs(self, content_text: str) -> list[str]:
-        text = self._focus_content_after_fact_marker(content_text)
-        if not text:
-            return []
-        text = text[: self._passage_max_chars]
-        raw_parts = re.split(r"[\n\r]+|(?<=。)|(?<=；)|(?<=！)|(?<=？)", text)
-        out: list[str] = []
-        for part in raw_parts:
-            normalized = re.sub(r"\s+", " ", part).strip()
-            if len(normalized) < 12:
-                continue
-            out.append(normalized)
-            if len(out) >= 120:
-                break
-        return out
-
-    @staticmethod
-    def _dedupe_passages(passages: list[str]) -> list[str]:
-        out: list[str] = []
-        seen: set[str] = set()
-        for passage in passages:
-            key = passage[:160]
-            if key in seen:
-                continue
-            seen.add(key)
-            out.append(passage)
-        return out
-
-    def _compose_passage_excerpt(self, *, passages: list[str]) -> str:
-        if not passages:
-            return ""
-        clipped = [p[: self._passage_preview_max_chars] for p in passages]
-        return "\n---\n".join(f"[片段{i + 1}] {text}" for i, text in enumerate(clipped))
-
-    @classmethod
-    def _focus_content_after_fact_marker(cls, content_text: str) -> str:
-        text = (content_text or "").strip()
-        if not text:
-            return ""
-
-        marker_match = re.search(r"本院(?:经审理)?查明", text)
-        if marker_match is None:
-            return text
-        marker_index = marker_match.start()
-
-        focused = text[marker_index:].strip()
-        if len(focused) < 24:
-            return text
-        return focused
-
-    @classmethod
-    def _bm25_proxy_score(cls, *, query_text: str, document_text: str) -> float:
-        query_tokens = cls._tokenize(query_text)
-        if not query_tokens:
-            return 0.0
-        doc_tokens = cls._tokenize(document_text)
-        if not doc_tokens:
-            return 0.0
-
-        freq = Counter(doc_tokens)
-        doc_len = max(1, len(doc_tokens))
-        avg_dl = 280.0
-        k1 = 1.2
-        b = 0.75
-        total = 0.0
-        used = 0
-        for token in cls._dedupe_tokens(query_tokens, max_tokens=20):
-            tf = freq.get(token.lower(), 0)
-            if tf <= 0:
-                continue
-            denom = tf + k1 * (1 - b + b * doc_len / avg_dl)
-            if denom <= 0:
-                continue
-            score = (tf * (k1 + 1)) / denom
-            total += min(1.0, score / 2.3)
-            used += 1
-
-        if used == 0:
-            return 0.0
-        return max(0.0, min(1.0, total / used))
 
     def _vector_similarity_score(self, text_a: str, text_b: str, *, allow_semantic: bool = True) -> float:
-        lexical = self._lexical_vector_similarity_score(text_a, text_b)
+        lexical = scorers.lexical_vector_similarity_score(text_a, text_b)
         semantic = self._semantic_vector_similarity_score(text_a, text_b) if allow_semantic else None
         if semantic is None:
             return lexical
         blended = semantic * self.VECTOR_SEMANTIC_WEIGHT + lexical * self.VECTOR_LEXICAL_WEIGHT
         return max(0.0, min(1.0, blended))
-
-    @classmethod
-    def _lexical_vector_similarity_score(cls, text_a: str, text_b: str) -> float:
-        grams_a = cls._char_ngrams(text_a)
-        grams_b = cls._char_ngrams(text_b)
-        if not grams_a or not grams_b:
-            return 0.0
-
-        common = set(grams_a).intersection(grams_b)
-        dot = sum(grams_a[g] * grams_b[g] for g in common)
-        norm_a = math.sqrt(sum(v * v for v in grams_a.values()))
-        norm_b = math.sqrt(sum(v * v for v in grams_b.values()))
-        if norm_a <= 0 or norm_b <= 0:
-            return 0.0
-        cosine = dot / (norm_a * norm_b)
-        return max(0.0, min(1.0, cosine))
 
     def _semantic_vector_similarity_score(self, text_a: str, text_b: str) -> float | None:
         if not self._semantic_vector_enabled or not self._semantic_vector_model:
@@ -728,26 +595,20 @@ class CaseSimilarityService:
         return max(0.0, min(1.0, cosine))
 
     def _get_semantic_embedding(self, text: str) -> list[float] | None:
-        normalized = self._normalize_embedding_text(text)
+        normalized = cache_mod.normalize_embedding_text(text)
         if not normalized:
             return None
-        cache_key = self._build_semantic_embedding_cache_key(
+        cache_key = cache_mod.build_semantic_embedding_cache_key(
             model=self._semantic_vector_model,
             text=normalized,
         )
-        local = self._read_semantic_vector_local_cache(cache_key)
+        local = self._semantic_vector_cache.read_local(cache_key)
         if local is not None:
             return local
 
-        try:
-            payload = cache.get(cache_key)
-        except Exception:
-            payload = None
-        if isinstance(payload, list) and payload:
-            vector = self._coerce_float_list(payload)
-            if vector:
-                self._write_semantic_vector_local_cache(cache_key=cache_key, vector=vector)
-                return vector
+        django_cached = self._semantic_vector_cache.load_from_django_cache(cache_key)
+        if django_cached is not None:
+            return django_cached
 
         try:
             embedding_client = self._get_embedding_client()
@@ -759,14 +620,10 @@ class CaseSimilarityService:
             rows = getattr(embedding_response, "data", None) or []
             if not rows:
                 return None
-            vector = self._coerce_float_list(getattr(rows[0], "embedding", None) or [])
+            vector = cache_mod.coerce_float_list(getattr(rows[0], "embedding", None) or [])
             if not vector:
                 return None
-            self._write_semantic_vector_local_cache(cache_key=cache_key, vector=vector)
-            try:
-                cache.set(cache_key, vector, timeout=self._semantic_vector_cache_ttl)
-            except Exception:
-                pass
+            self._semantic_vector_cache.save_to_django_cache(cache_key=cache_key, vector=vector)
             return vector
         except Exception as exc:
             self._semantic_vector_fail_until = time.time() + self.SEMANTIC_EMBEDDING_FAIL_COOLDOWN_SECONDS
@@ -777,211 +634,6 @@ class CaseSimilarityService:
         if self._embedding_client is None:
             self._embedding_client = _LLMEmbeddingClientAdapter(self._llm)
         return self._embedding_client
-
-    @classmethod
-    def _char_ngrams(cls, text: str) -> Counter[str]:
-        normalized = re.sub(r"\s+", "", (text or "").lower())[:2000]
-        counter: Counter[str] = Counter()
-        if len(normalized) < 2:
-            return counter
-        for n in (2, 3):
-            if len(normalized) < n:
-                continue
-            for i in range(len(normalized) - n + 1):
-                gram = normalized[i : i + n]
-                counter[gram] += 1
-        return counter
-
-    @classmethod
-    def _token_overlap_score(cls, query_text: str, text: str) -> float:
-        query_tokens = cls._dedupe_tokens(cls._tokenize(query_text), max_tokens=24)
-        if not query_tokens:
-            return 0.0
-        haystack = (text or "").lower()
-        matched = sum(1 for token in query_tokens if token.lower() in haystack)
-        return matched / len(query_tokens)
-
-    @classmethod
-    def _metadata_hint_score(cls, *, keyword: str, title: str, case_digest: str, content_text: str) -> float:
-        domain_terms = [
-            "买卖合同",
-            "买卖",
-            "违约",
-            "违约责任",
-            "损失",
-            "赔偿",
-            "价差",
-            "交货",
-            "转卖",
-            "合同价",
-            "市场价格",
-        ]
-        keyword_text = f"{keyword} {title} {case_digest}"
-        relevant = [term for term in domain_terms if term in keyword_text]
-        if not relevant:
-            relevant = [term for term in domain_terms if term in (title + case_digest)]
-        if not relevant:
-            return 0.0
-        haystack = f"{title} {case_digest} {(content_text or '')[:2000]}"
-        matched = sum(1 for term in relevant if term in haystack)
-        return max(0.0, min(1.0, matched / max(1, len(relevant))))
-
-    @staticmethod
-    def _tokenize(text: str) -> list[str]:
-        raw = re.findall(r"[\u4e00-\u9fffA-Za-z0-9]{2,10}", (text or "").lower())
-        stopwords = {
-            "以及",
-            "或者",
-            "如果",
-            "因此",
-            "应当",
-            "需要",
-            "有关",
-            "关于",
-            "因为",
-            "但是",
-            "其中",
-            "并且",
-            "法院认为",
-            "本院认为",
-            "原告",
-            "被告",
-        }
-        return [token for token in raw if token not in stopwords]
-
-    @staticmethod
-    def _dedupe_tokens(tokens: list[str], *, max_tokens: int) -> list[str]:
-        out: list[str] = []
-        seen: set[str] = set()
-        for token in tokens:
-            key = token.strip().lower()
-            if not key or key in seen:
-                continue
-            seen.add(key)
-            out.append(token.strip())
-            if len(out) >= max_tokens:
-                break
-        return out
-
-    @classmethod
-    def _build_candidate_excerpt(cls, content_text: str, *, max_len: int = 3200) -> str:
-        text = cls._focus_content_after_fact_marker(content_text)
-        if len(text) <= max_len:
-            return text
-        head = text[:1400]
-        middle_start = max(0, len(text) // 2 - 450)
-        middle = text[middle_start : middle_start + 900]
-        tail = text[-900:]
-        return f"{head}\n...\n{middle}\n...\n{tail}"
-
-    @classmethod
-    def _coerce_score(cls, value: object) -> float:
-        raw = str(value or "").strip().replace("％", "%")
-        if not raw:
-            return 0.0
-
-        percent_match = re.fullmatch(r"([0-9]+(?:\.[0-9]+)?)\s*%", raw)
-        if percent_match:
-            return cls._normalize_score(float(percent_match.group(1)))
-
-        numeric_match = re.search(r"([0-9]+(?:\.[0-9]+)?)", raw)
-        if not numeric_match:
-            return 0.0
-        try:
-            parsed = float(numeric_match.group(1))
-        except (TypeError, ValueError):
-            return 0.0
-        return cls._normalize_score(parsed)
-
-    @staticmethod
-    def _normalize_score(score: float) -> float:
-        if score > 1.0 and score <= 100.0:
-            return score / 100.0
-        if score < 0:
-            return 0.0
-        return min(1.0, score)
-
-    @classmethod
-    def _extract_score_from_text(cls, text: str) -> float:
-        if not text:
-            return 0.0
-
-        patterns = [
-            r'"score"\s*[:：]\s*"?([0-9]+(?:\.[0-9]+)?%?)"?',
-            r"相似度[^0-9]{0,8}([0-9]+(?:\.[0-9]+)?%?)",
-            r"\b(0(?:\.\d+)?|1(?:\.0+)?)\b",
-        ]
-        for pattern in patterns:
-            match = re.search(pattern, text, flags=re.I)
-            if not match:
-                continue
-            score = cls._coerce_score(match.group(1))
-            if score > 0:
-                return score
-        return 0.0
-
-    @staticmethod
-    def _keyword_overlap_score(*, keyword: str, title: str, case_digest: str, content_text: str) -> float:
-        raw_tokens = re.split(r"[\s,，;；、]+", (keyword or "").lower())
-        tokens = [token for token in raw_tokens if token and len(token) >= 2]
-        if not tokens:
-            return 0.0
-
-        haystack = f"{title} {case_digest} {(content_text or '')[:1200]}".lower()
-        matched = sum(1 for token in tokens if token in haystack)
-        return matched / len(tokens)
-
-    @staticmethod
-    def _summary_overlap_score(*, case_summary: str, title: str, case_digest: str, content_text: str) -> float:
-        summary_tokens = re.findall(r"[\u4e00-\u9fffA-Za-z0-9]{2,}", (case_summary or "").lower())
-        if not summary_tokens:
-            return 0.0
-
-        filtered: list[str] = []
-        stopwords = {"以及", "或者", "如果", "因此", "应当", "需要", "有关", "关于", "因为", "但是", "其中", "并且"}
-        for token in summary_tokens:
-            if token in stopwords:
-                continue
-            if token.isdigit():
-                continue
-            filtered.append(token)
-
-        if not filtered:
-            return 0.0
-
-        haystack = f"{title} {case_digest} {(content_text or '')[:2000]}".lower()
-        matched = sum(1 for token in filtered if token in haystack)
-        return matched / len(filtered)
-
-    @staticmethod
-    def _extract_json(text: str) -> dict[str, object] | None:
-        if not text:
-            return None
-
-        candidate = text.strip()
-        if candidate.startswith("```"):
-            candidate = re.sub(r"^```[a-zA-Z0-9_-]*", "", candidate).strip()
-            candidate = candidate.removesuffix("```").strip()
-
-        try:
-            data = json.loads(candidate)
-            if isinstance(data, dict):
-                return data
-        except json.JSONDecodeError:
-            pass
-
-        match = re.search(r"\{.*\}", text, flags=re.S)
-        if not match:
-            return None
-
-        try:
-            data = json.loads(match.group(0))
-            if isinstance(data, dict):
-                return data
-        except json.JSONDecodeError:
-            logger.warning("相似度JSON解析失败", extra={"preview": text[:200]})
-
-        return None
 
     def _repair_json_payload(self, *, raw_text: str, model: str | None = None) -> dict[str, object] | None:
         content = (raw_text or "").strip()
@@ -1021,155 +673,10 @@ class CaseSimilarityService:
             logger.info("相似度JSON修复调用失败", extra={"error": str(exc)})
             return None
 
-        parsed = self._extract_json(response.content)
+        parsed = json_utils.extract_json(response.content)
         if isinstance(parsed, dict):
             return parsed
         return None
-
-    @classmethod
-    def _apply_structured_adjustments(
-        cls,
-        *,
-        score: float,
-        payload: dict[str, object],
-        context_text: str = "",
-    ) -> float:
-        adjusted = max(0.0, min(1.0, float(score)))
-
-        decision = str(payload.get("decision", "") or "").strip().lower()
-        if decision in {"reject", "不相似"}:
-            adjusted = min(adjusted, 0.45)
-        elif decision in {"low", "低"}:
-            adjusted = min(adjusted, 0.6)
-        elif decision in {"medium", "中"}:
-            adjusted = min(adjusted, 0.85)
-
-        component_scores = [
-            cls._coerce_score(payload.get("facts_match", 1.0)),
-            cls._coerce_score(payload.get("legal_relation_match", 1.0)),
-            cls._coerce_score(payload.get("dispute_match", 1.0)),
-            cls._coerce_score(payload.get("damage_match", 1.0)),
-        ]
-        min_component = min(component_scores)
-        if min_component < 0.2:
-            adjusted = min(adjusted, 0.55)
-        elif min_component < 0.35:
-            adjusted = min(adjusted, 0.68)
-
-        conflicts = cls._normalize_text_list(payload.get("key_conflicts"))
-        if conflicts and any(any(needle in conflict for needle in cls.HARD_CONFLICT_NEEDLES) for conflict in conflicts):
-            adjusted = min(adjusted, 0.62)
-
-        evidence_spans = cls._normalize_text_list(payload.get("evidence_spans"))
-        if evidence_spans and len(evidence_spans) < 2:
-            adjusted = min(adjusted, 0.82)
-        if evidence_spans:
-            hit_count, valid_count = cls._evidence_span_hit_count(
-                evidence_spans=evidence_spans,
-                context_text=context_text,
-            )
-            if valid_count >= 2:
-                hit_ratio = hit_count / valid_count
-                if hit_ratio < 0.5:
-                    adjusted = min(adjusted, 0.72)
-                elif hit_ratio < 1.0:
-                    adjusted = min(adjusted, 0.82)
-            elif valid_count == 1 and hit_count == 0:
-                adjusted = min(adjusted, 0.78)
-
-        return max(0.0, min(1.0, adjusted))
-
-    @staticmethod
-    def _normalize_text_list(value: object) -> list[str]:
-        if isinstance(value, list):
-            return [str(item).strip() for item in value if str(item).strip()]
-        if isinstance(value, str) and value.strip():
-            return [value.strip()]
-        return []
-
-    @classmethod
-    def _extract_structured_metadata(
-        cls,
-        *,
-        payload: dict[str, object],
-        adjusted_score: float,
-        context_text: str = "",
-    ) -> dict[str, Any]:
-        metadata: dict[str, Any] = {"score_adjusted": round(max(0.0, min(1.0, adjusted_score)), 4)}
-        raw_score = cls._coerce_score(payload.get("score", 0.0))
-        metadata["score_raw"] = round(max(0.0, min(1.0, raw_score)), 4)
-
-        decision = str(payload.get("decision", "") or "").strip().lower()
-        if decision:
-            metadata["decision"] = decision
-
-        for field_name in ("facts_match", "legal_relation_match", "dispute_match", "damage_match"):
-            if field_name not in payload:
-                continue
-            value = cls._coerce_score(payload.get(field_name, 0.0))
-            metadata[field_name] = round(max(0.0, min(1.0, value)), 4)
-
-        conflicts = [item[:120] for item in cls._normalize_text_list(payload.get("key_conflicts"))[:6]]
-        if conflicts:
-            metadata["key_conflicts"] = conflicts
-
-        evidence_spans = [item[:160] for item in cls._normalize_text_list(payload.get("evidence_spans"))[:6]]
-        if evidence_spans:
-            metadata["evidence_spans"] = evidence_spans
-            hit_count, valid_count = cls._evidence_span_hit_count(
-                evidence_spans=evidence_spans,
-                context_text=context_text,
-            )
-            if valid_count > 0:
-                metadata["evidence_hits"] = hit_count
-                metadata["evidence_total"] = valid_count
-                metadata["evidence_hit_ratio"] = round(hit_count / valid_count, 4)
-
-        return metadata
-
-    @classmethod
-    def _evidence_span_hit_count(cls, *, evidence_spans: list[str], context_text: str) -> tuple[int, int]:
-        normalized_context = cls._normalize_match_text(context_text)
-        if not normalized_context:
-            return 0, 0
-
-        hits = 0
-        total = 0
-        for span in evidence_spans:
-            normalized_span = cls._normalize_match_text(span)
-            if len(normalized_span) < cls.MIN_EVIDENCE_SPAN_CHARS:
-                continue
-            total += 1
-            if normalized_span in normalized_context:
-                hits += 1
-        return hits, total
-
-    @staticmethod
-    def _normalize_match_text(text: str) -> str:
-        if not text:
-            return ""
-        normalized = re.sub(r"\s+", "", text)
-        normalized = re.sub(r"[，。；：、“”‘’\"'（）()【】\[\]《》<>、,.!?！？:;·\-]", "", normalized)
-        return normalized.lower()
-
-    @staticmethod
-    def _extract_transaction_tags(text: str) -> list[str]:
-        normalized = (text or "").strip().lower()
-        if not normalized:
-            return []
-
-        tag_rules: tuple[tuple[str, tuple[str, ...]], ...] = (
-            ("转卖", ("转卖", "转售", "另行出售", "卖给他人")),
-            ("交货迟延", ("未按时", "逾期交货", "迟延交货", "延迟交货", "未交货", "不交货")),
-            ("质量瑕疵", ("质量", "瑕疵", "不合格")),
-            ("价差争议", ("价格", "价差", "高价另购", "市场价格", "固定价格")),
-            ("付款迟延", ("逾期付款", "迟延付款", "未付款", "不付款", "拖欠")),
-        )
-        tags: list[str] = []
-        for label, needles in tag_rules:
-            if any(needle in normalized for needle in needles):
-                tags.append(label)
-        return tags
 
     @classmethod
     def _log_similarity_metrics(
@@ -1209,154 +716,41 @@ class CaseSimilarityService:
                     extra_payload["conflict_count"] = len(normalized_conflicts)
         logger.info("案例相似度评分", extra=extra_payload)
 
-    def _build_similarity_cache_key(
-        self,
-        *,
-        mode: str,
-        model: str | None,
-        keyword: str,
-        case_summary: str,
-        title: str,
-        case_digest: str,
-        candidate_excerpt: str,
-        first_score: float | None = None,
-        first_reason: str | None = None,
-    ) -> str:
-        payload = {
-            "v": self.SIMILARITY_PROMPT_VERSION,
-            "mode": mode,
-            "model": str(model or "").strip(),
-            "keyword": re.sub(r"\s+", " ", (keyword or "")).strip(),
-            "case_summary": re.sub(r"\s+", " ", (case_summary or "")).strip(),
-            "title": re.sub(r"\s+", " ", (title or "")).strip(),
-            "case_digest": re.sub(r"\s+", " ", (case_digest or "")).strip(),
-            "candidate_excerpt": re.sub(r"\s+", " ", (candidate_excerpt or "")).strip(),
-        }
-        if first_score is not None:
-            payload["first_score"] = str(round(float(first_score), 4))
-        if first_reason:
-            payload["first_reason"] = re.sub(r"\s+", " ", first_reason).strip()[:220]
-        serialized = json.dumps(payload, ensure_ascii=False, sort_keys=True)
-        digest = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
-        return f"{self.SIMILARITY_CACHE_PREFIX}:{digest}"
 
-    def _load_similarity_cache(self, cache_key: str) -> SimilarityResult | None:
-        cached, _ = self._load_similarity_cache_with_probe(cache_key)
-        return cached
-
-    def _load_similarity_cache_with_probe(self, cache_key: str) -> tuple[SimilarityResult | None, dict[str, str]]:
-        if not cache_key:
-            return None, {"source": "none", "probe": "empty_key"}
-        local = self._read_similarity_local_cache(cache_key)
-        if local is not None:
-            return local, {"source": "local", "probe": "local_hit"}
-
-        try:
-            payload = cache.get(cache_key)
-        except Exception:
-            return None, {"source": "none", "probe": "shared_error"}
-        if payload is None:
-            return None, {"source": "none", "probe": "shared_miss"}
-        if not isinstance(payload, dict):
-            return None, {"source": "none", "probe": "shared_invalid_payload"}
-        cached = self._deserialize_similarity_result(payload)
-        if cached is None:
-            return None, {"source": "none", "probe": "shared_invalid_result"}
-        self._write_similarity_local_cache(cache_key=cache_key, result=cached)
-        return cached, {"source": "shared", "probe": "shared_hit"}
-
-    def _save_similarity_cache(self, *, cache_key: str, result: SimilarityResult) -> None:
-        if not cache_key:
-            return
-        self._write_similarity_local_cache(cache_key=cache_key, result=result)
-        payload = self._serialize_similarity_result(result)
-        try:
-            cache.set(cache_key, payload, timeout=self._similarity_cache_ttl)
-        except Exception:
-            return
-
-    def _read_similarity_local_cache(self, cache_key: str) -> SimilarityResult | None:
-        if not cache_key:
-            return None
-        cached = self._similarity_local_cache.get(cache_key)
-        if cached is None:
-            return None
-        self._similarity_local_cache.move_to_end(cache_key, last=True)
-        return cached
-
-    def _write_similarity_local_cache(self, *, cache_key: str, result: SimilarityResult) -> None:
-        if not cache_key:
-            return
-        self._similarity_local_cache[cache_key] = result
-        self._similarity_local_cache.move_to_end(cache_key, last=True)
-        while len(self._similarity_local_cache) > self._similarity_local_cache_max_size:
-            self._similarity_local_cache.popitem(last=False)
-
-    def _read_semantic_vector_local_cache(self, cache_key: str) -> list[float] | None:
-        if not cache_key:
-            return None
-        cached = self._semantic_vector_local_cache.get(cache_key)
-        if cached is None:
-            return None
-        self._semantic_vector_local_cache.move_to_end(cache_key, last=True)
-        return cached
-
-    def _write_semantic_vector_local_cache(self, *, cache_key: str, vector: list[float]) -> None:
-        if not cache_key:
-            return
-        self._semantic_vector_local_cache[cache_key] = vector
-        self._semantic_vector_local_cache.move_to_end(cache_key, last=True)
-        while len(self._semantic_vector_local_cache) > self._semantic_vector_local_cache_max_size:
-            self._semantic_vector_local_cache.popitem(last=False)
-
-    @staticmethod
-    def _serialize_similarity_result(result: SimilarityResult) -> dict[str, Any]:
-        return {
-            "score": float(result.score),
-            "reason": str(result.reason or ""),
-            "model": str(result.model or ""),
-            "metadata": result.metadata if isinstance(result.metadata, dict) else {},
-        }
-
-    @staticmethod
-    def _deserialize_similarity_result(payload: dict[str, Any]) -> SimilarityResult | None:
-        try:
-            score = float(payload.get("score", 0.0))
-        except (TypeError, ValueError):
-            return None
-        reason = str(payload.get("reason", "") or "")
-        model = str(payload.get("model", "") or "")
-        metadata = payload.get("metadata", {})
-        if not isinstance(metadata, dict):
-            metadata = {}
-        return SimilarityResult(
-            score=max(0.0, min(1.0, score)),
-            reason=reason,
-            model=model,
-            metadata=metadata,
-        )
-
-    @classmethod
-    def _build_semantic_embedding_cache_key(cls, *, model: str, text: str) -> str:
-        raw = f"{model}|{text}"
-        digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()
-        return f"{cls.SEMANTIC_EMBEDDING_CACHE_PREFIX}:{digest}"
-
-    @classmethod
-    def _normalize_embedding_text(cls, text: str) -> str:
-        normalized = re.sub(r"\s+", " ", (text or "")).strip()
-        if not normalized:
-            return ""
-        return normalized[: cls.SEMANTIC_EMBEDDING_TEXT_MAX_CHARS]
-
-    @staticmethod
-    def _coerce_float_list(value: Any) -> list[float]:
-        if not isinstance(value, list):
-            return []
-        out: list[float] = []
-        for item in value:
-            try:
-                out.append(float(item))
-            except (TypeError, ValueError):
-                return []
-        return out
+# Re-export for backward compatibility
+from .similarity_scorers import (
+    bm25_proxy_score,
+    build_candidate_excerpt,
+    char_ngrams,
+    coerce_score,
+    dedupe_tokens,
+    extract_score_from_text,
+    focus_content_after_fact_marker,
+    keyword_overlap_score,
+    lexical_vector_similarity_score,
+    metadata_hint_score,
+    normalize_score,
+    summary_overlap_score,
+    tokenize,
+    token_overlap_score,
+)
+from .similarity_json_utils import (
+    apply_structured_adjustments,
+    extract_json,
+    extract_structured_metadata,
+    extract_transaction_tags,
+)
+from .similarity_passage import (
+    compose_passage_excerpt,
+    dedupe_passages,
+    passage_alignment_score,
+    select_relevant_passages,
+    split_paragraphs,
+)
+from .similarity_cache import (
+    SimilarityCacheManager,
+    SemanticVectorCacheManager,
+    build_similarity_cache_key,
+    build_semantic_embedding_cache_key,
+    normalize_embedding_text,
+)

@@ -2,6 +2,16 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.41.7] - 2026-05-01
+
+### 重构
+
+- **拆分巨石文件**：将 3 个超大文件拆分为子模块，降低单文件复杂度，提升可维护性
+  - `execution_request_service.py`（2063行 → 7个子模块）：拆出 models、utils、parser、interest、clause_extractor、llm_fallback、text_generator
+  - `similarity_service.py`（1362行 → 4个子模块）：拆出 scorers、passage、json_utils、cache
+  - `jtn_case_import.py`（1979行 → 2个子模块）：拆出 models、html_parser
+- 所有拆分保持外部导入路径不变（re-export），302 个单元测试全部通过
+
 ## [26.41.6] - 2026-05-01
 
 ### 新功能
