@@ -7,6 +7,7 @@ from decimal import Decimal
 import pytest
 
 from apps.cases.models import Case, CaseNumber
+from apps.documents.services.placeholders.litigation import execution_request_llm_fallback as llm_mod
 from apps.documents.services.placeholders.litigation.execution_request_service import ExecutionRequestService
 from apps.finance.models.lpr_rate import LPRRate
 from apps.litigation_ai.placeholders.spec import LitigationPlaceholderKeys
@@ -295,7 +296,7 @@ def test_execution_request_lpr_standard_clause_does_not_trigger_llm_fallback_whe
     def _should_not_call(_text: str) -> dict[str, object]:
         raise AssertionError("llm fallback should not be called")
 
-    monkeypatch.setattr(service, "_extract_with_ollama_fallback", _should_not_call)
+    monkeypatch.setattr(llm_mod, "extract_with_ollama_fallback", _should_not_call)
 
     result = service.preview_for_case_number(case=case, case_number=case_number)
     params = result["structured_params"]
@@ -462,8 +463,8 @@ def test_execution_request_ollama_fallback_merges_when_rules_low_confidence(
     )
 
     monkeypatch.setattr(
-        service,
-        "_extract_with_ollama_fallback",
+        llm_mod,
+        "extract_with_ollama_fallback",
         lambda _text: {
             "principal_amount": Decimal("520000"),
             "principal_label": "借款本金",
@@ -515,7 +516,7 @@ def test_execution_request_ollama_fallback_can_be_disabled(
     def _should_not_call(_text: str) -> dict[str, object]:
         raise AssertionError("llm fallback should not be called")
 
-    monkeypatch.setattr(service, "_extract_with_ollama_fallback", _should_not_call)
+    monkeypatch.setattr(llm_mod, "extract_with_ollama_fallback", _should_not_call)
 
     result = service.preview_for_case_number(
         case=case,
