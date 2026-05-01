@@ -288,7 +288,7 @@ def apply_paid_amount(
         "guarantee_fee": amounts.guarantee_fee,
     }
     remain_paid = max(paid_amount, Decimal("0"))
-    applied: list[dict[str, object]] = []
+    applied: list[dict[str, str | Decimal]] = []
 
     if deduction_order:
         for key in deduction_order:
