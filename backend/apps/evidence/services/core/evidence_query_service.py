@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from apps.core.dto import EvidenceItemDigestDTO
-from apps.evidence.models import EvidenceItem
+from apps.evidence.models import EvidenceItem, EvidenceList
 
 _VALUES = ("id", "order", "name", "purpose", "page_start", "page_end", "file")
 
@@ -60,3 +60,12 @@ class EvidenceQueryService:
             .values(*_VALUES)
         )
         return self._build_dtos(items)
+
+    def get_evidence_list(self, list_id: int) -> EvidenceList:
+        return EvidenceList.objects.get(pk=list_id)
+
+    def list_evidence_lists(self, case_id: int) -> list[EvidenceList]:
+        return list(EvidenceList.objects.filter(case_id=case_id).order_by("-created_at"))
+
+    def get_evidence_item(self, item_id: int) -> EvidenceItem:
+        return EvidenceItem.objects.get(pk=item_id)

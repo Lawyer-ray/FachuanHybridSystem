@@ -99,7 +99,7 @@ class HttpFilingMixin:
     def _load_filing_form_state(self: Any, client: httpx.Client) -> FilingFormState:
         response = client.get(_FILING_URL)
         response.raise_for_status()
-        return self._extract_filing_form_state(html_text=response.text, base_url=str(response.url))
+        return self._extract_filing_form_state(html_text=response.text, base_url=str(response.url))  # type: ignore[no-any-return]
 
     def _extract_filing_form_state(self: Any, *, html_text: str, base_url: str) -> FilingFormState:
         root = lxml_html.fromstring(html_text)

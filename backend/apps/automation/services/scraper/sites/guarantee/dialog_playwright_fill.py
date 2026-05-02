@@ -262,6 +262,6 @@ class GuaranteeDialogPlaywrightFillMixin:
                 except Exception:
                     pass
 
-            updates.extend(self._fill_property_clue_dialog_v15(defaults))
+            updates.extend(self._fill_property_clue_dialog_v15(defaults))  # type: ignore[attr-defined]
 
         return updates

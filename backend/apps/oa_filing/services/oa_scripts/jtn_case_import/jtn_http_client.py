@@ -69,7 +69,7 @@ class JtnHttpClientMixin:
         shared_cookies = self._get_or_login_http_cookies()
 
         if effective_workers == 1:
-            return self._search_cases_chunk_via_http(
+            return self._search_cases_chunk_via_http(  # type: ignore[no-any-return]
                 indexed_chunk=indexed_case_nos,
                 shared_cookies=shared_cookies,
             )
@@ -180,7 +180,7 @@ class JtnHttpClientMixin:
         response = client.get(_CASE_LIST_URL)
         response.raise_for_status()
         self._raise_if_sso_blocking(url=str(response.url), html_text=response.text, stage="HTTP 列表页访问")
-        return self._extract_form_state(html_text=response.text, base_url=str(response.url), client=client)
+        return self._extract_form_state(html_text=response.text, base_url=str(response.url), client=client)  # type: ignore[no-any-return]
 
     def _search_case_item_via_http(
         self: Any,
@@ -244,7 +244,7 @@ class JtnHttpClientMixin:
                 client=client,
             )
             candidates = html_parser.extract_case_candidates_from_search_html(response.text)
-            return self._rank_name_candidates(keyword=keyword, candidates=candidates, limit=limit)
+            return self._rank_name_candidates(keyword=keyword, candidates=candidates, limit=limit)  # type: ignore[no-any-return]
         except Exception:
             self._reset_name_search_http_session()
             raise
@@ -330,7 +330,7 @@ class JtnHttpClientMixin:
                         frame_resp = client.get(frame_url)
                         frame_resp.raise_for_status()
                         logger.info("案件列表页未直接命中表单，尝试 frame 回退: %s", frame_url)
-                        return self._extract_form_state(
+                        return self._extract_form_state(  # type: ignore[no-any-return]
                             html_text=frame_resp.text,
                             base_url=str(frame_resp.url),
                             client=client,
