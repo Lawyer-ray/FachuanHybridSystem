@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from apps.automation.api import court_guarantee_api
+from apps.automation.api import court_guarantee_helpers as helpers
 from apps.core.dto.client import PropertyClueDTO
 
 
@@ -33,7 +33,7 @@ def test_build_selected_respondent_property_clues_returns_all_clues(monkeypatch)
             ],
         }
     )
-    monkeypatch.setattr(court_guarantee_api, "_get_client_service", lambda: client_service)
+    monkeypatch.setattr(helpers, "_get_client_service", lambda: client_service)
 
     case_parties = [
         _build_case_party(party_id=11, client_id=101, client_name="测试企业A", address="测试地址A"),
@@ -44,7 +44,7 @@ def test_build_selected_respondent_property_clues_returns_all_clues(monkeypatch)
         {"party_id": 22, "name": "测试企业B"},
     ]
 
-    result = court_guarantee_api._build_selected_respondent_property_clues(
+    result = helpers._build_selected_respondent_property_clues(
         case_parties=case_parties,
         selected_respondents=selected_respondents,
         preserve_amount="206135.6400",
@@ -60,14 +60,14 @@ def test_build_selected_respondent_property_clues_returns_all_clues(monkeypatch)
 
 
 def test_build_selected_respondent_property_clues_falls_back_when_no_clues(monkeypatch) -> None:
-    monkeypatch.setattr(court_guarantee_api, "_get_client_service", lambda: _FakeClientService({}))
+    monkeypatch.setattr(helpers, "_get_client_service", lambda: _FakeClientService({}))
 
     case_parties = [
         _build_case_party(party_id=11, client_id=101, client_name="测试企业A", address="测试地址A"),
     ]
     selected_respondents = [{"party_id": 11, "name": "测试企业A"}]
 
-    result = court_guarantee_api._build_selected_respondent_property_clues(
+    result = helpers._build_selected_respondent_property_clues(
         case_parties=case_parties,
         selected_respondents=selected_respondents,
         preserve_amount=500000,
@@ -95,9 +95,9 @@ def test_build_primary_respondent_property_clue_returns_first_item(monkeypatch) 
             ]
         }
     )
-    monkeypatch.setattr(court_guarantee_api, "_get_client_service", lambda: client_service)
+    monkeypatch.setattr(helpers, "_get_client_service", lambda: client_service)
 
-    result = court_guarantee_api._build_primary_respondent_property_clue(
+    result = helpers._build_primary_respondent_property_clue(
         case_parties=[_build_case_party(party_id=11, client_id=101, client_name="测试企业A")],
         selected_respondents=[{"party_id": 11, "name": "测试企业A"}],
         preserve_amount=None,
