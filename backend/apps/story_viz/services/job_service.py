@@ -222,8 +222,8 @@ class StoryAnimationJobService:
         relationship_nodes = script.get("relationship_nodes", [])
         edges = script.get("edges", [])
         return {
-            "highlights": list(script.get("highlights", []) or [])[:_MAX_ITEMS],  # type: ignore[arg-type,call-overload]
-            "annotations": list(script.get("annotations", []) or [])[:_MAX_ITEMS],  # type: ignore[arg-type,call-overload]
+            "highlights": list(script.get("highlights", []) or [])[:_MAX_ITEMS],
+            "annotations": list(script.get("annotations", []) or [])[:_MAX_ITEMS],
             "timeline_nodes_count": len(timeline_nodes) if isinstance(timeline_nodes, list) else 0,
             "relationship_nodes_count": len(relationship_nodes) if isinstance(relationship_nodes, list) else 0,
             "edges_count": len(edges) if isinstance(edges, list) else 0,
