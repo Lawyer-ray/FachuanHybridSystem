@@ -2,6 +2,21 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.41.8] - 2026-05-02
+
+### 重构
+
+- **拆分巨石文件（第二轮）**：沿用 v26.41.7 的拆分模式，继续拆分 8 个超大文件，降低单文件复杂度
+  - `court_guarantee_api.py`（1376行 → 3个子模块）：拆出 `court_guarantee_schemas`、`court_guarantee_helpers`
+  - `court_filing_api.py`（1214行 → 3个子模块）：拆出 `court_filing_schemas`、`court_filing_helpers`
+  - `sales_dispute_api.py`（1059行 → 5个子路由）：按业务域拆出 `calculation_api`、`assessment_api`、`collection_api`、`dashboard_api` + `factories`
+  - `display_mixin.py`（1037行 → 2个文件）：拆出 `display_format_mixin`（只读显示方法）
+  - `automation_protocols.py`（713行 → 4个领域文件）：按职责拆出 `token_protocols`、`browser_protocols`、`court_protocols`、`processing_protocols`
+  - `dashboard_service.py`（718行 → 2个文件）：拆出 `dashboard_models`（dataclass + 常量）
+  - `complete_defaults.py`（797行 → JSON + 载入函数）：硬编码字典数据搬到 `complete_defaults.json`
+  - `contract_admin.py`（692行 → 2个文件）：拆出 `contract_inlines`（Inline 类）
+- 所有拆分保持外部导入路径不变（re-export / 继承），单元测试全部通过
+
 ## [26.41.7] - 2026-05-01
 
 ### 重构
