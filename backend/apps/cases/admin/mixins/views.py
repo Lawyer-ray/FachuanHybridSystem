@@ -655,7 +655,7 @@ class CaseAdminViewsMixin:
             temp_dir.mkdir(parents=True, exist_ok=True)
 
             # 防止 path traversal：只保留文件名部分
-            safe_name = Path(file.name).name
+            safe_name = Path(str(file.name or "")).name
             temp_filename = f"{uuid.uuid4().hex}_{safe_name}"
             temp_path = temp_dir / temp_filename
 
