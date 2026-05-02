@@ -718,11 +718,11 @@ class CaseAdminViewsMixin:
 
             system = platform.system()
             if system == "Darwin":
-                subprocess.Popen(["open", str(folder)])  # noqa: S603
+                subprocess.Popen(["open", str(folder)])  # noqa: S607
             elif system == "Windows":
-                subprocess.Popen(["explorer", str(folder)])  # noqa: S603
+                subprocess.Popen(["explorer", str(folder)])  # noqa: S607
             else:
-                subprocess.Popen(["xdg-open", str(folder)])  # noqa: S603
+                subprocess.Popen(["xdg-open", str(folder)])  # noqa: S607
 
             logger.info("已打开案件文件夹: %s, case_id=%s", folder_path, object_id)
             return JsonResponse({"success": True, "folder_path": folder_path})
