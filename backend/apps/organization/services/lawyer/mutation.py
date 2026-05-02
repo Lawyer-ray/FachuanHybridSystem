@@ -10,7 +10,7 @@ from apps.core.exceptions import ConflictError, PermissionDenied, ValidationExce
 from apps.core.infrastructure import invalidate_users_access_context
 from apps.organization.dtos import LawyerCreateDTO, LawyerUpdateDTO
 from apps.organization.models import LawFirm, Lawyer, Team, TeamType
-from apps.organization.services.organization_access_policy import OrganizationAccessPolicy
+from apps.organization.services.access.organization_access_policy import OrganizationAccessPolicy
 
 from .upload import LawyerUploadService
 

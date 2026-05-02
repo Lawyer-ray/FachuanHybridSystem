@@ -123,7 +123,7 @@ def get_case_info(case_id: int) -> dict[str, Any]:
     logger.info("调用 get_case_info 工具", extra={"case_id": case_id})
 
     try:
-        from apps.litigation_ai.services.context_service import LitigationContextService
+        from apps.litigation_ai.services.session.context_service import LitigationContextService
 
         service = LitigationContextService()
         case_info = service.get_case_info_for_agent(case_id)
@@ -155,7 +155,7 @@ def get_evidence_list(
     logger.info("调用 get_evidence_list 工具", extra={"case_id": case_id, "ownership": ownership})
 
     try:
-        from apps.litigation_ai.services.context_service import LitigationContextService
+        from apps.litigation_ai.services.session.context_service import LitigationContextService
 
         service = LitigationContextService()
         evidence_list = service.get_evidence_list_for_agent(case_id, ownership)
@@ -196,7 +196,7 @@ def search_evidence(
     )
 
     try:
-        from apps.litigation_ai.services.evidence_digest_service import EvidenceDigestService
+        from apps.litigation_ai.services.evidence.evidence_digest_service import EvidenceDigestService
 
         service = EvidenceDigestService()
         results = service.search_evidence_for_agent(
@@ -229,7 +229,7 @@ def get_recommended_document_types(case_id: int) -> list[str]:
     logger.info("调用 get_recommended_document_types 工具", extra={"case_id": case_id})
 
     try:
-        from apps.litigation_ai.services.conversation_service import ConversationService
+        from apps.litigation_ai.services.session.conversation_service import ConversationService
 
         service = ConversationService()
         recommended = service.get_recommended_document_types(case_id)
@@ -270,7 +270,7 @@ def generate_draft(
     )
 
     try:
-        from apps.litigation_ai.services.draft_service import DraftService
+        from apps.litigation_ai.services.generation.draft_service import DraftService
 
         service = DraftService()
         result = service.generate_draft_for_agent(

@@ -117,7 +117,7 @@ def generate_lawyer_letter(
     data: LawyerLetterRequest,
 ) -> HttpResponse:
     """生成律师函"""
-    from apps.sales_dispute.services.lawyer_letter_generator_service import LawyerLetterParams, LetterTone
+    from apps.sales_dispute.services.generation.lawyer_letter_generator_service import LawyerLetterParams, LetterTone
 
     params = LawyerLetterParams(
         case_id=data.case_id,
@@ -147,7 +147,7 @@ def generate_reconciliation(
     data: ReconciliationRequest,
 ) -> HttpResponse:
     """生成对账函"""
-    from apps.sales_dispute.services.reconciliation_generator_service import ReconciliationParams, TransactionItem
+    from apps.sales_dispute.services.generation.reconciliation_generator_service import ReconciliationParams, TransactionItem
 
     transactions = [
         TransactionItem(
@@ -184,7 +184,7 @@ def generate_settlement(
     data: SettlementRequest,
 ) -> HttpResponse:
     """生成和解协议"""
-    from apps.sales_dispute.services.settlement_generator_service import (
+    from apps.sales_dispute.services.generation.settlement_generator_service import (
         DisputeResolution,
         InstallmentPlan,
         SettlementParams,
@@ -231,7 +231,7 @@ def generate_execution_doc(
     data: ExecutionDocRequest,
 ) -> HttpResponse:
     """生成执行阶段文书"""
-    from apps.sales_dispute.services.execution_doc_generator_service import (
+    from apps.sales_dispute.services.generation.execution_doc_generator_service import (
         AddExecuteeParams,
         EnforcementParams,
         ExecutionDocType,

@@ -31,7 +31,7 @@ class MockTrialFlowService:
 
     def _get_conversation_service(self) -> Any:
         if not self._conversation_service:
-            from apps.litigation_ai.services.conversation_service import ConversationService
+            from apps.litigation_ai.services.session.conversation_service import ConversationService
 
             self._conversation_service = ConversationService()
         return self._conversation_service
@@ -572,8 +572,8 @@ class MockTrialFlowService:
         await self._set_step(ctx.session_id, MockTrialStep.SUMMARY)
 
     async def _get_evidence_text(self, case_id: int) -> str:
-        from apps.litigation_ai.services.context_service import LitigationContextService
-        from apps.litigation_ai.services.evidence_digest_service import EvidenceDigestService
+        from apps.litigation_ai.services.session.context_service import LitigationContextService
+        from apps.litigation_ai.services.evidence.evidence_digest_service import EvidenceDigestService
 
         raw = await sync_to_async(LitigationContextService.get_evidence_list_for_agent, thread_sensitive=True)(case_id)
         if not raw:
@@ -611,7 +611,7 @@ class MockTrialFlowService:
         await self.session_repo.set_step(session_id, step.value)
 
     async def _get_case_brief(self, case_id: int) -> dict[str, Any]:
-        from apps.litigation_ai.services.context_service import LitigationContextService
+        from apps.litigation_ai.services.session.context_service import LitigationContextService
 
         result = await sync_to_async(LitigationContextService().get_case_info_for_agent, thread_sensitive=True)(case_id)
         return result

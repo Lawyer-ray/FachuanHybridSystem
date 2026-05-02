@@ -27,7 +27,7 @@ class LitigationDraftChain:
     async def _build_messages(
         self, document_type: str, case_info: dict[str, Any], litigation_goal: str, evidence_text: str
     ) -> list[dict[str, str]]:
-        from apps.litigation_ai.services.prompt_template_service import PromptTemplateService
+        from apps.litigation_ai.services.generation.prompt_template_service import PromptTemplateService
 
         template_service = PromptTemplateService()
         from asgiref.sync import sync_to_async

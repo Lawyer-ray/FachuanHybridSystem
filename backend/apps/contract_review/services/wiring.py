@@ -12,6 +12,6 @@ if TYPE_CHECKING:
 
 def get_review_service() -> IReviewService:
     """获取合同审查服务实例"""
-    from apps.contract_review.services.review_service import ReviewService
+    from apps.contract_review.services.review.review_service import ReviewService
 
     return ReviewService()

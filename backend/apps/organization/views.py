@@ -7,7 +7,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.utils.translation import gettext_lazy as _
 
-from apps.organization.services.auth_service import AUTO_REGISTER_BOOTSTRAP_USERNAME, AuthService
+from apps.organization.services.auth.auth_service import AUTO_REGISTER_BOOTSTRAP_USERNAME, AuthService
 
 from .forms import LawyerRegistrationForm
 

@@ -21,13 +21,13 @@ if TYPE_CHECKING:
 class DocumentsServiceLocatorMixin(_ServiceLocatorStub):
     @classmethod
     def get_evidence_service(cls) -> Any:
-        from apps.evidence.services.evidence_service import EvidenceService
+        from apps.evidence.services.core.evidence_service import EvidenceService
 
         return cls.get_or_create("evidence_service", lambda: EvidenceService(case_service=cls.get_case_service()))
 
     @classmethod
     def get_file_storage(cls) -> Any:
-        from apps.evidence.services.evidence_storage import evidence_file_storage
+        from apps.evidence.services.core.evidence_storage import evidence_file_storage
 
         return cls.get_or_create("file_storage", lambda: evidence_file_storage)
 

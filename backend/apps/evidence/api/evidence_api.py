@@ -95,7 +95,7 @@ class AICrossExamResponse(Schema):
 
 
 def _get_ai_service() -> Any:
-    from apps.evidence.services.evidence_ai_service import EvidenceAIService
+    from apps.evidence.services.ai.evidence_ai_service import EvidenceAIService
 
     return EvidenceAIService()
 

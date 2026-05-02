@@ -587,7 +587,7 @@ class ArchivePlaceholderService(BasePlaceholderService):
         按检查清单序号排列，跳过案卷封面/结案归档登记表/案卷目录，
         生成编号列表（硬换行分隔）。
         """
-        from apps.contracts.services.archive.checklist_service import ArchiveChecklistService
+        from apps.contracts.services.archive import ArchiveChecklistService
 
         checklist_service = ArchiveChecklistService()
         checklist = checklist_service.get_checklist_with_status(contract)
@@ -644,7 +644,7 @@ class ArchivePlaceholderService(BasePlaceholderService):
         Returns:
             [{"序号": int, "材料名称": str, "页码": str}, ...]
         """
-        from apps.contracts.services.archive.checklist_service import ArchiveChecklistService
+        from apps.contracts.services.archive import ArchiveChecklistService
 
         checklist_service = ArchiveChecklistService()
         checklist = checklist_service.get_checklist_with_status(contract)

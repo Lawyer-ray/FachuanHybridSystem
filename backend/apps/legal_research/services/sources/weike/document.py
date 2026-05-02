@@ -8,7 +8,7 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
-from apps.legal_research.services.task_event_service import LegalResearchTaskEventService
+from apps.legal_research.services.task.event_service import LegalResearchTaskEventService
 
 from .types import WeikeCaseDetail, WeikeSearchItem, WeikeSession
 

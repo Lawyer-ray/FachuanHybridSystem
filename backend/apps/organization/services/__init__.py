@@ -5,9 +5,9 @@ Organization Services Module
 
 from __future__ import annotations
 
-from .account_credential_admin_service import AccountCredentialAdminService
-from .account_credential_service import AccountCredentialService
-from .auth_service import AuthService
+from .auth.auth_service import AuthService
+from .credential.account_credential_admin_service import AccountCredentialAdminService
+from .credential.account_credential_service import AccountCredentialService
 from .lawfirm_service import LawFirmService, LawFirmServiceAdapter
 from .lawyer import LawyerService, LawyerServiceAdapter
 from .lawyer_import_service import LawyerImportService

@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 class EvidenceListAdminServiceMixin:
     def _get_admin_service(self) -> Any:
-        from apps.evidence.services.evidence_admin_service import EvidenceAdminService
+        from apps.evidence.services.admin.evidence_admin_service import EvidenceAdminService
 
         return EvidenceAdminService()
 

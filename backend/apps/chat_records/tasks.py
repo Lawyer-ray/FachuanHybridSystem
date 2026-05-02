@@ -14,9 +14,9 @@ logger = logging.getLogger("apps.chat_records")
 
 def export_chat_record_task(task_id: str) -> Any:
     from apps.chat_records.models import ChatRecordExportTask, ExportStatus, ExportType
-    from apps.chat_records.services.export_service import ExportService
-    from apps.chat_records.services.export_task_service import ExportTaskService
-    from apps.chat_records.services.export_types import ExportLayout
+    from apps.chat_records.services.export.export_service import ExportService
+    from apps.chat_records.services.export.export_task_service import ExportTaskService
+    from apps.chat_records.services.export.export_types import ExportLayout
 
     try:
         task = ChatRecordExportTask.objects.select_related("project").get(id=task_id)
@@ -119,12 +119,12 @@ def extract_recording_frames_task(
     from django.db.models import Max
 
     from apps.chat_records.models import ChatRecordRecording, ChatRecordScreenshot, ExtractStatus, ScreenshotSource
-    from apps.chat_records.services.extract_helpers import DedupState, ExtractParams
-    from apps.chat_records.services.frame_processing_service import FrameProcessingService
-    from apps.chat_records.services.frame_selection_service import FrameSelectionService
-    from apps.chat_records.services.recording_extract_facade import RecordingExtractFacade
-    from apps.chat_records.services.screenshot_service import ScreenshotService
-    from apps.chat_records.services.video_frame_extract_service import VideoFrameExtractService
+    from apps.chat_records.services.core.screenshot_service import ScreenshotService
+    from apps.chat_records.services.extraction.extract_helpers import DedupState, ExtractParams
+    from apps.chat_records.services.extraction.frame_processing_service import FrameProcessingService
+    from apps.chat_records.services.extraction.frame_selection_service import FrameSelectionService
+    from apps.chat_records.services.extraction.recording_extract_facade import RecordingExtractFacade
+    from apps.chat_records.services.extraction.video_frame_extract_service import VideoFrameExtractService
     from apps.core.interfaces import ServiceLocator
     from apps.core.tasking.runtime import CancellationToken, ProgressReporter, TaskRunContext
 

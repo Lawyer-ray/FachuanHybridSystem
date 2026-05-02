@@ -4,7 +4,7 @@ import logging
 
 from playwright.sync_api import sync_playwright
 
-from apps.legal_research.services.tuning_config import LegalResearchTuningConfig
+from apps.legal_research.services.similarity.tuning_config import LegalResearchTuningConfig
 
 from . import api_optional
 from .auth import WeikeAuthMixin

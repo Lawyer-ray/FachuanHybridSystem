@@ -14,7 +14,7 @@ from django.utils.translation import gettext_lazy as _
 from apps.core.exceptions import NotFoundError, PermissionDenied, ValidationException
 from apps.organization.dtos import TeamUpsertDTO
 from apps.organization.models import LawFirm, Lawyer, Team, TeamType
-from apps.organization.services.organization_access_policy import OrganizationAccessPolicy
+from apps.organization.services.access.organization_access_policy import OrganizationAccessPolicy
 
 logger = logging.getLogger("apps.organization")
 

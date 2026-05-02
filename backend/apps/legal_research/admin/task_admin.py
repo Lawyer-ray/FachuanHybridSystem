@@ -19,11 +19,11 @@ from apps.core.llm.config import LLMConfig
 from apps.core.llm.model_list_service import ModelListService
 from apps.legal_research.models import LegalResearchResult, LegalResearchTask, LegalResearchTaskEvent
 from apps.legal_research.models.task import LegalResearchSearchMode, LegalResearchTaskStatus
-from apps.legal_research.services.feedback_loop import LegalResearchFeedbackLoopService
 from apps.legal_research.services.keywords import KEYWORD_INPUT_HELP_TEXT, normalize_keyword_query
 from apps.legal_research.services.llm_preflight import verify_siliconflow_connectivity
-from apps.legal_research.services.task_service import LegalResearchTaskService
-from apps.legal_research.services.task_state_sync import sync_failed_queue_state
+from apps.legal_research.services.task.feedback_loop import LegalResearchFeedbackLoopService
+from apps.legal_research.services.task.service import LegalResearchTaskService
+from apps.legal_research.services.task.state_sync import sync_failed_queue_state
 
 # mypy: ignore-errors
 

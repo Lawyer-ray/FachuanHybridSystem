@@ -5,8 +5,9 @@ from typing import Any
 import httpx
 import pytest
 
-import apps.oa_filing.services.oa_scripts.jtn_case_import as jtn_case_import_module
-from apps.oa_filing.services.oa_scripts.jtn_case_import import JtnCaseImportScript
+import apps.oa_filing.services.oa_scripts.jtn_case_import.jtn_http_client as jtn_http_client
+import apps.oa_filing.services.oa_scripts.jtn_case_import.jtn_playwright_browser as jtn_playwright_browser
+from apps.oa_filing.services.oa_scripts.jtn_case_import import CaseListFormState, JtnCaseImportScript
 
 
 def test_login_prefers_cached_http_cookies(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -28,7 +29,7 @@ def test_login_prefers_cached_http_cookies(monkeypatch: pytest.MonkeyPatch) -> N
     fake_context = _FakeContext()
     script._context = fake_context  # type: ignore[assignment]
     script._http_cookies_cache = {"ASP.NET_SessionId": "cookie-1", "CSRFToken": "csrf-1"}
-    monkeypatch.setattr(jtn_case_import_module.httpx, "Client", _ShouldNotCreateClient)
+    monkeypatch.setattr(jtn_playwright_browser.httpx, "Client", _ShouldNotCreateClient)
 
     script._login()
 
@@ -71,7 +72,7 @@ def test_http_login_disables_env_proxy(monkeypatch: pytest.MonkeyPatch) -> None:
                 text="ok",
             )
 
-    monkeypatch.setattr(jtn_case_import_module.httpx, "Client", _FakeClient)
+    monkeypatch.setattr(jtn_http_client.httpx, "Client", _FakeClient)
 
     cookies = script._http_login_and_get_cookies()
 
@@ -95,9 +96,9 @@ def test_name_search_http_session_disables_env_proxy(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(
         script,
         "_load_case_list_form_state",
-        lambda client: jtn_case_import_module.CaseListFormState(action_url="https://ims.jtn.com/project/index.aspx", payload={}),
+        lambda client: CaseListFormState(action_url="https://ims.jtn.com/project/index.aspx", payload={}),
     )
-    monkeypatch.setattr(jtn_case_import_module.httpx, "Client", _FakeClient)
+    monkeypatch.setattr(jtn_http_client.httpx, "Client", _FakeClient)
 
     script._ensure_name_search_http_session()
 

@@ -2,6 +2,21 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.41.9] - 2026-05-02
+
+### 重构
+
+- **第一梯队大文件代码级拆分（8 个文件，均超 1000 行）**：将巨石文件按功能边界拆分为子模块，保持 facade 公共 API 不变，外部导入路径通过 re-export 兼容
+  - `generation_service.py`（1278行 → 6个子模块）：拆出 template_finder、document_generator、download_handler、folder_builder、pdf_utils
+  - `checklist_service.py`（1025行 → 4个子模块）：拆出 checklist_query、material_mapping、case_material_sync
+  - `court_zxfw_filing.py`（1340行 → 5个子模块）：拆出 form_utils、filing_steps、party_info_handler、progress_reporter
+  - `dialog_mixin.py`（1039行 → 5个子模块）：拆出 dialog_field_filling、dialog_playwright_fill、dialog_property_clue、dialog_ui_helpers
+  - `jtn_case_import.py`（1569行 → 5个子模块）：拆出 jtn_http_client、jtn_sso_handler、jtn_playwright_browser、jtn_detail_extractor
+  - `jtn_filing.py`（1185行 → 6个子模块）：拆出 constants、filing_models、http_filing、playwright_filing、playwright_helpers
+  - `browser_query_service.py`（1424行 → 6个子模块）：拆出 browser_launcher、browser_utils、sf_query_handler、ems_query_handler、ems_auth_handler
+  - `split_service.py`（1067行 → 5个子模块）：拆出 split_models、ocr_handler、segment_detector、export_utils
+- 所有拆分保持外部导入路径不变（re-export / Mixin 继承），309 个单元测试全部通过
+
 ## [26.41.8] - 2026-05-02
 
 ### 重构

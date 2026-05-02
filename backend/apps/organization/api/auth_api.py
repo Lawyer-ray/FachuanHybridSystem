@@ -20,7 +20,7 @@ from apps.organization.schemas import (
     PasswordResetVerifyIn,
 )
 from apps.organization.services import AuthService
-from apps.organization.services.password_reset_service import PasswordResetService
+from apps.organization.services.auth.password_reset_service import PasswordResetService
 
 router = Router()
 

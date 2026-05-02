@@ -6,8 +6,8 @@ import logging
 from typing import Any
 
 from apps.litigation_ai.chains.mock_trial_chains import CrossExamChain, CrossExamResult
-from apps.litigation_ai.services.context_service import LitigationContextService
-from apps.litigation_ai.services.evidence_digest_service import EvidenceDigestService
+from apps.litigation_ai.services.session.context_service import LitigationContextService
+from apps.litigation_ai.services.evidence.evidence_digest_service import EvidenceDigestService
 
 logger = logging.getLogger("apps.litigation_ai")
 

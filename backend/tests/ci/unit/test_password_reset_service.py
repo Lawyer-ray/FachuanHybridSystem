@@ -9,7 +9,7 @@ from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 
 from apps.organization.models import Lawyer
-from apps.organization.services.password_reset_service import (
+from apps.organization.services.auth.password_reset_service import (
     PasswordResetService,
     password_reset_token_generator,
 )
@@ -30,7 +30,7 @@ class PasswordResetServiceTest(TestCase):
             password=self._TEST_PASSWORD,
         )
 
-    @patch("apps.organization.services.password_reset_service.EmailService.send_password_reset_email")
+    @patch("apps.organization.services.auth.password_reset_service.EmailService.send_password_reset_email")
     def test_request_password_reset_success(self, mock_send_email):
         """测试请求密码重置成功"""
         mock_send_email.return_value = True
@@ -67,7 +67,7 @@ class PasswordResetServiceTest(TestCase):
         self.assertFalse(is_valid)
         self.assertIsNone(user)
 
-    @patch("apps.organization.services.password_reset_service.EmailService.send_password_changed_notification")
+    @patch("apps.organization.services.auth.password_reset_service.EmailService.send_password_changed_notification")
     def test_reset_password_success(self, mock_send_notification):
         """测试重置密码成功"""
         uid = urlsafe_base64_encode(force_bytes(self.user.pk))

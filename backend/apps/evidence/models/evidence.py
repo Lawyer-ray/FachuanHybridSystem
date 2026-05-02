@@ -66,14 +66,14 @@ if TYPE_CHECKING:
 
 def _get_evidence_service() -> Any:
     """工厂函数: 获取 EvidenceService 实例"""
-    from apps.evidence.services.evidence_service import EvidenceService
+    from apps.evidence.services.core.evidence_service import EvidenceService
 
     return EvidenceService()
 
 
 def _get_evidence_storage() -> Any:
     """工厂函数: 获取证据文件存储实例"""
-    from apps.evidence.services.evidence_storage import evidence_file_storage
+    from apps.evidence.services.core.evidence_storage import evidence_file_storage
 
     return evidence_file_storage
 

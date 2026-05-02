@@ -4,8 +4,8 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
-from apps.legal_research.services.case_download_service import CaseDownloadService
-from apps.legal_research.services.executor import LegalResearchExecutor
+from apps.legal_research.services.task.case_download_service import CaseDownloadService
+from apps.legal_research.services.task.executor import LegalResearchExecutor
 
 
 def execute_legal_research_task(task_id: str) -> dict[str, Any]:

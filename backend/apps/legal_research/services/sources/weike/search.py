@@ -8,7 +8,7 @@ from urllib.parse import parse_qs, unquote, urljoin, urlparse
 
 from playwright.sync_api import Page
 
-from apps.legal_research.services.task_event_service import LegalResearchTaskEventService
+from apps.legal_research.services.task.event_service import LegalResearchTaskEventService
 
 from . import api_optional
 from .types import WeikeSearchItem, WeikeSession

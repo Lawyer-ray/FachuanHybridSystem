@@ -49,7 +49,7 @@ def __getattr__(name: str) -> Any:
         "CaseSearchResult",
         "FeeComparisonResult",
     ):
-        from .models import (
+        from .types import (
             CaseComparisonInfo,
             CaseSearchResult,
             DetectionResult,
@@ -62,32 +62,32 @@ def __getattr__(name: str) -> Any:
         return locals()[name]
 
     if name in ("FeeCheckItem", "FeeCheckResult"):
-        from .check_service import FeeCheckItem, FeeCheckResult
+        from .comparison.check_service import FeeCheckItem, FeeCheckResult
 
         return locals()[name]
 
     if name == "FeeNoticeDetector":
-        from .detector import FeeNoticeDetector
+        from .detection.detector import FeeNoticeDetector
 
         return FeeNoticeDetector
 
     if name == "FeeAmountExtractor":
-        from .extractor import FeeAmountExtractor
+        from .detection.extractor import FeeAmountExtractor
 
         return FeeAmountExtractor
 
     if name == "FeeNoticeExtractionService":
-        from .extraction_service import FeeNoticeExtractionService
+        from .extraction.extraction_service import FeeNoticeExtractionService
 
         return FeeNoticeExtractionService
 
     if name == "FeeComparisonService":
-        from .comparison_service import FeeComparisonService
+        from .comparison.comparison_service import FeeComparisonService
 
         return FeeComparisonService
 
     if name == "FeeNoticeCheckService":
-        from .check_service import FeeNoticeCheckService
+        from .comparison.check_service import FeeNoticeCheckService
 
         return FeeNoticeCheckService
 

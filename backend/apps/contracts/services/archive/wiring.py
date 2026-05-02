@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .checklist_service import ArchiveChecklistService
+from .checklist import ArchiveChecklistService
 
 
 def build_archive_checklist_service() -> ArchiveChecklistService:
