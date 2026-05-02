@@ -105,7 +105,7 @@ class StoryAnimationDetailOut(StoryAnimationStatusOut):
 
 def _build_detail_out(payload: dict[str, object]) -> StoryAnimationDetailOut:
     stages_raw = payload.get("stages", [])
-    stages = [StageDetailOut(**s) for s in stages_raw]  # type: ignore[arg-type]
+    stages = [StageDetailOut(**s) for s in stages_raw]  # type: ignore[arg-type,call-overload,attr-defined]
     return StoryAnimationDetailOut(
         id=str(payload.get("id", "")),
         title=str(payload.get("title", "")),
@@ -130,7 +130,7 @@ def _build_detail_out(payload: dict[str, object]) -> StoryAnimationDetailOut:
         script_summary=payload.get("script_summary", {}),  # type: ignore[arg-type]
         render_summary=payload.get("render_summary", {}),  # type: ignore[arg-type]
         has_html=bool(payload.get("has_html", False)),
-        suggested_questions=list(payload.get("suggested_questions", [])),  # type: ignore[arg-type]
+        suggested_questions=list(payload.get("suggested_questions", []) or []),  # type: ignore[arg-type,call-overload]
     )
 
 
