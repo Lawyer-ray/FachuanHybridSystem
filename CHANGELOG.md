@@ -2,6 +2,33 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.42.1] - 2026-05-03
+
+### 修复
+
+- **LPR 计算器页面误报"暂无数据"**：`lpr_calculator_view` 缺少 `latest_rate`、`is_data_current`、`sync_url` 上下文变量，导致模板始终判定无数据且过期，已补全
+
+### 重构
+
+- **contracts 归档逻辑抽取**：`display_mixin.py`（560+ 行）中的归档相关视图方法拆分到独立的 `archive_mixin.py`，`ContractDisplayMixin` 改为多继承 `ContractArchiveMixin`
+- **contracts 文件清理信号**：新增 `signals.py`，为 `FinalizedMaterial`、`Invoice`、`ClientPaymentRecord` 注册 `post_delete` 信号，兜底清理物理文件（覆盖 cascade 删除绕过 service 层的场景）
+- **contracts 监督卡检测抽取**：`folder_scan_service.py` 中的监督卡检测逻辑抽取为独立的 `quality_card_detector.py` 模块
+- **contracts 文件哈希工具抽取**：`_compute_file_hash` 从 `folder_scan_service.py` 移至独立的 `file_hash_utils.py`
+- **contracts 静态方法修复**：`plus_one_year_due_at` 从 `ContractCloneWorkflow` 类中移为模块级函数，`_relative_path_str` 改为实例方法
+- **contracts 延迟导入优化**：`contract_oa_sync_service.py` 中 `JtnCaseImportScript`、`AccountCredential` 改为延迟/TYPE_CHECKING 导入，避免循环依赖
+- **contracts 金额计算 Decimal 化**：`contract_payment_service.py` 中金额比较从 `float` 统一改为 `Decimal`，消除浮点精度风险
+- **contracts 材料排序优化**：`_apply_initial_order_for_synced` 从逐条 `save()` 改为 `bulk_update`
+- **contracts 模型改进**：
+  - `ClientPaymentRecord` 新增 `updated_at` 字段
+  - `FinalizedMaterial.file_path` 添加 `db_index`
+  - `Invoice` 新增 `content_hash`（SHA-256）字段用于去重
+  - `ContractPayment.contract` 外键 `on_delete` 从 `CASCADE` 改为 `PROTECT`，防止误删合同级联删除收款记录
+- **client 存储层统一**：删除 `client/services/storage.py` 转发层，所有导入改用 `apps.core.services.storage_service`
+- **client 信号优化**：文件清理从同步删除改为 `transaction.on_commit` + `delete_media_file`
+- **client 创建流程改进**：`ClientMutationService.create_client` 增加 `full_clean()` 验证，`PropertyClue.CONTENT_TEMPLATES` 移至 service 层
+- **client 数据库索引**：`ClientIdentityDoc` 新增 `(client, doc_type)` 复合索引
+- **client 证件类型校验修复**：组织类型客户的 `doc_type` 校验逻辑从 `_NATURAL | _LEGAL` 修正为仅 `_LEGAL`
+
 ## [26.42.0] - 2026-05-03
 
 ### 安全修复
