@@ -20,6 +20,14 @@ class MotionPlan(BaseModel):
     easing: str = Field(default="ease-in-out")
 
 
+class ComparisonItem(BaseModel):
+    claim: str = Field(default="")
+    judgment: str = Field(default="")
+    amount_claim: str = Field(default="")
+    amount_judgment: str = Field(default="")
+    supported: bool = Field(default=False)
+
+
 class AnimationScript(BaseModel):
     title: str = Field(default="")
     viz_type: str = Field(default="timeline")
@@ -29,6 +37,7 @@ class AnimationScript(BaseModel):
     timeline_nodes: list[dict[str, str]] = Field(default_factory=list)
     relationship_nodes: list[GraphNode] = Field(default_factory=list)
     edges: list[GraphEdge] = Field(default_factory=list)
+    comparison_nodes: list[ComparisonItem] = Field(default_factory=list)
     scene_order: list[str] = Field(default_factory=list)
     motion_plan: MotionPlan = Field(default_factory=MotionPlan)
     fragment_prompts: list[str] = Field(default_factory=list)

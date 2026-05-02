@@ -87,8 +87,19 @@ class CaseSimilarityService:
     SEMANTIC_RECHECK_MIN_QUERY_TERMS = 6
     SEMANTIC_RECHECK_LEXICAL_MAX = 0.62
     HARD_CONFLICT_NEEDLES = (
-        "主体", "身份", "当事人关系", "法律关系", "合同类型", "交易对象",
-        "违约方式", "违约行为", "损失类型", "损失原因", "请求权基础", "法律后果", "交易结构",
+        "主体",
+        "身份",
+        "当事人关系",
+        "法律关系",
+        "合同类型",
+        "交易对象",
+        "违约方式",
+        "违约行为",
+        "损失类型",
+        "损失原因",
+        "请求权基础",
+        "法律后果",
+        "交易结构",
     )
 
     def __init__(self, *, tuning: LegalResearchTuningConfig | None = None) -> None:
@@ -453,7 +464,8 @@ class CaseSimilarityService:
             case_digest=case_digest,
             content_text=content_text,
         )
-        semantic_recheck = self._should_enable_semantic_vector_recheck(
+        semantic_always_on = bool(getattr(self._tuning, "semantic_vector_always_on", False))
+        semantic_recheck = semantic_always_on or self._should_enable_semantic_vector_recheck(
             query_text=query_text,
             keyword_overlap=keyword_overlap,
             summary_overlap=summary_overlap,

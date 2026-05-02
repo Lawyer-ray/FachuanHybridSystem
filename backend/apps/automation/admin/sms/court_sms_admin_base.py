@@ -52,7 +52,6 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
     list_filter = [
         "status",
         "received_at",
-        ("case", admin.RelatedFieldListFilter),
         "scraper_task__status",
     ]
 
@@ -195,9 +194,7 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
             )
         elif obj.status == CourtSMSStatus.PENDING_MANUAL:
             change_url = reverse("admin:automation_courtsms_change", args=[obj.id])
-            return format_html(
-                '<a href="{}" style="color: orange; font-weight: bold;">手动关联</a>', change_url
-            )
+            return format_html('<a href="{}" style="color: orange; font-weight: bold;">手动关联</a>', change_url)
         return "-"
 
     @admin.display(description=_("短信内容"))
@@ -279,9 +276,7 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
 
         parts: list[SafeString] = [
             format_html(
-                "<div style='margin:6px 0 10px;'>"
-                "<a class='button' href='{}'>📦 批量下载全部文书</a>"
-                "</div>",
+                "<div style='margin:6px 0 10px;'><a class='button' href='{}'>📦 批量下载全部文书</a></div>",
                 reverse("admin:automation_courtsms_download_all_documents", args=[obj.id]),
             )
         ]
@@ -399,11 +394,13 @@ class CourtSMSAdminBase(admin.ModelAdmin[CourtSMS]):
                     if sent_at:
                         # 只显示日期时间部分
                         sent_display = sent_at[:16] if len(sent_at) > 16 else sent_at
-                        parts.append(format_html('<br><small>{}: {}</small>', p, sent_display))
+                        parts.append(format_html("<br><small>{}: {}</small>", p, sent_display))
                     else:
-                        parts.append(format_html('<br><small>{}</small>', p))
+                        parts.append(format_html("<br><small>{}</small>", p))
                 if fail_platforms:
-                    parts.append(format_html('<br><small style="color: #d63384;">失败: {}</small>', ", ".join(fail_platforms)))
+                    parts.append(
+                        format_html('<br><small style="color: #d63384;">失败: {}</small>', ", ".join(fail_platforms))
+                    )
                 return mark_safe("".join(str(p) for p in parts))
             elif fail_platforms:
                 first_error = ""

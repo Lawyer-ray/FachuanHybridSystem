@@ -36,6 +36,10 @@ class StoryAnimationWorkflowService:
 
     def run(self, *, animation_id: str) -> None:
         animation = self._get_animation(animation_id=animation_id)
+        model = animation.llm_model or None
+        self._fact_service._model = model
+        self._script_service._model = model
+        self._fragment_service._model = model
         try:
             self._update_progress(
                 animation=animation,

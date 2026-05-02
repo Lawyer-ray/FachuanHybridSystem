@@ -11,6 +11,7 @@ from django.utils.translation import gettext_lazy as _
 class StoryVizType(models.TextChoices):
     TIMELINE = "timeline", _("时间线")
     RELATIONSHIP = "relationship", _("人物关系图")
+    CLAIM_JUDGMENT = "claim_judgment", _("诉求 vs 判决")
 
 
 class StoryAnimationStatus(models.TextChoices):
@@ -58,6 +59,7 @@ class StoryAnimation(models.Model):
     progress_percent = models.PositiveSmallIntegerField(default=0, verbose_name=_("进度"))
     task_id = models.CharField(max_length=64, blank=True, default="", verbose_name=_("任务ID"))
     cancel_requested = models.BooleanField(default=False, verbose_name=_("请求取消"))
+    llm_model = models.CharField(max_length=128, blank=True, default="", verbose_name=_("LLM 模型"))
     source_hash = models.CharField(max_length=64, blank=True, default="", verbose_name=_("原文哈希"))
     facts_payload = models.JSONField(default=dict, blank=True, verbose_name=_("事实结构化结果"))
     script_payload = models.JSONField(default=dict, blank=True, verbose_name=_("动画脚本结果"))

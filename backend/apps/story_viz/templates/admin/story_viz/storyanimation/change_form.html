@@ -3,146 +3,243 @@
 
 {% block after_field_sets %}
 {{ block.super }}
-{% if story_viz_status_api %}
+{% if story_viz_detail_api %}
 <style>
-.sv-card {
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow: 0 4px 16px rgba(15,23,42,.08);
-  margin-bottom: 14px;
-}
-.sv-section-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: #0f172a;
-  margin: 0 0 10px;
-}
-.sv-pill {
-  display: inline-block;
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
-}
-.sv-status-pending   { background: #fef3c7; color: #92400e; }
-.sv-status-processing{ background: #dbeafe; color: #1e40af; }
-.sv-status-completed { background: #d1fae5; color: #065f46; }
-.sv-status-failed    { background: #fee2e2; color: #991b1b; }
-.sv-status-cancelled { background: #f1f5f9; color: #475569; }
-.sv-track {
-  height: 8px;
-  background: #e2e8f0;
-  border-radius: 999px;
-  overflow: hidden;
-  margin-top: 8px;
-}
-.sv-bar {
-  height: 100%;
-  width: 0%;
-  background: linear-gradient(90deg, #0ea5e9, #3b82f6);
-  border-radius: 999px;
-}
-.sv-btn-group {
-  display: flex;
-  gap: 8px;
-  margin-top: 12px;
-  flex-wrap: wrap;
-}
-.sv-btn {
-  padding: 6px 14px;
-  border-radius: 8px;
-  border: 1px solid #cbd5e1;
-  background: #fff;
-  cursor: pointer;
-  transition: .15s;
-  font-size: 13px;
-}
-.sv-btn:hover:not(:disabled) {
-  background: #f8fafc;
-}
-.sv-btn:disabled {
-  opacity: .45;
-  cursor: not-allowed;
-}
-.sv-btn.primary {
-  background: #0f172a;
-  color: #fff;
-  border-color: #0f172a;
-}
-#svError { color: #b91c1c; font-size: 13px; margin-top: 8px; }
+.sv-wrap{margin-top:16px;display:flex;flex-direction:column;gap:14px}
+.sv-panel{background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 2px 8px rgba(15,23,42,.06);overflow:hidden}
+.sv-panel-head{padding:12px 16px;font-size:14px;font-weight:600;color:#0f172a;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between}
+.sv-panel-body{padding:16px}
+
+/* Status row */
+.sv-status-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap;font-size:13px;color:#334155}
+.sv-pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600}
+.sv-st-pending{background:#fef3c7;color:#92400e}
+.sv-st-processing{background:#dbeafe;color:#1e40af}
+.sv-st-completed{background:#d1fae5;color:#065f46}
+.sv-st-failed{background:#fee2e2;color:#991b1b}
+.sv-st-cancelled{background:#f1f5f9;color:#475569}
+
+/* Pipeline */
+.sv-pipeline{display:flex;align-items:center;gap:0;margin:16px 0 12px;overflow-x:auto;padding:4px 0}
+.sv-stage{display:flex;flex-direction:column;align-items:center;min-width:80px;position:relative}
+.sv-stage-dot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;border:2px solid #cbd5e1;background:#fff;color:#94a3b8;transition:all .3s}
+.sv-stage-label{font-size:11px;color:#94a3b8;margin-top:6px;text-align:center;white-space:nowrap}
+.sv-stage-line{flex:1;height:2px;background:#e2e8f0;min-width:20px;margin:0 -2px;align-self:flex-start;margin-top:13px;position:relative;z-index:0}
+
+/* Stage states */
+.sv-stage[data-st="done"] .sv-stage-dot{background:#22c55e;border-color:#22c55e;color:#fff}
+.sv-stage[data-st="done"] .sv-stage-label{color:#16a34a}
+.sv-stage[data-st="active"] .sv-stage-dot{background:#3b82f6;border-color:#3b82f6;color:#fff;box-shadow:0 0 0 4px rgba(59,130,246,.2);animation:sv-pulse 2s infinite}
+.sv-stage[data-st="active"] .sv-stage-label{color:#2563eb;font-weight:600}
+.sv-stage[data-st="failed"] .sv-stage-dot{background:#ef4444;border-color:#ef4444;color:#fff}
+.sv-stage[data-st="failed"] .sv-stage-label{color:#dc2626}
+.sv-stage[data-st="cancelled"] .sv-stage-dot{background:#94a3b8;border-color:#94a3b8;color:#fff}
+.sv-stage-line[data-st="done"]{background:#22c55e}
+@keyframes sv-pulse{0%,100%{box-shadow:0 0 0 4px rgba(59,130,246,.2)}50%{box-shadow:0 0 0 8px rgba(59,130,246,.1)}}
+
+/* Progress bar */
+.sv-progress-track{height:6px;background:#e2e8f0;border-radius:999px;overflow:hidden;margin:4px 0}
+.sv-progress-bar{height:100%;width:0%;background:linear-gradient(90deg,#3b82f6,#0ea5e9);border-radius:999px;transition:width .4s}
+.sv-progress-text{font-size:12px;color:#64748b;margin-top:2px}
+
+/* Error */
+.sv-error-box{color:#b91c1c;font-size:13px;margin-top:8px;padding:8px 12px;background:#fef2f2;border-radius:8px;display:none}
+.sv-error-box:not(:empty){display:block}
+
+/* Buttons */
+.sv-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.sv-btn{padding:6px 14px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;transition:.15s;font-size:13px}
+.sv-btn:hover:not(:disabled){background:#f8fafc}
+.sv-btn:disabled{opacity:.4;cursor:not-allowed}
+.sv-btn-primary{background:#0f172a;color:#fff;border-color:#0f172a}
+.sv-btn-primary:hover:not(:disabled){background:#1e293b}
+.sv-btn-sm{padding:4px 10px;border-radius:6px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-size:12px;text-decoration:none;color:#334155}
+.sv-btn-sm:hover{background:#f8fafc}
+
+/* Tabs */
+.sv-tabs{display:flex;gap:0;border-bottom:2px solid #f1f5f9;margin-bottom:12px}
+.sv-tab{padding:8px 16px;border:none;background:none;cursor:pointer;font-size:13px;color:#64748b;border-bottom:2px solid transparent;margin-bottom:-2px;transition:.15s}
+.sv-tab:hover{color:#334155}
+.sv-tab.active{color:#2563eb;border-bottom-color:#2563eb;font-weight:600}
+.sv-tab-content{display:none;min-height:60px}
+.sv-tab-content.active{display:block}
+
+/* Data tables */
+.sv-tbl{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:12px}
+.sv-tbl th{text-align:left;padding:6px 10px;background:#f8fafc;color:#475569;font-weight:600;border-bottom:1px solid #e2e8f0}
+.sv-tbl td{padding:6px 10px;border-bottom:1px solid #f1f5f9;color:#334155}
+.sv-tbl tr:last-child td{border-bottom:none}
+.sv-empty{color:#94a3b8;font-size:13px;padding:20px;text-align:center}
+
+/* Data section header */
+.sv-data-hdr{font-size:13px;font-weight:600;color:#0f172a;margin:12px 0 6px;display:flex;align-items:center;gap:6px}
+.sv-data-hdr::before{content:'';display:inline-block;width:3px;height:14px;background:#3b82f6;border-radius:2px}
+.sv-data-hdr:first-child{margin-top:0}
+
+/* Preview */
+.sv-preview-frame{width:100%;height:560px;border:none;border-radius:0 0 12px 12px;background:#0b1220}
+
+/* Q&A Panel */
+.sv-qa-panel{display:none}
+.sv-qa-log{max-height:400px;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:12px;min-height:120px}
+.sv-qa-msg{display:flex;gap:8px;font-size:13px;line-height:1.6}
+.sv-qa-msg-q{justify-content:flex-end}
+.sv-qa-msg-a{justify-content:flex-start}
+.sv-qa-bubble{max-width:85%;padding:8px 12px;border-radius:12px;word-break:break-word;white-space:pre-wrap}
+.sv-qa-msg-q .sv-qa-bubble{background:#3b82f6;color:#fff;border-bottom-right-radius:4px}
+.sv-qa-msg-a .sv-qa-bubble{background:#f1f5f9;color:#0f172a;border-bottom-left-radius:4px}
+.sv-qa-msg-a .sv-qa-bubble.sv-qa-thinking{color:#94a3b8;font-style:italic}
+.sv-qa-msg-a .sv-qa-bubble.sv-qa-error{background:#fee2e2;color:#991b1b}
+.sv-qa-empty{color:#94a3b8;font-size:13px;text-align:center;padding:24px 0}
+.sv-qa-input-row{display:flex;gap:8px;padding:12px 16px;border-top:1px solid #f1f5f9;align-items:flex-end}
+.sv-qa-input{flex:1;padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;resize:none;min-height:38px;max-height:120px;font-family:inherit;line-height:1.4}
+.sv-qa-input:focus{outline:none;border-color:#3b82f6;box-shadow:0 0 0 2px rgba(59,130,246,.15)}
+.sv-qa-send{padding:8px 16px;background:#0f172a;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;white-space:nowrap;transition:.15s}
+.sv-qa-send:hover:not(:disabled){background:#1e293b}
+.sv-qa-send:disabled{opacity:.4;cursor:not-allowed}
+.sv-qa-model-row{display:flex;align-items:center;gap:8px;padding:0 16px 12px;font-size:12px;color:#64748b}
+.sv-qa-model-row select{padding:4px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;background:#fff}
+
+/* Fullscreen */
+.sv-preview-frame:fullscreen{width:100vw;height:100vh;border-radius:0;background:#0b1220}
+.sv-preview-frame:-webkit-full-screen{width:100vw;height:100vh;border-radius:0;background:#0b1220}
+
+/* Suggested questions */
+.sv-suggested-questions{padding:8px 16px;display:flex;flex-wrap:wrap;gap:6px;border-bottom:1px solid #f1f5f9}
+.sv-suggest-btn{padding:4px 10px;border:1px solid #e2e8f0;border-radius:16px;background:#f8fafc;cursor:pointer;font-size:12px;color:#334155;transition:.15s;white-space:nowrap}
+.sv-suggest-btn:hover{background:#e2e8f0;border-color:#cbd5e1}
 </style>
 
-<div style="margin-top: 16px;">
-  <!-- 状态卡片 -->
-  <div class="sv-card">
-    <div style="display:flex;justify-content:space-between;align-items:center;">
-      <div class="sv-section-title">{% trans "任务状态" %}</div>
-      <span id="svPill" class="sv-pill sv-status-pending">pending</span>
-    </div>
-    <div style="display:flex;gap:24px;flex-wrap:wrap;margin-top:8px;font-size:13px;color:#334155;">
-      <div><strong>{% trans "阶段" %}：</strong><span id="svStage" style="color:#0f172a;">-</span></div>
-      <div><strong>{% trans "进度" %}：</strong><span id="svProgress">0%</span></div>
-      <div><strong>{% trans "任务ID" %}：</strong><span id="svTaskId">-</span></div>
-      <div><strong>{% trans "耗时" %}：</strong><span id="svDuration">-</span></div>
-    </div>
-    <div class="sv-track">
-      <div id="svProgressBar" class="sv-bar"></div>
-    </div>
-    <div id="svError"></div>
-    <div class="sv-btn-group">
-      <button type="button" id="svRefreshBtn" class="sv-btn">{% trans "刷新状态" %}</button>
-      <button type="button" id="svRetryBtn" class="sv-btn">{% trans "重新生成" %}</button>
-      <button type="button" id="svCancelBtn" class="sv-btn">{% trans "取消任务" %}</button>
-      <a id="svPreviewLink" href="#" target="_blank" class="sv-btn primary" style="display:none;text-decoration:none;">{% trans "新窗口预览" %}</a>
+<div class="sv-wrap">
+  <!-- Panel 1: Status & Pipeline -->
+  <div class="sv-panel">
+    <div class="sv-panel-head">{% trans "任务状态" %}</div>
+    <div class="sv-panel-body">
+      <div class="sv-status-row">
+        <span id="svPill" class="sv-pill sv-st-pending">-</span>
+        <span><strong>{% trans "阶段" %}：</strong><span id="svStage">-</span></span>
+        <span><strong>{% trans "耗时" %}：</strong><span id="svDuration">-</span></span>
+        <span><strong>{% trans "任务ID" %}：</strong><span id="svTaskId">-</span></span>
+      </div>
+      <div class="sv-pipeline" id="svPipeline"></div>
+      <div class="sv-progress-track"><div id="svProgressBar" class="sv-progress-bar"></div></div>
+      <div class="sv-progress-text"><span id="svProgress">0%</span></div>
+      <div id="svError" class="sv-error-box"></div>
+      <div class="sv-actions">
+        <button type="button" id="svRefreshBtn" class="sv-btn">{% trans "刷新状态" %}</button>
+        <button type="button" id="svRetryBtn" class="sv-btn">{% trans "重新生成" %}</button>
+        <button type="button" id="svCancelBtn" class="sv-btn">{% trans "取消任务" %}</button>
+      </div>
     </div>
   </div>
 
-  <!-- 预览 -->
-  <div class="sv-card" id="svPreviewCard" style="display:none;">
-    <div class="sv-section-title">{% trans "实时预览" %}</div>
-    <iframe id="svPreviewFrame" src="" style="width:100%;height:520px;border:1px solid #e2e8f0;border-radius:10px;background:#0b1220;"></iframe>
+  <!-- Panel 2: Stage Data (tabbed) -->
+  <div class="sv-panel" id="svDataPanel">
+    <div class="sv-panel-head">{% trans "阶段数据" %}</div>
+    <div class="sv-panel-body">
+      <div class="sv-tabs" id="svTabs">
+        <button type="button" class="sv-tab active" data-tab="facts">{% trans "提取事实" %}</button>
+        <button type="button" class="sv-tab" data-tab="script">{% trans "编排脚本" %}</button>
+        <button type="button" class="sv-tab" data-tab="render">{% trans "渲染布局" %}</button>
+      </div>
+      <div class="sv-tab-content active" id="svTabFacts"></div>
+      <div class="sv-tab-content" id="svTabScript"></div>
+      <div class="sv-tab-content" id="svTabRender"></div>
+    </div>
   </div>
 
-  <!-- 数据摘要 -->
-  <div class="sv-card" id="svDataCard">
-    <div class="sv-section-title">{% trans "数据摘要" %}</div>
-    <div id="svDataSummary" style="font-size:13px;color:#334155;">{% trans "暂无可用数据" %}</div>
+  <!-- Panel 3: Preview -->
+  <div class="sv-panel" id="svPreviewPanel" style="display:none">
+    <div class="sv-panel-head">
+      {% trans "动画预览" %}
+      <span style="display:flex;gap:6px">
+        <button type="button" id="svFullscreenBtn" class="sv-btn-sm">{% trans "全屏" %}</button>
+        <a id="svPreviewLink" href="#" target="_blank" class="sv-btn-sm">{% trans "新窗口打开" %}</a>
+      </span>
+    </div>
+    <div style="padding:0">
+      <iframe id="svPreviewFrame" class="sv-preview-frame" src="" sandbox="allow-scripts allow-same-origin"></iframe>
+    </div>
+  </div>
+
+  <!-- Panel 4: Q&A -->
+  <div class="sv-panel sv-qa-panel" id="svQaPanel">
+    <div class="sv-panel-head">{% trans "案件问答" %}</div>
+    <div id="svSuggestedQuestions" class="sv-suggested-questions" style="display:none"></div>
+    <div id="svQaLog" class="sv-qa-log">
+      <div class="sv-qa-empty">{% trans "在此向 AI 提问关于本案的问题" %}</div>
+    </div>
+    <div class="sv-qa-model-row">
+      <span>{% trans "模型" %}：</span>
+      <select id="svQaModel">
+        <option value="">{% trans "使用默认模型" %}</option>
+      </select>
+    </div>
+    <div class="sv-qa-input-row">
+      <textarea id="svQaInput" class="sv-qa-input" rows="1" placeholder="{% trans '输入问题，Enter 发送，Shift+Enter 换行' %}"></textarea>
+      <button type="button" id="svQaSend" class="sv-qa-send">{% trans "发送" %}</button>
+    </div>
   </div>
 </div>
 
 <script>
 (function() {
-  const statusApi  = "{{ story_viz_status_api }}";
+  const detailApi  = "{{ story_viz_detail_api }}";
   const retryApi   = "{{ story_viz_retry_api }}";
   const cancelApi  = "{{ story_viz_cancel_api }}";
   const previewApi = "{{ story_viz_preview_api }}";
+  const askApi     = "{{ story_viz_ask_api }}";
+  const modelsApi  = "{{ story_viz_models_api }}";
+
+  const STAGES = [
+    {key:"extracting_facts",label:"提取事实",icon:"1"},
+    {key:"directing_script",label:"编排脚本",icon:"2"},
+    {key:"rendering_layout",label:"渲染布局",icon:"3"},
+    {key:"generating_fragments",label:"生成片段",icon:"4"},
+    {key:"composing_html",label:"组装HTML",icon:"5"}
+  ];
+
+  const STATUS_ICONS = {done:"✓",failed:"✗",cancelled:"✗",active:"●",pending:""};
 
   const els = {
-    status: document.getElementById('svStatus'),
-    stage: document.getElementById('svStage'),
-    progress: document.getElementById('svProgress'),
-    bar: document.getElementById('svProgressBar'),
-    error: document.getElementById('svError'),
     pill: document.getElementById('svPill'),
-    taskId: document.getElementById('svTaskId'),
+    stage: document.getElementById('svStage'),
     duration: document.getElementById('svDuration'),
+    taskId: document.getElementById('svTaskId'),
+    pipeline: document.getElementById('svPipeline'),
+    bar: document.getElementById('svProgressBar'),
+    progress: document.getElementById('svProgress'),
+    error: document.getElementById('svError'),
     refreshBtn: document.getElementById('svRefreshBtn'),
     retryBtn: document.getElementById('svRetryBtn'),
     cancelBtn: document.getElementById('svCancelBtn'),
-    frame: document.getElementById('svPreviewFrame'),
-    previewCard: document.getElementById('svPreviewCard'),
+    tabFacts: document.getElementById('svTabFacts'),
+    tabScript: document.getElementById('svTabScript'),
+    tabRender: document.getElementById('svTabRender'),
+    tabs: document.getElementById('svTabs'),
+    previewPanel: document.getElementById('svPreviewPanel'),
+    previewFrame: document.getElementById('svPreviewFrame'),
     previewLink: document.getElementById('svPreviewLink'),
-    dataCard: document.getElementById('svDataCard'),
-    dataSummary: document.getElementById('svDataSummary'),
+    fullscreenBtn: document.getElementById('svFullscreenBtn'),
+    suggestedQuestions: document.getElementById('svSuggestedQuestions'),
+    qaPanel: document.getElementById('svQaPanel'),
+    qaLog: document.getElementById('svQaLog'),
+    qaInput: document.getElementById('svQaInput'),
+    qaSend: document.getElementById('svQaSend'),
+    qaModel: document.getElementById('svQaModel'),
   };
 
-  let timer = null;
-  let createdAt = null;
-  let startedAt = null;
-  let finishedAt = null;
+  let currentStatus = null;
+  let pollTimer = null;
+  let durationTimer = null;
+  let pollErrors = 0;
+  let previewLoaded = false;
+  let pollInterval = 3000;
+  const MAX_POLL_ERRORS = 5;
+  const MAX_POLL_INTERVAL = 30000;
+  const POLL_BACKOFF = 1.5;
 
+  // -- CSRF --
   function getCookie(name) {
     const parts = document.cookie.split(';');
     for (const part of parts) {
@@ -155,10 +252,7 @@
   async function post(url) {
     const resp = await fetch(url, {
       method: 'POST', credentials: 'same-origin',
-      headers: {
-        'X-CSRFToken': getCookie('csrftoken'),
-        'Content-Type': 'application/json'
-      },
+      headers: {'X-CSRFToken': getCookie('csrftoken'), 'Content-Type': 'application/json'},
       body: '{}'
     });
     const data = await resp.json();
@@ -166,103 +260,473 @@
     return data;
   }
 
+  // -- Pipeline rendering --
+  function renderPipeline(stages) {
+    els.pipeline.innerHTML = '';
+    if (!stages || !stages.length) return;
+    for (let i = 0; i < stages.length; i++) {
+      const s = stages[i];
+      const node = document.createElement('div');
+      node.className = 'sv-stage';
+      node.setAttribute('data-st', s.status);
+      const dot = document.createElement('div');
+      dot.className = 'sv-stage-dot';
+      dot.textContent = STATUS_ICONS[s.status] || '';
+      const label = document.createElement('div');
+      label.className = 'sv-stage-label';
+      label.textContent = s.label;
+      node.appendChild(dot);
+      node.appendChild(label);
+      els.pipeline.appendChild(node);
+
+      if (i < stages.length - 1) {
+        const line = document.createElement('div');
+        line.className = 'sv-stage-line';
+        if (s.status === 'done') line.setAttribute('data-st', 'done');
+        els.pipeline.appendChild(line);
+      }
+    }
+  }
+
+  // -- Duration --
+  function formatSec(sec) {
+    if (!sec || sec < 0) return '-';
+    if (sec < 60) return Math.round(sec) + ' 秒';
+    const m = Math.floor(sec / 60), s = Math.round(sec % 60);
+    return m + ' 分 ' + s + ' 秒';
+  }
+
+  function computeDuration(data) {
+    if (data.finished_at && data.started_at) {
+      return (new Date(data.finished_at) - new Date(data.started_at)) / 1000;
+    }
+    if (data.started_at) {
+      return (Date.now() - new Date(data.started_at).getTime()) / 1000;
+    }
+    return 0;
+  }
+
+  function startDurationTicker(data) {
+    stopDurationTicker();
+    if (!data.started_at) return;
+    const isTerminal = data.status === 'completed' || data.status === 'failed' || data.status === 'cancelled';
+    if (isTerminal) {
+      els.duration.textContent = formatSec(computeDuration(data));
+      return;
+    }
+    els.duration.textContent = formatSec(computeDuration(data));
+    durationTimer = setInterval(function() {
+      els.duration.textContent = formatSec(computeDuration(data));
+    }, 1000);
+  }
+
+  function stopDurationTicker() {
+    if (durationTimer) { clearInterval(durationTimer); durationTimer = null; }
+  }
+
+  // -- Buttons --
   function updateButtons(status) {
-    const done  = status === 'completed' || status === 'failed' || status === 'cancelled';
-    const running = status === 'pending' || status === 'processing';
-    els.retryBtn.disabled  = running || status === 'completed';
-    els.cancelBtn.disabled = done;
-    if (status === 'completed') {
-      els.previewCard.style.display = 'block';
-      els.previewLink.style.display = 'inline-block';
-      els.previewLink.href = previewApi;
-    } else {
-      els.previewCard.style.display = 'none';
-      els.previewLink.style.display = 'none';
-      els.previewLink.href = '#';
+    const isTerminal = status === 'completed' || status === 'failed' || status === 'cancelled';
+    const isRunning = status === 'pending' || status === 'processing';
+    els.retryBtn.disabled = isRunning || status === 'completed';
+    els.cancelBtn.disabled = isTerminal;
+  }
+
+  // -- Tabs --
+  function initTabs() {
+    els.tabs.addEventListener('click', function(e) {
+      const btn = e.target.closest('.sv-tab');
+      if (!btn) return;
+      const tabName = btn.getAttribute('data-tab');
+      els.tabs.querySelectorAll('.sv-tab').forEach(function(t) { t.classList.remove('active'); });
+      btn.classList.add('active');
+      document.querySelectorAll('.sv-tab-content').forEach(function(c) { c.classList.remove('active'); });
+      var target = document.getElementById('svTab' + tabName.charAt(0).toUpperCase() + tabName.slice(1));
+      if (target) target.classList.add('active');
+    });
+  }
+
+  // -- Data rendering --
+  function clearEl(el) { while (el.firstChild) el.removeChild(el.firstChild); }
+
+  function makeTable(headers, rows) {
+    const table = document.createElement('table');
+    table.className = 'sv-tbl';
+    const thead = document.createElement('thead');
+    const tr = document.createElement('tr');
+    headers.forEach(function(h) {
+      const th = document.createElement('th');
+      th.textContent = h;
+      tr.appendChild(th);
+    });
+    thead.appendChild(tr);
+    table.appendChild(thead);
+    const tbody = document.createElement('tbody');
+    rows.forEach(function(row) {
+      const tr = document.createElement('tr');
+      row.forEach(function(cell) {
+        const td = document.createElement('td');
+        td.textContent = cell;
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    return table;
+  }
+
+  function makeSectionHeader(text) {
+    const div = document.createElement('div');
+    div.className = 'sv-data-hdr';
+    div.textContent = text;
+    return div;
+  }
+
+  function renderFacts(data) {
+    clearEl(els.tabFacts);
+    const f = data.facts_summary || {};
+    const parties = f.parties || [];
+    const events = f.events || [];
+    const rels = f.relationships || [];
+
+    if (!parties.length && !events.length && !rels.length) {
+      const empty = document.createElement('div');
+      empty.className = 'sv-empty';
+      empty.textContent = '{% trans "此阶段尚未完成" %}';
+      els.tabFacts.appendChild(empty);
+      return;
+    }
+
+    if (parties.length) {
+      els.tabFacts.appendChild(makeSectionHeader('当事人 (' + parties.length + ')'));
+      els.tabFacts.appendChild(makeTable(['姓名', '角色'], parties.map(function(p) { return [p.name, p.role]; })));
+    }
+    if (events.length) {
+      els.tabFacts.appendChild(makeSectionHeader('事件节点 (' + events.length + ')'));
+      els.tabFacts.appendChild(makeTable(['序号', '时间', '摘要'], events.map(function(e) {
+        return [String(e.sequence), e.time_label, e.summary];
+      })));
+    }
+    if (rels.length) {
+      els.tabFacts.appendChild(makeSectionHeader('关系连线 (' + rels.length + ')'));
+      els.tabFacts.appendChild(makeTable(['来源', '目标', '关系'], rels.map(function(r) {
+        return [r.source, r.target, r.relation_type];
+      })));
     }
   }
 
-  function stageLabel(s) {
-    const map = {
-      queued:'已入队', extracting_facts:'提取事实', directing_script:'编排脚本',
-      rendering_layout:'渲染布局', generating_fragments:'生成视觉片段',
-      composing_html:'组装HTML', completed:'已完成', failed:'失败', cancelled:'已取消'
-    };
-    return map[s] || s;
-  }
+  function renderScript(data) {
+    clearEl(els.tabScript);
+    const s = data.script_summary || {};
+    const hl = s.highlights || [];
+    const an = s.annotations || [];
+    const tnc = s.timeline_nodes_count || 0;
+    const rnc = s.relationship_nodes_count || 0;
+    const ec = s.edges_count || 0;
 
-  function buildDataSummary(d) {
-    const parts = [];
-    if (d.stage === 'completed' || d.stage === 'failed') {
-      if (d.facts_count) parts.push(`事件节点: ${d.facts_count} 个`);
-      if (d.parties_count) parts.push(`人物节点: ${d.parties_count} 个`);
-      if (d.relationships_count) parts.push(`关系连线: ${d.relationships_count} 条`);
+    if (!hl.length && !an.length && !tnc && !rnc && !ec) {
+      const empty = document.createElement('div');
+      empty.className = 'sv-empty';
+      empty.textContent = '{% trans "此阶段尚未完成" %}';
+      els.tabScript.appendChild(empty);
+      return;
     }
-    return parts.length ? parts.join(' · ') : '暂无可用数据';
+
+    if (tnc || rnc || ec) {
+      els.tabScript.appendChild(makeSectionHeader('结构概览'));
+      const parts = [];
+      if (tnc) parts.push('时间线节点: ' + tnc + ' 个');
+      if (rnc) parts.push('关系节点: ' + rnc + ' 个');
+      if (ec) parts.push('关系连线: ' + ec + ' 条');
+      const p = document.createElement('div');
+      p.style.cssText = 'font-size:13px;color:#334155;margin-bottom:8px';
+      p.textContent = parts.join(' · ');
+      els.tabScript.appendChild(p);
+    }
+
+    if (hl.length) {
+      els.tabScript.appendChild(makeSectionHeader('高亮 (' + hl.length + ')'));
+      const ul = document.createElement('ul');
+      ul.style.cssText = 'margin:0 0 8px 16px;font-size:13px;color:#334155';
+      hl.forEach(function(h) {
+        const li = document.createElement('li');
+        li.textContent = h;
+        ul.appendChild(li);
+      });
+      els.tabScript.appendChild(ul);
+    }
+
+    if (an.length) {
+      els.tabScript.appendChild(makeSectionHeader('注释 (' + an.length + ')'));
+      an.forEach(function(a) {
+        const div = document.createElement('div');
+        div.style.cssText = 'font-size:13px;color:#64748b;padding:4px 0 4px 12px;border-left:3px solid #e2e8f0;margin-bottom:4px';
+        div.textContent = a;
+        els.tabScript.appendChild(div);
+      });
+    }
   }
 
-  function formatDuration(seconds) {
-    if (!seconds || seconds < 0) return '-';
-    if (seconds < 60) return Math.round(seconds) + ' 秒';
-    const m = Math.floor(seconds / 60), s = Math.round(seconds % 60);
-    return `${m} 分 ${s} 秒`;
+  function renderRender(data) {
+    clearEl(els.tabRender);
+    const r = data.render_summary || {};
+    const nc = r.node_count || 0;
+    const ec = r.edge_count || 0;
+
+    if (!nc && !ec) {
+      const empty = document.createElement('div');
+      empty.className = 'sv-empty';
+      empty.textContent = '{% trans "此阶段尚未完成" %}';
+      els.tabRender.appendChild(empty);
+      return;
+    }
+
+    els.tabRender.appendChild(makeSectionHeader('渲染概览'));
+    const p = document.createElement('div');
+    p.style.cssText = 'font-size:13px;color:#334155';
+    p.textContent = '节点: ' + nc + ' 个 · 连线: ' + ec + ' 条';
+    els.tabRender.appendChild(p);
   }
 
+  // -- Preview --
+  function showPreview(html) {
+    if (!html || html.length < 10) return;
+    els.previewFrame.srcdoc = html;
+    els.previewPanel.style.display = '';
+    const blob = new Blob([html], {type: 'text/html'});
+    els.previewLink.href = URL.createObjectURL(blob);
+    previewLoaded = true;
+  }
+
+  async function loadPreview() {
+    if (previewLoaded) return;
+    try {
+      const resp = await fetch(previewApi, {credentials: 'same-origin'});
+      if (!resp.ok) return;
+      const html = await resp.text();
+      showPreview(html);
+    } catch(e) { /* ignore */ }
+  }
+
+  // -- Main render --
   function render(data) {
     const status = data.status || 'pending';
-    els.pill.textContent = status;
-    els.pill.className = 'sv-pill sv-status-' + status;
-    els.stage.textContent = stageLabel(data.stage || '');
-    const pct = Number(data.progress || 0);
-    els.progress.textContent = pct + '%';
-    els.bar.style.width = pct + '%';
-    els.error.textContent = data.error_message || '';
+    currentStatus = status;
+
+    // Pill
+    els.pill.textContent = data.status_display || status;
+    els.pill.className = 'sv-pill sv-st-' + status;
+
+    // Stage
+    els.stage.textContent = data.stage_display || '-';
+
+    // Task ID
     els.taskId.textContent = data.task_id || '-';
 
-    if (data.created_at) createdAt = new Date(data.created_at);
-    if (data.started_at) startedAt = new Date(data.started_at);
-    if (data.finished_at) finishedAt = new Date(data.finished_at);
+    // Progress
+    const pct = Number(data.progress || 0);
+    els.bar.style.width = pct + '%';
+    els.progress.textContent = pct + '%';
 
-    let dur = 0;
-    if (startedAt) {
-      const end = finishedAt || new Date();
-      dur = ((end - startedAt) / 1000);
-    } else if (createdAt) {
-      dur = ((new Date() - createdAt) / 1000);
-    }
-    els.duration.textContent = formatDuration(dur);
+    // Error
+    els.error.textContent = data.error_message || '';
 
+    // Pipeline
+    renderPipeline(data.stages || []);
+
+    // Duration
+    startDurationTicker(data);
+
+    // Buttons
     updateButtons(status);
-    els.dataSummary.textContent = buildDataSummary(data);
 
-    if (status === 'completed' && previewApi) {
-      els.frame.src = previewApi + '?t=' + Date.now();
+    // Data tabs
+    renderFacts(data);
+    renderScript(data);
+    renderRender(data);
+
+    // Preview — fetch separately to avoid large payloads in polling
+    if (status === 'completed' && data.has_html) {
+      loadPreview();
+    } else if (status !== 'completed') {
+      els.previewPanel.style.display = 'none';
+      previewLoaded = false;
     }
 
-    if (timer) { clearTimeout(timer); timer = null; }
+    // Q&A panel + suggested questions
+    showQaPanel(status === 'completed');
+    if (status === 'completed') renderSuggestedQuestions(data.suggested_questions || []);
+
+    // Polling with exponential backoff
+    if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
     if (status === 'pending' || status === 'processing') {
-      timer = setTimeout(loadStatus, 2500);
+      if (status !== currentStatus) pollInterval = 3000;
+      pollTimer = setTimeout(loadStatus, pollInterval);
+      pollInterval = Math.min(pollInterval * POLL_BACKOFF, MAX_POLL_INTERVAL);
     }
   }
 
+  // -- Polling --
   async function loadStatus() {
-    const resp = await fetch(statusApi, { credentials: 'same-origin' });
-    const data = await resp.json();
-    if (!resp.ok) throw new Error(data?.detail || '状态加载失败');
-    render(data);
+    try {
+      const resp = await fetch(detailApi, {credentials: 'same-origin'});
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const data = await resp.json();
+      pollErrors = 0;
+      render(data);
+      return;
+    } catch(e) {
+      pollErrors++;
+      els.error.textContent = '状态加载失败: ' + e.message;
+    }
+    if (pollErrors >= MAX_POLL_ERRORS) {
+      els.error.textContent = '多次加载失败，请点击"刷新状态"重试';
+      return;
+    }
+    if (currentStatus === 'pending' || currentStatus === 'processing') {
+      pollTimer = setTimeout(loadStatus, POLL_INTERVAL);
+    }
   }
 
-  els.refreshBtn.addEventListener('click', () => {
-    loadStatus().catch(e => { els.error.textContent = e.message; });
+  // -- Q&A --
+  let qaSending = false;
+  let qaModelsLoaded = false;
+
+  async function loadModels() {
+    if (qaModelsLoaded) return;
+    try {
+      const resp = await fetch(modelsApi, {credentials: 'same-origin'});
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const models = data.models || [];
+      models.forEach(function(m) {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = m.name || m.id;
+        els.qaModel.appendChild(opt);
+      });
+      qaModelsLoaded = true;
+    } catch(e) { /* ignore */ }
+  }
+
+  function showQaPanel(show) {
+    els.qaPanel.style.display = show ? '' : 'none';
+    if (show) loadModels();
+  }
+
+  function appendQaMessage(role, text, extraClass) {
+    const empty = els.qaLog.querySelector('.sv-qa-empty');
+    if (empty) empty.remove();
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'sv-qa-msg sv-qa-msg-' + role;
+    const bubble = document.createElement('div');
+    bubble.className = 'sv-qa-bubble' + (extraClass ? ' ' + extraClass : '');
+    bubble.textContent = text;
+    wrapper.appendChild(bubble);
+    els.qaLog.appendChild(wrapper);
+    els.qaLog.scrollTop = els.qaLog.scrollHeight;
+    return bubble;
+  }
+
+  async function sendQuestion() {
+    const question = els.qaInput.value.trim();
+    if (!question || qaSending) return;
+
+    qaSending = true;
+    els.qaSend.disabled = true;
+    els.qaInput.value = '';
+    autoResizeInput();
+
+    appendQaMessage('q', question);
+    const thinkingBubble = appendQaMessage('a', '{% trans "正在思考中..." %}', 'sv-qa-thinking');
+
+    try {
+      const body = {question: question};
+      const model = els.qaModel.value;
+      if (model) body.model = model;
+
+      const resp = await fetch(askApi, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {'X-CSRFToken': getCookie('csrftoken'), 'Content-Type': 'application/json'},
+        body: JSON.stringify(body)
+      });
+      const data = await resp.json();
+
+      if (!resp.ok) {
+        thinkingBubble.textContent = data?.detail || data?.message || '{% trans "请求失败" %}';
+        thinkingBubble.className = 'sv-qa-bubble sv-qa-error';
+      } else {
+        thinkingBubble.textContent = data.answer || '{% trans "无回答" %}';
+        thinkingBubble.className = 'sv-qa-bubble';
+      }
+    } catch(e) {
+      thinkingBubble.textContent = e.message;
+      thinkingBubble.className = 'sv-qa-bubble sv-qa-error';
+    } finally {
+      qaSending = false;
+      els.qaSend.disabled = false;
+      els.qaInput.focus();
+    }
+  }
+
+  function autoResizeInput() {
+    const el = els.qaInput;
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+  }
+
+  function renderSuggestedQuestions(questions) {
+    if (!questions || !questions.length) {
+      els.suggestedQuestions.style.display = 'none';
+      return;
+    }
+    els.suggestedQuestions.innerHTML = '';
+    questions.forEach(function(q) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'sv-suggest-btn';
+      btn.textContent = q;
+      btn.addEventListener('click', function() {
+        els.qaInput.value = q;
+        autoResizeInput();
+        els.qaInput.focus();
+      });
+      els.suggestedQuestions.appendChild(btn);
+    });
+    els.suggestedQuestions.style.display = '';
+  }
+
+  // -- Events --
+  els.refreshBtn.addEventListener('click', function() {
+    pollErrors = 0;
+    previewLoaded = false;
+    loadStatus().catch(function(e) { els.error.textContent = e.message; });
   });
-  els.retryBtn.addEventListener('click', () => {
-    post(retryApi).then(() => loadStatus()).catch(e => { els.error.textContent = e.message; });
+  els.retryBtn.addEventListener('click', function() {
+    post(retryApi).then(function() { previewLoaded = false; return loadStatus(); }).catch(function(e) { els.error.textContent = e.message; });
   });
-  els.cancelBtn.addEventListener('click', () => {
-    post(cancelApi).then(() => loadStatus()).catch(e => { els.error.textContent = e.message; });
+  els.cancelBtn.addEventListener('click', function() {
+    post(cancelApi).then(function() { return loadStatus(); }).catch(function(e) { els.error.textContent = e.message; });
+  });
+  els.fullscreenBtn.addEventListener('click', function() {
+    if (els.previewFrame.requestFullscreen) els.previewFrame.requestFullscreen();
+    else if (els.previewFrame.webkitRequestFullscreen) els.previewFrame.webkitRequestFullscreen();
   });
 
-  loadStatus().catch(e => { els.error.textContent = e.message; });
+  els.qaSend.addEventListener('click', sendQuestion);
+  els.qaInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendQuestion();
+    }
+  });
+  els.qaInput.addEventListener('input', autoResizeInput);
+
+  // -- Init --
+  initTabs();
+  loadStatus().catch(function(e) { els.error.textContent = e.message; });
 })();
 </script>
 {% endif %}

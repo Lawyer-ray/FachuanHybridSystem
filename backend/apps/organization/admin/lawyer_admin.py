@@ -44,6 +44,7 @@ class LawyerAdminForm(forms.ModelForm[Lawyer]):
             "password",
             "real_name",
             "phone",
+            "avatar",
             "license_no",
             "id_card",
             "license_pdf",
@@ -125,7 +126,7 @@ class LawyerAdmin(AdminImportExportMixin, admin.ModelAdmin[Lawyer]):
     actions: ClassVar = ["export_selected_as_json", "export_all_as_json"]  # type: ignore[misc]
     fieldsets: ClassVar = (
         (_("账号信息"), {"fields": ("username", "password", "new_password")}),
-        (_("个人信息"), {"fields": ("real_name", "phone", "license_no", "id_card", "license_pdf")}),
+        (_("个人信息"), {"fields": ("real_name", "phone", "avatar", "license_no", "id_card", "license_pdf")}),
         (_("组织关系"), {"fields": ("lawyer_team", "biz_team")}),
         (_("权限"), {"fields": ("is_active", "is_admin", "is_staff", "is_superuser")}),
     )

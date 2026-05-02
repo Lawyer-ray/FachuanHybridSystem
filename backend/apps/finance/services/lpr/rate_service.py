@@ -170,6 +170,34 @@ class LPRRateService:
             )
         return rate
 
+    def is_data_current(self) -> bool:
+        """检查最新 LPR 数据是否为当前期间.
+
+        LPR 通常每月 20 日前后发布：
+        - 同年同月 → 当前
+        - 今天 < 20 日且最新数据为上月 → 当前
+        - 其他情况 → 可能过期
+
+        Returns:
+            True 表示数据最新，False 表示可能需要同步
+        """
+        today = date.today()
+
+        try:
+            latest = self.get_latest_rate()
+        except ValidationException:
+            return False
+
+        ld = latest.effective_date
+        if ld.year == today.year and ld.month == today.month:
+            return True
+        if today.day < 20:
+            if ld.year == today.year and ld.month == today.month - 1:
+                return True
+            if today.month == 1 and ld.month == 12 and ld.year == today.year - 1:
+                return True
+        return False
+
     def get_rate_history(
         self, start_date: date | None = None, end_date: date | None = None, limit: int | None = None
     ) -> list[LPRRate]:

@@ -71,4 +71,4 @@ class Lawyer(AbstractUser):
         verbose_name_plural = _("律师")
 
     def __str__(self) -> str:
-        return self.username or self.real_name
+        return self.real_name or self.username

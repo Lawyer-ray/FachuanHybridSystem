@@ -1,11 +1,20 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Protocol
+
+logger = logging.getLogger(__name__)
 
 
 class _ConfigGetter(Protocol):
     def get_value(self, key: str, default: str = "") -> str: ...
+
+
+def _get_config_service() -> _ConfigGetter | None:
+    from apps.core.interfaces import ServiceLocator
+
+    return ServiceLocator.get_system_config_service()
 
 
 @dataclass(frozen=True)
@@ -67,9 +76,37 @@ class LegalResearchTuningConfig:
     adaptive_threshold_step: float = 0.025
     adaptive_threshold_scan_interval: int = 30
 
+    # ── 语义向量常开模式 ──
+    semantic_vector_always_on: bool = False
+
+    # ── 交叉编码器重排序 ──
+    reranker_enabled: bool = False
+    reranker_model: str = "BAAI/bge-reranker-v2-m3"
+    reranker_top_k: int = 10
+    reranker_score_weight: float = 0.4
+    reranker_api_base_url: str = "https://api.siliconflow.cn/v1"
+
     @classmethod
     def load(cls) -> LegalResearchTuningConfig:
-        return cls()
+        try:
+            config_service = _get_config_service()
+        except Exception:
+            return cls()
+        if config_service is None:
+            return cls()
+        return cls(
+            semantic_vector_always_on=cls._get_bool(
+                config_service, "LEGAL_RESEARCH_SEMANTIC_VECTOR_ALWAYS_ON", cls.semantic_vector_always_on
+            ),
+            reranker_enabled=cls._get_bool(config_service, "LEGAL_RESEARCH_RERANKER_ENABLED", cls.reranker_enabled),
+            reranker_model=cls._get_text(
+                config_service, "LEGAL_RESEARCH_RERANKER_MODEL", cls.reranker_model, max_len=128
+            ),
+            reranker_top_k=cls._get_int(config_service, "LEGAL_RESEARCH_RERANKER_TOP_K", cls.reranker_top_k, 1, 50),
+            reranker_score_weight=cls._get_float(
+                config_service, "LEGAL_RESEARCH_RERANKER_SCORE_WEIGHT", cls.reranker_score_weight, 0.0, 1.0
+            ),
+        )
 
     @property
     def normalized_recall_weights(self) -> tuple[float, float, float, float, float, float]:

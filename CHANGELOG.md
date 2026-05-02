@@ -2,6 +2,30 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.41.10] - 2026-05-03
+
+### 新功能
+
+- **案例检索系统优化**：
+  - 同义词组可配置：通过 SystemConfig `LEGAL_RESEARCH_SYNONYM_GROUPS` 动态追加同义词组（格式：换行分隔组，管道分隔词），与默认 9 组同义词合并
+  - BM25 增加 IDF 权重：按词长估算稀有度（4+ 字→1.0，3 字→0.7，2 字→0.4），长法律术语获得更高权重
+  - 语义向量常开模式：通过 SystemConfig `LEGAL_RESEARCH_SEMANTIC_VECTOR_ALWAYS_ON=true` 开启，始终计算语义向量分数而非仅在词法信号弱时触发
+  - SiliconFlow 交叉编码器重排序：集成 `BAAI/bge-reranker-v2-m3` 模型，LLM 评分后批量调 reranker 混合打分，边界案例优先用 reranker 重评（比逐条 LLM 调用更快）
+  - TuningConfig 增强：`load()` 方法从 SystemConfig 动态读取配置，不再只返回默认值
+- **LPR 计算器自动同步**：计算器页面使用 LPR 模式时，若数据过期自动触发同步；页面顶部显示当前 LPR 利率和生效日期，支持手动同步按钮
+- **LLM 模型列表合并 SystemConfig 配置**：`ModelListService` 在线获取模型列表时，自动合并 SystemConfig 中配置的额外模型（`LLM_EXTRA_MODELS` 及各后端默认模型），确保下拉框包含所有已配置模型
+
+### 修复
+
+- **律师头像上传**：admin 表单缺少 `avatar` 字段导致无法上传头像，已补充到表单字段和 fieldset，并添加 `post_delete` 信号清理物理文件
+- **律师 `__str__` 优先返回真实姓名**：从 `self.username or self.real_name` 改为 `self.real_name or self.username`
+- **LPR API 导入 bug**：`lpr_api.py` 中 `from apps.finance.services.lpr_sync_service` 改为正确的 `from apps.finance.services.lpr`
+
+### 重构
+
+- **SystemConfig 默认配置精简**：清理冗余配置项（移除 `SILICONFLOW_MODEL`、`LLM_DEFAULT_BACKEND`、`OLLAMA_BASE_URL` 等有硬编码默认值的项，移除未使用的爬虫/Token 配置），从 24 项精简至约 10 项
+- **移除 `SILICONFLOW_MODEL` 遗留配置**：从 `_service_configs.py`、`_env_mappings.py`、`config.py` 三处清理，模型已改为在线获取 + `SILICONFLOW_DEFAULT_MODEL` 配置
+
 ## [26.41.9] - 2026-05-02
 
 ### 重构

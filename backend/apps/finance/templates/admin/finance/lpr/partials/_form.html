@@ -163,6 +163,15 @@
         </div>
     </div>
 
+    <!-- 同步中指示器 -->
+    <div x-show="syncing" style="display: none; padding: 10px 16px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; font-size: 13px; color: #1d4ed8; margin-top: 8px;">
+        <span style="display: inline-block; width: 14px; height: 14px; border: 2px solid #93c5fd; border-top-color: #2563eb; border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle; margin-right: 8px;"></span>
+        {% trans "正在检查并同步LPR数据..." %}
+    </div>
+
+    <!-- 同步结果消息 -->
+    <div x-show="syncMessage" x-text="syncMessage" style="display: none; padding: 8px 16px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; font-size: 12px; color: #166534; margin-top: 8px;"></div>
+
     <!-- 操作按钮 -->
     <div class="lpr-calc__actions">
         <button type="button" class="lpr-calc__btn lpr-calc__btn--primary" @click="calculate">

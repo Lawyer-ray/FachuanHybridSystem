@@ -305,6 +305,7 @@ class LegalResearchExecutor(
                             task=task,
                             task_id=str(task.id),
                             concurrency=llm_scoring_concurrency,
+                            tuning=tuning,
                         )
                         for detail, sim, coarse_score, coarse_reason in scored_results:
                             if matched >= task.target_count:
@@ -482,6 +483,7 @@ class LegalResearchExecutor(
                                 feedback_score_margin=feedback_score_margin,
                                 min_similarity_threshold=effective_min_similarity_threshold,
                                 dual_review_policy=dual_review_policy,
+                                tuning=tuning,
                             )
                             query_metric["matched"] += max(0, matched - previous_matched)
                             if (not single_search_mode) and feedback_updated:

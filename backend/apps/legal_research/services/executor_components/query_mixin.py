@@ -24,6 +24,10 @@ class ExecutorQueryMixin:
         ("继续履行", "实际履行"),
         ("解除合同", "合同解除"),
     )
+    SYNONYM_GROUPS_CONFIG_KEY = "LEGAL_RESEARCH_SYNONYM_GROUPS"
+    _synonym_groups_cache: tuple[tuple[str, ...], ...] | None = None
+    _synonym_groups_cache_ts: float = 0.0
+    _SYNONYM_CACHE_TTL: float = 300.0
     ELEMENT_EXTRACTION_MAX_TOKENS = 300
     ELEMENT_EXTRACTION_TIMEOUT_SECONDS = 20
     QUERY_EXPANSION_TRIGGER_CANDIDATES = 80
@@ -418,14 +422,49 @@ class ExecutorQueryMixin:
         return out
 
     @classmethod
+    def _load_synonym_groups(cls) -> tuple[tuple[str, ...], ...]:
+        import time as _time
+
+        now = _time.monotonic()
+        if cls._synonym_groups_cache is not None and now - cls._synonym_groups_cache_ts < cls._SYNONYM_CACHE_TTL:
+            return cls._synonym_groups_cache
+
+        defaults = cls.LEGAL_SYNONYM_GROUPS
+        try:
+            config_service = ServiceLocator.get_system_config_service()
+            raw = str(config_service.get_value(cls.SYNONYM_GROUPS_CONFIG_KEY, "") or "").strip()
+        except Exception:
+            raw = ""
+
+        if not raw:
+            cls._synonym_groups_cache = defaults
+            cls._synonym_groups_cache_ts = now
+            return defaults
+
+        extra_groups: list[tuple[str, ...]] = []
+        for line in raw.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            terms = tuple(t.strip() for t in line.split("|") if t.strip())
+            if len(terms) >= 2:
+                extra_groups.append(terms)
+
+        merged = (*defaults, *extra_groups)
+        cls._synonym_groups_cache = merged
+        cls._synonym_groups_cache_ts = now
+        return merged
+
+    @classmethod
     def _match_synonym_group(cls, token: str) -> tuple[str, ...] | None:
         value = (token or "").strip()
         if not value:
             return None
-        for group in cls.LEGAL_SYNONYM_GROUPS:
+        groups = cls._load_synonym_groups()
+        for group in groups:
             if any(value == item for item in group):
                 return group
-        for group in cls.LEGAL_SYNONYM_GROUPS:
+        for group in groups:
             if any(len(item) >= 2 and (item in value or value in item) for item in group):
                 return group
         return None

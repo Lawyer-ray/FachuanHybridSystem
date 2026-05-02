@@ -238,16 +238,11 @@ class LLMConfig:
             默认模型名称,默认为 Qwen/Qwen2.5-7B-Instruct
         """
         raw = cls._get_system_config("SILICONFLOW_DEFAULT_MODEL", "")
-        if not raw:
-            # 兼容历史配置键
-            raw = cls._get_system_config("SILICONFLOW_MODEL", cls.DEFAULT_MODEL)
         return (raw or "").strip() or cls.DEFAULT_MODEL
 
     @classmethod
     async def get_default_model_async(cls) -> str:
         raw = await cls._get_system_config_async("SILICONFLOW_DEFAULT_MODEL", "")
-        if not raw:
-            raw = await cls._get_system_config_async("SILICONFLOW_MODEL", cls.DEFAULT_MODEL)
         return (raw or "").strip() or cls.DEFAULT_MODEL
 
     @classmethod
@@ -668,11 +663,13 @@ class LLMConfig:
         for model_id in cls.DEFAULT_AVAILABLE_MODELS:
             if model_id not in seen:
                 seen.add(model_id)
-                models.append({
-                    "id": model_id,
-                    "name": model_id.split("/")[-1].split(":")[-1],
-                    "backend": cls.resolve_backend_for_model(model_id),
-                })
+                models.append(
+                    {
+                        "id": model_id,
+                        "name": model_id.split("/")[-1].split(":")[-1],
+                        "backend": cls.resolve_backend_for_model(model_id),
+                    }
+                )
 
         # 从 SystemConfig 额外模型收集
         extra_raw = cls._get_system_config("LLM_EXTRA_MODELS", "")
@@ -681,11 +678,13 @@ class LLMConfig:
                 model_id = part.strip()
                 if model_id and model_id not in seen:
                     seen.add(model_id)
-                    models.append({
-                        "id": model_id,
-                        "name": model_id.split("/")[-1].split(":")[-1],
-                        "backend": cls.resolve_backend_for_model(model_id),
-                    })
+                    models.append(
+                        {
+                            "id": model_id,
+                            "name": model_id.split("/")[-1].split(":")[-1],
+                            "backend": cls.resolve_backend_for_model(model_id),
+                        }
+                    )
 
         # 各后端的默认模型也加入列表（确保当前配置的默认模型可选）
         for backend_name, default_model in [
@@ -695,11 +694,13 @@ class LLMConfig:
         ]:
             if default_model and default_model not in seen:
                 seen.add(default_model)
-                models.append({
-                    "id": default_model,
-                    "name": default_model.split("/")[-1].split(":")[-1],
-                    "backend": backend_name,
-                })
+                models.append(
+                    {
+                        "id": default_model,
+                        "name": default_model.split("/")[-1].split(":")[-1],
+                        "backend": backend_name,
+                    }
+                )
 
         return models
 
