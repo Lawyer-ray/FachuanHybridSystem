@@ -35,7 +35,7 @@ class FinalizedMaterial(models.Model):
         related_name="finalized_materials",
         verbose_name=_("合同"),
     )
-    file_path: models.CharField = models.CharField(max_length=500, verbose_name=_("文件路径"))
+    file_path: models.CharField = models.CharField(max_length=500, verbose_name=_("文件路径"), db_index=True)
     original_filename: models.CharField = models.CharField(max_length=255, verbose_name=_("原始文件名"))
     category: models.CharField = models.CharField(
         max_length=32,

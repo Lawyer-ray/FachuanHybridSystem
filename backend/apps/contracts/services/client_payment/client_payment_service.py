@@ -26,8 +26,10 @@ class ClientPaymentRecordService:
     - 案件归属验证
     """
 
-    def __init__(self) -> None:
-        """构造函数"""
+    def __init__(self, image_service: ClientPaymentImageService | None = None) -> None:
+        from .client_payment_image_service import ClientPaymentImageService
+
+        self._image_service = image_service or ClientPaymentImageService()
 
     @transaction.atomic
     def create_payment_record(
@@ -162,10 +164,7 @@ class ClientPaymentRecordService:
 
         # 删除关联图片
         if record.image_path:
-            from .client_payment_image_service import ClientPaymentImageService
-
-            image_service = ClientPaymentImageService()
-            image_service.delete_image(record.image_path)
+            self._image_service.delete_image(record.image_path)
 
         record.delete()
 

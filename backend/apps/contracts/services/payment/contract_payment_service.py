@@ -149,43 +149,39 @@ class ContractPaymentService(DjangoPermsMixin):
         contract = self._get_contract(contract_id)
 
         # 金额校验
-        amount_float = float(amount)
-        if amount_float <= 0:
+        if amount <= 0:
             raise ValidationException(_("收款金额需大于0"))
 
         # 合规性校验:累计收款不超过合同固定金额
         total_received = self._get_total_received(contract_id)
-        if (
-            contract.fixed_amount is not None
-            and amount_float + float(total_received) - float(contract.fixed_amount) > 1e-6
-        ):
+        if contract.fixed_amount is not None and amount + total_received > contract.fixed_amount:
             self._log_finance(
                 contract.id,
                 self._get_user_id(user),
                 "create_payment_over_fixed",
                 "WARN",
                 {
-                    "amount": amount_float,
-                    "total_received": float(total_received),
-                    "fixed_amount": float(contract.fixed_amount),
+                    "amount": str(amount),
+                    "total_received": str(total_received),
+                    "fixed_amount": str(contract.fixed_amount),
                 },
             )
             raise ValidationException(_("累计收款超过合同固定金额"))
 
         # 发票校验和状态计算
-        invoiced_amount_float = float(invoiced_amount or 0)
-        if invoiced_amount_float < 0 or invoiced_amount_float - amount_float > 1e-6:
+        invoiced_amount_dec = Decimal(str(invoiced_amount or 0))
+        if invoiced_amount_dec < 0 or invoiced_amount_dec > amount:
             raise ValidationException(_("开票金额不能大于收款金额"))
 
-        inv_status = self._calculate_invoice_status(invoiced_amount_float, amount_float, invoice_status)
+        inv_status = self._calculate_invoice_status(invoiced_amount_dec, amount, invoice_status)
 
         # 创建收款记录
         obj = ContractPayment.objects.create(
             contract=contract,
-            amount=amount_float,
+            amount=amount,
             received_at=received_at or timezone.localdate(),
             invoice_status=inv_status,
-            invoiced_amount=invoiced_amount_float,
+            invoiced_amount=invoiced_amount_dec,
             note=note,
         )
 
@@ -195,7 +191,7 @@ class ContractPaymentService(DjangoPermsMixin):
             self._get_user_id(user),
             "create_payment",
             "INFO",
-            {"payment_id": obj.id, "amount": amount_float},
+            {"payment_id": obj.id, "amount": str(amount)},
         )
 
         return obj
@@ -238,36 +234,36 @@ class ContractPaymentService(DjangoPermsMixin):
 
         # 记录旧值
         old = {
-            "amount": float(obj.amount),
+            "amount": str(obj.amount),
             "received_at": str(obj.received_at),
             "invoice_status": obj.invoice_status,
-            "invoiced_amount": float(obj.invoiced_amount),
+            "invoiced_amount": str(obj.invoiced_amount),
             "note": obj.note,
         }
 
         # 更新金额
         if "amount" in data:
-            amount = float(data["amount"])
-            if amount <= 0:
+            new_amount = Decimal(str(data["amount"]))
+            if new_amount <= 0:
                 raise ValidationException(_("收款金额需大于0"))
 
             # 合规校验:替换后累计不超过固定金额
             total_except = self._get_total_received(obj.contract_id, exclude_id=obj.id)
             contract = obj.contract
-            if contract.fixed_amount is not None and amount + float(total_except) - float(contract.fixed_amount) > 1e-6:
+            if contract.fixed_amount is not None and new_amount + total_except > contract.fixed_amount:
                 self._log_finance(
                     contract.id,
                     self._get_user_id(user),
                     "update_payment_over_fixed",
                     "WARN",
                     {
-                        "amount": amount,
-                        "total_except": float(total_except),
-                        "fixed_amount": float(contract.fixed_amount),
+                        "amount": str(new_amount),
+                        "total_except": str(total_except),
+                        "fixed_amount": str(contract.fixed_amount),
                     },
                 )
                 raise ValidationException(_("累计收款超过合同固定金额"))
-            obj.amount = Decimal(str(amount))
+            obj.amount = new_amount
 
         # 更新收款日期
         if data.get("received_at"):
@@ -275,16 +271,16 @@ class ContractPaymentService(DjangoPermsMixin):
 
         # 更新发票信息
         if "invoiced_amount" in data or "invoice_status" in data:
-            invoiced_amount = float(data.get("invoiced_amount", obj.invoiced_amount))
-            if invoiced_amount < 0 or invoiced_amount - float(obj.amount) > 1e-6:
+            new_invoiced = Decimal(str(data.get("invoiced_amount", obj.invoiced_amount)))
+            if new_invoiced < 0 or new_invoiced > obj.amount:
                 raise ValidationException(_("开票金额不能大于收款金额"))
 
             inv_status = self._calculate_invoice_status(
-                invoiced_amount,
-                float(obj.amount),
+                new_invoiced,
+                obj.amount,
                 data.get("invoice_status", obj.invoice_status),
             )
-            obj.invoiced_amount = Decimal(str(invoiced_amount))
+            obj.invoiced_amount = new_invoiced
             obj.invoice_status = inv_status
 
         # 更新备注
@@ -392,21 +388,10 @@ class ContractPaymentService(DjangoPermsMixin):
 
     def _calculate_invoice_status(
         self,
-        invoiced_amount: float,
-        amount: float,
+        invoiced_amount: Decimal,
+        amount: Decimal,
         current_status: str | None = None,
     ) -> str:
-        """
-        计算发票状态
-
-        Args:
-            invoiced_amount: 已开票金额
-            amount: 收款金额
-            current_status: 当前状态
-
-        Returns:
-            计算后的发票状态
-        """
         if invoiced_amount == 0:
             return InvoiceStatus.UNINVOICED
         elif 0 < invoiced_amount < amount:

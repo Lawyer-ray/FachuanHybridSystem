@@ -89,8 +89,9 @@ class ContractCloneWorkflow:
             ]
         )
 
-    @staticmethod
-    def plus_one_year_due_at(due_at: Any) -> Any:
-        if not due_at:
-            return None
-        return due_at + relativedelta(years=1)
+
+
+def plus_one_year_due_at(due_at: Any) -> Any:
+    if not due_at:
+        return None
+    return due_at + relativedelta(years=1)

@@ -6,6 +6,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.db import models
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from simple_history.models import HistoricalRecords
 
@@ -54,6 +55,11 @@ class ClientPaymentRecord(models.Model):
     created_at = models.DateTimeField(
         auto_now_add=True,
         verbose_name=_("创建时间"),
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name=_("更新时间"),
+        db_default=timezone.now,
     )
 
     history = HistoricalRecords()

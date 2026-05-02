@@ -7,7 +7,7 @@ import os
 import re
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
@@ -18,8 +18,10 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.contracts.models import Contract, ContractOASyncSession, ContractOASyncStatus, ContractParty
 from apps.core.dependencies.core import build_task_submission_service
-from apps.oa_filing.services.oa_scripts.jtn_case_import import JtnCaseImportScript, OAListCaseCandidate
-from apps.organization.models import AccountCredential
+
+if TYPE_CHECKING:
+    from apps.oa_filing.services.oa_scripts.jtn_case_import import JtnCaseImportScript, OAListCaseCandidate
+    from apps.organization.models import AccountCredential
 
 logger = logging.getLogger(__name__)
 
@@ -205,6 +207,8 @@ class ContractOASyncService:
                     result_payload={"items": [], "summary": {}, "remaining_contracts": []},
                 )
                 return
+
+            from apps.oa_filing.services.oa_scripts.jtn_case_import import JtnCaseImportScript
 
             script = JtnCaseImportScript(
                 account=credential.account,
@@ -672,6 +676,8 @@ class ContractOASyncService:
             )
 
     def _resolve_oa_credential(self, *, lawyer_id: int | None) -> AccountCredential:
+        from apps.organization.models import AccountCredential
+
         if lawyer_id is None:
             raise RuntimeError(str(_("当前用户无效，无法获取OA凭证")))
 
