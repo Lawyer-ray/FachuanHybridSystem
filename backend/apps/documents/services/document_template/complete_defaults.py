@@ -16,4 +16,5 @@ def get_complete_default_data() -> dict[str, Any]:
     Returns:
         包含文件模板、文件夹模板和绑定关系的字典
     """
-    return json.loads(_DATA_FILE.read_text(encoding="utf-8"))
+    data: dict[str, Any] = json.loads(_DATA_FILE.read_text(encoding="utf-8"))
+    return data
