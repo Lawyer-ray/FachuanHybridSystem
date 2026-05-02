@@ -174,8 +174,10 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
             obj.save()
         formset.save_m2m()
         for obj in formset.deleted_objects:
-            with contextlib.suppress(Exception):
+            try:
                 obj.delete()
+            except Exception:
+                logger.warning("删除关联对象失败: %s pk=%s", type(obj).__name__, getattr(obj, "pk", None), exc_info=True)
 
 
 __all__: list[str] = ["CaseAdminSaveMixin"]

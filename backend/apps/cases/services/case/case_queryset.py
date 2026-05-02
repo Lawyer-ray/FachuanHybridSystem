@@ -14,6 +14,7 @@ def get_case_queryset() -> QuerySet[Case, Case]:
         "parties__client",
         "assignments__lawyer",
         "assignments__lawyer__law_firm",
+        "logs__actor",
         "logs__attachments",
         "case_numbers",
         "supervising_authorities",

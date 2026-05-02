@@ -123,14 +123,11 @@ class CaseLogOut(ModelSchema, SchemaMixin):
 
     @staticmethod
     def resolve_reminders(obj: CaseLog) -> list[ReminderPayload]:
-        from apps.core.interfaces import ServiceLocator
-
-        reminder_service = ServiceLocator.get_reminder_service()
-        return reminder_service.export_case_log_reminders_internal(case_log_id=obj.id)
+        return obj.reminder_entries
 
     @staticmethod
     def _resolve_primary_reminder(obj: CaseLog) -> ReminderPayload | None:
-        reminders = obj.reminder_entries if hasattr(obj, "reminder_entries") else []
+        reminders = obj.reminder_entries
         if not reminders:
             return None
         for reminder in reversed(reminders):

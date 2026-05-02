@@ -58,7 +58,7 @@ def update_case_number(request: HttpRequest, number_id: int, payload: CaseNumber
     """更新案号"""
     service = _get_case_number_service()
     ctx = extract_request_context(request)
-    data = payload.dict(exclude_unset=True)
+    data = payload.model_dump(exclude_unset=True)
     return cast(CaseNumberOut, service.update_number(number_id=number_id, data=data, user=ctx.user))
 
 
@@ -89,8 +89,9 @@ def upload_temp_document(request: HttpRequest) -> dict[str, Any]:
         temp_dir = Path(settings.MEDIA_ROOT) / "case_documents" / "temp"
         temp_dir.mkdir(parents=True, exist_ok=True)
 
-        # 生成唯一文件名
-        temp_filename = f"{uuid.uuid4().hex}_{file.name}"
+        # 防止 path traversal：只保留文件名部分，去掉路径分隔符
+        safe_name = Path(str(file.name or "")).name
+        temp_filename = f"{uuid.uuid4().hex}_{safe_name}"
         temp_path = temp_dir / temp_filename
 
         # 保存文件

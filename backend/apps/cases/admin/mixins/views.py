@@ -24,7 +24,7 @@ logger = logging.getLogger("apps.cases")
 
 
 def _log_inline_formset(inline_formset: object, logger: logging.Logger) -> None:
-    """记录 inline formset 的错误信息"""
+    """记录 inline formset 的错误信息（仅记录有错误的表单）"""
     formset = getattr(inline_formset, "formset", None)
     if formset is None:
         return
@@ -36,37 +36,13 @@ def _log_inline_formset(inline_formset: object, logger: logging.Logger) -> None:
                 i,
                 f.errors,
             )
-    logger.info(
-        "[CaseAdmin.changeform_view] Inline %s errors: %s, non_form_errors: %s",
-        formset.prefix,
-        formset.errors,
-        formset.non_form_errors(),
-    )
-    logger.info(
-        "[CaseAdmin.changeform_view] Inline %s is_valid: %s",
-        formset.prefix,
-        formset.is_valid(),
-    )
-    for nested in getattr(inline_formset, "inline_admin_formsets", []):
-        nested_formset = nested.formset
-        logger.info(
-            "[CaseAdmin.changeform_view] Nested %s errors: %s",
-            nested_formset.prefix,
-            nested_formset.errors,
+    non_form = formset.non_form_errors()
+    if non_form:
+        logger.warning(
+            "[CaseAdmin.changeform_view] Inline %s non_form_errors: %s",
+            formset.prefix,
+            non_form,
         )
-        logger.info(
-            "[CaseAdmin.changeform_view] Nested %s is_valid: %s",
-            nested_formset.prefix,
-            nested_formset.is_valid(),
-        )
-        for i, nf in enumerate(nested_formset.forms):
-            if nf.errors:
-                logger.warning(
-                    "[CaseAdmin.changeform_view] Nested %s form[%s] errors: %s",
-                    nested_formset.prefix,
-                    i,
-                    nf.errors,
-                )
 
 
 class CaseAdminViewsMixin:
@@ -616,15 +592,23 @@ class CaseAdminViewsMixin:
 
             from pathlib import Path
 
-            file_path = temp_file_path
-            if not Path(file_path).exists():
+            from django.conf import settings
+
+            # 防止 path traversal：解析路径必须在 MEDIA_ROOT/case_documents/temp 下
+            media_root = Path(settings.MEDIA_ROOT).resolve()
+            allowed_dir = media_root / "case_documents" / "temp"
+            file_path = Path(temp_file_path).resolve()
+            if not str(file_path).startswith(str(allowed_dir) + "/") and file_path != allowed_dir:
+                return JsonResponse({"success": False, "error": "非法文件路径"}, status=400)
+
+            if not file_path.exists():
                 return JsonResponse({"success": False, "error": "临时文件不存在，请重新上传"}, status=400)
 
             # 调用解析服务
             from apps.documents.services.extractors.judgment_pdf_extractor import JudgmentPdfExtractor
 
             extractor = JudgmentPdfExtractor()
-            extraction_result = extractor.extract(file_path)
+            extraction_result = extractor.extract(str(file_path))
 
             logger.info("成功解析临时文件: %s", file_path)
 
@@ -670,8 +654,9 @@ class CaseAdminViewsMixin:
             temp_dir = Path(settings.MEDIA_ROOT) / "case_documents" / "temp"
             temp_dir.mkdir(parents=True, exist_ok=True)
 
-            # 生成唯一文件名
-            temp_filename = f"{uuid.uuid4().hex}_{file.name}"
+            # 防止 path traversal：只保留文件名部分
+            safe_name = Path(str(file.name or "")).name
+            temp_filename = f"{uuid.uuid4().hex}_{safe_name}"
             temp_path = temp_dir / temp_filename
 
             # 保存文件
@@ -719,11 +704,17 @@ class CaseAdminViewsMixin:
             if not folder_path:
                 return JsonResponse({"success": False, "error": str(_("文件夹路径为空"))}, status=400)
 
-            folder = Path(folder_path).expanduser()
+            folder = Path(folder_path).expanduser().resolve()
             if not folder.exists():
                 return JsonResponse(
                     {"success": False, "error": str(_("文件夹不存在: %(path)s") % {"path": folder_path})}, status=404
                 )
+
+            # 安全检查：只允许打开用户主目录或 /Volumes 下的目录（防止打开系统敏感目录）
+            home = Path.home().resolve()
+            folder_str = str(folder)
+            if not (folder_str.startswith(str(home) + "/") or folder_str.startswith("/Volumes/")):
+                return JsonResponse({"success": False, "error": str(_("不允许打开该目录"))}, status=403)
 
             system = platform.system()
             if system == "Darwin":

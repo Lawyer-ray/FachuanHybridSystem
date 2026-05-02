@@ -87,7 +87,7 @@ def get_grant(request: HttpRequest, grant_id: int) -> CaseAccessGrantOut:
 def update_grant(request: HttpRequest, grant_id: int, payload: CaseAccessGrantUpdate) -> CaseAccessGrantOut:
     service = _get_case_access_service()
     ctx = extract_request_context(request)
-    data = payload.dict(exclude_unset=True)
+    data = payload.model_dump(exclude_unset=True)
 
     return cast(
         CaseAccessGrantOut,
