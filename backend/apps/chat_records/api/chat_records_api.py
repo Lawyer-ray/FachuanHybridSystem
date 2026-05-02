@@ -21,7 +21,7 @@ from apps.chat_records.schemas import (
     list_export_types,
 )
 from apps.chat_records.services import ExportTaskService, ProjectService, RecordingService, ScreenshotService
-from apps.chat_records.services.recording_extract_facade import RecordingExtractFacade, RecordingExtractParams
+from apps.chat_records.services.extraction.recording_extract_facade import RecordingExtractFacade, RecordingExtractParams
 from apps.core.api.schema_utils import schema_to_update_dict
 from apps.core.http import build_range_file_response
 from apps.core.infrastructure.throttling import rate_limit_from_settings

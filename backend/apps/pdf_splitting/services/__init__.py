@@ -1,4 +1,4 @@
 from .job_service import PdfSplitJobService
-from .split_service import PdfSplitService
+from .split import PdfSplitService
 
 __all__ = ["PdfSplitJobService", "PdfSplitService"]

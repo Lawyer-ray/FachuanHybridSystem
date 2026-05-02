@@ -9,7 +9,7 @@ logger = logging.getLogger("apps.evidence")
 
 
 def merge_evidence_pdf_task(list_id: int) -> Any:
-    from apps.evidence.services.evidence_merge_usecase import EvidenceMergeUseCase
+    from apps.evidence.services.mutation.evidence_merge_usecase import EvidenceMergeUseCase
 
     logger.info("merge_evidence_pdf_task_start", extra={"list_id": list_id})
     result = EvidenceMergeUseCase().merge(list_id=list_id)
@@ -19,7 +19,7 @@ def merge_evidence_pdf_task(list_id: int) -> Any:
 
 def ocr_evidence_item_task(item_id: int) -> None:
     """异步 OCR 提取证据文件文本"""
-    from apps.evidence.services.evidence_ocr_service import EvidenceOCRService
+    from apps.evidence.services.ai.evidence_ocr_service import EvidenceOCRService
 
     logger.info("ocr_evidence_item_start", extra={"item_id": item_id})
     EvidenceOCRService().extract_and_save(item_id)

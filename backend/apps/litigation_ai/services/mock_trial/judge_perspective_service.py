@@ -19,8 +19,8 @@ class JudgePerspectiveService:
         evidence_item_ids: list[int] | None = None,
     ) -> dict[str, Any]:
         from apps.litigation_ai.chains.mock_trial_chains import JudgePerspectiveChain
-        from apps.litigation_ai.services.context_service import LitigationContextService
-        from apps.litigation_ai.services.evidence_digest_service import EvidenceDigestService
+        from apps.litigation_ai.services.session.context_service import LitigationContextService
+        from apps.litigation_ai.services.evidence.evidence_digest_service import EvidenceDigestService
         from apps.litigation_ai.services.flow.session_repository import LitigationSessionRepository
 
         ctx_service = LitigationContextService()

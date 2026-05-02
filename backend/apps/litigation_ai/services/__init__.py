@@ -1,12 +1,14 @@
-from .context_service import LitigationContextService
-from .conversation_flow_service import ConversationFlowService
-from .conversation_service import ConversationService
-from .conversation_service import ConversationService as LitigationConversationService
-from .document_generator_service import DocumentGeneratorService
-from .draft_service import DraftService, LitigationDraftService
-from .evidence_digest_service import EvidenceDigestService
+"""诉讼 AI 服务层."""
+
+from .evidence.evidence_digest_service import EvidenceDigestService
 from .flow.types import ConversationStep, FlowContext
-from .litigation_agent_service import LitigationAgentService
+from .generation.document_generator_service import DocumentGeneratorService
+from .generation.draft_service import DraftService, LitigationDraftService
+from .generation.litigation_agent_service import LitigationAgentService
+from .session.context_service import LitigationContextService
+from .session.conversation_flow_service import ConversationFlowService
+from .session.conversation_service import ConversationService
+from .session.conversation_service import ConversationService as LitigationConversationService
 
 __all__ = [
     "ConversationFlowService",

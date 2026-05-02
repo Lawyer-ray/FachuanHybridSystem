@@ -8,7 +8,7 @@ from apps.legal_research.schemas.legal_research_schemas import (
     AgentSearchSubscoresOut,
     RetrievalHitV1,
 )
-from apps.legal_research.services.capability_mcp_wrapper import LegalResearchCapabilityMcpWrapper
+from apps.legal_research.services.capability.mcp_wrapper import LegalResearchCapabilityMcpWrapper
 
 
 def test_capability_mcp_wrapper_returns_agent_friendly_contract() -> None:

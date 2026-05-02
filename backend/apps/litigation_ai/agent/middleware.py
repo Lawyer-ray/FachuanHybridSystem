@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any
 from .interfaces import IMemoryMiddleware
 
 if TYPE_CHECKING:
-    from apps.litigation_ai.services.conversation_service import LitigationConversationSessionService
+    from apps.litigation_ai.services.session.conversation_service import LitigationConversationSessionService
 
 logger = logging.getLogger("apps.litigation_ai")
 
@@ -53,7 +53,7 @@ class LitigationMemoryMiddleware(IMemoryMiddleware):
     def conversation_service(self) -> LitigationConversationSessionService:
         """延迟加载 ConversationService"""
         if self._conversation_service is None:
-            from apps.litigation_ai.services.conversation_service import (
+            from apps.litigation_ai.services.session.conversation_service import (
                 LitigationConversationSessionService as ConversationService,
             )
 

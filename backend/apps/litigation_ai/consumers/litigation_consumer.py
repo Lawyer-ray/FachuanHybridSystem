@@ -32,7 +32,7 @@ class LitigationConsumer(AsyncWebsocketConsumer):
     def agent_service(self) -> Any:
         """延迟加载 Agent 服务"""
         if self._agent_service is None:
-            from apps.litigation_ai.services.litigation_agent_service import LitigationAgentService
+            from apps.litigation_ai.services.generation.litigation_agent_service import LitigationAgentService
 
             self._agent_service = LitigationAgentService()
         return self._agent_service

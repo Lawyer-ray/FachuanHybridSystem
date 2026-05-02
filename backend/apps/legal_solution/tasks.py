@@ -20,7 +20,7 @@ def run_solution_task(task_id: int) -> dict[str, Any]:
     from apps.legal_research.models.task import LegalResearchTaskStatus
     from apps.legal_research.schemas import LegalResearchTaskCreateIn
     from apps.legal_research.services.keywords import normalize_keyword_query
-    from apps.legal_research.services.task_service import LegalResearchTaskService
+    from apps.legal_research.services.task.service import LegalResearchTaskService
     from apps.legal_solution.models import SolutionTask, SolutionTaskStatus
     from apps.legal_solution.services.html_renderer import HtmlRenderer
     from apps.legal_solution.services.solution_generator import SolutionGenerator
@@ -32,7 +32,7 @@ def run_solution_task(task_id: int) -> dict[str, Any]:
     try:
         # ── 阶段1: 自动提取关键词 ──
         if not task.keyword:
-            from apps.legal_research.services.executor import LegalResearchExecutor
+            from apps.legal_research.services.task.executor import LegalResearchExecutor
 
             elements = LegalResearchExecutor._extract_legal_elements(case_summary=task.case_summary)
             if elements:

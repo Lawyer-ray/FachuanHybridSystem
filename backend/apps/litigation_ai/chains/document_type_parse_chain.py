@@ -61,7 +61,7 @@ class DocumentTypeParseChain:
     async def _get_system_prompt(self) -> str:
         from asgiref.sync import sync_to_async
 
-        from apps.litigation_ai.services.prompt_template_service import PromptTemplateService
+        from apps.litigation_ai.services.generation.prompt_template_service import PromptTemplateService
 
         service = PromptTemplateService()
         template = await sync_to_async(service.get_system_template)("litigation_ai.flow.parse_document_type")

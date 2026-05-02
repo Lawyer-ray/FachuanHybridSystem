@@ -33,9 +33,9 @@ def assess_case(
     data: AssessmentRequest,
 ) -> AssessmentResponse:
     """综合案件评估"""
-    from apps.sales_dispute.services.case_assessment_service import AssessmentInput
-    from apps.sales_dispute.services.evidence_scorer_service import EvidenceItem
-    from apps.sales_dispute.services.limitation_calculator_service import InterruptionEvent, InterruptionType
+    from apps.sales_dispute.services.assessment.case_assessment_service import AssessmentInput
+    from apps.sales_dispute.services.assessment.evidence_scorer_service import EvidenceItem
+    from apps.sales_dispute.services.calculation.limitation_calculator_service import InterruptionEvent, InterruptionType
 
     evidence_items = [
         EvidenceItem(
@@ -189,7 +189,7 @@ def analyze_jurisdiction(
     data: JurisdictionRequest,
 ) -> JurisdictionResponseSchema:
     """管辖权分析"""
-    from apps.sales_dispute.services.jurisdiction_analyzer_service import JurisdictionParams
+    from apps.sales_dispute.services.assessment.jurisdiction_analyzer_service import JurisdictionParams
 
     params = JurisdictionParams(
         has_agreed_jurisdiction=data.has_agreed_jurisdiction,
@@ -223,7 +223,7 @@ def recommend_strategy(
     data: StrategyRequest,
 ) -> StrategyResponseSchema:
     """起诉策略推荐"""
-    from apps.sales_dispute.services.litigation_strategy_service import StrategyParams
+    from apps.sales_dispute.services.collection.litigation_strategy_service import StrategyParams
 
     params = StrategyParams(
         principal_amount=Decimal(str(data.principal_amount)),

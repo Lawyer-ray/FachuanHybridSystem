@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from apps.legal_research.services.tuning_config import LegalResearchTuningConfig
+from apps.legal_research.services.similarity.tuning_config import LegalResearchTuningConfig
 
 
 @dataclass(frozen=True)

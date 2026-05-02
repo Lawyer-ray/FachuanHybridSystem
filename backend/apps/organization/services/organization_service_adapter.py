@@ -15,7 +15,7 @@ from apps.organization.services.lawfirm_service import LawFirmService
 from apps.organization.services.lawyer.facade import LawyerService
 from apps.organization.services.team_service import TeamService
 
-from .account_credential_service import AccountCredentialService
+from .credential.account_credential_service import AccountCredentialService
 
 if TYPE_CHECKING:
     from apps.core.dto.organization import LawyerDTO

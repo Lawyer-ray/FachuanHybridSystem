@@ -24,7 +24,7 @@ def process_review(task_id_str: str) -> None:
 
     此函数作为入口点，调用 ReviewService 中的处理逻辑
     """
-    from apps.contract_review.services.review_service import process_review as _process_review
+    from apps.contract_review.services.review.review_service import process_review as _process_review
 
     _process_review(task_id_str)
 

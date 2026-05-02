@@ -13,7 +13,7 @@ from apps.legal_research.models import (
     LegalResearchTaskStatus,
 )
 from apps.legal_research.schemas import AgentSearchRequestV1
-from apps.legal_research.services.capability_service import LegalResearchCapabilityService
+from apps.legal_research.services.capability.service import LegalResearchCapabilityService
 from apps.organization.models import AccountCredential
 
 

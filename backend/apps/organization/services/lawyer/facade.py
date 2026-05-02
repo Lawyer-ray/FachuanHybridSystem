@@ -13,7 +13,7 @@ from ninja.files import UploadedFile
 from apps.core.exceptions import AuthenticationError
 from apps.organization.dtos import LawyerCreateDTO, LawyerListFiltersDTO, LawyerUpdateDTO
 from apps.organization.models import Lawyer
-from apps.organization.services.organization_access_policy import OrganizationAccessPolicy
+from apps.organization.services.access.organization_access_policy import OrganizationAccessPolicy
 
 from .mutation import LawyerMutationService
 from .query import LawyerQueryService

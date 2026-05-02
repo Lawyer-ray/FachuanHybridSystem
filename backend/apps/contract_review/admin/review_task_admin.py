@@ -47,7 +47,7 @@ class ReviewTaskAdmin(admin.ModelAdmin[ReviewTask]):
                 task.status = TaskStatus.CONFIRMED
                 task.save(update_fields=["status"])
                 submit_task(
-                    "apps.contract_review.services.review_service.process_review",
+                    "apps.contract_review.services.review.review_service.process_review",
                     str(task.id),
                     timeout=1800,
                 )

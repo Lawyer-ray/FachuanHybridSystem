@@ -8,7 +8,7 @@ from apps.documents.services.placeholders.fallback import (
     build_docx_render_context,
     resolve_render_variable,
 )
-from apps.litigation_ai.services.placeholder_render_service import PlaceholderRenderService
+from apps.litigation_ai.services.generation.placeholder_render_service import PlaceholderRenderService
 
 
 class _DocStub:

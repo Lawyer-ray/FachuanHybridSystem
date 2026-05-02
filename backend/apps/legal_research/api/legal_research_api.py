@@ -19,9 +19,9 @@ from apps.legal_research.schemas import (
     LegalResearchTaskCreateIn,
     LegalResearchTaskOut,
 )
-from apps.legal_research.services.capability_mcp_wrapper import LegalResearchCapabilityMcpWrapper
-from apps.legal_research.services.capability_service import LegalResearchCapabilityService
-from apps.legal_research.services.task_service import LegalResearchTaskService
+from apps.legal_research.services.capability.mcp_wrapper import LegalResearchCapabilityMcpWrapper
+from apps.legal_research.services.capability.service import LegalResearchCapabilityService
+from apps.legal_research.services.task.service import LegalResearchTaskService
 
 router = Router(tags=["案例检索"], auth=JWTOrSessionAuth())
 

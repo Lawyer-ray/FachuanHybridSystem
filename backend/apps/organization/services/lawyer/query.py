@@ -8,7 +8,7 @@ from django.utils.translation import gettext_lazy as _
 from apps.core.exceptions import NotFoundError, PermissionDenied
 from apps.organization.dtos import LawyerListFiltersDTO
 from apps.organization.models import Lawyer
-from apps.organization.services.organization_access_policy import OrganizationAccessPolicy
+from apps.organization.services.access.organization_access_policy import OrganizationAccessPolicy
 
 
 class LawyerQueryService:

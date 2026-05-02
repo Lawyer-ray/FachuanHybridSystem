@@ -1,17 +1,20 @@
-from .docx_export_service import DocxExportService
-from .export_service import ExportService
-from .export_task_service import ExportTaskService
-from .export_types import ExportLayout
-from .extract_helpers import DedupState, ExtractParams
-from .frame_processing_service import FrameProcessingService
-from .frame_selection_service import FrameSelectionService
-from .pdf_export_service import PdfExportService
-from .project_service import ProjectService
-from .protocols import ProgressUpdater, ScreenshotCreator
-from .recording_extract_facade import RecordingExtractFacade, RecordingExtractParams
-from .recording_service import RecordingService
-from .screenshot_service import ScreenshotService
-from .video_frame_extract_service import FFProbeInfo, VideoFrameExtractService
+"""Business logic services."""
+
+from .core.access_policy import ensure_can_access_project
+from .core.project_service import ProjectService
+from .core.protocols import ProgressUpdater, ScreenshotCreator
+from .core.screenshot_service import ScreenshotService
+from .extraction.extract_helpers import DedupState, ExtractParams
+from .extraction.frame_processing_service import FrameProcessingService
+from .extraction.frame_selection_service import FrameSelectionService
+from .extraction.recording_extract_facade import RecordingExtractFacade, RecordingExtractParams
+from .extraction.recording_service import RecordingService
+from .extraction.video_frame_extract_service import FFProbeInfo, VideoFrameExtractService
+from .export.docx_export_service import DocxExportService
+from .export.export_service import ExportService
+from .export.export_task_service import ExportTaskService
+from .export.export_types import ExportLayout
+from .export.pdf_export_service import PdfExportService
 
 __all__ = [
     "DedupState",
@@ -32,4 +35,5 @@ __all__ = [
     "ScreenshotCreator",
     "ScreenshotService",
     "VideoFrameExtractService",
+    "ensure_can_access_project",
 ]

@@ -16,7 +16,7 @@ from django.utils.safestring import mark_safe
 
 from apps.core.interfaces import ServiceLocator
 from apps.legal_research.models import CaseDownloadFormat, CaseDownloadResult, CaseDownloadStatus, CaseDownloadTask
-from apps.legal_research.services.case_download_service import CaseDownloadService
+from apps.legal_research.services.task.case_download_service import CaseDownloadService
 
 # mypy: ignore-errors
 

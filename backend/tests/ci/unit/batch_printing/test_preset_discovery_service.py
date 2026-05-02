@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from apps.batch_printing.services.preset_discovery_service import PresetDiscoveryService
+from apps.batch_printing.services.preset.preset_discovery_service import PresetDiscoveryService
 
 
 class TestPresetDiscoveryService:

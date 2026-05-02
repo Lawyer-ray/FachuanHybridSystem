@@ -35,7 +35,7 @@ def calculate_interest(
     data: InterestCalcRequest,
 ) -> InterestCalcResponse:
     """利息/违约金计算"""
-    from apps.sales_dispute.services.interest_calculator_service import (
+    from apps.sales_dispute.services.calculation.interest_calculator_service import (
         BatchDelivery,
         InterestCalcParams,
         InterestStartType,
@@ -96,7 +96,7 @@ def calculate_cost(
     data: CostBenefitRequest,
 ) -> CostBenefitResponse:
     """成本收益分析"""
-    from apps.sales_dispute.services.cost_benefit_service import CostBenefitParams
+    from apps.sales_dispute.services.assessment.cost_benefit_service import CostBenefitParams
 
     params = CostBenefitParams(
         principal=Decimal(str(data.principal)),
@@ -149,7 +149,7 @@ def calculate_limitation(
     data: LimitationRequest,
 ) -> LimitationResponse:
     """诉讼时效计算"""
-    from apps.sales_dispute.services.limitation_calculator_service import (
+    from apps.sales_dispute.services.calculation.limitation_calculator_service import (
         InterruptionEvent,
         InterruptionType,
         LimitationCalcParams,
