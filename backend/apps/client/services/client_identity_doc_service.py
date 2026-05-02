@@ -13,7 +13,7 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.client.models import Client, ClientIdentityDoc
 from apps.client.ports import FileUploadPort
-from apps.client.services.storage import (
+from apps.core.services.storage_service import (
     _get_media_root,
     delete_media_file,
     sanitize_upload_filename,

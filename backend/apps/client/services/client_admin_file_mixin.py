@@ -6,7 +6,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from apps.client.models import ClientIdentityDoc
-from apps.client.services.storage import sanitize_upload_filename, save_uploaded_file
+from apps.core.services.storage_service import sanitize_upload_filename, save_uploaded_file
 
 _DOC_TYPE_DISPLAY: dict[str, str] = dict(ClientIdentityDoc.DOC_TYPE_CHOICES)
 

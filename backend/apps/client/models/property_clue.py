@@ -33,14 +33,6 @@ class PropertyClue(models.Model):
         (OTHER, _("其他")),
     ]
 
-    CONTENT_TEMPLATES: ClassVar[dict[str, Any]] = {
-        BANK: _("户名:\n开户行:\n银行账号:"),
-        WECHAT: _("微信号:\n微信实名:"),
-        ALIPAY: _("支付宝账号:\n支付宝实名:"),
-        REAL_ESTATE: "",
-        OTHER: "",
-    }
-
     client = models.ForeignKey(
         Client, on_delete=models.CASCADE, related_name="property_clues", verbose_name=_("当事人")
     )

@@ -10,7 +10,7 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.client.models import PropertyClue, PropertyClueAttachment
 from apps.client.ports import FileUploadPort
-from apps.client.services.storage import delete_media_file, save_uploaded_file
+from apps.core.services.storage_service import delete_media_file, save_uploaded_file
 from apps.client.services.wiring import get_file_upload_port
 from apps.core.exceptions import NotFoundError, ValidationException
 
@@ -21,6 +21,14 @@ logger = logging.getLogger("apps.client")
 
 
 _VALID_CLUE_TYPES: dict[str, str] = dict(PropertyClue.CLUE_TYPE_CHOICES)
+
+_CONTENT_TEMPLATES: dict[str, str] = {
+    PropertyClue.BANK: _("户名:\n开户行:\n银行账号:"),
+    PropertyClue.WECHAT: _("微信号:\n微信实名:"),
+    PropertyClue.ALIPAY: _("支付宝账号:\n支付宝实名:"),
+    PropertyClue.REAL_ESTATE: "",
+    PropertyClue.OTHER: "",
+}
 
 
 class PropertyClueService:
@@ -90,7 +98,6 @@ class PropertyClueService:
         self._validate_clue_type(clue_type)
 
         clue = PropertyClue.objects.create(client=client, clue_type=clue_type, content=data.get("content", ""))
-        clue = PropertyClue.objects.prefetch_related("attachments").get(pk=clue.pk)
 
         logger.info(
             "财产线索创建成功",
@@ -302,4 +309,4 @@ class PropertyClueService:
     def get_content_template(self, clue_type: str) -> str:
         """获取指定线索类型的内容模板。"""
 
-        return str(PropertyClue.CONTENT_TEMPLATES.get(clue_type, ""))
+        return str(_CONTENT_TEMPLATES.get(clue_type, ""))

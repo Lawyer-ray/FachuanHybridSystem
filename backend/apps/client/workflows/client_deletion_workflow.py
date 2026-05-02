@@ -8,7 +8,7 @@ from collections.abc import Callable
 from django.db import transaction
 
 from apps.client.models import ClientIdentityDoc, PropertyClueAttachment
-from apps.client.services.storage import delete_media_file
+from apps.core.services.storage_service import delete_media_file
 
 logger = logging.getLogger("apps.client")
 
