@@ -53,7 +53,7 @@ def get_assignment(request: HttpRequest, assignment_id: int) -> CaseAssignmentOu
 def update_assignment(request: HttpRequest, assignment_id: int, payload: CaseAssignmentUpdate) -> CaseAssignmentOut:
     service = _get_case_assignment_service()
     ctx = extract_request_context(request)
-    data = payload.dict(exclude_unset=True)
+    data = payload.model_dump(exclude_unset=True)
     return cast(CaseAssignmentOut, service.update_assignment(assignment_id=assignment_id, data=data, user=ctx.user))
 
 

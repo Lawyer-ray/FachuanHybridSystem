@@ -80,7 +80,7 @@ def update_log(request: HttpRequest, log_id: int, payload: CaseLogUpdate) -> Cas
     service = _get_caselog_service()
     ctx = extract_request_context(request)
 
-    data = payload.dict(exclude_unset=True)
+    data = payload.model_dump(exclude_unset=True)
 
     return cast(
         CaseLogOut,

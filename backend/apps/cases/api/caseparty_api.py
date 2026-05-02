@@ -53,7 +53,7 @@ def get_party(request: HttpRequest, party_id: int) -> CasePartyOut:
 def update_party(request: HttpRequest, party_id: int, payload: CasePartyUpdate) -> CasePartyOut:
     service = _get_case_party_service()
     ctx = extract_request_context(request)
-    data = payload.dict(exclude_unset=True)
+    data = payload.model_dump(exclude_unset=True)
     return cast(CasePartyOut, service.update_party(party_id=party_id, data=data, user=ctx.user))
 
 

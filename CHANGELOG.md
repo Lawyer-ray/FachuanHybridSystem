@@ -2,6 +2,33 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.42.0] - 2026-05-03
+
+### 安全修复
+
+- **路径遍历漏洞修复**：`parse_document_view_no_id` 新增 `MEDIA_ROOT/case_documents/temp` 路径校验，拒绝目录外路径；`upload_temp_document_view` 和 `casenumber_api` 上传文件名用 `Path.name` 去除路径分隔符
+- **命令注入修复**：`open_folder_view` 新增路径白名单校验（仅允许 `$HOME` 和 `/Volumes/` 下的目录），subprocess 使用列表参数避免 shell 注入
+
+### 性能优化
+
+- **N+1 查询修复**：`get_case_queryset()` 新增 `logs__actor` 的 `select_related`，消除 CaseLog→Lawyer 的 N+1
+- **O(N) 提醒服务调用修复**：`case_api.py` 新增 `_prefetch_log_reminders()` 批量加载，`CaseLogOut.resolve_reminders` 改用 `obj.reminder_entries`（优先读缓存），避免每条日志单独调用 ServiceLocator
+- **数据库索引补全**：`CaseAssignment` 新增 `(case, lawyer)` 唯一约束 + `lawyer` 索引；`CaseAccessGrant` 新增 `(case, grantee)` 唯一约束 + `grantee` 索引；`CaseLogAttachment` 新增 `log` 索引；`CaseLogVersion` 新增 `log` + `actor` 索引
+- **Pydantic v2 迁移**：全 cases API 层 `.dict()` 统一替换为 `.model_dump()`
+
+### 修复
+
+- **`template_binding_api` 未注册路由**：已在 `apps/cases/api/__init__.py` 中注册到主路由
+- **`CaseAssignmentAdmin` / `CasePartyAdmin` 未注册**：添加 `@admin.register` 装饰器并在 `admin/__init__.py` 中导入
+- **`contextlib.suppress(Exception)` 静默吞异常**：`save.py` 的 formset 删除改为 `try/except` + `logger.warning`
+- **`CaseLogAdmin` 缺少 `list_filter` 和 `ordering`**：补充 `list_filter=("created_at",)` 和 `ordering=("-created_at",)`
+- **`CaseAdminForm.clean()` 过度日志**：移除 4 条 info 级日志，保留错误处理逻辑
+- **`_log_inline_formset` 过度日志**：精简为仅记录有错误的表单
+
+### 重构
+
+- **移除 `default_app_config`**：`apps/cases/__init__.py` 中的 `default_app_config` 在 Django 3.2+ 已废弃，自动发现机制替代
+
 ## [26.41.10] - 2026-05-03
 
 ### 新功能

@@ -163,6 +163,9 @@ class CaseLogAttachment(models.Model):
     class Meta:
         verbose_name = _("日志附件")
         verbose_name_plural = _("日志附件")
+        indexes: ClassVar = [
+            models.Index(fields=["log"]),
+        ]
 
 
 class CaseLogVersion(models.Model):
@@ -177,6 +180,10 @@ class CaseLogVersion(models.Model):
     class Meta:
         verbose_name = _("案件日志版本")
         verbose_name_plural = _("案件日志版本")
+        indexes: ClassVar = [
+            models.Index(fields=["log"]),
+            models.Index(fields=["actor"]),
+        ]
 
     def __str__(self) -> str:
         return f"{self.log_id}-{self.version_at}"

@@ -29,7 +29,9 @@ class ReminderInline(BaseTabularInline):
 @admin.register(CaseLog)
 class CaseLogAdmin(BaseModelAdmin):
     list_display = ("id", "case_link", "actor", "reminder_type", "reminder_time", "created_at", "updated_at")
+    list_filter = ("created_at",)
     search_fields = ("content", "case__name")
+    ordering = ("-created_at",)
     autocomplete_fields = ("case", "actor")
     exclude = ("actor", "source_subfolder")
     inlines = (ReminderInline, CaseLogAttachmentInline)
