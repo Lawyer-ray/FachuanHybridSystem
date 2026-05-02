@@ -162,14 +162,22 @@ class LPRRateAdmin(BaseModelAdmin):
     def calculator_view(self, request: HttpRequest) -> TemplateResponse:
         """LPR计算器视图."""
         from apps.finance.models.lpr_rate import LPRRate
+        from apps.finance.services.lpr.rate_service import LPRRateService
 
-        # 获取最新的几条利率记录用于参考
-        recent_rates = LPRRate.objects.all()[:10]
+        rate_service = LPRRateService()
+
+        try:
+            latest_rate = rate_service.get_latest_rate()
+        except Exception:
+            latest_rate = None
 
         context = {
             **self.admin_site.each_context(request),
             "title": _("LPR利息计算器"),
             "opts": self.model._meta,
-            "recent_rates": recent_rates,
+            "recent_rates": LPRRate.objects.all()[:10],
+            "latest_rate": latest_rate,
+            "is_data_current": rate_service.is_data_current(),
+            "sync_url": "sync/",
         }
         return render(request, "admin/finance/lpr/calculator.html", context)  # type: ignore[return-value]

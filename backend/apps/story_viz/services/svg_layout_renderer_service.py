@@ -17,6 +17,15 @@ class SvgLayoutRendererService:
                 "annotations": script.annotations,
             }
 
+        if viz_type == "claim_judgment":
+            return {
+                "viz_type": viz_type,
+                "theme": script.theme,
+                "nodes": [n.model_dump() for n in script.comparison_nodes],
+                "annotations": script.annotations,
+                "motion": script.motion_plan.model_dump(),
+            }
+
         return {
             "viz_type": "timeline",
             "theme": script.theme,

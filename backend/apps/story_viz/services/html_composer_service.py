@@ -19,8 +19,21 @@ class AnimationHtmlComposerService:
 
         if viz_type == "relationship":
             body = self._relationship_body(title=safe_title, payload=render_payload)
+        elif viz_type == "claim_judgment":
+            body = self._comparison_body(title=safe_title, payload=render_payload)
         else:
             body = self._timeline_body(title=safe_title, payload=render_payload)
+
+        needs_d3 = viz_type in {"relationship", "claim_judgment"}
+        subtitle_map = {"relationship": "关系图", "claim_judgment": "诉求 vs 判决"}
+        subtitle = subtitle_map.get(viz_type, "时间线")
+
+        if viz_type == "relationship":
+            script_js = self._d3_script(render_payload=render_payload)
+        elif viz_type == "claim_judgment":
+            script_js = self._comparison_script(render_payload=render_payload)
+        else:
+            script_js = self._timeline_script(render_payload=render_payload)
 
         return f"""<!doctype html>
 <html lang="zh-CN">
@@ -47,17 +60,17 @@ h1{{font-size:22px;font-weight:700;margin-bottom:6px;color:var(--text)}}
 .section-title::before{{content:'';display:inline-block;width:4px;height:16px;background:var(--accent);border-radius:2px}}
 .annotation{{font-size:13px;color:var(--muted);padding:8px 14px;border-left:3px solid var(--accent3);background:rgba(52,211,153,.08);border-radius:0 8px 8px 0;margin:6px 0;}}
 </style>
-{self._d3_head() if viz_type == "relationship" else ""}
+{self._d3_head() if needs_d3 else ""}
 </head>
 <body>
 <div class="wrap">
-<header><h1>{safe_title}</h1><div class="meta">法穿 · 故事可视化 · {"关系图" if viz_type == "relationship" else "时间线"}</div></header>
+<header><h1>{safe_title}</h1><div class="meta">法穿 · 故事可视化 · {subtitle}</div></header>
 {body}
 </div>
 <script>
 const renderPayload = {render_json};
 const fragmentPayload = {fragment_json};
-{self._d3_script(render_payload=render_payload) if viz_type == "relationship" else self._timeline_script(render_payload=render_payload)}
+{script_js}
 </script>
 </body>
 </html>"""
@@ -90,9 +103,19 @@ const color=d3.scaleOrdinal(categories,['#38bdf8','#818cf8','#34d399','#fbbf24',
 const svg=d3.select('#viz-root').append('svg').attr('width',width).attr('height',height).attr('viewBox',[0,0,width,height]).style('border-radius','14px');
 svg.append('rect').attr('width',width).attr('height',height).attr('fill','transparent');
 
+const defs=svg.append('defs');
+const frags=(typeof fragmentPayload!=='undefined'&&fragmentPayload.fragments)?fragmentPayload.fragments:[];
+frags.forEach((f,i)=>{{if(f.svg)defs.append('g').attr('id','frag-'+i).html(f.svg);}});
+
 const g=svg.append('g');
 const zoom=d3.zoom().on('zoom',e=>g.attr('transform',e.transform));
 svg.call(zoom).call(zoom.transform,d3.zoomIdentity);
+
+const fragG=g.append('g').attr('opacity',0.08);
+frags.forEach((f,i)=>{{
+  const use=fragG.append('use').attr('href','#frag-'+i);
+  use.attr('x',Math.random()*width*0.8+width*0.1).attr('y',Math.random()*height*0.8+height*0.1);
+}});
 
 const link=g.append('g').selectAll('line').data(edges).join('line').attr('stroke','rgba(148,163,184,.35)').attr('stroke-width',1.5);
 const linkText=g.append('g').selectAll('text').data(edges).join('text').text(d=>d.relation).attr('font-size','10px').attr('fill','var(--muted)').attr('text-anchor','middle');
@@ -110,13 +133,93 @@ sim.on('tick',()=>{{link.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr(
 }})();
 """
 
+    # ── Comparison (claim_judgment) ──────────────────────────────────────
+    def _comparison_body(self, title: str, payload: dict[str, object]) -> str:
+        annotations: list[object] = payload.get("annotations", []) or []  # type: ignore[assignment]
+        anno_html = ""
+        if annotations:
+            items = "".join(
+                f'<div class="annotation">• {escape(str(a))}</div>'
+                for a in annotations
+                if isinstance(a, (str, int, float))
+            )
+            anno_html = f'<div class="card" style="margin-bottom:16px"><div class="card-inner"><div class="section-title">裁判要点</div>{items}</div></div>'
+
+        return f"""
+{anno_html}
+<div class="card viz-wrap"><div class="card-inner"><div class="section-title">诉求 vs 判决</div><div id="viz-root"></div></div></div>
+<style>
+.cmp-row{{display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:10px 14px;background:var(--glass);border:1px solid var(--border);border-radius:12px;opacity:0;animation:tl-in .5s both}}
+.cmp-label{{flex:0 0 140px;font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
+.cmp-bars{{flex:1;display:flex;flex-direction:column;gap:4px}}
+.cmp-bar-row{{display:flex;align-items:center;gap:8px;font-size:11px}}
+.cmp-bar-label{{width:32px;color:var(--muted);text-align:right;flex-shrink:0}}
+.cmp-bar-track{{flex:1;height:18px;background:rgba(255,255,255,.04);border-radius:4px;overflow:hidden;position:relative}}
+.cmp-bar{{height:100%;border-radius:4px;transition:width .8s ease-out;display:flex;align-items:center;padding:0 6px;font-size:10px;color:#fff;white-space:nowrap}}
+.cmp-bar-claim{{background:linear-gradient(90deg,#3b82f6,#60a5fa)}}
+.cmp-bar-judgment{{background:linear-gradient(90deg,#22c55e,#4ade80)}}
+.cmp-badge{{flex:0 0 60px;text-align:center;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px}}
+.cmp-badge-yes{{background:rgba(34,197,94,.15);color:#4ade80}}
+.cmp-badge-no{{background:rgba(248,113,113,.15);color:#f87171}}
+@keyframes tl-in{{from{{opacity:0;transform:translateY(12px)}}to{{opacity:1;transform:translateY(0)}}}}
+</style>"""
+
+    def _comparison_script(self, render_payload: dict[str, object]) -> str:
+        nodes = render_payload.get("nodes", [])
+        return f"""
+(function(){{
+const items={json.dumps(nodes, ensure_ascii=False)};
+const root=document.getElementById('viz-root');
+if(!items.length){{root.innerHTML='<div style="text-align:center;color:var(--muted);padding:40px">暂无可视化数据</div>';return;}}
+
+function parseAmt(s){{if(!s)return 0;const n=parseFloat(String(s).replace(/[^0-9.\\-]/g,''));return isNaN(n)?0:n;}}
+
+const maxAmt=Math.max(1,...items.map(d=>Math.max(parseAmt(d.amount_claim),parseAmt(d.amount_judgment))));
+
+items.forEach((d,i)=>{{
+  const row=document.createElement('div');row.className='cmp-row';row.style.animationDelay=(i*.1)+'s';
+  const label=document.createElement('div');label.className='cmp-label';label.textContent=d.claim||'诉求'+(i+1);label.title=d.claim||'';
+
+  const bars=document.createElement('div');bars.className='cmp-bars';
+
+  const ac=parseAmt(d.amount_claim),aj=parseAmt(d.amount_judgment);
+  if(ac>0||aj>0){{
+    const r1=document.createElement('div');r1.className='cmp-bar-row';
+    r1.innerHTML='<span class="cmp-bar-label">主张</span><div class="cmp-bar-track"><div class="cmp-bar cmp-bar-claim" style="width:'+Math.round(ac/maxAmt*100)+'%">'+(d.amount_claim||'')+'</div></div>';
+    bars.appendChild(r1);
+    const r2=document.createElement('div');r2.className='cmp-bar-row';
+    r2.innerHTML='<span class="cmp-bar-label">判决</span><div class="cmp-bar-track"><div class="cmp-bar cmp-bar-judgment" style="width:'+Math.round(aj/maxAmt*100)+'%">'+(d.amount_judgment||'')+'</div></div>';
+    bars.appendChild(r2);
+  }} else {{
+    const desc=document.createElement('div');desc.style.cssText='font-size:12px;color:var(--muted);line-height:1.5';
+    const c=d.claim||'',j=d.judgment||'';
+    desc.innerHTML=(c?'<div>主张: '+escapeHtml(c)+'</div>':'')+(j?'<div>判决: '+escapeHtml(j)+'</div>':'');
+    bars.appendChild(desc);
+  }}
+
+  const badge=document.createElement('div');
+  badge.className='cmp-badge '+(d.supported?'cmp-badge-yes':'cmp-badge-no');
+  badge.textContent=d.supported?'支持':'未支持';
+
+  row.appendChild(label);row.appendChild(bars);row.appendChild(badge);
+  root.appendChild(row);
+}});
+
+function escapeHtml(t){{if(!t)return'';return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}}
+}})();
+"""
+
     # ── Timeline ────────────────────────────────────────────────────────
     def _timeline_body(self, title: str, payload: dict[str, object]) -> str:
         nodes = payload.get("nodes", [])
         annotations: list[object] = payload.get("annotations", []) or []  # type: ignore[assignment]
         anno_html = ""
         if annotations:
-            items = "".join(f'<div class="annotation">• {escape(str(a))}</div>' for a in annotations if isinstance(a, (str, int, float)))
+            items = "".join(
+                f'<div class="annotation">• {escape(str(a))}</div>'
+                for a in annotations
+                if isinstance(a, (str, int, float))
+            )
             anno_html = f'<div class="card" style="margin-bottom:16px"><div class="card-inner"><div class="section-title">关键节点</div>{items}</div></div>'
 
         return f"""
@@ -140,6 +243,18 @@ sim.on('tick',()=>{{link.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr(
 const nodes={json.dumps(nodes, ensure_ascii=False)};
 const root=document.getElementById('viz-root');
 if(!nodes.length){{root.innerHTML='<div style="text-align:center;color:var(--muted);padding:40px">暂无可视化数据</div>';return;}}
+
+const frags=(typeof fragmentPayload!=='undefined'&&fragmentPayload.fragments)?fragmentPayload.fragments:[];
+if(frags.length){{
+  const fragWrap=document.createElement('div');fragWrap.style.cssText='display:flex;gap:12px;justify-content:center;margin-bottom:16px;opacity:.3';
+  frags.forEach(function(f){{
+    if(!f.svg)return;
+    const d=document.createElement('div');d.innerHTML='<svg width="40" height="40" viewBox="0 0 40 40">'+f.svg+'</svg>';
+    fragWrap.appendChild(d);
+  }});
+  root.appendChild(fragWrap);
+}}
+
 const wrap=document.createElement('div');wrap.className='timeline';
 nodes.forEach((n,i)=>{{
   const el=document.createElement('div');el.className='tl-node';el.style.animationDelay=(i*.12)+'s';

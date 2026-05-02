@@ -49,24 +49,67 @@ class ModelListService:
         return result.models
 
     def get_result(self) -> ModelListResult:
-        """获取模型列表及连接状态，优先从缓存读取"""
+        """获取模型列表及连接状态，优先从缓存读取。
+
+        自动合并 SystemConfig 中配置的额外模型（LLM_EXTRA_MODELS 等），
+        确保所有消费者都能看到完整模型列表。
+        """
         cached: list[dict[str, str]] | None = cache.get(CACHE_KEY)
         cached_status: dict[str, Any] | None = cache.get(CACHE_KEY_STATUS)
         if cached is not None and cached_status is not None:
-            return ModelListResult(
+            result = ModelListResult(
                 models=cached,
                 is_fallback=cached_status.get("is_fallback", False),
                 error_message=cached_status.get("error_message", ""),
             )
+        else:
+            result = self._fetch_from_api()
+            cache.set(CACHE_KEY, result.models, self._cache_ttl)
+            cache.set(
+                CACHE_KEY_STATUS,
+                {"is_fallback": result.is_fallback, "error_message": result.error_message},
+                self._cache_ttl,
+            )
 
-        result = self._fetch_from_api()
-        cache.set(CACHE_KEY, result.models, self._cache_ttl)
-        cache.set(
-            CACHE_KEY_STATUS,
-            {"is_fallback": result.is_fallback, "error_message": result.error_message},
-            self._cache_ttl,
-        )
+        # 合并 SystemConfig 中的模型（LLM_EXTRA_MODELS 等）
+        result.models = self._merge_system_config_models(result.models)
         return result
+
+    @staticmethod
+    def _merge_system_config_models(api_models: list[dict[str, str]]) -> list[dict[str, str]]:
+        """将 SystemConfig 中用户显式配置的模型合并到 API 模型列表中.
+
+        仅合并用户在 SystemConfig 中实际配置的模型：
+        - LLM_EXTRA_MODELS（逗号分隔的额外模型列表）
+        - 各后端的默认模型（SILICONFLOW_DEFAULT_MODEL 等）
+
+        不包含硬编码的 DEFAULT_AVAILABLE_MODELS，避免显示用户未配置的模型。
+        """
+        seen: set[str] = {m.get("id", "") for m in api_models}
+        merged: list[dict[str, str]] = []
+
+        def _add(model_id: str) -> None:
+            mid = model_id.strip()
+            if mid and mid not in seen:
+                seen.add(mid)
+                merged.append({"id": mid, "name": mid.split("/")[-1].split(":")[-1]})
+
+        # 1. LLM_EXTRA_MODELS（用户在 SystemConfig 中配置的额外模型）
+        extra_raw = LLMConfig._get_system_config("LLM_EXTRA_MODELS", "")
+        if extra_raw:
+            for part in extra_raw.split(","):
+                _add(part)
+
+        # 2. 各后端的默认模型（用户在 SystemConfig 中配置的默认模型）
+        for default_model in [
+            LLMConfig.get_default_model(),
+            LLMConfig.get_ollama_model(),
+            LLMConfig.get_openai_compatible_model(),
+        ]:
+            if default_model:
+                _add(default_model)
+
+        return merged + api_models
 
     def _fetch_from_api(self) -> ModelListResult:
         """调用 SiliconFlow GET /v1/models API"""

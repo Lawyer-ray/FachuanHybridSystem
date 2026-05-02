@@ -5,6 +5,8 @@ function lprCalculator() {
         useChanges: false,
         showDetail: false,
         showHistory: false,
+        syncing: false,
+        syncMessage: '',
         form: {
             start_date: '',
             end_date: '',
@@ -256,6 +258,7 @@ function lprCalculator() {
 
         async calculate() {
             this.result = null;
+            this.syncMessage = '';
             const data = {
                 year_days: parseInt(this.form.year_days),
                 date_inclusion: this.form.date_inclusion
@@ -310,6 +313,11 @@ function lprCalculator() {
                 }
             }
 
+            // LPR 模式下显示同步中指示器
+            if (this.form.rate_mode === 'lpr') {
+                this.syncing = true;
+            }
+
             try {
                 const res = await fetch('/api/v1/lpr/calculate', {
                     method: 'POST',
@@ -320,6 +328,8 @@ function lprCalculator() {
                     credentials: 'same-origin',
                     body: JSON.stringify(data)
                 });
+
+                this.syncing = false;
 
                 if (!res.ok) {
                     const errorData = await res.json().catch(() => ({}));
@@ -338,6 +348,11 @@ function lprCalculator() {
 
                 this.result = await res.json();
 
+                // 显示自动同步提示
+                if (this.result.sync_info) {
+                    this.syncMessage = this.result.sync_info;
+                }
+
                 // 计算成功后保存到历史记录（如果不是从历史记录加载的）
                 if (this.result.success && !this._skipHistorySave) {
                     this.saveToHistory();
@@ -345,6 +360,7 @@ function lprCalculator() {
                 // 重置标记
                 this._skipHistorySave = false;
             } catch (e) {
+                this.syncing = false;
                 console.error('Fetch Error:', e);
                 this.result = {success: false, message: '{% trans "计算失败" %}: ' + e.message}
             }

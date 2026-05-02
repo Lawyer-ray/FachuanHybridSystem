@@ -10,8 +10,22 @@ from collections import Counter
 def tokenize(text: str) -> list[str]:
     raw = re.findall(r"[一-鿿A-Za-z0-9]{2,10}", (text or "").lower())
     stopwords = {
-        "以及", "或者", "如果", "因此", "应当", "需要", "有关", "关于",
-        "因为", "但是", "其中", "并且", "法院认为", "本院认为", "原告", "被告",
+        "以及",
+        "或者",
+        "如果",
+        "因此",
+        "应当",
+        "需要",
+        "有关",
+        "关于",
+        "因为",
+        "但是",
+        "其中",
+        "并且",
+        "法院认为",
+        "本院认为",
+        "原告",
+        "被告",
     }
     return [token for token in raw if token not in stopwords]
 
@@ -44,6 +58,16 @@ def char_ngrams(text: str) -> Counter[str]:
     return counter
 
 
+def _heuristic_idf_weight(token: str) -> float:
+    """启发式 IDF 权重：按词长估算稀有度，无语料库统计。"""
+    length = len(token)
+    if length >= 4:
+        return 1.0
+    if length == 3:
+        return 0.7
+    return 0.4
+
+
 def bm25_proxy_score(*, query_text: str, document_text: str) -> float:
     query_tokens = tokenize(query_text)
     if not query_tokens:
@@ -58,7 +82,7 @@ def bm25_proxy_score(*, query_text: str, document_text: str) -> float:
     k1 = 1.2
     b = 0.75
     total = 0.0
-    used = 0
+    weight_sum = 0.0
     for token in dedupe_tokens(query_tokens, max_tokens=20):
         tf = freq.get(token.lower(), 0)
         if tf <= 0:
@@ -67,12 +91,13 @@ def bm25_proxy_score(*, query_text: str, document_text: str) -> float:
         if denom <= 0:
             continue
         score = (tf * (k1 + 1)) / denom
-        total += min(1.0, score / 2.3)
-        used += 1
+        idf = _heuristic_idf_weight(token)
+        total += min(1.0, score / 2.3) * idf
+        weight_sum += idf
 
-    if used == 0:
+    if weight_sum <= 0:
         return 0.0
-    return max(0.0, min(1.0, total / used))
+    return max(0.0, min(1.0, total / weight_sum))
 
 
 def lexical_vector_similarity_score(text_a: str, text_b: str) -> float:
@@ -102,8 +127,17 @@ def token_overlap_score(query_text: str, text: str) -> float:
 
 def metadata_hint_score(*, keyword: str, title: str, case_digest: str, content_text: str) -> float:
     domain_terms = [
-        "买卖合同", "买卖", "违约", "违约责任", "损失", "赔偿",
-        "价差", "交货", "转卖", "合同价", "市场价格",
+        "买卖合同",
+        "买卖",
+        "违约",
+        "违约责任",
+        "损失",
+        "赔偿",
+        "价差",
+        "交货",
+        "转卖",
+        "合同价",
+        "市场价格",
     ]
     keyword_text = f"{keyword} {title} {case_digest}"
     relevant = [term for term in domain_terms if term in keyword_text]

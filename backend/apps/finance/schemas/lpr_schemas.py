@@ -114,3 +114,4 @@ class InterestCalculateResponse(Schema):
     periods: list[CalculationPeriodSchema] | None = None
     message: str | None = None
     code: str | None = None
+    sync_info: str | None = Field(None, description="自动同步提示信息")

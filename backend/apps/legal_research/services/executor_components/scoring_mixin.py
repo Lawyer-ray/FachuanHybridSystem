@@ -9,6 +9,7 @@ from typing import Any
 
 from apps.legal_research.models import LegalResearchTask
 from apps.legal_research.services.executor_components.policy_mixin import DualReviewPolicy
+from apps.legal_research.services.similarity.service import SimilarityResult
 from apps.legal_research.services.sources import CaseDetail
 
 logger = logging.getLogger(__name__)
@@ -117,6 +118,7 @@ class ExecutorScoringMixin:
         feedback_score_margin: float,
         min_similarity_threshold: float,
         dual_review_policy: DualReviewPolicy,
+        tuning: Any = None,
     ) -> tuple[int, int, bool]:
         sim = cls._score_case_with_retry(
             similarity=similarity,
@@ -133,18 +135,28 @@ class ExecutorScoringMixin:
         if sim.score < min_similarity_threshold and sim.score >= max(
             0.0, min_similarity_threshold - cls.BORDERLINE_RECHECK_GAP
         ):
-            rescored = cls._rescore_borderline_with_retry(
+            rescored = cls._rescore_borderline_with_reranker(
                 similarity=similarity,
                 task=task,
                 detail=detail,
                 first_score=sim.score,
-                first_reason=sim.reason,
-                task_id=task_id,
+                tuning=tuning,
             )
             if rescored is not None and rescored.score > sim.score:
                 sim = rescored
-                if not task.llm_model and sim.model:
-                    task.llm_model = sim.model
+            else:
+                rescored = cls._rescore_borderline_with_retry(
+                    similarity=similarity,
+                    task=task,
+                    detail=detail,
+                    first_score=sim.score,
+                    first_reason=sim.reason,
+                    task_id=task_id,
+                )
+                if rescored is not None and rescored.score > sim.score:
+                    sim = rescored
+                    if not task.llm_model and sim.model:
+                        task.llm_model = sim.model
 
         dual_review_metadata: dict[str, Any] | None = None
         similarity_metadata = cls._extract_similarity_metadata(similarity=sim)  # type: ignore[attr-defined]
@@ -266,6 +278,45 @@ class ExecutorScoringMixin:
                 )
                 cls._sleep_for_retry(attempt=attempt)  # type: ignore[attr-defined]
         return None
+
+    @classmethod
+    def _rescore_borderline_with_reranker(
+        cls,
+        *,
+        similarity: Any,
+        task: LegalResearchTask,
+        detail: CaseDetail,
+        first_score: float,
+        tuning: Any = None,
+    ) -> Any | None:
+        if tuning is None:
+            return None
+        from apps.legal_research.services.similarity.reranker import create_reranker_from_tuning
+
+        reranker = create_reranker_from_tuning(tuning)
+        if reranker is None:
+            return None
+
+        keyword = cls._build_scoring_keyword(task.keyword, task.case_summary)  # type: ignore[attr-defined]
+        query = f"{keyword} {task.case_summary}".strip()
+        excerpt = f"{detail.title} {detail.case_digest}".strip()[:1400]
+        results = reranker.rerank(query=query, documents=[excerpt], top_k=1)
+        if not results:
+            return None
+
+        rerank_score = results[0][1]
+        reranker_weight = max(0.0, min(1.0, float(getattr(tuning, "reranker_score_weight", 0.4))))
+        blended = reranker_weight * rerank_score + (1 - reranker_weight) * first_score
+        blended = max(0.0, min(1.0, blended))
+        if blended <= first_score:
+            return None
+
+        return SimilarityResult(
+            score=blended,
+            reason=f"reranker重评:{rerank_score:.2f}→{blended:.2f}",
+            model="reranker",
+            metadata={"reranker_score": rerank_score, "blended_score": blended},
+        )
 
     @classmethod
     def _rescore_borderline_with_retry(
@@ -442,6 +493,7 @@ class ExecutorScoringMixin:
         task: LegalResearchTask,
         task_id: str,
         concurrency: int,
+        tuning: Any = None,
     ) -> list[tuple[Any, Any, float, str]]:
         if not candidates:
             return []
@@ -466,5 +518,47 @@ class ExecutorScoringMixin:
                 except Exception:
                     logger.warning("并发LLM评分异常", extra={"task_id": task_id})
 
+        results = self._apply_reranker(results=results, task=task, tuning=tuning)
         results.sort(key=lambda x: getattr(x[1], "score", 0.0), reverse=True)
         return results
+
+    def _apply_reranker(
+        self,
+        *,
+        results: list[tuple[Any, Any, float, str]],
+        task: LegalResearchTask,
+        tuning: Any = None,
+    ) -> list[tuple[Any, Any, float, str]]:
+        if not results or tuning is None:
+            return results
+        from apps.legal_research.services.similarity.reranker import create_reranker_from_tuning
+
+        reranker = create_reranker_from_tuning(tuning)
+        if reranker is None:
+            return results
+
+        reranker_top_k = max(1, int(getattr(tuning, "reranker_top_k", 10)))
+        reranker_weight = max(0.0, min(1.0, float(getattr(tuning, "reranker_score_weight", 0.4))))
+        keyword = self._build_scoring_keyword(task.keyword, task.case_summary)  # type: ignore[attr-defined]
+        query = f"{keyword} {task.case_summary}".strip()
+        documents = []
+        for detail, sim, coarse_score, coarse_reason in results:
+            excerpt = f"{detail.title} {detail.case_digest}".strip()[:1400]
+            documents.append(excerpt)
+
+        reranked = reranker.rerank(query=query, documents=documents, top_k=reranker_top_k)
+        if not reranked:
+            return results
+
+        rerank_map: dict[int, float] = dict(reranked)
+        blended: list[tuple[Any, Any, float, str]] = []
+        for i, (detail, sim, coarse_score, coarse_reason) in enumerate(results):
+            rerank_score = rerank_map.get(i)
+            if rerank_score is not None:
+                original_score = getattr(sim, "score", 0.0)
+                new_score = reranker_weight * rerank_score + (1 - reranker_weight) * original_score
+                new_score = max(0.0, min(1.0, new_score))
+                sim.score = new_score
+                sim.reason = f"{sim.reason}|rerank={rerank_score:.2f}"
+            blended.append((detail, sim, coarse_score, coarse_reason))
+        return blended

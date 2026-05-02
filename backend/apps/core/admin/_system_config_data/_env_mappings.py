@@ -104,12 +104,6 @@ def get_env_mappings() -> dict[str, dict[str, Any]]:
             "description": "硅基流动 API 地址",
             "is_secret": False,
         },
-        "SILICONFLOW_MODEL": {
-            "key": "SILICONFLOW_MODEL",
-            "category": "ai",
-            "description": "硅基流动模型名称",
-            "is_secret": False,
-        },
         "SILICONFLOW_DEFAULT_MODEL": {
             "key": "SILICONFLOW_DEFAULT_MODEL",
             "category": "ai",

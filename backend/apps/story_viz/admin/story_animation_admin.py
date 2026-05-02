@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from typing import Any
 
+from django import forms
 from django.contrib import admin
 from django.http import HttpRequest, HttpResponse
 from django.utils.html import format_html
 
-from apps.story_viz.models import StoryAnimation
+from apps.story_viz.models import StoryAnimation, StoryAnimationStatus
 from apps.story_viz.services.wiring import get_story_animation_job_service
 
 
@@ -20,6 +21,7 @@ class StoryAnimationAdmin(admin.ModelAdmin[StoryAnimation]):
         "status_badge",
         "stage_display",
         "progress_display",
+        "duration",
         "created_by",
         "created_at_display",
     ]
@@ -32,7 +34,7 @@ class StoryAnimationAdmin(admin.ModelAdmin[StoryAnimation]):
     fieldsets = [
         (
             None,
-            {"fields": ("source_title", "source_text", "viz_type")},
+            {"fields": ("source_title", "source_text", "viz_type", "llm_model")},
         ),
         (
             "任务状态",
@@ -90,6 +92,7 @@ class StoryAnimationAdmin(admin.ModelAdmin[StoryAnimation]):
         "id",
         "status",
         "current_stage",
+        "llm_model",
         "progress_percent",
         "task_id",
         "cancel_requested",
@@ -114,8 +117,40 @@ class StoryAnimationAdmin(admin.ModelAdmin[StoryAnimation]):
 
     def get_fieldsets(self, request: HttpRequest, obj: StoryAnimation | None = None) -> Any:
         if obj is None:
-            return [(None, {"fields": ("source_title", "source_text", "viz_type")})]
+            return [(None, {"fields": ("source_title", "source_text", "viz_type", "llm_model")})]
         return self.fieldsets
+
+    def get_form(
+        self, request: HttpRequest, obj: StoryAnimation | None = None, change: bool = False, **kwargs: Any
+    ) -> Any:
+        form = super().get_form(request, obj, change=change, **kwargs)
+        choices = self._build_llm_model_choices()
+        llm_field = form.base_fields.get("llm_model")
+        if llm_field is not None and choices:
+            llm_field.widget = forms.Select(choices=choices)
+            llm_field.help_text = "留空则使用系统默认模型"
+            if not obj:
+                llm_field.initial = choices[0][0] if choices else ""
+        return form
+
+    @staticmethod
+    def _build_llm_model_choices() -> list[tuple[str, str]]:
+        from apps.core.llm.config import LLMConfig
+        from apps.core.llm.model_list_service import ModelListService
+
+        default_model = LLMConfig.get_default_model()
+        choices: list[tuple[str, str]] = []
+        if default_model:
+            choices.append((default_model, f"{default_model.split('/')[-1]}（默认）"))
+        try:
+            result = ModelListService().get_result()
+            for m in result.models:
+                mid = m.get("id", "")
+                if mid and mid != default_model:
+                    choices.append((mid, f"{m.get('name', mid)} ({mid})"))
+        except Exception:
+            pass
+        return choices
 
     def save_model(self, request: HttpRequest, obj: StoryAnimation, form: Any, change: bool) -> None:
         if change:
@@ -126,9 +161,22 @@ class StoryAnimationAdmin(admin.ModelAdmin[StoryAnimation]):
             source_title=str(form.cleaned_data.get("source_title") or ""),
             source_text=str(form.cleaned_data.get("source_text") or ""),
             viz_type=str(form.cleaned_data.get("viz_type") or "timeline"),
+            llm_model=str(form.cleaned_data.get("llm_model") or ""),
             created_by=getattr(request, "user", None),
         )
         obj.pk = animation.pk
+
+    @admin.action(description="重新排队选中的任务")
+    def requeue_selected(self, request: HttpRequest, queryset: Any) -> None:
+        count = 0
+        for animation in queryset:
+            if animation.status in {StoryAnimationStatus.FAILED, StoryAnimationStatus.CANCELLED}:
+                try:
+                    get_story_animation_job_service().retry(animation_id=animation.id)
+                    count += 1
+                except Exception:
+                    pass
+        self.message_user(request, f"已重新提交 {count} 个任务")
 
     def status_badge(self, obj: StoryAnimation) -> str:
         color_map = {
@@ -160,7 +208,9 @@ class StoryAnimationAdmin(admin.ModelAdmin[StoryAnimation]):
         return format_html(
             '<div style="width:{}px;height:8px;background:#e2e8f0;border-radius:999px;overflow:hidden;">'
             '<div style="width:{}%;height:100%;background:{};"></div></div>',
-            width, pct, color
+            width,
+            pct,
+            color,
         ) + format_html(' <span style="color:#64748b;font-size:11px;">{}%</span>', pct)
 
     progress_display.short_description = "进度"  # type: ignore[attr-defined]
@@ -175,6 +225,7 @@ class StoryAnimationAdmin(admin.ModelAdmin[StoryAnimation]):
         if not obj.started_at:
             return "-"
         from django.utils import timezone
+
         end = obj.finished_at or timezone.now()
         elapsed = (end - obj.started_at).total_seconds()
         if elapsed < 60:
@@ -238,4 +289,7 @@ class StoryAnimationAdmin(admin.ModelAdmin[StoryAnimation]):
         extra["story_viz_retry_api"] = f"/api/v1/story-viz/animations/{object_id}/retry"
         extra["story_viz_cancel_api"] = f"/api/v1/story-viz/animations/{object_id}/cancel"
         extra["story_viz_preview_api"] = f"/api/v1/story-viz/animations/{object_id}/preview"
+        extra["story_viz_detail_api"] = f"/api/v1/story-viz/animations/{object_id}/detail"
+        extra["story_viz_ask_api"] = f"/api/v1/story-viz/animations/{object_id}/ask"
+        extra["story_viz_models_api"] = "/api/v1/story-viz/animations/models"
         return super().change_view(request, object_id, form_url, extra_context=extra)

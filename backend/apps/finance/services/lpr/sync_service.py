@@ -264,3 +264,29 @@ class LPRSyncService:
             "auto_synced_records": auto_synced_count,
             "manual_records": total_count - auto_synced_count,
         }
+
+    def sync_if_needed(self) -> dict:
+        """仅在数据过期时同步.
+
+        检查数据库中最新利率是否覆盖当前期间，若不覆盖则触发同步。
+
+        Returns:
+            同步结果字典：
+            - synced: 是否实际执行了同步
+            - sync_result: 同步结果统计（synced=True 时）
+            - error: 错误信息（同步失败时）
+        """
+        from apps.finance.services.lpr.rate_service import LPRRateService
+
+        if LPRRateService().is_data_current():
+            logger.info("[LPRSync] Data is current, no sync needed")
+            return {"synced": False, "sync_result": None, "error": None}
+
+        logger.info("[LPRSync] Data is outdated, triggering auto-sync")
+
+        try:
+            result = self.sync_latest()
+            return {"synced": True, "sync_result": result, "error": None}
+        except Exception as e:
+            logger.error(f"[LPRSync] Auto-sync failed: {e}")
+            return {"synced": False, "sync_result": None, "error": str(e)}

@@ -136,7 +136,7 @@ def sync_lpr_rates(
     logger.info(f"[LPRSync] User {user.id} triggered manual LPR sync")
 
     try:
-        from apps.finance.services.lpr_sync_service import LPRSyncService
+        from apps.finance.services.lpr import LPRSyncService
 
         service = LPRSyncService()
         result = service.sync_latest()
@@ -197,6 +197,18 @@ def calculate_interest(
         计算结果或错误信息
     """
     from apps.finance.services.calculator import InterestCalculator
+
+    # LPR 模式下自动同步过期数据
+    sync_info = None
+    if data.rate_mode == "lpr":
+        from apps.finance.services.lpr import LPRSyncService
+
+        sync_result = LPRSyncService().sync_if_needed()
+        if sync_result["synced"]:
+            r = sync_result["sync_result"]
+            sync_info = f"LPR数据已自动同步（新增{r.get('created', 0)}条）"
+        elif sync_result["error"]:
+            logger.warning(f"[LPRCalc] Auto-sync failed, using existing data: {sync_result['error']}")
 
     calculator = InterestCalculator()
 
@@ -262,4 +274,5 @@ def calculate_interest(
             }
             for p in result.periods
         ],
+        sync_info=sync_info,
     )
