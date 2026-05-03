@@ -75,6 +75,7 @@ class SolutionTaskAdmin(admin.ModelAdmin[SolutionTask]):
         "updated_at",
         "preview_html_field",
         "download_pdf_button",
+        "regenerate_html_button",
     ]
 
     def get_fields(self, request: HttpRequest, obj: SolutionTask | None = None) -> list[str]:
@@ -93,6 +94,7 @@ class SolutionTaskAdmin(admin.ModelAdmin[SolutionTask]):
             "llm_model",
             "preview_html_field",
             "download_pdf_button",
+            "regenerate_html_button",
             "q_task_id",
             "started_at",
             "finished_at",
@@ -157,6 +159,11 @@ class SolutionTaskAdmin(admin.ModelAdmin[SolutionTask]):
                 "<int:task_id>/sections/<int:section_id>/adjust/",
                 self.admin_site.admin_view(self.adjust_section_view),
                 name=f"{opts.app_label}_{opts.model_name}_adjust_section",
+            ),
+            path(
+                "<int:task_id>/regenerate-html/",
+                self.admin_site.admin_view(self.regenerate_html_view),
+                name=f"{opts.app_label}_{opts.model_name}_regenerate_html",
             ),
         ]
         return custom + urls
@@ -240,6 +247,23 @@ class SolutionTaskAdmin(admin.ModelAdmin[SolutionTask]):
             )
         )
 
+    def regenerate_html_view(self, request: HttpRequest, task_id: int) -> HttpResponse:
+        task = SolutionTask.objects.get(id=task_id)
+        has_sections = task.sections.filter(status=SectionStatus.COMPLETED).exists()
+        if not has_sections:
+            messages.error(request, "没有已完成的段落，无法重新生成 HTML")
+            return HttpResponseRedirect(reverse("admin:legal_solution_solutiontask_change", args=[task_id]))
+
+        renderer = HtmlRenderer()
+        task.html_content = renderer.render(task)
+        # 清除旧 PDF 缓存
+        if task.pdf_file:
+            task.pdf_file.delete(save=False)
+            task.pdf_file = None
+        task.save(update_fields=["html_content", "pdf_file", "updated_at"])
+        messages.success(request, "HTML 已重新生成")
+        return HttpResponseRedirect(reverse("admin:legal_solution_solutiontask_change", args=[task_id]))
+
     def save_model(self, request: HttpRequest, obj: SolutionTask, form: Any, change: bool) -> None:
         if change:
             super().save_model(request, obj, form, change)
@@ -282,6 +306,17 @@ class SolutionTaskAdmin(admin.ModelAdmin[SolutionTask]):
             return "—"
         pdf_url = reverse("admin:legal_solution_solutiontask_pdf", args=[obj.pk])
         return format_html('<a href="{}" target="_blank" class="button">⬇️ 导出 PDF</a>', pdf_url)
+
+    @admin.display(description="HTML 操作")
+    def regenerate_html_button(self, obj: SolutionTask) -> str:
+        has_sections = obj.sections.filter(status=SectionStatus.COMPLETED).exists()
+        if not has_sections:
+            return "—"
+        url = reverse("admin:legal_solution_solutiontask_regenerate_html", args=[obj.pk])
+        return format_html(
+            '<a href="{}" class="button" style="background:#7c3aed;color:#fff;padding:4px 12px;border-radius:4px;text-decoration:none;font-size:12px;">重新生成 HTML</a>',
+            url,
+        )
 
     @staticmethod
     def _build_model_choices() -> tuple[list[tuple[str, str]], bool, str]:
