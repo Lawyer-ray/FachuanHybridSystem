@@ -61,7 +61,9 @@ def run_solution_task(task_id: int) -> dict[str, Any]:
             # 用超级用户权限创建（内部调用）
             from apps.organization.models import Lawyer
 
-            admin_user = type("_AdminUser", (), {"is_superuser": True, "id": None, "law_firm_id": None})()
+            admin_user = Lawyer.objects.filter(is_superuser=True).first()
+            if admin_user is None:
+                raise RuntimeError("系统中没有超级用户，无法创建检索任务")
             research_task = research_service.create_task(payload=payload, user=admin_user)
             task.research_task = research_task
             task.save(update_fields=["research_task", "updated_at"])

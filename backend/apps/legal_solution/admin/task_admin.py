@@ -45,7 +45,7 @@ class SolutionSectionInline(admin.TabularInline):
             return "—"
         url = reverse("admin:legal_solution_solutiontask_adjust_section", args=[obj.task_id, obj.id])
         return format_html(
-            '<a class="button" href="{}" style="font-size:12px;padding:3px 10px;">✏️ 调整</a>',
+            '<a class="button" href="{}" style="font-size:12px;padding:3px 10px;">调整</a>',
             url,
         )
 
@@ -75,6 +75,7 @@ class SolutionTaskAdmin(admin.ModelAdmin[SolutionTask]):
         "updated_at",
         "preview_html_field",
         "download_pdf_button",
+        "regenerate_html_button",
     ]
 
     def get_fields(self, request: HttpRequest, obj: SolutionTask | None = None) -> list[str]:
@@ -93,6 +94,7 @@ class SolutionTaskAdmin(admin.ModelAdmin[SolutionTask]):
             "llm_model",
             "preview_html_field",
             "download_pdf_button",
+            "regenerate_html_button",
             "q_task_id",
             "started_at",
             "finished_at",
@@ -158,6 +160,11 @@ class SolutionTaskAdmin(admin.ModelAdmin[SolutionTask]):
                 self.admin_site.admin_view(self.adjust_section_view),
                 name=f"{opts.app_label}_{opts.model_name}_adjust_section",
             ),
+            path(
+                "<int:task_id>/regenerate-html/",
+                self.admin_site.admin_view(self.regenerate_html_view),
+                name=f"{opts.app_label}_{opts.model_name}_regenerate_html",
+            ),
         ]
         return custom + urls
 
@@ -211,23 +218,36 @@ class SolutionTaskAdmin(admin.ModelAdmin[SolutionTask]):
                     messages.error(request, f"重新生成失败：{exc}")
             return HttpResponseRedirect(reverse("admin:legal_solution_solutiontask_change", args=[task_id]))
 
-        # GET: 显示调整表单
+        # GET: 显示调整表单（含当前内容）
+        import html as _html
+
+        current_content = _html.escape(section.content or "")
+        current_html = section.html_content or ""
         html = f"""
         <html><head><meta charset="UTF-8">
-        <style>body{{font-family:sans-serif;padding:32px;max-width:600px;}}
-        textarea{{width:100%;height:120px;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;}}
-        .btn{{background:#4f46e5;color:#fff;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:14px;}}
-        .btn-cancel{{background:#f3f4f6;color:#374151;margin-left:8px;}}
-        h2{{margin-bottom:16px;font-size:18px;}}p{{color:#6b7280;margin-bottom:12px;font-size:14px;}}
+        <style>
+        body{{font-family:'PingFang SC','Microsoft YaHei',sans-serif;padding:32px;max-width:760px;background:#fdfcf9;color:#2c2c2c;}}
+        h2{{margin-bottom:16px;font-size:18px;color:#1a2744;}}
+        p{{color:#5a5a5a;margin-bottom:12px;font-size:14px;}}
+        .current{{background:#fff;border:1px solid #d1c7b7;border-radius:2px;padding:18px;margin-bottom:20px;max-height:300px;overflow-y:auto;font-size:14px;line-height:1.9;color:#2c2c2c;}}
+        .current-label{{font-size:13px;font-weight:600;color:#1a2744;margin-bottom:8px;letter-spacing:1px;}}
+        textarea{{width:100%;height:120px;padding:12px;border:1px solid #d1c7b7;border-radius:2px;font-size:14px;font-family:inherit;resize:vertical;background:#fff;}}
+        textarea:focus{{outline:none;border-color:#1a2744;}}
+        .btn{{background:#1a2744;color:#fff;border:none;padding:10px 24px;border-radius:2px;cursor:pointer;font-size:14px;}}
+        .btn:hover{{background:#2a3a5c;}}
+        .btn-cancel{{background:#f3f4f6;color:#374151;margin-left:8px;padding:10px 24px;border-radius:2px;text-decoration:none;display:inline-block;font-size:14px;}}
         </style></head><body>
-        <h2>✏️ 调整「{section.title}」</h2>
-        <p>当前版本：v{section.version}。请描述你希望如何调整这个段落。</p>
+        <h2>调整「{section.title}」</h2>
+        <p>当前版本：第{section.version}稿。请在下方查看已有内容，并描述你希望如何调整。</p>
+        <div class="current-label">当前内容</div>
+        <div class="current">{current_html if current_html else '<em style="color:#8a8a8a;">暂无内容</em>'}</div>
         <form method="post">
         <input type="hidden" name="csrfmiddlewaretoken" value="{request.META.get("CSRF_COOKIE", "")}">
+        <p style="margin-top:20px;margin-bottom:8px;font-weight:600;color:#1a2744;">调整意见</p>
         <textarea name="feedback" placeholder="例如：请更详细地分析违约责任的认定标准，并引用相关法条..."></textarea>
         <br><br>
         <button type="submit" class="btn">确认调整</button>
-        <a href="{reverse("admin:legal_solution_solutiontask_change", args=[task_id])}" class="btn btn-cancel" style="text-decoration:none;display:inline-block;">取消</a>
+        <a href="{reverse("admin:legal_solution_solutiontask_change", args=[task_id])}" class="btn btn-cancel">取消</a>
         </form></body></html>
         """
         from django.middleware.csrf import get_token
@@ -239,6 +259,23 @@ class SolutionTaskAdmin(admin.ModelAdmin[SolutionTask]):
                 get_token(request),
             )
         )
+
+    def regenerate_html_view(self, request: HttpRequest, task_id: int) -> HttpResponse:
+        task = SolutionTask.objects.get(id=task_id)
+        has_sections = task.sections.filter(status=SectionStatus.COMPLETED).exists()
+        if not has_sections:
+            messages.error(request, "没有已完成的段落，无法重新生成 HTML")
+            return HttpResponseRedirect(reverse("admin:legal_solution_solutiontask_change", args=[task_id]))
+
+        renderer = HtmlRenderer()
+        task.html_content = renderer.render(task)
+        # 清除旧 PDF 缓存
+        if task.pdf_file:
+            task.pdf_file.delete(save=False)
+            task.pdf_file = None
+        task.save(update_fields=["html_content", "pdf_file", "updated_at"])
+        messages.success(request, "HTML 已重新生成")
+        return HttpResponseRedirect(reverse("admin:legal_solution_solutiontask_change", args=[task_id]))
 
     def save_model(self, request: HttpRequest, obj: SolutionTask, form: Any, change: bool) -> None:
         if change:
@@ -282,6 +319,17 @@ class SolutionTaskAdmin(admin.ModelAdmin[SolutionTask]):
             return "—"
         pdf_url = reverse("admin:legal_solution_solutiontask_pdf", args=[obj.pk])
         return format_html('<a href="{}" target="_blank" class="button">⬇️ 导出 PDF</a>', pdf_url)
+
+    @admin.display(description="HTML 操作")
+    def regenerate_html_button(self, obj: SolutionTask) -> str:
+        has_sections = obj.sections.filter(status=SectionStatus.COMPLETED).exists()
+        if not has_sections:
+            return "—"
+        url = reverse("admin:legal_solution_solutiontask_regenerate_html", args=[obj.pk])
+        return format_html(
+            '<a href="{}" class="button" style="background:#7c3aed;color:#fff;padding:4px 12px;border-radius:4px;text-decoration:none;font-size:12px;">重新生成 HTML</a>',
+            url,
+        )
 
     @staticmethod
     def _build_model_choices() -> tuple[list[tuple[str, str]], bool, str]:
