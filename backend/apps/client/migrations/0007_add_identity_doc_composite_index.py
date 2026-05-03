@@ -12,6 +12,6 @@ class Migration(migrations.Migration):
     operations = [
         migrations.AddIndex(
             model_name='clientidentitydoc',
-            index=models.Index(fields=['client', 'doc_type'], name='cases_identitydoc_client_doctype_idx'),
+            index=models.Index(fields=['client', 'doc_type'], name='idx_iddoc_clt_doctype'),
         ),
     ]

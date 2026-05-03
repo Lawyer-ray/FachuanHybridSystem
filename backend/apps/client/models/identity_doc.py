@@ -92,5 +92,5 @@ class ClientIdentityDoc(models.Model):
         db_table = "cases_clientidentitydoc"
         managed = True
         indexes: ClassVar = [
-            models.Index(fields=["client", "doc_type"], name="cases_identitydoc_client_doctype_idx"),
+            models.Index(fields=["client", "doc_type"], name="idx_iddoc_clt_doctype"),
         ]
