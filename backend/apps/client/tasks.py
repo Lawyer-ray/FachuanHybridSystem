@@ -1,10 +1,10 @@
-"""Module for tasks."""
+"""按需异步任务（通过 TaskServicePort.async_task 调用，非定时任务，无需 _register_schedule）。"""
 
 from datetime import date
 from typing import Any
 
 from apps.client.services.identity_extraction import IdentityExtractionService
-from apps.client.services.storage import delete_media_file, to_media_abs
+from apps.core.services.storage_service import delete_media_file, to_media_abs
 
 
 def execute_identity_doc_recognition(file_path: str, doc_type: str) -> dict[str, Any]:

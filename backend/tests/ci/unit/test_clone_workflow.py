@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from apps.contracts.services.contract.admin.workflows.clone_workflow import ContractCloneWorkflow
+from apps.contracts.services.contract.admin.workflows.clone_workflow import ContractCloneWorkflow, plus_one_year_due_at
 
 
 def _make_workflow() -> tuple[ContractCloneWorkflow, MagicMock]:
@@ -117,13 +117,13 @@ def test_clone_related_data_applies_due_at_transform() -> None:
 
 def test_plus_one_year_due_at_adds_one_year() -> None:
     d = datetime.date(2024, 3, 15)
-    result = ContractCloneWorkflow.plus_one_year_due_at(d)
+    result = plus_one_year_due_at(d)
     assert result == datetime.date(2025, 3, 15)
 
 
 def test_plus_one_year_due_at_none_returns_none() -> None:
-    assert ContractCloneWorkflow.plus_one_year_due_at(None) is None
+    assert plus_one_year_due_at(None) is None
 
 
 def test_plus_one_year_due_at_falsy_returns_none() -> None:
-    assert ContractCloneWorkflow.plus_one_year_due_at("") is None
+    assert plus_one_year_due_at("") is None

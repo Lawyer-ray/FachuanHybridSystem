@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import logging
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .client_payment_image_service import ClientPaymentImageService
 
 from django.db import transaction
 from django.db.models import QuerySet, Sum
@@ -26,8 +29,10 @@ class ClientPaymentRecordService:
     - 案件归属验证
     """
 
-    def __init__(self) -> None:
-        """构造函数"""
+    def __init__(self, image_service: ClientPaymentImageService | None = None) -> None:
+        from .client_payment_image_service import ClientPaymentImageService
+
+        self._image_service = image_service or ClientPaymentImageService()
 
     @transaction.atomic
     def create_payment_record(
@@ -162,10 +167,7 @@ class ClientPaymentRecordService:
 
         # 删除关联图片
         if record.image_path:
-            from .client_payment_image_service import ClientPaymentImageService
-
-            image_service = ClientPaymentImageService()
-            image_service.delete_image(record.image_path)
+            self._image_service.delete_image(record.image_path)
 
         record.delete()
 

@@ -288,6 +288,14 @@ admin.site.__class__.get_app_list = _sorted_get_app_list  # type: ignore[method-
 def lpr_calculator_view(request: HttpRequest) -> HttpResponse:
     """LPR利息计算器独立视图."""
     from apps.finance.models.lpr_rate import LPRRate
+    from apps.finance.services.lpr.rate_service import LPRRateService
+
+    rate_service = LPRRateService()
+
+    try:
+        latest_rate = rate_service.get_latest_rate()
+    except Exception:
+        latest_rate = None
 
     # 获取最新的几条利率记录用于参考
     recent_rates = LPRRate.objects.all()[:10]
@@ -296,6 +304,9 @@ def lpr_calculator_view(request: HttpRequest) -> HttpResponse:
         **admin.site.each_context(request),
         "title": _("利息/违约金计算器"),
         "recent_rates": recent_rates,
+        "latest_rate": latest_rate,
+        "is_data_current": rate_service.is_data_current(),
+        "sync_url": "/admin/finance/lprrate/sync/",
     }
     return render(request, "admin/finance/lpr/calculator.html", context)
 

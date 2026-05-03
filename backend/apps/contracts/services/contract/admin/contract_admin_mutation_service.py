@@ -17,6 +17,7 @@ from apps.core.models.enums import CaseType
 
 from ..wiring import get_case_service, get_reminder_service
 from .workflows import ContractCaseCreationWorkflow, ContractCloneWorkflow, ContractFilingNumberWorkflow
+from .workflows.clone_workflow import plus_one_year_due_at
 
 logger = logging.getLogger("apps.contracts")
 
@@ -204,7 +205,7 @@ class ContractAdminMutationService:
         self.clone_workflow.clone_related_data(
             source_contract=original,
             target_contract=new_contract,
-            due_at_transform=ContractCloneWorkflow.plus_one_year_due_at,
+            due_at_transform=plus_one_year_due_at,
         )
 
         return new_contract

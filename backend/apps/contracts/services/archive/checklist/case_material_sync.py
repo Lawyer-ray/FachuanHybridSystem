@@ -377,7 +377,7 @@ def _copy_case_material_to_finalized(
         contract=contract,
         file_path=rel_path,
         original_filename=safe_name,
-        category="case_material",
+        category=MaterialCategory.CASE_MATERIAL,
         archive_item_code=archive_item_code,
     )
 
@@ -399,14 +399,19 @@ def _apply_initial_order_for_synced(synced: list[dict[str, Any]]) -> None:
     if not synced:
         return
 
+    material_ids = [item["material_id"] for item in synced]
+    materials_by_id = {
+        m.pk: m for m in FinalizedMaterial.objects.filter(pk__in=material_ids)
+    }
+
     code_to_materials: dict[str, list[FinalizedMaterial]] = {}
     for item in synced:
         code = item["archive_item_code"]
-        material_id = item["material_id"]
-        material = FinalizedMaterial.objects.filter(pk=material_id).first()
+        material = materials_by_id.get(item["material_id"])
         if material:
             code_to_materials.setdefault(code, []).append(material)
 
+    to_update: list[FinalizedMaterial] = []
     for code, materials in code_to_materials.items():
         keywords = ARCHIVE_SUBITEM_ORDER_RULES.get(code)
         if not keywords or len(materials) <= 1:
@@ -422,10 +427,13 @@ def _apply_initial_order_for_synced(synced: list[dict[str, Any]]) -> None:
 
         for i, mat in enumerate(materials):
             mat.order = i + 1
-            mat.save(update_fields=["order"])
+            to_update.append(mat)
 
         logger.info(
             "同步材料设置初始排序: code=%s, order=%s",
             code,
             [(m.original_filename, m.order) for m in materials],
         )
+
+    if to_update:
+        FinalizedMaterial.objects.bulk_update(to_update, ["order"])

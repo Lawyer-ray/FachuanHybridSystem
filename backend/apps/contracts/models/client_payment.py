@@ -55,6 +55,10 @@ class ClientPaymentRecord(models.Model):
         auto_now_add=True,
         verbose_name=_("创建时间"),
     )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name=_("更新时间"),
+    )
 
     history = HistoricalRecords()
 

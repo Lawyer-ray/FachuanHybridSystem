@@ -4,7 +4,7 @@ from pathlib import Path
 
 from django.utils.translation import gettext_lazy as _
 
-from apps.client.services.storage import _get_media_root
+from apps.core.services.storage_service import _get_media_root
 
 
 def get_media_root() -> Path:

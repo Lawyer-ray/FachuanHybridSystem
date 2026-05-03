@@ -79,7 +79,9 @@ class GsxtReportTaskInline(admin.TabularInline[Any]):  # type: ignore[type-arg]
             return "—"
 
         credential = credential_port.get_gsxt_credential()
-        email = credential.account if credential else "huangsong94@163.com"
+        email = credential.account if credential else None
+        if not email:
+            return "—"
         return format_html(
             '<a href="https://mail.163.com" target="_blank">📬 打开 {} 收件箱</a>',
             email,

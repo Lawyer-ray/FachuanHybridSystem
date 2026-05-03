@@ -83,10 +83,7 @@ class ClientIdentityDoc(models.Model):
         if self.client:
             if self.client.client_type == Client.NATURAL and self.doc_type not in self._NATURAL_DOC_TYPES:
                 raise ValidationError({"doc_type": _("Invalid doc type for natural person")})
-            if (
-                self.client.client_type in {Client.LEGAL, Client.NON_LEGAL_ORG}
-                and self.doc_type not in self._NATURAL_DOC_TYPES | self._LEGAL_DOC_TYPES
-            ):
+            if self.client.client_type in {Client.LEGAL, Client.NON_LEGAL_ORG} and self.doc_type not in self._LEGAL_DOC_TYPES:
                 raise ValidationError({"doc_type": _("Invalid doc type for organization")})
 
     class Meta:
@@ -94,3 +91,6 @@ class ClientIdentityDoc(models.Model):
         verbose_name_plural = _("证件")
         db_table = "cases_clientidentitydoc"
         managed = True
+        indexes: ClassVar = [
+            models.Index(fields=["client", "doc_type"], name="cases_identitydoc_client_doctype_idx"),
+        ]

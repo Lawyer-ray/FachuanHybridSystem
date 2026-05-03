@@ -2,16 +2,13 @@
 
 from __future__ import annotations
 
-import hashlib
 import logging
 import os
 import re
-import tempfile
 from pathlib import Path
 from typing import Any
 from uuid import UUID
 
-import fitz
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import transaction
 from django.utils import timezone
@@ -35,7 +32,9 @@ from apps.core.dependencies.core import build_task_submission_service
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.services.bound_folder_scan_service import BoundFolderScanService
 
+from .file_hash_utils import compute_file_hash
 from .material_service import MaterialService
+from .quality_card_detector import has_quality_card_on_last_page
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +47,6 @@ class ContractFolderScanService:
         ContractFolderScanStatus.RUNNING,
         ContractFolderScanStatus.CLASSIFYING,
     }
-    _QUALITY_CARD_KEYWORD = "律师办案服务质量监督卡"
     _QUALITY_CARD_TITLE = "合同正本与律师办案服务质量监督卡"
 
     def __init__(self, *, scan_service: BoundFolderScanService | None = None) -> None:
@@ -261,7 +259,7 @@ class ContractFolderScanService:
                 if (
                     category == MaterialCategory.CONTRACT_ORIGINAL
                     and not is_docx
-                    and self._has_quality_card_on_last_page(file_path)
+                    and has_quality_card_on_last_page(file_path)
                 ):
                     display_name = self._QUALITY_CARD_TITLE
 
@@ -277,7 +275,7 @@ class ContractFolderScanService:
                 # 计算文件内容哈希
                 # 注意：docx 文件存入 DB 的哈希是原始 docx 的哈希（而非转换后 PDF），
                 # 这样扫描时也能用同一哈希值比对已导入状态
-                content_hash = _compute_file_hash(file_path)
+                content_hash = compute_file_hash(file_path)
                 if content_hash:
                     material_kwargs["content_hash"] = content_hash
 
@@ -555,8 +553,7 @@ class ContractFolderScanService:
         except ValueError:
             return False
 
-    @staticmethod
-    def _relative_path_str(*, source_path: str, scan_root: Path) -> str:
+    def _relative_path_str(self, *, source_path: str, scan_root: Path) -> str:
         """计算文件父目录相对扫描根目录的路径，失败返回空字符串。"""
         try:
             file_path = Path(source_path).expanduser().resolve()
@@ -759,54 +756,6 @@ class ContractFolderScanService:
             logger.exception("docx_to_pdf_conversion_failed", extra={"path": file_path.as_posix()})
             return None
 
-    def _has_quality_card_on_last_page(self, file_path: Path) -> bool:
-        keyword = self._normalize_for_match(self._QUALITY_CARD_KEYWORD)
-        if not keyword:
-            return False
-
-        direct_text = self._extract_last_page_text_direct(file_path)
-        if keyword in self._normalize_for_match(direct_text):
-            return True
-
-        ocr_text = self._extract_last_page_text_with_ocr(file_path)
-        return keyword in self._normalize_for_match(ocr_text)
-
-    def _extract_last_page_text_direct(self, file_path: Path) -> str:
-        try:
-            with fitz.open(file_path.as_posix()) as doc:
-                if doc.page_count <= 0:
-                    return ""
-                page = doc.load_page(doc.page_count - 1)
-                return str(page.get_text() or "")
-        except (OSError, RuntimeError):
-            logger.exception("contract_quality_card_check_direct_failed", extra={"path": file_path.as_posix()})
-            return ""
-
-    def _extract_last_page_text_with_ocr(self, file_path: Path) -> str:
-        try:
-            from apps.automation.services.document.document_processing import extract_text_from_image_with_rapidocr
-
-            with fitz.open(file_path.as_posix()) as doc:
-                if doc.page_count <= 0:
-                    return ""
-                page = doc.load_page(doc.page_count - 1)
-                pix = page.get_pixmap()
-
-                with tempfile.NamedTemporaryFile(prefix="contract_last_page_", suffix=".png", delete=False) as tmp:
-                    temp_path = Path(tmp.name)
-                try:
-                    pix.save(temp_path.as_posix())
-                    return str(extract_text_from_image_with_rapidocr(temp_path.as_posix()) or "")
-                finally:
-                    if temp_path.exists():
-                        temp_path.unlink(missing_ok=True)
-        except (OSError, RuntimeError):
-            logger.exception("contract_quality_card_check_ocr_failed", extra={"path": file_path.as_posix()})
-            return ""
-
-    def _normalize_for_match(self, text: str) -> str:
-        return re.sub(r"\s+", "", str(text or "")).lower()
-
     def _learn_from_import_correction(
         self,
         *,
@@ -906,25 +855,12 @@ class ContractFolderScanService:
             if not file_path.exists() or not file_path.is_file():
                 continue
 
-            content_hash = _compute_file_hash(file_path)
+            content_hash = compute_file_hash(file_path)
             if content_hash and content_hash in existing_hashes:
                 candidate["already_imported"] = True
                 candidate["selected"] = False
             else:
                 candidate["already_imported"] = False
-
-
-def _compute_file_hash(file_path: Path) -> str:
-    """计算文件 SHA-256 哈希值。失败返回空字符串。"""
-    try:
-        sha256 = hashlib.sha256()
-        with file_path.open("rb") as f:
-            for chunk in iter(lambda: f.read(8192), b""):
-                sha256.update(chunk)
-        return sha256.hexdigest()
-    except (OSError, ValueError):
-        logger.exception("compute_file_hash_failed", extra={"path": file_path.as_posix()})
-        return ""
 
 
 def run_contract_folder_scan_task(session_id: str) -> None:

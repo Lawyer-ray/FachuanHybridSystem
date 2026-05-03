@@ -24,6 +24,14 @@ class Invoice(models.Model):
     file_path = models.CharField(max_length=500, verbose_name=_("文件路径"))
     original_filename = models.CharField(max_length=255, verbose_name=_("原始文件名"))
     remark = models.TextField(blank=True, default="", verbose_name=_("备注"))
+    content_hash = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        verbose_name=_("内容哈希"),
+        help_text=_("SHA-256, 用于去重"),
+        db_index=True,
+    )
     uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name=_("上传时间"))
 
     # 发票识别结果字段（可选）

@@ -21,7 +21,7 @@ class InvoiceStatus(models.TextChoices):
 class ContractPayment(models.Model):
     id: int
     contract_id: int
-    contract = models.ForeignKey(Contract, on_delete=models.CASCADE, related_name="payments", verbose_name=_("合同"))
+    contract = models.ForeignKey(Contract, on_delete=models.PROTECT, related_name="payments", verbose_name=_("合同"))
     amount = models.DecimalField(max_digits=14, decimal_places=2, verbose_name=_("收款金额"))
     received_at = models.DateField(default=timezone.localdate, verbose_name=_("收款日期"))
     invoice_status = models.CharField(
@@ -43,4 +43,4 @@ class ContractPayment(models.Model):
         ]
 
     def __str__(self) -> str:
-        return f"{self.contract_id}-{self.amount}"
+        return f"{self.contract.name} - ¥{self.amount}"

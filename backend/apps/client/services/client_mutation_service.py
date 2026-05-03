@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils.translation import gettext_lazy as _
 
@@ -93,9 +94,16 @@ class ClientMutationService:
 
         self._validate_create_data(data)
 
-        client = Client.objects.create(**data)
-        # prefetch identity_docs 避免 schema 序列化时 N+1
-        client = Client.objects.prefetch_related("identity_docs").get(pk=client.pk)
+        client = Client(**data)
+        try:
+            client.full_clean()
+        except ValidationError as e:
+            raise ValidationException(
+                message=_("验证失败"),
+                code="VALIDATION_ERROR",
+                errors=e.message_dict,
+            ) from e
+        client.save()
         logger.info(
             "客户创建成功",
             extra={"client_id": client.pk, "user_id": getattr(user, "id", None), "action": "create_client"},
@@ -170,7 +178,8 @@ class ClientMutationService:
                 uploaded_file=file,
                 user=user,
             )
-        return Client.objects.prefetch_related("identity_docs").get(pk=client.pk)
+        client.refresh_from_db()
+        return client
 
     def _validate_create_data(self, data: dict[str, Any]) -> None:
         if not data.get("name"):
