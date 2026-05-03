@@ -23,9 +23,9 @@ logger = logging.getLogger("apps.client")
 _VALID_CLUE_TYPES: dict[str, str] = dict(PropertyClue.CLUE_TYPE_CHOICES)
 
 _CONTENT_TEMPLATES: dict[str, str] = {
-    PropertyClue.BANK: _("户名:\n开户行:\n银行账号:"),
-    PropertyClue.WECHAT: _("微信号:\n微信实名:"),
-    PropertyClue.ALIPAY: _("支付宝账号:\n支付宝实名:"),
+    PropertyClue.BANK: str(_("户名:\n开户行:\n银行账号:")),
+    PropertyClue.WECHAT: str(_("微信号:\n微信实名:")),
+    PropertyClue.ALIPAY: str(_("支付宝账号:\n支付宝实名:")),
     PropertyClue.REAL_ESTATE: "",
     PropertyClue.OTHER: "",
 }

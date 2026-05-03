@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import logging
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .client_payment_image_service import ClientPaymentImageService
 
 from django.db import transaction
 from django.db.models import QuerySet, Sum
