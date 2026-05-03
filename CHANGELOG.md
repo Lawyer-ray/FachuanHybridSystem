@@ -2,6 +2,22 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.42.2] - 2026-05-03
+
+### 修复
+
+- **法律服务方案任务启动报错**：`legal_solution/tasks.py` 中用 `type()` 构造的假 `_AdminUser` 对象无法赋值给 `LegalResearchTask.created_by`（ForeignKey 指向 `Lawyer`），改为从数据库获取真实超级用户实例
+- **`ClientIdentityDoc` 索引名超限**：索引名 `cases_identitydoc_client_doctype_idx`（35 字符）超过 PostgreSQL 30 字符限制，缩短为 `idx_iddoc_clt_doctype`
+
+### 新功能
+
+- **法律服务方案「重新生成 HTML」按钮**：SolutionTask 管理后台 change 页面新增按钮，可用已有段落内容重新渲染 HTML 并清除旧 PDF 缓存
+
+### 优化
+
+- **法律服务方案报告模板改版**：去掉暗色背景、毛玻璃、光晕装饰和 emoji，改为白底衬线字体的法律文书风格；正文加首行缩进，配色改为深蓝/灰棕/橄榄绿等保守色系
+- **段落调整页面改进**：调整表单上方展示当前段落已有内容，用户可基于已有内容提出修改意见；去掉按钮 emoji
+
 ## [26.42.1] - 2026-05-03
 
 ### 修复
