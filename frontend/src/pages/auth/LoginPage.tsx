@@ -64,6 +64,16 @@ export function LoginPage() {
         onError={handleError}
       />
 
+      {/* 忘记密码链接 */}
+      <div className="mt-4 text-center text-sm">
+        <Link
+          to="/forgot-password"
+          className="text-muted-foreground hover:text-primary transition-colors"
+        >
+          忘记密码？
+        </Link>
+      </div>
+
       {/* 注册页面链接 - Validates: Requirement 5.6 */}
       <div className="mt-6 text-center text-sm text-muted-foreground">
         还没有账号？{' '}

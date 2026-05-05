@@ -16,6 +16,14 @@ const RegisterPage = lazy(() =>
   import('@/pages/auth/RegisterPage').then((m) => ({ default: m.RegisterPage }))
 )
 
+const ForgotPasswordPage = lazy(() =>
+  import('@/pages/auth/ForgotPasswordPage').then((m) => ({ default: m.ForgotPasswordPage }))
+)
+
+const ResetPasswordPage = lazy(() =>
+  import('@/pages/auth/ResetPasswordPage').then((m) => ({ default: m.ResetPasswordPage }))
+)
+
 // 后台页面懒加载
 // @validates Requirements 8.6 - THE 路由 SHALL 使用 React Router v7 的懒加载功能
 const DashboardPage = lazy(() => import('@/pages/dashboard/DashboardPage'))
@@ -105,6 +113,14 @@ export const router = createBrowserRouter([
           {
             path: PATHS.REGISTER,
             element: <RegisterPage />,
+          },
+          {
+            path: PATHS.FORGOT_PASSWORD,
+            element: <ForgotPasswordPage />,
+          },
+          {
+            path: PATHS.RESET_PASSWORD,
+            element: <ResetPasswordPage />,
           },
         ],
       },
