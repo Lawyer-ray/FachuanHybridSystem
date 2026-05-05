@@ -11,7 +11,7 @@ dependencies = [
     "django-ninja==1.6.2",
     "django-ninja-jwt==5.4.4",
     "django-ninja-extra==0.31.4",
-    "django-q2==1.9.0",
+    "django-q2==1.10.0",
     "django-lifecycle==1.2.7",
     # --- ASGI / WebSocket ---
     "uvicorn[standard]==0.46.0",
@@ -19,15 +19,15 @@ dependencies = [
     "channels-redis==4.3.0",
     "redis==7.4.0",
     # --- 数据库 ---
-    "psycopg[binary]==3.3.3",
+    "psycopg[binary]==3.3.4",
     # --- HTTP 客户端 ---
     "httpx[http2]==0.28.1",
     # --- LLM / AI ---
-    "openai>=2.30.0",
+    "openai>=2.34.0",
     # --- 文档处理 ---
     "docxtpl==0.20.2",
     "python-docx==1.2.0",
-    "reportlab==4.4.10",
+    "reportlab==4.5.0",
     "pdfplumber==0.11.9",
     "pikepdf==10.5.1",
     "pymupdf==1.27.2.3",
@@ -39,7 +39,7 @@ dependencies = [
     "rapidocr==3.8.1",
     "ddddocr==1.6.1",
     # --- 浏览器自动化 ---
-    "playwright==1.58.0",
+    "playwright==1.59.0",
     "playwright-stealth==2.0.3",
     # --- 数据处理 ---
     "pandas==3.0.2",
@@ -47,17 +47,17 @@ dependencies = [
     "python-dateutil==2.9.0.post0",
     "pyyaml==6.0.3",
     # --- 安全 / 加密 ---
-    "cryptography==47.0.0",
+    "cryptography==48.0.0",
     # --- 可观测性 ---
     "psutil==7.2.2",
-    "sentry-sdk>=2.58.0",
+    "sentry-sdk>=2.59.0",
     # --- 配置 ---
     "python-dotenv==1.2.2",
     # --- 热重载 ---
     "watchdog==6.0.0",
     "watchfiles==1.1.1",
     # --- 生产部署 ---
-    "gunicorn==25.3.0",
+    "gunicorn==26.0.0",
     "lxml>=6.1.0",
     "mammoth>=1.12.0",
     "markdown>=3.10.2",
@@ -68,7 +68,7 @@ dependencies = [
     "daphne>=4.2.1",
     "python-multipart==0.0.27",
     # --- 日历同步 ---
-    "icalendar>=6.0.0",
+    "icalendar>=7.1.0",
     "pyobjc-framework-EventKit>=12.0;sys_platform=='darwin'",
     "django-simple-history>=3.11.0",
 ]
