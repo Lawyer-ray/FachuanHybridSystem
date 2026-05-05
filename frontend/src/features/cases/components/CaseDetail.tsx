@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router'
+import { AnimatePresence, motion } from 'framer-motion'
 import {
   ArrowLeft, Edit, Trash2, FileWarning, Hash, Building2, MessageSquare,
   FileText, FolderOpen, Landmark, Paperclip,
@@ -96,6 +97,14 @@ const TABS = [
   { value: 'folder', label: '文件夹' },
   { value: 'court_filing', label: '一张网立案' },
 ]
+
+const tabVariants = {
+  initial: { opacity: 0, y: 8 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -6 },
+}
+
+const tabTransition = { duration: 0.2, ease: 'easeInOut' as const }
 
 /* ── Main component ── */
 
@@ -200,214 +209,216 @@ export function CaseDetail({ caseId }: CaseDetailProps) {
         </div>
       </div>
 
-      {/* ════════════════════════════════════════════ */}
-      {/*  Tab: 基本信息                                */}
-      {/* ════════════════════════════════════════════ */}
-      {activeTab === 'basic' && (
-        <div>
-          <div className="grid gap-4 lg:grid-cols-2">
-            <DetailCard title="案件信息">
-              <div className="grid gap-[14px] sm:grid-cols-2">
-                <DetailField label="案件名称" value={caseData.name} />
-                <DetailField label="案件类型" value={typeLabel} />
-                <DetailField label="案件状态" value={<StatusBadge status={statusKey} label={statusLabel} />} />
-                <DetailField label="案由" value={caseData.cause_of_action} />
-                <DetailField label="当前阶段" value={stageLabel} />
-                <DetailField label="标的金额" value={formatAmount(caseData.target_amount)} />
-                <DetailField label="保全金额" value={formatAmount(caseData.preservation_amount)} />
-                <DetailField label="关联合同" value={caseData.contract_id ? `合同 #${caseData.contract_id}` : '—'} />
-              </div>
-            </DetailCard>
-            <DetailCard title="日期信息">
-              <div className="grid gap-[14px] sm:grid-cols-2">
-                <DetailField label="收案日期" value={formatDateOnly(caseData.start_date)} mono />
-                <DetailField label="生效日期" value={formatDateOnly(caseData.effective_date)} mono />
-                <DetailField label="指定日期" value={formatDateOnly(caseData.specified_date)} mono />
-              </div>
-            </DetailCard>
-          </div>
-
-          <DetailCard title="案号" extra={<Hash className="text-muted-foreground size-4" />}>
-            <CaseNumberSection
-              caseNumbers={caseData.case_numbers ?? []}
-              editable={false}
-            />
-          </DetailCard>
-
-          <DetailCard title="主管机关" extra={<Building2 className="text-muted-foreground size-4" />}>
-            <AuthoritySection authorities={caseData.supervising_authorities ?? []} editable={false} />
-          </DetailCard>
-        </div>
-      )}
-
-      {/* ════════════════════════════════════════════ */}
-      {/*  Tab: 当事人与律师                             */}
-      {/* ════════════════════════════════════════════ */}
-      {activeTab === 'parties' && (
-        <div>
-          <DetailCard title="案件当事人">
-            {caseData.parties?.length ? (
-              <div className="flex flex-col gap-2">
-                {caseData.parties.map(party => {
-                  const name = party.client_detail?.name ?? '未知当事人'
-                  const legalStatusLabel = party.legal_status
-                    ? (LEGAL_STATUS_LABELS[party.legal_status as keyof typeof LEGAL_STATUS_LABELS]?.zh ?? party.legal_status)
-                    : null
-                  const isOur = party.client_detail?.is_our_client
-                  const roleColor = isOur ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'
-                  return (
-                    <div key={party.id} className="flex items-center gap-3 rounded-md border border-border/60 bg-muted/30 px-3 py-3 text-[13px]">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${roleColor}`}>
-                        {isOur ? '我方' : '对方'}
-                      </span>
-                      <span className="font-semibold flex-1">{name}</span>
-                      {legalStatusLabel && (
-                        <Badge variant="outline" className="text-[11px] px-2 py-0.5">{legalStatusLabel}</Badge>
-                      )}
-                      <span className="text-muted-foreground text-xs">{party.client_detail?.client_type === 'natural' ? '自然人' : '法人/组织'}</span>
-                    </div>
-                  )
-                })}
-              </div>
-            ) : (
-              <p className="text-muted-foreground text-[13px]">暂无当事人</p>
-            )}
-          </DetailCard>
-
-          <DetailCard title="律师指派">
-            {caseData.assignments?.length ? (
-              <div className="flex flex-col gap-2">
-                {caseData.assignments.map(a => (
-                  <div key={a.id} className="flex items-center gap-3 rounded-md border border-border/60 bg-muted/30 px-3 py-3 text-[13px]">
-                    <span className="font-semibold flex-1">{a.lawyer_detail?.real_name || a.lawyer_detail?.username || '未知'}</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-muted-foreground text-[13px]">暂无指派律师</p>
-            )}
-          </DetailCard>
-
-          <DetailCard title="案件授权">
-            <CaseAccessGrantSection
-              grants={accessGrants ?? []}
-              editable={false}
-            />
-          </DetailCard>
-        </div>
-      )}
-
-      {/* ════════════════════════════════════════════ */}
-      {/*  Tab: 案件进展                                */}
-      {/* ════════════════════════════════════════════ */}
-      {activeTab === 'progress' && (
-        <div>
-          <DetailCard title="案件日志">
-            <CaseLogSection logs={caseData.logs ?? []} editable={false} />
-          </DetailCard>
-
-          <DetailCard title="案件群聊" extra={<MessageSquare className="text-muted-foreground size-4" />}>
-            {caseData.chats?.length ? (
-              <div className="flex flex-col gap-2">
-                {caseData.chats.map(chat => (
-                  <div key={chat.id} className="flex items-center gap-3 rounded-md border border-border/60 bg-muted/30 px-3 py-2.5 text-[13px]">
-                    <MessageSquare className="text-muted-foreground size-3.5 shrink-0" />
-                    <span className="text-muted-foreground text-xs">{PLATFORM_LABELS[chat.platform] || chat.platform}</span>
-                    <span className="font-medium flex-1">{chat.name}</span>
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${
-                      chat.is_active ? 'bg-green-50 text-green-700' : 'bg-muted text-muted-foreground'
-                    }`}>
-                      {chat.is_active ? '有效' : '已失效'}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-muted-foreground text-[13px]">暂无关联群聊</p>
-            )}
-          </DetailCard>
-        </div>
-      )}
-
-      {/* ════════════════════════════════════════════ */}
-      {/*  Tab: 文书模板                                */}
-      {/* ════════════════════════════════════════════ */}
-      {activeTab === 'documents' && (
-        <div>
-          <DetailCard title="文书模板" extra={<FileText className="text-muted-foreground size-4" />}>
-            <CaseTemplateSection
-              categories={templateBindings?.categories ?? []}
-              parties={caseData.parties ?? []}
-              caseId={Number(caseId)}
-            />
-          </DetailCard>
-        </div>
-      )}
-
-      {/* ════════════════════════════════════════════ */}
-      {/*  Tab: 材料管理                                */}
-      {/* ════════════════════════════════════════════ */}
-      {activeTab === 'materials' && (
-        <div>
-          <DetailCard title="材料管理" extra={<Paperclip className="text-muted-foreground size-4" />}>
-            <CaseMaterialSection
-              candidates={materialCandidates ?? []}
-              caseId={Number(caseId)}
-            />
-          </DetailCard>
-        </div>
-      )}
-
-      {/* ════════════════════════════════════════════ */}
-      {/*  Tab: 文件夹                                  */}
-      {/* ════════════════════════════════════════════ */}
-      {activeTab === 'folder' && (
-        <div>
-          <DetailCard title="文件夹管理" extra={<FolderOpen className="text-muted-foreground size-4" />}>
-            <CaseFolderSection
-              binding={folderBinding}
-              caseId={Number(caseId)}
-            />
-          </DetailCard>
-        </div>
-      )}
-
-      {/* ════════════════════════════════════════════ */}
-      {/*  Tab: 一张网立案                               */}
-      {/* ════════════════════════════════════════════ */}
-      {activeTab === 'court_filing' && (
-        <div>
-          <DetailCard title="法院一张网在线立案" extra={<Landmark className="text-muted-foreground size-4" />}>
-            <div className="rounded-md border border-border/60 bg-muted/30 px-4 py-3 mb-4">
-              <div className="grid gap-3 sm:grid-cols-3 text-[13px]">
-                <div>
-                  <span className="text-muted-foreground">案由：</span>
-                  <span className="font-medium">{caseData.cause_of_action || '—'}</span>
+      <AnimatePresence mode="wait">
+        {/* ════════════════════════════════════════════ */}
+        {/*  Tab: 基本信息                                */}
+        {/* ════════════════════════════════════════════ */}
+        {activeTab === 'basic' && (
+          <motion.div key="basic" {...tabVariants} transition={tabTransition}>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <DetailCard title="案件信息">
+                <div className="grid gap-[14px] sm:grid-cols-2">
+                  <DetailField label="案件名称" value={caseData.name} />
+                  <DetailField label="案件类型" value={typeLabel} />
+                  <DetailField label="案件状态" value={<StatusBadge status={statusKey} label={statusLabel} />} />
+                  <DetailField label="案由" value={caseData.cause_of_action} />
+                  <DetailField label="当前阶段" value={stageLabel} />
+                  <DetailField label="标的金额" value={formatAmount(caseData.target_amount)} />
+                  <DetailField label="保全金额" value={formatAmount(caseData.preservation_amount)} />
+                  <DetailField label="关联合同" value={caseData.contract_id ? `合同 #${caseData.contract_id}` : '—'} />
                 </div>
-                <div>
-                  <span className="text-muted-foreground">管辖法院：</span>
-                  <span className="font-medium">
-                    {caseData.supervising_authorities?.find(a => a.authority_type === 'trial')?.name || '未设置'}
-                  </span>
+              </DetailCard>
+              <DetailCard title="日期信息">
+                <div className="grid gap-[14px] sm:grid-cols-2">
+                  <DetailField label="收案日期" value={formatDateOnly(caseData.start_date)} mono />
+                  <DetailField label="生效日期" value={formatDateOnly(caseData.effective_date)} mono />
+                  <DetailField label="指定日期" value={formatDateOnly(caseData.specified_date)} mono />
                 </div>
-                <div>
-                  <span className="text-muted-foreground">标的额：</span>
-                  <span className="font-medium">{formatAmount(caseData.target_amount)}</span>
-                </div>
-              </div>
+              </DetailCard>
             </div>
 
-            <Button variant="outline" size="sm" className="h-8 text-xs" disabled>
-              🚀 开始一张网立案
-            </Button>
-            <p className="text-muted-foreground text-xs mt-2">请先设置管辖法院（案件管辖机关）</p>
-          </DetailCard>
+            <DetailCard title="案号" extra={<Hash className="text-muted-foreground size-4" />}>
+              <CaseNumberSection
+                caseNumbers={caseData.case_numbers ?? []}
+                editable={false}
+              />
+            </DetailCard>
 
-          <DetailCard title="诉讼保全担保" extra={<FileText className="text-muted-foreground size-4" />}>
-            <p className="text-muted-foreground text-[13px]">暂无保全担保信息</p>
-          </DetailCard>
-        </div>
-      )}
+            <DetailCard title="主管机关" extra={<Building2 className="text-muted-foreground size-4" />}>
+              <AuthoritySection authorities={caseData.supervising_authorities ?? []} editable={false} />
+            </DetailCard>
+          </motion.div>
+        )}
+
+        {/* ════════════════════════════════════════════ */}
+        {/*  Tab: 当事人与律师                             */}
+        {/* ════════════════════════════════════════════ */}
+        {activeTab === 'parties' && (
+          <motion.div key="parties" {...tabVariants} transition={tabTransition}>
+            <DetailCard title="案件当事人">
+              {caseData.parties?.length ? (
+                <div className="flex flex-col gap-2">
+                  {caseData.parties.map(party => {
+                    const name = party.client_detail?.name ?? '未知当事人'
+                    const legalStatusLabel = party.legal_status
+                      ? (LEGAL_STATUS_LABELS[party.legal_status as keyof typeof LEGAL_STATUS_LABELS]?.zh ?? party.legal_status)
+                      : null
+                    const isOur = party.client_detail?.is_our_client
+                    const roleColor = isOur ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'
+                    return (
+                      <div key={party.id} className="flex items-center gap-3 rounded-md border border-border/60 bg-muted/30 px-3 py-3 text-[13px]">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${roleColor}`}>
+                          {isOur ? '我方' : '对方'}
+                        </span>
+                        <span className="font-semibold flex-1">{name}</span>
+                        {legalStatusLabel && (
+                          <Badge variant="outline" className="text-[11px] px-2 py-0.5">{legalStatusLabel}</Badge>
+                        )}
+                        <span className="text-muted-foreground text-xs">{party.client_detail?.client_type === 'natural' ? '自然人' : '法人/组织'}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-[13px]">暂无当事人</p>
+              )}
+            </DetailCard>
+
+            <DetailCard title="律师指派">
+              {caseData.assignments?.length ? (
+                <div className="flex flex-col gap-2">
+                  {caseData.assignments.map(a => (
+                    <div key={a.id} className="flex items-center gap-3 rounded-md border border-border/60 bg-muted/30 px-3 py-3 text-[13px]">
+                      <span className="font-semibold flex-1">{a.lawyer_detail?.real_name || a.lawyer_detail?.username || '未知'}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-[13px]">暂无指派律师</p>
+              )}
+            </DetailCard>
+
+            <DetailCard title="案件授权">
+              <CaseAccessGrantSection
+                grants={accessGrants ?? []}
+                editable={false}
+              />
+            </DetailCard>
+          </motion.div>
+        )}
+
+        {/* ════════════════════════════════════════════ */}
+        {/*  Tab: 案件进展                                */}
+        {/* ════════════════════════════════════════════ */}
+        {activeTab === 'progress' && (
+          <motion.div key="progress" {...tabVariants} transition={tabTransition}>
+            <DetailCard title="案件日志">
+              <CaseLogSection logs={caseData.logs ?? []} editable={false} />
+            </DetailCard>
+
+            <DetailCard title="案件群聊" extra={<MessageSquare className="text-muted-foreground size-4" />}>
+              {caseData.chats?.length ? (
+                <div className="flex flex-col gap-2">
+                  {caseData.chats.map(chat => (
+                    <div key={chat.id} className="flex items-center gap-3 rounded-md border border-border/60 bg-muted/30 px-3 py-2.5 text-[13px]">
+                      <MessageSquare className="text-muted-foreground size-3.5 shrink-0" />
+                      <span className="text-muted-foreground text-xs">{PLATFORM_LABELS[chat.platform] || chat.platform}</span>
+                      <span className="font-medium flex-1">{chat.name}</span>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                        chat.is_active ? 'bg-green-50 text-green-700' : 'bg-muted text-muted-foreground'
+                      }`}>
+                        {chat.is_active ? '有效' : '已失效'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-[13px]">暂无关联群聊</p>
+              )}
+            </DetailCard>
+          </motion.div>
+        )}
+
+        {/* ════════════════════════════════════════════ */}
+        {/*  Tab: 文书模板                                */}
+        {/* ════════════════════════════════════════════ */}
+        {activeTab === 'documents' && (
+          <motion.div key="documents" {...tabVariants} transition={tabTransition}>
+            <DetailCard title="文书模板" extra={<FileText className="text-muted-foreground size-4" />}>
+              <CaseTemplateSection
+                categories={templateBindings?.categories ?? []}
+                parties={caseData.parties ?? []}
+                caseId={Number(caseId)}
+              />
+            </DetailCard>
+          </motion.div>
+        )}
+
+        {/* ════════════════════════════════════════════ */}
+        {/*  Tab: 材料管理                                */}
+        {/* ════════════════════════════════════════════ */}
+        {activeTab === 'materials' && (
+          <motion.div key="materials" {...tabVariants} transition={tabTransition}>
+            <DetailCard title="材料管理" extra={<Paperclip className="text-muted-foreground size-4" />}>
+              <CaseMaterialSection
+                candidates={materialCandidates ?? []}
+                caseId={Number(caseId)}
+              />
+            </DetailCard>
+          </motion.div>
+        )}
+
+        {/* ════════════════════════════════════════════ */}
+        {/*  Tab: 文件夹                                  */}
+        {/* ════════════════════════════════════════════ */}
+        {activeTab === 'folder' && (
+          <motion.div key="folder" {...tabVariants} transition={tabTransition}>
+            <DetailCard title="文件夹管理" extra={<FolderOpen className="text-muted-foreground size-4" />}>
+              <CaseFolderSection
+                binding={folderBinding}
+                caseId={Number(caseId)}
+              />
+            </DetailCard>
+          </motion.div>
+        )}
+
+        {/* ════════════════════════════════════════════ */}
+        {/*  Tab: 一张网立案                               */}
+        {/* ════════════════════════════════════════════ */}
+        {activeTab === 'court_filing' && (
+          <motion.div key="court_filing" {...tabVariants} transition={tabTransition}>
+            <DetailCard title="法院一张网在线立案" extra={<Landmark className="text-muted-foreground size-4" />}>
+              <div className="rounded-md border border-border/60 bg-muted/30 px-4 py-3 mb-4">
+                <div className="grid gap-3 sm:grid-cols-3 text-[13px]">
+                  <div>
+                    <span className="text-muted-foreground">案由：</span>
+                    <span className="font-medium">{caseData.cause_of_action || '—'}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">管辖法院：</span>
+                    <span className="font-medium">
+                      {caseData.supervising_authorities?.find(a => a.authority_type === 'trial')?.name || '未设置'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">标的额：</span>
+                    <span className="font-medium">{formatAmount(caseData.target_amount)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <Button variant="outline" size="sm" className="h-8 text-xs" disabled>
+                🚀 开始一张网立案
+              </Button>
+              <p className="text-muted-foreground text-xs mt-2">请先设置管辖法院（案件管辖机关）</p>
+            </DetailCard>
+
+            <DetailCard title="诉讼保全担保" extra={<FileText className="text-muted-foreground size-4" />}>
+              <p className="text-muted-foreground text-[13px]">暂无保全担保信息</p>
+            </DetailCard>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Delete Dialog ── */}
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>

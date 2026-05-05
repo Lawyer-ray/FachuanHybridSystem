@@ -10,6 +10,7 @@ from ninja import Router
 
 from apps.core.infrastructure.throttling import rate_limit_from_settings
 from apps.core.security.auth import JWTOrSessionAuth
+from apps.organization.models import Lawyer
 from apps.organization.schemas import (
     LawyerOut,
     LoginIn,

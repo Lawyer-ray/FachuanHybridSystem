@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router'
+import { AnimatePresence, motion } from 'framer-motion'
 import {
   ArrowLeft, Edit, Trash2, FileWarning,
   MoreHorizontal, FileText, Briefcase, Copy, RefreshCw, Loader2,
@@ -84,6 +85,14 @@ const TABS = [
   { value: 'documents', label: '文书/提醒' },
   { value: 'archive', label: '归档清单' },
 ]
+
+const tabVariants = {
+  initial: { opacity: 0, y: 8 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -6 },
+}
+
+const tabTransition = { duration: 0.2, ease: 'easeInOut' as const }
 
 /* ── Main component ── */
 
@@ -249,122 +258,132 @@ export function ContractDetail({ contractId }: ContractDetailProps) {
         </div>
       </div>
 
-      {/* ════════════════════════════════════════════ */}
-      {/*  Tab: 基本信息                                */}
-      {/* ════════════════════════════════════════════ */}
-      {activeTab === 'basic' && (
-        <div>
-          <div className="grid gap-4 lg:grid-cols-2">
-            <DetailCard title="合同信息">
-              <div className="grid gap-[14px] sm:grid-cols-2">
-                <DetailField label="合同名称" value={contract.name} />
-                <DetailField label="案件类型" value={typeLabel} />
-                <DetailField label="合同状态" value={<StatusBadge status={statusKey} label={statusLabel} />} />
-                <DetailField label="收费模式" value={<Badge variant="outline" className="text-[11px] px-2 py-0.5">{feeLabel}</Badge>} />
-                <DetailField label="固定/前期金额" value={formatAmount(contract.fixed_amount)} />
-                <DetailField label="风险比例" value={contract.risk_rate != null ? `${contract.risk_rate}%` : '—'} />
-              </div>
-            </DetailCard>
-            <DetailCard title="日期与期限">
-              <div className="grid gap-[14px] sm:grid-cols-2">
-                <DetailField label="指定日期" value={contract.specified_date} mono />
-                <DetailField label="合同期限" value={`${contract.start_date || '—'} ~ ${contract.end_date || '—'}`} mono />
-                <DetailField label="代理阶段" value={contract.representation_stages.length > 0 ? contract.representation_stages.join('、') : '—'} />
-                <DetailField label="是否建档" value={contract.is_filed ? '是' : '否'} />
-                <DetailField label="自定义条款" value={contract.custom_terms} />
-              </div>
-            </DetailCard>
-          </div>
+      <AnimatePresence mode="wait">
+        {/* ════════════════════════════════════════════ */}
+        {/*  Tab: 基本信息                                */}
+        {/* ════════════════════════════════════════════ */}
+        {activeTab === 'basic' && (
+          <motion.div key="basic" {...tabVariants} transition={tabTransition}>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <DetailCard title="合同信息">
+                <div className="grid gap-[14px] sm:grid-cols-2">
+                  <DetailField label="合同名称" value={contract.name} />
+                  <DetailField label="案件类型" value={typeLabel} />
+                  <DetailField label="合同状态" value={<StatusBadge status={statusKey} label={statusLabel} />} />
+                  <DetailField label="收费模式" value={<Badge variant="outline" className="text-[11px] px-2 py-0.5">{feeLabel}</Badge>} />
+                  <DetailField label="固定/前期金额" value={formatAmount(contract.fixed_amount)} />
+                  <DetailField label="风险比例" value={contract.risk_rate != null ? `${contract.risk_rate}%` : '—'} />
+                </div>
+              </DetailCard>
+              <DetailCard title="日期与期限">
+                <div className="grid gap-[14px] sm:grid-cols-2">
+                  <DetailField label="指定日期" value={contract.specified_date} mono />
+                  <DetailField label="合同期限" value={`${contract.start_date || '—'} ~ ${contract.end_date || '—'}`} mono />
+                  <DetailField label="代理阶段" value={contract.representation_stages.length > 0 ? contract.representation_stages.join('、') : '—'} />
+                  <DetailField label="是否建档" value={contract.is_filed ? '是' : '否'} />
+                  <DetailField label="自定义条款" value={contract.custom_terms} />
+                </div>
+              </DetailCard>
+            </div>
 
-          {contract.cases.length > 0 && (
-            <DetailCard title="关联案件" extra={<Briefcase className="text-muted-foreground size-4" />}>
-              <div className="flex flex-col gap-2">
-                {contract.cases.map((cs) => (
-                  <div key={cs.id} className="flex items-center gap-3 rounded-md border border-border/60 bg-muted/30 px-3 py-3 text-[13px]">
-                    <Briefcase className="text-muted-foreground size-3.5 shrink-0" />
-                    <span className="font-medium flex-1 truncate">{cs.name}</span>
-                    {cs.status_label && <Badge variant="outline" className="text-[11px] px-2 py-0.5 shrink-0">{cs.status_label}</Badge>}
-                    {cs.target_amount != null && <span className="text-muted-foreground shrink-0">¥{cs.target_amount.toLocaleString()}</span>}
-                  </div>
-                ))}
-              </div>
-            </DetailCard>
-          )}
-        </div>
-      )}
-
-      {/* ════════════════════════════════════════════ */}
-      {/*  Tab: 当事人与律师                             */}
-      {/* ════════════════════════════════════════════ */}
-      {activeTab === 'parties' && (
-        <div>
-          <DetailCard title="合同当事人">
-            {contract.contract_parties.length === 0 ? (
-              <p className="text-muted-foreground text-[13px]">暂无当事人</p>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {contract.contract_parties.map((p) => (
-                  <div key={p.id} className="flex items-center gap-3 rounded-md border border-border/60 bg-muted/30 px-3 py-3 text-[13px]">
-                    <span className="font-semibold flex-1">{p.client_detail.name}</span>
-                    <Badge variant="outline" className="text-[11px] px-2 py-0.5">{p.role_label}</Badge>
-                  </div>
-                ))}
-              </div>
+            {contract.cases.length > 0 && (
+              <DetailCard title="关联案件" extra={<Briefcase className="text-muted-foreground size-4" />}>
+                <div className="flex flex-col gap-2">
+                  {contract.cases.map((cs) => (
+                    <div key={cs.id} className="flex items-center gap-3 rounded-md border border-border/60 bg-muted/30 px-3 py-3 text-[13px]">
+                      <Briefcase className="text-muted-foreground size-3.5 shrink-0" />
+                      <span className="font-medium flex-1 truncate">{cs.name}</span>
+                      {cs.status_label && <Badge variant="outline" className="text-[11px] px-2 py-0.5 shrink-0">{cs.status_label}</Badge>}
+                      {cs.target_amount != null && <span className="text-muted-foreground shrink-0">¥{cs.target_amount.toLocaleString()}</span>}
+                    </div>
+                  ))}
+                </div>
+              </DetailCard>
             )}
-          </DetailCard>
+          </motion.div>
+        )}
 
-          <DetailCard title="律师指派">
-            {contract.assignments.length === 0 ? (
-              <p className="text-muted-foreground text-[13px]">暂无指派律师</p>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {contract.assignments.map((a) => (
-                  <div key={a.id} className="flex items-center gap-3 rounded-md border border-border/60 bg-muted/30 px-3 py-3 text-[13px]">
-                    <span className="font-semibold flex-1">{a.lawyer_name}</span>
-                    <Badge variant={a.is_primary ? 'default' : 'secondary'} className="text-[11px] px-2 py-0.5">
-                      {a.is_primary ? '主办' : '协办'}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            )}
-          </DetailCard>
-
-          {contract.supplementary_agreements.length > 0 && (
-            <DetailCard title="补充协议">
-              <SupplementaryAgreementList contractId={contract.id} agreements={contract.supplementary_agreements} />
+        {/* ════════════════════════════════════════════ */}
+        {/*  Tab: 当事人与律师                             */}
+        {/* ════════════════════════════════════════════ */}
+        {activeTab === 'parties' && (
+          <motion.div key="parties" {...tabVariants} transition={tabTransition}>
+            <DetailCard title="合同当事人">
+              {contract.contract_parties.length === 0 ? (
+                <p className="text-muted-foreground text-[13px]">暂无当事人</p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {contract.contract_parties.map((p) => (
+                    <div key={p.id} className="flex items-center gap-3 rounded-md border border-border/60 bg-muted/30 px-3 py-3 text-[13px]">
+                      <span className="font-semibold flex-1">{p.client_detail.name}</span>
+                      <Badge variant="outline" className="text-[11px] px-2 py-0.5">{p.role_label}</Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
             </DetailCard>
-          )}
-        </div>
-      )}
 
-      {/* ════════════════════════════════════════════ */}
-      {/*  Tab: 收费/财务                               */}
-      {/* ════════════════════════════════════════════ */}
-      {activeTab === 'fees' && (
-        <FeesTab contract={contract} />
-      )}
+            <DetailCard title="律师指派">
+              {contract.assignments.length === 0 ? (
+                <p className="text-muted-foreground text-[13px]">暂无指派律师</p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {contract.assignments.map((a) => (
+                    <div key={a.id} className="flex items-center gap-3 rounded-md border border-border/60 bg-muted/30 px-3 py-3 text-[13px]">
+                      <span className="font-semibold flex-1">{a.lawyer_name}</span>
+                      <Badge variant={a.is_primary ? 'default' : 'secondary'} className="text-[11px] px-2 py-0.5">
+                        {a.is_primary ? '主办' : '协办'}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </DetailCard>
 
-      {/* ════════════════════════════════════════════ */}
-      {/*  Tab: 立案/OA                                 */}
-      {/* ════════════════════════════════════════════ */}
-      {activeTab === 'filing' && (
-        <FilingTab contract={contract} />
-      )}
+            {contract.supplementary_agreements.length > 0 && (
+              <DetailCard title="补充协议">
+                <SupplementaryAgreementList contractId={contract.id} agreements={contract.supplementary_agreements} />
+              </DetailCard>
+            )}
+          </motion.div>
+        )}
 
-      {/* ════════════════════════════════════════════ */}
-      {/*  Tab: 文书/提醒                               */}
-      {/* ════════════════════════════════════════════ */}
-      {activeTab === 'documents' && (
-        <DocumentsTab contract={contract} />
-      )}
+        {/* ════════════════════════════════════════════ */}
+        {/*  Tab: 收费/财务                               */}
+        {/* ════════════════════════════════════════════ */}
+        {activeTab === 'fees' && (
+          <motion.div key="fees" {...tabVariants} transition={tabTransition}>
+            <FeesTab contract={contract} />
+          </motion.div>
+        )}
 
-      {/* ════════════════════════════════════════════ */}
-      {/*  Tab: 归档清单                                */}
-      {/* ════════════════════════════════════════════ */}
-      {activeTab === 'archive' && (
-        <ArchiveTab contract={contract} />
-      )}
+        {/* ════════════════════════════════════════════ */}
+        {/*  Tab: 立案/OA                                 */}
+        {/* ════════════════════════════════════════════ */}
+        {activeTab === 'filing' && (
+          <motion.div key="filing" {...tabVariants} transition={tabTransition}>
+            <FilingTab contract={contract} />
+          </motion.div>
+        )}
+
+        {/* ════════════════════════════════════════════ */}
+        {/*  Tab: 文书/提醒                               */}
+        {/* ════════════════════════════════════════════ */}
+        {activeTab === 'documents' && (
+          <motion.div key="documents" {...tabVariants} transition={tabTransition}>
+            <DocumentsTab contract={contract} />
+          </motion.div>
+        )}
+
+        {/* ════════════════════════════════════════════ */}
+        {/*  Tab: 归档清单                                */}
+        {/* ════════════════════════════════════════════ */}
+        {activeTab === 'archive' && (
+          <motion.div key="archive" {...tabVariants} transition={tabTransition}>
+            <ArchiveTab contract={contract} />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Delete Dialog ── */}
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
