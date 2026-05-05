@@ -1,19 +1,14 @@
-'use client'
-
-import { NavLink, useNavigate } from 'react-router'
-import { Menu, LogOut, User, PanelLeft, PanelTop } from 'lucide-react'
+import { useNavigate } from 'react-router'
+import { Menu, LogOut, Home, Users, Settings, Moon, Sun } from 'lucide-react'
 import { useTheme } from 'next-themes'
-import { Moon, Sun } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
@@ -23,63 +18,30 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { useAuthStore } from '@/stores/auth'
-import { useUIStore, type NavMode } from '@/stores/ui'
 import { authApi } from '@/features/auth/api'
 import { PATHS } from '@/routes/paths'
-import { TopNavMenu } from './TopNavMenu'
+import { TopbarIcons } from '@/components/shared/TopbarIcons'
 
-/**
- * Navbar 组件属性
- */
 interface NavbarProps {
-  /** 移动端汉堡菜单点击回调 */
   onMenuClick: () => void
-  /** 是否显示顶部导航菜单（topbar 模式） */
-  showTopNav?: boolean
 }
 
-/**
- * Navbar - 顶部导航栏组件
- *
- * 实现后台管理系统的顶部导航栏，包含：
- * - 移动端汉堡菜单按钮
- * - 顶部导航菜单（topbar 模式）
- * - 当前用户信息显示（用户名和头像）
- * - 主题切换按钮（明亮/暗夜模式）
- * - 导航模式切换按钮
- * - 登出按钮和功能
- */
-export function Navbar({ onMenuClick, showTopNav = false }: NavbarProps) {
+export function Navbar({ onMenuClick }: NavbarProps) {
   const navigate = useNavigate()
   const { theme, setTheme } = useTheme()
   const user = useAuthStore((state) => state.user)
   const logout = useAuthStore((state) => state.logout)
-  const navMode = useUIStore((state) => state.navMode)
-  const setNavMode = useUIStore((state) => state.setNavMode)
 
-  /**
-   * 获取用户头像显示的首字母
-   */
   const getAvatarInitials = (): string => {
-    if (user?.real_name) {
-      return user.real_name.charAt(0).toUpperCase()
-    }
-    if (user?.username) {
-      return user.username.charAt(0).toUpperCase()
-    }
+    if (user?.real_name) return user.real_name.charAt(0)
+    if (user?.username) return user.username.charAt(0).toUpperCase()
     return 'U'
   }
 
-  /**
-   * 获取显示的用户名
-   */
   const getDisplayName = (): string => {
     return user?.real_name || user?.username || '用户'
   }
 
-  /**
-   * 处理登出操作
-   */
   const handleLogout = async () => {
     try {
       await authApi.logout()
@@ -92,161 +54,92 @@ export function Navbar({ onMenuClick, showTopNav = false }: NavbarProps) {
     }
   }
 
-  /**
-   * 切换主题
-   */
-  const toggleTheme = () => {
-    setTheme(theme === 'light' ? 'dark' : 'light')
-  }
-
-  /**
-   * 切换导航模式
-   */
-  const toggleNavMode = () => {
-    const newMode: NavMode = navMode === 'sidebar' ? 'topbar' : 'sidebar'
-    setNavMode(newMode)
-    toast.success(newMode === 'sidebar' ? '已切换为侧边栏模式' : '已切换为顶部导航模式')
-  }
-
   return (
-    <header
-      className={cn(
-        'sticky top-0 z-30',
-        'flex items-center justify-between h-16 px-4 md:px-6',
-        'bg-background/85 backdrop-blur-xl',
-        'border-b border-border',
-        'dark:bg-background/90 dark:border-border/80'
-      )}
-    >
-      {/* 左侧 */}
-      <div className="flex items-center gap-4">
-        {/* 移动端汉堡菜单 */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="md:hidden"
-          onClick={onMenuClick}
-          aria-label="打开菜单"
-        >
-          <Menu className="h-5 w-5" />
-        </Button>
+    <header className="sticky top-0 z-30 flex items-center h-12 px-4 bg-background/85 backdrop-blur-xl border-b border-border">
+      {/* 左侧：移动端汉堡菜单 */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="md:hidden mr-2"
+        onClick={onMenuClick}
+        aria-label="打开菜单"
+      >
+        <Menu className="h-5 w-5" />
+      </Button>
 
-        {/* Logo（topbar 模式下显示） */}
-        {showTopNav && (
-          <NavLink
-            to="/admin/dashboard"
-            className="hidden md:flex items-center gap-2.5 mr-6 transition-opacity hover:opacity-80"
-          >
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center shadow-md shadow-violet-500/25">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-white">
-                <path d="M12 2L2 7l10 5 10-5-10-5z" fill="currentColor" opacity="0.9"/>
-                <path d="M2 17l10 5 10-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M2 12l10 5 10-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </div>
-            <span className="text-base font-semibold tracking-tight text-foreground">
-              法穿 AI
-            </span>
-          </NavLink>
-        )}
-
-        {/* 顶部导航菜单（topbar 模式） */}
-        {showTopNav && (
-          <div className="hidden md:block">
-            <TopNavMenu />
-          </div>
-        )}
+      {/* 搜索框 */}
+      <div
+        className="hidden md:flex items-center gap-2 h-8 px-3 rounded-md bg-muted border border-border cursor-pointer hover:border-foreground/20 transition-colors w-64"
+        onClick={() => {
+          const event = new KeyboardEvent('keydown', { key: 'k', ctrlKey: true })
+          document.dispatchEvent(event)
+        }}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground shrink-0">
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+        <span className="text-[13px] text-muted-foreground flex-1">搜索功能或输入命令...</span>
+        <kbd className="text-[11px] text-muted-foreground bg-background px-1.5 py-0.5 rounded border border-border">Ctrl+K</kbd>
       </div>
 
-      {/* 右侧：用户信息和操作按钮 */}
-      <div className="flex items-center gap-1">
-        {/* 导航模式切换按钮 */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleNavMode}
-              aria-label="切换导航模式"
-              className="hidden md:inline-flex"
-            >
-              {navMode === 'sidebar' ? (
-                <PanelTop className="h-5 w-5" />
-              ) : (
-                <PanelLeft className="h-5 w-5" />
-              )}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            {navMode === 'sidebar' ? '切换为顶部导航' : '切换为侧边栏'}
-          </TooltipContent>
-        </Tooltip>
+      {/* 右侧区域 */}
+      <div className="flex items-center gap-1 ml-auto">
+        {/* Topbar 图标按钮 */}
+        <div className="hidden md:flex">
+          <TopbarIcons />
+        </div>
 
-        {/* 主题切换按钮 */}
+        {/* 主题切换 */}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
               variant="ghost"
               size="icon"
-              onClick={toggleTheme}
-              aria-label="切换主题"
-              className="relative"
+              className="h-8 w-8"
+              onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
             >
-              <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-              <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-              <span className="sr-only">切换主题</span>
+              <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+              <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>
-            {theme === 'light' ? '切换为暗色模式' : '切换为亮色模式'}
-          </TooltipContent>
+          <TooltipContent>{theme === 'light' ? '暗色模式' : '亮色模式'}</TooltipContent>
         </Tooltip>
 
         {/* 用户下拉菜单 */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              className={cn(
-                'flex items-center gap-2 px-2',
-                'hover:bg-accent/50 dark:hover:bg-accent/30'
-              )}
-            >
-              <Avatar className="h-8 w-8">
-                <AvatarFallback
-                  className={cn(
-                    'bg-primary/10 text-primary',
-                    'dark:bg-primary/20 dark:text-primary'
-                  )}
-                >
+            <Button variant="ghost" className="flex items-center gap-2 px-2 h-8">
+              <Avatar className="h-6 w-6">
+                <AvatarFallback className="bg-[#27272a] text-[#a1a1aa] text-xs">
                   {getAvatarInitials()}
                 </AvatarFallback>
               </Avatar>
-              <span className="hidden sm:inline-block text-sm font-medium">
-                {getDisplayName()}
-              </span>
+              <div className="hidden sm:flex flex-col items-start">
+                <span className="text-[13px] font-medium leading-tight">{getDisplayName()}</span>
+                <span className="text-[10px] text-muted-foreground leading-tight">
+                  {user?.is_admin ? '管理员' : '律师'}
+                </span>
+              </div>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel className="font-normal">
-              <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">
-                  {getDisplayName()}
-                </p>
-                {user?.username && (
-                  <p className="text-xs leading-none text-muted-foreground">
-                    @{user.username}
-                  </p>
-                )}
-              </div>
-            </DropdownMenuLabel>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem className="cursor-pointer" onClick={() => navigate(PATHS.ADMIN_SETTINGS_LAW_FIRM)}>
+              <Home className="mr-2 h-4 w-4" />
+              <span>律所设置</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem className="cursor-pointer" onClick={() => navigate(PATHS.ADMIN_SETTINGS_TEAM)}>
+              <Users className="mr-2 h-4 w-4" />
+              <span>团队设置</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem className="cursor-pointer" onClick={() => navigate(PATHS.ADMIN_SETTINGS_LAWYER)}>
+              <Users className="mr-2 h-4 w-4" />
+              <span>律师设置</span>
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="cursor-pointer"
-              onClick={() => navigate(PATHS.ADMIN_SETTINGS_USER)}
-            >
-              <User className="mr-2 h-4 w-4" />
-              <span>用户设置</span>
+            <DropdownMenuItem className="cursor-pointer" onClick={() => navigate(PATHS.ADMIN_SETTINGS)}>
+              <Settings className="mr-2 h-4 w-4" />
+              <span>系统配置</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -254,7 +147,7 @@ export function Navbar({ onMenuClick, showTopNav = false }: NavbarProps) {
               onClick={handleLogout}
             >
               <LogOut className="mr-2 h-4 w-4" />
-              <span>登出</span>
+              <span>注销</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

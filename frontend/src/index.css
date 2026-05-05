@@ -7,13 +7,13 @@
   /* 4K 超宽屏幕断点 */
   --breakpoint-3xl: 1920px;
 
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-  --radius-3xl: calc(var(--radius) + 12px);
-  --radius-4xl: calc(var(--radius) + 16px);
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 4px);
+  --radius-xl: calc(var(--radius) + 8px);
+  --radius-2xl: calc(var(--radius) + 12px);
+  --radius-3xl: calc(var(--radius) + 16px);
+  --radius-4xl: calc(var(--radius) + 20px);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -45,79 +45,118 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  /* v4 额外语义色 */
+  --color-border-light: var(--border-light);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-status-green: var(--status-green);
+  --color-status-yellow: var(--status-yellow);
+  --color-status-red: var(--status-red);
+  --color-status-blue: var(--status-blue);
+  --color-status-purple: var(--status-purple);
 }
 
+/* ============================================
+   v4 Zinc Monochrome Design System
+   ============================================ */
 :root {
-  --radius: 0.625rem;
-  /* 亮色模式 - 温暖的灰白色调，带微妙的蓝紫色调 */
-  --background: oklch(0.985 0.002 270);
-  --foreground: oklch(0.141 0.005 285);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.141 0.005 285);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.141 0.005 285);
-  /* 主色 - 深紫蓝色 */
-  --primary: oklch(0.45 0.15 270);
-  --primary-foreground: oklch(0.985 0 0);
-  /* 次要色 - 淡灰蓝 */
-  --secondary: oklch(0.965 0.005 270);
-  --secondary-foreground: oklch(0.25 0.02 270);
+  --radius: 0.5rem; /* 8px */
+
+  /* 背景 */
+  --background: #fafafa; /* zinc-50 */
+  --foreground: #18181b; /* zinc-900 */
+
+  /* 卡片 */
+  --card: #ffffff;
+  --card-foreground: #18181b;
+
+  /* 弹出层 */
+  --popover: #ffffff;
+  --popover-foreground: #18181b;
+
+  /* 主色 — 近黑色 */
+  --primary: #18181b;
+  --primary-foreground: #ffffff;
+
+  /* 次要色 */
+  --secondary: #f4f4f5; /* zinc-100 */
+  --secondary-foreground: #18181b;
+
   /* 静音色 */
-  --muted: oklch(0.965 0.005 270);
-  --muted-foreground: oklch(0.45 0.015 270);
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a; /* zinc-500 */
+
   /* 强调色 */
-  --accent: oklch(0.955 0.015 270);
-  --accent-foreground: oklch(0.25 0.02 270);
-  /* 危险色 - 柔和的红色 */
-  --destructive: oklch(0.55 0.22 25);
-  /* 边框 - 带微妙色调的灰色 */
-  --border: oklch(0.91 0.005 270);
-  --input: oklch(0.91 0.005 270);
-  --ring: oklch(0.45 0.15 270);
-  /* 图表色 - 和谐的色彩系统 */
-  --chart-1: oklch(0.55 0.2 270);
-  --chart-2: oklch(0.6 0.15 195);
-  --chart-3: oklch(0.55 0.18 145);
-  --chart-4: oklch(0.65 0.18 85);
-  --chart-5: oklch(0.6 0.2 350);
-  /* 侧边栏 */
-  --sidebar: oklch(0.98 0.002 270);
-  --sidebar-foreground: oklch(0.141 0.005 285);
-  --sidebar-primary: oklch(0.45 0.15 270);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.955 0.015 270);
-  --sidebar-accent-foreground: oklch(0.25 0.02 270);
-  --sidebar-border: oklch(0.91 0.005 270);
-  --sidebar-ring: oklch(0.45 0.15 270);
+  --accent: #f4f4f5;
+  --accent-foreground: #18181b;
+
+  /* 危险色 */
+  --destructive: #ef4444; /* red-500 */
+
+  /* 边框 */
+  --border: #e4e4e7; /* zinc-200 */
+  --input: #e4e4e7;
+  --ring: #18181b;
+
+  /* 图表色 */
+  --chart-1: #18181b;
+  --chart-2: #71717a;
+  --chart-3: #a1a1aa;
+  --chart-4: #d4d4d8;
+  --chart-5: #27272a;
+
+  /* 侧边栏 — 始终深色 */
+  --sidebar: #18181b;
+  --sidebar-foreground: #a1a1aa; /* zinc-400 */
+  --sidebar-primary: #ffffff;
+  --sidebar-primary-foreground: #18181b;
+  --sidebar-accent: #27272a; /* zinc-800 */
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #27272a;
+  --sidebar-ring: #ffffff;
+
+  /* v4 语义变量 */
+  --border-light: #f4f4f5;
+  --text-secondary: #71717a;
+  --text-muted: #a1a1aa;
+
+  /* 状态徽章色 */
+  --status-green: #22c55e;
+  --status-green-bg: #f0fdf4;
+  --status-yellow: #eab308;
+  --status-yellow-bg: #fefce8;
+  --status-red: #ef4444;
+  --status-red-bg: #fef2f2;
+  --status-blue: #2563eb;
+  --status-blue-bg: #eff6ff;
+  --status-purple: #7c3aed;
+  --status-purple-bg: #f3e8ff;
+
+  /* 阴影 */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.05);
 }
 
 .dark {
-  /*
-   * 暗色模式 — "Elevated Surfaces" 方案
-   * 参考实测数据：GitHub #0d1117 / Linear rgb(8,9,10) / Notion #191918
-   *
-   * 核心策略：背景保持深色（业界标准），靠层级差和边框创造呼吸感
-   * 层级梯度：sidebar(0.14) < bg(0.17) < card(0.22) < popover(0.25) < accent(0.28)
-   * 关键：card 与 bg 的亮度差从 0.03 拉大到 0.05，让卡片真正"浮"起来
-   */
-
-  /* 背景 — 深灰蓝底色 */
+  /* 背景 */
   --background: oklch(0.17 0.015 270);
   --foreground: oklch(0.93 0.008 270);
 
-  /* 卡片 — 明显提亮，与背景形成清晰层级 */
+  /* 卡片 */
   --card: oklch(0.22 0.015 270);
   --card-foreground: oklch(0.93 0.008 270);
 
-  /* 弹出层 — 最高层级 */
+  /* 弹出层 */
   --popover: oklch(0.25 0.015 270);
   --popover-foreground: oklch(0.93 0.008 270);
 
-  /* 主色 — 柔和的薰衣草紫 */
-  --primary: oklch(0.68 0.16 275);
-  --primary-foreground: oklch(0.98 0 0);
+  /* 主色 */
+  --primary: oklch(0.93 0.008 270);
+  --primary-foreground: oklch(0.14 0.015 270);
 
-  /* 次要色 — 介于 card 和 popover 之间 */
+  /* 次要色 */
   --secondary: oklch(0.24 0.015 270);
   --secondary-foreground: oklch(0.88 0.01 270);
 
@@ -125,14 +164,14 @@
   --muted: oklch(0.24 0.015 270);
   --muted-foreground: oklch(0.60 0.015 270);
 
-  /* 强调色 — hover/active 背景 */
+  /* 强调色 */
   --accent: oklch(0.28 0.02 270);
   --accent-foreground: oklch(0.88 0.01 270);
 
   /* 危险色 */
   --destructive: oklch(0.60 0.18 20);
 
-  /* 边框 — 提亮到 0.32，让分隔线清晰可见 */
+  /* 边框 */
   --border: oklch(0.32 0.015 270);
   --input: oklch(0.24 0.015 270);
   --ring: oklch(0.68 0.16 275);
@@ -144,15 +183,32 @@
   --chart-4: oklch(0.70 0.16 85);
   --chart-5: oklch(0.66 0.18 350);
 
-  /* 侧边栏 — 最深层级 */
-  --sidebar: oklch(0.14 0.015 270);
-  --sidebar-foreground: oklch(0.88 0.01 270);
-  --sidebar-primary: oklch(0.70 0.18 275);
-  --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.22 0.02 270);
-  --sidebar-accent-foreground: oklch(0.88 0.01 270);
-  --sidebar-border: oklch(0.28 0.015 270);
-  --sidebar-ring: oklch(0.70 0.18 275);
+  /* 侧边栏 — 始终深色 */
+  --sidebar: #18181b;
+  --sidebar-foreground: #a1a1aa;
+  --sidebar-primary: #ffffff;
+  --sidebar-primary-foreground: #18181b;
+  --sidebar-accent: #27272a;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #27272a;
+  --sidebar-ring: #ffffff;
+
+  /* v4 语义变量 */
+  --border-light: oklch(0.22 0.015 270);
+  --text-secondary: oklch(0.60 0.015 270);
+  --text-muted: oklch(0.45 0.015 270);
+
+  /* 状态徽章色 */
+  --status-green: #22c55e;
+  --status-green-bg: oklch(0.25 0.04 145);
+  --status-yellow: #eab308;
+  --status-yellow-bg: oklch(0.25 0.04 85);
+  --status-red: #ef4444;
+  --status-red-bg: oklch(0.25 0.04 25);
+  --status-blue: #2563eb;
+  --status-blue-bg: oklch(0.25 0.04 250);
+  --status-purple: #7c3aed;
+  --status-purple-bg: oklch(0.25 0.04 280);
 }
 
 @layer base {
@@ -166,17 +222,14 @@
 
 /* 暗色模式增强效果 */
 @layer utilities {
-  /* 卡片悬浮效果 - 柔和的紫色辉光 */
   .dark .card-hover-glow:hover {
     box-shadow: 0 0 30px -8px oklch(0.68 0.16 275 / 15%);
   }
 
-  /* 主色发光效果 */
   .dark .primary-glow {
     box-shadow: 0 0 30px -8px oklch(0.68 0.16 275 / 25%);
   }
 
-  /* 边框发光效果 */
   .dark .border-glow {
     border-color: oklch(0.35 0.03 275);
   }
@@ -184,7 +237,6 @@
 
 /* ============================================
    首页专属颜色变量 (HomePage Theme)
-   Requirements: 10.1, 10.4, 10.5
    ============================================ */
 
 :root {
@@ -240,93 +292,75 @@
 
 /* 暗色主题下的首页变量（默认主题） */
 .dark {
-  /* 首页主色调 - 柔和的薰衣草紫 */
   --home-primary: oklch(0.70 0.22 275);
   --home-primary-light: oklch(0.78 0.18 275);
   --home-primary-dark: oklch(0.55 0.22 275);
 
-  /* 首页强调色 - 柔和的青色 */
   --home-accent: oklch(0.74 0.18 195);
   --home-accent-light: oklch(0.82 0.15 195);
   --home-accent-dark: oklch(0.60 0.18 195);
 
-  /* 首页粉色系 */
   --home-pink: oklch(0.74 0.18 350);
   --home-pink-light: oklch(0.82 0.15 350);
 
-  /* 动态光斑背景色 - 柔和发光 */
   --home-orb-purple: oklch(0.50 0.28 275);
   --home-orb-cyan: oklch(0.50 0.25 195);
   --home-orb-pink: oklch(0.50 0.25 350);
 
-  /* 渐变色 - 与主题协调 */
   --home-gradient-start: oklch(0.70 0.22 275);
   --home-gradient-mid: oklch(0.65 0.20 320);
   --home-gradient-end: oklch(0.74 0.18 195);
 
-  /* 首页背景色 - 与主题层级梯度一致 */
   --home-bg-dark: oklch(0.17 0.015 270);
   --home-bg-darker: oklch(0.13 0.012 270);
   --home-bg-card: oklch(0.22 0.015 270);
   --home-bg-card-hover: oklch(0.28 0.02 270);
 
-  /* 首页边框色 - 柔和 */
   --home-border: oklch(0.28 0.02 270);
   --home-border-light: oklch(0.36 0.025 270);
 
-  /* 玻璃效果 - 与新背景协调 */
   --home-glass-bg: oklch(0.18 0.015 270 / 85%);
   --home-glass-border: oklch(1 0 0 / 8%);
 }
 
 /* Tailwind CSS v4 @theme 扩展 - 首页专属颜色 */
 @theme inline {
-  /* 首页主色 */
   --color-home-primary: var(--home-primary);
   --color-home-primary-light: var(--home-primary-light);
   --color-home-primary-dark: var(--home-primary-dark);
 
-  /* 首页强调色 */
   --color-home-accent: var(--home-accent);
   --color-home-accent-light: var(--home-accent-light);
   --color-home-accent-dark: var(--home-accent-dark);
 
-  /* 首页粉色 */
   --color-home-pink: var(--home-pink);
   --color-home-pink-light: var(--home-pink-light);
 
-  /* 首页背景色 */
   --color-home-bg-dark: var(--home-bg-dark);
   --color-home-bg-darker: var(--home-bg-darker);
   --color-home-bg-card: var(--home-bg-card);
   --color-home-bg-card-hover: var(--home-bg-card-hover);
 
-  /* 首页边框色 */
   --color-home-border: var(--home-border);
   --color-home-border-light: var(--home-border-light);
 
-  /* 首页文字色 */
   --color-home-text: var(--home-text);
   --color-home-text-muted: var(--home-text-muted);
   --color-home-text-subtle: var(--home-text-subtle);
 
-  /* 动态光斑色 */
   --color-home-orb-purple: var(--home-orb-purple);
   --color-home-orb-cyan: var(--home-orb-cyan);
   --color-home-orb-pink: var(--home-orb-pink);
 
-  /* 渐变色 */
   --color-home-gradient-start: var(--home-gradient-start);
   --color-home-gradient-mid: var(--home-gradient-mid);
   --color-home-gradient-end: var(--home-gradient-end);
 
-  /* 状态色 */
   --color-home-success: var(--home-success);
   --color-home-warning: var(--home-warning);
   --color-home-error: var(--home-error);
   --color-home-info: var(--home-info);
 
-  /* 玻璃效果 */
   --color-home-glass-bg: var(--home-glass-bg);
   --color-home-glass-border: var(--home-glass-border);
 }
