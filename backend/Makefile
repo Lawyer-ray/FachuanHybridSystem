@@ -18,7 +18,7 @@ MYPY_CURATED_GATE = \
 
 MYPY_STRICT_GATE = \
 	$(MYPY_CURATED_GATE) \
-	apps/organization/services/organization_access_policy.py
+	apps/organization/services/access/organization_access_policy.py
 
 MYPY_EXTRA_GATE = \
 	apps/core/security/auth.py \
@@ -26,7 +26,7 @@ MYPY_EXTRA_GATE = \
 	apps/core/infrastructure/cache.py \
 	apps/core/middleware/request_id.py \
 	apps/core/middleware/security.py \
-	apps/organization/services/auth_service.py \
+	apps/organization/services/auth/auth_service.py \
 	apps/automation/services/token/cache_manager.py \
 	apps/automation/utils/logging_mixins/common.py
 
