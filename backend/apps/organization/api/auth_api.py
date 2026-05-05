@@ -63,8 +63,6 @@ def register_view(request: HttpRequest, payload: RegisterIn) -> RegisterOut:
         return RegisterOut(success=False, message="用户名至少3个字符")
     if not payload.password or len(payload.password) < 6:
         return RegisterOut(success=False, message="密码至少6个字符")
-    if not payload.real_name:
-        return RegisterOut(success=False, message="真实姓名不能为空")
 
     # 检查用户名是否已存在
     if Lawyer.objects.filter(username=payload.username).exists():

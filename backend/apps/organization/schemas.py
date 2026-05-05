@@ -36,6 +36,7 @@ class LawFirmUpdateIn(Schema):
 
 class LawyerOut(ModelSchema, SchemaMixin):
     license_pdf_url: str | None = None
+    avatar_url: str | None = None
     law_firm_detail: LawFirmOut | None = None
 
     class Meta:
@@ -53,6 +54,10 @@ class LawyerOut(ModelSchema, SchemaMixin):
     @staticmethod
     def resolve_license_pdf_url(obj: Lawyer) -> str | None:
         return SchemaMixin._get_file_url(obj.license_pdf)
+
+    @staticmethod
+    def resolve_avatar_url(obj: Lawyer) -> str | None:
+        return SchemaMixin._get_file_url(obj.avatar)
 
     @staticmethod
     def resolve_law_firm_detail(obj: Lawyer) -> LawFirmOut | None:
@@ -100,7 +105,7 @@ class RegisterIn(Schema):
     """用户注册"""
     username: str
     password: str
-    real_name: str
+    real_name: str | None = None
     phone: str | None = None
 
 

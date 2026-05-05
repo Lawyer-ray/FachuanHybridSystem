@@ -57,7 +57,7 @@ class AuthService:
         self,
         username: str,
         password: str,
-        real_name: str,
+        real_name: str | None = None,
         phone: str | None = None,
         bootstrap_token: str | None = None,
     ) -> RegisterResult:

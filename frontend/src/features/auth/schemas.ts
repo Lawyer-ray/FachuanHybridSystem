@@ -14,7 +14,7 @@ export const registerSchema = z.object({
     .min(6, '密码至少6个字符')
     .max(32, '密码最多32个字符'),
   confirmPassword: z.string(),
-  real_name: z.string().min(1, '请输入真实姓名'),
+  real_name: z.string().optional().or(z.literal('')),
   phone: z.string()
     .regex(/^1[3-9]\d{9}$/, '请输入有效的手机号')
     .optional()

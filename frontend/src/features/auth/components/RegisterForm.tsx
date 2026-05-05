@@ -83,7 +83,7 @@ export function RegisterForm({ onSuccess, onError }: RegisterFormProps) {
       {
         username: data.username,
         password: data.password,
-        real_name: data.real_name,
+        real_name: data.real_name || undefined,
         phone: data.phone || undefined,
       },
       {
@@ -168,13 +168,18 @@ export function RegisterForm({ onSuccess, onError }: RegisterFormProps) {
           )}
         />
 
-        {/* 真实姓名输入框 - Validates: Requirement 6.1 */}
+        {/* 真实姓名输入框（可选）- Validates: Requirement 6.1 */}
         <FormField
           control={form.control}
           name="real_name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>真实姓名</FormLabel>
+              <FormLabel>
+                真实姓名
+                <span className="ml-1 text-xs text-muted-foreground">
+                  （可选）
+                </span>
+              </FormLabel>
               <FormControl>
                 <Input
                   placeholder="请输入真实姓名"

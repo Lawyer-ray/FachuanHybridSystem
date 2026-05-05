@@ -54,7 +54,7 @@ export interface TokenRefreshResponse {
 export interface RegisterRequest {
   username: string
   password: string
-  real_name: string
+  real_name?: string
   phone?: string
 }
 
