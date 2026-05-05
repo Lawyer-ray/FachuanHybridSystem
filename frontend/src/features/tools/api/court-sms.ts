@@ -87,4 +87,10 @@ export const courtSmsApi = {
 
   retry: (id: number): Promise<{ success: boolean; data: { id: number; status: string } }> =>
     api.post(`${id}/retry`).json(),
+
+  delete: (id: number): Promise<{ success: boolean }> =>
+    api.delete(String(id)).json(),
+
+  deleteBatch: (ids: number[]): Promise<{ deleted: number }> =>
+    api.post('batch-delete', { json: { ids } }).json(),
 }

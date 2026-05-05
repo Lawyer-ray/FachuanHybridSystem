@@ -166,7 +166,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         )}
       >
         {!collapsed && (
-          <span className="text-[15px] font-bold text-white tracking-wide">法穿AI</span>
+          <span className="text-[15px] font-bold text-white tracking-wide">法穿AI Copilot</span>
         )}
       </NavLink>
 

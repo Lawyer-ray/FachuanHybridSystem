@@ -232,7 +232,7 @@ playwright-report/
 
 # Claude Code
 .claude/
-CLAUDE.md
+**/CLAUDE.md
 
 # Animation (MG动画素材)
 .animation/

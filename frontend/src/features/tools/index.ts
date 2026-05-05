@@ -1,4 +1,5 @@
 export { CourtSmsTool } from './components/CourtSmsTool'
+export { CourtSmsDetail } from './components/CourtSmsDetail'
 export { CourierTrackingTool } from './components/CourierTrackingTool'
 export { ElementConvertTool } from './components/ElementConvertTool'
 export { LprCalculatorTool } from './components/LprCalculatorTool'

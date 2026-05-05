@@ -5,7 +5,7 @@
  */
 
 import { Landmark, Clock, Info } from 'lucide-react'
-import { format } from 'date-fns'
+import { formatDateOnly } from '@/lib/date'
 
 import { Card, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -15,15 +15,6 @@ export interface AuthoritySectionProps {
   authorities: SupervisingAuthority[]
   editable?: boolean
   caseId?: number
-}
-
-function formatDate(dateStr: string | null | undefined): string {
-  if (!dateStr) return '-'
-  try {
-    return format(new Date(dateStr), 'yyyy-MM-dd')
-  } catch {
-    return dateStr
-  }
 }
 
 function EmptyState() {
@@ -67,7 +58,7 @@ export function AuthoritySection({ authorities, editable }: AuthoritySectionProp
                 </div>
                 <div className="flex items-center gap-1 text-muted-foreground shrink-0">
                   <Clock className="size-3" />
-                  <span className="text-xs">{formatDate(auth.created_at)}</span>
+                  <span className="text-xs">{formatDateOnly(auth.created_at)}</span>
                 </div>
               </div>
             </CardHeader>

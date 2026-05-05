@@ -12,13 +12,13 @@ import type { FolderScanCandidate } from '../types'
 export function FolderScanPanel({ contractId }: { contractId: number }) {
   const { subfolders, startScan, confirmScan } = useFolderScan(contractId)
   const [sessionId, setSessionId] = useState<string | null>(null)
-  const [subfolder, setSubfolder] = useState('')
+  const [subfolder, setSubfolder] = useState('__root__')
   const [candidates, setCandidates] = useState<FolderScanCandidate[]>([])
   const { data: status } = useScanStatus(contractId, sessionId)
 
   const handleStart = useCallback(async (rescan = false) => {
     try {
-      const res = await startScan.mutateAsync({ rescan, subfolder })
+      const res = await startScan.mutateAsync({ rescan, subfolder: subfolder === '__root__' ? '' : subfolder })
       setSessionId(res.session_id)
       toast.success('扫描已启动')
     } catch { toast.error('启动失败') }
@@ -58,7 +58,7 @@ export function FolderScanPanel({ contractId }: { contractId: number }) {
             <Select value={subfolder} onValueChange={setSubfolder}>
               <SelectTrigger className="w-[200px]"><SelectValue placeholder="选择子文件夹" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">根目录</SelectItem>
+                <SelectItem value="__root__">根目录</SelectItem>
                 {subfolders.data?.subfolders.map(s => (
                   <SelectItem key={s.relative_path} value={s.relative_path}>{s.display_name}</SelectItem>
                 ))}

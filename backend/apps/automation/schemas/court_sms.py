@@ -174,6 +174,18 @@ class CourtSMSListOut(BaseModel):
         json_encoders: ClassVar = {datetime: lambda v: v.isoformat() if v is not None else None}
 
 
+class CourtSMSBatchDeleteIn(BaseModel):
+    """批量删除短信请求"""
+
+    ids: list[int] = Field(..., min_length=1, description="要删除的短信ID列表")
+
+
+class CourtSMSBatchDeleteOut(BaseModel):
+    """批量删除短信响应"""
+
+    deleted: int = Field(..., description="删除数量")
+
+
 class CourtSMSAssignCaseIn(BaseModel):
     """手动指定案件请求"""
 

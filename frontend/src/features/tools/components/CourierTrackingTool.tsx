@@ -7,6 +7,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { useExpressTasks } from '../hooks/use-express-tasks'
+import { formatDate } from '@/lib/date'
 
 const CARRIER_LABELS: Record<string, string> = {
   sf: '顺丰速运',
@@ -40,7 +41,9 @@ export function CourierTrackingTool() {
           <h1 className="text-xl font-semibold">快递查询</h1>
           <p className="text-muted-foreground text-sm mt-1">查询法律文书快递状态</p>
         </div>
-        <Button size="sm"><Plus className="mr-1.5 size-4" />添加快递</Button>
+        <Button size="sm" onClick={() => {/* TODO: 打开添加快递对话框 */}}>
+          <Plus className="mr-1.5 size-4" />添加快递
+        </Button>
       </div>
 
       <div className="flex gap-3">
@@ -92,7 +95,7 @@ export function CourierTrackingTool() {
                       {STATUS_LABELS[item.status] ?? item.status}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-sm">{item.created_at}</TableCell>
+                  <TableCell className="text-muted-foreground text-sm">{formatDate(item.created_at)}</TableCell>
                 </TableRow>
               ))
             )}

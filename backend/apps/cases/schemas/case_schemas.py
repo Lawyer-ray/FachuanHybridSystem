@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import ClassVar
 
 from .assignment_schemas import CaseAssignmentCreate, CaseAssignmentOut
-from .base import Case, CaseAssignment, CaseLog, CaseParty, ModelSchema, Schema
+from .base import Case, CaseAssignment, CaseChat, CaseLog, CaseParty, ModelSchema, Schema
 from .log_schemas import CaseLogCreate, CaseLogOut
 from .number_schemas import CaseNumberIn, CaseNumberOut
 from .party_schemas import CasePartyCreate, CasePartyOut
@@ -25,7 +25,14 @@ class CaseIn(ModelSchema):
             "cause_of_action",
             "current_stage",
             "effective_date",
+            "specified_date",
         ]
+
+
+class CaseChatOut(ModelSchema):
+    class Meta:
+        model = CaseChat
+        fields: ClassVar = ["id", "platform", "name", "is_active"]
 
 
 class CaseOut(ModelSchema):
@@ -34,6 +41,7 @@ class CaseOut(ModelSchema):
     logs: list[CaseLogOut]
     case_numbers: list[CaseNumberOut]
     supervising_authorities: list[SupervisingAuthorityOut]
+    chats: list[CaseChatOut]
     contract_id: int | None
 
     class Meta:
@@ -43,9 +51,11 @@ class CaseOut(ModelSchema):
             "name",
             "status",
             "is_filed",
+            "filing_number",
             "case_type",
             "start_date",
             "effective_date",
+            "specified_date",
             "target_amount",
             "preservation_amount",
             "cause_of_action",
@@ -83,6 +93,10 @@ class CaseOut(ModelSchema):
     @staticmethod
     def resolve_supervising_authorities(obj: Case) -> list[SupervisingAuthorityOut]:
         return list(obj.supervising_authorities.all())  # type: ignore[arg-type]
+
+    @staticmethod
+    def resolve_chats(obj: Case) -> list[CaseChat]:
+        return list(obj.chats.all())  # type: ignore[arg-type]
 
 
 class CaseUpdate(Schema):
@@ -129,6 +143,7 @@ class UnifiedGenerateRequest(Schema):
 
 
 __all__: list[str] = [
+    "CaseChatOut",
     "CaseCreateFull",
     "CaseFullOut",
     "CaseIn",

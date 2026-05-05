@@ -11,6 +11,8 @@ from ninja.pagination import PageNumberPagination, paginate
 from apps.automation.schemas import (
     CourtSMSAssignCaseIn,
     CourtSMSAssignCaseOut,
+    CourtSMSBatchDeleteIn,
+    CourtSMSBatchDeleteOut,
     CourtSMSDetailOut,
     CourtSMSListOut,
     CourtSMSSubmitIn,
@@ -149,3 +151,24 @@ def retry_processing(request: Any, sms_id: int) -> CourtSMSSubmitOut:
     sms = service.retry_processing(sms_id)
 
     return CourtSMSSubmitOut(success=True, data={"id": sms.id, "status": sms.status, "created_at": sms.created_at})
+
+
+# ============================================================================
+# 删除接口
+# ============================================================================
+
+
+@router.delete("/court-sms/{sms_id}")
+def delete_sms(request: Any, sms_id: int) -> dict[str, bool]:
+    """删除单条短信"""
+    service = _get_court_sms_service()
+    service.delete_sms(sms_id)
+    return {"success": True}
+
+
+@router.post("/court-sms/batch-delete", response=CourtSMSBatchDeleteOut)
+def batch_delete_sms(request: Any, payload: CourtSMSBatchDeleteIn) -> CourtSMSBatchDeleteOut:
+    """批量删除短信"""
+    service = _get_court_sms_service()
+    deleted = service.batch_delete_sms(payload.ids)
+    return CourtSMSBatchDeleteOut(deleted=deleted)

@@ -1,10 +1,6 @@
-/**
- * CaseFilters - 案件列表筛选组件
- *
- * 提供案件类型和状态的 Select 筛选控件
- * Requirements: 2.3, 2.4, 8.4
- */
+import { Search } from 'lucide-react'
 
+import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
@@ -48,8 +44,26 @@ export function CaseFilters({ filters, onFiltersChange }: CaseFiltersProps) {
     })
   }
 
+  const handleCaseNumberChange = (value: string) => {
+    onFiltersChange({
+      ...filters,
+      case_number: value || undefined,
+    })
+  }
+
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3">
+      {/* 案号搜索 */}
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="搜索案号..."
+          className="pl-8 w-full sm:w-[200px] h-9"
+          value={filters.case_number ?? ''}
+          onChange={(e) => handleCaseNumberChange(e.target.value)}
+        />
+      </div>
+
       {/* 案件类型筛选 */}
       <Select
         value={filters.case_type ?? 'all'}

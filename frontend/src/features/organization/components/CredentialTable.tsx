@@ -43,18 +43,7 @@ export interface CredentialTableProps {
 // Helper Functions
 // ============================================================================
 
-/**
- * 格式化日期为 YYYY-MM-DD 格式
- */
-function formatDate(dateString: string): string {
-  if (!dateString) return '-'
-  try {
-    const date = new Date(dateString)
-    return date.toISOString().split('T')[0]
-  } catch {
-    return '-'
-  }
-}
+import { formatDateOnly } from '@/lib/date'
 
 // ============================================================================
 // Sub-components
@@ -227,7 +216,7 @@ export function CredentialTable({
 
                 {/* 创建时间 */}
                 <TableCell className="text-muted-foreground text-xs sm:text-sm">
-                  {formatDate(credential.created_at)}
+                  {formatDateOnly(credential.created_at)}
                 </TableCell>
 
                 {/* 操作按钮 */}

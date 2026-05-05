@@ -25,6 +25,7 @@ const FIELD_LABELS: Record<string, string> = {
   phone: '联系方式',
   address: '地址',
   legal_representative: '法定代表人',
+  legal_representative_id_number: '法定代表人身份证号',
   client_type: '当事人类型',
 }
 
@@ -126,6 +127,7 @@ export function TextParser({ onParsed }: Props) {
     if (result.phone) data.phone = result.phone
     if (result.address) data.address = result.address
     if (result.legal_representative) data.legal_representative = result.legal_representative
+    if (result.legal_representative_id_number) data.legal_representative_id_number = result.legal_representative_id_number
     if (result.client_type) data.client_type = result.client_type as ClientInput['client_type']
     onParsed(data)
     toast.success('已填充到表单')

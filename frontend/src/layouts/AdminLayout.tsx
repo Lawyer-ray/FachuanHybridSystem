@@ -129,7 +129,7 @@ function AdminLayoutContent() {
 
         <footer className="border-border border-t px-6 py-3">
           <p className="text-muted-foreground text-center text-xs">
-            © {new Date().getFullYear()} 法穿AI
+            © {new Date().getFullYear()} 法穿AI Copilot
           </p>
         </footer>
       </div>

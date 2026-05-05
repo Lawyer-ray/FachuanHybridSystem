@@ -6,7 +6,7 @@ import { useState, useCallback, useRef } from 'react'
 import { format } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import {
-  Plus, Trash2, Eye, FileText, Image, Calendar, Upload,
+  Plus, Trash2, Eye, FileText, Image, Calendar, Upload, Merge,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -26,6 +26,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
 import { useIdentityDocMutations } from '../hooks/use-identity-doc-mutations'
+import { clientApi } from '../api'
 import type { ClientType, DocType, IdentityDoc } from '../types'
 import { DOC_TYPE_LABELS, NATURAL_DOC_TYPES, LEGAL_DOC_TYPES } from '../types'
 import { resolveMediaUrl } from '@/lib/api'
@@ -50,6 +51,14 @@ export function IdentityDocManager({ clientId, clientType, docs }: Props) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
+  // 身份证合并状态
+  const [mergeOpen, setMergeOpen] = useState(false)
+  const [mergeFront, setMergeFront] = useState<File | null>(null)
+  const [mergeBack, setMergeBack] = useState<File | null>(null)
+  const [mergeLoading, setMergeLoading] = useState(false)
+  const mergeFrontRef = useRef<HTMLInputElement>(null)
+  const mergeBackRef = useRef<HTMLInputElement>(null)
+
   const availableDocTypes = clientType === 'natural' ? NATURAL_DOC_TYPES : LEGAL_DOC_TYPES
 
   const handleAdd = useCallback(async () => {
@@ -65,17 +74,39 @@ export function IdentityDocManager({ clientId, clientType, docs }: Props) {
   }, [addDoc, newDocType, selectedFile])
 
   const handleDelete = useCallback(async () => {
-    // 后端 identity-docs 删除需要 doc_id，但当前 IdentityDoc 没有 id
-    // 需要通过 getIdentityDoc 或者后端返回 id。暂时用 index 标识
-    // 实际上后端 delete 需要 doc_id，这里我们需要先获取
     if (deleteIdx === null) return
     const doc = docs[deleteIdx]
     if (!doc) return
-    // 由于当前 IdentityDoc 没有 id，我们需要通过 API 获取
-    // 暂时提示用户在 admin 后台删除
-    toast.info('证件删除功能需要后端返回证件 ID，请在后台管理中操作')
+    try {
+      await deleteDoc.mutateAsync(doc.id)
+      toast.success('证件已删除')
+    } catch {
+      toast.error('删除失败')
+    }
     setDeleteIdx(null)
-  }, [deleteIdx, docs])
+  }, [deleteIdx, docs, deleteDoc])
+
+  const handleMerge = useCallback(async () => {
+    if (!mergeFront || !mergeBack) { toast.error('请选择正反面图片'); return }
+    setMergeLoading(true)
+    try {
+      const res = await clientApi.mergeIdCard(mergeFront, mergeBack, Number(clientId))
+      if (res.success) {
+        toast.success('身份证合并成功')
+        setMergeOpen(false)
+        setMergeFront(null)
+        setMergeBack(null)
+        // 刷新证件列表
+        window.location.reload()
+      } else {
+        toast.error(res.error || '合并失败')
+      }
+    } catch {
+      toast.error('合并失败，请重试')
+    } finally {
+      setMergeLoading(false)
+    }
+  }, [mergeFront, mergeBack, clientId])
 
   return (
     <div className="space-y-4">
@@ -83,9 +114,14 @@ export function IdentityDocManager({ clientId, clientType, docs }: Props) {
         <p className="text-muted-foreground text-sm">
           共 {docs.length} 份证件
         </p>
-        <Button size="sm" onClick={() => { setNewDocType(availableDocTypes[0]); setAddOpen(true) }}>
-          <Plus className="mr-1.5 size-4" />添加证件
-        </Button>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => setMergeOpen(true)}>
+            <Merge className="mr-1.5 size-4" />合并身份证
+          </Button>
+          <Button size="sm" onClick={() => { setNewDocType(availableDocTypes[0]); setAddOpen(true) }}>
+            <Plus className="mr-1.5 size-4" />添加证件
+          </Button>
+        </div>
       </div>
 
       {docs.length === 0 ? (
@@ -244,6 +280,54 @@ export function IdentityDocManager({ clientId, clientType, docs }: Props) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* 合并身份证对话框 */}
+      <Dialog open={mergeOpen} onOpenChange={(open) => { setMergeOpen(open); if (!open) { setMergeFront(null); setMergeBack(null) } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>合并身份证正反面</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-muted-foreground text-sm">上传身份证正面和反面图片，系统将自动合并为 PDF。</p>
+            <div className="space-y-2">
+              <Label>正面（人像面）</Label>
+              <Input
+                ref={mergeFrontRef}
+                type="file"
+                accept=".jpg,.jpeg,.png"
+                onChange={(e) => setMergeFront(e.target.files?.[0] || null)}
+              />
+              {mergeFront && (
+                <div className="bg-muted/50 flex items-center gap-2 rounded px-3 py-2 text-sm">
+                  <Upload className="size-4" />{mergeFront.name}
+                  <span className="text-muted-foreground text-xs">({(mergeFront.size / 1024).toFixed(0)} KB)</span>
+                </div>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>反面（国徽面）</Label>
+              <Input
+                ref={mergeBackRef}
+                type="file"
+                accept=".jpg,.jpeg,.png"
+                onChange={(e) => setMergeBack(e.target.files?.[0] || null)}
+              />
+              {mergeBack && (
+                <div className="bg-muted/50 flex items-center gap-2 rounded px-3 py-2 text-sm">
+                  <Upload className="size-4" />{mergeBack.name}
+                  <span className="text-muted-foreground text-xs">({(mergeBack.size / 1024).toFixed(0)} KB)</span>
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMergeOpen(false)}>取消</Button>
+            <Button onClick={handleMerge} disabled={mergeLoading || !mergeFront || !mergeBack}>
+              {mergeLoading ? '合并中...' : '合并'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

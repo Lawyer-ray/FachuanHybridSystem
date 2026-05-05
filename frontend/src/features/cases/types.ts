@@ -148,31 +148,41 @@ export interface ClientDetail {
   client_type: string
   phone: string | null
   id_number: string | null
+  is_our_client?: boolean
 }
 
 // ============================================================================
 // 实体接口
 // ============================================================================
 
+export interface CaseChat {
+  id: number
+  platform: string
+  name: string
+  is_active: boolean
+}
+
 export interface Case {
   id: number
   name: string
   status: string | null
   is_filed: boolean
+  filing_number?: string | null
   case_type: SimpleCaseType | null
   start_date: string
   effective_date: string | null
+  specified_date: string | null
   target_amount: number | null
   preservation_amount: number | null
   cause_of_action: string | null
   current_stage: string | null
   contract_id: number | null
-  filing_number?: string | null
   parties: CaseParty[]
   assignments: CaseAssignment[]
   logs: CaseLog[]
   case_numbers: CaseNumber[]
   supervising_authorities: SupervisingAuthority[]
+  chats: CaseChat[]
 }
 
 export interface CaseInput {
@@ -185,6 +195,7 @@ export interface CaseInput {
   cause_of_action?: string | null
   current_stage?: string | null
   effective_date?: string | null
+  specified_date?: string | null
 }
 
 export interface CaseUpdate {
@@ -197,6 +208,7 @@ export interface CaseUpdate {
   cause_of_action?: string | null
   current_stage?: string | null
   effective_date?: string | null
+  specified_date?: string | null
 }
 
 export interface CaseCreateFull {
@@ -252,9 +264,32 @@ export interface CaseLog {
 export interface CaseNumber {
   id: number
   number: string
+  document_name: string | null
+  document_file: string | null
+  document_content: string | null
+  is_active: boolean
+  execution_cutoff_date: string | null
+  execution_paid_amount: number
+  execution_use_deduction_order: boolean
+  execution_year_days: number | null
+  execution_date_inclusion: string | null
+  execution_manual_text: string | null
   remarks: string | null
   created_at: string
 }
+
+export const YEAR_DAYS_CHOICES = [
+  { value: 360, label: '360天（银行标准）' },
+  { value: 365, label: '365天（实际天数）' },
+  { value: 0, label: '按实际天数' },
+] as const
+
+export const DATE_INCLUSION_CHOICES = [
+  { value: 'both', label: '首尾都算' },
+  { value: 'start_only', label: '只算起始日' },
+  { value: 'end_only', label: '只算终止日' },
+  { value: 'neither', label: '首尾都不算' },
+] as const
 
 export interface SupervisingAuthority {
   id: number
@@ -262,6 +297,185 @@ export interface SupervisingAuthority {
   authority_type: string | null
   authority_type_display: string | null
   created_at: string
+}
+
+export interface CaseAccessGrant {
+  id: number
+  case: number
+  grantee: number
+  grantee_detail: LawyerDetail
+  created_at: string
+}
+
+// ============================================================================
+// 材料管理接口
+// ============================================================================
+
+export type MaterialCategory = 'party' | 'non_party'
+
+export const MATERIAL_CATEGORY_LABELS: Record<MaterialCategory, I18nLabel> = {
+  party: { zh: '当事人材料', en: 'Party Material' },
+  non_party: { zh: '非当事人材料', en: 'Non-Party Material' },
+}
+
+export type MaterialSide = 'our' | 'opponent'
+
+export const MATERIAL_SIDE_LABELS: Record<MaterialSide, I18nLabel> = {
+  our: { zh: '我方', en: 'Our Side' },
+  opponent: { zh: '对方', en: 'Opponent' },
+}
+
+export interface MaterialBinding {
+  id: number
+  category: MaterialCategory
+  type_id: number | null
+  type_name: string
+  side: MaterialSide | null
+  party_ids: number[]
+  supervising_authority_id: number | null
+}
+
+export interface MaterialBindCandidate {
+  attachment_id: number
+  file_name: string
+  file_url: string
+  uploaded_at: string
+  log_id: number
+  log_created_at: string | null
+  actor_name: string
+  material: MaterialBinding | null
+}
+
+export interface MaterialBindItem {
+  attachment_id: number
+  category: MaterialCategory
+  type_id?: number | null
+  type_name: string
+  side?: MaterialSide | null
+  party_ids?: number[]
+  supervising_authority_id?: number | null
+}
+
+export interface MaterialUploadResponse {
+  log_id: number
+  attachment_ids: number[]
+}
+
+export interface MaterialReplaceResponse {
+  material_id: number
+  old_attachment_id: number
+  new_attachment_id: number
+}
+
+export interface MaterialGroupRenameResponse {
+  type_id: number
+  old_type_name: string
+  new_type_name: string
+}
+
+export interface MaterialDeleteResponse {
+  material_id: number
+  deleted: boolean
+}
+
+export interface MaterialDeleteAllResponse {
+  category: MaterialCategory
+  deleted_count: number
+}
+
+// ============================================================================
+// 模板绑定接口
+// ============================================================================
+
+export interface TemplateBinding {
+  binding_id: number | null
+  template_id: number
+  name: string
+  description: string
+  binding_source: string
+  binding_source_display: string
+  created_at: string | null
+}
+
+export interface TemplateCategory {
+  category: string
+  category_display: string
+  templates: TemplateBinding[]
+}
+
+export interface TemplateBindingsResponse {
+  categories: TemplateCategory[]
+  total_count: number
+}
+
+export interface AvailableTemplate {
+  template_id: number
+  name: string
+  description: string
+  case_sub_type: string | null
+  case_sub_type_display: string
+}
+
+export interface GenerateTemplateRequest {
+  template_id: number
+  client_id?: number | null
+  client_ids?: number[] | null
+  mode?: 'individual' | 'combined' | null
+}
+
+export interface UnifiedGenerateRequest {
+  template_id?: number | null
+  function_code?: string | null
+  client_id?: number | null
+  client_ids?: number[] | null
+  mode?: 'individual' | 'combined' | null
+}
+
+// ============================================================================
+// 文件夹绑定接口
+// ============================================================================
+
+export interface FolderBinding {
+  id: number
+  case_id: number
+  folder_path: string
+  folder_path_display: string
+  is_accessible: boolean
+  relative_path: string
+  path_auto_repaired: boolean
+}
+
+export interface FolderBrowseEntry {
+  name: string
+  path: string
+}
+
+export interface FolderBrowseResponse {
+  browsable: boolean
+  message: string
+  path: string
+  parent_path: string | null
+  entries: FolderBrowseEntry[]
+}
+
+export interface FolderScanSession {
+  session_id: string
+  status: string
+  progress: number
+  current_file: string
+  summary: Record<string, unknown>
+  candidates: FolderScanCandidate[]
+}
+
+export interface FolderScanCandidate {
+  source_path: string
+  filename: string
+  file_size: number
+  suggested_category: string
+  suggested_side: string | null
+  type_name_hint: string
+  confidence: number
+  selected: boolean
 }
 
 // ============================================================================
@@ -327,11 +541,13 @@ export const caseFormSchema = z.object({
   name: z.string().min(1, { message: '案件名称不能为空' }),
   case_type: z.enum(['civil', 'administrative', 'criminal', 'execution', 'bankruptcy']).optional(),
   status: z.enum(['active', 'closed']).default('active'),
+  is_filed: z.boolean().optional(),
   cause_of_action: z.string().nullable().optional(),
   current_stage: z.string().nullable().optional(),
   target_amount: z.number().nonnegative().nullable().optional(),
   preservation_amount: z.number().nonnegative().nullable().optional(),
   effective_date: z.string().nullable().optional(),
+  specified_date: z.string().nullable().optional(),
 })
 
 export type CaseFormData = z.infer<typeof caseFormSchema>

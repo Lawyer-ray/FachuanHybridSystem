@@ -32,7 +32,7 @@ export type {
   EnterpriseCompany, EnterpriseSearchResult, EnterpriseProfile,
   EnterprisePrefillData, EnterprisePrefillResult,
   ParseTextResult,
-  ClientListParams, ClientListResponse, PaginatedResponse,
+  ClientListParams,
   OcrRecognizeResult, OcrResult, ApiError, ClientFormMode,
 } from './types'
 

@@ -11,6 +11,7 @@ import type {
   FolderScanStart, FolderScanSubfolderList, FolderScanStatus,
   FolderScanConfirmItem, FolderScanConfirmResult,
   FinanceStats, ContractPartySource,
+  Invoice, ClientPaymentRecord,
 } from './types'
 
 const contractApi_ = api.extend({
@@ -24,6 +25,9 @@ export const contractApi = {
     const sp = new URLSearchParams()
     if (params?.case_type) sp.set('case_type', params.case_type)
     if (params?.status) sp.set('status', params.status)
+    if (params?.search) sp.set('search', params.search)
+    if (params?.fee_mode) sp.set('fee_mode', params.fee_mode)
+    if (params?.is_filed !== undefined) sp.set('is_filed', String(params.is_filed))
     return contractApi_.get('contracts', { searchParams: sp }).json<Contract[]>()
   },
 
@@ -127,6 +131,85 @@ export const contractApi = {
 
   confirmScan: async (contractId: number, sessionId: string, items: FolderScanConfirmItem[]): Promise<FolderScanConfirmResult> =>
     contractApi_.post(`${contractId}/folder-scan/${sessionId}/confirm`, { json: { items } }).json<FolderScanConfirmResult>(),
+
+  // ==================== Archive Operations ====================
+
+  syncCaseMaterials: async (contractId: number | string): Promise<{ synced_count: number; message: string }> =>
+    contractApi_.post(`${contractId}/archive/sync-case-materials`).json(),
+
+  resetAndResyncCaseMaterials: async (contractId: number | string): Promise<{ synced_count: number; message: string }> =>
+    contractApi_.post(`${contractId}/archive/reset-and-resync`).json(),
+
+  scaleToA4: async (contractId: number | string): Promise<{ scaled_count: number; message: string }> =>
+    contractApi_.post(`${contractId}/archive/scale-to-a4`).json(),
+
+  toggleCompactArchive: async (contractId: number | string): Promise<{ compact: boolean }> =>
+    contractApi_.post(`${contractId}/archive/toggle-compact`).json(),
+
+  confirmArchive: async (contractId: number | string): Promise<{ success: boolean; message: string }> =>
+    contractApi_.post(`${contractId}/archive/confirm`).json(),
+
+  uploadArchiveItem: async (contractId: number | string, file: File, category: string): Promise<{ id: number; filename: string }> => {
+    const form = new FormData()
+    form.append('file', file)
+    form.append('category', category)
+    return contractApi_.post(`${contractId}/archive/upload`, { body: form }).json()
+  },
+
+  deleteArchiveMaterial: async (contractId: number | string, materialId: number): Promise<void> => {
+    await contractApi_.delete(`${contractId}/archive/materials/${materialId}`)
+  },
+
+  reorderArchiveMaterials: async (contractId: number | string, orderedIds: number[]): Promise<void> => {
+    await contractApi_.post(`${contractId}/archive/reorder`, { json: { ordered_ids: orderedIds } })
+  },
+
+  moveArchiveMaterial: async (contractId: number | string, materialId: number, targetCategory: string): Promise<void> => {
+    await contractApi_.post(`${contractId}/archive/materials/${materialId}/move`, { json: { target_category: targetCategory } })
+  },
+
+  // ==================== Document Generation ====================
+
+  generateContract: async (contractId: number | string): Promise<Blob> =>
+    contractApi_.get(`${contractId}/generate-doc`).blob(),
+
+  generateSupplementaryAgreement: async (agreementId: number): Promise<Blob> =>
+    contractApi_.get(`supplementary-agreements/${agreementId}/generate-doc`).blob(),
+
+  // ==================== Contract Actions ====================
+
+  duplicateContract: async (contractId: number | string): Promise<Contract> =>
+    contractApi_.post(`${contractId}/duplicate`).json<Contract>(),
+
+  createCaseFromContract: async (contractId: number | string): Promise<{ case_id: number; message: string }> =>
+    contractApi_.post(`${contractId}/create-case`).json(),
+
+  renewAdvisorContract: async (contractId: number | string, data: { start_date: string; end_date: string }): Promise<Contract> =>
+    contractApi_.post(`${contractId}/renew`, { json: data }).json<Contract>(),
+
+  // ==================== Invoice CRUD ====================
+
+  listInvoices: async (contractId: number | string): Promise<Invoice[]> =>
+    contractApi_.get(`${contractId}/invoices`).json<Invoice[]>(),
+
+  createInvoice: async (contractId: number | string, data: { amount: number; invoice_no?: string; issued_at?: string; note?: string }): Promise<Invoice> =>
+    contractApi_.post(`${contractId}/invoices`, { json: data }).json<Invoice>(),
+
+  deleteInvoice: async (contractId: number | string, invoiceId: number): Promise<void> => {
+    await contractApi_.delete(`${contractId}/invoices/${invoiceId}`)
+  },
+
+  // ==================== Client Payment Records ====================
+
+  listClientPaymentRecords: async (contractId: number | string): Promise<ClientPaymentRecord[]> =>
+    contractApi_.get(`${contractId}/client-payment-records`).json<ClientPaymentRecord[]>(),
+
+  createClientPaymentRecord: async (contractId: number | string, data: FormData): Promise<ClientPaymentRecord> =>
+    contractApi_.post(`${contractId}/client-payment-records`, { body: data }).json<ClientPaymentRecord>(),
+
+  deleteClientPaymentRecord: async (contractId: number | string, recordId: number): Promise<void> => {
+    await contractApi_.delete(`${contractId}/client-payment-records/${recordId}`)
+  },
 }
 
 export default contractApi

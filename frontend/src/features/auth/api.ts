@@ -9,6 +9,8 @@ import type {
   ApprovalResponse,
   LoginRequest,
   LoginResponse,
+  PasswordResetConfirmRequest,
+  PasswordResetOut,
   PendingUser,
   RegisterRequest,
   RegisterResponse,
@@ -119,8 +121,6 @@ const createAuthenticatedApi = (): KyInstance => {
               return ky(retryRequest)
             } catch {
               clearTokens()
-              // 可以在这里触发登出逻辑
-              window.location.href = '/login'
               throw new Error('Session expired')
             }
           }
@@ -266,6 +266,42 @@ export const authApi = {
     })
 
     return response
+  },
+
+  /**
+   * 请求密码重置（发送重置邮件）
+   * POST /api/v1/organization/password-reset/request
+   */
+  requestPasswordReset: async (email: string): Promise<PasswordResetOut> => {
+    return ky
+      .post(`${API_BASE}/organization/password-reset/request`, {
+        json: { email },
+      })
+      .json<PasswordResetOut>()
+  },
+
+  /**
+   * 验证密码重置 token
+   * POST /api/v1/organization/password-reset/verify
+   */
+  verifyPasswordResetToken: async (uid: string, token: string): Promise<PasswordResetOut> => {
+    return ky
+      .post(`${API_BASE}/organization/password-reset/verify`, {
+        json: { uid, token },
+      })
+      .json<PasswordResetOut>()
+  },
+
+  /**
+   * 确认密码重置
+   * POST /api/v1/organization/password-reset/confirm
+   */
+  confirmPasswordReset: async (data: PasswordResetConfirmRequest): Promise<PasswordResetOut> => {
+    return ky
+      .post(`${API_BASE}/organization/password-reset/confirm`, {
+        json: data,
+      })
+      .json<PasswordResetOut>()
   },
 }
 

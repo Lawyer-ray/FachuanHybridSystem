@@ -24,6 +24,7 @@ import {
 
 import type { IdentityDoc } from '../types'
 import { DOC_TYPE_LABELS } from '../types'
+import { resolveMediaUrl } from '@/lib/api'
 
 // ============================================================================
 // Types
@@ -80,7 +81,8 @@ interface DocCardProps {
  */
 function DocCard({ doc, onPreview }: DocCardProps) {
   const isImage = isImageFile(doc.file_path)
-  const hasMediaUrl = !!doc.media_url
+  const mediaUrl = resolveMediaUrl(doc.media_url)
+  const hasMediaUrl = !!mediaUrl
 
   return (
     <Card className="group overflow-hidden transition-shadow hover:shadow-md">
@@ -89,7 +91,7 @@ function DocCard({ doc, onPreview }: DocCardProps) {
         {hasMediaUrl && isImage ? (
           // 图片预览
           <img
-            src={doc.media_url!}
+            src={mediaUrl!}
             alt={getDocTypeLabel(doc.doc_type)}
             className="size-full object-cover transition-transform group-hover:scale-105"
             loading="lazy"
@@ -152,6 +154,8 @@ interface ImagePreviewDialogProps {
 function ImagePreviewDialog({ doc, open, onOpenChange }: ImagePreviewDialogProps) {
   if (!doc) return null
 
+  const resolvedUrl = resolveMediaUrl(doc.media_url)
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-4xl overflow-hidden p-0">
@@ -164,9 +168,9 @@ function ImagePreviewDialog({ doc, open, onOpenChange }: ImagePreviewDialogProps
 
         {/* 图片容器 */}
         <div className="bg-muted/30 flex max-h-[70vh] items-center justify-center overflow-auto p-4">
-          {doc.media_url ? (
+          {resolvedUrl ? (
             <img
-              src={doc.media_url}
+              src={resolvedUrl}
               alt={getDocTypeLabel(doc.doc_type)}
               className="max-h-full max-w-full rounded-lg object-contain shadow-lg"
             />

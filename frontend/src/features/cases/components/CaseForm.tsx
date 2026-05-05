@@ -9,7 +9,7 @@ import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useNavigate } from 'react-router'
-import { Loader2, Save, X, Plus, Trash2 } from 'lucide-react'
+import { Loader2, Save, X, Plus, Trash2, FileCheck } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -21,6 +21,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
 
 import { useCase } from '../hooks/use-case'
 import { useCaseMutations } from '../hooks/use-case-mutations'
@@ -78,11 +79,13 @@ export function CaseForm({ caseId, mode }: CaseFormProps) {
       name: '',
       case_type: undefined,
       status: 'active',
+      is_filed: false,
       cause_of_action: null,
       current_stage: null,
       target_amount: null,
       preservation_amount: null,
       effective_date: null,
+      specified_date: null,
       parties: [],
       assignments: [],
       authorities: [],
@@ -109,11 +112,13 @@ export function CaseForm({ caseId, mode }: CaseFormProps) {
         name: caseData.name,
         case_type: (caseData.case_type as CreateFormData['case_type']) ?? undefined,
         status: (caseData.status as 'active' | 'closed') ?? 'active',
+        is_filed: caseData.is_filed ?? false,
         cause_of_action: caseData.cause_of_action ?? null,
         current_stage: caseData.current_stage ?? null,
         target_amount: caseData.target_amount ?? null,
         preservation_amount: caseData.preservation_amount ?? null,
         effective_date: caseData.effective_date ?? null,
+        specified_date: caseData.specified_date ?? null,
         parties: [],
         assignments: [],
         authorities: [],
@@ -133,11 +138,13 @@ export function CaseForm({ caseId, mode }: CaseFormProps) {
       if (data.name !== caseData?.name) update.name = data.name
       if (data.case_type !== caseData?.case_type) update.case_type = data.case_type
       if (data.status !== caseData?.status) update.status = data.status
+      if (data.is_filed !== caseData?.is_filed) update.is_filed = data.is_filed
       if (data.cause_of_action !== caseData?.cause_of_action) update.cause_of_action = data.cause_of_action
       if (data.current_stage !== caseData?.current_stage) update.current_stage = data.current_stage
       if (data.target_amount !== caseData?.target_amount) update.target_amount = data.target_amount
       if (data.preservation_amount !== caseData?.preservation_amount) update.preservation_amount = data.preservation_amount
       if (data.effective_date !== caseData?.effective_date) update.effective_date = data.effective_date
+      if (data.specified_date !== caseData?.specified_date) update.specified_date = data.specified_date
 
       updateCase.mutate({ id: caseId, data: update }, {
         onSuccess: () => {
@@ -153,11 +160,13 @@ export function CaseForm({ caseId, mode }: CaseFormProps) {
           name: data.name,
           case_type: data.case_type,
           status: data.status,
+          is_filed: data.is_filed,
           cause_of_action: data.cause_of_action,
           current_stage: data.current_stage,
           target_amount: data.target_amount,
           preservation_amount: data.preservation_amount,
           effective_date: data.effective_date,
+          specified_date: data.specified_date,
         },
         parties: data.parties?.filter(p => p.client_id).map(p => ({
           client_id: p.client_id,
@@ -376,6 +385,40 @@ export function CaseForm({ caseId, mode }: CaseFormProps) {
                         onChange={(e) => field.onChange(e.target.value || null)}
                       />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+
+                {/* specified_date */}
+                <FormField control={form.control} name="specified_date" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>指定日期</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="date"
+                        disabled={isPending}
+                        value={field.value ?? ''}
+                        onChange={(e) => field.onChange(e.target.value || null)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+
+                {/* is_filed */}
+                <FormField control={form.control} name="is_filed" render={({ field }) => (
+                  <FormItem className="flex flex-row items-center gap-3 space-y-0 pt-6">
+                    <FormControl>
+                      <Switch
+                        checked={field.value ?? false}
+                        onCheckedChange={field.onChange}
+                        disabled={isPending}
+                      />
+                    </FormControl>
+                    <div className="flex items-center gap-1.5">
+                      <FileCheck className="size-4 text-muted-foreground" />
+                      <FormLabel className="text-sm font-normal cursor-pointer">已建档</FormLabel>
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )} />

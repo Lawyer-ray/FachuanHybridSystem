@@ -321,6 +321,21 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
                 message=f"重新处理短信失败: {e!s}", code="SMS_RETRY_FAILED", errors={"error": str(e)}
             ) from e
 
+    def delete_sms(self, sms_id: int) -> None:
+        """删除单条短信"""
+        try:
+            sms = CourtSMS.objects.get(id=sms_id)
+        except CourtSMS.DoesNotExist as e:
+            raise NotFoundError(f"短信记录不存在: ID={sms_id}") from e
+        sms.delete()
+        logger.info(f"删除短信记录: ID={sms_id}")
+
+    def batch_delete_sms(self, sms_ids: list[int]) -> int:
+        """批量删除短信，返回删除数量"""
+        deleted_count, _ = CourtSMS.objects.filter(id__in=sms_ids).delete()
+        logger.info(f"批量删除短信记录: 请求={len(sms_ids)}条, 实际删除={deleted_count}条")
+        return deleted_count
+
     def process_sms(self, sms_id: int, process_options: dict[str, Any] | None = None) -> CourtSMS:
         """处理短信（异步任务入口）"""
         try:

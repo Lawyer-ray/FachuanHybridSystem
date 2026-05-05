@@ -47,6 +47,7 @@ export function ClientList() {
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [clientType, setClientType] = useState<ClientType | undefined>(undefined)
+  const [isOurClient, setIsOurClient] = useState<boolean | undefined>(undefined)
 
   // ========== 数据查询 ==========
   const { data, isLoading } = useClients({
@@ -54,6 +55,7 @@ export function ClientList() {
     pageSize: DEFAULT_PAGE_SIZE,
     search: search || undefined,
     clientType,
+    isOurClient,
   })
 
   // ========== 事件处理 ==========
@@ -73,6 +75,14 @@ export function ClientList() {
    */
   const handleClientTypeChange = useCallback((value: ClientType | undefined) => {
     setClientType(value)
+    setPage(1)
+  }, [])
+
+  /**
+   * 处理我方当事人筛选变化
+   */
+  const handleIsOurClientChange = useCallback((value: boolean | undefined) => {
+    setIsOurClient(value)
     setPage(1)
   }, [])
 
@@ -104,6 +114,8 @@ export function ClientList() {
           onSearchChange={handleSearchChange}
           clientType={clientType}
           onClientTypeChange={handleClientTypeChange}
+          isOurClient={isOurClient}
+          onIsOurClientChange={handleIsOurClientChange}
         />
 
         {/* 新建按钮 - Requirements: 3.6 */}

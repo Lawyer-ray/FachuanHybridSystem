@@ -28,7 +28,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 
 import { clientApi } from '../api'
-import type { OcrResult, ClientType } from '../types'
+import type { OcrResult, OcrRecognizeResult, ClientType } from '../types'
 
 // ============================================================================
 // Types
@@ -361,6 +361,8 @@ export function OcrUploader({ onRecognized, onError }: OcrUploaderProps) {
   const [status, setStatus] = useState<UploadStatus>('idle')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [recognitionResult, setRecognitionResult] = useState<OcrResult | null>(null)
+  const [useAsync, setUseAsync] = useState(false)
+  const [taskProgress, setTaskProgress] = useState<string | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dragCounterRef = useRef(0)
@@ -393,39 +395,89 @@ export function OcrUploader({ onRecognized, onError }: OcrUploaderProps) {
       setRecognitionResult(null)
 
       try {
-        // 调用 OCR 识别 API - Requirements: 6.4, 6.5, 6.9
-        const result = await clientApi.recognizeIdCard(file)
+        if (useAsync) {
+          // 异步模式：提交任务并轮询
+          setTaskProgress('正在提交识别任务...')
+          const submitRes = await clientApi.submitRecognizeTask(file)
+          setTaskProgress('任务已提交，正在处理...')
+          toast.info('识别任务已提交，请等待结果')
 
-        if (result.success && result.extracted_data) {
-          // 识别成功 - Requirements: 6.7
-          const ocrResult: OcrResult = {
-            name: result.extracted_data.name,
-            id_number: result.extracted_data.id_number,
-            address: result.extracted_data.address,
-            legal_representative: result.extracted_data.legal_representative,
-            client_type: inferClientType(result.extracted_data as OcrResult),
+          // 轮询任务状态
+          const pollResult = await new Promise<OcrRecognizeResult>((resolve, reject) => {
+            let attempts = 0
+            const maxAttempts = 60 // 最多轮询 60 次（5 分钟）
+            const poll = async () => {
+              attempts++
+              if (attempts > maxAttempts) {
+                reject(new Error('识别超时，请重试'))
+                return
+              }
+              try {
+                const statusRes = await clientApi.getRecognizeTaskStatus(submitRes.task_id)
+                if (statusRes.status === 'completed' && statusRes.result) {
+                  resolve(statusRes.result)
+                } else if (statusRes.status === 'failed') {
+                  reject(new Error('识别任务失败'))
+                } else {
+                  setTaskProgress(`处理中... (${attempts}/${maxAttempts})`)
+                  setTimeout(poll, 5000)
+                }
+              } catch {
+                reject(new Error('查询任务状态失败'))
+              }
+            }
+            poll()
+          })
+
+          if (pollResult.success && pollResult.extracted_data) {
+            const ocrResult: OcrResult = {
+              name: pollResult.extracted_data.name,
+              id_number: pollResult.extracted_data.id_number,
+              address: pollResult.extracted_data.address,
+              legal_representative: pollResult.extracted_data.legal_representative,
+              client_type: inferClientType(pollResult.extracted_data as OcrResult),
+            }
+            setRecognitionResult(ocrResult)
+            setStatus('success')
+            toast.success('识别成功，请确认识别结果')
+          } else {
+            setStatus('error')
+            toast.error(pollResult.error || '识别失败')
+            onError(pollResult.error || '识别失败')
           }
-
-          setRecognitionResult(ocrResult)
-          setStatus('success')
-          toast.success('识别成功，请确认识别结果')
+          setTaskProgress(null)
         } else {
-          // 识别失败 - Requirements: 6.8
-          const errorMsg = result.error || '识别失败，请重试或手动输入'
-          setStatus('error')
-          toast.error(errorMsg)
-          onError(errorMsg)
+          // 同步模式
+          const result = await clientApi.recognizeIdentityDoc(file)
+
+          if (result.success && result.extracted_data) {
+            const ocrResult: OcrResult = {
+              name: result.extracted_data.name,
+              id_number: result.extracted_data.id_number,
+              address: result.extracted_data.address,
+              legal_representative: result.extracted_data.legal_representative,
+              client_type: inferClientType(result.extracted_data as OcrResult),
+            }
+            setRecognitionResult(ocrResult)
+            setStatus('success')
+            toast.success('识别成功，请确认识别结果')
+          } else {
+            const errorMsg = result.error || '识别失败，请重试或手动输入'
+            setStatus('error')
+            toast.error(errorMsg)
+            onError(errorMsg)
+          }
         }
       } catch (error) {
-        // 网络或其他错误 - Requirements: 6.8
         const errorMsg =
           error instanceof Error ? error.message : '识别失败，请检查网络连接'
         setStatus('error')
         toast.error(errorMsg)
         onError(errorMsg)
+        setTaskProgress(null)
       }
     },
-    [onError]
+    [onError, useAsync]
   )
 
   // ========== Event Handlers ==========
@@ -540,7 +592,18 @@ export function OcrUploader({ onRecognized, onError }: OcrUploaderProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">OCR 智能识别</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base">OCR 智能识别</CardTitle>
+          <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+            <input
+              type="checkbox"
+              checked={useAsync}
+              onChange={(e) => setUseAsync(e.target.checked)}
+              className="size-3.5 rounded"
+            />
+            异步模式
+          </label>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* 隐藏的文件输入 */}
@@ -567,6 +630,14 @@ export function OcrUploader({ onRecognized, onError }: OcrUploaderProps) {
         {/* 文件预览 */}
         {selectedFile && (
           <FilePreview file={selectedFile} status={status} onRemove={handleRemoveFile} />
+        )}
+
+        {/* 异步任务进度 */}
+        {taskProgress && (
+          <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm text-blue-700">
+            <Loader2 className="size-4 animate-spin" />
+            <span>{taskProgress}</span>
+          </div>
         )}
 
         {/* 识别结果 - Requirements: 6.7 */}

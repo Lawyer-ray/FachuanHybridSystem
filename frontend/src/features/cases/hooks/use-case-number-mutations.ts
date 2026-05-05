@@ -8,11 +8,19 @@ interface CreateCaseNumberParams {
   case_id: number
   number: string
   remarks?: string
+  document_name?: string
+  is_active?: boolean
+  execution_cutoff_date?: string | null
+  execution_paid_amount?: number
+  execution_use_deduction_order?: boolean
+  execution_year_days?: number | null
+  execution_date_inclusion?: string | null
+  execution_manual_text?: string | null
 }
 
 interface UpdateCaseNumberParams {
   id: number | string
-  data: { number?: string; remarks?: string }
+  data: { number?: string; remarks?: string; document_name?: string; is_active?: boolean; execution_cutoff_date?: string | null; execution_paid_amount?: number; execution_use_deduction_order?: boolean; execution_year_days?: number | null; execution_date_inclusion?: string | null; execution_manual_text?: string | null }
 }
 
 export function useCaseNumberMutations(caseId: number | string) {

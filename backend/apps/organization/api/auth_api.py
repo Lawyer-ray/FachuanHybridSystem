@@ -18,6 +18,8 @@ from apps.organization.schemas import (
     PasswordResetOut,
     PasswordResetRequestIn,
     PasswordResetVerifyIn,
+    RegisterIn,
+    RegisterOut,
 )
 from apps.organization.services import AuthService
 from apps.organization.services.auth.password_reset_service import PasswordResetService
@@ -45,6 +47,45 @@ def login_view(request: HttpRequest, payload: LoginIn) -> LoginOut:
 def logout_view(request: HttpRequest) -> dict[str, bool]:
     _auth_service.logout(request)
     return {"success": True}
+
+
+@router.post("/register", response=RegisterOut, auth=None)
+@rate_limit_from_settings("AUTH")
+def register_view(request: HttpRequest, payload: RegisterIn) -> RegisterOut:
+    """
+    用户注册
+
+    首位用户自动成为管理员，后续用户需要管理员审批。
+    """
+    # 参数验证
+    if not payload.username or len(payload.username) < 3:
+        return RegisterOut(success=False, message="用户名至少3个字符")
+    if not payload.password or len(payload.password) < 6:
+        return RegisterOut(success=False, message="密码至少6个字符")
+    if not payload.real_name:
+        return RegisterOut(success=False, message="真实姓名不能为空")
+
+    # 检查用户名是否已存在
+    if Lawyer.objects.filter(username=payload.username).exists():
+        return RegisterOut(success=False, message="用户名已存在")
+
+    try:
+        result = _auth_service.register(
+            username=payload.username,
+            password=payload.password,
+            real_name=payload.real_name,
+        )
+        user = result.user
+        is_first = user.is_active  # 首位用户自动激活
+
+        return RegisterOut(
+            success=True,
+            user=LawyerOut.from_orm(user),
+            requires_approval=not is_first,
+            message="注册成功，您是首位用户，已自动成为管理员" if is_first else "注册成功，请等待管理员审批",
+        )
+    except Exception as e:
+        return RegisterOut(success=False, message=str(e))
 
 
 @router.get("/me", response=LawyerOut, auth=JWTOrSessionAuth())

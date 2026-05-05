@@ -6,7 +6,7 @@
  */
 
 import { useEffect } from 'react'
-import { Navigate, Outlet } from 'react-router'
+import { Navigate, Outlet, useLocation, useSearchParams } from 'react-router'
 import { Loader2 } from 'lucide-react'
 
 import { useAuth } from '@/features/auth/hooks/use-auth'
@@ -40,6 +40,7 @@ function LoadingSpinner() {
  */
 export function AuthGuard() {
   const { isAuthenticated, isLoading, checkAuth } = useAuth()
+  const location = useLocation()
 
   // 页面加载时检查认证状态
   useEffect(() => {
@@ -51,9 +52,10 @@ export function AuthGuard() {
     return <LoadingSpinner />
   }
 
-  // 未认证则重定向到登录页
+  // 未认证则重定向到登录页，保留当前 URL 以便登录后跳回
   if (!isAuthenticated) {
-    return <Navigate to={PATHS.LOGIN} replace />
+    const redirectTo = location.pathname + location.search
+    return <Navigate to={`${PATHS.LOGIN}?redirect=${encodeURIComponent(redirectTo)}`} replace />
   }
 
   return <Outlet />
@@ -72,6 +74,7 @@ export function AuthGuard() {
  */
 export function GuestGuard() {
   const { isAuthenticated, isLoading, checkAuth } = useAuth()
+  const [searchParams] = useSearchParams()
 
   // 页面加载时检查认证状态
   useEffect(() => {
@@ -83,9 +86,10 @@ export function GuestGuard() {
     return <LoadingSpinner />
   }
 
-  // 已认证则重定向到 dashboard
+  // 已认证则重定向：优先跳回 redirect 参数指定的页面
   if (isAuthenticated) {
-    return <Navigate to={PATHS.ADMIN_DASHBOARD} replace />
+    const redirect = searchParams.get('redirect')
+    return <Navigate to={redirect || PATHS.ADMIN_DASHBOARD} replace />
   }
 
   return <Outlet />

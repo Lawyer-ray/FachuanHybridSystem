@@ -21,13 +21,7 @@ const SOURCE_LABELS: Record<string, string> = {
   court_schedule: '一张网庭审日程',
 }
 
-function formatDateTime(iso: string): string {
-  if (!iso) return '-'
-  return new Date(iso).toLocaleString('zh-CN', {
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit',
-  })
-}
+import { formatDate } from '@/lib/date'
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes}B`
@@ -103,7 +97,7 @@ export function InboxMessageView({ message }: Props) {
               <div className="flex items-center gap-4 mt-2.5 text-[13px] text-muted-foreground flex-wrap">
                 <span>发件人：<strong className="text-foreground">{message.sender || '-'}</strong></span>
                 <span>收件人：{message.recipient}</span>
-                <span>{formatDateTime(message.received_at)}</span>
+                <span>{formatDate(message.received_at)}</span>
               </div>
             </div>
             <div className="flex gap-1.5 shrink-0">
@@ -185,11 +179,11 @@ export function InboxMessageView({ message }: Props) {
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">接收时间</span>
-                <span>{formatDateTime(message.received_at)}</span>
+                <span>{formatDate(message.received_at)}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">入库时间</span>
-                <span>{formatDateTime(message.created_at)}</span>
+                <span>{formatDate(message.created_at)}</span>
               </div>
             </CardContent>
           </Card>

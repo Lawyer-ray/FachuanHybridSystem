@@ -33,6 +33,10 @@ export interface ClientFiltersProps {
   clientType: ClientType | undefined
   /** 类型筛选变化回调 */
   onClientTypeChange: (value: ClientType | undefined) => void
+  /** 当前我方当事人筛选 */
+  isOurClient: boolean | undefined
+  /** 我方当事人筛选变化回调 */
+  onIsOurClientChange: (value: boolean | undefined) => void
 }
 
 // ============================================================================
@@ -55,6 +59,8 @@ export function ClientFilters({
   onSearchChange,
   clientType,
   onClientTypeChange,
+  isOurClient,
+  onIsOurClientChange,
 }: ClientFiltersProps) {
   /** 清除搜索关键词 */
   const handleClearSearch = () => {
@@ -67,6 +73,15 @@ export function ClientFilters({
       onClientTypeChange(undefined)
     } else {
       onClientTypeChange(value as ClientType)
+    }
+  }
+
+  /** 处理我方当事人筛选变化 */
+  const handleIsOurClientChange = (value: string) => {
+    if (value === 'all') {
+      onIsOurClientChange(undefined)
+    } else {
+      onIsOurClientChange(value === 'true')
     }
   }
 
@@ -111,6 +126,21 @@ export function ClientFilters({
               {option.label}
             </SelectItem>
           ))}
+        </SelectContent>
+      </Select>
+
+      {/* 我方当事人筛选 */}
+      <Select
+        value={isOurClient === undefined ? 'all' : String(isOurClient)}
+        onValueChange={handleIsOurClientChange}
+      >
+        <SelectTrigger className="w-full sm:w-[160px]">
+          <SelectValue placeholder="全部当事人" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">全部当事人</SelectItem>
+          <SelectItem value="true">我方当事人</SelectItem>
+          <SelectItem value="false">非我方当事人</SelectItem>
         </SelectContent>
       </Select>
     </div>

@@ -7,6 +7,8 @@ import { caseQueryKey } from './use-case'
 interface CreateLogParams {
   case_id: number
   content: string
+  reminder_type?: string
+  reminder_time?: string
 }
 
 interface UpdateLogParams {

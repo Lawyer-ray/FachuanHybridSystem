@@ -52,10 +52,10 @@ export function CasePartySection({ parties, editable, caseId }: CasePartySection
   const [newClientId, setNewClientId] = useState('')
   const [newLegalStatus, setNewLegalStatus] = useState('')
 
-  const mutations = caseId ? usePartyMutations(caseId) : null
+  const mutations = usePartyMutations(caseId ?? 0)
 
   const handleAdd = () => {
-    if (!mutations || !caseId || !newClientId) return
+    if (!caseId || !newClientId) return
     mutations.createParty.mutate(
       { case_id: caseId, client_id: Number(newClientId), legal_status: newLegalStatus || undefined },
       {
@@ -71,7 +71,6 @@ export function CasePartySection({ parties, editable, caseId }: CasePartySection
   }
 
   const handleDelete = (id: number) => {
-    if (!mutations) return
     mutations.deleteParty.mutate(id, {
       onSuccess: () => toast.success('删除成功'),
       onError: (e) => toast.error(e.message || '删除失败'),

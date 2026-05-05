@@ -16,6 +16,7 @@ from .models import Client, ClientIdentityDoc
 class ClientIdentityDocOut(Schema):
     """客户证件文档输出 Schema"""
 
+    id: int
     doc_type: str
     file_path: str
     uploaded_at: datetime
@@ -50,6 +51,7 @@ class ClientOut(ModelSchema, SchemaMixin):
             "client_type",
             "id_number",
             "legal_representative",
+            "legal_representative_id_number",
         ]
 
     @staticmethod
@@ -61,6 +63,7 @@ class ClientOut(ModelSchema, SchemaMixin):
         items: list[ClientIdentityDoc] = list(obj.identity_docs.all())
         return [
             ClientIdentityDocOut(
+                id=item.id,
                 doc_type=item.doc_type,
                 file_path=item.file_path,
                 uploaded_at=item.uploaded_at,
@@ -86,6 +89,7 @@ class ClientIn(Schema):
     client_type: str
     id_number: str | None = None
     legal_representative: str | None = None
+    legal_representative_id_number: str | None = None
 
 
 class ClientUpdateIn(Schema):
@@ -98,6 +102,7 @@ class ClientUpdateIn(Schema):
     client_type: str | None = None
     id_number: str | None = None
     legal_representative: str | None = None
+    legal_representative_id_number: str | None = None
 
 
 # ==================== Enterprise Prefill Schemas ====================
@@ -246,3 +251,31 @@ class IdentityRecognizeOut(Schema):
     extracted_data: dict[str, str | None]
     confidence: float
     error: str | None = None
+
+
+class RelatedCaseOut(Schema):
+    """关联案件输出 Schema"""
+
+    id: int
+    name: str
+    case_type: str | None = None
+    status: str | None = None
+    current_stage: str | None = None
+    legal_status: str | None = None
+
+
+class RelatedContractOut(Schema):
+    """关联合同输出 Schema"""
+
+    id: int
+    name: str
+    case_type: str | None = None
+    status: str | None = None
+    role: str | None = None
+
+
+class RelatedItemsOut(Schema):
+    """关联案件和合同输出 Schema"""
+
+    cases: list[RelatedCaseOut]
+    contracts: list[RelatedContractOut]

@@ -7,7 +7,8 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router'
-import { Plus, Search, X } from 'lucide-react'
+import { Plus, Search, X, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,6 +19,7 @@ import { CaseFilters } from './CaseFilters'
 import { CaseTable } from './CaseTable'
 import { useCases } from '../hooks/use-cases'
 import { useCaseSearch } from '../hooks/use-case-search'
+import { useCaseMutations } from '../hooks/use-case-mutations'
 import type { CaseListParams } from '../types'
 
 const PAGE_SIZE = 20
@@ -52,10 +54,15 @@ export function CaseList() {
   // Pagination state
   const [page, setPage] = useState(1)
 
+  // Selection state for batch operations
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [batchLoading, setBatchLoading] = useState(false)
+
   // Queries
   const isSearching = debouncedSearch.length >= 1
   const casesQuery = useCases(isSearching ? undefined : filters)
   const searchQuery = useCaseSearch(debouncedSearch)
+  const { updateCase } = useCaseMutations()
 
   const allCases = isSearching
     ? (searchQuery.data ?? [])
@@ -72,10 +79,29 @@ export function CaseList() {
   // Reset page when filters/search change
   useEffect(() => { setPage(1) }, [debouncedSearch, filters])
 
+  // Clear selection when page changes
+  useEffect(() => { setSelectedIds(new Set()) }, [page])
+
   // Handlers
   const handleFiltersChange = useCallback((next: CaseListParams) => {
     setFilters(next)
   }, [])
+
+  const handleBatchAction = async (status: 'active' | 'closed') => {
+    if (selectedIds.size === 0) return
+    setBatchLoading(true)
+    const ids = Array.from(selectedIds)
+    const label = status === 'closed' ? '关闭' : '重开'
+    try {
+      await Promise.all(ids.map((id) => updateCase.mutateAsync({ id, data: { status } })))
+      toast.success(`已${label} ${ids.length} 个案件`)
+      setSelectedIds(new Set())
+    } catch {
+      toast.error(`批量${label}失败`)
+    } finally {
+      setBatchLoading(false)
+    }
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -119,8 +145,48 @@ export function CaseList() {
         </Button>
       </div>
 
+      {/* Batch action bar */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 rounded-md border bg-muted/50 px-4 py-2">
+          <span className="text-sm text-muted-foreground">
+            已选 <span className="font-medium text-foreground">{selectedIds.size}</span> 项
+          </span>
+          <div className="flex-1" />
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={batchLoading}
+            onClick={() => handleBatchAction('closed')}
+          >
+            {batchLoading && <Loader2 className="mr-1 size-3 animate-spin" />}
+            批量关闭
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={batchLoading}
+            onClick={() => handleBatchAction('active')}
+          >
+            {batchLoading && <Loader2 className="mr-1 size-3 animate-spin" />}
+            批量重开
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setSelectedIds(new Set())}
+          >
+            取消选择
+          </Button>
+        </div>
+      )}
+
       {/* Table */}
-      <CaseTable cases={paginatedCases} isLoading={isLoading} />
+      <CaseTable
+        cases={paginatedCases}
+        isLoading={isLoading}
+        selectedIds={selectedIds}
+        onSelectionChange={setSelectedIds}
+      />
 
       {/* Pagination */}
       <PageFooter

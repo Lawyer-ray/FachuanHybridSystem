@@ -13,10 +13,10 @@ export const CASE_TYPE_LABELS: Record<CaseType, string> = {
   labor: '劳动仲裁', intl: '商事仲裁', special: '专项服务', advisor: '常法顾问',
 }
 
-export type ContractStatus = 'unsigned' | 'active' | 'archived'
+export type ContractStatus = 'unsigned' | 'active' | 'closed' | 'archived'
 
 export const CONTRACT_STATUS_LABELS: Record<ContractStatus, string> = {
-  unsigned: '未签约', active: '在办', archived: '已归档',
+  unsigned: '未签约', active: '在办', closed: '已结案', archived: '已归档',
 }
 
 export type FeeMode = 'FIXED' | 'SEMI_RISK' | 'FULL_RISK' | 'CUSTOM'
@@ -131,6 +131,66 @@ export interface SupplementaryAgreement {
   updated_at: string
 }
 
+export interface Invoice {
+  id: number
+  payment: number
+  amount: number
+  invoice_no: string | null
+  issued_at: string | null
+  note: string | null
+  created_at: string | null
+}
+
+export interface ClientPaymentRecord {
+  id: number
+  contract: number
+  amount: number
+  received_at: string | null
+  note: string | null
+  image_url: string | null
+  created_at: string | null
+}
+
+export interface FinalizedMaterial {
+  id: number
+  category: string
+  category_label: string
+  filename: string
+  file_url: string
+  file_size: number | null
+  source: string
+  source_label: string
+  order: number
+  created_at: string | null
+}
+
+export type MaterialCategory =
+  | 'contract_original'
+  | 'supplementary_agreement'
+  | 'invoice'
+  | 'archive_doc'
+  | 'supervision_card'
+  | 'authorization'
+  | 'other'
+
+export const MATERIAL_CATEGORY_LABELS: Record<MaterialCategory, string> = {
+  contract_original: '合同原件',
+  supplementary_agreement: '补充协议',
+  invoice: '发票',
+  archive_doc: '归档文件',
+  supervision_card: '监督卡',
+  authorization: '授权材料',
+  other: '其他',
+}
+
+export interface ArchiveChecklistItem {
+  category: MaterialCategory
+  label: string
+  required: boolean
+  done: boolean
+  materials: FinalizedMaterial[]
+}
+
 export interface Contract {
   id: number
   name: string
@@ -152,6 +212,8 @@ export interface Contract {
   reminders: Reminder[]
   payments: ContractPayment[]
   supplementary_agreements: SupplementaryAgreement[]
+  client_payment_records: ClientPaymentRecord[]
+  can_archive: boolean
   total_received: number
   total_invoiced: number
   unpaid_amount: number | null
@@ -352,6 +414,9 @@ export interface ContractListParams {
   page_size?: number
   case_type?: CaseType
   status?: ContractStatus
+  search?: string
+  fee_mode?: FeeMode
+  is_filed?: boolean
 }
 
 export interface ContractPartySource {

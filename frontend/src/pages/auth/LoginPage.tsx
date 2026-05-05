@@ -8,7 +8,7 @@
  * @validates Requirements 5.7 - 支持明暗主题切换（通过 AuthLayout 实现）
  */
 
-import { useNavigate, Link } from 'react-router'
+import { useNavigate, useSearchParams, Link } from 'react-router'
 import { toast } from 'sonner'
 
 import { LoginForm } from '@/features/auth/components/LoginForm'
@@ -33,14 +33,16 @@ import { AuthLayoutCard } from '@/layouts/AuthLayout'
  */
 export function LoginPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
 
   /**
    * 登录成功处理
-   * Validates: Requirement 5.5 - 登录成功跳转到 /dashboard 页面
+   * 优先跳回 redirect 参数指定的页面，否则跳转到 /dashboard
    */
   const handleSuccess = () => {
     toast.success('登录成功')
-    navigate('/dashboard')
+    const redirect = searchParams.get('redirect')
+    navigate(redirect || '/dashboard', { replace: true })
   }
 
   /**

@@ -68,6 +68,7 @@ const TemplateDetailPage = lazy(() => import('@/pages/dashboard/templates/Templa
 const TemplateNewPage = lazy(() => import('@/pages/dashboard/templates/TemplateNewPage'))
 const MessageSourceListPage = lazy(() => import('@/pages/dashboard/message-sources/MessageSourceListPage'))
 const CourtSmsPage = lazy(() => import('@/pages/dashboard/tools/CourtSmsPage'))
+const CourtSmsDetailPage = lazy(() => import('@/pages/dashboard/tools/CourtSmsDetailPage'))
 const CourierTrackingPage = lazy(() => import('@/pages/dashboard/tools/CourierTrackingPage'))
 const ElementConvertPage = lazy(() => import('@/pages/dashboard/tools/ElementConvertPage'))
 const LprCalculatorPage = lazy(() => import('@/pages/dashboard/tools/LprCalculatorPage'))
@@ -301,6 +302,10 @@ export const router = createBrowserRouter([
           {
             path: PATHS.ADMIN_TOOLS_COURT_SMS,
             element: <CourtSmsPage />,
+          },
+          {
+            path: PATHS.ADMIN_TOOLS_COURT_SMS_DETAIL,
+            element: <CourtSmsDetailPage />,
           },
           {
             path: PATHS.ADMIN_TOOLS_COURIER,

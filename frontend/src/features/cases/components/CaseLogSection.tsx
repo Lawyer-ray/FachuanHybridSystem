@@ -1,17 +1,16 @@
-/**
- * CaseLogSection - 案件日志列表区块
- *
- * Requirements: 3.8, 5.7
- */
-
 import { useMemo, useState } from 'react'
 import { FileText, Paperclip, Bell, Clock, Plus, Trash2, Loader2 } from 'lucide-react'
-import { format } from 'date-fns'
+import { formatDate } from '@/lib/date'
 import { toast } from 'sonner'
 
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger,
 } from '@/components/ui/dialog'
@@ -22,7 +21,7 @@ import {
 } from '@/components/ui/alert-dialog'
 
 import { useLogMutations } from '../hooks/use-log-mutations'
-import type { CaseLog } from '../types'
+import { type CaseLog, CASE_LOG_REMINDER_TYPE_LABELS } from '../types'
 
 export interface CaseLogSectionProps {
   logs: CaseLog[]
@@ -31,15 +30,6 @@ export interface CaseLogSectionProps {
 }
 
 const MAX_CONTENT_LENGTH = 120
-
-function formatDate(dateStr: string | null | undefined): string {
-  if (!dateStr) return '-'
-  try {
-    return format(new Date(dateStr), 'yyyy-MM-dd HH:mm')
-  } catch {
-    return dateStr
-  }
-}
 
 function truncate(text: string, max: number): string {
   if (text.length <= max) return text
@@ -60,23 +50,36 @@ function EmptyState() {
 export function CaseLogSection({ logs, editable, caseId }: CaseLogSectionProps) {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [newContent, setNewContent] = useState('')
+  const [reminderType, setReminderType] = useState('')
+  const [reminderTime, setReminderTime] = useState('')
 
-  const mutations = caseId ? useLogMutations(caseId) : null
+  const mutations = useLogMutations(caseId ?? 0)
 
   const sortedLogs = useMemo(
     () => [...logs].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
     [logs],
   )
 
+  const resetForm = () => {
+    setNewContent('')
+    setReminderType('')
+    setReminderTime('')
+  }
+
   const handleAdd = () => {
-    if (!mutations || !caseId || !newContent.trim()) return
+    if (!caseId || !newContent.trim()) return
+    const hasReminder = reminderType && reminderTime
     mutations.createLog.mutate(
-      { case_id: caseId, content: newContent.trim() },
+      {
+        case_id: caseId,
+        content: newContent.trim(),
+        ...(hasReminder ? { reminder_type: reminderType, reminder_time: reminderTime } : {}),
+      },
       {
         onSuccess: () => {
           toast.success('添加日志成功')
           setDialogOpen(false)
-          setNewContent('')
+          resetForm()
         },
         onError: (e) => toast.error(e.message || '添加失败'),
       },
@@ -95,7 +98,7 @@ export function CaseLogSection({ logs, editable, caseId }: CaseLogSectionProps) 
     <div className="space-y-3">
       {editable && caseId && (
         <div className="flex justify-end">
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm() }}>
             <DialogTrigger asChild>
               <Button size="sm" variant="outline">
                 <Plus className="mr-1 size-3" /> 添加日志
@@ -107,7 +110,7 @@ export function CaseLogSection({ logs, editable, caseId }: CaseLogSectionProps) 
               </DialogHeader>
               <div className="space-y-4 py-2">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">日志内容</label>
+                  <Label>日志内容</Label>
                   <textarea
                     className="border-input bg-background placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 w-full rounded-md border px-3 py-2 text-sm shadow-xs outline-none focus-visible:ring-[3px] min-h-[100px] resize-y"
                     placeholder="请输入日志内容"
@@ -115,11 +118,39 @@ export function CaseLogSection({ logs, editable, caseId }: CaseLogSectionProps) 
                     onChange={(e) => setNewContent(e.target.value)}
                   />
                 </div>
+                <div className="border-t pt-4">
+                  <p className="text-xs font-medium text-muted-foreground mb-3">提醒设置（可选）</p>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label className="text-xs">提醒类型</Label>
+                      <Select value={reminderType} onValueChange={setReminderType}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="不设置提醒" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(CASE_LOG_REMINDER_TYPE_LABELS).map(([key, label]) => (
+                            <SelectItem key={key} value={key}>{label.zh}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs">提醒时间</Label>
+                      <Input
+                        type="datetime-local"
+                        value={reminderTime}
+                        onChange={(e) => setReminderTime(e.target.value)}
+                        disabled={!reminderType}
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
               <DialogFooter>
+                <Button variant="outline" onClick={() => { setDialogOpen(false); resetForm() }}>取消</Button>
                 <Button
                   onClick={handleAdd}
-                  disabled={!newContent.trim() || mutations?.createLog.isPending}
+                  disabled={!newContent.trim() || (reminderType && !reminderTime) || mutations?.createLog.isPending}
                 >
                   {mutations?.createLog.isPending && <Loader2 className="mr-1 size-3 animate-spin" />}
                   确认
@@ -187,12 +218,14 @@ export function CaseLogSection({ logs, editable, caseId }: CaseLogSectionProps) 
                         {attachCount} 附件
                       </Badge>
                     )}
-                    {reminderCount > 0 && (
-                      <Badge variant="outline" className="gap-1 text-xs">
+                    {log.reminders?.map((r) => (
+                      <Badge key={r.id} variant="outline" className="gap-1 text-xs">
                         <Bell className="size-3" />
-                        {reminderCount} 提醒
+                        {CASE_LOG_REMINDER_TYPE_LABELS[r.reminder_type as keyof typeof CASE_LOG_REMINDER_TYPE_LABELS]?.zh ?? r.reminder_type}
+                        <span className="text-muted-foreground ml-1">{formatDate(r.due_at)}</span>
+                        {r.is_completed && <span className="text-green-600 ml-1">✓</span>}
                       </Badge>
-                    )}
+                    ))}
                   </div>
                 )}
               </CardContent>

@@ -64,6 +64,7 @@ export const PATHS = {
   ADMIN_TASK_QUEUE: '/admin/task-queue',
   ADMIN_LOGS: '/admin/logs',
   ADMIN_TOOLS_COURT_SMS: '/admin/tools/court-sms',
+  ADMIN_TOOLS_COURT_SMS_DETAIL: '/admin/tools/court-sms/:id',
   ADMIN_TOOLS_COURIER: '/admin/tools/courier-tracking',
   ADMIN_TOOLS_ELEMENT: '/admin/tools/element-convert',
   ADMIN_TOOLS_LPR: '/admin/tools/lpr-calculator',
@@ -100,4 +101,6 @@ export const generatePath = {
   recognitionDetail: (id: string | number) => `/admin/automation/document-recognition/${id}`,
   // 模板管理
   templateDetail: (id: string | number) => `/admin/templates/${id}`,
+  // 法院短信
+  courtSmsDetail: (id: number) => `/admin/tools/court-sms/${id}`,
 } as const

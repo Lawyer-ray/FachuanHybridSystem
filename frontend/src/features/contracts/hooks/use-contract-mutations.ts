@@ -24,5 +24,21 @@ export function useContractMutations() {
     onSuccess: invalidate,
   })
 
-  return { createContract, updateContract, deleteContract }
+  const duplicateContract = useMutation({
+    mutationFn: (id: number | string) => contractApi.duplicateContract(id),
+    onSuccess: invalidate,
+  })
+
+  const createCaseFromContract = useMutation({
+    mutationFn: (id: number | string) => contractApi.createCaseFromContract(id),
+    onSuccess: invalidate,
+  })
+
+  const renewAdvisorContract = useMutation({
+    mutationFn: ({ id, data }: { id: number | string; data: { start_date: string; end_date: string } }) =>
+      contractApi.renewAdvisorContract(id, data),
+    onSuccess: invalidate,
+  })
+
+  return { createContract, updateContract, deleteContract, duplicateContract, createCaseFromContract, renewAdvisorContract }
 }

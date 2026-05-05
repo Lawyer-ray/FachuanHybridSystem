@@ -96,6 +96,22 @@ class LoginOut(Schema):
     user: LawyerOut | None = None
 
 
+class RegisterIn(Schema):
+    """用户注册"""
+    username: str
+    password: str
+    real_name: str
+    phone: str | None = None
+
+
+class RegisterOut(Schema):
+    """注册响应"""
+    success: bool
+    user: LawyerOut | None = None
+    requires_approval: bool = True
+    message: str = ""
+
+
 class TeamOut(ModelSchema):
     class Meta:
         model = Team
