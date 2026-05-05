@@ -23,13 +23,5 @@ export interface MessageSource {
   poll_interval_minutes: number
   last_sync_at: string | null
   last_sync_status: SyncStatus
-}
-
-export interface MessageSourceInput {
-  display_name: string
-  source_type: SourceType
-  credential_account: string
-  credential_password?: string
-  is_enabled?: boolean
-  poll_interval_minutes?: number
+  created_at: string
 }

@@ -1,14 +1,20 @@
 import { createApiClient } from '@/lib/api'
+import type { MessageSource } from './types'
 
 const api = createApiClient({
   prefixUrl: `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002/api/v1'}/message-hub`,
 })
 
 export const messageSourceApi = {
-  list: () => api.get('sources').json(),
-  get: (id: number) => api.get(`sources/${id}`).json(),
-  create: (data: unknown) => api.post('sources', { json: data }).json(),
-  update: (id: number, data: unknown) => api.put(`sources/${id}`, { json: data }).json(),
+  list: (): Promise<MessageSource[]> => api.get('sources').json(),
+  get: (id: number): Promise<MessageSource> => api.get(`sources/${id}`).json(),
+  create: (data: { display_name: string; source_type: string; credential_id: number; is_enabled?: boolean; poll_interval_minutes?: number }): Promise<MessageSource> =>
+    api.post('sources', { json: data }).json(),
+  update: (id: number, data: Partial<{ display_name: string; is_enabled: boolean; poll_interval_minutes: number; sender_whitelist: string; sender_blacklist: string }>): Promise<MessageSource> =>
+    api.put(`sources/${id}`, { json: data }).json(),
   delete: (id: number) => api.delete(`sources/${id}`),
-  sync: (id: number) => api.post(`sources/${id}/sync`).json(),
+  sync: (id: number): Promise<{ success: boolean; message: string }> =>
+    api.post(`sources/${id}/sync`).json(),
+  syncAll: (): Promise<{ success: boolean; message: string }> =>
+    api.post('sources/sync-all').json(),
 }
