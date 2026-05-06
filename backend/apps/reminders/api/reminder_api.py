@@ -99,9 +99,7 @@ def get_target_options(request: Any, q: str = "") -> Any:
     if keyword:
         contract_qs = contract_qs.filter(name__icontains=keyword)
         case_qs = case_qs.filter(name__icontains=keyword)
-        case_log_qs = case_log_qs.filter(
-            Q(case__name__icontains=keyword) | Q(content__icontains=keyword)
-        )
+        case_log_qs = case_log_qs.filter(Q(case__name__icontains=keyword) | Q(content__icontains=keyword))
 
     groups: list[dict[str, object]] = []
 
@@ -125,7 +123,9 @@ def get_target_options(request: Any, q: str = "") -> Any:
         if len(preview) > 24:
             preview = f"{preview[:24]}..."
         label = f"#{item.id} {item.case.name}｜{preview or str(_('无内容'))}"
-        case_log_items.append({"id": item.id, "name": label, "target_type": "case_log", "target_type_label": str(_("案件日志"))})
+        case_log_items.append(
+            {"id": item.id, "name": label, "target_type": "case_log", "target_type_label": str(_("案件日志"))}
+        )
     if case_log_items:
         groups.append({"key": "case_log", "label": str(_("案件日志")), "items": case_log_items})
 

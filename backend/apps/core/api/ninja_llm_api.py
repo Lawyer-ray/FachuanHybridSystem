@@ -234,6 +234,4 @@ def list_available_models(request: Any) -> Any:
     from apps.core.llm.config import LLMConfig
 
     models = LLMConfig.get_available_models()
-    return ModelListResponse(
-        models=[ModelInfo(id=m["id"], name=m["name"], backend=m["backend"]) for m in models]
-    )
+    return ModelListResponse(models=[ModelInfo(id=m["id"], name=m["name"], backend=m["backend"]) for m in models])
