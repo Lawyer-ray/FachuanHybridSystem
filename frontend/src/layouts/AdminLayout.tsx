@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { Outlet, useLocation } from 'react-router'
 import { X } from 'lucide-react'
 
@@ -72,6 +72,8 @@ function AdminLayoutContent() {
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const [showFooter, setShowFooter] = useState(false)
+  const mainRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
     const checkMobile = () => {
@@ -92,6 +94,23 @@ function AdminLayoutContent() {
   const breadcrumbItems = customItems ?? generateBreadcrumbItems(location.pathname)
   const mainMarginLeft = isMobile ? 0 : sidebarCollapsed ? 56 : 220
   const isWorkbench = location.pathname.startsWith(PATHS.ADMIN_WORKBENCH)
+
+  // 自适应 footer：内容不满屏时才显示
+  const FOOTER_THRESHOLD = 80
+  useEffect(() => {
+    const el = mainRef.current
+    if (!el || isWorkbench) { setShowFooter(false); return }
+
+    const observer = new ResizeObserver(() => {
+      const contentH = el.scrollHeight
+      const available = window.innerHeight - contentH
+      setShowFooter(available > FOOTER_THRESHOLD)
+    })
+    observer.observe(el)
+    const available = window.innerHeight - el.scrollHeight
+    setShowFooter(available > FOOTER_THRESHOLD)
+    return () => observer.disconnect()
+  }, [location.pathname, isWorkbench])
 
   return (
     <div className="bg-background relative min-h-screen">
@@ -135,14 +154,14 @@ function AdminLayoutContent() {
       >
         <Navbar onMenuClick={handleMobileMenuClick} />
 
-        <main className={`flex-1 px-6 pt-4 pb-0 ${isWorkbench ? 'overflow-hidden' : ''}`}>
+        <main ref={mainRef} className={`flex-1 px-6 pt-4 pb-0 ${isWorkbench ? 'overflow-hidden' : ''}`}>
           <div className="mb-4">
             <Breadcrumb items={breadcrumbItems} />
           </div>
           <Outlet />
         </main>
 
-        {!isWorkbench && (
+        {showFooter && (
           <footer className="border-border border-t px-6 py-3">
             <p className="text-muted-foreground text-center text-xs">
               © {new Date().getFullYear()} 法穿AI Copilot
