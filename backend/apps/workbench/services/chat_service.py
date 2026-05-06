@@ -25,6 +25,8 @@ from asgiref.sync import sync_to_async
 
 from pydantic_ai import Agent, UsageLimits
 from pydantic_ai.messages import (
+    FunctionToolCallEvent,
+    FunctionToolResultEvent,
     ModelMessage,
     ModelRequest,
     ModelResponse,
@@ -150,11 +152,17 @@ def _convert_to_model_messages(messages: list[Any]) -> list[ModelMessage]:
             # 工具结果转为 ToolReturnPart，保持 tool_call_id 关联
             tool_output = msg.tool_output or {}
             result_text = tool_output.get("result", msg.content) if isinstance(tool_output, dict) else str(tool_output)
-            result.append(ModelRequest(parts=[ToolReturnPart(
-                tool_call_id=msg.tool_call_id or "",
-                tool_name=msg.tool_name or "",
-                content=str(result_text),
-            )]))
+            result.append(
+                ModelRequest(
+                    parts=[
+                        ToolReturnPart(
+                            tool_call_id=msg.tool_call_id or "",
+                            tool_name=msg.tool_name or "",
+                            content=str(result_text),
+                        )
+                    ]
+                )
+            )
 
     return result
 
@@ -226,9 +234,9 @@ class WorkbenchChatService:
     def __init__(self) -> None:
         self.approval_manager = approval_manager
 
-    def resolve_approval(self, approval_id: str, approved: bool) -> bool:
+    def resolve_approval(self, approval_id: str, approved: bool, user_id: int | None = None) -> bool:
         """前端调用此方法来响应审批请求"""
-        return self.approval_manager.resolve(approval_id, approved)
+        return self.approval_manager.resolve(approval_id, approved, user_id=user_id)
 
     # ── 主入口 ───────────────────────────────────────────────────────────
 
@@ -275,7 +283,8 @@ class WorkbenchChatService:
             content=user_message,
         )
 
-        yield {"type": "meta", "session_id": str(session.session_id), "model": model_name}
+        yield {"type": "meta", "session_id": str(session.session_id), "model": model_name, "agent": agent_display_name}
+        yield {"type": "activity", "status": "thinking", "agent": agent_display_name}
 
         # 加载历史消息
         message_history = await _load_message_history(session_id)
@@ -291,6 +300,7 @@ class WorkbenchChatService:
 
         # 选择 Agent
         agent = AGENT_MAP.get(agent_type, triage_agent)
+        agent_display_name = agent.name or (agent_type or "triage")
 
         # 构建依赖
         event_queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
@@ -303,7 +313,7 @@ class WorkbenchChatService:
 
         # 设置审批事件队列（ContextVar，per-request 隔离）
         agent_name = agent_type or "triage"
-        set_event_queue(event_queue, agent_name=agent_name)
+        set_event_queue(event_queue, agent_name=agent_name, user_id=session.user_id)
 
         # 构建模型（LLMConfig 内部用同步 ORM，需 sync_to_async）
         model = await sync_to_async(build_model)(model_name) if model_name else None

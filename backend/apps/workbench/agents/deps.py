@@ -1,8 +1,6 @@
 """工作台 Agent 依赖注入"""
 
-from __future__ import annotations
-
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 
@@ -13,8 +11,6 @@ class WorkbenchDeps:
     session_id: int
     user_id: int | None = None
     llm_model: str = ""
-    # SSE 事件队列：工具回调通过此队列向流式响应发送事件
-    event_queue: list[dict[str, Any]] = field(default_factory=list)
     # 会话摘要（自动压缩长对话后生成）
     conversation_summary: str = ""
     # Token 用量追踪

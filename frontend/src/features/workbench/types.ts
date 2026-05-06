@@ -27,6 +27,7 @@ export interface LLMModel {
   id: string
   name: string
   provider?: string
+  context_window?: number
 }
 
 export interface ModelsResponse {
@@ -62,6 +63,13 @@ export interface ApprovalState {
   toolArgs: Record<string, unknown>
 }
 
+// ─── 消息分组（用于内联展示工具调用） ────────────────────────────────────────
+
+export interface AssistantMessageGroup {
+  assistant: WorkbenchMessage
+  toolCalls: WorkbenchMessage[]
+}
+
 // ─── SSE 事件 ─────────────────────────────────────────────────────────────────
 
 export interface SSEEvent {
@@ -79,6 +87,8 @@ export interface SSEEvent {
   approval_id?: string
   session_id?: string
   model?: string
+  agent?: string
+  status?: string
   from_agent?: string
   to_agent?: string
 }
@@ -91,6 +101,9 @@ export interface StreamingMessage {
   toolCalls: ToolCallState[]
   handoffs: { from: string; to: string }[]
   model?: string
+  error?: string
+  activeAgent?: string
+  currentActivity?: string
 }
 
 export interface ToolCallState {

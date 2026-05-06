@@ -41,6 +41,10 @@ export async function listMessages(
   return api.get(`sessions/${sessionId}/messages`, { searchParams: { page } }).json()
 }
 
+export async function truncateMessages(sessionId: number, fromMessageId: number): Promise<void> {
+  await api.delete(`sessions/${sessionId}/messages/from/${fromMessageId}`)
+}
+
 // ─── 审批 API ─────────────────────────────────────────────────────────────────
 
 export async function respondApproval(approvalId: string, approved: boolean): Promise<{ success: boolean; message: string }> {

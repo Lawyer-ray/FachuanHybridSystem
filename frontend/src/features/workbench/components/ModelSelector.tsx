@@ -1,8 +1,7 @@
 /** 模型选择器组件（支持收藏） */
 
 import { useState } from 'react'
-import { Check, ChevronsUpDown, Star } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Check, ChevronDown, Star } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -19,15 +18,11 @@ export function ModelSelector({ disabled }: ModelSelectorProps) {
     useWorkbenchStore()
 
   if (modelsLoading) {
-    return <Skeleton className="h-9 w-full" />
+    return <Skeleton className="h-5 w-24" />
   }
 
   if (models.length === 0) {
-    return (
-      <div className="flex h-9 items-center rounded-md border px-3 text-sm text-muted-foreground">
-        暂无可用模型
-      </div>
-    )
+    return <span className="text-xs text-muted-foreground">暂无模型</span>
   }
 
   const selectedId = selectedModel || models[0]?.id || ''
@@ -36,20 +31,21 @@ export function ModelSelector({ disabled }: ModelSelectorProps) {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
+        <button
           disabled={disabled}
-          className="w-full justify-between h-9 font-normal"
+          className={cn(
+            'flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors',
+            'rounded px-1.5 py-0.5 hover:bg-accent',
+            disabled && 'opacity-50 pointer-events-none',
+          )}
         >
-          <span className="truncate">
-            {selected ? selected.name || selected.id : '选择模型...'}
+          <span className="truncate max-w-[160px]">
+            {selected ? selected.name || selected.id : '选择模型'}
           </span>
-          <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
-        </Button>
+          <ChevronDown className="size-3 shrink-0" />
+        </button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+      <PopoverContent className="w-64 p-0" align="end">
         <ScrollArea className="h-[240px]">
           <div className="p-1">
             {models.map((model) => {

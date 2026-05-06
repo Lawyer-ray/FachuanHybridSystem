@@ -1,17 +1,19 @@
 /** 工作台页面 */
 
-import { useEffect, useCallback, useState } from 'react'
-import { Bot, Plus, Trash2, Loader2 } from 'lucide-react'
+import { useEffect, useCallback, useState, useRef } from 'react'
+import { Bot, Plus, Trash2, Loader2, Pencil, Search, X, PanelLeftClose, PanelLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
+import { useUIStore } from '@/stores/ui'
 import { useWorkbenchStore } from './stores/workbench-store'
-import { useWorkbenchChat } from './hooks/use-workbench-chat'
 import { MessageList } from './components/MessageList'
 import { ChatInput } from './components/ChatInput'
 import { ModelSelector } from './components/ModelSelector'
+import { ContextUsageBar } from './components/ContextUsageBar'
 import { ApprovalDialog } from './components/ApprovalDialog'
-import { deleteSession } from './api'
+import { deleteSession, updateSession } from './api'
 
 export function WorkbenchPage() {
   const {
@@ -24,10 +26,19 @@ export function WorkbenchPage() {
     pendingApproval,
     respondApproval,
     isStreaming,
+    sendMessage,
   } = useWorkbenchStore()
 
-  const { sendMessage } = useWorkbenchChat()
+  const adminSidebarCollapsed = useUIStore((s) => s.sidebarCollapsed)
+  const setAdminSidebarCollapsed = useUIStore((s) => s.setSidebarCollapsed)
+
   const [isCreating, setIsCreating] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try { return localStorage.getItem('workbench_sidebar_collapsed') === 'true' } catch { return false }
+  })
+  // 记录收起前的 admin 侧边栏状态，用于展开时恢复
+  const prevAdminCollapsedRef = useRef(adminSidebarCollapsed)
 
   useEffect(() => {
     fetchSessions()
@@ -62,71 +73,146 @@ export function WorkbenchPage() {
     [currentSession, sendMessage],
   )
 
+  const handleTitleUpdate = useCallback(
+    async (title: string) => {
+      if (!currentSession) return
+      await updateSession(currentSession.id, { title })
+      fetchSessions()
+    },
+    [currentSession, fetchSessions],
+  )
+
+  const filteredSessions = searchQuery
+    ? sessions.filter((s) => (s.title || '新会话').toLowerCase().includes(searchQuery.toLowerCase()))
+    : sessions
+
   return (
     <div className="flex h-[calc(100vh-7rem)] overflow-hidden rounded-lg border bg-card">
       {/* 侧边栏：会话列表 */}
-      <div className="flex w-[240px] flex-col border-r bg-muted/30">
-        <div className="flex items-center justify-between border-b px-3 py-2">
-          <span className="text-sm font-medium">会话</span>
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={handleNewSession}
-            disabled={isCreating}
-            className="size-7"
-          >
-            {isCreating ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : (
-              <Plus className="size-3.5" />
-            )}
-          </Button>
-        </div>
-        <ScrollArea className="flex-1">
-          <div className="space-y-0.5 p-2">
-            {sessions.map((session) => (
-              <div
-                key={session.id}
-                onClick={() => setCurrentSession(session)}
-                className={cn(
-                  'group flex items-center gap-2 rounded-md px-2.5 py-2 text-sm cursor-pointer hover:bg-accent',
-                  currentSession?.id === session.id && 'bg-accent',
-                )}
+      <div
+        className={cn(
+          'flex flex-col overflow-hidden border-r bg-muted/30 transition-[width] duration-200',
+          sidebarCollapsed ? 'w-[42px]' : 'w-[220px]',
+        )}
+      >
+        <div className="flex h-10 shrink-0 items-center justify-between border-b px-2">
+          {!sidebarCollapsed && <span className="text-sm font-medium pl-1">会话</span>}
+          <div className="flex items-center gap-0.5">
+            {!sidebarCollapsed && (
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={handleNewSession}
+                disabled={isCreating}
+                className="size-7"
               >
-                <Bot className="size-4 shrink-0 text-muted-foreground" />
-                <span className="flex-1 truncate">{session.title || '新会话'}</span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleDeleteSession(session.id)
-                  }}
-                  className="hidden shrink-0 text-muted-foreground hover:text-destructive group-hover:block"
-                >
-                  <Trash2 className="size-3.5" />
-                </button>
-              </div>
-            ))}
-            {sessions.length === 0 && (
-              <div className="py-8 text-center text-xs text-muted-foreground">
-                暂无会话
-              </div>
+                {isCreating ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Plus className="size-3.5" />
+                )}
+              </Button>
             )}
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => {
+                setSidebarCollapsed((prev) => {
+                  const next = !prev
+                  try { localStorage.setItem('workbench_sidebar_collapsed', String(next)) } catch { /* ignore */ }
+                  if (next) {
+                    // 收起：记住当前 admin 侧边栏状态，然后一起收起
+                    prevAdminCollapsedRef.current = adminSidebarCollapsed
+                    if (!adminSidebarCollapsed) setAdminSidebarCollapsed(true)
+                  } else {
+                    // 展开：恢复之前的 admin 侧边栏状态
+                    if (!prevAdminCollapsedRef.current) setAdminSidebarCollapsed(false)
+                  }
+                  return next
+                })
+              }}
+              className="size-7"
+            >
+              {sidebarCollapsed ? (
+                <PanelLeft className="size-3.5" />
+              ) : (
+                <PanelLeftClose className="size-3.5" />
+              )}
+            </Button>
           </div>
-        </ScrollArea>
+        </div>
+
+        {!sidebarCollapsed && (
+          <>
+            {/* 搜索框 */}
+            <div className="border-b px-2 py-1.5">
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="搜索会话..."
+                  className="h-7 pl-7 pr-7 text-xs"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="size-3" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <ScrollArea className="flex-1 min-w-0">
+              <div className="space-y-0.5 p-2">
+                {filteredSessions.map((session) => (
+                  <div
+                    key={session.id}
+                    onClick={() => setCurrentSession(session)}
+                    className={cn(
+                      'group flex min-w-0 items-center gap-2 rounded-md px-2.5 py-2 text-sm cursor-pointer hover:bg-accent',
+                      currentSession?.id === session.id && 'bg-accent',
+                    )}
+                  >
+                    <Bot className="size-4 shrink-0 text-muted-foreground" />
+                    <span className="flex-1 truncate">{session.title || '新会话'}</span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleDeleteSession(session.id)
+                      }}
+                      className="hidden shrink-0 text-muted-foreground hover:text-destructive group-hover:block"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  </div>
+                ))}
+                {filteredSessions.length === 0 && (
+                  <div className="py-8 text-center text-xs text-muted-foreground">
+                    {searchQuery ? '无匹配会话' : '暂无会话'}
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+          </>
+        )}
       </div>
 
       {/* 主区域 */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* 顶部栏 */}
-        <div className="flex items-center gap-4 border-b px-4 py-2">
+        <div className="flex h-10 shrink-0 items-center gap-4 border-b px-4">
           <div className="flex-1">
-            <h2 className="text-sm font-medium">
-              {currentSession?.title || '工作台'}
-            </h2>
+            <EditableTitle
+              title={currentSession?.title || '工作台'}
+              editable={!!currentSession}
+              onSave={handleTitleUpdate}
+            />
           </div>
-          <div className="w-[200px]">
-            <ModelSelector disabled={isStreaming} />
-          </div>
+          {currentSession && <ContextUsageBar />}
+          <ModelSelector disabled={isStreaming} />
         </div>
 
         {/* 消息列表 */}
@@ -169,6 +255,70 @@ export function WorkbenchPage() {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+/** 可编辑标题 */
+function EditableTitle({
+  title,
+  editable,
+  onSave,
+}: {
+  title: string
+  editable: boolean
+  onSave: (title: string) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(title)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // Sync title when not editing
+  useEffect(() => {
+    if (!editing) setValue(title)
+  }, [title, editing])
+
+  useEffect(() => {
+    if (editing) inputRef.current?.focus()
+  }, [editing])
+
+  const handleSave = () => {
+    const trimmed = value.trim()
+    if (trimmed && trimmed !== title) {
+      onSave(trimmed)
+    }
+    setEditing(false)
+  }
+
+  if (!editable) {
+    return <h2 className="text-sm font-medium">{title}</h2>
+  }
+
+  if (editing) {
+    return (
+      <Input
+        ref={inputRef}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={handleSave}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') handleSave()
+          if (e.key === 'Escape') { setValue(title); setEditing(false) }
+        }}
+        className="h-7 text-sm font-medium"
+      />
+    )
+  }
+
+  return (
+    <div className="group flex items-center gap-1.5">
+      <h2 className="text-sm font-medium truncate">{title}</h2>
+      <button
+        onClick={() => setEditing(true)}
+        className="hidden text-muted-foreground hover:text-foreground group-hover:block"
+      >
+        <Pencil className="size-3" />
+      </button>
     </div>
   )
 }

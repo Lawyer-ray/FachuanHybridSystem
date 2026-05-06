@@ -14,6 +14,7 @@ import type {
 import * as api from '../api'
 
 const FAVORITE_MODEL_KEY = 'workbench_favorite_model'
+const SELECTED_AGENT_KEY = 'workbench_selected_agent'
 
 // 用于中断正在进行的流式请求
 let _abortController: AbortController | null = null
@@ -24,6 +25,16 @@ function loadFavoriteModel(): string {
   } catch {
     return ''
   }
+}
+
+function loadSelectedAgent(): AgentType {
+  try {
+    const val = localStorage.getItem(SELECTED_AGENT_KEY)
+    if (val && ['triage', 'case', 'contract', 'research', 'general'].includes(val)) {
+      return val as AgentType
+    }
+  } catch { /* ignore */ }
+  return 'triage'
 }
 
 interface WorkbenchState {
@@ -40,6 +51,9 @@ interface WorkbenchState {
 
   // Agent
   selectedAgent: AgentType
+
+  // 消息加载
+  messagesLoading: boolean
 
   // 流式状态
   isStreaming: boolean
@@ -58,6 +72,7 @@ interface WorkbenchState {
   setCurrentSession: (session: WorkbenchSession | null) => void
   fetchMessages: (sessionId: number) => Promise<void>
   sendMessage: (content: string) => Promise<void>
+  editAndResend: (messageId: number, newContent: string) => Promise<void>
   abortStream: () => void
   handleSSEEvent: (event: SSEEvent) => void
   respondApproval: (approved: boolean) => Promise<void>
@@ -72,7 +87,8 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
   selectedModel: '',
   favoriteModel: loadFavoriteModel(),
   modelsLoading: false,
-  selectedAgent: 'triage',
+  selectedAgent: loadSelectedAgent(),
+  messagesLoading: false,
   isStreaming: false,
   streamingMessage: null,
   pendingApproval: null,
@@ -90,7 +106,10 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
     set({ favoriteModel: model })
   },
 
-  setSelectedAgent: (agent) => set({ selectedAgent: agent }),
+  setSelectedAgent: (agent) => {
+    try { localStorage.setItem(SELECTED_AGENT_KEY, agent) } catch { /* ignore */ }
+    set({ selectedAgent: agent })
+  },
 
   fetchModels: async () => {
     set({ modelsLoading: true })
@@ -124,17 +143,20 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
   },
 
   setCurrentSession: (session) => {
-    set({ currentSession: session, messages: [] })
+    set({ currentSession: session, messages: [], messagesLoading: !!session })
     if (session) {
       get().fetchMessages(session.id)
     }
   },
 
   fetchMessages: async (sessionId) => {
+    set({ messagesLoading: true })
     try {
       const res = await api.listMessages(sessionId)
-      set({ messages: res.items })
-    } catch { /* ignore */ }
+      set({ messages: res.items, messagesLoading: false })
+    } catch {
+      set({ messagesLoading: false })
+    }
   },
 
   sendMessage: async (content) => {
@@ -293,6 +315,26 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
     }
   },
 
+  editAndResend: async (messageId, newContent) => {
+    const { currentSession, messages } = get()
+    if (!currentSession) return
+
+    // 找到该消息位置，截断后续消息
+    const idx = messages.findIndex((m) => m.id === messageId)
+    if (idx < 0) return
+
+    // 删除该消息及之后的所有消息（后端）
+    try {
+      await api.truncateMessages(currentSession.id, messageId)
+    } catch { /* ignore */ }
+
+    // 更新本地状态：保留该消息之前的消息
+    set({ messages: messages.slice(0, idx) })
+
+    // 用新内容重新发送
+    get().sendMessage(newContent)
+  },
+
   handleSSEEvent: (event) => {
     set((state) => {
       const sm = state.streamingMessage
@@ -300,13 +342,33 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
 
       switch (event.type) {
         case 'meta':
-          return { streamingMessage: { ...sm, model: event.model } }
+          return {
+            streamingMessage: {
+              ...sm,
+              model: event.model,
+              activeAgent: event.agent || sm.activeAgent,
+              currentActivity: event.agent ? `${event.agent} 正在思考...` : sm.currentActivity,
+            },
+          }
+
+        case 'activity':
+          return {
+            streamingMessage: {
+              ...sm,
+              activeAgent: event.agent || sm.activeAgent,
+              currentActivity: event.status === 'thinking'
+                ? `${event.agent || sm.activeAgent || '助手'} 正在思考...`
+                : sm.currentActivity,
+            },
+          }
 
         case 'delta':
           return {
             streamingMessage: {
               ...sm,
               content: sm.content + (event.content || ''),
+              // 收到 delta 时清除 thinking 状态
+              currentActivity: undefined,
             },
           }
 
@@ -317,10 +379,12 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
             arguments: event.arguments || event.tool_input || {},
             status: 'running',
           }
+          const toolName = event.name || event.tool_name || '工具'
           return {
             streamingMessage: {
               ...sm,
               toolCalls: [...sm.toolCalls, tc],
+              currentActivity: `正在执行 ${toolName}...`,
             },
           }
         }
@@ -340,6 +404,8 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
                     }
                   : tc,
               ),
+              // 工具完成，清除活动状态（下一个 tool_call 或 delta 会重新设置）
+              currentActivity: undefined,
             },
           }
         }
@@ -352,6 +418,7 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
                 ...sm.handoffs,
                 { from: event.from_agent || '', to: event.to_agent || '' },
               ],
+              currentActivity: `切换到 ${event.to_agent || '助手'}...`,
             },
           }
 
@@ -368,7 +435,7 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
           return {
             streamingMessage: {
               ...sm,
-              content: sm.content + `\n\n错误: ${event.message || '未知错误'}`,
+              error: event.message || '未知错误',
             },
           }
 
@@ -404,6 +471,7 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
     set({
       currentSession: null,
       messages: [],
+      messagesLoading: false,
       isStreaming: false,
       streamingMessage: null,
       pendingApproval: null,

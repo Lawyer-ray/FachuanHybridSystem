@@ -110,6 +110,21 @@ def list_messages(request: Any, session_id: int, page: int = 1) -> dict[str, Any
     }
 
 
+@router.delete("/sessions/{session_id}/messages/from/{message_id}")
+def truncate_messages(request: Any, session_id: int, message_id: int) -> dict[str, str]:
+    """删除指定消息及其之后的所有消息（用于编辑重发）"""
+    _get_user_session(request.user, session_id)
+    try:
+        msg = WorkbenchMessage.objects.get(id=message_id, session_id=session_id)
+    except WorkbenchMessage.DoesNotExist:
+        raise Http404("消息不存在")
+    WorkbenchMessage.objects.filter(
+        session_id=session_id,
+        created_at__gte=msg.created_at,
+    ).delete()
+    return {"message": "已截断"}
+
+
 # ─── 对话 API（SSE 流式） ────────────────────────────────────────────────────
 
 
@@ -153,7 +168,8 @@ class ApprovalIn(Schema):
 @router.post("/approval")
 def respond_approval(request: Any, payload: ApprovalIn) -> dict[str, Any]:
     """响应审批请求（Phase 2: Human-in-the-Loop）"""
-    success = _chat_service.resolve_approval(payload.approval_id, payload.approved)
+    user_id = request.user.id if request.user.is_authenticated else None
+    success = _chat_service.resolve_approval(payload.approval_id, payload.approved, user_id=user_id)
     return {
         "success": success,
         "message": "审批已处理" if success else "审批 ID 不存在或已过期",
