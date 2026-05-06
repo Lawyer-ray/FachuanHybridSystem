@@ -2,6 +2,30 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.43.3] - 2026-05-06
+
+### 前端
+
+#### 新功能
+
+- **系统设置对接后端 API**：ServiceConfig 页面全面改造，配置项从后端 SystemConfig 动态加载，保存时调用 PUT 接口持久化，secret 字段显示 `******`，修改后才发送新值
+- **系统连接配置**：新增「系统连接」类别，支持在界面上配置后端地址（存入 localStorage），修改后刷新页面生效
+- **设置页面宽屏优化**：ServiceConfig 表单改为双列 grid 布局，SettingsOverview 卡片改为三列 grid 布局
+- **日志页面重写**：Timeline 组件替换为 Card 布局，新增「添加日志」按钮（含案件选择 + 提醒设置），支持删除日志，搜索合并为单一输入框（匹配内容/案件/操作人），宽屏双列布局，单条日志占满全宽
+
+#### 修复
+
+- **CONFIG_SCHEMAS 字段对齐**：前端配置字段 key 与后端 SystemConfig.key 完全一致（如 `FEISHU_APP_ID` 而非 `app_id`），补齐 `CASE_CHAT_NAME_TEMPLATE`、`EMAIL_USE_TLS`、`PADDLEOCR_*` 等缺失字段
+- **收件箱主题截断**：InboxTable 主题列去掉 `max-w-[300px]` 硬限制，改为自适应宽度
+- **定时任务 last_run 显示**：task_queue_api 从 Success 表查询实际运行时间，修复 `s.last_run` 始终为空的问题
+- **消息来源 API 路径**：message-sources prefixUrl 从 `/message-hub` 修正为 `/inbox`
+
+### 后端
+
+#### 新增
+
+- **SystemConfig API**：新增 `GET /api/v1/config/system-configs`（按分类返回配置）和 `PUT /api/v1/config/system-configs`（批量更新，不存在的 key 自动创建）
+
 ## [26.43.2] - 2026-05-05
 
 ### 工程

@@ -94,8 +94,8 @@ export function InboxTable({ messages, isLoading }: InboxTableProps) {
                     {msg.source_name}
                   </span>
                 </TableCell>
-                <TableCell>
-                  <span className="line-clamp-1 max-w-[300px]">{msg.subject || '(无主题)'}</span>
+                <TableCell className="min-w-[200px]">
+                  <span className="line-clamp-1">{msg.subject || '(无主题)'}</span>
                 </TableCell>
                 <TableCell>
                   <span className="text-muted-foreground line-clamp-1 text-sm">{msg.sender || '-'}</span>

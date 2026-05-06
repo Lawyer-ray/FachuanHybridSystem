@@ -1,5 +1,5 @@
 /**
- * Task Queue API
+ * Settings API — Task Queue + System Config
  */
 
 import { createApiClient } from '@/lib/api'
@@ -59,6 +59,34 @@ export const taskQueueApi = {
 
   resubmitTask: (taskId: string): Promise<{ new_task_id?: string; error?: string }> =>
     api.post(`tasks/${taskId}/resubmit`).json(),
+}
+
+// ─── System Config API ─────────────────────────────────────────────────────────
+
+export interface SystemConfigItem {
+  key: string
+  value: string
+  category: string
+  description: string
+  is_secret: boolean
+  is_active: boolean
+}
+
+export interface SystemConfigGroup {
+  category: string
+  items: SystemConfigItem[]
+}
+
+const configApi = createApiClient({
+  prefixUrl: `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002/api/v1'}/config`,
+})
+
+export const systemConfigApi = {
+  listConfigs: (): Promise<{ groups: SystemConfigGroup[] }> =>
+    configApi.get('system-configs').json(),
+
+  updateConfigs: (category: string, updates: Record<string, string>): Promise<{ success: boolean; updated_count: number }> =>
+    configApi.put('system-configs', { json: { category, updates } }).json(),
 }
 
 export default taskQueueApi

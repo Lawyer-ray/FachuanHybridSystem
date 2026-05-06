@@ -113,7 +113,7 @@ def list_failed(request: HttpRequest) -> Any:
 @router.get("/scheduled", response=list[ScheduleOut])
 def list_scheduled(request: HttpRequest) -> Any:
     """获取定时调度任务"""
-    from django_q.models import Schedule
+    from django_q.models import Schedule, Success
 
     schedules = Schedule.objects.all().order_by("next_run")[:200]
     type_labels = {
@@ -126,6 +126,15 @@ def list_scheduled(request: HttpRequest) -> Any:
         Schedule.QUARTERLY: "每季度",
         Schedule.YEARLY: "每年",
     }
+
+    # Pre-fetch last run times per schedule name
+    names = [s.name for s in schedules if s.name]
+    last_runs: dict[str, datetime | None] = {}
+    if names:
+        for name in names:
+            task = Success.objects.filter(name=name).order_by("-stopped").first()
+            last_runs[name] = task.stopped if task else None
+
     return [
         ScheduleOut(
             id=s.id,
@@ -134,7 +143,7 @@ def list_scheduled(request: HttpRequest) -> Any:
             schedule_type=type_labels.get(s.schedule_type, str(s.schedule_type)),
             repeats=s.repeats,
             next_run=_fmt_dt(s.next_run),
-            last_run=_fmt_dt(s.last_run),
+            last_run=_fmt_dt(last_runs.get(s.name)),
         )
         for s in schedules
     ]

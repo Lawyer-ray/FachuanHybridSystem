@@ -141,6 +141,10 @@ export const caseApi = {
     return api.get('logs', { searchParams: { case_id: String(caseId) } }).json<CaseLog[]>()
   },
 
+  listAllLogs: async (): Promise<CaseLog[]> => {
+    return api.get('logs').json<CaseLog[]>()
+  },
+
   createLog: async (data: { case_id: number; content: string; reminder_type?: string; reminder_time?: string }): Promise<CaseLog> => {
     return api.post('logs', { json: data }).json<CaseLog>()
   },

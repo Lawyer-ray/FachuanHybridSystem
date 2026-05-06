@@ -14,14 +14,22 @@ import {
 } from './token'
 
 /**
- * API 基础路径
+ * 获取 API 基础路径（localStorage 优先，fallback 到环境变量）
  */
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002/api/v1'
+export function getApiBaseUrl(): string {
+  return localStorage.getItem('api_base_url') || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002/api/v1'
+}
 
 /**
- * 后端根地址（用于拼接 media_url 等相对路径）
+ * 获取后端根地址（localStorage 优先，fallback 到环境变量）
  */
-export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8002'
+export function getBackendUrl(): string {
+  return localStorage.getItem('backend_url') || import.meta.env.VITE_BACKEND_URL || 'http://localhost:8002'
+}
+
+/** 模块级缓存，避免每次调用都读 localStorage */
+export const API_BASE_URL = getApiBaseUrl()
+export const BACKEND_URL = getBackendUrl()
 
 /**
  * 将后端返回的相对路径转为完整 URL

@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router'
 import {
   Building2, Users, User, MessageSquare, Globe, Mail, Monitor,
-  Brain, ScanLine, Database, Settings, ChevronRight,
+  Brain, ScanLine, Database, Settings, ChevronRight, Plug,
 } from 'lucide-react'
 import { PATHS } from '@/routes/paths'
 
@@ -47,6 +47,12 @@ const sections: SettingSection[] = [
       { id: 'scraper', icon: Globe, label: '爬虫配置', desc: '加密密钥、无头模式等网页爬取相关参数', path: `${PATHS.ADMIN_SETTINGS}/config/scraper` },
     ],
   },
+  {
+    title: '系统',
+    items: [
+      { id: 'system', icon: Plug, label: '系统连接', desc: '后端服务地址配置，修改后需刷新页面生效', path: `${PATHS.ADMIN_SETTINGS}/config/system` },
+    ],
+  },
 ]
 
 export function SettingsOverview() {
@@ -69,7 +75,7 @@ export function SettingsOverview() {
       {sections.map((section) => (
         <div key={section.title}>
           <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-3">{section.title}</h2>
-          <div className="grid gap-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
             {section.items.map((item) => {
               const Icon = item.icon
               return (
