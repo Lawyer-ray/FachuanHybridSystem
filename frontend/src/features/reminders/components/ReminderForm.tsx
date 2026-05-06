@@ -80,6 +80,8 @@ export interface ReminderFormProps {
   contractOptions?: AssociationOption[]
   /** 案件日志选项列表（可选，用于关联选择） */
   caseLogOptions?: AssociationOption[]
+  /** 创建模式下的初始日期（可选，用于从日历创建时预填日期） */
+  initialDate?: Date
 }
 
 /**
@@ -147,6 +149,7 @@ export function ReminderForm({
   isSubmitting = false,
   contractOptions = [],
   caseLogOptions = [],
+  initialDate,
 }: ReminderFormProps) {
   const isEditMode = mode === 'edit'
 
@@ -169,16 +172,16 @@ export function ReminderForm({
         metadata: reminder.metadata ?? {},
       }
     }
-    // 创建模式：空表单
+    // 创建模式：空表单，可选预填日期
     return {
       reminder_type: '',
       content: '',
-      due_at: undefined,
+      due_at: initialDate,
       contract_id: null,
       case_log_id: null,
       metadata: {},
     }
-  }, [isEditMode, reminder])
+  }, [isEditMode, reminder, initialDate])
 
   // 初始化表单
   const form = useForm<ReminderFormData>({

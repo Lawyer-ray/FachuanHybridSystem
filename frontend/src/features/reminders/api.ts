@@ -117,6 +117,34 @@ export const reminderApi = {
   getTypes: async (): Promise<ReminderTypeOption[]> => {
     return api.get('reminders/types').json<ReminderTypeOption[]>()
   },
+
+  /**
+   * 获取关联选项（合同/案件/案件日志）
+   * GET /api/v1/reminders/target-options
+   */
+  getTargetOptions: async (q?: string): Promise<TargetOptionsResponse> => {
+    const searchParams = new URLSearchParams()
+    if (q) searchParams.set('q', q)
+    return api.get('reminders/target-options', { searchParams }).json<TargetOptionsResponse>()
+  },
+}
+
+export interface TargetOptionItem {
+  id: number
+  name: string
+  target_type: string
+  target_type_label: string
+}
+
+export interface TargetOptionGroup {
+  key: string
+  label: string
+  items: TargetOptionItem[]
+}
+
+export interface TargetOptionsResponse {
+  items: TargetOptionItem[]
+  groups: TargetOptionGroup[]
 }
 
 export default reminderApi

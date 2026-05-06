@@ -114,3 +114,21 @@ class ReminderTypeItem(Schema):
 
 def list_reminder_types() -> list[ReminderTypeItem]:
     return [ReminderTypeItem(value=value, label=str(label)) for value, label in ReminderType.choices]
+
+
+class TargetOptionItem(Schema):
+    id: int
+    name: str
+    target_type: str
+    target_type_label: str
+
+
+class TargetOptionGroup(Schema):
+    key: str
+    label: str
+    items: list[TargetOptionItem]
+
+
+class TargetOptionsOut(Schema):
+    items: list[TargetOptionItem]
+    groups: list[TargetOptionGroup]

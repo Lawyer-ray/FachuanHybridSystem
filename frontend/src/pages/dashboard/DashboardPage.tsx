@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
-import { useQuery } from '@tanstack/react-query'
-import { Users, FileText, Briefcase, TrendingUp, ChevronLeft, ChevronRight, MapPin, User, Clock } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Users, FileText, Briefcase, TrendingUp, ChevronLeft, ChevronRight, MapPin, User, Clock, Plus, Pencil, Trash2 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { PATHS } from '@/routes/paths'
 import { clientApi } from '@/features/clients/api'
@@ -11,6 +12,8 @@ import { contractApi } from '@/features/contracts/api'
 import { caseApi } from '@/features/cases/api'
 import { reminderApi } from '@/features/reminders/api'
 import type { Reminder, ReminderType } from '@/features/reminders/types'
+import { ReminderFormDialog } from '@/features/reminders/components/ReminderFormDialog'
+import { useReminderMutations } from '@/features/reminders/hooks/use-reminder-mutations'
 import { formatDate } from '@/lib/date'
 
 const TYPE_COLORS: Record<ReminderType, string> = {
@@ -97,12 +100,24 @@ function mergeReminders(reminders: Reminder[]): Map<string, CalendarEvent[]> {
   return map
 }
 
-function EventDetailDialog({ event, open, onClose }: { event: CalendarEvent | null; open: boolean; onClose: () => void }) {
+function EventDetailDialog({
+  event, open, onClose, onEdit, onDelete,
+}: {
+  event: CalendarEvent | null; open: boolean; onClose: () => void
+  onEdit: (event: CalendarEvent) => void; onDelete: (event: CalendarEvent) => void
+}) {
   if (!event) return null
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader><DialogTitle className="text-base">{event.title}</DialogTitle></DialogHeader>
+      <DialogContent className="sm:max-w-md" showCloseButton={false}>
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-3 right-3 text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+        <DialogHeader><DialogTitle className="text-base pr-6">{event.title}</DialogTitle></DialogHeader>
         <div className="space-y-3 text-sm">
           <div className="flex items-center gap-2 flex-wrap">
             <Badge variant="outline" className={TYPE_COLORS[event.reminder_type]}>{event.type_label}</Badge>
@@ -121,19 +136,44 @@ function EventDetailDialog({ event, open, onClose }: { event: CalendarEvent | nu
             </div>
           )}
         </div>
+        <div className="flex justify-end gap-2 pt-2 border-t">
+          <Button variant="outline" size="sm" onClick={() => onEdit(event)}>
+            <Pencil className="size-3.5 mr-1.5" />编辑
+          </Button>
+          <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => onDelete(event)}>
+            <Trash2 className="size-3.5 mr-1.5" />删除
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   )
 }
 
 function CalendarCard() {
+  const queryClient = useQueryClient()
+  const { deleteMutation } = useReminderMutations()
   const [viewYear, setViewYear] = useState(() => new Date().getFullYear())
   const [viewMonth, setViewMonth] = useState(() => new Date().getMonth())
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
+  const [formOpen, setFormOpen] = useState(false)
+  const [formMode, setFormMode] = useState<'create' | 'edit'>('create')
+  const [formReminder, setFormReminder] = useState<Reminder | undefined>(undefined)
+  const [formDate, setFormDate] = useState<Date | undefined>(undefined)
+  const [deleteConfirm, setDeleteConfirm] = useState<CalendarEvent | null>(null)
   const today = new Date()
 
   const { data: reminders } = useQuery({ queryKey: ['dashboard-reminders'], queryFn: () => reminderApi.list(), staleTime: 60_000 })
   const eventsByDate = useMemo(() => mergeReminders(reminders ?? []), [reminders])
+
+  const { data: targetOptions } = useQuery({ queryKey: ['reminders-target-options'], queryFn: () => reminderApi.getTargetOptions(), staleTime: 300_000 })
+  const contractOptions = useMemo(() => {
+    const group = targetOptions?.groups.find(g => g.key === 'contract')
+    return group?.items.map(i => ({ id: i.id, label: i.name })) ?? []
+  }, [targetOptions])
+  const caseLogOptions = useMemo(() => {
+    const group = targetOptions?.groups.find(g => g.key === 'case_log')
+    return group?.items.map(i => ({ id: i.id, label: i.name })) ?? []
+  }, [targetOptions])
 
   const weeks = useMemo(() => {
     const firstDay = new Date(viewYear, viewMonth, 1).getDay()
@@ -152,18 +192,54 @@ function CalendarCard() {
   const isToday = (d: number) => d === today.getDate() && viewMonth === today.getMonth() && viewYear === today.getFullYear()
   const dateKey = (d: number) => `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
 
+  const handleCreateForDate = (d: number) => {
+    setFormMode('create')
+    setFormReminder(undefined)
+    setFormDate(new Date(viewYear, viewMonth, d, 9, 0))
+    setFormOpen(true)
+  }
+
+  const handleEditEvent = (event: CalendarEvent) => {
+    const original = reminders?.find(r => r.id === event.id)
+    if (!original) return
+    setSelectedEvent(null)
+    setFormMode('edit')
+    setFormReminder(original)
+    setFormDate(undefined)
+    setFormOpen(true)
+  }
+
+  const handleDeleteEvent = (event: CalendarEvent) => {
+    setSelectedEvent(null)
+    setDeleteConfirm(event)
+  }
+
+  const confirmDelete = () => {
+    if (!deleteConfirm) return
+    deleteMutation.mutate(deleteConfirm.id, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['dashboard-reminders'] })
+        setDeleteConfirm(null)
+      },
+    })
+  }
+
+  const handleFormSuccess = () => {
+    queryClient.invalidateQueries({ queryKey: ['dashboard-reminders'] })
+  }
+
   const dayHeaders = ['日', '一', '二', '三', '四', '五', '六']
 
   return (
     <>
       <Card className="overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
-          <div className="flex items-center gap-2">
-            <span className="text-base font-semibold tracking-tight">{viewYear}年{viewMonth + 1}月</span>
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border/80">
+          <div className="flex items-center gap-3">
+            <span className="text-[15px] font-semibold tracking-tight">{viewYear}年{viewMonth + 1}月</span>
             <button
               onClick={goToday}
-              className="text-xs text-muted-foreground hover:text-foreground border border-border rounded-md px-2 py-0.5 hover:bg-muted transition-colors"
+              className="text-xs text-muted-foreground hover:text-foreground border border-border/80 rounded-md px-2.5 py-1 hover:bg-muted/60 transition-colors"
             >
               今天
             </button>
@@ -184,7 +260,7 @@ function CalendarCard() {
           {dayHeaders.map((label, i) => (
             <div
               key={label}
-              className={`text-center text-[11px] font-medium py-2 border-b border-r border-border ${i === 0 || i === 6 ? 'text-muted-foreground/60 bg-muted/30' : 'text-muted-foreground bg-muted/20'}`}
+              className={`text-center text-xs font-semibold py-2.5 border-b border-r border-border/80 ${i === 0 || i === 6 ? 'text-muted-foreground/50 bg-muted/20' : 'text-foreground/70 bg-muted/30'}`}
             >
               {label}
             </div>
@@ -195,7 +271,7 @@ function CalendarCard() {
             row.map((d, ci) => {
               const isWeekend = ci === 0 || ci === 6
               if (d === null) {
-                return <div key={`${ri}-${ci}`} className="min-h-[110px] border-r border-b border-border bg-muted/5" />
+                return <div key={`${ri}-${ci}`} className="min-h-[130px] border-r border-b border-border/60 bg-muted/5" />
               }
               const key = dateKey(d)
               const dayEvents = eventsByDate.get(key) ?? []
@@ -204,59 +280,71 @@ function CalendarCard() {
               return (
                 <div
                   key={`${ri}-${ci}`}
-                  className={`min-h-[110px] border-r border-b border-border p-1.5 align-top transition-colors ${
-                    todayCell ? 'bg-accent/40' : isWeekend ? 'bg-muted/10' : 'hover:bg-muted/20'
+                  className={`group min-h-[130px] border-r border-b border-border/60 p-1.5 align-top transition-colors ${
+                    todayCell
+                      ? 'ring-2 ring-inset ring-primary z-10'
+                      : isWeekend ? 'bg-muted/10' : 'hover:bg-muted/20'
                   }`}
                 >
-                  {/* Date number */}
-                  <div className="flex items-center justify-between mb-1">
-                    {todayCell ? (
-                      <span className="inline-flex items-center justify-center size-6 rounded-full bg-foreground text-primary-foreground text-[11px] font-bold">
-                        {d}
-                      </span>
-                    ) : (
-                      <span className={`text-xs font-medium ${isWeekend ? 'text-muted-foreground/60' : 'text-muted-foreground'}`}>
-                        {d}
-                      </span>
-                    )}
-                    {dayEvents.length > 2 && (
-                      <span className="text-[9px] text-muted-foreground bg-muted rounded px-1">{dayEvents.length}</span>
+                  {/* Date number + add button */}
+                  <div className="flex items-center justify-between mb-1.5 px-0.5">
+                    <div className="flex items-center gap-0.5">
+                      {todayCell ? (
+                        <span className="inline-flex items-center justify-center size-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">
+                          {d}
+                        </span>
+                      ) : (
+                        <span className={`text-xs font-semibold ${isWeekend ? 'text-muted-foreground/50' : 'text-foreground/70'}`}>
+                          {d}
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleCreateForDate(d)}
+                        className="size-4 flex items-center justify-center rounded-sm text-muted-foreground/40 hover:text-foreground hover:bg-muted transition-colors opacity-0 group-hover:opacity-100"
+                        title="添加提醒"
+                      >
+                        <Plus className="size-3" />
+                      </button>
+                    </div>
+                    {dayEvents.length > 0 && (
+                      <span className="text-[10px] text-muted-foreground font-medium">{dayEvents.length}条</span>
                     )}
                   </div>
 
                   {/* Events */}
-                  <div className="space-y-0.5">
-                    {dayEvents.slice(0, 2).map((ev) => (
+                  <div className="space-y-1">
+                    {dayEvents.slice(0, 3).map((ev) => (
                       <button
                         key={ev.id}
                         type="button"
                         onClick={() => setSelectedEvent(ev)}
-                        className={`w-full text-left rounded-sm cursor-pointer transition-colors overflow-hidden border-l-2 ${
+                        className={`w-full text-left rounded-md cursor-pointer transition-colors overflow-hidden border ${
                           ev.is_overdue
-                            ? 'border-l-destructive bg-destructive/5 hover:bg-destructive/10'
-                            : 'border-l-foreground/20 bg-muted/40 hover:bg-muted/60'
+                            ? 'border-red-200 bg-red-50 hover:bg-red-100/80 dark:border-red-900/40 dark:bg-red-950/30 dark:hover:bg-red-950/50'
+                            : 'border-blue-200 bg-blue-50 hover:bg-blue-100/80 dark:border-blue-900/40 dark:bg-blue-950/30 dark:hover:bg-blue-950/50'
                         }`}
                       >
-                        <div className="px-1.5 py-1">
-                          <div className="flex items-baseline gap-1">
-                            <span className={`text-[9px] font-medium shrink-0 tabular-nums ${ev.is_overdue ? 'text-destructive' : 'text-muted-foreground'}`}>
+                        <div className="px-1.5 py-[5px]">
+                          <div className="flex items-baseline gap-1.5">
+                            <span className={`text-[11px] font-semibold shrink-0 tabular-nums ${ev.is_overdue ? 'text-red-700 dark:text-red-400' : 'text-blue-700 dark:text-blue-400'}`}>
                               {ev.time}
                             </span>
-                            <span className="text-[10px] leading-tight truncate font-medium text-foreground/80">
+                            <span className={`text-[11px] leading-tight truncate font-medium ${ev.is_overdue ? 'text-red-900 dark:text-red-300' : 'text-blue-900 dark:text-blue-300'}`}>
                               {ev.title}
                             </span>
                           </div>
-                          {ev.lawyer_name && (
-                            <div className="text-[9px] leading-tight truncate pl-5 text-muted-foreground/70 mt-0.5">
-                              {ev.lawyer_name}
+                          {(ev.lawyer_name || ev.courtroom) && (
+                            <div className={`text-[10px] leading-tight truncate mt-0.5 ${ev.is_overdue ? 'text-red-600/70 dark:text-red-400/60' : 'text-blue-600/70 dark:text-blue-400/60'}`}>
+                              {[ev.lawyer_name, ev.courtroom].filter(Boolean).join(' · ')}
                             </div>
                           )}
                         </div>
                       </button>
                     ))}
-                    {dayEvents.length > 2 && (
-                      <div className="text-[9px] text-muted-foreground text-center py-0.5">
-                        +{dayEvents.length - 2} 更多
+                    {dayEvents.length > 3 && (
+                      <div className="text-[10px] text-muted-foreground text-center py-0.5 font-medium">
+                        共 {dayEvents.length} 条
                       </div>
                     )}
                   </div>
@@ -267,19 +355,59 @@ function CalendarCard() {
         </div>
 
         {/* Legend */}
-        <div className="flex items-center gap-4 px-4 py-2 border-t border-border bg-muted/10 text-[10px] text-muted-foreground">
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-2 rounded-[2px] border-l-2 border-l-destructive bg-destructive/5" />
-            <span>已逾期</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-2 rounded-[2px] border-l-2 border-l-foreground/20 bg-muted/40" />
+        <div className="flex items-center gap-5 px-5 py-2.5 border-t border-border/80 bg-muted/10 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-3 rounded-md border border-blue-200 bg-blue-50 dark:border-blue-900/40 dark:bg-blue-950/30" />
             <span>待处理</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-3 rounded-md border border-red-200 bg-red-50 dark:border-red-900/40 dark:bg-red-950/30" />
+            <span>已逾期</span>
           </div>
         </div>
       </Card>
 
-      <EventDetailDialog event={selectedEvent} open={!!selectedEvent} onClose={() => setSelectedEvent(null)} />
+      <EventDetailDialog
+        event={selectedEvent}
+        open={!!selectedEvent}
+        onClose={() => setSelectedEvent(null)}
+        onEdit={handleEditEvent}
+        onDelete={handleDeleteEvent}
+      />
+
+      <ReminderFormDialog
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        mode={formMode}
+        reminder={formReminder}
+        onSuccess={handleFormSuccess}
+        contractOptions={contractOptions}
+        caseLogOptions={caseLogOptions}
+        initialDate={formDate}
+      />
+
+      {/* Delete confirmation */}
+      <Dialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
+        <DialogContent className="sm:max-w-sm" showCloseButton={false}>
+          <button
+            type="button"
+            onClick={() => setDeleteConfirm(null)}
+            className="absolute top-3 right-3 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          </button>
+          <DialogHeader>
+            <DialogTitle className="text-base">确认删除</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            确定要删除提醒「{deleteConfirm?.title}」吗？此操作不可撤销。
+          </p>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" size="sm" onClick={() => setDeleteConfirm(null)}>取消</Button>
+            <Button variant="destructive" size="sm" onClick={confirmDelete}>删除</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }
