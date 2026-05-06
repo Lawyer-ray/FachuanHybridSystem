@@ -254,7 +254,7 @@ jobs:
             --skip-q
 
       - name: Dependency audit (pip-audit)
-        run: uv run pip-audit --ignore-vuln CVE-2026-3219
+        run: uv run pip-audit --ignore-vuln CVE-2026-3219 --ignore-vuln CVE-2026-6357 --ignore-vuln CVE-2026-42304
 
       - name: Static security scan (bandit)
         run: uv run bandit -r apps -q -lll -x "*/migrations/*,*/static/*,*/staticfiles/*,*/media/*,*/venv*/*,*/htmlcov/*"

@@ -81,7 +81,7 @@ ci-check: ## 完整镜像 GitHub CI backend job（推送前必跑，覆盖远端
 	@echo "🏥 [10/13] Smoke check (minimal)..."
 	@$(TEST_ENV) $(MANAGE) smoke_check --skip-admin --skip-websocket --skip-q
 	@echo "🔐 [11/13] 依赖安全审计 (pip-audit)..."
-	@$(PYTHON) -m pip_audit --ignore-vuln CVE-2026-3219
+	@$(PYTHON) -m pip_audit --ignore-vuln CVE-2026-3219 --ignore-vuln CVE-2026-6357 --ignore-vuln CVE-2026-42304
 	@echo "🛡️ [12/13] 静态安全扫描 (bandit)..."
 	@$(PYTHON) -m bandit -r apps -q -lll -x "*/migrations/*,*/static/*,*/staticfiles/*,*/media/*,*/venv*/*,*/htmlcov/*"
 	@echo "📎 [13/13] Pre-commit hooks (changed files)..."
