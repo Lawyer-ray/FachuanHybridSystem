@@ -80,10 +80,10 @@ function formatAmount(amount: number | null | undefined): string {
 const TABS = [
   { value: 'basic', label: '基本信息' },
   { value: 'parties', label: '当事人与律师' },
-  { value: 'fees', label: '收费/财务' },
-  { value: 'filing', label: '立案/OA' },
-  { value: 'documents', label: '文书/提醒' },
-  { value: 'archive', label: '归档清单' },
+  { value: 'fees', label: '收费与财务' },
+  { value: 'filing', label: '立案' },
+  { value: 'documents', label: '文档与提醒' },
+  { value: 'archive', label: '归档' },
 ]
 
 const tabVariants = {
