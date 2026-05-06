@@ -125,6 +125,35 @@ def truncate_messages(request: Any, session_id: int, message_id: int) -> dict[st
     return {"message": "已截断"}
 
 
+class FeedbackIn(Schema):
+    """消息反馈请求体"""
+
+    rating: str  # 'good' | 'bad'
+    comment: str = ""
+
+
+@router.patch("/messages/{message_id}/feedback")
+def submit_feedback(request: Any, message_id: int, payload: FeedbackIn) -> dict[str, Any]:
+    """提交消息反馈（好评/差评）"""
+    if payload.rating not in ("good", "bad"):
+        return {"success": False, "message": "rating 必须是 good 或 bad"}
+
+    try:
+        msg = WorkbenchMessage.objects.get(id=message_id)
+    except WorkbenchMessage.DoesNotExist:
+        raise Http404("消息不存在")
+
+    # 校验消息属于当前用户的会话
+    _get_user_session(request.user, msg.session_id)
+
+    meta = dict(msg.metadata or {})
+    meta["feedback"] = {"rating": payload.rating, "comment": payload.comment}
+    msg.metadata = meta
+    msg.save(update_fields=["metadata"])
+
+    return {"success": True, "message": "反馈已提交"}
+
+
 # ─── 对话 API（SSE 流式） ────────────────────────────────────────────────────
 
 

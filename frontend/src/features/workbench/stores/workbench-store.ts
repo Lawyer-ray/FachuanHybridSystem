@@ -73,6 +73,7 @@ interface WorkbenchState {
   fetchMessages: (sessionId: number) => Promise<void>
   sendMessage: (content: string) => Promise<void>
   editAndResend: (messageId: number, newContent: string) => Promise<void>
+  submitFeedback: (messageId: number, rating: 'good' | 'bad') => Promise<void>
   abortStream: () => void
   handleSSEEvent: (event: SSEEvent) => void
   respondApproval: (approved: boolean) => Promise<void>
@@ -333,6 +334,20 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
 
     // 用新内容重新发送
     get().sendMessage(newContent)
+  },
+
+  submitFeedback: async (messageId, rating) => {
+    try {
+      await api.submitFeedback(messageId, rating)
+      // 更新本地消息 metadata
+      set((state) => ({
+        messages: state.messages.map((m) =>
+          m.id === messageId
+            ? { ...m, metadata: { ...m.metadata, feedback: { rating } } }
+            : m,
+        ),
+      }))
+    } catch { /* ignore */ }
   },
 
   handleSSEEvent: (event) => {

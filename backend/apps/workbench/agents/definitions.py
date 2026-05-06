@@ -19,11 +19,15 @@ from contextvars import ContextVar
 from pathlib import Path
 from typing import Any
 
-from pydantic_ai import Agent, RunContext, Tool
+import httpx
+import tenacity
+
+from pydantic_ai import Agent, ConcurrencyLimiter, RunContext, Tool, limit_model_concurrency
 from pydantic_ai.mcp import MCPServerStdio
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.profiles.openai import OpenAIModelProfile
 from pydantic_ai.providers.openai import OpenAIProvider
+from pydantic_ai.retries import AsyncTenacityTransport, RetryConfig, wait_retry_after
 
 from apps.core.llm.config import LLMConfig
 
@@ -130,6 +134,17 @@ async def _process_tool_call(ctx: Any, call_tool: Any, name: str, tool_args: dic
 
 # ─── Model 构建 ──────────────────────────────────────────────────────────────
 
+# 全局并发限制器（所有模型共享，防止压爆 LLM provider rate limit）
+_model_limiter = ConcurrencyLimiter(max_running=10, max_queued=20)
+
+# HTTP 重试配置：429/500/503 自动重试，尊重 Retry-After header
+_retry_config: RetryConfig = {
+    "wait": wait_retry_after(),
+    "stop": tenacity.stop_after_attempt(3),
+    "retry": tenacity.retry_if_exception_type(httpx.HTTPStatusError),
+    "reraise": True,
+}
+
 
 def build_model(model_name: str) -> OpenAIChatModel:
     """根据模型名动态构建 Pydantic AI Model
@@ -138,6 +153,10 @@ def build_model(model_name: str) -> OpenAIChatModel:
     - 包含 "/" → SiliconFlow
     - 包含 ":" → Ollama
     - 其他 → OpenAI Compatible
+
+    自动附加：
+    - HTTP 重试（429/500/503，最多 3 次，尊重 Retry-After）
+    - 并发限制（最多 10 个并发请求）
     """
     backend = LLMConfig.resolve_backend_for_model(model_name)
 
@@ -155,16 +174,24 @@ def build_model(model_name: str) -> OpenAIChatModel:
     if backend != "ollama" and not api_key:
         logger.warning("LLM API Key 未配置，backend=%s", backend)
 
-    return OpenAIChatModel(
+    # 带重试的 HTTP 客户端
+    http_client = httpx.AsyncClient(
+        transport=AsyncTenacityTransport(config=_retry_config),
+    )
+
+    model = OpenAIChatModel(
         model_name,
         provider=OpenAIProvider(
             base_url=base_url,
             api_key=api_key or "ollama",
+            http_client=http_client,
         ),
         profile=OpenAIModelProfile(
             openai_supports_strict_tool_definition=False,
         ),
     )
+
+    return limit_model_concurrency(model, _model_limiter)
 
 
 # ─── MCP Server（共享实例，带审批回调） ───────────────────────────────────────
@@ -199,47 +226,83 @@ def _research_filter(ctx: Any, tool_def: Any) -> bool:
     )
 
 
+# ─── 动态指令函数（每次 run 时实时生成上下文） ────────────────────────────────
+
+_CASE_PROMPT = BASE_SYSTEM_PROMPT + "\n\n你专门负责案件管理相关操作，包括创建、查询、修改案件信息。"
+_CONTRACT_PROMPT = BASE_SYSTEM_PROMPT + "\n\n你专门负责合同管理相关操作，包括查询、下载、生成合同。"
+_RESEARCH_PROMPT = BASE_SYSTEM_PROMPT + "\n\n你专门负责法律检索和企业信息查询。"
+
+TRIAGE_PROMPT = (
+    BASE_SYSTEM_PROMPT
+    + """\n\n你是分诊助手。根据用户意图，使用 handoff 工具将请求路由到专业助手：
+- 案件相关（创建、查询、修改案件）→ handoff_to_case
+- 合同相关（查询、下载、生成合同）→ handoff_to_contract
+- 法律检索、企业查询 → handoff_to_research
+- 联网搜索、实时信息查询 → 直接调用 web_search 工具
+- 其他或不确定 → 直接回复或使用通用工具
+
+重要：
+- 你也可以直接使用 MCP 工具完成简单操作，不必总是委托
+- 搜索互联网信息时，直接使用 web_search 工具，不要委托给其他助手"""
+)
+
+
+def _case_instructions(ctx: RunContext[WorkbenchDeps]) -> str:
+    return _build_instructions(_CASE_PROMPT, ctx.deps)
+
+
+def _contract_instructions(ctx: RunContext[WorkbenchDeps]) -> str:
+    return _build_instructions(_CONTRACT_PROMPT, ctx.deps)
+
+
+def _research_instructions(ctx: RunContext[WorkbenchDeps]) -> str:
+    return _build_instructions(_RESEARCH_PROMPT, ctx.deps)
+
+
+def _general_instructions(ctx: RunContext[WorkbenchDeps]) -> str:
+    return _build_instructions(BASE_SYSTEM_PROMPT, ctx.deps)
+
+
+def _triage_instructions(ctx: RunContext[WorkbenchDeps]) -> str:
+    return _build_instructions(TRIAGE_PROMPT, ctx.deps)
+
+
 # ─── 专业 Agent ──────────────────────────────────────────────────────────────
 
 case_agent = Agent(
     None,  # model 由 triage 委托时动态传入
-    instructions=_build_instructions(
-        BASE_SYSTEM_PROMPT + "\n\n你专门负责案件管理相关操作，包括创建、查询、修改案件信息。",
-        WorkbenchDeps(session_id=0),
-    ),
+    instructions=_case_instructions,
     deps_type=WorkbenchDeps,
     toolsets=[mcp_server.filtered(_case_filter)],
     name="案件管理助手",
+    instrument=True,
 )
 
 contract_agent = Agent(
     None,
-    instructions=_build_instructions(
-        BASE_SYSTEM_PROMPT + "\n\n你专门负责合同管理相关操作，包括查询、下载、生成合同。",
-        WorkbenchDeps(session_id=0),
-    ),
+    instructions=_contract_instructions,
     deps_type=WorkbenchDeps,
     toolsets=[mcp_server.filtered(_contract_filter)],
     name="合同管理助手",
+    instrument=True,
 )
 
 research_agent = Agent(
     None,
-    instructions=_build_instructions(
-        BASE_SYSTEM_PROMPT + "\n\n你专门负责法律检索和企业信息查询。",
-        WorkbenchDeps(session_id=0),
-    ),
+    instructions=_research_instructions,
     deps_type=WorkbenchDeps,
     toolsets=[mcp_server.filtered(_research_filter)],
     name="法律检索助手",
+    instrument=True,
 )
 
 general_agent = Agent(
     None,
-    instructions=_build_instructions(BASE_SYSTEM_PROMPT, WorkbenchDeps(session_id=0)),
+    instructions=_general_instructions,
     deps_type=WorkbenchDeps,
     toolsets=[mcp_server],
     name="通用助手",
+    instrument=True,
 )
 
 
@@ -291,23 +354,9 @@ async def _handoff_to_research(ctx: RunContext[WorkbenchDeps], query: str) -> st
     return result.output
 
 
-TRIAGE_PROMPT = (
-    BASE_SYSTEM_PROMPT
-    + """\n\n你是分诊助手。根据用户意图，使用 handoff 工具将请求路由到专业助手：
-- 案件相关（创建、查询、修改案件）→ handoff_to_case
-- 合同相关（查询、下载、生成合同）→ handoff_to_contract
-- 法律检索、企业查询 → handoff_to_research
-- 联网搜索、实时信息查询 → 直接调用 web_search 工具
-- 其他或不确定 → 直接回复或使用通用工具
-
-重要：
-- 你也可以直接使用 MCP 工具完成简单操作，不必总是委托
-- 搜索互联网信息时，直接使用 web_search 工具，不要委托给其他助手"""
-)
-
 triage_agent = Agent(
     None,
-    instructions=_build_instructions(TRIAGE_PROMPT, WorkbenchDeps(session_id=0)),
+    instructions=_triage_instructions,
     deps_type=WorkbenchDeps,
     toolsets=[mcp_server],
     tools=[
@@ -316,4 +365,5 @@ triage_agent = Agent(
         Tool(_handoff_to_research, takes_ctx=True),
     ],
     name="分诊助手",
+    instrument=True,
 )

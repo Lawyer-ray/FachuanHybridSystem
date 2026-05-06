@@ -45,6 +45,14 @@ export async function truncateMessages(sessionId: number, fromMessageId: number)
   await api.delete(`sessions/${sessionId}/messages/from/${fromMessageId}`)
 }
 
+export async function submitFeedback(
+  messageId: number,
+  rating: 'good' | 'bad',
+  comment = '',
+): Promise<{ success: boolean; message: string }> {
+  return api.patch(`messages/${messageId}/feedback`, { json: { rating, comment } }).json()
+}
+
 // ─── 审批 API ─────────────────────────────────────────────────────────────────
 
 export async function respondApproval(approvalId: string, approved: boolean): Promise<{ success: boolean; message: string }> {

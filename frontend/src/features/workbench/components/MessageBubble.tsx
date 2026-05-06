@@ -13,6 +13,8 @@ import {
   ArrowRight,
   Copy,
   RefreshCw,
+  ThumbsUp,
+  ThumbsDown,
   Pencil,
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
@@ -73,6 +75,11 @@ export function MessageBubble({ message, toolCalls }: MessageBubbleProps) {
         {/* 助手消息：token 用量 + 模型标签 */}
         {!isUser && !isSystem && (
           <AssistantMeta message={message} />
+        )}
+
+        {/* 助手消息：反馈按钮 */}
+        {!isUser && !isSystem && message.role === 'assistant' && (
+          <FeedbackButtons message={message} />
         )}
 
         {/* 助手消息：hover 操作按钮 */}
@@ -236,6 +243,45 @@ function AssistantMeta({ message }: { message: WorkbenchMessage }) {
         </span>
       )}
       {message.llm_model && <span>{message.llm_model}</span>}
+    </div>
+  )
+}
+
+/** 消息反馈按钮（👍👎） */
+function FeedbackButtons({ message }: { message: WorkbenchMessage }) {
+  const submitFeedback = useWorkbenchStore((s) => s.submitFeedback)
+  const isStreaming = useWorkbenchStore((s) => s.isStreaming)
+  const feedback = message.metadata?.feedback as { rating?: string } | undefined
+  const currentRating = feedback?.rating
+
+  if (isStreaming) return null
+
+  return (
+    <div className="mt-1 flex items-center gap-1">
+      <button
+        onClick={() => submitFeedback(message.id, 'good')}
+        className={cn(
+          'flex items-center justify-center rounded p-1 transition-colors',
+          currentRating === 'good'
+            ? 'text-green-500 bg-green-500/10'
+            : 'text-muted-foreground hover:text-green-500 hover:bg-green-500/10',
+        )}
+        title="有帮助"
+      >
+        <ThumbsUp className="size-3.5" />
+      </button>
+      <button
+        onClick={() => submitFeedback(message.id, 'bad')}
+        className={cn(
+          'flex items-center justify-center rounded p-1 transition-colors',
+          currentRating === 'bad'
+            ? 'text-destructive bg-destructive/10'
+            : 'text-muted-foreground hover:text-destructive hover:bg-destructive/10',
+        )}
+        title="没帮助"
+      >
+        <ThumbsDown className="size-3.5" />
+      </button>
     </div>
   )
 }
