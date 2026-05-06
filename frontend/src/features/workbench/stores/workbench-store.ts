@@ -10,6 +10,7 @@ import type {
   SSEEvent,
   StreamingMessage,
   ToolCallState,
+  BatchProgress,
 } from '../types'
 import * as api from '../api'
 
@@ -62,6 +63,11 @@ interface WorkbenchState {
   // 审批
   pendingApproval: ApprovalState | null
 
+  // 批量分析
+  activeBatchJobId: string | null
+  batchProgress: BatchProgress | null
+  batchPolling: boolean
+
   // Actions
   setSelectedModel: (model: string) => void
   setFavoriteModel: (model: string) => void
@@ -77,6 +83,8 @@ interface WorkbenchState {
   abortStream: () => void
   handleSSEEvent: (event: SSEEvent) => void
   respondApproval: (approved: boolean) => Promise<void>
+  submitBatchAnalysis: (prompt: string, files: File[]) => Promise<void>
+  cancelBatchAnalysis: () => Promise<void>
   reset: () => void
 }
 
@@ -93,6 +101,9 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
   isStreaming: false,
   streamingMessage: null,
   pendingApproval: null,
+  activeBatchJobId: null,
+  batchProgress: null,
+  batchPolling: false,
 
   setSelectedModel: (model) => set({ selectedModel: model }),
 
@@ -477,6 +488,46 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
     } catch { /* ignore */ }
   },
 
+  submitBatchAnalysis: async (prompt, files) => {
+    const { currentSession, selectedModel } = get()
+    if (!currentSession) return
+
+    const job = await api.submitBatchAnalysis(currentSession.id, prompt, selectedModel, files)
+    set({ activeBatchJobId: job.id, batchProgress: { job, items: [] }, batchPolling: true })
+
+    // 启动轮询
+    const poll = async () => {
+      const { activeBatchJobId, batchPolling } = get()
+      if (!activeBatchJobId || !batchPolling) return
+
+      try {
+        const progress = await api.getBatchProgress(activeBatchJobId)
+        set({ batchProgress: progress })
+
+        // 终态停止轮询
+        if (['completed', 'failed', 'cancelled'].includes(progress.job.status)) {
+          set({ batchPolling: false })
+          return
+        }
+      } catch {
+        // 轮询失败不停止，继续尝试
+      }
+
+      // 继续轮询
+      setTimeout(poll, 2000)
+    }
+    setTimeout(poll, 2000)
+  },
+
+  cancelBatchAnalysis: async () => {
+    const { activeBatchJobId } = get()
+    if (!activeBatchJobId) return
+    try {
+      await api.cancelBatchAnalysis(activeBatchJobId)
+      // 轮询会自动更新状态
+    } catch { /* ignore */ }
+  },
+
   reset: () => {
     // 重置时也中断进行中的请求
     if (_abortController) {
@@ -490,6 +541,9 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
       isStreaming: false,
       streamingMessage: null,
       pendingApproval: null,
+      activeBatchJobId: null,
+      batchProgress: null,
+      batchPolling: false,
     })
   },
 }))

@@ -1,0 +1,136 @@
+"""批量分析任务服务层
+
+遵循 PdfSplitJobService 的生命周期模式：create → get_progress → cancel → mark_completed/failed。
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import Any
+from uuid import UUID
+
+from django.utils import timezone
+
+from ..models import BatchJob, BatchJobItem, BatchJobStatus
+
+logger = logging.getLogger(__name__)
+
+
+class BatchAnalysisService:
+    """批量分析任务服务"""
+
+    def create_job(
+        self,
+        *,
+        session_id: int,
+        prompt: str,
+        llm_model: str,
+        files: list[Any],
+        concurrency: int = 50,
+    ) -> BatchJob:
+        """创建批量分析任务
+
+        Args:
+            session_id: 关联的工作台会话 ID
+            prompt: 分析要求
+            llm_model: LLM 模型名称
+            files: 上传的文件列表（Django UploadedFile）
+            concurrency: 并发数
+
+        Returns:
+            创建的 BatchJob
+        """
+        job = BatchJob.objects.create(
+            session_id=session_id,
+            job_type="doc_analysis",
+            prompt=prompt,
+            llm_model=llm_model,
+            total_items=len(files),
+            metadata={"concurrency": concurrency},
+        )
+
+        # 创建子项
+        items = []
+        for f in files:
+            items.append(BatchJobItem(
+                job=job,
+                file_name=f.name,
+                file=f,
+            ))
+        BatchJobItem.objects.bulk_create(items)
+
+        # 提交 Django Q2 任务
+        from apps.core.dependencies.core import build_task_submission_service
+
+        task_id = build_task_submission_service().submit(
+            "apps.workbench.tasks.run_batch_analysis",
+            args=[str(job.id)],
+            task_name=f"batch_analysis_{job.id}",
+            timeout=3600,  # 1 小时超时
+        )
+        BatchJob.objects.filter(id=job.id).update(
+            task_id=str(task_id),
+            started_at=timezone.now(),
+        )
+        job.refresh_from_db()
+
+        logger.info("批量分析任务已创建: job=%s, files=%d, model=%s", job.id, len(files), llm_model)
+        return job
+
+    def get_job_progress(self, job_id: UUID) -> tuple[BatchJob, list[BatchJobItem]]:
+        """查询任务进度"""
+        job = BatchJob.objects.get(id=job_id)
+        items = list(BatchJobItem.objects.filter(job_id=job_id))
+        return job, items
+
+    def request_cancel(self, job_id: UUID) -> BatchJob:
+        """请求取消任务（协作式）
+
+        遵循 PdfSplitJobService.request_cancel 的模式：
+        1. 设置 cancel_requested = True
+        2. 尝试从 Django Q 队列中移除
+        3. 如果任务还在排队，立即标记为 CANCELLED
+        """
+        job = BatchJob.objects.get(id=job_id)
+        if job.status in {BatchJobStatus.COMPLETED, BatchJobStatus.FAILED, BatchJobStatus.CANCELLED}:
+            return job
+
+        cancel_result: dict[str, Any] = {}
+        if job.task_id:
+            try:
+                from apps.core.dependencies.core import build_task_submission_service
+
+                cancel_result = build_task_submission_service().cancel(job.task_id)
+            except Exception:
+                logger.exception("批量任务取消失败: job=%s, task_id=%s", job.id, job.task_id)
+
+        updates: dict[str, Any] = {"cancel_requested": True}
+        can_mark_cancelled = job.status == BatchJobStatus.PENDING and (
+            not job.task_id
+            or bool(cancel_result.get("queue_deleted"))
+            or not bool(cancel_result.get("running"))
+        )
+        if can_mark_cancelled:
+            updates.update(status=BatchJobStatus.CANCELLED, finished_at=timezone.now())
+
+        BatchJob.objects.filter(id=job.id).update(**updates)
+        job.refresh_from_db()
+        return job
+
+    def mark_completed(self, job_id: UUID, summary: str) -> None:
+        """标记任务完成"""
+        BatchJob.objects.filter(id=job_id).update(
+            status=BatchJobStatus.COMPLETED,
+            summary=summary,
+            progress=100,
+            finished_at=timezone.now(),
+            error_message="",
+        )
+
+    def mark_failed(self, job_id: UUID, error_message: str) -> None:
+        """标记任务失败"""
+        BatchJob.objects.filter(id=job_id).update(
+            status=BatchJobStatus.FAILED,
+            error_message=error_message[:4000],
+            finished_at=timezone.now(),
+        )

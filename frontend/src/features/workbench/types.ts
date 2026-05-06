@@ -114,3 +114,38 @@ export interface ToolCallState {
   success?: boolean
   status: 'pending' | 'running' | 'success' | 'error'
 }
+
+// ─── 批量分析 ───────────────────────────────────────────────────────────────
+
+export type BatchJobStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
+
+export interface BatchJob {
+  id: string
+  session_id: number
+  job_type: string
+  status: BatchJobStatus
+  prompt: string
+  llm_model: string
+  total_items: number
+  completed_items: number
+  failed_items: number
+  progress: number
+  summary: string
+  error_message: string
+  created_at: string
+  updated_at: string
+}
+
+export interface BatchJobItem {
+  id: string
+  file_name: string
+  status: BatchJobStatus
+  result: string
+  error: string
+  duration_ms: number | null
+}
+
+export interface BatchProgress {
+  job: BatchJob
+  items: BatchJobItem[]
+}

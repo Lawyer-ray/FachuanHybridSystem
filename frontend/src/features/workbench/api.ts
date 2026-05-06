@@ -1,7 +1,7 @@
 /** 工作台 API 客户端 */
 
 import { createApiClient } from '@/lib/api'
-import type { ModelsResponse, WorkbenchMessage, WorkbenchSession } from './types'
+import type { BatchJob, BatchProgress, ModelsResponse, WorkbenchMessage, WorkbenchSession } from './types'
 
 const api = createApiClient({
   prefixUrl: `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002/api/v1'}/workbench`,
@@ -63,4 +63,32 @@ export async function respondApproval(approvalId: string, approved: boolean): Pr
 
 export async function fetchModels(): Promise<ModelsResponse> {
   return api.get('models').json()
+}
+
+// ─── 批量分析 API ────────────────────────────────────────────────────────────
+
+export async function submitBatchAnalysis(
+  sessionId: number,
+  prompt: string,
+  llmModel: string,
+  files: File[],
+  concurrency = 50,
+): Promise<BatchJob> {
+  const formData = new FormData()
+  formData.append('session_id', String(sessionId))
+  formData.append('prompt', prompt)
+  formData.append('llm_model', llmModel)
+  formData.append('concurrency', String(concurrency))
+  for (const file of files) {
+    formData.append('files', file)
+  }
+  return api.post('batch/analyze', { body: formData }).json()
+}
+
+export async function getBatchProgress(jobId: string): Promise<BatchProgress> {
+  return api.get(`batch/${jobId}/progress`).json()
+}
+
+export async function cancelBatchAnalysis(jobId: string): Promise<{ success: boolean; status: string; message: string }> {
+  return api.post(`batch/${jobId}/cancel`).json()
 }

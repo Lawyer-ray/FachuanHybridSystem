@@ -12,6 +12,8 @@ import { ChatInput } from './components/ChatInput'
 import { ModelSelector } from './components/ModelSelector'
 import { ContextUsageBar } from './components/ContextUsageBar'
 import { ApprovalDialog } from './components/ApprovalDialog'
+import { BatchAnalysisDialog } from './components/BatchAnalysisDialog'
+import { BatchProgressCard } from './components/BatchProgressCard'
 import { deleteSession, updateSession } from './api'
 
 export function WorkbenchPage() {
@@ -26,6 +28,11 @@ export function WorkbenchPage() {
     respondApproval,
     isStreaming,
     sendMessage,
+    selectedModel,
+    models,
+    batchProgress,
+    submitBatchAnalysis,
+    cancelBatchAnalysis,
   } = useWorkbenchStore()
 
   const adminSidebarCollapsed = useUIStore((s) => s.sidebarCollapsed)
@@ -210,6 +217,13 @@ export function WorkbenchPage() {
             />
           </div>
           {currentSession && <ContextUsageBar />}
+          {currentSession && (
+            <BatchAnalysisDialog
+              modelName={models.find((m) => m.id === selectedModel)?.name || selectedModel}
+              onSubmit={submitBatchAnalysis}
+              disabled={isStreaming}
+            />
+          )}
           <ModelSelector disabled={isStreaming} />
         </div>
 
@@ -217,6 +231,17 @@ export function WorkbenchPage() {
         {currentSession ? (
           <>
             <MessageList />
+
+            {/* 批量分析进度 */}
+            {batchProgress && (
+              <div className="px-4 pb-2">
+                <BatchProgressCard
+                  job={batchProgress.job}
+                  items={batchProgress.items}
+                  onCancel={cancelBatchAnalysis}
+                />
+              </div>
+            )}
 
             {/* 审批对话框 */}
             {pendingApproval && (

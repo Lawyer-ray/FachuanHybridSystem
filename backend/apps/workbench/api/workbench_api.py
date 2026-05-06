@@ -3,16 +3,21 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
+from uuid import UUID
 
 from django.http import Http404, StreamingHttpResponse
-from ninja import Router, Schema
+from ninja import File, Form, Router, Schema
+from ninja.files import UploadedFile
 
 from apps.core.security.auth import JWTOrSessionAuth
 
-from ..models import WorkbenchMessage, WorkbenchSession
-from ..schemas import MessageIn, MessageOut, SessionCreateIn, SessionOut, SessionUpdateIn
-from ..services import WorkbenchChatService
+from ..models import BatchJob, BatchJobItem, WorkbenchMessage, WorkbenchSession
+from ..schemas import BatchItemOut, BatchJobOut, BatchProgressOut, MessageIn, MessageOut, SessionCreateIn, SessionOut, SessionUpdateIn
+from ..services import BatchAnalysisService, WorkbenchChatService
+
+logger = logging.getLogger(__name__)
 
 router = Router(auth=JWTOrSessionAuth())
 
@@ -202,6 +207,74 @@ def respond_approval(request: Any, payload: ApprovalIn) -> dict[str, Any]:
     return {
         "success": success,
         "message": "审批已处理" if success else "审批 ID 不存在或已过期",
+    }
+
+
+# ─── 批量分析 API ────────────────────────────────────────────────────────────
+
+
+_batch_service = BatchAnalysisService()
+
+
+@router.post("/batch/analyze", response=BatchJobOut)
+def submit_batch_analysis(
+    request: Any,
+    session_id: int = Form(...),
+    prompt: str = Form(...),
+    llm_model: str = Form(""),
+    concurrency: int = Form(50),
+    files: list[UploadedFile] = File(...),
+) -> BatchJob:
+    """提交批量文档分析任务
+
+    接受 multipart form 数据：session_id, prompt, llm_model, concurrency, files
+    支持 .doc 和 .docx 格式。
+    """
+    # 验证会话
+    _get_user_session(request.user, session_id)
+
+    # 验证文件
+    if not files:
+        raise Http404("请上传至少一个文件")
+
+    allowed_extensions = {".doc", ".docx"}
+    for f in files:
+        ext = f.name.rsplit(".", 1)[-1].lower() if "." in f.name else ""
+        if f".{ext}" not in allowed_extensions:
+            raise Http404(f"不支持的文件格式: {f.name}，仅支持 .doc 和 .docx")
+
+    job = _batch_service.create_job(
+        session_id=session_id,
+        prompt=prompt,
+        llm_model=llm_model,
+        files=files,
+        concurrency=min(max(concurrency, 1), 100),
+    )
+    return job
+
+
+@router.get("/batch/{job_id}/progress", response=BatchProgressOut)
+def get_batch_progress(request: Any, job_id: UUID) -> dict[str, Any]:
+    """查询批量分析任务进度"""
+    job, items = _batch_service.get_job_progress(job_id)
+    # 验证权限：job 关联的 session 必须属于当前用户
+    _get_user_session(request.user, job.session_id)
+    return {
+        "job": BatchJobOut.model_validate(job),
+        "items": [BatchItemOut.model_validate(item) for item in items],
+    }
+
+
+@router.post("/batch/{job_id}/cancel")
+def cancel_batch_analysis(request: Any, job_id: UUID) -> dict[str, Any]:
+    """取消批量分析任务"""
+    job = _batch_service.get_job_progress(job_id)[0]
+    _get_user_session(request.user, job.session_id)
+    job = _batch_service.request_cancel(job_id)
+    return {
+        "success": True,
+        "status": job.status,
+        "message": "取消请求已提交" if job.cancel_requested else "任务已完成或已取消",
     }
 
 
