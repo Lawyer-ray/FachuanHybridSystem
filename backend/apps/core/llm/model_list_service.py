@@ -186,54 +186,36 @@ class ModelListService:
 
     @staticmethod
     def _fetch_ollama_models() -> list[dict[str, Any]]:
-        """调用 Ollama /api/tags + /api/show 获取模型列表和上下文窗口"""
+        """获取 Ollama 模型的 context_window
+
+        只查询 SystemConfig 中配置的 Ollama 模型，不自动发现所有模型。
+        通过 /api/show 获取 context_length。
+        """
         ollama_url = LLMConfig.get_ollama_base_url()
-        if not ollama_url:
+        ollama_model = LLMConfig.get_ollama_model()
+        if not ollama_url or not ollama_model:
             return []
 
+        # 查询 /api/show 获取 context_length
+        ctx_window = 0
         try:
-            resp = httpx.get(f"{ollama_url}/api/tags", timeout=5.0)
+            resp = httpx.post(
+                f"{ollama_url}/api/show",
+                json={"name": ollama_model},
+                timeout=10.0,
+            )
             resp.raise_for_status()
             data = resp.json()
-        except (httpx.ConnectError, httpx.TimeoutException, httpx.HTTPStatusError):
+            for key, val in data.get("model_info", {}).items():
+                if key.endswith(".context_length"):
+                    ctx_window = int(val)
+                    break
+        except (httpx.ConnectError, httpx.TimeoutException):
             return []
         except Exception:
-            logger.exception("获取 Ollama 模型列表失败")
-            return []
+            pass
 
-        models: list[dict[str, Any]] = []
-        for m in data.get("models", []):
-            model_name = m.get("name", "")
-            if not model_name:
-                continue
-
-            # 尝试从 /api/show 获取 context_length
-            ctx_window = 0
-            try:
-                show_resp = httpx.post(
-                    f"{ollama_url}/api/show",
-                    json={"name": model_name},
-                    timeout=10.0,
-                )
-                show_resp.raise_for_status()
-                show_data = show_resp.json()
-                # context_length 在 model_info 中，键名为 <family>.context_length
-                for key, val in show_data.get("model_info", {}).items():
-                    if key.endswith(".context_length"):
-                        ctx_window = int(val)
-                        break
-            except Exception:
-                pass
-
-            models.append({
-                "id": f"ollama:{model_name}",
-                "name": model_name,
-                "context_window": ctx_window,
-            })
-
-        if models:
-            logger.info("从 Ollama 获取到 %d 个模型", len(models))
-        return models
+        return [_make_model(ollama_model, ctx_window)]
 
     @staticmethod
     def _get_fallback_models() -> list[dict[str, Any]]:
