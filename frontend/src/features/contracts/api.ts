@@ -35,13 +35,13 @@ export const contractApi = {
     contractApi_.get(`contracts/${id}`).json<Contract>(),
 
   create: async (data: ContractInput): Promise<Contract> =>
-    contractApi_.post('contracts', { json: data }).json<Contract>(),
+    contractApi_.post('contracts', { json: { payload: data } }).json<Contract>(),
 
   createFull: async (data: ContractInput & { cases?: Record<string, unknown>[] }): Promise<Contract> =>
-    contractApi_.post('contracts/full', { json: data }).json<Contract>(),
+    contractApi_.post('contracts/full', { json: { payload: data } }).json<Contract>(),
 
   update: async (id: number | string, data: ContractUpdate): Promise<Contract> =>
-    contractApi_.put(`contracts/${id}`, { json: data }).json<Contract>(),
+    contractApi_.put(`contracts/${id}`, { json: { payload: data } }).json<Contract>(),
 
   delete: async (id: number | string): Promise<void> => {
     await api.delete(`contracts/${id}`)

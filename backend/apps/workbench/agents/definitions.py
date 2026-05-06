@@ -34,10 +34,10 @@ logger = logging.getLogger(__name__)
 
 BACKEND_DIR = str(Path(__file__).resolve().parents[3])
 
-SYSTEM_PROMPT = """你是法穿AI Copilot，一个法律事务助手。你可以通过调用工具来完成各种法律事务操作，包括：
+BASE_SYSTEM_PROMPT = """你是法穿AI Copilot，一个法律事务助手。你可以通过调用工具来完成各种法律事务操作，包括：
 - 案件管理（创建、查询、修改案件）
 - 客户管理（创建、查询客户信息）
-- 合同管理（查询、下载合同）
+- 合同管理（查询、下载、生成合同）
 - 提醒管理（创建、查询提醒）
 - 财务统计
 - 法律检索
@@ -50,6 +50,25 @@ SYSTEM_PROMPT = """你是法穿AI Copilot，一个法律事务助手。你可以
 - 如果工具调用返回错误，请分析错误原因并尝试修正参数重新调用
 - 如果多次失败，请告知用户具体原因和建议
 - 对于高风险操作（如删除、发送），系统会要求用户确认后再执行"""
+
+CONTEXT_SUFFIX = """当前会话信息：
+- 会话 ID：{session_id}
+- 使用模型：{llm_model}
+{summary_section}"""
+
+
+def _build_instructions(base: str, deps: WorkbenchDeps) -> str:
+    """构建带上下文的 system prompt"""
+    summary_section = ""
+    if deps.conversation_summary:
+        summary_section = f"- 之前对话摘要：\n{deps.conversation_summary}"
+
+    context = CONTEXT_SUFFIX.format(
+        session_id=deps.session_id,
+        llm_model=deps.llm_model or "未指定",
+        summary_section=summary_section,
+    )
+    return f"{base}\n\n{context}"
 
 
 # ─── 审批事件队列（per-request） ──────────────────────────────────────────────
@@ -147,7 +166,10 @@ def _research_filter(ctx: Any, tool_def: Any) -> bool:
 
 case_agent = Agent(
     None,  # model 由 triage 委托时动态传入
-    instructions=SYSTEM_PROMPT + "\n\n你专门负责案件管理相关操作，包括创建、查询、修改案件信息。",
+    instructions=_build_instructions(
+        BASE_SYSTEM_PROMPT + "\n\n你专门负责案件管理相关操作，包括创建、查询、修改案件信息。",
+        WorkbenchDeps(session_id=0),
+    ),
     deps_type=WorkbenchDeps,
     toolsets=[mcp_server.filtered(_case_filter)],
     name="案件管理助手",
@@ -155,7 +177,10 @@ case_agent = Agent(
 
 contract_agent = Agent(
     None,
-    instructions=SYSTEM_PROMPT + "\n\n你专门负责合同管理相关操作，包括查询、下载、生成合同。",
+    instructions=_build_instructions(
+        BASE_SYSTEM_PROMPT + "\n\n你专门负责合同管理相关操作，包括查询、下载、生成合同。",
+        WorkbenchDeps(session_id=0),
+    ),
     deps_type=WorkbenchDeps,
     toolsets=[mcp_server.filtered(_contract_filter)],
     name="合同管理助手",
@@ -163,7 +188,10 @@ contract_agent = Agent(
 
 research_agent = Agent(
     None,
-    instructions=SYSTEM_PROMPT + "\n\n你专门负责法律检索和企业信息查询。",
+    instructions=_build_instructions(
+        BASE_SYSTEM_PROMPT + "\n\n你专门负责法律检索和企业信息查询。",
+        WorkbenchDeps(session_id=0),
+    ),
     deps_type=WorkbenchDeps,
     toolsets=[mcp_server.filtered(_research_filter)],
     name="法律检索助手",
@@ -171,7 +199,7 @@ research_agent = Agent(
 
 general_agent = Agent(
     None,
-    instructions=SYSTEM_PROMPT,
+    instructions=_build_instructions(BASE_SYSTEM_PROMPT, WorkbenchDeps(session_id=0)),
     deps_type=WorkbenchDeps,
     toolsets=[mcp_server],
     name="通用助手",
@@ -226,15 +254,17 @@ async def _handoff_to_research(ctx: RunContext[WorkbenchDeps], query: str) -> st
     return result.output
 
 
+TRIAGE_PROMPT = BASE_SYSTEM_PROMPT + """\n\n你是分诊助手。根据用户意图，使用 handoff 工具将请求路由到专业助手：
+- 案件相关（创建、查询、修改案件）→ handoff_to_case
+- 合同相关（查询、下载、生成合同）→ handoff_to_contract
+- 法律检索、企业查询 → handoff_to_research
+- 其他或不确定 → 直接回复或使用通用工具
+
+重要：你也可以直接使用 MCP 工具完成简单操作，不必总是委托。"""
+
 triage_agent = Agent(
     None,
-    instructions=SYSTEM_PROMPT
-    + "\n\n你是分诊助手。根据用户意图，使用 handoff 工具将请求路由到专业助手：\n"
-    "- 案件相关（创建、查询、修改案件）→ handoff_to_case\n"
-    "- 合同相关（查询、下载、生成合同）→ handoff_to_contract\n"
-    "- 法律检索、企业查询 → handoff_to_research\n"
-    "- 其他或不确定 → 直接回复或使用通用工具\n\n"
-    "重要：你也可以直接使用 MCP 工具完成简单操作，不必总是委托。",
+    instructions=_build_instructions(TRIAGE_PROMPT, WorkbenchDeps(session_id=0)),
     deps_type=WorkbenchDeps,
     toolsets=[mcp_server],
     tools=[

@@ -2,6 +2,14 @@
 
 使用 Pydantic AI 的 agent.iter() 驱动对话循环，替代手写 agent loop。
 通过 asyncio.Queue 桥接 MCP 审批回调和 SSE 流式响应。
+
+功能：
+1. 对话历史管理（token 估算 + 滑动窗口）
+2. 结构化输出（工具调用结果结构化）
+3. 工具调用确认前置（审批机制）
+4. 会话记忆（自动压缩长对话）
+5. 多 MCP Server 支持（toolset 组合）
+6. Token 用量追踪与限制
 """
 
 from __future__ import annotations
@@ -13,8 +21,16 @@ import time
 from collections.abc import AsyncIterator
 from typing import Any
 
-from pydantic_ai import Agent
-from pydantic_ai.messages import FunctionToolCallEvent, FunctionToolResultEvent
+from pydantic_ai import Agent, UsageLimits
+from pydantic_ai.messages import (
+    ModelMessage,
+    ModelRequest,
+    ModelResponse,
+    TextPart,
+    ToolCallPart,
+    ToolReturnPart,
+    UserPromptPart,
+)
 
 from ..agents import (
     WorkbenchDeps,
@@ -39,6 +55,158 @@ AGENT_MAP: dict[str, Agent] = {
     "research": research_agent,
     "general": general_agent,
 }
+
+# 对话历史管理
+MAX_HISTORY_TOKENS = 10000  # 历史消息最大 token 数
+MAX_HISTORY_MESSAGES = 100  # 最多加载的消息条数
+SUMMARY_THRESHOLD = 30  # 超过 N 条消息触发自动摘要
+
+# Token 用量限制
+USAGE_LIMITS = UsageLimits(
+    request_limit=50,  # 单次运行最多 50 次 LLM 请求
+)
+
+
+# ─── Token 估算 ──────────────────────────────────────────────────────────────
+
+
+def _estimate_tokens(text: str) -> int:
+    """估算文本的 token 数量
+
+    中文约 1-2 token/字，英文约 0.25 token/字符。
+    使用保守估算：中文 1.5 token/字，英文 0.3 token/字符。
+    """
+    if not text:
+        return 0
+
+    chinese_chars = 0
+    other_chars = 0
+    for ch in text:
+        if "一" <= ch <= "鿿" or "㐀" <= ch <= "䶿":
+            chinese_chars += 1
+        else:
+            other_chars += 1
+
+    return max(1, int(chinese_chars * 1.5 + other_chars * 0.3))
+
+
+# ─── 历史消息加载 ────────────────────────────────────────────────────────────
+
+
+async def _load_message_history(
+    session_id: int,
+    max_tokens: int = MAX_HISTORY_TOKENS,
+    max_messages: int = MAX_HISTORY_MESSAGES,
+) -> list[ModelMessage]:
+    """从数据库加载历史消息，转换为 Pydantic AI ModelMessage 格式
+
+    使用滑动窗口策略：从最新消息向前加载，直到达到 token 上限。
+    """
+    from ..models import WorkbenchMessage
+
+    # 从最新消息向前加载
+    messages_qs = WorkbenchMessage.objects.filter(
+        session_id=session_id,
+        role__in=[WorkbenchMessage.Role.USER, WorkbenchMessage.Role.ASSISTANT],
+    ).order_by("-created_at")[:max_messages]
+
+    raw_messages = list(reversed(await _async_list(messages_qs)))
+
+    if not raw_messages:
+        return []
+
+    # 滑动窗口：从后向前累积 token
+    result: list[WorkbenchMessage] = []
+    total_tokens = 0
+
+    for msg in reversed(raw_messages):
+        msg_tokens = _estimate_tokens(msg.content)
+        if total_tokens + msg_tokens > max_tokens and result:
+            break
+        result.insert(0, msg)
+        total_tokens += msg_tokens
+
+    # 转换为 ModelMessage
+    return _convert_to_model_messages(result)
+
+
+async def _async_list(queryset: Any) -> list[Any]:
+    """异步遍历 QuerySet"""
+    return [item async for item in queryset]
+
+
+def _convert_to_model_messages(messages: list[Any]) -> list[ModelMessage]:
+    """将数据库消息转换为 Pydantic AI ModelMessage"""
+    result: list[ModelMessage] = []
+
+    for msg in messages:
+        if msg.role == "user":
+            result.append(ModelRequest(parts=[UserPromptPart(content=msg.content)]))
+        elif msg.role == "assistant":
+            result.append(ModelResponse(parts=[TextPart(content=msg.content)]))
+
+    return result
+
+
+# ─── 自动摘要 ────────────────────────────────────────────────────────────────
+
+
+async def _maybe_create_summary(
+    session_id: int,
+    current_count: int,
+    model: Any,
+) -> str | None:
+    """如果消息数量超过阈值，自动生成对话摘要
+
+    摘要存储在 session.metadata['conversation_summary'] 中。
+    """
+    if current_count < SUMMARY_THRESHOLD:
+        return None
+
+    from ..models import WorkbenchMessage, WorkbenchSession
+
+    # 获取最近 20 条消息用于摘要
+    recent = list(
+        await _async_list(
+            WorkbenchMessage.objects.filter(
+                session_id=session_id,
+                role__in=[WorkbenchMessage.Role.USER, WorkbenchMessage.Role.ASSISTANT],
+            )
+            .order_by("-created_at")[:20]
+        )
+    )
+    recent.reverse()
+
+    if not recent:
+        return None
+
+    # 构建摘要请求
+    conversation_text = "\n".join(
+        f"{'用户' if m.role == 'user' else '助手'}: {m.content[:200]}"
+        for m in recent
+    )
+
+    summary_agent = Agent(
+        model or "openai:gpt-4o-mini",
+        instructions="请用 2-3 句话概括以下对话的要点，保留关键信息（案件编号、客户名称、具体需求等）。用中文回复。",
+    )
+
+    try:
+        result = await summary_agent.run(
+            f"请概括以下对话：\n\n{conversation_text}",
+            usage_limits=UsageLimits(request_limit=1),
+        )
+        summary = result.output
+
+        # 存储到 session metadata
+        await WorkbenchSession.objects.filter(id=session_id).aupdate(
+            metadata={"conversation_summary": summary}
+        )
+
+        return summary
+    except Exception:
+        logger.exception("生成对话摘要失败")
+        return None
 
 
 # ─── 主服务 ───────────────────────────────────────────────────────────────────
@@ -101,6 +269,20 @@ class WorkbenchChatService:
 
         yield {"type": "meta", "session_id": str(session.session_id), "model": model_name}
 
+        # 加载历史消息
+        message_history = await _load_message_history(session_id)
+        logger.info("加载 %d 条历史消息 (session=%d)", len(message_history), session_id)
+
+        # 自动摘要（异步，不阻塞当前请求）
+        summary_task = asyncio.create_task(
+            _maybe_create_summary(session_id, len(message_history) + 1, model_name)
+        )
+
+        # 获取已有的会话摘要
+        conversation_summary = ""
+        if session.metadata and "conversation_summary" in session.metadata:
+            conversation_summary = session.metadata["conversation_summary"]
+
         # 选择 Agent
         agent = AGENT_MAP.get(agent_type, triage_agent)
 
@@ -110,9 +292,10 @@ class WorkbenchChatService:
             session_id=session_id,
             user_id=session.user_id,
             llm_model=model_name,
+            conversation_summary=conversation_summary,
         )
 
-        # 设置审批事件队列（MCP process_tool_call 回调会用到）
+        # 设置审批事件队列
         set_event_queue(event_queue)
 
         # 构建模型
@@ -127,6 +310,7 @@ class WorkbenchChatService:
                 model=model,
                 deps=deps,
                 event_queue=event_queue,
+                message_history=message_history,
             ):
                 if event["type"] == "delta":
                     full_response.append(event.get("content", ""))
@@ -149,6 +333,11 @@ class WorkbenchChatService:
                 metadata={
                     "duration_ms": round(duration_ms, 2),
                     "agent_type": agent_type or "triage",
+                    "tokens": {
+                        "prompt": deps.prompt_tokens,
+                        "completion": deps.completion_tokens,
+                        "total": deps.total_tokens,
+                    },
                 },
             )
 
@@ -156,6 +345,12 @@ class WorkbenchChatService:
         if not session.title:
             title = user_message[:50]
             await WorkbenchSession.objects.filter(id=session_id).aupdate(title=title)
+
+        # 等待摘要任务完成（不阻塞响应）
+        try:
+            await asyncio.wait_for(summary_task, timeout=30)
+        except (TimeoutError, Exception):
+            summary_task.cancel()
 
         yield {"type": "done", "session_id": str(session.session_id)}
 
@@ -168,6 +363,7 @@ class WorkbenchChatService:
         model: Any,
         deps: WorkbenchDeps,
         event_queue: asyncio.Queue[dict[str, Any] | None],
+        message_history: list[ModelMessage] | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
         """运行 Agent 并流式输出 SSE 事件
 
@@ -182,6 +378,8 @@ class WorkbenchChatService:
                     user_message,
                     deps=deps,
                     model=model,
+                    message_history=message_history,
+                    usage_limits=USAGE_LIMITS,
                 ) as run:
                     async for node in run:
                         if Agent.is_model_request_node(node):
@@ -233,6 +431,14 @@ class WorkbenchChatService:
                                     await event_queue.put(
                                         {"type": "delta", "content": output}
                                     )
+
+                            # 追踪 token 用量
+                            if run.result and run.result.usage():
+                                usage = run.result.usage()
+                                deps.prompt_tokens = usage.input_tokens or 0
+                                deps.completion_tokens = usage.output_tokens or 0
+                                deps.total_tokens = usage.total_tokens or 0
+
             except Exception:
                 logger.exception("Agent 任务异常")
                 await event_queue.put({"type": "error", "message": "Agent 运行异常"})

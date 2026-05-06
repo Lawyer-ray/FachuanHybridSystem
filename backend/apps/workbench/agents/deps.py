@@ -15,3 +15,9 @@ class WorkbenchDeps:
     llm_model: str = ""
     # SSE 事件队列：工具回调通过此队列向流式响应发送事件
     event_queue: list[dict[str, Any]] = field(default_factory=list)
+    # 会话摘要（自动压缩长对话后生成）
+    conversation_summary: str = ""
+    # Token 用量追踪
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
