@@ -175,9 +175,7 @@ class DocConverterService:
         try:
             resolved.mkdir(parents=True, exist_ok=True)
         except OSError as exc:
-            raise ValidationException(
-                message="无法创建目录", errors={"target_dir": str(exc)}
-            ) from exc
+            raise ValidationException(message="无法创建目录", errors={"target_dir": str(exc)}) from exc
 
         items = DocConverterItem.objects.filter(
             job=job,

@@ -86,7 +86,8 @@ def run_conversion_job(job_id: str) -> None:
                         # 回退：在 output_dir 中查找匹配 stem 的 .docx 文件
                         stem = Path(doc_path).stem
                         candidates = [
-                            f for f in storage.output_dir.iterdir()
+                            f
+                            for f in storage.output_dir.iterdir()
                             if f.suffix.lower() == ".docx" and f.stem.startswith(stem[:10])
                         ]
                         if candidates:
@@ -125,7 +126,9 @@ def run_conversion_job(job_id: str) -> None:
         # 打包 ZIP（使用原始文件名而非 UUID 文件名）
         DocConverterJob.objects.filter(id=job_uuid).update(status=DocConverterJobStatus.PACKING)
         name_map: dict[str, str] = {}
-        for item in DocConverterItem.objects.filter(job_id=job_uuid, status=DocConverterJobStatus.COMPLETED).exclude(converted_file=""):
+        for item in DocConverterItem.objects.filter(job_id=job_uuid, status=DocConverterJobStatus.COMPLETED).exclude(
+            converted_file=""
+        ):
             uuid_filename = Path(item.converted_file.name).name
             original_stem = Path(item.original_name).stem
             name_map[uuid_filename] = f"{original_stem}.docx"

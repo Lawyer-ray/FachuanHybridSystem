@@ -7,12 +7,7 @@ from typing import Any, cast
 from django.http import HttpRequest
 from ninja import Router
 
-from apps.contacts.schemas import (
-    CaseContactIn,
-    CaseContactOut,
-    CaseContactSearchResult,
-    CaseContactUpdate,
-)
+from apps.contacts.schemas import CaseContactIn, CaseContactOut, CaseContactSearchResult, CaseContactUpdate
 from apps.core.dto.request_context import extract_request_context
 
 router = Router()

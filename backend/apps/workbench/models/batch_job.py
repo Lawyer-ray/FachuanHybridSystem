@@ -57,7 +57,9 @@ class BatchJob(models.Model):
     task_id = models.CharField(_("Django Q2 任务ID"), max_length=255, blank=True, default="")
     summary = models.TextField(_("汇总结论"), blank=True, default="")
     summary_file = models.FileField(_("汇总文件"), upload_to=DatedUUIDPath("workbench_summary"), blank=True, default="")
-    detail_zip_file = models.FileField(_("分析详情 ZIP"), upload_to=DatedUUIDPath("workbench_detail"), blank=True, default="")
+    detail_zip_file = models.FileField(
+        _("分析详情 ZIP"), upload_to=DatedUUIDPath("workbench_detail"), blank=True, default=""
+    )
     metadata = models.JSONField(_("元数据"), default=dict, blank=True)
     error_message = models.TextField(_("错误信息"), blank=True, default="")
     started_at = models.DateTimeField(_("开始时间"), null=True, blank=True)

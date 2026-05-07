@@ -770,10 +770,12 @@ class CaseAdminViewsMixin:
                 for child in sorted(root.iterdir(), key=lambda item: item.name.lower()):
                     if not child.is_dir() or child.name.startswith("."):
                         continue
-                    subfolders.append({
-                        "relative_path": child.name,
-                        "display_name": child.name,
-                    })
+                    subfolders.append(
+                        {
+                            "relative_path": child.name,
+                            "display_name": child.name,
+                        }
+                    )
 
                 return JsonResponse({"success": True, "subfolders": subfolders})
 
@@ -802,7 +804,9 @@ class CaseAdminViewsMixin:
                     "skipped": skipped,
                 }
                 logger.info("案件 %s 邮件导入完成: 新增=%s, 跳过=%s", object_id, log_count, skipped)
-                return JsonResponse({"success": True, "message": msg, "imported_count": log_count, "skipped_count": skipped})
+                return JsonResponse(
+                    {"success": True, "message": msg, "imported_count": log_count, "skipped_count": skipped}
+                )
 
             return JsonResponse({"success": False, "error": "Method not allowed"}, status=405)
 
