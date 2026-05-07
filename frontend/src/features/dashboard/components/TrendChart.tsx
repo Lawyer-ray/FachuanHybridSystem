@@ -60,7 +60,7 @@ export function TrendChart({ data, isLoading }: { data?: DashboardStats; isLoadi
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={240}>
-            <AreaChart data={trendData}>
+            <AreaChart data={trendData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.15} />
@@ -74,13 +74,15 @@ export function TrendChart({ data, isLoading }: { data?: DashboardStats; isLoadi
                 tick={{ fill: 'hsl(var(--muted-foreground))' }}
                 tickLine={false}
                 axisLine={false}
+                tickMargin={8}
               />
               <YAxis
                 className="text-xs"
                 tick={{ fill: 'hsl(var(--muted-foreground))' }}
                 tickLine={false}
                 axisLine={false}
-                width={40}
+                width={45}
+                tickMargin={4}
               />
               <Tooltip
                 contentStyle={{
