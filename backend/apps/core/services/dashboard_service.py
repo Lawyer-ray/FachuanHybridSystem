@@ -12,7 +12,7 @@ from django.utils import timezone
 
 from apps.cases.models import Case
 from apps.contracts.models import Contract, ContractPayment
-from apps.core.models.enums import CaseStatus, CaseStage, SimpleCaseType
+from apps.core.models.enums import CaseStage, CaseStatus, SimpleCaseType
 from apps.reminders.models import Reminder
 
 
@@ -104,10 +104,7 @@ class DashboardService:
             .annotate(amount=Sum("amount"))
             .order_by("month")
         )
-        return [
-            {"month": r["month"].strftime("%Y-%m"), "amount": str(r["amount"] or 0)}
-            for r in qs
-        ]
+        return [{"month": r["month"].strftime("%Y-%m"), "amount": str(r["amount"] or 0)} for r in qs]
 
     # ── 分布 ──────────────────────────────────────────────────────────────────
 
