@@ -10,8 +10,8 @@ interface WorkbenchWelcomeProps {
 
 export function WorkbenchWelcome({ onCreateSession, isCreating }: WorkbenchWelcomeProps) {
   return (
-    <div className="flex flex-1 flex-col overflow-y-auto">
-      <div className="mx-auto w-full max-w-2xl px-4 py-8 space-y-6">
+    <div className="flex flex-1 flex-col items-center justify-center overflow-y-auto">
+      <div className="w-full max-w-2xl px-4 space-y-6">
         {/* 欢迎标题 */}
         <div className="text-center space-y-2">
           <Bot className="mx-auto size-10 text-primary/60" />
