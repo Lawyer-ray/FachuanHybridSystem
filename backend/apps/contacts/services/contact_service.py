@@ -147,7 +147,7 @@ class CaseContactService(DjangoPermsMixin):
         if role:
             qs = qs.filter(role=role)
 
-        results = (
+        results: list[dict[str, Any]] = list(
             qs.values("authority__name", "name", "role")
             .annotate(occurrence_count=Count("id"))
             .order_by("-occurrence_count")[:limit]
