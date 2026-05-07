@@ -32,6 +32,7 @@ class PrivateWeikeApiAdapter(Protocol):
         cause_of_action_filter: str = "",
         date_from: str = "",
         date_to: str = "",
+        raw_payload: dict[str, Any] | None = None,
     ) -> list[Any]: ...
 
 
