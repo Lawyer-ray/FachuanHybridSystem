@@ -2,8 +2,6 @@ import { useDashboardStats } from '@/features/dashboard'
 import { StatsCards } from '@/features/dashboard/components/StatsCards'
 import { TrendChart } from '@/features/dashboard/components/TrendChart'
 import { CaseDistributionChart } from '@/features/dashboard/components/CaseDistributionChart'
-import { UpcomingReminders } from '@/features/dashboard/components/UpcomingReminders'
-import { QuickActions } from '@/features/dashboard/components/QuickActions'
 import { CalendarCard } from '@/features/dashboard/components/CalendarCard'
 
 export default function DashboardPage() {
@@ -21,13 +19,6 @@ export default function DashboardPage() {
       <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
         <TrendChart data={data} isLoading={isLoading} />
         <CaseDistributionChart data={data} isLoading={isLoading} />
-      </div>
-
-      <div className="grid gap-4 grid-cols-1 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <UpcomingReminders data={data} isLoading={isLoading} />
-        </div>
-        <QuickActions />
       </div>
 
       <CalendarCard />
