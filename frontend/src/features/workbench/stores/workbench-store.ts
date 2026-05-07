@@ -17,8 +17,8 @@ import * as api from '../api'
 const FAVORITE_MODEL_KEY = 'workbench_favorite_model'
 const SELECTED_AGENT_KEY = 'workbench_selected_agent'
 
-// 匹配【案例元数据汇总】块（含可选的 ``` 包裹），用于前端展示时去除
-const METADATA_BLOCK_RE = /(```\s*\n)?【案例元数据汇总】[\s\S]*?(?:\n```|```\s*$|$)/g
+// 匹配【案例元数据汇总】块（兼容有无代码块包裹），用于前端展示时去除
+const METADATA_BLOCK_RE = /```[^\n]*\n\s*【案例元数据汇总】\s*\n[\s\S]*?\n\s*```\s*$|【案例元数据汇总】\s*\n[\s\S]*$/g
 
 /** 去除分析结果中的元数据汇总块，只保留分析正文 */
 function stripMetadataBlock(text: string): string {

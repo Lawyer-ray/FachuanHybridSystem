@@ -422,13 +422,12 @@ function HandoffBadge({ from, to }: { from: string; to: string }) {
   )
 }
 
-/** 预处理：将代码块中的【案例元数据汇总】转为普通文本 */
+/** 预处理：去除【案例元数据汇总】块（兜底，正常情况下 store 已剥离） */
 function preprocessContent(content: string): string {
-  // 匹配 ``` 包裹的【案例元数据汇总】块，去掉代码块标记
   return content.replace(
-    /```\s*\n([\s\S]*?【案例元数据汇总】[\s\S]*?)\n```/g,
-    (_, inner: string) => inner.trim(),
-  )
+    /```[^\n]*\n\s*【案例元数据汇总】\s*\n[\s\S]*?\n\s*```\s*$|【案例元数据汇总】\s*\n[\s\S]*$/g,
+    '',
+  ).trim()
 }
 
 /** Markdown 内容渲染 */

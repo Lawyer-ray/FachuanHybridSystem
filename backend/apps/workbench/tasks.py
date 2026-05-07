@@ -57,9 +57,15 @@ ANALYSIS_SYSTEM_PROMPT = (
     "注意：元数据汇总块中的字段必须从文档中提取，不要编造。如果某字段在文档中找不到，填写「未注明」。"
 )
 METADATA_BLOCK_RE = __import__("re").compile(
-    r"【案例元数据汇总】\s*\n([\s\S]*?)(?:\n```|```\s*\Z|\Z)",
+    r"```[^\n]*\n\s*【案例元数据汇总】\s*\n([\s\S]*?)\n\s*```\s*\Z"
+    r"|【案例元数据汇总】\s*\n([\s\S]*?)\Z",
 )
 METADATA_FIELD_RE = __import__("re").compile(r"^(案号|案由|审理法院|法官|书记员|与研究问题相关|结论)\s*[：:]\s*(.+)$", __import__("re").MULTILINE)
+# 匹配分析正文中的结论段落（在元数据块之前）
+_CONCLUSION_RE = __import__("re").compile(
+    r"(?:^|\n)#{1,3}\s*(?:针对.*研究.*结论|结论)\s*\n([\s\S]*?)(?=\n(?:```|【案例元数据汇总】|#{1,3}\s)|\Z)",
+    __import__("re").MULTILINE,
+)
 
 
 def run_batch_analysis(job_id: str) -> None:
@@ -274,7 +280,7 @@ async def _generate_summary(
         if not item.result:
             continue
 
-        # 提取【案例元数据汇总】块
+        # 提取【案例元数据汇总】块（兼容有无代码块包裹）
         block_match = METADATA_BLOCK_RE.search(item.result)
         if not block_match:
             missing_count += 1
@@ -290,10 +296,19 @@ async def _generate_summary(
             })
             continue
 
-        block_text = block_match.group(1).strip()
+        # group(1) 是代码块包裹的版本，group(2) 是无包裹的版本
+        block_text = (block_match.group(1) or block_match.group(2) or "").strip()
         fields: dict[str, str] = {}
         for field_match in METADATA_FIELD_RE.finditer(block_text):
             fields[field_match.group(1).strip()] = field_match.group(2).strip()
+
+        # 结论：优先从分析正文中提取完整结论段落，否则用元数据块中的短结论
+        conclusion = fields.get("结论", "未注明")
+        conclusion_match = _CONCLUSION_RE.search(item.result)
+        if conclusion_match:
+            full_conclusion = conclusion_match.group(1).strip()
+            if full_conclusion:
+                conclusion = full_conclusion
 
         csv_rows.append({
             "文件名": item.file_name,
@@ -303,7 +318,7 @@ async def _generate_summary(
             "法官": fields.get("法官", "未注明"),
             "书记员": fields.get("书记员", "未注明"),
             "与研究问题相关": fields.get("与研究问题相关", "未注明"),
-            "结论": fields.get("结论", "未注明"),
+            "结论": conclusion,
         })
 
     if not csv_rows:
