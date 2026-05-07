@@ -110,7 +110,7 @@ class DashboardService:
 
     @staticmethod
     def _case_type_distribution() -> list[dict[str, Any]]:
-        label_map = dict(SimpleCaseType.choices)
+        label_map = {k: str(v) for k, v in SimpleCaseType.choices}
         qs = (
             Case.objects.filter(status=CaseStatus.ACTIVE)
             .values("case_type")
@@ -135,6 +135,9 @@ class DashboardService:
 
     @staticmethod
     def _upcoming_reminders(now: datetime) -> list[dict[str, Any]]:
+        from apps.reminders.models import ReminderType
+
+        type_label_map = {k: str(v) for k, v in ReminderType.choices}
         week_later = now + timedelta(days=7)
         qs = Reminder.objects.filter(due_at__lte=week_later).order_by("due_at")[:20]
         result = []
@@ -144,7 +147,7 @@ class DashboardService:
                     "id": r.id,
                     "title": r.content,
                     "due_at": r.due_at.isoformat(),
-                    "type_label": r.get_reminder_type_display(),
+                    "type_label": type_label_map.get(r.reminder_type, ""),
                     "is_overdue": r.due_at < now,
                 }
             )
