@@ -160,9 +160,17 @@ function LawyerHeader({ lawyer, onEdit, onBack }: LawyerHeaderProps) {
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       {/* 左侧：律师信息 */}
       <div className="flex items-center gap-3">
-        <div className="bg-primary/10 flex size-12 items-center justify-center rounded-full">
-          <UserRound className="text-primary size-6" />
-        </div>
+        {lawyer.avatar_url ? (
+          <img
+            src={resolveMediaUrl(lawyer.avatar_url) ?? undefined}
+            alt={lawyer.real_name || lawyer.username}
+            className="size-12 rounded-full object-cover"
+          />
+        ) : (
+          <div className="bg-primary/10 flex size-12 items-center justify-center rounded-full">
+            <UserRound className="text-primary size-6" />
+          </div>
+        )}
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-semibold">
