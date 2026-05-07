@@ -51,19 +51,26 @@ export function CaseDistributionChart({
                 nameKey="label"
               />
               <Tooltip
-                contentStyle={{
-                  backgroundColor: 'hsl(var(--card))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: '6px',
-                  fontSize: '12px',
+                content={({ active, payload }) => {
+                  if (!active || !payload?.length) return null
+                  const item = payload[0].payload as { label: string; count: number; fill: string }
+                  const pct = ((item.count / total) * 100).toFixed(1)
+                  return (
+                    <div className="rounded-md border bg-popover px-3 py-2 text-sm shadow-lg">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="inline-block h-2.5 w-2.5 rounded-full"
+                          style={{ backgroundColor: item.fill }}
+                        />
+                        <span className="font-medium">{item.label}</span>
+                      </div>
+                      <div className="mt-1 text-muted-foreground">
+                        {item.count} 件 ({pct}%)
+                      </div>
+                    </div>
+                  )
                 }}
-                formatter={(value, _name, props) => {
-                  const v = Number(value)
-                  return [
-                    `${v} 件 (${((v / total) * 100).toFixed(1)}%)`,
-                    (props?.payload as { label?: string })?.label ?? '',
-                  ]
-                }}
+                wrapperStyle={{ pointerEvents: 'none' }}
               />
               <Legend
                 iconType="circle"
