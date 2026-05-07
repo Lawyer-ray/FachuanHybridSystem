@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from django.db import transaction
 from django.db.models import Count, QuerySet
@@ -147,10 +147,13 @@ class CaseContactService(DjangoPermsMixin):
         if role:
             qs = qs.filter(role=role)
 
-        results: list[dict[str, Any]] = list(
-            qs.values("authority__name", "name", "role")
-            .annotate(occurrence_count=Count("id"))
-            .order_by("-occurrence_count")[:limit]
+        results = cast(
+            list[dict[str, Any]],
+            list(
+                qs.values("authority__name", "name", "role")
+                .annotate(occurrence_count=Count("id"))
+                .order_by("-occurrence_count")[:limit]
+            ),
         )
 
         # 为每组结果收集 case_ids
