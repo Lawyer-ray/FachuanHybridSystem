@@ -32,6 +32,7 @@ class DocTextExtractor:
     def __init__(self) -> None:
         self._batch_converted: dict[str, str] = {}  # .doc 路径 → 转换后的 .docx 路径
         self._batch_temp_dir: str | None = None  # 批量转换的临时目录
+        self._single_temp_dirs: list[str] = []  # 单文件转换的临时目录
 
     def extract_text(self, file_path: str) -> str:
         """根据文件扩展名选择提取策略
@@ -258,6 +259,7 @@ class DocTextExtractor:
             raise RuntimeError("未找到 LibreOffice")
 
         output_dir = tempfile.mkdtemp(prefix="workbench_doc_")
+        self._single_temp_dirs.append(output_dir)
         cmd = [soffice, "--headless", "--convert-to", "docx", "--outdir", output_dir, doc_path]
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
 
@@ -307,13 +309,18 @@ class DocTextExtractor:
         return None
 
     def cleanup(self) -> None:
-        """清理批量转换产生的临时目录"""
+        """清理批量转换和单文件转换产生的临时目录"""
         if self._batch_temp_dir:
-            import shutil
-
             temp_path = Path(self._batch_temp_dir)
             if temp_path.exists():
                 shutil.rmtree(temp_path, ignore_errors=True)
                 logger.info("已清理批量转换临时目录: %s", self._batch_temp_dir)
             self._batch_temp_dir = None
+        for dir_path in self._single_temp_dirs:
+            p = Path(dir_path)
+            if p.exists():
+                shutil.rmtree(p, ignore_errors=True)
+        if self._single_temp_dirs:
+            logger.info("已清理 %d 个单文件转换临时目录", len(self._single_temp_dirs))
+        self._single_temp_dirs.clear()
         self._batch_converted.clear()

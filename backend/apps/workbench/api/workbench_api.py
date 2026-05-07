@@ -329,7 +329,7 @@ def save_batch_messages(request: Any, job_id: UUID, payload: list[BatchMessageIt
             session_id=job.session_id,
             role="assistant",
             content=item.content,
-            metadata={**item.metadata, "source": "batch_item", "job_id": str(job_id)},
+            metadata={**item.metadata, "job_id": str(job_id)},
         )
         created.append(msg.id)
 
