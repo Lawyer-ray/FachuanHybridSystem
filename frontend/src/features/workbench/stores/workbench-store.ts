@@ -75,6 +75,10 @@ interface WorkbenchState {
   // 审批
   pendingApproval: ApprovalState | null
 
+  // 引用回复
+  quotedContent: string | null
+  setQuotedContent: (content: string | null) => void
+
   // 批量分析
   activeBatchJobId: string | null
   batchProgress: BatchProgress | null
@@ -113,6 +117,8 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
   isStreaming: false,
   streamingMessage: null,
   pendingApproval: null,
+  quotedContent: null,
+  setQuotedContent: (content) => set({ quotedContent: content }),
   activeBatchJobId: null,
   batchProgress: null,
   batchPolling: false,

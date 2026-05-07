@@ -62,6 +62,9 @@ def create_session(request: Any, payload: SessionCreateIn) -> WorkbenchSession:
 @router.get("/sessions")
 def list_sessions(request: Any, page: int = 1) -> dict[str, Any]:
     """获取当前用户的工作台会话列表"""
+    from django.db.models import OuterRef, Subquery, Value
+    from django.db.models.functions import Left
+
     user = request.user
     if user.is_authenticated:
         qs = WorkbenchSession.objects.filter(user=user).order_by("-updated_at")
@@ -71,12 +74,27 @@ def list_sessions(request: Any, page: int = 1) -> dict[str, Any]:
     page_size = 20
     offset = (page - 1) * page_size
     total = qs.count()
-    items = list(qs[offset : offset + page_size])
 
-    return {
-        "items": [SessionOut.model_validate(item).model_dump() for item in items],
-        "count": total,
-    }
+    # 获取每个会话的最后一条消息摘要
+    last_msg_subquery = (
+        WorkbenchMessage.objects.filter(session_id=OuterRef("id"), role="assistant")
+        .order_by("-created_at")
+        .values("content")[:1]
+    )
+    items = list(
+        qs[offset : offset + page_size].annotate(
+            _last_msg=Subquery(last_msg_subquery),
+        )
+    )
+
+    result = []
+    for item in items:
+        data = SessionOut.model_validate(item).model_dump()
+        raw = getattr(item, "_last_msg", None) or ""
+        data["last_message_preview"] = raw[:50] if raw else ""
+        result.append(data)
+
+    return {"items": result, "count": total}
 
 
 @router.get("/sessions/{session_id}", response=SessionOut)

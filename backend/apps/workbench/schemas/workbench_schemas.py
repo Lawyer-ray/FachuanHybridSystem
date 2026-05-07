@@ -27,6 +27,7 @@ class SessionOut(BaseModel):
     status: str
     created_at: datetime
     updated_at: datetime
+    last_message_preview: str = ""
 
     model_config = {"from_attributes": True}
 

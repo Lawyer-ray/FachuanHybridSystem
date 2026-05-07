@@ -18,6 +18,7 @@ import {
   ThumbsDown,
   Pencil,
   Download,
+  Quote,
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -307,11 +308,12 @@ function FeedbackButtons({ message }: { message: WorkbenchMessage }) {
   )
 }
 
-/** 助手消息 hover 操作按钮（复制 + 重新生成） */
+/** 助手消息 hover 操作按钮（复制 + 引用 + 重新生成） */
 function MessageActions({ message }: { message: WorkbenchMessage }) {
   const sendMessage = useWorkbenchStore((s) => s.sendMessage)
   const messages = useWorkbenchStore((s) => s.messages)
   const isStreaming = useWorkbenchStore((s) => s.isStreaming)
+  const setQuotedContent = useWorkbenchStore((s) => s.setQuotedContent)
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message.content).then(() => {
@@ -319,9 +321,14 @@ function MessageActions({ message }: { message: WorkbenchMessage }) {
     })
   }
 
+  const handleQuote = () => {
+    const preview = message.content.length > 200 ? message.content.slice(0, 200) + '...' : message.content
+    setQuotedContent(preview)
+    toast.success('已引用，可在输入框中查看')
+  }
+
   const handleRegenerate = () => {
     if (isStreaming) return
-    // 找到当前消息之前的最近一条 user 消息
     const idx = messages.findIndex((m) => m.id === message.id)
     if (idx < 0) return
     for (let i = idx - 1; i >= 0; i--) {
@@ -340,6 +347,13 @@ function MessageActions({ message }: { message: WorkbenchMessage }) {
         title="复制"
       >
         <Copy className="size-3.5" />
+      </button>
+      <button
+        onClick={handleQuote}
+        className="flex items-center justify-center rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+        title="引用"
+      >
+        <Quote className="size-3.5" />
       </button>
       <button
         onClick={handleRegenerate}

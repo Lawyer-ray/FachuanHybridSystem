@@ -149,13 +149,13 @@ register_exception_handlers(api_v1)
 
 def _register_app_routers() -> None:
     from apps.automation.api import router as automation_router
-    from apps.contacts.api import router as contacts_router
     from apps.automation.api.court_filing_api import router as court_filing_router
     from apps.automation.api.court_guarantee_api import router as court_guarantee_router
     from apps.batch_printing.api import router as batch_printing_router
     from apps.cases.api import router as cases_router
     from apps.chat_records.api import router as chat_records_router
     from apps.client.api import router as client_router
+    from apps.contacts.api import router as contacts_router
     from apps.contract_review.api.review_api import router as contract_review_router
     from apps.contracts.api import router as contracts_router
     from apps.core.api import router as config_router

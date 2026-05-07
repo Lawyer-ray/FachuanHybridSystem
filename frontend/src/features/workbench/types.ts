@@ -8,6 +8,7 @@ export interface WorkbenchSession {
   status: string
   created_at: string
   updated_at: string
+  last_message_preview: string
 }
 
 export interface WorkbenchMessage {
