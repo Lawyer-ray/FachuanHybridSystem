@@ -130,3 +130,7 @@ class CaseContactAdmin(BaseModelAdmin):
             "cases/js/autocomplete.js",
             "cases/js/autocomplete_init.js",
         )
+
+    def has_module_permission(self, request: Any) -> bool:
+        """隐藏在 Admin 菜单中 - 通过案件详情页管理"""
+        return False
