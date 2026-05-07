@@ -127,7 +127,7 @@ async def _run_batch_async(job_id: UUID) -> None:
                 # 提取文本（在 sync 线程中）
                 text = await sync_to_async(extractor.extract_text)(item.file.path)
 
-                # 从文档表格中提取元数据（案号、法院、日期、案由）
+                # 从文档中提取元数据（案号、法院、案由、法官、书记员）
                 metadata = await sync_to_async(extractor.extract_doc_metadata)(item.file.path)
                 meta_parts = []
                 if metadata.get("case_number"):
@@ -136,6 +136,10 @@ async def _run_batch_async(job_id: UUID) -> None:
                     meta_parts.append(f"审理法院：{metadata['court']}")
                 if metadata.get("cause"):
                     meta_parts.append(f"案由：{metadata['cause']}")
+                if metadata.get("judge"):
+                    meta_parts.append(f"法官：{metadata['judge']}")
+                if metadata.get("clerk"):
+                    meta_parts.append(f"书记员：{metadata['clerk']}")
                 case_info = "\n".join(meta_parts) + "\n" if meta_parts else ""
 
                 # LLM 分析（在线程池中执行，避免 async 上下文 ORM 问题）

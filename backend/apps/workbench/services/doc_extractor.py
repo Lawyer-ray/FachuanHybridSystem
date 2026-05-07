@@ -58,34 +58,35 @@ class DocTextExtractor:
         else:
             raise ValueError(f"不支持的文件格式: {ext}")
 
-    def extract_doc_metadata(self, file_path: str) -> dict[str, str | None]:
-        """从文档首部表格中提取元数据（案号、审理法院、裁判日期、案由）
+    # 判决书尾部法官/书记员正则
+    _JUDGE_RE = __import__("re").compile(r"审\s*判\s*(?:长|员)\s*[：:]\s*(.+)")
+    _ASSESSOR_RE = __import__("re").compile(r"人民陪审员\s*[：:]\s*(.+)")
+    _CLERK_RE = __import__("re").compile(r"书\s*记\s*员\s*[：:]\s*(.+)")
 
-        判决书标准格式：第一个表格包含
-        | 审理法院 | ： | xxx |
-        | 案号     | ： | xxx |
-        | 裁判日期 | ： | xxx |
-        | 案由     | ： | xxx |
+    def extract_doc_metadata(self, file_path: str) -> dict[str, str | None]:
+        """从文档中提取元数据
+
+        - 首部表格：案号、审理法院、裁判日期、案由
+        - 尾部段落：审判长/审判员、书记员
 
         Returns:
-            {"case_number": "...", "court": "...", "judgment_date": "...", "cause": "..."}
+            {"case_number", "court", "judgment_date", "cause", "judge", "clerk"}
         """
         docx_path, need_cleanup = self._resolve_docx_path(file_path)
+        empty = {"case_number": None, "court": None, "judgment_date": None, "cause": None, "judge": None, "clerk": None}
         if not docx_path:
-            return {"case_number": None, "court": None, "judgment_date": None, "cause": None}
+            return empty
 
         try:
+            import re
+
             from docx import Document
 
             doc = Document(docx_path)
-            metadata: dict[str, str | None] = {
-                "case_number": None,
-                "court": None,
-                "judgment_date": None,
-                "cause": None,
-            }
-            key_map = {"案号": "case_number", "审理法院": "court", "裁判日期": "judgment_date", "案由": "cause"}
+            metadata = dict(empty)
 
+            # ── 首部表格 ──
+            key_map = {"案号": "case_number", "审理法院": "court", "裁判日期": "judgment_date", "案由": "cause"}
             for table in doc.tables[:3]:
                 for row in table.rows:
                     cells = [cell.text.strip() for cell in row.cells]
@@ -96,10 +97,25 @@ class DocTextExtractor:
                 if metadata["case_number"]:
                     break
 
+            # ── 尾部段落：法官/书记员 ──
+            paragraphs = doc.paragraphs[-15:]
+            for para in paragraphs:
+                text = para.text.strip()
+                if not text:
+                    continue
+
+                m = self._JUDGE_RE.search(text)
+                if m:
+                    metadata["judge"] = m.group(1).replace(" ", "").replace("　", "")
+                    continue
+                m = self._CLERK_RE.search(text)
+                if m:
+                    metadata["clerk"] = m.group(1).replace(" ", "").replace("　", "")
+
             return metadata
         except Exception:
             logger.warning("提取文档元数据失败: %s", file_path, exc_info=True)
-            return {"case_number": None, "court": None, "judgment_date": None, "cause": None}
+            return dict(empty)
         finally:
             if need_cleanup and docx_path != file_path:
                 Path(docx_path).unlink(missing_ok=True)
