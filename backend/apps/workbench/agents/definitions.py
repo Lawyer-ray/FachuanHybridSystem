@@ -5,7 +5,6 @@
 - case_agent: 案件管理
 - contract_agent: 合同管理
 - research_agent: 法律检索
-- general_agent: 通用助手
 
 所有 Agent 共享同一个 MCPServerStdio 实例（进程复用）。
 """
@@ -258,10 +257,6 @@ def _research_instructions(ctx: RunContext[WorkbenchDeps]) -> str:
     return _build_instructions(_RESEARCH_PROMPT, ctx.deps)
 
 
-def _general_instructions(ctx: RunContext[WorkbenchDeps]) -> str:
-    return _build_instructions(BASE_SYSTEM_PROMPT, ctx.deps)
-
-
 def _triage_instructions(ctx: RunContext[WorkbenchDeps]) -> str:
     return _build_instructions(TRIAGE_PROMPT, ctx.deps)
 
@@ -294,16 +289,6 @@ research_agent = Agent(
     name="法律检索助手",
     instrument=True,
 )
-
-general_agent = Agent(
-    None,
-    instructions=_general_instructions,
-    deps_type=WorkbenchDeps,
-    toolsets=[mcp_server],
-    name="通用助手",
-    instrument=True,
-)
-
 
 # ─── Triage Agent（带 Handoff 工具） ─────────────────────────────────────────
 

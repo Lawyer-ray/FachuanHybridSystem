@@ -34,7 +34,7 @@ class SessionOut(BaseModel):
 class MessageIn(BaseModel):
     content: str = Field(..., min_length=1, description="用户消息内容")
     llm_model: str = Field("", description="使用的 LLM 模型 ID（覆盖会话默认）")
-    agent_type: str = Field("", description="Agent 类型: triage/case/contract/research/general")
+    agent_type: str = Field("", description="Agent 类型: triage/case/contract/research")
 
 
 class MessageOut(BaseModel):

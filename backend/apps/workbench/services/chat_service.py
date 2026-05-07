@@ -42,7 +42,6 @@ from ..agents import (
     build_model,
     case_agent,
     contract_agent,
-    general_agent,
     research_agent,
     set_event_queue,
     triage_agent,
@@ -57,7 +56,6 @@ AGENT_MAP: dict[str, Agent[WorkbenchDeps, str]] = {
     "case": case_agent,
     "contract": contract_agent,
     "research": research_agent,
-    "general": general_agent,
 }
 
 # 对话历史管理

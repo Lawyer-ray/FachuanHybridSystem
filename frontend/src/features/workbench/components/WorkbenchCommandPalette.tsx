@@ -7,7 +7,6 @@ import {
   Briefcase,
   FileText,
   Search,
-  HelpCircle,
   Square,
   Cpu,
 } from 'lucide-react'
@@ -30,7 +29,6 @@ const AGENT_ICONS: Record<AgentType, typeof Bot> = {
   case: Briefcase,
   contract: FileText,
   research: Search,
-  general: HelpCircle,
 }
 
 interface WorkbenchCommandPaletteProps {

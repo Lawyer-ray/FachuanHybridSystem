@@ -1,7 +1,7 @@
 /** 对话输入框组件（含 Agent 选择器） */
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Send, Square, Bot, Briefcase, FileText, Search, HelpCircle } from 'lucide-react'
+import { Send, Square, Bot, Briefcase, FileText, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -18,7 +18,6 @@ const AGENT_ICONS: Record<AgentType, typeof Bot> = {
   case: Briefcase,
   contract: FileText,
   research: Search,
-  general: HelpCircle,
 }
 
 interface ChatInputProps {

@@ -43,7 +43,7 @@ function loadFavoriteModel(): string {
 function loadSelectedAgent(): AgentType {
   try {
     const val = localStorage.getItem(SELECTED_AGENT_KEY)
-    if (val && ['triage', 'case', 'contract', 'research', 'general'].includes(val)) {
+    if (val && ['triage', 'case', 'contract', 'research'].includes(val)) {
       return val as AgentType
     }
   } catch { /* ignore */ }

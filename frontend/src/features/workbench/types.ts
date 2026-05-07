@@ -39,7 +39,7 @@ export interface ModelsResponse {
 
 // ─── Agent 类型 ───────────────────────────────────────────────────────────────
 
-export type AgentType = 'triage' | 'case' | 'contract' | 'research' | 'general'
+export type AgentType = 'triage' | 'case' | 'contract' | 'research'
 
 export interface AgentInfo {
   type: AgentType
@@ -52,7 +52,6 @@ export const AGENT_OPTIONS: AgentInfo[] = [
   { type: 'case', name: '案件管理', description: '案件创建、查询、修改' },
   { type: 'contract', name: '合同管理', description: '合同查询、下载、生成' },
   { type: 'research', name: '法律检索', description: '案例检索、企业信息查询' },
-  { type: 'general', name: '通用助手', description: '其他杂项操作' },
 ]
 
 // ─── 审批状态 ─────────────────────────────────────────────────────────────────
