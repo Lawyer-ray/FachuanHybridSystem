@@ -80,6 +80,20 @@ class AuthorityType(models.TextChoices):
     DETENTION = "detention", _("当前关押地点")
 
 
+class ContactRole(models.TextChoices):
+    """工作人员角色"""
+
+    PRESIDING_JUDGE = "presiding_judge", _("审判长")
+    JUDGE = "judge", _("审判员/法官")
+    CLERK = "clerk", _("书记员")
+    JUDGE_ASSISTANT = "judge_assistant", _("法官助理")
+    PROSECUTOR = "prosecutor", _("检察官")
+    POLICE = "police", _("警官")
+    ARBITRATOR = "arbitrator", _("仲裁员")
+    MEDIATOR = "mediator", _("调解员")
+    OTHER = "other", _("其他")
+
+
 class SimpleCaseType(models.TextChoices):
     """案件类型（简化版）"""
 

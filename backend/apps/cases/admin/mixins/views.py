@@ -16,11 +16,20 @@ from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import Case
+from apps.core.models.enums import CaseStage, ContactRole
 
 if TYPE_CHECKING:
     from apps.cases.services.case.case_admin_service import CaseAdminService
 
 logger = logging.getLogger("apps.cases")
+
+
+def _get_contact_role_choices() -> list[tuple[str, str]]:
+    return list(ContactRole.choices)
+
+
+def _get_case_stage_choices() -> list[tuple[str, str]]:
+    return list(CaseStage.choices)
 
 
 def _log_inline_formset(inline_formset: object, logger: logging.Logger) -> None:
@@ -273,6 +282,9 @@ class CaseAdminViewsMixin:
                 "has_delay_delivery_template": has_delay_delivery_template,
                 "is_our_party_all_defendant": is_our_party_all_defendant,
                 "folder_path_auto_repaired": folder_path_auto_repaired,
+                "contacts": list(case.contacts.select_related("authority").all()),  # type: ignore[attr-defined]
+                "contact_role_choices": list(_get_contact_role_choices()),
+                "case_stage_choices": list(_get_case_stage_choices()),
             }
         )
 

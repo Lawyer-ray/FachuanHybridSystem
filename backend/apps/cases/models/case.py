@@ -13,6 +13,8 @@ from apps.core.models.enums import AuthorityType, CaseStage, CaseStatus, SimpleC
 if TYPE_CHECKING:
     from django.db.models.fields.related_descriptors import RelatedManager
 
+    from apps.contacts.models import CaseContact
+
     from .chat import CaseChat, ChatAuditLog
     from .log import CaseLog
     from .material import CaseFolderBinding, CaseMaterial, CaseMaterialGroupOrder

@@ -1,0 +1,8 @@
+export { CaseContactSection } from './components/CaseContactSection'
+export { ContactSearchPage } from './components/ContactSearchPage'
+export { useContacts } from './hooks/use-contacts'
+export { useContactMutations } from './hooks/use-contact-mutations'
+export { useContactSearch } from './hooks/use-contact-search'
+export { contactApi } from './api'
+export type { CaseContact, CaseContactInput, CaseContactSearchResult, ContactRole } from './types'
+export { CONTACT_ROLE_LABELS } from './types'

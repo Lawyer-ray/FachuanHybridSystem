@@ -3,7 +3,7 @@
 
 {% block extrahead %}
 {{ block.super }}
-<link rel="stylesheet" type="text/css" href="{% static 'cases/css/case_detail.css' %}?v=20260422a">
+<link rel="stylesheet" type="text/css" href="{% static 'cases/css/case_detail.css' %}?v=20260507a">
 <link rel="stylesheet" type="text/css" href="{% static 'cases/css/litigation_generation.css' %}?v=20250118">
 <link rel="stylesheet" type="text/css" href="{% static 'cases/css/case_materials.css' %}?v=20260409b">
 {% endblock %}
@@ -89,6 +89,9 @@
                 {% trans "一张网立案" %}
             </button>
             {% endif %}
+            <button type="button" @click="activeTab = 'contacts'" :class="{ active: activeTab === 'contacts' }">
+                {% trans "工作人员" %}
+            </button>
         </nav>
 
         <div class="tab-content">
@@ -126,6 +129,11 @@
                 {% include "admin/cases/case/partials/court_filing.html" %}
             </div>
             {% endif %}
+
+            <!-- 工作人员标签页 -->
+            <div x-show="activeTab === 'contacts'" x-transition>
+                {% include "admin/cases/case/partials/contacts.html" %}
+            </div>
         </div>
     </div>
 

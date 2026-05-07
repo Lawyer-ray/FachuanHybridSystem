@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   ArrowLeft, Edit, Trash2, FileWarning, Hash, Building2, MessageSquare,
-  FileText, FolderOpen, Landmark, Paperclip,
+  FileText, FolderOpen, Landmark, Paperclip, Users,
 } from 'lucide-react'
 import { formatDateOnly } from '@/lib/date'
 import { toast } from 'sonner'
@@ -29,6 +29,7 @@ import { CaseMaterialSection } from './CaseMaterialSection'
 import { CaseTemplateSection } from './CaseTemplateSection'
 import { CaseFolderSection } from './CaseFolderSection'
 import { AuthoritySection } from './AuthoritySection'
+import { CaseContactSection } from '@/features/contacts'
 
 import {
   type CaseStatus, type CaseStage,
@@ -91,6 +92,7 @@ const PLATFORM_LABELS: Record<string, string> = {
 const TABS = [
   { value: 'basic', label: '基本信息' },
   { value: 'parties', label: '当事人与律师' },
+  { value: 'contacts', label: '工作人员' },
   { value: 'progress', label: '案件进展' },
   { value: 'documents', label: '文书模板' },
   { value: 'materials', label: '材料管理' },
@@ -302,6 +304,21 @@ export function CaseDetail({ caseId }: CaseDetailProps) {
               <CaseAccessGrantSection
                 grants={accessGrants ?? []}
                 editable={false}
+              />
+            </DetailCard>
+          </motion.div>
+        )}
+
+        {/* ════════════════════════════════════════════ */}
+        {/*  Tab: 工作人员                                */}
+        {/* ════════════════════════════════════════════ */}
+        {activeTab === 'contacts' && (
+          <motion.div key="contacts" {...tabVariants} transition={tabTransition}>
+            <DetailCard title="案件工作人员" extra={<Users className="text-muted-foreground size-4" />}>
+              <CaseContactSection
+                contacts={caseData.contacts ?? []}
+                caseId={Number(caseId)}
+                editable={true}
               />
             </DetailCard>
           </motion.div>

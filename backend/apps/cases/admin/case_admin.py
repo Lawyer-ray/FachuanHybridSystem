@@ -9,6 +9,7 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.cases.admin.base_admin import BaseModelAdmin, BaseStackedInline, BaseTabularInline
 from apps.cases.admin.case_chat_admin import CaseChatInline
+from apps.contacts.admin import CaseContactInline
 from apps.cases.admin.case_forms_admin import (
     CaseAdminForm,
     CasePartyInlineForm,
@@ -271,6 +272,7 @@ class CaseAdmin(
         CaseNumberInline,
         CaseChatInline,
         CaseLogInline,
+        CaseContactInline,
     ]
 
     def handle_json_import(

@@ -11,6 +11,11 @@ from .number_schemas import CaseNumberIn, CaseNumberOut
 from .party_schemas import CasePartyCreate, CasePartyOut
 from .supervising_authority_schemas import SupervisingAuthorityIn, SupervisingAuthorityOut
 
+try:
+    from apps.contacts.schemas import CaseContactOut
+except ImportError:
+    CaseContactOut = None  # type: ignore[assignment,misc]
+
 
 class CaseIn(ModelSchema):
     class Meta:
@@ -43,6 +48,7 @@ class CaseOut(ModelSchema):
     supervising_authorities: list[SupervisingAuthorityOut]
     chats: list[CaseChatOut]
     contract_id: int | None
+    contacts: list[CaseContactOut] = []  # type: ignore[valid-type]
 
     class Meta:
         model = Case
@@ -97,6 +103,12 @@ class CaseOut(ModelSchema):
     @staticmethod
     def resolve_chats(obj: Case) -> list[CaseChat]:
         return list(obj.chats.all())
+
+    @staticmethod
+    def resolve_contacts(obj: Case) -> list:
+        if CaseContactOut is None:
+            return []
+        return list(obj.contacts.select_related("authority").all())  # type: ignore[attr-defined]
 
 
 class CaseUpdate(Schema):
