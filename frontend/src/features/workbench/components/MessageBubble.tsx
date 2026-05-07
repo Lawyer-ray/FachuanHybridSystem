@@ -434,8 +434,8 @@ function MarkdownContent({ content, isSystem }: { content: string; isSystem?: bo
         'prose-code:bg-background/80 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs',
         'prose-table:text-xs prose-th:px-2 prose-th:py-1 prose-td:px-2 prose-td:py-1',
         'prose-hr:my-2 prose-blockquote:my-1 prose-blockquote:border-l-2',
-        // 【案例元数据汇总】块使用统一的文字颜色
-        'prose-strong:text-foreground prose-h3:text-foreground prose-h4:text-foreground',
+        // 统一文字颜色，确保所有元素清晰可读
+        'text-foreground',
         isSystem && 'prose-red',
       )}
     >

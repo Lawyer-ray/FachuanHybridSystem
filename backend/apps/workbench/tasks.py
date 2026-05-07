@@ -317,10 +317,15 @@ async def _generate_summary(
     writer.writerows(csv_rows)
     csv_content = output.getvalue()
 
-    # 写入文件
+    # 写入文件（必须用 instance.save() 才能触发 upload_to 路径生成）
     csv_filename = f"案例分析汇总_{job_id.hex[:8]}.csv"
     csv_file = ContentFile(csv_content.encode("utf-8-sig"), name=csv_filename)
-    await sync_to_async(lambda: BatchJob.objects.filter(id=job_id).update(summary_file=csv_file))()
+
+    def _save_summary() -> None:
+        job = BatchJob.objects.get(id=job_id)
+        job.summary_file.save(csv_filename, csv_file, save=True)
+
+    await sync_to_async(_save_summary)()
 
     # 统计
     total = len(csv_rows)

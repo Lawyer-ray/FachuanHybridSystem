@@ -148,6 +148,10 @@ export const router = createBrowserRouter([
           },
           // 工作台路由
           {
+            path: PATHS.ADMIN_WORKBENCH_SESSION,
+            element: <WorkbenchPage />,
+          },
+          {
             path: PATHS.ADMIN_WORKBENCH,
             element: <WorkbenchPage />,
           },

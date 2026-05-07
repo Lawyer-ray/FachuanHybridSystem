@@ -1,13 +1,13 @@
 /** 工作台页面 */
 
 import { useEffect, useCallback, useState, useRef } from 'react'
+import { useParams, useNavigate } from 'react-router'
 import { Bot, Plus, Trash2, Loader2, Pencil, Search, X, PanelLeftClose, PanelLeft, Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/ui'
 import { useWorkbenchStore } from './stores/workbench-store'
-import type { WorkbenchSession } from './types'
 import { MessageList } from './components/MessageList'
 import { ChatInput } from './components/ChatInput'
 import { ModelSelector } from './components/ModelSelector'
@@ -16,6 +16,7 @@ import { ApprovalDialog } from './components/ApprovalDialog'
 import { BatchAnalysisDialog } from './components/BatchAnalysisDialog'
 import { BatchProgressCard } from './components/BatchProgressCard'
 import { deleteSession, updateSession } from './api'
+import { generatePath } from '@/routes/paths'
 
 export function WorkbenchPage() {
   const {
@@ -36,6 +37,8 @@ export function WorkbenchPage() {
     cancelBatchAnalysis,
   } = useWorkbenchStore()
 
+  const { sessionId } = useParams<{ sessionId: string }>()
+  const navigate = useNavigate()
   const adminSidebarCollapsed = useUIStore((s) => s.sidebarCollapsed)
   const setAdminSidebarCollapsed = useUIStore((s) => s.setSidebarCollapsed)
 
@@ -61,24 +64,39 @@ export function WorkbenchPage() {
     fetchModels()
   }, [fetchSessions, fetchModels])
 
+  // URL 中的 sessionId 与会话列表同步
+  useEffect(() => {
+    if (!sessions.length) return
+    if (sessionId) {
+      const target = sessions.find((s) => s.session_id === sessionId)
+      if (target && target.id !== currentSession?.id) {
+        setCurrentSession(target)
+      }
+    } else if (currentSession) {
+      // URL 无 sessionId 但有选中会话，清除选中
+      setCurrentSession(null)
+    }
+  }, [sessionId, sessions]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleNewSession = useCallback(async () => {
     setIsCreating(true)
     try {
-      await createSession()
+      const session = await createSession()
+      navigate(generatePath.workbenchSession(session.session_id))
     } finally {
       setIsCreating(false)
     }
-  }, [createSession])
+  }, [createSession, navigate])
 
   const handleDeleteSession = useCallback(
     async (id: number) => {
       await deleteSession(id)
       if (currentSession?.id === id) {
-        setCurrentSession(null)
+        navigate('/admin/workbench')
       }
       fetchSessions()
     },
-    [currentSession, setCurrentSession, fetchSessions],
+    [currentSession, navigate, fetchSessions],
   )
 
   const handleSend = useCallback(
@@ -101,14 +119,6 @@ export function WorkbenchPage() {
   const filteredSessions = searchQuery
     ? sessions.filter((s) => (s.title || '新会话').toLowerCase().includes(searchQuery.toLowerCase()))
     : sessions
-
-  const handleMobileSessionClick = useCallback(
-    (session: WorkbenchSession) => {
-      setCurrentSession(session)
-      setMobileSidebarOpen(false)
-    },
-    [setCurrentSession],
-  )
 
   const sidebarContent = (
     <>
@@ -197,7 +207,7 @@ export function WorkbenchPage() {
                 {filteredSessions.map((session) => (
                   <div
                     key={session.id}
-                    onClick={() => isMobile ? handleMobileSessionClick(session) : setCurrentSession(session)}
+                    onClick={() => navigate(generatePath.workbenchSession(session.session_id))}
                     className={cn(
                       'group flex items-center rounded-md px-2.5 py-2 text-sm cursor-pointer hover:bg-accent',
                       currentSession?.id === session.id && 'bg-accent',
