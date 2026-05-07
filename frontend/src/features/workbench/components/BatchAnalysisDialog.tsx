@@ -156,7 +156,7 @@ export function BatchAnalysisDialog({ modelName, onSubmit, disabled }: BatchAnal
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+        <div className="space-y-4 max-h-[60vh] overflow-y-auto px-1">
           {/* 文件选择 */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
