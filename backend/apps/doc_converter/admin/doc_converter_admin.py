@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+from typing import Any
+
 from django.contrib import admin
+from django.http import HttpRequest, HttpResponse
+from django.shortcuts import redirect
 from django.utils.translation import gettext_lazy as _
 
 from apps.doc_converter.models import DocConverterItem, DocConverterJob, DocConverterTool
@@ -45,11 +49,14 @@ class DocConverterJobAdmin(admin.ModelAdmin):
 class DocConverterToolAdmin(admin.ModelAdmin):
     """虚拟 Admin，仅用于侧边栏入口"""
 
-    def has_add_permission(self, request: object) -> bool:
+    def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> HttpResponse:
+        return redirect("admin:doc_converter_docconverterjob_changelist")
+
+    def has_add_permission(self, request: HttpRequest) -> bool:
         return False
 
-    def has_change_permission(self, request: object, obj: object = None) -> bool:
+    def has_change_permission(self, request: HttpRequest, obj: Any = None) -> bool:
         return False
 
-    def has_delete_permission(self, request: object, obj: object = None) -> bool:
+    def has_delete_permission(self, request: HttpRequest, obj: Any = None) -> bool:
         return False
