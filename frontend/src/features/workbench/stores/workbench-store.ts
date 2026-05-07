@@ -10,14 +10,27 @@ import type {
   SSEEvent,
   StreamingMessage,
   ToolCallState,
+  BatchProgress,
 } from '../types'
 import * as api from '../api'
 
 const FAVORITE_MODEL_KEY = 'workbench_favorite_model'
 const SELECTED_AGENT_KEY = 'workbench_selected_agent'
 
+// 匹配【案例元数据汇总】块（兼容有无代码块包裹），用于前端展示时去除
+const METADATA_BLOCK_RE = /```[^\n]*\n\s*【案例元数据汇总】\s*\n[\s\S]*?\n\s*```\s*$|【案例元数据汇总】\s*\n[\s\S]*$/g
+
+/** 去除分析结果中的元数据汇总块，只保留分析正文 */
+function stripMetadataBlock(text: string): string {
+  return text.replace(METADATA_BLOCK_RE, '').trim()
+}
+
 // 用于中断正在进行的流式请求
 let _abortController: AbortController | null = null
+// 跟踪已展示的批量分析 item ID，避免重复注入消息
+let _shownBatchItemIds: Set<string> = new Set()
+// SSE 连接清理函数
+let _cleanupBatchSSE: (() => void) | null = null
 
 function loadFavoriteModel(): string {
   try {
@@ -30,7 +43,7 @@ function loadFavoriteModel(): string {
 function loadSelectedAgent(): AgentType {
   try {
     const val = localStorage.getItem(SELECTED_AGENT_KEY)
-    if (val && ['triage', 'case', 'contract', 'research', 'general'].includes(val)) {
+    if (val && ['triage', 'case', 'contract', 'research'].includes(val)) {
       return val as AgentType
     }
   } catch { /* ignore */ }
@@ -62,6 +75,11 @@ interface WorkbenchState {
   // 审批
   pendingApproval: ApprovalState | null
 
+  // 批量分析
+  activeBatchJobId: string | null
+  batchProgress: BatchProgress | null
+  batchPolling: boolean
+
   // Actions
   setSelectedModel: (model: string) => void
   setFavoriteModel: (model: string) => void
@@ -73,9 +91,12 @@ interface WorkbenchState {
   fetchMessages: (sessionId: number) => Promise<void>
   sendMessage: (content: string) => Promise<void>
   editAndResend: (messageId: number, newContent: string) => Promise<void>
+  submitFeedback: (messageId: number, rating: 'good' | 'bad') => Promise<void>
   abortStream: () => void
   handleSSEEvent: (event: SSEEvent) => void
   respondApproval: (approved: boolean) => Promise<void>
+  submitBatchAnalysis: (prompt: string, files: File[]) => Promise<void>
+  cancelBatchAnalysis: () => Promise<void>
   reset: () => void
 }
 
@@ -92,6 +113,9 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
   isStreaming: false,
   streamingMessage: null,
   pendingApproval: null,
+  activeBatchJobId: null,
+  batchProgress: null,
+  batchPolling: false,
 
   setSelectedModel: (model) => set({ selectedModel: model }),
 
@@ -152,8 +176,17 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
   fetchMessages: async (sessionId) => {
     set({ messagesLoading: true })
     try {
-      const res = await api.listMessages(sessionId)
-      set({ messages: res.items, messagesLoading: false })
+      const PAGE_SIZE = 50
+      const first = await api.listMessages(sessionId, 1)
+      let allItems = first.items
+      const totalPages = Math.ceil(first.count / PAGE_SIZE)
+      if (totalPages > 1) {
+        const rest = await Promise.all(
+          Array.from({ length: totalPages - 1 }, (_, i) => api.listMessages(sessionId, i + 2)),
+        )
+        allItems = [...allItems, ...rest.flatMap((r) => r.items)]
+      }
+      set({ messages: allItems, messagesLoading: false })
     } catch {
       set({ messagesLoading: false })
     }
@@ -335,6 +368,20 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
     get().sendMessage(newContent)
   },
 
+  submitFeedback: async (messageId, rating) => {
+    try {
+      await api.submitFeedback(messageId, rating)
+      // 更新本地消息 metadata
+      set((state) => ({
+        messages: state.messages.map((m) =>
+          m.id === messageId
+            ? { ...m, metadata: { ...m.metadata, feedback: { rating } } }
+            : m,
+        ),
+      }))
+    } catch { /* ignore */ }
+  },
+
   handleSSEEvent: (event) => {
     set((state) => {
       const sm = state.streamingMessage
@@ -462,12 +509,220 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
     } catch { /* ignore */ }
   },
 
+  submitBatchAnalysis: async (prompt, files) => {
+    const { currentSession, selectedModel } = get()
+    if (!currentSession) return
+
+    // 清理之前的 SSE 连接
+    if (_cleanupBatchSSE) {
+      _cleanupBatchSSE()
+      _cleanupBatchSSE = null
+    }
+
+    _shownBatchItemIds = new Set()
+    const job = await api.submitBatchAnalysis(currentSession.id, prompt, selectedModel, files)
+    set({
+      activeBatchJobId: job.id,
+      batchProgress: { job, items: [], failed_items_detail: [] },
+      batchPolling: true,
+    })
+
+    // 处理终态的通用逻辑
+    const handleTerminal = async (progress: BatchProgress) => {
+      set({ batchPolling: false })
+
+      // 持久化批量分析结果到后端
+      const completedItems = progress.items.filter(
+        (item) => item.status === 'completed' && item.result,
+      )
+      if (completedItems.length > 0) {
+        try {
+          await api.saveBatchMessages(
+            progress.job.id,
+            completedItems.map((item) => ({
+              file_name: item.file_name,
+              content: `### ${item.file_name}\n\n${stripMetadataBlock(item.result)}`,
+              metadata: { source: 'batch_item', job_id: progress.job.id },
+            })),
+          )
+        } catch {
+          // 持久化失败不影响用户体验
+        }
+      }
+
+      // 完成时将汇总报告插入对话
+      if (progress.job.status === 'completed' && progress.job.summary) {
+        const summaryMsg: WorkbenchMessage = {
+          id: Date.now() + 1,
+          role: 'assistant',
+          content: progress.job.summary,
+          llm_model: '',
+          tool_call_id: '',
+          tool_name: '',
+          tool_input: {},
+          tool_output: {},
+          metadata: { source: 'batch_analysis', job_id: progress.job.id },
+          created_at: new Date().toISOString(),
+        }
+
+        try {
+          await api.saveBatchMessages(progress.job.id, [{
+            file_name: '汇总报告',
+            content: progress.job.summary,
+            metadata: { source: 'batch_analysis', job_id: progress.job.id },
+          }])
+        } catch {
+          // 持久化失败不影响用户体验
+        }
+
+        set((state) => ({
+          messages: [...state.messages, summaryMsg],
+          batchProgress: null,
+        }))
+      }
+    }
+
+    // 注入完成的 item 为消息
+    const injectCompletedItem = (itemId: string, fileName: string, result: string, jobId: string) => {
+      if (_shownBatchItemIds.has(itemId)) return
+      _shownBatchItemIds.add(itemId)
+      const msg: WorkbenchMessage = {
+        id: Date.now() + Math.random(),
+        role: 'assistant',
+        content: `### ${fileName}\n\n${stripMetadataBlock(result)}`,
+        llm_model: '',
+        tool_call_id: '',
+        tool_name: '',
+        tool_input: {},
+        tool_output: {},
+        metadata: { source: 'batch_item', job_id: jobId },
+        created_at: new Date().toISOString(),
+      }
+      set((state) => ({ messages: [...state.messages, msg] }))
+    }
+
+    // 尝试 SSE 连接
+    _cleanupBatchSSE = api.connectBatchSSE(
+      job.id,
+      // onEvent
+      (event) => {
+        const { batchProgress } = get()
+        if (!batchProgress) return
+
+        if (event.type === 'item_completed') {
+          // SSE 事件触发进度更新，完整结果通过 onDone 获取
+          // 更新进度
+          set({
+            batchProgress: {
+              ...batchProgress,
+              job: {
+                ...batchProgress.job,
+                completed_items: (batchProgress.job.completed_items || 0) + 1,
+              },
+            },
+          })
+        } else if (event.type === 'item_failed') {
+          set({
+            batchProgress: {
+              ...batchProgress,
+              job: {
+                ...batchProgress.job,
+                failed_items: (batchProgress.job.failed_items || 0) + 1,
+              },
+            },
+          })
+        } else if (event.type === 'progress') {
+          const data = event.data
+          set({
+            batchProgress: {
+              ...batchProgress,
+              job: {
+                ...batchProgress.job,
+                completed_items: data.completed_items as number,
+                failed_items: data.failed_items as number,
+                total_items: data.total_items as number,
+                progress: data.progress as number,
+              },
+            },
+          })
+        }
+      },
+      // onDone - 终态，获取完整数据
+      async () => {
+        try {
+          const progress = await api.getBatchProgress(job.id)
+          set({ batchProgress: progress })
+
+          // 注入完成的 items
+          for (const item of progress.items) {
+            if (item.status === 'completed' && item.result) {
+              injectCompletedItem(item.id, item.file_name, item.result, progress.job.id)
+            }
+          }
+
+          await handleTerminal(progress)
+        } catch {
+          set({ batchPolling: false })
+        }
+      },
+      // onError - SSE 失败，回退到轮询
+      () => {
+        _cleanupBatchSSE = null
+        // 回退到自适应轮询
+        const poll = async () => {
+          const { activeBatchJobId, batchPolling } = get()
+          if (!activeBatchJobId || !batchPolling) return
+
+          try {
+            const progress = await api.getBatchProgress(activeBatchJobId)
+            set({ batchProgress: progress })
+
+            // 注入新完成的 items
+            for (const item of progress.items) {
+              if (item.status === 'completed' && item.result) {
+                injectCompletedItem(item.id, item.file_name, item.result, progress.job.id)
+              }
+            }
+
+            if (['completed', 'failed', 'cancelled'].includes(progress.job.status)) {
+              await handleTerminal(progress)
+              return
+            }
+          } catch {
+            // 轮询失败不停止
+          }
+
+          // 自适应间隔
+          const { batchProgress: bp } = get()
+          const p = bp?.job.progress ?? 0
+          const interval = p > 80 ? 5000 : 2000
+          setTimeout(poll, interval)
+        }
+        setTimeout(poll, 2000)
+      },
+    )
+  },
+
+  cancelBatchAnalysis: async () => {
+    const { activeBatchJobId } = get()
+    if (!activeBatchJobId) return
+    try {
+      await api.cancelBatchAnalysis(activeBatchJobId)
+      // 轮询会自动更新状态
+    } catch { /* ignore */ }
+  },
+
   reset: () => {
     // 重置时也中断进行中的请求
     if (_abortController) {
       _abortController.abort()
       _abortController = null
     }
+    if (_cleanupBatchSSE) {
+      _cleanupBatchSSE()
+      _cleanupBatchSSE = null
+    }
+    _shownBatchItemIds = new Set()
     set({
       currentSession: null,
       messages: [],
@@ -475,6 +730,9 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
       isStreaming: false,
       streamingMessage: null,
       pendingApproval: null,
+      activeBatchJobId: null,
+      batchProgress: null,
+      batchPolling: false,
     })
   },
 }))

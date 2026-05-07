@@ -47,6 +47,7 @@ export const PATHS = {
 
   // 工作台
   ADMIN_WORKBENCH: '/admin/workbench',
+  ADMIN_WORKBENCH_SESSION: '/admin/workbench/:sessionId',
 
   // 设置
   ADMIN_SETTINGS: '/admin/settings',
@@ -107,4 +108,6 @@ export const generatePath = {
   templateDetail: (id: string | number) => `/admin/templates/${id}`,
   // 法院短信
   courtSmsDetail: (id: number) => `/admin/tools/court-sms/${id}`,
+  // 工作台
+  workbenchSession: (sessionId: string) => `/admin/workbench/${sessionId}`,
 } as const

@@ -236,6 +236,11 @@
   }
 }
 
+/* highlight.js：暗色模式下透明背景，由容器控制背景色 */
+.dark .hljs {
+  background: transparent !important;
+}
+
 /* Radix ScrollArea：隐藏原生滚动条（使用自定义 ScrollBar） */
 [data-scroll-area-viewport] {
   scrollbar-width: none;

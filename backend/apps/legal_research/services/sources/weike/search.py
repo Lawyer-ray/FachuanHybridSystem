@@ -4,6 +4,7 @@ import logging
 import re
 import time
 from collections.abc import Callable
+from typing import Any
 from urllib.parse import parse_qs, unquote, urljoin, urlparse
 
 from playwright.sync_api import Page
@@ -24,7 +25,7 @@ class WeikeSearchMixin:
     LAW_LOGIN_MODAL_USERNAME_SELECTOR = "#login-username"
     LAW_LOGIN_BUTTON_SELECTOR = "button.wk-banner-action-bar-item.wkb-btn-green:has-text('登录')"
 
-    # 威科先行检索字段名（用于 DOM 高级检索 URL 参数，仅单字段时使用）
+    # WKXX检索字段名（用于 DOM 高级检索 URL 参数，仅单字段时使用）
     SEARCH_FIELD_MAP: dict[str, str] = {
         "fullText": "fullText",
         "title": "title",
@@ -48,6 +49,7 @@ class WeikeSearchMixin:
         cause_of_action_filter: str = "",
         date_from: str = "",
         date_to: str = "",
+        raw_payload: dict[str, Any] | None = None,
     ) -> list[WeikeSearchItem]:
         if session.search_via_api_enabled:
             if self._is_search_api_degraded(session=session):
@@ -83,6 +85,7 @@ class WeikeSearchMixin:
                             cause_of_action_filter=cause_of_action_filter,
                             date_from=date_from,
                             date_to=date_to,
+                            raw_payload=raw_payload,
                         )
                         if items:
                             self._reset_search_api_health(session=session)
@@ -150,6 +153,159 @@ class WeikeSearchMixin:
             date_from=date_from,
             date_to=date_to,
         )
+
+    def search_cases_from_url(
+        self,
+        *,
+        session: WeikeSession,
+        url: str,
+        max_candidates: int,
+        max_pages: int = 10,
+        offset: int = 0,
+    ) -> tuple[list[WeikeSearchItem], dict[str, Any] | None]:
+        """Navigate to a WKInfo search URL, intercept the /csi/search payload, and return results.
+
+        Returns (items, intercepted_payload). If the private API is available,
+        the intercepted payload is used for paginated API calls. Otherwise,
+        DOM scraping is performed on the loaded page.
+
+        The intercepted_payload is also stored on session.intercepted_payload.
+        """
+        import json as _json
+
+        self._ensure_playwright_session(session)
+        page = session.page
+        if page is None:
+            raise RuntimeError("Playwright页面未就绪")
+
+        intercepted: dict[str, Any] | None = None
+
+        def _on_request(request: Any) -> None:
+            nonlocal intercepted
+            try:
+                if "/csi/search" in request.url and request.method == "POST":
+                    post_data = request.post_data
+                    if post_data:
+                        intercepted = _json.loads(post_data)
+            except Exception:
+                logger.debug("拦截请求解析失败", exc_info=True)
+
+        page.on("request", _on_request)
+        try:
+            logger.info("导航到 WKInfo 搜索 URL: %s", url)
+            page.goto(url, wait_until="domcontentloaded", timeout=120000)
+            page.wait_for_timeout(5000)
+            self._raise_if_login_required(page)
+        finally:
+            try:
+                page.remove_listener("request", _on_request)
+            except Exception:
+                pass
+
+        if intercepted is not None:
+            session.intercepted_payload = intercepted
+            logger.info(
+                "已拦截 WKInfo 搜索 payload，queryString=%s",
+                str((intercepted.get("query") or {}).get("queryString") or "")[:200],
+            )
+
+            # Try private API with intercepted payload for pagination support
+            if session.search_via_api_enabled:
+                private_api = api_optional.get_private_weike_api()
+                if private_api is not None:
+                    try:
+                        items = private_api.search_cases_via_api(
+                            client=self,
+                            session=session,
+                            keyword="",
+                            max_candidates=max_candidates,
+                            max_pages=max_pages,
+                            offset=offset,
+                            raw_payload=intercepted,
+                        )
+                        if items:
+                            return items, intercepted
+                    except Exception:
+                        logger.exception("使用拦截 payload 调用私有 API 失败，回退 DOM")
+
+        # Fallback: DOM scraping on the already-loaded page
+        logger.info("使用 DOM scraping 从已加载页面获取结果")
+        items = self._scrape_current_page(
+            session=session,
+            max_candidates=max_candidates,
+            max_pages=max_pages,
+            offset=offset,
+        )
+        return items, intercepted
+
+    def _scrape_current_page(
+        self,
+        *,
+        session: WeikeSession,
+        max_candidates: int,
+        max_pages: int,
+        offset: int = 0,
+    ) -> list[WeikeSearchItem]:
+        """Scrape search results from the currently loaded Playwright page."""
+        started = time.monotonic()
+        if session.page is None:
+            raise RuntimeError("Playwright页面未就绪")
+        page = session.page
+
+        items: list[WeikeSearchItem] = []
+        seen: set[str] = set()
+        skipped = 0
+
+        for _ in range(max_pages):
+            anchors: list[dict[str, str]] = page.eval_on_selector_all(
+                "a[href*='/judgment-documents/detail/']",
+                """
+                els => els.map(el => ({
+                  href: el.href || '',
+                  text: (el.textContent || '').trim()
+                }))
+                """,
+            )
+
+            for anchor in anchors:
+                href = (anchor.get("href") or "").strip()
+                if not href:
+                    continue
+
+                parsed = self._parse_detail_url(href)
+                if not parsed:
+                    continue
+
+                if parsed.doc_id_raw in seen:
+                    continue
+
+                seen.add(parsed.doc_id_raw)
+                if skipped < offset:
+                    skipped += 1
+                    continue
+
+                items.append(
+                    WeikeSearchItem(
+                        doc_id_raw=parsed.doc_id_raw,
+                        doc_id_unquoted=parsed.doc_id_unquoted,
+                        detail_url=href,
+                        title_hint=(anchor.get("text") or "").strip(),
+                        search_id=parsed.search_id,
+                        module=parsed.module,
+                    )
+                )
+                if len(items) >= max_candidates:
+                    return items
+
+            if not self._go_next_page(page):
+                break
+
+        logger.info(
+            "DOM scraping 完成，获取 %d 条结果（耗时 %dms）",
+            len(items),
+            int((time.monotonic() - started) * 1000),
+        )
+        return items
 
     def _search_cases_via_dom(
         self,

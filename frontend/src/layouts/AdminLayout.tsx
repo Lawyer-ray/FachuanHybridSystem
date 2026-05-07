@@ -1,7 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { Outlet, useLocation } from 'react-router'
-import { X } from 'lucide-react'
-
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/ui'
 import { Sidebar } from './components/Sidebar'
@@ -137,19 +135,12 @@ function AdminLayoutContent() {
           isMobile && mobileMenuOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
-        <button
-          onClick={closeMobileMenu}
-          className="absolute right-2 top-4 z-50 rounded-lg p-2 text-[#a1a1aa] hover:text-white hover:bg-[#27272a] transition-colors"
-          aria-label="关闭菜单"
-        >
-          <X className="size-5" />
-        </button>
         <Sidebar collapsed={false} onToggle={closeMobileMenu} />
       </div>
 
       {/* 主内容区域 */}
       <div
-        className="flex min-h-screen flex-col transition-[margin-left] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]"
+        className="relative z-10 flex min-h-screen flex-col transition-[margin-left] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]"
         style={{ marginLeft: mainMarginLeft }}
       >
         <Navbar onMenuClick={handleMobileMenuClick} />

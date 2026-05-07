@@ -32,10 +32,12 @@ class PrivateWeikeApiAdapter(Protocol):
         cause_of_action_filter: str = "",
         date_from: str = "",
         date_to: str = "",
+        raw_payload: dict[str, Any] | None = None,
     ) -> list[Any]: ...
 
 
 _PRIVATE_MODULE_PATHS: tuple[str, ...] = (
+    "plugins.weike_api_private.adapter",
     "apps.legal_research.services.sources.weike_api_private.adapter",
     "apps.legal_research.services.sources.weike.api_private.adapter",
 )

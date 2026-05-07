@@ -16,10 +16,7 @@ from apps.legal_research.services.executor_components import (
     ExecutorSourceGatewayMixin,
     ExecutorTaskLifecycleMixin,
 )
-from apps.legal_research.services.executor_components.policy_mixin import (
-    AdaptiveThresholdPolicy,
-    DualReviewPolicy,
-)
+from apps.legal_research.services.executor_components.policy_mixin import AdaptiveThresholdPolicy, DualReviewPolicy
 from apps.legal_research.services.similarity.service import CaseSimilarityService
 from apps.legal_research.services.similarity.tuning_config import LegalResearchTuningConfig
 from apps.legal_research.services.sources import get_case_source_client
@@ -97,6 +94,31 @@ class LegalResearchExecutor(
             )
             if hasattr(session, "task_id"):
                 session.task_id = str(task.id)
+
+            # ── [URL 拦截模式] 用户提供 WKInfo URL，通过 Playwright 拦截搜索条件 ──
+            search_url = str(getattr(task, "search_url", "") or "").strip()
+            intercepted_payload: dict[str, Any] | None = None
+            if search_url:
+                task.message = "正在导航到 WKInfo 搜索 URL 并拦截搜索条件..."
+                self._save_task_safely(task, update_fields=["message", "updated_at"])
+                try:
+                    _items, intercepted_payload = source_client.search_cases_from_url(  # type: ignore[attr-defined]
+                        session=session,
+                        url=search_url,
+                        max_candidates=task.max_candidates,
+                    )
+                    if intercepted_payload:
+                        logger.info(
+                            "已拦截 WKInfo 搜索 payload，queryString=%s",
+                            str((intercepted_payload.get("query") or {}).get("queryString") or "")[:200],
+                            extra={"task_id": str(task.id)},
+                        )
+                        single_search_mode = True
+                    else:
+                        logger.warning("未能拦截 WKInfo 搜索 payload，将使用常规检索", extra={"task_id": str(task.id)})
+                except Exception:
+                    logger.exception("导航到 WKInfo URL 失败，将使用常规检索", extra={"task_id": str(task.id)})
+
             if single_search_mode:
                 primary_query = re.sub(r"\s+", " ", str(task.keyword or "")).strip()
                 keyword_candidates = [primary_query] if primary_query else []
@@ -192,6 +214,7 @@ class LegalResearchExecutor(
                         cause_of_action_filter=str(getattr(task, "cause_of_action_filter", "") or ""),
                         date_from=str(getattr(task, "date_from", "") or ""),
                         date_to=str(getattr(task, "date_to", "") or ""),
+                        raw_payload=intercepted_payload,
                     )
 
                     if not items:

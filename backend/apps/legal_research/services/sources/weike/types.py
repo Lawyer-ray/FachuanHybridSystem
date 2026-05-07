@@ -49,6 +49,7 @@ class WeikeSession:
     search_api_empty_streak: int = 0
     search_api_error_streak: int = 0
     search_api_degraded_until_epoch: float = 0.0
+    intercepted_payload: dict[str, Any] | None = None
 
     def close(self) -> None:
         try:

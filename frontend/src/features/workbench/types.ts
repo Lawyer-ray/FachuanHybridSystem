@@ -39,7 +39,7 @@ export interface ModelsResponse {
 
 // ─── Agent 类型 ───────────────────────────────────────────────────────────────
 
-export type AgentType = 'triage' | 'case' | 'contract' | 'research' | 'general'
+export type AgentType = 'triage' | 'case' | 'contract' | 'research'
 
 export interface AgentInfo {
   type: AgentType
@@ -52,7 +52,6 @@ export const AGENT_OPTIONS: AgentInfo[] = [
   { type: 'case', name: '案件管理', description: '案件创建、查询、修改' },
   { type: 'contract', name: '合同管理', description: '合同查询、下载、生成' },
   { type: 'research', name: '法律检索', description: '案例检索、企业信息查询' },
-  { type: 'general', name: '通用助手', description: '其他杂项操作' },
 ]
 
 // ─── 审批状态 ─────────────────────────────────────────────────────────────────
@@ -113,4 +112,70 @@ export interface ToolCallState {
   result?: unknown
   success?: boolean
   status: 'pending' | 'running' | 'success' | 'error'
+}
+
+// ─── 建议提示 ───────────────────────────────────────────────────────────────
+
+export interface SuggestedPrompt {
+  label: string
+  prompt: string
+  agent?: AgentType
+  icon: string
+}
+
+export const SUGGESTED_PROMPTS: SuggestedPrompt[] = [
+  { label: '查询案件', prompt: '帮我查询最近的案件列表', agent: 'case', icon: 'Briefcase' },
+  { label: '合同审查', prompt: '帮我审查这份合同的风险条款', agent: 'contract', icon: 'FileText' },
+  { label: '法律检索', prompt: '搜索相关的判例和法规', agent: 'research', icon: 'Search' },
+  { label: '联网搜索', prompt: '帮我搜索最新的法律动态', icon: 'Globe' },
+  { label: '创建提醒', prompt: '帮我创建一个开庭提醒', icon: 'Bell' },
+  { label: '企业查询', prompt: '查询这家企业的工商信息', agent: 'research', icon: 'Building2' },
+]
+
+// ─── 批量分析 ───────────────────────────────────────────────────────────────
+
+export type BatchJobStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
+
+export interface BatchJob {
+  id: string
+  session_id: number
+  job_type: string
+  status: BatchJobStatus
+  prompt: string
+  llm_model: string
+  total_items: number
+  completed_items: number
+  failed_items: number
+  progress: number
+  summary: string
+  summary_file: string
+  error_message: string
+  created_at: string
+  updated_at: string
+  started_at: string | null
+  finished_at: string | null
+  started_processing_at: string | null
+  eta_seconds: number | null
+  speed_per_minute: number
+}
+
+export interface BatchJobItem {
+  id: string
+  file_name: string
+  status: BatchJobStatus
+  result: string
+  error: string
+  duration_ms: number | null
+}
+
+export interface FailedItemDetail {
+  id: string
+  file_name: string
+  error: string
+}
+
+export interface BatchProgress {
+  job: BatchJob
+  items: BatchJobItem[]
+  failed_items_detail: FailedItemDetail[]
 }

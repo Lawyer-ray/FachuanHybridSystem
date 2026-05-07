@@ -16,12 +16,7 @@ CACHE_KEY_STATUS = "siliconflow_model_list_status"
 DEFAULT_CACHE_TTL = 3600
 
 # 预置默认模型列表（API 不可用时降级）
-_FALLBACK_MODELS: list[dict[str, Any]] = [
-    {"id": "Qwen/Qwen3-8B", "name": "Qwen3-8B", "context_window": 32768},
-    {"id": "Qwen/Qwen2.5-7B-Instruct", "name": "Qwen2.5-7B-Instruct", "context_window": 32768},
-    {"id": "THUDM/glm-4-9b-chat", "name": "GLM-4-9B-Chat", "context_window": 32768},
-    {"id": "deepseek-ai/DeepSeek-V3", "name": "DeepSeek-V3", "context_window": 65536},
-]
+_FALLBACK_MODELS: list[dict[str, Any]] = []
 
 # 已知模型的上下文窗口大小（API 未返回时的兜底）
 _KNOWN_CONTEXT_WINDOWS: dict[str, int] = {

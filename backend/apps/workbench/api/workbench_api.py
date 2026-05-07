@@ -2,17 +2,33 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
 from typing import Any
+from uuid import UUID
 
-from django.http import Http404, StreamingHttpResponse
-from ninja import Router, Schema
+from asgiref.sync import sync_to_async
+from django.http import FileResponse, Http404, StreamingHttpResponse
+from ninja import File, Form, Router, Schema
+from ninja.files import UploadedFile
 
 from apps.core.security.auth import JWTOrSessionAuth
 
-from ..models import WorkbenchMessage, WorkbenchSession
-from ..schemas import MessageIn, MessageOut, SessionCreateIn, SessionOut, SessionUpdateIn
-from ..services import WorkbenchChatService
+from ..models import BatchJob, BatchJobItem, WorkbenchMessage, WorkbenchSession
+from ..schemas import (
+    BatchItemOut,
+    BatchJobOut,
+    BatchProgressOut,
+    MessageIn,
+    MessageOut,
+    SessionCreateIn,
+    SessionOut,
+    SessionUpdateIn,
+)
+from ..services import BatchAnalysisService, WorkbenchChatService
+
+logger = logging.getLogger(__name__)
 
 router = Router(auth=JWTOrSessionAuth())
 
@@ -125,6 +141,35 @@ def truncate_messages(request: Any, session_id: int, message_id: int) -> dict[st
     return {"message": "已截断"}
 
 
+class FeedbackIn(Schema):
+    """消息反馈请求体"""
+
+    rating: str  # 'good' | 'bad'
+    comment: str = ""
+
+
+@router.patch("/messages/{message_id}/feedback")
+def submit_feedback(request: Any, message_id: int, payload: FeedbackIn) -> dict[str, Any]:
+    """提交消息反馈（好评/差评）"""
+    if payload.rating not in ("good", "bad"):
+        return {"success": False, "message": "rating 必须是 good 或 bad"}
+
+    try:
+        msg = WorkbenchMessage.objects.get(id=message_id)
+    except WorkbenchMessage.DoesNotExist:
+        raise Http404("消息不存在")
+
+    # 校验消息属于当前用户的会话
+    _get_user_session(request.user, msg.session_id)
+
+    meta = dict(msg.metadata or {})
+    meta["feedback"] = {"rating": payload.rating, "comment": payload.comment}
+    msg.metadata = meta
+    msg.save(update_fields=["metadata"])
+
+    return {"success": True, "message": "反馈已提交"}
+
+
 # ─── 对话 API（SSE 流式） ────────────────────────────────────────────────────
 
 
@@ -173,6 +218,194 @@ def respond_approval(request: Any, payload: ApprovalIn) -> dict[str, Any]:
     return {
         "success": success,
         "message": "审批已处理" if success else "审批 ID 不存在或已过期",
+    }
+
+
+# ─── 批量分析 API ────────────────────────────────────────────────────────────
+
+
+_batch_service = BatchAnalysisService()
+
+
+@router.post("/batch/analyze", response=BatchJobOut)
+def submit_batch_analysis(
+    request: Any,
+    session_id: int = Form(...),
+    prompt: str = Form(...),
+    llm_model: str = Form(""),
+    concurrency: int = Form(50),
+    files: list[UploadedFile] = File(...),
+) -> BatchJob:
+    """提交批量文档分析任务
+
+    接受 multipart form 数据：session_id, prompt, llm_model, concurrency, files
+    支持 .doc 和 .docx 格式。
+    """
+    # 验证会话
+    _get_user_session(request.user, session_id)
+
+    # 验证文件
+    if not files:
+        raise Http404("请上传至少一个文件")
+
+    allowed_extensions = {".doc", ".docx"}
+    for f in files:
+        ext = f.name.rsplit(".", 1)[-1].lower() if f.name and "." in f.name else ""
+        if f".{ext}" not in allowed_extensions:
+            raise Http404(f"不支持的文件格式: {f.name}，仅支持 .doc 和 .docx")
+
+    job = _batch_service.create_job(
+        session_id=session_id,
+        prompt=prompt,
+        llm_model=llm_model,
+        files=files,
+        concurrency=min(max(concurrency, 1), 100),
+    )
+    return job
+
+
+@router.get("/batch/{job_id}/progress", response=BatchProgressOut)
+def get_batch_progress(request: Any, job_id: UUID) -> dict[str, Any]:
+    """查询批量分析任务进度"""
+    job, items = _batch_service.get_job_progress(job_id)
+    # 验证权限：job 关联的 session 必须属于当前用户
+    _get_user_session(request.user, job.session_id)
+    failed_detail = _batch_service.get_failed_items_detail(job_id)
+    return {
+        "job": BatchJobOut.model_validate(job),
+        "items": [BatchItemOut.model_validate(item) for item in items],
+        "failed_items_detail": failed_detail,
+    }
+
+
+@router.post("/batch/{job_id}/cancel")
+def cancel_batch_analysis(request: Any, job_id: UUID) -> dict[str, Any]:
+    """取消批量分析任务"""
+    job = _batch_service.get_job_progress(job_id)[0]
+    _get_user_session(request.user, job.session_id)
+    job = _batch_service.request_cancel(job_id)
+    return {
+        "success": True,
+        "status": job.status,
+        "message": "取消请求已提交" if job.cancel_requested else "任务已完成或已取消",
+    }
+
+
+@router.get("/batch/{job_id}/download")
+def download_batch_summary(request: Any, job_id: UUID) -> FileResponse:
+    """下载批量分析汇总 CSV 文件"""
+    try:
+        job = BatchJob.objects.get(id=job_id)
+    except BatchJob.DoesNotExist:
+        raise Http404("任务不存在")
+    _get_user_session(request.user, job.session_id)
+
+    if not job.summary_file:
+        raise Http404("汇总文件不存在")
+
+    return FileResponse(
+        job.summary_file.open("rb"),
+        as_attachment=True,
+        filename=job.summary_file.name.split("/")[-1] if job.summary_file.name else "summary.csv",
+        content_type="text/csv; charset=utf-8",
+    )
+
+
+class BatchMessageItemIn(Schema):
+    """批量消息持久化请求体"""
+
+    file_name: str
+    content: str
+    metadata: dict[str, Any] = {}
+
+
+@router.post("/batch/{job_id}/messages")
+def save_batch_messages(request: Any, job_id: UUID, payload: list[BatchMessageItemIn]) -> dict[str, Any]:
+    """将批量分析结果持久化为工作台消息"""
+    try:
+        job = BatchJob.objects.get(id=job_id)
+    except BatchJob.DoesNotExist:
+        raise Http404("任务不存在")
+    _get_user_session(request.user, job.session_id)
+
+    created = []
+    for item in payload:
+        msg = WorkbenchMessage.objects.create(
+            session_id=job.session_id,
+            role="assistant",
+            content=item.content,
+            metadata={**item.metadata, "job_id": str(job_id)},
+        )
+        created.append(msg.id)
+
+    return {"success": True, "created_count": len(created)}
+
+
+# ─── 批量分析增强 API ────────────────────────────────────────────────────────
+
+
+@router.get("/batch/{job_id}/stream")
+async def stream_batch_progress(request: Any, job_id: UUID) -> StreamingHttpResponse:
+    """SSE 流式推送批量分析进度
+
+    前端通过此端点实时获取 item 完成事件和进度更新，替代轮询。
+    """
+    try:
+        job = await BatchJob.objects.aget(id=job_id)
+    except BatchJob.DoesNotExist:
+        raise Http404("任务不存在")
+    _get_user_session(request.user, job.session_id)
+
+    async def event_generator() -> Any:
+        from django.core.cache import cache
+
+        last_event_idx = 0
+        while True:
+            events = await sync_to_async(cache.get)(f"batch_sse:{job_id}") or []
+            # 发送新事件
+            for event in events[last_event_idx:]:
+                yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+            last_event_idx = len(events)
+
+            # 检查终态
+            status = await sync_to_async(lambda: BatchJob.objects.values_list("status", flat=True).get(id=job_id))()
+            if status in ("completed", "failed", "cancelled"):
+                yield f"data: {json.dumps({'type': 'done', 'status': status})}\n\n"
+                break
+
+            await asyncio.sleep(0.5)
+
+    return StreamingHttpResponse(
+        event_generator(),
+        content_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@router.post("/batch/{job_id}/retry")
+def retry_failed_items(request: Any, job_id: UUID) -> dict[str, Any]:
+    """重试批量分析中失败的文件"""
+    job = _batch_service.get_job_progress(job_id)[0]
+    _get_user_session(request.user, job.session_id)
+    result = _batch_service.retry_failed(job_id)
+    return result
+
+
+@router.get("/sessions/{session_id}/batch-jobs")
+def list_batch_jobs(request: Any, session_id: int, page: int = 1) -> dict[str, Any]:
+    """获取会话的批量分析任务历史"""
+    _get_user_session(request.user, session_id)
+    qs = BatchJob.objects.filter(session_id=session_id).order_by("-created_at")
+    page_size = 20
+    offset = (page - 1) * page_size
+    total = qs.count()
+    items = list(qs[offset : offset + page_size])
+    return {
+        "items": [BatchJobOut.model_validate(j).model_dump() for j in items],
+        "count": total,
     }
 
 

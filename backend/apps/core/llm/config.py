@@ -574,6 +574,14 @@ class LLMConfig:
             enabled_raw = _read_with_legacy_keys(enabled_key, name, legacy_name=legacy_name)
             enabled = cls._parse_bool(enabled_raw, default_enabled[name])
 
+            # openai_compatible: 如果配置了 base_url 但未显式设置 enabled，自动启用
+            if name == "openai_compatible" and not enabled and not enabled_raw:
+                base_url = cls._get_system_config("OPENAI_COMPATIBLE_BASE_URL", "")
+                if not base_url:
+                    base_url = cls._get_system_config("MOONSHOT_BASE_URL", "")
+                if base_url:
+                    enabled = True
+
             priority_raw = _read_with_legacy_keys(priority_key, name, legacy_name=legacy_name)
             priority = cls._parse_int(priority_raw, default_priorities[name])
 

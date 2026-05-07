@@ -45,7 +45,7 @@ export function ModelSelector({ disabled }: ModelSelectorProps) {
           <ChevronDown className="size-3 shrink-0" />
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-64 p-0" align="end">
+      <PopoverContent className="w-[calc(100vw-2rem)] sm:w-64 p-0" align="end">
         <ScrollArea className="h-[240px]">
           <div className="p-1">
             {models.map((model) => {

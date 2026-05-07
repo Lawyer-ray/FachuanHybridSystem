@@ -57,8 +57,8 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin[CaseDownloadTask]):
     WEIKE_SITE_FILTER = (
         Q(site_name__icontains="wkxx")
         | Q(site_name__iexact="wk")
-        | Q(site_name__icontains="威科先行")
-        | Q(site_name__icontains="威科")
+        | Q(site_name__icontains="WKXX")
+        | Q(site_name__icontains="WK")
         | Q(site_name__icontains="weike")
         | Q(site_name__icontains="wkinfo")
         | Q(url__icontains="wkinfo.com.cn")
@@ -162,8 +162,8 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin[CaseDownloadTask]):
         queryset = AccountCredential.objects.select_related("lawyer", "lawyer__law_firm").filter(
             Q(site_name__icontains="wkxx")
             | Q(site_name__iexact="wk")
-            | Q(site_name__icontains="威科先行")
-            | Q(site_name__icontains="威科")
+            | Q(site_name__icontains="WKXX")
+            | Q(site_name__icontains="WK")
             | Q(site_name__icontains="weike")
             | Q(site_name__icontains="wkinfo")
             | Q(url__icontains="wkinfo.com.cn")

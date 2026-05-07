@@ -55,13 +55,15 @@ class LegalResearchTaskService:
             raise ValidationException("当前仅支持wkxx账号，请选择wkxx凭证")
 
         normalized_keyword = normalize_keyword_query(payload.keyword)
-        if not normalized_keyword:
-            raise ValidationException("请至少输入一个有效检索关键词")
+        search_url = str(payload.search_url or "").strip()
+        if not normalized_keyword and not search_url:
+            raise ValidationException("请至少输入一个有效检索关键词，或提供 WKInfo 搜索 URL")
 
         task = LegalResearchTask.objects.create(
             created_by=user,
             credential=credential,
             keyword=normalized_keyword,
+            search_url=search_url,
             case_summary=payload.case_summary.strip(),
             search_mode=payload.search_mode or LegalResearchSearchMode.EXPANDED,
             target_count=payload.target_count,

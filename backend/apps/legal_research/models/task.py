@@ -39,6 +39,7 @@ class LegalResearchTask(models.Model):
     )
 
     source = models.CharField(max_length=32, default="weike", verbose_name=_("数据源"))
+    search_url = models.URLField(max_length=2000, blank=True, verbose_name=_("WKInfo搜索URL"))
     keyword = models.CharField(max_length=255, verbose_name=_("检索关键词"))
     # 高级检索：JSON 数组，每项 {"field": "courtOpinion", "keyword": "逾期利息", "op": "AND"}
     # field 可选值：fullText / title / causeOfAction / courtOpinion / judgmentResult / disputeFocus / caseNumber

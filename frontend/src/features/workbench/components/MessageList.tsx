@@ -1,12 +1,16 @@
 /** 消息列表组件 */
 
-import { useEffect, useRef, useMemo } from 'react'
+import { useEffect, useRef, useMemo, useCallback } from 'react'
+import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useWorkbenchStore } from '../stores/workbench-store'
 import { MessageBubble, StreamingBubble } from './MessageBubble'
 
+const VIRTUALIZE_THRESHOLD = 50
+
 export function MessageList() {
   const scrollRef = useRef<HTMLDivElement>(null)
+  const virtuosoRef = useRef<VirtuosoHandle>(null)
   const { messages, streamingMessage, isStreaming, messagesLoading, currentSession } = useWorkbenchStore()
   const prevCountRef = useRef(0)
   const prevSessionIdRef = useRef<number | null>(null)
@@ -37,36 +41,37 @@ export function MessageList() {
     return groups
   }, [messages])
 
+  const useVirtualization = groupedMessages.length > VIRTUALIZE_THRESHOLD
+
   // Scroll to top when switching sessions
   useEffect(() => {
     if (currentSession?.id !== prevSessionIdRef.current) {
       prevSessionIdRef.current = currentSession?.id ?? null
       prevCountRef.current = 0
-      const el = scrollRef.current
-      if (el) {
-        el.scrollTop = 0
+      if (useVirtualization) {
+        virtuosoRef.current?.scrollToIndex({ index: 0, behavior: 'auto' })
+      } else {
+        const el = scrollRef.current
+        if (el) el.scrollTop = 0
       }
     }
-  }, [currentSession?.id])
+  }, [currentSession?.id, useVirtualization])
 
-  // Scroll to bottom when messages first load or new messages arrive
+  // Scroll to bottom when messages first load or new messages arrive (non-virtualized)
   useEffect(() => {
+    if (useVirtualization) return
     const el = scrollRef.current
     if (!el || isEmpty) return
 
     const prevCount = prevCountRef.current
     prevCountRef.current = messages.length
 
-    // Always scroll on first load (prevCount was 0, now has messages)
     const isFirstLoad = prevCount === 0 && messages.length > 0
-
     if (isFirstLoad) {
-      // Delay to let DOM fully layout the new content
       setTimeout(() => {
         el.scrollTop = el.scrollHeight
       }, 50)
     } else {
-      // For new messages, only auto-scroll if user is near bottom
       const threshold = 120
       const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < threshold
       if (isAtBottom) {
@@ -75,17 +80,51 @@ export function MessageList() {
         })
       }
     }
-  }, [messages, isEmpty])
+  }, [messages, isEmpty, useVirtualization])
 
-  // Auto-scroll during streaming
+  // Auto-scroll during streaming (non-virtualized)
   useEffect(() => {
+    if (useVirtualization) return
     if (!streamingMessage) return
     const el = scrollRef.current
     if (!el) return
     requestAnimationFrame(() => {
       el.scrollTop = el.scrollHeight
     })
-  }, [streamingMessage])
+  }, [streamingMessage, useVirtualization])
+
+  // Virtuoso item renderer
+  const renderGroup = useCallback((_index: number, group: typeof groupedMessages[0]) => (
+    <div className="py-2 px-4">
+      <MessageBubble message={group.message} toolCalls={group.toolCalls} />
+    </div>
+  ), [])
+
+  // Virtuoso footer (streaming bubble)
+  const VirtuosoFooter = useCallback(() => {
+    if (!isStreaming || !streamingMessage) return null
+    return (
+      <div className="px-4 pb-2">
+        <StreamingBubble message={streamingMessage} />
+      </div>
+    )
+  }, [isStreaming, streamingMessage])
+
+  // Virtuoso 需要自身作为滚动容器，不能嵌套在 ScrollArea 内
+  if (useVirtualization) {
+    return (
+      <div ref={scrollRef} className="flex-1 overflow-hidden">
+        <Virtuoso
+          ref={virtuosoRef}
+          data={groupedMessages}
+          followOutput="smooth"
+          itemContent={renderGroup}
+          components={{ Footer: VirtuosoFooter }}
+          style={{ height: '100%' }}
+        />
+      </div>
+    )
+  }
 
   return (
     <ScrollArea ref={scrollRef} className="flex-1 overflow-y-auto">
@@ -103,7 +142,7 @@ export function MessageList() {
           ))}
         </div>
       ) : isEmpty ? (
-        <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
+        <div className="flex min-h-[60vh] items-center justify-center text-muted-foreground text-sm">
           <div className="text-center space-y-2">
             <div className="text-4xl">💬</div>
             <p>开始对话吧</p>

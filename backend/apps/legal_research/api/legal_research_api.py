@@ -58,6 +58,7 @@ def _serialize_task(task: Any) -> LegalResearchTaskOut:
         llm_backend=task.llm_backend,
         llm_model=task.llm_model or "",
         q_task_id=task.q_task_id or "",
+        search_url=task.search_url or "",
         started_at=task.started_at,
         finished_at=task.finished_at,
         created_at=task.created_at,

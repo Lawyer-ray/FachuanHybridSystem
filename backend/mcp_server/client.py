@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 import threading
 import time
@@ -11,6 +12,11 @@ import httpx
 
 from . import config
 
+logger = logging.getLogger(__name__)
+
+_MAX_OBTAIN_RETRIES = 3
+_RETRY_BACKOFF = (1.0, 3.0, 5.0)
+
 
 class FachuanClient:
     def __init__(self) -> None:
@@ -18,18 +24,35 @@ class FachuanClient:
         self._refresh_token: str = ""
         self._expires_at: float = 0.0
         self._lock = threading.Lock()
-        self._http = httpx.Client(base_url=config.BASE_URL, timeout=60)
+        # trust_env=False: 绕过系统代理，直连后端（避免 macOS 代理工具对 localhost 返回 502）
+        self._http = httpx.Client(base_url=config.BASE_URL, timeout=60, trust_env=False)
 
     def _obtain_token(self) -> None:
-        resp = self._http.post(
-            "/token/pair",
-            json={"username": config.USERNAME, "password": config.PASSWORD},
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        self._access_token = data["access"]
-        self._refresh_token = data["refresh"]
-        self._expires_at = time.time() + 270  # 提前 30s 刷新
+        last_exc: Exception | None = None
+        for attempt in range(_MAX_OBTAIN_RETRIES):
+            try:
+                resp = self._http.post(
+                    "/token/pair",
+                    json={"username": config.USERNAME, "password": config.PASSWORD},
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                self._access_token = data["access"]
+                self._refresh_token = data["refresh"]
+                self._expires_at = time.time() + 270  # 提前 30s 刷新
+                return
+            except httpx.HTTPStatusError as exc:
+                last_exc = exc
+                status = exc.response.status_code
+                if status < 500:
+                    raise  # 4xx 客户端错误直接抛
+                logger.warning("token/pair 返回 %d，第 %d 次重试", status, attempt + 1)
+            except (httpx.ConnectError, httpx.ReadTimeout) as exc:
+                last_exc = exc
+                logger.warning("token/pair 连接失败: %s，第 %d 次重试", exc, attempt + 1)
+            if attempt < _MAX_OBTAIN_RETRIES - 1:
+                time.sleep(_RETRY_BACKOFF[attempt])
+        raise last_exc  # type: ignore[misc]
 
     def _refresh(self) -> None:
         try:

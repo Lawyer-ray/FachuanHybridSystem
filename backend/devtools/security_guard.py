@@ -17,6 +17,7 @@ SOURCE_DIR_PREFIXES = (
 )
 FORBIDDEN_BINARY_EXTENSIONS = (".onnx", ".mp4", ".zip")
 FORBIDDEN_PRIVATE_PATH_PREFIXES = (
+    "backend/plugins/weike_api_private/",
     "backend/apps/legal_research/services/sources/weike_api_private/",
     "backend/apps/legal_research/services/sources/weike/api_private/",
 )
@@ -153,7 +154,7 @@ def _check_private_paths(files: list[str], mode: str, base: str | None, head: st
     for filepath in _resolve_candidates(files, mode, base, head):
         normalized = filepath.replace("\\", "/").lower()
         if any(normalized.startswith(prefix) for prefix in FORBIDDEN_PRIVATE_PATH_PREFIXES):
-            errors.append(f"{filepath}: 禁止提交威科私有实现目录（weike_api_private/api_private）")
+            errors.append(f"{filepath}: 禁止提交WK私有实现目录（weike_api_private/api_private）")
     return errors
 
 

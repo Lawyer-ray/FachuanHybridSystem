@@ -18,7 +18,7 @@ import { z } from 'zod'
  * - reminder_type: 必填，不能为空字符串
  * - content: 必填，1-255 字符
  * - due_at: 必填，有效日期
- * - contract_id/case_log_id: 二选一必填
+ * - contract_id/case_log_id: 可选，最多关联一个
  *
  * @validates Requirements 7.1, 7.2, 7.3, 7.4
  */
@@ -49,11 +49,11 @@ export const reminderFormSchema = z
     (data) => {
       const hasContract = data.contract_id != null && data.contract_id !== 0
       const hasCaseLog = data.case_log_id != null && data.case_log_id !== 0
-      // XOR: 必须且只能有一个为真
-      return hasContract !== hasCaseLog
+      // 最多关联一个（不能同时关联合同和案件日志）
+      return !(hasContract && hasCaseLog)
     },
     {
-      message: '必须且只能关联合同或案件日志之一',
+      message: '不能同时关联合同和案件日志',
       path: ['contract_id'],
     }
   )

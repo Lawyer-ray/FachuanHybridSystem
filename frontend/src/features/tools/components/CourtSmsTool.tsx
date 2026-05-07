@@ -15,10 +15,6 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from '@/components/ui/dialog'
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import {
@@ -182,9 +178,6 @@ export function CourtSmsTool() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [batchLoading, setBatchLoading] = useState(false)
 
-  // Delete dialog state
-  const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
-
   // Assign case dialog state
   const [assignOpen, setAssignOpen] = useState(false)
   const [assignSmsId, setAssignSmsId] = useState<number | null>(null)
@@ -224,20 +217,6 @@ export function CourtSmsTool() {
   }, [filtered, selectedIds])
 
   // Delete handlers
-  const handleSingleDelete = useCallback(async () => {
-    if (!deleteTarget) return
-    try {
-      await courtSmsApi.delete(deleteTarget)
-      toast.success('短信已删除')
-      queryClient.invalidateQueries({ queryKey: ['court-sms'] })
-      setSelectedIds((prev) => { const next = new Set(prev); next.delete(deleteTarget); return next })
-    } catch {
-      toast.error('删除失败')
-    } finally {
-      setDeleteTarget(null)
-    }
-  }, [deleteTarget, queryClient])
-
   const handleBatchDelete = useCallback(async () => {
     if (selectedIds.size === 0) return
     setBatchLoading(true)
@@ -283,7 +262,7 @@ export function CourtSmsTool() {
     queryClient.invalidateQueries({ queryKey: ['court-sms'] })
   }, [queryClient])
 
-  const colCount = 7 // checkbox + ID + 状态 + 内容 + 关联案件 + 文书 + 收到时间 + 删除
+  const colCount = 7 // checkbox + ID + 状态 + 内容 + 关联案件 + 文书 + 收到时间
 
   return (
     <div className="space-y-6">
@@ -415,7 +394,6 @@ export function CourtSmsTool() {
               <TableHead className="w-[160px]">关联案件</TableHead>
               <TableHead className="w-[60px]">文书</TableHead>
               <TableHead className="w-[120px]">收到时间</TableHead>
-              <TableHead className="w-[40px]" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -477,16 +455,6 @@ export function CourtSmsTool() {
                   <TableCell className="text-muted-foreground text-sm">
                     {formatDate(sms.received_at)}
                   </TableCell>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="size-7 p-0 text-muted-foreground hover:text-destructive"
-                      onClick={() => setDeleteTarget(sms.id)}
-                    >
-                      <Trash2 className="size-3.5" />
-                    </Button>
-                  </TableCell>
                 </TableRow>
               )
             })}
@@ -533,20 +501,6 @@ export function CourtSmsTool() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Single Delete Dialog */}
-      <AlertDialog open={deleteTarget !== null} onOpenChange={() => setDeleteTarget(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>确认删除短信</AlertDialogTitle>
-            <AlertDialogDescription>删除后无法恢复。</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={handleSingleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">确认删除</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       {/* Assign Case Dialog */}
       <AssignCaseDialog

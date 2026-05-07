@@ -378,10 +378,10 @@ export function ReminderForm({
         {/* 关联选择 - Requirements: 7.4 */}
         <div className="space-y-4">
           <FormLabel>
-            关联 <span className="text-destructive">*</span>
+            关联（可选）
           </FormLabel>
           <FormDescription>
-            必须且只能关联合同或案件日志之一
+            可选择关联合同或案件日志，也可以不关联
           </FormDescription>
 
           {/* 关联类型选择按钮 */}
