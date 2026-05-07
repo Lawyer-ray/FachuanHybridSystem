@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import logging
+import shutil
 import uuid
+from pathlib import Path
 from typing import Any
 
+from django.conf import settings
 from django.core.files.uploadedfile import UploadedFile
 from django.db import transaction
 from django.utils import timezone
@@ -142,6 +145,62 @@ class DocConverterService:
             "status": item.status,
             "error": item.error or "",
             "duration_ms": item.duration_ms,
+        }
+
+    def save_job_to_directory(
+        self,
+        *,
+        job_id: uuid.UUID,
+        target_dir: str,
+    ) -> dict[str, Any]:
+        job = self.get_job(job_id)
+        if job.status != DocConverterJobStatus.COMPLETED:
+            raise ValidationException(
+                message="任务尚未完成", errors={"status": f"当前状态: {job.get_status_display()}"}
+            )
+
+        if not target_dir or not target_dir.strip():
+            raise ValidationException(message="目标目录不能为空", errors={"target_dir": "请输入目录路径"})
+
+        resolved = Path(target_dir).resolve()
+        if ".." in Path(target_dir).parts:
+            raise ValidationException(message="路径不合法", errors={"target_dir": "不允许包含 .."})
+
+        media_root = Path(settings.MEDIA_ROOT).resolve()
+        if resolved == media_root or media_root in resolved.parents:
+            raise ValidationException(
+                message="不能保存到媒体目录", errors={"target_dir": "目标目录不能在 MEDIA_ROOT 下"}
+            )
+
+        try:
+            resolved.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            raise ValidationException(
+                message="无法创建目录", errors={"target_dir": str(exc)}
+            ) from exc
+
+        items = DocConverterItem.objects.filter(
+            job=job,
+            status=DocConverterJobStatus.COMPLETED,
+        ).exclude(converted_file="")
+
+        saved_files: list[str] = []
+        for item in items:
+            src = Path(item.converted_file.path)
+            if not src.exists():
+                continue
+            dest_name = Path(item.original_name).stem + ".docx"
+            dest = resolved / dest_name
+            shutil.copy2(str(src), str(dest))
+            saved_files.append(dest_name)
+
+        if not saved_files:
+            raise ValidationException(message="没有可保存的文件", errors={"files": "无已转换的文件"})
+
+        return {
+            "saved_files": saved_files,
+            "total_saved": len(saved_files),
+            "target_dir": str(resolved),
         }
 
     def _validate_file(self, f: UploadedFile) -> None:

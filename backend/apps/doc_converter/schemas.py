@@ -36,3 +36,18 @@ class JobOut(Schema):
 class JobProgressOut(Schema):
     job: JobOut
     items: list[ItemOut]
+
+
+class HealthOut(Schema):
+    libreoffice_available: bool
+    libreoffice_path: str | None = None
+
+
+class SaveToDirIn(Schema):
+    target_dir: str
+
+
+class SaveToDirOut(Schema):
+    saved_files: list[str]
+    total_saved: int
+    target_dir: str
