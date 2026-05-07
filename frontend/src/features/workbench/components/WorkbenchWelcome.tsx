@@ -2,15 +2,13 @@
 
 import { Bot, Plus, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { SuggestedPrompts } from './SuggestedPrompts'
 
 interface WorkbenchWelcomeProps {
   onCreateSession: () => void
   isCreating: boolean
-  onSelectPrompt: (prompt: string) => void
 }
 
-export function WorkbenchWelcome({ onCreateSession, isCreating, onSelectPrompt }: WorkbenchWelcomeProps) {
+export function WorkbenchWelcome({ onCreateSession, isCreating }: WorkbenchWelcomeProps) {
   return (
     <div className="flex flex-1 flex-col overflow-y-auto">
       <div className="mx-auto w-full max-w-2xl px-4 py-8 space-y-6">
@@ -27,12 +25,6 @@ export function WorkbenchWelcome({ onCreateSession, isCreating, onSelectPrompt }
             )}
             新建会话
           </Button>
-        </div>
-
-        {/* 快速开始 */}
-        <div className="space-y-2">
-          <h3 className="text-xs font-medium text-muted-foreground">快速开始</h3>
-          <SuggestedPrompts onSelect={onSelectPrompt} />
         </div>
       </div>
     </div>

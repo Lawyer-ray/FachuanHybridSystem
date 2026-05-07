@@ -492,7 +492,6 @@ export function WorkbenchPage() {
           <WorkbenchWelcome
             onCreateSession={handleNewSession}
             isCreating={isCreating}
-            onSelectPrompt={handleSend}
           />
         )}
       </div>
