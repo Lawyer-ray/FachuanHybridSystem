@@ -43,35 +43,36 @@ export function MessageList() {
 
   const useVirtualization = groupedMessages.length > VIRTUALIZE_THRESHOLD
 
-  // Scroll to top when switching sessions
+  // Reset counter when switching sessions (first-load effect will scroll to bottom)
   useEffect(() => {
     if (currentSession?.id !== prevSessionIdRef.current) {
       prevSessionIdRef.current = currentSession?.id ?? null
       prevCountRef.current = 0
-      if (useVirtualization) {
-        virtuosoRef.current?.scrollToIndex({ index: 0, behavior: 'auto' })
-      } else {
-        const el = scrollRef.current
-        if (el) el.scrollTop = 0
-      }
     }
-  }, [currentSession?.id, useVirtualization])
+  }, [currentSession?.id])
 
-  // Scroll to bottom when messages first load or new messages arrive (non-virtualized)
+  // Scroll to bottom when messages first load or new messages arrive
   useEffect(() => {
-    if (useVirtualization) return
-    const el = scrollRef.current
-    if (!el || isEmpty) return
-
     const prevCount = prevCountRef.current
     prevCountRef.current = messages.length
 
+    if (isEmpty) return
+
     const isFirstLoad = prevCount === 0 && messages.length > 0
     if (isFirstLoad) {
-      setTimeout(() => {
-        el.scrollTop = el.scrollHeight
-      }, 50)
-    } else {
+      if (useVirtualization) {
+        setTimeout(() => {
+          virtuosoRef.current?.scrollToIndex({ index: messages.length - 1, behavior: 'auto' })
+        }, 50)
+      } else {
+        setTimeout(() => {
+          const el = scrollRef.current
+          if (el) el.scrollTop = el.scrollHeight
+        }, 50)
+      }
+    } else if (!useVirtualization) {
+      const el = scrollRef.current
+      if (!el) return
       const threshold = 120
       const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < threshold
       if (isAtBottom) {

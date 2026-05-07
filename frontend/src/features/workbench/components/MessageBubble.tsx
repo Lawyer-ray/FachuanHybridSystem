@@ -31,6 +31,7 @@ import 'highlight.js/styles/github-dark.css'
 hljs.registerLanguage('json', json)
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { formatDate } from '@/lib/date'
 import { Textarea } from '@/components/ui/textarea'
 import { useWorkbenchStore } from '../stores/workbench-store'
 import type { WorkbenchMessage, StreamingMessage, ToolCallState } from '../types'
@@ -61,46 +62,53 @@ export function MessageBubble({ message, toolCalls }: MessageBubbleProps) {
         </div>
       )}
 
-      <div
-        className={cn(
-          'group relative max-w-[85%] md:max-w-[75%] min-w-0 rounded-lg px-4 py-2.5 text-sm',
-          isUser
-            ? 'bg-primary text-primary-foreground'
-            : isSystem
-              ? 'bg-destructive/10 text-destructive'
-              : 'bg-muted',
-        )}
-      >
-        {isUser ? (
-          <UserMessageContent message={message} />
-        ) : (
-          <MarkdownContent content={message.content} isSystem={isSystem} />
-        )}
+      <div className={cn('flex flex-col gap-0.5', isUser ? 'items-end' : 'items-start')}>
+        <div
+          className={cn(
+            'group relative max-w-[85%] md:max-w-[75%] min-w-0 rounded-lg px-4 py-2.5 text-sm',
+            isUser
+              ? 'bg-primary text-primary-foreground'
+              : isSystem
+                ? 'bg-destructive/10 text-destructive'
+                : 'bg-muted',
+          )}
+        >
+          {isUser ? (
+            <UserMessageContent message={message} />
+          ) : (
+            <MarkdownContent content={message.content} isSystem={isSystem} />
+          )}
 
-        {/* 批量分析汇总：下载 CSV 按钮 */}
-        {!isUser && !isSystem && message.metadata?.source === 'batch_analysis' && typeof message.metadata?.job_id === 'string' ? (
-          <BatchDownloadButton jobId={message.metadata.job_id} />
-        ) : null}
+          {/* 批量分析汇总：下载 CSV 按钮 */}
+          {!isUser && !isSystem && message.metadata?.source === 'batch_analysis' && typeof message.metadata?.job_id === 'string' ? (
+            <BatchDownloadButton jobId={message.metadata.job_id} />
+          ) : null}
 
-        {/* 内联工具调用 */}
-        {toolCalls && toolCalls.length > 0 && (
-          <InlineToolCalls toolCalls={toolCalls} />
-        )}
+          {/* 内联工具调用 */}
+          {toolCalls && toolCalls.length > 0 && (
+            <InlineToolCalls toolCalls={toolCalls} />
+          )}
 
-        {/* 助手消息：token 用量 + 模型标签 */}
-        {!isUser && !isSystem && (
-          <AssistantMeta message={message} />
-        )}
+          {/* 助手消息：token 用量 + 模型标签 */}
+          {!isUser && !isSystem && (
+            <AssistantMeta message={message} />
+          )}
 
-        {/* 助手消息：反馈按钮 */}
-        {!isUser && !isSystem && message.role === 'assistant' && (
-          <FeedbackButtons message={message} />
-        )}
+          {/* 助手消息：反馈按钮 */}
+          {!isUser && !isSystem && message.role === 'assistant' && (
+            <FeedbackButtons message={message} />
+          )}
 
-        {/* 助手消息：hover 操作按钮 */}
-        {!isUser && !isSystem && (
-          <MessageActions message={message} />
-        )}
+          {/* 助手消息：hover 操作按钮 */}
+          {!isUser && !isSystem && (
+            <MessageActions message={message} />
+          )}
+        </div>
+
+        {/* 时间戳 */}
+        <span className="px-1 text-[10px] text-muted-foreground/60">
+          {formatDate(message.created_at)}
+        </span>
       </div>
 
       {isUser && (
