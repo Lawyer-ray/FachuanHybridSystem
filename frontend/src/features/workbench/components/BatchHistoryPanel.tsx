@@ -34,6 +34,13 @@ function BatchJobRow({ job }: { job: BatchJob }) {
     window.open(`${baseUrl}/workbench/batch/${job.id}/download${token ? `?token=${token}` : ''}`, '_blank')
   }
 
+  const handleDownloadDetail = () => {
+    if (!job.detail_zip_file) return
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002/api/v1'
+    const token = localStorage.getItem('access_token')
+    window.open(`${baseUrl}/workbench/batch/${job.id}/download-detail${token ? `?token=${token}` : ''}`, '_blank')
+  }
+
   return (
     <div className="border rounded-md">
       <div className="flex items-center gap-2 px-3 py-2 text-xs">
@@ -50,6 +57,15 @@ function BatchJobRow({ job }: { job: BatchJob }) {
             onClick={(e) => { e.stopPropagation(); handleDownload() }}
             className="shrink-0 text-muted-foreground hover:text-foreground"
             title="下载 CSV"
+          >
+            <Download className="size-3" />
+          </button>
+        )}
+        {job.detail_zip_file && (
+          <button
+            onClick={(e) => { e.stopPropagation(); handleDownloadDetail() }}
+            className="shrink-0 text-muted-foreground hover:text-foreground"
+            title="下载分析详情 ZIP"
           >
             <Download className="size-3" />
           </button>

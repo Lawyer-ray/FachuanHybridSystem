@@ -519,24 +519,33 @@ const MarkdownContent = React.memo(function MarkdownContent({
   )
 })
 
-/** 批量分析汇总：CSV 下载按钮 */
+/** 批量分析汇总：CSV + ZIP 下载按钮 */
 function BatchDownloadButton({ jobId }: { jobId: string }) {
-  const [downloading, setDownloading] = useState(false)
+  const [downloading, setDownloading] = useState<string | null>(null)
 
-  const handleDownload = async () => {
-    setDownloading(true)
+  const handleDownload = async (type: 'csv' | 'zip') => {
+    setDownloading(type)
     try {
       const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002/api/v1'
       const token = localStorage.getItem('access_token')
-      const response = await fetch(`${baseUrl}/workbench/batch/${jobId}/download`, {
+      const endpoint = type === 'csv' ? 'download' : 'download-detail'
+      const response = await fetch(`${baseUrl}/workbench/batch/${jobId}/${endpoint}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       })
-      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      if (!response.ok) {
+        if (response.status === 404) {
+          toast.error(type === 'zip' ? '分析详情文件尚未生成' : '汇总文件不存在')
+          return
+        }
+        throw new Error(`HTTP ${response.status}`)
+      }
       const blob = await response.blob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `案例分析汇总_${jobId.slice(0, 8)}.csv`
+      a.download = type === 'csv'
+        ? `案例分析汇总_${jobId.slice(0, 8)}.csv`
+        : `案例分析详情_${jobId.slice(0, 8)}.zip`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -544,19 +553,27 @@ function BatchDownloadButton({ jobId }: { jobId: string }) {
     } catch {
       toast.error('下载失败')
     } finally {
-      setDownloading(false)
+      setDownloading(null)
     }
   }
 
   return (
-    <div className="mt-2">
+    <div className="mt-2 flex gap-2">
       <button
-        onClick={handleDownload}
-        disabled={downloading}
+        onClick={() => handleDownload('csv')}
+        disabled={downloading !== null}
         className="inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
       >
-        <Download className={cn('size-3.5', downloading && 'animate-spin')} />
-        {downloading ? '下载中...' : '下载汇总 CSV'}
+        <Download className={cn('size-3.5', downloading === 'csv' && 'animate-spin')} />
+        {downloading === 'csv' ? '下载中...' : '下载汇总 CSV'}
+      </button>
+      <button
+        onClick={() => handleDownload('zip')}
+        disabled={downloading !== null}
+        className="inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
+      >
+        <Download className={cn('size-3.5', downloading === 'zip' && 'animate-spin')} />
+        {downloading === 'zip' ? '下载中...' : '下载分析详情 ZIP'}
       </button>
     </div>
   )

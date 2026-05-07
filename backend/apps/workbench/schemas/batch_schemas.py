@@ -33,6 +33,7 @@ class BatchJobOut(BaseModel):
     progress: int
     summary: str
     summary_file: str = ""
+    detail_zip_file: str = ""
     error_message: str
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -49,6 +50,16 @@ class BatchJobOut(BaseModel):
     @field_validator("summary_file", mode="before")
     @classmethod
     def _resolve_summary_file(cls, v: object) -> str:
+        if v and hasattr(v, "url"):
+            try:
+                return str(v.url)
+            except ValueError:
+                return ""
+        return ""
+
+    @field_validator("detail_zip_file", mode="before")
+    @classmethod
+    def _resolve_detail_zip_file(cls, v: object) -> str:
         if v and hasattr(v, "url"):
             try:
                 return str(v.url)

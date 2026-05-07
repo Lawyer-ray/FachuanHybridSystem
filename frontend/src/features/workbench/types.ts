@@ -149,6 +149,7 @@ export interface BatchJob {
   progress: number
   summary: string
   summary_file: string
+  detail_zip_file: string
   error_message: string
   created_at: string
   updated_at: string

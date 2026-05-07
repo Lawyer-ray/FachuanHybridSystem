@@ -481,6 +481,7 @@ async def _run_batch_async(job_id: UUID) -> None:
         if completed_items:
             logger.info("Phase 3: 生成汇总报告 (%d 个已完成)", len(completed_items))
             summary = await _generate_summary(job_id, job.prompt, completed_items)
+            await _generate_detail_zip(job_id, completed_items)
             await sync_to_async(BatchJob.objects.filter(id=job_id).update)(
                 status=BatchJobStatus.COMPLETED,
                 summary=summary,
@@ -682,6 +683,7 @@ async def _run_batch_retry_async(job_id: UUID, item_ids: list[UUID]) -> None:
         ]
         if completed_items:
             summary = await _generate_summary(job_id, job.prompt, completed_items)
+            await _generate_detail_zip(job_id, completed_items)
             await sync_to_async(BatchJob.objects.filter(id=job_id).update)(
                 status=BatchJobStatus.COMPLETED,
                 summary=summary,
@@ -815,3 +817,73 @@ async def _generate_summary(
         summary_text += f"\n> 注意：有 {missing_count} 个案例未提取到元数据，可能是分析结果格式不符合预期。\n"
 
     return summary_text
+
+
+async def _generate_detail_zip(
+    job_id: UUID,
+    completed_items: list[BatchJobItem],
+) -> None:
+    """为每个已完成的案例生成独立的 .md 文件，打包为 ZIP。"""
+    import io
+    import re
+    import zipfile
+
+    from django.core.files.base import ContentFile
+
+    zip_buffer = io.BytesIO()
+
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        seen_names: dict[str, int] = {}
+
+        for item in completed_items:
+            if not item.result:
+                continue
+
+            parsed = _parse_llm_result(item.result, item.file_name)
+
+            md_parts: list[str] = []
+            md_parts.append("# 案例分析报告\n")
+            md_parts.append("## 基本信息\n")
+            md_parts.append(f"- **文件名**：{item.file_name}")
+            md_parts.append(f"- **案号**：{parsed['case_number']}")
+            md_parts.append(f"- **案由**：{parsed['cause']}")
+            md_parts.append(f"- **审理法院**：{parsed['court']}")
+            md_parts.append(f"- **法官**：{parsed['judge']}")
+            md_parts.append(f"- **书记员**：{parsed['clerk']}")
+            md_parts.append(f"- **与研究问题相关**：{'是' if parsed['is_relevant'] else '否'}")
+            md_parts.append("")
+            md_parts.append("## 结论\n")
+            md_parts.append(parsed["conclusion"])
+            md_parts.append("")
+            md_parts.append("## 详细分析\n")
+            md_parts.append(parsed["analysis"])
+
+            md_content = "\n".join(md_parts)
+
+            # 从原始文件名派生 md 文件名
+            base_name = item.file_name
+            if "." in base_name:
+                base_name = base_name.rsplit(".", 1)[0]
+            base_name = re.sub(r"[^0-9A-Za-z一-鿿._-]+", "_", base_name)
+            base_name = re.sub(r"_+", "_", base_name).strip("_") or "unnamed"
+
+            md_filename = f"{base_name}.md"
+
+            # 处理重名
+            if md_filename in seen_names:
+                seen_names[md_filename] += 1
+                md_filename = f"{base_name}_{seen_names[md_filename]}.md"
+            else:
+                seen_names[md_filename] = 0
+
+            zf.writestr(md_filename, md_content.encode("utf-8"))
+
+    zip_buffer.seek(0)
+    zip_filename = f"案例分析详情_{job_id.hex[:8]}.zip"
+    zip_file = ContentFile(zip_buffer.getvalue(), name=zip_filename)
+
+    def _save_zip() -> None:
+        job = BatchJob.objects.get(id=job_id)
+        job.detail_zip_file.save(zip_filename, zip_file, save=True)
+
+    await sync_to_async(_save_zip)()
