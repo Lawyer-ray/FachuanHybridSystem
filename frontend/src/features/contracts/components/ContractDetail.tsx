@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react'
+import { copyToClipboard } from '@/lib/clipboard'
 import { useNavigate } from 'react-router'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
@@ -363,7 +364,7 @@ export function ContractDetail({ contractId }: ContractDetailProps) {
                         <span className="text-[13px] font-mono text-right flex-1 min-w-0 truncate">{value}</span>
                         <button
                           className="ml-2 p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
-                          onClick={() => { navigator.clipboard.writeText(value); toast.success('已复制') }}
+                          onClick={() => copyToClipboard(String(value))}
                         >
                           <Copy className="size-3" />
                         </button>
@@ -430,7 +431,7 @@ export function ContractDetail({ contractId }: ContractDetailProps) {
                                   d.address ? `住所地：${d.address}` : null,
                                 ]
                             const text = lines.filter(Boolean).join('\n')
-                            if (text) { navigator.clipboard.writeText(text); toast.success('已复制全部信息') }
+                            if (text) copyToClipboard(text, '已复制全部信息')
                           }}
                         >
                           <Copy className="size-3" />复制全部
@@ -469,7 +470,7 @@ export function ContractDetail({ contractId }: ContractDetailProps) {
                         <span className="text-[13px] text-right flex-1 min-w-0 truncate">{selectedLawyer.lawyer_name}</span>
                         <button
                           className="ml-2 p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
-                          onClick={() => { navigator.clipboard.writeText(selectedLawyer.lawyer_name); toast.success('已复制') }}
+                          onClick={() => copyToClipboard(selectedLawyer.lawyer_name)}
                         >
                           <Copy className="size-3" />
                         </button>
@@ -479,7 +480,7 @@ export function ContractDetail({ contractId }: ContractDetailProps) {
                         <span className="text-[13px] font-mono text-right flex-1 min-w-0 truncate">{selectedLawyer.lawyer_id}</span>
                         <button
                           className="ml-2 p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
-                          onClick={() => { navigator.clipboard.writeText(String(selectedLawyer.lawyer_id)); toast.success('已复制') }}
+                          onClick={() => copyToClipboard(String(selectedLawyer.lawyer_id))}
                         >
                           <Copy className="size-3" />
                         </button>
@@ -496,7 +497,7 @@ export function ContractDetail({ contractId }: ContractDetailProps) {
                             `角色：${selectedLawyer.is_primary ? '主办律师' : '协办律师'}`,
                             `律师 ID：${selectedLawyer.lawyer_id}`,
                           ].join('\n')
-                          navigator.clipboard.writeText(lines)
+                          copyToClipboard(lines, '已复制全部信息')
                           toast.success('已复制全部信息')
                         }}
                       >

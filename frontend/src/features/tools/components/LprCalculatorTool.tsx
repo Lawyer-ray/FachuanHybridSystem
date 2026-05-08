@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { copyToClipboard } from '@/lib/clipboard'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -220,13 +221,13 @@ export function LprCalculatorTool() {
       text += '\n'
     }
     text += `总计 | ${result.total_days}天 | - | ¥${formatMoney(result.total_interest)}\n`
-    navigator.clipboard.writeText(text).then(() => alert('明细已复制'))
+    copyToClipboard(text, '明细已复制')
   }
 
   const copyResult = () => {
     if (!result?.success) return
     const text = `LPR利息计算结果\n总利息: ¥${formatMoney(result.total_interest)}\n计息天数: ${result.total_days}天\n本金: ¥${formatMoney(result.total_principal)}`
-    navigator.clipboard.writeText(text).then(() => alert('已复制到剪贴板'))
+    copyToClipboard(text, '已复制到剪贴板')
   }
 
   const groups = result?.success && result.periods ? groupByPrincipal(result.periods) : []
