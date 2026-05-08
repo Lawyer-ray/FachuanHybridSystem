@@ -7,26 +7,26 @@ import type {
   LLMModel,
   AgentType,
   ApprovalState,
-  SSEEvent,
   StreamingMessage,
-  ToolCallState,
   BatchProgress,
   Attachment,
 } from '../types'
 import * as api from '../api'
 import { getAccessToken } from '@/lib/token'
 import { API_BASE_URL } from '@/lib/api'
+import { connectAndReadStream, reduceStreamingMessage, stripMetadataBlock } from './streaming-helpers'
+import {
+  createUserMessage,
+  finalizeStreamingMessages,
+  createAbortedMessage,
+  createPartialMessage,
+  createErrorMessage,
+  createBatchItemMessage,
+  createBatchSummaryMessage,
+} from './message-factory'
 
 const FAVORITE_MODEL_KEY = 'workbench_favorite_model'
 const SELECTED_AGENT_KEY = 'workbench_selected_agent'
-
-// 匹配【案例元数据汇总】块（兼容有无代码块包裹），用于前端展示时去除
-const METADATA_BLOCK_RE = /```[^\n]*\n\s*【案例元数据汇总】\s*\n[\s\S]*?\n\s*```\s*$|【案例元数据汇总】\s*\n[\s\S]*$/g
-
-/** 去除分析结果中的元数据汇总块，只保留分析正文 */
-function stripMetadataBlock(text: string): string {
-  return text.replace(METADATA_BLOCK_RE, '').trim()
-}
 
 // 用于中断正在进行的流式请求
 let _abortController: AbortController | null = null
@@ -226,19 +226,7 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
     const fullContent = content + attachmentNote
 
     // 添加用户消息到本地
-    const userMsg: WorkbenchMessage = {
-      id: Date.now(),
-      role: 'user',
-      content: fullContent,
-      llm_model: '',
-      tool_call_id: '',
-      tool_name: '',
-      tool_input: {},
-      tool_output: {},
-      metadata: {},
-      created_at: new Date().toISOString(),
-    }
-    set((state) => ({ messages: [...state.messages, userMsg] }))
+    set((state) => ({ messages: [...state.messages, createUserMessage(fullContent)] }))
 
     // 开始流式请求
     _abortController = new AbortController()
@@ -253,9 +241,8 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
     let retryCount = 0
 
     const connectAndRead = async (resumeFrom: string): Promise<void> => {
-      const baseUrl = API_BASE_URL
       const token = getAccessToken()
-      const url = `${baseUrl}/workbench/sessions/${currentSession.id}/messages/stream`
+      const url = `${API_BASE_URL}/workbench/sessions/${currentSession.id}/messages/stream`
 
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -265,53 +252,23 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
         headers['Last-Event-ID'] = resumeFrom
       }
 
-      const response = await fetch(url, {
-        method: 'POST',
-        signal: _abortController?.signal,
+      await connectAndReadStream(
+        url,
         headers,
-        body: JSON.stringify({
+        {
           content: resumeFrom ? undefined : fullContent,
           llm_model: selectedModel,
           agent_type: selectedAgent,
           attachment_ids: resumeFrom ? undefined : (attachmentIds.length > 0 ? attachmentIds : undefined),
           resume_from: resumeFrom || undefined,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`)
-      }
-
-      const reader = response.body?.getReader()
-      if (!reader) throw new Error('No reader')
-
-      const decoder = new TextDecoder()
-      let buffer = ''
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || ''
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue
-          const data = line.slice(6).trim()
-          if (data === '[DONE]') continue
-
-          try {
-            const event = JSON.parse(data) as SSEEvent
-            // 跟踪事件 ID 用于重连
-            if (event.type === 'meta' && event.session_id) {
-              lastEventId = event.session_id
-            }
-            get().handleSSEEvent(event)
-            retryCount = 0 // 成功接收事件后重置重试计数
-          } catch { /* skip malformed */ }
-        }
-      }
+        },
+        _abortController?.signal,
+        (event) => {
+          get().handleSSEEvent(event)
+          retryCount = 0
+        },
+        (id) => { lastEventId = id },
+      )
     }
 
     try {
@@ -319,55 +276,11 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
 
       // 流结束 - 将 streamingMessage 转为正式消息
       const { streamingMessage } = get()
-      const newMessages: WorkbenchMessage[] = []
-
-      // 保存工具调用消息
-      if (streamingMessage) {
-        for (const tc of streamingMessage.toolCalls) {
-          newMessages.push({
-            id: Date.now() + Math.random(),
-            role: 'tool',
-            content: `工具 ${tc.name}: ${tc.status === 'success' ? '成功' : tc.status === 'error' ? '失败' : '执行中'}`,
-            llm_model: '',
-            tool_call_id: tc.toolCallId,
-            tool_name: tc.name,
-            tool_input: tc.arguments,
-            tool_output: tc.result ? { result: tc.result, success: tc.success } : {},
-            metadata: { success: tc.success ?? (tc.status === 'success') },
-            created_at: new Date().toISOString(),
-          })
-        }
-      }
-
-      if (streamingMessage && streamingMessage.content) {
-        newMessages.push({
-          id: Date.now() + 1,
-          role: 'assistant',
-          content: streamingMessage.content,
-          llm_model: streamingMessage.model || '',
-          tool_call_id: '',
-          tool_name: '',
-          tool_input: {},
-          tool_output: {},
-          metadata: {},
-          created_at: new Date().toISOString(),
-        })
-      }
+      let newMessages = finalizeStreamingMessages(streamingMessage)
 
       // 如果有错误信息但没有内容，显示错误消息
       if (streamingMessage?.error && !streamingMessage.content) {
-        newMessages.push({
-          id: Date.now() + 1,
-          role: 'assistant',
-          content: `请求失败: ${streamingMessage.error}`,
-          llm_model: '',
-          tool_call_id: '',
-          tool_name: '',
-          tool_input: {},
-          tool_output: {},
-          metadata: { error: true },
-          created_at: new Date().toISOString(),
-        })
+        newMessages.push(createErrorMessage(streamingMessage.error))
       }
 
       if (newMessages.length > 0) {
@@ -379,19 +292,7 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
         // 中断时保留已有的流式内容
         const { streamingMessage: sm } = get()
         if (sm && sm.content) {
-          const partialMsg: WorkbenchMessage = {
-            id: Date.now() + 1,
-            role: 'assistant',
-            content: sm.content + '\n\n[已中断]',
-            llm_model: sm.model || '',
-            tool_call_id: '',
-            tool_name: '',
-            tool_input: {},
-            tool_output: {},
-            metadata: { aborted: true },
-            created_at: new Date().toISOString(),
-          }
-          set((state) => ({ messages: [...state.messages, partialMsg] }))
+          set((state) => ({ messages: [...state.messages, createAbortedMessage(sm.content, sm.model)] }))
         }
       } else {
         // 尝试断线重连
@@ -417,33 +318,9 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
         // 保留已收到的部分内容或显示错误
         const { streamingMessage: finalSm } = get()
         if (finalSm && finalSm.content) {
-          const partialMsg: WorkbenchMessage = {
-            id: Date.now() + 1,
-            role: 'assistant',
-            content: finalSm.content + '\n\n[连接中断，部分内容已保留]',
-            llm_model: finalSm.model || '',
-            tool_call_id: '',
-            tool_name: '',
-            tool_input: {},
-            tool_output: {},
-            metadata: { partial: true },
-            created_at: new Date().toISOString(),
-          }
-          set((state) => ({ messages: [...state.messages, partialMsg] }))
+          set((state) => ({ messages: [...state.messages, createPartialMessage(finalSm.content, finalSm.model)] }))
         } else {
-          const errorMsg: WorkbenchMessage = {
-            id: Date.now() + 1,
-            role: 'assistant',
-            content: `请求失败: ${err instanceof Error ? err.message : '未知错误'}`,
-            llm_model: '',
-            tool_call_id: '',
-            tool_name: '',
-            tool_input: {},
-            tool_output: {},
-            metadata: {},
-            created_at: new Date().toISOString(),
-          }
-          set((state) => ({ messages: [...state.messages, errorMsg] }))
+          set((state) => ({ messages: [...state.messages, createErrorMessage(err instanceof Error ? err.message : '未知错误')] }))
         }
       }
     } finally {
@@ -491,108 +368,18 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
       const sm = state.streamingMessage
       if (!sm) return state
 
-      switch (event.type) {
-        case 'meta':
-          return {
-            streamingMessage: {
-              ...sm,
-              model: event.model,
-              activeAgent: event.agent || sm.activeAgent,
-              currentActivity: event.agent ? `${event.agent} 正在思考...` : sm.currentActivity,
-            },
-          }
-
-        case 'activity':
-          return {
-            streamingMessage: {
-              ...sm,
-              activeAgent: event.agent || sm.activeAgent,
-              currentActivity: event.status === 'thinking'
-                ? `${event.agent || sm.activeAgent || '助手'} 正在思考...`
-                : sm.currentActivity,
-            },
-          }
-
-        case 'delta':
-          return {
-            streamingMessage: {
-              ...sm,
-              content: sm.content + (event.content || ''),
-              // 收到 delta 时清除 thinking 状态
-              currentActivity: undefined,
-            },
-          }
-
-        case 'tool_call': {
-          const tc: ToolCallState = {
-            toolCallId: event.tool_call_id || '',
-            name: event.name || event.tool_name || '',
-            arguments: event.arguments || event.tool_input || {},
-            status: 'running',
-          }
-          const toolName = event.name || event.tool_name || '工具'
-          return {
-            streamingMessage: {
-              ...sm,
-              toolCalls: [...sm.toolCalls, tc],
-              currentActivity: `正在执行 ${toolName}...`,
-            },
-          }
+      // approval_request 不属于 streamingMessage
+      if (event.type === 'approval_request') {
+        return {
+          pendingApproval: {
+            approvalId: event.approval_id || '',
+            toolName: event.tool_name || '',
+            toolArgs: event.tool_input || {},
+          },
         }
-
-        case 'tool_result': {
-          const toolCallId = event.tool_call_id || ''
-          return {
-            streamingMessage: {
-              ...sm,
-              toolCalls: sm.toolCalls.map((tc) =>
-                tc.toolCallId === toolCallId
-                  ? {
-                      ...tc,
-                      result: event.result ?? event.tool_output,
-                      success: event.success,
-                      status: event.success === false ? 'error' as const : 'success' as const,
-                    }
-                  : tc,
-              ),
-              // 工具完成，清除活动状态（下一个 tool_call 或 delta 会重新设置）
-              currentActivity: undefined,
-            },
-          }
-        }
-
-        case 'handoff':
-          return {
-            streamingMessage: {
-              ...sm,
-              handoffs: [
-                ...sm.handoffs,
-                { from: event.from_agent || '', to: event.to_agent || '' },
-              ],
-              currentActivity: `切换到 ${event.to_agent || '助手'}...`,
-            },
-          }
-
-        case 'approval_request':
-          return {
-            pendingApproval: {
-              approvalId: event.approval_id || '',
-              toolName: event.tool_name || '',
-              toolArgs: event.tool_input || {},
-            },
-          }
-
-        case 'error':
-          return {
-            streamingMessage: {
-              ...sm,
-              error: event.message || '未知错误',
-            },
-          }
-
-        default:
-          return state
       }
+
+      return { streamingMessage: reduceStreamingMessage(sm, event) }
     })
   },
 
@@ -656,19 +443,6 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
 
       // 完成时将汇总报告插入对话
       if (progress.job.status === 'completed' && progress.job.summary) {
-        const summaryMsg: WorkbenchMessage = {
-          id: Date.now() + 1,
-          role: 'assistant',
-          content: progress.job.summary,
-          llm_model: '',
-          tool_call_id: '',
-          tool_name: '',
-          tool_input: {},
-          tool_output: {},
-          metadata: { source: 'batch_analysis', job_id: progress.job.id },
-          created_at: new Date().toISOString(),
-        }
-
         try {
           await api.saveBatchMessages(progress.job.id, [{
             file_name: '汇总报告',
@@ -680,7 +454,7 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
         }
 
         set((state) => ({
-          messages: [...state.messages, summaryMsg],
+          messages: [...state.messages, createBatchSummaryMessage(progress.job.summary, progress.job.id)],
           batchProgress: null,
         }))
       }
@@ -690,19 +464,7 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
     const injectCompletedItem = (itemId: string, fileName: string, result: string, jobId: string) => {
       if (_shownBatchItemIds.has(itemId)) return
       _shownBatchItemIds.add(itemId)
-      const msg: WorkbenchMessage = {
-        id: Date.now() + Math.random(),
-        role: 'assistant',
-        content: `### ${fileName}\n\n${stripMetadataBlock(result)}`,
-        llm_model: '',
-        tool_call_id: '',
-        tool_name: '',
-        tool_input: {},
-        tool_output: {},
-        metadata: { source: 'batch_item', job_id: jobId },
-        created_at: new Date().toISOString(),
-      }
-      set((state) => ({ messages: [...state.messages, msg] }))
+      set((state) => ({ messages: [...state.messages, createBatchItemMessage(fileName, stripMetadataBlock(result), jobId)] }))
     }
 
     // 尝试 SSE 连接
