@@ -75,7 +75,7 @@ def list_sessions(request: Any, page: int = 1) -> dict[str, Any]:
     offset = (page - 1) * page_size
     total = qs.count()
 
-    # 获取每个会话的最后一条消息摘要
+    # 获取每个会话的最后一条消息摘要和消息统计
     last_msg_subquery = (
         WorkbenchMessage.objects.filter(session_id=OuterRef("id"), role="assistant")
         .order_by("-created_at")
@@ -87,11 +87,43 @@ def list_sessions(request: Any, page: int = 1) -> dict[str, Any]:
         )
     )
 
+    # 批量获取消息统计（消息数和存储大小）
+    session_ids = [item.id for item in items]
+    message_stats = {}
+    if session_ids:
+        from django.db.models import Count
+        stats = (
+            WorkbenchMessage.objects.filter(session_id__in=session_ids)
+            .values("session_id")
+            .annotate(
+                message_count=Count("id"),
+            )
+        )
+        for stat in stats:
+            sid = stat["session_id"]
+            # 计算存储大小：content + tool_input + tool_output + metadata
+            messages = WorkbenchMessage.objects.filter(session_id=sid).values(
+                "content", "tool_input", "tool_output", "metadata"
+            )
+            total_bytes = 0
+            for msg in messages:
+                total_bytes += len((msg["content"] or "").encode("utf-8"))
+                total_bytes += len(str(msg["tool_input"] or {}).encode("utf-8"))
+                total_bytes += len(str(msg["tool_output"] or {}).encode("utf-8"))
+                total_bytes += len(str(msg["metadata"] or {}).encode("utf-8"))
+            message_stats[sid] = {
+                "message_count": stat["message_count"],
+                "storage_bytes": total_bytes,
+            }
+
     result = []
     for item in items:
         data = SessionOut.model_validate(item).model_dump()
         raw = getattr(item, "_last_msg", None) or ""
         data["last_message_preview"] = raw[:50] if raw else ""
+        stats = message_stats.get(item.id, {"message_count": 0, "storage_bytes": 0})
+        data["message_count"] = stats["message_count"]
+        data["storage_bytes"] = stats["storage_bytes"]
         result.append(data)
 
     return {"items": result, "count": total}

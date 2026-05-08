@@ -9,6 +9,8 @@ export interface WorkbenchSession {
   created_at: string
   updated_at: string
   last_message_preview: string
+  message_count?: number
+  storage_bytes?: number
 }
 
 export interface WorkbenchMessage {

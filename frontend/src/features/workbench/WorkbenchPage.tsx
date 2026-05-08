@@ -518,6 +518,13 @@ export function WorkbenchPage() {
   )
 }
 
+/** 格式化存储大小 */
+function formatStorageSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
 /** 会话列表项 */
 function SessionItem({
   session,
@@ -525,7 +532,7 @@ function SessionItem({
   onSelect,
   onDelete,
 }: {
-  session: { id: number; title: string; last_message_preview: string }
+  session: { id: number; title: string; last_message_preview: string; message_count?: number; storage_bytes?: number }
   isActive: boolean
   onSelect: () => void
   onDelete: () => void
@@ -553,6 +560,11 @@ function SessionItem({
       {session.last_message_preview && (
         <span className="text-[11px] text-muted-foreground truncate mt-0.5">
           {session.last_message_preview}
+        </span>
+      )}
+      {session.message_count !== undefined && (
+        <span className="text-[10px] text-muted-foreground/60 mt-0.5">
+          {session.message_count} 条消息 · {formatStorageSize(session.storage_bytes || 0)}
         </span>
       )}
     </div>
