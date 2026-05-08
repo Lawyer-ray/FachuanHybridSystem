@@ -4,8 +4,7 @@ from typing import Any
 
 from django.contrib import admin
 from django.http import HttpRequest, HttpResponse
-from django.shortcuts import redirect
-from django.utils.translation import gettext_lazy as _
+from django.template.response import TemplateResponse
 
 from apps.doc_converter.models import DocConverterItem, DocConverterJob, DocConverterTool
 
@@ -47,10 +46,19 @@ class DocConverterJobAdmin(admin.ModelAdmin):
 
 @admin.register(DocConverterTool)
 class DocConverterToolAdmin(admin.ModelAdmin):
-    """虚拟 Admin，仅用于侧边栏入口"""
+    """DOC 转 DOCX 工作台"""
 
     def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> HttpResponse:
-        return redirect("admin:doc_converter_docconverterjob_changelist")
+        context = {
+            **self.admin_site.each_context(request),
+            "title": "DOC 转 DOCX 工作台",
+            "opts": self.model._meta,
+            "has_view_permission": self.has_view_permission(request),
+        }
+        return TemplateResponse(request, "admin/doc_converter/workbench.html", context)
+
+    def get_model_perms(self, request: HttpRequest) -> dict[str, bool]:
+        return {"view": True}
 
     def has_add_permission(self, request: HttpRequest) -> bool:
         return False

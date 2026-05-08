@@ -74,6 +74,9 @@ export const PATHS = {
   ADMIN_TOOLS_ELEMENT: '/admin/tools/element-convert',
   ADMIN_TOOLS_LPR: '/admin/tools/lpr-calculator',
 
+  // 联系人搜索
+  ADMIN_CONTACT_SEARCH: '/admin/contact-search',
+
   // Phase 4: 设置重构
   ADMIN_SETTINGS_LAW_FIRM: '/admin/settings/law-firm',
   ADMIN_SETTINGS_TEAM: '/admin/settings/team',

@@ -1,0 +1,622 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}DOC 转 DOCX{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+.dc-container { max-width: 900px; margin: 0 auto; padding: 20px; }
+.dc-intro {
+    color: #555; margin-bottom: 24px; font-size: 14px; line-height: 1.6;
+    background: linear-gradient(135deg, #f0f7ff, #e8f4f8);
+    padding: 14px 18px; border-radius: 10px; border-left: 4px solid #417690;
+}
+
+/* 警告横幅 */
+.dc-warning {
+    background: #fff8e1; border: 1px solid #ffe082; border-radius: 10px;
+    padding: 12px 18px; margin-bottom: 20px; font-size: 13px; color: #795548;
+    display: flex; align-items: center; gap: 10px;
+}
+.dc-warning svg { flex-shrink: 0; color: #f57c00; }
+
+/* 上传区域 */
+.dc-upload-zone {
+    border: 3px dashed #b8d4e3; border-radius: 16px; padding: 50px 20px;
+    text-align: center; cursor: pointer; transition: all 0.3s;
+    background: linear-gradient(135deg, #f8fbfd, #eef5f9);
+    min-height: 200px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+}
+.dc-upload-zone:hover, .dc-upload-zone.dragging {
+    border-color: #417690; background: #e3f2fd; transform: scale(1.01);
+}
+.dc-upload-zone svg { width: 56px; height: 56px; color: #417690; margin-bottom: 12px; opacity: 0.8; }
+.dc-upload-zone h3 { margin: 0 0 6px; color: #2c3e50; font-size: 17px; font-weight: 600; }
+.dc-upload-zone p { margin: 0 0 16px; color: #7f8c8d; font-size: 13px; }
+.dc-upload-btn {
+    display: inline-block; padding: 10px 22px;
+    background: linear-gradient(135deg, #417690, #2c5f7c);
+    color: white; border-radius: 10px; cursor: pointer; font-weight: 500;
+    box-shadow: 0 4px 12px rgba(65,118,144,0.3); transition: all 0.3s;
+}
+.dc-upload-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(65,118,144,0.4); }
+.dc-upload-btn input { display: none; }
+
+/* 文件列表 */
+.dc-file-list { margin-top: 16px; }
+.dc-file-table {
+    width: 100%; border-collapse: collapse; font-size: 13px;
+    background: #fff; border-radius: 10px; overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+.dc-file-table th {
+    background: #f0f4f8; padding: 10px 14px; text-align: left;
+    font-weight: 600; color: #4a6070; border-bottom: 2px solid #e0e8ef;
+}
+.dc-file-table td {
+    padding: 8px 14px; border-bottom: 1px solid #f0f3f5; color: #2c3e50;
+}
+.dc-file-table tr:last-child td { border-bottom: none; }
+.dc-file-remove {
+    background: none; border: none; cursor: pointer; color: #e53935;
+    font-size: 16px; padding: 2px 6px; border-radius: 4px;
+}
+.dc-file-remove:hover { background: #ffebee; }
+.dc-file-size { color: #7f8c8d; font-size: 12px; }
+
+/* 操作栏 */
+.dc-actions-bar {
+    display: flex; gap: 12px; margin-top: 16px; align-items: center;
+    justify-content: flex-end;
+}
+
+/* 按钮 */
+.dc-btn {
+    padding: 10px 22px; border-radius: 8px; cursor: pointer; font-size: 14px;
+    border: none; font-weight: 500; transition: all 0.2s; line-height: 1.4;
+    display: inline-flex; align-items: center; gap: 7px; white-space: nowrap;
+}
+.dc-btn:active { transform: scale(0.97); }
+.dc-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.dc-btn-primary {
+    background: #417690; color: white;
+    box-shadow: 0 2px 6px rgba(65,118,144,0.35);
+}
+.dc-btn-primary:hover:not(:disabled) { background: #2c5f7c; box-shadow: 0 4px 10px rgba(65,118,144,0.4); }
+.dc-btn-secondary {
+    background: #fff; border: 1.5px solid #c5d5de; color: #4a6070;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+.dc-btn-secondary:hover:not(:disabled) { border-color: #417690; color: #417690; background: #f4f9fc; }
+.dc-btn-download {
+    background: #2e7d32; color: #fff !important;
+    text-decoration: none !important;
+    box-shadow: 0 2px 6px rgba(46,125,50,0.35);
+}
+.dc-btn-download:hover:not(:disabled) { background: #1b5e20; box-shadow: 0 4px 10px rgba(46,125,50,0.4); color: #fff !important; }
+.dc-btn-danger {
+    background: #c62828; color: white;
+    box-shadow: 0 2px 6px rgba(198,40,40,0.35);
+}
+.dc-btn-danger:hover:not(:disabled) { background: #b71c1c; }
+
+/* 进度区 */
+.dc-progress-section { margin-top: 20px; }
+.dc-progress-bar-outer {
+    width: 100%; height: 28px; background: #e9ecef; border-radius: 14px;
+    overflow: hidden; position: relative;
+}
+.dc-progress-bar-inner {
+    height: 100%; background: linear-gradient(90deg, #417690, #2e7d32);
+    border-radius: 14px; transition: width 0.5s ease;
+    display: flex; align-items: center; justify-content: center;
+}
+.dc-progress-text {
+    font-size: 12px; font-weight: 600; color: #fff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+.dc-progress-status {
+    text-align: center; margin-top: 10px; font-size: 14px; color: #555;
+}
+
+/* 结果区 */
+.dc-result {
+    background: #fff; border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08); overflow: hidden; margin-top: 20px;
+}
+.dc-result-header {
+    font-size: 16px; font-weight: 600; color: white; padding: 14px 20px;
+    background: linear-gradient(135deg, #417690, #2c5f7c);
+    display: flex; align-items: center; gap: 8px;
+}
+.dc-result-body { padding: 20px; }
+.dc-stats { display: flex; gap: 24px; margin-bottom: 16px; flex-wrap: wrap; }
+.dc-stat {
+    text-align: center; padding: 12px 20px; background: #f8fafc;
+    border-radius: 10px; min-width: 100px;
+}
+.dc-stat-value { font-size: 24px; font-weight: 700; color: #2c3e50; }
+.dc-stat-label { font-size: 12px; color: #7f8c8d; margin-top: 4px; }
+.dc-stat-success .dc-stat-value { color: #2e7d32; }
+.dc-stat-fail .dc-stat-value { color: #c62828; }
+
+.dc-item-table {
+    width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 12px;
+}
+.dc-item-table th {
+    background: #f0f4f8; padding: 8px 12px; text-align: left;
+    font-weight: 600; color: #4a6070; font-size: 12px;
+}
+.dc-item-table td { padding: 8px 12px; border-bottom: 1px solid #f0f3f5; }
+.dc-item-table tr:last-child td { border-bottom: none; }
+.dc-status-ok { color: #2e7d32; font-weight: 500; }
+.dc-status-fail { color: #c62828; font-weight: 500; }
+
+/* 保存到目录 */
+.dc-save-dir {
+    margin-top: 16px; padding: 16px; background: #f8fafc;
+    border-radius: 10px; border: 1px solid #e0e8ef;
+}
+.dc-save-dir label { font-weight: 600; color: #4a6070; font-size: 13px; display: block; margin-bottom: 8px; }
+.dc-save-dir-row { display: flex; gap: 10px; }
+.dc-save-dir input[type="text"] {
+    flex: 1; padding: 8px 12px; border: 1px solid #d0dbe5; border-radius: 8px;
+    font-size: 13px;
+}
+.dc-save-dir input[type="text"]:focus { border-color: #417690; outline: none; }
+.dc-save-feedback { margin-top: 8px; font-size: 13px; }
+.dc-save-feedback.ok { color: #2e7d32; }
+.dc-save-feedback.err { color: #c62828; }
+
+/* 结果操作栏 */
+.dc-result-actions {
+    display: flex; gap: 12px; padding: 16px 20px;
+    background: #f8fafc; border-top: 1px solid #e8eef3;
+    flex-wrap: wrap; align-items: center;
+}
+
+/* 错误 */
+.dc-error {
+    background: #fff5f5; border: 1px solid #ffcdd2; border-radius: 12px;
+    padding: 36px 20px; text-align: center; margin-top: 20px;
+}
+.dc-error .icon { font-size: 44px; margin-bottom: 14px; }
+.dc-error h3 { color: #c62828; margin: 0 0 8px; font-size: 17px; }
+.dc-error p { color: #e53935; margin: 0 0 18px; font-size: 13px; word-break: break-all; }
+
+.hidden { display: none !important; }
+</style>
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% trans "首页" %}</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label='doc_converter' %}">{% trans "DOC 转 DOCX" %}</a>
+    &rsaquo; {% trans "工作台" %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="dc-container">
+    <!-- LibreOffice 警告 -->
+    <div id="loWarning" class="dc-warning hidden">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
+        <span>服务器未安装 LibreOffice，转换功能不可用。请先安装：<a href="https://www.libreoffice.org/" target="_blank">libreoffice.org</a></span>
+    </div>
+
+    <p class="dc-intro">
+        上传 .doc 文件（支持批量拖拽），系统将通过 LibreOffice 自动转换为 .docx 格式。转换完成后可批量下载 ZIP 或保存到指定目录。
+    </p>
+
+    <!-- 上传区域 -->
+    <div id="uploadZone" class="dc-upload-zone">
+        <svg viewBox="0 0 24 24">
+            <path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
+        </svg>
+        <h3>将 .doc 文件拖入此处</h3>
+        <p>支持多文件批量上传，单文件最大 50MB</p>
+        <label class="dc-upload-btn">
+            选择文件
+            <input type="file" id="fileInput" accept=".doc" multiple>
+        </label>
+    </div>
+
+    <!-- 文件列表 -->
+    <div id="fileListSection" class="dc-file-list hidden">
+        <table class="dc-file-table">
+            <thead>
+                <tr>
+                    <th>文件名</th>
+                    <th style="width:100px">大小</th>
+                    <th style="width:50px"></th>
+                </tr>
+            </thead>
+            <tbody id="fileTableBody"></tbody>
+        </table>
+        <div class="dc-actions-bar">
+            <label class="dc-upload-btn" style="font-size:13px; padding:8px 16px;">
+                继续添加
+                <input type="file" id="fileInputMore" accept=".doc" multiple>
+            </label>
+            <button class="dc-btn dc-btn-primary" id="btnConvert" onclick="startConversion()">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+                开始转换
+            </button>
+        </div>
+    </div>
+
+    <!-- 进度区 -->
+    <div id="progressSection" class="dc-progress-section hidden">
+        <div class="dc-progress-bar-outer">
+            <div class="dc-progress-bar-inner" id="progressBar" style="width:0%">
+                <span class="dc-progress-text" id="progressText">0%</span>
+            </div>
+        </div>
+        <div class="dc-progress-status" id="progressStatus">准备中…</div>
+        <div class="dc-actions-bar" style="margin-top:12px;">
+            <button class="dc-btn dc-btn-danger" id="btnCancel" onclick="cancelJob()">
+                取消转换
+            </button>
+        </div>
+    </div>
+
+    <!-- 结果区 -->
+    <div id="resultSection" class="dc-result hidden">
+        <div class="dc-result-header" id="resultHeader">转换完成</div>
+        <div class="dc-result-body">
+            <div class="dc-stats">
+                <div class="dc-stat">
+                    <div class="dc-stat-value" id="statTotal">0</div>
+                    <div class="dc-stat-label">总文件数</div>
+                </div>
+                <div class="dc-stat dc-stat-success">
+                    <div class="dc-stat-value" id="statConverted">0</div>
+                    <div class="dc-stat-label">已转换</div>
+                </div>
+                <div class="dc-stat dc-stat-fail">
+                    <div class="dc-stat-value" id="statFailed">0</div>
+                    <div class="dc-stat-label">失败</div>
+                </div>
+            </div>
+            <table class="dc-item-table">
+                <thead>
+                    <tr><th>文件名</th><th>状态</th><th>耗时</th><th>错误</th></tr>
+                </thead>
+                <tbody id="itemTableBody"></tbody>
+            </table>
+            <!-- 保存到目录 -->
+            <div class="dc-save-dir">
+                <label>保存到指定目录</label>
+                <div class="dc-save-dir-row">
+                    <input type="text" id="targetDir" placeholder="例如: /Users/xxx/Documents/输出">
+                    <button class="dc-btn dc-btn-secondary" onclick="saveToDir()">保存</button>
+                </div>
+                <div class="dc-save-feedback hidden" id="saveFeedback"></div>
+            </div>
+        </div>
+        <div class="dc-result-actions">
+            <a id="downloadZipLink" href="#" class="dc-btn dc-btn-download">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M5 20h14v-2H5v2zm7-18v10.17l-3.59-3.58L7 10l5 5 5-5-1.41-1.41L13 12.17V2h-2z"/></svg>
+                批量下载 ZIP
+            </a>
+            <button class="dc-btn dc-btn-danger" onclick="cleanupJob()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                清理任务
+            </button>
+            <button class="dc-btn dc-btn-secondary" onclick="resetPage()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+                重新转换
+            </button>
+        </div>
+    </div>
+
+    <!-- 错误区 -->
+    <div id="errorSection" class="dc-error hidden">
+        <div class="icon">&#10007;</div>
+        <h3>转换失败</h3>
+        <p id="errorMessage">未知错误</p>
+        <button class="dc-btn dc-btn-primary" onclick="resetPage()">重新上传</button>
+    </div>
+</div>
+
+<script>
+(function () {
+    var uploadZone = document.getElementById('uploadZone');
+    var fileInput  = document.getElementById('fileInput');
+    var fileInputMore = document.getElementById('fileInputMore');
+
+    // ── 状态 ──
+    var selectedFiles = [];  // File[]
+    var currentJobId = null;
+    var pollTimer    = null;
+
+    // ── LibreOffice 健康检查 ──
+    fetch('/api/v1/doc-converter/health', {
+        headers: { 'X-CSRFToken': getCsrf() }
+    }).then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (!data.libreoffice_available) {
+            document.getElementById('loWarning').classList.remove('hidden');
+        }
+    }).catch(function() { /* 静默失败 */ });
+
+    // ── 文件选择 ──
+    fileInput.addEventListener('change', function(e) { addFiles(e.target.files); });
+    fileInputMore.addEventListener('change', function(e) { addFiles(e.target.files); });
+
+    function addFiles(fileList) {
+        for (var i = 0; i < fileList.length; i++) {
+            var f = fileList[i];
+            if (!f.name.toLowerCase().endsWith('.doc')) continue;
+            // 去重
+            var dup = false;
+            for (var j = 0; j < selectedFiles.length; j++) {
+                if (selectedFiles[j].name === f.name && selectedFiles[j].size === f.size) { dup = true; break; }
+            }
+            if (!dup) selectedFiles.push(f);
+        }
+        renderFileList();
+        showState(selectedFiles.length > 0 ? 'files' : 'idle');
+    }
+
+    function renderFileList() {
+        var tbody = document.getElementById('fileTableBody');
+        tbody.innerHTML = '';
+        selectedFiles.forEach(function(f, idx) {
+            var tr = document.createElement('tr');
+            tr.innerHTML = '<td>' + escHtml(f.name) + '</td>'
+                + '<td class="dc-file-size">' + formatSize(f.size) + '</td>'
+                + '<td><button class="dc-file-remove" data-idx="' + idx + '">&times;</button></td>';
+            tbody.appendChild(tr);
+        });
+        // 绑定删除
+        tbody.querySelectorAll('.dc-file-remove').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                selectedFiles.splice(parseInt(this.dataset.idx), 1);
+                renderFileList();
+                if (selectedFiles.length === 0) showState('idle');
+            });
+        });
+    }
+
+    // ── 拖拽上传 ──
+    uploadZone.addEventListener('dragover', function(e) {
+        e.preventDefault(); uploadZone.classList.add('dragging');
+    });
+    uploadZone.addEventListener('dragleave', function(e) {
+        if (!uploadZone.contains(e.relatedTarget)) uploadZone.classList.remove('dragging');
+    });
+    uploadZone.addEventListener('drop', function(e) {
+        e.preventDefault(); uploadZone.classList.remove('dragging');
+        if (e.dataTransfer.files.length > 0) addFiles(e.dataTransfer.files);
+    });
+
+    // ── 转换 ──
+    window.startConversion = function() {
+        if (selectedFiles.length === 0) { alert('请先选择文件'); return; }
+
+        showState('converting');
+        updateProgress(0, '正在上传…');
+
+        var fd = new FormData();
+        selectedFiles.forEach(function(f) { fd.append('files', f); });
+
+        fetch('/api/v1/doc-converter/jobs', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCsrf() },
+            body: fd
+        }).then(function(r) {
+            if (!r.ok) {
+                return r.json().then(function(d) {
+                    throw new Error(d.message || d.detail || ('HTTP ' + r.status));
+                });
+            }
+            return r.json();
+        }).then(function(data) {
+            currentJobId = data.job_id;
+            startPolling(data.job_id);
+        }).catch(function(e) {
+            showError(e.message);
+        });
+    };
+
+    // ── 轮询进度 ──
+    function startPolling(jobId) {
+        if (pollTimer) clearInterval(pollTimer);
+        pollTimer = setInterval(function() { pollOnce(jobId); }, 1500);
+        pollOnce(jobId); // 立即执行一次
+    }
+
+    function pollOnce(jobId) {
+        fetch('/api/v1/doc-converter/jobs/' + jobId, {
+            headers: { 'X-CSRFToken': getCsrf() }
+        }).then(function(r) { return r.json(); })
+        .then(function(data) {
+            var job = data.job;
+            var statusText = {
+                'pending': '排队中…',
+                'converting': '正在转换…',
+                'packing': '正在打包…',
+                'completed': '转换完成',
+                'failed': '转换失败',
+                'cancelled': '已取消'
+            };
+            updateProgress(job.progress || 0, statusText[job.status] || job.status);
+
+            if (job.status === 'completed') {
+                stopPolling();
+                showResult(job, data.items || []);
+            } else if (job.status === 'failed') {
+                stopPolling();
+                showError(job.error_message || '转换失败');
+            } else if (job.status === 'cancelled') {
+                stopPolling();
+                showError('任务已取消');
+            }
+        }).catch(function() { /* 网络抖动，继续轮询 */ });
+    }
+
+    function stopPolling() {
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    }
+
+    // ── 取消 ──
+    window.cancelJob = function() {
+        if (!currentJobId) return;
+        fetch('/api/v1/doc-converter/jobs/' + currentJobId + '/cancel', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCsrf() }
+        }).catch(function() {});
+    };
+
+    // ── 结果 ──
+    function showResult(job, items) {
+        document.getElementById('statTotal').textContent = job.total_files;
+        document.getElementById('statConverted').textContent = job.converted_files;
+        document.getElementById('statFailed').textContent = job.failed_files;
+
+        var header = document.getElementById('resultHeader');
+        if (job.failed_files > 0) {
+            header.textContent = '部分转换失败';
+            header.style.background = 'linear-gradient(135deg, #e65100, #bf360c)';
+        } else {
+            header.textContent = '转换完成';
+            header.style.background = 'linear-gradient(135deg, #417690, #2c5f7c)';
+        }
+
+        var tbody = document.getElementById('itemTableBody');
+        tbody.innerHTML = '';
+        items.forEach(function(item) {
+            var tr = document.createElement('tr');
+            var statusClass = item.status === 'completed' ? 'dc-status-ok' : 'dc-status-fail';
+            var statusText  = item.status === 'completed' ? '成功' : '失败';
+            var duration    = item.duration_ms ? (item.duration_ms / 1000).toFixed(1) + 's' : '—';
+            tr.innerHTML = '<td>' + escHtml(item.original_name) + '</td>'
+                + '<td class="' + statusClass + '">' + statusText + '</td>'
+                + '<td>' + duration + '</td>'
+                + '<td>' + escHtml(item.error || '') + '</td>';
+            tbody.appendChild(tr);
+        });
+
+        if (job.download_url) {
+            document.getElementById('downloadZipLink').href = job.download_url;
+        }
+        showState('result');
+    }
+
+    // ── 保存到目录 ──
+    window.saveToDir = function() {
+        if (!currentJobId) return;
+        var dir = document.getElementById('targetDir').value.trim();
+        if (!dir) { alert('请输入目标目录路径'); return; }
+
+        var fb = document.getElementById('saveFeedback');
+        fb.className = 'dc-save-feedback hidden';
+        fb.textContent = '';
+
+        fetch('/api/v1/doc-converter/jobs/' + currentJobId + '/save-to-dir', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCsrf(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ target_dir: dir })
+        }).then(function(r) {
+            if (!r.ok) {
+                return r.json().then(function(d) {
+                    throw new Error(d.message || d.detail || ('HTTP ' + r.status));
+                });
+            }
+            return r.json();
+        }).then(function(data) {
+            fb.className = 'dc-save-feedback ok';
+            fb.textContent = '已保存 ' + data.total_saved + ' 个文件到 ' + data.target_dir;
+        }).catch(function(e) {
+            fb.className = 'dc-save-feedback err';
+            fb.textContent = e.message;
+        });
+    };
+
+    // ── 清理任务 ──
+    window.cleanupJob = function() {
+        if (!currentJobId) { resetPage(); return; }
+        if (!confirm('确定要删除此任务及所有相关文件吗？')) return;
+
+        fetch('/api/v1/doc-converter/jobs/' + currentJobId, {
+            method: 'DELETE',
+            headers: { 'X-CSRFToken': getCsrf() }
+        }).then(function() {
+            resetPage();
+        }).catch(function(e) {
+            alert('清理失败: ' + e.message);
+        });
+    };
+
+    // ── 进度更新 ──
+    function updateProgress(pct, text) {
+        document.getElementById('progressBar').style.width = pct + '%';
+        document.getElementById('progressText').textContent = pct + '%';
+        document.getElementById('progressStatus').textContent = text;
+    }
+
+    // ── 状态切换 ──
+    function showState(s) {
+        uploadZone.classList.toggle('hidden', s !== 'idle' && s !== 'files');
+        document.getElementById('fileListSection').classList.toggle('hidden', s !== 'files');
+        document.getElementById('progressSection').classList.toggle('hidden', s !== 'converting');
+        document.getElementById('resultSection').classList.toggle('hidden', s !== 'result');
+        document.getElementById('errorSection').classList.toggle('hidden', s !== 'error');
+    }
+
+    function showError(msg) {
+        document.getElementById('errorMessage').textContent = msg;
+        showState('error');
+    }
+
+    window.resetPage = function() {
+        stopPolling();
+        selectedFiles = [];
+        currentJobId = null;
+        fileInput.value = '';
+        if (fileInputMore) fileInputMore.value = '';
+        renderFileList();
+        document.getElementById('targetDir').value = '';
+        var fb = document.getElementById('saveFeedback');
+        fb.className = 'dc-save-feedback hidden';
+        fb.textContent = '';
+        showState('idle');
+    };
+
+    // ── 页面离开时自动清理任务 ──
+    function cleanupOnLeave() {
+        if (!currentJobId) return;
+        fetch('/api/v1/doc-converter/jobs/' + currentJobId, {
+            method: 'DELETE',
+            keepalive: true,
+            headers: { 'X-CSRFToken': getCsrf() }
+        }).catch(function() {});
+    }
+    window.addEventListener('beforeunload', cleanupOnLeave);
+    document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'hidden') cleanupOnLeave();
+    });
+
+    // ── 工具函数 ──
+    function getCsrf() {
+        var c = document.cookie.split(';').find(function(x) { return x.trim().startsWith('csrftoken='); });
+        return c ? c.trim().split('=')[1] : '';
+    }
+
+    function escHtml(s) {
+        var d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
+
+    function formatSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+    }
+})();
+</script>
+{% endblock %}

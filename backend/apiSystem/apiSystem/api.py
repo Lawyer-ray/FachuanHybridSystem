@@ -125,6 +125,7 @@ _OPENAPI_TAGS: list[dict[str, str]] = [
     {"name": "企业数据查询", "description": "企业工商信息查询"},
     {"name": "重要日期提醒", "description": "案件重要日期提醒"},
     {"name": "收件箱", "description": "消息收件箱"},
+    {"name": "案件工作人员", "description": "案件工作人员联系方式管理"},
 ]
 
 api_v1 = NinjaAPI(
@@ -154,6 +155,7 @@ def _register_app_routers() -> None:
     from apps.cases.api import router as cases_router
     from apps.chat_records.api import router as chat_records_router
     from apps.client.api import router as client_router
+    from apps.contacts.api import router as contacts_router
     from apps.contract_review.api.review_api import router as contract_review_router
     from apps.contracts.api import router as contracts_router
     from apps.core.api import router as config_router
@@ -193,6 +195,7 @@ def _register_app_routers() -> None:
     api_v1.add_router("/organization", organization_router, auth=JWTOrSessionAuth())
     api_v1.add_router("/client", client_router, auth=JWTOrSessionAuth())
     api_v1.add_router("/cases", cases_router, auth=JWTOrSessionAuth())
+    api_v1.add_router("/contacts", contacts_router, auth=JWTOrSessionAuth())
     api_v1.add_router("/contracts", contracts_router, auth=JWTOrSessionAuth())
     api_v1.add_router("/automation", automation_router, auth=JWTOrSessionAuth())
     api_v1.add_router("/image-rotation", image_rotation_router, auth=JWTOrSessionAuth())
@@ -262,6 +265,10 @@ def _register_app_routers() -> None:
     from apps.core.api.search_api import router as search_router
 
     api_v1.add_router("/search", search_router, auth=JWTOrSessionAuth(), tags=["全局搜索"])
+
+    from apps.core.api.dashboard_api import router as dashboard_router
+
+    api_v1.add_router("/dashboard", dashboard_router, auth=JWTOrSessionAuth(), tags=["仪表盘"])
 
     from apps.workbench.api import router as workbench_router
 

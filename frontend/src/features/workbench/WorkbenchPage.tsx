@@ -1,8 +1,8 @@
 /** 工作台页面 */
 
-import { useEffect, useCallback, useState, useRef } from 'react'
+import { useEffect, useCallback, useState, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router'
-import { Bot, Plus, Trash2, Loader2, Pencil, Search, X, PanelLeftClose, PanelLeft, Menu, History, Download, AlertTriangle } from 'lucide-react'
+import { Plus, Trash2, Loader2, Pencil, Search, X, PanelLeftClose, PanelLeft, Menu, History, Download, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
@@ -17,6 +17,7 @@ import { BatchAnalysisDialog } from './components/BatchAnalysisDialog'
 import { BatchProgressCard } from './components/BatchProgressCard'
 import { BatchHistoryPanel } from './components/BatchHistoryPanel'
 import { SuggestedPrompts } from './components/SuggestedPrompts'
+import { WorkbenchWelcome } from './components/WorkbenchWelcome'
 import { WorkbenchCommandPalette } from './components/WorkbenchCommandPalette'
 import { useContextUsage } from './hooks/use-context-usage'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
@@ -59,6 +60,8 @@ export function WorkbenchPage() {
   const [commandOpen, setCommandOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
+  const [messageSearch, setMessageSearch] = useState('')
+  const [messageSearchOpen, setMessageSearchOpen] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try { return localStorage.getItem('workbench_sidebar_collapsed') === 'true' } catch { return false }
@@ -118,6 +121,10 @@ export function WorkbenchPage() {
         e.preventDefault()
         handleNewSession()
       }
+      if (mod && e.key === 'f') {
+        e.preventDefault()
+        if (currentSession) setMessageSearchOpen((prev) => !prev)
+      }
       if (mod && e.key === 'e') {
         e.preventDefault()
         if (currentSession && messages.length > 0) {
@@ -162,6 +169,35 @@ export function WorkbenchPage() {
   const filteredSessions = searchQuery
     ? sessions.filter((s) => (s.title || '新会话').toLowerCase().includes(searchQuery.toLowerCase()))
     : sessions
+
+  // 按日期分组会话
+  const groupedSessions = useMemo(() => {
+    if (searchQuery) return null // 搜索时不分组
+    const now = new Date()
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const yesterdayStart = new Date(todayStart.getTime() - 86400000)
+    const weekStart = new Date(todayStart.getTime() - 7 * 86400000)
+
+    const groups: { label: string; sessions: typeof filteredSessions }[] = []
+    const today: typeof filteredSessions = []
+    const yesterday: typeof filteredSessions = []
+    const thisWeek: typeof filteredSessions = []
+    const earlier: typeof filteredSessions = []
+
+    for (const s of filteredSessions) {
+      const d = new Date(s.updated_at)
+      if (d >= todayStart) today.push(s)
+      else if (d >= yesterdayStart) yesterday.push(s)
+      else if (d >= weekStart) thisWeek.push(s)
+      else earlier.push(s)
+    }
+
+    if (today.length) groups.push({ label: '今天', sessions: today })
+    if (yesterday.length) groups.push({ label: '昨天', sessions: yesterday })
+    if (thisWeek.length) groups.push({ label: '本周', sessions: thisWeek })
+    if (earlier.length) groups.push({ label: '更早', sessions: earlier })
+    return groups
+  }, [filteredSessions, searchQuery])
 
   const sidebarContent = (
     <>
@@ -246,28 +282,41 @@ export function WorkbenchPage() {
             </div>
 
             <div className="flex-1 overflow-y-auto overflow-x-hidden">
-              <div className="space-y-0.5 p-2">
-                {filteredSessions.map((session) => (
-                  <div
-                    key={session.id}
-                    onClick={() => navigate(generatePath.workbenchSession(session.session_id))}
-                    className={cn(
-                      'group flex items-center rounded-md px-2.5 py-2 text-sm cursor-pointer hover:bg-accent',
-                      currentSession?.id === session.id && 'bg-accent',
-                    )}
-                  >
-                    <span className="flex-1 min-w-0 truncate">{session.title || '新会话'}</span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleDeleteSession(session.id)
-                      }}
-                      className="shrink-0 ml-1 opacity-0 text-muted-foreground hover:text-destructive group-hover:opacity-100"
-                    >
-                      <Trash2 className="size-3.5" />
-                    </button>
+              <div className="p-2">
+                {groupedSessions ? (
+                  // 分组显示
+                  groupedSessions.map((group) => (
+                    <div key={group.label} className="mb-2">
+                      <div className="px-2.5 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                        {group.label}
+                      </div>
+                      <div className="space-y-0.5">
+                        {group.sessions.map((session) => (
+                          <SessionItem
+                            key={session.id}
+                            session={session}
+                            isActive={currentSession?.id === session.id}
+                            onSelect={() => navigate(generatePath.workbenchSession(session.session_id))}
+                            onDelete={() => handleDeleteSession(session.id)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  // 搜索时平铺显示
+                  <div className="space-y-0.5">
+                    {filteredSessions.map((session) => (
+                      <SessionItem
+                        key={session.id}
+                        session={session}
+                        isActive={currentSession?.id === session.id}
+                        onSelect={() => navigate(generatePath.workbenchSession(session.session_id))}
+                        onDelete={() => handleDeleteSession(session.id)}
+                      />
+                    ))}
                   </div>
-                ))}
+                )}
                 {filteredSessions.length === 0 && (
                   <div className="py-8 text-center text-xs text-muted-foreground">
                     {searchQuery ? '无匹配会话' : '暂无会话'}
@@ -367,6 +416,30 @@ export function WorkbenchPage() {
           <ModelSelector disabled={isStreaming} />
         </div>
 
+        {/* 消息搜索栏 */}
+        {messageSearchOpen && currentSession && (
+          <div className="flex items-center gap-2 border-b px-3 py-1.5 bg-muted/30">
+            <Search className="size-3.5 text-muted-foreground" />
+            <input
+              type="text"
+              value={messageSearch}
+              onChange={(e) => setMessageSearch(e.target.value)}
+              placeholder="搜索消息..."
+              autoFocus
+              className="flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground"
+            />
+            <span className="text-[10px] text-muted-foreground">
+              {messageSearch ? `${messages.filter((m) => m.content.toLowerCase().includes(messageSearch.toLowerCase())).length} 条结果` : ''}
+            </span>
+            <button
+              onClick={() => { setMessageSearchOpen(false); setMessageSearch('') }}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <X className="size-3.5" />
+            </button>
+          </div>
+        )}
+
         {/* 消息列表 */}
         {currentSession ? (
           <>
@@ -416,23 +489,10 @@ export function WorkbenchPage() {
             />
           </>
         ) : (
-          <div className="flex flex-1 items-center justify-center text-muted-foreground">
-            <div className="text-center space-y-3">
-              <Bot className="mx-auto size-12 text-muted-foreground/50" />
-              <div>
-                <p className="text-sm font-medium">欢迎使用工作台</p>
-                <p className="text-xs mt-1">创建一个新会话开始对话</p>
-              </div>
-              <Button onClick={handleNewSession} disabled={isCreating}>
-                {isCreating ? (
-                  <Loader2 className="size-4 animate-spin mr-2" />
-                ) : (
-                  <Plus className="size-4 mr-2" />
-                )}
-                新建会话
-              </Button>
-            </div>
-          </div>
+          <WorkbenchWelcome
+            onCreateSession={handleNewSession}
+            isCreating={isCreating}
+          />
         )}
       </div>
 
@@ -460,6 +520,47 @@ export function WorkbenchPage() {
           handleNewSession()
         }}
       />
+    </div>
+  )
+}
+
+/** 会话列表项 */
+function SessionItem({
+  session,
+  isActive,
+  onSelect,
+  onDelete,
+}: {
+  session: { id: number; title: string; last_message_preview: string }
+  isActive: boolean
+  onSelect: () => void
+  onDelete: () => void
+}) {
+  return (
+    <div
+      onClick={onSelect}
+      className={cn(
+        'group flex flex-col rounded-md px-2.5 py-2 cursor-pointer hover:bg-accent',
+        isActive && 'bg-accent',
+      )}
+    >
+      <div className="flex items-center">
+        <span className="flex-1 min-w-0 text-sm truncate">{session.title || '新会话'}</span>
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onDelete()
+          }}
+          className="shrink-0 ml-1 opacity-0 text-muted-foreground hover:text-destructive group-hover:opacity-100"
+        >
+          <Trash2 className="size-3.5" />
+        </button>
+      </div>
+      {session.last_message_preview && (
+        <span className="text-[11px] text-muted-foreground truncate mt-0.5">
+          {session.last_message_preview}
+        </span>
+      )}
     </div>
   )
 }

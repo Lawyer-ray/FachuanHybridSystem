@@ -13,6 +13,7 @@ export interface User {
   phone: string | null
   is_admin: boolean
   is_active: boolean
+  avatar_url: string | null
 }
 
 /**

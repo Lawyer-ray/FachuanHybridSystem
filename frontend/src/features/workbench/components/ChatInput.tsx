@@ -1,7 +1,7 @@
 /** 对话输入框组件（含 Agent 选择器） */
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Send, Square, Bot, Briefcase, FileText, Search } from 'lucide-react'
+import { Send, Square, Bot, Briefcase, FileText, Search, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -12,6 +12,7 @@ import { useWorkbenchStore } from '../stores/workbench-store'
 import type { AgentType } from '../types'
 import { AGENT_OPTIONS } from '../types'
 import { VoiceButton } from './VoiceButton'
+import { ContextAttachments } from './ContextAttachments'
 
 const AGENT_ICONS: Record<AgentType, typeof Bot> = {
   triage: Bot,
@@ -29,7 +30,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
   const [content, setContent] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const sendAfterSpeechRef = useRef(false)
-  const { isStreaming, selectedAgent, setSelectedAgent, abortStream } = useWorkbenchStore()
+  const { isStreaming, selectedAgent, setSelectedAgent, abortStream, quotedContent, setQuotedContent } = useWorkbenchStore()
 
   const speech = useSpeechRecognition({ lang: 'zh-CN', continuous: true, interimResults: true })
 
@@ -62,10 +63,14 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
     }
     const trimmed = content.trim()
     if (!trimmed || disabled || isStreaming) return
-    onSend(trimmed)
+    const fullContent = quotedContent
+      ? `> ${quotedContent.replace(/\n/g, '\n> ')}\n\n${trimmed}`
+      : trimmed
+    onSend(fullContent)
     setContent('')
+    setQuotedContent(null)
     requestAnimationFrame(() => textareaRef.current?.focus())
-  }, [content, disabled, isStreaming, onSend, speech])
+  }, [content, disabled, isStreaming, onSend, speech, quotedContent, setQuotedContent])
 
   const handleSubmitRef = useRef(handleSubmit)
   handleSubmitRef.current = handleSubmit
@@ -81,6 +86,9 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
 
   return (
     <div className="border-t p-3 md:p-4 space-y-2">
+      {/* 上下文附件 */}
+      <ContextAttachments />
+
       {/* Agent 选择器 */}
       <div className="flex items-center gap-1.5 flex-wrap">
         <span className="text-xs text-muted-foreground mr-1">助手:</span>
@@ -103,6 +111,20 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
           )
         })}
       </div>
+
+      {/* 引用内容 */}
+      {quotedContent && (
+        <div className="flex items-start gap-2 rounded-md border-l-2 border-primary/50 bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+          <span className="flex-1 line-clamp-2">{quotedContent}</span>
+          <button
+            type="button"
+            onClick={() => setQuotedContent(null)}
+            className="shrink-0 text-muted-foreground hover:text-foreground"
+          >
+            <X className="size-3" />
+          </button>
+        </div>
+      )}
 
       {/* 输入框 */}
       <div className="flex items-end gap-2">

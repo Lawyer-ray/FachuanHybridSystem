@@ -18,6 +18,8 @@ import {
   ThumbsDown,
   Pencil,
   Download,
+  Quote,
+  Hash,
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -30,9 +32,12 @@ import 'highlight.js/styles/github-dark.css'
 hljs.registerLanguage('json', json)
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { formatDate } from '@/lib/date'
 import { Textarea } from '@/components/ui/textarea'
 import { useWorkbenchStore } from '../stores/workbench-store'
 import type { WorkbenchMessage, StreamingMessage, ToolCallState } from '../types'
+import { renderToolResult } from './tool-results'
+import { findLegalReferences, getCaseNumberInfo, getLawArticleInfo } from '../utils/legal-text'
 
 interface MessageBubbleProps {
   message: WorkbenchMessage
@@ -60,46 +65,53 @@ export function MessageBubble({ message, toolCalls }: MessageBubbleProps) {
         </div>
       )}
 
-      <div
-        className={cn(
-          'group relative max-w-[85%] md:max-w-[75%] min-w-0 rounded-lg px-4 py-2.5 text-sm',
-          isUser
-            ? 'bg-primary text-primary-foreground'
-            : isSystem
-              ? 'bg-destructive/10 text-destructive'
-              : 'bg-muted',
-        )}
-      >
-        {isUser ? (
-          <UserMessageContent message={message} />
-        ) : (
-          <MarkdownContent content={message.content} isSystem={isSystem} />
-        )}
+      <div className={cn('flex flex-col gap-0.5', isUser ? 'items-end' : 'items-start')}>
+        <div
+          className={cn(
+            'group relative max-w-[85%] md:max-w-[75%] min-w-0 rounded-lg px-4 py-2.5 text-sm',
+            isUser
+              ? 'bg-primary text-primary-foreground'
+              : isSystem
+                ? 'bg-destructive/10 text-destructive'
+                : 'bg-muted',
+          )}
+        >
+          {isUser ? (
+            <UserMessageContent message={message} />
+          ) : (
+            <MarkdownContent content={message.content} isSystem={isSystem} />
+          )}
 
-        {/* 批量分析汇总：下载 CSV 按钮 */}
-        {!isUser && !isSystem && message.metadata?.source === 'batch_analysis' && typeof message.metadata?.job_id === 'string' ? (
-          <BatchDownloadButton jobId={message.metadata.job_id} />
-        ) : null}
+          {/* 批量分析汇总：下载 CSV 按钮 */}
+          {!isUser && !isSystem && message.metadata?.source === 'batch_analysis' && typeof message.metadata?.job_id === 'string' ? (
+            <BatchDownloadButton jobId={message.metadata.job_id} />
+          ) : null}
 
-        {/* 内联工具调用 */}
-        {toolCalls && toolCalls.length > 0 && (
-          <InlineToolCalls toolCalls={toolCalls} />
-        )}
+          {/* 内联工具调用 */}
+          {toolCalls && toolCalls.length > 0 && (
+            <InlineToolCalls toolCalls={toolCalls} />
+          )}
 
-        {/* 助手消息：token 用量 + 模型标签 */}
-        {!isUser && !isSystem && (
-          <AssistantMeta message={message} />
-        )}
+          {/* 助手消息：token 用量 + 模型标签 */}
+          {!isUser && !isSystem && (
+            <AssistantMeta message={message} />
+          )}
 
-        {/* 助手消息：反馈按钮 */}
-        {!isUser && !isSystem && message.role === 'assistant' && (
-          <FeedbackButtons message={message} />
-        )}
+          {/* 助手消息：反馈按钮 */}
+          {!isUser && !isSystem && message.role === 'assistant' && (
+            <FeedbackButtons message={message} />
+          )}
 
-        {/* 助手消息：hover 操作按钮 */}
-        {!isUser && !isSystem && (
-          <MessageActions message={message} />
-        )}
+          {/* 助手消息：hover 操作按钮 */}
+          {!isUser && !isSystem && (
+            <MessageActions message={message} />
+          )}
+        </div>
+
+        {/* 时间戳 */}
+        <span className="px-1 text-[10px] text-muted-foreground/60">
+          {formatDate(message.created_at)}
+        </span>
       </div>
 
       {isUser && (
@@ -204,7 +216,7 @@ function JsonBlock({ data }: { data: unknown }) {
   )
 }
 
-/** 单个内联工具调用（可折叠） */
+/** 单个内联工具调用（可折叠，支持结构化渲染） */
 function InlineToolCall({ tool }: { tool: WorkbenchMessage }) {
   const [expanded, setExpanded] = useState(false)
   const hasError = tool.metadata?.success === false
@@ -230,21 +242,56 @@ function InlineToolCall({ tool }: { tool: WorkbenchMessage }) {
       </button>
       {expanded && (
         <div className="border-t border-border/50 px-2.5 py-2 space-y-2">
-          {Object.keys(tool.tool_input).length > 0 && (
-            <div>
-              <div className="text-muted-foreground mb-1">输入</div>
-              <JsonBlock data={tool.tool_input} />
-            </div>
-          )}
-          {Object.keys(tool.tool_output).length > 0 && (
-            <div>
-              <div className="text-muted-foreground mb-1">输出</div>
-              <JsonBlock data={tool.tool_output} />
-            </div>
-          )}
+          <ToolResultContent tool={tool} />
         </div>
       )}
     </div>
+  )
+}
+
+/** 工具调用结果内容（结构化渲染优先，回退到 JSON） */
+function ToolResultContent({ tool }: { tool: WorkbenchMessage }) {
+  const hasInput = Object.keys(tool.tool_input).length > 0
+  const hasOutput = Object.keys(tool.tool_output).length > 0
+  const structured = renderToolResult({
+    output: tool.tool_output,
+    input: tool.tool_input,
+    toolName: tool.tool_name || '',
+  })
+
+  if (!structured) {
+    return (
+      <>
+        {hasInput && (
+          <div>
+            <div className="text-muted-foreground mb-1">输入</div>
+            <JsonBlock data={tool.tool_input} />
+          </div>
+        )}
+        {hasOutput && (
+          <div>
+            <div className="text-muted-foreground mb-1">输出</div>
+            <JsonBlock data={tool.tool_output} />
+          </div>
+        )}
+      </>
+    )
+  }
+
+  return (
+    <>
+      {structured}
+      {hasOutput && (
+        <details className="group">
+          <summary className="text-[10px] text-muted-foreground cursor-pointer hover:text-foreground">
+            原始 JSON
+          </summary>
+          <div className="mt-1">
+            <JsonBlock data={tool.tool_output} />
+          </div>
+        </details>
+      )}
+    </>
   )
 }
 
@@ -307,11 +354,12 @@ function FeedbackButtons({ message }: { message: WorkbenchMessage }) {
   )
 }
 
-/** 助手消息 hover 操作按钮（复制 + 重新生成） */
+/** 助手消息 hover 操作按钮（复制 + 引用 + 重新生成） */
 function MessageActions({ message }: { message: WorkbenchMessage }) {
   const sendMessage = useWorkbenchStore((s) => s.sendMessage)
   const messages = useWorkbenchStore((s) => s.messages)
   const isStreaming = useWorkbenchStore((s) => s.isStreaming)
+  const setQuotedContent = useWorkbenchStore((s) => s.setQuotedContent)
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message.content).then(() => {
@@ -319,9 +367,14 @@ function MessageActions({ message }: { message: WorkbenchMessage }) {
     })
   }
 
+  const handleQuote = () => {
+    const preview = message.content.length > 200 ? message.content.slice(0, 200) + '...' : message.content
+    setQuotedContent(preview)
+    toast.success('已引用，可在输入框中查看')
+  }
+
   const handleRegenerate = () => {
     if (isStreaming) return
-    // 找到当前消息之前的最近一条 user 消息
     const idx = messages.findIndex((m) => m.id === message.id)
     if (idx < 0) return
     for (let i = idx - 1; i >= 0; i--) {
@@ -342,6 +395,13 @@ function MessageActions({ message }: { message: WorkbenchMessage }) {
         <Copy className="size-3.5" />
       </button>
       <button
+        onClick={handleQuote}
+        className="flex items-center justify-center rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+        title="引用"
+      >
+        <Quote className="size-3.5" />
+      </button>
+      <button
         onClick={handleRegenerate}
         disabled={isStreaming}
         className="flex items-center justify-center rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
@@ -355,14 +415,24 @@ function MessageActions({ message }: { message: WorkbenchMessage }) {
 
 /** 流式消息气泡 */
 export function StreamingBubble({ message }: { message: StreamingMessage }) {
+  const reconnecting = useWorkbenchStore((s) => s.reconnecting)
+
   return (
     <div className="flex gap-2 md:gap-3 justify-start">
       <div className="flex size-6 md:size-8 shrink-0 items-center justify-center rounded-full bg-primary/10">
         <Bot className="size-4 text-primary animate-pulse" />
       </div>
       <div className="max-w-[85%] md:max-w-[75%] min-w-0 rounded-lg bg-muted px-4 py-2.5 text-sm space-y-2">
+        {/* 断线重连提示 */}
+        {reconnecting && (
+          <div className="flex items-center gap-2 rounded-md bg-amber-500/10 px-3 py-1.5 text-xs text-amber-600 dark:text-amber-400">
+            <Loader2 className="size-3 animate-spin" />
+            <span>连接中断，正在重连...</span>
+          </div>
+        )}
+
         {/* 活动指示器 */}
-        {message.currentActivity && (
+        {message.currentActivity && !reconnecting && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Loader2 className="size-3 animate-spin" />
             <span>{message.currentActivity}</span>
@@ -485,6 +555,90 @@ function CodeBlockWithCopy({ children, ...props }: React.HTMLAttributes<HTMLPreE
   )
 }
 
+/** 从 ReactMarkdown children 中提取纯文本，如果包含非文本元素则返回 null */
+function extractTextContent(children: React.ReactNode): string | null {
+  if (typeof children === 'string') return children
+  if (!Array.isArray(children)) return null
+
+  let text = ''
+  for (const child of children) {
+    if (typeof child === 'string') {
+      text += child
+    } else if (
+      React.isValidElement(child) &&
+      typeof child.props === 'object' &&
+      child.props !== null &&
+      'children' in child.props
+    ) {
+      const nested = extractTextContent((child.props as { children: React.ReactNode }).children)
+      if (nested === null) return null // 遇到非纯文本元素，不处理
+      text += nested
+    } else {
+      return null
+    }
+  }
+  return text
+}
+
+/** 法律文本渲染 — 将案号、法条引用、金额高亮显示 */
+function LegalText({ text }: { text: string }) {
+  const matches = useMemo(() => findLegalReferences(text), [text])
+  if (matches.length === 0) return <>{text}</>
+
+  const parts: React.ReactNode[] = []
+  let lastIndex = 0
+
+  for (const match of matches) {
+    // 匹配前的普通文本
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index))
+    }
+
+    if (match.type === 'case_number') {
+      const info = getCaseNumberInfo(match.text)
+      parts.push(
+        <span
+          key={match.index}
+          className="inline-flex items-center gap-0.5 rounded bg-blue-50 px-1 py-0.5 text-[11px] font-medium text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 cursor-default"
+          title={`${info.year}年 ${info.court} ${info.number}`}
+        >
+          <Hash className="size-2.5 inline" />
+          {match.text}
+        </span>,
+      )
+    } else if (match.type === 'law_article') {
+      const info = getLawArticleInfo(match.text)
+      parts.push(
+        <span
+          key={match.index}
+          className="inline-flex items-center gap-0.5 rounded bg-amber-50 px-1 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 cursor-default"
+          title={`${info.lawName} · ${info.article}`}
+        >
+          {match.text}
+        </span>,
+      )
+    } else if (match.type === 'money') {
+      parts.push(
+        <span
+          key={match.index}
+          className="inline font-medium text-emerald-700 dark:text-emerald-400"
+        >
+          {match.text}
+        </span>,
+      )
+    }
+
+    lastIndex = match.index + match.length
+  }
+
+  // 剩余普通文本
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex))
+  }
+
+  return <>{parts}</>
+}
+
 /** Markdown 内容渲染（memo 优化，避免 streaming 时历史消息重渲染） */
 const MarkdownContent = React.memo(function MarkdownContent({
   content,
@@ -511,7 +665,17 @@ const MarkdownContent = React.memo(function MarkdownContent({
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeHighlight]}
-        components={{ pre: CodeBlockWithCopy }}
+        components={{
+          pre: CodeBlockWithCopy,
+          p: ({ children, ...props }) => {
+            // 如果子节点全是字符串，用 LegalText 处理
+            const textContent = extractTextContent(children)
+            if (textContent) {
+              return <p {...props}><LegalText text={textContent} /></p>
+            }
+            return <p {...props}>{children}</p>
+          },
+        }}
       >
         {processed}
       </ReactMarkdown>
@@ -519,24 +683,33 @@ const MarkdownContent = React.memo(function MarkdownContent({
   )
 })
 
-/** 批量分析汇总：CSV 下载按钮 */
+/** 批量分析汇总：CSV + ZIP 下载按钮 */
 function BatchDownloadButton({ jobId }: { jobId: string }) {
-  const [downloading, setDownloading] = useState(false)
+  const [downloading, setDownloading] = useState<string | null>(null)
 
-  const handleDownload = async () => {
-    setDownloading(true)
+  const handleDownload = async (type: 'csv' | 'zip') => {
+    setDownloading(type)
     try {
       const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002/api/v1'
       const token = localStorage.getItem('access_token')
-      const response = await fetch(`${baseUrl}/workbench/batch/${jobId}/download`, {
+      const endpoint = type === 'csv' ? 'download' : 'download-detail'
+      const response = await fetch(`${baseUrl}/workbench/batch/${jobId}/${endpoint}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       })
-      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      if (!response.ok) {
+        if (response.status === 404) {
+          toast.error(type === 'zip' ? '分析详情文件尚未生成' : '汇总文件不存在')
+          return
+        }
+        throw new Error(`HTTP ${response.status}`)
+      }
       const blob = await response.blob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `案例分析汇总_${jobId.slice(0, 8)}.csv`
+      a.download = type === 'csv'
+        ? `案例分析汇总_${jobId.slice(0, 8)}.csv`
+        : `案例分析详情_${jobId.slice(0, 8)}.zip`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -544,19 +717,27 @@ function BatchDownloadButton({ jobId }: { jobId: string }) {
     } catch {
       toast.error('下载失败')
     } finally {
-      setDownloading(false)
+      setDownloading(null)
     }
   }
 
   return (
-    <div className="mt-2">
+    <div className="mt-2 flex gap-2">
       <button
-        onClick={handleDownload}
-        disabled={downloading}
+        onClick={() => handleDownload('csv')}
+        disabled={downloading !== null}
         className="inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
       >
-        <Download className={cn('size-3.5', downloading && 'animate-spin')} />
-        {downloading ? '下载中...' : '下载汇总 CSV'}
+        <Download className={cn('size-3.5', downloading === 'csv' && 'animate-spin')} />
+        {downloading === 'csv' ? '下载中...' : '下载汇总 CSV'}
+      </button>
+      <button
+        onClick={() => handleDownload('zip')}
+        disabled={downloading !== null}
+        className="inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
+      >
+        <Download className={cn('size-3.5', downloading === 'zip' && 'animate-spin')} />
+        {downloading === 'zip' ? '下载中...' : '下载分析详情 ZIP'}
       </button>
     </div>
   )

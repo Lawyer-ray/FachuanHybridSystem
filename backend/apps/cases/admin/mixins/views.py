@@ -16,11 +16,20 @@ from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import Case
+from apps.core.models.enums import CaseStage, ContactRole
 
 if TYPE_CHECKING:
     from apps.cases.services.case.case_admin_service import CaseAdminService
 
 logger = logging.getLogger("apps.cases")
+
+
+def _get_contact_role_choices() -> list[tuple[str, str]]:
+    return [(str(k), str(v)) for k, v in ContactRole.choices]
+
+
+def _get_case_stage_choices() -> list[tuple[str, str]]:
+    return [(str(k), str(v)) for k, v in CaseStage.choices]
 
 
 def _log_inline_formset(inline_formset: object, logger: logging.Logger) -> None:
@@ -273,6 +282,9 @@ class CaseAdminViewsMixin:
                 "has_delay_delivery_template": has_delay_delivery_template,
                 "is_our_party_all_defendant": is_our_party_all_defendant,
                 "folder_path_auto_repaired": folder_path_auto_repaired,
+                "contacts": list(case.contacts.select_related("authority").all()),
+                "contact_role_choices": list(_get_contact_role_choices()),
+                "case_stage_choices": list(_get_case_stage_choices()),
             }
         )
 
@@ -758,10 +770,12 @@ class CaseAdminViewsMixin:
                 for child in sorted(root.iterdir(), key=lambda item: item.name.lower()):
                     if not child.is_dir() or child.name.startswith("."):
                         continue
-                    subfolders.append({
-                        "relative_path": child.name,
-                        "display_name": child.name,
-                    })
+                    subfolders.append(
+                        {
+                            "relative_path": child.name,
+                            "display_name": child.name,
+                        }
+                    )
 
                 return JsonResponse({"success": True, "subfolders": subfolders})
 
@@ -790,7 +804,9 @@ class CaseAdminViewsMixin:
                     "skipped": skipped,
                 }
                 logger.info("案件 %s 邮件导入完成: 新增=%s, 跳过=%s", object_id, log_count, skipped)
-                return JsonResponse({"success": True, "message": msg, "imported_count": log_count, "skipped_count": skipped})
+                return JsonResponse(
+                    {"success": True, "message": msg, "imported_count": log_count, "skipped_count": skipped}
+                )
 
             return JsonResponse({"success": False, "error": "Method not allowed"}, status=405)
 

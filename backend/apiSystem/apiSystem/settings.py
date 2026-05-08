@@ -80,6 +80,7 @@ INSTALLED_APPS = [
     "apps.client",  # 1. Client CRM（当事人管理）
     "apps.contracts",  # 2. Contracts（合同管理）
     "apps.cases",  # 3. CASES（案件管理）
+    "apps.contacts",  # 3.1 工作人员联系方式
     "apps.reminders",  # 3.5 Reminders（重要日期提醒）
     "apps.automation",  # 5. 自动化工具
     "apps.message_hub.apps.MessageHubConfig",  # 5.1 信息中转站

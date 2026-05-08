@@ -5,11 +5,12 @@ from typing import Any
 from uuid import UUID
 
 from django.http import FileResponse
-from ninja import Router
+from ninja import File, Router
 from ninja.files import UploadedFile
 
-from apps.doc_converter.schemas import JobProgressOut, JobSubmitOut
+from apps.doc_converter.schemas import HealthOut, JobProgressOut, JobSubmitOut, SaveToDirIn, SaveToDirOut
 from apps.doc_converter.services.converter_service import DocConverterService
+from apps.doc_converter.services.engine import find_libreoffice
 
 logger = logging.getLogger("apps.doc_converter")
 
@@ -21,7 +22,7 @@ _service = DocConverterService()
 @router.post("/jobs", response=JobSubmitOut, summary="创建转换任务")
 def create_conversion_job(
     request: Any,
-    files: list[UploadedFile] = ...,  # type: ignore[assignment]
+    files: list[UploadedFile] = File(...),
 ) -> dict[str, Any]:
     """上传多个 .doc 文件，创建异步转换任务。"""
     job = _service.create_job(files=files, created_by=request.user)  # type: ignore[arg-type]
@@ -72,3 +73,17 @@ def delete_conversion_job(request: Any, job_id: UUID) -> dict[str, str]:
     job = _service.get_job(job_id)
     job.delete()
     return {"status": "deleted"}
+
+
+@router.get("/health", response=HealthOut, summary="检查 LibreOffice 可用性")
+def health_check(request: Any) -> dict[str, Any]:
+    path = find_libreoffice()
+    return {
+        "libreoffice_available": path is not None,
+        "libreoffice_path": path,
+    }
+
+
+@router.post("/jobs/{job_id}/save-to-dir", response=SaveToDirOut, summary="保存到指定目录")
+def save_to_directory(request: Any, job_id: UUID, payload: SaveToDirIn) -> dict[str, Any]:
+    return _service.save_job_to_directory(job_id=job_id, target_dir=payload.target_dir)

@@ -11,6 +11,7 @@ import type {
   StreamingMessage,
   ToolCallState,
   BatchProgress,
+  Attachment,
 } from '../types'
 import * as api from '../api'
 
@@ -71,14 +72,25 @@ interface WorkbenchState {
   // 流式状态
   isStreaming: boolean
   streamingMessage: StreamingMessage | null
+  reconnecting: boolean
 
   // 审批
   pendingApproval: ApprovalState | null
+
+  // 引用回复
+  quotedContent: string | null
+  setQuotedContent: (content: string | null) => void
 
   // 批量分析
   activeBatchJobId: string | null
   batchProgress: BatchProgress | null
   batchPolling: boolean
+
+  // 上下文附件
+  attachments: Attachment[]
+  addAttachment: (file: File) => Promise<void>
+  removeAttachment: (id: string) => void
+  clearAttachments: () => void
 
   // Actions
   setSelectedModel: (model: string) => void
@@ -112,10 +124,14 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
   messagesLoading: false,
   isStreaming: false,
   streamingMessage: null,
+  reconnecting: false,
   pendingApproval: null,
+  quotedContent: null,
+  setQuotedContent: (content) => set({ quotedContent: content }),
   activeBatchJobId: null,
   batchProgress: null,
   batchPolling: false,
+  attachments: [],
 
   setSelectedModel: (model) => set({ selectedModel: model }),
 
@@ -193,14 +209,25 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
   },
 
   sendMessage: async (content) => {
-    const { currentSession, selectedModel, selectedAgent } = get()
+    const { currentSession, selectedModel, selectedAgent, attachments } = get()
     if (!currentSession) return
+
+    // 收集已就绪的附件 ID
+    const readyAttachments = attachments.filter((a) => a.status === 'ready')
+    const attachmentIds = readyAttachments.map((a) => a.id)
+
+    // 在用户消息中附加文件信息
+    const attachmentNote =
+      readyAttachments.length > 0
+        ? `\n\n[附件: ${readyAttachments.map((a) => a.name).join(', ')}]`
+        : ''
+    const fullContent = content + attachmentNote
 
     // 添加用户消息到本地
     const userMsg: WorkbenchMessage = {
       id: Date.now(),
       role: 'user',
-      content,
+      content: fullContent,
       llm_model: '',
       tool_call_id: '',
       tool_name: '',
@@ -218,22 +245,34 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
       streamingMessage: { role: 'assistant', content: '', toolCalls: [], handoffs: [] },
     })
 
-    try {
+    // 可恢复流：记录最后事件 ID，支持断线重连
+    let lastEventId = ''
+    const MAX_RETRIES = 3
+    let retryCount = 0
+
+    const connectAndRead = async (resumeFrom: string): Promise<void> => {
       const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002/api/v1'
       const token = localStorage.getItem('access_token')
       const url = `${baseUrl}/workbench/sessions/${currentSession.id}/messages/stream`
 
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      }
+      if (resumeFrom) {
+        headers['Last-Event-ID'] = resumeFrom
+      }
+
       const response = await fetch(url, {
         method: 'POST',
-        signal: _abortController.signal,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        signal: _abortController?.signal,
+        headers,
         body: JSON.stringify({
-          content,
+          content: resumeFrom ? undefined : fullContent,
           llm_model: selectedModel,
           agent_type: selectedAgent,
+          attachment_ids: resumeFrom ? undefined : (attachmentIds.length > 0 ? attachmentIds : undefined),
+          resume_from: resumeFrom || undefined,
         }),
       })
 
@@ -262,10 +301,19 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
 
           try {
             const event = JSON.parse(data) as SSEEvent
+            // 跟踪事件 ID 用于重连
+            if (event.type === 'meta' && event.session_id) {
+              lastEventId = event.session_id
+            }
             get().handleSSEEvent(event)
+            retryCount = 0 // 成功接收事件后重置重试计数
           } catch { /* skip malformed */ }
         }
       }
+    }
+
+    try {
+      await connectAndRead('')
 
       // 流结束 - 将 streamingMessage 转为正式消息
       const { streamingMessage } = get()
@@ -328,23 +376,61 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
           set((state) => ({ messages: [...state.messages, partialMsg] }))
         }
       } else {
-        const errorMsg: WorkbenchMessage = {
-          id: Date.now() + 1,
-          role: 'assistant',
-          content: `请求失败: ${err instanceof Error ? err.message : '未知错误'}`,
-          llm_model: '',
-          tool_call_id: '',
-          tool_name: '',
-          tool_input: {},
-          tool_output: {},
-          metadata: {},
-          created_at: new Date().toISOString(),
+        // 尝试断线重连
+        const { streamingMessage: sm } = get()
+        if (sm && sm.content && retryCount < MAX_RETRIES) {
+          retryCount++
+          const delay = Math.min(1000 * Math.pow(2, retryCount - 1), 8000)
+          set({ reconnecting: true })
+
+          try {
+            await new Promise((r) => setTimeout(r, delay))
+            if (!_abortController?.signal.aborted) {
+              await connectAndRead(lastEventId)
+              set({ reconnecting: false })
+              return
+            }
+          } catch {
+            // 重连也失败
+          }
+          set({ reconnecting: false })
         }
-        set((state) => ({ messages: [...state.messages, errorMsg] }))
+
+        // 保留已收到的部分内容或显示错误
+        const { streamingMessage: finalSm } = get()
+        if (finalSm && finalSm.content) {
+          const partialMsg: WorkbenchMessage = {
+            id: Date.now() + 1,
+            role: 'assistant',
+            content: finalSm.content + '\n\n[连接中断，部分内容已保留]',
+            llm_model: finalSm.model || '',
+            tool_call_id: '',
+            tool_name: '',
+            tool_input: {},
+            tool_output: {},
+            metadata: { partial: true },
+            created_at: new Date().toISOString(),
+          }
+          set((state) => ({ messages: [...state.messages, partialMsg] }))
+        } else {
+          const errorMsg: WorkbenchMessage = {
+            id: Date.now() + 1,
+            role: 'assistant',
+            content: `请求失败: ${err instanceof Error ? err.message : '未知错误'}`,
+            llm_model: '',
+            tool_call_id: '',
+            tool_name: '',
+            tool_input: {},
+            tool_output: {},
+            metadata: {},
+            created_at: new Date().toISOString(),
+          }
+          set((state) => ({ messages: [...state.messages, errorMsg] }))
+        }
       }
     } finally {
       _abortController = null
-      set({ isStreaming: false, streamingMessage: null })
+      set({ isStreaming: false, streamingMessage: null, reconnecting: false, attachments: [] })
     }
   },
 
@@ -712,6 +798,69 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
     } catch { /* ignore */ }
   },
 
+  addAttachment: async (file: File) => {
+    const id = `att_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+    const attachment: Attachment = {
+      id,
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      status: 'uploading',
+    }
+    set((s) => ({ attachments: [...s.attachments, attachment] }))
+
+    try {
+      // 尝试上传文件到后端
+      const formData = new FormData()
+      formData.append('file', file)
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002/api/v1'
+      const token = localStorage.getItem('access_token')
+      const resp = await fetch(`${baseUrl}/workbench/attachments`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData,
+      })
+
+      if (!resp.ok) throw new Error(`上传失败: ${resp.status}`)
+
+      const data = await resp.json() as { id: string; url?: string }
+      set((s) => ({
+        attachments: s.attachments.map((a) =>
+          a.id === id ? { ...a, status: 'ready' as const, url: data.url, id: data.id || id } : a,
+        ),
+      }))
+    } catch {
+      // 后端 API 未就绪时，回退到本地 base64 存储
+      try {
+        const reader = new FileReader()
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string)
+          reader.onerror = reject
+          reader.readAsDataURL(file)
+        })
+        set((s) => ({
+          attachments: s.attachments.map((a) =>
+            a.id === id ? { ...a, status: 'ready' as const, url: dataUrl } : a,
+          ),
+        }))
+      } catch {
+        set((s) => ({
+          attachments: s.attachments.map((a) =>
+            a.id === id ? { ...a, status: 'error' as const, error: '文件读取失败' } : a,
+          ),
+        }))
+      }
+    }
+  },
+
+  removeAttachment: (id: string) => {
+    set((s) => ({ attachments: s.attachments.filter((a) => a.id !== id) }))
+  },
+
+  clearAttachments: () => {
+    set({ attachments: [] })
+  },
+
   reset: () => {
     // 重置时也中断进行中的请求
     if (_abortController) {
@@ -733,6 +882,7 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
       activeBatchJobId: null,
       batchProgress: null,
       batchPolling: false,
+      attachments: [],
     })
   },
 }))

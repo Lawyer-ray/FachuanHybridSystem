@@ -8,6 +8,7 @@ export interface WorkbenchSession {
   status: string
   created_at: string
   updated_at: string
+  last_message_preview: string
 }
 
 export interface WorkbenchMessage {
@@ -149,6 +150,7 @@ export interface BatchJob {
   progress: number
   summary: string
   summary_file: string
+  detail_zip_file: string
   error_message: string
   created_at: string
   updated_at: string
@@ -178,4 +180,16 @@ export interface BatchProgress {
   job: BatchJob
   items: BatchJobItem[]
   failed_items_detail: FailedItemDetail[]
+}
+
+// ─── 上下文附件 ─────────────────────────────────────────────────────────────
+
+export interface Attachment {
+  id: string
+  name: string
+  type: string
+  size: number
+  status: 'uploading' | 'processing' | 'ready' | 'error'
+  url?: string
+  error?: string
 }

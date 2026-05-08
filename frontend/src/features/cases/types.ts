@@ -5,6 +5,8 @@
 
 import { z } from 'zod'
 
+import type { CaseContact } from '@/features/contacts/types'
+
 // ============================================================================
 // 枚举类型
 // ============================================================================
@@ -183,6 +185,7 @@ export interface Case {
   case_numbers: CaseNumber[]
   supervising_authorities: SupervisingAuthority[]
   chats: CaseChat[]
+  contacts: CaseContact[]
 }
 
 export interface CaseInput {

@@ -62,6 +62,9 @@ def create_session(request: Any, payload: SessionCreateIn) -> WorkbenchSession:
 @router.get("/sessions")
 def list_sessions(request: Any, page: int = 1) -> dict[str, Any]:
     """获取当前用户的工作台会话列表"""
+    from django.db.models import OuterRef, Subquery, Value
+    from django.db.models.functions import Left
+
     user = request.user
     if user.is_authenticated:
         qs = WorkbenchSession.objects.filter(user=user).order_by("-updated_at")
@@ -71,12 +74,27 @@ def list_sessions(request: Any, page: int = 1) -> dict[str, Any]:
     page_size = 20
     offset = (page - 1) * page_size
     total = qs.count()
-    items = list(qs[offset : offset + page_size])
 
-    return {
-        "items": [SessionOut.model_validate(item).model_dump() for item in items],
-        "count": total,
-    }
+    # 获取每个会话的最后一条消息摘要
+    last_msg_subquery = (
+        WorkbenchMessage.objects.filter(session_id=OuterRef("id"), role="assistant")
+        .order_by("-created_at")
+        .values("content")[:1]
+    )
+    items = list(
+        qs[offset : offset + page_size].annotate(
+            _last_msg=Subquery(last_msg_subquery),
+        )
+    )
+
+    result = []
+    for item in items:
+        data = SessionOut.model_validate(item).model_dump()
+        raw = getattr(item, "_last_msg", None) or ""
+        data["last_message_preview"] = raw[:50] if raw else ""
+        result.append(data)
+
+    return {"items": result, "count": total}
 
 
 @router.get("/sessions/{session_id}", response=SessionOut)
@@ -308,6 +326,31 @@ def download_batch_summary(request: Any, job_id: UUID) -> FileResponse:
         as_attachment=True,
         filename=job.summary_file.name.split("/")[-1] if job.summary_file.name else "summary.csv",
         content_type="text/csv; charset=utf-8",
+    )
+
+
+@router.get("/batch/{job_id}/download-detail")
+def download_batch_detail_zip(request: Any, job_id: UUID) -> FileResponse:
+    """下载批量分析详情 ZIP 文件（每个案例一个 .md 文件）"""
+    from ..tasks import build_detail_zip_sync
+
+    try:
+        job = BatchJob.objects.get(id=job_id)
+    except BatchJob.DoesNotExist:
+        raise Http404("任务不存在")
+    _get_user_session(request.user, job.session_id)
+
+    if not job.detail_zip_file:
+        # 兼容旧任务：按需生成 ZIP
+        if not build_detail_zip_sync(job_id):
+            raise Http404("分析详情文件不存在")
+        job.refresh_from_db()
+
+    return FileResponse(
+        job.detail_zip_file.open("rb"),
+        as_attachment=True,
+        filename=job.detail_zip_file.name.split("/")[-1] if job.detail_zip_file.name else "detail.zip",
+        content_type="application/zip",
     )
 
 

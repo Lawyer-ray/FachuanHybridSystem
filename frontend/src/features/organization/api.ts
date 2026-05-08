@@ -160,15 +160,7 @@ export const lawyerApi = {
   create: async (data: LawyerCreateInput, licensePdf?: File, avatar?: File): Promise<Lawyer> => {
     if (licensePdf || avatar) {
       const formData = new FormData()
-      Object.entries(data).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          if (Array.isArray(value)) {
-            value.forEach((item) => formData.append(key, String(item)))
-          } else {
-            formData.append(key, String(value))
-          }
-        }
-      })
+      formData.append('payload', JSON.stringify(data))
       if (licensePdf) formData.append('license_pdf', licensePdf)
       if (avatar) formData.append('avatar', avatar)
       return api.post('lawyers', { body: formData }).json<Lawyer>()
@@ -197,15 +189,7 @@ export const lawyerApi = {
   ): Promise<Lawyer> => {
     if (licensePdf || avatar) {
       const formData = new FormData()
-      Object.entries(data).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          if (Array.isArray(value)) {
-            value.forEach((item) => formData.append(key, String(item)))
-          } else {
-            formData.append(key, String(value))
-          }
-        }
-      })
+      formData.append('payload', JSON.stringify(data))
       if (licensePdf) formData.append('license_pdf', licensePdf)
       if (avatar) formData.append('avatar', avatar)
       return api.put(`lawyers/${id}`, { body: formData }).json<Lawyer>()

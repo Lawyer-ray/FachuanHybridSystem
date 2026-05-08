@@ -4,7 +4,7 @@ import { useTheme } from 'next-themes'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,6 +21,7 @@ import { useAuthStore } from '@/stores/auth'
 import { authApi } from '@/features/auth/api'
 import { PATHS } from '@/routes/paths'
 import { TopbarIcons } from '@/components/shared/TopbarIcons'
+import { resolveMediaUrl } from '@/lib/api'
 
 interface NavbarProps {
   onMenuClick: () => void
@@ -111,6 +112,9 @@ export function Navbar({ onMenuClick }: NavbarProps) {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="flex items-center gap-2 px-2 h-8">
               <Avatar className="h-6 w-6">
+                {user?.avatar_url && (
+                  <AvatarImage src={resolveMediaUrl(user.avatar_url) ?? undefined} alt={getDisplayName()} />
+                )}
                 <AvatarFallback className="bg-[#27272a] text-[#a1a1aa] text-xs">
                   {getAvatarInitials()}
                 </AvatarFallback>

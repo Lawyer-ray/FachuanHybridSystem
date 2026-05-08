@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, cast
 from django.contrib import admin
 from django.http import HttpRequest
 from django.utils.translation import gettext_lazy as _
+from simple_history.admin import SimpleHistoryAdmin
 
 from apps.cases.admin.base_admin import BaseModelAdmin, BaseStackedInline, BaseTabularInline
 from apps.cases.admin.case_chat_admin import CaseChatInline
@@ -30,8 +31,8 @@ from apps.cases.models import (
     CaseParty,
     SupervisingAuthority,
 )
+from apps.contacts.admin import CaseContactInline
 from apps.core.admin.mixins import AdminImportExportMixin
-from simple_history.admin import SimpleHistoryAdmin
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet
@@ -271,6 +272,7 @@ class CaseAdmin(
         CaseNumberInline,
         CaseChatInline,
         CaseLogInline,
+        CaseContactInline,
     ]
 
     def handle_json_import(

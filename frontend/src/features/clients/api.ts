@@ -50,9 +50,7 @@ export const clientApi = {
 
   createWithDocs: async (data: ClientInput, docTypes: string[], files: File[]): Promise<Client> => {
     const formData = new FormData()
-    for (const [key, value] of Object.entries(data)) {
-      if (value !== null && value !== undefined) formData.append(key, String(value))
-    }
+    formData.append('payload', JSON.stringify(data))
     for (const dt of docTypes) formData.append('doc_types', dt)
     for (const f of files) formData.append('files', f)
     return api.post('clients-with-docs', { body: formData }).json<Client>()
