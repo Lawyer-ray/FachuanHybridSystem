@@ -6,6 +6,7 @@ Contracts App API 模块
 
 from ninja import Router
 
+from .archive_api import router as archive_router
 from .contract_api import router as contract_router
 from .contractfinance_api import router as contractfinance_router
 from .contractpayment_api import router as contractpayment_router
@@ -23,5 +24,6 @@ router.add_router("", contractfinance_router, tags=["财务统计"])
 router.add_router("", supplementary_agreement_router, tags=["补充协议"])
 router.add_router("", folder_binding_router, tags=["文件夹绑定"])
 router.add_router("", folder_scan_router, tags=["文件夹自动捕获"])
+router.add_router("", archive_router, tags=["归档材料管理"])
 
 __all__ = ["router"]

@@ -67,12 +67,25 @@ export interface CaseItem {
   current_stage_label: string | null
 }
 
+export interface ClientIdentityDoc {
+  doc_type: string
+  file_path: string
+  uploaded_at: string
+  media_url: string | null
+}
+
 export interface ClientOut {
   id: number
   name: string
   is_our_client: boolean
+  phone: string | null
+  address: string | null
   client_type: string
+  id_number: string | null
+  legal_representative: string | null
+  legal_representative_id_number: string | null
   client_type_label: string
+  identity_docs: ClientIdentityDoc[]
 }
 
 export interface ContractParty {
@@ -94,9 +107,15 @@ export interface ContractAssignment {
 
 export interface Reminder {
   id: number
-  title: string
-  due_date: string | null
-  status: string
+  contract_id: number | null
+  case_log_id: number | null
+  reminder_type: string
+  reminder_type_label: string
+  content: string
+  metadata: Record<string, unknown>
+  due_at: string
+  created_at: string
+  updated_at: string
 }
 
 export interface ContractPayment {
@@ -438,4 +457,21 @@ export interface ContractPartySource {
   name: string
   source: string
   role: string | null
+}
+
+// ============================================================================
+// OA Filing
+// ============================================================================
+
+export interface OAConfig {
+  id: string
+  oa_system_name: string
+  has_credential: boolean
+}
+
+export interface FilingSession {
+  id: number
+  status: string
+  error_message: string
+  created_at: string
 }

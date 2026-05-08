@@ -12,6 +12,7 @@ import type {
   FolderScanConfirmItem, FolderScanConfirmResult,
   FinanceStats, ContractPartySource,
   Invoice, ClientPaymentRecord,
+  OAConfig, FilingSession,
 } from './types'
 
 const contractApi_ = api.extend({
@@ -160,13 +161,19 @@ export const contractApi = {
     await contractApi_.delete(`${contractId}/archive/materials/${materialId}`)
   },
 
-  reorderArchiveMaterials: async (contractId: number | string, orderedIds: number[]): Promise<void> => {
-    await contractApi_.post(`${contractId}/archive/reorder`, { json: { ordered_ids: orderedIds } })
+  reorderArchiveMaterials: async (contractId: number | string, orders: Record<string, number[]>): Promise<void> => {
+    await contractApi_.post(`${contractId}/archive/reorder`, { json: { orders } })
   },
 
-  moveArchiveMaterial: async (contractId: number | string, materialId: number, targetCategory: string): Promise<void> => {
-    await contractApi_.post(`${contractId}/archive/materials/${materialId}/move`, { json: { target_category: targetCategory } })
+  moveArchiveMaterial: async (contractId: number | string, materialId: number, targetCode: string): Promise<void> => {
+    await contractApi_.post(`${contractId}/archive/materials/${materialId}/move`, { json: { target_code: targetCode } })
   },
+
+  clearAllArchiveMaterials: async (contractId: number | string): Promise<{ deleted_count: number }> =>
+    contractApi_.post(`${contractId}/archive/clear-all`).json(),
+
+  previewArchiveMaterial: async (contractId: number | string, materialId: number): Promise<Response> =>
+    contractApi_.get(`${contractId}/archive/materials/${materialId}/preview`),
 
   // ==================== Document Generation ====================
 
@@ -213,6 +220,17 @@ export const contractApi = {
   deleteClientPaymentRecord: async (contractId: number | string, recordId: number): Promise<void> => {
     await contractApi_.delete(`${contractId}/client-payment-records/${recordId}`)
   },
+
+  // ==================== OA Filing ====================
+
+  fetchOAConfigs: async (): Promise<OAConfig[]> =>
+    api.get('oa-filing/configs').json<OAConfig[]>(),
+
+  executeOAFiling: async (siteName: string, contractId: number, caseId?: number): Promise<FilingSession> =>
+    api.post('oa-filing/execute', { json: { site_name: siteName, contract_id: contractId, case_id: caseId ?? null } }).json<FilingSession>(),
+
+  getFilingSession: async (sessionId: number): Promise<FilingSession> =>
+    api.get(`oa-filing/session/${sessionId}`).json<FilingSession>(),
 }
 
 export default contractApi

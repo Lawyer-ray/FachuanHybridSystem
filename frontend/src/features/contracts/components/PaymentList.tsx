@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { Plus, Edit, Trash2, DollarSign } from 'lucide-react'
+import { Plus, Edit, Trash2, DollarSign, ChevronRight, Receipt } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -18,6 +18,7 @@ export function PaymentList({ contractId, payments }: { contractId: number; paym
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<ContractPayment | undefined>()
   const [deleteId, setDeleteId] = useState<number | null>(null)
+  const [expandedPaymentId, setExpandedPaymentId] = useState<number | null>(null)
 
   const handleSubmit = useCallback(async (data: PaymentInput) => {
     try {
@@ -56,6 +57,7 @@ export function PaymentList({ contractId, payments }: { contractId: number; paym
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[32px]" />
                   <TableHead>金额</TableHead>
                   <TableHead>收款日期</TableHead>
                   <TableHead>开票状态</TableHead>
@@ -65,25 +67,62 @@ export function PaymentList({ contractId, payments }: { contractId: number; paym
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {payments.map(p => (
-                  <TableRow key={p.id}>
-                    <TableCell className="font-mono">¥{p.amount.toLocaleString()}</TableCell>
-                    <TableCell>{p.received_at || '-'}</TableCell>
-                    <TableCell><Badge variant="outline" className="text-xs">{p.invoice_status_label}</Badge></TableCell>
-                    <TableCell className="font-mono">¥{p.invoiced_amount.toLocaleString()}</TableCell>
-                    <TableCell className="text-muted-foreground text-sm">{p.note || '-'}</TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" className="size-7" onClick={() => { setEditing(p); setFormOpen(true) }}>
-                          <Edit className="size-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="size-7 text-destructive" onClick={() => setDeleteId(p.id)}>
-                          <Trash2 className="size-3.5" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {payments.map(p => {
+                  const isExpanded = expandedPaymentId === p.id
+                  const hasInvoices = p.invoices && p.invoices.length > 0
+                  return (
+                    <>
+                      <TableRow key={p.id}>
+                        <TableCell>
+                          {hasInvoices ? (
+                            <Button
+                              variant="ghost" size="icon" className="size-5 p-0"
+                              onClick={() => setExpandedPaymentId(isExpanded ? null : p.id)}
+                            >
+                              <ChevronRight className={`size-3.5 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                            </Button>
+                          ) : (
+                            <span className="inline-block w-5" />
+                          )}
+                        </TableCell>
+                        <TableCell className="font-mono">¥{p.amount.toLocaleString()}</TableCell>
+                        <TableCell>{p.received_at || '-'}</TableCell>
+                        <TableCell><Badge variant="outline" className="text-xs">{p.invoice_status_label}</Badge></TableCell>
+                        <TableCell className="font-mono">¥{p.invoiced_amount.toLocaleString()}</TableCell>
+                        <TableCell className="text-muted-foreground text-sm">{p.note || '-'}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="icon" className="size-7" onClick={() => { setEditing(p); setFormOpen(true) }}>
+                              <Edit className="size-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="size-7 text-destructive" onClick={() => setDeleteId(p.id)}>
+                              <Trash2 className="size-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                      {isExpanded && hasInvoices && p.invoices.map(inv => (
+                        <TableRow key={`inv-${inv.id}`} className="bg-muted/20">
+                          <TableCell />
+                          <TableCell colSpan={2} className="pl-8">
+                            <div className="flex items-center gap-2 text-xs">
+                              <Receipt className="size-3 text-muted-foreground" />
+                              <span className="truncate">{inv.original_filename || '发票'}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {inv.invoice_number && <span className="text-muted-foreground text-xs font-mono">#{inv.invoice_number}</span>}
+                          </TableCell>
+                          <TableCell className="font-mono text-xs">
+                            {inv.total_amount != null ? `¥${inv.total_amount.toLocaleString()}` : '-'}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-xs">{inv.uploaded_at?.slice(0, 10) || ''}</TableCell>
+                          <TableCell />
+                        </TableRow>
+                      ))}
+                    </>
+                  )
+                })}
                 <TableRow>
                   <TableCell className="font-mono font-semibold">合计: ¥{total.toLocaleString()}</TableCell>
                   <TableCell colSpan={5} />
