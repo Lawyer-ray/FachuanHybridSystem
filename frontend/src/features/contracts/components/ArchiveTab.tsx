@@ -158,6 +158,7 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
   const [uploadTargetCode, setUploadTargetCode] = useState<string | null>(null)
   const expandedRef = useRef(new Set<string>())
   const itemRefs = useRef(new Map<string, HTMLDivElement>())
+  const [, forceRender] = useState(0)
 
   /* ── Placeholder preview state ── */
   const [placeholderPreview, setPlaceholderPreview] = useState<{
@@ -228,6 +229,7 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
         delete el.dataset.expanded
       }
     }
+    forceRender(n => n + 1)
   }
 
   const getMaterialsForCode = (code: string) => {
