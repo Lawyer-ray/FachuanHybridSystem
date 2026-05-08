@@ -220,6 +220,31 @@ export interface ArchiveChecklistItem {
   materials: FinalizedMaterial[]
 }
 
+export interface ChecklistItem {
+  code: string
+  name: string
+  template: string | null
+  required: boolean
+  auto_detect: string | null
+  source: string
+  completed: boolean
+  material_ids: number[]
+  materials: FinalizedMaterial[]
+  has_case_material: boolean
+}
+
+export interface ArchiveChecklist {
+  archive_category: string
+  archive_category_label: string
+  compact_archive: boolean
+  items: ChecklistItem[]
+  completed_count: number
+  total_count: number
+  required_completed_count: number
+  required_total_count: number
+  completion_percentage: number
+}
+
 export interface Contract {
   id: number
   name: string

@@ -11,7 +11,9 @@ from django.http import HttpRequest, HttpResponse
 from django.utils.translation import gettext_lazy as _
 from ninja import Router, Schema
 
+from apps.contracts.models import Contract
 from apps.contracts.models.finalized_material import FinalizedMaterial
+from apps.contracts.services.archive.checklist.checklist_query import get_checklist_with_status
 
 logger = logging.getLogger("apps.contracts.api")
 router = Router()
@@ -37,7 +39,91 @@ class ClearAllOut(Schema):
     deleted_count: int = 0
 
 
+class GenerateArchiveFolderOut(Schema):
+    """生成归档文件夹输出"""
+    success: bool = True
+    generated_docs: list[str] = []
+    archive_dir: str = ""
+    errors: list[str] = []
+
+
+class ChecklistItemOut(Schema):
+    """检查清单项输出"""
+    code: str
+    name: str
+    template: str | None = None
+    required: bool
+    auto_detect: str | None = None
+    source: str
+    completed: bool = False
+    material_ids: list[int] = []
+    materials: list[dict[str, Any]] = []
+    has_case_material: bool = False
+
+
+class ChecklistOut(Schema):
+    """检查清单输出"""
+    archive_category: str
+    archive_category_label: str
+    compact_archive: bool = False
+    items: list[ChecklistItemOut]
+    completed_count: int = 0
+    total_count: int = 0
+    required_completed_count: int = 0
+    required_total_count: int = 0
+    completion_percentage: float = 0.0
+
+
 # ── Endpoints ──
+
+
+@router.get("/{contract_id}/archive/checklist", response=ChecklistOut)
+def get_archive_checklist(request: HttpRequest, contract_id: int) -> Any:
+    """获取合同的归档检查清单及各项完成状态"""
+    contract = Contract.objects.filter(pk=contract_id).first()
+    if not contract:
+        return HttpResponse(status=404)
+
+    result = get_checklist_with_status(contract)
+    result["archive_category_label"] = str(result["archive_category_label"])
+    return ChecklistOut(**result)
+
+
+@router.post("/{contract_id}/archive/generate-folder", response=GenerateArchiveFolderOut)
+def generate_archive_folder(request: HttpRequest, contract_id: int) -> Any:
+    """生成归档文件夹：模板文书 + 合并 PDF"""
+    contract = Contract.objects.filter(pk=contract_id).first()
+    if not contract:
+        return HttpResponse(status=404)
+
+    from apps.contracts.models.folder_binding import ContractFolderBinding
+
+    try:
+        binding = contract.folder_binding
+    except ContractFolderBinding.DoesNotExist:
+        binding = None
+
+    if not binding or not binding.folder_path:
+        return GenerateArchiveFolderOut(
+            success=False, errors=["请先在「文档与提醒」中绑定文件夹"],
+        )
+
+    from apps.contracts.services.archive import ArchiveGenerationService
+
+    gen_service = ArchiveGenerationService()
+    result = gen_service.generate_archive_folder(contract)
+
+    if not result["success"]:
+        return GenerateArchiveFolderOut(
+            success=False, errors=[result.get("error", "未知错误")],
+        )
+
+    return GenerateArchiveFolderOut(
+        success=True,
+        generated_docs=result.get("generated_docs", []),
+        archive_dir=result.get("archive_dir", ""),
+        errors=result.get("errors", []),
+    )
 
 
 @router.post("/{contract_id}/archive/reorder", response=SuccessOut)

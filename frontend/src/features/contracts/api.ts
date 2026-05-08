@@ -12,7 +12,7 @@ import type {
   FolderScanConfirmItem, FolderScanConfirmResult,
   FinanceStats, ContractPartySource,
   Invoice, ClientPaymentRecord,
-  OAConfig, FilingSession,
+  OAConfig, FilingSession, ArchiveChecklist,
 } from './types'
 
 const contractApi_ = api.extend({
@@ -134,6 +134,12 @@ export const contractApi = {
     contractApi_.post(`${contractId}/folder-scan/${sessionId}/confirm`, { json: { items } }).json<FolderScanConfirmResult>(),
 
   // ==================== Archive Operations ====================
+
+  getArchiveChecklist: async (contractId: number | string): Promise<ArchiveChecklist> =>
+    contractApi_.get(`${contractId}/archive/checklist`).json<ArchiveChecklist>(),
+
+  generateArchiveFolder: async (contractId: number | string): Promise<{ success: boolean; generated_docs: string[]; archive_dir: string; errors: string[] }> =>
+    contractApi_.post(`${contractId}/archive/generate-folder`).json(),
 
   syncCaseMaterials: async (contractId: number | string): Promise<{ synced_count: number; message: string }> =>
     contractApi_.post(`${contractId}/archive/sync-case-materials`).json(),

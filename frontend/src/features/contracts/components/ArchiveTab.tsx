@@ -1,8 +1,8 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import {
   Upload, Trash2, Archive, FolderSync,
   GripVertical, FileCheck, Loader2, Scaling, ArrowRightLeft,
-  ChevronDown, ChevronRight, Download, Eye,
+  ChevronDown, ChevronRight, Download, Eye, FolderOpen,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -13,36 +13,17 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog'
+import { FolderScanPanel } from './FolderScanPanel'
 import { contractApi } from '../api'
-import type { Contract, FinalizedMaterial, MaterialCategory } from '../types'
-
-/* ── Checklist definition ── */
-
-interface ChecklistItem {
-  code: string
-  name: string
-  required: boolean
-  category: MaterialCategory
-}
-
-const CHECKLIST: ChecklistItem[] = [
-  { code: 'CONTRACT', name: '合同正本', required: true, category: 'contract_original' },
-  { code: 'SUPPLEMENT', name: '补充协议', required: false, category: 'supplementary_agreement' },
-  { code: 'INVOICE', name: '发票', required: false, category: 'invoice' },
-  { code: 'ARCHIVE_DOC', name: '归档文书', required: true, category: 'archive_doc' },
-  { code: 'SUPERVISION', name: '监督卡', required: false, category: 'supervision_card' },
-  { code: 'AUTH', name: '授权委托材料', required: true, category: 'auth_doc' },
-]
-
-function isItemDone(item: ChecklistItem, materials: FinalizedMaterial[]): boolean {
-  return materials.some(m => m.category === item.category)
-}
+import type { Contract, ChecklistItem, ArchiveChecklist } from '../types'
 
 /* ── Status badge per item ── */
 
-function ItemBadge({ item, materials }: { item: ChecklistItem; materials: FinalizedMaterial[] }) {
-  const done = isItemDone(item, materials)
-  if (done) {
+function ItemBadge({ item }: { item: ChecklistItem }) {
+  if (item.completed) {
     return (
       <span className="inline-flex items-center justify-center size-5 rounded-full bg-green-100 text-green-700 text-[11px] font-bold" title="已完成">
         ✓
@@ -66,27 +47,41 @@ function ItemBadge({ item, materials }: { item: ChecklistItem; materials: Finali
 /* ── Main component ── */
 
 export function ArchiveTab({ contract: c }: { contract: Contract }) {
-  const [materials, setMaterials] = useState<FinalizedMaterial[]>(c.finalized_materials ?? [])
+  const [checklist, setChecklist] = useState<ArchiveChecklist | null>(null)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [deleteMaterialId, setDeleteMaterialId] = useState<number | null>(null)
   const [confirmArchiveOpen, setConfirmArchiveOpen] = useState(false)
   const [confirmClearAllOpen, setConfirmClearAllOpen] = useState(false)
+  const [folderScanOpen, setFolderScanOpen] = useState(false)
   const [expandedCodes, setExpandedCodes] = useState<Set<string>>(new Set())
-  const [compactMode, setCompactMode] = useState(false)
   const uploadInputRef = useRef<HTMLInputElement>(null)
   const [uploadTargetCode, setUploadTargetCode] = useState<string | null>(null)
 
-  const items = CHECKLIST.map(item => ({ ...item, done: isItemDone(item, materials) }))
-  const doneCount = items.filter(i => i.done).length
-  const requiredItems = items.filter(i => i.required)
-  const requiredDone = requiredItems.filter(i => i.done).length
-  const pct = items.length > 0 ? Math.round((doneCount / items.length) * 100) : 0
-  const canArchive = requiredDone === requiredItems.length
-
-  const refreshMaterials = useCallback(async () => {
+  const fetchChecklist = useCallback(async () => {
     try {
-      const updated = await contractApi.get(c.id)
-      setMaterials(updated.finalized_materials ?? [])
+      const data = await contractApi.getArchiveChecklist(c.id)
+      setChecklist(data)
+    } catch {
+      toast.error('获取检查清单失败')
+    }
+  }, [c.id])
+
+  useEffect(() => {
+    fetchChecklist()
+  }, [fetchChecklist])
+
+  const items = checklist?.items ?? []
+  const doneCount = checklist?.completed_count ?? 0
+  const requiredItems = items.filter(i => i.required)
+  const requiredDone = checklist?.required_completed_count ?? 0
+  const pct = checklist?.completion_percentage ?? 0
+  const compactMode = checklist?.compact_archive ?? false
+  const canArchive = requiredDone === requiredItems.length && requiredItems.length > 0
+
+  const refreshChecklist = useCallback(async () => {
+    try {
+      const data = await contractApi.getArchiveChecklist(c.id)
+      setChecklist(data)
     } catch { /* 保持当前数据 */ }
   }, [c.id])
 
@@ -103,11 +98,14 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
     if (expandedCodes.size > 0) {
       setExpandedCodes(new Set())
     } else {
-      setExpandedCodes(new Set(CHECKLIST.map(c => c.code)))
+      setExpandedCodes(new Set(items.map(i => i.code)))
     }
   }
 
-  const getMaterialsForCode = (code: string) => materials.filter(m => m.archive_item_code === code)
+  const getMaterialsForCode = (code: string) => {
+    const item = items.find(i => i.code === code)
+    return item?.materials ?? []
+  }
 
   /* ── Actions ── */
 
@@ -116,10 +114,10 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
     try {
       await contractApi.uploadArchiveItem(c.id, file, code)
       toast.success('上传成功')
-      await refreshMaterials()
+      await refreshChecklist()
     } catch { toast.error('上传失败') }
     setActionLoading(null)
-  }, [c.id, refreshMaterials])
+  }, [c.id, refreshChecklist])
 
   const handleDeleteMaterial = useCallback(async () => {
     if (deleteMaterialId == null) return
@@ -127,21 +125,21 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
     try {
       await contractApi.deleteArchiveMaterial(c.id, deleteMaterialId)
       toast.success('已删除')
-      setMaterials(prev => prev.filter(m => m.id !== deleteMaterialId))
+      await refreshChecklist()
     } catch { toast.error('删除失败') }
     setDeleteMaterialId(null)
     setActionLoading(null)
-  }, [c.id, deleteMaterialId])
+  }, [c.id, deleteMaterialId, refreshChecklist])
 
   const handleSyncCaseMaterials = useCallback(async () => {
     setActionLoading('sync')
     try {
       const result = await contractApi.syncCaseMaterials(c.id)
       toast.success(`同步完成，${result.synced_count} 个文件`)
-      await refreshMaterials()
+      await refreshChecklist()
     } catch { toast.error('同步失败') }
     setActionLoading(null)
-  }, [c.id, refreshMaterials])
+  }, [c.id, refreshChecklist])
 
   const handleConfirmArchive = useCallback(async () => {
     setActionLoading('confirm')
@@ -157,11 +155,11 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
     setActionLoading('compact')
     try {
       await contractApi.toggleCompactArchive(c.id)
-      setCompactMode(prev => !prev)
+      await refreshChecklist()
       toast.success(compactMode ? '已切换完整视图' : '已切换精简视图')
     } catch { toast.error('操作失败') }
     setActionLoading(null)
-  }, [c.id, compactMode])
+  }, [c.id, compactMode, refreshChecklist])
 
   const handleScaleToA4 = useCallback(async () => {
     setActionLoading('scale')
@@ -176,20 +174,34 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
     try {
       await contractApi.moveArchiveMaterial(c.id, materialId, targetCode)
       toast.success('已移动')
-      await refreshMaterials()
+      await refreshChecklist()
     } catch { toast.error('移动失败') }
-  }, [c.id, refreshMaterials])
+  }, [c.id, refreshChecklist])
 
   const handleClearAll = useCallback(async () => {
     setActionLoading('clear-all')
     try {
       const result = await contractApi.clearAllArchiveMaterials(c.id)
       toast.success(`已清空 ${result.deleted_count} 份材料`)
-      setMaterials([])
+      await refreshChecklist()
     } catch { toast.error('清空失败') }
     setConfirmClearAllOpen(false)
     setActionLoading(null)
-  }, [c.id])
+  }, [c.id, refreshChecklist])
+
+  const handleGenerateFolder = useCallback(async () => {
+    setActionLoading('generate')
+    try {
+      const result = await contractApi.generateArchiveFolder(c.id)
+      if (result.success) {
+        toast.success(`归档文件夹已生成${result.generated_docs.length > 0 ? `，${result.generated_docs.length} 份文书` : ''}`)
+        await refreshChecklist()
+      } else {
+        toast.error(result.errors[0] || '生成失败')
+      }
+    } catch { toast.error('生成归档文件夹失败') }
+    setActionLoading(null)
+  }, [c.id, refreshChecklist])
 
   const triggerUpload = (code: string) => {
     setUploadTargetCode(code)
@@ -205,7 +217,7 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
   /* ── Visible items (compact mode hides empty optional) ── */
 
   const visibleItems = compactMode
-    ? items.filter(i => i.done || i.required)
+    ? items.filter(i => i.completed || i.required)
     : items
 
   return (
@@ -251,7 +263,7 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
                 className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                 title="清空全部材料"
                 onClick={() => setConfirmClearAllOpen(true)}
-                disabled={!!actionLoading || materials.length === 0}
+                disabled={!!actionLoading || items.every(i => i.materials.length === 0)}
               >
                 <Trash2 className="size-4" />
               </button>
@@ -277,6 +289,22 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
 
         {/* Toolbar */}
         <div className="px-[18px] pb-3 flex flex-wrap items-center gap-2 border-b border-border/40">
+          <Button
+            variant="outline" size="sm" className="h-7 text-xs"
+            onClick={() => setFolderScanOpen(true)}
+            disabled={!!actionLoading}
+          >
+            <FolderOpen className="mr-1 size-3" />
+            从合同文件夹同步
+          </Button>
+          <Button
+            variant="outline" size="sm" className="h-7 text-xs"
+            onClick={handleGenerateFolder}
+            disabled={!!actionLoading}
+          >
+            {actionLoading === 'generate' ? <Loader2 className="mr-1 size-3 animate-spin" /> : <FolderSync className="mr-1 size-3" />}
+            生成归档文件夹
+          </Button>
           <Button
             variant="outline" size="sm" className="h-7 text-xs"
             onClick={handleSyncCaseMaterials}
@@ -308,14 +336,14 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
 
         {/* Checklist items */}
         <div className="divide-y divide-border/40" style={{ counterReset: 'ac-counter' }}>
-          {visibleItems.map(item => {
+          {visibleItems.map((item, index) => {
             const itemMaterials = getMaterialsForCode(item.code)
             const isExpanded = expandedCodes.has(item.code)
 
             return (
               <div
                 key={item.code}
-                className={`transition-colors ${item.done ? 'bg-green-50/30' : ''}`}
+                className={`transition-colors ${item.completed ? 'bg-green-50/30' : ''}`}
                 style={{ counterIncrement: 'ac-counter' }}
               >
                 {/* Item header */}
@@ -324,7 +352,7 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
                   onClick={() => toggleExpand(item.code)}
                 >
                   <span className="text-xs text-muted-foreground font-mono w-5 text-right shrink-0" style={{ content: 'counter(ac-counter)' }}>
-                    {CHECKLIST.indexOf(item) + 1}.
+                    {index + 1}.
                   </span>
                   <span className={`text-[13px] flex-1 ${item.required ? 'font-medium' : ''}`}>
                     {item.name}
@@ -332,7 +360,7 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
                   {itemMaterials.length > 0 && (
                     <span className="text-xs text-muted-foreground">({itemMaterials.length})</span>
                   )}
-                  <ItemBadge item={item} materials={materials} />
+                  <ItemBadge item={item} />
 
                   {/* Actions */}
                   <div className="flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
@@ -344,7 +372,7 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
                     >
                       <Upload className="size-3.5" />
                     </button>
-                    {item.done && (
+                    {item.completed && (
                       <>
                         <button
                           className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
@@ -404,7 +432,7 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
                                 <SelectValue placeholder="移动" />
                               </SelectTrigger>
                               <SelectContent>
-                                {CHECKLIST.filter(c => c.code !== item.code).map(target => (
+                                {items.filter(i => i.code !== item.code).map(target => (
                                   <SelectItem key={target.code} value={target.code} className="text-xs">
                                     {target.name}
                                   </SelectItem>
@@ -468,7 +496,7 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
           <AlertDialogHeader>
             <AlertDialogTitle>确认清空全部材料</AlertDialogTitle>
             <AlertDialogDescription>
-              将删除所有 {materials.length} 份归档材料，此操作不可逆。
+              将删除所有 {items.reduce((sum, item) => sum + item.materials.length, 0)} 份归档材料，此操作不可逆。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -477,6 +505,16 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Folder scan dialog */}
+      <Dialog open={folderScanOpen} onOpenChange={setFolderScanOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>从合同文件夹同步</DialogTitle>
+          </DialogHeader>
+          <FolderScanPanel contractId={c.id} />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
