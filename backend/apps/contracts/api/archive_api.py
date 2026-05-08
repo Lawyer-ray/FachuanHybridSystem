@@ -138,6 +138,30 @@ def learn_archive_rules(request: HttpRequest) -> Any:
         return LearnRulesOut(success=False, message=str(exc))
 
 
+@router.get("/{contract_id}/archive/download-item/{archive_item_code}")
+def download_archive_item(request: HttpRequest, contract_id: int, archive_item_code: str) -> Any:
+    """下载归档检查项材料（多文件自动合并为 PDF）"""
+    contract = Contract.objects.filter(pk=contract_id).first()
+    if not contract:
+        return HttpResponse(status=404)
+
+    from apps.contracts.services.archive import ArchiveGenerationService
+
+    gen_service = ArchiveGenerationService()
+    result = gen_service.download_archive_item(contract, archive_item_code)
+
+    if result.get("error"):
+        return HttpResponse(status=404)
+
+    import urllib.parse
+
+    response = HttpResponse(result["content"], content_type=result["content_type"])
+    encoded_filename = urllib.parse.quote(result["filename"].encode("utf-8"))
+    disposition = "inline" if request.GET.get("preview") == "1" else "attachment"
+    response["Content-Disposition"] = f'{disposition}; filename*=UTF-8\'\'{encoded_filename}'
+    return response
+
+
 @router.get("/{contract_id}/archive/checklist", response=ChecklistOut)
 def get_archive_checklist(request: HttpRequest, contract_id: int) -> Any:
     """获取合同的归档检查清单及各项完成状态"""

@@ -56,9 +56,10 @@ function ItemBadge({ item }: { item: ChecklistItem }) {
 /* ── Sortable material sub-item ── */
 
 function SortableMaterialItem({
-  m, itemCode, items, onDelete, onMove,
+  m, contractId, itemCode, items, onDelete, onMove,
 }: {
   m: FinalizedMaterial
+  contractId: number
   itemCode: string
   items: ChecklistItem[]
   onDelete: (id: number) => void
@@ -92,6 +93,13 @@ function SortableMaterialItem({
           {m.source_label}
         </span>
       )}
+      <button
+        className="p-0.5 rounded text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground transition-all"
+        title="预览"
+        onClick={() => window.open(contractApi.previewSingleMaterial(contractId, m.id), '_blank')}
+      >
+        <Eye className="size-3" />
+      </button>
       <div className="opacity-0 group-hover:opacity-100 shrink-0">
         <Select onValueChange={(targetCode) => onMove(m.id, targetCode)}>
           <SelectTrigger className="h-5 w-auto text-[10px] px-1 border-border/60">
@@ -513,12 +521,14 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
                         <button
                           className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
                           title="预览"
+                          onClick={() => window.open(contractApi.previewArchiveItem(c.id, item.code), '_blank')}
                         >
                           <Eye className="size-3.5" />
                         </button>
                         <button
                           className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
                           title="下载材料"
+                          onClick={() => window.open(contractApi.downloadArchiveItem(c.id, item.code), '_blank')}
                         >
                           <Download className="size-3.5" />
                         </button>
@@ -547,6 +557,7 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
                             <SortableMaterialItem
                               key={m.id}
                               m={m}
+                              contractId={c.id}
                               itemCode={item.code}
                               items={items}
                               onDelete={setDeleteMaterialId}

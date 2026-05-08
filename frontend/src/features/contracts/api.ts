@@ -184,6 +184,15 @@ export const contractApi = {
   previewArchiveMaterial: async (contractId: number | string, materialId: number): Promise<Response> =>
     contractApi_.get(`${contractId}/archive/materials/${materialId}/preview`),
 
+  downloadArchiveItem: (contractId: number | string, archiveItemCode: string): string =>
+    `${API_BASE_URL}/contracts/${contractId}/archive/download-item/${archiveItemCode}`,
+
+  previewArchiveItem: (contractId: number | string, archiveItemCode: string): string =>
+    `${API_BASE_URL}/contracts/${contractId}/archive/download-item/${archiveItemCode}?preview=1`,
+
+  previewSingleMaterial: (contractId: number | string, materialId: number): string =>
+    `${API_BASE_URL}/contracts/${contractId}/archive/materials/${materialId}/preview`,
+
   // ==================== Document Generation ====================
 
   generateContract: async (contractId: number | string, splitFee = false): Promise<Response> =>
