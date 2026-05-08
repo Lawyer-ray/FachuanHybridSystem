@@ -56,6 +56,8 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
   const [expandedCodes, setExpandedCodes] = useState<Set<string>>(new Set())
   const uploadInputRef = useRef<HTMLInputElement>(null)
   const [uploadTargetCode, setUploadTargetCode] = useState<string | null>(null)
+  const [dragMaterialId, setDragMaterialId] = useState<number | null>(null)
+  const [dragOverMaterialId, setDragOverMaterialId] = useState<number | null>(null)
 
   const fetchChecklist = useCallback(async () => {
     try {
@@ -177,6 +179,25 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
       await refreshChecklist()
     } catch { toast.error('移动失败') }
   }, [c.id, refreshChecklist])
+
+  const handleDragEnd = useCallback(async (code: string, draggedId: number, targetId: number) => {
+    if (draggedId === targetId) return
+    const item = items.find(i => i.code === code)
+    if (!item) return
+    const matIds = item.materials.map(m => m.id)
+    const fromIdx = matIds.indexOf(draggedId)
+    const toIdx = matIds.indexOf(targetId)
+    if (fromIdx < 0 || toIdx < 0) return
+    const reordered = [...matIds]
+    reordered.splice(fromIdx, 1)
+    reordered.splice(toIdx, 0, draggedId)
+    try {
+      await contractApi.reorderArchiveMaterials(c.id, { [code]: reordered })
+      await refreshChecklist()
+    } catch { toast.error('排序失败') }
+    setDragMaterialId(null)
+    setDragOverMaterialId(null)
+  }, [c.id, items, refreshChecklist])
 
   const handleClearAll = useCallback(async () => {
     setActionLoading('clear-all')
@@ -348,7 +369,7 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
               >
                 {/* Item header */}
                 <div
-                  className="flex items-center gap-3 px-[18px] py-2.5 cursor-pointer hover:bg-muted/30 transition-colors select-none"
+                  className="flex items-center gap-2.5 px-[18px] py-1.5 cursor-pointer hover:bg-muted/30 transition-colors select-none"
                   onClick={() => toggleExpand(item.code)}
                 >
                   <span className="text-xs text-muted-foreground font-mono w-5 text-right shrink-0" style={{ content: 'counter(ac-counter)' }}>
@@ -402,21 +423,40 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
                 {itemMaterials.length > 0 && (
                   <div
                     className="overflow-hidden transition-all duration-200"
-                    style={{ maxHeight: isExpanded ? `${itemMaterials.length * 40 + 16}px` : '0px' }}
+                    style={{ maxHeight: isExpanded ? `${itemMaterials.length * 28 + 8}px` : '0px' }}
                   >
-                    <div className="px-[18px] pb-2 space-y-0.5">
+                    <div className="px-[18px] pb-1">
                       {itemMaterials.map(m => (
                         <div
                           key={m.id}
-                          className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs group hover:bg-muted/40 transition-colors"
+                          draggable
+                          onDragStart={(e) => {
+                            setDragMaterialId(m.id)
+                            e.dataTransfer.effectAllowed = 'move'
+                          }}
+                          onDragOver={(e) => {
+                            e.preventDefault()
+                            setDragOverMaterialId(m.id)
+                          }}
+                          onDragLeave={() => setDragOverMaterialId(null)}
+                          onDrop={(e) => {
+                            e.preventDefault()
+                            if (dragMaterialId && dragMaterialId !== m.id) {
+                              handleDragEnd(item.code, dragMaterialId, m.id)
+                            }
+                          }}
+                          onDragEnd={() => { setDragMaterialId(null); setDragOverMaterialId(null) }}
+                          className={`flex items-center gap-1.5 px-1.5 py-0.5 rounded text-xs group hover:bg-muted/40 transition-colors cursor-grab ${
+                            dragMaterialId === m.id ? 'opacity-40' : ''
+                          } ${dragOverMaterialId === m.id && dragMaterialId !== m.id ? 'border-t border-primary' : ''}`}
                         >
-                          <span className="text-muted-foreground/40 cursor-grab shrink-0" title="拖拽排序">
+                          <span className="text-muted-foreground/40 shrink-0">
                             <GripVertical className="size-3" />
                           </span>
                           <FileCheck className="size-3 text-green-600 shrink-0" />
                           <span className="flex-1 truncate">{m.original_filename}</span>
                           {m.source_label && (
-                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0 ${
+                            <span className={`inline-flex items-center px-1 py-px rounded text-[10px] font-medium shrink-0 ${
                               m.source === 'case' ? 'bg-blue-50 text-blue-700'
                               : m.source === 'scan' ? 'bg-purple-50 text-purple-700'
                               : 'bg-muted text-muted-foreground'
@@ -427,7 +467,7 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
                           {/* Move dropdown */}
                           <div className="opacity-0 group-hover:opacity-100 shrink-0">
                             <Select onValueChange={(targetCode) => handleMoveMaterial(m.id, targetCode)}>
-                              <SelectTrigger className="h-6 w-auto text-[10px] px-1.5 border-border/60">
+                              <SelectTrigger className="h-5 w-auto text-[10px] px-1 border-border/60">
                                 <ArrowRightLeft className="size-2.5 mr-0.5" />
                                 <SelectValue placeholder="移动" />
                               </SelectTrigger>
