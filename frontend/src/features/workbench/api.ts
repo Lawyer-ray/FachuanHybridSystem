@@ -1,6 +1,7 @@
 /** 工作台 API 客户端 */
 
-import { createFeatureApiClient } from '@/lib/api'
+import { createFeatureApiClient, API_BASE_URL } from '@/lib/api'
+import { getAccessToken } from '@/lib/token'
 import type { BatchJob, BatchProgress, ModelsResponse, WorkbenchMessage, WorkbenchSession } from './types'
 
 const api = createFeatureApiClient('workbench')
@@ -121,8 +122,8 @@ export function connectBatchSSE(
   onDone: () => void,
   onError: (err: Error) => void,
 ): () => void {
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002/api/v1'
-  const token = localStorage.getItem('access_token')
+  const baseUrl = API_BASE_URL
+  const token = getAccessToken()
   const controller = new AbortController()
 
   ;(async () => {

@@ -24,7 +24,7 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { PATHS } from '@/routes/paths'
-import { createApiClient } from '@/lib/api'
+import { createFeatureApiClient } from '@/lib/api'
 
 interface CommandEntry {
   label: string
@@ -65,9 +65,7 @@ interface GlobalSearchResult {
   contacts: SearchResultItem[]
 }
 
-const searchApi = createApiClient({
-  prefixUrl: `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002/api/v1'}/search`,
-})
+const searchApi = createFeatureApiClient('search')
 
 const RESULT_GROUPS: { key: keyof GlobalSearchResult; label: string; icon: React.ReactNode; getPath: (item: SearchResultItem) => string }[] = [
   { key: 'clients', label: '当事人', icon: <Users className="w-4 h-4" />, getPath: (item) => `/admin/clients/${item.id}` },

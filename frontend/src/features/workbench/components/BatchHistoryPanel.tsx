@@ -4,6 +4,8 @@ import { useQuery } from '@tanstack/react-query'
 import { History, Download, ChevronDown, ChevronUp, Loader2, CheckCircle2, XCircle, Clock } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
+import { API_BASE_URL } from '@/lib/api'
+import { getAccessToken } from '@/lib/token'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { listBatchJobs } from '../api'
 import type { BatchJob } from '../types'
@@ -29,15 +31,15 @@ function BatchJobRow({ job }: { job: BatchJob }) {
 
   const handleDownload = () => {
     if (!job.summary_file) return
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002/api/v1'
-    const token = localStorage.getItem('access_token')
+    const baseUrl = API_BASE_URL
+    const token = getAccessToken()
     window.open(`${baseUrl}/workbench/batch/${job.id}/download${token ? `?token=${token}` : ''}`, '_blank')
   }
 
   const handleDownloadDetail = () => {
     if (!job.detail_zip_file) return
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002/api/v1'
-    const token = localStorage.getItem('access_token')
+    const baseUrl = API_BASE_URL
+    const token = getAccessToken()
     window.open(`${baseUrl}/workbench/batch/${job.id}/download-detail${token ? `?token=${token}` : ''}`, '_blank')
   }
 
