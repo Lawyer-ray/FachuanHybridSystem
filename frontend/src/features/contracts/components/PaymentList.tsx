@@ -115,7 +115,7 @@ export function PaymentList({ contractId, payments }: { contractId: number; paym
                             {inv.invoice_number && <span className="text-muted-foreground text-xs font-mono">#{inv.invoice_number}</span>}
                           </TableCell>
                           <TableCell className="font-mono text-xs">
-                            {inv.total_amount != null ? `¥${inv.total_amount.toLocaleString()}` : '-'}
+                            {inv.total_amount != null ? formatAmountInt(inv.total_amount) : '-'}
                           </TableCell>
                           <TableCell className="text-muted-foreground text-xs">{inv.uploaded_at?.slice(0, 10) || ''}</TableCell>
                           <TableCell />
@@ -125,7 +125,7 @@ export function PaymentList({ contractId, payments }: { contractId: number; paym
                   )
                 })}
                 <TableRow>
-                  <TableCell className="font-mono font-semibold">合计: ¥{total.toLocaleString()}</TableCell>
+                  <TableCell className="font-mono font-semibold">合计: {formatAmountInt(total)}</TableCell>
                   <TableCell colSpan={5} />
                 </TableRow>
               </TableBody>

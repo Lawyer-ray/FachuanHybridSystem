@@ -80,7 +80,7 @@ export function ContractTable({ contracts, isLoading = false }: { contracts: Con
                 </TableCell>
                 <TableCell className="text-sm">{c.primary_lawyer?.real_name || c.primary_lawyer?.username || '-'}</TableCell>
                 <TableCell className="text-sm text-muted-foreground">{c.start_date ?? '-'}</TableCell>
-                <TableCell className="text-right font-mono text-sm">{c.total_received.toLocaleString()}</TableCell>
+                <TableCell className="text-right font-mono text-sm">{formatAmountInt(c.total_received)}</TableCell>
               </TableRow>
             ))
           )}

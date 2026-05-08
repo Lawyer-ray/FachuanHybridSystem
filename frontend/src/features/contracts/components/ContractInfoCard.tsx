@@ -48,13 +48,13 @@ export function ContractInfoCard({ contract: c }: { contract: Contract }) {
         <CardHeader className="pb-3"><CardTitle className="text-base">收费信息</CardTitle></CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <Info icon={DollarSign} label="收费模式">{feeLabel}</Info>
-          {c.fixed_amount != null && <Info icon={DollarSign} label="固定/前期金额">¥{c.fixed_amount.toLocaleString()}</Info>}
+          {c.fixed_amount != null && <Info icon={DollarSign} label="固定/前期金额">{formatAmountInt(c.fixed_amount)}</Info>}
           {c.risk_rate != null && <Info icon={DollarSign} label="风险比例">{c.risk_rate}%</Info>}
           {c.custom_terms && <div className="sm:col-span-2"><Info icon={FileText} label="自定义条款">{c.custom_terms}</Info></div>}
           <Separator className="sm:col-span-2" />
-          <Info icon={DollarSign} label="已收款">¥{c.total_received.toLocaleString()}</Info>
-          <Info icon={DollarSign} label="已开票">¥{c.total_invoiced.toLocaleString()}</Info>
-          {c.unpaid_amount != null && <Info icon={DollarSign} label="未收款">¥{c.unpaid_amount.toLocaleString()}</Info>}
+          <Info icon={DollarSign} label="已收款">{formatAmountInt(c.total_received)}</Info>
+          <Info icon={DollarSign} label="已开票">{formatAmountInt(c.total_invoiced)}</Info>
+          {c.unpaid_amount != null && <Info icon={DollarSign} label="未收款">{formatAmountInt(c.unpaid_amount)}</Info>}
         </CardContent>
       </Card>
 
@@ -104,7 +104,7 @@ export function ContractInfoCard({ contract: c }: { contract: Contract }) {
                     <span className="text-sm font-medium">{cs.name}</span>
                     {cs.status_label && <Badge variant="outline" className="text-xs">{cs.status_label}</Badge>}
                   </div>
-                  {cs.target_amount != null && <span className="text-muted-foreground text-sm">¥{cs.target_amount.toLocaleString()}</span>}
+                  {cs.target_amount != null && <span className="text-muted-foreground text-sm">{formatAmountInt(cs.target_amount)}</span>}
                 </div>
               ))}
             </div>

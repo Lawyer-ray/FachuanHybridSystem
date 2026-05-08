@@ -164,7 +164,7 @@ export function FeesTab({ contract: c }: { contract: Contract }) {
               />
             </div>
             <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">应收 {hasProgress ? `¥${c.fixed_amount!.toLocaleString()}` : '—'}</span>
+              <span className="text-muted-foreground">应收 {hasProgress ? formatAmountInt(c.fixed_amount!) : '—'}</span>
               <span className="text-green-600 font-medium">已收 {formatAmountInt(c.total_received)}</span>
             </div>
             {c.unpaid_amount != null && c.unpaid_amount > 0 && (

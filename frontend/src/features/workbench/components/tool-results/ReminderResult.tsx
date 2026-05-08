@@ -3,6 +3,7 @@
 import { Bell, Calendar, DollarSign, Clock } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
+import { formatAmountInt } from '@/lib/format'
 import type { ToolResultRendererProps } from './index'
 
 export function ReminderResult({ output, toolName }: ToolResultRendererProps) {
@@ -89,11 +90,11 @@ function LprResult({ output }: { output: unknown }) {
           <span>利息计算结果</span>
         </div>
         <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-muted-foreground">
-          {data.principal != null && <div>本金: <span className="text-foreground">¥{Number(data.principal).toLocaleString()}</span></div>}
+          {data.principal != null && <div>本金: <span className="text-foreground">{formatAmountInt(Number(data.principal))}</span></div>}
           {data.rate != null && <div>利率: <span className="text-foreground">{String(data.rate)}%</span></div>}
           {data.days != null && <div>天数: <span className="text-foreground">{String(data.days)}</span></div>}
-          {data.interest != null && <div>利息: <span className="text-foreground font-medium">¥{Number(data.interest).toLocaleString()}</span></div>}
-          {data.total != null && <div>合计: <span className="text-foreground font-medium">¥{Number(data.total).toLocaleString()}</span></div>}
+          {data.interest != null && <div>利息: <span className="text-foreground font-medium">{formatAmountInt(Number(data.interest))}</span></div>}
+          {data.total != null && <div>合计: <span className="text-foreground font-medium">{formatAmountInt(Number(data.total))}</span></div>}
         </div>
       </div>
     )

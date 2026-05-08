@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router'
 import { Users, FileText, Briefcase, TrendingUp, TrendingDown } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { PATHS } from '@/routes/paths'
+import { formatAmountInt } from '@/lib/format'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { DashboardStats } from '../types'
 
@@ -38,7 +39,7 @@ export function StatsCards({ data, isLoading }: { data?: DashboardStats; isLoadi
     },
     {
       label: '本月律师费',
-      value: isLoading ? '-' : `¥${Number(data?.monthly_fee ?? 0).toLocaleString()}`,
+      value: isLoading ? '-' : formatAmountInt(Number(data?.monthly_fee ?? 0)),
       icon: <TrendingUp className="w-5 h-5" />,
       path: PATHS.ADMIN_CONTRACTS,
     },

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Hash, Clock, Plus, Trash2, Loader2, ChevronDown, ChevronUp, Pencil, FileText, Scale } from 'lucide-react'
 import { formatDateOnly } from '@/lib/date'
+import { formatAmountInt } from '@/lib/format'
 import { toast } from 'sonner'
 
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
@@ -365,7 +366,7 @@ function CaseNumberCard({
                 {cn.execution_paid_amount > 0 && (
                   <div>
                     <span className="text-muted-foreground">已付金额：</span>
-                    <span className="font-medium">¥{cn.execution_paid_amount.toLocaleString()}</span>
+                    <span className="font-medium">{formatAmountInt(cn.execution_paid_amount)}</span>
                   </div>
                 )}
                 {cn.execution_year_days != null && (

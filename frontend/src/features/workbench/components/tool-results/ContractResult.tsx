@@ -2,6 +2,7 @@
 
 import { FileText, Calendar, DollarSign, Users } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { formatAmountInt } from '@/lib/format'
 import type { ToolResultRendererProps } from './index'
 
 export function ContractResult({ output, toolName }: ToolResultRendererProps) {
@@ -48,7 +49,7 @@ function SingleContract({ data }: { data: Record<string, unknown> }) {
           <div className="flex items-center gap-1"><span>类型:</span><span className="text-foreground">{String(data.contract_type)}</span></div>
         ) : null}
         {data.amount != null ? (
-          <div className="flex items-center gap-1"><DollarSign className="size-3" /><span>金额:</span><span className="text-foreground">¥{Number(data.amount).toLocaleString()}</span></div>
+          <div className="flex items-center gap-1"><DollarSign className="size-3" /><span>金额:</span><span className="text-foreground">{formatAmountInt(Number(data.amount))}</span></div>
         ) : null}
         {data.sign_date != null ? (
           <div className="flex items-center gap-1"><Calendar className="size-3" /><span>签订:</span><span className="text-foreground">{String(data.sign_date)}</span></div>
@@ -70,7 +71,7 @@ function CompactContract({ data }: { data: Record<string, unknown> }) {
       <FileText className="size-3 shrink-0 text-muted-foreground" />
       <span className="font-medium truncate flex-1">{String(data.title ?? data.name ?? '未命名')}</span>
       {data.amount != null ? (
-        <span className="text-muted-foreground shrink-0">¥{Number(data.amount).toLocaleString()}</span>
+        <span className="text-muted-foreground shrink-0">{formatAmountInt(Number(data.amount))}</span>
       ) : null}
     </div>
   )
