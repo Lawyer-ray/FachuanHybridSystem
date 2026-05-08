@@ -210,6 +210,9 @@ export const contractApi = {
 
   // ==================== Document Generation ====================
 
+  previewArchivePlaceholders: async (contractId: number | string, templateSubtype: string): Promise<{ success: boolean; data?: { key: string; label: string; value: string }[]; error?: string }> =>
+    api.get(`documents/contracts/${contractId}/archive-preview`, { searchParams: { template_subtype: templateSubtype } }).json(),
+
   generateContract: async (contractId: number | string, splitFee = false): Promise<Response> =>
     api.get(`documents/contracts/${contractId}/download`, { searchParams: splitFee ? { split_fee: 'true' } : {} }),
 

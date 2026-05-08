@@ -158,6 +158,14 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
   const uploadInputRef = useRef<HTMLInputElement>(null)
   const [uploadTargetCode, setUploadTargetCode] = useState<string | null>(null)
 
+  /* ── Placeholder preview state ── */
+  const [placeholderPreview, setPlaceholderPreview] = useState<{
+    open: boolean
+    title: string
+    loading: boolean
+    rows: { key: string; label: string; value: string }[]
+  }>({ open: false, title: '', loading: false, rows: [] })
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -371,6 +379,22 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
     e.target.value = ''
   }
 
+  const handlePreviewPlaceholders = useCallback(async (templateSubtype: string, templateName: string) => {
+    setPlaceholderPreview({ open: true, title: `${templateName} - 替换词预览`, loading: true, rows: [] })
+    try {
+      const result = await contractApi.previewArchivePlaceholders(c.id, templateSubtype)
+      if (result.success && result.data) {
+        setPlaceholderPreview(prev => ({ ...prev, loading: false, rows: result.data! }))
+      } else {
+        toast.error(result.error || '预览失败')
+        setPlaceholderPreview(prev => ({ ...prev, open: false }))
+      }
+    } catch {
+      toast.error('预览请求失败')
+      setPlaceholderPreview(prev => ({ ...prev, open: false }))
+    }
+  }, [c.id])
+
   /* ── Non-template items for count calculation ── */
 
   const nonTemplateItems = items.filter(i => !i.template)
@@ -535,8 +559,8 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
                       <>
                         <button
                           className="p-1 rounded text-muted-foreground hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                          title="预览"
-                          onClick={() => contractApi.previewArchiveItem(c.id, item.code)}
+                          title="预览替换词"
+                          onClick={() => handlePreviewPlaceholders(item.template!, item.name)}
                         >
                           <Eye className="size-3.5" />
                         </button>
@@ -674,6 +698,41 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
             <DialogTitle>从合同文件夹同步</DialogTitle>
           </DialogHeader>
           <FolderScanPanel contractId={c.id} />
+        </DialogContent>
+      </Dialog>
+
+      {/* Placeholder preview dialog */}
+      <Dialog open={placeholderPreview.open} onOpenChange={(open) => setPlaceholderPreview(prev => ({ ...prev, open }))}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{placeholderPreview.title}</DialogTitle>
+          </DialogHeader>
+          {placeholderPreview.loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="size-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : placeholderPreview.rows.length > 0 ? (
+            <div className="max-h-[60vh] overflow-y-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border/60">
+                    <th className="text-left py-2 pr-3 font-medium text-muted-foreground">占位符</th>
+                    <th className="text-left py-2 font-medium text-muted-foreground">当前值</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {placeholderPreview.rows.map((row, i) => (
+                    <tr key={i} className="border-b border-border/30">
+                      <td className="py-1.5 pr-3 text-xs font-mono text-muted-foreground whitespace-nowrap">{row.label || row.key}</td>
+                      <td className="py-1.5 text-[13px]">{row.value || <span className="text-muted-foreground italic">未填写</span>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground py-4 text-center">无替换词数据</p>
+          )}
         </DialogContent>
       </Dialog>
     </div>
