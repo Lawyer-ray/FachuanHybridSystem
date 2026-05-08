@@ -1,6 +1,7 @@
 /** 工作台页面 */
 
 import { useEffect, useCallback, useState, useRef, useMemo } from 'react'
+import { formatFileSize } from '@/lib/file-utils'
 import { useParams, useNavigate } from 'react-router'
 import { Plus, Trash2, Loader2, Pencil, Search, X, PanelLeftClose, PanelLeft, Menu, History, Download, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -517,13 +518,6 @@ export function WorkbenchPage() {
   )
 }
 
-/** 格式化存储大小 */
-function formatStorageSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
 /** 会话列表项 */
 function SessionItem({
   session,
@@ -563,7 +557,7 @@ function SessionItem({
       )}
       {session.message_count !== undefined && (
         <span className="text-[10px] text-muted-foreground/60 mt-0.5">
-          {session.message_count} 条消息 · {formatStorageSize(session.storage_bytes || 0)}
+          {session.message_count} 条消息 · {formatFileSize(session.storage_bytes || 0)}
         </span>
       )}
     </div>
