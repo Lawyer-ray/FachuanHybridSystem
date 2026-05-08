@@ -23,7 +23,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
 import { FolderScanPanel } from './FolderScanPanel'
 import { contractApi } from '../api'
@@ -696,6 +696,7 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>从合同文件夹同步</DialogTitle>
+            <DialogDescription>扫描合同绑定文件夹，自动匹配归档检查清单项</DialogDescription>
           </DialogHeader>
           <FolderScanPanel contractId={c.id} />
         </DialogContent>
@@ -706,6 +707,7 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{placeholderPreview.title}</DialogTitle>
+            <DialogDescription>模板文书中的占位符及其当前替换值</DialogDescription>
           </DialogHeader>
           {placeholderPreview.loading ? (
             <div className="flex items-center justify-center py-8">
