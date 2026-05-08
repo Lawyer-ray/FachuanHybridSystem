@@ -2,14 +2,21 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from mcp_server.client import client
 
+logger = logging.getLogger(__name__)
+
 
 def list_enterprise_providers(include_tools: bool = False) -> dict[str, Any]:
     """查询可用的企业数据提供商列表（如天眼查等）。include_tools=True 时返回支持的工具列表。"""
-    return client.get("/enterprise-data/providers", params={"include_tools": include_tools})  # type: ignore[return-value]
+    try:
+        return client.get("/enterprise-data/providers", params={"include_tools": include_tools})  # type: ignore[return-value]
+    except Exception as e:
+        logger.warning("list_enterprise_providers 失败: %s", e)
+        return {"success": False, "error": str(e), "providers": []}
 
 
 def search_companies(keyword: str, provider: str | None = None) -> dict[str, Any]:
@@ -17,7 +24,11 @@ def search_companies(keyword: str, provider: str | None = None) -> dict[str, Any
     params: dict[str, Any] = {"keyword": keyword}
     if provider:
         params["provider"] = provider
-    return client.get("/enterprise-data/companies/search", params=params)  # type: ignore[return-value]
+    try:
+        return client.get("/enterprise-data/companies/search", params=params)  # type: ignore[return-value]
+    except Exception as e:
+        logger.warning("search_companies 失败: %s", e)
+        return {"success": False, "error": f"企业搜索失败: {e}", "companies": []}
 
 
 def get_company_profile(company_id: str, provider: str | None = None) -> dict[str, Any]:
@@ -25,7 +36,11 @@ def get_company_profile(company_id: str, provider: str | None = None) -> dict[st
     params: dict[str, Any] = {}
     if provider:
         params["provider"] = provider
-    return client.get(f"/enterprise-data/companies/{company_id}", params=params)  # type: ignore[return-value]
+    try:
+        return client.get(f"/enterprise-data/companies/{company_id}", params=params)  # type: ignore[return-value]
+    except Exception as e:
+        logger.warning("get_company_profile 失败: %s", e)
+        return {"success": False, "error": f"获取企业信息失败: {e}"}
 
 
 def get_company_risks(
@@ -37,7 +52,11 @@ def get_company_risks(
     params: dict[str, Any] = {"risk_type": risk_type}
     if provider:
         params["provider"] = provider
-    return client.get(f"/enterprise-data/companies/{company_id}/risks", params=params)  # type: ignore[return-value]
+    try:
+        return client.get(f"/enterprise-data/companies/{company_id}/risks", params=params)  # type: ignore[return-value]
+    except Exception as e:
+        logger.warning("get_company_risks 失败: %s", e)
+        return {"success": False, "error": f"查询企业风险失败: {e}"}
 
 
 def get_company_shareholders(company_id: str, provider: str | None = None) -> dict[str, Any]:
@@ -45,7 +64,11 @@ def get_company_shareholders(company_id: str, provider: str | None = None) -> di
     params: dict[str, Any] = {}
     if provider:
         params["provider"] = provider
-    return client.get(f"/enterprise-data/companies/{company_id}/shareholders", params=params)  # type: ignore[return-value]
+    try:
+        return client.get(f"/enterprise-data/companies/{company_id}/shareholders", params=params)  # type: ignore[return-value]
+    except Exception as e:
+        logger.warning("get_company_shareholders 失败: %s", e)
+        return {"success": False, "error": f"查询股东信息失败: {e}"}
 
 
 def get_company_personnel(company_id: str, provider: str | None = None) -> dict[str, Any]:
@@ -53,7 +76,11 @@ def get_company_personnel(company_id: str, provider: str | None = None) -> dict[
     params: dict[str, Any] = {}
     if provider:
         params["provider"] = provider
-    return client.get(f"/enterprise-data/companies/{company_id}/personnel", params=params)  # type: ignore[return-value]
+    try:
+        return client.get(f"/enterprise-data/companies/{company_id}/personnel", params=params)  # type: ignore[return-value]
+    except Exception as e:
+        logger.warning("get_company_personnel 失败: %s", e)
+        return {"success": False, "error": f"查询企业人员失败: {e}"}
 
 
 def get_person_profile(hcgid: str, provider: str | None = None) -> dict[str, Any]:
@@ -61,7 +88,11 @@ def get_person_profile(hcgid: str, provider: str | None = None) -> dict[str, Any
     params: dict[str, Any] = {}
     if provider:
         params["provider"] = provider
-    return client.get(f"/enterprise-data/personnel/{hcgid}", params=params)  # type: ignore[return-value]
+    try:
+        return client.get(f"/enterprise-data/personnel/{hcgid}", params=params)  # type: ignore[return-value]
+    except Exception as e:
+        logger.warning("get_person_profile 失败: %s", e)
+        return {"success": False, "error": f"查询人员信息失败: {e}"}
 
 
 def search_bidding_info(
@@ -80,4 +111,8 @@ def search_bidding_info(
         params["end_date"] = end_date
     if provider:
         params["provider"] = provider
-    return client.get("/enterprise-data/biddings/search", params=params)  # type: ignore[return-value]
+    try:
+        return client.get("/enterprise-data/biddings/search", params=params)  # type: ignore[return-value]
+    except Exception as e:
+        logger.warning("search_bidding_info 失败: %s", e)
+        return {"success": False, "error": f"搜索招投标信息失败: {e}", "biddings": []}
