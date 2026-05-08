@@ -80,7 +80,6 @@ const CourtSmsDetailPage = lazy(() => import('@/pages/dashboard/tools/CourtSmsDe
 const CourierTrackingPage = lazy(() => import('@/pages/dashboard/tools/CourierTrackingPage'))
 const ElementConvertPage = lazy(() => import('@/pages/dashboard/tools/ElementConvertPage'))
 const LprCalculatorPage = lazy(() => import('@/pages/dashboard/tools/LprCalculatorPage'))
-const ContactSearchPage = lazy(() => import('@/features/contacts').then(m => ({ default: m.ContactSearchPage })))
 
 // 工作台
 const WorkbenchPage = lazy(() => import('@/features/workbench/WorkbenchPage'))
@@ -350,10 +349,6 @@ export const router = createBrowserRouter([
           {
             path: PATHS.ADMIN_TOOLS_LPR,
             element: <LprCalculatorPage />,
-          },
-          {
-            path: PATHS.ADMIN_CONTACT_SEARCH,
-            element: <ContactSearchPage />,
           },
           // Phase 4: 设置 + 任务队列 + 日志
           {
