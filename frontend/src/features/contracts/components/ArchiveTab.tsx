@@ -613,24 +613,31 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
                 </div>
 
                 {/* Materials sub-items */}
-                {itemMaterials.length > 0 && isExpanded && (
-                  <div className="border-t border-border/40">
-                    <div className="px-[18px] py-1">
-                      <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
-                        <SortableContext items={itemMaterials.map(m => m.id)} strategy={verticalListSortingStrategy}>
-                          {itemMaterials.map(m => (
-                            <SortableMaterialItem
-                              key={m.id}
-                              m={m}
-                              contractId={c.id}
-                              itemCode={item.code}
-                              items={items}
-                              onDelete={setDeleteMaterialId}
-                              onMove={handleMoveMaterial}
-                            />
-                          ))}
-                        </SortableContext>
-                      </DndContext>
+                {itemMaterials.length > 0 && (
+                  <div
+                    className="grid transition-[grid-template-rows] duration-200 ease-in-out"
+                    style={{ gridTemplateRows: isExpanded ? '1fr' : '0fr' }}
+                  >
+                    <div className="overflow-hidden min-h-0">
+                      <div className="border-t border-border/40 px-[18px] py-1">
+                        {isExpanded && (
+                          <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
+                            <SortableContext items={itemMaterials.map(m => m.id)} strategy={verticalListSortingStrategy}>
+                              {itemMaterials.map(m => (
+                                <SortableMaterialItem
+                                  key={m.id}
+                                  m={m}
+                                  contractId={c.id}
+                                  itemCode={item.code}
+                                  items={items}
+                                  onDelete={setDeleteMaterialId}
+                                  onMove={handleMoveMaterial}
+                                />
+                              ))}
+                            </SortableContext>
+                          </DndContext>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
