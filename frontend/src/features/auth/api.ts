@@ -4,6 +4,7 @@
  */
 
 import ky, { type KyInstance } from 'ky'
+import { API_BASE_URL } from '@/lib/api'
 
 import type {
   ApprovalResponse,
@@ -26,10 +27,6 @@ import {
   shouldRefreshToken,
 } from '@/lib/token'
 
-/**
- * API 基础路径
- */
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002/api/v1'
 
 /**
  * 是否正在刷新 token
@@ -47,7 +44,7 @@ async function refreshAccessToken(): Promise<string> {
   }
 
   const response = await ky
-    .post(`${API_BASE}/token/refresh`, {
+    .post(`${API_BASE_URL}/token/refresh`, {
       json: { refresh: refreshToken },
     })
     .json<TokenRefreshResponse>()
@@ -97,7 +94,7 @@ async function getValidAccessToken(): Promise<string | null> {
  */
 const createAuthenticatedApi = (): KyInstance => {
   return ky.create({
-    prefixUrl: API_BASE,
+    prefixUrl: API_BASE_URL,
     hooks: {
       beforeRequest: [
         async (request) => {
@@ -155,7 +152,7 @@ export const authApi = {
   login: async (data: LoginRequest): Promise<LoginResponse> => {
     // 先获取 JWT token
     const tokenResponse = await ky
-      .post(`${API_BASE}/token/pair`, {
+      .post(`${API_BASE_URL}/token/pair`, {
         json: data,
       })
       .json<TokenPairResponse>()
@@ -194,7 +191,7 @@ export const authApi = {
    */
   register: async (data: RegisterRequest): Promise<RegisterResponse> => {
     return ky
-      .post(`${API_BASE}/organization/register`, {
+      .post(`${API_BASE_URL}/organization/register`, {
         json: data,
       })
       .json<RegisterResponse>()
@@ -205,7 +202,7 @@ export const authApi = {
    */
   autoLogin: async (username: string, password: string): Promise<void> => {
     const tokenResponse = await ky
-      .post(`${API_BASE}/token/pair`, {
+      .post(`${API_BASE_URL}/token/pair`, {
         json: { username, password },
       })
       .json<TokenPairResponse>()
@@ -256,7 +253,7 @@ export const authApi = {
     }
 
     const response = await ky
-      .post(`${API_BASE}/token/refresh`, {
+      .post(`${API_BASE_URL}/token/refresh`, {
         json: { refresh: refreshToken },
       })
       .json<TokenRefreshResponse>()
@@ -275,7 +272,7 @@ export const authApi = {
    */
   requestPasswordReset: async (email: string): Promise<PasswordResetOut> => {
     return ky
-      .post(`${API_BASE}/organization/password-reset/request`, {
+      .post(`${API_BASE_URL}/organization/password-reset/request`, {
         json: { email },
       })
       .json<PasswordResetOut>()
@@ -287,7 +284,7 @@ export const authApi = {
    */
   verifyPasswordResetToken: async (uid: string, token: string): Promise<PasswordResetOut> => {
     return ky
-      .post(`${API_BASE}/organization/password-reset/verify`, {
+      .post(`${API_BASE_URL}/organization/password-reset/verify`, {
         json: { uid, token },
       })
       .json<PasswordResetOut>()
@@ -299,7 +296,7 @@ export const authApi = {
    */
   confirmPasswordReset: async (data: PasswordResetConfirmRequest): Promise<PasswordResetOut> => {
     return ky
-      .post(`${API_BASE}/organization/password-reset/confirm`, {
+      .post(`${API_BASE_URL}/organization/password-reset/confirm`, {
         json: data,
       })
       .json<PasswordResetOut>()

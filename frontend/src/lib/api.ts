@@ -151,4 +151,12 @@ export function createApiClient(options?: Options): KyInstance {
  */
 export const api = createApiClient()
 
+/**
+ * 创建模块级 API 客户端（自动拼接 prefixUrl）
+ * @param prefix 模块路径前缀，如 "cases"、"contracts"
+ */
+export function createFeatureApiClient(prefix: string): KyInstance {
+  return createApiClient({ prefixUrl: `${API_BASE_URL}/${prefix}` })
+}
+
 export default api

@@ -43,7 +43,6 @@ export function WorkbenchPage() {
     submitBatchAnalysis,
     cancelBatchAnalysis,
     messages,
-    messagesLoading,
     abortStream,
   } = useWorkbenchStore()
 

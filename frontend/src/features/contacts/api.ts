@@ -3,13 +3,11 @@
  * 工作人员联系方式 API 封装
  */
 
-import { createApiClient } from '@/lib/api'
+import { createFeatureApiClient } from '@/lib/api'
 
 import type { CaseContact, CaseContactInput, CaseContactSearchResult } from './types'
 
-const api = createApiClient({
-  prefixUrl: `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002/api/v1'}/contacts`,
-})
+const api = createFeatureApiClient('contacts')
 
 export const contactApi = {
   list: async (caseId: number | string, stage?: string): Promise<CaseContact[]> => {

@@ -92,6 +92,7 @@ def list_sessions(request: Any, page: int = 1) -> dict[str, Any]:
     message_stats = {}
     if session_ids:
         from django.db.models import Count
+
         stats = (
             WorkbenchMessage.objects.filter(session_id__in=session_ids)
             .values("session_id")
@@ -121,9 +122,9 @@ def list_sessions(request: Any, page: int = 1) -> dict[str, Any]:
         data = SessionOut.model_validate(item).model_dump()
         raw = getattr(item, "_last_msg", None) or ""
         data["last_message_preview"] = raw[:50] if raw else ""
-        stats = message_stats.get(item.id, {"message_count": 0, "storage_bytes": 0})
-        data["message_count"] = stats["message_count"]
-        data["storage_bytes"] = stats["storage_bytes"]
+        session_stats = message_stats.get(item.id, {"message_count": 0, "storage_bytes": 0})
+        data["message_count"] = session_stats["message_count"]
+        data["storage_bytes"] = session_stats["storage_bytes"]
         result.append(data)
 
     return {"items": result, "count": total}

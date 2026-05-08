@@ -3,7 +3,7 @@
  * 当事人管理模块 API 封装
  */
 
-import { createApiClient } from '@/lib/api'
+import { createFeatureApiClient } from '@/lib/api'
 
 import type {
   Client,
@@ -19,7 +19,7 @@ import type {
   RelatedItems,
 } from './types'
 
-const api = createApiClient({ prefixUrl: `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002/api/v1'}/client` })
+const api = createFeatureApiClient('client')
 
 export const clientApi = {
   // ==================== 当事人 CRUD ====================

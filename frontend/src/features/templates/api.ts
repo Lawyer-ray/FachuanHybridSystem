@@ -1,8 +1,6 @@
-import { createApiClient } from '@/lib/api'
+import { createFeatureApiClient } from '@/lib/api'
 
-const api = createApiClient({
-  prefixUrl: `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002/api/v1'}/documents`,
-})
+const api = createFeatureApiClient('documents')
 
 export const templateApi = {
   list: () => api.get('templates').json(),

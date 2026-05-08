@@ -2,7 +2,7 @@
  * Settings API — Task Queue + System Config
  */
 
-import { createApiClient } from '@/lib/api'
+import { createFeatureApiClient } from '@/lib/api'
 
 export interface QueuedTask {
   id: string
@@ -34,9 +34,7 @@ export interface ScheduledTask {
   last_run: string | null
 }
 
-const api = createApiClient({
-  prefixUrl: `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002/api/v1'}/task-queue`,
-})
+const api = createFeatureApiClient('task-queue')
 
 export const taskQueueApi = {
   listQueued: (): Promise<QueuedTask[]> =>
@@ -78,9 +76,7 @@ export interface SystemConfigGroup {
   items: SystemConfigItem[]
 }
 
-const configApi = createApiClient({
-  prefixUrl: `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002/api/v1'}/config`,
-})
+const configApi = createFeatureApiClient('config')
 
 export const systemConfigApi = {
   listConfigs: (): Promise<{ groups: SystemConfigGroup[] }> =>

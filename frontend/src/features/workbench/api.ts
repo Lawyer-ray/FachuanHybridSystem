@@ -1,11 +1,9 @@
 /** 工作台 API 客户端 */
 
-import { createApiClient } from '@/lib/api'
+import { createFeatureApiClient } from '@/lib/api'
 import type { BatchJob, BatchProgress, ModelsResponse, WorkbenchMessage, WorkbenchSession } from './types'
 
-const api = createApiClient({
-  prefixUrl: `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002/api/v1'}/workbench`,
-})
+const api = createFeatureApiClient('workbench')
 
 // ─── 会话 API ────────────────────────────────────────────────────────────────
 

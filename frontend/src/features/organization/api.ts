@@ -6,7 +6,7 @@
  * Requirements: 8.1-8.21
  */
 
-import { createApiClient } from '@/lib/api'
+import { createFeatureApiClient } from '@/lib/api'
 
 import type {
   LawFirm,
@@ -25,7 +25,7 @@ import type {
   CredentialListParams,
 } from './types'
 
-const api = createApiClient({ prefixUrl: `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002/api/v1'}/organization` })
+const api = createFeatureApiClient('organization')
 
 // ============================================================================
 // 律所 API

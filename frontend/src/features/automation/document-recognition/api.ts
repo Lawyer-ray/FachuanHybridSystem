@@ -5,7 +5,7 @@
  * Requirements: 5.1, 6.5, 7.6, 7.8, 7.9
  */
 
-import { createApiClient } from '@/lib/api'
+import { createFeatureApiClient } from '@/lib/api'
 
 import type {
   CaseSearchResult,
@@ -22,7 +22,7 @@ export interface PaginatedResponse<T> {
   page_size: number
 }
 
-const api = createApiClient({ prefixUrl: `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002/api/v1'}/automation/document-recognition` })
+const api = createFeatureApiClient('automation/document-recognition')
 
 /**
  * 文书智能识别 API

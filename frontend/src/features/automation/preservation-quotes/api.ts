@@ -5,7 +5,7 @@
  * Requirements: 2.1, 3.6, 4.5, 4.9
  */
 
-import { createApiClient } from '@/lib/api'
+import { createFeatureApiClient } from '@/lib/api'
 
 import type {
   PaginatedResponse,
@@ -14,7 +14,7 @@ import type {
   QuoteListParams,
 } from './types'
 
-const api = createApiClient({ prefixUrl: `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002/api/v1'}/automation/preservation-quotes` })
+const api = createFeatureApiClient('automation/preservation-quotes')
 
 /**
  * 财产保全询价 API

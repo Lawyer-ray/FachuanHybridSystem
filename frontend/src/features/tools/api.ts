@@ -2,7 +2,7 @@
  * Tools API — Express Query + LPR
  */
 
-import { createApiClient } from '@/lib/api'
+import { createFeatureApiClient } from '@/lib/api'
 
 // ==================== Express Query ====================
 
@@ -16,9 +16,7 @@ export interface ExpressQueryTask {
   updated_at: string
 }
 
-const expressApi = createApiClient({
-  prefixUrl: `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002/api/v1'}/express-query`,
-})
+const expressApi = createFeatureApiClient('express-query')
 
 export const expressQueryApi = {
   list: (): Promise<ExpressQueryTask[]> =>
@@ -41,9 +39,7 @@ interface LPRRateListResponse {
   total: number
 }
 
-const lprApi = createApiClient({
-  prefixUrl: `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002/api/v1'}/lpr`,
-})
+const lprApi = createFeatureApiClient('lpr')
 
 // ---- Calculate ----
 

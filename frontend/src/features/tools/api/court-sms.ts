@@ -3,7 +3,7 @@
  * 法院短信模块 API 封装
  */
 
-import { createApiClient } from '@/lib/api'
+import { createFeatureApiClient, API_BASE_URL } from '@/lib/api'
 
 export interface CourtSMSItem {
   id: number
@@ -59,9 +59,7 @@ export interface CourtSMSListParams {
   date_to?: string
 }
 
-const api = createApiClient({
-  prefixUrl: `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002/api/v1'}/automation/court-sms`,
-})
+const api = createFeatureApiClient('automation/court-sms')
 
 export const courtSmsApi = {
   list: (params?: CourtSMSListParams): Promise<CourtSMSListResponse> => {
@@ -95,10 +93,10 @@ export const courtSmsApi = {
     api.post('batch-delete', { json: { ids } }).json(),
 
   downloadDocumentUrl: (smsId: number, refIndex: number): string =>
-    `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002/api/v1'}/automation/court-sms/${smsId}/documents/${refIndex}/download`,
+    `${API_BASE_URL}/automation/court-sms/${smsId}/documents/${refIndex}/download`,
 
   downloadAllUrl: (smsId: number): string =>
-    `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002/api/v1'}/automation/court-sms/${smsId}/documents/download-all`,
+    `${API_BASE_URL}/automation/court-sms/${smsId}/documents/download-all`,
 
   renameDocument: (smsId: number, refIndex: number, newStem: string): Promise<{ success: boolean; error?: string; new_name?: string }> =>
     api.post(`${smsId}/documents/${refIndex}/rename`, { json: { new_stem: newStem } }).json(),

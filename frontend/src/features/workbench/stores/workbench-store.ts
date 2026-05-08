@@ -14,6 +14,8 @@ import type {
   Attachment,
 } from '../types'
 import * as api from '../api'
+import { getAccessToken } from '@/lib/token'
+import { API_BASE_URL } from '@/lib/api'
 
 const FAVORITE_MODEL_KEY = 'workbench_favorite_model'
 const SELECTED_AGENT_KEY = 'workbench_selected_agent'
@@ -251,8 +253,8 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
     let retryCount = 0
 
     const connectAndRead = async (resumeFrom: string): Promise<void> => {
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002/api/v1'
-      const token = localStorage.getItem('access_token')
+      const baseUrl = API_BASE_URL
+      const token = getAccessToken()
       const url = `${baseUrl}/workbench/sessions/${currentSession.id}/messages/stream`
 
       const headers: Record<string, string> = {
@@ -829,8 +831,8 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
       // 尝试上传文件到后端
       const formData = new FormData()
       formData.append('file', file)
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002/api/v1'
-      const token = localStorage.getItem('access_token')
+      const baseUrl = API_BASE_URL
+      const token = getAccessToken()
       const resp = await fetch(`${baseUrl}/workbench/attachments`, {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
