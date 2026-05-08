@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router'
+import { copyToClipboard } from '@/lib/clipboard'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   ArrowLeft, Edit, Trash2, Copy, FileWarning,
@@ -96,8 +97,7 @@ export function ClientDetail({ clientId }: ClientDetailProps) {
   const handleBack = useCallback(() => navigate(PATHS.ADMIN_CLIENTS), [navigate])
   const handleCopy = useCallback(() => {
     if (!client) return
-    navigator.clipboard.writeText(formatClientText(client))
-    toast.success('已复制当事人信息')
+    copyToClipboard(formatClientText(client), '已复制当事人信息')
   }, [client])
   const handleDelete = useCallback(async () => {
     try {

@@ -32,6 +32,7 @@ import 'highlight.js/styles/github-dark.css'
 hljs.registerLanguage('json', json)
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { copyToClipboard } from '@/lib/clipboard'
 import { API_BASE_URL } from '@/lib/api'
 import { getAccessToken } from '@/lib/token'
 import { formatDate } from '@/lib/date'
@@ -364,11 +365,7 @@ function MessageActions({ message }: { message: WorkbenchMessage }) {
   const isStreaming = useWorkbenchStore((s) => s.isStreaming)
   const setQuotedContent = useWorkbenchStore((s) => s.setQuotedContent)
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(message.content).then(() => {
-      toast.success('已复制')
-    })
-  }
+  const handleCopy = () => copyToClipboard(message.content)
 
   const handleQuote = () => {
     const preview = message.content.length > 200 ? message.content.slice(0, 200) + '...' : message.content
@@ -529,9 +526,8 @@ function CodeBlockWithCopy({ children, ...props }: React.HTMLAttributes<HTMLPreE
 
   const handleCopy = () => {
     const text = codeRef.current?.textContent || ''
-    navigator.clipboard.writeText(text).then(() => {
+    copyToClipboard(text).then(() => {
       setCopied(true)
-      toast.success('已复制')
       setTimeout(() => setCopied(false), 2000)
     })
   }
