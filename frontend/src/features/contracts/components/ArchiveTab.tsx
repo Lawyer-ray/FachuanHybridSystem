@@ -158,7 +158,7 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
   const [uploadTargetCode, setUploadTargetCode] = useState<string | null>(null)
   const expandedRef = useRef(new Set<string>())
   const itemRefs = useRef(new Map<string, HTMLDivElement>())
-  const [, forceRender] = useState(0)
+  const [hasExpanded, setHasExpanded] = useState(false)
 
   /* ── Placeholder preview state ── */
   const [placeholderPreview, setPlaceholderPreview] = useState<{
@@ -229,7 +229,7 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
         delete el.dataset.expanded
       }
     }
-    forceRender(n => n + 1)
+    setHasExpanded(expanding)
   }
 
   const getMaterialsForCode = (code: string) => {
@@ -443,10 +443,10 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
             <div className="flex items-center gap-1">
               <button
                 className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
-                title={expandedRef.current.size > 0 ? '收起全部子项' : '展开全部子项'}
+                title={hasExpanded ? '收起全部子项' : '展开全部子项'}
                 onClick={toggleAllExpand}
               >
-                {expandedRef.current.size > 0
+                {hasExpanded
                   ? <ChevronDown className="size-4" />
                   : <ChevronRight className="size-4" />}
               </button>
