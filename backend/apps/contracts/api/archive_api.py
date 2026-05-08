@@ -47,6 +47,12 @@ class GenerateArchiveFolderOut(Schema):
     errors: list[str] = []
 
 
+class ToggleCompactOut(Schema):
+    """精简视图切换输出"""
+    success: bool = True
+    compact_archive: bool = False
+
+
 class ChecklistItemOut(Schema):
     """检查清单项输出"""
     code: str
@@ -124,6 +130,175 @@ def generate_archive_folder(request: HttpRequest, contract_id: int) -> Any:
         archive_dir=result.get("archive_dir", ""),
         errors=result.get("errors", []),
     )
+
+
+@router.post("/{contract_id}/archive/toggle-compact", response=ToggleCompactOut)
+def toggle_compact_archive(request: HttpRequest, contract_id: int) -> Any:
+    """切换精简视图状态"""
+    contract = Contract.objects.filter(pk=contract_id).first()
+    if not contract:
+        return HttpResponse(status=404)
+
+    contract.compact_archive = not contract.compact_archive
+    contract.save(update_fields=["compact_archive"])
+    logger.info(
+        "切换精简视图状态: contract_id=%s, compact_archive=%s",
+        contract_id, contract.compact_archive,
+    )
+    return ToggleCompactOut(success=True, compact_archive=contract.compact_archive)
+
+
+class UploadArchiveItemOut(Schema):
+    """上传归档材料输出"""
+    id: int = 0
+    filename: str = ""
+
+
+class ConfirmArchiveOut(Schema):
+    """确认归档输出"""
+    success: bool = True
+    message: str = ""
+
+
+class SyncCaseMaterialsOut(Schema):
+    """同步案件材料输出"""
+    success: bool = True
+    synced_count: int = 0
+    message: str = ""
+
+
+class ScaleToA4Out(Schema):
+    """A4缩放输出"""
+    success: bool = True
+    scaled_count: int = 0
+    message: str = ""
+
+
+@router.post("/{contract_id}/archive/sync-case-materials", response=SyncCaseMaterialsOut)
+def sync_case_materials(request: HttpRequest, contract_id: int) -> Any:
+    """从案件材料同步到归档"""
+    contract = Contract.objects.filter(pk=contract_id).first()
+    if not contract:
+        return HttpResponse(status=404)
+
+    from apps.contracts.services.archive.wiring import build_archive_checklist_service
+
+    checklist_service = build_archive_checklist_service()
+    result = checklist_service.sync_case_materials_to_archive(contract)
+
+    synced_count = len(result.get("synced", []))
+    return SyncCaseMaterialsOut(
+        success=True,
+        synced_count=synced_count,
+        message=f"同步完成，{synced_count} 个文件",
+    )
+
+
+@router.post("/{contract_id}/archive/reset-and-resync", response=SyncCaseMaterialsOut)
+def reset_and_resync_case_materials(request: HttpRequest, contract_id: int) -> Any:
+    """重置并重新同步案件材料到归档"""
+    contract = Contract.objects.filter(pk=contract_id).first()
+    if not contract:
+        return HttpResponse(status=404)
+
+    from apps.contracts.services.archive.wiring import build_archive_checklist_service
+
+    checklist_service = build_archive_checklist_service()
+    result = checklist_service.reset_and_resync_case_materials(contract)
+
+    sync_result = result.get("sync_result", {})
+    synced_count = len(sync_result.get("synced", []))
+    return SyncCaseMaterialsOut(
+        success=True,
+        synced_count=synced_count,
+        message=f"重置并重新同步完成，{synced_count} 个文件",
+    )
+
+
+@router.post("/{contract_id}/archive/scale-to-a4", response=ScaleToA4Out)
+def scale_to_a4(request: HttpRequest, contract_id: int) -> Any:
+    """将所有非A4尺寸的PDF页面缩放为A4大小"""
+    contract = Contract.objects.filter(pk=contract_id).first()
+    if not contract:
+        return HttpResponse(status=404)
+
+    from apps.contracts.services.archive import ArchiveGenerationService
+
+    gen_service = ArchiveGenerationService()
+    result = gen_service.scale_pages_to_a4(contract)
+
+    return ScaleToA4Out(
+        success=result.get("success", False),
+        scaled_count=result.get("scaled_count", 0),
+        message=result.get("message", ""),
+    )
+
+
+@router.post("/{contract_id}/archive/confirm", response=ConfirmArchiveOut)
+def confirm_archive(request: HttpRequest, contract_id: int) -> Any:
+    """确认归档：将合同状态改为已归档，并自动结案关联案件"""
+    contract = Contract.objects.filter(pk=contract_id).first()
+    if not contract:
+        return HttpResponse(status=404)
+
+    contract.status = "archived"
+    contract.save(update_fields=["status"])
+
+    # 自动结案关联案件
+    for case in contract.cases.all():
+        if case.status != "closed":
+            case.status = "closed"
+            case.save(update_fields=["status"])
+
+    logger.info("合同已归档: contract_id=%s", contract_id)
+    return ConfirmArchiveOut(success=True, message="归档确认成功")
+
+
+@router.post("/{contract_id}/archive/upload", response=UploadArchiveItemOut)
+def upload_archive_item(request: HttpRequest, contract_id: int) -> Any:
+    """上传文件到归档检查清单项"""
+    contract = Contract.objects.filter(pk=contract_id).first()
+    if not contract:
+        return HttpResponse(status=404)
+
+    uploaded_file = request.FILES.get("file")
+    category = request.POST.get("category", "")
+    if not uploaded_file:
+        return HttpResponse(status=400)
+
+    from apps.contracts.services.archive.wiring import build_archive_checklist_service
+
+    checklist_service = build_archive_checklist_service()
+    material = checklist_service.upload_material_to_archive_item(
+        contract=contract,
+        archive_item_code=category,
+        uploaded_file=uploaded_file,
+    )
+
+    return UploadArchiveItemOut(id=material.id, filename=material.original_filename)
+
+
+@router.delete("/{contract_id}/archive/materials/{material_id}", response=SuccessOut)
+def delete_archive_material(request: HttpRequest, contract_id: int, material_id: int) -> Any:
+    """删除归档材料"""
+    material = FinalizedMaterial.objects.filter(
+        pk=material_id, contract_id=contract_id,
+    ).first()
+
+    if not material:
+        return HttpResponse(status=404)
+
+    if material.file_path:
+        abs_file = Path(django_settings.MEDIA_ROOT) / material.file_path
+        if abs_file.exists():
+            try:
+                abs_file.unlink()
+            except OSError as e:
+                logger.warning("删除归档文件失败: %s: %s", material.file_path, e)
+
+    material.delete()
+    logger.info("已删除归档材料: material_id=%s, contract_id=%s", material_id, contract_id)
+    return SuccessOut()
 
 
 @router.post("/{contract_id}/archive/reorder", response=SuccessOut)
