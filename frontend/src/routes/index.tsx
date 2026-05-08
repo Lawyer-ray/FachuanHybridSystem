@@ -85,6 +85,9 @@ const ContactSearchPage = lazy(() => import('@/features/contacts').then(m => ({ 
 // 工作台
 const WorkbenchPage = lazy(() => import('@/features/workbench/WorkbenchPage'))
 
+// 404 页面
+const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })))
+
 // Phase 4: 设置 + 任务队列 + 日志
 const SettingsOverviewPage = lazy(() => import('@/pages/dashboard/settings/SettingsOverviewPage'))
 const LawFirmSettingsPage = lazy(() => import('@/pages/dashboard/settings/LawFirmSettingsPage'))
@@ -380,6 +383,11 @@ export const router = createBrowserRouter([
           {
             path: PATHS.ADMIN_LOGS,
             element: <LogsPage />,
+          },
+          // 404 页面 - 必须放在最后
+          {
+            path: '*',
+            element: <NotFoundPage />,
           },
         ],
       },
