@@ -358,6 +358,22 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
         })
       }
 
+      // 如果有错误信息但没有内容，显示错误消息
+      if (streamingMessage?.error && !streamingMessage.content) {
+        newMessages.push({
+          id: Date.now() + 1,
+          role: 'assistant',
+          content: `请求失败: ${streamingMessage.error}`,
+          llm_model: '',
+          tool_call_id: '',
+          tool_name: '',
+          tool_input: {},
+          tool_output: {},
+          metadata: { error: true },
+          created_at: new Date().toISOString(),
+        })
+      }
+
       if (newMessages.length > 0) {
         set((state) => ({ messages: [...state.messages, ...newMessages] }))
       }
