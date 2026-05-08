@@ -185,11 +185,22 @@ export const contractApi = {
     contractApi_.get(`${contractId}/archive/materials/${materialId}/preview`),
 
   downloadArchiveItem: async (contractId: number | string, archiveItemCode: string): Promise<void> => {
-    const blob = await contractApi_.get(`${contractId}/archive/download-item/${archiveItemCode}`).blob()
+    const resp = await contractApi_.get(`${contractId}/archive/download-item/${archiveItemCode}`)
+    const blob = await resp.blob()
+    const disposition = resp.headers.get('Content-Disposition')
+    let filename = ''
+    if (disposition) {
+      const utf8Match = disposition.match(/filename\*=UTF-8''(.+)/i)
+      if (utf8Match) filename = decodeURIComponent(utf8Match[1])
+      else {
+        const plainMatch = disposition.match(/filename="?([^";\n]+)"?/)
+        if (plainMatch) filename = plainMatch[1]
+      }
+    }
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = ''
+    a.download = filename || 'download'
     document.body.appendChild(a)
     a.click()
     a.remove()
