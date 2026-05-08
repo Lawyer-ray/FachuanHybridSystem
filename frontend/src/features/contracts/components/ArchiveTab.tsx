@@ -154,9 +154,10 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
   const [confirmArchiveOpen, setConfirmArchiveOpen] = useState(false)
   const [confirmClearAllOpen, setConfirmClearAllOpen] = useState(false)
   const [folderScanOpen, setFolderScanOpen] = useState(false)
-  const [expandedCodes, setExpandedCodes] = useState<Set<string>>(new Set())
   const uploadInputRef = useRef<HTMLInputElement>(null)
   const [uploadTargetCode, setUploadTargetCode] = useState<string | null>(null)
+  const expandedRef = useRef(new Set<string>())
+  const itemRefs = useRef(new Map<string, HTMLDivElement>())
 
   /* ── Placeholder preview state ── */
   const [placeholderPreview, setPlaceholderPreview] = useState<{
@@ -200,19 +201,32 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
   }, [c.id])
 
   const toggleExpand = (code: string) => {
-    setExpandedCodes(prev => {
-      const next = new Set(prev)
-      if (next.has(code)) next.delete(code)
-      else next.add(code)
-      return next
-    })
+    const el = itemRefs.current.get(code)
+    if (!el) return
+    const expanding = !expandedRef.current.has(code)
+    if (expanding) {
+      expandedRef.current.add(code)
+      el.style.gridTemplateRows = '1fr'
+      el.dataset.expanded = ''
+    } else {
+      expandedRef.current.delete(code)
+      el.style.gridTemplateRows = '0fr'
+      delete el.dataset.expanded
+    }
   }
 
   const toggleAllExpand = () => {
-    if (expandedCodes.size > 0) {
-      setExpandedCodes(new Set())
-    } else {
-      setExpandedCodes(new Set(items.map(i => i.code)))
+    const expanding = expandedRef.current.size === 0
+    for (const [code, el] of itemRefs.current) {
+      if (expanding) {
+        expandedRef.current.add(code)
+        el.style.gridTemplateRows = '1fr'
+        el.dataset.expanded = ''
+      } else {
+        expandedRef.current.delete(code)
+        el.style.gridTemplateRows = '0fr'
+        delete el.dataset.expanded
+      }
     }
   }
 
@@ -405,6 +419,10 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
 
   return (
     <div>
+      <style>{`
+        .expand-indicator svg { transition: transform 200ms ease-in-out; }
+        [data-expanded] .expand-indicator svg { transform: rotate(90deg); }
+      `}</style>
       {/* Hidden file input */}
       <input ref={uploadInputRef} type="file" className="hidden" onChange={onFileSelected} />
 
@@ -423,10 +441,10 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
             <div className="flex items-center gap-1">
               <button
                 className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
-                title={expandedCodes.size > 0 ? '收起全部子项' : '展开全部子项'}
+                title={expandedRef.current.size > 0 ? '收起全部子项' : '展开全部子项'}
                 onClick={toggleAllExpand}
               >
-                {expandedCodes.size > 0
+                {expandedRef.current.size > 0
                   ? <ChevronDown className="size-4" />
                   : <ChevronRight className="size-4" />}
               </button>
@@ -529,7 +547,6 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
         <div className="divide-y divide-border/40" style={{ counterReset: 'ac-counter' }}>
           {visibleItems.map((item, index) => {
             const itemMaterials = getMaterialsForCode(item.code)
-            const isExpanded = expandedCodes.has(item.code)
 
             return (
               <div
@@ -605,18 +622,17 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
                   </div>
 
                   {/* Expand indicator */}
-                  <span className="text-muted-foreground shrink-0">
-                    {isExpanded
-                      ? <ChevronDown className="size-3.5" />
-                      : <ChevronRight className="size-3.5" />}
+                  <span className="text-muted-foreground shrink-0 expand-indicator">
+                    <ChevronRight className="size-3.5" />
                   </span>
                 </div>
 
                 {/* Materials sub-items — always in DOM, CSS controls visibility */}
                 {itemMaterials.length > 0 && (
                   <div
+                    ref={el => { if (el) itemRefs.current.set(item.code, el); else itemRefs.current.delete(item.code) }}
                     className="grid transition-[grid-template-rows] duration-200 ease-in-out"
-                    style={{ gridTemplateRows: isExpanded ? '1fr' : '0fr' }}
+                    style={{ gridTemplateRows: '0fr' }}
                   >
                     <div className="overflow-hidden min-h-0">
                       <div className="border-t border-border/40 px-[18px] py-1">
