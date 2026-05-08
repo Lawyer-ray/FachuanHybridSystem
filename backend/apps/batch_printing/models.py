@@ -47,7 +47,9 @@ class BatchPrintingTool(models.Model):
 
 class PrintPresetSnapshot(models.Model):
     printer_name: str = models.CharField(max_length=255, verbose_name=_("打印机名称"))
-    printer_display_name: str = models.CharField(max_length=255, blank=True, default="", verbose_name=_("打印机展示名称"))
+    printer_display_name: str = models.CharField(
+        max_length=255, blank=True, default="", verbose_name=_("打印机展示名称")
+    )
     preset_name: str = models.CharField(max_length=255, verbose_name=_("预置名称"))
     preset_source: str = models.CharField(max_length=255, blank=True, default="", verbose_name=_("预置来源"))
     raw_settings_payload: Any = models.JSONField(default=dict, blank=True, verbose_name=_("原始设置"))
@@ -153,7 +155,9 @@ class BatchPrintItem(models.Model):
     order: int = models.PositiveIntegerField(default=1, verbose_name=_("排序"))
     source_original_name: str = models.CharField(max_length=255, verbose_name=_("原始文件名"))
     source_relpath: str = models.CharField(max_length=1024, verbose_name=_("源文件相对路径"))
-    prepared_relpath: str = models.CharField(max_length=1024, blank=True, default="", verbose_name=_("打印文件相对路径"))
+    prepared_relpath: str = models.CharField(
+        max_length=1024, blank=True, default="", verbose_name=_("打印文件相对路径")
+    )
     file_type: str = models.CharField(max_length=16, choices=BatchPrintFileType.choices, verbose_name=_("文件类型"))
     matched_rule: Any = models.ForeignKey(
         PrintKeywordRule,

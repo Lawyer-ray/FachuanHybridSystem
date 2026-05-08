@@ -141,7 +141,11 @@ class TelegramProvider(TelegramTokenMixin, TelegramFileMixin, ChatProvider):
             self._send_initial_message(combined_chat_id, chat_name)
 
             result = ChatResult(
-                success=True, chat_id=combined_chat_id, chat_name=chat_name, message=str(_("话题创建成功")), raw_response=data
+                success=True,
+                chat_id=combined_chat_id,
+                chat_name=chat_name,
+                message=str(_("话题创建成功")),
+                raw_response=data,
             )
             if result.raw_response:
                 result.raw_response["topic_info"] = {

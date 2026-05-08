@@ -24,11 +24,7 @@ class CustomPasswordResetTokenGenerator(_BaseTokenGenerator):
     def _make_hash_value(self, user: Lawyer, timestamp: int) -> str:
         # 包含用户密码哈希、时间戳、最后登录时间
         # 密码修改后 token 自动失效
-        login_timestamp = (
-            ""
-            if user.last_login is None
-            else user.last_login.replace(microsecond=0, tzinfo=None)
-        )
+        login_timestamp = "" if user.last_login is None else user.last_login.replace(microsecond=0, tzinfo=None)
         return f"{user.pk}{user.password}{timestamp}{login_timestamp}"
 
 

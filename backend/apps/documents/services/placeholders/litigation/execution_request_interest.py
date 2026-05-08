@@ -172,13 +172,10 @@ def parse_interest_base_rule(*, rate_text: str, full_text: str) -> tuple[str, De
             return "remaining_total", None
 
     compact_text = full_text.replace(" ", "")
-    if any(
-        k in compact_text for k in ("未偿还的借款为基数", "未偿还借款为基数", "剩余借款为基数", "未偿还货款为基数")
-    ):
+    if any(k in compact_text for k in ("未偿还的借款为基数", "未偿还借款为基数", "剩余借款为基数", "未偿还货款为基数")):
         return "remaining_principal", None
     if any(
-        k in compact_text
-        for k in ("剩余未付款项为基数", "未支付的上述款项为基数", "未付款项为基数", "上述款项为基数")
+        k in compact_text for k in ("剩余未付款项为基数", "未支付的上述款项为基数", "未付款项为基数", "上述款项为基数")
     ):
         return "remaining_total", None
     return "fallback_target", None

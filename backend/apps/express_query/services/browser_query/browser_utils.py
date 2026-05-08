@@ -1,4 +1,5 @@
 """通用 Playwright 工具方法。"""
+
 from __future__ import annotations
 
 import asyncio

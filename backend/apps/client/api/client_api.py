@@ -181,11 +181,7 @@ def get_related_items(request: Any, client_id: int) -> Any:
     from apps.cases.models import CaseParty
     from apps.contracts.models import ContractParty
 
-    case_parties = (
-        CaseParty.objects.filter(client_id=client_id)
-        .select_related("case")
-        .order_by("-case__start_date")
-    )
+    case_parties = CaseParty.objects.filter(client_id=client_id).select_related("case").order_by("-case__start_date")
     contract_parties = (
         ContractParty.objects.filter(client_id=client_id)
         .select_related("contract")

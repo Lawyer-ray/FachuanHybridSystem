@@ -453,11 +453,13 @@ class ReminderAdmin(SimpleHistoryAdmin, admin.ModelAdmin[Reminder]):
             except Exception:
                 calendar_auth_status = "unknown"
 
-        return JsonResponse({
-            "providers": providers,
-            "calendar_auth_status": calendar_auth_status,
-            "calendar_auth_code": calendar_auth_code,
-        })
+        return JsonResponse(
+            {
+                "providers": providers,
+                "calendar_auth_status": calendar_auth_status,
+                "calendar_auth_code": calendar_auth_code,
+            }
+        )
 
     def calendar_sync_preview_view(self, request: HttpRequest) -> JsonResponse:
         """POST: Preview calendar events from .ics file, URL, or local provider."""
@@ -607,9 +609,7 @@ class ReminderAdmin(SimpleHistoryAdmin, admin.ModelAdmin[Reminder]):
 
         from apps.reminders.models import Reminder
 
-        deleted_count, _ = Reminder.objects.filter(
-            metadata__source="local_calendar_sync"
-        ).delete()
+        deleted_count, _ = Reminder.objects.filter(metadata__source="local_calendar_sync").delete()
         import logging
 
         logging.getLogger(__name__).info("Cleared %d synced calendar reminders", deleted_count)

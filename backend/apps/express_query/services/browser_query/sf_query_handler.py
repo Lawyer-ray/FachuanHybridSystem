@@ -1,4 +1,5 @@
 """顺丰查询全流程。"""
+
 from __future__ import annotations
 
 import asyncio

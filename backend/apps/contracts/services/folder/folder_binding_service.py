@@ -117,12 +117,14 @@ class FolderBindingService(FolderBindingCrudService):
         subdir_key: str = "contract_documents",
     ) -> str | None:
         """保存文件到绑定文件夹（实现 IContractFolderBindingService 协议）"""
-        return super().save_file_to_bound_folder(  # type: ignore[return-value]
+        return (
+            super().save_file_to_bound_folder(  # type: ignore[return-value]
                 owner_id=owner_id,
                 file_content=file_content,
                 file_name=file_name,
                 subdir_key=subdir_key,
             ),
+        )
 
     def extract_zip_to_bound_folder(self, contract_id: int, zip_content: bytes) -> str | None:  # type: ignore[override]
         """解压 ZIP 到绑定文件夹（实现 IContractFolderBindingService 协议）"""

@@ -1,4 +1,5 @@
 """EMS 登录/协议处理。"""
+
 from __future__ import annotations
 
 import asyncio
@@ -111,9 +112,7 @@ async def wait_for_ems_login(
         await asyncio.sleep(2)
 
 
-async def ems_handle_agreement_and_wait(
-    context: BrowserContext, page: Page, timeout_seconds: int = 300
-) -> None:
+async def ems_handle_agreement_and_wait(context: BrowserContext, page: Page, timeout_seconds: int = 300) -> None:
     """
     EMS 完整登录流程：
     - 检测弹窗可见性

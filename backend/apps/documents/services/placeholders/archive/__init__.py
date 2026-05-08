@@ -415,9 +415,7 @@ class ArchivePlaceholderService(BasePlaceholderService):
         return ""
 
     @staticmethod
-    def _get_case_summary_content(
-        case: Any, contract: Any, already_generated: dict[str, Any]
-    ) -> str:
+    def _get_case_summary_content(case: Any, contract: Any, already_generated: dict[str, Any]) -> str:
         """
         获取办案小结内容.
 
@@ -435,7 +433,9 @@ class ArchivePlaceholderService(BasePlaceholderService):
 
         if contract_name and str(contract_name).strip() and str(contract_name).strip() != "/":
             cn = str(contract_name).strip()
-            party = str(our_party_names).strip() if our_party_names and str(our_party_names).strip() != "/" else "委托人"
+            party = (
+                str(our_party_names).strip() if our_party_names and str(our_party_names).strip() != "/" else "委托人"
+            )
             return f"本案为{cn}。本所受{party}提供法律服务。在服务期间，我们在公司领导的指导下，与各位同事积极配合，顺利的完成了公司的各项法律服务工作。"
 
         return ""
@@ -447,9 +447,11 @@ class ArchivePlaceholderService(BasePlaceholderService):
     )
 
     # 自动捕获日志的精确匹配内容
-    _AUTO_LOG_EXACT_MATCHES: ClassVar[frozenset[str]] = frozenset({
-        "自动捕获材料",
-    })
+    _AUTO_LOG_EXACT_MATCHES: ClassVar[frozenset[str]] = frozenset(
+        {
+            "自动捕获材料",
+        }
+    )
 
     @classmethod
     def _is_auto_generated_log(cls, log: Any) -> bool:
@@ -512,11 +514,7 @@ class ArchivePlaceholderService(BasePlaceholderService):
             contract_id: int | None = getattr(contract, "id", None)
             if contract_id is None:
                 return ""
-            session = (
-                ContractFolderScanSession.objects.filter(contract_id=contract_id)
-                .order_by("-created_at")
-                .first()
-            )
+            session = ContractFolderScanSession.objects.filter(contract_id=contract_id).order_by("-created_at").first()
         except Exception:
             logger.warning("获取扫描会话失败", extra={"contract_id": getattr(contract, "id", None)})
             return ""
@@ -675,9 +673,7 @@ class ArchivePlaceholderService(BasePlaceholderService):
                 continue
 
             # 计算该材料的页数
-            page_count = ArchivePlaceholderService._calculate_material_page_count(
-                contract, code, material_ids
-            )
+            page_count = ArchivePlaceholderService._calculate_material_page_count(contract, code, material_ids)
 
             # 计算页码范围
             if page_count > 0:
@@ -691,11 +687,13 @@ class ArchivePlaceholderService(BasePlaceholderService):
             else:
                 page_range = "-"
 
-            catalog_items.append({
-                "序号": seq,
-                "材料名称": name,
-                "页码": page_range,
-            })
+            catalog_items.append(
+                {
+                    "序号": seq,
+                    "材料名称": name,
+                    "页码": page_range,
+                }
+            )
             seq += 1
 
         return catalog_items

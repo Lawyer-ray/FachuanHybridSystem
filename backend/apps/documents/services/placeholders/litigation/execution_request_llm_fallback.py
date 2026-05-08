@@ -161,7 +161,7 @@ def extract_with_ollama_fallback(main_text: str) -> dict[str, Any] | None:
         '  "has_double_interest_clause": true|false\n'
         "}\n"
         "文书如下：\n"
-        f"{main_text[: OLLAMA_MAX_TEXT_CHARS]}"
+        f"{main_text[:OLLAMA_MAX_TEXT_CHARS]}"
     )
 
     try:

@@ -51,9 +51,7 @@ def get_case_material_match_map(
     all_unmatched: list[dict[str, Any]] = []
 
     for case in cases:
-        case_materials = list(
-            CaseMaterial.objects.filter(case=case).only("id", "type_name", "category")
-        )
+        case_materials = list(CaseMaterial.objects.filter(case=case).only("id", "type_name", "category"))
 
         case_matches: list[dict[str, Any]] = []
         case_code_to_material_ids: dict[str, list[int]] = {}
@@ -64,23 +62,27 @@ def get_case_material_match_map(
                 case_code_to_material_ids.setdefault(matched_code, []).append(cm.id)
                 all_matched_material_ids.add(cm.id)
             else:
-                all_unmatched.append({
-                    "id": cm.id,
-                    "type_name": cm.type_name,
-                    "category": cm.category,
-                    "case_id": case.id,
-                    "case_name": case.name,
-                })
+                all_unmatched.append(
+                    {
+                        "id": cm.id,
+                        "type_name": cm.type_name,
+                        "category": cm.category,
+                        "case_id": case.id,
+                        "case_name": case.name,
+                    }
+                )
 
         for code, item in case_source_items.items():
             cm_ids = case_code_to_material_ids.get(code, [])
             if cm_ids:
-                case_matches.append({
-                    "archive_item_code": code,
-                    "archive_item_name": item["name"],
-                    "case_material_ids": cm_ids,
-                    "already_synced": code in existing_codes,
-                })
+                case_matches.append(
+                    {
+                        "archive_item_code": code,
+                        "archive_item_name": item["name"],
+                        "case_material_ids": cm_ids,
+                        "already_synced": code in existing_codes,
+                    }
+                )
 
                 if code not in summary_code_to_info:
                     summary_code_to_info[code] = {
@@ -95,11 +97,13 @@ def get_case_material_match_map(
                 summary_code_to_info[code]["case_count"] += 1
 
         if case_matches:
-            cases_result.append({
-                "case_id": case.id,
-                "case_name": case.name,
-                "matches": case_matches,
-            })
+            cases_result.append(
+                {
+                    "case_id": case.id,
+                    "case_name": case.name,
+                    "matches": case_matches,
+                }
+            )
 
     summary = [summary_code_to_info[code] for code in case_source_items if code in summary_code_to_info]
 
@@ -128,9 +132,7 @@ def sync_case_materials_to_archive(
     case_source_items = {item["code"]: item for item in checklist_items if item["source"] == "case"}
 
     if archive_item_codes is not None:
-        case_source_items = {
-            k: v for k, v in case_source_items.items() if k in archive_item_codes
-        }
+        case_source_items = {k: v for k, v in case_source_items.items() if k in archive_item_codes}
 
     existing_codes = set(
         FinalizedMaterial.objects.filter(
@@ -152,9 +154,15 @@ def sync_case_materials_to_archive(
 
     for case in cases:
         case_materials = list(
-            CaseMaterial.objects.filter(case=case).select_related("source_attachment").only(
-                "id", "type_name", "category", "source_attachment_id",
-                "source_attachment__file", "case_id",
+            CaseMaterial.objects.filter(case=case)
+            .select_related("source_attachment")
+            .only(
+                "id",
+                "type_name",
+                "category",
+                "source_attachment_id",
+                "source_attachment__file",
+                "case_id",
             )
         )
         for cm in case_materials:
@@ -190,26 +198,32 @@ def sync_case_materials_to_archive(
                     archive_item_code=code,
                 )
                 if material:
-                    synced.append({
-                        "archive_item_code": code,
-                        "material_id": material.id,
-                        "filename": material.original_filename,
-                        "case_id": source_case_id,
-                        "case_name": source_case_name,
-                    })
+                    synced.append(
+                        {
+                            "archive_item_code": code,
+                            "material_id": material.id,
+                            "filename": material.original_filename,
+                            "case_id": source_case_id,
+                            "case_name": source_case_name,
+                        }
+                    )
                 else:
-                    errors.append({
-                        "archive_item_code": code,
-                        "error": "文件不存在或无法复制",
-                        "case_id": source_case_id,
-                    })
+                    errors.append(
+                        {
+                            "archive_item_code": code,
+                            "error": "文件不存在或无法复制",
+                            "case_id": source_case_id,
+                        }
+                    )
             except Exception as e:
                 logger.exception("同步案件材料失败: code=%s, cm_id=%s", code, cm.id)
-                errors.append({
-                    "archive_item_code": code,
-                    "error": str(e),
-                    "case_id": source_case_id,
-                })
+                errors.append(
+                    {
+                        "archive_item_code": code,
+                        "error": str(e),
+                        "case_id": source_case_id,
+                    }
+                )
 
     _apply_initial_order_for_synced(synced)
 
@@ -265,7 +279,9 @@ def reset_and_resync_case_materials(
                     deleted_files.append(mat.file_path)
                     logger.info(
                         "重置同步：删除归档文件 %s (material_id=%s, code=%s)",
-                        mat.file_path, mat.id, mat.archive_item_code,
+                        mat.file_path,
+                        mat.id,
+                        mat.archive_item_code,
                     )
                 except OSError as e:
                     logger.warning("重置同步：删除归档文件失败 %s: %s", mat.file_path, e)
@@ -276,7 +292,8 @@ def reset_and_resync_case_materials(
 
     logger.info(
         "重置同步：已删除 %d 个归档材料 (codes=%s)",
-        deleted_count, target_codes,
+        deleted_count,
+        target_codes,
         extra={"contract_id": contract.id},
     )
 
@@ -314,10 +331,16 @@ def upload_material_to_archive_item(
         max_size_bytes=50 * 1024 * 1024,
     )
 
-    max_order = FinalizedMaterial.objects.filter(
-        contract=contract,
-        archive_item_code=archive_item_code,
-    ).order_by("-order").values_list("order", flat=True).first() or 0
+    max_order = (
+        FinalizedMaterial.objects.filter(
+            contract=contract,
+            archive_item_code=archive_item_code,
+        )
+        .order_by("-order")
+        .values_list("order", flat=True)
+        .first()
+        or 0
+    )
 
     material = FinalizedMaterial.objects.create(
         contract=contract,
@@ -330,7 +353,8 @@ def upload_material_to_archive_item(
 
     logger.info(
         "归档材料上传成功: %s → %s",
-        safe_name, archive_item_code,
+        safe_name,
+        archive_item_code,
         extra={"contract_id": contract.id, "material_id": material.id},
     )
 
@@ -383,7 +407,8 @@ def _copy_case_material_to_finalized(
 
     logger.info(
         "案件材料已同步到归档: %s → %s",
-        original_filename, archive_item_code,
+        original_filename,
+        archive_item_code,
         extra={
             "contract_id": contract.id,
             "case_material_id": case_material.id,
@@ -400,9 +425,7 @@ def _apply_initial_order_for_synced(synced: list[dict[str, Any]]) -> None:
         return
 
     material_ids = [item["material_id"] for item in synced]
-    materials_by_id = {
-        m.pk: m for m in FinalizedMaterial.objects.filter(pk__in=material_ids)
-    }
+    materials_by_id = {m.pk: m for m in FinalizedMaterial.objects.filter(pk__in=material_ids)}
 
     code_to_materials: dict[str, list[FinalizedMaterial]] = {}
     for item in synced:

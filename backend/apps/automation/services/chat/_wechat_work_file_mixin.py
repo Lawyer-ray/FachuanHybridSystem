@@ -37,7 +37,10 @@ class WeChatWorkFileMixin:
 
         if not Path(file_path).exists():
             raise MessageSendException(
-                message=f"文件不存在: {file_path}", platform="wechat_work", chat_id=chat_id, errors={"file_path": file_path}
+                message=f"文件不存在: {file_path}",
+                platform="wechat_work",
+                chat_id=chat_id,
+                errors={"file_path": file_path},
             )
 
         try:

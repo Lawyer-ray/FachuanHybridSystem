@@ -284,6 +284,7 @@ def rename_document(request: Any, sms_id: int, ref_index: int, payload: dict[str
 
     # 同步引用
     from apps.automation.admin.sms.court_sms_admin import CourtSMSAdmin
+
     admin_instance = CourtSMSAdmin(CourtSMS, None)  # type: ignore[arg-type]
     admin_instance._sync_document_references(sms, old_abs, new_abs, ref.court_document_id)
 

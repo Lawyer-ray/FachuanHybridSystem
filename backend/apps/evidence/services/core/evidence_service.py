@@ -72,7 +72,10 @@ class EvidenceService:
 
     def update_evidence_list(self, list_id: int, data: dict[str, Any]) -> EvidenceList:
         evidence_list = self.get_evidence_list(list_id)
-        return cast(EvidenceList, self.mutation_service.update_evidence_list(evidence_list=evidence_list, title=data.get("title")))  # type: ignore[redundant-cast]
+        return cast(
+            EvidenceList,
+            self.mutation_service.update_evidence_list(evidence_list=evidence_list, title=data.get("title")),
+        )  # type: ignore[redundant-cast]
 
     def delete_evidence_list(self, list_id: int) -> bool:
         evidence_list = self.get_evidence_list(list_id)
@@ -86,13 +89,19 @@ class EvidenceService:
 
     def create_evidence_item(self, list_id: int, data: dict[str, Any]) -> EvidenceItem:
         evidence_list = self.get_evidence_list(list_id)
-        return cast(EvidenceItem, self.mutation_service.create_evidence_item(  # type: ignore[redundant-cast]
-            evidence_list=evidence_list, name=data.get("name", ""), purpose=data.get("purpose", "")
-        ))
+        return cast(
+            EvidenceItem,
+            self.mutation_service.create_evidence_item(  # type: ignore[redundant-cast]
+                evidence_list=evidence_list, name=data.get("name", ""), purpose=data.get("purpose", "")
+            ),
+        )
 
     def update_evidence_item(self, item_id: int, data: dict[str, Any]) -> EvidenceItem:
         item = self._get_evidence_item(item_id)
-        return cast(EvidenceItem, self.mutation_service.update_evidence_item(item=item, name=data.get("name"), purpose=data.get("purpose")))  # type: ignore[redundant-cast]
+        return cast(
+            EvidenceItem,
+            self.mutation_service.update_evidence_item(item=item, name=data.get("name"), purpose=data.get("purpose")),
+        )  # type: ignore[redundant-cast]
 
     def delete_evidence_item(self, item_id: int) -> bool:
         item = self._get_evidence_item(item_id)

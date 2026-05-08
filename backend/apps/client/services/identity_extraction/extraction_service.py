@@ -578,7 +578,13 @@ class IdentityExtractionService:
             logger.info("发送 Ollama 前 OCR 清洗后文本内容:\n%s", llm_text)
 
             prompt = get_prompt_for_doc_type(doc_type, llm_text)
-            logger.info("证件识别将调用 Ollama: model=%s, timeout=%ss, max_tokens=%s, think=%s", self._ollama_model, max(180, int(LLMConfig.get_ollama_timeout())), 256, False)
+            logger.info(
+                "证件识别将调用 Ollama: model=%s, timeout=%ss, max_tokens=%s, think=%s",
+                self._ollama_model,
+                max(180, int(LLMConfig.get_ollama_timeout())),
+                256,
+                False,
+            )
 
             messages = [
                 {"role": "system", "content": prompt},

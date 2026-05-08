@@ -16,6 +16,7 @@ router = Router()
 
 # ── Schemas ──────────────────────────────────────────────
 
+
 class MessageSourceOut(Schema):
     id: int
     display_name: str
@@ -61,6 +62,7 @@ class MessageSourceUpdateIn(Schema):
 
 
 # ── Endpoints ────────────────────────────────────────────
+
 
 @router.get("/sources", response=list[MessageSourceOut])
 def list_sources(request: Any) -> list[MessageSource]:

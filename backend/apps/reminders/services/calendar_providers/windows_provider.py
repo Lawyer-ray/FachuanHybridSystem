@@ -84,8 +84,12 @@ class WindowsOutlookProvider:
             if start_dt is not None and not isinstance(start_dt, datetime):
                 try:
                     start_dt = datetime(
-                        start_dt.year, start_dt.month, start_dt.day,
-                        start_dt.hour, start_dt.minute, start_dt.second,
+                        start_dt.year,
+                        start_dt.month,
+                        start_dt.day,
+                        start_dt.hour,
+                        start_dt.minute,
+                        start_dt.second,
                         tzinfo=timezone.get_current_timezone(),
                     )
                 except Exception:
@@ -94,8 +98,12 @@ class WindowsOutlookProvider:
             if end_dt is not None and not isinstance(end_dt, datetime):
                 try:
                     end_dt = datetime(
-                        end_dt.year, end_dt.month, end_dt.day,
-                        end_dt.hour, end_dt.minute, end_dt.second,
+                        end_dt.year,
+                        end_dt.month,
+                        end_dt.day,
+                        end_dt.hour,
+                        end_dt.minute,
+                        end_dt.second,
                         tzinfo=timezone.get_current_timezone(),
                     )
                 except Exception:

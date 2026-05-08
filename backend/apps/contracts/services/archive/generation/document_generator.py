@@ -28,11 +28,18 @@ def preview_archive_template(contract_id: int, template_subtype: str) -> dict[st
 
     from apps.documents.services.generation.pipeline import DocxPreviewService, PipelineContextBuilder
 
-    case = contract.cases.select_related(
-        "contract",
-    ).prefetch_related(
-        "supervising_authorities", "case_numbers", "assignments__lawyer", "parties__client",
-    ).first()
+    case = (
+        contract.cases.select_related(
+            "contract",
+        )
+        .prefetch_related(
+            "supervising_authorities",
+            "case_numbers",
+            "assignments__lawyer",
+            "parties__client",
+        )
+        .first()
+    )
 
     context_builder = PipelineContextBuilder()
     context = context_builder.build_archive_context(contract, case)
@@ -57,11 +64,18 @@ def generate_archive_documents(
 ) -> list[dict[str, Any]]:
     """批量生成归档文书。"""
     if case is None:
-        case = contract.cases.select_related(
-            "contract",
-        ).prefetch_related(
-            "supervising_authorities", "case_numbers", "assignments__lawyer", "parties__client",
-        ).first()
+        case = (
+            contract.cases.select_related(
+                "contract",
+            )
+            .prefetch_related(
+                "supervising_authorities",
+                "case_numbers",
+                "assignments__lawyer",
+                "parties__client",
+            )
+            .first()
+        )
 
     archive_category = get_archive_category(contract.case_type)
     checklist_items = ARCHIVE_CHECKLIST.get(archive_category, [])
@@ -98,11 +112,18 @@ def generate_single_archive_document(
         return {"template_subtype": None, "error": "该检查项不支持模板生成"}
 
     if case is None:
-        case = contract.cases.select_related(
-            "contract",
-        ).prefetch_related(
-            "supervising_authorities", "case_numbers", "assignments__lawyer", "parties__client",
-        ).first()
+        case = (
+            contract.cases.select_related(
+                "contract",
+            )
+            .prefetch_related(
+                "supervising_authorities",
+                "case_numbers",
+                "assignments__lawyer",
+                "parties__client",
+            )
+            .first()
+        )
 
     return _generate_single_document(contract, target_item, case)
 

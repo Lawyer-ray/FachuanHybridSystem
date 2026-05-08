@@ -48,7 +48,10 @@ class TelegramFileMixin:
 
         if not Path(file_path).exists():
             raise MessageSendException(
-                message=f"文件不存在: {file_path}", platform="telegram", chat_id=chat_id, errors={"file_path": file_path}
+                message=f"文件不存在: {file_path}",
+                platform="telegram",
+                chat_id=chat_id,
+                errors={"file_path": file_path},
             )
 
         try:
@@ -102,7 +105,9 @@ class TelegramFileMixin:
 
             logger.info(f"成功发送 Telegram 文件到群聊: {chat_id} (文件: {file_name})")
 
-            return ChatResult(success=True, chat_id=chat_id, message=f"文件发送成功: {file_name}", raw_response=resp_data)
+            return ChatResult(
+                success=True, chat_id=chat_id, message=f"文件发送成功: {file_name}", raw_response=resp_data
+            )
 
         except MessageSendException:
             raise

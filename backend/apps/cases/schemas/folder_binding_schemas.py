@@ -33,7 +33,10 @@ class CaseFolderBindingResponseSchema(Schema):
 
     @classmethod
     def from_binding(
-        cls, obj: CaseFolderBinding, is_accessible: bool = True, display_path: str | None = None,
+        cls,
+        obj: CaseFolderBinding,
+        is_accessible: bool = True,
+        display_path: str | None = None,
         path_auto_repaired: bool = False,
     ) -> CaseFolderBindingResponseSchema:
         return cls(

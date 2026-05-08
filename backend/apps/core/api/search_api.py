@@ -32,19 +32,14 @@ def _search_clients(q: str, limit: int) -> list[SearchResultItem]:
     qs: QuerySet = Client.objects.filter(
         Q(name__icontains=q) | Q(phone__icontains=q) | Q(id_number__icontains=q)
     ).distinct()[:limit]
-    return [
-        SearchResultItem(id=c.id, title=c.name, subtitle=c.phone or "")
-        for c in qs
-    ]
+    return [SearchResultItem(id=c.id, title=c.name, subtitle=c.phone or "") for c in qs]
 
 
 def _search_cases(q: str, limit: int) -> list[SearchResultItem]:
     from apps.cases.models import Case
 
     qs: QuerySet = Case.objects.filter(
-        Q(name__icontains=q)
-        | Q(case_numbers__number__icontains=q)
-        | Q(parties__client__name__icontains=q)
+        Q(name__icontains=q) | Q(case_numbers__number__icontains=q) | Q(parties__client__name__icontains=q)
     ).distinct()[:limit]
     results: list[SearchResultItem] = []
     for c in qs:
@@ -62,18 +57,15 @@ def _search_contracts(q: str, limit: int) -> list[SearchResultItem]:
     qs: QuerySet = Contract.objects.filter(
         Q(name__icontains=q) | Q(contract_parties__client__name__icontains=q)
     ).distinct()[:limit]
-    return [
-        SearchResultItem(id=c.id, title=c.name or "", subtitle="")
-        for c in qs
-    ]
+    return [SearchResultItem(id=c.id, title=c.name or "", subtitle="") for c in qs]
 
 
 def _search_inbox(q: str, limit: int) -> list[SearchResultItem]:
     from apps.message_hub.models import InboxMessage
 
-    qs: QuerySet = InboxMessage.objects.filter(
-        Q(subject__icontains=q) | Q(sender__icontains=q)
-    ).order_by("-received_at")[:limit]
+    qs: QuerySet = InboxMessage.objects.filter(Q(subject__icontains=q) | Q(sender__icontains=q)).order_by(
+        "-received_at"
+    )[:limit]
     return [
         SearchResultItem(
             id=m.id,
@@ -87,9 +79,9 @@ def _search_inbox(q: str, limit: int) -> list[SearchResultItem]:
 def _search_court_sms(q: str, limit: int) -> list[SearchResultItem]:
     from apps.automation.models import CourtSMS
 
-    qs: QuerySet = CourtSMS.objects.filter(
-        Q(content__icontains=q) | Q(case__name__icontains=q)
-    ).order_by("-received_at")[:limit]
+    qs: QuerySet = CourtSMS.objects.filter(Q(content__icontains=q) | Q(case__name__icontains=q)).order_by(
+        "-received_at"
+    )[:limit]
     results: list[SearchResultItem] = []
     for sms in qs:
         preview = sms.content[:50] + ("..." if len(sms.content) > 50 else "")

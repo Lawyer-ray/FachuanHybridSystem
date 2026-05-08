@@ -248,9 +248,7 @@ class DocumentProcessor:
                 )
                 sms = dedup_result.sms
                 if not dedup_result.created:
-                    logger.info(
-                        f"命中文书送达重复事件，跳过后续处理: SMS ID={sms.id}, 案号={record.case_number}"
-                    )
+                    logger.info(f"命中文书送达重复事件，跳过后续处理: SMS ID={sms.id}, 案号={record.case_number}")
                     result.update(dedup_service.build_existing_sms_result(sms, file_path))
                     result_queue.put(result)
                     return

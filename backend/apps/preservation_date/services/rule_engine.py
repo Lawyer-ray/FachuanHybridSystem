@@ -73,9 +73,24 @@ DURATION_PATTERN = re.compile(
 
 # 财产线索关键词 (用于识别描述不完整的情况)
 PROPERTY_KEYWORDS: list[str] = [
-    "账号", "账户", "银行", "存款", "房产", "房屋", "不动产",
-    "股权", "股份", "股票", "车辆", "机动车", "土地使用权",
-    "商标", "专利", "著作权", "债权", "应收账款",
+    "账号",
+    "账户",
+    "银行",
+    "存款",
+    "房产",
+    "房屋",
+    "不动产",
+    "股权",
+    "股份",
+    "股票",
+    "车辆",
+    "机动车",
+    "土地使用权",
+    "商标",
+    "专利",
+    "著作权",
+    "债权",
+    "应收账款",
 ]
 
 
@@ -86,12 +101,8 @@ class PreservationRuleEngine:
     """
 
     def __init__(self) -> None:
-        self._pending_patterns = [
-            (re.compile(p), mt, ip) for p, mt, ip in PENDING_PATTERNS
-        ]
-        self._formal_patterns = [
-            (re.compile(p), mt) for p, mt in FORMAL_PATTERNS
-        ]
+        self._pending_patterns = [(re.compile(p), mt, ip) for p, mt, ip in PENDING_PATTERNS]
+        self._formal_patterns = [(re.compile(p), mt) for p, mt in FORMAL_PATTERNS]
 
     def extract(self, text: str) -> list[PreservationMeasure]:
         """从文本中提取保全措施.
@@ -125,7 +136,8 @@ class PreservationRuleEngine:
 
         logger.info(
             "规则引擎提取完成: 共 %d 条措施, 来自 %d 个段落",
-            len(measures), len(segments),
+            len(measures),
+            len(segments),
         )
         return measures
 
@@ -189,16 +201,18 @@ class PreservationRuleEngine:
                 dates = self._extract_dates(segment, match.end())
                 duration = self._extract_duration(segment)
 
-                measures.append(PreservationMeasure(
-                    measure_type=measure_type,
-                    property_description=prop_desc,
-                    duration=None,  # 轮候无期限
-                    start_date=None,  # 轮候无起算日
-                    end_date=None,  # 轮候无到期日
-                    is_pending=True,
-                    pending_note="轮候状态,期限自转为正式查封/冻结之日起算",
-                    raw_text=raw_text,
-                ))
+                measures.append(
+                    PreservationMeasure(
+                        measure_type=measure_type,
+                        property_description=prop_desc,
+                        duration=None,  # 轮候无期限
+                        start_date=None,  # 轮候无起算日
+                        end_date=None,  # 轮候无到期日
+                        is_pending=True,
+                        pending_note="轮候状态,期限自转为正式查封/冻结之日起算",
+                        raw_text=raw_text,
+                    )
+                )
 
         # 再匹配正式措施
         for pattern, measure_type in self._formal_patterns:
@@ -230,16 +244,18 @@ class PreservationRuleEngine:
                 # 确定 is_pending
                 is_pending = measure_type in ("续行查封", "续行冻结")
 
-                measures.append(PreservationMeasure(
-                    measure_type=measure_type,
-                    property_description=prop_desc,
-                    duration=duration,
-                    start_date=start_date,
-                    end_date=end_date,
-                    is_pending=is_pending,
-                    pending_note="续保措施,系对原保全的延续" if is_pending else None,
-                    raw_text=raw_text,
-                ))
+                measures.append(
+                    PreservationMeasure(
+                        measure_type=measure_type,
+                        property_description=prop_desc,
+                        duration=duration,
+                        start_date=start_date,
+                        end_date=end_date,
+                        is_pending=is_pending,
+                        pending_note="续保措施,系对原保全的延续" if is_pending else None,
+                        raw_text=raw_text,
+                    )
+                )
 
         return measures
 
@@ -411,6 +427,7 @@ class PreservationRuleEngine:
                 day = start_date.day
                 # 处理月份天数不同问题
                 import calendar
+
                 max_day = calendar.monthrange(year, month)[1]
                 if day > max_day:
                     day = max_day

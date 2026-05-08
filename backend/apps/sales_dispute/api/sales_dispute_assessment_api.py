@@ -35,7 +35,10 @@ def assess_case(
     """综合案件评估"""
     from apps.sales_dispute.services.assessment.case_assessment_service import AssessmentInput
     from apps.sales_dispute.services.assessment.evidence_scorer_service import EvidenceItem
-    from apps.sales_dispute.services.calculation.limitation_calculator_service import InterruptionEvent, InterruptionType
+    from apps.sales_dispute.services.calculation.limitation_calculator_service import (
+        InterruptionEvent,
+        InterruptionType,
+    )
 
     evidence_items = [
         EvidenceItem(

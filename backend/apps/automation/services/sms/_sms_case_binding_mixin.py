@@ -102,9 +102,7 @@ class SMSCaseBindingMixin:
             sms.case_log = None
             sms.save(update_fields=["case_log"])
 
-            logger.info(
-                f"已清理旧案件日志及 {attachment_count} 个附件: SMS ID={sms.id}, CaseLog ID={old_log.id}"
-            )
+            logger.info(f"已清理旧案件日志及 {attachment_count} 个附件: SMS ID={sms.id}, CaseLog ID={old_log.id}")
 
         except Exception as e:
             logger.warning(f"清理旧案件日志失败，继续流程: SMS ID={sms.id}, 错误: {e!s}")

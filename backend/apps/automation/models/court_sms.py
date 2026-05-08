@@ -110,9 +110,7 @@ class CourtSMS(models.Model):
     feishu_error = models.TextField(null=True, blank=True, verbose_name=_("飞书发送错误"))
 
     # 多平台通知结果
-    notification_results = models.JSONField(
-        null=True, blank=True, default=None, verbose_name=_("多平台通知结果")
-    )
+    notification_results = models.JSONField(null=True, blank=True, default=None, verbose_name=_("多平台通知结果"))
 
     # 时间戳
     created_at = models.DateTimeField(auto_now_add=True)
