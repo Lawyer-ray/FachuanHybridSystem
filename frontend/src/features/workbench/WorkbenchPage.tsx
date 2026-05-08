@@ -447,7 +447,7 @@ export function WorkbenchPage() {
 
             {/* 空状态建议提示 */}
             {messages.length === 0 && !messagesLoading && !isStreaming && (
-              <SuggestedPrompts onSelect={handleSend} />
+              <SuggestedPrompts />
             )}
 
             {/* 批量分析进度 */}

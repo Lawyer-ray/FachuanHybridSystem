@@ -14,16 +14,13 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Building2,
 }
 
-interface SuggestedPromptsProps {
-  onSelect: (prompt: string) => void
-}
-
-export function SuggestedPrompts({ onSelect }: SuggestedPromptsProps) {
+export function SuggestedPrompts() {
   const setSelectedAgent = useWorkbenchStore((s) => s.setSelectedAgent)
+  const setPendingPrompt = useWorkbenchStore((s) => s.setPendingPrompt)
 
   const handleClick = (prompt: string, agent?: AgentType) => {
     if (agent) setSelectedAgent(agent)
-    onSelect(prompt)
+    setPendingPrompt(prompt)
   }
 
   return (

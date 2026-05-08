@@ -30,13 +30,22 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
   const [content, setContent] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const sendAfterSpeechRef = useRef(false)
-  const { isStreaming, selectedAgent, setSelectedAgent, abortStream, quotedContent, setQuotedContent } = useWorkbenchStore()
+  const { isStreaming, selectedAgent, setSelectedAgent, abortStream, quotedContent, setQuotedContent, pendingPrompt, setPendingPrompt } = useWorkbenchStore()
 
   const speech = useSpeechRecognition({ lang: 'zh-CN', continuous: true, interimResults: true })
 
   useEffect(() => {
     if (!disabled) textareaRef.current?.focus()
   }, [disabled])
+
+  // 处理待输入提示（点击建议卡片后填入输入框）
+  useEffect(() => {
+    if (pendingPrompt) {
+      setContent(pendingPrompt)
+      setPendingPrompt(null)
+      requestAnimationFrame(() => textareaRef.current?.focus())
+    }
+  }, [pendingPrompt, setPendingPrompt])
 
   // 语音转写结果追加到 content
   useEffect(() => {
