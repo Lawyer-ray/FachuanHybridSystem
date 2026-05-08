@@ -16,7 +16,6 @@ import { ApprovalDialog } from './components/ApprovalDialog'
 import { BatchAnalysisDialog } from './components/BatchAnalysisDialog'
 import { BatchProgressCard } from './components/BatchProgressCard'
 import { BatchHistoryPanel } from './components/BatchHistoryPanel'
-import { SuggestedPrompts } from './components/SuggestedPrompts'
 import { WorkbenchWelcome } from './components/WorkbenchWelcome'
 import { WorkbenchCommandPalette } from './components/WorkbenchCommandPalette'
 import { useContextUsage } from './hooks/use-context-usage'
@@ -444,11 +443,6 @@ export function WorkbenchPage() {
         {currentSession ? (
           <>
             <MessageList />
-
-            {/* 空状态建议提示 */}
-            {messages.length === 0 && !messagesLoading && !isStreaming && (
-              <SuggestedPrompts />
-            )}
 
             {/* 批量分析进度 */}
             {batchProgress && (

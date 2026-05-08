@@ -12,6 +12,7 @@ import {
 import { PaymentFormDialog } from './PaymentFormDialog'
 import { usePaymentMutations } from '../hooks/use-payment-mutations'
 import type { ContractPayment, PaymentInput } from '../types'
+import { formatAmountInt } from '@/lib/format'
 
 export function PaymentList({ contractId, payments }: { contractId: number; payments: ContractPayment[] }) {
   const { createPayment, updatePayment, deletePayment } = usePaymentMutations(contractId)
@@ -85,10 +86,10 @@ export function PaymentList({ contractId, payments }: { contractId: number; paym
                             <span className="inline-block w-5" />
                           )}
                         </TableCell>
-                        <TableCell className="font-mono">¥{p.amount.toLocaleString()}</TableCell>
+                        <TableCell className="font-mono">{formatAmountInt(p.amount)}</TableCell>
                         <TableCell>{p.received_at || '-'}</TableCell>
                         <TableCell><Badge variant="outline" className="text-xs">{p.invoice_status_label}</Badge></TableCell>
-                        <TableCell className="font-mono">¥{p.invoiced_amount.toLocaleString()}</TableCell>
+                        <TableCell className="font-mono">{formatAmountInt(p.invoiced_amount)}</TableCell>
                         <TableCell className="text-muted-foreground text-sm">{p.note || '-'}</TableCell>
                         <TableCell>
                           <div className="flex gap-1">

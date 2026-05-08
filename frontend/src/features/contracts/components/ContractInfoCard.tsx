@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import type { Contract } from '../types'
 import { FEE_MODE_LABELS, type FeeMode } from '../types'
+import { formatAmountInt } from '@/lib/format'
 
 function Info({ icon: Icon, label, children }: { icon: React.ElementType; label: string; children: React.ReactNode }) {
   return (

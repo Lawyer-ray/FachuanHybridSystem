@@ -4,6 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge'
 import { generatePath } from '@/routes/paths'
 import { FEE_MODE_LABELS, type Contract, type ContractStatus } from '../types'
+import { formatAmountInt } from '@/lib/format'
 
 const STATUS_VARIANT: Record<ContractStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   active: 'default',

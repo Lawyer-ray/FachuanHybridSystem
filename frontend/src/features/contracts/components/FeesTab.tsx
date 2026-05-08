@@ -12,6 +12,7 @@ import type { Contract, ClientPaymentRecord } from '../types'
 import { FEE_MODE_LABELS, type FeeMode } from '../types'
 import { PaymentList } from './PaymentList'
 import { resolveMediaUrl } from '@/lib/api'
+import { formatAmountInt } from '@/lib/format'
 
 function DetailField({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) {
   return (
@@ -53,7 +54,7 @@ function ClientPaymentSection({ contractId, records: initial }: { contractId: nu
   return (
     <DetailCard
       title="客户付款凭证"
-      extra={records.length > 0 ? <span className="text-muted-foreground text-xs">{records.length} 笔 · ¥{total.toLocaleString()}</span> : undefined}
+      extra={records.length > 0 ? <span className="text-muted-foreground text-xs">{records.length} 笔 · {formatAmountInt(total)}</span> : undefined}
     >
       {records.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-8">
@@ -64,7 +65,7 @@ function ClientPaymentSection({ contractId, records: initial }: { contractId: nu
         <div className="flex flex-col gap-2">
           {records.map(r => (
             <div key={r.id} className="flex items-center gap-3 rounded-md border border-border/60 bg-muted/30 px-3 py-2.5 text-[13px] group">
-              <span className="text-sm font-semibold text-green-600 min-w-[100px]">¥{r.amount.toLocaleString()}</span>
+              <span className="text-sm font-semibold text-green-600 min-w-[100px]">{formatAmountInt(r.amount)}</span>
               <span className="text-muted-foreground text-xs flex-1">{r.note || ''}</span>
               <span className="text-muted-foreground text-xs">{r.created_at?.slice(0, 10) || ''}</span>
               {r.image_path && (
@@ -109,7 +110,7 @@ function InvoiceSection({ contract }: { contract: Contract }) {
             <Receipt className="size-3.5 text-muted-foreground shrink-0" />
             <span className="flex-1 truncate">{inv.original_filename}</span>
             {inv.invoice_number && <span className="text-muted-foreground text-xs font-mono">#{inv.invoice_number}</span>}
-            {inv.total_amount != null && <span className="text-xs font-mono">¥{inv.total_amount.toLocaleString()}</span>}
+            {inv.total_amount != null && <span className="text-xs font-mono">{formatAmountInt(inv.total_amount)}</span>}
             <span className="text-muted-foreground text-xs">{inv.uploaded_at?.slice(0, 10) || ''}</span>
           </div>
         ))}
@@ -134,7 +135,7 @@ export function FeesTab({ contract: c }: { contract: Contract }) {
             <Badge variant="outline" className="text-[11px] px-2 py-0.5">{feeLabel}</Badge>
           } />
           {c.fixed_amount != null && (
-            <DetailField label="固定/前期律师费" value={`¥${c.fixed_amount.toLocaleString()}`} mono />
+            <DetailField label="固定/前期律师费" value={`${formatAmountInt(c.fixed_amount)}`} mono />
           )}
           {c.risk_rate != null && (
             <DetailField label="风险比例" value={`${c.risk_rate}%`} mono />
@@ -164,10 +165,10 @@ export function FeesTab({ contract: c }: { contract: Contract }) {
             </div>
             <div className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground">应收 {hasProgress ? `¥${c.fixed_amount!.toLocaleString()}` : '—'}</span>
-              <span className="text-green-600 font-medium">已收 ¥{c.total_received.toLocaleString()}</span>
+              <span className="text-green-600 font-medium">已收 {formatAmountInt(c.total_received)}</span>
             </div>
             {c.unpaid_amount != null && c.unpaid_amount > 0 && (
-              <div className="mt-1 text-xs text-red-600">未收 ¥{c.unpaid_amount.toLocaleString()}</div>
+              <div className="mt-1 text-xs text-red-600">未收 {formatAmountInt(c.unpaid_amount)}</div>
             )}
             {paymentPercent >= 100 && (
               <div className="mt-1.5">
@@ -191,8 +192,8 @@ export function FeesTab({ contract: c }: { contract: Contract }) {
               />
             </div>
             <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">已收 ¥{c.total_received.toLocaleString()}</span>
-              <span className="text-green-600 font-medium">已开票 ¥{c.total_invoiced.toLocaleString()}</span>
+              <span className="text-muted-foreground">已收 {formatAmountInt(c.total_received)}</span>
+              <span className="text-green-600 font-medium">已开票 {formatAmountInt(c.total_invoiced)}</span>
             </div>
             {invoicePercent < 100 && c.total_received > 0 && (
               <div className="mt-1.5">

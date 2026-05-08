@@ -81,10 +81,6 @@ interface WorkbenchState {
   quotedContent: string | null
   setQuotedContent: (content: string | null) => void
 
-  // 待输入提示（点击建议卡片后填入输入框）
-  pendingPrompt: string | null
-  setPendingPrompt: (prompt: string | null) => void
-
   // 批量分析
   activeBatchJobId: string | null
   batchProgress: BatchProgress | null
@@ -132,8 +128,6 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
   pendingApproval: null,
   quotedContent: null,
   setQuotedContent: (content) => set({ quotedContent: content }),
-  pendingPrompt: null,
-  setPendingPrompt: (prompt) => set({ pendingPrompt: prompt }),
   activeBatchJobId: null,
   batchProgress: null,
   batchPolling: false,

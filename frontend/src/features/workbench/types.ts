@@ -115,24 +115,6 @@ export interface ToolCallState {
   status: 'pending' | 'running' | 'success' | 'error'
 }
 
-// ─── 建议提示 ───────────────────────────────────────────────────────────────
-
-export interface SuggestedPrompt {
-  label: string
-  prompt: string
-  agent?: AgentType
-  icon: string
-}
-
-export const SUGGESTED_PROMPTS: SuggestedPrompt[] = [
-  { label: '查询案件', prompt: '帮我查询最近的案件列表', agent: 'case', icon: 'Briefcase' },
-  { label: '合同审查', prompt: '帮我审查这份合同的风险条款', agent: 'contract', icon: 'FileText' },
-  { label: '法律检索', prompt: '搜索相关的判例和法规', agent: 'research', icon: 'Search' },
-  { label: '联网搜索', prompt: '帮我搜索最新的法律动态', icon: 'Globe' },
-  { label: '创建提醒', prompt: '帮我创建一个开庭提醒', icon: 'Bell' },
-  { label: '企业查询', prompt: '查询这家企业的工商信息', agent: 'research', icon: 'Building2' },
-]
-
 // ─── 批量分析 ───────────────────────────────────────────────────────────────
 
 export type BatchJobStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
