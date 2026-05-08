@@ -48,7 +48,7 @@ class CaseOut(ModelSchema):
     supervising_authorities: list[SupervisingAuthorityOut]
     chats: list[CaseChatOut]
     contract_id: int | None
-    contacts: list[CaseContactOut] = []  # type: ignore[valid-type]
+    contacts: list[CaseContactOut] = []
 
     class Meta:
         model = Case
@@ -108,7 +108,7 @@ class CaseOut(ModelSchema):
     def resolve_contacts(obj: Case) -> list:
         if CaseContactOut is None:
             return []
-        return list(obj.contacts.select_related("authority").all())  # type: ignore[attr-defined]
+        return list(obj.contacts.select_related("authority").all())
 
 
 class CaseUpdate(Schema):

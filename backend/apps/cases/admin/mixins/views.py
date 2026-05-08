@@ -25,11 +25,11 @@ logger = logging.getLogger("apps.cases")
 
 
 def _get_contact_role_choices() -> list[tuple[str, str]]:
-    return list(ContactRole.choices)
+    return [(str(k), str(v)) for k, v in ContactRole.choices]
 
 
 def _get_case_stage_choices() -> list[tuple[str, str]]:
-    return list(CaseStage.choices)
+    return [(str(k), str(v)) for k, v in CaseStage.choices]
 
 
 def _log_inline_formset(inline_formset: object, logger: logging.Logger) -> None:
@@ -282,7 +282,7 @@ class CaseAdminViewsMixin:
                 "has_delay_delivery_template": has_delay_delivery_template,
                 "is_our_party_all_defendant": is_our_party_all_defendant,
                 "folder_path_auto_repaired": folder_path_auto_repaired,
-                "contacts": list(case.contacts.select_related("authority").all()),  # type: ignore[attr-defined]
+                "contacts": list(case.contacts.select_related("authority").all()),
                 "contact_role_choices": list(_get_contact_role_choices()),
                 "case_stage_choices": list(_get_case_stage_choices()),
             }

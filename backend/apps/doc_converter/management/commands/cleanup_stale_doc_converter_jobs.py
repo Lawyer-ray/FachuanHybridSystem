@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 from datetime import timedelta
 
 from django.core.management.base import BaseCommand
@@ -14,7 +15,7 @@ logger = logging.getLogger("apps.doc_converter")
 class Command(BaseCommand):
     help = "清理过期的 DOC 转换任务及其文件"
 
-    def add_arguments(self, parser):  # type: ignore[override]
+    def add_arguments(self, parser: Any) -> None:
         parser.add_argument(
             "--completed-max-age",
             type=int,
@@ -33,7 +34,7 @@ class Command(BaseCommand):
             help="仅打印，不实际删除",
         )
 
-    def handle(self, *args, **options):  # type: ignore[override]
+    def handle(self, *args: Any, **options: Any) -> None:
         completed_max_age = options["completed_max_age"]
         stale_max_age = options["stale_max_age"]
         dry_run = options["dry_run"]

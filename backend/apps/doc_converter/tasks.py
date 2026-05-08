@@ -129,6 +129,8 @@ def run_conversion_job(job_id: str) -> None:
         for item in DocConverterItem.objects.filter(job_id=job_uuid, status=DocConverterJobStatus.COMPLETED).exclude(
             converted_file=""
         ):
+            if not item.converted_file.name:
+                continue
             uuid_filename = Path(item.converted_file.name).name
             original_stem = Path(item.original_name).stem
             name_map[uuid_filename] = f"{original_stem}.docx"
