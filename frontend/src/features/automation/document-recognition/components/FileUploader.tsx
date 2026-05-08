@@ -12,7 +12,6 @@
 
 import { useCallback, useState, useRef } from 'react'
 import {
-  Upload,
   FileImage,
   FileText,
   Loader2,
@@ -26,8 +25,8 @@ import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
+import { DropZone } from '@/components/shared/DropZone'
 
 import { isPdf, formatFileSize } from '@/lib/file-utils'
 import { useUploadDocument } from '../hooks/use-recognition-mutations'
@@ -75,99 +74,6 @@ function getFileTypeName(mimeType: string): string {
 // ============================================================================
 // Sub-components
 // ============================================================================
-
-interface DropZoneProps {
-  isDragging: boolean
-  isUploading: boolean
-  onDragEnter: (e: React.DragEvent) => void
-  onDragLeave: (e: React.DragEvent) => void
-  onDragOver: (e: React.DragEvent) => void
-  onDrop: (e: React.DragEvent) => void
-  onClick: () => void
-}
-
-/**
- * 拖拽上传区域
- * Requirements: 6.1 - 提供文件上传区域，支持拖拽和点击上传
- */
-function DropZone({
-  isDragging,
-  isUploading,
-  onDragEnter,
-  onDragLeave,
-  onDragOver,
-  onDrop,
-  onClick,
-}: DropZoneProps) {
-  return (
-    <div
-      className={`
-        relative flex min-h-[200px] cursor-pointer flex-col items-center justify-center
-        rounded-lg border-2 border-dashed p-6 transition-all duration-200
-        ${
-          isDragging
-            ? 'border-primary bg-primary/5 scale-[1.02]'
-            : 'border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/50'
-        }
-        ${isUploading ? 'pointer-events-none opacity-60' : ''}
-      `}
-      onDragEnter={onDragEnter}
-      onDragLeave={onDragLeave}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
-      onClick={onClick}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          onClick()
-        }
-      }}
-      aria-label="上传法律文书进行智能识别"
-    >
-      {isUploading ? (
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="text-primary size-12 animate-spin" />
-          <p className="text-muted-foreground text-sm">正在上传中...</p>
-        </div>
-      ) : (
-        <>
-          <div
-            className={`
-              mb-4 rounded-full p-4 transition-colors
-              ${isDragging ? 'bg-primary/10' : 'bg-muted'}
-            `}
-          >
-            <Upload
-              className={`size-8 ${isDragging ? 'text-primary' : 'text-muted-foreground'}`}
-            />
-          </div>
-          <p className="text-foreground mb-1 text-center font-medium">
-            {isDragging ? '松开鼠标上传文件' : '拖拽文件到此处上传'}
-          </p>
-          <p className="text-muted-foreground mb-3 text-center text-sm">
-            或点击选择文件
-          </p>
-          <div className="flex flex-wrap justify-center gap-2">
-            <Badge variant="secondary" className="text-xs">
-              PDF
-            </Badge>
-            <Badge variant="secondary" className="text-xs">
-              JPG
-            </Badge>
-            <Badge variant="secondary" className="text-xs">
-              PNG
-            </Badge>
-          </div>
-          <p className="text-muted-foreground mt-2 text-xs">
-            支持法律文书，最大 10MB
-          </p>
-        </>
-      )}
-    </div>
-  )
-}
 
 interface FilePreviewProps {
   file: File
@@ -507,6 +413,8 @@ export function FileUploader({
             onDragOver={handleDragOver}
             onDrop={handleDrop}
             onClick={handleClick}
+            hint="支持法律文书，最大 10MB"
+            ariaLabel="上传法律文书进行智能识别"
           />
         )}
 
