@@ -30,11 +30,17 @@ interface FieldHint {
   fullWidth?: boolean
 }
 
+interface FieldGroup {
+  label: string
+  keys: string[]
+}
+
 interface CategoryHints {
   title: string
   description: string
   fields?: Record<string, FieldHint>
   fieldOrder?: string[]
+  groups?: FieldGroup[]
 }
 
 const CATEGORY_HINTS: Record<string, CategoryHints> = {
@@ -99,6 +105,12 @@ const CATEGORY_HINTS: Record<string, CategoryHints> = {
   ai: {
     title: 'AI 服务配置',
     description: 'SiliconFlow、Ollama、OpenAI-compatible 等 AI 后端参数，以及全局 LLM 设置',
+    groups: [
+      { label: '全局 LLM 设置', keys: ['LLM_DEFAULT_BACKEND', 'LLM_TEMPERATURE', 'LLM_MAX_TOKENS', 'LLM_EXTRA_MODELS'] },
+      { label: 'SiliconFlow', keys: ['SILICONFLOW_API_KEY', 'SILICONFLOW_BASE_URL', 'SILICONFLOW_DEFAULT_MODEL', 'SILICONFLOW_EMBEDDING_MODEL', 'SILICONFLOW_TIMEOUT', 'LLM_BACKEND_SILICONFLOW_ENABLED', 'LLM_BACKEND_SILICONFLOW_PRIORITY'] },
+      { label: 'Ollama', keys: ['OLLAMA_BASE_URL', 'OLLAMA_MODEL', 'OLLAMA_EMBEDDING_MODEL', 'OLLAMA_TIMEOUT', 'LLM_BACKEND_OLLAMA_ENABLED', 'LLM_BACKEND_OLLAMA_PRIORITY'] },
+      { label: 'OpenAI-compatible', keys: ['OPENAI_COMPATIBLE_API_KEY', 'OPENAI_COMPATIBLE_BASE_URL', 'OPENAI_COMPATIBLE_DEFAULT_MODEL', 'OPENAI_COMPATIBLE_EMBEDDING_MODEL', 'OPENAI_COMPATIBLE_TIMEOUT', 'LLM_BACKEND_OPENAI_COMPATIBLE_ENABLED', 'LLM_BACKEND_OPENAI_COMPATIBLE_PRIORITY'] },
+    ],
     fieldOrder: [
       'LLM_DEFAULT_BACKEND', 'LLM_TEMPERATURE', 'LLM_MAX_TOKENS', 'LLM_EXTRA_MODELS',
       'SILICONFLOW_API_KEY', 'SILICONFLOW_BASE_URL', 'SILICONFLOW_DEFAULT_MODEL', 'SILICONFLOW_EMBEDDING_MODEL', 'SILICONFLOW_TIMEOUT',
@@ -224,18 +236,31 @@ export function ServiceConfig() {
   }, [backendGroups, category])
 
   // 渲染用的字段列表：以后端为准，schema hints 仅提供 UI 优化和排序
-  const renderFields = useMemo(() => {
+  type RenderField = {
+    key: string
+    label: string
+    placeholder?: string
+    fullWidth?: boolean
+    isSecret: boolean
+  }
+  type RenderGroup = { label: string; fields: RenderField[] }
+
+  const renderGroups = useMemo((): RenderGroup[] => {
     if (category === 'system') {
-      return [
-        { key: '_BACKEND_URL', label: '后端地址', placeholder: 'http://localhost:8002', fullWidth: true, isSecret: false },
-        { key: '_API_BASE_URL', label: 'API 基础路径', placeholder: 'http://localhost:8002/api/v1', fullWidth: true, isSecret: false },
-      ]
+      return [{
+        label: '',
+        fields: [
+          { key: '_BACKEND_URL', label: '后端地址', placeholder: 'http://localhost:8002', fullWidth: true, isSecret: false },
+          { key: '_API_BASE_URL', label: 'API 基础路径', placeholder: 'http://localhost:8002/api/v1', fullWidth: true, isSecret: false },
+        ],
+      }]
     }
 
     const fieldHints = hints?.fields ?? {}
     const fieldOrder = hints?.fieldOrder ?? []
+    const hintGroups = hints?.groups ?? []
 
-    const fields = backendItems.map(item => {
+    const allFields: RenderField[] = backendItems.map(item => {
       const hint = fieldHints[item.key]
       return {
         key: item.key,
@@ -247,7 +272,7 @@ export function ServiceConfig() {
     })
 
     const orderIndex = new Map(fieldOrder.map((k, i) => [k, i]))
-    fields.sort((a, b) => {
+    allFields.sort((a, b) => {
       const ai = orderIndex.get(a.key)
       const bi = orderIndex.get(b.key)
       if (ai !== undefined && bi !== undefined) return ai - bi
@@ -256,7 +281,28 @@ export function ServiceConfig() {
       return 0
     })
 
-    return fields
+    if (hintGroups.length === 0) {
+      return [{ label: '', fields: allFields }]
+    }
+
+    const fieldMap = new Map(allFields.map(f => [f.key, f]))
+    const grouped = new Set<string>()
+    const groups: RenderGroup[] = []
+
+    for (const g of hintGroups) {
+      const fields = g.keys.map(k => fieldMap.get(k)).filter((f): f is RenderField => !!f)
+      if (fields.length > 0) {
+        groups.push({ label: g.label, fields })
+        g.keys.forEach(k => grouped.add(k))
+      }
+    }
+
+    const remaining = allFields.filter(f => !grouped.has(f.key))
+    if (remaining.length > 0) {
+      groups.push({ label: '其他', fields: remaining })
+    }
+
+    return groups
   }, [category, hints, backendItems])
 
   // 用户修改过的值（只存变更）
@@ -409,13 +455,13 @@ export function ServiceConfig() {
       </div>
       {description && <p className="text-muted-foreground text-sm">{description}</p>}
 
-      <div className="border border-border rounded-lg">
+      <div className="border border-border rounded-lg overflow-hidden">
         {isLoading && category !== 'system' ? (
           <div className="flex items-center justify-center py-12 text-muted-foreground text-sm">
             <Loader2 className="size-4 animate-spin mr-2" />
             加载中...
           </div>
-        ) : renderFields.length === 0 ? (
+        ) : renderGroups.length === 0 || renderGroups.every(g => g.fields.length === 0) ? (
           <div className="flex flex-col items-center justify-center py-12 gap-3">
             <p className="text-muted-foreground text-sm">该类别暂无配置项</p>
             {category !== 'system' && (
@@ -425,76 +471,85 @@ export function ServiceConfig() {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 p-6">
-            {renderFields.map((field) => {
-              const showKey = `show_${field.key}`
-              const backendItem = backendItemMap[field.key]
-              return (
-                <div
-                  key={field.key}
-                  className={field.fullWidth ? 'sm:col-span-2 space-y-1.5' : 'space-y-1.5'}
-                >
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs text-muted-foreground">{field.label}</Label>
-                    {backendItem && category !== 'system' && (
-                      <div className="flex items-center gap-1">
-                        <button
-                          className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                          title="编辑配置项"
-                          onClick={() => openEdit(backendItem)}
-                        >
-                          <Pencil className="size-3" />
-                        </button>
-                        <button
-                          className="p-0.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                          title="删除配置项"
-                          onClick={() => setDeleteKey(field.key)}
-                        >
-                          <Trash2 className="size-3" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                  <div className="relative">
-                    {field.isSecret && !(field.key in modified) && backendItem ? (
-                      <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-input bg-muted/40 text-sm">
-                        <Lock className="size-3.5 text-muted-foreground" />
-                        {backendItem.has_value ? (
-                          <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                            <ShieldCheck className="size-3.5" />已设置
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-1 text-muted-foreground">
-                            <ShieldOff className="size-3.5" />未设置
-                          </span>
-                        )}
-                        <span className="ml-auto text-[11px] text-muted-foreground">点击右侧编辑修改</span>
-                      </div>
-                    ) : (
-                      <>
-                        <Input
-                          type={field.isSecret && !showSecrets[showKey] ? 'password' : 'text'}
-                          value={getDisplayValue(field.key)}
-                          onChange={(e) => handleFieldChange(field.key, e.target.value)}
-                          placeholder={field.placeholder ?? `请输入${field.label}`}
-                          className={field.isSecret ? 'pr-10' : ''}
-                        />
-                        {field.isSecret && (
-                          <button
-                            type="button"
-                            onClick={() => setShowSecrets((prev) => ({ ...prev, [showKey]: !prev[showKey] }))}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                          >
-                            {showSecrets[showKey] ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                          </button>
-                        )}
-                      </>
-                    )}
-                  </div>
+          renderGroups.map((group, gi) => (
+            <div key={group.label || gi}>
+              {group.label && (
+                <div className={`px-6 py-2.5 text-sm font-medium text-foreground bg-muted/50 ${gi > 0 ? 'border-t' : ''}`}>
+                  {group.label}
                 </div>
-              )
-            })}
-          </div>
+              )}
+              <div className={`grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 p-6 ${group.label && gi > 0 ? 'border-t' : ''}`}>
+                {group.fields.map((field) => {
+                  const showKey = `show_${field.key}`
+                  const backendItem = backendItemMap[field.key]
+                  return (
+                    <div
+                      key={field.key}
+                      className={field.fullWidth ? 'sm:col-span-2 space-y-1.5' : 'space-y-1.5'}
+                    >
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs text-muted-foreground">{field.label}</Label>
+                        {backendItem && category !== 'system' && (
+                          <div className="flex items-center gap-1">
+                            <button
+                              className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                              title="编辑配置项"
+                              onClick={() => openEdit(backendItem)}
+                            >
+                              <Pencil className="size-3" />
+                            </button>
+                            <button
+                              className="p-0.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                              title="删除配置项"
+                              onClick={() => setDeleteKey(field.key)}
+                            >
+                              <Trash2 className="size-3" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      <div className="relative">
+                        {field.isSecret && !(field.key in modified) && backendItem ? (
+                          <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-input bg-muted/40 text-sm">
+                            <Lock className="size-3.5 text-muted-foreground" />
+                            {backendItem.has_value ? (
+                              <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                                <ShieldCheck className="size-3.5" />已设置
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1 text-muted-foreground">
+                                <ShieldOff className="size-3.5" />未设置
+                              </span>
+                            )}
+                            <span className="ml-auto text-[11px] text-muted-foreground">点击右侧编辑修改</span>
+                          </div>
+                        ) : (
+                          <>
+                            <Input
+                              type={field.isSecret && !showSecrets[showKey] ? 'password' : 'text'}
+                              value={getDisplayValue(field.key)}
+                              onChange={(e) => handleFieldChange(field.key, e.target.value)}
+                              placeholder={field.placeholder ?? `请输入${field.label}`}
+                              className={field.isSecret ? 'pr-10' : ''}
+                            />
+                            {field.isSecret && (
+                              <button
+                                type="button"
+                                onClick={() => setShowSecrets((prev) => ({ ...prev, [showKey]: !prev[showKey] }))}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                              >
+                                {showSecrets[showKey] ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          ))
         )}
       </div>
 
