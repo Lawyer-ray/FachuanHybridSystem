@@ -32,10 +32,31 @@ import type { Contract, ChecklistItem, ArchiveChecklist, FinalizedMaterial } fro
 /* ── Status badge per item ── */
 
 function ItemBadge({ item }: { item: ChecklistItem }) {
+  if (item.template) {
+    return (
+      <span className="inline-flex items-center justify-center size-5 rounded-full bg-blue-100 text-blue-700 text-[11px] font-bold" title="可自动生成">
+        ⚡
+      </span>
+    )
+  }
   if (item.completed) {
     return (
       <span className="inline-flex items-center justify-center size-5 rounded-full bg-green-100 text-green-700 text-[11px] font-bold" title="已完成">
         ✓
+      </span>
+    )
+  }
+  if (item.auto_detect === 'supervision_card') {
+    return (
+      <span className="inline-flex items-center justify-center size-5 rounded-full bg-violet-100 text-violet-700 text-[11px] font-bold cursor-help" title="可自动检测监督卡">
+        🔍
+      </span>
+    )
+  }
+  if (item.has_case_material) {
+    return (
+      <span className="inline-flex items-center justify-center size-5 rounded-full bg-cyan-100 text-cyan-700 text-[11px] font-bold cursor-help" title="可从案件材料同步">
+        📋
       </span>
     )
   }
@@ -157,11 +178,11 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
 
   const items = checklist?.items ?? []
   const doneCount = checklist?.completed_count ?? 0
-  const requiredItems = items.filter(i => i.required)
   const requiredDone = checklist?.required_completed_count ?? 0
+  const requiredTotal = checklist?.required_total_count ?? 0
   const pct = checklist?.completion_percentage ?? 0
   const compactMode = checklist?.compact_archive ?? false
-  const canArchive = requiredDone === requiredItems.length && requiredItems.length > 0
+  const canArchive = requiredDone === requiredTotal && requiredTotal > 0
 
   const refreshChecklist = useCallback(async () => {
     try {
@@ -350,11 +371,20 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
     e.target.value = ''
   }
 
-  /* ── Visible items (compact mode hides empty optional) ── */
+  /* ── Separate template items from non-template items ── */
 
-  const visibleItems = compactMode
-    ? items.filter(i => i.completed || i.required)
-    : items
+  const templateItems = items.filter(i => i.template)
+  const nonTemplateItems = items.filter(i => !i.template)
+
+  /* ── Visible non-template items (compact mode hides empty optional) ── */
+
+  const visibleNonTemplateItems = compactMode
+    ? nonTemplateItems.filter(i => i.completed || i.required)
+    : nonTemplateItems
+
+  /* ── All visible items: template always shown + filtered non-template ── */
+
+  const visibleItems = [...templateItems, ...visibleNonTemplateItems]
 
   return (
     <div>
@@ -370,7 +400,7 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
             <div className="flex items-center gap-2.5">
               <h3 className="text-sm font-semibold text-foreground">归档检查清单</h3>
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-muted text-muted-foreground">
-                {doneCount}/{items.length}
+                {doneCount}/{nonTemplateItems.length}
               </span>
             </div>
             <div className="flex items-center gap-1">
@@ -415,9 +445,9 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
               />
             </div>
             <span className="text-xs text-muted-foreground shrink-0">
-              {doneCount}/{items.length}
-              {requiredDone < requiredItems.length && (
-                <span className="text-amber-600 ml-1">(必需项: {requiredDone}/{requiredItems.length})</span>
+              {doneCount}/{nonTemplateItems.length}
+              {requiredDone < requiredTotal && (
+                <span className="text-amber-600 ml-1">(必需项: {requiredDone}/{requiredTotal})</span>
               )}
             </span>
           </div>
@@ -487,7 +517,7 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
             return (
               <div
                 key={item.code}
-                className={`transition-colors ${item.completed ? 'bg-green-50/30' : ''}`}
+                className={`transition-colors ${item.template ? 'bg-blue-50/40' : item.completed ? 'bg-green-50/30' : ''}`}
                 style={{ counterIncrement: 'ac-counter' }}
               >
                 {/* Item header */}
@@ -508,30 +538,51 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
 
                   {/* Actions */}
                   <div className="flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
-                    <button
-                      className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
-                      title="上传文件"
-                      onClick={() => triggerUpload(item.code)}
-                      disabled={!!actionLoading}
-                    >
-                      <Upload className="size-3.5" />
-                    </button>
-                    {item.completed && (
+                    {item.template ? (
                       <>
                         <button
-                          className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+                          className="p-1 rounded text-muted-foreground hover:text-blue-600 hover:bg-blue-50 transition-colors"
                           title="预览"
                           onClick={() => contractApi.previewArchiveItem(c.id, item.code)}
                         >
                           <Eye className="size-3.5" />
                         </button>
                         <button
-                          className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+                          className="p-1 rounded text-muted-foreground hover:text-blue-600 hover:bg-blue-50 transition-colors"
                           title="下载材料"
                           onClick={() => contractApi.downloadArchiveItem(c.id, item.code)}
                         >
                           <Download className="size-3.5" />
                         </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+                          title="上传文件"
+                          onClick={() => triggerUpload(item.code)}
+                          disabled={!!actionLoading}
+                        >
+                          <Upload className="size-3.5" />
+                        </button>
+                        {item.completed && (
+                          <>
+                            <button
+                              className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+                              title="预览"
+                              onClick={() => contractApi.previewArchiveItem(c.id, item.code)}
+                            >
+                              <Eye className="size-3.5" />
+                            </button>
+                            <button
+                              className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+                              title="下载材料"
+                              onClick={() => contractApi.downloadArchiveItem(c.id, item.code)}
+                            >
+                              <Download className="size-3.5" />
+                            </button>
+                          </>
+                        )}
                       </>
                     )}
                   </div>

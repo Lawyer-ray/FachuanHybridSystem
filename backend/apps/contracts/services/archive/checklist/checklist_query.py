@@ -44,6 +44,7 @@ def get_checklist_with_status(contract: Contract) -> dict[str, Any]:
                 "id": m.id,
                 "original_filename": m.original_filename,
                 "category": m.category,
+                "source": _get_source(m.category),
                 "source_label": _get_source_label(m.category),
                 "order": m.order,
                 "file_path": m.file_path,
@@ -174,3 +175,18 @@ def _get_source_label(category: str) -> str:
         MaterialCategory.ARCHIVE_UPLOAD: "手动上传",
     }
     return label_map.get(category, "手动上传")
+
+
+def _get_source(category: str) -> str:
+    """根据材料分类返回来源类型（contract/case/upload/scan/auto）。"""
+    source_map: dict[str, str] = {
+        MaterialCategory.CONTRACT_ORIGINAL: "contract",
+        MaterialCategory.SUPPLEMENTARY_AGREEMENT: "contract",
+        MaterialCategory.INVOICE: "contract",
+        MaterialCategory.ARCHIVE_DOCUMENT: "auto",
+        MaterialCategory.SUPERVISION_CARD: "upload",
+        MaterialCategory.AUTHORIZATION_MATERIAL: "case",
+        MaterialCategory.CASE_MATERIAL: "case",
+        MaterialCategory.ARCHIVE_UPLOAD: "upload",
+    }
+    return source_map.get(category, "upload")

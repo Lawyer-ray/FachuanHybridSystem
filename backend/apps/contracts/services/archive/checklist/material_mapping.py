@@ -149,7 +149,7 @@ def fill_material_details_from_ids(
     materials: list[FinalizedMaterial],
 ) -> None:
     """根据 material ID 列表，将材料详情填充到 code_to_material_details。"""
-    from .checklist_query import _get_source_label
+    from .checklist_query import _get_source, _get_source_label
 
     mat_id_to_obj: dict[int, FinalizedMaterial] = {m.id: m for m in materials}
     for code, mat_ids in code_to_mat_ids.items():
@@ -164,6 +164,7 @@ def fill_material_details_from_ids(
                 "id": m.id,
                 "original_filename": m.original_filename,
                 "category": m.category,
+                "source": _get_source(m.category),
                 "source_label": _get_source_label(m.category),
                 "order": m.order,
                 "file_path": m.file_path,
