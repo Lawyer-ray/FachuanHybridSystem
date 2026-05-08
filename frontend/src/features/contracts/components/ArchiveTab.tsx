@@ -96,7 +96,7 @@ function SortableMaterialItem({
       <button
         className="p-0.5 rounded text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground transition-all"
         title="预览"
-        onClick={() => window.open(contractApi.previewSingleMaterial(contractId, m.id), '_blank')}
+        onClick={() => contractApi.previewSingleMaterial(contractId, m.id)}
       >
         <Eye className="size-3" />
       </button>
@@ -521,14 +521,14 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
                         <button
                           className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
                           title="预览"
-                          onClick={() => window.open(contractApi.previewArchiveItem(c.id, item.code), '_blank')}
+                          onClick={() => contractApi.previewArchiveItem(c.id, item.code)}
                         >
                           <Eye className="size-3.5" />
                         </button>
                         <button
                           className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
                           title="下载材料"
-                          onClick={() => window.open(contractApi.downloadArchiveItem(c.id, item.code), '_blank')}
+                          onClick={() => contractApi.downloadArchiveItem(c.id, item.code)}
                         >
                           <Download className="size-3.5" />
                         </button>

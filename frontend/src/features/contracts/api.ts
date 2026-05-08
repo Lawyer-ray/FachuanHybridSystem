@@ -184,14 +184,29 @@ export const contractApi = {
   previewArchiveMaterial: async (contractId: number | string, materialId: number): Promise<Response> =>
     contractApi_.get(`${contractId}/archive/materials/${materialId}/preview`),
 
-  downloadArchiveItem: (contractId: number | string, archiveItemCode: string): string =>
-    `${API_BASE_URL}/contracts/${contractId}/archive/download-item/${archiveItemCode}`,
+  downloadArchiveItem: async (contractId: number | string, archiveItemCode: string): Promise<void> => {
+    const blob = await contractApi_.get(`${contractId}/archive/download-item/${archiveItemCode}`).blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = ''
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  },
 
-  previewArchiveItem: (contractId: number | string, archiveItemCode: string): string =>
-    `${API_BASE_URL}/contracts/${contractId}/archive/download-item/${archiveItemCode}?preview=1`,
+  previewArchiveItem: async (contractId: number | string, archiveItemCode: string): Promise<void> => {
+    const blob = await contractApi_.get(`${contractId}/archive/download-item/${archiveItemCode}?preview=1`).blob()
+    const url = URL.createObjectURL(blob)
+    window.open(url, '_blank')
+  },
 
-  previewSingleMaterial: (contractId: number | string, materialId: number): string =>
-    `${API_BASE_URL}/contracts/${contractId}/archive/materials/${materialId}/preview`,
+  previewSingleMaterial: async (contractId: number | string, materialId: number): Promise<void> => {
+    const blob = await contractApi_.get(`${contractId}/archive/materials/${materialId}/preview`).blob()
+    const url = URL.createObjectURL(blob)
+    window.open(url, '_blank')
+  },
 
   // ==================== Document Generation ====================
 
