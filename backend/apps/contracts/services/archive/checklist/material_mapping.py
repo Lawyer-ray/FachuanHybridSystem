@@ -29,7 +29,10 @@ def map_contract_materials(
         if m.archive_item_code:
             continue
 
-        if m.category in (MaterialCategory.CONTRACT_ORIGINAL, MaterialCategory.SUPPLEMENTARY_AGREEMENT) and contract_code:
+        if (
+            m.category in (MaterialCategory.CONTRACT_ORIGINAL, MaterialCategory.SUPPLEMENTARY_AGREEMENT)
+            and contract_code
+        ):
             result.setdefault(contract_code, []).append(m.id)
         elif m.category == MaterialCategory.INVOICE and invoice_code:
             result.setdefault(invoice_code, []).append(m.id)
@@ -160,12 +163,14 @@ def fill_material_details_from_ids(
             existing_ids = {d["id"] for d in code_to_material_details.get(code, [])}
             if mid in existing_ids:
                 continue
-            code_to_material_details.setdefault(code, []).append({
-                "id": m.id,
-                "original_filename": m.original_filename,
-                "category": m.category,
-                "source": _get_source(m.category),
-                "source_label": _get_source_label(m.category),
-                "order": m.order,
-                "file_path": m.file_path,
-            })
+            code_to_material_details.setdefault(code, []).append(
+                {
+                    "id": m.id,
+                    "original_filename": m.original_filename,
+                    "category": m.category,
+                    "source": _get_source(m.category),
+                    "source_label": _get_source_label(m.category),
+                    "order": m.order,
+                    "file_path": m.file_path,
+                }
+            )

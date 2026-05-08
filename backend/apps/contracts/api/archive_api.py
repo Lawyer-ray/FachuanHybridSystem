@@ -41,6 +41,7 @@ class ClearAllOut(Schema):
 
 class GenerateArchiveFolderOut(Schema):
     """生成归档文件夹输出"""
+
     success: bool = True
     generated_docs: list[str] = []
     archive_dir: str = ""
@@ -49,12 +50,14 @@ class GenerateArchiveFolderOut(Schema):
 
 class ToggleCompactOut(Schema):
     """精简视图切换输出"""
+
     success: bool = True
     compact_archive: bool = False
 
 
 class ChecklistItemOut(Schema):
     """检查清单项输出"""
+
     code: str
     name: str
     template: str | None = None
@@ -69,6 +72,7 @@ class ChecklistItemOut(Schema):
 
 class ChecklistOut(Schema):
     """检查清单输出"""
+
     archive_category: str
     archive_category_label: str
     compact_archive: bool = False
@@ -82,18 +86,21 @@ class ChecklistOut(Schema):
 
 class UploadArchiveItemOut(Schema):
     """上传归档材料输出"""
+
     id: int = 0
     filename: str = ""
 
 
 class ConfirmArchiveOut(Schema):
     """确认归档输出"""
+
     success: bool = True
     message: str = ""
 
 
 class SyncCaseMaterialsOut(Schema):
     """同步案件材料输出"""
+
     success: bool = True
     synced_count: int = 0
     message: str = ""
@@ -101,6 +108,7 @@ class SyncCaseMaterialsOut(Schema):
 
 class ScaleToA4Out(Schema):
     """A4缩放输出"""
+
     success: bool = True
     scaled_count: int = 0
     message: str = ""
@@ -108,6 +116,7 @@ class ScaleToA4Out(Schema):
 
 class LearnRulesOut(Schema):
     """学习分类规则输出"""
+
     success: bool = True
     learned: int = 0
     updated: int = 0
@@ -158,7 +167,7 @@ def download_archive_item(request: HttpRequest, contract_id: int, archive_item_c
     response = HttpResponse(result["content"], content_type=result["content_type"])
     encoded_filename = urllib.parse.quote(result["filename"].encode("utf-8"))
     disposition = "inline" if request.GET.get("preview") == "1" else "attachment"
-    response["Content-Disposition"] = f'{disposition}; filename*=UTF-8\'\'{encoded_filename}'
+    response["Content-Disposition"] = f"{disposition}; filename*=UTF-8''{encoded_filename}"
     return response
 
 
@@ -190,7 +199,8 @@ def generate_archive_folder(request: HttpRequest, contract_id: int) -> Any:
 
     if not binding or not binding.folder_path:
         return GenerateArchiveFolderOut(
-            success=False, errors=["请先在「文档与提醒」中绑定文件夹"],
+            success=False,
+            errors=["请先在「文档与提醒」中绑定文件夹"],
         )
 
     from apps.contracts.services.archive import ArchiveGenerationService
@@ -200,7 +210,8 @@ def generate_archive_folder(request: HttpRequest, contract_id: int) -> Any:
 
     if not result["success"]:
         return GenerateArchiveFolderOut(
-            success=False, errors=[result.get("error", "未知错误")],
+            success=False,
+            errors=[result.get("error", "未知错误")],
         )
 
     return GenerateArchiveFolderOut(
@@ -222,7 +233,8 @@ def toggle_compact_archive(request: HttpRequest, contract_id: int) -> Any:
     contract.save(update_fields=["compact_archive"])
     logger.info(
         "切换精简视图状态: contract_id=%s, compact_archive=%s",
-        contract_id, contract.compact_archive,
+        contract_id,
+        contract.compact_archive,
     )
     return ToggleCompactOut(success=True, compact_archive=contract.compact_archive)
 
@@ -335,7 +347,8 @@ def upload_archive_item(request: HttpRequest, contract_id: int) -> Any:
 def delete_archive_material(request: HttpRequest, contract_id: int, material_id: int) -> Any:
     """删除归档材料"""
     material = FinalizedMaterial.objects.filter(
-        pk=material_id, contract_id=contract_id,
+        pk=material_id,
+        contract_id=contract_id,
     ).first()
 
     if not material:
