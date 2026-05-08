@@ -27,18 +27,6 @@ export function FilingTab({ contract: c }: { contract: Contract }) {
 
   return (
     <div>
-      {/* Filing Info */}
-      <DetailCard title="建档信息">
-        <div className="grid gap-[14px] sm:grid-cols-2">
-          <DetailField label="建档状态" value={
-            c.is_filed
-              ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-green-50 text-green-700">已建档</span>
-              : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-muted text-muted-foreground">未建档</span>
-          } />
-          <DetailField label="建档编号" value={c.filing_number} mono />
-        </div>
-      </DetailCard>
-
       {/* Law Firm OA */}
       {(c.law_firm_oa_url || c.law_firm_oa_case_number) && (
         <DetailCard title="律所 OA">
