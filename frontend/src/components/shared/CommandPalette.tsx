@@ -62,6 +62,7 @@ interface GlobalSearchResult {
   contracts: SearchResultItem[]
   inbox: SearchResultItem[]
   court_sms: SearchResultItem[]
+  contacts: SearchResultItem[]
 }
 
 const searchApi = createApiClient({
@@ -72,6 +73,7 @@ const RESULT_GROUPS: { key: keyof GlobalSearchResult; label: string; icon: React
   { key: 'clients', label: '当事人', icon: <Users className="w-4 h-4" />, getPath: (item) => `/admin/clients/${item.id}` },
   { key: 'cases', label: '案件', icon: <Briefcase className="w-4 h-4" />, getPath: (item) => `/admin/cases/${item.id}` },
   { key: 'contracts', label: '合同', icon: <FileText className="w-4 h-4" />, getPath: (item) => `/admin/contracts/${item.id}` },
+  { key: 'contacts', label: '工作人员', icon: <Users className="w-4 h-4" />, getPath: (_item) => `/admin/cases` },
   { key: 'inbox', label: '收件箱', icon: <Inbox className="w-4 h-4" />, getPath: () => PATHS.ADMIN_INBOX },
   { key: 'court_sms', label: '法院短信', icon: <MessageSquare className="w-4 h-4" />, getPath: () => PATHS.ADMIN_TOOLS_COURT_SMS },
 ]

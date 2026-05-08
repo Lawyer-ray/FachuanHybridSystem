@@ -121,12 +121,6 @@ export const menuConfig: MenuConfig = [
         label: 'LPR 计算器',
         path: PATHS.ADMIN_TOOLS_LPR,
       },
-      {
-        id: 'contact-search',
-        icon: Users,
-        label: '联系人搜索',
-        path: PATHS.ADMIN_CONTACT_SEARCH,
-      },
     ],
   },
 ]

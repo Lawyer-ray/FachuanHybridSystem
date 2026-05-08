@@ -23,6 +23,7 @@ class GlobalSearchResult(Schema):
     contracts: list[SearchResultItem] = []
     inbox: list[SearchResultItem] = []
     court_sms: list[SearchResultItem] = []
+    contacts: list[SearchResultItem] = []
 
 
 def _search_clients(q: str, limit: int) -> list[SearchResultItem]:
@@ -97,6 +98,21 @@ def _search_court_sms(q: str, limit: int) -> list[SearchResultItem]:
     return results
 
 
+def _search_contacts(q: str, limit: int) -> list[SearchResultItem]:
+    from apps.contacts.models import CaseContact
+
+    qs: QuerySet = CaseContact.objects.filter(
+        Q(name__icontains=q) | Q(phone__icontains=q) | Q(authority__name__icontains=q)
+    ).distinct()[:limit]
+    results: list[SearchResultItem] = []
+    for contact in qs:
+        role_display = contact.get_role_display()
+        authority_name = contact.authority.name if contact.authority else ""
+        subtitle = f"{role_display} | {authority_name}" if authority_name else role_display
+        results.append(SearchResultItem(id=contact.id, title=contact.name, subtitle=subtitle))
+    return results
+
+
 @router.get("", response=GlobalSearchResult)
 def global_search(request: HttpRequest, q: str = "", limit: int = 5) -> dict[str, Any]:
     if not q or len(q.strip()) < 1:
@@ -111,4 +127,5 @@ def global_search(request: HttpRequest, q: str = "", limit: int = 5) -> dict[str
         "contracts": _search_contracts(q, limit),
         "inbox": _search_inbox(q, limit),
         "court_sms": _search_court_sms(q, limit),
+        "contacts": _search_contacts(q, limit),
     }
