@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
-  DndContext, closestCenter, KeyboardSensor, PointerSensor,
+  DndContext, closestCorners, KeyboardSensor, PointerSensor,
   useSensor, useSensors, type DragEndEvent,
 } from '@dnd-kit/core'
 import {
@@ -64,11 +64,16 @@ function SortableMaterialItem({
   onDelete: (id: number) => void
   onMove: (id: number, targetCode: string) => void
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: m.id })
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: m.id,
+    animateLayoutChanges: ({ isSorting, wasDragging }) => !isSorting && !wasDragging,
+  })
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.4 : undefined,
+    opacity: isDragging ? 0.5 : undefined,
+    zIndex: isDragging ? 10 : undefined,
+    position: 'relative' as const,
   }
 
   return (
@@ -252,23 +257,41 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
 
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event
-    if (!over || active.id === over.id) return
+    if (!over || active.id === over.id || !checklist) return
+
+    const activeId = Number(active.id)
+    const overId = Number(over.id)
 
     // Find which checklist item these materials belong to
-    for (const item of items) {
+    for (const item of checklist.items) {
       const matIds = item.materials.map(m => m.id)
-      const activeIdx = matIds.indexOf(Number(active.id))
-      const overIdx = matIds.indexOf(Number(over.id))
+      const activeIdx = matIds.indexOf(activeId)
+      const overIdx = matIds.indexOf(overId)
       if (activeIdx < 0 || overIdx < 0) continue
 
+      // Optimistic update: immediately reorder local state
       const reordered = arrayMove(matIds, activeIdx, overIdx)
+      const reorderedMaterials = arrayMove(item.materials, activeIdx, overIdx)
+      setChecklist(prev => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          items: prev.items.map(i =>
+            i.code === item.code ? { ...i, materials: reorderedMaterials } : i,
+          ),
+        }
+      })
+
+      // Persist to backend
       try {
         await contractApi.reorderArchiveMaterials(c.id, { [item.code]: reordered })
-        await refreshChecklist()
-      } catch { toast.error('排序失败') }
+      } catch {
+        toast.error('排序失败')
+        refreshChecklist()
+      }
       return
     }
-  }, [c.id, items, refreshChecklist])
+  }, [c.id, checklist, refreshChecklist])
 
   const handleClearAll = useCallback(async () => {
     setActionLoading('clear-all')
@@ -497,7 +520,7 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
                     style={{ maxHeight: isExpanded ? `${itemMaterials.length * 28 + 8}px` : '0px' }}
                   >
                     <div className="px-[18px] pb-1">
-                      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                      <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
                         <SortableContext items={itemMaterials.map(m => m.id)} strategy={verticalListSortingStrategy}>
                           {itemMaterials.map(m => (
                             <SortableMaterialItem
