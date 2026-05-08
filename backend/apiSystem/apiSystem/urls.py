@@ -72,6 +72,7 @@ _HIDDEN_APP_LABELS = {
     "client",  # 已收纳到「办案」
     "contracts",  # 已收纳到「办案」
     "cases",  # 已收纳到「办案」
+    "contacts",  # 已收纳到「其他工具」
     "automation",
     "fee_notice",
     "document_recognition",
@@ -106,6 +107,7 @@ _HIDDEN_APP_LABELS = {
 
 # "其他工具"聚合页应用列表
 _OTHER_TOOLS_APPS = [
+    {"app_label": "contacts", "name": _("案件工作人员"), "url": "/admin/contacts/"},
     {"app_label": "automation", "name": _("自动化工具"), "url": "/admin/automation/"},
     {"app_label": "fee_notice", "name": _("交费通知书识别"), "url": "/admin/fee_notice/"},
     {"app_label": "document_recognition", "name": _("文书智能识别"), "url": "/admin/document_recognition/"},
