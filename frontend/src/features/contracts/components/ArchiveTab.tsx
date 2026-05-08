@@ -371,20 +371,13 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
     e.target.value = ''
   }
 
-  /* ── Separate template items from non-template items ── */
+  /* ── Non-template items for count calculation ── */
 
-  const templateItems = items.filter(i => i.template)
   const nonTemplateItems = items.filter(i => !i.template)
 
-  /* ── Visible non-template items (compact mode hides empty optional) ── */
+  /* ── Visible items: preserve API order, compact mode only hides empty optional non-template ── */
 
-  const visibleNonTemplateItems = compactMode
-    ? nonTemplateItems.filter(i => i.completed || i.required)
-    : nonTemplateItems
-
-  /* ── All visible items: template always shown + filtered non-template ── */
-
-  const visibleItems = [...templateItems, ...visibleNonTemplateItems]
+  const visibleItems = items.filter(i => i.template || !compactMode || i.completed || i.required)
 
   return (
     <div>
