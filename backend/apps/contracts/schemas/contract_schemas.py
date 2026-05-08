@@ -65,13 +65,13 @@ class FinalizedMaterialOut(Schema):
     @staticmethod
     def resolve_uploaded_at(obj: Any) -> str | None:
         if obj.uploaded_at:
-            return obj.uploaded_at.isoformat()
+            return str(obj.uploaded_at.isoformat())
         return None
 
     @staticmethod
     def resolve_created_at(obj: Any) -> str | None:
         if hasattr(obj, "created_at") and obj.created_at:
-            return obj.created_at.isoformat()
+            return str(obj.created_at.isoformat())
         return None
 
 
@@ -92,7 +92,7 @@ class ClientPaymentRecordOut(Schema):
     @staticmethod
     def resolve_created_at(obj: Any) -> str | None:
         if obj.created_at:
-            return obj.created_at.isoformat()
+            return str(obj.created_at.isoformat())
         return None
 
 
