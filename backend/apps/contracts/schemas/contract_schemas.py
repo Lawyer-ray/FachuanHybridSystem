@@ -86,6 +86,10 @@ class ClientPaymentRecordOut(Schema):
     created_at: str | None = None
 
     @staticmethod
+    def resolve_contract(obj: Any) -> int:
+        return int(obj.contract_id)
+
+    @staticmethod
     def resolve_amount(obj: Any) -> float:
         return float(obj.amount or 0)
 
