@@ -80,6 +80,41 @@ class ChecklistOut(Schema):
     completion_percentage: float = 0.0
 
 
+class UploadArchiveItemOut(Schema):
+    """上传归档材料输出"""
+    id: int = 0
+    filename: str = ""
+
+
+class ConfirmArchiveOut(Schema):
+    """确认归档输出"""
+    success: bool = True
+    message: str = ""
+
+
+class SyncCaseMaterialsOut(Schema):
+    """同步案件材料输出"""
+    success: bool = True
+    synced_count: int = 0
+    message: str = ""
+
+
+class ScaleToA4Out(Schema):
+    """A4缩放输出"""
+    success: bool = True
+    scaled_count: int = 0
+    message: str = ""
+
+
+class LearnRulesOut(Schema):
+    """学习分类规则输出"""
+    success: bool = True
+    learned: int = 0
+    updated: int = 0
+    skipped: int = 0
+    message: str = ""
+
+
 # ── Endpoints ──
 
 
@@ -166,41 +201,6 @@ def toggle_compact_archive(request: HttpRequest, contract_id: int) -> Any:
         contract_id, contract.compact_archive,
     )
     return ToggleCompactOut(success=True, compact_archive=contract.compact_archive)
-
-
-class UploadArchiveItemOut(Schema):
-    """上传归档材料输出"""
-    id: int = 0
-    filename: str = ""
-
-
-class ConfirmArchiveOut(Schema):
-    """确认归档输出"""
-    success: bool = True
-    message: str = ""
-
-
-class SyncCaseMaterialsOut(Schema):
-    """同步案件材料输出"""
-    success: bool = True
-    synced_count: int = 0
-    message: str = ""
-
-
-class ScaleToA4Out(Schema):
-    """A4缩放输出"""
-    success: bool = True
-    scaled_count: int = 0
-    message: str = ""
-
-
-class LearnRulesOut(Schema):
-    """学习分类规则输出"""
-    success: bool = True
-    learned: int = 0
-    updated: int = 0
-    skipped: int = 0
-    message: str = ""
 
 
 @router.post("/{contract_id}/archive/sync-case-materials", response=SyncCaseMaterialsOut)
