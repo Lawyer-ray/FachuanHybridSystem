@@ -442,9 +442,9 @@ export function ContractDetail({ contractId }: ContractDetailProps) {
                       )}
 
                       {/* Copy All Button */}
-                      <div className="mt-auto pt-4 border-t border-border/60">
-                        <Button
-                          variant="default" size="sm" className="w-full"
+                      <div className="mt-auto pt-3 border-t border-border/40 flex justify-end">
+                        <button
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-md transition-colors"
                           onClick={() => {
                             const lines = isNatural
                               ? [
@@ -464,8 +464,8 @@ export function ContractDetail({ contractId }: ContractDetailProps) {
                             if (text) { navigator.clipboard.writeText(text); toast.success('已复制全部信息') }
                           }}
                         >
-                          <Copy className="mr-2 size-3.5" />复制全部
-                        </Button>
+                          <Copy className="size-3" />复制全部
+                        </button>
                       </div>
                     </div>
                   )
@@ -518,9 +518,9 @@ export function ContractDetail({ contractId }: ContractDetailProps) {
                     </div>
 
                     {/* Copy All Button */}
-                    <div className="mt-auto pt-4 border-t border-border/60">
-                      <Button
-                        variant="default" size="sm" className="w-full"
+                    <div className="mt-auto pt-3 border-t border-border/40 flex justify-end">
+                      <button
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-md transition-colors"
                         onClick={() => {
                           const lines = [
                             `姓名：${selectedLawyer.lawyer_name}`,
@@ -531,8 +531,8 @@ export function ContractDetail({ contractId }: ContractDetailProps) {
                           toast.success('已复制全部信息')
                         }}
                       >
-                        <Copy className="mr-2 size-3.5" />复制全部
-                      </Button>
+                        <Copy className="size-3" />复制全部
+                      </button>
                     </div>
                   </div>
                 )}
