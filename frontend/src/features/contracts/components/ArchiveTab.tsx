@@ -156,7 +156,7 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
   const [folderScanOpen, setFolderScanOpen] = useState(false)
   const [expandedCodes, setExpandedCodes] = useState<Set<string>>(new Set())
   const mountedCodesRef = useRef<Set<string>>(new Set())
-  const collapseTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
+  const deferredMountRef = useRef<Set<string>>(new Set())
   const uploadInputRef = useRef<HTMLInputElement>(null)
   const [uploadTargetCode, setUploadTargetCode] = useState<string | null>(null)
 
@@ -201,25 +201,31 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
     } catch { /* 保持当前数据 */ }
   }, [c.id])
 
+  /* ── Deferred DnD mount after expand animation ── */
+  useEffect(() => {
+    const pending = deferredMountRef.current
+    if (pending.size === 0) return
+    const timer = setTimeout(() => {
+      for (const code of pending) mountedCodesRef.current.add(code)
+      pending.clear()
+      setExpandedCodes(curr => new Set(curr)) // 触发重渲染以挂载 DnD
+    }, 220)
+    return () => clearTimeout(timer)
+  }, [expandedCodes])
+
   const toggleExpand = (code: string) => {
     setExpandedCodes(prev => {
       const next = new Set(prev)
       if (next.has(code)) {
         next.delete(code)
-        // 收起：动画结束后卸载 DnD
-        if (collapseTimersRef.current[code]) clearTimeout(collapseTimersRef.current[code])
-        collapseTimersRef.current[code] = setTimeout(() => {
+        // 收起：保留 DnD 到动画结束，然后卸载
+        setTimeout(() => {
           mountedCodesRef.current.delete(code)
-          // 触发重渲染以卸载 DnD
           setExpandedCodes(curr => new Set(curr))
         }, 220)
       } else {
         next.add(code)
-        mountedCodesRef.current.add(code)
-        if (collapseTimersRef.current[code]) {
-          clearTimeout(collapseTimersRef.current[code])
-          delete collapseTimersRef.current[code]
-        }
+        mountedCodesRef.current.add(code) // 单个展开立即挂载
       }
       return next
     })
@@ -227,18 +233,20 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
 
   const toggleAllExpand = () => {
     if (expandedCodes.size > 0) {
-      // 全部收起：延迟卸载所有 DnD
-      for (const code of expandedCodes) {
-        mountedCodesRef.current.add(code) // 保留到动画结束
-      }
+      // 全部收起：保留 DnD，动画结束后卸载
       setExpandedCodes(new Set())
       setTimeout(() => {
         mountedCodesRef.current.clear()
         setExpandedCodes(curr => new Set(curr))
       }, 220)
     } else {
+      // 全部展开：先播放 grid 动画，DnD 延迟挂载
       const allCodes = new Set(items.map(i => i.code))
-      for (const code of allCodes) mountedCodesRef.current.add(code)
+      const toDefer = new Set<string>()
+      for (const code of allCodes) {
+        if (!mountedCodesRef.current.has(code)) toDefer.add(code)
+      }
+      deferredMountRef.current = toDefer
       setExpandedCodes(allCodes)
     }
   }
@@ -640,28 +648,30 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
                 </div>
 
                 {/* Materials sub-items */}
-                {itemMaterials.length > 0 && mountedCodesRef.current.has(item.code) && (
+                {itemMaterials.length > 0 && (isExpanded || mountedCodesRef.current.has(item.code)) && (
                   <div
                     className="grid transition-[grid-template-rows] duration-200 ease-in-out"
                     style={{ gridTemplateRows: isExpanded ? '1fr' : '0fr' }}
                   >
                     <div className="overflow-hidden min-h-0">
                       <div className="border-t border-border/40 px-[18px] py-1">
-                        <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
-                          <SortableContext items={itemMaterials.map(m => m.id)} strategy={verticalListSortingStrategy}>
-                            {itemMaterials.map(m => (
-                              <SortableMaterialItem
-                                key={m.id}
-                                m={m}
-                                contractId={c.id}
-                                itemCode={item.code}
-                                items={items}
-                                onDelete={setDeleteMaterialId}
-                                onMove={handleMoveMaterial}
-                              />
-                            ))}
-                          </SortableContext>
-                        </DndContext>
+                        {mountedCodesRef.current.has(item.code) && (
+                          <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
+                            <SortableContext items={itemMaterials.map(m => m.id)} strategy={verticalListSortingStrategy}>
+                              {itemMaterials.map(m => (
+                                <SortableMaterialItem
+                                  key={m.id}
+                                  m={m}
+                                  contractId={c.id}
+                                  itemCode={item.code}
+                                  items={items}
+                                  onDelete={setDeleteMaterialId}
+                                  onMove={handleMoveMaterial}
+                                />
+                              ))}
+                            </SortableContext>
+                          </DndContext>
+                        )}
                       </div>
                     </div>
                   </div>
