@@ -132,5 +132,5 @@ class CaseContactAdmin(BaseModelAdmin):
         )
 
     def has_module_permission(self, request: Any) -> bool:
-        """隐藏在 Admin 菜单中 - 通过案件详情页管理"""
-        return False
+        """允许访问 - 通过其他工具页面管理"""
+        return True
