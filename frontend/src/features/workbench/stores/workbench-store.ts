@@ -11,6 +11,7 @@ import type {
   StreamingMessage,
   ToolCallState,
   BatchProgress,
+  Attachment,
 } from '../types'
 import * as api from '../api'
 
@@ -84,6 +85,12 @@ interface WorkbenchState {
   batchProgress: BatchProgress | null
   batchPolling: boolean
 
+  // 上下文附件
+  attachments: Attachment[]
+  addAttachment: (file: File) => Promise<void>
+  removeAttachment: (id: string) => void
+  clearAttachments: () => void
+
   // Actions
   setSelectedModel: (model: string) => void
   setFavoriteModel: (model: string) => void
@@ -122,6 +129,7 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
   activeBatchJobId: null,
   batchProgress: null,
   batchPolling: false,
+  attachments: [],
 
   setSelectedModel: (model) => set({ selectedModel: model }),
 
@@ -199,14 +207,25 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
   },
 
   sendMessage: async (content) => {
-    const { currentSession, selectedModel, selectedAgent } = get()
+    const { currentSession, selectedModel, selectedAgent, attachments } = get()
     if (!currentSession) return
+
+    // 收集已就绪的附件 ID
+    const readyAttachments = attachments.filter((a) => a.status === 'ready')
+    const attachmentIds = readyAttachments.map((a) => a.id)
+
+    // 在用户消息中附加文件信息
+    const attachmentNote =
+      readyAttachments.length > 0
+        ? `\n\n[附件: ${readyAttachments.map((a) => a.name).join(', ')}]`
+        : ''
+    const fullContent = content + attachmentNote
 
     // 添加用户消息到本地
     const userMsg: WorkbenchMessage = {
       id: Date.now(),
       role: 'user',
-      content,
+      content: fullContent,
       llm_model: '',
       tool_call_id: '',
       tool_name: '',
@@ -237,9 +256,10 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          content,
+          content: fullContent,
           llm_model: selectedModel,
           agent_type: selectedAgent,
+          attachment_ids: attachmentIds.length > 0 ? attachmentIds : undefined,
         }),
       })
 
@@ -350,7 +370,7 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
       }
     } finally {
       _abortController = null
-      set({ isStreaming: false, streamingMessage: null })
+      set({ isStreaming: false, streamingMessage: null, attachments: [] })
     }
   },
 
@@ -718,6 +738,69 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
     } catch { /* ignore */ }
   },
 
+  addAttachment: async (file: File) => {
+    const id = `att_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+    const attachment: Attachment = {
+      id,
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      status: 'uploading',
+    }
+    set((s) => ({ attachments: [...s.attachments, attachment] }))
+
+    try {
+      // 尝试上传文件到后端
+      const formData = new FormData()
+      formData.append('file', file)
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002/api/v1'
+      const token = localStorage.getItem('access_token')
+      const resp = await fetch(`${baseUrl}/workbench/attachments`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData,
+      })
+
+      if (!resp.ok) throw new Error(`上传失败: ${resp.status}`)
+
+      const data = await resp.json() as { id: string; url?: string }
+      set((s) => ({
+        attachments: s.attachments.map((a) =>
+          a.id === id ? { ...a, status: 'ready' as const, url: data.url, id: data.id || id } : a,
+        ),
+      }))
+    } catch {
+      // 后端 API 未就绪时，回退到本地 base64 存储
+      try {
+        const reader = new FileReader()
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string)
+          reader.onerror = reject
+          reader.readAsDataURL(file)
+        })
+        set((s) => ({
+          attachments: s.attachments.map((a) =>
+            a.id === id ? { ...a, status: 'ready' as const, url: dataUrl } : a,
+          ),
+        }))
+      } catch {
+        set((s) => ({
+          attachments: s.attachments.map((a) =>
+            a.id === id ? { ...a, status: 'error' as const, error: '文件读取失败' } : a,
+          ),
+        }))
+      }
+    }
+  },
+
+  removeAttachment: (id: string) => {
+    set((s) => ({ attachments: s.attachments.filter((a) => a.id !== id) }))
+  },
+
+  clearAttachments: () => {
+    set({ attachments: [] })
+  },
+
   reset: () => {
     // 重置时也中断进行中的请求
     if (_abortController) {
@@ -739,6 +822,7 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
       activeBatchJobId: null,
       batchProgress: null,
       batchPolling: false,
+      attachments: [],
     })
   },
 }))

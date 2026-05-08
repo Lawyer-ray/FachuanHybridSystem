@@ -181,3 +181,15 @@ export interface BatchProgress {
   items: BatchJobItem[]
   failed_items_detail: FailedItemDetail[]
 }
+
+// ─── 上下文附件 ─────────────────────────────────────────────────────────────
+
+export interface Attachment {
+  id: string
+  name: string
+  type: string
+  size: number
+  status: 'uploading' | 'processing' | 'ready' | 'error'
+  url?: string
+  error?: string
+}

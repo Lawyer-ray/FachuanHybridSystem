@@ -19,6 +19,7 @@ import {
   Pencil,
   Download,
   Quote,
+  Hash,
 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -35,6 +36,8 @@ import { formatDate } from '@/lib/date'
 import { Textarea } from '@/components/ui/textarea'
 import { useWorkbenchStore } from '../stores/workbench-store'
 import type { WorkbenchMessage, StreamingMessage, ToolCallState } from '../types'
+import { renderToolResult } from './tool-results'
+import { findLegalReferences, getCaseNumberInfo, getLawArticleInfo } from '../utils/legal-text'
 
 interface MessageBubbleProps {
   message: WorkbenchMessage
@@ -213,7 +216,7 @@ function JsonBlock({ data }: { data: unknown }) {
   )
 }
 
-/** 单个内联工具调用（可折叠） */
+/** 单个内联工具调用（可折叠，支持结构化渲染） */
 function InlineToolCall({ tool }: { tool: WorkbenchMessage }) {
   const [expanded, setExpanded] = useState(false)
   const hasError = tool.metadata?.success === false
@@ -239,21 +242,56 @@ function InlineToolCall({ tool }: { tool: WorkbenchMessage }) {
       </button>
       {expanded && (
         <div className="border-t border-border/50 px-2.5 py-2 space-y-2">
-          {Object.keys(tool.tool_input).length > 0 && (
-            <div>
-              <div className="text-muted-foreground mb-1">输入</div>
-              <JsonBlock data={tool.tool_input} />
-            </div>
-          )}
-          {Object.keys(tool.tool_output).length > 0 && (
-            <div>
-              <div className="text-muted-foreground mb-1">输出</div>
-              <JsonBlock data={tool.tool_output} />
-            </div>
-          )}
+          <ToolResultContent tool={tool} />
         </div>
       )}
     </div>
+  )
+}
+
+/** 工具调用结果内容（结构化渲染优先，回退到 JSON） */
+function ToolResultContent({ tool }: { tool: WorkbenchMessage }) {
+  const hasInput = Object.keys(tool.tool_input).length > 0
+  const hasOutput = Object.keys(tool.tool_output).length > 0
+  const structured = renderToolResult({
+    output: tool.tool_output,
+    input: tool.tool_input,
+    toolName: tool.tool_name || '',
+  })
+
+  if (!structured) {
+    return (
+      <>
+        {hasInput && (
+          <div>
+            <div className="text-muted-foreground mb-1">输入</div>
+            <JsonBlock data={tool.tool_input} />
+          </div>
+        )}
+        {hasOutput && (
+          <div>
+            <div className="text-muted-foreground mb-1">输出</div>
+            <JsonBlock data={tool.tool_output} />
+          </div>
+        )}
+      </>
+    )
+  }
+
+  return (
+    <>
+      {structured}
+      {hasOutput && (
+        <details className="group">
+          <summary className="text-[10px] text-muted-foreground cursor-pointer hover:text-foreground">
+            原始 JSON
+          </summary>
+          <div className="mt-1">
+            <JsonBlock data={tool.tool_output} />
+          </div>
+        </details>
+      )}
+    </>
   )
 }
 
@@ -507,6 +545,90 @@ function CodeBlockWithCopy({ children, ...props }: React.HTMLAttributes<HTMLPreE
   )
 }
 
+/** 从 ReactMarkdown children 中提取纯文本，如果包含非文本元素则返回 null */
+function extractTextContent(children: React.ReactNode): string | null {
+  if (typeof children === 'string') return children
+  if (!Array.isArray(children)) return null
+
+  let text = ''
+  for (const child of children) {
+    if (typeof child === 'string') {
+      text += child
+    } else if (
+      React.isValidElement(child) &&
+      typeof child.props === 'object' &&
+      child.props !== null &&
+      'children' in child.props
+    ) {
+      const nested = extractTextContent((child.props as { children: React.ReactNode }).children)
+      if (nested === null) return null // 遇到非纯文本元素，不处理
+      text += nested
+    } else {
+      return null
+    }
+  }
+  return text
+}
+
+/** 法律文本渲染 — 将案号、法条引用、金额高亮显示 */
+function LegalText({ text }: { text: string }) {
+  const matches = useMemo(() => findLegalReferences(text), [text])
+  if (matches.length === 0) return <>{text}</>
+
+  const parts: React.ReactNode[] = []
+  let lastIndex = 0
+
+  for (const match of matches) {
+    // 匹配前的普通文本
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index))
+    }
+
+    if (match.type === 'case_number') {
+      const info = getCaseNumberInfo(match.text)
+      parts.push(
+        <span
+          key={match.index}
+          className="inline-flex items-center gap-0.5 rounded bg-blue-50 px-1 py-0.5 text-[11px] font-medium text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 cursor-default"
+          title={`${info.year}年 ${info.court} ${info.number}`}
+        >
+          <Hash className="size-2.5 inline" />
+          {match.text}
+        </span>,
+      )
+    } else if (match.type === 'law_article') {
+      const info = getLawArticleInfo(match.text)
+      parts.push(
+        <span
+          key={match.index}
+          className="inline-flex items-center gap-0.5 rounded bg-amber-50 px-1 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 cursor-default"
+          title={`${info.lawName} · ${info.article}`}
+        >
+          {match.text}
+        </span>,
+      )
+    } else if (match.type === 'money') {
+      parts.push(
+        <span
+          key={match.index}
+          className="inline font-medium text-emerald-700 dark:text-emerald-400"
+        >
+          {match.text}
+        </span>,
+      )
+    }
+
+    lastIndex = match.index + match.length
+  }
+
+  // 剩余普通文本
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex))
+  }
+
+  return <>{parts}</>
+}
+
 /** Markdown 内容渲染（memo 优化，避免 streaming 时历史消息重渲染） */
 const MarkdownContent = React.memo(function MarkdownContent({
   content,
@@ -533,7 +655,17 @@ const MarkdownContent = React.memo(function MarkdownContent({
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeHighlight]}
-        components={{ pre: CodeBlockWithCopy }}
+        components={{
+          pre: CodeBlockWithCopy,
+          p: ({ children, ...props }) => {
+            // 如果子节点全是字符串，用 LegalText 处理
+            const textContent = extractTextContent(children)
+            if (textContent) {
+              return <p {...props}><LegalText text={textContent} /></p>
+            }
+            return <p {...props}>{children}</p>
+          },
+        }}
       >
         {processed}
       </ReactMarkdown>

@@ -12,6 +12,7 @@ import { useWorkbenchStore } from '../stores/workbench-store'
 import type { AgentType } from '../types'
 import { AGENT_OPTIONS } from '../types'
 import { VoiceButton } from './VoiceButton'
+import { ContextAttachments } from './ContextAttachments'
 
 const AGENT_ICONS: Record<AgentType, typeof Bot> = {
   triage: Bot,
@@ -85,6 +86,9 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
 
   return (
     <div className="border-t p-3 md:p-4 space-y-2">
+      {/* 上下文附件 */}
+      <ContextAttachments />
+
       {/* Agent 选择器 */}
       <div className="flex items-center gap-1.5 flex-wrap">
         <span className="text-xs text-muted-foreground mr-1">助手:</span>
