@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import {
   Upload, Trash2, Archive, FolderSync,
   GripVertical, FileCheck, Loader2, Scaling, ArrowRightLeft,
-  ChevronDown, ChevronRight, Download, Eye, FolderOpen,
+  ChevronDown, ChevronRight, Download, Eye, FolderOpen, Sparkles,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -318,6 +318,19 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
     setActionLoading(null)
   }, [c.id, refreshChecklist])
 
+  const handleLearnRules = useCallback(async () => {
+    setActionLoading('learn')
+    try {
+      const result = await contractApi.learnArchiveRules()
+      if (result.success) {
+        toast.success(result.message)
+      } else {
+        toast.error(result.message || '学习失败')
+      }
+    } catch { toast.error('学习分类规则失败') }
+    setActionLoading(null)
+  }, [])
+
   const triggerUpload = (code: string) => {
     setUploadTargetCode(code)
     uploadInputRef.current?.click()
@@ -419,6 +432,14 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
           >
             {actionLoading === 'generate' ? <Loader2 className="mr-1 size-3 animate-spin" /> : <FolderSync className="mr-1 size-3" />}
             生成归档文件夹
+          </Button>
+          <Button
+            variant="outline" size="sm" className="h-7 text-xs"
+            onClick={handleLearnRules}
+            disabled={!!actionLoading}
+          >
+            {actionLoading === 'learn' ? <Loader2 className="mr-1 size-3 animate-spin" /> : <Sparkles className="mr-1 size-3" />}
+            学习分类规则
           </Button>
           <Button
             variant="outline" size="sm" className="h-7 text-xs"

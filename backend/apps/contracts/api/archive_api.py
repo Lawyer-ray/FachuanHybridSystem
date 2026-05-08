@@ -83,6 +83,26 @@ class ChecklistOut(Schema):
 # ── Endpoints ──
 
 
+@router.post("/archive/learn-rules", response=LearnRulesOut)
+def learn_archive_rules(request: HttpRequest) -> Any:
+    """从已归档材料中学习分类规则（全局操作）"""
+    from apps.contracts.services.archive.learning_service import ArchiveLearningService
+
+    try:
+        service = ArchiveLearningService()
+        result = service.learn_from_archived_materials()
+        return LearnRulesOut(
+            success=True,
+            learned=result.get("learned", 0),
+            updated=result.get("updated", 0),
+            skipped=result.get("skipped", 0),
+            message=f"学习完成：新增 {result['learned']} 条，更新 {result['updated']} 条，跳过 {result['skipped']} 条",
+        )
+    except (OSError, RuntimeError, ValueError) as exc:
+        logger.exception("archive_learning_failed")
+        return LearnRulesOut(success=False, message=str(exc))
+
+
 @router.get("/{contract_id}/archive/checklist", response=ChecklistOut)
 def get_archive_checklist(request: HttpRequest, contract_id: int) -> Any:
     """获取合同的归档检查清单及各项完成状态"""
@@ -171,6 +191,15 @@ class ScaleToA4Out(Schema):
     """A4缩放输出"""
     success: bool = True
     scaled_count: int = 0
+    message: str = ""
+
+
+class LearnRulesOut(Schema):
+    """学习分类规则输出"""
+    success: bool = True
+    learned: int = 0
+    updated: int = 0
+    skipped: int = 0
     message: str = ""
 
 

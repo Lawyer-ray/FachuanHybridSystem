@@ -141,6 +141,9 @@ export const contractApi = {
   generateArchiveFolder: async (contractId: number | string): Promise<{ success: boolean; generated_docs: string[]; archive_dir: string; errors: string[] }> =>
     contractApi_.post(`${contractId}/archive/generate-folder`).json(),
 
+  learnArchiveRules: async (): Promise<{ success: boolean; learned: number; updated: number; skipped: number; message: string }> =>
+    contractApi_.post('archive/learn-rules').json(),
+
   syncCaseMaterials: async (contractId: number | string): Promise<{ synced_count: number; message: string }> =>
     contractApi_.post(`${contractId}/archive/sync-case-materials`).json(),
 
