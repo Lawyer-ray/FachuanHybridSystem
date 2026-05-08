@@ -43,6 +43,7 @@ import {
 } from '@/components/ui/select'
 
 import { resolveMediaUrl } from '@/lib/api'
+import { formatDateOnly } from '@/lib/date'
 import { useMaterialMutations } from '../hooks/use-material-mutations'
 import type {
   MaterialBindCandidate,
@@ -114,7 +115,7 @@ function MaterialCard({
                 )}
               </div>
               <div className="text-xs text-muted-foreground mt-0.5">
-                {item.actor_name} · {new Date(item.uploaded_at).toLocaleDateString('zh-CN')}
+                {item.actor_name} · {formatDateOnly(item.uploaded_at)}
               </div>
             </div>
           </div>
@@ -282,7 +283,7 @@ function MaterialGroupCard({
                   <div className="min-w-0">
                     <div className="text-sm truncate">{c.file_name}</div>
                     <div className="text-xs text-muted-foreground">
-                      {c.actor_name} · {new Date(c.uploaded_at).toLocaleDateString('zh-CN')}
+                      {c.actor_name} · {formatDateOnly(c.uploaded_at)}
                     </div>
                   </div>
                 </label>
@@ -457,7 +458,7 @@ export function CaseMaterialSection({ candidates, caseId }: CaseMaterialSectionP
                     <div className="min-w-0">
                       <div className="text-sm font-medium truncate">{item.file_name}</div>
                       <div className="text-xs text-muted-foreground">
-                        {item.actor_name} · {new Date(item.uploaded_at).toLocaleDateString('zh-CN')}
+                        {item.actor_name} · {formatDateOnly(item.uploaded_at)}
                       </div>
                     </div>
                   </div>

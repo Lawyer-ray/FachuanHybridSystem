@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/table'
 import { Skeleton } from '@/components/ui/skeleton'
 
+import { formatDate } from '@/lib/date'
 import { useQuotes } from '../hooks/use-quotes'
 import { QuoteStatusBadge } from './QuoteStatusBadge'
 import type { QuoteStatus, PreservationQuote } from '../types'
@@ -284,24 +285,6 @@ function formatAmount(amount: string | number): string {
   }).format(num)
 }
 
-/**
- * 格式化日期时间
- */
-function formatDateTime(dateString: string | null | undefined): string {
-  if (!dateString) return '-'
-  try {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-  } catch {
-    return '-'
-  }
-}
 
 // ============================================================================
 // Main Component
@@ -444,7 +427,7 @@ export function QuoteList({ onCreateClick }: QuoteListProps) {
                     </span>
                   </TableCell>
                   <TableCell className="text-muted-foreground text-xs sm:text-sm">
-                    {formatDateTime(quote.created_at)}
+                    {formatDate(quote.created_at)}
                   </TableCell>
                 </TableRow>
               ))

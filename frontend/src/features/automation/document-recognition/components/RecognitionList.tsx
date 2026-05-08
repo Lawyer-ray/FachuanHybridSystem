@@ -34,6 +34,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 
+import { formatDate } from '@/lib/date'
 import { useRecognitionTasks } from '../hooks/use-recognition-tasks'
 import type { RecognitionStatus, DocumentRecognitionTask } from '../types'
 
@@ -303,29 +304,6 @@ function generatePageNumbers(
 }
 
 // ============================================================================
-// Utility Functions
-// ============================================================================
-
-/**
- * 格式化日期时间
- */
-function formatDateTime(dateString: string | null | undefined): string {
-  if (!dateString) return '-'
-  try {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-  } catch {
-    return '-'
-  }
-}
-
-// ============================================================================
 // Main Component
 // ============================================================================
 
@@ -473,7 +451,7 @@ export function RecognitionList({ onUploadClick }: RecognitionListProps) {
                     <BindingBadge bindingSuccess={task.binding_success} />
                   </TableCell>
                   <TableCell className="text-muted-foreground text-xs sm:text-sm">
-                    {formatDateTime(task.created_at)}
+                    {formatDate(task.created_at)}
                   </TableCell>
                 </TableRow>
               ))

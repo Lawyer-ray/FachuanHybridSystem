@@ -29,6 +29,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 
+import { isPdf, formatFileSize } from '@/lib/file-utils'
 import { useUploadDocument } from '../hooks/use-recognition-mutations'
 import { FILE_ERRORS } from '../schemas'
 import { ACCEPTED_FILE_TYPES, MAX_FILE_SIZE } from '../../constants'
@@ -58,22 +59,6 @@ const ACCEPTED_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png']
 // ============================================================================
 // Helper Functions
 // ============================================================================
-
-/**
- * 判断是否为 PDF 文件
- */
-function isPdf(file: File): boolean {
-  return file.type === 'application/pdf'
-}
-
-/**
- * 格式化文件大小
- */
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
 
 /**
  * 获取文件类型显示名称

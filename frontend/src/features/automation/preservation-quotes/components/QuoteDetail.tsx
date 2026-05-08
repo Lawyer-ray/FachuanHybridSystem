@@ -29,6 +29,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
+import { formatDate } from '@/lib/date'
 
 import { useQuote, shouldPoll } from '../hooks/use-quote'
 import { useExecuteQuote, useRetryQuote } from '../hooks/use-quote-mutations'
@@ -63,25 +64,6 @@ function formatAmount(amount: string | number): string {
   }).format(num)
 }
 
-/**
- * 格式化日期时间
- */
-function formatDateTime(dateString: string | null | undefined): string {
-  if (!dateString) return '-'
-  try {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    })
-  } catch {
-    return '-'
-  }
-}
 
 // ============================================================================
 // Sub-components
@@ -415,21 +397,21 @@ export function QuoteDetail({ quoteId }: QuoteDetailProps) {
             <InfoItem
               icon={<Calendar className="size-3.5" />}
               label="创建时间"
-              value={formatDateTime(quote.created_at)}
+              value={formatDate(quote.created_at)}
             />
 
             {/* 开始时间 */}
             <InfoItem
               icon={<Clock className="size-3.5" />}
               label="开始时间"
-              value={formatDateTime(quote.started_at)}
+              value={formatDate(quote.started_at)}
             />
 
             {/* 完成时间 */}
             <InfoItem
               icon={<Clock className="size-3.5" />}
               label="完成时间"
-              value={formatDateTime(quote.finished_at)}
+              value={formatDate(quote.finished_at)}
             />
 
             {/* 成功数量 */}

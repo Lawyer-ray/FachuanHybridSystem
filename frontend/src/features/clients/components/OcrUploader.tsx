@@ -27,6 +27,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 
+import { isPdf, formatFileSize, MAX_FILE_SIZE_10MB } from '@/lib/file-utils'
 import { clientApi } from '../api'
 import type { OcrResult, OcrRecognizeResult, ClientType } from '../types'
 
@@ -55,13 +56,6 @@ const ACCEPTED_FILE_TYPES = [
 /** 支持的文件扩展名 */
 const ACCEPTED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.pdf']
 
-/** 最大文件大小 (10MB) */
-const MAX_FILE_SIZE = 10 * 1024 * 1024
-
-// ============================================================================
-// Helper Functions
-// ============================================================================
-
 /**
  * 验证文件类型
  * Requirements: 6.3
@@ -81,23 +75,7 @@ function isValidFileType(file: File): boolean {
  * 验证文件大小
  */
 function isValidFileSize(file: File): boolean {
-  return file.size <= MAX_FILE_SIZE
-}
-
-/**
- * 判断是否为 PDF 文件
- */
-function isPdf(file: File): boolean {
-  return file.type === 'application/pdf'
-}
-
-/**
- * 格式化文件大小
- */
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  return file.size <= MAX_FILE_SIZE_10MB
 }
 
 /**

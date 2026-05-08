@@ -33,6 +33,7 @@ hljs.registerLanguage('json', json)
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/date'
+import { downloadBlob } from '@/lib/download'
 import { Textarea } from '@/components/ui/textarea'
 import { useWorkbenchStore } from '../stores/workbench-store'
 import type { WorkbenchMessage, StreamingMessage, ToolCallState } from '../types'
@@ -704,16 +705,10 @@ function BatchDownloadButton({ jobId }: { jobId: string }) {
         throw new Error(`HTTP ${response.status}`)
       }
       const blob = await response.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = type === 'csv'
+      const filename = type === 'csv'
         ? `案例分析汇总_${jobId.slice(0, 8)}.csv`
         : `案例分析详情_${jobId.slice(0, 8)}.zip`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
+      downloadBlob(blob, filename)
     } catch {
       toast.error('下载失败')
     } finally {

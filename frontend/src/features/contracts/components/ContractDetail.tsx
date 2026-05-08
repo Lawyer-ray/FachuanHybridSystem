@@ -21,6 +21,8 @@ import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from '@/components/ui/sheet'
 import { PATHS, generatePath } from '@/routes/paths'
+import { formatAmount, formatAmountInt } from '@/lib/format'
+import { downloadBlob } from '@/lib/download'
 
 import { useContract } from '../hooks/use-contract'
 import { useContractMutations } from '../hooks/use-contract-mutations'
@@ -73,11 +75,6 @@ function StatusBadge({ status, label }: { status: string | null; label?: string 
       ? 'bg-muted text-muted-foreground'
       : 'bg-amber-50 text-amber-700'
   return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${cls}`}>{label || status}</span>
-}
-
-function formatAmount(amount: number | null | undefined): string {
-  if (amount == null) return '—'
-  return `¥ ${amount.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`
 }
 
 /* ── Tabs config ── */
@@ -134,12 +131,7 @@ export function ContractDetail({ contractId }: ContractDetailProps) {
             toast.success(data.message || '合同已生成并保存')
           } else {
             const blob = await res.blob()
-            const url = URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url
-            a.download = `合同_${contract?.name ?? contractId}.docx`
-            a.click()
-            URL.revokeObjectURL(url)
+            downloadBlob(blob, `合同_${contract?.name ?? contractId}.docx`)
             toast.success('合同生成成功，已开始下载')
           }
           break
@@ -309,7 +301,7 @@ export function ContractDetail({ contractId }: ContractDetailProps) {
                       <span className="font-medium flex-1 truncate">{cs.name}</span>
                       {cs.cause_of_action && <span className="text-muted-foreground text-xs shrink-0">{cs.cause_of_action}</span>}
                       {cs.status_label && <Badge variant="outline" className="text-[11px] px-2 py-0.5 shrink-0">{cs.status_label}</Badge>}
-                      {cs.target_amount != null && <span className="text-muted-foreground shrink-0">¥{cs.target_amount.toLocaleString()}</span>}
+                      {cs.target_amount != null && <span className="text-muted-foreground shrink-0">{formatAmountInt(cs.target_amount)}</span>}
                     </div>
                   ))}
                 </div>

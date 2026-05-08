@@ -6,6 +6,7 @@ import {
   FileText, FolderOpen, Landmark, Paperclip, Users,
 } from 'lucide-react'
 import { formatDateOnly } from '@/lib/date'
+import { formatAmount } from '@/lib/format'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -74,11 +75,6 @@ function StatusBadge({ status, label }: { status: string | null; label?: string 
       ? 'bg-muted text-muted-foreground'
       : 'bg-amber-50 text-amber-700'
   return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${cls}`}>{label || status}</span>
-}
-
-function formatAmount(amount: number | null | undefined): string {
-  if (amount == null) return '—'
-  return `¥ ${amount.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`
 }
 
 const PLATFORM_LABELS: Record<string, string> = {

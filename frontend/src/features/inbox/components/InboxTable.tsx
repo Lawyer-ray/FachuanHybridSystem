@@ -5,6 +5,7 @@ import {
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { generatePath } from '@/routes/paths'
+import { formatRelativeTime } from '@/lib/date'
 import type { InboxMessage } from '../types'
 
 export interface InboxTableProps {
@@ -15,17 +16,6 @@ export interface InboxTableProps {
 const SOURCE_COLORS: Record<string, string> = {
   imap: 'bg-blue-500',
   court_inbox: 'bg-purple-500',
-}
-
-function formatTime(iso: string): string {
-  if (!iso) return '-'
-  const d = new Date(iso)
-  const now = new Date()
-  const isToday = d.toDateString() === now.toDateString()
-  if (isToday) return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
-  const isThisYear = d.getFullYear() === now.getFullYear()
-  if (isThisYear) return d.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
-  return d.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })
 }
 
 function TableSkeleton() {
@@ -104,7 +94,7 @@ export function InboxTable({ messages, isLoading }: InboxTableProps) {
                   <span className="text-muted-foreground text-sm">{msg.recipient}</span>
                 </TableCell>
                 <TableCell>
-                  <span className="text-muted-foreground text-sm">{formatTime(msg.received_at)}</span>
+                  <span className="text-muted-foreground text-sm">{formatRelativeTime(msg.received_at)}</span>
                 </TableCell>
                 <TableCell className="text-center">
                   {msg.has_attachments ? (
