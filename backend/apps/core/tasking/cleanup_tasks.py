@@ -119,7 +119,6 @@ def check_disk_space(warning_pct: float = 85.0, critical_pct: float = 95.0) -> d
 # 定时任务调度注册
 # ---------------------------------------------------------------------------
 
-
 def _register_schedules() -> None:
     """注册文件清理和磁盘监控定时任务。"""
     try:

@@ -132,7 +132,6 @@ class CaseChatServiceAdapter(ICaseChatService):
             if platform is None:
                 try:
                     from apps.automation.services.chat.factory import ChatProviderFactory
-
                     available: list[Any] = ChatProviderFactory.get_available_platforms()
                     platform = available[0] if available else ChatPlatform.FEISHU
                 except Exception:
@@ -188,7 +187,6 @@ class CaseChatServiceAdapter(ICaseChatService):
             if platform is None:
                 try:
                     from apps.automation.services.chat.factory import ChatProviderFactory
-
                     available: list[Any] = ChatProviderFactory.get_available_platforms()
                     platform = available[0] if available else ChatPlatform.FEISHU
                 except Exception:

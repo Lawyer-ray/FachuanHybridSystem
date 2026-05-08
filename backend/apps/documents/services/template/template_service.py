@@ -240,7 +240,9 @@ class DocumentTemplateService:
             return []
         try:
             result = extract_placeholders_from_file(file_path)
-            logger.info("模板 %s (ID: %s) 提取到 %s 个占位符: %s", template.name, template.pk, len(result), result)
+            logger.info(
+                "模板 %s (ID: %s) 提取到 %s 个占位符: %s", template.name, template.pk, len(result), result
+            )
             return result
         except Exception:
             logger.exception(

@@ -1,5 +1,4 @@
 """ExpressBrowserQueryService facade — 组合各子模块。"""
-
 from __future__ import annotations
 
 import asyncio

@@ -65,12 +65,7 @@ def serialize_contract_obj(obj: Any) -> dict[str, Any]:
 
 @admin.register(Contract)
 class ContractAdmin(
-    ContractDisplayMixin,
-    ContractSaveMixin,
-    ContractActionMixin,
-    AdminImportExportMixin,
-    SimpleHistoryAdmin,
-    BaseModelAdmin,
+    ContractDisplayMixin, ContractSaveMixin, ContractActionMixin, AdminImportExportMixin, SimpleHistoryAdmin, BaseModelAdmin
 ):
     class ContractAdminForm(forms.ModelForm[Contract]):
         representation_stages = forms.MultipleChoiceField(
@@ -119,12 +114,7 @@ class ContractAdmin(
     list_filter = ("case_type", "status", "fee_mode", "is_filed", ("specified_date", admin.DateFieldListFilter))
     search_fields = ("name", "filing_number", "contract_parties__client__name")
     date_hierarchy = "specified_date"
-    readonly_fields = (
-        "get_primary_lawyer_display",
-        "filing_number",
-        "get_matched_template_display",
-        "get_matched_folder_templates_display",
-    )
+    readonly_fields = ("get_primary_lawyer_display", "filing_number", "get_matched_template_display", "get_matched_folder_templates_display")
     fieldsets = (
         (
             _("基本信息"),
@@ -536,12 +526,9 @@ class ContractAdmin(
             Prefetch(
                 "supplementary_agreements",
                 queryset=SupplementaryAgreement.objects.prefetch_related(
-                    Prefetch(
-                        "parties",
-                        queryset=SupplementaryAgreementParty.objects.prefetch_related(
-                            Prefetch("client", queryset=_client_with_nested),
-                        ),
-                    ),
+                    Prefetch("parties", queryset=SupplementaryAgreementParty.objects.prefetch_related(
+                        Prefetch("client", queryset=_client_with_nested),
+                    )),
                 ),
             ),
             "payments__invoices",

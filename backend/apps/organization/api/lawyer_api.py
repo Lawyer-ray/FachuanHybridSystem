@@ -60,9 +60,7 @@ def create_lawyer(
         lawyer_team_ids=payload.lawyer_team_ids,
         biz_team_ids=payload.biz_team_ids,
     )
-    return _lawyer_service.create_lawyer(
-        data=dto, user=get_request_user(request), license_pdf=license_pdf, avatar=avatar
-    )
+    return _lawyer_service.create_lawyer(data=dto, user=get_request_user(request), license_pdf=license_pdf, avatar=avatar)
 
 
 @router.put("/lawyers/{lawyer_id}", response=LawyerOut)

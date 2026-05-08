@@ -190,9 +190,7 @@ class PresetDiscoveryService:
 
         return option_names
 
-    def _extract_executable_options(
-        self, raw_settings: dict[str, Any], supported_option_names: set[str]
-    ) -> dict[str, str]:
+    def _extract_executable_options(self, raw_settings: dict[str, Any], supported_option_names: set[str]) -> dict[str, str]:
         executable: dict[str, str] = {}
         for key, value in raw_settings.items():
             normalized = str(key).strip()

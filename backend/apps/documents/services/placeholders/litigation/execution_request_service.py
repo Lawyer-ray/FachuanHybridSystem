@@ -185,7 +185,9 @@ class ExecutionRequestService(BasePlaceholderService):
         use_order = (
             bool(case_number.execution_use_deduction_order) if use_deduction_order is None else use_deduction_order
         )
-        calc_year_days = normalize_year_days(year_days if year_days is not None else case_number.execution_year_days)
+        calc_year_days = normalize_year_days(
+            year_days if year_days is not None else case_number.execution_year_days
+        )
         calc_date_inclusion = normalize_date_inclusion(
             date_inclusion if date_inclusion is not None else case_number.execution_date_inclusion
         )

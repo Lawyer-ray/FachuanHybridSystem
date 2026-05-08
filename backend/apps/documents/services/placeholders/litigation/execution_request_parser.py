@@ -187,7 +187,9 @@ def apply_split_burden_adjustment(fee_items: list[FeeItem]) -> None:
                 continue
             assigned = Decimal("0")
             for i in key_indices[:-1]:
-                scaled = (fee_items[i].amount * new_total / old_total).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                scaled = (fee_items[i].amount * new_total / old_total).quantize(
+                    Decimal("0.01"), rounding=ROUND_HALF_UP
+                )
                 fee_items[i].amount = max(scaled, Decimal("0"))
                 assigned += fee_items[i].amount
             fee_items[key_indices[-1]].amount = max(new_total - assigned, Decimal("0"))

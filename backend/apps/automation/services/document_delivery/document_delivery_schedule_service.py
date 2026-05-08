@@ -376,7 +376,9 @@ class DocumentDeliveryScheduleService:
             repeats=-1,
         )
 
-        logger.info(f"调度任务已创建: name={schedule_name}, interval={interval_minutes}分钟, task_id={task_id}")
+        logger.info(
+            f"调度任务已创建: name={schedule_name}, interval={interval_minutes}分钟, task_id={task_id}"
+        )
         return task_id
 
     def remove_django_q_schedule(self, schedule_name: str = "document_delivery_periodic_check") -> int:

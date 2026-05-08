@@ -41,7 +41,7 @@ class MacCalendarProvider:
 
     def list_calendars(self) -> list[dict[str, str | bool]]:
         """Return available calendar names and their types."""
-        script = """
+        script = '''
 tell application "Calendar"
     set output to ""
     repeat with cal in calendars
@@ -53,7 +53,7 @@ tell application "Calendar"
         set output to output & calName & "||" & calType & linefeed
     end repeat
     return output
-end tell"""
+end tell'''
         try:
             result = subprocess.run(
                 [_OSASCRIPT, "-e", script],
@@ -182,20 +182,20 @@ end tell"""
             # Escape double quotes in calendar names for AppleScript string literals
             escaped_names = [name.replace("\\", "\\\\").replace('"', '\\"') for name in included_calendars]
             cal_names_list = ", ".join(f'"{name}"' for name in escaped_names)
-            cal_filter_start = f"""
+            cal_filter_start = f'''
     set includedCalNames to {{{cal_names_list}}}
     repeat with cal in calendars
         set calName to name of cal
-        if includedCalNames contains calName then"""
-            cal_filter_end = """
-        end if"""
+        if includedCalNames contains calName then'''
+            cal_filter_end = '''
+        end if'''
         else:
-            cal_filter_start = """
+            cal_filter_start = '''
     repeat with cal in calendars
-        set calName to name of cal"""
+        set calName to name of cal'''
             cal_filter_end = ""
 
-        return f"""
+        return f'''
 tell application "Calendar"
     set output to ""
     set startRange to current date
@@ -236,7 +236,7 @@ tell application "Calendar"
 {cal_filter_end}
     end repeat
     return output
-end tell"""
+end tell'''
 
     @staticmethod
     def _parse_line(line: str) -> CalendarEvent | None:

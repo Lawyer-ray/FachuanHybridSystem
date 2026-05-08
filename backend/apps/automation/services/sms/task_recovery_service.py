@@ -301,9 +301,7 @@ class TaskRecoveryService:
         schedule_service = ScheduleQueryService()
 
         # 删除已存在的定期任务
-        schedule_service.delete_schedules(
-            func="apps.automation.services.sms.task_recovery_service.periodic_recovery_task"
-        )
+        schedule_service.delete_schedules(func="apps.automation.services.sms.task_recovery_service.periodic_recovery_task")
 
         # 创建新的定期任务
         schedule_service.create_interval_schedule(

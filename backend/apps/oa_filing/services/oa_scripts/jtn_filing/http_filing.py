@@ -158,7 +158,9 @@ class HttpFilingMixin:
             resolved.append(customer)
         return resolved
 
-    def _search_customer_http(self: Any, *, client: httpx.Client, client_info: ClientInfo) -> ResolvedCustomer | None:
+    def _search_customer_http(
+        self: Any, *, client: httpx.Client, client_info: ClientInfo
+    ) -> ResolvedCustomer | None:
         customer_type = "B" if client_info.client_type == "natural" else "A"
         response = client.post(
             self._handler_url("CustSeachGetList"),
@@ -200,7 +202,9 @@ class HttpFilingMixin:
     # Payload 组装
     # ------------------------------------------------------------------
 
-    def _apply_client_payload(self: Any, *, payload: dict[str, str], customers: list[ResolvedCustomer]) -> None:
+    def _apply_client_payload(
+        self: Any, *, payload: dict[str, str], customers: list[ResolvedCustomer]
+    ) -> None:
         if not customers:
             return
         for customer in customers:
@@ -266,7 +270,9 @@ class HttpFilingMixin:
             elif "pro_pl_phone" in field_name:
                 payload[field_name] = case_info.contact_phone or "/"
 
-    def _apply_conflict_payload(self: Any, *, payload: dict[str, str], parties: list[ConflictPartyInfo]) -> None:
+    def _apply_conflict_payload(
+        self: Any, *, payload: dict[str, str], parties: list[ConflictPartyInfo]
+    ) -> None:
         for party in parties:
             gid = uuid.uuid4().hex
             payload[f"pro_pci_type_{gid}"] = party.category
@@ -279,7 +285,9 @@ class HttpFilingMixin:
             payload[f"pro_pci_no_{gid}"] = party.id_number or ""
             payload[f"pro_pci_phone_{gid}"] = party.contact_phone or ""
 
-    def _apply_contract_payload(self: Any, *, payload: dict[str, str], contract_info: ContractInfo) -> None:
+    def _apply_contract_payload(
+        self: Any, *, payload: dict[str, str], contract_info: ContractInfo
+    ) -> None:
         payload[self._project_field_name("rec_type")] = contract_info.rec_type
         payload[self._project_field_name("currency")] = contract_info.currency
         payload[self._project_field_name("contract_type")] = contract_info.contract_type
@@ -297,7 +305,9 @@ class HttpFilingMixin:
     # 提交
     # ------------------------------------------------------------------
 
-    def _submit_filing_form_http(self: Any, *, client: httpx.Client, action_url: str, payload: dict[str, str]) -> None:
+    def _submit_filing_form_http(
+        self: Any, *, client: httpx.Client, action_url: str, payload: dict[str, str]
+    ) -> None:
         save_button_name = "ctl00$ctl00$mainContentPlaceHolder$projmainPlaceHolder$btnSave"
         payload[save_button_name] = "　存草稿　"
 
@@ -316,7 +326,9 @@ class HttpFilingMixin:
 
         raise RuntimeError("HTTP 立案失败：未检测到成功标记")
 
-    def _resolve_manager_id_from_form(self: Any, *, html_text: str, manager_name: str) -> str | None:
+    def _resolve_manager_id_from_form(
+        self: Any, *, html_text: str, manager_name: str
+    ) -> str | None:
         root = lxml_html.fromstring(html_text)
         manager_field = self._project_field_name("manager_id")
         options = root.xpath(f'//select[@name="{manager_field}"]/option')

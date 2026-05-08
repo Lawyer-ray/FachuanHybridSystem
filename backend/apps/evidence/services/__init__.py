@@ -11,10 +11,7 @@ def __getattr__(name: str) -> Any:
         "EvidenceService": (".core.evidence_service", "EvidenceService"),
         "EvidenceAdminService": (".admin.evidence_admin_service", "EvidenceAdminService"),
         "EvidenceExportService": (".export.evidence_export_service", "EvidenceExportService"),
-        "EvidenceListPlaceholderService": (
-            ".admin.evidence_list_placeholder_service",
-            "EvidenceListPlaceholderService",
-        ),
+        "EvidenceListPlaceholderService": (".admin.evidence_list_placeholder_service", "EvidenceListPlaceholderService"),
         "EvidencePageRangeCalculator": (".core.page_range_calculator", "EvidencePageRangeCalculator"),
         "evidence_file_storage": (".core.evidence_storage", "evidence_file_storage"),
         "EvidenceAIService": (".ai.evidence_ai_service", "EvidenceAIService"),

@@ -60,7 +60,8 @@ def ensure_required_placeholders(
 ) -> dict[str, Any]:
     """确保 required_placeholders 中所有键都存在且非 None。"""
     normalized: dict[str, Any] = {
-        str(key): normalize_placeholder_value(value, fallback_value=fallback_value) for key, value in context.items()
+        str(key): normalize_placeholder_value(value, fallback_value=fallback_value)
+        for key, value in context.items()
     }
 
     if required_placeholders:

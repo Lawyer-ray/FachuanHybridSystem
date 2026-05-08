@@ -212,7 +212,9 @@ class PdfSplitService:
                     )
                     return
 
-                display_name = sanitize_upload_filename(segment.filename or get_default_filename(segment.segment_type))
+                display_name = sanitize_upload_filename(
+                    segment.filename or get_default_filename(segment.segment_type)
+                )
                 if not display_name.lower().endswith(".pdf"):
                     display_name = f"{display_name}.pdf"
                 display_name = self._export_utils.deduplicate_filename(display_name, seen_names)
@@ -238,7 +240,9 @@ class PdfSplitService:
             if page_no < 1 or page_no > doc.page_count:
                 raise ValueError("页码超出范围")
             page = doc.load_page(page_no - 1)
-            pix = page.get_pixmap(matrix=fitz.Matrix(self.PREVIEW_DPI / 72, self.PREVIEW_DPI / 72))
+            pix = page.get_pixmap(
+                matrix=fitz.Matrix(self.PREVIEW_DPI / 72, self.PREVIEW_DPI / 72)
+            )
             preview_path.parent.mkdir(parents=True, exist_ok=True)
             pix.save(preview_path.as_posix())
         return preview_path

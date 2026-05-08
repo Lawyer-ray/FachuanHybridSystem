@@ -103,7 +103,6 @@ class LoginOut(Schema):
 
 class RegisterIn(Schema):
     """用户注册"""
-
     username: str
     password: str
     real_name: str | None = None
@@ -112,7 +111,6 @@ class RegisterIn(Schema):
 
 class RegisterOut(Schema):
     """注册响应"""
-
     success: bool
     user: LawyerOut | None = None
     requires_approval: bool = True
@@ -182,20 +180,17 @@ LoginOut.model_rebuild()
 
 class PasswordResetRequestIn(Schema):
     """请求密码重置"""
-
     email: str
 
 
 class PasswordResetVerifyIn(Schema):
     """验证重置 token"""
-
     uid: str
     token: str
 
 
 class PasswordResetConfirmIn(Schema):
     """确认密码重置"""
-
     uid: str
     token: str
     new_password: str
@@ -204,7 +199,6 @@ class PasswordResetConfirmIn(Schema):
 
 class PasswordResetOut(Schema):
     """密码重置响应"""
-
     success: bool
     message: str
     data: dict | None = None

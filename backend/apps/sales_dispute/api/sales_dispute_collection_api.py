@@ -147,10 +147,7 @@ def generate_reconciliation(
     data: ReconciliationRequest,
 ) -> HttpResponse:
     """生成对账函"""
-    from apps.sales_dispute.services.generation.reconciliation_generator_service import (
-        ReconciliationParams,
-        TransactionItem,
-    )
+    from apps.sales_dispute.services.generation.reconciliation_generator_service import ReconciliationParams, TransactionItem
 
     transactions = [
         TransactionItem(

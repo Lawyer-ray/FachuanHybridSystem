@@ -119,7 +119,9 @@ class PlaywrightFilingMixin:
         with _httpx.Client(headers=_HTTP_HEADERS, follow_redirects=True, timeout=15) as client:
             # 1. GET 登录页，拿 ASP.NET_SessionId + CSRFToken
             r = client.get(_LOGIN_URL)
-            csrf_match = re.search(r'name=["\']CSRFToken["\'] value=["\']([^"\']+)["\']', r.text)
+            csrf_match = re.search(
+                r'name=["\']CSRFToken["\'] value=["\']([^"\']+)["\']', r.text
+            )
             csrf = csrf_match.group(1) if csrf_match else ""
 
             # 2. POST 登录

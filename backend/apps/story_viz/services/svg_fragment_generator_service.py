@@ -30,7 +30,9 @@ class SvgFragmentGeneratorService:
         if not prompts:
             return self._fallback_fragments()
 
-        system_prompt = "你是 SVG 片段生成助手。仅输出可嵌入 <g> 内的安全 SVG 片段字符串，不要包含 script。"
+        system_prompt = (
+            "你是 SVG 片段生成助手。仅输出可嵌入 <g> 内的安全 SVG 片段字符串，不要包含 script。"
+        )
         messages = [
             {
                 "role": "system",

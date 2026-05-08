@@ -83,10 +83,7 @@ class ClientIdentityDoc(models.Model):
         if self.client:
             if self.client.client_type == Client.NATURAL and self.doc_type not in self._NATURAL_DOC_TYPES:
                 raise ValidationError({"doc_type": _("Invalid doc type for natural person")})
-            if (
-                self.client.client_type in {Client.LEGAL, Client.NON_LEGAL_ORG}
-                and self.doc_type not in self._LEGAL_DOC_TYPES
-            ):
+            if self.client.client_type in {Client.LEGAL, Client.NON_LEGAL_ORG} and self.doc_type not in self._LEGAL_DOC_TYPES:
                 raise ValidationError({"doc_type": _("Invalid doc type for organization")})
 
     class Meta:

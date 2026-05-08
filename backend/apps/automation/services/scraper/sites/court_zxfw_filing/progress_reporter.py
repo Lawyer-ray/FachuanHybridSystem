@@ -91,3 +91,4 @@ class ProgressReporterMixin(FormUtilsMixin):
         logger.info(str(_("步骤6: 预览（不提交）")))
         self._random_wait(2, 3)
         logger.info(str(_("步骤6完成: 已到达预览页，未提交")))
+

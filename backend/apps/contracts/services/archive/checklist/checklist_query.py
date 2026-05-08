@@ -27,16 +27,9 @@ def get_checklist_with_status(contract: Contract) -> dict[str, Any]:
     checklist_items = ARCHIVE_CHECKLIST.get(archive_category, [])
 
     materials = list(
-        FinalizedMaterial.objects.filter(contract=contract)
-        .only(
-            "id",
-            "archive_item_code",
-            "category",
-            "original_filename",
-            "order",
-            "file_path",
-        )
-        .order_by("order", "-uploaded_at")
+        FinalizedMaterial.objects.filter(contract=contract).only(
+            "id", "archive_item_code", "category", "original_filename", "order", "file_path",
+        ).order_by("order", "-uploaded_at")
     )
 
     code_to_materials: dict[str, list[int]] = {}
@@ -47,16 +40,14 @@ def get_checklist_with_status(contract: Contract) -> dict[str, Any]:
     code_to_material_details: dict[str, list[dict[str, Any]]] = {}
     for m in materials:
         if m.archive_item_code:
-            code_to_material_details.setdefault(m.archive_item_code, []).append(
-                {
-                    "id": m.id,
-                    "original_filename": m.original_filename,
-                    "category": m.category,
-                    "source_label": _get_source_label(m.category),
-                    "order": m.order,
-                    "file_path": m.file_path,
-                }
-            )
+            code_to_material_details.setdefault(m.archive_item_code, []).append({
+                "id": m.id,
+                "original_filename": m.original_filename,
+                "category": m.category,
+                "source_label": _get_source_label(m.category),
+                "order": m.order,
+                "file_path": m.file_path,
+            })
 
     contract_category_codes = map_contract_materials(archive_category, materials)
     for code, mat_ids in contract_category_codes.items():
@@ -80,15 +71,13 @@ def get_checklist_with_status(contract: Contract) -> dict[str, Any]:
     items_with_status: list[dict[str, Any]] = []
     for item in checklist_items:
         mat_ids = code_to_materials.get(item["code"], [])
-        items_with_status.append(
-            {
-                **item,
-                "completed": len(mat_ids) > 0,
-                "material_ids": mat_ids,
-                "materials": code_to_material_details.get(item["code"], []),
-                "has_case_material": item["source"] == "case" and item["code"] in case_material_match_codes,
-            }
-        )
+        items_with_status.append({
+            **item,
+            "completed": len(mat_ids) > 0,
+            "material_ids": mat_ids,
+            "materials": code_to_material_details.get(item["code"], []),
+            "has_case_material": item["source"] == "case" and item["code"] in case_material_match_codes,
+        })
 
     non_template_items = [item for item in items_with_status if not item["template"]]
 

@@ -26,14 +26,14 @@ class ContractQueryService:
 
     def get_contract_queryset(self) -> QuerySet[Contract, Contract]:
         return Contract.objects.prefetch_related(
-            "cases",
-            "contract_parties__client",
-            "payments",
-            "reminders",
-            "assignments__lawyer",
-            "assignments__lawyer__law_firm",
-            "supplementary_agreements__parties__client",
-        )
+                "cases",
+                "contract_parties__client",
+                "payments",
+                "reminders",
+                "assignments__lawyer",
+                "assignments__lawyer__law_firm",
+                "supplementary_agreements__parties__client",
+            )
 
     def _apply_list_filters(
         self,
@@ -69,9 +69,7 @@ class ContractQueryService:
         perm_open_access: bool = False,
     ) -> QuerySet[Contract, Contract]:
         qs = self.get_contract_queryset().order_by("-id")
-        qs = self._apply_list_filters(
-            qs, case_type=case_type, status=status, search=search, fee_mode=fee_mode, is_filed=is_filed
-        )
+        qs = self._apply_list_filters(qs, case_type=case_type, status=status, search=search, fee_mode=fee_mode, is_filed=is_filed)
 
         qs = self.access_policy.filter_queryset(
             qs=qs,
@@ -92,9 +90,7 @@ class ContractQueryService:
         is_filed: bool | None = None,
     ) -> QuerySet[Contract, Contract]:
         qs = self.get_contract_queryset().order_by("-id")
-        qs = self._apply_list_filters(
-            qs, case_type=case_type, status=status, search=search, fee_mode=fee_mode, is_filed=is_filed
-        )
+        qs = self._apply_list_filters(qs, case_type=case_type, status=status, search=search, fee_mode=fee_mode, is_filed=is_filed)
 
         qs = self.access_policy.filter_queryset_ctx(qs=qs, ctx=ctx)
         return qs

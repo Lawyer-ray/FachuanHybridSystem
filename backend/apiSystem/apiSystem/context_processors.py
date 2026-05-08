@@ -16,5 +16,7 @@ def tool_favorites(request: HttpRequest) -> dict[str, Any]:
 
     from apps.core.models import ToolFavorite
 
-    urls = list(ToolFavorite.objects.filter(user=request.user).values_list("tool_url", flat=True))
+    urls = list(
+        ToolFavorite.objects.filter(user=request.user).values_list("tool_url", flat=True)
+    )
     return {"fav_urls_json": json.dumps(urls)}

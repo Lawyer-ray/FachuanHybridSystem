@@ -1,5 +1,4 @@
 """浏览器生命周期管理：Chrome 启动、CDP 连接、关闭。"""
-
 from __future__ import annotations
 
 import asyncio

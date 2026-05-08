@@ -78,7 +78,10 @@ class ContractSaveMixin:
         # 合同状态变更联动：已归档 → 自动结案关联案件
         if change and old_status is not None:
             new_status = obj.status
-            if new_status == ContractStatus.ARCHIVED and old_status != ContractStatus.ARCHIVED:
+            if (
+                new_status == ContractStatus.ARCHIVED
+                and old_status != ContractStatus.ARCHIVED
+            ):
                 try:
                     from apps.core.interfaces import ServiceLocator
 
@@ -91,12 +94,7 @@ class ContractSaveMixin:
                             old_status,
                             new_status,
                             closed_count,
-                            extra={
-                                "contract_id": obj.id,
-                                "old_status": old_status,
-                                "new_status": new_status,
-                                "closed_case_count": closed_count,
-                            },
+                            extra={"contract_id": obj.id, "old_status": old_status, "new_status": new_status, "closed_case_count": closed_count},
                         )
                         messages.success(
                             request,

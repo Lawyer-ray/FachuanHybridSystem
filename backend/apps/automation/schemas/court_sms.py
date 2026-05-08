@@ -165,8 +165,7 @@ class CourtSMSListOut(BaseModel):
             status=obj.status,
             case_name=obj.case.name if obj.case else None,
             has_documents=bool(CourtSMSDocumentReferenceService().collect(obj)),
-            feishu_sent=bool(obj.feishu_sent_at)
-            or any(v.get("success", False) for v in (obj.notification_results or {}).values() if isinstance(v, dict)),
+            feishu_sent=bool(obj.feishu_sent_at) or any(v.get("success", False) for v in (obj.notification_results or {}).values() if isinstance(v, dict)),
             created_at=cast(Any, obj.created_at),
         )
 

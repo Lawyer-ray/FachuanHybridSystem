@@ -50,9 +50,7 @@ class DocumentRecognitionTask(models.Model):
     confidence: float | None = models.FloatField(null=True, blank=True, verbose_name=_("置信度"))
     extraction_method: str | None = models.CharField(max_length=32, null=True, blank=True, verbose_name=_("提取方式"))
     raw_text: str | None = models.TextField(null=True, blank=True, verbose_name=_("原始文本"))
-    renamed_file_path: str | None = models.CharField(
-        max_length=1024, null=True, blank=True, verbose_name=_("重命名后路径")
-    )
+    renamed_file_path: str | None = models.CharField(max_length=1024, null=True, blank=True, verbose_name=_("重命名后路径"))
     binding_success: bool | None = models.BooleanField(null=True, verbose_name=_("绑定成功"))
     case: Any = models.ForeignKey(
         "cases.Case",
@@ -71,9 +69,7 @@ class DocumentRecognitionTask(models.Model):
         verbose_name=_("案件日志"),
     )
     binding_message: str | None = models.CharField(max_length=512, null=True, blank=True, verbose_name=_("绑定消息"))
-    binding_error_code: str | None = models.CharField(
-        max_length=64, null=True, blank=True, verbose_name=_("绑定错误码")
-    )
+    binding_error_code: str | None = models.CharField(max_length=64, null=True, blank=True, verbose_name=_("绑定错误码"))
     error_message: str | None = models.TextField(null=True, blank=True, verbose_name=_("错误信息"))
     notification_sent: bool = models.BooleanField(default=False, verbose_name=_("通知已发送"))
     notification_sent_at: datetime | None = models.DateTimeField(null=True, blank=True, verbose_name=_("通知发送时间"))

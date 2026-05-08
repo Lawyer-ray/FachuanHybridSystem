@@ -101,9 +101,7 @@ class InvoiceRecord(models.Model):
         blank=True,
         verbose_name=_("金额（不含税）"),
     )
-    tax_amount: Decimal | None = models.DecimalField(
-        max_digits=12, decimal_places=2, null=True, blank=True, verbose_name=_("税额")
-    )
+    tax_amount: Decimal | None = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name=_("税额"))
     total_amount: Decimal = models.DecimalField(
         max_digits=12,
         decimal_places=2,
