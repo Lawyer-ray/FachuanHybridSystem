@@ -9,11 +9,13 @@ from .client_schemas import ClientIdentityDocOut, ClientOut
 
 # Contract Core Schemas
 from .contract_schemas import (
+    ClientPaymentRecordOut,
     ContractAssignmentOut,
     ContractIn,
     ContractOut,
     ContractPaginatedOut,
     ContractUpdate,
+    FinalizedMaterialOut,
     UpdateLawyersIn,
 )
 

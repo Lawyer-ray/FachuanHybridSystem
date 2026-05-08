@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import {
   ArrowLeft, Edit, Trash2, FileWarning,
   MoreHorizontal, FileText, Briefcase, Copy, RefreshCw, Loader2,
+  User,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -16,6 +17,9 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import {
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
+} from '@/components/ui/sheet'
 import { PATHS, generatePath } from '@/routes/paths'
 
 import { useContract } from '../hooks/use-contract'
@@ -29,6 +33,7 @@ import { ArchiveTab } from './ArchiveTab'
 import {
   FEE_MODE_LABELS, CONTRACT_STATUS_LABELS, CASE_TYPE_LABELS,
   type FeeMode, type ContractStatus, type CaseType,
+  type ContractParty, type ContractAssignment,
 } from '../types'
 
 export interface ContractDetailProps { contractId: string }
@@ -103,6 +108,8 @@ export function ContractDetail({ contractId }: ContractDetailProps) {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [activeTab, setActiveTab] = useState('basic')
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [selectedParty, setSelectedParty] = useState<ContractParty | null>(null)
+  const [selectedLawyer, setSelectedLawyer] = useState<ContractAssignment | null>(null)
 
   const handleBack = useCallback(() => navigate(PATHS.ADMIN_CONTRACTS), [navigate])
   const handleEdit = useCallback(() => navigate(generatePath.contractEdit(contractId)), [navigate, contractId])
@@ -300,6 +307,7 @@ export function ContractDetail({ contractId }: ContractDetailProps) {
                     <div key={cs.id} className="flex items-center gap-3 rounded-md border border-border/60 bg-muted/30 px-3 py-3 text-[13px]">
                       <Briefcase className="text-muted-foreground size-3.5 shrink-0" />
                       <span className="font-medium flex-1 truncate">{cs.name}</span>
+                      {cs.cause_of_action && <span className="text-muted-foreground text-xs shrink-0">{cs.cause_of_action}</span>}
                       {cs.status_label && <Badge variant="outline" className="text-[11px] px-2 py-0.5 shrink-0">{cs.status_label}</Badge>}
                       {cs.target_amount != null && <span className="text-muted-foreground shrink-0">¥{cs.target_amount.toLocaleString()}</span>}
                     </div>
@@ -321,9 +329,17 @@ export function ContractDetail({ contractId }: ContractDetailProps) {
               ) : (
                 <div className="flex flex-col gap-2">
                   {contract.contract_parties.map((p) => (
-                    <div key={p.id} className="flex items-center gap-3 rounded-md border border-border/60 bg-muted/30 px-3 py-3 text-[13px]">
+                    <div
+                      key={p.id}
+                      className="flex items-center gap-3 rounded-md border border-border/60 bg-muted/30 px-3 py-3 text-[13px] cursor-pointer hover:bg-muted/60 transition-colors"
+                      onClick={() => setSelectedParty(p)}
+                    >
+                      <User className="size-3.5 text-muted-foreground shrink-0" />
                       <span className="font-semibold flex-1">{p.client_detail.name}</span>
                       <Badge variant="outline" className="text-[11px] px-2 py-0.5">{p.role_label}</Badge>
+                      <Badge variant={p.client_detail.is_our_client ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0">
+                        {p.client_detail.is_our_client ? '我方' : '对方'}
+                      </Badge>
                     </div>
                   ))}
                 </div>
@@ -336,7 +352,12 @@ export function ContractDetail({ contractId }: ContractDetailProps) {
               ) : (
                 <div className="flex flex-col gap-2">
                   {contract.assignments.map((a) => (
-                    <div key={a.id} className="flex items-center gap-3 rounded-md border border-border/60 bg-muted/30 px-3 py-3 text-[13px]">
+                    <div
+                      key={a.id}
+                      className="flex items-center gap-3 rounded-md border border-border/60 bg-muted/30 px-3 py-3 text-[13px] cursor-pointer hover:bg-muted/60 transition-colors"
+                      onClick={() => setSelectedLawyer(a)}
+                    >
+                      <User className="size-3.5 text-muted-foreground shrink-0" />
                       <span className="font-semibold flex-1">{a.lawyer_name}</span>
                       <Badge variant={a.is_primary ? 'default' : 'secondary'} className="text-[11px] px-2 py-0.5">
                         {a.is_primary ? '主办' : '协办'}
@@ -352,6 +373,106 @@ export function ContractDetail({ contractId }: ContractDetailProps) {
                 <SupplementaryAgreementList contractId={contract.id} agreements={contract.supplementary_agreements} />
               </DetailCard>
             )}
+
+            {/* Party Detail Sheet */}
+            <Sheet open={!!selectedParty} onOpenChange={(open) => !open && setSelectedParty(null)}>
+              <SheetContent>
+                <SheetHeader>
+                  <SheetTitle>{selectedParty?.client_detail.name}</SheetTitle>
+                  <SheetDescription>{selectedParty?.role_label} · {selectedParty?.client_detail.client_type_label}</SheetDescription>
+                </SheetHeader>
+                {selectedParty && (
+                  <div className="mt-6 space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Badge variant={selectedParty.client_detail.is_our_client ? 'default' : 'secondary'}>
+                        {selectedParty.client_detail.is_our_client ? '我方当事人' : '对方当事人'}
+                      </Badge>
+                      <Badge variant="outline">{selectedParty.role_label}</Badge>
+                    </div>
+                    <div className="space-y-3">
+                      <DetailField label="客户类型" value={selectedParty.client_detail.client_type_label} />
+                      {selectedParty.client_detail.id_number && (
+                        <DetailField
+                          label={selectedParty.client_detail.client_type === 'natural' ? '身份证号' : '统一社会信用代码'}
+                          value={selectedParty.client_detail.id_number}
+                          mono
+                        />
+                      )}
+                      {selectedParty.client_detail.phone && (
+                        <DetailField label="电话" value={selectedParty.client_detail.phone} mono />
+                      )}
+                      {selectedParty.client_detail.address && (
+                        <DetailField label="地址" value={selectedParty.client_detail.address} />
+                      )}
+                      {selectedParty.client_detail.client_type !== 'natural' && selectedParty.client_detail.legal_representative && (
+                        <>
+                          <DetailField label="法定代表人" value={selectedParty.client_detail.legal_representative} />
+                          {selectedParty.client_detail.legal_representative_id_number && (
+                            <DetailField label="法定代表人身份证号" value={selectedParty.client_detail.legal_representative_id_number} mono />
+                          )}
+                        </>
+                      )}
+                    </div>
+                    <Button
+                      variant="outline" size="sm" className="w-full"
+                      onClick={() => {
+                        const d = selectedParty.client_detail
+                        const lines = [
+                          `姓名: ${d.name}`,
+                          `客户类型: ${d.client_type_label}`,
+                          `角色: ${selectedParty.role_label}`,
+                          d.id_number ? `${d.client_type === 'natural' ? '身份证号' : '统一社会信用代码'}: ${d.id_number}` : null,
+                          d.phone ? `电话: ${d.phone}` : null,
+                          d.address ? `地址: ${d.address}` : null,
+                          d.legal_representative ? `法定代表人: ${d.legal_representative}` : null,
+                          d.legal_representative_id_number ? `法定代表人身份证号: ${d.legal_representative_id_number}` : null,
+                        ].filter(Boolean).join('\n')
+                        navigator.clipboard.writeText(lines)
+                        toast.success('已复制全部信息')
+                      }}
+                    >
+                      <Copy className="mr-2 size-3.5" />复制全部
+                    </Button>
+                  </div>
+                )}
+              </SheetContent>
+            </Sheet>
+
+            {/* Lawyer Detail Sheet */}
+            <Sheet open={!!selectedLawyer} onOpenChange={(open) => !open && setSelectedLawyer(null)}>
+              <SheetContent>
+                <SheetHeader>
+                  <SheetTitle>{selectedLawyer?.lawyer_name}</SheetTitle>
+                  <SheetDescription>{selectedLawyer?.is_primary ? '主办律师' : '协办律师'}</SheetDescription>
+                </SheetHeader>
+                {selectedLawyer && (
+                  <div className="mt-6 space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Badge variant={selectedLawyer.is_primary ? 'default' : 'secondary'}>
+                        {selectedLawyer.is_primary ? '主办律师' : '协办律师'}
+                      </Badge>
+                    </div>
+                    <div className="space-y-3">
+                      <DetailField label="姓名" value={selectedLawyer.lawyer_name} />
+                      <DetailField label="律师 ID" value={selectedLawyer.lawyer_id} mono />
+                    </div>
+                    <Button
+                      variant="outline" size="sm" className="w-full"
+                      onClick={() => {
+                        const lines = [
+                          `姓名: ${selectedLawyer.lawyer_name}`,
+                          `角色: ${selectedLawyer.is_primary ? '主办律师' : '协办律师'}`,
+                        ].join('\n')
+                        navigator.clipboard.writeText(lines)
+                        toast.success('已复制全部信息')
+                      }}
+                    >
+                      <Copy className="mr-2 size-3.5" />复制全部
+                    </Button>
+                  </div>
+                )}
+              </SheetContent>
+            </Sheet>
           </motion.div>
         )}
 

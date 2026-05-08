@@ -1,12 +1,15 @@
 import { useState, useCallback, useRef } from 'react'
 import {
   Check, Circle, Upload, Trash2, RefreshCw, Archive, FolderSync,
-  GripVertical, FileCheck, Loader2, Scaling,
+  GripVertical, FileCheck, Loader2, Scaling, ArrowRightLeft, Eraser,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -52,6 +55,7 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [deleteMaterialId, setDeleteMaterialId] = useState<number | null>(null)
   const [confirmArchiveOpen, setConfirmArchiveOpen] = useState(false)
+  const [confirmClearAllOpen, setConfirmClearAllOpen] = useState(false)
   const uploadInputRef = useRef<HTMLInputElement>(null)
   const [uploadTargetCode, setUploadTargetCode] = useState<string | null>(null)
 
@@ -129,6 +133,25 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
     setActionLoading(null)
   }, [c.id])
 
+  const handleMoveMaterial = useCallback(async (materialId: number, targetCode: string) => {
+    try {
+      await contractApi.moveArchiveMaterial(c.id, materialId, targetCode)
+      toast.success('已移动')
+      await refreshMaterials()
+    } catch { toast.error('移动失败') }
+  }, [c.id, refreshMaterials])
+
+  const handleClearAll = useCallback(async () => {
+    setActionLoading('clear-all')
+    try {
+      const result = await contractApi.clearAllArchiveMaterials(c.id)
+      toast.success(`已清空 ${result.deleted_count} 份材料`)
+      setMaterials([])
+    } catch { toast.error('清空失败') }
+    setConfirmClearAllOpen(false)
+    setActionLoading(null)
+  }, [c.id])
+
   const triggerUpload = (code: string) => {
     setUploadTargetCode(code)
     uploadInputRef.current?.click()
@@ -181,6 +204,14 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
           >
             {actionLoading === 'confirm' ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <Archive className="mr-1.5 size-3.5" />}
             确认归档
+          </Button>
+          <Button
+            variant="outline" size="sm" className="h-8 text-xs text-destructive hover:text-destructive"
+            onClick={() => setConfirmClearAllOpen(true)}
+            disabled={!!actionLoading || materials.length === 0}
+          >
+            {actionLoading === 'clear-all' ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <Eraser className="mr-1.5 size-3.5" />}
+            清空全部
           </Button>
           {!canArchive && (
             <span className="text-xs text-muted-foreground self-center ml-1">
@@ -239,6 +270,22 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
                         <span className="flex-1 truncate">{m.original_filename}</span>
                         {m.remark && <span className="text-muted-foreground shrink-0">{m.remark}</span>}
                         <span className="text-muted-foreground shrink-0">{m.uploaded_at?.slice(0, 10) || ''}</span>
+                        {/* Move-to dropdown */}
+                        <div className="opacity-0 group-hover:opacity-100 shrink-0">
+                          <Select onValueChange={(targetCode) => handleMoveMaterial(m.id, targetCode)}>
+                            <SelectTrigger className="h-6 w-auto text-[10px] px-1.5 border-border/60">
+                              <ArrowRightLeft className="size-2.5 mr-0.5" />
+                              <SelectValue placeholder="移动" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {CHECKLIST.filter(c => c.code !== item.code).map(target => (
+                                <SelectItem key={target.code} value={target.code} className="text-xs">
+                                  {target.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                         <Button
                           variant="ghost" size="icon" className="size-6 opacity-0 group-hover:opacity-100 text-destructive"
                           onClick={() => setDeleteMaterialId(m.id)}
@@ -313,6 +360,22 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmArchive}>确认归档</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Clear all materials dialog */}
+      <AlertDialog open={confirmClearAllOpen} onOpenChange={setConfirmClearAllOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认清空全部材料</AlertDialogTitle>
+            <AlertDialogDescription>
+              将删除所有 {materials.length} 份归档材料，此操作不可逆。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={handleClearAll} className="bg-destructive text-destructive-foreground">清空全部</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
