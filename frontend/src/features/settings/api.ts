@@ -70,6 +70,7 @@ export interface SystemConfigItem {
   description: string
   is_secret: boolean
   is_active: boolean
+  has_value: boolean
 }
 
 export interface SystemConfigGroup {

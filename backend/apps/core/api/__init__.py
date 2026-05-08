@@ -28,6 +28,7 @@ class SystemConfigItemOut(Schema):
     description: str
     is_secret: bool
     is_active: bool
+    has_value: bool = True
 
 
 class SystemConfigGroupOut(Schema):
@@ -87,6 +88,7 @@ def list_system_configs(request: HttpRequest) -> dict[str, Any]:
                 description=cfg.description,
                 is_secret=cfg.is_secret,
                 is_active=cfg.is_active,
+                has_value=bool(cfg.value),
             )
         )
     groups = [SystemConfigGroupOut(category=cat, items=items) for cat, items in grouped.items()]
@@ -149,6 +151,7 @@ def create_system_config(request: HttpRequest, payload: SystemConfigCreateIn) ->
         description=config.description,
         is_secret=config.is_secret,
         is_active=config.is_active,
+        has_value=bool(config.value),
     )
 
 
@@ -179,6 +182,7 @@ def patch_system_config(request: HttpRequest, key: str, payload: SystemConfigPat
         description=updated.description,
         is_secret=updated.is_secret,
         is_active=updated.is_active,
+        has_value=bool(updated.value),
     )
 
 

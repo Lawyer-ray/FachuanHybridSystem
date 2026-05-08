@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
-import { ArrowLeft, Save, Eye, EyeOff, Loader2, Plus, Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeft, Save, Eye, EyeOff, Loader2, Plus, Pencil, Trash2, Lock, ShieldCheck, ShieldOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -456,21 +456,39 @@ export function ServiceConfig() {
                     )}
                   </div>
                   <div className="relative">
-                    <Input
-                      type={field.isSecret && !showSecrets[showKey] ? 'password' : 'text'}
-                      value={getDisplayValue(field.key)}
-                      onChange={(e) => handleFieldChange(field.key, e.target.value)}
-                      placeholder={field.placeholder ?? `请输入${field.label}`}
-                      className={field.isSecret ? 'pr-10' : ''}
-                    />
-                    {field.isSecret && (
-                      <button
-                        type="button"
-                        onClick={() => setShowSecrets((prev) => ({ ...prev, [showKey]: !prev[showKey] }))}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      >
-                        {showSecrets[showKey] ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                      </button>
+                    {field.isSecret && !(field.key in modified) && backendItem ? (
+                      <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-input bg-muted/40 text-sm">
+                        <Lock className="size-3.5 text-muted-foreground" />
+                        {backendItem.has_value ? (
+                          <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                            <ShieldCheck className="size-3.5" />已设置
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1 text-muted-foreground">
+                            <ShieldOff className="size-3.5" />未设置
+                          </span>
+                        )}
+                        <span className="ml-auto text-[11px] text-muted-foreground">点击右侧编辑修改</span>
+                      </div>
+                    ) : (
+                      <>
+                        <Input
+                          type={field.isSecret && !showSecrets[showKey] ? 'password' : 'text'}
+                          value={getDisplayValue(field.key)}
+                          onChange={(e) => handleFieldChange(field.key, e.target.value)}
+                          placeholder={field.placeholder ?? `请输入${field.label}`}
+                          className={field.isSecret ? 'pr-10' : ''}
+                        />
+                        {field.isSecret && (
+                          <button
+                            type="button"
+                            onClick={() => setShowSecrets((prev) => ({ ...prev, [showKey]: !prev[showKey] }))}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          >
+                            {showSecrets[showKey] ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                          </button>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
