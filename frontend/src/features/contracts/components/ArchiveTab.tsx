@@ -5,6 +5,15 @@ import {
   ChevronDown, ChevronRight, Download, Eye, FolderOpen,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import {
+  DndContext, closestCenter, KeyboardSensor, PointerSensor,
+  useSensor, useSensors, type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext, useSortable, verticalListSortingStrategy,
+  arrayMove, sortableKeyboardCoordinates,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { Button } from '@/components/ui/button'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -18,7 +27,7 @@ import {
 } from '@/components/ui/dialog'
 import { FolderScanPanel } from './FolderScanPanel'
 import { contractApi } from '../api'
-import type { Contract, ChecklistItem, ArchiveChecklist } from '../types'
+import type { Contract, ChecklistItem, ArchiveChecklist, FinalizedMaterial } from '../types'
 
 /* ── Status badge per item ── */
 
@@ -44,6 +53,64 @@ function ItemBadge({ item }: { item: ChecklistItem }) {
   )
 }
 
+/* ── Sortable material sub-item ── */
+
+function SortableMaterialItem({
+  m, itemCode, items, onDelete, onMove,
+}: {
+  m: FinalizedMaterial
+  itemCode: string
+  items: ChecklistItem[]
+  onDelete: (id: number) => void
+  onMove: (id: number, targetCode: string) => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: m.id })
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : undefined,
+  }
+
+  return (
+    <div ref={setNodeRef} style={style} className="flex items-center gap-1.5 px-1.5 py-0.5 rounded text-xs group hover:bg-muted/40 transition-colors">
+      <span className="text-muted-foreground/40 cursor-grab shrink-0" {...attributes} {...listeners}>
+        <GripVertical className="size-3" />
+      </span>
+      <FileCheck className="size-3 text-green-600 shrink-0" />
+      <span className="flex-1 truncate">{m.original_filename}</span>
+      {m.source_label && (
+        <span className={`inline-flex items-center px-1 py-px rounded text-[10px] font-medium shrink-0 ${
+          m.source === 'case' ? 'bg-blue-50 text-blue-700'
+          : m.source === 'scan' ? 'bg-purple-50 text-purple-700'
+          : 'bg-muted text-muted-foreground'
+        }`}>
+          {m.source_label}
+        </span>
+      )}
+      <div className="opacity-0 group-hover:opacity-100 shrink-0">
+        <Select onValueChange={(targetCode) => onMove(m.id, targetCode)}>
+          <SelectTrigger className="h-5 w-auto text-[10px] px-1 border-border/60">
+            <ArrowRightLeft className="size-2.5 mr-0.5" />
+            <SelectValue placeholder="移动" />
+          </SelectTrigger>
+          <SelectContent>
+            {items.filter(i => i.code !== itemCode).map(target => (
+              <SelectItem key={target.code} value={target.code} className="text-xs">{target.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <button
+        className="p-0.5 rounded text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition-all"
+        title="删除"
+        onClick={() => onDelete(m.id)}
+      >
+        <Trash2 className="size-3" />
+      </button>
+    </div>
+  )
+}
+
 /* ── Main component ── */
 
 export function ArchiveTab({ contract: c }: { contract: Contract }) {
@@ -56,8 +123,11 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
   const [expandedCodes, setExpandedCodes] = useState<Set<string>>(new Set())
   const uploadInputRef = useRef<HTMLInputElement>(null)
   const [uploadTargetCode, setUploadTargetCode] = useState<string | null>(null)
-  const [dragMaterialId, setDragMaterialId] = useState<number | null>(null)
-  const [dragOverMaterialId, setDragOverMaterialId] = useState<number | null>(null)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
 
   const fetchChecklist = useCallback(async () => {
     try {
@@ -180,23 +250,24 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
     } catch { toast.error('移动失败') }
   }, [c.id, refreshChecklist])
 
-  const handleDragEnd = useCallback(async (code: string, draggedId: number, targetId: number) => {
-    if (draggedId === targetId) return
-    const item = items.find(i => i.code === code)
-    if (!item) return
-    const matIds = item.materials.map(m => m.id)
-    const fromIdx = matIds.indexOf(draggedId)
-    const toIdx = matIds.indexOf(targetId)
-    if (fromIdx < 0 || toIdx < 0) return
-    const reordered = [...matIds]
-    reordered.splice(fromIdx, 1)
-    reordered.splice(toIdx, 0, draggedId)
-    try {
-      await contractApi.reorderArchiveMaterials(c.id, { [code]: reordered })
-      await refreshChecklist()
-    } catch { toast.error('排序失败') }
-    setDragMaterialId(null)
-    setDragOverMaterialId(null)
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    // Find which checklist item these materials belong to
+    for (const item of items) {
+      const matIds = item.materials.map(m => m.id)
+      const activeIdx = matIds.indexOf(Number(active.id))
+      const overIdx = matIds.indexOf(Number(over.id))
+      if (activeIdx < 0 || overIdx < 0) continue
+
+      const reordered = arrayMove(matIds, activeIdx, overIdx)
+      try {
+        await contractApi.reorderArchiveMaterials(c.id, { [item.code]: reordered })
+        await refreshChecklist()
+      } catch { toast.error('排序失败') }
+      return
+    }
   }, [c.id, items, refreshChecklist])
 
   const handleClearAll = useCallback(async () => {
@@ -426,69 +497,20 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
                     style={{ maxHeight: isExpanded ? `${itemMaterials.length * 28 + 8}px` : '0px' }}
                   >
                     <div className="px-[18px] pb-1">
-                      {itemMaterials.map(m => (
-                        <div
-                          key={m.id}
-                          draggable
-                          onDragStart={(e) => {
-                            setDragMaterialId(m.id)
-                            e.dataTransfer.effectAllowed = 'move'
-                          }}
-                          onDragOver={(e) => {
-                            e.preventDefault()
-                            setDragOverMaterialId(m.id)
-                          }}
-                          onDragLeave={() => setDragOverMaterialId(null)}
-                          onDrop={(e) => {
-                            e.preventDefault()
-                            if (dragMaterialId && dragMaterialId !== m.id) {
-                              handleDragEnd(item.code, dragMaterialId, m.id)
-                            }
-                          }}
-                          onDragEnd={() => { setDragMaterialId(null); setDragOverMaterialId(null) }}
-                          className={`flex items-center gap-1.5 px-1.5 py-0.5 rounded text-xs group hover:bg-muted/40 transition-colors cursor-grab ${
-                            dragMaterialId === m.id ? 'opacity-40' : ''
-                          } ${dragOverMaterialId === m.id && dragMaterialId !== m.id ? 'border-t border-primary' : ''}`}
-                        >
-                          <span className="text-muted-foreground/40 shrink-0">
-                            <GripVertical className="size-3" />
-                          </span>
-                          <FileCheck className="size-3 text-green-600 shrink-0" />
-                          <span className="flex-1 truncate">{m.original_filename}</span>
-                          {m.source_label && (
-                            <span className={`inline-flex items-center px-1 py-px rounded text-[10px] font-medium shrink-0 ${
-                              m.source === 'case' ? 'bg-blue-50 text-blue-700'
-                              : m.source === 'scan' ? 'bg-purple-50 text-purple-700'
-                              : 'bg-muted text-muted-foreground'
-                            }`}>
-                              {m.source_label}
-                            </span>
-                          )}
-                          {/* Move dropdown */}
-                          <div className="opacity-0 group-hover:opacity-100 shrink-0">
-                            <Select onValueChange={(targetCode) => handleMoveMaterial(m.id, targetCode)}>
-                              <SelectTrigger className="h-5 w-auto text-[10px] px-1 border-border/60">
-                                <ArrowRightLeft className="size-2.5 mr-0.5" />
-                                <SelectValue placeholder="移动" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {items.filter(i => i.code !== item.code).map(target => (
-                                  <SelectItem key={target.code} value={target.code} className="text-xs">
-                                    {target.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <button
-                            className="p-0.5 rounded text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition-all"
-                            title="删除"
-                            onClick={() => setDeleteMaterialId(m.id)}
-                          >
-                            <Trash2 className="size-3" />
-                          </button>
-                        </div>
-                      ))}
+                      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                        <SortableContext items={itemMaterials.map(m => m.id)} strategy={verticalListSortingStrategy}>
+                          {itemMaterials.map(m => (
+                            <SortableMaterialItem
+                              key={m.id}
+                              m={m}
+                              itemCode={item.code}
+                              items={items}
+                              onDelete={setDeleteMaterialId}
+                              onMove={handleMoveMaterial}
+                            />
+                          ))}
+                        </SortableContext>
+                      </DndContext>
                     </div>
                   </div>
                 )}
