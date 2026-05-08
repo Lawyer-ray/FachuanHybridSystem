@@ -395,7 +395,7 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
     e.target.value = ''
   }
 
-  const handlePreviewPlaceholders = useCallback(async (templateSubtype: string, templateName: string) => {
+  const handlePreviewPlaceholders = async (templateSubtype: string, templateName: string) => {
     setPlaceholderPreview({ open: true, title: `${templateName} - 替换词预览`, loading: true, rows: [] })
     try {
       const result = await contractApi.previewArchivePlaceholders(c.id, templateSubtype)
@@ -409,7 +409,7 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
       toast.error('预览请求失败')
       setPlaceholderPreview(prev => ({ ...prev, open: false }))
     }
-  }, [c.id])
+  }
 
   /* ── Non-template items for count calculation ── */
 
