@@ -1,8 +1,9 @@
 """文档文本提取器
 
-支持 .doc 和 .docx 两种格式：
+支持以下格式：
 - .docx: python-docx 直接解析
 - .doc: 委托 apps.doc_converter.services.engine 做 LibreOffice 转换，再用 python-docx 解析
+- .txt: 直接读取纯文本（Excel 行拆分后生成的中间文件）
 """
 
 from __future__ import annotations
@@ -52,6 +53,8 @@ class DocTextExtractor:
             return self._extract_docx(file_path)
         elif ext == ".doc":
             return self._extract_doc(file_path)
+        elif ext == ".txt":
+            return self._extract_txt(file_path)
         else:
             raise ValueError(f"不支持的文件格式: {ext}")
 
@@ -140,6 +143,8 @@ class DocTextExtractor:
             except Exception:
                 logger.warning("转换 .doc 文件失败: %s", file_path, exc_info=True)
                 return None, False
+        elif ext == ".txt":
+            return None, False
         return None, False
 
     def _extract_docx(self, path: str) -> str:
@@ -148,6 +153,14 @@ class DocTextExtractor:
 
         doc = Document(path)
         text = "\n".join(p.text for p in doc.paragraphs if p.text.strip())
+        if len(text) > MAX_TEXT_LENGTH:
+            logger.warning("文本截断: %s (%d -> %d 字符)", path, len(text), MAX_TEXT_LENGTH)
+            text = text[:MAX_TEXT_LENGTH]
+        return text
+
+    def _extract_txt(self, path: str) -> str:
+        """读取纯文本文件（Excel 行拆分后的中间文件）"""
+        text = Path(path).read_text(encoding="utf-8")
         if len(text) > MAX_TEXT_LENGTH:
             logger.warning("文本截断: %s (%d -> %d 字符)", path, len(text), MAX_TEXT_LENGTH)
             text = text[:MAX_TEXT_LENGTH]

@@ -257,7 +257,7 @@ def submit_batch_analysis(
     """提交批量文档分析任务
 
     接受 multipart form 数据：session_id, prompt, llm_model, concurrency, files
-    支持 .doc 和 .docx 格式。
+    支持 .doc、.docx、.xls、.xlsx 格式。Excel 文件会按行拆分为独立分析任务。
     """
     # 验证会话
     _get_user_session(request.user, session_id)
@@ -266,11 +266,11 @@ def submit_batch_analysis(
     if not files:
         raise Http404("请上传至少一个文件")
 
-    allowed_extensions = {".doc", ".docx"}
+    allowed_extensions = {".doc", ".docx", ".xls", ".xlsx"}
     for f in files:
         ext = f.name.rsplit(".", 1)[-1].lower() if f.name and "." in f.name else ""
         if f".{ext}" not in allowed_extensions:
-            raise Http404(f"不支持的文件格式: {f.name}，仅支持 .doc 和 .docx")
+            raise Http404(f"不支持的文件格式: {f.name}，支持 .doc、.docx、.xls、.xlsx")
 
     job = _batch_service.create_job(
         session_id=session_id,

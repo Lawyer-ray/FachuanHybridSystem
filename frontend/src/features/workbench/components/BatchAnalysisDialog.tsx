@@ -16,9 +16,9 @@ interface BatchAnalysisDialogProps {
   disabled?: boolean
 }
 
-const DOC_EXTS = new Set(['.doc', '.docx'])
+const SUPPORTED_EXTS = new Set(['.doc', '.docx', '.xls', '.xlsx'])
 
-/** 递归读取目录中的 .doc/.docx 文件 */
+/** 递归读取目录中的支持格式文件 */
 async function readDirectoryEntries(dirEntry: FileSystemDirectoryEntry): Promise<File[]> {
   const reader = dirEntry.createReader()
   const allFiles: File[] = []
@@ -33,7 +33,7 @@ async function readDirectoryEntries(dirEntry: FileSystemDirectoryEntry): Promise
     for (const entry of entries) {
       if (entry.isFile) {
         const ext = entry.name.toLowerCase().slice(entry.name.lastIndexOf('.'))
-        if (DOC_EXTS.has(ext)) {
+        if (SUPPORTED_EXTS.has(ext)) {
           const file = await new Promise<File>((resolve, reject) =>
             (entry as FileSystemFileEntry).file(resolve, reject),
           )
@@ -89,7 +89,7 @@ export function BatchAnalysisDialog({ modelName, onSubmit, disabled }: BatchAnal
 
       if (entry.isFile) {
         const ext = entry.name.toLowerCase().slice(entry.name.lastIndexOf('.'))
-        if (DOC_EXTS.has(ext)) {
+        if (SUPPORTED_EXTS.has(ext)) {
           promises.push(
             new Promise<void>((resolve, reject) => {
               (entry as FileSystemFileEntry).file(
@@ -152,7 +152,7 @@ export function BatchAnalysisDialog({ modelName, onSubmit, disabled }: BatchAnal
         <DialogHeader>
           <DialogTitle>批量文档分析</DialogTitle>
           <DialogDescription>
-            上传多个 Word 文件（.doc 或 .docx），系统将并行调用 AI 分析每个文件并汇总结论。
+            上传 Word 文件（.doc/.docx）或 Excel 文件（.xls/.xlsx），系统将并行调用 AI 分析每个文件/每行数据并汇总结论。
           </DialogDescription>
         </DialogHeader>
 
@@ -193,7 +193,7 @@ export function BatchAnalysisDialog({ modelName, onSubmit, disabled }: BatchAnal
                   点击选择文件，或拖拽文件/文件夹到此处
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  支持 .doc 和 .docx 格式，拖入文件夹会自动提取其中的文档
+                  支持 .doc、.docx、.xls、.xlsx 格式，Excel 按行拆分，拖入文件夹会自动提取
                 </p>
               </div>
             ) : (
@@ -209,7 +209,7 @@ export function BatchAnalysisDialog({ modelName, onSubmit, disabled }: BatchAnal
                       <FileText className="size-3.5 shrink-0 text-muted-foreground" />
                       <span className="truncate flex-1">{f.name}</span>
                       <Badge variant="outline" className="text-xs shrink-0">
-                        {f.name.endsWith('.doc') ? 'DOC' : 'DOCX'}
+                        {f.name.split('.').pop()?.toUpperCase() || 'FILE'}
                       </Badge>
                       <button
                         type="button"
@@ -226,7 +226,7 @@ export function BatchAnalysisDialog({ modelName, onSubmit, disabled }: BatchAnal
             <input
               ref={fileInputRef}
               type="file"
-              accept=".doc,.docx"
+              accept=".doc,.docx,.xls,.xlsx"
               multiple
               className="hidden"
               onChange={handleFileChange}

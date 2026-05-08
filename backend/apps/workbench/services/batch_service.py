@@ -7,14 +7,91 @@ from __future__ import annotations
 
 import logging
 from datetime import timezone as dt_timezone
+from pathlib import Path
 from typing import Any
 from uuid import UUID
 
+from django.core.files.base import ContentFile
 from django.utils import timezone
 
 from ..models import BatchJob, BatchJobItem, BatchJobStatus
 
 logger = logging.getLogger(__name__)
+
+_EXCEL_EXTS = {".xls", ".xlsx"}
+
+
+def _is_excel(filename: str) -> bool:
+    """判断文件是否为 Excel 格式"""
+    if not filename or "." not in filename:
+        return False
+    ext = "." + filename.rsplit(".", 1)[-1].lower()
+    return ext in _EXCEL_EXTS
+
+
+def _split_excel_rows(uploaded_file: Any) -> list[tuple[str, str]]:
+    """将 Excel 文件拆分为多行文本
+
+    每非空行生成一个 (file_name, text_content) 元组。
+    文本格式为 "列名: 值" 的结构化文本。
+    """
+    import io
+
+    import pandas as pd
+
+    uploaded_file.seek(0)
+    file_bytes = uploaded_file.read()
+
+    ext = "." + uploaded_file.name.rsplit(".", 1)[-1].lower()
+    engine = "xlrd" if ext == ".xls" else "openpyxl"
+
+    # 读取 Excel，不指定 header，先探测表头行
+    df_raw = pd.read_excel(io.BytesIO(file_bytes), engine=engine, header=None, dtype=str)
+
+    # 自动检测表头行：找到第一个非空行且包含 >=3 个非空单元格的行
+    header_row_idx = 0
+    for idx in range(min(10, len(df_raw))):
+        row = df_raw.iloc[idx]
+        non_empty = row.dropna().shape[0]
+        if non_empty >= 3:
+            header_row_idx = idx
+            break
+
+    # 用检测到的表头行重新读取
+    df = pd.read_excel(io.BytesIO(file_bytes), engine=engine, header=header_row_idx, dtype=str)
+
+    # 清理列名
+    df.columns = [str(c).strip() if str(c).strip() != "nan" else f"列{i+1}" for i, c in enumerate(df.columns)]
+
+    # 去掉全空行
+    df = df.dropna(how="all").reset_index(drop=True)
+
+    base_name = Path(uploaded_file.name).stem
+    results: list[tuple[str, str]] = []
+
+    for row_idx, row in df.iterrows():
+        # 跳过全空行
+        non_null = row.dropna()
+        if non_null.empty or all(str(v).strip() in ("", "nan", "None") for v in row.values):
+            continue
+
+        # 格式化为 "列名: 值" 文本
+        lines: list[str] = []
+        for col_name, value in row.items():
+            val_str = str(value).strip()
+            if val_str in ("", "nan", "None"):
+                continue
+            lines.append(f"{col_name}: {val_str}")
+
+        if not lines:
+            continue
+
+        text_content = "\n".join(lines)
+        file_name = f"{base_name}_第{row_idx + 1}行.txt"
+        results.append((file_name, text_content))
+
+    logger.info("Excel 拆分完成: %s → %d 行", uploaded_file.name, len(results))
+    return results
 
 
 class BatchAnalysisService:
@@ -31,6 +108,8 @@ class BatchAnalysisService:
     ) -> BatchJob:
         """创建批量分析任务
 
+        支持 .doc/.docx（每文件 = 一个 item）和 .xls/.xlsx（每行 = 一个 item）。
+
         Args:
             session_id: 关联的工作台会话 ID
             prompt: 分析要求
@@ -41,18 +120,35 @@ class BatchAnalysisService:
         Returns:
             创建的 BatchJob
         """
+        # 分离 Word 文件和 Excel 文件
+        word_files = [f for f in files if not _is_excel(f.name)]
+        excel_files = [f for f in files if _is_excel(f.name)]
+
+        # Excel 拆分：每行 → 一个 .txt 文件内容
+        excel_items_data: list[tuple[str, str]] = []
+        for ef in excel_files:
+            try:
+                rows = _split_excel_rows(ef)
+                excel_items_data.extend(rows)
+            except Exception:
+                logger.exception("Excel 文件拆分失败: %s", ef.name)
+                # 作为单个文件处理（fallback）
+                word_files.append(ef)
+
+        total = len(word_files) + len(excel_items_data)
+
         job = BatchJob.objects.create(
             session_id=session_id,
             job_type="doc_analysis",
             prompt=prompt,
             llm_model=llm_model,
-            total_items=len(files),
+            total_items=total,
             metadata={"concurrency": concurrency},
         )
 
-        # 创建子项
-        items = []
-        for f in files:
+        # 创建 Word items（原逻辑）
+        items: list[BatchJobItem] = []
+        for f in word_files:
             items.append(
                 BatchJobItem(
                     job=job,
@@ -60,6 +156,14 @@ class BatchAnalysisService:
                     file=f,
                 )
             )
+
+        # 创建 Excel row items（每行一个 .txt 文件）
+        for file_name, text_content in excel_items_data:
+            txt_file = ContentFile(text_content.encode("utf-8"), name=file_name)
+            item = BatchJobItem(job=job, file_name=file_name)
+            item.file.save(file_name, txt_file, save=False)
+            items.append(item)
+
         BatchJobItem.objects.bulk_create(items)
 
         # 提交 Django Q2 任务
