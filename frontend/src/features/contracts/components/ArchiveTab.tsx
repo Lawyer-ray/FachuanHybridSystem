@@ -192,7 +192,7 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
   const requiredTotal = checklist?.required_total_count ?? 0
   const pct = checklist?.completion_percentage ?? 0
   const compactMode = checklist?.compact_archive ?? false
-  const canArchive = requiredDone === requiredTotal && requiredTotal > 0
+  const canArchive = requiredDone === requiredTotal && requiredTotal > 0 && c.status !== 'archived'
 
   const refreshChecklist = useCallback(async () => {
     try {
