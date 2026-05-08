@@ -819,16 +819,20 @@ async def _generate_summary(
     return summary_text
 
 
-async def _generate_detail_zip(
-    job_id: UUID,
-    completed_items: list[BatchJobItem],
-) -> None:
-    """为每个已完成的案例生成独立的 .md 文件，打包为 ZIP。"""
+def build_detail_zip_sync(job_id: UUID) -> bool:
+    """同步生成分析详情 ZIP 并保存到 job.detail_zip_file。
+
+    如果没有已完成的项目则返回 False。
+    """
     import io
     import re
     import zipfile
 
     from django.core.files.base import ContentFile
+
+    completed_items = list(BatchJobItem.objects.filter(job_id=job_id, status=BatchJobStatus.COMPLETED))
+    if not completed_items:
+        return False
 
     zip_buffer = io.BytesIO()
 
@@ -879,11 +883,18 @@ async def _generate_detail_zip(
             zf.writestr(md_filename, md_content.encode("utf-8"))
 
     zip_buffer.seek(0)
-    zip_filename = f"案例分析详情_{job_id.hex[:8]}.zip"
+    hex_str = job_id.hex if isinstance(job_id, UUID) else UUID(str(job_id)).hex
+    zip_filename = f"案例分析详情_{hex_str[:8]}.zip"
     zip_file = ContentFile(zip_buffer.getvalue(), name=zip_filename)
 
-    def _save_zip() -> None:
-        job = BatchJob.objects.get(id=job_id)
-        job.detail_zip_file.save(zip_filename, zip_file, save=True)
+    job = BatchJob.objects.get(id=job_id)
+    job.detail_zip_file.save(zip_filename, zip_file, save=True)
+    return True
 
-    await sync_to_async(_save_zip)()
+
+async def _generate_detail_zip(
+    job_id: UUID,
+    completed_items: list[BatchJobItem],
+) -> None:
+    """为每个已完成的案例生成独立的 .md 文件，打包为 ZIP。"""
+    await sync_to_async(build_detail_zip_sync)(job_id)

@@ -332,6 +332,8 @@ def download_batch_summary(request: Any, job_id: UUID) -> FileResponse:
 @router.get("/batch/{job_id}/download-detail")
 def download_batch_detail_zip(request: Any, job_id: UUID) -> FileResponse:
     """下载批量分析详情 ZIP 文件（每个案例一个 .md 文件）"""
+    from ..tasks import build_detail_zip_sync
+
     try:
         job = BatchJob.objects.get(id=job_id)
     except BatchJob.DoesNotExist:
@@ -339,7 +341,10 @@ def download_batch_detail_zip(request: Any, job_id: UUID) -> FileResponse:
     _get_user_session(request.user, job.session_id)
 
     if not job.detail_zip_file:
-        raise Http404("分析详情文件不存在")
+        # 兼容旧任务：按需生成 ZIP
+        if not build_detail_zip_sync(job_id):
+            raise Http404("分析详情文件不存在")
+        job.refresh_from_db()
 
     return FileResponse(
         job.detail_zip_file.open("rb"),
