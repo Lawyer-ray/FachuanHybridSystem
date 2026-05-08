@@ -86,12 +86,36 @@ const CONFIG_SCHEMAS: Record<string, CategorySchema> = {
   },
   ai: {
     title: 'AI 服务配置',
-    description: 'SiliconFlow API Key、默认模型、Ollama 等 AI 接口参数',
+    description: 'SiliconFlow、Ollama、OpenAI-compatible 等 AI 后端参数，以及全局 LLM 设置',
     fields: [
+      // ── 全局 LLM 设置 ──
+      { key: 'LLM_DEFAULT_BACKEND', label: '默认后端', placeholder: 'siliconflow / ollama / openai_compatible' },
+      { key: 'LLM_TEMPERATURE', label: '生成温度', placeholder: '0.3' },
+      { key: 'LLM_MAX_TOKENS', label: '最大输出 Token', placeholder: '2000' },
+      { key: 'LLM_EXTRA_MODELS', label: '额外模型列表', placeholder: 'model1,model2', fullWidth: true },
+      // ── SiliconFlow ──
       { key: 'SILICONFLOW_API_KEY', label: 'SiliconFlow API Key', secret: true },
-      { key: 'SILICONFLOW_DEFAULT_MODEL', label: '默认模型', placeholder: 'Pro/Qwen/Qwen3-0.6B' },
-      { key: 'OLLAMA_MODEL', label: 'Ollama 模型', placeholder: 'qwen3.5:0.8b' },
+      { key: 'SILICONFLOW_BASE_URL', label: 'SiliconFlow API 地址', placeholder: 'https://api.siliconflow.cn/v1', fullWidth: true },
+      { key: 'SILICONFLOW_DEFAULT_MODEL', label: 'SiliconFlow 默认模型', placeholder: 'Pro/Qwen/Qwen3-0.6B' },
+      { key: 'SILICONFLOW_EMBEDDING_MODEL', label: 'SiliconFlow Embedding 模型' },
+      { key: 'SILICONFLOW_TIMEOUT', label: 'SiliconFlow 超时(秒)', placeholder: '900' },
+      { key: 'LLM_BACKEND_SILICONFLOW_ENABLED', label: '启用 SiliconFlow', placeholder: 'true' },
+      { key: 'LLM_BACKEND_SILICONFLOW_PRIORITY', label: 'SiliconFlow 优先级', placeholder: '1' },
+      // ── Ollama ──
+      { key: 'OLLAMA_BASE_URL', label: 'Ollama 服务地址', placeholder: 'http://localhost:11434', fullWidth: true },
+      { key: 'OLLAMA_MODEL', label: 'Ollama 模型', placeholder: 'qwen3:0.6b' },
+      { key: 'OLLAMA_EMBEDDING_MODEL', label: 'Ollama Embedding 模型' },
+      { key: 'OLLAMA_TIMEOUT', label: 'Ollama 超时(秒)', placeholder: '300' },
+      { key: 'LLM_BACKEND_OLLAMA_ENABLED', label: '启用 Ollama', placeholder: 'true' },
+      { key: 'LLM_BACKEND_OLLAMA_PRIORITY', label: 'Ollama 优先级', placeholder: '2' },
+      // ── OpenAI-compatible ──
       { key: 'OPENAI_COMPATIBLE_API_KEY', label: 'OpenAI-compatible API Key', secret: true },
+      { key: 'OPENAI_COMPATIBLE_BASE_URL', label: 'OpenAI-compatible API 地址', fullWidth: true },
+      { key: 'OPENAI_COMPATIBLE_DEFAULT_MODEL', label: 'OpenAI-compatible 默认模型', placeholder: 'moonshot-v1-8k' },
+      { key: 'OPENAI_COMPATIBLE_EMBEDDING_MODEL', label: 'OpenAI-compatible Embedding 模型' },
+      { key: 'OPENAI_COMPATIBLE_TIMEOUT', label: 'OpenAI-compatible 超时(秒)', placeholder: '120' },
+      { key: 'LLM_BACKEND_OPENAI_COMPATIBLE_ENABLED', label: '启用 OpenAI-compatible', placeholder: 'false' },
+      { key: 'LLM_BACKEND_OPENAI_COMPATIBLE_PRIORITY', label: 'OpenAI-compatible 优先级', placeholder: '3' },
     ],
   },
   ocr: {
@@ -170,6 +194,29 @@ export function ServiceConfig() {
     }
   }, [category])
 
+  // 合并 schema 字段 + 后端返回但 schema 未列出的字段
+  const allFields = useMemo((): FieldSchema[] => {
+    if (category === 'system') return schema.fields
+    const schemaKeys = new Set(schema.fields.map(f => f.key))
+    const extraFromBackend: FieldSchema[] = []
+    if (backendGroups) {
+      for (const group of backendGroups) {
+        if (group.category === category) {
+          for (const item of group.items) {
+            if (!schemaKeys.has(item.key)) {
+              extraFromBackend.push({
+                key: item.key,
+                label: item.description || item.key,
+                secret: item.is_secret,
+              })
+            }
+          }
+        }
+      }
+    }
+    return [...schema.fields, ...extraFromBackend]
+  }, [category, schema.fields, backendGroups])
+
   // 获取字段当前显示值
   const getDisplayValue = (field: FieldSchema): string => {
     if (category === 'system') {
@@ -233,7 +280,7 @@ export function ServiceConfig() {
   }
 
   const isSaving = updateMutation.isPending
-  const hasFields = schema.fields.length > 0
+  const hasFields = allFields.length > 0
 
   return (
     <div className="space-y-4">
@@ -271,7 +318,7 @@ export function ServiceConfig() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 p-6">
-              {schema.fields.map((field) => {
+              {allFields.map((field) => {
                 const isSecret = field.secret
                 const showKey = `show_${field.key}`
                 return (
