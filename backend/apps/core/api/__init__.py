@@ -49,6 +49,26 @@ class SystemConfigUpdateOut(Schema):
     updated_count: int
 
 
+class SystemConfigCreateIn(Schema):
+    key: str
+    value: str = ""
+    category: str = "general"
+    description: str = ""
+    is_secret: bool = False
+
+
+class SystemConfigPatchIn(Schema):
+    value: str | None = None
+    category: str | None = None
+    description: str | None = None
+    is_secret: bool | None = None
+    is_active: bool | None = None
+
+
+class SystemConfigDeleteOut(Schema):
+    success: bool
+
+
 # ─── Endpoints ──────────────────────────────────────────────────────────────────
 
 
@@ -101,3 +121,75 @@ def update_system_configs(request: HttpRequest, payload: SystemConfigUpdateIn) -
             )
         updated += 1
     return {"success": True, "updated_count": updated}
+
+
+@router.post("/system-configs", response=SystemConfigItemOut)
+def create_system_config(request: HttpRequest, payload: SystemConfigCreateIn) -> Any:
+    """创建新的系统配置项。"""
+    from apps.core.services.system_config_service import SystemConfigService
+
+    existing = _repository.get_by_key(payload.key)
+    if existing is not None:
+        from ninja.errors import HttpError
+
+        raise HttpError(409, f"配置项 '{payload.key}' 已存在")
+
+    service = SystemConfigService()
+    config = service.set_value(
+        key=payload.key,
+        value=payload.value,
+        category=payload.category,
+        description=payload.description,
+        is_secret=payload.is_secret,
+    )
+    return SystemConfigItemOut(
+        key=config.key,
+        value="******" if config.is_secret else config.value,
+        category=config.category,
+        description=config.description,
+        is_secret=config.is_secret,
+        is_active=config.is_active,
+    )
+
+
+@router.patch("/system-configs/{key}", response=SystemConfigItemOut)
+def patch_system_config(request: HttpRequest, key: str, payload: SystemConfigPatchIn) -> Any:
+    """更新单个配置项的属性。"""
+    from apps.core.services.system_config_service import SystemConfigService
+
+    config = _repository.get_by_key(key)
+    if config is None:
+        from ninja.errors import HttpError
+
+        raise HttpError(404, f"配置项 '{key}' 不存在")
+
+    service = SystemConfigService()
+    updated = service.update_config(
+        config_id=config.id,
+        value=payload.value,
+        category=payload.category,
+        description=payload.description,
+        is_secret=payload.is_secret,
+        is_active=payload.is_active,
+    )
+    return SystemConfigItemOut(
+        key=updated.key,
+        value="******" if updated.is_secret else updated.value,
+        category=updated.category,
+        description=updated.description,
+        is_secret=updated.is_secret,
+        is_active=updated.is_active,
+    )
+
+
+@router.delete("/system-configs/{key}", response=SystemConfigDeleteOut)
+def delete_system_config(request: HttpRequest, key: str) -> Any:
+    """删除指定的系统配置项。"""
+    config = _repository.get_by_key(key)
+    if config is None:
+        from ninja.errors import HttpError
+
+        raise HttpError(404, f"配置项 '{key}' 不存在")
+
+    _repository.delete(config.id)
+    return {"success": True}

@@ -1,17 +1,28 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
-import { ArrowLeft, Save, Eye, EyeOff, Loader2 } from 'lucide-react'
+import { ArrowLeft, Save, Eye, EyeOff, Loader2, Plus, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
+import {
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { PATHS } from '@/routes/paths'
 import { getApiBaseUrl, getBackendUrl } from '@/lib/api'
-import { useSystemConfigs, useUpdateSystemConfigs } from '../hooks/use-system-configs'
+import {
+  useSystemConfigs, useUpdateSystemConfigs,
+  useCreateSystemConfig, usePatchSystemConfig, useDeleteSystemConfig,
+} from '../hooks/use-system-configs'
 import type { SystemConfigItem } from '../api'
 import { toast } from 'sonner'
 
-// ─── Schema hints：仅提供 UI 优化（标题、描述、label、placeholder、排序），不决定字段列表 ───
+// ─── Category hints：仅提供 UI 优化，不决定字段列表 ───────────────────────────
 
 interface FieldHint {
   label?: string
@@ -22,9 +33,7 @@ interface FieldHint {
 interface CategoryHints {
   title: string
   description: string
-  /** 按 key 提供 UI 提示，后端返回但此处未列出的字段会自动用 description 做 label */
   fields?: Record<string, FieldHint>
-  /** 字段排序 key 列表，未列出的排在末尾 */
   fieldOrder?: string[]
 }
 
@@ -86,10 +95,7 @@ const CATEGORY_HINTS: Record<string, CategoryHints> = {
       EMAIL_USE_TLS: { label: '使用 TLS (true/false)', placeholder: 'false' },
     },
   },
-  court_sms: {
-    title: '法院短信配置',
-    description: '法院短信平台的接口参数配置',
-  },
+  court_sms: { title: '法院短信配置', description: '法院短信平台的接口参数配置' },
   ai: {
     title: 'AI 服务配置',
     description: 'SiliconFlow、Ollama、OpenAI-compatible 等 AI 后端参数，以及全局 LLM 设置',
@@ -145,9 +151,7 @@ const CATEGORY_HINTS: Record<string, CategoryHints> = {
   enterprise_data: {
     title: '企业数据配置',
     description: '天眼查等企业信息查询接口的 API Key',
-    fields: {
-      TIANYANCHA_MCP_API_KEY: { label: '天眼查 MCP API Key' },
-    },
+    fields: { TIANYANCHA_MCP_API_KEY: { label: '天眼查 MCP API Key' } },
   },
   scraper: {
     title: '爬虫配置',
@@ -178,6 +182,26 @@ export function ServiceConfig() {
 
   const { data: backendGroups, isLoading } = useSystemConfigs()
   const updateMutation = useUpdateSystemConfigs()
+  const createMutation = useCreateSystemConfig()
+  const patchMutation = usePatchSystemConfig()
+  const deleteMutation = useDeleteSystemConfig()
+
+  // Dialog state
+  const [createOpen, setCreateOpen] = useState(false)
+  const [editItem, setEditItem] = useState<SystemConfigItem | null>(null)
+  const [deleteKey, setDeleteKey] = useState<string | null>(null)
+
+  // Create form state
+  const [newKey, setNewKey] = useState('')
+  const [newValue, setNewValue] = useState('')
+  const [newDescription, setNewDescription] = useState('')
+  const [newIsSecret, setNewIsSecret] = useState(false)
+
+  // Edit form state
+  const [editValue, setEditValue] = useState('')
+  const [editDescription, setEditDescription] = useState('')
+  const [editIsSecret, setEditIsSecret] = useState(false)
+  const [editIsActive, setEditIsActive] = useState(true)
 
   // 从后端数据构建 key → item 映射
   const backendItemMap = useMemo(() => {
@@ -211,7 +235,6 @@ export function ServiceConfig() {
     const fieldHints = hints?.fields ?? {}
     const fieldOrder = hints?.fieldOrder ?? []
 
-    // 以后端返回的 items 为基础
     const fields = backendItems.map(item => {
       const hint = fieldHints[item.key]
       return {
@@ -223,7 +246,6 @@ export function ServiceConfig() {
       }
     })
 
-    // 按 fieldOrder 排序，未在 order 中的排在末尾
     const orderIndex = new Map(fieldOrder.map((k, i) => [k, i]))
     fields.sort((a, b) => {
       const ai = orderIndex.get(a.key)
@@ -251,18 +273,13 @@ export function ServiceConfig() {
         _API_BASE_URL: getApiBaseUrl(),
       })
     }
-    // 切换类别时清空修改记录
     setModified({})
     setShowSecrets({})
   }, [category])
 
   const getDisplayValue = (key: string): string => {
-    if (category === 'system') {
-      return systemValues[key] ?? ''
-    }
-    if (key in modified) {
-      return modified[key]
-    }
+    if (category === 'system') return systemValues[key] ?? ''
+    if (key in modified) return modified[key]
     return backendItemMap[key]?.value ?? ''
   }
 
@@ -301,7 +318,66 @@ export function ServiceConfig() {
     })
   }
 
-  // 没有 hints 也不影响渲染，只是没有标题描述
+  const handleCreate = () => {
+    if (!newKey.trim()) { toast.error('请输入配置项 Key'); return }
+    createMutation.mutate({
+      key: newKey.trim().toUpperCase(),
+      value: newValue,
+      category: category ?? 'general',
+      description: newDescription,
+      is_secret: newIsSecret,
+    }, {
+      onSuccess: () => {
+        toast.success(`配置项 ${newKey} 已创建`)
+        setCreateOpen(false)
+        setNewKey(''); setNewValue(''); setNewDescription(''); setNewIsSecret(false)
+      },
+      onError: (err) => { toast.error(`创建失败：${err.message}`) },
+    })
+  }
+
+  const openEdit = (item: SystemConfigItem) => {
+    setEditItem(item)
+    setEditValue(item.is_secret ? '' : item.value)
+    setEditDescription(item.description)
+    setEditIsSecret(item.is_secret)
+    setEditIsActive(item.is_active)
+  }
+
+  const handleEdit = () => {
+    if (!editItem) return
+    const data: Partial<SystemConfigItem> = {}
+    if (editDescription !== editItem.description) data.description = editDescription
+    if (editIsSecret !== editItem.is_secret) data.is_secret = editIsSecret
+    if (editIsActive !== editItem.is_active) data.is_active = editIsActive
+    if (!editItem.is_secret && editValue !== editItem.value) data.value = editValue
+    if (editItem.is_secret && editValue) data.value = editValue
+
+    if (Object.keys(data).length === 0) {
+      toast.info('没有需要保存的修改')
+      setEditItem(null)
+      return
+    }
+    patchMutation.mutate({ key: editItem.key, data }, {
+      onSuccess: () => {
+        toast.success('配置项已更新')
+        setEditItem(null)
+      },
+      onError: (err) => { toast.error(`更新失败：${err.message}`) },
+    })
+  }
+
+  const handleDelete = () => {
+    if (!deleteKey) return
+    deleteMutation.mutate(deleteKey, {
+      onSuccess: () => {
+        toast.success(`配置项 ${deleteKey} 已删除`)
+        setDeleteKey(null)
+      },
+      onError: (err) => { toast.error(`删除失败：${err.message}`) },
+    })
+  }
+
   const title = hints?.title ?? category ?? '配置'
   const description = hints?.description ?? ''
   const isSaving = updateMutation.isPending
@@ -318,14 +394,18 @@ export function ServiceConfig() {
           <h1 className="text-xl font-semibold">{title}</h1>
           <Badge variant="outline" className="text-[11px]">{category}</Badge>
         </div>
-        <Button size="sm" onClick={handleSave} disabled={isSaving}>
-          {isSaving ? (
-            <Loader2 className="mr-1.5 size-4 animate-spin" />
-          ) : (
-            <Save className="mr-1.5 size-4" />
+        <div className="flex items-center gap-2">
+          {category !== 'system' && (
+            <Button variant="outline" size="sm" onClick={() => setCreateOpen(true)}>
+              <Plus className="mr-1 size-4" />
+              新增配置
+            </Button>
           )}
-          保存配置
-        </Button>
+          <Button size="sm" onClick={handleSave} disabled={isSaving}>
+            {isSaving ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <Save className="mr-1.5 size-4" />}
+            保存配置
+          </Button>
+        </div>
       </div>
       {description && <p className="text-muted-foreground text-sm">{description}</p>}
 
@@ -336,19 +416,45 @@ export function ServiceConfig() {
             加载中...
           </div>
         ) : renderFields.length === 0 ? (
-          <div className="flex items-center justify-center py-12 text-muted-foreground text-sm">
-            该类别暂无配置项
+          <div className="flex flex-col items-center justify-center py-12 gap-3">
+            <p className="text-muted-foreground text-sm">该类别暂无配置项</p>
+            {category !== 'system' && (
+              <Button variant="outline" size="sm" onClick={() => setCreateOpen(true)}>
+                <Plus className="mr-1 size-4" />新增配置
+              </Button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 p-6">
             {renderFields.map((field) => {
               const showKey = `show_${field.key}`
+              const backendItem = backendItemMap[field.key]
               return (
                 <div
                   key={field.key}
                   className={field.fullWidth ? 'sm:col-span-2 space-y-1.5' : 'space-y-1.5'}
                 >
-                  <Label className="text-xs text-muted-foreground">{field.label}</Label>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs text-muted-foreground">{field.label}</Label>
+                    {backendItem && category !== 'system' && (
+                      <div className="flex items-center gap-1">
+                        <button
+                          className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                          title="编辑配置项"
+                          onClick={() => openEdit(backendItem)}
+                        >
+                          <Pencil className="size-3" />
+                        </button>
+                        <button
+                          className="p-0.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                          title="删除配置项"
+                          onClick={() => setDeleteKey(field.key)}
+                        >
+                          <Trash2 className="size-3" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   <div className="relative">
                     <Input
                       type={field.isSecret && !showSecrets[showKey] ? 'password' : 'text'}
@@ -373,6 +479,120 @@ export function ServiceConfig() {
           </div>
         )}
       </div>
+
+      {/* ── Create Dialog ── */}
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>新增配置项</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>Key</Label>
+              <Input
+                value={newKey}
+                onChange={(e) => setNewKey(e.target.value.toUpperCase())}
+                placeholder="MY_CONFIG_KEY"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>值</Label>
+              <Input
+                type={newIsSecret ? 'password' : 'text'}
+                value={newValue}
+                onChange={(e) => setNewValue(e.target.value)}
+                placeholder="请输入配置值"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>描述</Label>
+              <Input
+                value={newDescription}
+                onChange={(e) => setNewDescription(e.target.value)}
+                placeholder="配置项用途说明"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch checked={newIsSecret} onCheckedChange={setNewIsSecret} />
+              <Label className="text-sm">敏感信息（密码遮罩）</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>取消</Button>
+            <Button onClick={handleCreate} disabled={createMutation.isPending}>
+              {createMutation.isPending && <Loader2 className="mr-1.5 size-4 animate-spin" />}
+              创建
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Edit Dialog ── */}
+      <Dialog open={!!editItem} onOpenChange={(open) => !open && setEditItem(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>编辑配置项</DialogTitle>
+          </DialogHeader>
+          {editItem && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Badge variant="outline">{editItem.key}</Badge>
+                <Badge variant="secondary" className="text-[10px]">{editItem.category}</Badge>
+              </div>
+              <div className="space-y-1.5">
+                <Label>值</Label>
+                <Input
+                  type={editIsSecret ? 'password' : 'text'}
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  placeholder={editItem.is_secret ? '留空则不修改' : '请输入配置值'}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>描述</Label>
+                <Input
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  placeholder="配置项用途说明"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch checked={editIsSecret} onCheckedChange={setEditIsSecret} />
+                <Label className="text-sm">敏感信息（密码遮罩）</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch checked={editIsActive} onCheckedChange={setEditIsActive} />
+                <Label className="text-sm">启用</Label>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditItem(null)}>取消</Button>
+            <Button onClick={handleEdit} disabled={patchMutation.isPending}>
+              {patchMutation.isPending && <Loader2 className="mr-1.5 size-4 animate-spin" />}
+              保存
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Delete Dialog ── */}
+      <AlertDialog open={!!deleteKey} onOpenChange={() => setDeleteKey(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除配置项</AlertDialogTitle>
+            <AlertDialogDescription>
+              删除「{deleteKey}」后无法恢复，相关功能可能受影响。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
+              确认删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
