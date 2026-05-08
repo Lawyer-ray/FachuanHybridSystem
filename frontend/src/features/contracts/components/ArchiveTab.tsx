@@ -613,12 +613,9 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
                 </div>
 
                 {/* Materials sub-items */}
-                {itemMaterials.length > 0 && (
-                  <div
-                    className="overflow-hidden transition-all duration-200"
-                    style={{ maxHeight: isExpanded ? `${itemMaterials.length * 28 + 8}px` : '0px' }}
-                  >
-                    <div className="px-[18px] pb-1">
+                {itemMaterials.length > 0 && isExpanded && (
+                  <div className="border-t border-border/40">
+                    <div className="px-[18px] py-1">
                       <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
                         <SortableContext items={itemMaterials.map(m => m.id)} strategy={verticalListSortingStrategy}>
                           {itemMaterials.map(m => (
