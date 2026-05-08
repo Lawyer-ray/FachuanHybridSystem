@@ -21,6 +21,85 @@ from .party_schemas import ContractPartyIn, ContractPartyOut
 from .payment_schemas import ContractPaymentOut
 from .supplementary_schemas import SupplementaryAgreementInput, SupplementaryAgreementOut
 
+
+class FinalizedMaterialOut(Schema):
+    """归档材料输出 Schema"""
+
+    id: int
+    category: str
+    category_label: str = ""
+    filename: str = ""
+    original_filename: str
+    file_url: str = ""
+    file_size: int | None = None
+    source: str = ""
+    source_label: str = ""
+    order: int = 0
+    archive_item_code: str = ""
+    remark: str = ""
+    uploaded_at: str | None = None
+    created_at: str | None = None
+
+    @staticmethod
+    def resolve_category_label(obj: Any) -> str:
+        try:
+            return str(obj.get_category_display())
+        except (AttributeError, ValueError):
+            return obj.category or ""
+
+    @staticmethod
+    def resolve_filename(obj: Any) -> str:
+        from pathlib import Path
+
+        return Path(obj.file_path).name if obj.file_path else ""
+
+    @staticmethod
+    def resolve_file_url(obj: Any) -> str:
+        from django.conf import settings
+
+        if obj.file_path:
+            media_url = getattr(settings, "MEDIA_URL", "/media/")
+            return f"{media_url}{obj.file_path}"
+        return ""
+
+    @staticmethod
+    def resolve_uploaded_at(obj: Any) -> str | None:
+        if obj.uploaded_at:
+            return str(obj.uploaded_at.isoformat())
+        return None
+
+    @staticmethod
+    def resolve_created_at(obj: Any) -> str | None:
+        if hasattr(obj, "created_at") and obj.created_at:
+            return str(obj.created_at.isoformat())
+        return None
+
+
+class ClientPaymentRecordOut(Schema):
+    """客户回款记录输出 Schema"""
+
+    id: int
+    contract: int
+    amount: float
+    image_path: str | None = None
+    note: str | None = None
+    created_at: str | None = None
+
+    @staticmethod
+    def resolve_contract(obj: Any) -> int:
+        return int(obj.contract_id)
+
+    @staticmethod
+    def resolve_amount(obj: Any) -> float:
+        return float(obj.amount or 0)
+
+    @staticmethod
+    def resolve_created_at(obj: Any) -> str | None:
+        if obj.created_at:
+            return str(obj.created_at.isoformat())
+        return None
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -140,6 +219,10 @@ class ContractOut(ModelSchema):
     matched_document_template: str | None = None
     matched_folder_templates: str | None = None
     has_matched_templates: bool = False
+    # 归档与客户回款
+    client_payment_records: list[ClientPaymentRecordOut] = []
+    finalized_materials: list[FinalizedMaterialOut] = []
+    can_archive: bool = False
 
     class Meta:
         model = Contract
@@ -152,11 +235,14 @@ class ContractOut(ModelSchema):
             "start_date",
             "end_date",
             "is_filed",
+            "filing_number",
             "fee_mode",
             "fixed_amount",
             "risk_rate",
             "custom_terms",
             "representation_stages",
+            "law_firm_oa_url",
+            "law_firm_oa_case_number",
         ]
 
     @staticmethod
@@ -280,6 +366,44 @@ class ContractOut(ModelSchema):
     @staticmethod
     def resolve_has_matched_templates(obj: Contract) -> bool:
         return bool(getattr(obj, "_computed_has_matched_templates", False))
+
+    @staticmethod
+    def resolve_client_payment_records(obj: Contract) -> list[Any]:
+        try:
+            return list(obj.client_payment_records.all())
+        except Exception:
+            logger.exception("操作失败")
+            return []
+
+    @staticmethod
+    def resolve_finalized_materials(obj: Contract) -> list[Any]:
+        try:
+            return list(obj.finalized_materials.all())
+        except Exception:
+            logger.exception("操作失败")
+            return []
+
+    @staticmethod
+    def resolve_can_archive(obj: Contract) -> bool:
+        try:
+            from apps.contracts.models.finalized_material import MaterialCategory
+
+            required_categories = {
+                MaterialCategory.CONTRACT_ORIGINAL,
+                MaterialCategory.ARCHIVE_DOCUMENT,
+                MaterialCategory.AUTHORIZATION_MATERIAL,
+            }
+            existing = set(
+                obj.finalized_materials.filter(
+                    category__in=required_categories,
+                )
+                .values_list("category", flat=True)
+                .distinct()
+            )
+            return required_categories.issubset(existing)
+        except Exception:
+            logger.exception("操作失败")
+            return False
 
 
 class ContractUpdate(Schema):

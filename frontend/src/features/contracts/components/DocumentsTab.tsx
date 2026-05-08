@@ -130,16 +130,29 @@ export function DocumentsTab({ contract: c }: { contract: Contract }) {
           <p className="text-muted-foreground text-[13px]">暂无提醒</p>
         ) : (
           <div className="flex flex-col gap-2">
-            {c.reminders.map(r => (
-              <div
-                key={r.id}
-                className="flex items-center gap-3 rounded-md border border-border/60 bg-muted/30 px-3 py-2.5 text-[13px]"
-              >
-                <Badge variant="outline" className="text-[11px] px-2 py-0.5">{r.title}</Badge>
-                <span className="flex-1" />
-                <span className="text-muted-foreground text-xs font-mono">{r.due_date || ''}</span>
-              </div>
-            ))}
+            {c.reminders.map(r => {
+              const today = new Date()
+              const dueDate = r.due_at ? new Date(r.due_at) : null
+              const isOverdue = dueDate ? dueDate < today : false
+              const isSoon = dueDate ? !isOverdue && (dueDate.getTime() - today.getTime()) < 7 * 24 * 60 * 60 * 1000 : false
+
+              return (
+                <div
+                  key={r.id}
+                  className="flex items-center gap-3 rounded-md border border-border/60 bg-muted/30 px-3 py-2.5 text-[13px]"
+                >
+                  <Badge variant="outline" className="text-[11px] px-2 py-0.5">{r.reminder_type_label || r.content}</Badge>
+                  <span className="flex-1 text-muted-foreground text-xs">{r.content}</span>
+                  {isOverdue && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-50 text-red-700">已过期</span>
+                  )}
+                  {isSoon && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 text-amber-700">即将到期</span>
+                  )}
+                  <span className="text-muted-foreground text-xs font-mono">{r.due_at?.slice(0, 10) || ''}</span>
+                </div>
+              )
+            })}
           </div>
         )}
       </DetailCard>

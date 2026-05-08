@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import {
   ArrowLeft, Edit, Trash2, FileWarning,
   MoreHorizontal, FileText, Briefcase, Copy, RefreshCw, Loader2,
+  User, Scale,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -16,6 +17,9 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import {
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
+} from '@/components/ui/sheet'
 import { PATHS, generatePath } from '@/routes/paths'
 
 import { useContract } from '../hooks/use-contract'
@@ -29,6 +33,7 @@ import { ArchiveTab } from './ArchiveTab'
 import {
   FEE_MODE_LABELS, CONTRACT_STATUS_LABELS, CASE_TYPE_LABELS,
   type FeeMode, type ContractStatus, type CaseType,
+  type ContractParty, type ContractAssignment,
 } from '../types'
 
 export interface ContractDetailProps { contractId: string }
@@ -103,6 +108,8 @@ export function ContractDetail({ contractId }: ContractDetailProps) {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [activeTab, setActiveTab] = useState('basic')
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [selectedParty, setSelectedParty] = useState<ContractParty | null>(null)
+  const [selectedLawyer, setSelectedLawyer] = useState<ContractAssignment | null>(null)
 
   const handleBack = useCallback(() => navigate(PATHS.ADMIN_CONTRACTS), [navigate])
   const handleEdit = useCallback(() => navigate(generatePath.contractEdit(contractId)), [navigate, contractId])
@@ -300,6 +307,7 @@ export function ContractDetail({ contractId }: ContractDetailProps) {
                     <div key={cs.id} className="flex items-center gap-3 rounded-md border border-border/60 bg-muted/30 px-3 py-3 text-[13px]">
                       <Briefcase className="text-muted-foreground size-3.5 shrink-0" />
                       <span className="font-medium flex-1 truncate">{cs.name}</span>
+                      {cs.cause_of_action && <span className="text-muted-foreground text-xs shrink-0">{cs.cause_of_action}</span>}
                       {cs.status_label && <Badge variant="outline" className="text-[11px] px-2 py-0.5 shrink-0">{cs.status_label}</Badge>}
                       {cs.target_amount != null && <span className="text-muted-foreground shrink-0">¥{cs.target_amount.toLocaleString()}</span>}
                     </div>
@@ -321,9 +329,17 @@ export function ContractDetail({ contractId }: ContractDetailProps) {
               ) : (
                 <div className="flex flex-col gap-2">
                   {contract.contract_parties.map((p) => (
-                    <div key={p.id} className="flex items-center gap-3 rounded-md border border-border/60 bg-muted/30 px-3 py-3 text-[13px]">
+                    <div
+                      key={p.id}
+                      className="flex items-center gap-3 rounded-md border border-border/60 bg-muted/30 px-3 py-3 text-[13px] cursor-pointer hover:bg-muted/60 transition-colors"
+                      onClick={() => setSelectedParty(p)}
+                    >
+                      <User className="size-3.5 text-muted-foreground shrink-0" />
                       <span className="font-semibold flex-1">{p.client_detail.name}</span>
                       <Badge variant="outline" className="text-[11px] px-2 py-0.5">{p.role_label}</Badge>
+                      <Badge variant={p.client_detail.is_our_client ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0">
+                        {p.client_detail.is_our_client ? '我方' : '对方'}
+                      </Badge>
                     </div>
                   ))}
                 </div>
@@ -336,7 +352,12 @@ export function ContractDetail({ contractId }: ContractDetailProps) {
               ) : (
                 <div className="flex flex-col gap-2">
                   {contract.assignments.map((a) => (
-                    <div key={a.id} className="flex items-center gap-3 rounded-md border border-border/60 bg-muted/30 px-3 py-3 text-[13px]">
+                    <div
+                      key={a.id}
+                      className="flex items-center gap-3 rounded-md border border-border/60 bg-muted/30 px-3 py-3 text-[13px] cursor-pointer hover:bg-muted/60 transition-colors"
+                      onClick={() => setSelectedLawyer(a)}
+                    >
+                      <User className="size-3.5 text-muted-foreground shrink-0" />
                       <span className="font-semibold flex-1">{a.lawyer_name}</span>
                       <Badge variant={a.is_primary ? 'default' : 'secondary'} className="text-[11px] px-2 py-0.5">
                         {a.is_primary ? '主办' : '协办'}
@@ -352,6 +373,171 @@ export function ContractDetail({ contractId }: ContractDetailProps) {
                 <SupplementaryAgreementList contractId={contract.id} agreements={contract.supplementary_agreements} />
               </DetailCard>
             )}
+
+            {/* Party Detail Sheet */}
+            <Sheet open={!!selectedParty} onOpenChange={(open) => !open && setSelectedParty(null)}>
+              <SheetContent className="sm:max-w-md">
+                <SheetHeader className="pb-0">
+                  <SheetTitle className="text-base">{selectedParty?.client_detail.name}</SheetTitle>
+                  <SheetDescription>
+                    {selectedParty?.client_detail.client_type_label}
+                  </SheetDescription>
+                </SheetHeader>
+                {selectedParty && (() => {
+                  const d = selectedParty.client_detail
+                  const isNatural = d.client_type === 'natural'
+                  const CopyableField = ({ label, value }: { label: string; value: string | null | undefined }) => {
+                    if (!value) return null
+                    return (
+                      <div className="flex items-center justify-between py-2.5 border-b border-border/40 last:border-b-0">
+                        <span className="text-xs text-muted-foreground shrink-0 w-24">{label}</span>
+                        <span className="text-[13px] font-mono text-right flex-1 min-w-0 truncate">{value}</span>
+                        <button
+                          className="ml-2 p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                          onClick={() => { navigator.clipboard.writeText(value); toast.success('已复制') }}
+                        >
+                          <Copy className="size-3" />
+                        </button>
+                      </div>
+                    )
+                  }
+
+                  return (
+                    <div className="mt-4 flex flex-col h-full">
+                      {/* Badges */}
+                      <div className="flex items-center gap-2 mb-4 px-1">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                          d.is_our_client ? 'bg-primary/10 text-primary' : 'bg-orange-50 text-orange-700'
+                        }`}>
+                          {d.is_our_client ? '我方当事人' : '对方当事人'}
+                        </span>
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground">
+                          {selectedParty.role_label}
+                        </span>
+                      </div>
+
+                      {/* Fields */}
+                      <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-1 mb-4">
+                        <CopyableField label="主体类型" value={d.client_type_label} />
+                        <CopyableField label="当事人角色" value={selectedParty.role_label} />
+                        <CopyableField label={isNatural ? '身份证号码' : '统一社会信用代码'} value={d.id_number} />
+                        <CopyableField label="联系电话" value={d.phone} />
+                        <CopyableField label="住所地" value={d.address} />
+                      </div>
+
+                      {/* Legal Representative Section */}
+                      {!isNatural && d.legal_representative && (
+                        <>
+                          <div className="flex items-center gap-2 mb-3 px-1">
+                            <Scale className="size-3.5 text-muted-foreground" />
+                            <span className="text-xs font-semibold text-foreground">
+                              {d.client_type === 'legal' ? '法定代表人信息' : '负责人信息'}
+                            </span>
+                          </div>
+                          <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-1 mb-4">
+                            <CopyableField label="姓名" value={d.legal_representative} />
+                            <CopyableField label="身份证号码" value={d.legal_representative_id_number} />
+                          </div>
+                        </>
+                      )}
+
+                      {/* Copy All Button */}
+                      <div className="mt-auto pt-3 border-t border-border/40 flex justify-end">
+                        <button
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-md transition-colors"
+                          onClick={() => {
+                            const lines = isNatural
+                              ? [
+                                  d.name ? `姓名：${d.name}` : null,
+                                  d.id_number ? `身份证号码：${d.id_number}` : null,
+                                  d.phone ? `联系电话：${d.phone}` : null,
+                                  d.address ? `住所地：${d.address}` : null,
+                                ]
+                              : [
+                                  d.name ? `名称：${d.name}` : null,
+                                  d.id_number ? `统一社会信用代码：${d.id_number}` : null,
+                                  d.legal_representative ? `法定代表人：${d.legal_representative}` : null,
+                                  d.phone ? `联系电话：${d.phone}` : null,
+                                  d.address ? `住所地：${d.address}` : null,
+                                ]
+                            const text = lines.filter(Boolean).join('\n')
+                            if (text) { navigator.clipboard.writeText(text); toast.success('已复制全部信息') }
+                          }}
+                        >
+                          <Copy className="size-3" />复制全部
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })()}
+              </SheetContent>
+            </Sheet>
+
+            {/* Lawyer Detail Sheet */}
+            <Sheet open={!!selectedLawyer} onOpenChange={(open) => !open && setSelectedLawyer(null)}>
+              <SheetContent className="sm:max-w-md">
+                <SheetHeader className="pb-0">
+                  <SheetTitle className="text-base">{selectedLawyer?.lawyer_name}</SheetTitle>
+                  <SheetDescription>
+                    {selectedLawyer?.is_primary ? '主办律师' : '协办律师'}
+                  </SheetDescription>
+                </SheetHeader>
+                {selectedLawyer && (
+                  <div className="mt-4 flex flex-col h-full">
+                    {/* Badge */}
+                    <div className="flex items-center gap-2 mb-4 px-1">
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                        selectedLawyer.is_primary ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+                      }`}>
+                        {selectedLawyer.is_primary ? '主办律师' : '协办律师'}
+                      </span>
+                    </div>
+
+                    {/* Fields */}
+                    <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-1 mb-4">
+                      <div className="flex items-center justify-between py-2.5 border-b border-border/40">
+                        <span className="text-xs text-muted-foreground shrink-0 w-24">姓名</span>
+                        <span className="text-[13px] text-right flex-1 min-w-0 truncate">{selectedLawyer.lawyer_name}</span>
+                        <button
+                          className="ml-2 p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                          onClick={() => { navigator.clipboard.writeText(selectedLawyer.lawyer_name); toast.success('已复制') }}
+                        >
+                          <Copy className="size-3" />
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between py-2.5 border-b border-border/40 last:border-b-0">
+                        <span className="text-xs text-muted-foreground shrink-0 w-24">律师 ID</span>
+                        <span className="text-[13px] font-mono text-right flex-1 min-w-0 truncate">{selectedLawyer.lawyer_id}</span>
+                        <button
+                          className="ml-2 p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                          onClick={() => { navigator.clipboard.writeText(String(selectedLawyer.lawyer_id)); toast.success('已复制') }}
+                        >
+                          <Copy className="size-3" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Copy All Button */}
+                    <div className="mt-auto pt-3 border-t border-border/40 flex justify-end">
+                      <button
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-md transition-colors"
+                        onClick={() => {
+                          const lines = [
+                            `姓名：${selectedLawyer.lawyer_name}`,
+                            `角色：${selectedLawyer.is_primary ? '主办律师' : '协办律师'}`,
+                            `律师 ID：${selectedLawyer.lawyer_id}`,
+                          ].join('\n')
+                          navigator.clipboard.writeText(lines)
+                          toast.success('已复制全部信息')
+                        }}
+                      >
+                        <Copy className="size-3" />复制全部
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </SheetContent>
+            </Sheet>
           </motion.div>
         )}
 

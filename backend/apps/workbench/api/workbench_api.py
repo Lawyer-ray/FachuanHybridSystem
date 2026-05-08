@@ -397,7 +397,7 @@ async def stream_batch_progress(request: Any, job_id: UUID) -> StreamingHttpResp
         job = await BatchJob.objects.aget(id=job_id)
     except BatchJob.DoesNotExist:
         raise Http404("任务不存在")
-    _get_user_session(request.user, job.session_id)
+    await sync_to_async(_get_user_session)(request.user, job.session_id)
 
     async def event_generator() -> Any:
         from django.core.cache import cache

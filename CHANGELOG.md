@@ -2,6 +2,85 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.46.3] - 2026-05-08
+
+### 前端
+
+#### 新功能
+
+- **归档检查清单动态化**：对接后端归档检查清单 API，显示各项完成状态、材料数量、必需/可选标记
+- **归档材料拖拽排序**：使用 @dnd-kit 实现子项拖拽排序，支持乐观更新
+- **归档材料跨项移动**：每个子项可选择移动到其他归档清单项
+- **归档材料预览与下载**：支持预览单个材料 PDF、下载归档项，模板项预览替换词而非 PDF
+- **归档工具栏**：从合同文件夹同步、生成归档文件夹、学习分类规则、从案件材料同步、缩放至 A4
+- **精简/完整视图切换**：归档清单支持精简模式（仅显示已完成项）和完整模式
+- **一键清空归档材料**：带确认对话框
+
+#### 修复
+
+- **归档检查清单顺序**：保持后端 API 返回的原始顺序，不再重排
+- **归档清单计数逻辑**：模板项不计入完成数，与后端一致
+- **归档下载文件名**：从 Content-Disposition 头提取 UTF-8 编码文件名
+- **确认归档按钮**：已归档合同不再显示
+- **Favicon 404**：添加空 favicon 避免控制台报错
+- **Dialog 无障碍警告**：补充 DialogDescription 消除 aria-describedby 警告
+- **archive_api.py Schema 顺序**：修复 Ninja Schema 定义顺序错误
+
+#### 优化
+
+- **展开/收起动画性能**：改用 ref 直接操作 DOM（grid-template-rows），消除 React 重渲染卡顿
+- **拖拽排序体验**：改用乐观更新，避免组件重渲染导致位置跳动
+
+### 后端
+
+#### 新功能
+
+- **归档材料 Ninja API**：补充排序（reorder）、移动（move）、预览（preview）、清空（clear-all）、下载（download-item）等端点
+- **学习分类规则 API**：新增 `archive/learn-rules` 端点，从已归档合同学习材料分类规则
+- **检查清单 source 字段**：材料详情新增 `source` 和 `source_label` 字段，标识材料来源（合同/案件/上传/自动生成）
+
+## [26.46.2] - 2026-05-08
+
+### 前端
+
+#### 新功能
+
+- **合同详情页当事人/律师详情抽屉**：点击当事人或律师可展开详情面板，显示身份证号、电话、地址、法定代表人等信息，支持一键复制
+- **合同详情页关联案件显示案由**：基本信息 tab 关联案件列表新增案由（cause_of_action）显示
+- **合同详情页收款记录展开发票**：收款记录行可展开查看关联发票列表
+- **合同详情页 OA 立案对接**：立案标签页对接后端 OA 立案 API，支持选择 OA 系统执行立案并轮询状态
+- **归档标签页重写**：对齐后端归档检查清单布局，支持材料排序、跨归档项移动、一键清空、预览下载
+- **系统配置完整 CRUD**：配置页支持新增、编辑、删除配置项（对话框交互），敏感字段显示已设置/未设置状态
+- **AI 配置页分组显示**：按全局 LLM 设置 / SiliconFlow / Ollama / OpenAI-compatible 四组展示，统一两列布局
+- **配置页动态渲染**：所有配置页以后端 API 为数据源，前端 CATEGORY_HINTS 仅提供 UI 优化
+
+#### 修复
+
+- **Reminder 字段名不匹配**：types.ts 和 DocumentsTab 中 `title` → `content`、`due_date` → `due_at`
+- **当事人/律师复制全部按钮样式**：改为轻量 ghost 风格，不再全宽填充
+
+#### 优化
+
+- **移除立案标签页建档信息卡片**：精简立案页面布局
+
+### 后端
+
+#### 新功能
+
+- **归档材料 Ninja API**：新增 `archive_api.py`，支持排序（reorder）、移动（move）、预览（preview）、清空（clear-all）四个端点
+- **系统配置完整 CRUD API**：新增 POST（创建）、PATCH（更新属性）、DELETE（删除）端点，响应包含 `has_value` 字段
+
+#### 修复
+
+- **ClientPaymentRecordOut FK 错误**：`resolve_contract` 返回 `int(obj.contract_id)` 而非 ORM 对象
+- **mypy isoformat() 类型错误**：`isoformat()` 返回值显式 `str()` 包装
+- **ContractOut 缺少字段**：补充 `filing_number`、`law_firm_oa_url`、`law_firm_oa_case_number`、`client_payment_records`、`finalized_materials`、`can_archive`
+
+#### 数据变更
+
+- **AI 配置分类合并**：`llm` 分类的 6 个配置项合并到 `ai` 分类
+- **OPENAI_COMPATIBLE_API_KEY 标记为敏感字段**
+
 ## [26.46.1] - 2026-05-08
 
 ### 前端
