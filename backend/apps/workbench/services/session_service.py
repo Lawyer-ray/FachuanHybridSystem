@@ -67,25 +67,31 @@ class WorkbenchSessionService(PermissionMixin):
         session_ids = [item.id for item in items]
         message_stats: dict[int, dict[str, int]] = {}
         if session_ids:
+            # 单次查询获取所有消息的统计信息（避免 N+1）
             stats = (
                 WorkbenchMessage.objects.filter(session_id__in=session_ids)
                 .values("session_id")
                 .annotate(message_count=Count("id"))
             )
-            for stat in stats:
-                sid = stat["session_id"]
-                messages = WorkbenchMessage.objects.filter(session_id=sid).values(
-                    "content", "tool_input", "tool_output", "metadata"
-                )
-                total_bytes = 0
-                for msg in messages:
-                    total_bytes += len((msg["content"] or "").encode("utf-8"))
-                    total_bytes += len(str(msg["tool_input"] or {}).encode("utf-8"))
-                    total_bytes += len(str(msg["tool_output"] or {}).encode("utf-8"))
-                    total_bytes += len(str(msg["metadata"] or {}).encode("utf-8"))
+            count_map: dict[int, int] = {s["session_id"]: s["message_count"] for s in stats}
+
+            # 单次查询获取所有消息的 storage 数据
+            all_messages = WorkbenchMessage.objects.filter(session_id__in=session_ids).values(
+                "session_id", "content", "tool_input", "tool_output", "metadata"
+            )
+            storage_map: dict[int, int] = {}
+            for msg in all_messages:
+                sid = msg["session_id"]
+                total_bytes = len((msg["content"] or "").encode("utf-8"))
+                total_bytes += len(str(msg["tool_input"] or {}).encode("utf-8"))
+                total_bytes += len(str(msg["tool_output"] or {}).encode("utf-8"))
+                total_bytes += len(str(msg["metadata"] or {}).encode("utf-8"))
+                storage_map[sid] = storage_map.get(sid, 0) + total_bytes
+
+            for sid in session_ids:
                 message_stats[sid] = {
-                    "message_count": stat["message_count"],
-                    "storage_bytes": total_bytes,
+                    "message_count": count_map.get(sid, 0),
+                    "storage_bytes": storage_map.get(sid, 0),
                 }
 
         result = []
