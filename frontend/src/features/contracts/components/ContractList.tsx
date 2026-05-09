@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -20,13 +20,13 @@ export function ContractList() {
   const [feeMode, setFeeMode] = useState<FeeMode | undefined>()
   const [isFiled, setIsFiled] = useState<boolean | undefined>()
 
-  const filters = {
+  const filters = useMemo(() => ({
     case_type: caseType,
     status,
     search: search || undefined,
     fee_mode: feeMode,
     is_filed: isFiled,
-  }
+  }), [caseType, status, search, feeMode, isFiled])
 
   const { data, isLoading, page, setPage, withPageReset } = usePaginatedList<Contract, typeof filters>({
     queryKey: 'contracts',

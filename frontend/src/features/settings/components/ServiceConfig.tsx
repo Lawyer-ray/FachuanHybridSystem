@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
-import { ArrowLeft, Save, Eye, EyeOff, Loader2, Plus, Pencil, Trash2, Lock, ShieldCheck, ShieldOff } from 'lucide-react'
+import { ArrowLeft, Save, Eye, EyeOff, Loader2, Plus, Pencil, Trash2, Lock, ShieldCheck, ShieldOff, Wifi, WifiOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -41,6 +41,10 @@ export function ServiceConfig() {
   const [createOpen, setCreateOpen] = useState(false)
   const [editItem, setEditItem] = useState<SystemConfigItem | null>(null)
   const [deleteKey, setDeleteKey] = useState<string | null>(null)
+
+  // 连通性测试状态
+  const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle')
+  const [testMessage, setTestMessage] = useState('')
 
   // Create form state
   const [newKey, setNewKey] = useState('')
@@ -151,6 +155,44 @@ export function ServiceConfig() {
   // system 类别：从 localStorage 读取
   const [systemValues, setSystemValues] = useState<Record<string, string>>({})
 
+  const handleTestConnection = useCallback(async () => {
+    const backendUrl = category === 'system' ? systemValues._BACKEND_URL?.trim() : getBackendUrl()
+    if (!backendUrl) {
+      setTestStatus('error')
+      setTestMessage('请先填写后端地址')
+      return
+    }
+
+    setTestStatus('testing')
+    setTestMessage('')
+
+    try {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 5000)
+
+      const response = await fetch(`${backendUrl}/api/v1/health`, {
+        signal: controller.signal,
+      })
+      clearTimeout(timeout)
+
+      if (response.ok) {
+        const data = await response.json()
+        setTestStatus('success')
+        setTestMessage(`连接成功 (${data.status || 'ok'})`)
+      } else {
+        setTestStatus('error')
+        setTestMessage(`连接失败 (HTTP ${response.status})`)
+      }
+    } catch (err) {
+      setTestStatus('error')
+      if (err instanceof Error && err.name === 'AbortError') {
+        setTestMessage('连接超时 (5秒)')
+      } else {
+        setTestMessage('无法连接到后端服务')
+      }
+    }
+  }, [category, systemValues._BACKEND_URL])
+
   useEffect(() => {
     if (category === 'system') {
       setSystemValues({
@@ -160,6 +202,8 @@ export function ServiceConfig() {
     }
     setModified({})
     setShowSecrets({})
+    setTestStatus('idle')
+    setTestMessage('')
   }, [category])
 
   const getDisplayValue = (key: string): string => {
@@ -280,6 +324,25 @@ export function ServiceConfig() {
           <Badge variant="outline" className="text-[11px]">{category}</Badge>
         </div>
         <div className="flex items-center gap-2">
+          {category === 'system' && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleTestConnection}
+              disabled={testStatus === 'testing'}
+            >
+              {testStatus === 'testing' ? (
+                <Loader2 className="mr-1 size-4 animate-spin" />
+              ) : testStatus === 'success' ? (
+                <Wifi className="mr-1 size-4 text-emerald-500" />
+              ) : testStatus === 'error' ? (
+                <WifiOff className="mr-1 size-4 text-destructive" />
+              ) : (
+                <Wifi className="mr-1 size-4" />
+              )}
+              测试连通性
+            </Button>
+          )}
           {category !== 'system' && (
             <Button variant="outline" size="sm" onClick={() => setCreateOpen(true)}>
               <Plus className="mr-1 size-4" />
@@ -293,6 +356,11 @@ export function ServiceConfig() {
         </div>
       </div>
       {description && <p className="text-muted-foreground text-sm">{description}</p>}
+      {category === 'system' && testMessage && (
+        <p className={`text-sm ${testStatus === 'success' ? 'text-emerald-600' : testStatus === 'error' ? 'text-destructive' : 'text-muted-foreground'}`}>
+          {testMessage}
+        </p>
+      )}
 
       <div className="border border-border rounded-lg overflow-hidden">
         {isLoading && category !== 'system' ? (

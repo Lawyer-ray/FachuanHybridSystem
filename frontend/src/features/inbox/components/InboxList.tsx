@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router'
 import { RefreshCw, Settings2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -17,10 +17,10 @@ export function InboxList() {
   const [search, setSearch] = useState('')
   const [hasAttachments, setHasAttachments] = useState('all')
 
-  const filters = {
+  const filters = useMemo(() => ({
     search: search || undefined,
     has_attachments: hasAttachments === 'all' ? undefined : hasAttachments === 'true',
-  }
+  }), [search, hasAttachments])
 
   const { data, isLoading, page, setPage, withPageReset } = usePaginatedList<InboxMessage, typeof filters>({
     queryKey: 'inbox-messages',

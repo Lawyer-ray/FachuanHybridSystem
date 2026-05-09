@@ -7,7 +7,7 @@
  * - 实现新建按钮
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router'
 import { Plus } from 'lucide-react'
 
@@ -30,11 +30,11 @@ export function ClientList() {
   const [clientType, setClientType] = useState<ClientType | undefined>(undefined)
   const [isOurClient, setIsOurClient] = useState<boolean | undefined>(undefined)
 
-  const filters = {
+  const filters = useMemo(() => ({
     search: search || undefined,
     client_type: clientType,
     is_our_client: isOurClient,
-  }
+  }), [search, clientType, isOurClient])
 
   const { data, isLoading, page, setPage, withPageReset } = usePaginatedList<Client, typeof filters>({
     queryKey: 'clients',

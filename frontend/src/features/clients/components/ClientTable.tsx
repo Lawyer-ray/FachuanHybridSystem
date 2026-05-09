@@ -2,6 +2,7 @@
  * ClientTable - 当事人列表表格组件
  */
 
+import { useCallback, memo } from 'react'
 import { useNavigate } from 'react-router'
 import { copyToClipboard } from '@/lib/clipboard'
 import { Users, User, Building2, Landmark, Copy } from 'lucide-react'
@@ -68,12 +69,60 @@ function formatPhone(phone: string | null): string {
   return `${phone.slice(0, 3)}****${phone.slice(-4)}`
 }
 
+const ClientRow = memo(function ClientRow({ client, onRowClick }: { client: Client; onRowClick: (client: Client) => void }) {
+  const cfg = TYPE_CONFIG[client.client_type] || TYPE_CONFIG.natural
+  const Icon = cfg.icon
+
+  const handleCopy = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    copyToClipboard(formatClientText(client), '已复制当事人信息')
+  }, [client])
+
+  return (
+    <TableRow
+      onClick={() => onRowClick(client)}
+      className="h-11 cursor-pointer hover:bg-muted/50 transition-colors sm:h-auto"
+    >
+      <TableCell className="text-muted-foreground text-xs sm:text-sm">{client.id}</TableCell>
+      <TableCell>
+        <div className="flex items-center gap-2">
+          <Icon className={`size-4 shrink-0 ${cfg.color}`} />
+          <span className="text-xs font-medium sm:text-sm">{client.name}</span>
+          <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none ${
+            client.is_our_client
+              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400'
+              : 'bg-slate-100 text-slate-500 dark:bg-slate-500/10 dark:text-slate-400'
+          }`}>
+            {client.is_our_client ? '我方' : '对方'}
+          </span>
+        </div>
+      </TableCell>
+      <TableCell className="text-muted-foreground font-mono text-xs sm:text-sm">
+        {formatIdNumber(client.id_number)}
+      </TableCell>
+      <TableCell className="text-muted-foreground font-mono text-xs sm:text-sm">
+        {formatPhone(client.phone)}
+      </TableCell>
+      <TableCell>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-8"
+          onClick={handleCopy}
+        >
+          <Copy className="size-3.5" />
+        </Button>
+      </TableCell>
+    </TableRow>
+  )
+})
+
 export function ClientTable({ clients, isLoading = false }: ClientTableProps) {
   const navigate = useNavigate()
 
-  const handleRowClick = (client: Client) => {
+  const handleRowClick = useCallback((client: Client) => {
     navigate(generatePath.clientDetail(client.id))
-  }
+  }, [navigate])
 
   return (
     <div className="overflow-x-auto rounded-md border">
@@ -93,51 +142,9 @@ export function ClientTable({ clients, isLoading = false }: ClientTableProps) {
           ) : clients.length === 0 ? (
             <EmptyState />
           ) : (
-            clients.map((client) => {
-              const cfg = TYPE_CONFIG[client.client_type] || TYPE_CONFIG.natural
-              const Icon = cfg.icon
-              return (
-                <TableRow
-                  key={client.id}
-                  onClick={() => handleRowClick(client)}
-                  className="h-11 cursor-pointer hover:bg-muted/50 transition-colors sm:h-auto"
-                >
-                  <TableCell className="text-muted-foreground text-xs sm:text-sm">{client.id}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Icon className={`size-4 shrink-0 ${cfg.color}`} />
-                      <span className="text-xs font-medium sm:text-sm">{client.name}</span>
-                      <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none ${
-                        client.is_our_client
-                          ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400'
-                          : 'bg-slate-100 text-slate-500 dark:bg-slate-500/10 dark:text-slate-400'
-                      }`}>
-                        {client.is_our_client ? '我方' : '对方'}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground font-mono text-xs sm:text-sm">
-                    {formatIdNumber(client.id_number)}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground font-mono text-xs sm:text-sm">
-                    {formatPhone(client.phone)}
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-8"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        copyToClipboard(formatClientText(client), '已复制当事人信息')
-                      }}
-                    >
-                      <Copy className="size-3.5" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              )
-            })
+            clients.map((client) => (
+              <ClientRow key={client.id} client={client} onRowClick={handleRowClick} />
+            ))
           )}
         </TableBody>
       </Table>
