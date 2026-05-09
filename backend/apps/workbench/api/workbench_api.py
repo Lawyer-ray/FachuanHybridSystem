@@ -438,7 +438,6 @@ async def stream_batch_progress(request: Any, job_id: UUID) -> StreamingHttpResp
         last_poll = timezone.now()
         reported_items: set[str] = set()
         last_progress = -1
-        logger.info("[SSE] 连接建立: job=%s", job_id)
 
         while True:
             # 查询已完成/失败但尚未报告的子项（不限时间，避免连接建立前完成的项被遗漏）
@@ -448,9 +447,6 @@ async def stream_batch_progress(request: Any, job_id: UUID) -> StreamingHttpResp
                     status__in=(BatchJobStatus.COMPLETED, BatchJobStatus.FAILED),
                 ).exclude(id__in=reported_items).values("id", "file_name", "status", "duration_ms", "error")
             )
-
-            if changed_items:
-                logger.info("[SSE] 发现 %d 个新完成项: job=%s", len(changed_items), job_id)
 
             for item in changed_items:
                 item_id = str(item["id"])
@@ -479,7 +475,6 @@ async def stream_batch_progress(request: Any, job_id: UUID) -> StreamingHttpResp
 
             # 检查终态
             if status in (BatchJobStatus.COMPLETED, BatchJobStatus.FAILED, BatchJobStatus.CANCELLED):
-                logger.info("[SSE] 任务终态: job=%s status=%s reported_items=%d", job_id, status, len(reported_items))
                 yield f"data: {json.dumps({'type': 'done', 'status': status})}\n\n"
                 break
 

@@ -73,57 +73,60 @@ function handleSSEEvent(set: SetFn, get: GetFn, event: { type: string; data: Rec
     const durationMs = event.data.duration_ms as number | undefined
     const error = event.data.error as string | undefined
 
-    const completed = isCompleted ? (batchProgress.job.completed_items || 0) + 1 : (batchProgress.job.completed_items || 0)
-    const failed = !isCompleted ? (batchProgress.job.failed_items || 0) + 1 : (batchProgress.job.failed_items || 0)
-    const total = batchProgress.job.total_items || 1
-    const progress = Math.round((completed + failed) * 100 / total)
+    // 使用回调形式读取最新 state，避免批量事件时读到过期数据
+    set((state) => {
+      const bp = state.batchProgress
+      if (!bp) return state
 
-    // 更新或追加 items 列表中的条目
-    const existingIdx = batchProgress.items.findIndex((i) => i.id === itemId)
-    let items: BatchJobItem[]
-    if (existingIdx >= 0) {
-      items = batchProgress.items.map((item, idx) =>
-        idx === existingIdx
-          ? { ...item, status: isCompleted ? 'completed' : 'failed', duration_ms: durationMs ?? item.duration_ms, error: error ?? item.error }
-          : item,
-      )
-    } else {
-      const newItem: BatchJobItem = {
-        id: itemId,
-        file_name: fileName,
-        status: isCompleted ? 'completed' : 'failed',
-        result: '',
-        error: error ?? '',
-        duration_ms: durationMs ?? null,
+      const completed = isCompleted ? (bp.job.completed_items || 0) + 1 : (bp.job.completed_items || 0)
+      const failed = !isCompleted ? (bp.job.failed_items || 0) + 1 : (bp.job.failed_items || 0)
+      const total = bp.job.total_items || 1
+      const progress = Math.round((completed + failed) * 100 / total)
+
+      const existingIdx = bp.items.findIndex((i) => i.id === itemId)
+      let items: BatchJobItem[]
+      if (existingIdx >= 0) {
+        items = bp.items.map((item, idx) =>
+          idx === existingIdx
+            ? { ...item, status: isCompleted ? 'completed' : 'failed', duration_ms: durationMs ?? item.duration_ms, error: error ?? item.error }
+            : item,
+        )
+      } else {
+        items = [...bp.items, {
+          id: itemId,
+          file_name: fileName,
+          status: isCompleted ? 'completed' : 'failed',
+          result: '',
+          error: error ?? '',
+          duration_ms: durationMs ?? null,
+        } as BatchJobItem]
       }
-      items = [...batchProgress.items, newItem]
-    }
 
-    set({
-      batchProgress: {
-        ...batchProgress,
-        items,
-        job: {
-          ...batchProgress.job,
-          completed_items: completed,
-          failed_items: failed,
-          progress,
+      return {
+        batchProgress: {
+          ...bp,
+          items,
+          job: { ...bp.job, completed_items: completed, failed_items: failed, progress },
         },
-      },
+      }
     })
   } else if (event.type === 'progress') {
     const data = event.data
-    set({
-      batchProgress: {
-        ...batchProgress,
-        job: {
-          ...batchProgress.job,
-          completed_items: data.completed_items as number,
-          failed_items: data.failed_items as number,
-          total_items: data.total_items as number,
-          progress: data.progress as number,
+    set((state) => {
+      const bp = state.batchProgress
+      if (!bp) return state
+      return {
+        batchProgress: {
+          ...bp,
+          job: {
+            ...bp.job,
+            completed_items: data.completed_items as number,
+            failed_items: data.failed_items as number,
+            total_items: data.total_items as number,
+            progress: data.progress as number,
+          },
         },
-      },
+      }
     })
   }
 }
