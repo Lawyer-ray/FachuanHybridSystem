@@ -442,7 +442,7 @@ async def stream_batch_progress(request: Any, job_id: UUID) -> StreamingHttpResp
 
         while True:
             # 查询正在运行但尚未报告开始的子项
-            running_items: list[dict[str, Any]] = await sync_to_async(
+            running_items = await sync_to_async(
                 lambda: list(
                     BatchJobItem.objects.filter(
                         job_id=job_id,
@@ -460,7 +460,7 @@ async def stream_batch_progress(request: Any, job_id: UUID) -> StreamingHttpResp
                     yield f"data: {json.dumps({'type': 'item_started', 'data': {'item_id': item_id, 'file_name': item['file_name']}}, ensure_ascii=False)}\n\n"
 
             # 查询已完成/失败但尚未报告的子项（不限时间，避免连接建立前完成的项被遗漏）
-            changed_items: list[dict[str, Any]] = await sync_to_async(
+            changed_items = await sync_to_async(
                 lambda: list(
                     BatchJobItem.objects.filter(
                         job_id=job_id,
