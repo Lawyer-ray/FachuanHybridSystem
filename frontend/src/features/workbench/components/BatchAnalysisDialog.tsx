@@ -18,6 +18,25 @@ interface BatchAnalysisDialogProps {
 
 const SUPPORTED_EXTS = new Set(['.doc', '.docx', '.xls', '.xlsx'])
 
+const PRESET_PROMPTS = [
+  {
+    label: '竞业限制',
+    prompt: '分析每一个案例的争议焦点和裁判要旨，弄清楚每个案例中关于竞业限制的裁判标准，总结竞业限制条款如何适用。',
+  },
+  {
+    label: '劳动争议',
+    prompt: '分析每一个案例的争议焦点和裁判要旨，梳理用人单位与劳动者的权利义务关系，总结劳动争议案件的裁判规则。',
+  },
+  {
+    label: '合同纠纷',
+    prompt: '分析每一个案例的争议焦点和裁判要旨，梳理合同效力、违约责任、损失赔偿等关键裁判标准。',
+  },
+  {
+    label: '侵权责任',
+    prompt: '分析每一个案例的争议焦点和裁判要旨，梳理侵权行为的构成要件、因果关系及赔偿标准。',
+  },
+]
+
 /** 递归读取目录中的支持格式文件 */
 async function readDirectoryEntries(dirEntry: FileSystemDirectoryEntry): Promise<File[]> {
   const reader = dirEntry.createReader()
@@ -236,6 +255,18 @@ export function BatchAnalysisDialog({ modelName, onSubmit, disabled }: BatchAnal
           {/* 分析要求 */}
           <div className="space-y-2">
             <Label htmlFor="batch-prompt">分析要求</Label>
+            <div className="flex flex-wrap gap-1.5">
+              {PRESET_PROMPTS.map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors hover:bg-primary hover:text-primary-foreground cursor-pointer"
+                  onClick={() => setPrompt(preset.prompt)}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
             <Textarea
               id="batch-prompt"
               placeholder="例如：分析本案的争议焦点和裁判要旨，总结竞业限制条款的效力认定标准"
