@@ -63,7 +63,7 @@ class CasePartyQueryFacade(DjangoPermsMixin):
             return cast(QuerySet[Case, Case], qs)
 
         self.ensure_authenticated(user)
-        if self.is_admin(user) or self.is_superuser(user):
+        if self.is_authenticated_user(user) or self.is_superuser(user):
             return cast(QuerySet[Case, Case], qs)
 
         allowed_case_ids = self.access_policy.filter_queryset(

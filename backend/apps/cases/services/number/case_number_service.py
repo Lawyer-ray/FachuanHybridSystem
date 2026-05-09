@@ -90,7 +90,7 @@ class CaseNumberService(DjangoPermsMixin):
         else:
             if not perm_open_access:
                 self.ensure_authenticated(user)
-                if not (self.is_admin(user) or self.is_superuser(user)):
+                if not (self.is_authenticated_user(user) or self.is_superuser(user)):
                     allowed_case_ids = self.access_policy.filter_queryset(
                         Case.objects.all(),
                         user=user,

@@ -70,7 +70,7 @@ class CaseAccessService(DjangoPermsMixin):
         if ctx.perm_open_access:
             return qs
         self.ensure_authenticated(ctx.user)
-        if self.is_admin(ctx.user) or self.is_superuser(ctx.user):
+        if self.is_authenticated_user(ctx.user) or self.is_superuser(ctx.user):
             return qs
         user_id = self.get_user_id(ctx.user)
         if grantee_id is not None and grantee_id != user_id:
@@ -105,7 +105,7 @@ class CaseAccessService(DjangoPermsMixin):
         if ctx.perm_open_access:
             return grant
         self.ensure_authenticated(ctx.user)
-        if self.is_admin(ctx.user) or self.is_superuser(ctx.user):
+        if self.is_authenticated_user(ctx.user) or self.is_superuser(ctx.user):
             return grant
         if grant.grantee_id != self.get_user_id(ctx.user):
             raise ForbiddenError(_("无权限查看该授权记录"))
@@ -216,7 +216,7 @@ class CaseAccessService(DjangoPermsMixin):
             授权查询集
         """
         self.ensure_authenticated(user)
-        if not (self.is_admin(user) or self.is_superuser(user)) and self.get_user_id(user) != user_id:
+        if not (self.is_authenticated_user(user) or self.is_superuser(user)) and self.get_user_id(user) != user_id:
             raise ForbiddenError(_("无权限查看他人授权记录"))
         return CaseAccessGrant.objects.filter(grantee_id=user_id).select_related("case")
 
@@ -230,7 +230,7 @@ class CaseAccessService(DjangoPermsMixin):
             案件 ID 集合
         """
         self.ensure_authenticated(user)
-        if not (self.is_admin(user) or self.is_superuser(user)) and self.get_user_id(user) != user_id:
+        if not (self.is_authenticated_user(user) or self.is_superuser(user)) and self.get_user_id(user) != user_id:
             raise ForbiddenError(_("无权限查看他人可访问案件"))
         return set(CaseAccessGrant.objects.filter(grantee_id=user_id).values_list("case_id", flat=True))
 

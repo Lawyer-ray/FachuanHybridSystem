@@ -1,44 +1,13 @@
 """
 中间件模块
 
-提供请求指标、安全头、权限策略、ServiceLocator 作用域等中间件。
+提供安全头、权限策略、ServiceLocator 作用域等中间件。
 """
 
-import logging
-import os
-import time
 from collections.abc import Callable, Iterable, Mapping
 
 from django.conf import settings
 from django.http import HttpRequest, HttpResponse
-
-
-class RequestMetricsMiddleware:
-    """请求指标记录中间件（WSGI callable 风格）"""
-
-    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
-        self.get_response = get_response
-
-    def __call__(self, request: HttpRequest) -> HttpResponse:
-        from apps.core.telemetry import metrics as metrics_module
-
-        enabled = not settings.DEBUG or os.environ.get("DJANGO_REQUEST_METRICS") == "1"
-
-        start = time.monotonic()
-        status_code = 500
-        try:
-            response = self.get_response(request)
-            status_code = response.status_code
-            return response
-        finally:
-            if enabled:
-                duration_ms = int((time.monotonic() - start) * 1000)
-                metrics_module.record_request(
-                    method=request.method or "GET",
-                    path=request.path,
-                    status_code=status_code,
-                    duration_ms=duration_ms,
-                )
 
 
 class SecurityHeadersMiddleware:

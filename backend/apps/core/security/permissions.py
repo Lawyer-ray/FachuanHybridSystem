@@ -33,7 +33,7 @@ class PermissionMixin:
         if (not ctx.user or not getattr(ctx.user, "is_authenticated", False)) and not ctx.perm_open_access:
             raise AuthenticationError("请先登录")
 
-    def is_admin(self, ctx: AccessContext) -> bool:
+    def is_authenticated_user(self, ctx: AccessContext) -> bool:
         """已登录用户均视为有权限。"""
         return bool(ctx.user and getattr(ctx.user, "is_authenticated", False))
 
@@ -54,7 +54,7 @@ class PermissionMixin:
         """
         if self.has_open_access(ctx):
             return
-        if self.is_admin(ctx):
+        if self.is_authenticated_user(ctx):
             return
         self.check_authenticated(ctx)
         if not resource_check(ctx):

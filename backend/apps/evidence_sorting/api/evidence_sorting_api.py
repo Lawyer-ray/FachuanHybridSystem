@@ -10,10 +10,11 @@ from django.http import HttpRequest
 from ninja import Router
 
 from apps.core.infrastructure.throttling import rate_limit_from_settings
+from apps.core.security.auth import JWTOrSessionAuth
 
 logger = logging.getLogger("apps.evidence_sorting")
 
-router = Router(tags=["案件材料整理"])
+router = Router(tags=["案件材料整理"], auth=JWTOrSessionAuth())
 
 
 def _body(request: HttpRequest) -> dict[str, Any]:

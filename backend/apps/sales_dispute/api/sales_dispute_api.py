@@ -10,6 +10,8 @@ import logging
 
 from ninja import Router
 
+from apps.core.security.auth import JWTOrSessionAuth
+
 from .sales_dispute_assessment_api import router as assessment_router
 from .sales_dispute_calculation_api import router as calculation_router
 from .sales_dispute_collection_api import router as collection_router
@@ -17,7 +19,7 @@ from .sales_dispute_dashboard_api import router as dashboard_router
 
 logger = logging.getLogger(__name__)
 
-router = Router()
+router = Router(auth=JWTOrSessionAuth())
 
 # 挂载子路由（URL 前缀不变，前端无感知）
 router.add_router("", calculation_router)
