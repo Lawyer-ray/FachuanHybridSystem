@@ -105,7 +105,7 @@ export function ElementConvertTool() {
       formData.append('file', selectedFile)
       formData.append('mbid', selectedMbid)
 
-      const res = await api.post('doc-convert/convert', { body: formData })
+      const res = await api.post('doc-convert/convert', { body: formData, timeout: 120_000 })
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
