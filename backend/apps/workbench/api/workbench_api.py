@@ -15,7 +15,7 @@ from ninja.files import UploadedFile
 
 from apps.core.security.auth import JWTOrSessionAuth
 
-from ..models import BatchJob, BatchJobItem, WorkbenchMessage, WorkbenchSession
+from ..models import BatchJob, BatchJobItem, BatchJobStatus, WorkbenchMessage, WorkbenchSession
 from ..schemas import (
     BatchItemOut,
     BatchJobOut,
@@ -424,7 +424,7 @@ def save_batch_messages(request: Any, job_id: UUID, payload: list[BatchMessageIt
 async def stream_batch_progress(request: Any, job_id: UUID) -> StreamingHttpResponse:
     """SSE 流式推送批量分析进度
 
-    前端通过此端点实时获取 item 完成事件和进度更新，替代轮询。
+    通过轮询数据库获取最新状态，避免 LocMemCache 跨进程不可见的问题。
     """
     try:
         job = await BatchJob.objects.aget(id=job_id)
@@ -433,22 +433,53 @@ async def stream_batch_progress(request: Any, job_id: UUID) -> StreamingHttpResp
     await sync_to_async(_get_user_session)(request.user, job.session_id)
 
     async def event_generator() -> Any:
-        from django.core.cache import cache
+        from django.utils import timezone
 
-        last_event_idx = 0
+        last_poll = timezone.now()
+        reported_items: set[str] = set()
+        last_progress = -1
+
         while True:
-            events = await sync_to_async(cache.get)(f"batch_sse:{job_id}") or []
-            # 发送新事件
-            for event in events[last_event_idx:]:
-                yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
-            last_event_idx = len(events)
+            # 查询上次轮询后状态变更的子项
+            changed_items = await sync_to_async(list)(
+                BatchJobItem.objects.filter(
+                    job_id=job_id,
+                    status__in=(BatchJobStatus.COMPLETED, BatchJobStatus.FAILED),
+                    updated_at__gte=last_poll,
+                ).exclude(id__in=reported_items).values("id", "file_name", "status", "duration_ms", "error")
+            )
+
+            for item in changed_items:
+                item_id = str(item["id"])
+                reported_items.add(item_id)
+                event_type = "item_completed" if item["status"] == BatchJobStatus.COMPLETED else "item_failed"
+                data: dict[str, Any] = {
+                    "item_id": item_id,
+                    "file_name": item["file_name"],
+                    "status": item["status"],
+                }
+                if item["duration_ms"] is not None:
+                    data["duration_ms"] = item["duration_ms"]
+                if item["error"]:
+                    data["error"] = item["error"][:200]
+                yield f"data: {json.dumps({'type': event_type, 'data': data}, ensure_ascii=False)}\n\n"
+
+            # 读取最新进度
+            job_data = await sync_to_async(
+                lambda: BatchJob.objects.values_list("completed_items", "failed_items", "total_items", "progress", "status").get(id=job_id)
+            )()
+            completed, failed, total, progress, status = job_data
+
+            if progress != last_progress:
+                last_progress = progress
+                yield f"data: {json.dumps({'type': 'progress', 'data': {'completed_items': completed, 'failed_items': failed, 'total_items': total, 'progress': progress}}, ensure_ascii=False)}\n\n"
 
             # 检查终态
-            status = await sync_to_async(lambda: BatchJob.objects.values_list("status", flat=True).get(id=job_id))()
-            if status in ("completed", "failed", "cancelled"):
+            if status in (BatchJobStatus.COMPLETED, BatchJobStatus.FAILED, BatchJobStatus.CANCELLED):
                 yield f"data: {json.dumps({'type': 'done', 'status': status})}\n\n"
                 break
 
+            last_poll = timezone.now()
             await asyncio.sleep(0.5)
 
     return StreamingHttpResponse(
