@@ -14,6 +14,7 @@ interface BatchProgressCardProps {
   job: BatchJob
   items: BatchJobItem[]
   onCancel: () => void
+  onDismiss?: () => void
   failedItemsDetail?: FailedItemDetail[]
 }
 
@@ -25,7 +26,7 @@ function formatDuration(seconds: number): string {
   return `${h}小时${m}分钟`
 }
 
-export function BatchProgressCard({ job, items, onCancel, failedItemsDetail = [] }: BatchProgressCardProps) {
+export function BatchProgressCard({ job, items, onCancel, onDismiss, failedItemsDetail = [] }: BatchProgressCardProps) {
   const [expanded, setExpanded] = useState(false)
   const [retrying, setRetrying] = useState(false)
 
@@ -99,6 +100,12 @@ export function BatchProgressCard({ job, items, onCancel, failedItemsDetail = []
             <Button variant="ghost" size="sm" onClick={onCancel} className="h-7 text-xs">
               <X className="size-3 mr-1" />
               取消
+            </Button>
+          )}
+          {isTerminal && onDismiss && (
+            <Button variant="ghost" size="sm" onClick={onDismiss} className="h-7 text-xs">
+              <X className="size-3 mr-1" />
+              关闭
             </Button>
           )}
         </div>

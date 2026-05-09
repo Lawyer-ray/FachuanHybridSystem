@@ -57,7 +57,6 @@ async function handleTerminal(set: SetFn, progress: BatchProgress) {
 
     set((state) => ({
       messages: [...state.messages, createBatchSummaryMessage(progress.job.summary, progress.job.id)],
-      batchProgress: null,
     }))
   }
 }
@@ -183,6 +182,7 @@ export interface BatchSlice {
   batchPolling: boolean
   submitBatchAnalysis: (prompt: string, files: File[]) => Promise<void>
   cancelBatchAnalysis: () => Promise<void>
+  dismissBatchProgress: () => void
   recoverActiveBatchJob: (sessionId: number) => Promise<void>
 }
 
@@ -217,6 +217,10 @@ export const createBatchSlice: StateCreator<WorkbenchStore, [], [], BatchSlice> 
     try {
       await api.cancelBatchAnalysis(activeBatchJobId)
     } catch { /* ignore */ }
+  },
+
+  dismissBatchProgress: () => {
+    set({ batchProgress: null, activeBatchJobId: null })
   },
 
   recoverActiveBatchJob: async (sessionId) => {

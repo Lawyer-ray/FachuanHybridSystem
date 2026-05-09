@@ -43,6 +43,7 @@ export function WorkbenchPage() {
     batchProgress,
     submitBatchAnalysis,
     cancelBatchAnalysis,
+    dismissBatchProgress,
     recoverActiveBatchJob,
     messages,
     abortStream,
@@ -459,6 +460,7 @@ export function WorkbenchPage() {
                   job={batchProgress.job}
                   items={batchProgress.items}
                   onCancel={cancelBatchAnalysis}
+                  onDismiss={dismissBatchProgress}
                   failedItemsDetail={batchProgress.failed_items_detail}
                 />
               </div>
