@@ -1,9 +1,4 @@
-from .session_admin import (
-    BatchJobAdmin,
-    BatchJobItemAdmin,
-    WorkbenchMessageAdmin,
-    WorkbenchSessionAdmin,
-)
+from .session_admin import BatchJobAdmin, BatchJobItemAdmin, WorkbenchMessageAdmin, WorkbenchSessionAdmin
 
 __all__ = [
     "BatchJobAdmin",

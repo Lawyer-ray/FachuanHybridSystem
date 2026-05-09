@@ -440,9 +440,7 @@ async def stream_batch_progress(request: Any, job_id: UUID) -> StreamingHttpResp
                     data["error"] = item["error"][:200]
                 yield f"data: {json.dumps({'type': event_type, 'data': data}, ensure_ascii=False)}\n\n"
 
-            job_data = await sync_to_async(
-                lambda: batch_service.get_job_by_id(job_id)
-            )()
+            job_data = await sync_to_async(lambda: batch_service.get_job_by_id(job_id))()
 
             if job_data.progress != last_progress:
                 last_progress = job_data.progress

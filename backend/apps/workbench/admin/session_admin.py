@@ -27,7 +27,17 @@ class WorkbenchMessageAdmin(admin.ModelAdmin):
 
 @admin.register(BatchJob)
 class BatchJobAdmin(admin.ModelAdmin):
-    list_display = ["id", "session", "job_type", "status", "progress", "total_items", "completed_items", "failed_items", "created_at"]
+    list_display = [
+        "id",
+        "session",
+        "job_type",
+        "status",
+        "progress",
+        "total_items",
+        "completed_items",
+        "failed_items",
+        "created_at",
+    ]
     list_filter = ["status", "job_type", "created_at"]
     search_fields = ["prompt", "summary"]
     readonly_fields = ["id", "created_at", "updated_at", "started_at", "started_processing_at", "finished_at"]

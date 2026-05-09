@@ -13,6 +13,7 @@ from uuid import UUID
 
 from django.core.files.base import ContentFile
 from django.utils import timezone
+from django.utils.translation import gettext as _
 
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.security.permissions import AccessContext, PermissionMixin

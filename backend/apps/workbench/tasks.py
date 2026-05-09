@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
+import json
 import logging
 import re
 import time
@@ -91,9 +92,7 @@ METADATA_BLOCK_RE = re.compile(
     r"```[^\n]*\n\s*【案例元数据汇总】\s*\n([\s\S]*?)\n\s*```\s*\Z"
     r"|【案例元数据汇总】\s*\n([\s\S]*?)\Z",
 )
-METADATA_FIELD_RE = re.compile(
-    r"^(案号|案由|审理法院|法官|书记员|与研究问题相关|结论)\s*[：:]\s*(.+)$", re.MULTILINE
-)
+METADATA_FIELD_RE = re.compile(r"^(案号|案由|审理法院|法官|书记员|与研究问题相关|结论)\s*[：:]\s*(.+)$", re.MULTILINE)
 _CONCLUSION_RE = re.compile(
     r"(?:^|\n)#{1,3}\s*(?:针对.*研究.*结论|结论)\s*\n([\s\S]*?)(?=\n(?:```|【案例元数据汇总】|#{1,3}\s)|\Z)",
     re.MULTILINE,
@@ -597,7 +596,6 @@ async def _run_batch_retry_async(job_id: UUID, item_ids: list[UUID]) -> None:
                 progress=100,
                 finished_at=timezone.now(),
             )
-
 
     except Exception as e:
         logger.exception("重试任务异常: job=%s", job_id)
