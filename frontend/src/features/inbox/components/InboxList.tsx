@@ -1,33 +1,36 @@
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { RefreshCw, Settings2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PATHS } from '@/routes/paths'
 import { PageFooter } from '@/components/shared/PageFooter'
+import { usePaginatedList } from '@/hooks/use-paginated-list'
+import { inboxApi } from '../api'
+import type { InboxMessage } from '../types'
 import { InboxFilters } from './InboxFilters'
 import { InboxTable } from './InboxTable'
-import { useInboxMessages } from '../hooks/use-inbox-messages'
 
 const PAGE_SIZE = 20
 
 export function InboxList() {
   const navigate = useNavigate()
-  const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [hasAttachments, setHasAttachments] = useState('all')
 
-  const { data, isLoading } = useInboxMessages({
-    page,
-    page_size: PAGE_SIZE,
+  const filters = {
     search: search || undefined,
     has_attachments: hasAttachments === 'all' ? undefined : hasAttachments === 'true',
+  }
+
+  const { data, isLoading, page, setPage, withPageReset } = usePaginatedList<InboxMessage, typeof filters>({
+    queryKey: 'inbox-messages',
+    fetchAll: (f) => inboxApi.list(f),
+    filters,
+    pageSize: PAGE_SIZE,
   })
 
-  const handleSearchChange = useCallback((v: string) => { setSearch(v); setPage(1) }, [])
-  const handleAttachmentsChange = useCallback((v: string) => { setHasAttachments(v); setPage(1) }, [])
-
-  const messages = data?.items ?? []
-  const total = data?.total ?? 0
+  const handleSearchChange = withPageReset(setSearch)
+  const handleAttachmentsChange = withPageReset(setHasAttachments)
 
   return (
     <div className="flex flex-col gap-4">
@@ -56,12 +59,12 @@ export function InboxList() {
         onHasAttachmentsChange={handleAttachmentsChange}
       />
 
-      <InboxTable messages={messages} isLoading={isLoading} />
+      <InboxTable messages={data.items} isLoading={isLoading} />
 
       <PageFooter
-        stats={[{ label: '共', value: `${total} 条` }]}
+        stats={[{ label: '共', value: `${data.total} 条` }]}
         page={page}
-        total={total}
+        total={data.total}
         pageSize={PAGE_SIZE}
         onPageChange={setPage}
       />

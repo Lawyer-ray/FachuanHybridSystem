@@ -14,7 +14,6 @@ export type {
 export { inboxApi } from './api'
 
 // Hooks
-export { useInboxMessages } from './hooks/use-inbox-messages'
 export { useInboxMessage } from './hooks/use-inbox-message'
 
 // Components

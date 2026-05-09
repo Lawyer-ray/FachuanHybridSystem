@@ -17,7 +17,6 @@ export { EnterpriseSearch } from './components/EnterpriseSearch'
 export { TextParser } from './components/TextParser'
 
 // Hooks
-export { useClients } from './hooks/use-clients'
 export { useClient } from './hooks/use-client'
 export { useClientMutations } from './hooks/use-client-mutations'
 export { usePropertyClues } from './hooks/use-property-clues'

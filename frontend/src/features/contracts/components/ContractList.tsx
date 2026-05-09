@@ -1,38 +1,46 @@
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PATHS } from '@/routes/paths'
 import { PageFooter } from '@/components/shared/PageFooter'
+import { usePaginatedList } from '@/hooks/use-paginated-list'
+import { contractApi } from '../api'
+import type { Contract, CaseType, ContractStatus, FeeMode } from '../types'
 import { ContractFilters } from './ContractFilters'
 import { ContractTable } from './ContractTable'
-import { useContracts } from '../hooks/use-contracts'
-import type { CaseType, ContractStatus, FeeMode } from '../types'
 
 const PAGE_SIZE = 20
 
 export function ContractList() {
   const navigate = useNavigate()
-  const [page, setPage] = useState(1)
   const [caseType, setCaseType] = useState<CaseType | undefined>()
   const [status, setStatus] = useState<ContractStatus | undefined>('active')
   const [search, setSearch] = useState('')
   const [feeMode, setFeeMode] = useState<FeeMode | undefined>()
   const [isFiled, setIsFiled] = useState<boolean | undefined>()
 
-  const { data, isLoading } = useContracts({
-    page, page_size: PAGE_SIZE, case_type: caseType, status,
-    search: search || undefined, fee_mode: feeMode, is_filed: isFiled,
+  const filters = {
+    case_type: caseType,
+    status,
+    search: search || undefined,
+    fee_mode: feeMode,
+    is_filed: isFiled,
+  }
+
+  const { data, isLoading, page, setPage, withPageReset } = usePaginatedList<Contract, typeof filters>({
+    queryKey: 'contracts',
+    fetchAll: (f) => contractApi.list(f),
+    filters,
+    pageSize: PAGE_SIZE,
+    staleTime: 5 * 60 * 1000,
   })
 
-  const handleCaseTypeChange = useCallback((v: CaseType | undefined) => { setCaseType(v); setPage(1) }, [])
-  const handleStatusChange = useCallback((v: ContractStatus | undefined) => { setStatus(v); setPage(1) }, [])
-  const handleSearchChange = useCallback((v: string) => { setSearch(v); setPage(1) }, [])
-  const handleFeeModeChange = useCallback((v: FeeMode | undefined) => { setFeeMode(v); setPage(1) }, [])
-  const handleIsFiledChange = useCallback((v: boolean | undefined) => { setIsFiled(v); setPage(1) }, [])
-
-  const contracts = data?.items ?? []
-  const total = data?.total ?? 0
+  const handleCaseTypeChange = withPageReset(setCaseType)
+  const handleStatusChange = withPageReset(setStatus)
+  const handleSearchChange = withPageReset(setSearch)
+  const handleFeeModeChange = withPageReset(setFeeMode)
+  const handleIsFiledChange = withPageReset(setIsFiled)
 
   return (
     <div className="flex flex-col gap-4">
@@ -49,12 +57,12 @@ export function ContractList() {
         </Button>
       </div>
 
-      <ContractTable contracts={contracts} isLoading={isLoading} />
+      <ContractTable contracts={data.items} isLoading={isLoading} />
 
       <PageFooter
-        stats={[{ label: '共', value: `${total} 条` }]}
+        stats={[{ label: '共', value: `${data.total} 条` }]}
         page={page}
-        total={total}
+        total={data.total}
         pageSize={PAGE_SIZE}
         onPageChange={setPage}
       />

@@ -25,7 +25,6 @@ export { contractApi } from './api'
 export { default as contractApiDefault } from './api'
 
 // Hooks
-export { useContracts, contractsQueryKey } from './hooks/use-contracts'
 export { useContract, contractQueryKey } from './hooks/use-contract'
 export { useContractMutations } from './hooks/use-contract-mutations'
 export { useLawyers } from './hooks/use-lawyers'
