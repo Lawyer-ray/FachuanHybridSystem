@@ -115,7 +115,8 @@ const createSessionSlice: StateCreator<WorkbenchStore, [], [], SessionSlice> = (
   createSession: async (title) => {
     const { selectedModel } = get()
     const session = await api.createSession(title, selectedModel)
-    set((state) => ({ sessions: [session, ...state.sessions], currentSession: session, messages: [] }))
+    set((state) => ({ sessions: [session, ...state.sessions] }))
+    get().setCurrentSession(session)
     return session
   },
 
