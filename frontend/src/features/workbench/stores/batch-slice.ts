@@ -209,6 +209,24 @@ export const createBatchSlice: StateCreator<WorkbenchStore, [], [], BatchSlice> 
     })
 
     startSSEConnection(set, get, job.id)
+
+    // 轮询获取文件列表（后端 task 启动后才会创建 BatchJobItem）
+    const pollItems = async () => {
+      for (let i = 0; i < 20; i++) {
+        await new Promise((r) => setTimeout(r, 500))
+        const { activeBatchJobId, batchProgress: bp } = get()
+        if (!activeBatchJobId || activeBatchJobId !== job.id || !bp) return
+        if (bp.items.length > 0) return // SSE 已经填充了 items
+        try {
+          const progress = await api.getBatchProgress(job.id)
+          if (progress.items.length > 0) {
+            set({ batchProgress: { ...bp, items: progress.items, failed_items_detail: progress.failed_items_detail } })
+            return
+          }
+        } catch { /* ignore */ }
+      }
+    }
+    pollItems()
   },
 
   cancelBatchAnalysis: async () => {
