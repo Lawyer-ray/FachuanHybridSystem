@@ -425,18 +425,6 @@ async def _run_batch_async(job_id: UUID) -> None:
             # 节流式进度更新
             if index % PROGRESS_UPDATE_EVERY == 0 or index == len(items) - 1:
                 await _update_progress(job_id)
-                # 发布进度 SSE 事件
-                refreshed_job = await sync_to_async(BatchJob.objects.get)(id=job_id)
-                await _publish_sse_event(
-                    job_id,
-                    "progress",
-                    {
-                        "completed_items": refreshed_job.completed_items,
-                        "failed_items": refreshed_job.failed_items,
-                        "total_items": refreshed_job.total_items,
-                        "progress": refreshed_job.progress,
-                    },
-                )
 
         # 并发执行（Semaphore 限流）
         async def throttled_analyze(item: BatchJobItem, index: int) -> None:
@@ -461,7 +449,6 @@ async def _run_batch_async(job_id: UUID) -> None:
                 status=BatchJobStatus.CANCELLED,
                 finished_at=timezone.now(),
             )
-            await _publish_sse_event(job_id, "job_completed", {"status": "cancelled"})
             logger.info("批量分析已取消: job=%s", job_id)
             return
 
@@ -480,7 +467,7 @@ async def _run_batch_async(job_id: UUID) -> None:
                 progress=100,
                 finished_at=timezone.now(),
             )
-            await _publish_sse_event(job_id, "job_completed", {"status": "completed", "summary": summary})
+
             logger.info("批量分析完成: job=%s", job_id)
         else:
             await sync_to_async(BatchJob.objects.filter(id=job_id).update)(
@@ -488,7 +475,7 @@ async def _run_batch_async(job_id: UUID) -> None:
                 error_message="所有文件分析失败",
                 finished_at=timezone.now(),
             )
-            await _publish_sse_event(job_id, "job_completed", {"status": "failed"})
+
             logger.warning("批量分析全部失败: job=%s", job_id)
 
     except Exception as e:
@@ -498,7 +485,6 @@ async def _run_batch_async(job_id: UUID) -> None:
             error_message=str(e)[:4000],
             finished_at=timezone.now(),
         )
-        await _publish_sse_event(job_id, "job_completed", {"status": "failed", "error": str(e)[:200]})
     finally:
         _active_tasks.pop(str(job_id), None)
         extractor.cleanup()
@@ -611,7 +597,7 @@ async def _run_batch_retry_async(job_id: UUID, item_ids: list[UUID]) -> None:
                 progress=100,
                 finished_at=timezone.now(),
             )
-            await _publish_sse_event(job_id, "job_completed", {"status": "completed", "summary": summary})
+
 
     except Exception as e:
         logger.exception("重试任务异常: job=%s", job_id)
