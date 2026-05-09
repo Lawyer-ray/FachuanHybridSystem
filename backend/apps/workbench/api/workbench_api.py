@@ -56,7 +56,7 @@ def list_sessions(request: Any, page: int = 1) -> dict[str, Any]:
     """获取当前用户的工作台会话列表"""
     ctx = extract_request_context(request)
     service = ServiceLocator.get_workbench_session_service()
-    return service.list_sessions(
+    return service.list_sessions(  # type: ignore[no-any-return]
         page=page,
         user=ctx.user,
         org_access=ctx.org_access,
@@ -115,7 +115,7 @@ def list_messages(request: Any, session_id: int, page: int = 1) -> dict[str, Any
     """获取会话的消息列表"""
     ctx = extract_request_context(request)
     service = ServiceLocator.get_workbench_message_service()
-    return service.list_messages(
+    return service.list_messages(  # type: ignore[no-any-return]
         session_id,
         page=page,
         user=ctx.user,
@@ -456,7 +456,7 @@ def retry_failed_items(request: Any, job_id: UUID) -> dict[str, Any]:
     job, _ = batch_service.get_job_progress(job_id)
     session_service.get_user_session(ctx.user, job.session_id)
 
-    return batch_service.retry_failed(job_id)
+    return batch_service.retry_failed(job_id)  # type: ignore[no-any-return]
 
 
 @router.get("/sessions/{session_id}/batch-jobs")
@@ -467,7 +467,7 @@ def list_batch_jobs(request: Any, session_id: int, page: int = 1) -> dict[str, A
     session_service.get_user_session(ctx.user, session_id)
 
     batch_service = ServiceLocator.get_workbench_batch_service()
-    return batch_service.list_batch_jobs(
+    return batch_service.list_batch_jobs(  # type: ignore[no-any-return]
         session_id,
         page=page,
         user=ctx.user,

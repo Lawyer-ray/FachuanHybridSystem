@@ -20,8 +20,7 @@ def user(db):
 
     return Lawyer.objects.create_user(
         username="test_workbench_user",
-        email="workbench@test.com",
-        password="testpass123",
+        email="workbench@example.com",
         real_name="测试用户",
     )
 
@@ -32,8 +31,7 @@ def other_user(db):
 
     return Lawyer.objects.create_user(
         username="other_workbench_user",
-        email="other@test.com",
-        password="testpass123",
+        email="other_wb@example.com",
         real_name="其他用户",
     )
 
