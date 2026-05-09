@@ -433,7 +433,7 @@
             link.download = newName + '.docx';
 
             document.getElementById('resFilename').textContent = file.name;
-            document.getElementById('resMbid').textContent = mbidName;
+            document.getElementById('resMbid').textContent = input.value;
             document.getElementById('resSize').textContent = (blob.size / 1024).toFixed(1) + ' KB';
 
             showState('result');
