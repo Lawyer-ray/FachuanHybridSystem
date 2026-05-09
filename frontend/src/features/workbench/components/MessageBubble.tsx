@@ -42,13 +42,14 @@ import { useWorkbenchStore } from '../stores/workbench-store'
 import type { WorkbenchMessage, StreamingMessage, ToolCallState } from '../types'
 import { renderToolResult } from './tool-results'
 import { findLegalReferences, getCaseNumberInfo, getLawArticleInfo } from '../utils/legal-text'
+import { parseBatchResult } from '../utils/format-batch'
 
 interface MessageBubbleProps {
   message: WorkbenchMessage
   toolCalls?: WorkbenchMessage[]
 }
 
-export function MessageBubble({ message, toolCalls }: MessageBubbleProps) {
+export const MessageBubble = React.memo(function MessageBubble({ message, toolCalls }: MessageBubbleProps) {
   const isUser = message.role === 'user'
   const isSystem = message.role === 'system'
 
@@ -82,6 +83,8 @@ export function MessageBubble({ message, toolCalls }: MessageBubbleProps) {
         >
           {isUser ? (
             <UserMessageContent message={message} />
+          ) : message.metadata?.source === 'batch_item' ? (
+            <BatchItemContent content={message.content} />
           ) : (
             <MarkdownContent content={message.content} isSystem={isSystem} />
           )}
@@ -125,9 +128,8 @@ export function MessageBubble({ message, toolCalls }: MessageBubbleProps) {
       )}
     </div>
   )
-}
+})
 
-/** 用户消息内容（支持编辑） */
 function UserMessageContent({ message }: { message: WorkbenchMessage }) {
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState(message.content)
@@ -193,6 +195,80 @@ function UserMessageContent({ message }: { message: WorkbenchMessage }) {
         >
           <Pencil className="size-3" />
         </button>
+      )}
+    </div>
+  )
+}
+
+/** 批量分析结果卡片（结构化渲染 JSON 结果） */
+function BatchItemContent({ content }: { content: string }) {
+  // 提取文件名标题（### filename）和正文
+  const headerMatch = content.match(/^###\s+(.+)\n\n([\s\S]*)$/)
+  const fileName = headerMatch?.[1]
+  const body = headerMatch?.[2] ?? content
+
+  const parsed = parseBatchResult(body)
+
+  // 非 JSON 内容走普通 Markdown 渲染
+  if (!parsed) {
+    return <MarkdownContent content={content} />
+  }
+
+  const metaFields = [
+    parsed.case_number !== '未注明' && { label: '案号', value: parsed.case_number },
+    parsed.cause !== '未注明' && { label: '案由', value: parsed.cause },
+    parsed.court !== '未注明' && { label: '法院', value: parsed.court },
+    parsed.judge !== '未注明' && { label: '法官', value: parsed.judge },
+    parsed.clerk !== '未注明' && { label: '书记员', value: parsed.clerk },
+  ].filter(Boolean) as { label: string; value: string }[]
+
+  return (
+    <div className="space-y-3">
+      {/* 文件名 */}
+      {fileName && (
+        <div className="text-sm font-semibold">{fileName}</div>
+      )}
+
+      {/* 元数据标签 */}
+      {metaFields.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {metaFields.map((f) => (
+            <span
+              key={f.label}
+              className="inline-flex items-center gap-1 rounded-md bg-background/60 px-2 py-0.5 text-[11px] border border-border/40"
+            >
+              <span className="text-muted-foreground">{f.label}</span>
+              <span className="font-medium">{f.value}</span>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* 相关性标签 */}
+      <div>
+        <span
+          className={cn(
+            'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium',
+            parsed.is_relevant
+              ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+              : 'bg-muted text-muted-foreground',
+          )}
+        >
+          {parsed.is_relevant ? '相关' : '无关'}
+        </span>
+      </div>
+
+      {/* 结论 */}
+      {parsed.conclusion && (
+        <div className="rounded-md border-l-2 border-primary/40 bg-primary/5 px-3 py-2 text-sm">
+          <div className="text-[11px] font-medium text-muted-foreground mb-1">结论</div>
+          <div>{parsed.conclusion}</div>
+        </div>
+      )}
+
+      {/* 分析正文 */}
+      {parsed.analysis && (
+        <MarkdownContent content={parsed.analysis} />
       )}
     </div>
   )

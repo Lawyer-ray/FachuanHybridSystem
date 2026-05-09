@@ -1,3 +1,4 @@
+import React from 'react'
 import {
   Table,
   TableBody,
@@ -27,7 +28,7 @@ interface DataTableProps<T> {
   className?: string
 }
 
-export function DataTable<T>({
+function DataTableInner<T>({
   columns,
   data,
   rowKey,
@@ -132,3 +133,5 @@ export function DataTable<T>({
     </div>
   )
 }
+
+export const DataTable = React.memo(DataTableInner) as typeof DataTableInner

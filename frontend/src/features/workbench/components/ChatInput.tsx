@@ -1,6 +1,6 @@
 /** 对话输入框组件（含 Agent 选择器） */
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { Send, Square, Bot, Briefcase, FileText, Search, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -26,7 +26,7 @@ interface ChatInputProps {
   disabled?: boolean
 }
 
-export function ChatInput({ onSend, disabled }: ChatInputProps) {
+export const ChatInput = React.memo(function ChatInput({ onSend, disabled }: ChatInputProps) {
   const [content, setContent] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const sendAfterSpeechRef = useRef(false)
@@ -171,4 +171,4 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
       </div>
     </div>
   )
-}
+})
