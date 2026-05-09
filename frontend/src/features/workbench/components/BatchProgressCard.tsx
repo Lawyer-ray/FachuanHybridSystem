@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { useState } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { Loader2, CheckCircle2, XCircle, ChevronDown, ChevronUp, X, RefreshCw, Clock, Gauge } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -29,8 +29,32 @@ function formatDuration(seconds: number): string {
 export function BatchProgressCard({ job, items, onCancel, onDismiss, failedItemsDetail = [] }: BatchProgressCardProps) {
   const [expanded, setExpanded] = useState(false)
   const [retrying, setRetrying] = useState(false)
+  const startTimesRef = useRef<Map<string, number>>(new Map())
+  const [, setTick] = useState(0)
 
+  // 跟踪每个文件的开始分析时间
+  useEffect(() => {
+    for (const item of items) {
+      if (item.status === 'running' && !startTimesRef.current.has(item.id)) {
+        startTimesRef.current.set(item.id, Date.now())
+      }
+    }
+  }, [items])
+
+  // 每秒刷新一次，更新正在分析文件的耗时显示
   const isRunning = job.status === 'running' || job.status === 'pending'
+  useEffect(() => {
+    if (!isRunning) return
+    const timer = setInterval(() => setTick((t) => t + 1), 1000)
+    return () => clearInterval(timer)
+  }, [isRunning])
+
+  const getElapsed = useCallback((item: BatchJobItem) => {
+    if (item.duration_ms != null) return (item.duration_ms / 1000).toFixed(1) + 's'
+    const start = startTimesRef.current.get(item.id)
+    if (!start) return null
+    return ((Date.now() - start) / 1000).toFixed(1) + 's'
+  }, [])
   const isCompleted = job.status === 'completed'
   const isFailed = job.status === 'failed'
   const isCancelled = job.status === 'cancelled'
@@ -157,20 +181,23 @@ export function BatchProgressCard({ job, items, onCancel, onDismiss, failedItems
           </CollapsibleTrigger>
           <CollapsibleContent>
             <div className="max-h-60 overflow-y-auto space-y-1 mt-2">
-              {items.map((item) => (
-                <div key={item.id} className="flex items-center gap-2 text-xs py-1 px-2 rounded hover:bg-muted/50">
-                  {item.status === 'running' && <Loader2 className="size-3 animate-spin text-blue-600 shrink-0" />}
-                  {item.status === 'completed' && <CheckCircle2 className="size-3 text-green-600 shrink-0" />}
-                  {item.status === 'failed' && <XCircle className="size-3 text-red-600 shrink-0" />}
-                  {item.status === 'pending' && <span className="size-3 rounded-full border border-muted-foreground shrink-0" />}
-                  <span className="truncate flex-1">{item.file_name}</span>
-                  {item.duration_ms != null && (
-                    <span className="text-muted-foreground shrink-0">
-                      {(item.duration_ms / 1000).toFixed(1)}s
-                    </span>
-                  )}
-                </div>
-              ))}
+              {items.map((item) => {
+                const elapsed = getElapsed(item)
+                return (
+                  <div key={item.id} className="flex items-center gap-2 text-xs py-1 px-2 rounded hover:bg-muted/50">
+                    {item.status === 'running' && <Loader2 className="size-3 animate-spin text-blue-600 shrink-0" />}
+                    {item.status === 'completed' && <CheckCircle2 className="size-3 text-green-600 shrink-0" />}
+                    {item.status === 'failed' && <XCircle className="size-3 text-red-600 shrink-0" />}
+                    {item.status === 'pending' && <span className="size-3 rounded-full border border-muted-foreground shrink-0" />}
+                    <span className="truncate flex-1">{item.file_name}</span>
+                    {elapsed && (
+                      <span className={item.status === 'running' ? 'text-blue-600 shrink-0' : 'text-muted-foreground shrink-0'}>
+                        {elapsed}
+                      </span>
+                    )}
+                  </div>
+                )
+              })}
 
               {/* 失败文件详情 */}
               {failedItemsDetail.length > 0 && (
