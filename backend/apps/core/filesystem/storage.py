@@ -16,15 +16,18 @@ class KeepOriginalNameStorage(FileSystemStorage):
     def generate_filename(self, filename: str) -> str:  # type: ignore[override]
         """
         重写 generate_filename,跳过 get_valid_filename 的清理
-        保持原始文件名不变
+        保持原始文件名不变,同时保留 upload_to 的目录前缀
         """
         import posixpath
 
         # 不调用 get_valid_filename,直接使用原始文件名
         # 只做基本的路径安全处理
         filename = filename.replace("\\", "/")
-        filename = posixpath.basename(filename)
-        return filename
+        dir_name = posixpath.dirname(filename)
+        base_name = posixpath.basename(filename)
+        if dir_name:
+            return posixpath.join(dir_name, base_name)
+        return base_name
 
     def get_available_name(self, name: str, max_length: int | None = None) -> str:
         import os
