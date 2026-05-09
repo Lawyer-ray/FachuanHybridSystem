@@ -110,7 +110,10 @@ export function ElementConvertTool() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = '要素式文书.docx'
+      // 生成文件名：将"传统"替换为"要素式"，否则在文件名前加"要素式"
+      const baseName = selectedFile.name.replace(/\.[^.]+$/, '')
+      const newName = baseName.replace('传统', '要素式')
+      a.download = (newName === baseName ? '要素式' + baseName : newName) + '.docx'
       a.click()
       URL.revokeObjectURL(url)
       toast.success('转换完成，文件已下载')
