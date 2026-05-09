@@ -99,26 +99,10 @@ _CONCLUSION_RE = __import__("re").compile(
 )
 
 
-# ─── SSE 事件发布 ────────────────────────────────────────────────────────────
+# ─── SSE 事件发布（已废弃，SSE 端点改为数据库轮询）────────────────────────────
 
-_sse_locks: dict[UUID, asyncio.Lock] = {}
-
-
-async def _publish_sse_event(job_id: UUID, event_type: str, data: dict[str, Any]) -> None:
-    """将 SSE 事件写入 Django cache，供 SSE 端点读取。使用锁防止并发写入丢失事件。"""
-    from django.core.cache import cache
-
-    if job_id not in _sse_locks:
-        _sse_locks[job_id] = asyncio.Lock()
-
-    async with _sse_locks[job_id]:
-        key = f"batch_sse:{job_id}"
-        events = await sync_to_async(cache.get)(key) or []
-        events.append({"type": event_type, "data": data, "timestamp": time.time()})
-        # 保留最近 500 个事件，避免内存膨胀
-        if len(events) > 500:
-            events = events[-500:]
-        await sync_to_async(cache.set)(key, events, timeout=300)
+async def _publish_sse_event(_job_id: UUID, _event_type: str, _data: dict[str, Any]) -> None:
+    """不再需要：SSE 端点已改为直接轮询数据库。保留函数签名避免改动调用方。"""
 
 
 # ─── 取消监视器 ──────────────────────────────────────────────────────────────
