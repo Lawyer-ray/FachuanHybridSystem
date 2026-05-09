@@ -9,15 +9,7 @@ import {
 import { contractApi } from '../api'
 import type { Contract, OAConfig, FilingSession } from '../types'
 import { useNavigate } from 'react-router'
-
-function DetailCard({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-lg border border-border/60 p-[18px] mb-4 bg-card">
-      <h3 className="text-sm font-semibold text-foreground mb-3.5">{title}</h3>
-      {children}
-    </div>
-  )
-}
+import { DetailCard } from '@/components/shared'
 
 export function FilingTab({ contract: c }: { contract: Contract }) {
   const navigate = useNavigate()

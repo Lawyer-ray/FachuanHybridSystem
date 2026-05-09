@@ -151,7 +151,7 @@ export function TemplateList() {
                       {t.file
                         ? <span className="text-status-green text-xs">上传文件</span>
                         : t.file_path
-                          ? <span className="text-xs" style={{ color: '#6366f1' }}>路径引用</span>
+                          ? <span className="text-xs text-indigo-500">路径引用</span>
                           : <span className="text-muted-foreground text-xs">-</span>}
                     </TableCell>
                     <TableCell>

@@ -22,8 +22,7 @@ import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from '@/components/ui/sheet'
 import { PATHS, generatePath } from '@/routes/paths'
-import { DetailField } from '@/components/shared/DetailField'
-import { DetailCard } from '@/components/shared/DetailCard'
+import { DetailField, DetailCard, StatusBadge } from '@/components/shared'
 import { formatAmount, formatAmountInt } from '@/lib/format'
 import { downloadBlob } from '@/lib/download'
 
@@ -45,14 +44,14 @@ export interface ContractDetailProps { contractId: string }
 
 /* ── Shared helpers ── */
 
-function StatusBadge({ status, label }: { status: string | null; label?: string | null }) {
-  if (!status) return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-muted text-muted-foreground">未设置</span>
-  const cls = status === 'active'
-    ? 'bg-green-50 text-green-700'
+function ContractStatusBadge({ status, label }: { status: string | null; label?: string | null }) {
+  if (!status) return <StatusBadge variant="closed">未设置</StatusBadge>
+  const variant = status === 'active'
+    ? 'active'
     : status === 'closed' || status === 'archived'
-      ? 'bg-muted text-muted-foreground'
-      : 'bg-amber-50 text-amber-700'
-  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${cls}`}>{label || status}</span>
+      ? 'closed'
+      : 'pending'
+  return <StatusBadge variant={variant}>{label || status}</StatusBadge>
 }
 
 /* ── Tabs config ── */
@@ -163,7 +162,7 @@ export function ContractDetail({ contractId }: ContractDetailProps) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2.5 flex-wrap">
             <h1 className="text-lg font-semibold truncate">{contract.name}</h1>
-            <StatusBadge status={statusKey} label={statusLabel} />
+            <ContractStatusBadge status={statusKey} label={statusLabel} />
             {typeLabel && <Badge variant="outline" className="text-[11px] px-2 py-0.5">{typeLabel}</Badge>}
             {contract.is_filed && <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-50 text-blue-700">已建档</span>}
           </div>
@@ -253,7 +252,7 @@ export function ContractDetail({ contractId }: ContractDetailProps) {
                 <div className="grid gap-[14px] sm:grid-cols-2">
                   <DetailField label="合同名称" value={contract.name} />
                   <DetailField label="案件类型" value={typeLabel} />
-                  <DetailField label="合同状态" value={<StatusBadge status={statusKey} label={statusLabel} />} />
+                  <DetailField label="合同状态" value={<ContractStatusBadge status={statusKey} label={statusLabel} />} />
                   <DetailField label="收费模式" value={<Badge variant="outline" className="text-[11px] px-2 py-0.5">{feeLabel}</Badge>} />
                   <DetailField label="固定/前期金额" value={formatAmount(contract.fixed_amount)} />
                   <DetailField label="风险比例" value={contract.risk_rate != null ? `${contract.risk_rate}%` : '—'} />

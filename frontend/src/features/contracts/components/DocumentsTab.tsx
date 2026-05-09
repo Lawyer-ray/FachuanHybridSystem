@@ -8,24 +8,7 @@ import { contractApi } from '../api'
 import type { Contract } from '../types'
 import { SupplementaryAgreementList } from './SupplementaryAgreementList'
 import { FolderBindingManager } from './FolderBindingManager'
-
-function DetailField({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div>
-      <div className="text-muted-foreground mb-0.5 text-xs">{label}</div>
-      <div className="text-[13px]">{value || '—'}</div>
-    </div>
-  )
-}
-
-function DetailCard({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-lg border border-border/60 p-[18px] mb-4 bg-card">
-      <h3 className="text-sm font-semibold text-foreground mb-3.5">{title}</h3>
-      {children}
-    </div>
-  )
-}
+import { DetailField, DetailCard } from '@/components/shared'
 
 function handleDownloadResponse(res: Response, filename: string) {
   const ct = res.headers.get('content-type')

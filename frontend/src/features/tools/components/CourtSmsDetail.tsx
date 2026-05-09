@@ -20,6 +20,7 @@ import { getAccessToken } from '@/lib/token'
 
 import { useCourtSms } from '../hooks/use-court-sms'
 import { courtSmsApi } from '../api/court-sms'
+import { DetailField, DetailCard, StatusBadge } from '@/components/shared'
 
 export interface CourtSmsDetailProps { smsId: number }
 
@@ -35,43 +36,16 @@ const SMS_TYPE_LABELS: Record<string, string> = {
   document_delivery: '文书送达', info_notification: '信息通知', filing_notification: '立案通知',
 }
 
-/* ── Shared helpers ── */
-
-function DetailField({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) {
-  return (
-    <div>
-      <div className="text-muted-foreground mb-0.5 text-xs">{label}</div>
-      <div className={`text-[13px] ${mono ? 'font-mono' : ''}`}>{value || '—'}</div>
-    </div>
-  )
-}
-
-function DetailCard({ title, children, extra }: { title: string; children: React.ReactNode; extra?: React.ReactNode }) {
-  return (
-    <div className="rounded-lg border border-border/60 p-[18px] mb-4 bg-card">
-      {extra ? (
-        <div className="flex items-center justify-between mb-3.5">
-          <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-          {extra}
-        </div>
-      ) : (
-        <h3 className="text-sm font-semibold text-foreground mb-3.5">{title}</h3>
-      )}
-      {children}
-    </div>
-  )
-}
-
-function StatusBadge({ status }: { status: string | null }) {
-  if (!status) return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-muted text-muted-foreground">未设置</span>
-  const cls = status === 'completed'
-    ? 'bg-green-50 text-green-700'
+function CourtSmsStatusBadge({ status }: { status: string | null }) {
+  if (!status) return <StatusBadge variant="closed">未设置</StatusBadge>
+  const variant = status === 'completed'
+    ? 'active'
     : status === 'failed' || status === 'download_failed'
-      ? 'bg-red-50 text-red-700'
+      ? 'error'
       : status === 'pending_manual'
-        ? 'bg-amber-50 text-amber-700'
-        : 'bg-blue-50 text-blue-700'
-  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${cls}`}>{STATUS_LABELS[status] ?? status}</span>
+        ? 'warning'
+        : 'info'
+  return <StatusBadge variant={variant}>{STATUS_LABELS[status] ?? status}</StatusBadge>
 }
 
 /* ── Notification results ── */
@@ -204,7 +178,7 @@ export function CourtSmsDetail({ smsId }: CourtSmsDetailProps) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2.5 flex-wrap">
             <h1 className="text-lg font-semibold">短信 #{sms.id}</h1>
-            <StatusBadge status={sms.status} />
+            <CourtSmsStatusBadge status={sms.status} />
             {typeLabel && <Badge variant="outline" className="text-[11px] px-2 py-0.5">{typeLabel}</Badge>}
           </div>
           <div className="mt-1.5 text-[13px] text-muted-foreground">
@@ -231,7 +205,7 @@ export function CourtSmsDetail({ smsId }: CourtSmsDetailProps) {
         <DetailCard title="基本信息">
           <div className="grid gap-[14px] sm:grid-cols-2">
             <DetailField label="短信ID" value={sms.id} mono />
-            <DetailField label="状态" value={<StatusBadge status={sms.status} />} />
+            <DetailField label="状态" value={<CourtSmsStatusBadge status={sms.status} />} />
             <DetailField label="短信类型" value={typeLabel} />
             <DetailField label="收到时间" value={formatDate(sms.received_at)} mono />
             <DetailField label="创建时间" value={formatDate(sms.created_at)} mono />

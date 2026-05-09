@@ -129,8 +129,7 @@ export function InboxMessageView({ message }: Props) {
               <iframe
                 srcDoc={message.body_html}
                 sandbox=""
-                className="w-full bg-white rounded-b-lg"
-                style={{ minHeight: 500, height: 'auto' }}
+                className="w-full bg-white rounded-b-lg min-h-[500px] h-auto"
                 onLoad={(e) => {
                   const iframe = e.currentTarget
                   const doc = iframe.contentDocument

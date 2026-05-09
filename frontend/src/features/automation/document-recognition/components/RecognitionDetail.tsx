@@ -188,13 +188,9 @@ function PollingIndicator({ isPolling }: PollingIndicatorProps) {
 }
 
 /**
- * 状态徽章组件
+ * 识别状态徽章组件（带图标，领域特定）
  */
-interface StatusBadgeProps {
-  status: RecognitionStatus
-}
-
-function StatusBadge({ status }: StatusBadgeProps) {
+function RecognitionStatusBadge({ status }: { status: RecognitionStatus }) {
   const config = getStatusConfig(status)
 
   return (
@@ -502,7 +498,7 @@ export function RecognitionDetail({ taskId }: RecognitionDetailProps) {
           </h1>
 
           {/* 状态徽章 */}
-          <StatusBadge status={task.status} />
+          <RecognitionStatusBadge status={task.status} />
 
           {/* 轮询指示器 */}
           {/* Requirements: 7.2 */}

@@ -13,27 +13,7 @@ import { FEE_MODE_LABELS, type FeeMode } from '../types'
 import { PaymentList } from './PaymentList'
 import { resolveMediaUrl } from '@/lib/api'
 import { formatAmountInt } from '@/lib/format'
-
-function DetailField({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) {
-  return (
-    <div>
-      <div className="text-muted-foreground mb-0.5 text-xs">{label}</div>
-      <div className={`text-[13px] ${mono ? 'font-mono' : ''}`}>{value || '—'}</div>
-    </div>
-  )
-}
-
-function DetailCard({ title, children, extra }: { title: string; children: React.ReactNode; extra?: React.ReactNode }) {
-  return (
-    <div className="rounded-lg border border-border/60 p-[18px] mb-4 bg-card">
-      <div className="flex items-center justify-between mb-3.5">
-        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-        {extra}
-      </div>
-      {children}
-    </div>
-  )
-}
+import { DetailField, DetailCard } from '@/components/shared'
 
 function ClientPaymentSection({ contractId, records: initial }: { contractId: number; records: ClientPaymentRecord[] }) {
   const [records, setRecords] = useState(initial)

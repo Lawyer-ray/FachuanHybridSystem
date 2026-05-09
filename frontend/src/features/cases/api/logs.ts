@@ -1,6 +1,9 @@
 import { createFeatureApiClient } from '@/lib/api'
 import type { CaseLog, CaseLogAttachment, CaseNumber } from '../types'
 
+type CreateCaseNumberInput = Pick<CaseNumber, 'number'> & Partial<Omit<CaseNumber, 'id' | 'created_at'>>
+type UpdateCaseNumberInput = Partial<Omit<CaseNumber, 'id' | 'created_at'>>
+
 const client = createFeatureApiClient('cases')
 
 export const logsApi = {
@@ -29,12 +32,10 @@ export const logsApi = {
   listCaseNumbers: async (caseId: number | string): Promise<CaseNumber[]> =>
     client.get('case-numbers', { searchParams: { case_id: String(caseId) } }).json<CaseNumber[]>(),
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  createCaseNumber: async (data: any): Promise<CaseNumber> =>
+  createCaseNumber: async (data: CreateCaseNumberInput): Promise<CaseNumber> =>
     client.post('case-numbers', { json: data }).json<CaseNumber>(),
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  updateCaseNumber: async (id: number | string, data: any): Promise<CaseNumber> =>
+  updateCaseNumber: async (id: number | string, data: UpdateCaseNumberInput): Promise<CaseNumber> =>
     client.put(`case-numbers/${id}`, { json: data }).json<CaseNumber>(),
 
   deleteCaseNumber: async (id: number | string): Promise<void> => {
