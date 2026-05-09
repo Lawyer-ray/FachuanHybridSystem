@@ -1,4 +1,4 @@
-# 法穿 AI Copilot
+<h1 align="center">法穿 AI Copilot</h1>
 
 <p align="center">
   <strong>由一线执业律师主导研发 · 开源 · 私有化部署 · 数据自持</strong>
