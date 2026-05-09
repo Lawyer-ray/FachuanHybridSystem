@@ -442,12 +442,16 @@ async def stream_batch_progress(request: Any, job_id: UUID) -> StreamingHttpResp
 
         while True:
             # 查询正在运行但尚未报告开始的子项
-            running_items = await sync_to_async(list)(
-                BatchJobItem.objects.filter(
-                    job_id=job_id,
-                    status=BatchJobStatus.RUNNING,
-                ).exclude(id__in=started_items).values("id", "file_name")
-            )
+            running_items: list[dict[str, Any]] = await sync_to_async(
+                lambda: list(
+                    BatchJobItem.objects.filter(
+                        job_id=job_id,
+                        status=BatchJobStatus.RUNNING,
+                    )
+                    .exclude(id__in=started_items)
+                    .values("id", "file_name")
+                )
+            )()
 
             for item in running_items:
                 item_id = str(item["id"])
@@ -456,12 +460,16 @@ async def stream_batch_progress(request: Any, job_id: UUID) -> StreamingHttpResp
                     yield f"data: {json.dumps({'type': 'item_started', 'data': {'item_id': item_id, 'file_name': item['file_name']}}, ensure_ascii=False)}\n\n"
 
             # 查询已完成/失败但尚未报告的子项（不限时间，避免连接建立前完成的项被遗漏）
-            changed_items = await sync_to_async(list)(
-                BatchJobItem.objects.filter(
-                    job_id=job_id,
-                    status__in=(BatchJobStatus.COMPLETED, BatchJobStatus.FAILED),
-                ).exclude(id__in=reported_items).values("id", "file_name", "status", "duration_ms", "error")
-            )
+            changed_items: list[dict[str, Any]] = await sync_to_async(
+                lambda: list(
+                    BatchJobItem.objects.filter(
+                        job_id=job_id,
+                        status__in=(BatchJobStatus.COMPLETED, BatchJobStatus.FAILED),
+                    )
+                    .exclude(id__in=reported_items)
+                    .values("id", "file_name", "status", "duration_ms", "error")
+                )
+            )()
 
             for item in changed_items:
                 item_id = str(item["id"])
@@ -480,7 +488,9 @@ async def stream_batch_progress(request: Any, job_id: UUID) -> StreamingHttpResp
 
             # 读取最新进度
             job_data = await sync_to_async(
-                lambda: BatchJob.objects.values_list("completed_items", "failed_items", "total_items", "progress", "status").get(id=job_id)
+                lambda: BatchJob.objects.values_list(
+                    "completed_items", "failed_items", "total_items", "progress", "status"
+                ).get(id=job_id)
             )()
             completed, failed, total, progress, status = job_data
 

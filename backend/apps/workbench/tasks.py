@@ -101,6 +101,7 @@ _CONCLUSION_RE = __import__("re").compile(
 
 # ─── SSE 事件发布（已废弃，SSE 端点改为数据库轮询）────────────────────────────
 
+
 async def _publish_sse_event(_job_id: UUID, _event_type: str, _data: dict[str, Any]) -> None:
     """不再需要：SSE 端点已改为直接轮询数据库。保留函数签名避免改动调用方。"""
 
