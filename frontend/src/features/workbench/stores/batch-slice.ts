@@ -1,5 +1,5 @@
 import type { StateCreator, StoreApi } from 'zustand'
-import type { BatchProgress } from '../types'
+import type { BatchJobItem, BatchProgress } from '../types'
 import * as api from '../api'
 import { stripMetadataBlock } from './streaming-helpers'
 import { createBatchItemMessage, createBatchSummaryMessage } from './message-factory'
@@ -66,18 +66,49 @@ function handleSSEEvent(set: SetFn, get: GetFn, event: { type: string; data: Rec
   const { batchProgress } = get()
   if (!batchProgress) return
 
-  if (event.type === 'item_completed') {
+  if (event.type === 'item_completed' || event.type === 'item_failed') {
+    const isCompleted = event.type === 'item_completed'
+    const itemId = event.data.item_id as string
+    const fileName = event.data.file_name as string
+    const durationMs = event.data.duration_ms as number | undefined
+    const error = event.data.error as string | undefined
+
+    const completed = isCompleted ? (batchProgress.job.completed_items || 0) + 1 : (batchProgress.job.completed_items || 0)
+    const failed = !isCompleted ? (batchProgress.job.failed_items || 0) + 1 : (batchProgress.job.failed_items || 0)
+    const total = batchProgress.job.total_items || 1
+    const progress = Math.round((completed + failed) * 100 / total)
+
+    // 更新或追加 items 列表中的条目
+    const existingIdx = batchProgress.items.findIndex((i) => i.id === itemId)
+    let items: BatchJobItem[]
+    if (existingIdx >= 0) {
+      items = batchProgress.items.map((item, idx) =>
+        idx === existingIdx
+          ? { ...item, status: isCompleted ? 'completed' : 'failed', duration_ms: durationMs ?? item.duration_ms, error: error ?? item.error }
+          : item,
+      )
+    } else {
+      const newItem: BatchJobItem = {
+        id: itemId,
+        file_name: fileName,
+        status: isCompleted ? 'completed' : 'failed',
+        result: '',
+        error: error ?? '',
+        duration_ms: durationMs ?? null,
+      }
+      items = [...batchProgress.items, newItem]
+    }
+
     set({
       batchProgress: {
         ...batchProgress,
-        job: { ...batchProgress.job, completed_items: (batchProgress.job.completed_items || 0) + 1 },
-      },
-    })
-  } else if (event.type === 'item_failed') {
-    set({
-      batchProgress: {
-        ...batchProgress,
-        job: { ...batchProgress.job, failed_items: (batchProgress.job.failed_items || 0) + 1 },
+        items,
+        job: {
+          ...batchProgress.job,
+          completed_items: completed,
+          failed_items: failed,
+          progress,
+        },
       },
     })
   } else if (event.type === 'progress') {

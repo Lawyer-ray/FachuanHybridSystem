@@ -101,18 +101,24 @@ _CONCLUSION_RE = __import__("re").compile(
 
 # ─── SSE 事件发布 ────────────────────────────────────────────────────────────
 
+_sse_locks: dict[UUID, asyncio.Lock] = {}
+
 
 async def _publish_sse_event(job_id: UUID, event_type: str, data: dict[str, Any]) -> None:
-    """将 SSE 事件写入 Django cache，供 SSE 端点读取"""
+    """将 SSE 事件写入 Django cache，供 SSE 端点读取。使用锁防止并发写入丢失事件。"""
     from django.core.cache import cache
 
-    key = f"batch_sse:{job_id}"
-    events = await sync_to_async(cache.get)(key) or []
-    events.append({"type": event_type, "data": data, "timestamp": time.time()})
-    # 保留最近 500 个事件，避免内存膨胀
-    if len(events) > 500:
-        events = events[-500:]
-    await sync_to_async(cache.set)(key, events, timeout=300)
+    if job_id not in _sse_locks:
+        _sse_locks[job_id] = asyncio.Lock()
+
+    async with _sse_locks[job_id]:
+        key = f"batch_sse:{job_id}"
+        events = await sync_to_async(cache.get)(key) or []
+        events.append({"type": event_type, "data": data, "timestamp": time.time()})
+        # 保留最近 500 个事件，避免内存膨胀
+        if len(events) > 500:
+            events = events[-500:]
+        await sync_to_async(cache.set)(key, events, timeout=300)
 
 
 # ─── 取消监视器 ──────────────────────────────────────────────────────────────
