@@ -440,12 +440,11 @@ async def stream_batch_progress(request: Any, job_id: UUID) -> StreamingHttpResp
         last_progress = -1
 
         while True:
-            # 查询上次轮询后状态变更的子项
+            # 查询已完成/失败但尚未报告的子项（不限时间，避免连接建立前完成的项被遗漏）
             changed_items = await sync_to_async(list)(
                 BatchJobItem.objects.filter(
                     job_id=job_id,
                     status__in=(BatchJobStatus.COMPLETED, BatchJobStatus.FAILED),
-                    updated_at__gte=last_poll,
                 ).exclude(id__in=reported_items).values("id", "file_name", "status", "duration_ms", "error")
             )
 
