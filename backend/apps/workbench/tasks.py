@@ -243,6 +243,96 @@ def _parse_llm_result(result_text: str, file_name: str) -> dict[str, Any]:
     }
 
 
+# ─── 共享分析逻辑 ────────────────────────────────────────────────────────────
+
+
+def _build_case_info(metadata: dict[str, str | None]) -> str:
+    """从文档元数据构建案例信息字符串"""
+    parts = []
+    if metadata.get("case_number"):
+        parts.append(f"案号：{metadata['case_number']}")
+    if metadata.get("court"):
+        parts.append(f"审理法院：{metadata['court']}")
+    if metadata.get("cause"):
+        parts.append(f"案由：{metadata['cause']}")
+    if metadata.get("judge"):
+        parts.append(f"法官：{metadata['judge']}")
+    if metadata.get("clerk"):
+        parts.append(f"书记员：{metadata['clerk']}")
+    return "\n".join(parts) + "\n" if parts else ""
+
+
+def _merge_chunk_results(chunk_results: list[str], file_name: str) -> str:
+    """合并多个 chunk 的分析结果"""
+    if len(chunk_results) == 1:
+        return chunk_results[0]
+
+    all_analysis = []
+    last_parsed = _parse_llm_result(chunk_results[-1], file_name)
+    for cr in chunk_results:
+        parsed = _parse_llm_result(cr, file_name)
+        if parsed["analysis"]:
+            all_analysis.append(parsed["analysis"])
+    last_parsed["analysis"] = "\n\n---\n\n".join(all_analysis)
+    return json.dumps(last_parsed, ensure_ascii=False)
+
+
+async def _analyze_single_item(
+    item: BatchJobItem,
+    *,
+    job_prompt: str,
+    job_llm_model: str,
+    llm: Any,
+    extractor: DocTextExtractor,
+    thread_pool: Any,
+    loop: Any,
+    cancel_event: asyncio.Event,
+) -> str:
+    """对单个文件执行完整的分析流程，返回最终结果文本
+
+    提取文本 → 提取元数据 → 分段 LLM 分析 → 合并结果。
+    """
+    text = await loop.run_in_executor(thread_pool, extractor.extract_text, item.file.path)
+
+    if cancel_event.is_set():
+        raise asyncio.CancelledError
+
+    metadata = await loop.run_in_executor(thread_pool, extractor.extract_doc_metadata, item.file.path)
+    case_info = _build_case_info(metadata)
+
+    chunks = _chunk_text(text) if len(text) > CHUNK_THRESHOLD else [text]
+    chunk_results: list[str] = []
+
+    for chunk_idx, chunk in enumerate(chunks):
+        if cancel_event.is_set():
+            raise asyncio.CancelledError
+
+        chunk_label = f"(第{chunk_idx + 1}/{len(chunks)}段)" if len(chunks) > 1 else ""
+        result_text = await loop.run_in_executor(
+            thread_pool,
+            lambda c=chunk, cl=chunk_label: _sync_llm_chat(
+                llm,
+                messages=[
+                    {"role": "system", "content": ANALYSIS_SYSTEM_PROMPT},
+                    {
+                        "role": "user",
+                        "content": (
+                            f"{case_info}用户研究问题：{job_prompt}\n\n"
+                            f"以下是从文件「{item.file_name}」中提取的内容{cl}：\n\n{c}\n\n"
+                            "请先判断本案是否与用户研究问题相关。如无关，is_relevant 设为 false；如有关，请进行分析。"
+                            "请以 JSON 格式输出结果。"
+                        ),
+                    },
+                ],
+                model=job_llm_model,
+                temperature=0.3,
+            ),
+        )
+        chunk_results.append(result_text)
+
+    return _merge_chunk_results(chunk_results, item.file_name)
+
+
 # ─── 主逻辑 ──────────────────────────────────────────────────────────────────
 
 
@@ -294,7 +384,6 @@ async def _run_batch_async(job_id: UUID) -> None:
         semaphore = asyncio.Semaphore(concurrency)
 
         async def analyze_item(item: BatchJobItem, index: int) -> None:
-            # 检查取消
             if cancel_event.is_set():
                 return
 
@@ -303,83 +392,22 @@ async def _run_batch_async(job_id: UUID) -> None:
             )
             start = time.perf_counter()
 
-            # 首个 item 开始处理时记录时间
             if index == 0:
                 await sync_to_async(BatchJob.objects.filter(id=job_id).update)(
                     started_processing_at=timezone.now(),
                 )
 
             try:
-                # 提取文本（在线程池中执行，比 sync_to_async 更高效）
-                text = await loop.run_in_executor(thread_pool, extractor.extract_text, item.file.path)
-
-                # 再次检查取消
-                if cancel_event.is_set():
-                    return
-
-                # 从文档中提取元数据（案号、法院、案由、法官、书记员）
-                metadata = await loop.run_in_executor(thread_pool, extractor.extract_doc_metadata, item.file.path)
-                meta_parts = []
-                if metadata.get("case_number"):
-                    meta_parts.append(f"案号：{metadata['case_number']}")
-                if metadata.get("court"):
-                    meta_parts.append(f"审理法院：{metadata['court']}")
-                if metadata.get("cause"):
-                    meta_parts.append(f"案由：{metadata['cause']}")
-                if metadata.get("judge"):
-                    meta_parts.append(f"法官：{metadata['judge']}")
-                if metadata.get("clerk"):
-                    meta_parts.append(f"书记员：{metadata['clerk']}")
-                case_info = "\n".join(meta_parts) + "\n" if meta_parts else ""
-
-                # 长文档分段分析
-                chunks = _chunk_text(text) if len(text) > CHUNK_THRESHOLD else [text]
-                chunk_results: list[str] = []
-
-                for chunk_idx, chunk in enumerate(chunks):
-                    # 检查取消
-                    if cancel_event.is_set():
-                        return
-
-                    chunk_label = f"(第{chunk_idx + 1}/{len(chunks)}段)" if len(chunks) > 1 else ""
-                    result_text = await loop.run_in_executor(
-                        thread_pool,
-                        lambda c=chunk, cl=chunk_label: _sync_llm_chat(  # type: ignore[misc]
-                            llm,
-                            messages=[
-                                {"role": "system", "content": ANALYSIS_SYSTEM_PROMPT},
-                                {
-                                    "role": "user",
-                                    "content": (
-                                        f"{case_info}用户研究问题：{job.prompt}\n\n"
-                                        f"以下是从文件「{item.file_name}」中提取的内容{cl}：\n\n{c}\n\n"
-                                        "请先判断本案是否与用户研究问题相关。如无关，is_relevant 设为 false；如有关，请进行分析。"
-                                        "请以 JSON 格式输出结果。"
-                                    ),
-                                },
-                            ],
-                            model=job.llm_model,
-                            temperature=0.3,
-                        ),
-                    )
-                    chunk_results.append(result_text)
-
-                # 合并分段结果
-                if len(chunk_results) == 1:
-                    final_result = chunk_results[0]
-                else:
-                    # 取最后一个 chunk 的元数据，合并所有 chunk 的分析正文
-                    all_analysis = []
-                    last_parsed = _parse_llm_result(chunk_results[-1], item.file_name)
-                    for cr in chunk_results:
-                        parsed = _parse_llm_result(cr, item.file_name)
-                        if parsed["analysis"]:
-                            all_analysis.append(parsed["analysis"])
-                    last_parsed["analysis"] = "\n\n---\n\n".join(all_analysis)
-                    # 重新序列化为 JSON 供后续解析
-                    import json as _json
-
-                    final_result = _json.dumps(last_parsed, ensure_ascii=False)
+                final_result = await _analyze_single_item(
+                    item,
+                    job_prompt=job.prompt,
+                    job_llm_model=job.llm_model,
+                    llm=llm,
+                    extractor=extractor,
+                    thread_pool=thread_pool,
+                    loop=loop,
+                    cancel_event=cancel_event,
+                )
 
                 duration = (time.perf_counter() - start) * 1000
                 await sync_to_async(BatchJobItem.objects.filter(id=item.id).update)(
@@ -389,17 +417,8 @@ async def _run_batch_async(job_id: UUID) -> None:
                 )
                 await _increment_counter(job_id, "completed_items")
 
-                # 发布 SSE 事件
-                await _publish_sse_event(
-                    job_id,
-                    "item_completed",
-                    {
-                        "item_id": str(item.id),
-                        "file_name": item.file_name,
-                        "status": "completed",
-                        "duration_ms": round(duration, 2),
-                    },
-                )
+            except asyncio.CancelledError:
+                return
 
             except Exception as e:
                 logger.error("文件分析失败: %s - %s", item.file_name, e, exc_info=True)
@@ -408,18 +427,6 @@ async def _run_batch_async(job_id: UUID) -> None:
                     error=str(e)[:2000],
                 )
                 await _increment_counter(job_id, "failed_items")
-
-                # 发布 SSE 事件
-                await _publish_sse_event(
-                    job_id,
-                    "item_failed",
-                    {
-                        "item_id": str(item.id),
-                        "file_name": item.file_name,
-                        "status": "failed",
-                        "error": str(e)[:200],
-                    },
-                )
 
             # 节流式进度更新
             if index % PROGRESS_UPDATE_EVERY == 0 or index == len(items) - 1:
@@ -539,66 +546,16 @@ async def _run_batch_retry_async(job_id: UUID, item_ids: list[UUID]) -> None:
             start = time.perf_counter()
 
             try:
-                text = await loop.run_in_executor(thread_pool, extractor.extract_text, item.file.path)
-                if cancel_event.is_set():
-                    return
-
-                metadata = await loop.run_in_executor(thread_pool, extractor.extract_doc_metadata, item.file.path)
-                meta_parts = []
-                if metadata.get("case_number"):
-                    meta_parts.append(f"案号：{metadata['case_number']}")
-                if metadata.get("court"):
-                    meta_parts.append(f"审理法院：{metadata['court']}")
-                if metadata.get("cause"):
-                    meta_parts.append(f"案由：{metadata['cause']}")
-                if metadata.get("judge"):
-                    meta_parts.append(f"法官：{metadata['judge']}")
-                if metadata.get("clerk"):
-                    meta_parts.append(f"书记员：{metadata['clerk']}")
-                case_info = "\n".join(meta_parts) + "\n" if meta_parts else ""
-
-                chunks = _chunk_text(text) if len(text) > CHUNK_THRESHOLD else [text]
-                chunk_results: list[str] = []
-
-                for chunk_idx, chunk in enumerate(chunks):
-                    if cancel_event.is_set():
-                        return
-                    chunk_label = f"(第{chunk_idx + 1}/{len(chunks)}段)" if len(chunks) > 1 else ""
-                    result_text = await loop.run_in_executor(
-                        thread_pool,
-                        lambda c=chunk, cl=chunk_label: _sync_llm_chat(  # type: ignore[misc]
-                            llm,
-                            messages=[
-                                {"role": "system", "content": ANALYSIS_SYSTEM_PROMPT},
-                                {
-                                    "role": "user",
-                                    "content": (
-                                        f"{case_info}用户研究问题：{job.prompt}\n\n"
-                                        f"以下是从文件「{item.file_name}」中提取的内容{cl}：\n\n{c}\n\n"
-                                        "请先判断本案是否与用户研究问题相关。如无关，is_relevant 设为 false；如有关，请进行分析。"
-                                        "请以 JSON 格式输出结果。"
-                                    ),
-                                },
-                            ],
-                            model=job.llm_model,
-                            temperature=0.3,
-                        ),
-                    )
-                    chunk_results.append(result_text)
-
-                if len(chunk_results) == 1:
-                    final_result = chunk_results[0]
-                else:
-                    all_analysis = []
-                    last_parsed = _parse_llm_result(chunk_results[-1], item.file_name)
-                    for cr in chunk_results:
-                        parsed = _parse_llm_result(cr, item.file_name)
-                        if parsed["analysis"]:
-                            all_analysis.append(parsed["analysis"])
-                    last_parsed["analysis"] = "\n\n---\n\n".join(all_analysis)
-                    import json as _json
-
-                    final_result = _json.dumps(last_parsed, ensure_ascii=False)
+                final_result = await _analyze_single_item(
+                    item,
+                    job_prompt=job.prompt,
+                    job_llm_model=job.llm_model,
+                    llm=llm,
+                    extractor=extractor,
+                    thread_pool=thread_pool,
+                    loop=loop,
+                    cancel_event=cancel_event,
+                )
 
                 duration = (time.perf_counter() - start) * 1000
                 await sync_to_async(BatchJobItem.objects.filter(id=item.id).update)(
@@ -606,7 +563,6 @@ async def _run_batch_retry_async(job_id: UUID, item_ids: list[UUID]) -> None:
                     result=final_result,
                     duration_ms=round(duration, 2),
                 )
-                # 减少 failed_items，增加 completed_items
                 await sync_to_async(
                     lambda: BatchJob.objects.filter(id=job_id).update(
                         failed_items=F("failed_items") - 1,
@@ -614,34 +570,14 @@ async def _run_batch_retry_async(job_id: UUID, item_ids: list[UUID]) -> None:
                     )
                 )()
 
-                await _publish_sse_event(
-                    job_id,
-                    "item_completed",
-                    {
-                        "item_id": str(item.id),
-                        "file_name": item.file_name,
-                        "status": "completed",
-                        "duration_ms": round(duration, 2),
-                        "retried": True,
-                    },
-                )
+            except asyncio.CancelledError:
+                return
 
             except Exception as e:
                 logger.error("重试分析失败: %s - %s", item.file_name, e, exc_info=True)
                 await sync_to_async(BatchJobItem.objects.filter(id=item.id).update)(
                     status=BatchJobStatus.FAILED,
                     error=str(e)[:2000],
-                )
-                await _publish_sse_event(
-                    job_id,
-                    "item_failed",
-                    {
-                        "item_id": str(item.id),
-                        "file_name": item.file_name,
-                        "status": "failed",
-                        "error": str(e)[:200],
-                        "retried": True,
-                    },
                 )
 
             if index % PROGRESS_UPDATE_EVERY == 0 or index == len(items) - 1:
