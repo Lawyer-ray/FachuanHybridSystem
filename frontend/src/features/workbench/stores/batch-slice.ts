@@ -65,7 +65,27 @@ function handleSSEEvent(set: SetFn, get: GetFn, event: { type: string; data: Rec
   const { batchProgress } = get()
   if (!batchProgress) return
 
-  if (event.type === 'item_completed' || event.type === 'item_failed') {
+  if (event.type === 'item_started') {
+    const itemId = event.data.item_id as string
+    const fileName = event.data.file_name as string
+    const bp = batchProgress
+    const exists = bp.items.some((i) => i.id === itemId)
+    if (!exists) {
+      set({
+        batchProgress: {
+          ...bp,
+          items: [...bp.items, {
+            id: itemId,
+            file_name: fileName,
+            status: 'running',
+            result: '',
+            error: '',
+            duration_ms: null,
+          } as BatchJobItem],
+        },
+      })
+    }
+  } else if (event.type === 'item_completed' || event.type === 'item_failed') {
     const isCompleted = event.type === 'item_completed'
     const itemId = event.data.item_id as string
     const fileName = event.data.file_name as string

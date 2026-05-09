@@ -437,9 +437,24 @@ async def stream_batch_progress(request: Any, job_id: UUID) -> StreamingHttpResp
 
         last_poll = timezone.now()
         reported_items: set[str] = set()
+        started_items: set[str] = set()
         last_progress = -1
 
         while True:
+            # 查询正在运行但尚未报告开始的子项
+            running_items = await sync_to_async(list)(
+                BatchJobItem.objects.filter(
+                    job_id=job_id,
+                    status=BatchJobStatus.RUNNING,
+                ).exclude(id__in=started_items).values("id", "file_name")
+            )
+
+            for item in running_items:
+                item_id = str(item["id"])
+                started_items.add(item_id)
+                if item_id not in reported_items:
+                    yield f"data: {json.dumps({'type': 'item_started', 'data': {'item_id': item_id, 'file_name': item['file_name']}}, ensure_ascii=False)}\n\n"
+
             # 查询已完成/失败但尚未报告的子项（不限时间，避免连接建立前完成的项被遗漏）
             changed_items = await sync_to_async(list)(
                 BatchJobItem.objects.filter(
