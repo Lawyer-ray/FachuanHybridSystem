@@ -2,12 +2,10 @@
  * 收件箱 API
  */
 
-import { api, API_BASE_URL } from '@/lib/api'
+import { API_BASE_URL, createFeatureApiClient } from '@/lib/api'
 import type { InboxMessage, InboxMessageDetail, InboxListParams } from './types'
 
-const inboxApi_ = api.extend({
-  prefixUrl: `${API_BASE_URL}/inbox`,
-})
+const inboxApi_ = createFeatureApiClient('inbox')
 
 const ATTACHMENT_BASE = `${API_BASE_URL}/inbox/messages`
 

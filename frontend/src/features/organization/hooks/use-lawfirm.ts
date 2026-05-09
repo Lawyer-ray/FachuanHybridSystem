@@ -18,7 +18,7 @@ import type { LawFirm } from '../types'
  * @param id - 律所 ID
  * @returns Query key 数组
  */
-export const lawFirmQueryKey = (id: string | number) => ['lawFirm', id] as const
+export const lawFirmQueryKey = (id: string | number): unknown[] => ['lawFirm', id]
 
 /**
  * 律所详情查询 Hook

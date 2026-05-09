@@ -4,7 +4,7 @@
  * 生成标准的 create/update/delete mutations hook，减少重复模板代码。
  */
 
-import { useMutation, useQueryClient, type UseMutationResult } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 /** CRUD API 接口 */
 export interface CrudApi<TData, TInput, TUpdateInput, TId = number> {
@@ -18,9 +18,9 @@ export interface CrudMutationsConfig<TData, TInput, TUpdateInput, TId = number> 
   /** CRUD API 对象 */
   api: CrudApi<TData, TInput, TUpdateInput, TId>
   /** 列表查询 key（用于 invalidateQueries） */
-  listKey: unknown[] | ((query: { queryKey: unknown[] }) => boolean)
+  listKey: unknown[] | ((query: { queryKey: readonly unknown[] }) => boolean)
   /** 生成详情查询 key（可选，用于更新/删除时 invalidate 详情缓存） */
-  detailKey?: (id: TId) => unknown[]
+  detailKey?: (id: TId) => readonly unknown[]
   /** 是否在更新时直接 setQueryData 更新详情缓存（默认 true） */
   optimisticDetail?: boolean
   /** 是否在删除时 removeQueries 移除详情缓存（默认 true） */
@@ -57,7 +57,7 @@ export function createCrudMutations<TData, TInput, TUpdateInput, TId = number>(
       mutationFn: (data) => api.create(data),
       onSuccess: () => {
         if (typeof listKey === 'function') {
-          queryClient.invalidateQueries({ predicate: listKey as (query: { queryKey: unknown[] }) => boolean })
+          queryClient.invalidateQueries({ predicate: listKey })
         } else {
           queryClient.invalidateQueries({ queryKey: listKey })
         }
@@ -68,7 +68,7 @@ export function createCrudMutations<TData, TInput, TUpdateInput, TId = number>(
       mutationFn: ({ id, data }) => api.update(id, data),
       onSuccess: (updated, { id }) => {
         if (typeof listKey === 'function') {
-          queryClient.invalidateQueries({ predicate: listKey as (query: { queryKey: unknown[] }) => boolean })
+          queryClient.invalidateQueries({ predicate: listKey })
         } else {
           queryClient.invalidateQueries({ queryKey: listKey })
         }
@@ -86,7 +86,7 @@ export function createCrudMutations<TData, TInput, TUpdateInput, TId = number>(
       mutationFn: (id) => api.delete(id),
       onSuccess: (_, id) => {
         if (typeof listKey === 'function') {
-          queryClient.invalidateQueries({ predicate: listKey as (query: { queryKey: unknown[] }) => boolean })
+          queryClient.invalidateQueries({ predicate: listKey })
         } else {
           queryClient.invalidateQueries({ queryKey: listKey })
         }

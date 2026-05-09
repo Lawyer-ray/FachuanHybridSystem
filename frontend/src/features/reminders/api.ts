@@ -5,7 +5,7 @@
  * Requirements: 1.1, 4.2, 5.2, 6.2
  */
 
-import { createApiClient } from '@/lib/api'
+import { createFeatureApiClient } from '@/lib/api'
 
 import type {
   Reminder,
@@ -13,7 +13,7 @@ import type {
   ReminderTypeOption,
 } from './types'
 
-const api = createApiClient()
+const api = createFeatureApiClient('reminders')
 
 /**
  * 列表查询参数
@@ -49,7 +49,7 @@ export const reminderApi = {
     }
 
     return api
-      .get('reminders/list', { searchParams })
+      .get('list', { searchParams })
       .json<Reminder[]>()
   },
 
@@ -63,7 +63,7 @@ export const reminderApi = {
    * Requirements: 1.1
    */
   get: async (id: number): Promise<Reminder> => {
-    return api.get(`reminders/${id}`).json<Reminder>()
+    return api.get(`${id}`).json<Reminder>()
   },
 
   /**
@@ -76,7 +76,7 @@ export const reminderApi = {
    * Requirements: 4.2
    */
   create: async (data: ReminderInput): Promise<Reminder> => {
-    return api.post('reminders/create', { json: data }).json<Reminder>()
+    return api.post('create', { json: data }).json<Reminder>()
   },
 
   /**
@@ -90,7 +90,7 @@ export const reminderApi = {
    * Requirements: 5.2
    */
   update: async (id: number, data: ReminderInput): Promise<Reminder> => {
-    return api.put(`reminders/${id}`, { json: data }).json<Reminder>()
+    return api.put(`${id}`, { json: data }).json<Reminder>()
   },
 
   /**
@@ -103,7 +103,7 @@ export const reminderApi = {
    * Requirements: 6.2
    */
   delete: async (id: number): Promise<void> => {
-    await api.delete(`reminders/${id}`)
+    await api.delete(`${id}`)
   },
 
   /**
@@ -115,7 +115,7 @@ export const reminderApi = {
    * Requirements: 1.1
    */
   getTypes: async (): Promise<ReminderTypeOption[]> => {
-    return api.get('reminders/types').json<ReminderTypeOption[]>()
+    return api.get('types').json<ReminderTypeOption[]>()
   },
 
   /**
@@ -125,7 +125,7 @@ export const reminderApi = {
   getTargetOptions: async (q?: string): Promise<TargetOptionsResponse> => {
     const searchParams = new URLSearchParams()
     if (q) searchParams.set('q', q)
-    return api.get('reminders/target-options', { searchParams }).json<TargetOptionsResponse>()
+    return api.get('target-options', { searchParams }).json<TargetOptionsResponse>()
   },
 }
 

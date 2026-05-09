@@ -5,7 +5,6 @@
 import { useNavigate } from 'react-router'
 import { copyToClipboard } from '@/lib/clipboard'
 import { Users, User, Building2, Landmark, Copy } from 'lucide-react'
-import { toast } from 'sonner'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'

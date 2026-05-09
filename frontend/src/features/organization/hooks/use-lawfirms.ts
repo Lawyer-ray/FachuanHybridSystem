@@ -15,7 +15,7 @@ import type { LawFirm } from '../types'
 /**
  * 律所列表查询 Query Key
  */
-export const lawFirmsQueryKey = ['lawfirms'] as const
+export const lawFirmsQueryKey: unknown[] = ['lawfirms']
 
 /**
  * 律所列表查询 Hook

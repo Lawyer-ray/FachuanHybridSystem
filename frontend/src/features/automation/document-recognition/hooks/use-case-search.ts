@@ -8,9 +8,9 @@
  * Requirements: 7.6, 7.7
  */
 
-import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
+import { useDebounce } from '@/hooks/use-debounce'
 import { documentRecognitionApi } from '../api'
 import type { CaseSearchResult } from '../types'
 
@@ -62,37 +62,6 @@ export interface UseCaseSearchResult {
  */
 export const caseSearchQueryKey = (query: string) =>
   ['document-recognition', 'case-search', query] as const
-
-// ============================================================================
-// Hook: useDebounce
-// ============================================================================
-
-/**
- * 防抖 Hook
- *
- * 延迟更新值，用于减少频繁的 API 调用
- *
- * @param value - 需要防抖的值
- * @param delay - 延迟时间（毫秒）
- * @returns 防抖后的值
- */
-function useDebounce<T>(value: T, delay: number): T {
-  const [debouncedValue, setDebouncedValue] = useState<T>(value)
-
-  useEffect(() => {
-    // 设置定时器，在延迟后更新值
-    const timer = setTimeout(() => {
-      setDebouncedValue(value)
-    }, delay)
-
-    // 清理函数：如果值在延迟期间改变，取消之前的定时器
-    return () => {
-      clearTimeout(timer)
-    }
-  }, [value, delay])
-
-  return debouncedValue
-}
 
 // ============================================================================
 // Hook: useCaseSearch

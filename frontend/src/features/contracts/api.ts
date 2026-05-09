@@ -2,7 +2,8 @@
  * Contract Feature API
  */
 
-import { api, API_BASE_URL } from '@/lib/api'
+import { api, createFeatureApiClient } from '@/lib/api'
+import { downloadFromResponse } from '@/lib/download'
 import type {
   Contract, ContractInput, ContractUpdate, ContractListParams,
   ContractPayment, PaymentInput, PaymentUpdate,
@@ -15,9 +16,7 @@ import type {
   OAConfig, FilingSession, ArchiveChecklist,
 } from './types'
 
-const contractApi_ = api.extend({
-  prefixUrl: `${API_BASE_URL}/contracts`,
-})
+const contractApi_ = createFeatureApiClient('contracts')
 
 export const contractApi = {
   // ==================== Contract CRUD ====================
@@ -186,25 +185,7 @@ export const contractApi = {
 
   downloadArchiveItem: async (contractId: number | string, archiveItemCode: string): Promise<void> => {
     const resp = await contractApi_.get(`${contractId}/archive/download-item/${archiveItemCode}`)
-    const blob = await resp.blob()
-    const disposition = resp.headers.get('Content-Disposition')
-    let filename = ''
-    if (disposition) {
-      const utf8Match = disposition.match(/filename\*=UTF-8''(.+)/i)
-      if (utf8Match) filename = decodeURIComponent(utf8Match[1])
-      else {
-        const plainMatch = disposition.match(/filename="?([^";\n]+)"?/)
-        if (plainMatch) filename = plainMatch[1]
-      }
-    }
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename || 'download'
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    URL.revokeObjectURL(url)
+    await downloadFromResponse(resp)
   },
 
   previewArchiveItem: async (contractId: number | string, archiveItemCode: string): Promise<void> => {

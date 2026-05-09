@@ -38,7 +38,7 @@ export const remindersQueryKey = (filters?: ReminderFilters) =>
  * @param id - 提醒 ID
  * @returns Query key 数组
  */
-export const reminderQueryKey = (id: number) => ['reminder', id] as const
+export const reminderQueryKey = (id: number): unknown[] => ['reminder', id]
 
 /**
  * 提醒类型列表 Query Key

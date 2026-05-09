@@ -10,6 +10,7 @@ import type {
   StreamingMessage,
   BatchProgress,
   Attachment,
+  SSEEvent,
 } from '../types'
 import * as api from '../api'
 import { getAccessToken } from '@/lib/token'
@@ -276,7 +277,7 @@ export const useWorkbenchStore = create<WorkbenchState>()((set, get) => ({
 
       // 流结束 - 将 streamingMessage 转为正式消息
       const { streamingMessage } = get()
-      let newMessages = finalizeStreamingMessages(streamingMessage)
+      const newMessages = finalizeStreamingMessages(streamingMessage)
 
       // 如果有错误信息但没有内容，显示错误消息
       if (streamingMessage?.error && !streamingMessage.content) {

@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input'
 import { PATHS } from '@/routes/paths'
 import { PageFooter } from '@/components/shared/PageFooter'
 
+import { useDebounce } from '@/hooks/use-debounce'
 import { CaseFilters } from './CaseFilters'
 import { CaseTable } from './CaseTable'
 import { useCases } from '../hooks/use-cases'
@@ -21,19 +22,6 @@ import { useCaseSearch } from '../hooks/use-case-search'
 import type { CaseListParams } from '../types'
 
 const PAGE_SIZE = 20
-
-// ============================================================================
-// Debounce hook
-// ============================================================================
-
-function useDebounce(value: string, delay: number): string {
-  const [debounced, setDebounced] = useState(value)
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delay)
-    return () => clearTimeout(timer)
-  }, [value, delay])
-  return debounced
-}
 
 // ============================================================================
 // Main Component
