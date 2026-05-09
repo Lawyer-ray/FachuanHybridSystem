@@ -138,9 +138,14 @@ const createSessionSlice: StateCreator<WorkbenchStore, [], [], SessionSlice> = (
         )
         allItems = [...allItems, ...rest.flatMap((r) => r.items)]
       }
-      set({ messages: allItems, messagesLoading: false })
+      // 防止过期请求覆盖新会话数据
+      if (get().currentSession?.id === sessionId) {
+        set({ messages: allItems, messagesLoading: false })
+      }
     } catch {
-      set({ messagesLoading: false })
+      if (get().currentSession?.id === sessionId) {
+        set({ messagesLoading: false })
+      }
     }
   },
 
