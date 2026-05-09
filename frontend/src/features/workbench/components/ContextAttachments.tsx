@@ -7,7 +7,9 @@ import { useWorkbenchStore } from '../stores/workbench-store'
 import type { Attachment } from '../types'
 
 export function ContextAttachments() {
-  const { attachments, addAttachment, removeAttachment } = useWorkbenchStore()
+  const attachments = useWorkbenchStore((s) => s.attachments)
+  const addAttachment = useWorkbenchStore((s) => s.addAttachment)
+  const removeAttachment = useWorkbenchStore((s) => s.removeAttachment)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleFileSelect = useCallback(

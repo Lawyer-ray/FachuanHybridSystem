@@ -11,7 +11,11 @@ const VIRTUALIZE_THRESHOLD = 50
 export const MessageList = React.memo(function MessageList() {
   const scrollRef = useRef<HTMLDivElement>(null)
   const virtuosoRef = useRef<VirtuosoHandle>(null)
-  const { messages, streamingMessage, isStreaming, messagesLoading, currentSession } = useWorkbenchStore()
+  const messages = useWorkbenchStore((s) => s.messages)
+  const streamingMessage = useWorkbenchStore((s) => s.streamingMessage)
+  const isStreaming = useWorkbenchStore((s) => s.isStreaming)
+  const messagesLoading = useWorkbenchStore((s) => s.messagesLoading)
+  const currentSession = useWorkbenchStore((s) => s.currentSession)
   const prevCountRef = useRef(0)
   const prevSessionIdRef = useRef<number | null>(null)
 

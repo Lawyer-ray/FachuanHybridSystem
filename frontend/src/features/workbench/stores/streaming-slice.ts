@@ -28,6 +28,7 @@ export interface StreamingSlice {
   abortStream: () => void
   handleSSEEvent: (event: SSEEvent) => void
   respondApproval: (approved: boolean) => Promise<void>
+  resetStreaming: () => void
 }
 
 export const createStreamingSlice: StateCreator<WorkbenchStore, [], [], StreamingSlice> = (set, get) => ({
@@ -51,7 +52,7 @@ export const createStreamingSlice: StateCreator<WorkbenchStore, [], [], Streamin
         : ''
     const fullContent = content + attachmentNote
 
-    set((state) => ({ messages: [...state.messages, createUserMessage(fullContent)] }))
+    get().appendMessages(createUserMessage(fullContent))
 
     _abortController = new AbortController()
     set({
@@ -105,13 +106,13 @@ export const createStreamingSlice: StateCreator<WorkbenchStore, [], [], Streamin
       }
 
       if (newMessages.length > 0) {
-        set((state) => ({ messages: [...state.messages, ...newMessages] }))
+        get().appendMessages(...newMessages)
       }
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
         const { streamingMessage: sm } = get()
         if (sm && sm.content) {
-          set((state) => ({ messages: [...state.messages, createAbortedMessage(sm.content, sm.model)] }))
+          get().appendMessages(createAbortedMessage(sm.content, sm.model))
         }
       } else {
         const { streamingMessage: sm } = get()
@@ -133,9 +134,9 @@ export const createStreamingSlice: StateCreator<WorkbenchStore, [], [], Streamin
 
         const { streamingMessage: finalSm } = get()
         if (finalSm && finalSm.content) {
-          set((state) => ({ messages: [...state.messages, createPartialMessage(finalSm.content, finalSm.model)] }))
+          get().appendMessages(createPartialMessage(finalSm.content, finalSm.model))
         } else {
-          set((state) => ({ messages: [...state.messages, createErrorMessage(err instanceof Error ? err.message : '未知错误')] }))
+          get().appendMessages(createErrorMessage(err instanceof Error ? err.message : '未知错误'))
         }
       }
     } finally {
@@ -155,7 +156,7 @@ export const createStreamingSlice: StateCreator<WorkbenchStore, [], [], Streamin
       await api.truncateMessages(currentSession.id, messageId)
     } catch { /* ignore */ }
 
-    set({ messages: messages.slice(0, idx) })
+    get().replaceMessages(messages.slice(0, idx))
     get().sendMessage(newContent)
   },
 
@@ -205,6 +206,15 @@ export const createStreamingSlice: StateCreator<WorkbenchStore, [], [], Streamin
       await api.respondApproval(pendingApproval.approvalId, approved)
       set({ pendingApproval: null })
     } catch { /* ignore */ }
+  },
+
+  resetStreaming: () => {
+    abortStreaming()
+    set({
+      isStreaming: false,
+      streamingMessage: null,
+      pendingApproval: null,
+    })
   },
 })
 

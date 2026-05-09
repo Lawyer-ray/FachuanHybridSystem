@@ -30,7 +30,12 @@ export const ChatInput = React.memo(function ChatInput({ onSend, disabled }: Cha
   const [content, setContent] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const sendAfterSpeechRef = useRef(false)
-  const { isStreaming, selectedAgent, setSelectedAgent, abortStream, quotedContent, setQuotedContent } = useWorkbenchStore()
+  const isStreaming = useWorkbenchStore((s) => s.isStreaming)
+  const selectedAgent = useWorkbenchStore((s) => s.selectedAgent)
+  const setSelectedAgent = useWorkbenchStore((s) => s.setSelectedAgent)
+  const abortStream = useWorkbenchStore((s) => s.abortStream)
+  const quotedContent = useWorkbenchStore((s) => s.quotedContent)
+  const setQuotedContent = useWorkbenchStore((s) => s.setQuotedContent)
 
   const speech = useSpeechRecognition({ lang: 'zh-CN', continuous: true, interimResults: true })
 

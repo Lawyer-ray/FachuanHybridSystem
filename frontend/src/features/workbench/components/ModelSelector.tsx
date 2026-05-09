@@ -14,8 +14,12 @@ interface ModelSelectorProps {
 
 export function ModelSelector({ disabled }: ModelSelectorProps) {
   const [open, setOpen] = useState(false)
-  const { models, modelsLoading, selectedModel, favoriteModel, setSelectedModel, setFavoriteModel } =
-    useWorkbenchStore()
+  const models = useWorkbenchStore((s) => s.models)
+  const modelsLoading = useWorkbenchStore((s) => s.modelsLoading)
+  const selectedModel = useWorkbenchStore((s) => s.selectedModel)
+  const favoriteModel = useWorkbenchStore((s) => s.favoriteModel)
+  const setSelectedModel = useWorkbenchStore((s) => s.setSelectedModel)
+  const setFavoriteModel = useWorkbenchStore((s) => s.setFavoriteModel)
 
   if (modelsLoading) {
     return <Skeleton className="h-5 w-24" />

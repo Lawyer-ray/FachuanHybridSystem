@@ -17,17 +17,15 @@ type SetFn = StoreApi<WorkbenchStore>['setState']
 type GetFn = () => WorkbenchStore
 
 function injectCompletedItem(
-  set: SetFn,
+  get: GetFn,
   itemId: string, fileName: string, result: string, jobId: string,
 ) {
   if (_shownBatchItemIds.has(itemId)) return
   _shownBatchItemIds.add(itemId)
-  set((state) => ({
-    messages: [...state.messages, createBatchItemMessage(fileName, formatBatchContent(stripMetadataBlock(result)), jobId)],
-  }))
+  get().appendMessages(createBatchItemMessage(fileName, formatBatchContent(stripMetadataBlock(result)), jobId))
 }
 
-async function handleTerminal(set: SetFn, progress: BatchProgress) {
+async function handleTerminal(set: SetFn, get: GetFn, progress: BatchProgress) {
   set({ batchPolling: false } as Partial<WorkbenchStore>)
 
   const completedItems = progress.items.filter(
@@ -55,9 +53,7 @@ async function handleTerminal(set: SetFn, progress: BatchProgress) {
       }])
     } catch { /* 持久化失败不影响用户体验 */ }
 
-    set((state) => ({
-      messages: [...state.messages, createBatchSummaryMessage(progress.job.summary, progress.job.id)],
-    }))
+    get().appendMessages(createBatchSummaryMessage(progress.job.summary, progress.job.id))
   }
 }
 
@@ -158,10 +154,10 @@ function startSSEConnection(
         set({ batchProgress: progress })
         for (const item of progress.items) {
           if (item.status === 'completed' && item.result) {
-            injectCompletedItem(set, item.id, item.file_name, item.result, progress.job.id)
+            injectCompletedItem(get, item.id, item.file_name, item.result, progress.job.id)
           }
         }
-        await handleTerminal(set, progress)
+        await handleTerminal(set, get, progress)
       } catch {
         set({ batchPolling: false } as Partial<WorkbenchStore>)
       }
@@ -176,11 +172,11 @@ function startSSEConnection(
           set({ batchProgress: progress })
           for (const item of progress.items) {
             if (item.status === 'completed' && item.result) {
-              injectCompletedItem(set, item.id, item.file_name, item.result, progress.job.id)
+              injectCompletedItem(get, item.id, item.file_name, item.result, progress.job.id)
             }
           }
           if (['completed', 'failed', 'cancelled'].includes(progress.job.status)) {
-            await handleTerminal(set, progress)
+            await handleTerminal(set, get, progress)
             return
           }
         } catch { /* 轮询失败不停止 */ }
@@ -204,6 +200,7 @@ export interface BatchSlice {
   cancelBatchAnalysis: () => Promise<void>
   dismissBatchProgress: () => void
   recoverActiveBatchJob: (sessionId: number) => Promise<void>
+  resetBatch: () => void
 }
 
 export const createBatchSlice: StateCreator<WorkbenchStore, [], [], BatchSlice> = (set, get) => ({
@@ -281,12 +278,21 @@ export const createBatchSlice: StateCreator<WorkbenchStore, [], [], BatchSlice> 
 
       for (const item of progress.items) {
         if (item.status === 'completed' && item.result) {
-          injectCompletedItem(set, item.id, item.file_name, item.result, progress.job.id)
+          injectCompletedItem(get, item.id, item.file_name, item.result, progress.job.id)
         }
       }
 
       startSSEConnection(set, get, runningJob.id)
     } catch { /* 恢复失败不影响正常使用 */ }
+  },
+
+  resetBatch: () => {
+    cleanupBatchState()
+    set({
+      activeBatchJobId: null,
+      batchProgress: null,
+      batchPolling: false,
+    })
   },
 })
 

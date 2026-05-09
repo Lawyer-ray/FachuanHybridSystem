@@ -1,9 +1,8 @@
 /** 工作台页面 */
 
 import { useEffect, useCallback, useState, useRef, useMemo } from 'react'
-import { formatFileSize } from '@/lib/file-utils'
 import { useParams, useNavigate } from 'react-router'
-import { Plus, Trash2, Loader2, Pencil, Search, X, PanelLeftClose, PanelLeft, Menu, History, Download, AlertTriangle } from 'lucide-react'
+import { Plus, Loader2, Search, X, PanelLeftClose, PanelLeft, Menu, History, Download, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
@@ -19,6 +18,8 @@ import { BatchProgressCard } from './components/BatchProgressCard'
 import { BatchHistoryPanel } from './components/BatchHistoryPanel'
 import { WorkbenchWelcome } from './components/WorkbenchWelcome'
 import { WorkbenchCommandPalette } from './components/WorkbenchCommandPalette'
+import { SessionItem } from './components/SessionItem'
+import { EditableTitle } from './components/EditableTitle'
 import { useContextUsage } from './hooks/use-context-usage'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { deleteSession, updateSession } from './api'
@@ -27,27 +28,26 @@ import { toast } from 'sonner'
 import { generatePath } from '@/routes/paths'
 
 export function WorkbenchPage() {
-  const {
-    sessions,
-    currentSession,
-    fetchSessions,
-    createSession,
-    setCurrentSession,
-    fetchModels,
-    pendingApproval,
-    respondApproval,
-    isStreaming,
-    sendMessage,
-    selectedModel,
-    models,
-    batchProgress,
-    submitBatchAnalysis,
-    cancelBatchAnalysis,
-    dismissBatchProgress,
-    recoverActiveBatchJob,
-    messages,
-    abortStream,
-  } = useWorkbenchStore()
+  // 逐字段选择器，避免全量订阅导致不必要重渲染
+  const sessions = useWorkbenchStore((s) => s.sessions)
+  const currentSession = useWorkbenchStore((s) => s.currentSession)
+  const fetchSessions = useWorkbenchStore((s) => s.fetchSessions)
+  const createSession = useWorkbenchStore((s) => s.createSession)
+  const setCurrentSession = useWorkbenchStore((s) => s.setCurrentSession)
+  const fetchModels = useWorkbenchStore((s) => s.fetchModels)
+  const pendingApproval = useWorkbenchStore((s) => s.pendingApproval)
+  const respondApproval = useWorkbenchStore((s) => s.respondApproval)
+  const isStreaming = useWorkbenchStore((s) => s.isStreaming)
+  const sendMessage = useWorkbenchStore((s) => s.sendMessage)
+  const selectedModel = useWorkbenchStore((s) => s.selectedModel)
+  const models = useWorkbenchStore((s) => s.models)
+  const batchProgress = useWorkbenchStore((s) => s.batchProgress)
+  const submitBatchAnalysis = useWorkbenchStore((s) => s.submitBatchAnalysis)
+  const cancelBatchAnalysis = useWorkbenchStore((s) => s.cancelBatchAnalysis)
+  const dismissBatchProgress = useWorkbenchStore((s) => s.dismissBatchProgress)
+  const recoverActiveBatchJob = useWorkbenchStore((s) => s.recoverActiveBatchJob)
+  const messages = useWorkbenchStore((s) => s.messages)
+  const abortStream = useWorkbenchStore((s) => s.abortStream)
 
   const { percent: contextPercent } = useContextUsage()
 
@@ -524,116 +524,6 @@ export function WorkbenchPage() {
           handleNewSession()
         }}
       />
-    </div>
-  )
-}
-
-/** 会话列表项 */
-function SessionItem({
-  session,
-  isActive,
-  onSelect,
-  onDelete,
-}: {
-  session: { id: number; title: string; last_message_preview: string; message_count?: number; storage_bytes?: number }
-  isActive: boolean
-  onSelect: () => void
-  onDelete: () => void
-}) {
-  return (
-    <div
-      onClick={onSelect}
-      className={cn(
-        'group flex flex-col rounded-md px-2.5 py-2 cursor-pointer hover:bg-accent',
-        isActive && 'bg-accent',
-      )}
-    >
-      <div className="flex items-center">
-        <span className="flex-1 min-w-0 text-sm truncate">{session.title || '新会话'}</span>
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            onDelete()
-          }}
-          className="shrink-0 ml-1 opacity-0 text-muted-foreground hover:text-destructive group-hover:opacity-100"
-        >
-          <Trash2 className="size-3.5" />
-        </button>
-      </div>
-      {session.last_message_preview && (
-        <span className="text-[11px] text-muted-foreground truncate mt-0.5">
-          {session.last_message_preview}
-        </span>
-      )}
-      {session.message_count !== undefined && (
-        <span className="text-[10px] text-muted-foreground/60 mt-0.5">
-          {session.message_count} 条消息 · {formatFileSize(session.storage_bytes || 0)}
-        </span>
-      )}
-    </div>
-  )
-}
-
-/** 可编辑标题 */
-function EditableTitle({
-  title,
-  editable,
-  onSave,
-}: {
-  title: string
-  editable: boolean
-  onSave: (title: string) => void
-}) {
-  const [editing, setEditing] = useState(false)
-  const [value, setValue] = useState(title)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  // Sync title when not editing
-  useEffect(() => {
-    if (!editing) setValue(title)
-  }, [title, editing])
-
-  useEffect(() => {
-    if (editing) inputRef.current?.focus()
-  }, [editing])
-
-  const handleSave = () => {
-    const trimmed = value.trim()
-    if (trimmed && trimmed !== title) {
-      onSave(trimmed)
-    }
-    setEditing(false)
-  }
-
-  if (!editable) {
-    return <h2 className="text-sm font-medium">{title}</h2>
-  }
-
-  if (editing) {
-    return (
-      <Input
-        ref={inputRef}
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onBlur={handleSave}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') handleSave()
-          if (e.key === 'Escape') { setValue(title); setEditing(false) }
-        }}
-        className="h-7 text-sm font-medium"
-      />
-    )
-  }
-
-  return (
-    <div className="group flex items-center gap-1.5">
-      <h2 className="text-sm font-medium truncate">{title}</h2>
-      <button
-        onClick={() => setEditing(true)}
-        className="hidden text-muted-foreground hover:text-foreground group-hover:block"
-      >
-        <Pencil className="size-3" />
-      </button>
     </div>
   )
 }

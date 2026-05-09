@@ -42,15 +42,13 @@ export function WorkbenchCommandPalette({
   onOpenChange,
   onNewSession,
 }: WorkbenchCommandPaletteProps) {
-  const {
-    setSelectedAgent,
-    setSelectedModel,
-    abortStream,
-    isStreaming,
-    models,
-    messages,
-    currentSession,
-  } = useWorkbenchStore()
+  const setSelectedAgent = useWorkbenchStore((s) => s.setSelectedAgent)
+  const setSelectedModel = useWorkbenchStore((s) => s.setSelectedModel)
+  const abortStream = useWorkbenchStore((s) => s.abortStream)
+  const isStreaming = useWorkbenchStore((s) => s.isStreaming)
+  const models = useWorkbenchStore((s) => s.models)
+  const messages = useWorkbenchStore((s) => s.messages)
+  const currentSession = useWorkbenchStore((s) => s.currentSession)
 
   const handleExport = () => {
     if (!currentSession || messages.length === 0) return

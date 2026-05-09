@@ -181,3 +181,29 @@ export function connectBatchSSE(
 
   return () => controller.abort()
 }
+
+/** 工作台 API 统一导出 */
+export const workbenchApi = {
+  // 会话
+  createSession,
+  listSessions,
+  getSession,
+  updateSession,
+  deleteSession,
+  // 消息
+  listMessages,
+  truncateMessages,
+  submitFeedback,
+  // 审批
+  respondApproval,
+  // 模型
+  fetchModels,
+  // 批量分析
+  submitBatchAnalysis,
+  getBatchProgress,
+  cancelBatchAnalysis,
+  saveBatchMessages,
+  retryBatchAnalysis,
+  listBatchJobs,
+  connectBatchSSE,
+}
