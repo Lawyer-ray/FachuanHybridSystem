@@ -1,4 +1,4 @@
-import type { StateCreator } from 'zustand'
+import type { StateCreator, StoreApi } from 'zustand'
 import type { BatchProgress } from '../types'
 import * as api from '../api'
 import { stripMetadataBlock } from './streaming-helpers'
@@ -13,7 +13,7 @@ let _cleanupBatchSSE: (() => void) | null = null
 
 // ─── 共享辅助函数 ────────────────────────────────────────────────────────────
 
-type SetFn = (partial: Partial<WorkbenchStore> | ((state: WorkbenchStore) => Partial<WorkbenchStore>)) => void
+type SetFn = StoreApi<WorkbenchStore>['setState']
 type GetFn = () => WorkbenchStore
 
 function injectCompletedItem(
