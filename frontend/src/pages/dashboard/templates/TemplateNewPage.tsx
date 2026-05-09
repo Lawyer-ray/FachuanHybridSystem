@@ -1,9 +1,12 @@
 import { useNavigate } from 'react-router'
+import { toast } from 'sonner'
 import { TemplateForm } from '@/features/templates'
+import { useTemplateMutations } from '@/features/templates/hooks/use-template-mutations'
 import { PATHS } from '@/routes/paths'
 
 export default function TemplateNewPage() {
   const navigate = useNavigate()
+  const { create } = useTemplateMutations()
 
   return (
     <div className="space-y-4">
@@ -15,9 +18,15 @@ export default function TemplateNewPage() {
       </div>
       <TemplateForm
         onSubmit={(data) => {
-          // TODO: call API to create template
-          console.log('Create template:', data)
-          navigate(PATHS.ADMIN_TEMPLATES)
+          create.mutate(data, {
+            onSuccess: () => {
+              toast.success('模板创建成功')
+              navigate(PATHS.ADMIN_TEMPLATES)
+            },
+            onError: (error) => {
+              toast.error(error.message || '创建失败，请重试')
+            },
+          })
         }}
       />
     </div>

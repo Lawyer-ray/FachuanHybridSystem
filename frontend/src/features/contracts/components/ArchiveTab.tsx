@@ -573,7 +573,7 @@ export function ArchiveTab({ contract: c }: { contract: Contract }) {
                   <ItemBadge item={item} />
 
                   {/* Actions */}
-                  <div className="flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
+                  <div className="flex items-center gap-0.5" role="group" aria-label="文件操作" onClick={e => e.stopPropagation()}>
                     {item.template ? (
                       <>
                         <button

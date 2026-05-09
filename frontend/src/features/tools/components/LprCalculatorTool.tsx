@@ -5,6 +5,10 @@ import { Input } from '@/components/ui/input'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Plus, Trash2, Copy, RotateCcw, Clock, X } from 'lucide-react'
 import { useLprRates } from '../hooks/use-lpr-rates'
 import { useLprCalculate } from '../hooks/use-lpr-calculate'
@@ -201,8 +205,14 @@ export function LprCalculatorTool() {
     localStorage.setItem('lpr_calculator_history', JSON.stringify(updated))
   }
 
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
+
   const clearHistory = () => {
-    if (!window.confirm('确定要清空所有历史记录吗？')) return
+    setClearConfirmOpen(true)
+  }
+
+  const handleClearConfirm = () => {
+    setClearConfirmOpen(false)
     setHistory([])
     localStorage.removeItem('lpr_calculator_history')
   }
@@ -624,6 +634,19 @@ export function LprCalculatorTool() {
           {result.message}
         </div>
       )}
+
+      <AlertDialog open={clearConfirmOpen} onOpenChange={setClearConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认清空</AlertDialogTitle>
+            <AlertDialogDescription>确定要清空所有历史记录吗？此操作不可撤销。</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={handleClearConfirm}>确定清空</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

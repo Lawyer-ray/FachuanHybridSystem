@@ -40,13 +40,13 @@ export function FolderBrowser({ open, onOpenChange, onSelect }: Props) {
               <p className="p-3 text-sm text-muted-foreground">空文件夹</p>
             ) : (
               data.entries.map(e => (
-                <div key={e.path} className="flex cursor-pointer items-center justify-between border-b px-3 py-2 last:border-0 hover:bg-muted/50" onClick={() => setCurrentPath(e.path)}>
+                <button key={e.path} type="button" className="flex w-full cursor-pointer items-center justify-between border-b px-3 py-2 last:border-0 hover:bg-muted/50 text-left" onClick={() => setCurrentPath(e.path)}>
                   <div className="flex items-center gap-2">
                     <Folder className="size-4 text-amber-500" />
                     <span className="text-sm">{e.name}</span>
                   </div>
                   <ChevronRight className="size-4 text-muted-foreground" />
-                </div>
+                </button>
               ))
             )}
           </div>

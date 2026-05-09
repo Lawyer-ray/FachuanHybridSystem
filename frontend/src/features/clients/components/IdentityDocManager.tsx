@@ -3,6 +3,7 @@
  */
 
 import { useState, useCallback, useRef } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import {
@@ -42,6 +43,7 @@ function isImageFile(path: string): boolean {
 }
 
 export function IdentityDocManager({ clientId, clientType, docs }: Props) {
+  const queryClient = useQueryClient()
   const { addDoc, deleteDoc } = useIdentityDocMutations(clientId)
 
   const [previewDoc, setPreviewDoc] = useState<IdentityDoc | null>(null)
@@ -97,7 +99,7 @@ export function IdentityDocManager({ clientId, clientType, docs }: Props) {
         setMergeFront(null)
         setMergeBack(null)
         // 刷新证件列表
-        window.location.reload()
+        queryClient.invalidateQueries({ queryKey: ['client', clientId] })
       } else {
         toast.error(res.error || '合并失败')
       }

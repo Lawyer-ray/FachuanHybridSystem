@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { RefreshCw, Trash2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -7,6 +7,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { taskQueueApi } from '../api'
 import { useQueuedTasks, useCompletedTasks, useFailedTasks, useScheduledTasks } from '../hooks/use-tasks'
@@ -27,6 +31,9 @@ function truncate(str: string | null, len: number): string {
 export function TaskQueuePage() {
   const [activeTab, setActiveTab] = useState('queue')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [confirmMessage, setConfirmMessage] = useState('')
+  const pendingActionRef = useRef<(() => Promise<void>) | null>(null)
   const queryClient = useQueryClient()
 
   const queued = useQueuedTasks()
@@ -38,23 +45,40 @@ export function TaskQueuePage() {
     queryClient.invalidateQueries({ queryKey: ['task-queue'] })
   }, [queryClient])
 
+  const showConfirm = useCallback((message: string, action: () => Promise<void>) => {
+    setConfirmMessage(message)
+    pendingActionRef.current = action
+    setConfirmOpen(true)
+  }, [])
+
+  const handleConfirm = useCallback(async () => {
+    setConfirmOpen(false)
+    if (pendingActionRef.current) {
+      await pendingActionRef.current()
+      pendingActionRef.current = null
+    }
+  }, [])
+
   const handleDelete = useCallback(async (taskId: string) => {
-    if (!window.confirm('确定删除此任务？')) return
-    await taskQueueApi.deleteTask(taskId)
-    invalidateAll()
-  }, [invalidateAll])
+    showConfirm('确定删除此任务？', async () => {
+      await taskQueueApi.deleteTask(taskId)
+      invalidateAll()
+    })
+  }, [showConfirm, invalidateAll])
 
   const handleDeleteSchedule = useCallback(async (scheduleId: number) => {
-    if (!window.confirm('确定删除此定时任务？')) return
-    await taskQueueApi.deleteSchedule(scheduleId)
-    invalidateAll()
-  }, [invalidateAll])
+    showConfirm('确定删除此定时任务？', async () => {
+      await taskQueueApi.deleteSchedule(scheduleId)
+      invalidateAll()
+    })
+  }, [showConfirm, invalidateAll])
 
   const handleResubmit = useCallback(async (taskId: string) => {
-    if (!window.confirm('确定重新提交此任务？')) return
-    await taskQueueApi.resubmitTask(taskId)
-    invalidateAll()
-  }, [invalidateAll])
+    showConfirm('确定重新提交此任务？', async () => {
+      await taskQueueApi.resubmitTask(taskId)
+      invalidateAll()
+    })
+  }, [showConfirm, invalidateAll])
 
   const toggleSelect = useCallback((id: string) => {
     setSelectedIds((prev) => {
@@ -75,11 +99,12 @@ export function TaskQueuePage() {
 
   const handleBatchDelete = useCallback(async () => {
     if (selectedIds.size === 0) return
-    if (!window.confirm(`确定删除选中的 ${selectedIds.size} 个任务？`)) return
-    await Promise.all([...selectedIds].map((id) => taskQueueApi.deleteTask(id)))
-    setSelectedIds(new Set())
-    invalidateAll()
-  }, [selectedIds, invalidateAll])
+    showConfirm(`确定删除选中的 ${selectedIds.size} 个任务？`, async () => {
+      await Promise.all([...selectedIds].map((id) => taskQueueApi.deleteTask(id)))
+      setSelectedIds(new Set())
+      invalidateAll()
+    })
+  }, [selectedIds, showConfirm, invalidateAll])
 
   const queueData = queued.data ?? []
   const completedData = completed.data ?? []
@@ -285,6 +310,19 @@ export function TaskQueuePage() {
           )}
         </TabsContent>
       </Tabs>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认操作</AlertDialogTitle>
+            <AlertDialogDescription>{confirmMessage}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirm}>确定</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

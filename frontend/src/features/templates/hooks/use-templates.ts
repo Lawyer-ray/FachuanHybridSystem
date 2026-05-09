@@ -1,11 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import { templateApi } from '../api'
-import type { Template } from '../types'
 
 export function useTemplates() {
-  return useQuery<Template[]>({
+  return useQuery({
     queryKey: ['templates'],
-    queryFn: () => templateApi.list() as Promise<Template[]>,
+    queryFn: () => templateApi.list(),
     staleTime: 60 * 1000,
   })
 }

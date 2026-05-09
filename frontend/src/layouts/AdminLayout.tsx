@@ -121,11 +121,14 @@ function AdminLayoutContent() {
 
       {/* 移动端遮罩 */}
       <div
+        role="presentation"
         className={cn(
           'fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity duration-200',
           isMobile && mobileMenuOpen ? 'opacity-100' : 'pointer-events-none opacity-0',
         )}
         onClick={closeMobileMenu}
+        onKeyDown={(e) => { if (e.key === 'Escape') closeMobileMenu() }}
+        tabIndex={-1}
       />
 
       {/* 移动端 Sidebar 抽屉 */}

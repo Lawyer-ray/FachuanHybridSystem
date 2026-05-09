@@ -3,6 +3,7 @@ import { FolderDown, FileText, Loader2, Lock, Unlock, Search } from 'lucide-reac
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { contractApi } from '../api'
 import type { Contract } from '../types'
 import { SupplementaryAgreementList } from './SupplementaryAgreementList'
@@ -254,30 +255,30 @@ export function DocumentsTab({ contract: c }: { contract: Contract }) {
       </DetailCard>
 
       {/* Supplementary Agreement Selection Dialog */}
-      {showAgreementDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowAgreementDialog(false)}>
-          <div className="bg-background rounded-lg shadow-lg p-6 w-[400px] max-h-[70vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <h3 className="text-sm font-semibold mb-4">选择补充协议</h3>
-            <div className="flex flex-col gap-2 mb-4">
-              {c.supplementary_agreements.map(sa => (
-                <button
-                  key={sa.id}
-                  className={`text-left px-3 py-2 rounded-md border text-sm transition-colors ${selectedAgreementId === sa.id ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted'}`}
-                  onClick={() => setSelectedAgreementId(sa.id)}
-                >
-                  {sa.name || `未命名补充协议 #${sa.id}`}
-                </button>
-              ))}
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={() => setShowAgreementDialog(false)}>取消</Button>
-              <Button size="sm" disabled={!selectedAgreementId || generating} onClick={() => selectedAgreementId && handleGenerateAgreement(selectedAgreementId)}>
-                确定生成
-              </Button>
-            </div>
+      <Dialog open={showAgreementDialog} onOpenChange={setShowAgreementDialog}>
+        <DialogContent className="max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>选择补充协议</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-2">
+            {c.supplementary_agreements.map(sa => (
+              <button
+                key={sa.id}
+                className={`text-left px-3 py-2 rounded-md border text-sm transition-colors ${selectedAgreementId === sa.id ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted'}`}
+                onClick={() => setSelectedAgreementId(sa.id)}
+              >
+                {sa.name || `未命名补充协议 #${sa.id}`}
+              </button>
+            ))}
           </div>
-        </div>
-      )}
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setShowAgreementDialog(false)}>取消</Button>
+            <Button size="sm" disabled={!selectedAgreementId || generating} onClick={() => selectedAgreementId && handleGenerateAgreement(selectedAgreementId)}>
+              确定生成
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Folder Binding */}
       <div className="rounded-lg border border-border/60 p-[18px] mb-4 bg-card">

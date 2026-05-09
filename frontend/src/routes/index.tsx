@@ -3,6 +3,7 @@ import { AuthLayout } from '@/layouts/AuthLayout'
 import { AdminLayout } from '@/layouts/AdminLayout'
 import { PATHS } from './paths'
 import { AuthGuard, GuestGuard } from './guards'
+import { RouteError } from './route-error'
 
 // 懒加载页面组件
 import { lazy } from 'react'
@@ -136,9 +137,11 @@ export const router = createBrowserRouter([
   // @validates Requirements 8.5 - WHEN 未登录用户访问 `/admin/*` 路径 THEN THE System SHALL 重定向到登录页
   {
     element: <AuthGuard />,
+    errorElement: <RouteError />,
     children: [
       {
         element: <AdminLayout />,
+        errorElement: <RouteError />,
         children: [
           // Dashboard 首页
           {

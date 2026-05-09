@@ -7,6 +7,10 @@ import { Badge } from '@/components/ui/badge'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { useMessageSources } from '../hooks/use-message-sources'
 import { messageSourceApi } from '../api'
@@ -54,14 +58,24 @@ export function MessageSourceList() {
     }
   }
 
-  const handleDelete = async (id: number) => {
-    if (!window.confirm('确定删除此消息来源？')) return
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null)
+
+  const handleDeleteClick = (id: number) => {
+    setDeleteTargetId(id)
+    setDeleteConfirmOpen(true)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (deleteTargetId === null) return
+    setDeleteConfirmOpen(false)
     try {
-      await messageSourceApi.delete(id)
+      await messageSourceApi.delete(deleteTargetId)
       queryClient.invalidateQueries({ queryKey: ['message-sources'] })
     } catch (e) {
       console.error('Delete failed:', e)
     }
+    setDeleteTargetId(null)
   }
 
   return (
@@ -169,7 +183,7 @@ export function MessageSourceList() {
                           variant="outline"
                           size="sm"
                           className="h-7 text-xs text-status-red border-status-red hover:bg-status-red-bg"
-                          onClick={() => handleDelete(s.id)}
+                          onClick={() => handleDeleteClick(s.id)}
                         >
                           <Trash2 className="size-3" />
                         </Button>
@@ -182,6 +196,19 @@ export function MessageSourceList() {
           </Table>
         </div>
       )}
+
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除</AlertDialogTitle>
+            <AlertDialogDescription>确定删除此消息来源？删除后将停止同步该来源的消息。</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm}>确定删除</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

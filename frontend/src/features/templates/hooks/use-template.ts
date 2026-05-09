@@ -1,11 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import { templateApi } from '../api'
-import type { Template } from '../types'
 
 export function useTemplate(id: number) {
-  return useQuery<Template>({
+  return useQuery({
     queryKey: ['templates', id],
-    queryFn: () => templateApi.get(id) as Promise<Template>,
+    queryFn: () => templateApi.get(id),
     enabled: !!id,
   })
 }

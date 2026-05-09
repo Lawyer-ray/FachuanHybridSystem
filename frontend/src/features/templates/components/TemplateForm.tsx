@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router'
 import { Upload, X, FileText, Briefcase, Archive } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -67,6 +67,7 @@ interface TemplateFormProps {
 export function TemplateForm({ template, onSubmit }: TemplateFormProps) {
   const navigate = useNavigate()
   const isEdit = !!template
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [name, setName] = useState(template?.name ?? '')
   const [isActive, setIsActive] = useState(template?.is_active ?? true)
@@ -407,14 +408,14 @@ export function TemplateForm({ template, onSubmit }: TemplateFormProps) {
               <>
                 <div
                   className="border-2 border-dashed rounded-md p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
-                  onClick={() => document.getElementById('tpl-file-input')?.click()}
+                  onClick={() => fileInputRef.current?.click()}
                 >
                   <Upload className="mx-auto size-8 text-muted-foreground/50 mb-2" />
                   <p className="text-[13px] text-muted-foreground">点击选择或拖拽 .docx 文件到这里</p>
                   <p className="text-[11px] text-muted-foreground/70">支持 .docx 格式，最大 10MB</p>
                 </div>
                 <input
-                  id="tpl-file-input"
+                  ref={fileInputRef}
                   type="file"
                   accept=".docx"
                   className="hidden"
