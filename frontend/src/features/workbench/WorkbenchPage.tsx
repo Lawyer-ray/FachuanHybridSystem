@@ -43,6 +43,7 @@ export function WorkbenchPage() {
     batchProgress,
     submitBatchAnalysis,
     cancelBatchAnalysis,
+    recoverActiveBatchJob,
     messages,
     abortStream,
   } = useWorkbenchStore()
@@ -93,6 +94,13 @@ export function WorkbenchPage() {
       setCurrentSession(null)
     }
   }, [sessionId, sessions]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 恢复进行中的批量分析任务（页面刷新后）
+  useEffect(() => {
+    if (currentSession) {
+      recoverActiveBatchJob(currentSession.id)
+    }
+  }, [currentSession?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleNewSession = useCallback(async () => {
     setIsCreating(true)

@@ -81,7 +81,7 @@ export async function submitBatchAnalysis(
   for (const file of files) {
     formData.append('files', file)
   }
-  return api.post('batch/analyze', { body: formData }).json()
+  return api.post('batch/analyze', { body: formData, timeout: 300_000 }).json()
 }
 
 export async function getBatchProgress(jobId: string): Promise<BatchProgress> {
