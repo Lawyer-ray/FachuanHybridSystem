@@ -73,60 +73,51 @@ function handleSSEEvent(set: SetFn, get: GetFn, event: { type: string; data: Rec
     const durationMs = event.data.duration_ms as number | undefined
     const error = event.data.error as string | undefined
 
-    // 使用回调形式读取最新 state，避免批量事件时读到过期数据
-    set((state) => {
-      const bp = state.batchProgress
-      if (!bp) return state
+    const bp = batchProgress
+    const completed = isCompleted ? (bp.job.completed_items || 0) + 1 : (bp.job.completed_items || 0)
+    const failed = !isCompleted ? (bp.job.failed_items || 0) + 1 : (bp.job.failed_items || 0)
+    const total = bp.job.total_items || 1
+    const progress = Math.round((completed + failed) * 100 / total)
 
-      const completed = isCompleted ? (bp.job.completed_items || 0) + 1 : (bp.job.completed_items || 0)
-      const failed = !isCompleted ? (bp.job.failed_items || 0) + 1 : (bp.job.failed_items || 0)
-      const total = bp.job.total_items || 1
-      const progress = Math.round((completed + failed) * 100 / total)
+    const existingIdx = bp.items.findIndex((i) => i.id === itemId)
+    let items: BatchJobItem[]
+    if (existingIdx >= 0) {
+      items = bp.items.map((item, idx) =>
+        idx === existingIdx
+          ? { ...item, status: isCompleted ? 'completed' : 'failed', duration_ms: durationMs ?? item.duration_ms, error: error ?? item.error }
+          : item,
+      )
+    } else {
+      items = [...bp.items, {
+        id: itemId,
+        file_name: fileName,
+        status: isCompleted ? 'completed' : 'failed',
+        result: '',
+        error: error ?? '',
+        duration_ms: durationMs ?? null,
+      } as BatchJobItem]
+    }
 
-      const existingIdx = bp.items.findIndex((i) => i.id === itemId)
-      let items: BatchJobItem[]
-      if (existingIdx >= 0) {
-        items = bp.items.map((item, idx) =>
-          idx === existingIdx
-            ? { ...item, status: isCompleted ? 'completed' : 'failed', duration_ms: durationMs ?? item.duration_ms, error: error ?? item.error }
-            : item,
-        )
-      } else {
-        items = [...bp.items, {
-          id: itemId,
-          file_name: fileName,
-          status: isCompleted ? 'completed' : 'failed',
-          result: '',
-          error: error ?? '',
-          duration_ms: durationMs ?? null,
-        } as BatchJobItem]
-      }
-
-      return {
-        batchProgress: {
-          ...bp,
-          items,
-          job: { ...bp.job, completed_items: completed, failed_items: failed, progress },
-        },
-      }
+    set({
+      batchProgress: {
+        ...bp,
+        items,
+        job: { ...bp.job, completed_items: completed, failed_items: failed, progress },
+      },
     })
   } else if (event.type === 'progress') {
     const data = event.data
-    set((state) => {
-      const bp = state.batchProgress
-      if (!bp) return state
-      return {
-        batchProgress: {
-          ...bp,
-          job: {
-            ...bp.job,
-            completed_items: data.completed_items as number,
-            failed_items: data.failed_items as number,
-            total_items: data.total_items as number,
-            progress: data.progress as number,
-          },
+    set({
+      batchProgress: {
+        ...batchProgress,
+        job: {
+          ...batchProgress.job,
+          completed_items: data.completed_items as number,
+          failed_items: data.failed_items as number,
+          total_items: data.total_items as number,
+          progress: data.progress as number,
         },
-      }
+      },
     })
   }
 }
@@ -138,7 +129,10 @@ function startSSEConnection(
 ) {
   _cleanupBatchSSE = api.connectBatchSSE(
     jobId,
-    (event) => handleSSEEvent(set, get, event),
+    (event) => {
+      // setTimeout 脱离 React 批量更新，确保每个事件触发独立渲染
+      setTimeout(() => handleSSEEvent(set, get, event), 0)
+    },
     async () => {
       try {
         const progress = await api.getBatchProgress(jobId)
