@@ -2,6 +2,43 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.46.5] - 2026-05-09
+
+### 前端
+
+#### 新功能
+
+- **批量分析预设提示**：批量文档分析对话框新增预设分析要求标签（竞业限制、劳动争议、合同纠纷、侵权责任），点击自动填充
+- **批量分析实时计时**：每个文件从开始处理即显示在详情列表中，从 0s 开始实时计时，完成后显示最终耗时
+- **批量分析卡片持久化**：分析完成后卡片保留，用户可手动关闭；支持展开查看每个文件的处理状态和耗时
+- **批量分析文件列表提前加载**：任务创建后立即轮询获取文件列表，无需等待 SSE 事件
+
+#### 修复
+
+- **批量分析进度条卡在 0%**：修复 SSE 事件处理中的 Zustand 状态竞态和 React 18+ 自动批量更新导致进度条不刷新的问题
+- **SSE 跨进程不可见**：SSE 端点从 LocMemCache 读取改为数据库轮询，解决 Django-Q worker 与 web 进程缓存隔离问题
+- **SSE 遗漏已完成项**：移除时间过滤条件，避免连接建立前完成的文件被遗漏
+- **会话切换数据覆盖**：`fetchMessages` 添加会话 ID 校验，防止过期请求覆盖当前会话数据
+- **新建会话丢失内容**：新建会话后保留旧会话的显示内容
+- **批量分析提交超时**：优化提交流程，页面刷新后自动恢复进行中的任务
+- **要素式转换超时**：请求超时从 10s 延长到 120s，下载文件名与后台一致，修复 `mbidName` 未定义报错
+
+#### 优化
+
+- **Workbench Store 拆分**：从 668 行单文件拆分为 Zustand slices（batch-slice、attachment-slice、streaming-slice），降低复杂度
+- **API 模块拆分**：`contracts/api.ts`（283 行）和 `cases/api.ts`（309 行）拆分为子模块目录
+- **高频组件 React.memo**：为 MessageBubble、MessageList、ChatInput、DataTable 添加 memo 优化，减少流式输出时的冗余渲染
+- **通用分页 Hook**：提取 `usePaginatedList`，迁移 ClientList、ContractList、InboxList
+- **Barrel exports 精简**：清理 cases 和 contracts 模块未使用的 re-export
+
+### 后端
+
+#### 修复
+
+- **SSE 端点重构**：从 LocMemCache 事件总线改为数据库轮询模式，新增 `item_started` 事件推送运行中的文件
+- **清理废弃代码**：`_publish_sse_event` 改为空操作，保留函数签名兼容调用方
+- **要素式转换模板变量**：修复 workbench.html 中 `mbidName` 引用错误
+
 ## [26.46.4] - 2026-05-09
 
 ### 前端
