@@ -6,7 +6,9 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel
+
+from apps.core.api.schemas import SchemaMixin
 
 
 class BatchItemOut(BaseModel):
@@ -20,7 +22,7 @@ class BatchItemOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class BatchJobOut(BaseModel):
+class BatchJobOut(SchemaMixin, BaseModel):
     id: UUID
     session_id: int
     job_type: str
@@ -47,25 +49,33 @@ class BatchJobOut(BaseModel):
 
     model_config = {"from_attributes": True}
 
-    @field_validator("summary_file", mode="before")
-    @classmethod
-    def _resolve_summary_file(cls, v: object) -> str:
-        if v and hasattr(v, "url"):
-            try:
-                return str(v.url)
-            except ValueError:
-                return ""
-        return ""
+    @staticmethod
+    def resolve_summary_file(obj: object) -> str | None:
+        return SchemaMixin._get_file_url(getattr(obj, "summary_file", None))
 
-    @field_validator("detail_zip_file", mode="before")
-    @classmethod
-    def _resolve_detail_zip_file(cls, v: object) -> str:
-        if v and hasattr(v, "url"):
-            try:
-                return str(v.url)
-            except ValueError:
-                return ""
-        return ""
+    @staticmethod
+    def resolve_detail_zip_file(obj: object) -> str | None:
+        return SchemaMixin._get_file_url(getattr(obj, "detail_zip_file", None))
+
+    @staticmethod
+    def resolve_created_at(obj: object) -> datetime | None:
+        return SchemaMixin._resolve_datetime(getattr(obj, "created_at", None))
+
+    @staticmethod
+    def resolve_updated_at(obj: object) -> datetime | None:
+        return SchemaMixin._resolve_datetime(getattr(obj, "updated_at", None))
+
+    @staticmethod
+    def resolve_started_at(obj: object) -> datetime | None:
+        return SchemaMixin._resolve_datetime(getattr(obj, "started_at", None))
+
+    @staticmethod
+    def resolve_finished_at(obj: object) -> datetime | None:
+        return SchemaMixin._resolve_datetime(getattr(obj, "finished_at", None))
+
+    @staticmethod
+    def resolve_started_processing_at(obj: object) -> datetime | None:
+        return SchemaMixin._resolve_datetime(getattr(obj, "started_processing_at", None))
 
 
 class BatchProgressOut(BaseModel):

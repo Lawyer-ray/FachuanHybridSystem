@@ -7,6 +7,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from apps.core.api.schemas import SchemaMixin
+
 
 class SessionCreateIn(BaseModel):
     title: str = Field("", max_length=255, description="会话标题")
@@ -19,7 +21,7 @@ class SessionUpdateIn(BaseModel):
     status: str | None = Field(None, description="会话状态")
 
 
-class SessionOut(BaseModel):
+class SessionOut(SchemaMixin, BaseModel):
     id: int
     session_id: UUID
     title: str
@@ -31,6 +33,14 @@ class SessionOut(BaseModel):
 
     model_config = {"from_attributes": True}
 
+    @staticmethod
+    def resolve_created_at(obj: object) -> datetime | None:
+        return SchemaMixin._resolve_datetime(getattr(obj, "created_at", None))
+
+    @staticmethod
+    def resolve_updated_at(obj: object) -> datetime | None:
+        return SchemaMixin._resolve_datetime(getattr(obj, "updated_at", None))
+
 
 class MessageIn(BaseModel):
     content: str = Field(..., min_length=1, description="用户消息内容")
@@ -38,7 +48,7 @@ class MessageIn(BaseModel):
     agent_type: str = Field("", description="Agent 类型: triage/case/contract/research")
 
 
-class MessageOut(BaseModel):
+class MessageOut(SchemaMixin, BaseModel):
     id: int
     role: str
     content: str
@@ -51,3 +61,7 @@ class MessageOut(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @staticmethod
+    def resolve_created_at(obj: object) -> datetime | None:
+        return SchemaMixin._resolve_datetime(getattr(obj, "created_at", None))

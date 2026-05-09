@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import shutil
 import tempfile
 from pathlib import Path
@@ -59,9 +60,9 @@ class DocTextExtractor:
             raise ValueError(f"不支持的文件格式: {ext}")
 
     # 判决书尾部法官/书记员正则
-    _JUDGE_RE = __import__("re").compile(r"审\s*判\s*(?:长|员)\s*[：:]\s*(.+)")
-    _ASSESSOR_RE = __import__("re").compile(r"人民陪审员\s*[：:]\s*(.+)")
-    _CLERK_RE = __import__("re").compile(r"书\s*记\s*员\s*[：:]\s*(.+)")
+    _JUDGE_RE = re.compile(r"审\s*判\s*(?:长|员)\s*[：:]\s*(.+)")
+    _ASSESSOR_RE = re.compile(r"人民陪审员\s*[：:]\s*(.+)")
+    _CLERK_RE = re.compile(r"书\s*记\s*员\s*[：:]\s*(.+)")
 
     def extract_doc_metadata(self, file_path: str) -> dict[str, str | None]:
         """从文档中提取元数据

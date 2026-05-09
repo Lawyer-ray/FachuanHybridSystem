@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import concurrent.futures
 import logging
+import re
 import time
 from typing import Any
 from uuid import UUID
@@ -86,24 +87,17 @@ _SCHEMA_INSTRUCTIONS = json_schema_instructions(CaseAnalysisResult)
 ANALYSIS_SYSTEM_PROMPT = _ANALYSIS_INSTRUCTIONS + "\n\n" + _SCHEMA_INSTRUCTIONS
 
 # 正则 fallback（当 JSON 解析失败时使用）
-METADATA_BLOCK_RE = __import__("re").compile(
+METADATA_BLOCK_RE = re.compile(
     r"```[^\n]*\n\s*【案例元数据汇总】\s*\n([\s\S]*?)\n\s*```\s*\Z"
     r"|【案例元数据汇总】\s*\n([\s\S]*?)\Z",
 )
-METADATA_FIELD_RE = __import__("re").compile(
-    r"^(案号|案由|审理法院|法官|书记员|与研究问题相关|结论)\s*[：:]\s*(.+)$", __import__("re").MULTILINE
+METADATA_FIELD_RE = re.compile(
+    r"^(案号|案由|审理法院|法官|书记员|与研究问题相关|结论)\s*[：:]\s*(.+)$", re.MULTILINE
 )
-_CONCLUSION_RE = __import__("re").compile(
+_CONCLUSION_RE = re.compile(
     r"(?:^|\n)#{1,3}\s*(?:针对.*研究.*结论|结论)\s*\n([\s\S]*?)(?=\n(?:```|【案例元数据汇总】|#{1,3}\s)|\Z)",
-    __import__("re").MULTILINE,
+    re.MULTILINE,
 )
-
-
-# ─── SSE 事件发布（已废弃，SSE 端点改为数据库轮询）────────────────────────────
-
-
-async def _publish_sse_event(_job_id: UUID, _event_type: str, _data: dict[str, Any]) -> None:
-    """不再需要：SSE 端点已改为直接轮询数据库。保留函数签名避免改动调用方。"""
 
 
 # ─── 取消监视器 ──────────────────────────────────────────────────────────────
@@ -379,7 +373,7 @@ async def _run_batch_async(job_id: UUID) -> None:
         logger.info("Phase 2: 开始并发分析 %d 个文件 (concurrency=%d)", len(items), concurrency)
 
         # 使用 ThreadPoolExecutor 实现并发（避免 LLMService 内部 sync ORM 调用问题）
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=concurrency)
         semaphore = asyncio.Semaphore(concurrency)
 
@@ -531,7 +525,7 @@ async def _run_batch_retry_async(job_id: UUID, item_ids: list[UUID]) -> None:
 
         llm = await sync_to_async(get_llm_service)()
         concurrency = job.metadata.get("concurrency", 50)
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=concurrency)
         semaphore = asyncio.Semaphore(concurrency)
 
