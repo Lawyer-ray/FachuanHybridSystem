@@ -14,6 +14,9 @@ from uuid import UUID
 from django.core.files.base import ContentFile
 from django.utils import timezone
 
+from apps.core.exceptions import NotFoundError, ValidationException
+from apps.core.security.permissions import AccessContext, PermissionMixin
+
 from ..models import BatchJob, BatchJobItem, BatchJobStatus
 
 logger = logging.getLogger(__name__)
@@ -94,8 +97,29 @@ def _split_excel_rows(uploaded_file: Any) -> list[tuple[str, str]]:
     return results
 
 
-class BatchAnalysisService:
+class BatchAnalysisService(PermissionMixin):
     """批量分析任务服务"""
+
+    ALLOWED_EXTENSIONS = {".doc", ".docx", ".xls", ".xlsx"}
+
+    def validate_files(self, files: list[Any]) -> None:
+        """校验上传文件"""
+        if not files:
+            raise ValidationException(_("请上传至少一个文件"))
+        for f in files:
+            ext = f".{f.name.rsplit('.', 1)[-1].lower()}" if f.name and "." in f.name else ""
+            if ext not in self.ALLOWED_EXTENSIONS:
+                raise ValidationException(
+                    _("不支持的文件格式: %(name)s") % {"name": f.name},
+                    errors={"file": "支持 .doc、.docx、.xls、.xlsx"},
+                )
+
+    def get_job_by_id(self, job_id: UUID) -> BatchJob:
+        """获取任务，不存在时抛 NotFoundError"""
+        try:
+            return BatchJob.objects.get(id=job_id)
+        except BatchJob.DoesNotExist:
+            raise NotFoundError(_("任务不存在")) from None
 
     def create_job(
         self,
@@ -311,3 +335,54 @@ class BatchAnalysisService:
             error_message=error_message[:4000],
             finished_at=timezone.now(),
         )
+
+    def save_batch_messages(
+        self,
+        job_id: UUID,
+        items: list[dict[str, Any]],
+        *,
+        user: Any | None = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
+    ) -> int:
+        """将批量分析结果持久化为工作台消息，返回创建数量"""
+        from ..models import WorkbenchMessage
+
+        job = self.get_job_by_id(job_id)
+        created_count = 0
+        for item in items:
+            WorkbenchMessage.objects.create(
+                session_id=job.session_id,
+                role="assistant",
+                content=item["content"],
+                metadata={**item.get("metadata", {}), "job_id": str(job_id)},
+            )
+            created_count += 1
+        return created_count
+
+    def list_batch_jobs(
+        self,
+        session_id: int,
+        *,
+        page: int = 1,
+        page_size: int = 20,
+        user: Any | None = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
+    ) -> dict[str, Any]:
+        """获取会话的批量分析任务历史"""
+        qs = BatchJob.objects.filter(session_id=session_id).order_by("-created_at")
+        offset = (page - 1) * page_size
+        total = qs.count()
+        items = list(qs[offset : offset + page_size])
+        return {
+            "items": [self._job_to_dict(j) for j in items],
+            "count": total,
+        }
+
+    @staticmethod
+    def _job_to_dict(job: BatchJob) -> dict[str, Any]:
+        """将 BatchJob 转换为字典"""
+        from ..schemas import BatchJobOut
+
+        return BatchJobOut.model_validate(job).model_dump()

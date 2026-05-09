@@ -5,17 +5,18 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from asgiref.sync import sync_to_async
-from django.http import FileResponse, Http404, StreamingHttpResponse
+from django.http import FileResponse, StreamingHttpResponse
 from ninja import File, Form, Router, Schema
 from ninja.files import UploadedFile
 
+from apps.core.dto.request_context import extract_request_context
 from apps.core.security.auth import JWTOrSessionAuth
 
-from ..models import BatchJob, BatchJobItem, BatchJobStatus, WorkbenchMessage, WorkbenchSession
+from ..models import BatchJobItem, BatchJobStatus
 from ..schemas import (
     BatchItemOut,
     BatchJobOut,
@@ -26,135 +27,99 @@ from ..schemas import (
     SessionOut,
     SessionUpdateIn,
 )
-from ..services import BatchAnalysisService, WorkbenchChatService
+from ..services import BatchAnalysisService, WorkbenchChatService, WorkbenchMessageService, WorkbenchSessionService
 
 logger = logging.getLogger(__name__)
 
 router = Router(auth=JWTOrSessionAuth())
 
-# 全局服务实例（用于审批回调共享状态）
-_chat_service = WorkbenchChatService()
+
+def _get_session_service() -> WorkbenchSessionService:
+    return WorkbenchSessionService()
 
 
-def _get_user_session(user: Any, session_id: int) -> WorkbenchSession:
-    """获取用户的会话，不存在或无权限时抛 404"""
-    try:
-        return WorkbenchSession.objects.get(id=session_id, user=user)
-    except WorkbenchSession.DoesNotExist:
-        raise Http404("会话不存在")
+def _get_message_service() -> WorkbenchMessageService:
+    return WorkbenchMessageService()
+
+
+def _get_batch_service() -> BatchAnalysisService:
+    return BatchAnalysisService()
+
+
+def _get_chat_service() -> WorkbenchChatService:
+    return WorkbenchChatService()
 
 
 # ─── 会话 API ────────────────────────────────────────────────────────────────
 
 
 @router.post("/sessions", response=SessionOut)
-def create_session(request: Any, payload: SessionCreateIn) -> WorkbenchSession:
+def create_session(request: Any, payload: SessionCreateIn) -> Any:
     """创建工作台会话"""
-    user = request.user
-    session = WorkbenchSession.objects.create(
-        user=user if user.is_authenticated else None,
+    ctx = extract_request_context(request)
+    service = _get_session_service()
+    return service.create_session(
         title=payload.title,
         llm_model=payload.llm_model,
+        user=ctx.user,
+        org_access=ctx.org_access,
+        perm_open_access=ctx.perm_open_access,
     )
-    return session
 
 
 @router.get("/sessions")
 def list_sessions(request: Any, page: int = 1) -> dict[str, Any]:
     """获取当前用户的工作台会话列表"""
-    from django.db.models import OuterRef, Subquery, Value
-    from django.db.models.functions import Left
-
-    user = request.user
-    if user.is_authenticated:
-        qs = WorkbenchSession.objects.filter(user=user).order_by("-updated_at")
-    else:
-        qs = WorkbenchSession.objects.none()
-
-    page_size = 20
-    offset = (page - 1) * page_size
-    total = qs.count()
-
-    # 获取每个会话的最后一条消息摘要和消息统计
-    last_msg_subquery = (
-        WorkbenchMessage.objects.filter(session_id=OuterRef("id"), role="assistant")
-        .order_by("-created_at")
-        .values("content")[:1]
+    ctx = extract_request_context(request)
+    service = _get_session_service()
+    return service.list_sessions(
+        page=page,
+        user=ctx.user,
+        org_access=ctx.org_access,
+        perm_open_access=ctx.perm_open_access,
     )
-    items = list(
-        qs[offset : offset + page_size].annotate(
-            _last_msg=Subquery(last_msg_subquery),
-        )
-    )
-
-    # 批量获取消息统计（消息数和存储大小）
-    session_ids = [item.id for item in items]
-    message_stats = {}
-    if session_ids:
-        from django.db.models import Count
-
-        stats = (
-            WorkbenchMessage.objects.filter(session_id__in=session_ids)
-            .values("session_id")
-            .annotate(
-                message_count=Count("id"),
-            )
-        )
-        for stat in stats:
-            sid = stat["session_id"]
-            # 计算存储大小：content + tool_input + tool_output + metadata
-            messages = WorkbenchMessage.objects.filter(session_id=sid).values(
-                "content", "tool_input", "tool_output", "metadata"
-            )
-            total_bytes = 0
-            for msg in messages:
-                total_bytes += len((msg["content"] or "").encode("utf-8"))
-                total_bytes += len(str(msg["tool_input"] or {}).encode("utf-8"))
-                total_bytes += len(str(msg["tool_output"] or {}).encode("utf-8"))
-                total_bytes += len(str(msg["metadata"] or {}).encode("utf-8"))
-            message_stats[sid] = {
-                "message_count": stat["message_count"],
-                "storage_bytes": total_bytes,
-            }
-
-    result = []
-    for item in items:
-        data = SessionOut.model_validate(item).model_dump()
-        raw = getattr(item, "_last_msg", None) or ""
-        data["last_message_preview"] = raw[:50] if raw else ""
-        session_stats = message_stats.get(item.id, {"message_count": 0, "storage_bytes": 0})
-        data["message_count"] = session_stats["message_count"]
-        data["storage_bytes"] = session_stats["storage_bytes"]
-        result.append(data)
-
-    return {"items": result, "count": total}
 
 
 @router.get("/sessions/{session_id}", response=SessionOut)
-def get_session(request: Any, session_id: int) -> WorkbenchSession:
+def get_session(request: Any, session_id: int) -> Any:
     """获取会话详情"""
-    return _get_user_session(request.user, session_id)
+    ctx = extract_request_context(request)
+    service = _get_session_service()
+    return service.get_session(
+        session_id,
+        user=ctx.user,
+        org_access=ctx.org_access,
+        perm_open_access=ctx.perm_open_access,
+    )
 
 
 @router.patch("/sessions/{session_id}", response=SessionOut)
-def update_session(request: Any, session_id: int, payload: SessionUpdateIn) -> WorkbenchSession:
+def update_session(request: Any, session_id: int, payload: SessionUpdateIn) -> Any:
     """更新会话"""
-    session = _get_user_session(request.user, session_id)
-    if payload.title is not None:
-        session.title = payload.title
-    if payload.llm_model is not None:
-        session.llm_model = payload.llm_model
-    if payload.status is not None:
-        session.status = payload.status
-    session.save()
-    return session
+    ctx = extract_request_context(request)
+    service = _get_session_service()
+    return service.update_session(
+        session_id,
+        title=payload.title,
+        llm_model=payload.llm_model,
+        status=payload.status,
+        user=ctx.user,
+        org_access=ctx.org_access,
+        perm_open_access=ctx.perm_open_access,
+    )
 
 
 @router.delete("/sessions/{session_id}")
 def delete_session(request: Any, session_id: int) -> dict[str, str]:
     """删除会话"""
-    session = _get_user_session(request.user, session_id)
-    session.delete()
+    ctx = extract_request_context(request)
+    service = _get_session_service()
+    service.delete_session(
+        session_id,
+        user=ctx.user,
+        org_access=ctx.org_access,
+        perm_open_access=ctx.perm_open_access,
+    )
     return {"message": "已删除"}
 
 
@@ -164,60 +129,52 @@ def delete_session(request: Any, session_id: int) -> dict[str, str]:
 @router.get("/sessions/{session_id}/messages")
 def list_messages(request: Any, session_id: int, page: int = 1) -> dict[str, Any]:
     """获取会话的消息列表"""
-    _get_user_session(request.user, session_id)
-    qs = WorkbenchMessage.objects.filter(session_id=session_id).order_by("created_at")
-    page_size = 50
-    offset = (page - 1) * page_size
-    total = qs.count()
-    items = list(qs[offset : offset + page_size])
-
-    return {
-        "items": [MessageOut.model_validate(item).model_dump() for item in items],
-        "count": total,
-    }
+    ctx = extract_request_context(request)
+    service = _get_message_service()
+    return service.list_messages(
+        session_id,
+        page=page,
+        user=ctx.user,
+        org_access=ctx.org_access,
+        perm_open_access=ctx.perm_open_access,
+    )
 
 
 @router.delete("/sessions/{session_id}/messages/from/{message_id}")
 def truncate_messages(request: Any, session_id: int, message_id: int) -> dict[str, str]:
     """删除指定消息及其之后的所有消息（用于编辑重发）"""
-    _get_user_session(request.user, session_id)
-    try:
-        msg = WorkbenchMessage.objects.get(id=message_id, session_id=session_id)
-    except WorkbenchMessage.DoesNotExist:
-        raise Http404("消息不存在")
-    WorkbenchMessage.objects.filter(
-        session_id=session_id,
-        created_at__gte=msg.created_at,
-    ).delete()
+    ctx = extract_request_context(request)
+    service = _get_message_service()
+    service.truncate_messages(
+        session_id,
+        message_id,
+        user=ctx.user,
+        org_access=ctx.org_access,
+        perm_open_access=ctx.perm_open_access,
+    )
     return {"message": "已截断"}
 
 
 class FeedbackIn(Schema):
     """消息反馈请求体"""
 
-    rating: str  # 'good' | 'bad'
+    rating: Literal["good", "bad"]
     comment: str = ""
 
 
 @router.patch("/messages/{message_id}/feedback")
 def submit_feedback(request: Any, message_id: int, payload: FeedbackIn) -> dict[str, Any]:
     """提交消息反馈（好评/差评）"""
-    if payload.rating not in ("good", "bad"):
-        return {"success": False, "message": "rating 必须是 good 或 bad"}
-
-    try:
-        msg = WorkbenchMessage.objects.get(id=message_id)
-    except WorkbenchMessage.DoesNotExist:
-        raise Http404("消息不存在")
-
-    # 校验消息属于当前用户的会话
-    _get_user_session(request.user, msg.session_id)
-
-    meta = dict(msg.metadata or {})
-    meta["feedback"] = {"rating": payload.rating, "comment": payload.comment}
-    msg.metadata = meta
-    msg.save(update_fields=["metadata"])
-
+    ctx = extract_request_context(request)
+    service = _get_message_service()
+    service.submit_feedback(
+        message_id,
+        rating=payload.rating,
+        comment=payload.comment,
+        user=ctx.user,
+        org_access=ctx.org_access,
+        perm_open_access=ctx.perm_open_access,
+    )
     return {"success": True, "message": "反馈已提交"}
 
 
@@ -227,13 +184,14 @@ def submit_feedback(request: Any, message_id: int, payload: FeedbackIn) -> dict[
 @router.post("/sessions/{session_id}/messages/stream")
 async def stream_chat(request: Any, session_id: int, payload: MessageIn) -> StreamingHttpResponse:
     """SSE 流式对话 - 发送消息并获取 AI 流式响应"""
-    try:
-        await WorkbenchSession.objects.aget(id=session_id, user=request.user)
-    except WorkbenchSession.DoesNotExist:
-        raise Http404("会话不存在")
+    ctx = extract_request_context(request)
+    session_service = _get_session_service()
+    session_service.get_user_session(ctx.user, session_id)
+
+    chat_service = _get_chat_service()
 
     async def event_generator() -> Any:
-        async for event in _chat_service.stream_chat(
+        async for event in chat_service.stream_chat(
             session_id=session_id,
             user_message=payload.content,
             llm_model=payload.llm_model or "",
@@ -251,7 +209,7 @@ async def stream_chat(request: Any, session_id: int, payload: MessageIn) -> Stre
     )
 
 
-# ─── 审批 API（Phase 2） ─────────────────────────────────────────────────────
+# ─── 审批 API ────────────────────────────────────────────────────────────────
 
 
 class ApprovalIn(Schema):
@@ -263,9 +221,11 @@ class ApprovalIn(Schema):
 
 @router.post("/approval")
 def respond_approval(request: Any, payload: ApprovalIn) -> dict[str, Any]:
-    """响应审批请求（Phase 2: Human-in-the-Loop）"""
-    user_id = request.user.id if request.user.is_authenticated else None
-    success = _chat_service.resolve_approval(payload.approval_id, payload.approved, user_id=user_id)
+    """响应审批请求（Human-in-the-Loop）"""
+    ctx = extract_request_context(request)
+    chat_service = _get_chat_service()
+    user_id = ctx.user.id if ctx.user and getattr(ctx.user, "is_authenticated", False) else None
+    success = chat_service.resolve_approval(payload.approval_id, payload.approved, user_id=user_id)
     return {
         "success": success,
         "message": "审批已处理" if success else "审批 ID 不存在或已过期",
@@ -273,9 +233,6 @@ def respond_approval(request: Any, payload: ApprovalIn) -> dict[str, Any]:
 
 
 # ─── 批量分析 API ────────────────────────────────────────────────────────────
-
-
-_batch_service = BatchAnalysisService()
 
 
 @router.post("/batch/analyze", response=BatchJobOut)
@@ -286,26 +243,16 @@ def submit_batch_analysis(
     llm_model: str = Form(""),
     concurrency: int = Form(50),
     files: list[UploadedFile] = File(...),
-) -> BatchJob:
-    """提交批量文档分析任务
+) -> Any:
+    """提交批量文档分析任务"""
+    ctx = extract_request_context(request)
+    session_service = _get_session_service()
+    session_service.get_user_session(ctx.user, session_id)
 
-    接受 multipart form 数据：session_id, prompt, llm_model, concurrency, files
-    支持 .doc、.docx、.xls、.xlsx 格式。Excel 文件会按行拆分为独立分析任务。
-    """
-    # 验证会话
-    _get_user_session(request.user, session_id)
+    batch_service = _get_batch_service()
+    batch_service.validate_files(files)
 
-    # 验证文件
-    if not files:
-        raise Http404("请上传至少一个文件")
-
-    allowed_extensions = {".doc", ".docx", ".xls", ".xlsx"}
-    for f in files:
-        ext = f.name.rsplit(".", 1)[-1].lower() if f.name and "." in f.name else ""
-        if f".{ext}" not in allowed_extensions:
-            raise Http404(f"不支持的文件格式: {f.name}，支持 .doc、.docx、.xls、.xlsx")
-
-    job = _batch_service.create_job(
+    job = batch_service.create_job(
         session_id=session_id,
         prompt=prompt,
         llm_model=llm_model,
@@ -318,10 +265,14 @@ def submit_batch_analysis(
 @router.get("/batch/{job_id}/progress", response=BatchProgressOut)
 def get_batch_progress(request: Any, job_id: UUID) -> dict[str, Any]:
     """查询批量分析任务进度"""
-    job, items = _batch_service.get_job_progress(job_id)
-    # 验证权限：job 关联的 session 必须属于当前用户
-    _get_user_session(request.user, job.session_id)
-    failed_detail = _batch_service.get_failed_items_detail(job_id)
+    ctx = extract_request_context(request)
+    batch_service = _get_batch_service()
+    session_service = _get_session_service()
+
+    job, items = batch_service.get_job_progress(job_id)
+    session_service.get_user_session(ctx.user, job.session_id)
+
+    failed_detail = batch_service.get_failed_items_detail(job_id)
     return {
         "job": BatchJobOut.model_validate(job),
         "items": [BatchItemOut.model_validate(item) for item in items],
@@ -332,9 +283,14 @@ def get_batch_progress(request: Any, job_id: UUID) -> dict[str, Any]:
 @router.post("/batch/{job_id}/cancel")
 def cancel_batch_analysis(request: Any, job_id: UUID) -> dict[str, Any]:
     """取消批量分析任务"""
-    job = _batch_service.get_job_progress(job_id)[0]
-    _get_user_session(request.user, job.session_id)
-    job = _batch_service.request_cancel(job_id)
+    ctx = extract_request_context(request)
+    batch_service = _get_batch_service()
+    session_service = _get_session_service()
+
+    job, _ = batch_service.get_job_progress(job_id)
+    session_service.get_user_session(ctx.user, job.session_id)
+
+    job = batch_service.request_cancel(job_id)
     return {
         "success": True,
         "status": job.status,
@@ -345,14 +301,17 @@ def cancel_batch_analysis(request: Any, job_id: UUID) -> dict[str, Any]:
 @router.get("/batch/{job_id}/download")
 def download_batch_summary(request: Any, job_id: UUID) -> FileResponse:
     """下载批量分析汇总 CSV 文件"""
-    try:
-        job = BatchJob.objects.get(id=job_id)
-    except BatchJob.DoesNotExist:
-        raise Http404("任务不存在")
-    _get_user_session(request.user, job.session_id)
+    ctx = extract_request_context(request)
+    batch_service = _get_batch_service()
+    session_service = _get_session_service()
+
+    job = batch_service.get_job_by_id(job_id)
+    session_service.get_user_session(ctx.user, job.session_id)
 
     if not job.summary_file:
-        raise Http404("汇总文件不存在")
+        from apps.core.exceptions import NotFoundError
+
+        raise NotFoundError("汇总文件不存在")
 
     return FileResponse(
         job.summary_file.open("rb"),
@@ -364,19 +323,21 @@ def download_batch_summary(request: Any, job_id: UUID) -> FileResponse:
 
 @router.get("/batch/{job_id}/download-detail")
 def download_batch_detail_zip(request: Any, job_id: UUID) -> FileResponse:
-    """下载批量分析详情 ZIP 文件（每个案例一个 .md 文件）"""
+    """下载批量分析详情 ZIP 文件"""
     from ..tasks import build_detail_zip_sync
 
-    try:
-        job = BatchJob.objects.get(id=job_id)
-    except BatchJob.DoesNotExist:
-        raise Http404("任务不存在")
-    _get_user_session(request.user, job.session_id)
+    ctx = extract_request_context(request)
+    batch_service = _get_batch_service()
+    session_service = _get_session_service()
+
+    job = batch_service.get_job_by_id(job_id)
+    session_service.get_user_session(ctx.user, job.session_id)
 
     if not job.detail_zip_file:
-        # 兼容旧任务：按需生成 ZIP
         if not build_detail_zip_sync(job_id):
-            raise Http404("分析详情文件不存在")
+            from apps.core.exceptions import NotFoundError
+
+            raise NotFoundError("分析详情文件不存在")
         job.refresh_from_db()
 
     return FileResponse(
@@ -398,23 +359,21 @@ class BatchMessageItemIn(Schema):
 @router.post("/batch/{job_id}/messages")
 def save_batch_messages(request: Any, job_id: UUID, payload: list[BatchMessageItemIn]) -> dict[str, Any]:
     """将批量分析结果持久化为工作台消息"""
-    try:
-        job = BatchJob.objects.get(id=job_id)
-    except BatchJob.DoesNotExist:
-        raise Http404("任务不存在")
-    _get_user_session(request.user, job.session_id)
+    ctx = extract_request_context(request)
+    batch_service = _get_batch_service()
+    session_service = _get_session_service()
 
-    created = []
-    for item in payload:
-        msg = WorkbenchMessage.objects.create(
-            session_id=job.session_id,
-            role="assistant",
-            content=item.content,
-            metadata={**item.metadata, "job_id": str(job_id)},
-        )
-        created.append(msg.id)
+    job = batch_service.get_job_by_id(job_id)
+    session_service.get_user_session(ctx.user, job.session_id)
 
-    return {"success": True, "created_count": len(created)}
+    created_count = batch_service.save_batch_messages(
+        job_id,
+        [{"content": item.content, "metadata": item.metadata} for item in payload],
+        user=ctx.user,
+        org_access=ctx.org_access,
+        perm_open_access=ctx.perm_open_access,
+    )
+    return {"success": True, "created_count": created_count}
 
 
 # ─── 批量分析增强 API ────────────────────────────────────────────────────────
@@ -422,26 +381,22 @@ def save_batch_messages(request: Any, job_id: UUID, payload: list[BatchMessageIt
 
 @router.get("/batch/{job_id}/stream")
 async def stream_batch_progress(request: Any, job_id: UUID) -> StreamingHttpResponse:
-    """SSE 流式推送批量分析进度
+    """SSE 流式推送批量分析进度"""
+    ctx = extract_request_context(request)
+    batch_service = _get_batch_service()
+    session_service = _get_session_service()
 
-    通过轮询数据库获取最新状态，避免 LocMemCache 跨进程不可见的问题。
-    """
-    try:
-        job = await BatchJob.objects.aget(id=job_id)
-    except BatchJob.DoesNotExist:
-        raise Http404("任务不存在")
-    await sync_to_async(_get_user_session)(request.user, job.session_id)
+    job = batch_service.get_job_by_id(job_id)
+    await sync_to_async(session_service.get_user_session)(ctx.user, job.session_id)
 
     async def event_generator() -> Any:
         from django.utils import timezone
 
-        last_poll = timezone.now()
         reported_items: set[str] = set()
         started_items: set[str] = set()
         last_progress = -1
 
         while True:
-            # 查询正在运行但尚未报告开始的子项
             running_items = await sync_to_async(
                 lambda: list(
                     BatchJobItem.objects.filter(
@@ -459,7 +414,6 @@ async def stream_batch_progress(request: Any, job_id: UUID) -> StreamingHttpResp
                 if item_id not in reported_items:
                     yield f"data: {json.dumps({'type': 'item_started', 'data': {'item_id': item_id, 'file_name': item['file_name']}}, ensure_ascii=False)}\n\n"
 
-            # 查询已完成/失败但尚未报告的子项（不限时间，避免连接建立前完成的项被遗漏）
             changed_items = await sync_to_async(
                 lambda: list(
                     BatchJobItem.objects.filter(
@@ -486,24 +440,18 @@ async def stream_batch_progress(request: Any, job_id: UUID) -> StreamingHttpResp
                     data["error"] = item["error"][:200]
                 yield f"data: {json.dumps({'type': event_type, 'data': data}, ensure_ascii=False)}\n\n"
 
-            # 读取最新进度
             job_data = await sync_to_async(
-                lambda: BatchJob.objects.values_list(
-                    "completed_items", "failed_items", "total_items", "progress", "status"
-                ).get(id=job_id)
+                lambda: batch_service.get_job_by_id(job_id)
             )()
-            completed, failed, total, progress, status = job_data
 
-            if progress != last_progress:
-                last_progress = progress
-                yield f"data: {json.dumps({'type': 'progress', 'data': {'completed_items': completed, 'failed_items': failed, 'total_items': total, 'progress': progress}}, ensure_ascii=False)}\n\n"
+            if job_data.progress != last_progress:
+                last_progress = job_data.progress
+                yield f"data: {json.dumps({'type': 'progress', 'data': {'completed_items': job_data.completed_items, 'failed_items': job_data.failed_items, 'total_items': job_data.total_items, 'progress': job_data.progress}}, ensure_ascii=False)}\n\n"
 
-            # 检查终态
-            if status in (BatchJobStatus.COMPLETED, BatchJobStatus.FAILED, BatchJobStatus.CANCELLED):
-                yield f"data: {json.dumps({'type': 'done', 'status': status})}\n\n"
+            if job_data.status in (BatchJobStatus.COMPLETED, BatchJobStatus.FAILED, BatchJobStatus.CANCELLED):
+                yield f"data: {json.dumps({'type': 'done', 'status': job_data.status})}\n\n"
                 break
 
-            last_poll = timezone.now()
             await asyncio.sleep(0.5)
 
     return StreamingHttpResponse(
@@ -519,25 +467,31 @@ async def stream_batch_progress(request: Any, job_id: UUID) -> StreamingHttpResp
 @router.post("/batch/{job_id}/retry")
 def retry_failed_items(request: Any, job_id: UUID) -> dict[str, Any]:
     """重试批量分析中失败的文件"""
-    job = _batch_service.get_job_progress(job_id)[0]
-    _get_user_session(request.user, job.session_id)
-    result = _batch_service.retry_failed(job_id)
-    return result
+    ctx = extract_request_context(request)
+    batch_service = _get_batch_service()
+    session_service = _get_session_service()
+
+    job, _ = batch_service.get_job_progress(job_id)
+    session_service.get_user_session(ctx.user, job.session_id)
+
+    return batch_service.retry_failed(job_id)
 
 
 @router.get("/sessions/{session_id}/batch-jobs")
 def list_batch_jobs(request: Any, session_id: int, page: int = 1) -> dict[str, Any]:
     """获取会话的批量分析任务历史"""
-    _get_user_session(request.user, session_id)
-    qs = BatchJob.objects.filter(session_id=session_id).order_by("-created_at")
-    page_size = 20
-    offset = (page - 1) * page_size
-    total = qs.count()
-    items = list(qs[offset : offset + page_size])
-    return {
-        "items": [BatchJobOut.model_validate(j).model_dump() for j in items],
-        "count": total,
-    }
+    ctx = extract_request_context(request)
+    session_service = _get_session_service()
+    session_service.get_user_session(ctx.user, session_id)
+
+    batch_service = _get_batch_service()
+    return batch_service.list_batch_jobs(
+        session_id,
+        page=page,
+        user=ctx.user,
+        org_access=ctx.org_access,
+        perm_open_access=ctx.perm_open_access,
+    )
 
 
 # ─── 模型列表 API ────────────────────────────────────────────────────────────
