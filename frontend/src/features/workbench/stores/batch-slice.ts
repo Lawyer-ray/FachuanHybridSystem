@@ -3,6 +3,7 @@ import type { BatchProgress } from '../types'
 import * as api from '../api'
 import { stripMetadataBlock } from './streaming-helpers'
 import { createBatchItemMessage, createBatchSummaryMessage } from './message-factory'
+import { formatBatchContent } from '../utils/format-batch'
 import type { WorkbenchStore } from './workbench-store'
 
 // 跟踪已展示的批量分析 item ID，避免重复注入消息
@@ -52,7 +53,7 @@ export const createBatchSlice: StateCreator<WorkbenchStore, [], [], BatchSlice> 
             progress.job.id,
             completedItems.map((item) => ({
               file_name: item.file_name,
-              content: `### ${item.file_name}\n\n${stripMetadataBlock(item.result)}`,
+              content: `### ${item.file_name}\n\n${formatBatchContent(stripMetadataBlock(item.result))}`,
               metadata: { source: 'batch_item', job_id: progress.job.id },
             })),
           )
@@ -78,7 +79,7 @@ export const createBatchSlice: StateCreator<WorkbenchStore, [], [], BatchSlice> 
     const injectCompletedItem = (itemId: string, fileName: string, result: string, jobId: string) => {
       if (_shownBatchItemIds.has(itemId)) return
       _shownBatchItemIds.add(itemId)
-      set((state) => ({ messages: [...state.messages, createBatchItemMessage(fileName, stripMetadataBlock(result), jobId)] }))
+      set((state) => ({ messages: [...state.messages, createBatchItemMessage(fileName, formatBatchContent(stripMetadataBlock(result)), jobId)] }))
     }
 
     _cleanupBatchSSE = api.connectBatchSSE(
