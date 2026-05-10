@@ -18,7 +18,7 @@
  * - 9.2: 支持暗夜模式
  */
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { format, parseISO } from 'date-fns'
@@ -390,12 +390,25 @@ interface SearchableSelectProps {
 
 function SearchableSelect({ options, value, onChange, placeholder = '搜索...', disabled }: SearchableSelectProps) {
   const [open, setOpen] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const [triggerWidth, setTriggerWidth] = useState<number>(0)
   const selected = options.find(o => o.id === value)
+
+  const measureTrigger = useCallback(() => {
+    if (triggerRef.current) {
+      setTriggerWidth(triggerRef.current.offsetWidth)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (open) measureTrigger()
+  }, [open, measureTrigger])
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
+          ref={triggerRef}
           type="button"
           variant="outline"
           role="combobox"
@@ -407,7 +420,7 @@ function SearchableSelect({ options, value, onChange, placeholder = '搜索...',
           <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] max-w-[400px] p-0" align="start">
+      <PopoverContent className="p-0" style={{ width: triggerWidth || 'auto' }} align="start">
         <Command>
           <CommandInput placeholder={placeholder} />
           <CommandList>
