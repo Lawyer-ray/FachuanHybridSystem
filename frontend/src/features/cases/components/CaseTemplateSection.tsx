@@ -10,7 +10,6 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { Card, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -53,18 +52,7 @@ import { LEGAL_STATUS_LABELS } from '../types'
 // Sub-components
 // ============================================================================
 
-function EmptyState() {
-  return (
-    <div className="flex flex-col items-center justify-center py-8">
-      <div className="bg-muted flex size-10 items-center justify-center rounded-full">
-        <FileText className="text-muted-foreground size-5" />
-      </div>
-      <p className="text-muted-foreground mt-3 text-sm">暂无绑定模板</p>
-    </div>
-  )
-}
-
-function TemplateCard({
+function TemplateRow({
   binding,
   parties,
   caseId,
@@ -114,57 +102,39 @@ function TemplateCard({
   }
 
   return (
-    <Card className="gap-0 py-0">
-      <CardHeader className="py-3">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <FileText className="text-muted-foreground size-4 shrink-0" />
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium truncate">{binding.name}</span>
-                {binding.binding_source !== 'manual_bound' && (
-                  <Badge variant="secondary" className="shrink-0 text-xs">
-                    {binding.binding_source_display}
-                  </Badge>
-                )}
-              </div>
-              {binding.description && (
-                <div className="text-xs text-muted-foreground mt-0.5 truncate">{binding.description}</div>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon-xs" onClick={() => setGenerateOpen(true)}>
-              <Download className="size-3" />
-            </Button>
-            {binding.binding_id && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="ghost" size="icon-xs">
-                    <Unlink className="text-muted-foreground size-3" />
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent size="sm">
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>确认解绑模板</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      确定要解绑「{binding.name}」吗？
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>取消</AlertDialogCancel>
-                    <AlertDialogAction variant="destructive" onClick={handleUnbind}>
-                      解绑
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
-          </div>
+    <>
+      <div className="group flex items-center gap-2 py-1.5">
+        <FileText className="text-muted-foreground size-3.5 shrink-0" />
+        <span className="text-[13px] font-medium truncate flex-1">{binding.name}</span>
+        {binding.binding_source !== 'manual_bound' && (
+          <span className="text-[11px] text-muted-foreground">{binding.binding_source_display}</span>
+        )}
+        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+          <Button variant="ghost" size="icon-xs" onClick={() => setGenerateOpen(true)}>
+            <Download className="size-3" />
+          </Button>
+          {binding.binding_id && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="icon-xs">
+                  <Unlink className="text-muted-foreground size-3" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent size="sm">
+                <AlertDialogHeader>
+                  <AlertDialogTitle>确认解绑模板</AlertDialogTitle>
+                  <AlertDialogDescription>确定要解绑「{binding.name}」吗？</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>取消</AlertDialogCancel>
+                  <AlertDialogAction variant="destructive" onClick={handleUnbind}>解绑</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
         </div>
-      </CardHeader>
+      </div>
 
-      {/* Generate dialog */}
       <Dialog open={generateOpen} onOpenChange={setGenerateOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
@@ -176,9 +146,7 @@ function TemplateCard({
                 <div className="space-y-2">
                   <label className="text-sm font-medium">选择当事人</label>
                   <Select value={selectedClientId} onValueChange={setSelectedClientId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="全部当事人" />
-                    </SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="全部当事人" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="">全部当事人</SelectItem>
                       {parties.map((p) => (
@@ -194,9 +162,7 @@ function TemplateCard({
                   <div className="space-y-2">
                     <label className="text-sm font-medium">生成模式</label>
                     <Select value={generateMode} onValueChange={(v) => setGenerateMode(v as 'individual' | 'combined')}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="individual">单独生成</SelectItem>
                         <SelectItem value="combined">合并生成</SelectItem>
@@ -217,7 +183,7 @@ function TemplateCard({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Card>
+    </>
   )
 }
 
@@ -233,19 +199,21 @@ function CategoryGroup({
   const [expanded, setExpanded] = useState(true)
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => setExpanded(!expanded)}>
-          {expanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
-        </Button>
-        <span className="text-sm font-medium">{category.category_display}</span>
-        <Badge variant="secondary" className="text-xs">{category.templates.length} 个模板</Badge>
-      </div>
+    <div>
+      <button
+        type="button"
+        className="flex items-center gap-1.5 w-full text-left py-1"
+        onClick={() => setExpanded(!expanded)}
+      >
+        {expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+        <span className="text-xs font-medium text-muted-foreground">{category.category_display}</span>
+        <span className="text-[11px] text-muted-foreground">({category.templates.length})</span>
+      </button>
 
       {expanded && (
-        <div className="ml-6 space-y-1.5">
+        <div className="pl-5 divide-y divide-border/40">
           {category.templates.map((t) => (
-            <TemplateCard
+            <TemplateRow
               key={t.template_id}
               binding={t}
               parties={parties}
@@ -352,37 +320,37 @@ export interface CaseTemplateSectionProps {
 export function CaseTemplateSection({ categories, parties, caseId }: CaseTemplateSectionProps) {
   const [bindOpen, setBindOpen] = useState(false)
 
+  if (categories.length === 0) {
+    return (
+      <div>
+        <p className="text-muted-foreground text-xs mb-2">暂无绑定模板</p>
+        <Button size="xs" variant="ghost" className="h-5 px-1.5 text-[11px]" onClick={() => setBindOpen(true)}>
+          <Link2 className="size-3 mr-0.5" /> 绑定模板
+        </Button>
+        <BindTemplateDialog open={bindOpen} onOpenChange={setBindOpen} caseId={caseId} />
+      </div>
+    )
+  }
+
   return (
-    <div className="space-y-4">
-      {/* Header actions */}
-      <div className="flex items-center gap-3">
-        <Button size="sm" variant="outline" onClick={() => setBindOpen(true)}>
-          <Link2 className="mr-1 size-3" /> 绑定模板
+    <div className="space-y-1">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-xs text-muted-foreground">{categories.reduce((s, c) => s + c.templates.length, 0)} 个模板</span>
+        <Button size="xs" variant="ghost" className="h-5 px-1.5 text-[11px]" onClick={() => setBindOpen(true)}>
+          <Link2 className="size-3 mr-0.5" /> 绑定
         </Button>
       </div>
 
-      {/* Template categories */}
-      {categories.length === 0 ? (
-        <EmptyState />
-      ) : (
-        <div className="space-y-4">
-          {categories.map((cat) => (
-            <CategoryGroup
-              key={cat.category}
-              category={cat}
-              parties={parties}
-              caseId={caseId}
-            />
-          ))}
-        </div>
-      )}
+      {categories.map((cat) => (
+        <CategoryGroup
+          key={cat.category}
+          category={cat}
+          parties={parties}
+          caseId={caseId}
+        />
+      ))}
 
-      {/* Bind dialog */}
-      <BindTemplateDialog
-        open={bindOpen}
-        onOpenChange={setBindOpen}
-        caseId={caseId}
-      />
+      <BindTemplateDialog open={bindOpen} onOpenChange={setBindOpen} caseId={caseId} />
     </div>
   )
 }
