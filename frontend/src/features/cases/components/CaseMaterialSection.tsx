@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { forwardRef, useImperativeHandle, useRef, useState, useMemo, useCallback } from 'react'
 import {
   Upload, Link2, Trash2, FileText, Loader2, ChevronDown, ChevronRight,
   FolderOpen, GripVertical, Pencil, Replace, Check, X,
@@ -345,17 +345,25 @@ function SortableGroupCard({
 // Main Component
 // ============================================================================
 
+export interface CaseMaterialSectionRef {
+  openUpload: () => void
+}
+
 export interface CaseMaterialSectionProps {
   candidates: MaterialBindCandidate[]
   caseId: number
   categoryFilter?: MaterialCategory
 }
 
-export function CaseMaterialSection({ candidates, caseId, categoryFilter: externalFilter }: CaseMaterialSectionProps) {
-  const mutations = useMaterialMutations(caseId)
-  const [uploading, setUploading] = useState(false)
-  const [internalFilter, setInternalFilter] = useState<MaterialCategory | 'all'>('all')
-  const categoryFilter = externalFilter ?? internalFilter
+export const CaseMaterialSection = forwardRef<CaseMaterialSectionRef, CaseMaterialSectionProps>(
+  function CaseMaterialSection({ candidates, caseId, categoryFilter: externalFilter }, ref) {
+    const mutations = useMaterialMutations(caseId)
+    const categoryFilter = externalFilter ?? 'all'
+    const fileInputRef = useRef<HTMLInputElement>(null)
+
+    useImperativeHandle(ref, () => ({
+      openUpload: () => fileInputRef.current?.click(),
+    }), [])
 
   const groups = useMemo((): MaterialGroup[] => {
     const map = new Map<string, MaterialGroup>()
@@ -391,14 +399,12 @@ export function CaseMaterialSection({ candidates, caseId, categoryFilter: extern
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files || files.length === 0) return
-    setUploading(true)
     try {
       await mutations.uploadMaterials.mutateAsync(Array.from(files))
       toast.success(`已上传 ${files.length} 个文件`)
     } catch {
       toast.error('上传失败')
     } finally {
-      setUploading(false)
       e.target.value = ''
     }
   }
@@ -442,35 +448,14 @@ export function CaseMaterialSection({ candidates, caseId, categoryFilter: extern
 
   return (
     <div className="space-y-4">
-      {/* Header actions */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <label>
-          <input type="file" multiple className="hidden" onChange={handleUpload} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.bmp,.tiff,.xls,.xlsx" />
-          <Button size="sm" variant="outline" asChild>
-            <span>
-              {uploading ? <Loader2 className="mr-1 size-3 animate-spin" /> : <Upload className="mr-1 size-3" />}
-              上传材料
-            </span>
-          </Button>
-        </label>
-
-        {!externalFilter && (
-          <select
-            value={internalFilter}
-            onChange={(e) => setInternalFilter(e.target.value as MaterialCategory | 'all')}
-            className="border-input bg-background h-8 rounded-md border px-3 text-sm"
-          >
-            <option value="all">全部分类</option>
-            {(Object.entries(MATERIAL_CATEGORY_LABELS) as [MaterialCategory, { zh: string }][]).map(([val, label]) => (
-              <option key={val} value={val}>{label.zh}</option>
-            ))}
-          </select>
-        )}
-
-        {unboundCount > 0 && (
-          <Badge variant="secondary" className="text-xs">{unboundCount} 个未绑定附件</Badge>
-        )}
-      </div>
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={handleUpload}
+        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.bmp,.tiff,.xls,.xlsx"
+      />
 
       {/* Material groups with drag-drop */}
       {groups.length === 0 && candidates.length === 0 ? (
@@ -533,6 +518,7 @@ export function CaseMaterialSection({ candidates, caseId, categoryFilter: extern
       )}
     </div>
   )
-}
+  },
+)
 
 export default CaseMaterialSection

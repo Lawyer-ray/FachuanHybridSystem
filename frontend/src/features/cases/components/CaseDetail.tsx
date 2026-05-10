@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   ArrowLeft, Edit, Trash2, FileWarning, Hash, Building2, MessageSquare,
-  FileText, FolderOpen, Paperclip, Plus, FileCheck, Shield,
+  FileText, FolderOpen, Plus, FileCheck, Shield,
 } from 'lucide-react'
 import { formatDateOnly } from '@/lib/date'
 import { formatAmount } from '@/lib/format'
@@ -28,7 +28,7 @@ import { useTemplateBindings } from '../hooks/use-template-bindings'
 import { useFolderBinding } from '../hooks/use-folder-binding'
 import { CaseLogSection, type CaseLogSectionRef } from './CaseLogSection'
 import { CaseNumberSection } from './CaseNumberSection'
-import { CaseMaterialSection } from './CaseMaterialSection'
+import { CaseMaterialSection, type CaseMaterialSectionRef } from './CaseMaterialSection'
 import { CaseTemplateSection } from './CaseTemplateSection'
 import { CaseFolderSection } from './CaseFolderSection'
 import { AuthoritySection } from './AuthoritySection'
@@ -170,6 +170,8 @@ export function CaseDetail({ caseId }: CaseDetailProps) {
   const [activeTab, setActiveTab] = useState('basic')
   const logSectionRef = useRef<CaseLogSectionRef>(null)
   const contactSectionRef = useRef<CaseContactSectionRef>(null)
+  const partyMaterialRef = useRef<CaseMaterialSectionRef>(null)
+  const nonPartyMaterialRef = useRef<CaseMaterialSectionRef>(null)
 
   const isOurPartyAllDefendant = useMemo(() => {
     const ourParties = caseData?.parties?.filter(p => p.client_detail?.is_our_client) ?? []
@@ -185,6 +187,7 @@ export function CaseDetail({ caseId }: CaseDetailProps) {
   }, [isOurPartyAllDefendant])
   const [selectedParty, setSelectedParty] = useState<CaseParty | null>(null)
   const [selectedLawyer, setSelectedLawyer] = useState<CaseAssignment | null>(null)
+  const [selectedContact, setSelectedContact] = useState<CaseContact | null>(null)
 
   const handleBack = useCallback(() => navigate(PATHS.ADMIN_CASES), [navigate])
   const handleEdit = useCallback(() => navigate(generatePath.caseEdit(caseId)), [navigate, caseId])
@@ -479,8 +482,13 @@ export function CaseDetail({ caseId }: CaseDetailProps) {
         {/* ════════════════════════════════════════════ */}
         {activeTab === 'party_materials' && (
           <motion.div key="party_materials" {...tabVariants} transition={tabTransition}>
-            <DetailCard title="当事人材料" extra={<Paperclip className="text-muted-foreground size-4" />}>
+            <DetailCard title="当事人材料" extra={
+              <Button size="xs" variant="outline" className="h-6 px-2 text-[11px]" onClick={() => partyMaterialRef.current?.openUpload()}>
+                <Plus className="size-3 mr-0.5" /> 新增
+              </Button>
+            }>
               <CaseMaterialSection
+                ref={partyMaterialRef}
                 candidates={partyMaterials}
                 caseId={Number(caseId)}
                 categoryFilter="party"
@@ -494,8 +502,13 @@ export function CaseDetail({ caseId }: CaseDetailProps) {
         {/* ════════════════════════════════════════════ */}
         {activeTab === 'non_party_materials' && (
           <motion.div key="non_party_materials" {...tabVariants} transition={tabTransition}>
-            <DetailCard title="非当事人材料" extra={<Paperclip className="text-muted-foreground size-4" />}>
+            <DetailCard title="非当事人材料" extra={
+              <Button size="xs" variant="outline" className="h-6 px-2 text-[11px]" onClick={() => nonPartyMaterialRef.current?.openUpload()}>
+                <Plus className="size-3 mr-0.5" /> 新增
+              </Button>
+            }>
               <CaseMaterialSection
+                ref={nonPartyMaterialRef}
                 candidates={nonPartyMaterials}
                 caseId={Number(caseId)}
                 categoryFilter="non_party"
