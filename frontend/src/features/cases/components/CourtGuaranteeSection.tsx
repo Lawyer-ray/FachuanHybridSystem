@@ -110,17 +110,17 @@ export function CourtGuaranteeSection({ caseId }: Props) {
     <DetailCard title="诉讼保全担保" extra={<Shield className="text-muted-foreground size-4" />}>
       <div className="space-y-4">
         {guaranteeInfo && (
-          <div className="rounded-md border border-border/60 bg-muted/30 px-4 py-3 text-[13px]">
+          <div key="info" className="rounded-md border border-border/60 bg-muted/30 px-4 py-3 text-[13px]">
             <div className="grid gap-3 sm:grid-cols-3">
-              <div>
+              <div key="court">
                 <span className="text-muted-foreground">管辖法院：</span>
                 <span className="font-medium">{guaranteeInfo.court_name || '—'}</span>
               </div>
-              <div>
+              <div key="amount">
                 <span className="text-muted-foreground">保全金额：</span>
                 <span className="font-medium">{formatAmount(guaranteeInfo.preservation_amount)}</span>
               </div>
-              <div>
+              <div key="category">
                 <span className="text-muted-foreground">保全类型：</span>
                 <span className="font-medium">{guaranteeInfo.category || '—'}</span>
               </div>
@@ -130,7 +130,7 @@ export function CourtGuaranteeSection({ caseId }: Props) {
 
         {/* Quote context */}
         {quoteContext && quoteContext.quote_id && (
-          <div className="rounded-md border border-border/60 bg-muted/30 px-4 py-3 space-y-2">
+          <div key="quote" className="rounded-md border border-border/60 bg-muted/30 px-4 py-3 space-y-2">
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium">报价信息</span>
               <Badge variant="outline" className="text-[10px]">
@@ -139,13 +139,13 @@ export function CourtGuaranteeSection({ caseId }: Props) {
             </div>
             <div className="grid gap-2 sm:grid-cols-3 text-xs">
               {quoteContext.insurer && (
-                <div><span className="text-muted-foreground">保险公司：</span><span className="font-medium">{quoteContext.insurer}</span></div>
+                <div key="insurer"><span className="text-muted-foreground">保险公司：</span><span className="font-medium">{quoteContext.insurer}</span></div>
               )}
               {quoteContext.amount != null && (
-                <div><span className="text-muted-foreground">保额：</span><span className="font-medium">{formatAmount(quoteContext.amount)}</span></div>
+                <div key="amount"><span className="text-muted-foreground">保额：</span><span className="font-medium">{formatAmount(quoteContext.amount)}</span></div>
               )}
               {quoteContext.premium != null && (
-                <div><span className="text-muted-foreground">保费：</span><span className="font-medium">{formatAmount(quoteContext.premium)}</span></div>
+                <div key="premium"><span className="text-muted-foreground">保费：</span><span className="font-medium">{formatAmount(quoteContext.premium)}</span></div>
               )}
             </div>
             <div className="flex items-center gap-2 pt-1">
@@ -204,7 +204,7 @@ export function CourtGuaranteeSection({ caseId }: Props) {
         <div className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-3">
             {guaranteeInfo?.insurance_options && guaranteeInfo.insurance_options.length > 0 && (
-              <Select value={insurerId} onValueChange={setInsurerId}>
+              <Select key="insurer" value={insurerId} onValueChange={setInsurerId}>
                 <SelectTrigger className="h-8"><SelectValue placeholder="保险公司" /></SelectTrigger>
                 <SelectContent>
                   {guaranteeInfo.insurance_options.map(opt => (
@@ -214,7 +214,7 @@ export function CourtGuaranteeSection({ caseId }: Props) {
               </Select>
             )}
             {guaranteeInfo?.respondent_options && guaranteeInfo.respondent_options.length > 0 && (
-              <Select value={respondentId} onValueChange={setRespondentId}>
+              <Select key="respondent" value={respondentId} onValueChange={setRespondentId}>
                 <SelectTrigger className="h-8"><SelectValue placeholder="被申请人" /></SelectTrigger>
                 <SelectContent>
                   {guaranteeInfo.respondent_options.map(opt => (
@@ -247,7 +247,7 @@ export function CourtGuaranteeSection({ caseId }: Props) {
         </div>
 
         {session && (
-          <div className="rounded-md border border-border/60 bg-muted/30 px-4 py-3 space-y-2">
+          <div key="session" className="rounded-md border border-border/60 bg-muted/30 px-4 py-3 space-y-2">
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground">状态：</span>
               <Badge variant="outline" className={`text-[11px] ${statusColor}`}>

@@ -114,13 +114,13 @@ export function CourtFilingSection({ caseId, caseData }: Props) {
 
         {filingInfo && (
           <div className="space-y-3">
-            {filingInfo.has_credentials === false && (
-              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+            {filingInfo?.has_credentials === false && (
+              <div key="credentials-warning" className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
                 缺少法院登录凭证，请先在系统设置中配置
               </div>
             )}
-            {filingInfo.material_slots.length > 0 && (
-              <div className="space-y-1">
+            {filingInfo.material_slots && filingInfo.material_slots.length > 0 && (
+              <div key="material-slots" className="space-y-1">
                 <p className="text-xs font-medium text-muted-foreground">材料匹配</p>
                 {filingInfo.material_slots.map((slot, i) => (
                   <div key={i} className="flex items-center gap-2 text-xs">

@@ -133,7 +133,9 @@ class CaseAdminService:
         """
         try:
             if legal_statuses:
-                return self.document_service.get_matched_folder_templates_with_legal_status(case_type, legal_statuses),
+                return (
+                    self.document_service.get_matched_folder_templates_with_legal_status(case_type, legal_statuses),
+                )
             return self.document_service.get_matched_folder_templates(case_type)
         except Exception:
             logger.exception(
@@ -149,9 +151,9 @@ class CaseAdminService:
             template_matching_service_cls = module.TemplateMatchingService
 
             return template_matching_service_cls().find_matching_case_folder_templates_list(
-                    case_type=case_type,
-                    legal_statuses=legal_statuses,
-                )
+                case_type=case_type,
+                legal_statuses=legal_statuses,
+            )
         except Exception:
             logger.exception("get_matched_folder_templates_list_failed", extra={"case_type": case_type})
             return []
@@ -164,10 +166,10 @@ class CaseAdminService:
     ) -> list[JSONDict]:
         try:
             return self.document_service.find_matching_case_file_templates(
-                    case_type=case_type,
-                    case_stage=case_stage,
-                    applicable_institutions=applicable_institutions,
-                )
+                case_type=case_type,
+                case_stage=case_stage,
+                applicable_institutions=applicable_institutions,
+            )
         except Exception:
             logger.exception(
                 "get_matched_case_file_templates_failed",
@@ -577,10 +579,10 @@ class CaseAdminService:
         created_year = case.start_date.year
         case_type = str(case.case_type or "")
         filing_number = self.filing_number_service.generate_case_filing_number_internal(
-                case_id=case_id,
-                case_type=case_type,
-                created_year=created_year,
-            )
+            case_id=case_id,
+            case_type=case_type,
+            created_year=created_year,
+        )
 
         # 保存编号到数据库
         case.filing_number = filing_number

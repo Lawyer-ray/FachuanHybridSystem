@@ -402,10 +402,9 @@ class CaseAdminViewsMixin:
 
         if CaseFolderBinding.objects.filter(case_id=case_id).exists():
             return True
-        # 合并为一条 JOIN 查询：同时获取 contract_id 并检查 ContractFolderBinding
         return (
             Case.objects.filter(pk=case_id, contract__isnull=False)
-            .filter(contract__contractfolderbinding__isnull=False)
+            .filter(contract__folder_binding__isnull=False)
             .exists()
         )
 

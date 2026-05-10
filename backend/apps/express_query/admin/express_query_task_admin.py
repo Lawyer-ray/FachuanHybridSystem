@@ -13,8 +13,8 @@ from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.safestring import SafeData
 from django.utils.translation import gettext as _
-from apps.core.tasking import submit_task
 
+from apps.core.tasking import submit_task
 from apps.express_query.models import ExpressCarrierType, ExpressQueryTask, ExpressQueryTaskStatus, ExpressQueryTool
 
 logger = logging.getLogger("apps.express_query")
