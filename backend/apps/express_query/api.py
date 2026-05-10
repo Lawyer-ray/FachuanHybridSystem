@@ -17,6 +17,7 @@ class ExpressQueryTaskOut(Schema):
     status: str
     carrier_type: str
     tracking_number: str
+    result_pdf: str | None = None
     created_at: Any
     updated_at: Any
 
