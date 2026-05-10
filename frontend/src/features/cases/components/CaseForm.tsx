@@ -253,23 +253,22 @@ export function CaseForm({ caseId, mode }: CaseFormProps) {
 
       <Form {...form}>
         <form id="case-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
-          {/* Row 1: 基本信息 + 金额与费用 */}
-          <div className="grid gap-3 lg:grid-cols-2">
-            <Card className="py-4">
-              <CardHeader className="px-4 py-0 pb-1.5">
-                <CardTitle className="text-sm font-semibold">基本信息</CardTitle>
-              </CardHeader>
-              <CardContent className="px-4 pb-4 space-y-3">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <FormField control={form.control} name="name" render={({ field }) => (
-                    <FormItem className="sm:col-span-2">
-                      <FormLabel>案件名称 <span className="text-destructive">*</span></FormLabel>
-                      <FormControl>
-                        <Input placeholder="请输入案件名称" disabled={isPending} {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
+          {/* 案件信息 — 3列紧凑网格 */}
+          <Card className="py-4">
+            <CardHeader className="px-4 py-0 pb-1.5">
+              <CardTitle className="text-sm font-semibold">案件信息</CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <div className="grid gap-x-4 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+                <FormField control={form.control} name="name" render={({ field }) => (
+                  <FormItem className="lg:col-span-2">
+                    <FormLabel>案件名称 <span className="text-destructive">*</span></FormLabel>
+                    <FormControl>
+                      <Input placeholder="请输入案件名称" disabled={isPending} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
 
                   <FormField control={form.control} name="case_type" render={({ field }) => (
                     <FormItem>
@@ -331,66 +330,6 @@ export function CaseForm({ caseId, mode }: CaseFormProps) {
                       <FormMessage />
                     </FormItem>
                   )} />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="py-4">
-              <CardHeader className="px-4 py-0 pb-1.5">
-                <CardTitle className="text-sm font-semibold">金额与费用</CardTitle>
-              </CardHeader>
-              <CardContent className="px-4 pb-4 space-y-3">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <FormField control={form.control} name="target_amount" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>标的金额</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          placeholder="请输入标的金额"
-                          disabled={isPending}
-                          value={field.value ?? ''}
-                          onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-
-                  <FormField control={form.control} name="preservation_amount" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>保全金额</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          placeholder="请输入保全金额"
-                          disabled={isPending}
-                          value={field.value ?? ''}
-                          onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                </div>
-                <FeeCalculator
-                  targetAmount={watchTargetAmount}
-                  preservationAmount={watchPreservationAmount}
-                  caseType={watchCaseType}
-                  causeOfAction={watchCauseOfAction ?? undefined}
-                  embedded
-                />
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Row 2: 日期与状态 */}
-          <Card>
-            <CardHeader className="px-4 py-0 pb-1.5">
-              <CardTitle className="text-sm font-semibold">日期与状态</CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-4">
-              <div className="grid gap-3 sm:grid-cols-3">
                 <FormField control={form.control} name="effective_date" render={({ field }) => (
                   <FormItem>
                     <FormLabel>生效日期</FormLabel>
@@ -411,99 +350,128 @@ export function CaseForm({ caseId, mode }: CaseFormProps) {
                   </FormItem>
                 )} />
 
+                <FormField control={form.control} name="target_amount" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>标的金额</FormLabel>
+                    <FormControl>
+                      <Input type="number" placeholder="请输入" disabled={isPending} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+
+                <FormField control={form.control} name="preservation_amount" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>保全金额</FormLabel>
+                    <FormControl>
+                      <Input type="number" placeholder="请输入" disabled={isPending} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : null)} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+
                 <FormField control={form.control} name="is_filed" render={({ field }) => (
-                  <FormItem className="flex flex-row items-center gap-3 space-y-0 pt-5">
+                  <FormItem className="flex flex-row items-center gap-2.5 space-y-0 pt-5">
                     <FormControl>
                       <Switch checked={field.value ?? false} onCheckedChange={field.onChange} disabled={isPending} />
                     </FormControl>
                     <div className="flex items-center gap-1.5">
-                      <FileCheck className="size-4 text-muted-foreground" />
-                      <FormLabel className="text-sm font-normal cursor-pointer">已建档</FormLabel>
+                      <FileCheck className="size-3.5 text-muted-foreground" />
+                      <FormLabel className="text-xs font-normal cursor-pointer">已建档</FormLabel>
                     </div>
                     <FormMessage />
                   </FormItem>
                 )} />
               </div>
+
+              <div className="mt-2.5">
+                <FeeCalculator
+                  targetAmount={watchTargetAmount}
+                  preservationAmount={watchPreservationAmount}
+                  caseType={watchCaseType}
+                  causeOfAction={watchCauseOfAction ?? undefined}
+                  embedded
+                />
+              </div>
             </CardContent>
           </Card>
 
-          {/* Create mode: dynamic lists */}
+          {/* Create mode: 当事人 + 律师并排 */}
           {!isEditMode && (
             <>
-              <Card className="py-4">
-                <CardHeader className="px-4 py-0 pb-1.5">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm font-semibold">当事人</CardTitle>
-                    <Button type="button" variant="outline" size="xs" className="h-6 px-2 text-[11px]" onClick={() => appendParty({ client_id: 0, legal_status: '' })}>
-                      <Plus className="size-3 mr-0.5" /> 添加
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="px-4 pb-4 space-y-2">
-                  {partyFields.length === 0 && <p className="text-muted-foreground text-xs">暂无当事人，点击上方按钮添加</p>}
-                  {partyFields.map((field, index) => (
-                    <div key={field.id} className="flex items-end gap-3">
-                      <FormField control={form.control} name={`parties.${index}.client_id`} render={({ field: f }) => (
-                        <FormItem className="flex-1">
-                          {index === 0 && <FormLabel>客户ID</FormLabel>}
-                          <FormControl>
-                            <Input type="number" placeholder="客户ID" value={f.value || ''} onChange={(e) => f.onChange(e.target.value ? Number(e.target.value) : 0)} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )} />
-                      <FormField control={form.control} name={`parties.${index}.legal_status`} render={({ field: f }) => (
-                        <FormItem className="flex-1">
-                          {index === 0 && <FormLabel>诉讼地位</FormLabel>}
-                          <Select onValueChange={f.onChange} value={f.value ?? ''}>
+              <div className="grid gap-3 lg:grid-cols-2">
+                <Card className="py-4">
+                  <CardHeader className="px-4 py-0 pb-1.5">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-sm font-semibold">当事人</CardTitle>
+                      <Button type="button" variant="outline" size="xs" className="h-6 px-2 text-[11px]" onClick={() => appendParty({ client_id: 0, legal_status: '' })}>
+                        <Plus className="size-3 mr-0.5" /> 添加
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-4 space-y-1.5">
+                    {partyFields.length === 0 && <p className="text-muted-foreground text-xs">暂无当事人</p>}
+                    {partyFields.map((field, index) => (
+                      <div key={field.id} className="flex items-end gap-2">
+                        <FormField control={form.control} name={`parties.${index}.client_id`} render={({ field: f }) => (
+                          <FormItem className="flex-1">
                             <FormControl>
-                              <SelectTrigger className="w-full"><SelectValue placeholder="选择地位" /></SelectTrigger>
+                              <Input type="number" placeholder="客户ID" className="h-8 text-xs" value={f.value || ''} onChange={(e) => f.onChange(e.target.value ? Number(e.target.value) : 0)} />
                             </FormControl>
-                            <SelectContent>
-                              {Object.entries(LEGAL_STATUS_LABELS).map(([v, l]) => (
-                                <SelectItem key={v} value={v}>{l.zh}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </FormItem>
-                      )} />
-                      <Button type="button" variant="ghost" size="icon" onClick={() => removeParty(index)}>
-                        <Trash2 className="text-muted-foreground size-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
+                            <FormMessage />
+                          </FormItem>
+                        )} />
+                        <FormField control={form.control} name={`parties.${index}.legal_status`} render={({ field: f }) => (
+                          <FormItem className="flex-1">
+                            <Select onValueChange={f.onChange} value={f.value ?? ''}>
+                              <FormControl>
+                                <SelectTrigger className="h-8 text-xs w-full"><SelectValue placeholder="诉讼地位" /></SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {Object.entries(LEGAL_STATUS_LABELS).map(([v, l]) => (
+                                  <SelectItem key={v} value={v}>{l.zh}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                        )} />
+                        <Button type="button" variant="ghost" size="icon-xs" onClick={() => removeParty(index)}>
+                          <Trash2 className="text-muted-foreground size-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
 
-              <Card className="py-4">
-                <CardHeader className="px-4 py-0 pb-1.5">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm font-semibold">指派律师</CardTitle>
-                    <Button type="button" variant="outline" size="xs" className="h-6 px-2 text-[11px]" onClick={() => appendAssignment({ lawyer_id: 0 })}>
-                      <Plus className="size-3 mr-0.5" /> 添加
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="px-4 pb-4 space-y-2">
-                  {assignmentFields.length === 0 && <p className="text-muted-foreground text-xs">暂未指派律师</p>}
-                  {assignmentFields.map((field, index) => (
-                    <div key={field.id} className="flex items-end gap-3">
-                      <FormField control={form.control} name={`assignments.${index}.lawyer_id`} render={({ field: f }) => (
-                        <FormItem className="flex-1">
-                          {index === 0 && <FormLabel>律师ID</FormLabel>}
-                          <FormControl>
-                            <Input type="number" placeholder="律师ID" value={f.value || ''} onChange={(e) => f.onChange(e.target.value ? Number(e.target.value) : 0)} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )} />
-                      <Button type="button" variant="ghost" size="icon" onClick={() => removeAssignment(index)}>
-                        <Trash2 className="text-muted-foreground size-4" />
+                <Card className="py-4">
+                  <CardHeader className="px-4 py-0 pb-1.5">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-sm font-semibold">指派律师</CardTitle>
+                      <Button type="button" variant="outline" size="xs" className="h-6 px-2 text-[11px]" onClick={() => appendAssignment({ lawyer_id: 0 })}>
+                        <Plus className="size-3 mr-0.5" /> 添加
                       </Button>
                     </div>
-                  ))}
-                </CardContent>
-              </Card>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-4 space-y-1.5">
+                    {assignmentFields.length === 0 && <p className="text-muted-foreground text-xs">暂未指派律师</p>}
+                    {assignmentFields.map((field, index) => (
+                      <div key={field.id} className="flex items-end gap-2">
+                        <FormField control={form.control} name={`assignments.${index}.lawyer_id`} render={({ field: f }) => (
+                          <FormItem className="flex-1">
+                            <FormControl>
+                              <Input type="number" placeholder="律师ID" className="h-8 text-xs" value={f.value || ''} onChange={(e) => f.onChange(e.target.value ? Number(e.target.value) : 0)} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )} />
+                        <Button type="button" variant="ghost" size="icon-xs" onClick={() => removeAssignment(index)}>
+                          <Trash2 className="text-muted-foreground size-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              </div>
 
               <Card className="py-4">
                 <CardHeader className="px-4 py-0 pb-1.5">
@@ -514,24 +482,22 @@ export function CaseForm({ caseId, mode }: CaseFormProps) {
                     </Button>
                   </div>
                 </CardHeader>
-                <CardContent className="px-4 pb-4 space-y-2">
+                <CardContent className="px-4 pb-4 space-y-1.5">
                   {authorityFields.length === 0 && <p className="text-muted-foreground text-xs">暂无主管机关</p>}
                   {authorityFields.map((field, index) => (
-                    <div key={field.id} className="flex items-end gap-3">
+                    <div key={field.id} className="flex items-end gap-2">
                       <FormField control={form.control} name={`authorities.${index}.name`} render={({ field: f }) => (
                         <FormItem className="flex-1">
-                          {index === 0 && <FormLabel>机关名称</FormLabel>}
                           <FormControl>
-                            <Input placeholder="机关名称" {...f} value={f.value ?? ''} />
+                            <Input placeholder="机关名称" className="h-8 text-xs" {...f} value={f.value ?? ''} />
                           </FormControl>
                         </FormItem>
                       )} />
                       <FormField control={form.control} name={`authorities.${index}.authority_type`} render={({ field: f }) => (
                         <FormItem className="flex-1">
-                          {index === 0 && <FormLabel>机关性质</FormLabel>}
                           <Select onValueChange={f.onChange} value={f.value ?? ''}>
                             <FormControl>
-                              <SelectTrigger className="w-full"><SelectValue placeholder="选择性质" /></SelectTrigger>
+                              <SelectTrigger className="h-8 text-xs w-full"><SelectValue placeholder="机关性质" /></SelectTrigger>
                             </FormControl>
                             <SelectContent>
                               {Object.entries(AUTHORITY_TYPE_LABELS).map(([v, l]) => (
@@ -541,8 +507,8 @@ export function CaseForm({ caseId, mode }: CaseFormProps) {
                           </Select>
                         </FormItem>
                       )} />
-                      <Button type="button" variant="ghost" size="icon" onClick={() => removeAuthority(index)}>
-                        <Trash2 className="text-muted-foreground size-4" />
+                      <Button type="button" variant="ghost" size="icon-xs" onClick={() => removeAuthority(index)}>
+                        <Trash2 className="text-muted-foreground size-3" />
                       </Button>
                     </div>
                   ))}
@@ -556,25 +522,27 @@ export function CaseForm({ caseId, mode }: CaseFormProps) {
       {/* Edit mode: related sections */}
       {isEditMode && caseData && (
         <>
-          <Card>
-            <CardHeader className="px-4 py-0 pb-1.5">
-              <CardTitle className="text-sm font-semibold">案件当事人</CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-4">
-              <CasePartySection parties={caseData.parties ?? []} editable caseId={caseData.id} />
-            </CardContent>
-          </Card>
+          <div className="grid gap-3 lg:grid-cols-2">
+            <Card className="py-4">
+              <CardHeader className="px-4 py-0 pb-1.5">
+                <CardTitle className="text-sm font-semibold">案件当事人</CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4">
+                <CasePartySection parties={caseData.parties ?? []} editable caseId={caseData.id} />
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardHeader className="px-4 py-0 pb-1.5">
-              <CardTitle className="text-sm font-semibold">律师指派</CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-4">
-              <CaseAssignmentSection assignments={caseData.assignments ?? []} editable caseId={caseData.id} />
-            </CardContent>
-          </Card>
+            <Card className="py-4">
+              <CardHeader className="px-4 py-0 pb-1.5">
+                <CardTitle className="text-sm font-semibold">律师指派</CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4">
+                <CaseAssignmentSection assignments={caseData.assignments ?? []} editable caseId={caseData.id} />
+              </CardContent>
+            </Card>
+          </div>
 
-          <Card>
+          <Card className="py-4">
             <CardHeader className="px-4 py-0 pb-1.5">
               <CardTitle className="text-sm font-semibold">案件日志</CardTitle>
             </CardHeader>
