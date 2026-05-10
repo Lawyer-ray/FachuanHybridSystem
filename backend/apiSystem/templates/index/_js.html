@@ -660,36 +660,31 @@
             const heroTitle = document.querySelector('.hero-title');
             if (!heroTitle) return;
 
-            // 保存原始内容
-            const line1Text = '法穿';
-            const line2Text = 'AI';
-            const line3Text = 'Copilot';
+            // 保存原始内容 — 单行: 法穿AI Copilot
+            const prefixText = '法穿AI ';
+            const gradientText = 'Copilot';
 
-            // 清空并重建结构
+            // 清空并重建结构：一行显示
             heroTitle.innerHTML = `
-                <span class="kinetic-text typewriter-line1"></span><span class="typewriter-line2"></span><br>
-                <span class="gradient-text typewriter-line3"></span><span class="typewriter-cursor"></span>
+                <span class="kinetic-text typewriter-prefix"></span><span class="gradient-text typewriter-gradient"></span><span class="typewriter-cursor"></span>
             `;
 
-            const line1El = heroTitle.querySelector('.typewriter-line1');
-            const line2El = heroTitle.querySelector('.typewriter-line2');
-            const line3El = heroTitle.querySelector('.typewriter-line3');
+            const prefixEl = heroTitle.querySelector('.typewriter-prefix');
+            const gradientEl = heroTitle.querySelector('.typewriter-gradient');
             const cursor = heroTitle.querySelector('.typewriter-cursor');
 
             let charIndex = 0;
-            const fullText = line1Text + line2Text + line3Text;
+            const fullText = prefixText + gradientText;
             const speed = 120; // 每个字的间隔(ms)
 
             function typeWriter() {
                 if (charIndex < fullText.length) {
                     const char = fullText[charIndex];
 
-                    if (charIndex < line1Text.length) {
-                        line1El.textContent += char;
-                    } else if (charIndex < line1Text.length + line2Text.length) {
-                        line2El.textContent += char;
+                    if (charIndex < prefixText.length) {
+                        prefixEl.textContent += char;
                     } else {
-                        line3El.textContent += char;
+                        gradientEl.textContent += char;
                     }
 
                     charIndex++;
