@@ -257,11 +257,8 @@ export function CaseForm({ caseId, mode }: CaseFormProps) {
       <Form {...form}>
         <form id="case-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
           {/* 案件信息 — 3列紧凑网格 */}
-          <Card className="py-4">
-            <CardHeader className="px-4 py-0 pb-1.5">
-              <CardTitle className="text-sm font-semibold">案件信息</CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-4">
+          <Card className="py-3">
+            <CardContent className="px-4">
               <div className="grid gap-x-4 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
                 <FormField control={form.control} name="name" render={({ field }) => (
                   <FormItem className="lg:col-span-2">
@@ -406,7 +403,7 @@ export function CaseForm({ caseId, mode }: CaseFormProps) {
                 <Card className="py-4">
                   <CardHeader className="px-4 py-0 pb-1.5">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-sm font-semibold">当事人</CardTitle>
+                      <CardTitle className="text-xs font-medium text-muted-foreground">当事人</CardTitle>
                       <Button type="button" variant="outline" size="xs" className="h-6 px-2 text-[11px]" onClick={() => appendParty({ client_id: 0, legal_status: '' })}>
                         <Plus className="size-3 mr-0.5" /> 添加
                       </Button>
@@ -449,7 +446,7 @@ export function CaseForm({ caseId, mode }: CaseFormProps) {
                 <Card className="py-4">
                   <CardHeader className="px-4 py-0 pb-1.5">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-sm font-semibold">指派律师</CardTitle>
+                      <CardTitle className="text-xs font-medium text-muted-foreground">指派律师</CardTitle>
                       <Button type="button" variant="outline" size="xs" className="h-6 px-2 text-[11px]" onClick={() => appendAssignment({ lawyer_id: 0 })}>
                         <Plus className="size-3 mr-0.5" /> 添加
                       </Button>
@@ -479,7 +476,7 @@ export function CaseForm({ caseId, mode }: CaseFormProps) {
               <Card className="py-4">
                 <CardHeader className="px-4 py-0 pb-1.5">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm font-semibold">主管机关</CardTitle>
+                    <CardTitle className="text-xs font-medium text-muted-foreground">主管机关</CardTitle>
                     <Button type="button" variant="outline" size="xs" className="h-6 px-2 text-[11px]" onClick={() => appendAuthority({ name: '', authority_type: '' })}>
                       <Plus className="size-3 mr-0.5" /> 添加
                     </Button>
