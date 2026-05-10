@@ -80,8 +80,6 @@ export interface ReminderFormProps {
   isSubmitting?: boolean
   /** 合同选项列表（可选，用于关联选择） */
   contractOptions?: AssociationOption[]
-  /** 案件日志选项列表（可选，用于关联选择） */
-  caseLogOptions?: AssociationOption[]
   /** 创建模式下的初始日期（可选，用于从日历创建时预填日期） */
   initialDate?: Date
 }
@@ -145,7 +143,6 @@ export function ReminderForm({
   onCancel,
   isSubmitting = false,
   contractOptions = [],
-  caseLogOptions = [],
   initialDate,
 }: ReminderFormProps) {
   const isEditMode = mode === 'edit'
@@ -327,53 +324,23 @@ export function ReminderForm({
         />
 
         {/* 关联选择 - Requirements: 7.4 */}
-        <div className="space-y-4">
-          <FormLabel>关联（可选）</FormLabel>
-
-          {/* 合同选择 */}
-          <FormField
-            control={form.control}
-            name="contract_id"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-xs text-muted-foreground">关联合同</FormLabel>
-                <SearchableSelect
-                  options={contractOptions}
-                  value={field.value}
-                  onChange={(v) => {
-                    form.setValue('contract_id', v, { shouldValidate: true })
-                    if (v) form.setValue('case_log_id', null, { shouldValidate: true })
-                  }}
-                  placeholder="搜索或选择合同..."
-                  disabled={isSubmitting}
-                />
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          {/* 案件日志选择 */}
-          <FormField
-            control={form.control}
-            name="case_log_id"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-xs text-muted-foreground">关联案件日志</FormLabel>
-                <SearchableSelect
-                  options={caseLogOptions}
-                  value={field.value}
-                  onChange={(v) => {
-                    form.setValue('case_log_id', v, { shouldValidate: true })
-                    if (v) form.setValue('contract_id', null, { shouldValidate: true })
-                  }}
-                  placeholder="搜索或选择案件日志..."
-                  disabled={isSubmitting}
-                />
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+        <FormField
+          control={form.control}
+          name="contract_id"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>关联合同（可选）</FormLabel>
+              <SearchableSelect
+                options={contractOptions}
+                value={field.value}
+                onChange={(v) => form.setValue('contract_id', v, { shouldValidate: true })}
+                placeholder="搜索合同..."
+                disabled={isSubmitting}
+              />
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         {/* 操作按钮 */}
         <div className="flex flex-col-reverse gap-3 pt-4 sm:flex-row sm:justify-end">
@@ -434,13 +401,13 @@ function SearchableSelect({ options, value, onChange, placeholder = '搜索...',
           role="combobox"
           aria-expanded={open}
           disabled={disabled}
-          className="w-full justify-between font-normal"
+          className="w-full justify-between font-normal overflow-hidden"
         >
-          {selected ? selected.label : placeholder}
+          <span className="truncate">{selected ? selected.label : placeholder}</span>
           <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+      <PopoverContent className="w-[--radix-popover-trigger-width] max-w-[400px] p-0" align="start">
         <Command>
           <CommandInput placeholder={placeholder} />
           <CommandList>
@@ -464,9 +431,10 @@ function SearchableSelect({ options, value, onChange, placeholder = '搜索...',
                     onChange(option.id === value ? null : option.id)
                     setOpen(false)
                   }}
+                  className="flex items-start gap-2"
                 >
-                  <Check className={cn('mr-2 size-4', value === option.id ? 'opacity-100' : 'opacity-0')} />
-                  {option.label}
+                  <Check className={cn('mt-0.5 size-4 shrink-0', value === option.id ? 'opacity-100' : 'opacity-0')} />
+                  <span className="line-clamp-2 text-sm">{option.label}</span>
                 </CommandItem>
               ))}
             </CommandGroup>

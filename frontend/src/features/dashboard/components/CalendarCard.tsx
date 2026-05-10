@@ -150,10 +150,6 @@ export function CalendarCard() {
     const group = targetOptions?.groups.find(g => g.key === 'contract')
     return group?.items.map(i => ({ id: i.id, label: i.name })) ?? []
   }, [targetOptions])
-  const caseLogOptions = useMemo(() => {
-    const group = targetOptions?.groups.find(g => g.key === 'case_log')
-    return group?.items.map(i => ({ id: i.id, label: i.name })) ?? []
-  }, [targetOptions])
 
   const weeks = useMemo(() => {
     const firstDay = new Date(viewYear, viewMonth, 1).getDay()
@@ -351,7 +347,6 @@ export function CalendarCard() {
         reminder={formReminder}
         onSuccess={handleFormSuccess}
         contractOptions={contractOptions}
-        caseLogOptions={caseLogOptions}
         initialDate={formDate}
       />
 
