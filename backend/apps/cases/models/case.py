@@ -9,7 +9,6 @@ from django.utils.translation import gettext_lazy as _
 from simple_history.models import HistoricalRecords
 
 from apps.core.filesystem.upload_paths import DatedUUIDPath
-
 from apps.core.models.enums import AuthorityType, CaseStage, CaseStatus, SimpleCaseType
 
 if TYPE_CHECKING:
