@@ -16,6 +16,7 @@ export interface FeeCalculatorProps {
   preservationAmount?: number | null
   caseType?: string
   causeOfAction?: string
+  embedded?: boolean
 }
 
 function formatCurrency(val: number | null | undefined): string {
@@ -63,7 +64,7 @@ function FeeResults({ data }: { data: FeeCalculationResponse }) {
   )
 }
 
-export function FeeCalculator({ targetAmount, preservationAmount, caseType, causeOfAction }: FeeCalculatorProps) {
+export function FeeCalculator({ targetAmount, preservationAmount, caseType, causeOfAction, embedded }: FeeCalculatorProps) {
   const calculateFee = useCalculateFee()
 
   const handleCalculate = () => {
@@ -75,6 +76,42 @@ export function FeeCalculator({ targetAmount, preservationAmount, caseType, caus
     })
   }
 
+  const content = (
+    <>
+      <div className="flex items-center justify-between">
+        <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+          <Calculator className="size-3.5" />
+          诉讼费计算
+        </span>
+        <Button
+          size="xs"
+          variant="outline"
+          className="h-6 px-2 text-[11px]"
+          onClick={handleCalculate}
+          disabled={calculateFee.isPending}
+        >
+          {calculateFee.isPending ? (
+            <Loader2 className="mr-1 size-3 animate-spin" />
+          ) : (
+            <Calculator className="mr-1 size-3" />
+          )}
+          计算
+        </Button>
+      </div>
+      <div className="mt-2">
+        {calculateFee.data ? (
+          <FeeResults data={calculateFee.data} />
+        ) : calculateFee.isError ? (
+          <p className="text-destructive text-xs">计算失败：{calculateFee.error.message}</p>
+        ) : (
+          <p className="text-muted-foreground text-xs">点击"计算"按钮获取诉讼费</p>
+        )}
+      </div>
+    </>
+  )
+
+  if (embedded) return content
+
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -83,25 +120,14 @@ export function FeeCalculator({ targetAmount, preservationAmount, caseType, caus
             <Calculator className="size-4" />
             诉讼费计算
           </CardTitle>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleCalculate}
-            disabled={calculateFee.isPending}
-          >
-            {calculateFee.isPending ? (
-              <Loader2 className="mr-1 size-3 animate-spin" />
-            ) : (
-              <Calculator className="mr-1 size-3" />
-            )}
+          <Button size="sm" variant="outline" onClick={handleCalculate} disabled={calculateFee.isPending}>
+            {calculateFee.isPending ? <Loader2 className="mr-1 size-3 animate-spin" /> : <Calculator className="mr-1 size-3" />}
             计算
           </Button>
         </div>
       </CardHeader>
       <CardContent>
-        {calculateFee.data ? (
-          <FeeResults data={calculateFee.data} />
-        ) : calculateFee.isError ? (
+        {calculateFee.data ? <FeeResults data={calculateFee.data} /> : calculateFee.isError ? (
           <p className="text-destructive text-sm">计算失败：{calculateFee.error.message}</p>
         ) : (
           <p className="text-muted-foreground text-sm">点击"计算"按钮获取诉讼费</p>

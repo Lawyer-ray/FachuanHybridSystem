@@ -211,7 +211,7 @@ export function CaseForm({ caseId, mode }: CaseFormProps) {
   const isPending = createCaseFull.isPending || updateCase.isPending
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Page Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <button
@@ -252,15 +252,15 @@ export function CaseForm({ caseId, mode }: CaseFormProps) {
       </div>
 
       <Form {...form}>
-        <form id="case-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <form id="case-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
           {/* Row 1: 基本信息 + 金额与费用 */}
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Card>
-              <CardHeader className="pb-3">
+          <div className="grid gap-3 lg:grid-cols-2">
+            <Card className="py-4">
+              <CardHeader className="px-4 py-0 pb-1.5">
                 <CardTitle className="text-sm font-semibold">基本信息</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-4 sm:grid-cols-2">
+              <CardContent className="px-4 pb-4 space-y-3">
+                <div className="grid gap-3 sm:grid-cols-2">
                   <FormField control={form.control} name="name" render={({ field }) => (
                     <FormItem className="sm:col-span-2">
                       <FormLabel>案件名称 <span className="text-destructive">*</span></FormLabel>
@@ -335,12 +335,12 @@ export function CaseForm({ caseId, mode }: CaseFormProps) {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="pb-3">
+            <Card className="py-4">
+              <CardHeader className="px-4 py-0 pb-1.5">
                 <CardTitle className="text-sm font-semibold">金额与费用</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-4 sm:grid-cols-2">
+              <CardContent className="px-4 pb-4 space-y-3">
+                <div className="grid gap-3 sm:grid-cols-2">
                   <FormField control={form.control} name="target_amount" render={({ field }) => (
                     <FormItem>
                       <FormLabel>标的金额</FormLabel>
@@ -378,6 +378,7 @@ export function CaseForm({ caseId, mode }: CaseFormProps) {
                   preservationAmount={watchPreservationAmount}
                   caseType={watchCaseType}
                   causeOfAction={watchCauseOfAction ?? undefined}
+                  embedded
                 />
               </CardContent>
             </Card>
@@ -385,11 +386,11 @@ export function CaseForm({ caseId, mode }: CaseFormProps) {
 
           {/* Row 2: 日期与状态 */}
           <Card>
-            <CardHeader className="pb-3">
+            <CardHeader className="px-4 py-0 pb-1.5">
               <CardTitle className="text-sm font-semibold">日期与状态</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 sm:grid-cols-3">
+            <CardContent className="px-4 pb-4">
+              <div className="grid gap-3 sm:grid-cols-3">
                 <FormField control={form.control} name="effective_date" render={({ field }) => (
                   <FormItem>
                     <FormLabel>生效日期</FormLabel>
@@ -411,7 +412,7 @@ export function CaseForm({ caseId, mode }: CaseFormProps) {
                 )} />
 
                 <FormField control={form.control} name="is_filed" render={({ field }) => (
-                  <FormItem className="flex flex-row items-center gap-3 space-y-0 pt-6">
+                  <FormItem className="flex flex-row items-center gap-3 space-y-0 pt-5">
                     <FormControl>
                       <Switch checked={field.value ?? false} onCheckedChange={field.onChange} disabled={isPending} />
                     </FormControl>
@@ -429,8 +430,8 @@ export function CaseForm({ caseId, mode }: CaseFormProps) {
           {/* Create mode: dynamic lists */}
           {!isEditMode && (
             <>
-              <Card>
-                <CardHeader className="pb-3">
+              <Card className="py-4">
+                <CardHeader className="px-4 py-0 pb-1.5">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-semibold">当事人</CardTitle>
                     <Button type="button" variant="outline" size="xs" className="h-6 px-2 text-[11px]" onClick={() => appendParty({ client_id: 0, legal_status: '' })}>
@@ -438,7 +439,7 @@ export function CaseForm({ caseId, mode }: CaseFormProps) {
                     </Button>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-2">
+                <CardContent className="px-4 pb-4 space-y-2">
                   {partyFields.length === 0 && <p className="text-muted-foreground text-xs">暂无当事人，点击上方按钮添加</p>}
                   {partyFields.map((field, index) => (
                     <div key={field.id} className="flex items-end gap-3">
@@ -474,8 +475,8 @@ export function CaseForm({ caseId, mode }: CaseFormProps) {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader className="pb-3">
+              <Card className="py-4">
+                <CardHeader className="px-4 py-0 pb-1.5">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-semibold">指派律师</CardTitle>
                     <Button type="button" variant="outline" size="xs" className="h-6 px-2 text-[11px]" onClick={() => appendAssignment({ lawyer_id: 0 })}>
@@ -483,7 +484,7 @@ export function CaseForm({ caseId, mode }: CaseFormProps) {
                     </Button>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-2">
+                <CardContent className="px-4 pb-4 space-y-2">
                   {assignmentFields.length === 0 && <p className="text-muted-foreground text-xs">暂未指派律师</p>}
                   {assignmentFields.map((field, index) => (
                     <div key={field.id} className="flex items-end gap-3">
@@ -504,8 +505,8 @@ export function CaseForm({ caseId, mode }: CaseFormProps) {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader className="pb-3">
+              <Card className="py-4">
+                <CardHeader className="px-4 py-0 pb-1.5">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-semibold">主管机关</CardTitle>
                     <Button type="button" variant="outline" size="xs" className="h-6 px-2 text-[11px]" onClick={() => appendAuthority({ name: '', authority_type: '' })}>
@@ -513,7 +514,7 @@ export function CaseForm({ caseId, mode }: CaseFormProps) {
                     </Button>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-2">
+                <CardContent className="px-4 pb-4 space-y-2">
                   {authorityFields.length === 0 && <p className="text-muted-foreground text-xs">暂无主管机关</p>}
                   {authorityFields.map((field, index) => (
                     <div key={field.id} className="flex items-end gap-3">
@@ -556,47 +557,47 @@ export function CaseForm({ caseId, mode }: CaseFormProps) {
       {isEditMode && caseData && (
         <>
           <Card>
-            <CardHeader className="pb-3">
+            <CardHeader className="px-4 py-0 pb-1.5">
               <CardTitle className="text-sm font-semibold">案件当事人</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-4 pb-4">
               <CasePartySection parties={caseData.parties ?? []} editable caseId={caseData.id} />
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="pb-3">
+            <CardHeader className="px-4 py-0 pb-1.5">
               <CardTitle className="text-sm font-semibold">律师指派</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-4 pb-4">
               <CaseAssignmentSection assignments={caseData.assignments ?? []} editable caseId={caseData.id} />
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="pb-3">
+            <CardHeader className="px-4 py-0 pb-1.5">
               <CardTitle className="text-sm font-semibold">案件日志</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-4 pb-4">
               <CaseLogSection logs={caseData.logs ?? []} editable caseId={caseData.id} />
             </CardContent>
           </Card>
 
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Card>
-              <CardHeader className="pb-3">
+          <div className="grid gap-3 lg:grid-cols-2">
+            <Card className="py-4">
+              <CardHeader className="px-4 py-0 pb-1.5">
                 <CardTitle className="text-sm font-semibold">案号</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="px-4 pb-4">
                 <CaseNumberSection caseNumbers={caseData.case_numbers ?? []} editable caseId={caseData.id} />
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="pb-3">
+            <Card className="py-4">
+              <CardHeader className="px-4 py-0 pb-1.5">
                 <CardTitle className="text-sm font-semibold">主管机关</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="px-4 pb-4">
                 <AuthoritySection authorities={caseData.supervising_authorities ?? []} editable caseId={caseData.id} />
               </CardContent>
             </Card>
