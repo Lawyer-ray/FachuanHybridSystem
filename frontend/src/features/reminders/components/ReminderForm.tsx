@@ -18,11 +18,11 @@
  * - 9.2: 支持暗夜模式
  */
 
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { format, parseISO } from 'date-fns'
-import { CalendarIcon, Loader2 } from 'lucide-react'
+import { CalendarIcon, Loader2, Check, ChevronsUpDown } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -42,6 +42,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { cn } from '@/lib/utils'
 
 import { reminderFormSchema, type ReminderFormData } from '../schemas'
@@ -83,11 +85,6 @@ export interface ReminderFormProps {
   /** 创建模式下的初始日期（可选，用于从日历创建时预填日期） */
   initialDate?: Date
 }
-
-/**
- * 关联类型
- */
-type AssociationType = 'contract' | 'case_log'
 
 // ============================================================================
 // Helper Functions
@@ -189,17 +186,6 @@ export function ReminderForm({
     defaultValues,
   })
 
-  // 监听关联字段变化，用于实现二选一逻辑
-  const contractId = form.watch('contract_id')
-  const caseLogId = form.watch('case_log_id')
-
-  // 计算当前选择的关联类型
-  const associationType: AssociationType | null = useMemo(() => {
-    if (contractId && contractId !== 0) return 'contract'
-    if (caseLogId && caseLogId !== 0) return 'case_log'
-    return null
-  }, [contractId, caseLogId])
-
   // ========== Effects ==========
 
   // 编辑模式下，当 reminder 数据变化时重置表单
@@ -218,40 +204,6 @@ export function ReminderForm({
 
 
   // ========== Event Handlers ==========
-
-  /**
-   * 处理关联类型切换
-   * 当选择一种关联类型时，清除另一种
-   */
-  const handleAssociationTypeChange = (type: AssociationType) => {
-    if (type === 'contract') {
-      form.setValue('case_log_id', null, { shouldValidate: true })
-    } else {
-      form.setValue('contract_id', null, { shouldValidate: true })
-    }
-  }
-
-  /**
-   * 处理合同选择变更
-   */
-  const handleContractChange = (value: string) => {
-    const numValue = value ? parseInt(value, 10) : null
-    form.setValue('contract_id', numValue, { shouldValidate: true })
-    if (numValue) {
-      form.setValue('case_log_id', null, { shouldValidate: true })
-    }
-  }
-
-  /**
-   * 处理案件日志选择变更
-   */
-  const handleCaseLogChange = (value: string) => {
-    const numValue = value ? parseInt(value, 10) : null
-    form.setValue('case_log_id', numValue, { shouldValidate: true })
-    if (numValue) {
-      form.setValue('contract_id', null, { shouldValidate: true })
-    }
-  }
 
   /**
    * 处理日期时间变更
@@ -374,115 +326,53 @@ export function ReminderForm({
           )}
         />
 
-
         {/* 关联选择 - Requirements: 7.4 */}
         <div className="space-y-4">
-          <FormLabel>
-            关联（可选）
-          </FormLabel>
-          <FormDescription>
-            可选择关联合同或案件日志，也可以不关联
-          </FormDescription>
-
-          {/* 关联类型选择按钮 */}
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant={associationType === 'contract' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => handleAssociationTypeChange('contract')}
-              disabled={isSubmitting}
-              className="flex-1"
-            >
-              关联合同
-            </Button>
-            <Button
-              type="button"
-              variant={associationType === 'case_log' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => handleAssociationTypeChange('case_log')}
-              disabled={isSubmitting}
-              className="flex-1"
-            >
-              关联案件日志
-            </Button>
-          </div>
+          <FormLabel>关联（可选）</FormLabel>
 
           {/* 合同选择 */}
-          {(associationType === 'contract' || associationType === null) && (
-            <FormField
-              control={form.control}
-              name="contract_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="sr-only">选择合同</FormLabel>
-                  <Select
-                    onValueChange={handleContractChange}
-                    value={field.value?.toString() ?? ''}
-                    disabled={isSubmitting}
-                  >
-                    <FormControl>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="请选择关联的合同" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {contractOptions.length > 0 ? (
-                        contractOptions.map((option) => (
-                          <SelectItem key={option.id} value={option.id.toString()}>
-                            {option.label}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <SelectItem value="__placeholder__" disabled>
-                          暂无可选合同
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          )}
+          <FormField
+            control={form.control}
+            name="contract_id"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs text-muted-foreground">关联合同</FormLabel>
+                <SearchableSelect
+                  options={contractOptions}
+                  value={field.value}
+                  onChange={(v) => {
+                    form.setValue('contract_id', v, { shouldValidate: true })
+                    if (v) form.setValue('case_log_id', null, { shouldValidate: true })
+                  }}
+                  placeholder="搜索或选择合同..."
+                  disabled={isSubmitting}
+                />
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
           {/* 案件日志选择 */}
-          {(associationType === 'case_log' || associationType === null) && (
-            <FormField
-              control={form.control}
-              name="case_log_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="sr-only">选择案件日志</FormLabel>
-                  <Select
-                    onValueChange={handleCaseLogChange}
-                    value={field.value?.toString() ?? ''}
-                    disabled={isSubmitting}
-                  >
-                    <FormControl>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="请选择关联的案件日志" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {caseLogOptions.length > 0 ? (
-                        caseLogOptions.map((option) => (
-                          <SelectItem key={option.id} value={option.id.toString()}>
-                            {option.label}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <SelectItem value="__placeholder__" disabled>
-                          暂无可选案件日志
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          )}
+          <FormField
+            control={form.control}
+            name="case_log_id"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs text-muted-foreground">关联案件日志</FormLabel>
+                <SearchableSelect
+                  options={caseLogOptions}
+                  value={field.value}
+                  onChange={(v) => {
+                    form.setValue('case_log_id', v, { shouldValidate: true })
+                    if (v) form.setValue('contract_id', null, { shouldValidate: true })
+                  }}
+                  placeholder="搜索或选择案件日志..."
+                  disabled={isSubmitting}
+                />
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
 
         {/* 操作按钮 */}
@@ -518,3 +408,71 @@ export function ReminderForm({
 // ============================================================================
 
 export default ReminderForm
+
+// ============================================================================
+// SearchableSelect Component
+// ============================================================================
+
+interface SearchableSelectProps {
+  options: { id: number; label: string }[]
+  value: number | null | undefined
+  onChange: (value: number | null) => void
+  placeholder?: string
+  disabled?: boolean
+}
+
+function SearchableSelect({ options, value, onChange, placeholder = '搜索...', disabled }: SearchableSelectProps) {
+  const [open, setOpen] = useState(false)
+  const selected = options.find(o => o.id === value)
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          disabled={disabled}
+          className="w-full justify-between font-normal"
+        >
+          {selected ? selected.label : placeholder}
+          <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <Command>
+          <CommandInput placeholder={placeholder} />
+          <CommandList>
+            <CommandEmpty>未找到结果</CommandEmpty>
+            <CommandGroup>
+              {value && (
+                <CommandItem
+                  onSelect={() => {
+                    onChange(null)
+                    setOpen(false)
+                  }}
+                  className="text-muted-foreground"
+                >
+                  清除选择
+                </CommandItem>
+              )}
+              {options.map((option) => (
+                <CommandItem
+                  key={option.id}
+                  onSelect={() => {
+                    onChange(option.id === value ? null : option.id)
+                    setOpen(false)
+                  }}
+                >
+                  <Check className={cn('mr-2 size-4', value === option.id ? 'opacity-100' : 'opacity-0')} />
+                  {option.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  )
+}
