@@ -12,6 +12,7 @@
 
 #### 优化
 
+- **工作台性能优化**：移除 react-virtuoso 改用 CSS `content-visibility: auto` 浏览器原生虚拟化；MarkdownContent 流式渲染 rAF 节流，每帧只解析一次 markdown；streaming-slice ref-backed getter 减少高频 delta 事件触发的 React re-render
 - **案件列表搜索框合并**：案件名称和案号两个独立搜索框合并为统一搜索输入框，减少筛选栏占用空间
 - **筛选菜单统一为 Popover 面板**：案件、当事人、合同三个列表的筛选菜单从多个 Select 组件统一改为 Popover 面板，支持筛选计数角标、一键清除所有筛选条件
 - **日历提醒交互改进**：日历单元格改为整格可点击创建提醒，移除原先的「+」按钮，提升移动端操作体验；移除 `case_log` 关联类型，提醒仅支持关联合同
@@ -21,6 +22,9 @@
 
 #### 优化
 
+- **工作台性能优化（第二轮）**：list_sessions 增加 Django cache 缓存（30s TTL），增删改自动失效；消除 list_sessions 全量消息查询，改用 storage_bytes 字段原子递增；batch_runner 进度更新从 3 次查询优化为 2 次；save_batch_messages 改用 bulk_create；stream_batch_progress 查询合并 + 轮询间隔 0.5s→1.0s
+- **工作台性能优化（第一轮）**：消除 N+1 查询（list_sessions 统计消息数改单次聚合）；消息列表游标分页（before_id 参数）；SSE 轮询间隔优化
+- **批量分析上下文隔离**：批量分析消息不占用主 AI 上下文窗口
 - **统一文件上传规范**：全量替换硬编码 `upload_to` 路径为工厂类（`DatedUUIDPath`、`EntityIdPath`、`DatedOriginalPath`），覆盖 10 个业务模块（cases、chat_records、documents、evidence、express_query、legal_research、legal_solution、organization、automation、wechat_mp），同时启用 `KeepOriginalNameStorage` 保持原始文件名
 - **文件清理信号补全**：为 express_query、wechat_mp 等模块补充 `post_delete` 信号处理，模型删除时自动清理关联的物理文件；修复 express_query 使用 `pre_delete` 改为 `post_delete` 以确保文件在数据库记录删除后才清理
 - **上传文件验证增强**：图片旋转 API 新增文件类型（JPEG/PNG/WebP/TIFF）和大小（20MB）验证；批量打印新增 50MB 文件大小限制；合同归档上传接入 `FileUploadService` 统一校验
