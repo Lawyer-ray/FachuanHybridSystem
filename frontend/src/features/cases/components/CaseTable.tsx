@@ -97,7 +97,7 @@ export function CaseTable({ cases, isLoading }: CaseTableProps) {
             <TableHead className="w-[160px]">立案号</TableHead>
             <TableHead className="w-[100px]">案件类型</TableHead>
             <TableHead className="w-[80px]">状态</TableHead>
-            <TableHead className="w-[100px]">负责律师</TableHead>
+            <TableHead className="w-[100px]">律师</TableHead>
             <TableHead className="w-[100px]">当前阶段</TableHead>
             <TableHead className="w-[110px]">立案日期</TableHead>
           </TableRow>
