@@ -34,6 +34,8 @@ export interface SessionSlice {
   currentSession: WorkbenchSession | null
   messages: WorkbenchMessage[]
   messagesLoading: boolean
+  hasMoreMessages: boolean
+  loadingOlder: boolean
   models: LLMModel[]
   selectedModel: string
   favoriteModel: string
@@ -47,6 +49,7 @@ export interface SessionSlice {
   createSession: (title?: string) => Promise<WorkbenchSession>
   setCurrentSession: (session: WorkbenchSession | null) => void
   fetchMessages: (sessionId: number) => Promise<void>
+  loadOlderMessages: () => Promise<void>
   appendMessages: (...msgs: WorkbenchMessage[]) => void
   replaceMessages: (msgs: WorkbenchMessage[]) => void
   clearMessages: () => void
@@ -58,6 +61,8 @@ export const createSessionSlice: StateCreator<WorkbenchStore, [], [], SessionSli
   currentSession: null,
   messages: [],
   messagesLoading: false,
+  hasMoreMessages: false,
+  loadingOlder: false,
   models: [],
   selectedModel: '',
   favoriteModel: loadFavoriteModel(),
@@ -124,19 +129,47 @@ export const createSessionSlice: StateCreator<WorkbenchStore, [], [], SessionSli
       let allItems = first.items
       const totalPages = Math.ceil(first.count / PAGE_SIZE)
       if (totalPages > 1) {
-        const rest = await Promise.all(
-          Array.from({ length: totalPages - 1 }, (_, i) => api.listMessages(sessionId, i + 2)),
-        )
-        allItems = [...allItems, ...rest.flatMap((r) => r.items)]
+        // 只加载最后 2 页（最近 100 条），其余通过 loadOlderMessages 按需加载
+        const lastPage = await api.listMessages(sessionId, totalPages)
+        if (totalPages === 2) {
+          allItems = [...first.items, ...lastPage.items]
+        } else {
+          const secondToLast = await api.listMessages(sessionId, totalPages - 1)
+          allItems = [...secondToLast.items, ...lastPage.items]
+        }
       }
       // 防止过期请求覆盖新会话数据
       if (get().currentSession?.id === sessionId) {
-        set({ messages: allItems, messagesLoading: false })
+        set({
+          messages: allItems,
+          messagesLoading: false,
+          hasMoreMessages: totalPages > 2,
+        })
       }
     } catch {
       if (get().currentSession?.id === sessionId) {
         set({ messagesLoading: false })
       }
+    }
+  },
+
+  loadOlderMessages: async () => {
+    const { messages, currentSession, loadingOlder, hasMoreMessages } = get()
+    if (!currentSession || loadingOlder || !hasMoreMessages || messages.length === 0) return
+
+    set({ loadingOlder: true })
+    try {
+      const oldestId = messages[0].id
+      const res = await api.listMessages(currentSession.id, 1, oldestId)
+      if (get().currentSession?.id === currentSession.id) {
+        set((state) => ({
+          messages: [...res.items, ...state.messages],
+          loadingOlder: false,
+          hasMoreMessages: res.has_more ?? false,
+        }))
+      }
+    } catch {
+      set({ loadingOlder: false })
     }
   },
 

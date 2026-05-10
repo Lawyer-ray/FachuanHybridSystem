@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from django.db.models import Count, OuterRef, Subquery
+from django.db.models import Count, F, OuterRef, Subquery
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError, ValidationException
@@ -14,6 +14,20 @@ from apps.core.security.permissions import AccessContext, PermissionMixin
 from ..models import WorkbenchMessage, WorkbenchSession
 
 logger = logging.getLogger(__name__)
+
+
+def _calc_message_bytes(
+    content: str = "",
+    tool_input: dict | None = None,
+    tool_output: dict | None = None,
+    metadata: dict | None = None,
+) -> int:
+    """Calculate UTF-8 byte size of a message's variable-size fields."""
+    total = len((content or "").encode("utf-8"))
+    total += len(str(tool_input or {}).encode("utf-8"))
+    total += len(str(tool_output or {}).encode("utf-8"))
+    total += len(str(metadata or {}).encode("utf-8"))
+    return total
 
 
 class WorkbenchSessionService(PermissionMixin):
@@ -75,23 +89,9 @@ class WorkbenchSessionService(PermissionMixin):
             )
             count_map: dict[int, int] = {s["session_id"]: s["message_count"] for s in stats}
 
-            # 单次查询获取所有消息的 storage 数据
-            all_messages = WorkbenchMessage.objects.filter(session_id__in=session_ids).values(
-                "session_id", "content", "tool_input", "tool_output", "metadata"
-            )
-            storage_map: dict[int, int] = {}
-            for msg in all_messages:
-                sid = msg["session_id"]
-                total_bytes = len((msg["content"] or "").encode("utf-8"))
-                total_bytes += len(str(msg["tool_input"] or {}).encode("utf-8"))
-                total_bytes += len(str(msg["tool_output"] or {}).encode("utf-8"))
-                total_bytes += len(str(msg["metadata"] or {}).encode("utf-8"))
-                storage_map[sid] = storage_map.get(sid, 0) + total_bytes
-
             for sid in session_ids:
                 message_stats[sid] = {
                     "message_count": count_map.get(sid, 0),
-                    "storage_bytes": storage_map.get(sid, 0),
                 }
 
         result = []
@@ -101,9 +101,9 @@ class WorkbenchSessionService(PermissionMixin):
             data = SessionOut.model_validate(item).model_dump()
             raw = getattr(item, "_last_msg", None) or ""
             data["last_message_preview"] = raw[:50] if raw else ""
-            session_stats = message_stats.get(item.id, {"message_count": 0, "storage_bytes": 0})
+            session_stats = message_stats.get(item.id, {"message_count": 0})
             data["message_count"] = session_stats["message_count"]
-            data["storage_bytes"] = session_stats["storage_bytes"]
+            data["storage_bytes"] = item.storage_bytes
             result.append(data)
 
         return {"items": result, "count": total}
@@ -159,3 +159,23 @@ class WorkbenchSessionService(PermissionMixin):
             return WorkbenchSession.objects.get(id=session_id, user=user)
         except WorkbenchSession.DoesNotExist:
             raise NotFoundError(_("会话不存在")) from None
+
+    @staticmethod
+    def increment_storage(session_id: int, delta: int) -> None:
+        """Atomically update session storage_bytes."""
+        if delta:
+            from ..models import WorkbenchSession
+
+            WorkbenchSession.objects.filter(id=session_id).update(
+                storage_bytes=F("storage_bytes") + delta,
+            )
+
+    @staticmethod
+    async def aincrement_storage(session_id: int, delta: int) -> None:
+        """Async version for use in async contexts."""
+        if delta:
+            from ..models import WorkbenchSession
+
+            await WorkbenchSession.objects.filter(id=session_id).aupdate(
+                storage_bytes=F("storage_bytes") + delta,
+            )

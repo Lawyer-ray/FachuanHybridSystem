@@ -41,6 +41,11 @@ class WorkbenchSession(models.Model):
         default=SessionStatus.ACTIVE,
     )
     metadata = models.JSONField(_("元数据"), default=dict, blank=True)
+    storage_bytes = models.PositiveIntegerField(
+        _("存储字节数"),
+        default=0,
+        help_text="该会话所有消息内容的总字节数（UTF-8）",
+    )
     created_at = models.DateTimeField(_("创建时间"), auto_now_add=True)
     updated_at = models.DateTimeField(_("更新时间"), auto_now=True)
 

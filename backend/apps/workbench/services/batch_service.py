@@ -345,18 +345,27 @@ class BatchAnalysisService(PermissionMixin):
     ) -> int:
         """将批量分析结果持久化为工作台消息，返回创建数量"""
         from ..models import WorkbenchMessage
+        from .session_service import WorkbenchSessionService, _calc_message_bytes
 
         job = self.get_job_by_id(job_id)
-        created_count = 0
+        messages = []
+        total_bytes = 0
         for item in items:
-            WorkbenchMessage.objects.create(
-                session_id=job.session_id,
-                role="assistant",
-                content=item["content"],
-                metadata={**item.get("metadata", {}), "job_id": str(job_id)},
+            content = item["content"]
+            metadata = {**item.get("metadata", {}), "job_id": str(job_id)}
+            messages.append(
+                WorkbenchMessage(
+                    session_id=job.session_id,
+                    role="assistant",
+                    content=content,
+                    metadata=metadata,
+                )
             )
-            created_count += 1
-        return created_count
+            total_bytes += _calc_message_bytes(content=content, metadata=metadata)
+
+        WorkbenchMessage.objects.bulk_create(messages, batch_size=100)
+        WorkbenchSessionService.increment_storage(job.session_id, total_bytes)
+        return len(messages)
 
     def list_batch_jobs(
         self,

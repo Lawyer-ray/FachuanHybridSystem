@@ -11,11 +11,15 @@ const VIRTUALIZE_THRESHOLD = 50
 export const MessageList = React.memo(function MessageList() {
   const scrollRef = useRef<HTMLDivElement>(null)
   const virtuosoRef = useRef<VirtuosoHandle>(null)
+  const sentinelRef = useRef<HTMLDivElement>(null)
   const messages = useWorkbenchStore((s) => s.messages)
   const streamingMessage = useWorkbenchStore((s) => s.streamingMessage)
   const isStreaming = useWorkbenchStore((s) => s.isStreaming)
   const messagesLoading = useWorkbenchStore((s) => s.messagesLoading)
   const currentSession = useWorkbenchStore((s) => s.currentSession)
+  const hasMoreMessages = useWorkbenchStore((s) => s.hasMoreMessages)
+  const loadingOlder = useWorkbenchStore((s) => s.loadingOlder)
+  const loadOlderMessages = useWorkbenchStore((s) => s.loadOlderMessages)
   const prevCountRef = useRef(0)
   const prevSessionIdRef = useRef<number | null>(null)
 
@@ -115,6 +119,34 @@ export const MessageList = React.memo(function MessageList() {
     )
   }, [isStreaming, streamingMessage])
 
+  // Virtuoso header (loading older messages indicator)
+  const VirtuosoHeader = useCallback(() => {
+    if (!loadingOlder) return null
+    return (
+      <div className="flex justify-center py-3">
+        <div className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+      </div>
+    )
+  }, [loadingOlder])
+
+  // IntersectionObserver for non-virtualized scroll-up loading
+  useEffect(() => {
+    if (useVirtualization) return
+    if (!hasMoreMessages || loadingOlder) return
+    const sentinel = sentinelRef.current
+    if (!sentinel) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && hasMoreMessages && !loadingOlder) {
+          loadOlderMessages()
+        }
+      },
+      { root: scrollRef.current, threshold: 0.1 },
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [hasMoreMessages, loadingOlder, loadOlderMessages, useVirtualization])
+
   // Virtuoso 需要自身作为滚动容器，不能嵌套在 ScrollArea 内
   if (useVirtualization) {
     return (
@@ -124,7 +156,8 @@ export const MessageList = React.memo(function MessageList() {
           data={groupedMessages}
           followOutput="smooth"
           itemContent={renderGroup}
-          components={{ Footer: VirtuosoFooter }}
+          startReached={hasMoreMessages ? loadOlderMessages : undefined}
+          components={{ Footer: VirtuosoFooter, Header: VirtuosoHeader }}
           style={{ height: '100%' }}
         />
       </div>
@@ -155,6 +188,13 @@ export const MessageList = React.memo(function MessageList() {
         </div>
       ) : (
         <div className="space-y-4 p-4">
+          {hasMoreMessages && (
+            <div ref={sentinelRef} className="flex justify-center py-2">
+              {loadingOlder && (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+              )}
+            </div>
+          )}
           {groupedMessages.map((group) => (
             <MessageBubble
               key={group.message.id}

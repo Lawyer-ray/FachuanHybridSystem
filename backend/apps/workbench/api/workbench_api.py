@@ -111,13 +111,16 @@ def delete_session(request: Any, session_id: int) -> dict[str, str]:
 
 
 @router.get("/sessions/{session_id}/messages")
-def list_messages(request: Any, session_id: int, page: int = 1) -> dict[str, Any]:
+def list_messages(
+    request: Any, session_id: int, page: int = 1, before_id: int | None = None,
+) -> dict[str, Any]:
     """获取会话的消息列表"""
     ctx = extract_request_context(request)
     service = ServiceLocator.get_workbench_message_service()
     return service.list_messages(  # type: ignore[no-any-return]
         session_id,
         page=page,
+        before_id=before_id,
         user=ctx.user,
         org_access=ctx.org_access,
         perm_open_access=ctx.perm_open_access,
@@ -256,7 +259,11 @@ def get_batch_progress(request: Any, job_id: UUID) -> dict[str, Any]:
     job, items = batch_service.get_job_progress(job_id)
     session_service.get_user_session(ctx.user, job.session_id)
 
-    failed_detail = batch_service.get_failed_items_detail(job_id)
+    failed_detail = [
+        {"id": str(item.id), "file_name": item.file_name, "error": item.error}
+        for item in items
+        if item.status == BatchJobStatus.FAILED
+    ]
     return {
         "job": BatchJobOut.model_validate(job),
         "items": [BatchItemOut.model_validate(item) for item in items],
@@ -374,55 +381,42 @@ async def stream_batch_progress(request: Any, job_id: UUID) -> StreamingHttpResp
     await sync_to_async(session_service.get_user_session)(ctx.user, job.session_id)
 
     async def event_generator() -> Any:
-        from django.utils import timezone
+        from django.db.models import Q
 
         reported_items: set[str] = set()
         started_items: set[str] = set()
         last_progress = -1
 
         while True:
-            running_items = await sync_to_async(
+            # 合并为单次查询：running + completed/failed items
+            all_items = await sync_to_async(
                 lambda: list(
                     BatchJobItem.objects.filter(
-                        job_id=job_id,
-                        status=BatchJobStatus.RUNNING,
-                    )
-                    .exclude(id__in=started_items)
-                    .values("id", "file_name")
+                        Q(job_id=job_id, status=BatchJobStatus.RUNNING)
+                        | Q(job_id=job_id, status__in=(BatchJobStatus.COMPLETED, BatchJobStatus.FAILED)),
+                    ).values("id", "file_name", "status", "duration_ms", "error")
                 )
             )()
 
-            for item in running_items:
+            for item in all_items:
                 item_id = str(item["id"])
-                started_items.add(item_id)
-                if item_id not in reported_items:
-                    yield f"data: {json.dumps({'type': 'item_started', 'data': {'item_id': item_id, 'file_name': item['file_name']}}, ensure_ascii=False)}\n\n"
-
-            changed_items = await sync_to_async(
-                lambda: list(
-                    BatchJobItem.objects.filter(
-                        job_id=job_id,
-                        status__in=(BatchJobStatus.COMPLETED, BatchJobStatus.FAILED),
-                    )
-                    .exclude(id__in=reported_items)
-                    .values("id", "file_name", "status", "duration_ms", "error")
-                )
-            )()
-
-            for item in changed_items:
-                item_id = str(item["id"])
-                reported_items.add(item_id)
-                event_type = "item_completed" if item["status"] == BatchJobStatus.COMPLETED else "item_failed"
-                data: dict[str, Any] = {
-                    "item_id": item_id,
-                    "file_name": item["file_name"],
-                    "status": item["status"],
-                }
-                if item["duration_ms"] is not None:
-                    data["duration_ms"] = item["duration_ms"]
-                if item["error"]:
-                    data["error"] = item["error"][:200]
-                yield f"data: {json.dumps({'type': event_type, 'data': data}, ensure_ascii=False)}\n\n"
+                if item["status"] == BatchJobStatus.RUNNING and item_id not in started_items:
+                    started_items.add(item_id)
+                    if item_id not in reported_items:
+                        yield f"data: {json.dumps({'type': 'item_started', 'data': {'item_id': item_id, 'file_name': item['file_name']}}, ensure_ascii=False)}\n\n"
+                elif item["status"] in (BatchJobStatus.COMPLETED, BatchJobStatus.FAILED) and item_id not in reported_items:
+                    reported_items.add(item_id)
+                    event_type = "item_completed" if item["status"] == BatchJobStatus.COMPLETED else "item_failed"
+                    data: dict[str, Any] = {
+                        "item_id": item_id,
+                        "file_name": item["file_name"],
+                        "status": item["status"],
+                    }
+                    if item["duration_ms"] is not None:
+                        data["duration_ms"] = item["duration_ms"]
+                    if item["error"]:
+                        data["error"] = item["error"][:200]
+                    yield f"data: {json.dumps({'type': event_type, 'data': data}, ensure_ascii=False)}\n\n"
 
             job_data = await sync_to_async(lambda: batch_service.get_job_by_id(job_id))()
 
@@ -434,7 +428,7 @@ async def stream_batch_progress(request: Any, job_id: UUID) -> StreamingHttpResp
                 yield f"data: {json.dumps({'type': 'done', 'status': job_data.status})}\n\n"
                 break
 
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(1.0)
 
     return StreamingHttpResponse(
         event_generator(),

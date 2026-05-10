@@ -19,7 +19,7 @@ from django.utils import timezone
 
 from ..models import BatchJob, BatchJobItem, BatchJobStatus
 from ..services.doc_extractor import DocTextExtractor
-from .constants import ANALYSIS_SYSTEM_PROMPT, CHUNK_THRESHOLD, PROGRESS_UPDATE_EVERY
+from .constants import ANALYSIS_SYSTEM_PROMPT, CHUNK_THRESHOLD
 from .parsing import build_case_info, chunk_text, merge_chunk_results
 from .registry import task_registry
 from .summary import generate_detail_zip, generate_summary
@@ -87,16 +87,22 @@ def _sync_llm_chat(llm: Any, messages: list[dict[str, str]], model: str, tempera
 
 
 async def _increment_counter(job_id: UUID, field: str) -> None:
-    """原子递增计数器"""
-    await sync_to_async(lambda: BatchJob.objects.filter(id=job_id).update(**{field: F(field) + 1}))()
-
-
-async def _update_progress(job_id: UUID) -> None:
-    """更新进度百分比"""
-    job = await sync_to_async(BatchJob.objects.get)(id=job_id)
-    if job.total_items > 0:
-        progress = int((job.completed_items + job.failed_items) * 100 / job.total_items)
-        await sync_to_async(BatchJob.objects.filter(id=job_id).update)(progress=progress)
+    """原子递增计数器并更新进度百分比（2 次查询代替原来 3 次）"""
+    job = await sync_to_async(
+        lambda: BatchJob.objects.filter(id=job_id).values(
+            "total_items", "completed_items", "failed_items",
+        ).first()
+    )()
+    if not job or job["total_items"] == 0:
+        return
+    new_count = job[field] + 1
+    # 计算新的已完成+失败数（当前值 + 本次递增的 1）
+    new_processed = job["completed_items"] + job["failed_items"] + 1
+    new_progress = min(int(new_processed * 100 / job["total_items"]), 100)
+    await sync_to_async(lambda: BatchJob.objects.filter(id=job_id).update(**{
+        field: new_count,
+        "progress": new_progress,
+    }))()
 
 
 # ─── 单文件分析 ──────────────────────────────────────────────────────────────
@@ -253,10 +259,6 @@ async def _run_batch_async(job_id: UUID) -> None:
                 )
                 await _increment_counter(job_id, "failed_items")
 
-            # 节流式进度更新
-            if index % PROGRESS_UPDATE_EVERY == 0 or index == len(items) - 1:
-                await _update_progress(job_id)
-
         # 并发执行（Semaphore 限流）
         async def throttled_analyze(item: BatchJobItem, index: int) -> None:
             async with semaphore:
@@ -380,6 +382,20 @@ async def _run_batch_retry_async(job_id: UUID, item_ids: list[UUID]) -> None:
                         completed_items=F("completed_items") + 1,
                     )
                 )()
+                # 重试成功后更新 progress
+                job_info = await sync_to_async(
+                    lambda: BatchJob.objects.filter(id=job_id).values(
+                        "total_items", "completed_items", "failed_items",
+                    ).first()
+                )()
+                if job_info and job_info["total_items"] > 0:
+                    new_progress = min(
+                        int((job_info["completed_items"] + job_info["failed_items"]) * 100 / job_info["total_items"]),
+                        100,
+                    )
+                    await sync_to_async(
+                        lambda: BatchJob.objects.filter(id=job_id).update(progress=new_progress)
+                    )()
 
             except asyncio.CancelledError:
                 return
@@ -390,9 +406,6 @@ async def _run_batch_retry_async(job_id: UUID, item_ids: list[UUID]) -> None:
                     status=BatchJobStatus.FAILED,
                     error=str(e)[:2000],
                 )
-
-            if index % PROGRESS_UPDATE_EVERY == 0 or index == len(items) - 1:
-                await _update_progress(job_id)
 
         async def throttled_analyze(item: BatchJobItem, index: int) -> None:
             async with semaphore:

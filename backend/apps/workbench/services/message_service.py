@@ -11,7 +11,7 @@ from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.security.permissions import AccessContext, PermissionMixin
 
 from ..models import WorkbenchMessage, WorkbenchSession
-from .session_service import WorkbenchSessionService
+from .session_service import WorkbenchSessionService, _calc_message_bytes
 
 logger = logging.getLogger(__name__)
 
@@ -28,13 +28,36 @@ class WorkbenchMessageService(PermissionMixin):
         *,
         page: int = 1,
         page_size: int = 50,
+        before_id: int | None = None,
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> dict[str, Any]:
-        """获取会话的消息列表"""
+        """获取会话的消息列表
+
+        Args:
+            before_id: 游标分页——返回该 ID 之前的消息（用于向上滚动加载历史）
+        """
         self._session_service.get_user_session(user, session_id)
-        qs = WorkbenchMessage.objects.filter(session_id=session_id).order_by("created_at")
+        qs = WorkbenchMessage.objects.filter(session_id=session_id)
+
+        if before_id is not None:
+            try:
+                ref_msg = WorkbenchMessage.objects.get(id=before_id, session_id=session_id)
+            except WorkbenchMessage.DoesNotExist:
+                return {"items": [], "count": 0, "has_more": False}
+            qs = qs.filter(created_at__lt=ref_msg.created_at)
+            total = qs.count()
+            items = list(qs.order_by("-created_at")[: page_size + 1])
+            items.reverse()
+            return {
+                "items": [self._message_to_dict(item) for item in items[:page_size]],
+                "count": total,
+                "has_more": len(items) > page_size,
+            }
+
+        # 原有 page-based 分页逻辑
+        qs = qs.order_by("created_at")
         offset = (page - 1) * page_size
         total = qs.count()
         items = list(qs[offset : offset + page_size])
@@ -63,6 +86,12 @@ class WorkbenchMessageService(PermissionMixin):
             session_id=session_id,
             created_at__gte=msg.created_at,
         ).delete()
+        # 重新计算 storage_bytes（删除是低频操作，全量重算可接受）
+        remaining_bytes = sum(
+            _calc_message_bytes(m.content, m.tool_input, m.tool_output, m.metadata)
+            for m in WorkbenchMessage.objects.filter(session_id=session_id)
+        )
+        WorkbenchSession.objects.filter(id=session_id).update(storage_bytes=remaining_bytes)
 
     def submit_feedback(
         self,
@@ -88,10 +117,14 @@ class WorkbenchMessageService(PermissionMixin):
 
         self._session_service.get_user_session(user, msg.session_id)
 
-        meta = dict(msg.metadata or {})
+        old_meta = dict(msg.metadata or {})
+        meta = dict(old_meta)
         meta["feedback"] = {"rating": rating, "comment": comment}
         msg.metadata = meta
         msg.save(update_fields=["metadata"])
+        # 更新 storage_bytes（仅 metadata 变化）
+        delta = _calc_message_bytes(metadata=meta) - _calc_message_bytes(metadata=old_meta)
+        WorkbenchSessionService.increment_storage(msg.session_id, delta)
 
     @staticmethod
     def _message_to_dict(msg: WorkbenchMessage) -> dict[str, Any]:

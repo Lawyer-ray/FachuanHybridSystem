@@ -36,8 +36,11 @@ export async function deleteSession(sessionId: number): Promise<void> {
 export async function listMessages(
   sessionId: number,
   page = 1,
-): Promise<{ items: WorkbenchMessage[]; count: number }> {
-  return api.get(`sessions/${sessionId}/messages`, { searchParams: { page } }).json()
+  beforeId?: number,
+): Promise<{ items: WorkbenchMessage[]; count: number; has_more?: boolean }> {
+  const params: Record<string, string | number> = { page }
+  if (beforeId !== undefined) params.before_id = beforeId
+  return api.get(`sessions/${sessionId}/messages`, { searchParams: params }).json()
 }
 
 export async function truncateMessages(sessionId: number, fromMessageId: number): Promise<void> {
