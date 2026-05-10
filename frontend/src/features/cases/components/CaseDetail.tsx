@@ -1,9 +1,9 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   ArrowLeft, Edit, Trash2, FileWarning, Hash, Building2, MessageSquare,
-  FileText, FolderOpen, Paperclip, Users, FileCheck,
+  FileText, FolderOpen, Paperclip, Plus, Users, FileCheck,
 } from 'lucide-react'
 import { formatDateOnly } from '@/lib/date'
 import { formatAmount } from '@/lib/format'
@@ -26,7 +26,7 @@ import { useCaseMutations } from '../hooks/use-case-mutations'
 import { useMaterialCandidates } from '../hooks/use-material-candidates'
 import { useTemplateBindings } from '../hooks/use-template-bindings'
 import { useFolderBinding } from '../hooks/use-folder-binding'
-import { CaseLogSection } from './CaseLogSection'
+import { CaseLogSection, type CaseLogSectionRef } from './CaseLogSection'
 import { CaseNumberSection } from './CaseNumberSection'
 import { CaseMaterialSection } from './CaseMaterialSection'
 import { CaseTemplateSection } from './CaseTemplateSection'
@@ -169,6 +169,7 @@ export function CaseDetail({ caseId }: CaseDetailProps) {
   const { deleteCase } = useCaseMutations()
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [activeTab, setActiveTab] = useState('basic')
+  const logSectionRef = useRef<CaseLogSectionRef>(null)
 
   const isOurPartyAllDefendant = useMemo(() => {
     const ourParties = caseData?.parties?.filter(p => p.client_detail?.is_our_client) ?? []
@@ -397,8 +398,12 @@ export function CaseDetail({ caseId }: CaseDetailProps) {
         {/* ════════════════════════════════════════════ */}
         {activeTab === 'progress' && (
           <motion.div key="progress" {...tabVariants} transition={tabTransition}>
-            <DetailCard title="案件日志">
-              <CaseLogSection logs={caseData.logs ?? []} editable={true} caseId={Number(caseId)} />
+            <DetailCard title="案件日志" extra={
+              <Button size="xs" variant="outline" className="h-6 px-2 text-[11px]" onClick={() => logSectionRef.current?.openDialog()}>
+                <Plus className="size-3 mr-0.5" /> 添加
+              </Button>
+            }>
+              <CaseLogSection ref={logSectionRef} logs={caseData.logs ?? []} editable={true} caseId={Number(caseId)} />
             </DetailCard>
 
             <DetailCard title="案件群聊" extra={<MessageSquare className="text-muted-foreground size-4" />}>

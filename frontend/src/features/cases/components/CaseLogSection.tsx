@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Paperclip, Clock, Plus, Trash2, Loader2, Download, Bell } from 'lucide-react'
+import { forwardRef, useImperativeHandle, useMemo, useState } from 'react'
+import { Paperclip, Clock, Trash2, Loader2, Download, Bell } from 'lucide-react'
 import { formatDate } from '@/lib/date'
 import { resolveMediaUrl } from '@/lib/api'
 import { toast } from 'sonner'
@@ -11,7 +11,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -28,13 +28,22 @@ export interface CaseLogSectionProps {
   caseId?: number
 }
 
-export function CaseLogSection({ logs, editable, caseId }: CaseLogSectionProps) {
+export interface CaseLogSectionRef {
+  openDialog: () => void
+}
+
+export const CaseLogSection = forwardRef<CaseLogSectionRef, CaseLogSectionProps>(function CaseLogSection(
+  { logs, editable, caseId },
+  ref,
+) {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [newContent, setNewContent] = useState('')
   const [reminderType, setReminderType] = useState('')
   const [reminderTime, setReminderTime] = useState('')
 
   const mutations = useLogMutations(caseId ?? 0)
+
+  useImperativeHandle(ref, () => ({ openDialog: () => setDialogOpen(true) }), [])
 
   const sortedLogs = useMemo(
     () => [...logs].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
@@ -78,14 +87,8 @@ export function CaseLogSection({ logs, editable, caseId }: CaseLogSectionProps) 
   return (
     <div className="space-y-3">
       {editable && caseId && (
-        <div className="flex justify-end">
-          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm() }}>
-            <DialogTrigger asChild>
-              <Button size="sm" variant="outline">
-                <Plus className="mr-1 size-3" /> 添加日志
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
+        <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm() }}>
+          <DialogContent>
               <DialogHeader>
                 <DialogTitle>添加案件日志</DialogTitle>
               </DialogHeader>
@@ -139,7 +142,6 @@ export function CaseLogSection({ logs, editable, caseId }: CaseLogSectionProps) 
               </DialogFooter>
             </DialogContent>
           </Dialog>
-        </div>
       )}
 
       {sortedLogs.length === 0 ? (
@@ -242,6 +244,6 @@ export function CaseLogSection({ logs, editable, caseId }: CaseLogSectionProps) 
       )}
     </div>
   )
-}
+})
 
 export default CaseLogSection
