@@ -80,7 +80,7 @@ export function CaseAssignmentSection({ assignments, editable, caseId }: CaseAss
         {editable && caseId && (
           <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="xs" className="h-6 px-1.5 text-[11px]">
+              <Button variant="outline" size="xs" className="h-5 px-1.5 text-[11px]">
                 + 添加
               </Button>
             </PopoverTrigger>

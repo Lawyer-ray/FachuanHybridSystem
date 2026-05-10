@@ -149,7 +149,7 @@ export const CaseLogSection = forwardRef<CaseLogSectionRef, CaseLogSectionProps>
       ) : (
         <div className="relative">
           {/* Timeline vertical line */}
-          <div className="absolute left-[7px] top-2 bottom-2 w-px bg-border" />
+          <div className="absolute left-[5px] top-2 bottom-2 w-px bg-border" />
 
           <div className="space-y-0">
             {sortedLogs.map((log, index) => {

@@ -402,16 +402,16 @@ export function CaseForm({ caseId, mode }: CaseFormProps) {
           {!isEditMode && (
             <>
               <div className="grid gap-3 lg:grid-cols-2">
-                <Card className="py-4">
+                <Card className="py-3">
                   <CardHeader className="px-4 py-0 pb-1.5">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-xs font-medium text-muted-foreground">当事人</CardTitle>
-                      <Button type="button" variant="outline" size="xs" className="h-6 px-2 text-[11px]" onClick={() => appendParty({ client_id: 0, legal_status: '' })}>
+                      <Button type="button" variant="outline" size="xs" className="h-5 px-1.5 text-[11px]" onClick={() => appendParty({ client_id: 0, legal_status: '' })}>
                         <Plus className="size-3 mr-0.5" /> 添加
                       </Button>
                     </div>
                   </CardHeader>
-                  <CardContent className="px-4 pb-4 space-y-1.5">
+                  <CardContent className="px-4 space-y-1.5">
                     {partyFields.length === 0 && <p className="text-muted-foreground text-xs">暂无当事人</p>}
                     {partyFields.map((field, index) => (
                       <div key={field.id} className="flex items-end gap-2">
@@ -445,16 +445,16 @@ export function CaseForm({ caseId, mode }: CaseFormProps) {
                   </CardContent>
                 </Card>
 
-                <Card className="py-4">
+                <Card className="py-3">
                   <CardHeader className="px-4 py-0 pb-1.5">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-xs font-medium text-muted-foreground">指派律师</CardTitle>
-                      <Button type="button" variant="outline" size="xs" className="h-6 px-2 text-[11px]" onClick={() => appendAssignment({ lawyer_id: 0 })}>
+                      <Button type="button" variant="outline" size="xs" className="h-5 px-1.5 text-[11px]" onClick={() => appendAssignment({ lawyer_id: 0 })}>
                         <Plus className="size-3 mr-0.5" /> 添加
                       </Button>
                     </div>
                   </CardHeader>
-                  <CardContent className="px-4 pb-4 space-y-1.5">
+                  <CardContent className="px-4 space-y-1.5">
                     {assignmentFields.length === 0 && <p className="text-muted-foreground text-xs">暂未指派律师</p>}
                     {assignmentFields.map((field, index) => (
                       <div key={field.id} className="flex items-end gap-2">
@@ -475,16 +475,16 @@ export function CaseForm({ caseId, mode }: CaseFormProps) {
                 </Card>
               </div>
 
-              <Card className="py-4">
+              <Card className="py-3">
                 <CardHeader className="px-4 py-0 pb-1.5">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-xs font-medium text-muted-foreground">主管机关</CardTitle>
-                    <Button type="button" variant="outline" size="xs" className="h-6 px-2 text-[11px]" onClick={() => appendAuthority({ name: '', authority_type: '' })}>
+                    <Button type="button" variant="outline" size="xs" className="h-5 px-1.5 text-[11px]" onClick={() => appendAuthority({ name: '', authority_type: '' })}>
                       <Plus className="size-3 mr-0.5" /> 添加
                     </Button>
                   </div>
                 </CardHeader>
-                <CardContent className="px-4 pb-4 space-y-1.5">
+                <CardContent className="px-4 space-y-1.5">
                   {authorityFields.length === 0 && <p className="text-muted-foreground text-xs">暂无主管机关</p>}
                   {authorityFields.map((field, index) => (
                     <div key={field.id} className="flex items-end gap-2">
