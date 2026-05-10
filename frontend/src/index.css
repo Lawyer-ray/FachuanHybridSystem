@@ -255,3 +255,123 @@
   from { opacity: 0; transform: scale(0.92) translateX(-8px); }
   to { opacity: 1; transform: scale(1) translateX(0); }
 }
+
+/* ============================================
+   Cosmic Auth Theme
+   ============================================ */
+
+/* Nebula drift */
+@keyframes nebula-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(2%, -1%) scale(1.02); }
+  50% { transform: translate(-1%, 2%) scale(0.98); }
+  75% { transform: translate(1%, -2%) scale(1.01); }
+}
+
+.animate-nebula-drift {
+  animation: nebula-drift 25s ease-in-out infinite;
+}
+
+/* Shooting star */
+@keyframes shooting-star {
+  0% {
+    transform: translateX(0) translateY(0) rotate(-45deg);
+    opacity: 0;
+  }
+  5% { opacity: 1; }
+  15% { opacity: 1; }
+  20% {
+    transform: translateX(min(300px, 40vw)) translateY(min(300px, 40vw)) rotate(-45deg);
+    opacity: 0;
+  }
+  100% { opacity: 0; }
+}
+
+.shooting-star {
+  position: absolute;
+  width: 100px;
+  height: 1px;
+  background: linear-gradient(to right, rgba(255, 255, 255, 0.8), transparent);
+  animation: shooting-star 8s ease-in-out infinite;
+}
+
+.dark .shooting-star {
+  background: linear-gradient(to right, rgba(200, 180, 255, 0.8), transparent);
+}
+
+.shooting-star-1 { top: 15%; left: 10%; animation-delay: 0s; }
+.shooting-star-2 { top: 35%; left: 60%; animation-delay: 3s; animation-duration: 6s; }
+.shooting-star-3 { top: 60%; left: 30%; animation-delay: 6.5s; animation-duration: 10s; }
+
+/* Cosmic input focus glow */
+.dark .cosmic-input:focus-visible {
+  border-color: #7B61FF;
+  box-shadow: 0 0 0 3px rgba(123, 97, 255, 0.25), 0 0 20px -5px rgba(123, 97, 255, 0.15);
+}
+
+/* Cosmic button gradient */
+.dark .cosmic-btn {
+  background: linear-gradient(135deg, #7B61FF, #00D4FF);
+  color: white;
+  box-shadow: 0 0 25px -5px rgba(123, 97, 255, 0.4);
+  transition: all 0.3s ease;
+}
+
+.dark .cosmic-btn:hover {
+  background: linear-gradient(135deg, #8B71FF, #1EE0FF);
+  box-shadow: 0 0 35px -5px rgba(123, 97, 255, 0.5);
+}
+
+/* Button shimmer */
+.cosmic-btn-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.cosmic-btn-shimmer::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(255, 255, 255, 0.15) 50%,
+    transparent 100%
+  );
+  transform: translateX(-100%) rotate(25deg);
+  transition: none;
+}
+
+.cosmic-btn-shimmer:hover::after {
+  animation: shimmer 0.6s ease-out;
+}
+
+@keyframes shimmer {
+  from { transform: translateX(-100%) rotate(25deg); }
+  to { transform: translateX(100%) rotate(25deg); }
+}
+
+/* Card glow pulse */
+@keyframes card-glow-pulse {
+  0%, 100% { box-shadow: 0 0 40px -10px rgba(123, 97, 255, 0.2); }
+  50% { box-shadow: 0 0 50px -10px rgba(123, 97, 255, 0.3); }
+}
+
+.dark .cosmic-card-glow {
+  animation: card-glow-pulse 4s ease-in-out infinite;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .animate-nebula-drift,
+  .shooting-star,
+  .cosmic-card-glow {
+    animation: none !important;
+  }
+  .cosmic-btn-shimmer::after {
+    display: none;
+  }
+}

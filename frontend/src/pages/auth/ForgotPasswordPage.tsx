@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Loader2, Mail, ArrowLeft, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { motion } from 'framer-motion'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -68,43 +69,56 @@ export function ForgotPasswordPage() {
     <AuthLayoutCard
       title="忘记密码"
       description="输入您的注册邮箱，我们将发送密码重置链接"
+      icon={<Mail className="h-10 w-10 text-violet-400" />}
     >
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>邮箱地址</FormLabel>
-                <FormControl>
-                  <Input
-                    type="email"
-                    placeholder="请输入注册时使用的邮箱"
-                    disabled={submitting}
-                    className="h-11"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.15, duration: 0.4 }}
+          >
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="dark:text-violet-200">邮箱地址</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="email"
+                      placeholder="请输入注册时使用的邮箱"
+                      disabled={submitting}
+                      className="h-11 cosmic-input dark:bg-[rgba(15,10,40,0.4)] dark:border-[rgba(123,97,255,0.2)]"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </motion.div>
 
-          <Button type="submit" className="w-full h-11" disabled={submitting}>
-            {submitting ? (
-              <><Loader2 className="mr-2 size-4 animate-spin" />发送中...</>
-            ) : (
-              <><Mail className="mr-2 size-4" />发送重置链接</>
-            )}
-          </Button>
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.23, duration: 0.4 }}
+          >
+            <Button type="submit" className="w-full h-11 cosmic-btn cosmic-btn-shimmer" disabled={submitting}>
+              {submitting ? (
+                <><Loader2 className="mr-2 size-4 animate-spin" />发送中...</>
+              ) : (
+                <><Mail className="mr-2 size-4" />发送重置链接</>
+              )}
+            </Button>
+          </motion.div>
         </form>
       </Form>
 
       <div className="mt-6 text-center text-sm text-muted-foreground">
         <Link
           to="/login"
-          className="font-medium text-primary hover:underline underline-offset-4 transition-colors"
+          className="font-medium text-primary dark:text-violet-300 dark:hover:text-violet-200 hover:underline underline-offset-4 transition-colors"
         >
           <ArrowLeft className="inline size-3.5 mr-1" />返回登录
         </Link>

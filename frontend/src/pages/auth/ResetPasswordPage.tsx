@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Loader2, CheckCircle2, XCircle, ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
+import { motion } from 'framer-motion'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -39,7 +40,6 @@ export function ResetPasswordPage() {
     defaultValues: { new_password: '', confirm_password: '' },
   })
 
-  // Verify token on mount
   useEffect(() => {
     if (!uid || !token) {
       setTokenStatus('invalid')
@@ -80,7 +80,6 @@ export function ResetPasswordPage() {
     }
   }
 
-  // Loading state
   if (tokenStatus === 'loading') {
     return (
       <AuthLayoutCard title="验证中">
@@ -92,7 +91,6 @@ export function ResetPasswordPage() {
     )
   }
 
-  // Invalid token
   if (tokenStatus === 'invalid') {
     return (
       <AuthLayoutCard title="链接无效">
@@ -114,7 +112,6 @@ export function ResetPasswordPage() {
     )
   }
 
-  // Success
   if (success) {
     return (
       <AuthLayoutCard title="密码已重置">
@@ -124,16 +121,16 @@ export function ResetPasswordPage() {
             您的密码已成功重置，请使用新密码登录。
           </p>
           <Link to="/login">
-            <Button size="sm">
-              去登录
-            </Button>
+            <Button size="sm" className="cosmic-btn">去登录</Button>
           </Link>
         </div>
       </AuthLayoutCard>
     )
   }
 
-  // Reset form
+  const cosmicInput = 'h-11 cosmic-input dark:bg-[rgba(15,10,40,0.4)] dark:border-[rgba(123,97,255,0.2)]'
+  const cosmicLabel = 'dark:text-violet-200'
+
   return (
     <AuthLayoutCard
       title="重置密码"
@@ -141,60 +138,78 @@ export function ResetPasswordPage() {
     >
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          <FormField
-            control={form.control}
-            name="new_password"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>新密码</FormLabel>
-                <FormControl>
-                  <Input
-                    type="password"
-                    placeholder="至少8个字符"
-                    disabled={submitting}
-                    className="h-11"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.15, duration: 0.4 }}
+          >
+            <FormField
+              control={form.control}
+              name="new_password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className={cosmicLabel}>新密码</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="password"
+                      placeholder="至少8个字符"
+                      disabled={submitting}
+                      className={cosmicInput}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </motion.div>
 
-          <FormField
-            control={form.control}
-            name="confirm_password"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>确认密码</FormLabel>
-                <FormControl>
-                  <Input
-                    type="password"
-                    placeholder="再次输入新密码"
-                    disabled={submitting}
-                    className="h-11"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.23, duration: 0.4 }}
+          >
+            <FormField
+              control={form.control}
+              name="confirm_password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className={cosmicLabel}>确认密码</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="password"
+                      placeholder="再次输入新密码"
+                      disabled={submitting}
+                      className={cosmicInput}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </motion.div>
 
-          <Button type="submit" className="w-full h-11" disabled={submitting}>
-            {submitting ? (
-              <><Loader2 className="mr-2 size-4 animate-spin" />重置中...</>
-            ) : (
-              '重置密码'
-            )}
-          </Button>
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.31, duration: 0.4 }}
+          >
+            <Button type="submit" className="w-full h-11 cosmic-btn cosmic-btn-shimmer" disabled={submitting}>
+              {submitting ? (
+                <><Loader2 className="mr-2 size-4 animate-spin" />重置中...</>
+              ) : (
+                '重置密码'
+              )}
+            </Button>
+          </motion.div>
         </form>
       </Form>
 
       <div className="mt-6 text-center text-sm text-muted-foreground">
         <Link
           to="/login"
-          className="font-medium text-primary hover:underline underline-offset-4 transition-colors"
+          className="font-medium text-primary dark:text-violet-300 dark:hover:text-violet-200 hover:underline underline-offset-4 transition-colors"
         >
           <ArrowLeft className="inline size-3.5 mr-1" />返回登录
         </Link>
