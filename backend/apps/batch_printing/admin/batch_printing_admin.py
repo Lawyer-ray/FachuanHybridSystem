@@ -11,9 +11,9 @@ from django.utils.safestring import SafeString
 from django.utils.translation import gettext_lazy as _
 
 from apps.batch_printing.models import (
+    BatchPrintingTool,
     BatchPrintItem,
     BatchPrintJob,
-    BatchPrintingTool,
     PrintKeywordRule,
     PrintPresetSnapshot,
 )

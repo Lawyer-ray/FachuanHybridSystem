@@ -72,6 +72,7 @@ class MessageSourceAdmin(admin.ModelAdmin):
 
     def _sync_view(self, request: HttpRequest, pk: int) -> HttpResponse:
         from django.shortcuts import redirect
+
         from apps.core.tasking import submit_task
 
         submit_task("apps.message_hub.tasks.sync_source_by_id", pk)

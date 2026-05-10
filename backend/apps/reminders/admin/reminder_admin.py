@@ -19,9 +19,9 @@ from django.utils.html import format_html
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
+from simple_history.admin import SimpleHistoryAdmin
 
 from ..models import Reminder, ReminderType
-from simple_history.admin import SimpleHistoryAdmin
 
 
 class ReminderAdminForm(forms.ModelForm[Reminder]):
@@ -453,11 +453,13 @@ class ReminderAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
             except Exception:
                 calendar_auth_status = "unknown"
 
-        return JsonResponse({
-            "providers": providers,
-            "calendar_auth_status": calendar_auth_status,
-            "calendar_auth_code": calendar_auth_code,
-        })
+        return JsonResponse(
+            {
+                "providers": providers,
+                "calendar_auth_status": calendar_auth_status,
+                "calendar_auth_code": calendar_auth_code,
+            }
+        )
 
     def calendar_sync_preview_view(self, request: HttpRequest) -> JsonResponse:
         """POST: Preview calendar events from .ics file, URL, or local provider."""
@@ -486,7 +488,8 @@ class ReminderAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
                 return JsonResponse({"events": [], "error": "URL 不能为空"}, status=400)
             events = sync_service.preview_from_url(url)
         elif source in ("mac", "windows"):
-            from datetime import datetime as dt, timedelta as td
+            from datetime import datetime as dt
+            from datetime import timedelta as td
 
             kwargs: dict[str, object] = {}
             start_date_str = request.POST.get("start_date", "").strip()
@@ -607,9 +610,7 @@ class ReminderAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
 
         from apps.reminders.models import Reminder
 
-        deleted_count, _ = Reminder.objects.filter(
-            metadata__source="local_calendar_sync"
-        ).delete()
+        deleted_count, _ = Reminder.objects.filter(metadata__source="local_calendar_sync").delete()
         import logging
 
         logging.getLogger(__name__).info("Cleared %d synced calendar reminders", deleted_count)
