@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Upload, FileText, X, Download, Loader2, Check, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
@@ -140,9 +140,10 @@ export function ElementConvertTool() {
     }
   }, [selectedFile, selectedMbid])
 
-  const selectedMbidName = categories
-    .flatMap((c) => c.items)
-    .find((i) => i.mbid === selectedMbid)?.name
+  const selectedMbidName = useMemo(
+    () => categories.flatMap((c) => c.items).find((i) => i.mbid === selectedMbid)?.name,
+    [categories, selectedMbid],
+  )
 
   return (
     <div className="max-w-3xl mx-auto space-y-0">

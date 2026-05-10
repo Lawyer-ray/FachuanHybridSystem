@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { memo, useState, useCallback, useMemo } from 'react'
 import { copyToClipboard } from '@/lib/clipboard'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -19,6 +19,134 @@ import {
   formatMoney, formatDate, getRateInfo, groupByPrincipal, formatRateDisplay,
   type HistoryItem,
 } from '../utils/lpr'
+
+// ============================================================================
+// Result Section (memo'd to avoid re-render during form input)
+// ============================================================================
+
+interface PrincipalGroup {
+  principal: number
+  totalDays: number
+  totalInterest: number
+  periods: NonNullable<LprCalculateResponse['periods']>
+}
+
+const ResultSection = memo(function ResultSection({
+  result, showDetail, rateMode, groups, onToggleDetail, onCopyDetail, onCopyResult,
+}: {
+  result: LprCalculateResponse
+  showDetail: boolean
+  rateMode: string
+  groups: PrincipalGroup[]
+  onToggleDetail: () => void
+  onCopyDetail: () => void
+  onCopyResult: () => void
+}) {
+  if (!result.success) return null
+
+  return (
+    <div className="rounded-lg border p-6 space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="text-sm font-medium">计算明细</div>
+        <div className="flex gap-3 items-center">
+          <button className="text-xs text-primary hover:underline" onClick={onToggleDetail}>
+            {showDetail ? '收起' : '展开'}
+          </button>
+          <button className="text-xs text-primary bg-primary/10 px-3 py-1 rounded hover:bg-primary/20" onClick={onCopyDetail}>
+            复制明细
+          </button>
+        </div>
+      </div>
+
+      {!showDetail ? (
+        <div className="overflow-x-auto rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>本金</TableHead>
+                <TableHead>计息期间</TableHead>
+                <TableHead className="text-center">天数</TableHead>
+                <TableHead className="text-right">利息</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {groups.map((g, i) => {
+                const start = formatDate(g.periods[0].start_date)
+                const end = formatDate(g.periods[g.periods.length - 1].end_date)
+                return (
+                  <TableRow key={i}>
+                    <TableCell className="text-sm">¥{formatMoney(String(g.principal))}</TableCell>
+                    <TableCell className="text-sm">{start} ~ {end}</TableCell>
+                    <TableCell className="text-center text-sm">{g.totalDays}</TableCell>
+                    <TableCell className="text-right font-medium text-sm">¥{formatMoney(String(g.totalInterest))}</TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+            <tfoot>
+              <tr className="bg-primary text-primary-foreground font-semibold text-sm">
+                <td className="px-4 py-2.5">合计</td>
+                <td className="px-4 py-2.5">-</td>
+                <td className="px-4 py-2.5 text-center">{result.total_days}</td>
+                <td className="px-4 py-2.5 text-right text-[15px] font-bold">¥{formatMoney(result.total_interest)}</td>
+              </tr>
+            </tfoot>
+          </Table>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {groups.map((g, gi) => (
+            <div key={gi}>
+              <div className="bg-primary/10 text-primary font-semibold text-sm px-3 py-2 rounded-t-md border border-primary/20">
+                本金: ¥{formatMoney(String(g.principal))} | 天数: {g.totalDays} | 利息: ¥{formatMoney(String(g.totalInterest))}
+              </div>
+              <div className="overflow-x-auto rounded-b-md border border-t-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>期间</TableHead>
+                      <TableHead className="text-center">天数</TableHead>
+                      <TableHead>利率</TableHead>
+                      <TableHead className="text-right">利息</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {g.periods.map((p, pi) => (
+                      <TableRow key={pi}>
+                        <TableCell className="text-sm">{formatDate(p.start_date)} ~ {formatDate(p.end_date)}</TableCell>
+                        <TableCell className="text-center text-sm">{p.days}</TableCell>
+                        <TableCell className="text-sm whitespace-nowrap">{formatRateDisplay(p.rate, p.rate_unit, rateMode)}</TableCell>
+                        <TableCell className="text-right font-medium text-sm">¥{formatMoney(p.interest)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          ))}
+          <div className="overflow-x-auto rounded-md border">
+            <Table>
+              <tfoot>
+                <tr className="bg-primary text-primary-foreground font-semibold text-sm">
+                  <td className="px-4 py-2.5">总计</td>
+                  <td className="px-4 py-2.5 text-center">{result.total_days}</td>
+                  <td className="px-4 py-2.5">-</td>
+                  <td className="px-4 py-2.5 text-right text-[15px] font-bold">¥{formatMoney(result.total_interest)}</td>
+                </tr>
+              </tfoot>
+            </Table>
+          </div>
+        </div>
+      )}
+
+      <div className="flex justify-end">
+        <Button variant="outline" size="sm" onClick={onCopyResult}>
+          <Copy className="size-3.5 mr-1.5" />复制结果
+        </Button>
+      </div>
+    </div>
+  )
+})
 
 export function LprCalculatorTool() {
   const [principalMode, setPrincipalMode] = useState<'fixed' | 'variable'>('fixed')
@@ -217,11 +345,11 @@ export function LprCalculatorTool() {
     localStorage.removeItem('lpr_calculator_history')
   }
 
-  const copyDetail = () => {
+  const copyDetail = useCallback(() => {
     if (!result?.success || !result.periods) return
-    const groups = groupByPrincipal(result.periods)
+    const detailGroups = groupByPrincipal(result.periods)
     let text = 'LPR利息计算明细\n\n'
-    for (const g of groups) {
+    for (const g of detailGroups) {
       text += `本金: ¥${formatMoney(String(g.principal))} | 天数: ${g.totalDays} | 利息: ¥${formatMoney(String(g.totalInterest))}\n`
       text += `期间 | 天数 | 利率 | 利息\n`
       text += '-'.repeat(50) + '\n'
@@ -232,15 +360,20 @@ export function LprCalculatorTool() {
     }
     text += `总计 | ${result.total_days}天 | - | ¥${formatMoney(result.total_interest)}\n`
     copyToClipboard(text, '明细已复制')
-  }
+  }, [result, rateMode])
 
-  const copyResult = () => {
+  const copyResult = useCallback(() => {
     if (!result?.success) return
     const text = `LPR利息计算结果\n总利息: ¥${formatMoney(result.total_interest)}\n计息天数: ${result.total_days}天\n本金: ¥${formatMoney(result.total_principal)}`
     copyToClipboard(text, '已复制到剪贴板')
-  }
+  }, [result])
 
-  const groups = result?.success && result.periods ? groupByPrincipal(result.periods) : []
+  const toggleDetail = useCallback(() => setShowDetail((prev) => !prev), [])
+
+  const groups = useMemo(
+    () => result?.success && result.periods ? groupByPrincipal(result.periods) : [],
+    [result],
+  )
 
   return (
     <div className="space-y-6">
@@ -524,108 +657,15 @@ export function LprCalculatorTool() {
 
       {/* Results */}
       {result && result.success && (
-        <div className="rounded-lg border p-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="text-sm font-medium">计算明细</div>
-            <div className="flex gap-3 items-center">
-              <button className="text-xs text-primary hover:underline" onClick={() => setShowDetail(!showDetail)}>
-                {showDetail ? '收起' : '展开'}
-              </button>
-              <button className="text-xs text-primary bg-primary/10 px-3 py-1 rounded hover:bg-primary/20" onClick={copyDetail}>
-                复制明细
-              </button>
-            </div>
-          </div>
-
-          {!showDetail ? (
-            /* Simplified view */
-            <div className="overflow-x-auto rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>本金</TableHead>
-                    <TableHead>计息期间</TableHead>
-                    <TableHead className="text-center">天数</TableHead>
-                    <TableHead className="text-right">利息</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {groups.map((g, i) => {
-                    const start = formatDate(g.periods[0].start_date)
-                    const end = formatDate(g.periods[g.periods.length - 1].end_date)
-                    return (
-                      <TableRow key={i}>
-                        <TableCell className="text-sm">¥{formatMoney(String(g.principal))}</TableCell>
-                        <TableCell className="text-sm">{start} ~ {end}</TableCell>
-                        <TableCell className="text-center text-sm">{g.totalDays}</TableCell>
-                        <TableCell className="text-right font-medium text-sm">¥{formatMoney(String(g.totalInterest))}</TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-                <tfoot>
-                  <tr className="bg-primary text-primary-foreground font-semibold text-sm">
-                    <td className="px-4 py-2.5">合计</td>
-                    <td className="px-4 py-2.5">-</td>
-                    <td className="px-4 py-2.5 text-center">{result.total_days}</td>
-                    <td className="px-4 py-2.5 text-right text-[15px] font-bold">¥{formatMoney(result.total_interest)}</td>
-                  </tr>
-                </tfoot>
-              </Table>
-            </div>
-          ) : (
-            /* Detailed view */
-            <div className="space-y-4">
-              {groups.map((g, gi) => (
-                <div key={gi}>
-                  <div className="bg-primary/10 text-primary font-semibold text-sm px-3 py-2 rounded-t-md border border-primary/20">
-                    本金: ¥{formatMoney(String(g.principal))} | 天数: {g.totalDays} | 利息: ¥{formatMoney(String(g.totalInterest))}
-                  </div>
-                  <div className="overflow-x-auto rounded-b-md border border-t-0">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>期间</TableHead>
-                          <TableHead className="text-center">天数</TableHead>
-                          <TableHead>利率</TableHead>
-                          <TableHead className="text-right">利息</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {g.periods.map((p, pi) => (
-                          <TableRow key={pi}>
-                            <TableCell className="text-sm">{formatDate(p.start_date)} ~ {formatDate(p.end_date)}</TableCell>
-                            <TableCell className="text-center text-sm">{p.days}</TableCell>
-                            <TableCell className="text-sm whitespace-nowrap">{formatRateDisplay(p.rate, p.rate_unit, rateMode)}</TableCell>
-                            <TableCell className="text-right font-medium text-sm">¥{formatMoney(p.interest)}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
-              ))}
-              <div className="overflow-x-auto rounded-md border">
-                <Table>
-                  <tfoot>
-                    <tr className="bg-primary text-primary-foreground font-semibold text-sm">
-                      <td className="px-4 py-2.5">总计</td>
-                      <td className="px-4 py-2.5 text-center">{result.total_days}</td>
-                      <td className="px-4 py-2.5">-</td>
-                      <td className="px-4 py-2.5 text-right text-[15px] font-bold">¥{formatMoney(result.total_interest)}</td>
-                    </tr>
-                  </tfoot>
-                </Table>
-              </div>
-            </div>
-          )}
-
-          <div className="flex justify-end">
-            <Button variant="outline" size="sm" onClick={copyResult}>
-              <Copy className="size-3.5 mr-1.5" />复制结果
-            </Button>
-          </div>
-        </div>
+        <ResultSection
+          result={result}
+          showDetail={showDetail}
+          rateMode={rateMode}
+          groups={groups}
+          onToggleDetail={toggleDetail}
+          onCopyDetail={copyDetail}
+          onCopyResult={copyResult}
+        />
       )}
 
       {/* Error */}

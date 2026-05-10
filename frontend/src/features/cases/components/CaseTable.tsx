@@ -4,6 +4,7 @@
  * Requirements: 2.6, 2.7, 2.9, 2.10, 9.6
  */
 
+import { memo, useCallback } from 'react'
 import { useNavigate } from 'react-router'
 import { FolderOpen } from 'lucide-react'
 import { formatDateOnly } from '@/lib/date'
@@ -79,6 +80,51 @@ function getLawyerDisplay(c: Case): string {
 }
 
 // ============================================================================
+// Row Component
+// ============================================================================
+
+const CaseRow = memo(function CaseRow({ c, onRowClick }: { c: Case; onRowClick: (c: Case) => void }) {
+  const stageKey = c.current_stage as CaseStage | null
+  const stageLabel = stageKey ? (CASE_STAGE_LABELS[stageKey]?.zh ?? c.current_stage) : '-'
+  const statusKey = c.status as CaseStatus | null
+  const statusLabel = statusKey ? (CASE_STATUS_LABELS[statusKey]?.zh ?? c.status) : '-'
+  const typeLabel = c.case_type ? (SIMPLE_CASE_TYPE_LABELS[c.case_type]?.zh ?? c.case_type) : null
+
+  return (
+    <TableRow
+      onClick={() => onRowClick(c)}
+      className="cursor-pointer hover:bg-muted/50 transition-colors"
+    >
+      <TableCell className="text-muted-foreground text-sm">{c.id}</TableCell>
+      <TableCell className="max-w-[260px]">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium line-clamp-2">{c.name}</span>
+          {c.is_filed && <Badge variant="secondary" className="shrink-0 text-xs">已建档</Badge>}
+        </div>
+      </TableCell>
+      <TableCell className="font-mono text-sm text-muted-foreground">
+        {c.filing_number || '-'}
+      </TableCell>
+      <TableCell>
+        {typeLabel
+          ? <Badge variant="outline" className="text-xs">{typeLabel}</Badge>
+          : <span className="text-muted-foreground text-sm">-</span>
+        }
+      </TableCell>
+      <TableCell>
+        {statusKey
+          ? <Badge variant={statusKey === 'active' ? 'default' : 'secondary'} className="text-xs">{statusLabel}</Badge>
+          : <span className="text-muted-foreground text-sm">-</span>
+        }
+      </TableCell>
+      <TableCell className="text-sm">{getLawyerDisplay(c)}</TableCell>
+      <TableCell className="text-muted-foreground text-sm">{stageLabel}</TableCell>
+      <TableCell className="text-muted-foreground font-mono text-sm">{formatDateOnly(c.start_date)}</TableCell>
+    </TableRow>
+  )
+})
+
+// ============================================================================
 // Main Component
 // ============================================================================
 
@@ -86,6 +132,7 @@ export function CaseTable({ cases, isLoading }: CaseTableProps) {
   const navigate = useNavigate()
 
   const colSpan = 8
+  const handleRowClick = useCallback((c: Case) => navigate(generatePath.caseDetail(String(c.id))), [navigate])
 
   return (
     <div className="overflow-x-auto rounded-md border">
@@ -104,47 +151,7 @@ export function CaseTable({ cases, isLoading }: CaseTableProps) {
         </TableHeader>
         <TableBody>
           {isLoading ? <TableSkeleton /> : cases.length === 0 ? <EmptyState colSpan={colSpan} /> : (
-            cases.map((c) => {
-              const stageKey = c.current_stage as CaseStage | null
-              const stageLabel = stageKey ? (CASE_STAGE_LABELS[stageKey]?.zh ?? c.current_stage) : '-'
-              const statusKey = c.status as CaseStatus | null
-              const statusLabel = statusKey ? (CASE_STATUS_LABELS[statusKey]?.zh ?? c.status) : '-'
-              const typeLabel = c.case_type ? (SIMPLE_CASE_TYPE_LABELS[c.case_type]?.zh ?? c.case_type) : null
-
-              return (
-                <TableRow
-                  key={c.id}
-                  onClick={() => navigate(generatePath.caseDetail(String(c.id)))}
-                  className="cursor-pointer hover:bg-muted/50 transition-colors"
-                >
-                  <TableCell className="text-muted-foreground text-sm">{c.id}</TableCell>
-                  <TableCell className="max-w-[260px]">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium line-clamp-2">{c.name}</span>
-                      {c.is_filed && <Badge variant="secondary" className="shrink-0 text-xs">已建档</Badge>}
-                    </div>
-                  </TableCell>
-                  <TableCell className="font-mono text-sm text-muted-foreground">
-                    {c.filing_number || '-'}
-                  </TableCell>
-                  <TableCell>
-                    {typeLabel
-                      ? <Badge variant="outline" className="text-xs">{typeLabel}</Badge>
-                      : <span className="text-muted-foreground text-sm">-</span>
-                    }
-                  </TableCell>
-                  <TableCell>
-                    {statusKey
-                      ? <Badge variant={statusKey === 'active' ? 'default' : 'secondary'} className="text-xs">{statusLabel}</Badge>
-                      : <span className="text-muted-foreground text-sm">-</span>
-                    }
-                  </TableCell>
-                  <TableCell className="text-sm">{getLawyerDisplay(c)}</TableCell>
-                  <TableCell className="text-muted-foreground text-sm">{stageLabel}</TableCell>
-                  <TableCell className="text-muted-foreground font-mono text-sm">{formatDateOnly(c.start_date)}</TableCell>
-                </TableRow>
-              )
-            })
+            cases.map((c) => <CaseRow key={c.id} c={c} onRowClick={handleRowClick} />)
           )}
         </TableBody>
       </Table>

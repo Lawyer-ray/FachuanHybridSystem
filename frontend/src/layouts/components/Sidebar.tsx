@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { NavLink, useLocation } from 'react-router'
 import { ChevronLeft, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -15,6 +15,10 @@ import {
 } from './menu-config'
 
 /** 路径 → 页面 dynamic import 映射，用于 hover 预加载 */
+/** 静态菜单配置，只计算一次 */
+const topLevelMenuItems = menuConfig.filter((i): i is TopLevelMenuItem => !isMenuGroup(i))
+const groupMenuItems = menuConfig.filter(isMenuGroup)
+
 const routePrefetchMap: Record<string, () => Promise<unknown>> = {
   '/admin/dashboard': () => import('@/pages/dashboard/DashboardPage'),
   '/admin/workbench': () => import('@/features/workbench/WorkbenchPage'),
@@ -45,7 +49,7 @@ interface SidebarProps {
   onToggle: () => void
 }
 
-function TopLevelItem({ item, collapsed, isActive }: {
+const TopLevelItem = memo(function TopLevelItem({ item, collapsed, isActive }: {
   item: TopLevelMenuItem; collapsed: boolean; isActive: boolean
 }) {
   const Icon = item.icon
@@ -70,9 +74,9 @@ function TopLevelItem({ item, collapsed, isActive }: {
       )}
     </NavLink>
   )
-}
+})
 
-function SubMenuItem({ item, isActive }: { item: MenuItem; isActive: boolean }) {
+const SubMenuItem = memo(function SubMenuItem({ item, isActive }: { item: MenuItem; isActive: boolean }) {
   const Icon = item.icon
   return (
     <NavLink
@@ -89,9 +93,9 @@ function SubMenuItem({ item, isActive }: { item: MenuItem; isActive: boolean }) 
       <span className="text-[13px] truncate">{item.label}</span>
     </NavLink>
   )
-}
+})
 
-function GroupMenu({ group, collapsed, isExpanded, onToggle, activePath }: {
+const GroupMenu = memo(function GroupMenu({ group, collapsed, isExpanded, onToggle, activePath }: {
   group: MenuGroup; collapsed: boolean; isExpanded: boolean; onToggle: () => void; activePath: string
 }) {
   const Icon = group.icon
@@ -173,7 +177,7 @@ function GroupMenu({ group, collapsed, isExpanded, onToggle, activePath }: {
             className="absolute -left-1.5 top-5 w-3 h-3 rotate-45 bg-[#1e1e21] border-l border-b border-[#333338]"
           />
           {/* Content */}
-          <div className="relative bg-[#1e1e21]/95 backdrop-blur-md border border-[#333338] rounded-xl shadow-2xl shadow-black/40 py-1.5">
+          <div className="relative bg-[#1e1e21] border border-[#333338] rounded-xl shadow-2xl shadow-black/40 py-1.5">
             <div className="px-3.5 pt-1 pb-2 mb-1 flex items-center gap-2">
               {Icon && <Icon className="w-3.5 h-3.5 text-[#6366f1]" />}
               <span className="text-[11px] font-semibold text-[#71717a] tracking-wide uppercase">{group.label}</span>
@@ -229,7 +233,7 @@ function GroupMenu({ group, collapsed, isExpanded, onToggle, activePath }: {
       )}
     </div>
   )
-}
+})
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const location = useLocation()
@@ -290,7 +294,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       <nav className={cn('flex-1 py-3', collapsed ? 'overflow-hidden' : 'overflow-y-auto')}>
         <div className="space-y-1">
           {/* Dashboard 顶级项 */}
-          {menuConfig.filter((i): i is TopLevelMenuItem => !isMenuGroup(i)).map((item) => (
+          {topLevelMenuItems.map((item) => (
             <TopLevelItem
               key={item.id}
               item={item}
@@ -300,7 +304,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           ))}
 
           {/* 分组 */}
-          {menuConfig.filter(isMenuGroup).map((group) => (
+          {groupMenuItems.map((group) => (
             <div key={group.id}>
               <GroupMenu
                 group={group}

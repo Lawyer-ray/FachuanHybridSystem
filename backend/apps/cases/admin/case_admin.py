@@ -78,22 +78,28 @@ class CasePartyInline(BaseTabularInline):
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
     def _get_contract_id_from_request(self, request: HttpRequest) -> int | None:
-        """从请求 URL 或 GET 参数中获取当前案件关联的合同 ID"""
+        """从请求 URL 中获取当前案件关联的合同 ID（结果缓存在 request 上避免重复查询）"""
         import re
 
         from apps.cases.models import Case
 
-        # 从 URL 中提取 case_id
+        cache_attr = "_caseparty_contract_id_cache"
+        if hasattr(request, cache_attr):
+            return getattr(request, cache_attr)  # type: ignore[no-any-return]
+
         match = re.search(r"/cases/case/(\d+)/change", request.path)
         if not match:
             return None
 
         case_id = int(match.group(1))
         try:
-            case = Case.objects.select_related("contract").values("contract_id").get(pk=case_id)
-            return case["contract_id"]
+            case = Case.objects.values("contract_id").get(pk=case_id)
+            result = case["contract_id"]
         except Case.DoesNotExist:
-            return None
+            result = None
+
+        setattr(request, cache_attr, result)
+        return result
 
     class Media:
         js = (
@@ -229,6 +235,7 @@ class CaseAdmin(
         "start_date",
     )
     list_display_links = None
+    list_per_page = 50
     list_filter = ("status", "case_type", "current_stage")
     search_fields = ("name", "filing_number", "case_numbers__number", "cause_of_action")
     ordering = ("-start_date",)

@@ -1,3 +1,4 @@
+import { memo, useCallback } from 'react'
 import { useNavigate } from 'react-router'
 import { Inbox, Paperclip } from 'lucide-react'
 import {
@@ -47,8 +48,50 @@ function EmptyState() {
   )
 }
 
+const InboxRow = memo(function InboxRow({ msg, onRowClick }: { msg: InboxMessage; onRowClick: (msg: InboxMessage) => void }) {
+  return (
+    <TableRow
+      className="cursor-pointer"
+      onClick={() => onRowClick(msg)}
+    >
+      <TableCell className="text-muted-foreground text-sm">{msg.id}</TableCell>
+      <TableCell>
+        <span
+          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium text-white ${SOURCE_COLORS[msg.source_type] ?? 'bg-gray-500'}`}
+        >
+          {msg.source_name}
+        </span>
+      </TableCell>
+      <TableCell className="min-w-[200px]">
+        <span className="line-clamp-1">{msg.subject || '(无主题)'}</span>
+      </TableCell>
+      <TableCell>
+        <span className="text-muted-foreground line-clamp-1 text-sm">{msg.sender || '-'}</span>
+      </TableCell>
+      <TableCell>
+        <span className="text-muted-foreground text-sm">{msg.recipient}</span>
+      </TableCell>
+      <TableCell>
+        <span className="text-muted-foreground text-sm">{formatRelativeTime(msg.received_at)}</span>
+      </TableCell>
+      <TableCell className="text-center">
+        {msg.has_attachments ? (
+          <Badge variant="secondary" className="gap-1">
+            <Paperclip className="size-3" />
+            {msg.attachment_count}
+          </Badge>
+        ) : (
+          <span className="text-muted-foreground/40">—</span>
+        )}
+      </TableCell>
+    </TableRow>
+  )
+})
+
 export function InboxTable({ messages, isLoading }: InboxTableProps) {
   const navigate = useNavigate()
+
+  const handleRowClick = useCallback((msg: InboxMessage) => navigate(generatePath.inboxDetail(msg.id)), [navigate])
 
   return (
     <div className="rounded-md border">
@@ -70,44 +113,7 @@ export function InboxTable({ messages, isLoading }: InboxTableProps) {
           ) : messages.length === 0 ? (
             <EmptyState />
           ) : (
-            messages.map((msg) => (
-              <TableRow
-                key={msg.id}
-                className="cursor-pointer"
-                onClick={() => navigate(generatePath.inboxDetail(msg.id))}
-              >
-                <TableCell className="text-muted-foreground text-sm">{msg.id}</TableCell>
-                <TableCell>
-                  <span
-                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium text-white ${SOURCE_COLORS[msg.source_type] ?? 'bg-gray-500'}`}
-                  >
-                    {msg.source_name}
-                  </span>
-                </TableCell>
-                <TableCell className="min-w-[200px]">
-                  <span className="line-clamp-1">{msg.subject || '(无主题)'}</span>
-                </TableCell>
-                <TableCell>
-                  <span className="text-muted-foreground line-clamp-1 text-sm">{msg.sender || '-'}</span>
-                </TableCell>
-                <TableCell>
-                  <span className="text-muted-foreground text-sm">{msg.recipient}</span>
-                </TableCell>
-                <TableCell>
-                  <span className="text-muted-foreground text-sm">{formatRelativeTime(msg.received_at)}</span>
-                </TableCell>
-                <TableCell className="text-center">
-                  {msg.has_attachments ? (
-                    <Badge variant="secondary" className="gap-1">
-                      <Paperclip className="size-3" />
-                      {msg.attachment_count}
-                    </Badge>
-                  ) : (
-                    <span className="text-muted-foreground/40">—</span>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))
+            messages.map((msg) => <InboxRow key={msg.id} msg={msg} onRowClick={handleRowClick} />)
           )}
         </TableBody>
       </Table>

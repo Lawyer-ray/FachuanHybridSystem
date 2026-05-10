@@ -39,6 +39,7 @@ class ContractAdminQueryService:
                     "reminders",
                     "supplementary_agreements__parties__client",
                     "finalized_materials",
+                    "cases",
                 )
                 .get(pk=contract_id)
             )

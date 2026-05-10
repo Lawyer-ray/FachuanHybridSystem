@@ -62,4 +62,5 @@ class Client(models.Model):
         managed = True
         indexes: ClassVar = [
             models.Index(fields=["name"]),
+            models.Index(fields=["client_type"]),
         ]

@@ -3,6 +3,7 @@
 from typing import Any, ClassVar
 
 from django.contrib import admin
+from django.db.models import Count, QuerySet
 from django.utils.translation import gettext_lazy as _
 
 from apps.evidence.models import HearingNote
@@ -11,6 +12,7 @@ from apps.evidence.models import HearingNote
 @admin.register(HearingNote)
 class HearingNoteAdmin(admin.ModelAdmin):
     list_display: ClassVar = ("case", "content_short", "evidence_count", "created_at")  # type: ignore[misc]
+    list_select_related = ("case",)
     list_filter: ClassVar = ("case",)
     search_fields: ClassVar = ("content", "case__name")
     autocomplete_fields: ClassVar = ("case",)
@@ -21,6 +23,9 @@ class HearingNoteAdmin(admin.ModelAdmin):
     def content_short(self, obj: HearingNote) -> str:
         return obj.content[:50] + "..." if len(obj.content) > 50 else obj.content
 
-    @admin.display(description=_("关联证据"))
+    def get_queryset(self, request: Any) -> QuerySet[HearingNote]:
+        return super().get_queryset(request).annotate(evidence_count=Count("evidence_items"))  # type: ignore[no-any-return]
+
+    @admin.display(description=_("关联证据"), ordering="evidence_count")
     def evidence_count(self, obj: HearingNote) -> int:
-        return obj.evidence_items.count()
+        return obj.evidence_count  # type: ignore[attr-defined,no-any-return]

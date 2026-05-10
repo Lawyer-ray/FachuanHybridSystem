@@ -2,6 +2,56 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.48.1] - 2026-05-10
+
+### 前端
+
+#### 新功能
+
+- **案件详情页全面对齐后端**：
+  - 标签重排：基本信息→当事人与律师→案件进展→文档生成→当事人材料→非当事人材料→一张网立案→工作人员→文件夹
+  - 当事人与律师：点击打开 Sheet 侧边面板显示详细信息（证件号码、电话、全部复制按钮）
+  - 案件进展：日志显示完整内容不再截断、附件可下载、支持删除日志
+  - 文档生成：新增授权材料快捷生成（全部包、所函、法定代表人证明、授权委托书）
+  - 材料管理：拆分为当事人材料/非当事人材料两个标签，支持拖拽排序、分组重命名、文件替换
+  - 一张网立案：对接 court-filing API 实现在线立案（立案类型选择、状态轮询）
+  - 诉讼保全担保：对接 court-guarantee API 实现询价、报价管理、执行保全
+  - 工作人员：改为表格布局，新增阶段和主管机关列
+  - 基本信息：关联合同改为可点击链接跳转合同详情
+  - 移除案件授权区块（后端无此内容）
+
+#### 优化
+
+- **前端性能全面优化**：
+  - 表格行组件 memo：CaseTable、ContractTable、InboxTable 等使用 `React.memo` 减少行级重渲染
+  - 子组件提取：Dashboard 卡片、工具页面拆分为独立组件，避免父组件更新带动全部子组件重渲染
+  - 动画提速：framer-motion transition 时长从 0.3s 降至 0.15s，减少视觉延迟
+  - 移除 `AnimatePresence mode="wait"` 在高频切换场景下的阻塞等待
+
+#### 修复
+
+- 修复 CourtFilingSection `material_slots` 为 undefined 时的运行时崩溃
+- 修复 CourtGuaranteeSection 和 CourtFilingSection 条件渲染子元素缺少 React key 警告
+
+#### 依赖变更
+
+- 新增前端 API 模块：court-filing、court-guarantee、authorization、preservation
+
+### 后端
+
+#### 修复
+
+- 修复 `CaseAdminService._check_folder_binding` 的 `related_name` 错误
+
+#### 优化
+
+- **Admin 详情页 N+1 查询修复**：
+  - CaseAdmin：`get_queryset` 添加 `select_related` / `prefetch_related` 消除详情页 N+1
+  - ClientAdmin：列表查询添加关联预加载
+  - ContractAdmin：查询服务优化关联字段加载
+  - CaseLogAdmin、CasePartyAdmin、CaseAssignmentAdmin：添加 `list_select_related`
+  - 各 Admin ModelAdmin 添加 `list_per_page` 分页限制
+
 ## [26.47.0] - 2026-05-10
 
 ### 前端

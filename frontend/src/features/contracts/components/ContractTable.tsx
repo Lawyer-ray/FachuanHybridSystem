@@ -1,3 +1,4 @@
+import { memo, useCallback } from 'react'
 import { useNavigate } from 'react-router'
 import { FileText } from 'lucide-react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -40,8 +41,36 @@ function EmptyState() {
   )
 }
 
+const ContractRow = memo(function ContractRow({ contract, onRowClick }: { contract: Contract; onRowClick: (c: Contract) => void }) {
+  return (
+    <TableRow onClick={() => onRowClick(contract)} className="cursor-pointer hover:bg-muted/50 transition-colors">
+      <TableCell className="text-muted-foreground text-sm">{contract.id}</TableCell>
+      <TableCell><Badge variant="outline" className="text-xs">{contract.case_type_label}</Badge></TableCell>
+      <TableCell className="max-w-[260px]">
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-sm line-clamp-2">{contract.name}</span>
+          {contract.is_filed && <Badge variant="secondary" className="shrink-0 text-xs">已建档</Badge>}
+        </div>
+      </TableCell>
+      <TableCell>
+        <Badge variant={STATUS_VARIANT[contract.status] ?? 'outline'} className="text-xs">
+          {contract.status_label}
+        </Badge>
+      </TableCell>
+      <TableCell className="text-xs text-muted-foreground">
+        {FEE_MODE_LABELS[contract.fee_mode as keyof typeof FEE_MODE_LABELS] ?? contract.fee_mode ?? '-'}
+      </TableCell>
+      <TableCell className="text-sm">{contract.primary_lawyer?.real_name || contract.primary_lawyer?.username || '-'}</TableCell>
+      <TableCell className="text-sm text-muted-foreground">{contract.start_date ?? '-'}</TableCell>
+      <TableCell className="text-right font-mono text-sm">{formatAmountInt(contract.total_received)}</TableCell>
+    </TableRow>
+  )
+})
+
 export function ContractTable({ contracts, isLoading = false }: { contracts: Contract[]; isLoading?: boolean }) {
   const navigate = useNavigate()
+
+  const handleRowClick = useCallback((c: Contract) => navigate(generatePath.contractDetail(c.id)), [navigate])
 
   return (
     <div className="overflow-x-auto rounded-md border">
@@ -60,29 +89,7 @@ export function ContractTable({ contracts, isLoading = false }: { contracts: Con
         </TableHeader>
         <TableBody>
           {isLoading ? <TableSkeleton /> : contracts.length === 0 ? <EmptyState /> : (
-            contracts.map((c) => (
-              <TableRow key={c.id} onClick={() => navigate(generatePath.contractDetail(c.id))} className="cursor-pointer hover:bg-muted/50 transition-colors">
-                <TableCell className="text-muted-foreground text-sm">{c.id}</TableCell>
-                <TableCell><Badge variant="outline" className="text-xs">{c.case_type_label}</Badge></TableCell>
-                <TableCell className="max-w-[260px]">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-sm line-clamp-2">{c.name}</span>
-                    {c.is_filed && <Badge variant="secondary" className="shrink-0 text-xs">已建档</Badge>}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Badge variant={STATUS_VARIANT[c.status] ?? 'outline'} className="text-xs">
-                    {c.status_label}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-xs text-muted-foreground">
-                  {FEE_MODE_LABELS[c.fee_mode as keyof typeof FEE_MODE_LABELS] ?? c.fee_mode ?? '-'}
-                </TableCell>
-                <TableCell className="text-sm">{c.primary_lawyer?.real_name || c.primary_lawyer?.username || '-'}</TableCell>
-                <TableCell className="text-sm text-muted-foreground">{c.start_date ?? '-'}</TableCell>
-                <TableCell className="text-right font-mono text-sm">{formatAmountInt(c.total_received)}</TableCell>
-              </TableRow>
-            ))
+            contracts.map((c) => <ContractRow key={c.id} contract={c} onRowClick={handleRowClick} />)
           )}
         </TableBody>
       </Table>

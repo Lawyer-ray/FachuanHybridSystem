@@ -14,6 +14,12 @@ from django.utils.translation import gettext_lazy as _
 
 logger = logging.getLogger(__name__)
 
+from simple_history.admin import SimpleHistoryAdmin
+
+from apps.cases.models import Case
+from apps.cases.models import CaseAssignment as CaseAssignmentModel
+from apps.cases.models import CaseLog, CaseParty
+from apps.client.models import Client
 from apps.contracts.admin.contract_inlines import (
     ContractAssignmentInline,
     ContractPartyInline,
@@ -35,10 +41,6 @@ from apps.contracts.models import (
 )
 from apps.core.admin.mixins import AdminImportExportMixin
 from apps.core.models.enums import CaseStage
-from simple_history.admin import SimpleHistoryAdmin
-
-from apps.cases.models import Case, CaseAssignment as CaseAssignmentModel, CaseLog, CaseParty
-from apps.client.models import Client
 
 # --- Prefetch 优化：共享 Client queryset，避免重复查询 ---
 _client_with_nested = Client.objects.prefetch_related("identity_docs", "property_clues__attachments")
@@ -65,7 +67,12 @@ def serialize_contract_obj(obj: Any) -> dict[str, Any]:
 
 @admin.register(Contract)
 class ContractAdmin(
-    ContractDisplayMixin, ContractSaveMixin, ContractActionMixin, AdminImportExportMixin, SimpleHistoryAdmin, BaseModelAdmin
+    ContractDisplayMixin,
+    ContractSaveMixin,
+    ContractActionMixin,
+    AdminImportExportMixin,
+    SimpleHistoryAdmin,
+    BaseModelAdmin,
 ):
     class ContractAdminForm(forms.ModelForm[Contract]):
         representation_stages = forms.MultipleChoiceField(
@@ -111,10 +118,16 @@ class ContractAdmin(
         "fixed_amount",
         "risk_rate",
     )
+    list_per_page = 50
     list_filter = ("case_type", "status", "fee_mode", "is_filed", ("specified_date", admin.DateFieldListFilter))
     search_fields = ("name", "filing_number", "contract_parties__client__name")
     date_hierarchy = "specified_date"
-    readonly_fields = ("get_primary_lawyer_display", "filing_number", "get_matched_template_display", "get_matched_folder_templates_display")
+    readonly_fields = (
+        "get_primary_lawyer_display",
+        "filing_number",
+        "get_matched_template_display",
+        "get_matched_folder_templates_display",
+    )
     fieldsets = (
         (
             _("基本信息"),
@@ -526,9 +539,12 @@ class ContractAdmin(
             Prefetch(
                 "supplementary_agreements",
                 queryset=SupplementaryAgreement.objects.prefetch_related(
-                    Prefetch("parties", queryset=SupplementaryAgreementParty.objects.prefetch_related(
-                        Prefetch("client", queryset=_client_with_nested),
-                    )),
+                    Prefetch(
+                        "parties",
+                        queryset=SupplementaryAgreementParty.objects.prefetch_related(
+                            Prefetch("client", queryset=_client_with_nested),
+                        ),
+                    ),
                 ),
             ),
             "payments__invoices",

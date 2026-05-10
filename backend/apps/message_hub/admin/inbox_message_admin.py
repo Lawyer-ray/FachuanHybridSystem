@@ -26,7 +26,7 @@ class InboxMessageAdmin(admin.ModelAdmin[InboxMessage]):
     list_display = ["subject_display", "source_badge", "recipient_display", "received_at", "attachments_display"]
     list_display_links = ["subject_display"]
     list_filter: ClassVar = ["source", "has_attachments", "received_at"]
-    search_fields: ClassVar = ("subject", "sender", "body_text")
+    search_fields: ClassVar = ("subject", "sender")
     readonly_fields: ClassVar = [
         "source",
         "message_id",

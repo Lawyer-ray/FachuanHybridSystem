@@ -180,7 +180,15 @@ _original_get_app_list = admin.site.__class__.get_app_list
 
 
 def _sorted_get_app_list(self: admin.AdminSite, request: HttpRequest, app_label: str | None = None) -> list:
-    app_list = _original_get_app_list(self, request, app_label)
+    # 一次性获取完整 app 列表并缓存，避免构建虚拟菜单时递归调用
+    if app_label is None:
+        full_app_list = _original_get_app_list(self, request, None)
+        app_map = {a.get("app_label"): a for a in full_app_list}
+    else:
+        full_app_list = _original_get_app_list(self, request, app_label)
+        app_map = {}
+
+    app_list = full_app_list
 
     # 统一隐藏指定 app（仅隐藏首页/侧边栏菜单，不影响 /admin/<app_label>/ 直链）
     if app_label is None:
@@ -252,10 +260,10 @@ def _sorted_get_app_list(self: admin.AdminSite, request: HttpRequest, app_label:
                             }
                         )
             elif item_label:
-                # 通过 app_label 自动发现子模型
-                item_entries = admin.site.get_app_list(request, app_label=item_label)
-                if item_entries:
-                    for model in item_entries[0].get("models", []):
+                # 通过 app_label 自动发现子模型（从缓存的 app_map 查找，避免递归调用）
+                item_app = app_map.get(item_label)
+                if item_app:
+                    for model in item_app.get("models", []):
                         m_name = str(model.get("name", "")).strip()
                         m_url = str(model.get("admin_url") or "").strip()
                         if m_name and m_url:
@@ -344,7 +352,8 @@ def case_handling_hub_view(request: HttpRequest) -> TemplateResponse:
         app_name = item.get("name", app_label)
         model_links: list[dict[str, str]] = []
 
-        app_entries = admin.site.get_app_list(request, app_label=app_label)
+        # 使用原始 get_app_list 避免触发排序和虚拟菜单构建
+        app_entries = _original_get_app_list(admin.site, request, app_label)
         if app_entries:
             first_app = app_entries[0]
             app_url = str(first_app.get("app_url") or app_url)
@@ -387,7 +396,8 @@ def other_tools_hub_view(request: HttpRequest) -> TemplateResponse:
         if manual_children:
             model_links = [dict(c) for c in manual_children]  # type: ignore[arg-type]
         else:
-            app_entries = admin.site.get_app_list(request, app_label=app_label)
+            # 使用原始 get_app_list 避免触发排序和虚拟菜单构建
+            app_entries = _original_get_app_list(admin.site, request, app_label)
             if app_entries:
                 first_app = app_entries[0]
                 app_url = str(first_app.get("app_url") or app_url)

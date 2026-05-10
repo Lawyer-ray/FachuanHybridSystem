@@ -13,8 +13,8 @@ from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.safestring import SafeData
 from django.utils.translation import gettext as _
-from apps.core.tasking import submit_task
 
+from apps.core.tasking import submit_task
 from apps.express_query.models import ExpressCarrierType, ExpressQueryTask, ExpressQueryTaskStatus, ExpressQueryTool
 
 logger = logging.getLogger("apps.express_query")
@@ -183,6 +183,7 @@ class ExpressQueryTaskAdmin(admin.ModelAdmin[ExpressQueryTask]):
         "created_by",
         "created_at",
     )
+    list_per_page = 50
     list_filter = ("status", "carrier_type", "created_at")
     search_fields = ("title", "tracking_number", "ocr_text", "error_message")
     readonly_fields = (

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, memo } from 'react'
 import { useNavigate } from 'react-router'
 import { formatDate } from '@/lib/date'
 import { Search, Plus, Trash2, Loader2, LinkIcon } from 'lucide-react'
@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/select'
 import { useCourtSmsList } from '../hooks/use-court-sms'
 import { courtSmsApi } from '../api/court-sms'
+import type { CourtSMSItem } from '../api/court-sms'
 import { caseApi } from '@/features/cases/api'
 import { generatePath } from '@/routes/paths'
 
@@ -155,6 +156,65 @@ function AssignCaseDialog({
 }
 
 // ============================================================================
+// Row Component
+// ============================================================================
+
+const SmsRow = memo(function SmsRow({
+  sms, isSelected, onToggle, onNavigate, onAssign,
+}: {
+  sms: CourtSMSItem; isSelected: boolean
+  onToggle: (id: number, e?: React.MouseEvent) => void
+  onNavigate: (id: number) => void
+  onAssign: (id: number, content: string) => void
+}) {
+  const statusLabel = STATUS_LABELS[sms.status] ?? sms.status
+  const variant = STATUS_BADGE_VARIANT[sms.status] ?? 'outline'
+
+  return (
+    <TableRow>
+      <TableCell onClick={(e) => e.stopPropagation()}>
+        <Checkbox
+          checked={isSelected}
+          onCheckedChange={() => onToggle(sms.id)}
+          aria-label={`选择短信 #${sms.id}`}
+        />
+      </TableCell>
+      <TableCell className="text-muted-foreground text-sm">{sms.id}</TableCell>
+      <TableCell>
+        <Badge variant={variant} className="text-xs">{statusLabel}</Badge>
+      </TableCell>
+      <TableCell
+        className="text-sm max-w-[400px] truncate cursor-pointer hover:text-primary"
+        title={sms.content}
+        onClick={() => onNavigate(sms.id)}
+      >
+        {sms.content}
+      </TableCell>
+      <TableCell className="text-sm truncate max-w-[160px]" title={sms.case_name ?? undefined}>
+        {sms.case_name || (
+          sms.status === 'pending_manual' ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-1.5 text-xs text-primary"
+              onClick={(e) => { e.stopPropagation(); onAssign(sms.id, sms.content) }}
+            >
+              <LinkIcon className="size-3 mr-0.5" />手动关联
+            </Button>
+          ) : '-'
+        )}
+      </TableCell>
+      <TableCell className="text-sm">
+        {sms.has_documents ? <span className="text-green-600">有</span> : '-'}
+      </TableCell>
+      <TableCell className="text-muted-foreground text-sm">
+        {formatDate(sms.received_at)}
+      </TableCell>
+    </TableRow>
+  )
+})
+
+// ============================================================================
 // Main Component
 // ============================================================================
 
@@ -251,6 +311,10 @@ export function CourtSmsTool() {
       setSubmitting(false)
     }
   }
+
+  const handleNavigate = useCallback((id: number) => {
+    navigate(generatePath.courtSmsDetail(id))
+  }, [navigate])
 
   const handleOpenAssign = useCallback((id: number, content: string) => {
     setAssignSmsId(id)
@@ -411,53 +475,16 @@ export function CourtSmsTool() {
                   没有短信记录
                 </TableCell>
               </TableRow>
-            ) : filtered.map((sms) => {
-              const statusLabel = STATUS_LABELS[sms.status] ?? sms.status
-              const variant = STATUS_BADGE_VARIANT[sms.status] ?? 'outline'
-
-              return (
-                <TableRow key={sms.id}>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    <Checkbox
-                      checked={selectedIds.has(sms.id)}
-                      onCheckedChange={() => toggleRow(sms.id)}
-                      aria-label={`选择短信 #${sms.id}`}
-                    />
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-sm">{sms.id}</TableCell>
-                  <TableCell>
-                    <Badge variant={variant} className="text-xs">{statusLabel}</Badge>
-                  </TableCell>
-                  <TableCell
-                    className="text-sm max-w-[400px] truncate cursor-pointer hover:text-primary"
-                    title={sms.content}
-                    onClick={() => navigate(generatePath.courtSmsDetail(sms.id))}
-                  >
-                    {sms.content}
-                  </TableCell>
-                  <TableCell className="text-sm truncate max-w-[160px]" title={sms.case_name ?? undefined}>
-                    {sms.case_name || (
-                      sms.status === 'pending_manual' ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 px-1.5 text-xs text-primary"
-                          onClick={(e) => { e.stopPropagation(); handleOpenAssign(sms.id, sms.content) }}
-                        >
-                          <LinkIcon className="size-3 mr-0.5" />手动关联
-                        </Button>
-                      ) : '-'
-                    )}
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {sms.has_documents ? <span className="text-green-600">有</span> : '-'}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-sm">
-                    {formatDate(sms.received_at)}
-                  </TableCell>
-                </TableRow>
-              )
-            })}
+            ) : filtered.map((sms) => (
+              <SmsRow
+                key={sms.id}
+                sms={sms}
+                isSelected={selectedIds.has(sms.id)}
+                onToggle={toggleRow}
+                onNavigate={handleNavigate}
+                onAssign={handleOpenAssign}
+              />
+            ))}
           </TableBody>
         </Table>
       </div>

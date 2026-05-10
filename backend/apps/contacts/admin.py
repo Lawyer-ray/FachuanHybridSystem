@@ -121,6 +121,7 @@ class CaseContactInline(BaseTabularInline):
 class CaseContactAdmin(BaseModelAdmin):
     form = CaseContactAdminForm
     list_display = ("id", "case", "name", "role", "phone", "stage", "authority")
+    list_select_related = ("case", "authority")
     list_filter = ("role", "stage")
     search_fields = ("name", "phone", "case__name")
     autocomplete_fields = ("case",)

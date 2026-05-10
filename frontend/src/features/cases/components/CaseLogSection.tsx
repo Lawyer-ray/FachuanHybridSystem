@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
-import { FileText, Paperclip, Bell, Clock, Plus, Trash2, Loader2 } from 'lucide-react'
+import { FileText, Paperclip, Bell, Clock, Plus, Trash2, Loader2, Download } from 'lucide-react'
 import { formatDate } from '@/lib/date'
+import { resolveMediaUrl } from '@/lib/api'
 import { toast } from 'sonner'
 
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
@@ -27,13 +28,6 @@ export interface CaseLogSectionProps {
   logs: CaseLog[]
   editable?: boolean
   caseId?: number
-}
-
-const MAX_CONTENT_LENGTH = 120
-
-function truncate(text: string, max: number): string {
-  if (text.length <= max) return text
-  return text.slice(0, max) + '…'
 }
 
 function EmptyState() {
@@ -207,17 +201,43 @@ export function CaseLogSection({ logs, editable, caseId }: CaseLogSectionProps) 
                 </div>
               </CardHeader>
               <CardContent className="pb-4 pt-2">
-                <p className="text-sm leading-relaxed">
-                  {truncate(log.content, MAX_CONTENT_LENGTH)}
-                </p>
-                {(attachCount > 0 || reminderCount > 0) && (
-                  <div className="mt-2 flex items-center gap-3">
-                    {attachCount > 0 && (
-                      <Badge variant="outline" className="gap-1 text-xs">
-                        <Paperclip className="size-3" />
-                        {attachCount} 附件
-                      </Badge>
-                    )}
+                <p className="text-sm leading-relaxed whitespace-pre-wrap">{log.content}</p>
+
+                {/* Attachments with download links */}
+                {attachCount > 0 && (
+                  <div className="mt-3 space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Paperclip className="size-3" />
+                      <span>{attachCount} 附件</span>
+                    </div>
+                    <div className="ml-4 space-y-1">
+                      {log.attachments?.map((att) => {
+                        const url = att.media_url || att.file_path
+                        return (
+                          <div key={att.id} className="flex items-center gap-2 text-xs">
+                            {url ? (
+                              <a
+                                href={resolveMediaUrl(url) ?? url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-primary hover:underline flex items-center gap-1"
+                              >
+                                <Download className="size-3" />
+                                附件 #{att.id}
+                              </a>
+                            ) : (
+                              <span className="text-muted-foreground">附件 #{att.id}</span>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Reminders */}
+                {reminderCount > 0 && (
+                  <div className="mt-2 flex items-center gap-2 flex-wrap">
                     {log.reminders?.map((r) => (
                       <Badge key={r.id} variant="outline" className="gap-1 text-xs">
                         <Bell className="size-3" />

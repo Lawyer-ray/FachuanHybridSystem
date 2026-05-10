@@ -66,12 +66,12 @@ const TABS = [
 ]
 
 const tabVariants = {
-  initial: { opacity: 0, y: 8 },
+  initial: { opacity: 0, y: 4 },
   animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -6 },
+  exit: { opacity: 0, y: -3 },
 }
 
-const tabTransition = { duration: 0.2, ease: 'easeInOut' as const }
+const tabTransition = { duration: 0.15, ease: 'easeOut' as const }
 
 /* ── Main component ── */
 

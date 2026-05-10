@@ -20,6 +20,8 @@ class CaseChatAdmin(CaseAdminServiceMixin, admin.ModelAdmin[CaseChat]):
     """案件群聊管理"""
 
     list_display = ("name", "chat_id_display", "platform_display", "case_link", "status_display", "created_at")
+    list_select_related = ("case",)
+    list_per_page = 50
 
     list_filter = ("platform", "is_active", "created_at")
 
@@ -49,7 +51,13 @@ class CaseChatAdmin(CaseAdminServiceMixin, admin.ModelAdmin[CaseChat]):
     def platform_display(self, obj: CaseChat) -> str:
         """显示平台（带图标）"""
         platform_icons = {"feishu": "🚀", "dingtalk": "📱", "wechat_work": "💬", "telegram": "✈️", "slack": "💼"}
-        platform_labels = {"feishu": "飞书", "dingtalk": "钉钉", "wechat_work": "企业微信", "telegram": "Telegram", "slack": "Slack"}
+        platform_labels = {
+            "feishu": "飞书",
+            "dingtalk": "钉钉",
+            "wechat_work": "企业微信",
+            "telegram": "Telegram",
+            "slack": "Slack",
+        }
         icon = platform_icons.get(obj.platform, "📢")
         display = platform_labels.get(obj.platform, obj.platform)
         return f"{icon} {display}"

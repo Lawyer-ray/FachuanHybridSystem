@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Search, Plus, FileText } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -7,6 +8,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { useExpressTasks } from '../hooks/use-express-tasks'
+import type { ExpressQueryTask } from '../api'
 import { formatDate } from '@/lib/date'
 import { resolveMediaUrl } from '@/lib/api'
 
@@ -31,6 +33,41 @@ const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'dest
   pending: 'outline',
   failed: 'destructive',
 }
+
+const TaskRow = memo(function TaskRow({ task }: { task: ExpressQueryTask }) {
+  return (
+    <TableRow>
+      <TableCell className="text-muted-foreground text-sm">{task.id}</TableCell>
+      <TableCell className="text-sm">{task.title || '-'}</TableCell>
+      <TableCell className="text-sm">{CARRIER_LABELS[task.carrier_type] ?? task.carrier_type}</TableCell>
+      <TableCell>
+        <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{task.tracking_number || '-'}</code>
+      </TableCell>
+      <TableCell>
+        <Badge variant={STATUS_VARIANT[task.status] ?? 'outline'} className="text-xs">
+          {STATUS_LABELS[task.status] ?? task.status}
+        </Badge>
+      </TableCell>
+      <TableCell>
+        {task.result_pdf ? (
+          <a
+            href={resolveMediaUrl(task.result_pdf) ?? task.result_pdf}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-primary hover:underline text-sm"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <FileText className="size-4" />
+            PDF
+          </a>
+        ) : (
+          <span className="text-muted-foreground text-sm">-</span>
+        )}
+      </TableCell>
+      <TableCell className="text-muted-foreground text-sm">{formatDate(task.created_at)}</TableCell>
+    </TableRow>
+  )
+})
 
 export function CourierTrackingTool() {
   const { data: tasks, isLoading } = useExpressTasks()
@@ -84,38 +121,7 @@ export function CourierTrackingTool() {
                 </TableCell>
               </TableRow>
             ) : (
-              (tasks ?? []).map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell className="text-muted-foreground text-sm">{item.id}</TableCell>
-                  <TableCell className="text-sm">{item.title || '-'}</TableCell>
-                  <TableCell className="text-sm">{CARRIER_LABELS[item.carrier_type] ?? item.carrier_type}</TableCell>
-                  <TableCell>
-                    <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{item.tracking_number || '-'}</code>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={STATUS_VARIANT[item.status] ?? 'outline'} className="text-xs">
-                      {STATUS_LABELS[item.status] ?? item.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {item.result_pdf ? (
-                      <a
-                        href={resolveMediaUrl(item.result_pdf) ?? item.result_pdf}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-primary hover:underline text-sm"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <FileText className="size-4" />
-                        PDF
-                      </a>
-                    ) : (
-                      <span className="text-muted-foreground text-sm">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-sm">{formatDate(item.created_at)}</TableCell>
-                </TableRow>
-              ))
+              (tasks ?? []).map((item) => <TaskRow key={item.id} task={item} />)
             )}
           </TableBody>
         </Table>

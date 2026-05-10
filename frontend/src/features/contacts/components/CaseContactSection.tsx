@@ -1,18 +1,19 @@
 /**
- * CaseContactSection - 案件工作人员联系方式区块
+ * CaseContactSection - 案件工作人员联系方式区块（表格布局）
  */
 
 import { useState } from 'react'
-import { Users, Plus, Trash2, Loader2, Phone, MapPin, StickyNote } from 'lucide-react'
+import { Users, Plus, Trash2, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
-
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger,
 } from '@/components/ui/dialog'
@@ -25,6 +26,8 @@ import {
 import { useContactMutations } from '../hooks/use-contact-mutations'
 import { CONTACT_ROLE_LABELS } from '../types'
 import type { CaseContact, ContactRole } from '../types'
+import { CASE_STAGE_LABELS } from '@/features/cases/types'
+import type { CaseStage } from '@/features/cases/types'
 
 export interface CaseContactSectionProps {
   contacts: CaseContact[]
@@ -131,6 +134,17 @@ export function CaseContactSection({ contacts, editable, caseId }: CaseContactSe
                   </Select>
                 </div>
                 <div>
+                  <label className="text-xs text-muted-foreground mb-1 block">阶段</label>
+                  <Select value={form.stage} onValueChange={(v) => setForm((f) => ({ ...f, stage: v }))}>
+                    <SelectTrigger><SelectValue placeholder="选择阶段（可选）" /></SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(CASE_STAGE_LABELS).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>{label.zh}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
                   <label className="text-xs text-muted-foreground mb-1 block">电话</label>
                   <Input
                     value={form.phone}
@@ -170,78 +184,64 @@ export function CaseContactSection({ contacts, editable, caseId }: CaseContactSe
       {contacts.length === 0 ? (
         <EmptyState />
       ) : (
-        <div className="space-y-2">
-          {contacts.map((contact) => (
-            <div
-              key={contact.id}
-              className="flex items-start gap-3 rounded-lg border border-border/60 p-3 bg-card"
-            >
-              <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-full">
-                <Users className="text-muted-foreground size-4" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-medium">{contact.name}</span>
-                  <Badge variant="secondary" className="text-[11px]">
-                    {contact.role_display || contact.role}
-                  </Badge>
-                  {contact.stage_display && (
-                    <Badge variant="outline" className="text-[11px]">
-                      {contact.stage_display}
-                    </Badge>
-                  )}
-                </div>
-                <div className="mt-1.5 space-y-0.5">
-                  {contact.phone && (
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <Phone className="size-3" />
-                      <span>{contact.phone}</span>
-                    </div>
-                  )}
-                  {contact.address && (
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <MapPin className="size-3" />
-                      <span>{contact.address}</span>
-                    </div>
-                  )}
-                  {contact.authority_name && (
-                    <div className="text-xs text-muted-foreground">
-                      {contact.authority_name}
-                    </div>
-                  )}
-                  {contact.note && (
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <StickyNote className="size-3" />
-                      <span>{contact.note}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-              {editable && caseId && (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button size="icon" variant="ghost" className="size-8 shrink-0">
-                      <Trash2 className="size-3.5 text-destructive" />
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>确认删除</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        确定要删除工作人员「{contact.name}」吗？此操作不可撤销。
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>取消</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => handleDelete(contact.id)}>
-                        删除
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              )}
-            </div>
-          ))}
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>姓名</TableHead>
+                <TableHead>角色</TableHead>
+                <TableHead>电话</TableHead>
+                <TableHead>收件地址</TableHead>
+                <TableHead>阶段</TableHead>
+                <TableHead>主管机关</TableHead>
+                <TableHead>备注</TableHead>
+                {editable && caseId && <TableHead className="w-[60px]">操作</TableHead>}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {contacts.map((contact) => {
+                const stageLabel = contact.stage
+                  ? (CASE_STAGE_LABELS[contact.stage as CaseStage]?.zh ?? contact.stage)
+                  : '-'
+                return (
+                  <TableRow key={contact.id}>
+                    <TableCell className="font-medium">{contact.name}</TableCell>
+                    <TableCell>{contact.role_display || contact.role}</TableCell>
+                    <TableCell className="text-muted-foreground">{contact.phone || '-'}</TableCell>
+                    <TableCell className="text-muted-foreground max-w-[200px] truncate">{contact.address || '-'}</TableCell>
+                    <TableCell className="text-muted-foreground">{stageLabel}</TableCell>
+                    <TableCell className="text-muted-foreground">{contact.authority_name || '-'}</TableCell>
+                    <TableCell className="text-muted-foreground max-w-[150px] truncate">{contact.note || '-'}</TableCell>
+                    {editable && caseId && (
+                      <TableCell>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button size="icon" variant="ghost" className="size-7">
+                              <Trash2 className="size-3.5 text-destructive" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>确认删除</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                确定要删除工作人员「{contact.name}」吗？此操作不可撤销。
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>取消</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDelete(contact.id)}>
+                                删除
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
         </div>
       )}
     </div>

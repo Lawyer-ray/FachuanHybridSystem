@@ -14,6 +14,7 @@ import {
   useContext,
   useState,
   useCallback,
+  useMemo,
   useEffect,
   type ReactNode,
 } from 'react'
@@ -52,10 +53,10 @@ interface BreadcrumbProviderProps {
 export function BreadcrumbProvider({ children }: BreadcrumbProviderProps) {
   const [customItems, setCustomItems] = useState<BreadcrumbItem[] | null>(null)
 
-  const value: BreadcrumbContextValue = {
-    customItems,
-    setCustomItems,
-  }
+  const value = useMemo<BreadcrumbContextValue>(
+    () => ({ customItems, setCustomItems }),
+    [customItems, setCustomItems],
+  )
 
   return (
     <BreadcrumbContext.Provider value={value}>

@@ -402,10 +402,11 @@ class CaseAdminViewsMixin:
 
         if CaseFolderBinding.objects.filter(case_id=case_id).exists():
             return True
-        case_contract_id = Case.objects.filter(pk=case_id).values_list("contract_id", flat=True).first()
-        if case_contract_id:
-            return ContractFolderBinding.objects.filter(contract_id=case_contract_id).exists()
-        return False
+        return (
+            Case.objects.filter(pk=case_id, contract__isnull=False)
+            .filter(contract__folder_binding__isnull=False)
+            .exists()
+        )
 
     @staticmethod
     def _log_post_response(response: HttpResponse, logger: logging.Logger) -> None:

@@ -18,8 +18,9 @@ class WeChatAccountAdmin(admin.ModelAdmin):
 @admin.register(PublishTask)
 class PublishTaskAdmin(admin.ModelAdmin):
     list_display = ["title", "account", "status", "save_as_draft", "created_at", "finished_at"]
+    list_select_related = ("account",)
     list_filter = ["status", "save_as_draft", "account"]
-    search_fields = ["title", "content_md"]
+    search_fields = ["title"]
     readonly_fields = [
         "queue_task_id",
         "result_data",

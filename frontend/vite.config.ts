@@ -66,8 +66,6 @@ export default defineConfig({
           'vendor-markdown': ['react-markdown', 'rehype-highlight', 'remark-gfm', 'highlight.js'],
           // 拖拽排序（仅合同归档使用）
           'vendor-dnd': ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
-          // 粒子动画（仅登录页使用）
-          'vendor-particles': ['@tsparticles/react', '@tsparticles/slim'],
         },
       },
     },

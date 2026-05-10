@@ -2,6 +2,10 @@ import { casesCrudApi } from './cases'
 import { partiesApi } from './parties'
 import { logsApi } from './logs'
 import { materialsApi } from './materials'
+import { courtFilingApi } from './court-filing'
+import { courtGuaranteeApi } from './court-guarantee'
+import { authorizationApi } from './authorization'
+import { preservationApi } from './preservation'
 
 export const caseApi = {
   ...casesCrudApi,
@@ -54,6 +58,29 @@ export const caseApi = {
   startFolderScan: materialsApi.startFolderScan,
   getScanStatus: materialsApi.getScanStatus,
   stageScanResults: materialsApi.stageScanResults,
+  // Court Filing
+  getCourtFilingInfo: courtFilingApi.getCaseInfo,
+  executeCourtFiling: courtFilingApi.execute,
+  getCourtFilingSession: courtFilingApi.getSession,
+  // Court Guarantee
+  getCourtGuaranteeInfo: courtGuaranteeApi.getCaseInfo,
+  ensureGuaranteeQuote: courtGuaranteeApi.ensureQuote,
+  bindGuaranteeQuote: courtGuaranteeApi.bindQuote,
+  retryGuaranteeQuote: courtGuaranteeApi.retryQuote,
+  deleteGuaranteeQuote: courtGuaranteeApi.deleteQuote,
+  deleteGuaranteeQuoteBinding: courtGuaranteeApi.deleteQuoteBinding,
+  executeCourtGuarantee: courtGuaranteeApi.execute,
+  getCourtGuaranteeSession: courtGuaranteeApi.getSession,
+  // Authorization Materials
+  downloadAuthorizationPackage: authorizationApi.downloadPackage,
+  downloadAuthorizationLetter: authorizationApi.downloadLetter,
+  downloadLegalRepCertificate: authorizationApi.downloadLegalRepCertificate,
+  downloadPowerOfAttorney: authorizationApi.downloadPowerOfAttorney,
+  downloadCombinedPOA: authorizationApi.downloadCombinedPOA,
+  // Preservation Materials
+  downloadPreservationApplication: preservationApi.downloadApplication,
+  downloadPreservationDelayDelivery: preservationApi.downloadDelayDelivery,
+  downloadPreservationPackage: preservationApi.downloadPackage,
 }
 
 export default caseApi

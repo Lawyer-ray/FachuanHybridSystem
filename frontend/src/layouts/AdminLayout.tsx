@@ -1,6 +1,5 @@
-import { useEffect, useState, useCallback, useRef, lazy, Suspense } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef, lazy, Suspense } from 'react'
 import { Outlet, useLocation } from 'react-router'
-import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/ui'
 import { Sidebar } from './components/Sidebar'
 import { Navbar } from './components/Navbar'
@@ -16,6 +15,7 @@ const CommandPalette = lazy(() =>
 )
 
 const MOBILE_BREAKPOINT = 768
+const CURRENT_YEAR = new Date().getFullYear()
 
 /** 不可独立访问的路径段（仅作为路由前缀，无对应 index 页面） */
 const NO_LINK_SEGMENTS = new Set(['config'])
@@ -92,7 +92,10 @@ function AdminLayoutContent() {
   const handleMobileMenuClick = useCallback(() => setMobileMenuOpen(true), [])
   const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), [])
 
-  const breadcrumbItems = customItems ?? generateBreadcrumbItems(location.pathname)
+  const breadcrumbItems = useMemo(
+    () => customItems ?? generateBreadcrumbItems(location.pathname),
+    [customItems, location.pathname],
+  )
   const mainMarginLeft = isMobile ? 0 : sidebarCollapsed ? 56 : 220
   const isWorkbench = location.pathname.startsWith(PATHS.ADMIN_WORKBENCH)
 
@@ -124,27 +127,21 @@ function AdminLayoutContent() {
         <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
       )}
 
-      {/* 移动端遮罩 */}
-      <div
-        role="presentation"
-        className={cn(
-          'fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity duration-200',
-          isMobile && mobileMenuOpen ? 'opacity-100' : 'pointer-events-none opacity-0',
-        )}
-        onClick={closeMobileMenu}
-        onKeyDown={(e) => { if (e.key === 'Escape') closeMobileMenu() }}
-        tabIndex={-1}
-      />
-
-      {/* 移动端 Sidebar 抽屉 */}
-      <div
-        className={cn(
-          'fixed left-0 top-0 z-50 h-full w-[260px] transition-transform duration-300 ease-out',
-          isMobile && mobileMenuOpen ? 'translate-x-0' : '-translate-x-full',
-        )}
-      >
-        <Sidebar collapsed={false} onToggle={closeMobileMenu} />
-      </div>
+      {/* 移动端遮罩 + Sidebar 抽屉 */}
+      {isMobile && mobileMenuOpen && (
+        <>
+          <div
+            role="presentation"
+            className="fixed inset-0 z-40 bg-black/50 transition-opacity duration-200"
+            onClick={closeMobileMenu}
+            onKeyDown={(e) => { if (e.key === 'Escape') closeMobileMenu() }}
+            tabIndex={-1}
+          />
+          <div className="fixed left-0 top-0 z-50 h-full w-[260px]">
+            <Sidebar collapsed={false} onToggle={closeMobileMenu} />
+          </div>
+        </>
+      )}
 
       {/* 主内容区域 */}
       <div
@@ -163,7 +160,7 @@ function AdminLayoutContent() {
         {showFooter && (
           <footer className="border-border border-t px-6 py-3">
             <p className="text-muted-foreground text-center text-xs">
-              © {new Date().getFullYear()} 法穿AI Copilot
+              © {CURRENT_YEAR} 法穿AI Copilot
             </p>
           </footer>
         )}

@@ -42,6 +42,7 @@ class LPRRateAdmin(BaseModelAdmin):
         "source",
         "updated_at",
     )
+    list_per_page = 50
     list_filter = (
         "effective_date",
         "is_auto_synced",

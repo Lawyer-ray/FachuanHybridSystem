@@ -92,7 +92,10 @@ export function CommandPalette() {
       }
     }
     document.addEventListener('keydown', down)
-    return () => document.removeEventListener('keydown', down)
+    return () => {
+      document.removeEventListener('keydown', down)
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
   }, [])
 
   useEffect(() => {

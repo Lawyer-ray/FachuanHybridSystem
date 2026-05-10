@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { memo, useCallback, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, MapPin, User, Clock, Pencil, Trash2 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
@@ -10,6 +10,8 @@ import type { Reminder, ReminderType } from '@/features/reminders/types'
 import { ReminderFormDialog } from '@/features/reminders/components/ReminderFormDialog'
 import { useReminderMutations } from '@/features/reminders/hooks/use-reminder-mutations'
 import { formatDate } from '@/lib/date'
+
+const DAY_HEADERS = ['日', '一', '二', '三', '四', '五', '六']
 
 const TYPE_COLORS: Record<ReminderType, string> = {
   hearing: 'bg-red-100 text-red-700 border-red-200',
@@ -129,7 +131,7 @@ function EventDetailDialog({
   )
 }
 
-export function CalendarCard() {
+export const CalendarCard = memo(function CalendarCard() {
   const queryClient = useQueryClient()
   const { deleteMutation } = useReminderMutations()
   const [viewYear, setViewYear] = useState(() => new Date().getFullYear())
@@ -140,7 +142,7 @@ export function CalendarCard() {
   const [formReminder, setFormReminder] = useState<Reminder | undefined>(undefined)
   const [formDate, setFormDate] = useState<Date | undefined>(undefined)
   const [deleteConfirm, setDeleteConfirm] = useState<CalendarEvent | null>(null)
-  const today = new Date()
+  const [today] = useState(() => new Date())
 
   const { data: reminders } = useQuery({ queryKey: ['dashboard-reminders'], queryFn: () => reminderApi.list(), staleTime: 60_000 })
   const eventsByDate = useMemo(() => mergeReminders(reminders ?? []), [reminders])
@@ -161,21 +163,21 @@ export function CalendarCard() {
     return rows
   }, [viewYear, viewMonth])
 
-  const prevMonth = () => { if (viewMonth === 0) { setViewMonth(11); setViewYear(viewYear - 1) } else setViewMonth(viewMonth - 1) }
-  const nextMonth = () => { if (viewMonth === 11) { setViewMonth(0); setViewYear(viewYear + 1) } else setViewMonth(viewMonth + 1) }
-  const goToday = () => { setViewYear(today.getFullYear()); setViewMonth(today.getMonth()) }
+  const prevMonth = useCallback(() => { if (viewMonth === 0) { setViewMonth(11); setViewYear(viewYear - 1) } else setViewMonth(viewMonth - 1) }, [viewMonth, viewYear])
+  const nextMonth = useCallback(() => { if (viewMonth === 11) { setViewMonth(0); setViewYear(viewYear + 1) } else setViewMonth(viewMonth + 1) }, [viewMonth, viewYear])
+  const goToday = useCallback(() => { const now = new Date(); setViewYear(now.getFullYear()); setViewMonth(now.getMonth()) }, [])
 
   const isToday = (d: number) => d === today.getDate() && viewMonth === today.getMonth() && viewYear === today.getFullYear()
   const dateKey = (d: number) => `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
 
-  const handleCreateForDate = (d: number) => {
+  const handleCreateForDate = useCallback((d: number) => {
     setFormMode('create')
     setFormReminder(undefined)
     setFormDate(new Date(viewYear, viewMonth, d, 9, 0))
     setFormOpen(true)
-  }
+  }, [viewYear, viewMonth])
 
-  const handleEditEvent = (event: CalendarEvent) => {
+  const handleEditEvent = useCallback((event: CalendarEvent) => {
     const original = reminders?.find(r => r.id === event.id)
     if (!original) return
     setSelectedEvent(null)
@@ -183,12 +185,12 @@ export function CalendarCard() {
     setFormReminder(original)
     setFormDate(undefined)
     setFormOpen(true)
-  }
+  }, [reminders])
 
-  const handleDeleteEvent = (event: CalendarEvent) => {
+  const handleDeleteEvent = useCallback((event: CalendarEvent) => {
     setSelectedEvent(null)
     setDeleteConfirm(event)
-  }
+  }, [])
 
   const confirmDelete = () => {
     if (!deleteConfirm) return
@@ -203,8 +205,6 @@ export function CalendarCard() {
   const handleFormSuccess = () => {
     queryClient.invalidateQueries({ queryKey: ['dashboard-reminders'] })
   }
-
-  const dayHeaders = ['日', '一', '二', '三', '四', '五', '六']
 
   return (
     <>
@@ -230,7 +230,7 @@ export function CalendarCard() {
         </div>
 
         <div className="grid grid-cols-7">
-          {dayHeaders.map((label, i) => (
+          {DAY_HEADERS.map((label, i) => (
             <div
               key={label}
               className={`text-center text-xs font-semibold py-2.5 border-b border-r border-border/80 ${i === 0 || i === 6 ? 'text-muted-foreground/50 bg-muted/20' : 'text-foreground/70 bg-muted/30'}`}
@@ -373,4 +373,4 @@ export function CalendarCard() {
       </Dialog>
     </>
   )
-}
+})

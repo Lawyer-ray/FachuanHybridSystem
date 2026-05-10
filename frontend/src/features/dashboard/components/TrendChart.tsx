@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import {
   AreaChart,
   Area,
@@ -21,15 +21,17 @@ const TAB_CONFIG: { key: TrendKey; label: string }[] = [
   { key: 'fee', label: '收入' },
 ]
 
-export function TrendChart({ data, isLoading }: { data?: DashboardStats; isLoading: boolean }) {
+export const TrendChart = memo(function TrendChart({ data, isLoading }: { data?: DashboardStats; isLoading: boolean }) {
   const [activeTab, setActiveTab] = useState<TrendKey>('case')
 
-  const trendData =
-    activeTab === 'case'
+  const trendData = useMemo(
+    () => activeTab === 'case'
       ? data?.case_trend ?? []
       : activeTab === 'contract'
         ? data?.contract_trend ?? []
-        : data?.fee_trend ?? []
+        : data?.fee_trend ?? [],
+    [activeTab, data?.case_trend, data?.contract_trend, data?.fee_trend],
+  )
 
   const dataKey = activeTab === 'fee' ? 'amount' : 'count'
   const yLabel = activeTab === 'fee' ? '金额' : '数量'
@@ -107,4 +109,4 @@ export function TrendChart({ data, isLoading }: { data?: DashboardStats; isLoadi
       </CardContent>
     </Card>
   )
-}
+})

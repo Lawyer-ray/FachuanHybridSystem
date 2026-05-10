@@ -1,3 +1,4 @@
+import { memo, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router'
 import { Users, FileText, Briefcase, TrendingUp, TrendingDown } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
@@ -15,10 +16,10 @@ interface StatCard {
   trendUp?: boolean
 }
 
-export function StatsCards({ data, isLoading }: { data?: DashboardStats; isLoading: boolean }) {
+export const StatsCards = memo(function StatsCards({ data, isLoading }: { data?: DashboardStats; isLoading: boolean }) {
   const navigate = useNavigate()
 
-  const stats: StatCard[] = [
+  const stats: StatCard[] = useMemo(() => [
     {
       label: '当事人总数',
       value: isLoading ? '-' : String(data?.client_count ?? 0),
@@ -43,7 +44,9 @@ export function StatsCards({ data, isLoading }: { data?: DashboardStats; isLoadi
       icon: <TrendingUp className="w-5 h-5" />,
       path: PATHS.ADMIN_CONTRACTS,
     },
-  ]
+  ], [data, isLoading])
+
+  const handleCardClick = useCallback((path: string) => navigate(path), [navigate])
 
   return (
     <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
@@ -51,7 +54,7 @@ export function StatsCards({ data, isLoading }: { data?: DashboardStats; isLoadi
         <Card
           key={stat.label}
           className="cursor-pointer hover:shadow-md transition-shadow py-2"
-          onClick={() => navigate(stat.path)}
+          onClick={() => handleCardClick(stat.path)}
         >
           <CardContent className="py-1.5 px-4">
             <div className="flex items-center justify-between mb-0">
@@ -84,4 +87,4 @@ export function StatsCards({ data, isLoading }: { data?: DashboardStats; isLoadi
       ))}
     </div>
   )
-}
+})

@@ -56,7 +56,7 @@ export function Navbar({ onMenuClick }: NavbarProps) {
   }
 
   return (
-    <header className="sticky top-0 z-30 flex items-center h-12 px-4 bg-background/85 backdrop-blur-xl border-b border-border">
+    <header className="sticky top-0 z-30 flex items-center h-12 px-4 bg-background/95 border-b border-border">
       {/* 左侧：移动端汉堡菜单 */}
       <Button
         variant="ghost"

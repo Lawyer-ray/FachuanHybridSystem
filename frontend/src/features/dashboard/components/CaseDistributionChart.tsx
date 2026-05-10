@@ -1,3 +1,4 @@
+import { memo, useMemo } from 'react'
 import { PieChart, Pie, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -12,18 +13,21 @@ const COLORS = [
   'hsl(280 65% 60%)',
 ]
 
-export function CaseDistributionChart({
+export const CaseDistributionChart = memo(function CaseDistributionChart({
   data,
   isLoading,
 }: {
   data?: DashboardStats
   isLoading: boolean
 }) {
-  const distData = (data?.case_type_distribution ?? []).map((item, i) => ({
-    ...item,
-    fill: COLORS[i % COLORS.length],
-  }))
-  const total = distData.reduce((s, d) => s + d.count, 0)
+  const distData = useMemo(
+    () => (data?.case_type_distribution ?? []).map((item, i) => ({
+      ...item,
+      fill: COLORS[i % COLORS.length],
+    })),
+    [data?.case_type_distribution],
+  )
+  const total = useMemo(() => distData.reduce((s, d) => s + d.count, 0), [distData])
 
   return (
     <Card>
@@ -103,4 +107,4 @@ export function CaseDistributionChart({
       </CardContent>
     </Card>
   )
-}
+})
