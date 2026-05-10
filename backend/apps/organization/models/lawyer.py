@@ -5,7 +5,7 @@ from django.core.validators import FileExtensionValidator
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-from apps.core.filesystem.upload_paths import DatedUUIDPath
+from apps.core.filesystem.upload_paths import DatedOriginalPath, DatedUUIDPath
 
 from .law_firm import LawFirm
 from .storage import KeepOriginalNameStorage
@@ -13,6 +13,7 @@ from .team import Team, TeamType
 
 
 def lawyer_license_upload_path(instance: object, filename: str) -> str:
+    """Deprecated: 保留用于旧 migration 兼容，新代码请使用 DatedOriginalPath。"""
     return f"lawyers/licenses/{filename}"
 
 
@@ -55,7 +56,7 @@ class Lawyer(AbstractUser):
     )
     is_admin = models.BooleanField(default=False, verbose_name=_("是否律所管理员"))
     license_pdf = models.FileField(
-        upload_to=lawyer_license_upload_path,
+        upload_to=DatedOriginalPath("lawyers/licenses"),
         storage=KeepOriginalNameStorage(),
         null=True,
         blank=True,

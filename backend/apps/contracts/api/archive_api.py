@@ -331,6 +331,13 @@ def upload_archive_item(request: HttpRequest, contract_id: int) -> Any:
     if not uploaded_file:
         return HttpResponse(status=400)
 
+    from apps.core.services.file_upload_service import FileUploadService
+
+    try:
+        FileUploadService().validate_file(uploaded_file)  # type: ignore[arg-type]
+    except Exception as exc:
+        return HttpResponse(str(exc), status=400)
+
     from apps.contracts.services.archive.wiring import build_archive_checklist_service
 
     checklist_service = build_archive_checklist_service()

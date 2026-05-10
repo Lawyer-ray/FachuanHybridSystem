@@ -7,10 +7,13 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django_lifecycle import BEFORE_UPDATE, LifecycleModel, hook
 
+from apps.core.filesystem.upload_paths import EntityIdPath
+
 from .choices import ScreenshotSource
 
 
 def _screenshot_upload_to(instance: Any, filename: str) -> str:
+    """Deprecated: 保留用于旧 migration 兼容，新代码请使用 EntityIdPath。"""
     return f"chat_records/screenshots/{instance.project_id}/{instance.id}/{filename}"
 
 
@@ -22,7 +25,7 @@ class ChatRecordScreenshot(LifecycleModel):
         related_name="screenshots",
         verbose_name=_("项目"),
     )
-    image = models.ImageField(upload_to=_screenshot_upload_to, verbose_name=_("截图"))
+    image = models.ImageField(upload_to=EntityIdPath("chat_records/screenshots"), verbose_name=_("截图"))
     ordering = models.PositiveIntegerField(default=0, verbose_name=_("顺序"))
     title = models.CharField(max_length=255, blank=True, verbose_name=_("标题"))
     note = models.TextField(blank=True, verbose_name=_("备注"))

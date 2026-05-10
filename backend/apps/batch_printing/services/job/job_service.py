@@ -28,6 +28,7 @@ from apps.core.services.storage_service import normalize_to_media_rel, sanitize_
 logger = logging.getLogger("apps.batch_printing")
 
 _ALLOWED_SUFFIX = {".pdf", ".docx"}
+_MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
 
 
 class BatchPrintJobService:
@@ -85,6 +86,11 @@ class BatchPrintJobService:
                     raise ValidationException(
                         message="仅支持 PDF 与 DOCX",
                         errors={"file": f"{original_name} 扩展名不受支持"},
+                    )
+                if upload.size and upload.size > _MAX_FILE_SIZE:
+                    raise ValidationException(
+                        message=f"文件大小超过限制（最大 {_MAX_FILE_SIZE // (1024 * 1024)}MB）",
+                        errors={"file": f"{original_name} 文件过大"},
                     )
 
                 source_path = storage.source_file_path(order=index, filename=original_name)
@@ -225,10 +231,7 @@ class BatchPrintJobService:
 
     def build_job_payload(self, *, job: BatchPrintJob) -> dict[str, Any]:
         payload = self.build_job_summary_payload(job=job)
-        payload["items"] = [
-            self.build_job_item_payload(item=item)
-            for item in job.items.order_by("order", "id")
-        ]
+        payload["items"] = [self.build_job_item_payload(item=item) for item in job.items.order_by("order", "id")]
         return payload
 
     @transaction.atomic
@@ -265,7 +268,9 @@ class BatchPrintJobService:
 
             try:
                 if not item.target_preset:
-                    raise ValidationException(message="未命中关键词规则", errors={"filename": item.source_original_name})
+                    raise ValidationException(
+                        message="未命中关键词规则", errors={"filename": item.source_original_name}
+                    )
 
                 prepared_path = self._file_prepare_service.prepare_for_print(item=item, storage=storage)
                 cups_job_id = self._print_executor_service.print_pdf(

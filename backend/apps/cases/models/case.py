@@ -8,6 +8,8 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 from simple_history.models import HistoricalRecords
 
+from apps.core.filesystem.upload_paths import DatedUUIDPath
+
 from apps.core.models.enums import AuthorityType, CaseStage, CaseStatus, SimpleCaseType
 
 if TYPE_CHECKING:
@@ -147,7 +149,7 @@ class CaseNumber(models.Model):
         help_text=_("如：民事判决书、民事调解书、执行证书等"),
     )
     document_file = models.FileField(
-        upload_to="case_documents/%Y/%m/",
+        upload_to=DatedUUIDPath("case_documents"),
         blank=True,
         null=True,
         verbose_name=_("裁判文书文件"),

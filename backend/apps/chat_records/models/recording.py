@@ -7,10 +7,13 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django_lifecycle import BEFORE_UPDATE, LifecycleModel, hook
 
+from apps.core.filesystem.upload_paths import EntityIdPath
+
 from .choices import ExtractStatus, ExtractStrategy
 
 
 def _recording_upload_to(instance: Any, filename: str) -> str:
+    """Deprecated: 保留用于旧 migration 兼容，新代码请使用 EntityIdPath。"""
     return f"chat_records/recordings/{instance.project_id}/{instance.id}/{filename}"
 
 
@@ -22,7 +25,7 @@ class ChatRecordRecording(LifecycleModel):
         related_name="recordings",
         verbose_name=_("项目"),
     )
-    video = models.FileField(upload_to=_recording_upload_to, verbose_name=_("录屏文件"))
+    video = models.FileField(upload_to=EntityIdPath("chat_records/recordings"), verbose_name=_("录屏文件"))
     original_name = models.CharField(max_length=255, blank=True, verbose_name=_("原始文件名"))
     size_bytes = models.BigIntegerField(default=0, verbose_name=_("文件大小(字节)"))
     duration_seconds = models.FloatField(null=True, blank=True, verbose_name=_("时长(秒)"))

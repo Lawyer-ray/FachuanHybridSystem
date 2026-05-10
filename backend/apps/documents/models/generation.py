@@ -12,6 +12,8 @@ from typing import Any, ClassVar
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
+from apps.core.filesystem.upload_paths import DatedUUIDPath
+
 logger = logging.getLogger("apps.documents")
 
 
@@ -84,7 +86,7 @@ class GenerationTask(models.Model):
         max_length=20, choices=GenerationStatus.choices, default=GenerationStatus.PENDING, verbose_name=_("生成状态")
     )
     result_file = models.FileField(
-        upload_to="generated_documents/%Y/%m/", null=True, blank=True, verbose_name=_("生成文件")
+        upload_to=DatedUUIDPath("generated_documents"), null=True, blank=True, verbose_name=_("生成文件")
     )
     error_message = models.TextField(blank=True, verbose_name=_("错误信息"))
     metadata: Any = models.JSONField(

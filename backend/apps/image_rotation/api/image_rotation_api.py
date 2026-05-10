@@ -18,6 +18,28 @@ logger = logging.getLogger("apps.image_rotation")
 
 router = Router(tags=["图片旋转"])
 
+_ALLOWED_IMAGE_TYPES = frozenset({"image/jpeg", "image/png", "image/webp", "image/tiff"})
+_MAX_UPLOAD_SIZE = 20 * 1024 * 1024  # 20MB
+
+
+def _validate_image_file(file_obj: UploadedFile) -> None:
+    """验证上传的图片文件类型和大小。"""
+    content_type = getattr(file_obj, "content_type", "") or ""
+    if content_type not in _ALLOWED_IMAGE_TYPES:
+        from apps.core.exceptions import ValidationException
+
+        raise ValidationException(
+            f"不支持的图片类型：{content_type}",
+            code="INVALID_FILE_TYPE",
+        )
+    if file_obj.size and file_obj.size > _MAX_UPLOAD_SIZE:
+        from apps.core.exceptions import ValidationException
+
+        raise ValidationException(
+            f"文件大小超过限制（最大 {_MAX_UPLOAD_SIZE // (1024 * 1024)}MB）",
+            code="FILE_TOO_LARGE",
+        )
+
 
 def _body(request: HttpRequest) -> dict[str, Any]:
     return cast(dict[str, Any], json.loads(request.body or b"{}"))
@@ -167,6 +189,7 @@ def _handle_multipart_export_pdf(request: HttpRequest) -> dict[str, Any]:
             if key.startswith("page_"):
                 idx = key.split("_")[1]
                 file_obj: UploadedFile = request.FILES[key]  # type: ignore[assignment]
+                _validate_image_file(file_obj)
                 filename = request.POST.get(f"filename_{idx}", file_obj.name)
 
                 image_data = base64.b64encode(file_obj.read()).decode("utf-8")
@@ -220,6 +243,7 @@ def _handle_multipart_export(request: HttpRequest) -> dict[str, Any]:
             if key.startswith("image_"):
                 idx = key.split("_")[1]
                 file_obj: UploadedFile = request.FILES[key]  # type: ignore[assignment]
+                _validate_image_file(file_obj)
                 filename = request.POST.get(f"filename_{idx}", file_obj.name)
                 format_type = request.POST.get(f"format_{idx}", "jpeg")
 

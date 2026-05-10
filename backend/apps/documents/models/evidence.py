@@ -13,6 +13,8 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
+from apps.core.filesystem.upload_paths import DatedUUIDPath
+
 from .choices import DocumentCaseFileSubType, DocumentTemplateType
 from .evidence_storage import evidence_file_storage
 
@@ -127,7 +129,7 @@ class EvidenceList(models.Model):
         editable=False,
     )
     merged_pdf = models.FileField(
-        upload_to="evidence/merged/%Y/%m/",
+        upload_to=DatedUUIDPath("evidence/merged"),
         storage=evidence_file_storage,
         blank=True,
         null=True,
@@ -301,7 +303,7 @@ class EvidenceItem(models.Model):
         verbose_name=_("证明内容"),
     )
     file = models.FileField(
-        upload_to="evidence/files/%Y/%m/",
+        upload_to=DatedUUIDPath("evidence/files"),
         blank=True,
         null=True,
         verbose_name=_("证据文件"),

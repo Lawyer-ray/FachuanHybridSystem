@@ -11,7 +11,7 @@ from .credential import AccountCredential
 # law_firm.py - 律所模型
 from .law_firm import LawFirm
 
-# lawyer.py - 律师模型和上传路径函数
+# lawyer.py - 律师模型
 from .lawyer import Lawyer, lawyer_license_upload_path
 
 # storage.py - 自定义存储类

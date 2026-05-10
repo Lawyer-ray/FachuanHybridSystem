@@ -5,6 +5,8 @@ from typing import ClassVar
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
+from apps.core.filesystem.upload_paths import DatedUUIDPath
+
 
 class SolutionTaskStatus(models.TextChoices):
     PENDING = "pending", _("待执行")
@@ -44,7 +46,7 @@ class SolutionTask(models.Model):
     llm_model = models.CharField(max_length=128, blank=True, verbose_name=_("LLM模型"))
     html_content = models.TextField(blank=True, verbose_name=_("HTML方案"))
     pdf_file = models.FileField(
-        upload_to="legal_solution/pdf/",
+        upload_to=DatedUUIDPath("legal_solution"),
         max_length=255,
         null=True,
         blank=True,
