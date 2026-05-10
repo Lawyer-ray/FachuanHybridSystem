@@ -1,32 +1,19 @@
-/**
- * CasePartySection - 当事人列表区块
- *
- * Requirements: 3.6, 5.5
- */
-
 import { useState } from 'react'
 import { Link } from 'react-router'
-import { Users, ExternalLink, Plus, Trash2, Loader2 } from 'lucide-react'
+import { X, Loader2, Search } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { Card, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger,
-} from '@/components/ui/dialog'
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog'
 
 import { generatePath } from '@/routes/paths'
 import { usePartyMutations } from '../hooks/use-party-mutations'
+import { useClientsSelect } from '@/features/contracts/hooks/use-clients-select'
 import { LEGAL_STATUS_LABELS } from '../types'
 import type { CaseParty } from '../types'
 
@@ -36,35 +23,20 @@ export interface CasePartySectionProps {
   caseId?: number
 }
 
-function EmptyState() {
-  return (
-    <div className="flex flex-col items-center justify-center py-8">
-      <div className="bg-muted flex size-10 items-center justify-center rounded-full">
-        <Users className="text-muted-foreground size-5" />
-      </div>
-      <p className="text-muted-foreground mt-3 text-sm">暂无当事人</p>
-    </div>
-  )
-}
-
 export function CasePartySection({ parties, editable, caseId }: CasePartySectionProps) {
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [newClientId, setNewClientId] = useState('')
-  const [newLegalStatus, setNewLegalStatus] = useState('')
-
+  const [open, setOpen] = useState(false)
+  const [legalStatus, setLegalStatus] = useState('')
+  const { data: clients } = useClientsSelect()
   const mutations = usePartyMutations(caseId ?? 0)
 
-  const handleAdd = () => {
-    if (!caseId || !newClientId) return
+  const existingIds = new Set(parties.map(p => p.client))
+
+  const handleSelect = (clientId: number) => {
+    if (!caseId) return
     mutations.createParty.mutate(
-      { case_id: caseId, client_id: Number(newClientId), legal_status: newLegalStatus || undefined },
+      { case_id: caseId, client_id: clientId, legal_status: legalStatus || undefined },
       {
-        onSuccess: () => {
-          toast.success('添加当事人成功')
-          setDialogOpen(false)
-          setNewClientId('')
-          setNewLegalStatus('')
-        },
+        onSuccess: () => { toast.success('已添加'); setOpen(false) },
         onError: (e) => toast.error(e.message || '添加失败'),
       },
     )
@@ -72,115 +44,89 @@ export function CasePartySection({ parties, editable, caseId }: CasePartySection
 
   const handleDelete = (id: number) => {
     mutations.deleteParty.mutate(id, {
-      onSuccess: () => toast.success('删除成功'),
+      onSuccess: () => toast.success('已删除'),
       onError: (e) => toast.error(e.message || '删除失败'),
     })
   }
 
-  return (
-    <div className="space-y-3">
-      {editable && caseId && (
-        <div className="flex justify-end">
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" variant="outline">
-                <Plus className="mr-1 size-3" /> 添加当事人
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>添加当事人</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 py-2">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">客户ID</label>
-                  <Input
-                    type="number"
-                    placeholder="请输入客户ID"
-                    value={newClientId}
-                    onChange={(e) => setNewClientId(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">诉讼地位</label>
-                  <Select onValueChange={setNewLegalStatus} value={newLegalStatus}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="选择诉讼地位" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(LEGAL_STATUS_LABELS).map(([v, l]) => (
-                        <SelectItem key={v} value={v}>{l.zh}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  onClick={handleAdd}
-                  disabled={!newClientId || mutations?.createParty.isPending}
-                >
-                  {mutations?.createParty.isPending && <Loader2 className="mr-1 size-3 animate-spin" />}
-                  确认
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
-      )}
+  const filteredClients = (clients ?? []).filter(c => !existingIds.has(c.id))
 
-      {parties.length === 0 ? (
-        <EmptyState />
-      ) : (
-        parties.map((party) => (
-          <Card key={party.id} className="gap-0 py-0">
-            <CardHeader className="py-4">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <Users className="text-muted-foreground size-4 shrink-0" />
-                  <Link
-                    to={generatePath.clientDetail(party.client)}
-                    className="text-sm font-medium truncate hover:underline"
-                  >
-                    {party.client_detail?.name ?? '未知当事人'}
-                  </Link>
-                  <ExternalLink className="text-muted-foreground size-3 shrink-0" />
-                </div>
-                <div className="flex items-center gap-2">
-                  {party.legal_status && (
-                    <Badge variant="outline" className="shrink-0 text-xs">
-                      {party.legal_status}
-                    </Badge>
-                  )}
-                  {editable && caseId && (
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon-xs">
-                          <Trash2 className="text-muted-foreground size-3" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent size="sm">
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>确认删除</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            确定要删除当事人「{party.client_detail?.name}」吗？
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>取消</AlertDialogCancel>
-                          <AlertDialogAction variant="destructive" onClick={() => handleDelete(party.id)}>
-                            删除
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  )}
-                </div>
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-1.5">
+        {parties.length === 0 && !editable && (
+          <span className="text-muted-foreground text-xs">暂无当事人</span>
+        )}
+        {parties.map((party) => {
+          const name = party.client_detail?.name ?? '未知'
+          const statusLabel = party.legal_status
+            ? (LEGAL_STATUS_LABELS[party.legal_status as keyof typeof LEGAL_STATUS_LABELS]?.zh ?? party.legal_status)
+            : null
+          return (
+            <Badge key={party.id} variant="secondary" className="gap-1 pr-1 font-normal">
+              <Link to={generatePath.clientDetail(party.client)} className="hover:underline">
+                {name}
+              </Link>
+              {statusLabel && <span className="text-muted-foreground">({statusLabel})</span>}
+              {editable && caseId && (
+                <button
+                  type="button"
+                  onClick={() => handleDelete(party.id)}
+                  className="ml-0.5 rounded-full p-0.5 hover:bg-destructive/20 hover:text-destructive transition-colors"
+                >
+                  <X className="size-3" />
+                </button>
+              )}
+            </Badge>
+          )
+        })}
+
+        {editable && caseId && (
+          <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="xs" className="h-6 px-1.5 text-[11px]">
+                + 添加
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[300px] p-0" align="start">
+              <div className="border-b px-3 py-2">
+                <div className="text-xs text-muted-foreground mb-1.5">诉讼地位（可选）</div>
+                <Select value={legalStatus} onValueChange={setLegalStatus}>
+                  <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="选择诉讼地位" /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(LEGAL_STATUS_LABELS).map(([v, l]) => (
+                      <SelectItem key={v} value={v}>{l.zh}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            </CardHeader>
-          </Card>
-        ))
-      )}
+              <Command>
+                <CommandInput placeholder="搜索客户名称..." className="h-8 text-xs" />
+                <CommandList className="max-h-[200px]">
+                  <CommandEmpty>未找到匹配客户</CommandEmpty>
+                  <CommandGroup>
+                    {filteredClients.map((c) => (
+                      <CommandItem
+                        key={c.id}
+                        value={c.name}
+                        onSelect={() => handleSelect(c.id)}
+                        className="text-xs cursor-pointer"
+                      >
+                        <Search className="size-3 mr-1.5 text-muted-foreground" />
+                        <span className="flex-1">{c.name}</span>
+                        <span className="text-muted-foreground text-[10px]">{c.client_type_label}</span>
+                        {c.is_our_client && <Badge variant="outline" className="ml-1 text-[10px] px-1 py-0">我方</Badge>}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+        )}
+
+        {mutations?.createParty.isPending && <Loader2 className="size-3 animate-spin text-muted-foreground" />}
+      </div>
     </div>
   )
 }

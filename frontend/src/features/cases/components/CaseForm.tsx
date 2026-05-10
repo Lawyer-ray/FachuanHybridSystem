@@ -523,49 +523,39 @@ export function CaseForm({ caseId, mode }: CaseFormProps) {
       {isEditMode && caseData && (
         <>
           <div className="grid gap-3 lg:grid-cols-2">
-            <Card className="py-4">
-              <CardHeader className="px-4 py-0 pb-1.5">
-                <CardTitle className="text-sm font-semibold">案件当事人</CardTitle>
-              </CardHeader>
-              <CardContent className="px-4 pb-4">
+            <Card className="py-3">
+              <CardContent className="px-4">
+                <div className="text-xs font-medium text-muted-foreground mb-1.5">案件当事人</div>
                 <CasePartySection parties={caseData.parties ?? []} editable caseId={caseData.id} />
               </CardContent>
             </Card>
 
-            <Card className="py-4">
-              <CardHeader className="px-4 py-0 pb-1.5">
-                <CardTitle className="text-sm font-semibold">律师指派</CardTitle>
-              </CardHeader>
-              <CardContent className="px-4 pb-4">
+            <Card className="py-3">
+              <CardContent className="px-4">
+                <div className="text-xs font-medium text-muted-foreground mb-1.5">律师指派</div>
                 <CaseAssignmentSection assignments={caseData.assignments ?? []} editable caseId={caseData.id} />
               </CardContent>
             </Card>
           </div>
 
-          <Card className="py-4">
-            <CardHeader className="px-4 py-0 pb-1.5">
-              <CardTitle className="text-sm font-semibold">案件日志</CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-4">
+          <Card className="py-3">
+            <CardContent className="px-4">
+              <div className="text-xs font-medium text-muted-foreground mb-1.5">案件日志</div>
               <CaseLogSection logs={caseData.logs ?? []} editable caseId={caseData.id} />
             </CardContent>
           </Card>
 
           <div className="grid gap-3 lg:grid-cols-2">
-            <Card className="py-4">
-              <CardHeader className="px-4 py-0 pb-1.5">
-                <CardTitle className="text-sm font-semibold">案号</CardTitle>
-              </CardHeader>
-              <CardContent className="px-4 pb-4">
+            <Card className="py-3">
+              <CardContent className="px-4">
+                <div className="text-xs font-medium text-muted-foreground mb-1.5">案号</div>
                 <CaseNumberSection caseNumbers={caseData.case_numbers ?? []} editable caseId={caseData.id} />
               </CardContent>
             </Card>
 
-            <Card className="py-4">
-              <CardHeader className="px-4 py-0 pb-1.5">
-                <CardTitle className="text-sm font-semibold">主管机关</CardTitle>
-              </CardHeader>
-              <CardContent className="px-4 pb-4">
+            <Card className="py-3">
+              <CardContent className="px-4">
+                <div className="text-xs font-medium text-muted-foreground mb-1.5">主管机关</div>
                 <AuthoritySection authorities={caseData.supervising_authorities ?? []} editable caseId={caseData.id} />
               </CardContent>
             </Card>
