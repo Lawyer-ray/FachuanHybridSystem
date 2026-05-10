@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/table'
 import { useExpressTasks } from '../hooks/use-express-tasks'
 import { formatDate } from '@/lib/date'
+import { resolveMediaUrl } from '@/lib/api'
 
 const CARRIER_LABELS: Record<string, string> = {
   sf: '顺丰速运',
@@ -99,7 +100,7 @@ export function CourierTrackingTool() {
                   <TableCell>
                     {item.result_pdf ? (
                       <a
-                        href={item.result_pdf}
+                        href={resolveMediaUrl(item.result_pdf) ?? item.result_pdf}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 text-primary hover:underline text-sm"
