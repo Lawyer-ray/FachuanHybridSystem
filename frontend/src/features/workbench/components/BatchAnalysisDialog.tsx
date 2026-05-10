@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge'
 
 interface BatchAnalysisDialogProps {
   modelName: string
-  onSubmit: (prompt: string, files: File[]) => Promise<void>
+  onSubmit: (prompt: string, files: File[], postAnalysisPrompt: string) => Promise<void>
   disabled?: boolean
 }
 
@@ -72,6 +72,7 @@ export function BatchAnalysisDialog({ modelName, onSubmit, disabled }: BatchAnal
   const [open, setOpen] = useState(false)
   const [files, setFiles] = useState<File[]>([])
   const [prompt, setPrompt] = useState('')
+  const [postAnalysisPrompt, setPostAnalysisPrompt] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [dragging, setDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -151,10 +152,11 @@ export function BatchAnalysisDialog({ modelName, onSubmit, disabled }: BatchAnal
     if (files.length === 0 || !prompt.trim()) return
     setSubmitting(true)
     try {
-      await onSubmit(prompt.trim(), files)
+      await onSubmit(prompt.trim(), files, postAnalysisPrompt.trim())
       setOpen(false)
       setFiles([])
       setPrompt('')
+      setPostAnalysisPrompt('')
     } finally {
       setSubmitting(false)
     }
@@ -274,6 +276,21 @@ export function BatchAnalysisDialog({ modelName, onSubmit, disabled }: BatchAnal
               onChange={(e) => setPrompt(e.target.value)}
               rows={3}
             />
+          </div>
+
+          {/* 后处理提示词 */}
+          <div className="space-y-2">
+            <Label htmlFor="post-analysis-prompt">后处理提示词（可选）</Label>
+            <Textarea
+              id="post-analysis-prompt"
+              placeholder="留空则直接下载 CSV。填写后，主 AI 会拿到所有分析结果进行进一步处理，例如：对比所有案例的裁判标准差异，总结共性规律"
+              value={postAnalysisPrompt}
+              onChange={(e) => setPostAnalysisPrompt(e.target.value)}
+              rows={2}
+            />
+            <p className="text-xs text-muted-foreground">
+              填写后，所有分析结果将发送给主 AI 按照你的要求进行二次分析，而不是直接下载
+            </p>
           </div>
 
           {/* 模型信息 */}

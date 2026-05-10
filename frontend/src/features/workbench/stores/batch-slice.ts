@@ -31,6 +31,27 @@ async function handleTerminal(set: SetFn, get: GetFn, progress: BatchProgress) {
   const completedItems = progress.items.filter(
     (item) => item.status === 'completed' && item.result,
   )
+
+  const { postAnalysisPrompt } = get()
+
+  if (postAnalysisPrompt && completedItems.length > 0) {
+    // 有后处理提示词：把所有分析结果 + 提示词发给主 AI
+    const resultsText = completedItems
+      .map((item) => `### ${item.file_name}\n\n${formatBatchContent(stripMetadataBlock(item.result))}`)
+      .join('\n\n---\n\n')
+    const summaryNote = progress.job.summary
+      ? `\n\n---\n\n### 汇总报告\n\n${progress.job.summary}`
+      : ''
+    const message = `以下是批量文档分析的结果，请根据要求进行处理。\n\n${resultsText}${summaryNote}\n\n---\n\n**要求：**${postAnalysisPrompt}`
+
+    set({ postAnalysisPrompt: '' } as Partial<WorkbenchStore>)
+    // 清除进度卡片后发送给主 AI
+    set({ batchProgress: null, activeBatchJobId: null } as Partial<WorkbenchStore>)
+    await get().sendMessage(message)
+    return
+  }
+
+  // 无后处理提示词：保持原有行为（持久化 batch 消息 + 下载 CSV）
   if (completedItems.length > 0) {
     try {
       await api.saveBatchMessages(
@@ -196,7 +217,8 @@ export interface BatchSlice {
   activeBatchJobId: string | null
   batchProgress: BatchProgress | null
   batchPolling: boolean
-  submitBatchAnalysis: (prompt: string, files: File[]) => Promise<void>
+  postAnalysisPrompt: string
+  submitBatchAnalysis: (prompt: string, files: File[], postAnalysisPrompt?: string) => Promise<void>
   cancelBatchAnalysis: () => Promise<void>
   dismissBatchProgress: () => void
   recoverActiveBatchJob: (sessionId: number) => Promise<void>
@@ -207,8 +229,9 @@ export const createBatchSlice: StateCreator<WorkbenchStore, [], [], BatchSlice> 
   activeBatchJobId: null,
   batchProgress: null,
   batchPolling: false,
+  postAnalysisPrompt: '',
 
-  submitBatchAnalysis: async (prompt, files) => {
+  submitBatchAnalysis: async (prompt, files, postAnalysisPrompt = '') => {
     const { currentSession, selectedModel } = get()
     if (!currentSession) return
 
@@ -223,6 +246,7 @@ export const createBatchSlice: StateCreator<WorkbenchStore, [], [], BatchSlice> 
       activeBatchJobId: job.id,
       batchProgress: { job, items: [], failed_items_detail: [] },
       batchPolling: true,
+      postAnalysisPrompt,
     })
 
     startSSEConnection(set, get, job.id)
@@ -292,6 +316,7 @@ export const createBatchSlice: StateCreator<WorkbenchStore, [], [], BatchSlice> 
       activeBatchJobId: null,
       batchProgress: null,
       batchPolling: false,
+      postAnalysisPrompt: '',
     })
   },
 })
