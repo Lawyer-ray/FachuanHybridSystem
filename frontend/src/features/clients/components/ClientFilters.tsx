@@ -3,21 +3,18 @@
  *
  * 当事人列表筛选组件
  * - 搜索框：支持按姓名、手机号、身份证号搜索
- * - 类型筛选：自然人、法人、非法人组织
+ * - 筛选面板：类型、我方当事人
  *
  * Requirements: 3.3, 3.4
  */
 
-import { Search, X } from 'lucide-react'
+import { useState } from 'react'
+import { Search, X, SlidersHorizontal } from 'lucide-react'
 import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Separator } from '@/components/ui/separator'
 import { type ClientType, CLIENT_TYPE_LABELS } from '../types'
 
 // ============================================================================
@@ -40,17 +37,6 @@ export interface ClientFiltersProps {
 }
 
 // ============================================================================
-// Constants
-// ============================================================================
-
-/** 类型筛选选项 */
-const CLIENT_TYPE_OPTIONS: { value: ClientType; label: string }[] = [
-  { value: 'natural', label: CLIENT_TYPE_LABELS.natural },
-  { value: 'legal', label: CLIENT_TYPE_LABELS.legal },
-  { value: 'non_legal_org', label: CLIENT_TYPE_LABELS.non_legal_org },
-]
-
-// ============================================================================
 // Component
 // ============================================================================
 
@@ -62,31 +48,17 @@ export function ClientFilters({
   isOurClient,
   onIsOurClientChange,
 }: ClientFiltersProps) {
-  /** 清除搜索关键词 */
-  const handleClearSearch = () => {
-    onSearchChange('')
-  }
+  const [open, setOpen] = useState(false)
 
-  /** 处理类型筛选变化 */
-  const handleClientTypeChange = (value: string) => {
-    if (value === 'all') {
-      onClientTypeChange(undefined)
-    } else {
-      onClientTypeChange(value as ClientType)
-    }
-  }
+  const activeFilterCount = [clientType, isOurClient !== undefined ? isOurClient : null].filter(Boolean).length
 
-  /** 处理我方当事人筛选变化 */
-  const handleIsOurClientChange = (value: string) => {
-    if (value === 'all') {
-      onIsOurClientChange(undefined)
-    } else {
-      onIsOurClientChange(value === 'true')
-    }
+  const clearAll = () => {
+    onClientTypeChange(undefined)
+    onIsOurClientChange(undefined)
   }
 
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+    <div className="flex items-center gap-3">
       {/* 搜索框 */}
       <div className="relative flex-1 sm:max-w-xs">
         <Search className="text-muted-foreground absolute left-3 top-1/2 size-4 -translate-y-1/2" />
@@ -102,7 +74,7 @@ export function ClientFilters({
             type="button"
             variant="ghost"
             size="sm"
-            onClick={handleClearSearch}
+            onClick={() => onSearchChange('')}
             className="absolute right-1 top-1/2 size-7 -translate-y-1/2 p-0 hover:bg-transparent"
           >
             <X className="text-muted-foreground hover:text-foreground size-4" />
@@ -111,38 +83,92 @@ export function ClientFilters({
         )}
       </div>
 
-      {/* 类型筛选下拉框 */}
-      <Select
-        value={clientType ?? 'all'}
-        onValueChange={handleClientTypeChange}
-      >
-        <SelectTrigger className="w-full sm:w-[160px]">
-          <SelectValue placeholder="全部类型" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">全部类型</SelectItem>
-          {CLIENT_TYPE_OPTIONS.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      {/* 筛选面板 */}
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button variant="outline" className="gap-2">
+            <SlidersHorizontal className="size-4" />
+            筛选
+            {activeFilterCount > 0 && (
+              <Badge variant="secondary" className="ml-1 size-5 justify-center rounded-full p-0 text-xs">
+                {activeFilterCount}
+              </Badge>
+            )}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[280px] p-4" align="start">
+          <div className="space-y-4">
+            {/* 当事人类型 */}
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium">当事人类型</h4>
+              <div className="flex flex-wrap gap-1.5">
+                <FilterChip
+                  label="全部"
+                  active={!clientType}
+                  onClick={() => onClientTypeChange(undefined)}
+                />
+                {Object.entries(CLIENT_TYPE_LABELS).map(([k, v]) => (
+                  <FilterChip
+                    key={k}
+                    label={v}
+                    active={clientType === k}
+                    onClick={() => onClientTypeChange(clientType === k ? undefined : k as ClientType)}
+                  />
+                ))}
+              </div>
+            </div>
 
-      {/* 我方当事人筛选 */}
-      <Select
-        value={isOurClient === undefined ? 'all' : String(isOurClient)}
-        onValueChange={handleIsOurClientChange}
-      >
-        <SelectTrigger className="w-full sm:w-[160px]">
-          <SelectValue placeholder="全部当事人" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">全部当事人</SelectItem>
-          <SelectItem value="true">我方当事人</SelectItem>
-          <SelectItem value="false">非我方当事人</SelectItem>
-        </SelectContent>
-      </Select>
+            <Separator />
+
+            {/* 我方当事人 */}
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium">我方当事人</h4>
+              <div className="flex flex-wrap gap-1.5">
+                <FilterChip
+                  label="全部"
+                  active={isOurClient === undefined}
+                  onClick={() => onIsOurClientChange(undefined)}
+                />
+                <FilterChip
+                  label="我方当事人"
+                  active={isOurClient === true}
+                  onClick={() => onIsOurClientChange(isOurClient === true ? undefined : true)}
+                />
+                <FilterChip
+                  label="非我方当事人"
+                  active={isOurClient === false}
+                  onClick={() => onIsOurClientChange(isOurClient === false ? undefined : false)}
+                />
+              </div>
+            </div>
+
+            {activeFilterCount > 0 && (
+              <>
+                <Separator />
+                <Button variant="ghost" size="sm" className="w-full" onClick={clearAll}>
+                  清除所有筛选
+                </Button>
+              </>
+            )}
+          </div>
+        </PopoverContent>
+      </Popover>
     </div>
+  )
+}
+
+function FilterChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+        active
+          ? 'bg-primary text-primary-foreground'
+          : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+      }`}
+    >
+      {label}
+    </button>
   )
 }
