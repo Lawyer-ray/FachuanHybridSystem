@@ -88,7 +88,7 @@ def _sync_llm_chat(llm: Any, messages: list[dict[str, str]], model: str, tempera
 
 async def _increment_counter(job_id: UUID, field: str) -> None:
     """原子递增计数器并更新进度百分比（2 次查询代替原来 3 次）"""
-    job: dict[str, Any] | None = await sync_to_async(
+    job: Any = await sync_to_async(
         lambda: (
             BatchJob.objects.filter(id=job_id)
             .values(
