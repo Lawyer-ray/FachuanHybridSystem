@@ -1814,11 +1814,11 @@
         let workbenchAnimationRunning = false;
         let workbenchTimeline = null;
 
-        // 生成 48 个 AI 单元格（6x8），代表 100 个并发
+        // 生成 32 个 AI 单元格（8x4），代表 100 个并发
         function initAiGrid() {
             const grid = document.getElementById('wbAiGrid');
             if (!grid || grid.children.length > 0) return;
-            for (let i = 0; i < 48; i++) {
+            for (let i = 0; i < 32; i++) {
                 const cell = document.createElement('div');
                 cell.className = 'wb-ai-cell';
                 cell.id = 'wbCell' + i;
@@ -1855,11 +1855,11 @@
 
             initAiGrid();
 
-            const indices = shuffle([...Array(48).keys()]);
-            const batch1 = indices.slice(0, 12);
-            const batch2 = indices.slice(12, 24);
-            const batch3 = indices.slice(24, 36);
-            const batch4 = indices.slice(36, 48);
+            const indices = shuffle([...Array(32).keys()]);
+            const batch1 = indices.slice(0, 8);
+            const batch2 = indices.slice(8, 16);
+            const batch3 = indices.slice(16, 24);
+            const batch4 = indices.slice(24, 32);
 
             workbenchTimeline = gsap.timeline({
                 onComplete: () => {
@@ -1877,38 +1877,38 @@
                     document.getElementById('wbLog1').classList.add('show');
                 })
 
-                // 第一批：20 个并发
+                // 第一批：8 个并发
                 .call(() => {
-                    animateBatch(batch1, 'running', 30);
-                    document.getElementById('wbStatRunning').textContent = '20';
-                    document.getElementById('wbStatPending').textContent = '80';
-                    document.getElementById('wbBatchCount').textContent = '20/100';
-                    document.getElementById('wbProgressFill').style.width = '20%';
-                    document.getElementById('wbProgressText').textContent = '并发分析中... 20/100';
+                    animateBatch(batch1, 'running', 40);
+                    document.getElementById('wbStatRunning').textContent = '25';
+                    document.getElementById('wbStatPending').textContent = '75';
+                    document.getElementById('wbBatchCount').textContent = '25/100';
+                    document.getElementById('wbProgressFill').style.width = '25%';
+                    document.getElementById('wbProgressText').textContent = '并发分析中... 25/100';
 
-                    document.getElementById('wbLog2').textContent = '▸ [批次1] 启动 20 个 AI 实例，分析民间借贷纠纷判决...';
+                    document.getElementById('wbLog2').textContent = '▸ [批次1] 启动 25 个 AI 实例，分析竞业限制纠纷判决...';
                     document.getElementById('wbLog2').classList.add('show', 'info');
                 }, null, '+=0.5')
 
                 // 第一批完成
                 .call(() => {
-                    animateBatch(batch1, 'done', 20);
-                    document.getElementById('wbStatDone').textContent = '20';
+                    animateBatch(batch1, 'done', 25);
+                    document.getElementById('wbStatDone').textContent = '25';
                     document.getElementById('wbStatRunning').textContent = '0';
-                    document.getElementById('wbBatchCount').textContent = '20/100';
+                    document.getElementById('wbBatchCount').textContent = '25/100';
 
-                    document.getElementById('wbLog3').textContent = '✓ [批次1] 20 份判决分析完成，平均利率 15.2%，胜诉率 78%';
+                    document.getElementById('wbLog3').textContent = '✓ [批次1] 25 份判决分析完成，竞业限制条款有效率 62%';
                     document.getElementById('wbLog3').classList.add('show', 'success');
 
                     // 显示第一条结果
-                    document.getElementById('wbResult1').textContent = '📊 民间借贷：平均年利率 15.2%，法院支持率 78%';
+                    document.getElementById('wbResult1').textContent = '📊 竞业限制：条款有效率 62%，经济补偿是关键变量';
                     document.getElementById('wbResult1').classList.add('show');
                 }, null, '+=1.5')
 
-                // 第二批：30 个并发
+                // 第二批：8 个并发
                 .call(() => {
-                    animateBatch(batch2, 'running', 25);
-                    document.getElementById('wbStatRunning').textContent = '30';
+                    animateBatch(batch2, 'running', 35);
+                    document.getElementById('wbStatRunning').textContent = '25';
                     document.getElementById('wbStatPending').textContent = '50';
                     document.getElementById('wbBatchCount').textContent = '50/100';
                     document.getElementById('wbProgressFill').style.width = '50%';
@@ -1917,40 +1917,43 @@
 
                 // 第二批完成
                 .call(() => {
-                    animateBatch(batch2, 'done', 20);
+                    animateBatch(batch2, 'done', 25);
                     document.getElementById('wbStatDone').textContent = '50';
                     document.getElementById('wbStatRunning').textContent = '0';
                     document.getElementById('wbBatchCount').textContent = '50/100';
 
-                    document.getElementById('wbLog4').textContent = '✓ [批次2] 30 份判决分析完成，发现浦东法院倾向性明显';
+                    document.getElementById('wbLog4').textContent = '✓ [批次2] 25 份判决分析完成，未支付补偿金则条款不约束劳动者';
                     document.getElementById('wbLog4').classList.add('show', 'success');
 
-                    document.getElementById('wbResult2').textContent = '📊 地域差异：浦东法院判赔比例高于全市均值 12%';
+                    document.getElementById('wbResult2').textContent = '📊 裁判规律：企业 3 个月未付补偿，劳动者可单方解除竞业义务';
                     document.getElementById('wbResult2').classList.add('show');
                 }, null, '+=1.2')
 
-                // 第三批：30 个并发
+                // 第三批：8 个并发
                 .call(() => {
-                    animateBatch(batch3, 'running', 20);
-                    document.getElementById('wbStatRunning').textContent = '30';
-                    document.getElementById('wbStatPending').textContent = '20';
-                    document.getElementById('wbBatchCount').textContent = '80/100';
-                    document.getElementById('wbProgressFill').style.width = '80%';
-                    document.getElementById('wbProgressText').textContent = '并发分析中... 80/100';
+                    animateBatch(batch3, 'running', 30);
+                    document.getElementById('wbStatRunning').textContent = '25';
+                    document.getElementById('wbStatPending').textContent = '25';
+                    document.getElementById('wbBatchCount').textContent = '75/100';
+                    document.getElementById('wbProgressFill').style.width = '75%';
+                    document.getElementById('wbProgressText').textContent = '并发分析中... 75/100';
                 }, null, '+=0.5')
 
                 // 第三批完成
                 .call(() => {
-                    animateBatch(batch3, 'done', 20);
-                    document.getElementById('wbStatDone').textContent = '80';
+                    animateBatch(batch3, 'done', 25);
+                    document.getElementById('wbStatDone').textContent = '75';
                     document.getElementById('wbStatRunning').textContent = '0';
-                    document.getElementById('wbBatchCount').textContent = '80/100';
+                    document.getElementById('wbBatchCount').textContent = '75/100';
+
+                    document.getElementById('wbLog5').textContent = '✓ [批次3] 25 份判决分析完成，竞业期限超 2 年多被判无效';
+                    document.getElementById('wbLog5').classList.add('show', 'success');
                 }, null, '+=1.2')
 
-                // 最后一批：20 个并发
+                // 最后一批：8 个并发
                 .call(() => {
-                    animateBatch(batch4, 'running', 30);
-                    document.getElementById('wbStatRunning').textContent = '20';
+                    animateBatch(batch4, 'running', 40);
+                    document.getElementById('wbStatRunning').textContent = '25';
                     document.getElementById('wbStatPending').textContent = '0';
                     document.getElementById('wbBatchCount').textContent = '100/100';
                     document.getElementById('wbProgressFill').style.width = '100%';
@@ -1959,15 +1962,15 @@
 
                 // 全部完成
                 .call(() => {
-                    animateBatch(batch4, 'done', 20);
+                    animateBatch(batch4, 'done', 25);
                     document.getElementById('wbStatDone').textContent = '100';
                     document.getElementById('wbStatRunning').textContent = '0';
                     document.getElementById('wbBatchCount').textContent = '100/100';
 
-                    document.getElementById('wbLog5').textContent = '🎉 全部 100 份判决分析完成！类案报告已生成';
-                    document.getElementById('wbLog5').classList.add('show', 'success');
+                    document.getElementById('wbLog6').textContent = '🎉 全部 100 份竞业限制判决分析完成！类案报告已生成';
+                    document.getElementById('wbLog6').classList.add('show', 'success');
 
-                    document.getElementById('wbResult3').textContent = '📊 综合结论：本案胜诉概率 82%，建议主张本金+LPR四倍利息';
+                    document.getElementById('wbResult3').textContent = '📊 综合结论：本案企业连续 4 个月未付补偿，劳动者竞业义务已解除';
                     document.getElementById('wbResult3').classList.add('show');
                 }, null, '+=1.2');
         }
