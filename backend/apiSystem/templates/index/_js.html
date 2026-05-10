@@ -662,8 +662,8 @@
 
             // 保存原始内容
             const line1Text = '法穿';
-            const line2Text = 'AI案件';
-            const line3Text = '管理系统';
+            const line2Text = 'AI';
+            const line3Text = 'Copilot';
 
             // 清空并重建结构
             heroTitle.innerHTML = `
@@ -1810,6 +1810,129 @@
                 start: 'top 70%',
                 onEnter: () => {
                     if (!evidenceAnimationRunning) setTimeout(startEvidenceAnimation, 500);
+                },
+                once: true
+            });
+        });
+
+        // ========== AI 工作台动画 ==========
+        let workbenchAnimationRunning = false;
+        let workbenchTimeline = null;
+
+        function startWorkbenchAnimation() {
+            if (workbenchAnimationRunning) return;
+            workbenchAnimationRunning = true;
+
+            workbenchTimeline = gsap.timeline({
+                onComplete: () => {
+                    workbenchAnimationRunning = false;
+                }
+            });
+
+            // 显示会话列表
+            workbenchTimeline
+                .call(() => {
+                    document.querySelectorAll('.wb-session-item').forEach((item, i) => {
+                        setTimeout(() => item.classList.add('show'), i * 150);
+                    });
+                })
+
+                // 显示工具栏
+                .to('#wbToolbar', {
+                    opacity: 1,
+                    duration: 0.3,
+                    ease: 'power2.out'
+                }, '+=0.3')
+
+                // 显示用户消息
+                .call(() => {
+                    document.getElementById('wbMsg1').classList.add('show');
+                }, null, '+=0.3')
+
+                // 显示 AI 消息
+                .call(() => {
+                    document.getElementById('wbMsg2').classList.add('show');
+                }, null, '+=0.4')
+
+                // 打字机效果 - 逐行显示 AI 回复
+                .call(() => {
+                    document.getElementById('wbTypingLine1').classList.add('show');
+                }, null, '+=0.3')
+                .call(() => {
+                    document.getElementById('wbTypingLine2').textContent = '📌 借贷合同意向明确：有书面借款合同、微信聊天记录中多次确认借款金额';
+                    document.getElementById('wbTypingLine2').classList.add('show', 'sub-item');
+                }, null, '+=0.5')
+                .call(() => {
+                    document.getElementById('wbTypingLine3').textContent = '📌 资金流向清晰：银行转账记录完整，与合同约定金额一致';
+                    document.getElementById('wbTypingLine3').classList.add('show', 'sub-item');
+                }, null, '+=0.4')
+                .call(() => {
+                    document.getElementById('wbTypingLine4').textContent = '📌 催收证据充分：多次微信催款记录，对方未否认债务';
+                    document.getElementById('wbTypingLine4').classList.add('show', 'sub-item');
+                }, null, '+=0.4')
+                .call(() => {
+                    document.getElementById('wbTypingLine5').textContent = '📌 诉讼时效合规：最后一次催款距今未超过 3 年';
+                    document.getElementById('wbTypingLine5').classList.add('show', 'sub-item');
+                }, null, '+=0.4')
+
+                // 显示操作按钮
+                .call(() => {
+                    document.getElementById('wbMsgActions').classList.add('show');
+                }, null, '+=0.3')
+
+                // 更新上下文使用量
+                .call(() => {
+                    const fill = document.getElementById('wbContextFill');
+                    fill.style.width = '32%';
+                }, null, '+=0.2');
+        }
+
+        function resetWorkbenchElements() {
+            // 重置会话列表
+            document.querySelectorAll('.wb-session-item').forEach(item => {
+                item.classList.remove('show');
+            });
+
+            // 重置工具栏
+            gsap.set('#wbToolbar', { opacity: 0 });
+
+            // 重置消息
+            ['wbMsg1', 'wbMsg2'].forEach(id => {
+                document.getElementById(id).classList.remove('show');
+            });
+
+            // 重置打字效果
+            document.querySelectorAll('.wb-typing-line').forEach(line => {
+                line.classList.remove('show', 'sub-item');
+                line.textContent = '';
+            });
+
+            // 重置操作按钮
+            document.getElementById('wbMsgActions').classList.remove('show');
+
+            // 重置上下文条
+            document.getElementById('wbContextFill').style.width = '0%';
+        }
+
+        function resetWorkbenchAnimation() {
+            if (workbenchTimeline) workbenchTimeline.kill();
+            workbenchAnimationRunning = false;
+            resetWorkbenchElements();
+        }
+
+        // 工作台动画自动播放
+        document.addEventListener('DOMContentLoaded', () => {
+            resetWorkbenchElements();
+            // 设置初始打字内容
+            document.getElementById('wbTypingLine1').textContent = '根据案件材料分析，本案胜诉概率较高（约 75-85%），关键因素如下：';
+
+            ScrollTrigger.create({
+                trigger: '#workbenchDemo',
+                start: 'top 70%',
+                onEnter: () => {
+                    if (!workbenchAnimationRunning) {
+                        setTimeout(startWorkbenchAnimation, 500);
+                    }
                 },
                 once: true
             });

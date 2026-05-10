@@ -1,0 +1,146 @@
+{% load i18n %}
+    <!-- 工作台 AI Copilot 介绍 -->
+    <section class="workbench-section" id="workbench">
+        <div class="workbench-container">
+            <div class="section-header reveal">
+                <span class="section-tag">🤖 {% trans "AI 工作台" %}</span>
+                <h2 class="section-title">{% trans "法穿AI Copilot 工作台" %}</h2>
+                <p class="section-desc">{% trans "与 AI 对话，让法律工作更智能、更高效" %}</p>
+            </div>
+
+            <div class="workbench-demo" id="workbenchDemo">
+                <!-- 左侧：会话列表 -->
+                <div class="wb-sidebar" id="wbSidebar">
+                    <div class="wb-sidebar-header">
+                        <div class="wb-sidebar-title">{% trans "会话列表" %}</div>
+                        <button class="wb-new-chat-btn" id="wbNewChatBtn">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                        </button>
+                    </div>
+                    <div class="wb-session-list" id="wbSessionList">
+                        <div class="wb-session-item active" id="wbSession1">
+                            <div class="wb-session-icon">💬</div>
+                            <div class="wb-session-info">
+                                <div class="wb-session-title">{% trans "张某借贷纠纷分析" %}</div>
+                                <div class="wb-session-time">{% trans "刚刚" %}</div>
+                            </div>
+                        </div>
+                        <div class="wb-session-item" id="wbSession2">
+                            <div class="wb-session-icon">📋</div>
+                            <div class="wb-session-info">
+                                <div class="wb-session-title">{% trans "起诉状草稿审核" %}</div>
+                                <div class="wb-session-time">{% trans "2 小时前" %}</div>
+                            </div>
+                        </div>
+                        <div class="wb-session-item" id="wbSession3">
+                            <div class="wb-session-icon">📊</div>
+                            <div class="wb-session-info">
+                                <div class="wb-session-title">{% trans "合同条款风险评估" %}</div>
+                                <div class="wb-session-time">{% trans "昨天" %}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 右侧：对话区域 -->
+                <div class="wb-chat-area" id="wbChatArea">
+                    <!-- 顶部工具栏 -->
+                    <div class="wb-toolbar" id="wbToolbar">
+                        <div class="wb-toolbar-left">
+                            <span class="wb-toolbar-title">{% trans "张某借贷纠纷分析" %}</span>
+                        </div>
+                        <div class="wb-toolbar-right">
+                            <div class="wb-model-selector" id="wbModelSelector">
+                                <span class="wb-model-dot"></span>
+                                <span>GPT-4o</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                            </div>
+                            <div class="wb-context-bar" id="wbContextBar">
+                                <div class="wb-context-fill" id="wbContextFill"></div>
+                                <span class="wb-context-text">32%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 消息列表 -->
+                    <div class="wb-messages" id="wbMessages">
+                        <!-- 用户消息 -->
+                        <div class="wb-msg wb-msg-user" id="wbMsg1">
+                            <div class="wb-msg-avatar wb-avatar-user">张</div>
+                            <div class="wb-msg-content">
+                                <div class="wb-msg-text">{% trans "帮我分析一下张某诉李某民间借贷纠纷这个案件的胜诉概率，需要考虑哪些关键因素？" %}</div>
+                            </div>
+                        </div>
+                        <!-- AI 消息 -->
+                        <div class="wb-msg wb-msg-ai" id="wbMsg2">
+                            <div class="wb-msg-avatar wb-avatar-ai">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+                            </div>
+                            <div class="wb-msg-content">
+                                <div class="wb-msg-text wb-typing" id="wbAiMsg">
+                                    <span class="wb-typing-line" id="wbTypingLine1">{% trans "根据案件材料分析，本案胜诉概率较高（约 75-85%），关键因素如下：" %}</span>
+                                    <span class="wb-typing-line" id="wbTypingLine2"></span>
+                                    <span class="wb-typing-line" id="wbTypingLine3"></span>
+                                    <span class="wb-typing-line" id="wbTypingLine4"></span>
+                                    <span class="wb-typing-line" id="wbTypingLine5"></span>
+                                </div>
+                                <div class="wb-msg-actions" id="wbMsgActions">
+                                    <button class="wb-action-btn" title="{% trans '复制' %}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                                    </button>
+                                    <button class="wb-action-btn" title="{% trans '导出' %}">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 输入区域 -->
+                    <div class="wb-input-area" id="wbInputArea">
+                        <div class="wb-input-wrapper">
+                            <textarea class="wb-input" id="wbInput" placeholder="{% trans '输入你的问题...' %}" readonly></textarea>
+                            <div class="wb-input-actions">
+                                <span class="wb-shortcut-hint">⌘ {% trans "Enter 发送" %}</span>
+                                <button class="wb-send-btn" id="wbSendBtn">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 功能亮点 -->
+            <div class="workbench-highlights" id="wbHighlights">
+                <div class="wb-highlight-card reveal" id="wbHighlight1">
+                    <div class="wb-highlight-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 10h.01"/><path d="M12 10h.01"/><path d="M16 10h.01"/></svg>
+                    </div>
+                    <h3 class="wb-highlight-title">{% trans "智能对话" %}</h3>
+                    <p class="wb-highlight-desc">{% trans "自然语言交互，AI 理解法律语境，精准回答专业问题" %}</p>
+                </div>
+                <div class="wb-highlight-card reveal" id="wbHighlight2">
+                    <div class="wb-highlight-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                    </div>
+                    <h3 class="wb-highlight-title">{% trans "批量分析" %}</h3>
+                    <p class="wb-highlight-desc">{% trans "一键批量处理多个案件，自动提取关键信息并生成报告" %}</p>
+                </div>
+                <div class="wb-highlight-card reveal" id="wbHighlight3">
+                    <div class="wb-highlight-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                    </div>
+                    <h3 class="wb-highlight-title">{% trans "多模型切换" %}</h3>
+                    <p class="wb-highlight-desc">{% trans "支持 GPT-4o、Claude、DeepSeek 等多种 AI 模型自由切换" %}</p>
+                </div>
+                <div class="wb-highlight-card reveal" id="wbHighlight4">
+                    <div class="wb-highlight-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M9 15l2 2 4-4"/></svg>
+                    </div>
+                    <h3 class="wb-highlight-title">{% trans "一键导出" %}</h3>
+                    <p class="wb-highlight-desc">{% trans "对话内容导出为 Markdown，方便整理成法律文书" %}</p>
+                </div>
+            </div>
+        </div>
+    </section>
