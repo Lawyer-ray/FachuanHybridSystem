@@ -7,6 +7,8 @@ from typing import ClassVar
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
+from apps.core.filesystem.upload_paths import DatedUUIDPath
+
 
 class GsxtReportStatus(models.TextChoices):
     """任务状态。"""
@@ -39,7 +41,7 @@ class GsxtReportTask(models.Model):
     )
     error_message = models.TextField(blank=True, verbose_name=_("错误信息"))
     report_file = models.FileField(
-        upload_to="gsxt_reports/",
+        upload_to=DatedUUIDPath("gsxt_reports"),
         null=True,
         blank=True,
         verbose_name=_("报告文件"),

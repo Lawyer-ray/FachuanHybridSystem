@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from django.db.models.signals import pre_delete
+from django.db.models.signals import post_delete
 from django.dispatch import receiver
 
 from apps.express_query.models import ExpressQueryTask
@@ -12,7 +12,7 @@ from apps.express_query.models import ExpressQueryTask
 logger = logging.getLogger("apps.express_query")
 
 
-@receiver(pre_delete, sender=ExpressQueryTask)
+@receiver(post_delete, sender=ExpressQueryTask)
 def delete_task_files(sender: type[ExpressQueryTask], instance: ExpressQueryTask, **kwargs: object) -> None:
     """删除任务时彻底清理所有关联文件"""
     _safe_delete_file_field(instance.waybill_image, "邮单文件")

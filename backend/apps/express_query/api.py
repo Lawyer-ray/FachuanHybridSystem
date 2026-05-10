@@ -6,6 +6,7 @@ from typing import Any
 
 from django.http import HttpRequest
 from ninja import Router, Schema
+
 from apps.express_query.models import ExpressQueryTask
 
 router = Router()
@@ -17,6 +18,7 @@ class ExpressQueryTaskOut(Schema):
     status: str
     carrier_type: str
     tracking_number: str
+    result_pdf: str | None = None
     created_at: Any
     updated_at: Any
 

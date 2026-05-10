@@ -1,4 +1,4 @@
-import { Search, Plus } from 'lucide-react'
+import { Search, Plus, FileText } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/table'
 import { useExpressTasks } from '../hooks/use-express-tasks'
 import { formatDate } from '@/lib/date'
+import { resolveMediaUrl } from '@/lib/api'
 
 const CARRIER_LABELS: Record<string, string> = {
   sf: '顺丰速运',
@@ -63,6 +64,7 @@ export function CourierTrackingTool() {
               <TableHead className="w-[100px]">承运商</TableHead>
               <TableHead>运单号</TableHead>
               <TableHead className="w-[80px]">状态</TableHead>
+              <TableHead className="w-[80px]">结果</TableHead>
               <TableHead className="w-[160px]">创建时间</TableHead>
             </TableRow>
           </TableHeader>
@@ -70,14 +72,14 @@ export function CourierTrackingTool() {
             {isLoading ? (
               Array.from({ length: 3 }).map((_, i) => (
                 <TableRow key={i}>
-                  {Array.from({ length: 6 }).map((_, j) => (
+                  {Array.from({ length: 7 }).map((_, j) => (
                     <TableCell key={j}><div className="bg-muted h-4 w-20 animate-pulse rounded" /></TableCell>
                   ))}
                 </TableRow>
               ))
             ) : (tasks ?? []).length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
                   暂无查询任务
                 </TableCell>
               </TableRow>
@@ -94,6 +96,22 @@ export function CourierTrackingTool() {
                     <Badge variant={STATUS_VARIANT[item.status] ?? 'outline'} className="text-xs">
                       {STATUS_LABELS[item.status] ?? item.status}
                     </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {item.result_pdf ? (
+                      <a
+                        href={resolveMediaUrl(item.result_pdf) ?? item.result_pdf}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-primary hover:underline text-sm"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <FileText className="size-4" />
+                        PDF
+                      </a>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">-</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm">{formatDate(item.created_at)}</TableCell>
                 </TableRow>

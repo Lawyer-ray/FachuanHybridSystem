@@ -75,7 +75,7 @@ export function CaseList() {
             <Search className="text-muted-foreground absolute left-3 top-1/2 size-4 -translate-y-1/2" />
             <Input
               type="text"
-              placeholder="搜索案件名称..."
+              placeholder="搜索案件名称/案号..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9 pr-9"

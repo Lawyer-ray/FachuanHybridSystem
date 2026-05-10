@@ -7,10 +7,13 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django_lifecycle import BEFORE_UPDATE, LifecycleModel, hook
 
+from apps.core.filesystem.upload_paths import EntityIdPath
+
 from .choices import ExportStatus, ExportType
 
 
 def _export_upload_to(instance: Any, filename: str) -> str:
+    """Deprecated: 保留用于旧 migration 兼容，新代码请使用 EntityIdPath。"""
     return f"chat_records/exports/{instance.project_id}/{instance.id}/{filename}"
 
 
@@ -35,7 +38,9 @@ class ChatRecordExportTask(LifecycleModel):
     total = models.PositiveIntegerField(default=0, verbose_name=_("总项"))
     message = models.CharField(max_length=255, blank=True, verbose_name=_("进度信息"))
     error = models.TextField(blank=True, verbose_name=_("错误信息"))
-    output_file = models.FileField(upload_to=_export_upload_to, null=True, blank=True, verbose_name=_("导出文件"))
+    output_file = models.FileField(
+        upload_to=EntityIdPath("chat_records/exports"), null=True, blank=True, verbose_name=_("导出文件")
+    )
     started_at = models.DateTimeField(null=True, blank=True, verbose_name=_("开始时间"))
     finished_at = models.DateTimeField(null=True, blank=True, verbose_name=_("完成时间"))
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))

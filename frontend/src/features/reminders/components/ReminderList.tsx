@@ -68,8 +68,6 @@ interface AssociationOption {
 export interface ReminderListProps {
   /** 合同选项列表（可选，用于关联选择） */
   contractOptions?: AssociationOption[]
-  /** 案件日志选项列表（可选，用于关联选择） */
-  caseLogOptions?: AssociationOption[]
 }
 
 // ============================================================================
@@ -313,7 +311,6 @@ function ReminderRow({
  */
 export function ReminderList({
   contractOptions = [],
-  caseLogOptions = [],
 }: ReminderListProps) {
   // ========== State ==========
   const [filters, setFilters] = useState<ReminderFiltersType>({})
@@ -439,7 +436,6 @@ export function ReminderList({
         reminder={selectedReminder}
         onSuccess={handleFormSuccess}
         contractOptions={contractOptions}
-        caseLogOptions={caseLogOptions}
       />
 
       {/* 删除确认对话框 */}

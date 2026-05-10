@@ -12,6 +12,7 @@ export interface ExpressQueryTask {
   status: string
   carrier_type: string
   tracking_number: string
+  result_pdf: string | null
   created_at: string
   updated_at: string
 }

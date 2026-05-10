@@ -6,8 +6,11 @@ from uuid import uuid4
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
+from apps.core.filesystem.upload_paths import EntityIdPath
+
 
 def _result_pdf_upload_to(instance: Any, filename: str) -> str:
+    """Deprecated: 保留用于旧 migration 兼容，新代码请使用 EntityIdPath。"""
     return f"legal_research/{instance.task_id}/{instance.id}/{filename}"
 
 
@@ -34,7 +37,7 @@ class LegalResearchResult(models.Model):
     match_reason = models.TextField(blank=True, verbose_name=_("匹配理由"))
 
     pdf_file = models.FileField(
-        upload_to=_result_pdf_upload_to,
+        upload_to=EntityIdPath("legal_research"),
         max_length=255,
         null=True,
         blank=True,

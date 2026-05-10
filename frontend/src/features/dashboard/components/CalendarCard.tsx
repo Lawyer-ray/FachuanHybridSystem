@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, MapPin, User, Clock, Plus, Pencil, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, MapPin, User, Clock, Pencil, Trash2 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -150,10 +150,6 @@ export function CalendarCard() {
     const group = targetOptions?.groups.find(g => g.key === 'contract')
     return group?.items.map(i => ({ id: i.id, label: i.name })) ?? []
   }, [targetOptions])
-  const caseLogOptions = useMemo(() => {
-    const group = targetOptions?.groups.find(g => g.key === 'case_log')
-    return group?.items.map(i => ({ id: i.id, label: i.name })) ?? []
-  }, [targetOptions])
 
   const weeks = useMemo(() => {
     const firstDay = new Date(viewYear, viewMonth, 1).getDay()
@@ -256,10 +252,14 @@ export function CalendarCard() {
               return (
                 <div
                   key={`${ri}-${ci}`}
-                  className={`group min-h-[130px] border-r border-b border-border/60 p-1.5 align-top transition-colors ${
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => handleCreateForDate(d)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleCreateForDate(d) }}
+                  className={`group min-h-[130px] border-r border-b border-border/60 p-1.5 align-top transition-colors cursor-pointer ${
                     todayCell
                       ? 'ring-2 ring-inset ring-primary z-10'
-                      : isWeekend ? 'bg-muted/10' : 'hover:bg-muted/20'
+                      : isWeekend ? 'bg-muted/10 hover:bg-muted/20' : 'hover:bg-muted/20'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1.5 px-0.5">
@@ -273,14 +273,6 @@ export function CalendarCard() {
                           {d}
                         </span>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => handleCreateForDate(d)}
-                        className="size-4 flex items-center justify-center rounded-sm text-muted-foreground/40 hover:text-foreground hover:bg-muted transition-colors opacity-0 group-hover:opacity-100"
-                        title="添加提醒"
-                      >
-                        <Plus className="size-3" />
-                      </button>
                     </div>
                     {dayEvents.length > 0 && (
                       <span className="text-[10px] text-muted-foreground font-medium">{dayEvents.length}条</span>
@@ -292,7 +284,7 @@ export function CalendarCard() {
                       <button
                         key={ev.id}
                         type="button"
-                        onClick={() => setSelectedEvent(ev)}
+                        onClick={(e) => { e.stopPropagation(); setSelectedEvent(ev) }}
                         className={`w-full text-left rounded-md cursor-pointer transition-colors overflow-hidden border ${
                           ev.is_overdue
                             ? 'border-red-200 bg-red-50 hover:bg-red-100/80 dark:border-red-900/40 dark:bg-red-950/30 dark:hover:bg-red-950/50'
@@ -355,7 +347,6 @@ export function CalendarCard() {
         reminder={formReminder}
         onSuccess={handleFormSuccess}
         contractOptions={contractOptions}
-        caseLogOptions={caseLogOptions}
         initialDate={formDate}
       />
 

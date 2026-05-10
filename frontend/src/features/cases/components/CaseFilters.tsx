@@ -1,16 +1,11 @@
-import { Search } from 'lucide-react'
-
-import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { useState } from 'react'
+import { SlidersHorizontal } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Separator } from '@/components/ui/separator'
 import {
   type SimpleCaseType,
-  type CaseStatus,
   type CaseListParams,
   SIMPLE_CASE_TYPE_LABELS,
   CASE_STATUS_LABELS,
@@ -21,84 +16,93 @@ export interface CaseFiltersProps {
   onFiltersChange: (filters: CaseListParams) => void
 }
 
-const CASE_TYPE_OPTIONS: { value: SimpleCaseType; label: string }[] = (
-  Object.entries(SIMPLE_CASE_TYPE_LABELS) as [SimpleCaseType, { zh: string }][]
-).map(([value, label]) => ({ value, label: label.zh }))
-
-const CASE_STATUS_OPTIONS: { value: CaseStatus; label: string }[] = (
-  Object.entries(CASE_STATUS_LABELS) as [CaseStatus, { zh: string }][]
-).map(([value, label]) => ({ value, label: label.zh }))
-
 export function CaseFilters({ filters, onFiltersChange }: CaseFiltersProps) {
-  const handleCaseTypeChange = (value: string) => {
-    onFiltersChange({
-      ...filters,
-      case_type: value === 'all' ? undefined : (value as SimpleCaseType),
-    })
-  }
+  const [open, setOpen] = useState(false)
 
-  const handleStatusChange = (value: string) => {
-    onFiltersChange({
-      ...filters,
-      status: value === 'all' ? undefined : value,
-    })
-  }
+  const activeFilterCount = [filters.case_type, filters.status].filter(Boolean).length
 
-  const handleCaseNumberChange = (value: string) => {
-    onFiltersChange({
-      ...filters,
-      case_number: value || undefined,
-    })
+  const clearAll = () => {
+    onFiltersChange({ status: 'active' })
   }
 
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3">
-      {/* 案号搜索 */}
-      <div className="relative">
-        <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="搜索案号..."
-          className="pl-8 w-full sm:w-[200px] h-9"
-          value={filters.case_number ?? ''}
-          onChange={(e) => handleCaseNumberChange(e.target.value)}
-        />
-      </div>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" className="gap-2">
+          <SlidersHorizontal className="size-4" />
+          筛选
+          {activeFilterCount > 0 && (
+            <Badge variant="secondary" className="ml-1 size-5 justify-center rounded-full p-0 text-xs">
+              {activeFilterCount}
+            </Badge>
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[280px] p-4" align="start">
+        <div className="space-y-4">
+          {/* 案件类型 */}
+          <div className="space-y-2">
+            <h4 className="text-sm font-medium">案件类型</h4>
+            <div className="flex flex-wrap gap-1.5">
+              <FilterChip
+                label="全部"
+                active={!filters.case_type}
+                onClick={() => onFiltersChange({ ...filters, case_type: undefined })}
+              />
+              {Object.entries(SIMPLE_CASE_TYPE_LABELS).map(([k, v]) => (
+                <FilterChip
+                  key={k}
+                  label={v.zh}
+                  active={filters.case_type === k}
+                  onClick={() => onFiltersChange({ ...filters, case_type: filters.case_type === k ? undefined : k as SimpleCaseType })}
+                />
+              ))}
+            </div>
+          </div>
 
-      {/* 案件类型筛选 */}
-      <Select
-        value={filters.case_type ?? 'all'}
-        onValueChange={handleCaseTypeChange}
-      >
-        <SelectTrigger className="w-full sm:w-[140px]">
-          <SelectValue placeholder="案件类型" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">全部类型</SelectItem>
-          {CASE_TYPE_OPTIONS.map((opt) => (
-            <SelectItem key={opt.value} value={opt.value}>
-              {opt.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+          <Separator />
 
-      {/* 案件状态筛选 */}
-      <Select
-        value={filters.status ?? 'all'}
-        onValueChange={handleStatusChange}
-      >
-        <SelectTrigger className="w-full sm:w-[140px]">
-          <SelectValue placeholder="案件状态" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">全部状态</SelectItem>
-          {CASE_STATUS_OPTIONS.map((opt) => (
-            <SelectItem key={opt.value} value={opt.value}>
-              {opt.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
+          {/* 状态 */}
+          <div className="space-y-2">
+            <h4 className="text-sm font-medium">状态</h4>
+            <div className="flex flex-wrap gap-1.5">
+              {Object.entries(CASE_STATUS_LABELS).map(([k, v]) => (
+                <FilterChip
+                  key={k}
+                  label={v.zh}
+                  active={filters.status === k}
+                  onClick={() => onFiltersChange({ ...filters, status: filters.status === k ? undefined : k })}
+                />
+              ))}
+            </div>
+          </div>
+
+          {activeFilterCount > 0 && (
+            <>
+              <Separator />
+              <Button variant="ghost" size="sm" className="w-full" onClick={clearAll}>
+                清除所有筛选
+              </Button>
+            </>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+function FilterChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+        active
+          ? 'bg-primary text-primary-foreground'
+          : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+      }`}
+    >
+      {label}
+    </button>
   )
 }

@@ -9,13 +9,17 @@ from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
+from apps.core.filesystem.upload_paths import DatedUUIDPath
+
 
 def _waybill_upload_to(_instance: ExpressQueryTask, filename: str) -> str:
+    """Deprecated: 保留用于旧 migration 兼容，新代码请使用 DatedUUIDPath。"""
     extension = Path(filename).suffix.lower()
     return f"express_query/waybills/{uuid.uuid4().hex}{extension}"
 
 
 def _result_pdf_upload_to(_instance: ExpressQueryTask, filename: str) -> str:
+    """Deprecated: 保留用于旧 migration 兼容，新代码请使用 DatedUUIDPath。"""
     extension = Path(filename).suffix.lower() or ".pdf"
     return f"express_query/results/{uuid.uuid4().hex}{extension}"
 
@@ -48,7 +52,9 @@ class ExpressQueryTaskStatus(models.TextChoices):
 class ExpressQueryTask(models.Model):
     id: int
     title = models.CharField(max_length=255, blank=True, default="", verbose_name=_("任务名称"))
-    waybill_image = models.FileField(upload_to=_waybill_upload_to, blank=True, null=True, verbose_name=_("邮单页面"))
+    waybill_image = models.FileField(
+        upload_to=DatedUUIDPath("express_query/waybills"), blank=True, null=True, verbose_name=_("邮单页面")
+    )
     status = models.CharField(
         max_length=32,
         choices=ExpressQueryTaskStatus.choices,
@@ -64,7 +70,9 @@ class ExpressQueryTask(models.Model):
     tracking_number = models.CharField(max_length=64, blank=True, default="", verbose_name=_("运单号"))
     ocr_text = models.TextField(blank=True, default="", verbose_name=_("OCR文本"))
     query_url = models.URLField(blank=True, default="", verbose_name=_("查询页面URL"))
-    result_pdf = models.FileField(upload_to=_result_pdf_upload_to, blank=True, null=True, verbose_name=_("查询结果PDF"))
+    result_pdf = models.FileField(
+        upload_to=DatedUUIDPath("express_query/results"), blank=True, null=True, verbose_name=_("查询结果PDF")
+    )
     result_payload = models.JSONField(default=dict, blank=True, verbose_name=_("执行结果"))
     queue_task_id = models.CharField(max_length=64, blank=True, default="", verbose_name=_("队列任务ID"))
     error_message = models.TextField(blank=True, default="", verbose_name=_("错误信息"))

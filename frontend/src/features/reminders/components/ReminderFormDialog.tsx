@@ -60,8 +60,6 @@ export interface ReminderFormDialogProps {
   onSuccess?: () => void
   /** 合同选项列表（可选，用于关联选择） */
   contractOptions?: AssociationOption[]
-  /** 案件日志选项列表（可选，用于关联选择） */
-  caseLogOptions?: AssociationOption[]
   /** 创建模式下的初始日期（可选，用于从日历创建时预填日期） */
   initialDate?: Date
 }
@@ -106,7 +104,6 @@ export function ReminderFormDialog({
   reminder,
   onSuccess,
   contractOptions = [],
-  caseLogOptions = [],
   initialDate,
 }: ReminderFormDialogProps) {
   const { createMutation, updateMutation } = useReminderMutations()
@@ -187,7 +184,6 @@ export function ReminderFormDialog({
           onCancel={handleCancel}
           isSubmitting={isSubmitting}
           contractOptions={contractOptions}
-          caseLogOptions={caseLogOptions}
           initialDate={initialDate}
         />
       </DialogContent>

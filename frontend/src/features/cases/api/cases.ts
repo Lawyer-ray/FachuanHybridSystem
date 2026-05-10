@@ -23,7 +23,6 @@ export const casesCrudApi = {
     const searchParams = new URLSearchParams()
     if (params?.case_type) searchParams.set('case_type', params.case_type)
     if (params?.status) searchParams.set('status', params.status)
-    if (params?.case_number) searchParams.set('case_number', params.case_number)
     return client.get('cases', { searchParams }).json<Case[]>()
   },
 

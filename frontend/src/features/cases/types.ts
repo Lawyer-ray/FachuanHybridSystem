@@ -562,5 +562,4 @@ export type CaseFormData = z.infer<typeof caseFormSchema>
 export interface CaseListParams {
   case_type?: SimpleCaseType
   status?: string
-  case_number?: string
 }
