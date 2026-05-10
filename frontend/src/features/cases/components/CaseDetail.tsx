@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   ArrowLeft, Edit, Trash2, FileWarning, Hash, Building2, MessageSquare,
-  FileText, FolderOpen, Paperclip, Plus, Users, FileCheck,
+  FileText, FolderOpen, Paperclip, Plus, Users, FileCheck, Shield,
 } from 'lucide-react'
 import { formatDateOnly } from '@/lib/date'
 import { formatAmount } from '@/lib/format'
@@ -436,11 +436,13 @@ export function CaseDetail({ caseId }: CaseDetailProps) {
         {/* ════════════════════════════════════════════ */}
         {activeTab === 'documents' && (
           <motion.div key="documents" {...tabVariants} transition={tabTransition}>
-            <AuthorizationMaterialsSection
-              caseId={Number(caseId)}
-              caseName={caseData.name}
-              parties={caseData.parties ?? []}
-            />
+            <DetailCard title="授权委托材料" extra={<Shield className="text-muted-foreground size-4" />}>
+              <AuthorizationMaterialsSection
+                caseId={Number(caseId)}
+                caseName={caseData.name}
+                parties={caseData.parties ?? []}
+              />
+            </DetailCard>
 
             <DetailCard title="文书模板" extra={<FileText className="text-muted-foreground size-4" />}>
               <CaseTemplateSection

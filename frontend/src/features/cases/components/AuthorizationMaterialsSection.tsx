@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Download, Loader2, FileText, Scale, Shield, FileCheck } from 'lucide-react'
+import { Download, Loader2, FileText, Scale, FileCheck } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -85,12 +85,7 @@ export function AuthorizationMaterialsSection({ caseId, caseName, parties }: Pro
   const dialogTitle = partyDialog?.mode === 'legal-rep' ? '法定代表人证明' : '授权委托书'
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-1.5">
-        <Shield className="text-muted-foreground size-3.5" />
-        <span className="text-xs font-medium text-muted-foreground">授权委托材料</span>
-      </div>
-
+    <>
       <div className="flex flex-wrap gap-1.5">
         <Button
           size="sm"
@@ -191,6 +186,6 @@ export function AuthorizationMaterialsSection({ caseId, caseName, parties }: Pro
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   )
 }
