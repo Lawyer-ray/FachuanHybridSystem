@@ -65,7 +65,7 @@ async function handleTerminal(set: SetFn, get: GetFn, progress: BatchProgress) {
     } catch { /* 持久化失败不影响用户体验 */ }
   }
 
-  if (progress.job.status === 'completed' && progress.job.summary) {
+  if (['completed', 'cancelled'].includes(progress.job.status) && progress.job.summary) {
     try {
       await api.saveBatchMessages(progress.job.id, [{
         file_name: '汇总报告',
