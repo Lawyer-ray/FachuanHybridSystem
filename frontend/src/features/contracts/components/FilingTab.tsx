@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Briefcase, Loader2, CheckCircle2, XCircle, AlertCircle } from 'lucide-react'
+import { Briefcase, Loader2, CheckCircle2, XCircle, AlertCircle, ExternalLink } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -9,7 +9,7 @@ import {
 import { contractApi } from '../api'
 import type { Contract, OAConfig, FilingSession } from '../types'
 import { useNavigate } from 'react-router'
-import { DetailCard } from '@/components/shared'
+import { DetailCard, DetailField } from '@/components/shared'
 
 export function FilingTab({ contract: c }: { contract: Contract }) {
   const navigate = useNavigate()
@@ -77,6 +77,27 @@ export function FilingTab({ contract: c }: { contract: Contract }) {
 
   return (
     <div>
+      {/* Law Firm OA */}
+      {(c.law_firm_oa_url || c.law_firm_oa_case_number) && (
+        <DetailCard title="律所 OA">
+          <div className="grid gap-[14px] sm:grid-cols-2">
+            <DetailField label="OA 链接" value={
+              c.law_firm_oa_url ? (
+                <a
+                  href={c.law_firm_oa_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary inline-flex items-center gap-1 hover:underline text-[13px]"
+                >
+                  打开 OA <ExternalLink className="size-3" />
+                </a>
+              ) : '—'
+            } />
+            <DetailField label="OA 案件编号" value={c.law_firm_oa_case_number} mono />
+          </div>
+        </DetailCard>
+      )}
+
       {/* Related Cases */}
       <DetailCard title="关联案件">
         {c.cases.length > 0 ? (

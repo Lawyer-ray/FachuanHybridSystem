@@ -160,8 +160,11 @@ class LegalResearchExecutor(
                 0.0, float(getattr(tuning, "title_prefilter_min_overlap", self.TITLE_PREFILTER_MIN_OVERLAP))
             )
             coarse_recall_hard_floor = max(0.0, float(getattr(tuning, "coarse_recall_hard_floor", 0.20)))
-            llm_scoring_concurrency = max(
-                1, int(getattr(tuning, "llm_scoring_concurrency", self.LLM_SCORING_CONCURRENCY))
+            task_concurrency = max(1, int(getattr(task, "llm_scoring_concurrency", 0) or 0))
+            llm_scoring_concurrency = (
+                task_concurrency
+                if task_concurrency > 0
+                else max(1, int(getattr(tuning, "llm_scoring_concurrency", self.LLM_SCORING_CONCURRENCY)))
             )
             feedback_term_weights: dict[str, int] = {}
             feedback_queries_added = 0

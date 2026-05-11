@@ -49,6 +49,7 @@ async def generate_summary(
                     "书记员": "",
                     "与研究问题相关": "",
                     "结论": "未提取到元数据",
+                    "详细分析": "",
                 }
             )
             continue
@@ -63,6 +64,7 @@ async def generate_summary(
                 "书记员": parsed["clerk"],
                 "与研究问题相关": "是" if parsed["is_relevant"] else "否",
                 "结论": parsed["conclusion"],
+                "详细分析": parsed["analysis"],
             }
         )
 
@@ -71,7 +73,7 @@ async def generate_summary(
 
     # 生成 CSV
     output = io.StringIO()
-    fieldnames = ["文件名", "案号", "案由", "审理法院", "法官", "书记员", "与研究问题相关", "结论"]
+    fieldnames = ["文件名", "案号", "案由", "审理法院", "法官", "书记员", "与研究问题相关", "结论", "详细分析"]
     writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction="ignore")
     writer.writeheader()
     writer.writerows(csv_rows)

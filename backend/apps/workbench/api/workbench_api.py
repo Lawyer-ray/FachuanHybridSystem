@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import io
 import json
 import logging
 from typing import Any, Literal
@@ -176,7 +177,7 @@ async def stream_chat(request: Any, session_id: int, payload: MessageIn) -> Stre
     """SSE 流式对话 - 发送消息并获取 AI 流式响应"""
     ctx = extract_request_context(request)
     session_service = ServiceLocator.get_workbench_session_service()
-    session_service.get_user_session(ctx.user, session_id)
+    await sync_to_async(session_service.get_user_session)(ctx.user, session_id)
 
     chat_service = ServiceLocator.get_workbench_chat_service()
 
@@ -293,14 +294,26 @@ def cancel_batch_analysis(request: Any, job_id: UUID) -> dict[str, Any]:
 
 
 @router.get("/batch/{job_id}/download")
-def download_batch_summary(request: Any, job_id: UUID) -> FileResponse:
+def download_batch_summary(request: Any, job_id: UUID, relevant_only: bool = False) -> FileResponse:
     """下载批量分析汇总 CSV 文件"""
+    from ..tasks.parsing import parse_llm_result
+
     ctx = extract_request_context(request)
     batch_service = ServiceLocator.get_workbench_batch_service()
     session_service = ServiceLocator.get_workbench_session_service()
 
     job = batch_service.get_job_by_id(job_id)
     session_service.get_user_session(ctx.user, job.session_id)
+
+    if relevant_only:
+        csv_content = _generate_filtered_csv(job_id, only_relevant=True)
+        filename = f"案例分析汇总_相关_{job_id.hex[:8]}.csv"
+        return FileResponse(
+            io.BytesIO(csv_content.encode("utf-8-sig")),
+            as_attachment=True,
+            filename=filename,
+            content_type="text/csv; charset=utf-8",
+        )
 
     if not job.summary_file:
         from apps.core.exceptions import NotFoundError
@@ -315,8 +328,113 @@ def download_batch_summary(request: Any, job_id: UUID) -> FileResponse:
     )
 
 
+def _generate_filtered_csv(job_id: UUID, *, only_relevant: bool) -> str:
+    """生成过滤后的 CSV 内容（仅返回字符串）"""
+    import csv as csv_mod
+
+    from ..tasks.parsing import parse_llm_result
+
+    items = list(BatchJobItem.objects.filter(job_id=job_id, status=BatchJobStatus.COMPLETED))
+    rows: list[dict[str, str]] = []
+    for item in items:
+        if not item.result:
+            continue
+        parsed = parse_llm_result(item.result, item.file_name)
+        if only_relevant:
+            if not parsed["is_relevant"]:
+                continue
+            if (
+                parsed["parse_method"] == "regex"
+                and parsed["case_number"] == "未注明"
+                and parsed["conclusion"] == "未注明"
+            ):
+                continue
+        rows.append(
+            {
+                "文件名": item.file_name,
+                "案号": parsed["case_number"],
+                "案由": parsed["cause"],
+                "审理法院": parsed["court"],
+                "法官": parsed["judge"],
+                "书记员": parsed["clerk"],
+                "与研究问题相关": "是" if parsed["is_relevant"] else "否",
+                "结论": parsed["conclusion"],
+                "详细分析": parsed["analysis"],
+            }
+        )
+
+    output = io.StringIO()
+    fieldnames = ["文件名", "案号", "案由", "审理法院", "法官", "书记员", "与研究问题相关", "结论", "详细分析"]
+    writer = csv_mod.DictWriter(output, fieldnames=fieldnames, extrasaction="ignore")
+    writer.writeheader()
+    writer.writerows(rows)
+    return output.getvalue()
+
+
+def _generate_filtered_zip(job_id: UUID, *, only_relevant: bool) -> bytes:
+    """生成过滤后的 ZIP 内容"""
+    import re
+    import zipfile
+
+    from ..tasks.parsing import parse_llm_result
+
+    items = list(BatchJobItem.objects.filter(job_id=job_id, status=BatchJobStatus.COMPLETED))
+    zip_buffer = io.BytesIO()
+
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        seen_names: dict[str, int] = {}
+        for item in items:
+            if not item.result:
+                continue
+            parsed = parse_llm_result(item.result, item.file_name)
+            if only_relevant:
+                if not parsed["is_relevant"]:
+                    continue
+                if (
+                    parsed["parse_method"] == "regex"
+                    and parsed["case_number"] == "未注明"
+                    and parsed["conclusion"] == "未注明"
+                ):
+                    continue
+
+            md_parts = [
+                "# 案例分析报告\n",
+                "## 基本信息\n",
+                f"- **文件名**：{item.file_name}",
+                f"- **案号**：{parsed['case_number']}",
+                f"- **案由**：{parsed['cause']}",
+                f"- **审理法院**：{parsed['court']}",
+                f"- **法官**：{parsed['judge']}",
+                f"- **书记员**：{parsed['clerk']}",
+                f"- **与研究问题相关**：{'是' if parsed['is_relevant'] else '否'}",
+                "",
+                "## 结论\n",
+                parsed["conclusion"],
+                "",
+                "## 详细分析\n",
+                parsed["analysis"],
+            ]
+            md_content = "\n".join(md_parts)
+
+            base_name = item.file_name
+            if "." in base_name:
+                base_name = base_name.rsplit(".", 1)[0]
+            base_name = re.sub(r"[^0-9A-Za-z一-鿿._-]+", "_", base_name)
+            base_name = re.sub(r"_+", "_", base_name).strip("_") or "unnamed"
+            md_filename = f"{base_name}.md"
+            if md_filename in seen_names:
+                seen_names[md_filename] += 1
+                md_filename = f"{base_name}_{seen_names[md_filename]}.md"
+            else:
+                seen_names[md_filename] = 0
+            zf.writestr(md_filename, md_content.encode("utf-8"))
+
+    zip_buffer.seek(0)
+    return zip_buffer.getvalue()
+
+
 @router.get("/batch/{job_id}/download-detail")
-def download_batch_detail_zip(request: Any, job_id: UUID) -> FileResponse:
+def download_batch_detail_zip(request: Any, job_id: UUID, relevant_only: bool = False) -> FileResponse:
     """下载批量分析详情 ZIP 文件"""
     from ..tasks import build_detail_zip_sync
 
@@ -326,6 +444,16 @@ def download_batch_detail_zip(request: Any, job_id: UUID) -> FileResponse:
 
     job = batch_service.get_job_by_id(job_id)
     session_service.get_user_session(ctx.user, job.session_id)
+
+    if relevant_only:
+        zip_content = _generate_filtered_zip(job_id, only_relevant=True)
+        filename = f"案例分析详情_相关_{job_id.hex[:8]}.zip"
+        return FileResponse(
+            io.BytesIO(zip_content),
+            as_attachment=True,
+            filename=filename,
+            content_type="application/zip",
+        )
 
     if not job.detail_zip_file:
         if not build_detail_zip_sync(job_id):
@@ -474,6 +602,51 @@ def list_batch_jobs(request: Any, session_id: int, page: int = 1) -> dict[str, A
         org_access=ctx.org_access,
         perm_open_access=ctx.perm_open_access,
     )
+
+
+# ─── Prompt 优化 API ─────────────────────────────────────────────────────────
+
+
+class OptimizePromptIn(Schema):
+    """Prompt 优化请求体"""
+
+    prompt: str
+
+
+class OptimizePromptOut(Schema):
+    """Prompt 优化响应体"""
+
+    optimized_prompt: str
+
+
+@router.post("/optimize-prompt", response=OptimizePromptOut)
+def optimize_prompt(request: Any, payload: OptimizePromptIn) -> dict[str, str]:
+    """使用 AI 优化批量分析的 prompt"""
+    from apps.core.llm.service import get_llm_service
+
+    llm = get_llm_service()
+
+    system_prompt = """你是一个法律文书分析专家。用户会给你一个批量文档分析的需求描述，你需要帮用户优化这个需求，使其更加清晰、具体、专业。
+
+优化规则：
+1. 保持用户的核心意图不变
+2. 添加更具体的分析维度（如争议焦点、裁判要旨、法律适用、证据认定等）
+3. 明确输出要求（如需要总结哪些内容、以什么格式输出）
+4. 使用专业的法律术语
+5. 不要添加用户没有提到的新需求
+6. 优化后的 prompt 应该直接可以用于批量文档分析
+
+请直接输出优化后的 prompt，不要有任何解释或前缀。"""
+
+    result = llm.chat(
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"请优化以下批量文档分析需求：\n\n{payload.prompt}"},
+        ],
+        temperature=0.7,
+    )
+
+    return {"optimized_prompt": result.content.strip()}
 
 
 # ─── 模型列表 API ────────────────────────────────────────────────────────────

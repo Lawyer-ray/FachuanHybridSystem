@@ -638,7 +638,7 @@ class LLMConfig:
         规则:
         - 模型名含 "/" → siliconflow（如 Qwen/Qwen2.5-7B-Instruct）
         - 模型名含 ":" → ollama（如 qwen3:0.6b）
-        - 其余 → openai_compatible（如 Qwen3.5-397B-A17B、moonshot-v1-8k）
+        - 其余 → openai_compatible（如 kimi26、moonshot-v1-8k）
 
         Args:
             model: 模型名称

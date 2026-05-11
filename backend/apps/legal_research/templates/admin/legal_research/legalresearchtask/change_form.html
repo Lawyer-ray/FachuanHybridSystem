@@ -183,5 +183,35 @@ document.addEventListener('DOMContentLoaded', function () {
   // 表单提交前同步
   textarea.form && textarea.form.addEventListener('submit', syncToTextarea);
 });
+
+// LLM 模型切换时自动调整并发数
+document.addEventListener('DOMContentLoaded', function () {
+  var modelSelect = document.querySelector('#id_llm_model');
+  var concurrencyInput = document.querySelector('#id_llm_scoring_concurrency');
+  if (!modelSelect || !concurrencyInput) return;
+
+  var DEFAULT_CONCURRENCY = 5;
+  var BIG_MODEL_CONCURRENCY = 100;
+  var BIG_MODEL_KEYWORDS = ['397B', '397b', '72B', '72b'];
+
+  function isBigModel(value) {
+    if (!value) return false;
+    for (var i = 0; i < BIG_MODEL_KEYWORDS.length; i++) {
+      if (value.indexOf(BIG_MODEL_KEYWORDS[i]) !== -1) return true;
+    }
+    return false;
+  }
+
+  function syncConcurrency() {
+    var val = modelSelect.value || '';
+    if (isBigModel(val)) {
+      concurrencyInput.value = BIG_MODEL_CONCURRENCY;
+    } else {
+      concurrencyInput.value = DEFAULT_CONCURRENCY;
+    }
+  }
+
+  modelSelect.addEventListener('change', syncConcurrency);
+});
 </script>
 {% endblock %}

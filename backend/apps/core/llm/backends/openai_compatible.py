@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+import time
+from collections.abc import AsyncIterator, Iterator
 from typing import Any
 
 import httpx
@@ -11,6 +13,7 @@ import openai
 from apps.core.llm.config import LLMConfig
 from apps.core.llm.exceptions import LLMAPIError, LLMAuthenticationError, LLMNetworkError, LLMTimeoutError
 
+from .base import LLMResponse, LLMStreamChunk
 from .siliconflow import SiliconFlowBackend
 
 logger = logging.getLogger("apps.core.llm.backends.openai_compatible")
@@ -20,6 +23,196 @@ class OpenAICompatibleBackend(SiliconFlowBackend):
     """Generic backend for OpenAI-compatible providers (Moonshot/Kimi/DeepSeek etc.)."""
 
     BACKEND_NAME = "openai_compatible"
+
+    # ── thinking 模式控制 ────────────────────────────────────────────────────
+
+    _DISABLE_THINKING_MODELS = {"kimi26"}
+
+    def _build_extra_body(self) -> dict[str, Any] | None:
+        """vLLM/SGLang 部分模型（如 kimi26）需要 chat_template_kwargs 关闭思考模式"""
+        model = self.default_model.lower()
+        if any(m in model for m in self._DISABLE_THINKING_MODELS):
+            return {"chat_template_kwargs": {"thinking": False}}
+        return None
+
+    # ── 覆写 4 个 API 方法，注入 extra_body ─────────────────────────────────
+
+    def chat(
+        self,
+        messages: list[dict[str, str]],
+        model: str | None = None,
+        temperature: float = 0.7,
+        max_tokens: int | None = None,
+        **kwargs: Any,
+    ) -> LLMResponse:
+        used_model = model or self.default_model
+        request_timeout = float(kwargs.pop("timeout_seconds", self.timeout))
+        payload: dict[str, Any] = {
+            "model": used_model,
+            "messages": self._normalize_messages(messages),
+            "temperature": temperature,
+        }
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
+        extra = self._build_extra_body()
+        if extra:
+            payload["extra_body"] = extra
+
+        start_time = time.time()
+        try:
+            client = self._build_sync_client(timeout_seconds=request_timeout)
+            response = client.chat.completions.create(**payload)
+        except Exception as error:
+            self._raise_mapped_error(error, request_timeout, self.base_url)
+
+        duration_ms = (time.time() - start_time) * 1000
+        usage = self._extract_usage(getattr(response, "usage", None))
+        return LLMResponse(
+            content=self._extract_content(response),
+            model=used_model,
+            prompt_tokens=usage.prompt_tokens,
+            completion_tokens=usage.completion_tokens,
+            total_tokens=usage.total_tokens,
+            duration_ms=duration_ms,
+            backend=self.BACKEND_NAME,
+        )
+
+    async def achat(
+        self,
+        messages: list[dict[str, str]],
+        model: str | None = None,
+        temperature: float = 0.7,
+        max_tokens: int | None = None,
+        **kwargs: Any,
+    ) -> LLMResponse:
+        used_model = model or (
+            self._config.default_model if self._config else await LLMConfig.get_default_model_async()
+        )
+        request_timeout = float(
+            kwargs.pop("timeout_seconds", self._config.timeout if self._config else await LLMConfig.get_timeout_async())
+        )
+        payload: dict[str, Any] = {
+            "model": used_model,
+            "messages": self._normalize_messages(messages),
+            "temperature": temperature,
+        }
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
+        extra = self._build_extra_body()
+        if extra:
+            payload["extra_body"] = extra
+
+        start_time = time.time()
+        try:
+            async_client = await self._build_async_client(timeout_seconds=request_timeout)
+            response = await async_client.chat.completions.create(**payload)
+        except Exception as error:
+            base_url = (
+                self._config.base_url
+                if self._config and self._config.base_url
+                else await LLMConfig.get_base_url_async()
+            )
+            self._raise_mapped_error(error, request_timeout, base_url)
+
+        duration_ms = (time.time() - start_time) * 1000
+        usage = self._extract_usage(getattr(response, "usage", None))
+        return LLMResponse(
+            content=self._extract_content(response),
+            model=used_model,
+            prompt_tokens=usage.prompt_tokens,
+            completion_tokens=usage.completion_tokens,
+            total_tokens=usage.total_tokens,
+            duration_ms=duration_ms,
+            backend=self.BACKEND_NAME,
+        )
+
+    def stream(
+        self,
+        messages: list[dict[str, str]],
+        model: str | None = None,
+        temperature: float = 0.7,
+        max_tokens: int | None = None,
+        **kwargs: Any,
+    ) -> Iterator[LLMStreamChunk]:
+        used_model = model or self.default_model
+        request_timeout = float(kwargs.pop("timeout_seconds", self.timeout))
+        payload: dict[str, Any] = {
+            "model": used_model,
+            "messages": self._normalize_messages(messages),
+            "temperature": temperature,
+            "stream": True,
+            "stream_options": {"include_usage": True},
+        }
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
+        extra = self._build_extra_body()
+        if extra:
+            payload["extra_body"] = extra
+
+        try:
+            client = self._build_sync_client(timeout_seconds=request_timeout)
+            for chunk in client.chat.completions.create(**payload):
+                choices = getattr(chunk, "choices", None) or []
+                if choices:
+                    delta = getattr(choices[0], "delta", None)
+                    content = getattr(delta, "content", "") if delta is not None else ""
+                    if content:
+                        yield LLMStreamChunk(content=content, model=used_model, backend=self.BACKEND_NAME)
+                usage = getattr(chunk, "usage", None)
+                if usage is not None:
+                    final_usage = self._extract_usage(usage)
+                    yield LLMStreamChunk(usage=final_usage, model=used_model, backend=self.BACKEND_NAME)
+        except Exception as error:
+            self._raise_mapped_error(error, request_timeout, self.base_url)
+
+    async def astream(
+        self,
+        messages: list[dict[str, str]],
+        model: str | None = None,
+        temperature: float = 0.7,
+        max_tokens: int | None = None,
+        **kwargs: Any,
+    ) -> AsyncIterator[LLMStreamChunk]:
+        used_model = model or (
+            self._config.default_model if self._config else await LLMConfig.get_default_model_async()
+        )
+        request_timeout = float(
+            kwargs.pop("timeout_seconds", self._config.timeout if self._config else await LLMConfig.get_timeout_async())
+        )
+        payload: dict[str, Any] = {
+            "model": used_model,
+            "messages": self._normalize_messages(messages),
+            "temperature": temperature,
+            "stream": True,
+            "stream_options": {"include_usage": True},
+        }
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
+        extra = self._build_extra_body()
+        if extra:
+            payload["extra_body"] = extra
+
+        try:
+            async_client = await self._build_async_client(timeout_seconds=request_timeout)
+            stream = await async_client.chat.completions.create(**payload)
+            async for chunk in stream:
+                choices = getattr(chunk, "choices", None) or []
+                if choices:
+                    delta = getattr(choices[0], "delta", None)
+                    content = getattr(delta, "content", "") if delta is not None else ""
+                    if content:
+                        yield LLMStreamChunk(content=content, model=used_model, backend=self.BACKEND_NAME)
+                usage = getattr(chunk, "usage", None)
+                if usage is not None:
+                    final_usage = self._extract_usage(usage)
+                    yield LLMStreamChunk(usage=final_usage, model=used_model, backend=self.BACKEND_NAME)
+        except Exception as error:
+            base_url = (
+                self._config.base_url
+                if self._config and self._config.base_url
+                else await LLMConfig.get_base_url_async()
+            )
+            self._raise_mapped_error(error, request_timeout, base_url)
 
     @property
     def api_key(self) -> str:

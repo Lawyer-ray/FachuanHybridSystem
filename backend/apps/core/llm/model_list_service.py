@@ -35,7 +35,7 @@ _KNOWN_CONTEXT_WINDOWS: dict[str, int] = {
     "THUDM/glm-4-9b-chat": 32768,
     "deepseek-ai/DeepSeek-V3": 65536,
     "deepseek-ai/DeepSeek-R1": 65536,
-    "Qwen3.5-397B-A17B": 262144,
+    "kimi26": 262144,
 }
 
 

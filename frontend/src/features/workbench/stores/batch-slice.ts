@@ -65,7 +65,7 @@ async function handleTerminal(set: SetFn, get: GetFn, progress: BatchProgress) {
     } catch { /* 持久化失败不影响用户体验 */ }
   }
 
-  if (progress.job.status === 'completed' && progress.job.summary) {
+  if (['completed', 'cancelled'].includes(progress.job.status) && progress.job.summary) {
     try {
       await api.saveBatchMessages(progress.job.id, [{
         file_name: '汇总报告',
@@ -218,7 +218,7 @@ export interface BatchSlice {
   batchProgress: BatchProgress | null
   batchPolling: boolean
   postAnalysisPrompt: string
-  submitBatchAnalysis: (prompt: string, files: File[], postAnalysisPrompt?: string) => Promise<void>
+  submitBatchAnalysis: (prompt: string, files: File[], postAnalysisPrompt?: string, concurrency?: number) => Promise<void>
   cancelBatchAnalysis: () => Promise<void>
   dismissBatchProgress: () => void
   recoverActiveBatchJob: (sessionId: number) => Promise<void>
@@ -231,7 +231,7 @@ export const createBatchSlice: StateCreator<WorkbenchStore, [], [], BatchSlice> 
   batchPolling: false,
   postAnalysisPrompt: '',
 
-  submitBatchAnalysis: async (prompt, files, postAnalysisPrompt = '') => {
+  submitBatchAnalysis: async (prompt, files, postAnalysisPrompt = '', concurrency = 50) => {
     const { currentSession, selectedModel } = get()
     if (!currentSession) return
 
@@ -241,7 +241,7 @@ export const createBatchSlice: StateCreator<WorkbenchStore, [], [], BatchSlice> 
     }
 
     _shownBatchItemIds = new Set()
-    const job = await api.submitBatchAnalysis(currentSession.id, prompt, selectedModel, files)
+    const job = await api.submitBatchAnalysis(currentSession.id, prompt, selectedModel, files, concurrency)
     set({
       activeBatchJobId: job.id,
       batchProgress: { job, items: [], failed_items_detail: [] },

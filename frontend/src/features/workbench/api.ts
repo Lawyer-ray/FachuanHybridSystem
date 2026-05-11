@@ -185,6 +185,12 @@ export function connectBatchSSE(
   return () => controller.abort()
 }
 
+// ─── Prompt 优化 API ────────────────────────────────────────────────────────
+
+export async function optimizePrompt(prompt: string): Promise<{ optimized_prompt: string }> {
+  return api.post('optimize-prompt', { json: { prompt }, timeout: 120_000 }).json()
+}
+
 /** 工作台 API 统一导出 */
 export const workbenchApi = {
   // 会话

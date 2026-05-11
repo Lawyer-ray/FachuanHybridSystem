@@ -59,8 +59,15 @@ class JWTOrSessionAuth(HttpBearer):
         """
         # 1. 尝试从 Authorization header 获取 JWT token
         auth_header = request.headers.get("Authorization", "")
+        token = None
         if auth_header.startswith("Bearer "):
             token = auth_header[7:]
+
+        # 2. 如果 header 中没有 token,尝试从 query parameter 获取（用于 window.open 下载场景）
+        if not token:
+            token = request.GET.get("token")
+
+        if token:
             try:
                 user = self._jwt_auth.authenticate(request, token)
                 if user:
@@ -73,7 +80,7 @@ class JWTOrSessionAuth(HttpBearer):
                 ):
                     logger.info("jwt_auth_failed", extra={"error_type": type(e).__name__})
 
-        # 2. 再尝试 Session 认证(Django Admin 登录)
+        # 3. 再尝试 Session 认证(Django Admin 登录)
         if hasattr(request, "user") and request.user and request.user.is_authenticated:
             if request.method not in ("GET", "HEAD", "OPTIONS", "TRACE"):
                 reason = CsrfViewMiddleware(lambda _req: None).process_view(request, lambda _req: None, (), {})  # type: ignore[return-value, arg-type, arg-type]

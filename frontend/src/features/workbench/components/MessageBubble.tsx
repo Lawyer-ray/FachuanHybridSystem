@@ -40,10 +40,10 @@ export const MessageBubble = React.memo(function MessageBubble({ message, toolCa
         </div>
       )}
 
-      <div className={cn('flex flex-col gap-0.5', isUser ? 'items-end' : 'items-start')}>
+      <div className={cn('flex flex-col gap-0.5 w-fit max-w-[85%] md:max-w-[75%]', isUser ? 'items-end' : 'items-start')}>
         <div
           className={cn(
-            'group relative max-w-[85%] md:max-w-[75%] min-w-0 rounded-lg px-4 py-2.5 text-sm',
+            'group relative min-w-0 w-fit rounded-lg px-4 py-2.5 text-sm',
             isUser
               ? 'bg-primary text-primary-foreground'
               : isSystem

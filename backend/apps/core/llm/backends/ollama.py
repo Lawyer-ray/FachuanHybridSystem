@@ -717,6 +717,10 @@ class OllamaBackend(HttpxErrorMixin):
         Returns:
             bool: True 表示后端可用,False 表示不可用
         """
+        if self._config and not self._config.enabled:
+            logger.debug("Ollama 后端不可用:已在配置中禁用")
+            return False
+
         if self._availability_checked:
             return self._availability_result is True
 
