@@ -57,6 +57,7 @@ def _serialize_task(task: Any) -> LegalResearchTaskOut:
         error=task.error or "",
         llm_backend=task.llm_backend,
         llm_model=task.llm_model or "",
+        llm_scoring_concurrency=getattr(task, "llm_scoring_concurrency", 5) or 5,
         q_task_id=task.q_task_id or "",
         search_url=task.search_url or "",
         started_at=task.started_at,

@@ -73,6 +73,7 @@ class LegalResearchTaskService:
             message=self.CREATE_PENDING_MESSAGE,
             llm_backend=LLMConfig.get_default_backend(),
             llm_model=(payload.llm_model.strip() if payload.llm_model else LLMConfig.get_default_model()),
+            llm_scoring_concurrency=max(1, int(getattr(payload, "llm_scoring_concurrency", 5) or 5)),
         )
 
         queued = self.dispatch_task(task=task, queue_failure_message="任务提交失败", raise_on_submit_error=True)

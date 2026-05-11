@@ -16,7 +16,10 @@ export interface BatchResultData {
  * 如果内容不是合法 JSON 或缺少关键字段，返回 null。
  */
 export function parseBatchResult(content: string): BatchResultData | null {
-  const trimmed = content.trim()
+  let trimmed = content.trim()
+  // 剥离 ```json ... ``` 代码围栏
+  const fenceMatch = trimmed.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?\s*```$/)
+  if (fenceMatch) trimmed = fenceMatch[1].trim()
   if (!trimmed.startsWith('{')) return null
 
   try {

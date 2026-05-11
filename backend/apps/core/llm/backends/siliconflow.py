@@ -350,6 +350,9 @@ class SiliconFlowBackend:
         return self.default_model
 
     def is_available(self) -> bool:
+        if self._config and not self._config.enabled:
+            logger.debug("SiliconFlow 后端不可用:已在配置中禁用")
+            return False
         api_key = self.api_key
         if not api_key:
             logger.debug("SiliconFlow 后端不可用:API Key 未配置")

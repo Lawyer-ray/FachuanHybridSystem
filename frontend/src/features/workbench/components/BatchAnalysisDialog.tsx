@@ -1,18 +1,20 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useState, useRef, useCallback } from 'react'
-import { FolderOpen, X, FileText, Upload } from 'lucide-react'
+import { FolderOpen, X, FileText, Upload, WandSparkles, Loader2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
+import { optimizePrompt } from '../api'
 
 interface BatchAnalysisDialogProps {
   modelName: string
-  onSubmit: (prompt: string, files: File[], postAnalysisPrompt: string) => Promise<void>
+  onSubmit: (prompt: string, files: File[], postAnalysisPrompt: string, concurrency: number) => Promise<void>
   disabled?: boolean
 }
 
@@ -73,7 +75,9 @@ export function BatchAnalysisDialog({ modelName, onSubmit, disabled }: BatchAnal
   const [files, setFiles] = useState<File[]>([])
   const [prompt, setPrompt] = useState('')
   const [postAnalysisPrompt, setPostAnalysisPrompt] = useState('')
+  const [concurrency, setConcurrency] = useState(50)
   const [submitting, setSubmitting] = useState(false)
+  const [optimizing, setOptimizing] = useState(false)
   const [dragging, setDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -148,15 +152,30 @@ export function BatchAnalysisDialog({ modelName, onSubmit, disabled }: BatchAnal
     setFiles((prev) => prev.filter((_, i) => i !== index))
   }, [])
 
+  const handleOptimizePrompt = useCallback(async () => {
+    if (!prompt.trim() || optimizing) return
+    setOptimizing(true)
+    try {
+      const result = await optimizePrompt(prompt.trim())
+      setPrompt(result.optimized_prompt)
+    } catch (err) {
+      console.error('优化 prompt 失败:', err)
+      alert(`优化失败: ${err instanceof Error ? err.message : '未知错误'}`)
+    } finally {
+      setOptimizing(false)
+    }
+  }, [prompt, optimizing])
+
   const handleSubmit = async () => {
     if (files.length === 0 || !prompt.trim()) return
     setSubmitting(true)
     try {
-      await onSubmit(prompt.trim(), files, postAnalysisPrompt.trim())
+      await onSubmit(prompt.trim(), files, postAnalysisPrompt.trim(), concurrency)
       setOpen(false)
       setFiles([])
       setPrompt('')
       setPostAnalysisPrompt('')
+      setConcurrency(50)
     } finally {
       setSubmitting(false)
     }
@@ -177,7 +196,7 @@ export function BatchAnalysisDialog({ modelName, onSubmit, disabled }: BatchAnal
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 max-h-[60vh] overflow-y-auto px-1">
+        <div className="space-y-4 max-h-[75vh] overflow-y-auto px-1">
           {/* 文件选择 */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -256,7 +275,24 @@ export function BatchAnalysisDialog({ modelName, onSubmit, disabled }: BatchAnal
 
           {/* 分析要求 */}
           <div className="space-y-2">
-            <Label htmlFor="batch-prompt">分析要求</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="batch-prompt">分析要求</Label>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 gap-1.5 text-xs"
+                disabled={!prompt.trim() || optimizing}
+                onClick={handleOptimizePrompt}
+                title="使用 AI 优化分析要求"
+              >
+                {optimizing ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <WandSparkles className="size-3.5" />
+                )}
+                {optimizing ? '优化中...' : 'AI 优化'}
+              </Button>
+            </div>
             <div className="flex flex-wrap gap-1.5">
               {PRESET_PROMPTS.map((preset) => (
                 <button
@@ -274,8 +310,38 @@ export function BatchAnalysisDialog({ modelName, onSubmit, disabled }: BatchAnal
               placeholder="例如：分析本案的争议焦点和裁判要旨，总结竞业限制条款的效力认定标准"
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              rows={3}
+              rows={4}
             />
+          </div>
+
+          {/* 并发数 */}
+          <div className="space-y-2">
+            <Label htmlFor="concurrency">并发数</Label>
+            <div className="flex items-center gap-3">
+              <input
+                id="concurrency"
+                type="range"
+                min={1}
+                max={100}
+                value={concurrency}
+                onChange={(e) => setConcurrency(Number(e.target.value))}
+                className="flex-1"
+              />
+              <Input
+                type="number"
+                min={1}
+                max={100}
+                value={concurrency}
+                onChange={(e) => {
+                  const v = Number(e.target.value)
+                  if (v >= 1 && v <= 100) setConcurrency(v)
+                }}
+                className="w-20 text-center"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              同时调用 AI 分析的并发数量。数值越大速度越快，但对 API 限额要求更高。建议 30-50。
+            </p>
           </div>
 
           {/* 后处理提示词 */}

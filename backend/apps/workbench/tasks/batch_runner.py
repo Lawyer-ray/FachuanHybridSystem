@@ -79,7 +79,10 @@ def run_batch_retry(job_id: str, item_ids: list[str]) -> None:
 
 def _sync_llm_chat(llm: Any, messages: list[dict[str, str]], model: str, temperature: float) -> str:
     """同步调用 LLM（在线程池中运行，使用同步 chat() 方法避免 async 上下文问题）"""
-    response = llm.chat(messages=messages, model=model, temperature=temperature)
+    from apps.core.llm.config import LLMConfig
+
+    backend = LLMConfig.resolve_backend_for_model(model)
+    response = llm.chat(messages=messages, model=model, temperature=temperature, backend=backend, fallback=False)
     return response.content  # type: ignore[no-any-return]
 
 
@@ -287,15 +290,10 @@ async def _run_batch_async(job_id: UUID) -> None:
             pass
 
         # ── 检查是否被取消 ──
-        if cancel_event.is_set():
-            await sync_to_async(BatchJob.objects.filter(id=job_id).update)(
-                status=BatchJobStatus.CANCELLED,
-                finished_at=timezone.now(),
-            )
-            logger.info("批量分析已取消: job=%s", job_id)
-            return
+        is_cancelled = cancel_event.is_set()
 
         # ── Phase 3: 汇总 ──
+        # 无论正常结束还是取消，只要有已完成的 item 就生成汇总
         completed_items = [
             item async for item in BatchJobItem.objects.filter(job_id=job_id, status=BatchJobStatus.COMPLETED)
         ]
@@ -304,14 +302,25 @@ async def _run_batch_async(job_id: UUID) -> None:
             logger.info("Phase 3: 生成汇总报告 (%d 个已完成)", len(completed_items))
             summary = await generate_summary(job_id, job.prompt, completed_items)
             await generate_detail_zip(job_id, completed_items)
+
+            final_status = BatchJobStatus.CANCELLED if is_cancelled else BatchJobStatus.COMPLETED
             await sync_to_async(BatchJob.objects.filter(id=job_id).update)(
-                status=BatchJobStatus.COMPLETED,
+                status=final_status,
                 summary=summary,
                 progress=100,
                 finished_at=timezone.now(),
             )
 
-            logger.info("批量分析完成: job=%s", job_id)
+            if is_cancelled:
+                logger.info("批量分析已取消（已生成汇总）: job=%s", job_id)
+            else:
+                logger.info("批量分析完成: job=%s", job_id)
+        elif is_cancelled:
+            await sync_to_async(BatchJob.objects.filter(id=job_id).update)(
+                status=BatchJobStatus.CANCELLED,
+                finished_at=timezone.now(),
+            )
+            logger.info("批量分析已取消（无已完成项）: job=%s", job_id)
         else:
             await sync_to_async(BatchJob.objects.filter(id=job_id).update)(
                 status=BatchJobStatus.FAILED,
@@ -321,6 +330,35 @@ async def _run_batch_async(job_id: UUID) -> None:
 
             logger.warning("批量分析全部失败: job=%s", job_id)
 
+    except asyncio.CancelledError:
+        logger.info("批量分析任务被取消: job=%s", job_id)
+        cancel_event.set()
+        # 即使被强制取消，也尝试为已完成的 items 生成汇总
+        try:
+            completed_items = [
+                item async for item in BatchJobItem.objects.filter(job_id=job_id, status=BatchJobStatus.COMPLETED)
+            ]
+            if completed_items:
+                summary = await generate_summary(job_id, job.prompt, completed_items)
+                await generate_detail_zip(job_id, completed_items)
+                await sync_to_async(BatchJob.objects.filter(id=job_id).update)(
+                    status=BatchJobStatus.CANCELLED,
+                    summary=summary,
+                    progress=100,
+                    finished_at=timezone.now(),
+                )
+                logger.info("批量分析已取消（已生成汇总）: job=%s", job_id)
+            else:
+                await sync_to_async(BatchJob.objects.filter(id=job_id).update)(
+                    status=BatchJobStatus.CANCELLED,
+                    finished_at=timezone.now(),
+                )
+        except Exception:
+            logger.exception("取消时生成汇总失败: job=%s", job_id)
+            await sync_to_async(BatchJob.objects.filter(id=job_id).update)(
+                status=BatchJobStatus.CANCELLED,
+                finished_at=timezone.now(),
+            )
     except Exception as e:
         logger.exception("批量分析任务异常: job=%s", job_id)
         await sync_to_async(BatchJob.objects.filter(id=job_id).update)(
@@ -435,27 +473,54 @@ async def _run_batch_retry_async(job_id: UUID, item_ids: list[UUID]) -> None:
         except asyncio.CancelledError:
             pass
 
-        if cancel_event.is_set():
-            await sync_to_async(BatchJob.objects.filter(id=job_id).update)(
-                status=BatchJobStatus.CANCELLED,
-                finished_at=timezone.now(),
-            )
-            return
+        is_cancelled = cancel_event.is_set()
 
-        # 重新生成汇总
+        # 重新生成汇总（无论正常结束还是取消）
         completed_items = [
             item async for item in BatchJobItem.objects.filter(job_id=job_id, status=BatchJobStatus.COMPLETED)
         ]
         if completed_items:
             summary = await generate_summary(job_id, job.prompt, completed_items)
             await generate_detail_zip(job_id, completed_items)
+            final_status = BatchJobStatus.CANCELLED if is_cancelled else BatchJobStatus.COMPLETED
             await sync_to_async(BatchJob.objects.filter(id=job_id).update)(
-                status=BatchJobStatus.COMPLETED,
+                status=final_status,
                 summary=summary,
                 progress=100,
                 finished_at=timezone.now(),
             )
+        elif is_cancelled:
+            await sync_to_async(BatchJob.objects.filter(id=job_id).update)(
+                status=BatchJobStatus.CANCELLED,
+                finished_at=timezone.now(),
+            )
 
+    except asyncio.CancelledError:
+        logger.info("重试任务被取消: job=%s", job_id)
+        cancel_event.set()
+        try:
+            completed_items = [
+                item async for item in BatchJobItem.objects.filter(job_id=job_id, status=BatchJobStatus.COMPLETED)
+            ]
+            if completed_items:
+                summary = await generate_summary(job_id, job.prompt, completed_items)
+                await generate_detail_zip(job_id, completed_items)
+                await sync_to_async(BatchJob.objects.filter(id=job_id).update)(
+                    status=BatchJobStatus.CANCELLED,
+                    summary=summary,
+                    progress=100,
+                    finished_at=timezone.now(),
+                )
+            else:
+                await sync_to_async(BatchJob.objects.filter(id=job_id).update)(
+                    status=BatchJobStatus.CANCELLED,
+                    finished_at=timezone.now(),
+                )
+        except Exception:
+            await sync_to_async(BatchJob.objects.filter(id=job_id).update)(
+                status=BatchJobStatus.CANCELLED,
+                finished_at=timezone.now(),
+            )
     except Exception as e:
         logger.exception("重试任务异常: job=%s", job_id)
         await sync_to_async(BatchJob.objects.filter(id=job_id).update)(

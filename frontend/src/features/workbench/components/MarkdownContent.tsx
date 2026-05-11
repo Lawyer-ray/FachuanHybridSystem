@@ -20,12 +20,52 @@ import { LegalText } from './LegalText'
 // 只注册 json 语言（工具调用 JSON 高亮用）
 hljs.registerLanguage('json', json)
 
-/** 预处理：去除【案例元数据汇总】块（兜底，正常情况下 store 已剥离） */
+/** 在非代码块文本段中查找裸露 JSON 并包裹为 ```json 代码块 */
+function wrapBareJsonInSegment(text: string): string {
+  let result = ''
+  let i = 0
+  while (i < text.length) {
+    const ch = text[i]
+    if (ch === '{' || ch === '[') {
+      const closeCh = ch === '{' ? '}' : ']'
+      let depth = 0
+      let end = -1
+      for (let j = i; j < text.length; j++) {
+        if (text[j] === ch) depth++
+        else if (text[j] === closeCh) depth--
+        if (depth === 0) { end = j; break }
+      }
+      if (end > i) {
+        const candidate = text.slice(i, end + 1)
+        try {
+          JSON.parse(candidate)
+          result += '```json\n' + candidate + '\n```'
+          i = end + 1
+          continue
+        } catch { /* not valid JSON, fall through */ }
+      }
+    }
+    result += ch
+    i++
+  }
+  return result
+}
+
+/** 将裸露 JSON 对象/数组包裹到 ```json 代码块中（跳过已有代码块） */
+function wrapBareJson(content: string): string {
+  const parts = content.split(/(```[^\n]*\n[\s\S]*?\n\s*```)/g)
+  return parts
+    .map((part, i) => (i % 2 === 0 ? wrapBareJsonInSegment(part) : part))
+    .join('')
+}
+
+/** 预处理：去除【案例元数据汇总】块 + 包裹裸露 JSON */
 function preprocessContent(content: string): string {
-  return content.replace(
+  const cleaned = content.replace(
     /```[^\n]*\n\s*【案例元数据汇总】\s*\n[\s\S]*?\n\s*```\s*$|【案例元数据汇总】\s*\n[\s\S]*$/g,
     '',
   ).trim()
+  return wrapBareJson(cleaned)
 }
 
 /** 从 ReactMarkdown children 中提取纯文本，如果包含非文本元素则返回 null */

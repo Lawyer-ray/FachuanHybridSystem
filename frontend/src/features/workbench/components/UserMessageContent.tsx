@@ -61,7 +61,7 @@ export function UserMessageContent({ message }: { message: WorkbenchMessage }) {
 
   return (
     <div className="group/content relative">
-      <div className="whitespace-pre-wrap break-words">{message.content}</div>
+      <div className="whitespace-normal break-words">{message.content}</div>
       {!isStreaming && (
         <button
           onClick={() => setEditing(true)}

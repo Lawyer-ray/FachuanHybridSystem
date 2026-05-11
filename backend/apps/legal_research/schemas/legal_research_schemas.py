@@ -33,6 +33,9 @@ class LegalResearchTaskCreateIn(BaseModel):
     max_candidates: int = Field(default=100, ge=5, le=200, description="最大扫描案例数")
     min_similarity_score: float = Field(default=0.9, ge=0.0, le=1.0, description="最低相似度阈值")
     llm_model: str | None = Field(default=None, min_length=1, max_length=128, description="硅基流动模型ID")
+    llm_scoring_concurrency: int = Field(
+        default=5, ge=1, le=200, description="LLM评分并发线程数。默认5，kimi26模型建议100"
+    )
     search_url: str | None = Field(
         default=None, max_length=2000, description="WKInfo搜索URL；提供后将通过Playwright拦截搜索条件"
     )
@@ -57,6 +60,7 @@ class LegalResearchTaskOut(BaseModel):
     error: str
     llm_backend: str
     llm_model: str
+    llm_scoring_concurrency: int
     q_task_id: str
     started_at: datetime | None
     finished_at: datetime | None

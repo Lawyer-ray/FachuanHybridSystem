@@ -72,6 +72,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin):
         "target_count",
         "max_candidates",
         "min_similarity_score",
+        "llm_scoring_concurrency",
         "status",
         "progress",
         "scanned_count",
@@ -109,6 +110,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin):
         "max_candidates",
         "min_similarity_score",
         "llm_model",
+        "llm_scoring_concurrency",
     ]
     actions: ClassVar[list[str]] = ["mark_as_missed_case_feedback"]
 
@@ -124,7 +126,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin):
             return []
         readonly_fields = list(self.readonly_fields)
         if obj.status == LegalResearchTaskStatus.FAILED:
-            readonly_fields = [name for name in readonly_fields if name != "llm_model"]
+            readonly_fields = [name for name in readonly_fields if name not in ("llm_model", "llm_scoring_concurrency")]
         return self._filter_private_api_visual_fields(readonly_fields, obj=obj)
 
     def get_fields(self, request, obj: LegalResearchTask | None = None) -> list[str]:  # type: ignore[override]
@@ -171,6 +173,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin):
         self._configure_filter_fields(form=form)
         self._configure_search_mode_field(form=form)
         self._configure_scan_threshold_fields(form=form)
+        self._configure_concurrency_field(form=form)
         self._attach_search_mode_cleaner(form)
 
         model_field = form.base_fields.get("llm_model")
@@ -340,6 +343,19 @@ class LegalResearchTaskAdmin(admin.ModelAdmin):
             min_similarity_field.help_text = "最低相似度阈值（0~1）。默认 0.9。"
             if hasattr(min_similarity_field.widget, "attrs"):
                 min_similarity_field.widget.attrs["placeholder"] = "默认 0.9"
+
+    @staticmethod
+    def _configure_concurrency_field(*, form: type[forms.ModelForm]) -> None:
+        field = form.base_fields.get("llm_scoring_concurrency")
+        if field is None:
+            return
+        field.required = False
+        field.initial = 5
+        field.help_text = "LLM 评分并发线程数。默认 5。切换到 kimi26 模型时自动设为 100。"
+        if hasattr(field.widget, "attrs"):
+            field.widget.attrs["placeholder"] = "默认 5"
+            field.widget.attrs["min"] = 1
+            field.widget.attrs["max"] = 200
 
     @staticmethod
     def _configure_search_mode_field(*, form: type[forms.ModelForm]) -> None:
