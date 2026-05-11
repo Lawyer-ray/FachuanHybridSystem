@@ -122,30 +122,30 @@ export function TemplateForm({ template, onSubmit }: TemplateFormProps) {
   const subTypes = getSubTypes(templateType)
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* 步骤指示器 */}
-      <div className="flex items-center gap-0 px-10">
+      <div className="flex items-center gap-0 px-4">
         {['基本信息', '模板类型', '适用范围', '文件配置'].map((step, i) => (
           <div key={step} className="flex items-center flex-1">
-            <div className="flex items-center gap-2">
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs ${
+            <div className="flex items-center gap-1.5">
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] ${
                 i === 0 ? 'bg-primary text-primary-foreground' : 'bg-muted border border-border text-muted-foreground'
               }`}>
                 {i + 1}
               </div>
-              <span className="text-[13px]">{step}</span>
+              <span className="text-xs">{step}</span>
             </div>
-            {i < 3 && <div className="flex-1 h-px bg-border mx-4" />}
+            {i < 3 && <div className="flex-1 h-px bg-border mx-3" />}
           </div>
         ))}
       </div>
 
       {/* Card 1: 基本信息 */}
-      <Card>
-        <CardHeader className="py-3 px-4 border-b border-border">
-          <CardTitle className="text-[13px] font-semibold">基本信息</CardTitle>
+      <Card className="py-3">
+        <CardHeader className="px-4 py-0 pb-1">
+          <CardTitle className="text-xs font-medium text-muted-foreground">基本信息</CardTitle>
         </CardHeader>
-        <CardContent className="px-4 py-4 space-y-4">
+        <CardContent className="px-4 space-y-3">
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">
               模板名称 <span className="text-destructive">*</span>
@@ -164,13 +164,13 @@ export function TemplateForm({ template, onSubmit }: TemplateFormProps) {
       </Card>
 
       {/* Card 2: 模板类型 */}
-      <Card>
-        <CardHeader className="py-3 px-4 border-b border-border">
-          <CardTitle className="text-[13px] font-semibold">
+      <Card className="py-3">
+        <CardHeader className="px-4 py-0 pb-1">
+          <CardTitle className="text-xs font-medium text-muted-foreground">
             模板类型 <span className="text-destructive">*</span>
           </CardTitle>
         </CardHeader>
-        <CardContent className="px-4 py-4 space-y-4">
+        <CardContent className="px-4 space-y-3">
           <div className="grid grid-cols-3 gap-3">
             {(Object.keys(TEMPLATE_TYPE_LABELS) as TemplateType[]).map((type) => {
               const Icon = TYPE_ICONS[type]
@@ -180,7 +180,7 @@ export function TemplateForm({ template, onSubmit }: TemplateFormProps) {
                   key={type}
                   type="button"
                   onClick={() => handleTypeChange(type)}
-                  className={`flex flex-col gap-1 p-4 rounded-md border-2 text-left transition-all ${
+                  className={`flex flex-col gap-1 p-3 rounded-md border-2 text-left transition-all ${
                     isSelected ? TYPE_COLORS[type] + ' border-current' : 'border-border hover:border-foreground/20'
                   }`}
                 >
@@ -207,7 +207,7 @@ export function TemplateForm({ template, onSubmit }: TemplateFormProps) {
                   key={key}
                   type="button"
                   onClick={() => setSubType(key)}
-                  className={`px-3.5 py-2 rounded-md border text-xs transition-all ${
+                  className={`px-3 py-1.5 rounded-md border text-xs transition-all ${
                     subType === key
                       ? 'border-primary bg-primary/5 font-medium'
                       : 'border-border hover:border-foreground/20'
@@ -222,11 +222,11 @@ export function TemplateForm({ template, onSubmit }: TemplateFormProps) {
       </Card>
 
       {/* Card 3: 适用范围 */}
-      <Card>
-        <CardHeader className="py-3 px-4 border-b border-border">
-          <CardTitle className="text-[13px] font-semibold">适用范围</CardTitle>
+      <Card className="py-3">
+        <CardHeader className="px-4 py-0 pb-1">
+          <CardTitle className="text-xs font-medium text-muted-foreground">适用范围</CardTitle>
         </CardHeader>
-        <CardContent className="px-4 py-4 space-y-4">
+        <CardContent className="px-4 space-y-3">
           <p className="text-xs text-muted-foreground">
             设定此模板在什么条件下被推荐使用。留空表示通用模板。
           </p>
@@ -354,19 +354,19 @@ export function TemplateForm({ template, onSubmit }: TemplateFormProps) {
       </Card>
 
       {/* Card 4: 文件配置 */}
-      <Card>
-        <CardHeader className="py-3 px-4 border-b border-border">
-          <CardTitle className="text-[13px] font-semibold">
+      <Card className="py-3">
+        <CardHeader className="px-4 py-0 pb-1">
+          <CardTitle className="text-xs font-medium text-muted-foreground">
             文件配置 <span className="text-destructive">*</span>
           </CardTitle>
         </CardHeader>
-        <CardContent className="px-4 py-4 space-y-3">
+        <CardContent className="px-4 space-y-3">
           <p className="text-xs text-muted-foreground">
             三选一：从模板库选择已有文件、上传新文件、或手动输入路径。
           </p>
 
           {/* 从模板库选择 */}
-          <div className={`p-3.5 rounded-md border ${fileSource === 'existing' ? 'border-primary bg-primary/5' : 'border-border'}`}>
+          <div className={`p-3 rounded-md border ${fileSource === 'existing' ? 'border-primary bg-primary/5' : 'border-border'}`}>
             <label className="flex items-center gap-2 cursor-pointer mb-2">
               <input
                 type="radio"
@@ -391,7 +391,7 @@ export function TemplateForm({ template, onSubmit }: TemplateFormProps) {
           </div>
 
           {/* 上传文件 */}
-          <div className={`p-3.5 rounded-md border ${fileSource === 'upload' ? 'border-primary bg-primary/5' : 'border-border'}`}>
+          <div className={`p-3 rounded-md border ${fileSource === 'upload' ? 'border-primary bg-primary/5' : 'border-border'}`}>
             <label className="flex items-center gap-2 cursor-pointer mb-2">
               <input
                 type="radio"
@@ -407,7 +407,7 @@ export function TemplateForm({ template, onSubmit }: TemplateFormProps) {
             {fileSource === 'upload' && (
               <>
                 <div
-                  className="border-2 border-dashed rounded-md p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                  className="border-2 border-dashed rounded-md p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
                   onClick={() => fileInputRef.current?.click()}
                 >
                   <Upload className="mx-auto size-8 text-muted-foreground/50 mb-2" />
@@ -434,7 +434,7 @@ export function TemplateForm({ template, onSubmit }: TemplateFormProps) {
           </div>
 
           {/* 手动输入路径 */}
-          <div className={`p-3.5 rounded-md border ${fileSource === 'path' ? 'border-primary bg-primary/5' : 'border-border'}`}>
+          <div className={`p-3 rounded-md border ${fileSource === 'path' ? 'border-primary bg-primary/5' : 'border-border'}`}>
             <label className="flex items-center gap-2 cursor-pointer mb-2">
               <input
                 type="radio"
