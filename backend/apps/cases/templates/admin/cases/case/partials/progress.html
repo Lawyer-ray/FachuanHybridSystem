@@ -6,6 +6,13 @@
             <span class="card-icon">📝</span>
             <h3 class="card-title">{% trans "案件日志" %}</h3>
             <div class="card-header-actions">
+                {% if has_change_permission %}
+                <a href="{% url 'admin:cases_caselog_add' %}?case={{ case.pk }}"
+                   class="log-action-btn log-add-btn"
+                   title="{% trans '新增日志' %}">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                </a>
+                {% endif %}
                 <button type="button" class="email-import-btn"
                         :disabled="importLoading"
                         @click="openImportDialog"
@@ -224,6 +231,13 @@
     display: inline-flex;
     align-items: center;
 }
+.log-add-btn {
+    padding: 4px 8px;
+    border: 1px solid #d1d5db;
+    color: #4b5563;
+    background: #fff;
+}
+.log-add-btn:hover { color: #2563eb; background: #eff6ff; border-color: #93c5fd; }
 .log-edit-btn:hover { color: #2563eb; background: #eff6ff; }
 .log-delete-btn:hover { color: #ef4444; background: #fef2f2; }
 </style>
