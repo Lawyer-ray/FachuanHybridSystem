@@ -28,6 +28,12 @@ export const inboxApi = {
   /** 生成附件预览 URL */
   attachmentPreviewUrl: (messageId: number, partIndex: number): string =>
     `${ATTACHMENT_BASE}/${messageId}/attachments/${partIndex}/preview`,
+
+  /** 重命名附件 */
+  renameAttachment: (messageId: number, partIndex: number, customFilename: string) =>
+    inboxApi_.post(`messages/${messageId}/attachments/${partIndex}/rename`, {
+      json: { custom_filename: customFilename },
+    }).json<{ ok: boolean; original_filename: string; custom_filename: string; effective_filename: string }>(),
 }
 
 export default inboxApi

@@ -5,6 +5,8 @@
 /** 附件元信息 */
 export interface AttachmentMeta {
   filename: string
+  original_filename: string | null
+  custom_filename: string | null
   size: number
   content_type: string
   part_index: number

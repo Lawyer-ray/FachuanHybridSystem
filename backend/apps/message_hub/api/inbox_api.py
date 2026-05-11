@@ -6,7 +6,7 @@ import logging
 from typing import Any
 
 from django.http import FileResponse, HttpRequest
-from ninja import Query, Router
+from ninja import Query, Router, Schema
 
 from apps.core.exceptions import NotFoundError
 from apps.message_hub.models import InboxMessage
@@ -84,6 +84,49 @@ def preview_attachment(
     """预览附件（inline）。"""
     msg = _get_message_or_404(message_id)
     return _serve_attachment(msg, part_index, inline=True)
+
+
+class RenameAttachmentIn(Schema):
+    custom_filename: str = ""
+
+
+@router.post("/messages/{message_id}/attachments/{part_index}/rename")
+def rename_attachment(
+    request: HttpRequest,
+    message_id: int,
+    part_index: int,
+    payload: RenameAttachmentIn,
+) -> dict[str, Any]:
+    """重命名附件。留空 custom_filename 则恢复原始文件名。"""
+    msg = _get_message_or_404(message_id)
+    meta = list(msg.attachments_meta or [])
+    target = None
+    for att in meta:
+        if int(att.get("part_index", -1)) == part_index:
+            target = att
+            break
+    if target is None:
+        raise NotFoundError(f"附件 part_index={part_index} 不存在")
+
+    original = target.get("original_filename") or target.get("filename") or ""
+    custom = payload.custom_filename.strip()
+
+    if custom and custom != original:
+        target["custom_filename"] = custom
+    else:
+        target.pop("custom_filename", None)
+        custom = ""
+
+    msg.attachments_meta = meta
+    msg.save(update_fields=["attachments_meta"])
+
+    effective = custom if custom else original
+    return {
+        "ok": True,
+        "original_filename": original,
+        "custom_filename": custom,
+        "effective_filename": effective,
+    }
 
 
 def _resolve_download_filename(msg: InboxMessage, part_index: int, fallback: str) -> str:

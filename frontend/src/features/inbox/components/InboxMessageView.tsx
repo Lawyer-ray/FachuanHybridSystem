@@ -1,7 +1,11 @@
 import { useNavigate } from 'react-router'
-import { ArrowLeft, Download, Eye, Paperclip, FileText, Image, File } from 'lucide-react'
+import { useState, useCallback } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { ArrowLeft, Download, Eye, Paperclip, FileText, Image, File, RotateCcw } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PATHS } from '@/routes/paths'
@@ -63,12 +67,112 @@ function openAttachment(messageId: number, att: AttachmentMeta, inline: boolean)
     .catch(() => {})
 }
 
+function getEffectiveFilename(att: AttachmentMeta): string {
+  if (att.custom_filename) return att.custom_filename
+  if (att.original_filename) return att.original_filename
+  return att.filename
+}
+
+interface AttachmentCardProps {
+  att: AttachmentMeta
+  messageId: number
+  onRenamed: () => void
+}
+
+function AttachmentCard({ att, messageId, onRenamed }: AttachmentCardProps) {
+  const [editValue, setEditValue] = useState(() => getEffectiveFilename(att))
+  const [saving, setSaving] = useState(false)
+  const original = att.original_filename || att.filename
+  const effective = getEffectiveFilename(att)
+  const isDirty = editValue !== effective
+
+  const handleSave = useCallback(async () => {
+    setSaving(true)
+    try {
+      await inboxApi.renameAttachment(messageId, att.part_index, editValue)
+      toast.success('附件已重命名')
+      onRenamed()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '重命名失败')
+    } finally {
+      setSaving(false)
+    }
+  }, [messageId, att.part_index, editValue, onRenamed])
+
+  const handleReset = useCallback(() => {
+    setEditValue(original)
+  }, [original])
+
+  const Icon = getFileIcon(att.content_type)
+
+  return (
+    <div className="p-3.5 rounded-xl border border-border bg-gradient-to-b from-white to-slate-50/50 dark:from-slate-900 dark:to-slate-950/50 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="shrink-0 p-2 rounded-lg bg-muted">
+            <Icon className="size-5 text-muted-foreground" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-medium truncate">{original}</p>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-muted text-[11px] text-muted-foreground">
+                {formatSize(att.size)}
+              </span>
+              <span className="text-[11px] text-muted-foreground">
+                {att.content_type || '未知类型'}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 重命名编辑器 */}
+      <div className="mt-3 flex items-center gap-2">
+        <Input
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          placeholder="下载文件名"
+          className="h-9 flex-1"
+          disabled={saving}
+        />
+        {isDirty && (
+          <Button variant="ghost" size="sm" className="h-9 px-2.5" onClick={handleReset} disabled={saving} title="恢复原名">
+            <RotateCcw className="size-3.5" />
+          </Button>
+        )}
+        <Button size="sm" className="h-9 px-3" onClick={handleSave} disabled={saving || !isDirty}>
+          {saving ? '...' : '保存'}
+        </Button>
+        <div className="h-5 w-px bg-border mx-0.5" />
+        {canPreview(att.content_type) && (
+          <Button variant="outline" size="sm" className="h-9 px-2.5" onClick={() => openAttachment(messageId, att, true)}>
+            <Eye className="size-3.5" />
+          </Button>
+        )}
+        <Button variant="outline" size="sm" className="h-9 px-2.5" onClick={() => openAttachment(messageId, att, false)}>
+          <Download className="size-3.5" />
+        </Button>
+      </div>
+      {att.custom_filename && (
+        <p className="text-[11px] text-muted-foreground mt-1.5">
+          原始文件名：{original}
+        </p>
+      )}
+    </div>
+  )
+}
+
 interface Props {
   message: InboxMessageDetail
 }
 
 export function InboxMessageView({ message }: Props) {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+
+  const handleRenamed = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['inbox-message', message.id] })
+  }, [queryClient, message.id])
 
   return (
     <div className="space-y-4">
@@ -164,56 +268,19 @@ export function InboxMessageView({ message }: Props) {
             <Paperclip className="size-3.5" />
             附件 ({message.attachments.length})
           </div>
+          <p className="text-[12px] text-muted-foreground mb-3">
+            可直接调整附件下载名；留空则使用原始文件名。
+          </p>
           {message.attachments.length > 0 ? (
             <div className="flex flex-col gap-3">
-              {message.attachments.map((att) => {
-                const Icon = getFileIcon(att.content_type)
-                return (
-                  <div
-                    key={att.part_index}
-                    className="group p-3.5 rounded-xl border border-border bg-gradient-to-b from-white to-slate-50/50 dark:from-slate-900 dark:to-slate-950/50 shadow-sm hover:shadow-md transition-shadow"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="shrink-0 p-2 rounded-lg bg-muted">
-                          <Icon className="size-5 text-muted-foreground" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium truncate">{att.filename}</p>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-muted text-[11px] text-muted-foreground">
-                              {formatSize(att.size)}
-                            </span>
-                            <span className="text-[11px] text-muted-foreground">
-                              {att.content_type || '未知类型'}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex gap-1.5 shrink-0">
-                        {canPreview(att.content_type) && (
-                          <Button
-                            variant="outline" size="sm"
-                            onClick={() => openAttachment(message.id, att, true)}
-                            className="h-8 px-3 text-xs"
-                          >
-                            <Eye className="size-3.5 mr-1" />
-                            预览
-                          </Button>
-                        )}
-                        <Button
-                          variant="outline" size="sm"
-                          onClick={() => openAttachment(message.id, att, false)}
-                          className="h-8 px-3 text-xs"
-                        >
-                          <Download className="size-3.5 mr-1" />
-                          下载
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
+              {message.attachments.map((att) => (
+                <AttachmentCard
+                  key={att.part_index}
+                  att={att}
+                  messageId={message.id}
+                  onRenamed={handleRenamed}
+                />
+              ))}
             </div>
           ) : (
             <div className="text-muted-foreground text-sm text-center py-8 border border-dashed border-border rounded-md">
