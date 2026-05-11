@@ -4,7 +4,7 @@ import { Upload, X, FileText, Briefcase, Archive } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { PATHS } from '@/routes/paths'
 import type { Template, TemplateType } from '../types'
@@ -152,36 +152,36 @@ export function TemplateForm({ template, onSubmit }: TemplateFormProps) {
       </div>
 
       {/* Card 1: 基本信息 */}
-      <Card className="py-3">
-        <CardHeader className="px-4 py-0 pb-1">
-          <CardTitle className="text-xs font-medium text-muted-foreground">基本信息</CardTitle>
-        </CardHeader>
-        <CardContent className="px-4 space-y-3">
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">
-              模板名称 <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="例：民事起诉状（通用）"
-            />
-          </div>
-          <div className="flex items-center gap-3">
-            <Switch checked={isActive} onCheckedChange={setIsActive} />
-            <span className="text-[13px]">启用（保存后立即可用）</span>
+      <Card className="py-4">
+        <CardContent className="px-4">
+          <div className="text-xs font-medium text-muted-foreground mb-3">基本信息</div>
+          <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <Label className="text-xs text-muted-foreground">
+                模板名称 <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="例：民事起诉状（通用）"
+                className="mt-1.5"
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <Switch checked={isActive} onCheckedChange={setIsActive} />
+              <span className="text-xs text-muted-foreground">启用（保存后立即可用）</span>
+            </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Card 2: 模板类型 */}
-      <Card className="py-3">
-        <CardHeader className="px-4 py-0 pb-1">
-          <CardTitle className="text-xs font-medium text-muted-foreground">
+      <Card className="py-4">
+        <CardContent className="px-4">
+          <div className="text-xs font-medium text-muted-foreground mb-3">
             模板类型 <span className="text-destructive">*</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-4 space-y-3">
+          </div>
+          <div className="space-y-3">
           <div className="grid grid-cols-3 gap-3">
             {(Object.keys(TEMPLATE_TYPE_LABELS) as TemplateType[]).map((type) => {
               const Icon = TYPE_ICONS[type]
@@ -229,19 +229,15 @@ export function TemplateForm({ template, onSubmit }: TemplateFormProps) {
               ))}
             </div>
           </div>
+          </div>
         </CardContent>
       </Card>
 
       {/* Card 3: 适用范围 */}
-      <Card className="py-3">
-        <CardHeader className="px-4 py-0 pb-1">
-          <CardTitle className="text-xs font-medium text-muted-foreground">适用范围</CardTitle>
-        </CardHeader>
-        <CardContent className="px-4 space-y-3">
-          <p className="text-xs text-muted-foreground">
-            设定此模板在什么条件下被推荐使用。留空表示通用模板。
-          </p>
-
+      <Card className="py-4">
+        <CardContent className="px-4">
+          <div className="text-xs font-medium text-muted-foreground mb-3">适用范围</div>
+          <div className="space-y-3">
           {/* 合同类型（仅 contract 类型显示） */}
           {templateType === 'contract' && (
             <div className="space-y-1.5">
@@ -361,21 +357,17 @@ export function TemplateForm({ template, onSubmit }: TemplateFormProps) {
               placeholder="输入法院名称，多个用逗号分隔"
             />
           </div>
+          </div>
         </CardContent>
       </Card>
 
       {/* Card 4: 文件配置 */}
-      <Card className="py-3">
-        <CardHeader className="px-4 py-0 pb-1">
-          <CardTitle className="text-xs font-medium text-muted-foreground">
+      <Card className="py-4">
+        <CardContent className="px-4">
+          <div className="text-xs font-medium text-muted-foreground mb-3">
             文件配置 <span className="text-destructive">*</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-4 space-y-3">
-          <p className="text-xs text-muted-foreground">
-            三选一：从模板库选择已有文件、上传新文件、或手动输入路径。
-          </p>
-
+          </div>
+          <div className="space-y-3">
           {/* 从模板库选择 */}
           <div className={`p-3 rounded-md border ${fileSource === 'existing' ? 'border-primary bg-primary/5' : 'border-border'}`}>
             <label className="flex items-center gap-2 cursor-pointer mb-2">
@@ -466,6 +458,7 @@ export function TemplateForm({ template, onSubmit }: TemplateFormProps) {
               placeholder="例：case/pleading/起诉状.docx"
               disabled={fileSource !== 'path'}
             />
+          </div>
           </div>
         </CardContent>
       </Card>
