@@ -84,7 +84,7 @@ class LegalResearchTask(models.Model):
     llm_scoring_concurrency = models.PositiveIntegerField(
         default=5,
         verbose_name=_("LLM评分并发数"),
-        help_text=_("同时并发的 LLM 评分线程数。默认 5，397B 模型建议 100。"),
+        help_text=_("同时并发的 LLM 评分线程数。默认 5，kimi26 模型建议 100。"),
     )
     q_task_id = models.CharField(max_length=64, blank=True, verbose_name=_("DjangoQ任务ID"))
 

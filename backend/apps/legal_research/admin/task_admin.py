@@ -351,7 +351,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin):
             return
         field.required = False
         field.initial = 5
-        field.help_text = "LLM 评分并发线程数。默认 5。切换到 397B 模型时自动设为 100。"
+        field.help_text = "LLM 评分并发线程数。默认 5。切换到 kimi26 模型时自动设为 100。"
         if hasattr(field.widget, "attrs"):
             field.widget.attrs["placeholder"] = "默认 5"
             field.widget.attrs["min"] = 1
