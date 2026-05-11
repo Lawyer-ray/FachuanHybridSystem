@@ -46,7 +46,7 @@ class CasePartyInline(BaseTabularInline):
     model = CaseParty
     form = CasePartyInlineForm
     formset = CasePartyInlineFormSet
-    extra = 1
+    extra = 0
     fields = ("client", "legal_status")
     autocomplete_fields = ("client",)
     classes = ["contract-party-inline"]
@@ -111,7 +111,7 @@ class CasePartyInline(BaseTabularInline):
 
 class CaseAssignmentInline(BaseTabularInline):
     model = CaseAssignment
-    extra = 1
+    extra = 0
 
 
 class SupervisingAuthorityInline(BaseTabularInline):
@@ -119,7 +119,7 @@ class SupervisingAuthorityInline(BaseTabularInline):
 
     model = SupervisingAuthority
     form = SupervisingAuthorityInlineForm
-    extra = 1
+    extra = 0
     fields = ("name", "authority_type")
 
 
@@ -130,7 +130,7 @@ class CaseLogAttachmentInline(BaseTabularInline):
 
 class CaseNumberInline(BaseStackedInline):
     model = CaseNumber
-    extra = 1
+    extra = 0
     fieldsets = (
         (
             None,

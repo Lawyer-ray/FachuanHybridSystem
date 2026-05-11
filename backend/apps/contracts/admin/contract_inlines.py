@@ -128,7 +128,7 @@ class FinalizedMaterialAdminForm(forms.ModelForm[FinalizedMaterial]):
 class FinalizedMaterialInline(BaseTabularInline):
     model = FinalizedMaterial
     form = FinalizedMaterialAdminForm
-    extra = 1
+    extra = 0
     fields: ClassVar = ("file", "target_subdir", "category", "filename_link", "uploaded_at")
     readonly_fields: ClassVar = ("filename_link", "uploaded_at")
     classes = ("collapse",)
@@ -154,7 +154,7 @@ class FinalizedMaterialInline(BaseTabularInline):
 
 class ContractPartyInline(BaseTabularInline):
     model = ContractParty
-    extra = 1
+    extra = 0
     fields = ("client", "role")
     autocomplete_fields: ClassVar = ["client"]
     show_change_link = True
@@ -165,7 +165,7 @@ class ContractPartyInline(BaseTabularInline):
 
 class ContractAssignmentInline(BaseTabularInline):
     model = ContractAssignment
-    extra = 1
+    extra = 0
     fields = ("lawyer", "is_primary", "order")
     autocomplete_fields: ClassVar = ["lawyer"]
 
@@ -174,7 +174,7 @@ class SupplementaryAgreementPartyInline(BaseTabularInline):
     """补充协议当事人内联（嵌套在补充协议中）"""
 
     model = SupplementaryAgreementParty
-    extra = 1
+    extra = 0
     fields = ("client", "role")
     autocomplete_fields: ClassVar = ["client"]
 

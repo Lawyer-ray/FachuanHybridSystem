@@ -36,6 +36,16 @@
     color: white;
 }
 
+#logs-group > fieldset > h2.case-log-collapsible-heading {
+    cursor: pointer;
+}
+
+.case-log-inline-toggle {
+    margin-right: 6px;
+    font-size: 12px;
+    font-weight: normal;
+}
+
 /* 日志列表容器 */
 #logs-group .djn-items {
     padding: 10px 15px;
