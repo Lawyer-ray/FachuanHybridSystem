@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { Shield, Loader2, Play, RefreshCw, Trash2, Link2, RotateCw } from 'lucide-react'
+import { Shield, Loader2, Play, RefreshCw, Trash2, Link2, RotateCw, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -56,8 +56,8 @@ export function CourtGuaranteeSection({ caseId }: Props) {
         setSession(s)
         if (s.status === 'completed' || s.status === 'failed') {
           if (pollRef.current) clearInterval(pollRef.current)
-          if (s.status === 'completed') toast.success('保全执行完成')
-          else toast.error(`保全失败: ${s.error}`)
+          if (s.status === 'completed') toast.success('保全申请完成')
+          else toast.error(`保全申请失败: ${s.error}`)
           setExecuting(false)
           loadInfo()
         }
@@ -95,12 +95,14 @@ export function CourtGuaranteeSection({ caseId }: Props) {
         pollSession(result.session_id)
       }
     } catch {
-      toast.error('启动保全失败')
+      toast.error('申请保全失败')
       setExecuting(false)
     }
   }
 
   const quoteContext = guaranteeInfo?.quote_context
+  const hasPreservationAmount = guaranteeInfo?.preservation_amount != null && guaranteeInfo.preservation_amount > 0
+  const hasQuote = quoteContext?.quote_id != null
   const statusColor = session?.status === 'completed' ? 'bg-green-50 text-green-700'
     : session?.status === 'failed' ? 'bg-red-50 text-red-700'
     : session?.status === 'running' ? 'bg-blue-50 text-blue-700'
@@ -118,12 +120,24 @@ export function CourtGuaranteeSection({ caseId }: Props) {
               </div>
               <div key="amount">
                 <span className="text-muted-foreground">保全金额：</span>
-                <span className="font-medium">{formatAmount(guaranteeInfo.preservation_amount)}</span>
+                <span className={`font-medium ${!hasPreservationAmount ? 'text-destructive' : ''}`}>
+                  {formatAmount(guaranteeInfo.preservation_amount)}
+                </span>
               </div>
               <div key="category">
                 <span className="text-muted-foreground">保全类型：</span>
                 <span className="font-medium">{guaranteeInfo.category || '—'}</span>
               </div>
+            </div>
+          </div>
+        )}
+
+        {!hasPreservationAmount && (
+          <div key="warning" className="rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 flex items-start gap-2">
+            <AlertCircle className="size-4 text-destructive shrink-0 mt-0.5" />
+            <div className="text-[13px]">
+              <p className="font-medium text-destructive">未填写保全金额</p>
+              <p className="text-muted-foreground mt-1">请先在案件信息中填写保全金额，才能进行询价和申请保全。</p>
             </div>
           </div>
         )}
@@ -200,9 +214,13 @@ export function CourtGuaranteeSection({ caseId }: Props) {
           </div>
         )}
 
-        {/* Controls */}
-        <div key="controls" className="space-y-3">
-          <div className="grid gap-3 sm:grid-cols-3">
+        {/* Step 1: Quote */}
+        <div key="step-quote" className="space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="flex items-center justify-center size-5 rounded-full bg-primary text-primary-foreground text-[11px] font-medium">1</span>
+            <span className="text-sm font-medium">询价</span>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3 pl-7">
             {guaranteeInfo?.insurance_options && guaranteeInfo.insurance_options.length > 0 && (
               <Select key="insurer" value={insurerId} onValueChange={setInsurerId}>
                 <SelectTrigger className="h-8"><SelectValue placeholder="保险公司" /></SelectTrigger>
@@ -231,17 +249,36 @@ export function CourtGuaranteeSection({ caseId }: Props) {
               onChange={(e) => setConsultantCode(e.target.value)}
             />
           </div>
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" disabled={quoteLoading} onClick={handleEnsureQuote}>
+          <div className="flex items-center gap-2 pl-7">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!hasPreservationAmount || quoteLoading}
+              onClick={handleEnsureQuote}
+            >
               {quoteLoading ? <Loader2 className="size-3.5 mr-1 animate-spin" /> : <RefreshCw className="size-3.5 mr-1" />}
               询价
             </Button>
-            <Button size="sm" variant="outline" disabled={executing} onClick={handleExecute}>
-              {executing ? <Loader2 className="size-3.5 mr-1 animate-spin" /> : <Play className="size-3.5 mr-1" />}
-              执行保全
-            </Button>
             <Button size="sm" variant="ghost" disabled={loadingInfo} onClick={loadInfo}>
               <RefreshCw className={`size-3.5 ${loadingInfo ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
+        </div>
+
+        {/* Step 2: Apply */}
+        <div key="step-apply" className="space-y-3">
+          <div className="flex items-center gap-2">
+            <span className={`flex items-center justify-center size-5 rounded-full text-[11px] font-medium ${hasQuote ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>2</span>
+            <span className={`text-sm font-medium ${!hasQuote ? 'text-muted-foreground' : ''}`}>申请保全</span>
+          </div>
+          <div className="pl-7">
+            <Button
+              size="sm"
+              disabled={!hasQuote || executing}
+              onClick={handleExecute}
+            >
+              {executing ? <Loader2 className="size-3.5 mr-1 animate-spin" /> : <Play className="size-3.5 mr-1" />}
+              申请保全
             </Button>
           </div>
         </div>
