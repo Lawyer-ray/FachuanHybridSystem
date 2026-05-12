@@ -91,3 +91,4 @@ class ExecuteCourtGuaranteeOut(Schema):
     message: str
     session_id: int | None = None
     status: str | None = None
+    timing: dict[str, Any] | None = None

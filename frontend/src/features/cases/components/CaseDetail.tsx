@@ -587,7 +587,7 @@ export function CaseDetail({ caseId }: CaseDetailProps) {
         {/* ════════════════════════════════════════════ */}
         {activeTab === 'court_filing' && (
           <motion.div key="court_filing" {...tabVariants} transition={tabTransition}>
-            <div className="grid gap-4 lg:grid-cols-2">
+            <div className="space-y-4">
               <CourtFilingSection caseId={Number(caseId)} caseData={caseData} />
               <CourtGuaranteeSection caseId={Number(caseId)} />
             </div>

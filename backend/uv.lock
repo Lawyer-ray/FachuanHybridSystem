@@ -1289,7 +1289,7 @@ wheels = [
 
 [[package]]
 name = "fachuan-backend"
-version = "26.46.4"
+version = "26.47.0"
 source = { virtual = "." }
 dependencies = [
     { name = "channels" },

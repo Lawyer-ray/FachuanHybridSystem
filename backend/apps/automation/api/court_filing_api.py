@@ -202,6 +202,16 @@ def execute_court_filing(request: HttpRequest, payload: ExecuteCourtFilingIn) ->
             "session_id": None,
             "status": "failed",
         }
+
+    # 校验关键材料槽位：起诉状(slot 0)必须有
+    if not materials_map.get("0"):
+        return {
+            "success": False,
+            "message": '缺少起诉状材料，请先在"当事人材料"中上传起诉状（slot 0）',
+            "session_id": None,
+            "status": "failed",
+        }
+
     case_data["materials"] = materials_map
 
     if filing_type == _FILING_TYPE_EXECUTION:
