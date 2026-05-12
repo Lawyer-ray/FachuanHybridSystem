@@ -30,6 +30,12 @@ class PartyInfoHandlerMixin(FormUtilsMixin):
         """完善案件信息：当事人、代理人，以及民事一审的标的金额"""
         logger.info(str(_("步骤: 完善案件信息")))
 
+        # 等待页面主体表单区域加载，确认已进入步骤5
+        try:
+            self.page.locator(".uni-section").first.wait_for(state="visible", timeout=15000)
+        except Exception:
+            raise ValueError(str(_("完善信息页面未加载，请检查前面步骤（材料上传等）是否已完成")))
+
         if section_map is None:
             section_map = self.CIVIL_SECTION_MAP
 
@@ -38,9 +44,15 @@ class PartyInfoHandlerMixin(FormUtilsMixin):
         if not is_execution:
             amount = case_data.get("target_amount", "")
             if amount:
-                amount_input = self.page.locator(".uni-input-input").first
-                amount_input.fill(str(int(float(amount))))
-                self._random_wait(0.5, 1)
+                try:
+                    amount_input = self.page.locator(
+                        ".uni-forms-item:has(.uni-forms-item__label:has-text('标的金额')) .uni-input-input"
+                    ).first
+                    amount_input.wait_for(state="visible", timeout=10000)
+                    amount_input.fill(str(int(float(amount))))
+                    self._random_wait(0.5, 1)
+                except Exception as e:
+                    logger.warning("填写标的金额失败（可能页面未加载到该表单）: %s", e)
 
         agents = [item for item in case_data.get("agents", []) if isinstance(item, dict)]
         primary_agent = agents[0] if agents else case_data.get("agent", {})
@@ -283,7 +295,12 @@ class PartyInfoHandlerMixin(FormUtilsMixin):
     ) -> None:
         """在指定区域添加法人信息"""
         section = self.page.locator(f".uni-section:has-text('{section_title}')").first
-        section.locator('.fd-sscyr-add-btn:has-text("添加法人")').evaluate("el => el.click()")
+        add_btn = section.locator('.fd-sscyr-add-btn:has-text("添加法人")')
+        try:
+            add_btn.wait_for(state="visible", timeout=10000)
+        except Exception:
+            raise ValueError(f"未找到「{section_title}」的添加法人按钮，请检查材料是否已完整上传")
+        add_btn.evaluate("el => el.click()")
         self._random_wait(1, 2)
 
         mobile = phone if re.fullmatch(r"1\d{10}", phone) else agent_phone
@@ -316,7 +333,12 @@ class PartyInfoHandlerMixin(FormUtilsMixin):
     ) -> None:
         """在指定区域添加自然人信息"""
         section = self.page.locator(f".uni-section:has-text('{section_title}')").first
-        section.locator('.fd-sscyr-add-btn:has-text("添加自然人")').evaluate("el => el.click()")
+        add_btn = section.locator('.fd-sscyr-add-btn:has-text("添加自然人")')
+        try:
+            add_btn.wait_for(state="visible", timeout=10000)
+        except Exception:
+            raise ValueError(f"未找到「{section_title}」的添加自然人按钮，请检查材料是否已完整上传")
+        add_btn.evaluate("el => el.click()")
         self._random_wait(1, 2)
 
         self._fill_field("姓名", name)

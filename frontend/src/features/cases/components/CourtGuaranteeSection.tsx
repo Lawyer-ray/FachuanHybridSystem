@@ -21,6 +21,13 @@ interface Props {
 
 const STORAGE_KEY_PREFIX = 'court_guarantee_selected_respondents_'
 
+function formatDuration(seconds: number | null | undefined): string {
+  if (seconds === null || seconds === undefined || !Number.isFinite(seconds)) return '-'
+  if (seconds < 1) return '< 1s'
+  if (seconds < 60) return `${seconds.toFixed(1)}s`
+  return `${Math.floor(seconds / 60)}m ${Math.round(seconds % 60)}s`
+}
+
 function getStorageKey(caseId: number) {
   return `${STORAGE_KEY_PREFIX}${caseId}`
 }
@@ -55,6 +62,7 @@ export function CourtGuaranteeSection({ caseId }: Props) {
   const [executing, setExecuting] = useState(false)
   const [session, setSession] = useState<CourtGuaranteeSession | null>(null)
   const [quoteLoading, setQuoteLoading] = useState(false)
+  const [timing, setTiming] = useState<CourtGuaranteeSession['timing']>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined)
 
   const respondentOptions = useMemo(() => guaranteeInfo?.respondent_options ?? [], [guaranteeInfo?.respondent_options])
@@ -120,6 +128,7 @@ export function CourtGuaranteeSection({ caseId }: Props) {
       try {
         const s = await caseApi.getCourtGuaranteeSession(sessionId)
         setSession(s)
+        if (s.timing) setTiming(s.timing)
         if (s.status === 'completed' || s.status === 'failed') {
           if (pollRef.current) clearInterval(pollRef.current)
           if (s.status === 'completed') toast.success('保全申请完成')
@@ -153,9 +162,11 @@ export function CourtGuaranteeSection({ caseId }: Props) {
 
   const handleExecute = async () => {
     setExecuting(true)
+    setTiming(null)
     try {
       const result = await caseApi.executeCourtGuarantee(caseId)
       setSession(result)
+      if (result.timing) setTiming(result.timing)
       if (result.status === 'running' || result.status === 'pending') {
         pollSession(result.session_id)
       }
@@ -453,6 +464,31 @@ export function CourtGuaranteeSection({ caseId }: Props) {
             </div>
             {session.current_step && <p className="text-xs text-muted-foreground">{session.current_step}</p>}
             {session.error && <p className="text-xs text-red-600">{session.error}</p>}
+          </div>
+        )}
+
+        {/* 耗时统计 */}
+        {timing && timing.overall_end && (
+          <div className="rounded-md border border-border/60 bg-muted/30 px-4 py-3 space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground">耗时统计</p>
+            <div className="grid gap-1 sm:grid-cols-2 text-xs">
+              {timing.login_end && (
+                <div>
+                  <span className="text-muted-foreground">登录：</span>
+                  <span className="font-medium">{formatDuration(timing.login_end - timing.overall_start)}</span>
+                </div>
+              )}
+              {timing.playwright_start && timing.playwright_end && (
+                <div>
+                  <span className="text-muted-foreground">Playwright：</span>
+                  <span className="font-medium">{formatDuration(timing.playwright_end - timing.playwright_start)}</span>
+                </div>
+              )}
+              <div>
+                <span className="text-muted-foreground">总耗时：</span>
+                <span className="font-semibold">{formatDuration(timing.overall_end - timing.overall_start)}</span>
+              </div>
+            </div>
           </div>
         )}
       </div>
