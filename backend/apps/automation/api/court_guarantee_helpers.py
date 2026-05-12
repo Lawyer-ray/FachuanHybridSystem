@@ -6,6 +6,7 @@ import asyncio
 import logging
 import os
 import re
+import time
 from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -689,24 +690,37 @@ def _build_plaintiff_agent_payload(
 def _build_session_status_payload(*, task: Any) -> dict[str, Any]:
     from apps.automation.models import ScraperTaskStatus
 
+    timing: dict[str, Any] | None = None
+    if isinstance(task.result, dict):
+        timing = task.result.get("timing") or None
+
     if task.status in {ScraperTaskStatus.PENDING, ScraperTaskStatus.RUNNING}:
         message = "担保任务执行中..."
         if isinstance(task.result, dict):
             message = str(task.result.get("message") or message)
-        return {"success": True, "message": message, "session_id": task.id, "status": "in_progress"}
+        payload: dict[str, Any] = {"success": True, "message": message, "session_id": task.id, "status": "in_progress"}
+        if timing:
+            payload["timing"] = timing
+        return payload
 
     if task.status == ScraperTaskStatus.SUCCESS:
         message = "担保流程执行完成（已到预览页，未提交）"
         if isinstance(task.result, dict):
             message = str(task.result.get("message") or message)
-        return {"success": True, "message": message, "session_id": task.id, "status": "completed"}
+        payload = {"success": True, "message": message, "session_id": task.id, "status": "completed"}
+        if timing:
+            payload["timing"] = timing
+        return payload
 
     message = str(task.error_message or "").strip()
     if not message and isinstance(task.result, dict):
         message = str(task.result.get("message") or "").strip()
     if not message:
         message = "担保失败"
-    return {"success": False, "message": message, "session_id": task.id, "status": "failed"}
+    payload = {"success": False, "message": message, "session_id": task.id, "status": "failed"}
+    if timing:
+        payload["timing"] = timing
+    return payload
 
 
 def _update_session_task(
@@ -769,11 +783,24 @@ def _run_guarantee(
     from apps.automation.services.scraper.sites.court_zxfw import CourtZxfwService
     from apps.automation.services.scraper.sites.court_zxfw_guarantee import CourtZxfwGuaranteeService
 
+    timing: dict[str, float] = {"overall_start": time.monotonic()}
+
+    def _timing_dict() -> dict[str, Any]:
+        result: dict[str, Any] = {"overall_start": timing["overall_start"]}
+        for key in ("login_end", "playwright_start", "playwright_end", "overall_end"):
+            if key in timing:
+                result[key] = timing[key]
+        return result
+
+    def _result_with_timing(base: dict[str, Any]) -> dict[str, Any]:
+        base["timing"] = _timing_dict()
+        return base
+
     _update_session_task(
         session_id=session_id,
         status=ScraperTaskStatus.RUNNING,
         error_message="",
-        result={"stage": "login", "message": "正在登录一张网..."},
+        result=_result_with_timing({"stage": "login", "message": "正在登录一张网..."}),
         set_started=True,
     )
 
@@ -790,30 +817,37 @@ def _run_guarantee(
             login_result = login_service.login(account=account, password=password)
             if not login_result.get("success"):
                 message = str(login_result.get("message") or "一张网登录失败")
+                timing["overall_end"] = time.monotonic()
+                timing["login_end"] = timing["overall_end"]
                 _update_session_task(
                     session_id=session_id,
                     status=ScraperTaskStatus.FAILED,
                     error_message=message,
-                    result={"stage": "login.failed", "message": message, "success": False},
+                    result=_result_with_timing({"stage": "login.failed", "message": message, "success": False}),
                     set_finished=True,
                 )
                 return
 
+            timing["login_end"] = time.monotonic()
             token_result = login_service.fetch_baoquan_token(save_debug=False)
             logger.info(
                 "court_guarantee_token_status",
                 extra={"session_id": session_id, "token_success": bool(token_result.get("success"))},
             )
 
+            timing["playwright_start"] = time.monotonic()
             _update_session_task(
                 session_id=session_id,
                 status=ScraperTaskStatus.RUNNING,
                 error_message="",
-                result={"stage": "guarantee.running", "message": "正在执行担保流程..."},
+                result=_result_with_timing({"stage": "guarantee.running", "message": "正在执行担保流程..."}),
             )
 
             guarantee_service = CourtZxfwGuaranteeService(page=page, save_debug=True)
             result = guarantee_service.apply_guarantee(case_data)
+
+            timing["playwright_end"] = time.monotonic()
+            timing["overall_end"] = timing["playwright_end"]
 
             if result.get("success"):
                 run_success = True
@@ -821,7 +855,7 @@ def _run_guarantee(
                     session_id=session_id,
                     status=ScraperTaskStatus.SUCCESS,
                     error_message="",
-                    result={"stage": "guarantee.success", **result},
+                    result=_result_with_timing({"stage": "guarantee.success", **result}),
                     set_finished=True,
                 )
                 return
@@ -831,18 +865,21 @@ def _run_guarantee(
                 session_id=session_id,
                 status=ScraperTaskStatus.FAILED,
                 error_message=message,
-                result={"stage": "guarantee.failed", **result, "success": False},
+                result=_result_with_timing({"stage": "guarantee.failed", **result, "success": False}),
                 set_finished=True,
             )
 
         except Exception as exc:
             message = f"一张网担保执行失败: {exc}"
             logger.error(message, exc_info=True)
+            timing["overall_end"] = time.monotonic()
+            if "playwright_end" not in timing:
+                timing["playwright_end"] = timing["overall_end"]
             _update_session_task(
                 session_id=session_id,
                 status=ScraperTaskStatus.FAILED,
                 error_message=message,
-                result={"stage": "guarantee.exception", "message": message, "success": False},
+                result=_result_with_timing({"stage": "guarantee.exception", "message": message, "success": False}),
                 set_finished=True,
             )
         finally:

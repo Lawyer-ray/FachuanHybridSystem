@@ -60,6 +60,13 @@ export interface CourtGuaranteeSession {
   current_step: string
   result: Record<string, unknown> | null
   error: string | null
+  timing?: {
+    overall_start: number
+    login_end?: number
+    playwright_start?: number
+    playwright_end?: number
+    overall_end?: number
+  } | null
 }
 
 export const courtGuaranteeApi = {

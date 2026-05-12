@@ -7,7 +7,7 @@ import { DetailCard } from '@/components/shared'
 import { formatAmount } from '@/lib/format'
 import { caseApi } from '../api'
 import type { Case } from '../types'
-import type { CourtFilingCaseInfo } from '../api/court-filing'
+import type { CourtFilingCaseInfo, CourtFilingSession } from '../api/court-filing'
 
 interface Props {
   caseId: number
@@ -19,12 +19,20 @@ const FILING_TYPE_LABELS: Record<string, string> = {
   execution: '申请执行',
 }
 
+function formatDuration(seconds: number | null | undefined): string {
+  if (seconds === null || seconds === undefined || !Number.isFinite(seconds)) return '-'
+  if (seconds < 1) return '< 1s'
+  if (seconds < 60) return `${seconds.toFixed(1)}s`
+  return `${Math.floor(seconds / 60)}m ${Math.round(seconds % 60)}s`
+}
+
 export function CourtFilingSection({ caseId, caseData }: Props) {
   const [filingInfo, setFilingInfo] = useState<CourtFilingCaseInfo | null>(null)
   const [loadingInfo, setLoadingInfo] = useState(false)
   const [filingEngine, setFilingEngine] = useState<string>('playwright')
   const [executing, setExecuting] = useState(false)
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null)
+  const [timing, setTiming] = useState<CourtFilingSession['timing']>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined)
 
   const courtName = caseData.supervising_authorities?.find(a => a.authority_type === 'trial')?.name
@@ -54,6 +62,7 @@ export function CourtFilingSection({ caseId, caseData }: Props) {
       try {
         const s = await caseApi.getCourtFilingSession(sessionId)
         setResult({ success: s.success, message: s.message })
+        if (s.timing) setTiming(s.timing)
         if (s.status === 'completed' || s.status === 'failed') {
           if (pollRef.current) clearInterval(pollRef.current)
           setExecuting(false)
@@ -68,6 +77,7 @@ export function CourtFilingSection({ caseId, caseData }: Props) {
   const handleExecute = async () => {
     setExecuting(true)
     setResult(null)
+    setTiming(null)
     try {
       const res = await caseApi.executeCourtFiling({
         case_id: caseId,
@@ -75,6 +85,7 @@ export function CourtFilingSection({ caseId, caseData }: Props) {
         filing_engine: filingEngine as 'api' | 'playwright',
       })
       setResult({ success: res.success, message: res.message })
+      if (res.timing) setTiming(res.timing)
       if (res.session_id && (res.status === 'in_progress' || res.status === 'running')) {
         pollSession(String(res.session_id))
       } else {
@@ -204,6 +215,37 @@ export function CourtFilingSection({ caseId, caseData }: Props) {
                 : 'bg-red-50 border border-red-200 text-red-700'
             }`}>
               {result.success ? '✓' : '✗'} {result.message}
+            </div>
+          )}
+
+          {/* 耗时统计 */}
+          {timing && timing.overall_end && (
+            <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-xs space-y-1">
+              <p className="font-medium text-muted-foreground mb-1">耗时统计</p>
+              <div className="grid gap-1 sm:grid-cols-2">
+                {timing.login_end && (
+                  <div>
+                    <span className="text-muted-foreground">登录：</span>
+                    <span className="font-medium">{formatDuration(timing.login_end - timing.overall_start)}</span>
+                  </div>
+                )}
+                {timing.http_start && timing.http_end && (
+                  <div>
+                    <span className="text-muted-foreground">HTTP主链路：</span>
+                    <span className="font-medium">{formatDuration(timing.http_end - timing.http_start)}</span>
+                  </div>
+                )}
+                {timing.playwright_start && timing.playwright_end && (
+                  <div>
+                    <span className="text-muted-foreground">Playwright：</span>
+                    <span className="font-medium">{formatDuration(timing.playwright_end - timing.playwright_start)}</span>
+                  </div>
+                )}
+                <div>
+                  <span className="text-muted-foreground">总耗时：</span>
+                  <span className="font-semibold">{formatDuration(timing.overall_end - timing.overall_start)}</span>
+                </div>
+              </div>
             </div>
           )}
         </div>

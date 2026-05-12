@@ -29,6 +29,15 @@ export interface CourtFilingSession {
   message: string
   session_id: number | null
   status: string | null
+  timing?: {
+    overall_start: number
+    login_end?: number
+    http_start?: number
+    http_end?: number
+    playwright_start?: number
+    playwright_end?: number
+    overall_end?: number
+  } | null
 }
 
 export const courtFilingApi = {
