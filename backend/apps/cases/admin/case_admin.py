@@ -159,7 +159,6 @@ class CaseNumberInline(BaseStackedInline):
 
 class CaseLogInline(BaseStackedInline):
     model = CaseLog
-    template = "admin/cases/case/caselog_inline.html"
     extra = 0
     fields = ("content", "created_at")
     exclude = ("actor",)

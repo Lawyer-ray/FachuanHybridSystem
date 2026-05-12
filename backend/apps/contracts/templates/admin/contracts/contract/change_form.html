@@ -542,7 +542,6 @@ var activeInput = null;
         var roots = [];
         var seen = new Set();
         document.querySelectorAll('input[name$="-target_subdir"]').forEach(function(input) {
-            if ((input.name || '').indexOf('__prefix__') !== -1) return;
             var root = input.closest('.inline-group') || input.closest('fieldset.module') || input.closest('table') || input.form;
             if (!root || seen.has(root)) return;
             seen.add(root);
@@ -579,6 +578,13 @@ var activeInput = null;
         observer.observe(root, { childList: true, subtree: true });
     }
 
+    function bindAllTargetSubdirRows() {
+        bindPickerButtons(document);
+        getTargetSubdirInlineRoots().forEach(function(root) {
+            observeInlineRoot(root);
+        });
+    }
+
     inputEl.addEventListener('input', function() {
         previewEl.textContent = '将写入：' + (inputEl.value.trim() || '根目录');
     });
@@ -610,10 +616,20 @@ var activeInput = null;
         }
     });
 
-    bindPickerButtons(document);
-    getTargetSubdirInlineRoots().forEach(function(root) {
-        observeInlineRoot(root);
+    document.addEventListener('formset:added', function(event) {
+        bindFromNode(event.target);
+        bindAllTargetSubdirRows();
     });
+
+    if (window.django && window.django.jQuery) {
+        window.django.jQuery(document).on('formset:added', function(event, row) {
+            var node = row && row.get ? row.get(0) : row && row[0] ? row[0] : event.target;
+            bindFromNode(node);
+            bindAllTargetSubdirRows();
+        });
+    }
+
+    bindAllTargetSubdirRows();
 })();
 </script>
 {% endif %}
