@@ -1,9 +1,10 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { Shield, Loader2, Play, RefreshCw, Trash2, Link2, RotateCw, AlertCircle, Search } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -22,16 +23,46 @@ interface Props {
   caseId: number
 }
 
+const STORAGE_KEY_PREFIX = 'court_guarantee_selected_respondents_'
+
+function getStorageKey(caseId: number) {
+  return `${STORAGE_KEY_PREFIX}${caseId}`
+}
+
+function loadPersistedRespondentIds(caseId: number): number[] {
+  try {
+    const raw = localStorage.getItem(getStorageKey(caseId))
+    if (!raw) return []
+    const values = JSON.parse(raw)
+    if (!Array.isArray(values)) return []
+    return values.map((item) => Number(item)).filter((item) => Number.isInteger(item) && item > 0)
+  } catch {
+    return []
+  }
+}
+
+function persistRespondentIds(caseId: number, ids: number[]) {
+  try {
+    const normalized = ids.filter((id) => Number.isInteger(id) && id > 0)
+    localStorage.setItem(getStorageKey(caseId), JSON.stringify(normalized))
+  } catch {
+    // ignore storage errors
+  }
+}
+
 export function CourtGuaranteeSection({ caseId }: Props) {
   const [guaranteeInfo, setGuaranteeInfo] = useState<CourtGuaranteeCaseInfo | null>(null)
   const [loadingInfo, setLoadingInfo] = useState(false)
   const [insurerId, setInsurerId] = useState<string>('')
-  const [respondentId, setRespondentId] = useState<string>('')
+  const [selectedRespondentIds, setSelectedRespondentIds] = useState<number[]>([])
   const [consultantCode, setConsultantCode] = useState('')
   const [executing, setExecuting] = useState(false)
   const [session, setSession] = useState<CourtGuaranteeSession | null>(null)
   const [quoteLoading, setQuoteLoading] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined)
+
+  const respondentOptions = useMemo(() => guaranteeInfo?.respondent_options ?? [], [guaranteeInfo?.respondent_options])
+  const showRespondentSelector = respondentOptions.length > 1
 
   const loadInfo = useCallback(async () => {
     setLoadingInfo(true)
@@ -47,6 +78,30 @@ export function CourtGuaranteeSection({ caseId }: Props) {
 
   useEffect(() => { loadInfo() }, [loadInfo])
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current) }, [])
+
+  useEffect(() => {
+    if (respondentOptions.length === 0) {
+      setSelectedRespondentIds([])
+      return
+    }
+    const allIds = respondentOptions.map((opt) => Number(opt.id)).filter((id) => Number.isInteger(id) && id > 0)
+    if (respondentOptions.length === 1) {
+      setSelectedRespondentIds(allIds)
+      return
+    }
+    const persisted = loadPersistedRespondentIds(caseId)
+    const persistedSet = new Set(persisted)
+    const restored = allIds.filter((id) => persistedSet.has(id))
+    setSelectedRespondentIds(restored.length > 0 ? restored : allIds)
+  }, [caseId, respondentOptions])
+
+  const handleToggleRespondent = useCallback((id: number, checked: boolean) => {
+    setSelectedRespondentIds((prev) => {
+      const next = checked ? [...prev, id] : prev.filter((rid) => rid !== id)
+      persistRespondentIds(caseId, next)
+      return next
+    })
+  }, [caseId])
 
   const pollSession = useCallback((sessionId: string) => {
     if (pollRef.current) clearInterval(pollRef.current)
@@ -74,8 +129,7 @@ export function CourtGuaranteeSection({ caseId }: Props) {
       await caseApi.ensureGuaranteeQuote({
         case_id: caseId,
         insurer_id: insurerId || undefined,
-        respondent_id: respondentId ? Number(respondentId) : undefined,
-        consultant_code: consultantCode || undefined,
+        respondent_id: selectedRespondentIds.length === 1 ? selectedRespondentIds[0] : undefined,
       })
       toast.success('询价已提交')
       loadInfo()
@@ -144,6 +198,30 @@ export function CourtGuaranteeSection({ caseId }: Props) {
           </div>
         )}
 
+        {/* 被申请人选择（多个时显示） */}
+        {showRespondentSelector && (
+          <div className="border border-dashed border-slate-300 rounded-lg px-4 py-3 bg-slate-50/50">
+            <div className="text-xs font-medium text-slate-600 mb-2.5">被申请人（可多选，默认全选）</div>
+            <div className="flex flex-wrap gap-x-4 gap-y-2">
+              {respondentOptions.map((opt) => {
+                const id = Number(opt.id)
+                const checked = selectedRespondentIds.includes(id)
+                return (
+                  <label key={id} className="flex items-center gap-1.5 text-xs text-foreground cursor-pointer">
+                    <Checkbox
+                      checked={checked}
+                      onCheckedChange={(val) => handleToggleRespondent(id, val === true)}
+                      disabled={executing}
+                      className="size-3.5"
+                    />
+                    <span>{opt.name}</span>
+                  </label>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         {/* 询价区域 */}
         <div className="border border-border/60 rounded-lg overflow-hidden">
           <div className="flex items-center justify-between px-4 py-2.5 bg-muted/40 border-b border-border/60">
@@ -169,9 +247,9 @@ export function CourtGuaranteeSection({ caseId }: Props) {
           </div>
 
           <div className="px-4 py-3">
-            {/* 参数选择 */}
-            <div className="grid gap-2.5 sm:grid-cols-2 mb-3">
-              {guaranteeInfo?.insurance_options && guaranteeInfo.insurance_options.length > 0 && (
+            {/* 保险公司选择 */}
+            {guaranteeInfo?.insurance_options && guaranteeInfo.insurance_options.length > 0 && (
+              <div className="mb-3">
                 <Select value={insurerId} onValueChange={setInsurerId}>
                   <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="选择保险公司" /></SelectTrigger>
                   <SelectContent>
@@ -180,18 +258,8 @@ export function CourtGuaranteeSection({ caseId }: Props) {
                     ))}
                   </SelectContent>
                 </Select>
-              )}
-              {guaranteeInfo?.respondent_options && guaranteeInfo.respondent_options.length > 0 && (
-                <Select value={respondentId} onValueChange={setRespondentId}>
-                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="选择被申请人" /></SelectTrigger>
-                  <SelectContent>
-                    {guaranteeInfo.respondent_options.map((opt, i) => (
-                      <SelectItem key={opt.id ?? `respondent-${i}`} value={String(opt.id)}>{opt.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* 询价结果 */}
             {quoteContext && quoteContext.quote_id ? (
