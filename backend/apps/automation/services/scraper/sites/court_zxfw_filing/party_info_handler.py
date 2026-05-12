@@ -34,9 +34,7 @@ class PartyInfoHandlerMixin(FormUtilsMixin):
         try:
             self.page.locator(".uni-section").first.wait_for(state="visible", timeout=15000)
         except Exception:
-            raise ValueError(
-                str(_("完善信息页面未加载，请检查前面步骤（材料上传等）是否已完成"))
-            )
+            raise ValueError(str(_("完善信息页面未加载，请检查前面步骤（材料上传等）是否已完成")))
 
         if section_map is None:
             section_map = self.CIVIL_SECTION_MAP
@@ -301,10 +299,7 @@ class PartyInfoHandlerMixin(FormUtilsMixin):
         try:
             add_btn.wait_for(state="visible", timeout=10000)
         except Exception:
-            raise ValueError(
-                str(_("未找到「%(section)s」的添加法人按钮，请检查材料是否已完整上传"))
-                % {"section": section_title}
-            )
+            raise ValueError(f"未找到「{section_title}」的添加法人按钮，请检查材料是否已完整上传")
         add_btn.evaluate("el => el.click()")
         self._random_wait(1, 2)
 
@@ -342,10 +337,7 @@ class PartyInfoHandlerMixin(FormUtilsMixin):
         try:
             add_btn.wait_for(state="visible", timeout=10000)
         except Exception:
-            raise ValueError(
-                str(_("未找到「%(section)s」的添加自然人按钮，请检查材料是否已完整上传"))
-                % {"section": section_title}
-            )
+            raise ValueError(f"未找到「{section_title}」的添加自然人按钮，请检查材料是否已完整上传")
         add_btn.evaluate("el => el.click()")
         self._random_wait(1, 2)
 
