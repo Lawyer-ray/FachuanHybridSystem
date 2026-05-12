@@ -38,10 +38,6 @@
     .config-group-header:hover {
         background: #e9ecef;
     }
-    .config-group-header .group-icon {
-        font-size: 18px;
-        margin-right: 10px;
-    }
     .config-group-header .group-title {
         font-size: 14px;
         font-weight: 600;
@@ -145,6 +141,69 @@
         font-size: 10px;
         margin-left: 6px;
     }
+
+    /* 弹窗样式 */
+    .edit-modal-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 9999;
+        justify-content: center;
+        align-items: center;
+    }
+    .edit-modal-overlay.active {
+        display: flex;
+    }
+    .edit-modal {
+        background: #fff;
+        border-radius: 12px;
+        width: 90%;
+        max-width: 720px;
+        max-height: 85vh;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        animation: modal-in 0.2s ease-out;
+    }
+    @keyframes modal-in {
+        from { opacity: 0; transform: scale(0.95) translateY(10px); }
+        to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .edit-modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 20px;
+        border-bottom: 1px solid #e0e0e0;
+    }
+    .edit-modal-header h3 {
+        margin: 0;
+        font-size: 16px;
+        color: #333;
+    }
+    .edit-modal-close {
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: #666;
+        padding: 0 4px;
+        line-height: 1;
+    }
+    .edit-modal-close:hover {
+        color: #333;
+    }
+    .edit-modal-body {
+        flex: 1;
+        overflow: hidden;
+    }
+    .edit-modal-body iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+        min-height: 500px;
+    }
 </style>
 {% endblock %}
 
@@ -208,7 +267,11 @@
                     {% endif %}
                 </div>
                 <div class="item-actions">
-                    <a href="{% url 'admin:core_systemconfig_change' config.pk %}" class="edit-link">编辑</a>
+                    <a href="{% url 'admin:core_systemconfig_change' config.pk %}"
+                       class="edit-link"
+                       onclick="event.preventDefault(); openEditModal('{% url 'admin:core_systemconfig_change' config.pk %}')">
+                        编辑
+                    </a>
                 </div>
             </div>
             {% endfor %}
@@ -217,21 +280,115 @@
     {% endfor %}
 </div>
 
+<!-- 编辑弹窗 -->
+<div class="edit-modal-overlay" id="editModal">
+    <div class="edit-modal">
+        <div class="edit-modal-header">
+            <h3 id="editModalTitle">编辑配置</h3>
+            <button class="edit-modal-close" onclick="closeEditModal()">&times;</button>
+        </div>
+        <div class="edit-modal-body">
+            <iframe id="editModalFrame" src="about:blank"></iframe>
+        </div>
+    </div>
+</div>
+
 <script>
+const STORAGE_KEY = 'systemconfig_expanded_groups';
+
+// 展开状态持久化
+function loadExpandedState() {
+    try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+            return new Set(JSON.parse(saved));
+        }
+    } catch (e) {}
+    return null;
+}
+
+function saveExpandedState() {
+    const expanded = [];
+    document.querySelectorAll('.config-group.expanded').forEach(g => {
+        expanded.push(g.dataset.category);
+    });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(expanded));
+}
+
+// 初始化展开状态
+(function initExpandState() {
+    const saved = loadExpandedState();
+    if (saved && saved.size > 0) {
+        document.querySelectorAll('.config-group').forEach(g => {
+            if (saved.has(g.dataset.category)) {
+                g.classList.add('expanded');
+            } else {
+                g.classList.remove('expanded');
+            }
+        });
+    }
+})();
+
 function toggleGroup(header) {
     const group = header.parentElement;
     group.classList.toggle('expanded');
+    saveExpandedState();
 }
+
+// 弹窗编辑
+function openEditModal(url) {
+    const overlay = document.getElementById('editModal');
+    const frame = document.getElementById('editModalFrame');
+    const title = document.getElementById('editModalTitle');
+
+    frame.src = url;
+    overlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+
+    // 监听 iframe 加载完成，检测是否保存成功（URL 变为 changelist）
+    frame.onload = function() {
+        try {
+            const iframeUrl = frame.contentWindow.location.pathname;
+            if (iframeUrl.endsWith('/systemconfig/') && !iframeUrl.includes('/change/')) {
+                // 保存成功，关闭弹窗并刷新
+                closeEditModal();
+                window.location.reload();
+            }
+        } catch (e) {
+            // 跨域或其他错误，忽略
+        }
+    };
+}
+
+function closeEditModal() {
+    const overlay = document.getElementById('editModal');
+    const frame = document.getElementById('editModalFrame');
+    overlay.classList.remove('active');
+    frame.src = 'about:blank';
+    document.body.style.overflow = '';
+}
+
+// ESC 关闭弹窗
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeEditModal();
+});
+
+// 点击遮罩关闭弹窗
+document.getElementById('editModal').addEventListener('click', function(e) {
+    if (e.target === this) closeEditModal();
+});
 
 // 展开所有分组的快捷键
 document.addEventListener('keydown', function(e) {
     if (e.ctrlKey && e.key === 'e') {
         e.preventDefault();
         document.querySelectorAll('.config-group').forEach(g => g.classList.add('expanded'));
+        saveExpandedState();
     }
     if (e.ctrlKey && e.key === 'w') {
         e.preventDefault();
         document.querySelectorAll('.config-group').forEach(g => g.classList.remove('expanded'));
+        saveExpandedState();
     }
 });
 </script>
