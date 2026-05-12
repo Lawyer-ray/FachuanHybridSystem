@@ -1,19 +1,16 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
-import { Shield, Loader2, Play, RefreshCw, Trash2, Link2, RotateCw } from 'lucide-react'
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import { Shield, Loader2, Play, RefreshCw, Trash2, Link2, RotateCw, AlertCircle, Search } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { DetailCard } from '@/components/shared'
-import { formatAmount } from '@/lib/format'
 import { caseApi } from '../api'
 import type { CourtGuaranteeCaseInfo, CourtGuaranteeSession } from '../api/court-guarantee'
 
@@ -22,31 +19,108 @@ interface Props {
   caseId: number
 }
 
+const STORAGE_KEY_PREFIX = 'court_guarantee_selected_respondents_'
+
+function formatDuration(seconds: number | null | undefined): string {
+  if (seconds === null || seconds === undefined || !Number.isFinite(seconds)) return '-'
+  if (seconds < 1) return '< 1s'
+  if (seconds < 60) return `${seconds.toFixed(1)}s`
+  return `${Math.floor(seconds / 60)}m ${Math.round(seconds % 60)}s`
+}
+
+function getStorageKey(caseId: number) {
+  return `${STORAGE_KEY_PREFIX}${caseId}`
+}
+
+function loadPersistedRespondentIds(caseId: number): number[] {
+  try {
+    const raw = localStorage.getItem(getStorageKey(caseId))
+    if (!raw) return []
+    const values = JSON.parse(raw)
+    if (!Array.isArray(values)) return []
+    return values.map((item) => Number(item)).filter((item) => Number.isInteger(item) && item > 0)
+  } catch {
+    return []
+  }
+}
+
+function persistRespondentIds(caseId: number, ids: number[]) {
+  try {
+    const normalized = ids.filter((id) => Number.isInteger(id) && id > 0)
+    localStorage.setItem(getStorageKey(caseId), JSON.stringify(normalized))
+  } catch {
+    // ignore storage errors
+  }
+}
+
 export function CourtGuaranteeSection({ caseId }: Props) {
   const [guaranteeInfo, setGuaranteeInfo] = useState<CourtGuaranteeCaseInfo | null>(null)
   const [loadingInfo, setLoadingInfo] = useState(false)
-  const [insurerId, setInsurerId] = useState<string>('')
-  const [respondentId, setRespondentId] = useState<string>('')
+  const [selectedInsurer, setSelectedInsurer] = useState<string>('')
+  const [selectedRespondentIds, setSelectedRespondentIds] = useState<number[]>([])
   const [consultantCode, setConsultantCode] = useState('')
   const [executing, setExecuting] = useState(false)
   const [session, setSession] = useState<CourtGuaranteeSession | null>(null)
   const [quoteLoading, setQuoteLoading] = useState(false)
+  const [timing, setTiming] = useState<CourtGuaranteeSession['timing']>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined)
+
+  const respondentOptions = useMemo(() => guaranteeInfo?.respondent_options ?? [], [guaranteeInfo?.respondent_options])
+  const showRespondentSelector = respondentOptions.length > 1
+  const quoteContext = guaranteeInfo?.quote_context
+  const quoteItems = useMemo(() => quoteContext?.items ?? [], [quoteContext?.items])
+  const hasPreservationAmount = useMemo(() => {
+    const raw = guaranteeInfo?.preserve_amount
+    if (!raw) return false
+    const num = Number(raw)
+    return Number.isFinite(num) && num > 0
+  }, [guaranteeInfo?.preserve_amount])
+  const hasQuote = quoteContext?.quote_id != null
 
   const loadInfo = useCallback(async () => {
     setLoadingInfo(true)
     try {
       const info = await caseApi.getCourtGuaranteeInfo(caseId)
       setGuaranteeInfo(info)
+      if (info.insurance_company_name && !selectedInsurer) {
+        setSelectedInsurer(info.insurance_company_name)
+      }
+      if (info.consultant_code && !consultantCode) {
+        setConsultantCode(info.consultant_code)
+      }
     } catch {
       // silently fail
     } finally {
       setLoadingInfo(false)
     }
-  }, [caseId])
+  }, [caseId, selectedInsurer, consultantCode])
 
   useEffect(() => { loadInfo() }, [loadInfo])
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current) }, [])
+
+  useEffect(() => {
+    if (respondentOptions.length === 0) {
+      setSelectedRespondentIds([])
+      return
+    }
+    const allIds = respondentOptions.map((opt) => Number(opt.party_id)).filter((id) => Number.isInteger(id) && id > 0)
+    if (respondentOptions.length === 1) {
+      setSelectedRespondentIds(allIds)
+      return
+    }
+    const persisted = loadPersistedRespondentIds(caseId)
+    const persistedSet = new Set(persisted)
+    const restored = allIds.filter((id) => persistedSet.has(id))
+    setSelectedRespondentIds(restored.length > 0 ? restored : allIds)
+  }, [caseId, respondentOptions])
+
+  const handleToggleRespondent = useCallback((id: number, checked: boolean) => {
+    setSelectedRespondentIds((prev) => {
+      const next = checked ? [...prev, id] : prev.filter((rid) => rid !== id)
+      persistRespondentIds(caseId, next)
+      return next
+    })
+  }, [caseId])
 
   const pollSession = useCallback((sessionId: string) => {
     if (pollRef.current) clearInterval(pollRef.current)
@@ -54,10 +128,11 @@ export function CourtGuaranteeSection({ caseId }: Props) {
       try {
         const s = await caseApi.getCourtGuaranteeSession(sessionId)
         setSession(s)
+        if (s.timing) setTiming(s.timing)
         if (s.status === 'completed' || s.status === 'failed') {
           if (pollRef.current) clearInterval(pollRef.current)
-          if (s.status === 'completed') toast.success('保全执行完成')
-          else toast.error(`保全失败: ${s.error}`)
+          if (s.status === 'completed') toast.success('保全申请完成')
+          else toast.error(`保全申请失败: ${s.error}`)
           setExecuting(false)
           loadInfo()
         }
@@ -73,9 +148,8 @@ export function CourtGuaranteeSection({ caseId }: Props) {
     try {
       await caseApi.ensureGuaranteeQuote({
         case_id: caseId,
-        insurer_id: insurerId || undefined,
-        respondent_id: respondentId ? Number(respondentId) : undefined,
-        consultant_code: consultantCode || undefined,
+        insurer_id: selectedInsurer || undefined,
+        respondent_id: selectedRespondentIds.length === 1 ? selectedRespondentIds[0] : undefined,
       })
       toast.success('询价已提交')
       loadInfo()
@@ -88,19 +162,37 @@ export function CourtGuaranteeSection({ caseId }: Props) {
 
   const handleExecute = async () => {
     setExecuting(true)
+    setTiming(null)
     try {
       const result = await caseApi.executeCourtGuarantee(caseId)
       setSession(result)
+      if (result.timing) setTiming(result.timing)
       if (result.status === 'running' || result.status === 'pending') {
         pollSession(result.session_id)
       }
     } catch {
-      toast.error('启动保全失败')
+      toast.error('申请保全失败')
       setExecuting(false)
     }
   }
 
-  const quoteContext = guaranteeInfo?.quote_context
+  const formatQuoteRange = (min: string, max: string) => {
+    if (min && max) {
+      return min === max ? `¥${min}` : `¥${min} ~ ¥${max}`
+    }
+    if (min) return `¥${min}`
+    if (max) return `~ ¥${max}`
+    return '-'
+  }
+
+  const formatMaxApplyAmount = (raw: string) => {
+    if (!raw) return '-'
+    const value = Number(raw)
+    if (!Number.isFinite(value)) return '-'
+    const yiValue = value / 100000000
+    return `¥${yiValue.toFixed(2)}亿`
+  }
+
   const statusColor = session?.status === 'completed' ? 'bg-green-50 text-green-700'
     : session?.status === 'failed' ? 'bg-red-50 text-red-700'
     : session?.status === 'running' ? 'bg-blue-50 text-blue-700'
@@ -109,145 +201,260 @@ export function CourtGuaranteeSection({ caseId }: Props) {
   return (
     <DetailCard title="诉讼保全担保" extra={<Shield className="text-muted-foreground size-4" />}>
       <div className="space-y-4">
+        {/* 案件信息摘要 */}
         {guaranteeInfo && (
-          <div key="info" className="rounded-md border border-border/60 bg-muted/30 px-4 py-3 text-[13px]">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div key="court">
-                <span className="text-muted-foreground">管辖法院：</span>
-                <span className="font-medium">{guaranteeInfo.court_name || '—'}</span>
+          <div className="rounded-lg bg-gradient-to-b from-slate-50 to-slate-100/80 border border-slate-200 px-4 py-3 text-[13px]">
+            <div className="grid gap-2 sm:grid-cols-3">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-muted-foreground shrink-0">管辖法院：</span>
+                <span className="font-medium truncate">{guaranteeInfo.court_name || '—'}</span>
               </div>
-              <div key="amount">
-                <span className="text-muted-foreground">保全金额：</span>
-                <span className="font-medium">{formatAmount(guaranteeInfo.preservation_amount)}</span>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-muted-foreground shrink-0">保全类别：</span>
+                <span className="font-medium">{guaranteeInfo.preserve_category || '—'}</span>
               </div>
-              <div key="category">
-                <span className="text-muted-foreground">保全类型：</span>
-                <span className="font-medium">{guaranteeInfo.category || '—'}</span>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-muted-foreground shrink-0">保全金额：</span>
+                <span className={`font-semibold ${hasPreservationAmount ? 'text-foreground' : 'text-destructive'}`}>
+                  {guaranteeInfo.preserve_amount ? `¥${guaranteeInfo.preserve_amount}` : '-'}
+                </span>
               </div>
             </div>
           </div>
         )}
 
-        {/* Quote context */}
-        {quoteContext && quoteContext.quote_id && (
-          <div key="quote" className="rounded-md border border-border/60 bg-muted/30 px-4 py-3 space-y-2">
+        {/* 保全金额警告 */}
+        {!hasPreservationAmount && (
+          <div className="rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 flex items-start gap-2.5">
+            <AlertCircle className="size-4 text-destructive shrink-0 mt-0.5" />
+            <div className="text-[13px]">
+              <p className="font-medium text-destructive">未填写保全金额</p>
+              <p className="text-muted-foreground mt-0.5">请先在案件信息中填写保全金额，才能进行询价和申请保全。</p>
+            </div>
+          </div>
+        )}
+
+        {/* 被申请人选择（多个时显示） */}
+        {showRespondentSelector && (
+          <div className="border border-dashed border-slate-300 rounded-lg px-4 py-3 bg-slate-50/50">
+            <div className="text-xs font-medium text-slate-600 mb-2.5">被申请人（可多选，默认全选）</div>
+            <div className="flex flex-wrap gap-x-4 gap-y-2">
+              {respondentOptions.map((opt) => {
+                const id = Number(opt.party_id)
+                const checked = selectedRespondentIds.includes(id)
+                const label = opt.legal_status_display
+                  ? `${opt.name}（${opt.legal_status_display}）`
+                  : opt.name
+                return (
+                  <label key={id} className="flex items-center gap-1.5 text-xs text-foreground cursor-pointer">
+                    <Checkbox
+                      checked={checked}
+                      onCheckedChange={(val) => handleToggleRespondent(id, val === true)}
+                      disabled={executing}
+                      className="size-3.5"
+                    />
+                    <span>{label}</span>
+                  </label>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* 询价区域 */}
+        <div className="border border-border/60 rounded-lg overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-2.5 bg-muted/40 border-b border-border/60">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">报价信息</span>
-              <Badge variant="outline" className="text-[10px]">
-                {quoteContext.status === 'completed' ? '已完成' : quoteContext.status === 'failed' ? '失败' : quoteContext.status}
-              </Badge>
+              <Search className="size-4 text-muted-foreground" />
+              <span className="text-sm font-medium">财产保全询价</span>
             </div>
-            <div className="grid gap-2 sm:grid-cols-3 text-xs">
-              {quoteContext.insurer && (
-                <div key="insurer"><span className="text-muted-foreground">保险公司：</span><span className="font-medium">{quoteContext.insurer}</span></div>
-              )}
-              {quoteContext.amount != null && (
-                <div key="amount"><span className="text-muted-foreground">保额：</span><span className="font-medium">{formatAmount(quoteContext.amount)}</span></div>
-              )}
-              {quoteContext.premium != null && (
-                <div key="premium"><span className="text-muted-foreground">保费：</span><span className="font-medium">{formatAmount(quoteContext.premium)}</span></div>
-              )}
-            </div>
-            <div className="flex items-center gap-2 pt-1">
-              {quoteContext.binding_id ? (
-                <Badge variant="outline" className="text-[10px] bg-green-50 text-green-700">已绑定</Badge>
-              ) : (
-                <Button size="sm" variant="outline" onClick={async () => {
-                  try {
-                    await caseApi.bindGuaranteeQuote(quoteContext.quote_id!)
-                    toast.success('绑定成功')
-                    loadInfo()
-                  } catch { toast.error('绑定失败') }
-                }}>
-                  <Link2 className="size-3 mr-1" />绑定
-                </Button>
-              )}
-              {quoteContext.status === 'failed' && (
-                <Button size="sm" variant="outline" onClick={async () => {
-                  try {
-                    await caseApi.retryGuaranteeQuote(quoteContext.quote_id!)
-                    toast.success('重试已提交')
-                    loadInfo()
-                  } catch { toast.error('重试失败') }
-                }}>
-                  <RotateCw className="size-3 mr-1" />重试
-                </Button>
-              )}
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button size="sm" variant="outline" className="text-destructive hover:text-destructive">
-                    <Trash2 className="size-3 mr-1" />删除报价
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>确认删除报价</AlertDialogTitle>
-                    <AlertDialogDescription>此操作不可撤销</AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>取消</AlertDialogCancel>
-                    <AlertDialogAction onClick={async () => {
-                      try {
-                        await caseApi.deleteGuaranteeQuote(quoteContext.quote_id!)
-                        toast.success('已删除')
-                        loadInfo()
-                      } catch { toast.error('删除失败') }
-                    }}>确认</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+            <div className="flex items-center gap-1.5">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                disabled={!hasPreservationAmount || quoteLoading}
+                onClick={handleEnsureQuote}
+              >
+                {quoteLoading ? <Loader2 className="size-3 mr-1 animate-spin" /> : <RefreshCw className="size-3 mr-1" />}
+                发起询价
+              </Button>
+              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" disabled={loadingInfo} onClick={loadInfo}>
+                <RefreshCw className={`size-3.5 ${loadingInfo ? 'animate-spin' : ''}`} />
+              </Button>
             </div>
           </div>
-        )}
 
-        {/* Controls */}
-        <div key="controls" className="space-y-3">
-          <div className="grid gap-3 sm:grid-cols-3">
-            {guaranteeInfo?.insurance_options && guaranteeInfo.insurance_options.length > 0 && (
-              <Select key="insurer" value={insurerId} onValueChange={setInsurerId}>
-                <SelectTrigger className="h-8"><SelectValue placeholder="保险公司" /></SelectTrigger>
-                <SelectContent>
-                  {guaranteeInfo.insurance_options.map((opt, i) => (
-                    <SelectItem key={opt.id ?? `insurer-${i}`} value={opt.id}>{opt.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <div className="px-4 py-3">
+            {/* 询价结果表格 */}
+            {quoteItems.length > 0 ? (
+              <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
+                <div className="max-h-[220px] overflow-auto">
+                  <table className="w-full text-xs" style={{ borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr className="bg-slate-50 text-slate-600">
+                        <th className="text-center py-1.5 px-2 font-medium whitespace-nowrap" style={{ width: 48 }}>序号</th>
+                        <th className="text-left py-1.5 px-2 font-medium">担保机构</th>
+                        <th className="text-center py-1.5 px-2 font-medium">报价区间</th>
+                        <th className="text-right py-1.5 px-2 font-medium">最高保全金额</th>
+                        <th className="text-center py-1.5 px-2 font-medium">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {quoteItems.map((item, idx) => (
+                        <tr key={item.id} className="border-t border-slate-100">
+                          <td className="text-center py-1.5 px-2 text-muted-foreground">{idx + 1}</td>
+                          <td className="py-1.5 px-2">
+                            <span>{item.company_name}</span>
+                            {item.is_recommended && (
+                              <span className="ml-1 text-green-600">🏆</span>
+                            )}
+                          </td>
+                          <td className="text-center py-1.5 px-2 whitespace-nowrap">
+                            {formatQuoteRange(item.min_amount, item.max_amount)}
+                          </td>
+                          <td className="text-right py-1.5 px-2">
+                            {formatMaxApplyAmount(item.max_apply_amount)}
+                          </td>
+                          <td className="text-center py-1.5 px-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 text-[11px] px-2"
+                              disabled={executing}
+                              onClick={() => {
+                                setSelectedInsurer(item.company_name)
+                                toast.success(`已选用 ${item.company_name}`)
+                              }}
+                            >
+                              选用
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : hasQuote ? (
+              <div className="rounded-md bg-blue-50/50 border border-blue-100 px-3 py-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-blue-800">询价中</span>
+                  <Badge variant="outline" className="text-[10px] border-blue-200 text-blue-700">
+                    {quoteContext?.status || '处理中'}
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">正在获取报价，请稍候...</p>
+              </div>
+            ) : (
+              <div className="text-center py-4">
+                <Search className="size-8 text-muted-foreground/40 mx-auto mb-2" />
+                <p className="text-xs text-muted-foreground">尚未发起询价，点击上方「发起询价」获取担保报价</p>
+              </div>
             )}
-            {guaranteeInfo?.respondent_options && guaranteeInfo.respondent_options.length > 0 && (
-              <Select key="respondent" value={respondentId} onValueChange={setRespondentId}>
-                <SelectTrigger className="h-8"><SelectValue placeholder="被申请人" /></SelectTrigger>
-                <SelectContent>
-                  {guaranteeInfo.respondent_options.map((opt, i) => (
-                    <SelectItem key={opt.id ?? `respondent-${i}`} value={String(opt.id)}>{opt.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+
+            {/* 操作按钮 */}
+            {hasQuote && (
+              <div className="flex items-center gap-1.5 mt-2.5">
+                {quoteContext?.binding_id ? (
+                  <Badge variant="outline" className="text-[10px] bg-green-50 text-green-700 border-green-200">已绑定</Badge>
+                ) : (
+                  <Button size="sm" variant="outline" className="h-6 text-[11px]" onClick={async () => {
+                    try {
+                      await caseApi.bindGuaranteeQuote(quoteContext!.quote_id)
+                      toast.success('绑定成功')
+                      loadInfo()
+                    } catch { toast.error('绑定失败') }
+                  }}>
+                    <Link2 className="size-3 mr-1" />绑定
+                  </Button>
+                )}
+                {quoteContext?.status === 'failed' && (
+                  <Button size="sm" variant="outline" className="h-6 text-[11px]" onClick={async () => {
+                    try {
+                      await caseApi.retryGuaranteeQuote(quoteContext!.quote_id)
+                      toast.success('重试已提交')
+                      loadInfo()
+                    } catch { toast.error('重试失败') }
+                  }}>
+                    <RotateCw className="size-3 mr-1" />重试
+                  </Button>
+                )}
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button size="sm" variant="outline" className="h-6 text-[11px] text-destructive hover:text-destructive">
+                      <Trash2 className="size-3 mr-1" />删除
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>确认删除报价</AlertDialogTitle>
+                      <AlertDialogDescription>此操作不可撤销</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>取消</AlertDialogCancel>
+                      <AlertDialogAction onClick={async () => {
+                        try {
+                          await caseApi.deleteGuaranteeQuote(quoteContext!.quote_id)
+                          toast.success('已删除')
+                          loadInfo()
+                        } catch { toast.error('删除失败') }
+                      }}>确认</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
             )}
-            <input
-              type="text"
-              className="border-input bg-background placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 h-8 rounded-md border px-3 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
-              placeholder="顾问代码（可选）"
-              value={consultantCode}
-              onChange={(e) => setConsultantCode(e.target.value)}
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" disabled={quoteLoading} onClick={handleEnsureQuote}>
-              {quoteLoading ? <Loader2 className="size-3.5 mr-1 animate-spin" /> : <RefreshCw className="size-3.5 mr-1" />}
-              询价
-            </Button>
-            <Button size="sm" variant="outline" disabled={executing} onClick={handleExecute}>
-              {executing ? <Loader2 className="size-3.5 mr-1 animate-spin" /> : <Play className="size-3.5 mr-1" />}
-              执行保全
-            </Button>
-            <Button size="sm" variant="ghost" disabled={loadingInfo} onClick={loadInfo}>
-              <RefreshCw className={`size-3.5 ${loadingInfo ? 'animate-spin' : ''}`} />
-            </Button>
           </div>
         </div>
 
+        {/* 申请保全区域 */}
+        <div className={`border rounded-lg overflow-hidden transition-colors ${hasQuote ? 'border-border/60' : 'border-dashed border-muted-foreground/30'}`}>
+          <div className={`flex items-center justify-between px-4 py-2.5 border-b ${hasQuote ? 'bg-muted/40 border-border/60' : 'bg-muted/20 border-muted-foreground/20'}`}>
+            <div className="flex items-center gap-2">
+              <Play className={`size-4 ${hasQuote ? 'text-muted-foreground' : 'text-muted-foreground/50'}`} />
+              <span className={`text-sm font-medium ${!hasQuote ? 'text-muted-foreground' : ''}`}>申请保全</span>
+            </div>
+            <Button
+              size="sm"
+              className="h-7 text-xs"
+              disabled={!hasQuote || executing}
+              onClick={handleExecute}
+            >
+              {executing ? <Loader2 className="size-3 mr-1 animate-spin" /> : <Play className="size-3 mr-1" />}
+              开始申请
+            </Button>
+          </div>
+          <div className="px-4 py-3">
+            {hasQuote ? (
+              <div className="space-y-2.5">
+                {selectedInsurer && (
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="text-muted-foreground">担保机构：</span>
+                    <span className="font-medium text-foreground">{selectedInsurer}</span>
+                  </div>
+                )}
+                <input
+                  type="text"
+                  className="border-input bg-background placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 h-8 w-full rounded-md border px-3 text-xs shadow-xs outline-none focus-visible:ring-[3px]"
+                  placeholder="顾问代码（可选）"
+                  value={consultantCode}
+                  onChange={(e) => setConsultantCode(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">填写顾问代码后点击「开始申请」提交保全申请</p>
+              </div>
+            ) : (
+              <div className="text-center py-3">
+                <Play className="size-6 text-muted-foreground/30 mx-auto mb-1.5" />
+                <p className="text-xs text-muted-foreground/70">请先完成询价，获取报价后即可申请保全</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 执行状态 */}
         {session && (
-          <div key="session" className="rounded-md border border-border/60 bg-muted/30 px-4 py-3 space-y-2">
+          <div className="rounded-md border border-border/60 bg-muted/30 px-4 py-3 space-y-2">
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground">状态：</span>
               <Badge variant="outline" className={`text-[11px] ${statusColor}`}>
@@ -257,6 +464,31 @@ export function CourtGuaranteeSection({ caseId }: Props) {
             </div>
             {session.current_step && <p className="text-xs text-muted-foreground">{session.current_step}</p>}
             {session.error && <p className="text-xs text-red-600">{session.error}</p>}
+          </div>
+        )}
+
+        {/* 耗时统计 */}
+        {timing && timing.overall_end && (
+          <div className="rounded-md border border-border/60 bg-muted/30 px-4 py-3 space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground">耗时统计</p>
+            <div className="grid gap-1 sm:grid-cols-2 text-xs">
+              {timing.login_end && (
+                <div>
+                  <span className="text-muted-foreground">登录：</span>
+                  <span className="font-medium">{formatDuration(timing.login_end - timing.overall_start)}</span>
+                </div>
+              )}
+              {timing.playwright_start && timing.playwright_end && (
+                <div>
+                  <span className="text-muted-foreground">Playwright：</span>
+                  <span className="font-medium">{formatDuration(timing.playwright_end - timing.playwright_start)}</span>
+                </div>
+              )}
+              <div>
+                <span className="text-muted-foreground">总耗时：</span>
+                <span className="font-semibold">{formatDuration(timing.overall_end - timing.overall_start)}</span>
+              </div>
+            </div>
           </div>
         )}
       </div>

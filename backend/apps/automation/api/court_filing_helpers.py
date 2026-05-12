@@ -6,6 +6,7 @@ import asyncio
 import logging
 import os
 import re
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
@@ -487,24 +488,37 @@ def _build_materials_map(*, case: Any, filing_type: str) -> dict[str, list[str]]
 def _build_session_status_payload(*, task: Any) -> dict[str, Any]:
     from apps.automation.models import ScraperTaskStatus
 
+    timing: dict[str, Any] | None = None
+    if isinstance(task.result, dict):
+        timing = task.result.get("timing") or None
+
     if task.status in {ScraperTaskStatus.PENDING, ScraperTaskStatus.RUNNING}:
         message = "立案任务执行中..."
         if isinstance(task.result, dict):
             message = str(task.result.get("message") or message)
-        return {"success": True, "message": message, "session_id": task.id, "status": "in_progress"}
+        payload: dict[str, Any] = {"success": True, "message": message, "session_id": task.id, "status": "in_progress"}
+        if timing:
+            payload["timing"] = timing
+        return payload
 
     if task.status == ScraperTaskStatus.SUCCESS:
         message = "立案流程执行完成（已到预览页，未提交）"
         if isinstance(task.result, dict):
             message = str(task.result.get("message") or message)
-        return {"success": True, "message": message, "session_id": task.id, "status": "completed"}
+        payload = {"success": True, "message": message, "session_id": task.id, "status": "completed"}
+        if timing:
+            payload["timing"] = timing
+        return payload
 
     message = str(task.error_message or "").strip()
     if not message and isinstance(task.result, dict):
         message = str(task.result.get("message") or "").strip()
     if not message:
         message = "立案失败"
-    return {"success": False, "message": message, "session_id": task.id, "status": "failed"}
+    payload = {"success": False, "message": message, "session_id": task.id, "status": "failed"}
+    if timing:
+        payload["timing"] = timing
+    return payload
 
 
 def _update_session_task(
@@ -573,6 +587,8 @@ def _run_filing(
     http_failure_reason = ""
     fallback_used = False
 
+    timing: dict[str, float] = {"overall_start": time.monotonic()}
+
     def _phase_label(phase: str) -> str:
         normalized = phase.strip().lower()
         if normalized == "http":
@@ -583,12 +599,29 @@ def _run_filing(
             return "登录阶段"
         return "执行阶段"
 
+    def _build_timing_dict() -> dict[str, Any]:
+        result: dict[str, Any] = {"overall_start": timing["overall_start"]}
+        if "login_end" in timing:
+            result["login_end"] = timing["login_end"]
+        if "http_start" in timing:
+            result["http_start"] = timing["http_start"]
+        if "http_end" in timing:
+            result["http_end"] = timing["http_end"]
+        if "playwright_start" in timing:
+            result["playwright_start"] = timing["playwright_start"]
+        if "playwright_end" in timing:
+            result["playwright_end"] = timing["playwright_end"]
+        if "overall_end" in timing:
+            result["overall_end"] = timing["overall_end"]
+        return result
+
     def _build_progress_payload(*, message: str, stage: str, phase: str) -> dict[str, Any]:
         payload: dict[str, Any] = {
             "message": message,
             "stage": stage,
             "phase": phase,
             "progress_logs": progress_logs[-80:],
+            "timing": _build_timing_dict(),
         }
         if http_failure_reason:
             payload["http_failure_reason"] = http_failure_reason
@@ -682,6 +715,15 @@ def _run_filing(
         )
 
     def _service_progress_reporter(event: dict[str, Any]) -> None:
+        event_phase = str(event.get("phase") or "system").strip().lower()
+        event_stage = str(event.get("stage") or "").strip().lower()
+        if event_phase == "http" and "http_start" not in timing:
+            timing["http_start"] = time.monotonic()
+        elif event_phase == "playwright" and "playwright_start" not in timing:
+            timing["playwright_start"] = time.monotonic()
+        if event_stage == "http.success" or event_stage == "http.failed":
+            if "http_end" not in timing:
+                timing["http_end"] = time.monotonic()
         _record_progress(
             phase=str(event.get("phase") or "system"),
             stage=str(event.get("stage") or "service"),
@@ -706,10 +748,15 @@ def _run_filing(
 
         try:
             login_service = CourtZxfwService(page=page, context=context)
+            # Playwright 立案模式必须用浏览器登录，禁用 HTTP 逆向登录
+            # （HTTP 逆向登录不建立浏览器会话，会导致后续导航被重定向到登录页）
+            login_service._try_http_login = lambda *args, **kwargs: None  # type: ignore[method-assign]
             login_result = login_service.login(account=account, password=password)
             if not login_result.get("success"):
                 message = str(login_result.get("message") or "一张网登录失败")
                 logger.error("一张网登录失败: %s", login_result)
+                timing["overall_end"] = time.monotonic()
+                timing["login_end"] = timing["overall_end"]
                 _record_progress(
                     phase="login",
                     stage="login.failed",
@@ -737,6 +784,7 @@ def _run_filing(
                 stage="login.success",
                 message="一张网登录成功",
             )
+            timing["login_end"] = time.monotonic()
 
             token_value = str(login_result.get("token") or "").strip() or None
             filing_service = CourtZxfwFilingService(page=page, save_debug=True)
@@ -756,6 +804,9 @@ def _run_filing(
 
             if not result.get("success", False):
                 message = str(result.get("message") or "立案失败")
+                timing["overall_end"] = time.monotonic()
+                if fallback_used and "playwright_end" not in timing:
+                    timing["playwright_end"] = timing["overall_end"]
                 _record_progress(
                     phase="system",
                     stage="filing.failed",
@@ -781,6 +832,9 @@ def _run_filing(
             success_message = str(result.get("message") or "立案流程执行完成")
             if fallback_used and http_failure_reason:
                 success_message = f"{success_message}（HTTP失败后已回退Playwright）"
+            timing["overall_end"] = time.monotonic()
+            if fallback_used and "playwright_end" not in timing:
+                timing["playwright_end"] = timing["overall_end"]
             _record_progress(
                 phase="system",
                 stage="filing.success",
@@ -809,6 +863,9 @@ def _run_filing(
         except Exception as exc:
             error_message = f"一张网立案执行失败: {exc}"
             logger.error(error_message, exc_info=True)
+            timing["overall_end"] = time.monotonic()
+            if fallback_used and "playwright_end" not in timing:
+                timing["playwright_end"] = timing["overall_end"]
             _record_progress(
                 phase="system",
                 stage="filing.exception",

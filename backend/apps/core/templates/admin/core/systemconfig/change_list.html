@@ -7,6 +7,140 @@
     /* 隐藏 changelist 底部保存按钮（list_editable 已移除，双重保险） */
     #changelist-form input[type="submit"][name="_save"],
     #changelist-form .submit-row { display: none !important; }
+
+    /* 隐藏过滤器 */
+    #changelist-filter { display: none !important; }
+
+    /* 让内容区域占满宽度（覆盖 Django changelists.css 的 :has() 约束） */
+    #changelist .changelist-form-container > div { max-width: 100% !important; }
+
+    /* 分组折叠面板样式 */
+    .config-groups {
+        margin-bottom: 20px;
+    }
+    .config-group {
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        margin-bottom: 12px;
+        background: #fff;
+        overflow: hidden;
+    }
+    .config-group-header {
+        display: flex;
+        align-items: center;
+        padding: 12px 16px;
+        background: linear-gradient(to bottom, #f8f9fa, #f1f3f5);
+        cursor: pointer;
+        user-select: none;
+        border-bottom: 1px solid #e0e0e0;
+        transition: background-color 0.2s;
+    }
+    .config-group-header:hover {
+        background: #e9ecef;
+    }
+    .config-group-header .group-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: #333;
+        flex: 1;
+    }
+    .config-group-header .group-count {
+        background: #6c757d;
+        color: #fff;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 11px;
+        margin-right: 10px;
+    }
+    .config-group-header .toggle-icon {
+        transition: transform 0.3s;
+        color: #6c757d;
+    }
+    .config-group.expanded .config-group-header .toggle-icon {
+        transform: rotate(90deg);
+    }
+    .config-group-content {
+        display: none;
+        padding: 0;
+    }
+    .config-group.expanded .config-group-content {
+        display: block;
+    }
+    .config-item {
+        display: flex;
+        align-items: center;
+        padding: 10px 16px;
+        border-bottom: 1px solid #f0f0f0;
+        transition: background-color 0.15s;
+    }
+    .config-item:last-child {
+        border-bottom: none;
+    }
+    .config-item:hover {
+        background: #f8f9fa;
+    }
+    .config-item .item-key {
+        font-family: monospace;
+        font-size: 13px;
+        color: #495057;
+        min-width: 250px;
+        word-break: break-all;
+    }
+    .config-item .item-value {
+        flex: 1;
+        font-size: 13px;
+        color: #666;
+        margin: 0 16px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .config-item .item-value .secret-mask {
+        font-family: monospace;
+        color: #999;
+    }
+    .config-item .item-value .not-set {
+        color: #999;
+        font-style: italic;
+    }
+    .config-item .item-actions {
+        display: flex;
+        gap: 8px;
+    }
+    .config-item .item-actions a {
+        font-size: 12px;
+        padding: 4px 8px;
+        border-radius: 4px;
+        text-decoration: none;
+    }
+    .config-item .item-actions .edit-link {
+        background: #e3f2fd;
+        color: #1976d2;
+    }
+    .config-item .item-actions .edit-link:hover {
+        background: #bbdefb;
+    }
+    .config-item .item-desc {
+        font-size: 11px;
+        color: #999;
+        margin-top: 2px;
+    }
+    .secret-badge {
+        background: #fff3cd;
+        color: #856404;
+        padding: 1px 6px;
+        border-radius: 3px;
+        font-size: 10px;
+        margin-left: 6px;
+    }
+    .inactive-badge {
+        background: #f8d7da;
+        color: #721c24;
+        padding: 1px 6px;
+        border-radius: 3px;
+        font-size: 10px;
+        margin-left: 6px;
+    }
 </style>
 {% endblock %}
 
@@ -35,12 +169,99 @@
     </li>
     {% endif %}
 
-    {# 系统更新按钮已隐藏 #}
     {{ block.super }}
 {% endblock %}
 
-{% block content %}
-    {# 系统更新状态区块已隐藏 #}
+{% block result_list %}
+<div class="config-groups">
+    {% for group in grouped_configs %}
+    <div class="config-group{% if forloop.first %} expanded{% endif %}" data-category="{{ group.category }}">
+        <div class="config-group-header" onclick="toggleGroup(this)">
+            <span class="group-title">{{ group.label }}</span>
+            <span class="group-count">{{ group.count }} 项</span>
+            <span class="toggle-icon">▶</span>
+        </div>
+        <div class="config-group-content">
+            {% for config in group.configs %}
+            <div class="config-item">
+                <div style="flex: 1; min-width: 0;">
+                    <div class="item-key">
+                        {{ config.key }}
+                        {% if config.is_secret %}<span class="secret-badge">敏感</span>{% endif %}
+                        {% if not config.is_active %}<span class="inactive-badge">已禁用</span>{% endif %}
+                    </div>
+                    {% if config.description %}
+                    <div class="item-desc">{{ config.description }}</div>
+                    {% endif %}
+                </div>
+                <div class="item-value">
+                    {% if not config.value %}
+                        <span class="not-set">未设置</span>
+                    {% elif config.is_secret %}
+                        <span class="secret-mask">••••••••</span>
+                    {% else %}
+                        {{ config.value|truncatechars:50 }}
+                    {% endif %}
+                </div>
+                <div class="item-actions">
+                    <a href="{% url 'admin:core_systemconfig_change' config.pk %}" class="edit-link">编辑</a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
 
-    {{ block.super }}
+<script>
+const STORAGE_KEY = 'systemconfig_expanded_groups';
+
+function loadExpandedState() {
+    try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) return new Set(JSON.parse(saved));
+    } catch (e) {}
+    return null;
+}
+
+function saveExpandedState() {
+    const expanded = [];
+    document.querySelectorAll('.config-group.expanded').forEach(g => {
+        expanded.push(g.dataset.category);
+    });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(expanded));
+}
+
+// 初始化展开状态
+(function initExpandState() {
+    const saved = loadExpandedState();
+    if (saved && saved.size > 0) {
+        document.querySelectorAll('.config-group').forEach(g => {
+            if (saved.has(g.dataset.category)) {
+                g.classList.add('expanded');
+            } else {
+                g.classList.remove('expanded');
+            }
+        });
+    }
+})();
+
+function toggleGroup(header) {
+    header.parentElement.classList.toggle('expanded');
+    saveExpandedState();
+}
+
+document.addEventListener('keydown', function(e) {
+    if (e.ctrlKey && e.key === 'e') {
+        e.preventDefault();
+        document.querySelectorAll('.config-group').forEach(g => g.classList.add('expanded'));
+        saveExpandedState();
+    }
+    if (e.ctrlKey && e.key === 'w') {
+        e.preventDefault();
+        document.querySelectorAll('.config-group').forEach(g => g.classList.remove('expanded'));
+        saveExpandedState();
+    }
+});
+</script>
 {% endblock %}

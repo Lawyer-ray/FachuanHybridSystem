@@ -120,6 +120,31 @@ class SystemConfigAdmin(admin.ModelAdmin):
         extra_context["show_sync_button"] = True
         extra_context["show_clear_cache_button"] = True
         extra_context["has_add_permission"] = self.has_add_permission(request)
+
+        # 按分类分组获取配置项
+        from collections import defaultdict
+
+        grouped_configs = defaultdict(list)
+        for config in SystemConfig.objects.all().order_by("category", "key"):
+            grouped_configs[config.category].append(config)
+
+        # 构建分组数据
+        category_labels = dict(SystemConfig.Category.choices)
+
+        groups = []
+        for category in SystemConfig.Category.values:
+            configs = grouped_configs.get(category, [])
+            if configs:
+                groups.append(
+                    {
+                        "category": category,
+                        "label": category_labels.get(category, category),
+                        "count": len(configs),
+                        "configs": configs,
+                    }
+                )
+
+        extra_context["grouped_configs"] = groups
         return super().changelist_view(request, extra_context=extra_context)
 
     def save_model(self, request: Any, obj: SystemConfig, form: Any, change: bool) -> None:
