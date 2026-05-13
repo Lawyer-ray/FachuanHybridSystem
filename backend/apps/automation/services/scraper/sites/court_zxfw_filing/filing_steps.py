@@ -276,12 +276,19 @@ class FilingStepsMixin(FormUtilsMixin):
         return None
 
     def _confirm_address_confirmation_book(self, loading: Any) -> None:
-        """点击「引入送达地址确认书」，处理弹窗：选择地址 → 确认生成。
+        """点击「引入送达地址确认书」，处理弹窗流程：
+
+        1. 选择邮寄送达地址 → 点击「确认生成」
+        2. 弹窗切换到签章选择页面：点击签名卡片 → 点击「引入签章」
 
         弹窗结构（uni-popup fd-import-file-layer）:
-          - 邮寄送达: 选择地址下拉框 (uni-data-tree) + 添加按钮
-          - 电子送达: 送达方式复选框（人民法院在线服务默认勾选）
-          - 底部: 取消 / 确认生成
+          页面1 - 地址确认:
+            - 邮寄送达: 选择地址下拉框 (uni-data-tree) + 添加按钮
+            - 电子送达: 送达方式复选框（人民法院在线服务默认勾选）
+            - 底部: 取消 / 确认生成
+          页面2 - 签章选择（确认生成后切换）:
+            - 顶部: 引入签章 / 更新签章 按钮
+            - 签名卡片列表 (fd-com-card): 版本号 + 签署时间 + 签名图片
         """
         try:
             confirm_book_btn = self.page.get_by_text("引入送达地址确认书")
@@ -318,9 +325,10 @@ class FilingStepsMixin(FormUtilsMixin):
                 pass
         except Exception:
             logger.warning("未找到「确认生成」按钮")
+            return
 
-        # 关闭可能残留的弹窗
-        self._dismiss_address_popup()
+        # 签章选择：点击签名卡片 → 引入签章
+        self._select_signature_and_import()
 
     def _select_address_from_popup(self) -> None:
         """在送达地址确认书弹窗中选择邮寄送达地址。"""
@@ -363,6 +371,44 @@ class FilingStepsMixin(FormUtilsMixin):
         logger.debug("地址下拉框中未找到可选项，跳过地址选择")
         self.page.keyboard.press("Escape")
         self._random_wait(0.5, 1)
+
+    def _select_signature_and_import(self) -> None:
+        """在签章选择页面中选择签名并引入。
+
+        确认生成后弹窗切换为签章选择页面：
+        - 签名卡片列表 (.fd-com-card)，点击后获得 .fd-com-card-active class
+        - 顶部有「引入签章」按钮
+        """
+        # 等待签名卡片出现
+        try:
+            self.page.locator(".fd-com-card").first.wait_for(state="visible", timeout=10000)
+        except Exception:
+            logger.warning("签章选择页面未出现（无签名卡片）")
+            return
+
+        # 点击第一张签名卡片选中
+        first_card = self.page.locator(".fd-com-card").first
+        first_card.click()
+        logger.info("已选择签名卡片")
+        self._random_wait(1, 2)
+
+        # 点击「引入签章」
+        try:
+            import_btn = self.page.locator(".uni-popup__wrapper uni-button:has-text('引入签章')")
+            import_btn.wait_for(state="visible", timeout=5000)
+            import_btn.click()
+            logger.info("已点击「引入签章」")
+            self._random_wait(3, 5)
+        except Exception:
+            logger.warning("未找到「引入签章」按钮")
+            return
+
+        # 等待弹窗关闭
+        try:
+            self.page.locator(".uni-popup__wrapper").first.wait_for(state="hidden", timeout=10000)
+        except Exception:
+            # 弹窗可能已自动关闭
+            self._dismiss_address_popup()
 
     def _dismiss_address_popup(self) -> None:
         """关闭送达地址确认书弹窗（如果仍打开）。"""
