@@ -92,8 +92,7 @@ class WeChatWorkProvider(WeChatWorkTokenMixin, WeChatWorkFileMixin, ChatProvider
             payload: dict[str, Any] = {
                 "name": chat_name,
                 "owner": effective_owner_id,
-                "userlist": [effective_owner_id],
-                "chatid": f"case_{chat_name[:50]}",
+                "userlist": [effective_owner_id, effective_owner_id],
             }
 
             timeout = self.config.get("TIMEOUT", 30)
