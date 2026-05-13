@@ -229,9 +229,16 @@ class FilingStepsMixin(FormUtilsMixin):
             logger.info("上传材料 %s -> 槽位 %d: %s", idx_str, upload_idx, [Path(f).name for f in files])
             btn = self.page.locator(f'[data-upload-index="{upload_idx}"]').first
 
+            # 等待 toast 遮罩消失（uni-toast 可能长时间遮挡点击）
+            mask = self.page.locator(".uni-mask")
+            try:
+                mask.wait_for(state="hidden", timeout=5000)
+            except Exception:
+                pass
+
             for file_path in files:
                 with self.page.expect_file_chooser() as fc_info:
-                    btn.click()
+                    btn.click(force=True)
                 fc_info.value.set_files(file_path)
                 self.page.wait_for_timeout(2000)
 
