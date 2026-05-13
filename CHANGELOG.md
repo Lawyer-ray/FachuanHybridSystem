@@ -2,6 +2,14 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.48.9] - 2026-05-13
+
+### 后端
+
+#### 优化
+
+- **OA 脚本目录重构**：将 `oa_scripts/` 下散落的金诚同达专属文件（`jtn_case_html_parser.py`、`jtn_case_import_models.py`、`jtn_client_import.py`）归入统一的 `jtn/` 目录，与已有的 `jtn_case_import/`、`jtn_filing/` 子包保持一致。新增律所时只需创建一个新目录，无需辨认哪些文件属于哪个律所
+
 ## [26.48.8] - 2026-05-13
 
 ### 后端
