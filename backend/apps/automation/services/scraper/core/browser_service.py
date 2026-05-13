@@ -1,11 +1,16 @@
 """
 浏览器服务 - 单例模式管理 Playwright 浏览器实例
+
+.. deprecated::
+    已迁移到 apps.core.services.browser。请使用 create_browser() 或 BrowserService。
+    本模块将在后续版本中移除。
 """
 
 import logging
 import os
 import subprocess
 import sys
+import warnings
 from typing import TYPE_CHECKING, Any, Optional, cast
 
 from apps.core.interfaces import IBrowserService
@@ -79,6 +84,11 @@ class BrowserService:
         # 避免重复初始化
         if not hasattr(self, "_initialized"):
             self._initialized = True
+            warnings.warn(
+                "BrowserService 已迁移到 apps.core.services.browser，请使用 create_browser()",
+                DeprecationWarning,
+                stacklevel=2,
+            )
             logger.info("BrowserService 初始化")
 
     def start_browser(self, headless: bool | None = None) -> "Browser":
