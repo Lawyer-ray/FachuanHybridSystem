@@ -10,9 +10,19 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name='legalresearchtask',
-            name='llm_scoring_concurrency',
-            field=models.PositiveIntegerField(default=5, help_text='同时并发的 LLM 评分线程数。默认 5，397B 模型建议 100。', verbose_name='LLM评分并发数'),
+        migrations.SeparateDatabaseAndState(
+            state_operations=[
+                migrations.AddField(
+                    model_name='legalresearchtask',
+                    name='llm_scoring_concurrency',
+                    field=models.PositiveIntegerField(default=5, help_text='同时并发的 LLM 评分线程数。默认 5，kimi26 模型建议 100。', verbose_name='LLM评分并发数'),
+                ),
+            ],
+            database_operations=[
+                migrations.RunSQL(
+                    sql='ALTER TABLE "legal_research_legalresearchtask" ADD COLUMN IF NOT EXISTS "llm_scoring_concurrency" integer NOT NULL DEFAULT 5;',
+                    reverse_sql='ALTER TABLE "legal_research_legalresearchtask" DROP COLUMN IF EXISTS "llm_scoring_concurrency";',
+                ),
+            ],
         ),
     ]

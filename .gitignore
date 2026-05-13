@@ -136,6 +136,8 @@ llm_benchmark/
 /mypy_services_errors.txt
 /fix_html.py
 /split_index.py
+/search_results*.txt
+/searcher*.py
 # Docker volumes (auto-created on first run)
 docker-volumes/
 # backend/scripts/（本地调试/一次性脚本，不入库）
