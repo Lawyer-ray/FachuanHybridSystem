@@ -2,6 +2,15 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.48.8] - 2026-05-13
+
+### 后端
+
+#### 修复
+
+- **法律检索迁移幂等修复**：`0013_add_llm_scoring_concurrency` 迁移在数据库列已存在时抛出 `DuplicateColumn` 错误，改用 `ADD COLUMN IF NOT EXISTS` 使迁移幂等
+- **迁移 help_text 对齐**：修正迁移中 `help_text` 文本（`397B` → `kimi26`），与模型定义一致，消除 `makemigrations` 的 pending changes 警告
+
 ## [26.48.7] - 2026-05-12
 
 ### 前端
