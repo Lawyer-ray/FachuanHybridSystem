@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import os
 import re
 import time
 from typing import Any
@@ -83,9 +82,7 @@ class JtnSsoHandlerMixin:
 
         from apps.core.services.browser import create_browser
 
-        # Docker/NAS 环境通常没有 XServer，缺少 DISPLAY 时自动走无头模式。
-        _headless = not bool(os.environ.get("DISPLAY"))
-        with create_browser(headless=_headless) as (page, context):
+        with create_browser() as (page, context):
             page.goto(target_url, wait_until="domcontentloaded", timeout=60_000)
 
             deadline = time.time() + 180

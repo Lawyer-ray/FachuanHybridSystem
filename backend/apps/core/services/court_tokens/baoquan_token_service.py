@@ -1,7 +1,6 @@
 """Business logic services."""
 
 import logging
-import os
 
 from asgiref.sync import sync_to_async
 
@@ -76,9 +75,7 @@ class BaoquanTokenService:
             from apps.core.services.browser import create_browser
             from apps.core.services.wiring import get_court_zxfw_service_factory
 
-            headless = not bool(os.environ.get("DISPLAY"))
-
-            with create_browser(headless=headless) as (page, context):
+            with create_browser() as (page, context):
                 service = get_court_zxfw_service_factory(page=page, context=context, site_name=self.COURT_SITE_NAME)
                 login_result = service.login(
                     account=account,

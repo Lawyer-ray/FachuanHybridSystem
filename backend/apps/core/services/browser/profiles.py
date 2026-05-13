@@ -145,20 +145,44 @@ def get_profile(name: str = "default") -> BrowserProfile:
     """获取配置档案。
 
     优先从环境变量加载，其次使用预定义值。
+    最后检查 SystemConfig (PLAYWRIGHT_HEADED) 覆盖 headless 设置。
     """
     # 尝试从环境变量加载
     env_prefix = f"BROWSER_{name.upper()}_"
     has_env = any(k.startswith(env_prefix) for k in os.environ)
     if has_env:
-        return BrowserProfile.from_env(name)
+        profile = BrowserProfile.from_env(name)
+    elif name in _PROFILES:
+        profile = _PROFILES[name]
+    else:
+        logger.warning("未找到浏览器配置档案 '%s'，使用默认配置", name)
+        profile = _PROFILES["default"]
 
-    # 使用预定义值
-    if name in _PROFILES:
-        return _PROFILES[name]
+    # SystemConfig 覆盖 headless（CDP 模式不适用）
+    if not profile.is_cdp:
+        profile = _apply_headless_override(profile)
 
-    # 回退到 default
-    logger.warning("未找到浏览器配置档案 '%s'，使用默认配置", name)
-    return _PROFILES["default"]
+    return profile
+
+
+def _apply_headless_override(profile: BrowserProfile) -> BrowserProfile:
+    """检查 SystemConfig PLAYWRIGHT_HEADED，覆盖 headless 设置。"""
+    import dataclasses
+
+    try:
+        from apps.core.services.system_config_service import SystemConfigService
+
+        svc = SystemConfigService()
+        headed = svc.get_value("PLAYWRIGHT_HEADED", "").lower()
+        if headed in ("true", "1", "yes"):
+            return dataclasses.replace(profile, headless=False)
+        if headed in ("false", "0", "no"):
+            return dataclasses.replace(profile, headless=True)
+    except Exception:
+        # Django 未初始化或 DB 不可用时，使用 profile 原始值
+        pass
+
+    return profile
 
 
 def register_profile(profile: BrowserProfile) -> None:

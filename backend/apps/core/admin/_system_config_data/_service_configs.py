@@ -61,6 +61,13 @@ def get_scraper_configs() -> list[dict[str, Any]]:
             "value": "True",
             "is_secret": False,
         },
+        {
+            "key": "PLAYWRIGHT_HEADED",
+            "category": "scraper",
+            "description": "Playwright 浏览器有头模式（true=显示浏览器窗口，便于调试；false=无头后台运行）",
+            "value": "false",
+            "is_secret": False,
+        },
     ]
 
 

@@ -19,6 +19,7 @@ def get_default_configs() -> list[dict[str, Any]]:
         + get_ai_configs()
         + get_court_sms_configs()
         + get_enterprise_data_configs()
+        + get_scraper_configs()
         + get_ocr_configs()
         + get_email_configs()
     )

@@ -212,4 +212,10 @@ def get_env_mappings() -> dict[str, dict[str, Any]]:
             "description": "爬虫超时时间",
             "is_secret": False,
         },
+        "PLAYWRIGHT_HEADED": {
+            "key": "PLAYWRIGHT_HEADED",
+            "category": "scraper",
+            "description": "Playwright 有头模式（true=显示浏览器窗口）",
+            "is_secret": False,
+        },
     }

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -804,9 +803,7 @@ def _run_guarantee(
         set_started=True,
     )
 
-    # Docker/NAS 环境通常没有 XServer，缺少 DISPLAY 时自动走无头模式。
-    _headless = not bool(os.environ.get("DISPLAY"))
-    with create_browser("court_zxfw", headless=_headless, slow_mo=_BROWSER_SLOW_MO_MS) as (page, context):
+    with create_browser("court_zxfw", slow_mo=_BROWSER_SLOW_MO_MS) as (page, context):
         run_success = False
 
         try:

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -739,9 +738,7 @@ def _run_filing(
         set_started=True,
     )
 
-    # Docker/NAS 环境通常没有 XServer，缺少 DISPLAY 时自动走无头模式。
-    _headless = not bool(os.environ.get("DISPLAY"))
-    with create_browser(headless=_headless) as (page, context):
+    with create_browser() as (page, context):
         try:
             login_service = CourtZxfwService(page=page, context=context)
             # Playwright 立案模式必须用浏览器登录，禁用 HTTP 逆向登录

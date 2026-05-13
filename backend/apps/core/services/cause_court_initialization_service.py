@@ -6,7 +6,6 @@
 """
 
 import logging
-import os
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -253,9 +252,7 @@ class CauseCourtInitializationService:
             from apps.core.services.browser import create_browser
             from apps.core.services.wiring import get_court_zxfw_service_factory
 
-            headless = not bool(os.environ.get("DISPLAY"))
-
-            with create_browser(headless=headless) as (page, context):
+            with create_browser() as (page, context):
                 service = get_court_zxfw_service_factory(page=page, context=context)
 
                 login_result = service.login(
