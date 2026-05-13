@@ -803,7 +803,7 @@ def _run_guarantee(
         set_started=True,
     )
 
-    with create_browser("court_zxfw", slow_mo=_BROWSER_SLOW_MO_MS) as (page, context):
+    with create_browser("court_zxfw", slow_mo=_BROWSER_SLOW_MO_MS, anti_detection=False) as (page, context):
         run_success = False
 
         try:

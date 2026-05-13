@@ -738,7 +738,7 @@ def _run_filing(
         set_started=True,
     )
 
-    with create_browser() as (page, context):
+    with create_browser(anti_detection=False) as (page, context):
         try:
             login_service = CourtZxfwService(page=page, context=context)
             # Playwright 立案模式必须用浏览器登录，禁用 HTTP 逆向登录
