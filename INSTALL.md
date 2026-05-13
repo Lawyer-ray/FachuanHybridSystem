@@ -14,8 +14,6 @@
 - 本地开发（macOS）
 - 本地开发（Linux / Windows）
 - 环境变量
-- 启动顺序与运行检查
-- 推送前本地检查（进阶，可选）
 
 ## Docker 部署（推荐）
 
@@ -225,48 +223,4 @@ DB_PASSWORD=postgres
 DB_HOST=127.0.0.1
 DB_PORT=5432
 ```
-
-## 启动顺序与运行检查
-
-启动建议：
-
-- Django Web 与 `qcluster` 启动顺序不限。
-- 若需执行依赖队列的功能（如案例检索、自动化下载等），请确保 `qcluster` 正在运行。
-
-检查点：
-
-- 后台可访问：`http://127.0.0.1:8002/admin/`
-- 任务可执行：提交一个依赖队列的任务（例如案例检索任务）后状态可从 `queued/running` 正常变化
-
-## 推送前本地检查（进阶，可选）
-
-```bash
-cd backend
-source .venv/bin/activate
-
-# 1) Django 基础检查
-PYTHONPATH=apiSystem:. .venv/bin/python apiSystem/manage.py check
-PYTHONPATH=apiSystem:. .venv/bin/python apiSystem/manage.py migrate --check
-
-# 2) 迁移后冒烟（本地链路）
-PYTHONPATH=apiSystem:. .venv/bin/python apiSystem/manage.py smoke_check --skip-admin --skip-websocket --skip-q
-
-# 3) CI 预检（与 GitHub 主流程对齐）
-TEST_DB_USER=postgres TEST_DB_PASSWORD=postgres \
-DB_USER=postgres DB_PASSWORD=postgres \
-DB_NAME=fachuan_ci_test TEST_DB_NAME=fachuan_ci_test \
-DB_HOST=127.0.0.1 TEST_DB_HOST=127.0.0.1 \
-DB_PORT=5432 TEST_DB_PORT=5432 \
-make ci-check-full
-
-# 4) 防止误提交本地敏感文件
-cd ..
-git ls-files '*.env' '*sqlite*' '*.sqlite3-shm' '*.sqlite3-wal'
-git status --short --ignored | grep -E 'backend/\.env|db\.sqlite3|sqlite3-(shm|wal)' || true
-```
-
-通过标准：
-
-- `check` / `migrate --check` / `smoke_check` / `ci-check-full` 全部成功
-- `git ls-files` 不出现本地 `.env`、`db.sqlite3`、`db.sqlite3-shm/wal` 等文件
 
