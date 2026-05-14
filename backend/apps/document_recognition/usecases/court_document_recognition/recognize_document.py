@@ -8,6 +8,7 @@ from datetime import date
 from typing import Any
 
 from apps.core.exceptions import RecognitionTimeoutError, ServiceUnavailableError, ValidationException
+from apps.core.services.filename_template_service import FilenameTemplateService
 from apps.document_recognition.services.data_classes import (
     BindingResult,
     DocumentType,
@@ -135,14 +136,7 @@ class RecognizeCourtDocumentUsecase:
             from apps.core.utils.path import Path
 
             original_path = Path(file_path)
-            new_path = original_path.parent / new_filename
-            counter = 1
-            while new_path.exists():
-                base_filename = new_filename.replace("收.pdf", f"收{counter}.pdf")
-                new_path = original_path.parent / base_filename
-                counter += 1
-                if counter > 100:
-                    break
+            new_path, _ = FilenameTemplateService.get_unique_filepath(original_path.parent, new_filename)
             original_path.rename(new_path)
             logger.info(
                 "文书重命名成功",

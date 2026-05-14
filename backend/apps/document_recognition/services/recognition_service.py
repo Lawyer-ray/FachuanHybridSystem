@@ -13,6 +13,7 @@ from typing import Any
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import RecognitionTimeoutError, ServiceUnavailableError, ValidationException
+from apps.core.services.filename_template_service import FilenameTemplateService
 
 from .data_classes import BindingResult, DocumentType, RecognitionResponse, RecognitionResult
 
@@ -346,20 +347,11 @@ class CourtDocumentRecognitionService:
                 title=title, case_name=case_name, received_date=date.today()
             )
 
-            # 构建新文件路径
+            # 构建新文件路径（通用碰撞处理）
             from pathlib import Path
 
             original_path = Path(file_path)
-            new_path = original_path.parent / new_filename
-
-            # 如果新文件名已存在，添加数字后缀
-            counter = 1
-            while new_path.exists():
-                base_filename = new_filename.replace("收.pdf", f"收{counter}.pdf")
-                new_path = original_path.parent / base_filename
-                counter += 1
-                if counter > 100:
-                    break
+            new_path, _ = FilenameTemplateService.get_unique_filepath(original_path.parent, new_filename)
 
             # 重命名文件
             original_path.rename(new_path)

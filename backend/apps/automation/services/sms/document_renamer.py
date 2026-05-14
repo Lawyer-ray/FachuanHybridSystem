@@ -12,6 +12,7 @@ from pathlib import Path
 from apps.automation.services.document.document_processing import extract_document_content
 from apps.core.config import get_config
 from apps.core.exceptions import ValidationException
+from apps.core.services.filename_template_service import FilenameTemplateService
 
 logger = logging.getLogger(__name__)
 
@@ -300,10 +301,10 @@ class DocumentRenamer:
         # 格式化日期
         date_str = received_date.strftime("%Y%m%d")
 
-        # 生成文件名：使用中文括号
-        filename = f"{title}（{case_name}）_{date_str}收.pdf"
+        # 使用模板服务生成文件名
+        filename = FilenameTemplateService.render_court_doc(title=title, case_name=case_name, date=date_str)
 
-        return filename
+        return f"{filename}.pdf"
 
     def _sanitize_filename_part(self, text: str) -> str:
         """
@@ -359,19 +360,9 @@ class DocumentRenamer:
             # 生成新文件名
             new_filename = self.generate_filename(title, case_name, received_date)
 
-            # 构建新文件路径
+            # 构建新文件路径（通用碰撞处理）
             original_path = Path(document_path)
-            new_path = original_path.parent / new_filename
-
-            # 如果新文件名已存在，在"收"字后面添加数字（带括号）
-            counter = 1
-            while new_path.exists():
-                # 格式：xxx收(1).pdf, xxx收(2).pdf
-                base_filename = new_filename.replace("收.pdf", f"收({counter}).pdf")
-                new_path = original_path.parent / base_filename
-                counter += 1
-                if counter > 100:  # 防止无限循环
-                    break
+            new_path, _ = FilenameTemplateService.get_unique_filepath(original_path.parent, new_filename)
 
             # 重命名文件
             original_path.rename(new_path)
@@ -417,16 +408,7 @@ class DocumentRenamer:
                 fallback_filename = self.generate_filename(fallback_title, case_name, received_date)
 
                 original_path = Path(document_path)
-                fallback_path = original_path.parent / fallback_filename
-
-                # 避免文件名冲突，在"收"字后面添加数字（带括号）
-                counter = 1
-                while fallback_path.exists():
-                    base_filename = fallback_filename.replace("收.pdf", f"收({counter}).pdf")
-                    fallback_path = original_path.parent / base_filename
-                    counter += 1
-                    if counter > 100:
-                        break
+                fallback_path, _ = FilenameTemplateService.get_unique_filepath(original_path.parent, fallback_filename)
 
                 original_path.rename(fallback_path)
                 logger.info(f"使用降级方案重命名成功: {document_path} -> {fallback_path}")

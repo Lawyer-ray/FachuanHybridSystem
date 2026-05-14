@@ -13,6 +13,8 @@ from typing import TYPE_CHECKING, Optional
 
 from django.conf import settings
 
+from apps.core.services.filename_template_service import FilenameTemplateService
+
 if TYPE_CHECKING:
     from apps.automation.models import CourtSMS
     from apps.core.interfaces import ICaseService
@@ -306,9 +308,7 @@ class DocumentAttachmentService:
 
     def _get_unique_filepath(self, target_dir: str, filename: str) -> tuple[str, str]:
         """
-        获取唯一的文件路径，如果文件已存在则在"收"字后面添加数字后缀
-
-        格式：标题（案件名称）_YYYYMMDD收.pdf -> 标题（案件名称）_YYYYMMDD收1.pdf
+        获取唯一的文件路径，如果文件已存在则自动追加数字后缀
 
         Args:
             target_dir: 目标目录
@@ -317,46 +317,7 @@ class DocumentAttachmentService:
         Returns:
             tuple: (完整路径, 新文件名)
         """
-        # 尝试在"收"字后面添加数字
-        # 匹配模式：xxx收.pdf 或 xxx收N.pdf
-        match = re.match(r"^(.+收)(\d*)\.(.+)$", filename)
-
-        if match:
-            base_name = match.group(1)  # xxx收
-            existing_num = match.group(2)  # 可能为空或数字
-            ext = match.group(3)  # pdf
-
-            counter = 1
-            if existing_num:
-                counter = int(existing_num) + 1
-
-            while True:
-                new_filename = f"{base_name}{counter}.{ext}"
-                new_path = str(Path(target_dir) / new_filename)
-                if not Path(new_path).exists():
-                    return new_path, new_filename
-                counter += 1
-                if counter > 100:  # 防止无限循环
-                    break
-
-        # 降级方案：在扩展名前添加数字
-        p = Path(filename)
-        name_part, ext = p.stem, p.suffix
-        counter = 1
-        while True:
-            new_filename = f"{name_part}_{counter}{ext}"
-            new_path = str(Path(target_dir) / new_filename)
-            if not Path(new_path).exists():
-                return new_path, new_filename
-            counter += 1
-            if counter > 100:
-                # 最后的降级：使用时间戳
-                import time
-
-                timestamp = int(time.time())
-                new_filename = f"{name_part}_{timestamp}{ext}"
-                new_path = str(Path(target_dir) / new_filename)
-                return new_path, new_filename
+        return FilenameTemplateService.get_unique_filepath(target_dir, filename)
 
     def fix_filename_format(self, filename: str, sms: "CourtSMS") -> str:
         """
@@ -410,8 +371,9 @@ class DocumentAttachmentService:
                 if not title:
                     title = "司法文书"
 
-            # 生成正确格式的文件名
-            fixed_filename = f"{title}（{case_name}）_{date_str}收.pdf"
+            # 使用模板服务生成正确格式的文件名
+            rendered = FilenameTemplateService.render_court_doc(title=title, case_name=case_name, date=date_str)
+            fixed_filename = f"{rendered}.pdf"
 
             logger.info(f"文件名格式修正: {filename} -> {fixed_filename}")
             return fixed_filename
@@ -423,7 +385,10 @@ class DocumentAttachmentService:
             fallback_title = self._sanitize_filename_part(name_without_ext) or "司法文书"
             case_name = sms.case.name if sms.case else "未知案件"
             date_str = sms.received_at.strftime("%Y%m%d")
-            return f"{fallback_title}（{case_name}）_{date_str}收.pdf"
+            rendered = FilenameTemplateService.render_court_doc(
+                title=fallback_title, case_name=case_name, date=date_str
+            )
+            return f"{rendered}.pdf"
 
     def _sanitize_filename_part(self, text: str) -> str:
         """
