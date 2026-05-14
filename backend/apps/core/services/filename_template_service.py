@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from apps.core.interfaces import ISystemConfigService
@@ -26,12 +26,12 @@ def _get_system_config_service() -> ISystemConfigService:
 # 法院文书模板
 COURT_DOC_KEY = "FILENAME_TEMPLATE_COURT_DOC"
 COURT_DOC_DEFAULT = "{title}（{case_name}）_{date}收"
-COURT_DOC_PLACEHOLDERS: ClassVar[set[str]] = {"title", "case_name", "date"}
+COURT_DOC_PLACEHOLDERS: set[str] = {"title", "case_name", "date"}
 
 # 生成文档模板
 GENERATED_DOC_KEY = "FILENAME_TEMPLATE_GENERATED_DOC"
 GENERATED_DOC_DEFAULT = "{doc_type}（{case_name}）V{version}_{date}"
-GENERATED_DOC_PLACEHOLDERS: ClassVar[set[str]] = {"doc_type", "case_name", "version", "date"}
+GENERATED_DOC_PLACEHOLDERS: set[str] = {"doc_type", "case_name", "version", "date"}
 
 
 class FilenameTemplateService:
