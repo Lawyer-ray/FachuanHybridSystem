@@ -2,6 +2,24 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.49.3] - 2026-05-14
+
+### 后端
+
+#### 新功能
+
+- **文件名模板可配置化**：新增 `FilenameTemplateService` 统一文件名渲染引擎，支持通过 SystemConfig 自定义文件名模板
+  - 新增配置项 `COURT_DOC_TEMPLATE`（法院文书，默认 `{title}（{case_name}）_{date}收`）和 `GENERATE_DOC_TEMPLATE`（生成文书，默认 `{doc_type}（{case_name}）V{version}_{date}`）
+  - 法院文书重命名（短信文书、OCR 识别）统一使用模板服务，碰撞处理改为通用逻辑（不再依赖"收"字）
+  - 诉讼文书（起诉状/答辩状）、合同文书、证据导出、保全申请书、授权委托书、归档文档等 9 个文件全部迁移到模板服务
+  - 碰撞处理统一为 `_1`、`_2` 后缀追加，兼容任意模板内容
+  - admin 页面点击「Init Defaults」或执行 `manage.py init_system_config` 即可写入默认配置
+- **案件日志附件自动子目录开关**：新增 `CASE_LOG_ATTACHMENT_AUTO_SUBDIR` 系统配置项（默认 true），设为 false 时跳过自动创建子目录
+
+#### 优化
+
+- **括号风格统一**：证据导出等场景的 ASCII 括号 `()` 统一为中文括号 `（）`
+
 ## [26.49.2] - 2026-05-14
 
 ### 后端
