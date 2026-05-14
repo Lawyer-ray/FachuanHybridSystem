@@ -14,7 +14,15 @@ from typing import Any
 
 from django.conf import settings
 from django.contrib import admin, messages
-from django.http import FileResponse, Http404, HttpRequest, HttpResponse, HttpResponseBase, HttpResponseNotAllowed, HttpResponseRedirect
+from django.http import (
+    FileResponse,
+    Http404,
+    HttpRequest,
+    HttpResponse,
+    HttpResponseBase,
+    HttpResponseNotAllowed,
+    HttpResponseRedirect,
+)
 from django.urls import path, reverse
 
 from apps.automation.models import CourtSMS

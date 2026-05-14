@@ -241,11 +241,7 @@ def recommend_case_log_attachment_subdir(
     if log_id:
         from apps.cases.models import CaseLog
 
-        log = (
-            CaseLog.objects.filter(pk=log_id, case_id=case_id)
-            .only("id", "case_id", "source_subfolder")
-            .first()
-        )
+        log = CaseLog.objects.filter(pk=log_id, case_id=case_id).only("id", "case_id", "source_subfolder").first()
         if log:
             source_subfolder = str(log.source_subfolder or "")
 

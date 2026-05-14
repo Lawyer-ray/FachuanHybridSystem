@@ -190,9 +190,7 @@ class MaterialClassificationService:
         # ── 最高优先级：文件夹路径分类 ──
         # 路径包含"合同发票"→ 合同/发票区域；否则一律为案件材料
         path_lower = (source_path or "").lower()
-        in_contract_invoice_folder = any(
-            kw in path_lower for kw in self._CONTRACT_INVOICE_FOLDER_KEYWORDS
-        )
+        in_contract_invoice_folder = any(kw in path_lower for kw in self._CONTRACT_INVOICE_FOLDER_KEYWORDS)
 
         if in_contract_invoice_folder:
             # 在"合同发票"文件夹内，仅区分合同正本 / 补充协议 / 发票 / 监督卡

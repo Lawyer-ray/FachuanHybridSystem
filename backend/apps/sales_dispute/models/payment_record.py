@@ -20,8 +20,12 @@ class PaymentRecord(models.Model):
     payment_date: date = models.DateField(verbose_name=_("还款日期"))  # type: ignore[assignment]
     payment_amount: Decimal = models.DecimalField(max_digits=14, decimal_places=2, verbose_name=_("还款金额"))  # type: ignore[assignment]
     offset_fee: Decimal = models.DecimalField(max_digits=14, decimal_places=2, default=0, verbose_name=_("冲抵费用"))  # type: ignore[assignment]
-    offset_interest: Decimal = models.DecimalField(max_digits=14, decimal_places=2, default=0, verbose_name=_("冲抵利息"))  # type: ignore[assignment]
-    offset_principal: Decimal = models.DecimalField(max_digits=14, decimal_places=2, default=0, verbose_name=_("冲抵本金"))  # type: ignore[assignment]
+    offset_interest: Decimal = models.DecimalField(
+        max_digits=14, decimal_places=2, default=0, verbose_name=_("冲抵利息")
+    )  # type: ignore[assignment]
+    offset_principal: Decimal = models.DecimalField(
+        max_digits=14, decimal_places=2, default=0, verbose_name=_("冲抵本金")
+    )  # type: ignore[assignment]
     remaining_principal: Decimal = models.DecimalField(max_digits=14, decimal_places=2, verbose_name=_("剩余本金"))  # type: ignore[assignment]
     remarks: str = models.TextField(blank=True, default="", verbose_name=_("备注"))  # type: ignore[assignment]
     created_at: datetime = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))  # type: ignore[assignment]

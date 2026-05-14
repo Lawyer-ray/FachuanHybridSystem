@@ -7,7 +7,13 @@ from datetime import date
 from decimal import Decimal
 
 from .execution_request_models import InterestSegment, OverdueInterestRule, ParsedInterestParams
-from .execution_request_utils import AMOUNT_WITH_UNIT_PATTERN, build_date, format_amount, parse_amount_value, parse_multiplier_value
+from .execution_request_utils import (
+    AMOUNT_WITH_UNIT_PATTERN,
+    build_date,
+    format_amount,
+    parse_amount_value,
+    parse_multiplier_value,
+)
 
 
 def has_double_interest_clause(main_text: str) -> bool:
@@ -81,9 +87,7 @@ def extract_manual_review_clauses(main_text: str, *, recognized_texts: list[str]
     if not clauses:
         return []
 
-    recognized_compact = {
-        re.sub(r"\s+", "", str(text or "")) for text in recognized_texts if str(text or "").strip()
-    }
+    recognized_compact = {re.sub(r"\s+", "", str(text or "")) for text in recognized_texts if str(text or "").strip()}
     disposal_keywords = ("折价", "拍卖", "变卖")
     asset_keywords = ("土地", "不动产", "股权", "应收账款", "机器设备", "房产", "车辆")
 
@@ -94,8 +98,7 @@ def extract_manual_review_clauses(main_text: str, *, recognized_texts: list[str]
             continue
         compact = re.sub(r"\s+", "", text)
         is_priority_like = "优先受偿权" in text or (
-            any(keyword in text for keyword in disposal_keywords)
-            and any(keyword in text for keyword in asset_keywords)
+            any(keyword in text for keyword in disposal_keywords) and any(keyword in text for keyword in asset_keywords)
         )
         if not is_priority_like:
             continue
@@ -383,9 +386,7 @@ def parse_interest_segments(main_text: str) -> list[InterestSegment]:
                 base_amount = parse_amount_value(match.group(1), match.group(2))
                 if base_amount is None:
                     continue
-                candidate = InterestSegment(
-                    base_amount=base_amount, start_date=start_date, end_date=sentence_end_date
-                )
+                candidate = InterestSegment(base_amount=base_amount, start_date=start_date, end_date=sentence_end_date)
                 if any(
                     seg.base_amount == candidate.base_amount
                     and seg.start_date == candidate.start_date

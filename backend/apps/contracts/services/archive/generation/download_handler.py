@@ -187,6 +187,7 @@ def _merge_materials_to_pdf(
 ) -> dict[str, Any]:
     """将多个材料文件合并为一个 PDF。"""
     import fitz  # PyMuPDF
+
     merged_doc = fitz.open()
     filenames: list[str] = []
 

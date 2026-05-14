@@ -185,7 +185,7 @@ def test_save_uploaded_file_prefers_contract_folder(
     assert saved.subdir_path == "归档/扫描件"
     assert saved.relative_file_path.startswith("归档/扫描件/")
     assert Path(saved.absolute_file_path).exists()
-    assert Path(saved.legacy_file_path).is_absolute()
+    assert not Path(saved.legacy_file_path).is_absolute()
 
 
 def test_delete_file_supports_business_record(
@@ -252,6 +252,8 @@ def test_move_existing_file_moves_under_new_subdir(
     assert moved.relative_file_path == "新目录/二级目录/材料.pdf"
     assert old_file.exists() is False
     assert (contract_root / "新目录" / "二级目录" / "材料.pdf").exists() is True
+
+
 def test_get_contract_folder_root_prefers_generated_business_root(
     service: BusinessFileStorageService,
     monkeypatch: pytest.MonkeyPatch,

@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import logging
-import os
 import re
 import time
 from typing import Any
 from urllib.parse import urlparse
 
 from django.utils.translation import gettext_lazy as _
-from playwright.sync_api import Browser, BrowserContext, Page, sync_playwright
+from playwright.sync_api import BrowserContext, Page
 
 from .http_client import _CASE_LIST_URL, _HTTP_HEADERS
 
@@ -81,14 +80,9 @@ class JtnSsoHandlerMixin:
         target_url = str(login_url or "").strip() or "https://access.jtn.com/login"
         logger.warning("请在弹出的浏览器完成飞连/企微扫码登录（系统将自动检测登录成功），最多等待 180 秒")
 
-        pw = sync_playwright().start()
-        browser: Browser | None = None
-        try:
-            # Docker/NAS 环境通常没有 XServer，缺少 DISPLAY 时自动走无头模式。
-            _headless = not bool(os.environ.get("DISPLAY"))
-            browser = pw.chromium.launch(headless=_headless)
-            context = browser.new_context()
-            page = context.new_page()
+        from apps.core.services.browser import create_browser
+
+        with create_browser() as (page, context):
             page.goto(target_url, wait_until="domcontentloaded", timeout=60_000)
 
             deadline = time.time() + 180
@@ -125,10 +119,6 @@ class JtnSsoHandlerMixin:
             self._http_cookies_cache = dict(merged_cookies)
             logger.info("交互登录成功，已回灌 cookie=%d", len(merged_cookies))
             return dict(merged_cookies)
-        finally:
-            if browser is not None:
-                browser.close()
-            pw.stop()
 
     def _is_ims_case_list_url(self: Any, url: str) -> bool:
         parsed = urlparse(str(url or "").strip())

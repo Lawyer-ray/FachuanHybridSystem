@@ -25,7 +25,10 @@ def _cleanup_log_attachment_file(sender: Any, instance: Any, **kwargs: Any) -> N
         if deleted:
             logger.info(
                 "已清理日志附件物理文件",
-                extra={"attachment_id": instance.pk, "file_path": str(getattr(instance, "relative_file_path", "") or instance.file)},
+                extra={
+                    "attachment_id": instance.pk,
+                    "file_path": str(getattr(instance, "relative_file_path", "") or instance.file),
+                },
             )
     except Exception:
         logger.exception(

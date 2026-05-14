@@ -150,13 +150,10 @@ def _acquire_token(credential_id: int) -> str:
     from apps.automation.services.scraper.sites.court_zxfw import CourtZxfwService
 
     def _playwright_login() -> str:
-        from playwright.sync_api import sync_playwright
+        from apps.core.services.browser import create_browser
 
-        pw = sync_playwright().start()
-        browser = pw.chromium.launch(headless=True, args=["--no-sandbox"])
-        page = browser.new_page()
-        try:
-            court_svc = CourtZxfwService(page=page, context=page.context, site_name="court_zxfw")
+        with create_browser() as (page, context):
+            court_svc = CourtZxfwService(page=page, context=context, site_name="court_zxfw")
             result = court_svc.login(account=credential.account, password=credential.password, max_captcha_retries=3)
             if not result.get("success"):
                 raise RuntimeError(result.get("message", "登录失败"))
@@ -164,12 +161,6 @@ def _acquire_token(credential_id: int) -> str:
             if not token:
                 raise RuntimeError(_("登录成功但未获取到 Token"))
             return str(token)
-        finally:
-            try:
-                browser.close()
-                pw.stop()
-            except Exception:
-                pass
 
     token = _run_callable_with_timeout(_playwright_login, _TOKEN_LOGIN_TIMEOUT_SECONDS)
     cache_manager.cache_token(credential.site_name, credential.account, token)

@@ -70,7 +70,7 @@ class StoredBusinessFile:
     is_fallback: bool = False
     reason: str = ""
 
-    def __iter__(self):
+    def __iter__(self) -> Any:
         yield self.legacy_file_path
         yield self.original_filename
 
@@ -125,14 +125,14 @@ class BusinessFileStorageService:
             str((Path(target.relative_dir) / target_abs.name).as_posix()),
             allow_empty=False,
         )
-        legacy_file_path = relative_file_path if target.root_type == "media" else str(target_abs.resolve())
+        legacy_file_path = relative_file_path
         return StoredBusinessFile(
             root_type=target.root_type,
             root_path=target.root_path,
             subdir_path=target.subdir_path,
             relative_file_path=relative_file_path,
             legacy_file_path=legacy_file_path,
-            original_filename=safe_original_name or source_path.name,
+            original_filename=str(original_name) or source_path.name,
             absolute_file_path=str(target_abs.resolve()),
             is_fallback=target.is_fallback,
             reason=target.reason,
@@ -195,15 +195,17 @@ class BusinessFileStorageService:
             else:
                 f.write(uploaded_file.read())
 
-        relative_file_path = self._normalize_relative_path(str((Path(target.relative_dir) / filename).as_posix()), allow_empty=False)
-        legacy_file_path = relative_file_path if target.root_type == "media" else str(target_abs.resolve())
+        relative_file_path = self._normalize_relative_path(
+            str((Path(target.relative_dir) / filename).as_posix()), allow_empty=False
+        )
+        legacy_file_path = relative_file_path
         return StoredBusinessFile(
             root_type=target.root_type,
             root_path=target.root_path,
             subdir_path=target.subdir_path,
             relative_file_path=relative_file_path,
             legacy_file_path=legacy_file_path,
-            original_filename=safe_original_name,
+            original_filename=original_name,
             absolute_file_path=str(target_abs.resolve()),
             is_fallback=target.is_fallback,
             reason=target.reason,
@@ -278,6 +280,7 @@ class BusinessFileStorageService:
                 exists=False,
             )
 
+        root_path: Path | None
         if root_type == "media":
             root_path = self._get_media_root_path()
         elif root_type == "case_folder":

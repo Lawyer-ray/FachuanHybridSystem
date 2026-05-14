@@ -553,16 +553,12 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
                 if result.any_success:
                     logger.info(f"案件群聊通知成功: SMS ID={sms.id}, 成功平台={result.successful_platforms}")
                 else:
-                    error_detail = "; ".join(
-                        f"{r.platform}: {r.error}" for r in result.attempts if not r.success
-                    )
+                    error_detail = "; ".join(f"{r.platform}: {r.error}" for r in result.attempts if not r.success)
                     logger.error(f"案件群聊通知失败: SMS ID={sms.id}, 原因: {error_detail}")
             else:
                 error_detail = "短信未绑定案件，无法发送群聊通知"
                 logger.warning(f"{error_detail}: SMS ID={sms.id}")
-                sms.notification_results = {
-                    "none": {"success": False, "error": error_detail}
-                }
+                sms.notification_results = {"none": {"success": False, "error": error_detail}}
 
             # 判断最终状态：检查 notification_results 中是否有任何平台成功
             notification_results = sms.notification_results or {}

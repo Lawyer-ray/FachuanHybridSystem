@@ -6,9 +6,8 @@ from types import SimpleNamespace
 import pytest
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
-from django.test import Client
 from django.template.loader import render_to_string
-from django.test import RequestFactory
+from django.test import Client, RequestFactory
 from django.utils import timezone
 
 from apps.cases.admin.case_admin import CaseAdmin
@@ -59,12 +58,8 @@ def test_build_important_times_aggregates_case_and_selected_log_reminders() -> N
     assert important_times[0]["source_log_url"].endswith(f"/admin/cases/caselog/{log.id}/change/")
     assert important_times[0]["reminder_url"].endswith(f"/admin/reminders/reminder/{log_reminder.id}/change/")
     assert important_times[0]["source_url"].endswith(f"/admin/cases/caselog/{log.id}/change/")
-    assert important_times[1]["reminder_url"].endswith(
-        f"/admin/reminders/reminder/{later_case_reminder.id}/change/"
-    )
-    assert important_times[1]["source_url"].endswith(
-        f"/admin/reminders/reminder/{later_case_reminder.id}/change/"
-    )
+    assert important_times[1]["reminder_url"].endswith(f"/admin/reminders/reminder/{later_case_reminder.id}/change/")
+    assert important_times[1]["source_url"].endswith(f"/admin/reminders/reminder/{later_case_reminder.id}/change/")
     assert important_times[0]["source_label"] == "日志提醒"
     assert important_times[1]["source_label"] == "手动添加"
     assert important_times[0]["status_label"] == "即将到期"

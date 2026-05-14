@@ -105,7 +105,10 @@ def serialize_case_obj(obj: Case) -> SerializedPayload:
                 "attachments": [
                     {
                         "file_path": str(getattr(att, "relative_file_path", "") or att.file.name or ""),
-                        "filename": str(getattr(att, "original_filename", "") or (att.file.name.split("/")[-1] if att.file.name else "")),
+                        "filename": str(
+                            getattr(att, "original_filename", "")
+                            or (att.file.name.split("/")[-1] if att.file.name else "")
+                        ),
                     }
                     for att in log.attachments.all()
                     if att.file

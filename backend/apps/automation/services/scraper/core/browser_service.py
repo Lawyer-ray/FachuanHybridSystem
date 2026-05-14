@@ -1,11 +1,16 @@
 """
 浏览器服务 - 单例模式管理 Playwright 浏览器实例
+
+.. deprecated::
+    已迁移到 apps.core.services.browser。请使用 create_browser() 或 BrowserService。
+    本模块将在后续版本中移除。
 """
 
 import logging
 import os
 import subprocess
 import sys
+import warnings
 from typing import TYPE_CHECKING, Any, Optional, cast
 
 from apps.core.interfaces import IBrowserService
@@ -79,6 +84,11 @@ class BrowserService:
         # 避免重复初始化
         if not hasattr(self, "_initialized"):
             self._initialized = True
+            warnings.warn(
+                "BrowserService 已迁移到 apps.core.services.browser，请使用 create_browser()",
+                DeprecationWarning,
+                stacklevel=2,
+            )
             logger.info("BrowserService 初始化")
 
     def start_browser(self, headless: bool | None = None) -> "Browser":
@@ -96,13 +106,8 @@ class BrowserService:
                 from apps.core.services.system_config_service import SystemConfigService
 
                 svc = SystemConfigService()
-                raw = svc.get_value("SCRAPER_HEADLESS", "")
-                if raw:
-                    headless = raw.lower() in ("true", "1", "yes")
-                else:
-                    # 默认：生产环境无头，开发环境有头
-                    debug_raw = svc.get_value("DEBUG_MODE", "false")
-                    headless = debug_raw.lower() not in ("true", "1", "yes")
+                headed = svc.get_value("PLAYWRIGHT_HEADED", "").lower()
+                headless = headed not in ("true", "1", "yes")
 
             mode = "无头" if headless else "有头"
             logger.info(f"启动 Playwright 浏览器（{mode}模式）...")

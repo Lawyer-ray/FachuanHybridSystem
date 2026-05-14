@@ -190,11 +190,7 @@ class CourtDocumentScraper(BaseCourtDocumentScraper):
             content_lower = self.page.content().lower()
 
             # 简易送达：典型是内嵌 sifayun iframe
-            frame_urls = [
-                (frame.url or "").lower()
-                for frame in self.page.frames
-                if frame is not None
-            ]
+            frame_urls = [(frame.url or "").lower() for frame in self.page.frames if frame is not None]
             if any(self._extract_host(frame_url) in {"sifayun.com", "www.sifayun.com"} for frame_url in frame_urls):
                 logger.info("结构识别命中简易送达特征（sifayun iframe）")
                 return "jysd"

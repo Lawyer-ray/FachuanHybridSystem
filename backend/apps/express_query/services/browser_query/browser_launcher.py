@@ -1,13 +1,12 @@
 """浏览器生命周期管理：Chrome 启动、CDP 连接、关闭。"""
+
 from __future__ import annotations
 
 import asyncio
 import logging
-import os
-import subprocess
-import tempfile
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final
+
+from apps.core.services.browser.chrome_process import is_cdp_ready, kill_chrome, launch_chrome
 
 if TYPE_CHECKING:
     from playwright.async_api import Browser, BrowserContext
@@ -18,8 +17,7 @@ _CDP_PORT: Final[int] = 9222
 _CDP_URL: Final[str] = f"http://127.0.0.1:{_CDP_PORT}"
 
 _browser_context: BrowserContext | None = None
-_user_data_dir: Path = Path(tempfile.mkdtemp(prefix="express_chrome_"))
-_chrome_process: subprocess.Popen | None = None
+_chrome_process: Any = None
 
 
 async def close_browser() -> None:
@@ -31,14 +29,7 @@ async def close_browser() -> None:
             pass
         _browser_context = None
     if _chrome_process is not None:
-        try:
-            _chrome_process.terminate()
-            _chrome_process.wait(timeout=5)
-        except Exception:
-            try:
-                _chrome_process.kill()
-            except Exception:
-                pass
+        kill_chrome(_chrome_process)
         _chrome_process = None
     logger.info("Browser closed")
 
@@ -108,8 +99,8 @@ async def ensure_browser() -> BrowserContext:
 
     # Case 3: auto-launch Chrome then connect
     # 先清理可能占用端口的旧 Chrome 进程
-    _kill_orphan_chrome()
-    _launch_chrome()
+    kill_chrome(port=_CDP_PORT)
+    _launch_chrome_via_util()
     await asyncio.sleep(2)
 
     browser = await _try_cdp_connect(pw, retries=10, delay=0.5)
@@ -146,84 +137,7 @@ async def _try_cdp_connect(
     return None
 
 
-def _kill_orphan_chrome() -> None:
-    """Kill orphan Chrome processes that may occupy the CDP port."""
-    import signal
-
-    global _chrome_process
-
-    # 先尝试终止自己启动的旧进程
-    if _chrome_process is not None:
-        try:
-            _chrome_process.terminate()
-            _chrome_process.wait(timeout=3)
-        except Exception:
-            try:
-                _chrome_process.kill()
-            except Exception:
-                pass
-        _chrome_process = None
-
-    # 查找占用 CDP 端口的孤儿进程并清理
-    try:
-        result = subprocess.run(
-            ["/usr/sbin/lsof", "-ti", f":{_CDP_PORT}"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        if result.stdout.strip():
-            for pid_str in result.stdout.strip().split("\n"):
-                try:
-                    pid = int(pid_str.strip())
-                    os.kill(pid, signal.SIGTERM)
-                    logger.info("Killed orphan Chrome process on port %d: PID=%d", _CDP_PORT, pid)
-                except (ValueError, ProcessLookupError, PermissionError):
-                    pass
-                import time
-
-                time.sleep(1)
-    except Exception as exc:
-        logger.info("Failed to check port %d: %s", _CDP_PORT, exc)
-
-
-def _launch_chrome() -> None:
+def _launch_chrome_via_util() -> None:
     """Auto-launch Chrome with remote debugging port enabled."""
-    import platform
-
     global _chrome_process
-
-    system_name = platform.system().lower()
-    if system_name == "darwin":
-        chrome_path = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-    elif system_name == "linux":
-        chrome_path = "google-chrome"
-    else:
-        chrome_path = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
-
-    _user_data_dir.mkdir(parents=True, exist_ok=True)
-
-    cmd: list[str] = [
-        chrome_path,
-        f"--remote-debugging-port={_CDP_PORT}",
-        f"--user-data-dir={_user_data_dir}",
-        "--no-first-run",
-        "--no-default-browser-check",
-        "--disable-blink-features=AutomationControlled",
-    ]
-
-    try:
-        _chrome_process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        logger.info(
-            "Auto-launched Chrome (PID=%d), debug port=%d",
-            _chrome_process.pid,
-            _CDP_PORT,
-        )
-    except FileNotFoundError:
-        raise RuntimeError(f"Chrome not found at: {chrome_path}") from None
-    except OSError as exc:
-        raise RuntimeError(f"Failed to launch Chrome: {exc}") from exc
+    _chrome_process = launch_chrome(port=_CDP_PORT)

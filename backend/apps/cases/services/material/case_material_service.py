@@ -140,9 +140,7 @@ class CaseMaterialService:
             law_firm_id=law_firm_id,
         )
 
-        parties_by_id = {
-            p.id: p for p in CaseParty.objects.filter(case_id=case_id).select_related("client").all()
-        }
+        parties_by_id = {p.id: p for p in CaseParty.objects.filter(case_id=case_id).select_related("client").all()}
         normalized_side = str(side or "").strip() or None
         normalized_authority_id = None
         normalized_party_ids: list[int] = []
@@ -170,7 +168,9 @@ class CaseMaterialService:
                 )
 
         with transaction.atomic():
-            display_type_name = type_name if resolved_type.name == OTHER_MATERIAL_TYPE_NAME and type_name else resolved_type.name
+            display_type_name = (
+                type_name if resolved_type.name == OTHER_MATERIAL_TYPE_NAME and type_name else resolved_type.name
+            )
             material, _created = CaseMaterial.objects.update_or_create(
                 source_attachment=attachment,
                 defaults={

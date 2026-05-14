@@ -5,23 +5,14 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from apps.pdf_splitting.models import (
-    PdfSplitReviewFlag,
-    PdfSplitSegmentType,
-)
-
-from .split_models import (
-    _NON_WORD_RE,
-    _TEXT_MIN_LENGTH,
-    PageDescriptor,
-    SegmentDraft,
-    _levenshtein_distance,
-)
+from apps.pdf_splitting.models import PdfSplitReviewFlag, PdfSplitSegmentType
 from apps.pdf_splitting.services.template_registry import (
     SegmentTemplateRule,
     get_default_filename,
     get_template_definition,
 )
+
+from .split_models import _NON_WORD_RE, _TEXT_MIN_LENGTH, PageDescriptor, SegmentDraft, _levenshtein_distance
 
 logger = logging.getLogger("apps.pdf_splitting")
 
@@ -275,9 +266,7 @@ class SegmentDetector:
             if rule is None or not rule.continuation_keywords:
                 continue
 
-            has_continuation = any(
-                self.contains_keyword(page.normalized_text, kw) for kw in rule.continuation_keywords
-            )
+            has_continuation = any(self.contains_keyword(page.normalized_text, kw) for kw in rule.continuation_keywords)
             if has_continuation:
                 entry: dict[str, Any] = {
                     "page_no": page.page_no,
@@ -309,9 +298,7 @@ class SegmentDetector:
                 end_page = page_no
                 continue
 
-            has_continuation = any(
-                self.contains_keyword(page.normalized_text, kw) for kw in rule.continuation_keywords
-            )
+            has_continuation = any(self.contains_keyword(page.normalized_text, kw) for kw in rule.continuation_keywords)
             has_attachment_signal = any(
                 self.contains_keyword(page.normalized_text, kw) for kw in self.COMPLAINT_ATTACHMENT_KEYWORDS
             )

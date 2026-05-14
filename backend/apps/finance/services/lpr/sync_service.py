@@ -71,31 +71,22 @@ class LPRSyncService:
         Returns:
             LPR数据列表
         """
-        from playwright.sync_api import sync_playwright
+        from apps.core.services.browser import create_browser
 
         logger.info(f"[LPRSync] Fetching LPR data via Playwright from {LPR_DATA_URL}")
 
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            context = browser.new_context()
-            page = context.new_page()
+        with create_browser() as (page, context):
+            page.goto(LPR_DATA_URL, wait_until="networkidle", timeout=60000)
+            page.wait_for_selector("table", timeout=30000)
+            page.wait_for_timeout(2000)
 
-            try:
-                page.goto(LPR_DATA_URL, wait_until="networkidle", timeout=60000)
-                page.wait_for_selector("table", timeout=30000)
-                page.wait_for_timeout(2000)
+            result = self._parse_lpr_table_from_page(page)
 
-                result = self._parse_lpr_table_from_page(page)
+            if not result:
+                logger.warning("[LPRSync] No data found, taking screenshot for debug")
+                page.screenshot(path="/tmp/lpr_sync_debug.png")
 
-                if not result:
-                    logger.warning("[LPRSync] No data found, taking screenshot for debug")
-                    page.screenshot(path="/tmp/lpr_sync_debug.png")
-
-                return result
-            finally:
-                page.close()
-                context.close()
-                browser.close()
+            return result
 
     def _parse_lpr_table_from_page(self, page: Any) -> list[LPRData]:
         """直接从Playwright页面解析LPR表格数据.

@@ -16,7 +16,10 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from apps.sales_dispute.models.payment_record import PaymentRecord
-    from apps.sales_dispute.services.calculation.interest_calculator_service import InterestCalcParams, InterestCalculatorService
+    from apps.sales_dispute.services.calculation.interest_calculator_service import (
+        InterestCalcParams,
+        InterestCalculatorService,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -223,7 +226,9 @@ class RepaymentOffsetService:
             # 计算从上次还款日到本次还款日的利息
             accrued_interest = _ZERO
             if payment.payment_date > last_date:
-                from apps.sales_dispute.services.calculation.interest_calculator_service import InterestCalcParams as _ICP
+                from apps.sales_dispute.services.calculation.interest_calculator_service import (
+                    InterestCalcParams as _ICP,
+                )
 
                 calc_params = _ICP(
                     principal=current_principal,

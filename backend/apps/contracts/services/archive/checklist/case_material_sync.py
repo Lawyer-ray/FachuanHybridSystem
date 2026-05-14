@@ -164,7 +164,9 @@ def sync_case_materials_to_archive(
 
     for case in cases:
         case_materials = list(
-            CaseMaterial.objects.filter(case=case).select_related("source_attachment").only(
+            CaseMaterial.objects.filter(case=case)
+            .select_related("source_attachment")
+            .only(
                 "id",
                 "type_name",
                 "category",
@@ -424,7 +426,9 @@ def _apply_initial_order_for_synced(synced: list[dict[str, Any]]) -> None:
     if not synced:
         return
 
-    materials_by_id = {m.pk: m for m in FinalizedMaterial.objects.filter(pk__in=[item["material_id"] for item in synced])}
+    materials_by_id = {
+        m.pk: m for m in FinalizedMaterial.objects.filter(pk__in=[item["material_id"] for item in synced])
+    }
 
     code_to_materials: dict[str, list[FinalizedMaterial]] = {}
     for item in synced:
@@ -438,7 +442,7 @@ def _apply_initial_order_for_synced(synced: list[dict[str, Any]]) -> None:
         if not keywords or len(materials) <= 1:
             continue
 
-        def _sort_key(mat: FinalizedMaterial, _keywords: tuple[str, ...] = tuple(keywords)) -> tuple[int, int]:
+        def _sort_key(mat: FinalizedMaterial, _keywords: tuple[str, ...] = tuple(keywords)) -> tuple[int, int]:  # type: ignore[arg-type]
             for i, keyword in enumerate(_keywords):
                 if keyword in mat.original_filename:
                     return (0, i)

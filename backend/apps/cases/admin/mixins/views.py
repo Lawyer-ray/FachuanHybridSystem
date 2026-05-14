@@ -8,7 +8,6 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING
 
-from apps.core.exceptions import ValidationException
 from django.core.exceptions import PermissionDenied
 from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import render
@@ -17,6 +16,7 @@ from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import Case
+from apps.core.exceptions import ValidationException
 from apps.core.models.enums import CaseStage, ContactRole
 
 if TYPE_CHECKING:
@@ -172,9 +172,7 @@ class CaseAdminViewsMixin:
         try:
             case = Case.objects.filter(pk=object_id).first()
             attachment = (
-                CaseLogAttachment.objects.select_related("log")
-                .filter(pk=attachment_id, log__case_id=object_id)
-                .first()
+                CaseLogAttachment.objects.select_related("log").filter(pk=attachment_id, log__case_id=object_id).first()
             )
             if not attachment:
                 return self._render_attachment_preview_error(

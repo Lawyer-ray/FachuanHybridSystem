@@ -128,8 +128,9 @@ def get_archive_overrides(request: Any, contract_id: int, template_subtype: str 
 
 
 @router.post("/contracts/{contract_id}/archive-placeholder-overrides")
-def save_archive_overrides(request: Any, contract_id: int, template_subtype: str = "",
-                           payload: ArchiveOverridesPayload | None = None) -> Any:
+def save_archive_overrides(
+    request: Any, contract_id: int, template_subtype: str = "", payload: ArchiveOverridesPayload | None = None
+) -> Any:
     """保存归档文书占位符覆盖值
 
     Args:

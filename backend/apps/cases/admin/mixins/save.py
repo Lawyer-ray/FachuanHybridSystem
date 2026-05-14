@@ -180,7 +180,9 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
             try:
                 obj.delete()
             except Exception:
-                logger.warning("删除关联对象失败: %s pk=%s", type(obj).__name__, getattr(obj, "pk", None), exc_info=True)
+                logger.warning(
+                    "删除关联对象失败: %s pk=%s", type(obj).__name__, getattr(obj, "pk", None), exc_info=True
+                )
 
 
 __all__: list[str] = ["CaseAdminSaveMixin"]

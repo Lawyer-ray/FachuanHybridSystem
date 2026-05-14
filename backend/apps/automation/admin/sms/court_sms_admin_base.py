@@ -283,7 +283,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
         for index, ref in enumerate(references):
             source_label = source_labels.get(ref.source, ref.source)
             status_display = ref.download_status_display or _("已下载")
-            file_name = Path(ref.file_path).name
+            file_name = ref.display_name or Path(ref.file_path).name
             file_stem = Path(file_name).stem
             file_suffix = Path(file_name).suffix
 

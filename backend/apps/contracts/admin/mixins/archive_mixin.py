@@ -80,17 +80,21 @@ class ContractArchiveMixin:
             if errors:
                 logger.warning("归档文件夹部分生成失败: %s", "; ".join(errors))
 
-            return JsonResponse({
-                "success": True,
-                "generated_docs": generated_docs,
-                "archive_dir": result.get("archive_dir", ""),
-                "errors": errors,
-            })
+            return JsonResponse(
+                {
+                    "success": True,
+                    "generated_docs": generated_docs,
+                    "archive_dir": result.get("archive_dir", ""),
+                    "errors": errors,
+                }
+            )
         except Exception as e:
             logger.exception("生成归档文件夹失败: contract_id=%s", object_id)
             return JsonResponse({"success": False, "error": str(e)}, status=500)
 
-    def generate_single_archive_doc_view(self, request: HttpRequest, object_id: int, archive_item_code: str) -> HttpResponse:
+    def generate_single_archive_doc_view(
+        self, request: HttpRequest, object_id: int, archive_item_code: str
+    ) -> HttpResponse:
         """生成单个归档文书的 Admin view"""
         from django.http import JsonResponse
 
@@ -112,12 +116,14 @@ class ContractArchiveMixin:
             if result.get("error"):
                 return JsonResponse({"success": False, "error": result["error"]})
 
-            return JsonResponse({
-                "success": True,
-                "template_subtype": result.get("template_subtype"),
-                "filename": result.get("filename"),
-                "material_id": result.get("material_id"),
-            })
+            return JsonResponse(
+                {
+                    "success": True,
+                    "template_subtype": result.get("template_subtype"),
+                    "filename": result.get("filename"),
+                    "material_id": result.get("material_id"),
+                }
+            )
         except Exception as e:
             logger.exception("生成单个归档文书失败: contract_id=%s, code=%s", object_id, archive_item_code)
             return JsonResponse({"success": False, "error": str(e)}, status=500)
@@ -142,6 +148,7 @@ class ContractArchiveMixin:
 
             if result.get("error"):
                 from django.http import JsonResponse
+
                 return JsonResponse({"success": False, "error": result["error"]}, status=404)
 
             import urllib.parse
@@ -157,18 +164,21 @@ class ContractArchiveMixin:
         except Exception as e:
             logger.exception("下载归档材料失败: contract_id=%s, code=%s", object_id, archive_item_code)
             from django.http import JsonResponse
+
             return JsonResponse({"success": False, "error": str(e)}, status=500)
 
     def preview_archive_material_view(self, request: HttpRequest, object_id: int, material_id: int) -> HttpResponse:
         """预览单个归档材料的 Admin view"""
-        from django.http import HttpResponse as DjangoHttpResponse, JsonResponse
+        from django.http import HttpResponse as DjangoHttpResponse
+        from django.http import JsonResponse
 
         if not self.has_view_permission(request):
             raise PermissionDenied
 
         try:
             material = FinalizedMaterial.objects.filter(
-                pk=material_id, contract_id=object_id,
+                pk=material_id,
+                contract_id=object_id,
             ).first()
 
             if not material:
@@ -224,13 +234,15 @@ class ContractArchiveMixin:
             extractor = SupervisionCardExtractor()
             result = extractor.detect_and_extract(contract)
 
-            return JsonResponse({
-                "success": True,
-                "found": result["found"],
-                "page_number": result.get("page_number"),
-                "material_id": result.get("material_id"),
-                "error": result.get("error"),
-            })
+            return JsonResponse(
+                {
+                    "success": True,
+                    "found": result["found"],
+                    "page_number": result.get("page_number"),
+                    "material_id": result.get("material_id"),
+                    "error": result.get("error"),
+                }
+            )
         except Exception as e:
             logger.exception("检测监督卡失败: contract_id=%s", object_id)
             return JsonResponse({"success": False, "found": False, "error": str(e)}, status=500)
@@ -277,13 +289,15 @@ class ContractArchiveMixin:
                     error_count,
                 )
 
-            return JsonResponse({
-                "success": synced_count > 0 or error_count == 0,
-                "synced_count": synced_count,
-                "skipped_count": len(result["skipped"]),
-                "error_count": error_count,
-                "details": result,
-            })
+            return JsonResponse(
+                {
+                    "success": synced_count > 0 or error_count == 0,
+                    "synced_count": synced_count,
+                    "skipped_count": len(result["skipped"]),
+                    "error_count": error_count,
+                    "details": result,
+                }
+            )
         except Exception as e:
             logger.exception("同步案件材料失败: contract_id=%s", object_id)
             return JsonResponse({"success": False, "error": str(e)}, status=500)
@@ -320,14 +334,16 @@ class ContractArchiveMixin:
             synced_count = len(sync_result["synced"])
             error_count = len(sync_result["errors"])
 
-            return JsonResponse({
-                "success": synced_count > 0 or error_count == 0,
-                "deleted_count": result["deleted_count"],
-                "synced_count": synced_count,
-                "skipped_count": len(sync_result["skipped"]),
-                "error_count": error_count,
-                "details": sync_result,
-            })
+            return JsonResponse(
+                {
+                    "success": synced_count > 0 or error_count == 0,
+                    "deleted_count": result["deleted_count"],
+                    "synced_count": synced_count,
+                    "skipped_count": len(sync_result["skipped"]),
+                    "error_count": error_count,
+                    "details": sync_result,
+                }
+            )
         except Exception as e:
             logger.exception("重置并重新同步案件材料失败: contract_id=%s", object_id)
             return JsonResponse({"success": False, "error": str(e)}, status=500)
@@ -425,7 +441,9 @@ class ContractArchiveMixin:
             for code, material_ids in orders.items():
                 for i, pk in enumerate(material_ids):
                     FinalizedMaterial.objects.filter(
-                        pk=pk, contract_id=object_id, archive_item_code=code,
+                        pk=pk,
+                        contract_id=object_id,
+                        archive_item_code=code,
                     ).update(order=i)
 
             logger.info("归档材料排序已保存: contract_id=%s", object_id)
@@ -455,7 +473,8 @@ class ContractArchiveMixin:
                 return JsonResponse({"success": False, "error": "参数不完整"}, status=400)
 
             material = FinalizedMaterial.objects.filter(
-                pk=material_id, contract_id=object_id,
+                pk=material_id,
+                contract_id=object_id,
             ).first()
 
             if not material:
@@ -463,15 +482,25 @@ class ContractArchiveMixin:
 
             old_code = material.archive_item_code
             material.archive_item_code = target_code
-            max_order = FinalizedMaterial.objects.filter(
-                contract_id=object_id, archive_item_code=target_code,
-            ).order_by("-order").values_list("order", flat=True).first() or 0
+            max_order = (
+                FinalizedMaterial.objects.filter(
+                    contract_id=object_id,
+                    archive_item_code=target_code,
+                )
+                .order_by("-order")
+                .values_list("order", flat=True)
+                .first()
+                or 0
+            )
             material.order = (max_order or 0) + 1
             material.save(update_fields=["archive_item_code", "order"])
 
             logger.info(
                 "归档材料已移动: material_id=%s, %s → %s, contract_id=%s",
-                material_id, old_code, target_code, object_id,
+                material_id,
+                old_code,
+                target_code,
+                object_id,
             )
             return JsonResponse({"success": True})
         except Exception as e:
@@ -507,11 +536,13 @@ class ContractArchiveMixin:
                 target_subdir=target_subdir,
             )
 
-            return JsonResponse({
-                "success": True,
-                "material_id": material.id,
-                "original_filename": material.original_filename,
-            })
+            return JsonResponse(
+                {
+                    "success": True,
+                    "material_id": material.id,
+                    "original_filename": material.original_filename,
+                }
+            )
         except ValueError as e:
             return JsonResponse({"success": False, "error": str(e)}, status=400)
         except Exception as e:
@@ -530,7 +561,8 @@ class ContractArchiveMixin:
 
         try:
             material = FinalizedMaterial.objects.filter(
-                pk=material_id, contract_id=object_id,
+                pk=material_id,
+                contract_id=object_id,
             ).first()
 
             if not material:

@@ -8,11 +8,7 @@ from datetime import datetime
 from django.utils import timezone
 
 from ..models import Reminder, ReminderType
-from .calendar_providers import (
-    CalendarEvent,
-    get_available_providers,
-    get_provider,
-)
+from .calendar_providers import CalendarEvent, get_available_providers, get_provider
 
 logger = logging.getLogger(__name__)
 
@@ -60,9 +56,7 @@ class CalendarSyncService:
 
         # Query current external_ids in DB for dedup
         existing_ids: set[str] = set(
-            Reminder.objects.filter(metadata__has_key="external_id").values_list(
-                "metadata__external_id", flat=True
-            )
+            Reminder.objects.filter(metadata__has_key="external_id").values_list("metadata__external_id", flat=True)
         )
 
         reminders_to_create: list[Reminder] = []
@@ -98,9 +92,7 @@ class CalendarSyncService:
     def _build_preview(self, events: list[CalendarEvent]) -> list[dict]:
         """Convert CalendarEvent list to preview dicts, marking existing events."""
         existing_ids: set[str] = set(
-            Reminder.objects.filter(metadata__has_key="external_id").values_list(
-                "metadata__external_id", flat=True
-            )
+            Reminder.objects.filter(metadata__has_key="external_id").values_list("metadata__external_id", flat=True)
         )
 
         preview: list[dict] = []
@@ -121,9 +113,13 @@ class CalendarSyncService:
                     "start_dt": start_str,
                     "end_dt": end_str,
                     "location": event.location if event.location and event.location != "missing value" else "",
-                    "description": event.description if event.description and event.description != "missing value" else "",
+                    "description": event.description
+                    if event.description and event.description != "missing value"
+                    else "",
                     "organizer": event.organizer if event.organizer and event.organizer != "missing value" else "",
-                    "calendar_name": event.calendar_name if event.calendar_name and event.calendar_name != "missing value" else "",
+                    "calendar_name": event.calendar_name
+                    if event.calendar_name and event.calendar_name != "missing value"
+                    else "",
                     "is_all_day": event.is_all_day,
                     "is_existing": is_existing,
                 }

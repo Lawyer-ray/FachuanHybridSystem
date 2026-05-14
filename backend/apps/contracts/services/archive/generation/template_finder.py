@@ -41,7 +41,9 @@ def get_template_path(template_subtype: str, contract: Contract | None = None) -
     if base_dir:
         template_path = Path(base_dir) / "3-归档模板" / filename
     else:
-        template_path = Path(__file__).parent.parent.parent.parent.parent / "documents" / "docx_templates" / "3-归档模板" / filename
+        template_path = (
+            Path(__file__).parent.parent.parent.parent.parent / "documents" / "docx_templates" / "3-归档模板" / filename
+        )
 
     if template_path.exists():
         return template_path

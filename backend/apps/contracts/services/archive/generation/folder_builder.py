@@ -178,6 +178,7 @@ def _write_template_doc_to_folder(
     docx_path = Path(material.file_path)
     if not docx_path.is_absolute():
         from django.conf import settings as django_settings
+
         docx_path = Path(django_settings.MEDIA_ROOT) / docx_path
 
     if not docx_path.exists():
@@ -197,9 +198,9 @@ def _compile_final_archive_pdf(
     case_materials_pdf_exists: bool,
 ) -> dict[str, Any]:
     """将1-3号模板文书的docx转PDF，与4-案卷材料PDF按序号合并，生成"5-Final案卷材料.pdf"。"""
-    import fitz
-
     from datetime import date
+
+    import fitz
 
     from apps.documents.services.infrastructure.pdf_merge_utils import convert_docx_to_pdf
 
@@ -219,7 +220,13 @@ def _compile_final_archive_pdf(
                 for tmp in temp_pdf_files:
                     with contextlib.suppress(OSError):
                         tmp.unlink(missing_ok=True)
-                return {"written": False, "skipped": True, "page_count": 0, "error": None, "reason": "4-案卷材料PDF未生成"}
+                return {
+                    "written": False,
+                    "skipped": True,
+                    "page_count": 0,
+                    "error": None,
+                    "reason": "4-案卷材料PDF未生成",
+                }
             pdf_files_to_merge.append(pdf_path)
             continue
 

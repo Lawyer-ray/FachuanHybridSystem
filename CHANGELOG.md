@@ -2,6 +2,33 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.49.2] - 2026-05-14
+
+### 后端
+
+#### 修复
+
+- **CaseLogAttachment 文件路径溢出**：`BusinessFileStorageService` 将 `legacy_file_path` 从绝对路径（164 字符）改为相对路径（~80 字符），修复写入 `FileField`（varchar(100)）时的 `DataError: value too long` 异常
+- **案件日志附件文书引用无法定位**：`CourtSMSDocumentReferenceService` 从 `file.path`（media 根目录）改为使用 `CaseLogAttachmentStorageService.resolve_attachment()`（case_folder 目录），修复法院短信关联文书显示为空的问题
+- **文书引用显示 UUID 前缀文件名**：`_collect_from_case_log_attachments` 的 `display_name` 从 `Path(normalized).name`（UUID 前缀的存储文件名）改为 `attachment.original_filename`（原始文件名）
+- **original_filename 被 sanitize 丢失中文括号**：`save_uploaded_file` 和 `save_file` 中 `original_filename` 从 `sanitize_upload_filename()` 处理后的值改为存储真正的原始文件名，中文括号 `（）` 不再被替换为下划线
+- **admin 关联文书显示磁盘文件名**：`court_sms_admin_base.py` 的文书显示从 `Path(ref.file_path).name`（磁盘上的 sanitize 后文件名）改为 `ref.display_name`（正确的原始文件名）
+
+## [26.49.1] - 2026-05-14
+
+### 后端
+
+#### 优化
+
+- **一张网立案 Playwright 流程增强**：借鉴 autolian-main 项目的容错策略，对一张网在线立案的 Playwright 自动化流程进行 7 项改进
+  - **法院选择三层降级**：搜索框搜索失败后，依次尝试直接查找 checklist-text 元素、城市选择+法院列表，搜索关键词改用法院全名提高精度
+  - **弹窗处理增强**：新增 `_handle_popups()` 集中扫描处理 4 种弹窗（综治中心、数字诉讼标志、要素式立案、智能识别服务），替代原来分散的逐个调用
+  - **案由选择验证**：优先精确匹配 `.item-text`，选择后检查已选区域文本是否匹配
+  - **清除自动识别当事人**：进入信息填写页后先清除一张网自动识别的错误当事人，避免与手动添加的冲突
+  - **自然人字段补充**：新增国别（默认"中国"）、民族（默认"汉族"）字段，从身份证号第17位自动推导性别
+  - **其他组织当事人类型**：新增 `_add_other_organization()` 方法，支持非法人组织、个体工商户等，字段标签使用"主要负责人"而非"法定代表人"
+  - **上传验证+重试**：上传文件后检查 `.fd-file-name` 数量确认成功，失败自动重试最多 3 次；`_click_next_step` 前后各扫描一次弹窗
+
 ## [26.49.0] - 2026-05-14
 
 > 感谢 [@zzdd5201314-ctrl](https://github.com/zzdd5201314-ctrl) 贡献的万行 PR ([#217](https://github.com/Lawyer-ray/FachuanHybridSystem/pull/217))，涵盖文件管理重构、案件重要时间、材料同步等多项功能。

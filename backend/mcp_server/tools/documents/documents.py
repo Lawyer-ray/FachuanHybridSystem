@@ -86,9 +86,7 @@ def preview_contract_context(contract_id: int) -> dict[str, Any]:
 
 def download_contract_document(contract_id: int) -> dict[str, Any]:
     """下载合同文档（DOCX）。返回 {filename, content_type, data_base64}。"""
-    content, filename, content_type = client.download(
-        f"/documents/contracts/{contract_id}/download"
-    )
+    content, filename, content_type = client.download(f"/documents/contracts/{contract_id}/download")
     return {
         "filename": filename,
         "content_type": content_type,
@@ -98,9 +96,7 @@ def download_contract_document(contract_id: int) -> dict[str, Any]:
 
 def download_contract_folder(contract_id: int) -> dict[str, Any]:
     """下载合同文件夹（ZIP）。返回 {filename, content_type, data_base64}。"""
-    content, filename, content_type = client.download(
-        f"/documents/contracts/{contract_id}/folder/download"
-    )
+    content, filename, content_type = client.download(f"/documents/contracts/{contract_id}/folder/download")
     return {
         "filename": filename,
         "content_type": content_type,

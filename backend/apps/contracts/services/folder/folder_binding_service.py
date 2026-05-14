@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import Any, ClassVar, cast
+from typing import Any, ClassVar
 
 from apps.contracts.models import ArchiveClassificationRule, Contract, ContractFolderBinding
 from apps.contracts.services.archive.category_mapping import get_archive_category
@@ -123,7 +123,18 @@ class FolderBindingService(FolderBindingCrudService):
         ],
         "invoice": [
             {
-                "keywords": ["专票", "专用发票", "普票", "普通发票", "发票", "收据", "票据", "付款回单", "付款凭证", "转账回单"],
+                "keywords": [
+                    "专票",
+                    "专用发票",
+                    "普票",
+                    "普通发票",
+                    "发票",
+                    "收据",
+                    "票据",
+                    "付款回单",
+                    "付款凭证",
+                    "转账回单",
+                ],
                 "preferred_paths": ["1-律师资料/3-发票", "合同附件/票据材料"],
                 "fallback_subdir": "1-律师资料/3-发票",
             },
@@ -137,7 +148,15 @@ class FolderBindingService(FolderBindingCrudService):
         ],
         "archive_document": [
             {
-                "keywords": ["财产保全申请书", "保全申请书", "诉讼保全申请书", "财产保全", "保全申请", "保函", "担保函"],
+                "keywords": [
+                    "财产保全申请书",
+                    "保全申请书",
+                    "诉讼保全申请书",
+                    "财产保全",
+                    "保全申请",
+                    "保函",
+                    "担保函",
+                ],
                 "preferred_paths": ["一审/1-立案材料/8-保全申请书及保函", "8-保全申请书及保函", "保全申请书及保函"],
                 "fallback_subdir": "一审/1-立案材料/8-保全申请书及保函",
             },
@@ -147,7 +166,20 @@ class FolderBindingService(FolderBindingCrudService):
                 "fallback_subdir": "一审/1-立案材料/4-证据目录",
             },
             {
-                "keywords": ["证据", "聊天记录", "通话记录", "录音", "录像", "截图", "照片", "转账记录", "付款记录", "流水", "发票", "收据"],
+                "keywords": [
+                    "证据",
+                    "聊天记录",
+                    "通话记录",
+                    "录音",
+                    "录像",
+                    "截图",
+                    "照片",
+                    "转账记录",
+                    "付款记录",
+                    "流水",
+                    "发票",
+                    "收据",
+                ],
                 "exclude_keywords": ["目录", "清单"],
                 "preferred_paths": ["一审/1-立案材料/5-证据材料", "5-证据材料", "案件材料"],
                 "fallback_subdir": "一审/1-立案材料/5-证据材料",
@@ -166,7 +198,15 @@ class FolderBindingService(FolderBindingCrudService):
         ],
         "case_material": [
             {
-                "keywords": ["财产保全申请书", "保全申请书", "诉讼保全申请书", "财产保全", "保全申请", "保函", "担保函"],
+                "keywords": [
+                    "财产保全申请书",
+                    "保全申请书",
+                    "诉讼保全申请书",
+                    "财产保全",
+                    "保全申请",
+                    "保函",
+                    "担保函",
+                ],
                 "preferred_paths": ["一审/1-立案材料/8-保全申请书及保函", "8-保全申请书及保函", "保全申请书及保函"],
                 "fallback_subdir": "一审/1-立案材料/8-保全申请书及保函",
             },
@@ -176,7 +216,20 @@ class FolderBindingService(FolderBindingCrudService):
                 "fallback_subdir": "一审/1-立案材料/4-证据目录",
             },
             {
-                "keywords": ["证据", "聊天记录", "通话记录", "录音", "录像", "截图", "照片", "转账记录", "付款记录", "流水", "发票", "收据"],
+                "keywords": [
+                    "证据",
+                    "聊天记录",
+                    "通话记录",
+                    "录音",
+                    "录像",
+                    "截图",
+                    "照片",
+                    "转账记录",
+                    "付款记录",
+                    "流水",
+                    "发票",
+                    "收据",
+                ],
                 "exclude_keywords": ["目录", "清单"],
                 "preferred_paths": ["一审/1-立案材料/5-证据材料", "5-证据材料", "案件材料"],
                 "fallback_subdir": "一审/1-立案材料/5-证据材料",
@@ -195,7 +248,15 @@ class FolderBindingService(FolderBindingCrudService):
         ],
         "archive_upload": [
             {
-                "keywords": ["财产保全申请书", "保全申请书", "诉讼保全申请书", "财产保全", "保全申请", "保函", "担保函"],
+                "keywords": [
+                    "财产保全申请书",
+                    "保全申请书",
+                    "诉讼保全申请书",
+                    "财产保全",
+                    "保全申请",
+                    "保函",
+                    "担保函",
+                ],
                 "preferred_paths": ["一审/1-立案材料/8-保全申请书及保函", "8-保全申请书及保函", "保全申请书及保函"],
                 "fallback_subdir": "一审/1-立案材料/8-保全申请书及保函",
             },
@@ -205,7 +266,20 @@ class FolderBindingService(FolderBindingCrudService):
                 "fallback_subdir": "一审/1-立案材料/4-证据目录",
             },
             {
-                "keywords": ["证据", "聊天记录", "通话记录", "录音", "录像", "截图", "照片", "转账记录", "付款记录", "流水", "发票", "收据"],
+                "keywords": [
+                    "证据",
+                    "聊天记录",
+                    "通话记录",
+                    "录音",
+                    "录像",
+                    "截图",
+                    "照片",
+                    "转账记录",
+                    "付款记录",
+                    "流水",
+                    "发票",
+                    "收据",
+                ],
                 "exclude_keywords": ["目录", "清单"],
                 "preferred_paths": ["一审/1-立案材料/5-证据材料", "5-证据材料", "案件材料"],
                 "fallback_subdir": "一审/1-立案材料/5-证据材料",
@@ -349,7 +423,7 @@ class FolderBindingService(FolderBindingCrudService):
         if not contract:
             return None
 
-        contract_suffix = self._build_contract_business_root_suffix(cast(Contract, contract))
+        contract_suffix = self._build_contract_business_root_suffix(contract)
         if not contract_suffix:
             return None
 
@@ -530,16 +604,16 @@ class FolderBindingService(FolderBindingCrudService):
 
         rules = list(self.MATERIAL_CATEGORY_FILENAME_RULES.get(str(material_category or "").strip()) or [])
         for rule in rules:
-            keywords = [str(keyword or "").strip() for keyword in rule.get("keywords", []) if str(keyword or "").strip()]
+            keywords = [
+                str(keyword or "").strip() for keyword in rule.get("keywords", []) if str(keyword or "").strip()
+            ]
             if not keywords:
                 continue
             if not any(self._normalize_match_text(keyword) in normalized_name for keyword in keywords):
                 continue
 
             exclude_keywords = [
-                str(keyword or "").strip()
-                for keyword in rule.get("exclude_keywords", [])
-                if str(keyword or "").strip()
+                str(keyword or "").strip() for keyword in rule.get("exclude_keywords", []) if str(keyword or "").strip()
             ]
             if any(self._normalize_match_text(keyword) in normalized_name for keyword in exclude_keywords):
                 continue
@@ -599,9 +673,7 @@ class FolderBindingService(FolderBindingCrudService):
             return ""
 
         normalized_to_original = {
-            self._normalize_relative_path(path): path
-            for path in existing_paths
-            if str(path or "").strip()
+            self._normalize_relative_path(path): path for path in existing_paths if str(path or "").strip()
         }
         for preferred in preferred_paths:
             normalized = self._normalize_relative_path(str(preferred or "").strip())
@@ -632,12 +704,14 @@ class FolderBindingService(FolderBindingCrudService):
         subdir_key: str = "contract_documents",
     ) -> str | None:
         """保存文件到绑定文件夹（实现 IContractFolderBindingService 协议）"""
-        return super().save_file_to_bound_folder(  # type: ignore[return-value]
+        return (
+            super().save_file_to_bound_folder(  # type: ignore[return-value]
                 owner_id=owner_id,
                 file_content=file_content,
                 file_name=file_name,
                 subdir_key=subdir_key,
             ),
+        )
 
     def extract_zip_to_bound_folder(self, contract_id: int, zip_content: bytes) -> str | None:  # type: ignore[override]
         """解压 ZIP 到绑定文件夹（实现 IContractFolderBindingService 协议）"""
@@ -680,7 +754,9 @@ class FolderBindingService(FolderBindingCrudService):
             if not normalized_path:
                 continue
             score = self._score_subdir_match(archive_item_name, normalized_path, rule_keywords=rule_keywords or [])
-            if score > best_score or (score == best_score and score > 0 and self._is_more_specific_path(path, best_path)):
+            if score > best_score or (
+                score == best_score and score > 0 and self._is_more_specific_path(path, best_path)
+            ):
                 best_score = score
                 best_path = path
         return best_path if best_score >= 0.55 else ""
@@ -704,7 +780,9 @@ class FolderBindingService(FolderBindingCrudService):
         keyword_score = 0.0
         valid_rule_keywords = [kw for kw in rule_keywords if len(str(kw or "").strip()) >= 2]
         if valid_rule_keywords:
-            normalized_keywords = [self._normalize_match_text(kw) for kw in valid_rule_keywords if self._normalize_match_text(kw)]
+            normalized_keywords = [
+                self._normalize_match_text(kw) for kw in valid_rule_keywords if self._normalize_match_text(kw)
+            ]
             matched_keywords = [kw for kw in normalized_keywords if kw in normalized_path]
             if matched_keywords:
                 longest_keyword = max(len(kw) for kw in normalized_keywords)

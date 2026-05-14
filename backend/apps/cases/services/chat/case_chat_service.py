@@ -153,8 +153,13 @@ class CaseChatService:
                     errors={"provider_response": result.raw_response, "chat_name": chat_name},
                 )
             case_chat = self.repo.create_binding(
-                case=case, platform=platform, chat_id=result.chat_id, name=result.chat_name or chat_name, is_active=True,
-                owner_id=owner_id, creation_audit_log={"chat_name": result.chat_name or chat_name, "owner_id": owner_id or ""},
+                case=case,
+                platform=platform,
+                chat_id=result.chat_id,
+                name=result.chat_name or chat_name,
+                is_active=True,
+                owner_id=owner_id,
+                creation_audit_log={"chat_name": result.chat_name or chat_name, "owner_id": owner_id or ""},
             )
             logger.info(
                 "群聊创建成功: case_id=%s, chat_id=%s, platform=%s, name=%s",
@@ -299,7 +304,12 @@ class CaseChatService:
             result = usecase.execute(
                 case_id=case_id, platform=platform, chat=chat, content=content, document_paths=document_paths
             )
-            logger.info("文书通知发送完成: case_id=%s, chat_id=%s, success=%s", case_id, getattr(chat, "chat_id", ""), result.success)
+            logger.info(
+                "文书通知发送完成: case_id=%s, chat_id=%s, success=%s",
+                case_id,
+                getattr(chat, "chat_id", ""),
+                result.success,
+            )
             return result
         except MessageSendException:
             raise

@@ -63,9 +63,7 @@ def scale_pages_to_a4(contract: Contract) -> dict[str, Any]:
             has_non_a4 = False
             for page in src_doc:
                 page_w, page_h = page.rect.width, page.rect.height
-                is_a4 = (
-                    abs(page_w - A4_W) < TOLERANCE and abs(page_h - A4_H) < TOLERANCE
-                ) or (
+                is_a4 = (abs(page_w - A4_W) < TOLERANCE and abs(page_h - A4_H) < TOLERANCE) or (
                     abs(page_w - A4_H) < TOLERANCE and abs(page_h - A4_W) < TOLERANCE
                 )
                 if not is_a4:
@@ -80,9 +78,7 @@ def scale_pages_to_a4(contract: Contract) -> dict[str, Any]:
 
             for page in src_doc:
                 page_w, page_h = page.rect.width, page.rect.height
-                is_a4 = (
-                    abs(page_w - A4_W) < TOLERANCE and abs(page_h - A4_H) < TOLERANCE
-                ) or (
+                is_a4 = (abs(page_w - A4_W) < TOLERANCE and abs(page_h - A4_H) < TOLERANCE) or (
                     abs(page_w - A4_H) < TOLERANCE and abs(page_h - A4_W) < TOLERANCE
                 )
 
@@ -240,8 +236,7 @@ def compile_case_materials_pdf(
             continue
 
         id_to_material: dict[int, FinalizedMaterial] = {
-            m.id: m
-            for m in FinalizedMaterial.objects.filter(id__in=material_ids)
+            m.id: m for m in FinalizedMaterial.objects.filter(id__in=material_ids)
         }
         for mid in material_ids:
             m = id_to_material.get(mid)

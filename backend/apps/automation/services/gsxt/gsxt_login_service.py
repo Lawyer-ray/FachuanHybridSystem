@@ -73,44 +73,28 @@ def _kill_existing_chrome() -> None:
         pass
 
 
-def _check_cdp_available() -> bool:
-    """检查 CDP 端点是否可用。"""
-    try:
-        with httpx.Client(transport=httpx.HTTPTransport(http2=False)) as client:
-            resp = client.get(f"{CDP_URL}/json/version", timeout=2)
-            return resp.status_code == 200
-    except Exception:
-        return False
-
-
 def _ensure_chrome_running() -> None:
     """确保 Chrome 以调试模式运行。"""
-    if _check_cdp_available():
+    from apps.core.services.browser.chrome_process import is_cdp_ready, launch_chrome
+
+    if is_cdp_ready(9222):
         logger.info("Chrome CDP 已就绪，复用现有实例")
         return
 
     _kill_existing_chrome()
 
     logger.info("启动 Chrome 调试模式（不带自动化标记）...")
-    process = subprocess.Popen(
-        [CHROME_PATH, "--remote-debugging-port=9222", f"--user-data-dir={CHROME_USER_DATA_DIR}", "--no-first-run"],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.PIPE,
-    )
-    for i in range(15):
-        time.sleep(1)
-        if _check_cdp_available():
-            logger.info("Chrome 启动成功")
-            return
-        if process.poll() is not None:
-            stderr_output = process.stderr.read().decode() if process.stderr else ""
-            logger.error("Chrome 进程意外退出, stderr: %s", stderr_output)
-            break
-
-    raise GsxtLoginError(
-        "Chrome 启动失败。请先关闭所有 Chrome 窗口后重试，"
-        f'或手动运行：\n  "{CHROME_PATH}" --remote-debugging-port=9222 --user-data-dir={CHROME_USER_DATA_DIR}'
-    )
+    try:
+        launch_chrome(
+            port=9222,
+            user_data_dir=CHROME_USER_DATA_DIR,
+            chrome_path=CHROME_PATH,
+        )
+    except RuntimeError as e:
+        raise GsxtLoginError(
+            "Chrome 启动失败。请先关闭所有 Chrome 窗口后重试，"
+            f'或手动运行：\n  "{CHROME_PATH}" --remote-debugging-port=9222 --user-data-dir={CHROME_USER_DATA_DIR}'
+        ) from e
 
 
 # ──────────────────────────────────────────────

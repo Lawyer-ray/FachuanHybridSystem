@@ -25,8 +25,12 @@ def test_build_selected_respondent_property_clues_returns_all_clues(monkeypatch)
     client_service = _FakeClientService(
         {
             101: [
-                PropertyClueDTO(id=1, client_id=101, clue_type="bank", content="户名: 测试户名A\n银行账号: 6222", description=None),
-                PropertyClueDTO(id=2, client_id=101, clue_type="wechat", content="微信号: test_wechat_123", description=None),
+                PropertyClueDTO(
+                    id=1, client_id=101, clue_type="bank", content="户名: 测试户名A\n银行账号: 6222", description=None
+                ),
+                PropertyClueDTO(
+                    id=2, client_id=101, clue_type="wechat", content="微信号: test_wechat_123", description=None
+                ),
             ],
             202: [
                 PropertyClueDTO(id=3, client_id=202, clue_type="other", content="测试设备线索一批", description=None),
@@ -90,7 +94,9 @@ def test_build_primary_respondent_property_clue_returns_first_item(monkeypatch) 
     client_service = _FakeClientService(
         {
             101: [
-                PropertyClueDTO(id=1, client_id=101, clue_type="alipay", content="支付宝账号: test_alipay_001", description=None),
+                PropertyClueDTO(
+                    id=1, client_id=101, clue_type="alipay", content="支付宝账号: test_alipay_001", description=None
+                ),
                 PropertyClueDTO(id=2, client_id=101, clue_type="other", content="测试车辆线索", description=None),
             ]
         }

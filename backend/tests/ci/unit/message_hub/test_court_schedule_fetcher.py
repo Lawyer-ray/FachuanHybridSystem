@@ -74,9 +74,7 @@ class TestExtractPartyNames:
 
     def test_company_multiple_defendants(self):
         """公司+多被告+案由噪声。"""
-        names = _extract_party_names(
-            "佛山市升平百货有限公司与佛山市仲满金属材料有限公司,郑汝钋,石莹追偿权纠纷一案"
-        )
+        names = _extract_party_names("佛山市升平百货有限公司与佛山市仲满金属材料有限公司,郑汝钋,石莹追偿权纠纷一案")
         assert "佛山市升平百货有限公司" in names
         assert "佛山市仲满金属材料有限公司" in names
         assert "郑汝钋" in names
@@ -239,7 +237,7 @@ class TestCourtScheduleFetcher:
             lawyer=lawyer,
             site_name="court_zxfw",
             account="test_account",
-            password="placeholder",
+            password="placeholder",  # pragma: allowlist secret
             url="https://zxfw.court.gov.cn",
         )
         self.source = MessageSource.objects.create(
@@ -292,7 +290,10 @@ class TestCourtScheduleFetcher:
 
         count = self.fetcher.fetch_new_messages(self.source)
         assert count == 1
-        assert Reminder.objects.filter(reminder_type=ReminderType.HEARING, metadata__source_id="unique-id-001").count() == 1
+        assert (
+            Reminder.objects.filter(reminder_type=ReminderType.HEARING, metadata__source_id="unique-id-001").count()
+            == 1
+        )
 
     @patch("apps.message_hub.services.court.court_schedule_fetcher._api_post")
     @patch("apps.message_hub.services.court.court_schedule_fetcher._acquire_token")
@@ -373,11 +374,39 @@ class TestCourtScheduleFetcher:
         mock_token.return_value = "fake_token"
 
         page1_data = [
-            {"bh": f"page1-{i}", "ajbs": str(i), "ah": None, "kssj": "2026-06-15 09:30", "jssj": "2026-06-15 10:30", "sj": "09:30-10:30", "rcbt": f"案件{i}一案", "rcdd": "法院", "lx": "线下开庭", "fydm": "2602", "cjfs": 0, "hasCase": False, "najzt": 1}
+            {
+                "bh": f"page1-{i}",
+                "ajbs": str(i),
+                "ah": None,
+                "kssj": "2026-06-15 09:30",
+                "jssj": "2026-06-15 10:30",
+                "sj": "09:30-10:30",
+                "rcbt": f"案件{i}一案",
+                "rcdd": "法院",
+                "lx": "线下开庭",
+                "fydm": "2602",
+                "cjfs": 0,
+                "hasCase": False,
+                "najzt": 1,
+            }
             for i in range(20)
         ]
         page2_data = [
-            {"bh": f"page2-{i}", "ajbs": str(i + 20), "ah": None, "kssj": "2026-06-16 09:30", "jssj": "2026-06-16 10:30", "sj": "09:30-10:30", "rcbt": f"案件{i+20}一案", "rcdd": "法院", "lx": "线下开庭", "fydm": "2602", "cjfs": 0, "hasCase": False, "najzt": 1}
+            {
+                "bh": f"page2-{i}",
+                "ajbs": str(i + 20),
+                "ah": None,
+                "kssj": "2026-06-16 09:30",
+                "jssj": "2026-06-16 10:30",
+                "sj": "09:30-10:30",
+                "rcbt": f"案件{i + 20}一案",
+                "rcdd": "法院",
+                "lx": "线下开庭",
+                "fydm": "2602",
+                "cjfs": 0,
+                "hasCase": False,
+                "najzt": 1,
+            }
             for i in range(5)
         ]
 
@@ -515,7 +544,7 @@ class TestCourtScheduleFetcher:
             lawyer=lawyer2,
             site_name="court_zxfw",
             account="test_account2",
-            password="placeholder2",
+            password="placeholder2",  # pragma: allowlist secret
             url="https://zxfw.court.gov.cn",
         )
         source2 = MessageSource.objects.create(
