@@ -2,6 +2,45 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.49.0] - 2026-05-14
+
+> 感谢 [@zzdd5201314-ctrl](https://github.com/zzdd5201314-ctrl) 贡献的万行 PR ([#217](https://github.com/Lawyer-ray/FachuanHybridSystem/pull/217))，涵盖文件管理重构、案件重要时间、材料同步等多项功能。
+
+### 后端
+
+#### 新功能
+
+- **业务文件存储服务**：新增 `BusinessFileStorageService`，支持将附件按业务目录（合同、案件）分类存储，不再全部堆入 media 根目录。日志上传时可选择保存到指定文件夹
+- **案件重要时间提醒**：案件详情页新增「重要时间」面板，展示日历提醒及手动添加的关键时间节点，支持逾期、今日到期、即将到期、未到期四种状态
+- **日志附件同步到案件材料**：日志上传时可选择将附件绑定到案件材料页面，避免重复上传同一份文件到 media
+- **案件日志快捷入口**：案件详情页新增「增加日志」按钮，自动关联当前案件，支持日志编辑
+- **合同文件夹绑定增强**：合同详情页文件管理重构，支持从日志选择文件绑定到合同材料，文件夹设备号字段改为 BigInt 防止溢出
+- **附件预览失败友好提示**：文件不存在或路径不合法时展示提示页面，替代原来的空白/报错
+- **提醒重要时间标记**：Reminder 模型新增 `include_in_important_time` 字段，支持在日历提醒中勾选后自动同步到案件重要时间面板
+
+#### 修复
+
+- **案件日志子目录正则崩溃**：修复子目录路径匹配时的正则表达式异常
+- **空当事人证件内联**：防止空的当事人证件文档内联导致 admin 页面报错
+- **合同导出预取冲突**：修复合同导出时与 case log attachment 的 prefetch 冲突
+- **合同文件夹绑定乱码**：修复合同文件夹绑定页面的编码问题
+
+#### 测试
+
+- 新增 `test_business_file_storage_service`（296 行）
+- 新增 `test_case_important_time`（315 行）
+- 新增 `test_case_log_attachment_storage`（348 行）
+- 新增 `test_case_log_material_sync`（398 行）
+- 新增 `test_contract_folder_binding_recommendation`（252 行）
+- 新增 `test_material_service_auto_subdir`（207 行）
+- 新增 `test_case_access_policy`、`test_case_folder_binding_service_access`
+
+#### 迁移
+
+- `cases.0017` ~ `0019`：日志附件原始文件名、默认案件材料类型种子数据
+- `contracts.0029` ~ `0031`：定稿材料存储字段、文件夹设备号 BigInt
+- `reminders.0005`：提醒重要时间标记字段
+
 ## [26.48.9] - 2026-05-13
 
 ### 后端
