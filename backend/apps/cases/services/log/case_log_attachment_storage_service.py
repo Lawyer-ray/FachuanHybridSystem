@@ -61,7 +61,7 @@ class CaseLogAttachmentStorageService:
         normalized = str(target_subdir or "").strip()
         if normalized:
             return normalized
-        auto_subdir = SystemConfigService().get_value("CASE_LOG_ATTACHMENT_AUTO_SUBDIR", "false").lower() in ("true", "1", "yes")
+        auto_subdir = SystemConfigService().get_value("CASE_LOG_ATTACHMENT_AUTO_SUBDIR", "true").lower() in ("true", "1", "yes")
         if not auto_subdir:
             return ""
         recommendation = self.recommend_attachment_subdir(case_id=case_id, log=log, file_name=file_name)
