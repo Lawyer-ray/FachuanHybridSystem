@@ -140,9 +140,22 @@ class SMSDocumentMixin:
 
             logger.info(f"短信 {sms.id} 找到 {len(document_paths)} 个文书待重命名")
             renamed_paths = self.document_attachment.rename_documents(sms, document_paths)
+            recommendation_names_by_path = self.document_attachment.build_recommendation_names_for_paths(
+                sms,
+                renamed_paths,
+                original_paths=document_paths,
+            )
 
-            self._save_renamed_paths(sms, renamed_paths)
-            self._attach_to_case_log(sms, renamed_paths)
+            self._save_renamed_paths(
+                sms,
+                renamed_paths,
+                recommendation_names_by_path=recommendation_names_by_path,
+            )
+            self._attach_to_case_log(
+                sms,
+                renamed_paths,
+                recommendation_names_by_path=recommendation_names_by_path,
+            )
             self._archive_to_case_folder(sms, renamed_paths)
             self._sync_case_numbers_from_documents(sms, renamed_paths)
             self._sync_party_names_from_documents(sms, renamed_paths)
@@ -158,7 +171,12 @@ class SMSDocumentMixin:
             sms.save()
             return sms
 
-    def _save_renamed_paths(self, sms: CourtSMS, renamed_paths: list[str]) -> None:
+    def _save_renamed_paths(
+        self,
+        sms: CourtSMS,
+        renamed_paths: list[str],
+        recommendation_names_by_path: dict[str, str] | None = None,
+    ) -> None:
         """保存重命名后的文件路径到 scraper_task.result"""
         if not renamed_paths or not sms.scraper_task:
             return
@@ -166,21 +184,41 @@ class SMSDocumentMixin:
         if not isinstance(result, dict):
             result = {}
         result["renamed_files"] = renamed_paths
+        if recommendation_names_by_path:
+            result[self.document_attachment.RESULT_RECOMMENDATION_NAMES_KEY] = recommendation_names_by_path
         sms.scraper_task.result = result
         sms.scraper_task.save()
         logger.info(f"保存重命名后的文件路径到任务结果: {len(renamed_paths)} 个文件")
 
-    def _attach_to_case_log(self, sms: CourtSMS, renamed_paths: list[str]) -> None:
+    def _attach_to_case_log(
+        self,
+        sms: CourtSMS,
+        renamed_paths: list[str],
+        recommendation_names_by_path: dict[str, str] | None = None,
+    ) -> None:
         """将文书附件添加到案件日志"""
         if not renamed_paths:
             return
+        recommendation_names_by_path = recommendation_names_by_path or self.document_attachment.build_recommendation_names_for_paths(
+            sms,
+            renamed_paths,
+            original_paths=self.document_attachment.get_paths_for_renaming(sms),
+        )
         if sms.case_log:
-            self.document_attachment.add_to_case_log(sms, renamed_paths)
+            self.document_attachment.add_to_case_log(
+                sms,
+                renamed_paths,
+                recommendation_names_by_path=recommendation_names_by_path,
+            )
         elif sms.case:
             logger.info(f"短信 {sms.id} 没有案件日志，先创建案件日志")
             success = self._create_case_binding(sms)  # type: ignore[attr-defined]
             if success and sms.case_log:
-                self.document_attachment.add_to_case_log(sms, renamed_paths)
+                self.document_attachment.add_to_case_log(
+                    sms,
+                    renamed_paths,
+                    recommendation_names_by_path=recommendation_names_by_path,
+                )
             else:
                 logger.warning(f"短信 {sms.id} 创建案件日志失败，无法添加文书附件")
 

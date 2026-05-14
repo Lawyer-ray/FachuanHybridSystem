@@ -20,6 +20,7 @@ logger = logging.getLogger("apps.automation")
 
 
 class DocumentAttachmentService:
+    RESULT_RECOMMENDATION_NAMES_KEY = "recommendation_names_by_path"
     """文书附件服务 - 处理文书路径获取、重命名、添加附件"""
 
     def __init__(
@@ -98,6 +99,99 @@ class DocumentAttachmentService:
                 paths.append(doc.local_file_path)
                 logger.debug(f"从 CourtDocument 获取路径: {doc.local_file_path}")
         return paths
+
+    def build_recommendation_names_by_path(self, sms: "CourtSMS") -> dict[str, str]:
+        """为自动归档推荐构建“文件路径 -> 原始文书名”映射。"""
+        names_by_path: dict[str, str] = {}
+
+        scraper_task = getattr(sms, "scraper_task", None)
+        if scraper_task and hasattr(scraper_task, "documents"):
+            for doc in scraper_task.documents.filter(download_status="success"):
+                raw_path = str(getattr(doc, "local_file_path", "") or "").strip()
+                raw_name = str(getattr(doc, "c_wsmc", "") or "").strip()
+                file_ext = str(getattr(doc, "c_wjgs", "") or "").strip().lstrip(".")
+                if not raw_path or not raw_name:
+                    continue
+                normalized_path = self._normalize_existing_path(raw_path)
+                if not normalized_path:
+                    continue
+                recommendation_name = raw_name if not file_ext else f"{raw_name}.{file_ext}"
+                names_by_path[normalized_path] = recommendation_name
+
+        return names_by_path
+
+    def build_recommendation_names_for_paths(
+        self,
+        sms: "CourtSMS",
+        file_paths: list[str],
+        *,
+        original_paths: list[str] | None = None,
+    ) -> dict[str, str]:
+        """为目标文件路径构建推荐名称映射，确保重命名后路径也能命中原始文书名。"""
+        if not file_paths:
+            return {}
+
+        names_by_target_path = self.get_saved_recommendation_names_for_paths(sms, file_paths)
+        missing_file_paths = [
+            path for path in file_paths if self._normalize_existing_path(path) not in names_by_target_path
+        ]
+        if not missing_file_paths:
+            return names_by_target_path
+
+        names_by_original_path = self.build_recommendation_names_by_path(sms)
+        if not names_by_original_path:
+            return names_by_target_path
+
+        candidate_original_paths = list(original_paths or self._get_original_paths_for_recommendation(sms))
+
+        for target_path, source_path in zip(missing_file_paths, candidate_original_paths, strict=False):
+            normalized_target = self._normalize_existing_path(target_path)
+            normalized_source = self._normalize_existing_path(source_path)
+            recommendation_name = names_by_original_path.get(normalized_source, "")
+            if normalized_target and recommendation_name:
+                names_by_target_path[normalized_target] = recommendation_name
+
+        if all(self._normalize_existing_path(path) in names_by_target_path for path in file_paths):
+            return names_by_target_path
+
+        for path in missing_file_paths:
+            normalized_path = self._normalize_existing_path(path)
+            recommendation_name = names_by_original_path.get(normalized_path, "")
+            if normalized_path and recommendation_name:
+                names_by_target_path[normalized_path] = recommendation_name
+
+        return names_by_target_path
+
+    def get_saved_recommendation_names_by_path(self, sms: "CourtSMS") -> dict[str, str]:
+        scraper_task = getattr(sms, "scraper_task", None)
+        result = getattr(scraper_task, "result", None)
+        if not isinstance(result, dict):
+            return {}
+
+        raw_mapping = result.get(self.RESULT_RECOMMENDATION_NAMES_KEY)
+        if not isinstance(raw_mapping, dict):
+            return {}
+
+        normalized_mapping: dict[str, str] = {}
+        for raw_path, raw_name in raw_mapping.items():
+            normalized_path = self._normalize_existing_path(str(raw_path or ""))
+            recommendation_name = str(raw_name or "").strip()
+            if normalized_path and recommendation_name:
+                normalized_mapping[normalized_path] = recommendation_name
+        return normalized_mapping
+
+    def get_saved_recommendation_names_for_paths(self, sms: "CourtSMS", file_paths: list[str]) -> dict[str, str]:
+        saved_mapping = self.get_saved_recommendation_names_by_path(sms)
+        if not saved_mapping:
+            return {}
+
+        names_by_target_path: dict[str, str] = {}
+        for raw_path in file_paths:
+            normalized_path = self._normalize_existing_path(raw_path)
+            recommendation_name = saved_mapping.get(normalized_path, "")
+            if normalized_path and recommendation_name:
+                names_by_target_path[normalized_path] = recommendation_name
+        return names_by_target_path
 
     def _paths_from_task_result(self, sms: "CourtSMS") -> list[str]:
         """从 ScraperTask.result 获取路径（降级）"""
@@ -183,6 +277,32 @@ class DocumentAttachmentService:
                     seen.add(abs_path)
                     logger.debug(f"从 CourtDocument 获取路径: {doc.local_file_path}")
 
+    def _get_original_paths_for_recommendation(self, sms: "CourtSMS") -> list[str]:
+        """获取自动归档推荐所需的原始下载路径，优先使用任务结果中的原始 files 列表。"""
+        scraper_task = getattr(sms, "scraper_task", None)
+        if scraper_task and isinstance(getattr(scraper_task, "result", None), dict):
+            raw_files = [
+                str(path or "").strip()
+                for path in scraper_task.result.get("files", [])
+                if str(path or "").strip()
+            ]
+            if raw_files:
+                return raw_files
+
+        raw_paths: list[str] = []
+        if scraper_task and hasattr(scraper_task, "documents"):
+            for doc in scraper_task.documents.filter(download_status="success"):
+                raw_path = str(getattr(doc, "local_file_path", "") or "").strip()
+                if raw_path:
+                    raw_paths.append(raw_path)
+        return raw_paths
+
+    def _normalize_existing_path(self, raw_path: str | None) -> str:
+        normalized = str(raw_path or "").strip()
+        if not normalized:
+            return ""
+        return str(Path(normalized).expanduser().resolve())
+
     def rename_documents(self, sms: "CourtSMS", document_paths: list[str]) -> list[str]:
         """
         重命名文书列表，返回重命名后的路径
@@ -232,7 +352,12 @@ class DocumentAttachmentService:
         logger.info(f"文书重命名完成: SMS ID={sms.id}, 成功重命名 {len(renamed_paths)} 个文书")
         return renamed_paths
 
-    def add_to_case_log(self, sms: "CourtSMS", file_paths: list[str]) -> bool:
+    def add_to_case_log(
+        self,
+        sms: "CourtSMS",
+        file_paths: list[str],
+        recommendation_names_by_path: dict[str, str] | None = None,
+    ) -> bool:
         """
         将文书附件添加到案件日志
         """
@@ -243,8 +368,18 @@ class DocumentAttachmentService:
         try:
             success_count = 0
 
+            recommendation_names = recommendation_names_by_path or self.build_recommendation_names_for_paths(
+                sms, file_paths
+            )
+
             for file_path in file_paths:
-                if self._add_single_attachment(sms, file_path):
+                normalized_file_path = self._normalize_existing_path(file_path)
+                if self._add_single_attachment(
+                    sms,
+                    file_path,
+                    recommendation_file_name=recommendation_names.get(str(file_path), "")
+                    or recommendation_names.get(normalized_file_path, ""),
+                ):
                     success_count += 1
 
             logger.info(f"附件添加完成: 成功 {success_count}/{len(file_paths)} 个")
@@ -254,7 +389,12 @@ class DocumentAttachmentService:
             logger.error(f"添加附件到案件日志失败: SMS ID={sms.id}, 错误: {e!s}")
             return False
 
-    def _add_single_attachment(self, sms: "CourtSMS", file_path: str) -> bool:
+    def _add_single_attachment(
+        self,
+        sms: "CourtSMS",
+        file_path: str,
+        recommendation_file_name: str = "",
+    ) -> bool:
         """添加单个附件，返回是否成功"""
         try:
             if not Path(file_path).exists():
@@ -262,6 +402,7 @@ class DocumentAttachmentService:
                 return False
 
             renamed_filename = Path(file_path).name
+            preferred_recommendation_name = str(recommendation_file_name or "").strip() or renamed_filename
             if "（" not in renamed_filename or "）" not in renamed_filename:
                 logger.warning(f"文件名格式不正确，尝试修正: {renamed_filename}")
                 renamed_filename = self.fix_filename_format(renamed_filename, sms)
@@ -281,7 +422,7 @@ class DocumentAttachmentService:
                 file_path=file_path,
                 file_name=renamed_filename,
                 source_scene="court_sms_attachment",
-                recommendation_file_name=renamed_filename,
+                recommendation_file_name=preferred_recommendation_name,
             )
             if not success:
                 logger.warning(f"添加案件日志附件失败: {renamed_filename}")

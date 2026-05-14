@@ -347,3 +347,86 @@ def test_recommend_bound_subdir_for_log_attachment_prefers_deeper_existing_child
     )
 
     assert result["recommended_subdir"] == "一审/1-立案材料/5-证据材料/聊天记录"
+
+
+def test_manual_log_recommendation_prefers_non_court_subdir_before_court_delivery_folder(tmp_path: Path) -> None:
+    service = CaseFolderBindingService()
+    root = tmp_path / "case_root"
+    (root / "一审" / "1-立案材料" / "5-证据材料").mkdir(parents=True)
+    (root / "一审" / "1-立案材料" / "4-证据目录").mkdir(parents=True)
+    (root / "一审" / "法院送达材料" / "对方当事人提交材料").mkdir(parents=True)
+
+    class Binding:
+        folder_path = str(root)
+        resolved_folder_path = str(root)
+
+    service._get_binding_record = lambda case_id: Binding()  # type: ignore[method-assign]
+    service.check_and_repair_path = lambda binding: (True, False)  # type: ignore[method-assign]
+    service._require_case_access = lambda **kwargs: None  # type: ignore[method-assign]
+
+    result = service.recommend_bound_subdir_for_log_attachment(
+        owner_id=1,
+        file_name="提交证据.pdf",
+        source_scene="manual_log_upload",
+    )
+
+    assert result["recommended_subdir"] == "一审/1-立案材料/5-证据材料"
+    assert result["matched_existing_subdir"] == "一审/1-立案材料/5-证据材料"
+    assert result["reason"] in {
+        "file_name_evidence_material_preferred",
+        "file_name_evidence_material_match",
+        "file_name_evidence_material_fallback",
+    }
+
+
+def test_manual_log_recommendation_still_prefers_normal_fallback_over_court_delivery_folder(tmp_path: Path) -> None:
+    service = CaseFolderBindingService()
+    root = tmp_path / "case_root"
+    (root / "一审" / "法院送达材料" / "对方当事人提交材料").mkdir(parents=True)
+
+    class Binding:
+        folder_path = str(root)
+        resolved_folder_path = str(root)
+
+    service._get_binding_record = lambda case_id: Binding()  # type: ignore[method-assign]
+    service.check_and_repair_path = lambda binding: (True, False)  # type: ignore[method-assign]
+    service._require_case_access = lambda **kwargs: None  # type: ignore[method-assign]
+
+    result = service.recommend_bound_subdir_for_log_attachment(
+        owner_id=1,
+        file_name="对方质证意见.pdf",
+        source_scene="manual_log_upload",
+    )
+
+    assert result["recommended_subdir"] == "一审/1-立案材料/5-证据材料"
+    assert result["matched_existing_subdir"] == ""
+    assert result["reason"] == "file_name_rule_fallback"
+
+
+def test_manual_log_recommendation_prefers_evidence_directory_for_generic_stage_evidence_name(tmp_path: Path) -> None:
+    service = CaseFolderBindingService()
+    root = tmp_path / "case_root"
+    (root / "一审" / "1-立案材料" / "5-证据材料").mkdir(parents=True)
+    (root / "一审" / "1-立案材料" / "4-证据目录").mkdir(parents=True)
+    (root / "一审").mkdir(exist_ok=True)
+
+    class Binding:
+        folder_path = str(root)
+        resolved_folder_path = str(root)
+
+    service._get_binding_record = lambda case_id: Binding()  # type: ignore[method-assign]
+    service.check_and_repair_path = lambda binding: (True, False)  # type: ignore[method-assign]
+    service._require_case_access = lambda **kwargs: None  # type: ignore[method-assign]
+
+    result = service.recommend_bound_subdir_for_log_attachment(
+        owner_id=1,
+        file_name="一审证据.pdf",
+        source_scene="manual_log_upload",
+    )
+
+    assert result["recommended_subdir"] == "一审/1-立案材料/5-证据材料"
+    assert result["matched_existing_subdir"] == "一审/1-立案材料/5-证据材料"
+    assert result["reason"] in {
+        "file_name_evidence_material_preferred",
+        "file_name_evidence_material_match",
+    }

@@ -79,6 +79,7 @@ class CaseLogInternalService:
                     max_size_bytes=int(CASE_LOG_MAX_FILE_SIZE),
                     source_scene=source_scene,
                     recommendation_file_name=recommendation_file_name or file_name,
+                    perm_open_access=True,
                 )
                 attachment = CaseLogAttachment.objects.create(
                     log=case_log,

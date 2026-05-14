@@ -25,6 +25,7 @@ class CaseLogAttachmentStorageService:
         file_name: str = "",
         source_scene: str = "manual_log_upload",
         recommendation_file_name: str = "",
+        perm_open_access: bool = False,
     ) -> dict[str, str]:
         from apps.cases.services import CaseFolderBindingService
         from apps.core.dependencies import (
@@ -51,6 +52,7 @@ class CaseLogAttachmentStorageService:
             source_subfolder=resolved_source,
             file_name=resolved_file_name,
             source_scene=source_scene,
+            perm_open_access=perm_open_access,
         )
 
     def _resolve_target_subdir(
@@ -62,6 +64,7 @@ class CaseLogAttachmentStorageService:
         file_name: str = "",
         source_scene: str = "manual_log_upload",
         recommendation_file_name: str = "",
+        perm_open_access: bool = False,
     ) -> str:
         normalized = str(target_subdir or "").strip()
         if normalized:
@@ -72,6 +75,7 @@ class CaseLogAttachmentStorageService:
             file_name=file_name,
             source_scene=source_scene,
             recommendation_file_name=recommendation_file_name,
+            perm_open_access=perm_open_access,
         )
         return str(recommendation.get("recommended_subdir") or self.DEFAULT_SUBDIR)
 
@@ -87,6 +91,7 @@ class CaseLogAttachmentStorageService:
         file_validator: Any | None = None,
         source_scene: str = "manual_log_upload",
         recommendation_file_name: str = "",
+        perm_open_access: bool = False,
     ) -> StoredBusinessFile:
         resolved_recommendation_file_name = str(
             recommendation_file_name or getattr(uploaded_file, "name", "") or ""
@@ -102,6 +107,7 @@ class CaseLogAttachmentStorageService:
                 file_name=str(getattr(uploaded_file, "name", "") or ""),
                 source_scene=source_scene,
                 recommendation_file_name=resolved_recommendation_file_name,
+                perm_open_access=perm_open_access,
             ),
             allowed_extensions=allowed_extensions,
             max_size_bytes=max_size_bytes,

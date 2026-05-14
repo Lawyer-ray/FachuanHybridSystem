@@ -103,6 +103,34 @@
     font-size: 12px;
     line-height: 1.4;
     color: #6b7280;
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+}
+
+.caselog-subdir-hint.is-high {
+    color: #166534;
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+}
+
+.caselog-subdir-hint.is-medium {
+    color: #92400e;
+    background: #fffbeb;
+    border-color: #fcd34d;
+}
+
+.caselog-subdir-hint.is-low {
+    color: #475569;
+    background: #f8fafc;
+    border-color: #cbd5e1;
+}
+
+.caselog-subdir-hint.is-warn {
+    color: #b45309;
+    background: #fff7ed;
+    border-color: #fdba74;
 }
 
 .caselog-material-sync-hidden {
@@ -692,12 +720,71 @@ function _caselogInitAttachmentSubdirPicker() {
         return !currentValue || currentValue === "案件日志附件" || targetInput.dataset.autoRecommended === "true";
     }
 
-    function updateHint(hintEl, text, isWarn) {
+    function getRecommendationMeta(reason) {
+        var highReasons = {
+            file_name_rule_match: true,
+            file_name_keyword_match: true,
+            source_subfolder_match: true,
+            court_sms_acceptance_match: true,
+            court_sms_fee_invoice_match: true,
+            court_sms_opponent_material_match: true,
+            court_sms_judgment_notice_match: true,
+            court_sms_opponent_material_weak_match: true
+        };
+        var mediumReasons = {
+            file_name_generic_match: true,
+            preferred_log_attachment_subdir: true,
+            matched_log_attachment_subdir: true
+        };
+        if (highReasons[reason]) {
+            return { confidence: "high", autoApply: true };
+        }
+        if (mediumReasons[reason]) {
+            return { confidence: "medium", autoApply: false };
+        }
+        return { confidence: "low", autoApply: false };
+    }
+
+    function updateHint(hintEl, text, state) {
         if (!hintEl) {
             return;
         }
         hintEl.textContent = text;
-        hintEl.style.color = isWarn ? "#b45309" : "#6b7280";
+        hintEl.classList.remove("is-high", "is-medium", "is-low", "is-warn");
+        if (state === "warn") {
+            hintEl.classList.add("is-warn");
+            return;
+        }
+        if (state === "high" || state === "medium" || state === "low") {
+            hintEl.classList.add("is-" + state);
+            return;
+        }
+        hintEl.classList.add("is-low");
+    }
+
+    function buildRecommendationHint(data, meta, selectedFileName) {
+        var recommendedSubdir = normalizePath((data && data.recommended_subdir) || "") || "根目录";
+        var matchedExisting = normalizePath((data && data.matched_existing_subdir) || "");
+        var prefix = selectedFileName
+            ? "已根据文件名识别到推荐目录："
+            : (matchedExisting ? "已根据现有目录推荐：" : "当前建议目录：");
+
+        if (meta.confidence === "high" && meta.autoApply) {
+            return {
+                state: "high",
+                text: prefix + recommendedSubdir + "，系统已自动填入，你也可以继续手动修改。"
+            };
+        }
+        if (meta.confidence === "medium") {
+            return {
+                state: "medium",
+                text: prefix + recommendedSubdir + "，但当前只达到一般置信度，系统未自动填入，请确认后手动采用或点“选择”。"
+            };
+        }
+        return {
+            state: "low",
+            text: prefix + recommendedSubdir + "，当前属于默认建议，系统未自动填入，你可以按需调整。"
+        };
     }
 
     function getRowContainer(targetInput) {
@@ -856,21 +943,17 @@ function _caselogInitAttachmentSubdirPicker() {
         try {
             var selectedFileName = (fileName || getSelectedFileName(targetInput) || "").trim();
             var data = await fetchRecommendedSubdir(selectedFileName);
-            if (shouldAutoFillSubdir(targetInput)) {
+            var meta = getRecommendationMeta((data && data.reason) || "");
+            if (meta.autoApply && shouldAutoFillSubdir(targetInput)) {
                 targetInput.value = normalizePath(data.recommended_subdir || "");
                 targetInput.dataset.autoRecommended = "true";
+            } else {
+                targetInput.dataset.autoRecommended = "false";
             }
-            updateHint(
-                hintEl,
-                selectedFileName
-                    ? "系统已根据文件名自动推荐子目录，你也可以手动修改。"
-                    : (data.matched_existing_subdir
-                        ? "系统已根据现有目录自动推荐，你也可以继续手动修改。"
-                        : "系统已给出默认推荐子目录，你也可以手动修改。"),
-                false
-            );
+            var hintMeta = buildRecommendationHint(data, meta, selectedFileName);
+            updateHint(hintEl, hintMeta.text, hintMeta.state);
         } catch (error) {
-            updateHint(hintEl, error.message || "当前无法自动推荐子目录，请手动选择。", true);
+            updateHint(hintEl, error.message || "当前无法自动推荐子目录，请手动选择。", "warn");
         }
     }
 
@@ -947,7 +1030,7 @@ function _caselogInitAttachmentSubdirPicker() {
             input.addEventListener("input", function() {
                 input.dataset.userEdited = "true";
                 input.dataset.autoRecommended = "false";
-                updateHint(hint, "已手动修改子目录，保存时将按这里的值入库。", false);
+                updateHint(hint, "已手动修改子目录，保存时将按这里的值入库。", "low");
             });
 
             applyRecommendedSubdir(input, hint);
@@ -956,8 +1039,8 @@ function _caselogInitAttachmentSubdirPicker() {
             if (fileInput && fileInput.dataset.caselogFileBound !== "true") {
                 fileInput.dataset.caselogFileBound = "true";
                 fileInput.addEventListener("change", function() {
-                    if (!shouldAutoFillSubdir(input)) {
-                        return;
+                    if (input.dataset.userEdited !== "true") {
+                        input.dataset.autoRecommended = "true";
                     }
                     applyRecommendedSubdir(input, hint, getSelectedFileName(input));
                 });

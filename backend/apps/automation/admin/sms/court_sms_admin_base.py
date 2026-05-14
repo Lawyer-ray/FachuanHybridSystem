@@ -23,6 +23,15 @@ from apps.automation.services.sms.court_sms_document_reference_service import Co
 
 logger = logging.getLogger("apps.automation")
 
+RECOMMENDATION_REASON_LABELS: dict[str, str] = {
+    "court_sms_acceptance_match": "受理通知书规则命中",
+    "court_sms_fee_invoice_match": "缴费/发票规则命中",
+    "court_sms_opponent_material_match": "对方材料强规则命中",
+    "court_sms_opponent_material_weak_match": "对方材料弱规则命中",
+    "court_sms_judgment_notice_match": "裁定/判决/通知规则命中",
+    "court_sms_other_fallback": "法院送达材料默认兜底",
+}
+
 
 def _get_case_service() -> Any:
     """获取案件服务实例(工厂函数)"""
@@ -286,6 +295,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
             file_name = ref.display_name or Path(ref.file_path).name
             file_stem = Path(file_name).stem
             file_suffix = Path(file_name).suffix
+            reason_label = RECOMMENDATION_REASON_LABELS.get(ref.recommendation_reason, ref.recommendation_reason)
 
             open_url = reverse(
                 "admin:automation_courtsms_open_document",
@@ -305,6 +315,37 @@ class CourtSMSAdminBase(admin.ModelAdmin):
                     doc_url,
                 )
 
+            archive_diagnostics_html = format_html(
+                "<div style='margin-top:8px;padding:8px 10px;background:#f8fafc;border-radius:6px;'>"
+                "{}"
+                "<div style='font-size:12px;color:#5f6b7a;'>当前归档子目录："
+                "<span style='color:#111827;font-weight:600;'>{}</span></div>"
+                "<div style='font-size:12px;color:#5f6b7a;margin-top:4px;'>系统推荐子目录："
+                "<span style='color:#111827;font-weight:600;'>{}</span></div>"
+                "{}"
+                "</div>",
+                (
+                    format_html(
+                        "<div style='font-size:12px;color:#5f6b7a;margin-bottom:4px;'>原始文书名："
+                        "<span style='color:#111827;font-weight:600;'>{}</span></div>",
+                        ref.original_name,
+                    )
+                    if ref.original_name
+                    else ""
+                ),
+                ref.archived_subdir or "未归档/未记录",
+                ref.recommended_subdir or "未给出",
+                (
+                    format_html(
+                        "<div style='font-size:12px;color:#5f6b7a;margin-top:4px;'>推荐依据："
+                        "<span style='color:#111827;font-weight:600;'>{}</span></div>",
+                        reason_label,
+                    )
+                    if reason_label
+                    else ""
+                ),
+            )
+
             parts.append(
                 format_html(
                     "<div style='margin:8px 0;padding:8px 10px;border:1px solid #e6eaf2;border-radius:6px;'>"
@@ -322,6 +363,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
                     "<button type='button' class='button' data-rename-url='{}'>重命名</button>"
                     "<span style='color:#999;'>仅修改文件名，不改文件格式</span>"
                     "</div>"
+                    "{}"
                     "</div>",
                     open_url,
                     file_name,
@@ -332,6 +374,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
                     file_stem,
                     file_suffix,
                     rename_url,
+                    archive_diagnostics_html,
                 )
             )
 
