@@ -41,6 +41,7 @@ def test_collect_case_file_paths_for_export_collects_identity_docs() -> None:
     party.client = client
 
     log_attachment = MagicMock()
+    log_attachment.relative_file_path = ""
     log_attachment.file = MagicMock()
     log_attachment.file.name = "log_attach.pdf"
 
@@ -68,6 +69,7 @@ def test_collect_case_file_paths_for_export_skips_log_attachment_without_file() 
     party.client = client
 
     log_attachment = MagicMock()
+    log_attachment.relative_file_path = ""
     log_attachment.file = None  # no file
 
     log = MagicMock()

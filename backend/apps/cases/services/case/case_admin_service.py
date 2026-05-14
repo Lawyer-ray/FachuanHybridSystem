@@ -381,7 +381,7 @@ class CaseAdminService:
     def _build_important_time_item(self, *, reminder: object, source: str) -> ImportantTimePayload:
         from apps.reminders.models import ReminderType
 
-        due_at = getattr(reminder, "due_at")
+        due_at = reminder.due_at
         due_local = timezone.localtime(due_at)
         status, status_label, relative_days_label = self._build_important_time_status(due_local)
         reminder_type = str(getattr(reminder, "reminder_type", "") or "")
@@ -391,10 +391,10 @@ class CaseAdminService:
             reminder_type_label = reminder_type
 
         source_log_id = getattr(reminder, "case_log_id", None)
-        reminder_url = reverse("admin:reminders_reminder_change", args=[getattr(reminder, "id")])
+        reminder_url = reverse("admin:reminders_reminder_change", args=[reminder.id])
         source_log_url = reverse("admin:cases_caselog_change", args=[source_log_id]) if source_log_id else ""
         return {
-            "id": int(getattr(reminder, "id")),
+            "id": reminder.id,
             "reminder_type": reminder_type,
             "reminder_type_label": reminder_type_label,
             "content": str(getattr(reminder, "content", "") or ""),
@@ -413,7 +413,7 @@ class CaseAdminService:
 
     def _build_important_time_status(self, due_local: object) -> tuple[str, str, str]:
         today = timezone.localdate()
-        due_date = getattr(due_local, "date")()
+        due_date = due_local.date()
         days_delta = (due_date - today).days
 
         if days_delta < 0:

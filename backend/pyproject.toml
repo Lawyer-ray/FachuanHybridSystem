@@ -1,6 +1,6 @@
 [project]
 name = "fachuan-backend"
-version = "26.48.8"
+version = "26.49.0"
 description = "法穿AI Copilot - Backend"
 requires-python = ">=3.12"
 dependencies = [
