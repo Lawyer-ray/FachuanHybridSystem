@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any, cast
 
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import Case, CaseLog
+from apps.cases.utils import CASE_LOG_ALLOWED_EXTENSIONS, CASE_LOG_MAX_FILE_SIZE
 from apps.core.exceptions import NotFoundError
 
 from .wiring import get_organization_service, get_reminder_service
@@ -53,19 +56,43 @@ class CaseLogInternalService:
             from apps.cases.services.log.case_log_attachment_storage_service import CaseLogAttachmentStorageService
 
             storage_service = CaseLogAttachmentStorageService()
-            relative_path = str(file_path or "").strip()
-            attachment = CaseLogAttachment.objects.create(
-                log=case_log,
-                file=relative_path,
-                storage_root_type="media",
-                subdir_path=relative_path.rsplit("/", 1)[0] if "/" in relative_path else "",
-                relative_file_path=relative_path,
-                original_filename=file_name or (relative_path.rsplit("/", 1)[-1] if relative_path else ""),
-            )
-            resolved = storage_service.resolve_attachment(attachment)
-            if not resolved.exists:
-                attachment.delete()
-                raise FileNotFoundError(file_path)
+            raw_file_path = str(file_path or "").strip()
+            source_path = Path(raw_file_path).expanduser()
+            if source_path.is_absolute() and source_path.exists():
+                uploaded_file = SimpleUploadedFile(
+                    name=file_name or source_path.name,
+                    content=source_path.read_bytes(),
+                )
+                saved = storage_service.save_attachment(
+                    uploaded_file,
+                    case_id=case_log.case_id,
+                    target_subdir="",
+                    log=case_log,
+                    allowed_extensions=list(CASE_LOG_ALLOWED_EXTENSIONS),
+                    max_size_bytes=int(CASE_LOG_MAX_FILE_SIZE),
+                )
+                attachment = CaseLogAttachment.objects.create(
+                    log=case_log,
+                    file=saved.relative_file_path,
+                    storage_root_type=saved.root_type,
+                    subdir_path=saved.subdir_path,
+                    relative_file_path=saved.relative_file_path,
+                    original_filename=saved.original_filename,
+                )
+            else:
+                relative_path = raw_file_path
+                attachment = CaseLogAttachment.objects.create(
+                    log=case_log,
+                    file=relative_path,
+                    storage_root_type="media",
+                    subdir_path=relative_path.rsplit("/", 1)[0] if "/" in relative_path else "",
+                    relative_file_path=relative_path,
+                    original_filename=file_name or (relative_path.rsplit("/", 1)[-1] if relative_path else ""),
+                )
+                resolved = storage_service.resolve_attachment(attachment)
+                if not resolved.exists:
+                    attachment.delete()
+                    raise FileNotFoundError(file_path)
             logger.info(
                 "添加案件日志附件成功",
                 extra={
@@ -131,3 +158,4 @@ class CaseLogInternalService:
             return CaseLog.objects.get(id=case_log_id)
         except CaseLog.DoesNotExist:
             return None
+

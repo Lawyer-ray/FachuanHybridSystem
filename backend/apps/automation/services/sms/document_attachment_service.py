@@ -7,11 +7,8 @@
 
 import logging
 import re
-import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
-
-from django.conf import settings
 
 if TYPE_CHECKING:
     from apps.automation.models import CourtSMS
@@ -244,12 +241,10 @@ class DocumentAttachmentService:
             return False
 
         try:
-            target_dir = Path(settings.MEDIA_ROOT) / "case_logs"
-            target_dir.mkdir(parents=True, exist_ok=True)
             success_count = 0
 
             for file_path in file_paths:
-                if self._add_single_attachment(sms, file_path, str(target_dir)):
+                if self._add_single_attachment(sms, file_path):
                     success_count += 1
 
             logger.info(f"附件添加完成: 成功 {success_count}/{len(file_paths)} 个")
@@ -259,7 +254,7 @@ class DocumentAttachmentService:
             logger.error(f"添加附件到案件日志失败: SMS ID={sms.id}, 错误: {e!s}")
             return False
 
-    def _add_single_attachment(self, sms: "CourtSMS", file_path: str, target_dir: str) -> bool:
+    def _add_single_attachment(self, sms: "CourtSMS", file_path: str) -> bool:
         """添加单个附件，返回是否成功"""
         try:
             if not Path(file_path).exists():
@@ -277,20 +272,13 @@ class DocumentAttachmentService:
                 ext = p.suffix or ".pdf"
                 renamed_filename = p.stem[: max_name_length - len(ext)] + ext
 
-            target_path = str(Path(target_dir) / renamed_filename)
-            if Path(target_path).exists():
-                target_path, renamed_filename = self._get_unique_filepath(target_dir, renamed_filename)
-
-            shutil.copy2(file_path, target_path)
-            relative_path = f"case_logs/{renamed_filename}"
-
             if not sms.case_log:
                 logger.warning(f"短信 {sms.id} 无案件日志，无法写入附件")
                 return False
 
             success = self.case_service.add_case_log_attachment_internal(
                 case_log_id=sms.case_log.id,
-                file_path=relative_path,
+                file_path=file_path,
                 file_name=renamed_filename,
             )
             if not success:
@@ -303,60 +291,6 @@ class DocumentAttachmentService:
         except Exception as e:
             logger.warning(f"添加文书附件失败: {file_path}, 错误: {e!s}")
             return False
-
-    def _get_unique_filepath(self, target_dir: str, filename: str) -> tuple[str, str]:
-        """
-        获取唯一的文件路径，如果文件已存在则在"收"字后面添加数字后缀
-
-        格式：标题（案件名称）_YYYYMMDD收.pdf -> 标题（案件名称）_YYYYMMDD收1.pdf
-
-        Args:
-            target_dir: 目标目录
-            filename: 原始文件名
-
-        Returns:
-            tuple: (完整路径, 新文件名)
-        """
-        # 尝试在"收"字后面添加数字
-        # 匹配模式：xxx收.pdf 或 xxx收N.pdf
-        match = re.match(r"^(.+收)(\d*)\.(.+)$", filename)
-
-        if match:
-            base_name = match.group(1)  # xxx收
-            existing_num = match.group(2)  # 可能为空或数字
-            ext = match.group(3)  # pdf
-
-            counter = 1
-            if existing_num:
-                counter = int(existing_num) + 1
-
-            while True:
-                new_filename = f"{base_name}{counter}.{ext}"
-                new_path = str(Path(target_dir) / new_filename)
-                if not Path(new_path).exists():
-                    return new_path, new_filename
-                counter += 1
-                if counter > 100:  # 防止无限循环
-                    break
-
-        # 降级方案：在扩展名前添加数字
-        p = Path(filename)
-        name_part, ext = p.stem, p.suffix
-        counter = 1
-        while True:
-            new_filename = f"{name_part}_{counter}{ext}"
-            new_path = str(Path(target_dir) / new_filename)
-            if not Path(new_path).exists():
-                return new_path, new_filename
-            counter += 1
-            if counter > 100:
-                # 最后的降级：使用时间戳
-                import time
-
-                timestamp = int(time.time())
-                new_filename = f"{name_part}_{timestamp}{ext}"
-                new_path = str(Path(target_dir) / new_filename)
-                return new_path, new_filename
 
     def fix_filename_format(self, filename: str, sms: "CourtSMS") -> str:
         """
@@ -483,3 +417,4 @@ class DocumentAttachmentService:
         except Exception as e:
             logger.warning(f"查找重命名文件失败: {e!s}")
             return None
+
