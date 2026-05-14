@@ -51,7 +51,7 @@ def test_court_sms_detail_endpoint_exposes_archive_diagnostics(authenticated_cli
     references = [
         CourtSMSDocumentReference(
             display_name="（2026）粤0101民初123号-判决书.pdf",
-            file_path="D:/mock/judgment.pdf",
+            file_path="/outside-media/judgment.pdf",
             source="case_log_attachment",
             original_name="判决书.pdf",
             archived_subdir="4-法院送达材料/5-其他材料",
