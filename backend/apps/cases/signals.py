@@ -18,18 +18,20 @@ logger = logging.getLogger(__name__)
 @receiver(post_delete, sender="cases.CaseLogAttachment")
 def _cleanup_log_attachment_file(sender: Any, instance: Any, **kwargs: Any) -> None:
     """删除 CaseLogAttachment 时清理物理文件。"""
-    if instance.file:
-        try:
-            instance.file.delete(save=False)
+    try:
+        from apps.cases.services.log.case_log_attachment_storage_service import CaseLogAttachmentStorageService
+
+        deleted = CaseLogAttachmentStorageService().delete_attachment_file(instance)
+        if deleted:
             logger.info(
                 "已清理日志附件物理文件",
-                extra={"attachment_id": instance.pk, "file_path": str(instance.file)},
+                extra={"attachment_id": instance.pk, "file_path": str(getattr(instance, "relative_file_path", "") or instance.file)},
             )
-        except Exception:
-            logger.exception(
-                "清理日志附件物理文件失败",
-                extra={"attachment_id": instance.pk},
-            )
+    except Exception:
+        logger.exception(
+            "清理日志附件物理文件失败",
+            extra={"attachment_id": instance.pk},
+        )
 
 
 @receiver(post_delete, sender="cases.CaseNumber")

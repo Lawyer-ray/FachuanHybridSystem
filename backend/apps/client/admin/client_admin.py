@@ -147,7 +147,7 @@ class ClientIdentityDocInlineForm(forms.ModelForm[ClientIdentityDoc]):
 class ClientIdentityDocInline(admin.TabularInline[ClientIdentityDoc]):  # type: ignore[type-arg]
     model = ClientIdentityDoc
     form = ClientIdentityDocInlineForm
-    extra = 1
+    extra = 0
     fields = ("doc_type", "file_link", "upload")  # type: ignore[assignment]
     readonly_fields = ("file_link",)  # type: ignore[assignment]
 

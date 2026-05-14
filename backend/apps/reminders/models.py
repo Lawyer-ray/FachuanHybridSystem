@@ -53,6 +53,11 @@ class Reminder(models.Model):
     reminder_type: Any = models.CharField(max_length=64, choices=ReminderType.choices, verbose_name=_("类型"))
     content: Any = models.CharField(max_length=255, verbose_name=_("提醒事项"))
     due_at: Any = models.DateTimeField(verbose_name=_("到期时间"))
+    include_in_important_time: Any = models.BooleanField(
+        default=False,
+        verbose_name=_("列入重要时间"),
+        help_text=_("同步到案件重要时间：勾选后会在案件详情的重要时间中展示，不会复制生成新数据。"),
+    )
     metadata: Any = models.JSONField(default=dict, blank=True, verbose_name=_("扩展数据"))
     created_at: Any = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
     updated_at: Any = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))

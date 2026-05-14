@@ -50,10 +50,22 @@ class CaseLogInternalService:
             raise NotFoundError(_("案件日志 %(id)s 不存在") % {"id": case_log_id}) from None
         try:
             from apps.cases.models import CaseLogAttachment
+            from apps.cases.services.log.case_log_attachment_storage_service import CaseLogAttachmentStorageService
 
-            attachment = CaseLogAttachment(log=case_log)
-            attachment.file.name = file_path
-            attachment.save()
+            storage_service = CaseLogAttachmentStorageService()
+            relative_path = str(file_path or "").strip()
+            attachment = CaseLogAttachment.objects.create(
+                log=case_log,
+                file=relative_path,
+                storage_root_type="media",
+                subdir_path=relative_path.rsplit("/", 1)[0] if "/" in relative_path else "",
+                relative_file_path=relative_path,
+                original_filename=file_name or (relative_path.rsplit("/", 1)[-1] if relative_path else ""),
+            )
+            resolved = storage_service.resolve_attachment(attachment)
+            if not resolved.exists:
+                attachment.delete()
+                raise FileNotFoundError(file_path)
             logger.info(
                 "添加案件日志附件成功",
                 extra={

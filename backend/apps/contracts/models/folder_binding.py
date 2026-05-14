@@ -24,7 +24,7 @@ class ContractFolderBinding(models.Model):
     folder_inode = models.BigIntegerField(
         null=True, blank=True, verbose_name=_("inode"), help_text=_("文件夹 inode 编号，用于路径自动修复")
     )
-    folder_device = models.IntegerField(
+    folder_device = models.BigIntegerField(
         null=True, blank=True, verbose_name=_("设备号"), help_text=_("文件夹所在设备号，与 inode 配合使用")
     )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("绑定时间"))

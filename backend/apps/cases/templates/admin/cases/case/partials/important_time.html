@@ -1,0 +1,202 @@
+{% load i18n %}
+<div class="info-card full-width" x-data="importantTimeApp()">
+    <div class="card-header">
+        <span class="card-icon">📅</span>
+        <h3 class="card-title">{% trans "重要时间" %}</h3>
+        {% if has_change_permission %}
+        <button type="button" class="btn btn-sm btn-primary" @click="openAddDialog()">
+            + {% trans "添加重要时间" %}
+        </button>
+        {% endif %}
+    </div>
+    <div class="card-content">
+        {% if important_times %}
+        <div class="table-responsive">
+            <table class="data-table important-time-table">
+                <thead>
+                    <tr>
+                        <th>{% trans "到期时间" %}</th>
+                        <th>{% trans "状态" %}</th>
+                        <th>{% trans "时间类型" %}</th>
+                        <th>{% trans "提醒事项" %}</th>
+                        <th>{% trans "来源" %}</th>
+                        <th>{% trans "操作" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in important_times %}
+                    <tr class="important-time-row{% if item.status == 'today' or item.status == 'soon' %} important-time-row--{{ item.status }}{% endif %}">
+                        <td class="important-time-due">
+                            <span class="important-time-due-main">{{ item.due_at_display }}</span>
+                            {% if item.relative_days_label %}
+                            <span class="important-time-relative">{{ item.relative_days_label }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="tag important-time-status important-time-status-{{ item.status }}">
+                                {{ item.status_label }}
+                            </span>
+                        </td>
+                        <td><span class="tag">{{ item.reminder_type_label|default:item.reminder_type }}</span></td>
+                        <td>{{ item.content }}</td>
+                        <td>
+                            {% if item.source_url %}
+                            <a href="{{ item.source_url }}" class="important-time-source-link">
+                            {% endif %}
+                            <span class="tag important-time-source important-time-source-{{ item.source }}">
+                                {{ item.source_label }}
+                            </span>
+                            {% if item.source_url %}
+                            </a>
+                            {% endif %}
+                        </td>
+                        <td class="important-time-actions">
+                            {% if has_change_permission %}
+                            <a href="{{ item.reminder_url }}"
+                               class="important-time-action-btn important-time-edit-btn"
+                               title="{% trans '编辑提醒' %}"
+                               aria-label="{% trans '编辑提醒' %}">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                            </a>
+                            <button type="button"
+                                    class="important-time-action-btn important-time-delete-btn"
+                                    title="{% trans '删除' %}"
+                                    aria-label="{% trans '删除' %}"
+                                    data-remove-url="/api/v1/reminders/{{ item.id }}/important-time"
+                                    data-confirm-message="{% trans '确认删除' %}"
+                                    onclick="removeImportantTime(this)">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                            </button>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="empty-state">{% trans "暂无重要时间" %}</p>
+        {% endif %}
+    </div>
+
+    {% if has_change_permission %}
+    <div x-show="showAddDialog" x-transition class="modal-overlay" @click.self="closeAddDialog()" style="display:none;">
+        <div class="modal-content important-time-modal">
+            <h3>{% trans "添加重要时间" %}</h3>
+            <form @submit.prevent="addImportantTime()">
+                <div class="form-group">
+                    <label>{% trans "时间类型" %} *</label>
+                    <select x-model="form.reminder_type" required class="form-control">
+                        {% for option in important_time_type_options %}
+                        <option value="{{ option.value }}">{{ option.label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>{% trans "提醒事项" %} *</label>
+                    <input type="text" x-model="form.content" required class="form-control"
+                           placeholder="{% trans '如：举证期限、开庭、保全到期' %}">
+                </div>
+                <div class="form-group">
+                    <label>{% trans "日期" %} *</label>
+                    <input type="date" x-model="form.due_date" required class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>{% trans "时间" %} *</label>
+                    <input type="time" x-model="form.due_time" required class="form-control">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" @click="closeAddDialog()">
+                        {% trans "取消" %}
+                    </button>
+                    <button type="submit" class="btn btn-primary" :disabled="submitting">
+                        <span x-show="submitting">{% trans "保存中..." %}</span>
+                        <span x-show="!submitting">{% trans "保存" %}</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function importantTimeApp() {
+    return {
+        showAddDialog: false,
+        submitting: false,
+        form: {
+            reminder_type: 'other',
+            content: '',
+            due_date: '',
+            due_time: '09:00',
+        },
+        openAddDialog() {
+            this.resetForm();
+            this.showAddDialog = true;
+        },
+        closeAddDialog() {
+            if (this.submitting) return;
+            this.showAddDialog = false;
+        },
+        resetForm() {
+            this.form = {
+                reminder_type: 'other',
+                content: '',
+                due_date: '',
+                due_time: '09:00',
+            };
+        },
+        async addImportantTime() {
+            if (!this.form.content || !this.form.due_date || !this.form.due_time || this.submitting) return;
+            this.submitting = true;
+            try {
+                const resp = await fetch(`/api/v1/reminders/cases/${window.CASE_ID}/important-time`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': (window.FachuanCSRF && FachuanCSRF.getToken && FachuanCSRF.getToken()) || '',
+                    },
+                    body: JSON.stringify({
+                        reminder_type: this.form.reminder_type,
+                        content: this.form.content,
+                        due_at: `${this.form.due_date}T${this.form.due_time}:00`,
+                    }),
+                });
+                if (!resp.ok) {
+                    const err = await resp.json().catch(() => ({}));
+                    throw new Error(err.detail || '{% trans "保存失败" %}');
+                }
+                localStorage.setItem('caseDetailTab', 'important_time');
+                window.location.reload();
+            } catch (err) {
+                alert('{% trans "保存失败" %}: ' + (err.message || ''));
+            } finally {
+                this.submitting = false;
+            }
+        },
+    };
+}
+
+function removeImportantTime(btnEl) {
+    if (!btnEl || btnEl.disabled) return;
+    var message = btnEl.dataset.confirmMessage || '{% trans "是否确认" %}';
+    if (!confirm(message)) return;
+
+    btnEl.disabled = true;
+    fetch(btnEl.dataset.removeUrl, {
+        method: 'DELETE',
+        headers: { 'X-CSRFToken': (window.FachuanCSRF && FachuanCSRF.getToken && FachuanCSRF.getToken()) || '' }
+    }).then(function(resp) {
+        if (!resp.ok) {
+            throw new Error(resp.statusText || 'Request failed');
+        }
+        window.location.reload();
+    }).catch(function(err) {
+        alert('{% trans "操作失败" %}: ' + (err.message || ''));
+        btnEl.disabled = false;
+    });
+}
+</script>

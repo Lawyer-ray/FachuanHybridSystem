@@ -3,9 +3,9 @@
 
 {% block extrahead %}
 {{ block.super }}
-<link rel="stylesheet" type="text/css" href="{% static 'cases/css/case_detail.css' %}?v=20260507a">
+<link rel="stylesheet" type="text/css" href="{% static 'cases/css/case_detail.css' %}?v=20260512a">
 <link rel="stylesheet" type="text/css" href="{% static 'cases/css/litigation_generation.css' %}?v=20250118">
-<link rel="stylesheet" type="text/css" href="{% static 'cases/css/case_materials.css' %}?v=20260409b">
+<link rel="stylesheet" type="text/css" href="{% static 'cases/css/case_materials.css' %}?v=20260513a">
 {% endblock %}
 
 {% block extrastyle %}
@@ -75,6 +75,9 @@
             <button type="button" @click="activeTab = 'progress'" :class="{ active: activeTab === 'progress' }">
                 {% trans "案件进展" %}
             </button>
+            <button type="button" @click="activeTab = 'important_time'" :class="{ active: activeTab === 'important_time' }">
+                {% trans "重要时间" %}
+            </button>
             <button type="button" @click="activeTab = 'documents'" :class="{ active: activeTab === 'documents' }">
                 {% trans "文档生成" %}
             </button>
@@ -108,6 +111,11 @@
             <!-- 案件进展标签页 -->
             <div x-show="activeTab === 'progress'" x-transition>
                 {% include "admin/cases/case/partials/progress.html" %}
+            </div>
+
+            <!-- 重要时间标签页 -->
+            <div x-show="activeTab === 'important_time'" x-transition>
+                {% include "admin/cases/case/partials/important_time.html" %}
             </div>
 
             <!-- 文档生成标签页 -->

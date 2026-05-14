@@ -181,9 +181,6 @@ class ContractAdmin(
         FinalizedMaterialInline,
     ]
 
-    class Media:
-        js = ("cases/admin_case_form.js",)
-
     change_form_template = "admin/contracts/contract/change_form.html"
     change_list_template = "admin/contracts/contract/change_list.html"
 
@@ -524,7 +521,7 @@ class ContractAdmin(
 
     def serialize_queryset(self, queryset: QuerySet[Contract]) -> list[dict[str, Any]]:
         result = []
-        for obj in queryset.prefetch_related(
+        for obj in queryset.prefetch_related(None).prefetch_related(
             # 合同当事人 + 客户（含证件、财产线索）
             Prefetch(
                 "contract_parties",

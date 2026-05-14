@@ -48,6 +48,14 @@ class ReminderIn(Schema):
         return self
 
 
+class CaseImportantTimeCreateIn(Schema):
+    reminder_type: ReminderType = ReminderType.OTHER
+    content: str = Field(max_length=_CONTENT_MAX_LENGTH)
+    due_at: datetime
+
+    _validate_content = field_validator("content")(_validate_content_not_blank)
+
+
 class ReminderUpdate(Schema):
     contract_id: int | None = None
     case_id: int | None = None

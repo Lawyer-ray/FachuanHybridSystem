@@ -16,6 +16,7 @@ from apps.cases.models import CaseFolderBinding, CaseLog, CaseLogAttachment
 from apps.cases.utils import CASE_LOG_ALLOWED_EXTENSIONS, CASE_LOG_MAX_FILE_SIZE
 from apps.core.exceptions import NotFoundError, ValidationException
 
+from .case_log_attachment_storage_service import CaseLogAttachmentStorageService
 from .case_log_mutation_service import CaseLogMutationService
 from .case_log_query_service import CaseLogQueryService
 
@@ -35,9 +36,11 @@ class EmailFolderScanService:
         self,
         mutation_service: CaseLogMutationService | None = None,
         query_service: CaseLogQueryService | None = None,
+        attachment_storage_service: CaseLogAttachmentStorageService | None = None,
     ) -> None:
         self._mutation_service = mutation_service
         self._query_service = query_service
+        self._attachment_storage_service = attachment_storage_service
 
     @property
     def mutation_service(self) -> CaseLogMutationService:
@@ -50,6 +53,12 @@ class EmailFolderScanService:
         if self._query_service is None:
             self._query_service = CaseLogQueryService()
         return self._query_service
+
+    @property
+    def attachment_storage_service(self) -> CaseLogAttachmentStorageService:
+        if self._attachment_storage_service is None:
+            self._attachment_storage_service = CaseLogAttachmentStorageService()
+        return self._attachment_storage_service
 
     # ------------------------------------------------------------------
     # 公共接口
@@ -266,7 +275,21 @@ class EmailFolderScanService:
                 name=file_path.name,
                 content=file_content,
             )
-            attachment = CaseLogAttachment.objects.create(log=log, file=uploaded_file)
+            saved = self.attachment_storage_service.save_attachment(
+                uploaded_file,
+                case_id=log.case_id,
+                target_subdir="案件日志附件/邮件导入",
+                allowed_extensions=list(CASE_LOG_ALLOWED_EXTENSIONS),
+                max_size_bytes=int(CASE_LOG_MAX_FILE_SIZE),
+            )
+            attachment = CaseLogAttachment.objects.create(
+                log=log,
+                file=saved.legacy_file_path,
+                storage_root_type=saved.root_type,
+                subdir_path=saved.subdir_path,
+                relative_file_path=saved.relative_file_path,
+                original_filename=saved.original_filename,
+            )
             logger.info(f"附件上传成功: {file_path.name} -> 日志 {log.id}")
             return attachment
         except Exception:

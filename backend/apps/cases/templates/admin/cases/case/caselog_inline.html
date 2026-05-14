@@ -61,8 +61,8 @@
                         <div class="log-attachments">
                             <span class="attachment-label">{% trans "附件" %}：</span>
                             {% for attachment in inline_admin_form.original.attachments.all %}
-                            <a href="{{ attachment.file.url }}" target="_blank" class="attachment-link">
-                                {{ attachment.file.name|cut:"case_logs/" }}
+                            <a href="{% url 'admin:cases_case_preview_log_attachment' inline_admin_form.original.case_id attachment.id %}" target="_blank" class="attachment-link">
+                                {{ attachment.original_filename|default:attachment.file.name }}
                             </a>
                             {% endfor %}
                         </div>

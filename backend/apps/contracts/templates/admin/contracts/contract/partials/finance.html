@@ -116,8 +116,15 @@
         <div class="card-header">
             <span class="card-icon">📋</span>
             <h3 class="card-title">{% trans "律师费收款记录" %}</h3>
-            {% if payments %}
-            <span style="margin-left: auto; font-size: 12px; color: #6b7280;">{{ payments|length }} {% trans "笔" %} · {% trans "累计" %} ¥{{ total_payment_amount|floatformat:2|default:"0.00" }}</span>
+            <span class="card-header-meta">
+                {% if payments %}
+                {{ payments|length }} {% trans "笔" %} · {% trans "累计" %} ¥{{ total_payment_amount|floatformat:2|default:"0.00" }}
+                {% endif %}
+            </span>
+            {% if has_change_permission %}
+            <button type="button" class="btn btn-primary btn-compact" @click="openCreatePaymentDialog()">
+                {% trans "新增收款" %}
+            </button>
             {% endif %}
         </div>
         {% if payments %}
@@ -125,10 +132,40 @@
             {% load contract_tags %}
             {% for payment in payments %}
             <div class="payment-item">
-                <span class="payment-date">{{ payment.received_at|date:"Y-m-d" }}</span>
-                <span class="payment-amount">¥{{ payment.amount|floatformat:2 }}</span>
-                <span class="invoice-status invoice-{{ payment.invoice_status|lower }}">{{ payment.get_invoice_status_display }}</span>
-                {% if payment.note %}<span class="payment-note">{{ payment.note }}</span>{% endif %}
+                <div class="payment-item-main">
+                    <span class="payment-date">{{ payment.received_at|date:"Y-m-d" }}</span>
+                    <span class="payment-amount">¥{{ payment.amount|floatformat:2 }}</span>
+                    <span class="invoice-status invoice-{{ payment.invoice_status|lower }}">{{ payment.get_invoice_status_display }}</span>
+                    <span class="payment-inline-meta">{% trans "已开票" %} ¥{{ payment.invoiced_amount|floatformat:2 }}</span>
+                    {% if payment.note %}<span class="payment-note">{{ payment.note }}</span>{% endif %}
+                </div>
+                {% if has_change_permission %}
+                <div class="payment-item-actions">
+                    <button
+                        type="button"
+                        class="payment-action-button"
+                        data-id="{{ payment.id }}"
+                        data-amount="{{ payment.amount|floatformat:2 }}"
+                        data-received-at="{{ payment.received_at|date:'Y-m-d' }}"
+                        data-invoice-status="{{ payment.invoice_status }}"
+                        data-invoiced-amount="{{ payment.invoiced_amount|floatformat:2 }}"
+                        data-note="{{ payment.note|default:''|escape }}"
+                        @click="openEditPaymentDialogFromTrigger($event)"
+                    >
+                        {% trans "编辑" %}
+                    </button>
+                    <button
+                        type="button"
+                        class="payment-action-button danger"
+                        data-id="{{ payment.id }}"
+                        data-amount="{{ payment.amount|floatformat:2 }}"
+                        data-received-at="{{ payment.received_at|date:'Y-m-d' }}"
+                        @click="openDeletePaymentDialogFromTrigger($event)"
+                    >
+                        {% trans "删除" %}
+                    </button>
+                </div>
+                {% endif %}
             </div>
             {% with inv_list=invoices_by_payment|get_item:payment.id %}
             {% if inv_list %}
@@ -149,6 +186,71 @@
         <p class="empty-state">{% trans "暂无收款记录" %}</p>
         {% endif %}
     </div>
+
+    {% if has_change_permission %}
+    <div class="modal-overlay" x-show="paymentDialogOpen" x-cloak @click.self="closePaymentDialog()">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3 x-text='paymentDialogMode === "edit" ? "Edit payment" : "Create payment"'></h3>
+                <button type="button" class="modal-close" @click="closePaymentDialog()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label" for="payment-amount">{% trans "收款金额" %}</label>
+                        <input id="payment-amount" type="number" min="0" step="0.01" class="form-control" x-model.trim="paymentForm.amount">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="payment-received-at">{% trans "收款日期" %}</label>
+                        <input id="payment-received-at" type="date" class="form-control" x-model="paymentForm.received_at">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="payment-invoice-status">{% trans "开票状态" %}</label>
+                        <select id="payment-invoice-status" class="form-control" x-model="paymentForm.invoice_status">
+                            <option value="UNINVOICED">{% trans "未开票" %}</option>
+                            <option value="INVOICED_PARTIAL">{% trans "部分开票" %}</option>
+                            <option value="INVOICED_FULL">{% trans "已开票" %}</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="payment-invoiced-amount">{% trans "已开票金额" %}</label>
+                        <input id="payment-invoiced-amount" type="number" min="0" step="0.01" class="form-control" x-model.trim="paymentForm.invoiced_amount">
+                    </div>
+                    <div class="form-group form-group-full">
+                        <label class="form-label" for="payment-note">{% trans "备注" %}</label>
+                        <textarea id="payment-note" rows="4" class="form-control form-textarea" x-model="paymentForm.note"></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @click="closePaymentDialog()" :disabled="paymentSubmitting">{% trans "取消" %}</button>
+                <button type="button" class="btn btn-primary" @click="submitPayment()" :disabled="paymentSubmitting">
+                    <span x-show="!paymentSubmitting">{% trans "保存" %}</span>
+                    <span x-show="paymentSubmitting">{% trans "保存中..." %}</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" x-show="deletePaymentDialogOpen" x-cloak @click.self="closeDeletePaymentDialog()">
+        <div class="modal-dialog modal-dialog-sm">
+            <div class="modal-header">
+                <h3>{% trans "确认删除收款记录" %}</h3>
+                <button type="button" class="modal-close" @click="closeDeletePaymentDialog()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-hint" x-text="deletePaymentSummary"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @click="closeDeletePaymentDialog()" :disabled="paymentDeleting">{% trans "取消" %}</button>
+                <button type="button" class="btn btn-danger" @click="deletePayment()" :disabled="paymentDeleting">
+                    <span x-show="!paymentDeleting">{% trans "确认删除" %}</span>
+                    <span x-show="paymentDeleting">{% trans "删除中..." %}</span>
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- 客户回款卡片 -->
     <div class="info-card" style="margin-top: 20px;">

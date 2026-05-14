@@ -12,6 +12,7 @@ from ninja import Router
 from apps.core.api.schema_utils import schema_to_update_dict
 
 from ..schemas import (
+    CaseImportantTimeCreateIn,
     ParsedReminderOut,
     ParseReminderIn,
     ReminderIn,
@@ -76,6 +77,20 @@ def create_reminder(request: Any, payload: ReminderIn) -> Any:
     )
 
 
+@router.post("/cases/{case_id}/important-time", response=ReminderOut)
+def create_case_important_time(request: Any, case_id: int, payload: CaseImportantTimeCreateIn) -> Any:
+    user = getattr(request, "user", None)
+    if not getattr(user, "is_authenticated", False) or not getattr(user, "is_staff", False):
+        return HttpResponse(status=403)
+    return _get_reminder_service().create_reminder(
+        case_id=case_id,
+        reminder_type=payload.reminder_type,
+        content=payload.content,
+        due_at=payload.due_at,
+        include_in_important_time=True,
+    )
+
+
 # 注意:/types 和 /target-options 必须在 /{reminder_id} 之前,否则会被当作 reminder_id 参数
 @router.get("/types", response=list[ReminderTypeItem])
 def get_types(request: Any) -> Any:
@@ -136,6 +151,15 @@ def get_target_options(request: Any, q: str = "") -> Any:
             merged_items.extend(group_items)
 
     return {"items": merged_items, "groups": groups}
+
+
+@router.delete("/{reminder_id}/important-time")
+def remove_from_important_time(request: Any, reminder_id: int) -> HttpResponse:
+    user = getattr(request, "user", None)
+    if not getattr(user, "is_authenticated", False) or not getattr(user, "is_staff", False):
+        return HttpResponse(status=403)
+    _get_reminder_service().remove_from_important_time(reminder_id)
+    return HttpResponse(status=204)
 
 
 @router.get("/{reminder_id}", response=ReminderOut)

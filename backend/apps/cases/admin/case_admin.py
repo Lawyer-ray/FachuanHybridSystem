@@ -33,6 +33,7 @@ from apps.cases.models import (
 )
 from apps.contacts.admin import CaseContactInline
 from apps.core.admin.mixins import AdminImportExportMixin
+from apps.reminders.models import Reminder
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet
@@ -46,7 +47,7 @@ class CasePartyInline(BaseTabularInline):
     model = CaseParty
     form = CasePartyInlineForm
     formset = CasePartyInlineFormSet
-    extra = 1
+    extra = 0
     fields = ("client", "legal_status")
     autocomplete_fields = ("client",)
     classes = ["contract-party-inline"]
@@ -111,7 +112,7 @@ class CasePartyInline(BaseTabularInline):
 
 class CaseAssignmentInline(BaseTabularInline):
     model = CaseAssignment
-    extra = 1
+    extra = 0
 
 
 class SupervisingAuthorityInline(BaseTabularInline):
@@ -119,7 +120,7 @@ class SupervisingAuthorityInline(BaseTabularInline):
 
     model = SupervisingAuthority
     form = SupervisingAuthorityInlineForm
-    extra = 1
+    extra = 0
     fields = ("name", "authority_type")
 
 
@@ -130,7 +131,7 @@ class CaseLogAttachmentInline(BaseTabularInline):
 
 class CaseNumberInline(BaseStackedInline):
     model = CaseNumber
-    extra = 1
+    extra = 0
     fieldsets = (
         (
             None,
@@ -155,6 +156,23 @@ class CaseNumberInline(BaseStackedInline):
             },
         ),
     )
+
+
+class CaseImportantTimeInline(BaseTabularInline):
+    model = Reminder
+    extra = 0
+    fields = ("reminder_type", "content", "due_at")
+    verbose_name = "重要时间"
+    verbose_name_plural = "重要时间"
+    ordering = ("due_at", "id")
+
+    def get_queryset(self, request: HttpRequest) -> QuerySet[Reminder]:
+        return (
+            super()
+            .get_queryset(request)
+            .filter(contract_id__isnull=True, case_log_id__isnull=True)
+            .order_by("due_at", "id")
+        )
 
 
 class CaseLogInline(BaseStackedInline):
@@ -277,6 +295,7 @@ class CaseAdmin(
         CaseAssignmentInline,
         SupervisingAuthorityInline,
         CaseNumberInline,
+        CaseImportantTimeInline,
         CaseChatInline,
         CaseLogInline,
         CaseContactInline,

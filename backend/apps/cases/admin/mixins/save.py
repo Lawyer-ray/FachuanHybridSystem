@@ -15,6 +15,7 @@ from django.http import HttpRequest
 from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import Case, CaseLog
+from apps.reminders.models import Reminder
 
 from .service import CaseAdminServiceMixin
 
@@ -171,6 +172,8 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
                 user_id = getattr(request.user, "id", None)
                 if user_id is not None:
                     obj.actor_id = user_id
+            if isinstance(obj, Reminder) and obj.case_id and not obj.case_log_id and not obj.contract_id:
+                obj.include_in_important_time = True
             obj.save()
         formset.save_m2m()
         for obj in formset.deleted_objects:

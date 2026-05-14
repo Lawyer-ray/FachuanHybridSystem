@@ -72,3 +72,21 @@ class FolderBrowseResponseSchema(Schema):
     path: str | None = None
     parent_path: str | None = None
     entries: list[FolderBrowseEntrySchema]
+
+
+class ContractStorageSubdirEntrySchema(Schema):
+    name: str
+    relative_path: str
+
+
+class ContractStorageSubdirBrowseResponseSchema(Schema):
+    root_path: str
+    current_path: str = ""
+    parent_path: str | None = None
+    entries: list[ContractStorageSubdirEntrySchema]
+
+
+class ContractStorageSubdirRecommendResponseSchema(Schema):
+    recommended_subdir: str
+    matched_existing_subdir: str | None = None
+    reason: str = ""

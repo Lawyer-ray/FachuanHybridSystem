@@ -72,11 +72,20 @@ class CaseLogAttachmentOut(ModelSchema, SchemaMixin):
 
     @staticmethod
     def resolve_file_path(obj: CaseLogAttachment) -> str | None:
-        return SchemaMixin._get_file_path(obj.file)
+        return str(getattr(obj, "relative_file_path", "") or SchemaMixin._get_file_path(obj.file) or "") or None
 
     @staticmethod
     def resolve_media_url(obj: CaseLogAttachment) -> str | None:
-        return SchemaMixin._get_file_url(obj.file)
+        file_url = SchemaMixin._get_file_url(obj.file)
+        if file_url:
+            return file_url
+        case_id = getattr(obj, "case_id", None)
+        if case_id is None:
+            log = getattr(obj, "log", None)
+            case_id = getattr(log, "case_id", None)
+        if getattr(obj, "id", None) and case_id:
+            return f"/admin/cases/case/{case_id}/preview-log-attachment/{obj.id}/"
+        return None
 
     @staticmethod
     def resolve_uploaded_at(obj: CaseLogAttachment) -> datetime | None:

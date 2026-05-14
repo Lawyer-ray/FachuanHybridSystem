@@ -7,6 +7,7 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, cast
 
 from django.db import models, transaction
+from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import (
@@ -17,6 +18,7 @@ from apps.cases.models import (
     CaseMaterialSide,
     CaseMaterialType,
     CaseParty,
+    SupervisingAuthority,
 )
 from apps.core.exceptions import NotFoundError, ValidationException
 
@@ -24,6 +26,8 @@ if TYPE_CHECKING:
     from apps.cases.services.case.case_query_service import CaseQueryService
 
 logger = logging.getLogger(__name__)
+
+OTHER_MATERIAL_TYPE_NAME = "其它材料"
 
 
 class CaseMaterialService:
@@ -90,6 +94,100 @@ class CaseMaterialService:
                 perm_open_access=perm_open_access,
             ),
         )
+
+    def sync_attachment_to_material(
+        self,
+        *,
+        attachment_id: int,
+        include: bool,
+        category: str = "",
+        side: str | None = None,
+        party_ids: Sequence[Any] | None = None,
+        supervising_authority_id: int | None = None,
+        type_id: int | None = None,
+        type_name: str = "",
+        user: Any | None = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
+    ) -> CaseMaterial | None:
+        """Create/update/remove the material binding for a log attachment.
+
+        The attachment remains the source of truth. Removing the material binding
+        never deletes the log attachment or its physical file.
+        """
+        try:
+            attachment = CaseLogAttachment.objects.select_related("log__case").get(pk=attachment_id)
+        except CaseLogAttachment.DoesNotExist:
+            raise NotFoundError(_("附件不存在")) from None
+
+        case_id = int(attachment.log.case_id)
+        self._case_service.get_case(case_id, user=user, org_access=org_access, perm_open_access=perm_open_access)
+
+        if not include:
+            CaseMaterial.objects.filter(source_attachment_id=attachment.id).delete()
+            return None
+
+        category = str(category or "").strip()
+        if category not in {CaseMaterialCategory.PARTY, CaseMaterialCategory.NON_PARTY}:
+            raise ValidationException(message=_("材料大类不合法"), errors={"category": category})
+
+        type_name = str(type_name or "").strip()
+        law_firm_id = getattr(user, "law_firm_id", None) if user else None
+        resolved_type = self._resolve_type(
+            category=category,
+            type_id=type_id,
+            type_name=type_name,
+            law_firm_id=law_firm_id,
+        )
+
+        parties_by_id = {
+            p.id: p for p in CaseParty.objects.filter(case_id=case_id).select_related("client").all()
+        }
+        normalized_side = str(side or "").strip() or None
+        normalized_authority_id = None
+        normalized_party_ids: list[int] = []
+
+        if category == CaseMaterialCategory.PARTY:
+            if normalized_side not in {CaseMaterialSide.OUR, CaseMaterialSide.OPPONENT}:
+                raise ValidationException(message=_("当事人方向不合法"), errors={"side": normalized_side})
+            normalized_party_ids = self._validate_party_ids(party_ids or [], parties_by_id, normalized_side)
+        else:
+            normalized_side = None
+            if not supervising_authority_id:
+                raise ValidationException(
+                    message=_("必须选择主管机关"),
+                    errors={"supervising_authority_id": "required"},
+                )
+            normalized_authority_id = int(supervising_authority_id)
+            authority_exists = SupervisingAuthority.objects.filter(
+                id=normalized_authority_id,
+                case_id=case_id,
+            ).exists()
+            if not authority_exists:
+                raise ValidationException(
+                    message=_("主管机关不属于该案件"),
+                    errors={"supervising_authority_id": normalized_authority_id},
+                )
+
+        with transaction.atomic():
+            display_type_name = type_name if resolved_type.name == OTHER_MATERIAL_TYPE_NAME and type_name else resolved_type.name
+            material, _created = CaseMaterial.objects.update_or_create(
+                source_attachment=attachment,
+                defaults={
+                    "case_id": case_id,
+                    "category": category,
+                    "type": resolved_type,
+                    "type_name": display_type_name,
+                    "side": normalized_side,
+                    "supervising_authority_id": normalized_authority_id,
+                },
+            )
+            if category == CaseMaterialCategory.PARTY:
+                material.parties.set(normalized_party_ids)
+            else:
+                material.parties.clear()
+            self._ensure_group_order_for_material(material)
+        return material
 
     def get_case_materials_view(
         self,
@@ -186,12 +284,16 @@ class CaseMaterialService:
         type_name: str,
         law_firm_id: int | None,
     ) -> CaseMaterialType:
+        type_name = str(type_name or "").strip()
         if type_id:
             try:
                 t = CaseMaterialType.objects.get(id=int(type_id), category=category, is_active=True)
             except CaseMaterialType.DoesNotExist:
                 raise ValidationException(message=_("材料类型不存在"), errors={"type_id": type_id}) from None
             return t
+
+        if not type_name:
+            raise ValidationException(message=_("材料类型名称不能为空"), errors={"type_name": "required"})
 
         qs = CaseMaterialType.objects.filter(category=category, name=type_name, is_active=True).order_by(
             models.Case(
@@ -205,11 +307,45 @@ class CaseMaterialService:
         if t:
             return t
 
-        return CaseMaterialType.objects.create(
+        fallback = CaseMaterialType.objects.filter(
             category=category,
-            name=type_name,
-            law_firm_id=law_firm_id,
+            name=OTHER_MATERIAL_TYPE_NAME,
             is_active=True,
+            law_firm_id__isnull=True,
+        ).first()
+        if fallback:
+            return fallback
+
+        raise ValidationException(message=_("材料类型不存在"), errors={"type_name": type_name})
+
+    def _ensure_group_order_for_material(self, material: CaseMaterial) -> None:
+        if not material.type_id:
+            return
+        existing = CaseMaterialGroupOrder.objects.filter(
+            case_id=material.case_id,
+            category=material.category,
+            side=material.side,
+            supervising_authority_id=material.supervising_authority_id,
+            type_id=material.type_id,
+        ).exists()
+        if existing:
+            return
+        max_index = (
+            CaseMaterialGroupOrder.objects.filter(
+                case_id=material.case_id,
+                category=material.category,
+                side=material.side,
+                supervising_authority_id=material.supervising_authority_id,
+            ).aggregate(max_sort=models.Max("sort_index"))["max_sort"]
+            or -1
+        )
+        CaseMaterialGroupOrder.objects.create(
+            case_id=material.case_id,
+            category=material.category,
+            side=material.side,
+            supervising_authority_id=material.supervising_authority_id,
+            type_id=material.type_id,
+            sort_index=max_index + 1,
         )
 
     def _validate_party_ids(
@@ -272,8 +408,6 @@ class CaseMaterialService:
 
     def _material_item_payload(self, m: CaseMaterial) -> dict[str, Any]:
         att = m.source_attachment
-        file_name = getattr(getattr(att, "file", None), "name", "") if att else ""
-        url = getattr(getattr(att, "file", None), "url", "") if att else ""
         uploaded_at = getattr(att, "uploaded_at", None)
         party_labels = []
         for p in m.parties.all():
@@ -282,11 +416,30 @@ class CaseMaterialService:
         return {
             "material_id": m.id,
             "attachment_id": m.source_attachment_id,
-            "file_name": (file_name or "").rsplit("/", 1)[-1],
-            "file_url": url or "",
+            "file_name": self._attachment_display_filename(att),
+            "file_url": self._attachment_preview_url(m.case_id, m.source_attachment_id),
             "uploaded_at": uploaded_at,
             "party_labels": party_labels,
         }
+
+    def _attachment_display_filename(self, attachment: CaseLogAttachment | None) -> str:
+        if attachment is None:
+            return ""
+        candidates = (
+            getattr(attachment, "original_filename", ""),
+            getattr(attachment, "relative_file_path", ""),
+            getattr(getattr(attachment, "file", None), "name", ""),
+        )
+        for candidate in candidates:
+            filename = str(candidate or "").replace("\\", "/").rsplit("/", 1)[-1].strip()
+            if filename:
+                return filename
+        return ""
+
+    def _attachment_preview_url(self, case_id: int | None, attachment_id: int | None) -> str:
+        if not case_id or not attachment_id:
+            return ""
+        return reverse("admin:cases_case_preview_log_attachment", args=[case_id, attachment_id])
 
     def replace_material_file(
         self,

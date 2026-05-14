@@ -67,11 +67,12 @@ class ReminderAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
         "contract",
         "case",
         "case_log",
+        "include_in_important_time",
         "created_at",
         "updated_at",
     )
     list_display_links = ("id", "content")
-    list_filter = ("reminder_type", "created_at")
+    list_filter = ("reminder_type", "include_in_important_time", "created_at")
     search_fields = ("content",)
     list_select_related = ("contract", "case", "case_log")
     autocomplete_fields = ["contract", "case", "case_log"]
@@ -92,6 +93,7 @@ class ReminderAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
                     "contract",
                     "case",
                     "case_log",
+                    "include_in_important_time",
                     "metadata_display",
                 ),
             },

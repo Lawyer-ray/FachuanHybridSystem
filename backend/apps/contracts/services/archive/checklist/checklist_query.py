@@ -27,16 +27,17 @@ def get_checklist_with_status(contract: Contract) -> dict[str, Any]:
     checklist_items = ARCHIVE_CHECKLIST.get(archive_category, [])
 
     materials = list(
-        FinalizedMaterial.objects.filter(contract=contract)
-        .only(
+        FinalizedMaterial.objects.filter(contract=contract).only(
             "id",
             "archive_item_code",
             "category",
             "original_filename",
             "order",
             "file_path",
-        )
-        .order_by("order", "-uploaded_at")
+            "storage_root_type",
+            "subdir_path",
+            "relative_file_path",
+        ).order_by("order", "-uploaded_at")
     )
 
     code_to_materials: dict[str, list[int]] = {}
@@ -56,6 +57,9 @@ def get_checklist_with_status(contract: Contract) -> dict[str, Any]:
                     "source_label": _get_source_label(m.category),
                     "order": m.order,
                     "file_path": m.file_path,
+                    "storage_root_type": m.storage_root_type,
+                    "subdir_path": m.subdir_path,
+                    "relative_file_path": m.relative_file_path,
                 }
             )
 

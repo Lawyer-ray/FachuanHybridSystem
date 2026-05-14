@@ -1,0 +1,88 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+    › <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+    › <a href="{% url 'admin:cases_case_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+    {% if case %}
+        › <a href="{% url 'admin:cases_case_detail' case.pk %}">{{ case.name }}</a>
+    {% endif %}
+    › {{ title }}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="attachment-preview-error">
+    <div class="attachment-preview-error-card">
+        <div class="attachment-preview-error-mark">!</div>
+        <div>
+            <h1>{{ title }}</h1>
+            <p class="attachment-preview-error-message">{{ message }}</p>
+            {% if filename %}
+                <p class="attachment-preview-error-meta">{% trans "文件名" %}：{{ filename }}</p>
+            {% endif %}
+            {% if detail %}
+                <p class="attachment-preview-error-detail">{{ detail }}</p>
+            {% endif %}
+            <div class="attachment-preview-error-actions">
+                {% if case %}
+                    <a class="button default" href="{% url 'admin:cases_case_detail' case.pk %}">{% trans "返回案件详情" %}</a>
+                {% endif %}
+                <a class="button" href="{% url 'admin:cases_case_changelist' %}">{% trans "返回案件列表" %}</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+  .attachment-preview-error {
+    max-width: 760px;
+    margin: 32px auto;
+  }
+  .attachment-preview-error-card {
+    display: flex;
+    gap: 18px;
+    padding: 24px;
+    border: 1px solid #fee2e2;
+    border-radius: 14px;
+    background: #fff7f7;
+    box-shadow: 0 8px 28px rgba(17, 24, 39, 0.06);
+  }
+  .attachment-preview-error-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 999px;
+    background: #fee2e2;
+    color: #b91c1c;
+    font-weight: 800;
+    flex: 0 0 auto;
+  }
+  .attachment-preview-error h1 {
+    margin: 0 0 8px;
+    font-size: 20px;
+    color: #111827;
+  }
+  .attachment-preview-error-message {
+    margin: 0 0 12px;
+    color: #374151;
+    line-height: 1.7;
+  }
+  .attachment-preview-error-meta,
+  .attachment-preview-error-detail {
+    margin: 8px 0 0;
+    color: #6b7280;
+    overflow-wrap: anywhere;
+  }
+  .attachment-preview-error-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 18px;
+  }
+</style>
+{% endblock %}

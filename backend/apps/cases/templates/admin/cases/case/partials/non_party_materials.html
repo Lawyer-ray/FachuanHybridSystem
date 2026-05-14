@@ -50,7 +50,10 @@
                                                rel="noopener"
                                                data-uploaded-at="{{ item.uploaded_at|date:'c' }}"
                                                data-material-id="{{ item.material_id }}">
-                                                <span class="material-file-name">{{ item.file_name }}</span>
+                                                <span class="material-file-title-row">
+                                                    <span class="material-file-name">{{ item.file_name }}</span>
+                                                    <span class="material-file-open-hint">{% trans "预览" %}</span>
+                                                </span>
                                                 <span class="material-file-meta">
                                                     <span class="material-file-time">{{ item.uploaded_at|date:"Y-m-d H:i" }}</span>
                                                 </span>

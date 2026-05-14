@@ -1,13 +1,13 @@
-"""归档文书生成 + 预览。"""
+"""归档文书生成与预览。"""
 
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import Any
 
 from apps.contracts.models import Contract
 from apps.contracts.models.finalized_material import FinalizedMaterial, MaterialCategory
+from apps.contracts.services.contract.integrations.material_service import MaterialService
 
 from ..category_mapping import get_archive_category
 from ..constants import ARCHIVE_CHECKLIST, ChecklistItem
@@ -17,7 +17,7 @@ logger = logging.getLogger("apps.contracts.archive")
 
 
 def preview_archive_template(contract_id: int, template_subtype: str) -> dict[str, Any]:
-    """预览归档文书占位符替换词。"""
+    """预览归档文书占位符替换结果。"""
     contract = Contract.objects.filter(pk=contract_id).first()
     if not contract:
         return {"success": False, "error": "合同不存在"}
@@ -27,53 +27,38 @@ def preview_archive_template(contract_id: int, template_subtype: str) -> dict[st
         return {"success": False, "error": f"模板文件不存在: {template_subtype}"}
 
     from apps.documents.services.generation.pipeline import DocxPreviewService, PipelineContextBuilder
-
-    case = contract.cases.select_related(
-        "contract",
-    ).prefetch_related(
-        "supervising_authorities", "case_numbers", "assignments__lawyer", "parties__client",
-    ).first()
-
-    context_builder = PipelineContextBuilder()
-    context = context_builder.build_archive_context(contract, case)
-
     from apps.contracts.models.archive_override import ArchivePlaceholderOverride
 
-    override_obj = ArchivePlaceholderOverride.objects.filter(
-        contract=contract,
-        template_subtype=template_subtype,
+    case = contract.cases.select_related("contract").prefetch_related(
+        "supervising_authorities",
+        "case_numbers",
+        "assignments__lawyer",
+        "parties__client",
     ).first()
+
+    context = PipelineContextBuilder().build_archive_context(contract, case)
+    override_obj = ArchivePlaceholderOverride.objects.filter(contract=contract, template_subtype=template_subtype).first()
     has_overrides = bool(override_obj and override_obj.overrides)
 
     _apply_overrides(context, contract, template_subtype)
-
     rows = DocxPreviewService().preview(str(template_path), context)
     return {"success": True, "data": rows, "has_overrides": has_overrides}
 
 
-def generate_archive_documents(
-    contract: Contract,
-    case: Any | None = None,
-) -> list[dict[str, Any]]:
+def generate_archive_documents(contract: Contract, case: Any | None = None) -> list[dict[str, Any]]:
     """批量生成归档文书。"""
     if case is None:
-        case = contract.cases.select_related(
-            "contract",
-        ).prefetch_related(
-            "supervising_authorities", "case_numbers", "assignments__lawyer", "parties__client",
+        case = contract.cases.select_related("contract").prefetch_related(
+            "supervising_authorities",
+            "case_numbers",
+            "assignments__lawyer",
+            "parties__client",
         ).first()
 
     archive_category = get_archive_category(contract.case_type)
     checklist_items = ARCHIVE_CHECKLIST.get(archive_category, [])
-
     template_items = [item for item in checklist_items if item["template"] is not None]
-
-    results: list[dict[str, Any]] = []
-    for item in template_items:
-        result = _generate_single_document(contract, item, case)
-        results.append(result)
-
-    return results
+    return [_generate_single_document(contract, item, case) for item in template_items]
 
 
 def generate_single_archive_document(
@@ -85,30 +70,24 @@ def generate_single_archive_document(
     archive_category = get_archive_category(contract.case_type)
     checklist_items = ARCHIVE_CHECKLIST.get(archive_category, [])
 
-    target_item = None
-    for item in checklist_items:
-        if item["code"] == archive_item_code:
-            target_item = item
-            break
-
+    target_item = next((item for item in checklist_items if item["code"] == archive_item_code), None)
     if not target_item:
         return {"template_subtype": None, "error": f"未找到检查清单项: {archive_item_code}"}
-
     if not target_item["template"]:
         return {"template_subtype": None, "error": "该检查项不支持模板生成"}
 
     if case is None:
-        case = contract.cases.select_related(
-            "contract",
-        ).prefetch_related(
-            "supervising_authorities", "case_numbers", "assignments__lawyer", "parties__client",
+        case = contract.cases.select_related("contract").prefetch_related(
+            "supervising_authorities",
+            "case_numbers",
+            "assignments__lawyer",
+            "parties__client",
         ).first()
 
     return _generate_single_document(contract, target_item, case)
 
 
 def _apply_overrides(context: dict[str, Any], contract: Contract, template_subtype: str) -> None:
-    """将用户覆盖值合并到 context 中。"""
     from apps.contracts.models.archive_override import ArchivePlaceholderOverride
 
     override_obj = ArchivePlaceholderOverride.objects.filter(
@@ -116,18 +95,15 @@ def _apply_overrides(context: dict[str, Any], contract: Contract, template_subty
         template_subtype=template_subtype,
     ).first()
 
-    if override_obj and override_obj.overrides:
-        for key, value in override_obj.overrides.items():
-            if value is not None and value != "":
-                context[key] = value
+    if not (override_obj and override_obj.overrides):
+        return
+
+    for key, value in override_obj.overrides.items():
+        if value is not None and value != "":
+            context[key] = value
 
 
-def _generate_single_document(
-    contract: Contract,
-    item: ChecklistItem,
-    case: Any | None = None,
-) -> dict[str, Any]:
-    """生成单个归档文书。"""
+def _generate_single_document(contract: Contract, item: ChecklistItem, case: Any | None = None) -> dict[str, Any]:
     template_subtype = item["template"]
     if not template_subtype:
         return {"template_subtype": None, "error": "非模板生成项"}
@@ -139,13 +115,9 @@ def _generate_single_document(
     try:
         from apps.documents.services.generation.pipeline import DocxRenderer, PipelineContextBuilder
 
-        context_builder = PipelineContextBuilder()
-        context = context_builder.build_archive_context(contract, case)
-
+        context = PipelineContextBuilder().build_archive_context(contract, case)
         _apply_overrides(context, contract, template_subtype)
-
         content = DocxRenderer().render(str(template_path), context)
-
         filename = _generate_filename(contract, item)
 
         material = _save_as_material(
@@ -164,7 +136,6 @@ def _generate_single_document(
                 "material_id": material.id if material else None,
             },
         )
-
         return {
             "template_subtype": template_subtype,
             "filename": filename,
@@ -172,20 +143,17 @@ def _generate_single_document(
             "material_id": material.id if material else None,
             "error": None,
         }
-
     except Exception as e:
         logger.exception("归档文书生成失败: %s", template_subtype)
         return {"template_subtype": template_subtype, "error": str(e)}
 
 
 def _generate_filename(contract: Contract, item: ChecklistItem) -> str:
-    """生成归档文书文件名。"""
     from datetime import date
 
     contract_name = contract.name or "未命名合同"
     item_name = item["name"]
     today_str = date.today().strftime("%Y%m%d")
-
     return f"{item_name}（{contract_name}）_{today_str}.docx"
 
 
@@ -195,47 +163,50 @@ def _save_as_material(
     filename: str,
     archive_item_code: str,
 ) -> FinalizedMaterial | None:
-    """将生成的文书保存为 FinalizedMaterial 记录。"""
+    """将生成文书保存为 FinalizedMaterial。"""
     from django.core.files.base import ContentFile
 
     try:
+        saved = MaterialService().save_business_material_file(
+            uploaded_file=ContentFile(content, name=filename),
+            contract_id=contract.id,
+            target_subdir="归档文书",
+            allowed_extensions=[".docx", ".pdf"],
+            max_size_bytes=20 * 1024 * 1024,
+        )
+
         existing = FinalizedMaterial.objects.filter(
             contract=contract,
             archive_item_code=archive_item_code,
         ).first()
 
         if existing:
-            from apps.core.services import storage_service as storage
-
-            rel_path, _ = storage.save_uploaded_file(
-                uploaded_file=ContentFile(content, name=filename),
-                rel_dir=f"contracts/finalized/{contract.id}",
-                allowed_extensions=[".docx", ".pdf"],
-                max_size_bytes=20 * 1024 * 1024,
-            )
-            existing.file_path = rel_path
+            existing.file_path = saved.legacy_file_path
+            existing.storage_root_type = saved.root_type
+            existing.subdir_path = saved.subdir_path
+            existing.relative_file_path = saved.relative_file_path
             existing.original_filename = filename
-            existing.save(update_fields=["file_path", "original_filename"])
+            existing.save(
+                update_fields=[
+                    "file_path",
+                    "storage_root_type",
+                    "subdir_path",
+                    "relative_file_path",
+                    "original_filename",
+                ]
+            )
             return existing
-        else:
-            from apps.core.services import storage_service as storage
 
-            rel_path, _ = storage.save_uploaded_file(
-                uploaded_file=ContentFile(content, name=filename),
-                rel_dir=f"contracts/finalized/{contract.id}",
-                allowed_extensions=[".docx", ".pdf"],
-                max_size_bytes=20 * 1024 * 1024,
-            )
-
-            material = FinalizedMaterial.objects.create(
-                contract=contract,
-                file_path=rel_path,
-                original_filename=filename,
-                category=MaterialCategory.ARCHIVE_DOCUMENT,
-                archive_item_code=archive_item_code,
-            )
-            return material
-
-    except Exception as e:
+        return FinalizedMaterial.objects.create(
+            contract=contract,
+            file_path=saved.legacy_file_path,
+            storage_root_type=saved.root_type,
+            subdir_path=saved.subdir_path,
+            relative_file_path=saved.relative_file_path,
+            original_filename=filename,
+            category=MaterialCategory.ARCHIVE_DOCUMENT,
+            archive_item_code=archive_item_code,
+        )
+    except Exception:
         logger.exception("保存归档文书材料失败: %s", filename)
         return None

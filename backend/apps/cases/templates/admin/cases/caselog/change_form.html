@@ -3,8 +3,8 @@
 
 {% block extrahead %}
 {{ block.super }}
+<link rel="stylesheet" href="{% static 'contracts/css/folder_browser.css' %}">
 <style>
-/* 解析提醒按钮 */
 .parse-reminder-btn {
     all: unset;
     box-sizing: border-box;
@@ -29,52 +29,256 @@
     vertical-align: middle;
     transition: background 0.15s ease;
 }
+
 .parse-reminder-btn:hover {
     background: #285b8c;
 }
+
 .parse-reminder-btn:active {
     background: #1f4d75;
 }
+
 .parse-reminder-btn:disabled {
     background: #d9dee7;
     border-color: #c9d0db;
     color: #8a97a8;
     cursor: not-allowed;
 }
-/* Toast */
+
 .toast-container {
     position: fixed;
     top: 20px;
     right: 20px;
     z-index: 10000;
 }
+
 .toast {
     background-color: #333;
-    color: white;
+    color: #fff;
     padding: 12px 20px;
     border-radius: 4px;
     margin-bottom: 10px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     opacity: 0;
     transform: translateX(100%);
     transition: all 0.3s ease;
     max-width: 350px;
 }
+
 .toast.show {
     opacity: 1;
     transform: translateX(0);
 }
+
 .toast.success {
     background-color: #28a745;
 }
+
 .toast.error {
     background-color: #dc3545;
 }
-/* content 字段旁的解析按钮容器 */
+
 .field-content .parse-reminder-btn-wrapper {
     display: inline-block;
     vertical-align: top;
     margin-top: 4px;
+}
+
+.caselog-subdir-input-wrap {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    min-width: 320px;
+}
+
+.caselog-subdir-input-wrap input {
+    min-width: 220px;
+}
+
+.caselog-subdir-input-wrap .btn-folder {
+    padding: 6px 10px;
+}
+
+.caselog-subdir-hint {
+    font-size: 12px;
+    line-height: 1.4;
+    color: #6b7280;
+}
+
+.caselog-material-sync-hidden {
+    display: none !important;
+}
+
+.column-material_category,
+.column-material_side,
+.column-material_parties,
+.column-material_supervising_authority,
+.column-material_type,
+.column-material_type_name,
+.field-material_category,
+.field-material_side,
+.field-material_parties,
+.field-material_supervising_authority,
+.field-material_type,
+.field-material_type_name {
+    display: none !important;
+}
+
+.caselog-material-sync-control {
+    display: grid;
+    gap: 6px;
+    min-width: 180px;
+}
+
+.caselog-material-sync-control input[type="checkbox"] {
+    display: none !important;
+}
+
+.caselog-material-sync-status {
+    font-size: 12px;
+    line-height: 1.4;
+    color: #6b7280;
+}
+
+.caselog-material-sync-status.is-synced {
+    color: #166534;
+    font-weight: 600;
+}
+
+.caselog-material-sync-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.caselog-material-sync-btn,
+.caselog-material-unsync-btn {
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: #fff;
+    color: #1f2937;
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1;
+    padding: 6px 9px;
+}
+
+.caselog-material-sync-btn:hover,
+.caselog-material-unsync-btn:hover {
+    border-color: #64748b;
+    background: #f8fafc;
+}
+
+.caselog-material-modal {
+    align-items: center;
+    background: rgba(15, 23, 42, 0.38);
+    inset: 0;
+    justify-content: center;
+    padding: 20px;
+    position: fixed;
+    z-index: 10001;
+}
+
+.caselog-material-dialog {
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 20px 60px rgba(15, 23, 42, 0.24);
+    max-height: calc(100vh - 40px);
+    overflow: auto;
+    width: min(560px, calc(100vw - 32px));
+}
+
+.caselog-material-header {
+    align-items: flex-start;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    gap: 16px;
+    justify-content: space-between;
+    padding: 18px 20px 14px;
+}
+
+.caselog-material-header h2 {
+    font-size: 18px;
+    margin: 0 0 6px;
+}
+
+.caselog-material-header p {
+    color: #6b7280;
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 0;
+}
+
+.caselog-material-close {
+    background: transparent;
+    border: none;
+    color: #6b7280;
+    cursor: pointer;
+    font-size: 24px;
+    line-height: 1;
+}
+
+.caselog-material-body {
+    display: grid;
+    gap: 14px;
+    padding: 18px 20px;
+}
+
+.caselog-material-field {
+    display: grid;
+    gap: 6px;
+}
+
+.caselog-material-field label {
+    color: #374151;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.caselog-material-required {
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.caselog-material-required {
+    color: #b91c1c;
+}
+
+.caselog-material-field select,
+.caselog-material-field input {
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    box-sizing: border-box;
+    min-height: 34px;
+    padding: 6px 8px;
+    width: 100%;
+}
+
+.caselog-material-field select[multiple] {
+    min-height: 92px;
+}
+
+.caselog-material-hint {
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    color: #6b7280;
+    font-size: 12px;
+    line-height: 1.5;
+    padding: 10px 12px;
+}
+
+.caselog-material-footer {
+    align-items: center;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    padding: 14px 20px 18px;
+}
+
+.caselog-material-footer .spacer {
+    flex: 1;
 }
 </style>
 {% endblock %}
@@ -82,14 +286,117 @@
 {% block submit_buttons_bottom %}
 {{ block.super }}
 
+<div id="caselog-subdir-browser-modal" class="folder-browser-modal" style="display:none;">
+    <div class="folder-browser-content" style="max-width: 760px;">
+        <div class="folder-browser-header" style="position: relative;">
+            <h2>选择保存子目录</h2>
+            <button type="button" class="folder-browser-close" id="caselog-subdir-browser-close">&times;</button>
+            <div style="display:grid;gap:8px;">
+                <div style="font-size:13px;color:#4b5563;">
+                    当前案件根目录：
+                    <strong id="caselog-subdir-browser-root-path">加载中...</strong>
+                </div>
+                <div style="display:flex;gap:10px;align-items:center;">
+                    <input
+                        type="text"
+                        id="caselog-subdir-browser-input"
+                        placeholder="例如：证据材料/庭审记录"
+                        style="flex:1;padding:8px 12px;border:1px solid #d1d5db;border-radius:4px;font-family:monospace;font-size:13px;"
+                    >
+                    <button type="button" class="btn-folder primary" id="caselog-subdir-browser-use-current">使用当前目录</button>
+                </div>
+                <div id="caselog-subdir-browser-status" class="folder-browser-error" style="display:none;"></div>
+            </div>
+        </div>
+
+        <div style="padding:0 20px 12px;display:flex;justify-content:space-between;align-items:center;gap:12px;">
+            <div style="font-size:13px;color:#374151;">
+                当前浏览：
+                <strong id="caselog-subdir-browser-current-path">根目录</strong>
+            </div>
+            <button type="button" class="btn-folder" id="caselog-subdir-browser-up">上一级</button>
+        </div>
+
+        <div id="caselog-subdir-browser-list" class="finder-columns" style="height:300px;display:block;overflow-y:auto;"></div>
+
+        <div class="folder-browser-footer">
+            <div class="selected-path-display" id="caselog-subdir-browser-selected-preview">将写入当前输入框</div>
+            <button type="button" class="btn-folder" id="caselog-subdir-browser-cancel">取消</button>
+            <button type="button" class="btn-folder primary" id="caselog-subdir-browser-confirm">确认使用</button>
+        </div>
+    </div>
+</div>
+
+<div id="caselog-material-sync-modal" class="caselog-material-modal" style="display:none;" role="dialog" aria-modal="true">
+    <div class="caselog-material-dialog">
+        <div class="caselog-material-header">
+            <div>
+                <h2>同步到案件材料</h2>
+                <p>只建立材料展示关系，不复制文件；保存日志后生效。取消同步只移除案件材料关系，日志附件仍保留。</p>
+            </div>
+            <button type="button" class="caselog-material-close" id="caselog-material-sync-close">&times;</button>
+        </div>
+
+        <div class="caselog-material-body">
+            <div class="caselog-material-field">
+                <label for="caselog-material-category">材料大类</label>
+                <select id="caselog-material-category"></select>
+            </div>
+
+            <div class="caselog-material-field caselog-material-party-only">
+                <label for="caselog-material-side">方向</label>
+                <select id="caselog-material-side"></select>
+            </div>
+
+            <div class="caselog-material-field caselog-material-non-party-only">
+                <label for="caselog-material-authority">主管机关</label>
+                <select id="caselog-material-authority"></select>
+                <div class="caselog-material-hint" id="caselog-material-authority-empty" style="display:none;">
+                    当前案件没有主管机关，请先在案件编辑页添加主管机关。
+                </div>
+            </div>
+
+            <div class="caselog-material-field" id="caselog-material-type-field">
+                <label for="caselog-material-type">类型名称</label>
+                <select id="caselog-material-type"></select>
+                <div class="caselog-material-hint" id="caselog-material-type-empty" style="display:none;">
+                    暂无可选类型名称，请先维护材料类型。
+                </div>
+            </div>
+
+            <div class="caselog-material-field" id="caselog-material-custom-type-field" style="display:none;">
+                <label for="caselog-material-type-name">
+                    自定义类型名称
+                    <span class="caselog-material-required">选择“其它材料”时必填</span>
+                </label>
+                <input type="text" id="caselog-material-type-name" placeholder="例如：微信聊天记录、保全保险保函、执行线索材料">
+            </div>
+        </div>
+
+        <div class="caselog-material-footer">
+            <button type="button" class="caselog-material-unsync-btn" id="caselog-material-sync-remove">取消同步</button>
+            <span class="spacer"></span>
+            <button type="button" class="button" id="caselog-material-sync-cancel">关闭</button>
+            <button type="button" class="button default" id="caselog-material-sync-confirm">确认同步</button>
+        </div>
+    </div>
+</div>
+
+{{ caselog_material_categories_json|json_script:"caselog-material-categories-data" }}
+{{ caselog_material_sides_json|json_script:"caselog-material-sides-data" }}
+{{ caselog_material_parties_json|json_script:"caselog-material-parties-data" }}
+{{ caselog_material_authorities_json|json_script:"caselog-material-authorities-data" }}
+{{ caselog_material_types_json|json_script:"caselog-material-types-data" }}
+{{ caselog_material_options_url|json_script:"caselog-material-options-url" }}
+
 <script>
 function _caselogGetCSRFToken() {
-    var name = 'csrftoken';
+    var name = "csrftoken";
     var cookieValue = null;
-    var cookies = document.cookie.split(';');
+    var cookies = document.cookie.split(";");
     for (var i = 0; i < cookies.length; i++) {
         var cookie = cookies[i].trim();
-        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+        if (cookie.substring(0, name.length + 1) === (name + "=")) {
             cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
             break;
         }
@@ -98,79 +405,85 @@ function _caselogGetCSRFToken() {
 }
 
 function _caselogShowToast(message, type) {
-    type = type || 'success';
-    var container = document.querySelector('.toast-container');
+    type = type || "success";
+    var container = document.querySelector(".toast-container");
     if (!container) {
-        container = document.createElement('div');
-        container.className = 'toast-container';
+        container = document.createElement("div");
+        container.className = "toast-container";
         document.body.appendChild(container);
     }
-    var toast = document.createElement('div');
-    toast.className = 'toast ' + type;
+    var toast = document.createElement("div");
+    toast.className = "toast " + type;
     toast.textContent = message;
     container.appendChild(toast);
     toast.offsetHeight;
-    toast.classList.add('show');
+    toast.classList.add("show");
     setTimeout(function() {
-        toast.classList.remove('show');
+        toast.classList.remove("show");
         setTimeout(function() {
-            if (container.contains(toast)) container.removeChild(toast);
+            if (container.contains(toast)) {
+                container.removeChild(toast);
+            }
         }, 300);
     }, 3000);
 }
 
 function _caselogAddParseButton() {
-    var contentField = document.querySelector('.form-row.field-content');
-    if (!contentField) return;
+    var contentField = document.querySelector(".form-row.field-content");
+    if (!contentField) {
+        return;
+    }
 
-    var textarea = contentField.querySelector('textarea');
-    if (!textarea) return;
+    var textarea = contentField.querySelector("textarea");
+    if (!textarea || contentField.querySelector(".parse-reminder-btn")) {
+        return;
+    }
 
-    if (contentField.querySelector('.parse-reminder-btn')) return;
+    var wrapper = document.createElement("div");
+    wrapper.className = "parse-reminder-btn-wrapper";
 
-    var wrapper = document.createElement('div');
-    wrapper.className = 'parse-reminder-btn-wrapper';
-
-    var btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'parse-reminder-btn';
-    btn.textContent = '{% trans "解析提醒" %}';
-    btn.title = '{% trans "从日志内容中提取日期，自动填入下方提醒" %}';
-    btn.onclick = function() { _caselogParseReminders(); };
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "parse-reminder-btn";
+    btn.textContent = "解析提醒";
+    btn.title = "从日志内容中提取日期，并自动填入下方提醒";
+    btn.onclick = function() {
+        _caselogParseReminders();
+    };
 
     wrapper.appendChild(btn);
     textarea.parentNode.insertBefore(wrapper, textarea.nextSibling);
 }
 
 function _caselogParseReminders() {
-    var btn = document.querySelector('.parse-reminder-btn');
-    var textarea = document.querySelector('.form-row.field-content textarea');
+    var btn = document.querySelector(".parse-reminder-btn");
+    var textarea = document.querySelector(".form-row.field-content textarea");
     if (!textarea) {
-        _caselogShowToast('{% trans "未找到日志内容" %}', 'error');
+        _caselogShowToast("未找到日志内容输入框", "error");
         return;
     }
 
     var text = textarea.value.trim();
     if (!text) {
-        _caselogShowToast('{% trans "日志内容为空，请先输入内容" %}', 'error');
+        _caselogShowToast("日志内容为空，请先输入内容", "error");
         return;
     }
 
     if (btn) {
         btn.disabled = true;
-        btn.textContent = '{% trans "解析中..." %}';
+        btn.textContent = "解析中...";
     }
 
     var xhr = new XMLHttpRequest();
-    xhr.open('POST', '/api/v1/reminders/parse', true);
-    xhr.setRequestHeader('X-CSRFToken', _caselogGetCSRFToken());
-    xhr.setRequestHeader('Content-Type', 'application/json');
-    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+    xhr.open("POST", "/api/v1/reminders/parse", true);
+    xhr.setRequestHeader("X-CSRFToken", _caselogGetCSRFToken());
+    xhr.setRequestHeader("Content-Type", "application/json");
+    xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
 
     xhr.onload = function() {
         if (btn) {
             btn.disabled = false;
-            btn.textContent = '{% trans "解析提醒" %}';
+            btn.textContent = "解析提醒";
         }
 
         if (xhr.status === 200) {
@@ -179,105 +492,89 @@ function _caselogParseReminders() {
                 if (Array.isArray(data) && data.length > 0) {
                     _caselogFillInlineRows(data);
                 } else {
-                    _caselogShowToast('{% trans "未在内容中发现日期信息" %}', 'error');
+                    _caselogShowToast("未在内容中发现日期信息", "error");
                 }
             } catch (e) {
-                _caselogShowToast('{% trans "解析失败" %}', 'error');
+                _caselogShowToast("解析失败", "error");
             }
         } else {
-            _caselogShowToast('{% trans "解析失败" %}：HTTP ' + xhr.status, 'error');
+            _caselogShowToast("解析失败，HTTP " + xhr.status, "error");
         }
     };
 
     xhr.onerror = function() {
         if (btn) {
             btn.disabled = false;
-            btn.textContent = '{% trans "解析提醒" %}';
+            btn.textContent = "解析提醒";
         }
-        _caselogShowToast('{% trans "网络错误" %}', 'error');
+        _caselogShowToast("网络错误", "error");
     };
 
     xhr.send(JSON.stringify({ text: text }));
 }
 
 function _caselogFillInlineRows(results) {
-    var inlineGroup = document.getElementById('reminders-group');
+    var inlineGroup = document.getElementById("reminders-group");
     if (!inlineGroup) {
         inlineGroup = document.querySelector('.inline-group[id$="reminders-group"]');
     }
     if (!inlineGroup) {
-        _caselogShowToast('{% trans "未找到提醒表单区域" %}', 'error');
+        _caselogShowToast("未找到提醒表单区域", "error");
         return;
     }
 
     var totalFormsInput = inlineGroup.querySelector('input[name$="-TOTAL_FORMS"]');
     if (!totalFormsInput) {
-        _caselogShowToast('{% trans "表单结构异常" %}', 'error');
+        _caselogShowToast("表单结构异常", "error");
         return;
     }
 
     var currentTotal = parseInt(totalFormsInput.value, 10) || 0;
-    var prefix = totalFormsInput.name.replace('-TOTAL_FORMS', '');
-
-    // nested_admin: empty-form 是 <tbody class="djn-empty-form empty-form">
-    // 需要克隆其内部的 <tr>，而非 <tbody> 本身
-    var emptyTbody = inlineGroup.querySelector('.empty-form');
+    var prefix = totalFormsInput.name.replace("-TOTAL_FORMS", "");
+    var emptyTbody = inlineGroup.querySelector(".empty-form");
     var emptyRow = null;
-    if (emptyTbody && emptyTbody.tagName === 'TBODY') {
-        // nested_admin tabular: <tbody class="empty-form"><tr>...</tr></tbody>
-        emptyRow = emptyTbody.querySelector('tr');
+
+    if (emptyTbody && emptyTbody.tagName === "TBODY") {
+        emptyRow = emptyTbody.querySelector("tr");
     } else if (emptyTbody) {
-        // 标准 Django tabular: <tr class="empty-form">
         emptyRow = emptyTbody;
     }
 
     if (!emptyRow) {
-        _caselogShowToast('{% trans "表单结构异常：找不到空行模板" %}', 'error');
+        _caselogShowToast("表单结构异常：找不到空白模板行", "error");
         return;
     }
-
-    var tbody = inlineGroup.querySelector('table tbody');
-    // 如果 emptyTbody 和普通 tbody 不是同一个，需要找到实际的数据 tbody
-    // nested_admin 结构: <table><thead>...</thead><tbody class="djn-item ...">已有行</tbody><tbody class="empty-form">空行</tbody></table>
 
     for (var i = 0; i < results.length; i++) {
         var r = results[i];
         var formIndex = currentTotal + i;
-
         var newRow = emptyRow.cloneNode(true);
-        newRow.classList.remove('empty-form', 'djn-empty-form', 'djn-item-dno', 'row1', 'row2');
-        newRow.style.display = '';
-        newRow.id = '';
 
-        // 更新 __prefix__ → 实际索引
+        newRow.classList.remove("empty-form", "djn-empty-form", "djn-item-dno", "row1", "row2");
+        newRow.style.display = "";
+        newRow.id = "";
+
         _caselogUpdateRowFieldNames(newRow, prefix, formIndex);
+        _caselogSetFieldValue(newRow, "reminder_type", r.reminder_type);
+        _caselogSetFieldValue(newRow, "content", r.content);
 
-        // 填入值
-        _caselogSetFieldValue(newRow, 'reminder_type', r.reminder_type);
-        _caselogSetFieldValue(newRow, 'content', r.content);
-        // due_at 是 SplitDateTimeField，拆分为 due_at_0 (日期) 和 due_at_1 (时间)
-        var dueParts = r.due_at.split('T');
-        _caselogSetFieldValue(newRow, 'due_at_0', dueParts[0] || '');
-        _caselogSetFieldValue(newRow, 'due_at_1', dueParts[1] || '09:00:00');
+        var dueParts = r.due_at.split("T");
+        _caselogSetFieldValue(newRow, "due_at_0", dueParts[0] || "");
+        _caselogSetFieldValue(newRow, "due_at_1", dueParts[1] || "09:00:00");
 
-        // 插入新行：在 empty-form tbody 之前创建新的 tbody（nested_admin 每行一个 tbody）
-        var newTbody = document.createElement('tbody');
-        newTbody.className = 'djn-tbody djn-inline-form';
+        var newTbody = document.createElement("tbody");
+        newTbody.className = "djn-tbody djn-inline-form";
         newTbody.appendChild(newRow);
         emptyTbody.parentNode.insertBefore(newTbody, emptyTbody);
     }
 
-    // 更新 TOTAL_FORMS
     totalFormsInput.value = currentTotal + results.length;
-
-    _caselogShowToast('{% trans "已填入" %}' + results.length + '{% trans "条提醒，保存后生效" %}', 'success');
-
-    // 滚动到提醒区域
-    inlineGroup.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    _caselogShowToast("已填入 " + results.length + " 条提醒，保存后生效", "success");
+    inlineGroup.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
 function _caselogUpdateRowFieldNames(row, prefix, index) {
-    var inputs = row.querySelectorAll('input, select, textarea');
+    var inputs = row.querySelectorAll("input, select, textarea");
     for (var j = 0; j < inputs.length; j++) {
         var input = inputs[j];
         if (input.name) {
@@ -287,7 +584,8 @@ function _caselogUpdateRowFieldNames(row, prefix, index) {
             input.id = input.id.replace(/__prefix__/g, index);
         }
     }
-    var labels = row.querySelectorAll('label');
+
+    var labels = row.querySelectorAll("label");
     for (var k = 0; k < labels.length; k++) {
         var label = labels[k];
         if (label.htmlFor) {
@@ -300,29 +598,932 @@ function _caselogSetFieldValue(row, fieldName, value) {
     var select = row.querySelector('select[name$="-' + fieldName + '"]');
     if (select) {
         select.value = value;
-        var evt = document.createEvent('HTMLEvents');
-        evt.initEvent('change', true, true);
+        var evt = document.createEvent("HTMLEvents");
+        evt.initEvent("change", true, true);
         select.dispatchEvent(evt);
         return;
     }
+
     var input = row.querySelector('input[name$="-' + fieldName + '"]');
     if (input) {
         input.value = value;
         return;
     }
+
     var textarea = row.querySelector('textarea[name$="-' + fieldName + '"]');
     if (textarea) {
         textarea.value = value;
+    }
+}
+
+function _caselogInitAttachmentSubdirPicker() {
+    var modal = document.getElementById("caselog-subdir-browser-modal");
+    if (!modal) {
         return;
     }
+
+    var rootPathEl = document.getElementById("caselog-subdir-browser-root-path");
+    var inputEl = document.getElementById("caselog-subdir-browser-input");
+    var statusEl = document.getElementById("caselog-subdir-browser-status");
+    var listEl = document.getElementById("caselog-subdir-browser-list");
+    var currentPathEl = document.getElementById("caselog-subdir-browser-current-path");
+    var previewEl = document.getElementById("caselog-subdir-browser-selected-preview");
+    var upBtn = document.getElementById("caselog-subdir-browser-up");
+    var confirmBtn = document.getElementById("caselog-subdir-browser-confirm");
+    var cancelBtn = document.getElementById("caselog-subdir-browser-cancel");
+    var closeBtn = document.getElementById("caselog-subdir-browser-close");
+    var useCurrentBtn = document.getElementById("caselog-subdir-browser-use-current");
+
+    var activeInput = null;
+    var currentPath = "";
+    var parentPath = "";
+    var rootPath = "";
+    var lastCaseId = "";
+
+    function getCurrentCaseId() {
+        var logCaseField = document.getElementById("id_case");
+        return logCaseField ? (logCaseField.value || "").trim() : "";
+    }
+
+    function getCurrentLogId() {
+        var match = window.location.pathname.match(/\/admin\/cases\/caselog\/(\d+)\/(?:change|delete)\//);
+        return match ? match[1] : "";
+    }
+
+    function normalizePath(value) {
+        return (value || "").trim().replace(/\\/g, "/").replace(/^\/+|\/+$/g, "");
+    }
+
+    function setStatus(message, isError) {
+        if (!message) {
+            statusEl.style.display = "none";
+            statusEl.textContent = "";
+            return;
+        }
+        statusEl.style.display = "block";
+        statusEl.textContent = message;
+        statusEl.style.color = isError ? "#b91c1c" : "#6b7280";
+        statusEl.style.background = isError ? "#fef2f2" : "#f9fafb";
+        statusEl.style.border = "1px solid " + (isError ? "#fecaca" : "#e5e7eb");
+        statusEl.style.borderRadius = "6px";
+        statusEl.style.padding = "8px 10px";
+    }
+
+    function updatePreview() {
+        previewEl.textContent = "将写入：" + (inputEl.value.trim() || "根目录");
+    }
+
+    function updateCurrentPath(path, parent) {
+        currentPath = normalizePath(path);
+        parentPath = normalizePath(parent);
+        currentPathEl.textContent = currentPath || "根目录";
+        upBtn.disabled = !currentPath;
+        updatePreview();
+    }
+
+    function shouldAutoFillSubdir(targetInput) {
+        if (!targetInput) {
+            return false;
+        }
+        if (targetInput.dataset.userEdited === "true") {
+            return false;
+        }
+        var currentValue = normalizePath(targetInput.value || "");
+        return !currentValue || currentValue === "案件日志附件" || targetInput.dataset.autoRecommended === "true";
+    }
+
+    function updateHint(hintEl, text, isWarn) {
+        if (!hintEl) {
+            return;
+        }
+        hintEl.textContent = text;
+        hintEl.style.color = isWarn ? "#b45309" : "#6b7280";
+    }
+
+    function getRowContainer(targetInput) {
+        if (!targetInput) {
+            return null;
+        }
+        return targetInput.closest("tr, tbody, .inline-related, .form-row, .grp-row");
+    }
+
+    function getUploadFileInput(targetInput) {
+        var row = getRowContainer(targetInput);
+        if (!row) {
+            return null;
+        }
+        return row.querySelector('input[type="file"][name$="-file"]');
+    }
+
+    function getSelectedFileName(targetInput) {
+        var fileInput = getUploadFileInput(targetInput);
+        if (!fileInput || !fileInput.files || !fileInput.files.length) {
+            return "";
+        }
+        return (fileInput.files[0].name || "").trim();
+    }
+
+    function renderList(entries) {
+        if (!entries || entries.length === 0) {
+            listEl.innerHTML = '<div class="finder-empty" style="padding:24px 16px;">当前目录下没有现有子目录</div>';
+            return;
+        }
+
+        listEl.innerHTML = entries.map(function(entry) {
+            var rel = entry.relative_path || entry.path || "";
+            var name = entry.display_name || entry.name || rel || "未命名目录";
+            return '' +
+                '<button type="button" class="finder-item caselog-subdir-entry" data-relative-path="' + rel.replace(/"/g, "&quot;") + '" style="width:100%;border:none;background:transparent;text-align:left;">' +
+                '<span class="finder-item-icon">目录</span>' +
+                '<span class="finder-item-name">' + name + '</span>' +
+                '<span style="margin-left:auto;font-size:12px;color:#6b7280;">' + (rel || "根目录") + "</span>" +
+                "</button>";
+        }).join("");
+
+        listEl.querySelectorAll(".caselog-subdir-entry").forEach(function(btn) {
+            btn.addEventListener("click", function() {
+                var rel = btn.getAttribute("data-relative-path") || "";
+                openPath(rel);
+            });
+        });
+    }
+
+    async function fetchBinding() {
+        var caseId = getCurrentCaseId();
+        if (!caseId) {
+            throw new Error("请先选择案件，再选择保存子目录。");
+        }
+
+        var response = await fetch("/api/v1/cases/" + caseId + "/folder-binding", {
+            headers: { "X-CSRFToken": _caselogGetCSRFToken() },
+            credentials: "same-origin"
+        });
+        var data = await response.json();
+        if (!response.ok || !data || !data.folder_path) {
+            throw new Error("当前案件未绑定业务文件夹，请先在案件详情页绑定案件文件夹。");
+        }
+        return data;
+    }
+
+    async function fetchStorageSubdirs(path) {
+        var caseId = getCurrentCaseId();
+        if (!caseId) {
+            throw new Error("请先选择案件。");
+        }
+
+        var url = "/api/v1/cases/" + caseId + "/storage-subdirs";
+        var normalized = normalizePath(path);
+        if (normalized) {
+            url += "?path=" + encodeURIComponent(normalized);
+        }
+
+        var response = await fetch(url, {
+            headers: { "X-CSRFToken": _caselogGetCSRFToken() },
+            credentials: "same-origin"
+        });
+        var data = await response.json();
+        if (!response.ok) {
+            throw new Error((data && (data.error || data.message)) || "加载目录失败");
+        }
+        return data;
+    }
+
+    async function fetchRecommendedSubdir(fileName) {
+        var caseId = getCurrentCaseId();
+        if (!caseId) {
+            throw new Error("请先选择案件，再获取推荐子目录。");
+        }
+
+        var url = "/api/v1/cases/" + caseId + "/recommended-log-attachment-subdir";
+        var params = [];
+        var logId = getCurrentLogId();
+        if (logId) {
+            params.push("log_id=" + encodeURIComponent(logId));
+        }
+        if (fileName) {
+            params.push("file_name=" + encodeURIComponent(fileName));
+        }
+        if (params.length) {
+            url += "?" + params.join("&");
+        }
+
+        var response = await fetch(url, {
+            headers: { "X-CSRFToken": _caselogGetCSRFToken() },
+            credentials: "same-origin"
+        });
+        var data = await response.json();
+        if (!response.ok) {
+            throw new Error((data && (data.error || data.message)) || "推荐子目录失败");
+        }
+        return data;
+    }
+
+    async function openPath(path) {
+        setStatus("正在加载目录...", false);
+        try {
+            var normalized = normalizePath(path);
+            var data = await fetchStorageSubdirs(path);
+            rootPath = data.root_path || "";
+            if (!rootPath) {
+                var binding = await fetchBinding();
+                rootPath = binding.folder_path || "";
+            }
+            rootPathEl.textContent = rootPath || "未绑定";
+            updateCurrentPath(data.current_path || "", data.parent_path || "");
+
+            if (!inputEl.value.trim()) {
+                inputEl.value = data.current_path || "";
+                updatePreview();
+            }
+
+            renderList(data.entries || []);
+            if (normalized && normalizePath(data.current_path || "") !== normalized) {
+                setStatus("目标子目录尚不存在，当前显示最近可用目录。你可以继续浏览，或直接确认使用该子目录。", false);
+            } else {
+                setStatus((data.entries || []).length ? "点击目录可继续进入下一层" : "当前目录下没有现有子目录", false);
+            }
+        } catch (error) {
+            renderList([]);
+            setStatus(error.message || "加载目录失败", true);
+        }
+    }
+
+    async function applyRecommendedSubdir(targetInput, hintEl, fileName) {
+        if (!shouldAutoFillSubdir(targetInput)) {
+            return;
+        }
+
+        try {
+            var selectedFileName = (fileName || getSelectedFileName(targetInput) || "").trim();
+            var data = await fetchRecommendedSubdir(selectedFileName);
+            if (shouldAutoFillSubdir(targetInput)) {
+                targetInput.value = normalizePath(data.recommended_subdir || "");
+                targetInput.dataset.autoRecommended = "true";
+            }
+            updateHint(
+                hintEl,
+                selectedFileName
+                    ? "系统已根据文件名自动推荐子目录，你也可以手动修改。"
+                    : (data.matched_existing_subdir
+                        ? "系统已根据现有目录自动推荐，你也可以继续手动修改。"
+                        : "系统已给出默认推荐子目录，你也可以手动修改。"),
+                false
+            );
+        } catch (error) {
+            updateHint(hintEl, error.message || "当前无法自动推荐子目录，请手动选择。", true);
+        }
+    }
+
+    function refreshRecommendedSubdirs() {
+        document.querySelectorAll('input[name$="-target_subdir"]').forEach(function(input) {
+            if ((input.name || "").indexOf("__prefix__") !== -1) {
+                return;
+            }
+            var hint = input.parentNode && input.parentNode.parentNode
+                ? input.parentNode.parentNode.querySelector(".caselog-subdir-hint")
+                : null;
+            if (shouldAutoFillSubdir(input)) {
+                applyRecommendedSubdir(input, hint);
+            }
+        });
+    }
+
+    function openModal(targetInput) {
+        if (!getCurrentCaseId()) {
+            _caselogShowToast("请先选择案件，再选择保存子目录。", "error");
+            return;
+        }
+        activeInput = targetInput;
+        inputEl.value = targetInput.value || "";
+        modal.style.display = "flex";
+        updatePreview();
+        openPath(inputEl.value || "");
+    }
+
+    function closeModal() {
+        modal.style.display = "none";
+        activeInput = null;
+    }
+
+    function bindSubdirInputs() {
+        document.querySelectorAll('input[name$="-target_subdir"]').forEach(function(input) {
+            if ((input.name || "").indexOf("__prefix__") !== -1) {
+                return;
+            }
+            if (input.dataset.caselogSubdirBound === "true") {
+                return;
+            }
+            input.dataset.caselogSubdirBound = "true";
+
+            var parent = input.parentNode;
+            if (!parent) {
+                return;
+            }
+
+            var container = document.createElement("div");
+            container.style.display = "grid";
+            container.style.gap = "4px";
+            parent.insertBefore(container, input);
+
+            var wrapper = document.createElement("div");
+            wrapper.className = "caselog-subdir-input-wrap";
+            container.appendChild(wrapper);
+            wrapper.appendChild(input);
+
+            var button = document.createElement("button");
+            button.type = "button";
+            button.className = "btn-folder";
+            button.textContent = "选择";
+            button.addEventListener("click", function() {
+                openModal(input);
+            });
+            wrapper.appendChild(button);
+
+            var hint = document.createElement("div");
+            hint.className = "caselog-subdir-hint";
+            hint.textContent = "系统会自动推荐保存子目录，也可以手动修改或点击“选择”。";
+            container.appendChild(hint);
+
+            input.addEventListener("input", function() {
+                input.dataset.userEdited = "true";
+                input.dataset.autoRecommended = "false";
+                updateHint(hint, "已手动修改子目录，保存时将按这里的值入库。", false);
+            });
+
+            applyRecommendedSubdir(input, hint);
+
+            var fileInput = getUploadFileInput(input);
+            if (fileInput && fileInput.dataset.caselogFileBound !== "true") {
+                fileInput.dataset.caselogFileBound = "true";
+                fileInput.addEventListener("change", function() {
+                    if (!shouldAutoFillSubdir(input)) {
+                        return;
+                    }
+                    applyRecommendedSubdir(input, hint, getSelectedFileName(input));
+                });
+            }
+        });
+    }
+
+    function watchCaseFieldChanges() {
+        var caseField = document.getElementById("id_case");
+        if (!caseField) {
+            return;
+        }
+
+        function onCaseMaybeChanged() {
+            var currentCaseId = getCurrentCaseId();
+            if (currentCaseId && currentCaseId !== lastCaseId) {
+                lastCaseId = currentCaseId;
+                refreshRecommendedSubdirs();
+            }
+        }
+
+        caseField.addEventListener("change", onCaseMaybeChanged);
+        caseField.addEventListener("input", onCaseMaybeChanged);
+        window.setInterval(onCaseMaybeChanged, 500);
+    }
+
+    bindSubdirInputs();
+    window.setTimeout(bindSubdirInputs, 50);
+    window.setTimeout(bindSubdirInputs, 300);
+    window.setTimeout(refreshRecommendedSubdirs, 600);
+
+    var observer = new MutationObserver(function() {
+        bindSubdirInputs();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    watchCaseFieldChanges();
+
+    inputEl.addEventListener("input", updatePreview);
+
+    useCurrentBtn.addEventListener("click", function() {
+        inputEl.value = currentPath || "";
+        updatePreview();
+    });
+
+    upBtn.addEventListener("click", function() {
+        if (!currentPath) {
+            return;
+        }
+        openPath(parentPath || "");
+    });
+
+        confirmBtn.addEventListener("click", function() {
+            if (activeInput) {
+                activeInput.value = normalizePath(inputEl.value);
+                activeInput.dataset.userEdited = "true";
+                activeInput.dataset.autoRecommended = "false";
+            }
+            closeModal();
+        });
+
+    cancelBtn.addEventListener("click", closeModal);
+    closeBtn.addEventListener("click", closeModal);
+    modal.addEventListener("click", function(event) {
+        if (event.target === modal) {
+            closeModal();
+        }
+    });
+}
+
+function _caselogInitAttachmentMaterialSync() {
+    var modal = document.getElementById("caselog-material-sync-modal");
+    if (!modal) {
+        return;
+    }
+
+    var modalCategory = document.getElementById("caselog-material-category");
+    var modalSide = document.getElementById("caselog-material-side");
+    var modalAuthority = document.getElementById("caselog-material-authority");
+    var modalType = document.getElementById("caselog-material-type");
+    var modalCustomTypeField = document.getElementById("caselog-material-custom-type-field");
+    var modalTypeName = document.getElementById("caselog-material-type-name");
+    var modalAuthorityEmpty = document.getElementById("caselog-material-authority-empty");
+    var modalTypeEmpty = document.getElementById("caselog-material-type-empty");
+    var closeBtn = document.getElementById("caselog-material-sync-close");
+    var cancelBtn = document.getElementById("caselog-material-sync-cancel");
+    var confirmBtn = document.getElementById("caselog-material-sync-confirm");
+    var removeBtn = document.getElementById("caselog-material-sync-remove");
+    var activeCheckInput = null;
+    var materialCategories = _caselogReadJsonScript("caselog-material-categories-data", []);
+    var materialSides = _caselogReadJsonScript("caselog-material-sides-data", []);
+    var materialParties = _caselogReadJsonScript("caselog-material-parties-data", []);
+    var materialAuthorities = _caselogReadJsonScript("caselog-material-authorities-data", []);
+    var materialTypes = _caselogReadJsonScript("caselog-material-types-data", []);
+    var materialOptionsUrl = _caselogReadJsonValue("caselog-material-options-url", "");
+    var materialOptionsCaseId = getCurrentCaseId();
+    var materialOptionsLoading = false;
+
+    function _caselogReadJsonScript(id, fallback) {
+        var el = document.getElementById(id);
+        if (!el) {
+            return fallback;
+        }
+        try {
+            var parsed = JSON.parse(el.textContent || "[]");
+            if (typeof parsed === "string") {
+                return JSON.parse(parsed || "[]");
+            }
+            return parsed;
+        } catch (error) {
+            return fallback;
+        }
+    }
+
+    function _caselogReadJsonValue(id, fallback) {
+        var el = document.getElementById(id);
+        if (!el) {
+            return fallback;
+        }
+        try {
+            return JSON.parse(el.textContent || "null") || fallback;
+        } catch (error) {
+            return fallback;
+        }
+    }
+
+    function dispatchChange(input) {
+        if (!input) {
+            return;
+        }
+        var evt = document.createEvent("HTMLEvents");
+        evt.initEvent("change", true, true);
+        input.dispatchEvent(evt);
+    }
+
+    function getRow(input) {
+        return input ? input.closest("tr, .inline-related, .form-row") : null;
+    }
+
+    function getFieldCell(row, fieldName) {
+        return row ? row.querySelector(".field-" + fieldName) : null;
+    }
+
+    function getRowField(row, fieldName) {
+        return row ? row.querySelector('[name$="-' + fieldName + '"]') : null;
+    }
+
+    function getCurrentCaseId() {
+        var caseField = document.getElementById("id_case");
+        return caseField ? (caseField.value || "").trim() : "";
+    }
+
+    function setSingleValue(input, value) {
+        if (!input) {
+            return;
+        }
+        input.value = value || "";
+        dispatchChange(input);
+    }
+
+    function setHiddenMultipleValue(input, values) {
+        setSingleValue(input, values.filter(Boolean).join(","));
+    }
+
+    function hiddenValues(row, fieldName) {
+        var value = (getRowField(row, fieldName) || {}).value || "";
+        return value.split(",").map(function(part) { return part.trim(); }).filter(Boolean);
+    }
+
+    function appendOption(select, item, selectedValues) {
+        var option = document.createElement("option");
+        option.value = String(item.value || "");
+        option.textContent = item.label || "";
+        option.dataset.category = item.category || "";
+        option.dataset.side = item.side || "";
+        option.dataset.name = item.name || "";
+        option.dataset.isOther = item.is_other || "";
+        option.selected = selectedValues.indexOf(String(item.value || "")) !== -1;
+        select.appendChild(option);
+    }
+
+    function renderOptions(target, items, selectedValues, includeBlank) {
+        target.innerHTML = "";
+        if (includeBlank) {
+            appendOption(target, { value: "", label: "请选择" }, selectedValues);
+        }
+        items.forEach(function(item) {
+            appendOption(target, item, selectedValues);
+        });
+    }
+
+    function selectableValues(select) {
+        return Array.prototype.slice.call(select.options)
+            .filter(function(option) { return option.value && !option.hidden; })
+            .map(function(option) { return option.value; });
+    }
+
+    function lookupLabel(items, value) {
+        var normalized = String(value || "");
+        for (var i = 0; i < items.length; i++) {
+            if (String(items[i].value || "") === normalized) {
+                return items[i].label || "";
+            }
+        }
+        return "";
+    }
+
+    function lookupLabels(items, values) {
+        return values.map(function(value) {
+            return lookupLabel(items, value);
+        }).filter(Boolean);
+    }
+
+    function typeLabel(row) {
+        var typeName = getRowField(row, "material_type_name");
+        if (typeName && typeName.value.trim()) {
+            return typeName.value.trim();
+        }
+        var typeId = (getRowField(row, "material_type") || {}).value || "";
+        var label = lookupLabel(materialTypes, typeId);
+        var parts = label.split("-");
+        return (parts[parts.length - 1] || label).trim();
+    }
+
+    function isTypeOptionForCategory(option, category) {
+        if (!option || !option.value) {
+            return true;
+        }
+        return !category || !option.dataset.category || option.dataset.category === category;
+    }
+
+    function refreshTypeOptions() {
+        var category = modalCategory.value || "";
+        var visibleCount = 0;
+        Array.prototype.slice.call(modalType.options).forEach(function(option) {
+            var isVisible = isTypeOptionForCategory(option, category);
+            option.hidden = !isVisible;
+            if (option.value && isVisible) {
+                visibleCount += 1;
+            }
+        });
+        if (modalType.selectedOptions.length && modalType.selectedOptions[0].hidden) {
+            modalType.value = "";
+        }
+        modalType.disabled = visibleCount === 0;
+        if (modalTypeEmpty) {
+            modalTypeEmpty.style.display = visibleCount === 0 ? "block" : "none";
+        }
+        refreshCustomTypeVisibility();
+    }
+
+    function isOtherTypeSelected() {
+        var selected = modalType.selectedOptions && modalType.selectedOptions.length ? modalType.selectedOptions[0] : null;
+        return Boolean(selected && selected.value && selected.dataset.isOther === "1");
+    }
+
+    function refreshCustomTypeVisibility() {
+        var show = isOtherTypeSelected();
+        if (modalCustomTypeField) {
+            modalCustomTypeField.style.display = show ? "grid" : "none";
+        }
+        if (!show) {
+            modalTypeName.value = "";
+        }
+    }
+
+    function refreshAuthorityOptions() {
+        if ((modalCategory.value || "") !== "non_party") {
+            return;
+        }
+        var authorityValues = selectableValues(modalAuthority);
+        if (!modalAuthority.value && authorityValues.length === 1) {
+            modalAuthority.value = authorityValues[0];
+        }
+        if (modalAuthorityEmpty) {
+            modalAuthorityEmpty.style.display = authorityValues.length ? "none" : "block";
+        }
+    }
+
+    function refreshModalVisibility() {
+        var category = modalCategory.value || "";
+        var showParty = category === "party";
+        var showNonParty = category === "non_party";
+        document.querySelectorAll(".caselog-material-party-only").forEach(function(el) {
+            el.style.display = showParty ? "grid" : "none";
+        });
+        document.querySelectorAll(".caselog-material-non-party-only").forEach(function(el) {
+            el.style.display = showNonParty ? "grid" : "none";
+        });
+        refreshTypeOptions();
+        refreshAuthorityOptions();
+    }
+
+    function applyMaterialPayload(payload, caseId) {
+        materialCategories = payload.categories || materialCategories;
+        materialSides = payload.sides || materialSides;
+        materialParties = payload.parties || [];
+        materialAuthorities = payload.authorities || [];
+        materialTypes = payload.types || [];
+        materialOptionsCaseId = caseId || "";
+    }
+
+    function ensureMaterialOptionsForCurrentCase(callback) {
+        var currentCaseId = getCurrentCaseId();
+        if (!currentCaseId) {
+            callback();
+            return;
+        }
+        if (currentCaseId === materialOptionsCaseId) {
+            callback();
+            return;
+        }
+        var url = String(materialOptionsUrl || "").replace("__CASE_ID__", encodeURIComponent(currentCaseId));
+        if (!url) {
+            _caselogShowToast("加载案件材料选项失败，请刷新页面后重试。", "error");
+            return;
+        }
+        materialOptionsLoading = true;
+        fetch(url, {
+            method: "GET",
+            credentials: "same-origin",
+            headers: { "X-Requested-With": "XMLHttpRequest" }
+        })
+            .then(function(response) {
+                if (!response.ok) {
+                    throw new Error("load failed");
+                }
+                return response.json();
+            })
+            .then(function(payload) {
+                applyMaterialPayload(payload, currentCaseId);
+                materialOptionsLoading = false;
+                callback();
+            })
+            .catch(function() {
+                _caselogShowToast("加载案件材料选项失败，请刷新页面后重试。", "error");
+            })
+            .finally(function() {
+                materialOptionsLoading = false;
+            });
+    }
+
+    function updateSummary(row, checkInput) {
+        var cell = getFieldCell(row, "sync_to_case_material");
+        if (!cell) {
+            return;
+        }
+        var status = cell.querySelector(".caselog-material-sync-status");
+        var action = cell.querySelector(".caselog-material-sync-btn");
+        var unsync = cell.querySelector(".caselog-material-unsync-btn");
+        if (!status || !action || !unsync) {
+            return;
+        }
+
+        if (!checkInput.checked) {
+            status.textContent = "未同步到案件材料";
+            status.classList.remove("is-synced");
+            action.textContent = "同步到案件材料";
+            unsync.style.display = "none";
+            return;
+        }
+
+        var category = getRowField(row, "material_category");
+        var side = getRowField(row, "material_side");
+        var authority = getRowField(row, "material_supervising_authority");
+        var partyLabels = lookupLabels(materialParties, hiddenValues(row, "material_parties"));
+        var parts = [];
+        if (category && category.value === "party") {
+            parts.push(lookupLabel(materialSides, side ? side.value : "") || "当事人材料");
+            parts.push(typeLabel(row) || "待选材料类型");
+            if (partyLabels.length) {
+                parts.push(partyLabels.join("、"));
+            }
+        } else if (category && category.value === "non_party") {
+            parts.push("非当事人材料");
+            parts.push(typeLabel(row) || "待选材料类型");
+            parts.push(lookupLabel(materialAuthorities, authority ? authority.value : "") || "待选主管机关");
+        } else {
+            parts.push("待完善同步信息");
+        }
+
+        status.textContent = "已同步：" + parts.filter(Boolean).join(" / ");
+        status.classList.add("is-synced");
+        action.textContent = "修改同步";
+        unsync.style.display = "";
+    }
+
+    function openModal(checkInput) {
+        var row = getRow(checkInput);
+        if (!row) {
+            return;
+        }
+        if (!getCurrentCaseId()) {
+            _caselogShowToast("请先选择案件，再同步案件材料。", "error");
+            return;
+        }
+        activeCheckInput = checkInput;
+        ensureMaterialOptionsForCurrentCase(function() {
+            if (!activeCheckInput) {
+                return;
+            }
+            renderOptions(modalCategory, materialCategories, [(getRowField(row, "material_category") || {}).value || ""], true);
+            renderOptions(modalSide, materialSides, [(getRowField(row, "material_side") || {}).value || ""], true);
+            renderOptions(modalAuthority, materialAuthorities, [(getRowField(row, "material_supervising_authority") || {}).value || ""], true);
+            renderOptions(modalType, materialTypes, [(getRowField(row, "material_type") || {}).value || ""], true);
+            modalTypeName.value = (getRowField(row, "material_type_name") || {}).value || "";
+            refreshModalVisibility();
+            removeBtn.style.display = checkInput.checked ? "" : "none";
+            modal.style.display = "flex";
+        });
+    }
+
+    function closeModal() {
+        modal.style.display = "none";
+        activeCheckInput = null;
+    }
+
+    function validateModal() {
+        var category = modalCategory.value || "";
+        if (!category) {
+            _caselogShowToast("请选择材料大类", "error");
+            return false;
+        }
+        if (category === "party" && !modalSide.value) {
+            _caselogShowToast("请选择当事人方向", "error");
+            return false;
+        }
+        if (category === "non_party" && !modalAuthority.value) {
+            _caselogShowToast("请选择主管机关", "error");
+            return false;
+        }
+        if (!modalType.value) {
+            _caselogShowToast("请选择类型名称", "error");
+            return false;
+        }
+        if (isOtherTypeSelected() && !modalTypeName.value.trim()) {
+            _caselogShowToast("选择其它材料时，请填写自定义类型名称", "error");
+            return false;
+        }
+        if (modalType.value && !isTypeOptionForCategory(modalType.selectedOptions[0], category)) {
+            _caselogShowToast("类型名称与材料大类不一致", "error");
+            return false;
+        }
+        return true;
+    }
+
+    function confirmSync() {
+        if (!activeCheckInput || !validateModal()) {
+            return;
+        }
+
+        var row = getRow(activeCheckInput);
+        var category = modalCategory.value || "";
+        activeCheckInput.checked = true;
+        dispatchChange(activeCheckInput);
+        setSingleValue(getRowField(row, "material_category"), category);
+        setSingleValue(getRowField(row, "material_side"), category === "party" ? modalSide.value : "");
+        setHiddenMultipleValue(getRowField(row, "material_parties"), []);
+        setSingleValue(
+            getRowField(row, "material_supervising_authority"),
+            category === "non_party" ? modalAuthority.value : ""
+        );
+        setSingleValue(getRowField(row, "material_type"), modalType.value);
+        setSingleValue(getRowField(row, "material_type_name"), isOtherTypeSelected() ? modalTypeName.value.trim() : "");
+        updateSummary(row, activeCheckInput);
+        closeModal();
+    }
+
+    function removeSync() {
+        if (!activeCheckInput) {
+            return;
+        }
+        if (!window.confirm("确认取消同步？保存日志后只会移除案件材料关系，日志附件仍保留。")) {
+            return;
+        }
+        var row = getRow(activeCheckInput);
+        activeCheckInput.checked = false;
+        dispatchChange(activeCheckInput);
+        updateSummary(row, activeCheckInput);
+        closeModal();
+    }
+
+    function bindRow(checkInput) {
+        if (!checkInput || checkInput.dataset.caselogMaterialSyncBound === "true") {
+            return;
+        }
+        if ((checkInput.name || "").indexOf("__prefix__") !== -1) {
+            return;
+        }
+
+        checkInput.dataset.caselogMaterialSyncBound = "true";
+        var row = getRow(checkInput);
+        var cell = getFieldCell(row, "sync_to_case_material");
+        if (!row || !cell) {
+            return;
+        }
+
+        checkInput.style.display = "none";
+        var control = document.createElement("div");
+        control.className = "caselog-material-sync-control";
+        var status = document.createElement("div");
+        status.className = "caselog-material-sync-status";
+        var actions = document.createElement("div");
+        actions.className = "caselog-material-sync-actions";
+        var action = document.createElement("button");
+        action.type = "button";
+        action.className = "caselog-material-sync-btn";
+        var unsync = document.createElement("button");
+        unsync.type = "button";
+        unsync.className = "caselog-material-unsync-btn";
+        unsync.textContent = "取消同步";
+
+        actions.appendChild(action);
+        actions.appendChild(unsync);
+        control.appendChild(status);
+        control.appendChild(actions);
+        cell.appendChild(control);
+
+        action.addEventListener("click", function() {
+            openModal(checkInput);
+        });
+        unsync.addEventListener("click", function() {
+            activeCheckInput = checkInput;
+            removeSync();
+        });
+
+        checkInput.addEventListener("change", function() {
+            updateSummary(row, checkInput);
+        });
+        updateSummary(row, checkInput);
+    }
+
+    function bindAll() {
+        document.querySelectorAll('input[name$="-sync_to_case_material"]').forEach(bindRow);
+    }
+
+    bindAll();
+    window.setTimeout(bindAll, 50);
+    window.setTimeout(bindAll, 300);
+
+    var observer = new MutationObserver(function() {
+        bindAll();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    modalCategory.addEventListener("change", refreshModalVisibility);
+    modalType.addEventListener("change", refreshCustomTypeVisibility);
+    confirmBtn.addEventListener("click", confirmSync);
+    removeBtn.addEventListener("click", removeSync);
+    closeBtn.addEventListener("click", closeModal);
+    cancelBtn.addEventListener("click", closeModal);
+    modal.addEventListener("click", function(event) {
+        if (event.target === modal) {
+            closeModal();
+        }
+    });
 }
 
 function _caselogInit() {
     _caselogAddParseButton();
+    _caselogInitAttachmentSubdirPicker();
+    _caselogInitAttachmentMaterialSync();
 }
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', _caselogInit);
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", _caselogInit);
 } else {
     _caselogInit();
 }

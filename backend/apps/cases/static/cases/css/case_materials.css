@@ -107,10 +107,10 @@
 
 .material-file {
   display: flex;
+  flex-direction: column;
   align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 8px 10px;
+  gap: 6px;
+  padding: 9px 10px;
   border: 1px solid #e5e7eb;
   border-radius: 10px;
   background: #fff;
@@ -120,8 +120,16 @@
 }
 
 .material-file:hover {
-  border-color: #c7d2fe;
-  background: #f9fafb;
+  border-color: #bfdbfe;
+  background: #f8fbff;
+}
+
+.material-file-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
 }
 
 .material-file-name {
@@ -132,15 +140,35 @@
   word-break: break-word;
   flex: 1;
   min-width: 0;
+  line-height: 1.4;
+}
+
+.material-file-open-hint {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border: 1px solid #dbeafe;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+
+.material-file:hover .material-file-open-hint {
+  opacity: 1;
 }
 
 .material-file-meta {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-  min-width: 120px;
-  flex-shrink: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
 }
 
 .material-file-time {
@@ -150,7 +178,10 @@
 
 .material-file-tags {
   font-size: 12px;
-  color: #374151;
+  color: #4b5563;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #f3f4f6;
 }
 
 .sortable-ghost {

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
@@ -30,8 +31,18 @@ logger = logging.getLogger(__name__)
 def validate_log_attachment(file: UploadedFile) -> None:
     """验证日志附件"""
     name = str(getattr(file, "name", ""))
-    size: int = int(getattr(file, "size", 0) or 0)
     ext = Path(name).suffix.lower()
+
+    size: int = 0
+    try:
+        size = int(getattr(file, "size", 0) or 0)
+    except Exception:
+        if name and os.path.isabs(name):
+            try:
+                size = int(Path(name).stat().st_size)
+            except OSError:
+                size = 0
+
     if ext not in CASE_LOG_ALLOWED_EXTENSIONS:
         from django.core.exceptions import ValidationError
 
@@ -159,6 +170,16 @@ class CaseLogAttachment(models.Model):
         validators=[validate_log_attachment],
         verbose_name=_("相关文书"),
     )
+    storage_root_type = models.CharField(max_length=32, default="media", blank=True, verbose_name=_("存储根类型"))
+    subdir_path = models.CharField(max_length=500, blank=True, default="", verbose_name=_("子目录"))
+    relative_file_path = models.CharField(
+        max_length=500,
+        blank=True,
+        default="",
+        db_index=True,
+        verbose_name=_("相对文件路径"),
+    )
+    original_filename = models.CharField(max_length=255, blank=True, default="", verbose_name=_("原始文件名"))
     uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name=_("上传时间"))
 
     class Meta:
@@ -167,6 +188,14 @@ class CaseLogAttachment(models.Model):
         indexes: ClassVar = [
             models.Index(fields=["log"]),
         ]
+
+    @property
+    def case_id(self) -> int:
+        return int(self.log.case_id)
+
+    @property
+    def display_name(self) -> str:
+        return str(self.original_filename or getattr(self.file, "name", "") or "")
 
 
 class CaseLogVersion(models.Model):

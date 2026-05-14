@@ -1264,6 +1264,138 @@
     background: #e5e7eb;
     color: #374151;
 }
+.important-time-due {
+    white-space: nowrap;
+    font-weight: 600;
+    color: #111827;
+}
+.important-time-row--today {
+    background: #fff7ed;
+}
+.important-time-row--today:hover {
+    background: #ffedd5 !important;
+}
+.important-time-row--soon {
+    background: #fffbeb;
+}
+.important-time-row--soon:hover {
+    background: #fef3c7 !important;
+}
+.important-time-row--today .important-time-due-main,
+.important-time-row--soon .important-time-due-main {
+    color: #92400e;
+}
+.important-time-due-main,
+.important-time-relative {
+    display: block;
+}
+.important-time-relative {
+    margin-top: 2px;
+    color: #6b7280;
+    font-size: 12px;
+    font-weight: 500;
+}
+.important-time-row--today .important-time-relative,
+.important-time-row--soon .important-time-relative {
+    color: #92400e;
+}
+.important-time-status {
+    border: 1px solid transparent;
+}
+.important-time-status-overdue {
+    background: #fee2e2;
+    color: #991b1b;
+    border-color: #fecaca;
+}
+.important-time-status-today {
+    background: #ffedd5;
+    color: #9a3412;
+    border-color: #fed7aa;
+}
+.important-time-status-soon {
+    background: #fef3c7;
+    color: #92400e;
+    border-color: #fde68a;
+}
+.important-time-status-upcoming {
+    background: #ecfdf5;
+    color: #047857;
+    border-color: #a7f3d0;
+}
+.important-time-source {
+    border: 1px solid transparent;
+}
+.important-time-source-manual {
+    background: #ecfdf5;
+    color: #047857;
+    border-color: #a7f3d0;
+}
+.important-time-source-log {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border-color: #bfdbfe;
+}
+.important-time-source-link {
+    display: inline-flex;
+    text-decoration: none;
+}
+.important-time-link {
+    color: var(--unfold-primary, #2563eb);
+    text-decoration: none;
+    font-size: 12px;
+    white-space: nowrap;
+}
+.important-time-link:hover {
+    text-decoration: underline;
+}
+.important-time-actions {
+    white-space: nowrap;
+}
+.important-time-action-btn {
+    margin-left: 0;
+    padding: 2px 6px;
+    border: none;
+    background: transparent;
+    color: #9ca3af;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: color 0.15s, background 0.15s;
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+}
+.important-time-action-btn + .important-time-action-btn {
+    margin-left: 2px;
+}
+.important-time-edit-btn:hover {
+    color: #2563eb;
+    background: #eff6ff;
+}
+.important-time-delete-btn:hover {
+    color: #ef4444;
+    background: #fef2f2;
+}
+.important-time-delete-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+.important-time-modal {
+    max-width: 460px;
+}
+.important-time-modal .form-group {
+    margin-bottom: 14px;
+}
+.important-time-modal label {
+    display: block;
+    margin-bottom: 6px;
+    color: #374151;
+    font-size: 13px;
+    font-weight: 600;
+}
+.important-time-modal .form-control {
+    width: 100%;
+    box-sizing: border-box;
+}
 .table-responsive {
     overflow-x: auto;
 }
