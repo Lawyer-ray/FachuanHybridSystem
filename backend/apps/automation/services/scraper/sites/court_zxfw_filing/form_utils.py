@@ -34,6 +34,61 @@ class FormUtilsMixin:
         except Exception:
             pass
 
+    def _handle_popups(self) -> bool:
+        """集中扫描并处理所有已知弹窗，返回是否有弹窗被处理。
+
+        处理的弹窗类型：
+        1. 综治中心提示 → 点击关闭按钮
+        2. 数字诉讼标志 → 点击图标
+        3. 要素式立案提示 → 点击"不选择要素式立案"
+        4. 智能识别服务提示 → 点击"不体验智能识别要素式立案服务"
+        """
+        handled = False
+
+        # 1. 综治中心弹窗
+        try:
+            header = self.page.locator(".fd-com-layer-header")
+            if header.count() and "综治中心" in (header.first.text_content() or ""):
+                close_btn = self.page.locator('uni-button:has-text("关闭")')
+                if close_btn.count() and close_btn.first.is_visible():
+                    close_btn.first.click()
+                    self._random_wait(0.5, 1)
+                    handled = True
+        except Exception:
+            pass
+
+        # 2. 数字诉讼标志
+        try:
+            icon = self.page.locator(".fd-icon-szsbla")
+            if icon.count() and icon.first.is_visible():
+                icon.first.click()
+                self._random_wait(0.5, 1)
+                handled = True
+        except Exception:
+            pass
+
+        # 3. 要素式立案
+        try:
+            btn = self.page.locator('uni-button:has-text("不选择要素式立案")')
+            if btn.count() and btn.first.is_visible():
+                btn.first.click()
+                self._random_wait(1, 2)
+                handled = True
+        except Exception:
+            pass
+
+        # 4. 智能识别服务
+        try:
+            btn = self.page.locator('uni-button:has-text("不体验智能识别要素式立案服务")')
+            if btn.count() and btn.first.is_visible():
+                btn.first.click()
+                self._random_wait(1, 2)
+                handled = True
+        except Exception:
+            pass
+
+        return handled
+
     def _open_dropdown_by_labels(self, labels: tuple[str, ...], *, required: bool) -> bool:
         for label in labels:
             trigger = self.page.locator(f".uni-forms-item:has(.uni-forms-item__label:has-text('{label}')) .input-value")
@@ -186,9 +241,11 @@ class FormUtilsMixin:
         self._random_wait(2, 3)
 
     def _click_next_step(self) -> None:
-        """点击下一步按钮"""
+        """点击下一步按钮，点击后处理可能出现的弹窗"""
+        self._handle_popups()
         self.page.locator("uni-button:has-text('下一步')").click()
         self._random_wait(2, 3)
+        self._handle_popups()
 
     def _random_wait(self, min_sec: float = 0.5, max_sec: float = 2.0) -> None:
         """随机等待，模拟人工操作"""

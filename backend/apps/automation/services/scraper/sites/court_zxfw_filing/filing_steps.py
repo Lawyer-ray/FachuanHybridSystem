@@ -50,26 +50,35 @@ class FilingStepsMixin(FormUtilsMixin):
         logger.info(str(_("已打开%s立案页: %s")), case_type, self.page.url)
 
     def _step1_select_court(self, court_name: str) -> None:
-        """搜索并选择受理法院、选择申请人类型"""
+        """搜索并选择受理法院、选择申请人类型。
+
+        采用三层降级策略：
+        策略0: 搜索框搜索（最可靠）
+        策略1: 直接在页面查找 checklist-text 元素
+        策略2: 城市选择 + 法院列表
+        """
         logger.info(str(_("步骤1: 选择受理法院 - %s")), court_name)
 
-        keyword = self._extract_court_keyword(court_name)
+        court_selected = False
 
-        search_input = self.page.locator(".uni-input-input").first
-        search_input.click()
-        self._random_wait(0.3, 0.5)
-        search_input.click(click_count=3)
-        self._random_wait(0.2, 0.3)
-        search_input.type(keyword, delay=80)
-        self._random_wait(0.5, 1)
+        # 策略0: 搜索框搜索
+        court_selected = self._try_search_court(court_name)
 
-        self.page.locator("uni-button:has-text('搜索')").click()
-        self._random_wait(2, 3)
+        # 策略1: 直接查找 checklist-text
+        if not court_selected:
+            logger.warning("搜索框策略失败，尝试直接查找法院元素")
+            court_selected = self._try_find_court_direct(court_name)
 
-        self.page.locator(f'.checklist-box:has-text("{court_name}")').first.click()
+        # 策略2: 城市选择 + 法院列表
+        if not court_selected:
+            logger.warning("直接查找失败，尝试城市选择策略")
+            court_selected = self._try_select_court_by_city(court_name)
+
+        if not court_selected:
+            raise ValueError(f"无法找到法院: {court_name}（三种策略均失败）")
+
         self._random_wait(1, 2)
-
-        self._dismiss_popup()
+        self._handle_popups()
 
         self.page.locator('.checklist-box:has-text("为他人或公司等组织申请")').click()
         self._random_wait(0.5, 1)
@@ -77,7 +86,90 @@ class FilingStepsMixin(FormUtilsMixin):
         self.page.locator("uni-button:has-text('下一步')").click()
         self._random_wait(1, 2)
 
+        self._handle_popups()
         logger.info(str(_("步骤1完成: 已选择法院 %s")), court_name)
+
+    def _try_search_court(self, court_name: str) -> bool:
+        """策略0: 通过搜索框搜索法院"""
+        try:
+            # 尝试多种搜索框定位
+            search_input = (
+                self.page.locator('input[placeholder*="搜索"]').first
+                or self.page.locator(".uni-input-input").first
+            )
+            search_input.click()
+            self._random_wait(0.3, 0.5)
+            search_input.click(click_count=3)
+            self._random_wait(0.2, 0.3)
+            # 使用法院全名搜索，比短关键词更精确
+            search_input.type(court_name, delay=50)
+            self._random_wait(0.5, 1)
+
+            self.page.locator("uni-button:has-text('搜索')").click()
+            self._random_wait(2, 3)
+
+            # 优先精确匹配，再模糊匹配
+            exact = self.page.locator(f'.checklist-box:has-text("{court_name}")')
+            if exact.count():
+                exact.first.click()
+                return True
+
+            # 双向模糊匹配
+            items = self.page.locator(".checklist-text")
+            for i in range(items.count()):
+                text = items.nth(i).text_content() or ""
+                if court_name in text or text in court_name:
+                    items.nth(i).click()
+                    return True
+
+            return False
+        except Exception as e:
+            logger.debug("搜索框策略异常: %s", e)
+            return False
+
+    def _try_find_court_direct(self, court_name: str) -> bool:
+        """策略1: 直接在页面查找 checklist-text 元素"""
+        try:
+            items = self.page.locator(".checklist-text")
+            for i in range(items.count()):
+                text = items.nth(i).text_content() or ""
+                if court_name in text or text in court_name:
+                    items.nth(i).click()
+                    return True
+            return False
+        except Exception as e:
+            logger.debug("直接查找策略异常: %s", e)
+            return False
+
+    def _try_select_court_by_city(self, court_name: str) -> bool:
+        """策略2: 先选城市，再在城市下的法院列表中查找"""
+        try:
+            city_container = self.page.locator(".fd-city-container")
+            if not city_container.count():
+                return False
+
+            # 从法院名提取城市（去掉"人民法院"后取前缀）
+            city_name = court_name.replace("人民法院", "").rstrip("市")
+            city_items = self.page.locator(".fd-city-item")
+            for i in range(city_items.count()):
+                text = city_items.nth(i).text_content() or ""
+                if city_name in text or text in city_name:
+                    city_items.nth(i).click()
+                    self._random_wait(1, 2)
+                    break
+
+            # 在法院列表中查找
+            items = self.page.locator(".checklist-text")
+            for i in range(items.count()):
+                text = items.nth(i).text_content() or ""
+                if court_name in text or text in court_name:
+                    items.nth(i).click()
+                    return True
+
+            return False
+        except Exception as e:
+            logger.debug("城市选择策略异常: %s", e)
+            return False
 
     def _step2_read_notice(self, *, has_prepared_doc: bool = True) -> None:
         """勾选阅读须知，处理弹窗，选择立案方式"""
@@ -89,8 +181,8 @@ class FilingStepsMixin(FormUtilsMixin):
         self.page.locator("uni-button:has-text('下一步')").click()
         self._random_wait(1, 2)
 
-        self._dismiss_popup_by_text("不选择要素式立案")
-        self._dismiss_popup_by_text("不体验智能识别要素式立案服务")
+        # 集中处理所有弹窗（要素式立案、智能识别、数字诉讼标志等）
+        self._handle_popups()
 
         if has_prepared_doc:
             self.page.locator(".fd-name:has-text('已准备诉状')").click()
@@ -99,7 +191,7 @@ class FilingStepsMixin(FormUtilsMixin):
         logger.info(str(_("步骤2完成: 须知已确认")))
 
     def _step3_select_cause(self, cause_of_action: str) -> None:
-        """搜索并选择案由"""
+        """搜索并选择案由，选择后验证结果"""
         logger.info(str(_("步骤3: 选择案由 - %s")), cause_of_action)
 
         self.page.get_by_text("请选择", exact=True).first.click()
@@ -111,8 +203,23 @@ class FilingStepsMixin(FormUtilsMixin):
         search_input.fill(cause_of_action)
         self._random_wait(1, 2)
 
-        self.page.locator(".fd-item").first.click()
+        # 优先精确匹配 .item-text，再 fallback 到第一个 .fd-item
+        exact_match = self.page.locator(f".item-text:has-text('{cause_of_action}')")
+        if exact_match.count():
+            exact_match.first.click()
+        else:
+            self.page.locator(".fd-item").first.click()
         self._random_wait(0.5, 1)
+
+        # 验证选择结果
+        try:
+            selected_area = self.page.locator(".selected-area").first
+            if selected_area.count():
+                selected_text = selected_area.get_attribute("title") or selected_area.text_content() or ""
+                if cause_of_action not in selected_text:
+                    logger.warning("案由选择可能不精确: 期望 '%s', 实际 '%s'", cause_of_action, selected_text)
+        except Exception:
+            pass
 
         self.page.locator("uni-button:has-text('下一步')").click()
         self._random_wait(1, 2)
@@ -239,10 +346,26 @@ class FilingStepsMixin(FormUtilsMixin):
                 self.page.wait_for_timeout(500)
 
             for file_path in files:
-                with self.page.expect_file_chooser() as fc_info:
-                    btn.click()
-                fc_info.value.set_files(file_path)
-                self.page.wait_for_timeout(2000)
+                # 记录上传前文件数
+                files_before = self.page.locator(".fd-file-name").count()
+
+                uploaded = False
+                for attempt in range(3):
+                    with self.page.expect_file_chooser() as fc_info:
+                        btn.click()
+                    fc_info.value.set_files(file_path)
+                    self.page.wait_for_timeout(2000)
+
+                    # 验证上传成功（文件数增加）
+                    files_after = self.page.locator(".fd-file-name").count()
+                    if files_after > files_before:
+                        uploaded = True
+                        break
+                    logger.warning("文件上传验证失败，重试(%d/3): %s", attempt + 1, Path(file_path).name)
+                    self._random_wait(1, 2)
+
+                if not uploaded:
+                    logger.error("文件上传失败（3次重试后）: %s", Path(file_path).name)
 
             logger.info("材料 %s 上传完成", idx_str)
 

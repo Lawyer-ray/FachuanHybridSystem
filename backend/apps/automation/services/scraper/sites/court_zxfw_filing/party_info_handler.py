@@ -36,6 +36,9 @@ class PartyInfoHandlerMixin(FormUtilsMixin):
         except Exception:
             raise ValueError(str(_("完善信息页面未加载，请检查前面步骤（材料上传等）是否已完成")))
 
+        # 清除一张网自动识别的当事人（避免与后续手动添加的冲突）
+        self._clear_auto_recognized_parties()
+
         if section_map is None:
             section_map = self.CIVIL_SECTION_MAP
 
@@ -64,6 +67,10 @@ class PartyInfoHandlerMixin(FormUtilsMixin):
                 if not self._is_mobile_phone(party_phone):
                     party_phone = agent_phone
                 party_address = str(party.get("address", "") or "")
+
+                # 归一化当事人类别
+                client_type = self._normalize_client_type(party.get("client_type", ""))
+
                 if is_execution:
                     imported = self._import_original_party(
                         section_title=section_title,
@@ -72,21 +79,20 @@ class PartyInfoHandlerMixin(FormUtilsMixin):
                         phone=party_phone,
                     )
                     if not imported:
-                        if party.get("client_type") == "natural":
-                            self._add_natural_person(section_title=section_title, **{**party, "phone": party_phone})
-                        else:
-                            self._add_legal_person(
-                                section_title=section_title,
-                                agent_phone=agent_phone,
-                                **{**party, "phone": party_phone},
-                            )
-                elif party.get("client_type") == "natural":
-                    self._add_natural_person(section_title=section_title, **{**party, "phone": party_phone})
+                        self._add_party_by_type(
+                            client_type=client_type,
+                            section_title=section_title,
+                            agent_phone=agent_phone,
+                            party=party,
+                            party_phone=party_phone,
+                        )
                 else:
-                    self._add_legal_person(
+                    self._add_party_by_type(
+                        client_type=client_type,
                         section_title=section_title,
                         agent_phone=agent_phone,
-                        **{**party, "phone": party_phone},
+                        party=party,
+                        party_phone=party_phone,
                     )
 
         if "plaintiffs" not in case_data and case_data.get("plaintiff_name"):
@@ -111,6 +117,51 @@ class PartyInfoHandlerMixin(FormUtilsMixin):
         self._complete_agent_info(case_data)
 
         logger.info(str(_("完善案件信息: 当事人和代理人已填写")))
+
+    def _clear_auto_recognized_parties(self) -> None:
+        """清除一张网自动识别的当事人信息。
+
+        一张网会从上传的材料中自动识别当事人，但识别结果经常不准确
+        （法人/自然人混淆、信息缺失等），需要先清除再手动添加。
+        """
+        logger.info("检查并清除自动识别的当事人")
+
+        cleared = 0
+        for _ in range(20):
+            # 查找所有"删除"按钮
+            delete_btns = self.page.locator('span:has-text("删除")')
+            if not delete_btns.count():
+                break
+
+            # 点击第一个删除按钮
+            try:
+                delete_btns.first.click()
+            except Exception:
+                break
+            self._random_wait(0.5, 1)
+
+            # 等待确认弹窗并点击确定
+            try:
+                confirm_btn = self.page.locator(".uni-modal__btn_primary")
+                confirm_btn.wait_for(state="visible", timeout=3000)
+                confirm_btn.click()
+                self._random_wait(1, 2)
+            except Exception:
+                try:
+                    self.page.locator('uni-button:has-text("确定")').first.click()
+                    self._random_wait(1, 2)
+                except Exception:
+                    try:
+                        self.page.locator('uni-button:has-text("取消")').first.click()
+                    except Exception:
+                        pass
+                    break
+
+            cleared += 1
+            logger.debug("已删除第 %d 个自动识别的当事人", cleared)
+
+        if cleared > 0:
+            logger.info("已清除 %d 个自动识别的当事人", cleared)
 
     def _complete_agent_info(self, case_data: dict[str, Any]) -> None:
         """按案件绑定顺序补齐代理人（不足则新增）。"""
@@ -368,6 +419,8 @@ class PartyInfoHandlerMixin(FormUtilsMixin):
         id_number: str = "",
         phone: str = "",
         gender: str = "男",
+        nationality: str = "",
+        ethnicity: str = "",
         **_: Any,
     ) -> None:
         """在指定区域添加自然人信息"""
@@ -383,14 +436,105 @@ class PartyInfoHandlerMixin(FormUtilsMixin):
         # 定位新打开的表单（section 内第一个含保存按钮的表单）
         form = section.locator(".fd-wsla-ryxx-box:has(uni-button:has-text('保存'))").first
 
+        # 从身份证号自动推导性别（第17位奇数=男，偶数=女）
+        if not gender and id_number and len(id_number) == 18:
+            try:
+                gender = "男" if int(id_number[16]) % 2 == 1 else "女"
+            except (ValueError, IndexError):
+                pass
+
         self._fill_field("姓名", name, form=form)
-        self._select_dropdown("性别", gender, form=form)
-        self._select_dropdown("证件类型", "居民身份证", form=form)
-        self._fill_field("证件号码", id_number, form=form)
         self._fill_field("住所地", address, form=form)
+        self._select_dropdown("性别", gender or "男", form=form)
+        self._select_dropdown("国别或地区", nationality or "中国", form=form)
+        self._select_dropdown("证件类型", "居民身份证", form=form)
+        self._select_dropdown("民族", ethnicity or "汉族", form=form)
+        self._fill_field("证件号码", id_number, form=form)
         self._fill_field("联系电话", phone, form=form)
 
         self._click_save(form=form)
+
+    def _add_other_organization(
+        self,
+        *,
+        section_title: str,
+        name: str,
+        address: str = "",
+        uscc: str = "",
+        legal_rep: str = "",
+        phone: str = "",
+        agent_phone: str = "",
+        **_: Any,
+    ) -> None:
+        """在指定区域添加其他组织（非法人组织、个体工商户等）信息。
+
+        与法人类似，但字段标签不同：用"主要负责人"代替"法定代表人/负责人"。
+        """
+        section = self.page.locator(f".uni-section:has-text('{section_title}')").first
+        add_btn = section.locator('.fd-sscyr-add-btn:has-text("添加其他组织")')
+        try:
+            add_btn.wait_for(state="visible", timeout=10000)
+        except Exception:
+            # 回退：部分页面可能没有"添加其他组织"按钮，尝试"添加法人"
+            logger.warning("未找到「添加其他组织」按钮，尝试「添加法人」")
+            self._add_legal_person(
+                section_title=section_title, name=name, address=address,
+                uscc=uscc, legal_rep=legal_rep, phone=phone, agent_phone=agent_phone,
+            )
+            return
+        add_btn.evaluate("el => el.click()")
+        self._random_wait(1, 2)
+
+        form = section.locator(".fd-wsla-ryxx-box:has(uni-button:has-text('保存'))").first
+
+        mobile = phone if re.fullmatch(r"1\d{10}", phone) else agent_phone
+
+        self._fill_field("名称", name, form=form)
+        self._fill_field("住所地", address, form=form)
+        self._select_dropdown("证照类型", "统一社会信用代码证", form=form)
+        self._fill_field("统一社会信用代码", uscc, form=form)
+        self._fill_field("主要负责人", legal_rep, form=form)
+        self._fill_field("主要负责人姓名", legal_rep, form=form)
+        self._fill_field("主要负责人手机号码", mobile, form=form)
+        self._fill_field("主要负责人联系电话", mobile, form=form)
+        self._fill_field_exact("联系电话", mobile, form=form)
+
+        self._click_save(form=form)
+
+    @staticmethod
+    def _normalize_client_type(client_type: str) -> str:
+        """归一化当事人类别：非法人组织/个体工商户/个人独资企业 → other_organization"""
+        other_types = {"非法人组织", "个体工商户", "个人独资企业", "other_organization"}
+        if client_type in other_types:
+            return "other_organization"
+        if client_type == "natural":
+            return "natural"
+        return "legal"
+
+    def _add_party_by_type(
+        self,
+        *,
+        client_type: str,
+        section_title: str,
+        agent_phone: str,
+        party: dict[str, Any],
+        party_phone: str,
+    ) -> None:
+        """根据当事人类别分派到对应的添加方法"""
+        if client_type == "natural":
+            self._add_natural_person(section_title=section_title, **{**party, "phone": party_phone})
+        elif client_type == "other_organization":
+            self._add_other_organization(
+                section_title=section_title,
+                agent_phone=agent_phone,
+                **{**party, "phone": party_phone},
+            )
+        else:
+            self._add_legal_person(
+                section_title=section_title,
+                agent_phone=agent_phone,
+                **{**party, "phone": party_phone},
+            )
 
     def _fill_execution_target_info(self, case_data: dict[str, Any]) -> None:
         """申请执行特有：填写执行理由、执行请求、执行标的类型"""
