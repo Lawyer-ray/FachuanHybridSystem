@@ -183,10 +183,27 @@ class CourtSMSDocumentReferenceService:
         if not path.is_absolute():
             path = Path(settings.MEDIA_ROOT) / path
 
-        if not path.exists():
+        if path.exists():
+            return str(path.resolve())
+
+        # 文件被重命名时，尝试在同目录下匹配
+        parent = path.parent
+        if not parent.is_dir():
             return None
 
-        return str(path.resolve())
+        suffix = path.suffix.lower()
+        same_suffix = [f for f in parent.iterdir() if f.is_file() and f.suffix.lower() == suffix]
+        if not same_suffix:
+            return None
+
+        # 1) stem 前缀匹配（如 民事调解书.pdf → 民事调解书（xxx）_20260514收.pdf）
+        stem = path.stem
+        prefix_matches = [f for f in same_suffix if f.stem.startswith(stem)]
+        if prefix_matches:
+            return str(max(prefix_matches, key=lambda f: f.stat().st_mtime).resolve())
+
+        # 2) 兜底：取同后缀最新的文件（适用于完全重命名的情况）
+        return str(max(same_suffix, key=lambda f: f.stat().st_mtime).resolve())
 
     def _build_original_document_name(self, doc: object) -> str:
         raw_name = str(getattr(doc, "c_wsmc", "") or "").strip()
