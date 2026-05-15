@@ -2,18 +2,6 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
-## [26.49.2] - 2026-05-14
-
-### 后端
-
-#### 修复
-
-- **CaseLogAttachment 文件路径溢出**：`BusinessFileStorageService` 将 `legacy_file_path` 从绝对路径（164 字符）改为相对路径（~80 字符），修复写入 `FileField`（varchar(100)）时的 `DataError: value too long` 异常
-- **案件日志附件文书引用无法定位**：`CourtSMSDocumentReferenceService` 从 `file.path`（media 根目录）改为使用 `CaseLogAttachmentStorageService.resolve_attachment()`（case_folder 目录），修复法院短信关联文书显示为空的问题
-- **文书引用显示 UUID 前缀文件名**：`_collect_from_case_log_attachments` 的 `display_name` 从 `Path(normalized).name`（UUID 前缀的存储文件名）改为 `attachment.original_filename`（原始文件名）
-- **original_filename 被 sanitize 丢失中文括号**：`save_uploaded_file` 和 `save_file` 中 `original_filename` 从 `sanitize_upload_filename()` 处理后的值改为存储真正的原始文件名，中文括号 `（）` 不再被替换为下划线
-- **admin 关联文书显示磁盘文件名**：`court_sms_admin_base.py` 的文书显示从 `Path(ref.file_path).name`（磁盘上的 sanitize 后文件名）改为 `ref.display_name`（正确的原始文件名）
-
 ## [26.49.1] - 2026-05-14
 
 ### 后端

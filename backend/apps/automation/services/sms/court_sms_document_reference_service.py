@@ -117,25 +117,23 @@ class CourtSMSDocumentReferenceService:
         if attachments is None:
             return
 
-        from apps.cases.services.log.case_log_attachment_storage_service import CaseLogAttachmentStorageService
-
-        storage_service = CaseLogAttachmentStorageService()
-
         for attachment in attachments.all():
-            resolved = storage_service.resolve_attachment(attachment)
-            raw_path = resolved.abs_path or getattr(getattr(attachment, "file", None), "path", "") or ""
+            file_obj = getattr(attachment, "file", None)
+            if not file_obj:
+                continue
+
+            raw_path = getattr(file_obj, "path", "") or getattr(file_obj, "name", "")
             normalized = self._normalize_existing_path(raw_path)
             if not normalized or normalized in seen_paths:
                 continue
-            original_name = getattr(attachment, "original_filename", "") or ""
-            display_name = original_name if original_name else Path(normalized).name
-            if display_name in seen_names:
+            file_name = Path(normalized).name
+            if file_name in seen_names:
                 continue
             seen_paths.add(normalized)
-            seen_names.add(display_name)
+            seen_names.add(file_name)
             refs.append(
                 CourtSMSDocumentReference(
-                    display_name=display_name,
+                    display_name=Path(normalized).name,
                     file_path=normalized,
                     source="case_log_attachment",
                 )

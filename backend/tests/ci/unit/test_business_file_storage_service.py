@@ -185,7 +185,7 @@ def test_save_uploaded_file_prefers_contract_folder(
     assert saved.subdir_path == "归档/扫描件"
     assert saved.relative_file_path.startswith("归档/扫描件/")
     assert Path(saved.absolute_file_path).exists()
-    assert not Path(saved.legacy_file_path).is_absolute()
+    assert Path(saved.legacy_file_path).is_absolute()
 
 
 def test_delete_file_supports_business_record(

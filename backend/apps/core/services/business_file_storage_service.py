@@ -125,14 +125,14 @@ class BusinessFileStorageService:
             str((Path(target.relative_dir) / target_abs.name).as_posix()),
             allow_empty=False,
         )
-        legacy_file_path = relative_file_path
+        legacy_file_path = relative_file_path if target.root_type == "media" else str(target_abs.resolve())
         return StoredBusinessFile(
             root_type=target.root_type,
             root_path=target.root_path,
             subdir_path=target.subdir_path,
             relative_file_path=relative_file_path,
             legacy_file_path=legacy_file_path,
-            original_filename=str(original_name) or source_path.name,
+            original_filename=safe_original_name or source_path.name,
             absolute_file_path=str(target_abs.resolve()),
             is_fallback=target.is_fallback,
             reason=target.reason,
@@ -198,14 +198,14 @@ class BusinessFileStorageService:
         relative_file_path = self._normalize_relative_path(
             str((Path(target.relative_dir) / filename).as_posix()), allow_empty=False
         )
-        legacy_file_path = relative_file_path
+        legacy_file_path = relative_file_path if target.root_type == "media" else str(target_abs.resolve())
         return StoredBusinessFile(
             root_type=target.root_type,
             root_path=target.root_path,
             subdir_path=target.subdir_path,
             relative_file_path=relative_file_path,
             legacy_file_path=legacy_file_path,
-            original_filename=original_name,
+            original_filename=safe_original_name,
             absolute_file_path=str(target_abs.resolve()),
             is_fallback=target.is_fallback,
             reason=target.reason,
