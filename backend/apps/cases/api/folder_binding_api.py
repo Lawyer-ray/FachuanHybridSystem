@@ -238,17 +238,22 @@ def recommend_case_log_attachment_subdir(
     service = _get_folder_binding_service()
 
     source_subfolder = ""
+    source_scene = "manual_log_upload"
     if log_id:
         from apps.cases.models import CaseLog
+        from apps.automation.models import CourtSMS
 
         log = CaseLog.objects.filter(pk=log_id, case_id=case_id).only("id", "case_id", "source_subfolder").first()
         if log:
             source_subfolder = str(log.source_subfolder or "")
+            if CourtSMS.objects.filter(case_log_id=log.id).exists():
+                source_scene = "court_sms_attachment"
 
     return service.recommend_bound_subdir_for_log_attachment(
         owner_id=case_id,
         source_subfolder=source_subfolder,
         file_name=str(file_name or ""),
+        source_scene=source_scene,
         user=ctx.user,
         org_access=ctx.org_access,
         perm_open_access=ctx.perm_open_access,

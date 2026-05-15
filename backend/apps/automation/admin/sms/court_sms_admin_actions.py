@@ -17,8 +17,10 @@ from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import CourtSMS, CourtSMSStatus
+from apps.core.tasking.query import TaskQueryService
 
 logger = logging.getLogger("apps.automation")
+_task_query_service = TaskQueryService()
 
 
 def _get_court_sms_service() -> Any:

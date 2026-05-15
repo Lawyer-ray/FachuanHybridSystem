@@ -108,6 +108,10 @@ class CourtSMSDetailOut(BaseModel):
                     "name": ref.display_name,
                     "source": ref.source,
                     "download_url": cls._to_media_url(ref.file_path),
+                    "original_name": ref.original_name,
+                    "archived_subdir": ref.archived_subdir,
+                    "recommended_subdir": ref.recommended_subdir,
+                    "recommendation_reason": ref.recommendation_reason,
                 }
                 for ref in references
             ],

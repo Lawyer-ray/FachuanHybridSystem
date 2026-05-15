@@ -52,6 +52,7 @@ class CaseLogAttachmentInlineForm(forms.ModelForm[CaseLogAttachment]):
         required=False,
         label=_("上传文件"),
         help_text=_("留空表示不替换现有文件。"),
+        widget=forms.FileInput,
     )
     target_subdir = forms.CharField(
         required=False,

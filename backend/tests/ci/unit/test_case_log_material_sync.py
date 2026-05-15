@@ -62,6 +62,8 @@ def _case_bundle():
 def test_material_sync_detail_fields_are_hidden_inputs() -> None:
     form = CaseLogAttachmentInlineForm()
 
+    assert isinstance(form.fields["file"].widget, forms.FileInput)
+
     for field_name in [
         "material_category",
         "material_side",

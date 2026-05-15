@@ -178,6 +178,9 @@ jobs:
           PYTHONPATH: "apiSystem:."
         run: |
           set -euo pipefail
+          echo "PWD=$(pwd)"
+          uv run python -c "import os; print('PYTHONPATH=' + os.environ.get('PYTHONPATH', ''))"
+          uv run python -c "import importlib; m=importlib.import_module('apiSystem.settings'); print(m.__file__)"
           base=""
           if [ "${GITHUB_EVENT_NAME}" = "pull_request" ] && [ -n "${GITHUB_BASE_REF:-}" ]; then
             git fetch origin "${GITHUB_BASE_REF}" --depth=1
@@ -197,6 +200,8 @@ jobs:
             echo "No changed backend/apps/*.py files."
             exit 0
           fi
+          printf '%s\n' "${files[@]}"
+          uv run python -c "import importlib; m=importlib.import_module('apiSystem.settings'); print(m.__file__)"
           uv run mypy --config-file=mypy.ini --follow-imports=silent "${files[@]}"
 
       - name: Type check (mypy, curated gate)
