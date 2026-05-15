@@ -433,7 +433,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
         if not binding:
             return None
 
-        is_accessible, _repaired = self.check_and_repair_path(binding)
+        is_accessible, _ = self.check_and_repair_path(binding)
         if not is_accessible:
             return None
 
@@ -462,7 +462,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
                 errors={"case_id": owner_id},
             )
 
-        is_accessible, _repaired = self.check_and_repair_path(binding)
+        is_accessible, _ = self.check_and_repair_path(binding)
         if not is_accessible:
             raise NotFoundError(
                 message=_("案件绑定文件夹不可用"),
@@ -523,7 +523,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
         if not case:
             return None
 
-        case_suffix = self._build_case_business_root_suffix(case)
+        case_suffix = self._build_case_business_root_suffix(cast(Case, case))
         if not case_suffix:
             return None
 
@@ -596,7 +596,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
                 "reason": "no_binding_default",
             }
 
-        is_accessible, _repaired = self.check_and_repair_path(binding)
+        is_accessible, _ = self.check_and_repair_path(binding)
         if not is_accessible:
             return {
                 "recommended_subdir": default_subdir,
@@ -767,7 +767,6 @@ class CaseFolderBindingService(FolderBindingCrudService):
                 continue
             if relative:
                 results.append(relative)
-        results.sort()
         return results
 
     def _match_preferred_existing_subdir(
@@ -858,6 +857,15 @@ class CaseFolderBindingService(FolderBindingCrudService):
         if not raw:
             return ""
         return self.path_validator.normalize_relative_path(raw)
+
+    def _split_match_tokens(self, text: str) -> list[str]:
+        return [part for part in re.split(r"[\s/\\\-_()??]+", str(text or "").strip()) if part]
+
+    def _normalize_match_text(self, text: str) -> str:
+        raw = str(text or "").strip()
+        if not raw:
+            return ""
+        return re.sub(r"[\s/\\\-_()??]+", "", raw).lower()
 
     def _is_more_specific_path(self, candidate: str, current: str) -> bool:
         candidate_depth = str(candidate or "").count("/")

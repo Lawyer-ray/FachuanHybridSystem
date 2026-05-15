@@ -110,7 +110,7 @@ class Command(BaseCommand):
                 new_subdir_path = ""
 
         new_original_filename = original_filename or Path(target_relative).name or Path(file_name).name
-        new_file_name = target_relative
+        new_file_name = target_relative if root_type != "media" else target_relative
 
         if (
             file_name == new_file_name
@@ -159,10 +159,10 @@ class Command(BaseCommand):
     def _normalize_relative(self, value: str, *, allow_empty: bool = False) -> str:
         raw = str(value or "").strip().replace("\\", "/")
         if not raw:
-            return ""
+            return "" if allow_empty else ""
         parts = [part for part in raw.split("/") if part not in {"", "."}]
         if not parts:
-            return ""
+            return "" if allow_empty else ""
         if any(part == ".." for part in parts):
-            return ""
+            return "" if allow_empty else ""
         return "/".join(parts)
