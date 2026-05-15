@@ -13,11 +13,10 @@ from typing import Any, cast
 
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
-
-from apps.core.services.filename_template_service import FilenameTemplateService
 from docxtpl import DocxTemplate
 
 from apps.core.exceptions import NotFoundError, ValidationException
+from apps.core.services.filename_template_service import FilenameTemplateService
 from apps.core.utils.path import Path
 from apps.documents.services.infrastructure.wiring import get_case_service, get_document_service
 from apps.documents.services.placeholders import EnhancedContextBuilder
