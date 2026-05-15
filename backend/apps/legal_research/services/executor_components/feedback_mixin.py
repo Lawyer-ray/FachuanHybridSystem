@@ -32,9 +32,7 @@ class ExecutorFeedbackMixin:
 
         hit_rate = matched / max(1, scanned)
         keyword_tokens = [
-            token
-            for token in cls._split_tokens(search_keyword)  # type: ignore[attr-defined]
-            if not cls._is_location_or_court_token(token)  # type: ignore[attr-defined]
+            token for token in cls._split_tokens(search_keyword) if not cls._is_location_or_court_token(token)  # type: ignore[attr-defined]
         ]
         if not keyword_tokens:
             return

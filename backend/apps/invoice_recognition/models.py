@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
-from typing import Any, ClassVar
+from typing import Any
+
+from typing import ClassVar
 
 from django.conf import settings
 from django.db import models
@@ -99,9 +101,7 @@ class InvoiceRecord(models.Model):
         blank=True,
         verbose_name=_("金额（不含税）"),
     )
-    tax_amount: Decimal | None = models.DecimalField(
-        max_digits=12, decimal_places=2, null=True, blank=True, verbose_name=_("税额")
-    )
+    tax_amount: Decimal | None = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name=_("税额"))
     total_amount: Decimal = models.DecimalField(
         max_digits=12,
         decimal_places=2,

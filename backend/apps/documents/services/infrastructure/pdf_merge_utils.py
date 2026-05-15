@@ -110,10 +110,8 @@ def _convert_via_libreoffice(docx_path: str) -> str | None:
         cmd = [
             soffice,
             "--headless",
-            "--convert-to",
-            "pdf",
-            "--outdir",
-            output_dir,
+            "--convert-to", "pdf",
+            "--outdir", output_dir,
             str(docx_path),
         ]
         result = subprocess.run(
@@ -137,7 +135,6 @@ def _convert_via_libreoffice(docx_path: str) -> str | None:
         fd, final_path = tempfile.mkstemp(suffix=".pdf")
         os.close(fd)
         import shutil as shutil_mod
-
         shutil_mod.move(str(pdf_path), final_path)
         return final_path
 
@@ -149,7 +146,6 @@ def _convert_via_libreoffice(docx_path: str) -> str | None:
         return None
     finally:
         import shutil as shutil_mod
-
         shutil_mod.rmtree(output_dir, ignore_errors=True)
 
 
@@ -171,13 +167,15 @@ def convert_docx_to_pdf(docx_path: str) -> str:
 
             html_doc = (
                 '<!DOCTYPE html><html><head><meta charset="utf-8">'
-                "<style>"
+                '<style>'
                 'body { font-family: "SimSun", "STSong", "PingFang SC", "Microsoft YaHei", serif; font-size: 12pt; margin: 2cm; }'
-                "p { margin: 0.5em 0; text-indent: 2em; }"
-                "h1, h2, h3 { text-align: center; }"
-                "table { border-collapse: collapse; width: 100%; }"
-                "td, th { border: 1px solid #000; padding: 4px 8px; }"
-                "</style></head><body>" + html_body + "</body></html>"
+                'p { margin: 0.5em 0; text-indent: 2em; }'
+                'h1, h2, h3 { text-align: center; }'
+                'table { border-collapse: collapse; width: 100%; }'
+                'td, th { border: 1px solid #000; padding: 4px 8px; }'
+                '</style></head><body>'
+                + html_body +
+                '</body></html>'
             )
 
             fd, pdf_path = tempfile.mkstemp(suffix=".pdf")

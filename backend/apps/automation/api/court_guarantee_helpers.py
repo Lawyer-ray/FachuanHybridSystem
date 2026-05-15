@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -776,10 +777,11 @@ def _run_guarantee(
     case_data: dict[str, Any],
     session_id: int | None,
 ) -> None:
+    from playwright.sync_api import sync_playwright
+
     from apps.automation.models import ScraperTaskStatus
     from apps.automation.services.scraper.sites.court_zxfw import CourtZxfwService
     from apps.automation.services.scraper.sites.court_zxfw_guarantee import CourtZxfwGuaranteeService
-    from apps.core.services.browser import create_browser
 
     timing: dict[str, float] = {"overall_start": time.monotonic()}
 
@@ -802,7 +804,11 @@ def _run_guarantee(
         set_started=True,
     )
 
-    with create_browser("court_zxfw", slow_mo=_BROWSER_SLOW_MO_MS, anti_detection=False) as (page, context):
+    with sync_playwright() as pw:
+        _headless = not bool(os.environ.get("DISPLAY"))
+        browser = pw.chromium.launch(headless=_headless, slow_mo=_BROWSER_SLOW_MO_MS)
+        context = browser.new_context()
+        page = context.new_page()
         run_success = False
 
         try:
@@ -886,4 +892,5 @@ def _run_guarantee(
                 page.wait_for_timeout(hold_seconds * 1000)
             except Exception:
                 logger.debug("court_guarantee_wait_before_close_failed", exc_info=True)
-            # browser cleanup handled by create_browser()
+            context.close()
+            browser.close()

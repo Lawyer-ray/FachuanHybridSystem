@@ -34,7 +34,6 @@ def _make_target_contract() -> MagicMock:
 
 # ── 完整流程 ──────────────────────────────────────────────────────────────────
 
-
 def test_clone_related_data_full_flow() -> None:
     party = MagicMock()
     party.client = MagicMock()
@@ -60,12 +59,8 @@ def test_clone_related_data_full_flow() -> None:
     with (
         patch("apps.contracts.services.contract.admin.workflows.clone_workflow.ContractParty") as MockParty,
         patch("apps.contracts.services.contract.admin.workflows.clone_workflow.ContractAssignment") as MockAssignment,
-        patch(
-            "apps.contracts.services.contract.admin.workflows.clone_workflow.SupplementaryAgreement"
-        ) as MockAgreement,
-        patch(
-            "apps.contracts.services.contract.admin.workflows.clone_workflow.SupplementaryAgreementParty"
-        ) as MockAgreementParty,
+        patch("apps.contracts.services.contract.admin.workflows.clone_workflow.SupplementaryAgreement") as MockAgreement,
+        patch("apps.contracts.services.contract.admin.workflows.clone_workflow.SupplementaryAgreementParty") as MockAgreementParty,
     ):
         MockAgreement.objects.bulk_create.return_value = [MagicMock()]
         workflow.clone_related_data(source_contract=source, target_contract=target)
@@ -78,7 +73,6 @@ def test_clone_related_data_full_flow() -> None:
 
 # ── 无补充协议（提前 return）────────────────────────────────────────────────
 
-
 def test_clone_related_data_no_agreements_skips_agreement_bulk_create() -> None:
     source = _make_contract(parties=[], assignments=[], agreements=[])
     target = _make_target_contract()
@@ -88,12 +82,8 @@ def test_clone_related_data_no_agreements_skips_agreement_bulk_create() -> None:
     with (
         patch("apps.contracts.services.contract.admin.workflows.clone_workflow.ContractParty"),
         patch("apps.contracts.services.contract.admin.workflows.clone_workflow.ContractAssignment"),
-        patch(
-            "apps.contracts.services.contract.admin.workflows.clone_workflow.SupplementaryAgreement"
-        ) as MockAgreement,
-        patch(
-            "apps.contracts.services.contract.admin.workflows.clone_workflow.SupplementaryAgreementParty"
-        ) as MockAgreementParty,
+        patch("apps.contracts.services.contract.admin.workflows.clone_workflow.SupplementaryAgreement") as MockAgreement,
+        patch("apps.contracts.services.contract.admin.workflows.clone_workflow.SupplementaryAgreementParty") as MockAgreementParty,
     ):
         workflow.clone_related_data(source_contract=source, target_contract=target)
 
@@ -102,7 +92,6 @@ def test_clone_related_data_no_agreements_skips_agreement_bulk_create() -> None:
 
 
 # ── due_at_transform 参数 ────────────────────────────────────────────────────
-
 
 def test_clone_related_data_applies_due_at_transform() -> None:
     reminder = {"due_at": datetime.date(2025, 1, 1), "title": "提醒"}
@@ -125,7 +114,6 @@ def test_clone_related_data_applies_due_at_transform() -> None:
 
 
 # ── plus_one_year_due_at ─────────────────────────────────────────────────────
-
 
 def test_plus_one_year_due_at_adds_one_year() -> None:
     d = datetime.date(2024, 3, 15)

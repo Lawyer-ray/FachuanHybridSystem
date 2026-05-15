@@ -65,7 +65,10 @@ class TelegramTokenMixin:
             config = self._load_config_from_db()
 
             if not config.get("BOT_TOKEN"):
-                logger.warning("SystemConfig 中 Telegram BOT_TOKEN 未配置，请在系统配置中设置 TELEGRAM_BOT_TOKEN")
+                logger.warning(
+                    "SystemConfig 中 Telegram BOT_TOKEN 未配置，"
+                    "请在系统配置中设置 TELEGRAM_BOT_TOKEN"
+                )
 
             if not config.get("SUPERGROUP_ID"):
                 logger.warning(

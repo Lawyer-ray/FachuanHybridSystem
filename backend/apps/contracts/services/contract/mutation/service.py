@@ -79,7 +79,10 @@ class ContractMutationService:
         # 检测合同状态是否将变更为已归档
         old_status = contract.status
         new_status = data.get("status")
-        should_close_cases = new_status == ContractStatus.ARCHIVED and old_status != ContractStatus.ARCHIVED
+        should_close_cases = (
+            new_status == ContractStatus.ARCHIVED
+            and old_status != ContractStatus.ARCHIVED
+        )
 
         if "fee_mode" in data:
             merged_data = {**contract.__dict__, **data}
@@ -104,12 +107,7 @@ class ContractMutationService:
                     old_status,
                     new_status,
                     closed_count,
-                    extra={
-                        "contract_id": contract_id,
-                        "old_status": old_status,
-                        "new_status": new_status,
-                        "closed_case_count": closed_count,
-                    },
+                    extra={"contract_id": contract_id, "old_status": old_status, "new_status": new_status, "closed_case_count": closed_count},
                 )
 
         logger.info("合同更新成功", extra={"contract_id": contract_id, "action": "update_contract"})

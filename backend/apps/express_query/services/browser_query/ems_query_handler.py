@@ -1,5 +1,4 @@
 """EMS 查询流程。"""
-
 from __future__ import annotations
 
 import asyncio
@@ -25,7 +24,7 @@ async def query_ems(page: Page, tracking_number: str) -> None:
     3. 导航到干净的 query_express_delivery 页面（不含 ?to=）
     4. 输入单号搜索 + 打开详情
     """
-    from .ems_auth_handler import ems_click_login_button, ems_handle_agreement_and_wait, is_ems_dialog_visible
+    from .ems_auth_handler import ems_handle_agreement_and_wait, ems_click_login_button, is_ems_dialog_visible
 
     context = page.context
     _clean_query_url: str = "https://www.11183.com.cn/query_express_delivery"

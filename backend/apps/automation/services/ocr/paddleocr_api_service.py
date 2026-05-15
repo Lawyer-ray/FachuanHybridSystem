@@ -134,21 +134,17 @@ class PaddleOCRApiEngine:
 
         # 根据模型类型添加可选参数
         if model in _OCR_ENDPOINT_MODELS:
-            payload.update(
-                {
-                    "useDocOrientationClassify": False,
-                    "useDocUnwarping": False,
-                    "useTextlineOrientation": False,
-                }
-            )
+            payload.update({
+                "useDocOrientationClassify": False,
+                "useDocUnwarping": False,
+                "useTextlineOrientation": False,
+            })
         elif model in _LAYOUT_ENDPOINT_MODELS:
-            payload.update(
-                {
-                    "useDocOrientationClassify": False,
-                    "useDocUnwarping": False,
-                    "useChartRecognition": False,
-                }
-            )
+            payload.update({
+                "useDocOrientationClassify": False,
+                "useDocUnwarping": False,
+                "useChartRecognition": False,
+            })
 
         headers = {
             "Authorization": f"token {self.api_token}",

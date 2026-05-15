@@ -26,24 +26,18 @@ def preview_archive_template(contract_id: int, template_subtype: str) -> dict[st
     if not template_path:
         return {"success": False, "error": f"模板文件不存在: {template_subtype}"}
 
-    from apps.contracts.models.archive_override import ArchivePlaceholderOverride
     from apps.documents.services.generation.pipeline import DocxPreviewService, PipelineContextBuilder
+    from apps.contracts.models.archive_override import ArchivePlaceholderOverride
 
-    case = (
-        contract.cases.select_related("contract")
-        .prefetch_related(
-            "supervising_authorities",
-            "case_numbers",
-            "assignments__lawyer",
-            "parties__client",
-        )
-        .first()
-    )
+    case = contract.cases.select_related("contract").prefetch_related(
+        "supervising_authorities",
+        "case_numbers",
+        "assignments__lawyer",
+        "parties__client",
+    ).first()
 
     context = PipelineContextBuilder().build_archive_context(contract, case)
-    override_obj = ArchivePlaceholderOverride.objects.filter(
-        contract=contract, template_subtype=template_subtype
-    ).first()
+    override_obj = ArchivePlaceholderOverride.objects.filter(contract=contract, template_subtype=template_subtype).first()
     has_overrides = bool(override_obj and override_obj.overrides)
 
     _apply_overrides(context, contract, template_subtype)
@@ -54,16 +48,12 @@ def preview_archive_template(contract_id: int, template_subtype: str) -> dict[st
 def generate_archive_documents(contract: Contract, case: Any | None = None) -> list[dict[str, Any]]:
     """批量生成归档文书。"""
     if case is None:
-        case = (
-            contract.cases.select_related("contract")
-            .prefetch_related(
-                "supervising_authorities",
-                "case_numbers",
-                "assignments__lawyer",
-                "parties__client",
-            )
-            .first()
-        )
+        case = contract.cases.select_related("contract").prefetch_related(
+            "supervising_authorities",
+            "case_numbers",
+            "assignments__lawyer",
+            "parties__client",
+        ).first()
 
     archive_category = get_archive_category(contract.case_type)
     checklist_items = ARCHIVE_CHECKLIST.get(archive_category, [])
@@ -87,16 +77,12 @@ def generate_single_archive_document(
         return {"template_subtype": None, "error": "该检查项不支持模板生成"}
 
     if case is None:
-        case = (
-            contract.cases.select_related("contract")
-            .prefetch_related(
-                "supervising_authorities",
-                "case_numbers",
-                "assignments__lawyer",
-                "parties__client",
-            )
-            .first()
-        )
+        case = contract.cases.select_related("contract").prefetch_related(
+            "supervising_authorities",
+            "case_numbers",
+            "assignments__lawyer",
+            "parties__client",
+        ).first()
 
     return _generate_single_document(contract, target_item, case)
 

@@ -117,9 +117,13 @@ class SMSNotificationService:
             result.attempts.append(platform_result)
 
             if platform_result.success:
-                logger.info(f"平台 {platform.value} 通知成功: SMS ID={sms.id}, Chat ID={platform_result.chat_id}")
+                logger.info(
+                    f"平台 {platform.value} 通知成功: SMS ID={sms.id}, Chat ID={platform_result.chat_id}"
+                )
             else:
-                logger.warning(f"平台 {platform.value} 通知失败: SMS ID={sms.id}, 错误={platform_result.error}")
+                logger.warning(
+                    f"平台 {platform.value} 通知失败: SMS ID={sms.id}, 错误={platform_result.error}"
+                )
 
         # 汇总日志
         if result.any_success:
@@ -129,7 +133,10 @@ class SMSNotificationService:
                 f"失败平台={result.failed_platforms}"
             )
         else:
-            logger.error(f"多平台通知全部失败: SMS ID={sms.id}, 失败平台={result.failed_platforms}")
+            logger.error(
+                f"多平台通知全部失败: SMS ID={sms.id}, "
+                f"失败平台={result.failed_platforms}"
+            )
 
         return result
 

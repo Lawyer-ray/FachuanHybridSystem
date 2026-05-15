@@ -33,11 +33,18 @@ class GsxtReportError(Exception):
     """报告申请失败异常。"""
 
 
+def _check_cdp_available() -> bool:
+    try:
+        with httpx.Client(transport=httpx.HTTPTransport(http2=False)) as client:
+            resp = client.get(f"{CDP_URL}/json/version", timeout=2)
+            return resp.status_code == 200
+    except Exception:
+        return False
+
+
 def _ensure_chrome_running() -> None:
     """确保 Chrome 以调试模式运行。"""
-    from apps.core.services.browser.chrome_process import is_cdp_ready, launch_chrome
-
-    if is_cdp_ready(9222):
+    if _check_cdp_available():
         return
 
     try:
@@ -47,14 +54,20 @@ def _ensure_chrome_running() -> None:
         pass
 
     logger.info("启动 Chrome 调试模式...")
-    try:
-        launch_chrome(
-            port=9222,
-            user_data_dir=CHROME_USER_DATA_DIR,
-            chrome_path=CHROME_PATH,
-        )
-    except RuntimeError as e:
-        raise GsxtReportError("Chrome 启动失败，请先关闭所有 Chrome 窗口后重试") from e
+    process = subprocess.Popen(
+        [CHROME_PATH, "--remote-debugging-port=9222", f"--user-data-dir={CHROME_USER_DATA_DIR}", "--no-first-run"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+    )
+    for i in range(15):
+        time.sleep(1)
+        if _check_cdp_available():
+            logger.info("Chrome 启动成功")
+            return
+        if process.poll() is not None:
+            break
+
+    raise GsxtReportError("Chrome 启动失败，请先关闭所有 Chrome 窗口后重试")
 
 
 async def _cdp_navigate(url: str, wait_seconds: int = 8) -> str:

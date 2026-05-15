@@ -211,10 +211,7 @@ class IdCardUtils:
         check_code = ID_CARD_CHECK_CODES[check_sum % 11]
 
         if id_number[17] != check_code:
-            return {
-                "valid": False,
-                "message": str(_("身份证校验码错误，正确校验码应为 %(code)s")) % {"code": check_code},
-            }
+            return {"valid": False, "message": str(_("身份证校验码错误，正确校验码应为 %(code)s")) % {"code": check_code}}
 
         return {"valid": True, "message": str(_("身份证号码格式正确"))}
 

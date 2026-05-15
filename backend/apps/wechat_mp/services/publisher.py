@@ -7,7 +7,8 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from apps.core.services.browser import create_browser
+from apps.automation.services.scraper.config.browser_config import BrowserConfig
+from apps.automation.services.scraper.core.browser_manager import BrowserManager
 
 from .auth_handler import capture_qr_code, check_login_status, load_cookies, save_cookies, wait_for_qr_scan
 from .markdown_converter import convert_markdown_to_wechat_html
@@ -43,12 +44,15 @@ class WeChatPublisher:
         Raises:
             PublishError: 发布失败时抛出
         """
+        config = BrowserConfig(
+            headless=False,  # 公众号后台需要有头模式（首次扫码）
+            slow_mo=500,
+            viewport_width=1280,
+            viewport_height=800,
+        )
+
         try:
-            with create_browser(
-                headless=False,  # 公众号后台需要有头模式（首次扫码）
-                slow_mo=500,
-                viewport={"width": 1280, "height": 800},
-            ) as (page, context):
+            with BrowserManager.create_browser(config, use_anti_detection=True) as (page, context):
                 return self._execute_publish(page, context)
         except PublishError:
             raise

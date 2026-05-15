@@ -675,16 +675,16 @@ class CaseFolderBindingService(FolderBindingCrudService):
             return {}
 
         for rule in self.LOG_ATTACHMENT_FILENAME_RULES:
-            keywords = [
-                str(keyword or "").strip() for keyword in rule.get("keywords", []) if str(keyword or "").strip()
-            ]
+            keywords = [str(keyword or "").strip() for keyword in rule.get("keywords", []) if str(keyword or "").strip()]
             if not keywords:
                 continue
             if not any(self._normalize_match_text(keyword) in normalized_name for keyword in keywords):
                 continue
 
             exclude_keywords = [
-                str(keyword or "").strip() for keyword in rule.get("exclude_keywords", []) if str(keyword or "").strip()
+                str(keyword or "").strip()
+                for keyword in rule.get("exclude_keywords", [])
+                if str(keyword or "").strip()
             ]
             if any(self._normalize_match_text(keyword) in normalized_name for keyword in exclude_keywords):
                 continue
@@ -808,9 +808,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
             if not normalized_path:
                 continue
             score = self._score_subdir_match(label=label, normalized_path=normalized_path, keywords=keywords)
-            if score > best_score or (
-                score == best_score and score > 0 and self._is_more_specific_path(path, best_path)
-            ):
+            if score > best_score or (score == best_score and score > 0 and self._is_more_specific_path(path, best_path)):
                 best_score = score
                 best_path = path
         return best_path if best_score >= 0.55 else ""
@@ -835,9 +833,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
         valid_keywords = [kw for kw in keywords if len(str(kw or "").strip()) >= 2]
         keyword_score = 0.0
         if valid_keywords:
-            normalized_keywords = [
-                self._normalize_match_text(kw) for kw in valid_keywords if self._normalize_match_text(kw)
-            ]
+            normalized_keywords = [self._normalize_match_text(kw) for kw in valid_keywords if self._normalize_match_text(kw)]
             matched_keywords = [kw for kw in normalized_keywords if kw in normalized_path]
             if matched_keywords:
                 longest_keyword = max(len(kw) for kw in normalized_keywords)

@@ -166,7 +166,8 @@ class EmailFolderScanService:
                 existing_sources.add(source_key)
 
         logger.info(
-            f"案件 {case_id} 子文件夹导入完成: 目录={target.name}, 新增={len(created_logs)}, 跳过={skipped_count}"
+            f"案件 {case_id} 子文件夹导入完成: 目录={target.name}, "
+            f"新增={len(created_logs)}, 跳过={skipped_count}"
         )
         return {"logs": created_logs, "skipped_count": skipped_count}
 

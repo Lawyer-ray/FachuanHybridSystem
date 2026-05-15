@@ -137,7 +137,9 @@ class TestContractHttpSmoke:
             {"lawyer_ids": [contracts_admin_user.id, secondary_lawyer.id]},
         )
         _assert_status(lawyer_response)
-        assigned_ids = set(Contract.objects.get(id=contract_id).assignments.values_list("lawyer_id", flat=True))
+        assigned_ids = set(
+            Contract.objects.get(id=contract_id).assignments.values_list("lawyer_id", flat=True)
+        )
         assert assigned_ids == {contracts_admin_user.id, secondary_lawyer.id}
 
         all_parties_response = api_client.get(
@@ -157,9 +159,7 @@ class TestContractHttpSmoke:
         assert get_json_response(delete_response)["success"] is True
         assert not Contract.objects.filter(id=contract_id).exists()
 
-    def test_contract_full_creation_and_supplementary_agreements(
-        self, api_client: Client, contracts_admin_user: Any
-    ) -> None:
+    def test_contract_full_creation_and_supplementary_agreements(self, api_client: Client, contracts_admin_user: Any) -> None:
         case_client = ClientFactory(name="案件委托人")
         supplementary_client = ClientFactory(name="补充协议当事人")
 

@@ -70,7 +70,7 @@ class StoredBusinessFile:
     is_fallback: bool = False
     reason: str = ""
 
-    def __iter__(self) -> Any:
+    def __iter__(self):
         yield self.legacy_file_path
         yield self.original_filename
 
@@ -195,9 +195,7 @@ class BusinessFileStorageService:
             else:
                 f.write(uploaded_file.read())
 
-        relative_file_path = self._normalize_relative_path(
-            str((Path(target.relative_dir) / filename).as_posix()), allow_empty=False
-        )
+        relative_file_path = self._normalize_relative_path(str((Path(target.relative_dir) / filename).as_posix()), allow_empty=False)
         legacy_file_path = relative_file_path if target.root_type == "media" else str(target_abs.resolve())
         return StoredBusinessFile(
             root_type=target.root_type,
@@ -280,7 +278,6 @@ class BusinessFileStorageService:
                 exists=False,
             )
 
-        root_path: Path | None
         if root_type == "media":
             root_path = self._get_media_root_path()
         elif root_type == "case_folder":

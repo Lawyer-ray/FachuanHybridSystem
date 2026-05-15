@@ -50,7 +50,9 @@ def generate_request_text(
 
     if custom_interest_summary:
         item_segments.append(custom_interest_summary)
-    elif (segments or params.start_date) and (params.multiplier is not None or params.custom_rate_value is not None):
+    elif (segments or params.start_date) and (
+        params.multiplier is not None or params.custom_rate_value is not None
+    ):
         cutoff_text = f"{cutoff_date.year}年{cutoff_date.month}月{cutoff_date.day}日"
         rate_desc = params.rate_description or "约定利率"
         if len(segments) >= 2:

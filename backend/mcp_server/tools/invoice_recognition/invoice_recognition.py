@@ -72,7 +72,9 @@ def download_invoices(
         params["invoice_id"] = invoice_id
     if category is not None:
         params["category"] = category
-    content, filename, content_type = client.download(f"/invoice-recognition/{task_id}/download", params=params)
+    content, filename, content_type = client.download(
+        f"/invoice-recognition/{task_id}/download", params=params
+    )
     return {
         "filename": filename,
         "content_type": content_type,

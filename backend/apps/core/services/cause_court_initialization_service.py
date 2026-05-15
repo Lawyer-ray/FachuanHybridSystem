@@ -6,6 +6,7 @@
 """
 
 import logging
+import os
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -249,24 +250,41 @@ class CauseCourtInitializationService:
 
         def _do_login() -> str | None:
             """同步执行登录"""
-            from apps.core.services.browser import create_browser
-            from apps.core.services.wiring import get_court_zxfw_service_factory
+            from playwright.sync_api import sync_playwright
 
-            with create_browser() as (page, context):
-                service = get_court_zxfw_service_factory(page=page, context=context)
+            from apps.core.services.wiring import get_anti_detection, get_court_zxfw_service_factory
 
-                login_result = service.login(
-                    account=account,
-                    password=password,
-                    max_captcha_retries=3,
-                    save_debug=False,
-                )
+            anti_detection = get_anti_detection()
 
-                if not login_result.get("success"):
-                    raise TokenError(f"登录失败: {login_result.get('message')}")
+            with sync_playwright() as p:
+                # Docker/NAS 环境通常没有 XServer，缺少 DISPLAY 时自动走无头模式。
+                headless = not bool(os.environ.get("DISPLAY"))
+                browser = p.chromium.launch(headless=headless)
+                context_options = anti_detection.get_browser_context_options()
+                context = browser.new_context(**context_options)
+                page = context.new_page()
 
-                token_val = login_result.get("token")
-                return str(token_val) if token_val is not None else None
+                try:
+                    service = get_court_zxfw_service_factory(page=page, context=context)
+
+                    # 登录
+                    login_result = service.login(
+                        account=account,
+                        password=password,
+                        max_captcha_retries=3,
+                        save_debug=False,
+                    )
+
+                    if not login_result.get("success"):
+                        raise TokenError(f"登录失败: {login_result.get('message')}")
+
+                    # 获取一张网 Token
+                    token_val = login_result.get("token")
+                    return str(token_val) if token_val is not None else None
+
+                finally:
+                    context.close()
+                    browser.close()
 
         import asyncio
 

@@ -55,10 +55,10 @@ def get_scraper_configs() -> list[dict[str, Any]]:
     return [
         {"key": "SCRAPER_ENCRYPTION_KEY", "category": "scraper", "description": "爬虫加密密钥", "is_secret": True},
         {
-            "key": "PLAYWRIGHT_HEADED",
+            "key": "SCRAPER_HEADLESS",
             "category": "scraper",
-            "description": "Playwright 浏览器有头模式（true=显示浏览器窗口，便于调试；false=无头后台运行）",
-            "value": "false",
+            "description": "爬虫是否使用无头模式（默认根据 DEBUG 模式自动判断）",
+            "value": "True",
             "is_secret": False,
         },
     ]

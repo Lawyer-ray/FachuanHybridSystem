@@ -26,23 +26,15 @@ class Command(BaseCommand):
             action="store_true",
             help="强制覆盖已存在的配置",
         )
-        parser.add_argument(
-            "--cleanup",
-            action="store_true",
-            help="清理已废弃的配置项（不在默认列表中的 key）",
-        )
 
     def handle(self, *args: Any, **options: Any) -> None:
         sync_env = options["sync_env"]
         force = options["force"]
-        cleanup = options["cleanup"]
 
         self.stdout.write("开始初始化系统配置...")
 
-        from apps.core.admin._system_config_data import get_default_configs
-
-        defaults = get_default_configs()
-        default_keys = {c["key"] for c in defaults}
+        # 默认配置项
+        defaults = self._get_default_configs()
 
         created_count = 0
         updated_count = 0
@@ -50,13 +42,16 @@ class Command(BaseCommand):
         for config in defaults:
             key = config["key"]
 
+            # 检查是否需要从环境变量获取值
             env_value = None
             if sync_env:
                 env_value = os.environ.get(key)
 
+            # 确定最终值
             value = env_value if env_value else config.get("value", "")
 
             if force:
+                # 强制更新
                 obj, created = SystemConfig.objects.update_or_create(
                     key=key,
                     defaults={
@@ -73,6 +68,7 @@ class Command(BaseCommand):
                     updated_count += 1
                     self.stdout.write(f"  更新: {key}")
             else:
+                # 只创建不存在的
                 obj, created = SystemConfig.objects.get_or_create(
                     key=key,
                     defaults={
@@ -88,16 +84,12 @@ class Command(BaseCommand):
                 else:
                     self.stdout.write(f"  跳过（已存在）: {key}")
 
-        # 清理废弃配置
-        removed_count = 0
-        if cleanup:
-            stale_configs = SystemConfig.objects.exclude(key__in=default_keys)
-            for stale_config in stale_configs:
-                self.stdout.write(f"  清理废弃配置: {stale_config.key}")
-                stale_config.delete()
-                removed_count += 1
+        self.stdout.write(self.style.SUCCESS(f"\n完成！创建 {created_count} 个，更新 {updated_count} 个配置项"))
 
-        summary = f"\n完成！创建 {created_count} 个，更新 {updated_count} 个"
-        if removed_count:
-            summary += f"，清理 {removed_count} 个废弃配置"
-        self.stdout.write(self.style.SUCCESS(summary))
+    def _get_default_configs(self) -> list[dict[str, Any]]:
+        """获取默认配置项列表"""
+        # 直接从 Admin 类获取配置，保持一致性
+        from apps.core.admin.system_config_admin import SystemConfigAdmin
+
+        admin_instance = SystemConfigAdmin(SystemConfig, None)  # type: ignore[arg-type]
+        return admin_instance._get_default_configs()

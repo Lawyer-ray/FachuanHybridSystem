@@ -252,8 +252,6 @@ def test_move_existing_file_moves_under_new_subdir(
     assert moved.relative_file_path == "新目录/二级目录/材料.pdf"
     assert old_file.exists() is False
     assert (contract_root / "新目录" / "二级目录" / "材料.pdf").exists() is True
-
-
 def test_get_contract_folder_root_prefers_generated_business_root(
     service: BusinessFileStorageService,
     monkeypatch: pytest.MonkeyPatch,

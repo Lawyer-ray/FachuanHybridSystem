@@ -42,12 +42,15 @@ def test_sms_download_mixin_identify_sfdw_url() -> None:
 def test_sms_parser_extract_same_structure_new_domain() -> None:
     service = SMSParserService()
     content = (
-        "【法院通知】文书下载：https://new-portal.example.cn/zxfw/#/pagesAjkj/app/wssd/index?qdbh=Q1&sdbh=S1&sdsin=U1"
+        "【法院通知】文书下载：https://new-portal.example.cn/zxfw/#/pagesAjkj/app/wssd/index?"
+        "qdbh=Q1&sdbh=S1&sdsin=U1"
     )
 
     links = service.extract_download_links(content)
 
-    assert links == ["https://new-portal.example.cn/zxfw/#/pagesAjkj/app/wssd/index?qdbh=Q1&sdbh=S1&sdsin=U1"]
+    assert links == [
+        "https://new-portal.example.cn/zxfw/#/pagesAjkj/app/wssd/index?qdbh=Q1&sdbh=S1&sdsin=U1"
+    ]
 
 
 def test_download_link_extractor_extract_same_structure_new_domain() -> None:

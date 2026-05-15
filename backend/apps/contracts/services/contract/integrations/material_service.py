@@ -104,9 +104,7 @@ class MaterialService:
             logger.error("删除归档材料文件失败: %s", material_or_file_path, exc_info=True)
             return False
 
-    def _resolve_target_subdir(
-        self, *, contract_id: int, category: str, target_subdir: str, file_name: str = ""
-    ) -> str:
+    def _resolve_target_subdir(self, *, contract_id: int, category: str, target_subdir: str, file_name: str = "") -> str:
         normalized_subdir = str(target_subdir or "").strip()
         if normalized_subdir:
             return normalized_subdir

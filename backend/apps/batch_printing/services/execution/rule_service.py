@@ -97,7 +97,9 @@ class RuleService:
             return None
 
         rules = (
-            PrintKeywordRule.objects.select_related("preset_snapshot").filter(enabled=True).order_by("priority", "id")
+            PrintKeywordRule.objects.select_related("preset_snapshot")
+            .filter(enabled=True)
+            .order_by("priority", "id")
         )
         for rule in rules:
             keyword = (rule.keyword or "").strip().lower()

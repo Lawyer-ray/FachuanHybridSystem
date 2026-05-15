@@ -4,8 +4,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from apps.cases.admin.caselog_admin import CaseLogAttachmentInlineForm
 from apps.cases.models import Case
+from apps.cases.admin.caselog_admin import CaseLogAttachmentInlineForm
 from apps.cases.services.log.case_log_attachment_storage_service import CaseLogAttachmentStorageService
 from apps.cases.services.template.folder_binding_service import CaseFolderBindingService
 
@@ -253,7 +253,6 @@ def test_list_bound_subdirs_falls_back_to_root_when_target_missing(tmp_path: Pat
     assert result["current_path"] == ""
     assert result["parent_path"] is None
     assert result["entries"] == [{"name": "一审", "relative_path": "一审"}]
-
 
 def test_list_bound_subdirs_uses_generated_case_business_root(db, tmp_path: Path) -> None:
     service = CaseFolderBindingService()

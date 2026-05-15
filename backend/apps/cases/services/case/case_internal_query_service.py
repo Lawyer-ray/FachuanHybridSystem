@@ -121,12 +121,17 @@ class CaseInternalQueryService:
         limit = min(limit, 20)
 
         if not search_term or not search_term.strip():
-            cases = Case.objects.prefetch_related("case_numbers", "parties__client").order_by("-id")[:limit]
+            cases = (
+                Case.objects.prefetch_related("case_numbers", "parties__client")
+                .order_by("-id")[:limit]
+            )
         else:
             term = search_term.strip()
             name_query = Q(name__icontains=term)
             has_number = Exists(CaseNumber.objects.filter(case=OuterRef("pk"), number__icontains=term))
-            has_party = Exists(CaseParty.objects.filter(case=OuterRef("pk"), client__name__icontains=term))
+            has_party = Exists(
+                CaseParty.objects.filter(case=OuterRef("pk"), client__name__icontains=term)
+            )
 
             cases = (
                 Case.objects.filter(name_query | has_number | has_party)

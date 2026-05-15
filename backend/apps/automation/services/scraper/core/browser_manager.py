@@ -1,13 +1,10 @@
 """
 浏览器管理器 - 提供上下文管理器接口统一管理浏览器生命周期
 
-.. deprecated::
-    已迁移到 apps.core.services.browser。请使用 create_browser()。
-    本模块将在后续版本中移除。
+Requirements: 1.1, 1.2, 1.3, 1.4, 1.5
 """
 
 import logging
-import warnings
 from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any
@@ -46,21 +43,21 @@ class BrowserManager:
         """
         创建浏览器上下文
 
-        .. deprecated::
-            请使用 apps.core.services.browser.create_browser()
-
         Args:
             config: 浏览器配置，None 则使用默认配置
             use_anti_detection: 是否启用反检测
 
         Yields:
             (page, context) 元组
+
+        Raises:
+            BrowserCreationError: 浏览器创建失败时
+
+        Example:
+            with BrowserManager.create_browser() as (page, context):
+                page.goto("https://example.com")
+                # 自动清理
         """
-        warnings.warn(
-            "BrowserManager.create_browser() 已迁移到 apps.core.services.browser.create_browser()",
-            DeprecationWarning,
-            stacklevel=2,
-        )
         # 使用默认配置或传入的配置
         if config is None:
             config = BrowserConfig.from_env()

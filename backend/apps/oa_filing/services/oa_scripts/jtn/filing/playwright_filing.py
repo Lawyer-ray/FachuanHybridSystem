@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
 import time
 from typing import Any
@@ -50,10 +51,9 @@ class PlaywrightFilingMixin:
         pw = sync_playwright().start()
         browser = None
         try:
-            from apps.core.services.system_config_service import SystemConfigService
-
-            headed = SystemConfigService().get_value("PLAYWRIGHT_HEADED", "").lower()
-            browser = pw.chromium.launch(headless=headed not in ("true", "1", "yes"))
+            # Docker/NAS 环境通常没有 XServer，缺少 DISPLAY 时自动走无头模式。
+            _headless = not bool(os.environ.get("DISPLAY"))
+            browser = pw.chromium.launch(headless=_headless)
             self._context = browser.new_context()
 
             # 应用 playwright-stealth 反检测

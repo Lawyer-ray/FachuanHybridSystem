@@ -278,9 +278,7 @@ class ContractDisplayMixin(ContractArchiveMixin, ContractDisplayFormatMixin):
 
             folder = Path(folder_path).expanduser()
             if not folder.exists():
-                return JsonResponse(
-                    {"success": False, "error": str(_("文件夹不存在: %(path)s") % {"path": folder_path})}, status=404
-                )
+                return JsonResponse({"success": False, "error": str(_("文件夹不存在: %(path)s") % {"path": folder_path})}, status=404)
 
             system = platform.system()
             if system == "Darwin":

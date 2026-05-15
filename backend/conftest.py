@@ -74,9 +74,7 @@ def django_db_modify_db_settings() -> None:
     from django.conf import settings
 
     inferred_engine = "sqlite" if (os.environ.get("DATABASE_PATH") or os.environ.get("TEST_DB_PATH")) else "postgresql"
-    test_db_engine = (
-        (os.environ.get("TEST_DB_ENGINE") or os.environ.get("DB_ENGINE") or inferred_engine).strip().lower()
-    )
+    test_db_engine = (os.environ.get("TEST_DB_ENGINE") or os.environ.get("DB_ENGINE") or inferred_engine).strip().lower()
 
     if test_db_engine in ("sqlite", "sqlite3", "django.db.backends.sqlite3"):
         test_db_path = (os.environ.get("TEST_DB_PATH") or os.environ.get("DATABASE_PATH") or ":memory:").strip()
@@ -96,7 +94,7 @@ def django_db_modify_db_settings() -> None:
     raw_db_password = os.environ.get("DB_PASSWORD")
     resolved_password = raw_test_password if raw_test_password is not None else raw_db_password
     if resolved_password is None:
-        resolved_password = "postgres"  # pragma: allowlist secret
+        resolved_password = "postgres"
 
     settings.DATABASES["default"] = {
         "ENGINE": "django.db.backends.postgresql",

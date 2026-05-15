@@ -26,13 +26,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def _is_headless() -> bool:
-    """读取 SystemConfig PLAYWRIGHT_HEADED 决定是否无头模式。"""
-    from apps.core.services.system_config_service import SystemConfigService
-
-    return SystemConfigService().get_value("PLAYWRIGHT_HEADED", "").lower() not in ("true", "1", "yes")
-
-
 class ContractOASyncService:
     """合同 OA 链接与 OA 案件编号同步服务。"""
 
@@ -220,7 +213,7 @@ class ContractOASyncService:
             script = JtnCaseImportScript(
                 account=credential.account,
                 password=credential.password,
-                headless=_is_headless(),
+                headless=not bool(os.environ.get("DISPLAY")),
             )
             ensure_name_search_ready = getattr(script, "ensure_name_search_ready", None)
             if callable(ensure_name_search_ready):

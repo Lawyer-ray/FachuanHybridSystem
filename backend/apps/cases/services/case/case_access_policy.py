@@ -24,7 +24,9 @@ class CaseAccessPolicy(OrgAllowedLawyersMixin):
         if not user:
             return False
         return bool(
-            getattr(user, "is_admin", False) or getattr(user, "is_superuser", False) or getattr(user, "is_staff", False)
+            getattr(user, "is_admin", False)
+            or getattr(user, "is_superuser", False)
+            or getattr(user, "is_staff", False)
         )
 
     @property

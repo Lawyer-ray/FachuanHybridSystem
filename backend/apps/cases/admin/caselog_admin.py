@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-from typing import Any
-
 from django import forms
 from django.contrib import admin
 from django.forms import ModelForm
-from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.http import HttpRequest, JsonResponse
 from django.urls import URLPattern, path, reverse
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
@@ -22,6 +20,7 @@ from apps.cases.models import (
     SupervisingAuthority,
 )
 from apps.cases.services.material.wiring import build_case_material_service
+
 
 OTHER_MATERIAL_TYPE_NAME = "其它材料"
 DEFAULT_PARTY_MATERIAL_TYPE_ORDER = (
@@ -41,7 +40,7 @@ DEFAULT_NON_PARTY_MATERIAL_TYPE_ORDER = (
     "裁定/决定文书",
     OTHER_MATERIAL_TYPE_NAME,
 )
-DEFAULT_MATERIAL_TYPE_ORDER: dict[str, dict[str, int]] = {
+DEFAULT_MATERIAL_TYPE_ORDER = {
     CaseMaterialCategory.PARTY: {name: idx for idx, name in enumerate(DEFAULT_PARTY_MATERIAL_TYPE_ORDER)},
     CaseMaterialCategory.NON_PARTY: {name: idx for idx, name in enumerate(DEFAULT_NON_PARTY_MATERIAL_TYPE_ORDER)},
 }
@@ -112,7 +111,7 @@ class CaseLogAttachmentInlineForm(forms.ModelForm[CaseLogAttachment]):
             "material_type_name",
         )
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         if self.instance and self.instance.pk and self.instance.subdir_path:
             self.fields["target_subdir"].initial = self.instance.subdir_path
@@ -122,7 +121,9 @@ class CaseLogAttachmentInlineForm(forms.ModelForm[CaseLogAttachment]):
         material = None
         if self.instance and self.instance.pk:
             material = (
-                CaseMaterial.objects.filter(source_attachment_id=self.instance.pk).prefetch_related("parties").first()
+                CaseMaterial.objects.filter(source_attachment_id=self.instance.pk)
+                .prefetch_related("parties")
+                .first()
             )
         if not material:
             return
@@ -161,8 +162,6 @@ class CaseLogAttachmentInlineForm(forms.ModelForm[CaseLogAttachment]):
 
     def clean(self) -> dict[str, object]:
         cleaned = super().clean()
-        if cleaned is None:
-            return {}
         if not cleaned.get("sync_to_case_material"):
             return cleaned
 
@@ -378,7 +377,7 @@ class CaseLogAdmin(BaseModelAdmin):
         if value in (None, ""):
             return None
         try:
-            return int(value)  # type: ignore[call-overload,no-any-return]
+            return int(value)
         except (TypeError, ValueError):
             return None
 
@@ -472,7 +471,7 @@ class CaseLogAdmin(BaseModelAdmin):
         change: bool = False,
         form_url: str = "",
         obj: CaseLog | None = None,
-    ) -> HttpResponse:
+    ):
         payloads = self._build_material_sync_payloads(
             self._resolve_material_sync_case_id(request=request, context=context, obj=obj)
         )

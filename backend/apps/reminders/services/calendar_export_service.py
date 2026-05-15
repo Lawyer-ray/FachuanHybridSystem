@@ -68,7 +68,9 @@ class CalendarExportService:
         month_start = date(year, month, 1)
         next_month_start = date(year + (1 if month == 12 else 0), (month % 12) + 1, 1)
 
-        queryset = Reminder.objects.select_related("contract", "case", "case_log", "case_log__case").filter(
+        queryset = Reminder.objects.select_related(
+            "contract", "case", "case_log", "case_log__case"
+        ).filter(
             due_at__date__gte=month_start,
             due_at__date__lt=next_month_start,
         )

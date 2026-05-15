@@ -216,8 +216,8 @@ class DocumentTemplate(LifecycleModel):
     def on_create_audit_log(self) -> None:
         """创建时记录审计日志"""
         try:
-            from apps.documents.models.choices import TemplateAuditAction
             from apps.documents.signals import _create_audit_log, _invalidate_template_matching_cache
+            from apps.documents.models.choices import TemplateAuditAction
 
             _create_audit_log(self, TemplateAuditAction.CREATE, is_new=True)
             _invalidate_template_matching_cache(self.__class__)
@@ -228,12 +228,8 @@ class DocumentTemplate(LifecycleModel):
     def on_update_audit_log(self) -> None:
         """更新时记录审计日志"""
         try:
+            from apps.documents.signals import _create_audit_log, _get_changes_from_lifecycle, _invalidate_template_matching_cache
             from apps.documents.models.choices import TemplateAuditAction
-            from apps.documents.signals import (
-                _create_audit_log,
-                _get_changes_from_lifecycle,
-                _invalidate_template_matching_cache,
-            )
 
             changes = _get_changes_from_lifecycle(self, self.__class__)
             if not changes:

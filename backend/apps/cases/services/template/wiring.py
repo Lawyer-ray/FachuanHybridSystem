@@ -37,9 +37,7 @@ def get_case_template_binding_service() -> CaseTemplateBindingService:
     assembler = TemplateBindingAssembler(
         config=TemplateBindingAssemblerConfig(sub_type_display=_build_sub_type_display())
     )
-    return CaseTemplateBindingService(
-        document_service=get_document_service(), repo=CaseTemplateBindingRepo(), assembler=assembler
-    )
+    return CaseTemplateBindingService(document_service=get_document_service(), repo=CaseTemplateBindingRepo(), assembler=assembler)
 
 
 def get_case_document_template_admin_service() -> CaseDocumentTemplateAdminService:
