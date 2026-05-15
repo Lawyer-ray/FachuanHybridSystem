@@ -86,7 +86,7 @@ def _diagnose_unavailable(name: str, backend: ILLMBackend) -> str:
             if not base_url:
                 return "Base URL 未配置"
             return f"is_available() 返回 False (base_url={base_url!r})"
-        # openai_compatible / moonshot
+        # openai_compatible
         api_key = getattr(backend, "api_key", None)
         if not api_key:
             return "API Key 未配置"

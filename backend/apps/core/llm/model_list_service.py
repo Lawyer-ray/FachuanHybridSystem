@@ -131,10 +131,14 @@ class ModelListService:
 
     def _fetch_from_api(self) -> ModelListResult:
         """从各后端获取模型列表，合并结果"""
-        sf_models = self._fetch_siliconflow_models()
-        ollama_models = self._fetch_ollama_models()
+        configs = LLMConfig.get_backend_configs()
+        all_models: list[dict[str, Any]] = []
 
-        all_models = sf_models + ollama_models
+        if configs.get("siliconflow") and configs["siliconflow"].enabled:
+            all_models.extend(self._fetch_siliconflow_models())
+        if configs.get("ollama") and configs["ollama"].enabled:
+            all_models.extend(self._fetch_ollama_models())
+
         if all_models:
             return ModelListResult(models=all_models)
 

@@ -72,7 +72,7 @@ except ImportError as exc:
 
 _openai_compatible_import_error: Exception | None = None
 try:
-    from .openai_compatible import MoonshotBackend, OpenAICompatibleBackend
+    from .openai_compatible import OpenAICompatibleBackend
 except ImportError as exc:
     _openai_compatible_import_error = exc
 
@@ -99,39 +99,6 @@ except ImportError as exc:
                 errors={"detail": str(self._import_error)},
             )
 
-    class MoonshotBackend(OpenAICompatibleBackend):  # type: ignore[no-redef]
-        BACKEND_NAME = "moonshot"
-
-        def __init__(self, *args: Any, **kwargs: Any) -> None:
-            super().__init__(*args, **kwargs)
-
-        async def achat(self, *args: Any, **kwargs: Any) -> Any:
-            return self.chat(*args, **kwargs)
-
-        def stream(self, *args: Any, **kwargs: Any) -> Any:
-            from apps.core.llm.exceptions import LLMBackendUnavailableError
-
-            raise LLMBackendUnavailableError(
-                message="OpenAI-compatible 后端依赖未安装或导入失败",
-                errors={"detail": str(self._import_error)},  # type: ignore[attr-defined]
-            )
-
-        async def astream(self, *args: Any, **kwargs: Any) -> Any:  # type: ignore[override]
-            from apps.core.llm.exceptions import LLMBackendUnavailableError
-
-            raise LLMBackendUnavailableError(
-                message="OpenAI-compatible 后端依赖未安装或导入失败",
-                errors={"detail": str(self._import_error)},  # type: ignore[attr-defined]
-            )
-
-        def embed_texts(self, *args: Any, **kwargs: Any) -> Any:
-            from apps.core.llm.exceptions import LLMBackendUnavailableError
-
-            raise LLMBackendUnavailableError(
-                message="OpenAI-compatible 后端依赖未安装或导入失败",
-                errors={"detail": str(self._import_error)},  # type: ignore[attr-defined]
-            )
-
 
 __all__ = [
     # 基础类
@@ -144,5 +111,4 @@ __all__ = [
     "SiliconFlowBackend",
     "OllamaBackend",
     "OpenAICompatibleBackend",
-    "MoonshotBackend",
 ]

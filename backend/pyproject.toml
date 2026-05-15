@@ -1,6 +1,6 @@
 [project]
 name = "fachuan-backend"
-version = "26.48.8"
+version = "26.48.11"
 description = "法穿AI Copilot - Backend"
 requires-python = ">=3.12"
 dependencies = [
@@ -73,6 +73,7 @@ dependencies = [
     "icalendar>=7.1.0",
     "pyobjc-framework-EventKit>=12.0;sys_platform=='darwin'",
     "django-simple-history>=3.11.0",
+    "beautifulsoup4>=4.14.3",
 ]
 
 [dependency-groups]

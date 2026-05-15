@@ -28,10 +28,10 @@ class OpenAICompatibleBackend(SiliconFlowBackend):
 
     _DISABLE_THINKING_MODELS = {"kimi26"}
 
-    def _build_extra_body(self) -> dict[str, Any] | None:
+    def _build_extra_body(self, model: str | None = None) -> dict[str, Any] | None:
         """vLLM/SGLang 部分模型（如 kimi26）需要 chat_template_kwargs 关闭思考模式"""
-        model = self.default_model.lower()
-        if any(m in model for m in self._DISABLE_THINKING_MODELS):
+        used = (model or self.default_model).lower()
+        if any(m in used for m in self._DISABLE_THINKING_MODELS):
             return {"chat_template_kwargs": {"thinking": False}}
         return None
 
@@ -54,7 +54,7 @@ class OpenAICompatibleBackend(SiliconFlowBackend):
         }
         if max_tokens is not None:
             payload["max_tokens"] = max_tokens
-        extra = self._build_extra_body()
+        extra = self._build_extra_body(used_model)
         if extra:
             payload["extra_body"] = extra
 
@@ -98,7 +98,7 @@ class OpenAICompatibleBackend(SiliconFlowBackend):
         }
         if max_tokens is not None:
             payload["max_tokens"] = max_tokens
-        extra = self._build_extra_body()
+        extra = self._build_extra_body(used_model)
         if extra:
             payload["extra_body"] = extra
 
@@ -145,7 +145,7 @@ class OpenAICompatibleBackend(SiliconFlowBackend):
         }
         if max_tokens is not None:
             payload["max_tokens"] = max_tokens
-        extra = self._build_extra_body()
+        extra = self._build_extra_body(used_model)
         if extra:
             payload["extra_body"] = extra
 
@@ -188,7 +188,7 @@ class OpenAICompatibleBackend(SiliconFlowBackend):
         }
         if max_tokens is not None:
             payload["max_tokens"] = max_tokens
-        extra = self._build_extra_body()
+        extra = self._build_extra_body(used_model)
         if extra:
             payload["extra_body"] = extra
 
@@ -305,12 +305,3 @@ class OpenAICompatibleBackend(SiliconFlowBackend):
             ) from error
         logger.warning("%s 调用异常", provider_name, extra={"error": str(error), "error_type": type(error).__name__})
         raise LLMAPIError(message=f"LLM API 调用错误: {error!s}", errors={"detail": str(error)}) from error
-
-
-class MoonshotBackend(OpenAICompatibleBackend):
-    """
-    兼容历史后端名 moonshot。
-    与 openai_compatible 共用实现，便于平滑迁移。
-    """
-
-    BACKEND_NAME = "moonshot"

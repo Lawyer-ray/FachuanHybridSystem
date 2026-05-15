@@ -43,9 +43,23 @@ def get_ai_configs() -> list[dict[str, Any]]:
         {
             "key": "OPENAI_COMPATIBLE_API_KEY",
             "category": "ai",
-            "description": "OpenAI-compatible API Key（Moonshot/Kimi/DeepSeek 等）",
+            "description": "OpenAI-compatible API Key（kimi26 等 vLLM 部署）",
             "value": "<OPENAI_COMPATIBLE_API_KEY>",
             "is_secret": True,
+        },
+        {
+            "key": "OPENAI_COMPATIBLE_BASE_URL",
+            "category": "ai",
+            "description": "OpenAI-compatible API 地址（kimi26 vLLM）",
+            "value": "http://116.196.92.175:8001/v1",
+            "is_secret": False,
+        },
+        {
+            "key": "OPENAI_COMPATIBLE_DEFAULT_MODEL",
+            "category": "ai",
+            "description": "OpenAI-compatible 默认模型名称",
+            "value": "kimi26",
+            "is_secret": False,
         },
     ]
 
