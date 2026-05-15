@@ -51,7 +51,7 @@ def get_ai_configs() -> list[dict[str, Any]]:
             "key": "OPENAI_COMPATIBLE_BASE_URL",
             "category": "ai",
             "description": "OpenAI-compatible API 地址（kimi26 vLLM）",
-            "value": "http://116.196.92.174:8001/v1",
+            "value": "http://116.196.92.175:8001/v1",
             "is_secret": False,
         },
         {

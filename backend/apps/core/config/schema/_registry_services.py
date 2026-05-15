@@ -36,7 +36,7 @@ def register_service_configs(registry: dict[str, ConfigField]) -> None:
     registry["services.openai_compatible.base_url"] = ConfigField(
         name="services.openai_compatible.base_url",
         type=str,
-        default="http://116.196.92.174:8001/v1",
+        default="http://116.196.92.175:8001/v1",
         env_var="OPENAI_COMPATIBLE_BASE_URL",
         description="OpenAI-compatible API 基础 URL",
     )
