@@ -13,7 +13,6 @@ class LLMBackendRouter:
         "siliconflow": 1,
         "ollama": 2,
         "openai_compatible": 3,
-        "moonshot": 3,
     }
 
     def __init__(self, *, backend_configs: dict[str, BackendConfig] | None = None) -> None:

@@ -305,12 +305,3 @@ class OpenAICompatibleBackend(SiliconFlowBackend):
             ) from error
         logger.warning("%s 调用异常", provider_name, extra={"error": str(error), "error_type": type(error).__name__})
         raise LLMAPIError(message=f"LLM API 调用错误: {error!s}", errors={"detail": str(error)}) from error
-
-
-class MoonshotBackend(OpenAICompatibleBackend):
-    """
-    兼容历史后端名 moonshot。
-    与 openai_compatible 共用实现，便于平滑迁移。
-    """
-
-    BACKEND_NAME = "moonshot"

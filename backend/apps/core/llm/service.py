@@ -47,14 +47,12 @@ class LLMService:
     BACKEND_SILICONFLOW = "siliconflow"
     BACKEND_OLLAMA = "ollama"
     BACKEND_OPENAI_COMPATIBLE = "openai_compatible"
-    BACKEND_MOONSHOT = "moonshot"
 
     # 默认后端优先级(数字越小优先级越高)
     DEFAULT_PRIORITIES: ClassVar = {
         BACKEND_SILICONFLOW: 1,
         BACKEND_OLLAMA: 2,
         BACKEND_OPENAI_COMPATIBLE: 3,
-        BACKEND_MOONSHOT: 3,
     }
 
     def __init__(

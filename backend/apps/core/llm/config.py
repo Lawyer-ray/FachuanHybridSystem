@@ -49,14 +49,10 @@ class LLMConfig:
     DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
     DEFAULT_OLLAMA_TIMEOUT = 300
 
-    # OpenAI-compatible 默认值（用于 Moonshot/Kimi/DeepSeek 等兼容接口）
-    DEFAULT_OPENAI_COMPATIBLE_MODEL = "moonshot-v1-8k"
-    DEFAULT_OPENAI_COMPATIBLE_BASE_URL = "https://api.moonshot.cn/v1"
+    # OpenAI-compatible 默认值（用于 kimi26 等 vLLM 部署）
+    DEFAULT_OPENAI_COMPATIBLE_MODEL = "kimi26"
+    DEFAULT_OPENAI_COMPATIBLE_BASE_URL = "http://116.196.92.174:8001/v1"
     DEFAULT_OPENAI_COMPATIBLE_TIMEOUT = 120
-    # Moonshot 历史常量别名（兼容旧调用与测试）
-    DEFAULT_MOONSHOT_MODEL = DEFAULT_OPENAI_COMPATIBLE_MODEL
-    DEFAULT_MOONSHOT_BASE_URL = DEFAULT_OPENAI_COMPATIBLE_BASE_URL
-    DEFAULT_MOONSHOT_TIMEOUT = DEFAULT_OPENAI_COMPATIBLE_TIMEOUT
 
     DEFAULT_AVAILABLE_MODELS: ClassVar[list[str]] = [
         # Qwen 系列
@@ -81,6 +77,8 @@ class LLMConfig:
         "Pro/ByteDance/Seed-OSS-36B-Instruct",
         "Pro/Tencent/Hunyuan-Translation-7B",
         "Pro/inclusionAI/Ring-flash-2.0",
+        # Kimi26 (vLLM self-hosted)
+        "kimi26",
     ]
 
     # 模型名 → 后端映射规则：含 "/" 的走 siliconflow，含 ":" 的走 ollama，其余走 openai_compatible
@@ -91,7 +89,7 @@ class LLMConfig:
 
     # 缓存 SystemConfigService 实例
     _config_service: SystemConfigService | None = None
-    _VALID_BACKENDS: ClassVar[set[str]] = {"siliconflow", "ollama", "openai_compatible", "moonshot"}
+    _VALID_BACKENDS: ClassVar[set[str]] = {"siliconflow", "ollama", "openai_compatible"}
 
     @classmethod
     def _get_config_service(cls) -> SystemConfigService | None:
@@ -394,51 +392,31 @@ class LLMConfig:
     @classmethod
     def get_openai_compatible_api_key(cls) -> str:
         raw = cls._get_system_config("OPENAI_COMPATIBLE_API_KEY", "")
-        if raw:
-            return cls._normalize_api_key(raw)
-        return cls.get_moonshot_api_key()
+        return cls._normalize_api_key(raw)
 
     @classmethod
     async def get_openai_compatible_api_key_async(cls) -> str:
         raw = await cls._get_system_config_async("OPENAI_COMPATIBLE_API_KEY", "")
-        if raw:
-            return cls._normalize_api_key(raw)
-        raw = await cls._get_system_config_async("MOONSHOT_API_KEY", "")
-        if raw:
-            return cls._normalize_api_key(raw)
-        moonshot_config = getattr(settings, "MOONSHOT", {} or {})
-        fallback = moonshot_config.get("API_KEY", "")
-        if isinstance(fallback, str):
-            return cls._normalize_api_key(fallback)
-        return ""
+        return cls._normalize_api_key(raw)
 
     @classmethod
     def get_openai_compatible_base_url(cls) -> str:
         raw = cls._get_system_config("OPENAI_COMPATIBLE_BASE_URL", "")
         if raw:
             return cls._normalize_base_url(raw)
-        return cls.get_moonshot_base_url()
+        return cls.DEFAULT_OPENAI_COMPATIBLE_BASE_URL
 
     @classmethod
     async def get_openai_compatible_base_url_async(cls) -> str:
         raw = await cls._get_system_config_async("OPENAI_COMPATIBLE_BASE_URL", "")
         if raw:
             return cls._normalize_base_url(raw)
-        raw = await cls._get_system_config_async("MOONSHOT_BASE_URL", "")
-        if raw:
-            return cls._normalize_base_url(raw)
-        moonshot_config = getattr(settings, "MOONSHOT", {} or {})
-        fallback = moonshot_config.get("BASE_URL", cls.DEFAULT_MOONSHOT_BASE_URL)
-        if isinstance(fallback, str):
-            return cls._normalize_base_url(fallback)
-        return cls.DEFAULT_MOONSHOT_BASE_URL
+        return cls.DEFAULT_OPENAI_COMPATIBLE_BASE_URL
 
     @classmethod
     def get_openai_compatible_model(cls) -> str:
         raw = cls._get_system_config("OPENAI_COMPATIBLE_DEFAULT_MODEL", "")
-        if raw:
-            return (raw or "").strip() or cls.DEFAULT_OPENAI_COMPATIBLE_MODEL
-        return cls.get_moonshot_default_model()
+        return (raw or "").strip() or cls.DEFAULT_OPENAI_COMPATIBLE_MODEL
 
     @classmethod
     def get_openai_compatible_embedding_model(cls) -> str:
@@ -455,7 +433,7 @@ class LLMConfig:
                 return int(timeout_str)
             except (ValueError, TypeError):
                 return cls.DEFAULT_OPENAI_COMPATIBLE_TIMEOUT
-        return cls.get_moonshot_timeout()
+        return cls.DEFAULT_OPENAI_COMPATIBLE_TIMEOUT
 
     @classmethod
     async def get_openai_compatible_timeout_async(cls) -> int:
@@ -465,66 +443,7 @@ class LLMConfig:
                 return int(timeout_str)
             except (ValueError, TypeError):
                 return cls.DEFAULT_OPENAI_COMPATIBLE_TIMEOUT
-        timeout_str = await cls._get_system_config_async("MOONSHOT_TIMEOUT", "")
-        if timeout_str:
-            try:
-                return int(timeout_str)
-            except (ValueError, TypeError):
-                return cls.DEFAULT_OPENAI_COMPATIBLE_TIMEOUT
-        moonshot_config = getattr(settings, "MOONSHOT", {} or {})
-        fallback = moonshot_config.get("TIMEOUT", cls.DEFAULT_MOONSHOT_TIMEOUT)
-        try:
-            return int(fallback)
-        except (ValueError, TypeError):
-            return cls.DEFAULT_MOONSHOT_TIMEOUT
-
-    @classmethod
-    def get_moonshot_api_key(cls) -> str:
-        raw = cls._get_system_config("MOONSHOT_API_KEY", "")
-        if raw:
-            return cls._normalize_api_key(raw)
-        moonshot_config = getattr(settings, "MOONSHOT", {} or {})
-        fallback = moonshot_config.get("API_KEY", "")
-        if isinstance(fallback, str):
-            return cls._normalize_api_key(fallback)
-        return ""
-
-    @classmethod
-    def get_moonshot_base_url(cls) -> str:
-        raw = cls._get_system_config("MOONSHOT_BASE_URL", "")
-        if raw:
-            return cls._normalize_base_url(raw)
-        moonshot_config = getattr(settings, "MOONSHOT", {} or {})
-        fallback = moonshot_config.get("BASE_URL", cls.DEFAULT_MOONSHOT_BASE_URL)
-        if isinstance(fallback, str):
-            return cls._normalize_base_url(fallback)
-        return cls.DEFAULT_MOONSHOT_BASE_URL
-
-    @classmethod
-    def get_moonshot_default_model(cls) -> str:
-        raw = cls._get_system_config("MOONSHOT_MODEL", "")
-        if raw and raw.strip():
-            return raw.strip()
-        moonshot_config = getattr(settings, "MOONSHOT", {} or {})
-        fallback = moonshot_config.get("DEFAULT_MODEL", cls.DEFAULT_MOONSHOT_MODEL)
-        if isinstance(fallback, str) and fallback.strip():
-            return fallback.strip()
-        return cls.DEFAULT_MOONSHOT_MODEL
-
-    @classmethod
-    def get_moonshot_timeout(cls) -> int:
-        raw = cls._get_system_config("MOONSHOT_TIMEOUT", "")
-        if raw:
-            try:
-                return int(raw)
-            except (ValueError, TypeError):
-                return cls.DEFAULT_MOONSHOT_TIMEOUT
-        moonshot_config = getattr(settings, "MOONSHOT", {} or {})
-        fallback = moonshot_config.get("TIMEOUT", cls.DEFAULT_MOONSHOT_TIMEOUT)
-        try:
-            return int(fallback)
-        except (ValueError, TypeError):
-            return cls.DEFAULT_MOONSHOT_TIMEOUT
+        return cls.DEFAULT_OPENAI_COMPATIBLE_TIMEOUT
 
     @classmethod
     def get_default_backend(cls) -> str:
@@ -555,34 +474,18 @@ class LLMConfig:
         default_priorities = {"siliconflow": 1, "ollama": 2, "openai_compatible": 3}
         default_enabled = {"siliconflow": True, "ollama": True, "openai_compatible": False}
 
-        def _read_with_legacy_keys(
-            key_builder: Any,
-            backend_name: str,
-            *,
-            legacy_name: str | None = None,
-        ) -> str:
-            value = cls._get_system_config(key_builder(backend_name), "")
-            if value:
-                return value
-            if legacy_name:
-                return cls._get_system_config(key_builder(legacy_name), "")
-            return ""
-
         configs: dict[str, BackendConfig] = {}
         for name in ("siliconflow", "ollama", "openai_compatible"):
-            legacy_name = "moonshot" if name == "openai_compatible" else None
-            enabled_raw = _read_with_legacy_keys(enabled_key, name, legacy_name=legacy_name)
+            enabled_raw = cls._get_system_config(enabled_key(name), "")
             enabled = cls._parse_bool(enabled_raw, default_enabled[name])
 
             # openai_compatible: 如果配置了 base_url 但未显式设置 enabled，自动启用
             if name == "openai_compatible" and not enabled and not enabled_raw:
                 base_url = cls._get_system_config("OPENAI_COMPATIBLE_BASE_URL", "")
-                if not base_url:
-                    base_url = cls._get_system_config("MOONSHOT_BASE_URL", "")
                 if base_url:
                     enabled = True
 
-            priority_raw = _read_with_legacy_keys(priority_key, name, legacy_name=legacy_name)
+            priority_raw = cls._get_system_config(priority_key(name), "")
             priority = cls._parse_int(priority_raw, default_priorities[name])
 
             if name == "siliconflow":
@@ -617,17 +520,6 @@ class LLMConfig:
                     timeout=cls.get_openai_compatible_timeout(),
                     embedding_model=cls.get_openai_compatible_embedding_model(),
                 )
-                # 兼容历史后端名 moonshot（与 openai_compatible 共享同一配置）
-                configs["moonshot"] = BackendConfig(
-                    name="moonshot",
-                    enabled=enabled,
-                    priority=priority,
-                    default_model=cls.get_openai_compatible_model(),
-                    base_url=cls.get_openai_compatible_base_url(),
-                    api_key=cls.get_openai_compatible_api_key(),
-                    timeout=cls.get_openai_compatible_timeout(),
-                    embedding_model=cls.get_openai_compatible_embedding_model(),
-                )
         return configs
 
     @classmethod
@@ -638,7 +530,7 @@ class LLMConfig:
         规则:
         - 模型名含 "/" → siliconflow（如 Qwen/Qwen2.5-7B-Instruct）
         - 模型名含 ":" → ollama（如 qwen3:0.6b）
-        - 其余 → openai_compatible（如 kimi26、moonshot-v1-8k）
+        - 其余 → openai_compatible（如 kimi26）
 
         Args:
             model: 模型名称
