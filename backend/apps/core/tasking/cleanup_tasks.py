@@ -26,7 +26,7 @@ def cleanup_temp_files(max_age_hours: int = 24) -> dict[str, Any]:
     tmp_dir = media_root / "tmp"
 
     if not tmp_dir.is_dir():
-        logger.info("tmp directory does not exist, skipping: %s", tmp_dir)
+        logger.debug("tmp directory does not exist, skipping: %s", tmp_dir)
         return {"removed": 0, "failed": 0, "skipped": True}
 
     import time
@@ -58,7 +58,7 @@ def cleanup_export_files(max_age_days: int = 7) -> dict[str, Any]:
     exports_dir = media_root / "exports"
 
     if not exports_dir.is_dir():
-        logger.info("exports directory does not exist, skipping: %s", exports_dir)
+        logger.debug("exports directory does not exist, skipping: %s", exports_dir)
         return {"removed": 0, "failed": 0, "skipped": True}
 
     import time
