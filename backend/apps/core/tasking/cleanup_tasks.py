@@ -85,8 +85,8 @@ def check_disk_space(warning_pct: float = 85.0, critical_pct: float = 95.0) -> d
 
     Returns a dict with usage info and status ('ok', 'warning', 'critical').
     """
-    warning_pct = float(warning_pct)
-    critical_pct = float(critical_pct)
+    warning_pct = float(warning_pct) if warning_pct else 85.0
+    critical_pct = float(critical_pct) if critical_pct else 95.0
     media_root = str(settings.MEDIA_ROOT)
 
     try:
