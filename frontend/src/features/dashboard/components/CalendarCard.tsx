@@ -5,11 +5,15 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { reminderApi } from '@/features/reminders/api'
 import type { Reminder, ReminderType } from '@/features/reminders/types'
 import { ReminderFormDialog } from '@/features/reminders/components/ReminderFormDialog'
 import { useReminderMutations } from '@/features/reminders/hooks/use-reminder-mutations'
 import { formatDate } from '@/lib/date'
+import { AgendaView } from './AgendaView'
 
 const DAY_HEADERS = ['日', '一', '二', '三', '四', '五', '六']
 
@@ -23,6 +27,20 @@ const TYPE_COLORS: Record<ReminderType, string> = {
   submission_deadline: 'bg-cyan-100 text-cyan-700 border-cyan-200',
   other: 'bg-gray-100 text-gray-700 border-gray-200',
 }
+
+const TYPE_TEXT_COLORS: Record<ReminderType, { primary: string; secondary: string }> = {
+  hearing: { primary: 'text-red-700 dark:text-red-400', secondary: 'text-red-600/70 dark:text-red-400/60' },
+  asset_preservation_expires: { primary: 'text-orange-700 dark:text-orange-400', secondary: 'text-orange-600/70 dark:text-orange-400/60' },
+  evidence_deadline: { primary: 'text-yellow-700 dark:text-yellow-400', secondary: 'text-yellow-600/70 dark:text-yellow-400/60' },
+  appeal_deadline: { primary: 'text-purple-700 dark:text-purple-400', secondary: 'text-purple-600/70 dark:text-purple-400/60' },
+  statute_limitations: { primary: 'text-pink-700 dark:text-pink-400', secondary: 'text-pink-600/70 dark:text-pink-400/60' },
+  payment_deadline: { primary: 'text-blue-700 dark:text-blue-400', secondary: 'text-blue-600/70 dark:text-blue-400/60' },
+  submission_deadline: { primary: 'text-cyan-700 dark:text-cyan-400', secondary: 'text-cyan-600/70 dark:text-cyan-400/60' },
+  other: { primary: 'text-gray-700 dark:text-gray-400', secondary: 'text-gray-600/70 dark:text-gray-400/60' },
+}
+
+const OVERDUE_CHIP = 'bg-red-50 text-red-600 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900/50'
+const OVERDUE_TEXT = { primary: 'text-red-600 dark:text-red-400', secondary: 'text-red-500/70 dark:text-red-400/60' } as const
 
 interface CalendarEvent {
   id: number
@@ -143,6 +161,7 @@ export const CalendarCard = memo(function CalendarCard() {
   const [formDate, setFormDate] = useState<Date | undefined>(undefined)
   const [deleteConfirm, setDeleteConfirm] = useState<CalendarEvent | null>(null)
   const [today] = useState(() => new Date())
+  const [activeView, setActiveView] = useState<'month' | 'agenda'>('month')
 
   const { data: reminders } = useQuery({ queryKey: ['dashboard-reminders'], queryFn: () => reminderApi.list(), staleTime: 60_000 })
   const eventsByDate = useMemo(() => mergeReminders(reminders ?? []), [reminders])
@@ -209,27 +228,33 @@ export const CalendarCard = memo(function CalendarCard() {
   return (
     <>
       <Card className="overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-border/80">
-          <div className="flex items-center gap-3">
-            <span className="text-[15px] font-semibold tracking-tight">{viewYear}年{viewMonth + 1}月</span>
-            <button
-              onClick={goToday}
-              className="text-xs text-muted-foreground hover:text-foreground border border-border/80 rounded-md px-2.5 py-1 hover:bg-muted/60 transition-colors"
-            >
-              今天
-            </button>
+        <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'month' | 'agenda')}>
+          <div className="flex items-center justify-between px-5 py-3 border-b border-border/80">
+            <div className="flex items-center gap-3">
+              <span className="text-[15px] font-semibold tracking-tight">{viewYear}年{viewMonth + 1}月</span>
+              <button
+                onClick={goToday}
+                className="text-xs text-muted-foreground hover:text-foreground border border-border/80 rounded-md px-2.5 py-1 hover:bg-muted/60 transition-colors"
+              >
+                今天
+              </button>
+              <TabsList className="h-7">
+                <TabsTrigger value="month" className="text-xs px-2.5 py-0.5">月</TabsTrigger>
+                <TabsTrigger value="agenda" className="text-xs px-2.5 py-0.5">议程</TabsTrigger>
+              </TabsList>
+            </div>
+            <div className="flex items-center gap-0.5">
+              <button onClick={prevMonth} className="size-7 flex items-center justify-center rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
+                <ChevronLeft className="size-4" />
+              </button>
+              <button onClick={nextMonth} className="size-7 flex items-center justify-center rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
+                <ChevronRight className="size-4" />
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-0.5">
-            <button onClick={prevMonth} className="size-7 flex items-center justify-center rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
-              <ChevronLeft className="size-4" />
-            </button>
-            <button onClick={nextMonth} className="size-7 flex items-center justify-center rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
-              <ChevronRight className="size-4" />
-            </button>
-          </div>
-        </div>
 
-        <div className="grid grid-cols-7">
+          <TabsContent value="month" className="mt-0">
+            <div className="grid grid-cols-7">
           {DAY_HEADERS.map((label, i) => (
             <div
               key={label}
@@ -286,22 +311,20 @@ export const CalendarCard = memo(function CalendarCard() {
                         type="button"
                         onClick={(e) => { e.stopPropagation(); setSelectedEvent(ev) }}
                         className={`w-full text-left rounded-md cursor-pointer transition-colors overflow-hidden border ${
-                          ev.is_overdue
-                            ? 'border-red-200 bg-red-50 hover:bg-red-100/80 dark:border-red-900/40 dark:bg-red-950/30 dark:hover:bg-red-950/50'
-                            : 'border-blue-200 bg-blue-50 hover:bg-blue-100/80 dark:border-blue-900/40 dark:bg-blue-950/30 dark:hover:bg-blue-950/50'
+                          ev.is_overdue ? OVERDUE_CHIP : TYPE_COLORS[ev.reminder_type]
                         }`}
                       >
                         <div className="px-1.5 py-[5px]">
                           <div className="flex items-baseline gap-1.5">
-                            <span className={`text-[11px] font-semibold shrink-0 tabular-nums ${ev.is_overdue ? 'text-red-700 dark:text-red-400' : 'text-blue-700 dark:text-blue-400'}`}>
+                            <span className={`text-[11px] font-semibold shrink-0 tabular-nums ${ev.is_overdue ? OVERDUE_TEXT.primary : TYPE_TEXT_COLORS[ev.reminder_type].primary}`}>
                               {ev.time}
                             </span>
-                            <span className={`text-[11px] leading-tight truncate font-medium ${ev.is_overdue ? 'text-red-900 dark:text-red-300' : 'text-blue-900 dark:text-blue-300'}`}>
+                            <span className={`text-[11px] leading-tight truncate font-medium ${ev.is_overdue ? OVERDUE_TEXT.primary : TYPE_TEXT_COLORS[ev.reminder_type].primary} ${ev.is_overdue ? 'line-through' : ''}`}>
                               {ev.title}
                             </span>
                           </div>
                           {(ev.lawyer_name || ev.courtroom) && (
-                            <div className={`text-[10px] leading-tight truncate mt-0.5 ${ev.is_overdue ? 'text-red-600/70 dark:text-red-400/60' : 'text-blue-600/70 dark:text-blue-400/60'}`}>
+                            <div className={`text-[10px] leading-tight truncate mt-0.5 ${ev.is_overdue ? OVERDUE_TEXT.secondary : TYPE_TEXT_COLORS[ev.reminder_type].secondary}`}>
                               {[ev.lawyer_name, ev.courtroom].filter(Boolean).join(' · ')}
                             </div>
                           )}
@@ -309,9 +332,41 @@ export const CalendarCard = memo(function CalendarCard() {
                       </button>
                     ))}
                     {dayEvents.length > 3 && (
-                      <div className="text-[10px] text-muted-foreground text-center py-0.5 font-medium">
-                        共 {dayEvents.length} 条
-                      </div>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-full text-[10px] text-muted-foreground text-center py-0.5 font-medium hover:text-foreground transition-colors cursor-pointer"
+                          >
+                            共 {dayEvents.length} 条
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent
+                          align="start"
+                          side="bottom"
+                          className="w-64 p-0"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <ScrollArea className="max-h-60">
+                            <div className="p-2 space-y-1">
+                              {dayEvents.map(ev => (
+                                <button
+                                  key={ev.id}
+                                  type="button"
+                                  onClick={() => setSelectedEvent(ev)}
+                                  className={`w-full text-left flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted/50 transition-colors cursor-pointer ${ev.is_overdue ? 'bg-red-50/50 dark:bg-red-950/20' : ''}`}
+                                >
+                                  <span className={`text-[11px] font-semibold tabular-nums shrink-0 ${ev.is_overdue ? OVERDUE_TEXT.primary : TYPE_TEXT_COLORS[ev.reminder_type].primary}`}>
+                                    {ev.time}
+                                  </span>
+                                  <span className={`text-[11px] truncate ${ev.is_overdue ? 'line-through text-red-500 dark:text-red-400' : ''}`}>{ev.title}</span>
+                                </button>
+                              ))}
+                            </div>
+                          </ScrollArea>
+                        </PopoverContent>
+                      </Popover>
                     )}
                   </div>
                 </div>
@@ -319,14 +374,36 @@ export const CalendarCard = memo(function CalendarCard() {
             })
           )}
         </div>
+          </TabsContent>
 
-        <div className="flex items-center gap-5 px-5 py-2.5 border-t border-border/80 bg-muted/10 text-xs text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-3 rounded-md border border-blue-200 bg-blue-50 dark:border-blue-900/40 dark:bg-blue-950/30" />
-            <span>待处理</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-3 rounded-md border border-red-200 bg-red-50 dark:border-red-900/40 dark:bg-red-950/30" />
+          <TabsContent value="agenda" className="mt-0">
+            <AgendaView
+              eventsByDate={eventsByDate}
+              viewYear={viewYear}
+              viewMonth={viewMonth}
+              onEventClick={setSelectedEvent}
+            />
+          </TabsContent>
+        </Tabs>
+
+        <div className="flex items-center flex-wrap gap-x-4 gap-y-1.5 px-5 py-2.5 border-t border-border/80 bg-muted/10 text-[11px] text-muted-foreground">
+          {[
+            { type: 'hearing', label: '开庭', color: 'bg-red-100 border-red-200' },
+            { type: 'asset_preservation_expires', label: '保全到期', color: 'bg-orange-100 border-orange-200' },
+            { type: 'evidence_deadline', label: '举证到期', color: 'bg-yellow-100 border-yellow-200' },
+            { type: 'appeal_deadline', label: '上诉到期', color: 'bg-purple-100 border-purple-200' },
+            { type: 'statute_limitations', label: '诉讼时效', color: 'bg-pink-100 border-pink-200' },
+            { type: 'payment_deadline', label: '缴费期限', color: 'bg-blue-100 border-blue-200' },
+            { type: 'submission_deadline', label: '材料提交', color: 'bg-cyan-100 border-cyan-200' },
+            { type: 'other', label: '其他', color: 'bg-gray-100 border-gray-200' },
+          ].map(item => (
+            <div key={item.type} className="flex items-center gap-1.5">
+              <div className={`w-3 h-2.5 rounded-sm border ${item.color}`} />
+              <span>{item.label}</span>
+            </div>
+          ))}
+          <div className="flex items-center gap-1.5 ml-1">
+            <div className="w-3 h-2.5 rounded-sm border border-border bg-muted opacity-50" />
             <span>已逾期</span>
           </div>
         </div>
