@@ -508,7 +508,7 @@ async def stream_batch_progress(request: Any, job_id: UUID) -> StreamingHttpResp
     batch_service = ServiceLocator.get_workbench_batch_service()
     session_service = ServiceLocator.get_workbench_session_service()
 
-    job = batch_service.get_job_by_id(job_id)
+    job = await sync_to_async(batch_service.get_job_by_id)(job_id)
     await sync_to_async(session_service.get_user_session)(ctx.user, job.session_id)
 
     async def event_generator() -> Any:
