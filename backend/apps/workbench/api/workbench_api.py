@@ -525,7 +525,7 @@ async def stream_batch_progress(request: Any, job_id: UUID) -> StreamingHttpResp
                     BatchJobItem.objects.filter(
                         Q(job_id=job_id, status=BatchJobStatus.RUNNING)
                         | Q(job_id=job_id, status__in=(BatchJobStatus.COMPLETED, BatchJobStatus.FAILED)),
-                    ).values("id", "file_name", "status", "duration_ms", "error")
+                    ).values("id", "file_name", "status", "duration_ms", "error", "result")
                 )
             )()
 
@@ -546,6 +546,8 @@ async def stream_batch_progress(request: Any, job_id: UUID) -> StreamingHttpResp
                         "file_name": item["file_name"],
                         "status": item["status"],
                     }
+                    if item.get("result"):
+                        data["result"] = item["result"]
                     if item["duration_ms"] is not None:
                         data["duration_ms"] = item["duration_ms"]
                     if item["error"]:

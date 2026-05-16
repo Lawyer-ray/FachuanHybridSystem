@@ -141,6 +141,11 @@ function handleSSEEvent(set: SetFn, get: GetFn, event: { type: string; data: Rec
         job: { ...bp.job, completed_items: completed, failed_items: failed, progress },
       },
     })
+
+    // 实时注入已完成的分析结果到消息列表
+    if (isCompleted && event.data.result) {
+      injectCompletedItem(get, itemId, fileName, event.data.result as string, bp.job.id)
+    }
   } else if (event.type === 'progress') {
     const data = event.data
     set({
