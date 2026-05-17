@@ -13,6 +13,29 @@
   - **议程视图**：新增 AgendaView 组件，在日历 header 增加「月/议程」Tabs 切换，议程模式按日期分组、按时间排序展示当月所有事件，支持类型 Badge、逾期标记、律师/法庭信息
   - **事件溢出 Popover**：超过 3 条事件时点击「共 N 条」弹出 Popover 滚动列表，可直接点击查看事件详情，无需跳转
 
+## [26.48.12] - 2026-05-17
+
+### 前端
+
+#### 新功能
+
+- **批量分析实时结果展示**：每个文件分析完成后通过 SSE 实时注入消息列表，不再等全部完成才显示
+
+#### 修复
+
+- **批量分析 JSON 解析增强**：改进 `parseBatchResult` 解析器，使用深度匹配 `{}` 定位 JSON 边界，支持 LLM 返回的未转义控制字符（`\n`、`\t`、`\r`）和末尾多余逗号
+- **批量分析结果渲染修复**：移除注入时的 `formatBatchContent` 预处理，统一由 `BatchItemContent` 组件负责 JSON 解析和结构化卡片渲染，修复已格式化 markdown 无法二次解析导致回退为纯文本的问题
+
+### 后端
+
+#### 修复
+
+- **Django Q 任务参数类型转换**：`check_disk_space` 的 `warning_pct`/`critical_pct` 参数从 SystemConfig 读取时为字符串，添加 `float()` 转换，空字符串回退到默认值
+- **SSE 端点 async ORM 修复**：`stream_batch_progress` 中 `get_job_by_id` 调用使用 `sync_to_async` 包装，修复 `SynchronousOnlyOperation` 错误
+- **LLM 临时性错误自动重试**：对 `LLMTimeoutError`、`LLMNetworkError`、`LLMAPIError` 自动重试最多 3 次，指数退避（2s → 4s → 8s），简化 LLM 错误日志为单行
+- **临时目录日志降级**：`tmp/`、`exports/` 目录不存在时从 INFO 降级为 DEBUG，减少噪音日志
+- **批量分析任务超时增加**：Django Q2 任务超时从 1 小时增加到 2 小时，`future.result()` 超时同步调整
+
 ## [26.49.3] - 2026-05-14
 
 ### 后端
