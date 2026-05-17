@@ -14,15 +14,17 @@ export interface BatchResultData {
 /**
  * 修复 LLM 返回的 JSON 中常见的格式问题：
  * - 字符串值内的未转义控制字符（\n、\t、\r）
+ * - 无效转义序列（如 \'，JSON 标准中不合法）
  * - 末尾多余逗号
- * - 注释
  */
 function sanitizeJsonString(json: string): string {
-  // 先尝试修复字符串值内的控制字符
+  // 先尝试修复字符串值内的控制字符和无效转义
   const fixed = json.replace(
     /"(?:[^"\\]|\\.)*"/g,
     (match) =>
       match
+        // 修复无效转义序列 \' → '（JSON 标准不允许 \'）
+        .replace(/\\'/g, "'")
         .replace(/\n/g, '\\n')
         .replace(/\r/g, '\\r')
         .replace(/\t/g, '\\t'),
@@ -47,16 +49,24 @@ export function parseBatchResult(content: string): BatchResultData | null {
   const jsonStart = trimmed.indexOf('{')
   if (jsonStart === -1) return null
 
-  // 从第一个 { 开始，找到匹配的 }
+  // 从第一个 { 开始，找到匹配的 }（跳过字符串内的括号）
   let depth = 0
   let jsonEnd = -1
+  let inStr = false
   for (let i = jsonStart; i < trimmed.length; i++) {
-    if (trimmed[i] === '{') depth++
-    else if (trimmed[i] === '}') {
-      depth--
-      if (depth === 0) {
-        jsonEnd = i + 1
-        break
+    const ch = trimmed[i]
+    if (inStr) {
+      if (ch === '\\') { i++; continue } // 跳过转义字符
+      if (ch === '"') inStr = false
+    } else {
+      if (ch === '"') inStr = true
+      else if (ch === '{') depth++
+      else if (ch === '}') {
+        depth--
+        if (depth === 0) {
+          jsonEnd = i + 1
+          break
+        }
       }
     }
   }
