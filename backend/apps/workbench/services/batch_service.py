@@ -198,7 +198,7 @@ class BatchAnalysisService(PermissionMixin):
             "apps.workbench.tasks.run_batch_analysis",
             args=[str(job.id)],
             task_name=f"batch_analysis_{job.id}",
-            timeout=3600,  # 1 小时超时
+            timeout=7200,  # 2 小时超时（622 个文件需要较长时间）
         )
         BatchJob.objects.filter(id=job.id).update(
             task_id=str(task_id),

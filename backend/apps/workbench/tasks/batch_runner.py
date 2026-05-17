@@ -60,7 +60,7 @@ def run_batch_analysis(job_id: str) -> None:
         # 已有运行中的循环 → 用线程隔离执行
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
             future = pool.submit(asyncio.run, _run_batch_async(UUID(job_id)))
-            future.result(timeout=3600)
+            future.result(timeout=7200)  # 2 小时超时
     except RuntimeError:
         # 没有运行中的循环 → 直接用 asyncio.run()
         asyncio.run(_run_batch_async(UUID(job_id)))
