@@ -903,6 +903,80 @@
             "legal_statuses": [],
             "legal_status_match_mode": "any",
             "is_active": true
+        },
+        {
+            "name": "东莞第三法院被告送达地址线索书",
+            "template_type": "case",
+            "contract_sub_type": null,
+            "case_sub_type": "service_address_materials",
+            "file_path": "2-案件材料/4-通用材料/3-送达地址确认书/东莞第三法院被告送达地址线索书.docx",
+            "contract_types": [],
+            "case_types": [
+                "civil",
+                "administrative",
+                "criminal",
+                "execution"
+            ],
+            "case_stages": [
+                "all"
+            ],
+            "legal_statuses": [
+                "plaintiff",
+                "applicant"
+            ],
+            "legal_status_match_mode": "any",
+            "applicable_institutions": [
+                "东莞市第三人民法院"
+            ],
+            "is_active": true
+        },
+        {
+            "name": "东莞第三法院原告送达地址、送达方式确认书",
+            "template_type": "case",
+            "contract_sub_type": null,
+            "case_sub_type": "service_address_materials",
+            "file_path": "2-案件材料/4-通用材料/3-送达地址确认书/东莞第三法院原告送达地址、送达方式确认书.docx",
+            "contract_types": [],
+            "case_types": [
+                "civil",
+                "administrative"
+            ],
+            "case_stages": [
+                "first_trial"
+            ],
+            "legal_statuses": [
+                "plaintiff"
+            ],
+            "legal_status_match_mode": "any",
+            "applicable_institutions": [
+                "东莞市第三人民法院"
+            ],
+            "is_active": true
+        },
+        {
+            "name": "东莞第三法院账户确认书",
+            "template_type": "case",
+            "contract_sub_type": null,
+            "case_sub_type": "refund_account_materials",
+            "file_path": "2-案件材料/4-通用材料/5-退费账户确认书/东莞第三法院账户确认书.docx",
+            "contract_types": [],
+            "case_types": [
+                "civil",
+                "administrative",
+                "execution"
+            ],
+            "case_stages": [
+                "first_trial"
+            ],
+            "legal_statuses": [
+                "plaintiff",
+                "applicant"
+            ],
+            "legal_status_match_mode": "any",
+            "applicable_institutions": [
+                "东莞市第三人民法院"
+            ],
+            "is_active": true
         }
     ],
     "bindings": [
