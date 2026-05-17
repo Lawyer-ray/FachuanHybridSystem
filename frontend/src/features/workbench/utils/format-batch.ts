@@ -17,13 +17,34 @@ export interface BatchResultData {
  */
 export function parseBatchResult(content: string): BatchResultData | null {
   let trimmed = content.trim()
+
   // 剥离 ```json ... ``` 代码围栏
-  const fenceMatch = trimmed.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?\s*```$/)
+  const fenceMatch = trimmed.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/)
   if (fenceMatch) trimmed = fenceMatch[1].trim()
-  if (!trimmed.startsWith('{')) return null
+
+  // 尝试找到 JSON 对象的起止位置
+  const jsonStart = trimmed.indexOf('{')
+  if (jsonStart === -1) return null
+
+  // 从第一个 { 开始，找到匹配的 }
+  let depth = 0
+  let jsonEnd = -1
+  for (let i = jsonStart; i < trimmed.length; i++) {
+    if (trimmed[i] === '{') depth++
+    else if (trimmed[i] === '}') {
+      depth--
+      if (depth === 0) {
+        jsonEnd = i + 1
+        break
+      }
+    }
+  }
+
+  if (jsonEnd === -1) return null
+  const jsonStr = trimmed.slice(jsonStart, jsonEnd)
 
   try {
-    const obj = JSON.parse(trimmed)
+    const obj = JSON.parse(jsonStr)
     // 必须有 analysis 字段才算有效的批量分析结果
     if (typeof obj.analysis !== 'string') return null
     return {
