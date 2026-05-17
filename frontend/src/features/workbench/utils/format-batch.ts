@@ -12,6 +12,27 @@ export interface BatchResultData {
 }
 
 /**
+ * 修复 LLM 返回的 JSON 中常见的格式问题：
+ * - 字符串值内的未转义控制字符（\n、\t、\r）
+ * - 末尾多余逗号
+ * - 注释
+ */
+function sanitizeJsonString(json: string): string {
+  // 先尝试修复字符串值内的控制字符
+  const fixed = json.replace(
+    /"(?:[^"\\]|\\.)*"/g,
+    (match) =>
+      match
+        .replace(/\n/g, '\\n')
+        .replace(/\r/g, '\\r')
+        .replace(/\t/g, '\\t'),
+  )
+  // 移除末尾逗号（LLM 常见格式问题）
+    .replace(/,(\s*[}\]])/g, '$1')
+  return fixed
+}
+
+/**
  * 解析批量分析 JSON 结果，返回结构化数据。
  * 如果内容不是合法 JSON 或缺少关键字段，返回 null。
  */
@@ -43,22 +64,25 @@ export function parseBatchResult(content: string): BatchResultData | null {
   if (jsonEnd === -1) return null
   const jsonStr = trimmed.slice(jsonStart, jsonEnd)
 
-  try {
-    const obj = JSON.parse(jsonStr)
-    // 必须有 analysis 字段才算有效的批量分析结果
-    if (typeof obj.analysis !== 'string') return null
-    return {
-      case_number: obj.case_number ?? '未注明',
-      cause: obj.cause ?? '未注明',
-      court: obj.court ?? '未注明',
-      judge: obj.judge ?? '未注明',
-      clerk: obj.clerk ?? '未注明',
-      is_relevant: obj.is_relevant !== false,
-      conclusion: obj.conclusion ?? '',
-      analysis: obj.analysis,
-    }
-  } catch {
-    return null
+  // 尝试直接解析，失败则修复常见格式问题后重试
+  const tryParse = (s: string) => {
+    try { return JSON.parse(s) } catch { return null }
+  }
+
+  const obj = tryParse(jsonStr) ?? tryParse(sanitizeJsonString(jsonStr))
+  if (!obj) return null
+
+  // 必须有 analysis 字段才算有效的批量分析结果
+  if (typeof obj.analysis !== 'string') return null
+  return {
+    case_number: obj.case_number ?? '未注明',
+    cause: obj.cause ?? '未注明',
+    court: obj.court ?? '未注明',
+    judge: obj.judge ?? '未注明',
+    clerk: obj.clerk ?? '未注明',
+    is_relevant: obj.is_relevant !== false,
+    conclusion: obj.conclusion ?? '',
+    analysis: obj.analysis,
   }
 }
 
