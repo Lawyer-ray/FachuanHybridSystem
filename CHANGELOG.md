@@ -14,7 +14,7 @@
 
 #### 新功能
 
-- **适配金诚同达 OA 新 SSO 登录流程**：OA 系统从 form-based 登录迁移到 OAuth/OIDC SSO (`access.jtn.com`)，需要先通过企业微信扫码完成 SSO 认证，再输入 OA 账号密码登录。新增 `sso_login.py` 实现完整 SSO 扫码登录流程 + cookie 持久化（`~/.fachuan/jtn_cookies.json`），HTTP 和 Playwright 立案路径均优先使用缓存 cookies，过期自动触发重新登录
+- **适配 OA 新 SSO 登录流程**：OA 系统从 form-based 登录迁移到 OAuth/OIDC SSO (`access.jtn.com`)，需要先通过企业微信扫码完成 SSO 认证，再输入 OA 账号密码登录。新增 `sso_login.py` 实现完整 SSO 扫码登录流程 + cookie 持久化（`~/.fachuan/jtn_cookies.json`），HTTP 和 Playwright 立案路径均优先使用缓存 cookies，过期自动触发重新登录
 
 ## [26.48.13] - 2026-05-17
 
@@ -154,7 +154,7 @@
 
 #### 优化
 
-- **OA 脚本目录重构**：将 `oa_scripts/` 下散落的金诚同达专属文件（`jtn_case_html_parser.py`、`jtn_case_import_models.py`、`jtn_client_import.py`）归入统一的 `jtn/` 目录，与已有的 `jtn_case_import/`、`jtn_filing/` 子包保持一致。新增律所时只需创建一个新目录，无需辨认哪些文件属于哪个律所
+- **OA 脚本目录重构**：将 `oa_scripts/` 下散落的JT专属文件（`jtn_case_html_parser.py`、`jtn_case_import_models.py`、`jtn_client_import.py`）归入统一的 `jtn/` 目录，与已有的 `jtn_case_import/`、`jtn_filing/` 子包保持一致。新增律所时只需创建一个新目录，无需辨认哪些文件属于哪个律所
 
 ## [26.48.8] - 2026-05-13
 
@@ -1334,7 +1334,7 @@
 - **案件详情页案号增强显示**：basic_info 中案号列表增加文书名称、生效/未生效标签，案号状态一目了然
 - **合同详情页关联案件显示案号**：基本信息 Tab 关联案件卡片增加主案号展示
 - **合同详情页财务 Tab 快捷添加收款/回款**：收款记录和回款记录区域新增「添加收款」「添加回款」快捷按钮，跳转至编辑页对应内联区域
-- **金诚同达 OA 导入独立页面**：OA 导入功能从列表页内嵌迁移为独立页面（`jtn_oa_import_view`），解耦列表页模板，便于未来替换其他律所 OA；立案 Tab 的 JS 逻辑也独立为 `jtn_oa_filing.js`
+- ** OA 导入独立页面**：OA 导入功能从列表页内嵌迁移为独立页面（`jtn_oa_import_view`），解耦列表页模板，便于未来替换其他律所 OA；立案 Tab 的 JS 逻辑也独立为 `jtn_oa_filing.js`
 
 ### 变更
 
