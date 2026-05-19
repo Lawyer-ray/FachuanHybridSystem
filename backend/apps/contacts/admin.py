@@ -12,15 +12,18 @@ if TYPE_CHECKING:
     from typing import TypeAlias
 
     BaseTabularInline: TypeAlias = admin.TabularInline[Any, Any]
+    BaseStackedInline: TypeAlias = admin.StackedInline[Any, Any]
     BaseModelAdmin: TypeAlias = admin.ModelAdmin
 else:
     try:
         import nested_admin
 
         BaseTabularInline = nested_admin.NestedTabularInline
+        BaseStackedInline = nested_admin.NestedStackedInline
         BaseModelAdmin = nested_admin.NestedModelAdmin
     except ImportError:
         BaseTabularInline = admin.TabularInline
+        BaseStackedInline = admin.StackedInline
         BaseModelAdmin = admin.ModelAdmin
 
 
@@ -110,7 +113,7 @@ class CaseContactInlineForm(forms.ModelForm[CaseContact]):
         return cleaned
 
 
-class CaseContactInline(BaseTabularInline):
+class CaseContactInline(BaseStackedInline):
     model = CaseContact
     form = CaseContactInlineForm
     extra = 1
