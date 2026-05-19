@@ -111,46 +111,60 @@ class PlaywrightFilingMixin:
     # ------------------------------------------------------------------
 
     def _login(self: Any) -> None:
-        """通过 httpx 接口登录，将 cookie 注入 Playwright context。"""
-        import httpx as _httpx
+        """登录：优先使用缓存 cookies，过期则走 SSO 扫码流程。"""
+        assert self._context is not None
 
-        logger.info("接口登录: %s", _LOGIN_URL)
-
-        with _httpx.Client(headers=_HTTP_HEADERS, follow_redirects=True, timeout=15) as client:
-            # 1. GET 登录页，拿 ASP.NET_SessionId + CSRFToken
-            r = client.get(_LOGIN_URL)
-            csrf_match = re.search(r'name=["\']CSRFToken["\'] value=["\']([^"\']+)["\']', r.text)
-            csrf = csrf_match.group(1) if csrf_match else ""
-
-            # 2. POST 登录
-            r2 = client.post(
-                _LOGIN_URL,
-                data={"CSRFToken": csrf, "userid": self._account, "password": self._password},
-            )
-
-            if "login" in str(r2.url).lower() or "logout" in r2.text.lower()[:200]:
-                raise RuntimeError(f"OA 登录失败，账号或密码错误: {self._account}")
-
-            # 3. 将 cookie 注入 Playwright context
-            assert self._context is not None
-            for cookie in client.cookies.jar:
+        # 优先尝试缓存 cookies
+        cached = self._load_cookies()
+        if cached is not None:
+            for c in cached:
                 self._context.add_cookies(
                     [
                         {
-                            "name": cookie.name,
-                            "value": cookie.value or "",
-                            "domain": cookie.domain or "ims.jtn.com",
-                            "path": cookie.path or "/",
+                            "name": c["name"],
+                            "value": c["value"],
+                            "domain": c["domain"],
+                            "path": c.get("path", "/"),
                         }
                     ]
                 )
+            # 验证 cookies 是否有效
+            self._page.goto(_FILING_URL, wait_until="domcontentloaded", timeout=30_000)
+            time.sleep(_MEDIUM_WAIT)
+            if "login" not in self._page.url.lower():
+                logger.info("Playwright 登录成功（使用缓存 cookies）")
+                return
+            logger.info("缓存 cookies 已失效，重新登录")
 
-        logger.info("接口登录成功，cookie 已注入，当前重定向URL: %s", r2.url)
+        # 走 SSO 扫码 + 凭证登录
+        logger.info("SSO 登录（需要扫码）")
+        self._login_via_sso()
+        # 将新 cookies 注入 Playwright context
+        new_cookies = self._load_cookies()
+        if new_cookies is None:
+            raise RuntimeError("SSO 登录后未获取到 cookies")
+        for c in new_cookies:
+            self._context.add_cookies(
+                [
+                    {
+                        "name": c["name"],
+                        "value": c["value"],
+                        "domain": c["domain"],
+                        "path": c.get("path", "/"),
+                    }
+                ]
+            )
+        logger.info("Playwright 登录成功（SSO 扫码完成）")
 
     def _navigate_to_filing(self: Any) -> None:
-        """导航到立案页面。"""
+        """导航到立案页面（如果尚未在立案页）。"""
         page = self._page
         assert page is not None
+
+        current = page.url
+        if "ProjectAppRegNew" in current:
+            logger.info("已在立案页面，跳过导航")
+            return
 
         logger.info("导航到立案页: %s", _FILING_URL)
         page.goto(_FILING_URL, wait_until="domcontentloaded")

@@ -11,11 +11,12 @@ from .filing_models import CaseInfo, ClientInfo, ConflictPartyInfo, ContractInfo
 from .http_filing import HttpFilingMixin
 from .playwright_filing import PlaywrightFilingMixin
 from .playwright_helpers import PlaywrightHelpersMixin
+from .sso_login import SsoLoginMixin
 
 logger = logging.getLogger("apps.oa_filing.jtn")
 
 
-class JtnFilingScript(PlaywrightFilingMixin, PlaywrightHelpersMixin, HttpFilingMixin):
+class JtnFilingScript(SsoLoginMixin, PlaywrightFilingMixin, PlaywrightHelpersMixin, HttpFilingMixin):
     """金诚同达 OA 立案自动化。"""
 
     def __init__(self, account: str, password: str) -> None:

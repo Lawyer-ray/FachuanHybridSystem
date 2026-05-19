@@ -62,22 +62,31 @@ class HttpFilingMixin:
     # ------------------------------------------------------------------
 
     def _http_login(self: Any, client: httpx.Client) -> None:
-        """HTTP 登录（复用同一个 client 会话）。"""
-        logger.info("HTTP 登录 OA: %s", _LOGIN_URL)
-        login_page = client.get(_LOGIN_URL)
-        login_page.raise_for_status()
+        """HTTP 登录：优先使用缓存 cookies，过期则走 SSO 扫码流程。"""
+        # 优先尝试缓存 cookies
+        cached = self._load_cookies()
+        if cached is not None:
+            for c in cached:
+                client.cookies.set(c["name"], c["value"], domain=c["domain"])
+            # 验证 cookies 是否有效
+            probe = client.get(_FILING_URL)
+            if "login" not in str(probe.url).lower() and "aspnetForm" in probe.text:
+                logger.info("HTTP 登录成功（使用缓存 cookies）")
+                return
+            logger.info("缓存 cookies 已失效，重新登录")
+            # 清除失效 cookies
+            client.cookies.clear()
 
-        csrf_match = re.search(r'name=["\']CSRFToken["\'] value=["\']([^"\']+)["\']', login_page.text)
-        csrf = csrf_match.group(1) if csrf_match else ""
-
-        login_result = client.post(
-            _LOGIN_URL,
-            data={"CSRFToken": csrf, "userid": self._account, "password": self._password},
-        )
-        login_result.raise_for_status()
-        if "login" in str(login_result.url).lower() or "logout" in login_result.text.lower()[:200]:
-            raise RuntimeError(f"OA 登录失败，账号或密码错误: {self._account}")
-        logger.info("HTTP 登录成功")
+        # 走 SSO 扫码 + 凭证登录
+        logger.info("SSO 登录 OA（需要扫码）")
+        self._login_via_sso()
+        # 将新 cookies 注入 httpx client
+        new_cookies = self._load_cookies()
+        if new_cookies is None:
+            raise RuntimeError("SSO 登录后未获取到 cookies")
+        for c in new_cookies:
+            client.cookies.set(c["name"], c["value"], domain=c["domain"])
+        logger.info("HTTP 登录成功（SSO 扫码完成）")
 
     # ------------------------------------------------------------------
     # 表单加载 / 解析
