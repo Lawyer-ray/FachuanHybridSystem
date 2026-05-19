@@ -112,6 +112,8 @@ class CasePartyInline(BaseTabularInline):
 class CaseAssignmentInline(BaseTabularInline):
     model = CaseAssignment
     extra = 1
+    fields = ("lawyer",)
+    autocomplete_fields = ("lawyer",)
 
 
 class SupervisingAuthorityInline(BaseTabularInline):
