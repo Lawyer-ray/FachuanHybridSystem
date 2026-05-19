@@ -151,9 +151,9 @@ window.CONTRACTS_I18N = Object.assign(window.CONTRACTS_I18N || {}, {
                 title = '仅民商事、刑事、行政、劳动仲裁、商事仲裁类型的合同可创建案件';
             }
         }
-        if (statusSelect && statusSelect.value !== 'active') {
+        if (statusSelect && statusSelect.value === 'archived') {
             disabled = true;
-            title = '仅在办状态的合同可创建案件';
+            title = '已归档的合同不可创建案件';
         }
 
         createCaseBtn.disabled = disabled;

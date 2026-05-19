@@ -69,7 +69,7 @@ class ContractServiceAdapter:
     def validate_contract_active(self, contract_id: int) -> bool:
         try:
             contract = self.contract_service.query_service.get_contract_internal(contract_id)
-            return bool(contract.status == "active")
+            return bool(contract.status in ("active", "unsigned"))
         except NotFoundError:
             return False
 
