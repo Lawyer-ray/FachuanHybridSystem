@@ -137,27 +137,40 @@ window.CONTRACTS_I18N = Object.assign(window.CONTRACTS_I18N || {}, {
     createCaseBtn.value = (window.CONTRACTS_I18N?.createCase || '保存并创建案件');
     createCaseBtn.name = '_save_and_create_case';
 
-    // 检查当前合同类型是否允许创建案件
+    // 检查当前合同类型和状态是否允许创建案件
     function updateCreateCaseButton() {
         var caseTypeSelect = document.getElementById('id_case_type');
+        var statusSelect = document.getElementById('id_status');
+        var disabled = false;
+        var title = '';
+
         if (caseTypeSelect) {
             var currentType = caseTypeSelect.value;
-            createCaseBtn.disabled = allowedTypes.indexOf(currentType) === -1;
-            if (createCaseBtn.disabled) {
-                createCaseBtn.title = '仅民商事、刑事、行政、劳动仲裁、商事仲裁类型的合同可创建案件';
-            } else {
-                createCaseBtn.title = '';
+            if (allowedTypes.indexOf(currentType) === -1) {
+                disabled = true;
+                title = '仅民商事、刑事、行政、劳动仲裁、商事仲裁类型的合同可创建案件';
             }
         }
+        if (statusSelect && statusSelect.value !== 'active') {
+            disabled = true;
+            title = '仅在办状态的合同可创建案件';
+        }
+
+        createCaseBtn.disabled = disabled;
+        createCaseBtn.title = title;
     }
 
     // 初始化按钮状态
     updateCreateCaseButton();
 
-    // 监听合同类型变化
+    // 监听合同类型和状态变化
     var caseTypeSelect = document.getElementById('id_case_type');
     if (caseTypeSelect) {
         caseTypeSelect.addEventListener('change', updateCreateCaseButton);
+    }
+    var statusSelect = document.getElementById('id_status');
+    if (statusSelect) {
+        statusSelect.addEventListener('change', updateCreateCaseButton);
     }
 
     // 插入按钮
