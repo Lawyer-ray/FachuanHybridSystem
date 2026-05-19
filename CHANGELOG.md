@@ -2,6 +2,30 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.48.15] - 2026-05-19
+
+### 前端
+
+#### 修复
+
+- **当事人表单「我方当事人」开关缺失**：`ClientForm` 的 zod schema 定义了 `is_our_client` 字段但表单 JSX 中缺少对应输入控件，导致新建时默认为 `true` 且无法切换。在地址字段下方添加 Switch 开关
+
+### 后端
+
+#### 修复
+
+- **新建案件 CaseContactInline 未保存实例报错**：`CaseContactInlineForm.clean()` 中用未保存的 Case 实例（无 pk）查询 `SupervisingAuthority`，触发 `ValueError: Model instances passed to related filters must be saved`。增加 `case.pk` 守卫
+
+- **新建案件 CaseAssignment 唯一约束冲突**：`save_model()` 中 `sync_assignments_from_contract()` 从合同同步律师指派后，`save_formset()` 处理 inline 表单时用户选了相同律师导致 `IntegrityError`。在 `save_formset()` 中对 `CaseAssignment` 增加去重检查
+
+- **合同非在办状态仍可点击「保存并创建案件」**：合同 change form 模板中 `updateCreateCaseButton()` 只检查合同类型未检查状态，已归档合同点击后后端抛 `CONTRACT_INACTIVE`。现在归档合同禁用该按钮
+
+- **未签约合同无法创建案件**：`validate_contract_active()` 仅允许 `active` 状态，`unsigned`（未签约）合同也被拒绝。改为 `active` 和 `unsigned` 均允许，仅 `archived` 不可创建
+
+- **CaseAssignmentInline 显示溢出**：未配置 `fields` 导致冗余的 `case` 父 FK 和巨大的 `lawyer` 下拉框同时显示。隐藏 `case` 字段并启用 `lawyer` autocomplete
+
+- **CasePartyInline 末行重复显示当事人**：`extra = 1` 在页面加载时渲染空表单，JS 的 `updateClientOptions` 操作所有 select 时污染该空行。改为 `extra = 0`
+
 ## [26.48.14] - 2026-05-19
 
 ### 后端
