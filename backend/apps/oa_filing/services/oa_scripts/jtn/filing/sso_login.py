@@ -104,8 +104,18 @@ class SsoLoginMixin:
 
             logger.info("SSO 登录成功，当前页面: %s", page.url)
 
-            # 6. 捕获 cookies
-            cookies = context.cookies()
+            # 6. 捕获 cookies 并转为可序列化的 dict 列表
+            raw_cookies = context.cookies()
+            cookies = [
+                {
+                    "name": c.name,
+                    "value": c.value,
+                    "domain": c.domain,
+                    "path": c.path,
+                    "expires": c.expires,
+                }
+                for c in raw_cookies
+            ]
             self._save_cookies(cookies)
             return cookies
         finally:
