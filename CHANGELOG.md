@@ -2,6 +2,20 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.48.14] - 2026-05-19
+
+### 后端
+
+#### 修复
+
+- **OA 立案 async context 报错**：修复 `sync_playwright().start()` 在 ThreadPoolExecutor 后台线程中创建事件循环，导致 Django `@async_unsafe` 装饰器拒绝 ORM 操作的问题（`SynchronousOnlyOperation`）。在 `_run_in_thread` 中设置 `DJANGO_ALLOW_ASYNC_UNSAFE=true` 并管理数据库连接生命周期
+
+- **删除 workbench_session 幽灵列**：移除 `workbench_session` 表中不存在于 model 的 `pinned` 和 `tags` 列（migration `0008_remove_session_pinned`）
+
+#### 新功能
+
+- **适配金诚同达 OA 新 SSO 登录流程**：OA 系统从 form-based 登录迁移到 OAuth/OIDC SSO (`access.jtn.com`)，需要先通过企业微信扫码完成 SSO 认证，再输入 OA 账号密码登录。新增 `sso_login.py` 实现完整 SSO 扫码登录流程 + cookie 持久化（`~/.fachuan/jtn_cookies.json`），HTTP 和 Playwright 立案路径均优先使用缓存 cookies，过期自动触发重新登录
+
 ## [26.48.13] - 2026-05-17
 
 ### 前端
