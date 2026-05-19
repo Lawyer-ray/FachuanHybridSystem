@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from django.apps import apps as django_apps
+from django.db import connection
 
 logger = logging.getLogger("apps.oa_filing")
 
@@ -67,6 +68,8 @@ class ScriptExecutorService:
         """后台线程：执行脚本并更新会话状态。"""
         from apps.oa_filing.models import FilingSession, SessionStatus
 
+        # 关闭可能从主线程继承的旧连接，确保本线程获得独立连接
+        connection.close()
         try:
             self._dispatch(site_name, credential, contract_id, case_id)
             FilingSession.objects.filter(pk=session_id).update(status=SessionStatus.COMPLETED)
@@ -77,6 +80,8 @@ class ScriptExecutorService:
                 error_message=str(exc),
             )
             logger.error("立案失败: session=%d, error=%s", session_id, exc)
+        finally:
+            connection.close()
 
     def _dispatch(
         self,
