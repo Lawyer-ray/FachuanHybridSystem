@@ -30,7 +30,7 @@ class CookieService:
             raise ValueError("storage_path is required")
         p = Path(path)
         p.parent.makedirs_p()
-        context.cookies()
-        payload: tuple[dict[str, object], ...] = ({},)
+        cookies = context.cookies()
+        payload = {"cookies": cookies}
         p.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         return str(p)

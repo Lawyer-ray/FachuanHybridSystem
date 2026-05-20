@@ -730,12 +730,105 @@ def _run_filing(
             detail=str(event.get("detail") or ""),
         )
 
-    _record_progress(
-        phase="login",
-        stage="login.start",
-        message="正在登录一张网...",
-        set_started=True,
-    )
+    _COURT_SITE_NAME = "court_zxfw"
+    filing_engine = case_data.get("filing_engine", "api")
+    _cached_token_used = False
+
+    # ── 第1步: 尝试从缓存获取 Token，跳过登录直接 HTTP 立案 ──
+    if filing_engine == "api":
+        try:
+            from apps.automation.services.scraper.core.token_service import TokenService
+
+            cached_token = TokenService().get_token(_COURT_SITE_NAME, account)
+        except Exception:
+            cached_token = None
+
+        if cached_token:
+            _record_progress(
+                phase="login",
+                stage="login.skipped",
+                message="已有缓存Token，跳过登录",
+                set_started=True,
+            )
+            timing["login_end"] = time.monotonic()
+
+            _record_progress(
+                phase="system",
+                stage="filing.start",
+                message="开始执行立案流程（使用缓存Token）",
+            )
+            case_data_runtime = dict(case_data)
+            case_data_runtime["_progress_reporter"] = _service_progress_reporter
+            filing_service_no_browser = CourtZxfwFilingService(page=None, save_debug=True)  # type: ignore[arg-type]
+            try:
+                if filing_type == _FILING_TYPE_EXECUTION:
+                    result = filing_service_no_browser.file_execution(case_data_runtime, token=cached_token)
+                else:
+                    result = filing_service_no_browser.file_case(case_data_runtime, token=cached_token)
+
+                if result.get("success", False):
+                    _cached_token_used = True
+                    success_message = str(result.get("message") or "立案流程执行完成")
+                    timing["overall_end"] = time.monotonic()
+                    _record_progress(
+                        phase="system",
+                        stage="filing.success",
+                        message=success_message,
+                        persist_running=False,
+                    )
+                    final_result = dict(result)
+                    final_result.update(
+                        _build_progress_payload(
+                            message=f"执行阶段: {success_message}",
+                            stage="filing.success",
+                            phase="system",
+                        )
+                    )
+                    final_result["success"] = True
+                    final_result["message"] = success_message
+                    _update_session_task(
+                        session_id=session_id,
+                        status=ScraperTaskStatus.SUCCESS,
+                        error_message="",
+                        result=final_result,
+                        set_finished=True,
+                    )
+                    logger.info("立案结果（缓存Token）: %s", final_result)
+                    return
+
+                # HTTP 立案失败（可能是 Token 过期），清除缓存，回退到完整登录
+                logger.warning("缓存Token立案失败，回退完整登录: %s", result.get("message"))
+                try:
+                    TokenService().delete_token(_COURT_SITE_NAME, account)
+                    logger.info("已清除过期缓存Token: %s - %s", _COURT_SITE_NAME, account)
+                except Exception:
+                    pass
+                _record_progress(
+                    phase="login",
+                    stage="login.cache_miss",
+                    message="缓存Token已失效，需重新登录",
+                )
+            except Exception as cached_exc:
+                # HTTP 请求本身失败（网络错误等），清除缓存后回退
+                logger.warning("缓存Token立案异常，回退完整登录: %s", cached_exc)
+                try:
+                    TokenService().delete_token(_COURT_SITE_NAME, account)
+                except Exception:
+                    pass
+                _record_progress(
+                    phase="login",
+                    stage="login.cache_miss",
+                    message=f"缓存Token立案异常，需重新登录: {cached_exc}",
+                )
+
+    # ── 第2步: 完整登录（无缓存 或 缓存已失效）──
+    if not _cached_token_used:
+        _record_progress(
+            phase="login",
+            stage="login.start",
+            message="正在登录一张网...",
+            set_started=True,
+        )
 
     with create_browser(anti_detection=False) as (page, context):
         try:
@@ -779,6 +872,21 @@ def _run_filing(
             timing["login_end"] = time.monotonic()
 
             token_value = str(login_result.get("token") or "").strip() or None
+
+            # 登录成功后保存 Token 到缓存，供下次复用
+            if token_value:
+                try:
+                    from apps.automation.services.scraper.core.token_service import TokenService
+
+                    TokenService().save_token(
+                        site_name=_COURT_SITE_NAME,
+                        account=account,
+                        token=token_value,
+                    )
+                    logger.info("Token 已缓存: %s - %s", _COURT_SITE_NAME, account)
+                except Exception as save_exc:
+                    logger.warning("缓存Token失败: %s", save_exc)
+
             filing_service = CourtZxfwFilingService(page=page, save_debug=True)
             case_data_runtime = dict(case_data)
             case_data_runtime["_progress_reporter"] = _service_progress_reporter
