@@ -68,7 +68,7 @@ class CaseLogAttachmentOut(ModelSchema, SchemaMixin):
 
     class Meta:
         model = CaseLogAttachment
-        fields: ClassVar = ["id", "log", "uploaded_at"]
+        fields: ClassVar = ["id", "log", "original_filename", "uploaded_at"]
 
     @staticmethod
     def resolve_file_path(obj: CaseLogAttachment) -> str | None:

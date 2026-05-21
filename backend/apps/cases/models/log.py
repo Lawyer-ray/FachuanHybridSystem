@@ -191,6 +191,13 @@ class CaseLogAttachment(models.Model):
     def display_name(self) -> str:
         return str(self.original_filename or getattr(self.file, "name", "") or "")
 
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        if not self.original_filename and self.file:
+            name = getattr(self.file, "name", "")
+            if name:
+                self.original_filename = Path(name).name
+        super().save(*args, **kwargs)
+
 
 class CaseLogVersion(models.Model):
     id: int

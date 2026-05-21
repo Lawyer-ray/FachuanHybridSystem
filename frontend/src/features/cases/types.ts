@@ -240,6 +240,7 @@ export interface CaseAssignment {
 export interface CaseLogAttachment {
   id: number
   log: number
+  original_filename: string
   file_path: string | null
   media_url: string | null
   uploaded_at: string

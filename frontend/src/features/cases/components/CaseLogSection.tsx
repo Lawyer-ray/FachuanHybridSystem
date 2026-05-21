@@ -214,6 +214,7 @@ export const CaseLogSection = forwardRef<CaseLogSectionRef, CaseLogSectionProps>
                       <Paperclip className="size-3 text-muted-foreground shrink-0" />
                       {log.attachments?.map((att) => {
                         const url = att.media_url || att.file_path
+                        const displayName = att.original_filename || `附件 #${att.id}`
                         return url ? (
                           <a
                             key={att.id}
@@ -223,10 +224,10 @@ export const CaseLogSection = forwardRef<CaseLogSectionRef, CaseLogSectionProps>
                             className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
                           >
                             <Download className="size-3" />
-                            附件 #{att.id}
+                            {displayName}
                           </a>
                         ) : (
-                          <span key={att.id} className="text-xs text-muted-foreground">附件 #{att.id}</span>
+                          <span key={att.id} className="text-xs text-muted-foreground">{displayName}</span>
                         )
                       })}
                     </div>
