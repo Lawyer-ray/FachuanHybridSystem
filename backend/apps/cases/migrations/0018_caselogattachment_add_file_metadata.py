@@ -4,17 +4,30 @@ from django.db import migrations, models
 
 
 SQL = """
--- Backfill any NULLs
-UPDATE cases_caselogattachment SET original_filename = '' WHERE original_filename IS NULL;
-UPDATE cases_caselogattachment SET relative_file_path = '' WHERE relative_file_path IS NULL;
-UPDATE cases_caselogattachment SET storage_root_type = '' WHERE storage_root_type IS NULL;
-UPDATE cases_caselogattachment SET subdir_path = '' WHERE subdir_path IS NULL;
+DO $$
+BEGIN
+    -- Only run if columns already exist (e.g. added outside migrations)
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'cases_caselogattachment' AND column_name = 'original_filename'
+    ) THEN
+        UPDATE cases_caselogattachment SET original_filename = '' WHERE original_filename IS NULL;
+        UPDATE cases_caselogattachment SET relative_file_path = '' WHERE relative_file_path IS NULL;
+        UPDATE cases_caselogattachment SET storage_root_type = '' WHERE storage_root_type IS NULL;
+        UPDATE cases_caselogattachment SET subdir_path = '' WHERE subdir_path IS NULL;
 
--- Add defaults so future INSERTs without these columns work
-ALTER TABLE cases_caselogattachment ALTER COLUMN original_filename SET DEFAULT '';
-ALTER TABLE cases_caselogattachment ALTER COLUMN relative_file_path SET DEFAULT '';
-ALTER TABLE cases_caselogattachment ALTER COLUMN storage_root_type SET DEFAULT '';
-ALTER TABLE cases_caselogattachment ALTER COLUMN subdir_path SET DEFAULT '';
+        ALTER TABLE cases_caselogattachment ALTER COLUMN original_filename SET DEFAULT '';
+        ALTER TABLE cases_caselogattachment ALTER COLUMN relative_file_path SET DEFAULT '';
+        ALTER TABLE cases_caselogattachment ALTER COLUMN storage_root_type SET DEFAULT '';
+        ALTER TABLE cases_caselogattachment ALTER COLUMN subdir_path SET DEFAULT '';
+    ELSE
+        -- Fresh DB: columns don't exist yet, ADD them
+        ALTER TABLE cases_caselogattachment ADD COLUMN original_filename varchar(500) NOT NULL DEFAULT '';
+        ALTER TABLE cases_caselogattachment ADD COLUMN relative_file_path varchar(1000) NOT NULL DEFAULT '';
+        ALTER TABLE cases_caselogattachment ADD COLUMN storage_root_type varchar(100) NOT NULL DEFAULT '';
+        ALTER TABLE cases_caselogattachment ADD COLUMN subdir_path varchar(1000) NOT NULL DEFAULT '';
+    END IF;
+END $$;
 """
 
 
