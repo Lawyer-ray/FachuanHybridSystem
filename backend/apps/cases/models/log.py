@@ -170,16 +170,10 @@ class CaseLogAttachment(models.Model):
         validators=[validate_log_attachment],
         verbose_name=_("相关文书"),
     )
-    storage_root_type = models.CharField(max_length=32, default="media", blank=True, verbose_name=_("存储根类型"))
-    subdir_path = models.CharField(max_length=500, blank=True, default="", verbose_name=_("子目录"))
-    relative_file_path = models.CharField(
-        max_length=500,
-        blank=True,
-        default="",
-        db_index=True,
-        verbose_name=_("相对文件路径"),
-    )
-    original_filename = models.CharField(max_length=255, blank=True, default="", verbose_name=_("原始文件名"))
+    original_filename = models.CharField(max_length=500, blank=True, default="", verbose_name=_("原始文件名"))
+    relative_file_path = models.CharField(max_length=1000, blank=True, default="", verbose_name=_("相对文件路径"))
+    storage_root_type = models.CharField(max_length=100, blank=True, default="", verbose_name=_("存储根类型"))
+    subdir_path = models.CharField(max_length=1000, blank=True, default="", verbose_name=_("子目录路径"))
     uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name=_("上传时间"))
 
     class Meta:

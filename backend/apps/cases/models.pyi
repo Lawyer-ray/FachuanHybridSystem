@@ -173,6 +173,10 @@ class CaseLogAttachment(models.Model):
     log_id: int
     log: CaseLog
     file: FieldFile
+    original_filename: str
+    relative_file_path: str
+    storage_root_type: str
+    subdir_path: str
     uploaded_at: datetime
 
     # Meta
