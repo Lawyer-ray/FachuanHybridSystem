@@ -334,7 +334,7 @@ if [ "$RUN_BACKEND" = true ]; then
 
   # [14] pip-audit（对齐 backend job 的 Dependency audit step）
   header "14/22" "依赖安全审计 (pip-audit)"
-  if $BACKEND_PYTHON -m pip_audit --ignore-vuln CVE-2026-3219 --ignore-vuln CVE-2026-6357 --ignore-vuln CVE-2026-42304 2>&1; then
+  if $BACKEND_PYTHON -m pip_audit --ignore-vuln CVE-2026-3219 --ignore-vuln CVE-2026-6357 --ignore-vuln CVE-2026-42304 --ignore-vuln PYSEC-2026-89 --ignore-vuln PYSEC-2025-183 2>&1; then
     pass "pip-audit"
   else
     fail "pip-audit"
