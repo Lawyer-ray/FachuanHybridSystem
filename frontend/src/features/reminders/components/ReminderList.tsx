@@ -219,9 +219,11 @@ function ReminderRow({
   // 获取关联信息
   const association = reminder.contract
     ? `合同 #${reminder.contract}`
-    : reminder.case_log
-      ? `案件 #${reminder.case_log}`
-      : '-'
+    : reminder.case
+      ? `案件 #${reminder.case}`
+      : reminder.case_log
+        ? `案件日志 #${reminder.case_log}`
+        : '-'
 
   return (
     <TableRow className={cn('border-l-4', statusStyles)}>
