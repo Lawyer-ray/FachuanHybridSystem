@@ -28,6 +28,7 @@ interface CalendarEvent {
   is_overdue: boolean
   due_at: string
   contract: number | null
+  case: number | null
   case_log: number | null
 }
 
