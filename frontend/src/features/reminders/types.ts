@@ -69,6 +69,8 @@ export interface Reminder {
   id: number
   /** 关联合同 ID */
   contract: number | null
+  /** 关联案件 ID */
+  case: number | null
   /** 关联案件日志 ID */
   case_log: number | null
   /** 提醒类型 */

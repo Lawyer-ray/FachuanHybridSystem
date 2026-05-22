@@ -71,9 +71,9 @@ class ReminderUpdate(Schema):
 
 class ReminderOut(SchemaMixin, Schema):
     id: int
-    contract_id: int | None = None
-    case_id: int | None = None
-    case_log_id: int | None = None
+    contract: int | None = None
+    case: int | None = None
+    case_log: int | None = None
     reminder_type: str
     reminder_type_label: str
     content: str
@@ -81,6 +81,18 @@ class ReminderOut(SchemaMixin, Schema):
     due_at: str
     created_at: str
     updated_at: str
+
+    @staticmethod
+    def resolve_contract(obj: Reminder) -> int | None:
+        return obj.contract_id
+
+    @staticmethod
+    def resolve_case(obj: Reminder) -> int | None:
+        return obj.case_id
+
+    @staticmethod
+    def resolve_case_log(obj: Reminder) -> int | None:
+        return obj.case_log_id
 
     @staticmethod
     def resolve_reminder_type_label(obj: Reminder) -> str:

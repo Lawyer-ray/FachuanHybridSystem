@@ -55,6 +55,7 @@ interface CalendarEvent {
   is_overdue: boolean
   due_at: string
   contract: number | null
+  case: number | null
   case_log: number | null
 }
 
@@ -90,7 +91,7 @@ function mergeReminders(reminders: Reminder[]): Map<string, CalendarEvent[]> {
     const event: CalendarEvent = {
       id: r.id, time, title: r.content, type_label: r.reminder_type_label, reminder_type: r.reminder_type,
       courtroom, location, lawyer_name: lawyerName, lawyer_names: lawyerName ? [lawyerName] : [],
-      is_overdue: isOverdue, due_at: r.due_at, contract: r.contract, case_log: r.case_log,
+      is_overdue: isOverdue, due_at: r.due_at, contract: r.contract, case: r.case, case_log: r.case_log,
     }
     if (!map.has(dateKey)) map.set(dateKey, [])
     map.get(dateKey)!.push(event)
@@ -129,9 +130,10 @@ function EventDetailDialog({
             {event.courtroom && <div className="flex items-center gap-2 text-muted-foreground"><MapPin className="size-3.5" /><span>法庭: <span className="text-foreground">{event.courtroom}</span></span></div>}
             {event.location && <div className="flex items-center gap-2 text-muted-foreground"><MapPin className="size-3.5" /><span>地点: <span className="text-foreground">{event.location}</span></span></div>}
           </div>
-          {(event.contract || event.case_log) && (
+          {(event.contract || event.case || event.case_log) && (
             <div className="border-t pt-3 text-xs text-muted-foreground">
               {event.contract && <div>关联合同 ID: {event.contract}</div>}
+              {event.case && <div>关联案件 ID: {event.case}</div>}
               {event.case_log && <div>关联案件日志 ID: {event.case_log}</div>}
             </div>
           )}
