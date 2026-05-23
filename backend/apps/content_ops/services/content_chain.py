@@ -9,6 +9,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from apps.core.interfaces import ServiceLocator
+from apps.core.llm.service import LLMService
 from apps.core.llm.structured_output import clean_text, parse_model_content
 
 logger = logging.getLogger(__name__)
@@ -67,6 +68,7 @@ class ContentGenerationChain:
         response = llm_service.chat(
             messages=messages,
             model=self._model,
+            backend=LLMService.BACKEND_OPENAI_COMPATIBLE,
             temperature=0.8,
         )
 
