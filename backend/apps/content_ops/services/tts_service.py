@@ -108,7 +108,7 @@ class TTSService:
             audio_b64 = data["choices"][0]["message"]["audio"]["data"]
         except (KeyError, IndexError) as e:
             logger.error("Unexpected TTS response structure: %s", str(data)[:500])
-            raise RuntimeError(f"Unexpected TTS response: missing audio data") from e
+            raise RuntimeError("Unexpected TTS response: missing audio data") from e
 
         return base64.b64decode(audio_b64)
 
