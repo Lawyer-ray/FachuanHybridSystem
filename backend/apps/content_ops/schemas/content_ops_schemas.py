@@ -11,6 +11,7 @@ class TTSTestIn(Schema):
     text: str
     voice: str = "冰糖"
     audio_format: str = "mp3"
+    style_prompt: str = ""
 
 
 class ContentTaskCreateIn(Schema):
@@ -20,6 +21,7 @@ class ContentTaskCreateIn(Schema):
     case_summary: str = ""
     direct_content: str | None = None
     voice: str = "冰糖"
+    tts_style_prompt: str = ""
 
 
 class ReviewActionIn(Schema):
@@ -58,6 +60,7 @@ class ContentTaskOut(Schema):
     keyword: str
     case_summary: str
     voice: str
+    tts_style_prompt: str
     source_title: str
     source_court_text: str
     source_judgment_date: str

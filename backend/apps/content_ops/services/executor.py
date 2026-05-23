@@ -180,7 +180,11 @@ class ContentOpsExecutor:
             raise RuntimeError("未找到生成的文章，无法合成音频")
 
         tts_service = TTSService()
-        audio_bytes = tts_service.synthesize(text=article.content, voice=task.voice)
+        audio_bytes = tts_service.synthesize(
+            text=article.content,
+            voice=task.voice,
+            style_prompt=task.tts_style_prompt or None,
+        )
 
         episode = PodcastEpisode(
             article=article,

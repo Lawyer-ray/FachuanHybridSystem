@@ -17,6 +17,8 @@ TTS_VOICES: dict[str, str] = {
 
 DEFAULT_VOICE = "冰糖"
 DEFAULT_MODEL = "mimo-v2.5-tts"
+VOICEDESIGN_MODEL = "mimo-v2.5-tts-voicedesign"
+DEFAULT_STYLE_PROMPT = "一个中年女性邻居，说话亲切自然，语速稍慢，像在街坊聊天一样娓娓道来，带有生活气息和故事感"
 
 # Single request text length limit (characters)
 _CHUNK_SIZE = 500
@@ -36,19 +38,24 @@ class TTSService:
         )
         self._model = svc.get_value("MIMO_TTS_MODEL", "") or DEFAULT_MODEL
         self._default_voice = svc.get_value("MIMO_TTS_VOICE", "") or DEFAULT_VOICE
+        self._default_style_prompt = svc.get_value("MIMO_TTS_STYLE_PROMPT", "") or DEFAULT_STYLE_PROMPT
 
     def synthesize(
         self,
         text: str,
         voice: str | None = None,
         audio_format: str = "mp3",
+        style_prompt: str | None = None,
     ) -> bytes:
         """Convert text to speech audio bytes.
 
         Args:
             text: Text to synthesize.
-            voice: Voice name (冰糖/茉莉/苏打/白桦). Uses default if None.
+            voice: Voice name for builtin mode (冰糖/茉莉/苏打/白桦). Ignored in VoiceDesign mode.
             audio_format: Output format (mp3/wav/pcm/pcm16).
+            style_prompt: Natural language voice description for VoiceDesign mode.
+                If provided, uses mimo-v2.5-tts-voicedesign model.
+                If None, falls back to builtin voice mode.
 
         Returns:
             Raw audio bytes.
@@ -62,25 +69,51 @@ class TTSService:
         if not self._api_key:
             raise ValueError("OPENAI_COMPATIBLE_API_KEY is not configured")
 
+        # Determine mode: VoiceDesign if style_prompt is provided, otherwise builtin
+        use_voicedesign = bool(style_prompt)
+        model = VOICEDESIGN_MODEL if use_voicedesign else self._model
         voice = voice or self._default_voice
+        if not style_prompt:
+            style_prompt = self._default_style_prompt
 
         # Split long text into chunks
         chunks = self._split_text(text)
         logger.info(
-            "TTS synthesis: %d chars -> %d chunks, voice=%s, model=%s",
-            len(text), len(chunks), voice, self._model,
+            "TTS synthesis: %d chars -> %d chunks, mode=%s, model=%s",
+            len(text), len(chunks), "voicedesign" if use_voicedesign else "builtin", model,
         )
 
         audio_parts: list[bytes] = []
         for i, chunk in enumerate(chunks):
             logger.info("Synthesizing chunk %d/%d (%d chars)", i + 1, len(chunks), len(chunk))
-            part = self._call_api(chunk, voice, audio_format)
+            if use_voicedesign:
+                part = self._call_api_voicedesign(chunk, style_prompt, audio_format)
+            else:
+                part = self._call_api(chunk, voice, audio_format)
             audio_parts.append(part)
 
         return b"".join(audio_parts)
 
+    def _call_api_voicedesign(self, text: str, style_prompt: str, audio_format: str) -> bytes:
+        """Call MiMo TTS API in VoiceDesign mode."""
+        url = f"{self._base_url}/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {self._api_key}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "model": VOICEDESIGN_MODEL,
+            "messages": [
+                {"role": "user", "content": style_prompt},
+                {"role": "assistant", "content": text},
+            ],
+            "audio": {"format": audio_format},
+            "stream": False,
+        }
+        return self._do_request(url, headers, payload)
+
     def _call_api(self, text: str, voice: str, audio_format: str) -> bytes:
-        """Call the MiMo TTS API for a single text chunk."""
+        """Call the MiMo TTS API for a single text chunk (builtin voice mode)."""
         url = f"{self._base_url}/chat/completions"
         headers = {
             "Authorization": f"Bearer {self._api_key}",
@@ -92,6 +125,11 @@ class TTSService:
             "audio": {"format": audio_format, "voice": voice},
             "stream": False,
         }
+        return self._do_request(url, headers, payload)
+
+    @staticmethod
+    def _do_request(url: str, headers: dict, payload: dict) -> bytes:
+        """Execute TTS API request and return audio bytes."""
 
         # Use transport-level SSL bypass to work around Python SSL handshake issues
         # with some CDN/proxy configurations (curl works fine, but httpx fails)

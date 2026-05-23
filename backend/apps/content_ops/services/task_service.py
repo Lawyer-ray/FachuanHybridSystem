@@ -49,6 +49,7 @@ class ContentOpsTaskService:
                 case_summary=getattr(payload, "case_summary", "") or "",
                 direct_content=getattr(payload, "direct_content", "") or "",
                 voice=getattr(payload, "voice", "冰糖") or "冰糖",
+                tts_style_prompt=getattr(payload, "tts_style_prompt", "") or "",
                 status=ContentTaskStatus.PENDING,
                 message=_CREATE_PENDING_MESSAGE,
             )

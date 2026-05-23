@@ -53,6 +53,12 @@ class ContentTask(models.Model):
     source_facts = models.TextField(blank=True, verbose_name=_("案件事实"))
 
     voice = models.CharField(max_length=32, default="冰糖", verbose_name=_("TTS音色"))
+    tts_style_prompt = models.TextField(
+        blank=True,
+        default="",
+        verbose_name=_("VoiceDesign 音色描述"),
+        help_text=_("自然语言描述期望的声音风格，使用 VoiceDesign 模式合成。留空则使用内置音色。"),
+    )
 
     # Task lifecycle
     status = models.CharField(

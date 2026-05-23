@@ -36,7 +36,8 @@ def tts_test(request, payload: TTSTestIn):
         return {"error": "text 不能为空"}
     if len(payload.text) > 2000:
         return {"error": "text 不能超过 2000 字"}
-    if payload.voice not in TTS_VOICES:
+    # VoiceDesign mode skips voice validation
+    if not payload.style_prompt and payload.voice not in TTS_VOICES:
         return {"error": f"不支持的音色: {payload.voice}，可选: {', '.join(TTS_VOICES.keys())}"}
 
     try:
@@ -45,6 +46,7 @@ def tts_test(request, payload: TTSTestIn):
             text=payload.text,
             voice=payload.voice,
             audio_format=payload.audio_format,
+            style_prompt=payload.style_prompt or None,
         )
     except Exception as e:
         logger.error("TTS test failed: %s", e)
@@ -188,6 +190,7 @@ def _task_to_out(task) -> ContentTaskOut:
         keyword=task.keyword,
         case_summary=task.case_summary,
         voice=task.voice,
+        tts_style_prompt=task.tts_style_prompt,
         source_title=task.source_title,
         source_court_text=task.source_court_text,
         source_judgment_date=task.source_judgment_date,
