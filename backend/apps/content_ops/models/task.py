@@ -39,7 +39,7 @@ class ContentTask(models.Model):
         null=True,
         blank=True,
         related_name="content_ops_tasks",
-        verbose_name=_("威科先行凭证"),
+        verbose_name=_("法律检索网站账号"),
     )
     keyword = models.CharField(max_length=255, blank=True, verbose_name=_("检索关键词"))
     case_summary = models.TextField(blank=True, verbose_name=_("案情简述"))
