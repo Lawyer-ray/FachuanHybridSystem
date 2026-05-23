@@ -35,7 +35,7 @@ _SYSTEM_PROMPT = """\
 class NarrativeResult(BaseModel):
     title: str = Field(description="文章标题，吸引眼球，适合街坊邻居阅读")
     content: str = Field(description="叙事风格的案件故事正文，800-1500字")
-    summary: str = Field(description="一句话摘要，50字以内")
+    summary: str = Field(default="", description="一句话摘要，50字以内")
 
 
 @dataclass
