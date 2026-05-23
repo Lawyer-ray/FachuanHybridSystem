@@ -93,9 +93,13 @@ class TTSService:
             "stream": False,
         }
 
+        # Use transport-level SSL bypass to work around Python SSL handshake issues
+        # with some CDN/proxy configurations (curl works fine, but httpx fails)
+        transport = httpx.HTTPTransport(verify=False)
         try:
-            resp = httpx.post(url, json=payload, headers=headers, timeout=120)
-            resp.raise_for_status()
+            with httpx.Client(transport=transport, timeout=120) as client:
+                resp = client.post(url, json=payload, headers=headers)
+                resp.raise_for_status()
         except httpx.HTTPStatusError as e:
             logger.error("TTS API HTTP error: %s %s", e.response.status_code, e.response.text[:500])
             raise RuntimeError(f"TTS API error {e.response.status_code}: {e.response.text[:200]}") from e
