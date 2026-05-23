@@ -4,10 +4,19 @@ import logging
 import tempfile
 from pathlib import Path
 
-from django.http import FileResponse
+from django.http import FileResponse, HttpRequest
 from ninja import Router
 
-from apps.content_ops.schemas.content_ops_schemas import TTSTestIn
+from apps.content_ops.schemas.content_ops_schemas import (
+    ContentTaskCreateIn,
+    ContentTaskOut,
+    GeneratedArticleOut,
+    PodcastEpisodeOut,
+    ReviewActionIn,
+    TopicSuggestionOut,
+    TTSTestIn,
+)
+from apps.content_ops.services.task_service import ContentOpsTaskService
 from apps.content_ops.services.tts_service import TTS_VOICES, TTSService
 from apps.core.security.auth import JWTOrSessionAuth
 
@@ -15,6 +24,10 @@ logger = logging.getLogger("apps.content_ops.api")
 
 router = Router(tags=["内容运营"], auth=JWTOrSessionAuth())
 
+_task_service = ContentOpsTaskService()
+
+
+# --- TTS 测试 ---
 
 @router.post("/tts/test")
 def tts_test(request, payload: TTSTestIn):
@@ -37,7 +50,6 @@ def tts_test(request, payload: TTSTestIn):
         logger.error("TTS test failed: %s", e)
         return {"error": str(e)}
 
-    # Write to temp file and return as FileResponse
     suffix = f".{payload.audio_format}"
     tmp = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
     tmp.write(audio_bytes)
@@ -55,4 +67,167 @@ def tts_test(request, payload: TTSTestIn):
         Path(tmp.name).open("rb"),
         content_type=content_type,
         filename=f"tts_test{suffix}",
+    )
+
+
+# --- 选题建议 ---
+
+@router.get("/topics/suggest", response=list[TopicSuggestionOut])
+async def topic_suggest(request: HttpRequest):
+    """获取选题建议。"""
+    from apps.content_ops.services.topic_service import TopicService
+
+    result = await TopicService().suggest()
+    return result.topics
+
+
+# --- 任务管理 ---
+
+@router.post("/tasks", response=ContentTaskOut)
+def create_task(request: HttpRequest, payload: ContentTaskCreateIn):
+    """创建内容运营任务。"""
+    task = _task_service.create_task(payload=payload, user=request.user)
+    return _task_to_out(task)
+
+
+@router.get("/tasks", response=list[ContentTaskOut])
+def list_tasks(request: HttpRequest, mode: str | None = None):
+    """列出当前用户的任务。"""
+    tasks = _task_service.list_tasks(user=request.user, mode=mode)
+    return [_task_to_out(t) for t in tasks]
+
+
+@router.get("/tasks/{task_id}", response=ContentTaskOut)
+def get_task(request: HttpRequest, task_id: int):
+    """获取任务详情。"""
+    task = _task_service.get_task(task_id=task_id, user=request.user)
+    return _task_to_out(task)
+
+
+@router.get("/tasks/{task_id}/articles", response=list[GeneratedArticleOut])
+def list_articles(request: HttpRequest, task_id: int):
+    """列出任务关联的文章。"""
+    articles = _task_service.list_articles(task_id=task_id, user=request.user)
+    return [_article_to_out(a) for a in articles]
+
+
+@router.get("/tasks/{task_id}/episodes", response=list[PodcastEpisodeOut])
+def list_episodes(request: HttpRequest, task_id: int):
+    """列出任务关联的播客单集。"""
+    episodes = _task_service.list_episodes(task_id=task_id, user=request.user)
+    return [_episode_to_out(e) for e in episodes]
+
+
+# --- 审核 ---
+
+@router.post("/articles/{article_id}/approve", response=GeneratedArticleOut)
+def approve_article(request: HttpRequest, article_id: int, payload: ReviewActionIn):
+    """审核通过文章。"""
+    article = _task_service.approve_article(article_id=article_id, user=request.user, notes=payload.notes)
+    return _article_to_out(article)
+
+
+@router.post("/articles/{article_id}/reject", response=GeneratedArticleOut)
+def reject_article(request: HttpRequest, article_id: int, payload: ReviewActionIn):
+    """驳回文章。"""
+    article = _task_service.reject_article(article_id=article_id, user=request.user, notes=payload.notes)
+    return _article_to_out(article)
+
+
+@router.post("/episodes/{episode_id}/approve", response=PodcastEpisodeOut)
+def approve_episode(request: HttpRequest, episode_id: int, payload: ReviewActionIn):
+    """审核通过播客单集。"""
+    episode = _task_service.approve_episode(episode_id=episode_id, user=request.user, notes=payload.notes)
+    return _episode_to_out(episode)
+
+
+@router.post("/episodes/{episode_id}/reject", response=PodcastEpisodeOut)
+def reject_episode(request: HttpRequest, episode_id: int, payload: ReviewActionIn):
+    """驳回播客单集。"""
+    episode = _task_service.reject_episode(episode_id=episode_id, user=request.user, notes=payload.notes)
+    return _episode_to_out(episode)
+
+
+# --- 音频流 ---
+
+@router.get("/episodes/{episode_id}/audio")
+def episode_audio(request: HttpRequest, episode_id: int):
+    """获取播客单集音频。"""
+    from apps.content_ops.models import PodcastEpisode
+
+    episode = PodcastEpisode.objects.filter(id=episode_id).first()
+    if not episode or not episode.audio_file:
+        return {"error": "音频不存在"}
+
+    from apps.core.http.streaming import build_range_file_response
+
+    return build_range_file_response(request, episode.audio_file)
+
+
+# --- RSS ---
+
+@router.get("/rss", auth=None)
+def podcast_rss_feed(request: HttpRequest):
+    """播客 RSS Feed（无需认证）。"""
+    from apps.content_ops.services.rss_service import RSSService
+
+    host = request.get_host()
+    scheme = "https" if request.is_secure() else "http"
+    xml = RSSService().generate_feed(request_host=f"{scheme}://{host}")
+    from django.http import HttpResponse
+
+    return HttpResponse(xml, content_type="application/rss+xml; charset=utf-8")
+
+
+# --- Helpers ---
+
+def _task_to_out(task) -> ContentTaskOut:
+    return ContentTaskOut(
+        id=task.pk,
+        mode=task.mode,
+        keyword=task.keyword,
+        case_summary=task.case_summary,
+        voice=task.voice,
+        source_title=task.source_title,
+        source_court_text=task.source_court_text,
+        source_judgment_date=task.source_judgment_date,
+        status=task.status,
+        progress=task.progress,
+        message=task.message,
+        error=task.error,
+        created_at=task.created_at,
+        updated_at=task.updated_at,
+    )
+
+
+def _article_to_out(article) -> GeneratedArticleOut:
+    return GeneratedArticleOut(
+        id=article.pk,
+        title=article.title,
+        content=article.content,
+        source_summary=article.source_summary,
+        review_status=article.review_status,
+        reviewer_notes=article.reviewer_notes,
+        llm_model=article.llm_model,
+        token_usage=article.token_usage or {},
+        created_at=article.created_at,
+        updated_at=article.updated_at,
+    )
+
+
+def _episode_to_out(episode) -> PodcastEpisodeOut:
+    audio_url = ""
+    if episode.audio_file:
+        audio_url = episode.audio_file.url
+    return PodcastEpisodeOut(
+        id=episode.pk,
+        article_id=episode.article_id,
+        voice=episode.voice,
+        audio_url=audio_url,
+        duration_seconds=episode.duration_seconds,
+        file_size_bytes=episode.file_size_bytes,
+        review_status=episode.review_status,
+        reviewer_notes=episode.reviewer_notes,
+        created_at=episode.created_at,
+        updated_at=episode.updated_at,
     )
