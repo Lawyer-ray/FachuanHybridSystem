@@ -284,7 +284,7 @@ def episode_audio(request: HttpRequest, episode_id: int) -> dict[str, str] | Fil
 
     from apps.core.http.streaming import build_range_file_response
 
-    return build_range_file_response(request, str(episode.audio_file))
+    return build_range_file_response(request, episode.audio_file.path)
 
 
 # --- RSS ---
