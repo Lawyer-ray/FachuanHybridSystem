@@ -38,15 +38,19 @@ def _search_clients(q: str, limit: int) -> list[SearchResultItem]:
 def _search_cases(q: str, limit: int) -> list[SearchResultItem]:
     from apps.cases.models import Case
 
-    qs: QuerySet = Case.objects.filter(
-        Q(name__icontains=q) | Q(case_numbers__number__icontains=q) | Q(parties__client__name__icontains=q)
-    ).distinct()[:limit]
+    qs: QuerySet = (
+        Case.objects.filter(
+            Q(name__icontains=q) | Q(case_numbers__number__icontains=q) | Q(parties__client__name__icontains=q)
+        )
+        .prefetch_related("case_numbers")
+        .distinct()[:limit]
+    )
     results: list[SearchResultItem] = []
     for c in qs:
         case_number = ""
-        first_number = c.case_numbers.first()
-        if first_number:
-            case_number = first_number.number
+        numbers = list(c.case_numbers.all())
+        if numbers:
+            case_number = numbers[0].number
         results.append(SearchResultItem(id=c.id, title=c.name or "", subtitle=case_number))
     return results
 
@@ -79,9 +83,11 @@ def _search_inbox(q: str, limit: int) -> list[SearchResultItem]:
 def _search_court_sms(q: str, limit: int) -> list[SearchResultItem]:
     from apps.automation.models import CourtSMS
 
-    qs: QuerySet = CourtSMS.objects.filter(Q(content__icontains=q) | Q(case__name__icontains=q)).order_by(
-        "-received_at"
-    )[:limit]
+    qs: QuerySet = (
+        CourtSMS.objects.filter(Q(content__icontains=q) | Q(case__name__icontains=q))
+        .select_related("case")
+        .order_by("-received_at")[:limit]
+    )
     results: list[SearchResultItem] = []
     for sms in qs:
         preview = sms.content[:50] + ("..." if len(sms.content) > 50 else "")
@@ -93,9 +99,11 @@ def _search_court_sms(q: str, limit: int) -> list[SearchResultItem]:
 def _search_contacts(q: str, limit: int) -> list[SearchResultItem]:
     from apps.contacts.models import CaseContact
 
-    qs: QuerySet = CaseContact.objects.filter(
-        Q(name__icontains=q) | Q(phone__icontains=q) | Q(authority__name__icontains=q)
-    ).distinct()[:limit]
+    qs: QuerySet = (
+        CaseContact.objects.filter(Q(name__icontains=q) | Q(phone__icontains=q) | Q(authority__name__icontains=q))
+        .select_related("authority")
+        .distinct()[:limit]
+    )
     results: list[SearchResultItem] = []
     for contact in qs:
         role_display = contact.get_role_display()
