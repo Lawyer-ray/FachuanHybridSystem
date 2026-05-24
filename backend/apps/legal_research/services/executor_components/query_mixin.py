@@ -379,6 +379,36 @@ class ExecutorQueryMixin:
             queries.append(" ".join(all_terms[:5]))
         return queries
 
+    @classmethod
+    def _build_field_queries_from_elements(cls, elements: dict[str, Any]) -> list[dict[str, str]]:
+        """将 LLM 提取的法律要素转换为 WKInfo advanced_query 结构化格式。
+
+        映射规则：
+        - cause_of_action → causeOfAction 字段（案由精确匹配）
+        - dispute_focus → disputeFocus 字段（争议焦点）
+        - damage_type → courtOpinion 字段（损害赔偿通常出现在"本院认为"）
+        - key_facts → fullText 字段（事实在全文中出现）
+        """
+        if not elements:
+            return []
+
+        cause = str(elements.get("cause_of_action", "") or "").strip()
+        disputes = [str(d).strip() for d in (elements.get("dispute_focus") or []) if str(d).strip()]
+        damages = [str(d).strip() for d in (elements.get("damage_type") or []) if str(d).strip()]
+        facts = [str(f).strip() for f in (elements.get("key_facts") or []) if str(f).strip()]
+
+        field_queries: list[dict[str, str]] = []
+        if cause:
+            field_queries.append({"field": "causeOfAction", "keyword": cause, "op": "AND"})
+        if disputes:
+            field_queries.append({"field": "disputeFocus", "keyword": " ".join(disputes[:3]), "op": "AND"})
+        if damages:
+            field_queries.append({"field": "courtOpinion", "keyword": " ".join(damages[:3]), "op": "AND"})
+        if facts:
+            field_queries.append({"field": "fullText", "keyword": " ".join(facts[:3]), "op": "AND"})
+
+        return field_queries
+
     # ── 同义词扩展 ───────────────────────────────────────────
 
     @classmethod

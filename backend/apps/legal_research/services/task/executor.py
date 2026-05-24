@@ -126,6 +126,7 @@ class LegalResearchExecutor(
                 keyword_candidates = self._build_search_keywords(task.keyword, task.case_summary)
             # ── [3] AI 自动提取关键检索要素 ──
             element_extraction_enabled = bool(getattr(tuning, "element_extraction_enabled", True))
+            field_queries: list[dict[str, str]] | None = None
             if (not single_search_mode) and element_extraction_enabled:
                 element_model = str(getattr(tuning, "element_extraction_model", "") or "").strip()
                 element_timeout = max(5, int(getattr(tuning, "element_extraction_timeout_seconds", 20)))
@@ -139,6 +140,15 @@ class LegalResearchExecutor(
                     if element_queries:
                         keyword_candidates = self._merge_query_candidates(element_queries, keyword_candidates)
                         logger.info("法律要素检索式: %s", element_queries, extra={"task_id": str(task.id)})
+                    # 构建字段级查询（WKInfo advanced_query 格式）
+                    field_queries = self._build_field_queries_from_elements(elements)
+                    if field_queries:
+                        logger.info("字段级检索条件: %s", field_queries, extra={"task_id": str(task.id)})
+                    # 自动填充案由筛选（若用户未手动指定）
+                    cause_of_action = str(elements.get("cause_of_action", "") or "").strip()
+                    if cause_of_action and not str(getattr(task, "cause_of_action_filter", "") or "").strip():
+                        task.cause_of_action_filter = cause_of_action
+                        logger.info("自动填充案由筛选: %s", cause_of_action, extra={"task_id": str(task.id)})
             if (not single_search_mode) and query_variant_enabled and query_variant_max_count > 0:
                 llm_variants = self._generate_llm_query_variants(
                     keyword=task.keyword,
@@ -205,6 +215,7 @@ class LegalResearchExecutor(
 
                     fetch_limit = self._effective_fetch_limit(max_candidates=task.max_candidates, skipped=skipped)
                     batch_size = min(self.CANDIDATE_BATCH_SIZE, max(1, fetch_limit - fetched))
+                    effective_advanced_query = getattr(task, "advanced_query", None) or field_queries
                     items = self._fetch_candidate_batch_with_retry(
                         source_client=source_client,
                         session=session,
@@ -212,7 +223,7 @@ class LegalResearchExecutor(
                         offset=query_offset,
                         batch_size=batch_size,
                         task_id=str(task.id),
-                        advanced_query=getattr(task, "advanced_query", None) or None,
+                        advanced_query=effective_advanced_query,
                         court_filter=str(getattr(task, "court_filter", "") or ""),
                         cause_of_action_filter=str(getattr(task, "cause_of_action_filter", "") or ""),
                         date_from=str(getattr(task, "date_from", "") or ""),
