@@ -139,6 +139,7 @@ class ContractPaymentInline(BaseTabularInline[ContractPayment, ContractPayment])
         return FormSet
 
 
+@admin.register(ContractPayment)
 class ContractPaymentAdmin(BaseModelAdmin):
     change_form_template = "admin/contracts/contractpayment/change_form.html"
     list_display = ("id", "contract", "amount", "received_at", "invoice_status", "invoiced_amount")

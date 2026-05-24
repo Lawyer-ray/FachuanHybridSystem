@@ -20,12 +20,14 @@ from apps.cases.models import Case
 from apps.cases.models import CaseAssignment as CaseAssignmentModel
 from apps.cases.models import CaseLog, CaseParty
 from apps.client.models import Client
+from apps.contracts.admin.client_payment_admin import ClientPaymentRecordInline
 from apps.contracts.admin.contract_inlines import (
     ContractAssignmentInline,
     ContractPartyInline,
     FinalizedMaterialInline,
     SupplementaryAgreementInline,
 )
+from apps.contracts.admin.contractpayment_admin import ContractPaymentInline
 from apps.contracts.admin.mixins.action_mixin import ContractActionMixin
 from apps.contracts.admin.mixins.display_mixin import ContractDisplayMixin
 from apps.contracts.admin.mixins.save_mixin import ContractSaveMixin
@@ -179,6 +181,8 @@ class ContractAdmin(
         ContractAssignmentInline,
         SupplementaryAgreementInline,
         FinalizedMaterialInline,
+        ContractPaymentInline,
+        ClientPaymentRecordInline,
     ]
 
     class Media:

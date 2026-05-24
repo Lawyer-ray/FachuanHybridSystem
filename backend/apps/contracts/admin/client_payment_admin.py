@@ -15,7 +15,14 @@ from simple_history.admin import SimpleHistoryAdmin
 from apps.contracts.models import ClientPaymentRecord
 
 if TYPE_CHECKING:
-    pass
+    BaseTabularInline = admin.TabularInline
+else:
+    try:
+        import nested_admin
+
+        BaseTabularInline = nested_admin.NestedTabularInline
+    except ImportError:
+        BaseTabularInline = admin.TabularInline  # type: ignore[assignment,misc]
 
 
 class ClientPaymentRecordAdminForm(forms.ModelForm[ClientPaymentRecord]):
@@ -99,6 +106,37 @@ class ClientPaymentRecordAdminForm(forms.ModelForm[ClientPaymentRecord]):
         return instance
 
 
+class ClientPaymentRecordInline(BaseTabularInline[ClientPaymentRecord, ClientPaymentRecord]):
+    model = ClientPaymentRecord
+    extra = 0
+    fields = ("case", "amount", "note")
+    verbose_name = _("客户回款")
+    verbose_name_plural = _("客户回款")
+
+    def get_formset(self, request: HttpRequest, obj: Any = None, **kwargs: Any) -> Any:
+        FormSet = super().get_formset(request, obj, **kwargs)
+
+        contract_id = obj.pk if obj else None
+
+        original_init = FormSet.__init__
+
+        def patched_init(self_fs: Any, data: Any = None, files: Any = None, **kw: Any) -> None:
+            original_init(self_fs, data=data, files=files, **kw)
+            from apps.cases.models import Case
+
+            if contract_id:
+                case_qs = Case.objects.filter(contract_id=contract_id)
+            else:
+                case_qs = Case.objects.none()
+            for form in self_fs.forms:
+                if "case" in form.fields:
+                    form.fields["case"].queryset = case_qs
+
+        FormSet.__init__ = patched_init  # type: ignore[assignment]
+        return FormSet
+
+
+@admin.register(ClientPaymentRecord)
 class ClientPaymentRecordAdmin(admin.ModelAdmin):
     """客户回款记录 Admin"""
 
