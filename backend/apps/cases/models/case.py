@@ -111,23 +111,39 @@ class Case(models.Model):
     def get_case_chain(self) -> list[Case]:
         """获取完整案件链（按 start_date 升序）。
 
-        沿 previous_case 回溯到根节点，再沿 next_cases 遍历整条链。
+        1. 沿 previous_case 回溯到根节点（每步 1 次轻量查询）
+        2. 从根节点一次性查询所有后代，合并后排序
+        总共 N+1 次查询（N 为链长），通常 N=2~4，完全可接受。
         """
-        # 回溯到链首
-        root: Case = self
-        visited: set[int] = {root.pk}
-        while root.previous_case_id and root.previous_case_id not in visited:
-            root = root.previous_case  # type: ignore[assignment]
-            visited.add(root.pk)
-        # 从链首向下收集
-        chain: list[Case] = []
-        current: Case | None = root
-        seen: set[int] = set()
-        while current and current.pk not in seen:
-            chain.append(current)
-            seen.add(current.pk)
-            current = current.next_cases.order_by("start_date").first()
-        return chain
+        # 1. 回溯到链首（链通常 2~4 层）
+        root_id: int = self.pk
+        visited: set[int] = {root_id}
+        while True:
+            parent_id = (
+                Case.objects.filter(pk=root_id)
+                .values_list("previous_case_id", flat=True)
+                .first()
+            )
+            if not parent_id or parent_id in visited:
+                break
+            visited.add(parent_id)
+            root_id = parent_id
+
+        # 2. 从根节点出发，收集所有后代（BFS，链通常很短）
+        chain: list[int] = [root_id]
+        frontier = [root_id]
+        while frontier:
+            children = list(
+                Case.objects.filter(previous_case_id__in=frontier)
+                .values_list("pk", flat=True)
+            )
+            frontier = [c for c in children if c not in chain]
+            chain.extend(frontier)
+
+        # 3. 一次性取出所有案件，按 start_date 排序
+        return list(
+            Case.objects.filter(pk__in=chain).order_by("start_date", "pk")
+        )
 
     def clean(self) -> None:
         """
