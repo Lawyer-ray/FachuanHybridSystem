@@ -77,6 +77,7 @@
 .cr-party-icon { font-size: 28px; margin-bottom: 8px; }
 .cr-party-label { font-size: 12px; color: var(--body-quiet-color, #999); font-weight: 500; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
 .cr-party-name { font-size: 15px; font-weight: 600; color: var(--body-fg, #333); line-height: 1.4; }
+.cr-party-name-empty { color: var(--body-quiet-color, #ccc); font-style: italic; font-weight: 400; }
 .cr-party-btn.selected .cr-party-name { color: var(--primary, #417690); }
 .cr-party-check { position: absolute; top: 10px; right: 12px; width: 22px; height: 22px; border-radius: 50%; background: var(--primary, #417690); color: #fff; font-size: 12px; display: none; align-items: center; justify-content: center; font-weight: 700; }
 .cr-party-btn.selected .cr-party-check { display: flex; }
@@ -238,7 +239,7 @@
                         <div class="cr-party-check">✓</div>
                         <div class="cr-party-icon" x-text="p.icon"></div>
                         <div class="cr-party-label" x-text="p.label"></div>
-                        <div class="cr-party-name" x-text="p.name"></div>
+                        <div class="cr-party-name" :class="{ 'cr-party-name-empty': !p.name }" x-text="p.name || '— 未识别 —'"></div>
                     </button>
                 </template>
             </div>
@@ -315,7 +316,7 @@ function contractUpload() {
         parties: [],
         selectedParty: '',
         reviewerName: '',
-        selectedSteps: ['format_document'],
+        selectedSteps: ['typo_check', 'format_document', 'contract_review', 'review_report'],
         stepOptions: [
             { key: 'typo_check', label: '1. 错别字校对', desc: '检测并修正合同中的错别字', tooltip: '使用AI逐段扫描合同文本，识别错别字和用词不当，以Track Changes修订模式标记修改' },
             { key: 'format_document', label: '2. 修订格式', desc: '标准化格式、页码、自动序号', tooltip: '① 字体：标题黑体小二，正文宋体小四\n② 段落：段前段后0，行距1.5倍\n③ 缩进：正文首行缩进2字符，标题不缩进\n④ 页码：页脚居中添加页码\n⑤ 自动序号：AI识别标题层级，应用三级编号（一、/ 1. / （1）），附件区域编号独立重启\n⑥ 去除手动编号前缀' },

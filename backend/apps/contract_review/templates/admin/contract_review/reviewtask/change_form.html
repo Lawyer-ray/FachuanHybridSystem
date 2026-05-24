@@ -1,0 +1,59 @@
+{% extends "admin/change_form.html" %}
+{% load i18n %}
+
+{% block admin_change_form_document_ready %}
+{{ block.super }}
+<script>
+(function() {
+    const taskId = '{{ object_id }}';
+    const statusField = document.querySelector('.field-current_step_display, .field-current_step');
+    const statusValue = document.getElementById('id_status');
+    if (!taskId || !statusField) return;
+
+    const TERMINAL = ['completed', 'failed', 'extraction_failed'];
+    const STEP_LABELS = {
+        'title_extraction': '{% trans "标题提取" %}',
+        'typo_check': '{% trans "错别字检测" %}',
+        'contract_review': '{% trans "合同审查" %}',
+        'format_document': '{% trans "格式标准化" %}',
+        'page_numbering': '{% trans "页码标准化" %}',
+        'heading_numbering': '{% trans "标题序号" %}',
+    };
+
+    function currentStatus() {
+        if (statusValue) return statusValue.value;
+        // 从 readonly display 中读取
+        const el = document.querySelector('.field-status .readonly');
+        return el ? el.textContent.trim() : '';
+    }
+
+    async function poll() {
+        const s = currentStatus();
+        if (TERMINAL.includes(s)) return;
+        try {
+            const resp = await FachuanCSRF.fetch('/api/v1/contract-review/' + taskId + '/status');
+            if (!resp.ok) return;
+            const data = await resp.json();
+            // 更新状态显示
+            const stepDisplay = statusField.querySelector('.readonly, .field-current_step_display .readonly');
+            if (stepDisplay && data.current_step) {
+                stepDisplay.textContent = STEP_LABELS[data.current_step] || data.current_step;
+            }
+            // 更新 status 下拉
+            if (statusValue && data.status) {
+                statusValue.value = data.status;
+            }
+            // 如果到达终态，刷新页面显示完整结果
+            if (TERMINAL.includes(data.status)) {
+                location.reload();
+                return;
+            }
+            setTimeout(poll, 3000);
+        } catch(e) {
+            setTimeout(poll, 5000);
+        }
+    }
+    setTimeout(poll, 2000);
+})();
+</script>
+{% endblock %}

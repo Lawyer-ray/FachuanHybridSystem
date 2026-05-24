@@ -40,18 +40,23 @@ class TypoChecker:
         if len(batches) == 1:
             return self._check_single_batch(batches[0][1], model_name)
 
-        all_results: list[TypoResult] = []
+        # 按批次并行执行，结果按原始批次顺序合并
+        results_by_start: dict[int, list[TypoResult]] = {}
         with ThreadPoolExecutor(max_workers=min(len(batches), 4)) as pool:
             futures = {pool.submit(self._check_single_batch, text, model_name): start for start, text in batches}
             for future in as_completed(futures):
                 start = futures[future]
                 try:
-                    results = future.result()
-                    all_results.extend(results)
+                    results_by_start[start] = future.result()
                 except LLMBackendUnavailableError:
                     raise
                 except Exception:
                     logger.exception("错别字检测解析失败 (段落 %d+)", start)
+                    results_by_start[start] = []
+
+        all_results: list[TypoResult] = []
+        for start, _ in batches:
+            all_results.extend(results_by_start.get(start, []))
         return all_results
 
     def _check_single_batch(self, text: str, model_name: str) -> list[TypoResult]:

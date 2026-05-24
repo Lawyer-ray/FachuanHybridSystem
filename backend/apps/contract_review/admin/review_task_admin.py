@@ -35,6 +35,7 @@ class ReviewTaskAdmin(admin.ModelAdmin):
         "updated_at",
     )
     ordering = ("-created_at",)
+    change_form_template = "admin/contract_review/reviewtask/change_form.html"
     actions = ["retry_selected_tasks", "delete_selected_with_files"]
 
     @admin.action(description=_("重新执行选中的审查任务"))
