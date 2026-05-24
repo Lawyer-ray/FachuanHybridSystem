@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { motion } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -193,35 +194,51 @@ export function TopicInspiration({ onSelectTopic }: TopicInspirationProps) {
       )}
 
       {topics && topics.length > 0 && !isFetching && (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <motion.div
+          className="grid gap-3 sm:grid-cols-2"
+          initial="hidden"
+          animate="visible"
+          variants={{
+            hidden: {},
+            visible: { transition: { staggerChildren: 0.06 } },
+          }}
+        >
           {topics.map((topic: TopicSuggestion, index: number) => (
-            <Card
+            <motion.div
               key={index}
-              className="cursor-pointer transition-all hover:border-primary/50 hover:shadow-sm group"
-              onClick={() => onSelectTopic(topic)}
+              variants={{
+                hidden: { opacity: 0, y: 12, scale: 0.97 },
+                visible: { opacity: 1, y: 0, scale: 1 },
+              }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
             >
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm group-hover:text-primary transition-colors">
-                  {topic.title}
-                </CardTitle>
-                <CardDescription className="text-xs line-clamp-2">
-                  {topic.description}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="text-xs">
-                    <Search className="w-3 h-3 mr-1" />
-                    {topic.suggested_keyword}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-                    点击创建任务 →
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
+              <Card
+                className="cursor-pointer transition-all hover:border-primary/50 hover:shadow-sm group"
+                onClick={() => onSelectTopic(topic)}
+              >
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm group-hover:text-primary transition-colors">
+                    {topic.title}
+                  </CardTitle>
+                  <CardDescription className="text-xs line-clamp-2">
+                    {topic.description}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="text-xs">
+                      <Search className="w-3 h-3 mr-1" />
+                      {topic.suggested_keyword}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                      点击创建任务 →
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       )}
 
       {topics && topics.length === 0 && !isFetching && (

@@ -1,10 +1,13 @@
 import { useState, useRef, useCallback } from 'react'
+import { motion } from 'framer-motion'
+import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
+import { Input } from '@/components/ui/input'
 import {
   Loader2,
   FileText,
@@ -19,6 +22,8 @@ import {
   AlertCircle,
   RotateCcw,
   XCircle,
+  Pencil,
+  RefreshCw,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
@@ -29,6 +34,8 @@ import {
   useReviewEpisode,
   useRetryTask,
   useCancelTask,
+  useUpdateArticle,
+  useRegenerateArticle,
 } from '../hooks/use-content-ops'
 import { STATUS_LABEL, REVIEW_STATUS_LABEL } from '../types'
 import type { GeneratedArticle, PodcastEpisode, ReviewStatus } from '../types'
@@ -126,27 +133,71 @@ export function TaskDetail({ taskId }: TaskDetailProps) {
       {/* 文章和音频 Tab */}
       {(articles.length > 0 || episodes.length > 0) && (
         <Tabs defaultValue="articles">
-          <TabsList>
-            <TabsTrigger value="articles">
-              <FileText className="w-4 h-4 mr-1" />
-              文章 ({articles.length})
-            </TabsTrigger>
-            <TabsTrigger value="episodes">
-              <Volume2 className="w-4 h-4 mr-1" />
-              音频 ({episodes.length})
-            </TabsTrigger>
-          </TabsList>
+          <div className="flex items-center justify-between">
+            <TabsList>
+              <TabsTrigger value="articles">
+                <FileText className="w-4 h-4 mr-1" />
+                文章 ({articles.length})
+              </TabsTrigger>
+              <TabsTrigger value="episodes">
+                <Volume2 className="w-4 h-4 mr-1" />
+                音频 ({episodes.length})
+              </TabsTrigger>
+            </TabsList>
+            <BatchApproveButton
+              articles={articles}
+              episodes={episodes}
+            />
+          </div>
 
           <TabsContent value="articles" className="space-y-3 mt-3">
-            {articles.map((article) => (
-              <ArticleCard key={article.id} article={article} />
-            ))}
+            <motion.div
+              className="space-y-3"
+              initial="hidden"
+              animate="visible"
+              variants={{
+                hidden: {},
+                visible: { transition: { staggerChildren: 0.06 } },
+              }}
+            >
+              {articles.map((article) => (
+                <motion.div
+                  key={article.id}
+                  variants={{
+                    hidden: { opacity: 0, y: 8 },
+                    visible: { opacity: 1, y: 0 },
+                  }}
+                  transition={{ duration: 0.2, ease: 'easeOut' }}
+                >
+                  <ArticleCard article={article} />
+                </motion.div>
+              ))}
+            </motion.div>
           </TabsContent>
 
           <TabsContent value="episodes" className="space-y-3 mt-3">
-            {episodes.map((episode) => (
-              <EpisodeCard key={episode.id} episode={episode} />
-            ))}
+            <motion.div
+              className="space-y-3"
+              initial="hidden"
+              animate="visible"
+              variants={{
+                hidden: {},
+                visible: { transition: { staggerChildren: 0.06 } },
+              }}
+            >
+              {episodes.map((episode) => (
+                <motion.div
+                  key={episode.id}
+                  variants={{
+                    hidden: { opacity: 0, y: 8 },
+                    visible: { opacity: 1, y: 0 },
+                  }}
+                  transition={{ duration: 0.2, ease: 'easeOut' }}
+                >
+                  <EpisodeCard episode={episode} />
+                </motion.div>
+              ))}
+            </motion.div>
           </TabsContent>
         </Tabs>
       )}
@@ -158,7 +209,12 @@ function ArticleCard({ article }: { article: GeneratedArticle }) {
   const [expanded, setExpanded] = useState(false)
   const [notes, setNotes] = useState('')
   const [copied, setCopied] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [editTitle, setEditTitle] = useState('')
+  const [editContent, setEditContent] = useState('')
   const reviewArticle = useReviewArticle()
+  const updateArticle = useUpdateArticle()
+  const regenerateArticle = useRegenerateArticle()
 
   const handleReview = (action: 'approve' | 'reject') => {
     reviewArticle.mutate(
@@ -184,6 +240,32 @@ function ArticleCard({ article }: { article: GeneratedArticle }) {
     }
   }, [article.content])
 
+  const startEdit = useCallback(() => {
+    setEditTitle(article.title)
+    setEditContent(article.content)
+    setEditing(true)
+  }, [article.title, article.content])
+
+  const saveEdit = useCallback(() => {
+    updateArticle.mutate(
+      { articleId: article.id, title: editTitle, content: editContent },
+      {
+        onSuccess: () => {
+          setEditing(false)
+          toast.success('文章已更新')
+        },
+        onError: () => toast.error('保存失败'),
+      },
+    )
+  }, [article.id, editTitle, editContent, updateArticle])
+
+  const handleRegenerate = useCallback(() => {
+    regenerateArticle.mutate(article.id, {
+      onSuccess: () => toast.success('文章已重新生成'),
+      onError: () => toast.error('重新生成失败'),
+    })
+  }, [article.id, regenerateArticle])
+
   const reviewBadge = (status: ReviewStatus) => {
     const variants = { draft: 'secondary' as const, approved: 'default' as const, rejected: 'destructive' as const }
     return <Badge variant={variants[status]}>{REVIEW_STATUS_LABEL[status]}</Badge>
@@ -206,27 +288,76 @@ function ArticleCard({ article }: { article: GeneratedArticle }) {
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        {article.source_summary && (
+        {article.source_summary && !editing && (
           <p className="text-xs text-muted-foreground italic">{article.source_summary}</p>
         )}
 
-        <div className={cn('text-sm whitespace-pre-wrap', !expanded && 'line-clamp-6')}>
-          {article.content}
-        </div>
-        <div className="flex items-center gap-2">
-          {article.content.length > 300 && (
-            <Button variant="ghost" size="sm" onClick={() => setExpanded(!expanded)}>
-              {expanded ? '收起' : '展开全文'}
-            </Button>
-          )}
-          <Button variant="outline" size="sm" onClick={handleCopy}>
-            {copied ? <Check className="w-3.5 h-3.5 mr-1" /> : <Copy className="w-3.5 h-3.5 mr-1" />}
-            {copied ? '已复制' : '复制全文'}
-          </Button>
-        </div>
+        {editing ? (
+          <div className="space-y-2">
+            <Input
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              placeholder="文章标题"
+              className="text-sm font-medium"
+            />
+            <Textarea
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              rows={12}
+              className="text-sm"
+            />
+            <div className="flex gap-2">
+              <Button size="sm" onClick={saveEdit} disabled={updateArticle.isPending}>
+                {updateArticle.isPending && <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />}
+                保存
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
+                取消
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className={cn('text-sm whitespace-pre-wrap', !expanded && 'line-clamp-6')}>
+              {article.content}
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {article.content.length > 300 && (
+                <Button variant="ghost" size="sm" onClick={() => setExpanded(!expanded)}>
+                  {expanded ? '收起' : '展开全文'}
+                </Button>
+              )}
+              <Button variant="outline" size="sm" onClick={handleCopy}>
+                {copied ? <Check className="w-3.5 h-3.5 mr-1" /> : <Copy className="w-3.5 h-3.5 mr-1" />}
+                {copied ? '已复制' : '复制全文'}
+              </Button>
+              {article.review_status === 'draft' && (
+                <>
+                  <Button variant="outline" size="sm" onClick={startEdit}>
+                    <Pencil className="w-3.5 h-3.5 mr-1" />
+                    编辑
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRegenerate}
+                    disabled={regenerateArticle.isPending}
+                  >
+                    {regenerateArticle.isPending ? (
+                      <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                    ) : (
+                      <RefreshCw className="w-3.5 h-3.5 mr-1" />
+                    )}
+                    重新生成
+                  </Button>
+                </>
+              )}
+            </div>
+          </>
+        )}
 
         {/* 审核操作 */}
-        {article.review_status === 'draft' && (
+        {article.review_status === 'draft' && !editing && (
           <div className="space-y-2 pt-2 border-t">
             <Textarea
               placeholder="审核备注（可选）"
@@ -388,5 +519,40 @@ function EpisodeCard({ episode }: { episode: PodcastEpisode }) {
         )}
       </CardContent>
     </Card>
+  )
+}
+
+function BatchApproveButton({ articles, episodes }: {
+  articles: GeneratedArticle[]
+  episodes: PodcastEpisode[]
+}) {
+  const queryClient = useQueryClient()
+  const draftArticles = articles.filter((a) => a.review_status === 'draft')
+  const draftEpisodes = episodes.filter((e) => e.review_status === 'draft')
+
+  const handleBatchApprove = async () => {
+    try {
+      if (draftArticles.length > 0) {
+        await contentOpsApi.batchApproveArticles(draftArticles.map((a) => a.id))
+      }
+      if (draftEpisodes.length > 0) {
+        await contentOpsApi.batchApproveEpisodes(draftEpisodes.map((e) => e.id))
+      }
+      queryClient.invalidateQueries({ queryKey: ['content-ops'] })
+      toast.success(`已批量通过 ${draftArticles.length} 篇文章和 ${draftEpisodes.length} 个音频`)
+    } catch {
+      toast.error('批量操作失败')
+    }
+  }
+
+  if (draftArticles.length === 0 && draftEpisodes.length === 0) {
+    return null
+  }
+
+  return (
+    <Button size="sm" variant="outline" onClick={handleBatchApprove}>
+      <Check className="w-3.5 h-3.5 mr-1" />
+      一键全部通过 ({draftArticles.length + draftEpisodes.length})
+    </Button>
   )
 }

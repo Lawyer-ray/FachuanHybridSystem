@@ -34,6 +34,16 @@ class ReviewActionIn(Schema):
     notes: str = ""
 
 
+class ArticleUpdateIn(Schema):
+    title: str | None = None
+    content: str | None = None
+
+
+class BatchReviewIn(Schema):
+    ids: list[int]
+    notes: str = ""
+
+
 class GeneratedArticleOut(Schema):
     id: int
     title: str

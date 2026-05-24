@@ -9,6 +9,8 @@ from django.http import FileResponse, HttpRequest, HttpResponse, HttpResponseBas
 from ninja import Router
 
 from apps.content_ops.schemas.content_ops_schemas import (
+    ArticleUpdateIn,
+    BatchReviewIn,
     ContentTaskCreateIn,
     ContentTaskOut,
     GeneratedArticleOut,
@@ -161,6 +163,46 @@ def reject_article(request: HttpRequest, article_id: int, payload: ReviewActionI
     """驳回文章。"""
     article = _task_service.reject_article(article_id=article_id, user=request.user, notes=payload.notes)
     return _article_to_out(article)
+
+
+@router.put("/articles/{article_id}", response=GeneratedArticleOut)
+def update_article(request: HttpRequest, article_id: int, payload: ArticleUpdateIn) -> GeneratedArticleOut:
+    """编辑文章内容。"""
+    article = _task_service.update_article(article_id=article_id, title=payload.title, content=payload.content, user=request.user)
+    return _article_to_out(article)
+
+
+@router.post("/articles/{article_id}/regenerate", response=GeneratedArticleOut)
+def regenerate_article(request: HttpRequest, article_id: int) -> GeneratedArticleOut:
+    """重新生成文章。"""
+    article = _task_service.regenerate_article(article_id=article_id, user=request.user)
+    return _article_to_out(article)
+
+
+@router.post("/articles/batch/approve")
+def batch_approve_articles(request: HttpRequest, payload: BatchReviewIn) -> dict[str, Any]:
+    """批量审核通过文章。"""
+    results = []
+    for article_id in payload.ids:
+        try:
+            _task_service.approve_article(article_id=article_id, user=request.user, notes=payload.notes)
+            results.append({"id": article_id, "success": True})
+        except Exception as e:
+            results.append({"id": article_id, "success": False, "error": str(e)})
+    return {"results": results}
+
+
+@router.post("/episodes/batch/approve")
+def batch_approve_episodes(request: HttpRequest, payload: BatchReviewIn) -> dict[str, Any]:
+    """批量审核通过播客单集。"""
+    results = []
+    for episode_id in payload.ids:
+        try:
+            _task_service.approve_episode(episode_id=episode_id, user=request.user, notes=payload.notes)
+            results.append({"id": episode_id, "success": True})
+        except Exception as e:
+            results.append({"id": episode_id, "success": False, "error": str(e)})
+    return {"results": results}
 
 
 @router.post("/episodes/{episode_id}/approve", response=PodcastEpisodeOut)

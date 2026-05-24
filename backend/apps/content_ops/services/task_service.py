@@ -156,6 +156,43 @@ class ContentOpsTaskService:
         episode.save(update_fields=["review_status", "reviewer_notes", "reviewed_by", "reviewed_at", "updated_at"])
         return episode
 
+    def update_article(self, *, article_id: int, title: str | None = None, content: str | None = None, user: Any | None = None) -> GeneratedArticle:
+        """编辑文章内容。"""
+        article = self._get_article(article_id)
+        if article.review_status != ReviewStatus.DRAFT:
+            raise ValidationException("只能编辑草稿状态的文章")
+        update_fields = ["updated_at"]
+        if title is not None:
+            article.title = title
+            update_fields.append("title")
+        if content is not None:
+            article.content = content
+            update_fields.append("content")
+        article.save(update_fields=update_fields)
+        return article
+
+    def regenerate_article(self, *, article_id: int, user: Any | None = None) -> GeneratedArticle:
+        """重新生成文章（使用原文的事实依据）。"""
+        article = self._get_article(article_id)
+        task = article.task
+        if not task.source_facts:
+            raise ValidationException("没有案件事实，无法重新生成")
+        from apps.content_ops.services.content_chain import ContentGenerationChain
+
+        chain = ContentGenerationChain()
+        result = chain.run(facts=task.source_facts, case_summary=task.case_summary or "")
+        article.title = result.title
+        article.content = result.content
+        article.source_summary = result.summary
+        article.llm_model = result.model
+        article.token_usage = result.token_usage
+        article.review_status = ReviewStatus.DRAFT
+        article.reviewer_notes = ""
+        article.reviewed_by = None
+        article.reviewed_at = None
+        article.save()
+        return article
+
     def retry_task(self, *, task_id: int, user: Any | None = None) -> ContentTask:
         """重试失败的任务。"""
         task = self.get_task(task_id=task_id, user=user)

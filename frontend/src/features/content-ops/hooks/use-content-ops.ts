@@ -103,6 +103,29 @@ export function useReviewArticle() {
   })
 }
 
+// 编辑文章
+export function useUpdateArticle() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ articleId, title, content }: { articleId: number; title?: string; content?: string }) =>
+      contentOpsApi.updateArticle(articleId, { title, content }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['content-ops'] })
+    },
+  })
+}
+
+// 重新生成文章
+export function useRegenerateArticle() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (articleId: number) => contentOpsApi.regenerateArticle(articleId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['content-ops'] })
+    },
+  })
+}
+
 // 审核音频
 export function useReviewEpisode() {
   const queryClient = useQueryClient()

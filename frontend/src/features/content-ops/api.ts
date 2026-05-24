@@ -51,6 +51,18 @@ export const contentOpsApi = {
   rejectArticle: (articleId: number, data?: ReviewActionInput) =>
     api.post(`articles/${articleId}/reject`, { json: data ?? {} }).json<GeneratedArticle>(),
 
+  updateArticle: (articleId: number, data: { title?: string; content?: string }) =>
+    api.put(`articles/${articleId}`, { json: data }).json<GeneratedArticle>(),
+
+  regenerateArticle: (articleId: number) =>
+    api.post(`articles/${articleId}/regenerate`).json<GeneratedArticle>(),
+
+  batchApproveArticles: (ids: number[], notes?: string) =>
+    api.post('articles/batch/approve', { json: { ids, notes: notes || '' } }).json<{ results: { id: number; success: boolean; error?: string }[] }>(),
+
+  batchApproveEpisodes: (ids: number[], notes?: string) =>
+    api.post('episodes/batch/approve', { json: { ids, notes: notes || '' } }).json<{ results: { id: number; success: boolean; error?: string }[] }>(),
+
   approveEpisode: (episodeId: number, data?: ReviewActionInput) =>
     api.post(`episodes/${episodeId}/approve`, { json: data ?? {} }).json<PodcastEpisode>(),
 
