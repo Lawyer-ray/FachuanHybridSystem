@@ -22,7 +22,9 @@ function identityApp(config = {}) {
         docType: '',                // 证件类型
         recognitionResult: null,    // 识别结果
         confidence: 0,              // 置信度
-        enableOllama: false,        // 是否启用 Ollama 智能解析兜底
+        selectedModel: '',          // 选中的 LLM 模型（空表示不使用 LLM）
+        models: [],                 // 可用模型列表
+        favModels: [],              // 收藏的模型 ID 列表
         errorMessage: '',           // 错误信息
         showError: false,           // 是否显示错误状态
         showResult: false,          // 是否显示结果状态
@@ -65,6 +67,60 @@ function identityApp(config = {}) {
                     }
                 });
             }
+
+            this.loadFavModels();
+            this.loadLastModel();
+            this.fetchModels();
+        },
+
+        // ========== 模型管理 ==========
+        async fetchModels() {
+            try {
+                const resp = await fetch('/api/v1/llm/models');
+                const data = await resp.json();
+                this.models = (data.models || []).map(m => ({ id: m.id, name: m.name }));
+            } catch (e) {
+                console.warn('加载模型列表失败:', e);
+            }
+        },
+
+        get sortedModels() {
+            const favs = this.favModels.filter(fid => this.models.some(m => m.id === fid));
+            const rest = this.models.filter(m => !this.favModels.includes(m.id));
+            return [...favs.map(fid => this.models.find(m => m.id === fid)), ...rest];
+        },
+
+        loadFavModels() {
+            try {
+                this.favModels = JSON.parse(localStorage.getItem('client_recognize_fav_models') || '[]');
+            } catch { this.favModels = []; }
+        },
+
+        saveFavModels() {
+            localStorage.setItem('client_recognize_fav_models', JSON.stringify(this.favModels));
+        },
+
+        toggleFav(modelId) {
+            if (!modelId) return;
+            const idx = this.favModels.indexOf(modelId);
+            if (idx >= 0) {
+                this.favModels.splice(idx, 1);
+            } else {
+                this.favModels.push(modelId);
+            }
+            this.saveFavModels();
+        },
+
+        isFav(modelId) {
+            return modelId && this.favModels.includes(modelId);
+        },
+
+        loadLastModel() {
+            this.selectedModel = localStorage.getItem('client_recognize_last_model') || '';
+        },
+
+        saveLastModel() {
+            localStorage.setItem('client_recognize_last_model', this.selectedModel);
         },
 
         // ========== 对话框管理（dialog 模式）==========
@@ -110,7 +166,7 @@ function identityApp(config = {}) {
             this.docType = '';
             this.recognitionResult = null;
             this.confidence = 0;
-            this.enableOllama = false;
+            this.selectedModel = localStorage.getItem('client_recognize_last_model') || '';
             this.errorMessage = '';
             this.showError = false;
             this.showResult = false;
@@ -264,7 +320,9 @@ function identityApp(config = {}) {
             const formData = new FormData();
             formData.append('file', file);
             formData.append('doc_type', docType);
-            formData.append('enable_ollama', this.shouldEnableOllama(docType) ? 'true' : 'false');
+            if (this.selectedModel) {
+                formData.append('model', this.selectedModel);
+            }
 
             this.loadingText = '正在识别证件...';
 
@@ -323,14 +381,6 @@ function identityApp(config = {}) {
             this.isLoading = false;
             this.showResult = false;
             this.showError = true;
-        },
-
-        isIdCardDocType(docType) {
-            return docType === 'id_card' || docType === 'legal_rep_id_card';
-        },
-
-        shouldEnableOllama(docType) {
-            return !!this.enableOllama;
         },
 
         // ========== 结果处理 ==========

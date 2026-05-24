@@ -331,10 +331,24 @@
                 <label style="font-size: 12px; color: #6c757d;">
                     <input type="checkbox" x-model="autoParse"> {% trans "粘贴时自动解析" %}
                 </label>
-                <label style="font-size: 12px; color: #6c757d; display:flex; align-items:center; gap:6px;">
-                    <input type="checkbox" x-model="enableOllama">
-                    <span>{% trans "启用 Ollama 智能解析（OCR 识别不理想时可勾选，需本地运行 Ollama 服务）" %}</span>
-                </label>
+                <div style="display:flex; align-items:center; gap:6px; font-size: 12px; color: #6c757d;">
+                    <span>{% trans "LLM 模型：" %}</span>
+                    <select x-model="selectedModel"
+                            @change="saveLastModel()"
+                            style="font-size:12px; padding:2px 4px; border:1px solid #ced4da; border-radius:4px; max-width:260px;">
+                        <option value="">{% trans "不使用 LLM（仅 OCR + 规则）" %}</option>
+                        <template x-for="m in sortedModels" :key="m.id">
+                            <option :value="m.id" x-text="(isFav(m.id) ? '★ ' : '') + m.name + ' (' + m.id + ')'"></option>
+                        </template>
+                    </select>
+                    <button type="button"
+                            @click="toggleFav(selectedModel)"
+                            :disabled="!selectedModel"
+                            :title="isFav(selectedModel) ? '取消收藏' : '收藏此模型'"
+                            style="background:none; border:none; cursor:pointer; font-size:16px; line-height:1; padding:0;"
+                            x-text="isFav(selectedModel) ? '★' : '☆'">
+                    </button>
+                </div>
             </div>
             <div class="format-hint">💡 {% trans "支持粘贴/拖拽图片自动 OCR，或粘贴文本/JSON 解析" %}</div>
 
@@ -357,7 +371,9 @@
             // ========== 状态 ==========
             parseText: '',
             autoParse: true,
-            enableOllama: false,
+            selectedModel: '',
+            models: [],
+            favModels: [],
             isParsing: false,
             isDragOver: false,
             isExpanded: false,
@@ -369,6 +385,59 @@
             init() {
                 console.log('[TextParserApp] 初始化文本解析组件');
                 this.initClientTypeWatcher();
+                this.loadFavModels();
+                this.loadLastModel();
+                this.fetchModels();
+            },
+
+            // ========== 模型管理 ==========
+            async fetchModels() {
+                try {
+                    const resp = await fetch('/api/v1/llm/models');
+                    const data = await resp.json();
+                    this.models = (data.models || []).map(m => ({ id: m.id, name: m.name }));
+                } catch (e) {
+                    console.warn('[TextParserApp] 加载模型列表失败:', e);
+                }
+            },
+
+            get sortedModels() {
+                const favs = this.favModels.filter(fid => this.models.some(m => m.id === fid));
+                const rest = this.models.filter(m => !this.favModels.includes(m.id));
+                return [...favs.map(fid => this.models.find(m => m.id === fid)), ...rest];
+            },
+
+            loadFavModels() {
+                try {
+                    this.favModels = JSON.parse(localStorage.getItem('client_recognize_fav_models') || '[]');
+                } catch { this.favModels = []; }
+            },
+
+            saveFavModels() {
+                localStorage.setItem('client_recognize_fav_models', JSON.stringify(this.favModels));
+            },
+
+            toggleFav(modelId) {
+                if (!modelId) return;
+                const idx = this.favModels.indexOf(modelId);
+                if (idx >= 0) {
+                    this.favModels.splice(idx, 1);
+                } else {
+                    this.favModels.push(modelId);
+                }
+                this.saveFavModels();
+            },
+
+            isFav(modelId) {
+                return modelId && this.favModels.includes(modelId);
+            },
+
+            loadLastModel() {
+                this.selectedModel = localStorage.getItem('client_recognize_last_model') || '';
+            },
+
+            saveLastModel() {
+                localStorage.setItem('client_recognize_last_model', this.selectedModel);
             },
 
             toggleExpansion() {
@@ -471,7 +540,9 @@
                 formData.append('file', file);
                 const docType = 'auto';
                 formData.append('doc_type', docType);
-                formData.append('enable_ollama', this.shouldEnableOllama(docType) ? 'true' : 'false');
+                if (this.selectedModel) {
+                    formData.append('model', this.selectedModel);
+                }
 
                 try {
                     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
@@ -515,22 +586,14 @@
                 return m ? m[1].replace(/\s+/g, '').trim() : '';
             },
 
-            isIdCardDocType(docType) {
-                return docType === 'id_card' || docType === 'legal_rep_id_card';
-            },
-
-            shouldEnableOllama(docType) {
-                return !!this.enableOllama;
-            },
-
             getFriendlyOcrError(errorMessage) {
                 const message = (errorMessage || '').trim();
                 if (!message) return '暂时无法完成识别，请稍后重试';
-                if (message.includes('LLM_TIMEOUT') || message.includes('Ollama 请求超时')) {
-                    return '智能识别超时，请稍后重试；如反复出现，请检查 Ollama 服务状态';
+                if (message.includes('超时') || message.includes('TIMEOUT')) {
+                    return '智能识别超时，请稍后重试';
                 }
                 if (message.includes('连接失败') || message.includes('Connection') || message.includes('网络')) {
-                    return '无法连接智能识别服务，请检查 Ollama 服务或网络后重试';
+                    return '无法连接智能识别服务，请检查网络后重试';
                 }
                 return message;
             },
@@ -771,7 +834,7 @@
                             </svg>
                             {% trans "证件类型" %}
                         </label>
-                        <select x-model="docType" class="form-control" @change="if (!isIdCardDocType(docType)) enableOllama = false">
+                        <select x-model="docType" class="form-control">
                             <option value="">{% trans "请选择证件类型" %}</option>
                             <option value="id_card">{% trans "身份证" %}</option>
                             <option value="passport">{% trans "护照" %}</option>
@@ -785,12 +848,25 @@
 
                     {% if not original %}
                     <div class="form-group">
-                        <label class="form-label">{% trans "身份证识别回退 Ollama" %}</label>
-                        <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#64748b;">
-                            <input type="checkbox" x-model="enableOllama" :disabled="!isIdCardDocType(docType)">
-                            <span x-show="isIdCardDocType(docType)">{% trans "启用（默认关闭，关闭时仅使用规则提取）" %}</span>
-                            <span x-show="!isIdCardDocType(docType)">{% trans "仅身份证/法定代表人身份证类型生效" %}</span>
-                        </label>
+                        <label class="form-label">{% trans "LLM 模型（可选）" %}</label>
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <select x-model="selectedModel"
+                                    @change="saveLastModel()"
+                                    class="form-control"
+                                    style="max-width:320px;">
+                                <option value="">{% trans "不使用 LLM（仅 OCR + 规则）" %}</option>
+                                <template x-for="m in sortedModels" :key="m.id">
+                                    <option :value="m.id" x-text="(isFav(m.id) ? '★ ' : '') + m.name + ' (' + m.id + ')'"></option>
+                                </template>
+                            </select>
+                            <button type="button"
+                                    @click="toggleFav(selectedModel)"
+                                    :disabled="!selectedModel"
+                                    :title="isFav(selectedModel) ? '取消收藏' : '收藏此模型'"
+                                    style="background:none; border:none; cursor:pointer; font-size:18px; line-height:1; padding:0;"
+                                    x-text="isFav(selectedModel) ? '★' : '☆'">
+                            </button>
+                        </div>
                     </div>
                     {% endif %}
 

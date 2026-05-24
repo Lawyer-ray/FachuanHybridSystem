@@ -1,7 +1,7 @@
 """
 证件信息提取服务
 
-使用 RapidOCR (PP-OCRv5) 提取图片文字,然后用 Ollama 结构化提取信息.
+使用 RapidOCR (PP-OCRv5) 提取图片文字,然后用 LLM 结构化提取信息.
 """
 
 import json
@@ -17,7 +17,6 @@ from django.utils.translation import gettext_lazy as _
 from apps.client.models import ClientIdentityDoc
 from apps.client.services.wiring import get_llm_service
 from apps.core.exceptions import ServiceUnavailableError, ValidationException
-from apps.core.llm.config import LLMConfig
 from apps.core.llm.exceptions import LLMNetworkError, LLMTimeoutError
 
 from .data_classes import ExtractionResult, OCRExtractionError, OllamaExtractionError
@@ -31,20 +30,16 @@ _MAX_LLM_OCR_LINES = 80
 
 
 class IdentityExtractionService:
-    """证件信息提取服务 - 使用 RapidOCR (PP-OCRv5) + Ollama"""
+    """证件信息提取服务 - 使用 RapidOCR (PP-OCRv5) + LLM"""
 
-    def __init__(
-        self, recognizer: Any | None = None, ollama_model: str | None = None, ollama_base_url: str | None = None
-    ) -> None:
+    def __init__(self, recognizer: Any | None = None) -> None:
         self._recognizer = recognizer
-        self._ollama_model = ollama_model or LLMConfig.get_ollama_model()
-        self._ollama_base_url = ollama_base_url or LLMConfig.get_ollama_base_url()
 
     def extract(
         self,
         image_bytes: bytes,
         doc_type: str,
-        enable_ollama: bool = True,
+        model: str | None = None,
         source_name: str | None = None,
     ) -> ExtractionResult:
         """
@@ -53,7 +48,7 @@ class IdentityExtractionService:
         Args:
             image_bytes: 图片字节数据
             doc_type: 证件类型
-            enable_ollama: 是否允许回退 Ollama（默认关闭，需用户主动启用）
+            model: LLM 模型名称（None 或空字符串表示不使用 LLM）
 
         Returns:
             ExtractionResult: 提取结果
@@ -77,12 +72,12 @@ class IdentityExtractionService:
             extracted_data = self._extract_by_rules(raw_text, resolved_doc_type)
             if extracted_data is not None:
                 id_number_hit = bool(extracted_data.get("id_number"))
-                if id_number_hit or not enable_ollama:
+                if id_number_hit or not model:
                     logger.info(
-                        "证件识别使用规则提取: requested_doc_type=%s, resolved_doc_type=%s, enable_ollama=%s, id_number_hit=%s",
+                        "证件识别使用规则提取: requested_doc_type=%s, resolved_doc_type=%s, model=%s, id_number_hit=%s",
                         doc_type,
                         resolved_doc_type,
-                        enable_ollama,
+                        model,
                         id_number_hit,
                     )
                     return ExtractionResult(
@@ -94,15 +89,16 @@ class IdentityExtractionService:
                     )
 
                 logger.info(
-                    "规则提取未命中身份证号且允许 Ollama，回退模型提取: requested_doc_type=%s, resolved_doc_type=%s",
+                    "规则提取未命中身份证号且指定了模型，回退 LLM 提取: requested_doc_type=%s, resolved_doc_type=%s, model=%s",
                     doc_type,
                     resolved_doc_type,
+                    model,
                 )
 
-            # 3. 规则无法覆盖时，仅在用户启用 Ollama 时回退
-            if not enable_ollama:
+            # 3. 规则无法覆盖时，仅在用户指定了模型时回退 LLM
+            if not model:
                 logger.info(
-                    "规则提取未覆盖且未启用 Ollama，返回空结果: resolved_doc_type=%s",
+                    "规则提取未覆盖且未指定 LLM 模型，返回部分结果: resolved_doc_type=%s",
                     resolved_doc_type,
                 )
                 return ExtractionResult(
@@ -113,14 +109,14 @@ class IdentityExtractionService:
                     extraction_method="ocr_regex_partial",
                 )
 
-            extracted_data = self._ollama_extract(raw_text, resolved_doc_type)
+            extracted_data = self._llm_extract(raw_text, resolved_doc_type, model)
 
             return ExtractionResult(
                 doc_type=resolved_doc_type,
                 raw_text=raw_text,
                 extracted_data=extracted_data,
                 confidence=0.8,
-                extraction_method="ocr_ollama",
+                extraction_method="ocr_llm",
             )
 
         except (OCRExtractionError, OllamaExtractionError, ServiceUnavailableError):
@@ -323,8 +319,8 @@ class IdentityExtractionService:
 
         return True
 
-    def _prepare_text_for_ollama(self, raw_text: str) -> str:
-        """清洗 OCR 文本后再发送给 Ollama，减少噪声与无意义上下文。"""
+    def _prepare_text_for_llm(self, raw_text: str) -> str:
+        """清洗 OCR 文本后再发送给 LLM，减少噪声与无意义上下文。"""
         # 统一换行并拆分候选行（兼容部分 OCR 用 | 作为分隔符）
         normalized = raw_text.replace("\r\n", "\n").replace("\r", "\n")
         candidates = re.split(r"\n+|\|", normalized)
@@ -373,7 +369,7 @@ class IdentityExtractionService:
         if requested and requested not in {"auto", *PROMPT_MAPPING.keys()}:
             logger.warning("收到不支持的证件类型，已自动降级判型: doc_type=%s", requested)
 
-        text = self._prepare_text_for_ollama(raw_text)
+        text = self._prepare_text_for_llm(raw_text)
         normalized = text.lower()
         source = (source_name or "").lower()
 
@@ -452,7 +448,7 @@ class IdentityExtractionService:
         if doc_type not in {"id_card", "legal_rep_id_card"}:
             return None
 
-        text = self._prepare_text_for_ollama(raw_text)
+        text = self._prepare_text_for_llm(raw_text)
         lines = [line.strip() for line in text.split("\n") if line.strip()]
         merged = "\n".join(lines)
 
@@ -581,22 +577,20 @@ class IdentityExtractionService:
             return None
         return f"{y:04d}-{m:02d}-{d:02d}"
 
-    def _ollama_extract(self, raw_text: str, doc_type: str) -> dict[str, Any]:
+    def _llm_extract(self, raw_text: str, doc_type: str, model: str) -> dict[str, Any]:
         """
-        使用 Ollama 从文字中提取结构化信息
+        使用 LLM 从文字中提取结构化信息
         """
         try:
-            llm_text = self._prepare_text_for_ollama(raw_text)
-            logger.info("发送 Ollama 前 OCR 文本清洗完成: 原始长度=%d, 清洗后长度=%d", len(raw_text), len(llm_text))
-            logger.info("发送 Ollama 前 OCR 清洗后文本内容:\n%s", llm_text)
+            llm_text = self._prepare_text_for_llm(raw_text)
+            logger.info("发送 LLM 前 OCR 文本清洗完成: 原始长度=%d, 清洗后长度=%d", len(raw_text), len(llm_text))
+            logger.info("发送 LLM 前 OCR 清洗后文本内容:\n%s", llm_text)
 
             prompt = get_prompt_for_doc_type(doc_type, llm_text)
             logger.info(
-                "证件识别将调用 Ollama: model=%s, timeout=%ss, max_tokens=%s, think=%s",
-                self._ollama_model,
-                max(180, int(LLMConfig.get_ollama_timeout())),
+                "证件识别将调用 LLM: model=%s, max_tokens=%s",
+                model,
                 256,
-                False,
             )
 
             messages = [
@@ -604,20 +598,18 @@ class IdentityExtractionService:
                 {"role": "user", "content": f"请从以下文字中提取信息:\n{llm_text}"},
             ]
 
-            ollama_timeout = max(180, int(LLMConfig.get_ollama_timeout()))
             llm_service = get_llm_service()
             llm_resp = llm_service.chat(
                 messages=messages,
-                backend="ollama",
-                model=self._ollama_model,
+                model=model,
                 max_tokens=256,
-                timeout=ollama_timeout,
+                timeout=60,
                 think=False,
-                fallback=False,
+                fallback=True,
             )
             content = llm_resp.content or ""
             if not content:
-                raise OllamaExtractionError(_("Ollama 返回内容为空"))
+                raise OllamaExtractionError(_("LLM 返回内容为空"))
 
             # 解析 JSON
             try:
@@ -633,35 +625,35 @@ class IdentityExtractionService:
                         content = content[json_start:json_end].strip()
 
                 extracted_data = json.loads(content)
-                logger.info("Ollama 提取成功,字段数量: %s", len(extracted_data))
+                logger.info("LLM 提取成功,字段数量: %s", len(extracted_data))
                 return dict(extracted_data)
 
             except json.JSONDecodeError as e:
-                logger.exception("Ollama 返回的 JSON 格式错误: %s", e)
+                logger.exception("LLM 返回的 JSON 格式错误: %s", e)
                 raise OllamaExtractionError(_("智能识别结果解析失败，请稍后重试")) from e
 
         except ConnectionError as e:
-            logger.exception("Ollama 服务连接失败: %s", e)
+            logger.exception("LLM 服务连接失败: %s", e)
             raise ServiceUnavailableError(
-                message=_("Ollama 服务连接失败: %(e)s") % {"e": e}, service_name="Ollama"
+                message=_("LLM 服务连接失败: %(e)s") % {"e": e}, service_name="LLM"
             ) from e
         except LLMTimeoutError as e:
-            logger.warning("Ollama 请求超时: %s", e)
-            raise OllamaExtractionError(_("智能识别超时，请稍后重试。若多次失败，请检查 Ollama 服务状态后重试")) from e
+            logger.warning("LLM 请求超时: %s", e)
+            raise OllamaExtractionError(_("智能识别超时，请稍后重试")) from e
         except LLMNetworkError as e:
-            logger.warning("Ollama 网络异常: %s", e)
-            raise OllamaExtractionError(_("无法连接智能识别服务，请检查 Ollama 服务或网络后重试")) from e
+            logger.warning("LLM 网络异常: %s", e)
+            raise OllamaExtractionError(_("无法连接智能识别服务，请检查网络后重试")) from e
         except OllamaExtractionError:
             raise
         except Exception as e:
-            logger.exception("Ollama 提取失败: %s", e)
+            logger.exception("LLM 提取失败: %s", e)
             raise OllamaExtractionError(_("智能识别暂时不可用，请稍后重试")) from e
 
     def safe_extract(
         self,
         image_bytes: bytes,
         doc_type: str,
-        enable_ollama: bool = True,
+        model: str | None = None,
         source_name: str | None = None,
     ) -> dict[str, Any]:
         """
@@ -680,7 +672,7 @@ class IdentityExtractionService:
             extraction = self.extract(
                 image_bytes,
                 doc_type,
-                enable_ollama=enable_ollama,
+                model=model,
                 source_name=source_name,
             )
             result["success"] = True
