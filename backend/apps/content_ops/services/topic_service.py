@@ -62,12 +62,31 @@ class TopicService:
         else:
             raw_topics = []
 
+        # LLM returns inconsistent keys across calls; use key-pattern + positional fallback
+        _title_patterns = ("title", "topic", "选题", "主题")
+        _desc_patterns = ("description", "描述", "简介", "summary")
+        _kw_patterns = ("keyword", "关键词")
+
         topics = []
         for t in raw_topics:
-            title = t.get("title", t.get("主题", t.get("选题标题", t.get("选题", t.get("topic", "")))))
-            description = t.get("description", t.get("描述", t.get("选题简介", t.get("简介", t.get("summary", "")))))
-            kw = t.get("suggested_keyword", t.get("建议的检索关键词", t.get("检索关键词", t.get("关键词", t.get("keyword", "")))))
-            # LLM may return keyword as a list
+            values = list(t.values())
+            # Try key-pattern matching first
+            title = next((v for k, v in t.items() if any(p in k.lower() for p in _title_patterns) and isinstance(v, str) and v), "")
+            description = next((v for k, v in t.items() if any(p in k.lower() for p in _desc_patterns) and isinstance(v, str) and v), "")
+            kw = next((v for k, v in t.items() if any(p in k.lower() for p in _kw_patterns) and v), "")
+            # Positional fallback: first str→title, second str→description, third→keyword
+            str_values = [v for v in values if isinstance(v, str) and v]
+            if not title and len(str_values) >= 1:
+                title = str_values[0]
+            if not description and len(str_values) >= 2:
+                description = str_values[1]
+            if not kw and len(str_values) >= 3:
+                kw = str_values[2]
+            if not kw:
+                # Also check list values for keyword
+                list_values = [v for v in values if isinstance(v, list)]
+                if list_values:
+                    kw = list_values[0]
             if isinstance(kw, list):
                 kw = "、".join(str(k) for k in kw)
             topics.append({
