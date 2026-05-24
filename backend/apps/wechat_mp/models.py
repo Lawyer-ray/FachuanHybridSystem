@@ -16,7 +16,6 @@ class WeChatAccount(models.Model):
     id: int
     name = models.CharField("账号名称", max_length=100)
     mp_url = models.URLField("公众号后台地址", default="https://mp.weixin.qq.com")
-    cookie_path = models.CharField("Cookie 存储路径", max_length=500, blank=True, default="")
     is_active = models.BooleanField("是否启用", default=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

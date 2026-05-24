@@ -12,7 +12,13 @@ class WeChatAccountAdmin(admin.ModelAdmin):
     list_display = ["name", "mp_url", "is_active", "created_at"]
     list_filter = ["is_active"]
     search_fields = ["name"]
+    exclude = ["created_by"]
     readonly_fields = ["created_at", "updated_at"]
+
+    def save_model(self, request, obj, form, change):
+        if not obj.created_by:
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)
 
 
 @admin.register(PublishTask)
