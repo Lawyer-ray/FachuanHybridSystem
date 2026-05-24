@@ -544,8 +544,10 @@
                 formData.append('file', file);
                 const docType = 'auto';
                 formData.append('doc_type', docType);
-                if (this.selectedModel) {
-                    formData.append('model', this.selectedModel);
+                // 直接从 DOM 读取 select 值，避免 Alpine x-model 同步问题
+                const domModel = this.$refs.modelSelect ? this.$refs.modelSelect.value : this.selectedModel;
+                if (domModel) {
+                    formData.append('model', domModel);
                 }
 
                 try {

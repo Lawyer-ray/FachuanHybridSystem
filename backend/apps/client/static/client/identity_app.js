@@ -332,8 +332,10 @@ function identityApp(config = {}) {
             const formData = new FormData();
             formData.append('file', file);
             formData.append('doc_type', docType);
-            if (this.selectedModel) {
-                formData.append('model', this.selectedModel);
+            // 直接从 DOM 读取 select 值，避免 Alpine x-model 同步问题
+            const domModel = this.$el.querySelector('select') ? this.$el.querySelector('select').value : this.selectedModel;
+            if (domModel) {
+                formData.append('model', domModel);
             }
 
             this.loadingText = '正在识别证件...';
