@@ -41,8 +41,17 @@ async def check_login_status(page: Page) -> bool:
         if "mp.weixin.qq.com/cgi-bin/loginpage" in current_url:
             return False
 
-        user_info = await page.query_selector(".user_info, .main_hd, .weui-desktop-account__nickname")
-        return user_info is not None
+        # 实际 DOM 中的登录状态标识
+        login_indicators = [
+            ".mp_account_box",
+            ".acount_box-nickname",
+            ".weui-desktop-account__info",
+        ]
+        for selector in login_indicators:
+            el = await page.query_selector(selector)
+            if el and await el.is_visible():
+                return True
+        return False
     except Exception as exc:
         if "Execution context was destroyed" in str(exc):
             return False
