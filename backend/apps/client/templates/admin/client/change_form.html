@@ -389,7 +389,14 @@
                     const resp = await fetch('/api/v1/llm/models');
                     const data = await resp.json();
                     this.models = (data.models || []).map(m => ({ id: m.id, name: m.name }));
-                    console.log('[TextParserApp] 模型列表加载完成: %d 个模型, selectedModel=%s', this.models.length, this.selectedModel);
+                    // 模型列表加载完成后，强制同步 select DOM 值
+                    if (this.selectedModel) {
+                        this.$nextTick(() => {
+                            const sel = this.$el.querySelector('select[x-model="selectedModel"]');
+                            if (sel) sel.value = this.selectedModel;
+                            console.log('[TextParserApp] fetchModels 后强制设置 select.value=%s, 实际值=%s', this.selectedModel, sel ? sel.value : 'N/A');
+                        });
+                    }
                 } catch (e) {
                     console.warn('[TextParserApp] 加载模型列表失败:', e);
                 }
@@ -500,8 +507,9 @@
                 const docType = 'auto';
                 formData.append('doc_type', docType);
                 // 直接从 DOM 读取 select 值，避免 Alpine x-model 同步问题
-                const domModel = this.$refs.modelSelect ? this.$refs.modelSelect.value : this.selectedModel;
-                console.log('[TextParserApp] selectedModel=%s, domModel=%s, refs=%o', this.selectedModel, domModel, this.$refs.modelSelect);
+                const sel = this.$el.querySelector('select[x-model="selectedModel"]');
+                const domModel = sel ? sel.value : this.selectedModel;
+                console.log('[TextParserApp] selectedModel=%s, domModel=%s, sel=%o', this.selectedModel, domModel, sel);
                 if (domModel) {
                     formData.append('model', domModel);
                 }

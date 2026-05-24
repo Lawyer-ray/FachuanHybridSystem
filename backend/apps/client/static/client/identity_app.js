@@ -293,7 +293,8 @@ function identityApp(config = {}) {
             formData.append('file', file);
             formData.append('doc_type', docType);
             // 直接从 DOM 读取 select 值，避免 Alpine x-model 同步问题
-            const domModel = this.$el.querySelector('select') ? this.$el.querySelector('select').value : this.selectedModel;
+            const sel = this.$el.querySelector('select[x-model="selectedModel"]');
+            const domModel = sel ? sel.value : this.selectedModel;
             if (domModel) {
                 formData.append('model', domModel);
             }
