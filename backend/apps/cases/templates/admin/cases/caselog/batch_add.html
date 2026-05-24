@@ -8,61 +8,89 @@
 <style>
 [x-cloak] { display: none !important; }
 .batch-page { max-width: 960px; margin: 0 auto; }
-.batch-hero { margin-bottom: 24px; }
-.batch-hero h1 { font-size: 22px; margin: 0 0 6px; }
-.batch-hero p { color: #666; margin: 0 0 12px; }
+
+/* hero */
+.batch-hero { margin-bottom: 20px; }
+.batch-hero p { color: #6b7280; margin: 0 0 10px; font-size: 14px; }
 .batch-hero-tips { display: flex; gap: 8px; flex-wrap: wrap; }
 .tip-pill {
-    display: inline-block; padding: 4px 12px; border-radius: 12px;
-    background: #e8f0fe; color: #1a56db; font-size: 12px; font-weight: 600;
+    display: inline-block; padding: 3px 10px; border-radius: 10px;
+    background: #eff6ff; color: #1e40af; font-size: 12px; font-weight: 600;
 }
+
+/* card sections */
 .batch-section {
-    background: #fff; border: 1px solid #d0d5dd; border-radius: 8px;
-    padding: 20px 24px; margin-bottom: 20px;
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 8px;
+    padding: 18px 22px; margin-bottom: 16px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.04);
 }
 .batch-section h2 {
-    font-size: 15px; margin: 0 0 14px; padding-bottom: 10px;
-    border-bottom: 1px solid #e5e7eb; color: #374151;
+    font-size: 14px; margin: 0 0 14px; padding-bottom: 10px;
+    border-bottom: 1px solid #f0f0f0; color: #1f2937;
+    display: flex; align-items: center; gap: 8px;
 }
+.step-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: #2563eb; color: #fff; font-size: 12px; font-weight: 700;
+    flex-shrink: 0;
+}
+
+/* form */
 .form-row { margin-bottom: 14px; }
 .form-row label { display: block; font-weight: 600; margin-bottom: 4px; font-size: 13px; color: #374151; }
 .form-row select, .form-row textarea {
     width: 100%; padding: 8px 10px; border: 1px solid #d0d5dd;
     border-radius: 6px; font-size: 14px; line-height: 1.5; height: auto !important;
-    box-sizing: border-box;
+    box-sizing: border-box; background: #fff;
 }
 .form-row select:focus, .form-row textarea:focus {
-    outline: none; border-color: #2f6da6; box-shadow: 0 0 0 2px rgba(47,109,166,.15);
+    outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.1);
 }
+
+/* case table */
 .case-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .case-table th {
     text-align: left; padding: 8px 10px; background: #f9fafb;
     border-bottom: 2px solid #e5e7eb; font-weight: 600; color: #374151;
 }
-.case-table td { padding: 8px 10px; border-bottom: 1px solid #f0f0f0; }
+.case-table td { padding: 8px 10px; border-bottom: 1px solid #f3f4f6; }
 .case-table tr:hover td { background: #f9fafb; }
 .case-table .cb-cell { width: 40px; text-align: center; }
-.case-table input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
-.select-all-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 13px; }
+.case-table input[type="checkbox"] { width: 15px; height: 15px; cursor: pointer; accent-color: #2563eb; }
+.case-link { color: #1d4ed8; text-decoration: none; font-weight: 500; }
+.case-link:hover { text-decoration: underline; color: #1e40af; }
+
+/* select all row */
+.select-all-row {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+    font-size: 13px; padding: 6px 10px; background: #f9fafb; border-radius: 6px;
+}
 .select-all-row label { font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; }
-.selected-count { color: #6b7280; font-size: 12px; }
+.selected-count { margin-left: auto; color: #6b7280; font-size: 12px; }
 .batch-empty-hint { color: #9ca3af; font-size: 13px; padding: 20px 0; text-align: center; }
+
+/* submit area */
+.batch-footer { display: flex; align-items: center; margin-top: 12px; }
 .btn-submit {
     display: inline-flex; align-items: center; gap: 6px;
-    padding: 10px 28px; border: none; border-radius: 6px;
+    padding: 9px 24px; border: none; border-radius: 6px;
     font-size: 14px; font-weight: 600; cursor: pointer; color: #fff;
-    background: #2f6da6; transition: background .15s;
+    background: #2563eb; transition: background .15s;
 }
-.btn-submit:hover { background: #285b8c; }
+.btn-submit:hover { background: #1d4ed8; }
 .btn-submit:disabled { background: #d1d5db; cursor: not-allowed; }
-.btn-submit-hint { margin-left: 12px; color: #6b7280; font-size: 13px; }
+.btn-submit-hint { margin-left: 14px; color: #6b7280; font-size: 13px; }
+
+/* message */
 .batch-message {
-    padding: 12px 16px; border-radius: 6px; margin-bottom: 16px;
+    padding: 10px 14px; border-radius: 6px; margin-bottom: 14px;
     font-size: 14px; display: none;
 }
 .batch-message.is-success { display: block; background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
 .batch-message.is-error { display: block; background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
-.batch-footer { display: flex; align-items: center; margin-top: 8px; }
+
+/* status */
 .status-badge {
     display: inline-block; padding: 2px 8px; border-radius: 10px;
     font-size: 11px; font-weight: 600;
@@ -90,7 +118,6 @@
 {% block content %}
 <div class="batch-page" x-data="batchAddApp()" x-init="init()">
     <section class="batch-hero">
-        <h1>{% trans "批量添加案件日志" %}</h1>
         <p>{% trans "选择一个合同，为该合同下的多个案件同时添加相同的日志内容。" %}</p>
         <div class="batch-hero-tips">
             <span class="tip-pill">{% trans "1. 选择合同" %}</span>
@@ -104,7 +131,7 @@
 
     {# ── 第一步：选择合同 ── #}
     <section class="batch-section">
-        <h2>{% trans "第一步：选择合同" %}</h2>
+        <h2><span class="step-num">1</span>{% trans "选择合同" %}</h2>
         <div class="form-row">
             <label for="contract-select">{% trans "关联合同" %}</label>
             <select id="contract-select" x-model="selectedContractId" @change="onContractChange()">
@@ -118,7 +145,7 @@
 
     {# ── 第二步：选择案件 ── #}
     <section class="batch-section" x-show="selectedContractId" x-cloak>
-        <h2>{% trans "第二步：选择案件" %}</h2>
+        <h2><span class="step-num">2</span>{% trans "选择案件" %}</h2>
         <template x-if="casesLoading">
             <p style="color:#6b7280; font-size:13px;">{% trans "加载中..." %}</p>
         </template>
@@ -151,7 +178,10 @@
                                            :checked="selectedIds.includes(c.id)"
                                            @change="toggleCase(c.id)">
                                 </td>
-                                <td x-text="c.name"></td>
+                                <td>
+                                    <a class="case-link" :href="caseDetailUrl(c.id)" x-text="c.name"
+                                       target="_blank" @click.stop></a>
+                                </td>
                                 <td>
                                     <span class="status-badge"
                                           :class="c.status === 'active' ? 'status-active' : (c.status === 'closed' ? 'status-closed' : 'status-other')"
@@ -168,7 +198,7 @@
 
     {# ── 第三步：填写日志 ── #}
     <section class="batch-section" x-show="selectedContractId && cases.length > 0" x-cloak>
-        <h2>{% trans "第三步：填写日志内容" %}</h2>
+        <h2><span class="step-num">3</span>{% trans "填写日志内容" %}</h2>
         <div class="form-row">
             <label for="log-content">{% trans "日志内容" %}</label>
             <textarea id="log-content" rows="6" x-model="content"
@@ -219,6 +249,10 @@ function batchAddApp() {
             if (s === 'active') return '{% trans "进行中" %}';
             if (s === 'closed') return '{% trans "已归档" %}';
             return s;
+        },
+
+        caseDetailUrl(id) {
+            return this.config.caseDetailUrlTemplate.replace('__ID__', id);
         },
 
         onContractChange() {

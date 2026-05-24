@@ -112,6 +112,7 @@ class CaseLogAdmin(BaseModelAdmin):
                     "casesUrl": reverse("admin:cases_caselog_batch_add_cases"),
                     "submitUrl": reverse("admin:cases_caselog_batch_add_submit"),
                     "changelistUrl": reverse("admin:cases_caselog_changelist"),
+                    "caseDetailUrlTemplate": reverse("admin:cases_case_detail", args=[0]).replace("/0/", "/__ID__/"),
                 },
             }
         )
