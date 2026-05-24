@@ -475,15 +475,28 @@ function ArticleCard({ article }: { article: GeneratedArticle }) {
   )
 }
 
+const SPEED_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 2] as const
+
+function formatTime(sec: number): string {
+  if (!Number.isFinite(sec)) return '0:00'
+  const m = Math.floor(sec / 60)
+  const s = Math.floor(sec % 60)
+  return `${m}:${s.toString().padStart(2, '0')}`
+}
+
 function EpisodeCard({ episode }: { episode: PodcastEpisode }) {
   const [playing, setPlaying] = useState(false)
   const [audioError, setAudioError] = useState(false)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(0)
+  const [speed, setSpeed] = useState(1)
   const [notes, setNotes] = useState('')
   const reviewEpisode = useReviewEpisode()
   const audioRef = useRef<HTMLAudioElement>(null)
+  const progressRef = useRef<HTMLDivElement>(null)
+  const isDragging = useRef(false)
   const audioUrl = contentOpsApi.getAudioUrl(episode.id)
 
-  // Pause audio on unmount to prevent it from continuing to play
   useEffect(() => {
     return () => {
       const audio = audioRef.current
@@ -523,36 +536,64 @@ function EpisodeCard({ episode }: { episode: PodcastEpisode }) {
     }
   }, [playing])
 
+  const handleSeek = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const bar = progressRef.current
+    const audio = audioRef.current
+    if (!bar || !audio || !duration) return
+    const rect = bar.getBoundingClientRect()
+    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+    audio.currentTime = ratio * duration
+    setCurrentTime(audio.currentTime)
+  }, [duration])
+
+  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    isDragging.current = true
+    handleSeek(e)
+
+    const onMove = (ev: MouseEvent) => {
+      if (!isDragging.current || !progressRef.current || !audioRef.current || !duration) return
+      const rect = progressRef.current.getBoundingClientRect()
+      const ratio = Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width))
+      audioRef.current.currentTime = ratio * duration
+      setCurrentTime(audioRef.current.currentTime)
+    }
+
+    const onUp = () => {
+      isDragging.current = false
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [duration, handleSeek])
+
+  const handleSpeedChange = useCallback(() => {
+    const audio = audioRef.current
+    if (!audio) return
+    const idx = SPEED_OPTIONS.indexOf(speed as (typeof SPEED_OPTIONS)[number])
+    const next = SPEED_OPTIONS[(idx + 1) % SPEED_OPTIONS.length]
+    audio.playbackRate = next
+    setSpeed(next)
+  }, [speed])
+
   const reviewBadge = (status: ReviewStatus) => {
     const variants = { draft: 'secondary' as const, approved: 'default' as const, rejected: 'destructive' as const }
     return <Badge variant={variants[status]}>{REVIEW_STATUS_LABEL[status]}</Badge>
   }
 
+  const progress = duration > 0 ? (currentTime / duration) * 100 : 0
+
   return (
     <Card>
       <CardContent className="p-4 space-y-3">
+        {/* 顶部信息栏 */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Button
-              size="icon"
-              variant="outline"
-              className="h-8 w-8"
-              onClick={handlePlay}
-              disabled={audioError}
-            >
-              {audioError ? (
-                <AlertCircle className="w-4 h-4 text-destructive" />
-              ) : playing ? (
-                <Pause className="w-4 h-4" />
-              ) : (
-                <Play className="w-4 h-4" />
-              )}
-            </Button>
             <div>
               <p className="text-sm font-medium">音色: {episode.voice}</p>
               <p className="text-[10px] text-muted-foreground">
-                {episode.duration_seconds && `${Math.round(episode.duration_seconds)}秒`}
-                {episode.file_size_bytes && ` · ${(episode.file_size_bytes / 1024 / 1024).toFixed(1)}MB`}
+                {episode.file_size_bytes && `${(episode.file_size_bytes / 1024 / 1024).toFixed(1)}MB`}
                 {audioError && <span className="text-destructive ml-1">音频加载失败</span>}
               </p>
             </div>
@@ -567,9 +608,80 @@ function EpisodeCard({ episode }: { episode: PodcastEpisode }) {
           </div>
         </div>
 
+        {/* 播放器 */}
+        <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+          <div className="flex items-center gap-3">
+            {/* 播放/暂停 */}
+            <Button
+              size="icon"
+              variant="outline"
+              className="h-9 w-9 shrink-0 rounded-full"
+              onClick={handlePlay}
+              disabled={audioError}
+            >
+              {audioError ? (
+                <AlertCircle className="w-4 h-4 text-destructive" />
+              ) : playing ? (
+                <Pause className="w-4 h-4" />
+              ) : (
+                <Play className="w-4 h-4 ml-0.5" />
+              )}
+            </Button>
+
+            {/* 进度条 */}
+            <div className="flex-1 min-w-0">
+              <div
+                ref={progressRef}
+                className="relative h-1.5 bg-muted rounded-full cursor-pointer group"
+                onMouseDown={handleMouseDown}
+              >
+                <div
+                  className="absolute inset-y-0 left-0 bg-primary rounded-full transition-none"
+                  style={{ width: `${progress}%` }}
+                />
+                <div
+                  className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-primary rounded-full shadow opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{ left: `calc(${progress}% - 6px)` }}
+                />
+              </div>
+            </div>
+
+            {/* 时间 */}
+            <span className="text-[11px] text-muted-foreground tabular-nums shrink-0 w-[72px] text-right">
+              {formatTime(currentTime)} / {formatTime(duration)}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between">
+            {/* 音色信息 */}
+            <p className="text-[10px] text-muted-foreground">
+              {episode.duration_seconds && `${Math.round(episode.duration_seconds)}秒`}
+            </p>
+
+            {/* 倍速按钮 */}
+            <button
+              onClick={handleSpeedChange}
+              className="text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors px-1.5 py-0.5 rounded hover:bg-muted"
+            >
+              {speed}x
+            </button>
+          </div>
+        </div>
+
         <audio
           ref={audioRef}
           src={audioUrl ?? undefined}
+          onTimeUpdate={() => {
+            if (!isDragging.current && audioRef.current) {
+              setCurrentTime(audioRef.current.currentTime)
+            }
+          }}
+          onLoadedMetadata={() => {
+            if (audioRef.current) {
+              setDuration(audioRef.current.duration)
+              audioRef.current.playbackRate = speed
+            }
+          }}
           onEnded={() => setPlaying(false)}
           onError={() => {
             setAudioError(true)
