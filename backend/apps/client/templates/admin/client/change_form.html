@@ -333,7 +333,7 @@
                 </label>
                 <label style="font-size: 12px; color: #6c757d; display:flex; align-items:center; gap:6px;">
                     <input type="checkbox" x-model="enableOllama">
-                    <span>{% trans "身份证 OCR 回退 Ollama（默认关闭，仅在自动识别为身份证时生效）" %}</span>
+                    <span>{% trans "启用 Ollama 智能解析（OCR 识别不理想时可勾选，需本地运行 Ollama 服务）" %}</span>
                 </label>
             </div>
             <div class="format-hint">💡 {% trans "支持粘贴/拖拽图片自动 OCR，或粘贴文本/JSON 解析" %}</div>
@@ -520,9 +520,6 @@
             },
 
             shouldEnableOllama(docType) {
-                if (!this.isIdCardDocType(docType)) {
-                    return true;
-                }
                 return !!this.enableOllama;
             },
 

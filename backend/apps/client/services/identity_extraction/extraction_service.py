@@ -53,7 +53,7 @@ class IdentityExtractionService:
         Args:
             image_bytes: 图片字节数据
             doc_type: 证件类型
-            enable_ollama: 是否允许回退 Ollama（身份证场景可关闭）
+            enable_ollama: 是否允许回退 Ollama（默认关闭，需用户主动启用）
 
         Returns:
             ExtractionResult: 提取结果
@@ -99,7 +99,20 @@ class IdentityExtractionService:
                     resolved_doc_type,
                 )
 
-            # 3. 规则无法覆盖时回退 Ollama
+            # 3. 规则无法覆盖时，仅在用户启用 Ollama 时回退
+            if not enable_ollama:
+                logger.info(
+                    "规则提取未覆盖且未启用 Ollama，返回空结果: resolved_doc_type=%s",
+                    resolved_doc_type,
+                )
+                return ExtractionResult(
+                    doc_type=resolved_doc_type,
+                    raw_text=raw_text,
+                    extracted_data=extracted_data or {},
+                    confidence=0.3,
+                    extraction_method="ocr_regex_partial",
+                )
+
             extracted_data = self._ollama_extract(raw_text, resolved_doc_type)
 
             return ExtractionResult(

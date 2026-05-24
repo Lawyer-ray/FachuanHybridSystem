@@ -22,7 +22,7 @@ function identityApp(config = {}) {
         docType: '',                // 证件类型
         recognitionResult: null,    // 识别结果
         confidence: 0,              // 置信度
-        enableOllama: false,        // 身份证场景是否启用 Ollama 兜底
+        enableOllama: false,        // 是否启用 Ollama 智能解析兜底
         errorMessage: '',           // 错误信息
         showError: false,           // 是否显示错误状态
         showResult: false,          // 是否显示结果状态
@@ -330,9 +330,6 @@ function identityApp(config = {}) {
         },
 
         shouldEnableOllama(docType) {
-            if (!this.isIdCardDocType(docType)) {
-                return true;
-            }
             return !!this.enableOllama;
         },
 
