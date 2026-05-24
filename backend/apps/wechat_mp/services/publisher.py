@@ -12,7 +12,13 @@ from asgiref.sync import sync_to_async
 
 from apps.core.services.browser import create_browser_async
 
-from .auth_handler import capture_qr_code, check_login_status, wait_for_qr_scan
+from .auth_handler import (
+    capture_qr_code,
+    check_login_status,
+    fetch_wechat_mp_credentials,
+    login_with_credentials,
+    wait_for_qr_scan,
+)
 from .markdown_converter import convert_markdown_to_wechat_html
 
 if TYPE_CHECKING:
@@ -58,23 +64,41 @@ class WeChatPublisher:
 
     async def _execute_publish(self, page: Page, context: BrowserContext) -> dict:
         """在浏览器上下文中执行发布流程。"""
-        # Step 1: 检查登录状态
+        # Step 1: 登录
         await self._update_status("logging_in")
 
         await page.goto(MP_HOME_URL, wait_until="domcontentloaded", timeout=30000)
         await asyncio.sleep(2)
 
         if not await check_login_status(page):
-            # 需要扫码登录
-            qr_image = await capture_qr_code(page)
-            if qr_image:
-                qr_path = Path(f"/tmp/wechat_qr_{self.account_id}.png")
-                qr_path.write_bytes(qr_image)
-                logger.info("QR code saved to %s", qr_path)
-
-            # 等待扫码
-            if not await wait_for_qr_scan(page, timeout_seconds=120):
-                raise PublishError("扫码登录超时，请重试")
+            # 获取账号密码
+            credentials = await fetch_wechat_mp_credentials()
+            if credentials:
+                account, password = credentials
+                logger.info("Found credentials for account: %s", account[:4] + "****")
+                # 用账号密码登录（可能触发扫码二次验证）
+                direct_ok = await login_with_credentials(page, account, password)
+                if direct_ok:
+                    logger.info("Login successful with account/password")
+                else:
+                    # 需要扫码二次验证
+                    qr_image = await capture_qr_code(page)
+                    if qr_image:
+                        qr_path = Path(f"/tmp/wechat_qr_{self.account_id}.png")
+                        qr_path.write_bytes(qr_image)
+                        logger.info("QR code saved to %s", qr_path)
+                    if not await wait_for_qr_scan(page, timeout_seconds=120):
+                        raise PublishError("扫码登录超时，请重试")
+            else:
+                # 没有配置账号密码，直接走扫码
+                logger.warning("No credentials found, falling back to QR scan")
+                qr_image = await capture_qr_code(page)
+                if qr_image:
+                    qr_path = Path(f"/tmp/wechat_qr_{self.account_id}.png")
+                    qr_path.write_bytes(qr_image)
+                    logger.info("QR code saved to %s", qr_path)
+                if not await wait_for_qr_scan(page, timeout_seconds=120):
+                    raise PublishError("扫码登录超时，请重试")
 
         logger.info("Account %s logged in successfully", self.account_name)
 
@@ -104,15 +128,15 @@ class WeChatPublisher:
         return result
 
     async def _navigate_to_new_article(self, page: Page) -> None:
-        """导航到新建图文页面。"""
+        """导航到新建文章页面。"""
         try:
             # 点击"新的创作"按钮
             new_creation_btn = page.locator("text=新的创作").first
             await new_creation_btn.click(timeout=10000)
             await asyncio.sleep(1)
 
-            # 点击"图文消息"
-            article_btn = page.locator("text=图文消息").first
+            # 点击"文章"（不是"图文消息"，"图文消息"是删除确认弹窗里的文字）
+            article_btn = page.locator("text=文章").first
             await article_btn.click(timeout=10000)
 
             # 等待编辑器加载
@@ -125,62 +149,51 @@ class WeChatPublisher:
                 await new_page.wait_for_load_state("domcontentloaded", timeout=30000)
                 logger.info("Switched to new article editor window")
         except Exception as e:
-            raise PublishError(f"无法打开新建图文页面: {e}") from e
+            raise PublishError(f"无法打开新建文章页面: {e}") from e
 
     async def _fill_title(self, page: Page, title: str) -> None:
-        """填写文章标题。"""
+        """填写文章标题。
+
+        微信公众号编辑器标题区域是第一个 ProseMirror contenteditable div。
+        """
         try:
-            title_selectors = [
-                "#title",
-                "textarea[placeholder*='标题']",
-                ".title_input textarea",
-                "input[placeholder*='标题']",
-            ]
+            # 标题区域：页面上第一个 ProseMirror div
+            title_editor = await page.query_selector(".ProseMirror")
+            if title_editor:
+                await title_editor.click()
+                await page.keyboard.type(title, delay=50)
+                logger.info("Title filled via ProseMirror: %s", title)
+                return
 
-            for selector in title_selectors:
-                title_input = await page.query_selector(selector)
-                if title_input:
-                    await title_input.click()
-                    await title_input.fill(title)
-                    logger.info("Title filled: %s", title)
-                    return
-
-            raise PublishError("找不到标题输入框")
+            raise PublishError("找不到标题编辑器（.ProseMirror）")
         except PublishError:
             raise
         except Exception as e:
             raise PublishError(f"填写标题失败: {e}") from e
 
     async def _inject_content(self, page: Page, html_content: str) -> None:
-        """将 HTML 内容注入到编辑器。"""
+        """将内容注入到正文编辑器。
+
+        微信公众号编辑器正文区域是第二个 ProseMirror contenteditable div。
+        用 keyboard.type 逐字输入，避免 innerHTML 注入后事件未触发的问题。
+        """
         try:
-            editor_selectors = [
-                ".ql-editor",
-                "#ueditor_0",
-                ".ProseMirror",
-                "[contenteditable='true']",
-            ]
+            # 正文区域：页面上第二个 ProseMirror div
+            editors = await page.query_selector_all(".ProseMirror")
+            if len(editors) >= 2:
+                content_editor = editors[1]
+                await content_editor.click()
+                # 将 HTML 转为纯文本后逐字输入（微信编辑器不接受 innerHTML 直接注入）
+                import re
 
-            for selector in editor_selectors:
-                editor = await page.query_selector(selector)
-                if editor:
-                    await page.evaluate(
-                        """(args) => {
-                            const [selector, html] = args;
-                            const editor = document.querySelector(selector);
-                            if (editor) {
-                                editor.innerHTML = html;
-                                editor.dispatchEvent(new Event('input', { bubbles: true }));
-                                editor.dispatchEvent(new Event('change', { bubbles: true }));
-                            }
-                        }""",
-                        [selector, html_content],
-                    )
-                    logger.info("Content injected into editor: %s", selector)
-                    await asyncio.sleep(2)
-                    return
+                plain_text = re.sub(r"<[^>]+>", "", html_content).strip()
+                if plain_text:
+                    await page.keyboard.type(plain_text, delay=30)
+                logger.info("Content injected into editor (%d chars)", len(plain_text))
+                await asyncio.sleep(1)
+                return
 
-            raise PublishError("找不到编辑器")
+            raise PublishError("找不到正文编辑器（需要至少 2 个 .ProseMirror）")
         except PublishError:
             raise
         except Exception as e:

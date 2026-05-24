@@ -135,9 +135,9 @@ export function TaskList({ selectedTaskId, onSelectTask }: TaskListProps) {
           {tasks && tasks.length > 0 ? '没有匹配的任务' : '暂无任务记录'}
         </div>
       ) : (
-        <ScrollArea className="h-[calc(100vh-420px)] w-full overflow-hidden">
+        <div className="h-[calc(100vh-420px)] w-full overflow-y-auto overflow-x-hidden">
           <motion.div
-            className="space-y-2 pr-3 w-full"
+            className="space-y-2 pr-3"
             initial="hidden"
             animate="visible"
             variants={{
@@ -180,21 +180,23 @@ function TaskCard({ task, isSelected, onClick }: {
   return (
     <Card
       className={cn(
-        'w-full cursor-pointer transition-all hover:border-primary/30 overflow-hidden',
+        'w-full max-w-full cursor-pointer transition-all hover:border-primary/30 overflow-hidden',
         isSelected && 'border-primary/50 bg-primary/5',
       )}
       onClick={onClick}
     >
       <CardContent className="p-3 space-y-1.5 overflow-hidden">
-        <div className="flex items-center gap-2 overflow-hidden">
-          {task.mode === 'search' ? (
-            <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-          ) : (
-            <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-          )}
-          <span className="text-sm font-medium shrink min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
-            {task.source_title || task.keyword || (task.mode === 'direct' ? `直投内容 #${task.id}` : `任务 #${task.id}`)}
-          </span>
+        <div className="grid items-center gap-1.5 overflow-hidden" style={{ gridTemplateColumns: 'minmax(0,1fr) auto' }}>
+          <div className="flex items-center gap-1.5 overflow-hidden min-w-0">
+            {task.mode === 'search' ? (
+              <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+            ) : (
+              <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+            )}
+            <span className="text-sm font-medium truncate min-w-0">
+              {task.source_title || task.keyword || (task.mode === 'direct' ? `直投内容 #${task.id}` : `任务 #${task.id}`)}
+            </span>
+          </div>
           <Badge variant={STATUS_VARIANT[task.status]} className="shrink-0 text-[10px] px-1.5 py-0 h-4">
             <Icon className={cn('w-2.5 h-2.5 mr-0.5', isActive && 'animate-spin')} />
             {STATUS_LABEL[task.status]}
