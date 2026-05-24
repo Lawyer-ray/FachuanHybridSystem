@@ -232,6 +232,29 @@ def list_available_models(request: Any) -> Any:
     返回每个模型的 id、显示名称和推荐后端，供前端模型选择器使用。
     """
     from apps.core.llm.config import LLMConfig
+    from apps.core.llm.model_list_service import ModelListService
 
-    models = LLMConfig.get_available_models()
+    service = ModelListService()
+    result = service.get_result()
+    models: list[dict[str, str]] = []
+    seen: set[str] = set()
+
+    # 默认模型优先
+    default_model = LLMConfig.get_default_model().strip()
+    if default_model:
+        seen.add(default_model)
+        models.append({"id": default_model, "name": f"{default_model}（默认）", "backend": LLMConfig.resolve_backend_for_model(default_model)})
+
+    for item in result.models:
+        model_id = str(item.get("id", "")).strip()
+        if not model_id or model_id in seen:
+            continue
+        seen.add(model_id)
+        model_name = str(item.get("name", "")).strip()
+        models.append({
+            "id": model_id,
+            "name": model_name if model_name and model_name != model_id else model_id,
+            "backend": LLMConfig.resolve_backend_for_model(model_id),
+        })
+
     return ModelListResponse(models=[ModelInfo(id=m["id"], name=m["name"], backend=m["backend"]) for m in models])
