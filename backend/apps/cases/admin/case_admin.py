@@ -32,6 +32,7 @@ from apps.cases.models import (
     SupervisingAuthority,
 )
 from apps.contacts.admin import CaseContactInline
+from apps.cases.admin.case_payment_inline import CaseClientPaymentInline
 from apps.core.admin.mixins import AdminImportExportMixin
 
 if TYPE_CHECKING:
@@ -282,6 +283,7 @@ class CaseAdmin(
         CaseChatInline,
         CaseLogInline,
         CaseContactInline,
+        CaseClientPaymentInline,
     ]
 
     def handle_json_import(
