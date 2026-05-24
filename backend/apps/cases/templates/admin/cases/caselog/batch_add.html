@@ -1,0 +1,308 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block title %}{% trans "批量添加案件日志" %}{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+[x-cloak] { display: none !important; }
+.batch-page { max-width: 960px; margin: 0 auto; }
+.batch-hero { margin-bottom: 24px; }
+.batch-hero h1 { font-size: 22px; margin: 0 0 6px; }
+.batch-hero p { color: #666; margin: 0 0 12px; }
+.batch-hero-tips { display: flex; gap: 8px; flex-wrap: wrap; }
+.tip-pill {
+    display: inline-block; padding: 4px 12px; border-radius: 12px;
+    background: #e8f0fe; color: #1a56db; font-size: 12px; font-weight: 600;
+}
+.batch-section {
+    background: #fff; border: 1px solid #d0d5dd; border-radius: 8px;
+    padding: 20px 24px; margin-bottom: 20px;
+}
+.batch-section h2 {
+    font-size: 15px; margin: 0 0 14px; padding-bottom: 10px;
+    border-bottom: 1px solid #e5e7eb; color: #374151;
+}
+.form-row { margin-bottom: 14px; }
+.form-row label { display: block; font-weight: 600; margin-bottom: 4px; font-size: 13px; color: #374151; }
+.form-row select, .form-row textarea {
+    width: 100%; padding: 8px 10px; border: 1px solid #d0d5dd;
+    border-radius: 6px; font-size: 14px; box-sizing: border-box;
+}
+.form-row select:focus, .form-row textarea:focus {
+    outline: none; border-color: #2f6da6; box-shadow: 0 0 0 2px rgba(47,109,166,.15);
+}
+.case-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.case-table th {
+    text-align: left; padding: 8px 10px; background: #f9fafb;
+    border-bottom: 2px solid #e5e7eb; font-weight: 600; color: #374151;
+}
+.case-table td { padding: 8px 10px; border-bottom: 1px solid #f0f0f0; }
+.case-table tr:hover td { background: #f9fafb; }
+.case-table .cb-cell { width: 40px; text-align: center; }
+.case-table input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
+.select-all-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 13px; }
+.select-all-row label { font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.selected-count { color: #6b7280; font-size: 12px; }
+.batch-empty-hint { color: #9ca3af; font-size: 13px; padding: 20px 0; text-align: center; }
+.btn-submit {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 28px; border: none; border-radius: 6px;
+    font-size: 14px; font-weight: 600; cursor: pointer; color: #fff;
+    background: #2f6da6; transition: background .15s;
+}
+.btn-submit:hover { background: #285b8c; }
+.btn-submit:disabled { background: #d1d5db; cursor: not-allowed; }
+.btn-submit-hint { margin-left: 12px; color: #6b7280; font-size: 13px; }
+.batch-message {
+    padding: 12px 16px; border-radius: 6px; margin-bottom: 16px;
+    font-size: 14px; display: none;
+}
+.batch-message.is-success { display: block; background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+.batch-message.is-error { display: block; background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+.batch-footer { display: flex; align-items: center; margin-top: 8px; }
+.status-badge {
+    display: inline-block; padding: 2px 8px; border-radius: 10px;
+    font-size: 11px; font-weight: 600;
+}
+.status-active { background: #d1fae5; color: #065f46; }
+.status-closed { background: #fee2e2; color: #991b1b; }
+.status-other { background: #e5e7eb; color: #374151; }
+</style>
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+{{ contracts|json_script:"batch-add-contracts" }}
+{{ batch_add_config|json_script:"batch-add-config" }}
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% trans "首页" %}</a>
+    &rsaquo; <a href="{% url 'admin:cases_caselog_changelist' %}">{% trans "案件日志" %}</a>
+    &rsaquo; {% trans "批量添加日志" %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="batch-page" x-data="batchAddApp()" x-init="init()">
+    <section class="batch-hero">
+        <h1>{% trans "批量添加案件日志" %}</h1>
+        <p>{% trans "选择一个合同，为该合同下的多个案件同时添加相同的日志内容。" %}</p>
+        <div class="batch-hero-tips">
+            <span class="tip-pill">{% trans "1. 选择合同" %}</span>
+            <span class="tip-pill">{% trans "2. 勾选案件" %}</span>
+            <span class="tip-pill">{% trans "3. 填写日志并提交" %}</span>
+        </div>
+    </section>
+
+    <div class="batch-message" :class="'is-' + message.level" x-text="message.text"
+         x-show="message.text" x-cloak></div>
+
+    {# ── 第一步：选择合同 ── #}
+    <section class="batch-section">
+        <h2>{% trans "第一步：选择合同" %}</h2>
+        <div class="form-row">
+            <label for="contract-select">{% trans "关联合同" %}</label>
+            <select id="contract-select" x-model="selectedContractId" @change="onContractChange()">
+                <option value="">{% trans "-- 请选择合同 --" %}</option>
+                <template x-for="c in contracts" :key="c[0]">
+                    <option :value="c[0]" x-text="c[1]"></option>
+                </template>
+            </select>
+        </div>
+    </section>
+
+    {# ── 第二步：选择案件 ── #}
+    <section class="batch-section" x-show="selectedContractId" x-cloak>
+        <h2>{% trans "第二步：选择案件" %}</h2>
+        <template x-if="casesLoading">
+            <p style="color:#6b7280; font-size:13px;">{% trans "加载中..." %}</p>
+        </template>
+        <template x-if="!casesLoading && cases.length === 0">
+            <p class="batch-empty-hint">{% trans "该合同下没有关联案件。" %}</p>
+        </template>
+        <template x-if="!casesLoading && cases.length > 0">
+            <div>
+                <div class="select-all-row">
+                    <label>
+                        <input type="checkbox" :checked="allChecked" @change="toggleAll()">
+                        {% trans "全选" %}
+                    </label>
+                    <span class="selected-count" x-text="'已选 ' + selectedIds.length + '/' + cases.length + ' 个案件'"></span>
+                </div>
+                <table class="case-table">
+                    <thead>
+                        <tr>
+                            <th class="cb-cell"></th>
+                            <th>{% trans "案件名称" %}</th>
+                            <th>{% trans "状态" %}</th>
+                            <th>{% trans "开始日期" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="c in cases" :key="c.id">
+                            <tr>
+                                <td class="cb-cell">
+                                    <input type="checkbox" :value="c.id"
+                                           :checked="selectedIds.includes(c.id)"
+                                           @change="toggleCase(c.id)">
+                                </td>
+                                <td x-text="c.name"></td>
+                                <td>
+                                    <span class="status-badge"
+                                          :class="c.status === 'active' ? 'status-active' : (c.status === 'closed' ? 'status-closed' : 'status-other')"
+                                          x-text="statusLabel(c.status)"></span>
+                                </td>
+                                <td x-text="c.start_date || '-'"></td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </template>
+    </section>
+
+    {# ── 第三步：填写日志 ── #}
+    <section class="batch-section" x-show="selectedContractId && cases.length > 0" x-cloak>
+        <h2>{% trans "第三步：填写日志内容" %}</h2>
+        <div class="form-row">
+            <label for="log-content">{% trans "日志内容" %}</label>
+            <textarea id="log-content" rows="6" x-model="content"
+                      placeholder="{% trans '请输入要批量写入的日志内容...' %}"></textarea>
+        </div>
+        <div class="batch-footer">
+            <button type="button" class="btn-submit" :disabled="!canSubmit || submitting" @click="submit()">
+                <span x-show="!submitting">{% trans "提交批量日志" %}</span>
+                <span x-show="submitting">{% trans "提交中..." %}</span>
+            </button>
+            <span class="btn-submit-hint" x-show="selectedIds.length > 0 && content.trim()"
+                  x-text="'即将为 ' + selectedIds.length + ' 个案件创建日志'"></span>
+        </div>
+    </section>
+</div>
+
+<script>
+function batchAddApp() {
+    return {
+        contracts: [],
+        config: {},
+        selectedContractId: '',
+        cases: [],
+        casesLoading: false,
+        selectedIds: [],
+        content: '',
+        submitting: false,
+        message: { level: '', text: '' },
+
+        init() {
+            try {
+                this.contracts = JSON.parse(document.getElementById('batch-add-contracts').textContent);
+            } catch(e) { this.contracts = []; }
+            try {
+                this.config = JSON.parse(document.getElementById('batch-add-config').textContent);
+            } catch(e) { this.config = {}; }
+        },
+
+        get allChecked() {
+            return this.cases.length > 0 && this.selectedIds.length === this.cases.length;
+        },
+
+        get canSubmit() {
+            return this.selectedIds.length > 0 && this.content.trim().length > 0;
+        },
+
+        statusLabel(s) {
+            if (s === 'active') return '{% trans "进行中" %}';
+            if (s === 'closed') return '{% trans "已归档" %}';
+            return s;
+        },
+
+        onContractChange() {
+            this.selectedIds = [];
+            this.cases = [];
+            this.message = { level: '', text: '' };
+            if (!this.selectedContractId) return;
+            this.loadCases();
+        },
+
+        async loadCases() {
+            this.casesLoading = true;
+            try {
+                const resp = await fetch(this.config.casesUrl, {
+                    method: 'POST',
+                    headers: this._headers(),
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ contract_id: parseInt(this.selectedContractId) }),
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    this.cases = data.cases;
+                } else {
+                    this.message = { level: 'error', text: data.message || '{% trans "加载案件失败" %}' };
+                }
+            } catch(e) {
+                this.message = { level: 'error', text: '{% trans "网络错误" %}' };
+            } finally {
+                this.casesLoading = false;
+            }
+        },
+
+        toggleAll() {
+            if (this.allChecked) {
+                this.selectedIds = [];
+            } else {
+                this.selectedIds = this.cases.map(c => c.id);
+            }
+        },
+
+        toggleCase(id) {
+            const idx = this.selectedIds.indexOf(id);
+            if (idx >= 0) {
+                this.selectedIds.splice(idx, 1);
+            } else {
+                this.selectedIds.push(id);
+            }
+        },
+
+        async submit() {
+            if (!this.canSubmit || this.submitting) return;
+            this.submitting = true;
+            this.message = { level: '', text: '' };
+            try {
+                const resp = await fetch(this.config.submitUrl, {
+                    method: 'POST',
+                    headers: this._headers(),
+                    credentials: 'same-origin',
+                    body: JSON.stringify({
+                        case_ids: this.selectedIds,
+                        content: this.content.trim(),
+                    }),
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    this.message = { level: 'success', text: '{% trans "成功为 " %}' + data.created_count + '{% trans " 个案件创建了日志" %}' };
+                    this.selectedIds = [];
+                    this.content = '';
+                } else {
+                    this.message = { level: 'error', text: data.message || '{% trans "提交失败" %}' };
+                }
+            } catch(e) {
+                this.message = { level: 'error', text: '{% trans "网络错误" %}' };
+            } finally {
+                this.submitting = false;
+            }
+        },
+
+        _headers() {
+            const h = { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
+            const m = document.cookie.match(/csrftoken=([^;]+)/);
+            if (m) h['X-CSRFToken'] = m[1];
+            return h;
+        },
+    };
+}
+</script>
+{% endblock %}
