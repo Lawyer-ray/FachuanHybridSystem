@@ -396,10 +396,15 @@
                     const resp = await fetch('/api/v1/llm/models');
                     const data = await resp.json();
                     this.models = (data.models || []).map(m => ({ id: m.id, name: m.name }));
-                    // 模型列表加载完成后，重新赋值以触发 select 同步
+                    // 模型列表加载完成后，从 localStorage 恢复选中状态
                     const saved = localStorage.getItem('client_recognize_last_model') || '';
                     if (saved && this.models.some(m => m.id === saved)) {
                         this.selectedModel = saved;
+                        // Alpine x-model 在 option 动态加载后可能不同步，手动设置 DOM
+                        this.$nextTick(() => {
+                            const sel = this.$el.querySelector('select[x-model="selectedModel"]');
+                            if (sel) sel.value = saved;
+                        });
                     }
                 } catch (e) {
                     console.warn('[TextParserApp] 加载模型列表失败:', e);
