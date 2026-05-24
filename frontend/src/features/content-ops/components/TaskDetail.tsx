@@ -777,8 +777,8 @@ function DiscussionScriptCard({ script }: { script: DiscussionScript }) {
 
   const handleSynthesize = () => {
     synthesizeDiscussion.mutate(script.id, {
-      onSuccess: () => toast.success('音频合成已开始'),
-      onError: () => toast.error('合成失败'),
+      onSuccess: () => toast.success('音频合成完成'),
+      onError: (err) => toast.error(`合成失败: ${err instanceof Error ? err.message : '未知错误'}`),
     })
   }
 

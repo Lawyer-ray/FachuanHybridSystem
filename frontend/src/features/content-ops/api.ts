@@ -67,7 +67,7 @@ export const contentOpsApi = {
     api.post(`discussions/${scriptId}/regenerate`).json<DiscussionScript>(),
 
   synthesizeDiscussion: (scriptId: number) =>
-    api.post(`discussions/${scriptId}/synthesize`).json<PodcastEpisode>(),
+    api.post(`discussions/${scriptId}/synthesize`, { timeout: 600_000 }).json<PodcastEpisode>(),
 
   // 审核操作
   approveArticle: (articleId: number, data?: ReviewActionInput) =>
