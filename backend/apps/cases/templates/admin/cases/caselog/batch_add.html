@@ -36,6 +36,21 @@
     flex-shrink: 0;
 }
 
+/* mode tabs */
+.mode-tabs {
+    display: flex; gap: 0; margin-bottom: 18px;
+    border: 1px solid #d0d5dd; border-radius: 8px; overflow: hidden;
+}
+.mode-tab {
+    flex: 1; padding: 10px 16px; font-size: 13px; font-weight: 600;
+    text-align: center; cursor: pointer; border: none; background: #f9fafb;
+    color: #6b7280; transition: all .15s;
+}
+.mode-tab:hover { background: #f3f4f6; color: #374151; }
+.mode-tab.active {
+    background: #2563eb; color: #fff;
+}
+
 /* form */
 .form-row { margin-bottom: 14px; }
 .form-row label { display: block; font-weight: 600; margin-bottom: 4px; font-size: 13px; color: #374151; }
@@ -47,6 +62,25 @@
 .form-row select:focus, .form-row textarea:focus {
     outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.1);
 }
+
+/* search row */
+.search-row {
+    display: flex; gap: 8px; align-items: stretch;
+}
+.search-row input[type="text"] {
+    flex: 1; padding: 8px 10px; border: 1px solid #d0d5dd;
+    border-radius: 6px; font-size: 14px; box-sizing: border-box;
+}
+.search-row input[type="text"]:focus {
+    outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.1);
+}
+.btn-search {
+    padding: 8px 18px; border: none; border-radius: 6px;
+    font-size: 13px; font-weight: 600; cursor: pointer; color: #fff;
+    background: #2563eb; white-space: nowrap; transition: background .15s;
+}
+.btn-search:hover { background: #1d4ed8; }
+.btn-search:disabled { background: #d1d5db; cursor: not-allowed; }
 
 /* case table */
 .case-table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -69,6 +103,37 @@
 .select-all-row label { font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; }
 .selected-count { margin-left: auto; color: #6b7280; font-size: 12px; }
 .batch-empty-hint { color: #9ca3af; font-size: 13px; padding: 20px 0; text-align: center; }
+
+/* pool (selected cases) */
+.selected-pool {
+    background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px;
+    padding: 14px 18px; margin-top: 14px;
+}
+.selected-pool h3 {
+    font-size: 13px; margin: 0 0 10px; color: #166534; font-weight: 600;
+}
+.pool-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.pool-table th {
+    text-align: left; padding: 6px 10px; background: #dcfce7;
+    border-bottom: 2px solid #bbf7d0; font-weight: 600; color: #166534;
+}
+.pool-table td { padding: 6px 10px; border-bottom: 1px solid #d1fae5; }
+.pool-count { color: #166534; font-weight: 600; }
+
+/* action buttons in table */
+.btn-add, .btn-remove {
+    padding: 3px 10px; border: none; border-radius: 4px;
+    font-size: 12px; font-weight: 600; cursor: pointer; transition: all .15s;
+}
+.btn-add { background: #dbeafe; color: #1d4ed8; }
+.btn-add:hover { background: #bfdbfe; }
+.btn-add:disabled { background: #e5e7eb; color: #9ca3af; cursor: not-allowed; }
+.btn-remove { background: #fee2e2; color: #991b1b; }
+.btn-remove:hover { background: #fecaca; }
+.tag-added { font-size: 11px; color: #059669; font-weight: 600; }
+
+/* search results area */
+.search-results { max-height: 360px; overflow-y: auto; }
 
 /* submit area */
 .batch-footer { display: flex; align-items: center; margin-top: 12px; }
@@ -118,10 +183,10 @@
 {% block content %}
 <div class="batch-page" x-data="batchAddApp()" x-init="init()">
     <section class="batch-hero">
-        <p>{% trans "选择一个合同，为该合同下的多个案件同时添加相同的日志内容。" %}</p>
+        <p>{% trans "选择一个合同，为该合同下的多个案件同时添加相同的日志内容；或通过关键词搜索案件，支持多次搜索累积。" %}</p>
         <div class="batch-hero-tips">
-            <span class="tip-pill">{% trans "1. 选择合同" %}</span>
-            <span class="tip-pill">{% trans "2. 勾选案件" %}</span>
+            <span class="tip-pill">{% trans "1. 选择模式" %}</span>
+            <span class="tip-pill">{% trans "2. 选择案件" %}</span>
             <span class="tip-pill">{% trans "3. 填写日志并提交" %}</span>
         </div>
     </section>
@@ -129,37 +194,104 @@
     <div class="batch-message" :class="'is-' + message.level" x-text="message.text"
          x-show="message.text" x-cloak></div>
 
-    {# ── 第一步：选择合同 ── #}
+    {# ── 第一步：选择模式 ── #}
     <section class="batch-section">
-        <h2><span class="step-num">1</span>{% trans "选择合同" %}</h2>
-        <div class="form-row">
-            <label for="contract-select">{% trans "关联合同" %}</label>
-            <select id="contract-select" x-model="selectedContractId" @change="onContractChange()">
-                <option value="">{% trans "-- 请选择合同 --" %}</option>
-                <template x-for="c in contracts" :key="c[0]">
-                    <option :value="c[0]" x-text="c[1]"></option>
-                </template>
-            </select>
+        <h2><span class="step-num">1</span>{% trans "选择案件来源" %}</h2>
+        <div class="mode-tabs">
+            <button type="button" class="mode-tab" :class="mode === 'contract' && 'active'"
+                    @click="switchMode('contract')">{% trans "按合同选择" %}</button>
+            <button type="button" class="mode-tab" :class="mode === 'search' && 'active'"
+                    @click="switchMode('search')">{% trans "按关键词搜索" %}</button>
         </div>
+
+        {# 合同选择 #}
+        <template x-if="mode === 'contract'">
+            <div class="form-row">
+                <label for="contract-select">{% trans "关联合同" %}</label>
+                <select id="contract-select" x-model="selectedContractId" @change="onContractChange()">
+                    <option value="">{% trans "-- 请选择合同 --" %}</option>
+                    <template x-for="c in contracts" :key="c[0]">
+                        <option :value="c[0]" x-text="c[1]"></option>
+                    </template>
+                </select>
+            </div>
+        </template>
+
+        {# 关键词搜索 #}
+        <template x-if="mode === 'search'">
+            <div>
+                <div class="search-row">
+                    <input type="text" x-model="searchQuery" @keydown.enter="doSearch()"
+                           placeholder="{% trans '输入案件名称、当事人姓名、案号等关键词...' %}">
+                    <button type="button" class="btn-search" :disabled="searchLoading || !searchQuery.trim()" @click="doSearch()">
+                        <span x-show="!searchLoading">{% trans "搜索" %}</span>
+                        <span x-show="searchLoading">{% trans "搜索中..." %}</span>
+                    </button>
+                </div>
+                <template x-if="searchLoading">
+                    <p style="color:#6b7280; font-size:13px; margin-top:10px;">{% trans "搜索中..." %}</p>
+                </template>
+                <template x-if="!searchLoading && searchResults.length > 0">
+                    <div class="search-results" style="margin-top: 12px;">
+                        <table class="case-table">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "案件名称" %}</th>
+                                    <th>{% trans "状态" %}</th>
+                                    <th>{% trans "开始日期" %}</th>
+                                    <th style="width: 80px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="c in searchResults" :key="c.id">
+                                    <tr>
+                                        <td>
+                                            <a class="case-link" :href="caseDetailUrl(c.id)" x-text="c.name"
+                                               target="_blank" @click.stop></a>
+                                        </td>
+                                        <td>
+                                            <span class="status-badge"
+                                                  :class="c.status === 'active' ? 'status-active' : (c.status === 'closed' ? 'status-closed' : 'status-other')"
+                                                  x-text="statusLabel(c.status)"></span>
+                                        </td>
+                                        <td x-text="c.start_date || '-'"></td>
+                                        <td>
+                                            <template x-if="isInPool(c.id)">
+                                                <span class="tag-added">{% trans "已添加" %}</span>
+                                            </template>
+                                            <template x-if="!isInPool(c.id)">
+                                                <button type="button" class="btn-add" @click="addCase(c)">{% trans "添加" %}</button>
+                                            </template>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </template>
+                <template x-if="!searchLoading && searchResults.length === 0 && searchDone">
+                    <p class="batch-empty-hint" style="margin-top: 10px;">{% trans "未找到匹配的案件。" %}</p>
+                </template>
+            </div>
+        </template>
     </section>
 
-    {# ── 第二步：选择案件 ── #}
-    <section class="batch-section" x-show="selectedContractId" x-cloak>
-        <h2><span class="step-num">2</span>{% trans "选择案件" %}</h2>
-        <template x-if="casesLoading">
-            <p style="color:#6b7280; font-size:13px;">{% trans "加载中..." %}</p>
-        </template>
-        <template x-if="!casesLoading && cases.length === 0">
-            <p class="batch-empty-hint">{% trans "该合同下没有关联案件。" %}</p>
-        </template>
-        <template x-if="!casesLoading && cases.length > 0">
+    {# ── 第二步：已选案件池 ── #}
+    <section class="batch-section" x-show="selectedCases.length > 0" x-cloak>
+        <h2>
+            <span class="step-num">2</span>{% trans "已选案件" %}
+            <span class="selected-count" style="margin-left: auto;" x-text="selectedCases.length + ' 个案件'"></span>
+        </h2>
+
+        {# 合同模式下的勾选列表 #}
+        <template x-if="mode === 'contract' && contractCases.length > 0">
             <div>
                 <div class="select-all-row">
                     <label>
                         <input type="checkbox" :checked="allChecked" @change="toggleAll()">
-                        {% trans "全选" %}
+                        {% trans "全选当前合同案件" %}
                     </label>
-                    <span class="selected-count" x-text="'已选 ' + selectedIds.length + '/' + cases.length + ' 个案件'"></span>
+                    <span class="selected-count" x-text="selectedCases.length + ' 个案件已选'"></span>
                 </div>
                 <table class="case-table">
                     <thead>
@@ -171,12 +303,12 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <template x-for="c in cases" :key="c.id">
+                        <template x-for="c in contractCases" :key="c.id">
                             <tr>
                                 <td class="cb-cell">
-                                    <input type="checkbox" :value="c.id"
-                                           :checked="selectedIds.includes(c.id)"
-                                           @change="toggleCase(c.id)">
+                                    <input type="checkbox"
+                                           :checked="isInPool(c.id)"
+                                           @change="toggleCasePool(c)">
                                 </td>
                                 <td>
                                     <a class="case-link" :href="caseDetailUrl(c.id)" x-text="c.name"
@@ -194,10 +326,43 @@
                 </table>
             </div>
         </template>
+
+        {# 搜索模式下 + 合同模式下已选池的汇总展示 #}
+        <template x-if="mode === 'search'">
+            <div class="selected-pool">
+                <table class="pool-table">
+                    <thead>
+                        <tr>
+                            <th>{% trans "案件名称" %}</th>
+                            <th>{% trans "状态" %}</th>
+                            <th style="width: 80px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="c in selectedCases" :key="c.id">
+                            <tr>
+                                <td>
+                                    <a class="case-link" :href="caseDetailUrl(c.id)" x-text="c.name"
+                                       target="_blank" @click.stop></a>
+                                </td>
+                                <td>
+                                    <span class="status-badge"
+                                          :class="c.status === 'active' ? 'status-active' : (c.status === 'closed' ? 'status-closed' : 'status-other')"
+                                          x-text="statusLabel(c.status)"></span>
+                                </td>
+                                <td>
+                                    <button type="button" class="btn-remove" @click="removeCase(c.id)">{% trans "移除" %}</button>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </template>
     </section>
 
     {# ── 第三步：填写日志 ── #}
-    <section class="batch-section" x-show="selectedContractId && cases.length > 0" x-cloak>
+    <section class="batch-section" x-show="selectedCases.length > 0" x-cloak>
         <h2><span class="step-num">3</span>{% trans "填写日志内容" %}</h2>
         <div class="form-row">
             <label for="log-content">{% trans "日志内容" %}</label>
@@ -209,8 +374,8 @@
                 <span x-show="!submitting">{% trans "提交批量日志" %}</span>
                 <span x-show="submitting">{% trans "提交中..." %}</span>
             </button>
-            <span class="btn-submit-hint" x-show="selectedIds.length > 0 && content.trim()"
-                  x-text="'即将为 ' + selectedIds.length + ' 个案件创建日志'"></span>
+            <span class="btn-submit-hint" x-show="selectedCases.length > 0 && content.trim()"
+                  x-text="'即将为 ' + selectedCases.length + ' 个案件创建日志'"></span>
         </div>
     </section>
 </div>
@@ -220,10 +385,18 @@ function batchAddApp() {
     return {
         contracts: [],
         config: {},
+        mode: 'contract',
+        // 合同模式
         selectedContractId: '',
-        cases: [],
+        contractCases: [],
         casesLoading: false,
-        selectedIds: [],
+        // 搜索模式
+        searchQuery: '',
+        searchResults: [],
+        searchLoading: false,
+        searchDone: false,
+        // 统一状态
+        selectedCases: [],
         content: '',
         submitting: false,
         message: { level: '', text: '' },
@@ -238,11 +411,26 @@ function batchAddApp() {
         },
 
         get allChecked() {
-            return this.cases.length > 0 && this.selectedIds.length === this.cases.length;
+            return this.contractCases.length > 0 &&
+                   this.contractCases.every(c => this.isInPool(c.id));
         },
 
         get canSubmit() {
-            return this.selectedIds.length > 0 && this.content.trim().length > 0;
+            return this.selectedCases.length > 0 && this.content.trim().length > 0;
+        },
+
+        switchMode(m) {
+            if (this.mode === m) return;
+            this.mode = m;
+            this.message = { level: '', text: '' };
+            if (m === 'contract') {
+                this.searchQuery = '';
+                this.searchResults = [];
+                this.searchDone = false;
+            } else {
+                this.selectedContractId = '';
+                this.contractCases = [];
+            }
         },
 
         statusLabel(s) {
@@ -255,15 +443,15 @@ function batchAddApp() {
             return this.config.caseDetailUrlTemplate.replace('__ID__', id);
         },
 
+        // ── 合同模式 ──
         onContractChange() {
-            this.selectedIds = [];
-            this.cases = [];
+            this.contractCases = [];
             this.message = { level: '', text: '' };
             if (!this.selectedContractId) return;
-            this.loadCases();
+            this.loadContractCases();
         },
 
-        async loadCases() {
+        async loadContractCases() {
             this.casesLoading = true;
             try {
                 const resp = await fetch(this.config.casesUrl, {
@@ -274,7 +462,7 @@ function batchAddApp() {
                 });
                 const data = await resp.json();
                 if (data.success) {
-                    this.cases = data.cases;
+                    this.contractCases = data.cases;
                 } else {
                     this.message = { level: 'error', text: data.message || '{% trans "加载案件失败" %}' };
                 }
@@ -287,21 +475,70 @@ function batchAddApp() {
 
         toggleAll() {
             if (this.allChecked) {
-                this.selectedIds = [];
+                const ids = new Set(this.contractCases.map(c => c.id));
+                this.selectedCases = this.selectedCases.filter(c => !ids.has(c.id));
             } else {
-                this.selectedIds = this.cases.map(c => c.id);
+                for (const c of this.contractCases) {
+                    if (!this.isInPool(c.id)) {
+                        this.selectedCases.push({ id: c.id, name: c.name, status: c.status, start_date: c.start_date });
+                    }
+                }
             }
         },
 
-        toggleCase(id) {
-            const idx = this.selectedIds.indexOf(id);
-            if (idx >= 0) {
-                this.selectedIds.splice(idx, 1);
+        toggleCasePool(c) {
+            if (this.isInPool(c.id)) {
+                this.removeCase(c.id);
             } else {
-                this.selectedIds.push(id);
+                this.addCase(c);
             }
         },
 
+        // ── 搜索模式 ──
+        async doSearch() {
+            const q = this.searchQuery.trim();
+            if (!q || this.searchLoading) return;
+            this.searchLoading = true;
+            this.searchDone = false;
+            this.message = { level: '', text: '' };
+            try {
+                const resp = await fetch(this.config.searchUrl, {
+                    method: 'POST',
+                    headers: this._headers(),
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ query: q }),
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    this.searchResults = data.cases;
+                } else {
+                    this.message = { level: 'error', text: data.message || '{% trans "搜索失败" %}' };
+                    this.searchResults = [];
+                }
+            } catch(e) {
+                this.message = { level: 'error', text: '{% trans "网络错误" %}' };
+                this.searchResults = [];
+            } finally {
+                this.searchLoading = false;
+                this.searchDone = true;
+            }
+        },
+
+        // ── 统一案件池操作 ──
+        isInPool(id) {
+            return this.selectedCases.some(c => c.id === id);
+        },
+
+        addCase(c) {
+            if (this.isInPool(c.id)) return;
+            this.selectedCases.push({ id: c.id, name: c.name, status: c.status, start_date: c.start_date });
+        },
+
+        removeCase(id) {
+            this.selectedCases = this.selectedCases.filter(c => c.id !== id);
+        },
+
+        // ── 提交 ──
         async submit() {
             if (!this.canSubmit || this.submitting) return;
             this.submitting = true;
@@ -312,15 +549,17 @@ function batchAddApp() {
                     headers: this._headers(),
                     credentials: 'same-origin',
                     body: JSON.stringify({
-                        case_ids: this.selectedIds,
+                        case_ids: this.selectedCases.map(c => c.id),
                         content: this.content.trim(),
                     }),
                 });
                 const data = await resp.json();
                 if (data.success) {
                     this.message = { level: 'success', text: '{% trans "成功为 " %}' + data.created_count + '{% trans " 个案件创建了日志" %}' };
-                    this.selectedIds = [];
+                    this.selectedCases = [];
                     this.content = '';
+                    this.searchResults = [];
+                    this.searchDone = false;
                 } else {
                     this.message = { level: 'error', text: data.message || '{% trans "提交失败" %}' };
                 }

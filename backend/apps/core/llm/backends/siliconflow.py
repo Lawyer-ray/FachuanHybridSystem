@@ -116,7 +116,12 @@ class SiliconFlowBackend:
         message = getattr(choices[0], "message", None)
         if message is None:
             return ""
-        content = getattr(message, "content", "")
+        content = getattr(message, "content", "") or ""
+        # 部分推理模型（如 MiMo、DeepSeek R1）将输出放在 reasoning_content 字段
+        if not content:
+            reasoning = getattr(message, "reasoning_content", "") or ""
+            if reasoning:
+                return str(reasoning)
         if isinstance(content, str):
             return content
         return str(content)

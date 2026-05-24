@@ -231,7 +231,12 @@ class OllamaBackend(HttpxErrorMixin):
         """
         # 提取内容
         message = data.get("message", {})
-        content = message.get("content", "")
+        content = message.get("content", "") or ""
+        # 部分推理模型（如 MiMo、QwQ）启用 think 时，输出可能在 thinking 字段
+        if not content:
+            thinking = message.get("thinking", "") or ""
+            if thinking:
+                content = thinking
 
         # 提取 token 使用信息
         # Ollama 返回 prompt_eval_count 和 eval_count

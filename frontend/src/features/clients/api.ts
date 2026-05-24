@@ -101,12 +101,14 @@ export const clientApi = {
     await api.delete(`identity-docs/${docId}`)
   },
 
-  recognizeIdentityDoc: async (file: File, docType = 'id_card', enableOllama = false): Promise<OcrRecognizeResult> => {
+  recognizeIdentityDoc: async (file: File, docType = 'id_card', model?: string): Promise<OcrRecognizeResult> => {
     const formData = new FormData()
     formData.append('file', file)
+    const params: Record<string, string> = { doc_type: docType }
+    if (model) params.model = model
     return api.post('identity-doc/recognize', {
       body: formData,
-      searchParams: { doc_type: docType, enable_ollama: String(enableOllama) },
+      searchParams: params,
     }).json<OcrRecognizeResult>()
   },
 

@@ -67,8 +67,16 @@ class OpenAICompatibleBackend(SiliconFlowBackend):
 
         duration_ms = (time.time() - start_time) * 1000
         usage = self._extract_usage(getattr(response, "usage", None))
+        content = self._extract_content(response)
+        logger.info(
+            "OpenAICompatible.chat 响应: model=%s, content=%r, choices=%s, usage=%s",
+            used_model,
+            content,
+            getattr(response, "choices", None),
+            usage,
+        )
         return LLMResponse(
-            content=self._extract_content(response),
+            content=content,
             model=used_model,
             prompt_tokens=usage.prompt_tokens,
             completion_tokens=usage.completion_tokens,

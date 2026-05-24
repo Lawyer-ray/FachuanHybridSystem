@@ -82,6 +82,11 @@ class CaseLogAdmin(BaseModelAdmin):
                 name="cases_caselog_batch_add_cases",
             ),
             urlpath(
+                "batch-add/search/",
+                self.admin_site.admin_view(self.batch_add_search_view),
+                name="cases_caselog_batch_add_search",
+            ),
+            urlpath(
                 "batch-add/submit/",
                 self.admin_site.admin_view(self.batch_add_submit_view),
                 name="cases_caselog_batch_add_submit",
@@ -111,6 +116,7 @@ class CaseLogAdmin(BaseModelAdmin):
                 "contracts": list(contracts),
                 "batch_add_config": {
                     "casesUrl": reverse("admin:cases_caselog_batch_add_cases"),
+                    "searchUrl": reverse("admin:cases_caselog_batch_add_search"),
                     "submitUrl": reverse("admin:cases_caselog_batch_add_submit"),
                     "changelistUrl": reverse("admin:cases_caselog_changelist"),
                     "caseDetailUrlTemplate": reverse("admin:cases_case_detail", args=[0]).replace("/0/", "/__ID__/"),
@@ -149,6 +155,41 @@ class CaseLogAdmin(BaseModelAdmin):
                     "start_date": c["start_date"].isoformat() if c["start_date"] else None,
                 }
             )
+        return JsonResponse({"success": True, "cases": case_list})
+
+    def batch_add_search_view(self, request: HttpRequest) -> JsonResponse:
+        if request.method != "POST":
+            return JsonResponse({"success": False, "message": _("Method not allowed")}, status=405)
+        if not self.has_view_permission(request):
+            return JsonResponse({"success": False, "message": _("Permission denied")}, status=403)
+
+        try:
+            payload = json.loads(request.body.decode("utf-8"))
+        except Exception:
+            return JsonResponse({"success": False, "message": _("参数格式错误")}, status=400)
+
+        query = (payload.get("query") or "").strip()
+        if not query:
+            return JsonResponse({"success": False, "message": _("请输入搜索关键词")}, status=400)
+
+        limit = min(int(payload.get("limit", 30)), 50)
+
+        from apps.cases.models import Case
+        from apps.cases.services.case.repo.case_search_query_builder import CaseSearchQueryBuilder
+
+        builder = CaseSearchQueryBuilder()
+        qs = Case.objects.all()
+        qs = builder.build_case_search_queryset(qs, query, status=None, limit=limit)
+        cases = list(qs.values("id", "name", "status", "start_date"))
+        case_list = [
+            {
+                "id": c["id"],
+                "name": c["name"],
+                "status": c["status"],
+                "start_date": c["start_date"].isoformat() if c["start_date"] else None,
+            }
+            for c in cases
+        ]
         return JsonResponse({"success": True, "cases": case_list})
 
     def batch_add_submit_view(self, request: HttpRequest) -> JsonResponse:

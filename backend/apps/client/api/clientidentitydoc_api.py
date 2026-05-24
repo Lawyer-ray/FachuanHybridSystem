@@ -40,22 +40,23 @@ def recognize_identity_doc(
     request: Any,
     file: UploadedFile = File(...),
     doc_type: str = "auto",
-    enable_ollama: bool = False,
+    model: str | None = None,
 ) -> IdentityRecognizeOut:
     """识别证件信息"""
     image_bytes = file.read()
     service = _get_identity_extraction_service()
     normalized_doc_type = (doc_type or "").strip() or "auto"
+    normalized_model = (model or "").strip() or None
     logger.info(
-        "证件识别请求入参: doc_type=%s, enable_ollama=%s, filename=%s",
+        "证件识别请求入参: doc_type=%s, model=%s, filename=%s",
         normalized_doc_type,
-        enable_ollama,
+        normalized_model,
         getattr(file, "name", ""),
     )
     result = service.safe_extract(
         image_bytes,
         normalized_doc_type,
-        enable_ollama=enable_ollama,
+        model=normalized_model,
         source_name=getattr(file, "name", None),
     )
     return IdentityRecognizeOut(

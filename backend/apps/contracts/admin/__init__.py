@@ -6,8 +6,9 @@ Contracts App Admin模块主文件
 """
 
 from .archive_classification_rule_admin import ArchiveClassificationRuleAdmin
+from .client_payment_admin import ClientPaymentRecordAdmin
 from .contract_admin import ContractAdmin
-from .contractpayment_admin import ContractPaymentInline
+from .contractpayment_admin import ContractPaymentAdmin, ContractPaymentInline
 from .supplementary_agreement_admin import SupplementaryAgreementAdmin
 
 # 所有Admin类通过装饰器自动注册
@@ -15,7 +16,9 @@ from .supplementary_agreement_admin import SupplementaryAgreementAdmin
 
 __all__ = [
     "ArchiveClassificationRuleAdmin",
+    "ClientPaymentRecordAdmin",
     "ContractAdmin",
+    "ContractPaymentAdmin",
     "ContractPaymentInline",
     "SupplementaryAgreementAdmin",
 ]

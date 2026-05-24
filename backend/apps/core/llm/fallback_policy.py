@@ -90,7 +90,15 @@ def _diagnose_unavailable(name: str, backend: ILLMBackend) -> str:
         api_key = getattr(backend, "api_key", None)
         if not api_key:
             return "API Key 未配置"
-        return "is_available() 返回 False"
+        base_url = getattr(backend, "base_url", None)
+        if not base_url:
+            return "Base URL 未配置"
+        model = getattr(backend, "default_model", None)
+        if not model:
+            return "默认模型未配置"
+        return (
+            f"is_available() 返回 False (api_key={'有' if api_key else '无'}, base_url={base_url!r}, model={model!r})"
+        )
     except Exception as e:
         return f"诊断失败: {e}"
 
@@ -116,11 +124,11 @@ class LLMFallbackPolicy:
         for name, backend_instance in backends_to_try:
             if not backend_instance.is_available():
                 reason = _diagnose_unavailable(name, backend_instance)
-                logger.warning("后端不可用,跳过", extra={"backend": name, "reason": reason})
+                logger.info("后端不可用,跳过: backend=%s, reason=%s", name, reason)
                 skipped.append((name, reason))
                 continue
             try:
-                logger.debug("尝试使用后端", extra={"backend": name})
+                logger.info("尝试使用后端: %s", name)
                 return operation(backend_instance)
             except LLMAuthenticationError:
                 raise

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from typing import TYPE_CHECKING, ClassVar
 
 from django.db import models
@@ -46,7 +47,7 @@ class Case(models.Model):
     status = models.CharField(
         max_length=32, choices=CaseStatus.choices, default=CaseStatus.ACTIVE, verbose_name=_("案件状态")
     )
-    start_date = models.DateField(auto_now_add=True, verbose_name=_("收案日期"))
+    start_date = models.DateField(default=date.today, verbose_name=_("收案日期"))
     effective_date = models.DateField(blank=True, null=True, verbose_name=_("生效日期"))
     specified_date = models.DateField(blank=True, null=True, verbose_name=_("指定日期"))
     cause_of_action = models.CharField(max_length=128, blank=True, null=True, verbose_name=_("案由"))
@@ -66,6 +67,15 @@ class Case(models.Model):
     )
     current_stage = models.CharField(
         max_length=64, choices=CaseStage.choices, blank=True, null=True, verbose_name=_("当前阶段")
+    )
+    previous_case = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="next_cases",
+        verbose_name=_("前序案件"),
+        help_text=_("该案的前一个审理阶段，如二审案件指向前一审案件"),
     )
 
     history = HistoricalRecords()
@@ -98,6 +108,34 @@ class Case(models.Model):
 
     def __str__(self) -> str:
         return f"{self.name}"
+
+    def get_case_chain(self) -> list[Case]:
+        """获取完整案件链（按 start_date 升序）。
+
+        1. 沿 previous_case 回溯到根节点（每步 1 次轻量查询）
+        2. 从根节点一次性查询所有后代，合并后排序
+        总共 N+1 次查询（N 为链长），通常 N=2~4，完全可接受。
+        """
+        # 1. 回溯到链首（链通常 2~4 层）
+        root_id: int = self.pk
+        visited: set[int] = {root_id}
+        while True:
+            parent_id = Case.objects.filter(pk=root_id).values_list("previous_case_id", flat=True).first()
+            if not parent_id or parent_id in visited:
+                break
+            visited.add(parent_id)
+            root_id = parent_id
+
+        # 2. 从根节点出发，收集所有后代（BFS，链通常很短）
+        chain: list[int] = [root_id]
+        frontier = [root_id]
+        while frontier:
+            children = list(Case.objects.filter(previous_case_id__in=frontier).values_list("pk", flat=True))
+            frontier = [c for c in children if c not in chain]
+            chain.extend(frontier)
+
+        # 3. 一次性取出所有案件，按收案日期排序
+        return list(Case.objects.filter(pk__in=chain).order_by("start_date", "pk"))
 
     def clean(self) -> None:
         """

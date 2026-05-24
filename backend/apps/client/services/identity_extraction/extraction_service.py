@@ -1,7 +1,7 @@
 """
 证件信息提取服务
 
-使用 RapidOCR (PP-OCRv5) 提取图片文字,然后用 Ollama 结构化提取信息.
+使用 RapidOCR (PP-OCRv5) 提取图片文字,然后用 LLM 结构化提取信息.
 """
 
 import json
@@ -17,7 +17,6 @@ from django.utils.translation import gettext_lazy as _
 from apps.client.models import ClientIdentityDoc
 from apps.client.services.wiring import get_llm_service
 from apps.core.exceptions import ServiceUnavailableError, ValidationException
-from apps.core.llm.config import LLMConfig
 from apps.core.llm.exceptions import LLMNetworkError, LLMTimeoutError
 
 from .data_classes import ExtractionResult, OCRExtractionError, OllamaExtractionError
@@ -31,20 +30,16 @@ _MAX_LLM_OCR_LINES = 80
 
 
 class IdentityExtractionService:
-    """证件信息提取服务 - 使用 RapidOCR (PP-OCRv5) + Ollama"""
+    """证件信息提取服务 - 使用 RapidOCR (PP-OCRv5) + LLM"""
 
-    def __init__(
-        self, recognizer: Any | None = None, ollama_model: str | None = None, ollama_base_url: str | None = None
-    ) -> None:
+    def __init__(self, recognizer: Any | None = None) -> None:
         self._recognizer = recognizer
-        self._ollama_model = ollama_model or LLMConfig.get_ollama_model()
-        self._ollama_base_url = ollama_base_url or LLMConfig.get_ollama_base_url()
 
     def extract(
         self,
         image_bytes: bytes,
         doc_type: str,
-        enable_ollama: bool = True,
+        model: str | None = None,
         source_name: str | None = None,
     ) -> ExtractionResult:
         """
@@ -53,7 +48,7 @@ class IdentityExtractionService:
         Args:
             image_bytes: 图片字节数据
             doc_type: 证件类型
-            enable_ollama: 是否允许回退 Ollama（身份证场景可关闭）
+            model: LLM 模型名称（None 或空字符串表示不使用 LLM）
 
         Returns:
             ExtractionResult: 提取结果
@@ -76,14 +71,19 @@ class IdentityExtractionService:
             # 2. 优先规则提取（身份证场景稳定且低延迟）
             extracted_data = self._extract_by_rules(raw_text, resolved_doc_type)
             if extracted_data is not None:
-                id_number_hit = bool(extracted_data.get("id_number"))
-                if id_number_hit or not enable_ollama:
+                # 判断规则提取是否命中关键字段
+                key_field_hit = bool(
+                    extracted_data.get("id_number")
+                    or extracted_data.get("credit_code")
+                    or extracted_data.get("company_name")
+                )
+                if key_field_hit or not model:
                     logger.info(
-                        "证件识别使用规则提取: requested_doc_type=%s, resolved_doc_type=%s, enable_ollama=%s, id_number_hit=%s",
+                        "证件识别使用规则提取: requested_doc_type=%s, resolved_doc_type=%s, model=%s, key_field_hit=%s",
                         doc_type,
                         resolved_doc_type,
-                        enable_ollama,
-                        id_number_hit,
+                        model,
+                        key_field_hit,
                     )
                     return ExtractionResult(
                         doc_type=resolved_doc_type,
@@ -94,20 +94,34 @@ class IdentityExtractionService:
                     )
 
                 logger.info(
-                    "规则提取未命中身份证号且允许 Ollama，回退模型提取: requested_doc_type=%s, resolved_doc_type=%s",
+                    "规则提取未命中关键字段且指定了模型，回退 LLM 提取: requested_doc_type=%s, resolved_doc_type=%s, model=%s",
                     doc_type,
                     resolved_doc_type,
+                    model,
                 )
 
-            # 3. 规则无法覆盖时回退 Ollama
-            extracted_data = self._ollama_extract(raw_text, resolved_doc_type)
+            # 3. 规则无法覆盖时，仅在用户指定了模型时回退 LLM
+            if not model:
+                logger.info(
+                    "规则提取未覆盖且未指定 LLM 模型，返回部分结果: resolved_doc_type=%s",
+                    resolved_doc_type,
+                )
+                return ExtractionResult(
+                    doc_type=resolved_doc_type,
+                    raw_text=raw_text,
+                    extracted_data=extracted_data or {},
+                    confidence=0.3,
+                    extraction_method="ocr_regex_partial",
+                )
+
+            extracted_data = self._llm_extract(raw_text, resolved_doc_type, model)
 
             return ExtractionResult(
                 doc_type=resolved_doc_type,
                 raw_text=raw_text,
                 extracted_data=extracted_data,
                 confidence=0.8,
-                extraction_method="ocr_ollama",
+                extraction_method="ocr_llm",
             )
 
         except (OCRExtractionError, OllamaExtractionError, ServiceUnavailableError):
@@ -310,8 +324,8 @@ class IdentityExtractionService:
 
         return True
 
-    def _prepare_text_for_ollama(self, raw_text: str) -> str:
-        """清洗 OCR 文本后再发送给 Ollama，减少噪声与无意义上下文。"""
+    def _prepare_text_for_llm(self, raw_text: str) -> str:
+        """清洗 OCR 文本后再发送给 LLM，减少噪声与无意义上下文。"""
         # 统一换行并拆分候选行（兼容部分 OCR 用 | 作为分隔符）
         normalized = raw_text.replace("\r\n", "\n").replace("\r", "\n")
         candidates = re.split(r"\n+|\|", normalized)
@@ -360,7 +374,7 @@ class IdentityExtractionService:
         if requested and requested not in {"auto", *PROMPT_MAPPING.keys()}:
             logger.warning("收到不支持的证件类型，已自动降级判型: doc_type=%s", requested)
 
-        text = self._prepare_text_for_ollama(raw_text)
+        text = self._prepare_text_for_llm(raw_text)
         normalized = text.lower()
         source = (source_name or "").lower()
 
@@ -435,11 +449,13 @@ class IdentityExtractionService:
         return str(ClientIdentityDoc.ID_CARD)
 
     def _extract_by_rules(self, raw_text: str, doc_type: str) -> dict[str, Any] | None:
-        """规则提取：当前覆盖身份证与法代身份证。"""
+        """规则提取：覆盖身份证、法代身份证、营业执照。"""
+        if doc_type == "business_license":
+            return self._extract_business_license(raw_text)
         if doc_type not in {"id_card", "legal_rep_id_card"}:
             return None
 
-        text = self._prepare_text_for_ollama(raw_text)
+        text = self._prepare_text_for_llm(raw_text)
         lines = [line.strip() for line in text.split("\n") if line.strip()]
         merged = "\n".join(lines)
 
@@ -460,6 +476,81 @@ class IdentityExtractionService:
             "ethnicity": ethnicity,
             "birth_date": birth_date,
         }
+
+        return extracted
+
+    def _extract_business_license(self, raw_text: str) -> dict[str, Any] | None:
+        """营业执照正则提取：企业名称、统一社会信用代码、法定代表人、地址、电话。"""
+        text = self._prepare_text_for_llm(raw_text)
+        lines = [line.strip() for line in text.split("\n") if line.strip()]
+
+        # 统一社会信用代码（18位字母数字）
+        credit_code_match = re.search(r"([0-9A-Z]{18})", text)
+        credit_code = credit_code_match.group(1) if credit_code_match else None
+
+        # 企业名称（原告/被告/名称/公司 后面的内容）
+        company_name = None
+        for line in lines:
+            m = re.search(r"(?:原告|被告|名称|公司名称|企业名称)[:：]\s*(.+)", line)
+            if m:
+                company_name = m.group(1).strip()
+                break
+        # 如果没匹配到前缀，尝试匹配"有限公司/股份公司"等模式
+        if not company_name:
+            m = re.search(r"([一-龥]+(?:有限公司|股份有限公司|集团|合伙企业))", text)
+            if m:
+                company_name = m.group(1)
+
+        # 法定代表人
+        legal_rep = None
+        for line in lines:
+            m = re.search(r"(?:法定代表人|负责人|经营者)[:：]\s*([一-龥·]{2,20})", line)
+            if m:
+                legal_rep = m.group(1).strip()
+                break
+
+        # 地址
+        address = None
+        for line in lines:
+            m = re.search(r"(?:地址|住所|经营场所|住址)[:：]\s*(.+)", line)
+            if m:
+                address = m.group(1).strip()
+                break
+
+        # 联系电话
+        phone = None
+        phone_match = re.search(r"(?:联系电话|电话|手机|联系方式)[:：]\s*([0-9\-\+\s]{7,20})", text)
+        if phone_match:
+            phone = phone_match.group(1).replace(" ", "").strip()
+
+        # 成立日期
+        registration_date = None
+        date_match = re.search(r"(?:成立日期|注册日期|营业期限)[:：]?\s*(\d{4})\D(\d{1,2})\D(\d{1,2})", text)
+        if date_match:
+            y_s, m_s, d_s = date_match.group(1), date_match.group(2), date_match.group(3)
+            registration_date = f"{y_s}-{int(m_s):02d}-{int(d_s):02d}"
+
+        # 经营范围
+        business_scope = None
+        for i, line in enumerate(lines):
+            m = re.search(r"(?:经营范围)[:：]\s*(.+)", line)
+            if m:
+                business_scope = m.group(1).strip()
+                break
+
+        extracted: dict[str, Any] = {
+            "company_name": company_name,
+            "credit_code": credit_code,
+            "legal_representative": legal_rep,
+            "address": address,
+            "business_scope": business_scope,
+            "registration_date": registration_date,
+            "phone": phone,
+        }
+
+        # 如果一个字段都没提取到，返回 None 让后续流程处理
+        if not any(extracted.values()):
+            return None
 
         return extracted
 
@@ -568,22 +659,54 @@ class IdentityExtractionService:
             return None
         return f"{y:04d}-{m:02d}-{d:02d}"
 
-    def _ollama_extract(self, raw_text: str, doc_type: str) -> dict[str, Any]:
+    @staticmethod
+    def _parse_llm_json(content: str) -> dict[str, Any]:
+        """从 LLM 输出中提取 JSON 对象，支持多种格式。"""
+        # 1. 尝试从 ```json ... ``` 代码块中提取
+        if "```json" in content:
+            json_start = content.find("```json") + 7
+            json_end = content.find("```", json_start)
+            if json_end > json_start:
+                result: dict[str, Any] = json.loads(content[json_start:json_end].strip())
+                return result
+        # 2. 尝试从 ``` ... ``` 代码块中提取
+        if "```" in content:
+            json_start = content.find("```") + 3
+            json_end = content.find("```", json_start)
+            if json_end > json_start:
+                result2: dict[str, Any] = json.loads(content[json_start:json_end].strip())
+                return result2
+        # 3. 尝试直接解析整个内容
+        try:
+            result3: dict[str, Any] = json.loads(content.strip())
+            return result3
+        except json.JSONDecodeError:
+            pass
+        # 4. 尝试从文本中提取第一个 JSON 对象
+        import re
+
+        match = re.search(r"\{[^{}]*\}", content, re.DOTALL)
+        if match:
+            result4: dict[str, Any] = json.loads(match.group())
+            return result4
+        raise ValueError("无法从 LLM 输出中提取 JSON")
+
+    def _llm_extract(self, raw_text: str, doc_type: str, model: str) -> dict[str, Any]:
         """
-        使用 Ollama 从文字中提取结构化信息
+        使用 LLM 从文字中提取结构化信息
         """
         try:
-            llm_text = self._prepare_text_for_ollama(raw_text)
-            logger.info("发送 Ollama 前 OCR 文本清洗完成: 原始长度=%d, 清洗后长度=%d", len(raw_text), len(llm_text))
-            logger.info("发送 Ollama 前 OCR 清洗后文本内容:\n%s", llm_text)
+            llm_text = self._prepare_text_for_llm(raw_text)
+            logger.info("发送 LLM 前 OCR 文本清洗完成: 原始长度=%d, 清洗后长度=%d", len(raw_text), len(llm_text))
+            logger.info("发送 LLM 前 OCR 清洗后文本内容:\n%s", llm_text)
 
             prompt = get_prompt_for_doc_type(doc_type, llm_text)
+            # 推理模型需要更多 token（reasoning + output），普通模型 512 足够
+            max_tokens = 2048
             logger.info(
-                "证件识别将调用 Ollama: model=%s, timeout=%ss, max_tokens=%s, think=%s",
-                self._ollama_model,
-                max(180, int(LLMConfig.get_ollama_timeout())),
-                256,
-                False,
+                "证件识别将调用 LLM: model=%s, max_tokens=%s",
+                model,
+                max_tokens,
             )
 
             messages = [
@@ -591,64 +714,57 @@ class IdentityExtractionService:
                 {"role": "user", "content": f"请从以下文字中提取信息:\n{llm_text}"},
             ]
 
-            ollama_timeout = max(180, int(LLMConfig.get_ollama_timeout()))
             llm_service = get_llm_service()
             llm_resp = llm_service.chat(
                 messages=messages,
-                backend="ollama",
-                model=self._ollama_model,
-                max_tokens=256,
-                timeout=ollama_timeout,
+                model=model,
+                max_tokens=max_tokens,
+                timeout=60,
                 think=False,
-                fallback=False,
+                fallback=True,
+            )
+            logger.info(
+                "LLM 响应详情: backend=%s, model=%s, content=%r, prompt_tokens=%s, completion_tokens=%s",
+                llm_resp.backend,
+                llm_resp.model,
+                llm_resp.content,
+                llm_resp.prompt_tokens,
+                llm_resp.completion_tokens,
             )
             content = llm_resp.content or ""
             if not content:
-                raise OllamaExtractionError(_("Ollama 返回内容为空"))
+                raise OllamaExtractionError(_("LLM 返回内容为空"))
 
             # 解析 JSON
             try:
-                if "```json" in content:
-                    json_start = content.find("```json") + 7
-                    json_end = content.find("```", json_start)
-                    if json_end > json_start:
-                        content = content[json_start:json_end].strip()
-                elif "```" in content:
-                    json_start = content.find("```") + 3
-                    json_end = content.find("```", json_start)
-                    if json_end > json_start:
-                        content = content[json_start:json_end].strip()
-
-                extracted_data = json.loads(content)
-                logger.info("Ollama 提取成功,字段数量: %s", len(extracted_data))
+                extracted_data = self._parse_llm_json(content)
+                logger.info("LLM 提取成功,字段数量: %s", len(extracted_data))
                 return dict(extracted_data)
 
-            except json.JSONDecodeError as e:
-                logger.exception("Ollama 返回的 JSON 格式错误: %s", e)
+            except (json.JSONDecodeError, ValueError) as e:
+                logger.exception("LLM 返回的 JSON 格式错误: %s", e)
                 raise OllamaExtractionError(_("智能识别结果解析失败，请稍后重试")) from e
 
         except ConnectionError as e:
-            logger.exception("Ollama 服务连接失败: %s", e)
-            raise ServiceUnavailableError(
-                message=_("Ollama 服务连接失败: %(e)s") % {"e": e}, service_name="Ollama"
-            ) from e
+            logger.exception("LLM 服务连接失败: %s", e)
+            raise ServiceUnavailableError(message=_("LLM 服务连接失败: %(e)s") % {"e": e}, service_name="LLM") from e
         except LLMTimeoutError as e:
-            logger.warning("Ollama 请求超时: %s", e)
-            raise OllamaExtractionError(_("智能识别超时，请稍后重试。若多次失败，请检查 Ollama 服务状态后重试")) from e
+            logger.warning("LLM 请求超时: %s", e)
+            raise OllamaExtractionError(_("智能识别超时，请稍后重试")) from e
         except LLMNetworkError as e:
-            logger.warning("Ollama 网络异常: %s", e)
-            raise OllamaExtractionError(_("无法连接智能识别服务，请检查 Ollama 服务或网络后重试")) from e
+            logger.warning("LLM 网络异常: %s", e)
+            raise OllamaExtractionError(_("无法连接智能识别服务，请检查网络后重试")) from e
         except OllamaExtractionError:
             raise
         except Exception as e:
-            logger.exception("Ollama 提取失败: %s", e)
+            logger.exception("LLM 提取失败: %s", e)
             raise OllamaExtractionError(_("智能识别暂时不可用，请稍后重试")) from e
 
     def safe_extract(
         self,
         image_bytes: bytes,
         doc_type: str,
-        enable_ollama: bool = True,
+        model: str | None = None,
         source_name: str | None = None,
     ) -> dict[str, Any]:
         """
@@ -667,7 +783,7 @@ class IdentityExtractionService:
             extraction = self.extract(
                 image_bytes,
                 doc_type,
-                enable_ollama=enable_ollama,
+                model=model,
                 source_name=source_name,
             )
             result["success"] = True

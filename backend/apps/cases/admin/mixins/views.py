@@ -285,6 +285,8 @@ class CaseAdminViewsMixin:
                 "contacts": list(case.contacts.select_related("authority").all()),
                 "contact_role_choices": list(_get_contact_role_choices()),
                 "case_stage_choices": list(_get_case_stage_choices()),
+                "related_cases": (lambda chain: chain if len(chain) > 1 else [])(case.get_case_chain()),
+                "media_url": getattr(__import__("django.conf", fromlist=["settings"]).settings, "MEDIA_URL", "/media/"),
             }
         )
 

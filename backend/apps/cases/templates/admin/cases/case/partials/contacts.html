@@ -55,6 +55,29 @@
             <h3>{% trans "添加工作人员" %}</h3>
             <form @submit.prevent="addContact()">
                 <div class="form-group">
+                    <label>{% trans "搜索已有工作人员" %}</label>
+                    <div class="staff-search-wrapper">
+                        <input type="text" class="form-control"
+                               placeholder="{% trans "输入姓名搜索历史工作人员..." %}"
+                               x-model="searchQuery"
+                               @input="searchContacts()"
+                               @focus="searchResults.length && (showSearchDropdown = true)"
+                               @click.away="showSearchDropdown = false">
+                        <div x-show="showSearchDropdown && searchResults.length" class="staff-search-dropdown">
+                            <template x-for="(item, idx) in searchResults" :key="idx">
+                                <div class="staff-search-item" @click="selectExistingContact(item)">
+                                    <strong x-text="item.name"></strong>
+                                    <span class="staff-search-meta" x-text="item.role_display"></span>
+                                    <template x-if="item.authority_name">
+                                        <span class="staff-search-meta" x-text="item.authority_name"></span>
+                                    </template>
+                                    <span class="staff-search-count" x-text="'出现 ' + item.occurrence_count + ' 次'"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
                     <label>{% trans "姓名" %} *</label>
                     <input type="text" x-model="form.name" required class="form-control">
                 </div>
@@ -112,11 +135,32 @@
     </div>
 </div>
 
+<style>
+.staff-search-wrapper { position: relative; }
+.staff-search-dropdown {
+    position: absolute; z-index: 100; left: 0; right: 0;
+    background: #fff; border: 1px solid #d0d7de; border-radius: 6px;
+    margin-top: 2px; max-height: 240px; overflow-y: auto;
+    box-shadow: 0 4px 12px rgba(0,0,0,.12);
+}
+.staff-search-item {
+    padding: 8px 12px; cursor: pointer; display: flex; align-items: center; gap: 8px;
+    font-size: 13px; border-bottom: 1px solid #f0f0f0;
+}
+.staff-search-item:last-child { border-bottom: none; }
+.staff-search-item:hover { background: #f6f8fa; }
+.staff-search-meta { color: #656d76; }
+.staff-search-count { color: #8b949e; margin-left: auto; font-size: 12px; }
+</style>
 <script>
 function contactsApp() {
     return {
         showAddDialog: false,
         submitting: false,
+        searchQuery: '',
+        searchResults: [],
+        showSearchDropdown: false,
+        _searchTimer: null,
         form: {
             name: '',
             role: '',
@@ -128,6 +172,39 @@ function contactsApp() {
         },
         resetForm() {
             this.form = { name: '', role: '', phone: '', address: '', stage: '', authority_id: '', note: '' };
+            this.searchQuery = '';
+            this.searchResults = [];
+            this.showSearchDropdown = false;
+        },
+        searchContacts() {
+            clearTimeout(this._searchTimer);
+            const q = this.searchQuery.trim();
+            if (!q) {
+                this.searchResults = [];
+                this.showSearchDropdown = false;
+                return;
+            }
+            this._searchTimer = setTimeout(async () => {
+                try {
+                    const resp = await fetch(`/api/v1/contacts/contacts/search?q=${encodeURIComponent(q)}&limit=10`);
+                    if (resp.ok) {
+                        this.searchResults = await resp.json();
+                        this.showSearchDropdown = this.searchResults.length > 0;
+                    }
+                } catch (e) { /* ignore */ }
+            }, 300);
+        },
+        selectExistingContact(item) {
+            this.form.name = item.name || '';
+            this.form.role = item.role || '';
+            this.form.phone = item.phone || '';
+            this.form.address = item.address || '';
+            if (item.authority_name) {
+                this.form.note = item.authority_name;
+            }
+            this.showSearchDropdown = false;
+            this.searchQuery = '';
+            this.searchResults = [];
         },
         async addContact() {
             if (!this.form.name || !this.form.role) return;

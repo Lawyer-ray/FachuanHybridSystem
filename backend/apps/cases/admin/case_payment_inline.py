@@ -1,0 +1,48 @@
+"""案件编辑页的客户回款 Inline"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
+from django.contrib import admin
+from django.http import HttpRequest
+from django.utils.translation import gettext_lazy as _
+
+from apps.contracts.models import ClientPaymentRecord
+
+if TYPE_CHECKING:
+    BaseTabularInline = admin.TabularInline
+else:
+    try:
+        import nested_admin
+
+        BaseTabularInline = nested_admin.NestedTabularInline
+    except ImportError:
+        BaseTabularInline = admin.TabularInline  # type: ignore[assignment,misc]
+
+
+class CaseClientPaymentInline(BaseTabularInline[ClientPaymentRecord, ClientPaymentRecord]):
+    model = ClientPaymentRecord
+    extra = 0
+    fields = ("amount", "note")
+    verbose_name = _("客户回款")
+    verbose_name_plural = _("客户回款")
+    can_delete = True
+
+    def get_formset(self, request: HttpRequest, obj: Any = None, **kwargs: Any) -> Any:
+        return super().get_formset(request, obj, **kwargs)
+
+    def save_formset(self, request: HttpRequest, form: Any, formset: Any, change: bool) -> None:
+        instances = formset.save(commit=False)
+        parent_case = self.instance  # type: ignore[attr-defined]
+        for instance in instances:
+            if parent_case and parent_case.pk:
+                if not instance.contract_id:
+                    instance.contract_id = parent_case.contract_id
+                if not instance.case_id:
+                    instance.case_id = parent_case.pk
+            # 合同为必填项，没有合同则跳过
+            if not instance.contract_id:
+                continue
+            instance.save()
+        formset.save_m2m()

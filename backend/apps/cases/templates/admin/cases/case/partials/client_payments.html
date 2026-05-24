@@ -1,0 +1,177 @@
+{% load i18n %}
+<div x-data="clientPaymentsApp()" x-init="init()">
+    <!-- 累计金额 -->
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+        <h3 style="margin:0; font-size:15px; color:#1f2937;">{% trans "客户回款" %}</h3>
+        <span style="font-size:13px; color:#6b7280;">
+            {{ client_payments|length }} {% trans "笔" %} · {% trans "累计" %} ¥{{ total_client_payment|floatformat:2 }}
+        </span>
+    </div>
+
+    <!-- 消息 -->
+    <div x-show="message.text" x-cloak
+         :style="message.level === 'success' ? 'background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0;' : 'background:#fef2f2; color:#991b1b; border:1px solid #fecaca;'"
+         style="padding:8px 12px; border-radius:6px; margin-bottom:12px; font-size:13px;"
+         x-text="message.text"></div>
+
+    <!-- 回款列表 -->
+    <template x-if="payments.length > 0">
+        <table style="width:100%; border-collapse:collapse; font-size:13px;">
+            <thead>
+                <tr>
+                    <th style="text-align:left; padding:8px; background:#f9fafb; border-bottom:2px solid #e5e7eb; color:#374151;">{% trans "日期" %}</th>
+                    <th style="text-align:right; padding:8px; background:#f9fafb; border-bottom:2px solid #e5e7eb; color:#374151;">{% trans "金额" %}</th>
+                    <th style="text-align:left; padding:8px; background:#f9fafb; border-bottom:2px solid #e5e7eb; color:#374151;">{% trans "备注" %}</th>
+                    <th style="text-align:left; padding:8px; background:#f9fafb; border-bottom:2px solid #e5e7eb; color:#374151;">{% trans "凭证" %}</th>
+                    <th style="width:60px;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                <template x-for="p in payments" :key="p.id">
+                    <tr>
+                        <td style="padding:8px; border-bottom:1px solid #f3f4f6;" x-text=" formatDate(p.created_at)"></td>
+                        <td style="padding:8px; border-bottom:1px solid #f3f4f6; text-align:right; font-weight:600; color:#059669;"
+                            x-text="'¥' + p.amount"></td>
+                        <td style="padding:8px; border-bottom:1px solid #f3f4f6; color:#6b7280;" x-text="p.note || '-'"></td>
+                        <td style="padding:8px; border-bottom:1px solid #f3f4f6;">
+                            <template x-if="p.image_path">
+                                <a :href="mediaUrl + p.image_path" target="_blank" style="color:#2563eb;">{% trans "查看" %}</a>
+                            </template>
+                            <template x-if="!p.image_path">
+                                <span style="color:#9ca3af;">-</span>
+                            </template>
+                        </td>
+                        <td style="padding:8px; border-bottom:1px solid #f3f4f6; text-align:center;">
+                            <button type="button" @click="deletePayment(p.id)"
+                                    style="background:none; border:none; color:#dc2626; cursor:pointer; font-size:12px;">
+                                {% trans "删除" %}
+                            </button>
+                        </td>
+                    </tr>
+                </template>
+            </tbody>
+        </table>
+    </template>
+    <template x-if="payments.length === 0">
+        <p style="color:#9ca3af; font-size:13px; padding:16px 0; text-align:center;">{% trans "暂无客户回款记录。" %}</p>
+    </template>
+
+    <!-- 添加回款表单 -->
+    <div style="margin-top:16px; padding:14px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px;">
+        <h4 style="margin:0 0 10px; font-size:13px; color:#374151;">{% trans "添加回款" %}</h4>
+        <div style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap;">
+            <div>
+                <label style="display:block; font-size:12px; color:#6b7280; margin-bottom:2px;">{% trans "金额" %}</label>
+                <input type="number" step="0.01" x-model="newAmount"
+                       style="width:120px; padding:6px 8px; border:1px solid #d0d5dd; border-radius:4px; font-size:13px;"
+                       placeholder="{% trans '0.00' %}">
+            </div>
+            <div style="flex:1; min-width:160px;">
+                <label style="display:block; font-size:12px; color:#6b7280; margin-bottom:2px;">{% trans "备注" %}</label>
+                <input type="text" x-model="newNote"
+                       style="width:100%; padding:6px 8px; border:1px solid #d0d5dd; border-radius:4px; font-size:13px;"
+                       placeholder="{% trans '可选' %}">
+            </div>
+            <button type="button" @click="addPayment()"
+                    :disabled="!newAmount || adding"
+                    style="padding:6px 16px; border:none; border-radius:4px; background:#2563eb; color:#fff; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap;"
+                    :class="(!newAmount || adding) ? 'opacity-50 cursor-not-allowed' : ''">
+                <span x-show="!adding">{% trans "添加" %}</span>
+                <span x-show="adding">{% trans "添加中..." %}</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+function clientPaymentsApp() {
+    return {
+        payments: [],
+        total: '0',
+        newAmount: '',
+        newNote: '',
+        adding: false,
+        message: { level: '', text: '' },
+        listUrl: '{{ client_payments_url }}',
+        addUrl: '{{ client_payments_add_url }}',
+        deleteUrlBase: '{{ client_payments_url }}',
+        mediaUrl: '{{ media_url }}',
+
+        init() {
+            this.loadPayments();
+        },
+
+        async loadPayments() {
+            try {
+                const resp = await fetch(this.listUrl, {
+                    headers: this._headers(),
+                    credentials: 'same-origin',
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    this.payments = data.payments;
+                    this.total = data.total;
+                }
+            } catch(e) {}
+        },
+
+        async addPayment() {
+            if (!this.newAmount || this.adding) return;
+            this.adding = true;
+            this.message = { level: '', text: '' };
+            try {
+                const resp = await fetch(this.addUrl, {
+                    method: 'POST',
+                    headers: this._headers(),
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ amount: this.newAmount, note: this.newNote }),
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    this.message = { level: 'success', text: '{% trans "添加成功" %}' };
+                    this.newAmount = '';
+                    this.newNote = '';
+                    await this.loadPayments();
+                } else {
+                    this.message = { level: 'error', text: data.message || '{% trans "添加失败" %}' };
+                }
+            } catch(e) {
+                this.message = { level: 'error', text: '{% trans "网络错误" %}' };
+            } finally {
+                this.adding = false;
+            }
+        },
+
+        async deletePayment(id) {
+            if (!confirm('{% trans "确定删除这条回款记录？" %}')) return;
+            try {
+                const resp = await fetch(this.deleteUrlBase + id + '/delete/', {
+                    method: 'POST',
+                    headers: this._headers(),
+                    credentials: 'same-origin',
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    await this.loadPayments();
+                } else {
+                    this.message = { level: 'error', text: data.message || '{% trans "删除失败" %}' };
+                }
+            } catch(e) {
+                this.message = { level: 'error', text: '{% trans "网络错误" %}' };
+            }
+        },
+
+        formatDate(dt) {
+            if (!dt) return '-';
+            return dt.split('T')[0];
+        },
+
+        _headers() {
+            const h = { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
+            const m = document.cookie.match(/csrftoken=([^;]+)/);
+            if (m) h['X-CSRFToken'] = m[1];
+            return h;
+        },
+    };
+}
+</script>
