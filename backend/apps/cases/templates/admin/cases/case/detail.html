@@ -92,9 +92,6 @@
             <button type="button" @click="activeTab = 'contacts'" :class="{ active: activeTab === 'contacts' }">
                 {% trans "工作人员" %}
             </button>
-            <button type="button" @click="activeTab = 'client_payments'" :class="{ active: activeTab === 'client_payments' }">
-                {% trans "客户回款" %}
-            </button>
         </nav>
 
         <div class="tab-content">
@@ -136,11 +133,6 @@
             <!-- 工作人员标签页 -->
             <div x-show="activeTab === 'contacts'" x-transition>
                 {% include "admin/cases/case/partials/contacts.html" %}
-            </div>
-
-            <!-- 客户回款标签页 -->
-            <div x-show="activeTab === 'client_payments'" x-transition>
-                {% include "admin/cases/case/partials/client_payments.html" %}
             </div>
         </div>
     </div>

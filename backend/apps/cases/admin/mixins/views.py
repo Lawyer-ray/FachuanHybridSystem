@@ -149,21 +149,6 @@ class CaseAdminViewsMixin:
                 self.admin_site.admin_view(self.email_folder_import_view),  # type: ignore[attr-defined]
                 name="cases_case_email_folder_import",
             ),
-            path(
-                "<int:object_id>/client-payments/",
-                self.admin_site.admin_view(self.client_payments_list_view),  # type: ignore[attr-defined]
-                name="cases_case_client_payments_list",
-            ),
-            path(
-                "<int:object_id>/client-payments/add/",
-                self.admin_site.admin_view(self.client_payments_add_view),  # type: ignore[attr-defined]
-                name="cases_case_client_payments_add",
-            ),
-            path(
-                "<int:object_id>/client-payments/<int:payment_id>/delete/",
-                self.admin_site.admin_view(self.client_payments_delete_view),  # type: ignore[attr-defined]
-                name="cases_case_client_payments_delete",
-            ),
         ]
         return custom_urls + urls
 
@@ -300,119 +285,11 @@ class CaseAdminViewsMixin:
                 "contacts": list(case.contacts.select_related("authority").all()),
                 "contact_role_choices": list(_get_contact_role_choices()),
                 "case_stage_choices": list(_get_case_stage_choices()),
-                "client_payments": list(case.client_payment_records.select_related("case").order_by("-created_at")),
-                "total_client_payment": sum((p.amount for p in case.client_payment_records.all()), start=Decimal("0")),
-                "client_payments_url": reverse("admin:cases_case_client_payments_list", args=[case.pk]),
-                "client_payments_add_url": reverse("admin:cases_case_client_payments_add", args=[case.pk]),
                 "media_url": getattr(__import__("django.conf", fromlist=["settings"]).settings, "MEDIA_URL", "/media/"),
             }
         )
 
         return render(request, "admin/cases/case/detail.html", context)
-
-    # ── 客户回款 AJAX 端点 ──────────────────────────────────────
-
-    def client_payments_list_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
-        from django.http import JsonResponse
-
-        case = self._get_case_with_relations(object_id)
-        if case is None:
-            return JsonResponse({"success": False, "message": "案件不存在"}, status=404)
-        if not self.has_view_permission(request, case):  # type: ignore[attr-defined]
-            return JsonResponse({"success": False, "message": "无权限"}, status=403)
-
-        qs = case.client_payment_records.order_by("-created_at")
-        payments = [
-            {
-                "id": p.pk,
-                "amount": str(p.amount),
-                "note": p.note or "",
-                "image_path": p.image_path or "",
-                "created_at": p.created_at.isoformat() if p.created_at else None,
-            }
-            for p in qs
-        ]
-        from django.db.models import Sum
-
-        total_agg = case.client_payment_records.aggregate(total=Sum("amount"))["total"]
-        total = total_agg if total_agg is not None else Decimal("0")
-        return JsonResponse({"success": True, "payments": payments, "total": str(total)})
-
-    def client_payments_add_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
-        from django.http import JsonResponse
-
-        if request.method != "POST":
-            return JsonResponse({"success": False, "message": "Method not allowed"}, status=405)
-
-        case = self._get_case_with_relations(object_id)
-        if case is None:
-            return JsonResponse({"success": False, "message": "案件不存在"}, status=404)
-        if not self.has_change_permission(request, case):  # type: ignore[attr-defined]
-            return JsonResponse({"success": False, "message": "无权限"}, status=403)
-
-        if not case.contract_id:
-            return JsonResponse({"success": False, "message": "该案件未关联合同，无法添加回款"}, status=400)
-
-        try:
-            payload = json_mod.loads(request.body.decode("utf-8"))
-        except Exception:
-            return JsonResponse({"success": False, "message": "参数格式错误"}, status=400)
-
-        amount_str = (payload.get("amount") or "").strip()
-        note = (payload.get("note") or "").strip()
-        if not amount_str:
-            return JsonResponse({"success": False, "message": "请输入回款金额"}, status=400)
-
-        try:
-            amount = Decimal(amount_str)
-        except (InvalidOperation, ValueError):
-            return JsonResponse({"success": False, "message": "金额格式不正确"}, status=400)
-
-        from apps.contracts.services.client_payment import ClientPaymentRecordService
-
-        service = ClientPaymentRecordService()
-        record = service.create_payment_record(
-            contract_id=case.contract_id,
-            amount=amount,
-            case_id=case.pk,
-            note=note,
-        )
-        return JsonResponse(
-            {
-                "success": True,
-                "payment": {
-                    "id": record.pk,
-                    "amount": str(record.amount),
-                    "note": record.note or "",
-                    "created_at": record.created_at.isoformat() if record.created_at else None,
-                },
-            }
-        )
-
-    def client_payments_delete_view(self, request: HttpRequest, object_id: int, payment_id: int) -> HttpResponse:
-        from django.http import JsonResponse
-
-        if request.method != "POST":
-            return JsonResponse({"success": False, "message": "Method not allowed"}, status=405)
-
-        case = self._get_case_with_relations(object_id)
-        if case is None:
-            return JsonResponse({"success": False, "message": "案件不存在"}, status=404)
-        if not self.has_change_permission(request, case):  # type: ignore[attr-defined]
-            return JsonResponse({"success": False, "message": "无权限"}, status=403)
-
-        from apps.contracts.models import ClientPaymentRecord
-
-        try:
-            record = ClientPaymentRecord.objects.get(pk=payment_id, case_id=case.pk)
-        except ClientPaymentRecord.DoesNotExist:
-            return JsonResponse({"success": False, "message": "记录不存在"}, status=404)
-
-        from apps.contracts.services.client_payment import ClientPaymentRecordService
-
-        service = ClientPaymentRecordService()
-        service.delete_payment_record(record.pk)
-        return JsonResponse({"success": True})
 
     @staticmethod
     def _group_templates_by_sub_type(
