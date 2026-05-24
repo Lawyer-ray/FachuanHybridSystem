@@ -2,6 +2,49 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.50.2] - 2026-05-24
+
+### 后端
+
+#### 新功能
+
+- **WXMP 自动化发布系统**：完整实现基于 Playwright CDP 的 WX 公众号自动化发布，支持账号密码登录 + 扫码二次验证、自动导航到新建文章、标题填写、Markdown 内容注入（ProseMirror 剪贴板粘贴）、封面图上传、保存草稿/群发
+- **专业级公众号排版系统**：新增 `markdown_converter.py`，支持 3 种排版主题（classic/elegant/green），内联样式 HTML 输出，包含渐变边框标题、卡片式引用块、深色表头表格、斑马纹行、Callout 盒子（GFM alert 语法）、代码高亮、SVG 装饰元素等
+- **AI 排版集成**：新增 `llm_formatter.py`，调用 LLM 服务生成花哨的内联样式 HTML，支持 5 种风格（auto/professional/creative/minimal/colorful），失败自动降级到规则排版
+- **排版方式选择**：`PublishTask` 新增 `format_method` 字段，支持 `rule`（规则排版）和 `llm`（AI 排版）两种方式
+- **多人播客讨论**：新增 `discussion_chain.py`，支持多角色 VoiceDesign 讨论稿生成，TTS 并行合成（83s → 12s，6.7x 提速）
+- **内容运营任务管理增强**：任务状态机完善、讨论稿 speakers 字段、Episode 增强、API 扩展
+
+#### 性能优化
+
+- **Case 模块优化**：全局搜索复用、文件夹扫描增强、邮件导入改进、查询合并、预取扩展
+- **Client 模块优化**：新增性能索引（`0009_add_performance_indexes`）、Admin 查询优化、媒体处理增强
+- **Contract 模块优化**：Admin 预取、查询去重、Schema 精简
+
+#### 修复
+
+- **WXMP 登录状态检测**：`check_login_status` 选择器适配实际 DOM（`.mp_account_box`、`.acount_box-nickname`）
+- **WXMP 发布器选择器**：`_navigate_to_new_article` 修正为"文章"（非"图文消息"）
+- **Admin 任务自动调度**：`save_model` 重写，新建任务时自动通过 `async_task` 调度 `execute_publish_task`
+- **API 错误格式**：`HttpError(400, ...)` 替代 tuple 返回
+- **AccountCredential Admin**：移除 `cookie_path` 冗余字段，允许独立新增凭证
+- **播客音频认证失败**：修复 `build_range_file_response` 需要绝对路径的问题
+- **讨论稿合成超时**：TTS 服务超时改善 + 错误提示优化
+
+### 前端
+
+#### 新功能
+
+- **内容运营工作台重构**：页面布局调整（任务列表为主区域，AI 选题为辅助侧栏），新增创建任务对话框、直投内容输入、任务详情面板（含文章预览、播客音频播放）
+- **播客音频播放器增强**：支持进度拖动和倍速播放（1x/1.25x/1.5x/2x）
+- **多人讨论模式**：任务详情支持多角色讨论稿展示和音频合成
+- **选题推荐优化**：交互改善、动画增强
+
+#### 修复
+
+- **任务列表溢出**：多层父容器 `overflow-hidden` + `w-full`，`div` 替代 `ScrollArea` 避免宽度约束
+- **任务卡片文本溢出**：CSS 截断修复
+
 ## [26.50.1] - 2026-05-24
 
 ### 前端
