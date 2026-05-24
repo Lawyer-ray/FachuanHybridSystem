@@ -264,7 +264,14 @@ class CaseAdmin(
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[Case]:
         qs = super().get_queryset(request)
-        return qs.prefetch_related("assignments__lawyer")
+        return qs.prefetch_related(
+            "assignments__lawyer",
+            "parties__client",
+            "supervising_authorities",
+            "case_numbers",
+            "chats",
+            "logs",
+        )
 
     def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> Any:
         from django.http import HttpResponseRedirect

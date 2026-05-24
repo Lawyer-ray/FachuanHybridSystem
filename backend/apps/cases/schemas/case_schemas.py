@@ -108,7 +108,8 @@ class CaseOut(ModelSchema):
     def resolve_contacts(obj: Case) -> list:
         if CaseContactOut is None:
             return []
-        return list(obj.contacts.select_related("authority").all())
+        # 上游已预取 contacts__authority，直接使用预取数据
+        return list(obj.contacts.all())
 
 
 class CaseUpdate(Schema):
