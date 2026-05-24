@@ -10,12 +10,33 @@ from .article import ReviewStatus
 _audio_upload_path = DatedUUIDPath("content_ops/audio")
 
 
+class EpisodeContentSource(models.TextChoices):
+    ARTICLE = "article", _("文章")
+    DISCUSSION = "discussion", _("讨论稿")
+
+
 class PodcastEpisode(models.Model):
     article = models.ForeignKey(
         "content_ops.GeneratedArticle",
         on_delete=models.CASCADE,
+        null=True,
+        blank=True,
         related_name="episodes",
         verbose_name=_("文章"),
+    )
+    discussion_script = models.ForeignKey(
+        "content_ops.DiscussionScript",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="episodes",
+        verbose_name=_("讨论脚本"),
+    )
+    content_source = models.CharField(
+        max_length=16,
+        choices=EpisodeContentSource,
+        default=EpisodeContentSource.ARTICLE,
+        verbose_name=_("内容来源"),
     )
     task = models.ForeignKey(
         "content_ops.ContentTask",
@@ -59,4 +80,8 @@ class PodcastEpisode(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self) -> str:
-        return f"{self.article.title} ({self.voice})"
+        if self.article:
+            return f"{self.article.title} ({self.voice})"
+        if self.discussion_script:
+            return f"[讨论] {self.discussion_script.title} ({self.voice})"
+        return f"Episode #{self.pk}"

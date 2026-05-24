@@ -2,6 +2,8 @@ import { createFeatureApiClient, resolveMediaUrl } from '@/lib/api'
 import type {
   ContentTask,
   CreateTaskInput,
+  DiscussionScript,
+  DiscussionTurn,
   GeneratedArticle,
   PodcastEpisode,
   ReviewActionInput,
@@ -43,6 +45,28 @@ export const contentOpsApi = {
 
   getTaskEpisodes: (taskId: number) =>
     api.get(`tasks/${taskId}/episodes`).json<PodcastEpisode[]>(),
+
+  // 讨论稿
+  getTaskDiscussions: (taskId: number) =>
+    api.get(`tasks/${taskId}/discussions`).json<DiscussionScript[]>(),
+
+  getDiscussion: (scriptId: number) =>
+    api.get(`discussions/${scriptId}`).json<DiscussionScript>(),
+
+  updateDiscussionTurn: (turnId: number, data: { text?: string; speaker_style_prompt?: string }) =>
+    api.put(`discussions/turns/${turnId}`, { json: data }).json<DiscussionTurn>(),
+
+  approveDiscussion: (scriptId: number, data?: ReviewActionInput) =>
+    api.post(`discussions/${scriptId}/approve`, { json: data ?? {} }).json<DiscussionScript>(),
+
+  rejectDiscussion: (scriptId: number, data?: ReviewActionInput) =>
+    api.post(`discussions/${scriptId}/reject`, { json: data ?? {} }).json<DiscussionScript>(),
+
+  regenerateDiscussion: (scriptId: number) =>
+    api.post(`discussions/${scriptId}/regenerate`).json<DiscussionScript>(),
+
+  synthesizeDiscussion: (scriptId: number) =>
+    api.post(`discussions/${scriptId}/synthesize`).json<PodcastEpisode>(),
 
   // 审核操作
   approveArticle: (articleId: number, data?: ReviewActionInput) =>

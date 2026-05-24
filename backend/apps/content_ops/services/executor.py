@@ -1,6 +1,6 @@
 """内容运营管道执行器。
 
-流程：检索/直投 → LLM 生成文章 → TTS 合成音频 → 保存结果
+流程：检索/直投 → LLM 生成文章/讨论稿 → TTS 合成音频 → 保存结果
 """
 
 from __future__ import annotations
@@ -17,7 +17,11 @@ from django.utils import timezone
 from apps.content_ops.models import (
     ContentTask,
     ContentTaskMode,
+    ContentTaskOutputMode,
     ContentTaskStatus,
+    DiscussionScript,
+    DiscussionTurn,
+    EpisodeContentSource,
     GeneratedArticle,
     PodcastEpisode,
     ReviewStatus,
@@ -45,9 +49,23 @@ class ContentOpsExecutor:
                 self._run_direct_mode(task)
 
             self._check_cancelled(task)
-            self._run_llm_generation(task)
+
+            output_mode = task.output_mode or ContentTaskOutputMode.NARRATION
+
+            # Phase 2: Content generation
+            if output_mode in (ContentTaskOutputMode.NARRATION, ContentTaskOutputMode.BOTH):
+                self._run_llm_generation(task)
+            if output_mode in (ContentTaskOutputMode.DISCUSSION, ContentTaskOutputMode.BOTH):
+                self._run_discussion_generation(task)
+
             self._check_cancelled(task)
-            self._run_tts_synthesis(task)
+
+            # Phase 3: TTS synthesis
+            if output_mode in (ContentTaskOutputMode.NARRATION, ContentTaskOutputMode.BOTH):
+                self._run_tts_synthesis(task)
+            if output_mode in (ContentTaskOutputMode.DISCUSSION, ContentTaskOutputMode.BOTH):
+                self._run_discussion_tts(task)
+
             self._check_cancelled(task)
             self._mark_completed(task)
             return {"task_id": str(task.pk), "status": "completed"}
@@ -281,6 +299,80 @@ class ContentOpsExecutor:
 
         self._update_progress(task, 90, "音频合成完成")
         logger.info("Episode created: id=%s, task=%s, size=%d", episode.pk, task.pk, len(audio_bytes))
+
+    def _run_discussion_generation(self, task: ContentTask) -> None:
+        """LLM 生成多人讨论脚本。"""
+        self._update_progress(task, 50, "正在生成讨论脚本...")
+
+        speakers = task.discussion_speakers or []
+        if not speakers:
+            from apps.content_ops.constants import DEFAULT_DISCUSSION_SPEAKERS
+            speakers = DEFAULT_DISCUSSION_SPEAKERS
+
+        from apps.content_ops.services.discussion_chain import DiscussionGenerationChain
+
+        chain = DiscussionGenerationChain()
+        result = chain.run(
+            facts=task.source_facts,
+            speakers=speakers,
+            case_summary=task.case_summary,
+        )
+
+        script = DiscussionScript.objects.create(
+            task=task,
+            title=result.title,
+            topic=result.topic,
+            review_status=ReviewStatus.DRAFT,
+            llm_model=result.model,
+            token_usage=result.token_usage,
+        )
+
+        # 创建 speaker -> style_prompt 映射
+        style_map = {s["name"]: s.get("style_prompt", "") for s in speakers}
+
+        for i, turn in enumerate(result.turns):
+            DiscussionTurn.objects.create(
+                script=script,
+                speaker_name=turn["speaker"],
+                speaker_style_prompt=style_map.get(turn["speaker"], ""),
+                text=turn["text"],
+                order=i,
+            )
+
+        logger.info("Discussion script created: id=%s, task=%s, turns=%d", script.pk, task.pk, len(result.turns))
+
+    def _run_discussion_tts(self, task: ContentTask) -> None:
+        """多声音 TTS 合成讨论音频。"""
+        self._update_progress(task, 70, "正在合成多人对话音频...")
+
+        script = DiscussionScript.objects.filter(task=task).order_by("-created_at").first()
+        if not script:
+            raise RuntimeError("未找到讨论脚本，无法合成音频")
+
+        turns = list(script.turns.order_by("order"))
+        if not turns:
+            raise RuntimeError("讨论脚本没有对话轮次")
+
+        turn_dicts = [
+            {"text": t.text, "style_prompt": t.speaker_style_prompt, "speaker": t.speaker_name}
+            for t in turns
+        ]
+
+        tts_service = TTSService()
+        audio_bytes = tts_service.synthesize_discussion(turns=turn_dicts)
+
+        episode = PodcastEpisode(
+            task=task,
+            discussion_script=script,
+            content_source=EpisodeContentSource.DISCUSSION,
+            voice="multi",
+            file_size_bytes=len(audio_bytes),
+        )
+        episode.audio_file.save(f"discussion_{task.pk}.mp3", BytesIO(audio_bytes))  # type: ignore[arg-type]
+        episode.save()
+
+        self._update_progress(task, 90, "多人对话音频合成完成")
+        logger.info("Discussion episode created: id=%s, task=%s, size=%d", episode.pk, task.pk, len(audio_bytes))
 
 
 def _run_orm_safely[T](operation: Callable[[], T]) -> T:

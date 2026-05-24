@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from django.core.files.base import ContentFile
+
 from django.db import transaction
 from django.utils import timezone
 
@@ -12,6 +14,8 @@ from apps.content_ops.models import (
     ContentTask,
     ContentTaskMode,
     ContentTaskStatus,
+    DiscussionScript,
+    DiscussionTurn,
     GeneratedArticle,
     PodcastEpisode,
     ReviewStatus,
@@ -50,6 +54,8 @@ class ContentOpsTaskService:
                 direct_content=getattr(payload, "direct_content", "") or "",
                 voice=getattr(payload, "voice", "冰糖") or "冰糖",
                 tts_style_prompt=getattr(payload, "tts_style_prompt", "") or "",
+                output_mode=getattr(payload, "output_mode", "narration") or "narration",
+                discussion_speakers=getattr(payload, "discussion_speakers", []) or [],
                 status=ContentTaskStatus.PENDING,
                 message=_CREATE_PENDING_MESSAGE,
             )
@@ -198,8 +204,9 @@ class ContentOpsTaskService:
         task = self.get_task(task_id=task_id, user=user)
         if task.status != ContentTaskStatus.FAILED:
             raise ValidationException("只能重试失败的任务")
-        # 清除旧的文章和音频
+        # 清除旧的文章、讨论稿和音频
         GeneratedArticle.objects.filter(task=task).delete()
+        DiscussionScript.objects.filter(task=task).delete()
         PodcastEpisode.objects.filter(task=task).delete()
         # 重新提交
         task.status = ContentTaskStatus.PENDING
@@ -229,6 +236,135 @@ class ContentOpsTaskService:
             raise ValidationException("不能删除正在执行的任务，请先取消")
         task.delete()
 
+    # --- Discussion scripts ---
+
+    def list_discussion_scripts(self, *, task_id: int, user: Any | None = None) -> list[DiscussionScript]:
+        """列出任务关联的讨论稿。"""
+        task = self.get_task(task_id=task_id, user=user)
+        return list(DiscussionScript.objects.filter(task=task).order_by("-created_at"))
+
+    def get_discussion_script(self, *, script_id: int, user: Any | None = None) -> DiscussionScript:
+        """获取讨论稿详情（含轮次）。"""
+        script = DiscussionScript.objects.select_related("task").filter(id=script_id).first()
+        if not script:
+            raise NotFoundError(f"讨论稿 {script_id} 不存在")
+        self._check_permission(script.task, user)
+        return script
+
+    def update_discussion_turn(self, *, turn_id: int, text: str | None = None, speaker_style_prompt: str | None = None, user: Any | None = None) -> DiscussionTurn:
+        """编辑讨论稿单轮对话。"""
+        turn = DiscussionTurn.objects.select_related("script__task").filter(id=turn_id).first()
+        if not turn:
+            raise NotFoundError(f"对话轮次 {turn_id} 不存在")
+        self._check_permission(turn.script.task, user)
+        if turn.script.review_status != ReviewStatus.DRAFT:
+            raise ValidationException("只能编辑草稿状态的讨论稿")
+        update_fields = ["updated_at"]
+        if text is not None:
+            turn.text = text
+            update_fields.append("text")
+        if speaker_style_prompt is not None:
+            turn.speaker_style_prompt = speaker_style_prompt
+            update_fields.append("speaker_style_prompt")
+        turn.save(update_fields=update_fields)
+        return turn
+
+    def approve_discussion_script(self, *, script_id: int, user: Any | None = None, notes: str = "") -> DiscussionScript:
+        """审核通过讨论稿。"""
+        script = self._get_discussion_script(script_id)
+        script.review_status = ReviewStatus.APPROVED
+        script.reviewer_notes = notes
+        script.reviewed_by = user if user and user.is_authenticated else None
+        script.reviewed_at = timezone.now()
+        script.save(update_fields=["review_status", "reviewer_notes", "reviewed_by", "reviewed_at", "updated_at"])
+        return script
+
+    def reject_discussion_script(self, *, script_id: int, user: Any | None = None, notes: str = "") -> DiscussionScript:
+        """驳回讨论稿。"""
+        script = self._get_discussion_script(script_id)
+        script.review_status = ReviewStatus.REJECTED
+        script.reviewer_notes = notes
+        script.reviewed_by = user if user and user.is_authenticated else None
+        script.reviewed_at = timezone.now()
+        script.save(update_fields=["review_status", "reviewer_notes", "reviewed_by", "reviewed_at", "updated_at"])
+        return script
+
+    def regenerate_discussion_script(self, *, script_id: int, user: Any | None = None) -> DiscussionScript:
+        """重新生成讨论稿。"""
+        script = self._get_discussion_script(script_id)
+        task = script.task
+        if not task.source_facts:
+            raise ValidationException("没有案件事实，无法重新生成")
+
+        speakers = task.discussion_speakers or []
+        if not speakers:
+            from apps.content_ops.constants import DEFAULT_DISCUSSION_SPEAKERS
+            speakers = DEFAULT_DISCUSSION_SPEAKERS
+
+        from apps.content_ops.services.discussion_chain import DiscussionGenerationChain
+
+        chain = DiscussionGenerationChain()
+        result = chain.run(
+            facts=task.source_facts,
+            speakers=speakers,
+            case_summary=task.case_summary or "",
+        )
+
+        script.title = result.title
+        script.topic = result.topic
+        script.llm_model = result.model
+        script.token_usage = result.token_usage
+        script.review_status = ReviewStatus.DRAFT
+        script.reviewer_notes = ""
+        script.reviewed_by = None
+        script.reviewed_at = None
+        script.save()
+
+        # 替换所有轮次
+        script.turns.all().delete()  # type: ignore[attr-defined]
+        style_map = {s["name"]: s.get("style_prompt", "") for s in speakers}
+        for i, turn in enumerate(result.turns):
+            DiscussionTurn.objects.create(
+                script=script,
+                speaker_name=turn["speaker"],
+                speaker_style_prompt=style_map.get(turn["speaker"], ""),
+                text=turn["text"],
+                order=i,
+            )
+
+        return script
+
+    def synthesize_discussion(self, *, script_id: int, user: Any | None = None) -> PodcastEpisode:
+        """编辑后重新合成讨论稿音频。"""
+        script = self._get_discussion_script(script_id)
+        task = script.task
+
+        turns = list(script.turns.order_by("order"))  # type: ignore[attr-defined]
+        if not turns:
+            raise ValidationException("讨论稿没有对话轮次")
+
+        turn_dicts = [
+            {"text": t.text, "style_prompt": t.speaker_style_prompt, "speaker": t.speaker_name}
+            for t in turns
+        ]
+
+        from apps.content_ops.services.tts_service import TTSService
+
+        tts_service = TTSService()
+        audio_bytes = tts_service.synthesize_discussion(turns=turn_dicts)
+
+        episode = PodcastEpisode(
+            task=task,
+            discussion_script=script,
+            content_source="discussion",
+            voice="multi",
+            file_size_bytes=len(audio_bytes),
+        )
+        episode.audio_file.save(f"discussion_{task.pk}.mp3", ContentFile(audio_bytes))
+        episode.save()
+
+        return episode
+
     @staticmethod
     def _get_article(article_id: int) -> GeneratedArticle:
         article = GeneratedArticle.objects.filter(id=article_id).first()
@@ -244,6 +380,13 @@ class ContentOpsTaskService:
         return episode
 
     @staticmethod
+    def _get_discussion_script(script_id: int) -> DiscussionScript:
+        script = DiscussionScript.objects.select_related("task").filter(id=script_id).first()
+        if not script:
+            raise NotFoundError(f"讨论稿 {script_id} 不存在")
+        return script
+
+    @staticmethod
     def _check_permission(task: ContentTask, user: Any | None) -> None:
-        if user and user.is_authenticated and task.created_by_id and task.created_by_id != user.id:
+        if user and user.is_authenticated and task.created_by_id and task.created_by_id != user.id:  # type: ignore[attr-defined]
             raise PermissionDenied("无权访问此任务")

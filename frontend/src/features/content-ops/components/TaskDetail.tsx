@@ -41,15 +41,20 @@ import {
   useTaskDetail,
   useTaskArticles,
   useTaskEpisodes,
+  useTaskDiscussions,
   useReviewArticle,
   useReviewEpisode,
+  useReviewDiscussion,
   useRetryTask,
   useCancelTask,
   useUpdateArticle,
   useRegenerateArticle,
+  useUpdateDiscussionTurn,
+  useRegenerateDiscussion,
+  useSynthesizeDiscussion,
 } from '../hooks/use-content-ops'
 import { STATUS_LABEL, REVIEW_STATUS_LABEL } from '../types'
-import type { GeneratedArticle, PodcastEpisode, ReviewStatus } from '../types'
+import type { GeneratedArticle, PodcastEpisode, DiscussionScript, ReviewStatus } from '../types'
 import { contentOpsApi } from '../api'
 import { toast } from 'sonner'
 
@@ -61,6 +66,7 @@ export function TaskDetail({ taskId }: TaskDetailProps) {
   const { data: task, isLoading } = useTaskDetail(taskId)
   const { data: articles = [] } = useTaskArticles(taskId)
   const { data: episodes = [] } = useTaskEpisodes(taskId)
+  const { data: discussions = [] } = useTaskDiscussions(taskId)
   const retryTask = useRetryTask()
   const cancelTask = useCancelTask()
 
@@ -167,19 +173,29 @@ export function TaskDetail({ taskId }: TaskDetailProps) {
         </AlertDialog>
       )}
 
-      {/* 文章和音频 Tab */}
-      {(articles.length > 0 || episodes.length > 0) && (
+      {/* 文章、音频、讨论稿 Tab */}
+      {(articles.length > 0 || episodes.length > 0 || discussions.length > 0) && (
         <Tabs defaultValue="articles">
           <div className="flex items-center justify-between">
             <TabsList>
-              <TabsTrigger value="articles">
-                <FileText className="w-4 h-4 mr-1" />
-                文章 ({articles.length})
-              </TabsTrigger>
-              <TabsTrigger value="episodes">
-                <Volume2 className="w-4 h-4 mr-1" />
-                音频 ({episodes.length})
-              </TabsTrigger>
+              {articles.length > 0 && (
+                <TabsTrigger value="articles">
+                  <FileText className="w-4 h-4 mr-1" />
+                  文章 ({articles.length})
+                </TabsTrigger>
+              )}
+              {discussions.length > 0 && (
+                <TabsTrigger value="discussions">
+                  <FileText className="w-4 h-4 mr-1" />
+                  讨论稿 ({discussions.length})
+                </TabsTrigger>
+              )}
+              {episodes.length > 0 && (
+                <TabsTrigger value="episodes">
+                  <Volume2 className="w-4 h-4 mr-1" />
+                  音频 ({episodes.length})
+                </TabsTrigger>
+              )}
             </TabsList>
             <BatchApproveButton
               articles={articles}
@@ -232,6 +248,31 @@ export function TaskDetail({ taskId }: TaskDetailProps) {
                   transition={{ duration: 0.2, ease: 'easeOut' }}
                 >
                   <EpisodeCard episode={episode} />
+                </motion.div>
+              ))}
+            </motion.div>
+          </TabsContent>
+
+          <TabsContent value="discussions" className="space-y-3 mt-3">
+            <motion.div
+              className="space-y-3"
+              initial="hidden"
+              animate="visible"
+              variants={{
+                hidden: {},
+                visible: { transition: { staggerChildren: 0.06 } },
+              }}
+            >
+              {discussions.map((script) => (
+                <motion.div
+                  key={script.id}
+                  variants={{
+                    hidden: { opacity: 0, y: 8 },
+                    visible: { opacity: 1, y: 0 },
+                  }}
+                  transition={{ duration: 0.2, ease: 'easeOut' }}
+                >
+                  <DiscussionScriptCard script={script} />
                 </motion.div>
               ))}
             </motion.div>
@@ -562,6 +603,207 @@ function EpisodeCard({ episode }: { episode: PodcastEpisode }) {
                 variant="destructive"
                 onClick={() => handleReview('reject')}
                 disabled={reviewEpisode.isPending}
+              >
+                <ThumbsDown className="w-3.5 h-3.5 mr-1" />
+                驳回
+              </Button>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+function DiscussionScriptCard({ script }: { script: DiscussionScript }) {
+  const [editingTurnId, setEditingTurnId] = useState<number | null>(null)
+  const [editText, setEditText] = useState('')
+  const [notes, setNotes] = useState('')
+  const updateTurn = useUpdateDiscussionTurn()
+  const reviewDiscussion = useReviewDiscussion()
+  const regenerateDiscussion = useRegenerateDiscussion()
+  const synthesizeDiscussion = useSynthesizeDiscussion()
+
+  const handleEditTurn = (turnId: number, text: string) => {
+    setEditingTurnId(turnId)
+    setEditText(text)
+  }
+
+  const handleSaveTurn = () => {
+    if (editingTurnId === null) return
+    updateTurn.mutate(
+      { turnId: editingTurnId, text: editText },
+      {
+        onSuccess: () => {
+          setEditingTurnId(null)
+          toast.success('对话已更新')
+        },
+        onError: () => toast.error('保存失败'),
+      },
+    )
+  }
+
+  const handleReview = (action: 'approve' | 'reject') => {
+    reviewDiscussion.mutate(
+      { scriptId: script.id, action, notes: notes || undefined },
+      {
+        onSuccess: () => {
+          toast.success(action === 'approve' ? '讨论稿已通过' : '讨论稿已驳回')
+          setNotes('')
+        },
+        onError: () => toast.error('操作失败'),
+      },
+    )
+  }
+
+  const handleRegenerate = () => {
+    regenerateDiscussion.mutate(script.id, {
+      onSuccess: () => toast.success('讨论稿已重新生成'),
+      onError: () => toast.error('重新生成失败'),
+    })
+  }
+
+  const handleSynthesize = () => {
+    synthesizeDiscussion.mutate(script.id, {
+      onSuccess: () => toast.success('音频合成已开始'),
+      onError: () => toast.error('合成失败'),
+    })
+  }
+
+  const reviewBadge = (status: ReviewStatus) => {
+    const variants = { draft: 'secondary' as const, approved: 'default' as const, rejected: 'destructive' as const }
+    return <Badge variant={variants[status]}>{REVIEW_STATUS_LABEL[status]}</Badge>
+  }
+
+  // Generate consistent colors for speakers
+  const speakerColors = [
+    'bg-blue-100 text-blue-900 dark:bg-blue-900/30 dark:text-blue-300',
+    'bg-green-100 text-green-900 dark:bg-green-900/30 dark:text-green-300',
+    'bg-purple-100 text-purple-900 dark:bg-purple-900/30 dark:text-purple-300',
+    'bg-orange-100 text-orange-900 dark:bg-orange-900/30 dark:text-orange-300',
+    'bg-pink-100 text-pink-900 dark:bg-pink-900/30 dark:text-pink-300',
+  ]
+  const speakerColorMap = new Map<string, string>()
+  const uniqueSpeakers = [...new Set(script.turns.map((t) => t.speaker_name))]
+  uniqueSpeakers.forEach((name, i) => {
+    speakerColorMap.set(name, speakerColors[i % speakerColors.length])
+  })
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <CardTitle className="text-sm">{script.title}</CardTitle>
+            {script.topic && <CardDescription className="text-xs mt-0.5">{script.topic}</CardDescription>}
+            <CardDescription className="text-xs mt-0.5">
+              {script.turns.length} 轮对话
+              {script.llm_model && <span className="ml-2">模型: {script.llm_model}</span>}
+              {script.token_usage && <span className="ml-2">Token: {script.token_usage.total_tokens}</span>}
+            </CardDescription>
+          </div>
+          {reviewBadge(script.review_status)}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {/* Chat bubble style turns */}
+        <div className="space-y-2 max-h-96 overflow-y-auto p-1">
+          {script.turns.map((turn) => {
+            const colorClass = speakerColorMap.get(turn.speaker_name) || speakerColors[0]
+            const isEditing = editingTurnId === turn.id
+            return (
+              <div key={turn.id} className="flex gap-2 group">
+                <div className={cn('px-2 py-0.5 rounded text-xs font-medium shrink-0 self-start mt-1', colorClass)}>
+                  {turn.speaker_name}
+                </div>
+                <div className="flex-1 min-w-0">
+                  {isEditing ? (
+                    <div className="space-y-1">
+                      <Textarea
+                        value={editText}
+                        onChange={(e) => setEditText(e.target.value)}
+                        rows={3}
+                        className="text-sm"
+                      />
+                      <div className="flex gap-1">
+                        <Button size="sm" className="h-6 text-xs" onClick={handleSaveTurn} disabled={updateTurn.isPending}>
+                          保存
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={() => setEditingTurnId(null)}>
+                          取消
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      {turn.text}
+                      {script.review_status === 'draft' && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 ml-1 opacity-0 group-hover:opacity-100 inline-flex align-middle"
+                          onClick={() => handleEditTurn(turn.id, turn.text)}
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </Button>
+                      )}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center gap-2 flex-wrap pt-2 border-t">
+          {script.review_status === 'draft' && (
+            <>
+              <Button variant="outline" size="sm" onClick={handleRegenerate} disabled={regenerateDiscussion.isPending}>
+                {regenerateDiscussion.isPending ? (
+                  <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-3.5 h-3.5 mr-1" />
+                )}
+                重新生成
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleSynthesize} disabled={synthesizeDiscussion.isPending}>
+                {synthesizeDiscussion.isPending ? (
+                  <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                ) : (
+                  <Volume2 className="w-3.5 h-3.5 mr-1" />
+                )}
+                合成音频
+              </Button>
+            </>
+          )}
+        </div>
+
+        {/* Review actions */}
+        {script.review_status === 'draft' && (
+          <div className="space-y-2 pt-2 border-t">
+            <Textarea
+              placeholder="审核备注（可选）"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={2}
+              className="text-xs"
+            />
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="default"
+                onClick={() => handleReview('approve')}
+                disabled={reviewDiscussion.isPending}
+              >
+                <ThumbsUp className="w-3.5 h-3.5 mr-1" />
+                通过
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => handleReview('reject')}
+                disabled={reviewDiscussion.isPending}
               >
                 <ThumbsDown className="w-3.5 h-3.5 mr-1" />
                 驳回

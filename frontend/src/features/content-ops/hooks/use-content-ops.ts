@@ -3,6 +3,24 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { contentOpsApi } from '../api'
 import type { CreateTaskInput, ReviewActionInput, TopicSuggestion } from '../types'
 
+// 任务关联讨论稿
+export function useTaskDiscussions(taskId: number | null) {
+  return useQuery({
+    queryKey: ['content-ops', 'task', taskId, 'discussions'],
+    queryFn: () => contentOpsApi.getTaskDiscussions(taskId!),
+    enabled: !!taskId,
+  })
+}
+
+// 讨论稿详情
+export function useDiscussionDetail(scriptId: number | null) {
+  return useQuery({
+    queryKey: ['content-ops', 'discussion', scriptId],
+    queryFn: () => contentOpsApi.getDiscussion(scriptId!),
+    enabled: !!scriptId,
+  })
+}
+
 // 选题建议（手动触发，使用 mutation，带错误处理）
 export function useTopicSuggestions() {
   const [data, setData] = useState<TopicSuggestion[] | null>(null)
@@ -169,6 +187,56 @@ export function useDeleteTask() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (taskId: number) => contentOpsApi.deleteTask(taskId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['content-ops'] })
+    },
+  })
+}
+
+// 编辑讨论稿轮次
+export function useUpdateDiscussionTurn() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ turnId, text, speaker_style_prompt }: { turnId: number; text?: string; speaker_style_prompt?: string }) =>
+      contentOpsApi.updateDiscussionTurn(turnId, { text, speaker_style_prompt }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['content-ops'] })
+    },
+  })
+}
+
+// 审核讨论稿
+export function useReviewDiscussion() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ scriptId, action, notes }: { scriptId: number; action: 'approve' | 'reject'; notes?: string }) => {
+      const data: ReviewActionInput = { notes }
+      return action === 'approve'
+        ? contentOpsApi.approveDiscussion(scriptId, data)
+        : contentOpsApi.rejectDiscussion(scriptId, data)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['content-ops'] })
+    },
+  })
+}
+
+// 重新生成讨论稿
+export function useRegenerateDiscussion() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (scriptId: number) => contentOpsApi.regenerateDiscussion(scriptId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['content-ops'] })
+    },
+  })
+}
+
+// 合成讨论稿音频
+export function useSynthesizeDiscussion() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (scriptId: number) => contentOpsApi.synthesizeDiscussion(scriptId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['content-ops'] })
     },

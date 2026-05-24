@@ -3,11 +3,44 @@
 export type TaskMode = 'search' | 'direct'
 export type TaskStatus = 'pending' | 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'
 export type ReviewStatus = 'draft' | 'approved' | 'rejected'
+export type OutputMode = 'narration' | 'discussion' | 'both'
+export type ContentSource = 'article' | 'discussion'
 
 export interface TopicSuggestion {
   title: string
   description: string
   suggested_keyword: string
+}
+
+export interface DiscussionSpeaker {
+  name: string
+  role: string
+  style_prompt: string
+}
+
+export interface DiscussionTurn {
+  id: number
+  speaker_name: string
+  speaker_style_prompt: string
+  text: string
+  order: number
+}
+
+export interface DiscussionScript {
+  id: number
+  title: string
+  topic: string
+  review_status: ReviewStatus
+  reviewer_notes: string
+  turns: DiscussionTurn[]
+  llm_model: string
+  token_usage: {
+    prompt_tokens: number
+    completion_tokens: number
+    total_tokens: number
+  } | null
+  created_at: string
+  updated_at: string
 }
 
 export interface ContentTask {
@@ -17,6 +50,8 @@ export interface ContentTask {
   case_summary: string
   voice: string
   tts_style_prompt: string
+  output_mode: OutputMode
+  discussion_speakers: DiscussionSpeaker[]
   source_title: string
   source_court_text: string
   source_judgment_date: string
@@ -47,7 +82,9 @@ export interface GeneratedArticle {
 
 export interface PodcastEpisode {
   id: number
-  article_id: number
+  article_id: number | null
+  discussion_script_id: number | null
+  content_source: ContentSource
   voice: string
   audio_url: string
   duration_seconds: number | null
@@ -66,6 +103,8 @@ export interface CreateTaskInput {
   direct_content?: string
   voice?: string
   tts_style_prompt?: string
+  output_mode?: OutputMode
+  discussion_speakers?: DiscussionSpeaker[]
 }
 
 export interface ReviewActionInput {
@@ -97,4 +136,15 @@ export const REVIEW_STATUS_LABEL: Record<ReviewStatus, string> = {
 export const MODE_LABEL: Record<TaskMode, string> = {
   search: '检索模式',
   direct: '直投模式',
+}
+
+export const OUTPUT_MODE_LABEL: Record<OutputMode, string> = {
+  narration: '单人叙事',
+  discussion: '多人讨论',
+  both: '两者都要',
+}
+
+export const CONTENT_SOURCE_LABEL: Record<ContentSource, string> = {
+  article: '文章',
+  discussion: '讨论稿',
 }

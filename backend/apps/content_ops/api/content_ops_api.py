@@ -12,6 +12,9 @@ from apps.content_ops.schemas.content_ops_schemas import (
     BatchReviewIn,
     ContentTaskCreateIn,
     ContentTaskOut,
+    DiscussionScriptOut,
+    DiscussionTurnOut,
+    DiscussionTurnUpdateIn,
     GeneratedArticleOut,
     PodcastEpisodeOut,
     ReviewActionIn,
@@ -144,6 +147,55 @@ def list_episodes(request: HttpRequest, task_id: int) -> list[PodcastEpisodeOut]
     return [_episode_to_out(e) for e in episodes]
 
 
+@router.get("/tasks/{task_id}/discussions", response=list[DiscussionScriptOut])
+def list_discussion_scripts(request: HttpRequest, task_id: int) -> list[DiscussionScriptOut]:
+    """列出任务关联的讨论稿。"""
+    scripts = _task_service.list_discussion_scripts(task_id=task_id, user=request.user)
+    return [_discussion_script_to_out(s) for s in scripts]
+
+
+@router.get("/discussions/{script_id}", response=DiscussionScriptOut)
+def get_discussion_script(request: HttpRequest, script_id: int) -> DiscussionScriptOut:
+    """获取讨论稿详情（含轮次）。"""
+    script = _task_service.get_discussion_script(script_id=script_id, user=request.user)
+    return _discussion_script_to_out(script)
+
+
+@router.put("/discussions/turns/{turn_id}", response=DiscussionTurnOut)
+def update_discussion_turn(request: HttpRequest, turn_id: int, payload: DiscussionTurnUpdateIn) -> DiscussionTurnOut:
+    """编辑讨论稿单轮对话。"""
+    turn = _task_service.update_discussion_turn(turn_id=turn_id, text=payload.text, speaker_style_prompt=payload.speaker_style_prompt, user=request.user)
+    return _discussion_turn_to_out(turn)
+
+
+@router.post("/discussions/{script_id}/approve", response=DiscussionScriptOut)
+def approve_discussion_script(request: HttpRequest, script_id: int, payload: ReviewActionIn) -> DiscussionScriptOut:
+    """审核通过讨论稿。"""
+    script = _task_service.approve_discussion_script(script_id=script_id, user=request.user, notes=payload.notes)
+    return _discussion_script_to_out(script)
+
+
+@router.post("/discussions/{script_id}/reject", response=DiscussionScriptOut)
+def reject_discussion_script(request: HttpRequest, script_id: int, payload: ReviewActionIn) -> DiscussionScriptOut:
+    """驳回讨论稿。"""
+    script = _task_service.reject_discussion_script(script_id=script_id, user=request.user, notes=payload.notes)
+    return _discussion_script_to_out(script)
+
+
+@router.post("/discussions/{script_id}/regenerate", response=DiscussionScriptOut)
+def regenerate_discussion_script(request: HttpRequest, script_id: int) -> DiscussionScriptOut:
+    """重新生成讨论稿。"""
+    script = _task_service.regenerate_discussion_script(script_id=script_id, user=request.user)
+    return _discussion_script_to_out(script)
+
+
+@router.post("/discussions/{script_id}/synthesize", response=PodcastEpisodeOut)
+def synthesize_discussion(request: HttpRequest, script_id: int) -> PodcastEpisodeOut:
+    """编辑后重新合成讨论稿音频。"""
+    episode = _task_service.synthesize_discussion(script_id=script_id, user=request.user)
+    return _episode_to_out(episode)
+
+
 # --- 审核 ---
 
 
@@ -261,6 +313,8 @@ def _task_to_out(task: Any) -> ContentTaskOut:
         case_summary=task.case_summary,
         voice=task.voice,
         tts_style_prompt=task.tts_style_prompt,
+        output_mode=task.output_mode or "narration",
+        discussion_speakers=task.discussion_speakers or [],
         source_title=task.source_title,
         source_court_text=task.source_court_text,
         source_judgment_date=task.source_judgment_date,
@@ -295,6 +349,8 @@ def _episode_to_out(episode: Any) -> PodcastEpisodeOut:
     return PodcastEpisodeOut(
         id=episode.pk,
         article_id=episode.article_id,
+        discussion_script_id=episode.discussion_script_id,
+        content_source=episode.content_source or "article",
         voice=episode.voice,
         audio_url=audio_url,
         duration_seconds=episode.duration_seconds,
@@ -303,4 +359,30 @@ def _episode_to_out(episode: Any) -> PodcastEpisodeOut:
         reviewer_notes=episode.reviewer_notes,
         created_at=episode.created_at,
         updated_at=episode.updated_at,
+    )
+
+
+def _discussion_turn_to_out(turn: Any) -> DiscussionTurnOut:
+    return DiscussionTurnOut(
+        id=turn.pk,
+        speaker_name=turn.speaker_name,
+        speaker_style_prompt=turn.speaker_style_prompt,
+        text=turn.text,
+        order=turn.order,
+    )
+
+
+def _discussion_script_to_out(script: Any) -> DiscussionScriptOut:
+    turns = list(script.turns.order_by("order"))
+    return DiscussionScriptOut(
+        id=script.pk,
+        title=script.title,
+        topic=script.topic,
+        review_status=script.review_status,
+        reviewer_notes=script.reviewer_notes,
+        turns=[_discussion_turn_to_out(t) for t in turns],
+        llm_model=script.llm_model,
+        token_usage=script.token_usage or {},
+        created_at=script.created_at,
+        updated_at=script.updated_at,
     )

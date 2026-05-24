@@ -100,6 +100,59 @@ class TTSService:
 
         return b"".join(audio_parts)
 
+    def synthesize_discussion(
+        self,
+        turns: list[dict[str, str]],
+        audio_format: str = "mp3",
+    ) -> bytes:
+        """Synthesize multi-person discussion audio.
+
+        Each turn uses its own VoiceDesign style_prompt for a distinct voice.
+
+        Args:
+            turns: List of {"text": "...", "style_prompt": "..."} dicts.
+            audio_format: Output format (mp3/wav).
+
+        Returns:
+            Concatenated audio bytes with short silence between turns.
+        """
+        if not turns:
+            raise ValueError("turns cannot be empty")
+        if not self._api_key:
+            raise ValueError("OPENAI_COMPATIBLE_API_KEY is not configured")
+
+        # MP3 silence frame (approx 0.4s at 128kbps)
+        _SILENCE_FRAME = bytes([
+            0xFF, 0xFB, 0x90, 0x00,  # MP3 sync word + header
+            *([0x00] * 154),           # zeroed data
+        ])
+        silence_gap = _SILENCE_FRAME * 3  # ~0.4s of silence
+
+        logger.info("Discussion TTS: %d turns", len(turns))
+
+        audio_parts: list[bytes] = []
+        transport = httpx.HTTPTransport(verify=False)
+        with httpx.Client(transport=transport, timeout=120) as client:
+            for i, turn in enumerate(turns):
+                text = turn["text"]
+                style_prompt = turn.get("style_prompt") or self._default_style_prompt
+                speaker = turn.get("speaker", f"Speaker {i+1}")
+
+                chunks = self._split_text(text)
+                logger.info(
+                    "Turn %d/%d [%s]: %d chars -> %d chunks",
+                    i + 1, len(turns), speaker, len(text), len(chunks),
+                )
+
+                if i > 0:
+                    audio_parts.append(silence_gap)
+
+                for chunk in chunks:
+                    part = self._call_api_voicedesign(chunk, style_prompt, audio_format, client)
+                    audio_parts.append(part)
+
+        return b"".join(audio_parts)
+
     def _call_api_voicedesign(self, text: str, style_prompt: str, audio_format: str, client: httpx.Client) -> bytes:
         """Call MiMo TTS API in VoiceDesign mode."""
         from apps.content_ops.constants import TTS_MODEL_VOICEDESIGN

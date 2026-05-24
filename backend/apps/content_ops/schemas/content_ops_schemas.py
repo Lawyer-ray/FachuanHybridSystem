@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
 from ninja import Schema
 
@@ -22,6 +23,8 @@ class ContentTaskCreateIn(Schema):
     direct_content: str | None = None
     voice: str = "冰糖"
     tts_style_prompt: str = ""
+    output_mode: str = "narration"
+    discussion_speakers: list[dict[str, Any]] = []
 
 
 class TopicSuggestIn(Schema):
@@ -50,6 +53,11 @@ class BatchReviewIn(Schema):
         return ids
 
 
+class DiscussionTurnUpdateIn(Schema):
+    text: str | None = None
+    speaker_style_prompt: str | None = None
+
+
 class GeneratedArticleOut(Schema):
     id: int
     title: str
@@ -65,13 +73,36 @@ class GeneratedArticleOut(Schema):
 
 class PodcastEpisodeOut(Schema):
     id: int
-    article_id: int
+    article_id: int | None = None
+    discussion_script_id: int | None = None
+    content_source: str = "article"
     voice: str
     audio_url: str = ""
     duration_seconds: int | None = None
     file_size_bytes: int | None = None
     review_status: str
     reviewer_notes: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class DiscussionTurnOut(Schema):
+    id: int
+    speaker_name: str
+    speaker_style_prompt: str
+    text: str
+    order: int
+
+
+class DiscussionScriptOut(Schema):
+    id: int
+    title: str
+    topic: str
+    review_status: str
+    reviewer_notes: str
+    turns: list[DiscussionTurnOut]
+    llm_model: str
+    token_usage: dict
     created_at: datetime
     updated_at: datetime
 
@@ -83,6 +114,8 @@ class ContentTaskOut(Schema):
     case_summary: str
     voice: str
     tts_style_prompt: str
+    output_mode: str = "narration"
+    discussion_speakers: list[dict[str, Any]] = []
     source_title: str
     source_court_text: str
     source_judgment_date: str
