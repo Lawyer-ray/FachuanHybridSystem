@@ -63,6 +63,8 @@
 .cr-info-content { flex: 1; min-width: 0; }
 .cr-info-label { font-size: 12px; color: var(--body-quiet-color, #999); font-weight: 500; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 2px; }
 .cr-info-value { font-size: 15px; color: var(--body-fg, #333); font-weight: 500; word-break: break-all; }
+.cr-party-input { width: 100%; font-size: 15px; color: var(--body-fg, #333); font-weight: 500; padding: 6px 10px; border: 1px solid var(--border-color, #ccc); border-radius: 8px; background: var(--body-bg, #fff); transition: border-color .2s; }
+.cr-party-input:focus { border-color: var(--primary, #417690); outline: none; box-shadow: 0 0 0 2px rgba(65,118,144,.1); }
 .cr-info-empty { color: var(--body-quiet-color, #ccc); font-style: italic; font-weight: 400; }
 .cr-info-divider { height: 1px; background: var(--hairline-color, #e8e8e8); margin: 0; }
 
@@ -197,12 +199,16 @@
                         <span class="cr-info-icon">🏢</span>
                         <div class="cr-info-content">
                             <div class="cr-info-label" x-text="p.label"></div>
-                            <div class="cr-info-value" x-text="p.name"></div>
+                            <input type="text" class="cr-party-input"
+                                   :value="p.name"
+                                   @input="p.name = $event.target.value"
+                                   placeholder="请输入当事人名称">
                         </div>
                     </div>
                 </div>
             </template>
         </div>
+        <p style="font-size:12px;color:var(--body-quiet-color,#999);margin:-16px 0 20px 4px;">{% trans "当事人名称可手动修改，AI 识别不准确时请自行更正" %}</p>
 
         <div style="margin-bottom: 24px;">
             <label class="cr-label">{% trans "修订人名称" %}</label>
@@ -337,9 +343,13 @@ function contractUpload() {
                 const data = await resp.json();
                 this.taskId = data.task_id;
                 this.contractTitle = data.contract_title || '';
-                this.parties = Object.entries(data.parties || {}).map(([key, name]) => ({
+                // 始终显示甲方和乙方，丙方丁方仅在识别到时显示
+                const identified = data.parties || {};
+                const defaultParties = ['party_a', 'party_b'];
+                const allKeys = [...new Set([...defaultParties, ...Object.keys(identified)])];
+                this.parties = allKeys.map(key => ({
                     key,
-                    name,
+                    name: identified[key] || '',
                     label: (PARTY_META[key] || {}).label || key,
                     icon: (PARTY_META[key] || {}).icon || '👤',
                 }));
@@ -356,10 +366,12 @@ function contractUpload() {
             this.error = '';
             this.loading = true;
             try {
+                const body = { represented_party: this.selectedParty, reviewer_name: this.reviewerName, selected_steps: this.selectedSteps };
+                this.parties.forEach(p => { body[p.key] = p.name; });
                 const resp = await FachuanCSRF.fetch(`/api/v1/contract-review/${this.taskId}/confirm-party`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ represented_party: this.selectedParty, reviewer_name: this.reviewerName, selected_steps: this.selectedSteps }),
+                    body: JSON.stringify(body),
                 });
                 if (!resp.ok) {
                     const err = await resp.json().catch(() => null);

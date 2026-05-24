@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from django.conf import settings
@@ -105,6 +106,7 @@ class ReviewService:
         user: object,
         reviewer_name: str = "",
         selected_steps: list[str] | None = None,
+        party_overrides: dict[str, str] | None = None,
     ) -> ReviewTask:
         """确认代表方，提交异步审查任务"""
         task = self._repository.get_by_id_required(task_id)
@@ -119,13 +121,21 @@ class ReviewService:
         steps = selected_steps if selected_steps else default_steps
 
         reviewer_name = reviewer_name.strip() or "法穿AI"
-        self._repository.update(
-            task_id,
-            represented_party=represented_party,
-            reviewer_name=reviewer_name,
-            status=TaskStatus.CONFIRMED,
-            selected_steps=steps,
-        )
+
+        # 构建更新字段
+        update_fields: dict[str, object] = {
+            "represented_party": represented_party,
+            "reviewer_name": reviewer_name,
+            "status": TaskStatus.CONFIRMED,
+            "selected_steps": steps,
+        }
+        # 允许用户手动修正识别错误的当事人名称
+        if party_overrides:
+            for key in ("party_a", "party_b", "party_c", "party_d"):
+                if key in party_overrides:
+                    update_fields[key] = party_overrides[key]
+
+        self._repository.update(task_id, **update_fields)
 
         # 提交异步任务
         from apps.core.tasking import submit_task
@@ -215,11 +225,65 @@ def process_review(task_id_str: str) -> None:
                     typo_applied += 1
             logger.info("错别字修订: %d/%d 处成功", typo_applied, len(typos))
 
-        # Step 3: 合同审查
-        if "contract_review" in steps:
+        # Step 3: 合同审查 + 评估报告（并行执行，两者互不依赖）
+        need_review = "contract_review" in steps
+        need_report = "review_report" in steps
+        reviewer = ContractReviewer(llm)
+
+        if need_review and need_report:
             _update_step(repository, task, ProcessStep.CONTRACT_REVIEW)
-            reviewer = ContractReviewer(llm)
-            reviews = reviewer.review_contract(
+            reviews: list[object] = []
+            report = ""
+
+            def _run_review() -> list[object]:
+                return reviewer.review_contract(
+                    paragraphs,
+                    task.represented_party,
+                    task.party_a,
+                    task.party_b,
+                    model_name=task.model_name,
+                )
+
+            def _run_report() -> str:
+                return reviewer.generate_report(
+                    paragraphs,
+                    task.represented_party,
+                    task.party_a,
+                    task.party_b,
+                    model_name=task.model_name,
+                )
+
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                futures = {
+                    pool.submit(_run_review): "review",
+                    pool.submit(_run_report): "report",
+                }
+                for future in as_completed(futures):
+                    kind = futures[future]
+                    try:
+                        if kind == "review":
+                            reviews = future.result()
+                        else:
+                            report = future.result()  # type: ignore[assignment]
+                    except Exception:
+                        logger.exception("并行任务 %s 失败", kind)
+
+            review_applied = 0
+            for rev in reviews:
+                applied = _apply_to_any_paragraph(
+                    doc, revision_tool, rev.original, rev.suggested, author=task.reviewer_name
+                )
+                if applied:
+                    review_applied += 1
+            logger.info("合同审查修订: %d/%d 处成功", review_applied, len(reviews))
+
+            if report:
+                repository.update(task.id, review_report=report)
+                logger.info("评估报告已生成 (%d 字)", len(report))
+
+        elif need_review:
+            _update_step(repository, task, ProcessStep.CONTRACT_REVIEW)
+            reviews_only = reviewer.review_contract(
                 paragraphs,
                 task.represented_party,
                 task.party_a,
@@ -227,28 +291,25 @@ def process_review(task_id_str: str) -> None:
                 model_name=task.model_name,
             )
             review_applied = 0
-            for review in reviews:
+            for rev in reviews_only:
                 applied = _apply_to_any_paragraph(
-                    doc, revision_tool, review.original, review.suggested, author=task.reviewer_name
+                    doc, revision_tool, rev.original, rev.suggested, author=task.reviewer_name
                 )
                 if applied:
                     review_applied += 1
-            logger.info("合同审查修订: %d/%d 处成功", review_applied, len(reviews))
+            logger.info("合同审查修订: %d/%d 处成功", review_applied, len(reviews_only))
 
-        # Step 3b: 生成评估报告
-        if "review_report" in steps:
-            if "contract_review" not in steps:
-                reviewer = ContractReviewer(llm)
-            report = reviewer.generate_report(
+        elif need_report:
+            report_only = reviewer.generate_report(
                 paragraphs,
                 task.represented_party,
                 task.party_a,
                 task.party_b,
                 model_name=task.model_name,
             )
-            if report:
-                repository.update(task.id, review_report=report)
-                logger.info("评估报告已生成 (%d 字)", len(report))
+            if report_only:
+                repository.update(task.id, review_report=report_only)
+                logger.info("评估报告已生成 (%d 字)", len(report_only))
 
         # Step 4: 格式标准化
         if "format_document" in steps:

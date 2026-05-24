@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 
 from apps.core.llm.exceptions import LLMBackendUnavailableError
@@ -24,28 +25,44 @@ class TypoChecker:
         self._llm = llm_service
 
     def check_typos(self, paragraphs: list[str], model_name: str = "") -> list[TypoResult]:
-        """分段发送给 LLM 检测错别字，返回结构化结果"""
-        all_results: list[TypoResult] = []
-        # 每次发送一批段落（避免超长）
+        """分段发送给 LLM 检测错别字，返回结构化结果（批次并行）"""
         batch_size = 20
+        batches: list[tuple[int, str]] = []
         for start in range(0, len(paragraphs), batch_size):
             batch = paragraphs[start : start + batch_size]
             text = "\n".join(f"[段落{start + i}] {p}" for i, p in enumerate(batch))
-            prompt = self._build_prompt(text)
-            try:
-                resp = self._llm.complete(
-                    prompt=prompt,
-                    model=model_name or None,
-                    temperature=0.1,
-                    fallback=True,
-                )
-                results = self._parse_llm_response(resp.content)
-                all_results.extend(results)
-            except LLMBackendUnavailableError:
-                raise  # LLM 不可用，直接向上抛终止任务
-            except Exception:
-                logger.exception("错别字检测解析失败 (段落 %d-%d)", start, start + len(batch))
+            batches.append((start, text))
+
+        if not batches:
+            return []
+
+        # 单批次直接调用，避免线程开销
+        if len(batches) == 1:
+            return self._check_single_batch(batches[0][1], model_name)
+
+        all_results: list[TypoResult] = []
+        with ThreadPoolExecutor(max_workers=min(len(batches), 4)) as pool:
+            futures = {pool.submit(self._check_single_batch, text, model_name): start for start, text in batches}
+            for future in as_completed(futures):
+                start = futures[future]
+                try:
+                    results = future.result()
+                    all_results.extend(results)
+                except LLMBackendUnavailableError:
+                    raise
+                except Exception:
+                    logger.exception("错别字检测解析失败 (段落 %d+)", start)
         return all_results
+
+    def _check_single_batch(self, text: str, model_name: str) -> list[TypoResult]:
+        prompt = self._build_prompt(text)
+        resp = self._llm.complete(
+            prompt=prompt,
+            model=model_name or None,
+            temperature=0.1,
+            fallback=True,
+        )
+        return self._parse_llm_response(resp.content)
 
     @staticmethod
     def _build_prompt(text: str) -> str:

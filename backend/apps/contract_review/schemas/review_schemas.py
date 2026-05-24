@@ -10,6 +10,10 @@ class ConfirmPartyIn(Schema):
     represented_party: Literal["party_a", "party_b", "party_c", "party_d"]
     reviewer_name: str = ""
     selected_steps: list[str] = []
+    party_a: str = ""
+    party_b: str = ""
+    party_c: str = ""
+    party_d: str = ""
 
 
 class TaskCreatedOut(Schema):

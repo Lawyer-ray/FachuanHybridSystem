@@ -72,8 +72,19 @@ def confirm_party(
         from django.http import HttpResponseForbidden
 
         return HttpResponseForbidden("无权操作此任务")
+    # 收集用户手动修正的当事人名称（仅传递非空值）
+    party_overrides: dict[str, str] = {}
+    for key in ("party_a", "party_b", "party_c", "party_d"):
+        val = getattr(payload, key, "")
+        if val.strip():
+            party_overrides[key] = val.strip()
     task = svc.confirm_party(
-        task_id, payload.represented_party, request.user, payload.reviewer_name, payload.selected_steps
+        task_id,
+        payload.represented_party,
+        request.user,
+        payload.reviewer_name,
+        payload.selected_steps,
+        party_overrides or None,
     )
     return {
         "task_id": task.id,
