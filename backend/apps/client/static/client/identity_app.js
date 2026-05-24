@@ -107,6 +107,8 @@ function identityApp(config = {}) {
                 this.favModels.splice(idx, 1);
             } else {
                 this.favModels.push(modelId);
+                this.selectedModel = modelId;
+                this.saveLastModel();
             }
             this.saveFavModels();
         },
