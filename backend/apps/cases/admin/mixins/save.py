@@ -165,6 +165,8 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
                 messages.error(request, _("同步律师指派失败: %s") % str(e))
 
     def save_formset(self, request: HttpRequest, form: ModelForm[Any], formset: Any, change: bool) -> None:
+        from apps.contracts.models import ClientPaymentRecord
+
         instances = formset.save(commit=False)
         for obj in instances:
             if isinstance(obj, CaseLog) and not getattr(obj, "actor_id", None):
@@ -173,6 +175,15 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
                     obj.actor_id = user_id
             if isinstance(obj, CaseAssignment) and not obj.pk and obj.case_id and obj.lawyer_id:
                 if CaseAssignment.objects.filter(case_id=obj.case_id, lawyer_id=obj.lawyer_id).exists():
+                    continue
+            if isinstance(obj, ClientPaymentRecord):
+                parent_case: Any = form.instance
+                if parent_case and parent_case.pk:
+                    if not obj.contract_id:
+                        obj.contract_id = parent_case.contract_id
+                    if not obj.case_id:
+                        obj.case_id = parent_case.pk
+                if not obj.contract_id:
                     continue
             obj.save()
         formset.save_m2m()
