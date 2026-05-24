@@ -193,7 +193,7 @@
 
 #### 新功能
 
-- **适配 OA 新 SSO 登录流程**：OA 系统从 form-based 登录迁移到 OAuth/OIDC SSO (`access.jtn.com`)，需要先通过企业微信扫码完成 SSO 认证，再输入 OA 账号密码登录。新增 `sso_login.py` 实现完整 SSO 扫码登录流程 + cookie 持久化（`~/.fachuan/jtn_cookies.json`），HTTP 和 Playwright 立案路径均优先使用缓存 cookies，过期自动触发重新登录
+- **适配 OA 新 SSO 登录流程**：OA 系统从 form-based 登录迁移到 OAuth/OIDC SSO (`access.jtn.com`)，需要先通过QYWX扫码完成 SSO 认证，再输入 OA 账号密码登录。新增 `sso_login.py` 实现完整 SSO 扫码登录流程 + cookie 持久化（`~/.fachuan/jtn_cookies.json`），HTTP 和 Playwright 立案路径均优先使用缓存 cookies，过期自动触发重新登录
 
 ## [26.48.13] - 2026-05-17
 
@@ -938,7 +938,7 @@
 - **WKInfo URL 案例检索范围**：支持通过 WKInfo URL 定义案例检索的数据库范围
 - **WK插件迁移**：WK私有 API 适配器迁移到 plugins/ 目录统一管理
 - **工作台 Agent 重构**：移除通用助手（general agent），保留分诊 + 3 个专业助手（案件管理、合同管理、法律检索）
-- **微信公众号应用**：新增 wechat_mp 应用模块
+- **WXMP 应用**：新增 wechat_mp 应用模块
 
 #### 修复
 
@@ -1171,11 +1171,11 @@
   - 新增文件大小预检（30MB 限制），超限时直接给出友好提示
   - 飞书 API 错误码 234006（文件过大）特殊处理，避免输出吓人的 traceback
   - 文件发送失败时区分业务错误和系统错误，日志更清晰
-- **企业微信配置描述优化**：`WECHAT_WORK_DEFAULT_OWNER_ID` 描述更新，明确说明在管理后台「通讯录」→ 成员详情 → 「帐号」字段获取
+- **QYWX配置描述优化**：`WECHAT_WORK_DEFAULT_OWNER_ID` 描述更新，明确说明在管理后台「通讯录」→ 成员详情 → 「帐号」字段获取
 
 ### 已知问题
 
-- **企业微信功能受限**：企业微信 API 需要配置「企业可信IP」和「可信域名」才能正常使用，本地测试需要公网 IP 或内网穿透。欢迎有缘人提 PR 改进
+- **QYWX功能受限**：QYWX API 需要配置「企业可信IP」和「可信域名」才能正常使用，本地测试需要公网 IP 或内网穿透。欢迎有缘人提 PR 改进
 
 ## [26.42.2] - 2026-05-03
 
@@ -2203,7 +2203,7 @@
 
 ### 后端
 
-- 群聊平台扩展：新增钉钉（DingtalkProvider）和 Telegram（TelegramProvider）两个 ChatProvider 实现，法院短信通知的一案一群功能从飞书+企业微信扩展至4个平台。
+- 群聊平台扩展：新增钉钉（DingtalkProvider）和 Telegram（TelegramProvider）两个 ChatProvider 实现，法院短信通知的一案一群功能从飞书+QYWX扩展至4个平台。
   - 钉钉：使用会话2.0 API（api.dingtalk.com）创建群聊，oapi 获取 access_token，机器人发送群聊消息，文件通过 media 上传+发送。
   - Telegram：采用超级群组论坛（Topic）模式实现一案一群——管理员预建开启论坛功能的超级群组，每个案件创建一个 ForumTopic 等同于一个群聊。chat_id 格式为 `{supergroup_id}:{thread_id}`，消息/文件自动携带话题 ID。
   - 新增 `_dingtalk_token_mixin.py`、`_dingtalk_file_mixin.py`、`dingtalk_provider.py`、`_telegram_token_mixin.py`、`_telegram_file_mixin.py`、`telegram_provider.py`。
@@ -2230,8 +2230,8 @@
 
 ### 后端
 
-- 法院短信通知系统升级为多平台群聊通知：新增企业微信（WeChat Work）Provider，与飞书并列支持，实现多平台扇出通知。
-  - 新增 `ChatProvider` 抽象基类与 `ChatProviderFactory` 工厂，统一管理飞书/企业微信 Provider 注册与获取。
+- 法院短信通知系统升级为多平台群聊通知：新增QYWX（WeChat Work）Provider，与飞书并列支持，实现多平台扇出通知。
+  - 新增 `ChatProvider` 抽象基类与 `ChatProviderFactory` 工厂，统一管理飞书/QYWX Provider 注册与获取。
   - 新增 `WeChatWorkProvider`（Token Mixin + File Mixin 组合），支持建群、发消息、发文件。
   - `SMSNotificationService` 改为多平台扇出模式：自动发现可用平台 → 逐平台通知 → 聚合结果。
   - 新增 `PlatformNotificationResult` / `MultiPlatformNotificationResult` DTO，替代原有 `tuple[bool, str|None]`。
@@ -2241,7 +2241,7 @@
   - 去重服务与文书送达链路同步适配新通知结果格式。
   - `CaseChatService` 默认平台从硬编码 `FEISHU` 改为动态选择首个可用平台。
   - `CaseChatRepository.create_binding` 补齐 `owner_id`/`owner_verified`/`creation_audit_log` 参数。
-  - 系统配置新增企业微信相关配置项（Corp ID / Agent ID / Secret / Default Owner ID）。
+  - 系统配置新增QYWX相关配置项（Corp ID / Agent ID / Secret / Default Owner ID）。
   - 删除废弃的 `FeishuBotService`（已被 `FeishuProvider` 替代）。
 
 ## [26.35.0] - 2026-04-16
@@ -2279,7 +2279,7 @@
 
 - 修复一张网“申请担保”`gTwo` 页面申请人填写流程：申请人类型为单位时，单位性质选择逻辑改为优先稳定命中“企业”，避免错误回落到“机关”。
 - 优化担保财产线索填写链路：按后台选中被申请人的财产线索逐条构造并逐条保存，财产类型统一稳定选择“其他”，同时补齐弹窗容器与“描述”字段兼容，提升页面自动填写成功率。
-- 调整担保申请 API 财产线索组装逻辑：新增多条财产线索构建与金额格式化能力，补充银行账户、支付宝、微信账户、不动产等线索类型映射，并保留单条财产线索兼容输出。
+- 调整担保申请 API 财产线索组装逻辑：新增多条财产线索构建与金额格式化能力，补充银行账户、支付宝、WX 账户、不动产等线索类型映射，并保留单条财产线索兼容输出。
 
 ### 测试
 
@@ -4537,8 +4537,8 @@
 
 ### 新增
 - 添加跨平台下载路径自动检测功能（文件夹浏览器优先显示用户 Downloads 目录）
-- 添加 README 打赏模块（支持微信赞赏、USDT、比特币）
-- 更新 README 联系方式为微信二维码
+- 添加 README 打赏模块（支持 WX 赞赏、USDT、比特币）
+- 更新 README 联系方式为 WX 二维码
 
 ### 修复
 - 修复 {{案件详情}} 替换词生成逻辑（使用 client.is_our_client 字段判断对方当事人）
