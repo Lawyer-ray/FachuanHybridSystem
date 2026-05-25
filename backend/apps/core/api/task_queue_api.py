@@ -113,11 +113,8 @@ def list_failed(request: HttpRequest) -> Any:
 @router.get("/scheduled", response=list[ScheduleOut])
 def list_scheduled(request: HttpRequest) -> Any:
     """获取定时调度任务"""
-    from apps.core.tasking.task_queue_query import (
-        SCHEDULE_TYPE_LABELS,
-        get_last_run_time,
-        list_scheduled as _list_scheduled,
-    )
+    from apps.core.tasking.task_queue_query import SCHEDULE_TYPE_LABELS, get_last_run_time
+    from apps.core.tasking.task_queue_query import list_scheduled as _list_scheduled
 
     schedules = _list_scheduled()
 

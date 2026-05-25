@@ -333,8 +333,7 @@ def _fetch_legaltech(limit: int = 50) -> list[HotTopicItem]:
 
     with ThreadPoolExecutor(max_workers=7) as executor:
         futures = {
-            executor.submit(_fetch_rss_feed, name, url, limit): (name, url, limit)
-            for name, url, limit in rss_tasks
+            executor.submit(_fetch_rss_feed, name, url, limit): (name, url, limit) for name, url, limit in rss_tasks
         }
         for future in as_completed(futures):
             name = futures[future][0]
@@ -360,7 +359,7 @@ def _fetch_legaltech(limit: int = 50) -> list[HotTopicItem]:
             if cached is None:
                 # 缓存未命中，快速采集
                 cached = _SCRAPER_FN_MAP[src](limit=50)
-            for topic in (cached or []):
+            for topic in cached or []:
                 if _is_legal_tech_related(topic.title):
                     rank += 1
                     topic.rank = rank

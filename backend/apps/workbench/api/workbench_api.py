@@ -522,7 +522,9 @@ async def stream_batch_progress(request: Any, job_id: UUID) -> StreamingHttpResp
             # 合并为单次查询：running + completed/failed items
             all_items = await sync_to_async(
                 lambda: list(
-                    batch_service.get_active_items(job_id).values("id", "file_name", "status", "duration_ms", "error", "result")
+                    batch_service.get_active_items(job_id).values(
+                        "id", "file_name", "status", "duration_ms", "error", "result"
+                    )
                 )
             )()
 

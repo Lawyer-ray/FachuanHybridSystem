@@ -45,8 +45,12 @@ def global_search(request: HttpRequest, q: str = "", limit: int = 5) -> dict[str
     return {
         "clients": [SearchResultItem(id=r.id, title=r.title, subtitle=r.subtitle) for r in search_clients(q, limit)],
         "cases": [SearchResultItem(id=r.id, title=r.title, subtitle=r.subtitle) for r in search_cases(q, limit)],
-        "contracts": [SearchResultItem(id=r.id, title=r.title, subtitle=r.subtitle) for r in search_contracts(q, limit)],
+        "contracts": [
+            SearchResultItem(id=r.id, title=r.title, subtitle=r.subtitle) for r in search_contracts(q, limit)
+        ],
         "inbox": [SearchResultItem(id=r.id, title=r.title, subtitle=r.subtitle) for r in search_inbox(q, limit)],
-        "court_sms": [SearchResultItem(id=r.id, title=r.title, subtitle=r.subtitle) for r in search_court_sms(q, limit)],
+        "court_sms": [
+            SearchResultItem(id=r.id, title=r.title, subtitle=r.subtitle) for r in search_court_sms(q, limit)
+        ],
         "contacts": [SearchResultItem(id=r.id, title=r.title, subtitle=r.subtitle) for r in search_contacts(q, limit)],
     }
