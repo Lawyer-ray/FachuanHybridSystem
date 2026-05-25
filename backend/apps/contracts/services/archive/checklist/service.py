@@ -41,14 +41,8 @@ class ArchiveChecklistService:
         contract: Contract,
         archive_item_code: str,
         uploaded_file: Any,
-        target_subdir: str = "",
     ) -> FinalizedMaterial:
-        return sync_mod.upload_material_to_archive_item(
-            contract,
-            archive_item_code,
-            uploaded_file,
-            target_subdir=target_subdir,
-        )
+        return sync_mod.upload_material_to_archive_item(contract, archive_item_code, uploaded_file)
 
     def get_template_items(self, archive_category: str) -> list[ChecklistItem]:
         return query_mod.get_template_items(archive_category)

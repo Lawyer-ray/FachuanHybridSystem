@@ -461,7 +461,7 @@ class GuaranteeFormFillingMixin:
         try:
             if float(raw) <= 0:
                 return False
-        except Exception:
+        except (TypeError, ValueError):
             return False
 
         amount_input = self.page.locator("input[placeholder*='保全金额']").first

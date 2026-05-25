@@ -336,7 +336,7 @@ class ContractGenerationService:
 
             return f"V{max_version + 1}"
 
-        except Exception as e:
+        except (TypeError, ValueError) as e:
             logger.warning("获取版本号失败,使用默认版本 V1: %s", e)
             return "V1"
 

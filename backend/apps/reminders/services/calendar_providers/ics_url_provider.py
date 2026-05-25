@@ -47,8 +47,7 @@ class IcsUrlProvider:
 
         return self._ics_provider.fetch_events(ics_content=response.content)
 
-    @staticmethod
-    def _validate_url(url: str) -> str:
+    def _validate_url(self, url: str) -> str:
         """Return an error message if the URL is invalid/unsafe, empty string if OK."""
         try:
             parsed = urlparse(url)

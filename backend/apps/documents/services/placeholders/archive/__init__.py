@@ -557,7 +557,7 @@ class ArchivePlaceholderService(BasePlaceholderService):
         """从案件当事人中获取对方当事人名称(非我方当事人,顿号分隔)"""
         try:
             parties = case.parties.select_related("client").all()
-        except Exception:
+        except (TypeError, ValueError):
             logger.warning("获取案件当事人失败", extra={"case_id": getattr(case, "id", None)})
             return ""
 

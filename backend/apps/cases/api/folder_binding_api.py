@@ -11,8 +11,6 @@ from ninja import Router
 from apps.cases.schemas import (
     CaseFolderBindingCreateSchema,
     CaseFolderBindingResponseSchema,
-    CaseStorageSubdirBrowseResponseSchema,
-    CaseStorageSubdirRecommendResponseSchema,
     ContractFolderPathSchema,
     FolderBrowseEntrySchema,
     FolderBrowseResponseSchema,
@@ -207,54 +205,4 @@ def browse_folders(request: HttpRequest, path: str | None = None, include_hidden
         path=str(resolved),
         parent_path=parent_path,
         entries=entries,
-    )
-
-
-@router.get("/{case_id}/storage-subdirs", response=CaseStorageSubdirBrowseResponseSchema)
-def browse_case_storage_subdirs(
-    request: HttpRequest,
-    case_id: int,
-    path: str | None = None,
-) -> Any:
-    ctx = get_request_access_context(request)
-    service = _get_folder_binding_service()
-    return service.list_bound_subdirs(
-        owner_id=case_id,
-        relative_path=str(path or ""),
-        user=ctx.user,
-        org_access=ctx.org_access,
-        perm_open_access=ctx.perm_open_access,
-    )
-
-
-@router.get("/{case_id}/recommended-log-attachment-subdir", response=CaseStorageSubdirRecommendResponseSchema)
-def recommend_case_log_attachment_subdir(
-    request: HttpRequest,
-    case_id: int,
-    log_id: int | None = None,
-    file_name: str = "",
-) -> Any:
-    ctx = get_request_access_context(request)
-    service = _get_folder_binding_service()
-
-    source_subfolder = ""
-    source_scene = "manual_log_upload"
-    if log_id:
-        from apps.cases.models import CaseLog
-        from apps.automation.models import CourtSMS
-
-        log = CaseLog.objects.filter(pk=log_id, case_id=case_id).only("id", "case_id", "source_subfolder").first()
-        if log:
-            source_subfolder = str(log.source_subfolder or "")
-            if CourtSMS.objects.filter(case_log_id=log.id).exists():
-                source_scene = "court_sms_attachment"
-
-    return service.recommend_bound_subdir_for_log_attachment(
-        owner_id=case_id,
-        source_subfolder=source_subfolder,
-        file_name=str(file_name or ""),
-        source_scene=source_scene,
-        user=ctx.user,
-        org_access=ctx.org_access,
-        perm_open_access=ctx.perm_open_access,
     )

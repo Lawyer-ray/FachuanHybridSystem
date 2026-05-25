@@ -15,8 +15,8 @@ from django.utils.translation import gettext_lazy as _
 from apps.chat_records.models import ChatRecordRecording, ChatRecordScreenshot, ScreenshotSource
 from apps.core.exceptions import NotFoundError, ValidationException
 
-from .access_policy import ensure_can_access_project
 from ..extraction.frame_selection_service import FrameSelectionService
+from .access_policy import ensure_can_access_project
 from .project_service import ProjectService
 
 if TYPE_CHECKING:
@@ -109,7 +109,7 @@ class ScreenshotService:
         try:
             content = file.read()
             file.seek(0)
-        except Exception:
+        except (TypeError, ValueError):
             logger.exception("截图文件读取失败: %s", getattr(file, "name", "<unknown>"))
             raise ValidationException(_("截图文件读取失败，无法进行去重"))
         if not content:
@@ -121,7 +121,7 @@ class ScreenshotService:
             return default_ordering
         try:
             capture_time_seconds = float(capture_time_seconds)
-        except Exception:
+        except (TypeError, ValueError):
             logger.exception(
                 "capture_time_seconds 转换失败",
                 extra={"capture_time_seconds": capture_time_seconds, "project_id": project_id},

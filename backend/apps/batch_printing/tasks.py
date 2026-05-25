@@ -3,9 +3,10 @@ from __future__ import annotations
 import logging
 from uuid import UUID
 
+from django.utils import timezone
+
 from apps.batch_printing.models import BatchPrintJob, BatchPrintJobStatus
 from apps.batch_printing.services.wiring import get_batch_print_job_service
-from django.utils import timezone
 
 logger = logging.getLogger("apps.batch_printing")
 

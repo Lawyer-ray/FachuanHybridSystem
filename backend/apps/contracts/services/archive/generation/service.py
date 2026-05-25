@@ -10,9 +10,8 @@ from typing import Any
 
 from apps.contracts.models import Contract
 
-from . import download_handler, folder_builder, pdf_utils
 from . import document_generator as doc_gen
-from . import template_finder
+from . import download_handler, folder_builder, pdf_utils, template_finder
 
 
 class ArchiveGenerationService:

@@ -34,7 +34,6 @@ from apps.cases.models import (
 )
 from apps.contacts.admin import CaseContactInline
 from apps.core.admin.mixins import AdminImportExportMixin
-from apps.reminders.models import Reminder
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet
@@ -113,7 +112,7 @@ class CasePartyInline(BaseTabularInline):
 
 class CaseAssignmentInline(BaseTabularInline):
     model = CaseAssignment
-    extra = 0
+    extra = 1
     fields = ("lawyer",)
     autocomplete_fields = ("lawyer",)
 
@@ -123,7 +122,7 @@ class SupervisingAuthorityInline(BaseTabularInline):
 
     model = SupervisingAuthority
     form = SupervisingAuthorityInlineForm
-    extra = 0
+    extra = 1
     fields = ("name", "authority_type")
 
 
@@ -134,7 +133,7 @@ class CaseLogAttachmentInline(BaseTabularInline):
 
 class CaseNumberInline(BaseStackedInline):
     model = CaseNumber
-    extra = 0
+    extra = 1
     fieldsets = (
         (
             None,
@@ -159,23 +158,6 @@ class CaseNumberInline(BaseStackedInline):
             },
         ),
     )
-
-
-class CaseImportantTimeInline(BaseTabularInline):
-    model = Reminder
-    extra = 0
-    fields = ("reminder_type", "content", "due_at")
-    verbose_name = "重要时间"
-    verbose_name_plural = "重要时间"
-    ordering = ("due_at", "id")
-
-    def get_queryset(self, request: HttpRequest) -> QuerySet[Reminder]:
-        return (
-            super()
-            .get_queryset(request)
-            .filter(contract_id__isnull=True, case_log_id__isnull=True)
-            .order_by("due_at", "id")
-        )
 
 
 class CaseLogInline(BaseStackedInline):
@@ -313,7 +295,6 @@ class CaseAdmin(
         CaseAssignmentInline,
         SupervisingAuthorityInline,
         CaseNumberInline,
-        CaseImportantTimeInline,
         CaseChatInline,
         CaseLogInline,
         CaseContactInline,

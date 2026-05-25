@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 from io import BytesIO
 from typing import Any
@@ -150,6 +151,48 @@ def topic_inspiration(request: HttpRequest, payload: TopicInspirationIn) -> list
     except Exception as e:
         logger.error("Topic inspiration failed: %s", e)
         return []
+
+
+# --- 翻译 ---
+
+
+@router.post("/topics/translate")
+def translate_topics(request: HttpRequest) -> dict[str, Any]:
+    """批量翻译热点话题标题。"""
+    from apps.core.llm.service import LLMService
+
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return {"translations": []}
+
+    titles = body.get("titles", [])
+    if not titles:
+        return {"translations": []}
+
+    # 构建批量翻译 prompt
+    titles_text = "\n".join(f"{i + 1}. {t}" for i, t in enumerate(titles))
+    prompt = f"""请将以下英文标题翻译成中文，保持简洁准确。
+每行一个翻译结果，只返回翻译后的标题，不要添加序号或其他内容。
+
+{titles_text}"""
+
+    try:
+        llm = LLMService()
+        messages = [
+            {"role": "system", "content": "你是一个专业的翻译助手，擅长法律科技领域的翻译。"},
+            {"role": "user", "content": prompt},
+        ]
+        response = llm.chat(messages=messages, backend="openai_compatible")
+        result = response.content if hasattr(response, "content") else str(response)
+        translations = [line.strip() for line in result.strip().split("\n") if line.strip()]
+        # 确保翻译数量匹配
+        if len(translations) < len(titles):
+            translations.extend(titles[len(translations) :])
+        return {"translations": translations[: len(titles)]}
+    except Exception as e:
+        logger.error("Translation failed: %s", e)
+        return {"translations": titles}  # 失败时返回原文
 
 
 # --- 任务管理 ---
@@ -341,14 +384,9 @@ def reject_episode(request: HttpRequest, episode_id: int, payload: ReviewActionI
 @router.get("/episodes/{episode_id}/audio")
 def episode_audio(request: HttpRequest, episode_id: int) -> dict[str, str] | FileResponse | HttpResponseBase:
     """获取播客单集音频。"""
-    from apps.content_ops.models import PodcastEpisode
-
-    episode = PodcastEpisode.objects.filter(id=episode_id).select_related("task").first()
-    if not episode or not episode.audio_file:
+    episode = _task_service.get_episode_audio(episode_id=episode_id, user=request.user)
+    if not episode:
         return {"error": "音频不存在"}
-
-    if episode.task.created_by_id and episode.task.created_by_id != request.user.pk:
-        return {"error": "无权访问此音频"}
 
     from apps.core.http.streaming import build_range_file_response
 

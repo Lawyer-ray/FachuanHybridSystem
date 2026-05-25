@@ -57,13 +57,7 @@ class CaseAdminActionsMixin(CaseAdminServiceMixin):
                     )
                     continue
 
-                chat = service.create_chat_for_case(
-                    case.id,
-                    ChatPlatform.FEISHU,
-                    user=request.user,
-                    org_access=getattr(request, "org_access", None),
-                    perm_open_access=getattr(request, "perm_open_access", False),
-                )
+                chat = service.create_chat_for_case(case.id, ChatPlatform.FEISHU)
                 success_count += 1
 
                 messages.success(

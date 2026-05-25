@@ -90,7 +90,7 @@ class TelegramTokenMixin:
             logger.debug(f"最终 Telegram 配置: {list(filtered_config.keys())}")
             return filtered_config
 
-        except Exception as e:
+        except (TypeError, ValueError) as e:
             logger.error(f"加载 Telegram 配置失败: {e!s}")
             raise ConfigurationException(
                 message=f"无法加载 Telegram 配置: {e!s}", platform="telegram", errors={"original_error": str(e)}

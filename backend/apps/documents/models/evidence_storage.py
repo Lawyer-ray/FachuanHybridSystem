@@ -9,9 +9,7 @@ import os
 
 from django.conf import settings
 
-from apps.evidence.models.evidence_storage import (
-    EvidenceFileStorage as _BaseEvidenceFileStorage,
-)
+from apps.evidence.models.evidence_storage import EvidenceFileStorage as _BaseEvidenceFileStorage
 
 
 class EvidenceFileStorage(_BaseEvidenceFileStorage):

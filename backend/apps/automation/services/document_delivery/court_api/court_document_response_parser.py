@@ -50,7 +50,7 @@ class CourtDocumentResponseParser:
                 continue
             try:
                 detail = DocumentDetail.from_api_response(doc_data)
-            except Exception:
+            except (TypeError, ValueError):
                 logger.warning(f"解析文书详情失败: data={doc_data}")
                 continue
 

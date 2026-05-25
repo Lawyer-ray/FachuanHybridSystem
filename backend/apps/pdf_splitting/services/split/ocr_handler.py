@@ -16,7 +16,7 @@ from django.conf import settings
 from apps.automation.services.ocr.ocr_service import OCRService
 from apps.pdf_splitting.models import PdfSplitOcrProfile
 
-from .split_models import OCRRuntimeProfile, OCRPageResult
+from .split_models import OCRPageResult, OCRRuntimeProfile
 
 logger = logging.getLogger("apps.pdf_splitting")
 
@@ -181,7 +181,7 @@ class OCRHandler:
                 source_method="ocr_cache" if text else "ocr_failed_cache",
                 ocr_failed=ocr_failed,
             )
-        except Exception:
+        except (json.JSONDecodeError, OSError):
             logger.exception("pdf_split_ocr_cache_read_failed", extra={"cache_file": cache_file.as_posix()})
             return None
 

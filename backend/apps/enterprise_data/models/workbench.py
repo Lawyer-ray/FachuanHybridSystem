@@ -79,7 +79,7 @@ class McpWorkbenchExecution(LifecycleModel):
         scrubbed = scrub_for_storage(value)
         try:
             serialized = json.dumps(scrubbed, ensure_ascii=False, sort_keys=True, default=str)
-        except Exception:
+        except TypeError:
             return scrubbed
         if len(serialized) <= 50000:
             return scrubbed

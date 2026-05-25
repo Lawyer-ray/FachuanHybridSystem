@@ -87,7 +87,7 @@ class CourtSMSAdmin(CourtSMSAdminActions, CourtSMSAdminBase):
         if sms is None:
             raise Http404("SMS not found")
 
-        references = CourtSMSDocumentReferenceService().collect(sms, perm_open_access=True)
+        references = CourtSMSDocumentReferenceService().collect(sms)
         if ref_index < 0 or ref_index >= len(references):
             raise Http404("Document reference not found")
 
@@ -104,7 +104,7 @@ class CourtSMSAdmin(CourtSMSAdminActions, CourtSMSAdminBase):
         if sms is None:
             raise Http404("SMS not found")
 
-        references = CourtSMSDocumentReferenceService().collect(sms, perm_open_access=True)
+        references = CourtSMSDocumentReferenceService().collect(sms)
         if not references:
             messages.error(request, "当前短信没有可下载的关联文书")
             return HttpResponseRedirect(reverse("admin:automation_courtsms_change", args=[sms_id]))
@@ -147,7 +147,7 @@ class CourtSMSAdmin(CourtSMSAdminActions, CourtSMSAdminBase):
         if sms is None:
             raise Http404("SMS not found")
 
-        references = CourtSMSDocumentReferenceService().collect(sms, perm_open_access=True)
+        references = CourtSMSDocumentReferenceService().collect(sms)
         if ref_index < 0 or ref_index >= len(references):
             messages.error(request, "未找到目标文书")
             return HttpResponseRedirect(reverse("admin:automation_courtsms_change", args=[sms_id]))

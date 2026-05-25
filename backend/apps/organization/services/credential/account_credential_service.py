@@ -235,3 +235,10 @@ class AccountCredentialService:
         return list(
             self._get_base_queryset().filter(lawyer_id=lawyer_id).values_list("site_name", flat=True).distinct()
         )
+
+    def has_jtn_credential(self, lawyer_id: int) -> bool:
+        """检查指定律师是否有金诚同达 OA 凭证。"""
+        return AccountCredential.objects.filter(
+            Q(account__icontains="jtn.com") | Q(url__icontains="jtn.com"),
+            lawyer_id=lawyer_id,
+        ).exists()

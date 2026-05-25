@@ -79,7 +79,7 @@ def cleanup_old_files(days: int = 30) -> dict[str, int]:
         try:
             repository.delete_by_id(task.id)
             deleted_count += 1
-        except Exception as e:
+        except (OSError, ValueError) as e:
             logger.warning("删除任务记录失败: %s - %s", task.id, e)
 
     logger.info("文件清理完成: 上传文件 %d, 输出文件 %d, 任务记录 %d", upload_count, output_count, deleted_count)

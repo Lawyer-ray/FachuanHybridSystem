@@ -494,7 +494,7 @@ class EvidenceExportService:
                 try:
                     item.file.seek(0)
                     zf.writestr(arc_name, item.file.read())
-                except Exception:
+                except (TypeError, ValueError):
                     pass
 
         buf.seek(0)

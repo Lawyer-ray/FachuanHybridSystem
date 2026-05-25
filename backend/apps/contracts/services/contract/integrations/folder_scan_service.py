@@ -250,8 +250,8 @@ class ContractFolderScanService:
                     content=actual_file_path.read_bytes(),
                     content_type="application/pdf",
                 )
-                saved = self._material_service.save_material_file(upload, contract_id, target_subdir="扫描导入")
-                display_name = saved.original_filename
+                rel_path, original_name = self._material_service.save_material_file(upload, contract_id)
+                display_name = original_name
                 # 如果原始文件是 docx，显示名保留原 docx 文件名
                 if is_docx:
                     display_name = file_path.name
@@ -265,10 +265,7 @@ class ContractFolderScanService:
 
                 material_kwargs: dict[str, Any] = {
                     "contract_id": contract_id,
-                    "file_path": saved.legacy_file_path,
-                    "storage_root_type": saved.root_type,
-                    "subdir_path": saved.subdir_path,
-                    "relative_file_path": saved.relative_file_path,
+                    "file_path": rel_path,
                     "original_filename": display_name,
                     "category": category,
                 }

@@ -7,14 +7,14 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from .profiles import BrowserProfile, get_profile
 
 if TYPE_CHECKING:
     from playwright.async_api import Browser as AsyncBrowser
     from playwright.async_api import BrowserContext as AsyncBrowserContext
-    from playwright.sync_api import Browser, BrowserContext, Playwright
+    from playwright.sync_api import Browser, BrowserContext
 
 logger = logging.getLogger("apps.core")
 
@@ -78,12 +78,13 @@ class BrowserService:
 
             anti_detection.apply_stealth(context)
 
-        return context
+        return cast(BrowserContext, context)
 
-    def _get_or_create_browser(self, profile: BrowserProfile) -> tuple[Playwright, Browser]:
+    def _get_or_create_browser(self, profile: BrowserProfile) -> tuple[Any, Any]:
         """获取或创建浏览器实例。"""
         if profile.name in self._browsers:
-            return self._browsers[profile.name]
+            pw, browser = self._browsers[profile.name]
+            return pw, browser
 
         from playwright.sync_api import sync_playwright
 

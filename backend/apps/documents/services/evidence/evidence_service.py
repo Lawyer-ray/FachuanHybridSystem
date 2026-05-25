@@ -5,11 +5,11 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any, cast
 
-from apps.evidence.models import EvidenceItem, EvidenceList
 from apps.documents.services.evidence.evidence_file_service import EvidenceFileService
 from apps.documents.services.evidence.evidence_mutation_service import EvidenceMutationService
 from apps.documents.services.evidence.evidence_query_service import EvidenceQueryService
 from apps.documents.services.evidence.page_range_calculator import EvidencePageRangeCalculator
+from apps.evidence.models import EvidenceItem, EvidenceList
 
 if TYPE_CHECKING:
     from apps.core.interfaces import ICaseService

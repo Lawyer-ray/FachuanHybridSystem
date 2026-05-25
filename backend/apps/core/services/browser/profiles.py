@@ -187,7 +187,7 @@ def _apply_headless_override(profile: BrowserProfile) -> BrowserProfile:
             return dataclasses.replace(profile, headless=False)
         if headed in ("false", "0", "no"):
             return dataclasses.replace(profile, headless=True)
-    except Exception:
+    except (TypeError, ValueError):
         # Django 未初始化或 DB 不可用时，使用 profile 原始值
         pass
 

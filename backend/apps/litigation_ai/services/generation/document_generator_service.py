@@ -68,7 +68,7 @@ class DocumentGeneratorService:
                 result_file=relative_path,
                 metadata_updates=metadata_updates,
             )
-        except Exception as e:
+        except (TypeError, ValueError) as e:
             task_service.mark_task_failed_internal(task_id=task.id, error_message=str(e))
             raise ValidationException(
                 message=_("文档生成失败"),
@@ -78,6 +78,7 @@ class DocumentGeneratorService:
 
     def get_task_status(self, task_id: int, user: Any | None = None) -> GenerationTaskDTO:
         from apps.core.exceptions import NotFoundError, PermissionDenied
+
         from ..wiring import get_generation_task_service
 
         task = get_generation_task_service().get_task_internal(task_id)

@@ -32,8 +32,7 @@ class TTSService:
         svc = SystemConfigService()
         self._api_key = svc.get_value("OPENAI_COMPATIBLE_API_KEY", "")
         self._base_url = (
-            svc.get_value("OPENAI_COMPATIBLE_BASE_URL", "").rstrip("/")
-            or "https://token-plan-sgp.xiaomimimo.com/v1"
+            svc.get_value("OPENAI_COMPATIBLE_BASE_URL", "").rstrip("/") or "https://token-plan-sgp.xiaomimimo.com/v1"
         )
         self._model = svc.get_value("MIMO_TTS_MODEL", "") or TTS_MODEL
         self._default_voice = svc.get_value("MIMO_TTS_VOICE", "") or DEFAULT_VOICE
@@ -81,7 +80,10 @@ class TTSService:
         chunks = self._split_text(text)
         logger.info(
             "TTS synthesis: %d chars -> %d chunks, mode=%s, model=%s",
-            len(text), len(chunks), "voicedesign" if use_voicedesign else "builtin", model,
+            len(text),
+            len(chunks),
+            "voicedesign" if use_voicedesign else "builtin",
+            model,
         )
 
         audio_parts: list[bytes] = []

@@ -100,7 +100,6 @@ class ReminderService:
         reminder_type: str | Any,
         content: str,
         due_at: datetime,
-        include_in_important_time: bool = False,
         metadata: dict[str, Any] | None = None,
     ) -> Reminder:
         contract_id = normalize_target_id(contract_id, field_name=_("contract_id"))
@@ -129,7 +128,6 @@ class ReminderService:
             reminder_type=reminder_type,
             content=content,
             due_at=due_at,
-            include_in_important_time=bool(include_in_important_time),
             metadata=metadata,
         )
 
@@ -193,9 +191,6 @@ class ReminderService:
         if "due_at" in data and data["due_at"] is not None:
             reminder.due_at = normalize_due_at(data["due_at"])
             changed.append("due_at")
-        if "include_in_important_time" in data and data["include_in_important_time"] is not None:
-            reminder.include_in_important_time = bool(data["include_in_important_time"])
-            changed.append("include_in_important_time")
 
         return changed
 
@@ -205,20 +200,6 @@ class ReminderService:
         if count == 0:
             raise NotFoundError(_("提醒记录 %(id)s 不存在") % {"id": reminder_id})
         logger.debug("Deleted reminder %s, details=%s", reminder_id, deleted_details)
-
-    @transaction.atomic
-    def remove_from_important_time(self, reminder_id: int) -> None:
-        """Remove a reminder from the case important-time view without deleting source logs."""
-        reminder = self.get_reminder(reminder_id, select_related=False)
-        if reminder.case_log_id is not None:
-            if reminder.include_in_important_time:
-                reminder.include_in_important_time = False
-                reminder.save(update_fields=["include_in_important_time", "updated_at"])
-            return
-        if reminder.case_id is not None:
-            reminder.delete()
-            return
-        raise ValidationException(_("该提醒不属于案件重要时间"))
 
     def get_existing_due_times(self, case_log_id: int, reminder_type: str) -> set[datetime]:
         """获取案件日志已存在的提醒到期时间集合。"""

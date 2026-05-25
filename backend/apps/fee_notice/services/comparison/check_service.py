@@ -19,8 +19,8 @@ from typing import TYPE_CHECKING, Any, ClassVar, cast
 if TYPE_CHECKING:
     from apps.automation.models import CourtSMS
 
-    from .comparison_service import CaseComparisonInfo, FeeComparisonService
     from ..extraction.extraction_service import FeeNoticeExtractionService
+    from .comparison_service import CaseComparisonInfo, FeeComparisonService
 
 logger = logging.getLogger("apps.fee_notice")
 

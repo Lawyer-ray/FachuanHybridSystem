@@ -252,3 +252,5 @@ playwright-report/
 
 # 误生成的 ~ 目录
 /~/
+backend/cookies.txt
+videos/

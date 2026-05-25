@@ -279,7 +279,7 @@ class GuaranteeUploadMixin:
                             }
                         )
                         self._random_wait(1.8, 2.4)  # type: ignore[attr-defined]
-                    except Exception:
+                    except (TypeError, ValueError):
                         continue
 
             if any("身份证明材料" in err for err in errors):
@@ -352,7 +352,7 @@ class GuaranteeUploadMixin:
                                     )
                                     self._random_wait(1.6, 2.2)  # type: ignore[attr-defined]
                                     break
-                                except Exception:
+                                except (TypeError, ValueError):
                                     continue
 
             if any("请上传" in err or "正在进行上传" in err or "当前正在进行上传操作" in err for err in errors):
@@ -419,7 +419,7 @@ class GuaranteeUploadMixin:
                                     }
                                 )
                                 break
-                            except Exception:
+                            except (TypeError, ValueError):
                                 continue
 
                 for _ in range(4):

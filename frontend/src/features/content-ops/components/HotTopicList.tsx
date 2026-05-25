@@ -1,38 +1,88 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { RefreshCw, WifiOff } from 'lucide-react'
+import { RefreshCw, WifiOff, Languages } from 'lucide-react'
 import { useHotTopics, useRefreshHotTopics } from '../hooks/use-content-ops'
+import { contentOpsApi } from '../api'
 import { HOT_TOPIC_SOURCE_LABEL } from '../types'
 import { HotTopicCard } from './HotTopicCard'
+import { toast } from 'sonner'
 
-const SOURCES = ['all', 'toutiao', 'baidu'] as const
+const SOURCES = ['all', 'toutiao', 'baidu', 'douyin', '36kr', 'thepaper', 'legaltech'] as const
 
 export function HotTopicList() {
   const [source, setSource] = useState<string>('all')
   const { data: topics, isLoading, error } = useHotTopics(source === 'all' ? undefined : source)
   const refreshMutation = useRefreshHotTopics()
+  const [translations, setTranslations] = useState<Record<string, string>>({})
+  const [isTranslating, setIsTranslating] = useState(false)
 
   const handleRefresh = () => {
     refreshMutation.mutate(source === 'all' ? undefined : source)
   }
 
+  const handleTranslate = useCallback(async () => {
+    if (!topics || topics.length === 0) return
+
+    // 找出需要翻译的标题（英文标题）
+    const needsTranslation = topics.filter(
+      (t) => !translations[t.title] && /[a-zA-Z]/.test(t.title) && !/[一-龥]/.test(t.title)
+    )
+    if (needsTranslation.length === 0) {
+      toast.info('没有需要翻译的标题')
+      return
+    }
+
+    setIsTranslating(true)
+    try {
+      const { translations: result } = await contentOpsApi.translateTopics(
+        needsTranslation.map((t) => t.title)
+      )
+      const newTranslations: Record<string, string> = {}
+      needsTranslation.forEach((t, i) => {
+        if (result[i] && result[i] !== t.title) {
+          newTranslations[t.title] = result[i]
+        }
+      })
+      setTranslations((prev) => ({ ...prev, ...newTranslations }))
+      toast.success(`已翻译 ${Object.keys(newTranslations).length} 条标题`)
+    } catch {
+      toast.error('翻译失败，请重试')
+    } finally {
+      setIsTranslating(false)
+    }
+  }, [topics, translations])
+
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-base font-semibold">热门话题</h2>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 text-xs"
-          onClick={handleRefresh}
-          disabled={refreshMutation.isPending}
-        >
-          <RefreshCw className={`w-3.5 h-3.5 mr-1 ${refreshMutation.isPending ? 'animate-spin' : ''}`} />
-          刷新
-        </Button>
+        <div className="flex items-center gap-2">
+          {source === 'legaltech' && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={handleTranslate}
+              disabled={isTranslating}
+            >
+              <Languages className={`w-3.5 h-3.5 mr-1 ${isTranslating ? 'animate-pulse' : ''}`} />
+              {isTranslating ? '翻译中...' : '一键翻译'}
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={handleRefresh}
+            disabled={refreshMutation.isPending}
+          >
+            <RefreshCw className={`w-3.5 h-3.5 mr-1 ${refreshMutation.isPending ? 'animate-spin' : ''}`} />
+            刷新
+          </Button>
+        </div>
       </div>
 
       <Tabs value={source} onValueChange={setSource} className="mb-4">
@@ -73,7 +123,10 @@ export function HotTopicList() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.2, delay: Math.min(i * 0.03, 0.5) }}
             >
-              <HotTopicCard topic={topic} />
+              <HotTopicCard
+                topic={topic}
+                translatedTitle={translations[topic.title]}
+              />
             </motion.div>
           ))}
         </motion.div>

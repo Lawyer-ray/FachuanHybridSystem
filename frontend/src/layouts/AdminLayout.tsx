@@ -31,7 +31,7 @@ const ROUTE_LABELS: Record<string, string> = {
   'task-queue': '任务队列', logs: '日志',
   'court-sms': '法院短信', 'courier-tracking': '快递查询',
   'element-convert': '要素式转换', 'lpr-calculator': 'LPR 计算器',
-  'content-ops': '内容运营',
+  'content-ops': '内容运营', inspiration: '选题灵感',
   ai: 'AI', email: '邮件', sms: '短信', storage: '存储', llm: 'LLM',
 }
 

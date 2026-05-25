@@ -220,7 +220,7 @@ def _extract_json_object(content: str) -> dict[str, Any] | None:
             loaded = json.loads(candidate)
             if isinstance(loaded, dict):
                 return loaded
-        except Exception:
+        except json.JSONDecodeError:
             continue
     return None
 

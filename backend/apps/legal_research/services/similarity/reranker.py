@@ -84,7 +84,7 @@ def create_reranker_from_tuning(tuning: Any) -> SiliconFlowReranker | None:
 
         config_service = ServiceLocator.get_system_config_service()
         api_key = str(config_service.get_value("SILICONFLOW_API_KEY", "") or "").strip()
-    except Exception:
+    except (TypeError, ValueError):
         api_key = ""
     if not api_key:
         return None

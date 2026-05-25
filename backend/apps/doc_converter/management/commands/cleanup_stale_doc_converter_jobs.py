@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 from datetime import timedelta
+from typing import Any
 
 from django.core.management.base import BaseCommand
 from django.utils import timezone

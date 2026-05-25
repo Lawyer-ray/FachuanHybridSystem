@@ -311,7 +311,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
                     doc_name_cell = row.locator("td:nth-child(2) .cell")
                     if doc_name_cell.count() > 0:
                         doc_name = doc_name_cell.first.inner_text().strip()
-                except Exception:
+                except (TypeError, ValueError):
                     pass
 
                 logger.info(

@@ -95,7 +95,7 @@ class WeikeTransportMixin:
             try:
                 response = request_fn()
                 last_response = response
-            except Exception as exc:
+            except (TypeError, ValueError) as exc:
                 last_exception = exc
                 if attempt >= attempts:
                     raise
@@ -158,7 +158,7 @@ class WeikeTransportMixin:
     def _response_json(cls, response: Any) -> dict[str, Any]:
         try:
             data = response.json()
-        except Exception:
+        except (TypeError, ValueError):
             data = None
 
         normalized = cls._coerce_json_dict(data)

@@ -65,7 +65,7 @@ def register_view(request: HttpRequest, payload: RegisterIn) -> RegisterOut:
         return RegisterOut(success=False, message="密码至少6个字符")
 
     # 检查用户名是否已存在
-    if Lawyer.objects.filter(username=payload.username).exists():
+    if _auth_service.username_exists(payload.username):
         return RegisterOut(success=False, message="用户名已存在")
 
     try:

@@ -30,9 +30,9 @@ def _get_folder_binding_service() -> Any:
 
 def _require_case_contract(request: Any, case_id: int) -> Any:
     """获取案件绑定的合同 ID，无合同则返回 None。"""
-    from apps.cases.models import Case
+    from apps.documents.services.case_contract_query import get_case_contract_info
 
-    case = Case.objects.filter(pk=case_id).values("contract_id", "contract__folder_binding__id").first()
+    case = get_case_contract_info(case_id)
     if not case:
         return None
     return case

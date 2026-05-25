@@ -21,8 +21,8 @@ from apps.legal_research.models import (
     LegalResearchTask,
     LegalResearchTaskStatus,
 )
-from apps.legal_research.services.task.executor import LegalResearchExecutor
 from apps.legal_research.services.similarity.tuning_config import LegalResearchTuningConfig
+from apps.legal_research.services.task.executor import LegalResearchExecutor
 
 
 @dataclass(frozen=True)

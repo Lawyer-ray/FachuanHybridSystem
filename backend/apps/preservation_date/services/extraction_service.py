@@ -24,10 +24,10 @@ from apps.core.exceptions import ValidationException
 
 from .models import PreservationExtractionResult, PreservationMeasure, ReminderData
 from .prompts import DEFAULT_PENDING_NOTE, PENDING_KEYWORDS, PRESERVATION_DATE_EXTRACTION_PROMPT
-from .validators import MeasureValidator
 
 # 规则引擎
 from .rule_engine import PreservationRuleEngine
+from .validators import MeasureValidator
 
 if TYPE_CHECKING:
     from apps.document_recognition.services import TextExtractionService
@@ -950,7 +950,7 @@ class PreservationDateExtractionService:
 
         try:
             original_name: str = validator.sanitize_file_name(file_name)
-        except Exception:
+        except (OSError, ValueError):
             logger.exception("文件名不合法")
             return PreservationExtractionResult(
                 success=False,
@@ -981,5 +981,5 @@ class PreservationDateExtractionService:
             try:
                 if temp_path.exists():
                     temp_path.unlink()
-            except Exception:
+            except (OSError, ValueError):
                 logger.warning("清理临时文件失败", extra={})

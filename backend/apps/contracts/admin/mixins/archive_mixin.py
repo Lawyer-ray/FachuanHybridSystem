@@ -186,12 +186,13 @@ class ContractArchiveMixin:
 
             from pathlib import Path
 
-            from apps.contracts.admin.wiring_admin import get_material_service
+            from django.conf import settings as django_settings
 
-            resolved = get_material_service().resolve_material_file(material)
-            file_path = Path(resolved.abs_path) if resolved.abs_path else Path(material.file_path)
+            file_path = Path(material.file_path)
+            if not file_path.is_absolute():
+                file_path = Path(django_settings.MEDIA_ROOT) / file_path
 
-            if not resolved.exists or not file_path.exists():
+            if not file_path.exists():
                 return JsonResponse({"success": False, "error": "文件不存在"}, status=404)
 
             content = file_path.read_bytes()
@@ -209,7 +210,7 @@ class ContractArchiveMixin:
             encoded_filename = urllib.parse.quote(material.original_filename.encode("utf-8"))
             response["Content-Disposition"] = f"inline; filename*=UTF-8''{encoded_filename}"
             return response
-        except Exception as e:
+        except (OSError, ValueError) as e:
             logger.exception("预览归档材料失败: material_id=%s", material_id)
             return JsonResponse({"success": False, "error": str(e)}, status=500)
 
@@ -521,7 +522,6 @@ class ContractArchiveMixin:
             uploaded_file = request.FILES.get("file")
             if not uploaded_file:
                 return JsonResponse({"success": False, "error": "未选择文件"}, status=400)
-            target_subdir = str(request.POST.get("subdir_path", "") or "").strip()
 
             admin_service = _get_contract_admin_service()
             contract = admin_service.query_service.get_contract_detail(object_id)
@@ -533,7 +533,6 @@ class ContractArchiveMixin:
                 contract=contract,
                 archive_item_code=archive_item_code,
                 uploaded_file=uploaded_file,
-                target_subdir=target_subdir,
             )
 
             return JsonResponse(
@@ -551,6 +550,9 @@ class ContractArchiveMixin:
 
     def delete_archive_material_view(self, request: HttpRequest, object_id: int, material_id: int) -> HttpResponse:
         """删除归档材料子项的 Admin view"""
+        from pathlib import Path
+
+        from django.conf import settings as django_settings
         from django.http import JsonResponse
 
         if request.method != "POST":
@@ -568,9 +570,15 @@ class ContractArchiveMixin:
             if not material:
                 return JsonResponse({"success": False, "error": "材料不存在"}, status=404)
 
-            from apps.contracts.admin.wiring_admin import get_material_service
+            if material.file_path:
+                abs_file = Path(django_settings.MEDIA_ROOT) / material.file_path
+                if abs_file.exists():
+                    try:
+                        abs_file.unlink()
+                        logger.info("已删除归档文件: %s (material_id=%s)", material.file_path, material_id)
+                    except OSError as e:
+                        logger.warning("删除归档文件失败: %s: %s", material.file_path, e)
 
-            get_material_service().delete_material_file(material)
             material.delete()
             logger.info("已删除归档材料: material_id=%s, contract_id=%s", material_id, object_id)
             return JsonResponse({"success": True})
@@ -580,6 +588,9 @@ class ContractArchiveMixin:
 
     def clear_all_archive_materials_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
         """一键清空归档检查清单中的全部材料"""
+        from pathlib import Path
+
+        from django.conf import settings as django_settings
         from django.http import JsonResponse
 
         if request.method != "POST":
@@ -589,13 +600,16 @@ class ContractArchiveMixin:
             return JsonResponse({"success": False, "error": str(_("无权限"))}, status=403)
 
         try:
-            from apps.contracts.admin.wiring_admin import get_material_service
-
-            material_service = get_material_service()
             materials = FinalizedMaterial.objects.filter(contract_id=object_id)
             deleted_count = 0
             for material in materials:
-                material_service.delete_material_file(material)
+                if material.file_path:
+                    abs_file = Path(django_settings.MEDIA_ROOT) / material.file_path
+                    if abs_file.exists():
+                        try:
+                            abs_file.unlink()
+                        except OSError as e:
+                            logger.warning("删除归档文件失败: %s: %s", material.file_path, e)
                 material.delete()
                 deleted_count += 1
 

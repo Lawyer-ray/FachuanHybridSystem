@@ -96,11 +96,7 @@ class ContentOpsTaskService:
 
     def get_task(self, *, task_id: int, user: Any | None = None) -> ContentTask:
         """获取任务详情（含权限检查）。"""
-        task = (
-            ContentTask.objects.select_related("created_by", "credential")
-            .filter(id=task_id)
-            .first()
-        )
+        task = ContentTask.objects.select_related("created_by", "credential").filter(id=task_id).first()
         if not task:
             raise NotFoundError(f"任务 {task_id} 不存在")
         self._check_permission(task, user)
@@ -124,6 +120,15 @@ class ContentOpsTaskService:
         """列出任务关联的播客单集。"""
         task = self.get_task(task_id=task_id, user=user)
         return list(PodcastEpisode.objects.filter(task=task).order_by("-created_at"))
+
+    def get_episode_audio(self, *, episode_id: int, user: Any | None = None) -> PodcastEpisode | None:
+        """获取播客单集（含音频文件和 task 关联），校验所有权。"""
+        episode = PodcastEpisode.objects.filter(id=episode_id).select_related("task").first()
+        if not episode or not episode.audio_file:
+            return None
+        if episode.task.created_by_id and user and episode.task.created_by_id != user.pk:
+            return None
+        return episode
 
     def approve_article(self, *, article_id: int, user: Any | None = None, notes: str = "") -> GeneratedArticle:
         """审核通过文章。"""

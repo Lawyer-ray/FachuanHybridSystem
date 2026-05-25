@@ -320,7 +320,7 @@ class DocumentTemplateFolderBinding(LifecycleModel):
                 structure = self.folder_template.structure or {}
                 path = self._find_node_path(structure.get("children", []), self.folder_node_id, [])
                 self.folder_node_path = "/".join(path) if path else ""
-            except Exception:
+            except (TypeError, ValueError):
                 pass
 
     def _find_node_path(self, children: list[Any], target_id: str, current_path: list[str]) -> list[str]:

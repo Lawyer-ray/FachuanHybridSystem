@@ -91,8 +91,8 @@ class LitigationDraftService:
 
         from apps.litigation_ai.chains import LitigationDraftChain
 
-        from ..session.context_service import LitigationContextService
         from ..evidence.evidence_digest_service import EvidenceDigestService
+        from ..session.context_service import LitigationContextService
 
         context_service = LitigationContextService()
         evidence_service = EvidenceDigestService()

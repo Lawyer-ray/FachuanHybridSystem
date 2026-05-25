@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-from datetime import date, datetime, time, timedelta
-from typing import Any
-
 import uuid
-from typing import ClassVar
+from datetime import date, datetime, time, timedelta
+from typing import Any, ClassVar
 
 from django.conf import settings
 from django.db import models

@@ -122,7 +122,7 @@ class InvoiceRecognitionTaskAdmin(admin.ModelAdmin):
         try:
             amount: Decimal = self._get_service().get_total_amount(obj.id)
             return f"¥{amount}"
-        except Exception as exc:
+        except (TypeError, ValueError) as exc:
             logger.error("获取总金额失败: task_id=%s, error=%s", obj.id, exc)
             return "-"
 

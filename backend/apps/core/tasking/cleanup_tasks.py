@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import logging
 import os
-import shutil
 from pathlib import Path
 from typing import Any
 
@@ -91,13 +90,13 @@ def check_disk_space(warning_pct: float = 85.0, critical_pct: float = 95.0) -> d
     media_root = str(settings.MEDIA_ROOT)
 
     try:
-        usage = shutil.disk_usage(media_root)
+        stat = os.statvfs(media_root)
     except OSError:
-        logger.error("Cannot read disk usage for %s", media_root)
+        logger.error("Cannot statvfs %s", media_root)
         return {"status": "error", "path": media_root}
 
-    total = usage.total
-    available = usage.free
+    total = stat.f_blocks * stat.f_frsize
+    available = stat.f_bavail * stat.f_frsize
     used_pct = ((total - available) / total) * 100 if total > 0 else 0
 
     if used_pct >= critical_pct:

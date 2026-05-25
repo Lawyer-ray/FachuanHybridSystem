@@ -217,7 +217,7 @@ class DocumentClassifier:
 
             return doc_type, confidence
 
-        except Exception as e:
+        except (TypeError, ValueError) as e:
             logger.warning(f"解析分类响应失败: {e!s}")
             return DocumentType.OTHER, 0.0
 

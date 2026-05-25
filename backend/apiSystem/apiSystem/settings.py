@@ -305,8 +305,6 @@ AUTH_USER_MODEL = "organization.Lawyer"
 # ============================================================
 
 LOGIN_URL = "/admin/login/"
-LOGIN_REDIRECT_URL = "/admin/"
-LOGOUT_REDIRECT_URL = "/admin/login/"
 
 ALLOW_FIRST_USER_SUPERUSER = (os.environ.get("ALLOW_FIRST_USER_SUPERUSER", "False") or "").lower() in (
     "true",

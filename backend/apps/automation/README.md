@@ -1544,7 +1544,6 @@ python -m pytest tests/integration/automation/test_court_sms_api.py -v
 - **[services/sms/](services/sms/)** - Service 层实现详情
 - **[api/court_sms_api.py](api/court_sms_api.py)** - API 接口实现
 - **[admin/court_sms_admin.py](admin/court_sms_admin.py)** - Admin 后台实现
-- **[COURT_SMS_LOG_ATTACHMENT_AUTO_SUBDIR_FIX_2026-05-14.md](COURT_SMS_LOG_ATTACHMENT_AUTO_SUBDIR_FIX_2026-05-14.md)** - 法院短信日志附件自动子目录修复记录
 
 ### 技术栈
 

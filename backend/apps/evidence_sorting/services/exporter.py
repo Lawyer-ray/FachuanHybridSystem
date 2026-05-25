@@ -61,7 +61,7 @@ class ExporterService:
             logger.info("ZIP 导出成功: %s", url)
             return {"success": True, "zip_url": url}
 
-        except Exception as e:
+        except (OSError, ValueError) as e:
             logger.error("ZIP 导出失败: %s", e, exc_info=True)
             return {"success": False, "message": str(e)}
 

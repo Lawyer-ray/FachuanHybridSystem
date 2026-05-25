@@ -51,12 +51,8 @@ class PodcastEpisode(models.Model):
         blank=True,
         verbose_name=_("音频文件"),
     )
-    duration_seconds = models.PositiveIntegerField(
-        null=True, blank=True, verbose_name=_("时长(秒)")
-    )
-    file_size_bytes = models.PositiveIntegerField(
-        null=True, blank=True, verbose_name=_("文件大小(字节)")
-    )
+    duration_seconds = models.PositiveIntegerField(null=True, blank=True, verbose_name=_("时长(秒)"))
+    file_size_bytes = models.PositiveIntegerField(null=True, blank=True, verbose_name=_("文件大小(字节)"))
 
     review_status = models.CharField(
         max_length=16,

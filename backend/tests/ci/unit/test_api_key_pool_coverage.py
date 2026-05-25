@@ -15,7 +15,6 @@ def _pool(*keys: str, provider: str = "test") -> McpApiKeyPool:
 
 # ── __init__ ──────────────────────────────────────────────────────────────────
 
-
 def test_init_deduplicates_keys() -> None:
     pool = _pool("key1", "key1", "key2")
     assert pool.size == 2
@@ -32,7 +31,6 @@ def test_init_empty_keys() -> None:
 
 
 # ── ordered_keys ──────────────────────────────────────────────────────────────
-
 
 def test_ordered_keys_single_key() -> None:
     pool = _pool("key1")
@@ -79,7 +77,6 @@ def test_ordered_keys_blocked_key_goes_last() -> None:
 
 # ── mark_success ──────────────────────────────────────────────────────────────
 
-
 def test_mark_success_sets_preferred_and_clears_block() -> None:
     pool = _pool("key1", "key2")
     with patch("apps.enterprise_data.services.clients.api_key_pool.cache") as mock_cache:
@@ -96,7 +93,6 @@ def test_mark_success_empty_key_does_nothing() -> None:
 
 
 # ── mark_auth_failed / mark_rate_limited ─────────────────────────────────────
-
 
 def test_mark_auth_failed_sets_block() -> None:
     pool = _pool("key1")
@@ -119,7 +115,6 @@ def test_mark_rate_limited_sets_block_with_short_ttl() -> None:
 
 
 # ── fingerprint ───────────────────────────────────────────────────────────────
-
 
 def test_fingerprint_returns_16_char_hex() -> None:
     pool = _pool("key1")
@@ -145,7 +140,6 @@ def test_fingerprint_different_keys_different_results() -> None:
 
 
 # ── 补充边缘分支 ──────────────────────────────────────────────────────────────
-
 
 def test_block_with_zero_ttl_does_nothing() -> None:
     # _block ttl_seconds <= 0 不写 cache（覆盖 line 71）

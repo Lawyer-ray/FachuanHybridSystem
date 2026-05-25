@@ -9,10 +9,7 @@ from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 
 from apps.organization.models import Lawyer
-from apps.organization.services.auth.password_reset_service import (
-    PasswordResetService,
-    password_reset_token_generator,
-)
+from apps.organization.services.auth.password_reset_service import PasswordResetService, password_reset_token_generator
 
 
 class PasswordResetServiceTest(TestCase):

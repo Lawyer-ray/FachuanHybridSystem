@@ -10,9 +10,9 @@ from typing import Any, ClassVar, cast
 
 from apps.core.utils.path import Path
 from apps.documents.services.generation.base_generator import BaseGenerator
-from apps.documents.services.placeholders.fallback import PLACEHOLDER_FALLBACK_VALUE
 from apps.documents.services.generation.registry import GeneratorRegistry
 from apps.documents.services.generation.result import GenerationResult
+from apps.documents.services.placeholders.fallback import PLACEHOLDER_FALLBACK_VALUE
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +92,7 @@ class ContractGenerator(BaseGenerator):
                 duration_ms=duration_ms,
             )
 
-        except Exception as e:
+        except (TypeError, ValueError) as e:
             duration_ms = int((time.time() - start_time) * 1000)
             error_msg = f"生成文书失败: {e!s}"
             logger.error(error_msg, exc_info=True)

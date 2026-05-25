@@ -17,11 +17,10 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.organization.views import register
 
-from .api import api_v1
-
 # Admin 界面自定义（侧边栏排序、Hub 页、工具收藏等）
 # 导入即执行 monkey-patch，无需额外调用
 from . import admin_customization as _admin_customization
+from .api import api_v1
 
 
 def api_redirect(request: HttpRequest) -> HttpResponseRedirect:

@@ -7,7 +7,6 @@ from typing import Any
 
 from django.db import models
 from django.db.models import Prefetch
-from django.urls import reverse
 
 from apps.cases.models import (
     CaseLogAttachment,
@@ -68,8 +67,8 @@ class CaseMaterialQueryService:
             results.append(
                 {
                     "attachment_id": att.id,
-                    "file_name": self._attachment_display_filename(att),
-                    "file_url": self._attachment_preview_url(case_id, att.id),
+                    "file_name": att.original_filename or (getattr(att.file, "name", "") or "").rsplit("/", 1)[-1],
+                    "file_url": getattr(att.file, "url", "") or "",
                     "uploaded_at": att.uploaded_at,
                     "log_id": att.log_id,
                     "log_created_at": getattr(att.log, "created_at", None),
@@ -212,6 +211,10 @@ class CaseMaterialQueryService:
 
     def _material_item_payload(self, m: CaseMaterial) -> dict[str, Any]:
         att = m.source_attachment
+        file_name = (getattr(att, "original_filename", "") if att else "") or (
+            getattr(getattr(att, "file", None), "name", "") if att else ""
+        )
+        url = getattr(getattr(att, "file", None), "url", "") if att else ""
         uploaded_at = getattr(att, "uploaded_at", None)
         party_labels = []
         for p in m.parties.all():
@@ -220,27 +223,8 @@ class CaseMaterialQueryService:
         return {
             "material_id": m.id,
             "attachment_id": m.source_attachment_id,
-            "file_name": self._attachment_display_filename(att),
-            "file_url": self._attachment_preview_url(m.case_id, m.source_attachment_id),
+            "file_name": (file_name or "").rsplit("/", 1)[-1],
+            "file_url": url or "",
             "uploaded_at": uploaded_at,
             "party_labels": party_labels,
         }
-
-    def _attachment_display_filename(self, attachment: CaseLogAttachment | None) -> str:
-        if attachment is None:
-            return ""
-        candidates = (
-            getattr(attachment, "original_filename", ""),
-            getattr(attachment, "relative_file_path", ""),
-            getattr(getattr(attachment, "file", None), "name", ""),
-        )
-        for candidate in candidates:
-            filename = str(candidate or "").replace("\\", "/").rsplit("/", 1)[-1].strip()
-            if filename:
-                return filename
-        return ""
-
-    def _attachment_preview_url(self, case_id: int | None, attachment_id: int | None) -> str:
-        if not case_id or not attachment_id:
-            return ""
-        return reverse("admin:cases_case_preview_log_attachment", args=[case_id, attachment_id])

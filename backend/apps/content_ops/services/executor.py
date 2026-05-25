@@ -244,7 +244,7 @@ class ContentOpsExecutor:
                     logger.info("LLM selected case %d: %s", index, reason)
                     return items[index]
 
-        except Exception as e:
+        except (TypeError, ValueError) as e:
             logger.warning("Failed to select best case via LLM: %s, using first result", e)
 
         return items[0]

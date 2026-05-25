@@ -12,12 +12,12 @@ from typing import Any
 from django.core.cache import cache
 
 from apps.core.interfaces import ServiceLocator
-from .tuning_config import LegalResearchTuningConfig
 
 from . import cache as cache_mod
 from . import json_utils as json_utils
 from . import passage as passage_mod
 from . import scorers as scorers
+from .tuning_config import LegalResearchTuningConfig
 
 logger = logging.getLogger(__name__)
 
@@ -729,22 +729,12 @@ class CaseSimilarityService:
         logger.info("案例相似度评分", extra=extra_payload)
 
 
-# Re-export for backward compatibility
-from .scorers import (
-    bm25_proxy_score,
-    build_candidate_excerpt,
-    char_ngrams,
-    coerce_score,
-    dedupe_tokens,
-    extract_score_from_text,
-    focus_content_after_fact_marker,
-    keyword_overlap_score,
-    lexical_vector_similarity_score,
-    metadata_hint_score,
-    normalize_score,
-    summary_overlap_score,
-    tokenize,
-    token_overlap_score,
+from .cache import (
+    SemanticVectorCacheManager,
+    SimilarityCacheManager,
+    build_semantic_embedding_cache_key,
+    build_similarity_cache_key,
+    normalize_embedding_text,
 )
 from .json_utils import (
     apply_structured_adjustments,
@@ -759,10 +749,21 @@ from .passage import (
     select_relevant_passages,
     split_paragraphs,
 )
-from .cache import (
-    SimilarityCacheManager,
-    SemanticVectorCacheManager,
-    build_similarity_cache_key,
-    build_semantic_embedding_cache_key,
-    normalize_embedding_text,
+
+# Re-export for backward compatibility
+from .scorers import (
+    bm25_proxy_score,
+    build_candidate_excerpt,
+    char_ngrams,
+    coerce_score,
+    dedupe_tokens,
+    extract_score_from_text,
+    focus_content_after_fact_marker,
+    keyword_overlap_score,
+    lexical_vector_similarity_score,
+    metadata_hint_score,
+    normalize_score,
+    summary_overlap_score,
+    token_overlap_score,
+    tokenize,
 )

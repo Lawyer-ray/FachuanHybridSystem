@@ -1,6 +1,6 @@
 from .batch_printing_admin import (
-    BatchPrintJobAdmin,
     BatchPrintingToolAdmin,
+    BatchPrintJobAdmin,
     PrintKeywordRuleAdmin,
     PrintPresetSnapshotAdmin,
 )

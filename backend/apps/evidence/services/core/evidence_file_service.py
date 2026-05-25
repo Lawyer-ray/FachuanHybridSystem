@@ -100,5 +100,5 @@ class EvidenceFileService:
             from apps.core.tasking import submit_task
 
             submit_task("apps.evidence.tasks.ocr_evidence_item_task", item_id)
-        except Exception:
+        except (TypeError, ValueError):
             pass

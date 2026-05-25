@@ -36,15 +36,6 @@ const SMS_TYPE_LABELS: Record<string, string> = {
   document_delivery: '文书送达', info_notification: '信息通知', filing_notification: '立案通知',
 }
 
-const RECOMMENDATION_REASON_LABELS: Record<string, string> = {
-  court_sms_acceptance_match: '受理通知书规则命中',
-  court_sms_fee_invoice_match: '缴费/发票规则命中',
-  court_sms_opponent_material_match: '对方材料强规则命中',
-  court_sms_opponent_material_weak_match: '对方材料弱规则命中',
-  court_sms_judgment_notice_match: '裁定/判决/通知规则命中',
-  court_sms_other_fallback: '法院送达材料默认兜底',
-}
-
 function CourtSmsStatusBadge({ status }: { status: string | null }) {
   if (!status) return <StatusBadge variant="closed">未设置</StatusBadge>
   const variant = status === 'completed'
@@ -267,7 +258,7 @@ export function CourtSmsDetail({ smsId }: CourtSmsDetailProps) {
         }>
           <div className="flex flex-col gap-2">
             {sms.documents.map((doc, idx) => (
-              <div key={`${doc.id ?? 'doc'}-${idx}-${doc.name}`} className="flex items-center gap-3 rounded-md border border-border/60 bg-muted/30 px-3 py-3 text-[13px]">
+              <div key={doc.id} className="flex items-center gap-3 rounded-md border border-border/60 bg-muted/30 px-3 py-3 text-[13px]">
                 <Link2 className="text-muted-foreground size-3.5 shrink-0" />
                 <div className="min-w-0 flex-1">
                   {renamingIndex === idx ? (
@@ -287,27 +278,6 @@ export function CourtSmsDetail({ smsId }: CourtSmsDetailProps) {
                     <>
                       <span className="font-medium truncate block">{doc.name}</span>
                       {doc.source && <span className="text-muted-foreground text-xs">{doc.source}</span>}
-                      <div className="mt-1.5 space-y-1 text-xs">
-                        {doc.original_name && (
-                          <div className="text-muted-foreground">
-                            原始文书名: <span className="font-medium text-foreground">{doc.original_name}</span>
-                          </div>
-                        )}
-                        <div className="text-muted-foreground">
-                          当前归档子目录: <span className="font-medium text-foreground">{doc.archived_subdir || '未归档/未记录'}</span>
-                        </div>
-                        <div className="text-muted-foreground">
-                          系统推荐子目录: <span className="font-medium text-foreground">{doc.recommended_subdir || '未给出'}</span>
-                        </div>
-                        {doc.recommendation_reason && (
-                          <div className="text-muted-foreground">
-                            推荐依据:{' '}
-                            <span className="font-medium text-foreground">
-                              {RECOMMENDATION_REASON_LABELS[doc.recommendation_reason] ?? doc.recommendation_reason}
-                            </span>
-                          </div>
-                        )}
-                      </div>
                     </>
                   )}
                 </div>

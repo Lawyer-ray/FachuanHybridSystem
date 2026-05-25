@@ -297,7 +297,7 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin):
             # 清理临时 zip 文件
             try:
                 Path(zip_path).unlink(missing_ok=True)
-            except Exception:
+            except (OSError, ValueError):
                 pass
             return
 
@@ -328,7 +328,7 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin):
         )
         try:
             Path(zip_path).unlink(missing_ok=True)
-        except Exception:
+        except (OSError, ValueError):
             pass
         return
 
@@ -411,7 +411,7 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin):
         )
         try:
             Path(zip_path).unlink(missing_ok=True)
-        except Exception:
+        except (OSError, ValueError):
             pass
         return response
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from apps.legal_research.schemas import AgentSearchRequestV1
+
 from .service import LegalResearchCapabilityService
 
 

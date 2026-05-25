@@ -10,8 +10,6 @@ from django.utils.translation import gettext_lazy as _
 from ninja import Router
 
 from apps.contracts.schemas import (
-    ContractStorageSubdirRecommendResponseSchema,
-    ContractStorageSubdirBrowseResponseSchema,
     FolderBindingCreateSchema,
     FolderBindingResponseSchema,
     FolderBrowseEntrySchema,
@@ -230,46 +228,4 @@ def browse_folders(request: HttpRequest, path: str | None = None, include_hidden
         path=str(resolved),
         parent_path=parent_path,
         entries=entries,
-    )
-
-
-@router.get("/{contract_id}/storage-subdirs", response=ContractStorageSubdirBrowseResponseSchema)
-def browse_contract_storage_subdirs(
-    request: HttpRequest,
-    contract_id: int,
-    path: str | None = None,
-) -> Any:
-    _require_contract_access(request, contract_id)
-    service = _get_folder_binding_service()
-    return service.list_bound_subdirs(owner_id=contract_id, relative_path=str(path or ""))
-
-
-@router.get("/{contract_id}/recommended-storage-subdir", response=ContractStorageSubdirRecommendResponseSchema)
-def recommend_contract_storage_subdir(
-    request: HttpRequest,
-    contract_id: int,
-    material_category: str = "",
-    archive_item_name: str = "",
-    archive_item_code: str = "",
-    file_name: str = "",
-) -> Any:
-    _require_contract_access(request, contract_id)
-    service = _get_folder_binding_service()
-    if str(material_category or "").strip():
-        return service.recommend_bound_subdir_for_material_category(
-            owner_id=contract_id,
-            material_category=material_category,
-            file_name=file_name,
-        )
-    from apps.contracts.services.contract import wiring
-
-    contract = wiring.get_contract_query_facade().get_contract_ctx(
-        contract_id=contract_id,
-        ctx=get_request_access_context(request),
-    )
-    return service.recommend_bound_subdir_for_archive_item(
-        owner_id=contract_id,
-        archive_item_name=archive_item_name,
-        archive_item_code=archive_item_code,
-        case_type=getattr(contract, "case_type", ""),
     )

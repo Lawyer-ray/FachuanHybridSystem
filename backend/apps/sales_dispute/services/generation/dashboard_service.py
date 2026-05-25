@@ -15,9 +15,9 @@ from apps.sales_dispute.models.case_assessment import ContractBasisType
 from apps.sales_dispute.models.collection_record import STAGE_ORDER, CollectionStage
 
 from .dashboard_models import (
+    _ZERO,
     AMOUNT_RANGES,
     DEBT_AGE_RANGES,
-    _ZERO,
     BreakdownItem,
     CaseStatsOutput,
     FactorItem,

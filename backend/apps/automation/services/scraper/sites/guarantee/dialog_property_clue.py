@@ -46,7 +46,7 @@ class GuaranteeDialogPropertyClueMixin:
                 if selected:
                     updates.append("财产类型=其他")
                     break
-        except Exception:
+        except (TypeError, ValueError):
             pass
 
         try:
@@ -82,7 +82,7 @@ class GuaranteeDialogPropertyClueMixin:
                 if selected:
                     updates.append("财产所有人=已选")
                     break
-        except Exception:
+        except (TypeError, ValueError):
             pass
 
         try:
@@ -119,7 +119,7 @@ class GuaranteeDialogPropertyClueMixin:
                         self._random_wait(0.5, 0.9)  # type: ignore[attr-defined]
                     if selected:
                         updates.append(f"省份={province_name}")
-        except Exception:
+        except (TypeError, ValueError):
             pass
 
         filled_fields = self.page.evaluate(

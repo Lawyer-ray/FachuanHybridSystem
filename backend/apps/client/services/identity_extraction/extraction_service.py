@@ -276,7 +276,7 @@ class IdentityExtractionService:
 
         except OCRExtractionError:
             raise
-        except Exception as e:
+        except (OSError, ValueError) as e:
             logger.exception("PDF 处理失败: %s", e)
             raise OCRExtractionError(_("PDF 处理失败: %(e)s") % {"e": e}) from e
 

@@ -66,7 +66,8 @@ class SupplementaryAgreementGenerationService:
         contract_data = self.contract_service.get_contract_with_details_internal(contract_id)
         from .pipeline import DocxPreviewService, TemplateMatcher
 
-        template = TemplateMatcher().match_supplementary_agreement_template(contract_data.get("case_type") or "")
+        case_type = contract_data.get("case_type", "") if contract_data else ""
+        template = TemplateMatcher().match_supplementary_agreement_template(case_type or "")
         if not template:
             return []
         file_location = template.get_file_location()
@@ -226,12 +227,12 @@ class SupplementaryAgreementGenerationService:
 
         try:
             # 获取绑定信息
-            binding = self.folder_binding_service.get_binding(owner_id=contract_id)
+            binding = self.folder_binding_service.get_binding_for_contract(contract_id)
             if not binding or not binding.folder_path:
                 return "V1"
 
             # 构建子目录路径
-            subdir_path = self.folder_binding_service._resolve_subdir_path(
+            subdir_path = self.folder_binding_service._resolve_subdir_path(  # type: ignore[attr-defined]
                 owner_type=binding.contract.case_type if hasattr(binding, "contract") else "",
                 subdir_key=subdir_key,
             )
@@ -260,7 +261,7 @@ class SupplementaryAgreementGenerationService:
 
             return f"V{max_version + 1}"
 
-        except Exception as e:
+        except (TypeError, ValueError) as e:
             logger.warning("获取版本号失败,使用默认版本 V1: %s", e)
             return "V1"
 
@@ -312,8 +313,8 @@ class SupplementaryAgreementGenerationService:
         if self.folder_binding_service is None:
             return None
         try:
-            saved_path = self.folder_binding_service.save_file_to_bound_folder(
-                owner_id=contract_id, file_content=file_content, file_name=file_name, subdir_key=subdir_key
+            saved_path = self.folder_binding_service.save_file_for_contract(
+                contract_id=contract_id, file_content=file_content, file_name=file_name, subdir_key=subdir_key
             )
             if saved_path:
                 logger.info(

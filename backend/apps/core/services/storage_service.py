@@ -280,7 +280,7 @@ def delete_media_file(file_path: str) -> bool:
 
     try:
         p.unlink(missing_ok=True)
-    except Exception:
+    except (OSError, ValueError):
         logger.exception("删除媒体文件失败", extra={"file_path": file_path})
         return False
 

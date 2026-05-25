@@ -277,7 +277,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
                 "</details>",
                 formatted,
             )
-        except Exception:
+        except TypeError:
             return format_html(
                 '<pre style="max-height: 200px; overflow: auto; background: #f5f5f5; '
                 'padding: 10px; border-radius: 4px; font-size: 12px;">{}</pre>',

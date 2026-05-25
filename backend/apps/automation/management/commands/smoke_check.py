@@ -165,6 +165,7 @@ class Command(BaseCommand):
         import logging
 
         from django_q.models import Task
+
         from apps.core.tasking import submit_task
 
         logger = logging.getLogger(__name__)

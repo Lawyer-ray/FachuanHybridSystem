@@ -31,7 +31,6 @@
 
         // 初始化：默认倒序排列
         sortLogs('desc');
-        initCaseLogCollapse(logsGroup);
 
         // 点击排序按钮
         sortBtn.addEventListener('click', function() {
@@ -43,37 +42,6 @@
 
             sortLogs(newOrder);
         });
-    }
-
-    function initCaseLogCollapse(logsGroup) {
-        if (logsGroup.dataset.defaultCollapsed === '1') return;
-
-        const fieldset = logsGroup.querySelector(':scope > fieldset');
-        const heading = fieldset ? fieldset.querySelector(':scope > h2') : logsGroup.querySelector(':scope > h2');
-        const items = logsGroup.querySelector('.djn-items');
-        const addItem = logsGroup.querySelector('.djn-add-item');
-        const collapsibleBlocks = [items, addItem].filter(Boolean);
-        if (!heading || collapsibleBlocks.length === 0) return;
-
-        const toggle = document.createElement('span');
-        toggle.className = 'case-log-inline-toggle';
-        heading.insertBefore(toggle, heading.firstChild);
-
-        function setCollapsed(collapsed) {
-            collapsibleBlocks.forEach(function(block) {
-                block.style.display = collapsed ? 'none' : '';
-            });
-            toggle.textContent = collapsed ? '▶' : '▼';
-            logsGroup.dataset.defaultCollapsed = collapsed ? '1' : '0';
-        }
-
-        heading.classList.add('case-log-collapsible-heading');
-        heading.addEventListener('click', function(event) {
-            if (event.target.closest('a, button, input, select, textarea, label')) return;
-            setCollapsed(logsGroup.dataset.defaultCollapsed !== '1');
-        });
-
-        setCollapsed(true);
     }
 
     function sortLogs(order) {

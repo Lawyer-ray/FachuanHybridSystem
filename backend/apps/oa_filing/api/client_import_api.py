@@ -24,10 +24,7 @@ def trigger_client_import(request: HttpRequest) -> Any:
     """触发从OA导入客户。"""
     import json
 
-    from django.db.models import Q
-
-    from apps.oa_filing.models import ClientImportSession
-    from apps.organization.models import AccountCredential
+    from apps.oa_filing.services.import_session_service import get_jtn_credential
 
     if not request.user.is_authenticated:
         return {"error": "未登录"}
@@ -55,29 +52,22 @@ def trigger_client_import(request: HttpRequest) -> Any:
                         if parsed_limit <= 0:
                             return {"error": "导入数量必须是大于 0 的整数"}
                         limit = parsed_limit
-        except Exception:
+        except json.JSONDecodeError:
             # 非 JSON 请求体时使用默认值
             headless = True
             limit = None
 
     # 查找用户的 jtn.com 凭证
-    credential = AccountCredential.objects.filter(
-        Q(account__icontains="jtn.com") | Q(url__icontains="jtn.com"),
-        lawyer_id=lawyer_id,
-    ).first()
+    credential = get_jtn_credential(lawyer_id)
 
     if not credential:
         return {"error": "未找到金诚同达OA账号凭证"}
 
     # 创建导入会话
-    from apps.organization.models import Lawyer
+    from apps.oa_filing.services.import_session_service import create_client_session, get_lawyer
 
-    lawyer = Lawyer.objects.get(pk=lawyer_id)
-    session = ClientImportSession.objects.create(
-        lawyer=lawyer,
-        credential=credential,
-        status="pending",
-    )
+    lawyer = get_lawyer(lawyer_id)
+    session = create_client_session(lawyer=lawyer, credential=credential)
 
     # 启动后台任务
     from apps.core.tasking import submit_task
@@ -97,9 +87,14 @@ def trigger_client_import(request: HttpRequest) -> Any:
 @router.get("/client-import/{session_id}", response=ClientImportSessionOut)
 def get_client_import_session(request: HttpRequest, session_id: int) -> Any:
     """查询客户导入会话状态。"""
-    from apps.oa_filing.models import ClientImportSession
+    from apps.oa_filing.services.import_session_service import get_client_session_or_none
 
-    return ClientImportSession.objects.get(pk=session_id)
+    session = get_client_session_or_none(session_id)
+    if session is None:
+        from django.http import Http404
+
+        raise Http404("会话不存在")
+    return session
 
 
 @router.post("/client-import/{session_id}/batch-create")
@@ -111,13 +106,11 @@ def batch_create_clients(request: HttpRequest, session_id: int) -> dict[str, Any
     """
     from django.http import JsonResponse
 
-    from apps.client.models import Client
-    from apps.oa_filing.models import ClientImportSession
+    from apps.oa_filing.services.import_session_service import get_client_session_or_none
 
     # 获取会话
-    try:
-        session = ClientImportSession.objects.get(pk=session_id)
-    except ClientImportSession.DoesNotExist:
+    session = get_client_session_or_none(session_id)
+    if session is None:
         return JsonResponse({"error": "会话不存在"}, status=404)  # type: ignore[return-value]
 
     # 解析请求体
@@ -126,7 +119,7 @@ def batch_create_clients(request: HttpRequest, session_id: int) -> dict[str, Any
     try:
         body = json.loads(request.body)
         customers = body.get("customers", [])
-    except Exception:
+    except json.JSONDecodeError:
         return JsonResponse({"error": "无效的请求数据"}, status=400)  # type: ignore[return-value]
 
     success_count = 0
@@ -152,13 +145,15 @@ def batch_create_clients(request: HttpRequest, session_id: int) -> dict[str, Any
             logger.info("[%d/%d] 处理: %s (type=%s)", i + 1, len(customers), name, client_type)
 
             # 检查是否已存在（按名称去重）
-            if Client.objects.filter(name=name).exists():
+            from apps.oa_filing.services.import_session_service import client_exists_by_id_number, client_exists_by_name
+
+            if client_exists_by_name(name):
                 skip_count += 1
                 continue
 
             # 对于自然人，还要检查id_number是否已存在（避免身份证号冲突）
             if client_type == "natural" and id_number:
-                if Client.objects.filter(id_number=id_number).exists():
+                if client_exists_by_id_number(id_number):
                     skip_count += 1
                     continue
 
@@ -174,14 +169,15 @@ def batch_create_clients(request: HttpRequest, session_id: int) -> dict[str, Any
             #         logger.info("  -> 企业数据补全成功: phone=%s, address=%s", phone, address)
 
             # 创建客户
-            Client.objects.create(
+            from apps.oa_filing.services.import_session_service import create_client_for_import
+
+            create_client_for_import(
                 name=name,
                 client_type=client_type,
                 phone=phone,
                 address=address,
                 id_number=id_number,
                 legal_representative=legal_representative,
-                is_our_client=True,
             )
             success_count += 1
 

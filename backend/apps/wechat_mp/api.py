@@ -41,9 +41,9 @@ def create_publish_task(request: HttpRequest, payload: PublishTaskCreate) -> Any
     )
 
     # 提交异步任务
-    from django_q.tasks import async_task
+    from apps.core.tasking import submit_task
 
-    queue_task_id = async_task(execute_publish_task, task.id)
+    queue_task_id = submit_task("apps.wechat_mp.tasks.execute_publish_task", task.id)
     task.queue_task_id = str(queue_task_id)
     task.save(update_fields=["queue_task_id"])
 

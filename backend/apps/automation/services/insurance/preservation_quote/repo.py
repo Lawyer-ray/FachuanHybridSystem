@@ -186,7 +186,7 @@ class PreservationQuoteRepository:
                 return None
             try:
                 return Decimal(str(value))
-            except Exception:
+            except (TypeError, ValueError):
                 logger.exception("操作失败")
 
                 return None

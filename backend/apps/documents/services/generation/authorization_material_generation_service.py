@@ -314,7 +314,7 @@ class AuthorizationMaterialGenerationService:
             try:
                 with license_field.open("rb") as f:
                     zf.writestr(arc_name, f.read())
-            except Exception:
+            except (TypeError, ValueError):
                 logger.exception("操作失败")
                 missing_lines.append(f"缺少{lawyer_name}的律师执业证")
 

@@ -18,12 +18,8 @@ from typing import Any
 from django.db import transaction
 
 from apps.core.exceptions import NotFoundError, ValidationException
-from ..wiring import (
-    get_case_service,
-    get_conversation_history_service,
-    get_court_pleading_signals_service,
-)
 
+from ..wiring import get_case_service, get_conversation_history_service, get_court_pleading_signals_service
 from .session_shared import SessionDTO
 
 logger = logging.getLogger("apps.litigation_ai")

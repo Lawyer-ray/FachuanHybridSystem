@@ -371,7 +371,7 @@ class CourtDocumentAdminService:
                 try:
                     Path(file_path_str).unlink()
                     deleted_count += 1
-                except Exception as e:
+                except (OSError, ValueError) as e:
                     delete_errors.append({"file_path": file_path_str, "error": str(e)})
 
             result = {
@@ -384,7 +384,7 @@ class CourtDocumentAdminService:
 
             return result
 
-        except Exception as e:
+        except (OSError, ValueError) as e:
             self.logger.error(
                 "清理孤立文件失败", extra={"action": "cleanup_orphaned_files", "error": str(e)}, exc_info=True
             )

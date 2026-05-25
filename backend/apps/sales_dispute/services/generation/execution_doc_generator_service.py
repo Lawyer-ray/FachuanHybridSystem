@@ -260,8 +260,7 @@ class ExecutionDocGeneratorService:
         rendered_content = renderer.render(str(template_path), context)
         return cast(bytes, rendered_content)
 
-    @staticmethod
-    def _build_docx_renderer() -> Any:
+    def _build_docx_renderer(self) -> Any:
         module = import_module("apps.documents.services.generation.pipeline")
         renderer_cls = module.DocxRenderer
         return renderer_cls()

@@ -48,8 +48,7 @@ class DocxPreviewService:
                 rows.append({"key": var, "value": "", "status": "empty"})
         return rows
 
-    @staticmethod
-    def _extract_ordered_vars(path: str) -> list[str]:
+    def _extract_ordered_vars(self, path: str) -> list[str]:
         """从 docx XML 中按出现顺序提取 jinja2 变量，去重
 
         提取两种类型的变量：

@@ -49,6 +49,9 @@ class AuthService:
     def is_first_user(self) -> bool:
         return not Lawyer.objects.exists()
 
+    def username_exists(self, username: str) -> bool:
+        return Lawyer.objects.filter(username=username).exists()
+
     def should_show_auto_register(self) -> bool:
         return self.is_first_user()
 

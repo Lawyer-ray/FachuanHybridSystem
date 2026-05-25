@@ -15,9 +15,10 @@ from typing import TYPE_CHECKING, Optional
 from django.db import transaction
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
+
 from apps.automation.models import CourtSMS, CourtSMSStatus
-from apps.core.tasking import submit_task
 from apps.core.exceptions import NotFoundError, ValidationException
+from apps.core.tasking import submit_task
 
 if TYPE_CHECKING:
     from apps.core.interfaces import ICaseService, ILawyerService
@@ -35,7 +36,7 @@ class SMSSubmissionService:
     - 重试处理
 
     遵循架构规范：
-    - 使用实例方法而非 @staticmethod
+    - 使用实例方法而非 staticmethod
     - 通过依赖注入获取依赖
     - 使用 apps.core.exceptions 中定义的异常类
     - 遵循延迟加载模式

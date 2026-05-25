@@ -24,7 +24,7 @@ _APPS_ROOT = Path(__file__).resolve().parents[3] / "apps"
 # violations; the goal is to drive them toward zero.
 
 # API layer calling Model.objects directly
-API_MODEL_OBJECTS_RATCHET = 80
+API_MODEL_OBJECTS_RATCHET = 46
 
 # Service layer using @staticmethod
 SERVICE_STATIC_METHOD_RATCHET = 245

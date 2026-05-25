@@ -8,17 +8,6 @@
 (function () {
     'use strict';
 
-    function getPartyClientSelects() {
-        return Array.from(
-            document.querySelectorAll(
-                'select[id^="contract_parties-"][id$="-client"], ' +
-                'select[id^="contractparty_set-"][id$="-client"]'
-            )
-        ).filter(function(select) {
-            return !((select.name || '').indexOf('__prefix__') !== -1);
-        });
-    }
-
     // 等待页面加载完成
     function init() {
         var nameField = document.getElementById('id_name');
@@ -76,9 +65,6 @@
 
         // 更新按钮状态
         updateButtonState(btn);
-        btn.addEventListener('auto-contract-name-refresh', function() {
-            updateButtonState(btn);
-        });
 
         // 点击事件
         btn.addEventListener('click', function (e) {
@@ -112,8 +98,16 @@
      */
     function getParties() {
         var parties = [];
-        getPartyClientSelects().forEach(function (select) {
+
+        // 遍历所有当事人行的隐藏 select 元素
+        // select2 会隐藏原始 select 并在旁边创建 .select2-container
+        var allSelects = document.querySelectorAll('select');
+
+        allSelects.forEach(function (select) {
             var id = select.id || '';
+            // 只处理当事人 client 字段（两种命名格式）
+            if (!id.match(/contract_parties-\d+-client$/) &&
+                !id.match(/contractparty_set-\d+-client$/)) return;
 
             // 检查是否有值被选中
             var name = '';
@@ -268,14 +262,11 @@
             updateButtonState(btn);
         });
 
-        [
-            document.getElementById('contract_parties-group'),
-            document.getElementById('contractparty_set-group')
-        ].forEach(function(inlineGroup) {
-            if (inlineGroup) {
-                observer.observe(inlineGroup, { childList: true, subtree: true });
-            }
-        });
+        var inlineGroup = document.getElementById('contract_parties-group') ||
+                          document.getElementById('contractparty_set-group');
+        if (inlineGroup) {
+            observer.observe(inlineGroup, { childList: true, subtree: true });
+        }
 
         // 监听合同类型变化
         var caseTypeSelect = document.getElementById('id_case_type');
@@ -300,8 +291,7 @@
         });
 
         // 监听 select2 选择事件（当事人用 autocomplete_fields）
-        var $ = window.django && window.django.jQuery;
-        if ($) {
+        if (typeof $ !== 'undefined') {
             $(document).on('select2:select change', function(e) {
                 var elId = e.target ? e.target.id : '';
                 if (

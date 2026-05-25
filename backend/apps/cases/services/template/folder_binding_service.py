@@ -1,10 +1,8 @@
-"""Business logic services for case folder binding."""
+"""Business logic services."""
 
 from __future__ import annotations
 
 import logging
-import re
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from django.db import transaction
@@ -19,7 +17,6 @@ from apps.core.filesystem import (
     FolderFilesystemService,
     FolderPathValidator,
 )
-from apps.core.models.enums import CaseStage, CaseType, SimpleCaseType
 
 if TYPE_CHECKING:
     from apps.core.interfaces import ICaseService, IDocumentService
@@ -29,179 +26,18 @@ logger = logging.getLogger("apps.cases")
 
 
 class CaseFolderBindingService(FolderBindingCrudService):
-    """Manage case folder bindings and case-side storage subdirectories."""
+    """
+    案件文件夹绑定服务
 
-    DEFAULT_SUBDIRS: ClassVar = {
-        "case_documents": "案件文书",
-        "trial_materials": "庭审材料",
-        "judgments": "判决书",
-        "execution_documents": "执行文书",
-        "other_files": "其他文件",
-    }
-    LOG_ATTACHMENT_DEFAULT_SUBDIR: ClassVar = "案件日志附件"
-    LOG_ATTACHMENT_PREFERRED_PATHS: ClassVar = [
-        "4-邮件往来",
-        "案件日志附件",
-        "案件材料",
-        "一审/1-立案材料/4-证据目录",
-        "一审/1-立案材料/5-证据材料",
-    ]
-    LOG_ATTACHMENT_KEYWORDS: ClassVar = [
-        "邮件",
-        "往来",
-        "日志",
-        "附件",
-        "证据",
-        "材料",
-    ]
+    职责:
+    1. 管理案件与文件夹的绑定关系
+    2. 验证文件夹路径格式
+    3. 处理文件保存到绑定文件夹
+    4. 管理子目录结构
+    5. 根据文书模板绑定配置确定保存路径
 
-    LOG_ATTACHMENT_FILENAME_RULES: ClassVar = [
-        {
-            "keywords": ["证据目录", "证据清单"],
-            "exclude_keywords": ["聊天记录", "通话记录", "录音", "录像", "照片", "截图"],
-            "preferred_paths": ["一审/1-立案材料/4-证据目录", "4-证据目录"],
-            "fallback_subdir": "一审/1-立案材料/4-证据目录",
-        },
-        {
-            "keywords": [
-                "证据",
-                "举证",
-                "质证",
-                "聊天记录",
-                "通话记录",
-                "录音",
-                "录像",
-                "截图",
-                "照片",
-                "转账记录",
-                "付款记录",
-                "流水",
-                "发票",
-                "收据",
-            ],
-            "exclude_keywords": ["目录", "清单"],
-            "preferred_paths": ["一审/1-立案材料/5-证据材料", "证据材料"],
-            "fallback_subdir": "一审/1-立案材料/5-证据材料",
-        },
-        {
-            "keywords": [
-                "财产保全申请书",
-                "保全申请书",
-                "诉讼保全申请书",
-                "财产保全",
-                "保全申请",
-                "保函",
-                "担保函",
-            ],
-            "preferred_paths": [
-                "一审/1-立案材料/8-保全申请书及保函",
-                "8-保全申请书及保函",
-                "保全申请书及保函",
-                "保函",
-            ],
-            "fallback_subdir": "一审/1-立案材料/8-保全申请书及保函",
-        },
-        {
-            "keywords": ["起诉状", "起诉书", "答辩状", "答辩书", "上诉状", "申请书"],
-            "exclude_keywords": ["保全", "保函", "先行给付", "暂缓送达"],
-            "preferred_paths": ["一审/1-立案材料/1-起诉材料", "起诉材料"],
-            "fallback_subdir": "一审/1-立案材料/1-起诉材料",
-        },
-        {
-            "keywords": ["庭审笔录", "庭审", "开庭", "质证笔录"],
-            "preferred_paths": ["一审/2-庭审材料", "庭审材料"],
-            "fallback_subdir": "一审/2-庭审材料",
-        },
-        {
-            "keywords": ["判决书", "裁定书", "调解书"],
-            "preferred_paths": ["一审/3-裁判文书", "裁判文书"],
-            "fallback_subdir": "一审/3-裁判文书",
-        },
-        {
-            "keywords": ["委托书", "授权", "律师函"],
-            "preferred_paths": ["1-律师资料/1-授权委托", "1-律师资料/1-合同", "1-律师资料"],
-            "fallback_subdir": "1-律师资料/1-授权委托",
-        },
-        {
-            "keywords": ["送达", "快递", "邮寄", "邮件", "回执"],
-            "preferred_paths": ["4-邮件往来", "案件日志附件"],
-            "fallback_subdir": "4-邮件往来",
-        },
-    ]
-
-    COURT_SMS_ROOT_LABEL: ClassVar = "法院送达材料"
-    COURT_SMS_ACCEPTANCE_LABEL: ClassVar = "受理通知书"
-    COURT_SMS_FEE_LABEL: ClassVar = "缴费通知书、发票"
-    COURT_SMS_OPPONENT_LABEL: ClassVar = "对方当事人提交材料"
-    COURT_SMS_JUDGMENT_NOTICE_LABEL: ClassVar = "裁定书、判决书、通知书"
-    COURT_SMS_OTHER_LABEL: ClassVar = "其他材料"
-    COURT_SMS_STAGE_LABELS: ClassVar = {
-        CaseStage.FIRST_TRIAL: ("一审",),
-        CaseStage.SECOND_TRIAL: ("二审",),
-        CaseStage.ENFORCEMENT: ("执行",),
-        CaseStage.RETRIAL_FIRST: ("重审一审", "一审"),
-        CaseStage.RETRIAL_SECOND: ("重审二审", "二审"),
-        CaseStage.REHEARING_FIRST: ("再审一审", "一审"),
-        CaseStage.REHEARING_SECOND: ("再审二审", "二审"),
-    }
-    COURT_SMS_ACCEPTANCE_KEYWORDS: ClassVar = [
-        "受理通知书",
-        "案件受理通知书",
-        "立案受理",
-        "受理案件通知",
-        "已受理",
-    ]
-    COURT_SMS_FEE_KEYWORDS: ClassVar = [
-        "缴费通知书",
-        "交费通知书",
-        "诉讼费",
-        "缴纳通知",
-        "缴费",
-        "交费",
-        "发票",
-        "票据",
-        "收费票据",
-    ]
-    COURT_SMS_OPPONENT_STRONG_KEYWORDS: ClassVar = [
-        "对方证据",
-        "补充证据",
-        "证据目录",
-        "证据清单",
-        "质证",
-        "质证意见",
-        "答辩状",
-        "答辩意见",
-        "对方提交材料",
-        "举证材料",
-        "举证通知材料",
-        "对方材料",
-    ]
-    COURT_SMS_JUDGMENT_NOTICE_KEYWORDS: ClassVar = [
-        "裁定书",
-        "判决书",
-        "调解书",
-        "决定书",
-        "通知书",
-        "传票",
-        "开庭通知",
-        "开庭传票",
-    ]
-    COURT_SMS_OPPONENT_WEAK_KEYWORDS: ClassVar = [
-        "证据",
-        "意见",
-        "书面意见",
-        "代理意见",
-        "补充材料",
-        "陈述意见",
-        "说明材料",
-        "提交材料",
-    ]
-
-    binding_model = CaseFolderBinding
-    owner_model = Case
-    owner_rel_field: str = "case"
-    owner_id_field: str = "case_id"
-    owner_label: str = "案件"
+    通过 ServiceLocator 获取跨模块依赖,符合四层架构规范.
+    """
 
     def __init__(
         self,
@@ -211,6 +47,11 @@ class CaseFolderBindingService(FolderBindingCrudService):
         path_validator: FolderPathValidator | None = None,
         browse_policy: FolderBrowsePolicy | None = None,
     ) -> None:
+        """
+        构造函数支持依赖注入
+
+            document_service: 文档服务实例(可选,用于测试时注入)
+        """
         super().__init__(
             filesystem_service=filesystem_service,
             path_validator=path_validator,
@@ -224,6 +65,14 @@ class CaseFolderBindingService(FolderBindingCrudService):
 
     @property
     def document_service(self) -> IDocumentService:
+        """
+        延迟加载文档服务
+
+        通过 ServiceLocator 获取 IDocumentService 实例,
+        避免直接导入 apps.documents 模块.
+
+            IDocumentService 实例
+        """
         if self._document_service is None:
             raise RuntimeError("CaseFolderBindingService.document_service 未注入")
         return self._document_service
@@ -263,6 +112,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
             case=case,
             message=_("无权限访问此案件"),
         )
+
         return case
 
     def _require_case_access_ctx(self, case_id: int, ctx: AccessContext) -> Case:
@@ -274,9 +124,25 @@ class CaseFolderBindingService(FolderBindingCrudService):
         )
 
     def require_admin(self, ctx: AccessContext) -> None:
+        """登录用户权限检查"""
         user = ctx.user
         if not user or not getattr(user, "is_authenticated", False):
             raise PermissionDenied(_("需要登录"))
+
+    # 默认子目录配置(仅在没有文书模板绑定配置时使用)
+    DEFAULT_SUBDIRS: ClassVar = {
+        "case_documents": "案件文书",
+        "trial_materials": "庭审材料",
+        "judgments": "判决书",
+        "execution_documents": "执行文书",
+        "other_files": "其他文件",
+    }
+
+    binding_model = CaseFolderBinding
+    owner_model = Case
+    owner_rel_field: str = "case"
+    owner_id_field: str = "case_id"
+    owner_label: str = "案件"
 
     def _get_owner(self, *, owner_id: int) -> Case:
         case = self._get_case_internal(owner_id)
@@ -318,7 +184,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
             raise
 
     @transaction.atomic
-    def create_binding(  # type: ignore[override]
+    def create_binding(  # type: ignore
         self,
         case_id: int,
         folder_path: str,
@@ -326,6 +192,17 @@ class CaseFolderBindingService(FolderBindingCrudService):
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> CaseFolderBinding:
+        """
+        创建文件夹绑定
+
+            case_id: 案件ID
+            folder_path: 文件夹路径
+
+            创建的绑定记录
+
+            ValidationException: 路径无效
+            NotFoundError: 案件不存在
+        """
         return cast(
             CaseFolderBinding,
             super().create_binding(
@@ -348,7 +225,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
         )
 
     @transaction.atomic
-    def update_binding(  # type: ignore[override]
+    def update_binding(  # type: ignore
         self,
         case_id: int,
         folder_path: str,
@@ -356,12 +233,16 @@ class CaseFolderBindingService(FolderBindingCrudService):
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> CaseFolderBinding:
+        """
+        更新文件夹绑定
+
+            case_id: 案件ID
+            folder_path: 新的文件夹路径
+
+            更新后的绑定记录
+        """
         return self.create_binding(
-            case_id,
-            folder_path,
-            user=user,
-            org_access=org_access,
-            perm_open_access=perm_open_access,
+            case_id, folder_path, user=user, org_access=org_access, perm_open_access=perm_open_access
         )
 
     @transaction.atomic
@@ -375,13 +256,20 @@ class CaseFolderBindingService(FolderBindingCrudService):
         )
 
     @transaction.atomic
-    def delete_binding(  # type: ignore[override]
+    def delete_binding(  # type: ignore
         self,
         case_id: int,
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> bool:
+        """
+        删除文件夹绑定
+
+            case_id: 案件ID
+
+            是否删除成功
+        """
         return super().delete_binding(
             owner_id=case_id,
             user=user,
@@ -398,13 +286,20 @@ class CaseFolderBindingService(FolderBindingCrudService):
             perm_open_access=ctx.perm_open_access,
         )
 
-    def get_binding(  # type: ignore[override]
+    def get_binding(  # type: ignore
         self,
         case_id: int,
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> CaseFolderBinding | None:
+        """
+        获取文件夹绑定
+
+            case_id: 案件ID
+
+            绑定记录或 None
+        """
         return super().get_binding(
             owner_id=case_id,
             user=user,
@@ -420,7 +315,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
             perm_open_access=ctx.perm_open_access,
         )
 
-    def save_file_to_bound_folder(  # type: ignore[override]
+    def save_file_to_bound_folder(  # type: ignore
         self,
         case_id: int,
         file_content: bytes,
@@ -430,6 +325,18 @@ class CaseFolderBindingService(FolderBindingCrudService):
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> str | None:
+        """
+        将文件保存到绑定的文件夹
+
+        优先使用文书模板绑定配置中的路径,如果没有配置则使用默认子目录.
+
+            case_id: 案件ID
+            file_content: 文件内容
+            file_name: 文件名
+            subdir_key: 子目录键名 (case_documents, trial_materials, judgments, execution_documents, other_files)
+
+            保存的完整路径,如果未绑定则返回 None
+        """
         return super().save_file_to_bound_folder(
             owner_id=case_id,
             file_content=file_content,
@@ -440,7 +347,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
             perm_open_access=perm_open_access,
         )
 
-    def extract_zip_to_bound_folder(  # type: ignore[override]
+    def extract_zip_to_bound_folder(  # type: ignore
         self,
         case_id: int,
         zip_content: bytes,
@@ -448,6 +355,14 @@ class CaseFolderBindingService(FolderBindingCrudService):
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> str | None:
+        """
+        将ZIP包解压到绑定的文件夹
+
+            case_id: 案件ID
+            zip_content: ZIP文件内容
+
+            解压的目标路径,如果未绑定则返回 None
+        """
         return super().extract_zip_to_bound_folder(
             owner_id=case_id,
             zip_content=zip_content,
@@ -457,15 +372,20 @@ class CaseFolderBindingService(FolderBindingCrudService):
         )
 
     def _get_case_internal(self, case_id: int) -> Case | None:
+        """
+        内部方法:获取案件信息(无权限检查)
+
+            case_id: 案件ID
+
+            案件对象或 None
+        """
         try:
             return Case.objects.get(id=case_id)
         except Case.DoesNotExist:
             return None
 
-    def _get_binding_record(self, *, case_id: int) -> CaseFolderBinding | None:
-        return CaseFolderBinding.objects.filter(case_id=case_id).first()
-
     def get_contract_folder_path(self, case_id: int) -> str | None:
+        """获取案件关联合同的文件夹路径"""
         try:
             case = Case.objects.select_related("contract__folder_binding").get(pk=case_id)
         except Case.DoesNotExist:
@@ -478,13 +398,28 @@ class CaseFolderBindingService(FolderBindingCrudService):
         return contract.folder_binding.folder_path
 
     def check_and_repair_contract_path(self, binding: CaseFolderBinding) -> bool:
+        """检查并修复案件关联合同的文件夹路径.
+
+        通过 inode BFS 搜索修复合同路径后，
+        案件的 resolved_folder_path 会自动计算出新路径。
+
+        Args:
+            binding: 案件文件夹绑定对象
+
+        Returns:
+            合同路径是否被自动修复
+        """
         contract_binding = self._get_contract_binding(binding)
         if contract_binding is None:
             return False
+
+        # 合同服务与案件服务共享同一个 BaseFolderBindingService，
+        # 可以直接调用 check_and_repair_path
         _, auto_repaired = self.check_and_repair_path(contract_binding)
         return auto_repaired
 
     def _get_contract_binding(self, binding: CaseFolderBinding) -> Any | None:
+        """从案件绑定中获取关联合同的文件夹绑定"""
         try:
             case = binding.case
             if not case.contract_id or not case.contract:
@@ -495,741 +430,3 @@ class CaseFolderBindingService(FolderBindingCrudService):
             return contract.folder_binding
         except (AttributeError, TypeError, ValueError):
             return None
-
-    def get_case_storage_root(self, owner_id: int) -> Path | None:
-        binding = self._get_binding_record(case_id=owner_id)
-        if not binding:
-            return None
-
-        is_accessible, _repaired = self.check_and_repair_path(binding)
-        if not is_accessible:
-            return None
-
-        root = Path(binding.resolved_folder_path).expanduser().resolve()
-        return self._resolve_business_root_from_binding(owner_id=owner_id, root=root)
-
-    def list_bound_subdirs(
-        self,
-        owner_id: int,
-        relative_path: str = "",
-        user: Any | None = None,
-        org_access: dict[str, Any] | None = None,
-        perm_open_access: bool = False,
-    ) -> dict[str, Any]:
-        case = self._require_case_access(
-            case_id=owner_id,
-            user=user,
-            org_access=org_access,
-            perm_open_access=perm_open_access,
-        )
-        binding = self._get_binding_record(case_id=owner_id)
-        if not binding:
-            raise NotFoundError(
-                message=_("案件未绑定文件夹"),
-                code="CASE_FOLDER_BINDING_NOT_FOUND",
-                errors={"case_id": owner_id},
-            )
-
-        is_accessible, _repaired = self.check_and_repair_path(binding)
-        if not is_accessible:
-            raise NotFoundError(
-                message=_("案件绑定文件夹不可用"),
-                code="CASE_FOLDER_BINDING_UNAVAILABLE",
-                errors={"folder_path": str(binding.folder_path or "")},
-            )
-
-        root = self._resolve_business_root_from_binding(
-            owner_id=owner_id,
-            root=Path(binding.resolved_folder_path).expanduser().resolve(),
-        )
-        current_path = ""
-        current_dir = root
-        raw_relative_path = str(relative_path or "").strip()
-        if raw_relative_path:
-            current_path = self.path_validator.normalize_relative_path(raw_relative_path)
-            current_dir, current_path = self._resolve_existing_subdir_target(
-                root=root,
-                requested_path=current_path,
-            )
-
-        if not current_dir.exists() or not current_dir.is_dir():
-            raise NotFoundError(
-                message=_("子目录不存在"),
-                code="CASE_STORAGE_SUBDIR_NOT_FOUND",
-                errors={"relative_path": current_path or raw_relative_path},
-            )
-
-        entries: list[dict[str, str]] = []
-        for child in sorted(current_dir.iterdir(), key=lambda item: item.name.lower()):
-            if child.name.startswith(".") or not child.is_dir():
-                continue
-            entries.append(
-                {
-                    "name": child.name,
-                    "relative_path": child.relative_to(root).as_posix(),
-                }
-            )
-
-        parent_path: str | None = None
-        if current_path:
-            parts = current_path.split("/")
-            parent_path = "/".join(parts[:-1]) if len(parts) > 1 else ""
-
-        return {
-            "root_path": root.as_posix(),
-            "current_path": current_path,
-            "parent_path": parent_path,
-            "entries": entries,
-        }
-
-    def _resolve_business_root_from_binding(self, *, owner_id: int, root: Path) -> Path:
-        case_root = self._find_generated_case_business_root(owner_id=owner_id, root=root)
-        return case_root or root
-
-    def _find_generated_case_business_root(self, *, owner_id: int, root: Path) -> Path | None:
-        case = self.owner_model.objects.filter(id=owner_id).only("id", "name", "case_type").first()
-        if not case:
-            return None
-
-        case_suffix = self._build_case_business_root_suffix(case)
-        if not case_suffix:
-            return None
-
-        current_name = str(root.name or "").strip()
-        if current_name.endswith(case_suffix):
-            return root
-
-        matches = [
-            child
-            for child in root.iterdir()
-            if child.is_dir() and not child.name.startswith(".") and child.name.endswith(case_suffix)
-        ]
-        if not matches:
-            return None
-
-        matches.sort(key=lambda item: item.name)
-        return matches[-1].resolve()
-
-    def _build_case_business_root_suffix(self, case: Case) -> str:
-        case_name = str(getattr(case, "name", "") or "").strip()
-        case_type = str(getattr(case, "case_type", "") or "").strip()
-        case_type_display = str(dict(CaseType.choices).get(case_type, case_type) or "").strip()
-        if not case_name or not case_type_display:
-            return ""
-        return f"-[{case_type_display}]{case_name}"
-
-    def _resolve_existing_subdir_target(self, *, root: Path, requested_path: str) -> tuple[Path, str]:
-        normalized_path = self.path_validator.normalize_relative_path(requested_path)
-        if not normalized_path:
-            return root, ""
-
-        target_dir = (root / normalized_path).resolve()
-        self._ensure_directory_within_root(root, target_dir)
-        if target_dir.exists() and target_dir.is_dir():
-            return target_dir, normalized_path
-
-        for parent in target_dir.parents:
-            self._ensure_directory_within_root(root, parent)
-            if parent == root:
-                return root, ""
-            if parent.exists() and parent.is_dir():
-                return parent, parent.relative_to(root).as_posix()
-
-        return root, ""
-
-    def recommend_bound_subdir_for_log_attachment(
-        self,
-        owner_id: int,
-        *,
-        source_subfolder: str = "",
-        file_name: str = "",
-        source_scene: str = "manual_log_upload",
-        user: Any | None = None,
-        org_access: dict[str, Any] | None = None,
-        perm_open_access: bool = False,
-    ) -> dict[str, str]:
-        normalized_source = self._normalize_optional_relative_path(source_subfolder)
-        case = self._require_case_access(
-            case_id=owner_id,
-            user=user,
-            org_access=org_access,
-            perm_open_access=perm_open_access,
-        )
-        binding = self._get_binding_record(case_id=owner_id)
-        default_subdir = normalized_source or self.LOG_ATTACHMENT_DEFAULT_SUBDIR
-
-        if not binding:
-            return {
-                "recommended_subdir": default_subdir,
-                "matched_existing_subdir": normalized_source or "",
-                "reason": "no_binding_default",
-            }
-
-        is_accessible, _repaired = self.check_and_repair_path(binding)
-        if not is_accessible:
-            return {
-                "recommended_subdir": default_subdir,
-                "matched_existing_subdir": normalized_source or "",
-                "reason": "binding_unavailable_default",
-            }
-
-        root = self._resolve_business_root_from_binding(
-            owner_id=owner_id,
-            root=Path(binding.resolved_folder_path).expanduser().resolve(),
-        )
-        existing_subdirs = self._collect_relative_subdirs(root)
-        non_court_sms_subdirs = self._exclude_court_sms_delivery_subdirs(existing_subdirs)
-
-        if source_scene == "court_sms_attachment":
-            court_sms_match = self._recommend_court_sms_delivery_subdir(
-                case=case,
-                existing_paths=existing_subdirs,
-                file_name=file_name,
-            )
-            if court_sms_match:
-                return court_sms_match
-
-        candidate_subdirs = existing_subdirs if source_scene == "court_sms_attachment" else non_court_sms_subdirs
-        file_name_match = self._recommend_subdir_by_file_name(
-            existing_paths=candidate_subdirs,
-            file_name=file_name,
-        )
-        if file_name_match:
-            return file_name_match
-
-        if normalized_source:
-            direct_match = self._match_preferred_existing_subdir(
-                existing_paths=existing_subdirs,
-                preferred_paths=[normalized_source],
-            )
-            if direct_match:
-                return {
-                    "recommended_subdir": direct_match,
-                    "matched_existing_subdir": direct_match,
-                    "reason": "source_subfolder_match",
-                }
-            return {
-                "recommended_subdir": normalized_source,
-                "matched_existing_subdir": "",
-                "reason": "source_subfolder_default",
-            }
-
-        preferred_match = self._match_preferred_existing_subdir(
-            existing_paths=candidate_subdirs,
-            preferred_paths=list(self.LOG_ATTACHMENT_PREFERRED_PATHS),
-        )
-        if preferred_match:
-            return {
-                "recommended_subdir": preferred_match,
-                "matched_existing_subdir": preferred_match,
-                "reason": "preferred_log_attachment_subdir",
-            }
-
-        matched = self._match_best_existing_subdir(
-            existing_paths=candidate_subdirs,
-            label=self.LOG_ATTACHMENT_DEFAULT_SUBDIR,
-            keywords=list(self.LOG_ATTACHMENT_KEYWORDS),
-        )
-        if matched:
-            return {
-                "recommended_subdir": matched,
-                "matched_existing_subdir": matched,
-                "reason": "matched_log_attachment_subdir",
-            }
-
-        if source_scene != "court_sms_attachment" and candidate_subdirs != existing_subdirs and str(file_name or "").strip():
-            court_fallback = self._recommend_court_sms_delivery_subdir(
-                case=case,
-                existing_paths=existing_subdirs,
-                file_name=file_name,
-            )
-            if court_fallback:
-                return court_fallback
-
-        return {
-            "recommended_subdir": self.LOG_ATTACHMENT_DEFAULT_SUBDIR,
-            "matched_existing_subdir": "",
-            "reason": "default_log_attachment_subdir",
-        }
-
-    def _recommend_subdir_by_file_name(
-        self,
-        *,
-        existing_paths: list[str],
-        file_name: str,
-    ) -> dict[str, str]:
-        raw_file_name = str(file_name or "").strip()
-        normalized_name = self._normalize_match_text(Path(raw_file_name).stem)
-        if not normalized_name:
-            return {}
-
-        generic_evidence_material_match = self._recommend_generic_evidence_material_subdir(
-            existing_paths=existing_paths,
-            file_name=raw_file_name,
-            normalized_name=normalized_name,
-        )
-        if generic_evidence_material_match:
-            return generic_evidence_material_match
-
-        for rule in self.LOG_ATTACHMENT_FILENAME_RULES:
-            keywords = [
-                str(keyword or "").strip() for keyword in rule.get("keywords", []) if str(keyword or "").strip()
-            ]
-            if not keywords:
-                continue
-            if not any(self._normalize_match_text(keyword) in normalized_name for keyword in keywords):
-                continue
-
-            exclude_keywords = [
-                str(keyword or "").strip() for keyword in rule.get("exclude_keywords", []) if str(keyword or "").strip()
-            ]
-            if any(self._normalize_match_text(keyword) in normalized_name for keyword in exclude_keywords):
-                continue
-
-            match_keywords = list(dict.fromkeys([*keywords, *self._extract_file_name_keywords(raw_file_name)]))
-            keyword_match = self._match_best_existing_subdir(
-                existing_paths=existing_paths,
-                label=raw_file_name,
-                keywords=match_keywords,
-            )
-            if keyword_match:
-                return {
-                    "recommended_subdir": keyword_match,
-                    "matched_existing_subdir": keyword_match,
-                    "reason": "file_name_keyword_match",
-                }
-
-            preferred_match = self._match_preferred_existing_subdir(
-                existing_paths=existing_paths,
-                preferred_paths=[str(path or "").strip() for path in rule.get("preferred_paths", [])],
-            )
-            if preferred_match:
-                return {
-                    "recommended_subdir": preferred_match,
-                    "matched_existing_subdir": preferred_match,
-                    "reason": "file_name_rule_match",
-                }
-
-            fallback_subdir = self._normalize_optional_relative_path(str(rule.get("fallback_subdir", "") or "").strip())
-            if fallback_subdir:
-                return {
-                    "recommended_subdir": fallback_subdir,
-                    "matched_existing_subdir": "",
-                    "reason": "file_name_rule_fallback",
-                }
-
-        generic_match = self._match_best_existing_subdir(
-            existing_paths=existing_paths,
-            label=str(file_name or "").strip(),
-            keywords=self._extract_file_name_keywords(file_name),
-        )
-        if generic_match:
-            return {
-                "recommended_subdir": generic_match,
-                "matched_existing_subdir": generic_match,
-                "reason": "file_name_generic_match",
-            }
-        return {}
-
-    def _recommend_generic_evidence_material_subdir(
-        self,
-        *,
-        existing_paths: list[str],
-        file_name: str,
-        normalized_name: str,
-    ) -> dict[str, str]:
-        if not normalized_name:
-            return {}
-
-        normalized_evidence = self._normalize_match_text("证据")
-        normalized_directory = self._normalize_match_text("目录")
-        normalized_list = self._normalize_match_text("清单")
-        normalized_record = self._normalize_match_text("记录")
-        normalized_opinion = self._normalize_match_text("意见")
-        normalized_cross = self._normalize_match_text("质证")
-        normalized_material = self._normalize_match_text("材料")
-
-        if normalized_evidence not in normalized_name:
-            return {}
-
-        # “一审证据”“提交证据”这类泛名称，优先推荐到证据材料，避免只命中阶段目录。
-        is_generic_evidence_name = (
-            normalized_name == normalized_evidence
-            or normalized_name.endswith(normalized_evidence)
-            or normalized_name.startswith(self._normalize_match_text("一审") + normalized_evidence)
-            or normalized_name.startswith(self._normalize_match_text("二审") + normalized_evidence)
-        )
-        has_material_like_keyword = any(
-            token in normalized_name
-            for token in [
-                normalized_directory,
-                normalized_list,
-                normalized_material,
-                normalized_record,
-                normalized_opinion,
-                normalized_cross,
-            ]
-        )
-        if not is_generic_evidence_name or has_material_like_keyword:
-            return {}
-
-        preferred_match = self._match_preferred_existing_subdir(
-            existing_paths=existing_paths,
-            preferred_paths=["一审/1-立案材料/5-证据材料", "5-证据材料", "证据材料"],
-        )
-        if preferred_match:
-            return {
-                "recommended_subdir": preferred_match,
-                "matched_existing_subdir": preferred_match,
-                "reason": "file_name_evidence_material_preferred",
-            }
-
-        keyword_match = self._match_best_existing_subdir(
-            existing_paths=existing_paths,
-            label=file_name,
-            keywords=["证据材料", "证据"],
-        )
-        if keyword_match:
-            return {
-                "recommended_subdir": keyword_match,
-                "matched_existing_subdir": keyword_match,
-                "reason": "file_name_evidence_material_match",
-            }
-
-        return {
-            "recommended_subdir": "一审/1-立案材料/5-证据材料",
-            "matched_existing_subdir": "",
-            "reason": "file_name_evidence_material_fallback",
-        }
-
-    def _recommend_court_sms_delivery_subdir(
-        self,
-        *,
-        case: Any | None,
-        existing_paths: list[str],
-        file_name: str,
-    ) -> dict[str, str]:
-        raw_file_name = str(file_name or "").strip()
-        normalized_name = self._normalize_match_text(Path(raw_file_name).stem)
-
-        if not normalized_name:
-            return self._build_court_sms_subdir_result(
-                case=case,
-                existing_paths=existing_paths,
-                target_label=self.COURT_SMS_OTHER_LABEL,
-                reason="court_sms_other_fallback",
-            )
-
-        if self._contains_any_keyword(normalized_name, list(self.COURT_SMS_ACCEPTANCE_KEYWORDS)):
-            return self._build_court_sms_subdir_result(
-                case=case,
-                existing_paths=existing_paths,
-                target_label=self.COURT_SMS_ACCEPTANCE_LABEL,
-                reason="court_sms_acceptance_match",
-            )
-
-        if self._contains_any_keyword(normalized_name, list(self.COURT_SMS_FEE_KEYWORDS)):
-            return self._build_court_sms_subdir_result(
-                case=case,
-                existing_paths=existing_paths,
-                target_label=self.COURT_SMS_FEE_LABEL,
-                reason="court_sms_fee_invoice_match",
-            )
-
-        if self._contains_any_keyword(normalized_name, list(self.COURT_SMS_OPPONENT_STRONG_KEYWORDS)):
-            return self._build_court_sms_subdir_result(
-                case=case,
-                existing_paths=existing_paths,
-                target_label=self.COURT_SMS_OPPONENT_LABEL,
-                reason="court_sms_opponent_material_match",
-            )
-
-        if self._contains_any_keyword(normalized_name, list(self.COURT_SMS_JUDGMENT_NOTICE_KEYWORDS)):
-            return self._build_court_sms_subdir_result(
-                case=case,
-                existing_paths=existing_paths,
-                target_label=self.COURT_SMS_JUDGMENT_NOTICE_LABEL,
-                reason="court_sms_judgment_notice_match",
-            )
-
-        if self._contains_any_keyword(normalized_name, list(self.COURT_SMS_OPPONENT_WEAK_KEYWORDS)):
-            return self._build_court_sms_subdir_result(
-                case=case,
-                existing_paths=existing_paths,
-                target_label=self.COURT_SMS_OPPONENT_LABEL,
-                reason="court_sms_opponent_material_weak_match",
-            )
-
-        return self._build_court_sms_subdir_result(
-            case=case,
-            existing_paths=existing_paths,
-            target_label=self.COURT_SMS_OTHER_LABEL,
-            reason="court_sms_other_fallback",
-        )
-
-    def _contains_any_keyword(self, normalized_name: str, keywords: list[str]) -> bool:
-        for keyword in keywords:
-            normalized_keyword = self._normalize_match_text(str(keyword or "").strip())
-            if normalized_keyword and normalized_keyword in normalized_name:
-                return True
-        return False
-
-    def _build_court_sms_subdir_result(
-        self,
-        *,
-        case: Any | None,
-        existing_paths: list[str],
-        target_label: str,
-        reason: str,
-    ) -> dict[str, str]:
-        stage_dir = self._resolve_court_sms_stage_dir(case=case, existing_paths=existing_paths)
-        root_dir = self._resolve_court_sms_semantic_child_dir(
-            existing_paths=existing_paths,
-            parent_path=stage_dir,
-            semantic_label=self.COURT_SMS_ROOT_LABEL,
-        )
-        if not root_dir:
-            root_dir = self._join_relative_path(stage_dir, self.COURT_SMS_ROOT_LABEL)
-
-        matched_existing = self._resolve_court_sms_semantic_child_dir(
-            existing_paths=existing_paths,
-            parent_path=root_dir,
-            semantic_label=target_label,
-        )
-        recommended_subdir = matched_existing or self._join_relative_path(root_dir, target_label)
-        return {
-            "recommended_subdir": recommended_subdir,
-            "matched_existing_subdir": matched_existing or "",
-            "reason": reason,
-        }
-
-    def _resolve_court_sms_stage_dir(self, *, case: Any | None, existing_paths: list[str]) -> str:
-        for stage_label in self._get_court_sms_stage_labels(case):
-            matched = self._resolve_court_sms_semantic_child_dir(
-                existing_paths=existing_paths,
-                parent_path="",
-                semantic_label=stage_label,
-            )
-            if matched:
-                return matched
-            if stage_label:
-                return stage_label
-        return ""
-
-    def _get_court_sms_stage_labels(self, case: Any | None) -> list[str]:
-        current_stage = str(getattr(case, "current_stage", "") or "").strip()
-        if current_stage:
-            try:
-                stage_key = CaseStage(current_stage)
-            except ValueError:
-                stage_key = None
-            if stage_key is not None and stage_key in self.COURT_SMS_STAGE_LABELS:
-                return list(dict.fromkeys(self.COURT_SMS_STAGE_LABELS[stage_key]))
-
-        case_type = str(getattr(case, "case_type", "") or "").strip()
-        if case_type == SimpleCaseType.EXECUTION:
-            return ["执行"]
-
-        return ["一审"] if case is not None else []
-
-    def _resolve_court_sms_semantic_child_dir(
-        self,
-        *,
-        existing_paths: list[str],
-        parent_path: str,
-        semantic_label: str,
-    ) -> str:
-        normalized_parent = self._normalize_optional_relative_path(parent_path)
-        normalized_parent_segments = self._normalize_semantic_path(normalized_parent)
-        normalized_label = self._normalize_semantic_segment(semantic_label)
-        if not normalized_label:
-            return ""
-
-        for path in existing_paths:
-            normalized_path = self._normalize_optional_relative_path(path)
-            if not normalized_path:
-                continue
-            parts = [part for part in normalized_path.split("/") if part]
-            if not parts:
-                continue
-            candidate_parent = "/".join(parts[:-1])
-            if self._normalize_semantic_path(candidate_parent) != normalized_parent_segments:
-                continue
-            if self._normalize_semantic_segment(parts[-1]) == normalized_label:
-                return normalized_path
-        return ""
-
-    def _normalize_semantic_segment(self, segment: str) -> str:
-        raw = str(segment or "").strip()
-        if not raw:
-            return ""
-        stripped = re.sub(r"^\s*\d+(?:\.\d+)?[\s\-_.、，,]+", "", raw)
-        stripped = re.sub(r"^\s*[一二三四五六七八九十]+[\s\-_.、，,]+", "", stripped)
-        return self._normalize_match_text(stripped or raw)
-
-    def _normalize_semantic_path(self, path: str) -> str:
-        normalized_path = self._normalize_optional_relative_path(path)
-        if not normalized_path:
-            return ""
-        return "/".join(self._normalize_semantic_segment(part) for part in normalized_path.split("/") if part)
-
-    def _join_relative_path(self, parent_path: str, child_name: str) -> str:
-        parent = self._normalize_optional_relative_path(parent_path)
-        child = str(child_name or "").strip().strip("/")
-        if not parent:
-            return child
-        if not child:
-            return parent
-        return f"{parent}/{child}"
-
-    def _extract_file_name_keywords(self, file_name: str) -> list[str]:
-        stem = Path(str(file_name or "").strip()).stem
-        if not stem:
-            return []
-        parts = [part.strip() for part in re.split(r"[\s_\-()（）【】\[\]、，,]+", stem) if part.strip()]
-        expanded: list[str] = []
-        for part in parts:
-            expanded.append(part)
-            if len(part) >= 2:
-                expanded.append(part[:2])
-        return list(dict.fromkeys(expanded))
-
-    def _ensure_directory_within_root(self, root: Path, target: Path) -> None:
-        try:
-            target.relative_to(root)
-        except ValueError:
-            raise NotFoundError(
-                message=_("目录超出允许范围"),
-                code="CASE_STORAGE_SUBDIR_OUT_OF_ROOT",
-                errors={"path": target.as_posix()},
-            ) from None
-
-    def _collect_relative_subdirs(self, root: Path) -> list[str]:
-        results: list[str] = []
-        for child in root.rglob("*"):
-            if child.name.startswith(".") or not child.is_dir():
-                continue
-            try:
-                relative = child.relative_to(root).as_posix()
-            except ValueError:
-                continue
-            if relative:
-                results.append(relative)
-        results.sort()
-        return results
-
-    def _exclude_court_sms_delivery_subdirs(self, existing_paths: list[str]) -> list[str]:
-        normalized_court_label = self._normalize_semantic_segment(self.COURT_SMS_ROOT_LABEL)
-        if not normalized_court_label:
-            return list(existing_paths)
-
-        filtered_paths: list[str] = []
-        for path in existing_paths:
-            normalized_path = self._normalize_optional_relative_path(path)
-            if not normalized_path:
-                continue
-            parts = [part for part in normalized_path.split("/") if part]
-            if any(self._normalize_semantic_segment(part) == normalized_court_label for part in parts):
-                continue
-            filtered_paths.append(path)
-        return filtered_paths
-
-    def _match_preferred_existing_subdir(
-        self,
-        *,
-        existing_paths: list[str],
-        preferred_paths: list[str],
-    ) -> str:
-        if not existing_paths or not preferred_paths:
-            return ""
-
-        normalized_to_original = {
-            self.path_validator.normalize_relative_path(path): path
-            for path in existing_paths
-            if str(path or "").strip()
-        }
-        for preferred in preferred_paths:
-            normalized = self._normalize_optional_relative_path(str(preferred or "").strip())
-            if normalized and normalized in normalized_to_original:
-                return normalized_to_original[normalized]
-        return ""
-
-    def _match_best_existing_subdir(
-        self,
-        *,
-        existing_paths: list[str],
-        label: str,
-        keywords: list[str],
-    ) -> str:
-        normalized_label = self._normalize_match_text(label)
-        if not normalized_label and not keywords:
-            return ""
-
-        best_path = ""
-        best_score = 0.0
-        for path in existing_paths:
-            normalized_path = self._normalize_match_text(path)
-            if not normalized_path:
-                continue
-            score = self._score_subdir_match(label=label, normalized_path=normalized_path, keywords=keywords)
-            if score > best_score or (
-                score == best_score and score > 0 and self._is_more_specific_path(path, best_path)
-            ):
-                best_score = score
-                best_path = path
-        return best_path if best_score >= 0.55 else ""
-
-    def _score_subdir_match(
-        self,
-        *,
-        label: str,
-        normalized_path: str,
-        keywords: list[str],
-    ) -> float:
-        normalized_label = self._normalize_match_text(label)
-        if normalized_label and normalized_label in normalized_path:
-            return 1.0
-
-        label_tokens = [tok for tok in self._split_match_tokens(label) if len(tok) >= 2]
-        label_score = 0.0
-        if label_tokens:
-            matched = sum(1 for tok in label_tokens if self._normalize_match_text(tok) in normalized_path)
-            label_score = matched / len(label_tokens)
-
-        valid_keywords = [kw for kw in keywords if len(str(kw or "").strip()) >= 2]
-        keyword_score = 0.0
-        if valid_keywords:
-            normalized_keywords = [
-                self._normalize_match_text(kw) for kw in valid_keywords if self._normalize_match_text(kw)
-            ]
-            matched_keywords = [kw for kw in normalized_keywords if kw in normalized_path]
-            if matched_keywords:
-                longest_keyword = max(len(kw) for kw in normalized_keywords)
-                best_match_length = max(len(kw) for kw in matched_keywords)
-                keyword_score = best_match_length / longest_keyword if longest_keyword else 0.0
-                if any(normalized_path.endswith(kw) for kw in matched_keywords):
-                    keyword_score = max(keyword_score, 0.98)
-
-        return max(label_score, keyword_score)
-
-    def _split_match_tokens(self, text: str) -> list[str]:
-        return [part for part in re.split(r"[\s/\\\-_()锛堬級]+", str(text or "").strip()) if part]
-
-    def _normalize_match_text(self, text: str) -> str:
-        raw = str(text or "").strip()
-        if not raw:
-            return ""
-        return re.sub(r"[\s/\\\-_()锛堬級]+", "", raw).lower()
-
-    def _normalize_optional_relative_path(self, relative_path: str) -> str:
-        raw = str(relative_path or "").strip()
-        if not raw:
-            return ""
-        return self.path_validator.normalize_relative_path(raw)
-
-    def _is_more_specific_path(self, candidate: str, current: str) -> bool:
-        candidate_depth = str(candidate or "").count("/")
-        current_depth = str(current or "").count("/")
-        if candidate_depth != current_depth:
-            return candidate_depth > current_depth
-        return len(str(candidate or "")) > len(str(current or ""))

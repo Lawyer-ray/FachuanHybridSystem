@@ -22,13 +22,19 @@ export const contentOpsApi = {
       timeout: 120_000,
     }).json<TopicSuggestion[]>(),
 
-  // 热点话题（非 LLM，快速响应）
+  // 热点话题（legaltech 源需要较长超时，含 Playwright 爬虫）
   getHotTopics: (source?: string) =>
-    api.get('topics/hot', { searchParams: source ? { source } : undefined }).json<HotTopic[]>(),
+    api.get('topics/hot', {
+      searchParams: source ? { source } : undefined,
+      timeout: source === 'legaltech' ? 120_000 : 30_000,
+    }).json<HotTopic[]>(),
 
   // 刷新热点话题
   refreshHotTopics: (source?: string) =>
-    api.post('topics/hot/refresh', { json: { source: source || '' } }).json<HotTopic[]>(),
+    api.post('topics/hot/refresh', {
+      json: { source: source || '' },
+      timeout: source === 'legaltech' ? 120_000 : 30_000,
+    }).json<HotTopic[]>(),
 
   // 基于热点的 AI 选题灵感
   getInspiration: (model?: string) =>
@@ -36,6 +42,13 @@ export const contentOpsApi = {
       json: { model: model || '' },
       timeout: 120_000,
     }).json<TopicSuggestion[]>(),
+
+  // 批量翻译标题（LLM 调用，需要较长超时）
+  translateTopics: (titles: string[]) =>
+    api.post('topics/translate', {
+      json: { titles },
+      timeout: 120_000,
+    }).json<{ translations: string[] }>(),
 
   // 任务 CRUD
   createTask: (data: CreateTaskInput) =>

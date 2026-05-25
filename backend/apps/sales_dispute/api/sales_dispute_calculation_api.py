@@ -13,17 +13,17 @@ from apps.sales_dispute.schemas import (
     CostBenefitResponse,
     InterestCalcRequest,
     InterestCalcResponse,
-    LPRRateResponse,
     LimitationRequest,
     LimitationResponse,
+    LPRRateResponse,
     SegmentDetailResponse,
 )
 
 from .sales_dispute_api_factories import (
     _get_cost_benefit_service,
     _get_interest_calculator,
-    _get_lpr_rate_service,
     _get_limitation_calculator,
+    _get_lpr_rate_service,
 )
 
 router = Router()

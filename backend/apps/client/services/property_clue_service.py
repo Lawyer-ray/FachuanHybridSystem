@@ -10,9 +10,9 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.client.models import PropertyClue, PropertyClueAttachment
 from apps.client.ports import FileUploadPort
-from apps.core.services.storage_service import delete_media_file, save_uploaded_file
 from apps.client.services.wiring import get_file_upload_port
 from apps.core.exceptions import NotFoundError, ValidationException
+from apps.core.services.storage_service import delete_media_file, save_uploaded_file
 
 if TYPE_CHECKING:
     from .client_internal_query_service import ClientInternalQueryService

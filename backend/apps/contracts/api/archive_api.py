@@ -11,8 +11,6 @@ from django.http import HttpRequest, HttpResponse
 from django.utils.translation import gettext_lazy as _
 from ninja import Router, Schema
 
-from apps.contracts.models import Contract
-from apps.contracts.models.finalized_material import FinalizedMaterial
 from apps.contracts.services.archive.checklist.checklist_query import get_checklist_with_status
 
 logger = logging.getLogger("apps.contracts.api")
@@ -150,7 +148,9 @@ def learn_archive_rules(request: HttpRequest) -> Any:
 @router.get("/{contract_id}/archive/download-item/{archive_item_code}")
 def download_archive_item(request: HttpRequest, contract_id: int, archive_item_code: str) -> Any:
     """下载归档检查项材料（多文件自动合并为 PDF）"""
-    contract = Contract.objects.filter(pk=contract_id).first()
+    from apps.contracts.services.archive.archive_query_service import get_contract_or_none
+
+    contract = get_contract_or_none(contract_id)
     if not contract:
         return HttpResponse(status=404)
 
@@ -174,7 +174,9 @@ def download_archive_item(request: HttpRequest, contract_id: int, archive_item_c
 @router.get("/{contract_id}/archive/checklist", response=ChecklistOut)
 def get_archive_checklist(request: HttpRequest, contract_id: int) -> Any:
     """获取合同的归档检查清单及各项完成状态"""
-    contract = Contract.objects.filter(pk=contract_id).first()
+    from apps.contracts.services.archive.archive_query_service import get_contract_or_none
+
+    contract = get_contract_or_none(contract_id)
     if not contract:
         return HttpResponse(status=404)
 
@@ -186,7 +188,9 @@ def get_archive_checklist(request: HttpRequest, contract_id: int) -> Any:
 @router.post("/{contract_id}/archive/generate-folder", response=GenerateArchiveFolderOut)
 def generate_archive_folder(request: HttpRequest, contract_id: int) -> Any:
     """生成归档文件夹：模板文书 + 合并 PDF"""
-    contract = Contract.objects.filter(pk=contract_id).first()
+    from apps.contracts.services.archive.archive_query_service import get_contract_or_none
+
+    contract = get_contract_or_none(contract_id)
     if not contract:
         return HttpResponse(status=404)
 
@@ -225,7 +229,9 @@ def generate_archive_folder(request: HttpRequest, contract_id: int) -> Any:
 @router.post("/{contract_id}/archive/toggle-compact", response=ToggleCompactOut)
 def toggle_compact_archive(request: HttpRequest, contract_id: int) -> Any:
     """切换精简视图状态"""
-    contract = Contract.objects.filter(pk=contract_id).first()
+    from apps.contracts.services.archive.archive_query_service import get_contract_or_none
+
+    contract = get_contract_or_none(contract_id)
     if not contract:
         return HttpResponse(status=404)
 
@@ -242,7 +248,9 @@ def toggle_compact_archive(request: HttpRequest, contract_id: int) -> Any:
 @router.post("/{contract_id}/archive/sync-case-materials", response=SyncCaseMaterialsOut)
 def sync_case_materials(request: HttpRequest, contract_id: int) -> Any:
     """从案件材料同步到归档"""
-    contract = Contract.objects.filter(pk=contract_id).first()
+    from apps.contracts.services.archive.archive_query_service import get_contract_or_none
+
+    contract = get_contract_or_none(contract_id)
     if not contract:
         return HttpResponse(status=404)
 
@@ -262,7 +270,9 @@ def sync_case_materials(request: HttpRequest, contract_id: int) -> Any:
 @router.post("/{contract_id}/archive/reset-and-resync", response=SyncCaseMaterialsOut)
 def reset_and_resync_case_materials(request: HttpRequest, contract_id: int) -> Any:
     """重置并重新同步案件材料到归档"""
-    contract = Contract.objects.filter(pk=contract_id).first()
+    from apps.contracts.services.archive.archive_query_service import get_contract_or_none
+
+    contract = get_contract_or_none(contract_id)
     if not contract:
         return HttpResponse(status=404)
 
@@ -283,7 +293,9 @@ def reset_and_resync_case_materials(request: HttpRequest, contract_id: int) -> A
 @router.post("/{contract_id}/archive/scale-to-a4", response=ScaleToA4Out)
 def scale_to_a4(request: HttpRequest, contract_id: int) -> Any:
     """将所有非A4尺寸的PDF页面缩放为A4大小"""
-    contract = Contract.objects.filter(pk=contract_id).first()
+    from apps.contracts.services.archive.archive_query_service import get_contract_or_none
+
+    contract = get_contract_or_none(contract_id)
     if not contract:
         return HttpResponse(status=404)
 
@@ -302,7 +314,9 @@ def scale_to_a4(request: HttpRequest, contract_id: int) -> Any:
 @router.post("/{contract_id}/archive/confirm", response=ConfirmArchiveOut)
 def confirm_archive(request: HttpRequest, contract_id: int) -> Any:
     """确认归档：将合同状态改为已归档，并自动结案关联案件"""
-    contract = Contract.objects.filter(pk=contract_id).first()
+    from apps.contracts.services.archive.archive_query_service import get_contract_or_none
+
+    contract = get_contract_or_none(contract_id)
     if not contract:
         return HttpResponse(status=404)
 
@@ -322,7 +336,9 @@ def confirm_archive(request: HttpRequest, contract_id: int) -> Any:
 @router.post("/{contract_id}/archive/upload", response=UploadArchiveItemOut)
 def upload_archive_item(request: HttpRequest, contract_id: int) -> Any:
     """上传文件到归档检查清单项"""
-    contract = Contract.objects.filter(pk=contract_id).first()
+    from apps.contracts.services.archive.archive_query_service import get_contract_or_none
+
+    contract = get_contract_or_none(contract_id)
     if not contract:
         return HttpResponse(status=404)
 
@@ -353,23 +369,14 @@ def upload_archive_item(request: HttpRequest, contract_id: int) -> Any:
 @router.delete("/{contract_id}/archive/materials/{material_id}", response=SuccessOut)
 def delete_archive_material(request: HttpRequest, contract_id: int, material_id: int) -> Any:
     """删除归档材料"""
-    material = FinalizedMaterial.objects.filter(
-        pk=material_id,
-        contract_id=contract_id,
-    ).first()
+    from apps.contracts.services.archive.archive_query_service import delete_material, get_material_or_none
+
+    material = get_material_or_none(material_id, contract_id)
 
     if not material:
         return HttpResponse(status=404)
 
-    if material.file_path:
-        abs_file = Path(django_settings.MEDIA_ROOT) / material.file_path
-        if abs_file.exists():
-            try:
-                abs_file.unlink()
-            except OSError as e:
-                logger.warning("删除归档文件失败: %s: %s", material.file_path, e)
-
-    material.delete()
+    delete_material(material)
     logger.info("已删除归档材料: material_id=%s, contract_id=%s", material_id, contract_id)
     return SuccessOut()
 
@@ -377,13 +384,9 @@ def delete_archive_material(request: HttpRequest, contract_id: int, material_id:
 @router.post("/{contract_id}/archive/reorder", response=SuccessOut)
 def reorder_archive_materials(request: HttpRequest, contract_id: int, body: ReorderIn) -> Any:
     """按归档清单项分组排序子项"""
-    for code, material_ids in body.orders.items():
-        for i, pk in enumerate(material_ids):
-            FinalizedMaterial.objects.filter(
-                pk=pk,
-                contract_id=contract_id,
-                archive_item_code=code,
-            ).update(order=i)
+    from apps.contracts.services.archive.archive_query_service import reorder_materials
+
+    reorder_materials(contract_id, body.orders)
 
     logger.info("归档材料排序已保存: contract_id=%s", contract_id)
     return SuccessOut()
@@ -392,28 +395,15 @@ def reorder_archive_materials(request: HttpRequest, contract_id: int, body: Reor
 @router.post("/{contract_id}/archive/materials/{material_id}/move", response=SuccessOut)
 def move_archive_material(request: HttpRequest, contract_id: int, material_id: int, body: MoveIn) -> Any:
     """移动归档材料到另一个清单项"""
-    material = FinalizedMaterial.objects.filter(
-        pk=material_id,
-        contract_id=contract_id,
-    ).first()
+    from apps.contracts.services.archive.archive_query_service import get_material_or_none, move_material
+
+    material = get_material_or_none(material_id, contract_id)
 
     if not material:
         return HttpResponse(status=404)
 
     old_code = material.archive_item_code
-    material.archive_item_code = body.target_code
-    max_order = (
-        FinalizedMaterial.objects.filter(
-            contract_id=contract_id,
-            archive_item_code=body.target_code,
-        )
-        .order_by("-order")
-        .values_list("order", flat=True)
-        .first()
-        or 0
-    )
-    material.order = (max_order or 0) + 1
-    material.save(update_fields=["archive_item_code", "order"])
+    move_material(material, body.target_code)
 
     logger.info(
         "归档材料已移动: material_id=%s, %s → %s, contract_id=%s",
@@ -428,10 +418,9 @@ def move_archive_material(request: HttpRequest, contract_id: int, material_id: i
 @router.get("/{contract_id}/archive/materials/{material_id}/preview")
 def preview_archive_material(request: HttpRequest, contract_id: int, material_id: int) -> Any:
     """预览单个归档材料"""
-    material = FinalizedMaterial.objects.filter(
-        pk=material_id,
-        contract_id=contract_id,
-    ).first()
+    from apps.contracts.services.archive.archive_query_service import get_material_or_none
+
+    material = get_material_or_none(material_id, contract_id)
 
     if not material:
         return HttpResponse(status=404)
@@ -467,17 +456,12 @@ def preview_archive_material(request: HttpRequest, contract_id: int, material_id
 @router.post("/{contract_id}/archive/clear-all", response=ClearAllOut)
 def clear_all_archive_materials(request: HttpRequest, contract_id: int) -> Any:
     """清空全部归档材料"""
-    materials = FinalizedMaterial.objects.filter(contract_id=contract_id)
+    from apps.contracts.services.archive.archive_query_service import delete_material, get_materials_for_contract
+
+    materials = get_materials_for_contract(contract_id)
     deleted_count = 0
     for material in materials:
-        if material.file_path:
-            abs_file = Path(django_settings.MEDIA_ROOT) / material.file_path
-            if abs_file.exists():
-                try:
-                    abs_file.unlink()
-                except OSError as e:
-                    logger.warning("删除归档文件失败: %s: %s", material.file_path, e)
-        material.delete()
+        delete_material(material)
         deleted_count += 1
 
     logger.info("已清空全部归档材料: contract_id=%s, count=%s", contract_id, deleted_count)

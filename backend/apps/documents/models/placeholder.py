@@ -69,8 +69,8 @@ class Placeholder(LifecycleModel):
     def on_create_audit_log(self) -> None:
         """创建时记录审计日志"""
         try:
-            from apps.documents.signals import _create_audit_log
             from apps.documents.models.choices import TemplateAuditAction
+            from apps.documents.signals import _create_audit_log
 
             _create_audit_log(self, TemplateAuditAction.CREATE, is_new=True)
         except Exception:
@@ -80,8 +80,8 @@ class Placeholder(LifecycleModel):
     def on_update_audit_log(self) -> None:
         """更新时记录审计日志"""
         try:
-            from apps.documents.signals import _create_audit_log, _get_changes_from_lifecycle
             from apps.documents.models.choices import TemplateAuditAction
+            from apps.documents.signals import _create_audit_log, _get_changes_from_lifecycle
 
             changes = _get_changes_from_lifecycle(self, self.__class__)
             if not changes:

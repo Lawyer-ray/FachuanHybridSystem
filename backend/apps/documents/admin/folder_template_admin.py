@@ -332,7 +332,7 @@ class FolderTemplateAdmin(admin.ModelAdmin):
             import json
 
             data: dict[str, Any] = json.loads(request.body)
-        except Exception:
+        except json.JSONDecodeError:
             logger.exception("操作失败")
             data = {}
 

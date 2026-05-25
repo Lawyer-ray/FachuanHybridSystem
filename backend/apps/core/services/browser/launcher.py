@@ -114,6 +114,8 @@ def launch_browser(
                     **launch_args,
                 ),
             )
+            # persistent context 本身就是 context，不需要单独的 browser
+            browser = None
         else:
             browser = _launch_with_retry(
                 lambda: playwright.chromium.launch(**launch_args),

@@ -31,7 +31,7 @@ def get_pdf_page_count_with_error(source: Any, default: int = 1) -> tuple[int, s
             return int(doc.page_count), None
         finally:
             doc.close()
-    except Exception as e:
+    except (TypeError, ValueError) as e:
         logger.exception("操作失败")
         last_error = e
 
@@ -40,7 +40,7 @@ def get_pdf_page_count_with_error(source: Any, default: int = 1) -> tuple[int, s
 
         with pdfplumber.open(io.BytesIO(data)) as pdf:
             return len(pdf.pages), None
-    except Exception as e:
+    except (TypeError, ValueError) as e:
         logger.exception("操作失败")
         last_error = e
 

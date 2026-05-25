@@ -15,7 +15,6 @@ from django.http import HttpRequest
 from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import Case, CaseAssignment, CaseLog
-from apps.reminders.models import Reminder
 
 from .service import CaseAdminServiceMixin
 
@@ -174,8 +173,6 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
                 user_id = getattr(request.user, "id", None)
                 if user_id is not None:
                     obj.actor_id = user_id
-            if isinstance(obj, Reminder) and obj.case_id and not obj.case_log_id and not obj.contract_id:
-                obj.include_in_important_time = True
             if isinstance(obj, CaseAssignment) and not obj.pk and obj.case_id and obj.lawyer_id:
                 if CaseAssignment.objects.filter(case_id=obj.case_id, lawyer_id=obj.lawyer_id).exists():
                     continue

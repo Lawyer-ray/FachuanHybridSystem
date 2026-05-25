@@ -137,7 +137,7 @@ def suggest_rename(request: HttpRequest) -> dict[str, Any]:
                 try:
                     ns.image_data = base64.b64decode(image_data_b64)
                     ns.rotation = int(i.get("rotation", 0))
-                except Exception:
+                except (TypeError, ValueError):
                     logger.warning("image_data Base64 解码失败: %s", i.get("filename", ""))
             requests.append(ns)
         suggestions = service.suggest_rename_batch(requests)

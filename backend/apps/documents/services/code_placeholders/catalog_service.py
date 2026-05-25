@@ -120,7 +120,7 @@ class CodePlaceholderCatalogService:
         for file_path in root.rglob("*.py"):
             try:
                 content = file_path.read_text(encoding="utf-8")
-            except Exception:
+            except (OSError, ValueError):
                 logger.exception("操作失败")
 
                 continue
@@ -186,7 +186,7 @@ def _scan_placeholder_spec_files(apps_root: Path) -> list[CodePlaceholderDefinit
 def _extract_definitions_from_spec(spec_path: Path) -> list[CodePlaceholderDefinition]:
     try:
         content = spec_path.read_text(encoding="utf-8")
-    except Exception:
+    except (OSError, ValueError):
         logger.exception("操作失败")
 
         return []

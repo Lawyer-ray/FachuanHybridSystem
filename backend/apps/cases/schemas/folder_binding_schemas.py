@@ -69,30 +69,9 @@ class FolderBrowseResponseSchema(Schema):
     entries: list[FolderBrowseEntrySchema]
 
 
-class CaseStorageSubdirEntrySchema(Schema):
-    name: str
-    relative_path: str
-
-
-class CaseStorageSubdirBrowseResponseSchema(Schema):
-    root_path: str
-    current_path: str = ""
-    parent_path: str | None = None
-    entries: list[CaseStorageSubdirEntrySchema]
-
-
-class CaseStorageSubdirRecommendResponseSchema(Schema):
-    recommended_subdir: str
-    matched_existing_subdir: str | None = None
-    reason: str = ""
-
-
 __all__: list[str] = [
     "CaseFolderBindingCreateSchema",
     "CaseFolderBindingResponseSchema",
-    "CaseStorageSubdirBrowseResponseSchema",
-    "CaseStorageSubdirEntrySchema",
-    "CaseStorageSubdirRecommendResponseSchema",
     "ContractFolderPathSchema",
     "FolderBrowseEntrySchema",
     "FolderBrowseResponseSchema",

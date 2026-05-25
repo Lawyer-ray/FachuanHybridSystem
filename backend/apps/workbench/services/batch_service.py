@@ -387,6 +387,19 @@ class BatchAnalysisService(PermissionMixin):
             "count": total,
         }
 
+    def get_completed_items(self, job_id: UUID) -> Any:
+        """获取指定任务的已完成子项。"""
+        return BatchJobItem.objects.filter(job_id=job_id, status=BatchJobStatus.COMPLETED)
+
+    def get_active_items(self, job_id: UUID) -> Any:
+        """获取指定任务的运行中和已完成/失败子项。"""
+        from django.db.models import Q
+
+        return BatchJobItem.objects.filter(
+            Q(job_id=job_id, status=BatchJobStatus.RUNNING)
+            | Q(job_id=job_id, status__in=(BatchJobStatus.COMPLETED, BatchJobStatus.FAILED)),
+        )
+
     @staticmethod
     def _job_to_dict(job: BatchJob) -> dict[str, Any]:
         """将 BatchJob 转换为字典"""

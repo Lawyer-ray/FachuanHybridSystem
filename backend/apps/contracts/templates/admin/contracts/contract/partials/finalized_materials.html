@@ -141,7 +141,7 @@
                         </button>
                         {% else %}
                         <button type="button" class="ac-btn-icon ac-btn-icon--upload" title="{% trans '上传文件' %}"
-                                onclick="uploadArchiveItem({{ contract.pk }}, '{{ item.code }}', '{{ item.name|escapejs }}')">
+                                onclick="uploadArchiveItem({{ contract.pk }}, '{{ item.code }}')">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                         </button>
                         {% if item.completed %}
@@ -172,20 +172,7 @@
                              @dragstart="onDragStart($event, {{ mat.id }}, '{{ item.code }}')"
                              @dragend="onDragEnd($event)">
                             <span class="ac-subitem-drag" title="{% trans '拖拽排序' %}">⠿</span>
-                            <div class="ac-subitem-main">
-                                <span class="ac-subitem-name">{{ mat.original_filename }}</span>
-                                <span class="ac-subitem-storage">
-                                    {% if mat.storage_root_type == 'contract_folder' %}
-                                        合同文件夹
-                                    {% elif mat.storage_root_type == 'case_folder' %}
-                                        案件文件夹
-                                    {% else %}
-                                        media
-                                    {% endif %}
-                                    {% if mat.subdir_path %} / {{ mat.subdir_path }}{% endif %}
-                                    {% if mat.relative_file_path %}<span class="ac-subitem-storage-file"> / {{ mat.relative_file_path }}</span>{% endif %}
-                                </span>
-                            </div>
+                            <span class="ac-subitem-name">{{ mat.original_filename }}</span>
                             <span class="ac-subitem-label ac-subitem-label--{{ mat.category }}">{{ mat.source_label }}</span>
                             <span class="ac-subitem-actions">
                                 <button type="button" class="ac-btn-icon" title="{% trans '预览' %}"
@@ -219,47 +206,6 @@
     </div>
     {% endif %}
 
-    <div id="archive-upload-modal"
-         class="modal-overlay"
-         style="display:none;"
-         data-has-binding="{% if folder_binding %}true{% else %}false{% endif %}"
-         data-root-path="{% if folder_binding %}{{ folder_binding.folder_path|escape }}{% endif %}">
-        <div class="modal-dialog archive-upload-dialog">
-            <div class="modal-header">
-                <h3>选择上传子目录</h3>
-                <button type="button" class="modal-close" onclick="closeArchiveUploadDialog()">&times;</button>
-            </div>
-            <div class="modal-body archive-upload-body">
-                <div class="archive-upload-meta">
-                    <div><strong>归属根目录：</strong><span id="archive-upload-root-path">{% if folder_binding %}{{ folder_binding.folder_path }}{% else %}未绑定{% endif %}</span></div>
-                    <div><strong>推荐子目录：</strong><span id="archive-upload-recommended-path">-</span></div>
-                </div>
-                <div id="archive-upload-binding-tip" class="archive-upload-tip" style="display:none;">
-                    当前合同未绑定业务文件夹，无法浏览现有目录；你仍可手动填写相对子目录，未绑定时会回退到 media。
-                </div>
-                <label class="archive-upload-label" for="archive-upload-subdir-input">目标子目录</label>
-                <div class="archive-upload-input-row">
-                    <input id="archive-upload-subdir-input" type="text" placeholder="例如：归档清单/证据材料">
-                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="useRecommendedArchiveUploadPath()">使用推荐</button>
-                </div>
-                <div class="archive-upload-browser-toolbar">
-                    <div><strong>当前浏览：</strong><span id="archive-upload-current-path">根目录</span></div>
-                    <div class="archive-upload-browser-actions">
-                        <button type="button" class="btn btn-outline-secondary btn-sm" id="archive-upload-up-btn" onclick="navigateArchiveUploadParent()">上一级</button>
-                        <button type="button" class="btn btn-outline-secondary btn-sm" id="archive-upload-use-current-btn" onclick="useCurrentArchiveUploadPath()">选择当前目录</button>
-                    </div>
-                </div>
-                <div id="archive-upload-browser-status" class="archive-upload-status">加载中...</div>
-                <div id="archive-upload-browser-list" class="archive-upload-browser-list"></div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeArchiveUploadDialog()">取消</button>
-                <button type="button" class="btn btn-primary" onclick="confirmArchiveUploadSelection()">选择文件并上传</button>
-            </div>
-        </div>
-        <input id="archive-upload-file-input" type="file" style="display:none;">
-    </div>
-
     {% include "admin/contracts/contract/partials/folder_scan_modal.html" %}
 </div>
 
@@ -274,121 +220,6 @@ html { scrollbar-gutter: stable; }
     padding: 16px;
     margin-bottom: 16px;
     overflow: hidden;
-}
-
-.archive-upload-dialog {
-    max-width: 760px;
-}
-
-.archive-upload-body {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.archive-upload-meta {
-    display: grid;
-    gap: 6px;
-    padding: 10px 12px;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    background: #f9fafb;
-    font-size: 13px;
-    color: #374151;
-}
-
-.archive-upload-tip {
-    padding: 10px 12px;
-    border-radius: 8px;
-    background: #fff7ed;
-    color: #9a3412;
-    font-size: 13px;
-}
-
-.archive-upload-label {
-    font-size: 13px;
-    font-weight: 600;
-    color: #111827;
-}
-
-.archive-upload-input-row {
-    display: flex;
-    gap: 8px;
-}
-
-.archive-upload-input-row input {
-    flex: 1;
-    min-width: 0;
-    padding: 9px 10px;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-}
-
-.archive-upload-browser-toolbar {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    align-items: center;
-    font-size: 13px;
-    color: #374151;
-}
-
-.archive-upload-browser-actions {
-    display: flex;
-    gap: 8px;
-}
-
-.archive-upload-status {
-    font-size: 12px;
-    color: #6b7280;
-}
-
-.archive-upload-browser-list {
-    border: 1px solid #e5e7eb;
-    border-radius: 10px;
-    background: #fff;
-    min-height: 220px;
-    max-height: 320px;
-    overflow-y: auto;
-}
-
-.archive-upload-browser-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    width: 100%;
-    padding: 10px 12px;
-    border: 0;
-    border-bottom: 1px solid #f3f4f6;
-    background: transparent;
-    text-align: left;
-    cursor: pointer;
-}
-
-.archive-upload-browser-item:hover {
-    background: #f9fafb;
-}
-
-.archive-upload-browser-item:last-child {
-    border-bottom: 0;
-}
-
-.archive-upload-browser-item-name {
-    font-size: 13px;
-    color: #111827;
-}
-
-.archive-upload-browser-item-path {
-    font-size: 12px;
-    color: #6b7280;
-}
-
-.archive-upload-browser-empty {
-    padding: 24px 16px;
-    text-align: center;
-    color: #9ca3af;
-    font-size: 13px;
 }
 
 .ac-header { margin-bottom: 12px; }
@@ -709,26 +540,6 @@ html { scrollbar-gutter: stable; }
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-}
-
-.ac-subitem-main {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.ac-subitem-storage {
-    font-size: 11px;
-    color: #6b7280;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.ac-subitem-storage-file {
-    color: #9ca3af;
 }
 
 .ac-subitem-label {
@@ -1190,237 +1001,6 @@ function archiveChecklistApp(initialCompact, checklistItems) {
         .catch(function(e) { alert('请求失败: ' + e.message); });
     };
 
-    var archiveUploadState = {
-        contractId: null,
-        archiveItemCode: '',
-        archiveItemName: '',
-        recommendedSubdir: '',
-        currentBrowsePath: '',
-        parentBrowsePath: null,
-        hasBinding: false,
-    };
-
-    function getArchiveUploadElements() {
-        return {
-            modal: document.getElementById('archive-upload-modal'),
-            fileInput: document.getElementById('archive-upload-file-input'),
-            subdirInput: document.getElementById('archive-upload-subdir-input'),
-            recommendedPath: document.getElementById('archive-upload-recommended-path'),
-            currentPath: document.getElementById('archive-upload-current-path'),
-            browserStatus: document.getElementById('archive-upload-browser-status'),
-            browserList: document.getElementById('archive-upload-browser-list'),
-            bindingTip: document.getElementById('archive-upload-binding-tip'),
-            upBtn: document.getElementById('archive-upload-up-btn'),
-            useCurrentBtn: document.getElementById('archive-upload-use-current-btn'),
-        };
-    }
-
-    function setArchiveUploadStatus(message) {
-        var els = getArchiveUploadElements();
-        if (els.browserStatus) {
-            els.browserStatus.textContent = message || '';
-        }
-    }
-
-    function renderArchiveUploadBrowser(entries) {
-        var els = getArchiveUploadElements();
-        if (!els.browserList) return;
-
-        if (!entries || entries.length === 0) {
-            els.browserList.innerHTML = '<div class="archive-upload-browser-empty">当前目录下没有现有子目录</div>';
-            return;
-        }
-
-        els.browserList.innerHTML = entries.map(function(entry) {
-            var rel = entry.relative_path || '';
-            var name = entry.name || rel || '未命名目录';
-            return '' +
-                '<button type="button" class="archive-upload-browser-item" data-relative-path="' + rel.replace(/"/g, '&quot;') + '">' +
-                '<span class="archive-upload-browser-item-name">' + name + '</span>' +
-                '<span class="archive-upload-browser-item-path">' + (rel || '根目录') + '</span>' +
-                '</button>';
-        }).join('');
-
-        els.browserList.querySelectorAll('.archive-upload-browser-item').forEach(function(btn) {
-            btn.addEventListener('click', function() {
-                var rel = btn.getAttribute('data-relative-path') || '';
-                openArchiveUploadPath(rel);
-            });
-        });
-    }
-
-    function updateArchiveUploadCurrentPath(path, parentPath) {
-        archiveUploadState.currentBrowsePath = path || '';
-        archiveUploadState.parentBrowsePath = parentPath;
-        var els = getArchiveUploadElements();
-        if (els.currentPath) {
-            els.currentPath.textContent = archiveUploadState.currentBrowsePath || '根目录';
-        }
-        if (els.upBtn) {
-            els.upBtn.disabled = !archiveUploadState.hasBinding || !archiveUploadState.currentBrowsePath;
-        }
-        if (els.useCurrentBtn) {
-            els.useCurrentBtn.disabled = false;
-        }
-    }
-
-    async function loadRecommendedArchiveUploadPath() {
-        var els = getArchiveUploadElements();
-        if (!archiveUploadState.contractId) return;
-
-        try {
-            var url = '/api/v1/contracts/' + archiveUploadState.contractId + '/recommended-storage-subdir?archive_item_name='
-                + encodeURIComponent(archiveUploadState.archiveItemName || archiveUploadState.archiveItemCode || '')
-                + '&archive_item_code=' + encodeURIComponent(archiveUploadState.archiveItemCode || '');
-            var response = await fetch(url, {
-                headers: { 'X-CSRFToken': getCSRF() },
-                credentials: 'same-origin',
-            });
-            var data = await response.json();
-            if (!response.ok) {
-                throw new Error(data.error || data.message || '加载推荐目录失败');
-            }
-
-            archiveUploadState.recommendedSubdir = data.recommended_subdir || archiveUploadState.recommendedSubdir;
-            if (els.recommendedPath) {
-                els.recommendedPath.textContent = archiveUploadState.recommendedSubdir || '-';
-            }
-            if (els.subdirInput && !els.subdirInput.value.trim()) {
-                els.subdirInput.value = archiveUploadState.recommendedSubdir || '';
-            }
-        } catch (e) {
-            if (els.recommendedPath) {
-                els.recommendedPath.textContent = archiveUploadState.recommendedSubdir || '-';
-            }
-        }
-    }
-
-    async function openArchiveUploadPath(path) {
-        var els = getArchiveUploadElements();
-        if (!archiveUploadState.hasBinding) {
-            renderArchiveUploadBrowser([]);
-            setArchiveUploadStatus('未绑定业务文件夹，无法浏览现有目录');
-            updateArchiveUploadCurrentPath('', null);
-            return;
-        }
-
-        setArchiveUploadStatus('加载目录中...');
-        try {
-            var url = '/api/v1/contracts/' + archiveUploadState.contractId + '/storage-subdirs';
-            if (path) {
-                url += '?path=' + encodeURIComponent(path);
-            }
-            var response = await fetch(url, {
-                headers: { 'X-CSRFToken': getCSRF() },
-                credentials: 'same-origin',
-            });
-            var data = await response.json();
-            if (!response.ok) {
-                throw new Error(data.error || data.message || '加载目录失败');
-            }
-            updateArchiveUploadCurrentPath(data.current_path || '', data.parent_path);
-            renderArchiveUploadBrowser(data.entries || []);
-            setArchiveUploadStatus((data.entries || []).length > 0 ? '点击目录可继续进入下一级' : '当前目录下没有现有子目录');
-        } catch (e) {
-            renderArchiveUploadBrowser([]);
-            setArchiveUploadStatus('加载目录失败: ' + e.message);
-        }
-    }
-
-    window.useRecommendedArchiveUploadPath = function() {
-        var els = getArchiveUploadElements();
-        if (els.subdirInput) {
-            els.subdirInput.value = archiveUploadState.recommendedSubdir || '';
-        }
-    };
-
-    window.useCurrentArchiveUploadPath = function() {
-        var els = getArchiveUploadElements();
-        if (els.subdirInput) {
-            els.subdirInput.value = archiveUploadState.currentBrowsePath || '';
-        }
-    };
-
-    window.navigateArchiveUploadParent = function() {
-        if (!archiveUploadState.currentBrowsePath) return;
-        openArchiveUploadPath(archiveUploadState.parentBrowsePath || '');
-    };
-
-    window.closeArchiveUploadDialog = function() {
-        var els = getArchiveUploadElements();
-        if (els.modal) {
-            els.modal.style.display = 'none';
-        }
-        if (els.fileInput) {
-            els.fileInput.value = '';
-            els.fileInput.onchange = null;
-        }
-    };
-
-    window.confirmArchiveUploadSelection = function() {
-        var els = getArchiveUploadElements();
-        if (!els.fileInput) return;
-
-        els.fileInput.onchange = function() {
-            var file = els.fileInput.files && els.fileInput.files[0];
-            if (!file) return;
-
-            var formData = new FormData();
-            formData.append('file', file);
-            if (els.subdirInput && els.subdirInput.value.trim()) {
-                formData.append('subdir_path', els.subdirInput.value.trim());
-            }
-
-            fetch('/admin/contracts/contract/' + archiveUploadState.contractId + '/upload-archive-item/' + archiveUploadState.archiveItemCode + '/', {
-                method: 'POST',
-                headers: { 'X-CSRFToken': getCSRF() },
-                body: formData,
-            })
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                if (data.success) {
-                    location.reload();
-                } else {
-                    alert('上传失败: ' + (data.error || '未知错误'));
-                }
-            })
-            .catch(function(e) {
-                alert('上传失败: ' + e.message);
-            })
-            .finally(function() {
-                closeArchiveUploadDialog();
-            });
-        };
-
-        els.fileInput.click();
-    };
-
-    window.uploadArchiveItem = function(contractId, archiveItemCode, itemName) {
-        var els = getArchiveUploadElements();
-        if (!els.modal) return;
-
-        archiveUploadState.contractId = contractId;
-        archiveUploadState.archiveItemCode = archiveItemCode;
-        archiveUploadState.archiveItemName = itemName || archiveItemCode;
-        archiveUploadState.recommendedSubdir = '归档清单/' + archiveUploadState.archiveItemName;
-        archiveUploadState.hasBinding = els.modal.dataset.hasBinding === 'true';
-
-        if (els.recommendedPath) {
-            els.recommendedPath.textContent = archiveUploadState.recommendedSubdir;
-        }
-        if (els.subdirInput) {
-            els.subdirInput.value = archiveUploadState.recommendedSubdir;
-        }
-        if (els.bindingTip) {
-            els.bindingTip.style.display = archiveUploadState.hasBinding ? 'none' : 'block';
-        }
-
-        els.modal.style.display = 'flex';
-        updateArchiveUploadCurrentPath('', null);
-        loadRecommendedArchiveUploadPath();
-        openArchiveUploadPath('');
-    };
-
     // 生成单个归档文书
     window.generateSingleArchiveDoc = function(contractId, archiveItemCode, itemName) {
         if (!confirm('确认生成「' + itemName + '」？已有同编号文书将被覆盖。')) return;
@@ -1665,7 +1245,32 @@ function archiveChecklistApp(initialCompact, checklistItems) {
     };
 
     // 上传文件到归档检查清单项
-    // 使用上方弹窗版 uploadArchiveItem。
+    window.uploadArchiveItem = function(contractId, archiveItemCode) {
+        var input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.pdf,.docx,.doc,.jpg,.jpeg,.png,.xlsx,.xls';
+        input.onchange = function() {
+            var file = input.files[0];
+            if (!file) return;
+            var formData = new FormData();
+            formData.append('file', file);
+            fetch('/admin/contracts/contract/' + contractId + '/upload-archive-item/' + archiveItemCode + '/', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCSRF() },
+                body: formData,
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('上传失败: ' + (data.error || '未知错误'));
+                }
+            })
+            .catch(function(e) { alert('上传失败: ' + e.message); });
+        };
+        input.click();
+    };
 
     // 删除归档材料子项
     window.deleteArchiveMaterial = function(contractId, materialId, filename) {

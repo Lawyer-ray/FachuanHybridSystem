@@ -3,9 +3,9 @@
 
 {% block extrahead %}
 {{ block.super }}
-<link rel="stylesheet" type="text/css" href="{% static 'cases/css/case_detail.css' %}?v=20260512a">
+<link rel="stylesheet" type="text/css" href="{% static 'cases/css/case_detail.css' %}?v=20260507a">
 <link rel="stylesheet" type="text/css" href="{% static 'cases/css/litigation_generation.css' %}?v=20250118">
-<link rel="stylesheet" type="text/css" href="{% static 'cases/css/case_materials.css' %}?v=20260513a">
+<link rel="stylesheet" type="text/css" href="{% static 'cases/css/case_materials.css' %}?v=20260409b">
 {% endblock %}
 
 {% block extrastyle %}
@@ -77,9 +77,6 @@
             <button type="button" @click="activeTab = 'progress'" :class="{ active: activeTab === 'progress' }">
                 {% trans "案件进展" %}
             </button>
-            <button type="button" @click="activeTab = 'important_time'" :class="{ active: activeTab === 'important_time' }">
-                {% trans "重要时间" %}
-            </button>
             <button type="button" @click="activeTab = 'documents'" :class="{ active: activeTab === 'documents' }">
                 {% trans "文档生成" %}
             </button>
@@ -89,7 +86,7 @@
             <button type="button" @click="activeTab = 'non_party_materials'" :class="{ active: activeTab === 'non_party_materials' }">
                 {% trans "非当事人材料" %}
             </button>
-            {% if not is_our_party_all_defendant %}
+            {% if has_court_filing_plugin and not is_our_party_all_defendant %}
             <button type="button" @click="activeTab = 'court_filing'" :class="{ active: activeTab === 'court_filing' }">
                 {% trans "一张网立案" %}
             </button>
@@ -115,11 +112,6 @@
                 {% include "admin/cases/case/partials/progress.html" %}
             </div>
 
-            <!-- 重要时间标签页 -->
-            <div x-show="activeTab === 'important_time'" x-transition>
-                {% include "admin/cases/case/partials/important_time.html" %}
-            </div>
-
             <!-- 文档生成标签页 -->
             <div x-show="activeTab === 'documents'" x-transition>
                 {% include "admin/cases/case/partials/documents.html" %}
@@ -134,7 +126,7 @@
             </div>
 
             <!-- 一张网立案标签页 -->
-            {% if not is_our_party_all_defendant %}
+            {% if has_court_filing_plugin and not is_our_party_all_defendant %}
             <div x-show="activeTab === 'court_filing'" x-transition>
                 {% include "admin/cases/case/partials/court_filing.html" %}
             </div>

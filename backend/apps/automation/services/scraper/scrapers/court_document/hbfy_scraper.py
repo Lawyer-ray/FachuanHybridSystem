@@ -518,7 +518,7 @@ class HbfyCourtScraper(BaseCourtDocumentScraper):
 
             try:
                 login_data = login_resp.json()
-            except Exception:
+            except (TypeError, ValueError):
                 continue
 
             if bool(login_data.get("success")) and bool((login_data.get("message") or {}).get("result")):

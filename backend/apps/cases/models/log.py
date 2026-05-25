@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import os
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
@@ -31,18 +30,8 @@ logger = logging.getLogger(__name__)
 def validate_log_attachment(file: UploadedFile) -> None:
     """验证日志附件"""
     name = str(getattr(file, "name", ""))
+    size: int = int(getattr(file, "size", 0) or 0)
     ext = Path(name).suffix.lower()
-
-    size: int = 0
-    try:
-        size = int(getattr(file, "size", 0) or 0)
-    except Exception:
-        if name and os.path.isabs(name):
-            try:
-                size = int(Path(name).stat().st_size)
-            except OSError:
-                size = 0
-
     if ext not in CASE_LOG_ALLOWED_EXTENSIONS:
         from django.core.exceptions import ValidationError
 
@@ -99,7 +88,7 @@ class CaseLog(models.Model):
 
             reminder_service = ServiceLocator.get_reminder_service()
             reminders = reminder_service.export_case_log_reminders_internal(case_log_id=int(self.id))
-        except Exception:
+        except (TypeError, ValueError):
             logger.exception("case_log_export_reminders_failed", extra={"case_log_id": int(self.id)})
             reminders = []
         self._cached_exported_reminders = reminders
@@ -133,7 +122,7 @@ class CaseLog(models.Model):
 
             reminder_service = ServiceLocator.get_reminder_service()
             reminder = reminder_service.get_latest_case_log_reminder_internal(case_log_id=int(self.id))
-        except Exception:
+        except (TypeError, ValueError):
             logger.exception("case_log_latest_reminder_failed", extra={"case_log_id": int(self.id)})
             reminders = self._exported_reminders()
             reminder = reminders[-1] if reminders else None
@@ -183,16 +172,9 @@ class CaseLogAttachment(models.Model):
             models.Index(fields=["log"]),
         ]
 
-    @property
-    def case_id(self) -> int:
-        return int(self.log.case_id)
-
-    @property
-    def display_name(self) -> str:
-        return str(self.original_filename or getattr(self.file, "name", "") or "")
-
     def save(self, *args: Any, **kwargs: Any) -> None:
         if not self.original_filename and self.file:
+            # 从 UploadedFile 或已存储的文件名中提取原始文件名
             name = getattr(self.file, "name", "")
             if name:
                 self.original_filename = Path(name).name

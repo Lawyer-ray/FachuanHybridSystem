@@ -268,9 +268,8 @@ class Command(BaseCommand):
 
     def _recover_incomplete_tasks(self, max_age: Any, verbose: bool = True) -> int:
         """恢复未完成的任务"""
-        from apps.core.tasking import submit_task
-
         from apps.automation.models import CourtSMS, CourtSMSStatus
+        from apps.core.tasking import submit_task
 
         incomplete_statuses = [
             CourtSMSStatus.PENDING,

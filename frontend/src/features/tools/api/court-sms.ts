@@ -19,7 +19,9 @@ export interface CourtSMSItem {
 
 export interface CourtSMSListResponse {
   items: CourtSMSItem[]
-  count: number
+  total: number
+  page: number
+  page_size: number
 }
 
 export interface CourtSMSDetail {
@@ -35,14 +37,10 @@ export interface CourtSMSDetail {
   retry_count: number
   case: { id: number; name: string } | null
   documents: {
-    id: number | null
+    id: number
     name: string
     source: string
     download_url: string | null
-    original_name: string
-    archived_subdir: string
-    recommended_subdir: string
-    recommendation_reason: string
   }[]
   feishu_sent_at: string | null
   feishu_error: string | null

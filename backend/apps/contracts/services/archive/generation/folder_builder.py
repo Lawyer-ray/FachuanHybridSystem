@@ -259,7 +259,7 @@ def _compile_final_archive_pdf(
                 src_doc = fitz.open(str(pdf_path))
                 merged_doc.insert_pdf(src_doc)
                 src_doc.close()
-            except Exception as e:
+            except (OSError, ValueError) as e:
                 logger.warning("合并PDF失败: %s, error: %s", pdf_path.name, e)
 
         if len(merged_doc) == 0:

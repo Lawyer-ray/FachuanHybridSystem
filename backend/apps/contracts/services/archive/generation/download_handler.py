@@ -9,20 +9,12 @@ from typing import Any
 
 from apps.contracts.models import Contract
 from apps.contracts.models.finalized_material import FinalizedMaterial, MaterialCategory
-from apps.contracts.services.contract.integrations.material_service import MaterialService
 
 from ..category_mapping import get_archive_category
 from ..constants import ARCHIVE_CHECKLIST, ARCHIVE_SUBITEM_ORDER_RULES, ChecklistItem
 from .document_generator import generate_single_archive_document
 
 logger = logging.getLogger("apps.contracts.archive")
-
-
-def _resolve_material_path(material: FinalizedMaterial) -> Path | None:
-    resolved = MaterialService().resolve_material_file(material)
-    if not resolved.exists or not resolved.abs_path:
-        return None
-    return Path(resolved.abs_path)
 
 
 def download_archive_item(
@@ -161,8 +153,13 @@ def _is_item_by_name(contract: Contract, archive_item_code: str, name_keyword: s
 
 def _read_material_file(material: FinalizedMaterial) -> dict[str, Any]:
     """读取单个材料文件的内容。"""
-    file_path = _resolve_material_path(material)
-    if file_path is None or not file_path.exists():
+    from django.conf import settings as django_settings
+
+    file_path = Path(material.file_path)
+    if not file_path.is_absolute():
+        file_path = Path(django_settings.MEDIA_ROOT) / file_path
+
+    if not file_path.exists():
         return {"error": f"文件不存在: {material.original_filename}"}
 
     content = file_path.read_bytes()
@@ -187,15 +184,18 @@ def _merge_materials_to_pdf(
 ) -> dict[str, Any]:
     """将多个材料文件合并为一个 PDF。"""
     import fitz  # PyMuPDF
+    from django.conf import settings as django_settings
 
     merged_doc = fitz.open()
     filenames: list[str] = []
 
     try:
         for material in materials:
-            file_path = _resolve_material_path(material)
+            file_path = Path(material.file_path)
+            if not file_path.is_absolute():
+                file_path = Path(django_settings.MEDIA_ROOT) / file_path
 
-            if file_path is None or not file_path.exists():
+            if not file_path.exists():
                 logger.warning("合并时文件不存在: %s", material.original_filename)
                 continue
 

@@ -61,6 +61,20 @@ class FolderGenerationService:
         self._folder_binding_service = folder_binding_service
         self._last_extract_path: str | None = None
 
+    def fetch_case_for_folder(self, case_id: int) -> Any:
+        """获取案件（含文件夹绑定和当事人关联）。"""
+        from apps.cases.models import Case
+
+        return (
+            Case.objects.select_related("contract__folder_binding", "folder_binding")
+            .prefetch_related("parties__client")
+            .get(pk=case_id)
+        )
+
+    def fetch_template_by_id(self, template_id: int) -> FolderTemplate:
+        """按 ID 获取文件夹模板。"""
+        return FolderTemplate.objects.get(pk=template_id)
+
     @property
     def contract_service(self) -> IContractService:
         """
@@ -645,7 +659,7 @@ class FolderGenerationService:
                                 filename,
                                 identity_path,
                             )
-                    except Exception as e:
+                    except (OSError, ValueError) as e:
                         logger.warning("读取证件文件失败: %s - %s", identity_doc.file_path, e)
 
         # 6. 放入律师执业证 → "委托材料"文件夹
@@ -666,7 +680,7 @@ class FolderGenerationService:
                             filename,
                             attorney_path,
                         )
-                except Exception as e:
+                except (OSError, ValueError) as e:
                     logger.warning("读取律师执业证失败: %s - %s", lawyer.username, e)
 
         # 7. 放入已生效案号裁判文书 → "执行依据及生效证明"文件夹
@@ -688,7 +702,7 @@ class FolderGenerationService:
                             filename,
                             exec_path,
                         )
-                except Exception as e:
+                except (OSError, ValueError) as e:
                     logger.warning("读取案号裁判文书失败: %s - %s", case_number.number, e)
 
         # 8. 若有包裹文件夹，需要将所有文档路径加上包裹前缀

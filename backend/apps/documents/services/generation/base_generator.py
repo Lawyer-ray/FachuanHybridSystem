@@ -15,10 +15,7 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ValidationException
 from apps.core.utils.path import Path
-from apps.documents.services.placeholders.fallback import (
-    PLACEHOLDER_FALLBACK_VALUE,
-    build_docx_render_context,
-)
+from apps.documents.services.placeholders.fallback import PLACEHOLDER_FALLBACK_VALUE, build_docx_render_context
 
 from .result import GenerationResult
 

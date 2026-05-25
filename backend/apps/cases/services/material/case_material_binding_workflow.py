@@ -21,9 +21,6 @@ from apps.cases.models import (
 from apps.core.exceptions import NotFoundError, ValidationException
 
 
-OTHER_MATERIAL_TYPE_NAME = "其它材料"
-
-
 class CaseMaterialBindingWorkflow:
     def __init__(self, case_service: Any | None = None) -> None:
         self._case_service = case_service
@@ -95,9 +92,7 @@ class CaseMaterialBindingWorkflow:
                         "case_id": case_id,
                         "category": category,
                         "type": resolved_type,
-                        "type_name": type_name
-                        if resolved_type.name == OTHER_MATERIAL_TYPE_NAME and type_name
-                        else resolved_type.name,
+                        "type_name": resolved_type.name,
                         "side": side,
                         "supervising_authority_id": supervising_authority_id,
                     },
@@ -199,15 +194,9 @@ class CaseMaterialBindingWorkflow:
         t: CaseMaterialType | None = qs.first()  # type: ignore
         if t is not None:
             return t
-        fallback = CaseMaterialType.objects.filter(
-            category=category,
-            name=OTHER_MATERIAL_TYPE_NAME,
-            law_firm_id__isnull=True,
-            is_active=True,
-        ).first()
-        if fallback is not None:
-            return fallback
-        raise ValidationException(message=_("材料类型不存在"), errors={"type_name": type_name})
+        return CaseMaterialType.objects.create(
+            category=category, name=type_name, law_firm_id=law_firm_id, is_active=True
+        )
 
     def _validate_party_ids(
         self, party_ids: Sequence[Any], parties_by_id: dict[int, CaseParty], side: str

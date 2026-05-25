@@ -141,7 +141,7 @@ class DocTextExtractor:
                 return cached, False
             try:
                 return self._convert_single_doc(file_path), True
-            except Exception:
+            except (OSError, ValueError):
                 logger.warning("转换 .doc 文件失败: %s", file_path, exc_info=True)
                 return None, False
         elif ext == ".txt":

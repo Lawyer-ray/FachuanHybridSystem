@@ -29,7 +29,9 @@ ALLOWLIST_MARKERS = (
 PLACEHOLDER_PATTERN = re.compile(
     r"(?i)(example|sample|dummy|placeholder|changeme|redacted|masked|测试|示例|\*\*\*|xxxx)"
 )
-CN_ID_PATTERN = re.compile(r"\b[1-9]\d{5}(18|19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])\d{3}[0-9Xx]\b")
+CN_ID_PATTERN = re.compile(
+    r"\b[1-9]\d{5}(18|19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])\d{3}[0-9Xx]\b"
+)
 SENSITIVE_LITERAL_ASSIGN_PATTERN = re.compile(
     r"(?i)\b(?:password|passwd|pwd|token|access[_-]?token|refresh[_-]?token|api[_-]?key|secret(?:[_-]?key)?|authorization|cookie|sessionid)\b"
     r"\s*[:=]\s*['\"][^'\"]{4,}['\"]"
@@ -165,7 +167,7 @@ def _check_sensitive(files: list[str], mode: str, base: str | None, head: str) -
     errors: list[str] = []
     for filepath in _resolve_candidates(files, mode, base, head):
         # 跳过 lock 文件（自动生成，包含大量 URL 和哈希值）
-        if filepath.endswith((".lock", "uv.lock", "poetry.lock", "Pipfile.lock")):
+        if filepath.endswith(('.lock', 'uv.lock', 'poetry.lock', 'Pipfile.lock')):
             continue
         for lineno, content in _get_added_lines(filepath, mode, base, head):
             if _has_allowlist_marker(content):

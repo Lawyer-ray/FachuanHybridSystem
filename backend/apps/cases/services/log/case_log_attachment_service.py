@@ -8,21 +8,15 @@ from django.core.files.uploadedfile import UploadedFile
 from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import CaseLogAttachment
-from apps.cases.utils import CASE_LOG_ALLOWED_EXTENSIONS, CASE_LOG_MAX_FILE_SIZE, validate_case_log_attachment
+from apps.cases.utils import validate_case_log_attachment
 from apps.core.exceptions import NotFoundError, ValidationException
 
-from .case_log_attachment_storage_service import CaseLogAttachmentStorageService
 from .case_log_query_service import CaseLogQueryService
 
 
 class CaseLogAttachmentService:
-    def __init__(
-        self,
-        query_service: CaseLogQueryService | None = None,
-        storage_service: CaseLogAttachmentStorageService | None = None,
-    ) -> None:
+    def __init__(self, query_service: CaseLogQueryService | None = None) -> None:
         self.query_service = query_service or CaseLogQueryService()
-        self.storage_service = storage_service or CaseLogAttachmentStorageService()
 
     def upload_attachments(
         self,
@@ -48,21 +42,7 @@ class CaseLogAttachmentService:
         created = []
         for f in files:
             self._validate_attachment(f)
-            saved = self.storage_service.save_attachment(
-                f,
-                case_id=log.case_id,
-                allowed_extensions=list(CASE_LOG_ALLOWED_EXTENSIONS),
-                max_size_bytes=int(CASE_LOG_MAX_FILE_SIZE),
-            )
-            attachment = CaseLogAttachment.objects.create(
-                log=log,
-                file=saved.legacy_file_path,
-                storage_root_type=saved.root_type,
-                subdir_path=saved.subdir_path,
-                relative_file_path=saved.relative_file_path,
-                original_filename=saved.original_filename,
-            )
-            created.append(attachment)
+            created.append(CaseLogAttachment.objects.create(log=log, file=f))
 
         return created
 
@@ -88,6 +68,9 @@ class CaseLogAttachmentService:
                 case=attachment.log.case,
                 message=_("无权限删除此附件"),
             )
+
+        if attachment.file:
+            attachment.file.delete(save=False)
 
         attachment.delete()
         return {"success": True}

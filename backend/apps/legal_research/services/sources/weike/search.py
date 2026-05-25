@@ -187,7 +187,7 @@ class WeikeSearchMixin:
                     post_data = request.post_data
                     if post_data:
                         intercepted = _json.loads(post_data)
-            except Exception:
+            except (_json.JSONDecodeError, ValueError):
                 logger.debug("拦截请求解析失败", exc_info=True)
 
         page.on("request", _on_request)
@@ -468,7 +468,7 @@ class WeikeSearchMixin:
                 response_summary={"returned_count": len(items), "max_pages": max_pages},
             )
             return items
-        except Exception as exc:
+        except (TypeError, ValueError) as exc:
             self._record_search_event(
                 session=session,
                 source="dom",

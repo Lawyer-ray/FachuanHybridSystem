@@ -359,7 +359,7 @@ def calculate_interest(
                 year_days=year_days,
                 date_inclusion=date_inclusion,
             )
-    except Exception as exc:
+    except (TypeError, ValueError) as exc:
         logger.error("利息计算失败: %s", exc, exc_info=True)
         warnings.append("利息计算失败，已按 0 处理。")
         return Decimal("0")
@@ -416,7 +416,7 @@ def calculate_interest_with_segments(
             custom_rate_unit=params.custom_rate_unit,
             custom_rate_value=params.custom_rate_value,
         )
-    except Exception as exc:
+    except (TypeError, ValueError) as exc:
         logger.error("分段利息计算失败: %s", exc, exc_info=True)
         warnings.append("分段利息计算失败，已按 0 处理。")
         return Decimal("0")

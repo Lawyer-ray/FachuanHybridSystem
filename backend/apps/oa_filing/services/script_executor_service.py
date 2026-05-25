@@ -19,6 +19,11 @@ SUPPORTED_SITES: list[str] = ["金诚同达OA"]
 class ScriptExecutorService:
     """OA 立案执行服务。按 site_name 分发到对应律所脚本。"""
 
+    def get_session(self, session_id: int) -> Any:
+        from apps.oa_filing.models import FilingSession
+
+        return FilingSession.objects.get(pk=session_id)
+
     def execute(
         self,
         site_name: str,

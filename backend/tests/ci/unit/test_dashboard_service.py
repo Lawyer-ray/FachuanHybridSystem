@@ -7,11 +7,7 @@ from decimal import Decimal
 
 import pytest
 
-from apps.sales_dispute.services.generation.dashboard_service import (
-    DashboardService,
-    _lawyer_display_name,
-    _safe_rate,
-)
+from apps.sales_dispute.services.generation.dashboard_service import DashboardService, _lawyer_display_name, _safe_rate
 
 
 @pytest.fixture

@@ -328,7 +328,7 @@ def extract_recording_frames_task(
             finished_at=timezone.now(),
         )
         return {"recording_id": recording_id, "status": "success"}
-    except Exception as e:
+    except (TypeError, ValueError) as e:
         logger.error("录屏抽帧失败", extra={"recording_id": recording_id, "error": str(e)}, exc_info=True)
         facade.update_extract_progress(
             recording_id=recording_id,

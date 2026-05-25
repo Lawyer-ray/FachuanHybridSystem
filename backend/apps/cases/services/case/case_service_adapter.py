@@ -184,20 +184,9 @@ class CaseServiceAdapter:
     def create_case_log_internal(self, case_id: int, content: str, user_id: int | None = None) -> Any:
         return self._log_internal.create_case_log_internal(case_id=case_id, content=content, user_id=user_id)
 
-    def add_case_log_attachment_internal(
-        self,
-        case_log_id: int,
-        file_path: str,
-        file_name: str,
-        source_scene: str = "manual_log_upload",
-        recommendation_file_name: str = "",
-    ) -> Any:
+    def add_case_log_attachment_internal(self, case_log_id: int, file_path: str, file_name: str) -> Any:
         return self._log_internal.add_case_log_attachment_internal(
-            case_log_id=case_log_id,
-            file_path=file_path,
-            file_name=file_name,
-            source_scene=source_scene,
-            recommendation_file_name=recommendation_file_name,
+            case_log_id=case_log_id, file_path=file_path, file_name=file_name
         )
 
     def add_case_number_internal(self, case_id: int, case_number: str, user_id: int | None = None) -> Any:

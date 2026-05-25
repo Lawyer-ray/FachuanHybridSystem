@@ -25,7 +25,7 @@ class MaterialCategory(models.TextChoices):
 
 
 class FinalizedMaterial(models.Model):
-    """归档材料模型，存储上传文件元数据。"""
+    """归档材料模型，存储上传的 PDF 文件元数据。"""
 
     id: int
     contract_id: int
@@ -36,9 +36,6 @@ class FinalizedMaterial(models.Model):
         verbose_name=_("合同"),
     )
     file_path: models.CharField = models.CharField(max_length=500, verbose_name=_("文件路径"), db_index=True)
-    storage_root_type: models.CharField = models.CharField(max_length=32, default="media", blank=True)
-    subdir_path: models.CharField = models.CharField(max_length=500, blank=True, default="")
-    relative_file_path: models.CharField = models.CharField(max_length=500, blank=True, default="", db_index=True)
     original_filename: models.CharField = models.CharField(max_length=255, verbose_name=_("原始文件名"))
     category: models.CharField = models.CharField(
         max_length=32,
@@ -54,14 +51,14 @@ class FinalizedMaterial(models.Model):
         blank=True,
         default="",
         verbose_name=_("归档清单编号"),
-        help_text=_("关联归档检查清单的标识符，例如 'nl_1'、'lt_6'"),
+        help_text=_("关联归档检查清单的标识符，如 'nl_1'、'lt_6'"),
     )
     content_hash: models.CharField = models.CharField(
         max_length=64,
         blank=True,
         default="",
         verbose_name=_("内容哈希"),
-        help_text=_("SHA-256，用于去重"),
+        help_text=_("SHA-256, 用于去重"),
         db_index=True,
     )
 

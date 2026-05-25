@@ -35,9 +35,6 @@ def get_checklist_with_status(contract: Contract) -> dict[str, Any]:
             "original_filename",
             "order",
             "file_path",
-            "storage_root_type",
-            "subdir_path",
-            "relative_file_path",
         )
         .order_by("order", "-uploaded_at")
     )
@@ -59,9 +56,6 @@ def get_checklist_with_status(contract: Contract) -> dict[str, Any]:
                     "source_label": _get_source_label(m.category),
                     "order": m.order,
                     "file_path": m.file_path,
-                    "storage_root_type": m.storage_root_type,
-                    "subdir_path": m.subdir_path,
-                    "relative_file_path": m.relative_file_path,
                 }
             )
 

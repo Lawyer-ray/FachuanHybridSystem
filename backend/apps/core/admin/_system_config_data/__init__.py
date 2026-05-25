@@ -21,8 +21,7 @@ __all__ = ["get_default_configs", "get_env_mappings"]
 def get_default_configs() -> list[dict[str, Any]]:
     """获取默认配置项列表 - 包含核心必需配置"""
     configs = (
-        get_general_configs()
-        + get_feishu_configs()
+        get_feishu_configs()
         + get_wechat_work_configs()
         + get_ai_configs()
         + get_court_sms_configs()

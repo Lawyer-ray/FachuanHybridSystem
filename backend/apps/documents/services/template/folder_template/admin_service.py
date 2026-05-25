@@ -7,11 +7,11 @@ from typing import Any
 
 from django.db import transaction
 from django.utils.safestring import mark_safe
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError
 from apps.documents.models import FolderTemplate
 from apps.documents.models.choices import FolderTemplateType, LegalStatusMatchMode
-from django.utils.translation import gettext_lazy as _
 
 from ..folder_service import FolderTemplateService
 
@@ -144,7 +144,7 @@ class FolderTemplateAdminService:
             初始化结果
         """
         try:
-            from apps.documents.services.folder_template.default_templates import get_default_folder_templates
+            from .folder_template.default_templates import get_default_folder_templates
 
             default_templates = get_default_folder_templates()
             existing_names = set(

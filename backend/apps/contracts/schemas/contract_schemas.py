@@ -300,7 +300,7 @@ class ContractOut(ModelSchema):
     def resolve_total_received(obj: Contract) -> float:
         try:
             return float(sum(float(p.amount or 0) for p in obj.payments.all()))
-        except Exception:
+        except (TypeError, ValueError):
             logger.exception("操作失败")
             return 0.0
 
@@ -308,7 +308,7 @@ class ContractOut(ModelSchema):
     def resolve_total_invoiced(obj: Contract) -> float:
         try:
             return float(sum(float(p.invoiced_amount or 0) for p in obj.payments.all()))
-        except Exception:
+        except (TypeError, ValueError):
             logger.exception("操作失败")
             return 0.0
 
@@ -319,7 +319,7 @@ class ContractOut(ModelSchema):
                 return None
             val = float(obj.fixed_amount) - ContractOut.resolve_total_received(obj)
             return float(val) if val >= 0 else 0.0
-        except Exception:
+        except (TypeError, ValueError):
             logger.exception("操作失败")
 
             return None

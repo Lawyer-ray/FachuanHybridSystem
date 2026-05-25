@@ -25,15 +25,12 @@ def generate_case_folder(request: HttpRequest, case_id: int) -> Any:
     - 否则：返回 ZIP 下载
     """
     from apps.cases.models import Case
-    from apps.documents.models import FolderTemplate
     from apps.documents.services.generation.folder_generation_service import FolderGenerationService
 
+    svc = FolderGenerationService()
+
     try:
-        case = (
-            Case.objects.select_related("contract__folder_binding", "folder_binding")
-            .prefetch_related("parties__client")
-            .get(pk=case_id)
-        )
+        case = svc.fetch_case_for_folder(case_id)
     except Case.DoesNotExist:
         return HttpResponse(status=404)
 
@@ -49,7 +46,7 @@ def generate_case_folder(request: HttpRequest, case_id: int) -> Any:
 
     template_service = TemplateMatchingService()
     matched_candidates = template_service.find_matching_case_folder_templates_list(
-        case_type=case.case_type,  # type: ignore[arg-type]
+        case_type=case.case_type,
         legal_statuses=our_legal_statuses,
     )
 
@@ -58,7 +55,7 @@ def generate_case_folder(request: HttpRequest, case_id: int) -> Any:
 
     # 取第一个匹配的模板（已按优先级排序）
     matched_template_id = matched_candidates[0]["id"]
-    matched = FolderTemplate.objects.get(pk=matched_template_id)
+    matched = svc.fetch_template_by_id(matched_template_id)
 
     # 生成文件夹名称：日期-案件名
     from datetime import date
@@ -66,10 +63,8 @@ def generate_case_folder(request: HttpRequest, case_id: int) -> Any:
     from apps.core.models.enums import CaseType
 
     today = date.today().strftime("%Y.%m.%d")
-    case_type_display = dict(CaseType.choices).get(case.case_type, case.case_type or "")  # type: ignore[arg-type]
+    case_type_display = dict(CaseType.choices).get(case.case_type, case.case_type or "")
     root_name = f"{today}-[{case_type_display}]{case.name}"
-
-    svc = FolderGenerationService()
 
     # 判断是否有合同绑定文件夹
     contract_folder_path: str | None = None

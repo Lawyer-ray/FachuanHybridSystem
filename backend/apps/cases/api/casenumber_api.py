@@ -105,5 +105,5 @@ def upload_temp_document(request: HttpRequest) -> dict[str, Any]:
             "temp_file_name": file.name,
         }
 
-    except Exception as e:
+    except (OSError, ValueError) as e:
         return {"success": False, "error": f"上传失败: {e!s}"}

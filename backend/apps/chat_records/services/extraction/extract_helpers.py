@@ -15,7 +15,7 @@ def safe_int(raw: Any, default: int) -> int:
         return default
     try:
         return int(raw)
-    except Exception:
+    except (TypeError, ValueError):
         logger.info(
             "safe_int 转换失败，使用默认值",
             extra={"raw": repr(raw), "default": default},
@@ -34,7 +34,7 @@ def safe_float(
         return default
     try:
         v = float(raw)
-    except Exception:
+    except (TypeError, ValueError):
         logger.info(
             "safe_float 转换失败，使用默认值",
             extra={"raw": repr(raw), "default": default},

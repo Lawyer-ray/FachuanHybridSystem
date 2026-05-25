@@ -89,8 +89,7 @@ class QichachaMcpProvider:
         )
         raise AssertionError  # unreachable
 
-    @staticmethod
-    def _raise_not_implemented(*, capability: str, arguments: dict[str, Any]) -> None:
+    def _raise_not_implemented(self, *, capability: str, arguments: dict[str, Any]) -> None:
         raise ValidationException(
             message="企查查 Provider 尚未实现，请先完成 MCP 接口映射",
             code="PROVIDER_NOT_IMPLEMENTED",

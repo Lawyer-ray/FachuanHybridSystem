@@ -379,6 +379,6 @@ class EnterpriseDataService:
             return default
         try:
             value = float(getter() or default)
-        except Exception:
+        except (TypeError, ValueError):
             return default
         return value

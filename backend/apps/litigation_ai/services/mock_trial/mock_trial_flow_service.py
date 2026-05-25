@@ -572,8 +572,8 @@ class MockTrialFlowService:
         await self._set_step(ctx.session_id, MockTrialStep.SUMMARY)
 
     async def _get_evidence_text(self, case_id: int) -> str:
-        from apps.litigation_ai.services.session.context_service import LitigationContextService
         from apps.litigation_ai.services.evidence.evidence_digest_service import EvidenceDigestService
+        from apps.litigation_ai.services.session.context_service import LitigationContextService
 
         raw = await sync_to_async(LitigationContextService.get_evidence_list_for_agent, thread_sensitive=True)(case_id)
         if not raw:

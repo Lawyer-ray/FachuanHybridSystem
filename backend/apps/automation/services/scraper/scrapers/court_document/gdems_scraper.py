@@ -317,7 +317,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):
                         extracted_files.append(str(target))
             logger.info(f"ZIP 文件已解压,共 {len(extracted_files)} 个文件")
 
-        except Exception as e:
+        except (OSError, ValueError) as e:
             logger.error(f"解压失败: {e}")
             # 解压失败不影响主流程,返回空列表
             extracted_files: list[Any] = []  # type: ignore

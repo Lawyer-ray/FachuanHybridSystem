@@ -42,7 +42,7 @@ def _prefetch_log_reminders(cases: list[Any]) -> None:
         reminders_map = reminder_service.export_case_log_reminders_batch_internal(case_log_ids=log_ids)
         for log in all_logs:
             log._cached_exported_reminders = reminders_map.get(log.id, [])
-    except Exception:
+    except (TypeError, ValueError):
         pass
 
 

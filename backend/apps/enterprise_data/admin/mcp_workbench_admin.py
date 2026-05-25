@@ -85,7 +85,7 @@ class McpWorkbenchAdmin(admin.ModelAdmin):
                 if isinstance(arguments_payload, dict):
                     arguments_json = self._to_pretty_json(arguments_payload)
                 messages.success(request, "重放执行成功")
-            except Exception as exc:
+            except (TypeError, ValueError) as exc:
                 execution_error = str(exc).strip() or type(exc).__name__
                 messages.error(request, f"重放执行失败: {execution_error}")
 
@@ -223,5 +223,5 @@ class McpWorkbenchAdmin(admin.ModelAdmin):
     def _to_pretty_json(payload: Any) -> str:
         try:
             return json.dumps(payload, ensure_ascii=False, indent=2, default=str)
-        except Exception:
+        except TypeError:
             return str(payload)

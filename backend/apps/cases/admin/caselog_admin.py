@@ -8,7 +8,8 @@ from django.db import transaction
 from django.forms import ModelForm
 from django.http import HttpRequest, JsonResponse
 from django.template.response import TemplateResponse
-from django.urls import path as urlpath, reverse
+from django.urls import path as urlpath
+from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
@@ -132,7 +133,7 @@ class CaseLogAdmin(BaseModelAdmin):
 
         try:
             payload = json.loads(request.body.decode("utf-8"))
-        except Exception:
+        except json.JSONDecodeError:
             return JsonResponse({"success": False, "message": _("参数格式错误")}, status=400)
 
         contract_id = payload.get("contract_id")
@@ -142,9 +143,7 @@ class CaseLogAdmin(BaseModelAdmin):
         from apps.cases.models import Case
 
         cases = (
-            Case.objects.filter(contract_id=contract_id)
-            .order_by("name")
-            .values("id", "name", "status", "start_date")
+            Case.objects.filter(contract_id=contract_id).order_by("name").values("id", "name", "status", "start_date")
         )
         case_list = []
         for c in cases:
@@ -166,7 +165,7 @@ class CaseLogAdmin(BaseModelAdmin):
 
         try:
             payload = json.loads(request.body.decode("utf-8"))
-        except Exception:
+        except json.JSONDecodeError:
             return JsonResponse({"success": False, "message": _("参数格式错误")}, status=400)
 
         query = (payload.get("query") or "").strip()
@@ -201,7 +200,7 @@ class CaseLogAdmin(BaseModelAdmin):
 
         try:
             payload = json.loads(request.body.decode("utf-8"))
-        except Exception:
+        except json.JSONDecodeError:
             return JsonResponse({"success": False, "message": _("参数格式错误")}, status=400)
 
         case_ids = payload.get("case_ids")
@@ -214,10 +213,7 @@ class CaseLogAdmin(BaseModelAdmin):
 
         user_id = getattr(request.user, "id", None)
         with transaction.atomic():
-            logs = [
-                CaseLog(case_id=case_id, content=content, actor_id=user_id)
-                for case_id in case_ids
-            ]
+            logs = [CaseLog(case_id=case_id, content=content, actor_id=user_id or 0) for case_id in case_ids]
             created = CaseLog.objects.bulk_create(logs)
 
         return JsonResponse({"success": True, "created_count": len(created)})

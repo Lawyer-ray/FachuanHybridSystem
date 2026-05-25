@@ -118,8 +118,7 @@ class LawyerLetterGeneratorService:
         )
         return GeneratedDocument(filename=filename, content=content)
 
-    @staticmethod
-    def _build_docx_renderer() -> Any:
+    def _build_docx_renderer(self) -> Any:
         module = import_module("apps.documents.services.generation.pipeline")
         renderer_cls = module.DocxRenderer
         return renderer_cls()

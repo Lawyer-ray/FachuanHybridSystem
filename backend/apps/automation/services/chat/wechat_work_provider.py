@@ -23,11 +23,7 @@ from typing import Any
 import httpx
 from django.utils.translation import gettext_lazy as _
 
-from apps.core.exceptions import (
-    ChatCreationException,
-    ConfigurationException,
-    MessageSendException,
-)
+from apps.core.exceptions import ChatCreationException, ConfigurationException, MessageSendException
 from apps.core.models.enums import ChatPlatform
 
 from ._wechat_work_file_mixin import WeChatWorkFileMixin

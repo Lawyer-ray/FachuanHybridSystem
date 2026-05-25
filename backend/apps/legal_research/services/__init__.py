@@ -2,12 +2,7 @@ from .capability import LegalResearchCapabilityMcpWrapper, LegalResearchCapabili
 from .keywords import KEYWORD_INPUT_HELP_TEXT, normalize_keyword_query
 from .llm_preflight import verify_siliconflow_connectivity
 from .similarity import CaseSimilarityService, SimilarityResult
-from .task import (
-    CaseDownloadService,
-    LegalResearchExecutor,
-    LegalResearchFeedbackLoopService,
-    LegalResearchTaskService,
-)
+from .task import CaseDownloadService, LegalResearchExecutor, LegalResearchFeedbackLoopService, LegalResearchTaskService
 
 __all__ = [
     "CaseDownloadService",

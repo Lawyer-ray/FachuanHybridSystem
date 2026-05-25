@@ -103,7 +103,7 @@ class TrackingExtractionService:
                     pass
                 try:
                     doc.close()
-                except Exception:
+                except (TypeError, ValueError):
                     pass
         except Exception as exc:
             logger.warning("PDF 截断失败（不影响后续流程）: %s", exc)

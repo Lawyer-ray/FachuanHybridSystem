@@ -659,13 +659,13 @@ class JtnClientImportScript:
             return value
         try:
             return int(str(value).strip())
-        except Exception:
+        except (TypeError, ValueError):
             digits = re.findall(r"\d+", str(value))
             if not digits:
                 return 0
             try:
                 return int("".join(digits))
-            except Exception:
+            except (TypeError, ValueError):
                 return 0
 
     def _emit_progress(self, event: str, **payload: Any) -> None:
@@ -673,7 +673,7 @@ class JtnClientImportScript:
             return
         try:
             self._progress_callback({"event": event, **payload})
-        except Exception:
+        except (TypeError, ValueError):
             logger.debug("进度回调处理异常: event=%s", event, exc_info=True)
 
     def _login(self) -> None:

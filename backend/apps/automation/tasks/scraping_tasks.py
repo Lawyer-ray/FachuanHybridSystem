@@ -122,6 +122,7 @@ def execute_scraper_task(task_id: int, **kwargs: Any) -> None:
             from datetime import timedelta
 
             from django.utils import timezone
+
             from apps.core.tasking import ScheduleQueryService
 
             delay_seconds = min(2 ** (task.retry_count - 1) * 60, 3600)

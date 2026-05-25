@@ -191,7 +191,7 @@ class OCRService:
             is_pdf = image_path.lower().endswith(".pdf")
             api_result = self.paddleocr_engine.recognize_bytes(file_bytes, is_pdf=is_pdf)
             return str(api_result.text)
-        except Exception as e:
+        except (OSError, ValueError) as e:
             logger.warning("PaddleOCR API 调用失败，降级到本地 RapidOCR: %s", e)
             # 降级到本地
             result = self.ocr(image_path)
@@ -204,7 +204,7 @@ class OCRService:
         try:
             api_result = self.paddleocr_engine.recognize_bytes(image_bytes, is_pdf=False)
             return str(api_result.text)
-        except Exception as e:
+        except (OSError, ValueError) as e:
             logger.warning("PaddleOCR API 调用失败，降级到本地 RapidOCR: %s", e)
             # 降级到本地
             result = self.ocr(image_bytes)
@@ -312,7 +312,7 @@ class OCRService:
                     try:
                         if float(scores[i]) < 0.50:
                             continue
-                    except Exception:
+                    except (TypeError, ValueError):
                         logger.exception("操作失败")
 
                         pass
@@ -328,7 +328,7 @@ class OCRService:
 
             merged = "|".join(cleaned)
             return OCRTextResult(text=merged, raw_texts=cleaned)
-        except Exception as e:
+        except (TypeError, ValueError) as e:
             logger.warning("RapidOCR 识别失败", extra={"error": str(e)}, exc_info=True)
             return OCRTextResult(text="", raw_texts=[])
 

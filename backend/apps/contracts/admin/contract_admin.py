@@ -185,6 +185,9 @@ class ContractAdmin(
         ClientPaymentRecordInline,
     ]
 
+    class Media:
+        js = ("cases/admin_case_form.js",)
+
     change_form_template = "admin/contracts/contract/change_form.html"
     change_list_template = "admin/contracts/contract/change_list.html"
 
@@ -399,7 +402,7 @@ class ContractAdmin(
                     "session_id": int(session.id),
                 }
             )
-        except Exception as exc:
+        except (TypeError, ValueError) as exc:
             logger.exception("contract_oa_sync_start_failed")
             return JsonResponse({"success": False, "message": str(exc)}, status=400)
 
@@ -507,7 +510,7 @@ class ContractAdmin(
     def _parse_json_payload(self, request: HttpRequest) -> dict[str, Any]:
         try:
             data = json.loads(request.body.decode("utf-8"))
-        except Exception:
+        except json.JSONDecodeError:
             return {}
         return data if isinstance(data, dict) else {}
 
@@ -536,7 +539,7 @@ class ContractAdmin(
 
     def serialize_queryset(self, queryset: QuerySet[Contract]) -> list[dict[str, Any]]:
         result = []
-        for obj in queryset.prefetch_related(None).prefetch_related(
+        for obj in queryset.prefetch_related(
             # 合同当事人 + 客户（含证件、财产线索）
             Prefetch(
                 "contract_parties",

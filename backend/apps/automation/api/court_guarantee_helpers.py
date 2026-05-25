@@ -417,7 +417,7 @@ def _build_guarantee_material_paths(case: Any) -> list[dict[str, str]]:
                 continue
             try:
                 file_path = Path(str(attachment.file.path))
-            except Exception:
+            except (TypeError, ValueError):
                 continue
             if not file_path.exists() or file_path.suffix.lower() not in allowed_suffixes:
                 continue

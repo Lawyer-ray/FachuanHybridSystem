@@ -1,12 +1,14 @@
 /**
- * Contract and supplementary-agreement party helpers:
- * 1. Auto-set role to OPPOSING for non-our-clients.
- * 2. Add fill buttons for supplementary agreement party groups.
+ * 合同/补充协议当事人辅助功能：
+ * 1. 选择非我方当事人时，自动将身份设为"对方当事人"
+ * 2. 新增补充协议时，提供"填充合同当事人"或"填充上一份补充协议当事人"按钮
  */
 (function () {
   "use strict";
 
   const OPPOSING_VALUE = "OPPOSING";
+
+  // ─── 功能一：自动设置身份 ───────────────────────────────────────────
 
   function checkAndSetRole(clientSelect, clientId) {
     if (!clientId) return;
@@ -18,12 +20,13 @@
     fetch("/api/v1/client/clients/" + clientId, {
       headers: { "X-Requested-With": "XMLHttpRequest" },
     })
-      .then(function (res) {
-        return res.ok ? res.json() : null;
-      })
+      .then(function (res) { return res.ok ? res.json() : null; })
       .then(function (data) {
-        if (data && (data.is_our_client === false || data.is_our_client === null)) {
-          roleSelect.value = OPPOSING_VALUE;
+        if (data) {
+          // 非我方当事人（is_our_client 为 false 或 null）自动设为对方当事人
+          if (data.is_our_client === false || data.is_our_client === null) {
+            roleSelect.value = OPPOSING_VALUE;
+          }
         }
       })
       .catch(function () {});
@@ -32,6 +35,7 @@
   function bindClientSelect(select) {
     const $ = window.django && window.django.jQuery;
 
+    // 普通 change 事件（只绑定一次）
     if (!select.dataset.partyRoleBound) {
       select.dataset.partyRoleBound = "1";
       select.addEventListener("change", function () {
@@ -39,8 +43,11 @@
       });
     }
 
+    // select2 事件（每次都重新绑定，因为 select2 可能被重新初始化）
     if ($ && select.classList.contains("admin-autocomplete")) {
+      // 先解绑旧事件，避免重复绑定
       $(select).off("select2:select.partyRole");
+      // 重新绑定，使用命名空间避免冲突
       $(select).on("select2:select.partyRole", function (e) {
         const id = e.params && e.params.data && e.params.data.id;
         checkAndSetRole(select, id || select.value);
@@ -48,9 +55,9 @@
     }
   }
 
-  function bindAllClientSelects(root) {
-    const scope = root && root.querySelectorAll ? root : document;
-    scope.querySelectorAll('select[name*="-client"]').forEach(function (sel) {
+  function bindAllClientSelects() {
+    document.querySelectorAll('select[name*="-client"]').forEach(function (sel) {
+      // 跳过模板行
       if (sel.name.includes("__prefix__")) return;
       const row = sel.closest("tr");
       if (row && row.querySelector('select[name*="-role"]')) {
@@ -59,11 +66,19 @@
     });
   }
 
+  // ─── 功能二：填充当事人按钮 ─────────────────────────────────────────
+
+  /**
+   * 读取来源当事人列表
+   * @param {number} suppIndex - 当前补充协议的 index（0=第一个）
+   * @returns {Array<{id: string, text: string, role: string}>}
+   */
   function getSourceParties(suppIndex) {
     const parties = [];
     const $ = window.django && window.django.jQuery;
 
     if (suppIndex === 0) {
+      // 从合同当事人读取（普通 select，有完整 option text）
       document.querySelectorAll('select[name^="contract_parties-"][name$="-client"]').forEach(function (sel) {
         if (sel.name.includes("__prefix__") || !sel.value) return;
         const row = sel.closest("tr");
@@ -76,6 +91,7 @@
         });
       });
     } else {
+      // 从上一份补充协议当事人读取（select2，用 select2('data') 取 text）
       const prevIndex = suppIndex - 1;
       const prefix = "supplementary_agreements-" + prevIndex + "-parties-";
       document.querySelectorAll('select[name^="' + prefix + '"][name$="-client"]').forEach(function (sel) {
@@ -97,28 +113,53 @@
         });
       });
     }
-
     return parties;
   }
 
+  /**
+   * 向目标 parties-group 填充当事人
+   * @param {string} groupId - 如 "supplementary_agreements-1-parties-group"
+   * @param {Array} parties
+   */
   function fillParties(groupId, parties) {
     if (!parties.length) return;
     const $ = window.django && window.django.jQuery;
     const group = document.getElementById(groupId);
     if (!group) return;
 
+    // 解析 prefix，如 "supplementary_agreements-1-parties"
     const prefix = groupId.replace("-group", "");
+
+    // 获取当前已有的空行（TOTAL_FORMS - INITIAL_FORMS 个）
+    // 需要点击"添加"按钮来创建足够的行
     const addBtn = group.querySelector(".djn-add-item a");
     if (!addBtn) return;
 
+    // 当前已有的行（非 empty-form、非 __prefix__）
     function getExistingRows() {
       return Array.from(
         group.querySelectorAll('select[name^="' + prefix + '-"][name$="-client"]:not([name*="__prefix__"])')
       );
     }
 
+    const existingRows = getExistingRows();
+    // 需要的行数
     const needed = parties.length;
-    const current = getExistingRows().length;
+    // 已有行数（包括空行）
+    let current = existingRows.length;
+
+    // 点击添加按钮补足行数
+    function addRowsAndFill(remaining) {
+      if (remaining <= 0) {
+        doFill();
+        return;
+      }
+      addBtn.click();
+      // 等 nested_admin 渲染新行
+      setTimeout(function () {
+        addRowsAndFill(remaining - 1);
+      }, 50);
+    }
 
     function doFill() {
       const rows = getExistingRows();
@@ -128,6 +169,7 @@
         const row = sel.closest("tr");
         const roleSelect = row && row.querySelector('select[name*="-role"]');
 
+        // 设置 select2 值
         if ($ && sel.classList.contains("admin-autocomplete")) {
           const option = new Option(party.text, party.id, true, true);
           $(sel).append(option).trigger("change");
@@ -135,37 +177,31 @@
           sel.value = party.id;
         }
 
+        // 设置 role
         if (roleSelect) roleSelect.value = party.role;
       });
-    }
-
-    function addRowsAndFill(remaining) {
-      if (remaining <= 0) {
-        doFill();
-        return;
-      }
-      addBtn.click();
-      setTimeout(function () {
-        addRowsAndFill(remaining - 1);
-      }, 50);
     }
 
     addRowsAndFill(Math.max(0, needed - current));
   }
 
+  /**
+   * 在 parties-group 的 add-item 旁插入填充按钮
+   * @param {HTMLElement} group
+   */
   function insertFillButton(group) {
     if (group.dataset.fillBtnAdded) return;
     group.dataset.fillBtnAdded = "1";
 
+    // 解析 index：supplementary_agreements-N-parties-group
     const match = group.id.match(/supplementary_agreements-(\d+)-parties-group/);
     if (!match) return;
     const suppIndex = parseInt(match[1], 10);
 
     const i18n = window.CONTRACTS_I18N || {};
-    const label =
-      suppIndex === 0
-        ? i18n.fillContractParties || "填充合同当事人"
-        : i18n.fillPrevSuppParties || "填充上一份补充协议当事人";
+    const label = suppIndex === 0
+      ? (i18n.fillContractParties || "填充合同当事人")
+      : (i18n.fillPrevSuppParties || "填充上一份补充协议当事人");
 
     const btn = document.createElement("a");
     btn.href = "javascript://";
@@ -185,78 +221,28 @@
     if (addItem) addItem.appendChild(btn);
   }
 
-  function bindAllFillButtons(root) {
-    const scope = root && root.querySelectorAll ? root : document;
-    scope.querySelectorAll('[id*="supplementary_agreements-"][id$="-parties-group"]').forEach(function (group) {
+  function bindAllFillButtons() {
+    document.querySelectorAll('[id*="supplementary_agreements-"][id$="-parties-group"]').forEach(function (group) {
+      // 排除 empty template
       if (group.id.includes("-empty-")) return;
       insertFillButton(group);
     });
   }
 
-  function bindFromNode(node) {
-    if (!(node instanceof Element)) return;
-
-    if (node.matches('select[name*="-client"]')) {
-      const row = node.closest("tr");
-      if (row && row.querySelector('select[name*="-role"]')) {
-        bindClientSelect(node);
-      }
-    }
-
-    if (node.id && node.id.match(/supplementary_agreements-\d+-parties-group/) && !node.id.includes("-empty-")) {
-      insertFillButton(node);
-    }
-
-    bindAllClientSelects(node);
-    bindAllFillButtons(node);
-  }
-
-  function getObserverRoots() {
-    const roots = [];
-    const seen = new Set();
-
-    [
-      document.getElementById("contract_parties-group"),
-      document.getElementById("contractparty_set-group"),
-      document.getElementById("supplementary_agreements-group"),
-    ].forEach(function (root) {
-      if (!root || seen.has(root)) return;
-      seen.add(root);
-      roots.push(root);
-    });
-
-    document.querySelectorAll('[id*="supplementary_agreements-"][id$="-parties-group"]').forEach(function (root) {
-      if (!root || root.id.includes("-empty-") || seen.has(root)) return;
-      seen.add(root);
-      roots.push(root);
-    });
-
-    return roots;
-  }
-
-  function observeRoot(root) {
-    if (!root || root.dataset.partyRoleObserverBound === "1") return;
-    root.dataset.partyRoleObserverBound = "1";
-
-    const observer = new MutationObserver(function (mutations) {
-      mutations.forEach(function (mutation) {
-        mutation.addedNodes.forEach(function (node) {
-          bindFromNode(node);
-        });
-      });
-    });
-
-    observer.observe(root, { childList: true, subtree: true });
-  }
+  // ─── 初始化 ──────────────────────────────────────────────────────────
 
   function init() {
     bindAllClientSelects();
     bindAllFillButtons();
-    getObserverRoots().forEach(function (root) {
-      observeRoot(root);
+
+    const observer = new MutationObserver(function () {
+      bindAllClientSelects();
+      bindAllFillButtons();
     });
+    observer.observe(document.body, { childList: true, subtree: true });
   }
 
+  // 隐藏 inline 行里的 __str__ 显示文字（td.original > p）
   (function () {
     const style = document.createElement("style");
     style.textContent =
@@ -266,24 +252,11 @@
     document.head.appendChild(style);
   })();
 
-  document.addEventListener("change", function (e) {
-    const target = e.target;
-    const id = (target.id || "") + " " + (target.name || "");
-    if (
-      id.match(/contract_parties.*client/) ||
-      id.match(/contract_parties.*role/) ||
-      id.match(/contractparty_set.*client/) ||
-      id.match(/contractparty_set.*role/)
-    ) {
-      const btn = document.querySelector(".auto-contract-name-btn");
-      if (!btn) return;
-      setTimeout(function () {
-        btn.dispatchEvent(new CustomEvent("auto-contract-name-refresh", { bubbles: false }));
-      }, 150);
-    }
-  });
-
   document.addEventListener("DOMContentLoaded", function () {
     init();
+    setTimeout(function () {
+      bindAllClientSelects();
+      bindAllFillButtons();
+    }, 300);
   });
 })();

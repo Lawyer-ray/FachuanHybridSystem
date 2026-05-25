@@ -377,7 +377,7 @@ class PdfSplitJobService:
         try:
             with fitz.open(source_pdf_path) as doc:
                 total_pages = int(doc.page_count)
-        except Exception:
+        except (TypeError, ValueError):
             raise ValidationException(message="PDF 无法打开", errors={"file": "PDF 文件损坏或格式不正确"}) from None
 
         if total_pages <= 0:

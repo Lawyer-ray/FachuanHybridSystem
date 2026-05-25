@@ -20,13 +20,6 @@ class CaseAccessPolicy(OrgAllowedLawyersMixin):
     def __init__(self, case_assignment_repo: CaseAssignmentRepo | None = None) -> None:
         self._case_assignment_repo = case_assignment_repo
 
-    def _is_admin_like_user(self, user: Any | None) -> bool:
-        if not user:
-            return False
-        return bool(
-            getattr(user, "is_admin", False) or getattr(user, "is_superuser", False) or getattr(user, "is_staff", False)
-        )
-
     @property
     def case_assignment_repo(self) -> CaseAssignmentRepo:
         if self._case_assignment_repo is None:
@@ -53,7 +46,7 @@ class CaseAccessPolicy(OrgAllowedLawyersMixin):
             return True
         if not user or not getattr(user, "is_authenticated", False):
             return False
-        if self._is_admin_like_user(user):
+        if getattr(user, "is_admin", False):
             return True
 
         extra_cases = self._get_extra_cases(org_access)
@@ -104,7 +97,7 @@ class CaseAccessPolicy(OrgAllowedLawyersMixin):
             return qs
         if not user or not getattr(user, "is_authenticated", False):
             return qs.none()
-        if self._is_admin_like_user(user):
+        if getattr(user, "is_admin", False):
             return qs
 
         extra_cases = self._get_extra_cases(org_access)

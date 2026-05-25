@@ -17,10 +17,8 @@ from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import CourtSMS, CourtSMSStatus
-from apps.core.tasking.query import TaskQueryService
 
 logger = logging.getLogger("apps.automation")
-_task_query_service = TaskQueryService()
 
 
 def _get_court_sms_service() -> Any:
@@ -166,7 +164,7 @@ class CourtSMSAdminActions:
                     messages.success(request, "案件指定成功!已触发文书重命名和推送通知流程")
                     logger.info(f"管理员手动指定案件: SMS ID={sms_id}, Case ID={case_id}, User={request.user}")
                     return HttpResponseRedirect(reverse("admin:automation_courtsms_change", args=[sms_id]))
-                except Exception as e:
+                except (TypeError, ValueError) as e:
                     messages.error(request, f"指定案件失败: {e!s}")
                     logger.error(f"管理员手动指定案件失败: SMS ID={sms_id}, Case ID={case_id}, 错误: {e!s}")
 

@@ -10,7 +10,6 @@ from typing import Any
 
 from apps.contracts.models import Contract
 from apps.contracts.models.finalized_material import FinalizedMaterial
-from apps.contracts.services.contract.integrations.material_service import MaterialService
 
 from ..category_mapping import get_archive_category
 from ..constants import ARCHIVE_CHECKLIST, ARCHIVE_SKIP_CODES, ARCHIVE_SKIP_TEMPLATES
@@ -19,13 +18,6 @@ logger = logging.getLogger("apps.contracts.archive")
 
 A4_W, A4_H = 595.0, 842.0
 TOLERANCE = 1.0
-
-
-def _resolve_material_path(material: FinalizedMaterial) -> Path | None:
-    resolved = MaterialService().resolve_material_file(material)
-    if not resolved.exists or not resolved.abs_path:
-        return None
-    return Path(resolved.abs_path)
 
 
 def scale_pages_to_a4(contract: Contract) -> dict[str, Any]:
@@ -42,14 +34,18 @@ def scale_pages_to_a4(contract: Contract) -> dict[str, Any]:
     if not pdf_materials:
         return {"success": True, "scaled_count": 0, "skipped_count": 0, "errors": []}
 
+    from django.conf import settings as django_settings
+
     scaled_count = 0
     skipped_count = 0
     errors: list[str] = []
 
     for material in pdf_materials:
-        file_path = _resolve_material_path(material)
+        file_path = Path(material.file_path)
+        if not file_path.is_absolute():
+            file_path = Path(django_settings.MEDIA_ROOT) / file_path
 
-        if file_path is None or not file_path.exists():
+        if not file_path.exists():
             errors.append(f"{material.original_filename}: 文件不存在")
             continue
 
@@ -152,14 +148,17 @@ def add_page_numbers(doc: Any, start_page: int = 1) -> None:
 def merge_materials_to_single_pdf(materials: list[FinalizedMaterial]) -> dict[str, Any]:
     """将多个材料文件合并为一个 PDF（通用工具方法）。"""
     import fitz
+    from django.conf import settings as django_settings
 
     merged_doc = fitz.open()
 
     try:
         for material in materials:
-            file_path = _resolve_material_path(material)
+            file_path = Path(material.file_path)
+            if not file_path.is_absolute():
+                file_path = Path(django_settings.MEDIA_ROOT) / file_path
 
-            if file_path is None or not file_path.exists():
+            if not file_path.exists():
                 logger.warning("合并时文件不存在: %s", material.original_filename)
                 continue
 
@@ -187,7 +186,7 @@ def merge_materials_to_single_pdf(materials: list[FinalizedMaterial]) -> dict[st
                             pass
                     else:
                         logger.warning("DOCX转PDF失败: %s", material.original_filename)
-                except Exception as e:
+                except (OSError, ValueError) as e:
                     logger.warning("DOCX转PDF失败: %s, error: %s", material.original_filename, e)
             else:
                 logger.warning("不支持的文件类型: %s (%s)", suffix, material.original_filename)
@@ -247,13 +246,17 @@ def compile_case_materials_pdf(
     if not materials_to_merge:
         return {"written": False, "skipped": True, "page_count": 0, "error": None}
 
+    from django.conf import settings as django_settings
+
     merged_doc = fitz.open()
 
     try:
         for material in materials_to_merge:
-            file_path = _resolve_material_path(material)
+            file_path = Path(material.file_path)
+            if not file_path.is_absolute():
+                file_path = Path(django_settings.MEDIA_ROOT) / file_path
 
-            if file_path is None or not file_path.exists():
+            if not file_path.exists():
                 logger.warning("案卷材料文件不存在: %s", material.original_filename)
                 continue
 
@@ -281,7 +284,7 @@ def compile_case_materials_pdf(
                             pass
                     else:
                         logger.warning("DOCX转PDF失败: %s", material.original_filename)
-                except Exception as e:
+                except (OSError, ValueError) as e:
                     logger.warning("DOCX转PDF失败: %s, error: %s", material.original_filename, e)
             else:
                 logger.warning("不支持的文件类型: %s (%s)", suffix, material.original_filename)

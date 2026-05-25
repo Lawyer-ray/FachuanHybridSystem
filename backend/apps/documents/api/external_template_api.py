@@ -258,9 +258,9 @@ def get_preview_html(request: HttpRequest, template_id: int) -> dict[str, Any]:
     import mammoth
     from django.conf import settings
 
-    from apps.documents.models.external_template import ExternalTemplate
+    from apps.documents.services.external_template.query_service import get_template_or_raise
 
-    template = ExternalTemplate.objects.get(pk=template_id)
+    template = get_template_or_raise(template_id)
     abs_path = Path(settings.MEDIA_ROOT) / template.file_path
 
     with abs_path.open("rb") as f:
@@ -275,9 +275,9 @@ def get_preview_html(request: HttpRequest, template_id: int) -> dict[str, Any]:
 @router.get("/{template_id}/mappings")
 def list_mappings(request: HttpRequest, template_id: int) -> list[dict[str, Any]]:
     """获取模板的所有字段映射"""
-    from apps.documents.models.external_template import ExternalTemplateFieldMapping
+    from apps.documents.services.external_template.query_service import get_mappings_by_template
 
-    mappings = ExternalTemplateFieldMapping.objects.filter(template_id=template_id).order_by("sort_order", "id")
+    mappings = get_mappings_by_template(template_id)
 
     return [
         {
@@ -317,9 +317,9 @@ def create_mapping(request: HttpRequest, template_id: int, payload: MappingCreat
 @router.put("/mappings/{mapping_id}")
 def update_mapping(request: HttpRequest, mapping_id: int, payload: MappingUpdateSchema) -> dict[str, Any]:
     """更新字段映射"""
-    from apps.documents.models.external_template import ExternalTemplateFieldMapping
+    from apps.documents.services.external_template.query_service import get_mapping_or_raise
 
-    m = ExternalTemplateFieldMapping.objects.get(pk=mapping_id)
+    m = get_mapping_or_raise(mapping_id)
     update_fields: list[str] = ["updated_at"]
 
     if payload.semantic_label is not None:

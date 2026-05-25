@@ -22,8 +22,8 @@ from apps.core.exceptions import (
 from apps.core.interfaces import ILawFirmService, LawFirmDTO
 from apps.organization.dtos import LawFirmCreateDTO, LawFirmUpdateDTO
 from apps.organization.models import LawFirm, Lawyer
-from apps.organization.services.dto_assemblers import LawFirmDtoAssembler
 from apps.organization.services.access.organization_access_policy import OrganizationAccessPolicy
+from apps.organization.services.dto_assemblers import LawFirmDtoAssembler
 
 logger = logging.getLogger("apps.organization")
 

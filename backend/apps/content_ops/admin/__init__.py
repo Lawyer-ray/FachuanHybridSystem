@@ -27,7 +27,7 @@ class ContentTaskAdmin(admin.ModelAdmin):
         self._configure_credential_field(request=request, form=form)
         return form
 
-    def _configure_credential_field(self, *, request, form: type) -> None:
+    def _configure_credential_field(self, *, request: Any, form: type) -> None:
         credential_field = form.base_fields.get("credential")
         if credential_field is None:
             return

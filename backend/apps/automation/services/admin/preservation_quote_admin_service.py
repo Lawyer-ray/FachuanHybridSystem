@@ -535,7 +535,7 @@ class PreservationQuoteAdminService:
 
             return result
 
-        except Exception as e:
+        except (TypeError, ValueError) as e:
             self.logger.error(
                 "获取询价对比分析失败",
                 extra={"action": "get_quote_comparison", "quote_id": quote_id, "error": str(e)},

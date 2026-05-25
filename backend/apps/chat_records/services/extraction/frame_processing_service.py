@@ -10,12 +10,13 @@ from difflib import SequenceMatcher
 from hashlib import sha256
 from pathlib import Path
 
+from apps.core.protocols.automation_protocols import IOcrService
+from apps.core.tasking.runtime import CancellationToken, ProgressReporter
+
 from ..core.protocols import ProgressUpdater, ScreenshotCreator
 from .extract_helpers import DedupState, ExtractParams, jaccard_sets, shingles
 from .frame_selection_service import FrameSelectionService
 from .video_frame_extract_service import FFProbeInfo, VideoFrameExtractService
-from apps.core.protocols.automation_protocols import IOcrService
-from apps.core.tasking.runtime import CancellationToken, ProgressReporter
 
 logger = logging.getLogger("apps.chat_records")
 
@@ -225,7 +226,7 @@ class FrameProcessingService:
                 continue
             try:
                 out_time_us = int(kv["out_time_ms"])
-            except Exception:
+            except (TypeError, ValueError):
                 logger.info(
                     "ffmpeg out_time_ms 解析失败",
                     extra={"raw_value": kv.get("out_time_ms")},
