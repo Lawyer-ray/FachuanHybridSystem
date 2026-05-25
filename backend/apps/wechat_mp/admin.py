@@ -52,11 +52,9 @@ class PublishTaskAdmin(admin.ModelAdmin):
 
         # 新建任务且状态为 PENDING 时，自动调度异步执行
         if not change and obj.status == PublishTaskStatus.PENDING:
-            from django_q.tasks import async_task
+            from apps.core.tasking import submit_task
 
-            from apps.wechat_mp.tasks import execute_publish_task
-
-            queue_task_id = async_task(execute_publish_task, obj.id)
+            queue_task_id = submit_task("apps.wechat_mp.tasks.execute_publish_task", obj.id)
             obj.queue_task_id = str(queue_task_id)
             obj.save(update_fields=["queue_task_id"])
             logger.info("Admin 创建发布任务并调度: task_id=%d, queue_id=%s", obj.id, queue_task_id)
