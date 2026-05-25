@@ -726,7 +726,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin):
     def _render_json_preview(payload: object, *, max_chars: int = 2200) -> str:
         try:
             text = json.dumps(payload or {}, ensure_ascii=False, indent=2)
-        except Exception:
+        except TypeError:
             text = str(payload or "")
         if len(text) <= max_chars:
             return text

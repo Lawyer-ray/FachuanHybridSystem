@@ -568,7 +568,7 @@ class MaterialClassificationService:
                 loaded = json.loads(candidate)
                 if isinstance(loaded, dict):
                     return loaded
-            except Exception:
+            except json.JSONDecodeError:
                 continue
 
         fenced = re.findall(r"```(?:json)?\s*([\s\S]*?)\s*```", text, re.IGNORECASE)
@@ -577,7 +577,7 @@ class MaterialClassificationService:
                 loaded = json.loads(block)
                 if isinstance(loaded, dict):
                     return loaded
-            except Exception:
+            except json.JSONDecodeError:
                 continue
 
         return None

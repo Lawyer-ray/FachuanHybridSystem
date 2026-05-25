@@ -52,7 +52,7 @@ def trigger_client_import(request: HttpRequest) -> Any:
                         if parsed_limit <= 0:
                             return {"error": "导入数量必须是大于 0 的整数"}
                         limit = parsed_limit
-        except Exception:
+        except json.JSONDecodeError:
             # 非 JSON 请求体时使用默认值
             headless = True
             limit = None
@@ -119,7 +119,7 @@ def batch_create_clients(request: HttpRequest, session_id: int) -> dict[str, Any
     try:
         body = json.loads(request.body)
         customers = body.get("customers", [])
-    except Exception:
+    except json.JSONDecodeError:
         return JsonResponse({"error": "无效的请求数据"}, status=400)  # type: ignore[return-value]
 
     success_count = 0

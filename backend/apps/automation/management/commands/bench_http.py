@@ -32,7 +32,7 @@ def _parse_json_body(json_body: str | None) -> Any:
         return None
     try:
         return json.loads(json_body)
-    except Exception:
+    except json.JSONDecodeError:
         raise CommandError("--json 必须是合法 JSON 字符串") from None
 
 

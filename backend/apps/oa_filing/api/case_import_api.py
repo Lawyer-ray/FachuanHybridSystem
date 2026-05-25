@@ -132,7 +132,7 @@ def execute_case_import(request: HttpRequest, session_id: int) -> HttpResponse:
         body = json.loads(request.body)
         case_nos = body.get("case_nos", [])
         matched_case_nos = body.get("matched_case_nos", [])
-    except Exception:
+    except json.JSONDecodeError:
         return JsonResponse({"error": "无效的请求数据"}, status=400)
 
     if not case_nos:
@@ -216,7 +216,7 @@ def batch_create_cases(request: HttpRequest, session_id: int) -> Any:
     try:
         body = json.loads(request.body)
         cases = body.get("cases", [])
-    except Exception:
+    except json.JSONDecodeError:
         return {"error": "无效的请求数据"}
 
     from apps.oa_filing.services.case_import_service import CaseImportService

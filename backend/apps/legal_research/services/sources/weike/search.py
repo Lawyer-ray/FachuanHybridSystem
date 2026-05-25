@@ -187,7 +187,7 @@ class WeikeSearchMixin:
                     post_data = request.post_data
                     if post_data:
                         intercepted = _json.loads(post_data)
-            except Exception:
+            except (_json.JSONDecodeError, ValueError):
                 logger.debug("拦截请求解析失败", exc_info=True)
 
         page.on("request", _on_request)

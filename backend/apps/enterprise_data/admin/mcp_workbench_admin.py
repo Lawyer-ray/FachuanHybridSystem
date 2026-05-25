@@ -223,5 +223,5 @@ class McpWorkbenchAdmin(admin.ModelAdmin):
     def _to_pretty_json(payload: Any) -> str:
         try:
             return json.dumps(payload, ensure_ascii=False, indent=2, default=str)
-        except Exception:
+        except TypeError:
             return str(payload)

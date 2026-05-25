@@ -385,7 +385,7 @@ class McpWorkbenchService:
     def _truncate_data(data: Any) -> Any:
         try:
             serialized = json.dumps(data, ensure_ascii=False, sort_keys=True, default=str)
-        except Exception:
+        except TypeError:
             return data
         if len(serialized) <= _MAX_SAMPLE_JSON_CHARS:
             return data

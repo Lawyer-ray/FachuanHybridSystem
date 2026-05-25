@@ -252,12 +252,12 @@ class ExecutorQueryMixin:
             return []
         try:
             payload = json.loads(raw)
-        except Exception:
+        except json.JSONDecodeError:
             match = re.search(r"\{.*\}", raw, flags=re.S)
             if match:
                 try:
                     payload = json.loads(match.group(0))
-                except Exception:
+                except json.JSONDecodeError:
                     payload = None
 
         candidates: list[str] = []

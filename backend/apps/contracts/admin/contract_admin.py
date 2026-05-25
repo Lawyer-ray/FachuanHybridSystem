@@ -510,7 +510,7 @@ class ContractAdmin(
     def _parse_json_payload(self, request: HttpRequest) -> dict[str, Any]:
         try:
             data = json.loads(request.body.decode("utf-8"))
-        except Exception:
+        except json.JSONDecodeError:
             return {}
         return data if isinstance(data, dict) else {}
 
