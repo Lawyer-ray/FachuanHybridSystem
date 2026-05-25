@@ -228,13 +228,48 @@ def _fetch_rss_feed(name: str, url: str, limit: int = 20) -> list[HotTopicItem]:
     return items
 
 
+def _scrape_with_playwright(name: str, url: str, limit: int = 10) -> list[HotTopicItem]:
+    """使用 Playwright 爬取网站标题。"""
+    from apps.core.services.browser import create_browser
+
+    items: list[HotTopicItem] = []
+    try:
+        with create_browser() as (page, context):
+            page.goto(url, wait_until="domcontentloaded", timeout=30000)
+            content = page.content()
+
+            # 提取标题（多种模式）
+            titles = re.findall(r"<h[1-3][^>]*>([^<]+)</h[1-3]>", content)
+            if not titles:
+                titles = re.findall(r'<a[^>]*class="[^"]*title[^"]*"[^>]*>([^<]+)</a>', content)
+            if not titles:
+                titles = re.findall(r"<h2[^>]*>([^<]+)</h2>", content)
+
+            for i, title in enumerate(titles[:limit]):
+                title = title.strip()
+                if title and len(title) > 10:  # 过滤太短的标题
+                    items.append(
+                        HotTopicItem(
+                            rank=i + 1,
+                            title=title,
+                            heat=None,
+                            url=url,
+                            source=name,
+                        )
+                    )
+    except Exception:
+        logger.exception("Failed to scrape %s with Playwright", name)
+    return items
+
+
 def _fetch_legaltech(limit: int = 50) -> list[HotTopicItem]:
     """获取法律科技相关新闻。
 
     来源：
     1. 英文法律科技 RSS（LawSites、Artificial Lawyer）
-    2. 中文科技 RSS（36氪AI、InfoQ、机器之心、量子位）— 过滤法律相关
-    3. 从现有中文热搜中过滤法律科技相关条目
+    2. 英文法律科技网站 Playwright 爬虫（LawNext、Law.com）
+    3. 中文科技 RSS（36氪AI、InfoQ、机器之心、量子位）— 过滤法律相关
+    4. 从现有中文热搜中过滤法律科技相关条目
     """
     items: list[HotTopicItem] = []
     rank = 0
@@ -243,6 +278,7 @@ def _fetch_legaltech(limit: int = 50) -> list[HotTopicItem]:
     en_rss_sources = [
         ("lawsites", "https://www.lawsitesblog.com/feed"),
         ("artificial_lawyer", "https://www.artificiallawyer.com/feed/"),
+        ("bob_ambrogi", "https://www.lawnext.com/feed"),
     ]
     for source_name, url in en_rss_sources:
         try:
@@ -254,7 +290,22 @@ def _fetch_legaltech(limit: int = 50) -> list[HotTopicItem]:
         except Exception:
             logger.exception("Failed to fetch RSS from %s", source_name)
 
-    # 2. 中文科技 RSS — 过滤法律相关
+    # 2. 英文法律科技网站 Playwright 爬虫
+    playwright_sources = [
+        ("lawnext", "https://www.lawnext.com"),
+        ("law_com", "https://www.law.com/legal-technology/"),
+    ]
+    for source_name, url in playwright_sources:
+        try:
+            scraped_items = _scrape_with_playwright(source_name, url, limit=10)
+            for item in scraped_items:
+                rank += 1
+                item.rank = rank
+                items.append(item)
+        except Exception:
+            logger.exception("Failed to scrape %s", source_name)
+
+    # 3. 中文科技 RSS — 过滤法律相关
     cn_rss_sources = [
         ("36kr_ai", "https://36kr.com/feed?tag=AI"),
         ("infoq", "https://www.infoq.cn/feed"),
@@ -272,7 +323,7 @@ def _fetch_legaltech(limit: int = 50) -> list[HotTopicItem]:
         except Exception:
             logger.exception("Failed to fetch RSS from %s", source_name)
 
-    # 3. 从现有中文热搜中过滤法律科技相关
+    # 4. 从现有中文热搜中过滤法律科技相关
     chinese_sources = ["toutiao", "baidu", "douyin", "36kr", "thepaper"]
     for src in chinese_sources:
         try:
