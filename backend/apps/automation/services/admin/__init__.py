@@ -4,13 +4,11 @@ Automation Admin Services
 """
 
 from .court_document_admin_service import CourtDocumentAdminService
-from .court_sms_admin_service import CourtSMSAdminService
 from .preservation_quote_admin_service import PreservationQuoteAdminService
 from .token_acquisition_history_admin_service import TokenAcquisitionHistoryAdminService
 
 __all__ = [
     "TokenAcquisitionHistoryAdminService",
     "CourtDocumentAdminService",
-    "CourtSMSAdminService",
     "PreservationQuoteAdminService",
 ]

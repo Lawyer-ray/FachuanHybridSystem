@@ -134,7 +134,11 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
     def get_sms_detail(self, sms_id: int) -> CourtSMS:
         """获取短信处理详情"""
         try:
-            return CourtSMS.objects.get(id=sms_id)
+            return (
+                CourtSMS.objects.select_related("case", "scraper_task", "case_log")
+                .prefetch_related("scraper_task__documents", "case_log__attachments")
+                .get(id=sms_id)
+            )
         except CourtSMS.DoesNotExist as e:
             raise NotFoundError(f"短信记录不存在: ID={sms_id}") from e
 
@@ -148,7 +152,12 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
         date_to: Any = None,
     ) -> Any:
         """查询短信列表"""
-        qs = CourtSMS.objects.all().order_by("-received_at")
+        qs = (
+            CourtSMS.objects.all()
+            .select_related("case", "scraper_task", "case_log")
+            .prefetch_related("scraper_task__documents", "case_log__attachments")
+            .order_by("-received_at")
+        )
         if status:
             qs = qs.filter(status=status)
         if sms_type:

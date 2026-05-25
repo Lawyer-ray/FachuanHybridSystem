@@ -36,6 +36,22 @@ class CourtSMSDocumentReferenceService:
 
         return refs
 
+    def has_any_references(self, sms: CourtSMS) -> bool:
+        """快速检查是否有文书引用（不做文件系统 I/O，适用于列表页）。"""
+        if sms.document_file_paths:
+            return True
+        if sms.scraper_task:
+            if hasattr(sms.scraper_task, "documents") and sms.scraper_task.documents.exists():
+                return True
+            result = sms.scraper_task.result
+            if isinstance(result, dict) and (result.get("renamed_files") or result.get("files")):
+                return True
+        if sms.case_log:
+            attachments = getattr(sms.case_log, "attachments", None)
+            if attachments is not None and attachments.exists():
+                return True
+        return False
+
     def _collect_from_court_documents(
         self, sms: CourtSMS, refs: list[CourtSMSDocumentReference], seen_paths: set[str], seen_names: set[str]
     ) -> None:
