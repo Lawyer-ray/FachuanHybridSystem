@@ -48,13 +48,13 @@ def get_last_run_time(name: str) -> datetime | None:
 def delete_task(task_id: str) -> int:
     """删除任务，返回删除数量。"""
     deleted, _ = Task.objects.filter(id=task_id).delete()
-    return deleted
+    return int(deleted)
 
 
 def delete_schedule(schedule_id: int) -> int:
     """删除定时调度，返回删除数量。"""
     deleted, _ = Schedule.objects.filter(id=schedule_id).delete()
-    return deleted
+    return int(deleted)
 
 
 def get_task_or_none(task_id: str) -> Task | None:
