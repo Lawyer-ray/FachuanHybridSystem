@@ -19,7 +19,7 @@ class WeChatAccountAdmin(admin.ModelAdmin):
     exclude = ["created_by"]
     readonly_fields = ["created_at", "updated_at"]
 
-    def save_model(self, request, obj, form, change):
+    def save_model(self, request, obj, form, change):  # type: ignore[no-untyped-def]
         if not obj.created_by:
             obj.created_by = request.user
         super().save_model(request, obj, form, change)
@@ -47,7 +47,7 @@ class PublishTaskAdmin(admin.ModelAdmin):
         ("时间", {"fields": ["created_at", "started_at", "finished_at", "updated_at"]}),
     ]
 
-    def save_model(self, request, obj, form, change):
+    def save_model(self, request, obj, form, change):  # type: ignore[no-untyped-def]
         super().save_model(request, obj, form, change)
 
         # 新建任务且状态为 PENDING 时，自动调度异步执行

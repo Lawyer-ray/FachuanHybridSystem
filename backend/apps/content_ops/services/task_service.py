@@ -327,7 +327,7 @@ class ContentOpsTaskService:
         script.save()
 
         # 替换所有轮次
-        script.turns.all().delete()  # type: ignore[attr-defined]
+        script.turns.all().delete()
         style_map = {s["name"]: s.get("style_prompt", "") for s in speakers}
         for i, turn in enumerate(result.turns):
             DiscussionTurn.objects.create(
@@ -345,7 +345,7 @@ class ContentOpsTaskService:
         script = self._get_discussion_script(script_id)
         task = script.task
 
-        turns = list(script.turns.order_by("order"))  # type: ignore[attr-defined]
+        turns = list(script.turns.order_by("order"))
         if not turns:
             raise ValidationException("讨论稿没有对话轮次")
 
@@ -393,5 +393,5 @@ class ContentOpsTaskService:
 
     @staticmethod
     def _check_permission(task: ContentTask, user: Any | None) -> None:
-        if user and user.is_authenticated and task.created_by_id and task.created_by_id != user.id:  # type: ignore[attr-defined]
+        if user and user.is_authenticated and task.created_by_id and task.created_by_id != user.id:
             raise PermissionDenied("无权访问此任务")

@@ -40,7 +40,7 @@ _task_service = ContentOpsTaskService()
 
 
 @router.post("/tts/test")
-def tts_test(request: HttpRequest, payload: TTSTestIn) -> dict[str, str] | FileResponse:
+def tts_test(request: HttpRequest, payload: TTSTestIn) -> dict[str, str] | FileResponse | HttpResponse:
     """Test TTS synthesis. Returns an MP3/WAV audio file for preview."""
     if not payload.text.strip():
         return {"error": "text 不能为空"}
@@ -298,7 +298,7 @@ def regenerate_article(request: HttpRequest, article_id: int) -> GeneratedArticl
 @router.post("/articles/batch/approve")
 def batch_approve_articles(request: HttpRequest, payload: BatchReviewIn) -> dict[str, Any]:
     """批量审核通过文章。"""
-    results = []
+    results: list[dict[str, Any]] = []
     for article_id in payload.ids:
         try:
             _task_service.approve_article(article_id=article_id, user=request.user, notes=payload.notes)
@@ -311,7 +311,7 @@ def batch_approve_articles(request: HttpRequest, payload: BatchReviewIn) -> dict
 @router.post("/episodes/batch/approve")
 def batch_approve_episodes(request: HttpRequest, payload: BatchReviewIn) -> dict[str, Any]:
     """批量审核通过播客单集。"""
-    results = []
+    results: list[dict[str, Any]] = []
     for episode_id in payload.ids:
         try:
             _task_service.approve_episode(episode_id=episode_id, user=request.user, notes=payload.notes)

@@ -45,8 +45,9 @@ class RSSService:
 
         for ep in episodes:
             item = SubElement(channel, "item")
-            SubElement(item, "title").text = ep.article.title
-            SubElement(item, "description").text = ep.article.source_summary or ep.article.title
+            title = ep.article.title if ep.article else ep.discussion_script.title if ep.discussion_script else ""
+            SubElement(item, "title").text = title
+            SubElement(item, "description").text = (ep.article.source_summary if ep.article else "") or title
 
             audio_url = f"{request_host}{ep.audio_file.url}" if ep.audio_file else ""
             enclosure = SubElement(item, "enclosure")
