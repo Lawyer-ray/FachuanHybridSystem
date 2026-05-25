@@ -199,7 +199,7 @@ class ContentOpsExecutor:
         # 构建案例摘要列表
         case_summaries = []
         for i, item in enumerate(items):
-            title = getattr(item, "title", "") or f"案例{i+1}"
+            title = getattr(item, "title", "") or f"案例{i + 1}"
             court = getattr(item, "court", "") or "未知法院"
             case_summaries.append(f"[{i}] {title} - {court}")
 
@@ -307,6 +307,7 @@ class ContentOpsExecutor:
         speakers = task.discussion_speakers or []
         if not speakers:
             from apps.content_ops.constants import DEFAULT_DISCUSSION_SPEAKERS
+
             speakers = DEFAULT_DISCUSSION_SPEAKERS
 
         from apps.content_ops.services.discussion_chain import DiscussionGenerationChain
@@ -354,8 +355,7 @@ class ContentOpsExecutor:
             raise RuntimeError("讨论脚本没有对话轮次")
 
         turn_dicts = [
-            {"text": t.text, "style_prompt": t.speaker_style_prompt, "speaker": t.speaker_name}
-            for t in turns
+            {"text": t.text, "style_prompt": t.speaker_style_prompt, "speaker": t.speaker_name} for t in turns
         ]
 
         tts_service = TTSService()

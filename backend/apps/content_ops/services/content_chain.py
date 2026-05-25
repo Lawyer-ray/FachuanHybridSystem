@@ -80,9 +80,13 @@ class ContentGenerationChain:
         # LLM may return Chinese keys; map to English
         if isinstance(raw, dict):
             _key_map = {
-                "标题": "title", "title": "title",
-                "内容": "content", "正文": "content", "content": "content",
-                "摘要": "summary", "summary": "summary",
+                "标题": "title",
+                "title": "title",
+                "内容": "content",
+                "正文": "content",
+                "content": "content",
+                "摘要": "summary",
+                "summary": "summary",
             }
             mapped = {}
             for k, v in raw.items():

@@ -228,7 +228,9 @@ def get_discussion_script(request: HttpRequest, script_id: int) -> DiscussionScr
 @router.put("/discussions/turns/{turn_id}", response=DiscussionTurnOut)
 def update_discussion_turn(request: HttpRequest, turn_id: int, payload: DiscussionTurnUpdateIn) -> DiscussionTurnOut:
     """编辑讨论稿单轮对话。"""
-    turn = _task_service.update_discussion_turn(turn_id=turn_id, text=payload.text, speaker_style_prompt=payload.speaker_style_prompt, user=request.user)
+    turn = _task_service.update_discussion_turn(
+        turn_id=turn_id, text=payload.text, speaker_style_prompt=payload.speaker_style_prompt, user=request.user
+    )
     return _discussion_turn_to_out(turn)
 
 
@@ -280,7 +282,9 @@ def reject_article(request: HttpRequest, article_id: int, payload: ReviewActionI
 @router.put("/articles/{article_id}", response=GeneratedArticleOut)
 def update_article(request: HttpRequest, article_id: int, payload: ArticleUpdateIn) -> GeneratedArticleOut:
     """编辑文章内容。"""
-    article = _task_service.update_article(article_id=article_id, title=payload.title, content=payload.content, user=request.user)
+    article = _task_service.update_article(
+        article_id=article_id, title=payload.title, content=payload.content, user=request.user
+    )
     return _article_to_out(article)
 
 

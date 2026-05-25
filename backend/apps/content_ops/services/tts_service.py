@@ -123,10 +123,15 @@ class TTSService:
             raise ValueError("OPENAI_COMPATIBLE_API_KEY is not configured")
 
         # MP3 silence frame (approx 0.4s at 128kbps)
-        _SILENCE_FRAME = bytes([
-            0xFF, 0xFB, 0x90, 0x00,  # MP3 sync word + header
-            *([0x00] * 154),           # zeroed data
-        ])
+        _SILENCE_FRAME = bytes(
+            [
+                0xFF,
+                0xFB,
+                0x90,
+                0x00,  # MP3 sync word + header
+                *([0x00] * 154),  # zeroed data
+            ]
+        )
         silence_gap = _SILENCE_FRAME * 3  # ~0.4s of silence
 
         logger.info("Discussion TTS: %d turns (parallel)", len(turns))
@@ -135,12 +140,16 @@ class TTSService:
             """Synthesize a single turn, returns (index, audio_bytes)."""
             text = turn["text"]
             style_prompt = turn.get("style_prompt") or self._default_style_prompt
-            speaker = turn.get("speaker", f"Speaker {idx+1}")
+            speaker = turn.get("speaker", f"Speaker {idx + 1}")
 
             chunks = self._split_text(text)
             logger.info(
                 "Turn %d/%d [%s]: %d chars -> %d chunks",
-                idx + 1, len(turns), speaker, len(text), len(chunks),
+                idx + 1,
+                len(turns),
+                speaker,
+                len(text),
+                len(chunks),
             )
 
             transport = httpx.HTTPTransport(verify=False)
@@ -157,10 +166,7 @@ class TTSService:
         results: dict[int, bytes] = {}
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = {
-                executor.submit(_synthesize_turn, i, turn): i
-                for i, turn in enumerate(turns)
-            }
+            futures = {executor.submit(_synthesize_turn, i, turn): i for i, turn in enumerate(turns)}
             for future in as_completed(futures):
                 idx, audio = future.result()
                 results[idx] = audio

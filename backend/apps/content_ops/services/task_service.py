@@ -6,7 +6,6 @@ import logging
 from typing import Any
 
 from django.core.files.base import ContentFile
-
 from django.db import transaction
 from django.utils import timezone
 
@@ -162,7 +161,9 @@ class ContentOpsTaskService:
         episode.save(update_fields=["review_status", "reviewer_notes", "reviewed_by", "reviewed_at", "updated_at"])
         return episode
 
-    def update_article(self, *, article_id: int, title: str | None = None, content: str | None = None, user: Any | None = None) -> GeneratedArticle:
+    def update_article(
+        self, *, article_id: int, title: str | None = None, content: str | None = None, user: Any | None = None
+    ) -> GeneratedArticle:
         """编辑文章内容。"""
         article = self._get_article(article_id)
         if article.review_status != ReviewStatus.DRAFT:
@@ -251,7 +252,9 @@ class ContentOpsTaskService:
         self._check_permission(script.task, user)
         return script
 
-    def update_discussion_turn(self, *, turn_id: int, text: str | None = None, speaker_style_prompt: str | None = None, user: Any | None = None) -> DiscussionTurn:
+    def update_discussion_turn(
+        self, *, turn_id: int, text: str | None = None, speaker_style_prompt: str | None = None, user: Any | None = None
+    ) -> DiscussionTurn:
         """编辑讨论稿单轮对话。"""
         turn = DiscussionTurn.objects.select_related("script__task").filter(id=turn_id).first()
         if not turn:
@@ -269,7 +272,9 @@ class ContentOpsTaskService:
         turn.save(update_fields=update_fields)
         return turn
 
-    def approve_discussion_script(self, *, script_id: int, user: Any | None = None, notes: str = "") -> DiscussionScript:
+    def approve_discussion_script(
+        self, *, script_id: int, user: Any | None = None, notes: str = ""
+    ) -> DiscussionScript:
         """审核通过讨论稿。"""
         script = self._get_discussion_script(script_id)
         script.review_status = ReviewStatus.APPROVED
@@ -299,6 +304,7 @@ class ContentOpsTaskService:
         speakers = task.discussion_speakers or []
         if not speakers:
             from apps.content_ops.constants import DEFAULT_DISCUSSION_SPEAKERS
+
             speakers = DEFAULT_DISCUSSION_SPEAKERS
 
         from apps.content_ops.services.discussion_chain import DiscussionGenerationChain
@@ -344,8 +350,7 @@ class ContentOpsTaskService:
             raise ValidationException("讨论稿没有对话轮次")
 
         turn_dicts = [
-            {"text": t.text, "style_prompt": t.speaker_style_prompt, "speaker": t.speaker_name}
-            for t in turns
+            {"text": t.text, "style_prompt": t.speaker_style_prompt, "speaker": t.speaker_name} for t in turns
         ]
 
         from apps.content_ops.services.tts_service import TTSService

@@ -83,8 +83,7 @@ class DiscussionGenerationChain:
         llm_service = ServiceLocator.get_llm_service()
 
         speakers_text = "\n".join(
-            f"- {s['name']}：{s.get('role', '')}（音色：{s.get('style_prompt', '默认')}）"
-            for s in speakers
+            f"- {s['name']}：{s.get('role', '')}（音色：{s.get('style_prompt', '默认')}）" for s in speakers
         )
 
         user_msg = f"## 参与角色\n\n{speakers_text}\n\n## 案件事实\n\n{facts}"
@@ -110,9 +109,14 @@ class DiscussionGenerationChain:
 
         # 兼容中文 key
         _key_map = {
-            "标题": "title", "title": "title",
-            "主题": "topic", "讨论主题": "topic", "topic": "topic",
-            "对话": "turns", "轮次": "turns", "turns": "turns",
+            "标题": "title",
+            "title": "title",
+            "主题": "topic",
+            "讨论主题": "topic",
+            "topic": "topic",
+            "对话": "turns",
+            "轮次": "turns",
+            "turns": "turns",
         }
         mapped: dict[str, Any] = {}
         for k, v in parsed.items():
