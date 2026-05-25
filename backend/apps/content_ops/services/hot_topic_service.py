@@ -92,66 +92,6 @@ def _fetch_baidu(limit: int = 50) -> list[HotTopicItem]:
     return items
 
 
-def _fetch_weibo(limit: int = 50) -> list[HotTopicItem]:
-    """从微博获取热搜榜。"""
-    url = "https://weibo.com/ajax/side/hotSearch"
-    client = get_sync_http_client()
-    resp = client.get(url, headers=_HEADERS, timeout=15)
-    resp.raise_for_status()
-    data = resp.json()
-
-    items: list[HotTopicItem] = []
-    for i, entry in enumerate(data.get("data", {}).get("realtime", [])[:limit]):
-        title = entry.get("word", "")
-        if not title:
-            continue
-        heat_raw = entry.get("raw_hot") or entry.get("num")
-        heat = int(heat_raw) if heat_raw and str(heat_raw).isdigit() else None
-        word_scheme = entry.get("word_scheme", "")
-        url_str = f"https://s.weibo.com/weibo?q=%23{word_scheme}%23" if word_scheme else ""
-        items.append(
-            HotTopicItem(
-                rank=i + 1,
-                title=title,
-                heat=heat,
-                url=url_str,
-                source="weibo",
-            )
-        )
-    return items
-
-
-def _fetch_zhihu(limit: int = 50) -> list[HotTopicItem]:
-    """从知乎获取热榜。"""
-    url = "https://www.zhihu.com/api/v3/feed/topstory/hot-lists/total?limit=50"
-    client = get_sync_http_client()
-    headers = {**_HEADERS, "Referer": "https://www.zhihu.com/hot"}
-    resp = client.get(url, headers=headers, timeout=15)
-    resp.raise_for_status()
-    data = resp.json()
-
-    items: list[HotTopicItem] = []
-    for i, entry in enumerate(data.get("data", [])[:limit]):
-        target = entry.get("target", {})
-        title = target.get("title", "")
-        if not title:
-            continue
-        heat_text = entry.get("detail_text", "")
-        heat_match = re.search(r"(\d+)", heat_text.replace(",", ""))
-        heat = int(heat_match.group(1)) if heat_match else None
-        url_str = target.get("url", "").replace("api.zhihu.com/questions", "www.zhihu.com/question")
-        items.append(
-            HotTopicItem(
-                rank=i + 1,
-                title=title,
-                heat=heat,
-                url=url_str,
-                source="zhihu",
-            )
-        )
-    return items
-
-
 def _fetch_douyin(limit: int = 50) -> list[HotTopicItem]:
     """从抖音获取热搜榜。"""
     url = "https://www.douyin.com/aweme/v1/web/hot/search/list/"
@@ -238,12 +178,10 @@ def _fetch_thepaper(limit: int = 50) -> list[HotTopicItem]:
     return items
 
 
-# 采集器注册表
+# 采集器注册表（仅保留有公开 API 的来源）
 _SCRAPERS: dict[str, tuple[str, type[Exception]]] = {
     "toutiao": ("头条", Exception),
     "baidu": ("百度", Exception),
-    "weibo": ("微博", Exception),
-    "zhihu": ("知乎", Exception),
     "douyin": ("抖音", Exception),
     "36kr": ("36氪", Exception),
     "thepaper": ("澎湃", Exception),
@@ -252,8 +190,6 @@ _SCRAPERS: dict[str, tuple[str, type[Exception]]] = {
 _SCRAPER_FN_MAP: dict[str, Any] = {
     "toutiao": _fetch_toutiao,
     "baidu": _fetch_baidu,
-    "weibo": _fetch_weibo,
-    "zhihu": _fetch_zhihu,
     "douyin": _fetch_douyin,
     "36kr": _fetch_36kr,
     "thepaper": _fetch_thepaper,

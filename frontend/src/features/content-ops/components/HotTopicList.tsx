@@ -8,7 +8,7 @@ import { useHotTopics, useRefreshHotTopics } from '../hooks/use-content-ops'
 import { HOT_TOPIC_SOURCE_LABEL } from '../types'
 import { HotTopicCard } from './HotTopicCard'
 
-const SOURCES = ['all', 'toutiao', 'baidu', 'weibo', 'zhihu', 'douyin', '36kr', 'thepaper', 'legaltech'] as const
+const SOURCES = ['all', 'toutiao', 'baidu', 'douyin', '36kr', 'thepaper', 'legaltech'] as const
 
 export function HotTopicList() {
   const [source, setSource] = useState<string>('all')
