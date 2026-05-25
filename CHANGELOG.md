@@ -14,6 +14,8 @@
 - **排版方式选择**：`PublishTask` 新增 `format_method` 字段，支持 `rule`（规则排版）和 `llm`（AI 排版）两种方式
 - **多人播客讨论**：新增 `discussion_chain.py`，支持多角色 VoiceDesign 讨论稿生成，TTS 并行合成（83s → 12s，6.7x 提速）
 - **内容运营任务管理增强**：任务状态机完善、讨论稿 speakers 字段、Episode 增强、API 扩展
+- **选题灵感功能改造**：新增 `HotTopicService`，从头条/百度获取实时热搜数据（httpx + Django cache 30 分钟缓存）；`TopicService` 新增 `suggest_from_trends()` 方法，用 LLM 从热点中筛选法律相关选题；新增 3 个 API 端点（`GET /topics/hot`、`POST /topics/hot/refresh`、`POST /topics/inspiration`）
+- **法律检索字段级查询**：威科先行搜索支持按法院层级、地域、案由等字段精确筛选，新增自动案由识别与匹配
 
 #### 性能优化
 
@@ -39,6 +41,8 @@
 - **播客音频播放器增强**：支持进度拖动和倍速播放（1x/1.25x/1.5x/2x）
 - **多人讨论模式**：任务详情支持多角色讨论稿展示和音频合成
 - **选题推荐优化**：交互改善、动画增强
+- **选题灵感独立页面**：新增 `/admin/tools/content-ops/inspiration` 全屏页面，展示热搜话题网格（按来源筛选）+ AI 法律灵感推荐，点击灵感卡片直接创建任务；ContentWorkbench 侧边栏添加「查看完整灵感页」入口
+- **法律检索字段筛选 UI**：搜索对话框新增法院层级、地域、案由等字段选择器
 
 #### 修复
 
