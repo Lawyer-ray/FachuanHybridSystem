@@ -13,6 +13,9 @@ class CourtSMSRepository:
             raise NotFoundError(f"短信记录不存在: ID={sms_id}")
         return sms
 
+    def get_by_id_or_none(self, *, sms_id: int) -> CourtSMS | None:
+        return CourtSMS.objects.filter(id=sms_id).first()
+
     def save(self, *, sms: CourtSMS) -> None:
         sms.save()
 

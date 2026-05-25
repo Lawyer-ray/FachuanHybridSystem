@@ -99,20 +99,15 @@ def validate_id_card(request: Any, payload: IdCardValidateRequest) -> IdCardVali
 @router.get("/clients/check-oa-credential", response=OACredentialCheckOut)
 def check_oa_credential(request: Any) -> OACredentialCheckOut:
     """检查当前用户是否有金诚同达OA凭证。"""
-    from django.db.models import Q
-
-    from apps.organization.models import AccountCredential
+    from apps.organization.services.credential.account_credential_service import AccountCredentialService
 
     lawyer_id = getattr(request.user, "id", None)
     if lawyer_id is None:
         return OACredentialCheckOut(has_credential=False)
 
-    credential = AccountCredential.objects.filter(
-        Q(account__icontains="jtn.com") | Q(url__icontains="jtn.com"),
-        lawyer_id=lawyer_id,
-    ).exists()
+    has_credential = AccountCredentialService().has_jtn_credential(lawyer_id)
 
-    return OACredentialCheckOut(has_credential=credential)
+    return OACredentialCheckOut(has_credential=has_credential)
 
 
 @router.get("/clients/{client_id}", response=ClientOut)
@@ -178,36 +173,5 @@ def delete_client(request: Any, client_id: int) -> Any:
 @router.get("/clients/{client_id}/related-items", response=RelatedItemsOut)
 def get_related_items(request: Any, client_id: int) -> Any:
     """获取客户关联的案件和合同"""
-    from apps.cases.models import CaseParty
-    from apps.contracts.models import ContractParty
-
-    case_parties = CaseParty.objects.filter(client_id=client_id).select_related("case").order_by("-case__start_date")
-    contract_parties = (
-        ContractParty.objects.filter(client_id=client_id)
-        .select_related("contract")
-        .order_by("-contract__specified_date")
-    )
-
-    cases = [
-        {
-            "id": cp.case.id,
-            "name": cp.case.name,
-            "case_type": cp.case.case_type,
-            "status": cp.case.get_status_display() if cp.case.status else None,
-            "current_stage": cp.case.get_current_stage_display() if cp.case.current_stage else None,
-            "legal_status": cp.legal_status,
-        }
-        for cp in case_parties
-    ]
-    contracts = [
-        {
-            "id": cp.contract.id,
-            "name": cp.contract.name,
-            "case_type": cp.contract.case_type,
-            "status": cp.contract.get_status_display() if cp.contract.status else None,
-            "role": cp.role,
-        }
-        for cp in contract_parties
-    ]
-
-    return {"cases": cases, "contracts": contracts}
+    facade = _get_query_facade()
+    return facade.get_related_items(client_id=client_id)

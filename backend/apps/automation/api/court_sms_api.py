@@ -188,10 +188,10 @@ def batch_delete_sms(request: Any, payload: CourtSMSBatchDeleteIn) -> CourtSMSBa
 @router.get("/court-sms/{sms_id}/documents/{ref_index}/download")
 def download_document(request: Any, sms_id: int, ref_index: int) -> FileResponse:
     """下载单个关联文书"""
-    from apps.automation.models import CourtSMS
     from apps.automation.services.sms.court_sms_document_reference_service import CourtSMSDocumentReferenceService
+    from apps.automation.services.sms.court_sms_repository import CourtSMSRepository
 
-    sms = CourtSMS.objects.filter(id=sms_id).first()
+    sms = CourtSMSRepository().get_by_id_or_none(sms_id=sms_id)
     if sms is None:
         raise Http404("短信记录不存在")
 
@@ -209,10 +209,10 @@ def download_document(request: Any, sms_id: int, ref_index: int) -> FileResponse
 @router.get("/court-sms/{sms_id}/documents/download-all")
 def download_all_documents(request: Any, sms_id: int) -> FileResponse:
     """批量下载关联文书（ZIP）"""
-    from apps.automation.models import CourtSMS
     from apps.automation.services.sms.court_sms_document_reference_service import CourtSMSDocumentReferenceService
+    from apps.automation.services.sms.court_sms_repository import CourtSMSRepository
 
-    sms = CourtSMS.objects.filter(id=sms_id).first()
+    sms = CourtSMSRepository().get_by_id_or_none(sms_id=sms_id)
     if sms is None:
         raise Http404("短信记录不存在")
 
@@ -246,10 +246,10 @@ def download_all_documents(request: Any, sms_id: int) -> FileResponse:
 @router.post("/court-sms/{sms_id}/documents/{ref_index}/rename")
 def rename_document(request: Any, sms_id: int, ref_index: int, payload: dict[str, Any]) -> dict[str, Any]:
     """重命名单个关联文书"""
-    from apps.automation.models import CourtSMS
     from apps.automation.services.sms.court_sms_document_reference_service import CourtSMSDocumentReferenceService
+    from apps.automation.services.sms.court_sms_repository import CourtSMSRepository
 
-    sms = CourtSMS.objects.filter(id=sms_id).first()
+    sms = CourtSMSRepository().get_by_id_or_none(sms_id=sms_id)
     if sms is None:
         raise Http404("短信记录不存在")
 

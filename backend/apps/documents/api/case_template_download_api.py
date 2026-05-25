@@ -23,16 +23,15 @@ router = Router(auth=JWTOrSessionAuth())
 @rate_limit_from_settings("EXPORT", by_user=True)
 def download_case_template(request: Any, case_id: int, template_id: int) -> Any:
     """渲染案件文件模板并下载"""
-    from apps.cases.models import Case
-    from apps.documents.models import DocumentTemplate
+    from apps.documents.services.case_contract_query import get_active_template_or_none, get_case_or_none
     from apps.documents.services.generation.pipeline import DocxRenderer
     from apps.documents.services.placeholders import EnhancedContextBuilder
 
-    case = Case.objects.filter(pk=case_id).first()
+    case = get_case_or_none(case_id)
     if not case:
         raise NotFoundError(message=_("案件不存在"), code="CASE_NOT_FOUND", errors={"case_id": str(case_id)})
 
-    template = DocumentTemplate.objects.filter(pk=template_id, is_active=True).first()
+    template = get_active_template_or_none(template_id)
     if not template:
         raise NotFoundError(
             message=_("模板不存在"), code="TEMPLATE_NOT_FOUND", errors={"template_id": str(template_id)}

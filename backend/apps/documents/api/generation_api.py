@@ -111,12 +111,9 @@ def get_archive_overrides(request: Any, contract_id: int, template_subtype: str 
     if not template_subtype:
         return {"success": False, "error": "缺少 template_subtype 参数"}
 
-    from apps.contracts.models.archive_override import ArchivePlaceholderOverride
+    from apps.contracts.services.archive.override_service import get_override
 
-    override_obj = ArchivePlaceholderOverride.objects.filter(
-        contract_id=contract_id,
-        template_subtype=template_subtype,
-    ).first()
+    override_obj = get_override(contract_id, template_subtype)
 
     return {
         "success": True,
@@ -145,13 +142,9 @@ def save_archive_overrides(
 
     overrides = payload.overrides if payload else {}
 
-    from apps.contracts.models.archive_override import ArchivePlaceholderOverride
+    from apps.contracts.services.archive.override_service import save_override
 
-    obj, created = ArchivePlaceholderOverride.objects.update_or_create(
-        contract_id=contract_id,
-        template_subtype=template_subtype,
-        defaults={"overrides": overrides},
-    )
+    obj, created = save_override(contract_id, template_subtype, overrides)
 
     logger.info(
         "保存归档占位符覆盖值",
@@ -174,12 +167,9 @@ def delete_archive_overrides(request: Any, contract_id: int, template_subtype: s
     if not template_subtype:
         return {"success": False, "error": "缺少 template_subtype 参数"}
 
-    from apps.contracts.models.archive_override import ArchivePlaceholderOverride
+    from apps.contracts.services.archive.override_service import delete_override
 
-    deleted_count, _ = ArchivePlaceholderOverride.objects.filter(
-        contract_id=contract_id,
-        template_subtype=template_subtype,
-    ).delete()
+    deleted_count = delete_override(contract_id, template_subtype)
 
     return {"success": True, "data": {"deleted": deleted_count > 0}}
 
