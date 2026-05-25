@@ -19,15 +19,14 @@ def has_court_automation_plugin() -> bool:
     """
     检测法院自动化立案/担保插件是否已安装。
 
+    通过环境变量 ENABLE_COURT_FILING_PLUGIN=1 开启，仅作者本地启用。
+
     Returns:
         bool: 插件存在返回 True，否则返回 False
     """
-    try:
-        from plugins.court_automation import _installed
+    import os
 
-        return True
-    except ImportError:
-        return False
+    return os.getenv("ENABLE_COURT_FILING_PLUGIN") == "1"
 
 
 def has_court_filing_api_plugin() -> bool:
