@@ -326,32 +326,33 @@ class ContractOut(ModelSchema):
 
     @staticmethod
     def resolve_supplementary_agreements(obj: Contract) -> list[Any]:
-        """解析补充协议列表"""
-        supplementary_agreements = obj.supplementary_agreements
-        return list(supplementary_agreements.prefetch_related("parties__client").all())
+        """解析补充协议列表（上游已预取 parties__client）"""
+        return list(obj.supplementary_agreements.all())
 
     @staticmethod
     def resolve_assignments(obj: Contract) -> list[ContractAssignmentOut]:
-        """解析律师指派列表"""
-        assignments = obj.assignments
-        return [ContractAssignmentOut.from_assignment(a) for a in assignments.select_related("lawyer").all()]
+        """解析律师指派列表（上游已预取 lawyer）"""
+        return [ContractAssignmentOut.from_assignment(a) for a in obj.assignments.all()]
 
     @staticmethod
     def resolve_primary_lawyer(obj: Contract) -> LawyerOut | None:
-        """解析主办律师"""
+        """解析主办律师（使用预取数据避免额外查询）"""
         dto = getattr(obj, "primary_lawyer_dto", None)
         if dto is not None:
             return LawyerOut.from_dto(dto)
-        lawyer = getattr(obj, "primary_lawyer", None)
-        if lawyer is None:
-            assignment = obj.assignments.select_related("lawyer").filter(is_primary=True).first()
-            if assignment is None:
-                assignment = obj.assignments.select_related("lawyer").order_by("order", "id").first()
-            if assignment is not None:
-                lawyer = assignment.lawyer
-        if lawyer is None:
+        # 使用预取的 assignments 数据，避免额外查询
+        primary = None
+        fallback = None
+        for assignment in obj.assignments.all():
+            if assignment.is_primary:
+                primary = assignment
+                break
+            if fallback is None or (assignment.order, assignment.id) < (fallback.order, fallback.id):
+                fallback = assignment
+        chosen = primary or fallback
+        if chosen is None or chosen.lawyer is None:
             return None
-        return LawyerOut.from_model(lawyer)
+        return LawyerOut.from_model(chosen.lawyer)
 
     @staticmethod
     def resolve_matched_document_template(obj: Contract) -> str | None:
@@ -393,13 +394,8 @@ class ContractOut(ModelSchema):
                 MaterialCategory.ARCHIVE_DOCUMENT,
                 MaterialCategory.AUTHORIZATION_MATERIAL,
             }
-            existing = set(
-                obj.finalized_materials.filter(
-                    category__in=required_categories,
-                )
-                .values_list("category", flat=True)
-                .distinct()
-            )
+            # 使用预取的 finalized_materials 数据，避免额外查询
+            existing = {m.category for m in obj.finalized_materials.all() if m.category in required_categories}
             return required_categories.issubset(existing)
         except Exception:
             logger.exception("操作失败")

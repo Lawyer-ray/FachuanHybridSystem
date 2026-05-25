@@ -63,4 +63,6 @@ class Client(models.Model):
         indexes: ClassVar = [
             models.Index(fields=["name"]),
             models.Index(fields=["client_type"]),
+            models.Index(fields=["phone"]),
+            models.Index(fields=["is_our_client"]),
         ]

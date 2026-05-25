@@ -299,7 +299,12 @@ class CaseFolderScanService:
         }
 
     def run_scan_task(self, *, session_id: str) -> None:
-        session = CaseFolderScanSession.objects.select_related("case").filter(id=session_id).first()
+        session = (
+            CaseFolderScanSession.objects.select_related("case")
+            .prefetch_related("case__parties__client", "case__supervising_authorities")
+            .filter(id=session_id)
+            .first()
+        )
         if not session:
             logger.warning("case_folder_scan_session_missing", extra={"session_id": session_id})
             return
@@ -526,7 +531,7 @@ class CaseFolderScanService:
         our_party_names: list[str] = []
         opponent_party_names: list[str] = []
 
-        for party in case.parties.select_related("client").all():
+        for party in case.parties.all():
             client = getattr(party, "client", None)
             if not client:
                 continue

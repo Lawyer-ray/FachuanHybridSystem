@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from django.utils import timezone
@@ -15,7 +16,7 @@ logger = logging.getLogger("apps.wechat_mp")
 def execute_publish_task(task_id: int) -> None:
     """执行公众号文章发布任务。
 
-    此函数作为 Django Q 的异步任务入口。
+    此函数作为 Django Q 的异步任务入口，内部调用异步 publisher。
     """
     logger.info("开始执行公众号发布任务", extra={"task_id": task_id})
 
@@ -32,7 +33,7 @@ def execute_publish_task(task_id: int) -> None:
 
     try:
         publisher = WeChatPublisher(task)
-        result = publisher.publish()
+        result = asyncio.run(publisher.publish())
 
         task.status = PublishTaskStatus.SUCCESS
         task.result_data = result

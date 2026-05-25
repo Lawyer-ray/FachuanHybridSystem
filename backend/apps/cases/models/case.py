@@ -112,11 +112,12 @@ class Case(models.Model):
     def get_case_chain(self) -> list[Case]:
         """获取完整案件链（按 start_date 升序）。
 
-        1. 沿 previous_case 回溯到根节点（每步 1 次轻量查询）
-        2. 从根节点一次性查询所有后代，合并后排序
-        总共 N+1 次查询（N 为链长），通常 N=2~4，完全可接受。
+        链通常 2~4 层，优化为：
+        1. 逐层回溯到根（N 次轻量查询，N=链深）
+        2. 单次查询取所有后代（链短时 1 次即可）
+        3. 一次性取出完整对象
         """
-        # 1. 回溯到链首（链通常 2~4 层）
+        # 1. 回溯到链首
         root_id: int = self.pk
         visited: set[int] = {root_id}
         while True:
@@ -126,7 +127,7 @@ class Case(models.Model):
             visited.add(parent_id)
             root_id = parent_id
 
-        # 2. 从根节点出发，收集所有后代（BFS，链通常很短）
+        # 2. 前向 BFS：单次查询取所有后代
         chain: list[int] = [root_id]
         frontier = [root_id]
         while frontier:

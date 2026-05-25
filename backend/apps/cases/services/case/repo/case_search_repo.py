@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from apps.cases.models import Case
 
+from ..case_queryset import get_case_queryset
 from .case_search_query_builder import CaseSearchQueryBuilder
 
 
@@ -22,9 +23,9 @@ class CaseSearchRepo:
         if not case_ids:
             return []
 
-        return list(Case.objects.select_related("contract").filter(id__in=case_ids))
+        return list(get_case_queryset().filter(id__in=case_ids))
 
     def search_cases(self, query: str, status: str | None = None, limit: int = 30) -> list[Case]:
-        base_qs = Case.objects.select_related("contract").prefetch_related("parties__client")
+        base_qs = get_case_queryset()
         qs = self.query_builder.build_case_search_queryset(base_qs, query=query, status=status, limit=limit)
         return list(qs)

@@ -351,6 +351,9 @@ class ClientAdmin(SimpleHistoryAdmin, AdminImportExportMixin, admin.ModelAdmin):
 
         return JsonResponse({"has_credential": credential})
 
+    def get_queryset(self, request: HttpRequest) -> QuerySet[Client]:
+        return super().get_queryset(request).prefetch_related("identity_docs", "property_clues__attachments")
+
     def get_changeform_initial_data(self, request: HttpRequest) -> dict[str, Any]:
         return {"client_type": "legal"}
 

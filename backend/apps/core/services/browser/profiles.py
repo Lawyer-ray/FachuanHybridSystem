@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger("apps.core")
@@ -137,6 +138,14 @@ _PROFILES: dict[str, BrowserProfile] = {
     "express": BrowserProfile(
         name="express",
         cdp_url="http://localhost:9222",
+    ),
+    "wechat_mp": BrowserProfile(
+        name="wechat_mp",
+        cdp_url="http://localhost:9223",
+        user_data_dir=str(Path(__file__).resolve().parents[4] / "data" / "chrome_wechat_mp"),
+        anti_detection=False,
+        timeout=60000,
+        navigation_timeout=60000,
     ),
 }
 

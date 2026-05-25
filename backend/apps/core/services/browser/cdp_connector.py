@@ -46,7 +46,7 @@ async def connect_cdp_browser(
     if not is_cdp_ready(_extract_port(cdp_url)):
         if auto_launch:
             logger.info("CDP 端点不可用，自动启动 Chrome")
-            launch_chrome(port=_extract_port(cdp_url))
+            launch_chrome(port=_extract_port(cdp_url), user_data_dir=profile.user_data_dir)
         else:
             raise RuntimeError(f"CDP 端点不可用: {cdp_url}")
 

@@ -69,13 +69,14 @@ class ContractDisplayFormatMixin:
 
     @admin.display(description=_("律所OA链接"))
     def law_firm_oa_link_display(self, obj: Any) -> Any:
-        """显示合同所属律所的 OA 登录链接（可点击）。"""
+        """显示合同所属律所的 OA 登录链接（可点击）。使用预取数据避免 N+1。"""
         from apps.oa_filing.services.script_executor_service import SUPPORTED_SITES
         from apps.organization.models import AccountCredential
 
         law_firm_ids: list[int] = []
         seen: set[int] = set()
-        for assignment in obj.assignments.select_related("lawyer").all():
+        # 使用预取的 assignments 数据，避免额外查询
+        for assignment in obj.assignments.all():
             lawyer = getattr(assignment, "lawyer", None)
             law_firm_id = getattr(lawyer, "law_firm_id", None)
             if not law_firm_id or law_firm_id in seen:

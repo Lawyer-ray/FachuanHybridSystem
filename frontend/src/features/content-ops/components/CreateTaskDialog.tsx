@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -18,12 +18,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Loader2, Search, FileText } from 'lucide-react'
+import { Loader2, Search, FileText, Volume2, Users, Trash2, Plus } from 'lucide-react'
 import { useCreateTask } from '../hooks/use-content-ops'
-import { VOICE_OPTIONS } from '../types'
-import type { TaskMode } from '../types'
+import { contentOpsApi } from '../api'
+import { VOICE_OPTIONS, OUTPUT_MODE_LABEL } from '../types'
+import type { TaskMode, OutputMode, DiscussionSpeaker } from '../types'
 import { useCredentials } from '@/features/organization/hooks/use-credentials'
 import { toast } from 'sonner'
+
+const DEFAULT_SPEAKERS: DiscussionSpeaker[] = [
+  { name: '主持人', role: '播客主持人，负责引导话题、提问、总结', style_prompt: '一个热情的播客主持人，声音清晰有力，语速适中，善于引导话题和提问' },
+  { name: '张律师', role: '资深律师，负责法律分析和专业解读', style_prompt: '一个中年男性律师，声音沉稳专业，说话条理清晰，善于用通俗语言解释法律概念' },
+  { name: '李大姐', role: '社区热心人，代表普通群众的视角，负责提出接地气的问题', style_prompt: '一个中年女性邻居，说话亲切自然，语速稍慢，带有生活气息和好奇心' },
+]
 
 interface CreateTaskDialogProps {
   open: boolean
@@ -46,9 +53,56 @@ export function CreateTaskDialog({
   const [directContent, setDirectContent] = useState('')
   const [voice, setVoice] = useState('冰糖')
   const [credentialId, setCredentialId] = useState<number | null>(null)
+  const [outputMode, setOutputMode] = useState<OutputMode>('narration')
+  const [speakers, setSpeakers] = useState<DiscussionSpeaker[]>(DEFAULT_SPEAKERS)
+
+  // Sync props when dialog opens
+  useEffect(() => {
+    if (open) {
+      setMode(defaultMode)
+      setKeyword(defaultKeyword)
+      setCaseSummary(defaultCaseSummary)
+    }
+  }, [open, defaultMode, defaultKeyword, defaultCaseSummary])
 
   const createTask = useCreateTask()
   const { data: credentials = [] } = useCredentials()
+  const [previewPlaying, setPreviewPlaying] = useState(false)
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+
+  const handleVoicePreview = useCallback(async () => {
+    if (previewPlaying && audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current = null
+      setPreviewPlaying(false)
+      return
+    }
+
+    setPreviewLoading(true)
+    try {
+      const blob = await contentOpsApi.testTts('你好，我是你的法律故事播客主持人。', voice)
+      const url = URL.createObjectURL(blob)
+      const audio = new Audio(url)
+      audioRef.current = audio
+      audio.onended = () => {
+        setPreviewPlaying(false)
+        URL.revokeObjectURL(url)
+      }
+      audio.onerror = () => {
+        setPreviewPlaying(false)
+        setPreviewLoading(false)
+        URL.revokeObjectURL(url)
+        toast.error('语音试听失败')
+      }
+      await audio.play()
+      setPreviewPlaying(true)
+    } catch {
+      toast.error('语音试听失败')
+    } finally {
+      setPreviewLoading(false)
+    }
+  }, [voice, previewPlaying])
 
   // 过滤威科先行相关凭证
   const weikeCredentials = credentials.filter((c) => {
@@ -80,6 +134,8 @@ export function CreateTaskDialog({
         case_summary: caseSummary || undefined,
         direct_content: mode === 'direct' ? directContent : undefined,
         voice,
+        output_mode: outputMode,
+        discussion_speakers: outputMode !== 'narration' ? speakers : undefined,
       },
       {
         onSuccess: (task) => {
@@ -100,6 +156,8 @@ export function CreateTaskDialog({
     setDirectContent('')
     setVoice('冰糖')
     setCredentialId(null)
+    setOutputMode('narration')
+    setSpeakers(DEFAULT_SPEAKERS)
   }
 
   return (
@@ -200,19 +258,121 @@ export function CreateTaskDialog({
 
           <div className="space-y-2">
             <Label>语音音色</Label>
-            <Select value={voice} onValueChange={setVoice}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {VOICE_OPTIONS.map((v) => (
-                  <SelectItem key={v.value} value={v.value}>
-                    {v.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex gap-2">
+              <Select value={voice} onValueChange={setVoice}>
+                <SelectTrigger className="flex-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {VOICE_OPTIONS.map((v) => (
+                    <SelectItem key={v.value} value={v.value}>
+                      {v.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={handleVoicePreview}
+                disabled={previewLoading}
+                title={previewPlaying ? '停止试听' : '试听语音'}
+              >
+                {previewLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : previewPlaying ? (
+                  <span className="text-xs">停止</span>
+                ) : (
+                  <Volume2 className="w-4 h-4" />
+                )}
+              </Button>
+            </div>
           </div>
+
+          {/* 输出模式 */}
+          <div className="space-y-2">
+            <Label>输出模式</Label>
+            <div className="flex gap-2">
+              {(Object.entries(OUTPUT_MODE_LABEL) as [OutputMode, string][]).map(([key, label]) => (
+                <Button
+                  key={key}
+                  type="button"
+                  variant={outputMode === key ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setOutputMode(key)}
+                >
+                  {key === 'discussion' && <Users className="w-4 h-4 mr-1" />}
+                  {label}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          {/* 讨论角色配置 */}
+          {outputMode !== 'narration' && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label>讨论角色</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSpeakers([...speakers, { name: '', role: '', style_prompt: '' }])}
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1" />
+                  添加角色
+                </Button>
+              </div>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {speakers.map((speaker, idx) => (
+                  <div key={idx} className="flex gap-2 items-start p-2 rounded-md border bg-muted/30">
+                    <div className="flex-1 grid grid-cols-3 gap-2">
+                      <Input
+                        placeholder="角色名"
+                        value={speaker.name}
+                        onChange={(e) => {
+                          const next = [...speakers]
+                          next[idx] = { ...next[idx], name: e.target.value }
+                          setSpeakers(next)
+                        }}
+                        className="h-8 text-xs"
+                      />
+                      <Input
+                        placeholder="角色定位"
+                        value={speaker.role}
+                        onChange={(e) => {
+                          const next = [...speakers]
+                          next[idx] = { ...next[idx], role: e.target.value }
+                          setSpeakers(next)
+                        }}
+                        className="h-8 text-xs"
+                      />
+                      <Input
+                        placeholder="声音描述"
+                        value={speaker.style_prompt}
+                        onChange={(e) => {
+                          const next = [...speakers]
+                          next[idx] = { ...next[idx], style_prompt: e.target.value }
+                          setSpeakers(next)
+                        }}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0"
+                      onClick={() => setSpeakers(speakers.filter((_, i) => i !== idx))}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <DialogFooter>

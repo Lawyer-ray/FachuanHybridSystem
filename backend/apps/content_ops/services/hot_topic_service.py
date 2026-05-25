@@ -1,0 +1,160 @@
+"""热点话题采集服务 — 从国内自媒体平台获取热搜/热榜数据。"""
+
+from __future__ import annotations
+
+import json
+import logging
+import re
+from dataclasses import dataclass
+from typing import Any
+
+from django.core.cache import cache
+
+from apps.core.http.httpx_clients import get_sync_http_client
+
+logger = logging.getLogger(__name__)
+
+CACHE_KEY_PREFIX = "content_ops:hot_topics"
+CACHE_TTL = 1800  # 30 minutes
+
+_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+}
+
+
+@dataclass
+class HotTopicItem:
+    """单条热点话题。"""
+
+    rank: int
+    title: str
+    heat: int | None = None
+    url: str = ""
+    source: str = ""
+
+
+def _fetch_toutiao(limit: int = 50) -> list[HotTopicItem]:
+    """从今日头条获取热搜榜。"""
+    url = "https://www.toutiao.com/hot-event/hot-board/?origin=toutiao_pc"
+    client = get_sync_http_client()
+    resp = client.get(url, headers=_HEADERS, timeout=15)
+    resp.raise_for_status()
+    data = resp.json()
+
+    items: list[HotTopicItem] = []
+    for i, entry in enumerate(data.get("data", [])[:limit]):
+        title = entry.get("Title") or entry.get("QueryWord", "")
+        if not title:
+            continue
+        heat_raw = entry.get("HotValue")
+        heat = int(heat_raw) if heat_raw and str(heat_raw).isdigit() else None
+        items.append(
+            HotTopicItem(
+                rank=i + 1,
+                title=title,
+                heat=heat,
+                url=entry.get("Url", ""),
+                source="toutiao",
+            )
+        )
+    return items
+
+
+def _fetch_baidu(limit: int = 50) -> list[HotTopicItem]:
+    """从百度获取热搜榜（解析 HTML 中嵌入的 JSON）。"""
+    url = "https://top.baidu.com/board?tab=realtime"
+    client = get_sync_http_client()
+    resp = client.get(url, headers=_HEADERS, timeout=15)
+    resp.raise_for_status()
+    html = resp.text
+
+    # 百度热搜页面将数据嵌入 HTML 中的 JSON 数组
+    # 提取 "content":[...] 中的数组
+    queries: list[str] = re.findall(r'"query":"((?:[^"\\]|\\.)*)"', html)
+    scores: list[str] = re.findall(r'"hotScore":"(\d+)"', html)
+    raw_urls: list[str] = re.findall(r'"rawUrl":"((?:[^"\\]|\\.)*)"', html)
+
+    items: list[HotTopicItem] = []
+    for i, (query, score) in enumerate(zip(queries, scores)):
+        if i >= limit:
+            break
+        heat = int(score) if score.isdigit() else None
+        item_url = raw_urls[i] if i < len(raw_urls) else ""
+        items.append(
+            HotTopicItem(
+                rank=i + 1,
+                title=query,
+                heat=heat,
+                url=item_url,
+                source="baidu",
+            )
+        )
+    return items
+
+
+# 采集器注册表
+_SCRAPERS: dict[str, tuple[str, type[Exception]]] = {
+    "toutiao": ("头条", Exception),
+    "baidu": ("百度", Exception),
+}
+
+_SCRAPER_FN_MAP: dict[str, Any] = {
+    "toutiao": _fetch_toutiao,
+    "baidu": _fetch_baidu,
+}
+
+
+class HotTopicService:
+    """热点话题采集与缓存服务。"""
+
+    def get_hot_topics(self, source: str | None = None) -> list[HotTopicItem]:
+        """获取热点话题列表。优先从缓存读取。"""
+        if source:
+            return self._get_single_source(source)
+
+        # 获取所有源
+        all_items: list[HotTopicItem] = []
+        for src in _SCRAPERS:
+            all_items.extend(self._get_single_source(src))
+        return all_items
+
+    def refresh(self, source: str | None = None) -> list[HotTopicItem]:
+        """强制刷新（绕过缓存）。"""
+        if source:
+            return self._fetch_and_cache(source)
+
+        all_items: list[HotTopicItem] = []
+        for src in _SCRAPERS:
+            all_items.extend(self._fetch_and_cache(src))
+        return all_items
+
+    def _get_single_source(self, source: str) -> list[HotTopicItem]:
+        """从缓存获取单个源的数据，缓存未命中则采集。"""
+        cache_key = f"{CACHE_KEY_PREFIX}:{source}"
+        cached: list[HotTopicItem] | None = cache.get(cache_key)
+        if cached is not None:
+            return cached
+        return self._fetch_and_cache(source)
+
+    def _fetch_and_cache(self, source: str) -> list[HotTopicItem]:
+        """采集单个源的数据并写入缓存。"""
+        if source not in _SCRAPER_FN_MAP:
+            logger.warning("Unknown hot topic source: %s", source)
+            return []
+
+        cache_key = f"{CACHE_KEY_PREFIX}:{source}"
+        fetcher = _SCRAPER_FN_MAP[source]
+        label = _SCRAPERS[source][0]
+
+        try:
+            items: list[HotTopicItem] = fetcher()
+            cache.set(cache_key, items, CACHE_TTL)
+            logger.info("Fetched %d hot topics from %s", len(items), label)
+            return items
+        except Exception:
+            logger.exception("Failed to fetch hot topics from %s", label)
+            # 采集失败时返回缓存中的旧数据（如果有的话）
+            stale: list[HotTopicItem] | None = cache.get(cache_key)
+            if stale is not None:
+                logger.info("Returning stale cache for %s (%d items)", label, len(stale))
+            return stale or []

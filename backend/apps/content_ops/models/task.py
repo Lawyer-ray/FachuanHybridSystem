@@ -18,6 +18,12 @@ class ContentTaskStatus(models.TextChoices):
     CANCELLED = "cancelled", _("已取消")
 
 
+class ContentTaskOutputMode(models.TextChoices):
+    NARRATION = "narration", _("单人叙事")
+    DISCUSSION = "discussion", _("多人讨论")
+    BOTH = "both", _("两者都要")
+
+
 class ContentTask(models.Model):
     created_by = models.ForeignKey(
         "organization.Lawyer",
@@ -58,6 +64,19 @@ class ContentTask(models.Model):
         default="",
         verbose_name=_("VoiceDesign 音色描述"),
         help_text=_("自然语言描述期望的声音风格，使用 VoiceDesign 模式合成。留空则使用内置音色。"),
+    )
+
+    output_mode = models.CharField(
+        max_length=16,
+        choices=ContentTaskOutputMode,
+        default=ContentTaskOutputMode.NARRATION,
+        verbose_name=_("输出模式"),
+    )
+    discussion_speakers = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name=_("讨论角色配置"),
+        help_text=_("多人讨论模式的角色列表，格式: [{name, role, style_prompt}]"),
     )
 
     # Task lifecycle

@@ -1,86 +1,207 @@
-"""公众号登录状态管理（扫码 + Cookie 持久化）"""
+"""公众号登录状态管理（账号密码 + 扫码检测）"""
 
 from __future__ import annotations
 
-import json
+import asyncio
 import logging
-from pathlib import Path
+import time
 from typing import TYPE_CHECKING
 
-from django.conf import settings
-
 if TYPE_CHECKING:
-    from playwright.sync_api import BrowserContext, Page
+    from playwright.async_api import Page
 
 logger = logging.getLogger(__name__)
 
-# Cookie 存储目录
-COOKIE_DIR = Path(getattr(settings, "BASE_DIR", ".")) / "data" / "wechat_mp_cookies"
 
-
-def _get_cookie_path(account_id: int) -> Path:
-    """获取指定账号的 Cookie 文件路径"""
-    COOKIE_DIR.mkdir(parents=True, exist_ok=True)
-    return COOKIE_DIR / f"account_{account_id}.json"
-
-
-def load_cookies(context: BrowserContext, account_id: int) -> bool:
-    """加载已保存的 Cookie 到浏览器上下文。
+async def fetch_wechat_mp_credentials() -> tuple[str, str] | None:
+    """从 AccountCredential 获取公众号后台账号密码。
 
     Returns:
-        True 如果成功加载了 Cookie，False 如果没有保存的 Cookie
+        (account, password) 元组，未找到返回 None
     """
-    cookie_path = _get_cookie_path(account_id)
-    if not cookie_path.exists():
-        logger.info("No saved cookies for account %d", account_id)
-        return False
+    from asgiref.sync import sync_to_async
 
+    from apps.organization.models import AccountCredential
+
+    def _query() -> tuple[str, str] | None:
+        cred = AccountCredential.objects.filter(
+            site_name="微信公众号后台",
+        ).first()
+        if cred:
+            return str(cred.account), str(cred.password)
+        return None
+
+    result = await sync_to_async(_query)()
+    return result
+
+
+async def check_login_status(page: Page) -> bool:
+    """检查当前页面是否已登录公众号后台。"""
     try:
-        cookies = json.loads(cookie_path.read_text(encoding="utf-8"))
-        if cookies:
-            context.add_cookies(cookies)
-            logger.info("Loaded %d cookies for account %d", len(cookies), account_id)
-            return True
-    except (json.JSONDecodeError, Exception):
-        logger.warning("Failed to load cookies for account %d", account_id, exc_info=True)
-
-    return False
-
-
-def save_cookies(context: BrowserContext, account_id: int) -> None:
-    """保存当前浏览器上下文的 Cookie。"""
-    cookie_path = _get_cookie_path(account_id)
-    cookie_path.parent.mkdir(parents=True, exist_ok=True)
-
-    try:
-        cookies = context.cookies()
-        cookie_path.write_text(json.dumps(cookies, ensure_ascii=False, indent=2), encoding="utf-8")
-        logger.info("Saved %d cookies for account %d", len(cookies), account_id)
-    except Exception:
-        logger.warning("Failed to save cookies for account %d", account_id, exc_info=True)
-
-
-def check_login_status(page: Page) -> bool:
-    """检查当前页面是否已登录公众号后台。
-
-    通过检测页面元素判断登录状态。
-    """
-    try:
-        # 公众号后台登录后会有特定元素
-        # 检查是否跳转到了登录页
         current_url = page.url
         if "mp.weixin.qq.com/cgi-bin/loginpage" in current_url:
             return False
 
-        # 检查是否有用户信息区域（已登录标志）
-        user_info = page.query_selector(".user_info, .main_hd, .weui-desktop-account__nickname")
-        return user_info is not None
-    except Exception:
-        logger.warning("Failed to check login status", exc_info=True)
+        # 实际 DOM 中的登录状态标识
+        login_indicators = [
+            ".mp_account_box",
+            ".acount_box-nickname",
+            ".weui-desktop-account__info",
+        ]
+        for selector in login_indicators:
+            el = await page.query_selector(selector)
+            if el and await el.is_visible():
+                return True
+        return False
+    except Exception as exc:
+        if "Execution context was destroyed" in str(exc):
+            return False
+        logger.warning("Failed to check login status: %s", exc)
         return False
 
 
-def wait_for_qr_scan(page: Page, timeout_seconds: int = 120) -> bool:
+async def login_with_credentials(page: Page, account: str, password: str) -> bool:
+    """使用账号密码登录公众号后台。
+
+    流程：导航到登录页 → 切换到账号密码模式 → 填写账号密码 → 提交。
+    登录后可能需要扫码二次验证，调用方需配合 wait_for_qr_scan。
+
+    Returns:
+        True 如果直接登录成功（无需扫码），False 如果需要扫码或失败
+    """
+    try:
+        # 导航到登录页
+        await page.goto(
+            "https://mp.weixin.qq.com/cgi-bin/loginpage",
+            wait_until="domcontentloaded",
+            timeout=30000,
+        )
+        await asyncio.sleep(2)
+
+        # 如果已经登录了，直接返回
+        if await check_login_status(page):
+            logger.info("Already logged in")
+            return True
+
+        # 尝试切换到账号密码登录模式
+        # 公众号后台登录页可能有 "使用邮箱登录" / "账号登录" 等切换入口
+        switch_selectors = [
+            "text=使用邮箱登录",
+            "text=使用账号登录",
+            "text=账号登录",
+            "text=邮箱登录",
+            "text=使用其他方式登录",
+            ".login__type__switch",
+            "a:has-text('邮箱')",
+            "a:has-text('账号')",
+            "span:has-text('邮箱')",
+        ]
+
+        switched = False
+        for selector in switch_selectors:
+            try:
+                switch_btn = await page.query_selector(selector)
+                if switch_btn and await switch_btn.is_visible():
+                    await switch_btn.click()
+                    await asyncio.sleep(1)
+                    switched = True
+                    logger.info("Switched to account/password login: %s", selector)
+                    break
+            except Exception:
+                continue
+
+        if not switched:
+            logger.warning("Could not find account/password login switch, trying direct fill")
+
+        # 填写账号
+        account_selectors = [
+            "input[placeholder*='邮箱']",
+            "input[placeholder*='账号']",
+            "input[placeholder*='微信号']",
+            "input[placeholder*='QQ号']",
+            "input[name='account']",
+            "input[type='text']",
+            "#account",
+        ]
+
+        account_filled = False
+        for selector in account_selectors:
+            try:
+                account_input = await page.query_selector(selector)
+                if account_input and await account_input.is_visible():
+                    await account_input.click()
+                    await account_input.fill(account)
+                    account_filled = True
+                    logger.info("Account filled with selector: %s", selector)
+                    break
+            except Exception:
+                continue
+
+        if not account_filled:
+            logger.warning("Could not find account input field")
+            return False
+
+        # 填写密码
+        password_selectors = [
+            "input[type='password']",
+            "input[placeholder*='密码']",
+            "input[name='password']",
+            "#password",
+        ]
+
+        password_filled = False
+        for selector in password_selectors:
+            try:
+                password_input = await page.query_selector(selector)
+                if password_input and await password_input.is_visible():
+                    await password_input.click()
+                    await password_input.fill(password)
+                    password_filled = True
+                    logger.info("Password filled with selector: %s", selector)
+                    break
+            except Exception:
+                continue
+
+        if not password_filled:
+            logger.warning("Could not find password input field")
+            return False
+
+        # 点击登录按钮
+        login_selectors = [
+            "button:has-text('登录')",
+            "button:has-text('登 录')",
+            "input[type='submit']",
+            ".btn_login",
+            "button[type='submit']",
+            "a:has-text('登录')",
+        ]
+
+        for selector in login_selectors:
+            try:
+                login_btn = await page.query_selector(selector)
+                if login_btn and await login_btn.is_visible():
+                    await login_btn.click()
+                    await asyncio.sleep(3)
+                    logger.info("Login button clicked: %s", selector)
+                    break
+            except Exception:
+                continue
+
+        # 检查是否直接登录成功
+        if await check_login_status(page):
+            logger.info("Login successful with account/password")
+            return True
+
+        # 没有直接成功，可能需要扫码二次验证
+        logger.info("Account/password submitted, may need QR verification")
+        return False
+
+    except Exception as exc:
+        logger.error("Login with credentials failed: %s", exc, exc_info=True)
+        return False
+
+
+async def wait_for_qr_scan(page: Page, timeout_seconds: int = 120) -> bool:
     """等待用户扫码登录。
 
     Args:
@@ -90,29 +211,26 @@ def wait_for_qr_scan(page: Page, timeout_seconds: int = 120) -> bool:
     Returns:
         True 如果登录成功，False 如果超时
     """
-    import time
-
     start_time = time.time()
-    check_interval = 2  # 每 2 秒检查一次
+    check_interval = 2
 
     while time.time() - start_time < timeout_seconds:
-        if check_login_status(page):
+        if await check_login_status(page):
             logger.info("QR scan login successful")
             return True
-        time.sleep(check_interval)
+        await asyncio.sleep(check_interval)
 
     logger.warning("QR scan login timeout after %d seconds", timeout_seconds)
     return False
 
 
-def capture_qr_code(page: Page) -> bytes | None:
+async def capture_qr_code(page: Page) -> bytes | None:
     """截取登录二维码区域的截图。
 
     Returns:
         二维码图片的 bytes，如果未找到返回 None
     """
     try:
-        # 尝试定位二维码区域
         qr_selectors = [
             ".login__type__container__scan",
             ".qrcode",
@@ -122,13 +240,12 @@ def capture_qr_code(page: Page) -> bytes | None:
         ]
 
         for selector in qr_selectors:
-            qr_element = page.query_selector(selector)
+            qr_element = await page.query_selector(selector)
             if qr_element:
-                return qr_element.screenshot()
+                return await qr_element.screenshot()
 
-        # 如果找不到特定元素，截取整个页面
         logger.warning("QR code element not found, capturing full page")
-        return page.screenshot()
+        return await page.screenshot()
     except Exception:
         logger.warning("Failed to capture QR code", exc_info=True)
         return None

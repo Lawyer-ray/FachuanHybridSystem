@@ -166,6 +166,9 @@ backend/logs/
 backend/apiSystem/cookies/
 backend/cookies/
 
+# Chrome CDP 浏览器数据（含登录态）
+backend/data/
+
 # Document templates
 
 *.mo

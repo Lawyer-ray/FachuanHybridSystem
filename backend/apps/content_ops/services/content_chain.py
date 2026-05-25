@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 
 from apps.core.interfaces import ServiceLocator
 from apps.core.llm.service import LLMService
-from apps.core.llm.structured_output import clean_text, parse_model_content
+from apps.core.llm.structured_output import clean_text, parse_json_content
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ _SYSTEM_PROMPT = """\
 6. 结尾可以加一句点评或感悟，引起共鸣
 7. 不要编造事实，所有内容必须基于提供的案件事实
 
-请严格按照 JSON 格式输出。
+请严格按照 JSON 格式输出，使用英文 key：{"title": "...", "content": "...", "summary": "..."}
 """
 
 
@@ -51,7 +51,9 @@ class ContentGenerationChain:
     """将裁判文书事实改写为叙事风格的故事文章。"""
 
     def __init__(self, model: str | None = None) -> None:
-        self._model = model or "mimo-v2.5-pro"
+        from apps.content_ops.constants import CONTENT_LLM_MODEL
+
+        self._model = model or CONTENT_LLM_MODEL
 
     def run(self, *, facts: str, case_summary: str = "") -> ContentResult:
         llm_service = ServiceLocator.get_llm_service()
@@ -73,7 +75,26 @@ class ContentGenerationChain:
         )
 
         content = clean_text(response.content)
-        parsed = parse_model_content(content, NarrativeResult)
+        raw = parse_json_content(content)
+
+        # LLM may return Chinese keys; map to English
+        if isinstance(raw, dict):
+            _key_map = {
+                "标题": "title",
+                "title": "title",
+                "内容": "content",
+                "正文": "content",
+                "content": "content",
+                "摘要": "summary",
+                "summary": "summary",
+            }
+            mapped = {}
+            for k, v in raw.items():
+                eng_key = _key_map.get(k, k)
+                mapped[eng_key] = v
+            raw = mapped
+
+        parsed = NarrativeResult.model_validate(raw)
 
         return ContentResult(
             title=parsed.title,

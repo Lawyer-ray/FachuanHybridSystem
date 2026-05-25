@@ -28,11 +28,13 @@ class ContractQueryService:
         return Contract.objects.prefetch_related(
             "cases",
             "contract_parties__client",
-            "payments",
+            "payments__invoices",
             "reminders",
             "assignments__lawyer",
             "assignments__lawyer__law_firm",
             "supplementary_agreements__parties__client",
+            "finalized_materials",
+            "client_payment_records",
         )
 
     def _apply_list_filters(
@@ -114,6 +116,9 @@ class ContractQueryService:
                 "assignments__lawyer__law_firm",
                 "cases__parties__client",
                 "cases__supervising_authorities",
+                "payments__invoices",
+                "finalized_materials",
+                "client_payment_records",
             ).get(pk=contract_id)
         except Contract.DoesNotExist:
             return None

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from functools import cached_property
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.db import models
@@ -52,6 +53,9 @@ class PropertyClue(models.Model):
         verbose_name_plural = _("财产线索")
         db_table = "cases_propertyclue"
         managed = True
+        indexes: ClassVar = [
+            models.Index(fields=["client"], name="idx_propclue_client"),
+        ]
 
 
 class PropertyClueAttachment(models.Model):
@@ -69,7 +73,7 @@ class PropertyClueAttachment(models.Model):
     def __str__(self) -> str:
         return f"{self.property_clue}-{self.file_name}"
 
-    @property
+    @cached_property
     def media_url(self) -> str | None:
         """返回附件的媒体 URL"""
         return resolve_media_url(self.file_path)
@@ -79,3 +83,6 @@ class PropertyClueAttachment(models.Model):
         verbose_name_plural = _("财产线索附件")
         db_table = "cases_propertyclueattachment"
         managed = True
+        indexes: ClassVar = [
+            models.Index(fields=["property_clue"], name="idx_pca_propclue"),
+        ]

@@ -1,20 +1,88 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { contentOpsApi } from '../api'
-import type { CreateTaskInput, ReviewActionInput, TopicSuggestion } from '../types'
+import type { CreateTaskInput, HotTopic, ReviewActionInput, TopicSuggestion } from '../types'
 
-// 选题建议（手动触发，使用 mutation）
+// 任务关联讨论稿
+export function useTaskDiscussions(taskId: number | null) {
+  return useQuery({
+    queryKey: ['content-ops', 'task', taskId, 'discussions'],
+    queryFn: () => contentOpsApi.getTaskDiscussions(taskId!),
+    enabled: !!taskId,
+  })
+}
+
+// 讨论稿详情
+export function useDiscussionDetail(scriptId: number | null) {
+  return useQuery({
+    queryKey: ['content-ops', 'discussion', scriptId],
+    queryFn: () => contentOpsApi.getDiscussion(scriptId!),
+    enabled: !!scriptId,
+  })
+}
+
+// 选题建议（手动触发，使用 mutation，带错误处理）
 export function useTopicSuggestions() {
   const [data, setData] = useState<TopicSuggestion[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const mutation = useMutation({
-    mutationFn: () => contentOpsApi.suggestTopics(),
-    onSuccess: (result) => setData(result),
+    mutationFn: (model?: string) => contentOpsApi.suggestTopics(model),
+    onSuccess: (result) => {
+      setData(result)
+      setError(null)
+    },
+    onError: (err: Error) => {
+      setError(err.message || '获取选题建议失败')
+    },
   })
 
   return {
     data,
+    error,
     isFetching: mutation.isPending,
-    refetch: () => mutation.mutateAsync(),
+    refetch: (model?: string) => mutation.mutateAsync(model),
+  }
+}
+
+// 热点话题列表（快速，非 LLM）
+export function useHotTopics(source?: string) {
+  return useQuery<HotTopic[]>({
+    queryKey: ['content-ops', 'hot-topics', source],
+    queryFn: () => contentOpsApi.getHotTopics(source),
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+// 刷新热点话题
+export function useRefreshHotTopics() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (source?: string) => contentOpsApi.refreshHotTopics(source),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['content-ops', 'hot-topics'] })
+    },
+  })
+}
+
+// 基于热点的 AI 选题灵感（手动触发）
+export function useInspiration() {
+  const [data, setData] = useState<TopicSuggestion[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const mutation = useMutation({
+    mutationFn: (model?: string) => contentOpsApi.getInspiration(model),
+    onSuccess: (result) => {
+      setData(result)
+      setError(null)
+    },
+    onError: (err: Error) => {
+      setError(err.message || '获取灵感失败')
+    },
+  })
+  return {
+    data,
+    error,
+    isFetching: mutation.isPending,
+    refetch: (model?: string) => mutation.mutateAsync(model),
   }
 }
 
@@ -95,6 +163,29 @@ export function useReviewArticle() {
   })
 }
 
+// 编辑文章
+export function useUpdateArticle() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ articleId, title, content }: { articleId: number; title?: string; content?: string }) =>
+      contentOpsApi.updateArticle(articleId, { title, content }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['content-ops'] })
+    },
+  })
+}
+
+// 重新生成文章
+export function useRegenerateArticle() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (articleId: number) => contentOpsApi.regenerateArticle(articleId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['content-ops'] })
+    },
+  })
+}
+
 // 审核音频
 export function useReviewEpisode() {
   const queryClient = useQueryClient()
@@ -105,6 +196,89 @@ export function useReviewEpisode() {
         ? contentOpsApi.approveEpisode(episodeId, data)
         : contentOpsApi.rejectEpisode(episodeId, data)
     },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['content-ops'] })
+    },
+  })
+}
+
+// 重试任务
+export function useRetryTask() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (taskId: number) => contentOpsApi.retryTask(taskId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['content-ops'] })
+    },
+  })
+}
+
+// 取消任务
+export function useCancelTask() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (taskId: number) => contentOpsApi.cancelTask(taskId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['content-ops'] })
+    },
+  })
+}
+
+// 删除任务
+export function useDeleteTask() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (taskId: number) => contentOpsApi.deleteTask(taskId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['content-ops'] })
+    },
+  })
+}
+
+// 编辑讨论稿轮次
+export function useUpdateDiscussionTurn() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ turnId, text, speaker_style_prompt }: { turnId: number; text?: string; speaker_style_prompt?: string }) =>
+      contentOpsApi.updateDiscussionTurn(turnId, { text, speaker_style_prompt }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['content-ops'] })
+    },
+  })
+}
+
+// 审核讨论稿
+export function useReviewDiscussion() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ scriptId, action, notes }: { scriptId: number; action: 'approve' | 'reject'; notes?: string }) => {
+      const data: ReviewActionInput = { notes }
+      return action === 'approve'
+        ? contentOpsApi.approveDiscussion(scriptId, data)
+        : contentOpsApi.rejectDiscussion(scriptId, data)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['content-ops'] })
+    },
+  })
+}
+
+// 重新生成讨论稿
+export function useRegenerateDiscussion() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (scriptId: number) => contentOpsApi.regenerateDiscussion(scriptId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['content-ops'] })
+    },
+  })
+}
+
+// 合成讨论稿音频
+export function useSynthesizeDiscussion() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (scriptId: number) => contentOpsApi.synthesizeDiscussion(scriptId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['content-ops'] })
     },

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from functools import cached_property
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -75,7 +76,7 @@ class ClientIdentityDoc(models.Model):
         # Admin inline 的首列会直接渲染 __str__，这里保持空字符串避免泄露冗余文案。
         return ""
 
-    @property
+    @cached_property
     def media_url(self) -> str | None:
         return resolve_media_url(self.file_path)
 

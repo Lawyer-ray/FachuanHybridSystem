@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
 from ninja import Schema
 
@@ -22,10 +23,39 @@ class ContentTaskCreateIn(Schema):
     direct_content: str | None = None
     voice: str = "冰糖"
     tts_style_prompt: str = ""
+    output_mode: str = "narration"
+    discussion_speakers: list[dict[str, Any]] = []
+
+
+class TopicSuggestIn(Schema):
+    """选题建议请求参数。"""
+
+    model: str = ""
 
 
 class ReviewActionIn(Schema):
     notes: str = ""
+
+
+class ArticleUpdateIn(Schema):
+    title: str | None = None
+    content: str | None = None
+
+
+class BatchReviewIn(Schema):
+    ids: list[int]
+    notes: str = ""
+
+    @staticmethod
+    def validate_ids(ids: list[int]) -> list[int]:
+        if len(ids) > 100:
+            raise ValueError("单次批量操作最多 100 条")
+        return ids
+
+
+class DiscussionTurnUpdateIn(Schema):
+    text: str | None = None
+    speaker_style_prompt: str | None = None
 
 
 class GeneratedArticleOut(Schema):
@@ -43,13 +73,36 @@ class GeneratedArticleOut(Schema):
 
 class PodcastEpisodeOut(Schema):
     id: int
-    article_id: int
+    article_id: int | None = None
+    discussion_script_id: int | None = None
+    content_source: str = "article"
     voice: str
     audio_url: str = ""
     duration_seconds: int | None = None
     file_size_bytes: int | None = None
     review_status: str
     reviewer_notes: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class DiscussionTurnOut(Schema):
+    id: int
+    speaker_name: str
+    speaker_style_prompt: str
+    text: str
+    order: int
+
+
+class DiscussionScriptOut(Schema):
+    id: int
+    title: str
+    topic: str
+    review_status: str
+    reviewer_notes: str
+    turns: list[DiscussionTurnOut]
+    llm_model: str
+    token_usage: dict
     created_at: datetime
     updated_at: datetime
 
@@ -61,6 +114,8 @@ class ContentTaskOut(Schema):
     case_summary: str
     voice: str
     tts_style_prompt: str
+    output_mode: str = "narration"
+    discussion_speakers: list[dict[str, Any]] = []
     source_title: str
     source_court_text: str
     source_judgment_date: str
@@ -76,3 +131,25 @@ class TopicSuggestionOut(Schema):
     title: str
     description: str
     suggested_keyword: str
+
+
+class HotTopicOut(Schema):
+    """热点话题输出。"""
+
+    rank: int
+    title: str
+    heat: int | None = None
+    url: str = ""
+    source: str
+
+
+class HotTopicRefreshIn(Schema):
+    """刷新热点话题请求参数。"""
+
+    source: str = ""
+
+
+class TopicInspirationIn(Schema):
+    """基于热点的选题灵感请求参数。"""
+
+    model: str = ""

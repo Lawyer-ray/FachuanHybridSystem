@@ -392,7 +392,7 @@ class CaseAdminViewsMixin:
                 "important_times": service.build_important_times_for_detail(case),
                 "important_time_type_options": service.get_important_time_type_options(),
                 "folder_path_auto_repaired": folder_path_auto_repaired,
-                "contacts": list(case.contacts.select_related("authority").all()),
+                "contacts": list(case.contacts.all()),
                 "contact_role_choices": list(_get_contact_role_choices()),
                 "case_stage_choices": list(_get_case_stage_choices()),
                 "related_cases": (lambda chain: chain if len(chain) > 1 else [])(case.get_case_chain()),
@@ -508,15 +508,12 @@ class CaseAdminViewsMixin:
 
     @staticmethod
     def _check_folder_binding(case_id: int) -> bool:
-        """检查案件或其关联合同是否绑定了文件夹。"""
-        from apps.cases.models.material import CaseFolderBinding
-        from apps.contracts.models.folder_binding import ContractFolderBinding
+        """检查案件或其关联合同是否绑定了文件夹（单条查询）。"""
+        from django.db.models import Q
 
-        if CaseFolderBinding.objects.filter(case_id=case_id).exists():
-            return True
         return (
-            Case.objects.filter(pk=case_id, contract__isnull=False)
-            .filter(contract__folder_binding__isnull=False)
+            Case.objects.filter(pk=case_id)
+            .filter(Q(folder_binding__isnull=False) | Q(contract__isnull=False, contract__folder_binding__isnull=False))
             .exists()
         )
 

@@ -2,6 +2,53 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.50.2] - 2026-05-24
+
+### 后端
+
+#### 新功能
+
+- **WXMP 自动化发布系统**：完整实现基于 Playwright CDP 的 WXMP 自动化发布，支持账号密码登录 + 扫码二次验证、自动导航到新建文章、标题填写、Markdown 内容注入（ProseMirror 剪贴板粘贴）、封面图上传、保存草稿/群发
+- **专业级 WXMP 排版系统**：新增 `markdown_converter.py`，支持 3 种排版主题（classic/elegant/green），内联样式 HTML 输出，包含渐变边框标题、卡片式引用块、深色表头表格、斑马纹行、Callout 盒子（GFM alert 语法）、代码高亮、SVG 装饰元素等
+- **AI 排版集成**：新增 `llm_formatter.py`，调用 LLM 服务生成花哨的内联样式 HTML，支持 5 种风格（auto/professional/creative/minimal/colorful），失败自动降级到规则排版
+- **排版方式选择**：`PublishTask` 新增 `format_method` 字段，支持 `rule`（规则排版）和 `llm`（AI 排版）两种方式
+- **多人播客讨论**：新增 `discussion_chain.py`，支持多角色 VoiceDesign 讨论稿生成，TTS 并行合成（83s → 12s，6.7x 提速）
+- **内容运营任务管理增强**：任务状态机完善、讨论稿 speakers 字段、Episode 增强、API 扩展
+- **选题灵感功能改造**：新增 `HotTopicService`，从头条/百度获取实时热搜数据（httpx + Django cache 30 分钟缓存）；`TopicService` 新增 `suggest_from_trends()` 方法，用 LLM 从热点中筛选法律相关选题；新增 3 个 API 端点（`GET /topics/hot`、`POST /topics/hot/refresh`、`POST /topics/inspiration`）
+- **法律检索字段级查询**：WKXX搜索支持按法院层级、地域、案由等字段精确筛选，新增自动案由识别与匹配
+
+#### 性能优化
+
+- **Case 模块优化**：全局搜索复用、文件夹扫描增强、邮件导入改进、查询合并、预取扩展
+- **Client 模块优化**：新增性能索引（`0009_add_performance_indexes`）、Admin 查询优化、媒体处理增强
+- **Contract 模块优化**：Admin 预取、查询去重、Schema 精简
+
+#### 修复
+
+- **WXMP 登录状态检测**：`check_login_status` 选择器适配实际 DOM（`.mp_account_box`、`.acount_box-nickname`）
+- **WXMP 发布器选择器**：`_navigate_to_new_article` 修正为"文章"（非"图文消息"）
+- **Admin 任务自动调度**：`save_model` 重写，新建任务时自动通过 `async_task` 调度 `execute_publish_task`
+- **API 错误格式**：`HttpError(400, ...)` 替代 tuple 返回
+- **AccountCredential Admin**：移除 `cookie_path` 冗余字段，允许独立新增凭证
+- **播客音频认证失败**：修复 `build_range_file_response` 需要绝对路径的问题
+- **讨论稿合成超时**：TTS 服务超时改善 + 错误提示优化
+
+### 前端
+
+#### 新功能
+
+- **内容运营工作台重构**：页面布局调整（任务列表为主区域，AI 选题为辅助侧栏），新增创建任务对话框、直投内容输入、任务详情面板（含文章预览、播客音频播放）
+- **播客音频播放器增强**：支持进度拖动和倍速播放（1x/1.25x/1.5x/2x）
+- **多人讨论模式**：任务详情支持多角色讨论稿展示和音频合成
+- **选题推荐优化**：交互改善、动画增强
+- **选题灵感独立页面**：新增 `/admin/tools/content-ops/inspiration` 全屏页面，展示热搜话题网格（按来源筛选）+ AI 法律灵感推荐，点击灵感卡片直接创建任务；ContentWorkbench 侧边栏添加「查看完整灵感页」入口
+- **法律检索字段筛选 UI**：搜索对话框新增法院层级、地域、案由等字段选择器
+
+#### 修复
+
+- **任务列表溢出**：多层父容器 `overflow-hidden` + `w-full`，`div` 替代 `ScrollArea` 避免宽度约束
+- **任务卡片文本溢出**：CSS 截断修复
+
 ## [26.50.1] - 2026-05-24
 
 ### 前端
@@ -59,7 +106,7 @@
 
 #### 新功能
 
-- **内容运营模块 (content_ops)**：新增完整的内容运营应用，包含数据模型（ContentTask、GeneratedArticle、PodcastEpisode）、API 接口、任务执行器、TTS 服务、RSS 生成、LLM 选题建议等。支持检索模式和直投模式，自动调用威科先行检索案例并生成叙事文章和播客音频
+- **内容运营模块 (content_ops)**：新增完整的内容运营应用，包含数据模型（ContentTask、GeneratedArticle、PodcastEpisode）、API 接口、任务执行器、TTS 服务、RSS 生成、LLM 选题建议等。支持检索模式和直投模式，自动调用WKXX检索案例并生成叙事文章和播客音频
 
 - **VoiceDesign 模式**：TTS 服务支持自然语言描述音色风格，通过 `tts_style_prompt` 字段自定义语音特征
 
@@ -69,7 +116,7 @@
 
 - **LLM 服务调用和选题解析**：修复 openai_compatible 后端 SSL 握手问题、MiMo 模型调用配置、content_chain 字段校验
 
-- **credential 字段改名**：content_ops 的 credential 字段改名为「法律检索网站账号」并添加筛选逻辑，只显示威科先行相关账号
+- **credential 字段改名**：content_ops 的 credential 字段改名为「法律检索网站账号」并添加筛选逻辑，只显示WKXX相关账号
 
 - **内容运营收纳到其他工具菜单**：将 content_ops 模块从 Django admin 侧边栏移除，收纳到「其他工具」聚合页中
 
@@ -150,7 +197,7 @@
 
 #### 新功能
 
-- **适配 OA 新 SSO 登录流程**：OA 系统从 form-based 登录迁移到 OAuth/OIDC SSO (`access.jtn.com`)，需要先通过企业微信扫码完成 SSO 认证，再输入 OA 账号密码登录。新增 `sso_login.py` 实现完整 SSO 扫码登录流程 + cookie 持久化（`~/.fachuan/jtn_cookies.json`），HTTP 和 Playwright 立案路径均优先使用缓存 cookies，过期自动触发重新登录
+- **适配 OA 新 SSO 登录流程**：OA 系统从 form-based 登录迁移到 OAuth/OIDC SSO (`access.jtn.com`)，需要先通过QYWX扫码完成 SSO 认证，再输入 OA 账号密码登录。新增 `sso_login.py` 实现完整 SSO 扫码登录流程 + cookie 持久化（`~/.fachuan/jtn_cookies.json`），HTTP 和 Playwright 立案路径均优先使用缓存 cookies，过期自动触发重新登录
 
 ## [26.48.13] - 2026-05-17
 
@@ -895,7 +942,7 @@
 - **WKInfo URL 案例检索范围**：支持通过 WKInfo URL 定义案例检索的数据库范围
 - **WK插件迁移**：WK私有 API 适配器迁移到 plugins/ 目录统一管理
 - **工作台 Agent 重构**：移除通用助手（general agent），保留分诊 + 3 个专业助手（案件管理、合同管理、法律检索）
-- **微信公众号应用**：新增 wechat_mp 应用模块
+- **WXMP 应用**：新增 wechat_mp 应用模块
 
 #### 修复
 
@@ -1128,11 +1175,11 @@
   - 新增文件大小预检（30MB 限制），超限时直接给出友好提示
   - 飞书 API 错误码 234006（文件过大）特殊处理，避免输出吓人的 traceback
   - 文件发送失败时区分业务错误和系统错误，日志更清晰
-- **企业微信配置描述优化**：`WECHAT_WORK_DEFAULT_OWNER_ID` 描述更新，明确说明在管理后台「通讯录」→ 成员详情 → 「帐号」字段获取
+- **QYWX配置描述优化**：`WECHAT_WORK_DEFAULT_OWNER_ID` 描述更新，明确说明在管理后台「通讯录」→ 成员详情 → 「帐号」字段获取
 
 ### 已知问题
 
-- **企业微信功能受限**：企业微信 API 需要配置「企业可信IP」和「可信域名」才能正常使用，本地测试需要公网 IP 或内网穿透。欢迎有缘人提 PR 改进
+- **QYWX功能受限**：QYWX API 需要配置「企业可信IP」和「可信域名」才能正常使用，本地测试需要公网 IP 或内网穿透。欢迎有缘人提 PR 改进
 
 ## [26.42.2] - 2026-05-03
 
@@ -2160,7 +2207,7 @@
 
 ### 后端
 
-- 群聊平台扩展：新增钉钉（DingtalkProvider）和 Telegram（TelegramProvider）两个 ChatProvider 实现，法院短信通知的一案一群功能从飞书+企业微信扩展至4个平台。
+- 群聊平台扩展：新增钉钉（DingtalkProvider）和 Telegram（TelegramProvider）两个 ChatProvider 实现，法院短信通知的一案一群功能从飞书+QYWX扩展至4个平台。
   - 钉钉：使用会话2.0 API（api.dingtalk.com）创建群聊，oapi 获取 access_token，机器人发送群聊消息，文件通过 media 上传+发送。
   - Telegram：采用超级群组论坛（Topic）模式实现一案一群——管理员预建开启论坛功能的超级群组，每个案件创建一个 ForumTopic 等同于一个群聊。chat_id 格式为 `{supergroup_id}:{thread_id}`，消息/文件自动携带话题 ID。
   - 新增 `_dingtalk_token_mixin.py`、`_dingtalk_file_mixin.py`、`dingtalk_provider.py`、`_telegram_token_mixin.py`、`_telegram_file_mixin.py`、`telegram_provider.py`。
@@ -2187,8 +2234,8 @@
 
 ### 后端
 
-- 法院短信通知系统升级为多平台群聊通知：新增企业微信（WeChat Work）Provider，与飞书并列支持，实现多平台扇出通知。
-  - 新增 `ChatProvider` 抽象基类与 `ChatProviderFactory` 工厂，统一管理飞书/企业微信 Provider 注册与获取。
+- 法院短信通知系统升级为多平台群聊通知：新增QYWX（WeChat Work）Provider，与飞书并列支持，实现多平台扇出通知。
+  - 新增 `ChatProvider` 抽象基类与 `ChatProviderFactory` 工厂，统一管理飞书/QYWX Provider 注册与获取。
   - 新增 `WeChatWorkProvider`（Token Mixin + File Mixin 组合），支持建群、发消息、发文件。
   - `SMSNotificationService` 改为多平台扇出模式：自动发现可用平台 → 逐平台通知 → 聚合结果。
   - 新增 `PlatformNotificationResult` / `MultiPlatformNotificationResult` DTO，替代原有 `tuple[bool, str|None]`。
@@ -2198,7 +2245,7 @@
   - 去重服务与文书送达链路同步适配新通知结果格式。
   - `CaseChatService` 默认平台从硬编码 `FEISHU` 改为动态选择首个可用平台。
   - `CaseChatRepository.create_binding` 补齐 `owner_id`/`owner_verified`/`creation_audit_log` 参数。
-  - 系统配置新增企业微信相关配置项（Corp ID / Agent ID / Secret / Default Owner ID）。
+  - 系统配置新增QYWX相关配置项（Corp ID / Agent ID / Secret / Default Owner ID）。
   - 删除废弃的 `FeishuBotService`（已被 `FeishuProvider` 替代）。
 
 ## [26.35.0] - 2026-04-16
@@ -2236,7 +2283,7 @@
 
 - 修复一张网“申请担保”`gTwo` 页面申请人填写流程：申请人类型为单位时，单位性质选择逻辑改为优先稳定命中“企业”，避免错误回落到“机关”。
 - 优化担保财产线索填写链路：按后台选中被申请人的财产线索逐条构造并逐条保存，财产类型统一稳定选择“其他”，同时补齐弹窗容器与“描述”字段兼容，提升页面自动填写成功率。
-- 调整担保申请 API 财产线索组装逻辑：新增多条财产线索构建与金额格式化能力，补充银行账户、支付宝、微信账户、不动产等线索类型映射，并保留单条财产线索兼容输出。
+- 调整担保申请 API 财产线索组装逻辑：新增多条财产线索构建与金额格式化能力，补充银行账户、支付宝、WX 账户、不动产等线索类型映射，并保留单条财产线索兼容输出。
 
 ### 测试
 
@@ -4494,8 +4541,8 @@
 
 ### 新增
 - 添加跨平台下载路径自动检测功能（文件夹浏览器优先显示用户 Downloads 目录）
-- 添加 README 打赏模块（支持微信赞赏、USDT、比特币）
-- 更新 README 联系方式为微信二维码
+- 添加 README 打赏模块（支持 WX 赞赏、USDT、比特币）
+- 更新 README 联系方式为 WX 二维码
 
 ### 修复
 - 修复 {{案件详情}} 替换词生成逻辑（使用 client.is_our_client 字段判断对方当事人）

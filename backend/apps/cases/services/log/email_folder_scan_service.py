@@ -176,7 +176,7 @@ class EmailFolderScanService:
 
     def _get_bound_case_root(self, case_id: int) -> Path | None:
         """获取案件绑定的文件夹根路径."""
-        binding = CaseFolderBinding.objects.filter(case_id=case_id).select_related("case").first()
+        binding = CaseFolderBinding.objects.filter(case_id=case_id).first()
         if not binding or not binding.resolved_folder_path:
             return None
 

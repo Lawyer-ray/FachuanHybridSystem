@@ -82,6 +82,7 @@ const CourierTrackingPage = lazy(() => import('@/pages/dashboard/tools/CourierTr
 const ElementConvertPage = lazy(() => import('@/pages/dashboard/tools/ElementConvertPage'))
 const LprCalculatorPage = lazy(() => import('@/pages/dashboard/tools/LprCalculatorPage'))
 const ContentOpsPage = lazy(() => import('@/pages/dashboard/tools/ContentOpsPage'))
+const ContentOpsInspirationPage = lazy(() => import('@/pages/dashboard/tools/ContentOpsInspirationPage'))
 
 // 工作台
 const WorkbenchPage = lazy(() => import('@/features/workbench/WorkbenchPage'))
@@ -353,6 +354,10 @@ export const router = createBrowserRouter([
           {
             path: PATHS.ADMIN_TOOLS_LPR,
             element: <LprCalculatorPage />,
+          },
+          {
+            path: PATHS.ADMIN_TOOLS_CONTENT_OPS_INSPIRATION,
+            element: <ContentOpsInspirationPage />,
           },
           {
             path: PATHS.ADMIN_TOOLS_CONTENT_OPS,

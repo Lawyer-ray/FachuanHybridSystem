@@ -35,10 +35,11 @@ class ContractAdminQueryService:
                 .prefetch_related(
                     "contract_parties__client",
                     "assignments__lawyer",
-                    "payments",
+                    "payments__invoices",
                     "reminders",
                     "supplementary_agreements__parties__client",
                     "finalized_materials",
+                    "client_payment_records",
                     "cases",
                 )
                 .get(pk=contract_id)

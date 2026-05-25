@@ -20,6 +20,7 @@ class PublishTaskCreate(Schema):
     content_md: str
     account_id: int
     save_as_draft: bool = True
+    format_method: str = "rule"
 
 
 class PublishTaskOut(Schema):
@@ -28,6 +29,7 @@ class PublishTaskOut(Schema):
     title: str
     status: str
     save_as_draft: bool
+    format_method: str
     result_data: dict
     error_message: str
     created_at: Any
