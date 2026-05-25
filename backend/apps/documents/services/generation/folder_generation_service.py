@@ -65,9 +65,13 @@ class FolderGenerationService:
         """获取案件（含文件夹绑定和当事人关联）。"""
         from apps.cases.models import Case
 
-        return Case.objects.select_related("contract__folder_binding", "folder_binding").prefetch_related("parties__client").get(pk=case_id)
+        return (
+            Case.objects.select_related("contract__folder_binding", "folder_binding")
+            .prefetch_related("parties__client")
+            .get(pk=case_id)
+        )
 
-    def fetch_template_by_id(self, template_id: int) -> "FolderTemplate":
+    def fetch_template_by_id(self, template_id: int) -> FolderTemplate:
         """按 ID 获取文件夹模板。"""
         return FolderTemplate.objects.get(pk=template_id)
 

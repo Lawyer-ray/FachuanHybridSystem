@@ -334,7 +334,8 @@ def _generate_filtered_csv(job_id: UUID, *, only_relevant: bool) -> str:
 
     from ..tasks.parsing import parse_llm_result
 
-    items = list(BatchJobItem.objects.filter(job_id=job_id, status=BatchJobStatus.COMPLETED))
+    batch_service = ServiceLocator.get_workbench_batch_service()
+    items = list(batch_service.get_completed_items(job_id))
     rows: list[dict[str, str]] = []
     for item in items:
         if not item.result:
@@ -378,7 +379,8 @@ def _generate_filtered_zip(job_id: UUID, *, only_relevant: bool) -> bytes:
 
     from ..tasks.parsing import parse_llm_result
 
-    items = list(BatchJobItem.objects.filter(job_id=job_id, status=BatchJobStatus.COMPLETED))
+    batch_service = ServiceLocator.get_workbench_batch_service()
+    items = list(batch_service.get_completed_items(job_id))
     zip_buffer = io.BytesIO()
 
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -512,8 +514,6 @@ async def stream_batch_progress(request: Any, job_id: UUID) -> StreamingHttpResp
     await sync_to_async(session_service.get_user_session)(ctx.user, job.session_id)
 
     async def event_generator() -> Any:
-        from django.db.models import Q
-
         reported_items: set[str] = set()
         started_items: set[str] = set()
         last_progress = -1
@@ -522,10 +522,7 @@ async def stream_batch_progress(request: Any, job_id: UUID) -> StreamingHttpResp
             # 合并为单次查询：running + completed/failed items
             all_items = await sync_to_async(
                 lambda: list(
-                    BatchJobItem.objects.filter(
-                        Q(job_id=job_id, status=BatchJobStatus.RUNNING)
-                        | Q(job_id=job_id, status__in=(BatchJobStatus.COMPLETED, BatchJobStatus.FAILED)),
-                    ).values("id", "file_name", "status", "duration_ms", "error", "result")
+                    batch_service.get_active_items(job_id).values("id", "file_name", "status", "duration_ms", "error", "result")
                 )
             )()
 
