@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 from io import BytesIO
 from typing import Any
@@ -156,16 +157,21 @@ def topic_inspiration(request: HttpRequest, payload: TopicInspirationIn) -> list
 
 
 @router.post("/topics/translate")
-def translate_topics(request: HttpRequest, payload: dict[str, Any]) -> dict[str, Any]:
+def translate_topics(request: HttpRequest) -> dict[str, Any]:
     """批量翻译热点话题标题。"""
     from apps.core.llm.service import LLMService
 
-    titles = payload.get("titles", [])
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return {"translations": []}
+
+    titles = body.get("titles", [])
     if not titles:
         return {"translations": []}
 
     # 构建批量翻译 prompt
-    titles_text = "\n".join(f"{i+1}. {t}" for i, t in enumerate(titles))
+    titles_text = "\n".join(f"{i + 1}. {t}" for i, t in enumerate(titles))
     prompt = f"""请将以下英文标题翻译成中文，保持简洁准确。
 每行一个翻译结果，只返回翻译后的标题，不要添加序号或其他内容。
 
@@ -182,8 +188,8 @@ def translate_topics(request: HttpRequest, payload: dict[str, Any]) -> dict[str,
         translations = [line.strip() for line in result.strip().split("\n") if line.strip()]
         # 确保翻译数量匹配
         if len(translations) < len(titles):
-            translations.extend(titles[len(translations):])
-        return {"translations": translations[:len(titles)]}
+            translations.extend(titles[len(translations) :])
+        return {"translations": translations[: len(titles)]}
     except Exception as e:
         logger.error("Translation failed: %s", e)
         return {"translations": titles}  # 失败时返回原文
