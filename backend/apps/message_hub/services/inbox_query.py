@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from django.db.models import QuerySet
 
 from apps.message_hub.models import InboxMessage, MessageSource

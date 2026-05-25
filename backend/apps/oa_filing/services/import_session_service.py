@@ -36,14 +36,12 @@ def get_client_session_or_none(session_id: int) -> ClientImportSession | None:
 def create_client_session(
     lawyer: Any,
     credential: Any,
-    uploaded_filename: str = "",
 ) -> ClientImportSession:
     """创建客户导入会话。"""
     return ClientImportSession.objects.create(
         lawyer=lawyer,
         credential=credential,
         status="pending",
-        uploaded_filename=uploaded_filename,
     )
 
 
