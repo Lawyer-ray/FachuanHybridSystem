@@ -281,7 +281,7 @@ class FilingStepsMixin(FormUtilsMixin):
 
         logger.info(str(_("执行依据选择完成: %s, %s")), basis_type, original_case_number)
 
-    def _step4_upload_materials(self, materials: dict[str, list[str]], *, is_execution: bool) -> None:
+    def _step4_upload_materials(self, materials: dict[str, list[tuple[str, str]]], *, is_execution: bool) -> None:
         """上传诉讼材料"""
         logger.info(str(_("步骤4: 上传诉讼材料")))
 
@@ -322,9 +322,9 @@ class FilingStepsMixin(FormUtilsMixin):
 
         container_count = len(container_meta) if isinstance(container_meta, list) else 0
 
-        for idx_str, files in materials.items():
+        for idx_str, items in materials.items():
             idx = int(idx_str) if str(idx_str).isdigit() else -1
-            if not files:
+            if not items:
                 continue
 
             upload_idx = slot_to_index.get(str(idx_str), idx)
@@ -332,7 +332,7 @@ class FilingStepsMixin(FormUtilsMixin):
                 logger.warning("未找到可用上传槽位: slot=%s", idx_str)
                 continue
 
-            logger.info("上传材料 %s -> 槽位 %d: %s", idx_str, upload_idx, [Path(f).name for f in files])
+            logger.info("上传材料 %s -> 槽位 %d: %s", idx_str, upload_idx, [Path(f).name for f, _ in items])
             btn = self.page.locator(f'[data-upload-index="{upload_idx}"]').first
 
             # 等待 toast 遮罩消失（uni-toast 可能长时间遮挡点击）
@@ -344,7 +344,8 @@ class FilingStepsMixin(FormUtilsMixin):
                 self.page.evaluate("document.querySelectorAll('.uni-mask').forEach(e => e.remove())")
                 self.page.wait_for_timeout(500)
 
-            for file_path in files:
+            for item in items:
+                file_path, original_name = item if isinstance(item, tuple) else (item, "")
                 # 记录上传前文件数
                 files_before = self.page.locator(".fd-file-name").count()
 
