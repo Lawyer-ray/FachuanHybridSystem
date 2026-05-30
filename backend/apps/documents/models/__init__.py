@@ -40,6 +40,7 @@ from .folder_template import FolderTemplate
 from .generation import GenerationConfig, GenerationMethod, GenerationStatus, GenerationTask
 from .placeholder import Placeholder
 from .proxy_matter_rule import ProxyMatterRule
+from .smart_fill import SmartFillProxy
 
 # 统一导出
 __all__ = [
@@ -87,6 +88,8 @@ __all__ = [
     "ExternalTemplateFieldMapping",
     "BatchFillTask",
     "FillRecord",
+    # 智能填充
+    "SmartFillProxy",
 ]
 
 GenerationTaskStatus = GenerationStatus

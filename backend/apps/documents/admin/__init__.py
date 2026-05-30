@@ -9,6 +9,7 @@ from .external_template_admin import ExternalTemplateAdmin
 from .folder_binding_admin import DocumentTemplateFolderBindingAdmin
 from .folder_template_admin import FolderTemplateAdmin
 from .proxy_matter_rule_admin import ProxyMatterRuleAdmin
+from .smart_fill_admin import SmartFillAdmin
 
 __all__ = [
     "FolderTemplateAdmin",
@@ -19,4 +20,6 @@ __all__ = [
     "ProxyMatterRuleAdmin",
     # 外部模板
     "ExternalTemplateAdmin",
+    # 智能填充
+    "SmartFillAdmin",
 ]

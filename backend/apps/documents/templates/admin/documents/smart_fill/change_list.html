@@ -1,0 +1,138 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+.smart-fill-container { max-width: 800px; margin: 0 auto; padding: 20px; }
+.smart-fill-section { margin-bottom: 24px; padding: 20px; border: 1px solid #ddd; border-radius: 6px; background: #fff; }
+.smart-fill-section h2 { margin: 0 0 16px; font-size: 1.1rem; color: #333; }
+
+/* Form styling */
+.smart-fill-form .form-row { margin-bottom: 16px; }
+.smart-fill-form label { display: block; font-weight: 600; margin-bottom: 4px; font-size: 0.875rem; }
+.smart-fill-form .help { font-size: 0.75rem; color: #888; margin-top: 4px; }
+.smart-fill-form input[type="file"] { padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%; }
+.smart-fill-form textarea { width: 100%; padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.875rem; resize: vertical; }
+
+/* Error messages */
+.errorlist { list-style: none; padding: 0; margin: 4px 0 0; }
+.errorlist li { color: #dc3545; font-size: 0.8rem; padding: 4px 8px; background: #fff5f5; border-radius: 4px; margin-bottom: 4px; }
+
+/* Preview table */
+.preview-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.preview-table th, .preview-table td { padding: 10px 12px; border: 1px solid #ddd; text-align: left; }
+.preview-table th { background: #f5f5f5; font-weight: 600; }
+.preview-table td.placeholder-key { font-family: monospace; background: #f8f9fa; }
+.preview-table td.source-auto { color: #28a745; }
+.preview-table td.source-llm { color: #417690; }
+.preview-table td.source-fallback { color: #dc3545; }
+
+/* Buttons */
+.smart-fill-actions { display: flex; gap: 10px; margin-top: 16px; }
+.btn-primary { background: #417690; color: #fff; border: none; padding: 10px 24px; border-radius: 4px; cursor: pointer; font-size: 0.875rem; text-decoration: none; display: inline-block; }
+.btn-primary:hover { background: #205067; }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-success { background: #28a745; color: #fff; border: none; padding: 10px 24px; border-radius: 4px; cursor: pointer; font-size: 0.875rem; text-decoration: none; display: inline-block; }
+.btn-success:hover { background: #218838; }
+
+/* Description */
+.smart-fill-desc { color: #666; font-size: 0.875rem; margin-bottom: 20px; line-height: 1.5; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="smart-fill-container">
+  <h1>{{ title }}</h1>
+  <p class="smart-fill-desc">
+    {% translate "上传 .docx 模板，用自然语言描述你想生成的文书内容，系统会自动识别占位符并填充。" %}
+  </p>
+
+  <!-- Upload form -->
+  <div class="smart-fill-section">
+    <h2>{% translate "上传模板" %}</h2>
+    <form method="post" enctype="multipart/form-data" action="{% url 'admin:documents_smartfill_preview' %}" class="smart-fill-form">
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+      <div style="margin-bottom:12px;">
+        <ul class="errorlist">
+          {% for error in form.non_field_errors %}
+          <li>{{ error }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+
+      <div class="form-row">
+        <label for="id_template_file">{{ form.template_file.label }}</label>
+        {{ form.template_file }}
+        {% if form.template_file.help_text %}
+        <p class="help">{{ form.template_file.help_text }}</p>
+        {% endif %}
+        {% if form.template_file.errors %}
+        <ul class="errorlist">
+          {% for error in form.template_file.errors %}
+          <li>{{ error }}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      </div>
+
+      <div class="form-row">
+        <label for="id_user_input">{{ form.user_input.label }}</label>
+        {{ form.user_input }}
+        {% if form.user_input.help_text %}
+        <p class="help">{{ form.user_input.help_text }}</p>
+        {% endif %}
+        {% if form.user_input.errors %}
+        <ul class="errorlist">
+          {% for error in form.user_input.errors %}
+          <li>{{ error }}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      </div>
+
+      <div class="smart-fill-actions">
+        <button type="submit" class="btn-primary">{% translate "预览映射" %}</button>
+      </div>
+    </form>
+  </div>
+
+  {% if show_result %}
+  <!-- Mapping results -->
+  <div class="smart-fill-section">
+    <h2>{% translate "映射结果" %}</h2>
+    <table class="preview-table">
+      <thead>
+        <tr>
+          <th>{% translate "占位符" %}</th>
+          <th>{% translate "填充值" %}</th>
+          <th>{% translate "来源" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in placeholders %}
+        <tr>
+          <td class="placeholder-key">{% templatetag openvariable %} {{ item.key }} {% templatetag closevariable %}</td>
+          <td>{{ item.value|default:"—" }}</td>
+          <td class="source-{{ item.source }}">
+            {% if item.source == "auto" %}{% translate "自动" %}
+            {% elif item.source == "llm" %}{% translate "AI 填充" %}
+            {% else %}{% translate "未匹配" %}{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <div class="smart-fill-actions">
+      <a href="{% url 'admin:documents_smartfill_download' task_id %}" class="btn-success">
+        {% translate "生成文件下载" %}
+      </a>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
