@@ -25,7 +25,7 @@ def has_court_automation_plugin() -> bool:
         bool: 插件存在返回 True，否则返回 False
     """
     try:
-        from plugins import court_automation  # noqa: F401
+        from plugins import court_automation
 
         return True
     except ImportError:
