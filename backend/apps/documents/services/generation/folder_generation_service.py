@@ -73,6 +73,8 @@ class FolderGenerationService:
 
     def fetch_template_by_id(self, template_id: int) -> FolderTemplate:
         """按 ID 获取文件夹模板。"""
+        from apps.documents.models import FolderTemplate
+
         return FolderTemplate.objects.get(pk=template_id)
 
     @property
