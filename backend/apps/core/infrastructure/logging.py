@@ -337,7 +337,7 @@ def get_logging_config(base_dir: Any, debug: bool = True) -> dict[str, Any]:
             },
             "file_api": {
                 "level": file_level,
-                "class": "logging.handlers.RotatingFileHandler",
+                "class": "concurrent_log_handler.ConcurrentRotatingFileHandler",
                 "filename": os.path.join(log_dir, "api.log"),
                 "maxBytes": file_max_size,
                 "backupCount": api_backup_count,
@@ -347,7 +347,7 @@ def get_logging_config(base_dir: Any, debug: bool = True) -> dict[str, Any]:
             },
             "file_error": {
                 "level": error_level,
-                "class": "logging.handlers.RotatingFileHandler",
+                "class": "concurrent_log_handler.ConcurrentRotatingFileHandler",
                 "filename": os.path.join(log_dir, "error.log"),
                 "maxBytes": file_max_size,
                 "backupCount": error_backup_count,
@@ -357,7 +357,7 @@ def get_logging_config(base_dir: Any, debug: bool = True) -> dict[str, Any]:
             },
             "file_sql": {
                 "level": "DEBUG",
-                "class": "logging.handlers.RotatingFileHandler",
+                "class": "concurrent_log_handler.ConcurrentRotatingFileHandler",
                 "filename": os.path.join(log_dir, "sql.log"),
                 "maxBytes": file_max_size,
                 "backupCount": sql_backup_count,
