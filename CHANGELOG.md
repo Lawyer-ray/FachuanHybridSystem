@@ -2,6 +2,14 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.50.7] - 2026-05-30
+
+### 后端
+
+#### 修复
+
+- **Windows 日志文件轮转错误**：使用 `ConcurrentRotatingFileHandler` 替代 `RotatingFileHandler`，解决 Windows 上 `PermissionError: [WinError 32]` 文件锁定问题
+
 ## [26.50.6] - 2026-05-30
 
 ### 后端
