@@ -812,7 +812,7 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
         from apps.core.llm.config import LLMConfig
         from apps.core.llm.model_list_service import ModelListService
 
-        choices: list[tuple[str, str]] = []
+        choices: list[tuple[str, str]] = [("", "使用系统默认模型")]
         seen: set[str] = set()
 
         def append_choice(model_id: str, *, label: str | None = None) -> None:
@@ -824,7 +824,7 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
 
         default_model = LLMConfig.get_default_model().strip()
         if default_model:
-            append_choice(default_model, label=f"{default_model}（默认）")
+            append_choice(default_model, label=f"{default_model}（系统默认）")
 
         try:
             result = ModelListService().get_result()
@@ -838,7 +838,7 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
         except Exception:
             logger.exception("加载模型列表失败")
 
-        if not choices:
+        if len(choices) == 1:
             append_choice(default_model or "Qwen/Qwen2.5-7B-Instruct")
 
         return choices
