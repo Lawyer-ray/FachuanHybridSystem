@@ -61,6 +61,7 @@ def verify_siliconflow_connectivity(*, model: str | None) -> None:
 def _check_siliconflow(base_url: str, api_key: str, model: str) -> None:
     try:
         import ssl
+
         ssl_context = ssl.create_default_context()
         ssl_context.check_hostname = False
         ssl_context.verify_mode = ssl.CERT_NONE
@@ -100,6 +101,7 @@ def _check_siliconflow(base_url: str, api_key: str, model: str) -> None:
 def _check_openai_compatible(base_url: str, api_key: str) -> None:
     try:
         import ssl
+
         ssl_context = ssl.create_default_context()
         ssl_context.check_hostname = False
         ssl_context.verify_mode = ssl.CERT_NONE

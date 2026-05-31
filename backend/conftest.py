@@ -92,7 +92,7 @@ def django_db_modify_db_settings() -> None:
     raw_db_password = os.environ.get("DB_PASSWORD")
     resolved_password = raw_test_password if raw_test_password is not None else raw_db_password
     if resolved_password is None:
-        resolved_password = "postgres"
+        resolved_password = "postgres"  # pragma: allowlist secret
 
     settings.DATABASES["default"] = {
         "ENGINE": "django.db.backends.postgresql",

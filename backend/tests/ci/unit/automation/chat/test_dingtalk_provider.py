@@ -13,7 +13,7 @@ def mock_config():
     """钉钉完整配置"""
     return {
         "APP_KEY": "test_app_key",
-        "APP_SECRET": "test_app_secret",
+        "APP_SECRET": "test_app_secret",  # pragma: allowlist secret
         "AGENT_ID": "test_agent_id",
         "DEFAULT_OWNER_ID": "test_owner_id",
         "TIMEOUT": 30,
@@ -59,7 +59,7 @@ class TestDingtalkProviderPlatform:
     def test_is_not_available_without_default_owner_id(self, mock_load_config):
         config = {
             "APP_KEY": "test_app_key",
-            "APP_SECRET": "test_app_secret",
+            "APP_SECRET": "test_app_secret",  # pragma: allowlist secret
             "AGENT_ID": "test_agent_id",
             "TIMEOUT": 30,
         }
