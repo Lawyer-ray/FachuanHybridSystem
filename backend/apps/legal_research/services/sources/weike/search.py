@@ -50,8 +50,18 @@ class WeikeSearchMixin:
         date_to: str = "",
         raw_payload: dict[str, Any] | None = None,
     ) -> list[WeikeSearchItem]:
+        has_filters = bool(court_filter or cause_of_action_filter or date_from or date_to)
         if session.search_via_api_enabled:
-            if self._is_search_api_degraded(session=session):
+            if has_filters:
+                # WK /csi/search API 不支持法院/案由/日期过滤（filterQueries 仅接受系统内部字符串），
+                # 直接走 DOM 检索路径，由浏览器 URL 参数实现过滤。
+                logger.info(
+                    "存在法院/案由/日期过滤，跳过API直接走DOM检索（keyword=%s, court=%s, cause=%s）",
+                    keyword,
+                    court_filter,
+                    cause_of_action_filter,
+                )
+            elif self._is_search_api_degraded(session=session):
                 wait_seconds = self._search_api_degraded_wait_seconds(session=session)
                 self._record_search_event(
                     session=session,
